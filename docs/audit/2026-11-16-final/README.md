@@ -69,6 +69,7 @@ Recorded by the session that wrote these briefs. The owner may overrule any of t
 | R4 | No paid run. No `--live`, no seat check, no real Submit. Journeys use `proof.serve`, which substitutes canned responses. | `AGENTS.md` |
 | R5 | A change that removes something the reader sees, or changes what the user controls, is not made. It is listed for the owner in `output/4-register/owner-decisions.md`. | Coordinator |
 | R6 | Stage 5 works on branch `audit/final-repairs`; stage 6 on `audit/final-sweep`, cut from the repairs tip. Each ends in a pull request. Nothing is merged without the owner's word. | Owner's standing rule |
+| R8 | The application works entirely offline. At run time the interface, its fonts, icons, scripts, styles, charts and data load only from the local machine (`file:` or loopback). Any request to another host, and any address of another host that the built files would load, is a High finding. Installing packages during setup is not run time. A live model run is the one thing that leaves the machine; it is a separate, paid action and is out of this audit (R4). | Owner, 2026-11-16: "the app functions entirely offline". That a live model run is outside this rule is the coordinator's reading. |
 | R7 | A tool or skill a brief names may be missing in the cloud. Use the fallback the brief gives and write the absence under `Not verified:`. Do not add a package to any manifest to get a tool. | Coordinator |
 
 ## Rules every agent follows

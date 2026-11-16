@@ -46,7 +46,13 @@ Changes nothing outside `output/0-baseline/`.
 7. **Baseline screenshots.** Every screen at 1440 px and 390 px wide, in each state reachable
    from the synthetic run and the fixture. Keep them in an untracked scratch folder and record
    its path and a file list.
-8. **API map.** List every route `react_frontend` serves and every call in
+8. **Offline check.** Block every host but loopback in the browser (Playwright: abort any request
+   whose host is not `127.0.0.1`, `localhost` or `[::1]`), then load every screen of both surfaces
+   and log each request that was attempted and blocked. Separately, search `web/dist/` and the
+   Python that serves pages for addresses of other hosts (`http://`, `https://`, `//host`,
+   `@import`, `url(`, `<link>`, `<script src>`, `fetch(`, WebSocket addresses) and list each with
+   what would load it. A namespace or licence address that nothing fetches is listed as harmless.
+9. **API map.** List every route `react_frontend` serves and every call in
    `web/src/pages/connected/api.ts`. Mark each as matched, served but never called, or called but
    not served.
 
@@ -61,5 +67,6 @@ All under `docs/audit/2026-11-16-final/output/0-baseline/`.
 | `sections.md` | The confirmed section table |
 | `clickables.jsonl` | One line per interactive element |
 | `screens.md` | The screenshot list and its scratch path |
+| `offline.md` | Requests attempted to other hosts, and other-host addresses in the built files |
 | `api-map.md` | The service-to-client map |
 | `report.md` | What ran, what could not, ending with `Not verified:` |

@@ -20,6 +20,8 @@ Read-only: an agent writes only under `output/3-journeys/<journey id>/`.
 
 Each agent uses its own service (`proof.serve` on its own port and folder) and behaves as the
 named person would: it reads the screen, not the code, to decide what to do next. No paid run.
+Every journey runs with all hosts but loopback blocked in the browser (ruling R8); a request to
+another host, or anything that fails to draw without one, is a High finding.
 
 | Id | Person | Journey |
 | :--- | :--- | :--- |

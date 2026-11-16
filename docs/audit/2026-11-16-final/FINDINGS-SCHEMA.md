@@ -24,7 +24,7 @@ its brief names. Stage 4 merges them. Use exactly these fields.
 
 | Severity | Use when |
 | :--- | :--- |
-| High | A wrong figure, period, unit or source; lost or corrupted data; a leaked secret or path; a control that does nothing or does the wrong thing on an ordinary path; a journey that cannot be completed. |
+| High | A wrong figure, period, unit or source; lost or corrupted data; a leaked secret or path; a request to any host but the local machine at run time (ruling R8); a control that does nothing or does the wrong thing on an ordinary path; a journey that cannot be completed. |
 | Medium | The reader is misled or blocked but can recover; a missing state (loading, empty, error); a keyboard or focus failure; content that should be shown and is not, or shown and should not be. |
 | Low | A polish defect that does not mislead: spacing, wording, inconsistency between two screens. |
 | Info | An observation, a fragile assumption, or a measured cost for the sweep. |

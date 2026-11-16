@@ -53,6 +53,9 @@ Owner rules (2026-11-13):
   flowbite-react.com/docs/components, uiverse.io/loaders, hyperui.dev/components/application,
   preline.co/blocks, untitledui.com/react/components, ant.design/components/grid.
 - Animation is for live state, such as run status.
+- The application works offline (ruling R8). A component, font, icon or animation taken from an
+  approved source is copied into the repository and bundled; nothing is loaded from the source's
+  site, a font service or a content delivery network at run time.
 
 Accessibility rules to include: WCAG 2.2 AA contrast, visible focus, full keyboard operation,
 one `h1` per page with ordered headings, a name for every control, focus returned to the opener

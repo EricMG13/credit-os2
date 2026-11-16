@@ -13,6 +13,7 @@ coordinator gives each agent this brief and one section id. Read-only: an agent 
 | L4 | `output/0-baseline/sections.md` | your row | Your files and routes |
 | L4 | `output/0-baseline/clickables.jsonl` | lines with your section id | The controls to check |
 | L4 | `output/0-baseline/screens.md` | your screens | Baseline screenshots |
+| L4 | `output/0-baseline/offline.md` | your screens | Requests to other hosts already seen |
 | L4 | `output/0-baseline/api-map.md` | calls your section makes | The service behind your screens |
 | L4 | `output/1-rubrics/design-rubric.md` | all | The design answer key |
 | L4 | `output/1-rubrics/content-matrix.csv`, `control-matrix.csv`, `retired.md` | rows with your section id | The harmony answer key |
@@ -54,6 +55,11 @@ checks 2 and 5 only.
 5. **Code read.** In your files: handlers that do nothing, state that is set and never read,
    props that are passed and unused, branches no input reaches, duplicated blocks, and any
    catch-all that hides a failure. These are `check: code`; measured costs are `Info` for stage 6.
+
+Run every check with all hosts but loopback blocked in the browser (ruling R8). A request your
+screens attempt to another host is a High finding, and so is anything that then fails to draw:
+a font, an icon, a chart, a map. Start from the lines of `output/0-baseline/offline.md` that
+name your screens.
 
 Do not fix anything. Do not write a finding about Signal.
 

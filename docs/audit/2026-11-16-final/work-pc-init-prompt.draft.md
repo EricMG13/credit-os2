@@ -12,6 +12,11 @@ with exact pinned versions. This PC may only use approved software, so some pins
 installable. Your job is to find those gaps and close each one with the smallest adaptation that
 keeps the application's behaviour the same.
 
+The application works entirely offline. Once installed, its pages, fonts, icons, scripts, charts
+and data load only from this PC. Setup may use `<APPROVED>` to install packages; nothing else may
+reach another machine. No adaptation may add a request to another host. A live model run is a
+separate action that I take myself.
+
 - `<DOWNLOAD>`: the extracted ZIP, commit `{{HEAD}}`. Read only; never edit it.
 - `<ADAPTED>`: a copy of `<DOWNLOAD>` that you create and adapt.
 - `<APPROVED>`: how this PC gets software (package index, npm registry, software centre). Ask
@@ -91,8 +96,9 @@ Stop at the first failure, diagnose it, and adapt under sections 3 to 5.
 5. `Run-React-Proof.cmd`: the connected proof in Edge and Chrome. It makes no paid call.
 6. Start the interface as `docs/react-workflow.md` describes ("Open the interface", the
    synthetic proof) and open every page: library, start a run, run activity, and a finished
-   report's overview, changes, modules, forecast and evidence. Report console errors and any
-   request that leaves this PC.
+   report's overview, changes, modules, forecast and evidence. Do this with the network disconnected, or with the browser's developer tools open on
+   the Network tab. Every page must draw completely, and a request to any host but this PC is a
+   failure to fix under sections 3 to 5. Report console errors.
 7. A prepare-only launch (no `--live`) on a case under `cases/`: it must print the plan and call
    no provider.
 
