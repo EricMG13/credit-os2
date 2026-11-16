@@ -11,11 +11,24 @@ every request whose host is not `127.0.0.1`, `localhost` or `[::1]` and logs it,
 that does the same, and a `securitypolicyviolation` listener plus console capture that log any
 request the page's own Content-Security-Policy refused before it reached the network.
 
-BROWSER_RESULT
+Run against the synthetic service on `127.0.0.1:8793` after the finished synthetic run:
+
+| Measure | Value |
+| :--- | :--- |
+| Positive controls | a page with no policy loading `https://example.invalid/canary.png` was logged as **blocked** (1); a page with `img-src 'self'` loading it was logged as a **CSP violation** (2 console lines). Both detectors work (`canaryOk: true`) |
+| Addresses loaded | 128: every connected screen address from the inventory (`/`, `/runs`, `/start`, `/start?from=<run>`, `/run/<id>` known and unknown, `/report/<folder>` with every report and module and evidence view, `/report/no-such-report`, `/no-such-page`), every static screen from disk (all declared library, model and run routes with every fixture parameter set, the bare group addresses, `#/kit`, an unknown address, and the as-built, deleted and newer-schema data files), and the native issuer library at `/library/index.html`, at `<root>/library.html` and at `<root>/_engine/library/index.html` from disk. Each page was scrolled to its end |
+| Requests made | 1,738 |
+| Requests to a host other than loopback | **0** |
+| Requests blocked by the route | **0** |
+| Requests refused by a page's CSP | **0** |
+| Console errors (all local) | 404 on `/run/00000000-000000-00`, `/report/no-such-report` and `/no-such-page`; `ERR_FILE_NOT_FOUND` for the deleted `data.js` (an intended state) |
 
 The same blocking and logging were on during the whole clickable inventory (`connected.mjs`,
-`static.mjs`), which also opened every disclosure, drawer and dialog it listed:
-INVENTORY_RESULT
+`static.mjs`), which also opened the disclosures, drawers, dialogs, tabs and chart views it listed (at most 40 of one kind per connected screen state, 25 per static one; see `screens.md`):
+connected pass 282 requests, static pass 2,404 requests; **0 blocked, 0 CSP violations** in
+either. Its console log also recorded, three times on `/start` (from the `pattern` attribute at `web/src/pages/connected/StartRun.tsx:606`; the third is logged under the last report label because the paid-dialog walk loaded `/start` before its label changed),
+"Pattern attribute value [a-z0-9][a-z0-9\\-]{0,39} is not a valid regular expression … Invalid
+character in character class" (a page message, not a request).
 
 **Result: no request to any host but the local machine was attempted, on any screen of either
 surface, in any state reached, including the native issuer library page.**
