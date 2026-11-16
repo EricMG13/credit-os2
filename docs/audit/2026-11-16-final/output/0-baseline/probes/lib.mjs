@@ -132,7 +132,7 @@ export async function collect(page) {
   } finally {
     await client.detach().catch(() => {});
   }
-  const rows = await page.evaluate(() => {
+  let rows = await page.evaluate(() => {
     const label = (el) => {
       if (!el) return "";
       const by = el.getAttribute("aria-labelledby");
@@ -185,6 +185,17 @@ export async function collect(page) {
     return out;
   });
   void count;
+  // An element selected only because it carries tabindex="-1" (a programmatic focus target such as
+  // <main> or a step heading) is not an interactive element and is left out.
+  const NATIVE = new Set(["a", "button", "input", "select", "textarea", "summary", "details", "dialog"]);
+  const ROLES = /^(button|link|tab|tablist|checkbox|radio|radiogroup|switch|combobox|listbox|option|menu|menuitem|menuitemcheckbox|menuitemradio|slider|spinbutton|textbox|searchbox|treeitem|dialog|alertdialog|grid|row|gridcell|rowheader|columnheader|application)$/;
+  const interactive = (row) =>
+    (NATIVE.has(row.tag) && !(row.tag === "a" && row.href === undefined)) ||
+    (row.roleAttr !== undefined && ROLES.test(row.roleAttr)) ||
+    (row.tabindex !== undefined && Number(row.tabindex) >= 0) ||
+    row.dataHooks?.includes("data-dropzone") ||
+    row.expanded !== undefined || row.haspopup !== undefined || row.pressed !== undefined;
+  rows = rows.filter(interactive);
   const IMPLICIT = { a: "link", button: "button", select: "combobox", textarea: "textbox", summary: "button", details: "group", dialog: "dialog" };
   return rows.map((row) => {
     const a = ax.get(row.id);
@@ -271,6 +282,7 @@ export function record(file, meta, rows, sectionOf) {
       open: r.open,
       haspopup: r.haspopup,
       dataHooks: r.dataHooks,
+      tabindex: r.tabindex,
       text: r.text && r.text !== r.name ? r.text : undefined,
     };
     return JSON.stringify(entry);
