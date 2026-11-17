@@ -31,7 +31,7 @@ function NewRun() {
         </EmptyState.Footer>
       </EmptyState>
     );
-  return <StartPage draft={slice.kind === "ok" ? (slice.data.drafts[0]?.id ?? "") : ""} />;
+  return <StartPage draft={slice.data.drafts[0]?.id ?? ""} />;
 }
 
 export const routes: readonly Route[] = [

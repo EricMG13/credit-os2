@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   AlertTriangle,
   Flag01,
@@ -10,6 +10,7 @@ import {
 } from "@untitledui/icons";
 import { Button, Link } from "react-aria-components";
 import { Input } from "@/components/base/input/input";
+import { Select } from "@/components/base/select/select";
 import { STATUS_SETS } from "@/components/status/sets";
 import { StatusShape } from "@/components/status/shapes";
 import { cx } from "@/utils/cx";
@@ -73,11 +74,23 @@ export function ModuleNav({
   const sectionsLabel = useId();
   const modulesLabel = useId();
   const [search, setSearch] = useState("");
+  const menu = useRef<HTMLElement>(null);
   const wanted = search.trim().toLowerCase();
   const listed = modules.filter((module) => module.name.toLowerCase().includes(wanted));
+  useEffect(() => {
+    const nav = menu.current;
+    const entry = nav?.querySelector('[aria-current="page"]');
+    if (nav === null || entry === null || entry === undefined) return;
+    const view = nav.getBoundingClientRect();
+    const item = entry.getBoundingClientRect();
+    if (view.height === 0 || item.height === 0) return;
+    if (item.bottom > view.bottom) nav.scrollTop += item.bottom - view.bottom;
+    else if (item.top < view.top) nav.scrollTop -= view.top - item.top;
+  }, [current, wanted]);
   const heading = "px-4 pt-3 pb-1 pl-4.75 text-xs font-medium text-text-tertiary";
   return (
     <nav
+      ref={menu}
       aria-label="Modules and sections"
       className={cx(
         "flex flex-col min-[1001px]:sticky min-[1001px]:top-6 min-[1001px]:max-h-[calc(100vh-3rem)] min-[1001px]:overflow-y-auto",
@@ -87,56 +100,108 @@ export function ModuleNav({
       <div className="px-4 pt-1 pb-2">
         <Input icon={SearchLg} placeholder="Search modules" value={search} onChange={setSearch} />
       </div>
-      {sections.length === 0 ? null : (
-        <>
-          <span id={sectionsLabel} className={heading}>
-            On this page
-          </span>
-          <ul aria-labelledby={sectionsLabel}>
-            {sections.map((section) => {
-              const Icon = ICON[section.icon];
-              return (
-                <li key={section.key}>
-                  <Button
-                    aria-current={section.key === active ? "location" : undefined}
-                    onPress={() => {
-                      onSection(section.key);
-                    }}
-                    className={cx(ENTRY, "py-3", section.key === active && CURRENT)}
-                  >
-                    <Icon aria-hidden="true" className="size-5 flex-none opacity-75" />
-                    {section.label}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-      <span id={modulesLabel} className={cx(heading, sections.length > 0 && "mt-4")}>
-        Modules in this run
-      </span>
+      <div
+        data-compact-navigation
+        className="hidden flex-col gap-3 px-4 pb-3 min-[481px]:flex min-[1001px]:hidden"
+      >
+        <Select
+          label="Module"
+          value={listed.some((module) => module.id === current) ? current : null}
+          placeholder="Choose a module"
+          onChange={(key) => {
+            const id = String(key);
+            window.location.hash = hrefFor?.(id) ?? modulesHref(issuer, run, id);
+          }}
+        >
+          {listed.map((module) => (
+            <Select.Item
+              key={module.id}
+              id={module.id}
+              label={module.name}
+              value={{ id: module.id, label: module.name, supportingText: module.state }}
+            />
+          ))}
+        </Select>
+        {sections.length === 0 ? null : (
+          <Select
+            label="Page section"
+            value={active}
+            placeholder="Choose a section"
+            onChange={(key) => {
+              onSection(String(key));
+            }}
+          >
+            {sections.map((section) => (
+              <Select.Item
+                key={section.key}
+                id={section.key}
+                label={section.label}
+                value={{ id: section.key, label: section.label }}
+              />
+            ))}
+          </Select>
+        )}
+      </div>
       {listed.length === 0 ? (
         <p className="px-4 py-2 text-small text-text-tertiary">No module matches</p>
-      ) : (
-        <ul aria-labelledby={modulesLabel}>
-          {listed.map((module) => (
-            <li key={module.id}>
-              <Link
-                href={hrefFor?.(module.id) ?? modulesHref(issuer, run, module.id)}
-                aria-label={`${module.name}, ${module.state}`}
-                aria-current={module.id === current ? "page" : undefined}
-                className={cx(ENTRY, "py-2", module.id === current && CURRENT)}
-              >
-                <span className={cx("mx-1 flex", MARK[module.state])}>
-                  <StatusShape shape={STATUS_SETS["Module state"][module.state].shape} />
-                </span>
-                <span>{module.name}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      ) : null}
+      <div className="contents min-[481px]:max-[1001px]:hidden">
+        {sections.length === 0 ? null : (
+          <>
+            <span id={sectionsLabel} className={heading}>
+              On this page
+            </span>
+            <ul aria-labelledby={sectionsLabel}>
+              {sections.map((section) => {
+                const Icon = ICON[section.icon];
+                return (
+                  <li key={section.key}>
+                    <Button
+                      aria-current={section.key === active ? "location" : undefined}
+                      onPress={() => {
+                        onSection(section.key);
+                      }}
+                      className={cx(ENTRY, "py-3", section.key === active && CURRENT)}
+                    >
+                      <Icon aria-hidden="true" className="size-5 flex-none opacity-75" />
+                      {section.label}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+        <span id={modulesLabel} className={cx(heading, sections.length > 0 && "mt-4")}>
+          Modules in this run
+        </span>
+        {listed.length === 0 ? null : (
+          <ul aria-labelledby={modulesLabel}>
+            {listed.map((module) => (
+              <li key={module.id}>
+                <Link
+                  href={hrefFor?.(module.id) ?? modulesHref(issuer, run, module.id)}
+                  aria-label={`${module.name}, ${module.state}`}
+                  aria-current={module.id === current ? "page" : undefined}
+                  className={cx(ENTRY, "py-2", module.id === current && CURRENT)}
+                >
+                  <span className={cx("mx-1 flex", MARK[module.state])}>
+                    <StatusShape shape={STATUS_SETS["Module state"][module.state].shape} />
+                  </span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span data-module-name>{module.name}</span>
+                    {module.state === "Delivered" ? null : (
+                      <small className="text-caption font-normal text-text-tertiary">
+                        {module.state}
+                      </small>
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </nav>
   );
 }
