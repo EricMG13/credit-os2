@@ -14,6 +14,7 @@ function basisView({
   value = "10",
   duplicate = false,
   omit = false,
+  multipleCases = false,
 } = {}): View {
   const handoff: OutputEntry = {
     output: {
@@ -87,6 +88,7 @@ function basisView({
       columns: [
         { label: "FY2025E", group: "Base case" },
         { label: "FY2026E", group: "Base case" },
+        ...(multipleCases ? [{ label: "FY2026E", group: "Downside case" }] : []),
       ],
       rows: [
         {
@@ -96,6 +98,7 @@ function basisView({
           cells: [
             { status: "value", exact: value, display: value },
             { status: "value", exact: "10", display: "10" },
+            ...(multipleCases ? [{ status: "value", exact: "5", display: "5" }] : []),
           ],
         },
       ],
@@ -133,6 +136,13 @@ it("preserves a zero-valued bridge", () => {
     "The calculation gives 0.00 cash proxy.",
   );
   expect(screen.getByRole("link", { name: "Difference basis" })).toBeInTheDocument();
+});
+
+it("C4-013 labels Forecast case cards with the report's canonical money unit", () => {
+  render(<Forecast view={basisView({ multipleCases: true })} run={run} />);
+  const choices = screen.getByRole("radiogroup", { name: "Forecast case" });
+  expect(choices).toHaveTextContent("US$m");
+  expect(choices).not.toHaveTextContent("USD millions");
 });
 
 it.each([

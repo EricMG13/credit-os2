@@ -10,6 +10,7 @@ import {
   type OutputEntry,
   type PublishedRun,
   readerText,
+  unitLabel,
   withUnit,
 } from "../publishedReport";
 import { namedRow, namedTable, type buildReportView } from "../reportView";
@@ -198,7 +199,7 @@ function ForecastCases({
                     </span>
                     <span className="block text-text-tertiary">
                       Cash proxy {period ? `· ${period}` : ""}
-                      {` · ${units}`}
+                      {` · ${unitLabel(units)}`}
                     </span>
                     <span className="mt-2 block text-small text-text-secondary">
                       {description || "Case description not recorded."}
