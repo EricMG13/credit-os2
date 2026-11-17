@@ -1,0 +1,5 @@
+{"step":"follow link from Overview scrolled to 700","hash":"#/library/halden-aerostructures/2026-09-30/evidence/gaps","scrollOnArrival":314,"expected":0,"issuerTitleInWindow":false}
+{"step":"Back to Overview","hash":"#/library/halden-aerostructures/2026-09-30/overview","scrollAfterBack":314,"expected":700}
+{"step":"Forward to Evidence","scrollAfterForward":314}
+blocked requests: []
+DEFECT REPRODUCED: scroll offset leaks between pages and is not restored by Back

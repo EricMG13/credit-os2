@@ -1,0 +1,6 @@
+Run activity: Run activity | Updated 17 Nov 2026, 08:34 UTC | Running | 3 | Waiting | 1 | Ended | 0 | Start a run | Running 
+Waiting section: Waiting | Issuer | 	 | Pathway | Delta Synthetic Group | submitted by Ana L | 	Full credit assessment	
+the waiting run's own page: Run activity |  / Delta Synthetic Group | Delta Synthetic Group | Queued | Full credit assessment | Synthetic test | As of 2025-03-31 | Cap usage | USD 0.00 | USD 0.00 of USD 25.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown | Modules finished | 0 of 14 | 0 of 14 modules | Elapsed | n.a. | not available | No start 
+anything saying why it waits: false
+REPRODUCED: Waiting and Queued with no reason, no limit and no position.
+blocked requests: 0; page errors: 0

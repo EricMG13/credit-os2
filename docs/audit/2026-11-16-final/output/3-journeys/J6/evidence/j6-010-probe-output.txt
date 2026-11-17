@@ -1,0 +1,6 @@
+"saved example" notice present per step: {"documents":true,"purpose":false,"confirm":false,"context":true,"start":false,"started":false}
+dialog: Start a paid run? This run can spend up to USD 20.00 and stops when it reaches that cap. Once it starts, what it has spent cannot be taken back. Cancel Start run, up to USD 20.00
+after confirming: {"hash":"#/run/start/started","claim":"Run started 13 modules will read 4 documents for a full credit review of TransDigm Group. Spending stops at USD 20.00. USD 0.00 of USD 20.00 Watch run activity Back to the library You can close this page. The run carries on, and its library "}
+network calls made by the page (fetch/XHR/beacon/WebSocket/CSP violations): []
+requests blocked by the audit harness: []
+DEFECT REPRODUCED: "Run started" shown with no request made and no saved-example notice

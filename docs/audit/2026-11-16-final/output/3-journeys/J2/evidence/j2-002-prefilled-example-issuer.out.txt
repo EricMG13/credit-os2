@@ -1,0 +1,7 @@
+Issuer name: {"value":"Northbridge Group","placeholder":"","required":true}
+Issuer ID: {"value":"northbridge-group","placeholder":"","required":true}
+As-of date: {"value":"2026-11-17","placeholder":"","required":true}
+Your name: {"value":"","placeholder":"Eric G","required":false}
+service default context: issuer_name=Northbridge Group as_of=2026-10-31
+REPRODUCED: the required fields hold a filled-in example issuer (not placeholders) before the analyst types anything.
+blocked requests: 0; page errors: 0

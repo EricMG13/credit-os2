@@ -1,0 +1,3 @@
+RESULT REPRODUCED: run 20261117-083146-01 status=failed reason="stopped: checker"; Legal & covenants row="Legal & covenants Interrupted"; "Module draft rejected." x3; page names the agreement or a reason: false; actions on the page: ["Run activity","Start from this run"]
+R8 blocked requests: 0 
+console problems: 0; page errors: 0; failed: 0; http>=400: 0

@@ -1,0 +1,605 @@
+
+===== #overview
+Library
+ / Report
+Gapco One
+As of 31 March 2025
+Full credit assessment
+Finished
+Synthetic test
+Show sources
+Run activity
+
+Business description not in this run
+
+Ratings not entered for this run
+
+Report
+Overview
+Changes
+Modules
+14
+Forecast
+Evidence
+Overview
+Issuer calendar
+Bottom line
+The synthetic issuer shows one observed item.
+
+Net leverage
+2.25x
+
+-0.75x vs FY2023
+better
+
+FY2024
+Gross leverage
+2.80x
+
+-0.95x vs FY2023
+better
+
+FY2024
+Interest coverage
+4.00x
+
++0.80x vs FY2023
+better
+
+FY2024
+Revenue
+$2,250m
+
++$150m vs FY2023
+better
+
+FY2024
+Cash
+$275m
+
+-$25m vs FY2023
+
+FY2024
+Key findings
+
+The synthetic issuer's cover is thin at 3.1x.
+
+Contrary evidence and what would change the view
+
+Nothing supplied contradicts the view; a USD 1,250 million refinancing would.
+
+Bottom line by module
+Source readiness
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Financial foundation
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Business & governance
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Research questions
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Legal & covenants
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Fundamental credit
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Downside
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Rates, FX & hedging
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Liquidity
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Forward credit model
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Refinancing & LME
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Security selection
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Evidence validation
+Delivered
+
+The synthetic issuer shows one observed item.
+
+Limitations
+
+Synthetic data only in the cp one a case, so no conclusion carries weight.
+
+Business & governance
+
+Synthetic data only in the cp dr case, so no conclusion carries weight.
+
+Research questions
+
+Synthetic data only in the cp four case, so no conclusion carries weight.
+
+Legal & covenants
+
+Synthetic data only in the cp two case, so no conclusion carries weight.
+
+Fundamental credit
+
+Synthetic data only in the cp two a case, so no conclusion carries weight.
+
+Downside
+
+Synthetic data only in the cp two e case, so no conclusion carries weight.
+
+Rates, FX & hedging
+
+Synthetic data only in the cp two d case, so no conclusion carries weight.
+
+Liquidity
+
+Synthetic data only in the cp two g case, so no conclusion carries weight.
+
+Forward credit model
+
+Synthetic data only in the cp three c case, so no conclusion carries weight.
+
+Refinancing & LME
+
+Synthetic data only in the cp three case, so no conclusion carries weight.
+
+Security selection
+
+Synthetic data only in the cp five case, so no conclusion carries weight.
+
+Evidence validation
+
+Synthetic data only in the cp six case, so no conclusion carries weight.
+
+Committee decision
+Dates to watch
+Open issuer calendar
+
+Synthetic note
+
+Source readiness · Wall
+
+Scheduled — matures
+
+2025-03-31 · day
+Evidence
+
+Synthetic note
+
+Business & governance · Wall
+
+Scheduled — matures
+
+2025-03-31 · day
+Evidence
+
+Synthetic note
+
+Liquidity · Wall
+
+Scheduled — matures
+
+2025-03-31 · day
+Evidence
+
+Synthetic note
+
+Rates, FX & hedging · Wall
+
+Scheduled — matures
+
+2025-03-31 · day
+Evidence
+
+Synthetic note
+
+Security selection · Wall
+
+Scheduled — matures
+
+2025-03-31 · day
+Evidence
+
+===== #modules/CP-3
+Library
+ / Report
+Gapco One
+As of 31 March 2025
+Full credit assessment
+Finished
+Synthetic test
+Show sources
+Run activity
+
+Business description not in this run
+
+Ratings not entered for this run
+
+Report
+Overview
+Changes
+Modules
+14
+Forecast
+Evidence
+Security selection
+Delivered
+On this page
+Bottom line
+Figures and records
+Key findings
+Contrary evidence and what would change the view
+Limitations
+Statements and records
+Modules in this run
+Source readiness
+Financial foundation
+Business & governance
+Fundamental credit
+Downside
+Liquidity
+Rates, FX & hedging
+Forward credit model
+Security selection
+Refinancing & LME
+Legal & covenants
+Evidence validation
+Committee decision
+Research questions
+Bottom line
+The synthetic issuer shows one observed item.
+
+Confidence score
+89
+High
+Instrument decisions
+Synthetic secured notes
+Neutral
+Rank
+First lien
+Relative value
+Fair
+Market level · 31 Mar 2025
+$93.80; yield 7.0100%, 7.01% rounded
+Synthetic unsecured notes
+Requires More Work
+Rank
+Senior unsecured
+Relative value
+Unclear
+Market level · 31 Mar 2025
+$88.12; yield 8.9000%, 8.90% rounded
+Synthetic term loan
+Requires More Work
+Rank
+First lien
+Relative value
+Unclear
+Market level · 31 Mar 2025
+Not supplied: no loan observation
+Last-trade prices and yields
+
+31 Mar 2025
+
+Chart
+Table
+Last-trade price ($)
+First
+$93.80
+Second
+$88.12
+Last-trade yield (%)
+First
+7.0100%
+Second
+8.9000%
+Synthetic secured notes
+Synthetic unsecured notes
+Credit and recovery rationale
+Instruments
+Chart
+Table
+Historical 1
+Scheduled 2
+Scenario 1
+2025
+2026
+Show all details
+2025
+2025-03-31 · day
+Scheduled
+Synthetic note
+Wall
+2025-06 · month
+Historical
+Synthetic call
+Cost
+2025-Q3 · quarter
+Scenario
+Synthetic review
+Rating
+2026
+2026 · year
+Scheduled
+Synthetic maturity
+Wall
+Key findings
+
+The synthetic issuer's cover is thin at 3.1x.
+
+Contrary evidence and what would change the view
+
+Nothing supplied contradicts the view; a USD 1,250 million refinancing would.
+
+Limitations
+
+Synthetic data only in the cp three case, so no conclusion carries weight.
+
+Relative value
+
+A located finding.
+
+Portfolio Fit
+
+A located finding.
+
+Recovery waterfall
+Line	Amount	Low	Base	High	Currency	Scale	
+Sources
+
+Enterprise value	—	Not supplied: no enterprise value in the synthetic filing	Not supplied: no enterprise value in the synthetic filing	Not supplied: no enterprise value in the synthetic filing	USD	m	
+Statements and records
+
+These tables are part of this module's record and are shown in Evidence.
+
+Confidence inputs
+Fundamental value matrix
+Open this module in Evidence
+
+===== #evidence/summary
+Library
+ / Report
+Gapco One
+As of 31 March 2025
+Full credit assessment
+Finished
+Synthetic test
+Show sources
+Run activity
+
+Business description not in this run
+
+Ratings not entered for this run
+
+Report
+Overview
+Changes
+Modules
+14
+Forecast
+Evidence
+Evidence
+Module
+All modules
+Source readiness
+Financial foundation
+Business & governance
+Fundamental credit
+Downside
+Liquidity
+Rates, FX & hedging
+Forward credit model
+Security selection
+Refinancing & LME
+Legal & covenants
+Evidence validation
+Committee decision
+Research questions
+Summary
+Trace
+Sources
+Gaps
+Script checks
+215
+Record
+Run evidence
+
+14 designated handoffs · 2 source files
+
+Handoffs
+Download all handoffs
+Source readiness
+Download Source readiness
+Financial foundation
+Download Financial foundation
+Business & governance
+Download Business & governance
+Fundamental credit
+Download Fundamental credit
+Downside
+Download Downside
+Liquidity
+Download Liquidity
+Rates, FX & hedging
+Download Rates, FX & hedging
+Forward credit model
+Download Forward credit model
+Security selection
+Download Security selection
+Refinancing & LME
+Download Refinancing & LME
+Legal & covenants
+Download Legal & covenants
+Evidence validation
+Download Evidence validation
+Committee decision
+Download Committee decision
+Research questions
+Download Research questions
+Model and calculation files
+Annual model handoff
+Calculation JSON
+Exact forecast JSON
+
+The original HTML Model is unavailable for this run.
+
+===== #evidence/gaps
+Library
+ / Report
+Gapco One
+As of 31 March 2025
+Full credit assessment
+Finished
+Synthetic test
+Show sources
+Run activity
+
+Business description not in this run
+
+Ratings not entered for this run
+
+Report
+Overview
+Changes
+Modules
+14
+Forecast
+Evidence
+Evidence
+Module
+All modules
+Source readiness
+Financial foundation
+Business & governance
+Fundamental credit
+Downside
+Liquidity
+Rates, FX & hedging
+Forward credit model
+Security selection
+Refinancing & LME
+Legal & covenants
+Evidence validation
+Committee decision
+Research questions
+Summary
+Trace
+Sources
+Gaps
+Script checks
+215
+Record
+Gaps 0
+
+What this run could not establish, with the detail each handoff records.
+
+This run lists no gaps.
+
+===== #evidence/record
+Library
+ / Report
+Gapco One
+As of 31 March 2025
+Full credit assessment
+Finished
+Synthetic test
+Show sources
+Run activity
+
+Business description not in this run
+
+Ratings not entered for this run
+
+Report
+Overview
+Changes
+Modules
+14
+Forecast
+Evidence
+Evidence
+Module
+All modules
+Source readiness
+Financial foundation
+Business & governance
+Fundamental credit
+Downside
+Liquidity
+Rates, FX & hedging
+Forward credit model
+Security selection
+Refinancing & LME
+Legal & covenants
+Evidence validation
+Committee decision
+Research questions
+Summary
+Trace
+Sources
+Gaps
+Script checks
+215
+Record
+Run record
+
+20261117-083426-01
+
+Run type
+Synthetic test
+Elapsed
+3 s
+Finished at 08:34:29 UTC
+Cap usage
+USD 0.00
+USD 0.00 of USD 25.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown
+Module records
+
+The synthetic adapter returned these responses without contacting a provider.
+
+Source readiness1 response
+Financial foundation1 response
+Business & governance1 response
+Research questions1 response
+Legal & covenants1 response
+Fundamental credit1 response
+Downside1 response
+Rates, FX & hedging1 response
+Liquidity1 response
+Forward credit model1 response
+Refinancing & LME1 response
+Security selection1 response
+Evidence validation1 response
+Committee decision1 response
+Recorded file hashes

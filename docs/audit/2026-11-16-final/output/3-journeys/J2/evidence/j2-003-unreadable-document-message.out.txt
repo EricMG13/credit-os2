@@ -1,0 +1,4 @@
+alerts: ["Cannot read annual-report.pdf: 'utf-8' codec can't decode byte 0x89 in position 0: invalid start byte"]
+row badges after Inspect: ["Selected","Selected","Selected"]
+REPRODUCED: one Python decoder message for annual-report.pdf only; holdings.xlsx is not mentioned; every row still reads Selected.
+blocked requests: 0; page errors: 0

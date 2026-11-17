@@ -1,0 +1,9 @@
+before leaving (More context, note typed): url=/start step="3 / More context / Optional / Current step" issuer="(not on this step)" files=[] notices=[]
+browser Back from step 3 -> / (a step earlier would be /start)
+browser Forward: url=/start step="1 / Documents / Add files / Current step" issuer="Northbridge Group" files=[] notices=[]
+rail Library, then Start a run: url=/start step="1 / Documents / Add files / Current step" issuer="Northbridge Group" files=[] notices=[]
+reload: url=/start step="1 / Documents / Add files / Current step" issuer="Northbridge Group" files=[] notices=[]
+page closed, new tab opened on /start: url=/start step="1 / Documents / Add files / Current step" issuer="Northbridge Group" files=[] notices=[]
+dialogs shown while leaving: []
+REPRODUCED: Back leaves the form altogether; every way back in shows an empty Documents step; no warning was shown.
+blocked requests: 0; page errors: 0

@@ -1,0 +1,37 @@
+SCROLL forecast: table[Scenario comparison] cw=316 sw=420 tabindex=null label=null
+SCROLL forecast: table[Cash flow model] cw=358 sw=400 tabindex=0 label=Cash flow model
+SCROLL forecast: table[Published exposures and proposals] cw=316 sw=737 tabindex=null label=null
+SCROLL modules/CP-1: table[Period] cw=314 sw=475 tabindex=0 label=Net debt data
+SCROLL modules/CP-1: table[Period] cw=314 sw=584 tabindex=0 label=Debt principal to carrying value
+SCROLL modules/CP-1: table[Event] cw=314 sw=574 tabindex=0 label=Post-balance-sheet adjustments
+SCROLL modules/CP-1A: svg[Directed relationship graph. The connect] cw=316 sw=530 tabindex=0 label=Directed relationship map
+SCROLL modules/CP-1A: svg[Directed relationship graph. The connect] cw=316 sw=530 tabindex=0 label=Directed relationship map
+SCROLL modules/CP-4: svg[Directed relationship graph. The connect] cw=316 sw=530 tabindex=0 label=Directed relationship map
+SCROLL modules/CP-4: svg[Directed relationship graph. The connect] cw=316 sw=530 tabindex=0 label=Directed relationship map
+SCROLL modules/CP-2: svg[Directed relationship graph. The connect] cw=316 sw=530 tabindex=0 label=Directed relationship map
+SCROLL modules/CP-2A: table[Metric] cw=314 sw=335 tabindex=null label=null
+SCROLL modules/CP-2A: svg[Directed relationship graph. The connect] cw=316 sw=530 tabindex=0 label=Directed relationship map
+SCROLL modules/CP-2E: table[Shock] cw=314 sw=752 tabindex=0 label=Interest rate shock
+SCROLL modules/CP-2E: table[Shock] cw=314 sw=538 tabindex=0 label=Currency shock
+SCROLL modules/CP-3: table[Security / Issuer] cw=314 sw=604 tabindex=0 label=Table
+SCROLL modules/CP-3: table[Line] cw=314 sw=621 tabindex=0 label=Recovery waterfall
+SCROLL modules/CP-5: svg[Directed relationship graph. The connect] cw=316 sw=530 tabindex=0 label=Directed relationship map
+SCROLL modules/CP-6: table[Published exposures and proposals] cw=316 sw=737 tabindex=null label=null
+SCROLL evidence/record: table[Attempt] cw=280 sw=453 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=451 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=448 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=454 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=453 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=450 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=449 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=444 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=448 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=452 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=448 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=453 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=450 tabindex=0 label=Table
+SCROLL evidence/record: table[Attempt] cw=280 sw=444 tabindex=0 label=Table
+33 scrolling tables or graphs; 4 with no tabindex and no label
+RESULT REPRODUCED: forecast: table[Scenario comparison] cw=316 sw=420 tabindex=null label=null ; forecast: table[Published exposures and proposals] cw=316 sw=737 tabindex=null label=null ; modules/CP-2A: table[Metric] cw=314 sw=335 tabindex=null label=null ; modules/CP-6: table[Published exposures and proposals] cw=316 sw=737 tabindex=null label=null
+R8 blocked requests: 0 
+console problems: 0; page errors: 0; failed: 0; http>=400: 0

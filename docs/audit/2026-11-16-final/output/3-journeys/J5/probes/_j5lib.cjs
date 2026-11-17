@@ -179,6 +179,7 @@ async function submitRun(page, origin, opts = {}) {
   await submit.click();
   const dialog = page.getByRole("dialog", { name: "Start a synthetic test?" });
   await dialog.waitFor();
+  if (o.onDialog) await o.onDialog(page);
   const done = page.waitForURL(/\/run\/\d{8}-\d{6}-\d{2}$/u);
   await dialog.getByRole("button", { name: "Start synthetic run", exact: true }).click();
   await done;

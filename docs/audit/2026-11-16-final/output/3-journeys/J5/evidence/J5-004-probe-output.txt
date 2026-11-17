@@ -1,0 +1,3 @@
+RESULT REPRODUCED: Issuer IDs on the review sheets: ["northbridge-synthetic-group-internationa","northbridge-synthetic-group-internationa"] (40 characters); Library cards: ["Northbridge Synthetic Group International Finance plc"] ["2 runs"]; search "Holdings": "No issuers match these filters."; each report's own header: ["Northbridge Synthetic Group International Holdings Limited","Northbridge Synthetic Group International Finance plc"]; history rows (no issuer name on them): "| Full credit assessment | As of 30 June 2025 | Open overview | What changed | Full credit assessment | As of 31 March 2025 | Finished | Open overview | What changed"
+R8 blocked requests: 0 
+console problems: 0; page errors: 0; failed: 0; http>=400: 0

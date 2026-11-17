@@ -1,0 +1,7 @@
+first run: Finished
+issuer id now: northbridge-synthetic-group
+text of the issuer section:  | Issuer name | Issuer ID | As-of date | Issue classification | Choose classification | Investment grade | High yield | Your name | First name and initial, such as Eric G. Use two initials, such as Eric MG, if a colleague has a similar name. Shown on Run activity and in Teams. | Carry over from latest run | Previous | Step 1 of 4 | Add at least one document to continue. | Continue to purpose | 
+issuer lookups made by typing: []
+after pressing 'Carry over from latest run', lookups: ["/api/issuers/northbridge-synthetic-group"]
+REPRODUCED: no notice and no lookup until the analyst presses Carry over from latest run.
+blocked requests: 0; page errors: 0

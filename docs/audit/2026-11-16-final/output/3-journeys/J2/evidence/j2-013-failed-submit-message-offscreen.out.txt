@@ -1,0 +1,4 @@
+{"alerts":[{"text":"Failed to fetch Retrying Submit run is safe.","top":-2912,"inViewport":false}],"viewportHeight":900,"mainScrollTop":3224,"active":"Submit run"}
+dialog still open: false | url: /start
+REPRODUCED: the message "Failed to fetch Retrying Submit run is safe." is at y=-2912px, outside the 900px viewport; the analyst sees the dialog close and nothing else.
+blocked requests: 0; page errors: 0

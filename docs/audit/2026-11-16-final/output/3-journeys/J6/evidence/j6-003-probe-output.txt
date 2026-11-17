@@ -1,0 +1,5 @@
+Tab order from page load up to the Changes tab: ["A:Skip to content","A:Library","A:Model","A:Run","A:Signal","A:Kit","A:Library","INPUT:","A:Report history","A:New run","A:Overview","A:Changes"]
+{"hash":"#/library/halden-aerostructures/2026-09-30/changes","focusAfterEnter":"BODY:Skip to content Library Halden","expected":"a:Changes tab, or the page heading"}
+{"tabPressesToReachModulesTab":7,"expected":1,"path":["A:Library","INPUT:","A:Report history","A:New run","A:Overview","A:Changes","A:Modules 13"]}
+blocked requests: []
+DEFECT REPRODUCED: focus is lost to <body> after activating a tab

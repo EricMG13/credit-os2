@@ -1,0 +1,42 @@
+{
+  "j5_005_history": "| Full credit assessment | As of 31 March 2025 | Finished | Open overview | What changed | Full credit assessment | As of 31 March 2024 | Open overview | What changed",
+  "j5_005_changes": "No earlier run to compare. | This is the first listed run for this issuer on this pathway. | Open the Overview",
+  "j5_007_failed_report": "Library |  / Report | Credit report | The published report could not be loaded.",
+  "j5_006_card_id": "NORTHBRIDGE-SYNTHETIC-GROUP-INTERNATIONA",
+  "j5_006_title_len": 207,
+  "j5_006_h1_390": {
+    "height": 504,
+    "viewport": 844
+  },
+  "j5_008_history_390": {
+    "vw": 390,
+    "items": [
+      "section[Company] right=396",
+      "nav[Report sections] right=396",
+      "section[] right=396"
+    ]
+  },
+  "j5_008_overview_390": {
+    "vw": 390,
+    "items": [
+      "section[Company] right=374",
+      "nav[Report sections] right=374",
+      "section[Bottom line] right=374",
+      "section[] right=374"
+    ]
+  },
+  "j5_009_small": {
+    "smallTargets": 39,
+    "buttonsUnder24": 36,
+    "buttonsWithin10pxOfAnother": 36,
+    "sample": [
+      "14x14 gap 2px: Synthetic note, 2025-03-31, day, Scheduled — matur",
+      "14x14 gap 2px: Synthetic note, 2025-03-31, day, Scheduled — matur",
+      "14x14 gap 2px: Synthetic note, 2025-03-31, day, Scheduled — matur"
+    ]
+  },
+  "j5_011_cards": [
+    "Northbridge Synthetic Group ::  NORTHBRIDGE-SYNTHETIC-GROUP Full credit assessment · 2025-03-31 Net leverage 2.25x -0.75x vs FY2023 better FY2024 Gross leverage 2.80x -0.95x vs FY2023 better ",
+    "Northbridge Synthetic Group Internationa ::  NORTHBRIDGE-SYNTHETIC-GROUP-INTERNATIONA Full credit assessment · 2025-03-31 Net leverage 2.25x -0.75x vs FY2023 better FY2024 Gross leverage 2.80x -0.95x vs F"
+  ]
+}

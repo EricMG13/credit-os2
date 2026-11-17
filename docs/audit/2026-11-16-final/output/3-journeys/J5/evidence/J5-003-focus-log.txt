@@ -1,0 +1,3 @@
+RESULT REPRODUCED: focus on <body> after 4 of 4 route changes; {"tabsToStartARun":4,"afterStartARun":{"url":"/start","focus":"BODY"},"nextTabAfterStartARun":"A[Skip to content]","tabsToOpenReport":5,"afterOpenReport":{"url":"/report/20261117-083250-01","focus":"BODY"},"tabsToFirstTrace":14,"afterOpenInEvidence":{"hash":"#evidence/20261117-0","focus":"BODY"},"afterBack":{"hash":"#overview","focus":"BODY"}}
+R8 blocked requests: 0 
+console problems: 0; page errors: 0; failed: 0; http>=400: 0
