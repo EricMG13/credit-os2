@@ -219,9 +219,9 @@ does not change the exit code. Items are the same item in both runs when screen,
 column and drawn text are equal, so a repair that changes a drawn text shows as one item gone and one new; read
 both lists together. If the two comparisons were made from different handoffs or fixtures the diff says so.
 
-Reading the baseline: the "before" is the existing state on main (`tree.commit` in `compare-before.json`). The after
-must not have more `source has it, screen differs` items, more source items not on screen, or more `not found in
-source` items than it, unless each new one is explained.
+Reading the baseline: `compare-before.json` and `.md` are `compare.mjs` on `before/`, the tree before any stage 5 repair
+(`capture.tree` in the JSON). The after must not have more `source has it, screen differs` items, more source items not
+on screen, or more `not found in source` items than it, unless each new one is explained; the diff lists them.
 
 ### What it writes
 
@@ -246,7 +246,7 @@ states (its statement with the handoff line it names, and its Basis line).
 | `matches source` | The same digits, sign, unit and period are in the source item the screen attributes it to, or in the same module's handoff (for a page that is not one module's, any handoff). `via` says which. |
 | `derived` | A value the page computes. `derived.name` says what; where it is computed is in `derivedSummary`. `verified` is true only where `compare.mjs` recomputed or checked it from the source: the Overview year-on-year changes, the module confidence score, the event counts, years and status words, and that a chart's value-axis ticks are evenly spaced at a round step. All other derived items are named only. |
 | `not found in source` | The screen shows something no source item of its scope has, and no rule names a computation for it. |
-| `source has it, screen differs` | The source item the screen attributes it to is identified and a digit, sign, unit, period, or the missing-versus-zero reading, differs. `differs` lists which: `digits`, `sign`, `precision` (the same number with other decimal places: 3.20 drawn as 3.2), `unit`, `unit missing`, `period`, `text`, `value drawn as missing`, `missing drawn as zero`, `zero drawn as missing`, `missing drawn as a value`, `source line`, `basis`, `basis not in source`. |
+| `source has it, screen differs` | The source item the screen attributes it to is identified and a digit, sign, unit, period, or the missing-versus-zero reading, differs. `differs` lists which: `digits`, `sign`, `precision` (the same number with other decimal places: 3.20 drawn as 3.2), `unit`, `unit missing`, `period`, `text`, `value drawn as missing`, `missing drawn as zero`, `zero drawn as missing`, `missing drawn as a value`, `value drawn as zero`, `zero drawn as a bar` (chart marks), `source line`, `basis`, `basis not in source`. |
 
 ### The matching rules
 
@@ -287,7 +287,8 @@ A period or unit conflicts only when both the screen and the source state one an
     (`missing drawn as a value`, `value drawn as zero`, `zero drawn as a bar`, `value drawn as missing`, `zero drawn as missing`, `missing drawn as zero`).
     This is a separate item, not part of the figure rules.
 11. Period-only text (`FY2024`, `2025-03-31 · day`, `Published 2024-11-07`): every period must occur in some source item of the scope.
-12. A missing marker: equal to a source missing cell; else, on the forecast and calendar pages, `derived`; else it must exist in the scope (cell not identified).
+12. A missing marker: equal to a source missing cell; else, on the forecast and calendar pages, `derived`; else, for a card named after a handoff row, that row must
+    hold a missing cell (`matches`; none: `differs`, `value drawn as missing`); else a missing cell must exist somewhere in the scope (`matches` by existence, cell not identified).
 13. Text: exact (or inside a longer source item, or a source item that is at least 80% of it); words of one cell plus numbers of the same row
     ("Passes at or below 5.0 x"); for a sentence of five words or more, the nearest source sentence (word overlap 0.7 or more) with the digits compared
     (`differs` if they differ, `matches` if only the wording does); for a shorter text, each number token (same sign and digits) found in a source item without a

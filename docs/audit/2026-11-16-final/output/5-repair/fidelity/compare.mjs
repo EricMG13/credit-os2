@@ -1173,6 +1173,22 @@ function classifyFigure(f, ctx) {
     if (exact) return matched(exact.fact, exact.via);
     const fam = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
     if (fam) return derived(fam.name, fam.where);
+    // a card named after a handoff row: that row must hold a missing cell
+    const rows = labelRows(f, scope);
+    if (rows.length) {
+      const inRow = (row) => scope.cells.filter((c) => c.file === row.file && c.line === row.line);
+      const gap = rows.flatMap(inRow).find((c) => isMissing(c.text));
+      return gap
+        ? matched(gap, "a missing cell of the handoff row the label names")
+        : differing(
+            { ...rows[0], text: rows[0].rowText },
+            "the row the label names",
+            ["value drawn as missing"],
+            {
+              note: "no cell of that row is missing",
+            },
+          );
+    }
     const hits = scope.facts.filter((fact) => fact.missing || isMissing(fact.text));
     const near = hits.find((fact) => labelSupport(f, fact)) ?? hits[0];
     return near
@@ -2348,6 +2364,14 @@ function markdown(report) {
     "Kinds: figure = a drawn value (page view or a chart's Table view); source = a source line on screen; limitation = a limitation sentence; drawer = what a source drawer states (statement, handoff line, basis).",
     "",
   );
+  out.push(
+    `Source drawers name a "Handoff line N" of the delivered handoff, which has a request-and-sources preamble; the offset from the canned file's line, per module: ${Object.entries(
+      report.drawerOffsets,
+    )
+      .map(([k, v]) => `${k} +${v}`)
+      .join(", ")}.`,
+    "",
+  );
   out.push(`## ${DIFFERS} (${report.differences.length})`, "");
   if (!report.differences.length) out.push("None.", "");
   else {
@@ -2466,6 +2490,16 @@ function markdown(report) {
   );
   out.push(`Not verified: see README.md, "Comparison", end of section.`, "");
   return out.join("\n");
+}
+
+/** Per module: how many lines the delivered handoff's preamble adds to a file line, as the drawers number them. */
+function drawerOffsets(items) {
+  const out = {};
+  for (const i of items) {
+    const module = /proof\/handoffs\/(CP-[A-Z0-9]+)\.md/.exec(i.source?.loc ?? "")?.[1];
+    if (i.kind === "drawer" && module && i.lineOffset !== undefined) out[module] = i.lineOffset;
+  }
+  return out;
 }
 
 /** Moves each derived item's long "where" text into one table, so the item records stay short. */
@@ -2783,6 +2817,7 @@ function compareCapture(folder, repo) {
     sources,
     counts: { total, surfaces: summary.surfaces },
     perScreen: summary.perScreen,
+    drawerOffsets: drawerOffsets(items),
     derivedSummary: derivedSummary(items, derivedWhere),
     omissionSummary: omissionSummary(omissions),
     differences: items.filter((i) => i.class === DIFFERS),

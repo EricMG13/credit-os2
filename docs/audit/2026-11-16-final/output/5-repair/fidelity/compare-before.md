@@ -25,6 +25,8 @@ Capture tree 1a68d2d4 (audit/final-coordination), web/dist 31eeb9c32aa8; rules v
 
 Kinds: figure = a drawn value (page view or a chart's Table view); source = a source line on screen; limitation = a limitation sentence; drawer = what a source drawer states (statement, handoff line, basis).
 
+Source drawers name a "Handoff line N" of the delivered handoff, which has a request-and-sources preamble; the offset from the canned file's line, per module: CP-0 +12, CP-1A +13, CP-2D +15, CP-2E +16, CP-3 +20, CP-3C +18, CP-4 +15, CP-6 +23, CP-DR +14, CP-1 +13, CP-2G +16, CP-2 +16, CP-2A +15, CP-5 +24.
+
 ## source has it, screen differs (0)
 
 None.
