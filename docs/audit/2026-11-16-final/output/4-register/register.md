@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-491 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 382 findings. Counts below are of those 382, after re-grading.
+492 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 383 findings. Counts below are of those 383, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -10,16 +10,16 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 8 | 0 | 0 | 0 | 0 | 0 | 8 |
 | Medium | 91 | 0 | 0 | 0 | 2 | 10 | 103 |
-| Low | 0 | 169 | 0 | 0 | 18 | 9 | 196 |
+| Low | 0 | 170 | 0 | 0 | 18 | 9 | 197 |
 | Info | 0 | 18 | 17 | 2 | 8 | 30 | 75 |
-| Total | 99 | 187 | 17 | 2 | 28 | 49 | 382 |
+| Total | 99 | 188 | 17 | 2 | 28 | 49 | 383 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
 | C1 | 2 | 10 | 15 | 10 |
 | C2 | 0 | 9 | 12 | 4 |
 | C3 | 0 | 12 | 14 | 1 |
-| C4 | 1 | 7 | 18 | 3 |
+| C4 | 1 | 7 | 19 | 3 |
 | C5 | 3 | 10 | 18 | 4 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
@@ -250,6 +250,7 @@ High first. `Merged` lists the ids with the same cause.
 | J5-005 | Low | J5 | Changes says 'This is the first listed run for this issuer on this pathway' while Report history on the same issuer lists an earlier-dated run of the same path… | batch |  |  | not required (Low or Info) |
 | J6-007 | Low (was Medium) | J6 | The Forecast tab reads "No forecast for this run" on a page whose module list shows a Forecast module as Delivered with a base case. | batch |  |  | confirmed |
 | J6-014 | Low | J6 | "Page not found" has no link or button; every other error page offers a way back. | batch |  |  | not required (Low or Info) |
+| R2-001 | Low | C4 | The predicate that holds source references back from table cells (visualData.ts containsReference) misses gap ids such as '(G12)', run codes such as '20261117-… | batch |  |  | not required (Low or Info) |
 | S1-007 | Low (was Medium) | S1 | Every fixture run is a "Full credit review" drawn with a USD 20.00 spend cap; the Full tier's cap is USD 25. | batch |  | S6-004 | confirmed |
 | S1-008 | Low | S1 | #/kit/ shows "Page not found" while every other address ignores one trailing slash. | batch |  |  | not required (Low or Info) |
 | S1-009 | Low | S1 | Below 480 px the rail's content is 1 px taller than its box and the whole document scrolls by 1 px. | batch |  |  | not required (Low or Info) |

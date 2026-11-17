@@ -245,7 +245,7 @@ Findings:
 - C4-028, High: A published value written with a decimal comma ('3,75') is read as 375 and its bar is drawn at 375 beside 2.80. Ruling: a wrong figure (3,75 drawn as 375) is High and always repaired (R3); a decimal comma in model-written text is an ordinary input
 - C3-029 (with C4-005), Medium: A chart's Table form omits the 'Basis and limitation' column, so a row's limitation (for example 'gross debt includes finance leases') is visible only inside the trace drawer, while the same column is drawn in plain tables on the same page.
 
-Files: `web/src/pages/connected/visuals/visualData.ts`
+Files: `web/src/pages/connected/visuals/visualData.ts`, `web/src/components/chart/ChartTable.tsx`, `web/src/components/chart/TrendChart.tsx`
 
 Probes:
 
@@ -254,6 +254,8 @@ Probes:
 - C3-029 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-005-table-form-basis.cjs`
 
 Touches money, ordering or security code: figures (a wrong value on a chart).
+
+Note: R2-001 (Low) is repaired here by ruling L11; it does not need a verify verdict to be in a task.
 
 ## T14 (group 2). Modules page: scroll, focus and Back after a module change; the Module select; On this page; figures after the prose
 

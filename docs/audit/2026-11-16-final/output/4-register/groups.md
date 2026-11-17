@@ -46,8 +46,10 @@ Files:
 - `src/deploy_workflow/owners/cpos_forecast.py`
 - `src/deploy_workflow/owners/cpos_periods.py`
 - `web/src/components/chart/BarCanvas.tsx`
+- `web/src/components/chart/ChartTable.tsx`
 - `web/src/components/chart/ColumnsChart.tsx`
 - `web/src/components/chart/StackChart.tsx`
+- `web/src/components/chart/TrendChart.tsx`
 - `web/src/pages/connected/HeadlineFigures.tsx`
 - `web/src/pages/connected/ReportContent.tsx`
 - `web/src/pages/connected/ReportLibrary.tsx`
