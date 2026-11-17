@@ -12,13 +12,16 @@ try {
   const { browser, page } = await open({ width: 1440, height: 900 });
   try {
     await page.goto(pageUrl(dir, "#/")); await page.waitForSelector("h1"); await sleep(300);
-    const text = await page.evaluate(() => document.querySelector("main").innerText.replace(/\s+/g, " "));
+    const cardsText = await page.evaluate(() => document.querySelector("main").innerText.replace(/\s+/g, " "));
+    await page.getByRole("radio", { name: "List" }).click(); await sleep(300);
+    const listText = await page.evaluate(() => document.querySelector("main").innerText.replace(/\s+/g, " "));
+    const text = cardsText;
     for (const c of lib.home.cards) {
       if (c.kind !== "issuer") continue;
       check("#/", `${c.name} name`, c.name, text);
       check("#/", `${c.name} as of`, c.asOf, text);
       check("#/", `${c.name} progress`, c.progress.text, text);
-      for (const [k, m] of Object.entries(c.measures)) if (m) check("#/", `${c.name} ${k}`, m.text, text);
+      for (const [k, m] of Object.entries(c.measures)) { if (m) check("#/ (List)", `${c.name} ${k}`, m.text + (m.basis === "adjusted" ? " adj." : ""), listText); else check("#/ (List)", `${c.name} ${k} is missing, drawn as n.a. not as 0`, "n.a.", listText); }
     }
     await page.goto("about:blank"); await page.goto(pageUrl(dir, "#/model")); await page.waitForSelector("h1"); await sleep(300);
     const mt = await page.evaluate(() => document.querySelector("main").innerText.replace(/\s+/g, " "));

@@ -1,0 +1,92 @@
+matrix,row_id,mark,screen,evidence,note
+content,CM-008,shown but wrong place or form,all Model pages,2-sections/S5/probes/p-trace-nav.mjs,"Trace controls are links to the Evidence page, not a drawer, and Back returns a reset page (S5-004)"
+content,CM-009,shown but wrong place or form,all Model pages,2-sections/S5/probes/p-misc.mjs,"One labelled icon control per tile, finding, row and chart; reachable by Tab and shown on focus and touch; but 9 of 15 chart tables have no row controls, and there is no drawer to return focus from (S5-012, S5-004)"
+content,CM-011,correctly not shown,all Model pages,,"No file name, hash, id, register or run code on any Model page; the Limitations page draws a counted gap list (S5-015)"
+content,CM-012,correctly not shown,all Model pages,,Searched every page's text for CP-nn codes: none
+content,CM-015,correctly not shown,all Model pages,,No text written for another module or routing text on any page
+content,CM-017,correctly not shown,all Model pages,,"No Request, Front matter or Next module on any page"
+content,CM-019,correctly not shown,all Model pages,,"No 'handoff', 'transport', 'pack', 'canonical', snake_case or CAPS_WITH_UNDERSCORE token in page text (regex over innerText)"
+content,CM-021,shown as required,#/model/transdigm/2025-06-30/portfolio-fit (variant with limits and scatter as gaps),,The Not established for this run panel with its reason replaces the chart; Statements and Forecast draw the same panel; a chart with every value null was not constructed
+content,CM-022,shown as required,#/model/transdigm/2025-06-30/front; #/model/transdigm/2025-06-30/statements,,Tiles carry unit and period ('Latest twelve months to 30 June 2025'); statements carry USD millions and Actual or Base on each column; unit forms differ (S5-018)
+content,CM-023,shown but wrong place or form,#/model/transdigm/2025-06-30/statements,2-sections/S5/probes/p-touch-tooltips.mjs,"n.a., 0 and Withheld each have a form and the fixture's zeros stay 0; a reason is only a hover or focus tooltip and the fixture carries none (S5-008)"
+content,CM-024,shown as required,#/model/transdigm/2025-06-30/forecast; #/model/transdigm/2025-06-30/limitations,,"A gap reads 'Not established for this run' in the hatched panel (Forecast, Statements, Limitations)"
+content,CM-025,shown as required,"Analysis, Statements, Portfolio fit, Forecast",,All 15 charts have a Chart or Table toggle; every numeric label drawn in a chart is in its table (axis ticks aside); unit and basis stay in the title and note
+content,CM-030,shown but wrong place or form,Model group; #/model/transdigm/2025-06-30/forecast,,"Model is its own rail area and tab set, not a Modules entry (Modules entry is S3's check) (S5-013)"
+content,CM-031,shown as required,all run pages,,"Issuer, as-of badge, purpose, Run state and Sample data badge on every run page including Forecast"
+content,CM-046,correctly not shown,#/model/transdigm/2025-06-30/front; #/model/transdigm/2025-06-30/analysis; #/model/transdigm/2025-06-30/forecast,,"Delta lines carry a direction arrow in neutral text; no better or worse colour or mark on cash, Downside, rate sensitivity or Forecast"
+content,CM-064,shown but wrong place or form,#/model/transdigm/2025-06-30/statements,,"The model grid (statements, cases, Actual and Base columns) is on the 'Model' tab, not on Forecast (S5-013)"
+content,CM-065,shown but wrong place or form,#/model/transdigm/2025-06-30/forecast; #/model/transdigm/2025-06-30/statements,,"Case cards, drivers, interest cover path, EBITDA by case, walk and comparison are drawn; the case choice is not shared between pages (S5-010, S5-011)"
+content,CM-066,shown but wrong place or form,#/model/transdigm/2025-06-30/statements,2-sections/S5/probes/p-touch-tooltips.mjs,"A missing cell with a reason draws n.a. and the reason as a tooltip, closing cash stays shown; hover or focus only, and the fixture holds no negative-cash year (S5-008)"
+content,CM-067,missing,#/model/transdigm/2025-06-30/forecast (variant with no forecast),2-sections/S5/evidence/unreadable-notice-1440.png,The whole run becomes unreadable; no Forecast state (S5-001)
+content,CM-068,correctly not shown,all Model pages,,No forecast-inputs block on any page
+content,CM-071,shown as required,#/model/transdigm/2025-06-30/portfolio-fit,,Exposure against limits draws columns with limit ticks and 'limit n.a.' where the limit is missing; the gap panel replaces it in a variant; the page does not validate mandate or NAV basis itself and draws what the slice gives
+content,CM-105,shown but wrong place or form,#/model/transdigm/2025-06-30/forecast; #/model/transdigm/2025-06-30/statements,,"Assumptions (drivers), forecasts (grid), net debt walk, case metrics and limitations are drawn; break points are not (S5-014)"
+content,CM-116,shown but wrong place or form,#/model/transdigm/2025-06-30/statements; #/model/transdigm/2025-06-30/forecast,,"Statements, scenario cases, bridges and a calculation source link are drawn on 'Model' and Forecast; the derivation is one Evidence address, not an item (S5-003, S5-013)"
+content,CM-122,missing,Model group,,No total or net leverage trend chart; leverage appears as a table row and a headroom bar (S5-014)
+content,CM-123,shown as required,#/model/transdigm/2025-06-30/forecast,,Interest cover path with the break at FY23 n.a. and a Table form
+content,CM-124,missing,Model group,,No cash and accessible liquidity chart (S5-014)
+content,CM-125,shown as required,#/model/transdigm/2025-06-30/statements,,Maturities by year: grouped columns with a Table form; the missing slot reads n.a.
+content,CM-126,shown but wrong place or form,#/model/transdigm/2025-06-30/forecast,,EBITDA path by case is drawn; revenue is not charted (S5-014)
+content,CM-127,shown as required,#/model/transdigm/2025-06-30/statements,,Debt by instrument stack ranked by size with a Table form and the shared-security note
+content,CM-128,shown but wrong place or form,#/model/transdigm/2025-06-30/statements,,"An EBITDA bridge is drawn, FY24 to FY25E volume, price and costs, not a reported to adjusted reconciliation (S5-014)"
+content,CM-143,shown but wrong place or form,#/model/transdigm/2025-06-30/portfolio-fit,,"Range strips compare the issuer with the holdings' range, not a declared peer set (S5-014)"
+content,CM-144,shown but wrong place or form,#/model/transdigm/2025-06-30/portfolio-fit,,"Net leverage and interest cover strips are separate scales, drawn against holdings not a peer set (S5-014)"
+content,CM-156,missing,Model group,,No sources and uses or liquidity bridge (S5-014)
+content,CM-157,shown as required,"#/model/transdigm/2025-06-30/statements (comparison, gap panel)",,Lowest cash balance is a point with its basis; the months-of-liquidity gap is stated as Not established
+content,CM-163,shown but wrong place or form,#/model/transdigm/2025-06-30/statements; #/model/transdigm/2025-06-30/forecast,,"The model grid is on 'Model'; path charts only for interest cover and EBITDA (S5-013, S5-014)"
+content,CM-164,missing,#/model/transdigm/2025-06-30/forecast,,No deleveraging or break-point timing (S5-014)
+content,CM-165,shown as required,#/model/transdigm/2025-06-30/forecast,,Case choice and 'What drives each case' driver strips
+content,CM-166,shown as required,#/model/transdigm/2025-06-30/analysis,,Headroom bullets draw downgrade and upgrade triggers with direction and the dashed level; Secured net leverage n.a. keeps its row
+content,CM-172,shown but wrong place or form,#/model/transdigm/2025-06-30/statements,,Maturities by year is drawn; funding need and supplied resources are not (S5-014)
+content,CM-176,missing,Model group,,No yield against maturity scatter; the scatter draws leverage against margin (S5-014)
+content,CM-179,shown as required,#/model/transdigm/2025-06-30/analysis,,Headroom to covenants and rating triggers: bullet with threshold and direction and a Table form
+content,CM-185,shown as required,#/model/transdigm/2025-06-30/statements,,Recovery by class and case: grouped columns with the missing receivables downside slot n.a.
+content,CM-186,missing,Model group,,No value allocation waterfall for supplied scenarios (S5-014)
+content,CM-187,missing,Model group,,No value allocation waterfall for supplied scenarios (S5-014)
+content,CM-188,missing,Model group,,No value allocation waterfall for supplied scenarios (S5-014)
+content,CM-195,shown as required,#/model/transdigm/2025-06-30/portfolio-fit,,Exposure against limits column chart with a Table form
+content,CM-202,shown but wrong place or form,#/model/transdigm/2025-06-30/statements,,"Model values are drawn; provenance is one Evidence address per control that dead-ends in the fixture (S5-003, S5-024)"
+content,CM-203,shown but wrong place or form,#/model/transdigm/2025-06-30/statements; #/model/transdigm/2025-06-30/forecast,,"Every chart has the frame (Chart or Table, one trace); no chart collection or availability listing (S5-014)"
+content,CM-208,correctly not shown,Model group,,No calendar on any Model page (H-04: no Calendar tab expected)
+content,CM-217,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-223,shown but wrong place or form,#/model/transdigm/2025-06-30/forecast,,EBITDA path is drawn; no Revenue and EBITDA columns chart (S5-014)
+content,CM-224,shown as required,#/model/transdigm/2025-06-30/statements,,EBITDA bridge waterfall with a Table form
+content,CM-225,missing,Model group,,No leverage trend (S5-014)
+content,CM-226,shown as required,#/model/transdigm/2025-06-30/forecast,,Interest cover path with a Table form
+content,CM-227,missing,Model group,,No liquidity trend (S5-014)
+content,CM-228,shown as required,#/model/transdigm/2025-06-30/statements,,Maturities by year with a Table form
+content,CM-229,shown as required,#/model/transdigm/2025-06-30/statements,,Debt by instrument stack with a Table form
+content,CM-232,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-242,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-250,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-258,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-266,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-268,shown but wrong place or form,#/model/transdigm/2025-06-30/forecast,,No Forward-credit trajectory narrative on the Forecast page; the watch note and limitations are drawn (S5-014)
+content,CM-272,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-280,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-286,shown as required,#/model/transdigm/2025-06-30/analysis,,Covenant headroom bullet with a Table form
+content,CM-292,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-299,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-304,shown as required,#/model/transdigm/2025-06-30/portfolio-fit (variant with limits as a gap),,Stated gap panel with title and reason replaces the chart
+content,CM-308,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-315,correctly not shown,all Model pages,,"Hidden transport: no Request, Front matter or Next module on any page"
+content,CM-318,shown as required,#/model/transdigm/2025-06-30/front; #/model/transdigm/2025-06-30/analysis,,"EBITDA as defined is the labelled denominator ('EBITDA as defined', 'Earnings measure: EBITDA as the company defines it'); no adjusted figure is shown beside it"
+content,CM-320,shown but wrong place or form,#/model/transdigm/2025-06-30/front; #/model/transdigm/2025-06-30/statements,,"$8,580m, USD millions and US dollars, millions for one currency (S5-018)"
+content,CM-321,shown but wrong place or form,#/model/transdigm/2025-06-30/forecast; #/model/transdigm/2025-06-30/statements,,Interest cover and maturities tables exist; leverage and liquidity tables do not (S5-014)
+control,CT-041,not reachable here,Model group,,"Not a user control; the Model slice has no producer outside the fixture, so population from handoffs cannot be checked on this surface (S5-024)"
+control,CT-045,decidable as required,#/model/transdigm/2025-06-30/forecast; #/model/transdigm/2025-06-30/statements,2-sections/S5/probes/p-misc.mjs,"Two published cases as a radio group; click, Arrow keys and focus ring work; no case is derived by the page; the choice is per page (S5-010)"
+control,CT-047,decides less than the row,all Model pages,2-sections/S5/probes/p-trace-nav.mjs,"Keyboard reachable single control per item, but it opens no drawer and no focus returns to an opener (S5-004)"
+retired,R-12,not offered,all Model pages,,"Source references, chips, brackets, page numbers and hashes: none in any sentence"
+retired,R-13,not offered,all Model pages,,No CP- code on any Model page
+retired,R-14,not offered,#/model/transdigm/2025-06-30/statements,,"The fixture's `published` is null, so no Model, chart or calculation download is offered; the code path would offer one (S5-022)"
+retired,R-18,not offered,all Model pages,,No fixed 'US$m' label and no reporting-currency question; units are the data's own strings (S5-018)
+retired,R-20,not offered,#/model/transdigm/2025-06-30/front; analysis; forecast,,"No better or worse mark on cash, Downside or Forecast and no undrawn-facilities card; deltas are neutral direction arrows"
+retired,R-23,not offered,all Model pages,,No spreadsheet error values; waterfall colours carry a legend with the words Increase (plus) and Decrease (minus); Bars view colour sign is the one cue note (S5-019)
+unaccounted,,unaccounted,#/model/transdigm/2025-06-30/front,,"Front page 'Parts of the model' list with chevron rows and a Not assessable badge: A navigation list of the model's parts; no matrix row names it (S5-013, S5-026)"
+unaccounted,,unaccounted,all Model pages,,'Show sources' page switch: Page-level switch is named by D-06; no control-matrix row (S5-026)
+unaccounted,,unaccounted,#/model/transdigm/2025-06-30/statements,,Statements Figures or Bars choice: A reader control with no matrix row (S5-026); sign cue is colour only (S5-019)
+unaccounted,,unaccounted,#/model/transdigm/2025-06-30/analysis,,"Analysis 'On this page' section index of seven jump buttons: No matrix row (S5-026); works by mouse, Enter and Space and moves focus to the section"
+unaccounted,,unaccounted,#/model/transdigm/2025-06-30/portfolio-fit,,"Agency ratings tiles (Moody's, S&P) and Relative value 'Not assessable' block: Ratings are named by D-48 for the library only; no content row for the Model's tiles (S5-026)"
+unaccounted,,unaccounted,#/model/transdigm/2025-06-30/limitations,,Limitations 'Not established for this run' counted list: Gap list on a non-Evidence page (S5-015)
+unaccounted,,unaccounted,#/model/transdigm/2025-06-30/statements,,"Statement tab list (Income statement, Cash flow, Balance sheet, Key measures): Four statements by tab; no row names the tabs (S5-026; S5-006 at 390 px)"
+unaccounted,,unaccounted,#/model/transdigm/2025-06-30/front,,"Front page headline tiles with an info button and definition tooltip: CM-046 and CM-318 cover figures, not the definition tooltip (S5-026, S5-008)"

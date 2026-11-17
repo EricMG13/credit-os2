@@ -29,6 +29,9 @@ const strings = (o, out = []) => { if (typeof o === "string") out.push(o); else 
 
 const browser = await chromium.launch({ executablePath: exe, timeout: 30000 });
 let bad = 0, checked = 0;
+const notDrawn = [];
+// the Documents step states the upload limit itself (service limit MAX_FILE, 50 MiB); the fixture holds no such figure
+const KNOWN = new Set(["50 MB"]);
 try {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   ctx.setDefaultTimeout(15000); ctx.setDefaultNavigationTimeout(20000);
@@ -38,14 +41,26 @@ try {
   for (const [hash, rec] of items) {
     await page.goto(pathToFileURL(path.join(dist, "index.html")).href + hash);
     await page.waitForTimeout(250);
-    const text = await page.evaluate(() => document.body.innerText + "\n" + [...document.querySelectorAll("[aria-label]")].map((e) => e.getAttribute("aria-label")).join("\n") + "\n" + [...document.querySelectorAll("[role=progressbar]")].map((e) => e.getAttribute("aria-valuenow") + "/" + e.getAttribute("aria-valuemax")).join("\n"));
+    const read = () => page.evaluate(() => document.body.innerText + "\n" + [...document.querySelectorAll("[aria-label]")].map((e) => e.getAttribute("aria-label")).join("\n") + "\n" + [...document.querySelectorAll("[role=progressbar]")].map((e) => e.getAttribute("aria-valuenow") + "/" + e.getAttribute("aria-valuemax")).join("\n"));
+    const closed = await read(); // before anything is opened: a group's own title and "Show all" label are drawn only here
+    // open what a figure can sit behind: the Submit dialog and every "Show all" group
+    if (hash === "#/run/start/start") { await page.getByRole("button", { name: /^Submit, spend up to/ }).click(); await page.waitForTimeout(250); }
+    for (const label of rec.modules?.steps?.filter((s) => s.kind === "group").map((s) => s.showAll) ?? []) await page.getByRole("button", { name: label }).click();
+    const text = closed + "\n" + (await read());
     // forward: figure-bearing fixture strings (those with a digit) that this record draws
     const drawn = strings(rec).filter((s) => /\d/.test(s) && !/^[a-z0-9-]+$/.test(s) && !s.startsWith("#/"));
-    for (const s of drawn) { checked++; if (!text.includes(s)) { bad++; console.log(`MISSING ${hash}: fixture string not on page: ${JSON.stringify(s.slice(0, 90))}`); } }
+    for (const s of drawn) {
+      checked++;
+      if (text.includes(s)) continue;
+      // a started draft draws no actions row, so its "Step 5 of 5" is read by the slice and never drawn
+      if (rec.step === "started" && s === rec.position) { notDrawn.push(`${hash}: position ${JSON.stringify(s)}`); continue; }
+      bad++; console.log(`MISSING ${hash}: fixture string not on page: ${JSON.stringify(s.slice(0, 90))}`);
+    }
     // reverse: figure tokens on the page that the fixture does not hold (the page chrome has none)
     const main = await page.evaluate(() => document.querySelector("main").innerText);
-    for (const t of new Set(main.match(TOKEN) ?? [])) { checked++; if (!fixtureText.includes(t)) { bad++; console.log(`INVENTED ${hash}: page figure not in fixture: ${JSON.stringify(t)}`); } }
+    for (const t of new Set(main.match(TOKEN) ?? [])) { checked++; if (!fixtureText.includes(t) && !KNOWN.has(t)) { bad++; console.log(`INVENTED ${hash}: page figure not in fixture: ${JSON.stringify(t)}`); } }
   }
 } finally { await browser.close(); rmSync(tmp, { recursive: true, force: true }); }
-console.log(`figure checks ${checked}, mismatches ${bad}`);
+for (const n of notDrawn) console.log(`NOT DRAWN ${n}`);
+console.log(`figure checks ${checked}, mismatches ${bad}, slice fields read and never drawn ${notDrawn.length}`);
 process.exit(bad === 0 ? 0 : 1);
