@@ -63,7 +63,7 @@ const LOOP_CAP = 1000;
 // visible text in reading order under its headings, the tables, every figure with what sits beside
 // it, the chart marks, the controls and the links.
 function extractInPage(opts) {
-  const clean = (s) => (s ?? "").replace(/[\s ]+/g, " ").trim();
+  const clean = (s) => (s ?? "").replace(/[\s\u00a0]+/g, " ").trim();
   const vis = (el) => el.checkVisibility({ checkVisibilityCSS: true });
   const DIGIT = /\d/;
   const MISSING = /^(?:n\.a\.?|na|[—–-]|not (?:supplied|calculated|available|assessable|established)\b|withheld\b)/i;
@@ -193,7 +193,7 @@ function extractInPage(opts) {
           flush();
           const selected = node.selectedOptions[0];
           emit("select", selected ? selected.text : "", node);
-          for (const o of node.options) optionDigits.n += (o.text.match(/\d[\d,.]*/g) ?? []).length;
+          for (const o of node.options) if (o !== selected) optionDigits.n += (o.text.match(/\d[\d,.]*/g) ?? []).length;
           continue;
         }
         if (tag === "input" || tag === "textarea") {
