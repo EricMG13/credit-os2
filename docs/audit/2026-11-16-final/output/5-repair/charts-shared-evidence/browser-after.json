@@ -1,0 +1,138 @@
+[
+  {
+    "brand": "Chrome",
+    "version": "157.0.8103.78",
+    "metrics": [
+      {
+        "text": "2,105",
+        "font": "40px",
+        "weight": "600",
+        "left": 125,
+        "right": 229.84375,
+        "cardLeft": 100,
+        "cardRight": 304.65625
+      },
+      {
+        "text": "23.1%",
+        "font": "40px",
+        "weight": "600",
+        "left": 345.65625,
+        "right": 458.265625,
+        "cardLeft": 320.65625,
+        "cardRight": 525.328125
+      },
+      {
+        "text": "4.6x",
+        "font": "40px",
+        "weight": "600",
+        "left": 566.328125,
+        "right": 647.171875,
+        "cardLeft": 541.328125,
+        "cardRight": 746
+      },
+      {
+        "text": "2.4x",
+        "font": "40px",
+        "weight": "600",
+        "left": 787,
+        "right": 867.84375,
+        "cardLeft": 762,
+        "cardRight": 966.65625
+      },
+      {
+        "text": "412",
+        "font": "40px",
+        "weight": "600",
+        "left": 1007.65625,
+        "right": 1080.140625,
+        "cardLeft": 982.65625,
+        "cardRight": 1187.328125
+      },
+      {
+        "text": "n.a.not available",
+        "font": "40px",
+        "weight": "400",
+        "left": 1228.328125,
+        "right": 1287.296875,
+        "cardLeft": 1203.328125,
+        "cardRight": 1408
+      }
+    ],
+    "missingWeight": "400",
+    "desktop481Scroll": {
+      "width": 449,
+      "scroll": 506
+    },
+    "externalRequests": [],
+    "pageErrors": [],
+    "measurementSpanAfterLeaving": 0
+  },
+  {
+    "brand": "Edge",
+    "version": "155.0.4283.62",
+    "metrics": [
+      {
+        "text": "2,105",
+        "font": "40px",
+        "weight": "600",
+        "left": 125,
+        "right": 229.84375,
+        "cardLeft": 100,
+        "cardRight": 304.65625
+      },
+      {
+        "text": "23.1%",
+        "font": "40px",
+        "weight": "600",
+        "left": 345.65625,
+        "right": 458.265625,
+        "cardLeft": 320.65625,
+        "cardRight": 525.328125
+      },
+      {
+        "text": "4.6x",
+        "font": "40px",
+        "weight": "600",
+        "left": 566.328125,
+        "right": 647.171875,
+        "cardLeft": 541.328125,
+        "cardRight": 746
+      },
+      {
+        "text": "2.4x",
+        "font": "40px",
+        "weight": "600",
+        "left": 787,
+        "right": 867.84375,
+        "cardLeft": 762,
+        "cardRight": 966.65625
+      },
+      {
+        "text": "412",
+        "font": "40px",
+        "weight": "600",
+        "left": 1007.65625,
+        "right": 1080.140625,
+        "cardLeft": 982.65625,
+        "cardRight": 1187.328125
+      },
+      {
+        "text": "n.a.not available",
+        "font": "40px",
+        "weight": "400",
+        "left": 1228.328125,
+        "right": 1287.296875,
+        "cardLeft": 1203.328125,
+        "cardRight": 1408
+      }
+    ],
+    "missingWeight": "400",
+    "desktop481Scroll": {
+      "width": 449,
+      "scroll": 506
+    },
+    "externalRequests": [],
+    "pageErrors": [],
+    "measurementSpanAfterLeaving": 0
+  }
+]

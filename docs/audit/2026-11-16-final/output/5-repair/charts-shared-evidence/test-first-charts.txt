@@ -1,0 +1,40 @@
+   × draws a nonnegative period series as a path and keeps each original figure in its table 303ms
+   × keeps every covenant row when one threshold is missing and one current value is net cash 316ms
+     × places −10 at its exact value -10 2ms
+     × places (10) at its exact value -10 0ms
+     × places 2 100 at its exact value 2100 0ms
+     × places 2 100 at its exact value 2100 0ms
+     × places 2 100 at its exact value 2100 0ms
+     × places (1,250.50) at its exact value -1250.5 0ms
+     × reads a suffix only when the stated unit confirms its family and scale 0ms
+     × retains the original typographic strings on the chart and in its source table 89ms
+   × holds parenthesized gap IDs and page citations in the shared reference predicate, not module names 1ms
+   × keeps a page-bearing gap reason in its trace and draws the missing status beside See Evidence 5ms
+   × shows a visible scroll cue exactly when the source columns exceed the available desktop width 29ms
+   × removes the chart library's body measurement element after its last chart leaves the page 364ms
+ FAIL  src/components/chart/ChartFrame.cleanup.test.tsx > removes the chart library's body measurement element after its last chart leaves the page
+AssertionError: expected <span …(3)></span> to be null
+ FAIL  src/components/chart/ChartTable.scrollCue.test.tsx > shows a visible scroll cue exactly when the source columns exceed the available desktop width
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > draws a nonnegative period series as a path and keeps each original figure in its table
+AssertionError: expected null not to be null
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > keeps every covenant row when one threshold is missing and one current value is net cash
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > places −10 at its exact value -10
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > places (10) at its exact value -10
+AssertionError: expected null to be -10 // Object.is equality
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > places 2 100 at its exact value 2100
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > places 2 100 at its exact value 2100
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > places 2 100 at its exact value 2100
+AssertionError: expected null to be 2100 // Object.is equality
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > places (1,250.50) at its exact value -1250.5
+AssertionError: expected null to be -1250.5 // Object.is equality
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > reads a suffix only when the stated unit confirms its family and scale
+AssertionError: expected null to be 2100 // Object.is equality
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > ordinary source number typography > retains the original typographic strings on the chart and in its source table
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > holds parenthesized gap IDs and page citations in the shared reference predicate, not module names
+AssertionError: expected false to be true // Object.is equality
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > keeps a page-bearing gap reason in its trace and draws the missing status beside See Evidence
+AssertionError: expected <p role="note" …(1)></p> to be null
+ Test Files  3 failed (3)
+      Tests  14 failed (14)
+   Start at  16:56:02
+   Duration  5.55s (transform 736ms, setup 208ms, import 2.57s, tests 1.12s, environment 1.20s)

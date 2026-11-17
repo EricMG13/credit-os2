@@ -1,0 +1,13 @@
+   × keeps missing null,undefined,empty string distinct from present zero 173ms
+   × uses the same40px metric token,12px radius,24px padding and shadow across all three metric cards 46ms
+   × uses13px caption tokens for project-written from figures, timeline dates and step numerals 7ms
+   × separates the first three chart series in grayscale while keeping every one visible on white 5ms
+ FAIL  src/styles/chart-lightness.test.ts > separates the first three chart series in grayscale while keeping every one visible on white
+AssertionError: expected 1.3055075354402745 to be greater than or equal to 2
+ FAIL  src/components/metric/finalAudit.test.tsx > uses the same40px metric token,12px radius,24px padding and shadow across all three metric cards
+ FAIL  src/components/metric/finalAudit.test.tsx > uses13px caption tokens for project-written from figures, timeline dates and step numerals
+ FAIL  src/components/application/table/table.missing.test.tsx > keeps missing null,undefined,empty string distinct from present zero
+ Test Files  3 failed (3)
+      Tests  4 failed | 1 passed (5)
+   Start at  17:03:33
+   Duration  4.26s (transform 304ms, setup 371ms, import 1.86s, tests 355ms, environment 1.24s)

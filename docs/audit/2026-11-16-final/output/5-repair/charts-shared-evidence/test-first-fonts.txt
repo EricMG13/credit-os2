@@ -1,0 +1,115 @@
+   × components/metric/MetricCard.tsx keeps authored captions at13px or larger 5ms
+   × components/steps/ProgressSteps.tsx keeps authored captions at13px or larger 1ms
+   × components/timeline/Timeline.tsx keeps authored captions at13px or larger 1ms
+   × components/chart/TrendChart.tsx keeps authored captions at13px or larger 1ms
+   × components/chart/SeriesLine.tsx keeps authored captions at13px or larger 1ms
+   × components/chart/ColumnsChart.tsx keeps authored captions at13px or larger 0ms
+   × components/chart/WaterfallChart.tsx keeps authored captions at13px or larger 1ms
+   × components/chart/PathChart.tsx keeps authored captions at13px or larger 0ms
+   × components/chart/ScatterPlot.tsx keeps authored captions at13px or larger 1ms
+   × components/chart/LimitsChart.tsx keeps authored captions at13px or larger 1ms
+   × pages/connected/start/ModuleOptionsFields.tsx keeps authored captions at13px or larger 0ms
+   × pages/connected/start/RowEditor.tsx keeps authored captions at13px or larger 0ms
+   × pages/connected/RunActivity.tsx keeps authored captions at13px or larger 1ms
+   × pages/connected/report/ModuleTable.tsx keeps authored captions at13px or larger 0ms
+   × pages/connected/report/IdentityBand.tsx keeps authored captions at13px or larger 0ms
+   × pages/connected/report/Evidence.tsx keeps authored captions at13px or larger 1ms
+   × pages/connected/report/Forecast.tsx keeps authored captions at13px or larger 0ms
+   × pages/connected/visuals/EdgeMap.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/Snippet.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/TraceDrawer.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/Limitations.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/IssuerList.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/JumpMenu.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/ModuleNav.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/RunFeed.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/SourceFileRow.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/FactsBlock.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/RegisterTable.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/Measure.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/ChangeCard.tsx keeps authored captions at13px or larger 0ms
+   × pages/library/parts/StatusBlock.tsx keeps authored captions at13px or larger 0ms
+   × pages/run/start/Documents.tsx keeps authored captions at13px or larger 0ms
+   × pages/run/start/Purpose.tsx keeps authored captions at13px or larger 0ms
+   × pages/run/start/Stepper.tsx keeps authored captions at13px or larger 0ms
+   × pages/run/activity/Summary.tsx keeps authored captions at13px or larger 0ms
+   × pages/run/activity/Feed.tsx keeps authored captions at13px or larger 1ms
+   × shell/Shell.tsx keeps authored captions at13px or larger 0ms
+ FAIL  src/styles/project-caption.test.ts > components/metric/MetricCard.tsx keeps authored captions at13px or larger
+AssertionError: expected '// Follows the HyperUI stats examples…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/steps/ProgressSteps.tsx keeps authored captions at13px or larger
+AssertionError: expected '// Follows HyperUI "Steps: timeline w…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/timeline/Timeline.tsx keeps authored captions at13px or larger
+AssertionError: expected '// Follows the HyperUI timeline "Vert…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/chart/TrendChart.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { checkDistinctSeries, seriesK…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/chart/SeriesLine.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Line, type DotItemDotProps }…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/chart/ColumnsChart.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { checkDistinctSeries, seriesK…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/chart/WaterfallChart.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import type { ReactNode } from "react…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/chart/PathChart.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import {\n  checkDistinctSeries,\n  s…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/chart/ScatterPlot.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import type { ReactNode } from "react…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > components/chart/LimitsChart.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import type { ReactNode } from "react…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/start/ModuleOptionsFields.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import type { ReactNode } from "react…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/start/RowEditor.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useEffect, useId, useRef, us…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/RunActivity.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useEffect, useState, type Re…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/report/ModuleTable.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { StatusBadge } from "@/compon…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/report/IdentityBand.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { ArrowDownRight, ArrowRight, …' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/report/Evidence.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Button } from "@/components/…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/report/Forecast.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Button } from "@/components/…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/connected/visuals/EdgeMap.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useId } from "react";\nimpor…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/Snippet.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Copy01 } from "@untitledui/i…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/TraceDrawer.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Button } from "@/components/…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/Limitations.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Button as KitButton } from "…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/IssuerList.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useId, useState, type ReactN…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/JumpMenu.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useCallback, useEffect, useR…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/ModuleNav.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useEffect, useId, useRef, us…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/RunFeed.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Button } from "@/components/…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/SourceFileRow.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { forwardRef } from "react";\n…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/FactsBlock.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useId } from "react";\nimpor…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/RegisterTable.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useState, type ReactNode } f…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/Measure.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import type { RecordBlock } from "../…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/ChangeCard.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import type { ReactNode } from "react…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/library/parts/StatusBlock.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useId, type ReactNode } from…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/run/start/Documents.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useId } from "react";\nimpor…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/run/start/Purpose.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useId, useState } from "reac…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/run/start/Stepper.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { Check } from "@untitledui/ic…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/run/activity/Summary.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import type { ReactNode } from "react…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > pages/run/activity/Feed.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { STATUS_SETS, type Tone } fro…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ FAIL  src/styles/project-caption.test.ts > shell/Shell.tsx keeps authored captions at13px or larger
+AssertionError: expected 'import { useRef, type ReactNode } fro…' not to match /…/)|text-\[(?:9|10|11|12)px\]|fontSize\s*[:=]\s*\{?\s*(?:10|12)\b
+ Test Files  1 failed (1)
+      Tests  37 failed (37)
+   Start at  17:03:57
+   Duration  624ms (transform 31ms, setup 78ms, import 15ms, tests 22ms, environment 350ms)

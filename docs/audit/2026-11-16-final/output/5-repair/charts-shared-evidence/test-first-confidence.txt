@@ -1,0 +1,9 @@
+   × uses the full chart gap treatment when no covenant threshold can be drawn 11ms
+   × normalizes a parenthesized amount with its explicitly matching suffix without changing scale 2ms
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > uses the full chart gap treatment when no covenant threshold can be drawn
+ FAIL  src/pages/connected/visuals/finalAudit.test.tsx > normalizes a parenthesized amount with its explicitly matching suffix without changing scale
+AssertionError: expected null to be -10 // Object.is equality
+ Test Files  1 failed (1)
+      Tests  2 failed | 12 passed (14)
+   Start at  17:25:37
+   Duration  2.35s (transform 478ms, setup 148ms, import 1.20s, tests 531ms, environment 350ms)
