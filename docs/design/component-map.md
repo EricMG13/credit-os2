@@ -240,7 +240,7 @@ A missing value in a chart is never drawn as zero:
 | Evidence | Trace, with the calculation as the expanded row | R13 holding R12 |
 | Evidence | Sources: file, readers, hash; "copied" confirmation | R14; R15; R16; S6 |
 | Evidence | Gaps, grouped by severity | R13 |
-| Evidence | Record: module timings, Chart or Table; hashes and instructions; model calls; registers as written | R17 with N6; R16; R13 |
+| Evidence | Record: run internals (module timings, Chart or Table; hashes and instructions; model calls). Module-written tables and registers remain unchanged and exact; they may appear in the inspector, Trace or Record | R17 with N6; R16; R13 |
 | Evidence | Module filter; jump to an item | N5; N8 |
 | Trace drawer | Statement, then its derivation, then "Open in Evidence" | N7 holding R12 |
 
@@ -397,7 +397,7 @@ the last column says where the decision records each.
 | Q3 | "Motion only for live state" against drawer, tab and accordion transitions | One-off transitions up to 200 ms; only live run state loops; all off under reduced motion | Ruling 6 |
 | Q4 | One trace control per paragraph, row and figure | Visible at rest; the page-level source-icon switch highlights the controls where offered, and is hidden on Evidence | Ruling 7, amended by R10 OQ-09 and OQ-03 |
 | Q5 | "Every chart has a table form" against "no repeated plain table" | The table is the other side of the Chart or Table toggle | "Also accepted" |
-| Q6 | Evidence has seven tabs | Five: Summary, Trace with calculations, Sources, Gaps, Record with registers; nothing removed | Ruling 8 |
+| Q6 | Evidence has seven tabs | Five: Summary, Trace with calculations, Sources, Gaps, Record with run internals; module-written tables and registers in the inspector, Trace or Record, unchanged and exact; nothing removed | Ruling 8 |
 | Q7 | The Model's own Evidence and Limitations pages | The Model links to the run's Evidence instead of its own | Ruling 8 |
 | Q8 | Limitations open or collapsed | Open by default | "Also accepted" |
 | Q9 | Signal cannot open from `file://` | A separate served page outside the open-from-disk rule and its gate | Ruling 9 |
