@@ -605,7 +605,7 @@ function DocumentFields({
         <input
           className={field}
           required
-          pattern="[a-z0-9][a-z0-9\\-]{0,39}"
+          pattern="[a-z0-9][a-z0-9\-]{0,39}"
           maxLength={40}
           value={view.issuerId}
           readOnly={!!view.copy}

@@ -257,6 +257,7 @@ class _PageParser(HTMLParser):
         self._text: list[str] = []
         self._hidden = 0
         self._in_ld = False
+        self._row_has_cell = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {name.lower(): value or "" for name, value in attrs}
@@ -269,6 +270,12 @@ class _PageParser(HTMLParser):
             self._text.append("\n")
         if self._hidden:
             return
+        if tag == "tr":
+            self._row_has_cell = False
+        elif tag in ("td", "th"):
+            if self._row_has_cell:
+                self._text.append(" | ")  # keeps "Sep 30, 2024" and "1,398.32" apart
+            self._row_has_cell = True
         if tag == "meta":
             self._meta(values)
         elif tag == "time" and values.get("datetime"):

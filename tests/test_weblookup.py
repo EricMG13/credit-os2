@@ -978,7 +978,8 @@ def test_allowlist_file_lists_reviewed_domains_with_categories() -> None:
     assert domains["sec.gov"] == "Regulator or official"
     assert domains["moodys.com"] == "Rating agency"
     assert domains["londonstockexchange.com"] == "Exchange"
-    assert len(domains) == len(data["domains"]) == 28
+    assert len(domains) == len(data["domains"]) == 29
+    assert domains["finance.yahoo.com"] == "Market data"
 
 
 @pytest.mark.parametrize(
@@ -996,6 +997,14 @@ def test_allowlist_file_lists_reviewed_domains_with_categories() -> None:
         ("a..sec.gov", False),
         ("find-and-update.company-information.service.gov.uk", True),
         ("service.gov.uk", False),
+        ("finance.yahoo.com", True),
+        ("query1.finance.yahoo.com", True),
+        ("FINANCE.YAHOO.COM.", True),
+        ("yahoo.com", False),
+        ("news.yahoo.com", False),
+        ("uk.finance.yahoo.co.uk", False),
+        ("finance.yahoo.com.evil.example", False),
+        ("notfinance.yahoo.com", False),
     ],
 )
 def test_host_matching_is_on_label_boundaries(host: str, allowed: bool) -> None:
@@ -1782,3 +1791,34 @@ def test_l1_an_unterminated_last_line_is_not_a_row_even_when_it_parses(tmp_path:
     retained(lookup.fetch_page("https://www.fca.org.uk/b"))
     urls = [row.url.rsplit("/", 1)[1] for row in weblookup.retained_rows(tmp_path / "run")]
     assert urls == ["b"]
+
+
+def _page_text(html: bytes) -> str:
+    return "\n".join(weblookup.pages_from(html, "text/html"))
+
+
+def test_table_cells_are_separated() -> None:
+    text = _page_text(
+        b"<table><tr><th>Date</th><th>Open</th></tr>"
+        b"<tr><td>Sep 30, 2024</td><td>1,398.32</td></tr></table>"
+    )
+    lines = text.split("\n")
+    assert "Date | Open" in lines
+    assert "Sep 30, 2024 | 1,398.32" in lines
+    assert "20241,398.32" not in text
+
+
+def test_table_cells_with_inline_markup_keep_one_line_per_cell() -> None:
+    text = _page_text(
+        b"<tr><td><span>Sep 30,</span> <span>2024</span></td><td><span>1,398.32</span></td></tr>"
+    )
+    assert "Sep 30, 2024 | 1,398.32" in text.split("\n")
+
+
+def test_table_cells_in_a_hidden_tag_add_nothing() -> None:
+    text = _page_text(b"<template><table><tr><td>x</td><td>y</td></tr></table></template>")
+    assert "|" not in text
+
+
+def test_text_outside_tables_is_unchanged() -> None:
+    assert _page_text(b"<p>Net sales rose.</p><div>Next</div>") == "Net sales rose.\n\nNext"

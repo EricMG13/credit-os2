@@ -1627,3 +1627,54 @@ def test_a_run_without_the_research_module_states_no_web_search(layout, tmp_path
     assert (
         web_search_of(layout, tmp_path, "private", monkeypatch, modules=["CP-0", "CP-1"]) is False
     )
+
+
+LONG_TDG = "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transdigmgroupbookm"
+
+
+def test_a_long_name_keeps_its_extension_and_is_stored(layout):
+    sid = new(layout)
+    stored = put(layout, sid, LONG_TDG + ".pdf")
+    assert stored.endswith(".pdf")
+    assert len(stored) <= 80
+    assert stored.startswith("TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225")
+    assert (files_folder(layout, sid) / stored).is_file()
+
+
+def test_a_long_named_file_is_read_not_ignored(layout):
+    sid = new(layout)
+    stored = put(layout, sid, LONG_TDG + ".txt", b"Revenue grew in fiscal 2024.\n")
+    got = reading(layout, sid)
+    assert got["error"] == ""
+    assert got["ignored"] == []
+    assert [d["source"] for d in got["documents"]] == [stored]
+    assert stored.endswith(".txt")
+
+
+def test_two_long_names_with_one_beginning_are_both_kept(layout):
+    sid = new(layout)
+    first = put(layout, sid, "A" * 78 + "x1.pdf", b"one")
+    second = put(layout, sid, "A" * 78 + "x2.pdf", b"two")
+    assert first != second
+    folder = files_folder(layout, sid)
+    assert (folder / first).read_bytes() == b"one"
+    assert (folder / second).read_bytes() == b"two"
+
+
+def test_a_name_of_eighty_characters_or_fewer_is_stored_as_it_is(layout):
+    sid = new(layout)
+    short = "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm"
+    assert put(layout, sid, short) == short
+    long_name = LONG_TDG + ".pdf"
+    assert put(layout, sid, long_name, b"a") == put(layout, sid, long_name, b"b")
+
+
+def test_two_names_that_agree_for_eighty_characters_are_both_kept(layout):
+    sid = new(layout)
+    first = put(layout, sid, "A" * 80 + "x1.pdf", b"one")
+    second = put(layout, sid, "A" * 80 + "x2.pdf", b"two")
+    assert first != second
+    assert len(first) <= 80 and len(second) <= 80
+    folder = files_folder(layout, sid)
+    assert (folder / first).read_bytes() == b"one"
+    assert (folder / second).read_bytes() == b"two"

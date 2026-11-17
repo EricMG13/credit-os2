@@ -21,7 +21,7 @@ import unicodedata
 import uuid
 from collections.abc import Collection
 from decimal import Decimal
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, BinaryIO, TypedDict
 
 from deploy_vii.contracts import PATHWAY_CAP_USD
@@ -231,6 +231,30 @@ def unseal(layout: Layout, sid: str) -> None:
             os.rename(folder / "sealed", folder / "files")
 
 
+_NAME_AT_MOST = 80  # safe_name's own limit
+_SUFFIX_AT_MOST = 10
+_HASH_CHARS = 8
+
+
+def _kept_suffix(original: str, cleaned: str) -> str:
+    """``cleaned`` (the last part, cut by ``safe_name``) with its suffix kept and made unique.
+
+    ``safe_name`` cuts at 80 characters and so removes ``.pdf``, which the launcher needs, and
+    gives two long names with one beginning one stored name. A name that was cut becomes
+    ``<stem>-<8 hex of the original's SHA-256><suffix>``, 80 characters at most. A name that was
+    not cut is returned as it is."""
+    if len(safe_name(original, limit=10**6)) <= _NAME_AT_MOST:
+        return cleaned
+    suffix = safe_name(PurePath(original).suffix, limit=10**6)
+    if not suffix.startswith(".") or len(suffix) > _SUFFIX_AT_MOST:
+        suffix = ""
+    tag = hashlib.sha256(original.encode("utf-8")).hexdigest()[:_HASH_CHARS]
+    stem = safe_name(original, limit=10**6)
+    room = _NAME_AT_MOST - len(suffix) - len(tag) - 1
+    stem = stem[: len(stem) - len(suffix)] if suffix and stem.endswith(suffix) else stem
+    return f"{stem[:room].rstrip('. ')}-{tag}{suffix}"
+
+
 def _parts(name: str) -> list[str]:
     """The safe parts of an uploaded name, or ``Refused``."""
     if not isinstance(name, str) or not name:
@@ -248,6 +272,7 @@ def _parts(name: str) -> list[str]:
         if part.strip() in ("", ".", ".."):
             raise Refused(f"{name!r} has an empty, '.' or '..' part")
     parts = [safe_name(part) for part in raw]
+    parts[-1] = _kept_suffix(raw[-1], parts[-1])
     if len(parts) == 1 and parts[0].casefold() == _CONTEXT_NAME:
         raise Refused("context.json is made from the answers, not uploaded")
     return parts

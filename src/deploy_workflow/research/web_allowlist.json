@@ -112,6 +112,10 @@
     {
       "domain": "kbra.com",
       "category": "Rating agency"
+    },
+    {
+      "domain": "finance.yahoo.com",
+      "category": "Market data"
     }
   ]
 }

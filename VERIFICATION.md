@@ -4,6 +4,88 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-16 — Module test and repair routine: offline, one live Deep run on Claude Opus medium, then the market-data modules on GitHub Copilot GPT Sol (branch `claude/module-test-repair-routine-ba9385`, uncommitted)
+
+Scope: offline gates and the canned browser proof on `main` `a438cb9f` plus the repairs below; one
+**live** launch from the React launcher (`python -m react_frontend`, Submit on an approved summary,
+standing ruling `2026-11-11-run-start-submit.md`), Deep credit assessment, Claude Opus at Fast (all
+medium, `opus-medium`), cap USD 40, the retained TDG FY2024 public files (as of 2024-09-30, legal
+documents `none`), run `20261116-185348-01` in `/Users/ericguei/cos-live/tdg-deep-20261116b` (outside
+the repo). Owner: "run the module test and repair routine offline then live", "Use opus medium
+anthropic key", "Deep, cap USD 40". One case and route; outputs are candidates until reviewed.
+
+- Offline, `main`: CP-OS tests 1,696 passed; React 129; library 245 (1 skipped, screenshot);
+  `web` gates exit 0 (171 files, 3,663 tests); `tools/quality_gate.py` 0 findings. The connected
+  browser proof **failed** in Chrome and Edge: PR #40 made the analyst's name required and the proof
+  never types it. CLI dry launch of the same Deep run: 20 modules, cap USD 40, exit 0, no provider.
+- Repaired (each with a test first and a task review, verdict pass):
+  1. Uploaded names over 80 characters lost their extension (`safe_name` cut), so the TDG annual
+     report PDF (84 characters) was stored without `.pdf` and silently ignored by the launcher; two
+     long names agreeing for 80 characters overwrote each other. Now the last part keeps its suffix
+     and gains 8 hex of its SHA-256 (`run_start/submissions.py`); the launcher then read all five
+     files. 2. The proof types "Your name"; proof 2 of 2 passed. 3. Issuer ID `pattern` was invalid
+     under the `v` flag (console error, native check skipped). 4. CP-DR's web page text ran table
+     cells together (`Sep 30, 20241,398.32`); cells are now separated by ` | `. 5. Owner: "Use public
+     source like yahoo finance for cp-dr": `finance.yahoo.com` added to the lookup allowlist (ruling
+     amendment in `2026-11-13-cpdr-web-lookup.md`); a real fetch through `WebLookup` retained three
+     Yahoo pages as undated and refused `news.yahoo.com`. Gates after: 321 + 238 targeted tests
+     passed, `web` typecheck, lint, StartRun tests (663) and proof exit 0, quality gate 0 findings.
+- Live run: 18 of 20 modules accepted, then **stopped at the cap** before CP-5 (USD 35.62 settled;
+  the next call's hold would pass USD 40). No module failed; 11 drafts were sent back once and
+  corrected on the next write (page locators in prose, figures not backed by tables, unit-less
+  figures, chart-data wording). Handoff chain: every request's upstream hash equals that module's
+  accepted response (0 mismatches). Method-script checks: none sent back on any accepted handoff
+  (for example CP-4 46 agreed, CP-1B 32, CP-1D 12, CP-1 7). Run activity drew the run as Capped,
+  18 of 20, Evidence validation Interrupted, Committee decision and Report Not run; no report was
+  published, so the library and report views were not checked on live output.
+- Market test data: the owner's Bloomberg aerospace loan sheet transcribed (five TransDigm tranches,
+  nine peers, four index rows; 147 figures, each found in the OCR text) and **re-dated from
+  2026-06-27 to 2024-09-30 at the owner's instruction** ("This is a test just updated the figures to
+  make it run"); typed quotes for term loans J–N, ratings Moody's Ba3, S&P BB- (facility).
+- Module-output run (ruling `2026-11-16-tdg-subset-copilot-sol.md`, temp folder
+  `/Users/ericguei/cos-live/tdg-subset-sol`, scratch driver): 13 Opus answers reused, CP-2H, CP-3D,
+  CP-3C, CP-4C, CP-3, CP-5, CP-6 on `copilot-sol-medium`: **7 of 7 accepted, USD 4.51**, 104 handoff
+  pins 0 mismatches, answer key 13 of 15 (the two misses are sound choices: CP-3 used the Ba and
+  Ba/B indices, −4 and −169 bp, correct; CP-3C declined the quotes after CP-3D's block). GPT Sol on
+  OpenAI was refused (no credits, USD 0).
+- Fixes, ranked (owner, 2026-11-16: modules that need the RV Book will have it at deployment):
+  1. High. **CP-4 acceptance must enforce its source gate.** CP-4 concluded covenant capacity and
+     compliance (5.50x against 7.25x) from the 10-K's summary with no executed agreement, though its
+     method says "Blocked: No executed governing document. STOP" and the launcher forecast "Will
+     refuse"; CP-OS accepted it. **Done: #45, merged `d64bdf81`** (refused unless Blocked when no
+     agreement is declared; CP-3 then writes Capital structure; CP-4 told its gate; review pass after
+     one fix round). Open: rerun CP-4 with the agreements in `~/cos-live/tdg-agreements`.
+  2. High, owner's call. **Opus medium does not finish Full or Deep under its cap** (Full's twelve
+     modules before CP-5 cost USD 25.91 against 25; Deep needs about 43 against 40), so an ordinary
+     run stops with no report. **Owner: "Default Full and Deep to GPT Sol"**: the start page already
+     does (2026-11-12 amendment); OpenAI has no credits, so the default cannot run until topped up.
+  3. Medium. **A wrong prose figure passed every check**: CP-1D says compensation lifts leverage
+     "about 0.39x"; its own formula gives 22,967/3,871 − 22,967/4,088 = 0.315x (CP-5 caught it as
+     minor). **Done: #47, merged `4f8a375a`**: a note in a table cell backed it; such a note now
+     holds only a restatement of its cell's value (review pass).
+  4. Medium. **Late requests are too large for Copilot**: first prompts CP-5 about 252,000 tokens
+     (plus 32,000 output, over the 272,000 limit), CP-6 224,000, CP-3 209,000; Copilot summarised all
+     three. No figure was lost this time (every CP-5 and CP-6 figure traces upstream). Smaller inputs
+     to CP-3, CP-5, CP-6 also remove fix 5's cause and cut Opus cost (fix 2).
+  5. Medium. **Summaries Copilot does not bill are invisible to the cap** (CP-3, CP-6): hold an
+     allowance per summary, or stop it happening (fix 4).
+  6. Medium, deployment setting. **Set `DEPLOY_WORKFLOW_SEC_USER_AGENT`**: without it CP-1C found no
+     peers and CP-DR's SEC lookups were refused; the launcher readiness could say so.
+  7. Check at deployment. Only CP-3's instructions say the Sector RV Book is current; CP-3D requires
+     dated quotes and blocked on the re-dated sheet. If RV Book rows carry no quote date, CP-3D,
+     CP-3C and CP-2H may block while CP-3 proceeds; then give them CP-3's policy.
+  8. Low, one batch after the final phase: GPT Sol writes calculator results at 37 decimals in tables
+     (34 lines in CP-3C, CP-5, CP-6; Opus none); a `.pdf.` name loses its suffix; `# Market quotes
+     as of` is not read as a quotes file; `_row_has_cell` is not reset at `table`; the review sheet
+     shows codes and "Will refuse wording open until A-live."; favicon 404.
+- No fix needed: CP-3D and CP-3C market inference, CP-3's comparisons and CP-2H's facility ratings
+  get the RV Book at deployment (CP-3 already worked fully on the test sheet). Leverage 6.02x and
+  5.50x are two labelled bases, not a conflict: CP-1 states both (reported EBITDA, and EBITDA As
+  Defined, the revolver test's measure) and the gap; this corrects the earlier note. CP-4C Not
+  Applicable is right (no distress trigger). The library leaves out runs with reused answers by design.
+- Not verified: library and report views on live output; CP-3D on dated RV Book quotes; Yahoo and
+  the cell separator live; Copilot's billing of summaries; other issuers; Windows; the full suite.
+
 ## 2026-11-16 — Teams cards carry the design as inline images (branch `claude/zealous-keller-yvc5mb`)
 
 Scope: presentation of the four Teams cards only (`inbox/teams.py` card parts, `inbox/teams_brand.py`, new `tools/teams_brand_images.mjs`); no change to when or what is posted.
@@ -915,52 +997,3 @@ Scope: presentation only, all under `web/`; no backend, handoff, provider or mod
   OpenRouter credential did not supply the direct Anthropic key it requires, and
   the available sample pack lacks the evidence for a complete analytical report.
   See [React workflow](docs/react-workflow.md).
-
-## 2026-11-15 — Restructure, second part: removals, method provenance, CP-3C and CP-6A, review (branch `claude/busy-dijkstra-bgex9m`, PR #126)
-
-Scope is **offline only**. No provider or model was called. No model has written a CP-3C or CP-6A
-handoff for the full credit assessment under the new instructions: that needs the owner's paid run.
-This entry follows the one below and its checks supersede that entry's totals.
-
-- Removed, code that no used entry point, journal registry, rule list or test reaches (5,181 lines,
-  no test removed): the Deploy VII earnings owner runtime (`earnings_workflow.py` 4,604 to 689
-  lines; `compose_delta` and what it reaches stay for CP-1B), `owner_workflow`'s JSON-lines
-  transport and `python -m` entry, CP-OS's `navigation`/`verify_navigation`, and 85 uncalled reader
-  and compute definitions in 16 module files. Checked independently: no kept top-level definition
-  changed (AST, docstrings aside), no removed name is referenced, no undefined name in `src`,
-  `apps` or `tools`. Launcher offline preparation, 10 runs over 7 pathways on synthetic input:
-  identical before and after each stage. Kept for the owner's decision: the `OwnerWorkflow` journal
-  chain (`model_testing`, `run_pathway`, `model.loop`), which a 2026-11-13 ruling and `tests/model`
-  still rely on.
-- Method provenance: `manifest.json` gives `source_revision` with its basis for 15 more files; 19
-  files say "not recorded at import; bytes pinned by sha256" (cp-os was not reachable; two of them
-  had been attributed to cp-os `b57a344` wrongly); a `project_files` list registers the three
-  project method files; three unregistered CP-3B duplicates removed after a byte comparison. No
-  method file's sha256 changed. `tests/test_methodology_selection.py` has no known differences left.
-- Full credit assessment (ruling `docs/rulings/2026-11-15-full-assessment-cp3c-cp6a.md`):
-  `credit_snapshot` adds CP-2D and CP-3C. CP-6's scope section no longer cuts T6E.4, T6E.6, T6E.7
-  and T6E.11 (project file, sha256 `617c887c18dd`); CP-6's instructions gain `CP6A_BLOCK` on both
-  pathways that run CP-6; `posture_issues` refuses a non-blocked CP-6 handoff without
-  `### Portfolio posture` and the method's `Final Sizing Posture:` first sentence. Launcher prepared
-  offline for the 7 active pathways before and after: only `credit_snapshot` (two new modules, CP-6)
-  and `portfolio_decision` (CP-6) differ. Fidelity check, synthetic fixture only: default library
-  build identical apart from `built_at` and the workspace path; with two hand-made SYNTHETIC
-  handoffs, `tests/test_library_full_assessment_browser.py` checks CP-6's and CP-3C's pages against
-  the Markdown. Prompt-size ceiling for the pathway raised to 1,483,647 characters (the owner's
-  1,340,000 plus the measured addition): for the owner to confirm. Cost is estimated, not measured.
-- Review: eight reviewers, one per slice, no high-severity finding. Fixed: Signal imports without
-  `credit_os` and names missing brand files at start-up; three permission skips no longer call
-  `os.geteuid` where it is absent (Windows); a failed pack prune no longer blocks the pack commit;
-  the bundle test starts a Python on the bundle's two import roots and finds the library and engine
-  inside it (Linux; not the Windows package). Gate: lines moved verbatim count as moved only in a
-  file the change adds, and code that only moved is still checked with ruff's `F` rules.
-- Open after review: delivery's call item reads a section named `Final Sizing Posture`, not the new
-  `### Portfolio posture` (the library page shows it; settle after a paid run); `posture_issues`
-  checks the first sentence only; no test pins that `OwnerWorkflow.open` refuses a retained
-  JSON-lines run; no test runs `compose_delta`.
-- Checks on the final head: the CI fast list 4,631 passed, 6 skipped, known failures deselected;
-  node page tests 567 passed; quality gate 0 findings; `lint-imports` 3 contracts kept. GitHub Actions,
-  full weekly suite on `7cba8c6` (before the removals): 5,956 passed, 1 failed, a test that read
-  one packet of a two-write reply; the test now reads to the close.
-- Not verified: the full weekly suite on the final head (re-run requested); `Smoke-test.ps1` and
-  the Windows package on Windows; the pack workflow on GitHub Actions. Oldest two entries trimmed.

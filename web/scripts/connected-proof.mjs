@@ -153,6 +153,7 @@ async function checkMobileDocuments(page, channel, paidPreview) {
 async function uploadRunDocuments(page) {
   await page.getByLabel("Issuer name", { exact: true }).fill("Northbridge Synthetic Group");
   await page.getByLabel("As-of date", { exact: true }).fill("2025-03-31");
+  await page.getByLabel("Your name", { exact: true }).fill("Proof T");
   const files = [
     ["northbridge-filing.txt", "text/plain"],
     [

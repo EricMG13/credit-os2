@@ -68,9 +68,19 @@ and awaits the owner's review.
 | fitchratings.com | Rating agency |
 | dbrs.morningstar.com | Rating agency |
 | kbra.com | Rating agency |
+| finance.yahoo.com | Market data |
 
 Removed after security review: `ise.ie` (current ownership of the legacy domain is not confirmed)
 and `nasdaq.com` (its news pages syndicate third-party contributor articles).
+
+Amendment 2026-11-16 (owner): "Use public source like yahoo finance for cp-dr. We want information
+on all modules". `finance.yahoo.com` is added, category Market data. `yahoo.com` and its other
+subdomains are not added. A Yahoo page is cited with Source type `Other` and a limitation under
+`## Gaps`, because it is an aggregator, not the original source. Its pages state no date, so the
+lookup marks them undated. Its price-history rows carry their own dates, while its statistics pages
+show current figures, which a case with an earlier research cutoff must not use. Its news pages
+syndicate third-party articles, the reason `nasdaq.com` was removed, so a figure from a Yahoo news
+page is not used without the original publisher.
 
 Points for the owner when reviewing:
 
