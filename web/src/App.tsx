@@ -73,7 +73,7 @@ function bareHome(route: string, table: RouteTable): string | null {
 function Page({ result, table, route }: { result: LoadResult; table: RouteTable; route: string }) {
   const home = bareHome(route, table);
   const matched = matchRoute(home ?? route, table.routes);
-  if (home !== null && matched !== null && result.kind !== "ok") {
+  if (matched !== null && result.kind !== "ok") {
     return (
       <Shell current={areaOf(matched.route.path)}>
         <PageHeader title={matched.route.title} />
@@ -116,7 +116,7 @@ function Page({ result, table, route }: { result: LoadResult; table: RouteTable;
       </Shell>
     );
   }
-  if (route === "/kit") {
+  if (route.replace(/\/$/, "") === "/kit") {
     return (
       <Shell current="kit">
         <DesignReference />
@@ -124,7 +124,7 @@ function Page({ result, table, route }: { result: LoadResult; table: RouteTable;
       </Shell>
     );
   }
-  if (matched !== null || route === "" || route === "/") {
+  if (route === "" || route === "/") {
     return (
       <Shell current="library">
         <Library result={result} />
@@ -132,9 +132,12 @@ function Page({ result, table, route }: { result: LoadResult; table: RouteTable;
     );
   }
   return (
-    <Shell current="library">
+    <Shell current={null}>
       <PageHeader title="Page not found" />
       <p className="mt-6 text-text-secondary">No page has this address</p>
+      <a href="#/" className="mt-4 inline-block text-text-secondary underline">
+        Back to the library
+      </a>
     </Shell>
   );
 }
@@ -153,9 +156,9 @@ function pageTitle(result: LoadResult, table: RouteTable, route: string): string
   if (matched !== null && result.kind === "ok") {
     return words(matched.route.title, matched.route.subject?.(matched.params, result.data));
   }
-  if (matched !== null && home !== null) return words(matched.route.title);
-  if (route === "/kit") return words("Component kit");
-  if (matched !== null || route === "" || route === "/") return words("Library");
+  if (matched !== null) return words(matched.route.title);
+  if (route.replace(/\/$/, "") === "/kit") return words("Component kit");
+  if (route === "" || route === "/") return words("Library");
   return words("Page not found");
 }
 
