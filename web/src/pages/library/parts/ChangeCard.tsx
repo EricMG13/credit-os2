@@ -34,13 +34,20 @@ function Direction({ change }: { change: Change }) {
  * measure, its value with the earlier value beside it, then cause and effect. The mark is the
  * delivered one, never worked out from the figures.
  */
-export function ChangeCard({ change, source }: { change: Change; source?: ReactNode }) {
+export function ChangeCard(props: { change: Change; source?: ReactNode }) {
+  const { change, source } = props;
+  // A supplied source slot belongs to its caller, including an explicitly empty slot.
+  const control = Object.hasOwn(props, "source") ? (
+    source
+  ) : (
+    <TraceControl trace={change.trace} label="Show sources for this change" />
+  );
   return (
     <li
       className={`${TRACE_HOST} flex min-w-0 flex-col gap-4 rounded-lg border border-border-hairline bg-surface-card p-6`}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <span className={(source ?? true) ? "ml-9" : undefined}>
+        <span className={control ? "ml-9" : undefined}>
           <Badge size="sm">{change.kind}</Badge>
         </span>
         <Direction change={change} />
@@ -57,9 +64,7 @@ export function ChangeCard({ change, source }: { change: Change; source?: ReactN
       <p className="border-t border-border-hairline pt-3 text-small text-text-secondary">
         <span className="font-semibold text-text-primary">{change.cause}</span> {change.effect}
       </p>
-      <span className="absolute top-5 left-5">
-        {source ?? <TraceControl trace={change.trace} label="Show sources for this change" />}
-      </span>
+      <span className="absolute top-5 left-5">{control}</span>
     </li>
   );
 }

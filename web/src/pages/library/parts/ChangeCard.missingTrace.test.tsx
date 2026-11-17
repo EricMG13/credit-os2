@@ -53,3 +53,16 @@ it("preserves an explicit empty source slot used by connected comparison rows", 
   expect(screen.queryByRole("button")).toBeNull();
   expect(screen.getByText("4.6x")).toBeVisible();
 });
+
+it.each([null, undefined])(
+  "preserves a supplied %s source slot outside the static RunFrame",
+  (source) => {
+    render(
+      <ul>
+        <ChangeCard change={change} source={source} />
+      </ul>,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.getByText("4.6x")).toBeVisible();
+  },
+);
