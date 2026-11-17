@@ -76,7 +76,8 @@ file, `STATUS.md` beside it, and the branches below. Everything is pushed.
     `docs/design/component-map.md:353` says "ten shapes" (now eleven).
 12. Align chunk a's `visuals/index.tsx` chart-gap reasons with ruling L16 (hold back a reason that cites a page; draw the gap's status word or the standard missing form beside "See Evidence.").
 13. At 481 to 1,000 px (a desktop window at half a screen) the module navigator comes first with no picker (T37's review): Low, outside R14's 480 px line.
-14. Teams items (R1-009 and the Teams card checks) go to the work-PC prompt, not to a cloud change
+14. For the sweep (OQ-04 after T21): react_frontend/sources.py still serves /connected/sources/<run>/<sha>/<name>, which nothing links any more (decision 9: listed only, not viewable); ReportContent.tsx still fills Trace.sourceLinks through sourceFileLinks, which nothing draws (reportView.test.ts:369 asserts it). Remove both in stage 6 as dead code, with the route's tests.
+15. Teams items (R1-009 and the Teams card checks) go to the work-PC prompt, not to a cloud change
     (R15).
 
 ## Register tools
