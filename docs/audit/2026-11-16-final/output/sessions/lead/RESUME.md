@@ -49,7 +49,7 @@ file, `STATUS.md` beside it, and the branches below. Everything is pushed.
 
 ## Repair pull requests
 
-- #56 (repair-3, group 3): read by the lead at 12:50Z. All 126 changed files are group 3's own, their tests, or files a lead ruling cleared (L5, L7, L8, L9, L9b). Each task has a report and every review verdict is PASS; T34.md and T40.md lack a closing "Not verified:" line (minor). Waiting only for CI "fast tests and page logic"; merge it into audit/final-repairs when green (the lead subscribed to the PR).
+- #56 (repair-3, group 3): read by the lead at 12:50Z. All 126 changed files are group 3's own, their tests, or files a lead ruling cleared (L5, L7, L8, L9, L9b). Each task has a report and every review verdict is PASS; T34.md and T40.md lack a closing "Not verified:" line (minor). CI green; merged into audit/final-repairs at 12:50Z as 3010c9c.
 
 ## Lead follow-up list (step 7 extras)
 
