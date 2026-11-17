@@ -44,7 +44,7 @@ file, `STATUS.md` beside it, and the branches below. Everything is pushed.
 ## Started at 12:45Z (each pushes as it goes; check before redoing)
 
 - A. Fidelity handoff side: `output/5-repair/fidelity/compare.mjs`, `compare-before.json` and `.md` on `audit/final-coordination`.
-- B. Stage 7 prep: `output/7-send-off/requirements-draft.md` and `unverified-draft.md` on branch `audit/lead-sendoff`.
+- B. Stage 7 prep: done. `output/7-send-off/requirements-draft.md` (54 rows) and `unverified-draft.md` (K1 to K35) on branch `audit/lead-sendoff` (7085234); the generator is `output/4-register/lead-tools/requirements_table.py`. To settle in stage 7: (1) the prompt must say which download it is for: the release ZIP from tools/package_react_windows.py holds none of AGENTS.md, tests/, tools/ or docs/; (2) the draft's "If Playwright cannot download its browsers" is wrong: npm ci downloads none, the proof uses installed Chrome and Edge by channel; (3) give the prompt a rule for the Teams items (R15: implemented on the work PC; K26 the owner sets both variables, never the agent; K30 and K31 are code and text changes); (4) re-check K2 (ZIP contents), K30 (T02 in the final commit), K31 (StartRun.tsx help text) and K23-K24 after the sweep. Also: hatchling and four build-time packages are outside uv.lock; .python-version pins 3.13.15 while pyproject accepts 3.13.x.
 - C. Chunk b2 on `audit/lead-batch-b`: component-map.md eleven shapes, C4-011 (ComparisonChart wrap), the fixture's Finished cards with no report, RV-4 (Full-run cap bars USD 25) and the slice-start.ts comment. It needs a review before the merge.
 
 ## Repair pull requests
