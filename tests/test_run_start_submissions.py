@@ -1915,3 +1915,112 @@ def test_reading_the_documents_keeps_a_draft_live(layout, monkeypatch):
     reading(layout, sid)
     with pytest.raises(Refused, match="too many unfinished submissions"):
         new(layout)
+
+
+def test_reading_cannot_lose_its_draft_between_lookup_and_refresh(layout, monkeypatch):
+    monkeypatch.setattr(submissions, "MAX_OPEN", 1)
+    sid = new(layout)
+    put(layout, sid, "a.txt")
+    _age(layout, sid, 3 * 3600)
+    touching, resume, ceiling_attempted, ceiling_done = (threading.Event() for _ in range(4))
+    lock = threading.Lock()
+    ceiling_waited: list[bool] = []
+    outcomes: dict[str, object] = {}
+    original_touch = submissions._touch
+
+    class ObservedLock:
+        def __enter__(self):
+            if threading.current_thread().name == "make-room":
+                acquired = lock.acquire(blocking=False)
+                ceiling_waited.append(not acquired)
+                ceiling_attempted.set()
+                if not acquired:
+                    lock.acquire()
+            else:
+                lock.acquire()
+
+        def __exit__(self, *args):
+            lock.release()
+
+    def paused_touch(folder):
+        touching.set()
+        assert resume.wait(5), "the test did not release the document reader"
+        original_touch(folder)
+
+    def read():
+        try:
+            outcomes["reading"] = reading(layout, sid)
+        except (Refused, OSError) as error:
+            outcomes["reading"] = error
+
+    def make_room():
+        try:
+            outcomes["new"] = new(layout)
+        except Refused as error:
+            outcomes["new"] = str(error)
+        finally:
+            ceiling_done.set()
+
+    monkeypatch.setattr(submissions, "_LOCK", ObservedLock())
+    monkeypatch.setattr(submissions, "_touch", paused_touch)
+    reader = threading.Thread(target=read, daemon=True)
+    creator = threading.Thread(target=make_room, name="make-room", daemon=True)
+    reader.start()
+    try:
+        assert touching.wait(5)
+        creator.start()
+        assert ceiling_attempted.wait(5)
+        if not ceiling_waited[0]:
+            assert ceiling_done.wait(5)
+    finally:
+        resume.set()
+        reader.join(5)
+        if creator.ident is not None:
+            creator.join(5)
+    assert not reader.is_alive() and not creator.is_alive()
+    assert outcomes["reading"]["error"] == ""
+    assert outcomes["reading"]["ignored"] == []
+    assert [item["source"] for item in outcomes["reading"]["documents"]] == ["a.txt"]
+    assert str(outcomes["new"]).startswith("too many unfinished submissions")
+    assert (layout.uploads / sid / "files" / "a.txt").read_bytes() == b"abc"
+
+
+def test_reading_reports_and_logs_a_failed_liveness_refresh(layout, monkeypatch, caplog):
+    sid = new(layout)
+
+    def failed_touch(folder):
+        raise OSError("controlled touch failure")
+
+    monkeypatch.setattr(submissions, "_touch", failed_touch)
+    with caplog.at_level(logging.WARNING), pytest.raises(Refused, match="could not be kept active"):
+        reading(layout, sid)
+    assert "controlled touch failure" in caplog.text
+    assert "could not refresh submission" in caplog.text
+
+
+def test_the_idle_ceiling_stays_at_two_hours_and_removes_only_the_oldest(layout, monkeypatch):
+    monkeypatch.setattr(submissions, "MAX_OPEN", 3)
+    youngest, middle, oldest = new(layout), new(layout), new(layout)
+    now = time.time()
+    monkeypatch.setattr(submissions.time, "time", lambda: now)
+    for sid, seconds in ((youngest, 7200), (middle, 9000), (oldest, 10800)):
+        os.utime(layout.uploads / sid, (now - seconds, now - seconds))
+    added = new(layout)
+    assert submissions.IDLE_SECONDS == 7200
+    assert not (layout.uploads / oldest).exists()
+    assert all((layout.uploads / sid).is_dir() for sid in (youngest, middle, added))
+    assert len(submissions._open_folders(layout)) == 3
+
+
+def test_idle_eviction_starts_at_exactly_two_hours(layout, monkeypatch):
+    monkeypatch.setattr(submissions, "MAX_OPEN", 1)
+    sid = new(layout)
+    now = time.time()
+    monkeypatch.setattr(submissions.time, "time", lambda: now)
+    os.utime(layout.uploads / sid, (now - 7199, now - 7199))
+    with pytest.raises(Refused, match="too many unfinished submissions"):
+        new(layout)
+    os.utime(layout.uploads / sid, (now - 7200, now - 7200))
+    added = new(layout)
+    assert not (layout.uploads / sid).exists()
+    assert (layout.uploads / added).is_dir()

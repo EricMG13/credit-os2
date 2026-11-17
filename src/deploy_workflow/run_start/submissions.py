@@ -7,7 +7,6 @@ a path outside the submission's own ``files`` folder. A refusal leaves no file b
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import io
 import json
@@ -618,9 +617,13 @@ def carry(layout: Layout, sid: str, source: Path) -> dict[str, list[str]]:
 
 def reading(layout: Layout, sid: str) -> dict[str, Any]:
     """What the launcher makes of each uploaded file; its refusal comes back as ``error``."""
-    root = files_folder(layout, sid)
-    with contextlib.suppress(OSError):
-        _touch(root.parent)  # a form that is reading its documents is live
+    with _LOCK:
+        root = files_folder(layout, sid)
+        try:
+            _touch(root.parent)  # lookup and refresh must precede any idle-eviction decision
+        except OSError as error:
+            log.warning("could not refresh submission %s (%s)", sid, error)
+            raise Refused("the submission could not be kept active; try again") from error
     try:
         _stored(root, strict=True)
         got = read_documents(root)
