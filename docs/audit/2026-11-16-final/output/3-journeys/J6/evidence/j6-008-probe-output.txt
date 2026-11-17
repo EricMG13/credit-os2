@@ -1,0 +1,8 @@
+{
+ "libraryList": "ents Finished As of 30 Sep 2026 Full review 12 of 13 modules n.a. not available 4.6x adj. Company-adjusted EBITDA, year to 30 Sep 2026 2.4x adj. Company-adjusted EBITDA,",
+ "overviewHeadline": "ted basis Net leverage 4.6x Net debt ",
+ "overviewSupportsCard": "4.6x Net leverage fell4.6x Net leverage fell from 4.9x a year earlier as EBITDA grew faster than debt. Reported 61% Aftermarket share of gross profit; i",
+ "overviewLimitation": "his run. Peer figures for two companies are on a reported basis while Halden is company-adjusted; the comparison overstates Halden by an amount the module could not s"
+}
+blocked requests: []
+DEFECT REPRODUCED: one figure carries "Reported" and "adj." on two screens

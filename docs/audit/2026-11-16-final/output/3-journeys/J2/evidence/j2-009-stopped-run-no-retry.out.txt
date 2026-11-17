@@ -1,0 +1,10 @@
+run 20261117-083246-01 ended: Failed
+header: Run activity |  / Northbridge Synthetic Group | Northbridge Synthetic Group | Failed | Lite credit assessment | Synthetic test | As of 2025-03-31 | Start from this run | launcher exited 2; see logs/20261117-083246-01.log | Cap usage | USD 0.00 | USD 0.00 of USD 15.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown
+links: [" -> /"," -> /runs","Run activity -> /runs","Start from this run -> /start?from=20261117-083246-01"]
+buttons: []
+any retry / resume / try again / restart wording on the page: false
+reason on screen: "launcher exited 2; see logs/20261117-083246-01.log"; GET /logs/20261117-083246-01.log -> 404
+activity feed (newest first): Activity | Running | Run | 08:32:46 UTC | Run started. | Queued | Ana L | 08:32:46 UTC
+REPRODUCED (J2-009): Failed run; the only way on is 'Start from this run'; no retry or resume wording; the reason points to a log the browser cannot open.
+REPRODUCED (J2-010): the newest activity entries read 'Running / Run started'; nothing in the feed says the run stopped.
+blocked requests: 0; page errors: 0

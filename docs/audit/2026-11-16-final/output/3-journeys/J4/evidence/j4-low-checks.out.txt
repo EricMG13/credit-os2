@@ -1,0 +1,11 @@
+  008 rating card: {"title":"as of 2025-02-28","tabindex":null,"focusable":false}; date visible in the page text: false
+  009 Forecast page prose names module codes ["CP-1","CP-2G"] and says "Python": true
+  010 duplicated trace-control names: Overview ["Show sources for this passage x2"]; Forecast ["Show sources for Cash proxy by scenario x3"]; Financial foundation ["Show sources for FY2024 x2"]
+  011 Script checks tab badge 215; not checked 205, agreed 9, noted 1
+  013 names by screen: {"Overview tiles":["Net leverage","Gross leverage","Interest coverage"],"Financial foundation charts":["Total debt / EBITDA","Net debt / EBITDA","Interest cover"],"Forecast rows":["Total leverage (debt / Adj EBITDA)","Net leverage (net debt / Adj EBITDA)","Interest coverage (Adj EBITDA / interest)"],"Legal & covenants":["Net leverage","Interest cover"],"Downside":["Net leverage (x)","All-in cover (x)"]}
+  014 Overview order (13): Source readiness > Financial foundation > Business & governance > Research questions > Legal & covenants > Fundamental credit > Downside > Rates, FX & hedging > Liquidity > Forward credit model > Refinancing & LME > Security selection > Evidence validation
+  014 Modules navigator order (14): Source readiness > Financial foundation > Business & governance > Fundamental credit > Downside > Liquidity > Rates, FX & hedging > Forward credit model > Security selection > Refinancing & LME > Legal & covenants > Evidence validation > Committee decision > Research questions
+  014 Evidence filter order (14): Source readiness > Financial foundation > Business & governance > Fundamental credit > Downside > Liquidity > Rates, FX & hedging > Forward credit model > Security selection > Refinancing & LME > Legal & covenants > Evidence validation > Committee decision > Research questions
+  reproduced: 008 true, 009 true, 010 true, 011 true, 013 true, 014 true
+REPRODUCED plow
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

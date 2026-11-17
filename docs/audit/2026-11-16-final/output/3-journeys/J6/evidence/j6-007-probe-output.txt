@@ -1,0 +1,4 @@
+{"tabText":"Forecast No forecast for this run","moduleRow":"Forecast Base case reaches 4.1x by September 2027; downside stays at 4.","moduleRowMarkedDelivered":true}
+Forecast module page opens:  Rating outlook Environmental, social and governance Forecast Credit snapshot Forecast Delivered Bottom line Leverage falls to about 4.0x by the end of 2027 on the base case. The base case assumes the engine ramp holds and the aftermarket grows with traffic. Key finding
+blocked requests: []
+DEFECT REPRODUCED: "No forecast for this run" beside a delivered Forecast module

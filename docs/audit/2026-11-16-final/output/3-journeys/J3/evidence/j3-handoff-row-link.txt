@@ -1,0 +1,7 @@
+Evidence > Summary > Handoffs (1440 px). Anchors and buttons inside the list, read from the page:
+A  "Download all handoffs"          /library/downloads/<run>/handoffs.zip
+A  "Download Source readiness"      /library/downloads/<run>/CP-0.md
+...
+A  "Forward credit model"           /report/<run>#evidence/<run>%2Fdeliveries%2F...%2FCP-2G.md~31b71b2e...   <- a link; no other module name in the list is one
+A  "Download Forward credit model"  /library/downloads/<run>/CP-2G.md
+Every other row's module name is plain text.

@@ -1,0 +1,9 @@
+  interest cover: Overview tile 4.00x; Key findings claim 3.1x; Legal & covenants current 2.6x; Downside control all-in cover 3.10x
+  net leverage: Overview tile 2.25x (FY2024); Legal & covenants current 4.2x; Downside control 1.25x; Forecast FY2025E 1.23x
+  Financial foundation Debt stack (table view): "Debt stack Chart Table Debt stack Facility Ranking Secured Amount Cumulative leverage Reporting unit Source Senior secured term loan 1 Yes 1,200 2.4 US$m Senior notes 2 No 800 4.0 US$m "; Net debt data FY2024 gross debt 1400 -> 2.80x
+  USD 1,250m maturity: Financial foundation Debt maturities [FY2026=500, FY2027=Not supplied: the schedule stops here, FY2028=1,250]; Refinancing & LME Refinancing need [FY2026=500, FY2027=1,250]
+  Source readiness says "Only the synthetic filing is available": true, "Financing terms are absent": true; the run holds ["northbridge-credit-agreement.txt","northbridge-filing.txt","northbridge-portfolio.xlsx"] (agreement chosen as executed)
+  drawer for the 3.1x claim: Key findings Committee decision · Handoff line 32 The statement The synthetic issuer's cover is thin at 3.1x. How it was derived Evidence retained with this item Basis annual.txt, page 2 annual.txt p.2 · not in inventory the Basis file is not in the CP-0 inven
+  cover values differ: true; net leverage values differ: true; 1,250 maturity in different years: true
+REPRODUCED p002
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

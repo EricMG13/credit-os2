@@ -1,0 +1,35 @@
+FACT: library empty text = Sector | All | Pathway | All | Cards | List | No reports yet
+FACT: rail links (aria-label, title, visible text) = [["Library",null,""],["Run",null,""]]
+FACT: title / = Credit OS
+FACT: title /start = Credit OS
+FACT: title /runs = Credit OS
+FACT: as-of date on a fresh /start page, before typing = 2026-11-17
+FACT: purpose step has two things called purpose = {"stepCard":true,"runPurposeSelect":true}
+FACT: after Review run with no name: headings = ["Documents","Readiness"]
+FACT: stepper after the bounce = 1 | Documents | Add files | Current step | 2 | Purpose | Choose one | Not started | 3 | More context | Optional | Not started | 4 | Review and start | Paid step | Not started
+FACT: review A: documents read = ["northbridge-filing.txt · unrecognised","northbridge-portfolio.xlsx · unrecognised"]
+FACT: review A: portfolio workbook row = Portfolio workbook
+Among the documents
+FACT: review A: odd wording = ["Fixed below the Advanced form level."]
+FACT: after Cancel: dialog open / focus = [0,"Submit run"]
+FACT: run A = Run activity |  / Northbridge Synthetic Group | Northbridge Synthetic Group | Failed | Full credit assessment | Synthetic test | As of 2025-03-31 | Start from this run | stopped: checker | 
+FACT: title run page = Credit OS
+FACT: from-run: as-of value, name value = ["2026-11-17",""]
+FACT: from-run: text = Starting from run 20261117-074655-01. Review the copied answers, add dates, and inspect its available documents. / No documents yet.
+FACT: from-run: portfolio workbook carried = 
+FACT: review B: workbook check text = A portfolio workbook or the fund's portfolio export is among the documents but is not chosen as the portfolio workbook; the modules are told it is there and how its checks came out. Found: northbridge-portfolio.xlsx.
+
+FACT: review B: workbook row and documents = ["Portfolio workbook\nNot given","workbook listed unrecognised"]
+FACT: review B: sections that contain the words "Issuer and dates" = 0
+FACT: review B: step names = ["Add files","Choose one","Optional","Review and start"]
+FACT: run B = Run activity |  / Northbridge Synthetic Group | Northbridge Synthetic Group | Finished | Full credit assessment | Synthetic test | As of 2025-03-31 | Open report | Start from this run | 
+FACT: run page module order = ["Source readiness","Financial foundation","Business & governance","Research questions","Legal & covenants","Fundamental credit","Downside","Rates, FX & hedging","Liquidity","Forward credit model","Refinancing & LME","Security selection","Evidence validation","Committee decision"]
+FACT: run page date format = ["As of 2025-03-31","Finished at 07:47:12 UTC"]
+FACT: report title = Overview — Northbridge Synthetic Group — Credit OS
+FACT: report header date format = As of 31 March 2025
+FACT: overview "Bottom line by module" lists = 13
+FACT: modules nav badge = Modules 14
+FACT: modules page navigator order = ["Source readiness","Financial foundation","Business & governance","Fundamental credit","Downside","Liquidity","Rates, FX & hedging","Forward credit model","Security selection","Refinancing & LME","Legal & covenants","Evidence validation","Committee decision","Research questions"]
+FACT: library card date format = ["Full credit assessment · 2025-03-31"]
+FACT: run activity = Run activity | Updated 17 Nov 2026, 07:47 UTC | Running | 0 | Waiting | 0 | Ended | 1 | Start a run | Ended without a report | Issuer | 	 | Pathway | 	 | State | 	 | Ended | 	 | Reason | Northbridge Synthetic Group | 	Full credit assessment	 | Failed | 	17 Nov 2026, 07:46 UTC	stopped: checker	
+FACT: run activity rows (links to runs) = 1

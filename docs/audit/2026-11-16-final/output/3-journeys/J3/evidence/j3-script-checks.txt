@@ -1,0 +1,8 @@
+Evidence > Script checks (1440 px). Tab badge "215". Rows: module name, then counts.
+Source readiness 16 not checked; Financial foundation 2 not checked; Business & governance 22 not checked;
+Fundamental credit 1 agreed, 1 noted, 4 not checked; Downside 16 not checked; Liquidity 10 not checked;
+Rates, FX & hedging 7 agreed, 13 not checked; Forward credit model 10 not checked;
+Security selection 1 agreed, 35 not checked; Refinancing & LME 14 not checked; Legal & covenants 32 not checked;
+Evidence validation 17 not checked; Committee decision 8 not checked; Research questions 6 not checked.
+Totals: 9 agreed, 1 noted, 205 not checked = 215. The page has no sentence saying what a script check is
+or what "not checked" means.

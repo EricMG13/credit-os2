@@ -1,0 +1,30 @@
+Limits to decide
+0 of 3 decided
+Gap
+
+Security selection
+
+No quotes and no price talk were entered, and no quotes file is recognised.
+
+Add observed quotes under Observed quotes, or a quotes file.
+
+I accept this limit
+Check
+
+Whole run
+
+No filed financial report is recognised among the files, so financials are management claims, not filed statements.
+
+Add the filed annual or quarterly report.
+
+I have checked this
+Check
+
+Financial foundation
+
+No file is recognised as a financial report, earnings release or offering document with financial pages.
+
+Add the financial report to the documents.
+
+I have checked this
+No action needed (2)

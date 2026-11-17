@@ -1,0 +1,11 @@
+{"pagesFollowed":79,"distinctLinkTargets":78}
+{"route":"Model forecast page","linkedFromAnyPage":false,"targets":[]}
+{"route":"Run start pages (any draft)","linkedFromAnyPage":false,"targets":[]}
+{"route":"Run activity pages other than the one running example","linkedFromAnyPage":false,"targets":[]}
+{"route":"Brevane Marine (in the library data, not on the home page)","linkedFromAnyPage":false,"targets":[]}
+{"route":"Corvane Fasteners (in the library data, not on the home page)","linkedFromAnyPage":false,"targets":[]}
+{"route":"Halden run as of 30 Jun 2026","linkedFromAnyPage":false,"targets":[]}
+{"route":"Run Modules index (without a module)","linkedFromAnyPage":false,"targets":[]}
+links in main on #/run: ["Runs -> #/run"]
+blocked requests: []
+DEFECT REPRODUCED: routes with no link from any page

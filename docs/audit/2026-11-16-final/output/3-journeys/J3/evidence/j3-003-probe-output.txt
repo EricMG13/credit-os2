@@ -1,0 +1,2 @@
+RESULT REPRODUCED: 5 headline figure cards on Overview; trace controls inside them: 0 with the switch off, 0 with it on (switch checked: true); the Leverage chart on Financial foundation has 1.
+R8 blocked requests: 0 

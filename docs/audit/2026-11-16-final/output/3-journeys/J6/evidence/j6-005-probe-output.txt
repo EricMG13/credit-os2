@@ -1,0 +1,4 @@
+{"step":"Library home > Start a run","hash":"#/run","h1":"TransDigm Group","text":"Runs / TransDigm Group TransDigm Group Running Full credit review As of Q3 FY2026 Stop run Not available here: this page shows a saved example and is not connected to the run service. Spend USD 7.40 USD 7.40 of USD 20.00 Modules finished 5 "}
+{"step":"Halden Aerostructures report > New run","hash":"#/run","h1":"TransDigm Group","text":"Runs / TransDigm Group TransDigm Group Running Full credit review As of Q3 FY2026 Stop run Not available here: this page shows a saved example and is not connected to the run service. Spend USD 7.40 USD 7.40 of USD 20.00 Modules finished 5 "}
+blocked requests: []
+DEFECT REPRODUCED: the start buttons open another issuer's saved running run

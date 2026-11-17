@@ -1,0 +1,8 @@
+Captured from the Review and start step of a second run (same issuer name, same as-of date 2025-03-31), before Submit, 1440 px.
+The module list on the sheet ends:
+  ... Refinancing & LME / Security selection / Evidence validation / Committee decision / Changes since the last run
+The Context block reads:
+  Research cutoff 2025-03-31
+  Changes: Compared with the Full credit assessment run as of 2025-03-31
+After Submit the run page reads "Failed" and "launcher exited 2; see logs/<id>.log" (see j3-002-failed-run.png and
+j3-002-probe-output.txt). The launcher log holds: "synthetic proof requires a first Credit Snapshot run" (proof/launcher.py:101).

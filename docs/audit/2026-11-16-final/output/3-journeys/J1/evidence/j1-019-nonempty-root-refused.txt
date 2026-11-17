@@ -1,0 +1,7 @@
+Command (from the repository root) against /tmp/jr/j1 after the journey had created runs in it (_engine, issuers, library.html):
+  PYTHONPATH=src /root/.local/bin/uv run --locked python -m proof.serve --root /tmp/jr/j1 --port 8761
+Output:
+  usage: serve.py [-h] --root ROOT [--web WEB] [--port PORT]
+  serve.py: error: the synthetic proof requires an empty, separate run root
+Exit code: 2
+Source: proof/serve.py:19-20

@@ -1,0 +1,12 @@
+Captured on Overview (1440 px, run of the synthetic Northbridge case).
+Tab bar: "Report | Overview | Changes | Modules 14 | Forecast | Evidence".
+"Bottom line by module" lists 13 modules (each "Delivered"):
+Source readiness, Financial foundation, Business & governance, Research questions, Legal & covenants,
+Fundamental credit, Downside, Rates, FX & hedging, Liquidity, Forward credit model, Refinancing & LME,
+Security selection, Evidence validation.
+(Count it: 13 names; "Committee decision" is not among them.)
+The Modules navigator lists 14: the same 13 plus "Committee decision".
+The band at the top of Overview ("Bottom line: The synthetic issuer shows one observed item.") names no module.
+Its trace drawer reads: "Bottom line | Committee decision · Handoff line 28 | The statement | The synthetic issuer shows one observed item."
+The Key findings card ("The synthetic issuer's cover is thin at 3.1x.") drawer reads "Key findings | Committee decision · Handoff line 32".
+Limitations rows name a module under each sentence, including "Committee decision".

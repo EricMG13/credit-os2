@@ -1,0 +1,5 @@
+  Overview "Dates to watch": "Synthetic note" 2025-03-31 listed 5 times
+  calendar chips: Historical 9, Scheduled 18, Scenario 9 (total 36)
+  handoffs carry 36 event rows, 4 distinct: [["2025-03-31 | Synthetic note | Scheduled — matures",9],["2025-06 | Synthetic call | Historical — noted",9],["2025-Q3 | Synthetic review | Scenario — modelled",9],["2026 | Synthetic maturity | Scheduled — maturity",9]]
+REPRODUCED p006
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

@@ -1,0 +1,8 @@
+a. document.title per screen: {"shipped #/":"Credit OS","shipped #/model":"Credit OS","fixture overview":"Credit OS","fixture evidence":"Credit OS","fixture model":"Credit OS","fixture run":"Credit OS"}
+b. "FY21" in body before Kit / after Kit then Library: {"before":false,"after":{"tag":"SPAN","parent":"BODY","top":-20000,"outsideRoot":true,"ariaHidden":"true","bodyTextTail":"s data file holds no library pages\n\nFY21"}}
+c. shipped empty states: {"Library":{"text":"Library This data file holds no library pages","controlsInMain":0},"Model":{"text":"Financial models No model has been delivered yet","controlsInMain":0},"Run":{"text":"Run activity No run data in this library","controlsInMain":0}}
+d. "Page not found" main text and controls in main: {"text":"Page not found No page has this address","controls":0}
+e. Overview trace-button names (count each): {"Show sources for the bottom line":1,"Show sources for this figure":5,"Show sources for this point":6,"Show sources for this finding":5,"Show sources for the triggers":1,"Show sources for this limitation":4}
+f. search "corvane": cards before, after Back, search box after Back: {"cardsBefore":1,"cardsAfter":5,"searchBox":""}
+g. history row / links naming 2026-06-30 / report header / aria-busy elements after 2.5 s: {"row":"Run as of 30 Jun 2026 Ran 14 Aug 2026 Finished Monitoring update Stable, outlook negative: leverage at 4.9x after the Corvane Fasteners purchase. ","linksToThatRun":[],"header":"Library Halden Aerostructures As of 30 Jun 2026 Full review Finished Show sources Report history New run Overview Changes Modules ","busy":1}
+blocked requests: []

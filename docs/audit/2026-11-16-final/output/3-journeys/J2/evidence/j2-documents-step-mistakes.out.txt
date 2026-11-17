@@ -1,0 +1,31 @@
+
+## J2-006 wrong type alone: setup.exe
+alerts: ["The uploaded documents: no readable issuer file"]
+status: []
+rows: ["setup.exe / Selected / Remove"]
+remove buttons: ["Remove setup.exe"]
+
+## J2-006 wrong types beside a good file: setup.exe, photo.png, northbridge-filing.txt
+alerts: []
+status: ["1 document inspected, 2 ignored."]
+rows: ["setup.exe / Ignored / Will not be read / Remove","photo.png / Ignored / Will not be read / Remove","northbridge-filing.txt / Inspected / unrecognised / Remove"]
+remove buttons: ["Remove setup.exe","Remove photo.png","Remove northbridge-filing.txt"]
+
+## J2-007 empty file alone: empty.txt (0 bytes)
+alerts: ["Empty.txt has no extractable text (scanned image?)"]
+status: []
+rows: ["empty.txt / Selected / Remove"]
+remove buttons: ["Remove empty.txt"]
+
+## J2-004 same file chosen twice (same name)
+alerts: ["Choose documents with distinct file names."]
+status: []
+rows: ["northbridge-filing.txt / Selected / Remove","northbridge-filing.txt / Selected / Remove"]
+remove buttons: ["Remove northbridge-filing.txt","Remove northbridge-filing.txt"]
+
+## J2-005 same bytes under two names
+alerts: []
+status: ["2 documents inspected, 0 ignored."]
+rows: ["northbridge-filing.txt / Inspected / unrecognised / Remove","copy-of-filing.txt / Inspected / unrecognised / Remove"]
+remove buttons: ["Remove northbridge-filing.txt","Remove copy-of-filing.txt"]
+blocked requests: 0; page errors: 0

@@ -1,0 +1,7 @@
+review sheet: Documents read | northbridge-credit-agreement.txt · credit agreement · executed · found 'Credit Agreement' on page 1 | northbridge-filing (1).txt · unrecognised | northbridge-filing.txt · unrecognised | northbridge-portfolio.xlsx · unrecognised | 
+review sheet warns about a duplicate or extra file: false
+run ended: Failed; reason on screen: "launcher exited 2; see logs/20261117-083649-01.log"
+REPRODUCED: the extra document was accepted and approved; the run Failed with no reason the analyst can act on.
+control, extra file other-note.txt for another issuer: Failed; reason "launcher exited 2; see logs/20261117-083653-01.log"
+REPRODUCED (control): any fourth file fails the synthetic run.
+blocked requests: 0; page errors: 0

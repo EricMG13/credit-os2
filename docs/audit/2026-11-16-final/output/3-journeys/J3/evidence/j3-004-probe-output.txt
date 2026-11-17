@@ -1,0 +1,2 @@
+RESULT REPRODUCED: Gaps tab says "This run lists no gaps." (true); Financial foundation shows ["Not supplied: balance not stated","Not supplied: synthetic","Not supplied: synthetic"]; Forecast says "Units not recorded" (true), "11 rows have no recorded values in this view", and 10 lines "the forecast inputs do not name the row and period"; Downside shows "Documentary gap" (true).
+R8 blocked requests: 0 

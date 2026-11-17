@@ -1,0 +1,5 @@
+Starting the synthetic service on a root that already holds a finished run (07:26, second attempt of the segment):
+  usage: serve.py [-h] --root ROOT [--web WEB] [--port PORT]
+  serve.py: error: the synthetic proof requires an empty, separate run root
+Cause: proof/serve.py:17-18 (`if args.root.exists() and (not args.root.is_dir() or any(args.root.iterdir())): parser.error(...)`).
+Consequence for this audit: each segment empties /tmp/jr/j3, starts the service and completes the synthetic run again first.

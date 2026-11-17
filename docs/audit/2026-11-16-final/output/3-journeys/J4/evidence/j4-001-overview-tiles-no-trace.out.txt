@@ -1,0 +1,13 @@
+  tile Net leverage: controls inside the tile = 0 | "Net leverage2.25x-0.75x vs FY2023betterFY2024"
+    after clicking Net leverage: dialogs open = 0
+  tile Gross leverage: controls inside the tile = 0 | "Gross leverage2.80x-0.95x vs FY2023betterFY2024"
+    after clicking Gross leverage: dialogs open = 0
+  tile Interest coverage: controls inside the tile = 0 | "Interest coverage4.00x+0.80x vs FY2023betterFY2024"
+    after clicking Interest coverage: dialogs open = 0
+  tile Revenue: controls inside the tile = 0 | "Revenue$2,250m+$150m vs FY2023betterFY2024"
+    after clicking Revenue: dialogs open = 0
+  tile Cash: controls inside the tile = 0 | "Cash$275m-$25m vs FY2023FY2024"
+    after clicking Cash: dialogs open = 0
+  trace controls drawn above the tiles and below them (first four): ["Show sources for the bottom line","Show sources for this passage","Show sources for this passage","Show sources for Source readiness"]
+REPRODUCED p001
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

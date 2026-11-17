@@ -1,0 +1,5 @@
+{"route":"evidence/summary","link":"Download handoffs","href":"downloads/halden-aerostructures-2026-09-30-handoffs.zip","urlAfterClick":"chrome-error://chromewebdata/","appStillOnScreen":false}
+{"route":"evidence/record","link":"Download all","href":"downloads/halden-aerostructures-2026-09-30-registers.zip","urlAfterClick":"chrome-error://chromewebdata/","appStillOnScreen":false}
+failed requests: ["file:///tmp/jr/j6-scratch/probe/dist-fixture/downloads/halden-aerostructures-2026-09-30-handoffs.zip net::ERR_FILE_NOT_FOUND","file:///tmp/jr/j6-scratch/probe/dist-fixture/downloads/halden-aerostructures-2026-09-30-registers.zip net::ERR_FILE_NOT_FOUND"]
+blocked requests: []
+DEFECT REPRODUCED: the click left the app for a browser error page

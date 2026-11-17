@@ -1,0 +1,6 @@
+  Overview tiles present: Net leverage: true, Gross leverage: true, Interest coverage: true, Revenue: true, Adjusted EBITDA: false, EBITDA: false, Cash: true
+  Overview says anything about EBITDA being unavailable: false
+  handoff CP-1.md chart data "Revenue and EBITDA", FY2024 Adjusted EBITDA cell: "Not supplied: the measure is not stated"
+  Financial foundation page, same cell in table view: "Not supplied: the measure is not stated"
+REPRODUCED p007
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0
