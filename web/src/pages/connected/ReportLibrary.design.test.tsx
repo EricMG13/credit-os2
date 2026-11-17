@@ -339,6 +339,20 @@ it.each([
   expect(await screen.findByRole("heading", { name: expected, level: 1 })).toBeInTheDocument();
 });
 
+it("C1-032 keeps the report-data loading skeleton static while its request is pending", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => new Promise<Response>(() => {})),
+  );
+  render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
+  const message = await screen.findByText("Loading report…");
+  const status = message.parentElement;
+  if (!status) throw new Error("missing report loading status");
+  expect(status).toHaveAttribute("role", "status");
+  expect(status.querySelectorAll(".bg-surface-subtle").length).toBeGreaterThan(1);
+  expect(status.querySelector('[class*="animate-"]')).toBeNull();
+});
+
 it("ends the loading state for a resolved null snapshot", async () => {
   useSnapshot(null);
   render(<ConnectedApp path="/report/absent" mode="synthetic" />);

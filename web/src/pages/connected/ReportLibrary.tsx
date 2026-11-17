@@ -734,7 +734,7 @@ function ReaderStatus({
     return (
       <div role="status" className="mt-6 grid gap-5 text-text-secondary">
         <p>Loading report…</p>
-        <div aria-hidden="true" className="grid gap-5 animate-pulse motion-reduce:animate-none">
+        <div aria-hidden="true" className="grid gap-5">
           <div className="h-10 w-3/4 rounded-ds-md bg-surface-subtle" />
           <div className="h-40 rounded-ds-lg bg-surface-subtle" />
           <div className="grid grid-cols-3 gap-3">
