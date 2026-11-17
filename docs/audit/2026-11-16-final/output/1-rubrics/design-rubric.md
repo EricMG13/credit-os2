@@ -7,7 +7,7 @@ Written 2026-11-17 for the audit of 2026-11-16 (`docs/audit/2026-11-16-final/REA
 
 ## How to use this rubric
 
-- Each rule has an id (`D-01` to `D-44`), a severity hint, what to look for, how to tell on a
+- Each rule has an id (`D-01` to `D-48`), a severity hint, what to look for, how to tell on a
   screenshot and in code, one `Pass:` and one `Fail:` example, and a source.
 - A stage 2 finding cites the rule id in its `expected` field (FINDINGS-SCHEMA.md). The finding's
   `check` is `design` unless the rule says `accessibility` or `code`.
@@ -19,14 +19,26 @@ Written 2026-11-17 for the audit of 2026-11-16 (`docs/audit/2026-11-16-final/REA
   (`brand-tokens.md`: the guide "is a reference, not a rule").
 - Several outside guidelines were dropped because the design system rules otherwise; they are in
   "Dropped outside rules" below. Do not raise a finding from a dropped rule.
-- Two project documents disagree, and the later or more specific one is used here:
+- Project documents disagree in three places. The rubric follows the one named here:
   1. Component map F1 says metric tiles sit "in a joined strip"; design system "Card and tile"
      (review 2) says a metric is "one card per metric, never a joined strip". The design system
      wins (D-23, D-03).
   2. Ruling 2026-11-11 decision 5 says a module entry shows "the plain module name first and the
-     code second"; the owner's later prompts (2026-11-10 and 2026-11-12, design system "Rules from
-     the owner's prompts") and the audit brief say module codes appear only on Evidence and in the
-     trace drawer. The later rule wins (D-13).
+     code second". Its own Amendment 2026-11-12 (owner) replaces that: no module code is shown on
+     screen anywhere in the issuer library (Evidence, the inspector and its Basis items included)
+     or on the run start page. Its Amendment 2026-11-16 (owner) then fixes how a code inside
+     module-written text is displayed. Both amendments govern (D-13).
+  3. Ruling 2026-11-11 decision 8 and H4 say tables and registers follow the reader passages
+     "unchanged and exact". That is what the handoff holds. `AGENTS.md` governs what the page
+     draws: the issuer library draws "source references, file names, hashes, ids, registers, gap
+     ledgers, run codes" only on its Evidence page and trace drawer, and "every other page shows
+     findings and one trace control per paragraph, row or figure". So a register is drawn on
+     Evidence and in the drawer, not on Overview, Changes, Modules or Forecast. A findings table (a
+     table of findings, not a register) is allowed and carries one trace control per row. Every
+     rule below follows `AGENTS.md` (D-04, D-05, D-07, D-12, D-13).
+- Delivery adds no analysis (AGENTS.md). The ruling's Amendment 2026-11-16 ("year-on-year
+  difference and better/worse marks") is the one recorded exception; D-45 to D-48 hold it. Any
+  other figure computed or judged by delivery is a finding (D-47).
 
 ## Already-ruled exceptions (`.impeccable/config.json` `ignoreValues`)
 
@@ -42,7 +54,7 @@ either app, so a stage 2 auditor will rarely meet them.
 
 | Schema severity | Used by this rubric for |
 | :--- | :--- |
-| High | R8 offline breaches (D-10); a wrong, invented or placeholder figure drawn as real (D-15); a missing value drawn as zero (D-14) |
+| High | R8 offline breaches (D-10); a wrong, invented or placeholder figure drawn as real (D-15); a missing value drawn as zero (D-14); a wrong or inexact year-on-year difference (D-45) |
 | Medium | Reader misled or blocked: machinery on a findings page (D-05, D-07, D-12, D-13); a keyboard, focus or name failure (D-34 to D-38); information by colour alone (D-39); missing designed state (D-31); markdown-looking page (D-04) |
 | Low | Polish: spacing, radius, badge overuse, hover on non-interactive, sibling inconsistency (D-18 to D-27, D-30) |
 | Info | An observation or a fragile assumption |
@@ -150,10 +162,11 @@ component into `<ul>`, `<table>` without the kit's `Table`, `Alert`, `Item` or `
 search rendered text for `###`, `|---`, `**`.
 
 Pass: Modules renders the four reader passages as banner, numbered list panel, alert and
-collapsible, and registers as the kit's sortable table with a Source column.
+collapsible, and any findings table as the kit's table with one trace control per row; registers
+are drawn on Evidence only, as the sortable `sm` table.
 
-Fail: a module page shows `Key findings` as an `h3` over a bullet list, followed by a bare table
-with a literal `Basis:` line under each bullet.
+Fail: a module page shows `Key findings` as an `h3` over a bullet list, followed by a bare grey-lined
+register table with a literal `Basis:` line under each bullet.
 
 **Source:** owner 2026-11-13 ("Nothing may look extracted directly from Markdown"); AGENTS.md
 Final Workflow (Markdown handoffs are intermediate artifacts); seed list (a page that reads as
@@ -166,7 +179,9 @@ design.
 
 **Look for:** on every page other than Evidence and the trace drawer, none of: source references,
 file names, hashes, table and row ids, registers, calculations shown as steps, gap ledgers, run
-codes, instruction text. Exception: file names where the analyst is choosing documents on run
+codes, instruction text. Registers (rating register, covenant register, any handoff table of ids
+and rows) are drawn only on Evidence and in the drawer. Overview, Changes, Modules and Forecast show
+findings and one trace control per paragraph, row or figure. Module codes are shown nowhere (D-13). Exception: file names where the analyst is choosing documents on run
 start (an input control; component map 3.3). On Evidence and in the drawer these appear complete
 and linked, in Geist Mono only there.
 
@@ -178,11 +193,14 @@ findings components; grep rendered DOM text on non-Evidence routes.
 Pass: Forecast shows case drivers and charts with one trace control per figure; the formula
 inputs and file names open only in the drawer or on Evidence.
 
-Fail: the Forecast page prints "Source: 2025_AnnualReport.pdf p. 47, calc FCF-03" under a chart.
+Fail: the Forecast page prints "Source: 2025_AnnualReport.pdf p. 47, calc FCF-03" under a chart, or
+Modules draws the rating register as a table with an ID column.
 
 **Source:** owner 2026-11-13 (findings sections; `docs/design/design-system.md` "Rules from the
-owner's prompts" row 1); AGENTS.md (voice standard, "every other page shows findings and one trace
-control"); `PRODUCT.md` Capabilities and Principle 3; ruling 2026-11-11 decision 7.
+owner's prompts" row 1); AGENTS.md Final Workflow (voice standard: the library "draws them only on its Evidence
+page and trace drawer"; "every other page shows findings and one trace control per paragraph, row or
+figure"; this governs over ruling 2026-11-11 decision 8 and H4); `PRODUCT.md` Capabilities and
+Principle 3; ruling 2026-11-11 decision 7.
 
 ### D-06 One trace control per paragraph, row or figure; Evidence and the drawer are complete and linked
 
@@ -220,8 +238,8 @@ module, prompts. Not drawn on any page, not on Evidence either (it may be a hand
 "hand off to". **Code:** a renderer that maps all `##` handoff sections to the page without an
 allow-list; `Next module` or routing fields reaching a component.
 
-Pass: Modules shows reader passages and registers; the `Next module` section is absent from the
-page and present only in the downloadable handoff.
+Pass: Modules shows the reader passages; the `Next module` section is absent from every page,
+Evidence included, and present only in the downloadable handoff.
 
 Fail: a module page ends with a "Next module: CP-3 should reconcile covenant definitions" block.
 
@@ -352,52 +370,82 @@ Fail: a module opens with a restatement of leverage, margin and liquidity figure
 **Source:** `docs/rulings/2026-11-11-reader-and-issuer-report.md` decisions 6 and 8, H1, H2, H5;
 AGENTS.md (voice standard, "judgement first"); `PRODUCT.md` Brand Commitments.
 
-### D-12 Source references live in the Basis, Source columns and Sources, never in narrative sentences
+### D-12 Source references stay out of narrative sentences; one trace control leads to them
 
 **Severity hint:** Medium. **Check:** design.
 
 **Look for:** no chip, module code, page number, bracket, file name or "according to the annual
 report p. 12" in sentences. A figure in prose is itself clickable (or carries the trace control)
-and opens the inspector; a paragraph with no figure gets one quiet trace link. Tables keep a Source
-column in plain words; the full set is on the Evidence page. A source is named in words only when
-it matters to the argument.
+and opens the inspector; a paragraph with no figure gets one quiet trace link. The Basis line, and
+a handoff table's Source column, are the handoff's forms. On a rendered findings page the Basis line
+is not printed and a table shows one trace control per row, with no Source column; Evidence draws
+the Source columns and the complete references, and the drawer the figure's source, page, quoted
+passage and calculation steps (AGENTS.md). A source is named in words only when it matters to the
+argument.
 
 **Screenshot:** read prose for `[`, `]`, "p.", "page", `CP-`, hashes. **Code:** regexes of the
 H6 prose checks (`\bCP-[A-Z0-9]+\b`, `\bpp?\.\s*\d`, `[`/`]`) applied to rendered DOM text of
-passages; "Earlier format" runs move a trailing bracket behind the trace link (H7).
+passages (a module code in module-written text is replaced by the module's name, D-13); a findings
+table with a `Source` header; "Earlier format" runs move a trailing bracket behind the trace link (H7).
 
 Pass: "Liquidity covers the next 18 months of maturities" with one trace control; the quoted source
-page opens in the drawer.
+page opens in the drawer; a findings table row has one trace control and no Source column.
 
-Fail: "Liquidity covers the next 18 months of maturities [CP-2D, p. 14, 10-K FY2024.pdf]".
+Fail: "Liquidity covers the next 18 months of maturities [CP-2D, p. 14, 10-K FY2024.pdf]", or a
+Modules table whose last column is headed "Source" and names files and pages.
 
 **Source:** AGENTS.md ("Source references live in each paragraph's Basis line, tables' Source
-columns and `## Sources`, never in narrative sentences"); ruling 2026-11-11 decision 7, H3, H6
-checks 2 to 4; design system "Rules from the owner's prompts" (a sentence leads to its sources by
+columns and `## Sources`, never in narrative sentences": the handoff's forms; "the issuer library
+draws them only on its Evidence page and trace drawer": the rendered pages); ruling 2026-11-11
+decision 7, H3, H6 checks 2 to 4; design system "Rules from the owner's prompts" (a sentence leads to its sources by
 a control, never by a citation).
 
-### D-13 No module codes, method step ids or table ids outside Evidence and the trace drawer; the plain module name is used
+### D-13 Module codes are shown nowhere; codes inside module text are replaced on findings pages; table and row ids only on Evidence and in the drawer
 
 **Severity hint:** Medium (each page is one finding listing its screens). **Check:** design.
 
-**Look for:** the module's plain name ("Liquidity") wherever a module is named, in navigation,
-tabs, tiles and the model's file navigator; no `CP-2D`, `CP-L10`, `M12`, step ids, `cpos`, `RBOT`
-ids, `table_id`, `row_id`, register ids on a working page. Codes may appear on Evidence and in
-the drawer.
+**Look for:** four parts.
+1. **Codes as labels or names: nowhere.** A module is named by its plain name ("Liquidity",
+   "Ratings & triggers") in navigation, tabs, tiles, chart titles, the Modules navigator, Report
+   history, Overview, Changes, the inspector and its Basis items, the model's file navigator, the
+   run start page, and **on Evidence too**. No `CP-2D`, `CP-L10`, `CP-1C` as a heading, label, rail
+   entry, badge or chip on any page. Method step identifiers (`M12`) are not shown either.
+2. **Codes inside module-written text on findings pages: replaced.** A standalone code in a
+   sentence is drawn as the module's name; a " (CP-x)" directly after that module's own name is
+   dropped; after any other words it becomes " (<module name>)"; a code the page does not know
+   stays as stored.
+3. **Codes inside a register id, file name or path stay as stored** on every page (a stored source
+   file name or path is shown exactly as stored even when it holds a `CP-` token). The Evidence
+   page and the trace drawer draw module-written text as stored, not rewritten.
+4. **Table and row ids** (`table_id`, `row_id`, register ids, calculation ids) appear only on
+   Evidence and in the drawer.
 
-**Screenshot:** scan rails, tab labels, tile titles and chart titles. **Code:** `moduleCodes.ts`
-mapping and `plainModuleNames()` used by every module label (`ReportContent.tsx` line about 173 shows
-the pattern); a raw `module.code` or `id` printed in JSX outside Evidence.
+It is display only: stored handoffs, routes, `href`s, download names and saved answer keys do not
+change, so a `CP-` token in a URL or a download file name is not a finding.
 
-Pass: the Changes page lists "Liquidity: Unchanged" with the square shape and word.
+**Screenshot:** scan rails, tab labels, tile titles, chart titles, Evidence section headings and
+filter lists, the drawer title and its Basis items; then read module-written sentences on Overview,
+Changes and Modules for a bare code or a "(CP-x)" suffix. **Code:** `moduleCodes.ts` and
+`moduleCodes.cases.json` mapping, `plainModuleNames()` and `moduleName()` (`api.ts`) used by every
+module label (`ReportContent.tsx` around line 173; `IdentityBand.tsx` uses `moduleName("CP-2H")`); a raw
+`module.code` or `id` printed in JSX anywhere; module-written text rendered without the replacer on
+a findings page, or with the replacer on Evidence or in the drawer.
 
-Fail: the module rail lists "CP-2D Liquidity" and a chart title reads "CP-1C peer scatter".
+Pass: the Changes page lists "Liquidity: Unchanged" with the square shape and word; a finding that
+stored "see CP-2D" reads "see Liquidity", and the same text in the drawer reads as stored.
 
-**Source:** owner 2026-11-10 and 2026-11-12 ("Remove all cp-IDs and methodology step IDs from
-user facing screens", design system "Rules from the owner's prompts"); owner 2026-11-13 ("no table
-IDs", same table; the design system records this as "nowhere yet": treat it as an owner rule); audit
-brief (run codes only on Evidence and the drawer). Ruling 2026-11-11 decision 5 ("code second") is
-superseded by the later prompts, see "How to use".
+Fail: the module rail, or an Evidence section heading, reads "CP-2D Liquidity"; a chart title reads
+"CP-1C peer scatter"; a key finding on Modules still prints "(CP-2D)" after the words "refinancing
+risk".
+
+**Source:** ruling 2026-11-11 `docs/rulings/2026-11-11-reader-and-issuer-report.md`, Amendment
+2026-11-12 (owner: no module code on screen in the issuer library, Evidence, the inspector and
+its Basis items, or the run start page; stored file names and paths exactly as stored) and Amendment
+2026-11-16 (owner: replacement of a standalone code in module-written text on findings pages; Evidence
+and drawer draw text as stored; an unknown code stays as stored); owner 2026-11-10 and 2026-11-12
+(design system "Rules from the owner's prompts": remove cp-IDs and step ids from user-facing screens);
+owner 2026-11-13 ("no table IDs"; the design system records it as "nowhere yet"); AGENTS.md (ids and
+run codes only on Evidence and the drawer).
 
 ### D-14 Missing, zero, gap, withheld and blocked each have their own form; a missing value is never drawn as zero
 
@@ -436,7 +484,8 @@ design, wiring.
 
 **Look for:** every number on a screen is the module's number with its period, unit, currency and
 scale (`USD 1,250 million`, `4.1x`, `250 bps`); two decimals at most; the same figure reads the
-same on Overview, Modules, Forecast and Evidence. No lorem ipsum, "$0.0M", "XX%", "TBD", "1,234",
+same on Overview, Modules, Forecast and Evidence. Delivery computes nothing except the one ruled
+year-on-year difference (D-45). No lorem ipsum, "$0.0M", "XX%", "TBD", "1,234",
 demo testimonials, customer counts, benchmarks or prices (PRODUCT.md: none may be invented). The
 synthetic proof case is allowed only where labelled as synthetic.
 
@@ -734,7 +783,7 @@ accessibility.
 
 **Look for:** every chart sits in one frame (`ChartFrame.tsx`): title, Chart or Table toggle (joined
 button group, single selection), direct labels on the values that matter (at most four labelled),
-a legend for two or more series, the module's basis note, one trace control. Periods on the
+a legend for two or more series, the module's basis note (a qualification in plain words; it names no file, page, id or module code, D-05 and D-13), one trace control. Periods on the
 x-axis, oldest left; one y-axis, never two; 1px `border-control` baseline; faint solid horizontal
 `border-hairline` gridlines only; flat fills, no 3D; bars up to 32px wide with 6px top corners;
 compared bars side by side; lines carry dash and marker (circle, square, triangle, diamond, ring,
@@ -813,7 +862,11 @@ arrive (`surface-subtle`, `radius-xs`, no animation); a live run with no step co
 spinner with a label; empty ("no runs yet", "no earlier run", "no search match") is the UUI empty
 state with featured icon, title, one sentence and where it exists the next action; errors and
 system messages ("cannot reach the service", run capped, run rejected) are the alert with tone by
-severity and an action; a small finished action (copied) is a success toast. No blank white
+severity and an action; a small finished action (copied) is a success toast. Where a run has
+no comparison the Changes page says which of three cases applies, in one fixed sentence: first run,
+planned but not produced, or not compared (for example "This run was not compared with an earlier
+run."; `changesSentence()` in `api.ts`); the service's reason is drawn only with the evidence, not in
+the sentence. No blank white
 screen, no raw error string, no infinite spinner, no stack trace, no layout jump when content lands.
 
 **Screenshot:** force each state in the proof server and in the static app. **Code:**
@@ -823,10 +876,13 @@ screen, no raw error string, no infinite spinner, no stack trace, no layout jump
 
 Pass: Library home with no runs shows the empty state "No runs yet" with "Start a run".
 
-Fail: a blank canvas while the service is unreachable, or a console error text in a red box.
+Fail: a blank canvas while the service is unreachable, or a console error text in a red box; a Changes
+page with no comparison that shows only an empty table, or prints the service's reason with a run id
+under the heading.
 
 **Source:** design system "Gap states" (empty rows) and "Motion" ("Loading anywhere else is the
-static skeleton, never a spinner"); component map S2, S4, S5, S6, S7 and section 5; FINDINGS-SCHEMA
+static skeleton, never a spinner"); component map S2, S4, S5, S6, S7 and section 5; ruling 2026-11-11 Amendment
+2026-11-16 (the three no-comparison cases, fixed sentence, reason only with the evidence); FINDINGS-SCHEMA
 (`state` check).
 
 ### D-32 Long text wraps in full; a qualification is never truncated
@@ -1146,6 +1202,111 @@ https://analysisfunction.civilservice.gov.uk/policy-store/data-visualisation-col
 
 ---
 
+### D-45 The year-on-year difference is the one figure delivery computes, and it is exact and labelled
+
+**Severity hint:** **High** (a wrong or inexact difference, or one across different units or
+definitions, is a wrong figure); Medium for a missing prior period label. **Check:** design, wiring.
+
+**Look for:** the only figure delivery computes is this year minus last year for two module-written
+figures of the same metric one year apart, drawn only when both carry the same unit and the same
+definition. It is in exact decimal (no float rounding; the decimal places of the longer operand), with
+a sign (`+` above zero), the unit, and the prior figure's period shown beside it ("vs FY2024"). If
+either side is missing, not a number, or the unit or definition differs, no difference is drawn
+(missing is "n.a.", never a zero difference). Chart or card, the difference agrees with the two
+figures it comes from on Evidence and in the drawer.
+
+**Screenshot:** pick a Changes card; subtract the two figures by hand. **Code:**
+`exactDifference()` and `changeText()` in `web/src/pages/connected/signal.ts` (not Signal code:
+it is exact decimal subtraction for the Changes page, see `output/0-baseline/sections.md`);
+`YearChange.tsx` renders `change vs prior`; floats (`parseFloat`, `Number`, `toFixed`) used on money.
+
+Pass: "+120.50 USD million vs FY2024" beside a card showing 1,320.50 and 1,200.00.
+
+Fail: "+9.6%" derived from two figures on different definitions, "+120.5000000001", or a difference with
+no prior period beside it.
+
+**Source:** ruling 2026-11-11 Amendment 2026-11-16 "year-on-year difference and better/worse marks",
+(a); AGENTS.md ("Delivery adds no analysis", "exact values survive every boundary"); owner 2026-11-16.
+
+### D-46 Better, worse and unchanged marks only for keys in the fixed table, each with its word and its own shape
+
+**Severity hint:** Medium (a judgement on a key the owner did not rule is delivery adding analysis);
+Low where only the shape or word is missing. **Check:** design, accessibility.
+
+**Look for:** a mark on a year-on-year difference, or on a comparable Changes card, only for keys in
+the owner's fixed table (`web/src/pages/connected/signal.ts`, `lowerIsBetter` and `higherIsBetter`):
+lower is better for `leverage`, `net_leverage`, `netDebt`, `gross_debt`, `net_debt`; higher is better
+for `coverage`, `interestCover`, `revenue`, `adjusted_ebitda`, `undrawn`, `liquidity`, `freeCashFlow`,
+`free_cash_flow`. A key not in the table is neutral (no mark, no tint). `cash` carries no judgement
+(a rise can be a facility drawn); revenue and adjusted EBITDA are judged instead. Each mark shows its
+word ("better", "worse", "unchanged") and its own shape (`ToneMark.tsx`: filled circle, diamond, ring),
+three marks, three different shapes, never colour alone; the arrow and sign agree with the number. The design system defines no shape for these three marks; the build uses filled circle, diamond and ring (`ToneMark.tsx`), and the Change state set on the same Changes page gives "Unchanged" the square. Record that difference as Info for the owner (it is not a defect of the ruled rule), and do not read the two sets as one list (D-29).
+
+**Screenshot:** greyscale: can better, worse and unchanged still be told apart? Find a card for cash
+or a key outside the table. **Code:** `tone()` in `signal.ts`; `ToneMark.tsx` (`SHAPE`, `WORD`);
+`YearChange.tsx` colour classes only as a supplement; a tone derived by hand in JSX or by colour only.
+
+Pass: net leverage down shows a filled circle and the word "better"; cash up shows the figure and the
+change with no mark.
+
+Fail: cash up is drawn green with a tick, or leverage falls and the mark is a green dot with no word.
+
+**Source:** ruling 2026-11-11 Amendment 2026-11-16, (b) (owner 2026-11-16: "use different measure
+revenue or adj ebitda"; cash carries no judgement); design system "The idea in four lines" (colour never
+works alone) and "Status shapes"; WCAG 2.2 SC 1.4.1.
+
+### D-47 No other figure is computed or judged by delivery; Downside, rate sensitivity and Forecast stay uncoloured
+
+**Severity hint:** Medium (analysis added by delivery); High if a computed figure is wrong. **Check:**
+design, wiring.
+
+**Look for:** no delta, percentage, ratio, total, average, rank, score, trend arrow or good/bad colour
+that a module did not write, other than D-45. The Downside, rate-sensitivity and Forecast pages carry no
+better/worse colouring, tick or tone: their figures are drawn as the modules wrote them, in the neutral
+text colours. No Undrawn facilities headline card (owner 2026-11-16: dropped). Chart scales and positions
+may be computed by the chart library; a figure shown as text is not computed on the page.
+
+**Screenshot:** look for colour on Downside, rate sensitivity and Forecast values. **Code:** arithmetic
+on handoff figures in `web/src/pages/connected/` outside `signal.ts`; `tone(` or success/error classes in
+`Downside.tsx`, `MacroSensitivity.tsx`, `Forecast.tsx`; a headline card keyed `undrawn`.
+
+Pass: the Downside table shows base and downside figures in text-primary with no tint.
+
+Fail: the Forecast page shades a case value green "better", or the page adds a "Total" the module
+never wrote, or shows an Undrawn facilities headline card.
+
+**Source:** ruling 2026-11-11 Amendment 2026-11-16, (c) and the owner's "drop undrawn"; AGENTS.md
+(delivery adds no analysis); component map section 3.2 (Q2: the page computes no figure shown as text).
+
+### D-48 The rating note is one link, and company-band ratings are labelled as entered
+
+**Severity hint:** Medium (a rating register drawn on the page, or an entered rating replaced).
+**Check:** design, wiring.
+
+**Look for:** each issuer rating the analyst entered at run start is compared with the issuer-level
+rows of the Ratings & triggers module's register. When none of those rows carries the entered rating,
+the page draws one link to that module saying it shows a different rating for that agency. It draws no
+rating or other text from the register, never replaces the entered rating, and draws nothing when the
+module did not run or its register cannot be read. The company band's ratings are the analyst's
+run-start entries, labelled "Entered at run start". The link uses the module's plain name, not its code.
+
+**Screenshot:** the identity band on Overview with an entered rating that differs from the register.
+**Code:** `web/src/pages/connected/report/IdentityBand.tsx` (the note line built from
+`moduleName("CP-2H")` and the differing agencies); the label "Entered at run start"; any register row
+text in the band.
+
+Pass: the band shows "Moody's: Baa2, Entered at run start" and a link "Ratings & triggers shows a
+different rating for Moody's".
+
+Fail: the band prints the register's rating and its watch status beside the entered one, or labels the
+entered rating with nothing, or draws the note when the module did not run.
+
+**Source:** ruling 2026-11-11 Amendment 2026-11-16, (d) (owner 2026-11-16: "Yes, add note") and "Also
+accepted" (company band labelled "Entered at run start"); AGENTS.md (registers only on Evidence and the
+drawer). Parked for the owner, not a rule: where the module ran, show its register's rating with a trace.
+
+---
+
 ## Dropped outside rules
 
 Outside guidelines read for this rubric that conflict with, or are not needed by, the project's
@@ -1207,4 +1368,4 @@ Rules) and `FINDINGS-SCHEMA.md`; `docs/design/design-system.md` (version 0.8), `
 `.impeccable/config.json` `ignoreValues`; and, for code signals only, `web/src/styles/theme.css`, the
 `web/src/components/` directory names and `web/src/pages/connected/` file names.
 
-Not verified: no outside page was opened in full (WebFetch failed for adriankrebs.ch, www.thefountaininstitute.com, www.w3.org and web.dev, which are outside the session's allowed network; the 20 source groups above rest on WebSearch result summaries only, and the WCAG 2.2 level of 2.4.13 differs between those summaries, so check the W3C Recommendation before citing a level); no rule was run against a rendered screen or the built files, so every code signal (class names, file names, line numbers in `theme.css`, `index.css`, `ReportContent.tsx`, `activity.css`) is from a short read of the repository, not a scan; the design system itself says no component was opened from disk under the CSP at version 0.8, the layout was not checked at narrow widths, and the Untitled UI licence and paid tier were not read; "no table ids" (D-13) is recorded by the design system as "nowhere yet" and is taken here as an owner rule from the brief; the font `src:` URL form in `theme.css` (`/fonts/...`) was not tested under `file:`; "badges on everything" has no outside source; WCAG 2.2.2 pause-or-stop for the live halo is an interpretation not ruled by the owner.
+Not verified: no outside page was opened in full: every outside source (the 20 numbered entries above) was read from WebSearch result summaries only, because WebFetch failed for adriankrebs.ch, www.thefountaininstitute.com, www.w3.org and web.dev (outside the session's allowed network); the WCAG 2.2 level of 2.4.13 differs between those summaries, so check the W3C Recommendation before citing a level; no rule was run against a rendered screen or the built files, so every code signal (class names, file names, function names, line numbers in `theme.css`, `index.css`, `ReportContent.tsx`, `activity.css`, `IdentityBand.tsx`, `signal.ts`) is from a short read of the repository, not a scan; the design system itself says no component was opened from disk under the CSP at version 0.8, the layout was not checked at narrow widths, and the Untitled UI licence and paid tier were not read; "no table ids" (D-13 part 4) is recorded by the design system as "nowhere yet" and is taken here as an owner rule from the brief; the font `src:` URL form in `theme.css` (`/fonts/...`) was not tested under `file:`; "badges on everything" has no outside source; WCAG 2.2.2 pause-or-stop for the live halo is an interpretation not ruled by the owner; the ruling's amendments were read in full on the second pass (the first pass missed them), and D-13, D-31 and D-45 to D-48 follow their wording, not a rendered check of the code that implements them.
