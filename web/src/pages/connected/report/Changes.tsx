@@ -121,6 +121,10 @@ export function Changes({
             <EmptyState.Description>
               This is the first listed run for this issuer on this pathway.
             </EmptyState.Description>
+            <p className="max-w-[55ch] text-sm text-text-secondary">
+              This describes the library when this run was made; runs listed afterwards do not
+              change this comparison.
+            </p>
           </EmptyState.Content>
           <EmptyState.Footer>
             <Button href="#overview" color="secondary">

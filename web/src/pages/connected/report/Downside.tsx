@@ -133,6 +133,18 @@ function readerDetail(value: string) {
   return containsReference(value) ? "See the scenario evidence." : value;
 }
 
+/** The same recorded share in percent, moving its decimal point without rounding its digits. */
+export function scenarioShareLabel(text: string) {
+  if (sharePosition(text) === null) return text;
+  const stated = /\((\d+(?:\.\d+)?%)\)$/.exec(text)?.[1];
+  if (stated) return stated;
+  const [whole, fraction = ""] = text.split(".");
+  const digits = fraction.padEnd(2, "0");
+  const integer = whole === "1" ? "100" : String(Number(digits.slice(0, 2)));
+  const remainder = digits.slice(2).replace(/0+$/, "");
+  return `${integer}${remainder ? `.${remainder}` : ""}%`;
+}
+
 export function Downside({
   data,
   href,
@@ -151,7 +163,7 @@ export function Downside({
       {control && selected ? (
         <>
           <label className={`${label} max-w-sm`}>
-            Compare with {control.name}
+            Stress case to compare with the unstressed control
             <select
               className={field}
               value={selected.id}
@@ -170,8 +182,8 @@ export function Downside({
             <dl className="grid gap-2 sm:grid-cols-2">
               {(
                 [
-                  ["EBITDA decline", selected.decline],
-                  ["Cash-interest increase", selected.interest],
+                  ["EBITDA decline", scenarioShareLabel(selected.decline)],
+                  ["Cash-interest increase", scenarioShareLabel(selected.interest)],
                   ["Assumption basis", selected.anchor],
                   ["Scope limits", selected.scope],
                   ["Category", selected.category],

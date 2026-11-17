@@ -115,7 +115,7 @@ const run = { folder: "current" } as PublishedRun;
 it("preserves the recorded bridge and its exact source lines", () => {
   render(<Forecast view={basisView()} run={run} />);
   expect(screen.getByText(/The calculation gives/)).toHaveTextContent(
-    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is $5.00m.",
+    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is US$5.00m.",
   );
   expect(screen.getByRole("link", { name: "Free cash flow basis" })).toHaveAttribute(
     "href",
@@ -194,7 +194,7 @@ it.each([
 it.each([
   [
     "GBP millions",
-    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is £5.00m.",
+    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is GBP 5.00m.",
   ],
   [
     "CHF millions",
@@ -202,11 +202,11 @@ it.each([
   ],
   [
     "EUR millions",
-    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is €5.00m.",
+    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is EUR 5.00m.",
   ],
   [
     "USD millions",
-    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is $5.00m.",
+    "The calculation gives 10.00 cash proxy. The Forward credit model gives 15.00 free cash flow. The displayed difference is US$5.00m.",
   ],
 ])("shows the bridge of a model recorded in %s with that unit", (units, text) => {
   render(<Forecast view={basisView({ units })} run={run} />);

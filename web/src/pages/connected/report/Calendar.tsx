@@ -23,7 +23,7 @@ type CalendarRow = EventLocation & { cells: string[]; from: number; to: number }
 type UnplacedEvent = { href: string; cells: string[]; unreadable?: boolean };
 type CalendarGap = EventLocation & { title: string; reason: string; unplaced?: UnplacedEvent[] };
 
-const UNPLACED_REASON = "The recorded dates or precision could not be plotted.";
+const UNPLACED_REASON = "The recorded event name, status, date or precision could not be plotted.";
 const UNIDENTIFIED_REASON = "The event table does not identify each event row.";
 const UNREADABLE_REASON = "An event row could not be read.";
 const UNREADABLE_ROW = "This row could not be read";
@@ -31,8 +31,32 @@ const UNREADABLE_ROW = "This row could not be read";
 /** A reference in a status keeps the lane before it, so the lane still reads (`isHistoricalStatus`). */
 function eventDisplay(cells: string[]) {
   return cells.map((text, index) => {
-    if (![2, 3, 4, 6].includes(index) || !containsReference(text)) return text;
-    return index === 4 ? `${text.split(" — ")[0] ?? ""} — See Evidence` : "See Evidence";
+    const relevant =
+      index === 6
+        ? ((
+            {
+              Wall: "Maturity wall",
+              Cost: "Cost-related event",
+              Rating: "Rating-related event",
+            } as Record<string, string>
+          )[text] ?? text)
+        : text;
+    if (!containsReference(relevant)) return relevant;
+    if (index === 4) {
+      const lane = /^(Historical|Scheduled|Scenario|User reminder)(?: — |$)/.exec(text)?.[1];
+      return lane ? `${lane} — See Evidence` : "See Evidence";
+    }
+    if (index === 3) {
+      const name = text
+        .replace(
+          /(?:\s+(?:per|from|in|see)\s+)?[\w.-]+\.(?:pdf|docx?|xlsx?|xlsm|csv|tsv|txt|md|jsonl?|html?|zip)\b(?:\s*,?\s*(?:p\.|page)\s*\d+(?:[-–]\d+)?)?/gi,
+          "",
+        )
+        .trim()
+        .replace(/[\s,;:(]+$/, "");
+      return name && !containsReference(name) ? name : "See Evidence";
+    }
+    return "See Evidence";
   });
 }
 
@@ -85,7 +109,7 @@ function placeEvents(block: Table, entry: OutputEntry, folder: string, owner: st
       ? [
           {
             href: href(index),
-            cells: cells.map((text) => (containsReference(text) ? "See Evidence" : text)),
+            cells: eventDisplay(cells),
           },
         ]
       : [{ href: href(index), cells: [], unreadable: true }];
@@ -268,14 +292,21 @@ export function Calendar({ calendar }: { calendar: ReturnType<typeof buildCalend
           Back to Overview
         </Button>
       </div>
+      <p className="max-w-[76ch] text-sm text-text-secondary">
+        Historical and Scheduled are the module’s recorded categories, not classifications against
+        this run’s as-of date.
+      </p>
+      <p className="max-w-[76ch] text-sm text-text-secondary">
+        Date precision states whether the date identifies a day, month, quarter or year.
+      </p>
       {calendar.rows.length ? (
         <CalendarFigure rows={calendar.rows} />
       ) : (
         <p className={card}>
           {calendar.gaps.some(({ unplaced }) => unplaced?.some((event) => !event.unreadable))
-            ? "No published event could be placed on the calendar; the events and date gaps are listed below."
+            ? "No published event could be placed on the calendar; the events and recorded gaps are listed below."
             : calendar.gaps.length
-              ? "No dates could be placed on the calendar; the date gaps are listed below."
+              ? "No events could be placed on the calendar; the recorded gaps are listed below."
               : "No dated events were published for this run."}
         </p>
       )}
@@ -284,7 +315,9 @@ export function Calendar({ calendar }: { calendar: ReturnType<typeof buildCalend
           <h3 className={heading}>{title}</h3>
           <p>{owner}</p>
           <p role="note">
-            {containsReference(reason) ? "A date gap is recorded in Evidence." : readerText(reason)}
+            {containsReference(reason)
+              ? "An event gap is recorded in Evidence."
+              : readerText(reason)}
           </p>
           {unplaced ? (
             <UnplacedTable owner={owner} events={unplaced} />

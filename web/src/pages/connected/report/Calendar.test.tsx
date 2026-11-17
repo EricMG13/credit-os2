@@ -113,7 +113,9 @@ it("keeps recorded gaps as reasons and leaves a mismatched precision unplotted",
   ]);
   render(<Calendar calendar={buildCalendar([gap, invalid], "current")} />);
   expect(screen.getByText("No review date was assigned.")).toBeInTheDocument();
-  expect(screen.getByText(/recorded dates or precision could not be plotted/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/recorded event name, status, date or precision could not be plotted/),
+  ).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Source for Decision and watch" })).toHaveAttribute(
     "href",
     `/report/current#evidence/CP-6-1~${"6".repeat(64)}-20`,

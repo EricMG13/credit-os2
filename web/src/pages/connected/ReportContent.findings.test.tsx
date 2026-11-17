@@ -86,7 +86,7 @@ it.each([false, true])(
     const rationale = section.querySelector("details");
     if (overview) {
       expect(rationale).not.toBeNull();
-      fireEvent.click(screen.getByText("Decision rationale"));
+      fireEvent.click(screen.getByText("Earnings view, continued"));
     } else expect(rationale).toBeNull();
     const controls = screen.getAllByRole("button", { name: "Show sources for this passage" });
     expect(controls).toHaveLength(2);

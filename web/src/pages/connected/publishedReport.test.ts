@@ -23,7 +23,9 @@ describe("published handoff boundaries", () => {
     expect(runTiming({ asOf: "2025-03-31", period: "As of 31 March 2025" })).toBe(
       "As of 31 March 2025",
     );
-    expect(runTiming({ asOf: "2025-03-31", period: "FY2024" })).toBe("As of 2025-03-31 · FY2024");
+    expect(runTiming({ asOf: "2025-03-31", period: "FY2024" })).toBe(
+      "As of 31 March 2025 · FY2024",
+    );
   });
 
   it("sets earlier citations aside while preserving substantive brackets and punctuation", () => {
@@ -122,8 +124,8 @@ describe("published handoff boundaries", () => {
     });
     expect(rows[0]).toEqual([
       "Cash",
-      "$0m (FY2025)",
-      "£20m (FY2026)",
+      "US$0m (FY2025)",
+      "GBP 20m (FY2026)",
       "—",
       "Reporting units differ.",
       "The newer analysis uses a different cash perimeter.",
@@ -157,9 +159,9 @@ describe("published handoff boundaries", () => {
     };
     expect(comparisonRows(change)[0]).toEqual([
       "Total debt",
-      "$110m (FY2025)",
-      "$100m (FY2025)",
-      "-$10m",
+      "US$110m (FY2025)",
+      "US$100m (FY2025)",
+      "-US$10m",
       "Same definition · Same-period analysis change",
       "The updated filing reclassifies 10 US$m.",
     ]);

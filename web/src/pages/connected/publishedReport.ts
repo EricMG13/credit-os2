@@ -1,4 +1,6 @@
 import { moduleName, pathwayName, RequestError } from "./api";
+import { asOfDate } from "./runFigures";
+import { changeText } from "./signal";
 
 export type Row = { line: number; cells: string[] };
 export type Table = { type: "table"; line: number; headers: string[]; rows: Row[] };
@@ -307,17 +309,16 @@ export function runPathway(run: Pick<PublishedRun, "pathway">, catalogue?: Catal
 
 export function runTiming(run: Pick<PublishedRun, "asOf" | "period">) {
   if (/^As of\s/i.test(run.period)) return run.period;
-  const date = run.asOf ? `As of ${run.asOf}` : "";
+  const date = run.asOf ? `As of ${asOfDate(run.asOf)}` : "";
   return [date, run.period !== run.asOf ? run.period : ""].filter(Boolean).join(" · ");
 }
 
 const moneyUnit = /^(USD|US\$|[A-Z]{3})(?: millions|m)$/;
-const symbols: Record<string, string> = { USD: "$", US$: "$", GBP: "£", EUR: "€" };
-const moneySymbol = (code: string) => symbols[code] ?? `${code} `;
+const moneySymbol = (code: string) => (code === "USD" || code === "US$" ? "US$" : `${code} `);
 
 export function unitLabel(unit: string) {
   const code = moneyUnit.exec(unit)?.[1];
-  return code ? `${moneySymbol(code)}m` : unit;
+  return code ? `${code === "USD" || code === "US$" ? "US$" : code}m` : unit;
 }
 
 export function withUnit(value: string | number, unit?: string | null) {
@@ -389,7 +390,7 @@ function comparisonDifference(
     comparable && samePeriod && measure.difference != null && Number(measure.difference) !== 0;
   const delta =
     comparable && measure.difference != null && (purpose === "evidence" || !samePeriod)
-      ? withUnit(measure.difference, measure.unit)
+      ? changeText(String(measure.difference), measure.unit)
       : "—";
   return { revision, delta };
 }

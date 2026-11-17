@@ -11,7 +11,7 @@ function gapCalendar(reason: string) {
 
 it("says a date gap is recorded in Evidence without naming the hand-over between modules", () => {
   render(<Calendar calendar={gapCalendar("Dates are in annual_report.pdf p.12")} />);
-  expect(screen.getByRole("note")).toHaveTextContent("A date gap is recorded in Evidence.");
+  expect(screen.getByRole("note")).toHaveTextContent("An event gap is recorded in Evidence.");
   expect(document.body.textContent).not.toMatch(/handoff/i);
 });
 

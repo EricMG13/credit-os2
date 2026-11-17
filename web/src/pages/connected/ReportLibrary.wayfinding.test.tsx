@@ -357,11 +357,11 @@ describe("report wayfinding", () => {
     for (const link of links) expect(link).toHaveClass("max-[480px]:min-h-11");
   });
 
-  it("offers the Report tab and no Report history link", async () => {
+  it("offers the History tab and no Report history link", async () => {
     useSnapshot();
     open("");
     const nav = await screen.findByRole("navigation", { name: "Report sections" });
-    expect(within(nav).getByRole("link", { name: "Report" })).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "History" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Report history" })).toBeNull();
   });
 

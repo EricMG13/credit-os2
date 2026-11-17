@@ -1,4 +1,5 @@
 import { cx } from "@/utils/cx";
+import type { ReactNode } from "react";
 import type { BottomLineText } from "../slice";
 import { TRACE_HOST, TraceControl } from "./TraceControl";
 
@@ -8,7 +9,15 @@ type Level = "h2" | "h3" | "h4";
  * The navy bottom-line band (P1): label, the lead in the h3 size, the rest and one trace control.
  * `level` is the heading level of the lead, so module pages can reuse the band under their own.
  */
-export function BottomLine({ text, level }: { text: BottomLineText; level: Level }) {
+export function BottomLine({
+  text,
+  level,
+  lead,
+}: {
+  text: BottomLineText;
+  level: Level;
+  lead?: ReactNode;
+}) {
   const Lead = level;
   return (
     <section
@@ -30,7 +39,7 @@ export function BottomLine({ text, level }: { text: BottomLineText; level: Level
           tabIndex={-1}
           className="rounded-ds-xs font-display text-h3 outline-hidden focus-visible:ring-2 focus-visible:ring-white"
         >
-          {text.lead}
+          {lead ?? text.lead}
         </Lead>
         <p className="max-w-[76ch] text-body">{text.rest}</p>
       </div>

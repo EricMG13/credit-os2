@@ -38,7 +38,7 @@ export function ModuleConfidence({
       : {
           label: "Confidence score",
           value: { kind: "value", text: String(confidence.value), at: null },
-          note: confidence.band,
+          note: `${confidence.band} · out of 100`,
           trace: null,
         };
   return (

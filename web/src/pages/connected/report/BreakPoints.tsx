@@ -7,7 +7,7 @@ import { containsReference, type OutputEntry, type Table } from "../publishedRep
 import { PublishedTable } from "../ReportContent";
 import { namedTable } from "../reportView";
 import { distinct, sharePosition } from "../visuals/visualData";
-import { canReadDownside } from "./Downside";
+import { canReadDownside, scenarioShareLabel } from "./Downside";
 import { PublishedSource } from "./PublishedTrace";
 
 const RETAINED = "T2DS.6 Break points";
@@ -40,7 +40,7 @@ export function breakPointView(entry: OutputEntry) {
       retained.headers.length === 6
         ? [
             { name: "Interest held", column: 2 },
-            { name: `Cash-interest increase (k = ${rate})`, column: 3 },
+            { name: `Cash-interest increase ${scenarioShareLabel(rate)}`, column: 3 },
           ]
         : [];
     return { table: retained, bases, test: 1, status: 4 };
@@ -84,7 +84,7 @@ function orderedRows(table: Table, basis: Basis, test: number, status?: number) 
       return {
         line,
         label: publicText(cells[test] ?? ""),
-        text: publicText(text),
+        text: publicText(scenarioShareLabel(text)),
         status: status === undefined ? null : publicText(cells[status] ?? ""),
         value: threshold(text),
       };

@@ -30,9 +30,11 @@ export function useSourcesOn(): [boolean, (on: boolean) => void] {
 export function SourcesSwitch({
   isSelected,
   onChange,
+  label = "Show sources",
 }: {
   isSelected: boolean;
   onChange: (on: boolean) => void;
+  label?: string;
 }) {
   return (
     <SwitchField isSelected={isSelected} onChange={onChange}>
@@ -40,7 +42,7 @@ export function SourcesSwitch({
         <span className="flex h-5 w-9 flex-none rounded-ds-full bg-border-control p-0.5 transition-colors duration-150 group-selected:bg-action group-focus-visible:ring-2 group-focus-visible:ring-focus group-focus-visible:ring-offset-2 motion-reduce:transition-none">
           <span className="size-4 rounded-ds-full bg-white shadow-sm transition-transform duration-150 group-selected:translate-x-4 motion-reduce:transition-none" />
         </span>
-        Show sources
+        {label}
       </SwitchButton>
     </SwitchField>
   );

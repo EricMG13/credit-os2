@@ -156,7 +156,7 @@ describe("connected library and report design", () => {
     north.metrics = { leverage: { value: "965", unit: "US$m", period: "2026-06-30" } };
     useSnapshot(snapshot);
     render(<ConnectedApp path="/" mode="synthetic" />);
-    const value = await screen.findByText("$965m");
+    const value = await screen.findByText("US$965m");
     expect(value).toHaveClass("whitespace-nowrap");
     const grid = value.closest("dl");
     expect(grid).toHaveClass("grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]");
@@ -269,7 +269,7 @@ describe("connected library and report design", () => {
     render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
     expect(await screen.findByRole("heading", { name: "Dates to watch" })).toBeInTheDocument();
     expect(screen.getByText("Refinancing maturity")).toBeInTheDocument();
-    expect(screen.getByText("2027-03-15 · day")).toBeInTheDocument();
+    expect(screen.getByText("2027-03-15")).toBeInTheDocument();
     expect(screen.getByText("Scheduled")).toBeInTheDocument();
     const evidence = screen
       .getAllByRole("link", { name: "Evidence" })

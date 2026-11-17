@@ -63,7 +63,7 @@ import { useResource } from "./useResource";
 import { HeadlineFigures } from "./HeadlineFigures";
 
 const tabs = [
-  ["history", "Report"],
+  ["history", "History"],
   ["overview", "Overview"],
   ["changes", "Changes"],
   ["modules", "Modules"],
@@ -82,6 +82,23 @@ function listenHash(fn: () => void) {
 
 const readHash = () => window.location.hash;
 const tabHref = (tab: ReportTab) => `#${tab}`;
+
+function readerPageName(tab: Tab, parts: string[]) {
+  if (tab === "calendar") return "Issuer calendar";
+  if (tab === "modules" && parts[0] && parts[0] !== "CP-8") return moduleName(parts[0]);
+  if (tab === "evidence" && parts[0]) {
+    const names: Record<string, string> = {
+      summary: "Summary",
+      trace: "Trace",
+      sources: "Sources",
+      gaps: "Gaps",
+      checks: "Script checks",
+      record: "Record",
+    };
+    return `Evidence: ${names[parts[0]] ?? "Handoff"}`;
+  }
+  return tabs.find(([name]) => name === tab)?.[1] ?? "Overview";
+}
 
 let entryCount = 0;
 /** The history entry on screen, named in its state so that Back can find where the reader left it. */
@@ -320,17 +337,25 @@ function Overview({
         )}
       </div>
       {view.lead ? (
-        <ReportFindings
-          key={view.lead.output.id}
-          snapshot={snapshot}
-          run={run}
-          entry={view.lead}
-          entryIndex={view.entries.indexOf(view.lead)}
-          overview
-          overviewLabel={view.lead.output.module === "CP-1B" ? "Earnings view" : undefined}
-          judgement={actionBias(view.lead)}
-          afterBottomLine={figures}
-        />
+        <>
+          <p className="text-sm text-text-secondary">
+            <Button href={`#modules/${view.lead.output.module}`} color="link-gray" size="sm">
+              {view.lead.output.module === "CP-1B" ? "Earnings view" : "Credit view"} from{" "}
+              {moduleName(view.lead.output.module)}
+            </Button>
+          </p>
+          <ReportFindings
+            key={view.lead.output.id}
+            snapshot={snapshot}
+            run={run}
+            entry={view.lead}
+            entryIndex={view.entries.indexOf(view.lead)}
+            overview
+            overviewLabel={view.lead.output.module === "CP-1B" ? "Earnings view" : "Credit view"}
+            judgement={actionBias(view.lead)}
+            afterBottomLine={figures}
+          />
+        </>
       ) : (
         <>
           {figures}
@@ -381,10 +406,7 @@ function Overview({
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-sm">
-                    <span>
-                      {event.cells[0]}
-                      {event.cells[1] ? ` · ${event.cells[1]}` : ""}
-                    </span>
+                    <span>{event.cells[0]}</span>
                     <Button href={event.href} color="link-gray" size="sm">
                       Evidence
                     </Button>
@@ -536,6 +558,8 @@ function ReaderHeader({
   labels,
   sources,
   setSources,
+  evidence,
+  issuer,
 }: {
   run: PublishedRun | null;
   catalogue?: CatalogueRun;
@@ -545,8 +569,10 @@ function ReaderHeader({
   labels: string[];
   sources: boolean;
   setSources: (selected: boolean) => void;
+  evidence: boolean;
+  issuer: string | null;
 }) {
-  if (!run) return <PageHeader title="Credit report" />;
+  if (!run) return <PageHeader title={issuer ? `${issuer} report` : "Credit report"} />;
   return (
     <PageHeader
       title={catalogue?.name || run.issuerHeading || run.issuer}
@@ -561,9 +587,15 @@ function ReaderHeader({
       }
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <SourcesSwitch isSelected={sources} onChange={setSources} />
+          {!evidence && (
+            <SourcesSwitch
+              isSelected={sources}
+              onChange={setSources}
+              label="Highlight source icons"
+            />
+          )}
           <Button color="secondary" href={`/run/${encodeURIComponent(id)}`}>
-            Run activity
+            Run progress
           </Button>
         </div>
       }
@@ -700,9 +732,18 @@ function ReaderStatus({
 }) {
   if (loaded === undefined)
     return (
-      <p role="status" className="mt-6 text-text-secondary">
-        Loading report…
-      </p>
+      <div role="status" className="mt-6 grid gap-5 text-text-secondary">
+        <p>Loading report…</p>
+        <div aria-hidden="true" className="grid gap-5 animate-pulse motion-reduce:animate-none">
+          <div className="h-10 w-3/4 rounded-ds-md bg-surface-subtle" />
+          <div className="h-40 rounded-ds-lg bg-surface-subtle" />
+          <div className="grid grid-cols-3 gap-3">
+            {[0, 1, 2].map((at) => (
+              <div key={at} className="h-24 rounded-ds-md bg-surface-subtle" />
+            ))}
+          </div>
+        </div>
+      </div>
     );
   if (!("snapshot" in loaded)) return <ReportUnavailable loaded={loaded} id={id} retry={retry} />;
   return (
@@ -740,10 +781,14 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
   const found = value && Object.entries(value.workspace.runs).find(([, run]) => run.folder === id);
   const catalogue = value?.catalogue.real.find((entry) => entry.id === id);
   const run = found ? found[1] : null;
-  const issuer = run ? catalogue?.name || run.issuerHeading || run.issuer : null;
+  const issuer = run
+    ? catalogue?.name || run.issuerHeading || run.issuer
+    : loaded && "failure" in loaded && loaded.failure === "unpublished"
+      ? (loaded.run?.issuer_name ?? null)
+      : null;
   const root = useRef<HTMLDivElement>(null);
   useReportPlace(root, hash, Boolean(run));
-  const page = tab === "calendar" ? "Issuer calendar" : tabs.find(([name]) => name === tab)?.[1];
+  const page = run ? readerPageName(tab, parts) : "Credit report";
   useEffect(() => {
     if (!issuer || !page) return;
     document.title = `${page} — ${issuer} — Credit OS`;
@@ -753,7 +798,7 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
   }, [issuer, page]);
   return (
     <div ref={root} className="mx-auto w-full max-w-[96rem]" data-sources={sources ? "on" : "off"}>
-      <Breadcrumb>Report</Breadcrumb>
+      <Breadcrumb>{issuer || "Report"}</Breadcrumb>
       <ReaderHeader
         run={run}
         catalogue={catalogue}
@@ -763,6 +808,8 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
         labels={value && found ? runLabels(outputEntries(value, found[1], found[0]), found[1]) : []}
         sources={sources}
         setSources={setSources}
+        evidence={tab === "evidence"}
+        issuer={issuer}
       />
       <ReaderStatus loaded={loaded} found={Boolean(found)} id={id} retry={retry} />
       {value && found && (

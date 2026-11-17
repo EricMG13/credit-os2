@@ -57,12 +57,16 @@ function isLead(entry: OutputEntry, module: string) {
 }
 
 export function buildReportView(snapshot: Snapshot, routeKey: string, run: PublishedRun) {
-  const entries = outputEntries(snapshot, run, routeKey);
-  const modules = Object.keys(run.modules).map((id) => {
-    const outputs = entries.filter((entry) => entry.output.module === id);
-    const selected = outputs.find((entry) => entry.selected);
-    return { id, name: moduleName(id), state: moduleState(selected ?? outputs[0]), outputs };
-  });
+  const order = moduleOrder(run).filter((id) => Object.hasOwn(run.modules, id));
+  const published = outputEntries(snapshot, run, routeKey);
+  const entries = order.flatMap((id) => published.filter((entry) => entry.output.module === id));
+  const modules = order
+    .filter((id) => id !== "CP-8")
+    .map((id) => {
+      const outputs = entries.filter((entry) => entry.output.module === id);
+      const selected = outputs.find((entry) => entry.selected);
+      return { id, name: moduleName(id), state: moduleState(selected ?? outputs[0]), outputs };
+    });
   return {
     entries,
     modules,

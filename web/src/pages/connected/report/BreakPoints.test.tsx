@@ -24,6 +24,20 @@ function entry(heading: string, headers: string[], rows: string[][]): OutputEntr
   };
 }
 
+it("J3-016 gives the break-point decline one percentage form", () => {
+  const data = breakPointView(
+    entry(
+      "First-break ranking",
+      ["Break point", "Required EBITDA decline"],
+      [["Cash flow reaches zero", "0.10 (10%)"]],
+    ),
+  );
+  if (!data) throw new Error("Missing break-point fixture");
+  render(<BreakPoints data={data} href={(line) => `#evidence/${String(line)}`} />);
+  expect(screen.getByText("10%", { exact: true })).toBeInTheDocument();
+  expect(screen.queryByText("0.10 (10%)", { exact: true })).toBeNull();
+});
+
 it("reads the canonical ranking's shares, drawing zero and keeping the original exact values", () => {
   const data = breakPointView(
     entry(
@@ -45,8 +59,8 @@ it("reads the canonical ranking's shares, drawing zero and keeping the original 
   );
   expect(container.querySelector('[data-decline="0"]')).toHaveStyle({ width: "100%" });
   fireEvent.click(within(chart).getByRole("radio", { name: "Table" }));
-  expect(within(chart).getByRole("cell", { name: "0.125000" })).toBeInTheDocument();
-  expect(within(chart).getByRole("cell", { name: "0" })).toBeInTheDocument();
+  expect(within(chart).getByRole("cell", { name: "12.5%" })).toBeInTheDocument();
+  expect(within(chart).getByRole("cell", { name: "0%" })).toBeInTheDocument();
   expect(within(chart).getAllByRole("link", { name: "Break point source" }).at(-1)).toHaveAttribute(
     "href",
     "#evidence/0-5",

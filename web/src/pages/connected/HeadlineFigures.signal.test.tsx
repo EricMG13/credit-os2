@@ -56,12 +56,12 @@ describe("headline year comparator", () => {
     expect(lev.className).toContain("text-error-text");
     const cov = screen.getByText(/-0\.50x vs FY2023/);
     expect(cov.textContent).toContain("worse");
-    const cash = screen.getByText(/-\$25m vs FY2023/);
+    const cash = screen.getByText(/-US\$25m vs FY2023/);
     for (const word of ["better", "worse", "unchanged"])
       expect(cash.textContent).not.toContain(word);
     expect(cash.className).toContain("text-text-secondary");
     expect(cash.querySelector("[data-shape]")).toBeNull();
-    const flat = screen.getByText(/\$0m vs FY2023/);
+    const flat = screen.getByText(/US\$0m vs FY2023/);
     expect(flat.textContent).toContain("unchanged");
     expect(flat.className).toContain("text-text-secondary");
     expect(screen.getAllByText(/ vs /)).toHaveLength(4);
@@ -100,7 +100,7 @@ describe("headline year comparator", () => {
     expect(count(cov, "better")).toBe(1);
     expect(cov.querySelector('[data-shape="filled circle"]')).not.toBeNull();
     for (const el of [lev, cov]) expect(el.querySelector(".sr-only")).toBeNull();
-    const flat = line(/\$0m vs FY2023/);
+    const flat = line(/US\$0m vs FY2023/);
     expect(count(flat, "unchanged")).toBe(1);
     expect(flat.querySelector('[data-shape="ring"]')).not.toBeNull();
   });
@@ -125,11 +125,11 @@ describe("revenue and cash cards", () => {
       />,
     );
     expect(screen.getByText("Revenue")).toBeVisible();
-    expect(screen.getByText("$2,250m")).toBeVisible();
-    const revenue = screen.getByText(/\+\$150m vs FY2023/);
+    expect(screen.getByText("US$2,250m")).toBeVisible();
+    const revenue = screen.getByText(/\+US\$150m vs FY2023/);
     expect(within(revenue).getByText("better")).toBeVisible();
     expect(revenue.querySelector('[data-shape="filled circle"]')).not.toBeNull();
-    const cash = screen.getByText(/-\$25m vs FY2023/);
+    const cash = screen.getByText(/-US\$25m vs FY2023/);
     expect(cash.textContent).not.toMatch(/better|worse|unchanged/);
     expect(cash.querySelector("[data-shape]")).toBeNull();
   });
