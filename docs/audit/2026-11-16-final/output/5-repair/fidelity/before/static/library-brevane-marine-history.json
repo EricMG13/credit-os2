@@ -1,0 +1,46 @@
+{
+  "screen": {"id":"library--brevane-marine--history","surface":"static","address":"/library/brevane-marine/history","extra":true,"variant":null},
+  "page": {"title":"Credit OS","headings":["Brevane Marine"]},
+  "counts": {"textRuns":16,"figures":4,"figuresByKind":{"card":4},"tableViewFigures":0,"chartTableViews":0,"tables":0,"tableRows":0,"sourceLines":0,"drawerLines":0,"limitationSentences":0,"marks":0,"images":0,"traceControls":0,"traceDrawers":0,"traceErrors":0,"coverageGap":0},
+  "expandedDisclosures": 0,
+  "outline": [
+    {"section":"","kind":"link","text":"Library"},
+    {"section":"Brevane Marine","kind":"heading","text":"Brevane Marine"},
+    {"section":"Brevane Marine","kind":"link","text":"Open latest report"},
+    {"section":"Brevane Marine","kind":"link","text":"New run"},
+    {"section":"Brevane Marine","kind":"paragraph","text":"Report history: two runs"},
+    {"section":"Brevane Marine","kind":"item","text":"Run as of 31 Dec 2026"},
+    {"section":"Brevane Marine","kind":"item","text":"Ran 20 Feb 2027"},
+    {"section":"Brevane Marine","kind":"item","text":"Finished"},
+    {"section":"Brevane Marine","kind":"item","text":"Full review"},
+    {"section":"Brevane Marine","kind":"item","text":"Stable."},
+    {"section":"Brevane Marine","kind":"link","text":"Open report"},
+    {"section":"Brevane Marine","kind":"item","text":"Run as of 30 Sep 2026"},
+    {"section":"Brevane Marine","kind":"item","text":"Ran 20 Nov 2026"},
+    {"section":"Brevane Marine","kind":"item","text":"Finished"},
+    {"section":"Brevane Marine","kind":"item","text":"Full review"},
+    {"section":"Brevane Marine","kind":"item","text":"Stable."}
+  ],
+  "tables": [],
+  "figures": [
+    {"kind":"card","text":"Run as of 31 Dec 2026","tokens":["31","2026"],"section":"Brevane Marine","label":"Finished","period":"Ran 20 Feb 2027","unit":null,"basis":null,"beside":"Run as of 31 Dec 2026 | Ran 20 Feb 2027 | Finished | Full review | Stable. | Open report"},
+    {"kind":"card","text":"Ran 20 Feb 2027","tokens":["20","2027"],"section":"Brevane Marine","label":"Finished","period":"Run as of 31 Dec 2026","unit":null,"basis":null,"beside":"Run as of 31 Dec 2026 | Ran 20 Feb 2027 | Finished | Full review | Stable. | Open report"},
+    {"kind":"card","text":"Run as of 30 Sep 2026","tokens":["30","2026"],"section":"Brevane Marine","label":"Finished","period":"Ran 20 Nov 2026","unit":null,"basis":null,"beside":"Run as of 30 Sep 2026 | Ran 20 Nov 2026 | Finished | Full review | Stable."},
+    {"kind":"card","text":"Ran 20 Nov 2026","tokens":["20","2026"],"section":"Brevane Marine","label":"Finished","period":"Run as of 30 Sep 2026","unit":null,"basis":null,"beside":"Run as of 30 Sep 2026 | Ran 20 Nov 2026 | Finished | Full review | Stable."}
+  ],
+  "sources": [],
+  "limitations": [],
+  "marks": [],
+  "controls": [],
+  "links": [
+    {"text":"Library","href":"#/library/home"},
+    {"text":"Open latest report","href":"#/library/brevane-marine/r-0412/overview"},
+    {"text":"New run","href":"#/run"},
+    {"text":"Open report","href":"#/library/brevane-marine/r-0412/overview"}
+  ],
+  "images": [],
+  "screenReaderOnly": [],
+  "coverage": {"innerText":8,"captured":8,"optionsNotDrawn":0,"selected":0,"typed":0,"screenReaderOnly":0},
+  "chartTableViews": [],
+  "sourceDrawers": []
+}

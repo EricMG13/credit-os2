@@ -58,6 +58,19 @@ const ONLY = process.env.ONLY ?? null;
 const VIEWPORT = { width: 1440, height: 900 };
 const LOOP_CAP = 1000;
 let RULES = [];
+// Everything this script starts or creates outside <outDir> is undone on exit, a signal included.
+const cleanups = [];
+const runCleanups = () => {
+  for (const undo of cleanups.splice(0).reverse()) {
+    try {
+      undo();
+    } catch {
+      // best effort: the process is ending
+    }
+  }
+};
+process.on("exit", runCleanups);
+for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => process.exit(130));
 
 // ---- in the page ---------------------------------------------------------------------------------
 // One self-contained function (Playwright sends its source to the page). It reads what is drawn: the
@@ -96,7 +109,7 @@ function extractInPage(opts) {
     "data-current", "data-orientation", "data-selected", "data-testid", "data-a11y-ignore",
     "data-expanded", "data-focused", "data-focus-visible", "data-hovered", "data-pressed",
     "data-disabled", "data-state", "data-open", "data-placement", "data-trigger", "data-entering",
-    "data-exiting", "data-loading", "data-slot", "data-audit-i",
+    "data-exiting", "data-loading", "data-slot", "data-audit-i", "data-collection",
   ]);
 
   const labelledBy = (el) => {
@@ -370,7 +383,7 @@ function extractInPage(opts) {
         section: r.section,
         label: term ?? before.at(-1) ?? after[0] ?? null,
         period: (PERIOD_ONLY.test(r.text) ? r.text : null) ?? others.find((t) => PERIOD_ONLY.test(t)) ?? others.find((t) => PERIOD.test(t) && !/\bvs\b/i.test(t) && t.length <= 60) ?? null,
-        unit: unitOf(r.text) ?? (others.map((t) => t.match(UNIT)?.[0]).find(Boolean) ?? null),
+        unit: unitOf(r.text) ?? (others.filter((t) => t.length <= 60).map((t) => t.match(UNIT)?.[0]).find(Boolean) ?? null),
         basis: others.find((t) => BASIS.test(t)) ?? null,
         beside: group ? group.map((x) => x.text).join(" | ") : undefined,
       });
@@ -423,13 +436,18 @@ function extractInPage(opts) {
             : { checked: el.checked ?? el.getAttribute("aria-checked"), selected: el.getAttribute("aria-selected"), pressed: el.getAttribute("aria-pressed") };
       controls.push({ role, name: el.localName === "details" ? clean(el.querySelector("summary")?.textContent) : nameOf(el), ...state });
     }
+    // Marks with no text that carry a meaning through their accessible name (a leading or lagging symbol).
+    const images = [...root.querySelectorAll("[role=img][aria-label],img[alt]")]
+      .filter(vis)
+      .map((el) => ({ name: clean(el.getAttribute("aria-label") ?? el.getAttribute("alt")), in: headingBefore(el) }))
+      .filter((i) => i.name);
     const links = [...root.querySelectorAll("a[href]")]
       .filter(vis)
       .map((a) => ({ text: clean(a.innerText) || a.getAttribute("aria-label") || null, href: a.getAttribute("href") }));
 
     // Independent check that the walk dropped nothing: digit groups in innerText against the capture.
     const count = (s) => (s.match(/\d[\d,.]*/g) ?? []).length;
-    const innerText = count(root.innerText);
+    const innerText = root.innerText.split("\n").reduce((n, line) => n + count(clean(line)), 0);
     const captured = runs.reduce((n, r) => n + count(r.text), 0) - runs.filter((r) => r.kind === "select" || r.kind === "input").reduce((n, r) => n + count(r.text), 0);
     const selects = runs.filter((r) => r.kind === "select").reduce((n, r) => n + count(r.text), 0);
     const inputs = runs.filter((r) => r.kind === "input").reduce((n, r) => n + count(r.text), 0);
@@ -440,6 +458,7 @@ function extractInPage(opts) {
       ...result,
       controls,
       links,
+      images,
       screenReaderOnly: srOnly,
       coverage: { innerText, captured, optionsNotDrawn: optionDigits.n, selected: selects, typed: inputs, screenReaderOnly: srOnlyDigits },
     };
@@ -526,14 +545,18 @@ async function settle(page) {
 async function openDisclosures(page) {
   let clicked = 0;
   for (let pass = 0; pass < 4; pass++) {
-    await page.evaluate(() => document.querySelectorAll("main details:not([open])").forEach((d) => (d.open = true)));
-    const closed = page.locator('main button[aria-expanded="false"]:not([aria-haspopup]):not([role=combobox])');
-    const n = await closed.count();
+    const n = await page.evaluate(() => {
+      document.querySelectorAll("main details:not([open])").forEach((d) => (d.open = true));
+      let k = 0;
+      for (const b of document.querySelectorAll('main button[aria-expanded="false"]:not([aria-haspopup]):not([role=combobox])')) b.setAttribute("data-audit-i", String(k++));
+      return k;
+    });
     if (n === 0) break;
     for (let i = 0; i < n && clicked < LOOP_CAP; i++) {
-      await closed.nth(0).click({ timeout: 3000 }).catch(() => {});
+      await page.locator(`main [data-audit-i="${i}"]`).click({ timeout: 3000 }).catch(() => {});
       clicked++;
     }
+    await page.evaluate(() => document.querySelectorAll("[data-audit-i]").forEach((e) => e.removeAttribute("data-audit-i")));
     await sleep(150);
   }
   return clicked;
@@ -599,6 +622,7 @@ const NORMALISED = [
   "dates with a time of day (ISO or 'YYYY-MM-DD HH:MM:SS', with or without ' UTC') -> <time>",
   "times of day 'HH:MM:SS' with or without fractions and ' UTC' -> <time>",
   "paths under /tmp/fid-* -> <root>",
+  "generated react-aria ids 'react-aria<digits>' -> react-aria",
   "elapsed durations drawn as 'N s' or 'N min N s' (a whole drawn value) -> <duration>",
 ];
 function rulesFor(extraRunIds) {
@@ -609,6 +633,7 @@ function rulesFor(extraRunIds) {
     ["\\b\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})?(?: UTC)?", "g", "<time>"],
     ["\\b\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?: UTC)?", "g", "<time>"],
     ["/tmp/fid-[^\\s\"'/\\\\]+", "g", "<root>"],
+    ["react-aria\\d+", "g", "react-aria"],
     ["^(?:\\d+ min )?\\d+(?:\\.\\d+)? s$", "", "<duration>"],
   ];
 }
@@ -659,6 +684,7 @@ function countsOf(rec) {
     drawerLines: drawers.reduce((n, t) => n + t.drawer.outline.filter((o) => !["heading", "control", "link"].includes(o.kind)).length, 0),
     limitationSentences: v?.limitations.length ?? 0,
     marks: v?.marks.length ?? 0,
+    images: v?.images.length ?? 0,
     traceControls: rec.traces.total,
     traceDrawers: drawers.length,
     traceErrors: rec.traces.items.filter((t) => t.error).length,
@@ -680,6 +706,7 @@ function writeScreen(dir, rec, normalise) {
     marks: rec.view?.marks ?? [],
     controls: rec.view?.controls ?? [],
     links: rec.view?.links ?? [],
+    images: rec.view?.images ?? [],
     screenReaderOnly: rec.view?.screenReaderOnly ?? [],
     coverage: rec.view?.coverage ?? null,
     chartTableViews: rec.tableViews.map((f) => ({ figure: f.figure, outline: f.outline, tables: f.tables, figures: f.figures, marks: f.marks, sources: f.sources, limitations: f.limitations })),
@@ -713,18 +740,19 @@ function treeInfo() {
   return {
     commit: git("rev-parse", "HEAD"),
     branch: git("rev-parse", "--abbrev-ref", "HEAD"),
+    treeIds: Object.fromEntries(["web", "src", "proof", "prompts"].map((d) => [d, git("rev-parse", `HEAD:${d}`)])),
     changedUnderWebSrcProof: git("status", "--porcelain", "--", "web", "src", "proof", "prompts")?.split("\n").filter(Boolean).length ?? null,
     webDistSha256: sha256(files.join("\n")),
     fixtures,
   };
 }
 
-function writeIndex() {
+function writeIndex(tree) {
   const screens = [];
   const surfaces = {};
   for (const surface of ["connected", "static"]) {
     const dir = path.join(outDir, surface);
-    if (!existsSync(dir)) continue;
+    if (!existsSync(path.join(dir, "_surface.json"))) continue;
     const meta = JSON.parse(readFileSync(path.join(dir, "_surface.json"), "utf8"));
     const rows = readdirSync(dir)
       .filter((f) => f.endsWith(".json") && f !== "_surface.json")
@@ -754,7 +782,7 @@ function writeIndex() {
   }
   writeFileSync(
     path.join(outDir, "index.json"),
-    toJson({ tool: "capture.mjs", viewport: VIEWPORT, normalised: NORMALISED, surfaces, screens }),
+    toJson({ tool: "capture.mjs", viewport: VIEWPORT, normalised: NORMALISED, tree, surfaces, screens }),
   );
   return surfaces;
 }
@@ -790,7 +818,7 @@ function startService(root) {
     if (child.exitCode === null && child.signalCode === null) child.kill();
     await closed;
   };
-  process.once("exit", () => child.kill());
+  cleanups.push(() => child.kill());
   return { endpoint, stderr: () => stderr, stop };
 }
 
@@ -904,6 +932,7 @@ async function captureConnected(browser) {
   try {
     if (!endpoint) {
       root = mkdtempSync("/tmp/fid-");
+      cleanups.push(() => rmSync(root, { recursive: true, force: true }));
       if (root.length > 80) throw new Error(`The service root is too long: ${root}`);
       service = startService(root);
       endpoint = await service.endpoint;
@@ -979,6 +1008,7 @@ async function captureStatic(browser) {
   const { writeDataFile } = await import(pathToFileURL(path.join(web, "scripts", "fixture-data.mjs")).href);
   RULES = rulesFor([]);
   const tmp = mkdtempSync("/tmp/fid-s-");
+  cleanups.push(() => rmSync(tmp, { recursive: true, force: true }));
   const workers = await newWorkers(browser, CONCURRENCY);
   try {
     cpSync(path.join(web, "dist"), tmp, { recursive: true });
@@ -1061,15 +1091,19 @@ try {
 } finally {
   await browser.close();
 }
-const info = treeInfo();
-const surfaces = writeIndex();
-const indexPath = path.join(outDir, "index.json");
-const written = JSON.parse(readFileSync(indexPath, "utf8"));
-writeFileSync(indexPath, toJson({ ...written, tree: info }));
+const surfaces = writeIndex(treeInfo());
 for (const [name, s] of Object.entries(surfaces)) {
-  console.log(`${name}: ${s.screens} screens (${s.screensNotExtra} asked for), ${s.figures} figures, ${s.sourceLines} source lines on screen, ${s.drawerLines} in source drawers, ${s.limitationSentences} limitation sentences`);
+  console.log(
+    `${name}: ${s.screens} screens (${s.screensNotExtra} asked for), ${s.figures} figures, ${s.sourceLines} source lines on screen, ${s.drawerLines} in source drawers, ${s.limitationSentences} limitation sentences`,
+  );
 }
 if (failures) {
-  console.error(`${failures} screen(s) failed; see index.json and the _surface.json files`);
+  console.error(`${failures} screen(s) failed; see the _surface.json files`);
   process.exitCode = 1;
+}
+for (const [name, s] of Object.entries(surfaces)) {
+  if (s.screensWithCoverageGap || s.traceErrors) {
+    console.error(`${name}: ${s.screensWithCoverageGap} screen(s) with a coverage gap, ${s.traceErrors} source control(s) that did not open; see counts in index.json`);
+    process.exitCode = 1;
+  }
 }

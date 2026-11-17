@@ -1,0 +1,79 @@
+{
+  "screen": {"id":"library--brevane-marine--r-0412--modules--business-profile","surface":"static","address":"/library/brevane-marine/r-0412/modules/business-profile","extra":false,"variant":null},
+  "page": {"title":"Credit OS","headings":["Brevane Marine","Business profile","Long-dated charters on a modern fleet carry a thinner spot-market business.","Key findings","Limitations 1"]},
+  "counts": {"textRuns":34,"figures":4,"figuresByKind":{"card":4},"tableViewFigures":0,"chartTableViews":0,"tables":0,"tableRows":0,"sourceLines":0,"drawerLines":0,"limitationSentences":2,"marks":3,"images":0,"traceControls":0,"traceDrawers":0,"traceErrors":0,"coverageGap":0},
+  "expandedDisclosures": 0,
+  "outline": [
+    {"section":"","kind":"link","text":"Library"},
+    {"section":"Brevane Marine","kind":"heading","text":"Brevane Marine"},
+    {"section":"Brevane Marine","kind":"text","text":"As of 31 Dec 2026"},
+    {"section":"Brevane Marine","kind":"text","text":"Full review"},
+    {"section":"Brevane Marine","kind":"text","text":"Finished"},
+    {"section":"Brevane Marine","kind":"text","text":"Show sources"},
+    {"section":"Brevane Marine","kind":"link","text":"Report history"},
+    {"section":"Brevane Marine","kind":"link","text":"New run"},
+    {"section":"Brevane Marine","kind":"link","text":"Overview"},
+    {"section":"Brevane Marine","kind":"link","text":"Changes"},
+    {"section":"Brevane Marine","kind":"link","text":"Modules"},
+    {"section":"Brevane Marine","kind":"link","text":"2"},
+    {"section":"Brevane Marine","kind":"text","text":"Forecast"},
+    {"section":"Brevane Marine","kind":"text","text":"No forecast for this run"},
+    {"section":"Brevane Marine","kind":"link","text":"Evidence"},
+    {"section":"Brevane Marine","kind":"text","text":"On this page"},
+    {"section":"Brevane Marine","kind":"control","text":"Bottom line"},
+    {"section":"Brevane Marine","kind":"control","text":"Key findings"},
+    {"section":"Brevane Marine","kind":"control","text":"Limitations"},
+    {"section":"Brevane Marine","kind":"text","text":"Modules in this run"},
+    {"section":"Brevane Marine","kind":"link","text":"Business profile"},
+    {"section":"Brevane Marine","kind":"link","text":"Source readiness"},
+    {"section":"Brevane Marine > Business profile","kind":"heading","text":"Business profile"},
+    {"section":"Brevane Marine > Business profile","kind":"text","text":"Delivered"},
+    {"section":"Brevane Marine > Business profile","kind":"text","text":"Bottom line"},
+    {"section":"Brevane Marine > Business profile > Long-dated charters on a modern fleet carry a thinner spot-market business.","kind":"heading","text":"Long-dated charters on a modern fleet carry a thinner spot-market business."},
+    {"section":"Brevane Marine > Business profile > Long-dated charters on a modern fleet carry a thinner spot-market business.","kind":"paragraph","text":"Chartered vessels earn most of the profit and kept their rates through the last two downturns in freight."},
+    {"section":"Brevane Marine > Business profile > Key findings","kind":"heading","text":"Key findings"},
+    {"section":"Brevane Marine > Business profile > Key findings","kind":"item","text":"01"},
+    {"section":"Brevane Marine > Business profile > Key findings","kind":"item","text":"Charters lead"},
+    {"section":"Brevane Marine > Business profile > Key findings","kind":"item","text":"Time-charter hire was 64% of operating profit in the year, on the company-adjusted basis."},
+    {"section":"Brevane Marine > Business profile > Limitations 1","kind":"heading","text":"Limitations 1"},
+    {"section":"Brevane Marine > Business profile > Limitations 1","kind":"link","text":"See this module’s gaps in Evidence"},
+    {"section":"Brevane Marine > Business profile > Limitations 1","kind":"item","text":"Charter terms come from management presentations."}
+  ],
+  "tables": [],
+  "figures": [
+    {"kind":"card","text":"As of 31 Dec 2026","tokens":["31","2026"],"section":"Brevane Marine","label":"Full review","period":"As of 31 Dec 2026","unit":null,"basis":null,"beside":"As of 31 Dec 2026 | Full review | Finished"},
+    {"kind":"card","text":"2","tokens":["2"],"section":"Brevane Marine","label":"Modules","period":null,"unit":null,"basis":null,"beside":"Modules | 2"},
+    {"kind":"card","text":"01","tokens":["01"],"section":"Brevane Marine > Business profile > Key findings","label":"Charters lead","period":null,"unit":null,"basis":"Time-charter hire was 64% of operating profit in the year, on the company-adjusted basis.","beside":"01 | Charters lead | Time-charter hire was 64% of operating profit in the year, on the company-adjusted basis."},
+    {"kind":"card","text":"Time-charter hire was 64% of operating profit in the year, on the company-adjusted basis.","tokens":["64%"],"section":"Brevane Marine > Business profile > Key findings","label":"Charters lead","period":null,"unit":"%","basis":null,"beside":"01 | Charters lead | Time-charter hire was 64% of operating profit in the year, on the company-adjusted basis."}
+  ],
+  "sources": [],
+  "limitations": [
+    {"via":"section","section":"Brevane Marine > Business profile > Limitations 1","text":"See this module’s gaps in Evidence"},
+    {"via":"section","section":"Brevane Marine > Business profile > Limitations 1","text":"Charter terms come from management presentations."}
+  ],
+  "marks": [
+    {"in":null,"tag":"div","attrs":{"data-section":"bottom-line"},"text":"Bottom lineLong-dated charters on a modern fleet carry a thinner spot-market bus"},
+    {"in":null,"tag":"div","attrs":{"data-section":"findings"},"text":"Key findings01Charters leadTime-charter hire was 64% of operating profit in the "},
+    {"in":null,"tag":"div","attrs":{"data-section":"limitations"},"text":"Limitations1See this module’s gaps in EvidenceCharter terms come from management"}
+  ],
+  "controls": [
+    {"role":"switch","name":"Show sources","checked":false,"selected":null,"pressed":null}
+  ],
+  "links": [
+    {"text":"Library","href":"#/library/home"},
+    {"text":"Report history","href":"#/library/brevane-marine/history"},
+    {"text":"New run","href":"#/run"},
+    {"text":"Overview","href":"#/library/brevane-marine/r-0412/overview"},
+    {"text":"Changes","href":"#/library/brevane-marine/r-0412/changes"},
+    {"text":"Modules 2","href":"#/library/brevane-marine/r-0412/modules/business-profile"},
+    {"text":"Evidence","href":"#/library/brevane-marine/r-0412/evidence/summary"},
+    {"text":"Business profile","href":"#/library/brevane-marine/r-0412/modules/business-profile"},
+    {"text":"Source readiness","href":"#/library/brevane-marine/r-0412/modules/source-readiness"},
+    {"text":"See this module’s gaps in Evidence","href":"#/library/brevane-marine/r-0412/evidence/gaps"}
+  ],
+  "images": [],
+  "screenReaderOnly": [],
+  "coverage": {"innerText":6,"captured":6,"optionsNotDrawn":0,"selected":0,"typed":0,"screenReaderOnly":0},
+  "chartTableViews": [],
+  "sourceDrawers": []
+}
