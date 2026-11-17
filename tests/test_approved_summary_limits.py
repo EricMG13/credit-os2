@@ -88,3 +88,13 @@ def test_corrupt_issued_summary_metadata_is_refused_instead_of_losing_limits(roo
     )
     with pytest.raises(submissions.Refused, match="approved summary limits"):
         submissions.issued_summary_limits(layout(root), sid)
+
+
+def test_a_failed_review_clears_the_previous_limits_with_the_issued_digest(root, monkeypatch):
+    sid = upload(root)
+    answers = answers_for()
+    issue(monkeypatch, root, sid, answers, [LIMIT])
+    monkeypatch.setattr(submissions, "_summarise", lambda *_: {"error": "The files changed."})
+    assert submissions.summary(layout(root), sid, answers)["error"] == "The files changed."
+    assert submissions.issued(layout(root), sid) == ""
+    assert submissions.issued_summary_limits(layout(root), sid) is None
