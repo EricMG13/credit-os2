@@ -377,6 +377,7 @@ Findings:
 - C4-004, Medium: The Debt stack, drawn when one facility has no balance, is a bar of coloured segments with no key that ties a colour to a facility.
 - X1-024, Medium: One debt part with a zero balance makes every Model page of that run unreadable in the static app.
 - X1-019, Medium: In a group of three or more series, the value label of the middle series is cut off at the top of the drawing when its bar reaches the top tick.
+- R2-003, High: The debt stack reads each cell on its own, so a column mixing '3,75' with '2,800' draws 3,75 as 375.
 
 Files: `web/src/pages/connected/visuals/charts.tsx`, `web/src/components/chart/StackChart.tsx`, `web/src/pages/model/slice/read-sections.ts`, `web/src/components/chart/BarCanvas.tsx`, `web/src/components/chart/ColumnsChart.tsx`
 
@@ -385,6 +386,7 @@ Probes:
 - C4-004 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-004-debt-stack-key.cjs`
 - X1-024 (output): `docs/audit/2026-11-16-final/output/2-sections/X1/probes/stack-zero-static.mjs`
 - X1-019 (output): `docs/audit/2026-11-16-final/output/2-sections/X1/probes/charts.mjs`
+- R2-003 (none): `found by repair-2 (2026-11-17); the T19 follow-up test is the probe`
 
 Touches money, ordering or security code: figures.
 

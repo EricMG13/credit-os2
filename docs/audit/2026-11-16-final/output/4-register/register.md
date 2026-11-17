@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-497 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 388 findings. Counts below are of those 388, after re-grading.
+499 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 390 findings. Counts below are of those 390, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -8,18 +8,18 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 
 | Severity | repair | batch | sweep | owner | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| High | 8 | 0 | 0 | 0 | 0 | 0 | 8 |
+| High | 9 | 0 | 0 | 0 | 0 | 0 | 9 |
 | Medium | 91 | 0 | 0 | 1 | 2 | 11 | 105 |
-| Low | 0 | 171 | 0 | 0 | 18 | 9 | 198 |
+| Low | 0 | 172 | 0 | 0 | 18 | 9 | 199 |
 | Info | 0 | 18 | 17 | 2 | 10 | 30 | 77 |
-| Total | 99 | 189 | 17 | 3 | 30 | 50 | 388 |
+| Total | 100 | 190 | 17 | 3 | 30 | 50 | 390 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
 | C1 | 2 | 11 | 16 | 11 |
 | C2 | 0 | 9 | 12 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
-| C4 | 1 | 7 | 19 | 3 |
+| C4 | 2 | 7 | 20 | 3 |
 | C5 | 3 | 10 | 18 | 4 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
@@ -35,7 +35,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
-Verification of High and Medium findings: confirmed 121, not a defect 4, not verified 2.
+Verification of High and Medium findings: confirmed 122, not a defect 4, not verified 2.
 
 ## Findings
 
@@ -50,6 +50,7 @@ High first. `Merged` lists the ids with the same cause.
 | R1-004 | High | C5 | The issuer library's issue text keeps the first 80 characters of an OSError's message, which hold the server's absolute path, and those issues reach run activi… | repair | T01 |  | confirmed |
 | R1-007 | High | C5 | An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evid… | repair | T01b |  | confirmed |
 | R1-008 | High | C1 | When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.… | repair | T01b |  | confirmed |
+| R2-003 | High | C4 | The debt stack reads each cell on its own, so a column mixing '3,75' with '2,800' draws 3,75 as 375. | repair | T19 |  | confirmed |
 | S1-001 | High | S1 | The library's "Start a run" button opens Run activity (a saved running example), not the run start page. | repair | T26 | J6-005 | confirmed |
 | B0-003 | Medium | C2 | Following the documented manual synthetic run in docs/react-workflow.md ends Failed at Legal & covenants; the run completes only if the credit agreement is als… | repair | T12 | J1-014 | confirmed |
 | C1-002 | Medium | C1 | The empty Library is a bare 'No reports yet' card with no icon, no explanation and no next step, drawn under filter and layout controls that have nothing to ac… | repair | T05 |  | confirmed |
@@ -254,6 +255,7 @@ High first. `Merged` lists the ids with the same cause.
 | J6-014 | Low | J6 | "Page not found" has no link or button; every other error page offers a way back. | batch |  |  | not required (Low or Info) |
 | R1-009 | Low | C1 | With an earlier run listed, the Teams started card counts CP-8 only from its first event, so it reads 13 against the run page's 14, and a run stopped before CP… | batch |  |  | not required (Low or Info) |
 | R2-001 | Low | C4 | The predicate that holds source references back from table cells (visualData.ts containsReference) misses gap ids such as '(G12)', run codes such as '20261117-… | batch |  |  | not required (Low or Info) |
+| R2-002 | Low | C4 | With the Basis and limitation column added (C3-029), a chart's Table form is still wider than its card (749 px against 604 at 1440, 316 at 390), so the reader… | batch |  |  | not required (Low or Info) |
 | S1-007 | Low (was Medium) | S1 | Every fixture run is a "Full credit review" drawn with a USD 20.00 spend cap; the Full tier's cap is USD 25. | batch |  | S6-004 | confirmed |
 | S1-008 | Low | S1 | #/kit/ shows "Page not found" while every other address ignores one trailing slash. | batch |  |  | not required (Low or Info) |
 | S1-009 | Low | S1 | Below 480 px the rail's content is 1 px taller than its box and the whole document scrolls by 1 px. | batch |  |  | not required (Low or Info) |

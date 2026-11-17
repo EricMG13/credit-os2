@@ -37,7 +37,7 @@ Files:
 
 Tasks, in order: T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24.
 
-Findings: 34 (plus their merged ids).
+Findings: 35 (plus their merged ids).
 
 Files:
 
