@@ -26,9 +26,9 @@ function LoadingPage() {
   );
 }
 
-const SECTIONS: { area: Area; href: string }[] = [
+const SECTIONS: { area: Area; href: string; label?: string }[] = [
   { area: "library", href: "/" },
-  { area: "run", href: "/runs" },
+  { area: "run", href: "/runs", label: "Run activity" },
 ];
 
 function assign(path: string) {
