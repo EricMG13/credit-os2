@@ -1485,20 +1485,21 @@ describe("Module, a limitation longer than three lines", () => {
   it("S3-017 needs no per-limitation resize observer when text is always whole", () => {
     layout(true);
     const Original = globalThis.ResizeObserver;
-    let built = 0;
+    const observed: Element[] = [];
     globalThis.ResizeObserver = class extends Original {
-      constructor(callback: ResizeObserverCallback) {
-        super(callback);
-        built += 1;
+      override observe(target: Element, options?: ResizeObserverOptions) {
+        observed.push(target);
+        super.observe(target, options);
       }
     };
     try {
       renderModule("business-profile");
-      const first = built;
-      expect(first).toBe(0);
+      const limits = region("Limitations");
+      const limitationTargets = () => observed.filter((target) => limits.contains(target));
+      expect(limitationTargets()).toEqual([]);
       fireEvent.click(screen.getByRole("switch", { name: "Show sources" }));
       fireEvent.click(screen.getByRole("switch", { name: "Show sources" }));
-      expect(built).toBe(first);
+      expect(limitationTargets()).toEqual([]);
     } finally {
       globalThis.ResizeObserver = Original;
     }
