@@ -107,7 +107,8 @@ export function amount(cell: string, unit?: unknown): number | null {
 }
 
 // Only a decimal comma reads "3,75"; only English grouping reads "1,250,000" or "2,800.5".
-const onlyDecimalComma = (cell: string) => DECIMAL_COMMA.test(cell) && !COMMA_GROUPS.test(cell);
+const onlyDecimalComma = (cell: string) =>
+  DECIMAL_COMMA.test(cell) && !COMMA_GROUPS.test(cell) && !/^-?0,000$/.test(cell);
 const onlyGrouping = (cell: string) => COMMA_GROUPS.test(cell) && !DECIMAL_COMMA.test(cell);
 
 /**

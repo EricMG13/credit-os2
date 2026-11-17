@@ -131,3 +131,28 @@ it.each([
 ] as const)("does not flip the scope %j, which also holds English grouping", (scope, values) => {
   expect(scope.map((cell) => cellAmount(cell, scope))).toEqual(values);
 });
+
+// L16: an ambiguous written zero does not establish a column's decimal convention.
+it.each([
+  [
+    ["0,000", "2,800"],
+    [0, 2800],
+  ],
+  [
+    ["-0,000", "2,800"],
+    [-0, 2800],
+  ],
+] as const)("does not use %j as decimal-comma evidence", (scope, values) => {
+  expect(scope.map((cell) => cellAmount(cell, scope))).toEqual(values);
+});
+
+it("still uses a nonzero fraction as decimal-comma evidence beside a written zero", () => {
+  const scope = ["0,000", "3,75", "2,800"];
+  expect(scope.map((cell) => cellAmount(cell, scope))).toEqual([0, 3.75, 2.8]);
+  expect(cellAmount("2,800", ["0,375", "2,800"])).toBe(2.8);
+});
+
+it("does not use a unit-confirmed written zero as decimal-comma evidence", () => {
+  const scope = ["0,000m", "2,800m"];
+  expect(scope.map((cell) => cellAmount(cell, scope, "US$m"))).toEqual([0, 2800]);
+});
