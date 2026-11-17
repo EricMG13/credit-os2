@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-501 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 392 findings. Counts below are of those 392, after re-grading.
+502 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 393 findings. Counts below are of those 393, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -11,15 +11,15 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
 | Medium | 70 | 0 | 0 | 0 | 1 | 2 | 32 | 105 |
 | Low | 0 | 141 | 0 | 0 | 1 | 18 | 39 | 199 |
-| Info | 3 | 18 | 17 | 0 | 1 | 10 | 34 | 83 |
-| Total | 78 | 159 | 17 | 0 | 3 | 30 | 105 | 392 |
+| Info | 3 | 18 | 17 | 0 | 2 | 10 | 34 | 84 |
+| Total | 78 | 159 | 17 | 0 | 4 | 30 | 105 | 393 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
 | C1 | 1 | 11 | 16 | 14 |
 | C2 | 0 | 9 | 12 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
-| C4 | 2 | 7 | 20 | 3 |
+| C4 | 2 | 7 | 20 | 4 |
 | C5 | 0 | 10 | 18 | 7 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
@@ -391,6 +391,7 @@ High first. `Merged` lists the ids with the same cause.
 | X1-014 | Info | X1 | components/chart/ChartFrame.tsx imports a string constant from pages/library/parts/TraceControl. | sweep |  |  | not required (Low or Info) |
 | X1-025 | Info | X1 | The chart files repeat the same blocks, and shared helpers live in individual chart files. | sweep |  |  | not required (Low or Info) |
 | B0-006 | Info | C1 | The legacy issuer library and the legacy run-start form ship in the release ZIP and stay reachable at /library/*, outside the two audited surfaces. | deferred (OQ-05) |  |  | not required (Low or Info) |
+| R2-004 | Info | C4 | When an event table's rows are not each identified by their own source line, its valid rows are withheld behind a whole-table card instead of being listed unde… | deferred |  |  | not required (Low or Info) |
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. | parked |  |  | not required (Low or Info) |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps… | parked |  |  | not required (Low or Info) |
 | R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. | parked |  |  | not required (Low or Info) |

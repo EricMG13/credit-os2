@@ -873,5 +873,9 @@
  },
  "J1-015": {
   "note": "closed with J2-002 in T07 by ruling L15: the as-of date opens empty on every new form"
+ },
+ "R2-004": {
+  "disposition": "deferred",
+  "note": "L17: kept withheld (DELIVERY-V02, D-06); a design choice after the audit"
  }
 }
