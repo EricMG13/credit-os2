@@ -1,0 +1,37 @@
+=== columns-3: value labels against the svg top (a negative top is outside the drawing)
+[ { series: 'Notes', text: '100', topBelowSvgTop: -8 } ]
+=== series colours in grey (relative luminance of the first three chart tokens, and the contrast ratio between them)
+chart-1 #001aff L=0.080
+chart-2 #827bcc L=0.233
+chart-3 #994a34 L=0.119
+waterfall total #001aff L=0.080
+waterfall up (brand-400) #4d5fff L=0.170
+waterfall down (chart-3) #994a34 L=0.119
+chart-1 vs chart-3 luminance ratio: 1.31 | waterfall total vs down: 1.31 | total vs up: 1.70
+=== columns-mismatch: bar labels vs the table the tooltip and Table side read
+{ barLabels: [ '100', '90', '80' ], error: null, errors: [] }
+table cells: [ '999', '999', '999' ]
+=== path chart at 1440 px: tab stops and the scroll region
+{
+  regionLabel: 'Net leverage by case chart; scroll horizontally to read each period',
+  scrollWidth: 344,
+  clientWidth: 344,
+  tabbable: [
+    'button role=radio',
+    'button role=radio',
+    'div role=region',
+    'svg role=application'
+  ]
+}
+=== limits-5 at 390 px: overlapping or clipped label boxes
+{ labels: 10, clash: [], outsidePlot: [], plotWidth: 344 }
+=== keyboard on columns-3: svg application tabindex=0; tooltip text after three ArrowRight presses: "FY27Term loan 80Notes 40Revolver 35"
+=== keyboard on waterfall-colours: svg application tabindex=0; tooltip text after three ArrowRight presses: "Closing 70"
+=== keyboard on stack-ok: svg application tabindex=0; tooltip text after three ArrowRight presses: "Term loan 80 80%Notes 20 20%"
+=== keyboard on scatter: svg application tabindex=0; tooltip text after three ArrowRight presses: "Peer BNet leverage 4.2xEBITDA margin 18%"
+=== keyboard on path: svg application tabindex=0; tooltip text after three ArrowRight presses: "FY26Base 4.1xDownside 5.6x"
+=== stack-zero: a zero-balance part
+{
+  uncaught: `Error: part "Revolver drawn": a segment's value must be more than zero`,
+  root: ''
+}

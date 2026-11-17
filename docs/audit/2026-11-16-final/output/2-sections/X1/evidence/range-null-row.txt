@@ -1,0 +1,51 @@
+[
+  {
+    row: 'Organic revenue growth',
+    sub: 'Past five years: -12% to 18%',
+    rangeStrips: 1,
+    markersDrawn: 2,
+    valueTexts: [ '8.0%', '-4.0%' ],
+    trackText: ''
+  },
+  {
+    row: 'EBITDA margin',
+    sub: 'Past five years: 44% to 53%',
+    rangeStrips: 1,
+    markersDrawn: 2,
+    valueTexts: [ '53.4%', '46.9%' ],
+    trackText: ''
+  },
+  {
+    row: 'Capital expenditure, share of revenue',
+    sub: 'Past five years: 1.6% to 2.4%',
+    rangeStrips: 1,
+    markersDrawn: 2,
+    valueTexts: [ '2.1%', '1.7%' ],
+    trackText: ''
+  },
+  {
+    row: 'Cash interest rate on debt',
+    sub: 'Past five years: 5.2% to 7.1%',
+    rangeStrips: 1,
+    markersDrawn: 2,
+    valueTexts: [ '5.3%', '6.0%' ],
+    trackText: ''
+  },
+  {
+    row: 'Working capital days',
+    sub: 'Past five years: 92 to 118',
+    rangeStrips: 1,
+    markersDrawn: 0,
+    valueTexts: [ 'n.a.not available', 'n.a.not available' ],
+    trackText: ''
+  },
+  {
+    row: 'Aftermarket share of revenue',
+    sub: 'Range n.a.',
+    rangeStrips: 0,
+    markersDrawn: 0,
+    valueTexts: [ '55%', '52%' ],
+    trackText: ''
+  }
+]
+console: []
