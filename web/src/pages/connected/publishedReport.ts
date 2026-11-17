@@ -318,12 +318,11 @@ export function runTiming(run: Pick<PublishedRun, "asOf" | "period">) {
 }
 
 const moneyUnit = /^(USD|US\$|[A-Z]{3})(?: millions|m)$/;
-const symbols: Record<string, string> = { USD: "$", US$: "$", GBP: "£", EUR: "€" };
-const moneySymbol = (code: string) => symbols[code] ?? `${code} `;
+const moneySymbol = (code: string) => (code === "USD" || code === "US$" ? "US$" : `${code} `);
 
 export function unitLabel(unit: string) {
   const code = moneyUnit.exec(unit)?.[1];
-  return code ? `${moneySymbol(code)}m` : unit;
+  return code ? `${code === "USD" || code === "US$" ? "US$" : code}m` : unit;
 }
 
 export function withUnit(value: string | number, unit?: string | null) {
