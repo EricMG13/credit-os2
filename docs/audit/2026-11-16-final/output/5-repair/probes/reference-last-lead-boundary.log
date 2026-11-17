@@ -1,0 +1,10 @@
+{"text":"The margin rose eleven pp. 3 quarters running.","actual":false,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"The margin rose eleven pp. 3 fiscal quarters running.","actual":false,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"The margin rose eleven pp. 3 consecutive fiscal quarters running.","actual":false,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"The margin rose twenty-one pp. 3 consecutive fiscal quarters running.","actual":false,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"The margin rose 11 pp. 3 consecutive fiscal quarters running.","actual":false,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"See pp. 3 for the covenant.","actual":true,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"See pp. 3 consecutive fiscal quarters after the summary for the covenant.","actual":true,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"Threshold unknown (G12).","actual":true,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"text":"A gap remains between the Group of Seven (G7) economies.","actual":false,"checks":{"predicate":true,"chartCell":true,"findingParagraph":true,"plainTable":true,"forecastScope":true}}
+{"cases":9,"failed":0}
