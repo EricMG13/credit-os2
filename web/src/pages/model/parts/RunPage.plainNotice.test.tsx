@@ -5,7 +5,7 @@ import { fixtureSlice, must } from "../slice/test-fixture";
 
 const REASON = "runs[1].header.asOf: expected a string";
 const SENTENCE =
-  "The financial model for this run could not be shown. The other financial models in the library are not affected.";
+  "The financial model for this run could not be shown. Open All financial models to see the available records.";
 
 function openUnreadable(page: string) {
   const slice = fixtureSlice() as { runs: { run: string; header: Record<string, unknown> }[] };
@@ -22,6 +22,35 @@ function openUnreadable(page: string) {
 }
 
 describe("An unreadable run is explained in plain words (S5-002)", () => {
+  it("offers available records without promising that other unreadable models are unaffected", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const slice = fixtureSlice() as { runs: { run: string; header: Record<string, unknown> }[] };
+    for (const date of ["2024-12-31", "2024-09-30"]) {
+      const bad = structuredClone(must(slice.runs[0]));
+      bad.run = date;
+      bad.header["asOf"] = 5;
+      slice.runs.push(bad);
+    }
+    window.location.hash = "#/model/transdigm/2024-12-31/front";
+    render(
+      <App
+        result={{ kind: "ok", data: { schema: "credit-os-data/1", issuers: [], model: slice } }}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "The financial model for this run could not be shown. Open All financial models to see the available records.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/other financial models.*not affected/)).toBeNull();
+    expect(screen.getByRole("link", { name: "All financial models" })).toHaveAttribute(
+      "href",
+      "#/model/runs",
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(REASON));
+    warn.mockRestore();
+  });
+
   it.each(["front", "analysis", "statements", "portfolio-fit", "limitations", "forecast"])(
     "draws one fixed sentence on the %s page and none of the reader's field path",
     (page) => {

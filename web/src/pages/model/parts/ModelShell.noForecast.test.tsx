@@ -61,6 +61,14 @@ const tabs = () =>
     .map((link) => [link.textContent, link.getAttribute("href")]);
 
 describe("a run with no forecast", () => {
+  it("offers no source switch on the sentence-only Forecast page, while other model pages retain it", () => {
+    open(`${BASE}/forecast`, noForecast());
+    expect(screen.queryByRole("switch", { name: "Show sources" })).toBeNull();
+    cleanup();
+    open(`${BASE}/front`, noForecast());
+    expect(screen.getByRole("switch", { name: "Show sources" })).toBeVisible();
+  });
+
   it.each(PAGES)("draws its %s page", (page, anchor) => {
     open(`${BASE}/${page}`, noForecast());
     expect(screen.queryByText(UNREADABLE)).toBeNull();

@@ -40,7 +40,7 @@ function Unreadable({ reason }: { reason: string }) {
   return (
     <Notice
       title="This part of the library could not be read"
-      description="The financial model for this run could not be shown. The other financial models in the library are not affected."
+      description="The financial model for this run could not be shown. Open All financial models to see the available records."
     />
   );
 }

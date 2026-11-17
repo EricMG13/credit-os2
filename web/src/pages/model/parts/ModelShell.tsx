@@ -71,7 +71,7 @@ export function ModelShell({
               </li>
             </ol>
           </nav>
-          <ShowSourcesSwitch />
+          {current !== FORECAST || run.forecast !== null ? <ShowSourcesSwitch /> : null}
         </div>
         <PageHeader
           as="h1"
