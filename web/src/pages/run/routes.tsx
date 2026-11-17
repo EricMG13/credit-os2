@@ -8,8 +8,23 @@ import { useSource } from "../source";
 import { ActivityPage, RunsIndex } from "./activity/ActivityPage";
 import { readSlice } from "./slice";
 import { StartPage } from "./start/StartPage";
+import { STEPS } from "./start/Stepper";
 
 export { readSlice } from "./slice";
+
+/** The saved form's actual step and issuer, including the default first draft. */
+const startSubject: NonNullable<Route["subject"]> = (params, data) => {
+  const slice = readSlice(data.run);
+  if (slice.kind !== "ok") return undefined;
+  const draft =
+    params["draft"] === undefined
+      ? slice.data.drafts[0]
+      : slice.data.drafts.find((item) => item.id === params["draft"]);
+  if (draft === undefined) return undefined;
+  const step =
+    draft.step === "started" ? draft.title : STEPS.find((item) => item.key === draft.step)?.title;
+  return [step, draft.issuer].filter((word) => word !== undefined).join(" — ");
+};
 
 /** A new run begins at the slice's first draft; its id is the data's, so no link needs to know it. */
 function NewRun() {
@@ -38,11 +53,13 @@ export const routes: readonly Route[] = [
   {
     path: "/run/start",
     title: "Start a run",
+    subject: startSubject,
     render: () => <NewRun />,
   },
   {
     path: "/run/start/:draft",
     title: "Start a run",
+    subject: startSubject,
     render: (params) => <StartPage draft={params["draft"] ?? ""} />,
   },
   {

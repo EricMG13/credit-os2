@@ -45,6 +45,10 @@ function runSubject(lead: (params: Record<string, string>, run: Run) => string |
 
 const runPage = runSubject(() => null);
 const evidenceTab = (tab: string): Subject => runSubject(() => tab);
+const traceSubject = runSubject((params, run) => {
+  const item = run.evidence?.trace.rows.find((row) => row.id === params["item"]);
+  return item === undefined ? "Trace" : `Trace — ${item.item}`;
+});
 const moduleSubject = runSubject((params, run) => {
   const wanted = params["module"] ?? run.head.firstModule;
   return run.modules?.find((module) => module.id === wanted)?.name ?? null;
@@ -129,7 +133,7 @@ export const routes: readonly Route[] = [
     path: "/library/:issuer/:run/evidence/trace/:item",
     layout: "bleed",
     title: PAGE_NAME.evidence,
-    subject: evidenceTab("Trace"),
+    subject: traceSubject,
     render: (params) => (
       <Evidence issuer={params["issuer"]} run={params["run"]} page="trace" item={params["item"]} />
     ),

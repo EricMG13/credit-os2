@@ -1,7 +1,7 @@
 import { Check } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 
-const STEPS = [
+export const STEPS = [
   { key: "documents", title: "Documents", note: "Add files" },
   { key: "purpose", title: "Purpose", note: "Choose one" },
   { key: "confirm", title: "Confirm", note: "Approve" },

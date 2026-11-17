@@ -92,7 +92,10 @@ describe("the document title", () => {
       "Evidence — Summary — Halden Aerostructures — As of 30 Sep 2026 — Credit OS",
     ],
     [TRACE, "Evidence — Trace — Halden Aerostructures — As of 30 Sep 2026 — Credit OS"],
-    [`${TRACE}/T-0014`, "Evidence — Trace — Halden Aerostructures — As of 30 Sep 2026 — Credit OS"],
+    [
+      `${TRACE}/T-0014`,
+      "Evidence — Trace — Net leverage 4.6x — Halden Aerostructures — As of 30 Sep 2026 — Credit OS",
+    ],
     [
       `${RUN}/evidence/gaps`,
       "Evidence — Gaps — Halden Aerostructures — As of 30 Sep 2026 — Credit OS",
@@ -110,7 +113,7 @@ describe("the document title", () => {
       "#/model/transdigm/2025-06-30/forecast",
       "Forecast — TransDigm Group — As of 30 June 2025 — Credit OS",
     ],
-    ["#/run/start/start", "Start a run — Credit OS"],
+    ["#/run/start/start", "Start a run — Start — TransDigm Group — Credit OS"],
     ["#/run/activity/finished", "Run activity — Credit OS"],
     ["#/kit", "Component kit — Credit OS"],
     ["#/nowhere", "Page not found — Credit OS"],
