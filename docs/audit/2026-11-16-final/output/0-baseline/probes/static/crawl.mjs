@@ -176,7 +176,7 @@ async function axNames(page, cdp) {
 
 const PW_ROLE = new Set(["link", "button", "tab", "switch", "checkbox", "radio", "combobox", "menuitem",
   "menuitemcheckbox", "menuitemradio", "option", "slider", "searchbox", "textbox", "spinbutton", "treeitem",
-  "gridcell", "row", "listbox", "dialog", "alertdialog", "columnheader", "rowheader", "application", "region",
+  "gridcell", "row", "grid", "treegrid", "listbox", "dialog", "alertdialog", "columnheader", "rowheader", "application", "region",
   "group", "img", "figure", "table", "cell", "listitem", "article", "navigation", "main", "tabpanel"]);
 
 async function inventory(page, cdp) {
@@ -205,7 +205,7 @@ async function inventory(page, cdp) {
       it.locator = n > 1 || !it.name ? `${base}.nth(${it.nth})` : base;
       it.pw = { role: it.role, name: it.name, nth: n > 1 || !it.name ? it.nth : null };
     } else {
-      it.locator = it.id ? `locator(${JSON.stringify("#" + it.id)})` : null;
+      it.locator = it.id && !/react-aria|_r_|^:r|^\d/.test(it.id) ? `locator(${JSON.stringify("#" + it.id)})` : null;
       it.pw = null;
     }
   }
@@ -232,7 +232,7 @@ async function cssPath(page, i) {
     const parts = [];
     let e = el;
     while (e && e.nodeType === 1 && e !== document.body) {
-      if (e.id) { parts.unshift(`#${CSS.escape(e.id)}`); break; }
+      if (e.id && !/react-aria|_r_|^:r|^\d/.test(e.id)) { parts.unshift(`#${CSS.escape(e.id)}`); break; }
       const tag = e.tagName.toLowerCase();
       const sibs = [...(e.parentElement?.children ?? [])].filter((s) => s.tagName === e.tagName);
       parts.unshift(sibs.length > 1 ? `${tag}:nth-of-type(${sibs.indexOf(e) + 1})` : tag);
@@ -260,7 +260,7 @@ function stateOf(variant, address, page) {
     if (/Page not found|No page has this address/.test(text)) return "error";
     if (/could not be read|unreadable|failed|Failed to/i.test(text) && /\/(failed|unreadable)$/.test(address)) return "error";
     if (/could not be read/i.test(text)) return "error";
-    if (variant === "shipped") return /missing|No runs yet|No report|not held|nothing/i.test(text) ? "empty" : "partial";
+    if (variant === "shipped") return "empty"; // the shipped data.js holds no issuers and no slices
     if (/Loading|loading/.test(text) && /2026-06-30/.test(address)) return "loading";
     if (/no-such|T-9999|G-99/.test(address) || /not found|No such|does not exist|isn't|is not in/i.test(text.slice(0, 600))) return "error";
     if (/\/(none|no-documents)$/.test(address) || /No runs yet|nothing to read|No report for this issuer/i.test(text)) return "empty";
@@ -357,7 +357,7 @@ for (const variant of VARIANTS) {
     exploredSignatures.add(sigKey);
     const openers = base.filter((b) => !b.disabled && !b.inShell && b.role !== "link" && b.tag !== "a"
       && !(b.tag === "input" && !["checkbox", "radio", "button", "submit", "file"].includes(b.type ?? "text") && b.role !== "combobox")
-      && b.tag !== "textarea" && !["textbox", "searchbox", "spinbutton", "slider", "region", "main", "tabpanel", "img", "table", "figure"].includes(b.role));
+      && b.tag !== "textarea" && !["textbox", "searchbox", "spinbutton", "slider", "region", "main", "tabpanel", "img", "table", "figure", "gridcell", "grid", "treegrid", "none"].includes(b.role));
     const baseKeys = new Set(base.map((b) => `${b.role}|${b.name}|${b.locator}`));
     let needReload = false;
     for (const op of openers) {

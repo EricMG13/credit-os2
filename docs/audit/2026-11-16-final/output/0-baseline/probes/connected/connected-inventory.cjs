@@ -52,7 +52,7 @@ async function startService() {
   const child = spawn(
     "uv",
     ["run", "--locked", "python", "-m", "proof.serve", "--root", root, "--port", String(PORT)],
-    { cwd: REPO, env: { ...process.env, PYTHONPATH: "src" }, detached: true },
+    { cwd: REPO, env: { ...process.env, PYTHONPATH: "src", PYTHONUNBUFFERED: "1" }, detached: true },
   );
   let output = "";
   child.stdout.on("data", (d) => (output += d));
@@ -423,8 +423,12 @@ async function exploreFigureToggles(page, { screen, state, shotPrefix }) {
 }
 
 // ---------------------------------------------------------------- screens
+const T0 = Date.now();
+const progress = (msg) => process.stderr.write(`[${((Date.now() - T0) / 1000).toFixed(1)}s] ${msg}\n`);
+
 async function visit(page, base, address, { state, shot, waitFor = null, explore: doExplore = true, figures = false }) {
   tick();
+  progress(`visit ${address} (${state})`);
   await page.goto(base + address);
   if (address.includes("#")) await page.waitForTimeout(200);
   await page.waitForLoadState("networkidle").catch(() => {});
@@ -489,6 +493,13 @@ async function waitForEnd(page) {
 // ---------------------------------------------------------------- main
 async function main() {
   const { child } = await startService();
+  process.stderr.write("service started\n");
+  for (const sig of ["SIGINT", "SIGTERM"]) {
+    process.once(sig, () => {
+      stopService(child);
+      process.exit(130);
+    });
+  }
   const base = `http://127.0.0.1:${PORT}`;
   const browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
