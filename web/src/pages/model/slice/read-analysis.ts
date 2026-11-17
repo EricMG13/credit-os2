@@ -14,6 +14,7 @@ import {
   num,
   numOrNull,
   object,
+  optionalTrace,
   pairOf,
   text,
   textOrNull,
@@ -42,23 +43,29 @@ const measure = object<Measure>({
   trace: addressOrNull,
 });
 export const passage = object<Passage>({ title: text, text, trace: addressOrNull });
-const headroomRow = object<HeadroomRow>({
-  label: text,
-  sub: text,
-  value: numOrNull,
-  target: num,
-  axisMax: num,
-  text: textOrNull,
-  cells,
-});
+const headroomRow = optionalTrace(
+  object<HeadroomRow>({
+    trace: addressOrNull,
+    label: text,
+    sub: text,
+    value: numOrNull,
+    target: num,
+    axisMax: num,
+    text: textOrNull,
+    cells,
+  }),
+);
 const headroom = object<Headroom>({ ...info, head: arrayOf(text), rows: arrayOf(headroomRow) });
-const segmentRow = object<SegmentRow>({
-  label: text,
-  from: numOrNull,
-  to: numOrNull,
-  text,
-  cells,
-});
+const segmentRow = optionalTrace(
+  object<SegmentRow>({
+    trace: addressOrNull,
+    label: text,
+    from: numOrNull,
+    to: numOrNull,
+    text,
+    cells,
+  }),
+);
 const segments = object<Segments>({
   ...info,
   names: pairOf(text),

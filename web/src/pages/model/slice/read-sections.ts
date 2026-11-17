@@ -98,7 +98,7 @@ const published = nullableRecord(
 /** The members the second half of the Model page adds to the statements page. */
 export const sections = {
   bridges: arrayOf(bridge),
-  comparison,
+  comparison: (value: unknown, path: string) => (value === null ? null : comparison(value, path)),
   debt: object<StatementsPage["debt"]>({ stack, maturities: columns }),
   recovery: columns,
   gap: object({ title: text, reason: text }),
@@ -299,7 +299,8 @@ export function checkSections(
   page.bridges.forEach((b, i) => {
     checkBridge(b, cases, at(child(path, "bridges"), i));
   });
-  checkComparison(page.comparison, child(path, "comparison"));
+  if (page.comparison !== null) checkComparison(page.comparison, child(path, "comparison"));
+  else if (cases.length === 2) fail(child(path, "comparison"), "expected an object");
   checkStack(page.debt.stack, child(path, "debt.stack"));
   checkColumns(page.debt.maturities, child(path, "debt.maturities"));
   checkColumns(page.recovery, child(path, "recovery"));

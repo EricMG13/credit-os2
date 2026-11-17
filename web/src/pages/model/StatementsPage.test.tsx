@@ -86,7 +86,9 @@ describe("Model page: the two cases", () => {
   it("draws the choice line and two cards, the first chosen", () => {
     renderAt(fixtureSlice());
     expect(
-      screen.getByText("Choose a case: the forecast columns and every chart below follow it."),
+      screen.getByText(
+        "The forecast columns and cash flow bridges follow the chosen case. The other charts show both cases or the balance sheet date.",
+      ),
     ).toBeInTheDocument();
     const group = screen.getByRole("radiogroup", { name: "Case" });
     const radios = within(group).getAllByRole("radio");
@@ -160,7 +162,7 @@ describe("Model page: the statements", () => {
   it("draws the heading line, the Figures and Bars choice, four tabs and the basis line", () => {
     renderAt(fixtureSlice());
     expect(
-      screen.getByText("USD millions unless a unit is shown. Fiscal years end 30 September."),
+      screen.getByText("US$m unless a unit is shown. Fiscal years end 30 September."),
     ).toBeInTheDocument();
     expect(
       screen.getByText(

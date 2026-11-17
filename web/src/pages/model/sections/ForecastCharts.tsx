@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { PathChart } from "@/components/chart/PathChart";
 import { WaterfallChart } from "@/components/chart/WaterfallChart";
 import type { Bridge, CaseCard, EbitdaPaths, InterestCover } from "../slice/types";
-import { ChartCard, END_HEADING, chartTrace, rowTrace } from "./shared";
+import { ChartCard, END_HEADING, cellRows, chartTrace, rowTrace } from "./shared";
 
 type PathChartProps = ComponentProps<typeof PathChart>;
 
@@ -28,7 +28,7 @@ function PathCard({
         series={series}
         divider={data.divider}
         yTicks={data.yTicks}
-        table={{ head: data.head, rows: data.rows }}
+        table={{ head: data.head, endHeading: END_HEADING, rows: cellRows(data.rows, data.title) }}
       />
     </ChartCard>
   );

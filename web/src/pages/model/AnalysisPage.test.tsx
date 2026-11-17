@@ -198,13 +198,13 @@ describe("Analysis page", () => {
     fireEvent.click(within(chart).getByRole("radio", { name: "Table" }));
     const row = within(within(chart).getByRole("row", { name: /Secured net leverage/ }));
     expect(row.getAllByRole("cell").map((c) => c.textContent.replace("not available", ""))).toEqual(
-      ["n.a.", "Covenant limit 7.25x"],
+      ["n.a.", "Covenant limit 7.25x", "Source not recorded"],
     );
     expect(
       within(chart)
         .getAllByRole("columnheader")
         .map((h) => h.textContent),
-    ).toEqual(["Measure", "Latest twelve months", "Level that matters"]);
+    ).toEqual(["Measure", "Latest twelve months", "Level that matters", "Show sources"]);
   });
 
   it("draws the segment dumbbells with the legend, and one mark only for the acquired businesses", () => {

@@ -26,13 +26,22 @@ export function chartTrace(trace: string | null, title: string): ReactNode {
 }
 
 /** The table rows of a chart whose rows already hold their cells: a label and its cells. */
-export function cellRows<C>(rows: readonly { label: string; cells: C[] }[]) {
-  return rows.map((row) => ({ label: row.label, cells: row.cells }));
+export function cellRows<C>(
+  rows: readonly { label: string; cells: C[]; trace: string | null }[],
+  title: string,
+) {
+  return rows.map((row) => ({
+    label: row.label,
+    cells: row.cells,
+    end: rowTrace(row.trace, row.label, title),
+  }));
 }
 
 /** A table row's trace control, named by the row and the chart, so no two share a name. */
 export function rowTrace(trace: string | null, label: string, title: string): ReactNode {
-  return trace === null ? undefined : (
+  return trace === null ? (
+    <span className="text-small text-text-tertiary">Source not recorded</span>
+  ) : (
     <TraceControl href={trace} label={`Show the sources for ${label} (${title})`} />
   );
 }

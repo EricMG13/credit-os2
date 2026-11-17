@@ -60,12 +60,12 @@ describe("Model page: bridges", () => {
       "H3 EBITDA bridge",
       "H3 Net debt walk",
       "H3 The two cases side by side",
-      "H4 Revenue, USD millions",
-      "H4 EBITDA as defined, USD millions",
-      "H4 Free cash flow, USD millions",
+      "H4 Revenue, US$m",
+      "H4 EBITDA as defined, US$m",
+      "H4 Free cash flow, US$m",
       "H4 Net leverage, times",
       "H4 Interest cover, times",
-      "H4 Lowest cash balance, USD millions",
+      "H4 Lowest cash balance, US$m",
       "H2 Debt",
       "H3 Debt by instrument",
       "H3 Maturities by year",
@@ -76,7 +76,7 @@ describe("Model page: bridges", () => {
   it("draws each bridge with its subtitle, basis note and legend words", () => {
     renderAt(fixtureSlice());
     const walk = figure("EBITDA bridge");
-    expect(within(walk).getByText("FY24 to FY25E, USD millions")).toBeInTheDocument();
+    expect(within(walk).getByText("FY24 to FY25E, US$m")).toBeInTheDocument();
     expect(
       within(walk).getByText("Costs include the first full year of the 2024 acquisitions."),
     ).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe("Model page: bridges", () => {
     ).toEqual(["Total", "Increase (plus)", "Decrease (minus)"]);
     expect(
       within(figure("Net debt walk")).getByText(
-        "Acquisitions are assumed at zero (0). Shareholder returns were not forecast (n.a.) and are not counted as zero.",
+        "Free cash flow reduces net debt and is shown as a negative contribution. Acquisitions are assumed at zero (0). Shareholder returns were not forecast (n.a.) and are not counted as zero.",
       ),
     ).toBeInTheDocument();
   });
@@ -133,8 +133,8 @@ describe("Model page: bridges", () => {
     expect(stepsDrawn("Net debt walk")).not.toContain("Shareholder returns");
     expect(stepsDrawn("Net debt walk")).toEqual([
       "FY25E",
-      "Cash flow FY26",
-      "Cash flow FY27",
+      "Effect of free cash flow on net debt, FY26",
+      "Effect of free cash flow on net debt, FY27",
       "Acquisitions",
       "FY27E",
     ]);
@@ -160,7 +160,7 @@ describe("Model page: bridges", () => {
     expect(rows[3]).toEqual(["Acquisitions", "0", "0"]);
     const heads = within(figure("Net debt walk")).getAllByRole("columnheader");
     expect(heads.slice(0, 3).map((h) => h.textContent)).toEqual([
-      "USD millions",
+      "US$m",
       "Base case",
       "Downside case",
     ]);
@@ -244,18 +244,18 @@ describe("Model page: the two cases side by side", () => {
     showTable("The two cases side by side");
     const rows = rowsOf("The two cases side by side");
     expect(rows).toEqual([
-      ["Revenue, USD millions", "10,190", "9,050"],
-      ["EBITDA as defined, USD millions", "5,460", "4,350"],
-      ["Free cash flow, USD millions", "2,836", "1,870"],
+      ["Revenue, US$m", "10,190", "9,050"],
+      ["EBITDA as defined, US$m", "5,460", "4,350"],
+      ["Free cash flow, US$m", "2,836", "1,870"],
       ["Net leverage", "3.8x", "5.2x"],
       ["Interest cover", "3.6x", "2.4x"],
-      ["Lowest cash balance, USD millions", "2,790", "n.a."],
+      ["Lowest cash balance, US$m", "2,790", "n.a."],
     ]);
     const chart = figure("The two cases side by side");
     expect(within(chart).getAllByRole("link")).toHaveLength(7);
     expect(
       within(chart).getByRole("link", {
-        name: "Show the sources for Lowest cash balance, USD millions (The two cases side by side)",
+        name: "Show the sources for Lowest cash balance, US$m (The two cases side by side)",
       }),
     ).toHaveAttribute("href", ADDRESS);
     expect(
@@ -271,7 +271,7 @@ describe("Model page: debt and recovery", () => {
   it("draws debt by instrument ranked, with amount and share", () => {
     renderAt(fixtureSlice());
     const chart = figure("Debt by instrument");
-    expect(within(chart).getByText("30 June 2025, USD 29,700 million in all")).toBeInTheDocument();
+    expect(within(chart).getByText("30 June 2025, US$m 29,700 in all")).toBeInTheDocument();
     expect(
       within(chart)
         .getAllByRole("listitem")
@@ -299,7 +299,7 @@ describe("Model page: debt and recovery", () => {
   it("draws maturities with n.a. for the loans in 2026 and 0 for the notes", () => {
     renderAt(fixtureSlice());
     const chart = figure("Maturities by year");
-    expect(within(chart).getByText("Calendar years, USD millions")).toBeInTheDocument();
+    expect(within(chart).getByText("Calendar years, US$m")).toBeInTheDocument();
     expect(marks("Maturities by year", "data-missing")).toEqual(["n.a."]);
     expect(
       chart.querySelector(".recharts-wrapper [data-missing]")?.getAttribute("data-group"),

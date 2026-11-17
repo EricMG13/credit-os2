@@ -185,7 +185,7 @@ const bridgeCases: Case[] = [
   [
     "two panels with one table label",
     [...STM, "comparison", "panels", 1, "tableLabel"],
-    "Revenue, USD millions",
+    "Revenue, US$m",
     `${C}.panels[1].tableLabel: expected a label no other panel has`,
   ],
   [
@@ -219,7 +219,7 @@ const comparisonCases: Case[] = [
   [
     "two panels with one measure",
     [...STM, "comparison", "panels", 1, "measure"],
-    "Revenue, USD millions",
+    "Revenue, US$m",
     `${C}.panels[1].measure: expected a measure no other panel has`,
   ],
   [
@@ -280,7 +280,7 @@ const comparisonCases: Case[] = [
     "three cases",
     ["runs", 0, "cases", 2],
     { ...(fixtureCase() as object), name: "Third case" },
-    "runs[0].cases: expected two cases, the side by side chart draws two",
+    "runs[0].cases: expected at most two cases",
   ],
 ];
 
@@ -317,7 +317,7 @@ const stackCases: Case[] = [
   [
     "two table headings",
     [...STM, "debt", "stack", "head"],
-    ["Instrument", "USD millions"],
+    ["Instrument", "US$m"],
     `${S}.head: expected 3 entries, the label, amount and share headings`,
   ],
 ];
@@ -446,7 +446,7 @@ describe("readSlice: the second half of the Model page", () => {
       [6, 6],
       [6, 6],
     ]);
-    expect(page?.comparison.panels.map((p) => p.texts)).toContainEqual(["2,790", null]);
+    expect(page?.comparison?.panels.map((p) => p.texts)).toContainEqual(["2,790", null]);
     expect(page?.debt.stack.parts.map((p) => p.share)).toEqual(["38%", "35%", "25%", "2%"]);
     expect(page?.debt.maturities.series[0]?.values).toEqual([null, 0, 3600, 0, 4500, 3200]);
     expect(page?.recovery.series[1]?.labels).toEqual(["100%", "31%", null]);

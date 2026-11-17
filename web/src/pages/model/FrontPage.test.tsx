@@ -6,10 +6,10 @@ import { fixtureSlice, must } from "./slice/test-fixture";
 const ADDRESS = "#/library/transdigm/2025-06-30/evidence";
 const BASE = "#/model/transdigm/2025-06-30";
 const METRICS = [
-  ["Revenue", "$8,580m", "↗ 8.1% on FY24", "Net sales, latest twelve months"],
+  ["Revenue", "US$m 8,580", "↗ 8.1% on FY24", "Net sales, latest twelve months"],
   [
     "EBITDA as defined",
-    "$4,560m",
+    "US$m 4,560",
     "↗ 9.3% on FY24",
     "EBITDA as the company defines it in its credit agreement",
   ],
@@ -18,13 +18,13 @@ const METRICS = [
   ["Interest cover", "2.9x", "↗ from 2.8x", "EBITDA as defined divided by cash interest"],
   [
     "Free cash flow",
-    "$1,950m",
+    "US$m 1,950",
     "↗ 10.3% on FY24",
     "EBITDA as defined less cash interest, cash tax, working capital and capital expenditure",
   ],
 ] as const;
 const FACTS = [
-  ["Currency and units", "US dollars, millions"],
+  ["Currency and units", "US$m"],
   ["Fiscal year end", "30 September"],
   ["Historic periods", "FY22 to FY24, as reported"],
   ["Latest twelve months", "To 30 June 2025"],

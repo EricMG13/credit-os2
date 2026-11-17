@@ -38,6 +38,20 @@ export const addressOrNull: Reader<string | null> = (value, path) => {
   return read === null ? null : inLibrary(read, path);
 };
 
+/** A row may omit its source address; an explicitly supplied address is still checked normally. */
+export function optionalTrace<T extends { trace: string | null }>(reader: Reader<T>): Reader<T> {
+  return (value, path) =>
+    reader(
+      typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value) &&
+        !Object.hasOwn(value, "trace")
+        ? { ...value, trace: null }
+        : value,
+      path,
+    );
+}
+
 export const num: Reader<number> = (value, path) =>
   typeof value === "number" && Number.isFinite(value) ? value : fail(path, "expected a number");
 

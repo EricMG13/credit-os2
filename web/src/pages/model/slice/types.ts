@@ -107,8 +107,8 @@ export type StatementsPage = {
   statements: Statement[];
   /** The bridges, each drawn for the chosen case. */
   bridges: Bridge[];
-  /** The two cases side by side; the cases are the first two of `ModelRun.cases`. */
-  comparison: Comparison;
+  /** The two cases side by side; null when a one-case run supplied no comparison. */
+  comparison: Comparison | null;
   debt: { stack: Stack; maturities: ColumnsData };
   recovery: ColumnsData;
   /** The gap panel: the title is joined to the reason by the page. */
@@ -281,6 +281,7 @@ export type Measure = {
  * 7.0x"). The reader compares at that start, not at the composed string.
  */
 export type HeadroomRow = {
+  trace: string | null;
   label: string;
   sub: string;
   value: number | null;
@@ -299,6 +300,7 @@ export type Headroom = ChartInfo & { head: string[]; rows: HeadroomRow[] };
  * is the two joined by " to ", "n.a." for a missing one ("n.a. to 44.0%").
  */
 export type SegmentRow = {
+  trace: string | null;
   label: string;
   from: number | null;
   to: number | null;
@@ -340,6 +342,7 @@ export type PortfolioFitPage = {
 
 /** One column on its own scale. A text is `null` exactly where its value is; `cells` is the table row. */
 export type LimitsColumn = {
+  trace: string | null;
   label: string;
   exposure: number | null;
   limit: number | null;
@@ -372,6 +375,7 @@ export type ScatterAxis = {
 
 /** A holding or the issuer (`emphasis`, at most one); `cells` is the x then the y string. */
 export type ScatterRow = {
+  trace: string | null;
   name: string;
   x: number | null;
   y: number | null;
@@ -390,12 +394,13 @@ export type HoldingsScatter = ChartInfo & {
 };
 
 /**
- * A range strip row on its own axis; `range: null` draws no strip, so no marker either. The last
+ * A range strip row on its own axis; `range: null` draws no strip; supplied markers still draw. The last
  * `markers.length` entries of `cells` are the markers' texts in marker order (the cells before
  * them state the range): each equals its marker's `text`, `null` exactly where the marker is
  * missing. The drivers table is the same shape, its markers being the cases in case order.
  */
 export type StripRow = {
+  trace: string | null;
   label: string;
   rangeText: string;
   range: { low: number; high: number } | null;
@@ -415,7 +420,7 @@ type PathBlock = ChartInfo & {
   yTicks: Tick[];
   /** The first entry heads the label column; the rest are the page's periods. */
   head: string[];
-  rows: { label: string; cells: (string | null)[] }[];
+  rows: { label: string; cells: (string | null)[]; trace: string | null }[];
 };
 
 /** A line: one value and one label per period; a label is `null` where none is drawn. */

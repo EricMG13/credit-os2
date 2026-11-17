@@ -9,7 +9,7 @@ import {
   type Limits,
   type SectionGap,
 } from "../slice/types";
-import { ChartCard, SectionHeading, chartTrace } from "./shared";
+import { ChartCard, END_HEADING, SectionHeading, chartTrace, rowTrace } from "./shared";
 
 /** A section the run could not fill: its title and the reason as given, and no chart. */
 function GapCard({ gap }: SectionGap) {
@@ -44,7 +44,12 @@ export function LimitsCard({ data }: { data: Limits | SectionGap }) {
         }))}
         table={{
           head: data.head,
-          rows: data.columns.map((c) => ({ label: c.label, cells: c.cells })),
+          endHeading: END_HEADING,
+          rows: data.columns.map((c) => ({
+            label: c.label,
+            cells: c.cells,
+            end: rowTrace(c.trace, c.label, data.title),
+          })),
         }}
       />
     </ChartCard>
@@ -75,7 +80,12 @@ export function ScatterCard({ data }: { data: HoldingsScatter | SectionGap }) {
         }))}
         table={{
           head: data.head,
-          rows: data.points.map((p) => ({ label: p.name, cells: p.cells })),
+          endHeading: END_HEADING,
+          rows: data.points.map((p) => ({
+            label: p.name,
+            cells: p.cells,
+            end: rowTrace(p.trace, p.name, data.title),
+          })),
         }}
       />
     </ChartCard>
@@ -106,7 +116,12 @@ export function StripsCard({ data, emphasised }: { data: HoldingsStrips; emphasi
         }))}
         table={{
           head: data.head,
-          rows: data.rows.map((r) => ({ label: r.label, cells: r.cells })),
+          endHeading: END_HEADING,
+          rows: data.rows.map((r) => ({
+            label: r.label,
+            cells: r.cells,
+            end: rowTrace(r.trace, r.label, data.title),
+          })),
         }}
       />
     </ChartCard>

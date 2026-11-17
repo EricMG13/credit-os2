@@ -2,8 +2,8 @@ import { readSlice } from "./read";
 import { edited, fixtureSlice, readRuns } from "./test-fixture";
 
 // S5-001, ruling L8: a run may publish no forecast (a lite run, a short snapshot). The reader reads
-// the absent key as null and the run's other five pages stay readable. A model with one case is
-// still refused: that check is not changed here (finding R3-001).
+// the absent key as null and the run's other five pages stay readable. A one-case run is also
+// readable (R3-001), but the rest of its supplied data must still agree with that case count.
 const FORECAST = ["runs", 0, "forecast"] as const;
 const noForecast = () => edited(FORECAST, undefined);
 
@@ -50,12 +50,12 @@ describe("readSlice: a run with no forecast", () => {
     });
   });
 
-  it("still refuses a run with one case when it has no forecast (R3-001, not changed here)", () => {
+  it("still refuses a one-case run whose forecast statement notes name two cases", () => {
     const source = noForecast() as { runs: { cases: unknown[] }[] };
     source.runs[0]?.cases.splice(1);
     expect(readRuns(source)).toEqual({
       kind: "invalid",
-      reason: "runs[0].cases: expected two cases, the side by side chart draws two",
+      reason: "runs[0].statements.columns[4].notes: expected 1 note, one per case",
     });
   });
 

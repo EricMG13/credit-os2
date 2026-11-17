@@ -169,12 +169,12 @@ describe("Portfolio fit page", () => {
   it("draws the limits table with n.a. for the missing exposure and the missing limit", () => {
     renderAt(fixtureSlice());
     const chart = figure(LIMITS);
-    expect(tableRows(chart)).toEqual(LIMIT_TABLE.map((r) => [...r]));
+    expect(tableRows(chart)).toEqual(LIMIT_TABLE.map((r) => [...r, "Source not recorded"]));
     expect(
       within(chart)
         .getAllByRole("columnheader")
         .map((h) => h.textContent),
-    ).toEqual(["Limit", "Exposure", "Limit"]);
+    ).toEqual(["Limit", "Exposure", "Limit", "Show sources"]);
   });
 
   it("draws the two agency ratings as tiles with the outlook line under each", () => {
@@ -246,16 +246,16 @@ describe("Portfolio fit page", () => {
   it("draws the scatter table: the issuer, holdings A to I, then J and K with n.a.", () => {
     renderAt(fixtureSlice());
     expect(tableRows(figure(SCATTER))).toEqual([
-      ["TransDigm", "5.9x", "53.1%"],
-      ...HOLDINGS.map(([name, x, y]) => [`Holding ${name}`, x, y]),
-      ["Holding J", "4.4x", "n.a."],
-      ["Holding K", "n.a.", "24%"],
+      ["TransDigm", "5.9x", "53.1%", "Source not recorded"],
+      ...HOLDINGS.map(([name, x, y]) => [`Holding ${name}`, x, y, "Source not recorded"]),
+      ["Holding J", "4.4x", "n.a.", "Source not recorded"],
+      ["Holding K", "n.a.", "24%", "Source not recorded"],
     ]);
     expect(
       within(figure(SCATTER))
         .getAllByRole("columnheader")
         .map((h) => h.textContent),
-    ).toEqual(["Issuer", "Net leverage", "EBITDA margin"]);
+    ).toEqual(["Issuer", "Net leverage", "EBITDA margin", "Show sources"]);
   });
 
   it("draws one strip per measure, an issuer tick on three, and the missing spread as n.a.", () => {
@@ -298,12 +298,12 @@ describe("Portfolio fit page", () => {
   it("draws the strips table with n.a. for the missing spread", () => {
     renderAt(fixtureSlice());
     const chart = figure(STRIPS);
-    expect(tableRows(chart)).toEqual(STRIP_TABLE.map((r) => [...r]));
+    expect(tableRows(chart)).toEqual(STRIP_TABLE.map((r) => [...r, "Source not recorded"]));
     expect(
       within(chart)
         .getAllByRole("columnheader")
         .map((h) => h.textContent),
-    ).toEqual(["Measure", "Lowest held", "Highest held", "TransDigm"]);
+    ).toEqual(["Measure", "Lowest held", "Highest held", "TransDigm", "Show sources"]);
   });
 
   it("keeps every table inside a card and puts none on the canvas", () => {

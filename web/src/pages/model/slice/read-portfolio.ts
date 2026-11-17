@@ -15,6 +15,7 @@ import {
   num,
   numOrNull,
   object,
+  optionalTrace,
   pairOf,
   text,
   textOrNull,
@@ -44,15 +45,18 @@ const axis = object<ScatterAxis>({
   ticks: arrayOf(object({ value: num, label: text })),
 });
 
-const limitColumn = object<LimitsColumn>({
-  label: text,
-  exposure: numOrNull,
-  limit: numOrNull,
-  scaleMax: num,
-  exposureText: textOrNull,
-  limitText: textOrNull,
-  cells: pairCells,
-});
+const limitColumn = optionalTrace(
+  object<LimitsColumn>({
+    trace: addressOrNull,
+    label: text,
+    exposure: numOrNull,
+    limit: numOrNull,
+    scaleMax: num,
+    exposureText: textOrNull,
+    limitText: textOrNull,
+    cells: pairCells,
+  }),
+);
 const limits = object<Limits>({ ...info, head: arrayOf(text), columns: arrayOf(limitColumn) });
 const tile = object<RatingTile>({ label: text, value: textOrNull, caption: textOrNull });
 const ratings = object<Ratings>({
@@ -61,15 +65,18 @@ const ratings = object<Ratings>({
   tiles: pairOf(tile),
 });
 const relativeValue = object<RelativeValue>({ title: text, part: text, reason: text });
-const scatterRow = object<ScatterRow>({
-  name: text,
-  x: numOrNull,
-  y: numOrNull,
-  xText: textOrNull,
-  yText: textOrNull,
-  emphasis: bool,
-  cells: pairCells,
-});
+const scatterRow = optionalTrace(
+  object<ScatterRow>({
+    trace: addressOrNull,
+    name: text,
+    x: numOrNull,
+    y: numOrNull,
+    xText: textOrNull,
+    yText: textOrNull,
+    emphasis: bool,
+    cells: pairCells,
+  }),
+);
 const scatter = object<HoldingsScatter>({
   ...info,
   x: axis,
@@ -83,14 +90,17 @@ const range = nullableRecord(
   ["low", "high"],
   object<{ low: number; high: number }>({ low: num, high: num }),
 );
-const stripRow = object<StripRow>({
-  label: text,
-  rangeText: text,
-  range,
-  markers: arrayOf(object({ name: text, value: numOrNull, text: textOrNull })),
-  axis: object({ min: num, max: num }),
-  cells: arrayOf(textOrNull),
-});
+const stripRow = optionalTrace(
+  object<StripRow>({
+    trace: addressOrNull,
+    label: text,
+    rangeText: text,
+    range,
+    markers: arrayOf(object({ name: text, value: numOrNull, text: textOrNull })),
+    axis: object({ min: num, max: num }),
+    cells: arrayOf(textOrNull),
+  }),
+);
 export const strips = object<HoldingsStrips>({
   ...info,
   rangeLabel: text,

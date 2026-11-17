@@ -149,7 +149,7 @@ function CellBody({ cell, view }: { cell: Cell; view: StatementView }) {
           style={{ width: `${(Math.abs(cell.pos) * 100).toFixed(2)}%` }}
           className={cx(
             "mt-1 ml-auto block h-1 min-w-0.5 rounded-xs",
-            cell.pos < 0 ? "bg-chart-3" : "bg-chart-1",
+            cell.pos < 0 ? "bg-chart-3 withheld-stripes" : "bg-chart-1",
           )}
         />
       ) : null}

@@ -1,5 +1,6 @@
 import {
   address,
+  addressOrNull,
   arrayOf,
   at,
   bool,
@@ -10,6 +11,7 @@ import {
   num,
   numOrNull,
   object,
+  optionalTrace,
   oneOf,
   text,
   textOrNull,
@@ -35,7 +37,7 @@ const pathFields = {
   divider: object({ period: text, at: oneOf(["on", "after"] as const), label: text }),
   yTicks: arrayOf(object<Tick>({ value: num, label: text })),
   head: arrayOf(text),
-  rows: arrayOf(object({ label: text, cells })),
+  rows: arrayOf(optionalTrace(object({ label: text, cells, trace: addressOrNull }))),
 };
 const interestCover = object<InterestCover>({
   ...pathFields,

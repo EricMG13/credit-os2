@@ -1,11 +1,22 @@
 import { ComparisonChart } from "@/components/chart/ComparisonChart";
+import { GapPanel } from "@/components/gap/GapPanel";
 import type { CaseCard, Comparison } from "../slice/types";
 import { ChartCard, END_HEADING, chartTrace, rowTrace } from "./shared";
 
 /** The two cases side by side, one panel per measure; it shows both cases whichever is chosen. */
-export function CaseComparison({ data, cases }: { data: Comparison; cases: readonly CaseCard[] }) {
+export function CaseComparison({
+  data,
+  cases,
+}: {
+  data: Comparison | null;
+  cases: readonly CaseCard[];
+}) {
   const [first, second] = cases;
-  if (first === undefined || second === undefined || cases.length !== 2) {
+  if (cases.length === 1)
+    return (
+      <GapPanel reason="Only one case was published. A second case is not available for comparison." />
+    );
+  if (data === null || first === undefined || second === undefined || cases.length !== 2) {
     throw new Error("the side by side chart needs exactly two cases");
   }
   const names: [string, string] = [first.name, second.name];
