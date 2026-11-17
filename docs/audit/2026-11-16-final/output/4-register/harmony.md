@@ -52,7 +52,7 @@ Every content-matrix (CM) and control-matrix (CT) row as each section marked it,
 | - | C2 | not accounted for by any matrix row |  |
 | - | C2 | not accounted for by any matrix row | C2-019: batch |
 | - | C2 | not accounted for by any matrix row | C2-010: batch; C2-023: batch |
-| - | C2 | not accounted for by any matrix row | C2-025: batch |
+| - | C2 | not accounted for by any matrix row | C2-025: deferred |
 | - | C2 | not accounted for by any matrix row |  |
 | CM-001 | C3 | shown as required |  |
 | CM-001 | S3 | shown as required |  |
@@ -316,7 +316,7 @@ Every content-matrix (CM) and control-matrix (CT) row as each section marked it,
 | CM-090 | C1 | shown as required | C1-003: repair; C1-006: rejected |
 | CM-090 | S6 | shown but wrong place or form |  |
 | CM-091 | C1 | correctly not shown |  |
-| CM-091 | C2 | correctly not shown | C2-025: batch |
+| CM-091 | C2 | correctly not shown | C2-025: deferred |
 | CM-091 | S6 | correctly not shown |  |
 | CM-092 | C1 | shown as required | C1-005: repair |
 | CM-092 | C5 | missing | C5-033: batch |

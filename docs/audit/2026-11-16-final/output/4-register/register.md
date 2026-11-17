@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-503 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 394 findings. Counts below are of those 394, after re-grading.
+504 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 395 findings. Counts below are of those 395, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -9,10 +9,10 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | Severity | repair | batch | sweep | owner | deferred | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
-| Medium | 70 | 0 | 0 | 0 | 1 | 2 | 32 | 105 |
+| Medium | 71 | 0 | 0 | 0 | 1 | 2 | 32 | 106 |
 | Low | 0 | 141 | 0 | 0 | 2 | 18 | 39 | 200 |
-| Info | 3 | 18 | 17 | 0 | 2 | 10 | 34 | 84 |
-| Total | 78 | 159 | 17 | 0 | 5 | 30 | 105 | 394 |
+| Info | 3 | 17 | 17 | 0 | 3 | 10 | 34 | 84 |
+| Total | 79 | 158 | 17 | 0 | 6 | 30 | 105 | 395 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -20,7 +20,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | C2 | 0 | 9 | 13 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 2 | 7 | 20 | 4 |
-| C5 | 0 | 10 | 18 | 7 |
+| C5 | 0 | 11 | 18 | 7 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
 | J3 | 0 | 1 | 6 | 2 |
@@ -35,7 +35,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
-Verification of High and Medium findings: confirmed 123, not a defect 4, not verified 2.
+Verification of High and Medium findings: confirmed 124, not a defect 4, not verified 2.
 
 ## Findings
 
@@ -98,6 +98,7 @@ High first. `Merged` lists the ids with the same cause.
 | J5-001 | Medium | J5 | On a failed run the refused module is labelled Interrupted while the run reads Failed, three 'Module draft rejected.' events give no reason, and nothing on the… | repair | T04 |  | confirmed |
 | J5-004 | Medium | J5 | The Issuer ID built from the name is cut at 40 characters, so two different issuers with long names that share their first 40 characters get one ID; the Librar… | repair | T09 | C2-014 | confirmed |
 | R1-003 | Medium | C1 | The Teams cards count CP-MODEL as a module, so a run that finished every requested module reads '13/14 modules'; T02 makes such runs reachable. | repair | T02 |  | confirmed |
+| R4-001 | Medium | C5 | The trace drawer drops every earlier cited page range when one source file is cited more than once. | repair | T42 |  | confirmed |
 | S1-002 | Medium | S1 | Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing. | repair | T27 | S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003 | confirmed |
 | S1-004 | Medium | S1 | The component kit, a developer page with sample figures, buttons that do nothing and looping animations, is offered to readers as a rail item of the static app. | repair (OQ-05) | T25 | X1-018 | confirmed |
 | S2-001 | Medium | S2 | An issuer's history page draws none of its runs when the issuer has no readable report, although its subtitle counts them and its home card describes a finishe… | repair | T32 | J6-006 | confirmed |
@@ -357,7 +358,6 @@ High first. `Merged` lists the ids with the same cause.
 | R1-007 | Info (was High) | C5 | An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evid… | repair | T01b |  | confirmed |
 | R1-008 | Info (was High) | C1 | When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.… | repair | T01b |  | confirmed |
 | C1-028 | Info | C1 | The connected Run activity has no 'Not assessable' state for a blocked module, and offers 'Start from this run' beside a capped or interrupted run where the ma… | batch (OQ-06) |  |  | not required (Low or Info) |
-| C2-025 | Info | C2 | The analyst-name help says the name is 'Shown on Run activity and in Teams', which no matrix row accounts for and which is not true in a synthetic or unconfigu… | batch (OQ-11) |  |  | not required (Low or Info) |
 | C2-027 | Info | C2 | Two fail-open notes mislead: console.warn says a launcher flag is 'not shown' when its text is shown, and the FieldProblem for a blank issuer name is reachable… | batch |  |  | not required (Low or Info) |
 | C4-017 | Info | C4 | The Forecast 'On this page' marker follows clicks only, so aria-current can name a section the reader has scrolled away from. | batch |  |  | not required (Low or Info) |
 | C5-028 | Info | C5 | Record: the run type comes from the service mode, the getRun error text is dropped, and an empty call cell reads "Empty in the handoff". | batch |  |  | not required (Low or Info) |
@@ -392,6 +392,7 @@ High first. `Merged` lists the ids with the same cause.
 | X1-014 | Info | X1 | components/chart/ChartFrame.tsx imports a string constant from pages/library/parts/TraceControl. | sweep |  |  | not required (Low or Info) |
 | X1-025 | Info | X1 | The chart files repeat the same blocks, and shared helpers live in individual chart files. | sweep |  |  | not required (Low or Info) |
 | B0-006 | Info | C1 | The legacy issuer library and the legacy run-start form ship in the release ZIP and stay reachable at /library/*, outside the two audited surfaces. | deferred (OQ-05) |  |  | not required (Low or Info) |
+| C2-025 | Info | C2 | The analyst-name help says the name is 'Shown on Run activity and in Teams', which no matrix row accounts for and which is not true in a synthetic or unconfigu… | deferred (OQ-11) |  |  | not required (Low or Info) |
 | R2-004 | Info | C4 | When an event table's rows are not each identified by their own source line, its valid rows are withheld behind a whole-table card instead of being listed unde… | deferred |  |  | not required (Low or Info) |
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. | parked |  |  | not required (Low or Info) |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps… | parked |  |  | not required (Low or Info) |

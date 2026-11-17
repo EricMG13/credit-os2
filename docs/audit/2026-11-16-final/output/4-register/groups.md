@@ -33,9 +33,9 @@ Files:
 
 ## Group 2: Connected report
 
-Tasks, in order: T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23.
+Tasks, in order: T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T42.
 
-Findings: 31 (plus their merged ids).
+Findings: 32 (plus their merged ids).
 
 Files:
 
@@ -55,6 +55,7 @@ Files:
 - `web/src/pages/connected/report/ArtifactDownloads.tsx`
 - `web/src/pages/connected/report/Calendar.tsx`
 - `web/src/pages/connected/report/Downside.tsx`
+- `web/src/pages/connected/report/Evidence.t21-fix1.test.tsx`
 - `web/src/pages/connected/report/Evidence.tsx`
 - `web/src/pages/connected/report/Forecast.tsx`
 - `web/src/pages/connected/report/Modules.tsx`

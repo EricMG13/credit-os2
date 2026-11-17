@@ -1,575 +1,589 @@
 [
- {
-  "id": "T01",
-  "group": 1,
-  "title": "Stop sending the server's absolute workspace path to the browser",
-  "findings": [
-   "C1-001",
-   "R1-001"
-  ],
-  "files": [
-   "react_frontend/__init__.py",
-   "src/deploy_workflow/credit_os_catalogue.py"
-  ],
-  "sensitive": "no (R13: a server path is not a defect)",
-  "note": "R13: the reviewed path fixes stay; R1-004 was dropped."
- },
- {
-  "id": "T01b",
-  "group": 1,
-  "title": "No absolute path in source warnings or the library-rebuild note",
-  "findings": [
-   "R1-007",
-   "R1-008"
-  ],
-  "files": [
-   "react_frontend/sources.py",
-   "src/deploy_workflow/inbox/scheduler.py"
-  ],
-  "sensitive": "no (R13)",
-  "note": "Merged before R13; kept."
- },
- {
-  "id": "T02",
-  "group": 1,
-  "title": "Leaving a module out must not make Submit refuse 'unknown module CP-MODEL'",
-  "findings": [
-   "J1-001",
-   "R1-003"
-  ],
-  "files": [
-   "web/src/pages/connected/api.ts",
-   "src/deploy_workflow/inbox/scheduler.py",
-   "web/src/pages/connected/StartRun.tsx",
-   "src/deploy_workflow/inbox/runs.py",
-   "src/deploy_workflow/inbox/teams.py"
-  ],
-  "sensitive": "run ordering and module selection (scheduler)"
- },
- {
-  "id": "T03",
-  "group": 1,
-  "title": "Run reasons in the reader's words, not launcher codes, log paths or module codes",
-  "findings": [
-   "C1-013"
-  ],
-  "files": [
-   "web/src/pages/connected/RunActivity.tsx",
-   "web/src/pages/connected/RunProgress.tsx",
-   "react_frontend/run_activity.py"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T04",
-  "group": 1,
-  "title": "Run page states: errors, a finished run without a report, the re-announced alert, the failed-run module state",
-  "findings": [
-   "C1-004",
-   "C1-005",
-   "C1-024",
-   "J5-001"
-  ],
-  "files": [
-   "web/src/pages/connected/RunProgress.tsx",
-   "web/src/pages/connected/layout.tsx",
-   "web/src/pages/connected/useResource.ts",
-   "web/src/pages/connected/runFigures.ts",
-   "react_frontend/run_activity.py"
-  ],
-  "sensitive": "",
-  "note": "C1-004 covers the run pages; its report half is T17 (C3-007)."
- },
- {
-  "id": "T05",
-  "group": 1,
-  "title": "Library and Run activity states: empty library, clipped tables, live region, failed poll",
-  "findings": [
-   "C1-002",
-   "C1-003",
-   "C1-031"
-  ],
-  "files": [
-   "web/src/pages/connected/LibraryIndex.tsx",
-   "web/src/pages/connected/RunActivity.tsx",
-   "web/src/pages/connected/RunProgress.tsx"
-  ],
-  "sensitive": "",
-  "note": "Use web/src/components/application/empty-state/empty-state.tsx as it is; do not change it."
- },
- {
-  "id": "T07",
-  "group": 1,
-  "title": "Start a run: no example issuer typed in; history per step; keep the form on leaving; carry-over keeps documents; focus after Carry over",
-  "findings": [
-   "J2-002",
-   "C2-002",
-   "C2-003",
-   "J1-015"
-  ],
-  "files": [
-   "react_frontend/__init__.py",
-   "web/src/pages/connected/StartRun.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T08",
-  "group": 1,
-  "title": "Start a run: option-load failure, raw Submit errors, Submit failure shown beside Submit, required periods marked",
-  "findings": [
-   "C2-004",
-   "C2-006",
-   "J2-013",
-   "J1-004"
-  ],
-  "files": [
-   "web/src/pages/connected/StartRun.tsx",
-   "web/src/pages/connected/api.ts",
-   "web/src/pages/connected/useResource.ts"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T09",
-  "group": 1,
-  "title": "Start a run: document refusals name the file and mark its row; Issuer ID never merges two issuers",
-  "findings": [
-   "J2-003",
-   "J5-004"
-  ],
-  "files": [
-   "web/src/pages/connected/StartRun.tsx",
-   "web/src/pages/connected/start/plain.ts",
-   "src/deploy_workflow/run_start/submissions.py"
-  ],
-  "sensitive": "data identity (two issuers under one ID)",
-  "note": "L18: the service refuses an Issuer ID filed under a different issuer name; T09 takes submissions.py before T10."
- },
- {
-  "id": "T10",
-  "group": 1,
-  "title": "Abandoned forms must not use up the 50 unfinished drafts",
-  "findings": [
-   "C2-008"
-  ],
-  "files": [
-   "web/src/pages/connected/StartRun.tsx",
-   "src/deploy_workflow/run_start/submissions.py"
-  ],
-  "sensitive": "service state (drafts)"
- },
- {
-  "id": "T11",
-  "group": 1,
-  "title": "Review sheet: long names at 390 px; decisions that block Submit first",
-  "findings": [
-   "C2-007"
-  ],
-  "files": [
-   "web/src/pages/connected/start/ReviewSheet.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T12",
-  "group": 1,
-  "title": "Synthetic proof: documented steps complete a run; a refused module is reported as such",
-  "findings": [
-   "B0-003",
-   "J1-002"
-  ],
-  "files": [
-   "docs/react-workflow.md",
-   "proof/launcher.py"
-  ],
-  "sensitive": "",
-  "note": "Do not change proof/handoffs/ (canned module output)."
- },
- {
-  "id": "T13",
-  "group": 2,
-  "title": "Chart values: read a decimal comma correctly; keep the Basis and limitation column in the Table form",
-  "findings": [
-   "C4-028",
-   "C3-029"
-  ],
-  "files": [
-   "web/src/pages/connected/visuals/visualData.ts",
-   "web/src/components/chart/ChartTable.tsx",
-   "web/src/components/chart/TrendChart.tsx"
-  ],
-  "sensitive": "figures (a wrong value on a chart)",
-  "note": "R2-001 (Low) is repaired here by ruling L11; it does not need a verify verdict to be in a task."
- },
- {
-  "id": "T14",
-  "group": 2,
-  "title": "Modules page: scroll, focus and Back after a module change; the Module select; On this page; figures after the prose",
-  "findings": [
-   "C3-002",
-   "C3-005",
-   "C3-028"
-  ],
-  "files": [
-   "web/src/pages/connected/report/Modules.tsx",
-   "web/src/pages/connected/ReportLibrary.tsx",
-   "web/src/pages/connected/report/Evidence.tsx",
-   "web/src/pages/connected/report/RunCharts.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T15",
-  "group": 2,
-  "title": "Headline figures: a trace control on each tile; a stated gap for a figure not supplied",
-  "findings": [
-   "C3-001",
-   "C3-020"
-  ],
-  "files": [
-   "web/src/pages/connected/HeadlineFigures.tsx",
-   "web/src/pages/connected/ReportLibrary.tsx",
-   "web/src/pages/connected/reportView.ts"
-  ],
-  "sensitive": "figures"
- },
- {
-  "id": "T16",
-  "group": 2,
-  "title": "No module codes, tool names or unexplained shorthand in reader text",
-  "findings": [
-   "C3-006",
-   "C4-001",
-   "C5-008"
-  ],
-  "files": [
-   "src/deploy_workflow/credit_os_chips.py",
-   "src/deploy_workflow/owners/cpos_forecast.py",
-   "web/src/pages/connected/report/Forecast.tsx",
-   "web/src/pages/connected/report/Calendar.tsx",
-   "web/src/pages/connected/report/RunCharts.tsx",
-   "web/src/pages/connected/visuals/ForecastTable.tsx",
-   "web/src/pages/connected/visuals/LegacyForecast.tsx",
-   "web/src/pages/connected/publishedReport.ts",
-   "web/src/pages/connected/report/Evidence.tsx",
-   "web/src/pages/connected/ReportContent.tsx",
-   "web/src/pages/connected/sourceFiles.ts"
-  ],
-  "sensitive": "delivery text (src/deploy_workflow/owners): change only delivery's own wording, never a module-written passage, value or qualification"
- },
- {
-  "id": "T17",
-  "group": 2,
-  "title": "Report frame: error states, Earlier format and Earlier methods labels, key charts on Overview, report history rows, CP-8 kept off Overview",
-  "findings": [
-   "C3-007",
-   "C3-008",
-   "C3-024",
-   "C1-007",
-   "C3-026"
-  ],
-  "files": [
-   "web/src/pages/connected/ReportLibrary.tsx",
-   "web/src/pages/connected/publishedReport.ts",
-   "web/src/pages/connected/reportView.ts"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T18",
-  "group": 2,
-  "title": "Forecast tab: one gap ledger, a drawer per figure, stated trace loss, long words wrap, shock and drivers stated",
-  "findings": [
-   "C4-002",
-   "C4-003",
-   "C4-025",
-   "C4-026",
-   "J4-003"
-  ],
-  "files": [
-   "web/src/pages/connected/visuals/LegacyForecast.tsx",
-   "web/src/pages/connected/report/Forecast.tsx",
-   "web/src/pages/connected/report/Downside.tsx",
-   "src/deploy_workflow/owners/cpos_periods.py",
-   "web/src/pages/connected/ReportContent.tsx"
-  ],
-  "sensitive": "delivery text (src/deploy_workflow/owners)"
- },
- {
-  "id": "T19",
-  "group": 2,
-  "title": "Charts: debt stack key, zero balance, cut-off value labels",
-  "findings": [
-   "C4-004",
-   "X1-024",
-   "X1-019",
-   "R2-003"
-  ],
-  "files": [
-   "web/src/pages/connected/visuals/charts.tsx",
-   "web/src/components/chart/StackChart.tsx",
-   "web/src/pages/model/slice/read-sections.ts",
-   "web/src/components/chart/BarCanvas.tsx",
-   "web/src/components/chart/ColumnsChart.tsx"
-  ],
-  "sensitive": "figures"
- },
- {
-  "id": "T20",
-  "group": 2,
-  "title": "Issuer calendar: one bad date hides no event",
-  "findings": [
-   "C4-007"
-  ],
-  "files": [
-   "web/src/pages/connected/report/Calendar.tsx"
-  ],
-  "sensitive": "lost data"
- },
- {
-  "id": "T21",
-  "group": 2,
-  "title": "Evidence tab: narrow widths, handoff view, gaps ordered by severity, sources listed only, Trace start state",
-  "findings": [
-   "C5-009",
-   "C5-010",
-   "C5-011",
-   "J3-007"
-  ],
-  "files": [
-   "web/src/pages/connected/report/Evidence.tsx",
-   "web/src/pages/connected/sourceFiles.ts",
-   "web/src/pages/library/parts/TraceDrawer.tsx",
-   "web/src/pages/library/parts/SourceFileLinks.tsx"
-  ],
-  "sensitive": "",
-  "note": "C5-011 follows OQ-04: list supplied files only, with no link to open them."
- },
- {
-  "id": "T22",
-  "group": 2,
-  "title": "Report content: confidence method and inputs; keyboard reach of scrolling tables",
-  "findings": [
-   "C5-003"
-  ],
-  "files": [
-   "web/src/pages/connected/ReportContent.tsx",
-   "src/deploy_workflow/confidence.py"
-  ],
-  "sensitive": "figures (confidence score)"
- },
- {
-  "id": "T23",
-  "group": 2,
-  "title": "Model and calculation files: state while loading and when empty",
-  "findings": [
-   "C5-012"
-  ],
-  "files": [
-   "web/src/pages/connected/report/ArtifactDownloads.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T25",
-  "group": 3,
-  "title": "Static app says it is a design reference; the kit leaves the rail",
-  "findings": [
-   "S6-003",
-   "S1-004"
-  ],
-  "files": [
-   "web/src/shell/Shell.tsx",
-   "web/src/App.tsx",
-   "web/src/pages/run/start/Start.tsx",
-   "web/src/pages/run/start/Started.tsx"
-  ],
-  "sensitive": "",
-  "note": "OQ-01 and OQ-05: label every static page as a design reference with sample data; name the saved example in the Submit dialog and on Run started; #/kit stays reachable by address."
- },
- {
-  "id": "T26",
-  "group": 3,
-  "title": "Static Start a run and New run open the run start",
-  "findings": [
-   "S1-001"
-  ],
-  "files": [
-   "web/src/pages/library/Home.tsx",
-   "web/src/pages/library/parts/links.ts",
-   "web/src/pages/library/History.tsx",
-   "web/src/pages/run/routes.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T27",
-  "group": 3,
-  "title": "Static route change: title, focus and scroll",
-  "findings": [
-   "S1-002"
-  ],
-  "files": [
-   "web/src/App.tsx",
-   "web/src/shell/Shell.tsx",
-   "web/src/pages/route-table.ts",
-   "web/src/pages/library/routes.tsx",
-   "web/src/pages/model/routes.tsx",
-   "web/src/pages/library/Evidence.tsx",
-   "web/src/pages/library/parts/EvidenceFrame.tsx",
-   "web/src/pages/library/Module.tsx",
-   "web/src/pages/library/parts/ModuleNav.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T31",
-  "group": 3,
-  "title": "Designed empty states on the shipped build",
-  "findings": [
-   "S2-002"
-  ],
-  "files": [
-   "web/src/pages/library/parts/LibraryPage.tsx",
-   "web/src/pages/library/Home.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T32",
-  "group": 3,
-  "title": "Issuer history draws its runs",
-  "findings": [
-   "S2-001"
-  ],
-  "files": [
-   "web/src/pages/library/History.tsx",
-   "web/src/pages/library/parts/RunFeed.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T33",
-  "group": 3,
-  "title": "Static Overview: qualifiers stay in their tile; Dates to watch traced",
-  "findings": [
-   "S2-006"
-  ],
-  "files": [
-   "web/src/pages/library/Overview.tsx",
-   "web/src/pages/library/read.ts",
-   "web/src/pages/library/slice.ts"
-  ],
-  "sensitive": "",
-  "note": "slice.ts is imported by Signal; Signal's tests must pass."
- },
- {
-  "id": "T34",
-  "group": 3,
-  "title": "Changes table keeps kind, direction, cause and effect",
-  "findings": [
-   "S2-007"
-  ],
-  "files": [
-   "web/src/pages/library/parts/ChangesTable.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T35",
-  "group": 3,
-  "title": "Trace control: visible focus on navy; a marker where a trace is missing",
-  "findings": [
-   "S3-007"
-  ],
-  "files": [
-   "web/src/pages/library/parts/TraceControl.tsx",
-   "web/src/styles/theme.css",
-   "web/src/pages/library/slice.ts"
-  ],
-  "sensitive": "",
-  "note": "theme.css and slice.ts are shared with Signal; Signal's tests must pass."
- },
- {
-  "id": "T37",
-  "group": 3,
-  "title": "Module page: Limitations after the prose; navigator search and a narrow picker",
-  "findings": [
-   "S3-005",
-   "S3-006"
-  ],
-  "files": [
-   "web/src/pages/library/Module.tsx",
-   "web/src/pages/library/parts/ModuleNav.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T38",
-  "group": 3,
-  "title": "Run frame: readable Forecast reason; a run without a forecast still shows; no Show sources switch on Evidence",
-  "findings": [
-   "S3-011",
-   "S5-001",
-   "C5-005"
-  ],
-  "files": [
-   "web/src/pages/library/parts/RunFrame.tsx",
-   "web/src/pages/model/ForecastPage.tsx",
-   "web/src/pages/model/slice/read.ts"
-  ],
-  "sensitive": "",
-  "note": "C5-005 follows OQ-03: hide the switch on Evidence (RunFrame is drawn by both surfaces)."
- },
- {
-  "id": "T39",
-  "group": 3,
-  "title": "Static Evidence: module filter held across tabs; tables at 390 px; Record without module codes and with partial totals stated",
-  "findings": [
-   "S4-006",
-   "S4-008",
-   "S4-009"
-  ],
-  "files": [
-   "web/src/pages/library/Evidence.tsx",
-   "web/src/pages/library/parts/ModuleFilter.tsx",
-   "web/src/pages/library/parts/RegisterTable.tsx",
-   "web/src/pages/library/EvidenceRecord.tsx"
-  ],
-  "sensitive": ""
- },
- {
-  "id": "T40",
-  "group": 3,
-  "title": "Model pages: unreadable run message, trace drawer in place, statements at 390 px, tap-reachable definitions",
-  "findings": [
-   "S5-002",
-   "S5-004"
-  ],
-  "files": [
-   "web/src/pages/model/RunsIndexPage.tsx",
-   "web/src/pages/model/parts/RunPage.tsx",
-   "web/src/pages/model/parts/TraceControl.tsx",
-   "web/src/pages/model/parts/StatementTable.tsx",
-   "web/src/pages/model/parts/MetricTile.tsx"
-  ],
-  "sensitive": "",
-  "note": "S5-004 follows OQ-10: open the library's TraceDrawer in place; use TraceDrawer as it is (group 2 owns it)."
- },
- {
-  "id": "T41",
-  "group": 3,
-  "title": "Static run pages: focus ring, focus after Submit, Runs breadcrumb, wrapping label chip",
-  "findings": [
-   "S6-007"
-  ],
-  "files": [
-   "web/src/pages/run/start/Purpose.tsx",
-   "web/src/pages/run/start/Start.tsx",
-   "web/src/pages/run/activity/ActivityPage.tsx",
-   "web/src/components/base/badges/badges.tsx"
-  ],
-  "sensitive": ""
- }
+  {
+    "id": "T01",
+    "group": 1,
+    "title": "Stop sending the server's absolute workspace path to the browser",
+    "findings": [
+      "C1-001",
+      "R1-001"
+    ],
+    "files": [
+      "react_frontend/__init__.py",
+      "src/deploy_workflow/credit_os_catalogue.py"
+    ],
+    "sensitive": "no (R13: a server path is not a defect)",
+    "note": "R13: the reviewed path fixes stay; R1-004 was dropped."
+  },
+  {
+    "id": "T01b",
+    "group": 1,
+    "title": "No absolute path in source warnings or the library-rebuild note",
+    "findings": [
+      "R1-007",
+      "R1-008"
+    ],
+    "files": [
+      "react_frontend/sources.py",
+      "src/deploy_workflow/inbox/scheduler.py"
+    ],
+    "sensitive": "no (R13)",
+    "note": "Merged before R13; kept."
+  },
+  {
+    "id": "T02",
+    "group": 1,
+    "title": "Leaving a module out must not make Submit refuse 'unknown module CP-MODEL'",
+    "findings": [
+      "J1-001",
+      "R1-003"
+    ],
+    "files": [
+      "web/src/pages/connected/api.ts",
+      "src/deploy_workflow/inbox/scheduler.py",
+      "web/src/pages/connected/StartRun.tsx",
+      "src/deploy_workflow/inbox/runs.py",
+      "src/deploy_workflow/inbox/teams.py"
+    ],
+    "sensitive": "run ordering and module selection (scheduler)"
+  },
+  {
+    "id": "T03",
+    "group": 1,
+    "title": "Run reasons in the reader's words, not launcher codes, log paths or module codes",
+    "findings": [
+      "C1-013"
+    ],
+    "files": [
+      "web/src/pages/connected/RunActivity.tsx",
+      "web/src/pages/connected/RunProgress.tsx",
+      "react_frontend/run_activity.py"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T04",
+    "group": 1,
+    "title": "Run page states: errors, a finished run without a report, the re-announced alert, the failed-run module state",
+    "findings": [
+      "C1-004",
+      "C1-005",
+      "C1-024",
+      "J5-001"
+    ],
+    "files": [
+      "web/src/pages/connected/RunProgress.tsx",
+      "web/src/pages/connected/layout.tsx",
+      "web/src/pages/connected/useResource.ts",
+      "web/src/pages/connected/runFigures.ts",
+      "react_frontend/run_activity.py"
+    ],
+    "sensitive": "",
+    "note": "C1-004 covers the run pages; its report half is T17 (C3-007)."
+  },
+  {
+    "id": "T05",
+    "group": 1,
+    "title": "Library and Run activity states: empty library, clipped tables, live region, failed poll",
+    "findings": [
+      "C1-002",
+      "C1-003",
+      "C1-031"
+    ],
+    "files": [
+      "web/src/pages/connected/LibraryIndex.tsx",
+      "web/src/pages/connected/RunActivity.tsx",
+      "web/src/pages/connected/RunProgress.tsx"
+    ],
+    "sensitive": "",
+    "note": "Use web/src/components/application/empty-state/empty-state.tsx as it is; do not change it."
+  },
+  {
+    "id": "T07",
+    "group": 1,
+    "title": "Start a run: no example issuer typed in; history per step; keep the form on leaving; carry-over keeps documents; focus after Carry over",
+    "findings": [
+      "J2-002",
+      "C2-002",
+      "C2-003",
+      "J1-015"
+    ],
+    "files": [
+      "react_frontend/__init__.py",
+      "web/src/pages/connected/StartRun.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T08",
+    "group": 1,
+    "title": "Start a run: option-load failure, raw Submit errors, Submit failure shown beside Submit, required periods marked",
+    "findings": [
+      "C2-004",
+      "C2-006",
+      "J2-013",
+      "J1-004"
+    ],
+    "files": [
+      "web/src/pages/connected/StartRun.tsx",
+      "web/src/pages/connected/api.ts",
+      "web/src/pages/connected/useResource.ts"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T09",
+    "group": 1,
+    "title": "Start a run: document refusals name the file and mark its row; Issuer ID never merges two issuers",
+    "findings": [
+      "J2-003",
+      "J5-004"
+    ],
+    "files": [
+      "web/src/pages/connected/StartRun.tsx",
+      "web/src/pages/connected/start/plain.ts",
+      "src/deploy_workflow/run_start/submissions.py"
+    ],
+    "sensitive": "data identity (two issuers under one ID)",
+    "note": "L18: the service refuses an Issuer ID filed under a different issuer name; T09 takes submissions.py before T10."
+  },
+  {
+    "id": "T10",
+    "group": 1,
+    "title": "Abandoned forms must not use up the 50 unfinished drafts",
+    "findings": [
+      "C2-008"
+    ],
+    "files": [
+      "web/src/pages/connected/StartRun.tsx",
+      "src/deploy_workflow/run_start/submissions.py"
+    ],
+    "sensitive": "service state (drafts)"
+  },
+  {
+    "id": "T11",
+    "group": 1,
+    "title": "Review sheet: long names at 390 px; decisions that block Submit first",
+    "findings": [
+      "C2-007"
+    ],
+    "files": [
+      "web/src/pages/connected/start/ReviewSheet.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T12",
+    "group": 1,
+    "title": "Synthetic proof: documented steps complete a run; a refused module is reported as such",
+    "findings": [
+      "B0-003",
+      "J1-002"
+    ],
+    "files": [
+      "docs/react-workflow.md",
+      "proof/launcher.py"
+    ],
+    "sensitive": "",
+    "note": "Do not change proof/handoffs/ (canned module output)."
+  },
+  {
+    "id": "T13",
+    "group": 2,
+    "title": "Chart values: read a decimal comma correctly; keep the Basis and limitation column in the Table form",
+    "findings": [
+      "C4-028",
+      "C3-029"
+    ],
+    "files": [
+      "web/src/pages/connected/visuals/visualData.ts",
+      "web/src/components/chart/ChartTable.tsx",
+      "web/src/components/chart/TrendChart.tsx"
+    ],
+    "sensitive": "figures (a wrong value on a chart)",
+    "note": "R2-001 (Low) is repaired here by ruling L11; it does not need a verify verdict to be in a task."
+  },
+  {
+    "id": "T14",
+    "group": 2,
+    "title": "Modules page: scroll, focus and Back after a module change; the Module select; On this page; figures after the prose",
+    "findings": [
+      "C3-002",
+      "C3-005",
+      "C3-028"
+    ],
+    "files": [
+      "web/src/pages/connected/report/Modules.tsx",
+      "web/src/pages/connected/ReportLibrary.tsx",
+      "web/src/pages/connected/report/Evidence.tsx",
+      "web/src/pages/connected/report/RunCharts.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T15",
+    "group": 2,
+    "title": "Headline figures: a trace control on each tile; a stated gap for a figure not supplied",
+    "findings": [
+      "C3-001",
+      "C3-020"
+    ],
+    "files": [
+      "web/src/pages/connected/HeadlineFigures.tsx",
+      "web/src/pages/connected/ReportLibrary.tsx",
+      "web/src/pages/connected/reportView.ts"
+    ],
+    "sensitive": "figures"
+  },
+  {
+    "id": "T16",
+    "group": 2,
+    "title": "No module codes, tool names or unexplained shorthand in reader text",
+    "findings": [
+      "C3-006",
+      "C4-001",
+      "C5-008"
+    ],
+    "files": [
+      "src/deploy_workflow/credit_os_chips.py",
+      "src/deploy_workflow/owners/cpos_forecast.py",
+      "web/src/pages/connected/report/Forecast.tsx",
+      "web/src/pages/connected/report/Calendar.tsx",
+      "web/src/pages/connected/report/RunCharts.tsx",
+      "web/src/pages/connected/visuals/ForecastTable.tsx",
+      "web/src/pages/connected/visuals/LegacyForecast.tsx",
+      "web/src/pages/connected/publishedReport.ts",
+      "web/src/pages/connected/report/Evidence.tsx",
+      "web/src/pages/connected/ReportContent.tsx",
+      "web/src/pages/connected/sourceFiles.ts"
+    ],
+    "sensitive": "delivery text (src/deploy_workflow/owners): change only delivery's own wording, never a module-written passage, value or qualification"
+  },
+  {
+    "id": "T17",
+    "group": 2,
+    "title": "Report frame: error states, Earlier format and Earlier methods labels, key charts on Overview, report history rows, CP-8 kept off Overview",
+    "findings": [
+      "C3-007",
+      "C3-008",
+      "C3-024",
+      "C1-007",
+      "C3-026"
+    ],
+    "files": [
+      "web/src/pages/connected/ReportLibrary.tsx",
+      "web/src/pages/connected/publishedReport.ts",
+      "web/src/pages/connected/reportView.ts"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T18",
+    "group": 2,
+    "title": "Forecast tab: one gap ledger, a drawer per figure, stated trace loss, long words wrap, shock and drivers stated",
+    "findings": [
+      "C4-002",
+      "C4-003",
+      "C4-025",
+      "C4-026",
+      "J4-003"
+    ],
+    "files": [
+      "web/src/pages/connected/visuals/LegacyForecast.tsx",
+      "web/src/pages/connected/report/Forecast.tsx",
+      "web/src/pages/connected/report/Downside.tsx",
+      "src/deploy_workflow/owners/cpos_periods.py",
+      "web/src/pages/connected/ReportContent.tsx"
+    ],
+    "sensitive": "delivery text (src/deploy_workflow/owners)"
+  },
+  {
+    "id": "T19",
+    "group": 2,
+    "title": "Charts: debt stack key, zero balance, cut-off value labels",
+    "findings": [
+      "C4-004",
+      "X1-024",
+      "X1-019",
+      "R2-003"
+    ],
+    "files": [
+      "web/src/pages/connected/visuals/charts.tsx",
+      "web/src/components/chart/StackChart.tsx",
+      "web/src/pages/model/slice/read-sections.ts",
+      "web/src/components/chart/BarCanvas.tsx",
+      "web/src/components/chart/ColumnsChart.tsx"
+    ],
+    "sensitive": "figures"
+  },
+  {
+    "id": "T20",
+    "group": 2,
+    "title": "Issuer calendar: one bad date hides no event",
+    "findings": [
+      "C4-007"
+    ],
+    "files": [
+      "web/src/pages/connected/report/Calendar.tsx"
+    ],
+    "sensitive": "lost data"
+  },
+  {
+    "id": "T21",
+    "group": 2,
+    "title": "Evidence tab: narrow widths, handoff view, gaps ordered by severity, sources listed only, Trace start state",
+    "findings": [
+      "C5-009",
+      "C5-010",
+      "C5-011",
+      "J3-007"
+    ],
+    "files": [
+      "web/src/pages/connected/report/Evidence.tsx",
+      "web/src/pages/connected/sourceFiles.ts",
+      "web/src/pages/library/parts/TraceDrawer.tsx",
+      "web/src/pages/library/parts/SourceFileLinks.tsx"
+    ],
+    "sensitive": "",
+    "note": "C5-011 follows OQ-04: list supplied files only, with no link to open them."
+  },
+  {
+    "id": "T22",
+    "group": 2,
+    "title": "Report content: confidence method and inputs; keyboard reach of scrolling tables",
+    "findings": [
+      "C5-003"
+    ],
+    "files": [
+      "web/src/pages/connected/ReportContent.tsx",
+      "src/deploy_workflow/confidence.py"
+    ],
+    "sensitive": "figures (confidence score)"
+  },
+  {
+    "id": "T23",
+    "group": 2,
+    "title": "Model and calculation files: state while loading and when empty",
+    "findings": [
+      "C5-012"
+    ],
+    "files": [
+      "web/src/pages/connected/report/ArtifactDownloads.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T25",
+    "group": 3,
+    "title": "Static app says it is a design reference; the kit leaves the rail",
+    "findings": [
+      "S6-003",
+      "S1-004"
+    ],
+    "files": [
+      "web/src/shell/Shell.tsx",
+      "web/src/App.tsx",
+      "web/src/pages/run/start/Start.tsx",
+      "web/src/pages/run/start/Started.tsx"
+    ],
+    "sensitive": "",
+    "note": "OQ-01 and OQ-05: label every static page as a design reference with sample data; name the saved example in the Submit dialog and on Run started; #/kit stays reachable by address."
+  },
+  {
+    "id": "T26",
+    "group": 3,
+    "title": "Static Start a run and New run open the run start",
+    "findings": [
+      "S1-001"
+    ],
+    "files": [
+      "web/src/pages/library/Home.tsx",
+      "web/src/pages/library/parts/links.ts",
+      "web/src/pages/library/History.tsx",
+      "web/src/pages/run/routes.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T27",
+    "group": 3,
+    "title": "Static route change: title, focus and scroll",
+    "findings": [
+      "S1-002"
+    ],
+    "files": [
+      "web/src/App.tsx",
+      "web/src/shell/Shell.tsx",
+      "web/src/pages/route-table.ts",
+      "web/src/pages/library/routes.tsx",
+      "web/src/pages/model/routes.tsx",
+      "web/src/pages/library/Evidence.tsx",
+      "web/src/pages/library/parts/EvidenceFrame.tsx",
+      "web/src/pages/library/Module.tsx",
+      "web/src/pages/library/parts/ModuleNav.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T31",
+    "group": 3,
+    "title": "Designed empty states on the shipped build",
+    "findings": [
+      "S2-002"
+    ],
+    "files": [
+      "web/src/pages/library/parts/LibraryPage.tsx",
+      "web/src/pages/library/Home.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T32",
+    "group": 3,
+    "title": "Issuer history draws its runs",
+    "findings": [
+      "S2-001"
+    ],
+    "files": [
+      "web/src/pages/library/History.tsx",
+      "web/src/pages/library/parts/RunFeed.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T33",
+    "group": 3,
+    "title": "Static Overview: qualifiers stay in their tile; Dates to watch traced",
+    "findings": [
+      "S2-006"
+    ],
+    "files": [
+      "web/src/pages/library/Overview.tsx",
+      "web/src/pages/library/read.ts",
+      "web/src/pages/library/slice.ts"
+    ],
+    "sensitive": "",
+    "note": "slice.ts is imported by Signal; Signal's tests must pass."
+  },
+  {
+    "id": "T34",
+    "group": 3,
+    "title": "Changes table keeps kind, direction, cause and effect",
+    "findings": [
+      "S2-007"
+    ],
+    "files": [
+      "web/src/pages/library/parts/ChangesTable.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T35",
+    "group": 3,
+    "title": "Trace control: visible focus on navy; a marker where a trace is missing",
+    "findings": [
+      "S3-007"
+    ],
+    "files": [
+      "web/src/pages/library/parts/TraceControl.tsx",
+      "web/src/styles/theme.css",
+      "web/src/pages/library/slice.ts"
+    ],
+    "sensitive": "",
+    "note": "theme.css and slice.ts are shared with Signal; Signal's tests must pass."
+  },
+  {
+    "id": "T37",
+    "group": 3,
+    "title": "Module page: Limitations after the prose; navigator search and a narrow picker",
+    "findings": [
+      "S3-005",
+      "S3-006"
+    ],
+    "files": [
+      "web/src/pages/library/Module.tsx",
+      "web/src/pages/library/parts/ModuleNav.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T38",
+    "group": 3,
+    "title": "Run frame: readable Forecast reason; a run without a forecast still shows; no Show sources switch on Evidence",
+    "findings": [
+      "S3-011",
+      "S5-001",
+      "C5-005"
+    ],
+    "files": [
+      "web/src/pages/library/parts/RunFrame.tsx",
+      "web/src/pages/model/ForecastPage.tsx",
+      "web/src/pages/model/slice/read.ts"
+    ],
+    "sensitive": "",
+    "note": "C5-005 follows OQ-03: hide the switch on Evidence (RunFrame is drawn by both surfaces)."
+  },
+  {
+    "id": "T39",
+    "group": 3,
+    "title": "Static Evidence: module filter held across tabs; tables at 390 px; Record without module codes and with partial totals stated",
+    "findings": [
+      "S4-006",
+      "S4-008",
+      "S4-009"
+    ],
+    "files": [
+      "web/src/pages/library/Evidence.tsx",
+      "web/src/pages/library/parts/ModuleFilter.tsx",
+      "web/src/pages/library/parts/RegisterTable.tsx",
+      "web/src/pages/library/EvidenceRecord.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T40",
+    "group": 3,
+    "title": "Model pages: unreadable run message, trace drawer in place, statements at 390 px, tap-reachable definitions",
+    "findings": [
+      "S5-002",
+      "S5-004"
+    ],
+    "files": [
+      "web/src/pages/model/RunsIndexPage.tsx",
+      "web/src/pages/model/parts/RunPage.tsx",
+      "web/src/pages/model/parts/TraceControl.tsx",
+      "web/src/pages/model/parts/StatementTable.tsx",
+      "web/src/pages/model/parts/MetricTile.tsx"
+    ],
+    "sensitive": "",
+    "note": "S5-004 follows OQ-10: open the library's TraceDrawer in place; use TraceDrawer as it is (group 2 owns it)."
+  },
+  {
+    "id": "T41",
+    "group": 3,
+    "title": "Static run pages: focus ring, focus after Submit, Runs breadcrumb, wrapping label chip",
+    "findings": [
+      "S6-007"
+    ],
+    "files": [
+      "web/src/pages/run/start/Purpose.tsx",
+      "web/src/pages/run/start/Start.tsx",
+      "web/src/pages/run/activity/ActivityPage.tsx",
+      "web/src/components/base/badges/badges.tsx"
+    ],
+    "sensitive": ""
+  },
+  {
+    "id": "T42",
+    "group": 2,
+    "title": "Preserve every cited page range in a listed source identity",
+    "findings": [
+      "R4-001"
+    ],
+    "files": [
+      "web/src/pages/connected/sourceFiles.ts",
+      "web/src/pages/connected/report/Evidence.t21-fix1.test.tsx"
+    ],
+    "sensitive": "source fidelity; independent review required",
+    "note": "New lead step7 follow-up on audit/lead-connected-evidence, not an unfinished task assigned back to the active repair-2 controller. Candidate fix bcf9dff7 awaits fresh review and final-tree integration."
+  }
 ]

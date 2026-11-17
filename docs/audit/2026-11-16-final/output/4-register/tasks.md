@@ -660,3 +660,19 @@ Probes:
 - S6-007 (exit): `docs/audit/2026-11-16-final/output/2-sections/S6/probes/s6-runs-link.mjs`
 
 Touches money, ordering or security code: no.
+
+## T42 (group 2). Preserve every cited page range in a listed source identity
+
+Findings:
+
+- R4-001, Medium: The trace drawer drops every earlier cited page range when one source file is cited more than once.
+
+Files: `web/src/pages/connected/sourceFiles.ts`, `web/src/pages/connected/report/Evidence.t21-fix1.test.tsx`
+
+Probes:
+
+- R4-001 (earlier page 2 missing; later page 7 present): `node docs/audit/2026-11-16-final/output/5-repair/probes/R4-001-source-pages.mjs`
+
+Touches money, ordering or security code: source fidelity; independent review required.
+
+Note: New lead step7 follow-up on audit/lead-connected-evidence, not an unfinished task assigned back to the active repair-2 controller. Candidate fix bcf9dff7 awaits fresh review and final-tree integration.
