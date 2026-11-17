@@ -3,6 +3,7 @@
 // to visit each in a browser, and a test fails if it cannot see one. A page reads its data with
 // `readSlice(useSource().run)`. Edit only this folder and fixtures/run.json.
 import type { Route } from "../route-table";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { useSource } from "../source";
 import { ActivityPage, RunsIndex } from "./activity/ActivityPage";
 import { readSlice } from "./slice";
@@ -13,6 +14,23 @@ export { readSlice } from "./slice";
 /** A new run begins at the slice's first draft; its id is the data's, so no link needs to know it. */
 function NewRun() {
   const slice = readSlice(useSource().run);
+  if (slice.kind !== "ok")
+    return (
+      <EmptyState>
+        <EmptyState.Header>
+          <EmptyState.FeaturedIcon />
+        </EmptyState.Header>
+        <EmptyState.Content>
+          <EmptyState.Title>No run data in this library</EmptyState.Title>
+          <EmptyState.Description>This library holds no saved run forms.</EmptyState.Description>
+        </EmptyState.Content>
+        <EmptyState.Footer>
+          <a href="#/" className="text-small text-text-link">
+            Back to the Library
+          </a>
+        </EmptyState.Footer>
+      </EmptyState>
+    );
   return <StartPage draft={slice.kind === "ok" ? (slice.data.drafts[0]?.id ?? "") : ""} />;
 }
 

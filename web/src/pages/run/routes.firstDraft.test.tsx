@@ -17,7 +17,11 @@ describe("#/run/start", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Start a run");
     expect(screen.getByRole("heading", { level: 2, name: "Documents" })).toBeVisible();
     expect(screen.getByText("Step 1 of 5")).toBeVisible();
-    expect(screen.getByText("Add at least one document to continue.")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Add at least one document to continue. This page is a saved example, so nothing can be added here.",
+      ),
+    ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Stop run" })).toBeNull();
   });
 
@@ -37,5 +41,7 @@ describe("#/run/start", () => {
     show("/run/start", undefined);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Start a run");
     expect(screen.getByText("No run data in this library")).toBeVisible();
+    expect(screen.getByText("This library holds no saved run forms.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Back to the Library" })).toHaveAttribute("href", "#/");
   });
 });

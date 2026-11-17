@@ -24,9 +24,20 @@ export function RunsIndexPage() {
       <PageHeader as="h1" title="Financial models" />
       {runs.length === 0 && unreadable.length === 0 ? (
         <EmptyState>
+          <EmptyState.Header>
+            <EmptyState.FeaturedIcon />
+          </EmptyState.Header>
           <EmptyState.Content>
             <EmptyState.Title>No model has been delivered yet</EmptyState.Title>
+            <EmptyState.Description>
+              This library holds no financial models to read.
+            </EmptyState.Description>
           </EmptyState.Content>
+          <EmptyState.Footer>
+            <a href="#/" className="text-small text-text-link">
+              Back to the Library
+            </a>
+          </EmptyState.Footer>
         </EmptyState>
       ) : runs.length + named.length === 0 ? null : (
         <ul className="flex flex-col gap-3">
