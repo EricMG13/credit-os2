@@ -210,7 +210,7 @@ def _answers(pathway: str) -> Answers:
         "level": "basic",
         "model": "gpt",
         "effort": "balanced",
-        "submitted_by": "analyst",
+        "submitted_by": "Ana L",
     }
     return cast(Answers, body)
 

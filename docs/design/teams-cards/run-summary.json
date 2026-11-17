@@ -1,0 +1,1126 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "speak": "Credit OS run summary at 17:00. 1 stopped, 2 running, 1 queued, 7 finished today.",
+  "body": [
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "Container",
+          "bleed": true,
+          "backgroundImage": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABQIAAABwCAMAAABy1f2eAAAAGFBMVEUAADMAEYgAEXcAEWYAAET///8AEVUAAFVvxP4LAAAACHRSTlP///////////OBUtQAAAIoSURBVHja7dxRCsIwFABBTaq9/40lIiLor6DdmSukLK9J2tMJ+Irz/xtzO/YaXS6eU5DAz/27bodfIwkECfzYvz2xRhIIEljtnwSCBL6Ze2iNJBAkMDn/SSBIYLt/EggSGO6fBIIEhvsngSCBsfMPCQQJDH3+IYEggcY/CQQJNP5JIEjgOv3QPwmEZgKNfxII0QQWfv4igSCBLv9JIEig3T8JhHoCHf5KIFQT6O6fBEI0gTb/JBCiCZw2/yQQmgmUPwmEaALt/UkgRBMofxIIzQT67EMCoZlAt54lEJoJVD8JhGQCh1NfCYRkAtVPAiGZwDEdekggFBNo9JNACCZwrPaJnwRCLIFjmvskEGoJHCt92ieBkErget/1wiuB0EngWAPf3JVPAuGYxsN8cU+e5kkggAQCSCCABAJIIIAEAkgggAQCSCCABAJIIIAEAkgggAQCSCCABAJIIIAEAkgggAQCEggggQASCCCBABIIIIEAEggggQASCCCBABIIIIHA08bPk0D4mjM/TwJBAiUQkEAJBCRQAgEJlEBAAiUQkEAJBCRQAgEJlEBAAiUQkEAJBCRQAgEJlEBAAiUQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQAmUQJBACQQkUAIBCZRAQAIjCbwBOixk5B1puhgAAAAASUVORK5CYII=",
+            "fillMode": "Cover",
+            "horizontalAlignment": "Right",
+            "verticalAlignment": "Center"
+          },
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOwAAAA4CAMAAADJouQfAAAAt1BMVEUAAAAAEf8AEf8AEf8AEf8AEf8AIv8AIv8AEf8AIv8AIv8AEf8AIv8AEf8AEf8AEf8AEf8AIv8AEf8RM/9VZv+Imf+7zP/MzP/d3f/u7v+Zmf////8iM/////////////////+qqv/u///M3f+7u/+Zqv+IiP////////////8zRP93iP9md/8zVf8RIv////////8iRP////////////////////+qu/9EVf9mZv/d7v8AIv8AIv8b7SRAAAAAPXRSTlMARIi73e7/iGbdVVXu/zPMEZmZ/////////////yJmiFX///////9EzBH//////zN3/+6Zqt27/////8wzcUqetgAABUBJREFUeNrlm+t2mzgQgJWL3Ta3dmuc2GWFSGtXku01KkjE2ez7P9ceQMAIhLn4JOeQzK8EY2m+uWkkMEK5nJ1fXE6mR2RyefHpDL0H+fxl2km+fB496lVH1BT3etys1zfTHjK5GjXr7bSX3I7Yt3c3055yczda2Mtpb/k62jo8HSAjrcnfJkNgJ98+jmPH6tq/hsF+HyXsxTDYi3dbi2fO/P5hsVzCPmqUsO2gPxauFrjUvj/Yv+cFaAV2+t5gnXvXlLeGxR7x3wTWefwJOX+tHte/3xiWJhMz/sqwm+0KkC4fd//sa/ccHZTTYLiOJJmUIIRYOr1ouz+g2BoWlutmNfqzcearJfDoYruxe7459gQLk2+GzDsRNh3GjY7d60uVzUUCw9gi1joQ3ATrVuXp0JjQTT6NwdeVdxJsypH+lQzsRbR6pwjBZKzE9RW4LnkX2NVuf6R6NaSZMscQp8CK1Dmpa0Qyrn/ErnAyal4GWW+H/fn0vD++/tpDOHTdk2kL2ARR+yvlqsCyWiBmgcS1EiELq7R12OX93Gnvqqx6ZvOHxOeYal3wCbClWGCJjlIv4FRkAaWjILue/I1j1xgMAmx3z85h1q05tqmZTaMCqI1RXzCluZV5QIOKIXiQftoNNjAih2emjYt7GQJeZl3bxT6wyvRlZlaelVWFsAxzChxpV5Ayn0h6SZESNuVRCPlloJamiypZwoq5GbyRuK6SwgZ7aJEW2KCiT/o/oxo2CAv1/DK1mTYNLqqN7AYb6g+LCuway7PSVgw83HXp6dcuRtUklYQWiqm4KCIeHFNhEAUZfxdYCioScG1CL7OIDlo6qBNhYyM/gMAaTbWeMuDZchiD1SKMpF67ICxlWV1VjAmzPNULBi9tqSIveD1YVuhuh2U+5gHPbpNl+aCFY6Ny9YSwtgKVRlEIJ/HMpNXWkx5/HVjV1N0ZfV8Agl3o69wtDKAt0AYrKymbBwctS3PO69lhTyxQqtTYAqtguGn/Yx34QaFo7rROnrXApoHLidHIEfQKS098NIyJEYAsEx2MPsxA0QW2nrNenrNZfPiyrBR+P9j9wXnebVtg66EFYamx+kLRfAouIm2wXq09q+NjoeM57g47c348dMpZUlVAUACLG2H5AFi/1nkzMAbPJ9OLezfYvbNedC5Q1NJUpBvNEAaYtJQxH9bWTmGclTRVnVwmZzlSlWkqykw+DjvbrfqdQWUbaW6EtUsrsMSS2UaBkl1g9eC+WTCSIZQxvtcJdr+777v0aDPGHM7DUAWWgmDHISN+8gGICdxpndVxHOprPCo8HRm9lWwP483WIF2u5s7mz6x9i5eZlyUnUHr6dFYDFvYeRc+efjGk3ZuKHMPY4qWxobdDEQfmb4KdHbZP8BDK/Xe+OWHzHqMabKYNE34UFk6muebE0i7mZDEhoCLx2lw6NKK8XWQM2KAGO396WJpfv286b2s6lgktrBVYcyOgKyqo0bamguQAMNGVlbXSQDU2FeY9y7Wz73sGhbChgUQ2WLjFyzXBhYaSWmBzN6rmQ6iwiHIujeuitTderp0BxzLpKWaBG2Fkh0U4j9aYVjQPBbLBIpxthyotCy1wQ+PMFJM4tw5p288+zA+t75AcO8n3BBF+yzE59gkRQeWK6P20A/uCEOH51glEdY8HH1kuF6v1b2fT6dWvUT7Y+vqRHkZ/HwZ7PkrYs2GwI33t62UI68s4WdHVENjRvqv58nEc+8Fe1ETXPVlvR/169VWv9xdvRv5Dgf/6vDZ/h8YuH+gHEWl38an9py7n447g/wE84YbEjo1lCwAAAABJRU5ErkJggg==",
+              "altText": "Credit OS",
+              "height": "28px"
+            }
+          ]
+        },
+        {
+          "type": "Container",
+          "bleed": true,
+          "spacing": "None",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAAABCAYAAABZj6VmAAAAEklEQVR42mNgkPr/fxSP4oHCAEvfTxCZ2DHKAAAAAElFTkSuQmCC",
+              "altText": "",
+              "size": "Stretch",
+              "spacing": "None"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Runs today",
+              "wrap": true,
+              "size": "Large",
+              "weight": "Bolder",
+              "style": "heading"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Mon 16 Nov 2026",
+              "wrap": true,
+              "isSubtle": true,
+              "size": "Small",
+              "spacing": "None"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "ColumnSet",
+              "columns": [
+                {
+                  "type": "Column",
+                  "width": "auto",
+                  "verticalContentAlignment": "Center",
+                  "items": [
+                    {
+                      "type": "Image",
+                      "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAcCAMAAABBJv+bAAAAS1BMVEUAAAB3iIiIiIh3iIh3iIh3iIh3iIh3iIh3iIiIiIh3iIh3iIh3iIh3iIh3iIiIiIiIiIh3iIh3iIh3iIiIiJl3d4iIiIiIiIiIiIjVur1rAAAAGXRSTlMAM3eZu3cR3f9m7sxmiCIiM0RVqhEiRBFVACksjQAAAPFJREFUeNqNk8sWgyAMRINBMoVirbS1//+lPbwU1EWzYeAGiWEg+jfUwFrzqK6YGQQlZDRHeovr1jE7G8W9px6An7J+xMnY0hGQOaGU8pSOL0DIBQCvJAKwbFVZSKkdeGQlsK/9YHXECvAF203tmDxsFk/AnPEb+CTBNa/DZMFpdNBXuC67kkZEE+DXohnuiE3suzcdDmWMscaG4p53hZKGpr8TIx+K8tFbU0/q+zjlKpfaaD7fP2/d4NqBJj77HgPIwR9GYOsf0rde6BYB+HZmkcaBSoDhZKbLSWNF0Z61XFiRaG2MPJgrq8/pGQwz/R8/XFcJ/aHDlnkAAAAASUVORK5CYII=",
+                      "altText": "Time",
+                      "height": "14px",
+                      "width": "14px"
+                    }
+                  ]
+                },
+                {
+                  "type": "Column",
+                  "width": "auto",
+                  "verticalContentAlignment": "Center",
+                  "items": [
+                    {
+                      "type": "TextBlock",
+                      "text": "17:00",
+                      "wrap": false,
+                      "size": "Small"
+                    }
+                  ],
+                  "spacing": "Small"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Medium",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Container",
+              "showBorder": true,
+              "roundedCorners": true,
+              "items": [
+                {
+                  "type": "ColumnSet",
+                  "columns": [
+                    {
+                      "type": "Column",
+                      "width": "auto",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "Image",
+                          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAADFBMVEUAAACqVQCqVQCqVQAC8sHSAAAABHRSTlMAVar/oA4xLwAAAEZJREFUeNqVzkEKgEAMBMGk5/9/FoToujaIc2zqMFWf69YMihPjJCg2nnOK3zwxzmQUPzl3RvHKWTPbuVkbvviGh7Nn6t8OPCEBzfPsbVAAAAAASUVORK5CYII=",
+                          "altText": "Capped",
+                          "height": "10px",
+                          "width": "10px"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Column",
+                      "width": "stretch",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "RichTextBlock",
+                          "inlines": [
+                            {
+                              "type": "TextRun",
+                              "text": "1",
+                              "weight": "Bolder"
+                            },
+                            {
+                              "type": "TextRun",
+                              "text": " Stopped",
+                              "size": "Small"
+                            }
+                          ]
+                        }
+                      ],
+                      "spacing": "Small"
+                    }
+                  ]
+                }
+              ],
+              "backgroundImage": {
+                "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN4sIJBDgAFmwGnLh70ZQAAAABJRU5ErkJggg==",
+                "fillMode": "Repeat",
+                "horizontalAlignment": "Left"
+              }
+            }
+          ],
+          "spacing": "Small"
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Container",
+              "showBorder": true,
+              "roundedCorners": true,
+              "items": [
+                {
+                  "type": "ColumnSet",
+                  "columns": [
+                    {
+                      "type": "Column",
+                      "width": "auto",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "Image",
+                          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAADFBMVEUAAAAAAP8AAP8AAP9U2JTaAAAABHRSTlMAVar/oA4xLwAAAFxJREFUeNp9kUsOACEIQ/u5/52NRhgwYbp8gWIrcEXJlogm+UoF0kVslMTDYzfm01eoWGGBho8N83zDyiOuLunxYc94MBnw8MAMCbeYfMPzt6qh2Okb9gJ3kTG5AGV3Aq98vaSDAAAAAElFTkSuQmCC",
+                          "altText": "Running",
+                          "height": "10px",
+                          "width": "10px"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Column",
+                      "width": "stretch",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "RichTextBlock",
+                          "inlines": [
+                            {
+                              "type": "TextRun",
+                              "text": "2",
+                              "weight": "Bolder"
+                            },
+                            {
+                              "type": "TextRun",
+                              "text": " Running",
+                              "size": "Small"
+                            }
+                          ]
+                        }
+                      ],
+                      "spacing": "Small"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "spacing": "Small"
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Container",
+              "showBorder": true,
+              "roundedCorners": true,
+              "items": [
+                {
+                  "type": "ColumnSet",
+                  "columns": [
+                    {
+                      "type": "Column",
+                      "width": "auto",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "Image",
+                          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAADFBMVEUAAABVVVVVVVVVVVWH3s5DAAAABHRSTlMAVar/oA4xLwAAAGBJREFUeNp1UdEOACEIEvj/f765rJOavNSYgmJEAaREIgxUgY2EGmAsEAF0vvem2vnRXLglunvJwO2zHP/Tx+Jq8h0WMdCDyEAPA4budXQiseVxR8U3wifY6QzZkALnZh+bvAHLJxmJIgAAAABJRU5ErkJggg==",
+                          "altText": "Queued",
+                          "height": "10px",
+                          "width": "10px"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Column",
+                      "width": "stretch",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "RichTextBlock",
+                          "inlines": [
+                            {
+                              "type": "TextRun",
+                              "text": "1",
+                              "weight": "Bolder"
+                            },
+                            {
+                              "type": "TextRun",
+                              "text": " Queued",
+                              "size": "Small"
+                            }
+                          ]
+                        }
+                      ],
+                      "spacing": "Small"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "spacing": "Small"
+        },
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Container",
+              "showBorder": true,
+              "roundedCorners": true,
+              "items": [
+                {
+                  "type": "ColumnSet",
+                  "columns": [
+                    {
+                      "type": "Column",
+                      "width": "auto",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "Image",
+                          "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAAD1BMVEUAAAAAqlUAqlUAqlUAVVVTCAHUAAAABXRSTlMAVar//1RxM2gAAABPSURBVHjafZFRDsAwCEIFev8zL+2WTGvp+3wxRCViAVIiEQXqg0lCCRzt70fVY8st+VADXrPrmaIDXpsQo80m5pw+juurzGNdDW9rUursAT2uA5N/jZkHAAAAAElFTkSuQmCC",
+                          "altText": "Finished",
+                          "height": "10px",
+                          "width": "10px"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "Column",
+                      "width": "stretch",
+                      "verticalContentAlignment": "Center",
+                      "items": [
+                        {
+                          "type": "RichTextBlock",
+                          "inlines": [
+                            {
+                              "type": "TextRun",
+                              "text": "7",
+                              "weight": "Bolder"
+                            },
+                            {
+                              "type": "TextRun",
+                              "text": " Finished",
+                              "size": "Small"
+                            }
+                          ]
+                        }
+                      ],
+                      "spacing": "Small"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "spacing": "Small"
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "spacing": "Medium",
+      "items": [
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAADFBMVEUAAACqVQCqVQCqVQAC8sHSAAAABHRSTlMAVar/oA4xLwAAAEZJREFUeNqVzkEKgEAMBMGk5/9/FoToujaIc2zqMFWf69YMihPjJCg2nnOK3zwxzmQUPzl3RvHKWTPbuVkbvviGh7Nn6t8OPCEBzfPsbVAAAAAASUVORK5CYII=",
+                  "altText": "Capped",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Northbridge Holdings",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Deep",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Priya R",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAICAYAAAAx3fd+AAAANklEQVR42u3SMQ0AIBAEwdOBGpzR0KL53wUhYYoxsNlkVPGWtc+8JYIbQHQDYAAMgAEwAD8N0IzoI7nck45hAAAAAElFTkSuQmCC",
+                  "altText": "11 of 14 modules done",
+                  "size": "Stretch",
+                  "spacing": "None"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "14:07",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right",
+                  "color": "Warning",
+                  "weight": "Bolder"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAADFBMVEUAAAAAAP8AAP8AAP9U2JTaAAAABHRSTlMAVar/oA4xLwAAAFxJREFUeNp9kUsOACEIQ/u5/52NRhgwYbp8gWIrcEXJlogm+UoF0kVslMTDYzfm01eoWGGBho8N83zDyiOuLunxYc94MBnw8MAMCbeYfMPzt6qh2Okb9gJ3kTG5AGV3Aq98vaSDAAAAAElFTkSuQmCC",
+                  "altText": "Running",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Harrowgate Industrials",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Full",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Tom O",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAICAYAAAAx3fd+AAAANklEQVR42u3SMREAIBAEsdOBGpzR0KL5XwQVQ4oo2E1GFffWPvNFEc8AAhoAA2AADIAB+GmABooD+Oqyu5YeAAAAAElFTkSuQmCC",
+                  "altText": "9 of 14 modules done",
+                  "size": "Stretch",
+                  "spacing": "None"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "9/14",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAADFBMVEUAAAAAAP8AAP8AAP9U2JTaAAAABHRSTlMAVar/oA4xLwAAAFxJREFUeNp9kUsOACEIQ/u5/52NRhgwYbp8gWIrcEXJlogm+UoF0kVslMTDYzfm01eoWGGBho8N83zDyiOuLunxYc94MBnw8MAMCbeYfMPzt6qh2Okb9gJ3kTG5AGV3Aq98vaSDAAAAAElFTkSuQmCC",
+                  "altText": "Running",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Calder Telecom",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Lite",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Priya R",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAAAICAYAAAAx3fd+AAAAN0lEQVR42u3SIQEAIBAEsMtBGpphsGT+z4CFiTVYMqpesfaZ3IkAAggggAACCCCAAAIIIIAAP2lEtbMq/MpERgAAAABJRU5ErkJggg==",
+                  "altText": "2 of 5 modules done",
+                  "size": "Stretch",
+                  "spacing": "None"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "2/5",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAADFBMVEUAAABVVVVVVVVVVVWH3s5DAAAABHRSTlMAVar/oA4xLwAAAGBJREFUeNp1UdEOACEIEvj/f765rJOavNSYgmJEAaREIgxUgY2EGmAsEAF0vvem2vnRXLglunvJwO2zHP/Tx+Jq8h0WMdCDyEAPA4budXQiseVxR8U3wifY6QzZkALnZh+bvAHLJxmJIgAAAABJRU5ErkJggg==",
+                  "altText": "Queued",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Sable Energy",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Full",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Mei T",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": []
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Queued",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAAD1BMVEUAAAAAqlUAqlUAqlUAVVVTCAHUAAAABXRSTlMAVar//1RxM2gAAABPSURBVHjafZFRDsAwCEIFev8zL+2WTGvp+3wxRCViAVIiEQXqg0lCCRzt70fVY8st+VADXrPrmaIDXpsQo80m5pw+juurzGNdDW9rUursAT2uA5N/jZkHAAAAAElFTkSuQmCC",
+                  "altText": "Finished",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Tarrant Chemicals",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Full",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Mei T",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": []
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "16:41",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAAD1BMVEUAAAAAqlUAqlUAqlUAVVVTCAHUAAAABXRSTlMAVar//1RxM2gAAABPSURBVHjafZFRDsAwCEIFev8zL+2WTGvp+3wxRCViAVIiEQXqg0lCCRzt70fVY8st+VADXrPrmaIDXpsQo80m5pw+juurzGNdDW9rUursAT2uA5N/jZkHAAAAAElFTkSuQmCC",
+                  "altText": "Finished",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Fennmoor Logistics",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Lite",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Tom O",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": []
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "15:06",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAAD1BMVEUAAAAAqlUAqlUAqlUAVVVTCAHUAAAABXRSTlMAVar//1RxM2gAAABPSURBVHjafZFRDsAwCEIFev8zL+2WTGvp+3wxRCViAVIiEQXqg0lCCRzt70fVY8st+VADXrPrmaIDXpsQo80m5pw+juurzGNdDW9rUursAT2uA5N/jZkHAAAAAElFTkSuQmCC",
+                  "altText": "Finished",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Northbridge Holdings",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Full",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Priya R",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": []
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "14:32",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAAD1BMVEUAAAAAqlUAqlUAqlUAVVVTCAHUAAAABXRSTlMAVar//1RxM2gAAABPSURBVHjafZFRDsAwCEIFev8zL+2WTGvp+3wxRCViAVIiEQXqg0lCCRzt70fVY8st+VADXrPrmaIDXpsQo80m5pw+juurzGNdDW9rUursAT2uA5N/jZkHAAAAAElFTkSuQmCC",
+                  "altText": "Finished",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Meridian Packaging",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Lite",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Mei T",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": []
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "11:18",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ColumnSet",
+          "separator": true,
+          "spacing": "Small",
+          "columns": [
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "Image",
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAUCAMAAAC+oj0CAAAAD1BMVEUAAAAAqlUAqlUAqlUAVVVTCAHUAAAABXRSTlMAVar//1RxM2gAAABPSURBVHjafZFRDsAwCEIFev8zL+2WTGvp+3wxRCViAVIiEQXqg0lCCRzt70fVY8st+VADXrPrmaIDXpsQo80m5pw+juurzGNdDW9rUursAT2uA5N/jZkHAAAAAElFTkSuQmCC",
+                  "altText": "Finished",
+                  "height": "10px",
+                  "width": "10px"
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "stretch",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "RichTextBlock",
+                  "inlines": [
+                    {
+                      "type": "TextRun",
+                      "text": "Aldwick Foods",
+                      "weight": "Bolder",
+                      "size": "Small"
+                    },
+                    {
+                      "type": "TextRun",
+                      "text": " Full",
+                      "size": "Small",
+                      "isSubtle": true
+                    }
+                  ]
+                }
+              ],
+              "spacing": "Small"
+            },
+            {
+              "type": "Column",
+              "width": "auto",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "Tom O",
+                  "wrap": true,
+                  "size": "Small",
+                  "isSubtle": true
+                }
+              ]
+            },
+            {
+              "type": "Column",
+              "width": "64px",
+              "verticalContentAlignment": "Center",
+              "items": []
+            },
+            {
+              "type": "Column",
+              "width": "48px",
+              "verticalContentAlignment": "Center",
+              "items": [
+                {
+                  "type": "TextBlock",
+                  "text": "09:52",
+                  "wrap": false,
+                  "size": "Small",
+                  "horizontalAlignment": "Right"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "+2 more finished",
+      "wrap": true,
+      "size": "Small",
+      "isSubtle": true,
+      "spacing": "Small"
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Run activity",
+      "url": "https://credit-os.example/runs",
+      "style": "positive"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Library",
+      "url": "https://credit-os.example/",
+      "iconUrl": "icon:Library"
+    }
+  ]
+}

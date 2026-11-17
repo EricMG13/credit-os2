@@ -215,6 +215,21 @@ def test_the_rules_begin_with_the_methods_key_and_say_what_the_brief_requires():
         assert phrase.lower() in WEB_LOOKUP_RULES.lower(), phrase
 
 
+def test_the_rules_say_how_a_yahoo_finance_page_is_used():
+    """Ruling 2026-11-13-cpdr-web-lookup.md, amendment 2026-11-17: an aggregator, cited as Other
+    with a Gaps limitation; current figures are not figures at the cutoff; news from its original
+    publisher."""
+    for phrase in (
+        "A Yahoo Finance page (finance.yahoo.com) is an aggregator",
+        "Source type Other",
+        "a limitation under ## Gaps",
+        "not as at the research cutoff",
+        "price-history rows",
+        "original publisher",
+    ):
+        assert phrase in WEB_LOOKUP_RULES, phrase
+
+
 def test_lookup_rules_sit_beside_the_hosted_search_rules_not_instead_of_them(tmp_path):
     adapter = Adapter(turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode()})))
     # The hosted search path needs the OpenAI config of test_handoff_loop's Adapter (sol-medium).

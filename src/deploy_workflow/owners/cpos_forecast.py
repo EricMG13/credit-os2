@@ -22,9 +22,11 @@ from pydantic import Field, ValidationError, model_validator
 from deploy_vii.contracts import Contract
 from deploy_vii.live.schema import exact_json, json_object
 from deploy_vii.readiness import shape_issues
+from deploy_workflow.method_scripts import currency_of
 from deploy_workflow.owners import cp2g
+from deploy_workflow.owners.cpos_cp1_statements import money_unit
 from deploy_workflow.owners.cpos_facilities import Facility, Schedule, schedule
-from deploy_workflow.prose_checks import FORECAST_HEADING, reader_passages
+from deploy_workflow.prose_checks import FORECAST_HEADING, ISO_4217, reader_passages
 
 HEADING = FORECAST_HEADING
 SCHEMA_VERSION = "cpos-forecast-inputs/1"
@@ -322,7 +324,11 @@ def _layer1_problem(text: str, key: str, operand: Operand, amount: str | None) -
     return None if agrees else not_the_cell
 
 
-_CURRENCY = r"(?:US\$|USD|EUR|GBP|[$\u20ac\u00a3])"
+# Any ISO 4217 code names a currency (docs/rulings/2026-11-16-reporting-currency-from-sources.md: a
+# run is in the currency its sources report in), in capitals and not inside a word, so `CHFk` is
+# thousands and `Bank` or `Item` name no unit; USD, EUR, GBP and the signs are read in any case.
+_ISO_CODE = rf"(?<![A-Za-z])(?-i:{'|'.join(sorted(ISO_4217))})"
+_CURRENCY = rf"(?:US\$|USD|EUR|GBP|[$\u20ac\u00a3]|{_ISO_CODE})"
 _NAMES_THOUSANDS = re.compile(rf"\bthousands?\b|[$'\u2019]000s?\b|{_CURRENCY}\s?k\b", re.IGNORECASE)
 _NAMES_MILLIONS = re.compile(
     rf"\b(?:millions?|billions?)\b|{_CURRENCY}\s?(?:m|mm|mn|bn)\b", re.IGNORECASE
@@ -355,7 +361,8 @@ def _unit_of(scale: int, currency: str | None) -> str:
 def _units_named(text: str) -> frozenset[str]:
     """Which of `thousands` and `millions` a cell of CP-1 names as a unit, case-insensitive.
     Thousands: the word `thousand` or `thousands`; `$000`, `'000` (with a trailing s); a currency
-    (`US$`, `USD`, `EUR`, `GBP`, `$`, euro or pound sign) then `k`, at a word end. Millions: the
+    (`US$`, `$`, euro or pound sign, or an ISO 4217 code: `USD`, `EUR` and `GBP` in any case, any
+    other in capitals, `CHF`) then `k`, at a word end. Millions: the
     words `million`, `millions`, `billion`, `billions`; a currency then `m`, `mm`, `mn` or `bn`,
     at a word end (`US$m`, `USD m`, `$mn`, `US$ bn`). A bare number, `9M`, or `m` without a currency
     names none. Both may be named at once."""
@@ -555,6 +562,12 @@ def parse(source_text: str, cp1_text: str, source: str = "CP-2G") -> ForecastInp
         raise ValueError("CP-1: a layer-1 forecast states no shock and no cases")
     if source == "CP-1" and inputs.facilities:
         raise ValueError("CP-1: a layer-1 forecast states no facilities")
+    run = _cp1_currency(cp1_text)
+    if inputs.currency is not None and run is not None and inputs.currency != run:
+        raise ValueError(
+            f"{source}: the block states `currency` `{inputs.currency}`, but CP-1's statements "
+            f"are in `{run}`; state `currency` as `{run}`"
+        )
     _check_base(inputs, cp1_text, source, stated)
     if inputs.facilities:
         _check_facilities(inputs, inputs.facilities, cp1_text, stated)
@@ -577,8 +590,10 @@ def parse(source_text: str, cp1_text: str, source: str = "CP-2G") -> ForecastInp
 def _check_facilities(
     inputs: ForecastInputs, facilities: tuple[Facility, ...], cp1_text: str, stated: dict[str, str]
 ) -> None:
-    """Each stated term is printed in CP-1, the balances fit the base debt, and no case names a
-    driver the schedule replaces."""
+    """Each facility is in the block's currency, each stated term is printed in CP-1, the
+    balances fit the base debt, and no case names a driver the schedule replaces."""
+    code = _facility_currency(inputs, cp1_text)
+    _check_facility_currencies(facilities, cp1_text, code)
     for number, facility in enumerate(facilities, 1):
         balance = stated.get(f"facility {number} balance", facility.balance)
         if not _printed(cp1_text, balance):
@@ -592,7 +607,6 @@ def _check_facilities(
                     f"CP-2G: facility {facility.name} {field} {value}% is not printed in CP-1"
                 )
     debt = inputs.base["debt"].amount
-    code = inputs.currency or UNSTATED_CURRENCY
     divided = f", in {code} millions after dividing by scale 1000" if inputs.scale == 1000 else ""
     if debt is not None:
         with localcontext(cp2g._EXACT):
@@ -616,6 +630,105 @@ def _check_facilities(
             raise ValueError(
                 f"CP-2G: {name} states debt_repayment, which is not used when facilities are stated"
             )
+
+
+def _cp1_currency(cp1_text: str) -> str | None:
+    """The ISO 4217 code of CP-1's money unit (`US$m` is USD, `GBPm` is GBP), or None when CP-1
+    states no single currency in its statements."""
+    unit = money_unit(cp1_text)
+    if unit is None:
+        return None
+    return "USD" if unit == "US$m" else unit.removesuffix("m")
+
+
+def _facility_currency(inputs: ForecastInputs, cp1_text: str) -> str:
+    """The currency the facilities are checked against: the block's `currency` (refused in `parse`
+    when it is not CP-1's), else CP-1's money unit's. Where CP-1 states none either, the block
+    cannot be read as USD against a T4.18 that is not in one known currency: that block is refused
+    and asked to state `currency`; a T4.18 in one known currency is that currency, and none is USD
+    (`UNSTATED_CURRENCY`, as before)."""
+    if inputs.currency is not None:
+        return inputs.currency
+    run = _cp1_currency(cp1_text)
+    if run is not None:
+        return run
+    codes = {currency for _, currency in _t418_rows(cp1_text)}
+    if not codes:
+        return UNSTATED_CURRENCY
+    only = next(iter(codes)) if len(codes) == 1 else None
+    if only is not None:
+        return only
+    raise ValueError(
+        "CP-2G: the block states no `currency`, CP-1's statements state no single currency, and "
+        "T4.18 holds instruments not in one known currency; state `currency` as the three-letter "
+        "code of the currency CP-1 reports its figures in"
+    )
+
+
+# CP-1's own T4.18 row (REF_CP-1_STEPS step 6, when carrying values are not disclosed): not an
+# instrument, so its `Currency` cell says `Not applicable` and must not decide the table's mode.
+_FINANCING_ADJUSTMENT = "financing cost adjustment"
+
+
+def _t418_rows(cp1_text: str) -> list[tuple[str, str | None]]:
+    """Each row of CP-1's T4.18 (a table with `Instrument` and `Currency` columns): its instrument
+    name as compared (trimmed, emphasis removed, casefolded) and the ISO 4217 code its `Currency`
+    cell states, or None when the cell states no single code. The method's `Financing cost
+    adjustment` row is not an instrument and is left out."""
+    found: list[tuple[str, str | None]] = []
+    for header, *rows in _tables(cp1_text):
+        labels = [_plain(cell) for cell in header]
+        if "Instrument" not in labels or "Currency" not in labels:
+            continue
+        at, currency = labels.index("Instrument"), labels.index("Currency")
+        found += [
+            (_plain(row[at]).casefold(), currency_of(row[currency]))
+            for row in rows
+            if len(row) > max(at, currency) and _plain(row[at]).casefold() != _FINANCING_ADJUSTMENT
+        ]
+    return found
+
+
+_LEAVE_OUT = (
+    "leave it out of `facilities`: its debt stays in base debt at the `interest_rate` driver"
+)
+
+
+def _currency_refusal(name: str, rows: list[tuple[str, str | None]], code: str) -> str:
+    """Why a facility is not one T4.18 prints in the block's currency, and what to do instead."""
+    key = _plain(name).casefold()
+    stated = [currency for row_name, currency in rows if row_name == key]
+    if stated and stated[0] is not None:
+        return (
+            f"CP-2G: facility `{name}` is in `{stated[0]}` in CP-1's T4.18, not the run's "
+            f"`{code}`; {_LEAVE_OUT}"
+        )
+    why = (
+        "its T4.18 `Currency` cell gives no ISO 4217 code"
+        if stated
+        else "no T4.18 `Instrument` is named exactly so"
+    )
+    return (
+        f"CP-2G: facility `{name}` is not an instrument CP-1's T4.18 prints in `{code}` ({why}), "
+        "and T4.18 holds an instrument in another currency or in none it states; copy its name "
+        f"exactly as T4.18's `Instrument` prints it, or {_LEAVE_OUT}"
+    )
+
+
+def _check_facility_currencies(facilities: tuple[Facility, ...], cp1_text: str, code: str) -> None:
+    """Where any T4.18 row's `Currency` does not read as the block's currency (another code, or no
+    single code), T4.18 prints amounts in another currency (docs/rulings/2026-11-16-reporting-
+    currency-from-sources.md), so every facility must be an instrument T4.18 prints in the block's
+    currency, its name copied exactly (trimmed, emphasis removed, ignoring case); any other is
+    refused, named, and left to base debt at the `interest_rate` driver (PR 46 review M1). Where
+    every row reads as the block's currency, or CP-1 has no T4.18, nothing is refused here."""
+    rows = _t418_rows(cp1_text)
+    if all(currency == code for _, currency in rows):
+        return
+    own = {name for name, currency in rows if currency == code}
+    for facility in facilities:
+        if _plain(facility.name).casefold() not in own:
+            raise ValueError(_currency_refusal(facility.name, rows, code))
 
 
 _FACILITY_YEAR = ("opening", "rate", "interest", "repaid", "closing")
@@ -753,6 +866,7 @@ def model_files(
     """The five files `credit_os/cashflow.py` reads for a model, from the CP-1 handoff and the
     forecast source's (CP-2G's, or CP-1's own for a layer-1 forecast: then `handoff` is `cp1`)."""
     inputs = parse(handoff.decode("utf-8"), cp1.decode("utf-8"), source)
+    currency = inputs.currency or _cp1_currency(cp1.decode("utf-8")) or UNSTATED_CURRENCY
     operands = cp2g.Operands(
         **{
             key: cp2g.Val(None if o.amount is None else Decimal(o.amount), o.reason)
@@ -838,12 +952,12 @@ def model_files(
                 if inputs.scale is None
                 else {
                     "scale": inputs.scale,
-                    "units": f"{inputs.currency or UNSTATED_CURRENCY} millions",
+                    "units": f"{currency} millions",
                 }
             ),
             "scope_limits": [
                 LIMIT if source == "CP-2G" else LAYER1_LIMIT,
-                *([scale_limit(inputs.currency)] if inputs.scale == 1000 else []),
+                *([scale_limit(currency)] if inputs.scale == 1000 else []),
                 *inputs.scope_limits,
                 *limits,
             ],

@@ -57,7 +57,11 @@ _PRESETS: dict[PathwayId, tuple[str, ...]] = {
         *("CP-0", "CP-1", "CP-MODEL", "CP-1A", "CP-DR", "CP-2", "CP-2A", "CP-2D", "CP-2E"),
         *("CP-2G", "CP-4", "CP-3C", "CP-3", "CP-5", "CP-6"),
     ),
-    "earnings_update": ("CP-0", "CP-1", "CP-MODEL", "CP-1B", "CP-1D", "CP-DR", "CP-2E", "CP-5"),
+    # Owner, 2026-11-16: "Cp-1a should run most of the time. It describes the issuer." and "Add it
+    # to Earnings Update" (docs/rulings/2026-11-16-earnings-update-cp1a.md).
+    "earnings_update": (
+        *("CP-0", "CP-1", "CP-MODEL", "CP-1A", "CP-1B", "CP-1D", "CP-DR", "CP-2E", "CP-5"),
+    ),
     "relative_value": (
         *("CP-0", "CP-1", "CP-MODEL", "CP-1C", "CP-DR", "CP-2", "CP-2D", "CP-2E", "CP-3"),
         *("CP-3C", "CP-3D", "CP-5"),

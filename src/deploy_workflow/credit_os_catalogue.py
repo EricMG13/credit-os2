@@ -33,6 +33,8 @@ LISTED = {".md", ".txt", ".pdf", ".html", ".htm", ".json", ".csv", ".xlsx"}
 RUN_FILE_LIMIT = 5000
 BASIS = "Basis and limitation"
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
+_MONEY = re.compile(r"-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?")  # money may group thousands
+_MONEY_KEYS = frozenset({"revenue", "adjusted_ebitda"})  # the only metrics read as money
 _FISCAL_YEAR = re.compile(r"FY(\d{4})")
 _DATED_YEAR = re.compile(r"FY(\d{4}) / (\d{4}-\d{2}-\d{2})")
 _ISO_DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
@@ -47,6 +49,8 @@ _METRICS = (
     ("interest cover", "coverage", "EBITDA / cash interest"),
     ("liquidity", "cash", "Cash"),
     ("liquidity", "undrawn", "Undrawn committed facilities"),
+    ("revenue and EBITDA", "revenue", "Revenue"),
+    ("revenue and EBITDA", "adjusted_ebitda", "Adjusted EBITDA"),
 )
 
 
@@ -164,7 +168,7 @@ def definition_key(text: str | None) -> str | None:
 
 
 def prior_metric(
-    rows: list[dict[str, str]], row: dict[str, str], column: str
+    rows: list[dict[str, str]], row: dict[str, str], column: str, number: re.Pattern[str] = _NUMBER
 ) -> tuple[dict[str, str], str] | None:
     """The same column a year earlier and the exact change, or None.
 
@@ -181,7 +185,7 @@ def prior_metric(
         return None
     prior_value = found[0].get(column, "")
     unit = row.get("Reporting unit", "")
-    if not (_NUMBER.fullmatch(prior_value) and found[0].get("Reporting unit", "") == unit):
+    if not (number.fullmatch(prior_value) and found[0].get("Reporting unit", "") == unit):
         return None
     if definition_key(row.get(BASIS)) != definition_key(found[0].get(BASIS)):
         return None
@@ -192,7 +196,7 @@ def _exact_change(current: str, prior: str) -> str:
     """``current - prior`` with every digit kept; a zero change carries no sign."""
     with localcontext() as context:
         context.prec = len(current) + len(prior) + 2
-        change = Decimal(current) - Decimal(prior)
+        change = Decimal(current.replace(",", "")) - Decimal(prior.replace(",", ""))
     return format(abs(change) if change == 0 else change, "f")
 
 
@@ -218,14 +222,13 @@ def pinned_context(folder: Path, issues: list[str]) -> RunContext | None:
 
 
 def context_values(context: RunContext | None) -> dict[str, str]:
-    """Ticker, sector, country, currency and period of the run's context; empty without one."""
+    """Ticker, sector, country and period of the run's context; empty without one."""
     if context is None:
         return {}
     found = {
         "ticker": context.identity.ticker,
         "sector": context.identity.sector,
         "country": context.identity.country,
-        "reporting_currency": context.run.reporting_currency,
         "current_period": context.run.current_period,
     }
     return {key: value.strip() for key, value in found.items() if value.strip()}
@@ -318,7 +321,8 @@ def handoff_metrics(
         unit, basis, period = (
             row.get(c, "") for c in ("Reporting unit", "Basis and limitation", "Period")
         )
-        if not (_NUMBER.fullmatch(value) and unit and basis and period):
+        pattern = _MONEY if key in _MONEY_KEYS else _NUMBER
+        if not (pattern.fullmatch(value) and unit and basis and period):
             issues.append(f"{name}: CP-1 {chart} {column!r} is not a quotable metric; left out")
             continue
         source = f"{name}.cp1-{chart.replace(' ', '-')}"
@@ -337,7 +341,7 @@ def handoff_metrics(
             "source": source,
             "provenance": "cited",
         }
-        compared = prior_metric([r for _, r, _ in ranked], row, held)
+        compared = prior_metric([r for _, r, _ in ranked], row, held, pattern)
         if compared is not None:
             metrics[key]["prior"], metrics[key]["change"] = compared
         if held != column:  # an adjusted name is stated, not implied
@@ -384,8 +388,9 @@ def delivery_fields(
     sources: dict[str, Any],
     issues: list[str],
     verified: Mapping[str, Any] | None = None,
-) -> tuple[list[dict[str, Any]], dict[str, dict[str, str]]]:
-    """The run's verified delivery as one artifact, and the metrics its CP-1 handoff states.
+) -> tuple[list[dict[str, Any]], dict[str, dict[str, str]], str]:
+    """The run's verified delivery as one artifact, the metrics its CP-1 handoff states, and the
+    run's currency (the ISO code of CP-1's money unit; empty when CP-1 states none).
 
     ``verified`` is the delivery this build already verified (``Library.deliveries``), used as is
     and never changed; without it the delivery is verified here."""
@@ -410,7 +415,7 @@ def delivery_fields(
             text = raw.decode("utf-8", errors="replace")
     except (Refused, OSError) as error:
         issues.append(f"{name}: delivery not catalogued ({error})")
-        return [], {}
+        return [], {}, ""
     delivered = f"runs/{name}/{relative}"
     mode = view.get("mode")
     artifact = {
@@ -432,7 +437,20 @@ def delivery_fields(
     artifacts = [artifact]
     if published:
         artifacts.append(model_artifact(artifact, delivered, files))
-    return artifacts, metrics
+    return artifacts, metrics, cp1_currency(text)
+
+
+def cp1_currency(text: str) -> str:
+    """The ISO code of the currency CP-1's statements are printed in, from CP-1's money unit
+    (`US$m` is USD, `GBPm` is GBP); empty when CP-1 states no single currency. Never the context's
+    `reporting_currency` (docs/rulings/2026-11-16-reporting-currency-from-sources.md)."""
+    # Imported here: cpos_cp1_check imports this module (period_order), so a top-level import loops.
+    from deploy_workflow.owners.cpos_cp1_check import money_unit
+
+    unit = money_unit(text)
+    if unit is None:
+        return ""
+    return "USD" if unit == "US$m" else unit.removesuffix("m")
 
 
 def run_record(
@@ -448,7 +466,7 @@ def run_record(
     period, period_kind = period_fields(context)
     summary, gaps = summary_fields(run)
     title = pathway_title(run["pathway"])
-    artifacts, metrics = delivery_fields(workspace, run, sources, issues, verified)
+    artifacts, metrics, currency = delivery_fields(workspace, run, sources, issues, verified)
     return {
         "id": name,
         "issuer": context.get("ticker") or run["issuer_id"].upper(),
@@ -457,7 +475,7 @@ def run_record(
         "workflow": title,
         "sector": context.get("sector", ""),
         "country": context.get("country", ""),
-        "currency": context.get("reporting_currency", ""),
+        "currency": currency,
         "date": run["as_of"],
         "period": period,
         "period_kind": period_kind,

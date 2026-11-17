@@ -16,12 +16,18 @@ import {
   type Activity,
   type EndedRun,
   type LiveRun,
+  type ModuleState,
 } from "./api";
 import { heading } from "./layout";
 import { finishedFigure, stamp } from "./runFigures";
 
 const RELOAD_MS = 5000;
-const STEP = { done: "Finished", running: "Running", waiting: "Queued" } as const;
+const STEP = {
+  done: "Finished",
+  running: "Running",
+  stopped: "Interrupted",
+  waiting: "Queued",
+} as const satisfies Record<ModuleState, string>;
 const ENDED = {
   failed: "Failed",
   capped: "Capped",

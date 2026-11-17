@@ -30,6 +30,8 @@ import {
   RequestError,
   submit,
   upload,
+  drawnModules,
+  FORECAST_CODE,
   type Answers,
   type Context,
   type DocumentRecord,
@@ -39,25 +41,72 @@ import {
   type Mode,
   type Summary,
 } from "./api";
+import { AssumptionFields } from "./start/AssumptionFields";
+import {
+  ASSUMPTIONS_TITLE,
+  readAssumptions,
+  sendableAssumptions,
+  type AssumptionsForm,
+} from "./start/assumptions";
 import { RowEditor } from "./start/RowEditor";
-import { ROW_SPECS, sendableRows, type Row, type RowKind } from "./start/rows";
+import { ModuleOptionsFields } from "./start/ModuleOptionsFields";
+import { CONTEXT_ROW_KINDS, ROW_SPECS, sendableRows, type Row, type RowKind } from "./start/rows";
+import {
+  MODULE_OPTIONS_TITLE,
+  readModuleOptions,
+  readValuation,
+  sendableModuleOptions,
+  sendableValuation,
+  VALUATION_TITLE,
+  type ModuleOptionsForm,
+  type ValuationForm,
+} from "./start/valuation";
+import { ValuationFields } from "./start/ValuationFields";
 import { Breadcrumb, card, ErrorNotice, field, heading, label } from "./layout";
 import { carryAccepted, decided, groupLimits, needsCheck } from "./start/limits";
+import { ANALYST_NAME_RULE, isAnalystName } from "./start/analystName";
 import { ReviewSheet } from "./start/ReviewSheet";
 import { StartReadiness } from "./start/StartReadiness";
-import { documentDescription, LEVELS, PURPOSES, storedName } from "./start/plain";
+import {
+  ANY_FOCUS,
+  ATTACHMENTS,
+  CASE_KIND_LABEL,
+  CASE_KINDS,
+  CONTEXT_DETAILS,
+  documentDescription,
+  EFFORTS,
+  ISSUE_CLASSES,
+  ISSUE_CLASSIFICATION,
+  ISSUER_DETAILS,
+  ISSUER_ID,
+  ISSUER_LIST_BOXES,
+  ISSUER_TEXT_BOXES,
+  LEGAL_CHOICES,
+  LEGAL_DOCUMENTS,
+  LEVELS,
+  LISTED_EQUITY,
+  MODELS,
+  PATHWAY_LABEL,
+  PURPOSES,
+  PURPOSE_STEP,
+  refusalLines,
+  refusalProblems,
+  RUN_PURPOSE_LABEL,
+  storedName,
+  TICKER,
+} from "./start/plain";
 import { errorText, useResource } from "./useResource";
 import { PageHeader } from "../../shell/PageHeader";
 
 const FORM_STEPS = {
   documents: { title: "Documents", next: "Continue to purpose", previous: null },
-  purpose: { title: "Purpose", next: "Continue to context", previous: "documents" },
+  purpose: { title: PURPOSE_STEP, next: "Continue to context", previous: "documents" },
   context: { title: "More context", next: "Review run", previous: "purpose" },
 } as const;
 type FormStep = keyof typeof FORM_STEPS;
 const STEPPER_STEPS = [
   { key: "documents", title: "Documents", note: "Add files" },
-  { key: "purpose", title: "Purpose", note: "Choose one" },
+  { key: "purpose", title: PURPOSE_STEP, note: "Choose one" },
   { key: "context", title: "More context", note: "Optional" },
   { key: "start", title: "Review and start", note: "Paid step" },
 ] as const;
@@ -84,31 +133,64 @@ const PATHWAY_CARDS = Object.entries(PATHWAYS).map(([id, pathway]) => ({
   id,
   title: pathway.label,
   description: PATHWAY_DESCRIPTIONS[id] ?? "",
-  modules: `${String(pathway.modules.length)} base modules`,
+  modules: `${String(drawnModules(pathway.modules).length)} base modules`,
 }));
 
 type FieldKey =
   | "issuer_name"
+  | "submitted_by"
   | "cutoff"
+  | "legal_documents"
   | "agreement"
   | "deal_terms"
+  | "quotes"
+  | "ratings"
+  | "research_questions"
+  | "analyst_note"
   | "turns"
   | "valuation"
   | "assumptions"
   | "module_options";
 
-/** A validation failure that belongs to one control: shown on it, not in the general notice. */
+/**
+ * A problem that belongs to one control: shown on it, not in the general notice. A service refusal
+ * that names several problems carries the others, in their labelled lines, as `others`.
+ */
 class FieldProblem extends Error {
   constructor(
     readonly field: FieldKey,
     message: string,
+    readonly others?: readonly string[],
   ) {
     super(message);
   }
 }
 
-function stepOfField(field: FieldKey): FormStep {
-  return field === "issuer_name" ? "documents" : "context";
+/**
+ * The first problem of a summary refusal whose control is drawn becomes a FieldProblem and the rest
+ * its `others`; a failure that is not a refusal, or names no drawn control, is `undefined` (the
+ * general notice shows it as it is).
+ */
+function refusedField(
+  failure: unknown,
+  requested: readonly string[],
+  noteAt: number,
+): FieldProblem | undefined {
+  if (!(failure instanceof RequestError) || failure.status === 404) return undefined;
+  const problems = refusalProblems(failure.message, requested, noteAt);
+  const at = problems.findIndex(({ field }) => field !== undefined);
+  const first = problems[at];
+  if (!first?.field) return undefined;
+  return new FieldProblem(
+    first.field,
+    first.line,
+    problems.filter((_, position) => position !== at).map(({ line }) => line),
+  );
+}
+
+/** The step a control is drawn on: the issuer name and analyst name on Documents, the rest on Context. */
+export function stepOfField(field: FieldKey): FormStep {
+  return field === "issuer_name" || field === "submitted_by" ? "documents" : "context";
 }
 
 function problemAttrs(problem: FieldProblem | undefined, field: FieldKey) {
@@ -155,16 +237,13 @@ function requireSummaryCap(summary: Summary, shownCap: string) {
     throw new Error("The pathway cap changed while preparing this summary. Review the run again.");
 }
 
-const ATTACHMENTS = {
-  management_bridge: "Management EBITDA bridge",
-  portfolio_workbook: "Portfolio workbook",
-  prior_case: "Prior decision record",
-};
-const ROW_KINDS = Object.keys(ROW_SPECS) as RowKind[];
-const COMPLEX_FIELDS = {
-  valuation: "Valuation and peers",
-  assumptions: "Scenario assumptions",
-  module_options: "Module options",
+/** The row editors of the Context step: each carries a `data-field` a refusal can name. */
+const isFieldRow = (kind: RowKind): kind is (typeof CONTEXT_ROW_KINDS)[number] =>
+  (CONTEXT_ROW_KINDS as readonly RowKind[]).includes(kind);
+type Forms = {
+  valuation?: ValuationForm;
+  module_options?: ModuleOptionsForm;
+  assumptions?: AssumptionsForm;
 };
 type LatestIssuerInputs = { run: string; prior: PriorInputs };
 
@@ -174,7 +253,6 @@ async function latestIssuerInputs(issuer: string): Promise<LatestIssuerInputs | 
   return { run: latest.latest_run, prior: await getPriorInputs(latest.latest_run) };
 }
 
-type ComplexField = keyof typeof COMPLEX_FIELDS;
 type Attachment = keyof typeof ATTACHMENTS | "agreement";
 type DocumentRow = { name: string; stored?: string; file?: File };
 type IntakeView = {
@@ -201,7 +279,13 @@ type IntakeView = {
   level: string;
   analystNote: string;
   newest: string;
-  edits: Partial<Record<ComplexField, string>>;
+  forms: Forms;
+  valuation: ValuationForm;
+  moduleOptions: ModuleOptionsForm;
+  assumptions: AssumptionsForm;
+  changeAssumptions: (next: AssumptionsForm) => void;
+  changeValuation: (next: ValuationForm) => void;
+  changeModuleOptions: (next: ModuleOptionsForm) => void;
   modules: string[];
   requested: string[];
   turns: string;
@@ -229,8 +313,6 @@ type IntakeView = {
   changeNewestOverride: (value: string) => void;
   changeLegal: (value: string) => void;
   changeAttachment: (key: Attachment, value: string) => void;
-  changeDetail: (key: ComplexField, value: string) => void;
-  detailText: (key: ComplexField) => string;
   rowsOf: (kind: RowKind) => Row[];
   changeRows: (kind: RowKind, rows: Row[]) => void;
   problem?: FieldProblem;
@@ -281,7 +363,7 @@ function useIntakeDocumentsState() {
   const [ignoredCopies, setIgnoredCopies] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<Partial<Record<Attachment, string>>>({});
   const [legal, setLegal] = useState("none");
-  const [edits, setEdits] = useState<Partial<Record<ComplexField, string>>>({});
+  const [forms, setForms] = useState<Forms>({});
   const [rows, setRows] = useState<Partial<Record<RowKind, Row[]>>>({});
   const [analystNote, setAnalystNote] = useState("");
   return {
@@ -297,8 +379,8 @@ function useIntakeDocumentsState() {
     setAttachments,
     legal,
     setLegal,
-    edits,
-    setEdits,
+    forms,
+    setForms,
     rows,
     setRows,
     analystNote,
@@ -336,6 +418,7 @@ function useIntakeReviewState() {
   const [busy, setBusy] = useState<"review" | "submit" | "documents" | "copy">();
   const [error, setError] = useState("");
   const [fieldError, setFieldError] = useState<FieldProblem>();
+  const [otherProblems, setOtherProblems] = useState<readonly string[]>([]);
   const [submitUncertain, setSubmitUncertain] = useState(false);
   return {
     review,
@@ -350,6 +433,8 @@ function useIntakeReviewState() {
     setError,
     fieldError,
     setFieldError,
+    otherProblems,
+    setOtherProblems,
     submitUncertain,
     setSubmitUncertain,
   };
@@ -599,11 +684,11 @@ function DocumentFields({
         <FieldMessage problem={view.problem} field="issuer_name" />
       </div>
       <label className={label}>
-        Issuer ID
+        {ISSUER_ID}
         <input
           className={field}
           required
-          pattern="[a-z0-9][a-z0-9\\-]{0,39}"
+          pattern="[a-z0-9][a-z0-9\-]{0,39}"
           maxLength={40}
           value={view.issuerId}
           readOnly={!!view.copy}
@@ -631,42 +716,40 @@ function DocumentFields({
           </p>
         )}
       </div>
-      <label className={label}>
-        Reporting currency
-        <input
-          className={field}
-          required
-          pattern="[A-Z]{3}"
-          maxLength={3}
-          value={view.run.reporting_currency}
-          onChange={(event) => {
-            view.changeRun("reporting_currency", event.target.value.toUpperCase());
-          }}
-        />
-      </label>
       <SelectField
-        title="Issue classification"
+        title={ISSUE_CLASSIFICATION}
         value={view.identity.issue_classification ?? ""}
-        choices={{
-          "": "Choose classification",
-          investment_grade: "Investment grade",
-          high_yield: "High yield",
-        }}
+        choices={{ "": "Choose classification", ...ISSUE_CLASSES }}
         onChange={(value) => {
           view.changeIdentity("issue_classification", value);
         }}
       />
-      <label className={label}>
-        Your name
-        <input
-          className={field}
-          maxLength={80}
-          value={view.submittedBy}
-          onChange={(event) => {
-            view.changeSubmittedBy(event.target.value);
-          }}
-        />
-      </label>
+      <div className="grid gap-2">
+        <label className={label}>
+          Your name
+          <input
+            className={field}
+            maxLength={80}
+            autoComplete="off"
+            placeholder="Eric G"
+            {...problemAttrs(view.problem, "submitted_by")}
+            aria-describedby={
+              view.problem?.field === "submitted_by"
+                ? "error-submitted_by run-analyst-name"
+                : "run-analyst-name"
+            }
+            value={view.submittedBy}
+            onChange={(event) => {
+              view.changeSubmittedBy(event.target.value);
+            }}
+          />
+        </label>
+        <FieldMessage problem={view.problem} field="submitted_by" />
+        <p id="run-analyst-name" className="text-sm text-text-tertiary">
+          First name and initial, such as Eric G. Use two initials, such as Eric MG, if a colleague
+          has a similar name. Shown on Run activity and in Teams.
+        </p>
+      </div>
       {view.copy ? (
         <Button color="secondary" onPress={view.resetIssuer}>
           This is a different issuer
@@ -685,14 +768,14 @@ function PurposeFields({ view }: { view: IntakeView }) {
     <>
       <div className="sm:col-span-2">
         <PurposeCards
-          label="Pathway"
+          label={PATHWAY_LABEL}
           value={view.run.pathway}
           purposes={PATHWAY_CARDS}
           onChange={view.changePathway}
         />
       </div>
       <SelectField
-        title="Run purpose"
+        title={RUN_PURPOSE_LABEL}
         value={view.run.run_type ?? "research"}
         choices={
           view.earnings
@@ -706,10 +789,10 @@ function PurposeFields({ view }: { view: IntakeView }) {
         onChange={view.changePurpose}
       />
       <SelectField
-        title="Case kind"
+        title={CASE_KIND_LABEL}
         value={view.run.case_kind}
         help="Web research runs for public and private cases, never for a synthetic test case."
-        choices={{ public: "Public filer", private: "Private", synthetic: "Synthetic test case" }}
+        choices={CASE_KINDS}
         onChange={(value) => {
           view.changeRun("case_kind", value);
         }}
@@ -717,7 +800,7 @@ function PurposeFields({ view }: { view: IntakeView }) {
       <SelectField
         title="Run form level"
         value={view.level}
-        help="Advanced adds model, effort, turns per module, module selection and JSON inputs."
+        help="Advanced adds model, effort, turns per module, module selection and valuation and assumption fields."
         choices={LEVELS}
         onChange={view.changeLevel}
       />
@@ -731,7 +814,8 @@ function ContextFields({ view }: { view: IntakeView }) {
       <ContextInputFields view={view} />
       <IssuerDetailsFields view={view} />
       <StructuredContextFields view={view} />
-      <JsonDetailsFields view={view} />
+      <ValuationSection view={view} />
+      <AssumptionsSection view={view} />
       <AdvancedOptionsFields view={view} />
     </>
   );
@@ -745,6 +829,7 @@ function ContextInputFields({ view }: { view: IntakeView }) {
           Anything the analysis should know
           <textarea
             aria-describedby="run-analyst-questions"
+            {...problemAttrs(view.problem, "analyst_note")}
             className={field}
             rows={3}
             placeholder="For example, the committee wants a view on the 2028 maturities."
@@ -754,6 +839,7 @@ function ContextInputFields({ view }: { view: IntakeView }) {
             }}
           />
         </label>
+        <FieldMessage problem={view.problem} field="analyst_note" />
         <p id="run-analyst-questions" className="text-sm text-text-tertiary">
           Your note is included in the run’s research questions.
         </p>
@@ -810,9 +896,11 @@ function ContextInputFields({ view }: { view: IntakeView }) {
         />
       </label>
       <SelectField
-        title="Legal documents"
+        title={LEGAL_DOCUMENTS}
         value={view.legal}
-        choices={{ none: "No agreement", executed: "Executed agreement", draft: "Draft agreement" }}
+        choices={LEGAL_CHOICES}
+        problem={view.problem}
+        problemField="legal_documents"
         onChange={view.changeLegal}
       />
       {view.legal !== "none" && (
@@ -863,21 +951,14 @@ function ContextInputFields({ view }: { view: IntakeView }) {
 function IssuerDetailsFields({ view }: { view: IntakeView }) {
   return (
     <details className="rounded-lg border border-border-hairline p-3 sm:col-span-2">
-      <summary className="cursor-pointer font-semibold">Issuer details</summary>
+      <summary className="cursor-pointer font-semibold">{ISSUER_DETAILS}</summary>
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        {(
-          [
-            ["borrower_name", "Borrower (legal entity)"],
-            ["parent_name", "Parent"],
-            ["sector", "Sector"],
-            ["country", "Country"],
-            ["sponsor", "Sponsor"],
-          ] as const
-        ).map(([key, title]) => (
+        {ISSUER_TEXT_BOXES.map(([key, title, example]) => (
           <label key={key} className={label}>
             {title}
             <input
               className={field}
+              placeholder={`e.g. ${example}`}
               value={view.identity[key] ?? ""}
               onChange={(event) => {
                 view.changeIdentity(key, event.target.value);
@@ -885,12 +966,7 @@ function IssuerDetailsFields({ view }: { view: IntakeView }) {
             />
           </label>
         ))}
-        {(
-          [
-            ["aliases", "Other names in the filings"],
-            ["guarantors", "Guarantors"],
-          ] as const
-        ).map(([key, title]) => (
+        {ISSUER_LIST_BOXES.map(([key, title]) => (
           <label key={key} className={label}>
             {title}
             <textarea
@@ -918,11 +994,11 @@ function IssuerDetailsFields({ view }: { view: IntakeView }) {
               view.changeListedEquity(event.target.checked);
             }}
           />{" "}
-          Listed equity
+          {LISTED_EQUITY}
         </label>
         {view.identity.listed_equity && (
           <label className={label}>
-            Ticker
+            {TICKER}
             <input
               className={field}
               value={view.identity.ticker ?? ""}
@@ -939,13 +1015,13 @@ function IssuerDetailsFields({ view }: { view: IntakeView }) {
 
 function StructuredContextFields({ view }: { view: IntakeView }) {
   const focusChoices = [
-    ["", "Any"] as const,
-    ...pathwayModules(view.run.pathway).map((id) => [id, moduleName(id)] as const),
+    ["", ANY_FOCUS] as const,
+    ...drawnModules(pathwayModules(view.run.pathway)).map((id) => [id, moduleName(id)] as const),
   ];
   return (
     <div className="grid gap-4 sm:col-span-2">
-      <h3 className="font-semibold">Context details</h3>
-      {ROW_KINDS.map((kind) => (
+      <h3 className="font-semibold">{CONTEXT_DETAILS}</h3>
+      {CONTEXT_ROW_KINDS.map((kind) => (
         <section key={kind} aria-labelledby={`rows-${kind}`} className="grid gap-2">
           <h4 id={`rows-${kind}`} className="text-sm font-semibold">
             {ROW_SPECS[kind].section}
@@ -959,11 +1035,7 @@ function StructuredContextFields({ view }: { view: IntakeView }) {
             primary={view.run.run_type === "primary"}
             required={kind === "deal_terms" && view.run.run_type === "primary"}
             focusChoices={focusChoices}
-            error={
-              kind === "deal_terms" && view.problem?.field === "deal_terms"
-                ? view.problem.message
-                : undefined
-            }
+            error={view.problem?.field === kind ? view.problem.message : undefined}
           />
         </section>
       ))}
@@ -971,33 +1043,62 @@ function StructuredContextFields({ view }: { view: IntakeView }) {
   );
 }
 
-function JsonDetailsFields({ view }: { view: IntakeView }) {
-  const shown = (Object.entries(COMPLEX_FIELDS) as [ComplexField, string][]).filter(
-    ([key]) => view.level === "advanced" || view.edits[key] !== undefined,
-  );
-  if (!shown.length) return null;
+function ValuationSection({ view }: { view: IntakeView }) {
+  const wanted = view.requested;
+  const runs = { cp3: wanted.includes("CP-3"), cp6: wanted.includes("CP-6") };
+  const named = view.problem?.field === "valuation" || view.problem?.field === "module_options";
+  if (view.level !== "advanced" && !view.forms.valuation && !view.forms.module_options && !named)
+    return null;
   return (
-    <div className="grid gap-2 sm:col-span-2">
-      <p className="text-sm text-text-secondary">
-        These values are JSON objects. The service validates the content during review.
-      </p>
-      {shown.map(([key, title]) => (
-        <details key={key} className="rounded-lg border border-border-hairline p-3">
-          <summary className="cursor-pointer text-sm font-semibold">{title}</summary>
-          <textarea
-            aria-label={title}
-            className={`mt-2 w-full font-mono ${field}`}
-            rows={key === "valuation" ? 12 : 5}
-            {...problemAttrs(view.problem, key)}
-            value={view.detailText(key)}
-            onChange={(event) => {
-              view.changeDetail(key, event.target.value);
-            }}
+    <div className="grid gap-3 sm:col-span-2">
+      <details className="rounded-lg border border-border-hairline p-3">
+        <summary className="cursor-pointer text-sm font-semibold">{VALUATION_TITLE}</summary>
+        <div className="mt-3">
+          <ValuationFields
+            form={view.valuation}
+            onChange={view.changeValuation}
+            marker={problemAttrs(view.problem, "valuation")}
+            message={<FieldMessage problem={view.problem} field="valuation" />}
           />
-          <FieldMessage problem={view.problem} field={key} />
+        </div>
+      </details>
+      {(runs.cp3 || runs.cp6) && (
+        <details className="rounded-lg border border-border-hairline p-3">
+          <summary className="cursor-pointer text-sm font-semibold">{MODULE_OPTIONS_TITLE}</summary>
+          <div className="mt-3">
+            <ModuleOptionsFields
+              form={view.moduleOptions}
+              runs={runs}
+              onChange={view.changeModuleOptions}
+              marker={problemAttrs(view.problem, "module_options")}
+              message={<FieldMessage problem={view.problem} field="module_options" />}
+            />
+          </div>
         </details>
-      ))}
+      )}
     </div>
+  );
+}
+
+function AssumptionsSection({ view }: { view: IntakeView }) {
+  if (view.level !== "advanced" && !view.forms.assumptions && view.problem?.field !== "assumptions")
+    return null;
+  return (
+    <details className="rounded-lg border border-border-hairline p-3 sm:col-span-2">
+      <summary className="cursor-pointer text-sm font-semibold">{ASSUMPTIONS_TITLE}</summary>
+      <div className="mt-3 grid gap-3">
+        <p className="text-sm text-text-secondary">
+          Optional. Pin a value only where you hold a house view; otherwise the module chooses.
+        </p>
+        <AssumptionFields
+          form={view.assumptions}
+          modules={view.requested}
+          onChange={view.changeAssumptions}
+          marker={problemAttrs(view.problem, "assumptions")}
+          message={<FieldMessage problem={view.problem} field="assumptions" />}
+        />
+      </div>
+    </details>
   );
 }
 
@@ -1005,16 +1106,11 @@ function AdvancedOptionsFields({ view }: { view: IntakeView }) {
   if (view.level !== "advanced") return null;
   return (
     <>
-      <SelectField
-        title="Model"
-        value={view.model}
-        choices={{ gpt: "GPT Sol", claude: "Claude Opus" }}
-        onChange={view.changeModel}
-      />
+      <SelectField title="Model" value={view.model} choices={MODELS} onChange={view.changeModel} />
       <SelectField
         title="Reasoning effort"
         value={view.effort}
-        choices={{ fast: "Fast", balanced: "Balanced", high: "High" }}
+        choices={EFFORTS}
         onChange={view.changeEffort}
       />
       <div className="grid content-start gap-1">
@@ -1039,12 +1135,12 @@ function AdvancedOptionsFields({ view }: { view: IntakeView }) {
       <fieldset className="min-w-0 rounded-lg border border-border-hairline p-3 sm:col-span-2">
         <legend className="px-1 text-sm font-semibold">Requested modules</legend>
         <div className="grid gap-2 sm:grid-cols-2">
-          {view.requested.map((code) => (
+          {drawnModules(view.requested).map((code) => (
             <label key={code} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={!view.modules.length || view.modules.includes(code)}
-                disabled={view.modules.length === 1 && view.modules.includes(code)}
+                disabled={drawnModules(view.modules).length === 1 && view.modules.includes(code)}
                 onChange={(event) => {
                   view.toggleModule(code, event.target.checked);
                 }}
@@ -1127,21 +1223,6 @@ export function SelectField({
 
 function isRecord(item: unknown): item is Row {
   return item !== null && typeof item === "object" && !Array.isArray(item);
-}
-
-function readDetails(edits: Partial<Record<ComplexField, string>>) {
-  const details: Record<string, unknown> = {};
-  for (const [key, raw] of Object.entries(edits) as [ComplexField, string][]) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new FieldProblem(key, `${COMPLEX_FIELDS[key]} must contain valid JSON.`);
-    }
-    if (!isRecord(parsed)) throw new FieldProblem(key, `${COMPLEX_FIELDS[key]} must be an object.`);
-    details[key] = parsed;
-  }
-  return details;
 }
 
 export function StartRun({
@@ -1241,8 +1322,8 @@ function IntakeForm({
     setAttachments,
     legal,
     setLegal,
-    edits,
-    setEdits,
+    forms,
+    setForms,
     rows,
     setRows,
     analystNote,
@@ -1275,6 +1356,8 @@ function IntakeForm({
     setError,
     fieldError,
     setFieldError,
+    otherProblems,
+    setOtherProblems,
     submitUncertain,
     setSubmitUncertain,
   } = reviewState;
@@ -1355,11 +1438,13 @@ function IntakeForm({
     setBusy(action);
     setError("");
     setFieldError(undefined);
+    setOtherProblems([]);
     try {
       await work();
     } catch (failure) {
       if (failure instanceof FieldProblem) {
         setFieldError(failure);
+        setOtherProblems(failure.others ?? []);
         setStep(stepOfField(failure.field));
         return;
       }
@@ -1471,7 +1556,7 @@ function IntakeForm({
     setModel("gpt");
     setEffort("balanced");
     setModules(carriedModules(prior));
-    setEdits({});
+    setForms({});
     setRows({});
     setAnalystNote("");
     setAttachments({});
@@ -1516,7 +1601,7 @@ function IntakeForm({
             }
           : {}),
       },
-      modules: advanced ? modules : [],
+      modules,
       max_turns: advanced ? Number(turns) : 32,
       level,
       model: advanced ? model : "gpt",
@@ -1532,8 +1617,24 @@ function IntakeForm({
         "Enter an issuer name and an issuer ID using letters a–z, digits or hyphens.",
       );
     }
-    const details: Record<string, unknown> = readDetails(edits);
-    for (const kind of ROW_KINDS) {
+    if (!isAnalystName(submittedBy.trim()))
+      throw new FieldProblem("submitted_by", ANALYST_NAME_RULE);
+    const details: Record<string, unknown> = {};
+    if (forms.valuation) details.valuation = sendableValuation(forms.valuation);
+    if (forms.module_options) {
+      const wanted = pathwayModules(run.pathway);
+      details.module_options = sendableModuleOptions(forms.module_options, {
+        cp3: wanted.includes("CP-3"),
+        cp6: wanted.includes("CP-6"),
+      });
+    }
+    if (forms.assumptions)
+      details.assumptions = sendableAssumptions(
+        forms.assumptions,
+        context.assumptions,
+        pathwayModules(run.pathway),
+      );
+    for (const kind of CONTEXT_ROW_KINDS) {
       const edited = rows[kind];
       if (edited) details[kind] = sendableRows(kind, edited, run.run_type === "primary");
     }
@@ -1567,8 +1668,11 @@ function IntakeForm({
     if (!result.documents.length)
       throw new Error("The service could not read any of the selected documents.");
     const answers = makeAnswers(result, details);
+    const noteAt = noteIndex(details, analystNote);
     const shownCap = capForPathway(caps, answers.context.run.pathway);
-    const summary = await getSummary(draft.id, answers, shownCap);
+    const summary = await getSummary(draft.id, answers, shownCap).catch((failure: unknown) => {
+      throw refusedField(failure, requested, noteAt) ?? failure;
+    });
     requireSummaryCap(summary, shownCap);
     if (!summary.digest) throw new Error("The service did not issue an approval for this run.");
     const newestDate = newestOverride ?? newestPeriod(result);
@@ -1682,17 +1786,6 @@ function IntakeForm({
     });
   }
 
-  function detailText(key: ComplexField) {
-    return (
-      edits[key] ??
-      JSON.stringify(
-        context[key] ?? (key === "module_options" ? { cp3_mode: "", cp6_deep_debate: false } : {}),
-        null,
-        2,
-      )
-    );
-  }
-
   function inspectDocuments() {
     void withDraft("documents", async () => {
       await refreshDocuments();
@@ -1730,11 +1823,6 @@ function IntakeForm({
     setAttachments((previous) => ({ ...previous, [key]: value }));
   }
 
-  function changeDetail(key: ComplexField, value: string) {
-    clearProblem(key);
-    setEdits((previous) => ({ ...previous, [key]: value }));
-  }
-
   function resetIssuer() {
     setCopy(undefined);
     reviewedRef.current = null;
@@ -1744,7 +1832,7 @@ function IntakeForm({
     setCustomSlug(undefined);
     setReading(undefined);
     setPriorNote("");
-    setEdits({});
+    setForms({});
     setRows({});
     setAnalystNote("");
     setAttachments({});
@@ -1776,7 +1864,7 @@ function IntakeForm({
   }
 
   function changeRows(kind: RowKind, next: Row[]) {
-    if (kind === "deal_terms") clearProblem("deal_terms");
+    if (isFieldRow(kind)) clearProblem(kind);
     setRows((previous) => ({ ...previous, [kind]: next }));
   }
 
@@ -1815,6 +1903,11 @@ function IntakeForm({
     goTo(target);
   }
 
+  function changeReviewedModules(next: string[]) {
+    editReviewedInputs("context");
+    setModules(next);
+  }
+
   function submitReviewedRun() {
     void submitReviewed();
   }
@@ -1851,7 +1944,22 @@ function IntakeForm({
     level,
     analystNote,
     newest,
-    edits,
+    forms,
+    valuation: forms.valuation ?? readValuation(context.valuation),
+    moduleOptions: forms.module_options ?? readModuleOptions(context.module_options),
+    assumptions: forms.assumptions ?? readAssumptions(context.assumptions),
+    changeAssumptions: (next) => {
+      clearProblem("assumptions");
+      setForms((previous) => ({ ...previous, assumptions: next }));
+    },
+    changeValuation: (next) => {
+      clearProblem("valuation");
+      setForms((previous) => ({ ...previous, valuation: next }));
+    },
+    changeModuleOptions: (next) => {
+      clearProblem("module_options");
+      setForms((previous) => ({ ...previous, module_options: next }));
+    },
     modules,
     requested,
     turns,
@@ -1872,23 +1980,30 @@ function IntakeForm({
       clearProblem("issuer_name");
       setCustomSlug(value);
     },
-    changeSubmittedBy: setSubmittedBy,
+    changeSubmittedBy: (value) => {
+      clearProblem("submitted_by");
+      setSubmittedBy(value);
+    },
     carryLatest: () => void copyLatest(),
     resetIssuer,
     changePathway,
     changePurpose,
-    changeLevel: setLevel,
-    changeAnalystNote: setAnalystNote,
+    changeLevel: (value) => {
+      if (value !== "advanced") setModules([]);
+      setLevel(value);
+    },
+    changeAnalystNote: (value) => {
+      clearProblem("analyst_note");
+      setAnalystNote(value);
+    },
     changeNewestOverride: (value) => {
       setNewestOverride(value || undefined);
     },
     changeLegal: (value) => {
-      clearProblem("agreement");
+      clearProblem("agreement", "legal_documents");
       setLegal(value);
     },
     changeAttachment,
-    changeDetail,
-    detailText,
     rowsOf,
     changeRows,
     changeModel: setModel,
@@ -1926,6 +2041,7 @@ function IntakeForm({
       step={step}
       review={review}
       error={error}
+      otherProblems={otherProblems}
       accepted={accepted}
       approved={approved}
       checksComplete={checksComplete === true}
@@ -1944,6 +2060,7 @@ function IntakeForm({
       onAccept={acceptReviewItems}
       onApprove={setApproved}
       onEdit={editReviewedInputs}
+      onModules={changeReviewedModules}
       onSubmit={submitReviewedRun}
       onAdvance={advanceCurrentStep}
       onPrevious={returnToPreviousStep}
@@ -1955,6 +2072,7 @@ type IntakePanelsProps = {
   step: FormStep;
   review?: Review;
   error: string;
+  otherProblems: readonly string[];
   accepted: Set<string>;
   approved: boolean;
   checksComplete: boolean;
@@ -1973,16 +2091,36 @@ type IntakePanelsProps = {
   onAccept: (ids: readonly string[], checked: boolean) => void;
   onApprove: (value: boolean) => void;
   onEdit: (step: FormStep) => void;
+  onModules: (modules: string[]) => void;
   onSubmit: () => void;
   onAdvance: (event: SubmitEvent<HTMLFormElement>) => void;
   onPrevious: () => void;
 };
+
+/** Refusal lines in the screen's own words: one as a sentence, several as a list. */
+function RefusalNotice({ lines }: { lines: readonly string[] }) {
+  const [only] = lines;
+  return (
+    <ErrorNotice>
+      {lines.length === 1 ? (
+        only
+      ) : (
+        <ul className="list-disc pl-5">
+          {lines.map((line, position) => (
+            <li key={position}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </ErrorNotice>
+  );
+}
 
 function IntakePanels(props: IntakePanelsProps) {
   const {
     step,
     review,
     error,
+    otherProblems,
     accepted,
     approved,
     checksComplete,
@@ -2001,6 +2139,7 @@ function IntakePanels(props: IntakePanelsProps) {
     onAccept,
     onApprove,
     onEdit,
+    onModules,
     onSubmit,
     onAdvance,
     onPrevious,
@@ -2028,7 +2167,8 @@ function IntakePanels(props: IntakePanelsProps) {
               : `Step ${String(FORM_STEP_KEYS.indexOf(step) + 1)} of ${String(STEP_TOTAL)} · ${title}`}
           </p>
         </div>
-        {error && <ErrorNotice>{error}</ErrorNotice>}
+        {error && <RefusalNotice lines={refusalLines(error)} />}
+        {otherProblems.length > 0 && <RefusalNotice lines={otherProblems} />}
         {review ? (
           <ReviewConfirmation
             review={review}
@@ -2044,6 +2184,7 @@ function IntakePanels(props: IntakePanelsProps) {
             onAccept={onAccept}
             onApprove={onApprove}
             onEdit={onEdit}
+            onModules={onModules}
             onSubmit={onSubmit}
           />
         ) : (
@@ -2083,6 +2224,7 @@ function ReviewConfirmation({
   onAccept,
   onApprove,
   onEdit,
+  onModules,
   onSubmit,
 }: {
   review: Review;
@@ -2098,6 +2240,7 @@ function ReviewConfirmation({
   onAccept: (ids: readonly string[], checked: boolean) => void;
   onApprove: (approved: boolean) => void;
   onEdit: (step: FormStep) => void;
+  onModules: (modules: string[]) => void;
   onSubmit: () => void;
 }) {
   const submitLabel = submitLabelFor({ busy, synthetic, capText });
@@ -2122,6 +2265,7 @@ function ReviewConfirmation({
         accepted={accepted}
         disabled={busy !== undefined || submitUncertain}
         onEdit={onEdit}
+        onModules={onModules}
         onAccept={onAccept}
       />
       {blocker && (
@@ -2321,13 +2465,17 @@ function today() {
 
 function startingContext(template: Context, prior?: PriorInputs): Context {
   const source = prior?.context ?? template;
+  // The run's currency is the one CP-1's statements print, so a value the template or an earlier
+  // run holds is neither shown nor sent (docs/rulings/2026-11-16-reporting-currency-from-sources.md).
+  const heldRun = { ...source.run };
+  delete heldRun.reporting_currency;
   const pathway = Object.hasOwn(PATHWAYS, source.run.pathway)
     ? source.run.pathway
     : "credit_snapshot";
   return {
     ...source,
     run: {
-      ...source.run,
+      ...heldRun,
       as_of: today(),
       pathway,
       ...(pathway === "earnings_update"
@@ -2344,7 +2492,18 @@ function startingContext(template: Context, prior?: PriorInputs): Context {
   };
 }
 
-function carriedModules(prior?: PriorInputs) {
+export function carriedModules(prior?: PriorInputs) {
   const available = pathwayModules(prior?.context?.run.pathway ?? "");
-  return prior?.modules.every((code) => available.includes(code)) ? prior.modules : [];
+  const chosen = prior?.modules ?? [];
+  if (!drawnModules(chosen).length || !chosen.every((code) => available.includes(code))) return [];
+  // Runs recorded before the page listed the forecast kept none; the page offers no way to drop it.
+  return chosen.length && available.includes(FORECAST_CODE) && !chosen.includes(FORECAST_CODE)
+    ? available.filter((code) => chosen.includes(code) || code === FORECAST_CODE)
+    : chosen;
+}
+
+/** How many question rows were sent before the note, which goes last (none when no note). */
+function noteIndex(details: Record<string, unknown>, note: string) {
+  const sent = details.research_questions;
+  return note.trim() && Array.isArray(sent) ? sent.length - 1 : Infinity;
 }

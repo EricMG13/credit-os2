@@ -373,8 +373,8 @@ prose checks are unchanged. `AGENTS.md` carries the rule.
 ## Amendment, 2026-11-16: year-on-year difference and better/worse marks
 
 Owner, 2026-11-16, relayed by the PR-manager session (the owner's word was "go", accepting that
-session's recommendations on PR #37; the wording below is the reports-formatting session's). Two
-exceptions to "delivery adds no analysis":
+session's recommendations on PR #37; the wording below is the reports-formatting session's).
+Exceptions to "delivery adds no analysis":
 
 (a) Delivery may draw the difference between two module-written figures of the same metric one
 year apart, in exact decimal, only when both carry the same unit and the same definition, with the
@@ -383,13 +383,25 @@ prior figure's period shown beside it. The change is this year minus last year.
 (b) Delivery may mark that difference, and a comparable Changes card, as better, worse or
 unchanged from the fixed table in `web/src/pages/connected/signal.ts`: lower is better for
 `leverage`, `net_leverage`, `netDebt`, `gross_debt`, `net_debt`; higher is better for `coverage`,
-`interestCover`, `cash`, `undrawn`, `liquidity`, `freeCashFlow`, `free_cash_flow`. A key not in the
-table is neutral. Each mark carries its word and its own shape, never colour alone.
+`interestCover`, `revenue`, `adjusted_ebitda`, `undrawn`, `liquidity`, `freeCashFlow`,
+`free_cash_flow`. A key not in the table is neutral; `cash` carries no judgement (owner, 2026-11-16:
+a rise can be a facility drawn; revenue and adjusted EBITDA are judged instead). Each mark carries
+its word and its own shape, never colour alone.
 
 (c) No other figure is computed or judged by delivery. Downside, rate sensitivity and Forecast
 stay uncoloured.
 
+(d) Owner, 2026-11-16, to the reports-formatting session ("Yes, add note"): delivery may compare
+each issuer rating the analyst entered at run start with the issuer-level rows of the Ratings &
+triggers module's rating register (`T2R.1`), and when none of those rows carries the entered
+rating, draw one link to that module saying it shows a different rating for that agency. It draws
+no rating or other text from the register, never replaces the entered rating and draws nothing
+when the module did not run or its register cannot be read.
+
+The owner's other words for this section, same date and session: "use different measure revenue or
+adj ebitda" (cash no longer judged; revenue and adjusted EBITDA judged) and "drown undrawn", read
+as "drop undrawn" (no Undrawn facilities headline card).
+
 Also accepted: the company band's ratings are the analyst's run-start entries, labelled
-"Entered at run start"; preferring the Ratings & triggers module when it ran is parked for the
-owner. Known and left for the audit: "higher cash is better" cannot see cash raised by drawing a
-facility.
+"Entered at run start". Parked for the owner: where the Ratings & triggers module ran, show its
+register's rating with a trace and keep the entry as the fallback.

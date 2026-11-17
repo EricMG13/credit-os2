@@ -1,6 +1,7 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Building07 } from "@untitledui/icons";
 import type { FC } from "react";
 import type { IconProps } from "@/utils/is-react-component";
+import { Button } from "@/components/base/buttons/button";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 import {
   blocked,
@@ -12,6 +13,7 @@ import {
   type OutputEntry,
   type Table,
 } from "../publishedReport";
+import { moduleName } from "../api";
 import { namedRow, namedTable } from "../reportView";
 import { PublishedSource } from "./PublishedTrace";
 
@@ -73,6 +75,53 @@ function sectorOf(entry: OutputEntry | undefined) {
   return registered ?? profileCell(entry, "Sector and segments")?.text;
 }
 
+const REGISTER_HEADING = /^(?:\d+[.)] )?(?:\*\*|`)?T2R\.1(?:\*\*|`)?(?!\w|\.\d)/;
+const same = (a: string | undefined, b: string | undefined) =>
+  a?.trim().toLowerCase() === b?.trim().toLowerCase();
+
+/** The one table under the single T2R.1-headed section with Agency and Rating columns; else none. */
+function ratingRegister(entry: OutputEntry) {
+  const sections = entry.sections.filter(({ heading }) => REGISTER_HEADING.test(heading));
+  if (sections.length !== 1) return undefined;
+  const tables = (sections[0]?.blocks ?? []).filter((block): block is Table => {
+    if (block.type !== "table") return false;
+    const names = block.headers.map((header) => header.trim().toLowerCase());
+    return names.includes("agency") && names.includes("rating");
+  });
+  const [only] = tables;
+  if (tables.length !== 1 || !only) return undefined;
+  const names = only.headers.map((header) => header.trim().toLowerCase());
+  return {
+    agency: names.indexOf("agency"),
+    level: names.indexOf("issuer/instrument"),
+    rating: names.indexOf("rating"),
+    rows: only.rows,
+  };
+}
+
+const ISSUER_LEVEL = /\b(?:issuer|corporate family|cfr|icr|idr)\b/i;
+const firstToken = (text: string | undefined) => text?.trim().split(/\s+/)[0]?.toLowerCase();
+
+/** Entered issuer-scope agencies whose issuer-level register rows all carry another rating; each once. */
+function differingAgencies(entry: OutputEntry | undefined, ratings: CatalogueRating[]) {
+  const register = entry && ratingRegister(entry);
+  if (!register || register.level < 0) return [];
+  const differing = ratings
+    .filter(({ scope }) => scope === "issuer")
+    .filter(({ agency, label }) => {
+      const rows = register.rows.filter(
+        ({ cells }) =>
+          same(cells[register.agency], agency) && ISSUER_LEVEL.test(cells[register.level] ?? ""),
+      );
+      return (
+        rows.length > 0 &&
+        !rows.some(({ cells }) => firstToken(cells[register.rating]) === label.trim().toLowerCase())
+      );
+    })
+    .map(({ agency }) => agency);
+  return [...new Set(differing)];
+}
+
 function RatingTile({ rating }: { rating: CatalogueRating }) {
   const word = rating.outlook.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
   const Icon = outlookIcons[word];
@@ -118,6 +167,10 @@ export function IdentityBand({
       ? undefined
       : readerText(handoffSector));
   const ratings = catalogue?.ratings ?? [];
+  const registered = entries.find(
+    (item) => item.selected && item.output.module === "CP-2H" && !blocked(item),
+  );
+  const differing = differingAgencies(registered, ratings);
   return (
     <section
       aria-label="Company"
@@ -152,6 +205,11 @@ export function IdentityBand({
             ))}
           </ul>
           <p className="text-xs text-text-secondary">{ENTERED}</p>
+          {differing.length > 0 && (
+            <Button href="#modules/CP-2H" color="link-gray" size="sm">
+              {`${moduleName("CP-2H")} shows a different rating for ${differing.join(", ")}`}
+            </Button>
+          )}
         </div>
       ) : (
         <p className="text-text-tertiary">{NO_RATINGS}</p>

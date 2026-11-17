@@ -35,3 +35,26 @@ def test_module_options_are_read():
 def test_a_wrong_module_option_is_refused(bad):
     with pytest.raises(ContextRefused):
         load_context(with_key("module_options", bad))
+
+
+def run_with(**changes: object) -> bytes:
+    run = {k: v for k, v in FIXTURE["run"].items() if k != "reporting_currency"}
+    return json.dumps({**FIXTURE, "run": {**run, **changes}}).encode()
+
+
+@pytest.mark.parametrize("changes", [{}, {"reporting_currency": ""}, {"reporting_currency": "GBP"}])
+def test_the_reporting_currency_is_optional(changes):
+    """docs/rulings/2026-11-16-reporting-currency-from-sources.md: not asked, so absent or blank
+    loads; a value given is kept."""
+    ctx = load_context(run_with(**changes))
+    assert ctx.run.reporting_currency == changes.get("reporting_currency", "")
+
+
+@pytest.mark.parametrize("bad", ["usd", "US", "USDX"])
+def test_a_reporting_currency_given_still_has_to_be_three_uppercase_letters(bad):
+    with pytest.raises(ContextRefused) as refused:
+        load_context(run_with(reporting_currency=bad))
+    assert (
+        "run.reporting_currency: use three uppercase letters, such as USD."
+        in refused.value.problems
+    )

@@ -66,8 +66,8 @@ accepted, the run is delivered without it.
 3. **Never calculate.** Every figure you write for an issuer row is a value in the pack, copied
    exactly with its sign and unit, in the right column: the earlier value under Earlier, the current
    value under Current. Every other figure you write (passages, register cells, `## Gaps`) is copied
-   exactly from the pack or from a handoff of either run: no rounding (USD 6,261 million, not
-   USD 6.3 billion), no percentage or move you work out, and a threshold only if a handoff states
+   exactly from the pack or from a handoff of either run: no rounding (USD 6,261 million or GBP 6,261 million,
+   never 6.3 billion), no percentage or move you work out, and a threshold only if a handoff states
    it. A passage figure is also printed in your registers or `## Gaps`. A difference you write
    anywhere in the handoff (in a reader passage, a register or the gaps) is a difference the pack gives, with the direction the pack's sign says
    (`fell by 0.60x` for -0.60); do not write a sign after a word of direction. Where the pack gives
@@ -77,7 +77,7 @@ accepted, the run is delivered without it.
      changed; the first cell is the measure's label exactly as the pack gives it, in plain text. Its
      Earlier and Current cells are built from the pack and nothing else: the value, then the unit
      (attached when the unit is `x` or `%`, after one space otherwise), then the period in
-     brackets: `6.01x (FY2024)`, `6261 US$m (2024-09-30)`. Copy the value, unit and period
+     brackets: `6.01x (FY2024)`, `6261 US$m (2024-09-30)` or `6261 GBPm (2024-09-30)`. Copy the value, unit and period
      character for character: no grouping comma, no currency word, no reworded date; leave out a
      part the pack gives as null. Where the pack's value is null the cell is exactly `Not stated`.
      A fact row (a refinancing, a new facility, a rating action) may give amounts a handoff states, the
@@ -122,7 +122,7 @@ accepted, the run is delivered without it.
      are never split. A number directly before a count noun (`30 modules`,
      `30 months`) or after `page`, `note`, `section`, `table`, `row`, `item`, `step` or `appendix` is a
      count and allowed, with no word between; `30 new modules` is refused. A year with a unit
-     (`2010 US$m`, `USD 2010`) is a figure, not a year; a bare year or a year after a month or period
+     (`2010 US$m`, `2010 GBPm`, `USD 2010`) is a figure, not a year; a bare year or a year after a month or period
      label (`September 2024`, `FY 2024`) is a year. The verdict words
      `Same definition` and `Not comparable` are read from the start of the Effect cell only; the
      same words starting any other cell of the row are refused, naming the cell (a `Not comparable`

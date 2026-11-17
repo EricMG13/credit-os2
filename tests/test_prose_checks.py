@@ -547,6 +547,53 @@ def test_a_padded_decimal_matches_its_trimmed_form() -> None:
     assert len(fidelity("Leverage is 4.1x.", "| Leverage | 4.15x |")) == 1
 
 
+@pytest.mark.parametrize(
+    ("passage", "cell", "accepted"),
+    [
+        # A note beside a cell's value states no value (live run, TDG as of 2024-09-30, CP-1D).
+        ("Leverage rose 0.39x.", "0.3150 (about 0.39x against the 5.50x basis; see note)", False),
+        ("Leverage rose 0.39x.", "0.3150 (about 0.39x (see note))", False),
+        ("Leverage is 5.50x.", "0.3150 (about 0.39x against the 5.50x basis)", False),
+        # A bracketed value, rounding or ratio is what the table states.
+        ("Leverage rose 0.32x.", "0.3150 (0.32x)", True),
+        ("The share is 51.6%.", "3,395 (51.6%)", True),
+        ("The loss was (USD 45 million).", "(USD 45 million)", True),
+        ("The loss was (JPY 5,000 million).", "(JPY 5,000 million)", True),
+        ("Leverage is 5.9x.", "5.9x (issuer basis, see note 4)", True),
+        ("Leverage rose 0.39x.", "0.3150 (~0.39x)", False),
+        ("Leverage rose 0.39x.", "0.3150 (≈ 0.39x)", False),
+        # A note that restates the value (rounded, or a fraction as a percentage) states it.
+        ("Leverage rose about 0.32x.", "0.3150 (about 0.32x)", True),
+        ("Leverage rose about 0.3x.", "0.3150 (0.3x rounded)", True),
+        ("Costs rose 2.5%.", "0.025 (2.5% increase)", True),
+        ("Leverage rose about 0.32x.", "5.9331 − 5.6181 = 0.3150 (about 0.32x)", True),
+        # A year, a period label or a count in a note is no competing value.
+        ("The 2029 notes carry the risk.", "4,088 (notes due 2029)", True),
+        ("Cover fell over 9 months.", "4,088 (9 months)", True),
+        # A parenthesis with no value before it in the cell is the cell's own figure.
+        ("The loss was (chf 45 million).", "(chf 45 million)", True),
+    ],
+)
+def test_a_note_in_a_table_cell_holds_no_reader_figure(
+    passage: str, cell: str, accepted: bool
+) -> None:
+    issues = fidelity(passage, f"| ID | Result |\n| --- | --- |\n| C-1 | {cell} |")
+    assert (issues == ()) is accepted, issues
+
+
+def test_a_figure_held_only_in_a_note_is_told_so() -> None:
+    cell = "| ID | Result |\n| --- | --- |\n| C-1 | 0.3150 (about 0.39x on another basis) |"
+    expected = (
+        'Fidelity check, line 11: "0.39x" appears only in a note beside a different table value, '
+        "and a note states no value: write the value the table states, or state this figure as a "
+        "table value with the calculation that gives it."
+    )
+    assert fidelity("Leverage rose 0.39x.", cell) == (expected,)
+    # A number the handoff also states as a value is not "only in a note": its sign is named.
+    (issue,) = fidelity("Leverage rose 0.39x.", cell + "\n| C-2 | (0.39x) |")
+    assert "does not match the handoff, which writes it as (0.39x)" in issue
+
+
 FORECAST_BLOCK_DOC = (
     "### Forecast inputs (machine-readable)\n\n```json\n"
     '{"base_drivers": {"ebitda_margin": {"rationale": "FY2025 margin was 31.7%, carried forward"}}}'

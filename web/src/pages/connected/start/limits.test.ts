@@ -1,4 +1,4 @@
-import { carryAccepted, decided, groupLimits, needsCheck } from "./limits";
+import { carryAccepted, decided, groupLimits, leaveOut, needsCheck } from "./limits";
 
 const FIX = "Add the executed agreement and declare it.";
 const items = [
@@ -123,4 +123,69 @@ it("needs a decision for exactly the four limit outcomes", () => {
     false,
     false,
   ]);
+});
+
+describe("leaveOut", () => {
+  const requested = ["CP-0", "CP-1", "CP-1A", "CP-4", "CP-2", "CP-2A", "CP-4C", "CP-5"];
+  const refusing = [
+    { id: "CP-4:x", scope: "CP-4", outcome: "will_refuse", reason: "r", inherited_from: [] },
+    {
+      id: "CP-4C:from:CP-4",
+      scope: "CP-4C",
+      outcome: "will_refuse",
+      reason: "r",
+      inherited_from: ["CP-4"],
+    },
+    {
+      id: "CP-2A:from:CP-4",
+      scope: "CP-2A",
+      outcome: "limited",
+      reason: "r",
+      inherited_from: ["CP-4"],
+    },
+  ];
+  const first = (list: typeof refusing) => {
+    const [group] = groupLimits(list).groups;
+    if (!group) throw new Error("no group");
+    return group;
+  };
+
+  it("keeps the selection less the modules that would refuse, in order", () => {
+    expect(leaveOut(first(refusing), requested, [])).toEqual([
+      "CP-0",
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-2A",
+      "CP-5",
+    ]);
+    expect(leaveOut(first(refusing), requested, ["CP-0", "CP-1", "CP-4", "CP-4C"])).toEqual([
+      "CP-0",
+      "CP-1",
+    ]);
+  });
+
+  it("offers nothing for a limited, gap or check group", () => {
+    for (const outcome of ["limited", "gap", "check"]) {
+      const item = { id: "a", scope: "CP-4", outcome, reason: "r", inherited_from: [] };
+      expect(leaveOut(first([item]), requested, [])).toBeNull();
+    }
+  });
+
+  it("offers nothing when a cause is the whole run", () => {
+    const wholeRun = [{ ...refusing[0], scope: "run" }, ...refusing.slice(1)];
+    expect(leaveOut(first(wholeRun as typeof refusing), requested, [])).toBeNull();
+  });
+
+  it("offers nothing when nothing would be kept", () => {
+    expect(leaveOut(first(refusing), ["CP-4", "CP-4C"], [])).toBeNull();
+  });
+
+  it("S6 offers nothing when every module but CP-MODEL is refusing", () => {
+    expect(leaveOut(first(refusing), ["CP-4", "CP-4C", "CP-MODEL"], [])).toBeNull();
+  });
+
+  it("offers nothing when nothing would be removed", () => {
+    expect(leaveOut(first(refusing), requested, ["CP-0", "CP-1"])).toBeNull();
+  });
 });

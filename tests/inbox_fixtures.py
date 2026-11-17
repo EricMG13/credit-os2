@@ -22,7 +22,7 @@ from typing import Any
 import pytest
 
 from deploy_workflow.inbox.layout import Layout
-from deploy_workflow.inbox.runs import Record, load_all
+from deploy_workflow.inbox.runs import Record, load_all, load_readable
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.model.adapter import KEY_VARIABLES
 from deploy_workflow.model.configs import CONFIGS
@@ -39,7 +39,8 @@ STAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ")
 
 
 def _kill_leftovers(layout: Layout) -> None:
-    for record in load_all(layout):
+    # load_readable skips a bad file on purpose (the test left it); load_all would raise on it.
+    for record in load_readable(layout)[0]:
         if record.pid > 0:
             try:
                 os.kill(record.pid, signal.SIGKILL)
@@ -55,10 +56,7 @@ def root(monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     with tempfile.TemporaryDirectory(prefix="ib", dir="/tmp") as short:
         folder = Path(short).resolve()
         yield folder
-        try:
-            _kill_leftovers(Layout(folder))
-        except ValueError:  # a test left an unreadable record on purpose
-            pass
+        _kill_leftovers(Layout(folder))
 
 
 @pytest.fixture(autouse=True)
@@ -133,7 +131,7 @@ def submit_run(
             "level": "basic",
             "model": "gpt",
             "effort": "balanced",
-            "submitted_by": "analyst",
+            "submitted_by": "Ana L",
         }
     )
     lay = Layout(root)

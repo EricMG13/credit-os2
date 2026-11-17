@@ -126,7 +126,15 @@ def _reader_summary(section: dict[str, Any]) -> dict[str, Any] | None:
 PLAIN_AMOUNT = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
 # CP-1's money tables state the issuer's own currency: `US$m`, or its code and `m` (`GBPm`).
 MONEY_UNIT = re.compile(r"US\$m|[A-Z]{3}m", re.ASCII)
-MONEY_HEADINGS = ("Chart data: revenue and EBITDA", "Chart data: EBITDA bridge")
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md: CP-1's money tables and the liquidity
+# bridge, refinancing need and value allocation state the issuer's one money unit.
+MONEY_HEADINGS = (
+    "Chart data: revenue and EBITDA",
+    "Chart data: EBITDA bridge",
+    "Chart data: liquidity bridge",
+    "Chart data: refinancing need",
+)
+ALLOCATION_HEADING = "Chart data: value allocation"
 STATED_GAP = re.compile(r"Not supplied:\s*\S")
 
 
@@ -244,13 +252,14 @@ def _chart_head(section: dict[str, Any], table: dict[str, Any]) -> dict[str, Any
 
 
 def _period_cells_ok(section: dict[str, Any], table: dict[str, Any]) -> bool:
-    """Owner period and step tables use US$m (CP-1's revenue and EBITDA and EBITDA bridge, the
-    issuer's one money unit), except cells explicitly stating a gap."""
+    """Owner period and step tables state one money unit (the issuer's own: `US$m`, or its code and
+    `m`), except cells explicitly stating a gap; any other fixed table is `US$m`."""
     fixed = table["headers"][0] == "Step" or section["heading"] in (
         "Chart data: revenue and EBITDA",
         "Chart data: refinancing need",
     )
-    if fixed and section["heading"] in MONEY_HEADINGS:
+    heading = section["heading"]
+    if fixed and (heading in MONEY_HEADINGS or heading.startswith(ALLOCATION_HEADING)):
         stated = {
             r["cells"][-2]
             for r in table["rows"]

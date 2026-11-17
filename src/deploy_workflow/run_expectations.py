@@ -14,6 +14,7 @@ from datetime import date
 from typing import Literal, TypedDict
 
 from deploy_vii.registry import dependencies, edge_rule
+from deploy_vii.report_view import _spec_of
 from deploy_workflow.context import RunContext
 from deploy_workflow.portfolio_workbook import NOT_COLLECTED, PortfolioCheck, count, finding_text
 
@@ -385,10 +386,19 @@ _STEPS4 = _SK + "cp-4-legal-covenant-interpreter/references/REF_CP-4_STEPS.md"
 _CP3 = _SK + "cp-3-relative-value-security-selection/SKILL.md"
 _CP3D = _SK + "cp-3d-market-implied-risk/SKILL.md"
 _ADD_EXECUTED = (
-    "Add the executed agreement to the sources and say so in Context, or run without CP-4."
+    "Add the executed agreement to the documents and choose it under Legal documents, "
+    "or leave out CP-4."
 )
-_ADD_QUOTES = "Add observed quotes in Context, or a quotes file."
+_ADD_QUOTES = "Add observed quotes under Observed quotes, or a quotes file."
 _CP4_LIVE = "legal documents declared %r (entered by user)"
+
+
+def no_legal_documents(context: RunContext) -> bool:
+    """The context declares no legal documents, so CP-4 has no executed governing document and
+    stops at its source gate. One rule for the forecast's CP-4 rules and the launcher's routing,
+    instructions and acceptance of CP-4 (`cpos_launch._layout`, `_instructions`, `checker`)."""
+    return context.attachments.legal_documents == "none"
+
 
 # ponytail: the Will refuse wording below is provisional; A-live (Covenant & Refinancing, legal
 # documents `none`) records what CP-4 and its consumers do and sets the final text.
@@ -398,10 +408,9 @@ RULES: tuple[Rule, ...] = (
         RUN,
         lambda f: f.context.identity.issue_classification == "investment_grade",
         "information",
-        "Issue classification entered by user: investment grade. Note that the methods and persona "
-        "are "
-        "written for high-yield and leveraged-loan credit; whether that changes conclusions is "
-        "not asserted.",
+        "You classified the issue as investment grade. The methods are written for high-yield "
+        "and leveraged-loan credit; this forecast does not say whether that changes the "
+        "conclusions.",
         "",
         "src/deploy_workflow/owners/cpos_launch.py READER_PERSONA: 'specialising in high yield "
         "credit and leveraged loans'",
@@ -428,7 +437,7 @@ RULES: tuple[Rule, ...] = (
         "check",
         "No file is recognised as a financial report, earnings release or offering document "
         "with financial pages.",
-        "Add the financial report to the sources.",
+        "Add the financial report to the documents.",
         "prompts/CP-1.md item 1: 'Preserve every source row's label, sign, unit, quantity type, "
         "entity, period and locator' (CP-1 reads statement rows from the sources)",
         "per method",
@@ -441,9 +450,9 @@ RULES: tuple[Rule, ...] = (
             or (f.context.valuation.peer_source == "cp_dr_public" and "CP-DR" not in f.ordered)
         ),
         "gap",
-        "Peer source entered by user gives CP-1C no peer set from the context (none, or CP-DR "
-        "public data without CP-DR in this run).",
-        "Choose a peer list in Context, or add CP-DR.",
+        "CP-1C has no peer set: no peers were chosen, or peers are to come from research and "
+        "CP-DR is not in this run.",
+        "Choose a peer list under Valuation and peers, or add CP-DR.",
         "src/deploy_workflow/owners/cpos_launch.py: 'Run the complete selected method below on "
         "this issuer's supplied sources'; the cp-1c method would web-discover peers when none are "
         "listed (SKILL.md 212), which app runs cannot do; plan: Task 3 table. Provisional until "
@@ -455,23 +464,10 @@ RULES: tuple[Rule, ...] = (
         "CP-2",
         lambda f: f.run_type == "primary" and "CP-1D" not in f.ordered,
         "gap",
-        "Primary run without CP-1D: the pro forma base row has no add-back verdicts.",
+        "This is a new-issue run without CP-1D: the pro forma base row has no add-back verdicts.",
         "Add CP-1D to the modules.",
         "owner-path: docs/superpowers/plans/2026-11-08-plan-3-primary-transactions.md 'CP-1D "
         "supplies each add-back's verdict'; not yet in the CP-2 method text sent",
-        "observed offline",
-    ),
-    Rule(
-        "cp2d-non-usd",
-        "CP-2D",
-        lambda f: f.context.run.reporting_currency != "USD",
-        "limited",
-        "Reporting currency entered by user is not USD; CP-2D's bridge is built on USD millions.",
-        "No file needed; read CP-2D amounts in the reporting currency as stated in its handoff.",
-        "owner-path: src/deploy_workflow/owners/cp2d.py _usd_millions; METHODOLOGY-REVIEW.md "
-        "'preserve foreign-currency and unavailable-facility limitations' (the CP-2D method "
-        "text sent has a Currency and Scale column on T2E.5 and says nothing of a USD "
-        "restatement)",
         "observed offline",
     ),
     Rule(
@@ -479,9 +475,9 @@ RULES: tuple[Rule, ...] = (
         "CP-2H",
         lambda f: not f.context.ratings and f.kind("ratings") is None,
         "gap",
-        "No ratings in the context and no ratings file recognised; the method then marks the "
-        "module Insufficient Information (method: Insufficient Information).",
-        "Enter the ratings in Context, or add a ratings file.",
+        "No ratings were entered and no ratings file is recognised, so CP-2H reports "
+        "Insufficient Information.",
+        "Enter the ratings under Ratings, or add a ratings file.",
         _SK + "cp-2h-ratings-migration-trigger/SKILL.md Canon Core 4: 'Missing/Blocked/mismatch"
         "->[Insufficient Information]+stop/no inference'",
         "per method",
@@ -491,8 +487,8 @@ RULES: tuple[Rule, ...] = (
         "CP-3",
         lambda f: f.talk and not f.observed_quote,
         "limited",
-        "Indicative talk in the context but no observed quote in the context or files.",
-        "Add an observed quote in Context, or a quotes file.",
+        "Indicative talk was entered, but there is no observed quote among your answers or files.",
+        "Add an observed quote under Observed quotes, or a quotes file.",
         _CP3 + " line 405: 'If usable market values are absent, RV must be labelled Unclear'",
         "per method",
     ),
@@ -501,7 +497,7 @@ RULES: tuple[Rule, ...] = (
         "CP-3",
         lambda f: not f.context.quotes and not f.talk and f.kind("market_quotes") is None,
         "gap",
-        "No quotes and no talk in the context, and no quotes file recognised.",
+        "No quotes and no price talk were entered, and no quotes file is recognised.",
         _ADD_QUOTES,
         _CP3 + " line 405: 'RV conclusions require current market evidence'",
         "per method",
@@ -511,7 +507,7 @@ RULES: tuple[Rule, ...] = (
         "CP-3D",
         lambda f: not f.context.quotes and f.kind("market_quotes") is None,
         "gap",
-        "No quotes in the context and no quotes file recognised.",
+        "No quotes were entered and no quotes file is recognised.",
         _ADD_QUOTES,
         _CP3D + " line 143: 'No trade recommendation, fabricated quote'; line 164: 'current "
         "debt prices, spreads, curves'",
@@ -520,11 +516,11 @@ RULES: tuple[Rule, ...] = (
     Rule(
         "cp4-declared-none",
         "CP-4",
-        lambda f: f.legal == "none",
+        lambda f: no_legal_documents(f.context),
         "will_refuse",
-        "Legal documents declared 'none' (entered by user): the method blocks with 'No executed "
-        "governing document'. Will refuse wording open until A-live.",
-        "Add the executed agreement and declare it, or run without CP-4.",
+        "No agreement is chosen among the documents, so CP-4 stops with "
+        '"No executed governing document".',
+        "Add the executed agreement and choose it under Legal documents, or leave out CP-4.",
         _STEPS4 + " line 31: 'Blocked: No executed governing document. Output blocked message "
         "and STOP.'",
         "per method",
@@ -534,8 +530,8 @@ RULES: tuple[Rule, ...] = (
         "CP-4",
         lambda f: f.legal == "executed" and not f.executed_agreement,
         "check",
-        "Legal documents declared 'executed' (entered by user), but no file is recognised as an "
-        "executed credit agreement or indenture.",
+        "You said the agreement is executed, but no file is recognised as an executed credit "
+        "agreement or indenture.",
         _ADD_EXECUTED,
         _STEPS4 + " line 31: 'Blocked: No executed governing document.'",
         "per method",
@@ -545,9 +541,8 @@ RULES: tuple[Rule, ...] = (
         "CP-4",
         lambda f: f.legal == "draft" and not f.draft_agreement,
         "check",
-        "Legal documents declared 'draft' (entered by user), but no draft agreement is "
-        "recognised: no draft recognised among the files.",
-        "Add the draft agreement to the sources.",
+        "You said the agreement is a draft, but no file is recognised as a draft agreement.",
+        "Add the draft agreement to the documents.",
         _STEPS4 + " line 373: 'Provisional (partial evidence or draft documents)'",
         "per method",
     ),
@@ -555,13 +550,13 @@ RULES: tuple[Rule, ...] = (
         "cp4-declared-draft-or-primary-no-executed-agreement",
         "CP-4",
         lambda f: (
-            f.legal != "none"
+            not no_legal_documents(f.context)
             and (f.legal == "draft" or f.run_type == "primary")
             and not f.executed_agreement
         ),
         "limited",
-        "Legal terms are Provisional: the run is Primary or legal documents are declared "
-        "'draft' (entered by user), and no executed agreement is recognised.",
+        "Legal terms are Provisional: this is a new-issue run or the agreement is a draft, and "
+        "no executed agreement is recognised.",
         "Add the executed agreement when it exists.",
         _STEPS4 + " line 373: 'Provisional (partial evidence or draft documents)'",
         "per method",
@@ -569,7 +564,11 @@ RULES: tuple[Rule, ...] = (
     Rule(
         "cp4-only-amendment",
         "CP-4",
-        lambda f: f.legal != "none" and f.kind("amendment") is not None and not f.kind(*AGREEMENTS),
+        lambda f: (
+            not no_legal_documents(f.context)
+            and f.kind("amendment") is not None
+            and not f.kind(*AGREEMENTS)
+        ),
         "limited",
         "Only an amendment is recognised and the base agreement not recognised, so the amendment "
         "alone cannot show the covenants it changes.",
@@ -583,7 +582,7 @@ RULES: tuple[Rule, ...] = (
         "cp4-governing-terms-rest-on-final-om",
         "CP-4",
         lambda f: (
-            f.legal != "none"
+            not no_legal_documents(f.context)
             and f.run_type in ("secondary", "research")
             and not f.kind(*AGREEMENTS)
             and (om := f.kind("offering_memorandum")) is not None
@@ -606,8 +605,8 @@ RULES: tuple[Rule, ...] = (
             and not f.context.attachments.portfolio_workbook
         ),
         "gap",
-        "Portfolio Decision run with the portfolio workbook declared absent (entered by user).",
-        "Declare and add the portfolio workbook.",
+        "This is a Portfolio Decision run and no portfolio workbook was chosen.",
+        "Add the portfolio workbook and choose it.",
         _SK + "cp-6-ic-debate-challenge/SKILL.md line 343: 'REF_CP-6A_Portfolio_Debate_Inputs"
         ".xlsx is the live consolidated portfolio reference.'",
         "per method",
@@ -735,7 +734,13 @@ def _inherit(
         return None
     worst = min(reaching.values(), key=SEVERITY.__getitem__)
     names = list(reaching)
-    reason = f"Expected to be {worst.replace('_', ' ')} through {', '.join(names)}, which it reads."
+    codes = ", ".join(names)
+    if worst == "will_refuse":
+        reason = f"Expected to refuse because it reads {codes}."
+    elif worst == "limited":
+        reason = f"Expected to be limited because it reads {codes}."
+    else:
+        reason = f"Expected to be {worst.replace('_', ' ')} through {codes}, which it reads."
     words = Words(reason, "", "owner-path: deploy_vii.registry.edge_rule", "observed offline")
     return _item(module, f"from:{names[0]}", worst, words, names)
 
@@ -764,7 +769,7 @@ def expectations(  # noqa: PLR0913 - one keyword per forecast input; the portfol
             f"section-omitted-{section}",
             "information",
             Words(
-                f"The report section '{section}' is not produced by this pathway.",
+                f"This pathway does not produce the {_spec_of(section).title} report section.",
                 "",
                 "owner-path: src/deploy_workflow/owners/cpos_launch.py _layout (omitted sections)",
                 "observed offline",

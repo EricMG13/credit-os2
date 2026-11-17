@@ -128,6 +128,14 @@ To serve colleagues, the hosting user passes this machine's own network address 
 Chrome. `0.0.0.0` is refused: the service accepts only requests addressed to the address it was
 given. The same address also serves the issuer library and Run activity, read-only.
 
+To post run cards to a Teams channel (a run started, its report is ready, it stopped, and a
+summary of the day's runs), set `CREDIT_OS_TEAMS_WEBHOOK` and `CREDIT_OS_TEAMS_LINK` in the
+service's environment: see `docs/design/teams-cards/README.md` for the values and for what is
+sent to Microsoft. With neither set nothing is posted.
+
+The start page asks for the analyst's name as a first name and initial ("Eric G"), or two
+initials ("Eric MG") where colleagues have similar names; a summary is refused without it.
+
 The service refuses to start (exit code 2) when the provider key is missing from its environment
 (`OPENAI_API_KEY` for the default `sol-medium`), when the standing ruling
 `docs/rulings/2026-11-11-run-start-submit.md` does not allow the config, when `<root>` is a network

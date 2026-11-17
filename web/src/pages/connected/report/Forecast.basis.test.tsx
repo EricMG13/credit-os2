@@ -136,7 +136,8 @@ it("preserves a zero-valued bridge", () => {
 });
 
 it.each([
-  { units: "EUR millions" },
+  // docs/rulings/2026-11-16-reporting-currency-from-sources.md: "EUR millions" is now shown (below).
+  { units: "EUR thousands" },
   { units: "" },
   { original: "Not supplied" },
   { difference: "6" },
@@ -188,3 +189,30 @@ it.each([
     } else expect(links).toHaveLength(0);
   },
 );
+
+// docs/rulings/2026-11-16-reporting-currency-from-sources.md: the model records its own currency.
+it.each([
+  [
+    "GBP millions",
+    "The calculation gives 10.00 cash proxy. The handoff gives 15.00 free cash flow. The displayed difference is £5.00m.",
+  ],
+  [
+    "CHF millions",
+    "The calculation gives 10.00 cash proxy. The handoff gives 15.00 free cash flow. The displayed difference is CHF 5.00m.",
+  ],
+  [
+    "EUR millions",
+    "The calculation gives 10.00 cash proxy. The handoff gives 15.00 free cash flow. The displayed difference is €5.00m.",
+  ],
+  [
+    "USD millions",
+    "The calculation gives 10.00 cash proxy. The handoff gives 15.00 free cash flow. The displayed difference is $5.00m.",
+  ],
+])("shows the bridge of a model recorded in %s with that unit", (units, text) => {
+  render(<Forecast view={basisView({ units })} run={run} />);
+  expect(screen.getByText(/The calculation gives/)).toHaveTextContent(text);
+  expect(screen.getByRole("link", { name: "Difference basis" })).toHaveAttribute(
+    "href",
+    `/report/current#evidence/forward~${"a".repeat(64)}-66`,
+  );
+});

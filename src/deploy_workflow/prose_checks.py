@@ -750,11 +750,11 @@ AFTER = re.compile(
 CURRENCY_BEFORE = re.compile(r"(?:(?<![A-Za-z])(?P<code>[A-Z]{3})\s+|[$€£¥]\s?)\Z")
 FIGURE_ADVICE = {
     "decimals": "round to at most two decimals.",
-    "scale": "put a currency (`USD` or a symbol) before a scaled amount, or reword a count.",
+    "scale": "put a currency (`USD`, `GBP` or a symbol) before a scaled amount, or reword a count.",
     "unit": (
         "a number with no unit does not belong in a reader sentence: reword it in words or move "
         "it to a table, or add a unit or currency if it is an amount or ratio (for example "
-        "`USD 1,250 million`, `45%`, `3.1x`, `18 months`)."
+        "`USD 1,250 million` or `GBP 1,250 million`, `45%`, `3.1x`, `18 months`)."
     ),
 }
 
@@ -858,7 +858,9 @@ def prose_issues(text: str, accepted: Mapping[str, str] = {}) -> tuple[str, ...]
 # thousands separator (4,173 is 4173); a parenthesised figure is a negative unless it directly
 # follows a real figure and is a ratio or a rounding of it (`3,395 (51.6%)`), a note read as
 # written. On the passage side dates and period labels are masked as in check 8. A held currency
-# code is not compared with the passage's (old behaviour).
+# code is not compared with the passage's (old behaviour). In a table cell, a parenthesis with a
+# word after the cell's value is a note: its amounts hold nothing unless they restate that value
+# (`_stated_cell`, 2026-11-16).
 CODE = re.compile(r"\bCP-[A-Z0-9]+\b|\bT\d+[A-Z]?\.\d+\b|\b[0-9A-Fa-f]{16,}\b")
 _NUMBER_UNIT = (
     r"%|x\b|\s?pp\b|\s?bps\b|\s?bp\b|\s?per ?cent\b"
@@ -1261,15 +1263,94 @@ def _forecast_block_lines(text: str) -> set[int]:
     return lines
 
 
+# A parenthesis inside one table cell, holding at most one more: `(about 0.39x (see note))`.
+_PARENTHESIS = re.compile(r"\((?:[^()|\n]|\([^()|\n]*\))*\)")
+
+
+def _is_note(parenthesis: str) -> bool:
+    """A parenthesis holding a word, `~` or `≈` besides its figures, units and currency: `(about
+    0.39x measured against ...)` and `(~0.39x)` are notes; `(USD 45 million)`, `(12.3)` and
+    `(0.32x)` are not."""
+    rest = _CURRENCY_WORD.sub(" ", NUMBER.sub(" ", parenthesis))
+    return any(word not in ISO_4217 for word in re.findall(r"[^\W\d_]+|[~≈]", rest))
+
+
+def _restates(found: re.Match[str], value: _Figure) -> bool:
+    """`found` is `value` rounded, or a bare fraction written as a percentage: `0.32x` and `0.3x`
+    restate 0.3150, `2.5%` restates 0.025. Signs aside; a different unit restates nothing."""
+    unit = _unit(found["u1"] or found["u2"])
+    scales = [0] if unit in (None, value.unit) or value.unit is None else []
+    if unit == "%" and value.unit is None:
+        scales.append(2)
+    written = found["n"].replace(",", "")
+    places = len(written.partition(".")[2])
+    # The context is sized from the operands, so quantize cannot overflow on a long figure.
+    size = len(value.number) + places + 4
+    with localcontext(Context(prec=size, Emax=size)):
+        exponent = Decimal(1).scaleb(-places)
+        return any(
+            Decimal(written)
+            in (exact.quantize(exponent, ROUND_HALF_UP), exact.quantize(exponent, ROUND_HALF_EVEN))
+            for exact in (Decimal(value.number).scaleb(scale) for scale in scales)
+        )
+
+
+def _is_note_amount(found: re.Match[str], note: str) -> bool:
+    """A figure of a note that could compete with a value: one with a unit, a currency, a decimal
+    part or a thousands separator, or of 100 or more and not a year (`~0.39x` is; the figures of
+    `FY2024`, `Q3`, `9 months` and `note 4` are not)."""
+    if found["u1"] or found["u2"] or _ends_at(_CURRENCY_BEFORE, note, found.start()):
+        return True
+    number = found["n"]
+    large = len(number.lstrip("0")) >= 3 and not _YEAR.fullmatch(number)
+    return "." in number or "," in number or large
+
+
+def _stated_cell(cell: str) -> str:
+    """A table cell with each amount of a note blanked unless it restates the value the note
+    follows: the cell states `0.3150 (about 0.32x)` but not the 0.39x of `0.3150 (about 0.39x
+    measured against ...)` (live run, TDG as of 2024-09-30, CP-1D). A parenthesis with no value
+    before it is the cell's own figure."""
+    masked = _PARENTHESIS.sub(lambda found: " " * len(found[0]), cell)
+
+    def blank(note: re.Match[str]) -> str:
+        values = _figures(masked[: note.start()], amounts_only=True)
+        if not values or not _is_note(note[0]):
+            return note[0]
+
+        def kept(found: re.Match[str]) -> str:
+            stated = not _is_note_amount(found, note[0]) or _restates(found, values[-1])
+            return found[0] if stated else " "
+
+        return NUMBER.sub(kept, note[0])
+
+    return _PARENTHESIS.sub(blank, cell)
+
+
+def _stated(line: str) -> str:
+    """A held line with its table cells as `_stated_cell` reads them; other lines unchanged."""
+    if not line.lstrip().startswith("|"):
+        return line
+    return "|".join(_stated_cell(cell) for cell in line.split("|"))
+
+
+_NOTE_ONLY = (
+    '"{}" appears only in a note beside a different table value, and a note states no value: '
+    "write the value the table states, or state this figure as a table value with the "
+    "calculation that gives it."
+)
+
+
 def figure_issues(text: str) -> tuple[str, ...]:
     """Every figure of a reader passage not held, with its sign, unit and scale, in the handoff
-    outside the reader passages. Sentence text only, as in the prose checks."""
+    outside the reader passages (a note beside a table value holds only that value). Sentence
+    text only, as in the prose checks."""
     passages = _pooled(_findings_sections(text) or [])
     inside = {number for body in passages.values() for number, _ in body}
     inside |= _forecast_block_lines(text)
-    held = _figures(
-        "\n".join(line for number, line in enumerate(text.splitlines(), 1) if number not in inside)
-    )
+    outside = [line for number, line in enumerate(text.splitlines(), 1) if number not in inside]
+    held = _figures("\n".join(map(_stated, outside)))
+    noted = _figures("\n".join(outside))  # with the notes, to name a figure held only in one
     lines = sorted(
         (line for body in passages.values() for line in _sentence_lines(body) if line.text.strip()),
         key=lambda line: line.number,
@@ -1278,6 +1359,9 @@ def figure_issues(text: str) -> tuple[str, ...]:
     for line in lines:
         for figure in dict.fromkeys(_figures(line.text, passage=True)):
             problem = _fidelity_problem(figure, held)
+            only_noted = all(h.number != figure.number for h in held)
+            if problem is not None and only_noted and _fidelity_problem(figure, noted) is None:
+                problem = _NOTE_ONLY.format(figure.shown)
             if problem is not None:
                 issues.append(f"Fidelity check, line {line.number}: {problem}")
     return tuple(issues)

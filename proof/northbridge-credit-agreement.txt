@@ -1,0 +1,7 @@
+Credit Agreement
+EXECUTION VERSION
+dated as of March 1, 2024
+Synthetic fixture for the browser proof. Northbridge Synthetic Group and the lenders named here are fictional; no real agreement text is reproduced.
+Between Northbridge Synthetic Group (the Borrower) and the Synthetic Lenders.
+Section 1. The Borrower shall keep net leverage at or below 5.0x.
+Section 2. The Borrower shall keep interest cover at or above 2.0x.

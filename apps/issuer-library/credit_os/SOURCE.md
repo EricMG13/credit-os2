@@ -276,3 +276,11 @@ The delivered report is retired from the library, so the copied report pages and
 | `web/views.js` | The empty-state link is `class="primary-action"` (was `run-primary`); `liveRunNotes` builds the reason and name-warning spans for the card and the waiting row, and the card joins them with " · "; the card's class is written `live-running` and its `kind` is removed (`LIVE_STATUSES` stays: `tests/test_context_form.py` reads it) | the hover label was lost to `a:hover`; the card ran two notes together; `kind` could only be `running` |
 | `web/screen.css` | `.run-primary` rules removed (`.activity-empty .primary-action{margin-top:20px}`); waiting table: header `vertical-align:middle`, card edge a 1px border, `overflow-wrap:break-word`; one `@media(forced-colors:active)` block after the Run activity rules (chip, card and table borders, `progress` appearance); dead rules and two stale comments removed, two comments corrected. No font declaration added or changed | the same findings |
 | `web/static.test.cjs`, `tests/test_library_page_browser.py`, `tests/browser_cdp_measure.cjs` | Static tests for the shared action class, the joined notes and the hatch stripe on the winning rule; browser tests (real hover and forced-colours emulation through the DevTools Protocol) for the label, borders, header and one-line pathway; the selector-text forced-colours test is replaced | covers the above |
+
+## Run steps: a module the run stopped (owner, 2026-11-17: "do it", the implicit state machine fixes)
+
+| File | Change | Why |
+| --- | --- | --- |
+| `web/components.js` | `runSteps` takes the step state `stopped` (word "interrupted"; labelled mark `stopped`, the warning tone and `triangle-alert`, word "Interrupted"); `RUN_MARKS` gains it | `run_events.progress` ends the running module when the run stops; it read "running" for good |
+| `web/screen.css` | `.step.stopped` amber in the compact bar, neutral on the labelled card (`.steps-l`), `GrayText` under forced colours | the stopped segment reads apart from done and running |
+| `web/components.test.cjs` | A `runSteps` test for the stopped step, compact and labelled | covers the above |

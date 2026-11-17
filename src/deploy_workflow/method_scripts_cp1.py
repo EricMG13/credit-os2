@@ -399,7 +399,8 @@ CP1_NOTE = (
     "`credit_metrics.py` (you cannot run it): each T4.8 LTM Derived Value (Full-Year Component + "
     "Current Stub - Prior-Year Stub) and each free-name T4.9 Calculated Value (Numerator Value / "
     "Denominator Value, or the change n / d - 1). State T4.8's currency and scale in each cell or "
-    "column header (`USD 1,250m`). A figure that disagrees is sent back for repair; one whose "
+    "column header (`USD 1,250m` or `GBP 1,250m`). A figure that disagrees is sent back for "
+    "repair; one whose "
     "input is missing is not checked, never read as zero.\n\n"
 )
 core.register("CP-1", CREDIT_METRICS, check, CP1_NOTE)

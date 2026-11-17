@@ -355,7 +355,7 @@ fieldset[aria-invalid=true] .card{border-color:var(--red-border)}
 .rv-card h3{font:600 15px/22px 'Red Hat Display',system-ui,sans-serif;color:var(--text-primary)}
 .rv-card .lead{max-width:none;margin:8px 0 0;font-size:var(--fs-body);line-height:19px}
 .rv-card .rv-facts{margin-top:14px;gap:8px 16px;line-height:19px}
-.rv-go{margin-top:16px;padding-top:16px;border-top:1px solid var(--border-secondary)}
+.rv-go{position:sticky;bottom:0;margin:16px 0 -20px;padding:16px 0 20px;border-top:1px solid var(--border-secondary);border-radius:0 0 var(--radius-card) var(--radius-card);background:var(--gray-50)}
 .rv-go .start-confirm{margin-top:0}
 .rv-go .primary-action{width:100%;height:44px;padding:0 16px;justify-content:center;margin-top:12px;font:600 15px/20px 'Red Hat Text',system-ui,sans-serif}
 #submitnote{display:block;margin-top:8px;font-size:var(--fs-compact);line-height:18px}
@@ -483,7 +483,7 @@ fieldset[aria-invalid=true] .card{border-color:var(--red-border)}
   <fieldset id="levelf"><legend>How much do you want to be asked?</legend>
     <div class="seg"><label><input type="radio" name="level" data-c="level" value="basic" checked>Basic</label><label><input type="radio" name="level" data-c="level" value="standard">Standard</label><label><input type="radio" name="level" data-c="level" value="advanced">Advanced</label></div>
     <p class="help" id="levelnote"></p></fieldset>
-    <div class="f"><label for="submitter">Your name</label><input type="text" id="submitter" data-c="submitter" maxlength="80" placeholder="e.g. Dana Reyes" aria-describedby="submitter-h"><p class="help" id="submitter-h">Saved with the run, so Run activity shows who started it. Optional.</p></div>
+    <div class="f"><label for="submitter">Your name</label><input type="text" id="submitter" data-c="submitter" maxlength="80" placeholder="e.g. Eric G" aria-describedby="submitter-h"><p class="help" id="submitter-h">First name and initial, such as Eric G; two initials, such as Eric MG, if a colleague has a similar name. Saved with the run, so Run activity and Teams show who started it.</p></div>
   </div>
   <div class="block" id="adv-run" hidden>
     <h3>Modules and turns</h3>
@@ -533,7 +533,6 @@ fieldset[aria-invalid=true] .card{border-color:var(--red-border)}
     <div class="f"><label for="d-as_of">As-of date</label><input type="date" id="d-as_of" data-k="as_of" aria-describedby="d-as_of-h"><p class="help" id="d-as_of-h">On or after the newest file's date. Quotes, ratings, deal terms and peer figures dated after it are refused.</p></div>
     <div class="f"><label for="d-current_period">Current period</label><input type="text" id="d-current_period" placeholder="e.g. q3-2026" data-k="current_period" aria-describedby="d-current_period-h"><p class="help" id="d-current_period-h">The latest reported period, as the filing labels it: q1-2026 to q4-2026, h1-2026, h2-2026 or fy-2025.</p></div>
     <div class="f"><label for="d-prior_period">Prior period</label><input type="text" id="d-prior_period" placeholder="e.g. q2-2026" data-k="prior_period" aria-describedby="d-prior_period-h"><p class="help" id="d-prior_period-h">Earlier than the current period, and the same kind (quarter, half or year).</p></div>
-    <div class="f"><label for="d-reporting_currency">Reporting currency</label><input type="text" id="d-reporting_currency" placeholder="e.g. USD" data-k="reporting_currency" value="USD" maxlength="3" aria-describedby="d-reporting_currency-h"><p class="help" id="d-reporting_currency-h">As the filing cover states it: three uppercase letters.</p></div>
     <div class="f"><label for="d-cutoff">Research cutoff</label><input type="date" id="d-cutoff" data-k="cutoff" aria-describedby="d-cutoff-h"><p class="help" id="d-cutoff-h">Items the research module reads that were published after it are refused. Follows the as-of date until you change it; set it earlier to leave out later research.</p></div>
   </div>
   <div class="tl" id="timeline"></div>
@@ -609,7 +608,7 @@ fieldset[aria-invalid=true] .card{border-color:var(--red-border)}
   <div id="im" class="block" hidden>
     <h3>Issuer market data</h3>
     <div class="grid">
-      <div class="f"><label for="im-market_cap_m">Market cap (m)</label><input type="text" id="im-market_cap_m" placeholder="e.g. 3200" data-k="market_cap_m" inputmode="decimal" aria-describedby="im-market_cap_m-h"><p class="help" id="im-market_cap_m-h">Millions of the reporting currency.</p></div>
+      <div class="f"><label for="im-market_cap_m">Market cap (m)</label><input type="text" id="im-market_cap_m" placeholder="e.g. 3200" data-k="market_cap_m" inputmode="decimal" aria-describedby="im-market_cap_m-h"><p class="help" id="im-market_cap_m-h">Millions of the currency the issuer's statements are printed in.</p></div>
       <div class="f"><label for="im-net_debt_m">Net debt (m)</label><input type="text" id="im-net_debt_m" placeholder="e.g. 2200" data-k="net_debt_m" inputmode="decimal" aria-describedby="im-net_debt_m-h"><p class="help" id="im-net_debt_m-h">Negative if net cash.</p></div>
       <div class="f"><label for="im-ev_m">Enterprise value (m)</label><input type="text" id="im-ev_m" placeholder="e.g. 5400" data-k="ev_m" inputmode="decimal" aria-describedby="im-ev_m-h"><p class="help" id="im-ev_m-h">Give EV, or market cap and net debt.</p></div>
       <div class="f"><label for="im-as_of">As-of</label><input type="date" id="im-as_of" data-k="as_of" aria-describedby="im-as_of-h"><p class="help" id="im-as_of-h">Not after the run's as-of date.</p></div>
@@ -733,7 +732,7 @@ const PATHWAYS = {
   credit_snapshot: ['CP-0','CP-1','CP-MODEL','CP-1A','CP-DR','CP-2','CP-2A','CP-2D','CP-2E','CP-2G','CP-4','CP-3C','CP-3','CP-5','CP-6'],
   lite_credit_assessment: ['CP-0','CP-1','CP-1A','CP-2','CP-2A'],
   deep_credit_assessment: ['CP-0','CP-1','CP-MODEL','CP-1A','CP-1B','CP-DR','CP-1C','CP-1D','CP-2','CP-4','CP-2A','CP-2E','CP-2D','CP-2G','CP-2H','CP-3D','CP-3C','CP-4C','CP-3','CP-5','CP-6'],
-  earnings_update: ['CP-0','CP-1','CP-MODEL','CP-1B','CP-1D','CP-DR','CP-2E','CP-5'],
+  earnings_update: ['CP-0','CP-1','CP-MODEL','CP-1A','CP-1B','CP-1D','CP-DR','CP-2E','CP-5'],
   relative_value: ['CP-0','CP-1','CP-MODEL','CP-1C','CP-DR','CP-2','CP-2D','CP-2E','CP-3','CP-3C','CP-3D','CP-5'],
   covenant_refinancing: ['CP-0','CP-1','CP-MODEL','CP-1A','CP-DR','CP-2','CP-2A','CP-2D','CP-2E','CP-2G','CP-4','CP-3C','CP-5'],
   distressed_restructuring: ['CP-0','CP-1','CP-1A','CP-1C','CP-DR','CP-2','CP-2A','CP-2E','CP-2G','CP-2H','CP-4','CP-4C','CP-5'],
@@ -748,7 +747,7 @@ const RUN_ORDER = {
   credit_snapshot: ['CP-0','CP-1','CP-1A','CP-DR','CP-4','CP-2','CP-2A','CP-2E','CP-2D','CP-2G','CP-3C','CP-3','CP-5','CP-6'],
   lite_credit_assessment: ['CP-0','CP-1','CP-1A','CP-2','CP-2A'],
   deep_credit_assessment: ['CP-0','CP-1','CP-1A','CP-1B','CP-DR','CP-1C','CP-1D','CP-2','CP-4','CP-2A','CP-2E','CP-2D','CP-2G','CP-2H','CP-3D','CP-3C','CP-4C','CP-3','CP-5','CP-6'],
-  earnings_update: ['CP-0','CP-1','CP-1B','CP-DR','CP-2E','CP-1D','CP-5'],
+  earnings_update: ['CP-0','CP-1','CP-1A','CP-1B','CP-DR','CP-2E','CP-1D','CP-5'],
   relative_value: ['CP-0','CP-1','CP-1A','CP-3D','CP-DR','CP-1C','CP-2','CP-2E','CP-2D','CP-3C','CP-3','CP-5'],
   covenant_refinancing: ['CP-0','CP-1','CP-1A','CP-DR','CP-4','CP-2','CP-2A','CP-2E','CP-2D','CP-2G','CP-3C','CP-5'],
   distressed_restructuring: ['CP-0','CP-1','CP-1A','CP-DR','CP-4','CP-1C','CP-2','CP-2A','CP-2E','CP-2G','CP-2H','CP-4C','CP-5'],
@@ -954,7 +953,7 @@ const ROWS = {
   deal: {box:'rows-deal', title:'Facility', max:20, make() {
     const p = 'd' + (++uid);
     return rowShell('Facility', '<div class="grid">' + F(p+'a','facility_id','Facility ID',P('e.g. tlb-2031'),'Your short label. Quotes must use the same ID, and relative value matches it to the facility schedule in the filings.') + S(p+'b','instrument','Instrument',INSTRUMENTS) +
-      F(p+'c','currency','Currency','value="USD" maxlength="3"' + P('e.g. USD'),'Three uppercase letters. A facility in another currency than the reporting currency is not calculable in Liquidity (no FX conversion).') + F(p+'d','size_m','Size (m)',NP('e.g. 1250'),'Millions of the stated currency.') + F(p+'e','tenor_years','Tenor (years)',NP('e.g. 7'),'Years.','pf') +
+      F(p+'c','currency','Currency','value="USD" maxlength="3"' + P('e.g. USD'),'Three uppercase letters.') + F(p+'d','size_m','Size (m)',NP('e.g. 1250'),'Millions of the stated currency.') + F(p+'e','tenor_years','Tenor (years)',NP('e.g. 7'),'Years.','pf') +
       F(p+'f','talk_spread_bps_low','Talk spread low (bps)',NP('e.g. 325'),'Basis points over the reference rate.','pf') + F(p+'g','talk_spread_bps_high','Talk spread high (bps)',NP('e.g. 350'),'Give both ends: a one-sided range is not used.','pf') +
       F(p+'h','talk_oid_low','Talk OID low',NP('e.g. 99.0'),'Price per 100.','pf') + F(p+'i','talk_oid_high','Talk OID high',NP('e.g. 99.5'),'Price per 100.','pf') + F(p+'j','floor_pct','Floor (%)',NP('e.g. 0.50'),'Percent.') +
       F(p+'o','coupon_pct','Coupon (%)',NP('e.g. 8.25'),'Percent. Optional.') + F(p+'p','margin_bps','Margin (bps)',NP('e.g. 350'),'Basis points. Optional.') + D(p+'q','maturity','Maturity','Optional.') +
@@ -1185,8 +1184,7 @@ function build() {
     if (a && b && !halves && a.kind !== b.kind) bad(els(sd, 'prior_period')[0], 'must be the same kind as the current period.');
   }
   if (a && b && a.kind === b.kind && (b.y > a.y || (b.y === a.y && b.n >= a.n))) bad(els(sd, 'prior_period')[0], 'must be earlier than the current period.');
-  const reporting_currency = fld(sd, 'reporting_currency', {t:'cur', req:true});
-  const run = {run_type, pathway, case_kind, as_of, cutoff, current_period, prior_period, reporting_currency};
+  const run = {run_type, pathway, case_kind, as_of, cutoff, current_period, prior_period};
 
   const listed = getV(si, 'listed_equity') === 'yes';
   const identity = {
@@ -1344,7 +1342,6 @@ function advise(o) {
   }
   const base = pkey(r.current_period);
   if (has('CP-2G') && base && !(base.kind === 'fy' || base.kind === 'q' && base.n === 4)) warn(firstOf(sd, 'current_period'), 'is the forecast base: the forward model forecasts three fiscal years, so use fy-YYYY (or q4-YYYY).');
-  if (r.reporting_currency && r.reporting_currency !== 'USD' && /^[A-Z]{3}$/.test(r.reporting_currency)) warn(firstOf(sd, 'reporting_currency'), 'is not USD: CP-1\'s money tables are in that currency, but the money tables of CP-2D, CP-3C and CP-4C stay in US$ millions, so their money cells read "Not supplied".');
   if (LEVEL === 'advanced' && o.identity.issuer_name && !o.identity.aliases.length) warn(firstOf(si, 'aliases'), 'None given. If the filings name the issuer differently (a legal suffix, a short name, the ticker), add those names.');
   if (o.identity.listed_equity && !o.identity.ticker) warn(firstOf(si, 'ticker'), 'Add the ticker of the listed equity.');
   // Market rows
@@ -1356,7 +1353,6 @@ function advise(o) {
   });
   rowsOf('rows-deal').forEach((row, i) => {
     const d = o.deal_terms[i];
-    if (has('CP-2D') && d.currency && r.reporting_currency && d.currency !== r.reporting_currency) warn(firstOf(row, 'currency'), `differs from the reporting currency (${r.reporting_currency}): Liquidity shows this facility as not calculable (no FX conversion).`);
     if (r.run_type === 'primary' && (!d.talk_spread_bps_low !== !d.talk_spread_bps_high)) warn(firstOf(row, 'talk_spread_bps_high'), 'Give both ends of the talk range: a one-sided range is not used.');
   });
   if (has('CP-2H')) ratingProblems(o.ratings).forEach(([i, k, msg]) => warn(firstOf(rowsOf('rows-rating')[i], k), msg));
@@ -1399,7 +1395,6 @@ const RULES = [
   {s:'CP-1D', o:'limited', c:f => f.raw.bridge === 'no', r:'No management EBITDA bridge chosen: every bridge cell is not applicable (a TDG run came back Restricted this way).', fix:'Add the bridge to the documents and choose it under Issuer and dates.', go:'issuer'},
   {s:'CP-2', k:'cp2-primary-no-cp1d', o:'gap', c:f => f.o.run.run_type === 'primary' && !f.has('CP-1D'), r:'A new issue without Earnings quality in the run: the pro forma base row has no add-back verdicts.', fix:'Nothing to add in this pathway; read the pro forma base as unverified.'},
   {s:'CP-2A', o:'limited', c:f => f.o.attachments.legal_documents === 'none', r:'No legal documents: the downside path has no covenant or financing-document evidence (a TDG run came back Restricted this way).', fix:'Add the executed agreement if you have it, and choose it under Legal.', go:'legal'},
-  {s:'CP-2D', o:'limited', c:f => f.o.deal_terms.some(d => d.currency && d.currency !== f.o.run.reporting_currency), r:'A facility is in another currency than the reporting currency: it is not calculable (no FX conversion).', fix:'Nothing to add; read that facility as excluded.', go:'market'},
   {s:'CP-2G', o:'check', nc:true, c:f => f.chk.guidance === '', r:'Whether the documents state company guidance is confirmed when the summary is made.', rv:'Whether the documents state company guidance is not checked before the run: Source readiness checks it during the run.'},
   {s:'CP-2G', o:'information', c:f => !f.o.run.current_period, r:'No current period: the forecast base is not named, so the forecast module takes the latest period in the filings.', fix:'Name the latest reported period (fy-YYYY or q4-YYYY) as the current period.', go:'issuer'},
   {s:'CP-2G', o:'check', c:f => { const b = pkey(f.o.run.current_period); return b && !(b.kind === 'fy' || b.kind === 'q' && b.n === 4); }, r:'The forecast base is not a fiscal year: the model forecasts the three fiscal years after it.', fix:'Use fy-YYYY or q4-YYYY as the current period.', go:'issuer'},
@@ -1702,7 +1697,7 @@ function tagFor(el, o) {
     case 'pathway': return k === 'pathway' ? REQ : OPT;
     case 'legal': return REQ;
     case 'issuer':
-      if (['issuer_name', 'issuer_id', 'issue_classification', 'case_kind', 'listed_equity', 'run_type', 'as_of', 'reporting_currency'].includes(k)) return REQ;
+      if (['issuer_name', 'issuer_id', 'issue_classification', 'case_kind', 'listed_equity', 'run_type', 'as_of'].includes(k)) return REQ;
       if (['aliases', 'borrower_name', 'sector', 'ticker'].includes(k) || el.dataset.c === 'newest') return REC;
       if (k === 'current_period') return o.run.run_type === 'earnings' ? ['req', 'Required for an earnings update'] : REC;
       if (k === 'prior_period') return o.run.run_type === 'earnings' ? ['req', 'Required for an earnings update'] : OPT;
@@ -1796,7 +1791,7 @@ function summaryLines(st, o) {
     case 'documents': return READING && READING.documents.length ? [`${READING.documents.length} document${READING.documents.length === 1 ? '' : 's'} read` + (READING.ignored.length ? `, ${READING.ignored.length} will not be read` : '')] : [];
     case 'issuer': {
       const l = [nz(Object.assign({case_kind: o.run.case_kind}, o.identity)).replace('Case kind:', 'Reports as:'), 'Market situation: ' + (RUN_LABEL[o.run.run_type] || o.run.run_type),
-        nz({as_of:o.run.as_of, cutoff:o.run.cutoff, current_period:o.run.current_period, prior_period:o.run.prior_period, reporting_currency:o.run.reporting_currency})];
+        nz({as_of:o.run.as_of, cutoff:o.run.cutoff, current_period:o.run.current_period, prior_period:o.run.prior_period})];
       for (const c of ATTACH) if (getC(c.id + 'file')) l.push(c.title + ': ' + getC(c.id + 'file'));
       return l;
     }
@@ -1830,7 +1825,7 @@ const NEEDS_TICK = ['gap', 'limited', 'will_refuse'];
 // keeps this table to them). '' = nothing on this page fixes it.
 const STAGE_OF_RULE = {
   'investment-grade': 'issuer', 'run-financials-management-claims': 'documents', 'cp1-no-financial-report-recognised': 'documents',
-  'cp1c-no-peer-source': 'valuation', 'cp2-primary-no-cp1d': 'pathway', 'cp2d-non-usd': 'market',
+  'cp1c-no-peer-source': 'valuation', 'cp2-primary-no-cp1d': 'pathway',
   'cp2h-no-ratings': 'market', 'cp3-talk-no-observed-quote': 'market', 'cp3-no-quotes-no-talk': 'market', 'cp3d-no-quotes': 'market',
   'cp4-declared-none': 'legal', 'cp4-declared-executed-none-recognised': 'legal', 'cp4-declared-draft-none-recognised': 'legal',
   'cp4-declared-draft-or-primary-no-executed-agreement': 'legal', 'cp4-only-amendment': 'documents',
@@ -1840,12 +1835,12 @@ const STAGE_OF_RULE = {
 };
 // A refusal's sentence names no stage; these words do.
 function errorStage(text) {
-  if (/submitted_by/.test(text)) return 'pathway';
+  if (/submitted_by|first name and initial/.test(text)) return 'pathway';
   if (/\b(files?|documents?|sources?|folder)\b/i.test(text)) return 'documents';
   if (/\b(modules?|turns|level|model|effort|Claude Opus)\b/i.test(text)) return 'pathway';
   return '';
 }
-let SUMMARY = null;        // {key, answers, error, digest, modules, items, documents, ignored, omitted, changes, lookup} for the answers and files held
+let SUMMARY = null;        // {key, answers, error, digest, modules, items, documents, ignored, omitted, changes, lookup, web_lookup} for the answers and files held
 let SUMMARY_BUSY = false;
 let RENDERED = null;       // the summary the module table was built for
 let RENDERED_KEY = '';     // the page's own rule items that table was built from (pageKey)
@@ -1977,7 +1972,8 @@ function renderFacts(o) {
     rows.push(['Pathway', PATHS[o.run.pathway].label], ['Issuer', o.identity.issuer_name + (o.identity.issuer_id ? ' (' + o.identity.issuer_id + ')' : '')], ['Dates', dates],
       ['Files', SUMMARY.documents.length + ' read' + (SUMMARY.ignored.length ? ', ' + SUMMARY.ignored.length + ' not read' : '')],
       ['Cap', `USD ${SUMMARY.cap} for this run, the ${PATHS[o.run.pathway].label.toLowerCase()}'s cap`],
-      ...(SUMMARY.modules.includes('CP-DR') ? [['Web search', webSearches(o.run.case_kind, (SUMMARY.answers || {}).model) ? 'Yes: the research module searches the web' + (o.run.case_kind === 'private' ? "; the issuer's name and what it researches go to OpenAI's search" : '') : (o.run.case_kind !== 'synthetic' ? 'No: web search is offered on GPT Sol only, so this Claude run reads only its files' : 'No: a synthetic case reads only its files')]] : []), ['Report sections not filled', SUMMARY.omitted.length ? SUMMARY.omitted.join(', ') : 'none'],
+      ...(SUMMARY.modules.includes('CP-DR') ? [['Web search', webSearches(o.run.case_kind, (SUMMARY.answers || {}).model) ? 'Yes: the research module searches the web' + (o.run.case_kind === 'private' ? "; the issuer's name and what it researches go to OpenAI's search" : '') : (o.run.case_kind !== 'synthetic' ? 'No: web search is offered on GPT Sol only, so this Claude run ' + (SUMMARY.web_lookup === true ? 'does not search the web' : 'reads only its files') : 'No: a synthetic case reads only its files')]] : []),
+      ...(SUMMARY.web_lookup === true ? [['Yahoo Finance', "The research module may read Yahoo Finance pages. Their addresses name what it looks up, such as the issuer's ticker, so Yahoo sees which issuer is researched; no document is sent."]] : []), ['Report sections not filled', SUMMARY.omitted.length ? SUMMARY.omitted.join(', ') : 'none'],
       ...(SUMMARY.changes ? [['Changes', SUMMARY.changes]] : []));
     // What was sent, whatever the level now is: a setting made at Advanced still binds the run at Basic.
     const sent = SUMMARY.answers || {}, left = runOf(o.run.pathway).filter(m => Array.isArray(sent.modules) && sent.modules.length && !sent.modules.includes(m));
@@ -2910,7 +2906,7 @@ function fill(o, files, quiet) {
   vis();
   if (txt(run.run_type) in RUN_LABEL && getV(si, 'run_type') !== txt(run.run_type)) warn.push(`run.run_type: "${txt(run.run_type)}" does not go with the ${PATHS[getV(sp, 'pathway')].label} pathway; changed to "${getV(si, 'run_type')}"`);
   setV(si, 'case_kind', txt(run.case_kind), 'run.case_kind', warn);
-  for (const k of ['as_of','cutoff','current_period','prior_period','reporting_currency']) if (k === 'as_of' || txt(run[k]) !== '') setV(sd, k, txt(run[k]), 'run.' + k, warn);
+  for (const k of ['as_of','cutoff','current_period','prior_period']) if (k === 'as_of' || txt(run[k]) !== '') setV(sd, k, txt(run[k]), 'run.' + k, warn);
   cutTouched = txt(run.cutoff) !== '' && txt(run.cutoff) !== txt(run.as_of);
   if (txt(run.cutoff) === '' && !quiet) warn.push('run.cutoff: blank in this file; now the as-of date, which is what blank meant, stated for the modules');
   for (const k of ['issuer_name','issuer_id','borrower_name','parent_name','ticker','sector','country','sponsor']) setV(si, k, txt(id[k]), 'identity.' + k, warn);

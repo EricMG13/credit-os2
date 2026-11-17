@@ -339,7 +339,19 @@ class _VisibleText(HTMLParser):
 # Ruling 6 (the title) and 9 (the group number) landed there; 8 (button labels) is script.
 # Sentences a later ruling changed. Ruling 2026-11-15-pathway-tiers-and-caps: the cap is the
 # pathway's (`PATHWAY_CAP_USD`), not one USD 20 for every run; the summary's lead says so.
+# Owner, 2026-11-16: the analyst's name is required, as a first name and one or two initials
+# (`submissions.is_analyst_name`), so the field's help no longer says "Optional".
+# Ruling 2026-11-16-reporting-currency-from-sources: the page no longer asks for the reporting
+# currency, and the money-figure hint names the currency of the issuer's statements.
+_CURRENCY_ASK = frozenset(
+    {
+        "Reporting currency",
+        "As the filing cover states it: three uppercase letters.",
+        "Millions of the reporting currency.",
+    }
+)
 _CAP_LEAD = "It uses the paid model (USD 20 cap)."
+_NAME_HELP = "Saved with the run, so Run activity shows who started it. Optional."
 CHANGED_BY_RULINGS: frozenset[str] = frozenset(
     sentence
     for sentence in json.loads(
@@ -347,6 +359,7 @@ CHANGED_BY_RULINGS: frozenset[str] = frozenset(
     )
     if _CAP_LEAD in sentence
 )
+CHANGED_BY_OWNER = frozenset({_NAME_HELP}) | _CURRENCY_ASK
 
 
 def test_the_redesigned_markup_keeps_every_sentence_of_the_step_logic_commit() -> None:
@@ -358,9 +371,19 @@ def test_the_redesigned_markup_keeps_every_sentence_of_the_step_logic_commit() -
     page = _VisibleText()
     page.feed(FORM)
     assert len(before) > 100  # a fixture that lost its text would pass anything
-    assert set(before) - CHANGED_BY_RULINGS <= page.nodes, sorted(
-        set(before) - CHANGED_BY_RULINGS - page.nodes
-    )
+    assert _NAME_HELP in before
+    kept = set(before) - CHANGED_BY_RULINGS - CHANGED_BY_OWNER
+    assert kept <= page.nodes, sorted(kept - page.nodes)
+
+
+def test_the_name_field_says_the_form_the_service_takes() -> None:
+    page = _VisibleText()
+    page.feed(FORM)
+    assert _NAME_HELP not in page.nodes
+    assert (
+        "First name and initial, such as Eric G; two initials, such as Eric MG, if a colleague "
+        "has a similar name. Saved with the run, so Run activity and Teams show who started it."
+    ) in page.nodes
 
 
 def _rule(selector: str) -> str:
@@ -429,10 +452,9 @@ def test_the_form_describes_the_rates_module_with_its_esg_part() -> None:
 
 
 # ---- fix round H: CP-1's money tables left the "US$ only" rule behind
-def test_the_non_usd_warning_names_only_the_modules_whose_money_tables_stay_in_us_dollars() -> None:
-    """C1 made CP-1's money tables the issuer's own currency; the CP-2D, CP-3C and CP-4C money
-    tables still say `US$m` (read from the launcher), so a non-USD issuer's cells there read
-    "Not supplied". The warning says exactly that and not that the chart strip is US dollars."""
+def test_the_non_usd_warning_is_gone_because_no_money_table_stays_in_us_dollars() -> None:
+    """docs/rulings/2026-11-16-reporting-currency-from-sources.md: the CP-2D, CP-3C and CP-4C money
+    tables take CP-1's money unit, so no table stays `US$m` and the form no longer warns of it."""
     from deploy_workflow.owners import cpos_launch
 
     stays = {
@@ -440,18 +462,14 @@ def test_the_non_usd_warning_names_only_the_modules_whose_money_tables_stay_in_u
         for module, tables in cpos_launch.OWNER_TABLES.items()
         if module != "CP-1" and any(t.chart_unit == "US$m" for t in tables)
     }
-    assert stays == {"CP-2D", "CP-3C", "CP-4C"}
+    assert stays == set()
     assert all(
         t.chart_unit == cpos_launch.MONEY
         for t in cpos_launch.OWNER_TABLES["CP-1"]
         if t.heading in ("Net debt data", "Chart data: liquidity", "Chart data: debt maturities")
     )
     assert "the report\\'s chart strip is US$ millions only" not in FORM
-    warning = (
-        "is not USD: CP-1\\'s money tables are in that currency, but the money tables of "
-        'CP-2D, CP-3C and CP-4C stay in US$ millions, so their money cells read "Not supplied".'
-    )
-    assert warning in FORM
+    assert "stay in US$ millions" not in FORM
 
 
 def test_no_expectation_rule_or_page_rule_carries_a_flag_nothing_sets() -> None:
@@ -463,3 +481,13 @@ def test_no_expectation_rule_or_page_rule_carries_a_flag_nothing_sets() -> None:
     assert "propagates" not in {f.name for f in dataclasses.fields(Rule)}
     assert not any(hasattr(rule, "propagates") for rule in RULES)
     assert "np:" not in FORM and ".np" not in FORM and "!x.np" not in FORM
+
+
+def test_the_page_asks_for_no_currency_and_warns_of_no_facility_currency() -> None:
+    """docs/rulings/2026-11-16-reporting-currency-from-sources.md: the currency is the one CP-1's
+    statements print; nothing is asked, built, prefilled or warned about."""
+    assert "reporting_currency" not in FORM
+    assert "Reporting currency" not in FORM
+    assert "not calculable" not in FORM
+    assert "no FX conversion" not in FORM
+    assert "stay in US$" not in FORM

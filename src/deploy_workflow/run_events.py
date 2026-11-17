@@ -7,14 +7,62 @@ replays and verify scripts pass nothing and so never gain this file.
 import json
 import os
 import warnings
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from deploy_workflow.model.adapter import LivePauseInForce
 from deploy_workflow.model.budget import BudgetExhausted, OverrunStop, RunStopped
 
 EVENTS = "events.jsonl"
+
+# A module's (or the Report's) state in a run, as `progress` reads it from the log.
+ModuleState = Literal["waiting", "running", "done", "stopped"]
+
+
+@dataclass(frozen=True)
+class Progress:
+    """What a run's event log says (see ``progress``)."""
+
+    modules: Mapping[str, ModuleState]  # each module the log names, in the order first started
+    report: ModuleState
+    delivered: bool  # some launch delivered
+    stop: str | None  # the reason of a ``stopped`` that no later start followed
+
+
+def _ended(states: Mapping[str, ModuleState]) -> dict[str, ModuleState]:
+    return {module: "stopped" if state == "running" else state for module, state in states.items()}
+
+
+def progress(events: Iterable[Mapping[str, Any]]) -> Progress:
+    """The one reading of the log, in order. CP-OS runs one module at a time, so a module runs
+    from ``module_started`` until ``module_accepted`` (done), or until the run's ``stopped``, the
+    next ``module_started`` or ``delivery_started`` (stopped: it was not finished; a CP-8 not
+    produced is one). The Report entry likewise runs from ``delivery_started`` until ``delivered``
+    or ``stopped``. One log spans every launch of a run folder, so a later start (a relaunch) runs
+    a module again and ends the earlier stop."""
+    modules: dict[str, ModuleState] = {}
+    report: ModuleState = "waiting"
+    delivered = False
+    stop: str | None = None
+    for event in events:
+        name = event.get("event")
+        if name == "stopped":
+            stop = str(event.get("reason", ""))
+            modules = _ended(modules)
+            report = "stopped" if report == "running" else report
+        elif name == "module_started":
+            modules, stop = _ended(modules), None
+            modules[str(event.get("module"))] = "running"
+        elif name == "module_accepted":
+            modules[str(event.get("module"))] = "done"
+        elif name == "delivery_started":
+            modules, report, stop = _ended(modules), "running", None
+        elif name == "delivered":
+            report, delivered = "done", True
+    return Progress(modules, report, delivered, stop)
 
 
 def append_event(directory: Path, event: str, **fields: str | int) -> None:

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from proof import DUMMY_KEY, launcher_command
-from proof.launcher import FILING, verify_upload
+from proof.launcher import AGREEMENT, FILING, verify_upload
 
 PROJECT = Path(__file__).resolve().parents[1]
 
@@ -25,6 +25,17 @@ def test_rejects_a_changed_or_additional_upload(tmp_path):
     source.write_bytes(FILING.read_bytes())
     (tmp_path / "additional.txt").write_text("another file")
     with pytest.raises(ValueError, match="exactly one"):
+        verify_upload(tmp_path, context)
+
+
+def test_accepts_the_synthetic_agreement_only_byte_identical(tmp_path):
+    context = tmp_path / "context.json"
+    context.write_text("{}")
+    (tmp_path / FILING.name).write_bytes(FILING.read_bytes())
+    (tmp_path / AGREEMENT.name).write_bytes(AGREEMENT.read_bytes())
+    assert verify_upload(tmp_path, context)
+    (tmp_path / AGREEMENT.name).write_text("Credit Agreement\nEXECUTION VERSION\nother\n")
+    with pytest.raises(ValueError, match="differs"):
         verify_upload(tmp_path, context)
 
 
@@ -64,7 +75,7 @@ def test_real_scheduler_exports_the_submitted_run(monkeypatch):
                     "level": "basic",
                     "model": "gpt",
                     "effort": "balanced",
-                    "submitted_by": "Proof test",
+                    "submitted_by": "Proof T",
                 }
             )
             summary = submissions.summary(layout, sid, answers)

@@ -90,7 +90,7 @@ PATHWAY_MODULES = {
         *("CP-0", "CP-1", "CP-1A", "CP-DR", "CP-4", "CP-2", "CP-2A", "CP-2E", "CP-2D", "CP-2G"),
         *("CP-3C", "CP-3", "CP-5", "CP-6"),
     ),
-    "earnings_update": ("CP-0", "CP-1", "CP-1B", "CP-DR", "CP-2E", "CP-1D", "CP-5"),
+    "earnings_update": ("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-2E", "CP-1D", "CP-5"),
     "relative_value": (
         *("CP-0", "CP-1", "CP-1A", "CP-3D", "CP-DR", "CP-1C", "CP-2", "CP-2E", "CP-2D", "CP-3C"),
         *("CP-3", "CP-5"),
@@ -118,7 +118,9 @@ PRESET_ANSWER_KEY = {
     "credit_snapshot": (
         "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6"
     ),
-    "earnings_update": "CP-0 CP-1 CP-MODEL CP-1B CP-1D CP-DR CP-2E CP-5",
+    # Owner, 2026-11-16 ("Add it to Earnings Update"): CP-1A joins
+    # (docs/rulings/2026-11-16-earnings-update-cp1a.md).
+    "earnings_update": "CP-0 CP-1 CP-MODEL CP-1A CP-1B CP-1D CP-DR CP-2E CP-5",
     "relative_value": "CP-0 CP-1 CP-MODEL CP-1C CP-DR CP-2 CP-2D CP-2E CP-3 CP-3C CP-3D CP-5",
     "covenant_refinancing": (
         "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-5"
@@ -1510,16 +1512,30 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 # 2026-11-16 (owner: "fix all"): CP-1B is sent its cell-format note, 229 characters
 # (`method_scripts_cp1b.CP1B_NOTE`); the ceiling rises by that length, 546,500 to 546,729. The
 # reworded forecast-driver rule fits in the room that was left, so no ceiling rises for it.
+# 2026-11-16 (owner: "Add it to Earnings Update"; docs/rulings/2026-11-16-earnings-update-cp1a.md):
+# CP-1A joins earnings_update; its instructions total 546,723 before and 651,532 after (CP-1A
+# 104,584, CP-5 225 more for the added module), so the ceiling rises by 104,809: 546,729 to 651,538.
+# 2026-11-16 (owner: "the sources materials will contain a selected FX rate for the reporting. and
+# that can be used to calculate it"; docs/rulings/2026-11-16-reporting-currency-from-sources.md):
+# CP-1's T4.18 currency columns and step 3 sentence, CP-2D's currency rule, CP-2G's foreign-facility
+# rule, CP-1's check-block conversion clause, and a non-USD example beside each USD-only one sent to
+# a model (PR 46 and its two review rounds). Measured on this file's input before (base 943280e) and
+# after, each ceiling rises by its pathway's increase: covenant_refinancing 1,135,971 to 1,138,250
+# (+2,279); credit_snapshot 1,466,034 to 1,468,383 (+2,349); deep_credit_assessment 1,805,254 to
+# 1,807,813 (+2,559); distressed_restructuring 1,170,054 to 1,171,875 (+1,821); earnings_update
+# 651,532 to 652,944 (+1,412); lite_credit_assessment 414,801 to 416,093 (+1,292);
+# portfolio_decision 942,102 to 943,549 (+1,447); relative_value 1,061,779 to 1,063,824 (+2,045);
+# short_snapshot 156,212 to 157,415 (+1,203).
 INSTRUCTION_BUDGET = {
-    "deep_credit_assessment": 1_900_500,
-    "lite_credit_assessment": 420_000,
-    "credit_snapshot": 1_483_647,
-    "covenant_refinancing": 1_155_000,
-    "distressed_restructuring": 1_186_500,
-    "earnings_update": 546_729,  # owner, 2026-11-16: fix all (CP1B_NOTE, 229)
-    "portfolio_decision": 955_500,
-    "relative_value": 1_071_000,
-    "short_snapshot": 157_500,
+    "deep_credit_assessment": 1_903_059,
+    "lite_credit_assessment": 421_292,
+    "credit_snapshot": 1_485_996,
+    "covenant_refinancing": 1_157_279,
+    "distressed_restructuring": 1_188_321,
+    "earnings_update": 652_950,  # owner, 2026-11-16: CP-1A joins; then reporting currency
+    "portfolio_decision": 956_947,
+    "relative_value": 1_073_045,
+    "short_snapshot": 158_703,
 }
 
 
@@ -1745,21 +1761,31 @@ def test_run_directory_inside_the_issuer_folder_is_refused(tmp_path, capsys):
     assert not (tmp_path / "issuer/run").exists()
 
 
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md: a money table of another module states
+# CP-1's money unit, so the fixture's CP-1 handoff is the least text that gives a USD run `US$m`.
+UPSTREAM = (
+    b"# upstream\n\n## Findings\n\n### T4.4 Income statement\n\n"
+    b"| Line item | FY2024 | Unit | Basis | Source |\n| --- | --- | --- | --- | --- |\n"
+    b"| EBITDA (Reported) | 1 | USD millions | Synthetic. | annual.txt |\n"
+)
+
+
 def good_task(tmp_path: Path, module: str = "CP-2", pathway: str | None = None):
     pathway = pathway or OWNER_PATHWAY.get(module, "covenant_refinancing")
+    settings = context_file(tmp_path, pathway)
     prepared = prepare(
-        context_file(tmp_path, pathway),
+        settings,
         issuer_folder(tmp_path),
         tmp_path / "out",
         config="sol-medium",
         cap="15",
     )
-    upstream = {"CP-1": b"# upstream"}
+    upstream = {"CP-1": UPSTREAM}
     task = HandoffTask(
         prepared.plan.run,
         module,
         b"",
-        {"annual.txt": b"Net sales", "context": b"{}"},
+        {"annual.txt": b"Net sales", "context": settings.read_bytes()},
         upstream,
         1,
         (),
@@ -1767,7 +1793,7 @@ def good_task(tmp_path: Path, module: str = "CP-2", pathway: str | None = None):
     context = {
         "module_id": module,
         "sources": {"annual.txt": hashlib.sha256(b"Net sales").hexdigest()},
-        "handoffs": {"CP-1": {"sha256": hashlib.sha256(b"# upstream").hexdigest()}},
+        "handoffs": {"CP-1": {"sha256": hashlib.sha256(UPSTREAM).hexdigest()}},
     }
     return prepared, task, context
 
@@ -1778,12 +1804,230 @@ def test_checker_accepts_a_complete_handoff(tmp_path):
     assert _checked_handoff(task, raw, checker(prepared.layout)) == ()
 
 
+def legal_declared(task: HandoffTask, legal: str) -> HandoffTask:
+    """The task with its run context declaring `attachments.legal_documents` as ``legal``."""
+    data = json.loads(task.sources["context"])
+    data["attachments"]["legal_documents"] = legal
+    sources = {**task.sources, "context": json.dumps(data).encode()}
+    return dataclasses.replace(task, sources=sources)
+
+
+def source_gate_issues(issues: tuple[str, ...]) -> list[str]:
+    return [i for i in issues if "Blocked" in i and "No executed governing document" in i]
+
+
+# Live run 2026-11-16 (TDG, Deep, Opus medium, legal documents "none"): CP-4 wrote `Completed with
+# Limitations` from the 10-K's summary of the agreements, against REF_CP-4_STEPS line 31 ("Blocked:
+# No executed governing document. Output blocked message and STOP.") and the forecast's
+# `cp4-declared-none`.
+@pytest.mark.parametrize(
+    ("module", "legal", "status", "refused"),
+    [
+        ("CP-4", "none", "Completed with Limitations", True),
+        ("CP-4", "executed", "Completed with Limitations", False),
+        ("CP-4", "none", "Blocked", False),
+        ("CP-1", "none", "Completed with Limitations", False),
+    ],
+)
+def test_cp4_is_held_to_its_source_gate_when_the_context_declares_no_legal_documents(
+    tmp_path, module, legal, status, refused
+):
+    prepared, task, context = good_task(tmp_path, module)
+    task = legal_declared(task, legal)
+    front = f"---\nmodule_id: {module}\nmodule_status: {status}\n---\n"
+    raw = (front + answer(context, list(prepared.plan.layout.routes))).encode()
+    issues = source_gate_issues(_checked_handoff(task, raw, checker(prepared.layout)))
+    assert len(issues) == (1 if refused else 0)
+
+
+NO_DOCUMENT = "Not supplied: no executed governing document"
+EDGES = ("From", "Relationship", "Edge type", "To", "Evidence")
+CHART = ("Test", "Threshold", "Current", "Headroom", "Direction", "Reporting unit")
+EVENTS = ("Event date", "Date precision", "Published", "Event", "Status", "Source")
+
+
+def table(head: tuple[str, ...], row: tuple[str, ...]) -> str:
+    return "\n".join("| " + " | ".join(cells) + " |" for cells in (head, ("---",) * len(head), row))
+
+
+NOT_ASSESSABLE = table(("Item", "Status"), ("Not assessable", NO_DOCUMENT))
+# The blocked form CP-4 is sent (READER_PASSAGES, CONFIDENCE_RULE and the selector list in its
+# instructions): `module_status: Blocked`, a Bottom line that begins `Not assessable: `, the gate
+# register only, and each report selector once: its routed ones (a table selector with one
+# not-assessable row, a prose selector with one sentence) and these fixed-header tables.
+FIXED_SELECTORS = {
+    "Chart data: covenant headroom": table(
+        (*CHART, "Basis and limitation"), (*[NO_DOCUMENT] * 5, "x", "Not assessable.")
+    )
+    + "\n\nNo qualification.",
+    "Events: Legal": table((*EVENTS, "Credit relevance"), (NO_DOCUMENT,) * 7),
+    "Confidence inputs": table(("Input", "Value"), ("Not assessable", NO_DOCUMENT)),
+    "Map: legal entities": table(EDGES, (NO_DOCUMENT,) * 5),
+    "Map: intercreditor": table(EDGES, (NO_DOCUMENT,) * 5),
+}
+
+
+def blocked_cp4(context: dict, routes: list) -> str:
+    gate = table(("Document", "Status", "Limitation"), (NO_DOCUMENT, "Blocked", "Source gate"))
+    sentence = "Not assessable: no executed governing document was supplied."
+    routed = {r.heading: NOT_ASSESSABLE if r.kind == "table" else sentence for r in routes}
+    selectors = {**routed, **FIXED_SELECTORS}
+    sections = [part for h, t in selectors.items() for part in (f"### {h}", "", t, "")]
+    lines = [
+        *("---", "module_id: CP-4", "module_status: Blocked", "---", "# CP-4", ""),
+        *("## Request", "", f"{ISSUER} as of {AS_OF}.", "", "## Sources", ""),
+        f"- annual.txt {context['sources']['annual.txt']}",
+        f"- CP-1 {context['handoffs']['CP-1']['sha256']}",
+        *("", "## Findings", "", "### Bottom line", ""),
+        (
+            "Not assessable: no executed governing document was supplied, so the covenants, their "
+            "capacity and headroom and the lenders' protection are not established for this run."
+        ),
+        *("", "### T4.1 Source gate register", "", gate, "", *sections),
+        *("## Calculations", "", "None.", "", "## Gaps", "", "None.", ""),
+        *("## Next module", "", "The orchestrator selects the next module.", ""),
+    ]
+    return "\n".join(lines)
+
+
+# Covenant & Refinancing (six table selectors), Deep (the live run's pathway) and Distressed
+# (one prose selector).
+@pytest.mark.parametrize(
+    "pathway", ["covenant_refinancing", "deep_credit_assessment", "distressed_restructuring"]
+)
+def test_cp4_written_as_the_methods_blocked_message_is_accepted(tmp_path, pathway):
+    prepared, task, context = good_task(tmp_path, "CP-4", pathway)
+    task = legal_declared(task, "none")
+    routes = [r for r in prepared.plan.layout.routes if r.module_id == "CP-4"]
+    raw = blocked_cp4(context, routes).encode()
+    assert _checked_handoff(task, raw, checker(prepared.layout)) == ()
+
+
+def with_legal(context: Path, legal: str) -> Path:
+    """The context file, rewritten to declare `attachments.legal_documents` as ``legal``."""
+    data = json.loads(context.read_text())
+    data["attachments"]["legal_documents"] = legal
+    context.write_text(json.dumps(data))
+    return context
+
+
+def launched_blocked_cp4(sent: dict, routes: list) -> str:
+    """`blocked_cp4` as a launched run's CP-4 writes it: listing every source and handoff sent."""
+    text = blocked_cp4(sent, [r for r in routes if r.module_id == "CP-4"])
+    first = (
+        f"- annual.txt {sent['sources']['annual.txt']}\n- CP-1 {sent['handoffs']['CP-1']['sha256']}"
+    )
+    assert first in text
+    listed = [f"- {n} {h}" for n, h in sent["sources"].items()]
+    listed += [f"- {n} {h['sha256']}" for n, h in sent["handoffs"].items()]
+    return text.replace(first, "\n".join(listed))
+
+
+def filled_cp4(sent: dict, routes: list) -> str:
+    """A CP-4 that writes every selector as if it had an agreement (live run 2026-11-16)."""
+    return "---\nmodule_id: CP-4\nmodule_status: Completed with Limitations\n---\n" + answer(
+        sent, routes
+    )
+
+
+def run_declaring_legal(tmp_path: Path, provider, pathway: str, legal: str, cp4) -> int:
+    """`main` on a fake-provider run whose context declares ``legal``; CP-4 answers ``cp4``."""
+    argv = launch(tmp_path, "--live", "--ruling", str(RULING), pathway=pathway)
+    context = with_legal(tmp_path / "context.json", legal)
+    folder, preview = tmp_path / "issuer", tmp_path / "preview"
+    routes = list(
+        prepare(context, folder, preview, config="sol-medium", cap="15").plan.layout.routes
+    )
+    provider.answer = lambda sent: (
+        cp4(sent, routes)
+        if sent["module_id"] == "CP-4"
+        else forecast_answer(sent, routes, REAL_DECLINED_BLOCK)
+        if sent["module_id"] == "CP-2G"
+        else answer(sent, routes)
+    )
+    return main(argv)
+
+
+# Review of PR 45, finding 1 (owner-approved decision): with no legal documents declared CP-4 stops
+# at its source gate, so a block that lists a later owner in the run goes to that owner. Only
+# `capital-structure` lists one (CP-3); with an agreement declared the routing is unchanged.
+@pytest.mark.parametrize("pathway", ["credit_snapshot", "deep_credit_assessment"])
+@pytest.mark.parametrize(
+    ("legal", "owner"), [("none", "CP-3"), ("executed", "CP-4"), ("draft", "CP-4")]
+)
+def test_capital_structure_goes_to_cp3_only_when_cp4_stops_at_its_source_gate(
+    tmp_path, pathway, legal, owner
+):
+    context = with_legal(context_file(tmp_path, pathway), legal)
+    prepared = prepare(
+        context, issuer_folder(tmp_path), tmp_path / "out", config="sol-medium", cap="40"
+    )
+    routes = prepared.plan.layout.routes
+    assert [r.module_id for r in routes if r.block_id == "capital-structure"] == [owner]
+
+
+@pytest.mark.parametrize("pathway", ["credit_snapshot", "deep_credit_assessment"])
+def test_a_run_with_a_blocked_cp4_delivers_cp3s_capital_structure(
+    tmp_path, provider, capsys, pathway
+):
+    assert run_declaring_legal(tmp_path, provider, pathway, "none", launched_blocked_cp4) == 0
+    assert [c[0] for c in provider.calls].count("CP-4") == 1
+    receipt = next((tmp_path / "out" / "deliveries").glob("*/delivery.json"))
+    coverage = json.loads((receipt.parent / "coverage.json").read_text())["modules"]
+    placed = {
+        module: [e["blocks"] for e in entries if e["heading"] == "Capital structure"]
+        for module, entries in coverage.items()
+    }
+    assert placed["CP-3"] == [["capital-structure"]]
+    assert placed["CP-4"] == []
+    cp3 = (receipt.parent / "CP-3.md").read_text()
+    section = cp3.partition("### Capital structure\n")[2].partition("\n### ")[0]
+    assert "| Observed | 1 |" in section and "Not assessable" not in section
+    assert "### Capital structure" not in (receipt.parent / "CP-4.md").read_text()
+
+
+@pytest.mark.parametrize("pathway", ["credit_snapshot", "deep_credit_assessment"])
+def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider, capsys, pathway):
+    assert run_declaring_legal(tmp_path, provider, pathway, "none", filled_cp4) == 1
+    assert [c[0] for c in provider.calls].count("CP-4") == 3
+    assert "CP-4 not accepted within bounds" in capsys.readouterr().err
+    assert not (tmp_path / "out" / "deliveries").exists()
+
+
+# main 39f1803f's CP-4 instructions for this input (Deep, legal documents `executed`): the source
+# gate leaves them byte-identical. #49 (merged as 39f1803f) changed CP-4's text on purpose (the
+# money-unit rule), so the value pinned at 0bca182 (a37cd27b...) was recomputed. Recompute only
+# when CP-4's instructions change on purpose, as for METHOD_TEXT_SHA256_AT_1B41E65.
+CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
+    "284d83b0600b7022eeff7be8d3a9adebc115bb55c0d382129b845467b7507bab"
+)
+
+
+# Review of PR 45, finding 2: CP-4 learnt its gate only from a refusal, one full write later.
+def test_cp4_is_told_its_source_gate_only_when_no_legal_documents_are_declared(tmp_path):
+    texts = {}
+    for legal in ("none", "executed"):
+        base = tmp_path / legal
+        base.mkdir()
+        context = with_legal(context_file(base, "deep_credit_assessment"), legal)
+        prepared = prepare(
+            context, issuer_folder(base), base / "out", config="sol-medium", cap="40"
+        )
+        texts[legal] = (base / "out" / prepared.plan.instructions["CP-4"].path).read_text()
+    executed = hashlib.sha256(texts["executed"].encode()).hexdigest()
+    assert executed == CP4_DEEP_EXECUTED_SHA256_AT_39F1803
+    assert texts["none"] != texts["executed"]
+    assert "No executed governing document" in texts["none"]
+    assert cpos_launch._SOURCE_GATE in texts["none"]
+    assert cpos_launch._SOURCE_GATE not in texts["executed"]
+
+
 @pytest.mark.parametrize(
     ("old", "new", "complaint"),
     [
         (ISSUER, "Someone Else", "selected issuer"),
         (AS_OF, "2024-01-01", AS_OF),
-        (hashlib.sha256(b"# upstream").hexdigest(), "gone", "CP-1"),
+        (hashlib.sha256(UPSTREAM).hexdigest(), "gone", "CP-1"),
         ("annual.txt " + hashlib.sha256(b"Net sales").hexdigest(), "nothing", "source"),
         ("### Red flags", "### Other", "Red flags"),
         (
@@ -2763,6 +3007,181 @@ def test_the_step_file_gives_the_fixed_register_rows_the_money_unit_not_us_dolla
         assert "US$m" not in (CP1_DIR / name).read_text(), name
 
 
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md: a facility in another currency counts
+# at the amount the filings state for it in the reporting currency, else at the FX rate the source
+# materials state for the reporting, recorded beside it; no rate is looked up, derived or invented.
+T418_COLUMNS = "| `Currency` | `Reporting Currency Amount` | `FX Rate` | `Coupon or Margin` |"
+T418_RULES = (
+    (
+        "`Currency` is the ISO 4217 code of the instrument's denomination (`EUR`); its amounts "
+        "are as the filing prints them, the one exception to step 3's single currency."
+    ),
+    (
+        "`Reporting Currency Amount` is its carrying value (its principal where carrying values "
+        "are not disclosed) in the statements' currency and unit: the amount the issuer states "
+        "for it in that currency, else its amount converted at the FX rate the source materials "
+        "state for the reporting, with the rate in `FX Rate` and its locator in the row's "
+        "`Source` cell beside the instrument's own source, else `Not supplied: <reason>` with a "
+        "gap line."
+    ),
+    # The brief's "blank unless converted": CP-1 never writes an empty cell (its SKILL.md), and
+    # T4.18 writes a term that does not apply as `Not applicable`. PR 46 review F4: the column
+    # holds the rate only; its locator is in `Source`, which the library draws on Evidence.
+    (
+        "`FX Rate` holds the rate only (`0.875 GBP/EUR`) and is `Not applicable` unless the "
+        "amount was converted."
+    ),
+    "Never look up, derive or invent a rate.",
+    "The `Reporting Currency Amount` cells plus that row reconcile to `Total Debt` (step 7).",
+)
+CP1_STEP3_CURRENCY = (
+    "The currency is the presentation currency the consolidated statements are printed in; a "
+    "functional or other currency is recorded in T4.2; a figure is converted only at a rate the "
+    "sources state."
+)
+CP2D_CURRENCY_RULE = (
+    "11. Currency: every amount of T2E.2, T2E.3 and T2E.5 is in the currency of Financial "
+    "foundation's (CP-1's) statements. A facility in another currency enters with its debt balance "
+    "at CP-1's T4.18 `Reporting Currency Amount`; its undrawn, commitment, amortisation or "
+    "maturity amount enters only where CP-1 states it in the statements' currency, else it is "
+    "`Not supplied`, and a total that needs it is not calculable, with that reason, never a "
+    "partial total. Never convert at a rate of your own."
+)
+
+
+def test_cp1_is_sent_each_instruments_reporting_currency_amount_and_never_invents_a_rate(tmp_path):
+    text = _built_instruction(tmp_path, "CP-1", ("CP-1",))
+    (t418,) = [line for line in text.splitlines() if "### T4.18 Debt instruments" in line]
+    assert T418_COLUMNS in t418
+    for rule in T418_RULES:
+        assert rule in t418, rule
+    assert "in the table's currency" not in t418 and "FX Rate and Source" not in text
+    step3 = text.partition("## REF_CP-1_03_Normalization.md")[2].partition("## REF_CP-1_04")[0]
+    assert CP1_STEP3_CURRENCY in step3
+
+
+# PR 46 review F3 (same ruling): step 3 allows a conversion at a rate the sources state, so the
+# check block no longer reads as refusing every figure in another currency.
+OTHER_CURRENCY_SENTENCE = (
+    "A figure in another currency is `Not supplied: reported in <unit>` unless converted at a rate "
+    "the sources state, as step 3 allows."
+)
+
+
+def test_cp1_is_told_a_figure_in_another_currency_may_be_converted_at_a_stated_rate(tmp_path):
+    text = _built_instruction(tmp_path, "CP-1", ("CP-1",))
+    assert text.count(OTHER_CURRENCY_SENTENCE) == 1
+
+
+def test_cp2d_is_sent_one_currency_rule_for_its_liquidity_tables(tmp_path):
+    text = _built_instruction(tmp_path, "CP-2D", ("CP-1", "CP-2D"))
+    assert text.count(CP2D_CURRENCY_RULE) == 1
+    method = cpos_launch.method_text("CP-2D")
+    assert method.count("Reporting Currency Amount") == 1
+
+
+# PR 46 review F1 (same ruling): T4.18 prints a facility's amounts in its own currency, so CP-2G
+# leaves a facility in another currency out of `facilities` and names each row as T4.18 does.
+# Review M1 (round 2): the name is copied exactly, so the check can match it to its T4.18 row.
+FOREIGN_FACILITY_RULE = (
+    "Copy each `name` exactly as T4.18's `Instrument` prints it. Leave out a facility whose T4.18 "
+    "`Currency` is not the block's `currency`: its debt stays in base debt at your "
+    "`interest_rate` driver."
+)
+
+
+def test_cp2g_is_told_to_leave_out_a_facility_in_another_currency(tmp_path):
+    text = _built_instruction(tmp_path, "CP-2G", ("CP-1", "CP-2G"))
+    assert text.count(FOREIGN_FACILITY_RULE) == 1
+    assert FOREIGN_FACILITY_RULE in cpos_launch.FORECAST_BLOCK
+
+
+# The same ruling: a model may copy a USD-only example onto a non-USD issuer's figures, so every
+# example shown with USD shows another currency beside it, and no text says USD is the default.
+_CODE_SPAN = re.compile(r"`([^`\n]+)`")
+_SHOWS_USD = re.compile(r"USD|US\$|\$\s?\d")
+_PROSE_USD = re.compile(r"(?<![A-Za-z])(?:USD|US\$|\$)\s?\d")
+_PROSE_OTHER = re.compile(r"(?<![A-Za-z])([A-Z]{3})\s?\d|[\u20ac\u00a3\u00a5]\s?\d")
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+|\n")
+
+
+def _names_another_currency(span):
+    from deploy_workflow.prose_checks import ISO_4217
+
+    codes = set(re.findall(r"(?<![A-Za-z])[A-Z]{3}(?![A-Z])", span))
+    return bool(codes & (ISO_4217 - {"USD"})) or re.search("[\u20ac\u00a3\u00a5]", span) is not None
+
+
+def usd_only_examples(text):
+    """Each sentence (or line) whose examples show USD and no other currency: in code spans, or
+    in prose as a USD amount; and each sentence that makes USD the default."""
+    from deploy_workflow.prose_checks import ISO_4217
+
+    found = [m[0] for m in re.finditer(r"[^.\n]*\bUSD by default\b[^.\n]*", text)]
+    for sentence in _SENTENCE_END.split(text):
+        spans = _CODE_SPAN.findall(sentence)
+        prose = _CODE_SPAN.sub(" ", sentence)
+        usd = any(_SHOWS_USD.search(s) for s in spans) or _PROSE_USD.search(prose)
+        other = any(_names_another_currency(s) for s in spans) or any(
+            m[1] in ISO_4217 - {"USD"} or not m[1] for m in _PROSE_OTHER.finditer(prose)
+        )
+        if usd and not other:
+            found.append(sentence)
+    return found
+
+
+def test_the_usd_only_example_finder_finds_what_it_should():
+    assert usd_only_examples("Write it as `USD 1,250m`. Fine.") == ["Write it as `USD 1,250m`."]
+    for flagged in (
+        "Header (`EBITDA (USD m)`).",
+        "Say `$3.2bn`.",
+        "In the currency (USD by default) millions.",
+        "No rounding (USD 6,261 million, not USD 6.3 billion).",
+        "Permits up to $200m.",
+        "Write `USD 1,250m`; ALL of it.",
+    ):
+        assert usd_only_examples(flagged) != [], flagged
+    for fine in (
+        "Write `USD 1,250m` or `GBP 1,250m`.",
+        "The money unit is `US$m` for USD, else the code and `m` (`GBPm`).",
+        "Either `$3.2bn` or `\u20ac3.2bn`.",
+        "A EUR quote against a USD one.",
+        "Its unit is `CHFk`.",
+        "Up to A$200m.",
+        "No rounding (USD 6,261 million or GBP 6,261 million, never 6.3 billion).",
+    ):
+        assert usd_only_examples(fine) == [], fine
+
+
+# Known and kept: CP-4's worked example, "Illustrative Only — Do Not Use as Issuer Data", quotes a
+# covenant provision, whose amount is in the document's own currency (byte-identical caos files,
+# REF_CP-4_STEPS.md and CP-4_RUNBOOK.md; not edited here).
+CP4_QUOTED_PROVISION = "Summary: Permits up to the greater of $200m and 100% of LTM Consolidated"
+
+
+def test_no_text_sent_to_a_model_gives_usd_as_its_only_example(tmp_path):
+    from deploy_workflow import prose_checks
+    from deploy_workflow.owners import cpos_launch_prompts
+
+    _, texts = all_instructions(tmp_path, modules=tuple(m for m in METHODS if m != "CP-8"))
+    sent = {f"instructions {m}": text for m, text in texts.items()}
+    sent |= {f"method {m}": cpos_launch.method_text(m) for m in METHODS}
+    # Blocks a pathway sends only in some runs (the forecast and period-table blocks).
+    sent |= {
+        name: value
+        for name, value in vars(cpos_launch_prompts).items()
+        if name.isupper() and isinstance(value, str)
+    }
+    sent |= {f"script note {m}": note for m, note in method_scripts.NOTES.items()}
+    # Text a repair round sends back.
+    sent |= {f"figure advice {k}": v for k, v in prose_checks.FIGURE_ADVICE.items()}
+    sent["CP-1 unit example"] = cp1_check.UNIT_EXAMPLE
+    found = {name: usd_only_examples(text) for name, text in sent.items()}
+    quoted = {name for name, f in found.items() if f and set(f) == {CP4_QUOTED_PROVISION}}
+    assert quoted == {"instructions CP-4", "method CP-4"}, "the known quote moved or went"
+    assert {name: f for name, f in found.items() if f and name not in quoted} == {}
+
+
 def test_cp1_method_files_are_archived_with_hashes_and_named_edits():
     manifest = json.loads((ROOT / "docs/reuse/selected-methods/manifest.json").read_text())
     entries = {e["archive_path"]: e for e in manifest["files"]}
@@ -2945,16 +3364,27 @@ def test_every_module_is_told_what_stands_for_acceptance_scripts_and_questions(t
 # 2026-11-15-method-script-checks.md), so runs made before it are marked "Earlier methods" for it.
 # CP-3 pin recomputed on 2026-11-15 (owner: "restore the CP-3 portfolio-fit tables"): its scope
 # section no longer names T3C.1 to T3C.3 and T3C.5 to T3C.9 (same ruling).
+# CP-1, CP-2A, CP-2D and CP-8 pins recomputed on 2026-11-16 (owner: "the sources materials will
+# contain a selected FX rate for the reporting. and that can be used to calculate it"; ruling
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md): CP-1's step file gains T4.18's
+# `Reporting Currency Amount` and `FX Rate` and step 3's currency sentence, CP-2D's
+# SKILL Canon Core rule 11, and CP-2A's stress copy and CP-8's method lose their USD-only
+# examples and default, so runs made before it are marked "Earlier methods" for these four.
+# CP-1 and CP-2D recomputed again the same day (PR 46 review F2 and F4): CP-2D's rule 11 lets a
+# foreign facility's undrawn, commitment, amortisation or maturity amount in only where CP-1
+# states it in the statements' currency, and T4.18's `FX Rate and Source` is `FX Rate`.
+# CP-1 recomputed once more the same day (PR 46 review M1): T4.18's `Currency` is the ISO 4217
+# code of the instrument's denomination.
 METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-0": "307017934f4e8e75fc432e8b7ef100bba82ce84f1bb6910f37c7e715fe701e72",
-    "CP-1": "f047d555dd9ae1284a8fbf42feb3b63096b00077c021a303357fa16ce933d493",
+    "CP-1": "cd35253a4729b5ad8c3e31087e190c30437c9ec7d3af165dae3109685536d0d0",
     "CP-1A": "9de9426a829625461dee6cf850965590c923f661ceaa57208ad9028da8796b03",
     "CP-1B": "38d9fa7b075d1ce5d0cd21bcc216f57f37369cd4db395b3f1fb65498697a509f",
     "CP-1C": "9353afdbce820f59c2dcabc951fc1ff3813174b3c84e79b47bc22bea97f3bbe8",
     "CP-1D": "d4d1ee4507d743cdb9d98bffd865ca3d012a4b4fb79a92a275cfc6a796bff453",
     "CP-2": "5cbdd1f22217b8bffcf9a276b2645a96f5eb40c05c6262d47473715eeee6cdcc",
-    "CP-2A": "ab479e6fbfecb748bdda2767345f7945c01fa719d13a76e364a13b54fb63a8b1",
-    "CP-2D": "fe39c49f842c99f6ffd390bd409cbb44adbbe397720d0a0d4d935b52a34a8fda",
+    "CP-2A": "d403599f316b985bdf9649b58cbb16bf096c20ec9210292675739afc7b86f848",
+    "CP-2D": "9cde90ae064089498cd0b2fa2476f7cba7b4cc24af4e3c45326d0ee8cdd9291e",
     "CP-2E": "ecf16c44a9a8e982af71150f83938011185e163128ed1ddbf09aba0c5740db63",
     "CP-2G": "30f8bb12685ec883e4c824ea03a53fac4c4c3afc9bd2801a2019db77740523aa",
     "CP-2H": "f500af91511584f3dda4d0dd10180766dabe19d81de7df12a99b6da2d92e89b4",
@@ -2965,7 +3395,7 @@ METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-4C": "1d96547563190f89b909c37ea47969ecb04a2c794c5971b6db8f7c94c836b1f8",
     "CP-5": "d9298b83eba40be26a7cc6ddf5d5c12558e5c5cd471e7ce39e9c3942dc27f733",
     "CP-6": "31de155b03d7632332e3f3e6f887767477b362cd1c963436afa6469b91c94b4a",
-    "CP-8": "0a0b339a9f9a284328b9a6fb50513a9bd03f2aa58dd45a387fe057b6ce2612c3",
+    "CP-8": "46f8c05ff744c2c2bb9eee94f1aceefd57588d265f7289389c189a12fc2ff41d",
     "CP-DR": "476b3e75a7b1f5d0d3349512bb220fde603988caa9cd4af5f8f62996dae0cd81",
     "CP-L10": "5b0e904dd62e1d1b341ec3d7d1717500d68ce1aee734b347e0dbbdfbe696b006",
 }
@@ -3644,7 +4074,10 @@ def test_only_the_first_three_pages_of_each_source_reach_the_guess(tmp_path, mon
     assert seen["short.md"] == ["Notes mature in 2030."]
 
 
-def test_the_declarations_do_not_change_any_instruction_byte(tmp_path):
+# Review of PR 45, finding 2: legal documents `none` now tells CP-4 its source gate. That paragraph
+# is the only byte the declarations change here: Covenant & Refinancing has no block CP-4 shares
+# with a later owner, so its routing does not move.
+def test_the_declarations_change_no_instruction_byte_but_cp4s_source_gate(tmp_path):
     def instructions(legal: str, run_type: str) -> dict[str, bytes]:
         out = tmp_path / legal / run_type
         context = declared_context(tmp_path / legal, "covenant_refinancing", legal_documents=legal)
@@ -3658,7 +4091,10 @@ def test_the_declarations_do_not_change_any_instruction_byte(tmp_path):
 
     (tmp_path / "executed").mkdir()
     (tmp_path / "none").mkdir()
-    assert instructions("executed", "research") == instructions("none", "secondary")
+    executed, none = instructions("executed", "research"), instructions("none", "secondary")
+    gate = f"{cpos_launch._SOURCE_GATE}\n\n".encode()
+    assert gate not in executed["CP-4"] and none["CP-4"].count(gate) == 1
+    assert {**none, "CP-4": none["CP-4"].replace(gate, b"")} == executed
 
 
 def without_of(prepared) -> list[dict]:
@@ -5254,7 +5690,9 @@ def test_the_instructions_ask_each_owner_for_its_own_chart_table(tmp_path, modul
     prepared, *_ = good_task(tmp_path, module)
     text = (tmp_path / "out" / prepared.plan.instructions[module].path).read_text()
     assert f"`{OWNER_HEADERS[module]}`" in text
-    constrained = module in {"CP-1", "CP-2D", "CP-3C", "CP-4C"}
+    # docs/rulings/2026-11-16-reporting-currency-from-sources.md: CP-2D, CP-3C and CP-4C use the
+    # money unit, so the "reported in <unit>" sentence no longer applies to them.
+    constrained = module in {"CP-1"}
     assert ("Not supplied: reported in <unit>" in text) is constrained
 
 
@@ -5324,7 +5762,8 @@ def bridge_table(*amounts: str, unit: str = "US$m") -> str:
 
 def bridge_issues(*amounts: str, unit: str = "US$m") -> tuple[str, ...]:
     table = cpos_launch.OWNER_TABLES["CP-2D"][0]
-    return cpos_launch.chart_issues(bridge_table(*amounts, unit=unit), table)
+    # docs/rulings/2026-11-16-reporting-currency-from-sources.md: a USD run's money unit.
+    return cpos_launch.chart_issues(bridge_table(*amounts, unit=unit), table, money="US$m")
 
 
 def test_a_bridge_reconciles_at_the_precision_the_table_states():
@@ -5658,11 +6097,13 @@ def test_an_unsupplied_scenario_is_not_required_but_the_first_is():
 
 
 def test_a_scenario_table_that_is_present_is_checked_even_when_optional():
+    # docs/rulings/2026-11-16-reporting-currency-from-sources.md: a USD run's money unit.
     text = f"### {ALLOCATION_TWO}\n\n" + synthetic_table(
         ALLOCATION_HEAD, "| Enterprise value | 1 | US$m | S. |"
     )
     assert any(
-        "opening and a closing" in i for i in cpos_launch.chart_issues(text, allocation_spec(2))
+        "opening and a closing" in i
+        for i in cpos_launch.chart_issues(text, allocation_spec(2), money="US$m")
     )
 
 
@@ -6120,13 +6561,10 @@ def test_the_currency_sentence_is_sent_only_with_a_unit_constraint():
         # CP-1's money tables state the money unit in the check block instead (C1).
         sent = bool(spec.chart_unit) and spec.chart_unit != cpos_launch.MONEY
         assert (sentence in cpos_launch._selector(spec)) is sent, spec.heading
-    bridge = next(
-        t
-        for ts in cpos_launch.OWNER_TABLES.values()
-        for t in ts
-        if t.steps and t.chart_unit != cpos_launch.MONEY
-    )
-    assert sentence in cpos_launch._selector(bridge)
+    # docs/rulings/2026-11-16-reporting-currency-from-sources.md: no owner table is a fixed-unit
+    # bridge now (they take the money unit); a ratio table still carries the sentence.
+    ratio = cpos_launch.OwnerTable("Chart data: leverage", ("Total debt / EBITDA",), "x")
+    assert sentence in cpos_launch._selector(ratio)
 
 
 def test_the_value_allocation_rules_are_sent_once_to_their_module(tmp_path):
@@ -6291,6 +6729,53 @@ def test_checker_rejects_a_reader_number_the_handoff_does_not_hold(tmp_path):
     issues = _checked_handoff(task, wrong.encode(), checker(prepared.layout))
     assert any(i.startswith("Fidelity check, line ") and '"9.87x"' in i for i in issues)
     assert not any("Prose check 9" in i for i in issues)
+
+
+# Live run, TransDigm as of 2024-09-30 (2026-11-16): CP-1D's bullet and calculation rows, exact.
+# 22,967 / 3,871 = 5.9331 and 22,967 / 4,088 = 5.6181, so the effect is 0.315x; no calculation
+# gives 0.39x, which only the note in D44's Result cell writes.
+CP1D_STOCK_BULLET = (
+    "- Stock and deferred compensation is challenged, not accepted: it is genuinely non-cash, but "
+    "it is the largest add-back at USD 217 million, recurs in every period and is part of the "
+    "compensation cost of the business. The cash-flow reconciliation confirms the non-cash "
+    "character, so it does not affect the cash test. It does affect leverage, because the restated "
+    "figure is an earnings measure; carrying it at nil in the supported figure lifts pro forma net "
+    "leverage by about 0.39x on its own relative to an add-back view."
+)
+CP1D_STOCK_ROWS = (
+    "| ID | Calculation | Inputs | Result | Period and unit | Source |\n"
+    "|---|---|---|---|---|---|\n"
+    "| D43 | Quality-adjusted EBITDA accepting stock compensation | 3871 + 217 | 4088 "
+    "| FY2024, USD millions | calculation D1 |\n"
+    "| D44 | Stock compensation effect on pro forma net leverage "
+    "| 5.9331 − 22967 / 4088 (5.6181) "
+    "| 0.3150 (about 0.39x measured against the 5.50x issuer basis less other items; see note) "
+    "| FY2024 pro forma, x | calculation D43 |"
+)
+
+
+def cp1d_stock_handoff(tmp_path, bullet: str, rows: str):
+    """A CP-1D answer with `bullet` in Key findings and `rows` after its Calculations table."""
+    prepared, task, context = good_task(tmp_path, "CP-1D")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    assert "### Key findings\n\n" in raw and "\n\n## Gaps" in raw
+    raw = raw.replace("### Key findings\n\n", f"### Key findings\n\n{bullet}\n\n", 1)
+    raw = raw.replace("\n\n## Gaps", f"\n\n{rows}\n\n## Gaps", 1)
+    return _checked_handoff(task, raw.encode(), checker(prepared.layout))
+
+
+def test_checker_sends_back_a_prose_figure_held_only_in_a_note_inside_a_table_cell(tmp_path):
+    issues = cp1d_stock_handoff(tmp_path, CP1D_STOCK_BULLET, CP1D_STOCK_ROWS)
+    assert any(i.startswith("Fidelity check, line ") and '"0.39x"' in i for i in issues), issues
+
+
+def test_checker_accepts_a_prose_figure_the_table_states_as_its_value(tmp_path):
+    bullet = CP1D_STOCK_BULLET.replace("about 0.39x", "about 0.32x")
+    note = "0.3150 (about 0.39x measured against the 5.50x issuer basis less other items; see note)"
+    assert note in CP1D_STOCK_ROWS
+    issues = cp1d_stock_handoff(tmp_path, bullet, CP1D_STOCK_ROWS.replace(note, "0.3150 (0.32x)"))
+    assert not any("0.32x" in i or "0.39x" in i for i in issues), issues
+    assert not any(i.startswith("Fidelity check") for i in issues), issues
 
 
 def test_high_modules_outside_the_run_are_refused(tmp_path, capsys):
@@ -7415,10 +7900,12 @@ NET_DEBT_PERIOD_SENTENCE = (
     "the year-end date) and the date alone (`2025-06-30`) for an interim balance sheet: one form "
     "for every row of the table, each period once, and no other word in the cell"
 )
+# Its example shows a non-USD unit beside USD
+# (docs/rulings/2026-11-16-reporting-currency-from-sources.md).
 UNIT_FORM_SENTENCE = (
     "Where a table states its unit, write it as the three-letter currency code and `millions` or "
-    "`thousands` (`USD millions`), the same in every statement table; the `Chart data:` tables "
-    "and `Net debt data` keep the unit their own rule gives."
+    "`thousands` (`USD millions` or `GBP millions`), the same in every statement table; the "
+    "`Chart data:` tables and `Net debt data` keep the unit their own rule gives."
 )
 
 
@@ -7592,10 +8079,99 @@ def test_an_unreadable_compaction_note_still_flags_the_module(tmp_path, provider
     assert main(argv) == 0
     (note,) = (tmp_path / "out/requests/CP-4").glob("*/*.compaction.json")
     note.write_text("{not json")
+    # A launch killed before its completion record: the relaunch resumes and reads the note again
+    # (a delivered run is not resumed; see the test below).
+    (completed,) = (tmp_path / "out").glob("completed-*.json")
+    completed.unlink()
     capsys.readouterr()
     assert main(argv) == 0
     out = capsys.readouterr().out
     assert "Review: CP-4 was written after GitHub Copilot summarised its context;" in out
+
+
+def test_a_delivered_run_is_finished_and_its_relaunch_delivers_nothing_again(
+    tmp_path, provider, capsys, monkeypatch
+):
+    """Delivering again added a second completion record whenever the bytes differed (a changed
+    rendering, a forecast that now passes), and the library refuses a run with two as ambiguous."""
+    argv = compacting_run(tmp_path, provider)
+    assert main(argv) == 0
+    out = tmp_path / "out"
+    (completed,) = out.glob("completed-*.json")
+    receipt = json.loads(completed.read_text())["delivery_sha256"]
+    capsys.readouterr()
+    provider.answer = lambda context: pytest.fail("a delivered run made a call")
+    monkeypatch.setattr(
+        "deploy_workflow.owners.cpos.delivery_files",
+        lambda *args: pytest.fail("a delivered run was delivered again"),
+    )
+    assert main(argv) == 0
+    printed = capsys.readouterr()
+    assert list(out.glob("completed-*.json")) == [completed]
+    (folder,) = (out / "deliveries").iterdir()
+    assert hashlib.sha256((folder / "delivery.json").read_bytes()).hexdigest() == receipt
+    assert f"Delivery: {folder / 'delivery.json'}" in printed.out
+    assert "recorded by the earlier launch of this run; no new call" in printed.err
+
+
+def test_a_second_launch_refused_at_its_settings_records_no_stop_in_the_running_runs_log(
+    tmp_path, provider, capsys
+):
+    """A second launch with other loop settings is refused at live/loop.json before the folder
+    lock; its stop, once written, ended the running module in the log (run_events.progress)."""
+    from deploy_workflow.model.run_lock import _single_writer
+
+    argv = compacting_run(tmp_path, provider)
+    assert main(argv) == 0
+    out = tmp_path / "out"
+    before = read_events(out / "events.jsonl")
+    with _single_writer(out):  # the first launch, still running
+        assert main([*argv, "--max-turns", "40"]) == 1
+    assert "identity_mismatch" in capsys.readouterr().err
+    assert read_events(out / "events.jsonl") == before
+
+
+def test_a_replay_into_a_delivered_folder_is_refused_not_passed_unchecked(tmp_path, provider):
+    """A replay checks bytes by delivering them; into a finished folder it would check nothing."""
+    from deploy_workflow.owners.cpos import run_handoffs
+
+    assert main(compacting_run(tmp_path, provider)) == 0
+    out = tmp_path / "out"
+    plan = json.loads((out / "workflow.json").read_text())
+    plan["execution"], plan["provider_cap_usd"] = "synthetic", "0"  # non-live: no provider cap
+    manifest = out / "synthetic.json"
+    manifest.write_text(json.dumps(plan))
+    answers = {
+        path.parts[-3]: path.read_bytes() for path in (out / "requests").glob("*/*/1.response.md")
+    }
+    replay = tmp_path / "replay"
+
+    def again() -> Path:
+        return run_handoffs(
+            manifest,
+            replay,
+            execute=lambda task: answers[task.module_id],
+            check=lambda task, raw: (),
+        )
+
+    assert again().is_file()
+    with pytest.raises(ValueError, match="cpos_delivered: the folder already holds its delivery"):
+        again()
+
+
+def test_a_folder_already_holding_two_completion_records_is_refused(tmp_path, provider, capsys):
+    argv = compacting_run(tmp_path, provider)
+    assert main(argv) == 0
+    (completed,) = (tmp_path / "out").glob("completed-*.json")
+    record = json.loads(completed.read_text())
+    record["cp_forecast_published"] = not record["cp_forecast_published"]
+    raw = json.dumps(record, indent=2).encode()
+    (tmp_path / "out" / f"completed-{hashlib.sha256(raw).hexdigest()}.json").write_bytes(raw)
+    capsys.readouterr()
+    assert main(argv) == 1
+    assert "cpos_delivered: the folder holds more than one completion record" in (
+        capsys.readouterr().err
+    )
 
 
 def test_a_stopped_run_still_lists_the_modules_written_after_a_compaction(
@@ -8392,31 +8968,115 @@ def test_gbp_statements_with_us_dollar_tables_are_sent_back_naming_the_money_uni
     assert any("`GBPm`" in i for i in issues), issues
 
 
-def test_another_modules_money_table_is_still_refused_in_gbpm(tmp_path):
-    prepared, task, context = good_task(tmp_path, "CP-2D")
-    raw = answer(context, list(prepared.plan.layout.routes))
-    assert "| 120 | US$m |" in raw
-    issues = _checked_handoff(
-        task, raw.replace("| 120 | US$m |", "| 120 | GBPm |").encode(), checker(prepared.layout)
-    )
-    refused = (
-        "`### Chart data: liquidity bridge` Free cash flow: a number in GBPm cannot be charted "
-        "as US$m; write `Not supplied: reported in GBPm`."
-    )
-    assert refused in issues, issues
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md: the money tables of CP-2D, CP-3C and
+# CP-4C take CP-1's money unit (K1-K5 of the PR 2 task 1 answer key).
+MONEY_TABLES = {
+    "CP-2D": ("Chart data: liquidity bridge",),
+    "CP-3C": ("Chart data: refinancing need",),
+    "CP-4C": (
+        "Chart data: value allocation \u2014 scenario 1",
+        "Chart data: value allocation \u2014 scenario 2",
+        "Chart data: value allocation \u2014 scenario 3",
+    ),
+}
+GBP_CP1 = UPSTREAM.replace(b"USD millions", b"GBP millions")
+NO_UNIT_CP1 = UPSTREAM.replace(b"USD millions", b"n/a")
 
 
-def test_only_cp1s_money_tables_say_the_money_unit_and_every_other_selector_is_unchanged():
+def money_table_issues(module, tmp_path, raw_edit, cp1):
+    fresh = tmp_path / f"run{len(list(tmp_path.iterdir()))}"  # one prepared run per call
+    fresh.mkdir()
+    prepared, _task, context = good_task(fresh, module)
+    raw = raw_edit(answer(context, list(prepared.plan.layout.routes)))
+    routes = [r for r in prepared.plan.layout.routes if r.module_id == module]
+    heads = tuple(f"### {h}" for h in MONEY_TABLES[module])
+    return [
+        i
+        for i in cpos_launch._owned_issues(module, routes, raw, cp1)
+        if any(h[4:] in i for h in heads)
+    ]
+
+
+@pytest.mark.parametrize("module", sorted(MONEY_TABLES))
+def test_a_money_table_in_gbpm_passes_a_gbp_cp1_handoff_and_is_sent_back_by_a_usd_one(
+    tmp_path, module
+):
+    def gbp_answer(raw):
+        return raw.replace("US$m", "GBPm")
+
+    assert money_table_issues(module, tmp_path, gbp_answer, GBP_CP1) == []
+    sent_back = money_table_issues(module, tmp_path, gbp_answer, UPSTREAM)
+    assert sent_back and any("`US$m`" in i for i in sent_back), sent_back
+
+
+@pytest.mark.parametrize("module", sorted(MONEY_TABLES))
+def test_a_usd_run_states_us_dollars_in_the_three_money_tables(tmp_path, module):
+    assert money_table_issues(module, tmp_path, lambda raw: raw, UPSTREAM) == []
+
+
+@pytest.mark.parametrize("module", sorted(MONEY_TABLES))
+def test_a_money_table_in_two_units_is_sent_back(tmp_path, module):
+    def two_units(raw):
+        raw = raw.replace("US$m", "GBPm")
+        head = f"### {MONEY_TABLES[module][0]}"
+        start = raw.index(head)
+        end = raw.find("\n### ", start + 1)
+        end = len(raw) if end < 0 else end
+        section = raw[start:end]
+        cut = section.rindex("GBPm")
+        return raw[:start] + section[:cut] + "EURm" + section[cut + 4 :] + raw[end:]
+
+    issues = money_table_issues(module, tmp_path, two_units, GBP_CP1)
+    assert any("EURm" in i for i in issues), issues
+
+
+@pytest.mark.parametrize("module", sorted(MONEY_TABLES))
+def test_with_no_money_unit_a_stated_number_is_sent_back_and_a_gap_table_passes(tmp_path, module):
+    stated = money_table_issues(module, tmp_path, lambda raw: raw, NO_UNIT_CP1)
+    assert stated and all(cpos_launch.NO_MONEY in i for i in stated), stated
+    gap = "Not supplied: no money unit"
+
+    def gapped(raw):
+        out = []
+        heads = {f"### {h}" for h in MONEY_TABLES[module]}
+        inside = False
+        for line in raw.splitlines():
+            inside = line in heads if line.startswith("### ") else inside
+            if inside and re.match(r"\| (?!Step|Period|---)", line):
+                cells = line.split("|")[1:-1]
+                cells = [cells[0].strip()] + [gap] * (len(cells) - 3) + ["n/a", "Synthetic."]
+                line = "| " + " | ".join(cells) + " |"
+            out.append(line)
+        return "\n".join(out)
+
+    assert money_table_issues(module, tmp_path, gapped, NO_UNIT_CP1) == []
+
+
+def test_the_three_money_tables_say_the_money_unit_and_no_other_non_cp1_selector_changed():
+    # docs/rulings/2026-11-16-reporting-currency-from-sources.md. The digest covers the selectors of
+    # every OWNER_TABLES entry of a module other than CP-1 except the three money tables (CP-2D
+    # liquidity bridge, CP-3C refinancing need, CP-4C value allocation 1-3); it is recomputed over
+    # exactly that set, which is the old set's selectors minus those five.
+    money = {h for hs in MONEY_TABLES.values() for h in hs}
     text = "\n".join(
         cpos_launch._selector(t)
         for module in sorted(cpos_launch.OWNER_TABLES)
         if module != "CP-1"
         for t in cpos_launch.OWNER_TABLES[module]
+        if t.heading not in money
     )
-    # sha256 of these selectors at HEAD c532bb3 (measured before the change, not by this code)
-    digest = "4d55db88a6eed14bb347da382d11b7f595a784faeec8466c1b50045b8712ba72"
+    digest = "e6bfd348c1203b10264690575bc35bcaf8238b92c4d05c3c633b7f28d174785d"
     assert hashlib.sha256(text.encode()).hexdigest() == digest
     assert "the money unit" not in text
+    for module, headings in MONEY_TABLES.items():
+        for table in cpos_launch.OWNER_TABLES[module]:
+            if table.heading not in headings:
+                continue
+            selector = cpos_launch._selector(table)
+            # The definition (ruling 2026-11-16) is the only place `US$m` appears.
+            bare = selector.replace(MONEY_UNIT_DEFINITION, "")
+            assert "the money unit" in selector and "US$m" not in bare, table.heading
+            assert cpos_launch.CURRENCY_RULE not in selector
     for table in cpos_launch.OWNER_TABLES["CP-1"]:
         if table.chart_unit != cpos_launch.MONEY:
             continue
@@ -8424,6 +9084,57 @@ def test_only_cp1s_money_tables_say_the_money_unit_and_every_other_selector_is_u
         assert "the money unit" in selector and "US$m" not in selector, table.heading
         assert cpos_launch.CURRENCY_RULE not in selector
     assert "The money unit is `US$m` when your statements are in USD" in cpos_launch.CP1_CHECK_BLOCK
+
+
+# CP1_CHECK_BLOCK before the money-unit fix. Re-pinned 2026-11-16 (PR 46 review F3; ruling
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md): "A figure in another currency is
+# `Not supplied: reported in <unit>`" gains "unless converted at a rate the sources state, as
+# step 3 allows"; nothing else in the block changed (was 0e1cae26d664...).
+CP1_CHECK_DIGEST = "cb7ecce133723825187343cc2e31dc30865e0635709b092394606f5147a18549"
+MONEY_UNIT_DEFINITION = (
+    "The money unit is the unit of Financial foundation's statements: `US$m` when they are in "
+    "USD, else their currency code and `m` (`GBPm`, `EURm`, `CHFm`), in millions."
+)
+
+
+@pytest.mark.parametrize("module", sorted(MONEY_TABLES))
+def test_the_instructions_of_the_three_money_modules_define_the_money_unit(tmp_path, module):
+    # docs/rulings/2026-11-16-reporting-currency-from-sources.md: only CP-1's check block defined
+    # it, so these three modules were told an undefined term.
+    prepared, *_ = good_task(tmp_path, module)
+    text = (tmp_path / "out" / prepared.plan.instructions[module].path).read_text()
+    assert text.count(MONEY_UNIT_DEFINITION) == 1
+
+
+MONEY_UNIT_FOREIGN_FACILITY = (
+    "A debt instrument in another currency enters at Financial foundation's T4.18 `Reporting "
+    "Currency Amount`; an amount it does not state in its statements' currency is `Not supplied: "
+    "<reason>`, and a total that needs it is not calculable with that reason, never partial. "
+    "Never convert at a rate of your own."
+)
+
+
+@pytest.mark.parametrize("module", sorted(MONEY_TABLES))
+def test_the_instructions_of_the_three_money_modules_say_how_a_foreign_facility_enters(
+    tmp_path, module
+):
+    # Final review M1 (docs/rulings/2026-11-16-reporting-currency-from-sources.md): CP-3C and
+    # CP-4C were never told, and CP-3C's method says to convert upstream.
+    prepared, *_ = good_task(tmp_path, module)
+    text = (tmp_path / "out" / prepared.plan.instructions[module].path).read_text()
+    assert text.count(MONEY_UNIT_FOREIGN_FACILITY) == 1
+    assert text.count(MONEY_UNIT_DEFINITION + " " + MONEY_UNIT_FOREIGN_FACILITY) == 1
+
+
+def test_cp1_check_block_is_unchanged_by_the_money_unit_definition():
+    assert MONEY_UNIT_DEFINITION not in cpos_launch.CP1_CHECK_BLOCK
+    # The same ruling's method-text change (branch claude/reporting-currency-method-text) widened
+    # only the block's unit example, `USD millions` to `UNIT_EXAMPLE`; put back, the block is the
+    # one pinned.
+    shown = f"({cp1_check.UNIT_EXAMPLE})"
+    assert cpos_launch.CP1_CHECK_BLOCK.count(shown) == 1
+    before = cpos_launch.CP1_CHECK_BLOCK.replace(shown, "(`USD millions`)")
+    assert hashlib.sha256(before.encode()).hexdigest() == CP1_CHECK_DIGEST
 
 
 def test_a_non_usd_reporting_currency_no_longer_limits_the_chart_strip():

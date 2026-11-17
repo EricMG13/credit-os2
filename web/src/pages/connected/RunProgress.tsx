@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Alert } from "@/components/alert/Alert";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
 import { Card } from "@/components/card/Card";
@@ -31,6 +32,7 @@ const WORDS = {
   rejected: "Rejected",
   interrupted: "Interrupted",
 } as const satisfies Record<RunStatus, string>;
+const RESTARTABLE: readonly RunStatus[] = ["failed", "capped", "rejected", "interrupted"];
 
 export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
   const [run, setRun] = useState<Run>();
@@ -78,7 +80,7 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
     };
   }, [id]);
 
-  const restartable = run && ["failed", "capped", "rejected", "interrupted"].includes(run.status);
+  const restartable = run && RESTARTABLE.includes(run.status);
   const live = run?.status === "queued" || run?.status === "running";
   const lines = run ? feedLines(run) : [];
   return (
@@ -125,6 +127,11 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
       {run ? (
         <section aria-label="Run activity" className="mt-6 grid gap-6">
           {run.reason && <ErrorNotice>{run.reason}</ErrorNotice>}
+          {live && run.held_reason && (
+            <Alert tone="warning" title="Held by the service">
+              {run.held_reason}
+            </Alert>
+          )}
           {run.stalled && (
             <p className="text-sm text-text-secondary">
               No activity has been recorded in the last hour.

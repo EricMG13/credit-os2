@@ -6,8 +6,9 @@ const metricLabels = [
   ["net_leverage", "Net leverage"],
   ["leverage", "Gross leverage"],
   ["coverage", "Interest coverage"],
+  ["revenue", "Revenue"],
+  ["adjusted_ebitda", "Adjusted EBITDA"],
   ["cash", "Cash"],
-  ["undrawn", "Undrawn facilities"],
 ] as const;
 
 export function HeadlineFigures({ catalogue }: { catalogue?: CatalogueRun }) {

@@ -14,6 +14,7 @@ from urllib.parse import SplitResult, parse_qs, unquote
 
 from deploy_workflow import http_base
 from deploy_workflow.inbox.layout import Layout
+from deploy_workflow.inbox import teams
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.run_start import service
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
@@ -396,8 +397,10 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     context = json.loads((PROJECT / "cases/context/research-minimal.json").read_bytes())
     if synthetic:
         context["run"]["case_kind"] = "synthetic"
-    settings = (
-        Settings(root) if launcher is None else Settings(root, launcher=launcher, poll_seconds=0.2)
+    settings = (  # Teams cards are for real runs only: a synthetic service never posts
+        Settings(root, teams=teams.config_from_environment(teams.CONNECTED_PAGES))
+        if launcher is None
+        else Settings(root, launcher=launcher, poll_seconds=0.2)
     )
     scheduler = Scheduler(settings)
     try:

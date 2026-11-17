@@ -2,8 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { OutputEntry } from "../publishedReport";
 import { Securities, securityView } from "./Securities";
 
-function basis(date: string) {
-  return `All amounts USD millions unless stated; yields are percentages from last trades on ${date}; differences in yield are percentage points, shown in bp.`;
+function basis(date: string, amounts = "USD millions") {
+  return `All amounts ${amounts} unless stated; yields are percentages from last trades on ${date}; differences in yield are percentage points, shown in bp.`;
 }
 
 function dataset(when: string, marketBasis: string[]): OutputEntry {
@@ -121,3 +121,61 @@ it("keeps an unlocated price in its card without using it in the comparison", ()
   expect(view?.chartable.map(({ name }) => name)).toEqual(["Unsecured notes"]);
   expect(view?.records[0]?.market).toContain("$99.00");
 });
+
+// docs/rulings/2026-11-16-reporting-currency-from-sources.md: the quotes stay US market quotes.
+it.each([
+  ["GBPm", "Market levels are US market quotes in US dollars; this run reports in £m."],
+  ["CHFm", "Market levels are US market quotes in US dollars; this run reports in CHF m."],
+])("notes on a %s run that its market levels are US market quotes", (runUnit, text) => {
+  const view = securityView(dataset("1 Oct 2026", [basis("2026-10-01")]), "2026-10-02");
+  if (!view) throw new Error("missing security review");
+  render(
+    <Securities data={view} href={(line) => `#evidence/5-${String(line)}`} runUnit={runUnit} />,
+  );
+  expect(screen.getByText(text)).toHaveAttribute("role", "note");
+  expect(screen.getByRole("figure", { name: "Last-trade prices and yields" })).toBeInTheDocument();
+});
+
+it.each([["US$m"], [undefined]])("adds no quote note on a run in %s", (runUnit) => {
+  const view = securityView(dataset("1 Oct 2026", [basis("2026-10-01")]), "2026-10-02");
+  if (!view) throw new Error("missing security review");
+  render(
+    <Securities data={view} href={(line) => `#evidence/5-${String(line)}`} runUnit={runUnit} />,
+  );
+  expect(screen.queryByText(/US market quotes/)).toBeNull();
+  expect(screen.queryAllByRole("note")).toEqual([]);
+});
+
+// docs/rulings/2026-11-16-reporting-currency-from-sources.md: CP-3 states its amounts in the run's
+// currency; its last trades are still US market quotes in US dollars.
+it.each(["GBP millions", "CHF millions", "EUR millions"])(
+  "draws the price chart from a market basis whose amounts are in %s",
+  (amounts) => {
+    const view = securityView(dataset("1 Oct 2026", [basis("2026-10-01", amounts)]), "2026-10-02");
+    if (!view) throw new Error("missing security review");
+    expect(
+      view.chartable.map(({ name, priceText, yieldText }) => [name, priceText, yieldText]),
+    ).toEqual([
+      ["Secured notes", "$99.00", "7.005000%"],
+      ["Unsecured notes", "$89.00", "9.12%"],
+    ]);
+    render(
+      <Securities data={view} href={(line) => `#evidence/5-${String(line)}`} runUnit="GBPm" />,
+    );
+    expect(
+      screen.getByRole("figure", { name: "Last-trade prices and yields" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("The handoff does not supply a pair of comparable last trades."),
+    ).toBeNull();
+  },
+);
+
+it.each(["GBP thousands", "£ millions", "GBPm", "gbp millions", "GBP millions and EUR millions"])(
+  "withholds the price chart when the amounts are stated as %s",
+  (amounts) => {
+    const view = securityView(dataset("1 Oct 2026", [basis("2026-10-01", amounts)]), "2026-10-02");
+    expect(view?.chartable).toEqual([]);
+    expect(view?.records).toHaveLength(3);
+  },
+);

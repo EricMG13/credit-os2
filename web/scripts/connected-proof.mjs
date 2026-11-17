@@ -153,12 +153,14 @@ async function checkMobileDocuments(page, channel, paidPreview) {
 async function uploadRunDocuments(page) {
   await page.getByLabel("Issuer name", { exact: true }).fill("Northbridge Synthetic Group");
   await page.getByLabel("As-of date", { exact: true }).fill("2025-03-31");
+  await page.getByLabel("Your name", { exact: true }).fill("Ana L");
   const files = [
     ["northbridge-filing.txt", "text/plain"],
     [
       "northbridge-portfolio.xlsx",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ],
+    ["northbridge-credit-agreement.txt", "text/plain"],
   ];
   const uploaded = files.map(([name]) =>
     page.waitForResponse(
@@ -223,6 +225,7 @@ async function checkOverviewMobile(report, page, channel) {
       main: main ? over(main) : true,
     };
   });
+  assert.ok(fits.cards > 0, "no headline card was found on the Overview");
   assert.equal(fits.wide, 0, "a headline card overflows at 375px");
   assert.equal(fits.main, false, "the main region overflows at 375px");
   console.log(`overview mobile: ${String(fits.cards)} headline cards fit at 375px`);
@@ -253,6 +256,12 @@ async function approveRunInputs(page, paidPreview) {
   await page
     .getByRole("combobox", { name: "Portfolio workbook", exact: true })
     .selectOption({ label: "northbridge-portfolio.xlsx" });
+  await page
+    .getByRole("combobox", { name: "Legal documents", exact: true })
+    .selectOption("executed");
+  await page
+    .getByRole("combobox", { name: "The agreement", exact: true })
+    .selectOption({ label: "northbridge-credit-agreement.txt" });
   const ratings = page.getByRole("region", { name: "Ratings", exact: true });
   await ratings.getByRole("button", { name: "Add rating", exact: true }).click();
   await ratings.getByLabel("Agency", { exact: true }).selectOption("Moody's");

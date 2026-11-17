@@ -21,7 +21,7 @@ import unicodedata
 import uuid
 from collections.abc import Collection
 from decimal import Decimal
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, BinaryIO, TypedDict
 
 from deploy_vii.contracts import PATHWAY_CAP_USD
@@ -31,6 +31,7 @@ from deploy_workflow.inbox.layout import MAX_ISSUER_ID, Layout
 from deploy_workflow.inbox.runs import EFFORTS, MODELS, config_for
 from deploy_workflow.inbox.startup import STANDING_RULING
 from deploy_workflow.model.adapter import KEY_VARIABLES
+from deploy_workflow.model.handoff import settled_web_lookup
 from deploy_workflow.owners.cpos import web_search_run
 from deploy_workflow.owners.cpos_launch import (
     NO_PRIOR,
@@ -62,6 +63,11 @@ _MODULE_NAME_AT_MOST = 12
 _TURNS = (1, 64)
 _LEVELS = ("basic", "standard", "advanced")
 _SUBMITTER_AT_MOST = 80
+_INITIALS_AT_MOST = 2
+ANALYST_NAME_RULE = (
+    "Enter your name as your first name and initial, for example Eric G, "
+    "or two initials, for example Eric MG."
+)
 _KEYS = {"context", "modules", "max_turns", "level", "submitted_by", "model", "effort"}
 DEFAULT_MODEL, DEFAULT_EFFORT = "gpt", "balanced"  # the only pair below the Advanced level
 _ADVANCED = "advanced"
@@ -118,9 +124,24 @@ def validated(answers: object) -> Answers:
     if chosen and answers["level"] != _ADVANCED:
         raise Refused("the model and effort can be changed only at the Advanced level")
     by = answers["submitted_by"]
-    if not isinstance(by, str) or len(by) > _SUBMITTER_AT_MOST:
-        raise Refused(f"submitted_by is text of at most {_SUBMITTER_AT_MOST} characters")
+    if not isinstance(by, str) or len(by) > _SUBMITTER_AT_MOST or not is_analyst_name(by):
+        raise Refused(ANALYST_NAME_RULE)
     return answers  # type: ignore[return-value]
+
+
+def is_analyst_name(text: str) -> bool:
+    """Whether ``text`` is a first name, one space, then one or two capital initials: ``Eric G``,
+    or ``Eric MG`` where two analysts would otherwise read the same (owner, 2026-11-16). The
+    first name is letters, with single hyphens or apostrophes (straight or curly) inside it. The
+    start page's own check is the same rule (web/src/pages/connected/start/analystName.ts)."""
+    first, space, initials = text.partition(" ")
+    pieces = first.replace("'", "-").replace("\u2019", "-").split("-")
+    return (
+        bool(space)
+        and all(piece.isalpha() for piece in pieces)
+        and 1 <= len(initials) <= _INITIALS_AT_MOST
+        and all(letter.isalpha() and letter.isupper() for letter in initials)
+    )
 
 
 def require_provider_key(answers: Answers) -> None:
@@ -211,6 +232,29 @@ def unseal(layout: Layout, sid: str) -> None:
             os.rename(folder / "sealed", folder / "files")
 
 
+_NAME_AT_MOST = 80  # safe_name's own limit
+_SUFFIX_AT_MOST = 10
+_HASH_CHARS = 8
+
+
+def _kept_suffix(original: str) -> str:
+    """``safe_name`` of the last part, with its suffix kept and made unique when it is cut.
+
+    ``safe_name`` cuts at 80 characters and so removes ``.pdf``, which the launcher needs, and
+    gives two long names with one beginning one stored name. A name that would be cut becomes
+    ``<stem>-<8 hex of the original's SHA-256><suffix>``, 80 characters at most. A name that
+    would not be cut is returned as ``safe_name`` gives it."""
+    full = safe_name(original, limit=10**6)
+    if len(full) <= _NAME_AT_MOST:
+        return full
+    suffix = safe_name(PurePath(original).suffix, limit=10**6)
+    if not suffix.startswith(".") or len(suffix) > _SUFFIX_AT_MOST:
+        suffix = ""
+    tag = hashlib.sha256(original.encode("utf-8")).hexdigest()[:_HASH_CHARS]
+    room = _NAME_AT_MOST - len(suffix) - len(tag) - 1
+    return f"{full.removesuffix(suffix)[:room].rstrip('. ')}-{tag}{suffix}"
+
+
 def _parts(name: str) -> list[str]:
     """The safe parts of an uploaded name, or ``Refused``."""
     if not isinstance(name, str) or not name:
@@ -228,6 +272,7 @@ def _parts(name: str) -> list[str]:
         if part.strip() in ("", ".", ".."):
             raise Refused(f"{name!r} has an empty, '.' or '..' part")
     parts = [safe_name(part) for part in raw]
+    parts[-1] = _kept_suffix(raw[-1])
     if len(parts) == 1 and parts[0].casefold() == _CONTEXT_NAME:
         raise Refused("context.json is made from the answers, not uploaded")
     return parts
@@ -796,12 +841,20 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
                 "documents": list(prepared.documents),
                 "ignored": list(prepared.ignored),
                 "omitted": list(prepared.omitted),
+                "omitted_titles": list(prepared.omitted_titles),
                 "changes": prepared.changes.removeprefix("changes: "),
                 # The launcher's own statement for this prepared run, under the setting Submit
                 # launches with: `runs.command` passes no --web-lookup or --web-host, so the
                 # default rule, no case hosts and the run folder not yet started. The SEC line
                 # names the variable, never its value.
                 "lookup": list(_lookup_lines(prepared, "default", (), os.environ)),
+                # Whether the research module will have the lookup tools (fetch_page, the SEC
+                # tools) in that run: the launcher's own rule under the same setting, so the
+                # review can say what a lookup sends (finance.yahoo.com sees the ticker).
+                "web_lookup": settled_web_lookup(
+                    "default", prepared.ordered, prepared.plan.run.case_kind, None
+                )
+                == "on",
                 # Whether the research module searches the web, from the launcher's own rule
                 # (`web_search_on`, the one behind its `Web:` line), for the review to state.
                 "web_search": web_search_on(prepared, config, STANDING_RULING),

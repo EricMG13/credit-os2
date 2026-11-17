@@ -17,14 +17,14 @@ from deploy_workflow.library_index import Refused, read_inside
 from deploy_workflow.model.budget import BudgetError, exact_sum, read_reservation_snapshot
 from deploy_workflow.model.pricing import money_text
 from deploy_workflow.owners.cpos_launch import METHODS
-from deploy_workflow.run_events import EVENTS, read_events
+from deploy_workflow.run_events import EVENTS, progress, read_events
 
 _MODULE_EVENTS = frozenset({"module_started", "module_accepted", "draft_rejected"})
 _RUN_EVENTS = frozenset(
     {"delivery_started", "delivered", "stopped", "changes_not_produced", "model_not_published"}
 )
 _FEED_LIMIT = 80
-_ENDED = ("failed", "capped", "rejected", "interrupted")
+_ENDED: tuple[runs.Status, ...] = ("failed", "capped", "rejected", "interrupted")
 _ENDED_SHOWN = 20
 _PUBLISHED = "window.RUN_ACTIVITY="  # how deploy_workflow.inbox.activity.write opens the file
 _EXECUTIONS = frozenset({"host-session", "retained-response-replay", "synthetic", "live-provider"})
@@ -84,6 +84,17 @@ def _feed(directory: Path, modules: set[str]) -> list[dict[str, str]] | None:
         if isinstance(raw, dict) and (item := _milestone(raw, modules)) is not None
     ]
     return milestones[-_FEED_LIMIT:]
+
+
+def _log_ended(directory: Path) -> bool:
+    """Whether the run's log shows its launch ended: delivered, or a stop no later start followed.
+    Read from the log, not the process: probing a PID the scheduler's ``Popen`` tracks could reap
+    it and take its exit status (``runs.alive``)."""
+    try:
+        state = progress(e for e in read_events(directory / EVENTS) if isinstance(e, dict))
+    except (OSError, ValueError):
+        return False  # display only: no readable log is no sign of an end
+    return state.delivered or state.stop is not None
 
 
 def _manifest(directory: Path) -> dict[str, Any]:
@@ -221,8 +232,9 @@ def listing(layout: Layout) -> http_base.Reply:
     it: it tells the operator which file to look at.
     """
     # Documented fail-open (display only): a record file that cannot be read, or whose text fields
-    # are not strings, is left out of the list and counted in ``unreadable``; the scheduler still
-    # refuses such a file through ``runs.load_all``.
+    # are not strings, is left out of the list and counted in ``unreadable``. The scheduler skips a
+    # file it cannot read (one slot, one daily start, a ``held`` note); a record whose text fields
+    # are not strings it tracks like any other.
     readable, bad_files = runs.load_readable(layout)
     saved = [item for item in readable if _texts_are_strings(item)]
     unreadable = len(bad_files) + len(readable) - len(saved)
@@ -314,6 +326,12 @@ def reply(layout: Layout, run_id: str) -> http_base.Reply:
             "cap": _cap(manifest, shown.get("cap")),
             **usage,
             "stalled": shown.get("stalled", False),
+            # The listing's `held` (`held` here is the reserved amount, from `_usage`), for a run
+            # that waits on the service: queued, or kept "running" after its log ended (a
+            # library that could not be rebuilt); none for a run that is running.
+            "held_reason": _shown(layout, _held(layout))
+            if record.status == "queued" or (record.status == "running" and _log_ended(directory))
+            else "",
             "modules": modules,
             "events": _feed(directory, {code for code, _ in modules}),
         },

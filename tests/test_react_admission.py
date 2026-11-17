@@ -2,6 +2,7 @@
 
 import copy
 import json
+import unicodedata
 from urllib.parse import quote
 
 from deploy_workflow.inbox import runs
@@ -107,3 +108,78 @@ def test_retained_unicode_folder_and_snapshot_share_admission(hosted):
     assert request(hosted, "/connected/report/managed")[0] == 404
     for folder in ("..", "../managed", "managed/other"):
         assert request(hosted, "/connected/report/" + quote(folder, safe=""))[0] == 404
+
+
+def _run_of(folder):
+    return {"folder": folder, "modules": {"CP-1": {"outputs": [f"{folder}/o"]}}}
+
+
+def test_an_unreadable_record_hides_its_own_run_and_nothing_else(hosted):
+    layout = hosted.scheduler.layout
+    for run_id, status in (("a-finished", "finished"), ("b-running", "running")):
+        runs.save(layout, runs.Record(run_id, "credit_snapshot", run_id, status, ""))
+    bad = layout.state / "x-bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    before, stamp = bad.read_bytes(), bad.stat().st_mtime_ns
+    folders = ("a-finished", "b-running", "x-bad")
+    source = {
+        "catalogue": {"real": [{"id": f} for f in folders]},
+        "workspace": {
+            "runs": {f: _run_of(f) for f in folders},
+            "outputs": {f"{f}/o": {"run": f, "sha256": f"h-{f}"} for f in folders},
+            "handoffs": {},
+            "models": [],
+        },
+        "chips": {},
+    }
+    visible = admitted(source, layout)
+    assert set(visible["workspace"]["runs"]) == {"a-finished"}
+    assert [r["id"] for r in visible["catalogue"]["real"]] == ["a-finished"]
+    assert set(visible["workspace"]["outputs"]) == {"a-finished/o"}
+    assert (bad.read_bytes(), bad.stat().st_mtime_ns) == (before, stamp)
+
+
+def test_an_unreadable_record_hides_a_folder_whose_name_differs_only_in_case(hosted):
+    layout = hosted.scheduler.layout
+    (layout.state / "A-Run.json").write_text("{not json", encoding="utf-8")
+    folders = ("a-run", "other")
+    source = {
+        "catalogue": {"real": [{"id": f} for f in folders]},
+        "workspace": {
+            "runs": {f: _run_of(f) for f in folders},
+            "outputs": {f"{f}/o": {"run": f, "sha256": f"h-{f}"} for f in folders},
+            "handoffs": {},
+            "models": [],
+        },
+        "chips": {},
+    }
+    visible = admitted(source, layout)
+    assert set(visible["workspace"]["runs"]) == {"other"}
+    assert [r["id"] for r in visible["catalogue"]["real"]] == ["other"]
+
+
+def _hidden_by(bad_stem: str, folder: str, hosted) -> set[str]:
+    layout = hosted.scheduler.layout
+    (layout.state / f"{bad_stem}.json").write_text("{not json", encoding="utf-8")
+    source = {
+        "catalogue": {"real": [{"id": folder}, {"id": "other"}]},
+        "workspace": {
+            "runs": {f: _run_of(f) for f in (folder, "other")},
+            "outputs": {},
+            "handoffs": {},
+            "models": [],
+        },
+        "chips": {},
+    }
+    return set(admitted(source, layout)["workspace"]["runs"])
+
+
+def test_a_decomposed_bad_stem_hides_a_composed_folder_name(hosted):
+    composed = unicodedata.normalize("NFC", "café-1")
+    decomposed = unicodedata.normalize("NFD", "café-1")
+    assert composed != decomposed
+    assert _hidden_by(decomposed, composed, hosted) == {"other"}
+
+
+def test_a_lower_case_bad_stem_hides_an_upper_case_folder_name(hosted):
+    assert _hidden_by("abc-3", "ABC-3", hosted) == {"other"}

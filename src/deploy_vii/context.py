@@ -77,7 +77,11 @@ class RunSettings(Contract):
     as_of: str
     current_period: str
     prior_period: str
-    reporting_currency: str
+    # Optional and not asked (docs/rulings/2026-11-16-reporting-currency-from-sources.md): the run's
+    # currency is the one CP-1's statements print. "" = not stated; omitted on dump like cutoff,
+    # so a context without the field round-trips unchanged. A value given still has to be three
+    # uppercase letters.
+    reporting_currency: str = ""
     # Absent = the as-of date (O7b-2 D9). The empty string is the absent value: the serializer
     # omits it, and a file without the field reads back as "", so an explicit "" and an absent
     # field are one value and round-trip to a file without the field (O7b-2 S1 review).
@@ -91,6 +95,8 @@ class RunSettings(Contract):
         dumped: dict[str, Any] = handler(self)
         if self.cutoff == "":
             dumped.pop("cutoff", None)
+        if self.reporting_currency == "":
+            dumped.pop("reporting_currency", None)
         return dumped
 
 
@@ -567,7 +573,7 @@ class _Rules:
             self.earnings_periods(a, b)
         if a and b and a[0] == b[0] and (b[2] > a[2] or (b[2] == a[2] and b[1] >= a[1])):
             self.bad("run.prior_period", "must be earlier than the current period.")
-        self.currency("run.reporting_currency", run.reporting_currency, req=True)
+        self.currency("run.reporting_currency", run.reporting_currency)
 
     def earnings_periods(
         self, current: tuple[str, int, int] | None, prior: tuple[str, int, int] | None

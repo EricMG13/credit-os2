@@ -3,7 +3,14 @@ import { afterEach, expect, it, vi } from "vitest";
 import { ReportReader } from "./ReportLibrary";
 import { IdentityBand } from "./report/IdentityBand";
 import { readerText } from "./publishedReport";
-import type { Block, OutputEntry, PublishedRun, Section, Snapshot } from "./publishedReport";
+import type {
+  Block,
+  CatalogueRating,
+  OutputEntry,
+  PublishedRun,
+  Section,
+  Snapshot,
+} from "./publishedReport";
 
 const GAP_DESCRIPTION = "Business description not in this run";
 const GAP_RATINGS = "Ratings not entered for this run";
@@ -353,4 +360,197 @@ it("gives a rating with no date no title", async () => {
     }),
   );
   expect(el.querySelector("li")?.hasAttribute("title")).toBe(false);
+});
+
+const NOTE = "Ratings & triggers shows a different rating for";
+const HEAD = ["Agency", "Issuer/instrument", "Rating", "Outlook/watch", "Effective date"];
+const evidenceRegister = (rows: string[][], heading = "T2R.1 Rating evidence register") =>
+  section(heading, 30, [table(32, HEAD, rows)]);
+const ratingsEntry = (sections: Section[], state?: { established: boolean }) =>
+  ({
+    selected: true,
+    output: { module: "CP-2H", id: "y", label: "CP-2H", state },
+    sections,
+  }) as unknown as OutputEntry;
+const entered = (agency: string, label: string): CatalogueRating => ({
+  label,
+  agency,
+  scope: "issuer",
+  outlook: "Negative",
+  date: "2025-01-01",
+});
+const bandWith = (entry: OutputEntry | undefined, rated: CatalogueRating[]) => {
+  render(
+    <IdentityBand
+      catalogue={{ ...emptyCatalogue, ratings: rated }}
+      folder="f"
+      entries={entry ? [entry] : []}
+    />,
+  );
+  return screen.getByRole("region", { name: "Company" });
+};
+const moody = [entered("Moody's", "B1")];
+
+it("notes a different rating for the agency, links to the module, keeps the entered rating", () => {
+  const el = bandWith(
+    ratingsEntry([
+      evidenceRegister([["Moody's", "Issuer", "B2", "Negative", "2025-01-10", "a source"]]),
+    ]),
+    moody,
+  );
+  expect(within(el).getByText(`${NOTE} Moody's`)).toBeVisible();
+  const link = within(el).getByRole("link", { name: `${NOTE} Moody's` });
+  expect(link.getAttribute("href")).toMatch(/#modules\/CP-2H$/);
+  expect(within(el).getByText("B1")).toBeVisible();
+  expect(el.textContent).not.toContain("B2");
+  expect(el.textContent).not.toContain("CP-2H");
+});
+
+it("draws no note when the rating matches after case and spacing", () => {
+  const el = bandWith(
+    ratingsEntry([evidenceRegister([["moody's", "Issuer", " b1 ", "Negative", ""]])]),
+    moody,
+  );
+  expect(within(el).queryByText(new RegExp(NOTE))).toBeNull();
+});
+
+it("draws no note when any row for the agency has the entered rating", () => {
+  const el = bandWith(
+    ratingsEntry([
+      evidenceRegister([
+        ["Moody's", "Instrument", "B2", "", ""],
+        ["Moody's", "Issuer", "B1", "", ""],
+      ]),
+    ]),
+    moody,
+  );
+  expect(within(el).queryByText(new RegExp(NOTE))).toBeNull();
+});
+
+it("names every differing agency, in entered order, once", () => {
+  const el = bandWith(
+    ratingsEntry([
+      evidenceRegister([
+        ["Moody's", "Issuer", "B2", "", ""],
+        ["S&P", "Issuer", "B", "", ""],
+      ]),
+    ]),
+    [entered("Moody's", "B1"), entered("S&P", "B+")],
+  );
+  expect(within(el).getAllByText(new RegExp(NOTE))).toHaveLength(1);
+  expect(within(el).getByText(`${NOTE} Moody's, S&P`)).toBeVisible();
+});
+
+it("draws no note for an agency absent from the register, without CP-2H, or when it is blocked", () => {
+  const fitch = ratingsEntry([evidenceRegister([["Fitch", "Issuer", "B", "", ""]])]);
+  expect(within(bandWith(fitch, moody)).queryByText(new RegExp(NOTE))).toBeNull();
+  cleanup();
+  expect(within(bandWith(undefined, moody)).queryByText(new RegExp(NOTE))).toBeNull();
+  cleanup();
+  const closed = ratingsEntry([evidenceRegister([["Moody's", "Issuer", "B2", "", ""]])], {
+    established: false,
+  });
+  expect(within(bandWith(closed, moody)).queryByText(new RegExp(NOTE))).toBeNull();
+});
+
+it("recognises the register heading the way the back end does", () => {
+  const rows = [["Moody's", "Issuer", "B2", "", ""]];
+  const noted = (heading: string) => {
+    const el = bandWith(ratingsEntry([evidenceRegister(rows, heading)]), moody);
+    const found = within(el).queryByText(new RegExp(NOTE)) !== null;
+    cleanup();
+    return found;
+  };
+  expect(noted("1. **T2R.1** — Rating evidence register")).toBe(true);
+  expect(noted("`T2R.1` Rating evidence")).toBe(true);
+  expect(noted("T2R.10 Rating evidence register")).toBe(false);
+  expect(noted("T2R.1.2 Rating evidence register")).toBe(false);
+  expect(noted("Rating evidence register")).toBe(false);
+});
+
+it("draws no note when two sections match the register", () => {
+  const rows = [["Moody's", "Issuer", "B2", "", ""]];
+  const el = bandWith(
+    ratingsEntry([evidenceRegister(rows), evidenceRegister(rows, "T2R.1 again")]),
+    moody,
+  );
+  expect(within(el).queryByText(new RegExp(NOTE))).toBeNull();
+});
+
+const FULL_HEAD = [
+  "agency",
+  "issuer/instrument",
+  "rating",
+  "outlook/watch",
+  "effective date",
+  "source",
+  "locator",
+  "status",
+];
+const fullRow = (agency: string, level: string, rating: string) => [
+  agency,
+  level,
+  rating,
+  "",
+  "",
+  "",
+  "",
+  "",
+];
+const fullRegister = (rows: string[][], head = FULL_HEAD) =>
+  ratingsEntry([section("T2R.1 Rating evidence register", 30, [table(32, head, rows)])]);
+const facility = (agency: string, label: string): CatalogueRating => ({
+  ...entered(agency, label),
+  scope: "facility",
+});
+const noteCount = (el: HTMLElement) => within(el).queryAllByText(new RegExp(NOTE)).length;
+
+it("compares only the issuer rating, never a facility entry", () => {
+  const el = bandWith(fullRegister([fullRow("Moody's", "Issuer (CFR)", "B1")]), [
+    entered("Moody's", "B1"),
+    facility("Moody's", "B2"),
+  ]);
+  expect(noteCount(el)).toBe(0);
+});
+
+it("draws no note when the register lists only instrument rows for the agency", () => {
+  const el = bandWith(fullRegister([fullRow("Moody's", "Senior secured notes", "B2")]), moody);
+  expect(noteCount(el)).toBe(0);
+});
+
+it("treats a qualified register rating as equal by its first word", () => {
+  const el = bandWith(
+    fullRegister([fullRow("Moody's", "Corporate family rating", "B1 (CFR)")]),
+    moody,
+  );
+  expect(noteCount(el)).toBe(0);
+});
+
+it("notes a difference when the issuer row differs, even if an instrument row matches", () => {
+  const el = bandWith(
+    fullRegister([
+      fullRow("Moody's", "Issuer", "B2"),
+      fullRow("Moody's", "Senior secured notes", "B1"),
+    ]),
+    moody,
+  );
+  expect(within(el).getByText(`${NOTE} Moody's`)).toBeVisible();
+});
+
+it("names an agency once when two issuer entries both differ", () => {
+  const el = bandWith(fullRegister([fullRow("Moody's", "Issuer", "B2")]), [
+    entered("Moody's", "B1"),
+    entered("Moody's", "Ba3"),
+  ]);
+  expect(within(el).getByText(`${NOTE} Moody's`)).toBeVisible();
+});
+
+it("draws no note for a facility-only entry against an issuer register row", () => {
+  const el = bandWith(fullRegister([fullRow("S&P", "Issuer", "B")]), [facility("S&P", "B+")]);
+  expect(noteCount(el)).toBe(0);
+});
+
+it("draws no note when the register has no issuer/instrument column", () => {
+  const el = bandWith(fullRegister([["Moody's", "B2"]], ["agency", "rating"]), moody);
+  expect(noteCount(el)).toBe(0);
 });

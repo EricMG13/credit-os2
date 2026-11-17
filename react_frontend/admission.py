@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from deploy_workflow.inbox import runs
@@ -15,12 +16,22 @@ def admitted(snapshot: dict[str, Any], layout: Layout) -> dict[str, Any]:
     A publication alone therefore cannot establish completion for a managed run.
     Historical library folders without a scheduler record retain native admission.
     """
-    unfinished = {record.id for record in runs.load_all(layout) if record.status != "finished"}
+    readable, unreadable = runs.load_readable(layout)
+    # Fail closed for the run of an unreadable record file: its stem is the run ID, and a run whose
+    # acceptance cannot be read is not shown. Every other publication stays visible.
+    unfinished = {record.id for record in readable if record.status != "finished"}
+    unreadable_stems = {runs.name_key(Path(name).stem) for name in unreadable}
+
+    def hidden(name: Any) -> bool:
+        # A library folder is the run ID; a file system may fold its case, so an unreadable file's
+        # stem hides a folder of any case. Readable records' IDs are compared as stored.
+        return name in unfinished or (
+            isinstance(name, str) and runs.name_key(name) in unreadable_stems
+        )
+
     workspace = snapshot["workspace"]
-    published = {
-        key: run for key, run in workspace["runs"].items() if run["folder"] not in unfinished
-    }
-    if not unfinished:
+    published = {key: run for key, run in workspace["runs"].items() if not hidden(run["folder"])}
+    if not unfinished and not unreadable_stems:
         return snapshot
     output_ids = {
         output
@@ -38,7 +49,7 @@ def admitted(snapshot: dict[str, Any], layout: Layout) -> dict[str, Any]:
         **snapshot,
         "catalogue": {
             **snapshot["catalogue"],
-            "real": [run for run in snapshot["catalogue"]["real"] if run["id"] not in unfinished],
+            "real": [run for run in snapshot["catalogue"]["real"] if not hidden(run["id"])],
         },
         "workspace": {
             **workspace,
@@ -50,7 +61,7 @@ def admitted(snapshot: dict[str, Any], layout: Layout) -> dict[str, Any]:
             "models": [
                 model
                 for model in workspace.get("models", [])
-                if model.get("runId") not in unfinished and model.get("runFolder") not in unfinished
+                if not hidden(model.get("runId")) and not hidden(model.get("runFolder"))
             ],
         },
         "chips": {

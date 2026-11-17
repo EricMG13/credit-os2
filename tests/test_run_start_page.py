@@ -95,6 +95,7 @@ const issuer = async (pathway, docs) => {
   pick('data-k="pathway"', pathway);
   await uploadFiles(docs);
   type('i-issuer_name', 'Acme Corp'); type('d-as_of', '2026-10-31');
+  type('submitter', 'Ana L');
   pick('data-k="issue_classification"', 'high_yield');
 };
 const summarised = async () => {
@@ -543,6 +544,9 @@ def test_the_three_levels_build_the_same_context_for_the_same_answers(page):
 def test_basic_builds_the_defaults_the_form_had(page):
     expected = json.loads(json.dumps(RESEARCH_MINIMAL))
     expected["run"]["cutoff"] = expected["run"]["as_of"]  # The form writes the cutoff, never blank.
+    # The form does not ask the reporting currency
+    # (ruling 2026-11-16-reporting-currency-from-sources).
+    del expected["run"]["reporting_currency"]
     expected["identity"]["issue_classification"] = (
         "high_yield"  # The form asks it; the file did not.
     )
@@ -906,6 +910,53 @@ def test_the_review_draws_the_launchers_lookup_statement_as_text(page):
     assert seen["images"] == 0 and seen["pwned"] is False
 
 
+YAHOO = (
+    "Yahoo FinanceThe research module may read Yahoo Finance pages. Their addresses name what it "
+    "looks up, such as the issuer's ticker, so Yahoo sees which issuer is researched; no document "
+    "is sent."
+)
+
+
+@pytest.mark.parametrize(
+    ("kind", "drop", "model", "shown"),
+    [
+        ("public", "", "gpt", True),
+        ("public", "", "claude", True),
+        ("private", "", "gpt", False),
+        ("public", "CP-DR", "gpt", False),
+    ],
+)
+def test_the_review_names_yahoo_and_the_ticker_exactly_when_the_lookup_is_on(
+    page, kind, drop, model, shown
+):
+    """The service's ``web_lookup`` decides: a public case's research module looks up by default,
+    on any model; a private case's does not, nor a run that leaves the research module out."""
+    seen = page.run(f"""
+    level('advanced');
+    await issuer('credit_snapshot', [file('annual.txt', {json.dumps(REPORT)})]);
+    pick('data-k="case_kind"', {json.dumps(kind)});
+    pick('data-c="model"', {json.dumps(model)});
+    const box = document.querySelector('[data-c="mod"][value={json.dumps(drop)}]');
+    if (box) {{ box.checked = false; change(box); }}
+    const S = await review();
+    const facts = $('rv-facts').textContent;
+    // The page script's summary is the page's own SUMMARY: read it before the older-service
+    // case deletes a field, and return only what is asserted (the harness refuses an `error` key).
+    const kept = {{problem: S.error, modules: S.modules, lookup: S.web_lookup}};
+    delete SUMMARY.web_lookup;  // an older service, which sends none
+    renderFacts(build());
+    return {{...kept, facts, older: $('rv-facts').textContent}};
+    """)
+    assert seen["problem"] == ""
+    assert ("CP-DR" in seen["modules"]) is (drop != "CP-DR")
+    assert seen["lookup"] is shown
+    assert seen["facts"].count(YAHOO) == (1 if shown else 0)
+    assert ("Yahoo" in seen["facts"]) is shown
+    assert "Yahoo" not in seen["older"]
+    if shown:  # a Claude run that looks up is not said to read only its files
+        assert "reads only its files" not in seen["facts"]
+
+
 def test_the_page_offers_the_lite_credit_assessment_and_the_service_reviews_its_five_modules(page):
     """The lite credit assessment (CP-0, CP-1, CP-1A, CP-2, CP-2A) is the first pathway offered,
     then Full and Deep, then the five purpose pathways (ruling 2026-11-15-pathway-tiers-and-caps).
@@ -1069,7 +1120,8 @@ def test_a_limit_must_be_ticked_before_approval_and_an_error_blocks_it(page):
     assert seen["approved"] == {"approve": False, "approved": True, "submit": False}
     assert seen["untick"] == {"approve": True, "approved": False, "submit": True}
     assert seen["after"]["error"] and "digest" not in seen["after"]
-    assert "80 characters" in seen["refusal"]["state"]  # the service's own sentence, as text
+    # the service's own sentence, as text
+    assert "first name and initial" in seen["refusal"]["state"]
     assert seen["refusal"]["gate"] == {"approve": True, "approved": False, "submit": True}
     assert seen["refusal"]["links"] == ["pathway"] and seen["refusal"]["ticks"] == 0
 
@@ -1300,6 +1352,7 @@ def test_upload_to_filed_report_with_the_real_launcher(
     choose('legal-file', 'credit-agreement.txt');
     // The canned answers name this issuer and date (tests/test_cpos_launch.py ISSUER, AS_OF).
     type('i-issuer_name', {json.dumps(ISSUER)}); type('d-as_of', {json.dumps(AS_OF)});
+    type('submitter', 'Ana L');
     pick('data-k="issue_classification"', 'high_yield');
     await review();
     tickAll(); approve();
@@ -1452,26 +1505,27 @@ _REVIEW_STATE = """
 _AS_OF_EARLY = f"""
     pick('data-k="pathway"', 'earnings_update');
     await uploadFiles([file('annual.txt', {json.dumps(REPORT)})]);
-    type('i-issuer_name', 'Acme Corp'); pick('data-k="issue_classification"', 'high_yield');
+    type('i-issuer_name', 'Acme Corp'); type('submitter', 'Ana L');
+    pick('data-k="issue_classification"', 'high_yield');
     type('d-current_period', 'fy-2025'); type('d-prior_period', 'fy-2024');
     type('d-as_of', '2025-06-30');"""
 _EXECUTED_ON_MEMO = f"""
     pick('data-k="pathway"', 'distressed_restructuring');
     await uploadFiles([file('annual.txt', {json.dumps(REPORT)}),
       file('memo.txt', {json.dumps(MEMO)})]);
-    type('i-issuer_name', 'Acme Corp'); type('d-as_of', '2026-10-31');
+    type('i-issuer_name', 'Acme Corp'); type('submitter', 'Ana L'); type('d-as_of', '2026-10-31');
     pick('data-k="issue_classification"', 'high_yield'); type('d-current_period', 'fy-2025');
     choose('legal-file', 'memo.txt');"""
 _LEGAL_NONE = f"""
     pick('data-k="pathway"', 'distressed_restructuring');
     await uploadFiles([file('annual.txt', {json.dumps(REPORT)})]);
-    type('i-issuer_name', 'Acme Corp'); type('d-as_of', '2026-10-31');
+    type('i-issuer_name', 'Acme Corp'); type('submitter', 'Ana L'); type('d-as_of', '2026-10-31');
     pick('data-k="issue_classification"', 'high_yield'); type('d-current_period', 'fy-2025');"""
 _ONE_PERIOD = f"""
     pick('data-k="pathway"', 'earnings_update');
     await uploadFiles([file('annual.txt', {json.dumps(REPORT)}),
       file('annual-copy.txt', {json.dumps(REPORT)})]);
-    type('i-issuer_name', 'Acme Corp'); type('d-as_of', '2026-10-31');
+    type('i-issuer_name', 'Acme Corp'); type('submitter', 'Ana L'); type('d-as_of', '2026-10-31');
     pick('data-k="issue_classification"', 'high_yield');
     type('d-current_period', 'fy-2025'); type('d-prior_period', 'fy-2024');"""
 
@@ -1535,7 +1589,7 @@ def test_the_earnings_comparison_claims_nothing_when_two_periods_are_recognised(
     pick('data-k="pathway"', 'earnings_update');
     await uploadFiles([file('annual.txt', {json.dumps(REPORT)}),
       file('prior.txt', {json.dumps(REPORT.replace("2025", "2024"))})]);
-    type('i-issuer_name', 'Acme Corp'); type('d-as_of', '2026-10-31');
+    type('i-issuer_name', 'Acme Corp'); type('submitter', 'Ana L'); type('d-as_of', '2026-10-31');
     pick('data-k="issue_classification"', 'high_yield');
     type('d-current_period', 'fy-2025'); type('d-prior_period', 'fy-2024');""",
     )
@@ -1622,7 +1676,7 @@ def test_a_finished_runs_report_and_submitter_show_when_the_library_is_served(
     )
     page, watcher = page_with_launcher(str(HERE / "fixtures/canned_provider_launcher.py"))
     page.run(f"""
-    level('basic'); type('submitter', 'Dana Reyes');
+    level('basic'); type('submitter', 'Dana R');
     pick('data-k="pathway"', 'credit_snapshot');
     {body}
     await uploadFiles([file('credit-agreement.txt', {json.dumps(AGREEMENT)})]);
@@ -1649,7 +1703,7 @@ def test_a_finished_runs_report_and_submitter_show_when_the_library_is_served(
     # Decision 10: a finished run is not in Run activity (live runs only); it is reached from the
     # library, through its Report history.
     dom = html.unescape(_served_dom(page, "/library/#CP-OS/activity"))
-    assert f'data-run="{record.id}"' not in dom and "submitted by Dana Reyes" not in dom
+    assert f'data-run="{record.id}"' not in dom and "submitted by Dana R" not in dom
     assert "reports/" not in dom
     dom = html.unescape(_served_dom(page, f"/library/#W-Report/history?c={record.id}"))
     # The history is a run timeline: the run is an entry named by its date and pathway (its code is
@@ -1804,7 +1858,7 @@ def test_choosing_another_agreement_file_clears_a_ticked_approval(page):
         f"""pick('data-k="pathway"', 'distressed_restructuring');
     await uploadFiles([file('annual.txt', {json.dumps(REPORT)}),
       file('agreement.txt', {json.dumps(AGREEMENT)}), file('memo.txt', {json.dumps(MEMO)})]);
-    type('i-issuer_name', 'Acme Corp'); type('d-as_of', '2026-10-31');
+    type('i-issuer_name', 'Acme Corp'); type('submitter', 'Ana L'); type('d-as_of', '2026-10-31');
     pick('data-k="issue_classification"', 'high_yield'); type('d-current_period', 'fy-2025');
     choose('legal-file', 'agreement.txt'); pick('data-k="legal_documents"', 'executed');""",
         "gotoStep('legal'); choose('legal-file', 'memo.txt');",
@@ -1816,7 +1870,8 @@ def test_choosing_another_agreement_file_clears_a_ticked_approval(page):
 EARNINGS = f"""pick('data-k="pathway"', 'earnings_update');
     await uploadFiles([file('annual.txt', {json.dumps(REPORT)}),
       file('prior.txt', {json.dumps(REPORT.replace("2025", "2024"))})]);
-    type('i-issuer_name', 'Acme Corp'); pick('data-k="issue_classification"', 'high_yield');
+    type('i-issuer_name', 'Acme Corp'); type('submitter', 'Ana L');
+    pick('data-k="issue_classification"', 'high_yield');
     type('d-current_period', 'fy-2025'); type('d-prior_period', 'fy-2024');
     type('d-as_of', '2026-10-31');"""
 
@@ -2850,7 +2905,7 @@ def test_the_notice_carry_keeps_the_analysts_own_name(page_from):
     got = page.run(
         NOTICE
         + """
-      type('submitter', 'Dana Reyes');
+      type('submitter', 'Dana R');
       type('i-issuer_name', 'Acme Corp'); type('i-issuer_id', 'acme');
       await waitNotice();
       $('issuer-carry').click();
@@ -2858,7 +2913,7 @@ def test_the_notice_carry_keeps_the_analysts_own_name(page_from):
       await settle(200);
       return {submitter: $('submitter').value, sent: answers().submitted_by};"""
     )
-    assert got["submitter"] == "Dana Reyes" and got["sent"] == "Dana Reyes", got
+    assert got["submitter"] == "Dana R" and got["sent"] == "Dana R", got
 
 
 def test_unreadable_answers_set_only_the_name_and_id_and_keep_what_was_typed(
@@ -2871,7 +2926,7 @@ def test_unreadable_answers_set_only_the_name_and_id_and_keep_what_was_typed(
         got = page.run(
             """
           pick('data-k="pathway"', 'earnings_update'); type('d-as_of', '2026-09-30');
-          type('submitter', 'Dana Reyes');
+          type('submitter', 'Dana R');
           await startFrom(RUN_ID);
           return {pathway: getV($('st-pathway'), 'pathway'), asOf: $('d-as_of').value,
                   who: $('submitter').value, id: $('i-issuer_id').value,
@@ -2879,7 +2934,7 @@ def test_unreadable_answers_set_only_the_name_and_id_and_keep_what_was_typed(
                   level: LEVEL};""".replace("RUN_ID", json.dumps(run_id))
         )
     assert got["pathway"] == "earnings_update" and got["asOf"] == "2026-09-30"
-    assert got["who"] == "Dana Reyes" and got["id"] == "acme" and got["name"] == "Acme Corp"
+    assert got["who"] == "Dana R" and got["id"] == "acme" and got["name"] == "Acme Corp"
     assert "and its answers" not in got["msg"] and "1 document carried over" in got["msg"]
 
 

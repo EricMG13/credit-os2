@@ -197,7 +197,13 @@ from deploy_workflow.prose_checks import (
 )
 from deploy_workflow.research.intake import effective_cutoff
 from deploy_workflow.research.weblookup import USER_AGENT_ENV, bare_host_problem, usable_user_agent
-from deploy_workflow.run_expectations import Item, edges_for, expectations, guess_kind
+from deploy_workflow.run_expectations import (
+    Item,
+    edges_for,
+    expectations,
+    guess_kind,
+    no_legal_documents,
+)
 from deploy_workflow.workflow import _put
 
 log = logging.getLogger(__name__)
@@ -354,6 +360,11 @@ class Prepared:
     changes: str = ""  # The one line the run records about that comparison.
     portfolio: PortfolioCheck = NOT_COLLECTED  # The portfolio workbook found and its checks.
 
+    @property
+    def omitted_titles(self) -> tuple[str, ...]:
+        """The reader-facing title of each omitted section, from the spec `_layout` reads."""
+        return tuple(_spec_of(block_id).title for block_id in self.omitted)
+
 
 def _sha(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
@@ -496,15 +507,20 @@ FORECAST_SCOPE = (
 
 
 def _layout(
-    run: Run, ordered: tuple[str, ...], aliases: tuple[str, ...], config: str, *, forecast: bool
+    run: Run, ordered: tuple[str, ...], config: str, *, forecast: bool, context: RunContext
 ) -> tuple[MarkdownLayout, tuple[str, ...]]:
     preset = next(p for p in pathways() if p.id == run.pathway)
     routes: list[MarkdownRoute] = []
     omitted: list[str] = []
+    # With no legal documents CP-4 stops at its source gate (`checker`), so a block that lists a
+    # later owner present in the run goes to that owner (owner, 2026-11-16: capital-structure).
+    gated = no_legal_documents(context)
     for block_id in preset.blocks:
         spec = _spec_of(block_id)
-        owners = BLOCK_OWNERS.get(block_id, spec.producers)
-        owner = next((m for m in owners if m in ordered), None)
+        present = [m for m in BLOCK_OWNERS.get(block_id, spec.producers) if m in ordered]
+        if gated and "CP-4" in present[:-1]:
+            present.remove("CP-4")
+        owner = next(iter(present), None)
         if owner == "CP-1" and block_id in CHART_BLOCKS:
             routes += [_chart_route(block_id, figure) for figure in STRIP_FIGURES[block_id]]
             continue
@@ -547,7 +563,7 @@ def _layout(
         routes=tuple(routes),
         scope=scope,
         title=f"{run.issuer_name} — {preset.title}",
-        issuer_aliases=aliases,
+        issuer_aliases=tuple(a for a in context.identity.aliases if a.strip()),
         front=(),
     )
     return layout, tuple(omitted)
@@ -734,8 +750,8 @@ def _instructions(
     module: str,
     routes: Sequence[MarkdownRoute],
     *,
-    run_type: str,  # Plan 3 (Primary scope) reads these two; no instruction byte uses them yet.
-    legal_documents: str,
+    # CP-4's source gate reads its legal documents; Plan 3 (Primary scope) will read its run type.
+    context: RunContext,
 ) -> bytes:
     asked: list[MarkdownRoute | OwnerTable] = [r for r in routes if r.module_id == module]
     # A report selector named like a reader passage (CP-2's `Key findings`) is that passage: it
@@ -760,7 +776,8 @@ def _instructions(
         "Any issuer named in the method is an example, never evidence for this run.\n\n"
         f"Source `{CONTEXT_SOURCE_ID}` holds the user's dated settings and inputs for this run. It "
         "is not issuer evidence. Do not treat a value it leaves blank as zero.\n\n"
-        "Find what this module needs with search_source, then read only those pages. Do not read "
+        + (f"{_SOURCE_GATE}\n\n" if module == "CP-4" and no_legal_documents(context) else "")
+        + "Find what this module needs with search_source, then read only those pages. Do not read "
         "whole filings: reads stop once this module's context is full.\n\n"
         "Use calculate for all new arithmetic. Keep exact amounts, units, currencies, periods, "
         "source locators and limitations. Absent evidence stays an explicit gap.\n\n"
@@ -1084,19 +1101,9 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         declared=settings.attachments.portfolio_workbook,
         run_date=run.as_of,
     )
-    aliases = tuple(a for a in settings.identity.aliases if a.strip())
     forecast = "CP-1" in ordered and (model_wanted or "CP-2G" in ordered)
-    layout, omitted = _layout(run, ordered, aliases, config, forecast=forecast)
-    texts = {
-        m: _instructions(
-            run,
-            m,
-            layout.routes,
-            run_type=settings.run.run_type,
-            legal_documents=settings.attachments.legal_documents,
-        )
-        for m in ordered
-    }
+    layout, omitted = _layout(run, ordered, config, forecast=forecast, context=settings)
+    texts = {m: _instructions(run, m, layout.routes, context=settings) for m in ordered}
     options = settings.module_options
     peer_pack = settings.valuation.peer_source == "cp_dr_public" and {"CP-DR", "CP-1C"} <= set(
         ordered
@@ -1238,10 +1245,14 @@ def without_for(ordered: Sequence[str], items: Sequence[Item]) -> dict[str, list
     return result
 
 
-def _owned_issues(module: str, routes: Sequence[MarkdownRoute], text: str) -> list[str]:
+def _owned_issues(
+    module: str, routes: Sequence[MarkdownRoute], text: str, cp1: bytes | None = None
+) -> list[str]:
     """The tables a module is asked for beside its report routes, checked; for CP-1 also the net
-    debt table's arithmetic."""
-    money = money_unit(text)
+    debt table's arithmetic. A money table states CP-1's money unit: CP-1's own handoff is `text`,
+    any other module's is `cp1` (its CP-1 handoff; none means no money unit, `NO_MONEY`)."""
+    source = text if module == "CP-1" else cp1.decode("utf-8") if cp1 is not None else None
+    money = money_unit(source) if source is not None else None
     issues = [
         i for owned in _owner_tables(module, routes) for i in chart_issues(text, owned, money=money)
     ]
@@ -1270,13 +1281,34 @@ def _front_matter_score_issues(text: str) -> tuple[str, ...]:
     return tuple(issues)
 
 
+_SOURCE_GATE = (
+    "Write the method's blocked message and stop: Blocked: No executed governing document. The "
+    "run's context declares no legal documents, so no executed credit agreement or indenture was "
+    "supplied, and a filing's summary of the agreements is not one. State `module_status: "
+    "Blocked` in the front matter, begin `### Bottom line` with `Not assessable: `, write the gate "
+    "register only, and each report selector once: a table selector with its header and one "
+    "not-assessable row, a prose selector with one sentence saying so."
+)
+
+
+def _source_gate_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
+    """CP-4's source gate (REF_CP-4_STEPS line 31: "Blocked: No executed governing document.
+    Output blocked message and STOP."), by the forecast's own rule. Live run 2026-11-16: CP-4
+    concluded covenant headroom from a 10-K's summary in a run that declared no legal documents."""
+    if task.module_id != "CP-4" or _blocked_at_gate(text):
+        return ()
+    if no_legal_documents(load_context(task.sources[CONTEXT_SOURCE_ID])):
+        return (_SOURCE_GATE,)
+    return ()
+
+
 def checker(layout: MarkdownLayout) -> Check:
     """Anchors and report selectors for one module's answer, so a defect is repaired inside the
     module's loop rather than found at delivery after every module was paid for."""
 
     def check(task: HandoffTask, raw: bytes) -> tuple[str, ...]:
         text = raw.decode("utf-8")
-        issues = []
+        issues = list(_source_gate_issues(task, text))  # first: a gated draft is rewritten
         if task.run.as_of.isoformat() not in text:
             issues.append(f"State the as-of date {task.run.as_of} in ## Request.")
         for name, handoff in task.handoffs.items():
@@ -1327,7 +1359,7 @@ def checker(layout: MarkdownLayout) -> Check:
         for route in routes:
             if route.kind == "chart":
                 issues += chart_issues(text, route, money=money_unit(text))
-        issues += _owned_issues(task.module_id, routes, text)
+        issues += _owned_issues(task.module_id, routes, text, task.handoffs.get("CP-1"))
         issues += register_issues(task.module_id, text)
         issues += posture_issues(task.module_id, text)
         upstream = method_scripts.upstream_texts(task.handoffs)  # a copied figure is compared

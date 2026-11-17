@@ -1,5 +1,5 @@
 {
-  "note": "Answer key written by the coordinating session, not by the implementer. Every expected value is a literal. Do not edit, reorder or delete a case; cases may only be added by a reviewer.",
+  "note": "Answer key written by the coordinating session, not by the implementer. Every expected value is a literal. Do not edit, reorder or delete a case; cases may only be added by a reviewer. Owner ruling 2026-11-16: `cash` carries no judgement (a rise can be a facility drawn); the three `cash` rows were changed to `none` by the coordinating session on that ruling, and `revenue` and `adjusted_ebitda` were added.",
   "exactDifference": [
     ["4.4", "4.2", "0.2"],
     ["4.2", "4.4", "-0.2"],
@@ -34,13 +34,13 @@
     ["coverage", "-0.50", "worse"],
     ["coverage", "0.50", "better"],
     ["interestCover", "0.1", "better"],
-    ["cash", "25", "better"],
-    ["cash", "-25", "worse"],
+    ["cash", "25", "none"],
+    ["cash", "-25", "none"],
     ["undrawn", "-25", "worse"],
     ["liquidity", "40", "better"],
     ["freeCashFlow", "-12.5", "worse"],
     ["leverage", "0.00", "flat"],
-    ["cash", "0", "flat"],
+    ["cash", "0", "none"],
     ["principal", "100", "none"],
     ["maturities", "-100", "none"],
     ["something_else", "5", "none"],
@@ -50,6 +50,14 @@
     ["net_debt", "12.5", "worse"],
     ["free_cash_flow", "30", "better"],
     ["free_cash_flow", "-30", "worse"],
-    ["net_debt", "0.0", "flat"]
+    ["net_debt", "0.0", "flat"],
+    ["revenue", "120", "better"],
+    ["revenue", "-120", "worse"],
+    ["revenue", "0", "flat"],
+    ["adjusted_ebitda", "35.5", "better"],
+    ["adjusted_ebitda", "-35.5", "worse"],
+    ["cash", "1000", "none"],
+    ["undrawn", "50", "better"],
+    ["liquidity", "-40", "worse"]
   ]
 }

@@ -51,7 +51,7 @@ def answers_for(**change: Any) -> dict[str, Any]:
         "level": "basic",
         "model": "gpt",
         "effort": "balanced",
-        "submitted_by": "analyst",
+        "submitted_by": "Ana L",
     }
     base.update(change)
     return base
@@ -1077,3 +1077,39 @@ def test_an_accepted_signal_url_reaches_the_server_normalised_through_main(
 )
 def test_an_accepted_signal_url_is_stored_normalised(given, stored):
     assert service.signal_link(given) == stored
+
+
+def test_a_run_beside_an_unreadable_record_resolves_and_its_own_bad_record_is_refused(svc):
+    sid = svc.new()
+    svc.upload(sid, "a.txt", b"Net sales were 100.")
+    answers = answers_for()
+    digest = svc.call("POST", f"/api/submissions/{sid}/summary", answers).json()["digest"]
+    run = svc.call("POST", f"/api/submissions/{sid}/submit", {"answers": answers, "digest": digest})
+    run_id = run.json()["run"]
+    bad = layout(svc.root).state / "20200101-000000-01.json"
+    bad.write_text("{not json", encoding="utf-8")
+    before = (bad.read_bytes(), bad.stat().st_mtime_ns)
+    assert svc.call("GET", f"/api/runs/{run_id}").json()["id"] == run_id
+    assert svc.call("GET", "/api/runs/20200101-000000-02").status == 404
+    refused = svc.call("GET", "/api/runs/20200101-000000-01")
+    missing = svc.call("GET", "/api/runs/20200101-000000-02")
+    assert missing.status == 404 and missing.json() == {"error": "unknown run"}
+    assert refused.status == 500 and b"{not json" not in refused.body  # today's reply to ValueError
+    assert refused.body != missing.body
+    assert (bad.read_bytes(), bad.stat().st_mtime_ns) == before
+
+
+def test_a_eur_context_reviewed_on_the_service_has_no_item_about_us_dollars(svc):
+    """docs/rulings/2026-11-16-reporting-currency-from-sources.md: CP-2D works in the currency the
+    statements state, so a EUR issuer's summary carries no USD item."""
+    sid = svc.new()
+    svc.upload(sid, "notes/a.txt", b"Net sales were 100.")
+    answers = answers_for(modules=["CP-0", "CP-1", "CP-2D"])
+    answers["context"]["run"]["reporting_currency"] = "EUR"
+    got = svc.call("POST", f"/api/submissions/{sid}/summary", answers)
+    assert got.status == 200
+    summary = got.json()
+    assert summary["error"] == "", summary
+    text = json.dumps(summary)
+    assert "USD millions" not in text and "US$" not in text
+    assert "in USD" not in text and "not USD" not in text

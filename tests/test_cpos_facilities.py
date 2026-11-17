@@ -555,3 +555,259 @@ def test_the_parser_takes_three_figures_or_a_declined_block_and_no_part_null_dri
 
 def _block_driver() -> dict:
     return {"category": "Analyst Interpretation", "rationale": "Synthetic.", "limitation": None}
+
+
+# --- a facility in another currency than the block's (PR 46 review F1, 2026-11-16) ---------------
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md: T4.18 prints each instrument's
+# amounts in its own currency, so a facility whose T4.18 `Currency` is not the block's `currency`
+# is left out of `facilities` and its debt stays in the remainder at the `interest_rate` driver.
+# Answer key fixed by the PR 2 controller: a GBP run, base debt 600; the GBP term loan's year-1
+# interest is 250 x 6.00% = 15.00 and the unallocated debt 600 - 250 = 350.
+_T418_HEADER = (
+    "| Instrument | Type | Carrying Value | Principal | Drawn | Commitment | Security | Ranking | "
+    "Currency | Reporting Currency Amount | FX Rate | Coupon or Margin | Rate Type | "
+    "Reference Rate | Spread (bps) | Floor (bps) | Maturity | Annual Amortisation | Source |"
+)
+GBP_CP1 = (
+    "### Base operands (GBP millions)\n\n| Base | FY2025 |\n| --- | --- |\n"
+    + "".join(f"| {k} | {v} |\n" for k, v in _BASE.items())
+    + "\n### T4.18 Debt instruments\n\n"
+    + _T418_HEADER
+    + "\n"
+    + "| --- " * 19
+    + "|\n"
+    "| GBP term loan | Term loan | 250 | 250 | 250 | 250 | Secured | Senior | GBP | 250 | "
+    "Not applicable | 6.00% | Fixed | Not applicable | Not applicable | Not applicable | "
+    "2030-06-30 | 0 | AR p.86 |\n"
+    "| EUR notes | Notes | 400 | 400 | 400 | 400 | Unsecured | Senior | EUR | 350 | "
+    "0.875 GBP/EUR | 5.00% | Fixed | Not applicable | Not applicable | Not applicable | "
+    "2031-06-30 | 0 | AR p.87; rate AR p.88 |\n"
+)
+GBP_TERM_LOAN = {**A, "name": "GBP term loan", "balance": "250", "annual_amortisation": None}
+EUR_NOTES = {
+    **A,
+    "name": "EUR notes",
+    "balance": "400",
+    "fixed_rate_pct": "5.00",
+    "annual_amortisation": None,
+}
+
+
+def _gbp_files(facilities: list[dict], cp1: str = GBP_CP1, currency: str = "GBP") -> dict:
+    from deploy_workflow.owners import cpos_forecast
+
+    block = _block(currency=currency, scale=1, facilities=facilities)
+    return cpos_forecast.model_files(cp1.encode(), block)
+
+
+def test_a_facility_in_another_currency_than_the_block_is_refused():
+    with pytest.raises(ValueError) as caught:
+        _gbp_files([GBP_TERM_LOAN, EUR_NOTES])
+    message = str(caught.value)
+    assert "EUR notes" in message and "EUR" in message.replace("EUR notes", "")
+
+
+def test_the_same_block_with_only_the_gbp_facility_is_accepted():
+    exact = json.loads(_gbp_files([GBP_TERM_LOAN])["forecast_exact.json"])
+    assert exact["units"] == "GBP millions"
+    (loan,) = exact["facility_schedule"]
+    assert loan["name"] == "GBP term loan"
+    assert D(loan["years"][0]["interest"]) == D("15.00")
+    assert D(exact["unallocated_debt"]["amount"]) == D("350")
+    assert not any("exceed base debt" in limit for limit in exact["scope_limits"])
+
+
+@pytest.mark.parametrize("cell", ["GBP", "Pounds sterling (GBP)", "£"])
+def test_a_t418_currency_that_reads_as_the_blocks_is_not_refused(cell):
+    cp1 = GBP_CP1.replace(" | Senior | EUR | 350 | ", f" | Senior | {cell} | 350 | ")
+    assert cp1 != GBP_CP1
+    assert _gbp_files([GBP_TERM_LOAN, EUR_NOTES], cp1)
+
+
+# Round 1 accepted these two (the cell states no code); PR 46 review M1's ruling refuses them: a
+# row whose currency does not read as the block's makes every facility match a block-currency row.
+@pytest.mark.parametrize("cell", ["Not supplied: the note does not say", ""])
+def test_a_t418_currency_that_states_no_code_makes_its_facility_refused(cell):
+    cp1 = GBP_CP1.replace(" | Senior | EUR | 350 | ", f" | Senior | {cell} | 350 | ")
+    with pytest.raises(ValueError, match="`EUR notes`"):
+        _gbp_files([GBP_TERM_LOAN, EUR_NOTES], cp1)
+
+
+def test_the_currency_is_read_from_the_row_whose_instrument_is_the_facility_ignoring_case():
+    with pytest.raises(ValueError) as caught:
+        _gbp_files([GBP_TERM_LOAN, {**EUR_NOTES, "name": "eur NOTES"}])
+    message = str(caught.value)
+    assert "eur NOTES" in message and "`EUR`" in message
+
+
+# --- the check fails closed (PR 46 review M1, 2026-11-16) ---------------------------------------
+# Same ruling. When any T4.18 row's `Currency` does not read as the block's currency, every facility
+# must be an instrument T4.18 prints in the block's currency, its name copied exactly (trimmed,
+# casefolded, emphasis removed); otherwise it is refused, named, and falls to the remainder. Answer
+# key fixed by the PR 2 controller; (a) and (b) above are unchanged.
+
+
+def _refused_naming(name: str, facilities: list[dict], cp1: str = GBP_CP1) -> str:
+    with pytest.raises(ValueError) as caught:
+        _gbp_files(facilities, cp1)
+    message = str(caught.value)
+    assert f"`{name}`" in message, message
+    return message
+
+
+def test_c_a_facility_not_named_as_t418_prints_it_is_refused():
+    renamed = {**EUR_NOTES, "name": "EUR notes due 2030"}
+    _refused_naming("EUR notes due 2030", [GBP_TERM_LOAN, renamed])
+
+
+def test_d_a_t418_instrument_named_otherwise_than_the_facility_is_refused():
+    cp1 = GBP_CP1.replace("| EUR notes | Notes |", "| EUR notes (2030) | Notes |")
+    assert cp1 != GBP_CP1
+    _refused_naming("EUR notes", [GBP_TERM_LOAN, EUR_NOTES], cp1)
+
+
+def test_e_a_currency_cell_that_is_no_iso_code_is_refused():
+    cp1 = GBP_CP1.replace(" | Senior | EUR | 350 | ", " | Senior | Euro | 350 | ")
+    assert cp1 != GBP_CP1
+    _refused_naming("EUR notes", [GBP_TERM_LOAN, EUR_NOTES], cp1)
+
+
+def test_f_the_blocks_own_loan_on_a_row_that_is_no_code_is_refused_beside_a_foreign_row():
+    # The accepted cost: the term loan falls to the remainder at the `interest_rate` driver.
+    cp1 = GBP_CP1.replace(" | Senior | GBP | 250 | ", " | Senior | Sterling | 250 | ")
+    assert cp1 != GBP_CP1
+    _refused_naming("GBP term loan", [GBP_TERM_LOAN], cp1)
+
+
+GBP_ONLY_CP1 = GBP_CP1.split("| EUR notes |")[0]  # T4.18 holds the GBP term loan alone
+
+
+def test_g_a_t418_all_in_the_blocks_currency_is_read_as_today():
+    exact = json.loads(_gbp_files([GBP_TERM_LOAN], GBP_ONLY_CP1)["forecast_exact.json"])
+    (loan,) = exact["facility_schedule"]
+    assert D(loan["years"][0]["interest"]) == D("15.00")
+    assert D(exact["unallocated_debt"]["amount"]) == D("350")
+
+
+def test_h_a_usd_run_whose_t418_is_all_usd_accepts_a_facility_named_otherwise():
+    cp1 = GBP_ONLY_CP1.replace("GBP", "USD")
+    assert "| USD term loan |" in cp1 and "| Senior | USD | 250 |" in cp1 and "GBP" not in cp1
+    loan = {**GBP_TERM_LOAN, "name": "Term loan B"}
+    exact = json.loads(_gbp_files([loan], cp1, "USD")["forecast_exact.json"])
+    assert exact["units"] == "USD millions"
+    assert [f["name"] for f in exact["facility_schedule"]] == ["Term loan B"]
+    assert D(exact["facility_schedule"][0]["years"][0]["interest"]) == D("15.00")
+
+
+def test_a_name_matches_after_emphasis_is_removed():
+    cp1 = GBP_CP1.replace("| GBP term loan | Term loan |", "| **GBP term loan** | Term loan |")
+    assert cp1 != GBP_CP1
+    loan = {**GBP_TERM_LOAN, "name": "gbp TERM loan"}  # a name with edge spaces is refused
+    exact = json.loads(_gbp_files([loan], cp1)["forecast_exact.json"])
+    assert D(exact["unallocated_debt"]["amount"]) == D("350")
+
+
+# --- the run's currency is CP-1's money unit (final fix round 1, H1 and L1) -----------------------
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md: every check and label takes the
+# currency from CP-1. The statements table makes CP-1's money unit `GBPm`; the answer key is the
+# one above (GBP term loan 250 at 6.00%: year-1 interest 15.00, unallocated 350).
+_GBP_STATEMENT = (
+    "## Findings\n\n### T4.4 Income statement\n\n"
+    "| Line item | FY2024 | Unit | Basis | Source |\n| --- | --- | --- | --- | --- |\n"
+    "| EBITDA (Reported) | 300 | GBP millions | Reported. | AR p.10 |\n\n"
+)
+GBP_RUN_CP1 = _GBP_STATEMENT + GBP_CP1
+GBP_RUN_ONLY_CP1 = _GBP_STATEMENT + GBP_ONLY_CP1
+_DOLLAR_ROW = (
+    "| Dollar notes | Notes | 125 | 125 | 125 | 125 | Unsecured | Senior | USD | 100 | "
+    "0.80 GBP/USD | 7.00% | Fixed | Not applicable | Not applicable | Not applicable | "
+    "2031-06-30 | 0 | AR p.87 |\n"
+)
+DOLLAR_NOTES = {**EUR_NOTES, "name": "Dollar notes", "balance": "125", "fixed_rate_pct": "7.00"}
+FINANCING_ADJUSTMENT_ROW = (
+    "| Financing cost adjustment | Adjustment | -5 | Not applicable | Not applicable | "
+    "Not applicable | Not applicable | Not applicable | Not applicable | -5 | Not applicable | "
+    "Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | "
+    "Not applicable | Not applicable | AR p.86 |\n"
+)
+
+
+def _files(cp1: str, **changes) -> dict:
+    from deploy_workflow.owners import cpos_forecast
+
+    return cpos_forecast.model_files(cp1.encode(), _block(**changes))
+
+
+def test_cp1_money_unit_is_what_this_fixture_reads_as():
+    from deploy_workflow.owners.cpos_cp1_check import money_unit
+
+    assert money_unit(GBP_RUN_CP1) == "GBPm"
+    assert money_unit(GBP_CP1) is None
+
+
+def test_h1_a_gbp_run_block_without_currency_accepts_the_gbp_facility():
+    exact = json.loads(_files(GBP_RUN_ONLY_CP1, facilities=[GBP_TERM_LOAN])["forecast_exact.json"])
+    (loan,) = exact["facility_schedule"]
+    assert D(loan["years"][0]["interest"]) == D("15.00")
+    assert D(exact["unallocated_debt"]["amount"]) == D("350")
+
+
+def test_h1_a_gbp_run_block_without_currency_refuses_a_eur_facility():
+    with pytest.raises(ValueError) as caught:
+        _files(GBP_RUN_CP1, facilities=[GBP_TERM_LOAN, EUR_NOTES])
+    message = str(caught.value)
+    assert "`EUR notes`" in message and "`EUR`" in message and "`GBP`" in message, message
+
+
+def test_h1_a_gbp_run_block_without_currency_refuses_a_usd_facility_at_its_usd_balance():
+    cp1 = GBP_RUN_ONLY_CP1 + _DOLLAR_ROW
+    with pytest.raises(ValueError) as caught:
+        _files(cp1, facilities=[DOLLAR_NOTES])
+    message = str(caught.value)
+    assert "`Dollar notes`" in message and "`USD`" in message, message
+
+
+def test_h1_a_block_stating_another_currency_than_cp1s_is_refused_naming_both():
+    with pytest.raises(ValueError) as caught:
+        _files(GBP_RUN_CP1, scale=1, currency="USD")
+    message = str(caught.value)
+    assert "`USD`" in message and "`GBP`" in message, message
+
+
+def test_h1_the_units_label_of_a_gbp_run_is_gbp():
+    exact = json.loads(_files(GBP_RUN_CP1, scale=1, currency="GBP")["forecast_exact.json"])
+    assert exact["units"] == "GBP millions"
+
+
+def test_h1_a_usd_run_without_currency_is_unchanged():
+    usd = _GBP_STATEMENT.replace("GBP", "USD") + GBP_ONLY_CP1.replace("GBP", "USD")
+    loan = {**GBP_TERM_LOAN, "name": "USD term loan"}
+    exact = json.loads(_files(usd, facilities=[loan])["forecast_exact.json"])
+    assert D(exact["facility_schedule"][0]["years"][0]["interest"]) == D("15.00")
+
+
+def test_h1_with_no_currency_and_no_cp1_money_unit_a_mixed_t418_asks_for_currency():
+    assert "Currency" in GBP_CP1  # GBP_CP1 has no statements: its money unit is unknown
+    with pytest.raises(ValueError) as caught:
+        _files(GBP_CP1, facilities=[GBP_TERM_LOAN])
+    message = str(caught.value)
+    assert "state `currency`" in message, message
+
+
+def test_l1_a_usd_t418_with_the_financing_cost_adjustment_row_accepts_another_name():
+    usd = GBP_ONLY_CP1.replace("GBP", "USD") + FINANCING_ADJUSTMENT_ROW
+    loan = {**GBP_TERM_LOAN, "name": "Term loan B"}
+    exact = json.loads(_gbp_files([loan], usd, "USD")["forecast_exact.json"])
+    assert [f["name"] for f in exact["facility_schedule"]] == ["Term loan B"]
+
+
+def test_l1_only_the_methods_adjustment_row_is_left_out_of_the_mode_decision():
+    from deploy_workflow.owners import cpos_forecast
+
+    other = FINANCING_ADJUSTMENT_ROW.replace("Financing cost adjustment", "Other adjustment")
+    usd = GBP_ONLY_CP1.replace("GBP", "USD")
+    assert cpos_forecast._t418_rows(usd + FINANCING_ADJUSTMENT_ROW) == [("usd term loan", "USD")]
+    assert cpos_forecast._t418_rows(usd + other)[-1] == ("other adjustment", None)
+    loan = {**GBP_TERM_LOAN, "name": "Term loan B"}
+    with pytest.raises(ValueError):  # a no-code cell of any other row still fails closed
+        _gbp_files([loan], usd + other, "USD")

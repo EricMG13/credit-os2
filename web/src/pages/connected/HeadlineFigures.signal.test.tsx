@@ -40,7 +40,7 @@ describe("headline year comparator", () => {
             prior: { value: "300", period: "FY2023" },
             change: "-25",
           },
-          undrawn: {
+          revenue: {
             value: "100",
             unit: "USD millions",
             period: "FY2024",
@@ -57,7 +57,10 @@ describe("headline year comparator", () => {
     const cov = screen.getByText(/-0\.50x vs FY2023/);
     expect(cov.textContent).toContain("worse");
     const cash = screen.getByText(/-\$25m vs FY2023/);
-    expect(cash.textContent).toContain("worse");
+    for (const word of ["better", "worse", "unchanged"])
+      expect(cash.textContent).not.toContain(word);
+    expect(cash.className).toContain("text-text-secondary");
+    expect(cash.querySelector("[data-shape]")).toBeNull();
     const flat = screen.getByText(/\$0m vs FY2023/);
     expect(flat.textContent).toContain("unchanged");
     expect(flat.className).toContain("text-text-secondary");
@@ -77,7 +80,7 @@ describe("headline year comparator", () => {
         catalogue={run({
           net_leverage: metric("0.2"),
           coverage: metric("0.2"),
-          cash: { ...metric("0"), unit: "USD millions" },
+          revenue: { ...metric("0"), unit: "USD millions" },
         })}
       />,
     );
@@ -101,4 +104,63 @@ describe("headline year comparator", () => {
     expect(count(flat, "unchanged")).toBe(1);
     expect(flat.querySelector('[data-shape="ring"]')).not.toBeNull();
   });
+});
+
+describe("revenue and cash cards", () => {
+  const figures = (change: string) => ({
+    value: "2,250",
+    unit: "USD millions",
+    period: "FY2024",
+    prior: { value: "2,100", period: "FY2023" },
+    change,
+  });
+
+  it("judges revenue higher-is-better and leaves cash without a word or shape", () => {
+    render(
+      <HeadlineFigures
+        catalogue={run({
+          revenue: figures("150"),
+          cash: { ...figures("-25"), value: "275" },
+        })}
+      />,
+    );
+    expect(screen.getByText("Revenue")).toBeVisible();
+    expect(screen.getByText("$2,250m")).toBeVisible();
+    const revenue = screen.getByText(/\+\$150m vs FY2023/);
+    expect(within(revenue).getByText("better")).toBeVisible();
+    expect(revenue.querySelector('[data-shape="filled circle"]')).not.toBeNull();
+    const cash = screen.getByText(/-\$25m vs FY2023/);
+    expect(cash.textContent).not.toMatch(/better|worse|unchanged/);
+    expect(cash.querySelector("[data-shape]")).toBeNull();
+  });
+
+  it("lists the cards in the owner's order", () => {
+    render(
+      <HeadlineFigures
+        catalogue={run({
+          cash: figures("1"),
+          adjusted_ebitda: figures("1"),
+          revenue: figures("1"),
+        })}
+      />,
+    );
+    expect(screen.getAllByRole("term").map((el) => el.textContent)).toEqual([
+      "Revenue",
+      "Adjusted EBITDA",
+      "Cash",
+    ]);
+  });
+});
+
+it("draws no Undrawn facilities card even when the catalogue carries the figure", () => {
+  render(
+    <HeadlineFigures
+      catalogue={run({
+        net_leverage: { value: "4.4", unit: "x", period: "FY2024" },
+        undrawn: { value: "100", unit: "USD millions", period: "FY2024" },
+      })}
+    />,
+  );
+  expect(screen.getByText("Net leverage")).toBeVisible();
+  expect(screen.queryByText("Undrawn facilities")).toBeNull();
 });

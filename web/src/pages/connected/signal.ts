@@ -47,7 +47,8 @@ const lowerIsBetter = new Set(["leverage", "net_leverage", "netDebt", "gross_deb
 const higherIsBetter = new Set([
   "coverage",
   "interestCover",
-  "cash",
+  "revenue",
+  "adjusted_ebitda",
   "undrawn",
   "liquidity",
   "freeCashFlow",

@@ -1,0 +1,258 @@
+{
+  "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "speak": "Credit OS. Run started for Northbridge Holdings.",
+  "body": [
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "Container",
+          "bleed": true,
+          "backgroundImage": {
+            "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABQIAAABwCAMAAABy1f2eAAAAGFBMVEUAADMAEYgAEXcAEWYAAET///8AEVUAAFVvxP4LAAAACHRSTlP///////////OBUtQAAAIoSURBVHja7dxRCsIwFABBTaq9/40lIiLor6DdmSukLK9J2tMJ+Irz/xtzO/YaXS6eU5DAz/27bodfIwkECfzYvz2xRhIIEljtnwSCBL6Ze2iNJBAkMDn/SSBIYLt/EggSGO6fBIIEhvsngSCBsfMPCQQJDH3+IYEggcY/CQQJNP5JIEjgOv3QPwmEZgKNfxII0QQWfv4igSCBLv9JIEig3T8JhHoCHf5KIFQT6O6fBEI0gTb/JBCiCZw2/yQQmgmUPwmEaALt/UkgRBMofxIIzQT67EMCoZlAt54lEJoJVD8JhGQCh1NfCYRkAtVPAiGZwDEdekggFBNo9JNACCZwrPaJnwRCLIFjmvskEGoJHCt92ieBkErget/1wiuB0EngWAPf3JVPAuGYxsN8cU+e5kkggAQCSCCABAJIIIAEAkgggAQCSCCABAJIIIAEAkgggAQCSCCABAJIIIAEAkgggAQCEggggQASCCCBABIIIIEAEggggQASCCCBABIIIIHA08bPk0D4mjM/TwJBAiUQkEAJBCRQAgEJlEBAAiUQkEAJBCRQAgEJlEBAAiUQkEAJBCRQAgEJlEBAAiUQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQCQQJBAJBAlEAkECkUCQQAmUQJBACQQkUAIBCZRAQAIjCbwBOixk5B1puhgAAAAASUVORK5CYII=",
+            "fillMode": "Cover",
+            "horizontalAlignment": "Right",
+            "verticalAlignment": "Center"
+          },
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOwAAAA4CAMAAADJouQfAAAAt1BMVEUAAAAAEf8AEf8AEf8AEf8AEf8AIv8AIv8AEf8AIv8AIv8AEf8AIv8AEf8AEf8AEf8AEf8AIv8AEf8RM/9VZv+Imf+7zP/MzP/d3f/u7v+Zmf////8iM/////////////////+qqv/u///M3f+7u/+Zqv+IiP////////////8zRP93iP9md/8zVf8RIv////////8iRP////////////////////+qu/9EVf9mZv/d7v8AIv8AIv8b7SRAAAAAPXRSTlMARIi73e7/iGbdVVXu/zPMEZmZ/////////////yJmiFX///////9EzBH//////zN3/+6Zqt27/////8wzcUqetgAABUBJREFUeNrlm+t2mzgQgJWL3Ta3dmuc2GWFSGtXku01KkjE2ez7P9ceQMAIhLn4JOeQzK8EY2m+uWkkMEK5nJ1fXE6mR2RyefHpDL0H+fxl2km+fB496lVH1BT3etys1zfTHjK5GjXr7bSX3I7Yt3c3055yczda2Mtpb/k62jo8HSAjrcnfJkNgJ98+jmPH6tq/hsF+HyXsxTDYi3dbi2fO/P5hsVzCPmqUsO2gPxauFrjUvj/Yv+cFaAV2+t5gnXvXlLeGxR7x3wTWefwJOX+tHte/3xiWJhMz/sqwm+0KkC4fd//sa/ccHZTTYLiOJJmUIIRYOr1ouz+g2BoWlutmNfqzcearJfDoYruxe7459gQLk2+GzDsRNh3GjY7d60uVzUUCw9gi1joQ3ATrVuXp0JjQTT6NwdeVdxJsypH+lQzsRbR6pwjBZKzE9RW4LnkX2NVuf6R6NaSZMscQp8CK1Dmpa0Qyrn/ErnAyal4GWW+H/fn0vD++/tpDOHTdk2kL2ARR+yvlqsCyWiBmgcS1EiELq7R12OX93Gnvqqx6ZvOHxOeYal3wCbClWGCJjlIv4FRkAaWjILue/I1j1xgMAmx3z85h1q05tqmZTaMCqI1RXzCluZV5QIOKIXiQftoNNjAih2emjYt7GQJeZl3bxT6wyvRlZlaelVWFsAxzChxpV5Ayn0h6SZESNuVRCPlloJamiypZwoq5GbyRuK6SwgZ7aJEW2KCiT/o/oxo2CAv1/DK1mTYNLqqN7AYb6g+LCuway7PSVgw83HXp6dcuRtUklYQWiqm4KCIeHFNhEAUZfxdYCioScG1CL7OIDlo6qBNhYyM/gMAaTbWeMuDZchiD1SKMpF67ICxlWV1VjAmzPNULBi9tqSIveD1YVuhuh2U+5gHPbpNl+aCFY6Ny9YSwtgKVRlEIJ/HMpNXWkx5/HVjV1N0ZfV8Agl3o69wtDKAt0AYrKymbBwctS3PO69lhTyxQqtTYAqtguGn/Yx34QaFo7rROnrXApoHLidHIEfQKS098NIyJEYAsEx2MPsxA0QW2nrNenrNZfPiyrBR+P9j9wXnebVtg66EFYamx+kLRfAouIm2wXq09q+NjoeM57g47c348dMpZUlVAUACLG2H5AFi/1nkzMAbPJ9OLezfYvbNedC5Q1NJUpBvNEAaYtJQxH9bWTmGclTRVnVwmZzlSlWkqykw+DjvbrfqdQWUbaW6EtUsrsMSS2UaBkl1g9eC+WTCSIZQxvtcJdr+777v0aDPGHM7DUAWWgmDHISN+8gGICdxpndVxHOprPCo8HRm9lWwP483WIF2u5s7mz6x9i5eZlyUnUHr6dFYDFvYeRc+efjGk3ZuKHMPY4qWxobdDEQfmb4KdHbZP8BDK/Xe+OWHzHqMabKYNE34UFk6muebE0i7mZDEhoCLx2lw6NKK8XWQM2KAGO396WJpfv286b2s6lgktrBVYcyOgKyqo0bamguQAMNGVlbXSQDU2FeY9y7Wz73sGhbChgUQ2WLjFyzXBhYaSWmBzN6rmQ6iwiHIujeuitTderp0BxzLpKWaBG2Fkh0U4j9aYVjQPBbLBIpxthyotCy1wQ+PMFJM4tw5p288+zA+t75AcO8n3BBF+yzE59gkRQeWK6P20A/uCEOH51glEdY8HH1kuF6v1b2fT6dWvUT7Y+vqRHkZ/HwZ7PkrYs2GwI33t62UI68s4WdHVENjRvqv58nEc+8Fe1ETXPVlvR/169VWv9xdvRv5Dgf/6vDZ/h8YuH+gHEWl38an9py7n447g/wE84YbEjo1lCwAAAABJRU5ErkJggg==",
+              "altText": "Credit OS",
+              "height": "28px"
+            }
+          ]
+        },
+        {
+          "type": "Container",
+          "bleed": true,
+          "spacing": "None",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAAABCAYAAABZj6VmAAAAEklEQVR42mNgkPr/fxSP4oHCAEvfTxCZ2DHKAAAAAElFTkSuQmCC",
+              "altText": "",
+              "size": "Stretch",
+              "spacing": "None"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "stretch",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Northbridge Holdings",
+              "wrap": true,
+              "size": "Large",
+              "weight": "Bolder",
+              "style": "heading"
+            },
+            {
+              "type": "TextBlock",
+              "text": "Full credit assessment",
+              "wrap": true,
+              "isSubtle": true,
+              "size": "Small",
+              "spacing": "None"
+            }
+          ]
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKIAAAAsCAMAAADRlpOBAAAAw1BMVEUAAAC7u/+qu/+qu/+qu/+qu/+qu/+qu/+qu/+7u/+7u/+qu/+qu/+7zP/MzP/d3f/d7v+7u/+7u/+7u/+qu/+qu/+qu//M3f+qu/+Zqv9md/9EVf8RM/93d/+qu+4zRP8AIv8AEf8zRN0AEcwRIsxVVd2IiO6Imf8RIv93iP+qqv9EVd0iM8xVZt13iO6Zqu5md92qqu67u+6Ime53d+4AIsxEZv+Zme5mZt2qu/+Zmf8iM/93d92IiP8zVf9VZv+7u//vGcsOAAAAQXRSTlMAEVWZzN3u/7t3M3dm/////1Ui/4gzIv9E//////////////////////////////////////////+q////////ZubhG7oAAAOuSURBVHjazZl/e5owEMdZqxxrl+Q6ammro4FQtQsq6ja3dVv3/l/VngQoEqKd7gfcX158xA+5+15yieOY9urktNd3oQ1z+97p6zPnBTvxoHXzzvcAvukDAKGMMWzFGGOUAED/Ygfg2x6AT1ui2+KkPoBnjfe5Cz7FTpiCfNMkPAUgDDtijAI0MvISgGKHjAJcGkIBn2GnjPn1WJ8BdIwQkQEMKsIrFwLsnAXgXj0jet3KwyofvZLwGnzspPlwXSD2mmFmN7fD0Wj47uZvJlcYhuzAUPdywovmJNI7zjmPoii6M1MgFtqS+H58oMKoECI4dBovikw0fziZ8sKiaDqxIiqL2b9GDIpsbBScCed8+vA+yBn5xESMpZSpYpwdFuj5fM4OLjxWsVDO+VC9bjGTU2ogLvSvMyEE/T+CuTQrzh3nQ/2hjPWdDRGZEGKJOJNypVwpJUUcS0nCWZrEazVW95iUsjGIuJBpItfFl826c6lTsT77wPk02ELkEQcbIiZChNoPC48iZkKM80Sdo+mpd2oM4of88wchEmukPV1y6ogPnN/iNiKPHmyIyzz7G4hJMstSIZLA9CrErUH1lNliHX/chajKTt9AHHJ+YyB+qiPOwzAMN6kQGdoQKSJL9IvUvS3EajDOn8LiXYh9Lej66IhzaiCO7EXnntkQtcylDmPdqxCrQVpqbmNHRHAdx3GbiMFvIcYEbYhqUvBzibjlVYjVYFiSrfYhWgL93kAc1hFn8/k8U6gLG6IWQVYibnkVYjW4FCLVjyX7Am3K5ZbzB6wr+tYml40Q8R8jroQQ+u8X++TyxUD8yvkjqyPe2BCDZ0UvCu8IRCWacZGZiXUF/GIp3ezRKN0lsVkXhRAE8V6Ib4i4Pg5R63vNqFqqEmvpVl3WwFwASX0BjDixri6Y6hCrh2eLLDkSkaWF9uyIft4cuOY24vsL24jF86cNIk3yv5DHISLTbzezy4VpQatk3LkZi7htM1YgyjyNVmoeYnosIiJbjonSTborFa19Qbml5fzHb2xm6Or49vFzmpTAsz2dgWfp/8jkafT4NCH/ere1EbrOKkGvdu5otWDa66KzYq1Kl7ZJPKuaVNIaIqq9YyrXlkkiRSYWrX4HG2m63eo7g84fmDjOzy4eO/00D+/8TsU6AHjdOOeGNjVjOV48aR7TXnfnIJn54A6sx/FeJ47jkRGA01e7bl16AOATGrR0q8EYC4i6L3i75+bluv2rod754IX7q5Yv2M6vTKBf+Zbi224ORiEAAAAASUVORK5CYII=",
+              "altText": "Running",
+              "height": "22px",
+              "id": "status"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Small",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAcCAMAAABBJv+bAAAASFBMVEUAAACIiIh3iIh3iIiIiIh3iIh3iIh3iIiIiIh3iIh3iIh3iIiIiIh3iJmIiIh3iIiIiIiIiIh3iIh3iIh3iIiIiJl3iIh3iIinnRlZAAAAGHRSTlMAM3eqd4j/zGbuZt0RESJVVUREEZkRuzPFskqCAAAAvElEQVR42q2S2w6DMAxDoQWXkNILMPb/fzqJrqPQ8ILmFywdKcVOmuZfapXWXXtHe+xSMtUAjAGgJTqAxvTFIGDOUztwTS0wJed+rpAHZUsIFY5AtkCUhn8Tz8Ai5TLJGDGZJbDyXjFokoJHSq3RLNe2aAJIT/dLce7RLu1qOL/NZrVnqr4oK22nqIz7McRdYez5VNyLsZ2nbeCjuQBc/tgB/ni53jAVNyFgLk5O5W0cMgW267u66Wv0R/oAW28Gu4ukWvYAAAAASUVORK5CYII=",
+              "altText": "Started by",
+              "height": "14px",
+              "width": "14px"
+            }
+          ],
+          "spacing": "None"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "Priya R",
+              "wrap": false,
+              "size": "Small"
+            }
+          ],
+          "spacing": "Small"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAcCAMAAABBJv+bAAAAS1BMVEUAAAB3iIiIiIh3iIh3iIh3iIh3iIh3iIh3iIiIiIh3iIh3iIh3iIh3iIh3iIiIiIiIiIh3iIh3iIh3iIiIiJl3d4iIiIiIiIiIiIjVur1rAAAAGXRSTlMAM3eZu3cR3f9m7sxmiCIiM0RVqhEiRBFVACksjQAAAPFJREFUeNqNk8sWgyAMRINBMoVirbS1//+lPbwU1EWzYeAGiWEg+jfUwFrzqK6YGQQlZDRHeovr1jE7G8W9px6An7J+xMnY0hGQOaGU8pSOL0DIBQCvJAKwbFVZSKkdeGQlsK/9YHXECvAF203tmDxsFk/AnPEb+CTBNa/DZMFpdNBXuC67kkZEE+DXohnuiE3suzcdDmWMscaG4p53hZKGpr8TIx+K8tFbU0/q+zjlKpfaaD7fP2/d4NqBJj77HgPIwR9GYOsf0rde6BYB+HZmkcaBSoDhZKbLSWNF0Z61XFiRaG2MPJgrq8/pGQwz/R8/XFcJ/aHDlnkAAAAASUVORK5CYII=",
+              "altText": "Time",
+              "height": "14px",
+              "width": "14px"
+            }
+          ],
+          "spacing": "Default"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "13:45",
+              "wrap": false,
+              "size": "Small"
+            }
+          ],
+          "spacing": "Small"
+        }
+      ]
+    },
+    {
+      "type": "ColumnSet",
+      "spacing": "Small",
+      "columns": [
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAcCAMAAABBJv+bAAAAQlBMVEUAAAB3iIh3iIh3iIh3iIh3iIh3iIh3iIiIiIh3iIh3iIh3iIiIiIh3iIh3iIh3iIiIiIiIiIiIiIh3iIiIiIh3iIjiQAsIAAAAFnRSTlMAEVV3maq7iCLd/+4zzCIzVWZ3RERmFLebigAAAL5JREFUeNqV08sOhCAMBVCUgcqtio/h/391gogWZOHchTE5sRSoSr1I1+uPsUdoeOjgcIfHmifAGjrCAM+lemDJ77EO+4JXsLrZcOUbnGAaGbwL1phEG6Sii/5JsIWz1kHUK3jJ+/s2WY3n/nSbc4ebYPdkes9TfFyhBtubbYPn75Xh/7W7PX3q23ytHWrWsXjuPF2WE6cWWmsHwagZWOUw9aX2gC9G8ZzEFIPikmY5yEdcMa1dOH+CFBPUu/wAqpQMuYZMRmQAAAAASUVORK5CYII=",
+              "altText": "Documents",
+              "height": "14px",
+              "width": "14px"
+            }
+          ],
+          "spacing": "None"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "4 docs",
+              "wrap": false,
+              "size": "Small"
+            }
+          ],
+          "spacing": "Small"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAcCAMAAABBJv+bAAAATlBMVEUAAACIiIh3iIh3iIh3iIh3iIiIiIh3iIh3iIh3iIiIiIiIiIh3iIh3iIiIiIh3iIh3iIh3d4h3iIh3iIh3iJmIiIh3iIiIiIh3iIiIiJl+ZyupAAAAGnRSTlMAM6pEu/9EzN1VVWaZZiIiESKI7hERM3d3EQEGRRgAAADpSURBVHjanVNbEoMgDFQk4ItKxaq9/0U7SWAIPjqd8gXuJtlkY1X9fmql6luw0QAA2lyDFgDaFgCsuQZtV1WdPRN6iuz40bWRWYB9Zg+SMCLoyloOCSNdMVY9SnhS2ANdPYbD+BQgf/Hx6eeAz0mAYfYi2cKEV8wV5iVjj0yYBTgl5WqlEhsSIGyUdlVROYpkJ/weYE8ggIpjwSa1sKrWYohpTMkqMu4wJ5esMjThQQyBiQMKszZHDixdJ/LOyl2qpw+WvLcQWLmwhA2WWggUDn9dh2KZiGmb07ZRR6T8ZlcNL3L9329wdT7nKAs5xA7TegAAAABJRU5ErkJggg==",
+              "altText": "Modules",
+              "height": "14px",
+              "width": "14px"
+            }
+          ],
+          "spacing": "Default"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "14 modules",
+              "wrap": false,
+              "size": "Small"
+            }
+          ],
+          "spacing": "Small"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "Image",
+              "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAcCAMAAABBJv+bAAAAS1BMVEUAAACIiIh3iIh3iIh3iIh3iIh3iIh3iIh3iIh3iIh3iIh3iJmIiIh3iIh3iIiIiIiIiIiIiIh3iIh3iIiIiIh3iIh3iIiIiIiIiJlQELxAAAAAGXRSTlMAM3eZqruIVRHd/xFmzO5EIhFEZlUiM3cR3WDMowAAAPFJREFUeNqlk+GugyAMhVHaYs8GOlC87/+kNzpR5zTZsv6R9Gvaw6Ea83NUtSUmK645gU6xBt2O9D7n1WuYv0fM8G03nx6VAPGAFbDPXJcU6N/xPr7GYsxtyNXQGHOBS5xhLXYM9I79NNEzM+syOw/X0uxUHjb3FNJEl+oxxWzWKs1r8xdp8GPrBEBXMJdZTQ/Yp0iF36SxiAhxQEmaDLQn0u7bS8mCWcQSM1kLVAUL+OjaY/eeBFpm0yo8bKWKcekCldjGJBS2+6Ry+uMXbX7O9rs+TlgDgnpOcVpHmYzVs6012S/WNxdL74RsXX32g/wDgDIOrJuuDAsAAAAASUVORK5CYII=",
+              "altText": "Spending cap",
+              "height": "14px",
+              "width": "14px"
+            }
+          ],
+          "spacing": "Default"
+        },
+        {
+          "type": "Column",
+          "width": "auto",
+          "verticalContentAlignment": "Center",
+          "items": [
+            {
+              "type": "TextBlock",
+              "text": "USD 25.00 cap",
+              "wrap": false,
+              "size": "Small"
+            }
+          ],
+          "spacing": "Small"
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Watch run",
+      "url": "https://credit-os.example/run/20261116-134500-01",
+      "style": "positive"
+    },
+    {
+      "type": "Action.OpenUrl",
+      "title": "Library",
+      "url": "https://credit-os.example/",
+      "iconUrl": "icon:Library"
+    }
+  ]
+}

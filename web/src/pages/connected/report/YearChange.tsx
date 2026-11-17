@@ -30,12 +30,7 @@ export function YearChange({
       {sign === 1 && <ArrowUp aria-hidden className="size-4 shrink-0" />}
       {sign === -1 && <ArrowDown aria-hidden className="size-4 shrink-0" />}
       {`${changeText(change, unit)} vs ${prior}`}
-      {kind !== "none" && (
-        <>
-          <span aria-hidden>·</span>
-          <ToneMark tone={kind} />
-        </>
-      )}
+      {kind !== "none" && <ToneMark tone={kind} />}
     </p>
   );
 }

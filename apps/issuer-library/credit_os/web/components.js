@@ -792,17 +792,17 @@
   }
   // C31 (Task 11): the mark of a run's status. A running run shows a small lattice loader, which moves only inside the stylesheet's no-preference media query; every status has its word.
   // A stalled run (running or waiting) is a warning mark with its word, never colour alone, and no loader.
-  const RUN_MARKS = {running: ['new', 'Running'], queued: ['same', 'Waiting'], done: ['ok', 'Done'], failed: ['bad', 'Failed'], stalled: ['warn', 'Stalled']};
+  const RUN_MARKS = {running: ['new', 'Running'], queued: ['same', 'Waiting'], done: ['ok', 'Done'], failed: ['bad', 'Failed'], stalled: ['warn', 'Stalled'], stopped: ['warn', 'Interrupted']};
   const LATTICE = `<span class="lat" aria-hidden="true">${'<i></i>'.repeat(9)}</span>`;
   function runMark(status, note = '', after = '') {
     if (!Object.hasOwn(RUN_MARKS, status)) return '';
-    const [tone, word] = RUN_MARKS[status], glyph = {running: LATTICE, queued: icon('history'), done: icon('circle-check'), failed: icon('x'), stalled: icon('triangle-alert')}[status];
+    const [tone, word] = RUN_MARKS[status], glyph = {running: LATTICE, queued: icon('history'), done: icon('circle-check'), failed: icon('x'), stalled: icon('triangle-alert'), stopped: icon('triangle-alert')}[status];
     return `<span class="state ${tone} rmark ${status}">${glyph}<span class="state-w">${word}${note ? ` · ${escapeHtml(note)}` : ''}</span>${after}</span>`;
   }
-  // C13 (Task 11): a run's progress as connected steps, one segment per module in the order given. `steps` are {title, state} with state done, running or waiting (anything else waits).
+  // C13 (Task 11): a run's progress as connected steps, one segment per module in the order given. `steps` are {title, state} with state done, running, stopped (the run stopped while it ran) or waiting (anything else waits).
   // Under the segments: the module(s) running now and how many are done of how many (counts of listed items). Only the running segment moves, by the stylesheet's own rule.
   // A running step may carry `note` (a clock reading, drawn after its name; `since` is the start time the page's re-load measures it from); done and waiting steps never draw one.
-  const STEP_WORDS = {done: 'done', running: 'running', waiting: 'waiting'};
+  const STEP_WORDS = {done: 'done', running: 'running', stopped: 'interrupted', waiting: 'waiting'};
   // `options.labelled` draws each step as its module name with its C31 mark (a check, the loader or the queued mark, each with its word), so state reads without colour or hover;
   // the steps wrap. Without it the segments are unlabelled (the library home's compact row). A running step's note then sits on that step, and the caption keeps only the count.
   function runSteps(steps, options = {}) {
@@ -812,7 +812,7 @@
     const clock = step => (step.note ? `<span class="steps-el"${step.since ? ` data-since="${escapeHtml(step.since)}"` : ''}> · ${escapeHtml(step.note)}</span>` : '');
     const segment = step => `<li class="step ${kind(step)}" ${tipAttributes(`${step.title}: ${STEP_WORDS[kind(step)]}`)}></li>`;
     // State mark first, then the module name; a running step's clock is part of its mark ("Running · 37 min into the run"), so the phrase stays on the mark's line and wraps as one.
-    const labelled = step => `<li class="step ${kind(step)}">${runMark({done: 'done', running: step.stalled ? 'stalled' : 'running', waiting: 'queued'}[kind(step)], '', kind(step) === 'running' ? clock(step) : '')}<span class="st-n">${escapeHtml(step.title)}</span></li>`;
+    const labelled = step => `<li class="step ${kind(step)}">${runMark({done: 'done', running: step.stalled ? 'stalled' : 'running', stopped: 'stopped', waiting: 'queued'}[kind(step)], '', kind(step) === 'running' ? clock(step) : '')}<span class="st-n">${escapeHtml(step.title)}</span></li>`;
     if (options.labelled) return `<div class="steps-w"><ol class="steps steps-l" aria-label="Modules, ${done} of ${steps.length} done">${steps.map(labelled).join('')}</ol><p class="steps-t"><span class="steps-n">${done} of ${steps.length} done</span></p></div>`;
     return `<div class="steps-w"><ol class="steps" aria-label="Modules, ${done} of ${steps.length} done">${steps.map(segment).join('')}</ol><p class="steps-t">${running.length ? `<span class="steps-now"><span class="steps-k">Running</span> ${running.map(step => escapeHtml(step.title) + clock(step)).join(', ')}</span>` : ''}<span class="steps-n">${done} of ${steps.length} done</span></p></div>`;
   }

@@ -29,21 +29,41 @@ from deploy_vii.model._cells import beyond_rounding, half_unit
 from deploy_workflow.credit_os_catalogue import period_order
 from deploy_workflow.handoff_delivery import heading_of, plain
 from deploy_workflow.model_handoff_delivery import BOLD_LABEL
+from deploy_workflow.owners.cpos_cp1_statements import (
+    _SEPARATOR,
+    _UNIT,
+    ADJUSTED,
+    INTEREST,
+    REPORTED,
+    STATEMENTS,
+    Statement,
+    _cells,
+    _currencies,
+    _findings,
+    _money_of,
+    _statement,
+    _table,
+    _unseparated,
+    money_unit,
+)
 from deploy_workflow.owners.cpos_periods import _date, period_of
+
+# `money_unit` moved to `cpos_cp1_statements` (below the forecast); importers keep this name.
+__all__ = ["money_unit"]
 
 _NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?", re.ASCII)
 _TWO_PLACES = re.compile(r"-?\d[\d,]*\.\d{2}", re.ASCII)
-_UNIT = re.compile(r"[A-Z]{3} (millions|thousands)", re.ASCII)
 _PERIOD_HEADER = re.compile(r"FY\d{4}|Q[1-4] \d{4}|H1 \d{4}|9M \d{4}", re.ASCII)
 _FISCAL = re.compile(r"(FY\d{4})(?: / (\d{4}-\d{2}-\d{2}))?", re.ASCII)
 _FY_HEADER = re.compile(r"FY\d{4}", re.ASCII)
-_SEPARATOR = re.compile(r"\s*:?-+:?\s*")
 _BREAKS = re.compile("\r(?!\n)|[\x0b\x0c\x1c-\x1e\x85\u2028\u2029]")
 _EXACT = Context(prec=1000, traps=[Inexact])  # exact sums of figures of at most MAX_CELL digits
 GAP_WORDS = ("Not supplied:", "Not calculable:")
 MAX_CELL = 25  # A longer cell is not a plain number; this also bounds every sum.
 PERIOD_FORMS = ("FY2024", "Q3 2025", "H1 2025", "9M 2025")
-UNIT_EXAMPLE = "USD millions"
+# Shown with a non-USD example beside it, so a model does not copy USD onto another currency
+# (docs/rulings/2026-11-16-reporting-currency-from-sources.md).
+UNIT_EXAMPLE = "`USD millions` or `GBP millions`"
 MONEY = "the money unit"  # Stands for the issuer's own currency unit in CP-1's money tables.
 REGISTER_UNIT = MONEY  # The Net debt table's Reporting unit.
 PLAIN = (
@@ -52,38 +72,6 @@ PLAIN = (
 )
 
 
-@dataclass(frozen=True)
-class StatementSpec:
-    heading: str
-    fixed: tuple[str, ...]
-    optional: tuple[str, ...] = ()
-
-
-REPORTED = "EBITDA (Reported)"
-ADJUSTED = "EBITDA (Adjusted)"
-INTEREST = "Cash Interest Paid"
-STATEMENTS = (
-    StatementSpec("T4.4 Income statement", (REPORTED,), (ADJUSTED,)),
-    StatementSpec(
-        "T4.5 Cash flow statement",
-        (
-            "Net Cash from Operating Activities",
-            "Net Cash from Investing Activities",
-            "Net Cash from Financing Activities",
-            "Net Cash Change",
-            "Opening Cash",
-            "Closing Cash",
-            INTEREST,
-        ),
-        ("FX Effect on Cash",),
-    ),
-    StatementSpec(
-        "T4.6 Balance sheet",
-        ("Total Assets", "Total Liabilities", "Total Equity", "Total Debt", "Cash & Equivalents"),
-        ("Temporary Equity",),
-    ),
-)
-STATEMENT_TAIL = ["Unit", "Basis", "Source"]
 REGISTER_HEADING = "T4.9 Calculation register"
 REGISTER_COLUMNS = (
     "Metric Name",
@@ -180,50 +168,6 @@ def _sum(values: Sequence[Decimal]) -> Decimal:
 
 
 # --- the table reader ----------------------------------------------------------------------
-
-
-def _findings(text: str) -> list[str]:
-    """The lines of `## Findings` outside code fences: the only place a table is read."""
-    kept: list[str] = []
-    inside, fence = False, None
-    for line in text.splitlines():
-        marker = line.lstrip()[:3]
-        if marker in ("```", "~~~"):
-            fence = None if fence == marker else (fence or marker)
-        elif fence is None and line.startswith("## "):
-            inside = line.rstrip() == "## Findings"
-        elif fence is None and inside:
-            kept.append(line)
-    return kept
-
-
-def _cells(line: str) -> list[str]:
-    inner = line.strip()[1:]
-    if inner.endswith("|") and not inner.endswith("\\|"):
-        inner = inner[:-1]
-    return [c.replace("\\|", "|").strip() for c in re.split(r"(?<!\\)\|", inner)]
-
-
-def _table(lines: list[str], heading: str) -> list[list[str]] | None:
-    """The first table under `### heading` as rows of cells (header first, separator dropped);
-    None when the heading is absent, an empty list when it holds no table."""
-    try:
-        start = lines.index(f"### {heading}")
-    except ValueError:
-        return None
-    rows: list[list[str]] = []
-    for line in lines[start + 1 :]:
-        if line.startswith("#") or (rows and not line.startswith("|")):
-            break
-        if line.startswith("|"):
-            rows.append(_cells(line))
-    return _unseparated(rows)
-
-
-def _unseparated(rows: list[list[str]]) -> list[list[str]]:
-    if len(rows) > 1 and all(_SEPARATOR.fullmatch(c) for c in rows[1]):
-        del rows[1]
-    return rows
 
 
 def _blocks(lines: list[str]) -> list[list[list[str]]]:
@@ -424,49 +368,6 @@ def _records(
     if not rows or "Period" not in rows[0] or (header is not None and rows[0] != header):
         return []
     return [dict(zip(rows[0], row, strict=True)) for row in rows[1:] if len(row) == len(rows[0])]
-
-
-@dataclass(frozen=True)
-class Statement:
-    spec: StatementSpec
-    periods: list[str]
-    rows: dict[str, list[str]]  # label -> cells (first cell the label)
-    stated_twice: tuple[str, ...]
-    wrong_width: tuple[str, ...]
-
-    def column(self, year: str) -> int | None:
-        """The column headed `year` (`FY2024`), the statement column its Period-table row names."""
-        return self.periods.index(year) if year in self.periods else None
-
-    def cell(self, label: str, at: int) -> str | None:
-        row = self.rows.get(label)
-        return row[at + 1] if row else None
-
-    def unit(self, label: str) -> str | None:
-        row = self.rows.get(label)
-        return row[-3] if row else None
-
-    def per(self, label: str) -> int | None:
-        """How many of the row's units make one of the money tables' (1 for millions, 1,000 for
-        thousands); None when the Unit cell is neither (refused where it is read)."""
-        found = _UNIT.fullmatch(self.unit(label) or "")
-        return None if found is None else 1000 if found[1] == "thousands" else 1
-
-
-def _statement(lines: list[str], spec: StatementSpec) -> Statement | None:
-    rows = _table(lines, spec.heading)
-    if not rows or len(rows[0]) < 5 or rows[0][0] != "Line item" or rows[0][-3:] != STATEMENT_TAIL:
-        return None
-    header, body = rows[0], rows[1:]
-    good = [row for row in body if len(row) == len(header)]
-    counts = Counter(row[0] for row in good)
-    return Statement(
-        spec,
-        header[1:-3],
-        {row[0]: row for row in reversed(good)},
-        tuple(sorted(n for n in counts if counts[n] > 1 and n in (*spec.fixed, *spec.optional))),
-        tuple(row[0] for row in body if len(row) != len(header)),
-    )
 
 
 @dataclass(frozen=True)
@@ -806,7 +707,7 @@ def _line_issues(found: Statement, label: str) -> list[str]:
     if unit is not None and _UNIT.fullmatch(unit) is None:
         issues.append(
             f"`{heading}` {label}: Unit `{unit}` must be a three-letter currency code and "
-            f"`millions` or `thousands`, for example `{UNIT_EXAMPLE}`."
+            f"`millions` or `thousands`, for example {UNIT_EXAMPLE}."
         )
     for at, period in enumerate(found.periods):
         cell = found.cell(label, at)
@@ -836,33 +737,6 @@ def _statement_cells(found: Statement) -> list[str]:
 
 def _orderable(period: str) -> bool:
     return period_order(period) is not None or period_of(period) is not None
-
-
-def _currencies(
-    statements: list[Statement | None], optional: bool = False
-) -> list[tuple[str, str, str]]:
-    """(table, row, currency code) of each fixed row (with `optional`, the optional rows after
-    them, table by table) whose Unit cell is readable, in order."""
-    return [
-        (found.spec.heading, label, unit[:3])
-        for found in statements
-        if found
-        for label in (*found.spec.fixed, *(found.spec.optional if optional else ()))
-        if (unit := found.unit(label)) and _UNIT.fullmatch(unit)
-    ]
-
-
-def _money_of(code: str) -> str:
-    return "US$m" if code == "USD" else f"{code}m"
-
-
-def money_unit(text: str) -> str | None:
-    """The money unit of CP-1's tables: `US$m` for USD statements, else the statements' currency
-    code and `m` (`GBPm`), in millions even where a statement prints thousands. The single
-    currency of the fixed rows' Unit cells; None when there is none or more than one."""
-    lines = _findings(text)
-    codes = {c for _, _, c in _currencies([_statement(lines, spec) for spec in STATEMENTS])}
-    return _money_of(next(iter(codes))) if len(codes) == 1 else None
 
 
 def _currency_issues(found: list[tuple[str, str, str]]) -> list[str]:

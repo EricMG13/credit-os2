@@ -561,3 +561,70 @@ it("counts a passage drawn as a chart as present", () => {
   expect(screen.getByText("Limitations says so.")).toBeInTheDocument();
   expect(screen.queryByText(/The module's handoff has no such passage/)).not.toBeInTheDocument();
 });
+
+// docs/rulings/2026-11-16-reporting-currency-from-sources.md: the run's currency is CP-1's money
+// unit, which the catalogue records with the run's cash figure.
+it.each([
+  ["GBPm", "Market levels are US market quotes in US dollars; this run reports in £m."],
+  ["US$m", null],
+])(
+  "notes US market quotes on the security decisions of a %s run only when not USD",
+  (unit, text) => {
+    const entry = output("s", true);
+    entry.output = { ...entry.output, module: "CP-3", label: "Security selection" };
+    entry.sections = [
+      FINDINGS,
+      {
+        heading: "Security decision summary",
+        level: 3,
+        line: 2,
+        blocks: [
+          {
+            type: "table",
+            line: 4,
+            headers: [
+              "Instrument",
+              "Market level (1 Oct 2026)",
+              "Rank",
+              "Relative value",
+              "Recommendation",
+              "Source",
+            ],
+            rows: [
+              {
+                line: 6,
+                cells: [
+                  "Secured notes",
+                  "$99.00; yield 7.00%",
+                  "First lien",
+                  "Fair",
+                  "Neutral",
+                  "p.1",
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    const props = fixture([]);
+    props.view.modules = [
+      { id: "CP-3", name: "Security selection", state: "Delivered", outputs: [entry] },
+    ];
+    props.view.entries = [entry];
+    props.view.catalogue = {
+      id: "first",
+      issuer: "A",
+      name: "A",
+      title: "",
+      date: "2026-11-01",
+      period: "",
+      sector: "",
+      metrics: { cash: { value: "1250", unit, period: "2026-06-30" } },
+    };
+    render(<Modules {...props} module="CP-3" />);
+    const decisions = screen.getByRole("region", { name: "Instrument decisions" });
+    if (text) expect(within(decisions).getByText(text)).toHaveAttribute("role", "note");
+    else expect(within(decisions).queryByText(/US market quotes/)).toBeNull();
+  },
+);

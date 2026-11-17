@@ -68,9 +68,77 @@ and awaits the owner's review.
 | fitchratings.com | Rating agency |
 | dbrs.morningstar.com | Rating agency |
 | kbra.com | Rating agency |
+| finance.yahoo.com | Market data |
 
 Removed after security review: `ise.ie` (current ownership of the legacy domain is not confirmed)
 and `nasdaq.com` (its news pages syndicate third-party contributor articles).
+
+Amendment 2026-11-17 (owner). On 2026-11-16: "Use public source like yahoo finance for cp-dr. We
+want information on all modules". On 2026-11-17, asked with the exposure put plainly (the issuer's
+ticker is in each Yahoo page address, so Yahoo sees which issuer is researched; no documents or
+figures are sent): "Yes, allow it". `finance.yahoo.com` is added, category Market data. `yahoo.com`
+and its other subdomains are not added: `yahoo.com`, `news.yahoo.com`, `consent.yahoo.com` and
+`guce.yahoo.com` are refused, a redirect to them included. As for every listed domain, a subdomain
+of `finance.yahoo.com` (for example `query1.finance.yahoo.com`) passes. A Yahoo page is cited with
+Source type `Other` and a limitation under `## Gaps`, because it is an aggregator, not the original
+source. Its pages state no date, so the lookup marks them undated. Its price-history rows carry
+their own dates, while its statistics pages show current figures, which a case with an earlier
+research cutoff must not use. Its news pages syndicate third-party articles, the reason `nasdaq.com`
+was removed, so a figure from a Yahoo news page is not used without the original publisher.
+`WEB_LOOKUP_RULES` tells the module these rules. No check enforces them: a Yahoo page is checked as
+any undated page, so a statistics page's current figure passes the checks in a case with an earlier
+cutoff, whatever its Source type. A mechanical check is a follow-up for the owner to decide.
+
+What Yahoo sees, on each request the research module makes to it:
+
+- the page address, which the module chooses and which names what it looks up: normally the
+  issuer's ticker (for example `/quote/ACME/`), or a peer's, or a search for the issuer's name, so
+  Yahoo sees which issuer is researched;
+- the machine's network address, as every listed host does;
+- exactly these three headers, verbatim (`Host` names the host requested: a subdomain on a hop
+  to one, and `finance.yahoo.com.` for an address written with a trailing dot):
+
+  ```
+  Host: finance.yahoo.com
+  User-Agent: deploy-workflow-cpdr
+  Accept: text/html, application/xhtml+xml, text/plain, application/json
+  ```
+
+No source document or figure is sent. A fetch is a GET with no body
+(`PinnedHTTPSConnection.request` refuses one). The address is the one part the model chooses: it is
+told to put only public names and identifiers in it, and an address that carries a supplied file
+name or a source figure is still fetched with a `web_url_flagged` event recorded (open point 4).
+
+Header audit, 2026-11-17, of `main` at `4f8a375a`, by reading the code and by test:
+
+- `WebLookup._download` gives `webfetch.fetch` two headers, `User-Agent` (`DEFAULT_USER_AGENT`) and
+  `Accept` (`ACCEPT`); `webfetch._exchange` adds `Host` and nothing else.
+- `PinnedHTTPSConnection.request` writes exactly the headers it is given: no `Accept-Encoding`, no
+  second `Host`, no `Content-Length`, no `Connection`.
+- There is no cookie store. Of a response only `Location`, `Content-Type`, `Content-Length` and
+  `Last-Modified` are read, so a `Set-Cookie` is never sent back, and no hop sends a `Referer`.
+- `_GuardedConnection` replaces the `User-Agent` with the SEC contact string
+  (`DEPLOY_WORKFLOW_SEC_USER_AGENT`) only on a connection to a `sec.gov` host (`WebLookup._connect`,
+  `is_sec_host`). A Yahoo request never carries it, whether it is set or not. No other header value
+  comes from the environment.
+- Each connection has a fresh TLS context with no client certificate and is closed after one
+  request, so no TLS session or connection is shared between requests. The TLS handshake names the
+  host requested, as for any https host.
+- The `User-Agent` names the software, not a person, the project's owner or the machine, and is the
+  same for every listed host except `sec.gov` hosts, which receive the contact string instead. It
+  is recorded, not changed.
+- Tests (`tests/test_weblookup.py`): `test_a_yahoo_fetch_sends_three_headers_and_never_the_sec_contact`
+  (a fake connection, a Yahoo redirect that sets a cookie, the contact string set),
+  `test_a_yahoo_request_on_the_wire_is_the_request_line_and_three_headers` (the bytes a real
+  `PinnedHTTPSConnection` writes, with the contact string and identifying values in `os.environ`),
+  `test_a_redirect_from_yahoo_off_the_allowlist_is_refused` and
+  `test_the_allowlist_is_mains_list_plus_finance_yahoo_com_and_nothing_else`.
+
+The run-start page says so on the review, exactly when the run's research module will have the
+lookup tools (the summary's `web_lookup`, from `settled_web_lookup`: the research module in the run
+and lookup on, the default for a public case), on any model. Nothing has been fetched from a live
+Yahoo host. Yahoo may send some visitors to its consent pages first; such a redirect is refused and
+the page is not read. Much of a quote page is drawn by scripts, whose text the extractor skips.
 
 Points for the owner when reviewing:
 
@@ -272,7 +340,10 @@ Governed by instruction in `WEB_LOOKUP_RULES` only, not caught mechanically:
 - quoted spans under 12 characters, a figure split across short quotes, Markdown blockquotes, and
   paraphrase without quote marks;
 - later-event figures in prose outside TDR.6;
-- SEC facts filed after the cutoff.
+- SEC facts filed after the cutoff;
+- a `finance.yahoo.com` page: Source type `Other` with a `## Gaps` limitation, no current figure
+  from a quote or statistics page unless it states its own date on or before the cutoff, and no
+  figure from a news page without the original publisher (amendment 2026-11-17).
 
 ## Fetched text is data
 

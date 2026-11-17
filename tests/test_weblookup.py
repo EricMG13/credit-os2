@@ -6,11 +6,14 @@ verified against the live service (the code must not fail on another shape, and 
 """
 
 import hashlib
+import io
 import json
+import socket
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 from hypothesis import given
@@ -978,7 +981,8 @@ def test_allowlist_file_lists_reviewed_domains_with_categories() -> None:
     assert domains["sec.gov"] == "Regulator or official"
     assert domains["moodys.com"] == "Rating agency"
     assert domains["londonstockexchange.com"] == "Exchange"
-    assert len(domains) == len(data["domains"]) == 28
+    assert len(domains) == len(data["domains"]) == 29
+    assert domains["finance.yahoo.com"] == "Market data"
 
 
 @pytest.mark.parametrize(
@@ -996,11 +1000,163 @@ def test_allowlist_file_lists_reviewed_domains_with_categories() -> None:
         ("a..sec.gov", False),
         ("find-and-update.company-information.service.gov.uk", True),
         ("service.gov.uk", False),
+        ("finance.yahoo.com", True),
+        ("query1.finance.yahoo.com", True),
+        ("FINANCE.YAHOO.COM.", True),
+        ("yahoo.com", False),
+        ("news.yahoo.com", False),
+        ("uk.finance.yahoo.co.uk", False),
+        ("finance.yahoo.com.evil.example", False),
+        ("notfinance.yahoo.com", False),
     ],
 )
 def test_host_matching_is_on_label_boundaries(host: str, allowed: bool) -> None:
     domains = weblookup.load_domains()
     assert weblookup.host_allowed(host, domains, frozenset()) is allowed
+
+
+# main's 28 domains before the owner's 2026-11-17 "Yes, allow it", written out here rather than
+# read from the file under test.
+MAIN_DOMAINS = frozenset(
+    {
+        "sec.gov",
+        "fca.org.uk",
+        "find-and-update.company-information.service.gov.uk",
+        "esma.europa.eu",
+        "sedarplus.ca",
+        "federalreserve.gov",
+        "treasury.gov",
+        "ecb.europa.eu",
+        "bankofengland.co.uk",
+        "bis.org",
+        "imf.org",
+        "bls.gov",
+        "bea.gov",
+        "census.gov",
+        "fred.stlouisfed.org",
+        "ons.gov.uk",
+        "ec.europa.eu",
+        "oecd.org",
+        "worldbank.org",
+        "londonstockexchange.com",
+        "nyse.com",
+        "euronext.com",
+        "luxse.com",
+        "moodys.com",
+        "spglobal.com",
+        "fitchratings.com",
+        "dbrs.morningstar.com",
+        "kbra.com",
+    }
+)
+
+
+def test_the_allowlist_is_mains_list_plus_finance_yahoo_com_and_nothing_else() -> None:
+    assert set(weblookup.load_domains()) == MAIN_DOMAINS | {"finance.yahoo.com"}
+
+
+# finance.yahoo.com (owner, 2026-11-17): what a request to it carries ---------------------------
+
+YAHOO_AGENT = "deploy-workflow-cpdr"
+YAHOO_ACCEPT = "text/html, application/xhtml+xml, text/plain, application/json"
+
+
+def test_a_yahoo_fetch_sends_three_headers_and_never_the_sec_contact(tmp_path: Path) -> None:
+    """A cookie Yahoo sets on a redirect is not sent back, and no hop gets a Referer."""
+    net = FakeNet(
+        {
+            ("finance.yahoo.com", "/quote/ACME/"): (
+                302,
+                {"Location": "https://query1.finance.yahoo.com/v1/ACME", "Set-Cookie": "B=m"},
+                b"",
+            ),
+            ("query1.finance.yahoo.com", "/v1/ACME"): ok(html(), **{"Set-Cookie": "A=m"}),
+        }
+    )
+    lookup = make(tmp_path, net, env={UA_ENV: UA_VALUE})
+    retained(lookup.fetch_page("https://finance.yahoo.com/quote/ACME/"))
+    assert net.requests == [
+        (
+            host,
+            path,
+            {"Host": host, "User-Agent": YAHOO_AGENT, "Accept": YAHOO_ACCEPT},
+        )
+        for host, path in [
+            ("finance.yahoo.com", "/quote/ACME/"),
+            ("query1.finance.yahoo.com", "/v1/ACME"),
+        ]
+    ]
+
+
+class WireSocket:
+    """The TLS socket under a real ``PinnedHTTPSConnection``: keeps the bytes the request writes
+    and answers with a canned response."""
+
+    def __init__(self, reply: bytes) -> None:
+        self.sent = b""
+        self._reply = reply
+
+    def sendall(self, data: bytes) -> None:
+        self.sent += data
+
+    def makefile(self, mode: str = "rb", buffering: int | None = None) -> io.BytesIO:
+        return io.BytesIO(self._reply)
+
+    def close(self) -> None:
+        pass
+
+
+def test_a_yahoo_request_on_the_wire_is_the_request_line_and_three_headers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The production environment (``os.environ``) holds the SEC contact string and other
+    identifying values; none of them is written to Yahoo."""
+    for name, value in {UA_ENV: UA_VALUE, "USER": "marker-user", "HOSTNAME": "marker-host"}.items():
+        monkeypatch.setenv(name, value)
+    sockets: list[WireSocket] = []
+
+    def connect(target: webfetch.ConnectionTarget) -> webfetch.ConnectionLike:
+        connection = webfetch.PinnedHTTPSConnection(
+            target.host,
+            target.ip,
+            port=target.port,
+            timeout=target.timeout,
+            context=webfetch.tls_context(),
+            deadline=target.deadline,
+            clock=target.clock,
+        )
+        sockets.append(WireSocket(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<p>q</p>"))
+        connection.sock = cast(socket.socket, sockets[-1])
+        return connection
+
+    runtime = weblookup.Runtime(resolver=lambda _host: PUBLIC, connect=connect, now=lambda: NOW)
+    lookup = WebLookup(weblookup.RunScope(tmp_path / "run", CUTOFF, "cp-dr"), runtime)
+    retained(lookup.fetch_page("https://finance.yahoo.com/quote/ACME/"))
+    request = (
+        b"GET /quote/ACME/ HTTP/1.1\r\n"
+        b"Host: finance.yahoo.com\r\n"
+        b"User-Agent: deploy-workflow-cpdr\r\n"
+        b"Accept: text/html, application/xhtml+xml, text/plain, application/json\r\n"
+        b"\r\n"
+    )
+    assert [wire.sent for wire in sockets] == [request]
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://consent.yahoo.com/v2/collectConsent?sessionId=x",
+        "https://guce.yahoo.com/consent?brandType=nonEu",
+        "https://yahoo.com/",
+        "https://finance.yahoo.com.evil.example/x",
+    ],
+)
+def test_a_redirect_from_yahoo_off_the_allowlist_is_refused(tmp_path: Path, location: str) -> None:
+    net = FakeNet({("finance.yahoo.com", "/quote/ACME/"): (302, {"Location": location}, b"")})
+    reason = refused(make(tmp_path, net).fetch_page("https://finance.yahoo.com/quote/ACME/"))
+    assert "refused: not a host named in the manifest" in reason
+    assert net.connections == ["finance.yahoo.com"]
+    assert files_retained(tmp_path) == []
 
 
 @given(
@@ -1138,6 +1294,37 @@ def test_text_is_neutralised_before_it_is_cut() -> None:
     assert "<<<" not in joined
     assert joined.endswith("[the text was cut here; the first 2000000 characters are kept]")
     assert len(joined) <= weblookup.MAX_TEXT_CHARS + 200
+
+
+def _page_text(html: bytes) -> str:
+    return "\n".join(weblookup.pages_from(html, "text/html"))
+
+
+def test_table_cells_are_separated() -> None:
+    text = _page_text(
+        b"<table><tr><th>Date</th><th>Open</th></tr>"
+        b"<tr><td>Sep 30, 2024</td><td>1,398.32</td></tr></table>"
+    )
+    lines = text.split("\n")
+    assert "Date | Open" in lines
+    assert "Sep 30, 2024 | 1,398.32" in lines
+    assert "20241,398.32" not in text
+
+
+def test_table_cells_with_inline_markup_keep_one_line_per_cell() -> None:
+    text = _page_text(
+        b"<tr><td><span>Sep 30,</span> <span>2024</span></td><td><span>1,398.32</span></td></tr>"
+    )
+    assert "Sep 30, 2024 | 1,398.32" in text.split("\n")
+
+
+def test_table_cells_in_a_hidden_tag_add_nothing() -> None:
+    text = _page_text(b"<template><table><tr><td>x</td><td>y</td></tr></table></template>")
+    assert "|" not in text
+
+
+def test_text_outside_tables_is_unchanged() -> None:
+    assert _page_text(b"<p>Net sales rose.</p><div>Next</div>") == "Net sales rose.\n\nNext"
 
 
 def test_a_cached_row_with_a_dirty_content_type_is_returned_clean(tmp_path: Path) -> None:

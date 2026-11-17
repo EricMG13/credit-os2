@@ -26,6 +26,9 @@ import { RunCharts } from "./RunCharts";
 import { PublishedSource } from "./PublishedTrace";
 
 type Model = ReturnType<typeof buildReportView>["models"][number];
+/** A model's recorded money unit: the currency code and "millions"
+ * (docs/rulings/2026-11-16-reporting-currency-from-sources.md). */
+const MILLIONS = /^[A-Z]{3} millions$/;
 
 function forecastHandoff(model: Model, entries: OutputEntry[], folder: string) {
   const matches = entries.filter(
@@ -56,8 +59,8 @@ function recordedBridge(
   fiscal: string | undefined,
   value: number | null | undefined,
 ) {
-  if (!handoff || word(units) !== "USD millions" || !fiscal || typeof value !== "number")
-    return null;
+  const unit = word(units);
+  if (!handoff || !MILLIONS.test(unit) || !fiscal || typeof value !== "number") return null;
   const ledger = namedTable(handoff, "Calculations", [
     "ID",
     "Calculation",
@@ -79,7 +82,7 @@ function recordedBridge(
     !(Math.abs(original - value - difference) < 0.005)
   )
     return null;
-  return { value, original, difference, fcfLine: fcf.line, inflowLine: inflow.line };
+  return { value, original, difference, unit, fcfLine: fcf.line, inflowLine: inflow.line };
 }
 
 function BasisNote({
@@ -109,7 +112,7 @@ function BasisNote({
         <p>
           The calculation gives <strong>{bridge.value.toFixed(2)}</strong> cash proxy. The handoff
           gives <strong>{bridge.original.toFixed(2)}</strong> free cash flow. The displayed
-          difference is <strong>{withUnit(bridge.difference.toFixed(2), "US$m")}</strong>.
+          difference is <strong>{withUnit(bridge.difference.toFixed(2), bridge.unit)}</strong>.
         </p>
       )}
       {bridge && (

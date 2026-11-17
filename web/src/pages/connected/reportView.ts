@@ -165,12 +165,33 @@ export type MetricKey =
   | "maturities";
 type MetricBinding = { key: MetricKey; metric: Metric; line?: number };
 const creditMetrics = [
-  ["liquidity", "Total liquidity at period end", "US$m"],
-  ["freeCashFlow", "Free cash flow (operating cash flow less capex), twelve months", "US$m"],
+  ["liquidity", "Total liquidity at period end", "money"],
+  ["freeCashFlow", "Free cash flow (operating cash flow less capex), twelve months", "money"],
   ["leverage", "(Total debt plus financing obligations) / EBITDA", "x"],
   ["interestCover", "EBITDA / (cash interest for debt plus cash rent recorded as interest)", "x"],
-  ["netDebt", "Net debt at period end", "US$m"],
+  ["netDebt", "Net debt at period end", "money"],
 ] as const;
+
+/** `US$m` for USD, otherwise the currency code and `m`: `MONEY_UNIT` of the issuer library's
+ * `handoff_fields.py`. */
+const MONEY_UNIT = /^(?:US\$m|[A-Z]{3}m)$/;
+
+/** The run's money unit: CP-1's, as the catalogue records it with the run's cash figure
+ * (docs/rulings/2026-11-16-reporting-currency-from-sources.md); none when it records no money unit. */
+export function runMoneyUnit(catalogue: CatalogueRun | undefined) {
+  const unit = catalogue?.metrics.cash?.unit;
+  return unit && MONEY_UNIT.test(unit) ? unit : undefined;
+}
+
+/** The money unit a table's tiles take: the run's, else the one money unit the table's `column`
+ * states; none when it states two. */
+function tileUnit(run: string | undefined, table: Table | undefined, column: number) {
+  if (run || !table) return run;
+  const units = new Set(
+    table.rows.map(({ cells }) => cells[column] ?? "").filter((unit) => MONEY_UNIT.test(unit)),
+  );
+  return units.size === 1 ? [...units][0] : undefined;
+}
 
 const numeric = /^-?\d+(?:\.\d+)?$/;
 const exactComma = (value: string) => value.replace(/\B(?=(\d{3})+(?!\d|\.))/g, ",");
@@ -239,32 +260,30 @@ function metricBinding(
   };
 }
 
-function principal(entry: OutputEntry, date: string): MetricBinding[] {
+function principal(entry: OutputEntry, date: string, run?: string): MetricBinding[] {
   const table = namedTable(entry, "Debt principal to carrying value", [
     "Period",
     "Contractual principal",
     "Reporting unit",
   ]);
-  const row = namedRow(table, ({ cells }) => cells[0] === date && cells[4] === "US$m");
+  const unit = tileUnit(run, table, 4);
+  if (unit === undefined) return [];
+  const row = namedRow(table, ({ cells }) => cells[0] === date && cells[4] === unit);
   const value = row?.cells[1];
   return value && numeric.test(value)
-    ? [metricBinding("principal", "Contractual principal", value, "US$m", date, row.line)]
+    ? [metricBinding("principal", "Contractual principal", value, unit, date, row.line)]
     : [];
 }
 
-function maturityTotal(entry: OutputEntry, date: string): MetricBinding[] {
+function maturityTotal(entry: OutputEntry, date: string, run?: string): MetricBinding[] {
   const schedule = namedTable(entry, "Chart data: debt maturities", [
     "Period",
     "Debt maturing",
     "Reporting unit",
   ]);
-  if (
-    !schedule ||
-    !schedule.rows.every(
-      ({ cells }) => cells[schedule.headers.indexOf("Reporting unit")] === "US$m",
-    )
-  )
-    return [];
+  const column = schedule?.headers.indexOf("Reporting unit") ?? -1;
+  const unit = tileUnit(run, schedule, column);
+  if (unit === undefined || !schedule?.rows.every(({ cells }) => cells[column] === unit)) return [];
   const table = namedTable(entry, "Calculations", [
     "ID",
     "Calculation",
@@ -285,7 +304,7 @@ function maturityTotal(entry: OutputEntry, date: string): MetricBinding[] {
   });
   const value = row?.cells[3];
   return value && numeric.test(value)
-    ? [metricBinding("maturities", row.cells[1] ?? "", value, "US$m", date, row.line)]
+    ? [metricBinding("maturities", row.cells[1] ?? "", value, unit, date, row.line)]
     : [];
 }
 
@@ -305,38 +324,45 @@ export function actionBias(entry: OutputEntry) {
   return undefined;
 }
 
+function creditMeasures(entry: OutputEntry, date: string, run?: string): MetricBinding[] {
+  const table = namedTable(entry, "Financials and credit metrics", ["Metric", "Unit"]);
+  const column = table && creditMetricColumn(entry, table, date);
+  if (!table || column === undefined) return [];
+  const prior = priorMetricColumn(entry, table, date, column);
+  const units = table.headers.indexOf("Unit");
+  const money = tileUnit(run, table, units);
+  return creditMetrics.flatMap(([key, label, kind]) => {
+    const unit = kind === "money" ? money : kind;
+    if (unit === undefined) return [];
+    const row = namedRow(table, ({ cells }) => cells[0] === label && cells[units] === unit);
+    const value = row?.cells[column];
+    const before = prior && row?.cells[prior.column];
+    const change = value && before ? exactDifference(value, before) : null;
+    return value && numeric.test(value)
+      ? [
+          metricBinding(
+            key,
+            label,
+            value,
+            unit,
+            date,
+            row.line,
+            change !== null && prior ? { key, change, unit, prior: prior.period } : undefined,
+          ),
+        ]
+      : [];
+  });
+}
+
 export function foundationMetrics(entry: OutputEntry, catalogue: CatalogueRun | undefined) {
   const date = catalogue?.metrics.cash?.period;
   if (!date || entry.output.module !== "CP-1" || blocked(entry)) return [];
-  const table = namedTable(entry, "Financials and credit metrics", ["Metric", "Unit"]);
-  const column = table && creditMetricColumn(entry, table, date);
-  const prior = table && column !== undefined && priorMetricColumn(entry, table, date, column);
-  const measures =
-    table && column !== undefined
-      ? creditMetrics.flatMap(([key, label, unit]) => {
-          const row = namedRow(
-            table,
-            ({ cells }) => cells[0] === label && cells[table.headers.indexOf("Unit")] === unit,
-          );
-          const value = row?.cells[column];
-          const before = prior && row?.cells[prior.column];
-          const change = value && before ? exactDifference(value, before) : null;
-          return value && numeric.test(value)
-            ? [
-                metricBinding(
-                  key,
-                  label,
-                  value,
-                  unit,
-                  date,
-                  row.line,
-                  change !== null && prior ? { key, change, unit, prior: prior.period } : undefined,
-                ),
-              ]
-            : [];
-        })
-      : [];
-  return [...measures, ...principal(entry, date), ...maturityTotal(entry, date)];
+  const run = runMoneyUnit(catalogue);
+  return [
+    ...creditMeasures(entry, date, run),
+    ...principal(entry, date, run),
+    ...maturityTotal(entry, date, run),
+  ];
 }
 
 export function traceKey(entry: OutputEntry, line: number) {

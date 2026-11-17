@@ -19,6 +19,7 @@ import {
 import {
   foundationMetrics,
   moduleState,
+  runMoneyUnit,
   type MetricKey,
   type buildReportView,
 } from "../reportView";
@@ -319,7 +320,13 @@ function ModuleFindings({
             {downside && <Downside data={downside} href={evidenceHref} />}
             {breaks && <BreakPoints data={breaks} href={evidenceHref} />}
             {macro && <MacroSensitivity data={macro} href={evidenceHref} />}
-            {securities && <Securities data={securities} href={evidenceHref} />}
+            {securities && (
+              <Securities
+                data={securities}
+                href={evidenceHref}
+                runUnit={runMoneyUnit(view.catalogue)}
+              />
+            )}
             <LegacyVisuals
               output={entry.output}
               sections={entry.sections}

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Credit OS: Teams notification cards (mock-up)</title>
+<style>
+/* Mock-up of the four Credit OS run cards as Teams would draw them. Status badges and shapes
+   follow web/src/components/status (Run states); icons are @untitledui/icons, the app's set.
+   The navy header ships as one image. Text below it is Teams' font (Inter stands in for
+   Segoe UI) and the primary button is Teams' accent. Synthetic issuers, illustrative values. */
+@font-face { font-family: "Schibsted Grotesk"; font-weight: 700; src: url("../../../web/public/fonts/SchibstedGrotesk-Bold.woff2") format("woff2"); }
+:root {
+  --navy: #000533; --blue: #001aff; --canvas: #f6f5ff; --edge: #e3e1ff;
+  --ink: #000533; --ink-2: #474a4f; --ink-3: #63676e; --hair: #e8e9eb;
+  --ok-text: #0c6639; --ok-fill: #e8fff4; --ok-edge: #a5ffd2; --ok-mark: #0f8048;
+  --warn-text: #664f00; --warn-fill: #fff9e5; --warn-edge: #ffe899; --warn-mark: #997700;
+  --teams-accent: #5b5fc7; --teams-bg: #f5f5f5; --teams-ink: #242424; --teams-ink-2: #616161;
+  --ui: "Segoe UI", "Inter", system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--teams-bg); font-family: var(--ui); color: var(--teams-ink); padding: 32px 40px 36px; width: 1320px; }
+.board { display: grid; grid-template-columns: 1fr 1fr; gap: 32px 40px; align-items: start; }
+.label { font: 600 12px/16px var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--teams-ink-2); margin-bottom: 12px; }
+.msg { display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
+.avatar { width: 36px; height: 36px; border-radius: 8px; background: var(--blue); display: grid; place-items: center; color: #fff; }
+.avatar svg { width: 20px; height: 20px; }
+.meta { font: 400 12px/16px var(--ui); color: var(--teams-ink-2); margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+.meta b { font-weight: 600; color: var(--teams-ink); font-size: 13px; }
+.meta .app { font-size: 10px; font-weight: 600; padding: 0 5px; border-radius: 3px; background: #e0e0e0; color: #424242; line-height: 15px; }
+
+.card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.band { position: relative; height: 44px; background: var(--navy); display: flex; align-items: center; padding: 0 16px; gap: 9px; overflow: hidden; border-bottom: 3px solid var(--blue); }
+.band.ok { border-bottom-color: var(--ok-mark); } .band.warn { border-bottom-color: #e0a800; }
+.band .wave { position: absolute; right: -16px; top: -52px; width: 190px; height: 190px; opacity: .45; color: var(--blue); }
+.logo { width: 24px; height: 24px; border-radius: 6px; background: var(--blue); display: grid; place-items: center; color: #fff; position: relative; }
+.logo svg { width: 14px; height: 14px; }
+.appname { font: 700 15px/1 "Schibsted Grotesk", system-ui, sans-serif; letter-spacing: -.01em; color: #fff; position: relative; }
+
+.body { padding: 14px 16px 14px; }
+.ic { width: 14px; height: 14px; flex: none; }
+.sh { width: 10px; height: 10px; flex: none; }
+.sh.ok { color: var(--ok-mark); } .sh.warn { color: var(--warn-mark); } .sh.brand { color: var(--blue); } .sh.gray { color: var(--ink-3); }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+h2 { font: 700 18px/24px var(--ui); letter-spacing: -.01em; color: var(--ink); }
+h2 small { font: 500 12px/1 var(--ui); letter-spacing: 0; color: var(--ink-3); margin-left: 8px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; font: 500 12px/18px var(--ui); padding: 1px 9px 1px 7px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.badge.ok { color: var(--ok-text); background: var(--ok-fill); border-color: var(--ok-edge); }
+.badge.warn { color: var(--warn-text); background: var(--warn-fill); border-color: var(--warn-edge); }
+.badge.brand { color: #0015cc; background: #e5e8ff; border-color: #b2baff; }
+.badge.gap { color: #514d80; background: #fff; border: 1px dashed #827bcc; padding-left: 9px; }
+.meta2 { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font: 400 13px/18px var(--ui); color: var(--ink-2); }
+.meta2 span, .asof { display: inline-flex; align-items: center; gap: 5px; }
+.meta2 .ic, .asof .ic { color: var(--ink-3); }
+.asof { font: 500 13px/18px var(--ui); color: var(--ink-2); }
+.callout { margin-top: 12px; padding: 9px 12px 10px; border-radius: 6px; background: var(--canvas); border: 1px solid var(--edge); border-left: 3px solid var(--blue); }
+.callout.warn { background: var(--warn-fill); border-color: var(--warn-edge); border-left-color: #e0a800; }
+.callout p { font: 400 14px/20px var(--ui); color: var(--ink); }
+.foot { margin-top: 10px; }
+.prog { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; margin-top: 12px; color: var(--ink-3); }
+.prog b { font: 600 13px/18px var(--ui); color: var(--ink); }
+.mini { height: 6px; border-radius: 3px; background: #e8e9eb; overflow: hidden; }
+.mini i { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+
+.counts { display: flex; gap: 6px; margin-top: 10px; }
+.cnt { flex: 1; display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid var(--hair); border-radius: 6px; font: 400 12px/16px var(--ui); color: var(--ink-2); }
+.cnt b { font: 700 15px/16px var(--ui); color: var(--ink); }
+.runs { margin-top: 10px; border-top: 1px solid var(--hair); }
+.run { display: grid; grid-template-columns: 10px 1fr 70px 52px 52px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--hair); }
+.run .who { font: 600 13px/18px var(--ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run .who small { font: 400 12px/1 var(--ui); color: var(--ink-3); margin-left: 6px; }
+.run .by { font: 400 12px/18px var(--ui); color: var(--ink-3); }
+.run .st { font: 500 12px/18px var(--ui); color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.run .st.warn { color: var(--warn-text); font-weight: 600; }
+.more { font: 400 12px/16px var(--ui); color: var(--ink-3); padding-top: 7px; }
+
+.actions { display: flex; gap: 8px; padding: 10px 16px 12px; border-top: 1px solid var(--hair); background: #fafafb; }
+.btn { display: inline-flex; align-items: center; gap: 6px; font: 600 13px/28px var(--ui); padding: 0 11px; border-radius: 4px; border: 1px solid #d1d1d1; background: #fff; color: var(--teams-ink); }
+.btn.primary { background: var(--teams-accent); border-color: var(--teams-accent); color: #fff; }
+.key { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 26px; font: 400 12px/18px var(--ui); color: var(--teams-ink-2); }
+.key span { display: inline-flex; align-items: center; gap: 5px; }
+.note { margin-top: 10px; font: 400 12px/18px var(--ui); color: var(--teams-ink-2); max-width: 1000px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="sym" viewBox="0 0 1521 1515"><path fill="currentColor" d="m724.8 173c238.6-82.4 489.9-172.7 795.3-172.7v211c-267.1 0-488 78.5-726.5 160.9-235.7 82.4-488 172.7-793.3 172.7v-211c267 0 487.9-78.5 724.5-160.9zm-724.5 477.8h1519.8v213h-111-1408.8zm0 652.5c267 0 487.9-78.5 724.5-161 238.6-82.4 489.9-172.6 795.3-172.6v210.9c-267.1 0-488 78.5-726.5 160.9-236.6 82.5-488 172.7-793.3 172.7z"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21c0-1.396 0-2.093-.172-2.661a4 4 0 0 0-2.667-2.667c-.568-.172-1.265-.172-2.661-.172h-5c-1.396 0-2.093 0-2.661.172a4 4 0 0 0-2.667 2.667C4 18.907 4 19.604 4 21M16.5 7.5a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><path d="M12 6v6l4 2m6-2c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2.27V6.4c0 .56 0 .84.109 1.054a1 1 0 0 0 .437.437c.214.11.494.11 1.054.11h4.13M14 17H8m8-4H8m12-3.012V17.2c0 1.68 0 2.52-.327 3.162a3 3 0 0 1-1.311 1.311C17.72 22 16.88 22 15.2 22H8.8c-1.68 0-2.52 0-3.162-.327a3 3 0 0 1-1.311-1.311C4 19.72 4 18.88 4 17.2V6.8c0-1.68 0-2.52.327-3.162a3 3 0 0 1 1.311-1.311C6.28 2 7.12 2 8.8 2h3.212c.733 0 1.1 0 1.446.083.306.073.598.195.867.36.303.185.562.444 1.08.963l3.19 3.188c.518.519.777.778.963 1.081a3 3 0 0 1 .36.867c.082.346.082.712.082 1.446Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="m2 12 9.642 4.821c.131.066.197.099.266.111.06.012.123.012.184 0 .069-.012.135-.045.266-.11L22 12M2 17l9.642 4.821c.131.066.197.099.266.111.06.012.123.012.184 0 .069-.012.135-.045.266-.11L22 17M2 7l9.642-4.821c.131-.066.197-.098.266-.111a.5.5 0 0 1 .184 0c.069.013.135.045.266.11L22 7l-9.642 4.821a1.028 1.028 0 0 1-.266.111.501.501 0 0 1-.184 0c-.069-.012-.135-.045-.266-.11L2 7Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-book" viewBox="0 0 24 24"><path d="m12 21-.1-.15c-.695-1.042-1.042-1.563-1.5-1.94a4 4 0 0 0-1.378-.737C8.453 18 7.827 18 6.575 18H5.2c-1.12 0-1.68 0-2.108-.218a2 2 0 0 1-.874-.874C2 16.48 2 15.92 2 14.8V6.2c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C3.52 3 4.08 3 5.2 3h.4c2.24 0 3.36 0 4.216.436a4 4 0 0 1 1.748 1.748C12 6.04 12 7.16 12 9.4M12 21V9.4M12 21l.1-.15c.695-1.042 1.042-1.563 1.5-1.94a3.999 3.999 0 0 1 1.378-.737C15.547 18 16.173 18 17.425 18H18.8c1.12 0 1.68 0 2.108-.218a2 2 0 0 0 .874-.874C22 16.48 22 15.92 22 14.8V6.2c0-1.12 0-1.68-.218-2.108a2 2 0 0 0-.874-.874C20.48 3 19.92 3 18.8 3h-.4c-2.24 0-3.36 0-4.216.436a4 4 0 0 0-1.748 1.748C12 6.04 12 7.16 12 9.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7m0 0H7m10 0v10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-coins" viewBox="0 0 24 24"><path d="M12 17a5 5 0 1 0 10 0 5 5 0 0 0-10 0Zm0 0c0-1.126.372-2.165 1-3V5m-1 12c0 .825.2 1.604.554 2.29-.842.712-2.788 1.21-5.054 1.21-3.038 0-5.5-.895-5.5-2V5m11 0c0 1.105-2.462 2-5.5 2S2 6.105 2 5m11 0c0-1.105-2.462-2-5.5-2S2 3.895 2 5m0 9c0 1.105 2.462 2 5.5 2 2.189 0 4.08-.465 4.965-1.138M13 9.5c0 1.105-2.462 2-5.5 2S2 10.605 2 9.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z M9.5 8.965c0-.477 0-.716.1-.849a.5.5 0 0 1 .364-.199c.166-.012.367.117.769.375l4.72 3.035c.349.224.523.336.583.478a.5.5 0 0 1 0 .39c-.06.142-.234.254-.583.478l-4.72 3.035c-.402.258-.603.387-.769.375a.5.5 0 0 1-.364-.2c-.1-.132-.1-.371-.1-.848v-6.07Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="s-filled" viewBox="0 0 10 10"><circle cx="5" cy="5" r="5" fill="currentColor"/></symbol><symbol id="s-half" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.25" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 0.75A4.25 4.25 0 0 1 5 9.25Z" fill="currentColor"/></symbol><symbol id="s-ring" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.25" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol><symbol id="s-triangle" viewBox="0 0 10 10"><polygon points="5,0.5 9.5,9 0.5,9" fill="currentColor"/></symbol>
+</defs></svg>
+<div class="board">
+  <section>
+    <div class="label">1 &middot; Run started</div>
+    <div class="msg">
+      <div class="avatar"><svg><use href="#sym"/></svg></div>
+      <div>
+        <div class="meta"><b>Credit OS</b><span class="app">APP</span><span>13:45</span></div>
+        <div class="card">
+          <div class="band brand">
+            <svg class="wave" viewBox="0 0 1521 1515"><use href="#sym"/></svg>
+            <div class="logo"><svg><use href="#sym"/></svg></div>
+            <div class="appname">Credit OS</div>
+          </div>
+          <div class="body"><div class="top"><h2>Northbridge Holdings<small>Full</small></h2><span class="badge brand"><svg class="sh brand"><use href="#s-half"/></svg>Running</span></div><div class="meta2"><span><svg class="ic"><use href="#i-user"/></svg>Priya Raman</span><span><svg class="ic"><use href="#i-clock"/></svg>13:45</span><span><svg class="ic"><use href="#i-file"/></svg>4 docs</span><span><svg class="ic"><use href="#i-layers"/></svg>14 modules</span><span><svg class="ic"><use href="#i-coins"/></svg>USD 25.00 cap</span></div></div>
+          <div class="actions"><span class="btn primary">Watch run<svg class="ic"><use href="#i-arrow"/></svg></span><span class="btn"><svg class="ic"><use href="#i-book"/></svg>Library</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="label">2 &middot; Report ready</div>
+    <div class="msg">
+      <div class="avatar"><svg><use href="#sym"/></svg></div>
+      <div>
+        <div class="meta"><b>Credit OS</b><span class="app">APP</span><span>14:32</span></div>
+        <div class="card">
+          <div class="band ok">
+            <svg class="wave" viewBox="0 0 1521 1515"><use href="#sym"/></svg>
+            <div class="logo"><svg><use href="#sym"/></svg></div>
+            <div class="appname">Credit OS</div>
+          </div>
+          <div class="body"><div class="top"><h2>Northbridge Holdings<small>Full</small></h2><span class="badge ok"><svg class="sh ok"><use href="#s-filled"/></svg>Finished</span></div><div class="meta2"><span><svg class="ic"><use href="#i-user"/></svg>Priya Raman</span><span><svg class="ic"><use href="#i-clock"/></svg>14:32</span><span><svg class="ic"><use href="#i-layers"/></svg>14/14 modules</span></div><div class="callout"><p>Leverage rose to 5.4x from 4.9x as acquisition debt was drawn ahead of the earnings it funds. Liquidity covers every maturity through FY2028.</p></div><div class="foot"><span class="badge gap">2 limits stated</span></div></div>
+          <div class="actions"><span class="btn primary">Open report<svg class="ic"><use href="#i-arrow"/></svg></span><span class="btn"><svg class="ic"><use href="#i-book"/></svg>Library</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="label">3 &middot; Run stopped</div>
+    <div class="msg">
+      <div class="avatar"><svg><use href="#sym"/></svg></div>
+      <div>
+        <div class="meta"><b>Credit OS</b><span class="app">APP</span><span>14:07</span></div>
+        <div class="card">
+          <div class="band warn">
+            <svg class="wave" viewBox="0 0 1521 1515"><use href="#sym"/></svg>
+            <div class="logo"><svg><use href="#sym"/></svg></div>
+            <div class="appname">Credit OS</div>
+          </div>
+          <div class="body"><div class="top"><h2>Northbridge Holdings<small>Deep</small></h2><span class="badge warn"><svg class="sh warn"><use href="#s-triangle"/></svg>Capped</span></div><div class="meta2"><span><svg class="ic"><use href="#i-user"/></svg>Priya Raman</span><span><svg class="ic"><use href="#i-clock"/></svg>14:07</span><span><svg class="ic"><use href="#i-coins"/></svg>USD 40.00 cap</span></div><div class="callout warn"><p>Stopped at the cap before it finished. No report has been published.</p></div><div class="prog"><svg class="ic"><use href="#i-layers"/></svg><div class="mini wide"><i style="width:79%"></i></div><b>11/14 modules</b></div></div>
+          <div class="actions"><span class="btn primary">Run activity<svg class="ic"><use href="#i-arrow"/></svg></span><span class="btn"><svg class="ic"><use href="#i-book"/></svg>Library</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="label">4 &middot; Run summary &middot; 09:00, 13:00, 17:00, 21:00 UK, weekdays</div>
+    <div class="msg">
+      <div class="avatar"><svg><use href="#sym"/></svg></div>
+      <div>
+        <div class="meta"><b>Credit OS</b><span class="app">APP</span><span>17:00</span></div>
+        <div class="card">
+          <div class="band brand">
+            <svg class="wave" viewBox="0 0 1521 1515"><use href="#sym"/></svg>
+            <div class="logo"><svg><use href="#sym"/></svg></div>
+            <div class="appname">Credit OS</div>
+          </div>
+          <div class="body"><div class="top"><h2>Runs today<small>Mon 16 Nov</small></h2><span class="asof"><svg class="ic"><use href="#i-clock"/></svg>17:00</span></div><div class="counts"><span class="cnt"><svg class="sh warn"><use href="#s-triangle"/></svg><b>1</b>Capped</span><span class="cnt"><svg class="sh brand"><use href="#s-half"/></svg><b>2</b>Running</span><span class="cnt"><svg class="sh gray"><use href="#s-ring"/></svg><b>1</b>Queued</span><span class="cnt"><svg class="sh ok"><use href="#s-filled"/></svg><b>7</b>Finished</span></div><div class="runs"><div class="run"><svg class="sh warn"><use href="#s-triangle"/></svg><div class="who">Northbridge Holdings<small>Deep</small></div><div class="by">P. Raman</div><div class="mini "><i style="width:79%"></i></div><div class="st warn">14:07</div></div><div class="run"><svg class="sh brand"><use href="#s-half"/></svg><div class="who">Harrowgate Industrials<small>Full</small></div><div class="by">T. Okafor</div><div class="mini "><i style="width:64%"></i></div><div class="st brand">9/14</div></div><div class="run"><svg class="sh brand"><use href="#s-half"/></svg><div class="who">Calder Telecom<small>Lite</small></div><div class="by">P. Raman</div><div class="mini "><i style="width:25%"></i></div><div class="st brand">2/8</div></div><div class="run"><svg class="sh gray"><use href="#s-ring"/></svg><div class="who">Sable Energy<small>Full</small></div><div class="by">M. Tanaka</div><span></span><div class="st gray">Queued</div></div><div class="run"><svg class="sh ok"><use href="#s-filled"/></svg><div class="who">Tarrant Chemicals<small>Full</small></div><div class="by">M. Tanaka</div><span></span><div class="st ok">16:41</div></div><div class="run"><svg class="sh ok"><use href="#s-filled"/></svg><div class="who">Fennmoor Logistics<small>Lite</small></div><div class="by">T. Okafor</div><span></span><div class="st ok">15:06</div></div><div class="run"><svg class="sh ok"><use href="#s-filled"/></svg><div class="who">Northbridge Holdings<small>Full</small></div><div class="by">P. Raman</div><span></span><div class="st ok">14:32</div></div><div class="run"><svg class="sh ok"><use href="#s-filled"/></svg><div class="who">Meridian Packaging<small>Lite</small></div><div class="by">M. Tanaka</div><span></span><div class="st ok">11:18</div></div><div class="run"><svg class="sh ok"><use href="#s-filled"/></svg><div class="who">Aldwick Foods<small>Full</small></div><div class="by">T. Okafor</div><span></span><div class="st ok">09:52</div></div></div><div class="more">+2 more finished</div></div>
+          <div class="actions"><span class="btn primary">Run activity<svg class="ic"><use href="#i-arrow"/></svg></span><span class="btn"><svg class="ic"><use href="#i-book"/></svg>Library</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="key"><b>Icon key</b><span><svg class="ic"><use href="#i-user"/></svg>started by</span><span><svg class="ic"><use href="#i-clock"/></svg>time of the event</span><span><svg class="ic"><use href="#i-coins"/></svg>spending cap</span><span><svg class="ic"><use href="#i-book"/></svg>library</span><span><svg class="sh brand"><use href="#s-half"/></svg>Running</span><span><svg class="sh gray"><use href="#s-ring"/></svg>Queued</span><span><svg class="sh warn"><use href="#s-triangle"/></svg>Capped</span><span><svg class="sh ok"><use href="#s-filled"/></svg>Finished</span></div>
+<p class="note">Synthetic issuers and illustrative values. Summary rules: posts at 09:00, 13:00, 17:00 and 21:00 UK time on weekdays; skipped when nothing is running, queued or stopped and nothing finished since the last one; lists the five most recent finished runs and counts the rest. Every card links to the library.</p>
+</body>
+</html>

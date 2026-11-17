@@ -171,7 +171,7 @@ it("marks the fields the static form requires", () => {
   }
   expect(screen.getByLabelText("Bid").closest("div")).not.toHaveTextContent("Required");
   expect(screen.getByLabelText("Bid")).not.toHaveAttribute("aria-required");
-  expect(Object.keys(ROW_SPECS)).toHaveLength(4);
+  expect(Object.keys(ROW_SPECS)).toHaveLength(8);
   const required = Object.fromEntries(
     Object.entries(ROW_SPECS).map(([kind, spec]) => [
       kind,
@@ -183,6 +183,10 @@ it("marks the fields the static form requires", () => {
     quotes: ["as_of", "provider"],
     ratings: ["agency", "rating"],
     research_questions: ["text"],
+    peer_names: [],
+    peers: [],
+    precedents: [],
+    scenarios: [],
   });
 });
 

@@ -140,3 +140,34 @@ def test_a_refused_listing_is_named_in_the_reply_and_a_good_one_has_no_error(sch
     got = prior.inputs(layout(root), record.id)
     assert got["files"] == [] and "linked.txt" in got["error"]
     assert str(folder) not in got["error"]
+
+
+def _bad_file(root, stem: str):
+    path = layout(root).state / f"{stem}.json"
+    path.write_text("{not json", encoding="utf-8")
+    return path, (path.read_bytes(), path.stat().st_mtime_ns)
+
+
+def test_a_run_whose_own_record_is_unreadable_is_refused_and_the_file_is_untouched(root):
+    ensure_layout(root)
+    path, before = _bad_file(root, "20261111-000000-01")
+    with pytest.raises(submissions.Refused, match="^that run's record cannot be read$"):
+        prior.source(layout(root), "20261111-000000-01")
+    assert (path.read_bytes(), path.stat().st_mtime_ns) == before
+
+
+def test_a_good_run_beside_an_unreadable_record_resolves(scheduler, root):
+    record = submit_run(scheduler, root)
+    _bad_file(root, "20261111-000000-01")
+    got, _ = prior.source(layout(root), record.id)
+    assert got.id == record.id
+    assert prior.inputs(layout(root), record.id)["issuer_id"] == "acme"
+
+
+def test_issuer_skips_an_unreadable_record_and_still_answers(scheduler, root):
+    submit_run(scheduler, root, "acme")
+    path, before = _bad_file(root, "20261111-000000-01")
+    got = prior.issuer(layout(root), "acme")
+    assert got["latest_run"] != "" and got["issuer_name"] == "Acme Corp"
+    assert prior.issuer(layout(root), "nobody")["runs"] == 0
+    assert (path.read_bytes(), path.stat().st_mtime_ns) == before

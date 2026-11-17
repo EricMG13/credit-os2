@@ -126,6 +126,7 @@ export function feedLines(run: Run): ActivityLine[] {
 
 export function moduleWord(state: Run["modules"][number][1], live: boolean): ModuleWord {
   if (state === "done") return "Finished";
+  if (state === "stopped") return "Interrupted";
   if (state === "running") return live ? "Running" : "Interrupted";
   return live ? "Queued" : "Not run";
 }

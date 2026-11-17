@@ -41,7 +41,7 @@ def answers_for(**change: Any) -> Answers:
         "level": "basic",
         "model": "gpt",
         "effort": "balanced",
-        "submitted_by": "analyst",
+        "submitted_by": "Ana L",
     }
     base.update(change)
     return cast(Answers, base)
@@ -63,7 +63,7 @@ def approved(root: Path, sid: str, answers: Answers) -> str:
 
 def test_a_submission_becomes_one_running_run_with_its_context(root, fake_env):
     fake_env({"sleep": 30})
-    answers = answers_for(modules=["CP-0", "CP-1"], max_turns=16, submitted_by="eg")
+    answers = answers_for(modules=["CP-0", "CP-1"], max_turns=16, submitted_by="Eric G")
     sid = upload(root)
     w = Scheduler(settings(root))
     record = w.submit(sid, answers, approved(root, sid, answers))
@@ -72,7 +72,7 @@ def test_a_submission_becomes_one_running_run_with_its_context(root, fake_env):
     assert (record.pathway, record.folder, record.issuer_id) == (PATHWAY, "Acme Corp", "acme")
     assert (record.issuer_name, record.as_of) == ("Acme Corp", "2026-11-09")
     assert (record.submission, record.modules, record.max_turns) == (sid, ("CP-0", "CP-1"), 16)
-    assert (record.level, record.submitted_by) == ("basic", "eg")
+    assert (record.level, record.submitted_by) == ("basic", "Eric G")
     pump(w, lambda: [r.status for r in load_all(layout(root))] == ["running"])
     drop = layout(root).drops / record.id
     assert (drop / "context.json").read_bytes() == context_bytes(answers)

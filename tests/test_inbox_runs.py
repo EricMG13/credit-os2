@@ -21,6 +21,7 @@ from deploy_workflow.inbox.runs import (
     child_environment,
     command,
     load_all,
+    name_key,
     outcome,
     save,
     start,
@@ -137,6 +138,20 @@ def test_alive_for_this_process_and_not_for_an_exited_one():
         ([], 2, ("failed", "launcher exited 2; see logs/id1.log")),
         (
             [("module_started", {"module": "CP-0"})],
+            None,
+            ("interrupted", "the run's process ended without a result"),
+        ),
+        # Exit 0 is a delivery whose `delivered` line the advisory log lost (it said "failed").
+        ([("module_started", {"module": "CP-0"})], 0, ("finished", "")),
+        # The stop the log ends on decides, not the first: one log spans every launch.
+        (
+            [("stopped", {"reason": "provider"}), ("stopped", {"reason": "budget"})],
+            1,
+            ("capped", "stopped at the cap"),
+        ),
+        # A later launch started again after the stop and was then cut short: not that stop.
+        (
+            [("stopped", {"reason": "budget"}), ("module_started", {"module": "CP-0"})],
             None,
             ("interrupted", "the run's process ended without a result"),
         ),
@@ -528,3 +543,15 @@ def test_command_refuses_a_record_with_an_unknown_model_or_effort(layout, change
     record = Record("id1", "credit_snapshot", "acme", "queued", "t", **change)
     with pytest.raises(ValueError):
         command(layout, record, Path("c.json"), launcher=["py"], ruling=None)
+
+
+@pytest.mark.parametrize(
+    ("one", "two", "same"),
+    [
+        ("café-1", "café-1", True),
+        ("ABC-1", "abc-1", True),
+        ("abc-1", "abc-2", False),
+    ],
+)
+def test_name_key_ignores_case_and_unicode_form_only(one, two, same):
+    assert (name_key(one) == name_key(two)) is same

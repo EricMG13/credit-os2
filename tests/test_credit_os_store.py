@@ -354,7 +354,8 @@ def test_every_owner_row_table_can_state_none_without_a_chart_or_problem():
                 ["Close", "150", "US$m", "S"],
             ],
         ),
-        ("liquidity bridge", [["Open", "100", "EURm", "S"], ["Close", "100", "EURm", "S"]]),
+        # docs/rulings/2026-11-16-reporting-currency-from-sources.md: an all-EURm bridge is accepted
+        # now (see the money-unit test below); a mix of units stays refused.
         ("peer range — multiples", [["Leverage", "4", "6", "5", "3", "5", "x", "S"]]),
         (
             "recovery by class",
@@ -392,6 +393,50 @@ def test_the_store_refuses_the_launchers_invalid_chart_tables(name, rows):
     assert launcher.chart_issues(text, spec), name
     fields = synthetic_charts(text)
     assert not fields["charts"] and fields["issue"], name
+
+
+# docs/rulings/2026-11-16-reporting-currency-from-sources.md: the liquidity bridge, refinancing need
+# and value allocation take the issuer's one money unit, as CP-1's money tables do.
+MONEY_TABLE_CASES = {
+    "Chart data: liquidity bridge": (
+        "| Step | Amount | Reporting unit | Basis and limitation |",
+        ("| Open | 100 | {a} | S |", "| Draw | 50 | {b} | S |", "| Close | 150 | {b} | S |"),
+    ),
+    "Chart data: refinancing need": (
+        "| Period | Debt maturing | Committed resources | Reporting unit | Basis and limitation |",
+        ("| FY2026 | 500 | 300 | {a} | S |", "| FY2027 | 400 | 200 | {b} | S |"),
+    ),
+    "Chart data: value allocation \u2014 scenario 1": (
+        "| Step | Amount | Reporting unit | Basis and limitation |",
+        ("| Enterprise value | 100 | {a} | S |", "| Value not distributed | 100 | {b} | S |"),
+    ),
+}
+
+
+@pytest.mark.parametrize("unit", ["GBPm", "EURm"])
+@pytest.mark.parametrize("heading", sorted(MONEY_TABLE_CASES))
+def test_the_store_accepts_a_money_table_in_one_money_unit(heading, unit):
+    from deploy_workflow.owners import cpos_launch as launcher
+
+    header, rows = MONEY_TABLE_CASES[heading]
+    text = chart_section(heading, header, *(r.format(a=unit, b=unit) for r in rows))
+    spec = next(t for ts in launcher.OWNER_TABLES.values() for t in ts if t.heading == heading)
+    assert launcher.chart_issues(text, spec, money=unit) == ()
+    fields = synthetic_charts(text)
+    assert fields["issue"] is None and len(fields["charts"]) == 1, heading
+    assert fields["charts"][0]["unit"] == unit
+
+
+@pytest.mark.parametrize("heading", sorted(MONEY_TABLE_CASES))
+def test_the_store_refuses_a_money_table_in_two_money_units(heading):
+    from deploy_workflow.owners import cpos_launch as launcher
+
+    header, rows = MONEY_TABLE_CASES[heading]
+    text = chart_section(heading, header, *(r.format(a="GBPm", b="EURm") for r in rows))
+    spec = next(t for ts in launcher.OWNER_TABLES.values() for t in ts if t.heading == heading)
+    assert launcher.chart_issues(text, spec, money="GBPm")
+    fields = synthetic_charts(text)
+    assert not fields["charts"] and fields["issue"], heading
 
 
 def test_the_calendar_draws_the_cp6_user_reminder_status():
@@ -2353,15 +2398,18 @@ def test_cp1s_period_and_step_tables_state_the_issuers_unit(heading):
     assert fields["issue"] is None and fields["charts"][0]["unit"] == "GBPm"
 
 
-def test_another_modules_step_table_and_the_refinancing_need_stay_in_us_dollars():
+def test_the_bridge_and_the_refinancing_need_take_one_money_unit_gbpm_is_charted():
+    # docs/rulings/2026-11-16-reporting-currency-from-sources.md: they were US$m only.
     rows = [f"| Step {i} | {a} | GBPm | Synthetic. |" for i, a in enumerate(("100", "100"))]
-    assert not synthetic_charts(bridge("100", "100").replace("US$m", "GBPm"))["charts"]
-    assert not synthetic_charts(
-        chart_section("Chart data: liquidity bridge", BRIDGE_HEADER, *rows)
-    )["charts"]
     need = chart_section(
         "Chart data: refinancing need",
         "| Period | Debt maturing | Committed liquidity | Reporting unit | Basis and limitation |",
         "| FY2026 | 500 | 300 | GBPm | S |",
     )
-    assert not synthetic_charts(need)["charts"]
+    for text in (
+        bridge("100", "100").replace("US$m", "GBPm"),
+        chart_section("Chart data: liquidity bridge", BRIDGE_HEADER, *rows),
+        need,
+    ):
+        (chart,) = synthetic_charts(text)["charts"]
+        assert chart["unit"] == "GBPm"

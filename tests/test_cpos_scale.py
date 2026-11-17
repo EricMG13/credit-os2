@@ -580,10 +580,57 @@ def test_a_block_without_scale_is_not_checked_for_the_widened_rule():  # widened
         ("1,000", set()),
         ("US$ and a mid-year note", set()),
         ("Mmm", set()),
+        # docs/rulings/2026-11-16-reporting-currency-from-sources.md: any ISO 4217 code, in
+        # capitals and not inside a word, names the scale that follows it.
+        ("CHFk", {"thousands"}),
+        ("CHF k", {"thousands"}),
+        ("CHF K", {"thousands"}),
+        ("SEKm", {"millions"}),
+        ("JPY bn", {"millions"}),
+        ("NOK mn", {"millions"}),
+        ("chfk", set()),
+        ("ACHFk", set()),
+        ("Bank", set()),
+        ("Item", set()),
+        ("ABCk", set()),
     ],
 )
 def test_the_words_that_name_a_unit(text, named):
     assert cpos_forecast._units_named(text) == named
+
+
+# The same ruling: a run is in the currency its sources report in, so a forecast cell's unit is
+# read whatever ISO 4217 code states it, not only USD, EUR and GBP.
+CP1_K2_CHF = (
+    CP1_K2.replace("US$ thousands", "CHFk")
+    .replace("US$ million", "CHF million")
+    .replace("US$m", "CHFm")
+)
+
+
+def test_a_chf_thousands_handoff_is_read_by_a_chf_thousands_block():
+    assert "US$" not in CP1_K2_CHF and CP1_K2_CHF.count("CHFk") == 4
+    inputs = parse(block_k2(currency="CHF"), CP1_K2_CHF)
+    assert inputs.currency == "CHF"
+    assert parse(block_k2(currency="CHF"), CP1_K2_CHF) == parse(
+        block_k2(currency="USD"), CP1_K2
+    ).model_copy(update={"currency": "CHF"})
+
+
+def test_a_chf_millions_row_in_a_chf_thousands_block_is_refused():
+    with pytest.raises(ValueError) as caught:
+        parse(block_k2(currency="CHF", base={**K2_BASE, "undrawn": CHART_ROW}), CP1_K2_CHF)
+    assert str(caught.value) == (
+        "CP-2G: base undrawn: row `H1 2025` states its Reporting unit as `CHFm`, not the "
+        "block's unit (CHF thousands, scale 1000); state a reason instead of an amount"
+    )
+
+
+def test_a_chf_thousands_unit_cell_refuses_a_chf_millions_block():
+    cp1 = CP1_K2_CHF.replace("| CHFm |", "| CHFk |")
+    block = forecast_block(scale=1, currency="CHF", base=NO_BASE | {"undrawn": CHART_ROW})
+    with pytest.raises(ValueError, match=re.escape("not the block's unit (CHF millions, scale 1)")):
+        parse(block, cp1)
 
 
 def _in_millions(text):

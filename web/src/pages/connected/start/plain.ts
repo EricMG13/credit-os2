@@ -1,4 +1,17 @@
-import { serviceText, type DocumentRecord } from "../api";
+import { moduleName, serviceText, type DocumentRecord } from "../api";
+import { ASSUMPTIONS_TITLE, PINS } from "./assumptions";
+import { ROW_SPECS, type RowField, type RowKind } from "./rows";
+import {
+  BASIS_FIELD,
+  CP3_FIELD,
+  DEEP_DEBATE,
+  MARKET_FIELDS,
+  MODULE_OPTIONS_TITLE,
+  MULTIPLE_FIELDS,
+  PART_TITLES,
+  PEER_SOURCE_FIELD,
+  VALUATION_TITLE,
+} from "./valuation";
 
 export const PURPOSES = {
   research: "No market view (research)",
@@ -7,6 +20,45 @@ export const PURPOSES = {
   earnings: "Earnings update",
 };
 export const LEVELS = { basic: "Basic", standard: "Standard", advanced: "Advanced" };
+/** The Purpose step's title and the labels of its three run boxes. */
+export const PURPOSE_STEP = "Purpose";
+export const PATHWAY_LABEL = "Pathway";
+export const RUN_PURPOSE_LABEL = "Run purpose";
+export const CASE_KIND_LABEL = "Case kind";
+export const CASE_KINDS = {
+  public: "Public filer",
+  private: "Private",
+  synthetic: "Synthetic test case",
+};
+export const MODELS = { gpt: "GPT Sol", claude: "Claude Opus" };
+export const EFFORTS = { fast: "Fast", balanced: "Balanced", high: "High" };
+/** Labels of boxes the screen draws in its own markup, read by the screen and by the review. */
+export const ISSUER_ID = "Issuer ID";
+export const ISSUE_CLASSIFICATION = "Issue classification";
+/** The Issue classification options; the screen adds its own blank "Choose classification". */
+export const ISSUE_CLASSES = { investment_grade: "Investment grade", high_yield: "High yield" };
+export const LEGAL_DOCUMENTS = "Legal documents";
+export const LEGAL_CHOICES = {
+  none: "No agreement",
+  executed: "Executed agreement",
+  draft: "Draft agreement",
+};
+/** The file boxes beside the agreement, by the key the run's attachments carry. */
+export const ATTACHMENTS = {
+  management_bridge: "Management EBITDA bridge",
+  portfolio_workbook: "Portfolio workbook",
+  prior_case: "Prior decision record",
+};
+export const LISTED_EQUITY = "Listed equity";
+export const TICKER = "Ticker";
+export const CONTEXT_DETAILS = "Context details";
+/** The Focus module choice that names no module. */
+export const ANY_FOCUS = "Any";
+
+/** An option's label for a stored value; a value the screen does not offer has none, so the fact that would show it is left out. */
+export function choiceLabel(choices: Readonly<Record<string, string>>, value: string) {
+  return Object.hasOwn(choices, value) ? choices[value] : undefined;
+}
 
 /** The stored file name: the reader's own name for it, without the ingest suffix. */
 export function storedName({ source }: DocumentRecord) {
@@ -24,15 +76,409 @@ export function documentDescription(doc: DocumentRecord) {
     .join(" · ");
 }
 
-/** A lookup line without the launcher's label or its flag hint. */
+const LOOKUP_LABEL = /^\s*(?:Web lookup|Lookup|SEC):\s+/;
+const ON_OFF = (word: string) => (word === "on" ? "On" : "Off");
+
+/**
+ * A lookup line the launcher writes (`_lookup_lines`) as a sentence: no label, `on:`/`off:` word,
+ * `(default)` or `--web-lookup` flag. A line it does not recognise is returned without its label.
+ */
 export function lookupSentence(line: string) {
-  return serviceText(
-    line.replace(/^\s*[A-Za-z]+:\s+/, "").replace(/;\s*--web-lookup on forces it\s*$/, ""),
-  );
+  const text = line.replace(LOOKUP_LABEL, "");
+  const [body = "", hosts] = text.split("; case hosts: ");
+  const rest = hosts ? ` Case hosts: ${hosts}.` : "";
+  const recorded = /^(on|off) \(as recorded when this run folder was started\)$/.exec(body);
+  if (recorded)
+    return `${ON_OFF(recorded[1] ?? "")}, as recorded when this run folder was started.${rest}`;
+  const forced = /^(on|off) \(forced by --web-lookup (?:on|off)\)$/.exec(body);
+  if (forced) return `${ON_OFF(forced[1] ?? "")}, because it was set that way for this run.${rest}`;
+  const allowed =
+    /^on: (\S+) may fetch allowlisted public pages and SEC EDGAR \((\S+) case default\)$/.exec(
+      body,
+    );
+  if (allowed) {
+    const [, module = "", kind = ""] = allowed;
+    return serviceText(
+      `On, because this is a ${kind} case: ${module} may fetch allowlisted public pages and SEC EDGAR.${rest}`,
+    );
+  }
+  const off = /^off: (\S+) case \(default\)(?:; --web-lookup on forces it)?$/.exec(body);
+  if (off) return `Off, because this is a ${off[1] ?? ""} case.${rest}`;
+  const refused = /^sec\.gov lookups will be refused: \S+ is not set$/.exec(body);
+  if (refused) return "SEC lookups will be refused because the contact string for them is not set.";
+  const unlabelled = line.replace(/^\s*[A-Za-z]+:\s+/, "");
+  return serviceText(unlabelled.replace(/;\s*--web-lookup on forces it\s*$/, ""));
 }
 
 /** The comparison caveat the service writes in the compared run's own bracket: ` (earlier format, earlier methods)`, or "". */
 export function comparisonCaveat(changes: string) {
   const flags = /^[^(]*\([^;)]*; ([^)]*)\)/.exec(changes)?.[1];
   return flags ? ` (${flags})` : "";
+}
+
+const ISSUER_CASE = "Issuer and case date";
+export const ISSUER_DETAILS = "Issuer details";
+
+/** The Issuer details boxes: key, label, example. The screen draws them and `refusalLines` names them. */
+export const ISSUER_TEXT_BOXES = [
+  ["borrower_name", "Borrower (legal entity)", "Northbridge Holdings LLC"],
+  ["parent_name", "Parent", "Northbridge Group plc"],
+  ["sector", "Sector", "Industrials"],
+  ["country", "Country", "United States"],
+  ["sponsor", "Sponsor", "Harbour Peak Capital"],
+] as const;
+export const ISSUER_LIST_BOXES = [
+  ["aliases", "Other names in the filings"],
+  ["guarantors", "Guarantors"],
+] as const;
+
+/** Boxes that live in the screen's markup, not in a field definition: path, section, label. */
+const PLAIN_BOXES: Readonly<Record<string, readonly [section: string, label: string]>> = {
+  "run.as_of": [ISSUER_CASE, "As-of date"],
+  "run.reporting_currency": [ISSUER_CASE, "Reporting currency"],
+  "run.run_type": [PURPOSE_STEP, RUN_PURPOSE_LABEL],
+  "run.case_kind": [PURPOSE_STEP, CASE_KIND_LABEL],
+  "run.pathway": [PURPOSE_STEP, PATHWAY_LABEL],
+  "run.cutoff": ["", "Research cutoff"],
+  "run.current_period": ["", "Current period"],
+  "run.prior_period": ["", "Prior period"],
+  "identity.issuer_name": [ISSUER_CASE, "Issuer name"],
+  "identity.issuer_id": [ISSUER_CASE, ISSUER_ID],
+  "identity.issue_classification": [ISSUER_CASE, ISSUE_CLASSIFICATION],
+  ...Object.fromEntries(
+    [...ISSUER_TEXT_BOXES, ...ISSUER_LIST_BOXES].map(([key, title]) => [
+      `identity.${key}`,
+      [ISSUER_DETAILS, title],
+    ]),
+  ),
+  "identity.ticker": [ISSUER_DETAILS, TICKER],
+  "attachments.legal_documents": ["", LEGAL_DOCUMENTS],
+  "module_options.cp6_deep_debate": [MODULE_OPTIONS_TITLE, DEEP_DEBATE],
+};
+
+/** The path's parts, and the box's definition when it has one (its options name raw values). */
+type Resolved = { parts: string[]; field?: RowField };
+
+const fieldOf = (fields: readonly RowField[], key: string | undefined) =>
+  fields.find((item) => item.key === key);
+
+/** `<Section> · <row or group> · <box>` parts for a context path, or null when the page has no such box. */
+function pathParts(path: string): Resolved | null {
+  if (!/^[A-Za-z_]\w*(?:\.\w+|\[\d+\])*$/.test(path)) return null;
+  const [root = "", ...rest] = path.match(/\w+|\[\d+\]/g) ?? [];
+  const index = (token: string | undefined) =>
+    token?.startsWith("[") ? Number(token.slice(1, -1)) : undefined;
+  const plain = PLAIN_BOXES[path];
+  if (plain) return { parts: plain[0] ? [plain[0], plain[1]] : [plain[1]] };
+  const item = /^identity\.(aliases|guarantors)\[(\d+)\]$/.exec(path);
+  const list = ISSUER_LIST_BOXES.find(([key]) => key === item?.[1]);
+  if (list && item?.[2])
+    return { parts: [ISSUER_DETAILS, list[1], `entry ${String(Number(item[2]) + 1)}`] };
+  if (root in ROW_SPECS && root !== "scenarios") return rowParts(root as RowKind, rest);
+  if (root === "valuation") return valuationParts(rest, index);
+  if (root === "assumptions") return assumptionParts(rest);
+  if (root === "module_options" && rest[0] === "cp3_mode" && rest.length === 1)
+    return { parts: [MODULE_OPTIONS_TITLE, CP3_FIELD.label], field: CP3_FIELD };
+  return null;
+}
+
+/** Section, numbered row and box of a rows kind; `[]` rest names the whole section. */
+function rowParts(
+  kind: RowKind,
+  rest: string[],
+  section = ROW_SPECS[kind].section,
+): Resolved | null {
+  const spec = ROW_SPECS[kind];
+  const [first, second, ...more] = rest;
+  if (first === undefined) return { parts: [section] };
+  if (!first.startsWith("[") || more.length) return null;
+  const row = `${spec.title} ${String(Number(first.slice(1, -1)) + 1)}`;
+  if (second === undefined) return { parts: [section, row] };
+  const field = fieldOf(spec.fields, second);
+  return field ? { parts: [section, row, field.label], field } : null;
+}
+
+function valuationParts(
+  rest: string[],
+  index: (token?: string) => number | undefined,
+): Resolved | null {
+  const [first, ...more] = rest;
+  const top = [PEER_SOURCE_FIELD, BASIS_FIELD].find((item) => item.key === first);
+  if (first === undefined) return { parts: [VALUATION_TITLE] };
+  if (top) return more.length ? null : { parts: [VALUATION_TITLE, top.label], field: top };
+  if (first === "peers" || first === "precedents") {
+    const found = rowParts(first, more, ROW_SPECS[first].section);
+    return found && { ...found, parts: [VALUATION_TITLE, ...found.parts] };
+  }
+  if (first === "issuer_market" || first === "user_multiple") {
+    if (more.length > 1 || index(more[0]) !== undefined) return null;
+    const field = fieldOf(first === "issuer_market" ? MARKET_FIELDS : MULTIPLE_FIELDS, more[0]);
+    if (more.length && !field) return null;
+    return {
+      parts: [VALUATION_TITLE, PART_TITLES[first], ...(field ? [field.label] : [])],
+      field,
+    };
+  }
+  return null;
+}
+
+function assumptionParts(rest: string[]): Resolved | null {
+  const [group, key, ...more] = rest;
+  if (group === undefined) return { parts: [ASSUMPTIONS_TITLE] };
+  const pin = PINS.find((item) => item.key === group);
+  if (!pin) return null;
+  const head = [ASSUMPTIONS_TITLE, moduleName(pin.module)];
+  if (key === undefined) return { parts: head };
+  if (key === "scenarios" && pin.key === "cp2a") {
+    const found = rowParts("scenarios", more, ROW_SPECS.scenarios.section);
+    return found && { ...found, parts: [...head, ...found.parts.slice(1)] };
+  }
+  const field = fieldOf(pin.fields, key);
+  return field && !more.length ? { parts: [...head, field.label], field } : null;
+}
+
+/** Every box the screen draws, by its key: the label a message may name it by. */
+const ALL_FIELDS: readonly RowField[] = [
+  ...Object.values(ROW_SPECS).flatMap((spec) => spec.fields),
+  ...PINS.flatMap((pin) => pin.fields),
+  ...MARKET_FIELDS,
+  ...MULTIPLE_FIELDS,
+  PEER_SOURCE_FIELD,
+  BASIS_FIELD,
+  CP3_FIELD,
+];
+const KEY_LABELS = new Map<string, string>([
+  ...Object.entries(PLAIN_BOXES).map(
+    ([path, [, title]]) => [path.split(".").pop() ?? "", title] as const,
+  ),
+  ...[...ALL_FIELDS].reverse().map((item) => [item.key, item.label] as const),
+]);
+/** An option value with one label across every box that offers it; ambiguous values are left out. */
+const OPTION_LABELS = (() => {
+  const seen = new Map<string, string | null>();
+  for (const item of ALL_FIELDS)
+    for (const [value, title] of item.options ?? []) {
+      if (!value) continue;
+      seen.set(value, seen.has(value) && seen.get(value) !== title ? null : title);
+    }
+  return seen;
+})();
+
+const escaped = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The service's type messages in plain words; any other message is returned as it is. */
+function typeMessage(message: string) {
+  if (/^Field required\.?$/.test(message)) return "required.";
+  if (/^Extra inputs are not permitted\.?$/.test(message))
+    return "is not a value this form sends. Reload the page and try again.";
+  if (/^Input should be '[^']*'(?:, '[^']*')*(?: or '[^']*')?\.?$/.test(message))
+    return "choose one of the listed options.";
+  if (message.startsWith("Input should be ")) return "is not in the expected form.";
+  return message;
+}
+
+/**
+ * A message's identifiers (`like_this`, `'like_this'`) and the problem box's own option values, as
+ * whole words, in one pass: each becomes the label of the box or option it names, or `this value`
+ * when the screen has none (`unknown` is set so the caller logs the raw problem).
+ */
+function plainTokens(message: string, field: RowField | undefined, unknown: { found: boolean }) {
+  const own = new Map((field?.options ?? []).filter(([value]) => value));
+  const words = [...own.keys()].map(escaped).join("|");
+  const pattern = new RegExp(
+    String.raw`"[^"]*"|'[a-z][a-z0-9_]*'|\b[a-z]+_[a-z0-9_]+\b` +
+      (words ? `|(?<!\\w)(?:${words})(?!\\w)` : ""),
+    "g",
+  );
+  return message.replace(pattern, (found) => {
+    if (found.startsWith('"')) return found; // the analyst's own typed value
+    const bare = found.replaceAll("'", "");
+    const label = own.get(bare) ?? OPTION_LABELS.get(bare) ?? KEY_LABELS.get(bare);
+    if (label) return label;
+    unknown.found = true;
+    return "this value";
+  });
+}
+
+/** `peer_source is none` in a message becomes `Peer source is No peers`; other keys and values stay. */
+function plainMessage(message: string) {
+  return message.replace(
+    /\b(peer_source|basis) is ([A-Za-z_]+)/g,
+    (whole, key: string, value: string) => {
+      const field = key === "basis" ? BASIS_FIELD : PEER_SOURCE_FIELD;
+      const choice = field.options?.find(([option]) => option === value);
+      return choice ? `${field.label} is ${choice[1]}` : whole;
+    },
+  );
+}
+
+const ROOTS =
+  "run|identity|deal_terms|quotes|ratings|valuation|assumptions|attachments|research_questions|module_options|schema";
+const PATH = String.raw`(?:\$|(?:${ROOTS})(?![\w]))(?:\.\w+|\[\d+\])*`;
+const PROBLEM = new RegExp(`^(${PATH}): ([\\s\\S]*)$`);
+const FORM_SENTENCE = "The form could not be read by the service. Reload the page and try again.";
+
+const plainWords = (key: string) => {
+  const spaced = key.replaceAll("_", " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
+
+/** The leading parts the labels know for a path, then its unknown tail in plain words. */
+function fallbackParts(path: string): Resolved {
+  const tokens = [...path.matchAll(/\w+|\[\d+\]/g)];
+  for (let known = tokens.length - 1; known >= 1; known--) {
+    const last = tokens[known - 1];
+    const found = last && pathParts(path.slice(0, last.index + last[0].length));
+    if (found)
+      return { parts: [...found.parts, ...tokens.slice(known).map(([token]) => tailWords(token))] };
+  }
+  return { parts: tokens.map(([token]) => tailWords(token)) };
+}
+
+const tailWords = (token: string) =>
+  token.startsWith("[") ? `entry ${String(Number(token.slice(1, -1)) + 1)}` : plainWords(token);
+
+const CODES = String.raw`(?:CP-[A-Z0-9]+(?: |(?=:)))+`;
+const FLAGGED = new RegExp(`^--([a-z][a-z-]*)(?: (${CODES}|[^\\s:]+))?: ([\\s\\S]*)$`);
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * A launcher refusal (`--flag <arguments>: <message>`) without its command-line prefix, module codes
+ * as names; "" when the text does not start with `--`. A flag other than `--modules` is dropped with
+ * its raw text in `console.warn` (a documented fail-open: the analyst cannot act on a flag).
+ */
+function launcherLine(error: string): string {
+  if (!error.startsWith("--")) return "";
+  const [, flag = "", args = "", message = ""] = FLAGGED.exec(error) ?? [];
+  if (flag === "modules") {
+    const codes = args.trim().split(" ").filter(Boolean).map(moduleName);
+    const body = serviceText(message);
+    return codes.length
+      ? `The modules chosen (${codes.join(", ")}): ${body}`
+      : `Requested modules: ${body}`;
+  }
+  console.warn(`Launcher flag not shown to the analyst: ${error}`);
+  return capital(serviceText(flag ? message : error.replace(/^--[a-z][a-z-]*\s*/, "")));
+}
+
+/**
+ * A service refusal (`<path>: <message>` problems joined by "; ") as one line per problem in the
+ * screen's own section and box labels, with no path, key or option value in it. Text that is not
+ * in the service's refusal form is returned unchanged. A problem the labels cannot fully name is
+ * still shown in plain words (a documented fail-open), and its raw text goes to `console.warn`.
+ */
+export function refusalLines(error: string): string[] {
+  return splitRefusal(error).map(({ line }) => withoutFlags(line));
+}
+
+/** The screen controls a refusal can be shown on: each carries `data-field` with this key. */
+type ControlKey =
+  | "issuer_name"
+  | "cutoff"
+  | "legal_documents"
+  | "deal_terms"
+  | "quotes"
+  | "ratings"
+  | "research_questions"
+  | "analyst_note"
+  | "valuation"
+  | "assumptions"
+  | "module_options";
+
+/** The control that sets a path: only these paths, and only where one control carries them. */
+const CONTROL_ROOTS =
+  /^(deal_terms|quotes|ratings|research_questions|valuation|assumptions|module_options)(?![\w])/;
+const CONTROL_PATHS: Readonly<Record<string, ControlKey>> = {
+  "identity.issuer_name": "issuer_name",
+  "run.cutoff": "cutoff",
+  "attachments.legal_documents": "legal_documents",
+};
+
+/** Whether the control that sets a path is drawn for a pathway that runs `requested`. */
+function isDrawn(path: string, requested: readonly string[]) {
+  const [root = "", part = ""] = path.split(".");
+  if (root === "module_options") {
+    const wanted = part.startsWith("cp3")
+      ? ["CP-3"]
+      : part.startsWith("cp6")
+        ? ["CP-6"]
+        : ["CP-3", "CP-6"];
+    return wanted.some((code) => requested.includes(code));
+  }
+  if (root === "assumptions") {
+    const pin = PINS.find((item) => item.key === part);
+    return pin
+      ? requested.includes(pin.module)
+      : PINS.some((item) => requested.includes(item.module));
+  }
+  return true;
+}
+
+function controlOf(
+  path: string,
+  requested?: readonly string[],
+  noteAt?: number,
+): ControlKey | undefined {
+  const row = /^research_questions\[(\d+)\]/.exec(path)?.[1];
+  if (noteAt !== undefined && row !== undefined && Number(row) >= noteAt) return "analyst_note";
+  const field = CONTROL_PATHS[path] ?? (CONTROL_ROOTS.exec(path)?.[1] as ControlKey | undefined);
+  return field && (!requested || isDrawn(path, requested)) ? field : undefined;
+}
+
+/** One refusal problem: its line as `refusalLines` words it, and the control that sets its path. */
+export type RefusalProblem = { line: string; field?: ControlKey };
+
+/**
+ * `refusalLines`, with the control (if the screen has one) that each problem is about. Given the
+ * modules the pathway runs, a problem whose control is not drawn for them has no control. Given
+ * `noteAt` (how many question rows were sent before the analyst's note, which is sent as the next
+ * research question), a problem on a question from that index on is the note's: its control is
+ * the note box and its line names the note, not a question row.
+ */
+export function refusalProblems(
+  error: string,
+  requested?: readonly string[],
+  noteAt?: number,
+): RefusalProblem[] {
+  return splitRefusal(error).map(({ path, line, text }) => {
+    const field = controlOf(path, requested, noteAt);
+    const shown = field === "analyst_note" ? `${NOTE_LABEL}: ${text}` : line;
+    return { line: withoutFlags(shown), ...(field ? { field } : {}) };
+  });
+}
+
+/** The label of the analyst note box, which names its problems. */
+const NOTE_LABEL = "Anything the analysis should know";
+
+/** A command-line flag left in a line, outside double quotes, becomes `this setting` (logged raw). */
+function withoutFlags(line: string) {
+  const text = line
+    .split(/("[^"]*")/)
+    .map((part) =>
+      part.startsWith('"') ? part : part.replace(/(?<![\w-])--[a-z][a-z-]*/g, "this setting"),
+    )
+    .join("");
+  if (text !== line) console.warn(`Flag not shown to the analyst: ${line}`);
+  return text;
+}
+
+/** The problems of a refusal, each with its path ("" when the problem has none). */
+function splitRefusal(error: string): { path: string; line: string; text: string }[] {
+  const launcher = launcherLine(error);
+  if (launcher) return [{ path: "", line: launcher, text: launcher }];
+  if (!PROBLEM.test(error)) return [{ path: "", line: error, text: error }];
+  return error.split(new RegExp(`; (?=${PATH}: )`)).map((problem) => {
+    const [, path = "", message = ""] = PROBLEM.exec(problem) ?? [];
+    if (path === "$" || path === "schema") {
+      console.warn(`Refusal not shown to the analyst: ${problem}`);
+      return { path: "", line: FORM_SENTENCE, text: FORM_SENTENCE };
+    }
+    const unknown = { found: false };
+    const known = pathParts(path);
+    unknown.found = !known;
+    const found = known ?? fallbackParts(path);
+    const text = plainTokens(plainMessage(typeMessage(message)), found.field, unknown);
+    if (unknown.found) console.warn(`Refusal shown in plain words: ${problem}`);
+    return { path, line: `${found.parts.join(" · ")}: ${text}`, text };
+  });
 }

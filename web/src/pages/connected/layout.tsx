@@ -28,11 +28,11 @@ export function Breadcrumb({
 
 export function ErrorNotice({ children }: { children: ReactNode }) {
   return (
-    <p
+    <div
       role="alert"
       className="rounded-lg border border-border-hairline bg-surface-card p-3 text-sm text-error-primary"
     >
       {children}
-    </p>
+    </div>
   );
 }

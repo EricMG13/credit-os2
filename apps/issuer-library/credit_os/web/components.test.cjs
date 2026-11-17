@@ -1315,6 +1315,15 @@ test('runSteps (C13): one segment per module in order, the running module and do
   assert.equal(C.runSteps([]), '');
 });
 
+test('runSteps: a module the run stopped while it ran is interrupted, a warning mark that is neither done nor running', () => {
+  const steps = [{ title: 'A', state: 'done' }, { title: 'B', state: 'stopped', note: '7 min' }, { title: 'C', state: 'waiting' }];
+  const html = C.runSteps(steps);
+  assert.deepEqual([...html.matchAll(/<li class="step (\w+)"/g)].map(m => m[1]), ['done', 'stopped', 'waiting']);
+  assert.ok(html.includes('data-tip="B: interrupted"') && html.includes('1 of 3 done') && !html.includes('steps-now') && !html.includes('steps-el'), html);
+  const labelled = C.runSteps(steps, { labelled: true });
+  assert.ok(labelled.includes('<li class="step stopped"><span class="state warn rmark stopped"><svg class="i"') && labelled.includes('<span class="state-w">Interrupted</span>'), labelled);
+});
+
 test('runMark: a stalled run is a warning icon and the word Stalled, with no loader', () => {
   const stalled = C.runMark('stalled');
   assert.ok(stalled.startsWith('<span class="state warn rmark stalled"><svg class="i"') && stalled.endsWith('<span class="state-w">Stalled</span></span>') && !stalled.includes('class="lat"'));

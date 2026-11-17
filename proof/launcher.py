@@ -17,6 +17,7 @@ from proof import DUMMY_KEY
 
 FILING = Path(__file__).with_name("northbridge-filing.txt")
 PORTFOLIO = Path(__file__).with_name("northbridge-portfolio.xlsx")
+AGREEMENT = Path(__file__).with_name("northbridge-credit-agreement.txt")
 HANDOFFS = Path(__file__).with_name("handoffs")
 
 
@@ -24,19 +25,30 @@ def verify_upload(sources: Path, context: Path) -> str:
     """Bind the canned replies to exactly the synthetic filing in the scheduler drop."""
     files = {p.relative_to(sources) for p in sources.rglob("*") if p.is_file() and p != context}
     filing = {Path(FILING.name)}
-    if files not in (filing, filing | {Path(PORTFOLIO.name)}):
+    optional = (PORTFOLIO, AGREEMENT)
+    allowed = {frozenset(filing | {Path(f.name) for f in chosen}) for chosen in _subsets(optional)}
+    if frozenset(files) not in allowed:
         raise ValueError(
-            f"synthetic proof requires exactly one {FILING.name} upload and at most its workbook"
+            f"synthetic proof requires exactly one {FILING.name} upload and at most its "
+            "workbook and credit agreement"
         )
     raw = (sources / FILING.name).read_bytes()
     if raw != FILING.read_bytes():
         raise ValueError("uploaded filing differs from the synthetic proof fixture")
-    if (
-        Path(PORTFOLIO.name) in files
-        and (sources / PORTFOLIO.name).read_bytes() != PORTFOLIO.read_bytes()
-    ):
-        raise ValueError("uploaded workbook differs from the synthetic proof fixture")
+    for fixture in optional:
+        if (
+            Path(fixture.name) in files
+            and (sources / fixture.name).read_bytes() != fixture.read_bytes()
+        ):
+            raise ValueError(f"uploaded {fixture.name} differs from the synthetic proof fixture")
     return hashlib.sha256(raw).hexdigest()
+
+
+def _subsets(items: tuple[Path, ...]) -> list[tuple[Path, ...]]:
+    return [
+        tuple(item for bit, item in enumerate(items) if mask >> bit & 1)
+        for mask in range(1 << len(items))
+    ]
 
 
 def reject_network(*_args: object, **_kwargs: object) -> None:

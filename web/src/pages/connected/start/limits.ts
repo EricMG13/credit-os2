@@ -1,4 +1,4 @@
-import type { ReadinessItem } from "../api";
+import { drawnModules, type ReadinessItem } from "../api";
 
 type LimitOutcome = "will_refuse" | "gap" | "limited" | "check";
 export type LimitGroup = {
@@ -122,4 +122,27 @@ export function carryAccepted(
     previous.filter((p) => accepted.has(p.id)).map((p) => `${p.id}\u0000${p.reason}`),
   );
   return new Set(next.filter((n) => kept.has(`${n.id}\u0000${n.reason}`)).map((n) => n.id));
+}
+
+// The modules to keep if this will-refuse group's refusing modules are left out, in
+// `requested` order; null when no offer makes sense. `modules` is the current choice
+// (empty means every requested module).
+export function leaveOut(
+  group: LimitGroup,
+  requested: readonly string[],
+  modules: readonly string[],
+): string[] | null {
+  if (group.outcome !== "will_refuse" || group.causes.some((cause) => cause.scope === "run")) {
+    return null;
+  }
+  const refusing = new Set(
+    [...group.causes, ...group.consequences.filter((item) => item.outcome === "will_refuse")].map(
+      (item) => item.scope,
+    ),
+  );
+  const selected = modules.length ? modules : requested;
+  const chosen = requested.filter((code) => selected.includes(code));
+  const kept = chosen.filter((code) => !refusing.has(code));
+  // The forecast is sent but is not a module: a list holding only it is never offered.
+  return drawnModules(kept).length > 0 && kept.length < chosen.length ? kept : null;
 }

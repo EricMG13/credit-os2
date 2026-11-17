@@ -971,6 +971,25 @@ gap or stop at that gate; nothing is skipped. The five purpose pathways stay off
 Lite USD 15, Full 25, Deep 40, the purpose pathways 20 (`PATHWAY_CAP_USD`). Limit: offline proof
 only; no model has run Deep.
 
+**The run's currency is the currency the source files report in (owner, 2026-11-16: "modules
+should be currency agnostic, the source files dictate reporting currency"; "the sources materials
+will contain a selected FX rate for the reporting. and that can be used to calculate it"; ruling
+`docs/rulings/2026-11-16-reporting-currency-from-sources.md`).** No method text is newly selected;
+four sent files take a named edit, each new under that ruling and not copied from an earlier
+package. CP-1's step file: step 3 makes the currency the presentation currency the consolidated
+statements are printed in, records a functional or other currency in T4.2 and converts only at a
+rate the sources state; T4.18 gains `Reporting Currency Amount` and `FX Rate` after `Currency`, an
+ISO 4217 code (the issuer's stated reporting-currency amount, else a conversion at the FX rate the source
+materials state for the reporting, the rate in `FX Rate` and its locator in `Source`, else
+`Not supplied: <reason>`; no rate looked up, derived or invented), and those cells plus the financing-cost row
+reconcile to `Total Debt`. CP-2D's SKILL: Canon Core rule 11 keeps T2E.2, T2E.3 and T2E.5 in CP-1's
+statements' currency, a facility in another currency with its debt balance at CP-1's `Reporting
+Currency Amount` and its undrawn, commitment, amortisation or maturity amount only where CP-1
+states it in the statements' currency (else `Not supplied`, never a partial total), and no rate
+of its own. The forecast leaves a facility in another currency out of its facility schedule;
+where T4.18 holds any such row, a facility must be named exactly as a block-currency row. CP-2A's stress copy and CP-8's method drop their USD-only examples and default.
+Selected source revision: the ruling above. Limit: offline proof only; no model has read this text.
+
 ## Appendix: selected method files
 
 One row per file CP-OS sends as a module's method (`METHODS` in
@@ -1007,7 +1026,7 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-0 | `docs/reuse/selected-methods/skills/cp-0-source-readiness/references/REF_CP-0_STEPS.md` | cp-os (byte-identical to Deploy V) | no | c4d2e35 | `d367c334f529` |
 | CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/SKILL.md` | caos-databricks | yes | dfff264, a14f9051 | `59ce07e40ef4` |
 | CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/references/CP-1_RUNBOOK.md` | caos-databricks | yes | dfff264, b283233c | `c8f0279d5ba0` |
-| CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/references/REF_CP-1_STEPS.md` | caos-databricks | yes | dfff264, a14f9051 | `7dde89ed2520` |
+| CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/references/REF_CP-1_STEPS.md` | caos-databricks | yes | dfff264, a14f9051 | `2f5b9ef16503` |
 | CP-1 | `prompts/CP-1.md` | this repo | no | this repo | `f34798b2be15` |
 | CP-1A | `docs/reuse/selected-methods/skills/cp-1a-business-transaction-fact-pack/SKILL.md` | cp-os | no | b57a344 | `3885bc51b9fa` |
 | CP-1A | `docs/reuse/selected-methods/skills/cp-1a-business-transaction-fact-pack/references/REF_CP-1A_STEPS.md` | cp-os | no | b57a344 | `57a22436167d` |
@@ -1023,8 +1042,8 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-2A | `docs/reuse/selected-methods/skills/cp-2a-downside-pathway/SKILL.md` | cp-os | no | not recorded | `4c23c05eb697` |
 | CP-2A | `docs/reuse/selected-methods/skills/cp-2a-downside-pathway/references/REF_CP-2A_STEPS.md` | cp-os | no | b57a344 | `3253d74a8884` |
 | CP-2A | `docs/reuse/selected-methods/skills/cp-2a-downside-pathway/references/REF_CP-2B_STEPS.md` | cp-os | no | not recorded | `75434b4a5602` |
-| CP-2A | `docs/reuse/selected-methods/skills/cp-2a-downside-pathway/references/CP-2A_STRESS_DESIGN_CPOS.md` | this repo | yes | 5c6e61b | `e353cea58c16` |
-| CP-2D | `docs/reuse/selected-methods/skills/cp-2d-liquidity-cash-flow-bridge/SKILL.md` | caos-databricks | yes | dfff264, 592ee83a | `8a2e0c15b24c` |
+| CP-2A | `docs/reuse/selected-methods/skills/cp-2a-downside-pathway/references/CP-2A_STRESS_DESIGN_CPOS.md` | this repo | yes | 5c6e61b | `d2e4d1c1e40e` |
+| CP-2D | `docs/reuse/selected-methods/skills/cp-2d-liquidity-cash-flow-bridge/SKILL.md` | caos-databricks | yes | dfff264, 592ee83a | `4f5bb9fa7505` |
 | CP-2D | `docs/reuse/selected-methods/skills/cp-2d-liquidity-cash-flow-bridge/references/REF_CP-2D_STEPS.md` | caos-databricks | no | dfff264, 592ee83a | `2e03ebd53839` |
 | CP-2E | `docs/reuse/selected-methods/skills/cp-2e-macro-fx-hedging-sensitivity/SKILL.md` | cp-os | no | not recorded | `b931f41bb1ac` |
 | CP-2E | `docs/reuse/selected-methods/skills/cp-2e-macro-fx-hedging-sensitivity/references/REF_CP-2E_STEPS.md` | cp-os | no | not recorded | `23ddaf2269f8` |
@@ -1061,7 +1080,7 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-6 | `docs/reuse/selected-methods/skills/cp-6-ic-debate-challenge/SKILL.md` | cp-os | yes | a31f3f5, 99069f83 | `31a9286b6fc2` |
 | CP-6 | `docs/reuse/selected-methods/skills/cp-6-ic-debate-challenge/references/REF_CP-6_STEPS.md` | cp-os | no | not recorded | `6141d27e800d` |
 | CP-6 | `docs/reuse/selected-methods/skills/cp-6-ic-debate-challenge/references/REF_CP-6A_STEPS.md` | cp-os | no | not recorded | `9e36ee1bc5ed` |
-| CP-8 | `src/deploy_vii/methods/cp8.md` | this repo | no | this repo | `a13bab5ef754` |
+| CP-8 | `src/deploy_vii/methods/cp8.md` | this repo | yes | this repo | `8d26ab06b4c1` |
 | CP-DR | `docs/reuse/selected-methods/skills/cp-dr-deep-research/SKILL.md` | cp-os | yes | b57a344, 5a78f93, c746ad67 | `23ceacf44aa2` |
 | CP-DR | `docs/reuse/selected-methods/skills/cp-dr-deep-research/references/REF_CP-DR_STEPS.md` | cp-os | yes | b57a344, c746ad67 | `cab435618c7f` |
 | CP-DR | `docs/reuse/selected-methods/skills/cp-os-credit-os/references/CP_DR_RESEARCH_BRIEF_V1.md` | cp-os | no | b57a344 | `5028a6476cdf` |

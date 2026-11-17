@@ -24,8 +24,14 @@ _DATES = ("as_of", "cutoff", "current_period", "prior_period")
 
 def source(layout: Layout, run_id: str) -> tuple[Record, Path | None]:
     """The run's record and its source folder, or ``None`` for the folder when it is not a real
-    folder holding a regular ``context.json``. ``Refused("unknown run")`` when no record matches."""
-    for record in runs.load_all(layout):
+    folder holding a regular ``context.json``. ``Refused("unknown run")`` when no record matches.
+
+    Fail closed: ``Refused`` when the run's own record file cannot be read. A bad file of another
+    run does not stop this one."""
+    records, unreadable = runs.load_readable(layout)
+    if f"{run_id}.json" in unreadable:
+        raise Refused("that run's record cannot be read")
+    for record in records:
         if record.id == run_id:
             break
     else:
@@ -94,7 +100,11 @@ def inputs(layout: Layout, run_id: str) -> dict[str, Any]:
 
 def issuer(layout: Layout, issuer_id: str) -> dict[str, Any]:
     """Finished runs the issuer has, and the latest run by as-of date (ties: the greater ID)."""
-    mine = [r for r in runs.load_all(layout) if r.issuer_id == issuer_id]
+    # Documented fail-open: it only pre-fills the start form. An unreadable record file is skipped
+    # here (its run may be the latest); the activity page counts the unreadable files for the
+    # operator.
+    records, _ = runs.load_readable(layout)
+    mine = [r for r in records if r.issuer_id == issuer_id]
     if not mine:
         return {"runs": 0, "latest_as_of": "", "latest_run": "", "issuer_name": ""}
     latest = max(mine, key=lambda r: (r.as_of, r.id))

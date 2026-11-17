@@ -12,6 +12,7 @@ from deploy_workflow.credit_os_chips import MODULE_NAMES
 from deploy_workflow.handoff_delivery import MarkdownRoute
 from deploy_workflow.owners import cp2g, cpos_forecast
 from deploy_workflow.owners import cpos_cp1_check as cp1_check
+from deploy_workflow.owners.cpos_cp1_statements import StatementSpec
 from deploy_workflow.owners.cpos_launch_tables import (
     MONEY,
     OwnerTable,
@@ -107,7 +108,8 @@ VOICE_RULES = (
     "holding that id. A paragraph that rests on none of these has no Basis line. Write the "
     "Basis line on one line, never wrapped.\n"
     "- In the reader passages give every figure its currency or unit, with at most two "
-    "decimals: `USD 1,250 million`, `$3.2bn`, `3.1x`, `61 bp`, `45%`, `18 months`. The accepted "
+    "decimals: `USD 1,250 million` or `GBP 1,250 million`, `$3.2bn` or `€3.2bn`, `3.1x`, `61 bp`, "
+    "`45%`, `18 months`. The accepted "
     "units are exactly: %, x, bp, bps, basis points, percentage points, pp, times, notch(es), "
     "day(s), week(s), month(s), quarter(s), year(s), or a currency code or symbol before the "
     "figure; the scale words thousand, million, billion, trillion, k, m and bn are accepted "
@@ -382,7 +384,10 @@ FORECAST_BLOCK = (
     "scheduled repayments over the three years must not exceed base debt. "
     "`annual_amortisation` is in the block's unit, a year, or null when CP-1 states none; "
     "`maturity` is YYYY-MM-DD or null. A row's `balance` is its drawn principal. Leave out a "
-    "facility whose balance CP-1 prints only in the other unit. At most 40 rows; names are "
+    "facility whose balance CP-1 prints only in the other unit. Copy each `name` exactly as "
+    "T4.18's `Instrument` prints it. Leave out a facility whose T4.18 `Currency` is not the "
+    "block's `currency`: its debt stays in base debt at your `interest_rate` driver. At most "
+    "40 rows; names are "
     "unique ignoring case; balances may total at most 1.25 times base debt; `fixed_rate_pct` is "
     "at most 30, `spread_pct` at most 20 and `floor_pct` at most 10; `reference_rate` values have "
     "at most four decimal places. When `facilities` is stated Python computes cash interest on "
@@ -423,7 +428,8 @@ PERIOD_TABLE_BLOCK = (
     "being the fiscal year the period belongs to. Print each statement line once, in one table "
     "that has a column for every period you state for it; a line split across two tables "
     "cannot be combined. Where a table states its unit, write it as the three-letter currency "
-    "code and `millions` or `thousands` (`USD millions`), the same in every statement table; "
+    "code and `millions` or `thousands` (`USD millions` or `GBP millions`), the same in every "
+    "statement table; "
     "the `Chart data:` tables and `Net debt data` keep the unit their own rule gives. "
     "Python uses this table to check that the last twelve months are twelve months; add no "
     "figure to it. Print every balance the forecast needs (total debt, cash, undrawn committed "
@@ -443,7 +449,7 @@ PERIOD_REQUIRED_BLOCK = (
 )
 
 
-def _fixed_rows(spec: cp1_check.StatementSpec) -> str:
+def _fixed_rows(spec: StatementSpec) -> str:
     optional = f"; optional {', '.join(f'`{r}`' for r in spec.optional)}" if spec.optional else ""
     return f"`### {spec.heading}`: {', '.join(f'`{r}`' for r in spec.fixed)}{optional}"
 
@@ -459,7 +465,7 @@ CP1_CHECK_BLOCK = (
     "statement table is headed `| Line item | <one column per period> | Unit | Basis | Source |`; "
     "a period header is "
     f"exactly one of {', '.join(f'`{f}`' for f in cp1_check.PERIOD_FORMS)}; the Unit of a fixed "
-    f"row is a currency code and `millions` or `thousands` (`{cp1_check.UNIT_EXAMPLE}`). Keep the "
+    f"row is a currency code and `millions` or `thousands` ({cp1_check.UNIT_EXAMPLE}). Keep the "
     "issuer's own lines and labels and add these rows beside them, labels exact, one row each: "
     + "; ".join(_fixed_rows(spec) for spec in cp1_check.STATEMENTS)
     + f". A cell is {cp1_check.PLAIN}; a missing figure is never zero, and no words go beside a "
@@ -492,7 +498,8 @@ CP1_CHECK_BLOCK = (
     "thousands; the net debt, reconciliation and money chart tables and the register's fixed "
     "rows use it (the leverage and interest-cover tables stay `x`), and `Currency` is the "
     "statements' code. A figure in another currency is `Not "
-    "supplied: reported in <unit>`.\n"
+    "supplied: reported in <unit>` unless converted at a rate the sources state, as step 3 "
+    "allows.\n"
     "Refused, naming the row, both figures and the difference: a table or fixed row missing; a "
     "Unit, period header or Period not as above; a cell that is not a plain number or stated gap; "
     "a Calculated Value more than half a unit of its second decimal from numerator over "

@@ -64,7 +64,7 @@ describe("Changes cards colour a comparable change by the owner's table", () => 
     const figure = draw([
       { key: "net_leverage", difference: 0.3 },
       { key: "coverage", difference: 0.5 },
-      { key: "cash", difference: 0 },
+      { key: "undrawn", difference: 0 },
     ]);
     const worse = need(figure("net_leverage"));
     expect(status(worse)).toEqual(["text-error-text"]);
@@ -74,10 +74,22 @@ describe("Changes cards colour a comparable change by the owner's table", () => 
     expect(status(better)).toEqual(["text-success-text"]);
     expect(word(better)).toBe("better");
     expect(shape(better)).toEqual(["filled circle"]);
-    const flat = need(figure("cash"));
+    const flat = need(figure("undrawn"));
     expect(status(flat)).toEqual([]);
     expect(word(flat)).toBe("unchanged");
     expect(shape(flat)).toEqual(["ring"]);
+  });
+
+  it("cash carries no judgement, whichever way it moves", () => {
+    const figure = draw([
+      { key: "cash", difference: 25 },
+      { key: "revenue", difference: -5 },
+    ]);
+    const cash = need(figure("cash"));
+    expect(status(cash)).toEqual([]);
+    expect(word(cash)).toBeNull();
+    expect(shape(cash)).toEqual([]);
+    expect(word(need(figure("revenue")))).toBe("worse");
   });
 
   it("the Changes measure keys are in the table", () => {

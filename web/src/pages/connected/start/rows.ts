@@ -1,5 +1,15 @@
 export type Row = Record<string, unknown>;
-export type RowKind = "deal_terms" | "quotes" | "ratings" | "research_questions";
+export type RowKind =
+  | "deal_terms"
+  | "quotes"
+  | "ratings"
+  | "research_questions"
+  | "peer_names"
+  | "peers"
+  | "precedents"
+  | "scenarios";
+/** The row editors the More context step draws under Context details, in order. */
+export const CONTEXT_ROW_KINDS = ["deal_terms", "quotes", "ratings", "research_questions"] as const;
 export type RowField = {
   key: string;
   label: string;
@@ -55,7 +65,7 @@ type FieldDef = readonly [
 ];
 
 /** Expands field tuples into fields of one group ("" for none); a placeholder is an example. */
-function group(name: string, ...defs: FieldDef[]): RowField[] {
+export function group(name: string, ...defs: FieldDef[]): RowField[] {
   return defs.map(([key, label, kind, placeholder, hint, extra]) => {
     const example = placeholder && `e.g. ${placeholder}`;
     return { key, label, kind, placeholder: example, hint, ...extra, group: name || undefined };
@@ -65,6 +75,89 @@ function group(name: string, ...defs: FieldDef[]): RowField[] {
 const NEW_ISSUE = { primaryOnly: true } as const;
 // Required in the static form (docs/templates/context-form.html QUOTE_SPEC, RATING_SPEC, rows-q).
 const REQUIRED = { required: true } as const;
+
+const PEER_NAME = [
+  "name",
+  "Name",
+  "text",
+  "Harbour Industrial",
+  "The peer company's name.",
+] as const;
+const PEER_TICKER = ["ticker", "Ticker", "text", "HBI", "Its exchange ticker."] as const;
+export const FIGURES = "Millions of the currency the issuer's statements are printed in";
+const peerSummary = (row: Row) => joined([text(row, "name") || "New peer", text(row, "ticker")]);
+
+const VALUATION_SPECS: Pick<Record<RowKind, RowSpec>, "peer_names" | "peers" | "precedents"> = {
+  peer_names: {
+    title: "Peer",
+    section: "Peers",
+    add: "Add peer",
+    max: 30,
+    fields: group("", PEER_NAME, PEER_TICKER),
+    summary: peerSummary,
+  },
+  peers: {
+    title: "Peer",
+    section: "Peers",
+    add: "Add peer",
+    max: 30,
+    fields: group(
+      "",
+      PEER_NAME,
+      PEER_TICKER,
+      ["ev_m", "EV (m)", "number", "4200", `${FIGURES}. Zero or more.`],
+      ["ebitda_m", "EBITDA (m)", "number", "520", `${FIGURES}. Above zero.`],
+      ["as_of", "As-of", "date", undefined, "Date of the figures; not after the run as-of date."],
+      ["source", "Source", "text", "Company filings", "Where the figures came from."],
+    ),
+    summary: peerSummary,
+  },
+  precedents: {
+    title: "Precedent",
+    section: "Precedents",
+    add: "Add precedent",
+    max: 30,
+    fields: group(
+      "",
+      ["target", "Target", "text", "Northgate Tools", "The company that was bought."],
+      ["acquirer", "Acquirer", "text", "Orion Capital", "Who bought it. Optional."],
+      ["date", "Date", "date", undefined, "Date of the deal; not after the run as-of date."],
+      ["ev_m", "EV (m)", "number", "2400", `${FIGURES}. Zero or more.`],
+      ["ebitda_m", "EBITDA (m)", "number", "300", `${FIGURES}. Above zero.`],
+      ["source", "Source", "text", "Press release", "Where the deal figures came from."],
+    ),
+    summary: (row) => joined([text(row, "target") || "New precedent", text(row, "date")]),
+  },
+};
+
+const SCENARIO_SPEC: RowSpec = {
+  title: "Scenario",
+  section: "Downside scenarios",
+  add: "Add scenario",
+  max: 4,
+  fields: group(
+    "",
+    [
+      "ebitda_decline_pct",
+      "EBITDA decline (%)",
+      "number",
+      "20",
+      "Percent, 0 to 100, at most 2 decimal places.",
+    ],
+    [
+      "interest_increase_pct",
+      "Interest increase (%)",
+      "number",
+      "15",
+      "Percent, 0 to 100, at most 2 decimal places.",
+    ],
+  ),
+  summary: (row) =>
+    joined([
+      text(row, "ebitda_decline_pct") && `EBITDA down ${text(row, "ebitda_decline_pct")}%`,
+      text(row, "interest_increase_pct") && `interest up ${text(row, "interest_increase_pct")}%`,
+    ]) || "New scenario",
+};
 
 export const ROW_SPECS: Record<RowKind, RowSpec> = {
   deal_terms: {
@@ -83,13 +176,7 @@ export const ROW_SPECS: Record<RowKind, RowSpec> = {
           "Your short label. Quotes must use the same ID, and relative value matches it to the facility schedule in the filings.",
         ],
         ["instrument", "Instrument", "select", undefined, undefined, { options: INSTRUMENTS }],
-        [
-          "currency",
-          "Currency",
-          "text",
-          "USD",
-          "Three uppercase letters. A facility in another currency than the reporting currency is not calculable in Liquidity (no FX conversion).",
-        ],
+        ["currency", "Currency", "text", "USD", "Three uppercase letters."],
         ["size_m", "Size (m)", "number", "1250", "Millions of the stated currency."],
         ["tenor_years", "Tenor (years)", "number", "7", "Years.", NEW_ISSUE],
         ["maturity", "Maturity", "date", undefined, "Optional."],
@@ -244,6 +331,8 @@ export const ROW_SPECS: Record<RowKind, RowSpec> = {
     ),
     summary: (row) => text(row, "text") || "New question",
   },
+  ...VALUATION_SPECS,
+  scenarios: SCENARIO_SPEC,
 };
 
 const DEFAULTS: Partial<Record<RowKind, Row>> = {

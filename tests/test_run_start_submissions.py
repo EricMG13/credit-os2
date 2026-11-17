@@ -56,7 +56,7 @@ def answers_for(tmp_path: Path, **change: object) -> Answers:
         "level": "basic",
         "model": "gpt",
         "effort": "balanced",
-        "submitted_by": "analyst",
+        "submitted_by": "Ana L",
     }
     base.update(change)
     return base  # type: ignore[return-value]
@@ -451,7 +451,9 @@ def test_the_digest_changes_with_a_file_the_context_the_modules_or_the_turns_onl
     base = answers_for(tmp_path)
     first = digest(layout, sid, base)
     assert len(first) == 64
-    assert digest(layout, sid, answers_for(tmp_path, level="advanced", submitted_by="x")) == first
+    assert (
+        digest(layout, sid, answers_for(tmp_path, level="advanced", submitted_by="Xan T")) == first
+    )
     assert digest(layout, sid, answers_for(tmp_path, max_turns=40)) != first
     assert digest(layout, sid, answers_for(tmp_path, modules=["CP-0"])) != first
     changed = answers_for(tmp_path)
@@ -531,6 +533,18 @@ def test_a_file_landing_while_the_summary_is_made_gives_no_digest(layout, tmp_pa
         {"level": "expert"},
         {"submitted_by": 5},
         {"submitted_by": "x" * 81},
+        {"submitted_by": ""},
+        {"submitted_by": "Eric"},
+        {"submitted_by": "Eric Garcia"},
+        {"submitted_by": "Eric g"},
+        {"submitted_by": "Eric MGH"},
+        {"submitted_by": "Eric M G"},
+        {"submitted_by": "Eric  G"},
+        {"submitted_by": " Eric G"},
+        {"submitted_by": "Eric G "},
+        {"submitted_by": "Er1c G"},
+        {"submitted_by": "-Eric G"},
+        {"submitted_by": "Eric G\n"},
     ],
 )
 def test_hostile_answers_are_refusals_not_exceptions(layout, tmp_path, change):
@@ -1561,6 +1575,19 @@ def test_two_submissions_carrying_from_one_run_both_end_with_the_runs_files(layo
     }  # the earlier run's own files stay
 
 
+@pytest.mark.parametrize(
+    "name",
+    ["Eric G", "Eric MG", "Jo L", "Anne-Marie D", "D'Arcy OB", "D\u2019Arcy O", "Zo\u00eb \u00c9"],
+)
+def test_an_analyst_name_is_a_first_name_and_one_or_two_initials(tmp_path, name):
+    assert submissions.validated(answers_for(tmp_path, submitted_by=name))["submitted_by"] == name
+
+
+def test_a_refused_analyst_name_says_the_form_to_use(tmp_path):
+    with pytest.raises(Refused, match="for example Eric G, or two initials, for example Eric MG"):
+        submissions.validated(answers_for(tmp_path, submitted_by="Eric Garcia"))
+
+
 def web_search_of(layout, tmp_path, kind, monkeypatch, **change):
     """The summary's ``web_search`` for a ``kind`` case under ``change``."""
     monkeypatch.delenv(SEC_AGENT, raising=False)
@@ -1600,3 +1627,92 @@ def test_a_run_without_the_research_module_states_no_web_search(layout, tmp_path
     assert (
         web_search_of(layout, tmp_path, "private", monkeypatch, modules=["CP-0", "CP-1"]) is False
     )
+
+
+@pytest.mark.parametrize(
+    ("case", "on"),
+    [
+        (("public", {}), True),
+        (("public", {"level": "advanced", "model": "claude"}), True),  # on any model
+        (("private", {}), False),
+        (("synthetic", {}), False),
+        (("public", {"modules": ["CP-0", "CP-1"]}), False),  # the research module left out
+    ],
+)
+def test_the_summary_says_whether_the_research_module_will_use_its_lookup(
+    layout, tmp_path, monkeypatch, case, on
+):
+    """``web_lookup`` is what the review's Yahoo statement shows on: true exactly when the run
+    Submit starts gives the research module its lookup tools, as the launcher's own line says."""
+    kind, change = case
+    monkeypatch.delenv(SEC_AGENT, raising=False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "present")
+    sid, _ = upload_issuer(layout, tmp_path)
+    answers = answers_for(tmp_path, **change)
+    answers["context"]["run"]["case_kind"] = kind  # type: ignore[index]
+    result = summary(layout, sid, answers)
+    assert result["error"] == ""
+    assert result["web_lookup"] is on
+    assert any(line.startswith("Lookup:   on") for line in result["lookup"]) is on
+
+
+def test_the_summary_names_each_omitted_report_section_by_its_title(layout, tmp_path):
+    from deploy_vii.report_view import _spec_of
+
+    sid, _ = upload_issuer(layout, tmp_path)
+    s = summary(layout, sid, answers_for(tmp_path, modules=["CP-0", "CP-1"]))
+    assert s["error"] == "" and s["omitted"]  # a run with sections not produced
+    assert len(s["omitted_titles"]) == len(s["omitted"])
+    assert s["omitted_titles"] == [_spec_of(block_id).title for block_id in s["omitted"]]
+    assert all(title != block_id for title, block_id in zip(s["omitted_titles"], s["omitted"]))
+
+
+LONG_TDG = "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transdigmgroupbookm"
+
+
+def test_a_long_name_keeps_its_extension_and_is_stored(layout):
+    sid = new(layout)
+    stored = put(layout, sid, LONG_TDG + ".pdf")
+    assert stored.endswith(".pdf")
+    assert len(stored) <= 80
+    assert stored.startswith("TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225")
+    assert (files_folder(layout, sid) / stored).is_file()
+
+
+def test_a_long_named_file_is_read_not_ignored(layout):
+    sid = new(layout)
+    stored = put(layout, sid, LONG_TDG + ".txt", b"Revenue grew in fiscal 2024.\n")
+    got = reading(layout, sid)
+    assert got["error"] == ""
+    assert got["ignored"] == []
+    assert [d["source"] for d in got["documents"]] == [stored]
+    assert stored.endswith(".txt")
+
+
+def test_two_long_names_with_one_beginning_are_both_kept(layout):
+    sid = new(layout)
+    first = put(layout, sid, "A" * 78 + "x1.pdf", b"one")
+    second = put(layout, sid, "A" * 78 + "x2.pdf", b"two")
+    assert first != second
+    folder = files_folder(layout, sid)
+    assert (folder / first).read_bytes() == b"one"
+    assert (folder / second).read_bytes() == b"two"
+
+
+def test_a_name_of_eighty_characters_or_fewer_is_stored_as_it_is(layout):
+    sid = new(layout)
+    short = "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm"
+    assert put(layout, sid, short) == short
+    long_name = LONG_TDG + ".pdf"
+    assert put(layout, sid, long_name, b"a") == put(layout, sid, long_name, b"b")
+
+
+def test_two_names_that_agree_for_eighty_characters_are_both_kept(layout):
+    sid = new(layout)
+    first = put(layout, sid, "A" * 80 + "x1.pdf", b"one")
+    second = put(layout, sid, "A" * 80 + "x2.pdf", b"two")
+    assert first != second
+    assert len(first) <= 80 and len(second) <= 80
+    folder = files_folder(layout, sid)
+    assert (folder / first).read_bytes() == b"one"
+    assert (folder / second).read_bytes() == b"two"

@@ -1,3 +1,5 @@
+import { render, screen } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import {
   actionBias,
@@ -11,6 +13,7 @@ import type { CatalogueRun, OutputEntry, PublishedRun, Section, Snapshot } from 
 import { buildReportView } from "./reportView";
 import { findingBlocks, traceForLine } from "./ReportContent";
 import { calculationNodes } from "./report/calculations";
+import { MetricGrid } from "./report/MetricGrid";
 import { cashProxyCases, type Grid } from "./visuals/LegacyForecast";
 
 function table(heading: string, headers: string[], cells: string[][], line: number): Section {
@@ -164,7 +167,10 @@ describe("reader data fidelity", () => {
       [["2027", "0", "GBPm"]],
       30,
     );
-    expect(foundationMetrics(foundation([foreign, ledger]), dated)).toEqual([]);
+    // docs/rulings/2026-11-16-reporting-currency-from-sources.md: the run's currency is the money
+    // unit recorded with its cash figure; a schedule in another currency draws no tile.
+    const usd = { ...date, metrics: { cash: { period: "2026-06-30", unit: "US$m" } } };
+    expect(foundationMetrics(foundation([foreign, ledger]), usd)).toEqual([]);
   });
 
   it("does not turn an earnings lead or an unrecognised decision into a committee action", () => {
@@ -777,5 +783,187 @@ describe("what the overview carries for every module", () => {
     expect(runLimitations(view, run).map((row) => [row.text, row.line, row.name])).toEqual([
       ["Cash is shown by Liquidity and Liquidity alike.", 23, "Financial foundation"],
     ]);
+  });
+});
+
+// docs/rulings/2026-11-16-reporting-currency-from-sources.md: the run's currency is CP-1's money
+// unit (`US$m` for USD, otherwise the code and `m`). Every expected string here is written by hand.
+describe("overview tiles in the run's own reporting currency", () => {
+  const halfYears = table(
+    "Period table",
+    ["Period", "Start", "End"],
+    [
+      ["H1 2025", "2025-01-01", "2025-06-30"],
+      ["H1 2026", "2026-01-01", "2026-06-30"],
+    ],
+    5,
+  );
+  const catalogueIn = (unit?: string): CatalogueRun => ({
+    id: "first",
+    issuer: "A",
+    name: "A",
+    title: "",
+    date: "2026-08-01",
+    period: "",
+    sector: "",
+    metrics: { cash: { value: "1250", ...(unit && { unit }), period: "2026-06-30" } },
+  });
+  type Units = { liquidity: string; fcf: string; netDebt: string };
+  const sections = (money: Units, principal: string, schedule: [string, string]): Section[] => [
+    halfYears,
+    table(
+      "Financials and credit metrics",
+      ["Metric", "H1 2025", "H1 2026", "Unit"],
+      [
+        ["Total liquidity at period end", "1100", "1250", money.liquidity],
+        ["Free cash flow (operating cash flow less capex), twelve months", "80", "95.5", money.fcf],
+        ["(Total debt plus financing obligations) / EBITDA", "4.0", "3.8", "x"],
+        [
+          "EBITDA / (cash interest for debt plus cash rent recorded as interest)",
+          "2.5",
+          "2.7",
+          "x",
+        ],
+        ["Net debt at period end", "3000", "2875", money.netDebt],
+      ],
+      10,
+    ),
+    table(
+      "Debt principal to carrying value",
+      ["Period", "Contractual principal", "Discount", "Carrying value", "Reporting unit"],
+      [["2026-06-30", "3400", "25", "3375", principal]],
+      20,
+    ),
+    table(
+      "Chart data: debt maturities",
+      ["Period", "Debt maturing", "Reporting unit"],
+      [
+        ["2027", "640", schedule[0]],
+        ["2028", "900", schedule[1]],
+      ],
+      30,
+    ),
+    table(
+      "Calculations",
+      ["ID", "Calculation", "Inputs", "Result", "Source"],
+      [["C1", "Maturities from 2026-07-01 to end-2027", "", "640", ""]],
+      40,
+    ),
+  ];
+  const oneUnit = (unit: string) =>
+    sections({ liquidity: unit, fcf: unit, netDebt: unit }, unit, [unit, unit]);
+  const tiles = (input: Section[], unit?: string) =>
+    foundationMetrics(foundation(input), catalogueIn(unit)).map(({ key, metric }) => [
+      key,
+      metric.value?.kind === "value" ? metric.value.text : null,
+    ]);
+
+  it("shows a GBP run's tiles in pounds and carries GBPm into the year change", () => {
+    expect(tiles(oneUnit("GBPm"), "GBPm")).toEqual([
+      ["liquidity", "£1,250m"],
+      ["freeCashFlow", "£95.5m"],
+      ["leverage", "3.8x"],
+      ["interestCover", "2.7x"],
+      ["netDebt", "£2,875m"],
+      ["principal", "£3,400m"],
+      ["maturities", "£640m"],
+    ]);
+    const [liquidity] = foundationMetrics(foundation(oneUnit("GBPm")), catalogueIn("GBPm"));
+    expect(liquidity?.metric.yearChange).toEqual({
+      key: "liquidity",
+      change: "150",
+      unit: "GBPm",
+      prior: "H1 2025",
+    });
+  });
+
+  it("shows a CHF run's tiles with the CHF code", () => {
+    expect(tiles(oneUnit("CHFm"), "CHFm")).toEqual([
+      ["liquidity", "CHF 1,250m"],
+      ["freeCashFlow", "CHF 95.5m"],
+      ["leverage", "3.8x"],
+      ["interestCover", "2.7x"],
+      ["netDebt", "CHF 2,875m"],
+      ["principal", "CHF 3,400m"],
+      ["maturities", "CHF 640m"],
+    ]);
+  });
+
+  it("draws a GBP run's tiles and year change on the page", () => {
+    const records = foundationMetrics(foundation(oneUnit("GBPm")), catalogueIn("GBPm"));
+    const snapshot: Snapshot = {
+      catalogue: { real: [] },
+      workspace: { runs: {}, outputs: {}, handoffs: {}, models: [] },
+      chips: {},
+    };
+    render(createElement(MetricGrid, { records, entryIndex: -1, snapshot, folder: "first" }));
+    expect(screen.getByText("£1,250m")).toBeInTheDocument();
+    expect(screen.getByText("+£150m vs H1 2025")).toBeInTheDocument();
+    expect(screen.getByText("£3,400m")).toBeInTheDocument();
+    expect(screen.queryByText(/\$/)).toBeNull();
+  });
+
+  it("leaves out a tile whose table mixes two money units", () => {
+    const mixed = sections({ liquidity: "GBPm", fcf: "US$m", netDebt: "GBPm" }, "GBPm", [
+      "GBPm",
+      "US$m",
+    ]);
+    expect(tiles(mixed, "GBPm")).toEqual([
+      ["liquidity", "£1,250m"],
+      ["leverage", "3.8x"],
+      ["interestCover", "2.7x"],
+      ["netDebt", "£2,875m"],
+      ["principal", "£3,400m"],
+    ]);
+    const unstated = sections({ liquidity: "GBPm", fcf: "EURm", netDebt: "GBPm" }, "GBPm", [
+      "GBPm",
+      "GBPm",
+    ]);
+    expect(tiles(unstated)).toEqual([
+      ["leverage", "3.8x"],
+      ["interestCover", "2.7x"],
+      ["principal", "£3,400m"],
+      ["maturities", "£640m"],
+    ]);
+  });
+
+  it("draws no money tile from tables in another currency than the run's", () => {
+    expect(tiles(oneUnit("US$m"), "GBPm")).toEqual([
+      ["leverage", "3.8x"],
+      ["interestCover", "2.7x"],
+    ]);
+  });
+
+  it("reads each table's own unit when the cash figure records no money unit", () => {
+    expect(tiles(oneUnit("US$m"), "USD millions")).toEqual([
+      ["liquidity", "$1,250m"],
+      ["freeCashFlow", "$95.5m"],
+      ["leverage", "3.8x"],
+      ["interestCover", "2.7x"],
+      ["netDebt", "$2,875m"],
+      ["principal", "$3,400m"],
+      ["maturities", "$640m"],
+    ]);
+  });
+
+  it("keeps a USD run's tiles exactly as before", () => {
+    expect(tiles(oneUnit("US$m"), "US$m")).toEqual([
+      ["liquidity", "$1,250m"],
+      ["freeCashFlow", "$95.5m"],
+      ["leverage", "3.8x"],
+      ["interestCover", "2.7x"],
+      ["netDebt", "$2,875m"],
+      ["principal", "$3,400m"],
+      ["maturities", "$640m"],
+    ]);
+    const [liquidity] = foundationMetrics(foundation(oneUnit("US$m")), catalogueIn("US$m"));
+    expect(liquidity?.metric).toEqual({
+      label: "Total liquidity at period end",
+      value: { kind: "value", at: null, text: "$1,250m" },
+      note: "2026-06-30",
+      trace: null,
+      yearChange: { key: "liquidity", change: "150", unit: "US$m", prior: "H1 2025" },
+    });
+    expect(liquidity?.line).toBe(12);
   });
 });

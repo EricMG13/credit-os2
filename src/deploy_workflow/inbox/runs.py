@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
@@ -18,7 +19,7 @@ from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 from deploy_workflow import platform_io
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.owners.cpos_launch import METHODS
-from deploy_workflow.run_events import EVENTS, read_events
+from deploy_workflow.run_events import EVENTS, progress, read_events
 
 log = logging.getLogger(__name__)
 
@@ -104,6 +105,7 @@ def cap_of(record: Record) -> Decimal:
     return value
 
 
+TEAMS_WEBHOOK_VARIABLE = "CREDIT_OS_TEAMS_WEBHOOK"  # read by deploy_workflow.inbox.teams
 PID_FILE_VARIABLE = "DEPLOY_WORKFLOW_PID_FILE"  # the launcher reads the same name
 
 
@@ -119,8 +121,9 @@ def child_environment() -> dict[str, str]:
     """The environment for a launcher child: this process's, plus the engine's ``src`` folder
     first on ``PYTHONPATH`` (so a child started outside the project's environment still finds it)
     and UTF-8 output. The provider key
-    passes through untouched."""
+    passes through untouched; the Teams webhook, a secret no run needs, is left out."""
     env = dict(os.environ)
+    env.pop(TEAMS_WEBHOOK_VARIABLE, None)
     existing = env.get("PYTHONPATH")
     env["PYTHONPATH"] = os.pathsep.join([str(_SRC), existing] if existing else [str(_SRC)])
     env["PYTHONUTF8"] = "1"
@@ -160,12 +163,18 @@ def load_all(layout: Layout) -> list[Record]:
     return sorted((_load(p) for p in _record_files(layout)), key=lambda r: r.id)
 
 
+def name_key(text: str) -> str:
+    """Compare names by this key: file systems may ignore case and Unicode form (NFC or NFD)."""
+    return unicodedata.normalize("NFC", text).casefold()
+
+
 def load_readable(layout: Layout) -> tuple[list[Record], list[str]]:
     """The readable run records sorted by id, and the sorted file names of those ``_load`` refuses.
 
-    For display paths only: the scheduler uses ``load_all``, which raises on a bad file. Skipping a
-    bad file here is a documented fail-open: the caller shows how many were skipped. Nothing is
-    logged, as this runs on every poll of the activity page.
+    For callers that must keep working beside a bad file; ``load_all`` still raises on one. Each
+    caller decides what a skipped file means (the scheduler holds a slot for it, admission hides
+    its run, the run lookups refuse that run) and says so. Nothing is logged here, as this runs on
+    every poll of the activity page.
     """
     records: list[Record] = []
     unreadable: list[str] = []
@@ -321,7 +330,10 @@ def start(
 
 
 def outcome(layout: Layout, record: Record, exit_code: int | None) -> tuple[Status, str]:
-    """Decide a run's end from its event log, then from the launcher's exit code."""
+    """Decide a run's end from its event log and the launcher's exit code. A delivery, or exit 0
+    (a live launch returns 0 only once it delivered; the log is advisory and may have lost that
+    line), is finished: the scheduler then checks the library lists the run. Otherwise the stop
+    the log ends on, else how the launcher ended."""
     try:
         events = read_events(layout.runs / record.id / EVENTS)
     except FileNotFoundError:
@@ -330,15 +342,14 @@ def outcome(layout: Layout, record: Record, exit_code: int | None) -> tuple[Stat
         # Documented fail-open: an unreadable log counts as no events; the exit code decides.
         log.warning("run %s: event log unreadable (%s); treated as no events", record.id, error)
         events = []
-    events = [e for e in events if isinstance(e, dict)]  # a valid JSON line need not be an event
-    if any(e.get("event") == "delivered" for e in events):
+    # a valid JSON line need not be an event
+    state = progress(e for e in events if isinstance(e, dict))
+    if state.delivered or exit_code == 0:
         return "finished", ""
-    for event in events:
-        if event.get("event") == "stopped":
-            reason = str(event.get("reason", ""))
-            if reason == "budget":
-                return "capped", "stopped at the cap"
-            return "failed", f"stopped: {reason}"
+    if state.stop == "budget":
+        return "capped", "stopped at the cap"
+    if state.stop is not None:
+        return "failed", f"stopped: {state.stop}"
     if exit_code is None:
         return "interrupted", "the run's process ended without a result"
     return "failed", f"launcher exited {exit_code}; see logs/{record.id}.log"

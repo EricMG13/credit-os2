@@ -19,6 +19,8 @@ import sys
 import tempfile
 import threading
 import time
+import unicodedata
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -45,7 +47,7 @@ from deploy_workflow.inbox import activity
 from deploy_workflow.inbox import scheduler as scheduler_module
 from deploy_workflow.inbox import startup as startup_module
 from deploy_workflow.inbox.layout import Layout, ensure_layout
-from deploy_workflow.inbox.runs import Record, alive, load_all
+from deploy_workflow.inbox.runs import Record, alive, load_all, load_readable
 from deploy_workflow.inbox.scheduler import Scheduler, Settings, StartupRefused
 from deploy_workflow.inbox.startup import STANDING_RULING
 from deploy_workflow.model.adapter import KEY_VARIABLES
@@ -131,7 +133,7 @@ def test_a_submission_is_run_by_the_real_launcher_and_listed(root, tmp_path, mon
             "level": "basic",
             "model": "gpt",
             "effort": "balanced",
-            "submitted_by": "analyst",
+            "submitted_by": "Ana L",
         }
     )
     got = submissions.summary(lay, sid, answers)
@@ -453,7 +455,7 @@ def _submit_advanced(w: Scheduler, root: Path, model: str, effort: str) -> Recor
             "level": "advanced",
             "model": model,
             "effort": effort,
-            "submitted_by": "analyst",
+            "submitted_by": "Ana L",
         }
     )
     lay = Layout(root)
@@ -526,7 +528,7 @@ def test_submit_refuses_claude_without_the_anthropic_key(root, monkeypatch):
         answers = submissions.validated(
             {
                 "context": body, "modules": [], "max_turns": 32, "level": "advanced",
-                "model": "claude", "effort": "high", "submitted_by": "analyst",
+                "model": "claude", "effort": "high", "submitted_by": "Ana L",
             }
         )  # fmt: skip
         lay = Layout(root)
@@ -546,11 +548,149 @@ def _log(root: Path) -> str:
     return log.read_text(encoding="utf-8") if log.is_file() else ""
 
 
-def test_an_unreadable_run_record_stops_start_up_naming_the_file(root):
+_NOW = datetime(2026, 11, 16, 9, 0, 0, tzinfo=UTC)
+_STEM = "20261116-090000-01"  # the ID _new_id mints first at _NOW
+
+
+def _bad_record(root: Path, stem: str = "bad") -> tuple[Path, Callable[[], tuple[bytes, int]]]:
+    """Write an unreadable record; the returned function reads its bytes and mtime."""
     ensure_layout(root)
-    (root / "_engine/state/bad.json").write_text("{not json", encoding="utf-8")
-    with pytest.raises(ValueError, match="bad.json"):
-        Scheduler(settings(root))
+    path = root / f"_engine/state/{stem}.json"
+    path.write_text("{not json", encoding="utf-8")
+    return path, lambda: (path.read_bytes(), path.stat().st_mtime_ns)
+
+
+def test_the_scheduler_starts_beside_an_unreadable_record_and_leaves_it_alone(root):
+    _, seen = _bad_record(root)
+    before = seen()
+    w = Scheduler(settings(root))
+    try:
+        w.step()
+        assert seen() == before
+        assert w._records == {}
+        w.step()
+    finally:
+        w.close()
+    assert _log(root).count("bad.json") == 1
+    assert "not started, tracked or shown" in _log(root)
+
+
+def test_a_new_run_never_takes_the_id_of_an_unreadable_record(root, fake_env):
+    _, seen = _bad_record(root, _STEM)
+    before = seen()
+    w = Scheduler(settings(root), now=lambda: _NOW)
+    try:
+        assert w._new_id() == "20261116-090000-02"
+        fake_env({"events": DELIVERED, "sleep": 20})
+        record = submit_run(w, root)
+        assert record.id == "20261116-090000-02"
+        assert seen() == before
+    finally:
+        w.close()
+
+
+def _readable_status(root: Path) -> list[str]:
+    return [r.status for r in load_readable(layout(root))[0]]
+
+
+def test_an_unreadable_record_takes_a_running_slot_and_no_process_starts(root, fake_env):
+    fake_env({"events": DELIVERED, "sleep": 20})
+    _, seen = _bad_record(root)
+    before = seen()
+    w = Scheduler(settings(root, max_running=1))
+    try:
+        submit_run(w, root)
+        go(w)
+        assert _readable_status(root) == ["queued"]
+        assert w._children == {}
+        assert seen() == before
+    finally:
+        w.close()
+
+
+def test_an_unreadable_record_counts_as_one_start_today(root, fake_env):
+    fake_env({"events": DELIVERED, "sleep": 20})
+    _bad_record(root)
+    w = Scheduler(settings(root, max_per_day=1))
+    try:
+        submit_run(w, root)
+        go(w)
+        assert _readable_status(root) == ["queued"] and w._children == {}
+        assert "daily limit of 1 runs reached" in activity_js(root)
+    finally:
+        w.close()
+
+
+def _sealed_upload_older_than_the_sweep(root: Path) -> Path:
+    folder = root / "_engine/uploads" / ("a" * 32)
+    (folder / "sealed").mkdir(parents=True)
+    (folder / "sealed/a.txt").write_text("x", encoding="utf-8")
+    return folder
+
+
+def test_a_sealed_upload_survives_the_sweep_while_a_record_is_unreadable(root):
+    _bad_record(root)
+    stale = _sealed_upload_older_than_the_sweep(root)
+    far = time.time() + 3 * submissions.STALE_SECONDS
+    w = Scheduler(settings(root), clock=lambda: far)
+    try:
+        w.step()
+        assert stale.is_dir()
+    finally:
+        w.close()
+
+
+def test_a_stale_upload_is_swept_when_every_record_is_readable(root):
+    ensure_layout(root)
+    stale = _sealed_upload_older_than_the_sweep(root)
+    far = time.time() + 3 * submissions.STALE_SECONDS
+    w = Scheduler(settings(root), clock=lambda: far)
+    try:
+        w.step()
+        assert not stale.exists()
+    finally:
+        w.close()
+
+
+def test_the_held_note_says_records_could_not_be_read_without_naming_a_file(root):
+    _bad_record(root, "secret-name")
+    w = Scheduler(settings(root))
+    try:
+        w.step()
+        held = activity_js(root)
+    finally:
+        w.close()
+    assert (
+        "1 run record could not be read. Its run is not started, tracked or shown, and it takes "
+        "one running slot and one of each day's starts until the file is repaired and the service "
+        "restarted."
+    ) in held
+    assert "secret-name" not in held
+
+
+def test_the_held_note_counts_several_unreadable_records(root):
+    _bad_record(root, "one")
+    _bad_record(root, "two")
+    w = Scheduler(settings(root))
+    try:
+        w.step()
+        held = activity_js(root)
+    finally:
+        w.close()
+    assert (
+        "2 run records could not be read. Their runs are not started, tracked or shown, and "
+        "they take 2 running slots and 2 of each day's starts until the files are repaired and the "
+        "service restarted."
+    ) in held
+
+
+def test_there_is_no_held_note_when_every_record_is_readable(root):
+    w = Scheduler(settings(root))
+    try:
+        w.step()
+        assert "could not be read" not in activity_js(root)
+    finally:
+        w.close()
 
 
 def test_start_up_writes_the_library_page_once_and_no_inbox(root):
@@ -1406,3 +1546,92 @@ def test_a_queued_run_with_no_context_json_in_its_folder_fails_and_starts_nothin
         == f"no context.json in _engine/drops/{run_id}; submit it again from the run page"
     )
     assert started == []
+
+
+_RUN = "20261115-080000-01"
+
+
+def _copy_beside_the_bad_file(root: Path, **changes: Any) -> tuple[Path, tuple[bytes, int]]:
+    """An unreadable ``<run>.json`` and a readable ``<run>.orig.json`` holding the same run ID."""
+    bad, seen = _bad_record(root, _RUN)
+    base = {"pathway": "credit_snapshot", "folder": "Acme", "claimed_at": "2026-11-15T08:00:00Z"}
+    record = Record(_RUN, status="queued", **base, **changes)
+    (root / f"_engine/state/{_RUN}.orig.json").write_text(
+        json.dumps(dataclasses.asdict(record)), encoding="utf-8"
+    )
+    return bad, seen()
+
+
+@pytest.mark.parametrize("approved", [False, True])
+def test_a_readable_copy_of_an_unreadable_records_run_is_never_tracked_or_started(
+    root, monkeypatch, approved
+):
+    started: list[str] = []
+    monkeypatch.setattr(
+        scheduler_module.runs, "start", lambda *a, **k: started.append(a[1].id) or None
+    )
+    changes = {"submission": "a" * 32, "digest": "d" * 64} if approved else {}
+    bad, before = _copy_beside_the_bad_file(root, **changes)
+    if approved:
+        (root / f"_engine/drops/{_RUN}").mkdir(parents=True)
+        (root / f"_engine/drops/{_RUN}/context.json").write_text("{}", encoding="utf-8")
+    w = Scheduler(settings(root), now=lambda: _NOW)
+    try:
+        w.step()
+        w.step()
+        assert _RUN not in w._records
+        held = activity_js(root)
+    finally:
+        w.close()
+    assert (bad.read_bytes(), bad.stat().st_mtime_ns) == before
+    assert started == []
+    assert "1 run record could not be read" in held  # one run, counted once
+    assert len([line for line in _log(root).splitlines() if _RUN in line]) == 1
+
+
+def test_the_unreadable_note_is_one_slot_when_a_copy_shares_the_run(root):
+    _copy_beside_the_bad_file(root)
+    w = Scheduler(settings(root, max_running=2))
+    try:
+        assert len(w._unreadable) == 1 and w._records == {}
+    finally:
+        w.close()
+
+
+def _shadowed(root: Path, bad_stem: str, copy_id: str, monkeypatch) -> Scheduler:
+    """A bad ``<bad_stem>.json`` and a readable ``copy-<n>.json`` holding ``copy_id``; no start."""
+    started: list[str] = []
+    monkeypatch.setattr(
+        scheduler_module.runs, "start", lambda *a, **k: started.append(a[1].id) or None
+    )
+    bad, seen = _bad_record(root, bad_stem)
+    base = {"pathway": "credit_snapshot", "folder": "Acme", "claimed_at": "2026-11-15T08:00:00Z"}
+    record = Record(copy_id, status="queued", **base)
+    (root / "_engine/state/copy-1.json").write_text(
+        json.dumps(dataclasses.asdict(record)), encoding="utf-8"
+    )
+    name = [n for n in os.listdir(root / "_engine/state") if n != "copy-1.json"]
+    before = seen()
+    w = Scheduler(settings(root), now=lambda: _NOW)
+    try:
+        w.step()
+        assert copy_id not in w._records
+        assert len(w._unreadable) == 1
+        assert started == []
+        assert (bad.read_bytes(), bad.stat().st_mtime_ns) == before
+        assert name  # the bad file is still there under whatever form the volume keeps
+    finally:
+        w.close()
+    return w
+
+
+def test_a_decomposed_bad_file_name_excludes_a_composed_copy_id(root, monkeypatch):
+    composed = unicodedata.normalize("NFC", "café-1")
+    decomposed = unicodedata.normalize("NFD", "café-1")
+    assert composed != decomposed
+    _shadowed(root, decomposed, composed, monkeypatch)
+
+
+@pytest.mark.parametrize(("bad", "copy"), [("ABC-1", "abc-1"), ("abc-2", "ABC-2")])
+def test_case_differences_on_either_side_still_exclude_the_copy(root, monkeypatch, bad, copy):
+    _shadowed(root, bad, copy, monkeypatch)

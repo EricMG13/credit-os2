@@ -59,7 +59,8 @@ CP2E_NOTE = (
     "Unhedged debt percentage, from its Total debt, Gross floating-rate debt and Hedged "
     "floating-rate debt rows; in T2F.5, the Estimated Cash Impact of the `+100 bps cash-interest "
     "impact` row. Write those rows once each with these names, every amount with its currency "
-    "and scale (`USD 1,250m`) and the percentage with `%`. A figure that disagrees is sent back "
+    "and scale (`USD 1,250m` or `GBP 1,250m`) and the percentage with `%`. A figure that "
+    "disagrees is sent back "
     "for repair; one whose input is missing is not checked, never read as zero.\n\n"
 )
 _UNHEDGED = _Where("CP-2E", RATE_FX, UNHEDGED, "T2F.4")

@@ -49,13 +49,19 @@ failure is 500 ``{"error": "the service failed; see its log"}`` (its cause goes 
     Body: the answers object ``{"context", "modules", "max_turns", "level", "submitted_by",
     "model", "effort"}``. ``model`` is "gpt" or "claude", ``effort`` "fast", "balanced" or "high";
     other than "gpt" and "balanced" only at the "advanced" level.
-    200 ``{"error": "", "digest", "modules", "items", "documents", "ignored", "omitted", "model",
-    "effort", "changes", "lookup", "prior"}``, the launcher's own forecast and the digest to
-    approve (``changes`` says whether CP-8 will run, and against which earlier run: its pathway
-    and as-of date; ``lookup`` is the launcher's own Lookup line and, when present, its SEC
-    line, as the run Submit starts will have them; ``prior`` is ``{"id", "as_of", "pathway"}``
-    of that run or null for a first run, and is part of the digest: the launcher is started with
-    that run, ``--prior <id>`` or ``--prior none``; the modules list holds CP-8 when it will);
+    ``submitted_by`` is the analyst's name: a first name, a space, then one or two capital initials
+    ("Eric G", "Eric MG"); anything else, an empty name included, is refused with the form to use.
+    200 ``{"error": "", "digest", "modules", "items", "documents", "ignored", "omitted",
+    "omitted_titles", "model", "effort", "changes", "lookup", "web_lookup", "prior"}``, the
+    launcher's own
+    forecast and the digest to approve (``omitted_titles`` is the reader-facing title of each
+    id in ``omitted``, same order; ``changes`` says whether CP-8 will run, and against which
+    earlier run: its pathway and as-of date; ``lookup`` is the launcher's own Lookup line and,
+    when present, its SEC line, as the run Submit starts will have them; ``web_lookup`` is
+    whether the research module will have the lookup tools in that run; ``prior`` is
+    ``{"id", "as_of", "pathway"}`` of that run or null for a first run, and is part of the
+    digest: the launcher is started with that run, ``--prior <id>`` or ``--prior none``; the
+    modules list holds CP-8 when it will);
     or 200 ``{"error": "<sentence>"}`` with no digest when the answers or files are refused
     (Claude Opus without an Anthropic key on the service included). Only the latest digest
     issued is accepted.
@@ -89,7 +95,9 @@ failure is 500 ``{"error": "the service failed; see its log"}`` (its cause goes 
     same rules and headers as a library file; it must itself be in ``_engine``.
 
 ``main`` runs this server in a daemon thread and the scheduler's ``step`` every poll in the main
-thread; ``step`` also sweeps stale uploads. ``--host`` must be this machine's own address: a
+thread; ``step`` also sweeps stale uploads and, when the environment holds both
+``CREDIT_OS_TEAMS_WEBHOOK`` and ``CREDIT_OS_TEAMS_LINK``, posts run cards to Teams
+(``deploy_workflow.inbox.teams``). ``--host`` must be this machine's own address: a
 wildcard address (``0.0.0.0``, ``::``, or any spelling that resolves to one) can never equal a
 ``Host`` header and is refused.
 """
@@ -113,7 +121,7 @@ from typing import Any, BinaryIO, cast
 from deploy_vii.contracts import DEACTIVATED_PATHWAYS, PATHWAY_CAP_USD
 from deploy_workflow import http_base
 from deploy_workflow.http_base import Body, Reply, refuse
-from deploy_workflow.inbox import activity, runs, startup
+from deploy_workflow.inbox import activity, runs, startup, teams
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.run_start import prior, submissions
@@ -333,7 +341,10 @@ class Handler(http_base.Handler):
         raise Reply(200, {"run": record.id, "status": record.status})
 
     def _run(self, run_id: str) -> dict[str, Any]:
-        record = next((r for r in runs.load_all(self._layout) if r.id == run_id), None)
+        records, unreadable = runs.load_readable(self._layout)
+        if f"{run_id}.json" in unreadable:  # fail closed: only this run's own bad file refuses it
+            raise ValueError("that run's record cannot be read")
+        record = next((r for r in records if r.id == run_id), None)
         if record is None:
             raise refuse(404, "unknown run")
         shown = activity.snapshot(self._layout, [record], now=datetime.now(UTC))["runs"][0]
@@ -453,10 +464,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     except ValueError as error:
         print(error, file=sys.stderr)
         return 2
-    settings = Settings(args.root, max_running=args.max_running, max_per_day=args.max_per_day)
     try:
+        settings = Settings(
+            args.root,
+            max_running=args.max_running,
+            max_per_day=args.max_per_day,
+            teams=teams.config_from_environment(teams.LIBRARY_PAGES),
+        )
         scheduler = Scheduler(settings)
-    except (ValueError, OSError) as error:  # StartupRefused, a long root, an unreadable record
+    except (ValueError, OSError) as error:  # StartupRefused, a long root
         print(error, file=sys.stderr)
         return 2
     try:
