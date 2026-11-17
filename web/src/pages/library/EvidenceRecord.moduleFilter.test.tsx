@@ -83,7 +83,7 @@ describe("Record, Model calls without module codes", () => {
 
 describe("Record, how many modules the lists hold", () => {
   const sentence = (n: string) =>
-    `${n} of 13 modules shown. The Total row is the delivered total for the run.`;
+    `Call rows cover ${n} of 13 modules in the run. The Total row is the delivered total for the run.`;
 
   it("says under Model calls how many of the run's modules it lists", () => {
     renderRecord("2026-09-30");

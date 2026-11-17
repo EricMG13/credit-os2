@@ -65,7 +65,7 @@ function Timings({
   return (
     <TableCard
       title={timings.title}
-      note={timings.note}
+      note={chosen === null ? timings.note : `Unfiltered timing record: ${timings.note}`}
       label={timings.title}
       size="text-h3"
       trace={null}
@@ -76,6 +76,13 @@ function Timings({
         cells: [row.started, row.accepted, row.took].map(toTableCell),
         end: <StatusBadge set="Module state" state={row.state} />,
       }))}
+      footnotes={
+        chosen === null
+          ? []
+          : [
+              `${String(held.length)} of ${String(timings.rows.length)} recorded module timings shown for ${chosen.name}.`,
+            ]
+      }
     />
   );
 }
@@ -184,7 +191,7 @@ function Calls({
     <TableCard
       title={calls.title}
       count={chosen === null ? calls.count : null}
-      note={calls.note}
+      note={chosen === null ? calls.note : `Unfiltered call record: ${calls.note}`}
       label={calls.title}
       size="text-h4"
       trace={null}
@@ -193,7 +200,7 @@ function Calls({
       footnotes={
         partial
           ? [
-              `${String(rows.length)} of ${String(modules)} modules shown. The Total row is the delivered total for the run.`,
+              `Call rows cover ${String(rows.length)} of ${String(modules)} modules in the run. The Total row is the delivered total for the run.`,
             ]
           : []
       }

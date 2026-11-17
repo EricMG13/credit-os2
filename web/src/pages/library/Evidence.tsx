@@ -36,7 +36,7 @@ function summaryFor(evidence: EvidenceData, module: Reader): EvidenceData {
   const traced =
     evidence.trace.emptyText === null
       ? [count("Traced items", items.length, `In ${module.name}`)]
-      : evidence.summary.counts.slice(1, 2);
+      : evidence.summary.counts.filter((metric) => metric.label === "Calculations");
   return {
     ...evidence,
     summary: {
