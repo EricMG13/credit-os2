@@ -404,7 +404,8 @@ function bullet(table: SourceTable, descriptor: Descriptor, frame: Frame) {
       text: value === null ? null : (row[current] ?? null),
     };
   });
-  if (!distinct(rows.map((row) => row.label))) return null;
+  if (rows.every((row) => row.target === null) || !distinct(rows.map((row) => row.label)))
+    return null;
   const source = chartTable(table);
   return (
     <BulletChart

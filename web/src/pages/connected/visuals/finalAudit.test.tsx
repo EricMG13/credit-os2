@@ -128,3 +128,20 @@ it("keeps a page-bearing gap reason in its trace and draws the missing status be
     "#evidence/20",
   );
 });
+
+it("uses the full chart gap treatment when no covenant threshold can be drawn", () => {
+  const { container } = draw(
+    "No thresholds",
+    { kind: "bullet", label: [0], current: 2, threshold: 1, direction: 3 },
+    ["Test", "Threshold", "Current", "Direction"],
+    [["Leverage", "Not supplied: absent agreement", "2.80", "Maximum", "x", "No threshold."]],
+  );
+  expect(container.querySelector("[data-bar]")).toBeNull();
+  expect(screen.getByText("Not established for this run")).toBeVisible();
+  expect(screen.getByRole("table", { name: "No thresholds" })).toHaveTextContent("2.80");
+});
+
+it("normalizes a parenthesized amount with its explicitly matching suffix without changing scale", () => {
+  expect(amount("(10m)", "US$m")).toBe(-10);
+  expect(amount("(10m)", "USD billions")).toBeNull();
+});

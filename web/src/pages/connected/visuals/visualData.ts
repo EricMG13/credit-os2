@@ -69,6 +69,11 @@ const PLAIN_NUMBER = /^-?\d+(?:\.\d+)?$/;
 
 function numberText(cell: string, unit?: unknown): string | null {
   let text = cell.trim().replaceAll("−", "-");
+  if (/^\([^()]+\)$/.test(text)) {
+    const inner = text.slice(1, -1);
+    if (/^[+-]/.test(inner)) return null;
+    text = `-${inner}`;
+  }
   const suffix = /\s*(%|x|m|bn|millions?|billions?)$/i.exec(text);
   if (suffix) {
     if (typeof unit !== "string") return null;
@@ -79,11 +84,6 @@ function numberText(cell: string, unit?: unknown): string | null {
     };
     if (family(suffix[1] ?? "") !== family(unit.trim())) return null;
     text = text.slice(0, suffix.index);
-  }
-  if (/^\([^()]+\)$/.test(text)) {
-    const inner = text.slice(1, -1);
-    if (/^[+-]/.test(inner)) return null;
-    text = `-${inner}`;
   }
   if (/^-?\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d+)?$/.test(text))
     text = text.replace(/[ \u00a0\u202f]/g, "");
