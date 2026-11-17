@@ -8,19 +8,19 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 
 | Severity | repair | batch | sweep | owner | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| High | 10 | 0 | 0 | 0 | 0 | 0 | 10 |
+| High | 5 | 0 | 0 | 0 | 0 | 0 | 5 |
 | Medium | 91 | 0 | 0 | 1 | 2 | 11 | 105 |
 | Low | 0 | 172 | 0 | 0 | 18 | 9 | 199 |
-| Info | 0 | 18 | 17 | 2 | 11 | 30 | 78 |
-| Total | 101 | 190 | 17 | 3 | 31 | 50 | 392 |
+| Info | 3 | 18 | 17 | 2 | 10 | 33 | 83 |
+| Total | 99 | 190 | 17 | 3 | 30 | 53 | 392 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
-| C1 | 3 | 11 | 16 | 12 |
+| C1 | 1 | 11 | 16 | 14 |
 | C2 | 0 | 9 | 12 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 2 | 7 | 20 | 3 |
-| C5 | 3 | 10 | 18 | 4 |
+| C5 | 0 | 10 | 18 | 7 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
 | J3 | 0 | 1 | 6 | 2 |
@@ -46,11 +46,6 @@ High first. `Merged` lists the ids with the same cause.
 | C1-001 | High | C1 | GET /connected/snapshot sends the server's absolute workspace path to the browser (catalogue.workspace). | repair | T01 | C5-001 | confirmed |
 | C4-028 | High (was Medium) | C4 | A published value written with a decimal comma ('3,75') is read as 375 and its bar is drawn at 375 beside 2.80. | repair | T13 |  | confirmed |
 | J1-001 | High | J1 | Leaving a module out, which the review sheet offers as the way past a Will refuse limit, ends with Submit refused as "unknown module CP-MODEL" and no run start… | repair | T02 |  | confirmed |
-| R1-001 | High | C5 | When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute p… | repair | T01 |  | confirmed |
-| R1-004 | High | C5 | The issuer library's issue text keeps the first 80 characters of an OSError's message, which hold the server's absolute path, and those issues reach run activi… | repair | T01 |  | confirmed |
-| R1-007 | High | C5 | An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evid… | repair | T01b |  | confirmed |
-| R1-008 | High | C1 | When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.… | repair | T01b |  | confirmed |
-| R1-013 | High | C1 | The scheduler stores run reasons with an OSError's text ('could not be started: [Errno 13] Permission denied: <launcher path>'), and /activity.js and /api/runs… | repair | T01c |  | confirmed |
 | R2-003 | High | C4 | The debt stack reads each cell on its own, so a column mixing '3,75' with '2,800' draws 3,75 as 375. | repair | T19 |  | confirmed |
 | S1-001 | High | S1 | The library's "Start a run" button opens Run activity (a saved running example), not the run start page. | repair | T26 | J6-005 | confirmed |
 | B0-003 | Medium | C2 | Following the documented manual synthetic run in docs/react-workflow.md ends Failed at Legal & covenants; the run completes only if the credit agreement is als… | repair | T12 | J1-014 | confirmed |
@@ -357,6 +352,9 @@ High first. `Merged` lists the ids with the same cause.
 | S3-013 | Low | S3 | Modules that did not run (Not run, a capped run) are listed in the navigator and open pages, although CT-044 says only modules that ran are listed. | rejected (OQ-07) |  |  | not required (Low or Info) |
 | S3-030 | Low | S3 | The Modules navigator has no Model entry although decision 3 says the delivered Model appears as an entry in Modules. | rejected (OQ-01) |  |  | not required (Low or Info) |
 | S6-015 | Low | S6 | Run activity shows module states only: plan, delivery and library admission have no state of their own, so a run whose modules finished cannot be told from one… | rejected (OQ-10) |  |  | not required (Low or Info) |
+| R1-001 | Info (was High) | C5 | When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute p… | repair | T01 |  | confirmed |
+| R1-007 | Info (was High) | C5 | An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evid… | repair | T01b |  | confirmed |
+| R1-008 | Info (was High) | C1 | When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.… | repair | T01b |  | confirmed |
 | C1-028 | Info | C1 | The connected Run activity has no 'Not assessable' state for a blocked module, and offers 'Start from this run' beside a capped or interrupted run where the ma… | batch (OQ-06) |  |  | not required (Low or Info) |
 | C2-025 | Info | C2 | The analyst-name help says the name is 'Shown on Run activity and in Teams', which no matrix row accounts for and which is not true in a synthetic or unconfigu… | batch (OQ-11) |  |  | not required (Low or Info) |
 | C2-027 | Info | C2 | Two fail-open notes mislead: console.warn says a launcher flag is 'not shown' when its text is shown, and the FieldProblem for a blank issuer name is reachable… | batch |  |  | not required (Low or Info) |
@@ -401,7 +399,6 @@ High first. `Merged` lists the ids with the same cause.
 | R1-006 | Info | C1 | A data.js with two 'catalogue' keys, the first holding 'workspace', is served as read. | parked |  |  | not required (Low or Info) |
 | R1-010 | Info | C1 | A hand-edited event log can make the Teams card count a left-out module. | parked |  |  | not required (Low or Info) |
 | R1-011 | Info | C2 | A crafted Submit body can put CP-MODEL on a pathway that publishes no forecast; Submit accepts any known module on any pathway. | parked |  |  | not required (Low or Info) |
-| R1-014 | Info | C1 | Filing an earlier-format delivery against a hand-edited issuer registry stores 'could not be filed: <absolute path>/_engine/state/issuers.json is not a map'. | parked |  |  | not required (Low or Info) |
 | X1-008 | Info | X1 | Five components throw on out-of-contract props, and only the connected app has an error boundary around them. | parked |  | S4-022 | not required (Low or Info) |
 | X1-010 | Info | X1 | Timeline keys each item by date and title, so two items with the same date and title collide. | parked |  |  | not required (Low or Info) |
 | X1-022 | Info | X1 | Only four of eleven chart kinds check that the table's figures equal the chart's figures. | parked |  |  | not required (Low or Info) |
@@ -414,6 +411,9 @@ High first. `Merged` lists the ids with the same cause.
 | J4-004 | Info (was Medium) | J4 | Evidence Sources and Gaps do not surface citations that match no source file, and Sources says each uploaded file is named in a handoff by all 14 modules. | rejected |  |  | not a defect |
 | J4-012 | Info | J4 | The model and calculation downloads give a committee member nothing to recompute the reported ratios. | rejected |  |  | not required (Low or Info) |
 | J5-011 | Info | J5 | In the synthetic proof every issuer's report carries the same figures and text whatever name or date was typed, so two issuers in one session cannot show that… | rejected |  |  | not required (Low or Info) |
+| R1-004 | Info (was High) | C5 | The issuer library's issue text keeps the first 80 characters of an OSError's message, which hold the server's absolute path, and those issues reach run activi… | rejected |  |  | confirmed |
+| R1-013 | Info (was High) | C1 | The scheduler stores run reasons with an OSError's text ('could not be started: [Errno 13] Permission denied: <launcher path>'), and /activity.js and /api/runs… | rejected |  |  | confirmed |
+| R1-014 | Info | C1 | Filing an earlier-format delivery against a hand-edited issuer registry stores 'could not be filed: <absolute path>/_engine/state/issuers.json is not a map'. | rejected |  |  | not required (Low or Info) |
 | S1-017 | Info | S1 | The rails of both surfaces differ from the four items decision 12 names, and the owner has not said which wins (harmony H-08). | rejected (OQ-05) |  |  | not required (Low or Info) |
 | S1-018 | Info | S1 | No matrix row accounts for the shell's skip link and brand mark, the not-found page, the data-state notices, the static Model rail item or the kit page. | rejected (OQ-13) |  |  | not required (Low or Info) |
 | S2-030 | Info | S2 | Control row CT-028 (the earlier run Changes compares with) lists S2, but S2 offers no such control and the Changes page names the earlier run only by its date. | rejected (OQ-13) |  |  | not required (Low or Info) |

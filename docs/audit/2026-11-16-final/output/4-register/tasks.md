@@ -6,27 +6,27 @@ One task per cause or per tightly related set in the same files. Tasks in differ
 
 Findings:
 
-- C1-001 (with C5-001), High: GET /connected/snapshot sends the server's absolute workspace path to the browser (catalogue.workspace).
-- R1-001, High: When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute path, and /connected/snapshot sends it to the browser.
-- R1-004, High: The issuer library's issue text keeps the first 80 characters of an OSError's message, which hold the server's absolute path, and those issues reach run activity and /connected/snapshot.
+- C1-001 (with C5-001), High: GET /connected/snapshot sends the server's absolute workspace path to the browser (catalogue.workspace). Ruling: R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays
+- R1-001, Info: When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute path, and /connected/snapshot sends it to the browser. Ruling: R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays
 
-Files: `react_frontend/__init__.py`, `src/deploy_workflow/credit_os_catalogue.py`, `apps/issuer-library/credit_os/source.py`
+Files: `react_frontend/__init__.py`, `src/deploy_workflow/credit_os_catalogue.py`
 
 Probes:
 
 - C1-001 (exit): `docs/audit/2026-11-16-final/output/2-sections/C1/probes/c1-001-snapshot-leaks-workspace-path.cjs`
 - C1-001 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C5/probes/snapshot-path-leak.cjs`
 - R1-001 (none): `found by repair-1's T01/T02 review (2026-11-17); the T01 follow-up test is the probe`
-- R1-004 (none): `found by repair-1's T01 review (2026-11-17), shown by a direct call on a PermissionError; the T01 follow-up test is the probe`
 
-Touches money, ordering or security code: security (a leaked path).
+Touches money, ordering or security code: no (R13: a server path is not a defect).
+
+Note: R13: the reviewed path fixes stay; R1-004 was dropped.
 
 ## T01b (group 1). No absolute path in source warnings or the library-rebuild note
 
 Findings:
 
-- R1-007, High: An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evidence page draws it.
-- R1-008, High: When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.js serves it with the absolute path.
+- R1-007, Info: An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evidence page draws it. Ruling: R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays
+- R1-008, Info: When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.js serves it with the absolute path. Ruling: R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays
 
 Files: `react_frontend/sources.py`, `src/deploy_workflow/inbox/scheduler.py`
 
@@ -35,25 +35,9 @@ Probes:
 - R1-007 (none): `found by repair-1's T01 adversarial review (2026-11-17): chmod 000 on an inputs/<digest> source of a copied synthetic root; the T01b test is the probe`
 - R1-008 (none): `found by repair-1's T01 adversarial review (2026-11-17) for an unreadable pinned context; the T01b test is the probe`
 
-Touches money, ordering or security code: security (a leaked path).
+Touches money, ordering or security code: no (R13).
 
-Note: Added during stage 5 (ruling L10); found by T01's adversarial review.
-
-## T01c (group 1). No absolute path in stored run reasons
-
-Findings:
-
-- R1-013, High: The scheduler stores run reasons with an OSError's text ('could not be started: [Errno 13] Permission denied: <launcher path>'), and /activity.js and /api/runs/<id> serve them with the absolute path.
-
-Files: `src/deploy_workflow/inbox/scheduler.py`
-
-Probes:
-
-- R1-013 (none): `found by repair-1's T01b reviews (2026-11-17), reproduced with a missing and an unreadable launcher and a directory in place of a log; the T01c tests are the probe`
-
-Touches money, ordering or security code: security (a leaked path).
-
-Note: Added during stage 5 (ruling L13); found by T01b's reviews.
+Note: Merged before R13; kept.
 
 ## T02 (group 1). Leaving a module out must not make Submit refuse 'unknown module CP-MODEL'
 
