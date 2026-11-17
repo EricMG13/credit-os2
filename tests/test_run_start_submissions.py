@@ -2024,3 +2024,15 @@ def test_idle_eviction_starts_at_exactly_two_hours(layout, monkeypatch):
     added = new(layout)
     assert not (layout.uploads / sid).exists()
     assert (layout.uploads / added).is_dir()
+
+
+def test_a_full_active_ceiling_explains_how_to_recover(layout, monkeypatch):
+    monkeypatch.setattr(submissions, "MAX_OPEN", 1)
+    sid = new(layout)
+    with pytest.raises(Refused) as refused:
+        new(layout)
+    assert str(refused.value) == (
+        "too many unfinished submissions; continue an existing form, or try again after an unused "
+        "draft has been idle for 2 hours (24 hours if it reached review)"
+    )
+    assert (layout.uploads / sid / "files").is_dir()

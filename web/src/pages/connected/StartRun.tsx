@@ -1775,7 +1775,7 @@ function IntakeForm({
         setUploaded(new Map());
         setReading(undefined);
       }
-      setError(errorText(failure));
+      setError(draftErrorText(failure));
     } finally {
       active.current = false;
       setBusy(undefined);
@@ -2214,7 +2214,9 @@ function IntakeForm({
           setSubmitUncertain(false);
           const taken = await idProblem(failure);
           if (taken) throw taken;
-          setError(`${asSentence(errorText(failure))} Review the run again before submitting.`);
+          setError(
+            `${asSentence(draftErrorText(failure))} Review the run again before submitting.`,
+          );
         } else {
           setSubmitUncertain(true);
           setError(lostSubmitText(failure));
@@ -2827,6 +2829,16 @@ function ReviewConfirmation({
       </div>
     </div>
   );
+}
+
+function draftErrorText(failure: unknown) {
+  if (
+    failure instanceof RequestError &&
+    failure.status === 404 &&
+    failure.message === "unknown submission"
+  )
+    return "This draft is unavailable and may have expired. Your answers and selected documents are still here. Continue the form or review the run again to create a new draft and re-upload the documents.";
+  return errorText(failure);
 }
 
 /**

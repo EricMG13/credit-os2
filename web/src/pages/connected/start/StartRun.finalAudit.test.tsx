@@ -82,6 +82,47 @@ afterEach(() => {
 });
 
 describe("final audit: connected intake", () => {
+  it("T10 explains an unavailable draft and retries with the selected files and answers", async () => {
+    const fetchMock = setup();
+    await filledDocuments();
+    const serve = fetchMock.getMockImplementation();
+    if (!serve) throw new Error("The test needs its request handler");
+    let unavailable = true;
+    fetchMock.mockImplementation((path, init) => {
+      if (path === "/api/submissions/draft/reading" && unavailable) {
+        unavailable = false;
+        return Promise.resolve(Response.json({ error: "unknown submission" }, { status: 404 }));
+      }
+      return serve(path, init);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Inspect documents" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This draft is unavailable and may have expired. Your answers and selected documents are still here. Continue the form or review the run again to create a new draft and re-upload the documents.",
+    );
+    expect(screen.getByLabelText("Issuer name")).toHaveValue("Northbridge");
+    expect(screen.getByLabelText("As-of date")).toHaveValue("2026-10-31");
+    expect(screen.getByLabelText("Your name")).toHaveValue("Ana L");
+    expect(screen.getByText("annual.txt")).toBeVisible();
+    await purpose();
+    expect(fetchMock.mock.calls.filter(([path]) => path === "/api/submissions")).toHaveLength(2);
+    expect(fetchMock.mock.calls.filter(([path]) => path.includes("/files?"))).toHaveLength(2);
+  });
+
+  it("T10 preserves a different 404 explanation instead of claiming that the draft expired", async () => {
+    const fetchMock = setup();
+    await filledDocuments();
+    const serve = fetchMock.getMockImplementation();
+    if (!serve) throw new Error("The test needs its request handler");
+    fetchMock.mockImplementation((path, init) =>
+      path === "/api/submissions/draft/reading"
+        ? Promise.resolve(Response.json({ error: "unknown run" }, { status: 404 }))
+        : serve(path, init),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Inspect documents" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("unknown run");
+    expect(screen.queryByText(/may have expired/)).toBeNull();
+  });
+
   it("J2-005 bounds content reads across overlapping selections and keeps compact digests", async () => {
     const choices = [
       new File(["one"], "first.txt"),

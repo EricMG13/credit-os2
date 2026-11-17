@@ -4716,7 +4716,11 @@ describe("T08: run options, Submit failures and required periods", () => {
       "documents or answers changed after approval",
       "Documents or answers changed after approval.",
     ],
-    [404, "unknown submission", "Unknown submission."],
+    [
+      404,
+      "unknown submission",
+      "This draft is unavailable and may have expired. Your answers and selected documents are still here. Continue the form or review the run again to create a new draft and re-upload the documents.",
+    ],
   ])(
     "writes a refused Submit (%i) as capitalised sentences (C2-006)",
     async (status, error, text) => {

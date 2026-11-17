@@ -202,7 +202,10 @@ def new(layout: Layout) -> str:
         if len(_open_folders(layout)) >= MAX_OPEN:
             _make_room(layout)
         if len(_open_folders(layout)) >= MAX_OPEN:
-            raise Refused("too many unfinished submissions; try again later")
+            raise Refused(
+                "too many unfinished submissions; continue an existing form, or try again after "
+                "an unused draft has been idle for 2 hours (24 hours if it reached review)"
+            )
         (layout.uploads / sid / "files").mkdir(parents=True)
     return sid
 
