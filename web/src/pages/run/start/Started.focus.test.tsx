@@ -7,7 +7,7 @@ afterEach(() => {
   cleanup();
 });
 
-const SUBMIT = "Submit, spend up to USD 20.00";
+const SUBMIT = "Submit, spend up to USD 25.00";
 
 /** The Submit dialog's Confirm, pressed the way a keyboard user does: Submit is focused first. */
 function confirmSubmit() {
@@ -16,7 +16,7 @@ function confirmSubmit() {
     submit.focus();
   });
   fireEvent.click(submit);
-  fireEvent.click(screen.getByRole("button", { name: "Start run, up to USD 20.00" }));
+  fireEvent.click(screen.getByRole("button", { name: "Start run, up to USD 25.00" }));
 }
 
 describe("focus after Submit is confirmed", () => {

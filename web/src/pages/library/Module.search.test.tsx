@@ -84,8 +84,20 @@ describe("the module navigator's search", () => {
       "#/library/halden-aerostructures/2026-09-30/modules/capital-structure",
     );
     expect(
-      within(within(nav()).getAllByRole("list")[0] as HTMLElement).getAllByRole("button"),
-    ).toHaveLength(6);
+      within(within(nav()).getAllByRole("list")[0] as HTMLElement)
+        .getAllByRole("button")
+        .map((section) => section.textContent),
+    ).toEqual([
+      "Bottom line",
+      "Key findings",
+      "Contrary evidence",
+      "What would change the view",
+      "Limitations",
+      "Risks by probability and impact",
+      "Indicators to watch",
+      "Questions this module set out to answer",
+      "How a programme delay reaches the credit",
+    ]);
   });
 
   it("says no module matches, draws no empty list, and returns every module when cleared", () => {

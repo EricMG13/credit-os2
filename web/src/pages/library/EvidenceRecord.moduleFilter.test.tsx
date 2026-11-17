@@ -165,7 +165,7 @@ describe("Record, with a module chosen in the filter", () => {
   it("leaves the run's hashes, spend and registers as they are", () => {
     renderRecord("2026-09-30");
     pick("Capital structure");
-    expect(screen.getByRole("progressbar", { name: "USD 11.40 of USD 20.00" })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "USD 11.40 of USD 25.00" })).toBeVisible();
     expect(textOf("Registers as written")).toHaveLength(5);
   });
 });

@@ -1,6 +1,6 @@
 // S2-001 (with J6-006): an issuer's history page draws every run its subtitle counts, also when
 // the issuer has no readable report. Rendered on the real history route with the fixture's own
-// data: the four carded issuers and the one whose only run failed.
+// data with explicit no-report states: the four carded issuers and the one whose only run failed.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { render, screen, within } from "@testing-library/react";
@@ -8,8 +8,22 @@ import type { LibraryData } from "@/data";
 import { SourceContext } from "../source";
 import { routes } from "./routes";
 
-type Entry = { asOf: string; ran: string; state: string; pathway: string; text: string };
-type Slice = { issuers: { id: string; history: { entries: Entry[]; empty: string | null } }[] };
+type Entry = {
+  asOf: string;
+  ran: string;
+  state: string;
+  pathway: string;
+  text: string;
+  report: string | null;
+  changes: { label: string; run: string } | null;
+};
+type Slice = {
+  issuers: {
+    id: string;
+    history: { entries: Entry[]; empty: string | null; latest: string | null };
+    runs: unknown[];
+  }[];
+};
 
 const fixture = JSON.parse(
   readFileSync(
@@ -18,7 +32,28 @@ const fixture = JSON.parse(
   ),
 ) as { issuers: LibraryData["issuers"]; slice: Slice };
 
-function renderHistory(issuer: string, library: unknown = fixture.slice) {
+// Batch b supplies reports for the four cards. Keep this regression's absent-report cases
+// explicit, so it still exercises S2-001 without requiring the shipped fixture to be incomplete.
+const noReportSlice = structuredClone(fixture.slice);
+const noReportIds = new Set([
+  "corvane-packaging",
+  "tessaly-foods",
+  "ardenne-cable",
+  "lumora-health",
+  "corvane-fasteners",
+]);
+for (const issuer of noReportSlice.issuers) {
+  if (!noReportIds.has(issuer.id)) continue;
+  issuer.history.latest = null;
+  issuer.history.empty = "No report has been published for this issuer yet.";
+  issuer.runs = [];
+  for (const entry of issuer.history.entries) {
+    entry.report = null;
+    entry.changes = null;
+  }
+}
+
+function renderHistory(issuer: string, library: unknown = noReportSlice) {
   const data: LibraryData = { schema: "credit-os-data/1", issuers: fixture.issuers, library };
   const route = routes.find((r) => r.path === "/library/:issuer/history");
   if (route === undefined) throw new Error("no history route");
@@ -27,7 +62,7 @@ function renderHistory(issuer: string, library: unknown = fixture.slice) {
   );
 }
 
-const noReport = fixture.slice.issuers.filter((i) => i.history.empty !== null);
+const noReport = noReportSlice.issuers.filter((i) => i.history.empty !== null);
 
 describe("Report history, an issuer with runs but no readable report", () => {
   it("covers the four carded issuers and the failed first run", () => {
@@ -71,7 +106,7 @@ describe("Report history, an issuer with runs but no readable report", () => {
   });
 
   it("draws no empty list when the issuer has no runs at all", () => {
-    const slice = structuredClone(fixture.slice);
+    const slice = structuredClone(noReportSlice);
     const bare = slice.issuers.find((i) => i.id === "tessaly-foods");
     if (bare === undefined) throw new Error("no issuer");
     bare.history.entries = [];

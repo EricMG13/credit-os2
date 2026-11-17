@@ -6,7 +6,7 @@ afterEach(() => {
   cleanup();
 });
 
-const SUBMIT = "Submit, spend up to USD 20.00";
+const SUBMIT = "Submit, spend up to USD 25.00";
 
 // OQ-01 (README R10): the Submit dialog and Run started name the saved example, because nothing is
 // sent, started or spent on this page.
