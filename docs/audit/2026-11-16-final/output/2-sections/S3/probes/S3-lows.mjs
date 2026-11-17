@@ -99,6 +99,20 @@ await run(async ({ browser, say, defect }) => {
   const bg = await p3.evaluate(() => { const t = [...document.querySelectorAll("table")].find((x) => x.querySelector("caption")?.textContent === "Debt and leverage by year"); const th = t.querySelector("tbody th"); const td = t.querySelector("tbody td"); return [getComputedStyle(th).backgroundColor, getComputedStyle(td).backgroundColor, getComputedStyle(t.closest("section")).backgroundColor]; });
   say(`S3-020 statement row header ${bg[0]}, cell ${bg[1]}, section ${bg[2]}`);
   if (bg[0] !== bg[1]) defect("S3-020: the statement's label column and figure cells have different backgrounds");
+  // S3-036: facts of one facility share one drawer; S3-037: navigator state shown by shape only
+  const p11 = await newPage(browser, plain.base, modulePath("capital-structure"));
+  const facts = p11.locator("#main button[aria-label='Show sources for this fact']");
+  const heads = [];
+  for (let i = 0; i < 3; i += 1) {
+    await facts.nth(i).click(); await p11.waitForTimeout(250);
+    heads.push((await p11.getByRole("dialog").first().locator("h2").first().innerText()).trim());
+    await p11.keyboard.press("Escape"); await p11.waitForTimeout(250);
+  }
+  say(`S3-036 drawer headings for Amount, Margin, Maturity: ${heads.join(" | ")}`);
+  if (new Set(heads).size === 1) defect("S3-036: Margin and Maturity open a drawer headed with the facility's amount");
+  const navText = await p11.getByRole("navigation", { name: "Modules and sections" }).getByRole("link", { name: /Delivered with gaps$/ }).first().innerText();
+  say(`S3-037 visible text of a 'Delivered with gaps' entry: "${navText.trim()}"`);
+  if (!/gaps/.test(navText)) defect("S3-037: the navigator entry does not draw its state word");
   // Info: reader drops watch.detail
   const read = readFileSync("web/src/pages/library/read.ts", "utf8");
   const watchReader = read.slice(read.indexOf("function readWatch"), read.indexOf("const ANSWER_STATES"));

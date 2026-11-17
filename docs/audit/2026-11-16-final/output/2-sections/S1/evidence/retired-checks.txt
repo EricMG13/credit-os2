@@ -1,0 +1,17 @@
+shipped (empty): {"hits":{},"rail":["Library","Model","Run","Signal","Kit"]}
+fixture #/: {"hits":{},"rail":["Library","Model","Run","Signal","Kit"]}
+fixture #/library: {"hits":{},"rail":["Library","Model","Run","Signal","Kit"]}
+fixture #/model: {"hits":{},"rail":["Library","Model","Run","Signal","Kit"]}
+fixture #/run: {"hits":{},"rail":["Library","Model","Run","Signal","Kit"]}
+fixture #/kit: {"hits":{},"rail":["Library","Model","Run","Signal","Kit"]}
+fixture #/no-such-page: {"hits":{},"rail":["Library","Model","Run","Signal","Kit"]}
+Leverage = Below 3.0x: ["Corvane Packaging\tRigid packaging"]
+Leverage = 3.0x to under 5.0x: []
+Leverage = 5.0x and above: ["Ardenne Cable\tCable and broadband"]
+Net leverage = Below 3.0x: ["Corvane Packaging\tRigid packaging"]
+Net leverage = 3.0x to under 5.0x: ["Ardenne Cable\tCable and broadband"]
+Net leverage = 5.0x and above: []
+Interest coverage = Below 2.0x: ["Tessaly Foods\tPackaged food"]
+Interest coverage = 2.0x to under 4.0x: ["Lumora Health\tOutpatient clinics"]
+Interest coverage = 4.0x and above: ["Corvane Packaging\tRigid packaging"]
+log {"console":[],"pageerror":[],"failed":[],"blocked":[]}
