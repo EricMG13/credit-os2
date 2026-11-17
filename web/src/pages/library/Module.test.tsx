@@ -1411,12 +1411,11 @@ describe("Module, a module that could not be delivered", () => {
   it("draws the name, the kit's blocked line, the note and the gap link, and nothing else", () => {
     renderModule("recovery");
     expect(screen.getByRole("heading", { level: 2, name: "Recovery" })).toBeVisible();
-    expect(screen.getByText("Not assessable")).toBeVisible();
-    expect(
-      screen.getByText(
-        "The security package documents were not among the files provided, so recovery by class could not be assessed.",
-      ),
-    ).toBeVisible();
+    const reason = screen.getByText(
+      "The security package documents were not among the files provided, so recovery by class could not be assessed.",
+    );
+    expect(reason).toBeVisible();
+    expect(within(reason.parentElement as HTMLElement).getByText("Not assessable")).toBeVisible();
     expect(
       screen.getByText(/^Nothing from this module is shown and no figure elsewhere rests on it/),
     ).toBeVisible();

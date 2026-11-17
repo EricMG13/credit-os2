@@ -80,20 +80,35 @@ export function ModuleNav({
   useEffect(() => {
     const align = () => {
       const nav = menu.current;
-      const entry = nav?.querySelector('[aria-current="page"]');
-      if (nav === null || entry === null || entry === undefined) return;
+      if (nav === null) return;
+      if (window.innerWidth < 1001) {
+        nav.style.maxHeight = "";
+        return;
+      }
       const view = nav.getBoundingClientRect();
+      if (view.height === 0) return;
+      const height = window.innerHeight - Math.max(view.top, 24) - 24;
+      nav.style.maxHeight = height > 0 ? `${String(height)}px` : "";
+      const entry = nav.querySelector('[aria-current="page"]');
+      if (entry === null || height <= 0) return;
+      const bounded = nav.getBoundingClientRect();
       const item = entry.getBoundingClientRect();
-      if (view.height === 0 || item.height === 0) return;
-      const bottom = Math.min(view.bottom, window.innerHeight);
-      const top = Math.max(view.top, 0);
+      if (item.height === 0) return;
+      const bottom = Math.min(bounded.bottom, window.innerHeight);
+      const top = Math.max(bounded.top, 0);
       if (item.bottom > bottom) nav.scrollTop += item.bottom - bottom;
       else if (item.top < top) nav.scrollTop -= top - item.top;
     };
+    const alignAfterScroll = (event: Event) => {
+      if (event.target instanceof Node && menu.current?.contains(event.target)) return;
+      align();
+    };
     align();
     window.addEventListener("resize", align);
+    window.addEventListener("scroll", alignAfterScroll, true);
     return () => {
       window.removeEventListener("resize", align);
+      window.removeEventListener("scroll", alignAfterScroll, true);
     };
   }, [current, wanted]);
   const heading = "px-4 pt-3 pb-1 pl-4.75 text-xs font-medium text-text-tertiary";

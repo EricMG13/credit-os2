@@ -125,3 +125,73 @@ it("S3-028 keeps the current entry inside the visible window when the reader hea
     if (height !== undefined) Object.defineProperty(window, "innerHeight", height);
   }
 });
+
+it("S3-028 bounds a short page's navigator by its visible height without trapping manual navigation", () => {
+  const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
+  const width = Object.getOwnPropertyDescriptor(window, "innerWidth");
+  Object.defineProperty(window, "innerHeight", { configurable: true, value: 900 });
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  let scrollTop = 0;
+  const bounds = vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      const nav = this.tagName === "NAV" ? this : this.closest("nav");
+      if (nav !== null) {
+        Object.defineProperty(nav, "clientHeight", {
+          configurable: true,
+          get: () => (nav.style.maxHeight ? Number.parseFloat(nav.style.maxHeight) : 852),
+        });
+        Object.defineProperty(nav, "scrollHeight", { configurable: true, value: 894 });
+        Object.defineProperty(nav, "scrollTop", {
+          configurable: true,
+          get: () => scrollTop,
+          set: (value: number) => {
+            scrollTop = Math.max(0, Math.min(value, 894 - nav.clientHeight));
+          },
+        });
+      }
+      const navHeight = nav?.clientHeight ?? 852;
+      const top = this.tagName === "NAV" ? 364 : 1220 - scrollTop;
+      const boxHeight = this.tagName === "NAV" ? navHeight : 38;
+      return {
+        top,
+        bottom: top + boxHeight,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: boxHeight,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      };
+    });
+  try {
+    render(
+      <ModuleNav
+        issuer="issuer"
+        run="run"
+        sections={sections}
+        active="bottom-line"
+        onSection={() => undefined}
+        modules={modules}
+        current="capital"
+      />,
+    );
+    const nav = screen.getByRole("navigation", { name: "Modules and sections" });
+    expect(nav.clientHeight).toBe(512);
+    expect(nav.scrollTop).toBe(382);
+    nav.scrollTop = 0;
+    fireEvent.scroll(nav);
+    expect(nav.scrollTop).toBe(0);
+    fireEvent.scroll(window);
+    expect(nav.scrollTop).toBe(382);
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 700 });
+    fireEvent(window, new Event("resize"));
+    expect(nav.clientHeight).toBe(312);
+    expect(nav.scrollTop).toBe(582);
+  } finally {
+    bounds.mockRestore();
+    if (height !== undefined) Object.defineProperty(window, "innerHeight", height);
+    if (width !== undefined) Object.defineProperty(window, "innerWidth", width);
+  }
+});

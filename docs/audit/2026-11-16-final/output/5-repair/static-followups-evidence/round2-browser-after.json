@@ -1,0 +1,112 @@
+{
+  "browser": "157.0.8103.78",
+  "rows": [
+    {
+      "label": "credit-snapshot fresh1440",
+      "scrollTop": 382,
+      "scrollHeight": 894,
+      "clientHeight": 512,
+      "navTop": 364,
+      "navBottom": 876,
+      "itemTop": 838,
+      "itemBottom": 876,
+      "viewport": 900,
+      "outer": 0
+    },
+    {
+      "label": "credit-snapshot resize1440",
+      "scrollTop": 382,
+      "scrollHeight": 894,
+      "clientHeight": 512,
+      "navTop": 364,
+      "navBottom": 876,
+      "itemTop": 838,
+      "itemBottom": 876,
+      "viewport": 900,
+      "outer": 0
+    },
+    {
+      "label": "credit-snapshot height700",
+      "scrollTop": 582,
+      "scrollHeight": 894,
+      "clientHeight": 312,
+      "navTop": 364,
+      "navBottom": 676,
+      "itemTop": 638,
+      "itemBottom": 676,
+      "viewport": 700,
+      "outer": 0
+    },
+    {
+      "label": "capital-structure fresh1440",
+      "scrollTop": 294,
+      "scrollHeight": 1216,
+      "clientHeight": 512,
+      "navTop": 364,
+      "navBottom": 876,
+      "itemTop": 818,
+      "itemBottom": 876,
+      "viewport": 900,
+      "outer": 0
+    },
+    {
+      "label": "capital-structure resize1440",
+      "scrollTop": 294,
+      "scrollHeight": 1216,
+      "clientHeight": 512,
+      "navTop": 364,
+      "navBottom": 876,
+      "itemTop": 818,
+      "itemBottom": 876,
+      "viewport": 900,
+      "outer": 0
+    },
+    {
+      "label": "capital-structure height700",
+      "scrollTop": 494,
+      "scrollHeight": 1216,
+      "clientHeight": 312,
+      "navTop": 364,
+      "navBottom": 676,
+      "itemTop": 618,
+      "itemBottom": 676,
+      "viewport": 700,
+      "outer": 0
+    }
+  ],
+  "outside": [],
+  "errors": [],
+  "edge": {
+    "browser": "155.0.4283.62",
+    "rows": [
+      {
+        "label": "fresh1440",
+        "navTop": 364,
+        "clientHeight": 512,
+        "scrollTop": 382,
+        "itemTop": 838,
+        "itemBottom": 876,
+        "viewport": 900
+      },
+      {
+        "label": "resize1440",
+        "navTop": 364,
+        "clientHeight": 512,
+        "scrollTop": 382,
+        "itemTop": 838,
+        "itemBottom": 876,
+        "viewport": 900
+      },
+      {
+        "label": "height700",
+        "navTop": 364,
+        "clientHeight": 312,
+        "scrollTop": 582,
+        "itemTop": 638,
+        "itemBottom": 676,
+        "viewport": 700
+      }
+    ],
+    "outside": []
+  }
+}
