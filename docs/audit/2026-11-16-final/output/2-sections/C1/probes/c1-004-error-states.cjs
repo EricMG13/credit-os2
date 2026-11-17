@@ -34,13 +34,23 @@ const L = require("./lib.cjs");
         facts["library read fails"] = await page.evaluate(() => { const alert = document.querySelector("main [role=alert]"); return { text: alert?.innerText ?? null, hasIcon: Boolean(alert?.querySelector("svg")), actionsInAlert: alert ? alert.querySelectorAll("a,button").length : 0 }; });
         await page.close();
       }
+      {
+        const page = await L.open(context, log);
+        await page.route("**/connected/library", (r) => r.abort("connectionrefused"));
+        await page.goto(`${L.BASE}/`);
+        await L.settle(page, 800);
+        facts["service unreachable (library)"] = await page.evaluate(() => ({ text: document.querySelector("main [role=alert]")?.innerText ?? null }));
+        await page.close();
+      }
       // a failed run: the report page for it (a run folder exists, no report was published)
       const act = await fetch(`${L.BASE}/connected/activity`).then((r) => r.json());
       console.log(JSON.stringify(facts, null, 1));
       console.log("note: ended runs listed by the service:", (act.ended ?? []).map((r) => r.id).join(", ") || "none");
       const run = facts["unknown run"], rep = facts["unknown report"];
       const lib = facts["library read fails"];
-      const defect = !lib.hasIcon && lib.actionsInAlert === 0 && run.text === "unknown run" && /could not be loaded/.test(rep.text ?? "") && !run.hasIcon && !rep.hasIcon && run.actionsInAlert === 0 && rep.actionsInAlert === 0;
+      const down = facts["service unreachable (library)"].text;
+      console.log("service unreachable shows:", JSON.stringify(down));
+      const defect = down === "Failed to fetch" && !lib.hasIcon && lib.actionsInAlert === 0 && run.text === "unknown run" && /could not be loaded/.test(rep.text ?? "") && !run.hasIcon && !rep.hasIcon && run.actionsInAlert === 0 && rep.actionsInAlert === 0;
       L.verdict(defect, "error text 'unknown run' / 'The published report could not be loaded.' in a plain red line: no icon, no retry or back action inside the alert; the unknown-report 404 is worded as a load failure");
     } finally {
       await browser.close();
