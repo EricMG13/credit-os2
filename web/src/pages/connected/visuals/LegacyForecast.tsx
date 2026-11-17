@@ -4,7 +4,7 @@ import { PathChart } from "@/components/chart/PathChart";
 import { ChartTable } from "@/components/chart/ChartTable";
 import { TrendChart } from "@/components/chart/TrendChart";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
-import { containsReference, readerText } from "../publishedReport";
+import { containsReference, readerText, unitLabel } from "../publishedReport";
 import { amount, items, record, stringsIn, ticks, word } from "./visualData";
 
 interface GridColumn {
@@ -159,7 +159,7 @@ function ForecastTrends({
   selectedCase?: string;
   downsideNote?: string;
 }) {
-  const note = units || undefined;
+  const note = unitLabel(units) || undefined;
   const forecastColumns = grid.columns.flatMap((column, index) =>
     /^FY\d+E$/.test(column.label) ? [{ ...column, index }] : [],
   );
@@ -428,7 +428,7 @@ export function LegacyForecast({
         <p>This model has no readable calculation record.</p>
       ) : (
         <>
-          <p className="text-text-secondary">{units || "Units not recorded"}</p>
+          <p className="text-text-secondary">{unitLabel(units) || "Units not recorded"}</p>
           {summary}
           <ForecastTrends
             grid={grid}
