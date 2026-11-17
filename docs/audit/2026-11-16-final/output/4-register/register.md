@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-492 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 383 findings. Counts below are of those 383, after re-grading.
+495 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 386 findings. Counts below are of those 386, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -10,14 +10,14 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 8 | 0 | 0 | 0 | 0 | 0 | 8 |
 | Medium | 91 | 0 | 0 | 0 | 2 | 10 | 103 |
-| Low | 0 | 170 | 0 | 0 | 18 | 9 | 197 |
-| Info | 0 | 18 | 17 | 2 | 8 | 30 | 75 |
-| Total | 99 | 188 | 17 | 2 | 28 | 49 | 383 |
+| Low | 0 | 171 | 0 | 0 | 18 | 9 | 198 |
+| Info | 0 | 18 | 17 | 2 | 10 | 30 | 77 |
+| Total | 99 | 189 | 17 | 2 | 30 | 49 | 386 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
-| C1 | 2 | 10 | 15 | 10 |
-| C2 | 0 | 9 | 12 | 4 |
+| C1 | 2 | 10 | 16 | 11 |
+| C2 | 0 | 9 | 12 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 1 | 7 | 19 | 3 |
 | C5 | 3 | 10 | 18 | 4 |
@@ -250,6 +250,7 @@ High first. `Merged` lists the ids with the same cause.
 | J5-005 | Low | J5 | Changes says 'This is the first listed run for this issuer on this pathway' while Report history on the same issuer lists an earlier-dated run of the same path… | batch |  |  | not required (Low or Info) |
 | J6-007 | Low (was Medium) | J6 | The Forecast tab reads "No forecast for this run" on a page whose module list shows a Forecast module as Delivered with a base case. | batch |  |  | confirmed |
 | J6-014 | Low | J6 | "Page not found" has no link or button; every other error page offers a way back. | batch |  |  | not required (Low or Info) |
+| R1-009 | Low | C1 | With an earlier run listed, the Teams started card counts CP-8 only from its first event, so it reads 13 against the run page's 14, and a run stopped before CP… | batch |  |  | not required (Low or Info) |
 | R2-001 | Low | C4 | The predicate that holds source references back from table cells (visualData.ts containsReference) misses gap ids such as '(G12)', run codes such as '20261117-… | batch |  |  | not required (Low or Info) |
 | S1-007 | Low (was Medium) | S1 | Every fixture run is a "Full credit review" drawn with a USD 20.00 spend cap; the Full tier's cap is USD 25. | batch |  | S6-004 | confirmed |
 | S1-008 | Low | S1 | #/kit/ shows "Page not found" while every other address ignores one trailing slash. | batch |  |  | not required (Low or Info) |
@@ -393,6 +394,8 @@ High first. `Merged` lists the ids with the same cause.
 | R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. | parked |  |  | not required (Low or Info) |
 | R1-005 | Info | C1 | A data.js with no final ';' makes the service answer 500. | parked |  |  | not required (Low or Info) |
 | R1-006 | Info | C1 | A data.js with two 'catalogue' keys, the first holding 'workspace', is served as read. | parked |  |  | not required (Low or Info) |
+| R1-010 | Info | C1 | A hand-edited event log can make the Teams card count a left-out module. | parked |  |  | not required (Low or Info) |
+| R1-011 | Info | C2 | A crafted Submit body can put CP-MODEL on a pathway that publishes no forecast; Submit accepts any known module on any pathway. | parked |  |  | not required (Low or Info) |
 | X1-008 | Info | X1 | Five components throw on out-of-contract props, and only the connected app has an error boundary around them. | parked |  | S4-022 | not required (Low or Info) |
 | X1-010 | Info | X1 | Timeline keys each item by date and title, so two items with the same date and title collide. | parked |  |  | not required (Low or Info) |
 | X1-022 | Info | X1 | Only four of eleven chart kinds check that the table's figures equal the chart's figures. | parked |  |  | not required (Low or Info) |

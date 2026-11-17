@@ -29,6 +29,8 @@ Hostile or unusual inputs no roadmap line names (ruling R3). Registered, not rep
 | R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. |  |
 | R1-005 | Info | C1 | A data.js with no final ';' makes the service answer 500. |  |
 | R1-006 | Info | C1 | A data.js with two 'catalogue' keys, the first holding 'workspace', is served as read. |  |
+| R1-010 | Info | C1 | A hand-edited event log can make the Teams card count a left-out module. |  |
+| R1-011 | Info | C2 | A crafted Submit body can put CP-MODEL on a pathway that publishes no forecast; Submit accepts any known module on any pathway. |  |
 | X1-008 | Info | X1 | Five components throw on out-of-contract props, and only the connected app has an error boundary around them. | S4-022 |
 | X1-010 | Info | X1 | Timeline keys each item by date and title, so two items with the same date and title collide. |  |
 | X1-022 | Info | X1 | Only four of eleven chart kinds check that the table's figures equal the chart's figures. |  |
