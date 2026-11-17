@@ -1,6 +1,6 @@
 state: running
-updated: 2026-11-17T06:27Z
-done: branch cut from audit/final-coordination 469039d; environment prepared once for all workers (uv 0.12.5, uv sync --locked, npm --prefix web ci, web build: all exit 0); workers dispatched for C2 (port 8732), C3 (8733), C4 (8734), C5 (8735), Sonnet at xhigh, four browsers
-next: dispatch C1 (port 8731) when the first worker returns; check each worker's outputs against the stage 2 brief
+updated: 2026-11-17T07:21Z
+done: restarted after the earlier session froze at about 06:30Z; none of its worker outputs reached the branch, so C1-C5 are all redone; branch checked out at af5d953
+next: prepare the environment once (uv 0.12.5, uv sync --locked, npm --prefix web ci, web build), then dispatch C1-C4 (ports 8731-8734), C5 (8735) when the first returns; Sonnet at xhigh, every command under timeout 600, browsers via the 1243 headless shell
 blocked: none
 reports: none yet
