@@ -1,3 +1,29 @@
+## Batch integration accepted and pushed (2026-11-17T16:09Z)
+
+`audit/final-repairs` is now **152fdeef** on origin. Batches a/b/c merged in order,
+including `f67a17f0` test-fixture resolutions. Lead read the combined conflict diff,
+all named expectation/fixture changes, final reviews and `batch-integration.md`.
+Acceptance: lint0,format0,typecheck0,quality0;1737 targeted frontend tests including
+Signal and332 Python tests+1existing case-sensitive skip. Full gates/fidelity/proof
+remain pending combined-tree repairs. Nothing merged into main.
+
+Further worker ownership decisions:
+- static model worker also owns S3-028/S3-037 ModuleNav followups.
+- fixture worker owns model.json labels/units (S5-009/S5-018) and library read.ts
+  explicit count/source inconsistency gates; no guessed source citations.
+- static library/run worker owns its named UI families and App routing, excluding
+  library read.ts/ModuleNav/run routes/fixtures/shared Shell. It cherry-picked
+  shell dependency61b78d89 as662909ad; don't replay that dependency twice.
+- shell worker owns Shell.tsx J1-011/S1-019 and nullable current for not-found;
+  minimal backend library summary may carry exact existing passage/trace metadata.
+- Evidence worker owns ReportContent optional emptyLabel prop only; ReportContent
+  traceDetails half C5-025 stays for later report-shell worker. Accepted-limit
+  labels J5-010 may be persisted verbatim from submission Summary in a minimal
+  backwards-compatible record/API field (test first); no re-analysis.
+- Remaining queue after current six implementation workers: connected report-shell,
+  forecast/charts/calendar/downside; shared components; design/proof documentation.
+  Group2 T18/T22 still not pushed. Current repair branch inactivity rules apply.
+
 ## Current checkpoint 2026-11-17T16:03Z
 
 - Coordination: required inputs read; setup completed with pinned uv0.12.5 and locked dependencies.
