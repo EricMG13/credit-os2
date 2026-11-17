@@ -1,3 +1,27 @@
+## Lead checkpoint 2026-11-17T21:44Z
+
+Stage 6 has started at the owner's request. The sweep branch is
+`audit/final-sweep` at `541c994a`, with its own worktree
+`/workspace/audit-final-sweep`. Contract, all 17 inherited rows and nine
+related observations, and matched-toolchain measurements are under
+`output/6-sweep/`. Reviewed SW-01, SW-02 and SW-03 are integrated. The unchanged
+duplication gate reports 285 clones and 2,785 duplicate lines, down two
+clones and 20 duplicate lines. The six-file code diff removes 31 net lines.
+The next items are a measured History row projection, the static readiness
+dead branch and an unused Python import. Re-run the combined gates and
+measurements against the accepted repairs before opening the sweep PR.
+
+Stage 5 branch `audit/final-repairs` is pinned at `bb94ddce` while fidelity
+and coverage are checked. The historical fixture, the missing-source
+collector and both frontend verification changes were reviewed and pushed.
+Actual pathway-tier tests passed 46/46. The R4-020 and C3-022 focused run
+passed 97/97, with three more cases independently verified. The refreshed
+connected fidelity capture passed all 29 screens. Full static capture and
+comparison remain open. Exact full coverage replay is assigned. The
+full script-check attempt timed out in nested builds and needs a bounded
+rerun. Earlier successful proof and the known conditional Python skip are
+preserved. Stage 5 closure and stage 7 remain pending.
+
 ## Lead checkpoint 2026-11-17T21:35Z
 
 The owner asked to start stage 6. Branch `audit/final-sweep` is pushed from
