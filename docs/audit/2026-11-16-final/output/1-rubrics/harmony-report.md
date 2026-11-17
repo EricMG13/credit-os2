@@ -9,14 +9,14 @@ this folder was changed. No row concerns Signal.
 
 - `content-matrix.csv`: what a module's output contributes to a reader and where it must be drawn
   (page and component), or `not shown`. The 332 rows come from four sources:
-  - 94 hand-written rows of rules that cross modules or belong to a report page (reader passages,
+  - 93 hand-written rows of rules that cross modules or belong to a report page (reader passages,
     trace control, module navigator, Overview, Changes, Forecast, Evidence, run start and activity,
     retired things);
   - 25 rows, one per registry entry, from the Module output map of `react-module-coverage.md`;
   - 91 rows, one per catalogue entry, from `react-visualisation-map.md` (every `-Vnn` row of the file);
-  - 122 rows grouped from the 350 sections of `react-live-handoff-crosswalk.csv` (per module: findings
+  - 106 rows grouped from the 350 sections of `react-live-handoff-crosswalk.csv` (per module: findings
     groups by component, each drawing section, Evidence-bound sections, confidence inputs and hidden
-    transport) plus 18 rows for blocks that later rulings added (CP-1 Net debt data and carrying-value
+    transport) plus 17 rows for blocks that later rulings added (CP-1 Net debt data and carrying-value
     basis, CP-6 Portfolio posture, CP-3 Recovery waterfall, CP-3C Funding gap, CP-8 registers and so on).
 - `control-matrix.csv`: every decision in a run, who makes it, where, and what limits apply, including
   each of the eight pathways with its cap (Lite 15, Full 25, Deep 40, five purpose pathways 20) and the
@@ -176,9 +176,12 @@ Each item names the inputs and what the matrix does about it. The owner may over
   in each chain; `retired.md` lists the replaced wording.
 - H-25. Static fixture. The static app reads `web/public/data.js`; no input says which of the 332 rows the
   fixture is expected to exercise. Stage 2 should check what the fixture holds, not require every row.
-- H-26. Teams cards (`2026-11-16-teams-run-cards.md`) are a service behaviour. The audit's offline rule
-  R8 reads them as a recorded exception; no screen rule follows, so the matrix carries them only as a
-  control row and a `not shown` row for secrets.
+- H-26. Teams cards. `docs/rulings/2026-11-16-teams-run-cards.md` allows the service to POST run cards to
+  a Teams webhook when two environment variables are set. Audit ruling R8 (owner, 2026-11-16) names no
+  exception for it; its only recorded exception is CP-DR's page and SEC lookups during a live run. The
+  matrix does not settle this conflict: it stays open for stage 2 and the lead or owner (stage 0 carried it
+  in `output/0-baseline/report.md`, "Carried to stage 4", and `offline.md`). No screen rule follows, so the
+  matrix carries Teams only as a control row (CT-042) and a `not shown` row for secrets (CM-091).
 
 ## Checks made
 
@@ -191,8 +194,7 @@ map rows and the module output rows are parsed from the design files, so a row's
 Not verified: no screen was opened, and no page or component was compared with any row (that is stage 2).
 Component names in rows are those the crosswalk, coverage document and sections table give; whether each
 file draws what the row says was not read, apart from locating the run-start step of each control in
-`StartRun.tsx` and the static `run/start/` files. The five rulings with large bodies were read in full
-except `2026-11-13-cpdr-web-lookup.md` (read to line 140 and by search) and `2026-11-15-method-script-checks.md`
+`StartRun.tsx` and the static `run/start/` files. The rulings were read in full except `2026-11-13-cpdr-web-lookup.md` (read to line 140 and by search) and `2026-11-15-method-script-checks.md`
 (read by headings and search; per-module check detail was not mapped to a screen); `METHODOLOGY-REVIEW.md`
 was read for its selection sections and appendix table, not line by line. The live-test rulings
 (`2026-11-11-cpdr-web-search-live-test`, `reader-format-live-test`, the 11-12 proof-run records,
@@ -201,6 +203,6 @@ was read for its selection sections and appendix table, not line by line. The li
 (not declared inputs), so the Overview key-chart list and some component names are unconfirmed. Module
 lists of Relative Value, Covenant & Refinancing, Distressed & Restructuring and Portfolio Decision come from
 `web/src/pages/connected/api.ts`, not from a ruling. Whether the static app's data fixture or the connected
-service shows each `not shown` item absent was not tested. The rows for items 25 to 120 of the visualisation
-map were taken from the file as written, including its gating words, without checking them against
+service shows each `not shown` item absent was not tested. The 91 visualisation-map rows were taken from the
+file as written, including its gating words, without checking them against
 `docs/visualisations/catalogue.csv`.
