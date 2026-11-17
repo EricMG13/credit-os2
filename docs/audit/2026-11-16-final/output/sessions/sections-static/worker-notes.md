@@ -136,3 +136,13 @@ and stop what it starts.
   per screen and how, what was not reached and why; the last line starts `Not verified:`.
 - Reply to the controller with the paths of your output files and one line of counts (findings by
   severity, inventory lines covered), not their content.
+
+## Acceptance points added by the controller (restart)
+
+- Every `harmony.csv` row whose mark is not `shown as required`, `correctly not shown`,
+  `decidable as required` or `not offered` (so also `not reachable here` and every `unaccounted`
+  row) cites a finding id in `note`. Write an Info finding where nothing is wrong beyond the matrix
+  not accounting for it.
+- `evidence` entries are bare repository paths or `path:line`, with no parenthesised annotations.
+- The Write tool may refuse `report.md` from a subagent. Write the other outputs as files and give
+  the complete `report.md` text in your reply; the controller places it.
