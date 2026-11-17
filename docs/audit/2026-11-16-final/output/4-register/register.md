@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-495 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 386 findings. Counts below are of those 386, after re-grading.
+496 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 387 findings. Counts below are of those 387, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -9,14 +9,14 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | Severity | repair | batch | sweep | owner | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 8 | 0 | 0 | 0 | 0 | 0 | 8 |
-| Medium | 91 | 0 | 0 | 0 | 2 | 10 | 103 |
+| Medium | 91 | 0 | 0 | 1 | 2 | 10 | 104 |
 | Low | 0 | 171 | 0 | 0 | 18 | 9 | 198 |
 | Info | 0 | 18 | 17 | 2 | 10 | 30 | 77 |
-| Total | 99 | 189 | 17 | 2 | 30 | 49 | 386 |
+| Total | 99 | 189 | 17 | 3 | 30 | 49 | 387 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
-| C1 | 2 | 10 | 16 | 11 |
+| C1 | 2 | 11 | 16 | 11 |
 | C2 | 0 | 9 | 12 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 1 | 7 | 19 | 3 |
@@ -35,7 +35,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
-Verification of High and Medium findings: confirmed 121, not a defect 4.
+Verification of High and Medium findings: confirmed 121, not a defect 4, not verified 1.
 
 ## Findings
 
@@ -142,6 +142,7 @@ High first. `Merged` lists the ids with the same cause.
 | S6-010 | Medium | S6 | A run's label chip cannot wrap: the fixture's own long label ('Full credit review with every optional module and a late cut-off') is cut off at 390 px, and one… | repair | T41 |  | confirmed |
 | X1-019 | Medium | X1 | In a group of three or more series, the value label of the middle series is cut off at the top of the drawing when its bar reaches the top tick. | repair | T19 |  | confirmed |
 | X1-024 | Medium | X1 | One debt part with a zero balance makes every Model page of that run unreadable in the static app. | repair | T19 |  | confirmed |
+| R1-012 | Medium | C1 | When the checker refuses a module's draft and the run stops, no page can say why (for example that no executed agreement was chosen): the engine records only '… | owner (OQ-15) |  |  | not verified |
 | J2-011 | Medium | J2 | Two runs of the same issuer, date and pathway started together are both accepted and finish, and the library then lists two identical history rows, each called… | parked |  |  | confirmed |
 | S3-009 | Medium | S3 | One malformed record makes every library page unreadable and prints the reader's internal data path in the page body. | parked |  | S4-014 | confirmed |
 | J6-009 | Medium | J6 | Following every link from the Library home reaches 79 screens, but no link on any of them leads to the Model Forecast page, any Run start page, ten of the elev… | rejected |  |  | confirmed |

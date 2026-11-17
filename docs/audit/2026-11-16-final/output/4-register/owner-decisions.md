@@ -187,3 +187,19 @@ refusing it.
 
 Recommendation: option 1. It matches S5-001's repair: a missing part is stated, not a reason to hide
 the run. The static app is a design reference (OQ-01), so this is Info and can wait for the owner.
+
+## OQ-15. Why a run stopped at the checker (raised during stage 5)
+
+Finding: R1-012, with the product half of J1-002 and the remaining half of J5-001. When the checker
+rejects a module's draft and the run stops, the run page now says "Not assessable" and that the run
+stopped after the checks rejected the draft (T04). It cannot say why, for example that no
+executed agreement was chosen. The engine records only `stopped: checker` and `draft_rejected` events
+with no reason. The cause exists only in the checker's instruction to the model, which must not be
+drawn on a reader page.
+
+Options: 1. the engine records a short reader-safe reason with each rejection and stop
+(`src/deploy_workflow/model/handoff.py`, `src/deploy_workflow/owners/cpos_launch.py`) and run
+activity passes it on: a change to what the orchestrator records, outside this audit; 2. leave it.
+
+Recommendation: option 1, as separate work after the audit. A run that has the documents it needs
+is not affected, and T12 makes the documented synthetic path finish.
