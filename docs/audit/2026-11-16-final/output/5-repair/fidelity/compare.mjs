@@ -792,7 +792,12 @@ function classifyFigure(f, ctx) {
       const exact = textSearch(text, scope);
       return exact && exact.via === "exact text" ? matched(exact.fact, exact.via) : derived(fam0.name, fam0.where);
     }
-    if (isAxisTick(f)) return derived("chart axis scale", "web/src/pages/connected/visuals/visualData.ts ticks (value-axis ticks at round numbers)");
+    if (isAxisTick(f)) {
+      const where = "web/src/pages/connected/visuals/visualData.ts ticks (value-axis ticks at round numbers)";
+      return ctx.axisOk?.get(f.figure)
+        ? derived("chart value-axis ticks, checked here: evenly spaced at a round step (1, 2, 2.5 or 5 times a power of ten)", where, { verified: true })
+        : derived("chart axis scale (named only)", where);
+    }
     const head = headlineCheck(f, ctx) ?? confidenceCheck(f, ctx);
     if (head) return head;
     if (!String(f.section).includes(" > ")) {
@@ -1068,6 +1073,24 @@ function figureEntry(f, base, view) {
   return { ...base, kind: "figure", view, figureKind: f.kind, section: f.section, label: f.label ?? f.figure ?? null, column: f.column ?? null, period: f.period ?? null, unit: f.unit ?? null, basis: f.basis ?? null, text: norm(f.text).slice(0, 200) };
 }
 
+/** Per chart: do its value-axis ticks sit evenly apart at a round step? */
+function axisChecks(screen) {
+  const ticks = new Map();
+  for (const f of [...(screen.figures ?? []), ...(screen.chartTableViews ?? []).flatMap((c) => c.figures ?? [])]) {
+    if (isAxisTick(f)) ticks.set(f.figure, [...(ticks.get(f.figure) ?? []), Number(norm(f.text).replace(/,/g, ""))]);
+  }
+  const ok = new Map();
+  for (const [chart, values] of ticks) {
+    const sorted = [...new Set(values)].sort((a, b) => a - b);
+    const steps = sorted.slice(1).map((v, k) => v - sorted[k]);
+    const step = steps[0];
+    const even = steps.length >= 1 && steps.every((d) => Math.abs(d - step) < 1e-9 * Math.max(1, Math.abs(step)));
+    const mantissa = even && step > 0 ? step / 10 ** Math.floor(Math.log10(step)) : 0;
+    ok.set(chart, even && [1, 2, 2.5, 5].some((m) => Math.abs(mantissa - m) < 1e-9));
+  }
+  return ok;
+}
+
 function analyseScreen(sc, world) {
   const { entry, screen, surface } = sc;
   const id = entry.id;
@@ -1084,6 +1107,7 @@ function analyseScreen(sc, world) {
     const key = fold(o.text);
     if (UI_KINDS.has(o.kind) || !kindOf.has(key)) kindOf.set(key, o.kind);
   }
+  ctx.axisOk = axisChecks(screen);
   const items = [];
   const figures = [...(screen.figures ?? []).map((f) => [f, "page"]), ...(screen.chartTableViews ?? []).flatMap((c) => (c.figures ?? []).map((f) => [f, "chart table view"]))];
   for (const [f, view] of figures) items.push({ ...figureEntry(f, base, view), ...classifyFigure(f, ctx) });
