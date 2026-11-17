@@ -1,0 +1,132 @@
+{
+  "qualification": "Counts cover FY2025 audited standalone evidence only; overseas subsidiaries are excluded.",
+  "sourceText": "## Findings\n### Bottom line\nRecorded source-only result.\n### Earlier supporting table\n| Claim | Value |\n| --- | --- |\n| Malformed earlier row |\n### Confidence inputs\nCounts cover FY2025 audited standalone evidence only; overseas subsidiaries are excluded.\n| Input | Value |\n| --- | --- |\n| Directly Sourced | 0008 |\n| Calculated | 2 |\n| Assumption-Based | 2 |\n| Analyst Inference | 0 |\n| Weak Lineage | 0 |\n| Untraced | 0 |\n| Conflicting | 0 |\n| Insufficient Information | 0 |\n| Fields present | 95 |\n| Fields total | 100 |\n| Source gate | pass |\n| CRITICAL | 0 |\n| MATERIAL | 0 |\n| MINOR | 1 |",
+  "parseError": "Malformed table at line 7",
+  "entry": {
+    "selected": true,
+    "output": {
+      "id": "run-a/CP-1.md",
+      "module": "CP-1",
+      "label": "Retained output",
+      "href": "",
+      "sha256": "a8a10741448f20a0a34606a6cf038b5de255d20ea79f1994b816cddd87bc590a",
+      "confidence": {
+        "value": 89,
+        "band": "High"
+      },
+      "confidenceTrace": {
+        "inputs": [
+          {
+            "label": "Directly Sourced",
+            "value": "0008"
+          },
+          {
+            "label": "Calculated",
+            "value": "2"
+          },
+          {
+            "label": "Assumption-Based",
+            "value": "2"
+          },
+          {
+            "label": "Analyst Inference",
+            "value": "0"
+          },
+          {
+            "label": "Weak Lineage",
+            "value": "0"
+          },
+          {
+            "label": "Untraced",
+            "value": "0"
+          },
+          {
+            "label": "Conflicting",
+            "value": "0"
+          },
+          {
+            "label": "Insufficient Information",
+            "value": "0"
+          },
+          {
+            "label": "Fields present",
+            "value": "95"
+          },
+          {
+            "label": "Fields total",
+            "value": "100"
+          },
+          {
+            "label": "Source gate",
+            "value": "pass"
+          },
+          {
+            "label": "CRITICAL",
+            "value": "0"
+          },
+          {
+            "label": "MATERIAL",
+            "value": "0"
+          },
+          {
+            "label": "MINOR",
+            "value": "1"
+          }
+        ],
+        "method": [
+          {
+            "label": "Formula",
+            "value": "(0.6 \u00d7 evidence quality + 0.4 \u00d7 field coverage) \u00d7 source-gate factor \u2212 finding penalties"
+          },
+          {
+            "label": "Evidence quality",
+            "value": "Sum of each lineage count \u00d7 its weight, divided by the total claim count, \u00d7 100. No claims gives evidence quality 0."
+          },
+          {
+            "label": "Lineage weights",
+            "value": "Directly Sourced 1.0; Calculated 0.9; Assumption-Based 0.5; Analyst Inference 0.4; Weak Lineage 0.3; Untraced 0.0; Conflicting 0.0; Insufficient Information 0.0"
+          },
+          {
+            "label": "Field coverage",
+            "value": "Fields present / Fields total \u00d7 100."
+          },
+          {
+            "label": "Source-gate factors",
+            "value": "pass 1.0; partial 0.7; fail 0.0"
+          },
+          {
+            "label": "Finding penalties",
+            "value": "CRITICAL 40; MATERIAL 15; MINOR 3 points per finding"
+          },
+          {
+            "label": "Caps and rounding",
+            "value": "Clamp to 0\u2013100. Any CRITICAL finding caps the score at 39 (Blocked); otherwise any MATERIAL finding caps it at 59 (Restricted). Otherwise Passed. Round to the nearest integer, half to even."
+          },
+          {
+            "label": "Bands",
+            "value": "80\u2013100 High; 60\u201379 Medium; 40\u201359 Low; 0\u201339 Insufficient Information"
+          }
+        ]
+      },
+      "parseError": "Malformed table at line 7"
+    },
+    "sections": [
+      {
+        "heading": "Unstructured handoff",
+        "level": 1,
+        "line": 1,
+        "blocks": [
+          {
+            "type": "text",
+            "line": 1,
+            "end": 25,
+            "text": "## Findings\n### Bottom line\nRecorded source-only result.\n### Earlier supporting table\n| Claim | Value |\n| --- | --- |\n| Malformed earlier row |\n### Confidence inputs\nCounts cover FY2025 audited standalone evidence only; overseas subsidiaries are excluded.\n| Input | Value |\n| --- | --- |\n| Directly Sourced | 0008 |\n| Calculated | 2 |\n| Assumption-Based | 2 |\n| Analyst Inference | 0 |\n| Weak Lineage | 0 |\n| Untraced | 0 |\n| Conflicting | 0 |\n| Insufficient Information | 0 |\n| Fields present | 95 |\n| Fields total | 100 |\n| Source gate | pass |\n| CRITICAL | 0 |\n| MATERIAL | 0 |\n| MINOR | 1 |"
+          }
+        ]
+      }
+    ]
+  },
+  "snapshot": {
+    "chips": {}
+  }
+}

@@ -1,0 +1,1265 @@
+
+ RUN  v4.1.12 /workspace/audit-reference-predicate/web
+
+··············xx·xxx·················xxxxxxx·············xxxxxxx·······xxxxxxx·····
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 26 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > does not treat ordinary text as a source reference: Group of Seven (G7) demand is weak.
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > does not treat ordinary text as a source reference: The G20 economies (G20) slowed.
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > does not treat ordinary text as a source reference: Eurozone and G10 currencies (G10) moved.
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > does not treat ordinary text as a source reference: Series G preferred (G1) ranks last.
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > does not treat ordinary text as a source reference: Class A-2 notes (G2) rank pari passu.
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > does not treat ordinary text as a source reference: Gen 3 (G3) vehicles, Tranche F2 (G2) maturity, 1.5x (G1).
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > does not treat ordinary text as a source reference: Exposure to advanced economies (G7) is limited; net leverage is 3.2x at FY2025.
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:38:35
+     36|
+     37| it.each(ordinary)("does not treat ordinary text as a source reference:…
+     38|   expect(containsReference(text)).toBe(false);
+       |                                   ^
+     39| });
+     40|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws ordinary text in a plain table: Group of Seven (G7) demand is weak.
+TestingLibraryElementError: Unable to find an element with the text: Group of Seven (G7) demand is weak.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"[39m
+    [36m>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-sm"[39m
+      [36m>[39m
+        [36m<thead[39m
+          [33mclass[39m=[32m"bg-surface-subtle text-text-secondary"[39m
+        [36m>[39m
+          [36m<tr>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mItem[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mNote[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"group/trace relative border-t border-border-hairline align-top"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [0mRow 0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+                [33mdata-rac[39m=[32m""[39m
+                [33mdata-react-aria-pressable[39m=[32m"true"[39m
+                [33mhref[39m=[32m"#evidence/x-12"[39m
+                [33mtabindex[39m=[32m"0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"transition-inherit-all"[39m
+                  [33mdata-text[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mIn Evidence[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:80:17
+     78| it.each(ordinary)("draws ordinary text in a plain table: %s", (text) =…
+     79|   render(<PublishedTable table={plainTable([text])} href="#evidence/x-…
+     80|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     81|   expect(screen.queryByRole("link", { name: "In Evidence" })).toBeNull…
+     82| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws ordinary text in a plain table: The G20 economies (G20) slowed.
+TestingLibraryElementError: Unable to find an element with the text: The G20 economies (G20) slowed.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"[39m
+    [36m>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-sm"[39m
+      [36m>[39m
+        [36m<thead[39m
+          [33mclass[39m=[32m"bg-surface-subtle text-text-secondary"[39m
+        [36m>[39m
+          [36m<tr>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mItem[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mNote[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"group/trace relative border-t border-border-hairline align-top"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [0mRow 0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+                [33mdata-rac[39m=[32m""[39m
+                [33mdata-react-aria-pressable[39m=[32m"true"[39m
+                [33mhref[39m=[32m"#evidence/x-12"[39m
+                [33mtabindex[39m=[32m"0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"transition-inherit-all"[39m
+                  [33mdata-text[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mIn Evidence[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:80:17
+     78| it.each(ordinary)("draws ordinary text in a plain table: %s", (text) =…
+     79|   render(<PublishedTable table={plainTable([text])} href="#evidence/x-…
+     80|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     81|   expect(screen.queryByRole("link", { name: "In Evidence" })).toBeNull…
+     82| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws ordinary text in a plain table: Eurozone and G10 currencies (G10) moved.
+TestingLibraryElementError: Unable to find an element with the text: Eurozone and G10 currencies (G10) moved.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"[39m
+    [36m>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-sm"[39m
+      [36m>[39m
+        [36m<thead[39m
+          [33mclass[39m=[32m"bg-surface-subtle text-text-secondary"[39m
+        [36m>[39m
+          [36m<tr>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mItem[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mNote[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"group/trace relative border-t border-border-hairline align-top"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [0mRow 0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+                [33mdata-rac[39m=[32m""[39m
+                [33mdata-react-aria-pressable[39m=[32m"true"[39m
+                [33mhref[39m=[32m"#evidence/x-12"[39m
+                [33mtabindex[39m=[32m"0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"transition-inherit-all"[39m
+                  [33mdata-text[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mIn Evidence[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:80:17
+     78| it.each(ordinary)("draws ordinary text in a plain table: %s", (text) =…
+     79|   render(<PublishedTable table={plainTable([text])} href="#evidence/x-…
+     80|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     81|   expect(screen.queryByRole("link", { name: "In Evidence" })).toBeNull…
+     82| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws ordinary text in a plain table: Series G preferred (G1) ranks last.
+TestingLibraryElementError: Unable to find an element with the text: Series G preferred (G1) ranks last.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"[39m
+    [36m>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-sm"[39m
+      [36m>[39m
+        [36m<thead[39m
+          [33mclass[39m=[32m"bg-surface-subtle text-text-secondary"[39m
+        [36m>[39m
+          [36m<tr>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mItem[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mNote[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"group/trace relative border-t border-border-hairline align-top"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [0mRow 0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+                [33mdata-rac[39m=[32m""[39m
+                [33mdata-react-aria-pressable[39m=[32m"true"[39m
+                [33mhref[39m=[32m"#evidence/x-12"[39m
+                [33mtabindex[39m=[32m"0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"transition-inherit-all"[39m
+                  [33mdata-text[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mIn Evidence[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:80:17
+     78| it.each(ordinary)("draws ordinary text in a plain table: %s", (text) =…
+     79|   render(<PublishedTable table={plainTable([text])} href="#evidence/x-…
+     80|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     81|   expect(screen.queryByRole("link", { name: "In Evidence" })).toBeNull…
+     82| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws ordinary text in a plain table: Class A-2 notes (G2) rank pari passu.
+TestingLibraryElementError: Unable to find an element with the text: Class A-2 notes (G2) rank pari passu.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"[39m
+    [36m>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-sm"[39m
+      [36m>[39m
+        [36m<thead[39m
+          [33mclass[39m=[32m"bg-surface-subtle text-text-secondary"[39m
+        [36m>[39m
+          [36m<tr>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mItem[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mNote[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"group/trace relative border-t border-border-hairline align-top"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [0mRow 0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+                [33mdata-rac[39m=[32m""[39m
+                [33mdata-react-aria-pressable[39m=[32m"true"[39m
+                [33mhref[39m=[32m"#evidence/x-12"[39m
+                [33mtabindex[39m=[32m"0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"transition-inherit-all"[39m
+                  [33mdata-text[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mIn Evidence[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:80:17
+     78| it.each(ordinary)("draws ordinary text in a plain table: %s", (text) =…
+     79|   render(<PublishedTable table={plainTable([text])} href="#evidence/x-…
+     80|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     81|   expect(screen.queryByRole("link", { name: "In Evidence" })).toBeNull…
+     82| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws ordinary text in a plain table: Gen 3 (G3) vehicles, Tranche F2 (G2) maturity, 1.5x (G1).
+TestingLibraryElementError: Unable to find an element with the text: Gen 3 (G3) vehicles, Tranche F2 (G2) maturity, 1.5x (G1).. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"[39m
+    [36m>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-sm"[39m
+      [36m>[39m
+        [36m<thead[39m
+          [33mclass[39m=[32m"bg-surface-subtle text-text-secondary"[39m
+        [36m>[39m
+          [36m<tr>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mItem[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mNote[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"group/trace relative border-t border-border-hairline align-top"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [0mRow 0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+                [33mdata-rac[39m=[32m""[39m
+                [33mdata-react-aria-pressable[39m=[32m"true"[39m
+                [33mhref[39m=[32m"#evidence/x-12"[39m
+                [33mtabindex[39m=[32m"0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"transition-inherit-all"[39m
+                  [33mdata-text[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mIn Evidence[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:80:17
+     78| it.each(ordinary)("draws ordinary text in a plain table: %s", (text) =…
+     79|   render(<PublishedTable table={plainTable([text])} href="#evidence/x-…
+     80|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     81|   expect(screen.queryByRole("link", { name: "In Evidence" })).toBeNull…
+     82| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws ordinary text in a plain table: Exposure to advanced economies (G7) is limited; net leverage is 3.2x at FY2025.
+TestingLibraryElementError: Unable to find an element with the text: Exposure to advanced economies (G7) is limited; net leverage is 3.2x at FY2025.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"[39m
+    [36m>[39m
+      [36m<table[39m
+        [33mclass[39m=[32m"w-full border-collapse text-sm"[39m
+      [36m>[39m
+        [36m<thead[39m
+          [33mclass[39m=[32m"bg-surface-subtle text-text-secondary"[39m
+        [36m>[39m
+          [36m<tr>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mItem[0m
+            [36m</th>[39m
+            [36m<th[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-left font-semibold"[39m
+              [33mscope[39m=[32m"col"[39m
+            [36m>[39m
+              [0mNote[0m
+            [36m</th>[39m
+          [36m</tr>[39m
+        [36m</thead>[39m
+        [36m<tbody>[39m
+          [36m<tr[39m
+            [33mclass[39m=[32m"group/trace relative border-t border-border-hairline align-top"[39m
+          [36m>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [0mRow 0[0m
+            [36m</td>[39m
+            [36m<td[39m
+              [33mclass[39m=[32m"px-3 py-2.5 text-text-secondary"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+                [33mdata-rac[39m=[32m""[39m
+                [33mdata-react-aria-pressable[39m=[32m"true"[39m
+                [33mhref[39m=[32m"#evidence/x-12"[39m
+                [33mtabindex[39m=[32m"0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"transition-inherit-all"[39m
+                  [33mdata-text[39m=[32m"true"[39m
+                [36m>[39m
+                  [0mIn Evidence[0m
+                [36m</span>[39m
+              [36m</a>[39m
+            [36m</td>[39m
+          [36m</tr>[39m
+        [36m</tbody>[39m
+      [36m</table>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:80:17
+     78| it.each(ordinary)("draws ordinary text in a plain table: %s", (text) =…
+     79|   render(<PublishedTable table={plainTable([text])} href="#evidence/x-…
+     80|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     81|   expect(screen.queryByRole("link", { name: "In Evidence" })).toBeNull…
+     82| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws a finding paragraph holding ordinary text as written: Group of Seven (G7) demand is weak.
+TestingLibraryElementError: Unable to find an element with the text: Group of Seven (G7) demand is weak.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"group/trace relative flex items-start justify-start gap-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-[55ch] text-body wrap-anywhere text-text-secondary"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/x-3"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"transition-inherit-all"[39m
+            [33mdata-text[39m=[32m"true"[39m
+          [36m>[39m
+            [0mRead this passage in Evidence[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"pointer-events-none size-5 shrink-0 transition-inherit-all"[39m
+            [33mdata-icon[39m=[32m"trailing"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14m0 0-7-7m7 7-7 7"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+      [36m</p>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"Show sources for this passage"[39m
+        [33mclass[39m=[32m"outline-hidden relative flex size-7 flex-none items-center justify-center rounded-ds-sm border bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 max-[480px]:after:absolute max-[480px]:after:-inset-[9px] cursor-pointer transition-colors duration-150 motion-reduce:transition-none border-transparent text-text-tertiary hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:border-border-control focus-visible:ring-focus group-hover/trace:border-border-control in-data-[sources=on]:border-border-control"[39m
+        [33mdata-rac[39m=[32m""[39m
+        [33mdata-react-aria-pressable[39m=[32m"true"[39m
+        [33mid[39m=[32m"react-aria-_r_j_"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"size-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:98:17
+     96| it.each(ordinary)("draws a finding paragraph holding ordinary text as …
+     97|   paragraph(text);
+     98|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     99|   expect(screen.queryByRole("link", { name: "Read this passage in Evid…
+    100| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws a finding paragraph holding ordinary text as written: The G20 economies (G20) slowed.
+TestingLibraryElementError: Unable to find an element with the text: The G20 economies (G20) slowed.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"group/trace relative flex items-start justify-start gap-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-[55ch] text-body wrap-anywhere text-text-secondary"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/x-3"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"transition-inherit-all"[39m
+            [33mdata-text[39m=[32m"true"[39m
+          [36m>[39m
+            [0mRead this passage in Evidence[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"pointer-events-none size-5 shrink-0 transition-inherit-all"[39m
+            [33mdata-icon[39m=[32m"trailing"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14m0 0-7-7m7 7-7 7"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+      [36m</p>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"Show sources for this passage"[39m
+        [33mclass[39m=[32m"outline-hidden relative flex size-7 flex-none items-center justify-center rounded-ds-sm border bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 max-[480px]:after:absolute max-[480px]:after:-inset-[9px] cursor-pointer transition-colors duration-150 motion-reduce:transition-none border-transparent text-text-tertiary hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:border-border-control focus-visible:ring-focus group-hover/trace:border-border-control in-data-[sources=on]:border-border-control"[39m
+        [33mdata-rac[39m=[32m""[39m
+        [33mdata-react-aria-pressable[39m=[32m"true"[39m
+        [33mid[39m=[32m"react-aria-_r_m_"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"size-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:98:17
+     96| it.each(ordinary)("draws a finding paragraph holding ordinary text as …
+     97|   paragraph(text);
+     98|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     99|   expect(screen.queryByRole("link", { name: "Read this passage in Evid…
+    100| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws a finding paragraph holding ordinary text as written: Eurozone and G10 currencies (G10) moved.
+TestingLibraryElementError: Unable to find an element with the text: Eurozone and G10 currencies (G10) moved.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"group/trace relative flex items-start justify-start gap-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-[55ch] text-body wrap-anywhere text-text-secondary"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/x-3"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"transition-inherit-all"[39m
+            [33mdata-text[39m=[32m"true"[39m
+          [36m>[39m
+            [0mRead this passage in Evidence[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"pointer-events-none size-5 shrink-0 transition-inherit-all"[39m
+            [33mdata-icon[39m=[32m"trailing"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14m0 0-7-7m7 7-7 7"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+      [36m</p>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"Show sources for this passage"[39m
+        [33mclass[39m=[32m"outline-hidden relative flex size-7 flex-none items-center justify-center rounded-ds-sm border bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 max-[480px]:after:absolute max-[480px]:after:-inset-[9px] cursor-pointer transition-colors duration-150 motion-reduce:transition-none border-transparent text-text-tertiary hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:border-border-control focus-visible:ring-focus group-hover/trace:border-border-control in-data-[sources=on]:border-border-control"[39m
+        [33mdata-rac[39m=[32m""[39m
+        [33mdata-react-aria-pressable[39m=[32m"true"[39m
+        [33mid[39m=[32m"react-aria-_r_p_"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"size-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:98:17
+     96| it.each(ordinary)("draws a finding paragraph holding ordinary text as …
+     97|   paragraph(text);
+     98|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     99|   expect(screen.queryByRole("link", { name: "Read this passage in Evid…
+    100| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws a finding paragraph holding ordinary text as written: Series G preferred (G1) ranks last.
+TestingLibraryElementError: Unable to find an element with the text: Series G preferred (G1) ranks last.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"group/trace relative flex items-start justify-start gap-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-[55ch] text-body wrap-anywhere text-text-secondary"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/x-3"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"transition-inherit-all"[39m
+            [33mdata-text[39m=[32m"true"[39m
+          [36m>[39m
+            [0mRead this passage in Evidence[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"pointer-events-none size-5 shrink-0 transition-inherit-all"[39m
+            [33mdata-icon[39m=[32m"trailing"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14m0 0-7-7m7 7-7 7"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+      [36m</p>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"Show sources for this passage"[39m
+        [33mclass[39m=[32m"outline-hidden relative flex size-7 flex-none items-center justify-center rounded-ds-sm border bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 max-[480px]:after:absolute max-[480px]:after:-inset-[9px] cursor-pointer transition-colors duration-150 motion-reduce:transition-none border-transparent text-text-tertiary hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:border-border-control focus-visible:ring-focus group-hover/trace:border-border-control in-data-[sources=on]:border-border-control"[39m
+        [33mdata-rac[39m=[32m""[39m
+        [33mdata-react-aria-pressable[39m=[32m"true"[39m
+        [33mid[39m=[32m"react-aria-_r_s_"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"size-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:98:17
+     96| it.each(ordinary)("draws a finding paragraph holding ordinary text as …
+     97|   paragraph(text);
+     98|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     99|   expect(screen.queryByRole("link", { name: "Read this passage in Evid…
+    100| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws a finding paragraph holding ordinary text as written: Class A-2 notes (G2) rank pari passu.
+TestingLibraryElementError: Unable to find an element with the text: Class A-2 notes (G2) rank pari passu.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"group/trace relative flex items-start justify-start gap-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-[55ch] text-body wrap-anywhere text-text-secondary"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/x-3"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"transition-inherit-all"[39m
+            [33mdata-text[39m=[32m"true"[39m
+          [36m>[39m
+            [0mRead this passage in Evidence[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"pointer-events-none size-5 shrink-0 transition-inherit-all"[39m
+            [33mdata-icon[39m=[32m"trailing"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14m0 0-7-7m7 7-7 7"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+      [36m</p>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"Show sources for this passage"[39m
+        [33mclass[39m=[32m"outline-hidden relative flex size-7 flex-none items-center justify-center rounded-ds-sm border bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 max-[480px]:after:absolute max-[480px]:after:-inset-[9px] cursor-pointer transition-colors duration-150 motion-reduce:transition-none border-transparent text-text-tertiary hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:border-border-control focus-visible:ring-focus group-hover/trace:border-border-control in-data-[sources=on]:border-border-control"[39m
+        [33mdata-rac[39m=[32m""[39m
+        [33mdata-react-aria-pressable[39m=[32m"true"[39m
+        [33mid[39m=[32m"react-aria-_r_v_"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"size-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:98:17
+     96| it.each(ordinary)("draws a finding paragraph holding ordinary text as …
+     97|   paragraph(text);
+     98|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     99|   expect(screen.queryByRole("link", { name: "Read this passage in Evid…
+    100| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws a finding paragraph holding ordinary text as written: Gen 3 (G3) vehicles, Tranche F2 (G2) maturity, 1.5x (G1).
+TestingLibraryElementError: Unable to find an element with the text: Gen 3 (G3) vehicles, Tranche F2 (G2) maturity, 1.5x (G1).. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"group/trace relative flex items-start justify-start gap-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-[55ch] text-body wrap-anywhere text-text-secondary"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/x-3"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"transition-inherit-all"[39m
+            [33mdata-text[39m=[32m"true"[39m
+          [36m>[39m
+            [0mRead this passage in Evidence[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"pointer-events-none size-5 shrink-0 transition-inherit-all"[39m
+            [33mdata-icon[39m=[32m"trailing"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14m0 0-7-7m7 7-7 7"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+      [36m</p>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"Show sources for this passage"[39m
+        [33mclass[39m=[32m"outline-hidden relative flex size-7 flex-none items-center justify-center rounded-ds-sm border bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 max-[480px]:after:absolute max-[480px]:after:-inset-[9px] cursor-pointer transition-colors duration-150 motion-reduce:transition-none border-transparent text-text-tertiary hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:border-border-control focus-visible:ring-focus group-hover/trace:border-border-control in-data-[sources=on]:border-border-control"[39m
+        [33mdata-rac[39m=[32m""[39m
+        [33mdata-react-aria-pressable[39m=[32m"true"[39m
+        [33mid[39m=[32m"react-aria-_r_12_"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"size-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:98:17
+     96| it.each(ordinary)("draws a finding paragraph holding ordinary text as …
+     97|   paragraph(text);
+     98|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     99|   expect(screen.queryByRole("link", { name: "Read this passage in Evid…
+    100| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/26]⎯
+
+ FAIL  src/pages/connected/publishedReport.reference.test.tsx > draws a finding paragraph holding ordinary text as written: Exposure to advanced economies (G7) is limited; net leverage is 3.2x at FY2025.
+TestingLibraryElementError: Unable to find an element with the text: Exposure to advanced economies (G7) is limited; net leverage is 3.2x at FY2025.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"group/trace relative flex items-start justify-start gap-3"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"max-w-[55ch] text-body wrap-anywhere text-text-secondary"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"group relative inline-flex h-max cursor-pointer items-center whitespace-nowrap outline-brand transition duration-100 ease-linear before:absolute focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 *:data-icon:pointer-events-none *:data-icon:size-5 *:data-icon:shrink-0 *:data-icon:transition-inherit-all px-3 py-2 text-sm font-semibold before:rounded-[7px] data-icon-only:p-2 justify-normal rounded p-0! text-secondary hover:text-secondary_hover *:data-text:underline *:data-text:decoration-transparent hover:*:data-text:decoration-current *:data-icon:text-fg-quaternary hover:*:data-icon:text-fg-quaternary_hover gap-1 *:data-text:underline-offset-3"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/x-3"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"transition-inherit-all"[39m
+            [33mdata-text[39m=[32m"true"[39m
+          [36m>[39m
+            [0mRead this passage in Evidence[0m
+          [36m</span>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"pointer-events-none size-5 shrink-0 transition-inherit-all"[39m
+            [33mdata-icon[39m=[32m"trailing"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M5 12h14m0 0-7-7m7 7-7 7"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</a>[39m
+      [36m</p>[39m
+      [36m<button[39m
+        [33maria-label[39m=[32m"Show sources for this passage"[39m
+        [33mclass[39m=[32m"outline-hidden relative flex size-7 flex-none items-center justify-center rounded-ds-sm border bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 max-[480px]:after:absolute max-[480px]:after:-inset-[9px] cursor-pointer transition-colors duration-150 motion-reduce:transition-none border-transparent text-text-tertiary hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:border-border-control focus-visible:ring-focus group-hover/trace:border-border-control in-data-[sources=on]:border-border-control"[39m
+        [33mdata-rac[39m=[32m""[39m
+        [33mdata-react-aria-pressable[39m=[32m"true"[39m
+        [33mid[39m=[32m"react-aria-_r_15_"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"size-4"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+      [36m</button>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/publishedReport.reference.test.tsx:98:17
+     96| it.each(ordinary)("draws a finding paragraph holding ordinary text as …
+     97|   paragraph(text);
+     98|   expect(screen.getByText(text)).toBeInTheDocument();
+       |                 ^
+     99|   expect(screen.queryByRole("link", { name: "Read this passage in Evid…
+    100| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/26]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Coverage fell 2 pp. 3 quarters in a row, so no trend is drawn. whole
+AssertionError: expected 'See Evidence.' to be 'Coverage fell 2 pp. 3 quarters in a r…' // Object.is equality
+
+Expected: "Coverage fell 2 pp. 3 quarters in a row, so no trend is drawn."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/26]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Margin rose 150bp, 1.5 pp. 2 years running; leverage of 3.2x at FY2025 is the only point. whole
+AssertionError: expected 'See Evidence.' to be 'Margin rose 150bp, 1.5 pp. 2 years ru…' // Object.is equality
+
+Expected: "Margin rose 150bp, 1.5 pp. 2 years running; leverage of 3.2x at FY2025 is the only point."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/26]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Coverage fell 2 p.p. 3 quarters in a row; two pp. 3 quarters before that. whole
+AssertionError: expected 'See Evidence.' to be 'Coverage fell 2 p.p. 3 quarters in a …' // Object.is equality
+
+Expected: "Coverage fell 2 p.p. 3 quarters in a row; two pp. 3 quarters before that."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/26]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Rated by S&P. 2025 outlook stable; cut by S&P. 3 notches since. whole
+AssertionError: expected 'See Evidence.' to be 'Rated by S&P. 2025 outlook stable; cu…' // Object.is equality
+
+Expected: "Rated by S&P. 2025 outlook stable; cut by S&P. 3 notches since."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/26]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason The front page 2025 headline and the one-page 2026 outlook give no series. whole
+AssertionError: expected 'See Evidence.' to be 'The front page 2025 headline and the …' // Object.is equality
+
+Expected: "The front page 2025 headline and the one-page 2026 outlook give no series."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/26]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  26 failed | 57 passed (83)
+   Start at  18:38:54
+   Duration  6.11s (transform 982ms, setup 190ms, import 3.25s, tests 1.07s, environment 1.20s)

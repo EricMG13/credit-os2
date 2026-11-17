@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/runtime-real-synthetic-review.py", line 31, in <module>
+    t.test_real_scheduler_exports_the_submitted_run(mp,'executed')
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/workspace/audit-runtime-metadata/proof/test_launcher.py", line 103, in test_real_scheduler_exports_the_submitted_run
+    assert_exported_report(layout, submitted.id, legal)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/runtime-real-synthetic-review.py", line 14, in inspect
+    assert outputs is not None
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError

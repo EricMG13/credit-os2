@@ -330,10 +330,11 @@ Touches money, ordering or security code: no.
 Findings:
 
 - C4-002, Medium: A gap ledger of ten near-identical limitation bullets is drawn on the Forecast findings page, and the same qualifications are drawn twice more.
-- C4-003 (with C5-004), Medium: Every trace control on the Forecast model opens the same drawer, titled 'Forecast inputs (machine-readable)', whose statement is generic.
+- C4-003 (with C5-004, R4-008, R4-009, R4-010), Medium: Every trace control on the Forecast model opens the same drawer, titled 'Forecast inputs (machine-readable)', whose statement is generic.
 - C4-025, Medium: When the published model cannot be matched to exactly one forward-credit handoff, every trace control on the Forecast model disappears and the page does not say so.
 - C4-026, Medium: One long unbroken word in a model note, limitation, case description or scenario anchor widens the whole report page. Ruling: long unbroken tokens (64-hex hashes, URLs, file names) are ordinary in handoff text
-- J4-003 (with C4-019), Medium: The Forecast page's Forecast assumptions section shows 'Observed \| Not supplied: nothing to report', and the page never states the downside shock or the drivers the numbers rest on.
+- J4-003 (with C4-019, R4-007), Medium: The Forecast page's Forecast assumptions section shows 'Observed \| Not supplied: nothing to report', and the page never states the downside shock or the drivers the numbers rest on.
+- R4-006, High: Forecast companion filename overrides a known conflicting retained source hash.
 
 Files: `web/src/pages/connected/visuals/LegacyForecast.tsx`, `web/src/pages/connected/report/Forecast.tsx`, `web/src/pages/connected/report/Downside.tsx`, `src/deploy_workflow/owners/cpos_periods.py`, `web/src/pages/connected/ReportContent.tsx`
 
@@ -342,12 +343,17 @@ Probes:
 - C4-002 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-002-gap-ledger.cjs`
 - C4-003 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-003-generic-drawer.cjs`
 - C4-003 (exit): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/forecast-drawer.cjs`
+- C4-003 (exit): `timeout 300 node docs/audit/2026-11-16-final/output/5-repair/probes/t18-primary-portable.mjs --out /tmp/t18-primary-result.json`
 - C4-025 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-025-silent-no-trace.cjs`
 - C4-026 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-026-long-word.cjs`
 - J4-003 (output): `docs/audit/2026-11-16-final/output/3-journeys/J4/probes/j4-003-forecast-assumptions.mjs`
 - J4-003 (output): `C4_STATE=units-usd C4_CHARS=3000 node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-states.cjs`
+- J4-003 (output): `timeout 300 node docs/audit/2026-11-16-final/output/5-repair/probes/t18-adversarial-portable.mjs --out /tmp/t18-adversarial-result.json`
+- R4-006 (Independent retained synthetic source/component evidence reproduces source-context loss at eaf0a879.): `timeout 300 node docs/audit/2026-11-16-final/output/5-repair/probes/t18-adversarial-portable.mjs --out /tmp/t18-adversarial-result.json`
 
 Touches money, ordering or security code: delivery text (src/deploy_workflow/owners).
+
+Note: Round4 recovery only (R12). Early peer feedback R4-006..010 corrected before final handoff; final pinned verdict still required. No fifth implementation round. Analytical producer files remain read only.
 
 ## T19 (group 2). Charts: debt stack key, zero balance, cut-off value labels
 
@@ -411,7 +417,7 @@ Note: C5-011 follows OQ-04: list supplied files only, with no link to open them.
 
 Findings:
 
-- C5-003 (with J4-005, J3-015), Medium: The trace drawer of the Confidence score lists 14 identical "no page" entries instead of the confidence inputs it is computed from.
+- C5-003 (with J4-005, J3-015, R4-013), Medium: The trace drawer of the Confidence score lists 14 identical "no page" entries instead of the confidence inputs it is computed from.
 
 Files: `web/src/pages/connected/ReportContent.tsx`, `src/deploy_workflow/confidence.py`
 
@@ -420,6 +426,7 @@ Probes:
 - C5-003 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/confidence-drawer.cjs`
 - C5-003 (output): `docs/audit/2026-11-16-final/output/3-journeys/J4/probes/j4-005-confidence-method.mjs`
 - C5-003 (output): `journey.md step 3 (observed; a probe is required only from Medium)`
+- C5-003 (output): `timeout 300 node docs/audit/2026-11-16-final/output/5-repair/probes/t22-adversarial-portable.mjs docs/audit/2026-11-16-final/output/5-repair/probes/t22-adversarial-fixture.json /tmp/t22-adversarial-result.json`
 
 Touches money, ordering or security code: figures (confidence score).
 
@@ -676,3 +683,35 @@ Probes:
 Touches money, ordering or security code: source fidelity; independent review required.
 
 Note: New lead step7 follow-up on audit/lead-connected-evidence, not an unfinished task assigned back to the active repair-2 controller. Candidate fix bcf9dff7 awaits fresh review and final-tree integration.
+
+## T43 (group 1). Bind runtime display metadata to the actual scheduler and analytical run identities
+
+Findings:
+
+- R4-011, Medium: Runtime metadata compares the scheduler folder ID to the distinct analytical run ID and drops ordinary module metadata.
+
+Files: `react_frontend/run_metadata.py`, `tests/test_react_runtime_identity.py`, `tests/test_react_runtime_metadata.py`
+
+Probes:
+
+- R4-011 (Assertion failed on missing module_outputs; diagnostic raises workflow names a different run (run_id).): `PYTHONPATH=src:apps/issuer-library:. timeout 300 uv run --no-sync pytest -q tests/test_react_runtime_identity.py`
+
+Touches money, ordering or security code: source/provenance identity; primary and adversarial read required.
+
+Note: Lead step7 follow-up on audit/lead-runtime-identity based runtime chunk; not reassigned to completed original repair1. Preserve every request/source/accepted-response check and add actual engine-artifact regression.
+
+## T44 (group 2). Preserve ordinary prose and mathematical labels in the shared source-reference predicate
+
+Findings:
+
+- R4-012, Medium: Shared reference detector withholds ordinary Forecast prose and parenthesized mathematical labels.
+
+Files: `web/src/pages/connected/publishedReport.ts`, `web/src/pages/connected/publishedReport.reference.test.tsx`, `web/src/pages/connected/report/Forecast.reader-text.test.tsx`
+
+Probes:
+
+- R4-012 (Unchanged Forecast caller cases fail 5 times and shared predicate cases fail 21 times at stable combined code d309b859.): `cd web && timeout 300 node node_modules/vitest/vitest.mjs run src/pages/connected/report/Forecast.reader-text.test.tsx src/pages/connected/publishedReport.reference.test.tsx --maxWorkers=1`
+
+Touches money, ordering or security code: reader-content fidelity; independent review required.
+
+Note: Lead step7 follow-up on audit/lead-reference-predicate from stable candidate d309b859. Repair common predicate only; keep all independent expected strings and genuine citation withholding. Not reassigned to original repair2.

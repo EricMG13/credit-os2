@@ -1,4 +1,90 @@
-## Current lead checkpoint 2026-11-17T17:21Z
+## Current lead checkpoint 2026-11-17T18:43Z
+
+Stage 5 remains active; the owner asked the current stage and the lead confirmed
+that stage 5 is still in progress. Stages 6/7 have not started. No provider/live,
+seat, real Submit or Teams call; main is untouched.
+
+Accepted group 1 PR57 is merged/CI-green at actual-final `a11e4def`. Both fresh
+primary and adversarial T18 reviews PASS final code `f7f1e011`; reports `82c331f4`
+are retained. Group 2 still needs its completed PR, green CI and lead acceptance
+before actual-final promotion. T22 has a fresh isolated round-2 worker for R4-013
+qualification loss; no fifth T18 loop is authorized.
+
+Local review candidate `f154e11f` (code `d309b859`) includes accepted group 1,
+reviewed small/draft/UI repairs and T18. It is local-only and not promoted. Its
+phase-3 report records exact source maps/conflicts, 1,393 passing frontend tests
+across 63 files after two named assertion consequences, five untouched R4-012
+failures, 201 Python passes plus one existing disk-case skip, and lint/format/
+types/default quality gate exit 0. R4-012 is assigned separately.
+
+Runtime identity repair `76d57bc6` now has fresh independent PASS, 88 tests, actual
+14-response/hash synthetic proof and default quality gate 0. Integrator has GO
+after this coordination checkpoint for runtime own commits `1f05c06e`,
+`30a522e9`, `e825f90f` and `76d57bc6`. Contract/docs `5c39a559` has no High/Medium
+blocker; the Low R4-014 derived-doc placement drift is assigned to a fresh worker
+and awaits repair/review before integration. T22 and contract integration wait.
+
+LIVE register rebuild: 517 source / 402 canonical; High6, Medium108, Low203,
+Info85; repair82, batch160, sweep17, deferred6, parked31, rejected106. R4-012 is
+new T44. R4-013 merges C5-003/T22; R4-014 merges C5-013 without adding a canonical
+finding. T43 uses the actual runtime identity/metadata regression filenames.
+Portable review evidence is retained additively under 5-repair/probes and reviews;
+the superseded untracked runtime Python probe was removed in favor of the actual
+reviewed engine regression command. Frozen helper source/expected values are
+unchanged. Coordination checkpoint verification passed: all 11 helper tests,
+default origin/main Python quality gate (five files / 1,348 scoped lines, zero
+findings), exact register counts and git diff --check exit 0. No test expected
+value, gate or helper source was changed.
+
+Next: finish this docs-only coordination checkpoint; integrate only reviewed own
+commits when GO is recorded; finish R4-012, T22 round 2 and R4-014 fresh reviews;
+complete group2 PR/CI/lead acceptance. Then combined confidence/simplification,
+full gates/proof and after-fidelity comparison precede stage6. No actual-final or
+main promotion is implied by this local review candidate.
+
+## Milestone 2026-11-17T18:44Z
+
+Both fresh final T18 reviews PASS exact f7f1e011 code (reports82c331f4): 0 outstanding
+High/Medium in scope; portable primary before7fail/after0fail, adversarial Chrome21/21
+and Edge21/21, focused64/60 tests. No fifth repair round. T22 stable code12e53e21 now
+under fresh primary+adversarial review; no confidence.py/math/method changes. Runtime
+R4-011 Medium/T43 registered; fresh implementer has actual-engine RED and initialGREEN,
+final security/identity review still pending. UI-tail and Appscroll/draftUI independently
+PASS. Local combined integrator is preserving reviewed conflict/test consequences.
+
+LIVE514source/401canonical: High6,Medium107,Low203,Info85;
+repair81,batch160,sweep17,deferred6,parked31,rejected106. Helpertests11passed after first
+six new registrations; rebuild successful with R4-011. check_outputs journeys99findingsOK;
+sections reports only the pre-existing intentional S6-037 sectionC1 classification, already
+explicitly decided in leadSTATUS. Raw source classification is preserved, not rewritten.
+
+Next T22+runtime finalreviews and contractdocLow resolution; group2PR/CI/merge; promote
+reviewed integration; combined stage5 selfreview/fidelity/fullgates/proof; thenstage6/7.
+No main merge or provider/paid/seat/realSubmit/Teams call. Root execution resumed but
+still intermittently aborts beforedispatch; retain observed results only.
+
+## Current lead checkpoint 2026-11-17T18:31Z
+
+Read the matching18:31Z checkpoint in STATUS.md first. Stage5 active; PR57 CIgreen
+merged18:23:59Z asa11e4def, localfinalworktree fetched/fast-forwarded.
+T18 final fourth-round codef7f1e011 under two fresh reviews (no fifthloopR12);
+T22 display-only confidence recovery inprogress with confidence.py read only.
+Local integrationd4b3db28 remains review-only. Fresh runtime/contract/UItail/draftUI/
+Appscroll reviews ongoing; runtime actual synthetic run-ID mismatch is a confirmed
+Medium awaiting a fresh implementer. Root exec briefly interrupted at18:26 then resumed18:32; no interrupted checks counted aspassed.
+
+LIVE513source/400canonical: H6/M106/L203/I85; repair80,batch160,sweep17,deferred6,
+parked31,rejected106. R4-005..010 registered, four merged into existing primaries;
+C4-017 rejected underdecidedR16. Retained probes/reviews inoutput/5-repair. Helper
+test/check_outputs pending after this data-only rebuild, frozen expectedvalues unchanged.
+
+Next: confirmPR57merged/fetchfinal; finishfreshreviews andruntimefix; finalT18verdict;
+finishT22 withtwofreshreviews, updategroup2STATUS/openPR/CIgreen/leadmerge; integrate
+all reviewed owncommits preserving eachchunk's dependency map. Only thencombined
+selfreview, fidelityafter compare/diff, full gates+offlineconnectedproof, push; stage6
+separatesweepPR; stage7finalgates/package/promptdryrun/SUMMARY/UNMERGEDmainPR.
+
+## Previous lead checkpoint 2026-11-17T17:21Z
 
 Stage5 continues. Main is untouched; no application provider, real Submit, seat or Teams call.
 

@@ -15,6 +15,7 @@ Hostile or unusual inputs no roadmap line names (ruling R3). Registered, not rep
 | C5-020 | Low | C5 | An address naming a module that is not in the run filters the page to nothing while the Module select still reads "All modules". |  |
 | C5-021 | Low | C5 | ArtifactDownloads draws any href the listing returns, including a foreign https address. |  |
 | C5-027 | Low | C5 | A calculation id defined twice, or nested deeper than 8, silently disappears from a drawer's derivation. |  |
+| R4-005 | Low | C4 | Chart unit parser accepts an unrecognised unit ending in m as millions. |  |
 | S1-012 | Low | S1 | The no-data, unreadable-data and no-such-page states are one bare grey sentence; different causes read alike and the reader's internal reason is drawn raw. |  |
 | S1-013 | Low | S1 | Any schema other than credit-os-data/1 is reported as "written by a newer version", and the schema text is kept but never shown. |  |
 | S1-016 | Low | S1 | The top-level `issuers` list is read only by an unreachable branch of App.tsx, yet one malformed entry turns every page into "Library data is missing". |  |

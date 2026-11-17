@@ -882,5 +882,13 @@
   "R1-015": {
     "disposition": "deferred",
     "note": "L18: T09 refuses new collisions at the service; existing merged runs are checked after the audit"
+  },
+  "C4-017": {
+    "disposition": "rejected",
+    "note": "R16 applies: recorded finding is aria-current announcement only; no visible selected-state defect was observed. No active style is inferred from this attribute."
+  },
+  "R4-005": {
+    "disposition": "parked",
+    "note": "R3: requires invalid or unusual reporting unit; Low hostile-input, no ordinary-data failure or valid-scale conversion observed."
   }
 }

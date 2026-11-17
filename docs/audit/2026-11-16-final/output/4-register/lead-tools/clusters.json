@@ -113,7 +113,10 @@
  {
   "primary": "C4-003",
   "members": [
-   "C5-004"
+   "C5-004",
+   "R4-008",
+   "R4-009",
+   "R4-010"
   ],
   "cause": "every Forecast figure that traces to the forward model opens the same generic drawer"
  },
@@ -409,14 +412,16 @@
   "primary": "C5-003",
   "members": [
    "J4-005",
-   "J3-015"
+   "J3-015",
+   "R4-013"
   ],
   "cause": "the Confidence score has no method or scale, and its drawer lists fourteen identical 'no page' lines"
  },
  {
   "primary": "J4-003",
   "members": [
-   "C4-019"
+   "C4-019",
+   "R4-007"
   ],
   "cause": "the Forecast page does not state the downside shock or the case drivers"
  },
@@ -490,5 +495,12 @@
    "J6-012"
   ],
   "cause": "Library search and filters are lost on Back"
+ },
+ {
+  "primary": "C5-013",
+  "members": [
+   "R4-014"
+  ],
+  "cause": "Derived design destinations do not distinguish module-written register/table content from true run internals under primary decisions 9/10/H4."
  }
 ]

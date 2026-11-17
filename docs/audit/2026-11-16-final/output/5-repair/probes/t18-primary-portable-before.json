@@ -1,0 +1,276 @@
+{
+  "checkout": "/workspace/review-forecast",
+  "revision": "eaf0a879be4c216675b9c2c25bc626b14b58798f",
+  "scope": "Literal synthetic source/component selection only; no analytical engine, provider or real Submit",
+  "checks": [
+    {
+      "name": "R4-008 Other-grid drawer names its own case, not global Base",
+      "passed": false
+    },
+    {
+      "name": "R4-009 shock-on-own-drivers retains actual downside override",
+      "passed": false
+    },
+    {
+      "name": "Retained shock presence is unchanged: shock-on-own-drivers",
+      "passed": true
+    },
+    {
+      "name": "R4-009 own-drivers-without-shock retains actual downside override",
+      "passed": false
+    },
+    {
+      "name": "Retained shock presence is unchanged: own-drivers-without-shock",
+      "passed": true
+    },
+    {
+      "name": "Historical explicit base-stress keeps base driver basis",
+      "passed": true
+    },
+    {
+      "name": "R4-010 Debt source retains exact facility schedule fields",
+      "passed": false
+    },
+    {
+      "name": "Field drawer retains original planning years/currency/scale: driver",
+      "passed": false
+    },
+    {
+      "name": "Field drawer retains original planning years/currency/scale: shock",
+      "passed": false
+    },
+    {
+      "name": "Field drawer retains original planning years/currency/scale: facility",
+      "passed": false
+    },
+    {
+      "name": "Exact selected case/period figure survives",
+      "passed": true
+    }
+  ],
+  "observations": {
+    "other": {
+      "name": "Revenue",
+      "selection": {
+        "groups": [
+          "Downside drivers"
+        ],
+        "row": "Revenue"
+      },
+      "trace": {
+        "heading": "Revenue · Base case",
+        "statement": "Revenue · Base case · Downside drivers · FY2026E: 1050 · Downside drivers · FY2027E: 1092 · Downside drivers · FY2028E: 1124.76",
+        "details": [
+          {
+            "label": "base.revenue",
+            "value": "{\"amount\":\"1000000\",\"reason\":null}"
+          },
+          {
+            "label": "base_drivers.revenue_growth",
+            "value": "{\"values\":[\"0.05\",\"0.04\",\"0.03\"],\"category\":\"Analyst Interpretation\",\"rationale\":\"Retained base growth\",\"limitation\":null}"
+          },
+          {
+            "label": "downside_drivers.revenue_growth",
+            "value": "{\"values\":[\"0.01\",\"0.01\",\"0.01\"],\"category\":\"Analyst Interpretation\",\"rationale\":\"Retained own-downside growth\",\"limitation\":null}"
+          },
+          {
+            "label": "years",
+            "value": "[{\"year\":2025,\"start\":\"2025-04-01\",\"end\":\"2026-03-31\"},{\"year\":2026,\"start\":\"2026-04-01\",\"end\":\"2027-03-31\"},{\"year\":2027,\"start\":\"2027-04-01\",\"end\":\"2028-03-31\"}]"
+          },
+          {
+            "label": "currency",
+            "value": "GBP"
+          },
+          {
+            "label": "scale",
+            "value": "1000"
+          }
+        ],
+        "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+      }
+    },
+    "shock-on-own-drivers": {
+      "heading": "Revenue · Downside shock",
+      "statement": "Revenue · Downside shock · Downside shock · FY2026E: 840 · Downside shock · FY2027E: 873.6 · Downside shock · FY2028E: 899.808",
+      "details": [
+        {
+          "label": "base.revenue",
+          "value": "{\"amount\":\"1000000\",\"reason\":null}"
+        },
+        {
+          "label": "base_drivers.revenue_growth",
+          "value": "{\"values\":[\"0.05\",\"0.04\",\"0.03\"],\"category\":\"Analyst Interpretation\",\"rationale\":\"Retained base growth\",\"limitation\":null}"
+        },
+        {
+          "label": "downside_shock.ebitda_decline",
+          "value": "0.20"
+        },
+        {
+          "label": "downside_shock.rate_increase",
+          "value": "0.10"
+        },
+        {
+          "label": "years",
+          "value": "[{\"year\":2025,\"start\":\"2025-04-01\",\"end\":\"2026-03-31\"},{\"year\":2026,\"start\":\"2026-04-01\",\"end\":\"2027-03-31\"},{\"year\":2027,\"start\":\"2027-04-01\",\"end\":\"2028-03-31\"}]"
+        },
+        {
+          "label": "currency",
+          "value": "GBP"
+        },
+        {
+          "label": "scale",
+          "value": "1000"
+        }
+      ],
+      "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+    },
+    "own-drivers-without-shock": {
+      "heading": "Revenue · Downside case",
+      "statement": "Revenue · Downside case · Downside case · FY2026E: 840 · Downside case · FY2027E: 873.6 · Downside case · FY2028E: 899.808",
+      "details": [
+        {
+          "label": "base.revenue",
+          "value": "{\"amount\":\"1000000\",\"reason\":null}"
+        },
+        {
+          "label": "base_drivers.revenue_growth",
+          "value": "{\"values\":[\"0.05\",\"0.04\",\"0.03\"],\"category\":\"Analyst Interpretation\",\"rationale\":\"Retained base growth\",\"limitation\":null}"
+        },
+        {
+          "label": "years",
+          "value": "[{\"year\":2025,\"start\":\"2025-04-01\",\"end\":\"2026-03-31\"},{\"year\":2026,\"start\":\"2026-04-01\",\"end\":\"2027-03-31\"},{\"year\":2027,\"start\":\"2027-04-01\",\"end\":\"2028-03-31\"}]"
+        },
+        {
+          "label": "currency",
+          "value": "GBP"
+        },
+        {
+          "label": "scale",
+          "value": "1000"
+        }
+      ],
+      "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+    },
+    "historical": {
+      "heading": "Revenue · Downside shock",
+      "statement": "Revenue · Downside shock · Downside shock · FY2026E: 840 · Downside shock · FY2027E: 873.6 · Downside shock · FY2028E: 899.808",
+      "details": [
+        {
+          "label": "base.revenue",
+          "value": "{\"amount\":\"1000000\",\"reason\":null}"
+        },
+        {
+          "label": "base_drivers.revenue_growth",
+          "value": "{\"values\":[\"0.05\",\"0.04\",\"0.03\"],\"category\":\"Analyst Interpretation\",\"rationale\":\"Retained base growth\",\"limitation\":null}"
+        },
+        {
+          "label": "downside_shock.ebitda_decline",
+          "value": "0.20"
+        },
+        {
+          "label": "downside_shock.rate_increase",
+          "value": "0.10"
+        },
+        {
+          "label": "years",
+          "value": "[{\"year\":2025,\"start\":\"2025-04-01\",\"end\":\"2026-03-31\"},{\"year\":2026,\"start\":\"2026-04-01\",\"end\":\"2027-03-31\"},{\"year\":2027,\"start\":\"2027-04-01\",\"end\":\"2028-03-31\"}]"
+        },
+        {
+          "label": "currency",
+          "value": "GBP"
+        },
+        {
+          "label": "scale",
+          "value": "1000"
+        }
+      ],
+      "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+    },
+    "facility": {
+      "heading": "Closing debt · Base case",
+      "statement": "Closing debt · Base case · Base case · FY2026E: 550 · Base case · FY2027E: 500 · Base case · FY2028E: 450",
+      "details": [
+        {
+          "label": "base.debt",
+          "value": "{\"amount\":\"600000\",\"reason\":null}"
+        },
+        {
+          "label": "base_drivers.debt_repayment",
+          "value": "{\"values\":[\"50000\",\"50000\",\"50000\"],\"category\":\"Analyst Interpretation\",\"rationale\":\"Retained debt repayment\",\"limitation\":null}"
+        },
+        {
+          "label": "years",
+          "value": "[{\"year\":2025,\"start\":\"2025-04-01\",\"end\":\"2026-03-31\"},{\"year\":2026,\"start\":\"2026-04-01\",\"end\":\"2027-03-31\"},{\"year\":2027,\"start\":\"2027-04-01\",\"end\":\"2028-03-31\"}]"
+        },
+        {
+          "label": "currency",
+          "value": "GBP"
+        },
+        {
+          "label": "scale",
+          "value": "1000"
+        }
+      ],
+      "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+    },
+    "driver-field": {
+      "heading": "driver",
+      "statement": "driver",
+      "details": [
+        {
+          "label": "base_drivers.revenue_growth",
+          "value": "{\"values\":[\"0.05\",\"0.04\",\"0.03\"],\"category\":\"Analyst Interpretation\",\"rationale\":\"Retained base growth\",\"limitation\":null}"
+        },
+        {
+          "label": "currency",
+          "value": "GBP"
+        },
+        {
+          "label": "scale",
+          "value": "1000"
+        }
+      ],
+      "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+    },
+    "shock-field": {
+      "heading": "shock",
+      "statement": "shock",
+      "details": [
+        {
+          "label": "downside_shock.ebitda_decline",
+          "value": "0.20"
+        },
+        {
+          "label": "currency",
+          "value": "GBP"
+        },
+        {
+          "label": "scale",
+          "value": "1000"
+        }
+      ],
+      "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+    },
+    "facility-field": {
+      "heading": "facility",
+      "statement": "facility",
+      "details": [
+        {
+          "label": "facilities.0",
+          "value": "{\"name\":\"Retained fixed facility\",\"balance\":\"600000\",\"fixed_rate_pct\":\"6.00\",\"spread_pct\":null,\"floor_pct\":null,\"reference_rate\":null,\"annual_amortisation\":\"50000\",\"maturity\":\"2028-03-31\"}"
+        },
+        {
+          "label": "currency",
+          "value": "GBP"
+        },
+        {
+          "label": "scale",
+          "value": "1000"
+        }
+      ],
+      "qualification": "Values and input fields are retained as recorded. Input arrays follow their recorded planning years; no value is recomputed in this drawer."
+    }
+  },
+  "passed": 4,
+  "failed": 7
+}

@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-507 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 398 findings. Counts below are of those 398, after re-grading.
+517 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 115 were merged into another finding with the same cause, which leaves 402 findings. Counts below are of those 402, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -8,18 +8,18 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 
 | Severity | repair | batch | sweep | owner | deferred | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
-| Medium | 71 | 0 | 0 | 0 | 1 | 2 | 32 | 106 |
-| Low | 0 | 143 | 0 | 0 | 2 | 18 | 39 | 202 |
-| Info | 3 | 18 | 17 | 0 | 3 | 10 | 34 | 85 |
-| Total | 79 | 161 | 17 | 0 | 6 | 30 | 105 | 398 |
+| High | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 6 |
+| Medium | 73 | 0 | 0 | 0 | 1 | 2 | 32 | 108 |
+| Low | 0 | 143 | 0 | 0 | 2 | 19 | 39 | 203 |
+| Info | 3 | 17 | 17 | 0 | 3 | 10 | 35 | 85 |
+| Total | 82 | 160 | 17 | 0 | 6 | 31 | 106 | 402 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
-| C1 | 1 | 11 | 16 | 14 |
+| C1 | 1 | 12 | 16 | 14 |
 | C2 | 0 | 9 | 13 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
-| C4 | 2 | 7 | 20 | 4 |
+| C4 | 3 | 8 | 21 | 4 |
 | C5 | 0 | 11 | 19 | 7 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
@@ -35,7 +35,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 12 |
 
-Verification of High and Medium findings: confirmed 124, not a defect 4, not verified 2.
+Verification of High and Medium findings: confirmed 127, not a defect 4, not verified 2.
 
 ## Findings
 
@@ -47,6 +47,7 @@ High first. `Merged` lists the ids with the same cause.
 | C4-028 | High (was Medium) | C4 | A published value written with a decimal comma ('3,75') is read as 375 and its bar is drawn at 375 beside 2.80. | repair | T13 |  | confirmed |
 | J1-001 | High | J1 | Leaving a module out, which the review sheet offers as the way past a Will refuse limit, ends with Submit refused as "unknown module CP-MODEL" and no run start… | repair | T02 |  | confirmed |
 | R2-003 | High | C4 | The debt stack reads each cell on its own, so a column mixing '3,75' with '2,800' draws 3,75 as 375. | repair | T19 |  | confirmed |
+| R4-006 | High | C4 | Forecast companion filename overrides a known conflicting retained source hash. | repair | T18 |  | confirmed |
 | S1-001 | High | S1 | The library's "Start a run" button opens Run activity (a saved running example), not the run start page. | repair | T26 | J6-005 | confirmed |
 | B0-003 | Medium | C2 | Following the documented manual synthetic run in docs/react-workflow.md ends Failed at Legal & covenants; the run completes only if the credit agreement is als… | repair | T12 | J1-014 | confirmed |
 | C1-002 | Medium | C1 | The empty Library is a bare 'No reports yet' card with no icon, no explanation and no next step, drawn under filter and layout controls that have nothing to ac… | repair | T05 |  | confirmed |
@@ -76,12 +77,12 @@ High first. `Merged` lists the ids with the same cause.
 | C3-029 | Medium | C3 | A chart's Table form omits the 'Basis and limitation' column, so a row's limitation (for example 'gross debt includes finance leases') is visible only inside t… | repair | T13 | C4-005 | confirmed |
 | C4-001 | Medium | C4 | The Forecast tab prints module codes, the words 'Python' and 'handoff', and a raw code-bearing gap reason in reader text. | repair | T16 | J3-005, J4-009 | confirmed |
 | C4-002 | Medium | C4 | A gap ledger of ten near-identical limitation bullets is drawn on the Forecast findings page, and the same qualifications are drawn twice more. | repair | T18 |  | confirmed |
-| C4-003 | Medium | C4 | Every trace control on the Forecast model opens the same drawer, titled 'Forecast inputs (machine-readable)', whose statement is generic. | repair | T18 | C5-004 | confirmed |
+| C4-003 | Medium | C4 | Every trace control on the Forecast model opens the same drawer, titled 'Forecast inputs (machine-readable)', whose statement is generic. | repair | T18 | C5-004, R4-008, R4-009, R4-010 | confirmed |
 | C4-004 | Medium | C4 | The Debt stack, drawn when one facility has no balance, is a bar of coloured segments with no key that ties a colour to a facility. | repair | T19 |  | confirmed |
 | C4-007 | Medium | C4 | One malformed date in a module's event table hides every event of that table, and the page says 'No dated events were published for this run' above a card sayi… | repair | T20 |  | confirmed |
 | C4-025 | Medium | C4 | When the published model cannot be matched to exactly one forward-credit handoff, every trace control on the Forecast model disappears and the page does not sa… | repair | T18 |  | confirmed |
 | C4-026 | Medium | C4 | One long unbroken word in a model note, limitation, case description or scenario anchor widens the whole report page. | repair | T18 |  | confirmed |
-| C5-003 | Medium | C5 | The trace drawer of the Confidence score lists 14 identical "no page" entries instead of the confidence inputs it is computed from. | repair | T22 | J4-005, J3-015 | confirmed |
+| C5-003 | Medium | C5 | The trace drawer of the Confidence score lists 14 identical "no page" entries instead of the confidence inputs it is computed from. | repair | T22 | J4-005, J3-015, R4-013 | confirmed |
 | C5-005 | Medium | C5 | The page-level "Show sources" switch changes state on every Evidence tab but there is nothing for it to reveal. | repair (OQ-03) | T38 | S4-019 | confirmed |
 | C5-008 | Medium | C5 | Every handoff evidence view draws the handoff's title as a bare module-code heading ("CP-1" ... "CP-DR"), next to the module name in the card title. | repair | T16 |  | confirmed |
 | C5-009 | Medium | C5 | The handoff evidence view looks like rendered Markdown: literal "- " bullets with 64-hex hashes in the body font, handoff section names as headings, and (on a… | repair | T21 | J3-013 | confirmed |
@@ -94,11 +95,13 @@ High first. `Merged` lists the ids with the same cause.
 | J2-003 | Medium | J2 | An unreadable document is reported as a raw Python decoder error for one file only, and no row is marked, so the analyst cannot tell which of several files is… | repair | T09 | C2-011, J2-007 | confirmed |
 | J2-013 | Medium | J2 | When the Submit request fails, the dialog closes and the message is drawn 2,900 px above the Submit button, so the analyst sees nothing change and cannot tell… | repair | T08 |  | confirmed |
 | J3-007 | Medium | J3 | Evidence > Trace with no item chosen shows the same 15 handoff download buttons as Summary and no line telling the reader how to pick something to trace. | repair | T21 | C5-036 | confirmed |
-| J4-003 | Medium | J4 | The Forecast page's Forecast assumptions section shows 'Observed \| Not supplied: nothing to report', and the page never states the downside shock or the drive… | repair | T18 | C4-019 | confirmed |
+| J4-003 | Medium | J4 | The Forecast page's Forecast assumptions section shows 'Observed \| Not supplied: nothing to report', and the page never states the downside shock or the drive… | repair | T18 | C4-019, R4-007 | confirmed |
 | J5-001 | Medium | J5 | On a failed run the refused module is labelled Interrupted while the run reads Failed, three 'Module draft rejected.' events give no reason, and nothing on the… | repair | T04 |  | confirmed |
 | J5-004 | Medium | J5 | The Issuer ID built from the name is cut at 40 characters, so two different issuers with long names that share their first 40 characters get one ID; the Librar… | repair | T09 | C2-014 | confirmed |
 | R1-003 | Medium | C1 | The Teams cards count CP-MODEL as a module, so a run that finished every requested module reads '13/14 modules'; T02 makes such runs reachable. | repair | T02 |  | confirmed |
 | R4-001 | Medium | C5 | The trace drawer drops every earlier cited page range when one source file is cited more than once. | repair | T42 |  | confirmed |
+| R4-011 | Medium | C1 | Runtime metadata compares the scheduler folder ID to the distinct analytical run ID and drops ordinary module metadata. | repair | T43 |  | confirmed |
+| R4-012 | Medium | C4 | Shared reference detector withholds ordinary Forecast prose and parenthesized mathematical labels. | repair | T44 |  | confirmed |
 | S1-002 | Medium | S1 | Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing. | repair | T27 | S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003 | confirmed |
 | S1-004 | Medium | S1 | The component kit, a developer page with sample figures, buttons that do nothing and looping animations, is offered to readers as a rail item of the static app. | repair (OQ-05) | T25 | X1-018 | confirmed |
 | S2-001 | Medium | S2 | An issuer's history page draws none of its runs when the issuer has no readable report, although its subtitle counts them and its home card describes a finishe… | repair | T32 | J6-006 | confirmed |
@@ -197,7 +200,7 @@ High first. `Merged` lists the ids with the same cause.
 | C4-031 | Low | C4 | While the portfolio basis is loading the Portfolio limits card states that the report records no validated basis. | batch |  |  | not required (Low or Info) |
 | C4-035 | Low | C4 | The FY2027E cash proxy reads 172.46 on the case card, chart and Scenario comparison and 172 in the model grid directly below. | batch |  |  | not required (Low or Info) |
 | C4-036 | Low | C4 | The break points are re-ordered by delivery (smallest required EBITDA decline first) and drawn as an ordered list, a ranking the module did not write for this… | batch |  |  | not required (Low or Info) |
-| C5-013 | Low | C5 | Handoff, calculation and Model downloads are on Summary and Trace, and registers and confidence inputs are drawn per handoff on Trace, not on Record as the mat… | batch |  |  | not required (Low or Info) |
+| C5-013 | Low | C5 | Handoff, calculation and Model downloads are on Summary and Trace, and registers and confidence inputs are drawn per handoff on Trace, not on Record as the mat… | batch |  | R4-014 | not required (Low or Info) |
 | C5-014 | Low | C5 | Script check cards are titled "columns", "rows", "all" or "Headroom: all", and draw the service's raw markup, snake_case register names and module codes. | batch |  |  | not required (Low or Info) |
 | C5-017 | Low | C5 | The Summary count reads "1 designated handoffs" and gives only two counts. | batch |  |  | not required (Low or Info) |
 | C5-018 | Low | C5 | Handoff names are links styled as plain semibold labels, so the reader cannot tell they open that handoff's evidence. | batch |  |  | not required (Low or Info) |
@@ -308,6 +311,7 @@ High first. `Merged` lists the ids with the same cause.
 | C5-020 | Low | C5 | An address naming a module that is not in the run filters the page to nothing while the Module select still reads "All modules". | parked |  |  | not required (Low or Info) |
 | C5-021 | Low | C5 | ArtifactDownloads draws any href the listing returns, including a foreign https address. | parked |  |  | not required (Low or Info) |
 | C5-027 | Low | C5 | A calculation id defined twice, or nested deeper than 8, silently disappears from a drawer's derivation. | parked |  |  | not required (Low or Info) |
+| R4-005 | Low | C4 | Chart unit parser accepts an unrecognised unit ending in m as millions. | parked |  |  | not required (Low or Info) |
 | S1-012 | Low | S1 | The no-data, unreadable-data and no-such-page states are one bare grey sentence; different causes read alike and the reader's internal reason is drawn raw. | parked |  |  | not required (Low or Info) |
 | S1-013 | Low | S1 | Any schema other than credit-os-data/1 is reported as "written by a newer version", and the schema text is kept but never shown. | parked |  |  | not required (Low or Info) |
 | S1-016 | Low | S1 | The top-level `issuers` list is read only by an unreachable branch of App.tsx, yet one malformed entry turns every page into "Library data is missing". | parked |  |  | not required (Low or Info) |
@@ -361,7 +365,6 @@ High first. `Merged` lists the ids with the same cause.
 | R1-008 | Info (was High) | C1 | When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.… | repair | T01b |  | confirmed |
 | C1-028 | Info | C1 | The connected Run activity has no 'Not assessable' state for a blocked module, and offers 'Start from this run' beside a capped or interrupted run where the ma… | batch (OQ-06) |  |  | not required (Low or Info) |
 | C2-027 | Info | C2 | Two fail-open notes mislead: console.warn says a launcher flag is 'not shown' when its text is shown, and the FieldProblem for a blank issuer name is reachable… | batch |  |  | not required (Low or Info) |
-| C4-017 | Info | C4 | The Forecast 'On this page' marker follows clicks only, so aria-current can name a section the reader has scrolled away from. | batch |  |  | not required (Low or Info) |
 | C5-028 | Info | C5 | Record: the run type comes from the service mode, the getRun error text is dropped, and an empty call cell reads "Empty in the handoff". | batch |  |  | not required (Low or Info) |
 | C5-030 | Info | C5 | "Annual model handoff" under "Model and calculation files" is byte-identical to the Financial foundation handoff. | batch |  |  | not required (Low or Info) |
 | J1-019 | Info | J1 | proof.serve refuses any root that already holds a file, so a restarted synthetic service cannot reopen earlier runs; the refusal is argparse usage text. | batch |  | J3-022 | not required (Low or Info) |
@@ -410,6 +413,7 @@ High first. `Merged` lists the ids with the same cause.
 | B0-001 | Info | S1 | The gate test:file:gates exits 1 in the cloud container because its default browser hangs on every page. | rejected |  |  | not required (Low or Info) |
 | B0-004 | Info | C1 | The run root is limited to 80 characters; a longer path is refused at start. | rejected |  |  | not required (Low or Info) |
 | B0-007 | Info | C1 | The scheduler posts run cards to a Teams webhook when CREDIT_OS_TEAMS_WEBHOOK and CREDIT_OS_TEAMS_LINK are set, a request to another host that README ruling R8… | rejected (OQ-11) |  |  | not a defect |
+| C4-017 | Info | C4 | The Forecast 'On this page' marker follows clicks only, so aria-current can name a section the reader has scrolled away from. | rejected |  |  | not required (Low or Info) |
 | C5-032 | Info | C5 | The stage 0 inventory misses controls on the Evidence screens: 15 trace controls inside closed disclosures, the 14 handoff evidence views, 13 of 14 line-level… | rejected |  | C1-029, C2-028, S3-038, S4-024 | not required (Low or Info) |
 | J3-004 | Info (was Medium) | J3 | Evidence > Gaps says 'This run lists no gaps.' while the same run's pages state what was not supplied or not recorded ('Not supplied: balance not stated', 'Doc… | rejected |  |  | not a defect |
 | J3-021 | Info | J3 | In the synthetic proof every trace ends 'not in inventory' or 'no page': the canned handoffs cite 'annual.txt, page 2', not the uploaded northbridge-filing.txt… | rejected |  |  | not required (Low or Info) |

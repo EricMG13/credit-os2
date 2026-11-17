@@ -1,0 +1,64 @@
+{
+  "checkout": "/workspace/review-forecast",
+  "scope": "Synthetic source/component presentation only; no analytical engine, provider or real Submit",
+  "checks": [
+    {
+      "name": "R4-006 conflicting retained hash produces explicit gap",
+      "passed": false
+    },
+    {
+      "name": "R4-006 conflict borrows neither drivers nor source links",
+      "passed": false
+    },
+    {
+      "name": "R4-007 raw assumptions state GBP thousands scale1000",
+      "passed": false
+    },
+    {
+      "name": "R4-007 original amounts remain unconverted",
+      "passed": true
+    },
+    {
+      "name": "Planning years retain exact recorded spans",
+      "passed": false
+    },
+    {
+      "name": "Selected trace binds exact case/period/value",
+      "passed": true
+    },
+    {
+      "name": "Raw input fields retain source value and scale",
+      "passed": true
+    },
+    {
+      "name": "All-case proxy trace preserves both final values",
+      "passed": true
+    },
+    {
+      "name": "Malformed-grid qualification retains exact text once/all scopes",
+      "passed": true
+    },
+    {
+      "name": "Absent evidence leaves explicit gap and figures",
+      "passed": true
+    }
+  ],
+  "observations": {
+    "conflict": {
+      "modelSource": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "handoffSource": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "gap": false,
+      "borrowedDriver": true,
+      "conflictingLink": true
+    },
+    "units": {
+      "recordedCaption": false,
+      "rawDividends": true,
+      "rawBalance": true,
+      "rawAmortisation": true
+    }
+  },
+  "browser": null,
+  "passed": 6,
+  "failed": 4
+}

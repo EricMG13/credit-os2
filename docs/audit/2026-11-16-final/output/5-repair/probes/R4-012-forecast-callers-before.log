@@ -1,0 +1,287 @@
+
+ RUN  v4.1.12 /workspace/review-connected-integration/web
+
+ ❯ src/pages/connected/report/Forecast.basis.test.tsx (19 tests | 1 failed) 1860ms
+   × preserves a zero-valued bridge 76ms
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx (27 tests | 5 failed) 786ms
+   × draws the chart gap reason Coverage fell 2 pp. 3 quarters in a row, so no trend is drawn. whole 14ms
+   × draws the chart gap reason Margin rose 150bp, 1.5 pp. 2 years running; leverage of 3.2x at FY2025 is the only point. whole 9ms
+   × draws the chart gap reason Coverage fell 2 p.p. 3 quarters in a row; two pp. 3 quarters before that. whole 8ms
+   × draws the chart gap reason Rated by S&P. 2025 outlook stable; cut by S&P. 3 notches since. whole 8ms
+   × draws the chart gap reason The front page 2025 headline and the one-page 2026 outlook give no series. whole 14ms
+ ❯ src/pages/connected/report/Evidence.finalAudit.test.tsx (12 tests | 1 failed) 495ms
+   × gives empty Sources and Gaps an icon, a title and an explanation 39ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/connected/report/Evidence.finalAudit.test.tsx > gives empty Sources and Gaps an icon, a title and an explanation
+TestingLibraryElementError: Unable to find an element with the text: This run lists no gaps.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"grid min-w-0 gap-5"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-3"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"font-display text-h2"[39m
+        [36m>[39m
+          [0mEvidence[0m
+        [36m</h2>[39m
+        [36m<label[39m
+          [33mclass[39m=[32m"grid gap-1 text-sm"[39m
+        [36m>[39m
+          [0mModule[0m
+          [36m<select[39m
+            [33mclass[39m=[32m"w-full rounded-lg border border-border-hairline bg-surface-card px-3 py-2 text-text-primary aria-invalid:border-error-mark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"[39m
+          [36m>[39m
+            [36m<option[39m
+              [33mvalue[39m=[32m""[39m
+            [36m>[39m
+              [0mAll modules[0m
+            [36m</option>[39m
+          [36m</select>[39m
+        [36m</label>[39m
+      [36m</div>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"Evidence sections"[39m
+        [33mclass[39m=[32m"flex flex-wrap gap-3 border-b border-border-hairline"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 border-b-2 border-transparent whitespace-nowrap font-semibold max-[480px]:min-h-11 h-8 px-1 pb-2.5 text-sm rounded-ds-xs outline-hidden focus-visible:ring-2 focus-visible:ring-brand text-text-tertiary hover:border-action hover:text-action"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/summary"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [0mSummary[0m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 border-b-2 border-transparent whitespace-nowrap font-semibold max-[480px]:min-h-11 h-8 px-1 pb-2.5 text-sm rounded-ds-xs outline-hidden focus-visible:ring-2 focus-visible:ring-brand text-text-tertiary hover:border-action hover:text-action"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/trace"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [0mTrace[0m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 border-b-2 border-transparent whitespace-nowrap font-semibold max-[480px]:min-h-11 h-8 px-1 pb-2.5 text-sm rounded-ds-xs outline-hidden focus-visible:ring-2 focus-visible:ring-brand text-text-tertiary hover:border-action hover:text-action"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/sources"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [0mSources[0m
+        [36m</a>[39m
+        [36m<a[39m
+          [33maria-current[39m=[32m"page"[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 border-b-2 whitespace-nowrap font-semibold max-[480px]:min-h-11 h-8 px-1 pb-2.5 text-sm rounded-ds-xs outline-hidden focus-visible:ring-2 focus-visible:ring-brand hover:border-action hover:text-action border-action text-action"[39m
+          [33mdata-current[39m=[32m"true"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/gaps"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [0mGaps[0m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 border-b-2 border-transparent whitespace-nowrap font-semibold max-[480px]:min-h-11 h-8 px-1 pb-2.5 text-sm rounded-ds-xs outline-hidden focus-visible:ring-2 focus-visible:ring-brand text-text-tertiary hover:border-action hover:text-action"[39m
+          [33mdata-rac[39m=[32m""[39m
+          [33mdata-react-aria-pressable[39m=[32m"true"[39m
+          [33mhref[39m=[32m"#evidence/record"[39m
+          [33mtabindex[39m=[32m"0"[39m
+        [36m>[39m
+          [0mRecord[0m
+        [36m</a>[39m
+      [36m</nav>[39m
+      [36m<section[39m
+        [33mclass[39m=[32m"flex flex-col gap-5 rounded-ds-lg border border-border-subtle bg-surface-card p-5 shadow-1 sm:p-8"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"grid gap-1"[39m
+        [36m>[39m
+          [36m<h3[39m
+            [33mclass[39m=[32m"font-display text-h3 text-text-primary"[39m
+          [36m>[39m
+            [0mGaps [0m
+            [36m<span[39m
+              [33mclass[39m=[32m"ml-1 text-sm font-normal text-text-secondary"[39m
+            [36m>[39m
+              [0m0[0m
+            [36m</span>[39m
+          [36m</h3>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-sm text-text-secondary"[39m
+          [36m>[39m
+            [0mWhat this run could not establish, with the detail each handoff records.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto flex w-full max-w-lg flex-col items-center justify-center py-5"[39m
+        [36m>[39m
+          [36m<header[39m
+            [33mclass[39m=[32m"relative mb-5"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"relative flex shrink-0 items-center justify-center *:data-icon:size-7 rounded-full size-14 bg-tertiary text-featured-icon-light-fg-gray"[39m
+              [33mdata-featured-icon[39m=[32m"true"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"z-1"[39m
+                [33mdata-icon[39m=[32m"true"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"24"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"24"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M14 11H8m2 4H8m8-8H8m12 3.5V6.8c0-1.68 0-2.52-.327-3.162a3 3 0 0 0-1.311-1.311C17.72 2 16.88 2 15.2 2H8.8c-1.68 0-2.52 0-3.162.327a3 3 0 0 0-1.311 1.311C4 4.28 4 5.12 4 6.8v10.4c0 1.68 0 2.52.327 3.162a3 3 0 0 0 1.311 1.311C6.28 22 7.12 22 8.8 22h2.7M22 22l-1.5-1.5m1-2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</div>[39m
+          [36m</header>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"z-10 mb-8 flex w-full max-w-88 flex-col items-center justify-center gap-2"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"font-display text-xl font-semibold text-primary"[39m
+            [36m>[39m
+              [0mNo gaps recorded[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"text-center text-md text-tertiary"[39m
+            [36m>[39m
+              [0mThe module handoffs list no gaps.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../credit-os2/web/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../credit-os2/web/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/pages/connected/report/Evidence.finalAudit.test.tsx:180:17
+    178|   const gapTitle = screen.getByRole("heading", { name: "No gaps record…
+    179|   expect(gapTitle.closest("section")?.querySelector("svg")).not.toBeNu…
+    180|   expect(screen.getByText("This run lists no gaps.")).toBeVisible();
+       |                 ^
+    181| });
+    182|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  src/pages/connected/report/Forecast.basis.test.tsx > preserves a zero-valued bridge
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  The calculation gives $0.00m cash proxy.
+Received:
+  The calculation gives US$0.00m cash proxy. The Forward credit model gives US$0.00m free cash flow. The displayed difference is US$0.00m.
+ ❯ src/pages/connected/report/Forecast.basis.test.tsx:135:53
+    133| it("preserves a zero-valued bridge", () => {
+    134|   render(<Forecast view={basisView({ original: "0", difference: "0", v…
+    135|   expect(screen.getByText(/The calculation gives/)).toHaveTextContent(
+       |                                                     ^
+    136|     "The calculation gives $0.00m cash proxy.",
+    137|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Coverage fell 2 pp. 3 quarters in a row, so no trend is drawn. whole
+AssertionError: expected 'See Evidence.' to be 'Coverage fell 2 pp. 3 quarters in a r…' // Object.is equality
+
+Expected: "Coverage fell 2 pp. 3 quarters in a row, so no trend is drawn."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Margin rose 150bp, 1.5 pp. 2 years running; leverage of 3.2x at FY2025 is the only point. whole
+AssertionError: expected 'See Evidence.' to be 'Margin rose 150bp, 1.5 pp. 2 years ru…' // Object.is equality
+
+Expected: "Margin rose 150bp, 1.5 pp. 2 years running; leverage of 3.2x at FY2025 is the only point."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Coverage fell 2 p.p. 3 quarters in a row; two pp. 3 quarters before that. whole
+AssertionError: expected 'See Evidence.' to be 'Coverage fell 2 p.p. 3 quarters in a …' // Object.is equality
+
+Expected: "Coverage fell 2 p.p. 3 quarters in a row; two pp. 3 quarters before that."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason Rated by S&P. 2025 outlook stable; cut by S&P. 3 notches since. whole
+AssertionError: expected 'See Evidence.' to be 'Rated by S&P. 2025 outlook stable; cu…' // Object.is equality
+
+Expected: "Rated by S&P. 2025 outlook stable; cut by S&P. 3 notches since."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  src/pages/connected/report/Forecast.reader-text.test.tsx > draws the chart gap reason The front page 2025 headline and the one-page 2026 outlook give no series. whole
+AssertionError: expected 'See Evidence.' to be 'The front page 2025 headline and the …' // Object.is equality
+
+Expected: "The front page 2025 headline and the one-page 2026 outlook give no series."
+Received: "See Evidence."
+
+ ❯ src/pages/connected/report/Forecast.reader-text.test.tsx:123:48
+    121|   const entry = chartEntry([{ title: "Rating trigger headroom", table:…
+    122|   render(<Forecast view={chartView(entry)} run={run} />);
+    123|   expect(screen.getByRole("note").textContent).toBe(drawn);
+       |                                                ^
+    124|   expect(screen.getByText("Not established for this run")).toBeInTheDo…
+    125|   expect(screen.queryByText("See Evidence.")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  3 failed | 13 passed (16)
+      Tests  7 failed | 240 passed (247)
+   Start at  18:35:04
+   Duration  48.54s (transform 4.01s, setup 1.65s, import 17.92s, tests 18.84s, environment 7.38s)

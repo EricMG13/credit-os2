@@ -1,0 +1,89 @@
+{
+  "results": [
+    {
+      "browser": "Chrome",
+      "version": "157.0.8103.78",
+      "scenario": "unknown-submission",
+      "creates": 2,
+      "reads": 2,
+      "uploads": [
+        {
+          "name": "annual.txt",
+          "bytes": "filing"
+        },
+        {
+          "name": "annual.txt",
+          "bytes": "filing"
+        }
+      ],
+      "answersRetained": true,
+      "purposeReached": true,
+      "realSubmit": false,
+      "errors": [],
+      "external": [],
+      "unexpected": []
+    },
+    {
+      "browser": "Chrome",
+      "version": "157.0.8103.78",
+      "scenario": "capacity",
+      "creates": 2,
+      "reads": 1,
+      "uploads": [
+        {
+          "name": "annual.txt",
+          "bytes": "filing"
+        }
+      ],
+      "answersRetained": true,
+      "purposeReached": true,
+      "realSubmit": false,
+      "errors": [],
+      "external": [],
+      "unexpected": []
+    },
+    {
+      "browser": "Edge",
+      "version": "155.0.4283.62",
+      "scenario": "unknown-submission",
+      "creates": 2,
+      "reads": 2,
+      "uploads": [
+        {
+          "name": "annual.txt",
+          "bytes": "filing"
+        },
+        {
+          "name": "annual.txt",
+          "bytes": "filing"
+        }
+      ],
+      "answersRetained": true,
+      "purposeReached": true,
+      "realSubmit": false,
+      "errors": [],
+      "external": [],
+      "unexpected": []
+    },
+    {
+      "browser": "Edge",
+      "version": "155.0.4283.62",
+      "scenario": "capacity",
+      "creates": 2,
+      "reads": 1,
+      "uploads": [
+        {
+          "name": "annual.txt",
+          "bytes": "filing"
+        }
+      ],
+      "answersRetained": true,
+      "purposeReached": true,
+      "realSubmit": false,
+      "errors": [],
+      "external": [],
+      "unexpected": []
+    }
+  ],
+  "actualApplicationApiRequests": []
+}

@@ -1,0 +1,13 @@
+FAIL docs/design/component-map.md: forbidden exclusive placement: model calls; registers as written
+FAIL docs/design/component-map.md: missing distinction: Record: run internals
+FAIL docs/design/component-map.md: missing distinction: Module-written tables and registers remain unchanged and exact
+FAIL docs/design/component-map.md: missing distinction: in the inspector, Trace or Record
+FAIL docs/design/component-map.md: forbidden exclusive placement: Record with registers; nothing removed
+FAIL docs/design/component-map.md: missing distinction: Record with run internals
+FAIL docs/design/component-map.md: missing distinction: module-written tables and registers in the inspector, Trace or Record
+FAIL docs/design/react-module-coverage.md: forbidden exclusive placement: Registers, calls, timings, instructions and handoff downloads live under Record
+FAIL docs/design/react-module-coverage.md: missing distinction: Module-written tables and registers remain unchanged and exact
+FAIL docs/design/react-module-coverage.md: missing distinction: in the inspector, Trace or Record
+FAIL docs/design/react-module-coverage.md: missing distinction: Run internals (calls, timings and instructions) live under Record
+FAIL docs/design/react-module-coverage.md: missing distinction: Handoff downloads remain available there
+Contract documentation scope: 3 rows, 12 failures

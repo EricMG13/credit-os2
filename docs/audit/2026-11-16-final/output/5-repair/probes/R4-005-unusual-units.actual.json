@@ -1,0 +1,31 @@
+{
+  "finding": "R4-005",
+  "classification": "Low; hostile-input; parked under R3",
+  "scope": "Requires an invalid or unusual reporting unit. No valid scale conversion or normal-data failure was observed.",
+  "ordinary": [
+    {
+      "value": "10m",
+      "unit": "US$m",
+      "expected": 10,
+      "actual": 10
+    },
+    {
+      "value": "10m",
+      "unit": "USD billions",
+      "expected": null,
+      "actual": null
+    }
+  ],
+  "unusual": [
+    {
+      "value": "10m",
+      "unit": "minimum",
+      "actual": 10
+    },
+    {
+      "value": "10m",
+      "unit": "term",
+      "actual": 10
+    }
+  ]
+}

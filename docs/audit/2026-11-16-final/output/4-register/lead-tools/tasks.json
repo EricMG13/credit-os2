@@ -285,7 +285,8 @@
       "C4-003",
       "C4-025",
       "C4-026",
-      "J4-003"
+      "J4-003",
+      "R4-006"
     ],
     "files": [
       "web/src/pages/connected/visuals/LegacyForecast.tsx",
@@ -294,7 +295,8 @@
       "src/deploy_workflow/owners/cpos_periods.py",
       "web/src/pages/connected/ReportContent.tsx"
     ],
-    "sensitive": "delivery text (src/deploy_workflow/owners)"
+    "sensitive": "delivery text (src/deploy_workflow/owners)",
+    "note": "Round4 recovery only (R12). Early peer feedback R4-006..010 corrected before final handoff; final pinned verdict still required. No fifth implementation round. Analytical producer files remain read only."
   },
   {
     "id": "T19",
@@ -585,5 +587,35 @@
     ],
     "sensitive": "source fidelity; independent review required",
     "note": "New lead step7 follow-up on audit/lead-connected-evidence, not an unfinished task assigned back to the active repair-2 controller. Candidate fix bcf9dff7 awaits fresh review and final-tree integration."
+  },
+  {
+    "id": "T43",
+    "group": 1,
+    "title": "Bind runtime display metadata to the actual scheduler and analytical run identities",
+    "findings": [
+      "R4-011"
+    ],
+    "files": [
+      "react_frontend/run_metadata.py",
+      "tests/test_react_runtime_identity.py",
+      "tests/test_react_runtime_metadata.py"
+    ],
+    "sensitive": "source/provenance identity; primary and adversarial read required",
+    "note": "Lead step7 follow-up on audit/lead-runtime-identity based runtime chunk; not reassigned to completed original repair1. Preserve every request/source/accepted-response check and add actual engine-artifact regression."
+  },
+  {
+    "id": "T44",
+    "group": 2,
+    "title": "Preserve ordinary prose and mathematical labels in the shared source-reference predicate",
+    "findings": [
+      "R4-012"
+    ],
+    "files": [
+      "web/src/pages/connected/publishedReport.ts",
+      "web/src/pages/connected/publishedReport.reference.test.tsx",
+      "web/src/pages/connected/report/Forecast.reader-text.test.tsx"
+    ],
+    "sensitive": "reader-content fidelity; independent review required",
+    "note": "Lead step7 follow-up on audit/lead-reference-predicate from stable candidate d309b859. Repair common predicate only; keep all independent expected strings and genuine citation withholding. Not reassigned to original repair2."
   }
 ]

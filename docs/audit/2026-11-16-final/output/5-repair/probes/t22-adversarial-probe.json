@@ -1,0 +1,173 @@
+{
+  "checkout": "/workspace/recovery-t22",
+  "sourceParseError": "Malformed table at line 7",
+  "score": {
+    "value": 89,
+    "band": "High"
+  },
+  "qualification": "Counts cover FY2025 audited standalone evidence only; overseas subsidiaries are excluded.",
+  "traceQualification": null,
+  "qualificationRetained": false,
+  "trace": {
+    "title": "Sources for Confidence inputs",
+    "heading": "Confidence inputs",
+    "subtitle": "Financial foundation · Retained output",
+    "statement": "89 out of 100 · High",
+    "derivation": {
+      "label": "Evidence retained with this item",
+      "value": "",
+      "note": null,
+      "children": [
+        {
+          "label": "Recorded confidence inputs",
+          "value": "",
+          "note": null,
+          "children": [
+            {
+              "label": "Directly Sourced",
+              "value": "0008",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Calculated",
+              "value": "2",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Assumption-Based",
+              "value": "2",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Analyst Inference",
+              "value": "0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Weak Lineage",
+              "value": "0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Untraced",
+              "value": "0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Conflicting",
+              "value": "0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Insufficient Information",
+              "value": "0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Fields present",
+              "value": "95",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Fields total",
+              "value": "100",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Source gate",
+              "value": "pass",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "CRITICAL",
+              "value": "0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "MATERIAL",
+              "value": "0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "MINOR",
+              "value": "1",
+              "note": null,
+              "children": []
+            }
+          ]
+        },
+        {
+          "label": "Confidence method",
+          "value": "",
+          "note": null,
+          "children": [
+            {
+              "label": "Formula",
+              "value": "(0.6 × evidence quality + 0.4 × field coverage) × source-gate factor − finding penalties",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Evidence quality",
+              "value": "Sum of each lineage count × its weight, divided by the total claim count, × 100. No claims gives evidence quality 0.",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Lineage weights",
+              "value": "Directly Sourced 1.0; Calculated 0.9; Assumption-Based 0.5; Analyst Inference 0.4; Weak Lineage 0.3; Untraced 0.0; Conflicting 0.0; Insufficient Information 0.0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Field coverage",
+              "value": "Fields present / Fields total × 100.",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Source-gate factors",
+              "value": "pass 1.0; partial 0.7; fail 0.0",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Finding penalties",
+              "value": "CRITICAL 40; MATERIAL 15; MINOR 3 points per finding",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Caps and rounding",
+              "value": "Clamp to 0–100. Any CRITICAL finding caps the score at 39 (Blocked); otherwise any MATERIAL finding caps it at 59 (Restricted). Otherwise Passed. Round to the nearest integer, half to even.",
+              "note": null,
+              "children": []
+            },
+            {
+              "label": "Bands",
+              "value": "80–100 High; 60–79 Medium; 40–59 Low; 0–39 Insufficient Information",
+              "note": null,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    "excerpt": null,
+    "qualification": null,
+    "evidenceItem": "run-a%2FCP-1.md~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

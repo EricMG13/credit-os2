@@ -1,0 +1,155 @@
+{
+  "checkout": "/workspace/repair-2",
+  "scope": "Synthetic source/component presentation only; no analytical engine, provider or real Submit",
+  "checks": [
+    {
+      "name": "R4-006 conflicting retained hash produces explicit gap",
+      "passed": true
+    },
+    {
+      "name": "R4-006 conflict borrows neither drivers nor source links",
+      "passed": true
+    },
+    {
+      "name": "R4-007 raw assumptions state GBP thousands scale1000",
+      "passed": true
+    },
+    {
+      "name": "R4-007 original amounts remain unconverted",
+      "passed": true
+    },
+    {
+      "name": "Planning years retain exact recorded spans",
+      "passed": true
+    },
+    {
+      "name": "Selected trace binds exact case/period/value",
+      "passed": true
+    },
+    {
+      "name": "Raw input fields retain source value and scale",
+      "passed": true
+    },
+    {
+      "name": "All-case proxy trace preserves both final values",
+      "passed": true
+    },
+    {
+      "name": "Malformed-grid qualification retains exact text once/all scopes",
+      "passed": true
+    },
+    {
+      "name": "Absent evidence leaves explicit gap and figures",
+      "passed": true
+    },
+    {
+      "name": "Native conflict→visible gap/no driver borrow",
+      "passed": true
+    },
+    {
+      "name": "Native raw unit/scale caption, dates and amounts preserved",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: base trend",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: downside trend",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: all-case cash proxy",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: row",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: card",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: driver",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: facility",
+      "passed": true
+    },
+    {
+      "name": "Native trace role: default no-context caller",
+      "passed": true
+    },
+    {
+      "name": "Native runtime uses no external host and has no page error",
+      "passed": true
+    }
+  ],
+  "observations": {
+    "conflict": {
+      "modelSource": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "handoffSource": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "gap": true,
+      "borrowedDriver": false,
+      "conflictingLink": false
+    },
+    "units": {
+      "recordedCaption": true,
+      "rawDividends": true,
+      "rawBalance": true,
+      "rawAmortisation": true
+    }
+  },
+  "browser": {
+    "version": "155.0.4283.62",
+    "executablePath": "/workspace/audit-browsers/edge/opt/microsoft/msedge/msedge",
+    "roles": [
+      {
+        "name": "base trend",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      },
+      {
+        "name": "downside trend",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      },
+      {
+        "name": "all-case cash proxy",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      },
+      {
+        "name": "row",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      },
+      {
+        "name": "card",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      },
+      {
+        "name": "driver",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      },
+      {
+        "name": "facility",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      },
+      {
+        "name": "default no-context caller",
+        "href": "/report/run#evidence/forward~aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-72",
+        "passed": true
+      }
+    ],
+    "external": [],
+    "errors": []
+  },
+  "passed": 21,
+  "failed": 0
+}
