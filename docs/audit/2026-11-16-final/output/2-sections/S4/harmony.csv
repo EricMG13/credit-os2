@@ -1,0 +1,115 @@
+matrix,row_id,mark,screen,evidence,note
+content,CM-008,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/trace; trace drawer,2-sections/S4/evidence/drawer-no-sources--1440.png,"Evidence draws no Basis text (correct); the drawer lists statement and derivation but no source file, page or passage for 57 of 58 traces (S4-002)"
+content,CM-009,shown as required,trace drawer opened from Overview,,"One control per figure; opens by Enter, Escape/Close/overlay return focus to the opener (probe, w7); Evidence pages draw none (S4-019)"
+content,CM-014,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/record,,Page's own Model calls table has a Code column of module codes (S4-008); module filter and tabs use names
+content,CM-015,correctly not shown,#/library/halden-aerostructures/2026-09-30/evidence/*,,No text written for another module and no routing text on any Evidence tab
+content,CM-016,correctly not shown,#/library/halden-aerostructures/2026-09-30/evidence/*,,No text written for another module and no routing text on any Evidence tab
+content,CM-018,shown but wrong place or form,"#/library/halden-aerostructures/2026-09-30/evidence/summary, /record",,"One zip on Summary and Download all on Record; no per-module handoff download; links resolve to nothing in the fixture (S4-003, S4-011)"
+content,CM-031,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/summary,,"Issuer, case date, pathway and state drawn by the run frame on every tab"
+content,CM-051,missing,"#/library/halden-aerostructures/2026-09-30/evidence/gaps, /summary",,"No comparison reason, regression or recheck register, comparison measures or CP-8 Basis form on Evidence (S4-012)"
+content,CM-059,missing,"#/library/halden-aerostructures/2026-09-30/evidence/gaps, /summary",,"No comparison reason, regression or recheck register, comparison measures or CP-8 Basis form on Evidence (S4-012)"
+content,CM-063,missing,"#/library/halden-aerostructures/2026-09-30/evidence/gaps, /summary",,"No comparison reason, regression or recheck register, comparison measures or CP-8 Basis form on Evidence (S4-012)"
+content,CM-069,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No calculation JSON download or model download; derivation opens in Trace and drawer (S4-011)
+content,CM-072,shown but wrong place or form,"#/library/halden-aerostructures/2026-09-30/evidence/trace, /sources, /gaps",,Five tabs present; filter on three tabs only and resets per tab (S4-006)
+content,CM-073,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-074,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/trace/T-0014,,"Derivation expands with exact operands (2,236 / 486 = 4.6x checked); only one row carries one in the fixture (S4-001)"
+content,CM-075,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gap ledger grouped High, Medium, Low with the effect on the view; shown on the Gaps tab"
+content,CM-076,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/record,,"Timings, hashes, spend, calls, register file list shown open in a tab; no register or confidence rows (S4-009, S4-011)"
+content,CM-078,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/summary,,"Run code, hash, modules delivered 12 of 13, counts 9 / 59 / 7 (the 59 is mislabelled, S4-001)"
+content,CM-079,shown but wrong place or form,trace drawer,,"Statement first, derivation, excerpt and Open in Evidence present; sources absent for 57 of 58 (S4-002)"
+content,CM-080,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-081,correctly not shown,#/library/halden-aerostructures/2026-09-30/evidence/*,,No report.html link and no workbook download on any tab
+content,CM-082,correctly not shown,#/library/halden-aerostructures/2026-09-30/evidence/*,,No report.html link and no workbook download on any tab
+content,CM-092,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No delivery or publication state on Record (S4-011)
+content,CM-114,missing,"#/library/halden-aerostructures/2026-09-30/evidence/gaps, /summary",,"No comparison reason, regression or recheck register, comparison measures or CP-8 Basis form on Evidence (S4-012)"
+content,CM-117,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/record,,"Module states and timings shown for six of thirteen; no stop reasons or delivery state (S4-009, S4-011)"
+content,CM-119,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"Files and reading modules listed; no period, perimeter or consumer coverage matrix (S4-010)"
+content,CM-121,missing,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"No publication, reporting or import dates (S4-010)"
+content,CM-129,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/trace/T-0014,,"Derivation expands with exact operands (2,236 / 486 = 4.6x checked); only one row carries one in the fixture (S4-001)"
+content,CM-134,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-137,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-139,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-140,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-142,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-145,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-148,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-178,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-180,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-184,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-190,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-191,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-192,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gaps tab groups by severity; no affected consumer, repair action or status columns (S4-011)"
+content,CM-198,missing,"#/library/halden-aerostructures/2026-09-30/evidence/gaps, /summary",,"No comparison reason, regression or recheck register, comparison measures or CP-8 Basis form on Evidence (S4-012)"
+content,CM-199,missing,"#/library/halden-aerostructures/2026-09-30/evidence/gaps, /summary",,"No comparison reason, regression or recheck register, comparison measures or CP-8 Basis form on Evidence (S4-012)"
+content,CM-202,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/trace/T-0014,,Derivation shown; no calculation JSON or model destination (S4-011)
+content,CM-204,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/record,,"Module states and timings shown for six of thirteen; no stop reasons or delivery state (S4-009, S4-011)"
+content,CM-205,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/record,,"Spend bar USD 11.40 of 20.00 and retries shown; model-call rows partial, settled versus reserved not distinguished (S4-009)"
+content,CM-206,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/summary,,"Library, run header, tabs and Evidence tabs carry issuer, case and file roles"
+content,CM-209,shown but wrong place or form,"#/library/halden-aerostructures/2026-09-30/evidence/summary, /sources, /record",,Hashes drawn in full and copyable; downloads dead in the fixture (S4-003)
+content,CM-212,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-215,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-216,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-221,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-230,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-231,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-235,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-236,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gap ledger grouped High, Medium, Low with the effect on the view; shown on the Gaps tab"
+content,CM-240,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-241,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-246,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-248,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-249,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-253,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-254,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gap ledger grouped High, Medium, Low with the effect on the view; shown on the Gaps tab"
+content,CM-256,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-257,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-261,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-262,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gap ledger grouped High, Medium, Low with the effect on the view; shown on the Gaps tab"
+content,CM-264,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-265,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-269,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-270,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-271,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-276,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-278,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-279,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-284,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-285,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gap ledger grouped High, Medium, Low with the effect on the view; shown on the Gaps tab"
+content,CM-290,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-291,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-295,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-297,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-298,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-303,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-306,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-307,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-311,missing,"#/library/halden-aerostructures/2026-09-30/evidence/record, /trace",,"Per-module register, matrix or evidence table not drawn on Evidence; only the generic 'Registers as written' file list (S4-011)"
+content,CM-313,shown but wrong place or form,#/library/halden-aerostructures/2026-09-30/evidence/sources,,"File name, type, size, state, readers and hash shown; no document date; unread file not separated (S4-010)"
+content,CM-314,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No confidence-inputs table or published state (S4-011)
+content,CM-319,missing,#/library/halden-aerostructures/2026-09-30/evidence/record,,No register locator for the FX rate on Evidence (S4-011)
+content,CM-323,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gap ledger grouped High, Medium, Low with the effect on the view; shown on the Gaps tab"
+content,CM-324,correctly not shown,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,No portfolio-workbook case in the fixture; cannot be shown or checked here (Not verified)
+content,CM-330,missing,"#/library/halden-aerostructures/2026-09-30/evidence/sources, /gaps",,No Source type column and no aggregator case in the fixture (S4-010)
+control,CT-036,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control; draft rejection events are not on the static Evidence screens (S4-025)
+control,CT-041,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control; the five library pages are populated from fixture data here (S4-025)
+control,CT-046,decides less than the row,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Filter on three of five tabs, resets per tab (S4-006)"
+control,CT-047,decidable as required,#/library/halden-aerostructures/2026-09-30/evidence/*,,"One control per figure on Overview; keyboard reachable; focus returns to the opener on Escape, Close and overlay (verified from Overview, no trace control on Evidence)"
+control,CT-048,decides less than the row,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Handoffs zip and register files offered but dead in the fixture; no calculation JSON or model download (S4-003, S4-011); no workbook or report.html offered"
+control,CT-049,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control (S4-025)
+retired,R-01,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"No report.html link, button or name on any tab"
+retired,R-04,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,No workbook export; xlsx appears only as an input file name on Sources
+retired,R-06,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,No decision ledger or calibration input on Evidence
+retired,R-13,still offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Model calls table Code column shows CP-1A, CP-2C, CP-3B, CP-2E (S4-008)"
+retired,R-14,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"No separate Model, chart or calculation JSON deliverable on Evidence"
+retired,R-17,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"No routing text, Next module body or no-consumer register on Evidence"
+retired,R-22,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"No changes.json, prior/ file or page number in any drawer or Evidence text"
+retired,R-23,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Missing values draw n.a. with a hatched or worded form, severities carry shape and word, no spreadsheet error values"
+retired,R-24,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Five tabs, not seven; source files listed with name and hash, no download or viewer of a source file"
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Jump to an item command menu (button, Ctrl K, search, grouped options) (S4-018)"
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Sort buttons on Item, Module, Gap and Register heads (S4-026)"
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Copy buttons and the copy toast on Summary, Sources and Record (S4-017)"
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,'Show the other N files' disclosure on Sources (S4-026)
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,Gaps 'Shown as' column links to the findings page of each gap (S4-026)
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Trace 'Kind' badge (Passage, Figure, Row, Chart) (S4-026)"
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,Page-level 'Show sources' switch above every Evidence tab (S4-019)
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,Module timings note 'Six of thirteen shown' (S4-009)

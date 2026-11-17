@@ -1,0 +1,4 @@
+1. Tab onto 'About Net leverage' (the page scrolls to it): events=["tooltip added @20ms","tooltip removed @65ms","tooltip added @65ms","tooltip removed @103ms","tooltip added @103ms","tooltip removed @143ms","tooltip added @143ms","tooltip removed @180ms","tooltip added @180ms","tooltip removed @402ms","tooltip added @688ms","main scroll @735ms","tooltip removed @918ms","tooltip added @971ms","main scroll @972ms","tooltip removed @1168ms"] tooltips now=[]
+2. leave and re-enter with no scroll: tooltips now=["Net debt over EBITDA."]
+3. scroll main by 3px while it is open: tooltips now=[]
+log {"console":[],"pageerror":[],"failed":[],"blocked":[]}

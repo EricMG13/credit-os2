@@ -1,0 +1,11 @@
+[
+  {
+    role: 'alert',
+    text: 'Warning: Two airlines have begun certifying alternative partsIf approved, alternatives wou'
+  },
+  {
+    role: 'note',
+    text: 'Loss of sole-source status on a top-ten partOne certified alternative on a top-ten part, o'
+  }
+]
+blocked: [] console: []

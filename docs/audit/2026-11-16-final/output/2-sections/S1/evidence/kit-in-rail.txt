@@ -1,0 +1,10 @@
+rail on the shipped (empty) library: ["Library #/","Model #/model","Run #/run","Signal #/signal","Kit #/kit"]
+Kit opens: #/kit h1=Component kit
+sample figures drawn as metric cards: ["Net leverage 4.2x","Revenue 1,204 from 1,150","Interest cover n.a. not available"]
+any 'sample' wording in the Metric card section: false
+buttons whose press changes nothing: [{"n":"Primary","changed":false},{"n":"Secondary","changed":false},{"n":"Tertiary","changed":false},{"n":"Primary destructive","changed":false},{"n":"Add sources","changed":false},{"n":"Open run","changed":false},{"n":"Action","changed":false},{"n":"Leading icon","changed":false},{"n":"Trailing icon","changed":false}]
+paid-run sample dialog: Start a paid run This run costs money and cannot be undone. It stops at the cap of USD 20. Cancel Start the run
+after 'Start the run': dialogs=0 hash=#/kit
+sample input labelled Reporting currency: 1
+running animations: ["status-halo","queued-shimmer","spin","spin"]
+log {"console":[],"pageerror":[],"failed":[],"blocked":[]}

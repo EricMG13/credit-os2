@@ -1,0 +1,7 @@
+readers of data.issuers in web/src (outside tests and Signal):
+  App.tsx lines 31 and 36 (inside LibraryBody, reached only when the result is ok and no route matched)
+complete fixture #/library/home: {"h1":"Library","main":"Library Five issuers, each opening on its latest finished run Start a "}
+one issuers entry without a name, every slice intact #/library/home: {"h1":"Library","main":"Library Library data is missing"}
+one issuers entry without a name, every slice intact #/model: {"h1":"Financial models","main":"Financial models Library data is missing"}
+one issuers entry without a name, every slice intact #/library/halden-aerostructures/2026-09-30/overview: {"h1":"Library","main":"Library Library data is missing"}
+issuers lists Acme, no library slice (the 'No runs yet' / issuer-name branch is never drawn) #/: {"h1":"Library","main":"Library This data file holds no library pages"}

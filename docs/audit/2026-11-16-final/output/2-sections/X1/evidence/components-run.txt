@@ -1,0 +1,66 @@
+=== table-cells
+text: "NameFigurenulln.a.not availableundefemptyzero0"
+=== alert-nesting
+text: "Warning: Contrary evidenceFirst paragraph of a passage.Item"
+alert role: true | errors: [
+  'In HTML, %s cannot be a descendant of <%s>. This will cause a hydration error.%s <p> p <Case id="alert-nesting',
+  '<%s> cannot contain a nested %s. See this log for the ancestor stack trace. p <p>',
+  'In HTML, %s cannot be a descendant of <%s>. This will cause a hydration error.%s <ul> p <Case id="alert-nestin',
+  '<%s> cannot contain a nested %s. See this log for the ancestor stack trace. p <ul>'
+]
+=== timeline-dup
+text: "15 Mar 2026NextCovenant test15 Mar 2026LaterCovenant test"
+errors: [
+  'Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity acros'
+]
+=== status-unknown
+text: ""
+uncaught render error: Error: unknown status state "Partially delivered" in set "Module state" | root content: ""
+=== progress-over
+text: ""
+uncaught render error: RangeError: ProgressBar needs a value from 0 to max | root content: ""
+=== charttable-empty
+text: ""
+uncaught render error: Error: a table needs at least one row, but rows is empty | root content: ""
+=== charttable-blank
+text: ""
+uncaught render error: Error: row "r" has an empty-string cell; a missing figure is null | root content: ""
+=== loading
+text: "Waiting for the first module"
+status region html: <section data-case="loading" style="width: 360px; padding: 8px;"><div role="status" aria-label="Waiting for the first module" class="flex flex-col items-center justify-center gap-4"><svg aria-hidden="true" class="size-8 animate-spin" viewBox="0 0 32 32" fill="none"><circle class="text-action-subtle" cx="16" cy="16" r="14" stroke="currentColor" stroke-width="4"></circle><circle class="stroke-action" cx="16" cy="16" r="14" fill="none" stroke-width="4" stroke-dashoffset="75" stroke-dasharray="100" stroke-linecap="round"></circle></svg><span aria-hidden="true" class="text-sm font-medium text-secondary">Waiting for the first module</span></div></section>
+=== card-heading
+text: "Page titleModulesBody"
+heading tags: [ 'h1', 'h3' ]
+=== select-long (value text 1185px wide in a 296px box)
+{
+  scrollWidth: 1185,
+  clientWidth: 296,
+  textOverflow: 'ellipsis',
+  title: null
+}
+=== file-long
+{
+  scrollWidth: 1062,
+  clientWidth: 260,
+  textOverflow: 'ellipsis',
+  title: null
+}
+=== tabs: selected tab vs hovered unselected tab
+selected: {
+  tab: 'Overview',
+  ariaSelected: 'true',
+  underline: 'rgb(0, 26, 255)',
+  text: 'rgb(0, 26, 255)'
+}
+hovered : {
+  tab: 'Changes',
+  ariaSelected: 'false',
+  underline: 'rgb(0, 26, 255)',
+  text: 'rgb(0, 26, 255)'
+}
+=== drop zone after a file of the wrong type (accept=.pdf)
+{
+  hint: 'PDF files only',
+  hintColour: 'rgb(142, 65, 62)',
+  hasLiveRegionOrMessage: false
+}

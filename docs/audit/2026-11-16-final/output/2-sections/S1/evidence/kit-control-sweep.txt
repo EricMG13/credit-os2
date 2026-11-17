@@ -1,0 +1,57 @@
+variant fixture: 55 controls in main
+{"i":0,"role":"button","name":"Primary","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":1,"role":"button","name":"Secondary","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":2,"role":"button","name":"Tertiary","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":3,"role":"button","name":"Link color","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":4,"role":"button","name":"Link gray","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":5,"role":"button","name":"Link destructive","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":6,"role":"button","name":"Primary destructive","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":7,"role":"button","name":"Size sm","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":8,"role":"button","name":"Size md","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":9,"role":"button","name":"Size lg","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":10,"role":"button","name":"Size xl","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":11,"role":"button","name":"Disabled","disabled":true,"click":"ERR TimeoutError: locator.click: Timeout 3000ms exceeded.","Enter":"no change","Space":"no change"}
+{"i":12,"role":"button","name":"Leading icon","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":13,"role":"button","name":"Trailing icon","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":14,"role":"button","name":"Tooltip trigger","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":15,"role":"button","name":"Loading","disabled":true,"click":"ERR TimeoutError: locator.click: Timeout 3000ms exceeded.","Enter":"no change","Space":"no change"}
+{"i":16,"role":"tab","name":"Overview","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":17,"role":"tab","name":"Changes12","disabled":false,"click":"changes t,sel","Enter":"changes t,sel","Space":"changes t,sel"}
+{"i":18,"role":"tab","name":"Evidence","disabled":false,"click":"changes sel","Enter":"changes sel","Space":"changes sel"}
+{"i":19,"role":"tab","name":"Sources","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":20,"role":"tab","name":"Modules","disabled":false,"click":"changes sel","Enter":"changes sel","Space":"changes sel"}
+{"i":21,"role":"tab","name":"Forecast","disabled":false,"click":"changes t,sel","Enter":"changes t,sel","Space":"changes t,sel"}
+{"i":22,"role":"radio","name":"Chart","disabled":false,"click":"changes sel","Enter":"changes sel","Space":"changes sel"}
+{"i":23,"role":"radio","name":"Table","disabled":false,"click":"changes sel","Enter":"changes sel","Space":"changes sel"}
+{"i":24,"role":"button","name":"About Net leverage","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":25,"role":"button","name":"Add sources","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":26,"role":"button","name":"Open run","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":27,"role":"input","name":"Issuer","disabled":false,"click":"no change"}
+{"i":28,"role":"input","name":"","disabled":false,"click":"no change"}
+{"i":29,"role":"input","name":"","disabled":true,"click":"ERR TimeoutError: locator.click: Timeout 3000ms exceeded."}
+{"i":30,"role":"button","name":"Select","disabled":false,"click":"changes d,l","Enter":"changes d,l","Space":"changes d,l"}
+{"i":31,"role":"button","name":"Annual","disabled":true,"click":"ERR TimeoutError: locator.click: Timeout 3000ms exceeded.","Enter":"no change","Space":"no change"}
+{"i":32,"role":"button","name":"Select","disabled":false,"click":"changes d,l","Enter":"changes d,l","Space":"changes d,l"}
+{"i":33,"role":"columnheader","name":"Module","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":34,"role":"columnheader","name":"State","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":35,"role":"columnheader","name":"Findings","disabled":false,"click":"changes sel","Enter":"changes sel","Space":"changes sel"}
+{"i":36,"role":"columnheader","name":"Source","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":37,"role":"columnheader","name":"State","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":38,"role":"columnheader","name":"Items per week","disabled":false,"click":"changes sel","Enter":"changes sel","Space":"changes sel"}
+{"i":39,"role":"button","name":"Open drawer","disabled":false,"click":"changes d","Enter":"changes d","Space":"changes d"}
+{"i":40,"role":"button","name":"Start run","disabled":false,"click":"changes d","Enter":"changes d","Space":"changes d"}
+{"i":41,"role":"button","name":"Rename issuer","disabled":false,"click":"changes d","Enter":"changes d","Space":"changes d"}
+{"i":42,"role":"button","name":"Click to upload","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":43,"role":"button","name":"Delete Annual report.pdf","disabled":false,"click":"changes t","Enter":"changes t","Space":"changes t"}
+{"i":44,"role":"button","name":"Delete Credit agreement.pdf","disabled":false,"click":"changes t","Enter":"changes t","Space":"changes t"}
+{"i":45,"role":"button","name":"Delete Covenant schedule.xlsx","disabled":false,"click":"changes t","Enter":"changes t","Space":"changes t"}
+{"i":46,"role":"button","name":"Delete Scanned notes.pdf","disabled":false,"click":"changes t","Enter":"changes t","Space":"changes t"}
+{"i":47,"role":"button","name":"Try again","disabled":false,"click":"changes t","Enter":"changes t","Space":"changes t"}
+{"i":48,"role":"radio","name":"Chart","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":49,"role":"radio","name":"Table","disabled":false,"click":"changes t,sel","Enter":"changes t,sel","Space":"changes t,sel"}
+{"i":50,"role":"radio","name":"Chart","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+{"i":51,"role":"radio","name":"Table","disabled":false,"click":"changes t,sel","Enter":"changes t,sel","Space":"changes t,sel"}
+{"i":52,"role":"a","name":"Open the library","disabled":false,"click":"changes h,t,sel","Enter":"changes h,t,sel","Space":"no change"}
+{"i":53,"role":"a","name":"Back to the library","disabled":false,"click":"changes h,t,sel","Enter":"changes h,t,sel","Space":"no change"}
+{"i":54,"role":"button","name":"Action","disabled":false,"click":"no change","Enter":"no change","Space":"no change"}
+log {"console":[],"pageerror":[],"failed":[],"blocked":[]}

@@ -1,0 +1,8 @@
+stack parts before the change: Term loans=38, Senior secured notes=35.2, Senior subordinated notes=24.6, Receivables facility=2.2 -> last part set to 0
+front -> Skip to content Financial model This part of the library could not be read runs[0].statements.debt.stack.parts[3].value: expected a number above zero All financial models
+analysis -> Skip to content Financial model This part of the library could not be read runs[0].statements.debt.stack.parts[3].value: expected a number above zero All financial models
+statements -> Skip to content Financial model This part of the library could not be read runs[0].statements.debt.stack.parts[3].value: expected a number above zero All financial models
+forecast -> Skip to content Financial model This part of the library could not be read runs[0].statements.debt.stack.parts[3].value: expected a number above zero All financial models
+portfolio-fit -> Skip to content Financial model This part of the library could not be read runs[0].statements.debt.stack.parts[3].value: expected a number above zero All financial models
+limitations -> Skip to content Financial model This part of the library could not be read runs[0].statements.debt.stack.parts[3].value: expected a number above zero All financial models
+console: [] pageErrors: []

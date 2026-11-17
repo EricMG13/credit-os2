@@ -1,0 +1,2 @@
+Chart or Table: start ["Chart"] | click Table ["Table"] | click Table again []
+Debt by period: Chart or Table: start ["Chart"] | click Table ["Table"] | click Table again ["Table"]

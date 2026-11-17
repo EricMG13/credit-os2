@@ -1,0 +1,14 @@
+Capture, S6 session, 2026-11-17: proof.serve on 127.0.0.1:8766 (synthetic, no provider call), one synthetic run
+(Full credit assessment, run 20261117-080524-01) opened at /run/20261117-080524-01 after it finished.
+Accessibility snapshot of main (abridged), drawn by web/src/pages/run/activity/Summary.tsx and ModuleSteps.tsx:
+
+  - progressbar "14 of 14 modules"
+  - text: 14 of 14 modules   (Summary, "Modules finished 14 of 14")
+  - group "Modules":
+      - list "Modules in this run":   <- 15 list items
+          Source readiness, Financial foundation, Business & governance, Research questions, Legal & covenants,
+          Fundamental credit, Downside, Rates, FX & hedging, Liquidity, Forward credit model,
+          Refinancing & LME, Security selection, Evidence validation, Committee decision, Report
+          (each: Finished)
+
+The figure says 14 modules; the list under the heading "Modules" holds 15 rows, the last being "Report".

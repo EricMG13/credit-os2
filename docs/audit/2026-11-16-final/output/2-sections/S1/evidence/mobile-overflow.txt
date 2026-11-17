@@ -1,0 +1,5 @@
+320x640: {"documentScrollHeight":641,"viewportHeight":640,"railBottom":640,"railContentBottom":641,"linkHeight":44,"scrollYAfterScrollTo100":1}
+390x844: {"documentScrollHeight":845,"viewportHeight":844,"railBottom":844,"railContentBottom":845,"linkHeight":44,"scrollYAfterScrollTo100":1}
+480x800: {"documentScrollHeight":800,"viewportHeight":800,"railBottom":800,"railContentBottom":797,"linkHeight":36,"scrollYAfterScrollTo100":0}
+481x800: {"documentScrollHeight":800,"viewportHeight":800,"railBottom":800,"railContentBottom":797,"linkHeight":36,"scrollYAfterScrollTo100":0}
+767x900: {"documentScrollHeight":900,"viewportHeight":900,"railBottom":900,"railContentBottom":897,"linkHeight":36,"scrollYAfterScrollTo100":0}

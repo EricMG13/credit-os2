@@ -1,0 +1,14 @@
+state: done
+updated: 2026-11-17T08:26Z
+done: stage 2 for S1, S2, S3, S4, S5, S6 and X1, redone in full after the 06:30Z freeze (lead note 2026-11-17). Toolchain prepared again (uv 0.12.5, uv sync --locked, npm ci, npm run build); worker notes carry the hard limits. One Sonnet worker per section at xhigh (ruling R1), at most four driving a browser at once, each on its own port and folder. 208 findings in all: High 2, Medium 56, Low 102, Info 48.
+  S1: 20 findings (High 1, Medium 6, Low 11, Info 2); 18 harmony rows; 2,568 of 2,976 inventory lines covered, 402 Signal rail lines not operated (R2). Accepted first time.
+  S2: 35 findings (Medium 8, Low 17, Info 10); 108 harmony rows; 420 of 448 lines covered. Accepted after one send-back (harmony rows without finding ids, annotated evidence paths).
+  S3: 38 findings (Medium 10, Low 22, Info 6); 242 harmony rows; 1,616 of 1,616 lines covered. Accepted first time.
+  S4: 26 findings (High 1, Medium 11, Low 9, Info 5); 114 harmony rows; 3,539 of 4,131 lines directly or by sibling, the rest other-run lines or hidden react-aria buttons. Accepted after one send-back (same points as S2).
+  S5: 26 findings (Medium 7, Low 12, Info 7); 91 harmony rows; 259 of 270 lines covered, 11 chart surfaces not reached. Accepted first time.
+  S6: 37 findings (Medium 12, Low 19, Info 6); 62 harmony rows; 74 of 74 lines covered. S6-037 is filed with section C1 (a connected-page observation of S6's shared Summary.tsx) for stage 4 to place. Accepted first time.
+  X1: 26 findings (Medium 2, Low 12, Info 12); 49 harmony rows (retired and unaccounted only; X1 has no matrix rows); 61 component files and 5 other X1 files read in full, 25 kit sections. Accepted after one send-back (12 chart files had only been searched for check 5).
+  Notes for the lead: the Write tool refuses report files from subagents, so the controller placed the S1, S2, S4, S5, S6 and X1 report.md texts verbatim from the workers' replies (each report says so); the S3 worker wrote its own report.md with a shell heredoc. Several findings repeat across sections (focus after navigation, document title, shipped empty state, sub-13 px text, the USD 20 cap, the kit page); each report names the twin for stage 4. No worker failed; no section has an uncovered gap beyond each report's Not verified line.
+next: none; waiting for the lead to collect output/2-sections/S*/ and X1/.
+blocked: none
+reports: docs/audit/2026-11-16-final/output/2-sections/S1/report.md, docs/audit/2026-11-16-final/output/2-sections/S2/report.md, docs/audit/2026-11-16-final/output/2-sections/S3/report.md, docs/audit/2026-11-16-final/output/2-sections/S4/report.md, docs/audit/2026-11-16-final/output/2-sections/S5/report.md, docs/audit/2026-11-16-final/output/2-sections/S6/report.md, docs/audit/2026-11-16-final/output/2-sections/X1/report.md

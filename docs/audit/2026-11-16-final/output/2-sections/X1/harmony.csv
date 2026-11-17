@@ -1,0 +1,50 @@
+matrix,row_id,mark,screen,evidence,note
+retired,R-01,not offered,web/src/components (shared) and #/kit,web/src/components,"The separately delivered HTML report (report.html): no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-02,not offered,web/src/components (shared) and #/kit,web/src/components,"Process item: no component or kit text asks for the reader check (grep of components, utils, styles and Kit*.tsx)."
+retired,R-03,not offered,web/src/components (shared) and #/kit,web/src/components,"CP-MEMO, a separate memo module: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-04,not offered,web/src/components (shared) and #/kit,web/src/pages/Kit7f.tsx:22,"No export or download control in any shared component; the kit's file rows list 'Covenant schedule.xlsx' as an uploaded input, which AGENTS.md allows."
+retired,R-05,not offered,web/src/components (shared) and #/kit,web/src/components,"Short credit snapshot as a startable pathway: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-06,not offered,web/src/components (shared) and #/kit,web/src/components,"CP-8 investment-decision post-mortem and calibration task: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-07,not offered,web/src/components (shared) and #/kit,web/src/components,"A second orchestration layer and the M365 navigation-only restriction: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-08,not offered,web/src/components (shared) and #/kit,web/src/components,"Deploy VII journal-chain harness and runner: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-09,still offered,"#/kit, Modal (Start run)",web/src/pages/Kit7e.tsx:76,X1-016: the kit's paid-run sample says the run stops at the cap of USD 20 with no pathway named.
+retired,R-10,not offered,web/src/components (shared) and #/kit,web/src/components,"The sol-medium-only scope of the run-start ruling: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-11,not offered,web/src/components (shared) and #/kit,web/src/components,"Reader summary and OPENING module headings: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-12,not offered,web/src/components (shared) and #/kit,web/src/components,"Inline source references in prose: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-13,not offered,web/src/components (shared) and #/kit,web/src/components,"Module codes on screen: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-14,not offered,web/src/components (shared) and #/kit,web/src/components,"The delivered Model, charts and calculation JSON as separate items: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-15,not offered,web/src/components (shared) and #/kit,web/src/components,"The Reports rail entry and the Event calendar tab: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-16,not offered,web/src/components (shared) and #/kit,web/src/components,"The module navigator and lead-handoff action on Overview: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-17,not offered,web/src/components (shared) and #/kit,web/src/components,"Routing text and no-consumer registers written by modules: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-18,not offered,web/src/components (shared) and #/kit,web/src/components,"The US$m-only money unit and the non-USD warnings: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-19,not offered,web/src/components (shared) and #/kit,web/src/components,"Free-text analyst names: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-20,not offered,web/src/components (shared) and #/kit,web/src/components,"Better or worse judgement on cash; an Undrawn facilities headline card: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-21,not offered,web/src/components (shared) and #/kit,web/src/components,"Adjusted-EBITDA leverage in screening filters and sort: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-22,not offered,web/src/components (shared) and #/kit,web/src/components,"CP-8's old in-pack features (changes.json, prior/ files, trend wording on a withheld measure): no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+retired,R-23,not offered,web/src/components (shared) and #/kit,web/src/components/gap/Missing.tsx,Missing is the text n.a.; tables use divider rows; every status badge pairs a shape with a word (sets.ts); no spreadsheet error value is drawn.
+retired,R-24,not offered,web/src/components (shared) and #/kit,web/src/components,"The seven-tab Evidence arrangement and downloadable source files: no string, control or route for it in components, utils, styles or the Kit*.tsx files (case-insensitive grep)."
+unaccounted,,unaccounted,#/kit: Button,web/src/pages/Kit.tsx:126,X1-018; X1-013 (primary-destructive has no production caller)
+unaccounted,,unaccounted,#/kit: Tooltip,web/src/pages/Kit.tsx:149,X1-018
+unaccounted,,unaccounted,#/kit: Badge,web/src/pages/Kit.tsx:160,X1-018; X1-001 (size sm is 12 px)
+unaccounted,,unaccounted,#/kit: Status badge (16 sets and the live run state),web/src/pages/Kit.tsx:187,X1-018; X1-017 (slashed circle for Not ready); X1-013 (Loading button)
+unaccounted,,unaccounted,#/kit: Tabs,web/src/pages/Kit.tsx:215,X1-018; X1-009 (hover equals selected); X1-013 (badge prop)
+unaccounted,,unaccounted,#/kit: Button group,web/src/pages/Kit.tsx:255,X1-018 (the kit's group can be emptied: S1-015)
+unaccounted,,unaccounted,#/kit: Card and tile,web/src/pages/Kit.tsx:267,X1-018; X1-012 (Card title is always h3)
+unaccounted,,unaccounted,#/kit: Metric card,web/src/pages/Kit.tsx:277,X1-018; X1-003 (three metric cards differ)
+unaccounted,,unaccounted,#/kit: Timeline,web/src/pages/Kit.tsx:288,X1-018; X1-010 (key collision); X1-001 (date 12 px)
+unaccounted,,unaccounted,#/kit: Featured icon,web/src/pages/Kit.tsx:301,X1-018
+unaccounted,,unaccounted,#/kit: Empty state,web/src/pages/Kit.tsx:315,X1-018; X1-002 (title in Geist)
+unaccounted,,unaccounted,#/kit: Alert,web/src/pages/Kit.tsx:348,X1-018; X1-005 (role alert); X1-006 (children in a p)
+unaccounted,,unaccounted,#/kit: Callout,web/src/pages/Kit.tsx:376,X1-018
+unaccounted,,unaccounted,#/kit: Input,web/src/pages/Kit7c.tsx:20,X1-018; X1-013 (HintText size prop)
+unaccounted,,unaccounted,#/kit: Select,web/src/pages/Kit7c.tsx:34,X1-018; X1-015 (values cut with an ellipsis)
+unaccounted,,unaccounted,#/kit: Table,web/src/pages/Kit7d.tsx:84,X1-018; X1-004 (blank cell for undefined)
+unaccounted,,unaccounted,#/kit: Progress bar,web/src/pages/Kit7d.tsx:102,X1-018; X1-008 (throws on a value above max)
+unaccounted,,unaccounted,#/kit: Drawer,web/src/pages/Kit7e.tsx:23,"X1-018 (focus in, Escape, focus return and the scrim checked: no defect)"
+unaccounted,,unaccounted,#/kit: Modal (paid run and rename),web/src/pages/Kit7e.tsx:58,X1-018; X1-016 (flat USD 20 cap)
+unaccounted,,unaccounted,#/kit: Progress steps,web/src/pages/Kit7e.tsx:123,X1-018; X1-013 (kit only; names hidden below 640 px); X1-001 (10 px numerals)
+unaccounted,,unaccounted,#/kit: File upload,web/src/pages/Kit7f.tsx:32,X1-018; X1-013 (file row and invalid branch have no production caller); X1-015 (file name cut)
+unaccounted,,unaccounted,#/kit: Trend chart,web/src/pages/Kit.tsx:392,"X1-018; X1-007 (application role, no description); X1-001 (12 px ticks)"
+unaccounted,,unaccounted,#/kit: Gap states,web/src/pages/Kit.tsx:416,X1-018
+unaccounted,,unaccounted,#/kit: Link button,web/src/pages/Kit7g.tsx:8,X1-018
+unaccounted,,unaccounted,#/kit: Page header,web/src/pages/Kit.tsx:436,X1-018
