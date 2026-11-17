@@ -1,3 +1,29 @@
+## Lead checkpoint 2026-11-17T22:24Z
+
+**Stage 6 complete.** [PR #59](https://github.com/EricMG13/credit-os2/pull/59) passed both
+GitHub check jobs at `a326492d` and merged into `audit/final-repairs` at
+`a987af9b9ca5072d28f2e1f9e1dc5269c6c1858f` on 2026-11-17T22:24:26Z. The actual repair worktree
+`/workspace/audit-final` is fast-forwarded to the merge and its tree
+matches the tested PR exactly. Main remains at `2b881075`.
+
+The sweep has six reviewed production changes. Nine files add 21 and
+remove 66 lines. Web duplication is 2,785 lines, down 20, and the History
+paired fixture retains 109 bytes instead of 2,168 with identical requests
+and markup. Frontend 5,259 passed at 97.69% lines, Python 6,285 passed with
+one existing conditional skip, Node 573 passed, both quality gates passed,
+73 script tests and 138 file checks passed, and native Chrome and Edge
+connected proof passed. Initial title and file-wrapper failures and the
+successful unchanged gate repeats remain in the report. Render measurements
+are observational due to host load. Read `output/6-sweep/report.md` and
+`measurements.md` on the repair branch.
+
+Stage 5 is closed in ancestor `ba3df7d5`, with 248 canonical and 88 alias
+closure annotations. Do not rebuild the live register. The remaining
+stage is 7, release validation and work-PC handoff starting from this
+merged repair tree. See `stages/7-send-off.md` and the previously retained
+`output/5-repair/sendoff-readonly-prep.md`. The final PR to main is still
+to be opened after that stage and is to remain unmerged.
+
 ## Lead checkpoint 2026-11-17T22:10Z
 
 Stage 5 is closed. The reviewed application source `bb94ddce` and the
