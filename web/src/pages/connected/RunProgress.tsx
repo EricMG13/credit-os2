@@ -4,6 +4,7 @@ import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
 import { Card } from "@/components/card/Card";
 import { StatusBadge } from "@/components/status/StatusBadge";
+import { Skeleton } from "@/components/gap/Skeleton";
 import { PageHeader } from "../../shell/PageHeader";
 import { ModuleSteps } from "../run/activity/ModuleSteps";
 import { Feed } from "../run/activity/Feed";
@@ -21,7 +22,14 @@ import {
   type RunStatus,
 } from "./api";
 import { Breadcrumb } from "./layout";
-import { elapsedFigure, feedLines, finishedFigure, moduleSteps, spendFigure } from "./runFigures";
+import {
+  asOfDate,
+  elapsedFigure,
+  feedLines,
+  finishedFigure,
+  moduleSteps,
+  spendFigure,
+} from "./runFigures";
 import { isUnreachable } from "./useResource";
 
 const WORDS = {
@@ -87,10 +95,14 @@ const REPORT_PROBLEMS = {
 
 export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
   const [run, setRun] = useState<Run>();
+  useEffect(() => {
+    document.title = `${run?.issuer_name || "Run progress"}${run?.issuer_name ? " run" : ""} — Credit OS`;
+  }, [run?.issuer_name]);
   // Reading the run and reading its report fail apart, so one poll never clears the other's
   // alert: an alert that is removed and inserted again is announced again.
   const [problem, setProblem] = useState<Problem>();
   const [report, setReport] = useState<ReportState>("pending");
+  const [notAssessable, setNotAssessable] = useState<string[]>([]);
   // Counts of presses of "Try again" (the run) and "Check again" (the report); each restarts the poll.
   const [retries, setRetries] = useState(0);
   const [rechecks, setRechecks] = useState(0);
@@ -110,7 +122,8 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
     }
     async function reportState(giveUp: boolean): Promise<ReportState> {
       try {
-        await getReport(id, signal);
+        const publication = await getReport(id, signal);
+        if (!cancelled()) setNotAssessable(publication.not_assessable ?? []);
         return "ready";
       } catch (failure) {
         if (isPendingReport(failure)) return giveUp ? "absent" : "pending";
@@ -181,7 +194,7 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
               {run.as_of && (
                 <Badge color="gray">
                   <span>
-                    As of <time dateTime={run.as_of}>{run.as_of}</time>
+                    As of <time dateTime={run.as_of}>{asOfDate(run.as_of)}</time>
                   </span>
                 </Badge>
               )}
@@ -201,6 +214,11 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
           </>
         }
       />
+      {(restartable || report === "ready" || report === "absent") && (
+        <p className="mt-3 text-sm text-text-secondary">
+          Start from this run opens a new run with its own cap. The earlier run stays as it is.
+        </p>
+      )}
       {runProblem && (
         <div className="mt-6">
           <Alert
@@ -235,6 +253,11 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
               {serviceText(run.held_reason)}
             </Alert>
           )}
+          {run.status === "queued" && !run.held_reason && !run.reason && (
+            <p className="text-sm text-text-secondary">
+              Waiting for an available run slot. It starts when the service can accept it.
+            </p>
+          )}
           {run.stalled && (
             <p className="text-sm text-text-secondary">
               No activity has been recorded in the last hour.
@@ -267,8 +290,8 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
             }}
           />
           <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
-            <Card title="Modules">
-              <ModuleSteps live={live} steps={moduleSteps(run, live)} />
+            <Card title="Modules and report delivery">
+              <ModuleSteps live={live} steps={moduleSteps(run, live, notAssessable)} />
             </Card>
             <Card title="Activity">
               {run.events === null && (
@@ -286,9 +309,16 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
         </section>
       ) : (
         !problem && (
-          <p role="status" className="mt-6 text-text-secondary">
-            Loading run activity…
-          </p>
+          <div role="status" aria-label="Loading run progress" className="mt-6 grid gap-6">
+            <Skeleton lines={2} />
+            <div className="grid gap-6 xl:grid-cols-2">
+              {[0, 1].map((key) => (
+                <Card key={key}>
+                  <Skeleton lines={7} />
+                </Card>
+              ))}
+            </div>
+          </div>
         )
       )}
     </>

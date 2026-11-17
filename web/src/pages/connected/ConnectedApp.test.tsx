@@ -1695,8 +1695,11 @@ describe("connected activity and reports", () => {
       "/run/meridian-2026-11",
     );
     expect(screen.getByRole("heading", { level: 1, name: "Run activity" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Run" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Run" })).toHaveAttribute("href", "/runs");
+    expect(screen.getByRole("link", { name: "Run activity" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("link", { name: "Run activity" })).toHaveAttribute("href", "/runs");
     expect(screen.getByRole("link", { name: "Start a run" })).toHaveAttribute("href", "/start");
     expect(screen.getByText("Updated 16 Nov 2026, 14:32 UTC")).toBeInTheDocument();
     for (const term of ["Running", "Waiting"])
@@ -1712,7 +1715,7 @@ describe("connected activity and reports", () => {
     expect(screen.getByText("No activity in the last hour")).toBeInTheDocument();
     expect(screen.getByText("14 source files")).toBeInTheDocument();
     expect(screen.getByText("Issuer name differs from earlier runs")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Harbour Packaging" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Harbour Packaging" })).toHaveAttribute(
       "href",
       "/run/harbour-2026-11",
     );
@@ -1759,7 +1762,9 @@ describe("connected activity and reports", () => {
     expect(within(ended).getByText("Capped")).toBeVisible();
     expect(within(ended).getByText("Spending cap reached")).toBeVisible();
     expect(within(ended).getByText("31 Oct 2026, 12:05 UTC")).toBeVisible();
-    expect(screen.getByText("Ended", { selector: "dt" }).nextElementSibling).toHaveTextContent("1");
+    expect(
+      screen.getByText("Ended without a report", { selector: "dt" }).nextElementSibling,
+    ).toHaveTextContent("1");
     expect(screen.queryByText("No run in progress")).toBeNull();
   });
 
@@ -1807,9 +1812,9 @@ describe("connected activity and reports", () => {
     render(<ConnectedApp path="/runs" mode="synthetic" />);
     const ended = await screen.findByRole("region", { name: "Ended without a report" });
     expect(within(ended).getByText("Showing the latest 20 of 23.")).toBeVisible();
-    expect(screen.getByText("Ended", { selector: "dt" }).nextElementSibling).toHaveTextContent(
-      "23",
-    );
+    expect(
+      screen.getByText("Ended without a report", { selector: "dt" }).nextElementSibling,
+    ).toHaveTextContent("23");
     cleanup();
     activityFetch({
       updated: "2026-11-16T14:32:10Z",
@@ -1821,9 +1826,9 @@ describe("connected activity and reports", () => {
     render(<ConnectedApp path="/runs" mode="synthetic" />);
     await screen.findByRole("region", { name: "Ended without a report" });
     expect(screen.queryByText(/Showing the latest/)).toBeNull();
-    expect(screen.getByText("Ended", { selector: "dt" }).nextElementSibling).toHaveTextContent(
-      "20",
-    );
+    expect(
+      screen.getByText("Ended without a report", { selector: "dt" }).nextElementSibling,
+    ).toHaveTextContent("20");
   });
 
   it("says how many run records could not be read", async () => {
@@ -1907,7 +1912,9 @@ describe("connected activity and reports", () => {
     render(<ConnectedApp path="/run/test-run" mode="synthetic" />);
     const alert = await screen.findByText(reason);
     expect(alert.closest("[role]")).toHaveTextContent("Held by the service");
-    const modules = screen.getByRole("heading", { name: "Modules" }).closest("section, div");
+    const modules = screen
+      .getByRole("heading", { name: "Modules and report delivery" })
+      .closest("section, div");
     expect(modules).toHaveTextContent(/Interrupted/);
     expect(screen.getByRole("progressbar", { name: "1 of 2 modules" })).toBeInTheDocument();
   });
@@ -1951,7 +1958,9 @@ describe("connected activity and reports", () => {
     );
     render(<ConnectedApp path="/run/test-run" mode="synthetic" />);
     expect(await screen.findByText(/Waiting for the report/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Run activity" })).toHaveAttribute("href", "/runs");
+    expect(
+      within(screen.getByRole("main")).getByRole("link", { name: "Run activity" }),
+    ).toHaveAttribute("href", "/runs");
     expect(screen.getByText("Source readiness")).toBeInTheDocument();
     expect(
       screen.getByRole("progressbar", { name: /USD 0.00 of USD 25.00 cap usage/ }),

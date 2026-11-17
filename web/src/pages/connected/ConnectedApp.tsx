@@ -1,5 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Button } from "@/components/base/buttons/button";
+import { Skeleton } from "@/components/gap/Skeleton";
 import { PageHeader } from "../../shell/PageHeader";
 import { Shell, type Area } from "../../shell/Shell";
 import type { Mode } from "./api";
@@ -20,9 +21,20 @@ const StartRun = lazy(() => import("./StartRun").then(({ StartRun }) => ({ defau
 
 function LoadingPage() {
   return (
-    <p role="status" className="mx-auto mt-6 w-full max-w-[96rem] text-text-secondary">
-      Loading this page…
-    </p>
+    <div
+      role="status"
+      aria-label="Loading this page"
+      className="mx-auto mt-6 grid w-full max-w-[96rem] gap-6"
+    >
+      <Skeleton lines={2} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        {[0, 1].map((key) => (
+          <div key={key} className="rounded-ds-lg border border-border-subtle p-8">
+            <Skeleton lines={5} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -64,6 +76,18 @@ export function ConnectedApp({
   const start = path === "/start" || path === "/start/";
   const prior = new URLSearchParams(search).get("from");
   const runs = path === "/runs" || path === "/runs/";
+  useEffect(() => {
+    const title = start
+      ? "Start a run"
+      : runs
+        ? "Run activity"
+        : run
+          ? "Run progress"
+          : report
+            ? "Credit report"
+            : "Library";
+    document.title = `${title} — Credit OS`;
+  }, [path, start, runs, run, report]);
   const current = start || run || runs ? "run" : "library";
   return (
     <Shell current={current} sections={SECTIONS} symbol="/symbol.svg">

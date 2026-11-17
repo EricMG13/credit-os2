@@ -37,6 +37,8 @@ describe("C1-027 exact decimal cap usage", () => {
     ["0", "USD 0.00"],
     ["3.105e0", "USD 3.11"],
     ["3105e-3", "USD 3.11"],
+    ["0e999999", "USD 0.00"],
+    ["1e-999999", "USD 0.00"],
   ])("preserves exact cent rounding for %s", (spent, value) => {
     expect(spendFigure({ ...run, spent }).value).toBe(value);
   });

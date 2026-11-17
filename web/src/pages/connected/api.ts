@@ -164,7 +164,14 @@ export type Activity = {
   unreadable?: number;
 };
 
-type ReportEntry = { id: string; issuer: string; asOf: string; pathway: string };
+type ReportEntry = {
+  id: string;
+  issuer: string;
+  asOf: string;
+  pathway: string;
+  /** Designated published outputs explicitly marked not assessable; absent in older replies. */
+  not_assessable?: string[];
+};
 export class RequestError extends Error {
   constructor(
     message: string,

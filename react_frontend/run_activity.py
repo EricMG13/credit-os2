@@ -278,7 +278,8 @@ _REASONS = (
 # The held note's rebuild failure, with the library's error in parentheses (``Scheduler``). The
 # scheduler joins its held notes with "; ", so another note may follow it.
 _REBUILD_NOTE = re.compile(
-    r"the library could not be rebuilt \(.*?\); ended runs wait for it(?P<more>; )?", re.DOTALL
+    r"the library could not be rebuilt \(.*?\); ended runs wait for it(?P<more>; (?P<next>.?))?",
+    re.DOTALL,
 )
 
 
@@ -290,7 +291,9 @@ def _in_readers_words(reason: str) -> str:
     for pattern, text in _REASONS:
         if pattern.fullmatch(reason):
             return text
-    return _REBUILD_NOTE.sub(lambda note: _NOT_REBUILT + (" " if note["more"] else ""), reason)
+    return _REBUILD_NOTE.sub(
+        lambda note: _NOT_REBUILT + (" " + note["next"].upper() if note["more"] else ""), reason
+    )
 
 
 def _stopped_by(reason: str) -> str:

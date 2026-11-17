@@ -20,6 +20,7 @@ from deploy_workflow.run_start import service
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 
 from . import admission, artifacts, portfolio, run_activity, sources
+from .library_cards import lead_summary, not_assessable_modules
 
 PROJECT = Path(__file__).resolve().parent.parent
 RUN_ID = re.compile(r"[0-9A-Za-z][0-9A-Za-z._-]{0,79}")
@@ -131,12 +132,15 @@ def _library_index(layout: Layout) -> http_base.Reply:
     if snapshot is None:
         return http_base.Reply(200, None)
     visible = admission.admitted(snapshot, layout)
-    runs = {
-        key: {
+    runs = {}
+    for key, record in visible["workspace"].get("runs", {}).items():
+        kept = {
             field: record[field] for field in ("folder", "issuerKey", "pathway") if field in record
         }
-        for key, record in visible["workspace"].get("runs", {}).items()
-    }
+        lead = lead_summary(visible["workspace"], record, key)
+        if lead is not None:
+            kept["lead"] = lead
+        runs[key] = kept
     return http_base.Reply(
         200,
         {
@@ -225,20 +229,28 @@ def _compressible(reply: http_base.Reply, path: str) -> bool:
     }
 
 
-def _report_entries(snapshot: dict[str, Any] | None) -> dict[str, dict[str, str]]:
+def _report_entries(snapshot: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     if snapshot is None:
         return {}
-    workspace_runs = {run["folder"]: run for run in snapshot["workspace"]["runs"].values()}
-    return {
-        run_id: {
+    workspace = snapshot["workspace"]
+    workspace_runs = {run["folder"]: (key, run) for key, run in workspace["runs"].items()}
+    entries = {}
+    for run in snapshot["catalogue"]["real"]:
+        run_id = run["id"]
+        if not _valid_report_folder(run_id) or run_id not in workspace_runs:
+            continue
+        key, record = workspace_runs[run_id]
+        entry: dict[str, Any] = {
             "id": run_id,
             "issuer": run["name"],
             "asOf": run["date"] or "",
-            "pathway": workspace_runs[run_id]["pathway"] or "",
+            "pathway": record["pathway"] or "",
         }
-        for run in snapshot["catalogue"]["real"]
-        if _valid_report_folder(run_id := run["id"]) and run_id in workspace_runs
-    }
+        blocked = not_assessable_modules(workspace, record, key)
+        if blocked:
+            entry["not_assessable"] = blocked
+        entries[run_id] = entry
+    return entries
 
 
 def _read_page(dist: Path, *, synthetic: bool, signal_url: str) -> bytes:

@@ -263,7 +263,7 @@ def _hold_a_queued_run(layout: Layout, held: str) -> None:
         (
             "locked",
             "; daily limit of 1 runs reached; waiting until tomorrow",
-            f"{_NOT_REBUILT} daily limit of 1 runs reached; waiting until tomorrow",
+            f"{_NOT_REBUILT} Daily limit of 1 runs reached; waiting until tomorrow",
         ),
     ],
 )

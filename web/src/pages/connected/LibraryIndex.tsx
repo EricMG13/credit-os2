@@ -1,7 +1,10 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
-import { ArrowRight, BookOpen01 } from "@untitledui/icons";
+import { ArrowRight, BookOpen01, FileSearch02 } from "@untitledui/icons";
 import { Alert } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
+import { Skeleton } from "@/components/gap/Skeleton";
+import { StatusBadge } from "@/components/status/StatusBadge";
+import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
 import { PageHeader } from "../../shell/PageHeader";
@@ -9,6 +12,9 @@ import { TextLink } from "../run/TextLink";
 import { card, field, heading, label } from "./layout";
 import {
   getLibraryIndex,
+  containsReference,
+  readParagraph,
+  readerText,
   reportPath,
   runPathway,
   type CatalogueRun,
@@ -16,8 +22,45 @@ import {
 } from "./publishedReport";
 import { HeadlineFigures } from "./HeadlineFigures";
 import { isUnreachable } from "./useResource";
+import { asOfDate } from "./runFigures";
 
-type LibraryFilters = { query: string; sector: string; pathway: string };
+type LibraryFilters = { query: string; sector: string; pathway: string; layout: "cards" | "list" };
+
+function filtersFromAddress(): LibraryFilters {
+  const query = new URLSearchParams(window.location.search);
+  return {
+    query: query.get("q") ?? "",
+    sector: query.get("sector") ?? "all",
+    pathway: query.get("pathway") ?? "all",
+    layout: query.get("layout") === "list" ? "list" : "cards",
+  };
+}
+
+function CreditView({ run }: { run: LibraryIndex["workspace"]["runs"][string] | undefined }) {
+  const lead = run?.lead;
+  if (!lead)
+    return <p className="text-sm text-text-secondary">No credit view is supplied for this run.</p>;
+  const href = `${reportPath(run.folder)}#evidence/${encodeURIComponent(lead.output)}~${lead.sha256}-${String(lead.line)}`;
+  const { body } = readParagraph(lead.text);
+  if (containsReference(body))
+    return <TextLink href={href}>Read this credit view in Evidence</TextLink>;
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <p className="text-body text-text-secondary">
+        {readerText(body.replaceAll("**", "").replaceAll("`", ""))}
+      </p>
+      <Button
+        href={href}
+        aria-label="Sources for this credit view"
+        color="tertiary"
+        size="sm"
+        iconLeading={FileSearch02}
+      >
+        View sources
+      </Button>
+    </div>
+  );
+}
 
 function MatchRuns({
   snapshot,
@@ -28,7 +71,7 @@ function MatchRuns({
   filters: LibraryFilters;
   setFilters: Dispatch<SetStateAction<LibraryFilters>>;
 }) {
-  const [layout, setLayout] = useState<"cards" | "list">("cards");
+  const { layout } = filters;
   const byFolder = new Map(Object.values(snapshot.workspace.runs).map((run) => [run.folder, run]));
   const groups = new Map<string, CatalogueRun[]>();
   for (const entry of snapshot.catalogue.real) {
@@ -71,7 +114,7 @@ function MatchRuns({
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-3">
-          <label className="grid gap-1 text-sm text-text-secondary">
+          <label className={label}>
             Sector
             <select
               aria-label="Sector"
@@ -90,7 +133,7 @@ function MatchRuns({
               ))}
             </select>
           </label>
-          <label className="grid gap-1 text-sm text-text-secondary">
+          <label className={label}>
             Pathway
             <select
               aria-label="Pathway"
@@ -117,7 +160,8 @@ function MatchRuns({
           selectedKeys={[layout]}
           onSelectionChange={(keys) => {
             const [key] = keys;
-            if (key === "cards" || key === "list") setLayout(key);
+            if (key === "cards" || key === "list")
+              setFilters((previous) => ({ ...previous, layout: key }));
           }}
         >
           <ButtonGroupItem id="cards">Cards</ButtonGroupItem>
@@ -132,16 +176,18 @@ function MatchRuns({
             <li key={key} className={`${card} grid gap-5`}>
               <header className="grid gap-1">
                 <h3 className={heading}>{newest.name}</h3>
-                <p className="text-sm text-text-secondary">
-                  {[newest.issuer !== newest.name ? newest.issuer : "", newest.sector]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
+                {newest.sector && <p className="text-sm text-text-secondary">{newest.sector}</p>}
+                {byFolder.has(newest.id) ? (
+                  <StatusBadge set="Module state" state="Delivered" />
+                ) : (
+                  <Badge color="gray">No report published</Badge>
+                )}
               </header>
               <p className="text-sm text-text-secondary">
                 {runPathway(byFolder.get(newest.id) ?? { pathway: null }, newest)} ·{" "}
-                <time dateTime={newest.date}>{newest.date}</time>
+                <time dateTime={newest.date}>{asOfDate(newest.date)}</time>
               </p>
+              <CreditView run={byFolder.get(newest.id)} />
               <HeadlineFigures catalogue={newest} />
               {linked ? (
                 <div className="flex flex-wrap items-center gap-3">
@@ -182,7 +228,9 @@ function MatchRuns({
                   <td className="p-3">
                     {runPathway(byFolder.get(newest.id) ?? { pathway: null }, newest)}
                   </td>
-                  <td className="p-3">{newest.date}</td>
+                  <td className="p-3">
+                    <time dateTime={newest.date}>{asOfDate(newest.date)}</time>
+                  </td>
                   <td className="p-3">
                     {linked ? (
                       <TextLink href={reportPath(linked.id)}>Open report</TextLink>
@@ -264,11 +312,25 @@ function EmptyLibrary() {
 
 export function ReportLibrary() {
   const { value, problem, retry } = useLibrary();
-  const [filters, setFilters] = useState<LibraryFilters>({
-    query: "",
-    sector: "all",
-    pathway: "all",
-  });
+  const [filters, setFilters] = useState<LibraryFilters>(filtersFromAddress);
+  useEffect(() => {
+    document.title = "Library — Credit OS";
+  }, []);
+  useEffect(() => {
+    const address = new URL(window.location.href);
+    const values = {
+      q: filters.query,
+      sector: filters.sector,
+      pathway: filters.pathway,
+      layout: filters.layout,
+    };
+    for (const [key, value] of Object.entries(values)) {
+      if (!value || value === "all" || (key === "layout" && value === "cards"))
+        address.searchParams.delete(key);
+      else address.searchParams.set(key, value);
+    }
+    window.history.replaceState(window.history.state, "", address);
+  }, [filters]);
   // No index and an index with no report are one state; with nothing to filter, no filter is shown.
   const empty = value === null || value?.catalogue.real.length === 0;
   return (
@@ -289,9 +351,13 @@ export function ReportLibrary() {
           </Alert>
         )}
         {value === undefined && !problem && (
-          <p role="status" className="text-text-secondary">
-            Loading reports…
-          </p>
+          <div role="status" aria-label="Loading reports" className="grid gap-4 lg:grid-cols-2">
+            {[0, 1].map((key) => (
+              <div className={card} key={key}>
+                <Skeleton lines={5} />
+              </div>
+            ))}
+          </div>
         )}
         {empty && <EmptyLibrary />}
         {value && !empty && (

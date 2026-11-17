@@ -7,6 +7,7 @@ import { Button } from "@/components/base/buttons/button";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { StatusShape } from "@/components/status/shapes";
+import { Skeleton } from "@/components/gap/Skeleton";
 import { PageHeader } from "../../shell/PageHeader";
 import { TextLink } from "../run/TextLink";
 import {
@@ -121,14 +122,9 @@ function RunningCard({ run }: { run: LiveRun }) {
           {bar && <ProgressBar value={bar.value} max={bar.max} label={bar.label} />}
           <ul aria-label="Modules" className="flex flex-wrap gap-1.5">
             {run.modules.map(([code, state]) => (
-              <li key={code}>
-                <StatusBadge
-                  set="Run states"
-                  state={STEP[state]}
-                  label={moduleName(code)}
-                  live={!run.stalled}
-                />
-                <span className="sr-only">{STEP[state]}</span>
+              <li key={code} className="flex items-center gap-2">
+                <span className="text-sm text-text-secondary">{moduleName(code)}</span>
+                <StatusBadge set="Run states" state={STEP[state]} live={!run.stalled} />
               </li>
             ))}
           </ul>
@@ -145,7 +141,7 @@ function RunningCard({ run }: { run: LiveRun }) {
   );
 }
 
-function WaitingTable({ runs }: { runs: LiveRun[] }) {
+function WaitingTable({ runs, held }: { runs: LiveRun[]; held: string }) {
   return (
     <div className={`${panel} overflow-x-auto`}>
       <Table aria-label="Waiting runs" size="sm">
@@ -164,6 +160,9 @@ function WaitingTable({ runs }: { runs: LiveRun[] }) {
                     fileCount(run),
                   ).join(" · "),
                   ...notes(run),
+                  !run.reason &&
+                    !held &&
+                    "Waiting for an available run slot. It starts when the service can accept it.",
                 ).map((text) => (
                   <span key={text} className="block text-xs">
                     {text}
@@ -240,6 +239,9 @@ function Empty({ title, children }: { title: string; children: string }) {
 
 /** What is running, waiting and ended without a report. A run's own page has its spend, modules and activity. */
 export function RunActivity() {
+  useEffect(() => {
+    document.title = "Run activity — Credit OS";
+  }, []);
   const { read, failed } = useActivity();
   const running = read?.runs.filter((run) => run.status === "running") ?? [];
   const waiting = read?.runs.filter((run) => run.status === "queued") ?? [];
@@ -261,7 +263,7 @@ export function RunActivity() {
                 counts={[
                   ["Running", running.length],
                   ["Waiting", waiting.length],
-                  ["Ended", endedTotal],
+                  ["Ended without a report", endedTotal],
                 ]}
               />
             )}
@@ -271,9 +273,20 @@ export function RunActivity() {
       />
       <div className="mt-6 grid gap-6">
         {read === undefined && !failed && (
-          <p role="status" className="text-text-secondary">
-            Loading run activity…
-          </p>
+          <div
+            role="status"
+            aria-label="Loading run activity"
+            className="grid gap-4 xl:grid-cols-2"
+          >
+            {[0, 1].map((key) => (
+              <div key={key} className={`${panel} p-5`}>
+                <Skeleton lines={5} />
+              </div>
+            ))}
+          </div>
+        )}
+        {read && running.length + waiting.length + ended.length > 0 && (
+          <TextLink href="/">Finished runs are in the library</TextLink>
         )}
         {failed && (
           <Alert
@@ -328,7 +341,7 @@ export function RunActivity() {
             )}
             {waiting.length > 0 && (
               <Group title="Waiting">
-                <WaitingTable runs={waiting} />
+                <WaitingTable runs={waiting} held={read?.held ?? ""} />
               </Group>
             )}
           </div>

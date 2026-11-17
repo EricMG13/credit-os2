@@ -239,7 +239,13 @@ export type Snapshot = {
 export type LibraryIndex = {
   catalogue: Snapshot["catalogue"];
   workspace: {
-    runs: Record<string, Pick<PublishedRun, "folder" | "issuerKey" | "pathway">>;
+    runs: Record<
+      string,
+      Pick<PublishedRun, "folder" | "issuerKey" | "pathway"> & {
+        /** Exact selected credit-view paragraph; its Basis line and original source identity remain intact. */
+        lead?: { module: string; output: string; sha256: string; line: number; text: string };
+      }
+    >;
   };
   preview?: Snapshot["preview"];
 };
