@@ -117,6 +117,9 @@ it("S3-028 keeps the current entry inside the visible window when the reader hea
       />,
     );
     expect(screen.getByRole("navigation", { name: "Modules and sections" }).scrollTop).toBe(270);
+    screen.getByRole("navigation", { name: "Modules and sections" }).scrollTop = 0;
+    fireEvent(window, new Event("resize"));
+    expect(screen.getByRole("navigation", { name: "Modules and sections" }).scrollTop).toBe(270);
   } finally {
     bounds.mockRestore();
     if (height !== undefined) Object.defineProperty(window, "innerHeight", height);

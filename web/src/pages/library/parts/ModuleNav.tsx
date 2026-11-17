@@ -78,16 +78,23 @@ export function ModuleNav({
   const wanted = search.trim().toLowerCase();
   const listed = modules.filter((module) => module.name.toLowerCase().includes(wanted));
   useEffect(() => {
-    const nav = menu.current;
-    const entry = nav?.querySelector('[aria-current="page"]');
-    if (nav === null || entry === null || entry === undefined) return;
-    const view = nav.getBoundingClientRect();
-    const item = entry.getBoundingClientRect();
-    if (view.height === 0 || item.height === 0) return;
-    const bottom = Math.min(view.bottom, window.innerHeight);
-    const top = Math.max(view.top, 0);
-    if (item.bottom > bottom) nav.scrollTop += item.bottom - bottom;
-    else if (item.top < top) nav.scrollTop -= top - item.top;
+    const align = () => {
+      const nav = menu.current;
+      const entry = nav?.querySelector('[aria-current="page"]');
+      if (nav === null || entry === null || entry === undefined) return;
+      const view = nav.getBoundingClientRect();
+      const item = entry.getBoundingClientRect();
+      if (view.height === 0 || item.height === 0) return;
+      const bottom = Math.min(view.bottom, window.innerHeight);
+      const top = Math.max(view.top, 0);
+      if (item.bottom > bottom) nav.scrollTop += item.bottom - bottom;
+      else if (item.top < top) nav.scrollTop -= top - item.top;
+    };
+    align();
+    window.addEventListener("resize", align);
+    return () => {
+      window.removeEventListener("resize", align);
+    };
   }, [current, wanted]);
   const heading = "px-4 pt-3 pb-1 pl-4.75 text-xs font-medium text-text-tertiary";
   return (
