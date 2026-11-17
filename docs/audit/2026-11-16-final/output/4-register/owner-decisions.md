@@ -146,12 +146,13 @@ Recommendation: option 1.
 Findings: B0-007, C2-025, S6-035. `docs/rulings/2026-11-16-teams-run-cards.md` lets the scheduler
 post run cards to one Teams webhook when `CREDIT_OS_TEAMS_WEBHOOK` and `CREDIT_OS_TEAMS_LINK` are
 both set, and calls this a second exception to R8 ("the PR-manager session's reading"). README
-ruling R8 lists only CP-DR's lookups. `proof/serve.py` clears provider keys but not the two Teams
-variables, so a synthetic run can post a card. The analyst-name help says the name is "Shown on
+ruling R8 lists only CP-DR's lookups. Stage 0 also noted that `proof/serve.py` does not clear the
+two Teams variables; verification showed this is harmless, because a synthetic service builds its
+scheduler without Teams settings (`react_frontend/__init__.py:399-403`), so it never posts. The analyst-name help says the name is "Shown on
 Run activity and in Teams", also when Teams is not configured.
 
-Options: 1. confirm the Teams exception and add it to R8; make `proof.serve` clear the two
-variables; reword the help to "and in Teams, when it is set up"; 2. withdraw the Teams sender.
+Options: 1. confirm the Teams exception and add it to R8; reword the help to "and in Teams, when
+it is set up"; 2. withdraw the Teams sender.
 
 Recommendation: option 1.
 
