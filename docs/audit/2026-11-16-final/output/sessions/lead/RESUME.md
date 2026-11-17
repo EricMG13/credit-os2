@@ -64,7 +64,8 @@ file, `STATUS.md` beside it, and the branches below. Everything is pushed.
     EvidenceRecord.test.tsx lines 132 and 134), the USD 20 comment in `slice-start.ts:39`.
 11. Chunk c leftovers: the stale comment in `web/src/pages/model/slice/types.ts:392`;
     `docs/design/component-map.md:353` says "ten shapes" (now eleven).
-12. Teams items (R1-009 and the Teams card checks) go to the work-PC prompt, not to a cloud change
+12. Align chunk a's `visuals/index.tsx` chart-gap reasons with ruling L16 (hold back a reason that cites a page; draw the gap's status word or the standard missing form beside "See Evidence.").
+13. Teams items (R1-009 and the Teams card checks) go to the work-PC prompt, not to a cloud change
     (R15).
 
 ## Register tools
