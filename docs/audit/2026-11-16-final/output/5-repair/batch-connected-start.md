@@ -81,6 +81,13 @@ Changes to existing tests, required by the findings:
 - Node WebCrypto is supplied to jsdom in the affected test files, matching the browser API; production
   imports no Node module or new dependency.
 
+The final confidence check also tried carrying a historical Standard run through the actual review
+payload. It passed from the start: the existing callback already checks `Object.hasOwn(LEVELS,
+prior.level)`, so removing Standard from LEVELS also normalized that entry path. No second production
+fix was needed. The retained control and the explicit chosen-workbook boolean assertion bring the
+three new test files to 32 tests; `connected-start-standard-carry-red.log` contains the passing
+investigation, despite its provisional filename.
+
 ## Confidence review and simplest design
 
 Doubts traced: stale issuer replies, name changes through browser history, pending/copy labels after a
@@ -107,9 +114,11 @@ explicit PYTHONPATH and used `--no-sync`.
 | Command | Exit | Evidence |
 | :--- | :---: | :--- |
 | `vitest run src/pages/connected/start src/pages/connected/ConnectedApp.test.tsx --maxWorkers=2` | 0 | 11 files, 490 tests, 87.77 s; includes 31 new regressions/controls |
-| `npm --prefix web run lint` | 0 | Zero errors/warnings |
-| `npm --prefix web run typecheck` | 0 | Zero type errors |
-| `npm --prefix web run format:check` | 0 | All matched files formatted |
+| Same full affected Vitest command, committed code `592981af` | 0 | Independent repeat: 11 files, 490 tests, 77.61 s |
+| `vitest run` on the three `*.finalAudit` files after the final added control | 0 | 3 files, 32 tests, 8.47 s |
+| `npm --prefix web run lint` | 0 | Zero errors/warnings, repeated after the final control |
+| `npm --prefix web run typecheck` | 0 | Zero type errors, repeated after the final control |
+| `npm --prefix web run format:check` | 0 | All matched files formatted, repeated after the final control |
 | `uv run --no-sync python tools/quality_gate.py --base 301c7ded` | 0 | 0 changed Python files/0 lines; import check included |
 | `uv run --no-sync python tools/quality_gate.py` | 0 | 0 findings in the inherited 20 Python files/2,253 lines versus main |
 

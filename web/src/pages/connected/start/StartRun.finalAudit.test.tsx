@@ -48,7 +48,7 @@ function setup(overrides: Record<string, unknown> = {}, prior?: PriorInputs) {
     ...(prior ? { "/api/runs/earlier/inputs": prior } : {}),
     ...overrides,
   };
-  const fetchMock = vi.fn((path: string) => {
+  const fetchMock = vi.fn((...[path]: [string, RequestInit?]) => {
     if (path.startsWith("/api/issuers/"))
       return Promise.resolve(
         Response.json(replies[path] ?? { latest_run: "", runs: 0, latest_as_of: "" }),
@@ -257,6 +257,42 @@ describe("final audit: connected intake", () => {
     ).toEqual(["Basic", "Advanced"]);
   });
 
+  it("C2-009 carries a historical Standard run as the Basic level actually offered on screen", async () => {
+    const fetchMock = setup({
+      "/api/issuers/northbridge": {
+        latest_run: "earlier",
+        runs: 1,
+        latest_as_of: "2026-09-30",
+        issuer_name: "Northbridge",
+      },
+      "/api/runs/earlier/inputs": {
+        issuer_id: "northbridge",
+        issuer_name: "Northbridge",
+        context,
+        level: "standard",
+        modules: [],
+        max_turns: 32,
+        files: [{ name: "annual.txt", size: 6 }],
+      },
+      "/api/submissions/draft/carry": { carried: ["annual.txt"], kept: [] },
+    });
+    fireEvent.change(await screen.findByLabelText("Issuer name"), {
+      target: { value: "Northbridge" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Carry over from latest run" }));
+    await screen.findByText(/Starting from run earlier/);
+    fireEvent.change(screen.getByLabelText("As-of date"), { target: { value: "2026-10-31" } });
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Ana L" } });
+    await purpose();
+    expect(screen.getByLabelText("Run form level")).toHaveValue("basic");
+    fireEvent.click(screen.getByRole("button", { name: "Continue to context" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review run" }));
+    await screen.findByRole("button", { name: "Submit run" });
+    const body = fetchMock.mock.calls.find(([path]) => path.endsWith("/summary"))?.[1]?.body;
+    expect(typeof body).toBe("string");
+    expect((JSON.parse(body as string) as { level: string }).level).toBe("basic");
+  });
+
   it("C2-022 explains a reset requested-module choice when the pathway changes", async () => {
     setup();
     await filledDocuments();
@@ -315,6 +351,11 @@ describe("final audit: connected intake", () => {
     const row = screen.getByText("Portfolio workbook", { selector: "dt" }).parentElement;
     expect(row).toHaveTextContent("annual.txt");
     expect(fetchMock.mock.calls.some(([path]) => path.endsWith("/summary"))).toBe(true);
+    const body = fetchMock.mock.calls.find(([path]) => path.endsWith("/summary"))?.[1]?.body;
+    expect(
+      (JSON.parse(body as string) as { context: { attachments: { portfolio_workbook: boolean } } })
+        .context.attachments.portfolio_workbook,
+    ).toBe(true);
   });
 
   it("J1-018 shows each service-provided pathway cap on its card", async () => {
