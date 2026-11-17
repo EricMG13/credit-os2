@@ -41,6 +41,12 @@ file, `STATUS.md` beside it, and the branches below. Everything is pushed.
    pull request after reading it. Then stage 7 (`stages/7-send-off.md`), the summary and the final
    pull request into `main`, which is not merged without the owner's word.
 
+## Started at 12:45Z (each pushes as it goes; check before redoing)
+
+- A. Fidelity handoff side: `output/5-repair/fidelity/compare.mjs`, `compare-before.json` and `.md` on `audit/final-coordination`.
+- B. Stage 7 prep: `output/7-send-off/requirements-draft.md` and `unverified-draft.md` on branch `audit/lead-sendoff`.
+- C. Chunk b2 on `audit/lead-batch-b`: component-map.md eleven shapes, C4-011 (ComparisonChart wrap), the fixture's Finished cards with no report, RV-4 (Full-run cap bars USD 25) and the slice-start.ts comment. It needs a review before the merge.
+
 ## Lead follow-up list (step 7 extras)
 
 1. Hide the "Show sources" switch on the connected Evidence tab: ReaderHeader in
