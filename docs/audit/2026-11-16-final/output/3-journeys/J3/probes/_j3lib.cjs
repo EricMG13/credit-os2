@@ -106,7 +106,7 @@ const newLog = () => ({ blocked: [], console: [], pageErrors: [], failed: [], ht
 
 // The analyst's steps to a finished synthetic run (web/scripts/connected-proof.mjs sequence).
 // Returns the run folder id, for example 20261117-081500-01.
-async function completeSyntheticRun(page, origin) {
+async function completeSyntheticRun(page, origin, hooks = {}) {
   await page.goto(origin + "/");
   await page.getByRole("link", { name: "Start a run", exact: true }).first().click();
   await page.getByLabel("Issuer name", { exact: true }).fill("Northbridge Synthetic Group");
@@ -152,6 +152,7 @@ async function completeSyntheticRun(page, origin) {
   await page.getByRole("button", { name: "Review run", exact: true }).click();
   const submit = page.getByRole("button", { name: "Submit run", exact: true });
   await submit.waitFor();
+  if (hooks.onReview) await hooks.onReview(page);
   const limits = page.getByRole("region", { name: "Limits to decide" });
   for (const box of await limits.getByRole("checkbox").all()) await box.check();
   await page
@@ -186,8 +187,52 @@ async function waitFinished(origin, ms = 240000) {
   throw new Error(`no finished run within ${ms} ms (last: ${last})`);
 }
 
+// Waits (at most `ms`) until the run `id` is published to the library (snapshot answers 200).
+async function waitPublished(origin, id, ms = 120000) {
+  const end = Date.now() + ms;
+  for (let i = 0; i < 1000 && Date.now() < end; i += 1) {
+    const res = await fetch(`${origin}/connected/snapshot?run=${id}`).catch(() => null);
+    if (res && res.status === 200) return;
+    await sleep(1000);
+  }
+  throw new Error(`run ${id} was not published within ${ms} ms`);
+}
+
+// Runs one probe: fresh empty root under /tmp/jr, service on 8763, browser with the R8 guard,
+// one finished synthetic run (unless `opts.finishedRun` is false), then `body`.
+// `body({page, origin, id, log})` returns {reproduced: boolean, summary: string}.
+// Prints `RESULT REPRODUCED|NOT REPRODUCED: <summary>`; exit code 2 only if the harness failed.
+async function runProbe(name, body, opts = {}) {
+  const root = `/tmp/jr/j3-${name}`;
+  fs.rmSync(root, { recursive: true, force: true });
+  const log = newLog();
+  let service = null;
+  let b = null;
+  try {
+    service = await startService(root);
+    b = await openBrowser(log, opts.viewport);
+    let id = null;
+    if (opts.finishedRun !== false) {
+      id = await completeSyntheticRun(b.page, service.origin);
+      await waitPublished(service.origin, id);
+    }
+    const verdict = await body({ page: b.page, origin: service.origin, id, log });
+    console.log(`RESULT ${verdict.reproduced ? "REPRODUCED" : "NOT REPRODUCED"}: ${verdict.summary}`);
+  } catch (error) {
+    console.error("PROBE ERROR", error);
+    process.exitCode = 2;
+  } finally {
+    if (b) await b.browser.close().catch(() => {});
+    if (service) stopService(service);
+    fs.rmSync(root, { recursive: true, force: true });
+    console.log(`R8 blocked requests: ${log.blocked.length}`, log.blocked.length ? JSON.stringify(log.blocked) : "");
+  }
+}
+
 module.exports = {
   REPO,
+  waitPublished,
+  runProbe,
   PORT,
   sleep,
   startService,

@@ -1,0 +1,2 @@
+RESULT REPRODUCED: Overview/Financial foundation FY2024 revenue 2250 US$m, Forecast FY2025E revenue 1050; reported gross debt FY2024 1400, Forecast opening debt 600; text above the cash flow model says the inputs are unlinked: false; headline case line reads "Cash proxy · FY2027E · Units not recorded": true. Net leverage: Overview FY2024 2.25x, Downside control (LTM to 2025-03-31) 1.25x, Forecast FY2025E 1.23x.
+R8 blocked requests: 0 

@@ -1,0 +1,2 @@
+RESULT REPRODUCED: Trace tab (no item chosen) lists 15 "Download ..." buttons, the Summary tab's Handoffs list is identical to it; text telling the reader how to pick something to trace: false.
+R8 blocked requests: 0 

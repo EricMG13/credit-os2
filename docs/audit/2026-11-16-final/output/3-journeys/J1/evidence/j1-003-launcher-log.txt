@@ -1,0 +1,2 @@
+Contents of <run root>/_engine/logs/20261117-075647-01.log (the file the run page names as logs/20261117-075647-01.log), from the journey run:
+synthetic proof requires a first Credit Snapshot run

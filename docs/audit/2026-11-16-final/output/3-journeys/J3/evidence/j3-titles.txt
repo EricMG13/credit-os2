@@ -1,0 +1,15 @@
+Browser tab titles read with page.title() on the finished synthetic run (captured 2026-11-17):
+report #            -> Overview — Northbridge Synthetic Group — Credit OS
+report #overview    -> Overview — Northbridge Synthetic Group — Credit OS
+report #changes     -> Changes — Northbridge Synthetic Group — Credit OS
+report #modules     -> Modules — Northbridge Synthetic Group — Credit OS
+report #modules/CP-2A -> Modules — Northbridge Synthetic Group — Credit OS   (module Downside; the title does not say so)
+report #forecast    -> Forecast — Northbridge Synthetic Group — Credit OS
+report #evidence    -> Evidence — Northbridge Synthetic Group — Credit OS
+report #evidence/gaps -> Evidence — Northbridge Synthetic Group — Credit OS   (tab Gaps; the title does not say so)
+report #calendar    -> Issuer calendar — Northbridge Synthetic Group — Credit OS
+report #history     -> Report — Northbridge Synthetic Group — Credit OS
+/                   -> Credit OS
+/runs               -> Credit OS
+/start              -> Credit OS
+/run/<id>           -> Credit OS

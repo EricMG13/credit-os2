@@ -1,0 +1,2 @@
+RESULT REPRODUCED: Revenue figure traced at scroll 1101; Evidence opened at scroll 257; after Back scroll is 257 and the figure's top is 1148 px from the window top (window height 900); a position that returns to the figure would be about 1101.
+R8 blocked requests: 0 

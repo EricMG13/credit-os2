@@ -1,0 +1,5 @@
+Forecast page, run of the synthetic Northbridge case.
+Case card (radio): "Downside shock 97.47 Cash proxy · FY2027E · Units not recorded".
+After choosing it, the Cash flow model table header reads "Line item | Downside case".
+Notes under the table: "Downside case is the stress case: a shock applied to the base-case drivers."
+Downside module: scenarios "Cost shock" and "Cost and rate shock".

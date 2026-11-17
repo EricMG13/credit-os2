@@ -1,9 +1,9 @@
-// J1-001: the review sheet says an accepted "Will refuse" limit on Legal & covenants affects five modules and the run goes on;
+// J1-002: the review sheet says an accepted "Will refuse" limit on Legal & covenants affects five modules and the run goes on;
 // the run instead ends Failed with "stopped: checker", most modules "Not run", and no report.
-// Run from the repository root: timeout 600 node docs/audit/2026-11-16-final/output/3-journeys/J1/probes/j1-001-accepted-limit-fails-run.cjs
+// Run from the repository root: timeout 600 node docs/audit/2026-11-16-final/output/3-journeys/J1/probes/j1-002-accepted-limit-fails-run.cjs
 // Exit 1 = defect present, 0 = the accepted limit leads to a run that finishes or to a plain reason.
 const { main } = require('./_j1-common.cjs');
-main('001', async (page, { FILES, documentsAndPurpose, approveAndSubmit, waitForEnd }) => {
+main('002', async (page, { FILES, documentsAndPurpose, approveAndSubmit, waitForEnd }) => {
   // The documented steps: filing and workbook only, no agreement.
   await documentsAndPurpose(page, { files: [FILES.filing, FILES.workbook], pathway: 'Full credit assessment', name: 'Ana L' });
   await page.getByLabel('Portfolio workbook').selectOption({ label: 'northbridge-portfolio.xlsx' });

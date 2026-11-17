@@ -114,6 +114,9 @@ async function main(tag, body) {
   } finally {
     if (b) await b.browser.close().catch(() => {});
     stopService(svc);
+    if (svc) { // remove this probe's own fresh root and log
+      try { fs.rmSync(svc.root, { recursive: true, force: true }); fs.rmSync(svc.root + '.service.log', { force: true }); } catch (e) { /* leave it */ }
+    }
   }
   process.exitCode = defect ? 1 : 0;
 }

@@ -1,9 +1,9 @@
-// J1-003: for Earnings Update the More context step says "Optional", but Current period and Prior period are required.
+// J1-004: for Earnings Update the More context step says "Optional", but Current period and Prior period are required.
 // The only signal is the browser's own "Please fill out this field." tooltip; the page shows no message of its own.
-// Run from the repository root: timeout 600 node docs/audit/2026-11-16-final/output/3-journeys/J1/probes/j1-003-earnings-update-required-periods.cjs
+// Run from the repository root: timeout 600 node docs/audit/2026-11-16-final/output/3-journeys/J1/probes/j1-004-earnings-update-required-periods.cjs
 // Exit 1 = defect present (required, unmarked, and no in-page message).
 const { main } = require('./_j1-common.cjs');
-main('003', async (page, { FILES, documentsAndPurpose }) => {
+main('004', async (page, { FILES, documentsAndPurpose }) => {
   await documentsAndPurpose(page, { files: [FILES.filing], pathway: 'Earnings Update', name: 'Ana L' });
   const intro = await page.locator('main p').filter({ hasText: /^Optional\./ }).first().innerText();
   const required = await page.evaluate(() => [...document.querySelectorAll('input,select,textarea')].filter((e) => e.required).map((e) => (e.labels && e.labels[0] ? e.labels[0].innerText.trim() : e.name)));

@@ -1,0 +1,9 @@
+Overview > "Dates to watch" and Issuer calendar > "Published events" (1440 px), as read from the page.
+Case as-of date: 31 March 2025. Counts on the calendar: Historical 9, Scheduled 18, Scenario 9 (36 events for 9 modules).
+Each event is titled "Synthetic note", "Synthetic call", "Synthetic review" or "Synthetic maturity". Example rows:
+  2025-03-31 · day | Scheduled | Synthetic note  | Wall | Source readiness      (an event ON the as-of date, shown as Scheduled, "matures")
+  2025-06 · month  | Historical | Synthetic call | Cost | Source readiness      (a "Historical" event dated AFTER the as-of date)
+  2025-Q3 · quarter| Scenario  | Synthetic review| Rating | Source readiness
+The same four events (the fourth: 2026 · year | Scheduled | Synthetic maturity | Wall) repeat for Business & governance, Liquidity, Rates FX & hedging, Security selection,
+Refinancing & LME, Legal & covenants, Committee decision and Research questions.
+Nothing on either page explains "Wall", "Cost", "Rating" or the "· day / · month / · quarter" precision words.
