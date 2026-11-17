@@ -75,6 +75,18 @@ Duplicates: none in the README table. Nothing is assigned twice in the corrected
 
 New section ids: none. Ids remain C1–C5, S1–S6, X1.
 
+## Lead ruling L1: pages outside the two surfaces (2026-11-17)
+
+Stage 0 found two more HTML pages the README's Scope table does not name (`surface-map.md`): the
+legacy issuer library (`apps/issuer-library`, built to `<workspace>/library/index.html`, served at
+`/library/*` by `react_frontend`) and the legacy run-start form (`docs/templates/context-form.html`,
+`python -m deploy_workflow.run_start`, unreachable under `react_frontend` because `/` serves the
+connected page). Ruling: neither becomes a stage 2 section; the owner fixed the scope at the two
+browser surfaces. The download links the connected report builds into `/library/downloads/<run>/…`
+(`publishedReport.ts:558-571`) are part of C5 and are audited there, including whether the files
+they point at are served. That the legacy pages ship in the release ZIP and remain reachable is
+carried to stage 4 as an Info finding for the owner and the sweep.
+
 ## Cross-surface ownership the stage-2 agents need
 
 Each file has one owner, but these files are drawn in the other surface too. The owner audits the

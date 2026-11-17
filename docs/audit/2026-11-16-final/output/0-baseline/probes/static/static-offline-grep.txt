@@ -1,0 +1,44 @@
+## Absolute and protocol-relative addresses (count, file, address)
+symbol.svg       1 http://www.w3.org/2000/svg
+assets/style-CZvAa0DA.css       1 https://tailwindcss.com
+assets/index-CLQd3tzT.js       1 //i.test(e
+assets/index-CLQd3tzT.js       3 http://www.w3.org/1998/Math/MathML
+assets/index-CLQd3tzT.js       1 http://www.w3.org/1999/xhtml
+assets/index-CLQd3tzT.js       7 http://www.w3.org/1999/xlink
+assets/index-CLQd3tzT.js       5 http://www.w3.org/2000/svg
+assets/index-CLQd3tzT.js       3 http://www.w3.org/XML/1998/namespace
+assets/index-CLQd3tzT.js       1 https://bit.ly/3cXEKWf
+assets/index-CLQd3tzT.js       2 https://react.dev/errors/
+assets/index-CLQd3tzT.js       1 https://redux-toolkit.js.org/Errors?code=${e}
+assets/index-CLQd3tzT.js       1 https://redux.js.org/Errors?code=${e}
+fonts/OFL-Geist.txt       1 https://github.com/vercel/geist-font
+fonts/OFL-Geist.txt       1 https://openfontlicense.org
+fonts/OFL-GeistMono.txt       1 https://github.com/vercel/geist-font
+fonts/OFL-GeistMono.txt       1 https://openfontlicense.org
+fonts/OFL-SchibstedGrotesk.txt       1 https://github.com/schibsted/schibsted-grotesk
+fonts/OFL-SchibstedGrotesk.txt       1 https://scripts.sil.org/OFL
+THIRD-PARTY-NOTICES.md       1 https://github.com/markmead/hyperui
+THIRD-PARTY-NOTICES.md       1 https://github.com/untitleduico/react
+## Scheme strings built at run time
+## Loaders in index.html
+<script defer src="./assets/index-CLQd3tzT.js">
+<link rel="stylesheet" href="./assets/style-CZvAa0DA.css">
+<script src="./data.js">
+http-equiv="Content-Security-Policy" 
+## CSS @import and url()
+      1 url(../fonts/Geist-Medium.woff2)
+      1 url(../fonts/Geist-Regular.woff2)
+      1 url(../fonts/Geist-SemiBold.woff2)
+      1 url(../fonts/GeistMono-Medium.woff2)
+      1 url(../fonts/GeistMono-Regular.woff2)
+      1 url(../fonts/SchibstedGrotesk-Bold.woff2)
+      1 url(../fonts/SchibstedGrotesk-SemiBold.woff2)
+## Network APIs in the bundle
+## Binary fonts: embedded http(s) strings
+fonts/Geist-Medium.woff2 0
+fonts/Geist-Regular.woff2 0
+fonts/Geist-SemiBold.woff2 0
+fonts/GeistMono-Medium.woff2 0
+fonts/GeistMono-Regular.woff2 0
+fonts/SchibstedGrotesk-Bold.woff2 0
+fonts/SchibstedGrotesk-SemiBold.woff2 0
