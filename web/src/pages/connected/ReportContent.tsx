@@ -233,10 +233,13 @@ export function PublishedTable({
   rowHref,
   href,
   heading: tableHeading,
+  emptyLabel = "Empty in the handoff",
 }: {
   table: Table;
   /** The section heading that names the table's scroll region; "Table" when not given. */
   heading?: string;
+  /** The recorded source of an empty field; run-record callers do not read a handoff. */
+  emptyLabel?: string;
   evidence?: boolean;
   traceAt?: (line: number) => string;
   rowSource?: (line: number, label: string) => ReactNode;
@@ -310,7 +313,7 @@ export function PublishedTable({
                     ) : cell.trim() ? (
                       richParts(cell, shown)
                     ) : (
-                      <span aria-label="Empty in the handoff">—</span>
+                      <span aria-label={emptyLabel}>—</span>
                     )}
                   </td>
                 );
