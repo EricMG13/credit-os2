@@ -2,14 +2,19 @@
 
 Step 9 of `stages/5-repair.md` asks, for every presentation change, for the values, periods, units,
 sources and limitations on screen to be compared with the handoff, before and after. This folder holds
-the tool that records what is on screen and the "before" record. It records the screen only. It does not
-read a handoff.
+the tool that records what is on screen, the "before" record, and the tool that compares a record with
+the handoffs. `capture.mjs` records the screen only and reads no handoff; `compare.mjs` reads the handoffs
+and the fixtures (see Comparison).
 
 | Path | What it is |
 | :--- | :--- |
 | `capture.mjs` | One Node script. Captures both surfaces into an output folder. |
 | `before/` | The capture of the tree before any stage 5 repair (see `before/index.json`, `tree`). |
 | `after/` | Not present. Made by the lead on the merged branch, as below. |
+| `compare.mjs` | One Node script. Compares a capture with the handoffs (connected) and the fixtures (static); `--diff` compares two comparisons. |
+| `compare-selftest.mjs` | Changes a copy of `before/` in known ways and checks that `compare.mjs` reports each change. |
+| `compare-before.json`, `compare-before.md` | The baseline: `compare.mjs` on `before/`. |
+| `compare-after.json`, `compare-after.md`, `compare-diff.md` | Not present. Made by the lead, as under Comparison. |
 
 ## Run the "after" capture
 
@@ -59,7 +64,8 @@ diff <(jq -c '.figures[]' $B/connected/overview.json) <(jq -c '.figures[]' $A/co
 A screen file has one key per line and one array item per line, so `diff` shows exactly the lines that
 moved. A screen missing from one side is a screen the tree no longer reaches (or a failure; read
 `index.json`). Every difference is then read against the handoff: for the connected surface the canned
-handoffs are `proof/handoffs/*.md`; for the static surface the source is `web/fixtures/*.json`.
+handoffs are `proof/handoffs/*.md`; for the static surface the source is `web/fixtures/*.json`. `compare.mjs` does that
+reading for figures, source lines and limitations (see Comparison).
 
 ## What a screen file holds
 
@@ -155,7 +161,8 @@ Source hashes and evidence addresses are stable between runs and are kept. In `i
   static trace and gap item addresses (`.../evidence/trace/T-0001`, `.../evidence/gaps/G-01`; the trace
   table, each derivation, each drawer and each gap row are captured on their tab), the contents of the
   download links. Signal is out of scope.
-- The handoff side of the comparison: nothing here reads `proof/handoffs/*.md` or `web/fixtures/*.json`.
+- The handoff side of the comparison: `capture.mjs` reads neither `proof/handoffs/*.md` nor `web/fixtures/*.json`;
+  `compare.mjs` does (see Comparison).
 
 ## What nothing captured
 
@@ -178,9 +185,153 @@ Source hashes and evidence addresses are stable between runs and are kept. In `i
 - Hover-only content, narrow layouts, colour and tone, and every page and choice listed under "What it
   leaves out".
 
-Not verified: the "after" capture and any before-and-after comparison; any real (non-synthetic) run, any
-other issuer or pathway, and the connected Changes page of a real two-run history (only the injected
-fixture); the handoff side of step 9; colour, tone, layout, mobile widths, dark mode, hover and tooltip
-content; the choices and pages listed under "What it leaves out"; correctness of the heuristic `label`,
-`period`, `unit`, `basis`, `sources` and `limitations` fields on a changed screen; what a mark's pixel size
-stands for; determinism on another machine, browser version or font set.
+## Comparison
+
+`compare.mjs` compares every figure, source line and limitation sentence a capture recorded with the text the
+screen came from, and lists the source items a screen should show and does not. Node only; it reads the
+capture folder, `proof/handoffs/*.md`, `web/fixtures/library.json`, `web/fixtures/model.json`, `proof/northbridge-*`
+and `web/src/pages/connected/api.ts` (the module names), makes no network or paid call, and gives byte-identical
+output for the same inputs (about 3 seconds for both surfaces). `compare-selftest.mjs` changes a copy of
+`before/` in 26 known ways (a digit, a sign, a unit, a unit left out, a period, a value drawn as missing, a missing
+value drawn as zero, a reworded sentence, a drawer's handoff line and basis, on both surfaces) and fails unless each is reported.
+
+### Run it
+
+```
+export PATH=$HOME/.local/bin:$PATH
+F=docs/audit/2026-11-16-final/output/5-repair/fidelity
+node $F/compare.mjs $F/before                       # the baseline: writes $F/compare-before.json and .md
+node $F/compare.mjs /tmp/fid-scratch/after --out $F # the after: writes $F/compare-after.json and .md
+node $F/compare.mjs --diff $F/compare-before.json $F/compare-after.json --out $F/compare-diff.md
+node $F/compare-selftest.mjs                        # the tool still detects what it should
+```
+
+The output name is the capture folder's name (`--name` overrides it); `--out` is the folder written (default: this
+folder); `--repo` names the repository root (default: found from this folder). A capture folder with one surface
+only (`--surface` was used) is compared for that surface only.
+
+The diff prints, per surface and class, the count before and after; a verdict; then the items that are new in the
+after (`source has it, screen differs`; `not found in source`; source items newly not on screen), the ones gone,
+and the screens whose counts moved. Exit code 1 means the after has a new `source has it, screen differs` item
+or a new source item not on screen; each is listed. A new `not found in source` item is listed as "review" and
+does not change the exit code. Items are the same item in both runs when screen, kind, view, heading path, label,
+column and drawn text are equal, so a repair that changes a drawn text shows as one item gone and one new; read
+both lists together. If the two comparisons were made from different handoffs or fixtures the diff says so.
+
+Reading the baseline: the "before" is the existing state on main (`tree.commit` in `compare-before.json`). The after
+must not have more `source has it, screen differs` items, more source items not on screen, or more `not found in
+source` items than it, unless each new one is explained.
+
+### What it writes
+
+`compare-<name>.json`: `counts` (per surface, kind and class), `perScreen`, `derivedSummary` (each named computation
+with the number of items, whether `compare.mjs` recomputed it and where it is computed), `omissionSummary`,
+`differences` (the `source has it, screen differs` items), `omissions` (source items a screen should show and does
+not) and `items`, one per line. An item has `surface`, `screen`, `kind`, `view`, `section`, `label`, `column`,
+`period`, `unit`, `basis` and `text` as drawn, `class`, `via` (the rule that decided it), `source` (`loc`: file and
+line, or fixture path; `text`) and, as they apply, `differs`, `derived` (`name`, `verified`) and `note`.
+`compare-<name>.md` is the short report: counts per surface and class, per kind, every difference, the screens with a
+difference or omission, the derived computations and the omission matrix.
+
+Kinds: `figure` is a drawn value (an item of `figures`, in the page view and in each chart's Table view);
+`source` and `limitation` are the capture's `sources` and `limitations` entries; `drawer` is what a source drawer
+states (its statement with the handoff line it names, and its Basis line).
+
+### Classes
+
+| Class | Meaning |
+| :--- | :--- |
+| `matches source` | The same digits, sign, unit and period are in the source item the screen attributes it to, or in the same module's handoff (for a page that is not one module's, any handoff). `via` says which. |
+| `derived` | A value the page computes. `derived.name` says what; where it is computed is in `derivedSummary`. `verified` is true only where `compare.mjs` recomputed it from the source: the Overview year-on-year changes, the module confidence score, the event counts, years and status words. All other derived items are named only. |
+| `not found in source` | The screen shows something no source item of its scope has, and no rule names a computation for it. |
+| `source has it, screen differs` | The source item the screen attributes it to is identified and a digit, sign, unit, period, or the missing-versus-zero reading, differs. `differs` lists which: `digits`, `sign`, `precision` (the same number with other decimal places: 3.20 drawn as 3.2), `unit`, `unit missing`, `period`, `text`, `value drawn as missing`, `missing drawn as zero`, `zero drawn as missing`, `missing drawn as a value`, `source line`, `basis`, `basis not in source`. |
+
+### The matching rules
+
+All comparisons first normalise: NFKC; U+2212 becomes `-`; `**` and backticks are dropped; whitespace is collapsed;
+words compare without case; a CP code in a source text becomes the module name, as the page draws it. A sentence
+compares without case and punctuation, except the point and comma inside a number. A number is its sign, digits and
+decimals: thousands commas are removed (1,250 = 1250), `(10)` is -10, a leading `+` is ignored, trailing zeros are
+kept. A date or period phrase is taken out of the text before its numbers are read and is compared as a period:
+ISO dates, `30 Sep 2026`, `September 2027`, `2025-Q3`, `Q3 2025`, `FY2024`, `FY2025E`, `2025-06`. Units: `US$m`,
+`USD millions`, `$...m` are one unit; `x`; `%` and `% NAV` are one unit. A missing value is `Not supplied...`,
+`Not calculated...`, `Not assessable`, `Not established...`, `Not ranked`, `n.a.`, `Withheld` or a dash.
+A period or unit conflicts only when both the screen and the source state one and they differ.
+
+**Connected: a figure.** The first rule that applies decides.
+
+1. Page wording with a digit (`SHA-256`, "Compare with the 5% move", the `n.a. means the figure is missing` legend): `derived`.
+2. Event cards: `Historical 9`, `Scheduled 18` (rows of the `### Events:` tables by Status, in the module's tables, or all
+   modules on the calendar), a year (some Event date starts with it) and a status word: `derived`, recomputed; a count that differs: `differs`.
+3. `N designated handoffs, M source files`: equal to the run request's counts (14 handoff files, 3 uploaded files): `matches`.
+4. A 64-hex digest: equal to the SHA-256 of a file `proof/northbridge-*`: `matches`; any other: `derived` (the delivered handoff, which has a
+   request-and-sources preamble, is not in the repository).
+5. The run's own record (`evidence--checks`, `--record`, `--summary`, `--gaps`, `--sources`, `--trace`): `derived`, named, unless the text equals a handoff sentence: `matches`.
+6. A chart's value-axis tick (chart text with no series, step or tick attribute): `derived`, named only.
+7. Overview headline cards (Net leverage, Gross leverage, Interest coverage, Revenue, Adjusted EBITDA, Cash): the value must equal the
+   latest-period cell of the CP-1 `Chart data:` table for that measure (column and unit from the table), the period must be that
+   row's, and a unit the source has must be drawn; the change (`-0.75x vs FY2023`) must equal the latest minus the prior period,
+   recomputed here in exact decimals, with the prior period named: `matches` / `derived` (verified) / `differs`.
+8. A module's `Confidence score`: recomputed from the module's own `Confidence inputs` table with the weights, gate and penalties
+   documented in `src/deploy_workflow/confidence.py` (half to even): `derived` (verified) or `differs`.
+9. The run header (the issuer heading, no deeper section): the as-of date, pathway, issuer, Moody's B1 Negative and the module and source-file counts
+   equal the run request (constants in `compare.mjs`, from `web/scripts/connected-proof.mjs`): `matches`.
+10. Keyed cell: a table cell, a chart's Table-view cell or a chart value label is compared with the cell of the handoff table of the same name (a
+    `Chart data: ` prefix is dropped), the same first-column cell and the same column header (a chart label: the series column, with its group if known).
+    Equal: `matches`. Not equal: `differs`, with the reason from the list above.
+11. Period-only text (`FY2024`, `2025-03-31 · day`, `Published 2024-11-07`): every period must occur in some source item of the scope.
+12. A missing marker: equal to a source missing cell; else, on the forecast and calendar pages, `derived`; else it must exist in the scope (cell not identified).
+13. Text: exact (or inside a longer source item, or a source item that is at least 80% of it); words of one cell plus numbers of the same row
+    ("Passes at or below 5.0 x"); for a sentence of five words or more, the nearest source sentence (word overlap 0.7 or more) with the digits compared
+    (`differs` if they differ, `matches` if only the wording does); for a shorter text, each number token (same sign and digits) found in a source item without a
+    period or unit conflict (a bare number of one or two digits needs the figure's label beside it in the source).
+14. The pages the handoffs do not carry (`forecast`, `forecast--case-downside-shock`, `calendar`): `derived`, named only. (The Forecast page also draws
+    handoff chart data; those items match by rule 10 or 13 first.)
+15. A card whose label or heading is the first cell of a handoff row: its numbers must be among that row's: else `differs`.
+16. Otherwise `not found in source`.
+
+**Connected: limitation sentences and source lines.** On the run's own record pages: as rule 5. Otherwise: page wording (state
+words, module names, and short headings, controls, links, captions and terms) is `derived`; an event card or status word as rule 2;
+the sentence equal to, inside, or around a source item, with a column name before it ("Limitation Illustrative rate shock"): `matches`; a period-only text
+whose periods occur: `matches`; an uploaded file name (`proof/northbridge-*` or a file named in a handoff), also as `Open source file: <name>`: `matches`;
+the nearest source sentence with other words: `differs` (`text`); else the forecast page's `derived`, else `not found`.
+
+**Connected: source drawers.** Each drawer yields one item. It names `<module> · Handoff line N`, states a statement and may carry a Basis line. The candidate
+handoff lines are those whose statement the drawer states: a paragraph or bullet (its text), a table row (its cells as `Header — cell` pairs, in order, a
+column the page leaves out may be skipped), a table's first line (its heading). The delivered handoff has a preamble, so N is the file line plus an offset
+that is the same for a module; the module's offset is the most common one over its drawers, and a drawer at another offset is `differs` (`source line`).
+Expected basis: the `Basis:` line under a paragraph, or the cells of the row's columns named basis, source or evidence (all rows for a table's first line). The drawer's
+Basis must contain every expected value and otherwise only other cells of that row, or, if it has no Basis line, the statement must contain them. A drawer that
+says "Basis was not recorded" where the source has one is `differs` (`basis`); a basis where the source has none is `differs` (`basis not in source`). A statement
+on no handoff line is `not found` (on the forecast page the drawer's own sentence for the model inputs is `derived`).
+
+**Static.** The source is the fixture: the page's own subtree (the run's `head` and its overview, changes, one module, one evidence tab with the run's
+`traces`, a model page with its header), then the rest of the same run. Another run or issuer is never a source. Every string, number and null of
+the subtree is a source item, with the labels above it (`label`, `title`, `name`, `item`, `id`, ... of its object, or of the object around a `{ text }` value), the
+row label and column of a table row (`columns` and `rows[].cells`, or `periods` and `rows[].cells[]`), and composites (every pair of an object's short
+strings; a derivation tree flattened). Order: page wording with a digit; a missing marker must exist in the run as a null, a gap, a withheld value or a
+missing-looking string (cell not identified); period-only text must occur in the fixture; the text equal to a source item of the page (`matches`) or, a
+weaker `via`, of the run; for a short value, the source items of the page under the figure's label (and column): equal to one is `matches`, none is `differs`;
+for a sentence, the nearest sentence with the digits compared; otherwise the numbers found in an item without a conflict, else `not found`.
+Limitations and source lines and drawer lines: the text, or the nearest sentence (`differs`), or `derived` for page wording, else `not found`.
+
+**Source items a screen should show and does not.** Connected: for each handoff, each Bottom line, Key findings, Contrary evidence and Limitations line
+(and every line of any other `###` section) and each table row. A line is shown when its text (numbers without thousands commas, module names as drawn) is
+on the module's screen. A row is shown when its first cell is on the module's screen (or the module's chart Table views) and every other cell not named basis, source
+or evidence is too; a basis, source or evidence cell is shown when it is drawn or is in one of the module's source drawers. `verdict`: `not drawn`, `row not drawn`,
+`some cells not drawn`, `basis not shown`, `in the source drawer only`, `screen not captured`; `shownOn` lists other screens that draw the first cell's text.
+Static: each string of the Overview and of each module's body, except ids, kinds, states, hrefs and trace names, is shown when its text is in the page's text or its source drawers.
+
+Limits that follow from these rules, kept in the report: items whose source cannot be named are `not found`, not `matches`; a weak `via` (`values in the scope (not one item)`, `the source has a missing value in this run (cell not identified)`,
+`period appears in the source`, `... elsewhere in this run`) is a match by existence, not by position.
+
+Not verified: whether a drawn value is right where it is `derived` and not recomputed (the forecast model output, the script checks, the run record, axis ticks, the calendar,
+the evidence counts, and everything named only in `derivedSummary`); any item whose source cannot be identified and matched by existence only (the `via` values that say so), so a wrong
+number on a screen that happens to be in the same module's handoff, or the same run's fixture, under another label is not reported; the label, period, unit and basis fields
+of the capture, which the rules use where they are present (they are heuristics, see above), and a unit, period or label the screen leaves out altogether (except the Overview unit check);
+colour, tone, ordering, layout and everything under "What it leaves out"; that the page's drawn text is what a reader understands; the wording of a drawer other than its statement, handoff line and basis;
+the connected Changes page of a real two-run history (the paired-run screens are checked against the values `web/scripts/connected-proof.mjs` injects, not against a run); any real run, issuer or pathway (the
+handoffs are the canned synthetic ones, the fixtures are design fixtures); the delivered handoff's own preamble and line numbering beyond the one offset the drawers imply; the markdown the handoff is
+rendered from beyond what the rules read (headings, tables, bullets, `Basis:` lines); the "after" capture and any before-and-after comparison, which do not exist yet; determinism on another machine or
+Node version (two runs here gave identical files, Node v22.23.4); and, from the capture, that the heuristic fields classify correctly on a changed screen, what a mark's pixel size stands for, hover and tooltip
+content, narrow layouts, dark mode and the choices and pages listed under "What it leaves out".

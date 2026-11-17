@@ -37,13 +37,21 @@ const labelKey = (s) =>
 const lastSegment = (section) => String(section ?? "").split(" > ").at(-1) ?? "";
 const sha256 = (buffer) => createHash("sha256").update(buffer).digest("hex");
 
+/** A sentence compared: case, spacing and punctuation ignored, except the point and comma inside a number. */
+const sentenceKey = (s) =>
+  fold(s)
+    .replace(/[^\p{L}\p{N}%$.,\s-]/gu, " ")
+    .replace(/(?<!\d)[.,]|[.,](?!\d)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 let MODULE_NAMES = {};
 /** "CP-1" -> "Financial foundation" in text, as the connected pages draw it (api.ts serviceText). */
 const plainNames = (text) =>
   String(text ?? "").replace(/\bCP-[A-Z0-9]+\b/g, (code) => MODULE_NAMES[code] ?? code);
 
 const MISSING =
-  /^(not supplied\b|not calculated\b|not assessable\b|not established\b|n\.?a\.?$|not available$|withheld\b|[—–-]$)/i;
+  /^(not supplied\b|not calculated\b|not assessable\b|not established\b|not ranked\b|n\.?a\.?$|not available$|withheld\b|[—–-]$)/i;
 const isMissing = (text) => MISSING.test(norm(text));
 
 const MONTHS = {
@@ -184,6 +192,7 @@ function parseHandoff(file, moduleId, repo) {
       for (const row of rows) {
         const unit = row.obj["Reporting unit"] ?? row.obj.Unit ?? "";
         const basis = row.obj["Basis and limitation"] ?? row.obj.Basis ?? "";
+        const rowTokens = new Set(row.cells.flatMap((c) => takeNumbers(c).tokens.map((t) => t.value)));
         headers.forEach((header, k) => {
           const text = row.cells[k] ?? "";
           const periodFromHeader = takePeriods(header).periods;
@@ -205,6 +214,8 @@ function parseHandoff(file, moduleId, repo) {
               periods,
               unit: unit || undefined,
               basis,
+              rowTokens,
+              rowText: norm(row.cells.join(" | ")),
               loc: `${rel}:${row.line}`,
             }),
           );
@@ -235,10 +246,14 @@ function makeScope(name, facts) {
       list.push(fact);
       byValue.set(token.value, list);
     }
-    const key = fold(plainNames(fact.text));
-    const list = byText.get(key) ?? [];
-    list.push(fact);
-    byText.set(key, list);
+    const keys = [sentenceKey(plainNames(fact.text))];
+    // a cell is also drawn with its column's name before it ("Limitation Illustrative rate shock")
+    if (fact.kind === "cell" && fact.header) keys.push(sentenceKey(plainNames(`${fact.header} ${fact.text}`)));
+    for (const key of keys) {
+      const list = byText.get(key) ?? [];
+      list.push(fact);
+      byText.set(key, list);
+    }
     for (const p of fact.periods) periods.add(p);
   }
   return { name, facts, byValue, byText, periods, cells: facts.filter((f) => f.kind === "cell") };
@@ -252,29 +267,31 @@ const FIXTURE_IGNORED_KEYS = new Set(["trace", "id", "kind", "moduleKind", "href
 // keys whose strings are not drawn as text (ids, addresses, tones): left out of the "should show" check only
 const LABEL_KEYS = /^(label|measure|title|heading|name|indicator|risk|line|item|term|metric|id|gap|period|operand|facility|instrument)$/i;
 
-/** Every string, number and null leaf under `value`, with its JSON path, the strings beside it and the labels above it. */
+/** Every string, number and null leaf under `value`, with its JSON path, the strings beside it, the labels above it and, in a table, its column. */
 function leaves(value, base, file, out = [], skip = new Set()) {
-  const walk = (node, p, parentKey, siblings, gap, labels) => {
+  const walk = (node, p, parentKey, siblings, gap, labels, cols, col) => {
     if (typeof node === "string" || typeof node === "number") {
       const text = String(node);
       if (!text.trim()) return;
-      out.push({ path: p, key: parentKey, text, siblings, labels, missing: gap, isString: typeof node === "string" });
+      out.push({ path: p, key: parentKey, text, siblings, labels, col, missing: gap, isString: typeof node === "string" });
     } else if (node === null) {
-      out.push({ path: p, key: parentKey, text: "null", siblings, labels, missing: true, isString: false });
+      out.push({ path: p, key: parentKey, text: "null", siblings, labels, col, missing: true, isString: false });
     } else if (Array.isArray(node)) {
-      node.forEach((item, k) => walk(item, `${p}/${k}`, parentKey, siblings, gap, labels));
+      node.forEach((item, k) => walk(item, `${p}/${k}`, parentKey, siblings, gap, labels, cols, parentKey === "cells" && cols ? cols[k] : col));
     } else if (typeof node === "object") {
       const own = Object.entries(node).filter(([, v]) => typeof v === "string");
-      const mine = own.filter(([k]) => LABEL_KEYS.test(k)).map(([, v]) => v);
-      const here = [...mine, ...labels].slice(0, 4);
+      const mine = own.filter(([k]) => LABEL_KEYS.test(k)).map(([, v]) => ({ t: v, d: 0 }));
+      if (Array.isArray(node.cells) && typeof node.cells[0] === "string") mine.push({ t: node.cells[0], d: 0 });
+      const here = [...mine, ...labels.map((l) => ({ t: l.t, d: l.d + 1 }))].slice(0, 4);
       const isGap = gap || (typeof node.kind === "string" && /^(gap|withheld|missing|not-assessable)$/.test(node.kind));
+      const colsHere = Array.isArray(node.columns) ? node.columns.map((c) => (typeof c === "string" ? c : (c?.label ?? c?.name ?? ""))) : Array.isArray(node.periods) ? node.periods.map(String) : cols;
       for (const [k, v] of Object.entries(node)) {
         if (skip.has(k)) continue;
-        walk(v, `${p}/${k}`, k, own, isGap, here);
+        walk(v, `${p}/${k}`, k, own, isGap, here, colsHere, k === "cells" ? undefined : col);
       }
     }
   };
-  walk(value, base, "", [], false, []);
+  walk(value, base, "", [], false, [], undefined, undefined);
   return out.map((leaf) => ({ ...leaf, file }));
 }
 
@@ -286,7 +303,7 @@ function fixtureFacts(object, base, file, skip = new Set()) {
       if (/^(period|asOf|at)$/i.test(k)) for (const p of takePeriods(v).periods) periods.add(p);
       if (/^unit$/i.test(k)) unit = v;
     }
-    return makeFact({ kind: "leaf", file, line: 0, path: leaf.path, rowKey: leaf.labels[0] ?? "", labels: leaf.labels, header: leaf.key, text: leaf.text, periods, unit, missing: leaf.missing, loc: `${file}#${leaf.path}` });
+    return makeFact({ kind: "leaf", file, line: 0, path: leaf.path, rowKey: leaf.labels[0]?.t ?? "", labels: leaf.labels.map((l) => l.t), labelsD: leaf.labels, header: leaf.key, colLabel: leaf.col ?? "", text: leaf.text, periods, unit, missing: leaf.missing, loc: `${file}#${leaf.path}` });
   });
 }
 
@@ -513,10 +530,10 @@ function confidenceCheck(f, ctx) {
 
 const FAMILIES = [
   { screen: /^forecast/, name: "forecast model output", where: "src/deploy_workflow/owners/cpos_forecast.py and the model files the service publishes (forecast_exact.json, calculation.json); not in a handoff and not recomputed here" },
-  { screen: /^evidence--checks$/, name: "script checks", where: "the service's checks over the module handoffs (src/deploy_workflow/owners/cpos_*check*); not a handoff value and not recomputed here" },
-  { screen: /^evidence--record$/, name: "run record", where: "the service's record of requests, files and spend for the run; not a handoff value" },
-  { screen: /^evidence--(summary|gaps|sources|trace)$/, name: "run counts and file identities", where: "web/src/pages/connected/report/Evidence.tsx over the run's own record (counts of modules, script checks, source files)" },
-  { screen: /^calendar$/, name: "calendar counts", where: "web/src/pages/connected/report/Calendar.tsx counts of events by status" },
+  { screen: /^evidence--checks$/, pure: true, name: "script checks", where: "the service's checks over the module handoffs (src/deploy_workflow/owners/cpos_*check*); not a handoff value and not recomputed here" },
+  { screen: /^evidence--record$/, pure: true, name: "run record", where: "the service's record of requests, files and spend for the run; not a handoff value" },
+  { screen: /^evidence--(summary|gaps|sources|trace)$/, pure: true, name: "run counts and file identities", where: "web/src/pages/connected/report/Evidence.tsx over the run's own record (counts of modules, script checks, source files)" },
+  { screen: /^calendar$/, pure: false, name: "calendar counts", where: "web/src/pages/connected/report/Calendar.tsx counts of events by status" },
 ];
 
 /** Page-computed figures a screen shows that no handoff states, by screen. */
@@ -597,18 +614,38 @@ function valueSearch(f, scope) {
 
 /** Sentence-level match: the drawn text equals, sits inside or contains a source line. */
 function textSearch(text, scope) {
-  const key = fold(plainNames(text));
-  const direct = scope.byText.get(key) ?? scope.byText.get(fold(text));
+  const key = sentenceKey(plainNames(text));
+  const direct = scope.byText.get(key) ?? scope.byText.get(sentenceKey(text));
   if (direct?.length) return { fact: direct[0], via: "exact text" };
   if (key.length < 12) return null;
   for (const fact of scope.facts) {
-    const other = fold(plainNames(fact.text));
-    if (other.length >= 12 && (other.includes(key) || key.includes(other))) return { fact, via: "text inside or around a source item" };
+    const other = sentenceKey(plainNames(fact.text));
+    if (other.length < 12) continue;
+    // the drawn text is part of a longer source item, or the source item is nearly all of the drawn text
+    if (other.includes(key) || (key.includes(other) && other.length >= 0.8 * key.length)) return { fact, via: "text inside or around a source item" };
   }
   return null;
 }
 
-const words = (s) => new Set(labelKey(plainNames(s)).split(" ").filter(Boolean));
+/** A drawn text composed of cells of one handoff row ("Passes at or below 5.0 x"): the words of one cell, and every number from that row. */
+function rowComposite(text, scope) {
+  const key = sentenceKey(plainNames(text));
+  const drawn = takeNumbers(text).tokens;
+  if (!drawn.length) return null;
+  const found = [];
+  for (const fact of scope.cells) {
+    const other = sentenceKey(plainNames(fact.text));
+    if (other.length >= 8 && !takeNumbers(fact.text).tokens.length && key.includes(other)) found.push({ fact, len: other.length });
+  }
+  if (!found.length) return null;
+  const longest = Math.max(...found.map((x) => x.len));
+  const candidates = found.filter((x) => x.len === longest).map((x) => x.fact);
+  const whole = candidates.find((fact) => drawn.every((t) => fact.rowTokens.has(t.value)));
+  if (whole) return { fact: whole, via: "words of one cell and numbers of the same row" };
+  return { fact: candidates[0], differs: ["digits"] };
+}
+
+const words = (s) => new Set(sentenceKey(plainNames(s)).split(" ").filter(Boolean));
 /** The source item most like a sentence (word overlap >= 0.7), for "source has it, screen differs". */
 function nearest(text, scope) {
   const w = words(text);
@@ -714,11 +751,26 @@ function classifyStaticFigure(f, ctx) {
   return notFound(fig.tokens.length ? "value is in no fixture item of this run, and no fixture item on this page carries its label" : "text is in no fixture string of this run");
 }
 
+/** The handoff rows whose first cell is the figure's label or its card's heading (a card drawn from a row). */
+function labelRows(f, scope) {
+  for (const name of [f.label, lastSegment(f.section)]) {
+    const lab = labelKey(name ?? "");
+    if (!lab || lab.length < 4) continue;
+    const rows = scope.cells.filter((c) => c.col === 0 && labelKey(c.rowKey) === lab);
+    if (rows.length) return rows;
+  }
+  return [];
+}
+
 /** Numeric, short items of the page's fixture data that sit under the figure's label. */
 function labelledCandidates(f, scope) {
   const lab = labelKey(f.label ?? "");
   if (!lab || lab.length < 3) return [];
-  return scope.facts.filter((fact) => fact.tokens.length && wordCount(fact.text) <= 4 && (fact.labels ?? []).some((l) => labelKey(l) === lab));
+  // the label sits in the same object as the value, or one object up when the value is a { text } object
+  const base = scope.facts.filter((fact) => fact.tokens.length && wordCount(fact.text) <= 4 && (fact.labelsD ?? []).some((l) => labelKey(l.t) === lab && (l.d === 0 || (l.d === 1 && fact.header === "text"))));
+  const col = labelKey(f.column ?? "");
+  const inColumn = col ? base.filter((fact) => fact.colLabel && labelKey(fact.colLabel) === col) : [];
+  return inColumn.length ? inColumn : base;
 }
 
 function classifyFigure(f, ctx) {
@@ -729,6 +781,17 @@ function classifyFigure(f, ctx) {
   if (ctx.surface === "connected") {
     const events = eventCheck(f, ctx);
     if (events) return events;
+    if (/^\d+ designated handoffs/.test(text)) {
+      const run = ctx.runScope;
+      const counted = figureTokens(f).tokens.every((t) => run.byValue.has(t.value));
+      return counted ? matched(run.facts[5], "run request (module and source-file counts)") : differing(run.facts[5], "run request (module and source-file counts)", ["digits"]);
+    }
+    const fam0 = familyFor(ctx.screenId);
+    if (/^[0-9a-f]{64}$/.test(text)) return ctx.hashes?.has(text) ? matched(null, "sha-256 of a file under proof/ (recomputed here)") : derived("digest of a delivered handoff or record", "the service's record; the delivered handoff text (with its request and sources preamble) is not kept in this repository, so the digest is not recomputed");
+    if (fam0?.pure) {
+      const exact = textSearch(text, scope);
+      return exact && exact.via === "exact text" ? matched(exact.fact, exact.via) : derived(fam0.name, fam0.where);
+    }
     if (isAxisTick(f)) return derived("chart axis scale", "web/src/pages/connected/visuals/visualData.ts ticks (value-axis ticks at round numbers)");
     const head = headlineCheck(f, ctx) ?? confidenceCheck(f, ctx);
     if (head) return head;
@@ -739,11 +802,6 @@ function classifyFigure(f, ctx) {
       const fig = figureTokens(f);
       if (fig.periods.size && [...fig.periods].every((p) => run.periods.has(p))) return matched(run.facts[0], "run request (as-of date)");
       if (fig.tokens.length && fig.tokens.every((t) => run.byValue.has(t.value)) && /^(modules|source files)$/i.test(f.label ?? "")) return matched(run.byValue.get(fig.tokens[0].value)[0], "run request (count)");
-    }
-    if (/^(14|15) designated handoffs/.test(text) || /^\d+ designated handoffs/.test(text)) {
-      const run = ctx.runScope;
-      const fig = figureTokens(f);
-      return fig.tokens.every((t) => run.byValue.has(t.value)) ? matched(run.facts[5], "run request (counts)") : differing(run.facts[5], "run request (counts)", ["digits"]);
     }
   }
   // 1. the cell of the table the screen draws it from
@@ -782,6 +840,9 @@ function classifyFigure(f, ctx) {
   const long = words(text).size >= 5;
   const found = textSearch(text, scope);
   if (found) return matched(found.fact, found.via);
+  const composed = rowComposite(text, scope);
+  if (composed?.differs) return differing({ ...composed.fact, text: composed.fact.rowText }, "words of one cell, numbers not in the same row", composed.differs);
+  if (composed) return matched(composed.fact, composed.via);
   if (long) {
     const near = nearest(text, scope);
     if (near) {
@@ -795,6 +856,11 @@ function classifyFigure(f, ctx) {
   // 5. page-computed families
   const fam = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
   if (fam) return derived(fam.name, fam.where);
+  const rows = labelRows(f, scope);
+  if (rows.length && fig.tokens.length && !rows.some((r) => fig.tokens.every((t) => r.rowTokens.has(t.value)))) {
+    const bad = fig.tokens.filter((t) => !rows[0].rowTokens.has(t.value));
+    return differing({ ...rows[0], text: rows[0].rowText }, "the row the label names", ["digits"], { note: `${bad.map((t) => t.raw).join(", ")} is not among the numbers of that row` });
+  }
   if (search && !search.found && search.weak) return notFound("a bare small number: not matched by value alone, and no source item carries its label");
   if (search && !search.found && search.conflicting) return notFound(`value in the source only with a different period or unit (${search.conflicting.loc})`);
   return notFound(long ? "no source sentence like it" : "value not in the source for this scope");
@@ -818,6 +884,11 @@ function classifyText(kind, entry, ctx, kindOf) {
   if (ctx.surface === "connected") {
     const events = eventCheck({ text }, ctx);
     if (events) return events;
+  }
+  const fam0 = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
+  if (fam0?.pure) {
+    const exact = textSearch(text, scope);
+    return exact && exact.via === "exact text" ? matched(exact.fact, exact.via) : derived(fam0.name, fam0.where);
   }
   const found = ctx.surface === "static" ? inPageThenRun(ctx, (sc) => textSearch(text, sc)) : textSearch(text, scope);
   if (found) return matched(found.fact, found.wide ? `${found.via} (elsewhere in this run)` : found.via);
@@ -1060,10 +1131,14 @@ function connectedOmissions(world) {
           const cells = row.cells.map((text, k) => ({ text, header: t.headers[k], basis: isBasisHeader(t.headers[k]) })).filter((c) => norm(c.text));
           const onPage = (c) => sets?.page.has(numKey(c.text));
           const inDrawer = (c) => sets?.drawers.has(numKey(c.text));
-          const missingCells = cells.filter((c) => !c.basis && !onPage(c));
+          const keyCell = cells.find((c) => !c.basis);
+          const keyDrawn = keyCell ? onPage(keyCell) : true;
+          // a row whose first cell is not drawn is not drawn, whatever small numbers its other cells share with the page
+          const missingCells = keyDrawn ? cells.filter((c) => !c.basis && !onPage(c)) : cells.filter((c) => !c.basis);
           const basisLost = cells.filter((c) => c.basis && !onPage(c) && !inDrawer(c));
           if (!missingCells.length && !basisLost.length) continue;
-          const verdict = !sets ? "screen not captured" : missingCells.length === cells.filter((c) => !c.basis).length ? "row not drawn" : missingCells.length ? "some cells not drawn" : "basis not shown";
+          const rowInDrawer = sets?.drawers.has(numKey(row.cells.filter(Boolean).join(" "))) || sets?.drawers.has(numKey(row.cells.filter(Boolean).join(" \u2014 ")));
+          const verdict = !sets ? "screen not captured" : rowInDrawer && !keyDrawn ? "in the source drawer only" : !keyDrawn ? "row not drawn" : missingCells.length ? "some cells not drawn" : "basis not shown";
           rec({ itemKind: `table row (${kind})`, section: t.title, text: norm(row.cells.join(" | ")).slice(0, 200), source: { loc: `${h.file}:${row.line}` }, verdict, cellsNotDrawn: missingCells.map((c) => `${c.header}: ${norm(c.text)}`).slice(0, 8), basisNotShown: basisLost.map((c) => norm(c.text)).slice(0, 4), inDrawerOnly: missingCells.filter(inDrawer).length || undefined, shownOn: shownOn(row.cells[0] ?? "", pageId) });
         }
         continue;
@@ -1191,6 +1266,10 @@ function compositeFacts(object, base) {
         }
         const note = typeof node.note === "string" && typeof node.label === "string" && typeof node.value === "string" ? `${node.label} ${node.value} ${node.note}` : null;
         if (note) out.push(makeFact({ kind: "leaf", file: "web/fixtures/library.json", line: 0, path: p, rowKey: node.label, header: "derivation", text: note, loc: `web/fixtures/library.json#${p}` }));
+      }
+      if (Array.isArray(node.children)) {
+        const flat = (n) => [n?.label, n?.value, n?.note, ...(Array.isArray(n?.children) ? n.children.flatMap(flat) : [])].filter((x) => typeof x === "string" && x);
+        out.push(makeFact({ kind: "leaf", file: "web/fixtures/library.json", line: 0, path: p, rowKey: String(node.label ?? ""), header: "derivation tree", text: flat(node).join(" "), loc: `web/fixtures/library.json#${p}` }));
       }
       for (const [k, v] of Object.entries(node)) walk(v, `${p}/${k}`);
     }
@@ -1351,34 +1430,76 @@ function markdown(report) {
   for (const s of noisy) out.push(row(s.surface, s.screen, s.items, ...CLASSES.map((c) => s[c]), s.omitted));
   out.push("", `${report.perScreen.length - noisy.length} further screens have only "${MATCH}" and "${DERIVED}" items and no omitted source item.`, "");
   out.push("## Derived items, by computation", "");
-  out.push(row("Surface", "Computation", "Items", "Verified here"), row("---", "---", "---:", "---"));
-  for (const d of report.derivedSummary) out.push(row(d.surface, d.name, d.count, d.verified ? "yes" : "no (named only)"));
+  out.push(row("Surface", "Computation", "Items", "Recomputed here", "Where it is computed"), row("---", "---", "---:", "---", "---"));
+  for (const d of report.derivedSummary) out.push(row(d.surface, d.name, d.count, d.verified ? "yes" : "no (named only)", d.where));
   out.push("", "## Source items a screen should show and does not", "");
-  out.push(row("Surface", "Module or screen", "Item kind", "Items"), row("---", "---", "---", "---:"));
-  for (const o of report.omissionSummary) out.push(row(o.surface, o.where, o.itemKind, o.count));
-  out.push("", "The full list, with source location, what is missing and where else the text is drawn, is `omissions` in the JSON file.", "");
+  const kinds = [...new Set(report.omissionSummary.map((o) => o.itemKind))].sort();
+  const places = [...new Set(report.omissionSummary.map((o) => `${o.surface}|${o.where}`))];
+  const priority = (kind) => /^(Bottom line|Key findings|Contrary|Limitations)/.test(kind) || /chart data/.test(kind) || kind === "Basis lines";
+  const shown = report.omissionSummary.filter((o) => priority(o.itemKind));
+  out.push(shown.length ? `Bottom line, Key findings, Contrary evidence, Limitations and chart-data lines or rows missing from their screen: ${shown.reduce((n, o) => n + o.count, 0)} (listed below).` : "Every Bottom line, Key findings, Contrary evidence and Limitations line, and every chart-data row, of every handoff is drawn on its module's screen (none missing).", "");
+  out.push(row("Surface", "Module or screen", ...kinds.map((k) => k)), row("---", "---", ...kinds.map(() => "---:")));
+  for (const place of places) {
+    const [surface, where] = place.split("|");
+    out.push(row(surface, where, ...kinds.map((k) => report.omissionSummary.filter((o) => o.surface === surface && o.where === where && o.itemKind === k).reduce((n, o) => n + o.count, 0) || "")));
+  }
+  out.push("");
+  const byVerdict = {};
+  for (const o of report.omissionSummary) byVerdict[o.verdict] = (byVerdict[o.verdict] ?? 0) + o.count;
+  out.push(`By verdict: ${Object.entries(byVerdict).map(([k, v]) => `${k} ${v}`).join("; ")}. A "table row" is a handoff table row; "row not drawn" means its first cell is on no part of the module's screen, "basis not shown" means the row is drawn but its Basis or Source cell is neither drawn nor in a source drawer.`, "");
+  if (shown.length) {
+    for (const o of report.omissions.filter((x) => priority(omitCategory(x)))) out.push(`- ${o.surface === "connected" ? o.module : o.screen}, ${o.itemKind}, ${o.source?.loc}: ${o.text} (${o.verdict})`);
+    out.push("");
+  }
+  out.push("The full list, with source location, the cells not drawn and where else the text is drawn, is `omissions` in the JSON file.", "");
   out.push(`Not verified: see README.md, "Comparison", end of section.`, "");
   return out.join("\n");
 }
 
-function derivedSummary(items) {
+/** Moves each derived item's long "where" text into one table, so the item records stay short. */
+function compactDerived(items) {
+  const where = new Map();
+  for (const item of items) {
+    if (item.class !== DERIVED) continue;
+    where.set(item.derived.name, item.derived.where);
+    const verified = Boolean(item.derived.verified ?? item.verified);
+    delete item.verified;
+    item.derived = verified ? { name: item.derived.name, verified: true } : { name: item.derived.name };
+  }
+  return where;
+}
+
+function derivedSummary(items, where) {
   const map = new Map();
   for (const i of items.filter((x) => x.class === DERIVED)) {
     const key = `${i.surface}|${i.derived.name}`;
-    const cur = map.get(key) ?? { surface: i.surface, name: i.derived.name, count: 0, verified: true };
+    const cur = map.get(key) ?? { surface: i.surface, name: i.derived.name, count: 0, verified: true, where: where.get(i.derived.name) };
     cur.count++;
-    cur.verified = cur.verified && Boolean(i.derived.verified ?? i.verified);
+    cur.verified = cur.verified && Boolean(i.derived.verified);
     map.set(key, cur);
   }
   return [...map.values()].sort((a, b) => a.surface.localeCompare(b.surface) || b.count - a.count || a.name.localeCompare(b.name));
+}
+
+/** The short category an omitted item is counted under. */
+function omitCategory(o) {
+  const k = o.itemKind;
+  const prose = /^(Bottom line|Key findings|Contrary evidence and what would change the view|Limitations) line$/.exec(k);
+  if (prose) return `${prose[1].split(" ").slice(0, 2).join(" ").replace(/ and$/, "")} lines`;
+  if (/^Basis line/.test(k)) return "Basis lines";
+  if (/line \(other section\)$/.test(k)) return "other prose lines";
+  const table = /^table row \((.+)\)$/.exec(k);
+  if (table) return `${table[1]} rows`;
+  return k;
 }
 
 function omissionSummary(omissions) {
   const map = new Map();
   for (const o of omissions) {
     const where = o.surface === "connected" ? o.module : o.screen;
-    const key = `${o.surface}|${where}|${o.itemKind}`;
-    map.set(key, { surface: o.surface, where, itemKind: o.itemKind, count: (map.get(key)?.count ?? 0) + 1 });
+    const category = omitCategory(o);
+    const key = `${o.surface}|${where}|${category}|${o.verdict}`;
+    map.set(key, { surface: o.surface, where, itemKind: category, verdict: o.verdict, count: (map.get(key)?.count ?? 0) + 1 });
   }
   return [...map.values()];
 }
@@ -1410,6 +1531,7 @@ function diffReports(before, after) {
   const goneDiff = [...b].filter(([k, v]) => v.class === DIFFERS && classOf(a, k) !== DIFFERS);
   const bo = keyed(before.omissions, omissionKey);
   const ao = keyed(after.omissions, omissionKey);
+  const newNotFound = [...a].filter(([k, v]) => v.class === NOT_FOUND && classOf(b, k) !== NOT_FOUND);
   const newOmit = [...ao].filter(([k]) => !bo.has(k));
   const goneOmit = [...bo].filter(([k]) => !ao.has(k));
   const screensB = new Set(before.perScreen.map((s) => `${s.surface}/${s.screen}`));
@@ -1430,6 +1552,7 @@ function diffReports(before, after) {
   }
   const grew = newDiff.length > 0 || newOmit.length > 0;
   out.push("", `## Verdict`, "", grew ? `GREW: ${newDiff.length} new "${DIFFERS}" item(s) and ${newOmit.length} new omitted source item(s). Each is listed below and must be explained or repaired.` : `No new "${DIFFERS}" item and no new omitted source item.`, "");
+  out.push(`Review: ${newNotFound.length} new "${NOT_FOUND}" item(s) (the screen shows something the source does not have; not counted as growth, but read each).`, "");
   const list = (title, entries, fields) => {
     out.push(`## ${title} (${entries.length})`, "");
     if (!entries.length) out.push("None.", "");
@@ -1441,6 +1564,7 @@ function diffReports(before, after) {
   };
   const itemFields = [["Screen", (v) => v.screen], ["Kind", (v) => v.kind], ["As drawn", (v) => v.text], ["Where", (v) => [v.section ? lastSegment(v.section) : "", v.label, v.column].filter(Boolean).join(" / ")], ["What differs", (v) => (v.differs ?? []).join(", ")], ["Source", (v) => `${v.source?.loc ?? ""} ${v.source?.text ?? ""}`]];
   list(`New "${DIFFERS}" items (in the after, not in the before)`, newDiff, itemFields);
+  list(`New "${NOT_FOUND}" items`, newNotFound, [...itemFields.slice(0, 4), ["Why", (v) => v.note ?? ""]]);
   list(`"${DIFFERS}" items that are gone (resolved, or the drawn text changed so the item has a new identity)`, goneDiff, itemFields);
   const omitFields = [["Screen", (v) => v.screen], ["Item", (v) => `${v.itemKind}: ${v.text}`], ["Source", (v) => v.source?.loc ?? ""], ["Verdict", (v) => v.verdict]];
   list("Source items newly not on screen", newOmit, omitFields);
@@ -1499,6 +1623,7 @@ function compareCapture(folder, repo) {
   const world = buildWorld(repo, capture.screens.sort((x, y) => x.surface.localeCompare(y.surface) || x.entry.id.localeCompare(y.entry.id)));
   const items = world.screens.flatMap((sc) => analyseScreen(sc, world));
   for (const item of items) if (!CLASSES.includes(item.class)) throw new Error(`unclassified item on ${item.screen}: ${item.text}`);
+  const derivedWhere = compactDerived(items);
   const surfaces = new Set(world.screens.map((s) => s.surface));
   const omissions = [...(surfaces.has("connected") ? connectedOmissions(world) : []), ...(surfaces.has("static") ? staticOmissions(world) : [])];
   const summary = summarise(items, omissions, world.screens);
@@ -1516,7 +1641,7 @@ function compareCapture(folder, repo) {
     sources,
     counts: { total, surfaces: summary.surfaces },
     perScreen: summary.perScreen,
-    derivedSummary: derivedSummary(items),
+    derivedSummary: derivedSummary(items, derivedWhere),
     omissionSummary: omissionSummary(omissions),
     differences: items.filter((i) => i.class === DIFFERS),
     omissions,
