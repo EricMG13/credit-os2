@@ -1,16 +1,16 @@
 // C4 state probe: drives the Forecast and Calendar tabs through states the canned run cannot reach,
 // by rewriting the JSON the service returns for /connected/snapshot inside the browser (no service
-// or application code is changed). Run from the repository root with proof.serve on C4_PORT and a
-// finished synthetic run (c4-setup-run.cjs):
+// or application code is changed). One plain command from the repository root; it starts its own
+// proof.serve on C4_PORT (default 8734), completes its own synthetic run and stops the service (see c4-lib.cjs):
 //   C4_STATE=<name> node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-states.cjs
+// Optional: C4_TAB (forecast or calendar), C4_WIDTH (default 1440), C4_CHARS (text printed, default 1500).
+// The other probes call run() below in-process, on their own browser, so that one probe starts one service.
 // States: no-model, no-charts, no-events, error500, slow, null-case, negative-cash, long-text, units-usd,
 //         two-models, nan-grid, many-cases, dup-case, chart-gap, withheld, basis-note, cal-bad-date, cal-gap-years, cal-many, cal-long, no-forecast-handoff, cal-gap-cards, upside-case, other-grid, cal-ref, sent-back
 "use strict";
 const lib = require("./c4-lib.cjs");
-const state = process.env.C4_STATE || "no-model";
-const width = Number(process.env.C4_WIDTH || 1440);
 
-function mutate(snap) {
+function mutate(snap, state) {
   const ws = snap.workspace;
   const m = ws.models[0];
   const cf = m && m.cashflow;
@@ -144,35 +144,51 @@ function mutate(snap) {
   return snap;
 }
 
-async function main() {
-  const log = lib.newLog();
-  const browser = await lib.launch();
+// Opens `tab` in a fresh context of `browser` with the state applied; returns the printed text and the log line.
+async function run(browser, log, { state = "no-model", tab = "forecast", width = 1440, chars = 1500 } = {}) {
+  const ctx = await lib.newContext(browser, log, { width, height: 900 });
   try {
-    const ctx = await lib.newContext(browser, log, { width, height: 900 });
     const page = await ctx.newPage();
     await page.route("**/connected/snapshot*", async (route) => {
       if (state === "error500") return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "boom" }) });
       if (state === "slow") { await new Promise((r) => setTimeout(r, 4000)); }
       const response = await route.fetch();
       const body = await response.json();
-      return route.fulfill({ response, json: state === "slow" ? body : mutate(body) });
+      return route.fulfill({ response, json: state === "slow" ? body : mutate(body, state) });
     });
-    const tab = process.env.C4_TAB || "forecast";
     await page.goto(`${lib.BASE}/report/${lib.runId()}#${tab}`);
     if (state === "slow") await page.waitForTimeout(1200);
     else await page.waitForLoadState("networkidle").catch(() => {});
     await page.waitForTimeout(1200);
-    const main = page.locator("main");
-    const text = (await main.innerText()).replace(/\n+/g, " | ");
-    console.log(state, width, "TEXT:", text.slice(0, Number(process.env.C4_CHARS || 1500)));
+    const text = (await page.locator("main").innerText()).replace(/\n+/g, " | ");
+    const first = `${state} ${width} TEXT: ${text.slice(0, chars)}`;
     const h = await page.evaluate(() => document.getElementById("main")?.scrollHeight || 900);
     await page.setViewportSize({ width, height: Math.min(h + 40, 9000) });
     await page.waitForTimeout(500);
+    lib.fs.mkdirSync("/tmp/cs-C4/scratch", { recursive: true });
     await page.screenshot({ path: `/tmp/cs-C4/scratch/state-${state}-${tab}-${width}.png` });
     await page.unrouteAll({ behavior: "ignoreErrors" });
-    console.log(JSON.stringify({ blocked: log.blocked, console: log.console.slice(0, 5), pageErrors: log.pageErrors.slice(0, 5), bad: log.bad.slice(0, 5) }));
+    return `${first}\n${JSON.stringify({ blocked: log.blocked, console: log.console.slice(0, 5), pageErrors: log.pageErrors.slice(0, 5), bad: log.bad.slice(0, 5) })}\n`;
+  } finally {
+    await ctx.close();
+  }
+}
+
+async function main() {
+  const log = lib.newLog();
+  const browser = await lib.launch();
+  try {
+    const out = await run(browser, log, {
+      state: process.env.C4_STATE || "no-model",
+      tab: process.env.C4_TAB || "forecast",
+      width: Number(process.env.C4_WIDTH || 1440),
+      chars: Number(process.env.C4_CHARS || 1500),
+    });
+    process.stdout.write(out);
   } finally {
     await browser.close();
   }
 }
-main().catch((e) => { console.error(e); process.exit(1); });
+
+module.exports = { run };
+if (require.main === module) main().catch((e) => { console.error(e); process.exitCode = 1; });

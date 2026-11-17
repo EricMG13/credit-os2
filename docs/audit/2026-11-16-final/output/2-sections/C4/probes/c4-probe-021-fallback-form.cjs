@@ -2,6 +2,9 @@
 // for this run' gap panel; one covenant with no stated threshold (or a negative current value such as net
 // cash) removes the bullet chart for every test. Data are rewritten in the browser (snapshot / portfolio
 // interception); the service and the application are not changed.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-021-fallback-form.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 (async () => {
@@ -43,6 +46,6 @@ const lib = require("./c4-lib.cjs");
       await ctx.close();
     }
     console.log(defects ? `DEFECT PRESENT (${defects} of 3 states)` : "no defect seen");
-    process.exit(defects ? 1 : 0);
+    process.exitCode = defects ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

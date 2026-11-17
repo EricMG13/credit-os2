@@ -1,5 +1,5 @@
 state: running
-updated: 2026-11-17T08:10Z
+updated: 2026-11-17T08:16Z
 done: restarted after the earlier session froze at about 06:30Z (none of its worker outputs reached the branch; C1-C5 all redone); environment prepared once for all workers (uv 0.12.5, uv sync --locked, npm --prefix web ci, web build: all exit 0; proof.serve smoke test 200); C2-C5 dispatched at 07:24Z (Sonnet, xhigh, ports 8732-8735); C1 dispatched at 07:57Z (port 8731). Returned: C2 (28 findings: 0 High, 8 Medium, 16 Low, 4 Info), C4 (37: 0 High, 10 Medium, 24 Low, 3 Info), C5 (39: 1 High, 12 Medium, 20 Low, 6 Info). All three pass the schema check (every line parses with exactly the schema's fields) and every High and Medium names an existing probe file; C2 and C5 report.md saved by the controller from the workers' returned text (the harness refuses worker-written report files)
 next: rework, once each: C2 (since 08:03Z) and C4 (since 08:09Z) make their probes start and stop their own service and create their own run (FINDINGS-SCHEMA probe rule); Then accept each and commit. C3 and C1 still running; stop C3 if not back by 08:54Z, C1 by 09:27Z, and re-dispatch once
 blocked: none

@@ -1,9 +1,11 @@
-// C4-001: module codes, "Python" and "handoff" appear in reader text on the Forecast tab.
-// Needs proof.serve on C4_PORT with a finished synthetic run (c4-setup-run.cjs). From the repo root:
+// C4-001: module codes, "Python", "handoff" and "Sent back by the build" appear in reader text on the Forecast tab
+// and in its gap reasons. One plain command from the repository root; it starts and stops its own proof.serve
+// and completes its own synthetic run (c4-lib.cjs):
 //   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-001-codes-in-text.cjs
+// Exit code 1 and "DEFECT PRESENT" while the defect exists.
 "use strict";
-const { execFileSync } = require("node:child_process");
 const lib = require("./c4-lib.cjs");
+const states = require("./c4-states.cjs");
 (async () => {
   const log = lib.newLog();
   const browser = await lib.launch();
@@ -18,16 +20,17 @@ const lib = require("./c4-lib.cjs");
     for (const line of text.split("\n")) {
       if (/\bCP-[A-Z0-9]+\b|Python|handoff/i.test(line)) { console.log("FORECAST TEXT:", line.slice(0, 160)); found += 1; }
     }
+    await ctx.close();
+    // states reached by rewriting the snapshot in the browser (the service is unchanged)
+    const gap = await states.run(browser, log, { state: "chart-gap", chars: 20000 });
+    const g = /Not established: see Filing p\.12[^|]*/.exec(gap);
+    if (g) { console.log("CHART GAP TEXT:", g[0]); found += 1; }
+    const other = await states.run(browser, log, { state: "other-grid", chars: 40000 });
+    const head = /Other forecast cases \| Line item\s+Downside \(CP-2G drivers\)/.exec(other);
+    if (head) { console.log("OTHER GRID HEADER:", head[0]); found += 1; }
+    const sent = await states.run(browser, log, { state: "sent-back", chars: 40000 });
+    if (/Sent back by the build\./.test(sent)) { console.log("SENT BACK TEXT: Sent back by the build."); found += 1; }
+    console.log(found ? `DEFECT PRESENT (${found} lines)` : "no defect seen");
+    process.exitCode = found ? 1 : 0;
   } finally { await browser.close(); }
-  // a chart-gap reason that names a module code and a page (state rewritten in the browser)
-  const out = execFileSync("node", [require("node:path").join(__dirname, "c4-states.cjs")], { env: { ...process.env, C4_STATE: "chart-gap", C4_CHARS: "20000" }, encoding: "utf8", timeout: 90000 });
-  const gap = /Not established: see Filing p\.12[^|]*/.exec(out);
-  if (gap) { console.log("CHART GAP TEXT:", gap[0]); found += 1; }
-  const other = execFileSync("node", [require("node:path").join(__dirname, "c4-states.cjs")], { env: { ...process.env, C4_STATE: "other-grid", C4_CHARS: "40000" }, encoding: "utf8", timeout: 90000 });
-  const head = /Other forecast cases \| Line item\s+Downside \(CP-2G drivers\)/.exec(other);
-  if (head) { console.log("OTHER GRID HEADER:", head[0]); found += 1; }
-  const sent = execFileSync("node", [require("node:path").join(__dirname, "c4-states.cjs")], { env: { ...process.env, C4_STATE: "sent-back", C4_CHARS: "40000" }, encoding: "utf8", timeout: 90000 });
-  if (/Sent back by the build\./.test(sent)) { console.log("SENT BACK TEXT: Sent back by the build."); found += 1; }
-  console.log(found ? `DEFECT PRESENT (${found} lines)` : "no defect seen");
-  process.exit(found ? 1 : 0);
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

@@ -1,5 +1,8 @@
 // C4-036: the EBITDA break points are drawn as an ordered list sorted by the required decline, an order the
 // handoff table (B1, B2, B3) does not carry.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-036-breakpoint-order.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 (async () => {
@@ -22,6 +25,6 @@ const lib = require("./c4-lib.cjs");
     console.log("page order, k = 0.05:", JSON.stringify(shocked));
     const defect = shocked[0] === "Cover reaches watch level";
     console.log(defect ? "DEFECT PRESENT (page re-ranks the break points; the module wrote no ranking for this table)" : "no defect seen");
-    process.exit(defect ? 1 : 0);
+    process.exitCode = defect ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

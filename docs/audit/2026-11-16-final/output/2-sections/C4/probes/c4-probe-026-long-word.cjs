@@ -2,6 +2,9 @@
 // and every card) far past the window: Forecast note, limitation and case description; Downside scenario
 // anchor and scope. The text is rewritten in the browser (snapshot interception); the service and the
 // application are not changed.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-026-long-word.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 const WORD = "x".repeat(220);
@@ -44,6 +47,6 @@ const cases = {
       await ctx.close();
     }
     console.log(defects ? `DEFECT PRESENT (${defects} of ${Object.keys(cases).length} places)` : "no defect seen");
-    process.exit(defects ? 1 : 0);
+    process.exitCode = defects ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

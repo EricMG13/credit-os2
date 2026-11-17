@@ -2,6 +2,9 @@
 // U+2212 or in parentheses, a space or no-break space as thousands separator, or a unit suffix removes the chart.
 // C4-028 (Medium, hostile-input): "3,75" is read as 375 and plotted at 375 beside "2.80".
 // Data are rewritten in the browser (snapshot interception); the service and the application are not changed.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-027-amount-forms.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 const MINUS = "−";
@@ -49,6 +52,6 @@ const variants = {
       await ctx.close();
     }
     console.log(defects ? `DEFECT PRESENT (${defects} of ${Object.keys(variants).length})` : "no defect seen");
-    process.exit(defects ? 1 : 0);
+    process.exitCode = defects ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

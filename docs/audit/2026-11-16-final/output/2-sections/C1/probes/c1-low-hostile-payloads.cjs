@@ -1,4 +1,4 @@
-// C1-011, C1-012, C1-013: payloads outside the documented shape. Each case is supplied in the browser; the
+// C1-010, C1-011, C1-012: payloads outside the documented shape. Each case is supplied in the browser; the
 // real service does not send them. Prints what the page shows; exit 1 when any case blanks the page or shows a
 // raw parser message.
 "use strict";
@@ -9,13 +9,13 @@ const live = (o) => ({ id: "20261117-000000-01", issuer_name: "Alpha", pathway: 
 const run = (o) => ({ id: "20261117-000000-01", status: "failed", reason: "", issuer_name: "Alpha", as_of: "2025-03-31", pathway: "credit_snapshot", modules: [["CP-0", "done"]], observed_at: "2026-11-17T08:00:00Z", cap: "25.00", spent: "3.10", events: [], started_at: "2026-11-17T07:00:00Z", ended_at: "2026-11-17T07:10:00Z", ...o });
 const act = (ended, runs = []) => ({ updated: "2026-11-17T08:00:00Z", held: "", unreadable: 0, runs, ended, ended_total: ended.length });
 const CASES = [
-  ["C1-011 entry without metrics", "/", "**/connected/library", json({ catalogue: { real: [entry({ metrics: undefined })] }, workspace: { runs: {} } })],
-  ["C1-011 index without workspace", "/", "**/connected/library", json({ catalogue: { real: [entry()] } })],
-  ["C1-012 ended run with unknown status", "/runs", "**/connected/activity", json(act([{ id: "20261110-000000-01", issuer_name: "B", pathway: "credit_snapshot", status: "cancelled", reason: "r", ended_at: "2026-11-16T10:00:00Z", submitted_by: "x" }]))],
-  ["C1-012 module state outside the set", "/runs", "**/connected/activity", json(act([], [live({ modules: [["CP-1", "paused"]] })]))],
-  ["C1-012 run event kind outside the set", "/run/20261117-000000-01", "**/connected/activity/20261117-000000-01", json(run({ events: [{ at: "2026-11-17T07:00:00Z", kind: "module_paused", module: "CP-1" }] }))],
-  ["C1-013 library answer is HTML", "/", "**/connected/library", { status: 200, contentType: "text/html", body: "<html>oops</html>" }],
-  ["C1-013 snapshot answer is HTML", "/report/anything", "**/connected/snapshot**", { status: 200, contentType: "text/html", body: "<html>oops</html>" }],
+  ["C1-010 entry without metrics", "/", "**/connected/library", json({ catalogue: { real: [entry({ metrics: undefined })] }, workspace: { runs: {} } })],
+  ["C1-010 index without workspace", "/", "**/connected/library", json({ catalogue: { real: [entry()] } })],
+  ["C1-011 ended run with unknown status", "/runs", "**/connected/activity", json(act([{ id: "20261110-000000-01", issuer_name: "B", pathway: "credit_snapshot", status: "cancelled", reason: "r", ended_at: "2026-11-16T10:00:00Z", submitted_by: "x" }]))],
+  ["C1-011 module state outside the set", "/runs", "**/connected/activity", json(act([], [live({ modules: [["CP-1", "paused"]] })]))],
+  ["C1-011 run event kind outside the set", "/run/20261117-000000-01", "**/connected/activity/20261117-000000-01", json(run({ events: [{ at: "2026-11-17T07:00:00Z", kind: "module_paused", module: "CP-1" }] }))],
+  ["C1-012 library answer is HTML", "/", "**/connected/library", { status: 200, contentType: "text/html", body: "<html>oops</html>" }],
+  ["C1-012 snapshot answer is HTML", "/report/anything", "**/connected/snapshot**", { status: 200, contentType: "text/html", body: "<html>oops</html>" }],
 ];
 (async () => {
   await L.withService(async () => {

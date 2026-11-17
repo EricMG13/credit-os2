@@ -1,4 +1,7 @@
 // C4-004: the Debt stack, drawn with a missing balance, has coloured segments and a plain list with no key.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-004-debt-stack-key.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 (async () => {
@@ -20,6 +23,6 @@ const lib = require("./c4-lib.cjs");
     const defect = r.segs.length >= 2 && r.rows.every((row) => !row.swatch) && !r.hasLegend;
     console.log(defect ? "DEFECT PRESENT (segments are colour-only; the list rows carry no swatch)" : "no defect seen");
     await fig.screenshot({ path: "/tmp/cs-C4/scratch/debt-stack-probe.png" });
-    process.exit(defect ? 1 : 0);
+    process.exitCode = defect ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

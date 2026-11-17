@@ -1,4 +1,7 @@
 // R8 check for the C4 screens: every host but loopback is aborted and logged; fonts and icons must have drawn.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-offline-check.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 (async () => {
@@ -25,6 +28,6 @@ const lib = require("./c4-lib.cjs");
     }
     console.log("blocked (non-loopback) requests:", log.blocked.length, JSON.stringify(log.blocked.slice(0, 5)));
     console.log("failed requests:", log.failed.length, "| HTTP >= 400:", log.bad.length, "| console errors/warnings:", log.console.length, "| page errors:", log.pageErrors.length);
-    process.exit(log.blocked.length ? 1 : 0);
+    process.exitCode = log.blocked.length ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

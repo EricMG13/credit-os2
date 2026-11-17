@@ -1,4 +1,7 @@
 // C4-037: at 390 px the EBITDA bridge's x-axis labels touch or overlap.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-037-waterfall-labels.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 (async () => {
@@ -20,6 +23,6 @@ const lib = require("./c4-lib.cjs");
     console.log(JSON.stringify(r));
     const defect = r.gaps.some((g) => g < 2);
     console.log(defect ? "DEFECT PRESENT (adjacent axis labels touch or overlap)" : "no defect seen");
-    process.exit(defect ? 1 : 0);
+    process.exitCode = defect ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

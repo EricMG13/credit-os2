@@ -1,6 +1,9 @@
 // C4-034: a link in the body of the Forecast tab (the module links above each run chart group) opens the module
 // page with the scroll position of the Forecast tab, so the reader lands part-way down (or at the foot) of the
 // module page, and focus is left on <body>.
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
+//   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-034-scroll-after-link.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
 (async () => {
@@ -25,6 +28,6 @@ const lib = require("./c4-lib.cjs");
     console.log(`scrollTop on Forecast ${before}; on the module page ${r.scrollTop} of ${r.scrollHeight}; module heading '${r.headingText}' at y=${r.headingTop}; focus on ${r.active}`);
     const defect = r.scrollTop > 200 || (r.headingTop !== null && r.headingTop < 0);
     console.log(defect ? "DEFECT PRESENT (the module page opens scrolled; its title is off screen)" : "no defect seen");
-    process.exit(defect ? 1 : 0);
+    process.exitCode = defect ? 1 : 0;
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

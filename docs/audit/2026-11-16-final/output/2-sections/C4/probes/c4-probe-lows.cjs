@@ -1,5 +1,6 @@
 // Measurements behind the Low and Info findings of C4 (each prints one line per finding id).
-// From the repository root, proof.serve on C4_PORT, finished synthetic run in C4_RUN or /tmp/cs-C4/run-id.txt:
+// Run (one plain command from the repository root; it starts and stops its own proof.serve and completes its own
+// synthetic run, see c4-lib.cjs):
 //   node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-lows.cjs
 "use strict";
 const lib = require("./c4-lib.cjs");
@@ -55,4 +56,4 @@ const lib = require("./c4-lib.cjs");
     P("C4-011 yield label boxes:", JSON.stringify(y));
     P(JSON.stringify({ blocked: log.blocked, console: log.console, pageErrors: log.pageErrors }));
   } finally { await browser.close(); }
-})();
+})().catch((e) => { console.error(e); process.exitCode = 2; });

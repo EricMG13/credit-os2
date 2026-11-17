@@ -55,7 +55,6 @@ const readiness = (page) => page.getByRole("complementary", { name: "Readiness" 
       await page.getByRole("button", { name: e, exact: true }).click();
       await page.waitForTimeout(300);
       out.edits[e] = { heading: await page.$$eval("h2", (h) => h[0].textContent), focus: await active(page), stepper: await page.getByRole("list", { name: "Steps in this run" }).locator("button").allInnerTexts().then((t) => t.map((x) => x.replace(/\s+/g, " ")).join(" / ")), readiness: await readiness(page) };
-      await L.toContext(page).catch(async () => { await page.getByRole("button", { name: /Continue to|Review run/ }).first().click(); });
       // walk forward to review
       for (let i = 0; i < 3; i += 1) {
         const h = await page.$$eval("h2", (hs) => hs[0].textContent);

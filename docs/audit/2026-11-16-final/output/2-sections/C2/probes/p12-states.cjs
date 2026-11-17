@@ -55,7 +55,7 @@ const fresh = async (browser, log, width = 1440) => {
         await L.toPurpose(page); await L.toContext(page);
         await page.getByRole("button", { name: "Review run" }).click();
         await page.waitForTimeout(1500);
-        out.context[label].afterReview = { alerts: await alerts(page), h2: await page.$$eval("h2", (h) => h[0].textContent) };
+        out.context[label].afterReview = { alerts: await alerts(page), h2: await page.$$eval("h2", (h) => h[0]?.textContent ?? null) };
       }
       if (label === "500json") await L.shot(page, "p12-context-error-1440");
       await ctx.close();
@@ -87,7 +87,7 @@ const fresh = async (browser, log, width = 1440) => {
       await reach(page);
       await page.getByRole("button", { name: "Continue to purpose" }).click();
       await page.waitForTimeout(1200);
-      out.upload.createAbort = { alerts: await alerts(page), h2: await page.$$eval("h2", (h) => h[0].textContent) };
+      out.upload.createAbort = { alerts: await alerts(page), h2: await page.$$eval("h2", (h) => h[0]?.textContent ?? null) };
       await ctx.close();
     }
     const summaryCases = {
@@ -109,7 +109,7 @@ const fresh = async (browser, log, width = 1440) => {
       await L.toPurpose(page); await L.toContext(page);
       await page.getByRole("button", { name: "Review run" }).click();
       await page.waitForTimeout(1500);
-      out.summary[label] = { alerts: (await alerts(page)).map((a) => a.slice(0, 300)), h2: await page.$$eval("h2", (h) => h[0].textContent), focus: await active(page), problemButton: await page.getByRole("button", { name: /problem to fix/ }).allInnerTexts() };
+      out.summary[label] = { alerts: (await alerts(page)).map((a) => a.slice(0, 300)), h2: await page.$$eval("h2", (h) => h[0]?.textContent ?? null), focus: await active(page), problemButton: await page.getByRole("button", { name: /problem to fix/ }).allInnerTexts() };
       if (label === "multi") await L.shot(page, "p12-summary-multi-1440");
       await ctx.close();
     }
@@ -124,7 +124,7 @@ const fresh = async (browser, log, width = 1440) => {
       await page.getByRole("button", { name: "Submit run", exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Start synthetic run" }).click();
       await page.waitForTimeout(1500);
-      const rec = { hits, url: page.url().replace(L.BASE, ""), alerts: await alerts(page), h2: await page.$$eval("h2", (h) => h[0].textContent), focus: await active(page) };
+      const rec = { hits, url: page.url().replace(L.BASE, ""), alerts: await alerts(page), h2: await page.$$eval("h2", (h) => h[0]?.textContent ?? null), focus: await active(page) };
       if (label === "s500" || label === "snet") {
         rec.approveDisabled = await page.getByRole("checkbox", { name: /^Approve:/ }).isDisabled();
         rec.submitEnabled = await page.getByRole("button", { name: "Submit run", exact: true }).isEnabled();
