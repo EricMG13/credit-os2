@@ -148,7 +148,11 @@ export function LegacyVisuals({
             <Heading className="font-display text-h4 first-letter:uppercase">{title}</Heading>
             <GapPanel
               role="note"
-              reason={link && containsReference(gap) ? "See Evidence." : readerText(gap)}
+              reason={
+                link && containsReference(gap)
+                  ? `${/^(Not supplied|Not calculated|Not assessable|Not established|Withheld)\b/i.exec(gap)?.[1] ?? "Not established"}. See Evidence.`
+                  : readerText(gap)
+              }
             />
             {actions}
           </section>

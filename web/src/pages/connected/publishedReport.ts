@@ -584,8 +584,8 @@ const LONG_HASH = /\b(?=[0-9a-f]*[a-f])[0-9a-f]{32,}\b/i;
 const REGISTER_ID = /\bCP-[A-Z0-9]+-(?:GAP|MON|FACT|CALC|EVID|SRC|ASSUMPTION)-[A-Z0-9-]+\b/i;
 
 // A gap id as the modules spell a gap, the report-wide id after the empty-set mark ("∅ G12",
-// "∅ G12 n.m.", "∅ [G12]"), and a run code "20261117-094923-01". "(G7)" or "G20" in a sentence is
-// not a gap id. A module code is not a reference here: a findings page draws it as the module's
+// "∅ G12 n.m.", "∅ [G12]"), a parenthesized gap id, and a run code. Bare "G20" in a
+// sentence is not a gap id. Page locators also stay in Evidence. A module code is not a reference here: a findings page draws it as the module's
 // name (`readerText`, D-13 part 2), so it is not held back.
 const GAP_ID = /∅\s*\[?G\d+\b/;
 const RUN_CODE = /\b\d{8}-\d{6}-\d{2}\b/;
@@ -596,6 +596,8 @@ export function containsReference(text: string) {
     LONG_HASH.test(text) ||
     REGISTER_ID.test(text) ||
     GAP_ID.test(text) ||
+    /\(G\d+\)/.test(text) ||
+    /\b(?:pp?\.|pages?)\s*\d+(?:\s*[-–]\s*\d+)?\b/i.test(text) ||
     RUN_CODE.test(text)
   );
 }

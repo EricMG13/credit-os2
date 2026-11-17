@@ -46,25 +46,29 @@ function indices(table: SourceTable, values: unknown[]): number[] | null {
 }
 
 /** The numbers of cells that state one measure in one unit, each read with the others. */
-function scopeAmounts(cells: string[]) {
-  return cells.map((cell) => cellAmount(cell, cells));
+function scopeAmounts(cells: string[], unit?: string) {
+  return cells.map((cell) => cellAmount(cell, cells, unit));
 }
 
 /** One column's numbers: a period series, a bridge, a yield curve or a recovery column. */
 function columnAmounts(table: SourceTable, column: number) {
-  return scopeAmounts(table.rows.map((row) => row[column] ?? ""));
+  const cells = table.rows.map((row) => row[column] ?? "");
+  return cells.map((cell, index) => cellAmount(cell, cells, table.rows[index]?.at(-2)));
 }
 
 /** One row's numbers in `columns`: a bullet, range or paired row has its own measure and unit. */
 function rowAmounts(row: string[], columns: number[]) {
-  return scopeAmounts(columns.map((column) => row[column] ?? ""));
+  return scopeAmounts(
+    columns.map((column) => row[column] ?? ""),
+    row.at(-2),
+  );
 }
 
 function chartCells(table: SourceTable, columns: number[]) {
   return columns.every((index) =>
     table.rows.every((row) => {
       const cell = row[index] ?? "";
-      return amount(cell) !== null || /^Not supplied:\s*\S/.test(cell);
+      return amount(cell, row.at(-2)) !== null || /^Not supplied:\s*\S/.test(cell);
     }),
   );
 }
@@ -73,7 +77,9 @@ function unitsMatch(table: SourceTable, unit: string, columns: number[]) {
   return (
     Boolean(unit) &&
     table.rows.every((row) =>
-      columns.every((column) => amount(row[column] ?? "") === null || row.at(-2) === unit),
+      columns.every(
+        (column) => amount(row[column] ?? "", row.at(-2)) === null || row.at(-2) === unit,
+      ),
     )
   );
 }
@@ -104,33 +110,16 @@ function periods(table: SourceTable, descriptor: Descriptor, frame: Frame) {
     values.every((value) => value === null)
   )
     return null;
-  if (values.some((value) => value !== null && value < 0)) {
-    return (
-      <>
-        {frame.actions}
-        <TrendChart
-          title={frame.title}
-          as={frame.as}
-          note={frame.note}
-          periods={groups}
-          series={series}
-          yTicks={ticks(values, true)}
-          table={series.map((entry, at) => ({
-            name: entry.name,
-            cells: table.rows.map((row) => row[columns[at] ?? 0] || null),
-          }))}
-          detailTable={chartTable(table)}
-        />
-      </>
-    );
-  }
   return (
-    <ColumnsChart
+    <TrendChart
       {...frame}
-      groups={groups}
+      periods={groups}
       series={series}
       yTicks={ticks(values, true)}
-      table={chartTable(table, [0, ...columns])}
+      table={series.map((entry, at) => ({
+        name: entry.name,
+        cells: table.rows.map((row) => row[columns[at] ?? 0] || null),
+      }))}
       detailTable={chartTable(table)}
     />
   );
@@ -401,23 +390,21 @@ function bullet(table: SourceTable, descriptor: Descriptor, frame: Frame) {
   if (!labels?.length || slots === null) return null;
   const [current = 2, threshold = 1, direction = 4] = slots;
   if (!chartCells(table, [current, threshold])) return null;
-  const rows = table.rows.flatMap((row) => {
+  const rows = table.rows.map((row) => {
     const [value = null, target = null] = rowAmounts(row, [current, threshold]);
-    if (target === null || target < 0 || (value !== null && value < 0)) return [];
     const unit = row.at(-2) ?? "";
     const label = labels.map((index) => row[index] ?? "").join(" · ");
-    return [
-      {
-        label,
-        value,
-        target,
-        axisMax: Math.max(value ?? 0, target) || 1,
-        sub: `${row[direction] ?? ""} ${row[threshold] ?? ""} ${unit}`,
-        text: value === null ? null : (row[current] ?? null),
-      },
-    ];
+    return {
+      label,
+      value,
+      target,
+      axisMin: Math.min(0, value ?? 0, target ?? 0),
+      axisMax: Math.max(0, value ?? 0, target ?? 0) || 1,
+      sub: `${row[direction] ?? ""} ${row[threshold] ?? ""} ${unit}`,
+      text: value === null ? null : (row[current] ?? null),
+    };
   });
-  if (rows.length !== table.rows.length || !distinct(rows.map((row) => row.label))) return null;
+  if (!distinct(rows.map((row) => row.label))) return null;
   const source = chartTable(table);
   return (
     <BulletChart

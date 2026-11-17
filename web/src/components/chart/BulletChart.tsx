@@ -14,10 +14,11 @@ export interface BulletRow {
   label: string;
   /** The exact text under the label: the level that matters. */
   sub: string;
-  /** Position only, from zero; null draws no bar. */
+  /** Position only; the bar meets zero, and null draws no bar. */
   value: number | null;
   /** Position only; the dashed line stays when the value is missing. */
-  target: number;
+  target: number | null;
+  axisMin?: number;
   axisMax: number;
   /** The exact text; null exactly where the value is missing. */
   text: string | null;
@@ -36,8 +37,8 @@ interface BulletChartProps {
 function check({ rows, table }: Pick<BulletChartProps, "rows" | "table">) {
   if (rows.length === 0) throw new Error("rows must not be empty");
   for (const r of rows) {
-    // Bars start at one zero baseline, so every position must lie between zero and the axis max.
-    checkAxis(r.label, 0, r.axisMax, [r.value, r.target]);
+    // Each row states its axis; negative values sit left of its zero baseline.
+    checkAxis(r.label, r.axisMin ?? 0, r.axisMax, [r.value, r.target]);
     if (r.value === null && r.text !== null) {
       throw new Error(`row "${r.label}": a missing value takes no text`);
     }
@@ -60,31 +61,53 @@ export function BulletChart({ rows, table, ...frame }: BulletChartProps) {
       {...frame}
       table={table}
       rows={rows.map((r) => {
-        const width = r.value === null ? 0 : pct(r.value, 0, r.axisMax);
-        const at = pct(r.target, 0, r.axisMax);
+        const min = r.axisMin ?? 0;
+        const zero = pct(0, min, r.axisMax);
+        const position = r.value === null ? zero : pct(r.value, min, r.axisMax);
+        const width = Math.abs(position - zero);
+        const at = r.target === null ? null : pct(r.target, min, r.axisMax);
         return {
           label: r.label,
           sub: r.sub,
           track: (
             <>
-              {r.value === null ? (
+              {min < 0 && r.target !== null ? (
+                <i
+                  data-zero=""
+                  data-left={zero}
+                  className="absolute -inset-y-1 border-l border-text-tertiary"
+                  style={{ left: `${String(zero)}%` }}
+                />
+              ) : null}
+              {r.target === null ? (
+                <span className="flex items-center gap-2 text-caption leading-7">
+                  <Missing /> Threshold not supplied
+                </span>
+              ) : r.value === null ? (
                 <span data-missing="" className="text-caption font-medium leading-7">
                   <Missing />
                 </span>
               ) : (
                 <i
                   data-bar=""
+                  data-negative={r.value < 0 ? "" : undefined}
                   data-width={width}
                   className="absolute inset-y-0 left-0 min-w-0.5 rounded-ds-xs"
-                  style={{ width: `${String(width)}%`, backgroundColor: color }}
+                  style={{
+                    left: `${String(Math.min(position, zero))}%`,
+                    width: `${String(width)}%`,
+                    backgroundColor: color,
+                  }}
                 />
               )}
-              <i
-                data-target=""
-                data-left={at}
-                className="absolute -inset-y-1.5 border-l-2 border-dashed border-text-primary"
-                style={{ left: `${String(at)}%` }}
-              />
+              {at === null ? null : (
+                <i
+                  data-target=""
+                  data-left={at}
+                  className="absolute -inset-y-1.5 border-l-2 border-dashed border-text-primary"
+                  style={{ left: `${String(at)}%` }}
+                />
+              )}
             </>
           ),
           values:

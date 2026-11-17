@@ -79,7 +79,7 @@ it("draws a chart gap reason in the reader's words, a module code as the module'
   );
   const notes = screen.getAllByRole("note");
   expect(notes[0]).toHaveTextContent("Not established: Legal & covenants gives no trigger text");
-  expect(notes[1]).toHaveTextContent("Not established: see Filing p.12 (Legal & covenants)");
+  expect(notes[1]).toHaveTextContent("Not established. See Evidence.");
   expect(document.body.textContent).not.toMatch(/CP-\d/);
 });
 

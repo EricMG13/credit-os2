@@ -67,19 +67,43 @@ const COMMA_GROUPS = /^-?(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d?(?:,\d{2})+,\d{3})(?
 const DECIMAL_COMMA = /^-?\d+,\d+$/;
 const PLAIN_NUMBER = /^-?\d+(?:\.\d+)?$/;
 
-function readAmount(cell: string, decimalComma: boolean): number | null {
-  let text = cell;
-  if (DECIMAL_COMMA.test(cell) && (decimalComma || !COMMA_GROUPS.test(cell)))
-    text = cell.replace(",", ".");
-  else if (COMMA_GROUPS.test(cell)) text = cell.replaceAll(",", "");
+function numberText(cell: string, unit?: unknown): string | null {
+  let text = cell.trim().replaceAll("−", "-");
+  const suffix = /\s*(%|x|m|bn|millions?|billions?)$/i.exec(text);
+  if (suffix) {
+    if (typeof unit !== "string") return null;
+    const family = (value: string) => {
+      if (value === "%" || value === "x") return value;
+      if (/(?:bn|billions?)$/i.test(value)) return "bn";
+      return /(?:m|millions?)$/i.test(value) ? "m" : null;
+    };
+    if (family(suffix[1] ?? "") !== family(unit.trim())) return null;
+    text = text.slice(0, suffix.index);
+  }
+  if (/^\([^()]+\)$/.test(text)) {
+    const inner = text.slice(1, -1);
+    if (/^[+-]/.test(inner)) return null;
+    text = `-${inner}`;
+  }
+  if (/^-?\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d+)?$/.test(text))
+    text = text.replace(/[ \u00a0\u202f]/g, "");
+  return text;
+}
+
+function readAmount(cell: string, decimalComma: boolean, unit?: unknown): number | null {
+  let text = numberText(cell, unit);
+  if (text === null) return null;
+  if (DECIMAL_COMMA.test(text) && (decimalComma || !COMMA_GROUPS.test(text)))
+    text = text.replace(",", ".");
+  else if (COMMA_GROUPS.test(text)) text = text.replaceAll(",", "");
   if (!PLAIN_NUMBER.test(text)) return null;
   const value = Number(text);
   return Number.isFinite(value) ? value : null;
 }
 
 /** A cell's number with no column to ask: one comma and three digits ("2,800") is a thousands group. */
-export function amount(cell: string): number | null {
-  return readAmount(cell, false);
+export function amount(cell: string, unit?: unknown): number | null {
+  return readAmount(cell, false, unit);
 }
 
 // Only a decimal comma reads "3,75"; only English grouping reads "1,250,000" or "2,800.5".
@@ -92,8 +116,9 @@ const onlyGrouping = (cell: string) => COMMA_GROUPS.test(cell) && !DECIMAL_COMMA
  * comma and three digits ("2,800") is a decimal comma too, 2.8. Otherwise, a scope written only in
  * three-decimal commas included, the cell is read as `amount` reads it.
  */
-export function cellAmount(cell: string, scope: readonly string[]): number | null {
-  return readAmount(cell, scope.some(onlyDecimalComma) && !scope.some(onlyGrouping));
+export function cellAmount(cell: string, scope: readonly string[], unit?: unknown): number | null {
+  const texts = scope.map((value) => numberText(value, unit) ?? "");
+  return readAmount(cell, texts.some(onlyDecimalComma) && !texts.some(onlyGrouping), unit);
 }
 
 export function sharePosition(cell: string) {
@@ -182,9 +207,6 @@ export function ticks(
 
 const BASIS_COLUMN = /^Basis and limitation$/i;
 const DRAWER_COLUMN = /^(?:Source|Evidence)$/i;
-// What `containsReference` leaves out: a gap id "(G12)" and a run code "20261117-094923-01". A module
-// code is not held back; `readerText` draws it as the module's name.
-const GAP_OR_RUN = /\(G\d+\)|\b\d{8}-\d{6}-\d{2}\b/u;
 
 /**
  * The Table form of a published chart table. The limitation text stays beside the figures, its module
@@ -200,7 +222,7 @@ export function chartTable(table: SourceTable, columns = table.headers.map((_, i
   const cell = (row: string[], column: number) => {
     const text = row[column] ?? "";
     if (!inDrawer || !BASIS_COLUMN.test(table.headers[column] ?? "")) return text || null;
-    return containsReference(text) || GAP_OR_RUN.test(text)
+    return containsReference(text)
       ? "Qualification recorded in Evidence."
       : readerText(text) || null;
   };

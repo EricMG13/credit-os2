@@ -37,6 +37,7 @@ it("draws a value written with a decimal comma at that value, not at 375", () =>
     .map(Number);
   expect(numbers.length).toBeGreaterThan(2);
   expect(Math.max(...numbers)).toBeLessThan(10);
+  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
   expect(figure.getAllByText("3,75").length).toBeGreaterThan(0);
 });
 
@@ -62,6 +63,7 @@ it("draws 2,800 beside 3,75 as 2.8, the column proving the decimal comma", () =>
   const numbers = axisNumbers();
   expect(numbers.length).toBeGreaterThan(2);
   expect(Math.max(...numbers)).toBeLessThan(10);
+  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
   expect(figure.getAllByText("3,75").length).toBeGreaterThan(0);
   expect(figure.getAllByText("2,800").length).toBeGreaterThan(0);
 });
@@ -131,9 +133,10 @@ it("draws an Indian lakh grouping at its value", () => {
       ],
     ),
   );
-  expect(figure.getAllByText("21,00,000").length).toBeGreaterThan(0);
   // The axis runs to 2,500,000 for a bar at 2,100,000 and one at 123,456.
   expect(figure.getByText("2,500,000")).toBeInTheDocument();
+  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  expect(figure.getAllByText("21,00,000").length).toBeGreaterThan(0);
 });
 
 it("shows each period's unit and Basis and limitation in the Table form of a period chart", () => {
