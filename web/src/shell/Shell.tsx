@@ -20,9 +20,9 @@ export function Shell({
   symbol = "./symbol.svg",
   children,
 }: {
-  current: Area;
+  current: Area | null;
   bleed?: boolean;
-  sections?: readonly { area: Area; href: string }[];
+  sections?: readonly { area: Area; href: string; label?: string }[];
   symbol?: string;
   children: ReactNode;
 }) {
@@ -31,7 +31,7 @@ export function Shell({
       ? ITEMS
       : ITEMS.flatMap((item) => {
           const section = sections.find((entry) => entry.area === item.area);
-          return section ? [{ ...item, href: section.href }] : [];
+          return section ? [{ ...item, href: section.href, label: section.label ?? item.label }] : [];
         });
   const main = useRef<HTMLElement>(null);
   return (
@@ -57,8 +57,15 @@ export function Shell({
               {items.map((item) => (
                 <li
                   key={item.area}
-                  className="flex min-w-0 flex-1 flex-col items-center min-[768px]:flex-none"
+                  className="relative flex min-w-0 flex-1 flex-col items-center min-[768px]:flex-none"
                 >
+                  {item.area === current && (
+                    <span
+                      aria-hidden="true"
+                      data-current-area
+                      className="absolute top-1 bottom-1 left-0 border-l-2 border-action min-[768px]:-left-2"
+                    />
+                  )}
                   <NavButton
                     current={item.area === current}
                     href={item.href}
