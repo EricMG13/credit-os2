@@ -113,22 +113,6 @@ Touches money, ordering or security code: no.
 
 Note: Use web/src/components/application/empty-state/empty-state.tsx as it is; do not change it.
 
-## T06 (group 1). Connected page changes move focus to the new page
-
-Findings:
-
-- J5-003, Medium: With the keyboard only, every change of page (Start a run, Start synthetic run, Open report, Open in Evidence, Back) leaves focus on the page body, so the next Tab begins again at 'Skip to content' and the reader pays 4 to 14 Tab stops to get back to the content.
-
-Files: `web/src/pages/connected/ConnectedApp.tsx`, `web/src/pages/connected/layout.tsx`
-
-Probes:
-
-- J5-003 (output): `docs/audit/2026-11-16-final/output/3-journeys/J5/probes/j5-003-focus-lost-on-navigation.cjs`
-
-Touches money, ordering or security code: no.
-
-Note: Route changes between connected pages only; hash changes inside the report are T14 and the drawer's Open in Evidence is T24.
-
 ## T07 (group 1). Start a run: no example issuer typed in; history per step; keep the form on leaving; carry-over keeps documents; focus after Carry over
 
 Findings:
@@ -136,7 +120,6 @@ Findings:
 - J2-002, Medium: Start a run opens with an example issuer already typed into the required Issuer name and Issuer ID fields, and today's date as the case date.
 - C2-002 (with J2-001), Medium: Moving between steps adds no browser history entry, so Back, Reload or the Library link silently discards every document, answer and approval typed so far.
 - C2-003, Medium: Start from an earlier run says it copies the earlier answers but drops which documents are the agreement and the portfolio workbook, so the review opens with 'Will refuse: Legal & covenants'.
-- C2-005, Medium: Pressing Carry over from latest run leaves keyboard focus on the page body and announces nothing, because the button is replaced by 'This is a different issuer'.
 
 Files: `react_frontend/__init__.py`, `web/src/pages/connected/StartRun.tsx`
 
@@ -146,7 +129,6 @@ Probes:
 - C2-002 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p10-navigation.cjs`
 - C2-002 (output): `docs/audit/2026-11-16-final/output/3-journeys/J2/probes/j2-001-leave-mid-form.cjs`
 - C2-003 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p13-from-run.cjs`
-- C2-005 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p06-carry-over.cjs`
 
 Touches money, ordering or security code: no.
 
@@ -207,14 +189,12 @@ Touches money, ordering or security code: service state (drafts).
 
 Findings:
 
-- C2-001, Medium: At 390 px a file name or issuer name with no spaces widens the whole review sheet, clipping every Edit button, the file name and the Submit button.
 - C2-007, Medium: The decisions that block Submit sit at the bottom of the review sheet, after about 2,700 px (3,600 px at 390 px) of echoed inputs and 20 'Not given' rows.
 
 Files: `web/src/pages/connected/start/ReviewSheet.tsx`
 
 Probes:
 
-- C2-001 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p20-narrow-review-overflow.cjs`
 - C2-007 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p23-review-order.cjs`
 
 Touches money, ordering or security code: no.
@@ -261,8 +241,7 @@ Note: R2-001 (Low) is repaired here by ruling L11; it does not need a verify ver
 
 Findings:
 
-- C3-002 (with C3-003, C4-034, J3-001), Medium: After the reader chooses another module in the Modules navigator (link by keyboard, or the Module select at 390 px), keyboard focus drops to <body>.
-- C3-004 (with C5-006), Medium: Below 1001 px the Module select navigates on every ArrowDown, so a keyboard user cannot browse the options without changing page each time.
+- C3-002 (with C3-003, C4-034, J3-001), Medium: After the reader chooses another module in the Modules navigator (link by keyboard, or the Module select at 390 px), keyboard focus drops to <body>. Ruling: R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; the focus half is dropped; the scroll and Back half (C3-003, C4-034, J3-001) stays
 - C3-005, Medium: 'On this page' lists 'Key findings' on Financial foundation, whose handoff wrote no Key findings (checked on all 14 modules: it is the only one); the entry scrolls to a table section.
 - C3-028, Medium: On a module page the charts, event lanes and maps come between the Bottom line and Key findings, pushing Key findings, Contrary evidence and Limitations 1,200 to 1,600 px down. Ruling: OQ-02 decided (R10): move the figures block after the prose passages, before Limitations
 
@@ -274,8 +253,6 @@ Probes:
 - C3-002 (exit): `docs/audit/2026-11-16-final/output/2-sections/C3/probes/p03-scroll-after-module-switch.cjs`
 - C3-002 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-probe-034-scroll-after-link.cjs`
 - C3-002 (exit): `docs/audit/2026-11-16-final/output/3-journeys/J3/probes/j3-001-back-loses-place.cjs`
-- C3-004 (exit): `docs/audit/2026-11-16-final/output/2-sections/C3/probes/p04-select-navigates-on-arrow.cjs`
-- C3-004 (exit): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/select-arrow.cjs`
 - C3-005 (exit): `docs/audit/2026-11-16-final/output/2-sections/C3/probes/p05-key-findings-label-cp1.cjs`
 - C3-028 (exit): `docs/audit/2026-11-16-final/output/2-sections/C3/probes/p19-module-reading-order.cjs`
 
@@ -408,7 +385,6 @@ Touches money, ordering or security code: lost data.
 
 Findings:
 
-- C5-002, Medium: At 390 px the Gaps ledger and the Comparison measures table push every card on the tab past the window edge, and the report area scrolls sideways.
 - C5-009 (with J3-013), Medium: The handoff evidence view looks like rendered Markdown: literal "- " bullets with 64-hex hashes in the body font, handoff section names as headings, and (on a forecast line) a literal ```json fence.
 - C5-010, Medium: The Gaps ledger is not grouped or ordered by severity.
 - C5-011, Medium: Evidence > Sources opens the supplied source files (the workbook downloads), although ruling decision 9 says files are "listed only, not downloadable or viewable". Ruling: OQ-04 decided (R10): list supplied source files only, with no link to open them (decision 9)
@@ -418,7 +394,6 @@ Files: `web/src/pages/connected/report/Evidence.tsx`, `web/src/pages/connected/s
 
 Probes:
 
-- C5-002 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/gaps-390.cjs`
 - C5-009 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/handoff-markdown-look.cjs`
 - C5-009 (output): `journey.md step 5 (observed; a probe is required only from Medium)`
 - C5-010 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/gaps-order.cjs`
@@ -435,7 +410,6 @@ Note: C5-011 follows OQ-04: list supplied files only, with no link to open them.
 Findings:
 
 - C5-003 (with J4-005, J3-015), Medium: The trace drawer of the Confidence score lists 14 identical "no page" entries instead of the confidence inputs it is computed from.
-- C5-007 (with J5-002), Medium: Handoff tables with fewer than five columns scroll sideways at 390 px but cannot be reached or scrolled with the keyboard.
 
 Files: `web/src/pages/connected/ReportContent.tsx`, `src/deploy_workflow/confidence.py`
 
@@ -444,8 +418,6 @@ Probes:
 - C5-003 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/confidence-drawer.cjs`
 - C5-003 (output): `docs/audit/2026-11-16-final/output/3-journeys/J4/probes/j4-005-confidence-method.mjs`
 - C5-003 (output): `journey.md step 3 (observed; a probe is required only from Medium)`
-- C5-007 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/scroll-regions-390.cjs`
-- C5-007 (output): `docs/audit/2026-11-16-final/output/3-journeys/J5/probes/j5-002-narrow-tables-cut-off.cjs`
 
 Touches money, ordering or security code: figures (confidence score).
 
@@ -460,20 +432,6 @@ Files: `web/src/pages/connected/report/ArtifactDownloads.tsx`
 Probes:
 
 - C5-012 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/loading-states.cjs`
-
-Touches money, ordering or security code: no.
-
-## T24 (group 2). Open in Evidence from a drawer moves focus to the Evidence content
-
-Findings:
-
-- C5-034, Medium: After "Open in Evidence" is activated from a drawer, keyboard focus is on the document body, not on the Evidence content.
-
-Files: `web/src/pages/library/parts/TraceDrawer.tsx`
-
-Probes:
-
-- C5-034 (output): `docs/audit/2026-11-16-final/output/2-sections/C5/probes/focus-after-open-in-evidence.cjs`
 
 Touches money, ordering or security code: no.
 
@@ -516,7 +474,7 @@ Touches money, ordering or security code: no.
 
 Findings:
 
-- S1-002 (with S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003), Medium: Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing.
+- S1-002 (with S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003), Medium: Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing. Ruling: R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; the focus half is dropped; route titles and scroll stay
 
 Files: `web/src/App.tsx`, `web/src/shell/Shell.tsx`, `web/src/pages/route-table.ts`, `web/src/pages/library/routes.tsx`, `web/src/pages/model/routes.tsx`, `web/src/pages/library/Evidence.tsx`, `web/src/pages/library/parts/EvidenceFrame.tsx`, `web/src/pages/library/Module.tsx`, `web/src/pages/library/parts/ModuleNav.tsx`
 
@@ -532,51 +490,6 @@ Probes:
 - S1-002 (output): `docs/audit/2026-11-16-final/output/3-journeys/J6/probes/j6-low-checks.cjs`
 - S1-002 (output): `docs/audit/2026-11-16-final/output/3-journeys/J6/probes/j6-scroll-carried-across-pages.cjs`
 - S1-002 (output): `docs/audit/2026-11-16-final/output/3-journeys/J6/probes/j6-focus-lost-after-tab-activation.cjs`
-
-Touches money, ordering or security code: no.
-
-## T28 (group 3). Rail label is part of its link on narrow screens
-
-Findings:
-
-- S1-003, Medium: On a phone-width screen the visible label under each rail icon is not part of the link, so tapping it does nothing, and the label is read a second time as plain text.
-
-Files: `web/src/components/application/app-navigation/base-components/nav-button.tsx`, `web/src/shell/Shell.tsx`
-
-Probes:
-
-- S1-003 (output): `docs/audit/2026-11-16-final/output/2-sections/S1/probes/rail-label-tap.mjs`
-
-Touches money, ordering or security code: no.
-
-## T29 (group 3). A focus-opened tooltip stays open
-
-Findings:
-
-- S1-005, Medium: A tooltip that keyboard focus opens is closed again by the scroll that the same focus causes, so the text of a trigger below the fold is not shown on first arrival.
-
-Files: `web/src/components/base/tooltip/tooltip.tsx`, `web/src/components/metric/MetricCard.tsx`
-
-Probes:
-
-- S1-005 (output): `docs/audit/2026-11-16-final/output/2-sections/S1/probes/tooltip-scroll-close.mjs`
-
-Touches money, ordering or security code: no.
-
-## T30 (group 3). Focus after Clear filters and Show all
-
-Findings:
-
-- S1-006 (with S2-014), Medium: Pressing "Clear filters" in the no-match state drops focus to the page body, and the control is absent from the stage 0 inventory.
-- S4-005, Medium: Activating 'Show all items' or 'Show all files' in the empty state sends focus to the document body.
-
-Files: `web/src/pages/library/Home.tsx`, `web/src/pages/library/EvidenceSources.tsx`, `web/src/pages/library/EvidenceTrace.tsx`, `web/src/pages/library/parts/ModuleFilter.tsx`
-
-Probes:
-
-- S1-006 (output): `docs/audit/2026-11-16-final/output/2-sections/S1/probes/clear-filters-focus.mjs`
-- S1-006 (output): `docs/audit/2026-11-16-final/output/2-sections/S2/probes/clear-filters-focus.mjs`
-- S4-005 (output): `docs/audit/2026-11-16-final/output/2-sections/S4/probes/s4-probe.mjs focus-after-clear`
 
 Touches money, ordering or security code: no.
 
@@ -616,14 +529,12 @@ Touches money, ordering or security code: no.
 
 Findings:
 
-- S2-005, Medium: A point's qualifier longer than a short label leaves its tile and widens the page at narrow widths, pushing the point's sentence out of view.
 - S2-006, Medium: The Overview's 'Dates to watch' entries carry no trace control, although every other paragraph, row and figure on the page has one.
 
 Files: `web/src/pages/library/Overview.tsx`, `web/src/pages/library/read.ts`, `web/src/pages/library/slice.ts`
 
 Probes:
 
-- S2-005 (output): `docs/audit/2026-11-16-final/output/2-sections/S2/probes/long-qualifier.mjs`
 - S2-006 (output): `docs/audit/2026-11-16-final/output/2-sections/S2/probes/dates-no-trace.mjs`
 
 Touches money, ordering or security code: no.
@@ -648,41 +559,24 @@ Touches money, ordering or security code: no.
 
 Findings:
 
-- S3-002, Medium: The trace control on the Navy bottom-line band takes the Ultramarine focus ring, 2.4:1 against Navy, so keyboard focus is nearly invisible there.
 - S3-007, Medium: Ten of the thirteen fixture modules draw their bottom line, key finding and limitation with no trace control, and Capital structure's statement table and four tests have none: a null trace silently draws nothing.
 
 Files: `web/src/pages/library/parts/TraceControl.tsx`, `web/src/styles/theme.css`, `web/src/pages/library/slice.ts`
 
 Probes:
 
-- S3-002 (exit): `docs/audit/2026-11-16-final/output/2-sections/S3/probes/S3-002.mjs`
 - S3-007 (exit): `docs/audit/2026-11-16-final/output/2-sections/S3/probes/S3-007.mjs`
 
 Touches money, ordering or security code: no.
 
 Note: theme.css and slice.ts are shared with Signal; Signal's tests must pass.
 
-## T36 (group 3). Limitations header at narrow widths
-
-Findings:
-
-- S3-003 (with S2-004), Medium: At 480 px and below the Limitations header overflows its card, the page scrolls sideways, and reaching Collapse limitations by keyboard shifts the whole page 104 px left.
-
-Files: `web/src/pages/library/parts/Limitations.tsx`
-
-Probes:
-
-- S3-003 (exit): `docs/audit/2026-11-16-final/output/2-sections/S3/probes/S3-003.mjs`
-- S3-003 (exit): `docs/audit/2026-11-16-final/output/2-sections/S2/probes/reflow.mjs`
-
-Touches money, ordering or security code: no.
-
 ## T37 (group 3). Module page: Limitations after the prose; navigator search and a narrow picker
 
 Findings:
 
 - S3-005, Medium: Limitations is drawn last, after every record block, although the matrix and rubric put it straight after the contrary evidence and change-of-view passages.
-- S3-006 (with C3-025), Medium: The module navigator has no search at the top and no labelled picker on narrow screens: at 390 px a flat list of every module pushes the module's name 1,012 px down.
+- S3-006 (with C3-025), Medium: The module navigator has no search at the top and no labelled picker on narrow screens: at 390 px a flat list of every module pushes the module's name 1,012 px down. Ruling: R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; the narrow-screen picker is dropped; the navigator search (C3-025) stays
 
 Files: `web/src/pages/library/Module.tsx`, `web/src/pages/library/parts/ModuleNav.tsx`
 
@@ -720,7 +614,6 @@ Note: C5-005 follows OQ-03: hide the switch on Evidence (RunFrame is drawn by bo
 Findings:
 
 - S4-006, Medium: The module filter is drawn on three of the five Evidence tabs and resets to 'All' on every tab change. Ruling: OQ-10 decided (R10): hold the chosen module above the five Evidence tabs and apply it on each
-- S4-007, Medium: At 390 px the Gaps, Trace and Registers tables scroll sideways inside their card with no cue: 'Effect on the view' and 'Shown as' are off screen, and 'Recovery', 'Peer comparison' and 'Financial performance' break mid-word.
 - S4-008, Medium: The Model calls table on Record shows a 'Code' column of module codes (CP-1A, CP-2C, CP-3B, CP-2E) beside each module's name. Ruling: OQ-10 decided (R10): remove the Code column from Record's Model calls table
 - S4-009, Medium: Record's Model calls table lists four of thirteen modules but its Total row (41 calls, 6 retries, USD 11.40) does not say so; Module timings lists six of thirteen with no way to see the rest.
 
@@ -729,7 +622,6 @@ Files: `web/src/pages/library/Evidence.tsx`, `web/src/pages/library/parts/Module
 Probes:
 
 - S4-006 (output): `docs/audit/2026-11-16-final/output/2-sections/S4/probes/s4-probe.mjs filter-scope`
-- S4-007 (output): `docs/audit/2026-11-16-final/output/2-sections/S4/probes/s4-probe.mjs narrow-table`
 - S4-008 (output): `docs/audit/2026-11-16-final/output/2-sections/S4/probes/s4-probe.mjs module-codes`
 - S4-009 (output): `docs/audit/2026-11-16-final/output/2-sections/S4/probes/s4-probe.mjs record-partial`
 
@@ -741,8 +633,6 @@ Findings:
 
 - S5-002, Medium: An unreadable run is explained to the reader with the reader's raw field path ('runs[1].front.headline: missing') and listed by its raw issuer slug and run id.
 - S5-004, Medium: A trace control on the Model pages is a plain link that leaves the Model for the Evidence page: it opens no drawer, and Back returns a reset page (case choice, scroll position and focus lost). Ruling: OQ-10 decided (R10): open the trace drawer in place from the Model's trace controls
-- S5-005, Medium: At 390 px the Statements table cannot be read: the sticky label column takes 224 of the table's 260 px, leaving a 36 px window for the figures.
-- S5-008, Medium: Metric definitions and the reasons behind n.a. and Withheld cells appear only as hover or focus tooltips; a tap on a touch device shows nothing.
 
 Files: `web/src/pages/model/RunsIndexPage.tsx`, `web/src/pages/model/parts/RunPage.tsx`, `web/src/pages/model/parts/TraceControl.tsx`, `web/src/pages/model/parts/StatementTable.tsx`, `web/src/pages/model/parts/MetricTile.tsx`
 
@@ -750,8 +640,6 @@ Probes:
 
 - S5-002 (output): `node docs/audit/2026-11-16-final/output/2-sections/S5/probes/p-noforecast.mjs`
 - S5-004 (output): `node docs/audit/2026-11-16-final/output/2-sections/S5/probes/p-trace-nav.mjs`
-- S5-005 (output): `node docs/audit/2026-11-16-final/output/2-sections/S5/probes/p-narrow-390.mjs`
-- S5-008 (output): `node docs/audit/2026-11-16-final/output/2-sections/S5/probes/p-touch-tooltips.mjs`
 
 Touches money, ordering or security code: no.
 
@@ -761,18 +649,12 @@ Note: S5-004 follows OQ-10: open the library's TraceDrawer in place; use TraceDr
 
 Findings:
 
-- S6-001, Medium: The focused Purpose card is drawn exactly like the selected, unfocused one: the focus outline is declared but never painted.
-- S6-002, Medium: Confirming the Submit dialog removes the Submit button and leaves keyboard focus on the document body; the new 'Run started' panel is not announced or focused.
 - S6-007, Medium: The 'Runs' breadcrumb opens #/run, which draws the one run the slice calls current (the running one), not a list of runs; no static page lists runs in progress, the queue or ended runs.
-- S6-010, Medium: A run's label chip cannot wrap: the fixture's own long label ('Full credit review with every optional module and a late cut-off') is cut off at 390 px, and one unbroken label pushes Stop run off the page at 1440 px.
 
 Files: `web/src/pages/run/start/Purpose.tsx`, `web/src/pages/run/start/Start.tsx`, `web/src/pages/run/activity/ActivityPage.tsx`, `web/src/components/base/badges/badges.tsx`
 
 Probes:
 
-- S6-001 (exit): `docs/audit/2026-11-16-final/output/2-sections/S6/probes/s6-radio-focus.mjs`
-- S6-002 (exit): `docs/audit/2026-11-16-final/output/2-sections/S6/probes/s6-submit-focus.mjs`
 - S6-007 (exit): `docs/audit/2026-11-16-final/output/2-sections/S6/probes/s6-runs-link.mjs`
-- S6-010 (exit): `docs/audit/2026-11-16-final/output/2-sections/S6/probes/s6-long-label.mjs`
 
 Touches money, ordering or security code: no.
