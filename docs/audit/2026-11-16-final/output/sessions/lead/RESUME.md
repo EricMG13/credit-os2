@@ -1,3 +1,44 @@
+## Current checkpoint 2026-11-17T16:03Z
+
+- Coordination: required inputs read; setup completed with pinned uv0.12.5 and locked dependencies.
+  Native Linux Chrome157.0.8103.78 and Edge155.0.4283.62 extracted under `/workspace/audit-browsers/`
+  after system browser installation required an unavailable root password. Chromium is also installed.
+- Batch integration worktree `/workspace/audit-batch-integration`, branch `audit/batch-integration`:
+  a,b,c merged in order; `f67a17f0` resolves test consequences (approved USD25 cap, extra record
+  navigation headings, explicit no-report test scenarios). Gates/tests still finishing; not yet pushed
+  to final-repairs. New implementation worktrees must preserve those test resolutions.
+- `lead-review-group1-preliminary.md`: no production High/Medium blocker at `301c7ded`; quality
+  gate0, Python415passed+1existing skip; frontend451passed+one async table race, unchanged file
+  alone3passed. Await done/PR and green CI; do not takeover before two hours without push.
+- `lead-review-group2-preliminary.md`: NEW Medium blocker at `f9453f27`, sourceFiles citedSourceNames
+  drops an earlier cited range for the same file. Evidence batch worker has reproduced with a
+  failing regression and is fixing it on a separate lead branch. Current Trace.sourceLinks now
+  HAS a visible caller in TraceDrawer: the handover sweep suggestion to remove it is stale.
+- Complete batch inventory retained in `output/5-repair/batch-inventory.json` and `.md`: all159
+  canonical batch IDs, original/merged records and source evidence;34 already repaired,11partial,
+ 113conservatively remaining,1work-PC-only. These are planning classifications, not final closure.
+- Lead implementation workers (each isolated, no push/merge authority):
+  - `audit/lead-static-followups` `/workspace/audit-static-followups`: static model family,
+    empty run route, desktop481–1000 ModuleNav and stale range comment.
+  - `audit/lead-fixture-followups` `/workspace/audit-fixture-followups`: library/run/model fixture
+    consistency plus library read.ts strict count/source checks, lead F1/F2/F3/F11.
+  - `audit/lead-connected-start` `/workspace/audit-connected-start`:19 connected-start batch IDs
+    and date-only dirty-state gap, based on repair1 tip; new commits only will be cherry-picked.
+  - `audit/lead-connected-shell` `/workspace/audit-connected-shell`: shell/library/activity/run
+    batch plus API contract and service-backed card summary, based on repair1 tip.
+  - `audit/lead-connected-evidence` `/workspace/audit-connected-evidence`:17 Evidence IDs plus
+    citation-range blocker, based on repair2 tip. ReportContent prop edit tightly limited.
+- Every repair requires an observed failing test first. Any changed assertion must follow the
+  finding's required behaviour and be named in its report. No gate/test skipped or loosened.
+- Shared worktree .venv editable imports otherwise point at the last synced checkout: set
+  explicit `PYTHONPATH=<own>/src:<own>/apps/issuer-library:<own>` and use `uv run --no-sync`.
+  Root must `uv sync --locked` again before final root checks. npm packages symlinked; workers
+  do not install. Bound vitest to1worker while six implementation workers are active.
+
+Next: finish/gate batch integration, push final-repairs milestone; independent review of each
+new batch; collect repair PRs when done; then remaining report/forecast/charts/static library/run/
+shared components/docs families from inventory. Combined fidelity/gates precede sweep/send-off.
+
 # Current takeover checkpoint (2026-11-17T15:53Z)
 
 Read the "Lead takeover" section in STATUS.md first; the earlier handover below remains the
