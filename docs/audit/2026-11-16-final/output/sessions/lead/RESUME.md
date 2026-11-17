@@ -47,6 +47,10 @@ file, `STATUS.md` beside it, and the branches below. Everything is pushed.
 - B. Stage 7 prep: `output/7-send-off/requirements-draft.md` and `unverified-draft.md` on branch `audit/lead-sendoff`.
 - C. Chunk b2 on `audit/lead-batch-b`: component-map.md eleven shapes, C4-011 (ComparisonChart wrap), the fixture's Finished cards with no report, RV-4 (Full-run cap bars USD 25) and the slice-start.ts comment. It needs a review before the merge.
 
+## Repair pull requests
+
+- #56 (repair-3, group 3): read by the lead at 12:50Z. All 126 changed files are group 3's own, their tests, or files a lead ruling cleared (L5, L7, L8, L9, L9b). Each task has a report and every review verdict is PASS; T34.md and T40.md lack a closing "Not verified:" line (minor). Waiting only for CI "fast tests and page logic"; merge it into audit/final-repairs when green (the lead subscribed to the PR).
+
 ## Lead follow-up list (step 7 extras)
 
 1. Hide the "Show sources" switch on the connected Evidence tab: ReaderHeader in
@@ -71,7 +75,8 @@ file, `STATUS.md` beside it, and the branches below. Everything is pushed.
 11. Chunk c leftovers: the stale comment in `web/src/pages/model/slice/types.ts:392`;
     `docs/design/component-map.md:353` says "ten shapes" (now eleven).
 12. Align chunk a's `visuals/index.tsx` chart-gap reasons with ruling L16 (hold back a reason that cites a page; draw the gap's status word or the standard missing form beside "See Evidence.").
-13. Teams items (R1-009 and the Teams card checks) go to the work-PC prompt, not to a cloud change
+13. At 481 to 1,000 px (a desktop window at half a screen) the module navigator comes first with no picker (T37's review): Low, outside R14's 480 px line.
+14. Teams items (R1-009 and the Teams card checks) go to the work-PC prompt, not to a cloud change
     (R15).
 
 ## Register tools
