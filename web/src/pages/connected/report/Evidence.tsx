@@ -180,7 +180,7 @@ function EvidenceLocation({
                   evidence
                 />
               ) : section.heading === FORECAST_INPUTS ? (
-                <pre className="max-h-100 overflow-auto rounded-ds-sm bg-surface-subtle p-3 text-xs whitespace-pre-wrap wrap-anywhere">
+                <pre className="max-h-100 overflow-auto rounded-ds-sm bg-surface-subtle p-3 text-caption whitespace-pre-wrap wrap-anywhere">
                   {withoutMarkdown(block.text).trim()}
                 </pre>
               ) : (
@@ -246,7 +246,7 @@ function EvidenceCitation({
       {pages && (
         <>
           <p>{pages}</p>
-          <p className="text-xs text-text-tertiary">
+          <p className="text-caption text-text-tertiary">
             Pages follow the source supplied to this run and may differ from the filing’s printed
             pages.
           </p>
@@ -309,7 +309,9 @@ function TraceDetailsView({
                 <p className="text-sm text-text-secondary">
                   {documentDate || "Document date n.a."}
                 </p>
-                {sha256 && <code className="text-xs break-all text-text-tertiary">{sha256}</code>}
+                {sha256 && (
+                  <code className="text-caption break-all text-text-tertiary">{sha256}</code>
+                )}
               </li>
             ))}
           </ul>

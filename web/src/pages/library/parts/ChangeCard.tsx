@@ -20,7 +20,7 @@ function Direction({ change }: { change: Change }) {
   if (change.change === null) return null;
   return (
     <span
-      className={`inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 self-end rounded-ds-xs bg-surface-subtle px-1.5 py-1 text-xs font-medium ${TONE_CLASS[change.tone ?? "flat"]}`}
+      className={`inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 self-end rounded-ds-xs bg-surface-subtle px-1.5 py-1 text-caption font-medium ${TONE_CLASS[change.tone ?? "flat"]}`}
     >
       {change.direction === "none" ? null : <DirectionMark direction={change.direction} />}
       {change.change}
@@ -49,7 +49,7 @@ export function ChangeCard({ change, source }: { change: Change; source?: ReactN
         <strong className="text-small font-medium text-text-tertiary">{change.measure}</strong>
         <div className="flex flex-wrap items-baseline gap-x-1.5">
           <CellValue cell={change.current} figureClass={VALUE} weight="font-medium" />
-          <span className="flex items-baseline gap-1 text-xs text-text-tertiary">
+          <span className="flex items-baseline gap-1 text-caption text-text-tertiary">
             from <InlineCell cell={change.from} />
           </span>
         </div>

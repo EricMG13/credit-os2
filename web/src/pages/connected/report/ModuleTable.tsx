@@ -110,7 +110,7 @@ function limitations(data: ReturnType<typeof visible>, traceAt: (line: number) =
                     label={`Show sources for ${readerText(plainText(item.text))}`}
                   />
                   {item.closed && (
-                    <p className="basis-full text-xs text-text-secondary">
+                    <p className="basis-full text-caption text-text-secondary">
                       {richParts(item.closed, readerText)}
                     </p>
                   )}

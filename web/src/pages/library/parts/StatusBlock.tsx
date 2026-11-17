@@ -27,7 +27,7 @@ function TestGroup({ group }: { group: StatusGroup }) {
       <div id={headId} className="flex items-center gap-2 bg-border-strong/5 p-3">
         {group.badge}
         {group.count !== undefined && (
-          <span className="rounded-ds-full bg-surface-subtle px-2 py-0.5 text-xs font-medium text-text-secondary tabular-nums ring-1 ring-border-hairline ring-inset">
+          <span className="rounded-ds-full bg-surface-subtle px-2 py-0.5 text-caption font-medium text-text-secondary tabular-nums ring-1 ring-border-hairline ring-inset">
             {group.count}
           </span>
         )}
@@ -51,7 +51,7 @@ function TestGroup({ group }: { group: StatusGroup }) {
               />
             </div>
             {item.note === null ? null : (
-              <p className="basis-full text-xs font-normal text-text-tertiary">{item.note}</p>
+              <p className="basis-full text-caption font-normal text-text-tertiary">{item.note}</p>
             )}
           </li>
         ))}

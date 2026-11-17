@@ -50,7 +50,7 @@ export function Feed({ lines, live }: { lines: ActivityLine[]; live: boolean }) 
               <div className={cx("flex min-w-0 flex-1 flex-col", last ? "pb-0" : "pb-8")}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium text-text-secondary">{line.who}</span>
-                  <time className="text-xs text-text-tertiary tabular-nums">{line.time}</time>
+                  <time className="text-caption text-text-tertiary tabular-nums">{line.time}</time>
                 </div>
                 <p className="text-sm text-pretty text-text-tertiary">{line.text}</p>
               </div>

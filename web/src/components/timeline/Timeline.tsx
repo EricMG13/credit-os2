@@ -56,7 +56,7 @@ export function Timeline({
               )}
             >
               <div className="flex items-center gap-2">
-                <time className="text-xs/none font-medium text-text-secondary">{item.date}</time>
+                <time className="text-caption font-medium text-text-secondary">{item.date}</time>
                 <StatusBadge set="Dated records" state={item.state} />
               </div>
               <h3 className="font-display text-h4 text-text-primary">{item.title}</h3>

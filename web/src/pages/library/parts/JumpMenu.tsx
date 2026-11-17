@@ -19,7 +19,7 @@ const NAME = "Jump to an item";
 /** Each group has its own mark, so a row reads as a figure, a calculation or a gap without its words. */
 const ICON = { Figures: Hash02, Calculations: Calculator, Gaps: AlertTriangle } as const;
 const KEY =
-  "rounded-ds-xs border border-border-hairline bg-surface-card px-1.5 text-xs font-medium text-text-tertiary";
+  "rounded-ds-xs border border-border-hairline bg-surface-card px-1.5 text-caption font-medium text-text-tertiary";
 /** The shortcut hint is for a keyboard; a narrow layout is a touch layout and draws none. */
 const SHORTCUT_KEY = `${KEY} max-sm:hidden`;
 
@@ -150,7 +150,7 @@ export function JumpMenu({
                       aria-label={group}
                       className="border-b border-border-hairline pb-2"
                     >
-                      <Header className="mt-2 px-4.5 pt-2 pb-1 text-xs font-semibold text-text-tertiary">
+                      <Header className="mt-2 px-4.5 pt-2 pb-1 text-caption font-semibold text-text-tertiary">
                         {group}
                       </Header>
                       {items.flatMap((item, index) =>

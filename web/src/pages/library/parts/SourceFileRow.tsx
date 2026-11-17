@@ -19,7 +19,7 @@ export const SourceFileRow = forwardRef<HTMLLIElement, { file: SourceFile }>(fun
       tabIndex={-1}
       className={`flex flex-wrap items-start gap-3 rounded-xl border border-border-subtle bg-surface-card p-4 ${FOCUS}`}
     >
-      <span className="flex size-10 flex-none items-center justify-center rounded-lg border border-border-hairline bg-surface-subtle text-xs font-semibold text-text-tertiary">
+      <span className="flex size-10 flex-none items-center justify-center rounded-lg border border-border-hairline bg-surface-subtle text-caption font-semibold text-text-tertiary">
         {file.kind}
       </span>
       <div className="min-w-50 flex-1">
@@ -34,7 +34,7 @@ export const SourceFileRow = forwardRef<HTMLLIElement, { file: SourceFile }>(fun
         )}
       </div>
       <div className="flex w-50 flex-col items-start gap-1.5">
-        <span className="text-xs text-text-tertiary">{file.readersLabel}</span>
+        <span className="text-caption text-text-tertiary">{file.readersLabel}</span>
         <Readers readers={file.readers} />
       </div>
       <div className="w-85 max-w-full">

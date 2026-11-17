@@ -74,7 +74,7 @@ export function Shell({
                     label={item.label}
                     icon={item.icon}
                   />
-                  <span className="max-w-full truncate text-xs text-fg-quaternary min-[768px]:hidden">
+                  <span className="max-w-full truncate text-caption text-fg-quaternary min-[768px]:hidden">
                     {item.label}
                   </span>
                 </li>

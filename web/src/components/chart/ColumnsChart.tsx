@@ -134,7 +134,7 @@ function BarMark({
         x={x + width / 2}
         y={top - LABEL_GAP - raise}
         textAnchor="middle"
-        fontSize={12}
+        fontSize={13}
         fill={LABEL_FILL}
       >
         {label}
@@ -185,7 +185,7 @@ function MissingMarks({
               x={centre - total / 2 + i * (barSize + barGap) + barSize / 2}
               y={area.y + area.height - LABEL_GAP}
               textAnchor="middle"
-              fontSize={12}
+              fontSize={13}
               fill={NA_FILL}
             >
               n.a.

@@ -187,7 +187,7 @@ export function WrappedTick({
     lines = breakLines(label, limit);
   }
   return (
-    <text data-tick={label} x={x} y={y} textAnchor="middle" fontSize={12} fill={TICK.fill}>
+    <text data-tick={label} x={x} y={y} textAnchor="middle" fontSize={13} fill={TICK.fill}>
       {lines.map((line, i) => (
         <tspan key={i} x={x} dy={i === 0 ? 0 : TICK_LINE}>
           {line}
@@ -271,7 +271,7 @@ function Divider({
         stroke="var(--color-border-control)"
         strokeDasharray="4 4"
       />
-      <text x={x} y={area.y - 8} textAnchor="middle" fontSize={12} fill={TEXT_FILL}>
+      <text x={x} y={area.y - 8} textAnchor="middle" fontSize={13} fill={TEXT_FILL}>
         {divider.label}
       </text>
     </g>
@@ -377,7 +377,7 @@ function Chart({
                   key={period}
                   x={period}
                   stroke="none"
-                  label={{ value: "n.a.", position: "insideBottom", fill: NA_FILL, fontSize: 12 }}
+                  label={{ value: "n.a.", position: "insideBottom", fill: NA_FILL, fontSize: 13 }}
                 />
               ))}
               {drawn.map(({ item, index }) => {

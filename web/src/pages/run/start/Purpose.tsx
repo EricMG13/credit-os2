@@ -85,7 +85,7 @@ export function PurposeCards({
                   className="flex items-start justify-between gap-4 p-4"
                 >
                   <p className="min-w-0 text-sm text-tertiary">{p.description}</p>
-                  <span className="max-w-1/3 shrink-0 rounded-md bg-primary px-1.5 py-0.5 text-xs font-medium text-secondary ring-1 ring-primary ring-inset">
+                  <span className="max-w-1/3 shrink-0 rounded-md bg-primary px-1.5 py-0.5 text-caption font-medium text-secondary ring-1 ring-primary ring-inset">
                     {p.modules}
                   </span>
                 </Text>

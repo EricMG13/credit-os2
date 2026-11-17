@@ -292,7 +292,7 @@ function ForecastNavigation({ sections }: { sections: ForecastSection[] }) {
   return (
     <>
       <nav aria-label="Forecast sections" className="hidden flex-wrap items-center gap-3 md:flex">
-        <span className="text-xs font-medium text-text-tertiary">On this page</span>
+        <span className="text-caption font-medium text-text-tertiary">On this page</span>
         {sections.map(({ id, label: name }) => (
           <Button
             key={id}

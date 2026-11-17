@@ -52,7 +52,7 @@ export function Stepper({
           const label = (
             <span className="sr-only @[620px]:not-sr-only @[620px]:flex @[620px]:flex-col @[620px]:whitespace-nowrap">
               <span className="text-sm font-medium text-text-primary">{s.title}</span>
-              <span className="text-xs text-text-tertiary">{s.note}</span>
+              <span className="text-caption text-text-tertiary">{s.note}</span>
               <span className="sr-only">
                 {done ? "Complete" : i === current ? "Current step" : "Not started"}
               </span>

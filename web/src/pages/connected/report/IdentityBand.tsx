@@ -130,7 +130,7 @@ function RatingTile({ rating }: { rating: CatalogueRating }) {
       title={rating.date.trim() ? `as of ${rating.date}` : undefined}
       className="grid min-w-28 gap-0.5 rounded-lg border border-border-hairline bg-surface-card px-3 py-2"
     >
-      <span className="text-xs text-text-tertiary">
+      <span className="text-caption text-text-tertiary">
         {rating.agency}
         {rating.scope === "facility" && <span className="ml-1">Facility</span>}
       </span>
@@ -179,7 +179,7 @@ export function IdentityBand({
       <div className="flex min-w-0 flex-1 basis-80 items-start gap-3">
         <Building07 aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-text-tertiary" />
         <div className="grid min-w-0 gap-1">
-          {sector && <p className="text-xs text-text-tertiary">{sector}</p>}
+          {sector && <p className="text-caption text-text-tertiary">{sector}</p>}
           {found && entry ? (
             <p className={`${TRACE_HOST} flex items-start gap-2 text-text-primary`}>
               <span
@@ -204,7 +204,7 @@ export function IdentityBand({
               <RatingTile key={index} rating={rating} />
             ))}
           </ul>
-          <p className="text-xs text-text-secondary">{ENTERED}</p>
+          <p className="text-caption text-text-secondary">{ENTERED}</p>
           {differing.length > 0 && (
             <Button href="#modules/CP-2H" color="link-gray" size="sm">
               {`${moduleName("CP-2H")} shows a different rating for ${differing.join(", ")}`}

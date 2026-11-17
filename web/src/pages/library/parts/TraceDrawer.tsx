@@ -4,7 +4,7 @@ import { citedSourceNames } from "@/pages/connected/sourceFiles";
 import type { Trace } from "../slice";
 import { DerivationTree } from "./DerivationTree";
 
-const CAPTION = "text-xs font-medium text-text-tertiary";
+const CAPTION = "text-caption font-medium text-text-tertiary";
 
 /** The supplied files a trace cites, named with their cited pages as plain text: never a link (decision 9). */
 function CitedSources({ links }: { links: readonly { href: string }[] }) {
@@ -21,7 +21,7 @@ function CitedSources({ links }: { links: readonly { href: string }[] }) {
         ))}
       </ul>
       {links.some(({ href }) => href.includes("?page=")) && (
-        <p className="text-xs text-text-tertiary">
+        <p className="text-caption text-text-tertiary">
           Pages follow the source supplied to this run and may differ from the filing’s printed
           pages.
         </p>

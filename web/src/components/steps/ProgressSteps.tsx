@@ -46,7 +46,7 @@ export function ProgressSteps({ steps }: { steps: Step[] }) {
             <span
               aria-hidden="true"
               className={cx(
-                "flex size-6 items-center justify-center rounded-full text-center text-[10px]/6 font-bold",
+                "flex size-6 items-center justify-center rounded-full text-center text-caption font-bold",
                 step.state === "incomplete" ? "bg-surface-subtle" : "bg-action text-text-on-action",
               )}
             >

@@ -45,7 +45,7 @@ export function Limitations({
                 className="flex items-center gap-2 rounded-ds-xs text-body font-semibold outline-hidden focus-visible:ring-2 focus-visible:ring-brand"
               >
                 Limitations
-                <span className="rounded-ds-full border border-border-hairline bg-surface-subtle px-2 py-0.5 text-xs font-medium text-text-secondary tabular-nums">
+                <span className="rounded-ds-full border border-border-hairline bg-surface-subtle px-2 py-0.5 text-caption font-medium text-text-secondary tabular-nums">
                   {limitations.count}
                 </span>
               </Heading>

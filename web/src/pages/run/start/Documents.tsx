@@ -27,7 +27,7 @@ function FileRow({ file, reasonId }: { file: Files[number]; reasonId: string }) 
     >
       <div aria-hidden="true" className="relative size-8 shrink-0">
         <div className="absolute top-0 left-1 h-8 w-6 rounded-tl rounded-tr-lg rounded-b border border-container bg-primary" />
-        <div className="absolute top-4 left-0 h-4 min-w-6 rounded bg-text-secondary px-1 text-center text-xs leading-4 font-bold tracking-wide text-white">
+        <div className="absolute top-4 left-0 h-4 min-w-6 rounded bg-text-secondary px-1 text-center text-caption leading-4 font-bold tracking-wide text-white">
           {file.kind}
         </div>
       </div>
@@ -99,7 +99,7 @@ function DropZone({ reasonId }: { reasonId: string }) {
             Click to upload
           </Button>
         </div>
-        <p className="text-xs">Up to 50 MB per file</p>
+        <p className="text-caption">Up to 50 MB per file</p>
       </div>
     </div>
   );

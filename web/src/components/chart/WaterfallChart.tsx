@@ -101,7 +101,7 @@ function StepMark({ shape, step }: { shape: BarShapeProps; step: PresentStep }) 
         x={x + width / 2}
         y={y - LABEL_GAP}
         textAnchor="middle"
-        fontSize={12}
+        fontSize={13}
         fill={LABEL_FILL}
       >
         {step.text}
@@ -134,7 +134,7 @@ function MissingMarks({ steps }: { steps: WaterfallStep[] }) {
             x={start + area.width / steps.length / 2}
             y={area.y + area.height - LABEL_GAP}
             textAnchor="middle"
-            fontSize={12}
+            fontSize={13}
             fill={NA_FILL}
           >
             n.a.

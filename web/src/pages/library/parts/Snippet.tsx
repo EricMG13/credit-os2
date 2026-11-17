@@ -22,7 +22,9 @@ export function Snippet({
   const copy = useCopy();
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      {caption === undefined ? null : <span className="text-xs text-text-tertiary">{caption}</span>}
+      {caption === undefined ? null : (
+        <span className="text-caption text-text-tertiary">{caption}</span>
+      )}
       <div className="overflow-hidden rounded-lg border border-border-hairline">
         <div className="flex items-center justify-between border-b border-border-hairline bg-surface-subtle p-1">
           <span className="m-0.75 rounded-lg bg-surface-card px-2 py-1 text-sm font-medium text-text-primary">

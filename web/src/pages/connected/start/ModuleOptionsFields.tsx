@@ -53,7 +53,7 @@ export function ModuleOptionsFields({
             />
             {DEEP_DEBATE}
           </label>
-          <p id="module-options-deep-debate-hint" className="text-xs text-text-secondary">
+          <p id="module-options-deep-debate-hint" className="text-caption text-text-secondary">
             A longer, fuller committee argument, never a softer sizing posture. Off by default.
           </p>
           {runs.cp3 ? null : message}

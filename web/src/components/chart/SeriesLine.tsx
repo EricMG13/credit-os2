@@ -44,7 +44,7 @@ function point(
           data-emphasised={emphasised ? "" : undefined}
           x={cx + NAME_INSET}
           y={cy + 4 + nameDy}
-          fontSize={12}
+          fontSize={13}
           fontWeight={emphasised ? 600 : 400}
           fill={emphasised ? LABEL_FILL : NAME_FILL}
         >
@@ -58,7 +58,7 @@ function point(
           x={named ? cx - NAME_INSET : cx}
           y={named ? cy - LABEL_RISE : cy + labelOffset}
           textAnchor={named ? "end" : "middle"}
-          fontSize={12}
+          fontSize={13}
           fill={LABEL_FILL}
         >
           {label}

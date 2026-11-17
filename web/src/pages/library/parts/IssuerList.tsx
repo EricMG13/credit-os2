@@ -63,7 +63,7 @@ function Figure({ measure }: { measure: NonNullable<Measure> }) {
         {measure.basis === "adjusted" ? (
           <>
             {" "}
-            <span className="text-xs text-text-tertiary">adj.</span>
+            <span className="text-caption text-text-tertiary">adj.</span>
           </>
         ) : null}
       </TooltipTrigger>

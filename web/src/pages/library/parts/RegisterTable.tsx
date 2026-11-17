@@ -46,7 +46,7 @@ export function sortRows<T, C extends string>(
 }
 
 const HEAD =
-  "bg-surface-subtle px-5 py-2 text-left text-xs font-semibold whitespace-nowrap text-quaternary";
+  "bg-surface-subtle px-5 py-2 text-left text-caption font-semibold whitespace-nowrap text-quaternary";
 
 /** A column head with no sort. */
 export function PlainHead({

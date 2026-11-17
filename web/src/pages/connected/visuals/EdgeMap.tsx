@@ -167,7 +167,7 @@ function EdgeDiagram({ edges, evidenceInDrawer }: { edges: Edge[]; evidenceInDra
                   y={route.y}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  className="fill-text-primary text-xs"
+                  className="fill-text-primary text-caption"
                 >
                   {index + 1}
                 </text>

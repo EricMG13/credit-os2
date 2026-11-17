@@ -252,7 +252,7 @@ export function RowInput({
           {item.label}
         </label>
         {item.required && (
-          <span className="text-xs font-medium whitespace-nowrap text-text-secondary">
+          <span className="text-caption font-medium whitespace-nowrap text-text-secondary">
             Required
           </span>
         )}
@@ -293,7 +293,7 @@ export function RowInput({
         />
       )}
       {hintText && (
-        <p id={hint} className="text-xs text-text-secondary">
+        <p id={hint} className="text-caption text-text-secondary">
           {hintText}
         </p>
       )}

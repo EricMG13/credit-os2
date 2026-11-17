@@ -91,7 +91,7 @@ const TRACK_PX = 240;
 const CLASH_ABOVE_PX = 18;
 const CLASH_BELOW_PX = 14;
 
-const TEXT = "whitespace-nowrap text-xs font-medium leading-4";
+const TEXT = "whitespace-nowrap text-caption font-medium leading-4";
 
 /** Where a column's marks sit, from the delivered positions only. */
 interface Placement {
@@ -276,7 +276,7 @@ export function LimitsChart({
                 <Column key={c.label} c={c} color={color} />
               ))}
             </div>
-            <div className="flex pt-2 text-xs text-text-tertiary">
+            <div className="flex pt-2 text-caption text-text-tertiary">
               {columns.map((c) => (
                 <span key={c.label} className="flex-1 px-0.5 text-center">
                   {c.label}

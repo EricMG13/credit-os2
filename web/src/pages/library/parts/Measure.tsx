@@ -18,7 +18,7 @@ export function Measure({ item }: { item: Item }) {
     <li className={`${TRACE_HOST} flex min-w-0 flex-col gap-1`}>
       <span className="pr-9 text-sm text-text-tertiary">{item.label}</span>
       <CellValue cell={item.current} figureClass={FIGURE} />
-      <span className="flex items-center gap-1 text-xs font-medium text-text-secondary">
+      <span className="flex items-center gap-1 text-caption font-medium text-text-secondary">
         {item.delta === null ? (
           <>
             Earlier period <InlineCell cell={item.earlier} />

@@ -164,7 +164,7 @@ function WaitingTable({ runs, held }: { runs: LiveRun[]; held: string }) {
                     !held &&
                     "Waiting for an available run slot. It starts when the service can accept it.",
                 ).map((text) => (
-                  <span key={text} className="block text-xs">
+                  <span key={text} className="block text-caption">
                     {text}
                   </span>
                 ))}

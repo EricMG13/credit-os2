@@ -48,7 +48,7 @@ export interface YTick {
 }
 
 export const HEIGHT = 240;
-export const TICK = { fontSize: 12, fill: "var(--color-text-tertiary)" };
+export const TICK = { fontSize: 13, fill: "var(--color-text-tertiary)" };
 export const BASELINE = { stroke: "var(--color-border-control)", strokeWidth: 1 };
 
 /** The styles in legend order: each of the first six names, then a single Other. */

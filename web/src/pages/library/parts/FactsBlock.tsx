@@ -13,7 +13,7 @@ function FactGroup({ group }: { group: Group }) {
   return (
     <>
       {group.name === null ? null : (
-        <p id={nameId} className="pt-4 pb-1 text-xs font-medium text-text-tertiary">
+        <p id={nameId} className="pt-4 pb-1 text-caption font-medium text-text-tertiary">
           {group.name}
         </p>
       )}

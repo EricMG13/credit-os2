@@ -52,7 +52,7 @@ interface ScatterPlotProps {
   detailTable?: ScatterPlotProps["table"];
 }
 
-const LABEL = { fontSize: 12, fill: "var(--color-text-secondary)" };
+const LABEL = { fontSize: 13, fill: "var(--color-text-secondary)" };
 
 function checkPair(p: ScatterPoint, which: "x" | "y", axis: ScatterAxis) {
   const value = p[which];
@@ -237,7 +237,7 @@ function Chart({
                         x={cx - 12}
                         y={cy + 14}
                         textAnchor="end"
-                        fontSize={12}
+                        fontSize={13}
                         fontWeight={500}
                         fill="var(--color-text-primary)"
                       >
@@ -261,7 +261,7 @@ function Chart({
       </ResponsiveContainer>
       {names.length >= 2 ? <ScatterLegend names={names} styles={styles} /> : null}
       {missing.length === 0 ? null : (
-        <p className="text-xs font-medium text-text-tertiary">
+        <p className="text-caption font-medium text-text-tertiary">
           Not plotted:{" "}
           {missing
             .map((p) => {

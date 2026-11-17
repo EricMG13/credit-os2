@@ -43,7 +43,7 @@ export function RunFeed({ issuer, history }: { issuer: string; history: History 
             <div className="flex min-w-0 flex-1 flex-col gap-1.5 pt-0.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-lg font-medium text-text-primary">{`Run as of ${entry.asOf}`}</span>
-                <span className="text-xs text-text-tertiary">{`Ran ${entry.ran}`}</span>
+                <span className="text-caption text-text-tertiary">{`Ran ${entry.ran}`}</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge set="Run states" state={entry.state} />

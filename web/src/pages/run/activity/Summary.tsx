@@ -15,7 +15,7 @@ function Item({
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <span className="text-xs font-medium text-text-tertiary">{caption}</span>
+      <span className="text-caption font-medium text-text-tertiary">{caption}</span>
       <span className="text-metric tabular-nums text-text-primary">{value}</span>
       {children}
     </div>
