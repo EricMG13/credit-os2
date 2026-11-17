@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-486 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 377 findings. Counts below are of those 377, after re-grading.
+489 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 380 findings. Counts below are of those 380, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -8,19 +8,19 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 
 | Severity | repair | batch | sweep | owner | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| High | 5 | 0 | 0 | 0 | 0 | 0 | 5 |
+| High | 6 | 0 | 0 | 0 | 0 | 0 | 6 |
 | Medium | 91 | 0 | 0 | 0 | 2 | 10 | 103 |
 | Low | 0 | 169 | 0 | 0 | 18 | 9 | 196 |
-| Info | 0 | 18 | 17 | 2 | 6 | 30 | 73 |
-| Total | 96 | 187 | 17 | 2 | 26 | 49 | 377 |
+| Info | 0 | 18 | 17 | 2 | 8 | 30 | 75 |
+| Total | 97 | 187 | 17 | 2 | 28 | 49 | 380 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
-| C1 | 1 | 10 | 15 | 8 |
+| C1 | 1 | 10 | 15 | 10 |
 | C2 | 0 | 9 | 12 | 4 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 1 | 7 | 18 | 3 |
-| C5 | 1 | 10 | 18 | 4 |
+| C5 | 2 | 10 | 18 | 4 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
 | J3 | 0 | 1 | 6 | 2 |
@@ -35,7 +35,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
-Verification of High and Medium findings: confirmed 118, not a defect 4.
+Verification of High and Medium findings: confirmed 119, not a defect 4.
 
 ## Findings
 
@@ -47,6 +47,7 @@ High first. `Merged` lists the ids with the same cause.
 | C4-028 | High (was Medium) | C4 | A published value written with a decimal comma ('3,75') is read as 375 and its bar is drawn at 375 beside 2.80. | repair | T13 |  | confirmed |
 | J1-001 | High | J1 | Leaving a module out, which the review sheet offers as the way past a Will refuse limit, ends with Submit refused as "unknown module CP-MODEL" and no run start… | repair | T02 |  | confirmed |
 | R1-001 | High | C5 | When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute p… | repair | T01 |  | confirmed |
+| R1-004 | High | C5 | The issuer library's issue text keeps the first 80 characters of an OSError's message, which hold the server's absolute path, and those issues reach run activi… | repair | T01 |  | confirmed |
 | S1-001 | High | S1 | The library's "Start a run" button opens Run activity (a saved running example), not the run start page. | repair | T26 | J6-005 | confirmed |
 | B0-003 | Medium | C2 | Following the documented manual synthetic run in docs/react-workflow.md ends Failed at Legal & covenants; the run completes only if the credit agreement is als… | repair | T12 | J1-014 | confirmed |
 | C1-002 | Medium | C1 | The empty Library is a bare 'No reports yet' card with no icon, no explanation and no next step, drawn under filter and layout controls that have nothing to ac… | repair | T05 |  | confirmed |
@@ -387,6 +388,8 @@ High first. `Merged` lists the ids with the same cause.
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. | parked |  |  | not required (Low or Info) |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps… | parked |  |  | not required (Low or Info) |
 | R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. | parked |  |  | not required (Low or Info) |
+| R1-005 | Info | C1 | A data.js with no final ';' makes the service answer 500. | parked |  |  | not required (Low or Info) |
+| R1-006 | Info | C1 | A data.js with two 'catalogue' keys, the first holding 'workspace', is served as read. | parked |  |  | not required (Low or Info) |
 | X1-008 | Info | X1 | Five components throw on out-of-contract props, and only the connected app has an error boundary around them. | parked |  | S4-022 | not required (Low or Info) |
 | X1-010 | Info | X1 | Timeline keys each item by date and title, so two items with the same date and title collide. | parked |  |  | not required (Low or Info) |
 | X1-022 | Info | X1 | Only four of eleven chart kinds check that the table's figures equal the chart's figures. | parked |  |  | not required (Low or Info) |

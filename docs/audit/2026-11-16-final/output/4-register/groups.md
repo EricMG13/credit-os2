@@ -6,10 +6,11 @@ Each group is one `repair-<n>` session (`sessions/repair.md`). No file is in two
 
 Tasks, in order: T01, T02, T03, T04, T05, T06, T07, T08, T09, T10, T11, T12.
 
-Findings: 29 (plus their merged ids).
+Findings: 30 (plus their merged ids).
 
 Files:
 
+- `apps/issuer-library/credit_os/source.py`
 - `docs/react-workflow.md`
 - `proof/launcher.py`
 - `react_frontend/__init__.py`
