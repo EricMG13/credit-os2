@@ -81,13 +81,38 @@ and its other subdomains are not added: `yahoo.com`, `news.yahoo.com`, `consent.
 `guce.yahoo.com` are refused, a redirect to them included. As for every listed domain, a subdomain
 of `finance.yahoo.com` (for example `query1.finance.yahoo.com`) passes. A Yahoo page is cited with
 Source type `Other` and a limitation under `## Gaps`, because it is an aggregator, not the original
-source. Its pages state no date, so the lookup marks them undated. Its price-history rows carry
-their own dates, while its statistics pages show current figures, which a case with an earlier
-research cutoff must not use. Its news pages syndicate third-party articles, the reason `nasdaq.com`
-was removed, so a figure from a Yahoo news page is not used without the original publisher.
-`WEB_LOOKUP_RULES` tells the module these rules. No check enforces them: a Yahoo page is checked as
-any undated page, so a statistics page's current figure passes the checks in a case with an earlier
-cutoff, whatever its Source type. A mechanical check is a follow-up for the owner to decide.
+source. Its quote, statistics and price-history pages state no date. Its price-history rows carry
+their own dates, while its other pages show current figures, which a case with an earlier research
+cutoff must not use. Its news pages syndicate third-party articles, the reason `nasdaq.com` was
+removed, so a figure from a Yahoo news page is not used without the original publisher.
+`WEB_LOOKUP_RULES` tells the module these rules, and two checks enforce part of them.
+
+Checks, 2026-11-17. Asked whether a mechanical check is wanted, the owner chose both checks
+proposed ("both"); asked how the date check treats price-history pages, "Exempt history pages". A
+page is a Yahoo page when the address its body came from (`final_url`) is on `finance.yahoo.com`
+or a subdomain of it (`weblookup.is_yahoo_finance`).
+
+- The date, set at fetch. A Yahoo page that states no date, other than a price-history page, shows
+  figures as of the day it was fetched, so when that day is after the research cutoff its status
+  is `later-event`, not `undated` (`weblookup._status`, `_figures_of_fetch_day`). The lookup result
+  says: "No stated date, and fetched after the research cutoff ...: its figures are as of the day
+  it was fetched, so do not take any figure from it; it may be cited only as a labelled later
+  event." A7 then requires `Later event` in its row and A13(ii) keeps it out of TDR.6. Fetched on or
+  before the cutoff, it stays `undated`. The fetch day is the UTC day of `fetched_at`: in a case
+  whose cutoff is the run's local date, a page fetched in the evening west of UTC is marked a later
+  event, the strict side. A page that states a date (a news article) is dated by it, as any page.
+- The price-history exemption. A page whose address path is exactly `/quote/`, the ticker as
+  written, and `/history`, with or without a final `/`, stays `undated`. Any other path, letter
+  case or percent-encoding of it is not exempt, and an address that redirects to another Yahoo page
+  is judged by the page retained.
+- The row (A14). A `## Sources` row naming a Yahoo page has Source type `Other` and no other, and
+  `## Gaps` names the page's id.
+
+The review probe of this amendment (a statistics page fetched after the cutoff, cited as
+"Financial press" with `Undated` and a `## Gaps` item naming it, its current figure quoted in a
+TDR.6 row as at the cutoff) was accepted before the checks and is now refused with three issues:
+the `Later event` label, Source type `Other`, and the TDR.6 row
+(`tests/test_web_lookup_tools.py::test_the_review_probe_is_refused`).
 
 What Yahoo sees, on each request the research module makes to it:
 
@@ -248,6 +273,8 @@ or multiple found only on a later page stays unvalidated and is stated as a limi
 
 An undated page may supply figures. SEC JSON and any page without a recognised date are undated, so
 the later-event rule does not bind them mechanically; the per-fact filing dates bind by instruction.
+The exception is a Yahoo Finance page other than price history, fetched after the cutoff with no
+stated date: it is `later-event` (amendment 2026-11-17).
 
 ## Acceptance checks on CP-DR's handoff
 
@@ -325,6 +352,10 @@ clause neither evades the check nor is rejected. No method edit is needed.
   longest cell; a trailing page reference in brackets and the surrounding quote marks are dropped)
   is non-empty and appears in one of them; (iv) when the table has an `amount` header, the amount
   text appears inside the quote.
+- A14. A `## Sources` row naming a Yahoo Finance page (A2's naming; the page's `final_url` on
+  `finance.yahoo.com` or a subdomain, for any index row of its id) has `Other` as its only Source
+  type (a cell `source_type` reads: one allowed type, optionally `;` and a label), and `## Gaps`
+  names the page's id. Each failure is one issue (amendment 2026-11-17).
 
 Known limit of A10 and A11, a consequence of the rule: a unit or row that names a web page may quote
 only from the pages it names. One that mixes a web source with a quoted issuer-file passage of 12 or
@@ -341,9 +372,11 @@ Governed by instruction in `WEB_LOOKUP_RULES` only, not caught mechanically:
   paraphrase without quote marks;
 - later-event figures in prose outside TDR.6;
 - SEC facts filed after the cutoff;
-- a `finance.yahoo.com` page: Source type `Other` with a `## Gaps` limitation, no current figure
-  from a quote or statistics page unless it states its own date on or before the cutoff, and no
-  figure from a news page without the original publisher (amendment 2026-11-17).
+- from a `finance.yahoo.com` price-history page, only rows dated on or before the cutoff and never
+  the current quote above them; no figure from a Yahoo news page without the original publisher;
+  that the `## Gaps` item naming a Yahoo page states the aggregator limitation in words; and a Yahoo
+  URL cited from hosted `web_search` and not retained, which A14 does not see (amendment
+  2026-11-17).
 
 ## Fetched text is data
 

@@ -74,7 +74,7 @@ from deploy_workflow.model.turn import (
 from deploy_workflow.prose_checks import lost_values
 from deploy_workflow.research.contracts import ResearchError
 from deploy_workflow.research.weblookup import (
-    EVENT_LABEL,
+    SOURCE_TYPES,
     EdgarResult,
     KnownPages,
     Refused,
@@ -88,6 +88,7 @@ from deploy_workflow.research.weblookup import (
     neutralise,
     retained_rows,
     row_cells,
+    source_type,
     sources_rows,
     web_frame,
     web_handoff_issues,
@@ -192,25 +193,6 @@ def settled_web_lookup(
     return recorded
 
 
-# Source type values of a web row in ``## Sources`` (owner, 2026-11-12: rely primarily on reputable
-# and relevant sources). A fixed short list, not a domain allow-list; the module judges the type.
-SOURCE_TYPES = (
-    "Issuer filing",
-    "Peer filing",
-    "Regulator or official",
-    "Rating agency",
-    "Industry body",
-    "Financial press",
-    "Other",
-)
-
-
-def _is_source_type_cell(cell: str) -> bool:
-    """One type from the list, then optionally ``;`` and a Later event or Undated label."""
-    kind, *labels = cell.split(";")
-    return kind.strip() in SOURCE_TYPES and all(EVENT_LABEL.fullmatch(x.strip()) for x in labels)
-
-
 WEB_PAGES_UNREADABLE = (
     "The run's retained web pages could not be read, so the web sources in this handoff "
     "cannot be checked."
@@ -223,7 +205,7 @@ def web_source_issues(markdown: str) -> list[str]:
     that its type is stated."""
     issues = []
     for row in sources_rows(markdown):
-        if names_web_source(row) and not any(_is_source_type_cell(c) for c in row_cells(row)):
+        if names_web_source(row) and not any(source_type(c) for c in row_cells(row)):
             issues.append(
                 f'Sources row "{row[:80]}": a web source needs a Source type cell, '
                 f"exactly one of {', '.join(SOURCE_TYPES)}."
@@ -274,11 +256,14 @@ WEB_LOOKUP_RULES = (
     "private-transaction figure, or a multiple, found only on a later page stays unvalidated and "
     "is stated as a limitation under ## Gaps. In SEC data, apply the cutoff to each fact's own "
     "filing date. A Yahoo Finance page (finance.yahoo.com) is an aggregator, not the original "
-    "source: give its row Source type Other and add a limitation under ## Gaps. Its quote and "
-    "statistics pages show figures as of the day they were fetched, not as at the research "
-    "cutoff: take a figure from them only where it states its own date on or before the cutoff, "
-    "as price-history rows do. Its news pages repeat other publishers' articles: take a figure "
-    "only from the original publisher's page. Cite a fetched page by its id, in one row of "
+    "source: give its row Source type Other and add a limitation under ## Gaps whose Basis line "
+    "names its id. Its quote, statistics and other pages without a stated date show figures as "
+    "of the day they were fetched, not as at the research cutoff, so such a page fetched after "
+    "the cutoff has status later-event. A price-history page (/quote/ followed by the ticker and "
+    "/history) stays undated: take from it only price-history rows dated on or before the "
+    "cutoff, never the current quote shown above them. Its news pages repeat other publishers' "
+    "articles: take a figure only from the original publisher's page. Cite a fetched page by "
+    "its id, in one row of "
     "## Sources whose first cell "
     "is the id, then its URL, publisher, stated date (or Undated), a Source "
     "type cell with exactly one of: "

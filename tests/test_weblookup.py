@@ -11,7 +11,7 @@ import json
 import socket
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import cast
 
@@ -1157,6 +1157,104 @@ def test_a_redirect_from_yahoo_off_the_allowlist_is_refused(tmp_path: Path, loca
     assert "refused: not a host named in the manifest" in reason
     assert net.connections == ["finance.yahoo.com"]
     assert files_retained(tmp_path) == []
+
+
+# A Yahoo Finance page's date (owner, 2026-11-17: check (b), price history exempt) ----------------
+
+
+@pytest.mark.parametrize(
+    ("host", "path"),
+    [
+        ("finance.yahoo.com", "/quote/ACME/"),
+        ("finance.yahoo.com", "/quote/ACME/key-statistics/"),
+        ("finance.yahoo.com", "/quote/ACME/financials/"),
+        ("finance.yahoo.com", "/quote/ACME/history/extra"),
+        ("finance.yahoo.com", "/quote/ACME/HISTORY/"),
+        ("finance.yahoo.com", "/quote/ACME/%68istory/"),
+        ("query1.finance.yahoo.com", "/v8/finance/chart/ACME"),
+        ("FINANCE.YAHOO.COM.", "/quote/ACME/"),
+    ],
+)
+def test_an_undated_yahoo_page_fetched_after_the_cutoff_is_a_later_event(
+    tmp_path: Path, host: str, path: str
+) -> None:
+    """Its figures are as of the day it was fetched (2025-07-01), after the cutoff (2025-06-30)."""
+    net = FakeNet(handler=lambda _h, _p: ok(html("<p>Market cap 1.2B</p>")))
+    got = retained(make(tmp_path, net).fetch_page(f"https://{host}{path}"))
+    assert (got.status, got.page_date, got.page_date_source) == ("later-event", None, None)
+    assert index_rows(tmp_path)[0]["status"] == "later-event"
+
+
+@pytest.mark.parametrize(
+    ("host", "path"),
+    [
+        ("finance.yahoo.com", "/quote/ACME/history/"),
+        ("finance.yahoo.com", "/quote/ACME/history"),
+        ("finance.yahoo.com", "/quote/%5EGSPC/history/?period1=1700000000&period2=1719705600"),
+        ("uk.finance.yahoo.com", "/quote/ACME.L/history/"),
+    ],
+)
+def test_a_yahoo_price_history_page_stays_undated(tmp_path: Path, host: str, path: str) -> None:
+    """Its rows carry their own dates; the module is told to use only those on or before the
+    cutoff (told, not checked)."""
+    net = FakeNet(handler=lambda _h, _p: ok(html("<p>Jun 30, 2025 101.5</p>")))
+    got = retained(make(tmp_path, net).fetch_page(f"https://{host}{path}"))
+    assert (got.status, got.page_date) == ("undated", None)
+
+
+def test_an_undated_yahoo_page_fetched_on_the_cutoff_day_stays_undated(tmp_path: Path) -> None:
+    net = FakeNet({("finance.yahoo.com", "/quote/ACME/"): ok(html())})
+    runtime = weblookup.Runtime(resolver=net.resolver, connect=net.connect, now=lambda: NOW)
+    scope = weblookup.RunScope(tmp_path / "run", NOW.date(), "cp-dr")
+    got = retained(WebLookup(scope, runtime).fetch_page("https://finance.yahoo.com/quote/ACME/"))
+    assert got.status == "undated"
+
+
+def test_the_fetch_day_is_the_utc_day(tmp_path: Path) -> None:
+    """01:30 on 2025-07-01 in UTC is still 2025-06-30 in New York: the UTC day is after the cutoff,
+    so the page is a later event (the strict side)."""
+    net = FakeNet({("finance.yahoo.com", "/quote/ACME/"): ok(html())})
+    early = datetime(2025, 6, 30, 21, 30, tzinfo=timezone(timedelta(hours=-4)))
+    runtime = weblookup.Runtime(resolver=net.resolver, connect=net.connect, now=lambda: early)
+    scope = weblookup.RunScope(tmp_path / "run", CUTOFF, "cp-dr")
+    got = retained(WebLookup(scope, runtime).fetch_page("https://finance.yahoo.com/quote/ACME/"))
+    assert got.status == "later-event"
+
+
+@pytest.mark.parametrize(
+    ("day", "status"), [("2025-05-01", "usable"), ("2025-08-01", "later-event")]
+)
+def test_a_yahoo_page_that_states_a_date_is_dated_by_it(
+    tmp_path: Path, day: str, status: str
+) -> None:
+    body = html("<p>An article.</p>", f'<meta name="date" content="{day}">')
+    net = FakeNet({("finance.yahoo.com", "/news/acme-results.html"): ok(body)})
+    url = "https://finance.yahoo.com/news/acme-results.html"
+    got = retained(make(tmp_path, net).fetch_page(url))
+    assert (got.status, got.page_date) == (status, day)
+
+
+def test_a_history_address_that_redirects_to_a_quote_page_is_a_later_event(tmp_path: Path) -> None:
+    """The page retained decides, not the address asked for."""
+    net = FakeNet(
+        {
+            ("finance.yahoo.com", "/quote/ACME/history/"): (
+                302,
+                {"Location": "https://finance.yahoo.com/quote/ACME/"},
+                b"",
+            ),
+            ("finance.yahoo.com", "/quote/ACME/"): ok(html()),
+        }
+    )
+    got = retained(make(tmp_path, net).fetch_page("https://finance.yahoo.com/quote/ACME/history/"))
+    assert got.final_url == "https://finance.yahoo.com/quote/ACME/"
+    assert got.status == "later-event"
+
+
+def test_an_undated_page_elsewhere_fetched_after_the_cutoff_stays_undated(tmp_path: Path) -> None:
+    net = FakeNet({("www.fca.org.uk", "/quote/ACME/"): ok(html())})
+    got = retained(make(tmp_path, net).fetch_page("https://www.fca.org.uk/quote/ACME/"))
+    assert got.status == "undated"
 
 
 @given(

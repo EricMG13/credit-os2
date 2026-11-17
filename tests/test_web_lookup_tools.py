@@ -2077,3 +2077,156 @@ def test_l2_a_damaged_index_rejects_any_web_citation_whatever_hosted_search_says
     assert issues == (handoff.WEB_PAGES_UNREADABLE,)
     plain = bare_executor(tmp_path, web_search=hosted).web_issues(cpdr_task(), b"## Request\nx\n")
     assert plain == ()
+
+
+# A Yahoo Finance page (owner, 2026-11-17: both checks, price history exempt) -------------------
+
+YAHOO_STATS = "https://finance.yahoo.com/quote/ACME/key-statistics/"
+YAHOO_HISTORY = "https://finance.yahoo.com/quote/ACME/history/"
+YAHOO_NEWS = "https://finance.yahoo.com/news/acme-results.html"
+STATS_QUOTE = "Total Revenue (ttm) 5,400 million"
+
+
+def yahoo_pages() -> dict[tuple[str, str], tuple[int, dict[str, str], bytes]]:
+    yahoo = "finance.yahoo.com"
+    return {
+        **pages(),
+        (yahoo, "/quote/ACME/key-statistics/"): ok(
+            html(f"<p>Market Cap 12.3B</p><p>{STATS_QUOTE}</p>")
+        ),
+        (yahoo, "/quote/ACME/history/"): ok(html("<p>Jun 30, 2025 101.50</p>")),
+        (yahoo, "/news/acme-results.html"): ok(dated("2025-05-01", f"<p>{QUOTE} in the year.</p>")),
+        (HOST, "/to-yahoo"): (302, {"Location": YAHOO_STATS}, b""),
+        (yahoo, "/quote/ACME/profile/"): (302, {"Location": f"https://{HOST}/undated"}, b""),
+    }
+
+
+def yahoo_tools(tmp_path) -> ModuleTools:
+    tools, _ = tools_for(tmp_path, FakeNet(yahoo_pages()))
+    return tools
+
+
+def fetched(tools: ModuleTools, url: str) -> str:
+    return source_id(tools.call("fetch_page", {"url": url}))
+
+
+def yahoo_row(sid: str, url: str, stated: str, kind: str) -> str:
+    return f"| {sid} | {url} | Yahoo Finance | {stated} | {kind} |"
+
+
+def aggregator_gap(sid: str) -> str:
+    return f"- The page is an aggregator, not the original source.\n  Basis: {sid}"
+
+
+def test_the_rules_say_how_the_yahoo_checks_read_a_page():
+    for phrase in (
+        "whose Basis line names its id",
+        "status later-event",
+        "(/quote/ followed by the ticker and /history) stays undated",
+        "never the current quote",
+    ):
+        assert phrase in WEB_LOOKUP_RULES, phrase
+
+
+def test_an_undated_yahoo_page_fetched_after_the_cutoff_is_framed_as_a_later_event(tmp_path):
+    result = yahoo_tools(tmp_path).call("fetch_page", {"url": YAHOO_STATS})
+    lines = result.splitlines()
+    assert lines[0].endswith("stated_date=none status=later-event>>>")
+    assert lines[2] == (
+        f"No stated date, and fetched after the research cutoff {CUTOFF.isoformat()}: its "
+        "figures are as of the day it was fetched, so do not take any figure from it; it may be "
+        "cited only as a labelled later event."
+    )
+
+
+def test_a_yahoo_row_must_be_typed_other(tmp_path):
+    tools = yahoo_tools(tmp_path)
+    sid = fetched(tools, YAHOO_NEWS)
+    found = tools._known_pages()
+    for kind in ("Financial press", "Issuer filing", "Other; Financial press"):
+        md = handoff_md(yahoo_row(sid, YAHOO_NEWS, "2025-05-01", kind), gaps=aggregator_gap(sid))
+        issues = weblookup.web_handoff_issues(md, found)
+        assert len(issues) == 1 and sid in issues[0] and "Source type Other" in issues[0], kind
+    two = f"| {sid} | {YAHOO_NEWS} | Other | 2025-05-01 | Financial press |"
+    issues = weblookup.web_handoff_issues(handoff_md(two, gaps=aggregator_gap(sid)), found)
+    assert len(issues) == 1 and "Source type Other" in issues[0]
+    good = handoff_md(yahoo_row(sid, YAHOO_NEWS, "2025-05-01", "Other"), gaps=aggregator_gap(sid))
+    assert weblookup.web_handoff_issues(good, found) == []
+
+
+def test_a_yahoo_row_needs_a_gap_naming_its_id(tmp_path):
+    tools = yahoo_tools(tmp_path)
+    sid = fetched(tools, YAHOO_NEWS)
+    other = fetched(tools, PAGE)
+    found = tools._known_pages()
+    rows = yahoo_row(sid, YAHOO_NEWS, "2025-05-01", "Other") + "\n" + row(other, PAGE)
+    for gaps in ("None.", "An aggregator page is used.", f"Basis: {other}"):
+        issues = weblookup.web_handoff_issues(handoff_md(rows, gaps=gaps), found)
+        assert len(issues) == 1 and "## Gaps" in issues[0] and sid in issues[0], gaps
+        assert "aggregator" in issues[0]
+
+
+def test_a_yahoo_price_history_page_is_undated_and_typed_other(tmp_path):
+    tools = yahoo_tools(tmp_path)
+    sid = fetched(tools, YAHOO_HISTORY)
+    found = tools._known_pages()
+    gaps = f"- It states no date and is an aggregator, not the original source.\n  Basis: {sid}"
+    good = handoff_md(yahoo_row(sid, YAHOO_HISTORY, "Undated", "Other"), gaps=gaps)
+    assert weblookup.web_handoff_issues(good, found) == []
+    typed = handoff_md(yahoo_row(sid, YAHOO_HISTORY, "Undated", "Financial press"), gaps=gaps)
+    assert len(weblookup.web_handoff_issues(typed, found)) == 1
+
+
+def test_the_page_retained_decides_whether_a_row_is_a_yahoo_row(tmp_path):
+    tools = yahoo_tools(tmp_path)
+    into = fetched(tools, f"https://{HOST}/to-yahoo")
+    out = fetched(tools, "https://finance.yahoo.com/quote/ACME/profile/")
+    found = tools._known_pages()
+    assert found[into][0].final_url == YAHOO_STATS
+    md = handoff_md(
+        yahoo_row(into, f"https://{HOST}/to-yahoo", "Undated; Later event", "Issuer filing"),
+        gaps=aggregator_gap(into),
+    )
+    issues = weblookup.web_handoff_issues(md, found)
+    assert len(issues) == 1 and "Source type Other" in issues[0]
+    gaps = f"- {out} states no date.\n  Basis: {out}"
+    md = handoff_md(row(out, f"https://{HOST}/undated", "Undated"), gaps=gaps)
+    assert weblookup.web_handoff_issues(md, found) == []
+
+
+def probe(sid: str, kind: str = "Financial press", stated: str = "Undated", tdr6: bool = True):
+    """The review probe: a statistics page fetched after the cutoff, its current figure quoted in
+    TDR.6 as at the cutoff."""
+    table = (
+        "### TDR.6 Located peer figures\n"
+        "| peer_id.operand | amount | quote | evidence |\n|---|---|---|---|\n"
+        f"| acme.revenue | 5,400 | {STATS_QUOTE} | {sid} |\n"
+        "### Other\n"
+    )
+    return handoff_md(
+        yahoo_row(sid, YAHOO_STATS, stated, kind),
+        findings="Acme's revenue was 5,400 million at the cutoff.",
+        gaps=f"- {sid} states no date.\n  Basis: {sid}",
+        tdr6=table if tdr6 else "",
+    )
+
+
+def test_the_review_probe_is_refused(tmp_path):
+    tools = yahoo_tools(tmp_path)
+    sid = fetched(tools, YAHOO_STATS)
+    issues = weblookup.web_handoff_issues(probe(sid), tools._known_pages())
+    assert len(issues) == 3, issues
+    assert any("Later event" in i and sid in i for i in issues)
+    assert any("Source type Other" in i and sid in i for i in issues)
+    assert any("TDR.6" in i and "acme.revenue" in i for i in issues)
+    result = tools.write_handoff(probe(sid))
+    assert result.startswith("REJECTED") and "Source type Other" in result
+
+
+def test_the_probe_repaired_is_accepted(tmp_path):
+    tools = yahoo_tools(tmp_path)
+    sid = fetched(tools, YAHOO_STATS)
+    md = probe(sid, kind="Other", stated="Undated; Later event", tdr6=False)
+    md = md.replace("Acme's revenue was 5,400 million at the cutoff.", f"A later page ({sid}).")
+    assert weblookup.web_handoff_issues(md, tools._known_pages()) == []
+    assert tools.write_handoff(md) == "ACCEPTED"
