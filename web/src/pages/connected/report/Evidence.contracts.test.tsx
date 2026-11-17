@@ -127,3 +127,21 @@ it("identifies the existing annual handoff as model input without relabelling it
   );
   expect(screen.getByText(annualInput)).toBeVisible();
 });
+
+it("does not present the annual input as an available original HTML Model", async () => {
+  vi.stubGlobal("fetch", () =>
+    Promise.resolve(
+      Response.json({
+        files: [{ label: "Annual model handoff", href: "/saved/annual.md" }],
+      }),
+    ),
+  );
+  render(<ArtifactDownloads folder="case" />);
+  expect(await screen.findByText(annualInput)).toBeVisible();
+  expect(screen.getByText("The original HTML Model is unavailable for this run.")).toBeVisible();
+  expect(screen.queryByRole("link", { name: "HTML Model" })).toBeNull();
+  expect(screen.getByRole("link", { name: "Annual model handoff" })).toHaveAttribute(
+    "href",
+    "/saved/annual.md",
+  );
+});
