@@ -877,5 +877,9 @@
  "R2-004": {
   "disposition": "deferred",
   "note": "L17: kept withheld (DELIVERY-V02, D-06); a design choice after the audit"
+ },
+ "R1-015": {
+  "disposition": "deferred",
+  "note": "L18: T09 refuses new collisions at the service; existing merged runs are checked after the audit"
  }
 }

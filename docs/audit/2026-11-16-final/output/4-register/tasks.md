@@ -159,7 +159,7 @@ Findings:
 - J2-003 (with C2-011, J2-007), Medium: An unreadable document is reported as a raw Python decoder error for one file only, and no row is marked, so the analyst cannot tell which of several files is the problem.
 - J5-004 (with C2-014), Medium: The Issuer ID built from the name is cut at 40 characters, so two different issuers with long names that share their first 40 characters get one ID; the Library shows one card under the later run's name and the other issuer cannot be found by name. Ruling: two issuers merged under one ID is corrupted data, always repaired (R3); long legal names sharing 40 characters are ordinary
 
-Files: `web/src/pages/connected/StartRun.tsx`, `web/src/pages/connected/start/plain.ts`
+Files: `web/src/pages/connected/StartRun.tsx`, `web/src/pages/connected/start/plain.ts`, `src/deploy_workflow/run_start/submissions.py`
 
 Probes:
 
@@ -170,6 +170,8 @@ Probes:
 - J5-004 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p05-identity.cjs`
 
 Touches money, ordering or security code: data identity (two issuers under one ID).
+
+Note: L18: the service refuses an Issuer ID filed under a different issuer name; T09 takes submissions.py before T10.
 
 ## T10 (group 1). Abandoned forms must not use up the 50 unfinished drafts
 

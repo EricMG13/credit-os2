@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-502 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 393 findings. Counts below are of those 393, after re-grading.
+503 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 394 findings. Counts below are of those 394, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -10,14 +10,14 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
 | Medium | 70 | 0 | 0 | 0 | 1 | 2 | 32 | 105 |
-| Low | 0 | 141 | 0 | 0 | 1 | 18 | 39 | 199 |
+| Low | 0 | 141 | 0 | 0 | 2 | 18 | 39 | 200 |
 | Info | 3 | 18 | 17 | 0 | 2 | 10 | 34 | 84 |
-| Total | 78 | 159 | 17 | 0 | 4 | 30 | 105 | 393 |
+| Total | 78 | 159 | 17 | 0 | 5 | 30 | 105 | 394 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
 | C1 | 1 | 11 | 16 | 14 |
-| C2 | 0 | 9 | 12 | 5 |
+| C2 | 0 | 9 | 13 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 2 | 7 | 20 | 4 |
 | C5 | 0 | 10 | 18 | 7 |
@@ -295,6 +295,7 @@ High first. `Merged` lists the ids with the same cause.
 | X1-020 | Low | X1 | Bar, stack and strip series are told apart by colour alone, and the first and third chart colours are almost the same grey. | batch (OQ-09) |  |  | not required (Low or Info) |
 | X1-023 | Low | X1 | A range strip row with no range draws neither the strip nor the two case markers, and no n.a. in the track, although both case values are delivered. | batch |  |  | not required (Low or Info) |
 | R1-009 | Low | C1 | With an earlier run listed, the Teams started card counts CP-8 only from its first event, so it reads 13 against the run page's 14, and a run stopped before CP… | deferred |  |  | not required (Low or Info) |
+| R1-015 | Low | C2 | Runs of two different issuers already filed under one Issuer ID before T09's repair stay merged under that ID. | deferred |  |  | not required (Low or Info) |
 | C1-010 | Low | C1 | One malformed catalogue entry takes down the whole Library page: the user sees only 'This page could not be loaded' and a Reload button that fails the same way. | parked |  |  | not required (Low or Info) |
 | C1-011 | Low | C1 | A run status, module state or event kind the client does not know crashes the whole Run activity or run page into the load-failure screen. | parked |  |  | not required (Low or Info) |
 | C1-012 | Low | C1 | getLibraryIndex and getSnapshot hand the browser's JSON parse error to the reader ('Unexpected token '<', "<html>oops</html>" is not valid JSON'). | parked |  |  | not required (Low or Info) |

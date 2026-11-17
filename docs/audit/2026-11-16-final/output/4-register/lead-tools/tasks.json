@@ -140,9 +140,11 @@
   ],
   "files": [
    "web/src/pages/connected/StartRun.tsx",
-   "web/src/pages/connected/start/plain.ts"
+   "web/src/pages/connected/start/plain.ts",
+   "src/deploy_workflow/run_start/submissions.py"
   ],
-  "sensitive": "data identity (two issuers under one ID)"
+  "sensitive": "data identity (two issuers under one ID)",
+  "note": "L18: the service refuses an Issuer ID filed under a different issuer name; T09 takes submissions.py before T10."
  },
  {
   "id": "T10",
