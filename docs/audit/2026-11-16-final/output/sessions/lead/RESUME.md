@@ -1,3 +1,27 @@
+## Lead checkpoint 2026-11-17T22:10Z
+
+Stage 5 is closed. The reviewed application source `bb94ddce` and the
+fidelity, combined gate evidence and closed register are on
+`audit/final-repairs` at `ba3df7d5`. All 248 repair/batch outcomes and
+88 merged aliases have closure commits. Do not rebuild the annotated
+register. Full coverage is 97.69% with 5,259 passed, 630 in Signal. Python
+has 6,285 passes and one existing skip, native connected proof and 138
+file checks passed, and the 267-screen fidelity report explains the
+unchanged comparator's diff flags. The stage 5 report is
+`output/5-repair/report.md` on the repair branch.
+
+Stage 6 combines six reviewed changes and the measurement-helper quality
+fix. The repair evidence-only tip has been merged into the sweep branch.
+Current sweep `522a8188`, last executable source and measurement-tool pin
+`22926bd1`. Native proof, file gate, 73 script checks, build, static web
+gates, exact fast Python, Node and both quality gates passed. The fresh
+full frontend shards and paired render timings are in progress. The
+single Evidence-title failure passed unchanged on both pins in isolation
+and on the exact full shard retry. Record these attempts in the report.
+When all sweep checks and paired measurements are complete, open and
+attach the sweep PR into `audit/final-repairs`, wait for green CI and
+merge there under R9. Stage 7 remains to do.
+
 ## Lead checkpoint 2026-11-17T21:44Z
 
 Stage 6 has started at the owner's request. The sweep branch is

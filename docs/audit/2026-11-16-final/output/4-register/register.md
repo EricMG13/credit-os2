@@ -2,6 +2,10 @@
 
 523 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 115 were merged into another finding with the same cause, which leaves 408 findings. Counts below are of those 408, after re-grading.
 
+The final repair pass closed 248 canonical repair and batch findings and
+their 88 merged aliases. The machine register records the closure commit
+for each. See [the repair report](../5-repair/report.md).
+
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
 ## Counts
