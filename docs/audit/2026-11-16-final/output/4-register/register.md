@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-496 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 387 findings. Counts below are of those 387, after re-grading.
+497 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 388 findings. Counts below are of those 388, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -9,10 +9,10 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | Severity | repair | batch | sweep | owner | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 8 | 0 | 0 | 0 | 0 | 0 | 8 |
-| Medium | 91 | 0 | 0 | 1 | 2 | 10 | 104 |
+| Medium | 91 | 0 | 0 | 1 | 2 | 11 | 105 |
 | Low | 0 | 171 | 0 | 0 | 18 | 9 | 198 |
 | Info | 0 | 18 | 17 | 2 | 10 | 30 | 77 |
-| Total | 99 | 189 | 17 | 3 | 30 | 49 | 387 |
+| Total | 99 | 189 | 17 | 3 | 30 | 50 | 388 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -31,11 +31,11 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S2 | 0 | 5 | 13 | 9 |
 | S3 | 0 | 8 | 19 | 5 |
 | S4 | 0 | 8 | 6 | 3 |
-| S5 | 0 | 5 | 12 | 8 |
+| S5 | 0 | 6 | 12 | 8 |
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
-Verification of High and Medium findings: confirmed 121, not a defect 4, not verified 1.
+Verification of High and Medium findings: confirmed 121, not a defect 4, not verified 2.
 
 ## Findings
 
@@ -146,6 +146,7 @@ High first. `Merged` lists the ids with the same cause.
 | J2-011 | Medium | J2 | Two runs of the same issuer, date and pathway started together are both accepted and finish, and the library then lists two identical history rows, each called… | parked |  |  | confirmed |
 | S3-009 | Medium | S3 | One malformed record makes every library page unreadable and prints the reader's internal data path in the page body. | parked |  | S4-014 | confirmed |
 | J6-009 | Medium | J6 | Following every link from the Library home reaches 79 screens, but no link on any of them leads to the Model Forecast page, any Run start page, ten of the elev… | rejected |  |  | confirmed |
+| R3-002 | Medium | S5 | The static Model's trace drawer (S5-004's repair) shows only the item name, a fixed sentence and Open in Evidence, because the model slice carries only an addr… | rejected (OQ-01) |  |  | not verified |
 | S3-004 | Medium | S3 | The six chart kinds are drawn as tables only: no chart, no Chart or Table toggle, and the code comment that justifies it ('the kit has no such chart') is out o… | rejected (OQ-01) |  |  | confirmed |
 | S4-010 | Medium | S4 | Sources lists name, type, size, state and readers but no document date, and does not separate files supplied but not used from files read. | rejected (OQ-01) |  |  | confirmed |
 | S4-011 | Medium | S4 | Record draws no register tables, no confidence-inputs table, no delivery or publication state, no calculation JSON download and no per-module handoff download;… | rejected (OQ-01) |  |  | confirmed |
