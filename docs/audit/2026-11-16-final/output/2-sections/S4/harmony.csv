@@ -90,12 +90,12 @@ content,CM-319,missing,#/library/halden-aerostructures/2026-09-30/evidence/recor
 content,CM-323,shown as required,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,"Gap ledger grouped High, Medium, Low with the effect on the view; shown on the Gaps tab"
 content,CM-324,correctly not shown,#/library/halden-aerostructures/2026-09-30/evidence/gaps,,No portfolio-workbook case in the fixture; cannot be shown or checked here (Not verified)
 content,CM-330,missing,"#/library/halden-aerostructures/2026-09-30/evidence/sources, /gaps",,No Source type column and no aggregator case in the fixture (S4-010)
-control,CT-036,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control; draft rejection events are not on the static Evidence screens
-control,CT-041,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control; the five library pages are populated from fixture data here
+control,CT-036,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control; draft rejection events are not on the static Evidence screens (S4-025)
+control,CT-041,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control; the five library pages are populated from fixture data here (S4-025)
 control,CT-046,decides less than the row,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Filter on three of five tabs, resets per tab (S4-006)"
 control,CT-047,decidable as required,#/library/halden-aerostructures/2026-09-30/evidence/*,,"One control per figure on Overview; keyboard reachable; focus returns to the opener on Escape, Close and overlay (verified from Overview, no trace control on Evidence)"
 control,CT-048,decides less than the row,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Handoffs zip and register files offered but dead in the fixture; no calculation JSON or model download (S4-003, S4-011); no workbook or report.html offered"
-control,CT-049,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control
+control,CT-049,not reachable here,#/library/halden-aerostructures/2026-09-30/evidence/*,,Not a user control (S4-025)
 retired,R-01,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"No report.html link, button or name on any tab"
 retired,R-04,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,No workbook export; xlsx appears only as an input file name on Sources
 retired,R-06,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,No decision ledger or calibration input on Evidence
@@ -106,10 +106,10 @@ retired,R-22,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,
 retired,R-23,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Missing values draw n.a. with a hatched or worded form, severities carry shape and word, no spreadsheet error values"
 retired,R-24,not offered,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Five tabs, not seven; source files listed with name and hash, no download or viewer of a source file"
 unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Jump to an item command menu (button, Ctrl K, search, grouped options) (S4-018)"
-unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Sort buttons on Item, Module, Gap and Register heads"
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Sort buttons on Item, Module, Gap and Register heads (S4-026)"
 unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Copy buttons and the copy toast on Summary, Sources and Record (S4-017)"
-unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,'Show the other N files' disclosure on Sources
-unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,Gaps 'Shown as' column links to the findings page of each gap
-unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Trace 'Kind' badge (Passage, Figure, Row, Chart)"
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,'Show the other N files' disclosure on Sources (S4-026)
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,Gaps 'Shown as' column links to the findings page of each gap (S4-026)
+unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,"Trace 'Kind' badge (Passage, Figure, Row, Chart) (S4-026)"
 unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,Page-level 'Show sources' switch above every Evidence tab (S4-019)
 unaccounted,,unaccounted,#/library/halden-aerostructures/2026-09-30/evidence/*,,Module timings note 'Six of thirteen shown' (S4-009)
