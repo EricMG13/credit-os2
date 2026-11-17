@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from zipfile import ZipFile
 
 import pytest
 
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = Path("docs/audit/2026-11-16-final/output")
 REGISTER = OUTPUT / "4-register"
 HELPERS = REGISTER / "lead-tools"
+REGISTER_BASELINE = ROOT / "tests/fixtures/final-audit-register-baseline.zip"
 
 
 def _run(script: str, tree: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -28,20 +30,9 @@ def _run(script: str, tree: Path, *args: str) -> subprocess.CompletedProcess[str
 
 
 def _register_tree(tree: Path) -> Path:
-    patterns = (
-        "2-sections/*/findings.jsonl",
-        "2-sections/*/harmony.csv",
-        "3-journeys/*/findings.jsonl",
-        "4-register/baseline-findings.jsonl",
-        "4-register/repair-findings.jsonl",
-        "4-register/verify/*.jsonl",
-        "4-register/lead-tools/*.json",
-    )
-    for pattern in patterns:
-        for source in (ROOT / OUTPUT).glob(pattern):
-            target = tree / source.relative_to(ROOT)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, target)
+    # The expected bytes describe this retained input snapshot, not the growing live audit.
+    with ZipFile(REGISTER_BASELINE) as baseline:
+        baseline.extractall(tree)
     return tree / HELPERS
 
 
@@ -90,6 +81,22 @@ def test_cumulative_audit_helpers_pass_the_default_quality_gate() -> None:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_frozen_register_inputs_ignore_new_live_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    live_root = tmp_path / "live-audit-without-git"
+    live_findings = live_root / REGISTER / "repair-findings.jsonl"
+    live_findings.parent.mkdir(parents=True)
+    live_findings.write_text('{"id":"NEW-LIVE-FINDING"}\n', encoding="utf-8")
+    baseline = tmp_path / "baseline"
+    with monkeypatch.context() as changed:
+        changed.setattr(sys.modules[__name__], "ROOT", live_root)
+        _register_tree(baseline)
+    assert _sha256(baseline / REGISTER / "repair-findings.jsonl") == (
+        "548c9978293802037324b0a12d25e7c0a301c8db9b20d06c77f79349457123a2"
+    )
 
 
 # Captured from the unchanged helpers at e3759109 after this test file was added.
