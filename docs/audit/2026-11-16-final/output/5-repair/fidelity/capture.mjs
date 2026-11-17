@@ -57,13 +57,17 @@ const CONCURRENCY = Number(process.env.FID_CONCURRENCY ?? 3);
 const ONLY = process.env.ONLY ?? null;
 const VIEWPORT = { width: 1440, height: 900 };
 const LOOP_CAP = 1000;
+let RULES = [];
 
 // ---- in the page ---------------------------------------------------------------------------------
 // One self-contained function (Playwright sends its source to the page). It reads what is drawn: the
 // visible text in reading order under its headings, the tables, every figure with what sits beside
 // it, the chart marks, the controls and the links.
 function extractInPage(opts) {
-  const clean = (s) => (s ?? "").replace(/[\s\u00a0]+/g, " ").trim();
+  // Whitespace collapsed, then the times and run ids rewritten (opts.rules), so that everything derived
+  // from a drawn value is derived from the same normalised text.
+  const rules = opts.rules.map(([src, flags, to]) => [new RegExp(src, flags), to]);
+  const clean = (s) => rules.reduce((acc, [re, to]) => acc.replace(re, to), (s ?? "").replace(/[\s\u00a0]+/g, " ").trim());
   const vis = (el) => el.checkVisibility({ checkVisibilityCSS: true });
   const DIGIT = /\d/;
   const MISSING = /^(?:n\.a\.?|na|[—–-]|not (?:supplied|calculated|available|assessable|established)\b|withheld\b)/i;
@@ -283,7 +287,7 @@ function extractInPage(opts) {
       for (const tr of headRows) {
         let col = 0;
         for (const c of tr.cells) {
-          const text = cellText(c);
+          const text = cellText(c) || clean(c.textContent);
           for (let k = 0; k < c.colSpan; k++) {
             if (text && headers[col + k] !== text) headers[col + k] = headers[col + k] ? `${headers[col + k]} / ${text}` : text;
           }
@@ -391,7 +395,10 @@ function extractInPage(opts) {
         if (a.name.startsWith("data-") && !DATA_NOISE.has(a.name) && !a.name.startsWith("data-react-aria")) attrs[a.name] = round(a.value);
       }
       if (!Object.keys(attrs).length || !vis(el)) continue;
-      marks.push({ in: figureLabel(el), tag: el.localName, attrs, text: clean(el.textContent).slice(0, 80) || undefined });
+      // A bar's drawn size, in whole pixels at the fixed viewport, so a changed scale shows up.
+      const sized = ["data-bar", "data-step", "data-segment", "data-track", "data-marker"].some((k) => k in attrs);
+      const r = sized && el.localName !== "text" ? el.getBoundingClientRect() : null;
+      marks.push({ in: figureLabel(el), tag: el.localName, attrs, text: clean(el.textContent).slice(0, 80) || undefined, box: r ? [Math.round(r.width), Math.round(r.height)] : undefined });
     }
 
     const result = {
@@ -555,7 +562,7 @@ async function captureTraces(page) {
     try {
       await button.press("Enter", { timeout: 3000 });
       await page.locator("[role=dialog]").first().waitFor({ timeout: 3000 });
-      drawer = await page.evaluate(extractInPage, { mode: "dialog" });
+      drawer = await page.evaluate(extractInPage, { mode: "dialog", rules: RULES });
     } catch (e) {
       error = String(e.message).split("\n")[0];
     }
@@ -576,39 +583,48 @@ async function captureScreen(page, screen, { ready, prepare }) {
   await settle(page);
   const expanded = await openDisclosures(page);
   await settle(page);
-  const view = await page.evaluate(extractInPage, { mode: "page" });
+  const view = await page.evaluate(extractInPage, { mode: "page", rules: RULES });
   const toggles = await toTableViews(page);
   await settle(page);
-  const tableViews = toggles ? await page.evaluate(extractInPage, { mode: "figures" }) : [];
+  const tableViews = toggles ? await page.evaluate(extractInPage, { mode: "figures", rules: RULES }) : [];
   const traces = await captureTraces(page);
   return { ...screen, view, tableViews, traces, expanded, toggles };
 }
 
 // ---- normalising ---------------------------------------------------------------------------------
-// Times and run ids differ from one capture to the next; nothing else is changed.
-function normaliser(extra = []) {
-  const rules = [
-    [/\b\d{8}-\d{6}-\d{2}\b/g, "<run-id>"],
-    [/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/g, "<time>"],
-    [/\/tmp\/fid-[^\s"'/\\]+/g, "<root>"],
-    ...extra.map((s) => [new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "<run-id>"]),
+// Times and run ids differ from one capture to the next; nothing else is changed. The same rules run
+// in the page, on every drawn string before anything is derived from it, and again on the finished record.
+const NORMALISED = [
+  "run ids of the form YYYYMMDD-HHMMSS-NN, and the run id the service issued -> <run-id>",
+  "dates with a time of day (ISO or 'YYYY-MM-DD HH:MM:SS', with or without ' UTC') -> <time>",
+  "times of day 'HH:MM:SS' with or without fractions and ' UTC' -> <time>",
+  "paths under /tmp/fid-* -> <root>",
+  "elapsed durations drawn as 'N s' or 'N min N s' (a whole drawn value) -> <duration>",
+];
+function rulesFor(extraRunIds) {
+  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return [
+    ...extraRunIds.map((id) => [esc(id), "g", "<run-id>"]),
+    ["\\b\\d{8}-\\d{6}-\\d{2}\\b", "g", "<run-id>"],
+    ["\\b\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})?(?: UTC)?", "g", "<time>"],
+    ["\\b\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?: UTC)?", "g", "<time>"],
+    ["/tmp/fid-[^\\s\"'/\\\\]+", "g", "<root>"],
+    ["^(?:\\d+ min )?\\d+(?:\\.\\d+)? s$", "", "<duration>"],
   ];
-  const whole = [[/^(?:\d+ min )?\d+(?:\.\d+)? s$/, "<duration>"]];
-  const str = (s) => {
-    for (const [re, to] of whole) if (re.test(s)) return to;
-    return rules.reduce((acc, [re, to]) => acc.replace(re, to), s);
-  };
+}
+function normaliser(rules) {
+  const compiled = rules.map(([src, flags, to]) => [new RegExp(src, flags), to]);
+  const str = (v) => compiled.reduce((acc, [re, to]) => acc.replace(re, to), v);
   const walk = (v) =>
-    typeof v === "string" ? str(v) : Array.isArray(v) ? v.map(walk) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([, x]) => x !== undefined).map(([k, x]) => [k, walk(x)])) : v;
+    typeof v === "string"
+      ? str(v)
+      : Array.isArray(v)
+        ? v.map(walk)
+        : v && typeof v === "object"
+          ? Object.fromEntries(Object.entries(v).filter(([, x]) => x !== undefined).map(([k, x]) => [k, walk(x)]))
+          : v;
   return walk;
 }
-
-const NORMALISED = [
-  "run ids of the form YYYYMMDD-HHMMSS-NN, and the run id the service issued",
-  "ISO timestamps",
-  "paths under /tmp/fid-*",
-  "elapsed durations drawn as 'N s' or 'N min N s' (a whole drawn value)",
-];
 
 // ---- output --------------------------------------------------------------------------------------
 const sha256 = (data) => createHash("sha256").update(data).digest("hex");
@@ -899,6 +915,7 @@ async function captureConnected(browser) {
       run = await submitSyntheticRun(page, endpoint);
       page.setDefaultTimeout(15000);
     }
+    RULES = rulesFor([run]);
     console.log(`connected: synthetic run ${run} finished`);
     const base = `${endpoint.replace(/\/$/, "")}/report/${run}`;
     const modules = await navLinks(workers[0].page, `${base}#modules`, "Modules and sections", connectedReady);
@@ -926,7 +943,7 @@ async function captureConnected(browser) {
         return { ...screen, failed: String(e.message).split("\n")[0] };
       }
     });
-    const normalise = normaliser([run]);
+    const normalise = normaliser(RULES);
     for (const rec of done) {
       if (rec.failed) continue;
       const { file, counts } = writeScreen(dir, rec, normalise);
@@ -960,6 +977,7 @@ async function captureStatic(browser) {
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   const { writeDataFile } = await import(pathToFileURL(path.join(web, "scripts", "fixture-data.mjs")).href);
+  RULES = rulesFor([]);
   const tmp = mkdtempSync("/tmp/fid-s-");
   const workers = await newWorkers(browser, CONCURRENCY);
   try {
@@ -1011,7 +1029,7 @@ async function captureStatic(browser) {
         return { ...screen, failed: String(e.message).split("\n")[0] };
       }
     });
-    const normalise = normaliser();
+    const normalise = normaliser(RULES);
     for (const rec of done) {
       if (rec.failed) continue;
       const { file, counts } = writeScreen(dir, rec, normalise);
