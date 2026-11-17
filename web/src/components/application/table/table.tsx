@@ -191,7 +191,7 @@ interface TableCellProps
   numeric?: boolean;
 }
 
-/** A `null` child is a figure that is missing, and is drawn as "n.a." (never as 0). */
+/** Null, undefined and empty-string children are missing figures, and is drawn as "n.a." (never as 0). */
 const TableCell = ({ className, children, numeric, ...props }: TableCellProps) => {
   const { size } = useContext(TableContext);
 
@@ -209,7 +209,7 @@ const TableCell = ({ className, children, numeric, ...props }: TableCellProps) =
         )
       }
     >
-      {children === null ? <Missing /> : children}
+      {children === null || children === undefined || children === "" ? <Missing /> : children}
     </AriaCell>
   );
 };
