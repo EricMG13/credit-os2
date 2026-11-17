@@ -1,6 +1,6 @@
 state: running
-updated: 2026-11-17T06:33Z
-done: branch audit/out-sections-static cut from audit/final-coordination ae1b3f9; AGENTS.md, README.md, SESSIONS.md, stage 2 brief, schema, stage 0 sections.md and environment notes read; toolchain prepared (uv 0.12.5, uv sync --locked, npm ci, npm run build); worker notes written (output/sessions/sections-static/worker-notes.md). Controller runs on Opus 5.5 at xhigh; workers on Sonnet at xhigh (ruling R1).
-next: wave A running: S1, S2, S3, S4 workers dispatched (four browsers). S5, S6, X1 start as each slot frees.
+updated: 2026-11-17T07:23Z
+done: restarted after the 06:30Z freeze (lead note 2026-11-17); no section outputs had been pushed, so all seven sections are redone. Toolchain prepared again (uv 0.12.5, uv sync --locked, npm ci, npm run build); worker notes updated with hard limits (timeouts, Playwright caps, 90-minute stop). Controller runs on Opus 5.5; workers on Sonnet at xhigh (ruling R1).
+next: wave A: S1, S2, S3, S4 workers dispatched (four browsers). S5, S6, X1 start as slots free. Each section is committed and pushed as soon as it is accepted.
 blocked: none
 reports: none yet

@@ -18,8 +18,8 @@ govern.
 ## Toolchain (already prepared by the controller; do not repeat)
 
 - `export PATH=$HOME/.local/bin:$PATH` first: uv must be 0.12.5 (`uv --version`).
-- `uv sync --locked`, `npm --prefix web ci` and `npm --prefix web run build` were run at
-  2026-11-17 06:25 UTC. Do **not** run `npm ci`, `npm run build` or `uv sync` again: other workers
+- `uv sync --locked`, `npm --prefix web ci` and `npm --prefix web run build` were run again after
+  the restart, at 2026-11-17 (restart session). Do **not** run `npm ci`, `npm run build` or `uv sync` again: other workers
   are reading `web/dist` and `web/node_modules` while you work. If `web/dist/index.html` is missing,
   stop and say so in your reply.
 - Playwright 1.62.1 from `web/node_modules` (load it with `createRequire(<repo>/web/package.json)`,
@@ -34,6 +34,22 @@ govern.
   cites, under your `evidence/`; keep each under about 300 KB (clip to the defect when you can).
 - Commands: wrap each in `timeout 300` (or less). Cap every loop at 1,000. Exhaust no operating
   system limit. Close every browser and stop every service you start.
+
+## Hard limits (restart, 2026-11-17)
+
+The first session froze after dispatching its workers; nothing they did survived. To prevent a repeat:
+
+- Wrap every shell command in `timeout` (at most 600 seconds; 300 is the norm). A service you
+  start in the background is started under `timeout` too, and killed when you finish.
+- Cap every browser action: after `newContext`/`newPage` call `context.setDefaultTimeout(15000)` and
+  `context.setDefaultNavigationTimeout(20000)`; pass `timeout` to `chromium.launch` (30000). Never
+  wait on a selector or event without a timeout. Close the browser in a `finally`.
+- Write your outputs as you go, not at the end: create `report.md` (with a provisional
+  `Not verified:` last line) and `findings.jsonl` early, and append to them after each screen.
+  If you are stopped, what is on disk is what the controller can keep.
+- The controller stops a worker that has not returned in 90 minutes. Budget about 75 minutes of
+  work; if you are running out, finish the outputs with what you have and list the rest under
+  `Not verified:` rather than going over.
 
 ## Data variants of the static app
 
