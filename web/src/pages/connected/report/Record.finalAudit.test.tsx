@@ -20,6 +20,12 @@ const record: Run = {
 };
 const run = {
   folder: "case",
+  issuer: "Issuer",
+  title: "Issuer credit view",
+  period: "2026",
+  asOf: "2026-11-17",
+  pathway: "credit_snapshot",
+  modules: {},
   record: { steps: [] },
   evidence: {
     sources: [],
