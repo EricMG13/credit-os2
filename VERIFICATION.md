@@ -7,14 +7,21 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 ## 2026-11-17 — CP-DR: a Yahoo Finance page's row and date are checked (branch `claude/inspiring-thompson-jy5l0f`, on #52)
 
 Scope: this branch on top of `claude/cpdr-yahoo-allowlist` at `4863dfa` (PR #52, open, not on `main`). Ruling: `docs/rulings/2026-11-13-cpdr-web-lookup.md`, amendment 2026-11-17 ("Checks, 2026-11-17") and A14. No provider was called, nothing was fetched from a live host and no paid run was made. Synthetic: hand-written pages through the fake network.
-- Owner, 2026-11-17: on the two proposed checks, "both"; on how the date check treats price-history pages, "Exempt history pages".
+- Owner, 2026-11-17: on the two proposed checks, "both"; on price-history pages, "Exempt history pages"; after review, on dating every `/quote/` page by the later of its stated date and its fetch day, "Yes, /quote/ pages".
 - A14: a `## Sources` row naming a Yahoo page (its `final_url` on `finance.yahoo.com` or a subdomain) has Source type `Other` only, and `## Gaps` names its id.
-- At fetch: an undated Yahoo page other than `/quote/<ticker>/history`, fetched after the cutoff (UTC day), is `later-event`, with its own lookup sentence; A7 and A13(ii) then apply. `WEB_LOOKUP_RULES` says both. `SOURCE_TYPES` and the Source type cell reader moved to `weblookup.py` (same values).
+- At fetch, for a Yahoo page other than `/quote/<ticker>/history`, fetched after the cutoff (UTC day): it is `later-event` under `/quote/` whatever date it states, and elsewhere when it states none. It gets its own lookup sentence, and A7 and A13(ii) then apply. `WEB_LOOKUP_RULES` says all of this. `SOURCE_TYPES` and the Source type cell reader moved to `weblookup.py` (same values).
 - Pins: `WEB_LOOKUP_RULES` is added to CP-DR's system prompt per request and is in no instruction file or `method_text`. No test or executed case pins its hash: `METHOD_TEXT_SHA256_AT_1B41E65` and the CP-4 executed-case pin pass unchanged. A call's `prompt_sha256` goes into a content-addressed invocation preimage, so a resumed CP-DR step gets a new digest, not a refusal.
-- Tests first: on `4863dfa` with the new tests, 17 cases failed, 514 passed. The other 9 new cases guard unchanged behaviour (history pages, the cutoff day, dated pages, other hosts, the repaired probe). The review probe of #52 (statistics page fetched after the cutoff, typed `Financial press`, `Undated` with a Gaps item, current figure in TDR.6) gave 0 issues before and 3 after.
-- Commands, exit 0 on `e3ce2b1`: `tools/quality_gate.py` (0 findings) and `lint-imports`; `tests/test_weblookup.py` and `tests/test_web_lookup_tools.py` (531 passed); web search scope, handoff loop, citation markers, register scope, run-start submissions and context form (527 passed, 3 skipped); `tests/test_cpos_launch.py` (950 passed, 1 skipped: paid).
-- Reviews: confidence-review and rewrite-tournament (post-edit) by the implementer; an independent adversarial review of `e3ce2b1` is running and is recorded here when it reports. Low, parked: a dot segment as the ticker (`/quote/../history`) passes as price history, since addresses are not normalised; what Yahoo serves there is unknown.
-- Not verified: a live Yahoo page (its layout, dates and redirects); whether a model follows the new text; a Yahoo URL cited from hosted `web_search` and not retained (outside A14); the full weekly suite.
+- Tests first:
+  - On `4863dfa` with the first tests, 17 cases failed and 514 passed; 9 more guard unchanged behaviour.
+  - The review probe of #52 (statistics page fetched after the cutoff, typed `Financial press`, `Undated` with a Gaps item, current figure in TDR.6) gave 0 issues before and 3 after.
+  - For the review round, 12 new or changed cases failed on `a00dbe0`. The repaired-probe test now also passes the launcher's prose checks: it had passed only the web checks with a stub checker.
+- Reviews:
+  - Confidence-review and rewrite-tournament (post-edit) by the implementer.
+  - Independent adversarial review of `e3ce2b1`: no High. One Medium, fixed by the owner's `/quote/` decision: a date in a quote page's markup made its current figure usable.
+  - Lows fixed: a dot segment or encoded `/` passed as a history ticker; the ruling called the UTC day strict east of UTC, where it is lenient; the rule text said a history page "stays undated" even when it states a date. Its probes, re-run, give the fixed results.
+  - Lows parked and stated under A14 and in the amendment: Gaps id matched as text (as A8); a type read from any cell; same bytes under a Yahoo and another address; a status kept from first retention.
+- Commands, exit 0 on the head: `tools/quality_gate.py` (0 findings), `lint-imports`; the web lookup, web search scope, handoff loop, citation markers, register scope, run-start submissions and context form tests (1,076 passed, 3 skipped); `tests/test_cpos_launch.py` (950 passed, 1 skipped: paid).
+- Not verified: a live Yahoo page (its markup, dates and redirects); whether a model follows the new text; a Yahoo URL cited from hosted `web_search` and not retained (outside A14); the full weekly suite.
 
 ## 2026-11-17 — PR 2: a run in the currency its source files report in (branch `claude/reporting-currency`)
 

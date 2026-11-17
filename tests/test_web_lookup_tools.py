@@ -23,6 +23,7 @@ from deploy_workflow.model.handoff import (
     web_lookup_offered,
 )
 from deploy_workflow.model.turn import ToolCall
+from deploy_workflow.prose_checks import prose_issues
 from deploy_workflow.research import weblookup
 from deploy_workflow.research.weblookup import Retained, WebLookup
 from deploy_workflow.run_events import EVENTS, read_events
@@ -2122,21 +2123,33 @@ def test_the_rules_say_how_the_yahoo_checks_read_a_page():
     for phrase in (
         "whose Basis line names its id",
         "status later-event",
-        "(/quote/ followed by the ticker and /history) stays undated",
+        "whatever date they state",
+        "(/quote/ followed by the ticker and /history) without a stated date stays undated",
         "never the current quote",
     ):
         assert phrase in WEB_LOOKUP_RULES, phrase
+
+
+FETCHED_LATER = (
+    f"Fetched after the research cutoff {CUTOFF.isoformat()}: its figures are as of the day it "
+    "was fetched, whatever date the page states, so do not take any figure from it; it may be "
+    "cited only as a labelled later event."
+)
 
 
 def test_an_undated_yahoo_page_fetched_after_the_cutoff_is_framed_as_a_later_event(tmp_path):
     result = yahoo_tools(tmp_path).call("fetch_page", {"url": YAHOO_STATS})
     lines = result.splitlines()
     assert lines[0].endswith("stated_date=none status=later-event>>>")
-    assert lines[2] == (
-        f"No stated date, and fetched after the research cutoff {CUTOFF.isoformat()}: its "
-        "figures are as of the day it was fetched, so do not take any figure from it; it may be "
-        "cited only as a labelled later event."
-    )
+    assert lines[2] == FETCHED_LATER
+
+
+def test_a_dated_yahoo_quote_page_fetched_after_the_cutoff_is_framed_as_fetched_later(tmp_path):
+    net = FakeNet({("finance.yahoo.com", "/quote/ACME/"): ok(dated("2025-04-30", "<p>Cap</p>"))})
+    tools, _ = tools_for(tmp_path, net)
+    lines = tools.call("fetch_page", {"url": "https://finance.yahoo.com/quote/ACME/"}).splitlines()
+    assert lines[0].endswith("stated_date=2025-04-30 status=later-event>>>")
+    assert lines[2] == FETCHED_LATER
 
 
 def test_a_yahoo_row_must_be_typed_other(tmp_path):
@@ -2224,9 +2237,19 @@ def test_the_review_probe_is_refused(tmp_path):
 
 
 def test_the_probe_repaired_is_accepted(tmp_path):
+    """Repaired as the rules say: typed Other, labelled, out of TDR.6, no figure taken, the id on
+    Basis lines only, and a Gaps item stating the limitation. The web checks run with the stub
+    launcher checker, so the launcher's prose checks are run on it here too."""
     tools = yahoo_tools(tmp_path)
     sid = fetched(tools, YAHOO_STATS)
-    md = probe(sid, kind="Other", stated="Undated; Later event", tdr6=False)
-    md = md.replace("Acme's revenue was 5,400 million at the cutoff.", f"A later page ({sid}).")
+    md = handoff_md(
+        yahoo_row(sid, YAHOO_STATS, "Undated; Later event", "Other"),
+        findings="### Bottom line\nA market-data page shows figures after the cutoff and supplies "
+        "none here.\n"
+        f"Basis: {sid}",
+        gaps="- The market-data page is an aggregator, not the original source, and was fetched "
+        f"after the cutoff.\n  Basis: {sid}",
+    )
     assert weblookup.web_handoff_issues(md, tools._known_pages()) == []
+    assert prose_issues(md) == ()
     assert tools.write_handoff(md) == "ACCEPTED"

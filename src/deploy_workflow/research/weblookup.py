@@ -61,8 +61,9 @@ STATUS_LATER = "later-event"
 STATUS_UNDATED = "undated"
 FILING_DATE_SOURCE = "sec:filingDate"
 YAHOO_FINANCE = "finance.yahoo.com"
-# A price-history page: ``/quote/`` + the ticker as written in the address + ``/history``, exactly.
-_YAHOO_HISTORY = re.compile(r"/quote/[^/]+/history/?")
+# A price-history page: ``/quote/``, a ticker (letters and digits, then ``.``, ``=`` or ``-``, after
+# an optional encoded ``^``: never a dot segment or an encoded ``/``), ``/history``, exactly.
+_YAHOO_HISTORY = re.compile(r"/quote/(?:%5[Ee])?[A-Za-z0-9][A-Za-z0-9.=-]*/history/?")
 
 # Source type values of a web row in ``## Sources`` (owner, 2026-11-12: rely primarily on reputable
 # and relevant sources). A fixed short list, not a domain allow-list; the module judges the type.
@@ -221,10 +222,15 @@ def is_yahoo_finance(url: str) -> bool:
     return _within(urlsplit(url).hostname or "", YAHOO_FINANCE)
 
 
-def _figures_of_fetch_day(url: str) -> bool:
-    """A Yahoo Finance page other than a price-history page: its figures are as of the day it is
-    fetched. A price-history page's rows carry their own dates (owner, 2026-11-17)."""
-    return is_yahoo_finance(url) and _YAHOO_HISTORY.fullmatch(urlsplit(url).path) is None
+def _dated_by_fetch(url: str, page_date: str | None) -> bool:
+    """Whether the day a page is fetched dates it (owner, 2026-11-17): a Yahoo Finance page other
+    than price history, whose figures are as of that day, when it states no date or is a
+    ``/quote/`` page, where a stated date (an earnings date) is incidental. A price-history page's
+    rows carry their own dates."""
+    path = urlsplit(url).path
+    if not is_yahoo_finance(url) or _YAHOO_HISTORY.fullmatch(path):
+        return False
+    return page_date is None or path.startswith("/quote/")
 
 
 def neutralise(text: str) -> str:
@@ -458,12 +464,13 @@ def _is_filing_list(row: dict[str, Any]) -> bool:
 
 
 def _status(page_date: str | None, cutoff: date, fetch_day: date | None = None) -> str:
-    """By the page's stated date; with none, by ``fetch_day`` when the page's figures are as of
-    the day it was fetched (``_figures_of_fetch_day``), else undated."""
+    """A later event when ``fetch_day`` (given when it dates the page, ``_dated_by_fetch``) is
+    after the cutoff; otherwise by the page's stated date, undated when it states none."""
+    if fetch_day is not None and fetch_day > cutoff:
+        return STATUS_LATER
     stated = _iso_date(page_date)
     if stated is None:
-        late = fetch_day is not None and fetch_day > cutoff
-        return STATUS_LATER if late else STATUS_UNDATED
+        return STATUS_UNDATED
     return STATUS_USABLE if stated <= cutoff else STATUS_LATER
 
 
@@ -762,7 +769,7 @@ class WebLookup:
         if filed:
             page_date, source = filed, FILING_DATE_SOURCE
         fetched = self._runtime.now().astimezone(UTC)
-        fetch_day = fetched.date() if _figures_of_fetch_day(answer.final_url) else None
+        fetch_day = fetched.date() if _dated_by_fetch(answer.final_url, page_date) else None
         item = Retained(
             source_id=f"web-{digest[:12]}",
             url=answer.url,
@@ -1032,11 +1039,11 @@ _FRAME_SENTENCES = {
         "item saying so in words, ending with a Basis line that names this id."
     ),
 }
-# A later event with no stated date: a page whose figures are as of the day it was fetched.
+# A later event dated by the day it was fetched (``_dated_by_fetch``).
 _FETCHED_LATER_SENTENCE = (
-    "No stated date, and fetched after the research cutoff {cutoff}: its figures are as of the day "
-    "it was fetched, so do not take any figure from it; it may be cited only as a labelled later "
-    "event."
+    "Fetched after the research cutoff {cutoff}: its figures are as of the day it was fetched, "
+    "whatever date the page states, so do not take any figure from it; it may be cited only as a "
+    "labelled later event."
 )
 _FILING_DATED_SENTENCE = "A filing document fetched after this list is dated by its filing date."
 _SEC_FACT_SENTENCE = "Each fact carries its own filing date; apply the cutoff to each fact."
@@ -1135,7 +1142,7 @@ def bare_host_problem(text: str) -> str | None:
 
 def _frame_sentence(item: Retained) -> str:
     """What the page's status means for it (see ``_status``)."""
-    if item.status == STATUS_LATER and item.page_date is None:
+    if item.status == STATUS_LATER and _dated_by_fetch(item.final_url, item.page_date):
         return _FETCHED_LATER_SENTENCE.format(cutoff=item.cutoff)
     return _FRAME_SENTENCES.get(item.status, _FRAME_SENTENCES[STATUS_UNDATED]).format(
         cutoff=item.cutoff

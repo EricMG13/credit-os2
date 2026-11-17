@@ -1171,6 +1171,10 @@ def test_a_redirect_from_yahoo_off_the_allowlist_is_refused(tmp_path: Path, loca
         ("finance.yahoo.com", "/quote/ACME/history/extra"),
         ("finance.yahoo.com", "/quote/ACME/HISTORY/"),
         ("finance.yahoo.com", "/quote/ACME/%68istory/"),
+        ("finance.yahoo.com", "/quote/../history"),
+        ("finance.yahoo.com", "/quote/./history/"),
+        ("finance.yahoo.com", "/quote/ACME%2Fkey-statistics/history"),
+        ("finance.yahoo.com", "/quote/%2E%2E/history"),
         ("query1.finance.yahoo.com", "/v8/finance/chart/ACME"),
         ("FINANCE.YAHOO.COM.", "/quote/ACME/"),
     ],
@@ -1192,6 +1196,10 @@ def test_an_undated_yahoo_page_fetched_after_the_cutoff_is_a_later_event(
         ("finance.yahoo.com", "/quote/ACME/history"),
         ("finance.yahoo.com", "/quote/%5EGSPC/history/?period1=1700000000&period2=1719705600"),
         ("uk.finance.yahoo.com", "/quote/ACME.L/history/"),
+        ("finance.yahoo.com", "/quote/BRK-B/history/"),
+        ("finance.yahoo.com", "/quote/EURUSD=X/history"),
+        ("finance.yahoo.com", "/quote/0700.HK/history/"),
+        ("finance.yahoo.com", "/quote/%5egspc/history/"),
     ],
 )
 def test_a_yahoo_price_history_page_stays_undated(tmp_path: Path, host: str, path: str) -> None:
@@ -1210,15 +1218,76 @@ def test_an_undated_yahoo_page_fetched_on_the_cutoff_day_stays_undated(tmp_path:
     assert got.status == "undated"
 
 
-def test_the_fetch_day_is_the_utc_day(tmp_path: Path) -> None:
-    """01:30 on 2025-07-01 in UTC is still 2025-06-30 in New York: the UTC day is after the cutoff,
-    so the page is a later event (the strict side)."""
+@pytest.mark.parametrize(
+    ("local", "status"),
+    [
+        # 21:30 on the cutoff day in New York is 01:30 on 2025-07-01 in UTC: strict west of UTC
+        (datetime(2025, 6, 30, 21, 30, tzinfo=timezone(timedelta(hours=-4))), "later-event"),
+        # 06:00 on 2025-07-01 in Tokyo is 21:00 on the cutoff day in UTC: lenient east of UTC
+        (datetime(2025, 7, 1, 6, 0, tzinfo=timezone(timedelta(hours=9))), "undated"),
+    ],
+)
+def test_the_fetch_day_is_the_utc_day(tmp_path: Path, local: datetime, status: str) -> None:
     net = FakeNet({("finance.yahoo.com", "/quote/ACME/"): ok(html())})
-    early = datetime(2025, 6, 30, 21, 30, tzinfo=timezone(timedelta(hours=-4)))
-    runtime = weblookup.Runtime(resolver=net.resolver, connect=net.connect, now=lambda: early)
+    runtime = weblookup.Runtime(resolver=net.resolver, connect=net.connect, now=lambda: local)
     scope = weblookup.RunScope(tmp_path / "run", CUTOFF, "cp-dr")
     got = retained(WebLookup(scope, runtime).fetch_page("https://finance.yahoo.com/quote/ACME/"))
+    assert got.status == status
+
+
+@pytest.mark.parametrize(
+    "head",
+    [
+        '<meta name="date" content="2025-04-30">',
+        '<meta property="article:modified_time" content="2025-06-01T08:00:00Z">',
+    ],
+)
+@pytest.mark.parametrize("path", ["/quote/ACME/", "/quote/ACME/key-statistics/"])
+def test_a_yahoo_quote_page_fetched_after_the_cutoff_is_a_later_event_whatever_date_it_states(
+    tmp_path: Path, head: str, path: str
+) -> None:
+    """Owner, 2026-11-17: a /quote/ page other than price history is dated by the later of its
+    stated date and the day it was fetched; a date on it (an earnings date) is incidental."""
+    net = FakeNet({("finance.yahoo.com", path): ok(html("<p>Market cap 1.2B</p>", head))})
+    got = retained(make(tmp_path, net).fetch_page(f"https://finance.yahoo.com{path}"))
     assert got.status == "later-event"
+    assert got.page_date in ("2025-04-30", "2025-06-01")
+
+
+def test_a_body_time_element_does_not_make_a_quote_page_usable(tmp_path: Path) -> None:
+    body = html("<p>Earnings date <time datetime='2025-04-30'>Apr 30</time></p><p>Cap 1.2B</p>")
+    net = FakeNet({("finance.yahoo.com", "/quote/ACME/key-statistics/"): ok(body)})
+    url = "https://finance.yahoo.com/quote/ACME/key-statistics/"
+    got = retained(make(tmp_path, net).fetch_page(url))
+    assert (got.status, got.page_date) == ("later-event", "2025-04-30")
+
+
+def test_a_yahoo_quote_page_fetched_on_the_cutoff_day_is_dated_as_it_states(
+    tmp_path: Path,
+) -> None:
+    net = FakeNet(
+        {
+            ("finance.yahoo.com", "/quote/ACME/"): ok(
+                html(head='<meta name="date" content="2025-06-01">')
+            )
+        }
+    )
+    runtime = weblookup.Runtime(resolver=net.resolver, connect=net.connect, now=lambda: NOW)
+    scope = weblookup.RunScope(tmp_path / "run", NOW.date(), "cp-dr")
+    got = retained(WebLookup(scope, runtime).fetch_page("https://finance.yahoo.com/quote/ACME/"))
+    assert (got.status, got.page_date) == ("usable", "2025-06-01")
+
+
+@pytest.mark.parametrize(
+    ("day", "status"), [("2025-05-01", "usable"), ("2025-08-01", "later-event")]
+)
+def test_a_price_history_page_that_states_a_date_is_dated_by_it(
+    tmp_path: Path, day: str, status: str
+) -> None:
+    body = html("<p>Jun 30, 2025 101.50</p>", f'<meta name="date" content="{day}">')
+    net = FakeNet({("finance.yahoo.com", "/quote/ACME/history/"): ok(body)})
+    got = retained(make(tmp_path, net).fetch_page("https://finance.yahoo.com/quote/ACME/history/"))
+    assert (got.status, got.page_date) == (status, day)
 
 
 @pytest.mark.parametrize(
