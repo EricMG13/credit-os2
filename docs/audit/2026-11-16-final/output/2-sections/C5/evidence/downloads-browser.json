@@ -1,0 +1,294 @@
+{
+ "downloads": [
+  {
+   "text": "Download all handoffs",
+   "filename": "handoffs.zip",
+   "size": 54470,
+   "equalsDelivered": "zip",
+   "failure": null
+  },
+  {
+   "text": "Download Source readiness",
+   "filename": "CP-0.md",
+   "size": 2243,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Financial foundation",
+   "filename": "CP-1.md",
+   "size": 7136,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Business & governance",
+   "filename": "CP-1A.md",
+   "size": 4056,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Fundamental credit",
+   "filename": "CP-2.md",
+   "size": 2449,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Downside",
+   "filename": "CP-2A.md",
+   "size": 4501,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Liquidity",
+   "filename": "CP-2D.md",
+   "size": 2407,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Rates, FX & hedging",
+   "filename": "CP-2E.md",
+   "size": 6025,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Forward credit model",
+   "filename": "CP-2G.md",
+   "size": 4086,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Security selection",
+   "filename": "CP-3.md",
+   "size": 5445,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Refinancing & LME",
+   "href": "/library/downloads/20261117-072535-01/CP-3C.md",
+   "download": true,
+   "error": "no download event"
+  },
+  {
+   "text": "Download Legal & covenants",
+   "filename": "CP-4.md",
+   "size": 2965,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Evidence validation",
+   "filename": "CP-5.md",
+   "size": 2802,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Committee decision",
+   "filename": "CP-6.md",
+   "size": 4062,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Download Research questions",
+   "filename": "CP-DR.md",
+   "size": 2417,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Annual model handoff",
+   "filename": "annual.md",
+   "size": 7136,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Calculation JSON",
+   "filename": "calculation.json",
+   "size": 20942,
+   "equalsDelivered": true,
+   "failure": null
+  },
+  {
+   "text": "Exact forecast JSON",
+   "filename": "forecast_exact.json",
+   "size": 15596,
+   "equalsDelivered": true,
+   "failure": null
+  }
+ ],
+ "sources": [
+  {
+   "text": "Open source file: northbridge-credit-agreement.txt",
+   "href": "/connected/sources/20261117-072535-01/c92a94e6eb4ce34cf5de6d6794b9e4505c81387a2e09b4ebea4aaf1a6faefe2c/northbridge-credit-agreement.txt",
+   "rel": "noopener noreferrer",
+   "popup": true,
+   "download": false,
+   "url": "/connected/sources/20261117-072535-01/c92a94e6eb4ce34cf5de6d6794b9e4505c81387a2e09b4ebea4aaf1a6faefe2c/northbridge-credit-agreement.txt",
+   "body": "Credit Agreement\nEXECUTION VERSION\ndated as of March 1, 2024\nSynthetic fixture f"
+  },
+  {
+   "text": "Open source file: northbridge-filing.txt",
+   "href": "/connected/sources/20261117-072535-01/18db00ef7c8d09e0e1a1cb9533dbbb33d8a4a0b4c67bf3a520261ea7075d1f09/northbridge-filing.txt",
+   "rel": "noopener noreferrer",
+   "popup": true,
+   "download": false,
+   "url": "/connected/sources/20261117-072535-01/18db00ef7c8d09e0e1a1cb9533dbbb33d8a4a0b4c67bf3a520261ea7075d1f09/northbridge-filing.txt",
+   "body": "Synthetic Northbridge filing for the browser proof.\n"
+  },
+  {
+   "text": "Open source file: northbridge-portfolio.xlsx",
+   "href": "/connected/sources/20261117-072535-01/1866831c60158355205d27caf7e15c8cd948ecc3abf0795d6df8386a6fcbf6ec/northbridge-portfolio.xlsx",
+   "rel": "noopener noreferrer",
+   "popup": true,
+   "download": true,
+   "url": "",
+   "body": ""
+  }
+ ],
+ "record": {
+  "instructionLinks": 14,
+  "sample": [
+   {
+    "href": "/library/downloads/20261117-072535-01/instructions/CP-0.md",
+    "download": true
+   },
+   {
+    "href": "/library/downloads/20261117-072535-01/instructions/CP-1.md",
+    "download": true
+   },
+   {
+    "href": "/library/downloads/20261117-072535-01/instructions/CP-1A.md",
+    "download": true
+   }
+  ],
+  "firstDownload": {
+   "name": "CP-0.md",
+   "size": 76258
+  },
+  "hashesTail": "Recorded file hashes\n\nnorthbridge-credit-agreement.txt\nc92a94e6eb4ce34cf5de6d6794b9e4505c81387a2e09b4ebea4aaf1a6faefe2c\n\nnorthbridge-filing.txt\n18db00ef7c8d09e0e1a1cb9533dbbb33d8a4a0b4c67bf3a520261ea7075d1f09\n\nnorthbridge-portfolio.xlsx\n1866831c60158355205d27caf7e15c8cd948ecc3abf0795d6df8386a6fcbf6ec\n\ncontext\nc1864cf8682d63883716766a93100998fdb9f3c2fd60f413ddb4bfb911790e7e\n\ninstructions/CP-0.md\ne0",
+  "instructionsRecorded": [
+   {
+    "module": "CP-0",
+    "href": "downloads/20261117-072535-01/instructions/CP-0.md",
+    "sha256": "e0dc0f970113c2356faea59265857630f5e76ea4a69c9268f387f633892aa446"
+   },
+   {
+    "module": "CP-1",
+    "href": "downloads/20261117-072535-01/instructions/CP-1.md",
+    "sha256": "185a94c800a8dd0d87490ce7594cd4eb34073591d726a07c8d92eb936c302435"
+   }
+  ],
+  "instructionHashMatches": {
+   "recorded": "e0dc0f970113c2356faea59265857630f5e76ea4a69c9268f387f633892aa446",
+   "actual": "e0dc0f970113c2356faea59265857630f5e76ea4a69c9268f387f633892aa446"
+  }
+ },
+ "keyboard": [
+  {
+   "enterDownloads": true,
+   "name": "CP-0.md"
+  }
+ ],
+ "links": [
+  {
+   "text": "Download all handoffs",
+   "href": "/library/downloads/20261117-072535-01/handoffs.zip",
+   "download": true
+  },
+  {
+   "text": "Download Source readiness",
+   "href": "/library/downloads/20261117-072535-01/CP-0.md",
+   "download": true
+  },
+  {
+   "text": "Download Financial foundation",
+   "href": "/library/downloads/20261117-072535-01/CP-1.md",
+   "download": true
+  },
+  {
+   "text": "Download Business & governance",
+   "href": "/library/downloads/20261117-072535-01/CP-1A.md",
+   "download": true
+  },
+  {
+   "text": "Download Fundamental credit",
+   "href": "/library/downloads/20261117-072535-01/CP-2.md",
+   "download": true
+  },
+  {
+   "text": "Download Downside",
+   "href": "/library/downloads/20261117-072535-01/CP-2A.md",
+   "download": true
+  },
+  {
+   "text": "Download Liquidity",
+   "href": "/library/downloads/20261117-072535-01/CP-2D.md",
+   "download": true
+  },
+  {
+   "text": "Download Rates, FX & hedging",
+   "href": "/library/downloads/20261117-072535-01/CP-2E.md",
+   "download": true
+  },
+  {
+   "text": "Download Forward credit model",
+   "href": "/library/downloads/20261117-072535-01/CP-2G.md",
+   "download": true
+  },
+  {
+   "text": "Download Security selection",
+   "href": "/library/downloads/20261117-072535-01/CP-3.md",
+   "download": true
+  },
+  {
+   "text": "Download Refinancing & LME",
+   "href": "/library/downloads/20261117-072535-01/CP-3C.md",
+   "download": true
+  },
+  {
+   "text": "Download Legal & covenants",
+   "href": "/library/downloads/20261117-072535-01/CP-4.md",
+   "download": true
+  },
+  {
+   "text": "Download Evidence validation",
+   "href": "/library/downloads/20261117-072535-01/CP-5.md",
+   "download": true
+  },
+  {
+   "text": "Download Committee decision",
+   "href": "/library/downloads/20261117-072535-01/CP-6.md",
+   "download": true
+  },
+  {
+   "text": "Download Research questions",
+   "href": "/library/downloads/20261117-072535-01/CP-DR.md",
+   "download": true
+  },
+  {
+   "text": "Annual model handoff",
+   "href": "/connected/artifacts/20261117-072535-01/6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585/annual.md",
+   "download": true
+  },
+  {
+   "text": "Calculation JSON",
+   "href": "/connected/artifacts/20261117-072535-01/6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585/calculation.json",
+   "download": true
+  },
+  {
+   "text": "Exact forecast JSON",
+   "href": "/connected/artifacts/20261117-072535-01/6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585/forecast_exact.json",
+   "download": true
+  }
+ ]
+}

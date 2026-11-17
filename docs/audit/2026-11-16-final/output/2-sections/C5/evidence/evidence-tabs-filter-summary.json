@@ -1,0 +1,293 @@
+{
+ "tabs": [
+  {
+   "label": "Summary",
+   "href": "#evidence/summary",
+   "url": "/report/20261117-072535-01#evidence/summary",
+   "current": "Summary"
+  },
+  {
+   "label": "Trace",
+   "href": "#evidence/trace",
+   "url": "/report/20261117-072535-01#evidence/trace",
+   "current": "Trace"
+  },
+  {
+   "label": "Sources",
+   "href": "#evidence/sources",
+   "url": "/report/20261117-072535-01#evidence/sources",
+   "current": "Sources"
+  },
+  {
+   "label": "Gaps",
+   "href": "#evidence/gaps",
+   "url": "/report/20261117-072535-01#evidence/gaps",
+   "current": "Gaps"
+  },
+  {
+   "label": "Script checks215",
+   "href": "#evidence/checks",
+   "url": "/report/20261117-072535-01#evidence/checks",
+   "current": "Script checks\n215"
+  },
+  {
+   "label": "Record",
+   "href": "#evidence/record",
+   "url": "/report/20261117-072535-01#evidence/record",
+   "current": "Record"
+  }
+ ],
+ "arrow": {
+  "urlAfterOneArrow": "/report/20261117-072535-01#evidence/sources/CP-0",
+  "value": "CP-0",
+  "focusOnSelect": "SELECT",
+  "urlAfterTwoArrows": "/report/20261117-072535-01#evidence/sources/CP-1",
+  "historyLength": 50
+ },
+ "direct": [
+  {
+   "addr": "",
+   "current": "Summary",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Run evidence",
+    "Handoffs",
+    "Model and calculation files"
+   ]
+  },
+  {
+   "addr": "summary",
+   "current": "Summary",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Run evidence",
+    "Handoffs",
+    "Model and calculation files"
+   ]
+  },
+  {
+   "addr": "trace",
+   "current": "Trace",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Handoffs"
+   ]
+  },
+  {
+   "addr": "sources",
+   "current": "Sources",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Sources",
+    "Named in a handoff"
+   ]
+  },
+  {
+   "addr": "gaps",
+   "current": "Gaps",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Gaps 0"
+   ]
+  },
+  {
+   "addr": "checks",
+   "current": "Script checks\n215",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Script checks"
+   ]
+  },
+  {
+   "addr": "record",
+   "current": "Record",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Run record",
+    "Module records"
+   ]
+  },
+  {
+   "addr": "summary/CP-2D",
+   "current": "Summary",
+   "select": "CP-2D",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Run evidence",
+    "Handoffs",
+    "Model and calculation files"
+   ]
+  },
+  {
+   "addr": "gaps/CP-6",
+   "current": "Gaps",
+   "select": "CP-6",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Gaps 0"
+   ]
+  },
+  {
+   "addr": "checks/CP-4",
+   "current": "Script checks\n32",
+   "select": "CP-4",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Script checks"
+   ]
+  },
+  {
+   "addr": "sources/CP-DR",
+   "current": "Sources",
+   "select": "CP-DR",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Sources",
+    "Named in a handoff"
+   ]
+  },
+  {
+   "addr": "record/CP-1",
+   "current": "Record",
+   "select": "CP-1",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Run record",
+    "Module records"
+   ]
+  },
+  {
+   "addr": "trace/CP-8",
+   "current": "Trace",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Handoffs"
+   ]
+  },
+  {
+   "addr": "summary/NOPE",
+   "current": "Summary",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Run evidence",
+    "Handoffs",
+    "Model and calculation files"
+   ]
+  },
+  {
+   "addr": "bogus",
+   "current": "Trace",
+   "select": "",
+   "alert": "Evidence link unavailable\n\nThis link does not identify a saved handoff revision in this report. Open a handoff from the list to create a current evidence link.",
+   "h2s": [
+    "Evidence",
+    "Evidence link unavailable"
+   ]
+  },
+  {
+   "addr": "bogus/CP-1",
+   "current": "Trace",
+   "select": "CP-1",
+   "alert": "Evidence link unavailable\n\nThis link does not identify a saved handoff revision in this report. Open a handoff from the list to create a current evidence link.",
+   "h2s": [
+    "Evidence",
+    "Evidence link unavailable"
+   ]
+  },
+  {
+   "addr": "checks/NOPE",
+   "current": "Script checks\n0",
+   "select": "",
+   "alert": null,
+   "h2s": [
+    "Evidence",
+    "Script checks"
+   ]
+  }
+ ],
+ "options": [
+  [
+   "",
+   "All modules"
+  ],
+  [
+   "CP-0",
+   "Source readiness"
+  ],
+  [
+   "CP-1",
+   "Financial foundation"
+  ],
+  [
+   "CP-1A",
+   "Business & governance"
+  ],
+  [
+   "CP-2",
+   "Fundamental credit"
+  ],
+  [
+   "CP-2A",
+   "Downside"
+  ],
+  [
+   "CP-2D",
+   "Liquidity"
+  ],
+  [
+   "CP-2E",
+   "Rates, FX & hedging"
+  ],
+  [
+   "CP-2G",
+   "Forward credit model"
+  ],
+  [
+   "CP-3",
+   "Security selection"
+  ],
+  [
+   "CP-3C",
+   "Refinancing & LME"
+  ],
+  [
+   "CP-4",
+   "Legal & covenants"
+  ],
+  [
+   "CP-5",
+   "Evidence validation"
+  ],
+  [
+   "CP-6",
+   "Committee decision"
+  ],
+  [
+   "CP-DR",
+   "Research questions"
+  ]
+ ]
+}

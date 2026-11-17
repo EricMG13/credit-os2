@@ -1,0 +1,23 @@
+{
+ "390": {
+  "viewport": 390,
+  "mainClientWidth": 390,
+  "mainScrollWidth": 583,
+  "cardWidth": 567,
+  "cardRight": 583,
+  "tableWidth": 523,
+  "wrapperWidth": 525,
+  "wrapperScrolls": false
+ },
+ "1440": {
+  "viewport": 1440,
+  "mainClientWidth": 1372,
+  "mainScrollWidth": 1372,
+  "cardWidth": 1308,
+  "cardRight": 1408,
+  "tableWidth": 1240,
+  "wrapperWidth": 1242,
+  "wrapperScrolls": false
+ }
+}
+{"blocked":[],"pageErrors":[]}

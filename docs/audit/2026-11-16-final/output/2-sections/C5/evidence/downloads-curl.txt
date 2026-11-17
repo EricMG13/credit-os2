@@ -1,0 +1,61 @@
+delivery 6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585
+handoff CP-0 | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 2243 bytes
+   bytes equal to delivered CP-0.md
+handoff CP-1 | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 7136 bytes
+   bytes equal to delivered CP-1.md
+handoff CP-1A | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 4056 bytes
+   bytes equal to delivered CP-1A.md
+handoff CP-2 | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 2449 bytes
+   bytes equal to delivered CP-2.md
+handoff CP-2A | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 4501 bytes
+   bytes equal to delivered CP-2A.md
+handoff CP-2D | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 2407 bytes
+   bytes equal to delivered CP-2D.md
+handoff CP-2E | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 6025 bytes
+   bytes equal to delivered CP-2E.md
+handoff CP-2G | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 4086 bytes
+   bytes equal to delivered CP-2G.md
+handoff CP-3 | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 5445 bytes
+   bytes equal to delivered CP-3.md
+handoff CP-3C | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 2580 bytes
+   bytes equal to delivered CP-3C.md
+handoff CP-4 | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 2965 bytes
+   bytes equal to delivered CP-4.md
+handoff CP-5 | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 2802 bytes
+   bytes equal to delivered CP-5.md
+handoff CP-6 | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 4062 bytes
+   bytes equal to delivered CP-6.md
+handoff CP-DR | HTTP/1.0 200 OK | Content-Type: text/markdown | no content-disposition | 2417 bytes
+   bytes equal to delivered CP-DR.md
+zip | HTTP/1.0 200 OK | Content-Type: application/zip | no content-disposition | 54470 bytes
+   zip entries: ['CP-0.md', 'CP-1.md', 'CP-1A.md', 'CP-2.md', 'CP-2A.md', 'CP-2D.md', 'CP-2E.md', 'CP-2G.md', 'CP-3.md', 'CP-3C.md', 'CP-4.md', 'CP-5.md', 'CP-6.md', 'CP-DR.md']
+artifact annual.md | HTTP/1.0 200 OK | Content-Type: application/octet-stream | Content-Disposition: attachment; filename="annual.md" | 7136 bytes
+   bytes equal to delivered annual.md
+artifact calculation.json | HTTP/1.0 200 OK | Content-Type: application/octet-stream | Content-Disposition: attachment; filename="calculation.json" | 20942 bytes
+   bytes equal to delivered calculation.json
+artifact forecast_exact.json | HTTP/1.0 200 OK | Content-Type: application/octet-stream | Content-Disposition: attachment; filename="forecast_exact.json" | 15596 bytes
+   bytes equal to delivered forecast_exact.json
+artifact listing | HTTP/1.0 200 OK | Content-Type: application/json; charset=utf-8 | no content-disposition | 506 bytes
+{"files": [{"label": "Annual model handoff", "href": "/connected/artifacts/20261117-072535-01/6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585/annual.md"}, {"label": "Calculation JSON", "href": "/connected/artifacts/20261117-072535-01/6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585/calculation.json"}, {"label": "Exact forecast JSON", "href": "/connected/artifacts/20261117-072535-01/6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585/forecast_exact.json"}]}
+artifact (not offered) model.html | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 33 bytes
+artifact (not offered) report.html | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+artifact (not offered) forecast.md | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+artifact (not offered) quarter.md | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+artifact (not offered) view.json | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+artifact (not offered) coverage.json | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+artifact (not offered) delivery.json | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+source northbridge-filing.txt | HTTP/1.0 200 OK | Content-Type: text/plain; charset=utf-8 | no content-disposition | 52 bytes
+source northbridge-filing.txt ?page=1 | HTTP/1.0 200 OK | Content-Type: text/plain; charset=utf-8 | no content-disposition | 52 bytes
+source northbridge-filing.txt ?page=999 | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 36 bytes
+source northbridge-credit-agreement.txt | HTTP/1.0 200 OK | Content-Type: text/plain; charset=utf-8 | no content-disposition | 422 bytes
+source northbridge-credit-agreement.txt ?page=1 | HTTP/1.0 200 OK | Content-Type: text/plain; charset=utf-8 | no content-disposition | 422 bytes
+source northbridge-credit-agreement.txt ?page=999 | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 36 bytes
+source northbridge-portfolio.xlsx | HTTP/1.0 200 OK | Content-Type: application/octet-stream | no content-disposition | 11137 bytes
+source northbridge-portfolio.xlsx ?page=1 | HTTP/1.0 200 OK | Content-Type: text/plain; charset=utf-8 | no content-disposition | 788 bytes
+source northbridge-portfolio.xlsx ?page=999 | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 36 bytes
+source wrong hash | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 31 bytes
+source traversal | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 31 bytes
+handoff CP-8 (none in run) | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+downloads traversal | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
+legacy library page | HTTP/1.0 200 OK | Content-Type: text/html | no content-disposition | 3282 bytes
+report.html | HTTP/1.0 404 Not Found | Content-Type: application/json; charset=utf-8 | no content-disposition | 22 bytes
