@@ -18,11 +18,14 @@ it("S1-008 ignores one trailing slash on the kit address", () => {
 it("J6-014 and S1-011 give an unknown page a route back with no current area", () => {
   window.location.hash = "#/nowhere";
   render(<App result={{ kind: "missing" }} />);
-  expect(within(screen.getByRole("main")).getByRole("link", { name: "Back to the library" }))
-    .toHaveAttribute("href", "#/");
-  expect(within(screen.getByRole("navigation", { name: "Areas" })).queryAllByRole("link", {
-    current: "page",
-  })).toHaveLength(0);
+  expect(
+    within(screen.getByRole("main")).getByRole("link", { name: "Back to the library" }),
+  ).toHaveAttribute("href", "#/");
+  expect(
+    within(screen.getByRole("navigation", { name: "Areas" })).queryAllByRole("link", {
+      current: "page",
+    }),
+  ).toHaveLength(0);
 });
 
 it.each([
@@ -31,7 +34,7 @@ it.each([
 ])("S1-011 keeps a missing-data %s page's own title and rail", (area, title, label) => {
   const absent = () => ({ kind: "absent" }) as const;
   const table: RouteTable = {
-    routes: [{ path: `/${area}/example`, title, render: () => null }],
+    routes: [{ path: `/${area}/example`, title, render: () => <></> }],
     readers: { library: absent, model: absent, run: absent, signal: absent },
   };
   window.location.hash = `#/${area}/example`;
