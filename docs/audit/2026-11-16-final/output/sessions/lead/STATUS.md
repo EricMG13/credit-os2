@@ -1,3 +1,33 @@
+## Lead checkpoint 2026-11-17T22:50:09Z
+
+Stage 7 uses executable source `a987af9b` in `/workspace/audit-final`.
+Stage 6 is complete. The separate Stage 7 documentation candidate is
+`/workspace/stage7-docs` at `f951092b` plus pending evidence copies.
+
+Both checkout and release ZIP native file gates passed all 138 checks.
+Chrome and Edge connected proof passed on both builds. Recreated all
+379 historical connected screenshots. The final replay captured 399
+distinct frames and accounted for the four approved retirements. A
+separate native Chrome test matched the checkout and ZIP across 84
+distinct route/width pairs and all 12 sentinel PNGs. The focused Run
+Activity captures matched both widths in the same clock minute. See
+`/workspace/scratch/stage7-connected-screens`.
+
+The full-source ZIP preflight found two evidence directories with case-only
+names. Their two diagnostic files now live under `probes/r4-015/` with
+identical blob hashes and current evidence links updated. The corrected
+local archive census found no Windows path-name conflicts and verified
+the launcher uses CRLF. The runtime ZIP and application sources are
+unchanged. The two rehearsals and the exact prompt bytes are retained.
+
+Fresh frontend coverage and the full static replay are active. Both
+initial shard 8 failures are retained; each failing test file passed
+on its own unchanged. Finish the native blob merge, retain the static
+evidence, write the gates, screen comparison, summary and verification
+entry, and seal the exported-byte manifest. Push the final audit branch,
+then open the PR into `main` and leave it unmerged. Verify the GitHub
+source archive matches the manifest and the PR names the actual archive.
+
 ## Lead checkpoint 2026-11-17T22:43:13Z
 
 Stage 7 is in progress on the frozen merged source `a987af9b`.
