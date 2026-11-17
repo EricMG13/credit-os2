@@ -26,16 +26,18 @@ function citedPageLabel(query: string) {
  * bridge addresses the trace already carries (decision 9: listed only, never opened).
  */
 export function citedSourceNames(links: readonly { href: string }[]) {
-  const sources = new Map<string, { name: string; pages: string | null }>();
+  const sources = new Map<string, { name: string; pages: Set<string> }>();
   for (const { href } of links) {
     const [path = "", query] = href.split("?", 2);
     const pages = query === undefined ? null : citedPageLabel(`?${query}`);
     const name = decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
-    sources.set(path, { name, pages: pages ?? sources.get(path)?.pages ?? null });
+    const source = sources.get(path) ?? { name, pages: new Set<string>() };
+    if (pages) source.pages.add(pages);
+    sources.set(path, source);
   }
   return [...sources].map(([path, { name, pages }]) => ({
     path,
-    text: pages ? `${name}, cited ${pages}` : name,
+    text: pages.size ? `${name}, cited ${[...pages].join("; ")}` : name,
   }));
 }
 

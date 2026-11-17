@@ -97,3 +97,20 @@ it("draws no cited source block in the trace drawer when there is no source", ()
   expect(screen.queryByText("Cited sources")).toBeNull();
   expect(screen.queryByText(/printed pages/)).toBeNull();
 });
+
+it("keeps every distinct cited range for one file without merging source identities", () => {
+  const otherDigest = base.replace("e".repeat(64), "a".repeat(64));
+  const trace = traceWith([
+    { label: "filing", href: base },
+    { label: "pages 2–3", href: `${base}?page=2&end=3` },
+    { label: "page 7", href: `${base}?page=7` },
+    { label: "repeat pages 2–3", href: `${base}?page=2&end=3` },
+    { label: "repeat filing", href: base },
+    { label: "same name, different source", href: `${otherDigest}?page=11` },
+  ]);
+  render(<TraceDrawer trace={trace} evidenceHref="#evidence" isOpen onClose={() => {}} />);
+  expect(screen.getByText("filing (1).txt, cited pages 2–3; page 7")).toBeVisible();
+  expect(screen.getByText("filing (1).txt, cited page 11")).toBeVisible();
+  expect(screen.queryByText("filing (1).txt")).toBeNull();
+  expect(document.querySelector('a[href*="/connected/sources/"]')).toBeNull();
+});
