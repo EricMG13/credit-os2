@@ -31,7 +31,9 @@ export function Shell({
       ? ITEMS
       : ITEMS.flatMap((item) => {
           const section = sections.find((entry) => entry.area === item.area);
-          return section ? [{ ...item, href: section.href, label: section.label ?? item.label }] : [];
+          return section
+            ? [{ ...item, href: section.href, label: section.label ?? item.label }]
+            : [];
         });
   const main = useRef<HTMLElement>(null);
   return (
