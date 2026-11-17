@@ -1,17 +1,19 @@
 // P13: /start?from=<finished run>: what is carried (answers, documents, attachments), the as-of note, Inspect on carried
-// documents, and the review sheet that follows. Needs a finished run (p01). Argument: the run id (default: newest).
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p13-from-run.cjs 20261117-072550-01
+// documents, and the review sheet that follows. It first makes its own finished run through the page (lib.finishedRun: the
+// agreement is uploaded and chosen as the executed one); no run id is passed by hand.
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p13-from-run.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const val = (page, label) => page.getByRole("textbox", { name: label, exact: true });
 (async () => {
   const log = L.newLog();
   const out = {};
-  const run = process.argv[2] || (await (await fetch(`${L.BASE}/connected/activity`)).json()).ended?.[0]?.id;
-  out.run = run;
   const browser = await L.launch();
   try {
     const ctx = await L.context(browser, { log });
+    const run = await L.finishedRun(ctx);
+    out.run = run;
     const page = await ctx.newPage();
     L.watch(page, log);
     await page.goto(`${L.BASE}/start?from=${run}`);

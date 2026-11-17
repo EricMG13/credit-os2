@@ -2,7 +2,8 @@
 // each editor) every text, number, date, select, textarea and checkbox is given a distinctive value; the summary request
 // body is captured and each value is looked up in it. Reports fields whose value never reaches the request, fields the
 // browser refuses natively, and what the service says. The submit request is never sent.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p16-field-wiring.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p16-field-wiring.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 (async () => {

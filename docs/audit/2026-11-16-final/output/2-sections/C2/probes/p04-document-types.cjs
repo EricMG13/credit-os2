@@ -1,5 +1,6 @@
 // P04: how the Documents step treats each unusual file on its own (accent name, png, docx, empty, 52 MB, duplicate names).
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p04-document-types.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p04-document-types.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const path = require("node:path");

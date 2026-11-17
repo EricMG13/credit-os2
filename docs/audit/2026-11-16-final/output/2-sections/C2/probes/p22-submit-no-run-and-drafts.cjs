@@ -1,15 +1,15 @@
 // P22: (a) a Submit answered 200 without a run id (the probe answers it; nothing is started) navigates to /run/undefined;
 // (b) the page leaves its server-side draft behind when the analyst reloads or goes Back, and the service refuses new drafts
 // at 50 ("too many unfinished submissions; try again later", swept only after 24 hours).
-// Needs C2_ROOT (the service's run root, default /tmp/cs-C2/root) to count and remove the probe's own drafts.
-//   C2_PORT=8732 C2_ROOT=/tmp/cs-C2/root node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p22-submit-no-run-and-drafts.cjs
+// It counts the drafts in its own service's run root (L.root()).
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p22-submit-no-run-and-drafts.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const fs = require("node:fs");
 const path = require("node:path");
-const ROOT = process.env.C2_ROOT || "/tmp/cs-C2/root";
-const uploads = path.join(ROOT, "_engine", "uploads");
-const drafts = () => (fs.existsSync(uploads) ? fs.readdirSync(uploads).filter((n) => /^[0-9a-f]{32}$/.test(n) && !fs.existsSync(path.join(uploads, n, "sealed"))) : []);
+const uploads = () => path.join(L.root() || "/nonexistent", "_engine", "uploads");
+const drafts = () => (fs.existsSync(uploads()) ? fs.readdirSync(uploads()).filter((n) => /^[0-9a-f]{32}$/.test(n) && !fs.existsSync(path.join(uploads(), n, "sealed"))) : []);
 (async () => {
   const log = L.newLog();
   const out = {};
@@ -54,7 +54,7 @@ const drafts = () => (fs.existsSync(uploads) ? fs.readdirSync(uploads).filter((n
     out.atLimit = { alerts: await p2.locator("[role=alert]").allInnerTexts(), h2: await p2.$$eval("h2", (h) => h[0].textContent), buttons: await p2.getByRole("button").allInnerTexts().then((t) => t.filter((x) => /discard|clear|delete/i.test(x))) };
   } catch (e) { out.error = String(e).slice(0, 600); } finally {
     await browser.close();
-    for (const n of drafts()) fs.rmSync(path.join(uploads, n), { recursive: true, force: true }); // remove the probe's own drafts
+    for (const n of drafts()) fs.rmSync(path.join(uploads(), n), { recursive: true, force: true }); // the probe's own drafts (the fresh root is removed with the service anyway)
   }
   out.draftsAfterCleanup = drafts().length;
   out.log = { bad: log.bad };

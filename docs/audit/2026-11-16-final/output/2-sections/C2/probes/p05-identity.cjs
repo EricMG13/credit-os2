@@ -1,6 +1,7 @@
 // P05: Issuer name / Issuer ID / As-of / Your name: native validation, derived ID, analyst-name rule, error focus,
 // carry-over from latest run, reset. Prints one JSON object.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p05-identity.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p05-identity.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 

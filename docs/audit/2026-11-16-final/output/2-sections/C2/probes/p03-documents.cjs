@@ -1,6 +1,7 @@
 // P03: the Documents step: empty state, keyboard order, file chooser, folder chooser, drop, unusual files,
 // remove, inspect, native validation, carry-over. Prints one JSON object of observations.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p03-documents.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p03-documents.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const path = require("node:path");

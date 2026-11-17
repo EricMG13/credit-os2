@@ -1,7 +1,8 @@
 // P11: the Submit wording in LIVE mode, seen without spending: the page HTML is rewritten in the browser so its
 // credit-os-mode meta says "live"; the dialog is opened and CANCELLED, never confirmed (R4). Also the case-kind
 // notices (public, private, synthetic) on the review sheet. Prints JSON.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p11-live-wording.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p11-live-wording.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 (async () => {

@@ -1,7 +1,8 @@
 // P08: the More context step at Basic and Advanced level, for several pathways: which controls are drawn, the row
 // editors (add, edit, remove, focus after remove), every Requested-modules checkbox, valuation, assumptions,
 // module options, native validation, and the Standard level. Prints one JSON object.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p08-context.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p08-context.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const active = (page) => page.evaluate(() => {

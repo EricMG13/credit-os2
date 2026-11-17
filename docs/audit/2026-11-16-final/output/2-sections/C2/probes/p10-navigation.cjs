@@ -1,6 +1,7 @@
 // P10: browser Back, Forward, Reload and a link click in the middle of the form (steps 1 to 4), whether anything
 // warns before the typed work is lost, plus Leave out and the stepper from the review sheet. JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p10-navigation.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p10-navigation.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const active = (page) => page.evaluate(() => {
@@ -17,6 +18,7 @@ const active = (page) => page.evaluate(() => {
     const page = await ctx.newPage();
     L.watch(page, log);
     page.on("dialog", async (d) => { out.dialogs.push(`${d.type()}: ${d.message().slice(0, 100)}`); await d.dismiss(); });
+    const earlier = await L.finishedRun(ctx); // a finished run to start from, made through the page
     await page.goto(`${L.BASE}/runs`);
     await page.getByRole("link", { name: /Start a run/ }).first().click().catch(() => {});
     await page.waitForURL(/\/start/).catch(() => {});
@@ -40,7 +42,7 @@ const active = (page) => page.evaluate(() => {
     await page.getByRole("textbox", { name: "Issuer name", exact: true }).waitFor();
     out.afterReload = { name: await page.getByRole("textbox", { name: "Your name", exact: true }).inputValue(), rows: await page.locator("[aria-label='Documents added'] li").count() };
     // Direct open of /start?from=<bad>
-    for (const q of ["?from=does-not-exist", "?from=../../etc/passwd", "?from=", "?from=20261117-072550-01&from=other", "?x=1"]) {
+    for (const q of ["?from=does-not-exist", "?from=../../etc/passwd", "?from=", `?from=${earlier}&from=other`, "?x=1"]) {
       await page.goto(`${L.BASE}/start${q}`);
       await page.waitForTimeout(1200);
       out[`start${q}`] = { notice: await page.locator("[role=alert]").allInnerTexts(), status: await page.locator("p[role=status]").allInnerTexts(), intro: await page.getByText(/Starting from run/).count(), name: await page.getByRole("textbox", { name: "Issuer name", exact: true }).inputValue().catch(() => null) };

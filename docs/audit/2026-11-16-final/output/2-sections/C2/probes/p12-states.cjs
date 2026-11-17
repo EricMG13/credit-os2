@@ -1,7 +1,8 @@
 // P12: loading, error, partial and refusal states, reached by intercepting requests in the browser (no code edited):
 // slow or failing /connected/context, missing caps, failing upload, refused summary (several shapes), failing
 // Submit (400, 404, 500, network). Submit is never sent to the service (every submit is fulfilled by the probe).
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p12-states.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p12-states.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const active = (page) => page.evaluate(() => {

@@ -1,7 +1,8 @@
 // P18: tall-viewport screenshots of each Start step at 1440 and 390 px (the page scrolls inside its own container, so a
 // tall window is the way to see all of it). Writes to C2_SCRATCH (default /tmp/cs-C2/scratch); the ones cited by a finding
 // are copied to evidence/.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p18-screens.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p18-screens.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 (async () => {

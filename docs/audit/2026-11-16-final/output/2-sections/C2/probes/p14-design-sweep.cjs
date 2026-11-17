@@ -1,7 +1,8 @@
 // P14: mechanical design and accessibility sweep of each Start screen at 1440 and 390 px: horizontal overflow, text
 // under 13 px (D-30), pointer targets under 24 px (D-41), text contrast (D-33), inputs without a name (D-37),
 // duplicate ids, focus indicator on each tab stop (D-34), heading order (D-36). JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p14-design-sweep.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p14-design-sweep.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 

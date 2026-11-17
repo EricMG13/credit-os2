@@ -1,7 +1,8 @@
 // P02: where focus goes when the Submit confirmation dialog closes, by each way of opening and closing it.
 // Expected (D-38): focus returns to the "Submit run" button after Escape, Cancel, the Dismiss button and an
 // outside click, however the dialog was opened.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p02-dialog-focus.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p02-dialog-focus.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 

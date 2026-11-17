@@ -2,7 +2,8 @@
 // the dialog) and greps all visible text, aria-labels, titles, placeholders and option texts for things the matrices say
 // must not be shown: module codes (CP-), Excel/workbook export, memo, short snapshot, reporting currency, US$m, orchestrator
 // wording, report.html. Also lists text that mentions Teams, Yahoo, OpenAI, USD. JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p15-harmony-scan.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p15-harmony-scan.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const PATTERNS = { moduleCode: /\bCP-[A-Z0-9]+\b/, excel: /export (to )?excel|\.xlsx? (export|download)|download workbook|workbook export/i, memo: /\bmemo\b/i, shortSnapshot: /short (credit )?snapshot|short_snapshot|CP-L10/i, currency: /reporting currency|reporting_currency/i, usdm: /US\$\s?m|US\$ millions/i, orchestrator: /orchestrat|navigation-only|M365/i, reportHtml: /report\.html/i, teams: /teams/i, yahoo: /yahoo/i, openai: /openai/i };

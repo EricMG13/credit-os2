@@ -1,7 +1,8 @@
 // P23: where the decisions sit on the review sheet. For the default Basic Full-assessment review (no agreement chosen) at
 // 1440 and 390 px: distance from the "Review and start" heading to "Limits to decide", total sheet height, number of "Not
 // given" rows above the limits, and the visible-limit count against the checkbox wording ("I accept these N limits").
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p23-review-order.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p23-review-order.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 (async () => {

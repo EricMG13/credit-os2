@@ -1,6 +1,7 @@
 // P21: review-sheet actions: Leave out (Advanced and Basic), Put back, No action needed disclosure, every Edit button and every
 // stepper "Go back to" button (target step, focus, what is kept), the breadcrumb link. JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p21-review-actions.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p21-review-actions.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const active = (page) => page.evaluate(() => { const a = document.activeElement; if (!a || a === document.body) return "BODY"; return `${a.tagName.toLowerCase()} "${(a.getAttribute("aria-label") || a.labels?.[0]?.textContent || a.textContent || "").trim().replace(/\s+/g, " ").slice(0, 50)}"`; });

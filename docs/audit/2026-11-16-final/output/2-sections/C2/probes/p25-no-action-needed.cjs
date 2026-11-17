@@ -1,6 +1,7 @@
 // P25: the "No action needed (N)" disclosure on the review sheet (reached with the executed agreement chosen): mouse and
 // keyboard toggle, its text, and whether the Limits section and the approval count agree. JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p25-no-action-needed.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p25-no-action-needed.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 (async () => {

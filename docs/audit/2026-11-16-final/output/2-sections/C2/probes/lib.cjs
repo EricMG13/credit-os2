@@ -1,11 +1,15 @@
-// Shared helpers for the C2 probes. Run every probe from the repository root:
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/<name>.cjs
-// The service must already be running on that port (see README in each probe header):
-//   PYTHONPATH=src uv run --locked python -m proof.serve --root /tmp/cs-C2/root --port 8732
+// Shared helpers for the C2 probes. Run every probe from the repository root, with no other setup:
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/<name>.cjs
+// Each probe starts its own `python -m proof.serve` (synthetic, canned responses, USD 0.00) from `.venv/bin/python` with
+// PYTHONPATH=src, on a fresh empty run root under /tmp/cs-C2/ and on port C2_PORT (default 8732), waits until it answers, and
+// stops it when the browser is closed (the probes close the browser in a finally block), on SIGINT/SIGTERM and on process exit.
+// If anything already listens on that port the probe refuses to run; it never reuses another service.
 // Every host but loopback is aborted in the browser and recorded in the log.
 "use strict";
 const path = require("node:path");
 const fs = require("node:fs");
+const net = require("node:net");
+const { spawn } = require("node:child_process");
 const { createRequire } = require("node:module");
 
 const REPO = process.cwd();
@@ -37,8 +41,92 @@ const FILES = {
 };
 const EXE = "/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell";
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let svc = null;
+
+const portFree = (port) => new Promise((resolve) => {
+  const probe = net.createServer();
+  probe.once("error", () => resolve(false));
+  probe.once("listening", () => probe.close(() => resolve(true)));
+  probe.listen(port, "127.0.0.1");
+});
+
+function killGroup(signal) {
+  if (!svc) return;
+  try { process.kill(-svc.child.pid, signal); } catch { /* already gone */ }
+}
+
+/** Starts proof.serve on a fresh root; refuses a busy port; idempotent within one process. */
+async function startService() {
+  if (svc) return svc;
+  if (!(await portFree(PORT))) {
+    throw new Error(`port ${PORT} is already in use: this probe starts its own proof.serve and will not reuse another service (set C2_PORT to a free port)`);
+  }
+  const python = path.join(REPO, ".venv", "bin", "python");
+  if (!fs.existsSync(python)) throw new Error(`${python} not found (uv sync has not been run)`);
+  fs.mkdirSync("/tmp/cs-C2", { recursive: true });
+  const root = fs.mkdtempSync("/tmp/cs-C2/r-"); // empty and short: the scheduler refuses a root over 80 characters
+  if (root.length >= 80) throw new Error(`run root too long: ${root}`);
+  // `timeout` is a backstop: the service ends by itself after 20 minutes even if this process is killed outright.
+  const child = spawn("timeout", ["1200", python, "-m", "proof.serve", "--root", root, "--port", String(PORT)], {
+    cwd: REPO, env: { ...process.env, PYTHONPATH: "src" }, detached: true, stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  let exited = false;
+  child.stdout.on("data", (d) => { output += d; });
+  child.stderr.on("data", (d) => { output += d; });
+  child.on("exit", () => { exited = true; });
+  svc = { child, root, output: () => output, exited: () => exited };
+  try {
+    for (let i = 0; i < 120; i += 1) {
+      if (exited) throw new Error(`proof.serve exited before it answered:\n${output.slice(-600)}`);
+      try { const r = await fetch(`${BASE}/start`); if (r.ok) { process.stderr.write(`[probe] proof.serve up on ${BASE} (root ${root})\n`); return svc; } } catch { /* not up yet */ }
+      await sleep(500);
+    }
+    throw new Error(`proof.serve did not answer on ${BASE} within 60 s:\n${output.slice(-600)}`);
+  } catch (error) {
+    await stopService();
+    throw error;
+  }
+}
+
+/** Stops the service this process started and removes its run root. Safe to call twice. */
+async function stopService() {
+  if (!svc) return;
+  const current = svc;
+  killGroup("SIGTERM");
+  for (let i = 0; i < 60 && !current.exited(); i += 1) await sleep(100);
+  if (!current.exited()) killGroup("SIGKILL");
+  svc = null;
+  fs.rmSync(current.root, { recursive: true, force: true });
+  process.stderr.write(`[probe] proof.serve on ${BASE} stopped\n`);
+}
+
+process.on("exit", () => {
+  if (svc) { killGroup("SIGKILL"); fs.rmSync(svc.root, { recursive: true, force: true }); }
+});
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => { stopService().finally(() => process.exit(130)); });
+}
+
+/** The run root of the service this process started (valid between launch() and browser.close()). */
+const root = () => (svc ? svc.root : null);
+
+/** Starts the service, then the browser; browser.close() also stops the service. */
 async function launch() {
-  return chromium.launch({ executablePath: EXE });
+  await startService();
+  let browser;
+  try {
+    browser = await chromium.launch({ executablePath: EXE });
+  } catch (error) {
+    await stopService();
+    throw error;
+  }
+  const close = browser.close.bind(browser);
+  browser.close = async (...args) => {
+    try { await close(...args); } finally { await stopService(); }
+  };
+  return browser;
 }
 
 const isLoopback = (url) => /^(https?|wss?):\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/.test(url) || /^(data|blob|about):/.test(url);
@@ -138,7 +226,37 @@ async function reachReview(page, { agreement = true, name = "Audit Z" } = {}) {
   await toReview(page);
 }
 
+let finished = null;
+/**
+ * A finished synthetic run of "Northbridge Synthetic Group", made through the page: the three Northbridge files are uploaded,
+ * northbridge-credit-agreement.txt is chosen as the executed agreement, the summary is approved and the synthetic Submit is
+ * confirmed (refused unless the dialog says it is a synthetic test that spends USD 0.00). Returns the run id; cached.
+ */
+async function finishedRun(ctx) {
+  if (finished) return finished;
+  const page = await ctx.newPage();
+  try {
+    await reachReview(page, { agreement: true });
+    await decideAndApprove(page);
+    await page.getByRole("button", { name: /^Submit/ }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.waitFor();
+    const text = await dialog.innerText();
+    if (!/synthetic test/i.test(text) || !/USD 0\.00/.test(text)) throw new Error(`refusing to confirm: the dialog is not the synthetic one: ${text.slice(0, 200)}`);
+    await dialog.getByRole("button", { name: "Start synthetic run" }).click();
+    await page.waitForURL(/\/run\//, { timeout: 30000 });
+    const id = decodeURIComponent(new URL(page.url()).pathname.split("/").pop());
+    const end = await waitForEnd(page);
+    if (!/Finished/.test(end)) throw new Error(`the synthetic run did not finish: ${end}`);
+    finished = id;
+    return id;
+  } finally {
+    await page.close();
+  }
+}
+
 module.exports = {
+  root, startService, stopService, finishedRun,
   reachReview,
   REPO, PORT, BASE, SCRATCH, FILES, launch, context, newLog, watch, shot, isLoopback,
   fillIdentity, addFiles, toPurpose, toContext, toReview, decideAndApprove, waitForEnd,

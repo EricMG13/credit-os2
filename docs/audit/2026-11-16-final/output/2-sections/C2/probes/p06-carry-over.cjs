@@ -1,7 +1,8 @@
 // P06: "Carry over from latest run" and "This is a different issuer": effect, focus after the button is replaced,
-// unknown issuer, empty ID, and keyboard operation. Needs one finished run for issuer northbridge-synthetic-group
-// (run p01-submit-flow.cjs first on a fresh service).
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p06-carry-over.cjs
+// unknown issuer, empty ID, and keyboard operation. It first makes its own finished run for issuer
+// northbridge-synthetic-group through the page (lib.finishedRun: the agreement is uploaded and chosen as the executed one).
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p06-carry-over.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const active = (page) => page.evaluate(() => {
@@ -16,6 +17,7 @@ const val = (page, label) => page.getByRole("textbox", { name: label, exact: tru
   const browser = await L.launch();
   try {
     const ctx = await L.context(browser, { log });
+    out.earlierRun = await L.finishedRun(ctx);
     const page = await ctx.newPage();
     L.watch(page, log);
     await page.goto(`${L.BASE}/start`);

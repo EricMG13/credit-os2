@@ -1,7 +1,8 @@
 // P20: review sheet at narrow widths with an ordinary file name that has no spaces
 // ("Northbridge_Group_Annual_Report_and_Accounts_2025_Final.txt", 58 characters). Measures the width of the review column
 // and whether the Edit buttons and the Submit button stay inside the window. JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p20-narrow-review-overflow.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p20-narrow-review-overflow.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const fs = require("node:fs");

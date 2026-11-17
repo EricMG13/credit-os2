@@ -1,7 +1,8 @@
 // P19: very long unbroken text on the review sheet at 390 px and 1440 px: a 200-character file name, a 150-character issuer
 // name, a long research question and note. Measures horizontal overflow of the page and of any element, and where the
 // "Limits to decide" section sits on the sheet. JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p19-long-text-review.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p19-long-text-review.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const fs = require("node:fs");

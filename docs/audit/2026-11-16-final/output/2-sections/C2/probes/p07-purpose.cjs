@@ -1,6 +1,7 @@
 // P07: the Purpose step: eight pathway cards (names, order, module counts, cap per card), keyboard (arrows, Space,
 // Tab), what changes when a pathway is chosen (Run purpose choices, readiness cap), the three selects, and Previous.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p07-purpose.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p07-purpose.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const active = (page) => page.evaluate(() => {

@@ -1,6 +1,7 @@
 // P09: the Review and start step with the three Northbridge files: the full sheet text, every Edit button, the limit
 // checkboxes, Leave out, the approval, what un-approves, focus after Edit and the stepper, readiness rows. JSON out.
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p09-review.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p09-review.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const active = (page) => page.evaluate(() => {

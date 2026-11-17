@@ -1,7 +1,8 @@
 // P24: controls revealed by each Peer source and Valuation basis choice, and by each scenario pin, on the Advanced Deep
 // context step; each revealed control is listed and each "Add ..." button is operated once. JSON out. (Inventory check: the
 // stage 0 inventory only saw the default state of these sections.)
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p24-valuation-variants.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p24-valuation-variants.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const names = (page, scope) => scope.evaluate((root) => [...root.querySelectorAll("input,select,textarea,button,summary")].filter((e) => e.offsetParent !== null).map((e) => `${e.tagName.toLowerCase()}${e.type && e.tagName === "INPUT" ? ":" + e.type : ""} ${(e.getAttribute("aria-label") || e.labels?.[0]?.textContent || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40)}`));

@@ -1,7 +1,8 @@
 // P17: drag and drop onto the drop zone (and onto it while busy), keyboard activation of Choose files / Choose a folder,
 // the "No action needed" disclosure on the review sheet, and a double activation of the confirmation (how many submit
 // requests leave the page; the probe answers them itself, nothing is started).
-//   C2_PORT=8732 node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p17-dropzone-keyboard.cjs
+//   node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p17-dropzone-keyboard.cjs
+// The probe starts its own proof.serve on a fresh run root and stops it when done (see lib.cjs).
 "use strict";
 const L = require("./lib.cjs");
 const fs = require("node:fs");
