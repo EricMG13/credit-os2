@@ -1,0 +1,11 @@
+data.js file absent                #/library/home  -> "Library Library data is missing"
+data.js has a syntax error         #/library/home  -> "Library Library data is missing"
+data.js sets nothing               #/library/home  -> "Library Library data is missing"
+window.CREDIT_OS_DATA = null       #/library/home  -> "Library Library data is missing"
+issuers is a string                #/library/home  -> "Library Library data is missing"
+schema credit-os-data/2 (newer)    #/library/home  -> "Library This library was written by a newer version"
+schema credit-os-data/0 (older)    #/library/home  -> "Library This library was written by a newer version"
+schema is some other string        #/library/home  -> "Library This library was written by a newer version"
+library slice is invalid           #/library/home  -> "Library This part of the library could not be read issuers: expected a list"
+model slice is not an object       #/model         -> "Financial models This part of the library could not be read slice: expected an object"
+address with no page               #/no-such-page  -> {"main":"Page not found No page has this address","linksInMain":0}

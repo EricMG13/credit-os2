@@ -1,0 +1,6 @@
+lines in clickables.jsonl that name 'Clear filters': 0
+#/: after Enter on Clear filters -> cards=5, activeElement is body: true, focus="body"
+#/: next Tab lands on: {"tag":"a","id":null,"label":null,"text":"Halden AerostructuresAerospace componentsFinishedStable cred","href":"#/library/halden-aerostructures/2026-09-30/overview"}
+#/library: after Enter on Clear filters -> cards=5, activeElement is body: true, focus="body"
+#/library: next Tab lands on: {"tag":"a","id":null,"label":null,"text":"Halden AerostructuresAerospace componentsFinishedStable cred","href":"#/library/halden-aerostructures/2026-09-30/overview"}
+log {"console":[],"pageerror":[],"failed":[],"blocked":[]}

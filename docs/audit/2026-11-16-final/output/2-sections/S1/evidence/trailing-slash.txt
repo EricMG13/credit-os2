@@ -1,0 +1,8 @@
+#/library        -> h1 "Library"
+#/library/       -> h1 "Library"
+#/model          -> h1 "Financial models"
+#/model/         -> h1 "Financial models"
+#/library/home   -> h1 "Library"
+#/library/home/  -> h1 "Library"
+#/kit            -> h1 "Component kit"
+#/kit/           -> h1 "Page not found"

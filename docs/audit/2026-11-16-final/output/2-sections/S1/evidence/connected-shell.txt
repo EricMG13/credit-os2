@@ -1,0 +1,4 @@
+/: {"title":"Credit OS","h1":"Library","documentScrollHeight":845,"viewportHeight":844}
+/runs: {"title":"Credit OS","h1":"Run activity","documentScrollHeight":845,"viewportHeight":844}
+/start: {"title":"Credit OS","h1":"Start a run","documentScrollHeight":845,"viewportHeight":844}
+tap on the label 'Run': path is / (the icon would go to /runs)

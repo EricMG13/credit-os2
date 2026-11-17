@@ -1,0 +1,36 @@
+titles {
+ "#/": {
+  "title": "Credit OS",
+  "h1": "Library"
+ },
+ "#/model": {
+  "title": "Credit OS",
+  "h1": "Financial models"
+ },
+ "#/run": {
+  "title": "Credit OS",
+  "h1": "TransDigm Group"
+ },
+ "#/kit": {
+  "title": "Credit OS",
+  "h1": "Component kit"
+ },
+ "#/no-such-page": {
+  "title": "Credit OS",
+  "h1": "Page not found"
+ },
+ "#/library/halden-aerostructures/history": {
+  "title": "Credit OS",
+  "h1": "Halden Aerostructures"
+ },
+ "#/library/halden-aerostructures/2026-09-30/overview": {
+  "title": "Credit OS",
+  "h1": "Halden Aerostructures"
+ },
+ "#/model/transdigm/2025-06-30/front": {
+  "title": "Credit OS",
+  "h1": "TransDigm Group"
+ }
+}
+distinct titles: 1 of 8
+after Enter on Model: {"hash":"#/model","h1":"Financial models","focus":{"tag":"a","id":null,"label":"Model","text":"","href":"#/model"},"title":"Credit OS","liveRegions":0}

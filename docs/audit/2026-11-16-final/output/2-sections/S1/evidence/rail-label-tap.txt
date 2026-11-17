@@ -1,0 +1,25 @@
+geometry [{"name":"Library","link":[36,44],"label":[37,18],"labelInsideLink":false,"labelFontPx":"12px"},{"name":"Model","link":[36,44],"label":[34,18],"labelInsideLink":false,"labelFontPx":"12px"},{"name":"Run","link":[36,44],"label":[22,18],"labelInsideLink":false,"labelFontPx":"12px"},{"name":"Signal","link":[36,44],"label":[34,18],"labelInsideLink":false,"labelFontPx":"12px"},{"name":"Kit","link":[36,44],"label":[15,18],"labelInsideLink":false,"labelFontPx":"12px"}]
+tap on the label 'Model': hash is #/kit (expected #/model)
+tap on the icon 'Model': hash is #/model
+- navigation "Areas":
+  - list:
+    - listitem:
+      - link "Library":
+        - /url: "#/"
+      - text: Library
+    - listitem:
+      - link "Model":
+        - /url: "#/model"
+      - text: Model
+    - listitem:
+      - link "Run":
+        - /url: "#/run"
+      - text: Run
+    - listitem:
+      - link "Signal":
+        - /url: "#/signal"
+      - text: Signal
+    - listitem:
+      - link "Kit":
+        - /url: "#/kit"
+      - text: Kit
