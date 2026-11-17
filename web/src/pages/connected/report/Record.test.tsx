@@ -116,6 +116,7 @@ describe("a module's record", () => {
     showRecord(recorded);
     expect(screen.queryByRole("region", { name: "Table" })).toBeNull();
     expect(screen.getAllByRole("region").map((node) => node.getAttribute("aria-label"))).toEqual([
+      "Response provenance",
       "Financial foundation: Synthetic adapter responses",
       "Fundamental credit: Synthetic adapter responses",
     ]);

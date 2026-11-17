@@ -135,6 +135,17 @@ export type Run = {
   stopped_by?: string;
   /** Exact non-ready items in the approved summary; null/absent for historical records. */
   approved_summary_limits?: ReadinessItem[] | null;
+  /** Existing accepted-response records, not a claim about paid calls or analytical completion. */
+  module_outputs?:
+    | {
+        module: string;
+        assessment: "not-assessable" | "readable" | null;
+        provenance: "retained-response" | "new-response" | null;
+        response_sha256: string | null;
+      }[]
+    | null;
+  /** Membership in the current admitted publication; no admission timestamp is inferred. */
+  library_admission?: "listed" | "not-listed" | null;
   events: RunEvent[] | null;
 };
 

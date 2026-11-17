@@ -63,6 +63,42 @@ function deliveryFigure(run: Run) {
   return "No delivery recorded";
 }
 
+function ResponseProvenance({ value }: { value?: Run }) {
+  const outputs = value?.module_outputs;
+  return (
+    <section aria-label="Response provenance" className="grid gap-3">
+      <h4 className="font-semibold">Response provenance</h4>
+      {outputs == null ? (
+        <p className="text-sm text-text-secondary">
+          Original execution provenance is not recorded in this run record.
+        </p>
+      ) : outputs.length === 0 ? (
+        <p className="text-sm text-text-secondary">
+          No current accepted module responses are recorded.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border-hairline">
+          {outputs.map((output) => (
+            <li key={output.module} className="grid gap-1 py-3">
+              <span className="font-semibold">{moduleName(output.module)}</span>
+              <span>
+                {output.provenance === "retained-response"
+                  ? "Reused retained response"
+                  : output.provenance === "new-response"
+                    ? "Response recorded for this run"
+                    : "Response provenance unavailable"}
+              </span>
+              {output.response_sha256 ? (
+                <span className="font-mono text-sm wrap-anywhere">{output.response_sha256}</span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function RunTotals({
   value,
   mode,
@@ -247,11 +283,13 @@ export function ReportRecord({
           </p>
         )}
         <p className="text-sm text-text-secondary">
-          Library admission is not recorded in this run record.
+          {value?.library_admission === "listed"
+            ? "This run is listed in the current library."
+            : value?.library_admission === "not-listed"
+              ? "This run is not listed in the current library."
+              : "Library admission is not recorded in this run record."}
         </p>
-        <p className="text-sm text-text-secondary">
-          Original execution provenance is not recorded in this run record.
-        </p>
+        <ResponseProvenance value={value} />
       </section>
       <section className={card}>
         <h3 className={heading}>Approved summary limits</h3>

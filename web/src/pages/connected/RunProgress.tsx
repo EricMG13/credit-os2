@@ -14,6 +14,7 @@ import {
   getReport,
   getRun,
   isPendingReport,
+  moduleName,
   pathwayName,
   RequestError,
   serviceText,
@@ -123,7 +124,10 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
     async function reportState(giveUp: boolean): Promise<ReportState> {
       try {
         const publication = await getReport(id, signal);
-        if (!cancelled()) setNotAssessable(publication.not_assessable ?? []);
+        if (!cancelled())
+          setNotAssessable((current) => [
+            ...new Set([...current, ...(publication.not_assessable ?? [])]),
+          ]);
         return "ready";
       } catch (failure) {
         if (isPendingReport(failure)) return giveUp ? "absent" : "pending";
@@ -135,6 +139,11 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
         const next = await getRun(id, signal);
         if (cancelled()) return;
         setRun(next);
+        setNotAssessable(
+          (next.module_outputs ?? [])
+            .filter((output) => output.assessment === "not-assessable")
+            .map((output) => output.module),
+        );
         setProblem(undefined);
         if (next.status === "queued" || next.status === "running") {
           schedule();
@@ -171,6 +180,18 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
   const restartable = run && RESTARTABLE.includes(run.status);
   const live = run?.status === "queued" || run?.status === "running";
   const lines = run ? feedLines(run) : [];
+  const assessmentGaps =
+    run?.modules
+      .filter(
+        ([code, state]) =>
+          code !== "Report" &&
+          state === "done" &&
+          !notAssessable.includes(code) &&
+          !(run.module_outputs ?? []).some(
+            (output) => output.module === code && output.assessment !== null,
+          ),
+      )
+      .map(([code]) => moduleName(code)) ?? [];
   const runProblem = problem && RUN_PROBLEMS[problem];
   const reportProblem =
     run?.status === "finished" && report !== "pending" && report !== "ready"
@@ -292,6 +313,11 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
           <div className="grid min-w-0 items-start gap-6 xl:grid-cols-2">
             <Card title="Modules and report delivery">
               <ModuleSteps live={live} steps={moduleSteps(run, live, notAssessable)} />
+              {assessmentGaps.length > 0 && (
+                <p className="mt-4 text-sm text-text-secondary">
+                  Assessment metadata is unavailable for {assessmentGaps.join(", ")}.
+                </p>
+              )}
             </Card>
             <Card title="Activity">
               {run.events === null && (
