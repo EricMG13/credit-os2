@@ -6,4 +6,5 @@ next: wave 3 restarted at 07:21Z on the owner's word ("they are frozen restart t
 blocked: none
 reports: output/0-baseline/report.md, output/1-rubrics/design-rubric.md, output/1-rubrics/harmony-report.md
 note: the 06:24Z session ids (session_01Vxgay...) are not visible from the resumed lead session; the frozen sessions were replaced, not stopped, so a late push from one of them is discarded by the lead.
+note: to resume on another account, read output/sessions/lead/RESUME.md (state, next steps, follow-up list, register tools in output/4-register/lead-tools/).
 note: the lead session runs on Opus 5.5, not Fable 5.2; sub-sessions start on Opus 5.5 at xhigh, workers Sonnet at xhigh (owner, 2026-11-16)

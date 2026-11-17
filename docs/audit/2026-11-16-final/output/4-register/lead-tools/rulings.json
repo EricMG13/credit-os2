@@ -1,0 +1,877 @@
+{
+ "C4-028": {
+  "severity": "High",
+  "kind": "ordinary",
+  "note": "a wrong figure (3,75 drawn as 375) is High and always repaired (R3); a decimal comma in model-written text is an ordinary input"
+ },
+ "C4-007": {
+  "kind": "ordinary",
+  "note": "lost data: one bad date hides every event; model-written dates are ordinary inputs (R3)"
+ },
+ "C4-026": {
+  "kind": "ordinary",
+  "note": "long unbroken tokens (64-hex hashes, URLs, file names) are ordinary in handoff text"
+ },
+ "C3-020": {
+  "severity": "Medium",
+  "owner_decision": false,
+  "note": "a missing figure silently dropped breaks D-14 and AGENTS.md missing-versus-zero; adding a stated gap removes nothing (R5 not engaged)"
+ },
+ "C1-009": {
+  "owner_decision": false
+ },
+ "S1-007": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S2-008": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S4-001": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S4-002": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S4-003": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S5-009": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S6-008": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S6-004": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S5-003": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "S2-024": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "C1-027": {
+  "severity": "Low",
+  "note": "a money figure shown one cent low; repaired in the batch (R3: wrong figure)"
+ },
+ "C4-005": {
+  "owner_decision": false,
+  "note": "adding the published column removes nothing (R5 not engaged); matrix CM-025 requires it"
+ },
+ "S3-012": {
+  "owner_decision": false,
+  "note": "drawing the reason as the Bottom line band adds; R5 not engaged"
+ },
+ "C3-015": {
+  "owner_decision": false,
+  "note": "the ruling and CM-037/038 name the lead kicker; follow them"
+ },
+ "C3-027": {
+  "owner_decision": false,
+  "note": "the ruling and CM-037/038 name the lead kicker; follow them"
+ },
+ "C4-036": {
+  "owner_decision": false,
+  "note": "AGENTS.md: delivery adds no analysis; keep the handoff's row order"
+ },
+ "C4-019": {
+  "owner_decision": false,
+  "note": "CM-065/164/165; draw what the handoff holds, state a gap where it holds nothing"
+ },
+ "C3-022": {
+  "owner_decision": false,
+  "note": "CM-320 settles the form: US$m for USD, the code plus m otherwise"
+ },
+ "S6-037": {
+  "section": "C1"
+ },
+ "C5-032": {
+  "disposition": "rejected",
+  "note": "audit inventory note (stage 0 gaps and attribution), not an application defect"
+ },
+ "B0-001": {
+  "disposition": "rejected",
+  "note": "environment cause in the cloud container (baseline row 8b passes with a working browser); check once on the work PC"
+ },
+ "B0-004": {
+  "disposition": "rejected",
+  "note": "a deliberate guard with a clear message (layout.py:61); named in the work-PC prompt"
+ },
+ "C1-025": {
+  "disposition": "sweep"
+ },
+ "C1-026": {
+  "disposition": "sweep"
+ },
+ "C2-026": {
+  "disposition": "sweep"
+ },
+ "C3-023": {
+  "disposition": "sweep"
+ },
+ "C4-033": {
+  "disposition": "sweep"
+ },
+ "C5-039": {
+  "disposition": "sweep"
+ },
+ "S2-026": {
+  "disposition": "sweep"
+ },
+ "S2-027": {
+  "disposition": "sweep"
+ },
+ "S3-031": {
+  "disposition": "sweep"
+ },
+ "S3-034": {
+  "disposition": "sweep"
+ },
+ "S4-023": {
+  "disposition": "sweep"
+ },
+ "S5-023": {
+  "disposition": "sweep"
+ },
+ "S6-036": {
+  "disposition": "sweep"
+ },
+ "X1-014": {
+  "disposition": "sweep"
+ },
+ "X1-025": {
+  "disposition": "sweep"
+ },
+ "B0-005": {
+  "disposition": "sweep"
+ },
+ "S5-024": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S6-003": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "note": "OQ-01 decided (R10): say on the static pages that they are a design reference with sample data; name the saved example in the Submit dialog and on Run started"
+ },
+ "S6-005": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S6-006": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S6-009": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S6-011": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S6-012": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S6-032": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S2-009": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S2-010": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S3-004": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S3-010": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S3-030": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S4-010": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S4-011": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S4-012": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S4-025": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S5-013": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S5-014": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S5-015": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "S5-022": {
+  "owner_decision": false,
+  "owner_question": "OQ-01",
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference fed by the fixtures; the reduced set is by design and the matrix is amended"
+ },
+ "C3-028": {
+  "owner_decision": false,
+  "owner_question": "OQ-02",
+  "note": "OQ-02 decided (R10): move the figures block after the prose passages, before Limitations"
+ },
+ "S2-025": {
+  "owner_decision": false,
+  "owner_question": "OQ-02",
+  "note": "OQ-02 decided (R10): static Overview: headline figures and For and against after Key findings"
+ },
+ "C5-005": {
+  "owner_decision": false,
+  "owner_question": "OQ-03",
+  "note": "OQ-03 decided (R10): hide the Show sources switch on Evidence"
+ },
+ "C5-011": {
+  "owner_decision": false,
+  "owner_question": "OQ-04",
+  "note": "OQ-04 decided (R10): list supplied source files only, with no link to open them (decision 9)"
+ },
+ "S1-004": {
+  "owner_decision": false,
+  "owner_question": "OQ-05",
+  "note": "OQ-05 decided (R10): remove the kit from the rail; #/kit stays reachable by address"
+ },
+ "S1-017": {
+  "owner_decision": false,
+  "owner_question": "OQ-05",
+  "disposition": "rejected",
+  "note": "OQ-05 decided (R10): the connected rail (Library, Run) replaces decision 12"
+ },
+ "X1-013": {
+  "owner_decision": false,
+  "owner_question": "OQ-05",
+  "disposition": "sweep",
+  "note": "OQ-05 decided (R10): drop the variants and props no screen or kit section draws"
+ },
+ "B0-006": {
+  "owner_decision": false,
+  "owner_question": "OQ-05",
+  "disposition": "deferred",
+  "note": "R17 (owner, 2026-11-17: 'agreed'): both legacy pages stay for this hand-over; the connected app depends on the legacy library's build (library/data.js and library/downloads, written by apps/issuer-library/update_library.py), and Python context checks and five test files rely on the legacy form; separating the data build from the old page, and moving the form's rules into Python, is work after the audit"
+ },
+ "S6-014": {
+  "owner_decision": false,
+  "owner_question": "OQ-06",
+  "note": "OQ-06 decided (R10): remove the static resume and start-again offers and the disabled Stop"
+ },
+ "S6-033": {
+  "owner_decision": false,
+  "owner_question": "OQ-06",
+  "note": "OQ-06 decided (R10): remove the static resume and start-again offers and the disabled Stop"
+ },
+ "C1-028": {
+  "owner_decision": false,
+  "owner_question": "OQ-06",
+  "note": "OQ-06 decided (R10): add the Not assessable state; keep Start from this run"
+ },
+ "S2-011": {
+  "owner_decision": false,
+  "owner_question": "OQ-07",
+  "disposition": "rejected",
+  "note": "OQ-07 decided (R10): keep the runs and modules listed with their state drawn; the matrix is amended"
+ },
+ "S3-013": {
+  "owner_decision": false,
+  "owner_question": "OQ-07",
+  "disposition": "rejected",
+  "note": "OQ-07 decided (R10): keep the runs and modules listed with their state drawn; the matrix is amended"
+ },
+ "C2-009": {
+  "owner_decision": false,
+  "owner_question": "OQ-08",
+  "note": "OQ-08 decided (R10): remove Standard from the Run form level"
+ },
+ "S2-012": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): amend the design-system text to the build: the trace control is drawn at rest"
+ },
+ "X1-009": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): apply the recommendation in owner-decisions.md OQ-09"
+ },
+ "X1-017": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): apply the recommendation in owner-decisions.md OQ-09"
+ },
+ "X1-020": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): apply the recommendation in owner-decisions.md OQ-09"
+ },
+ "X1-026": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): apply the recommendation in owner-decisions.md OQ-09"
+ },
+ "C4-020": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): apply the recommendation in owner-decisions.md OQ-09"
+ },
+ "S2-023": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): apply the recommendation in owner-decisions.md OQ-09"
+ },
+ "S3-017": {
+  "owner_decision": false,
+  "owner_question": "OQ-09",
+  "note": "OQ-09 decided (R10): apply the recommendation in owner-decisions.md OQ-09"
+ },
+ "S4-006": {
+  "owner_decision": false,
+  "owner_question": "OQ-10",
+  "note": "OQ-10 decided (R10): hold the chosen module above the five Evidence tabs and apply it on each"
+ },
+ "S4-008": {
+  "owner_decision": false,
+  "owner_question": "OQ-10",
+  "note": "OQ-10 decided (R10): remove the Code column from Record's Model calls table"
+ },
+ "S5-004": {
+  "owner_decision": false,
+  "owner_question": "OQ-10",
+  "note": "OQ-10 decided (R10): open the trace drawer in place from the Model's trace controls"
+ },
+ "S6-015": {
+  "owner_decision": false,
+  "owner_question": "OQ-10",
+  "disposition": "rejected",
+  "note": "OQ-10 decided (R10): no run-level delivery or admission state; the matrix is amended"
+ },
+ "C3-012": {
+  "owner_decision": false,
+  "owner_question": "OQ-10",
+  "note": "OQ-10 decided (R10): show CP-8 on Changes only, not as a module"
+ },
+ "B0-007": {
+  "owner_decision": false,
+  "owner_question": "OQ-11",
+  "note": "OQ-11 decided (R10): the Teams exception is recorded in R8; not a defect in proof.serve: a synthetic service builds its scheduler without Teams settings (react_frontend/__init__.py:399-403), so it never posts",
+  "disposition": "rejected",
+  "severity": "Info"
+ },
+ "C2-025": {
+  "owner_decision": false,
+  "owner_question": "OQ-11",
+  "note": "OQ-11 decided (R10): reword the analyst-name help to 'and in Teams, when it is set up'"
+ },
+ "S6-035": {
+  "owner_decision": false,
+  "owner_question": "OQ-11",
+  "disposition": "rejected",
+  "note": "OQ-11 decided (R10): the Teams card POST is a recorded exception (R8, R10)"
+ },
+ "B0-002": {
+  "owner_decision": false,
+  "owner_question": "OQ-12",
+  "note": "OQ-12 decided (R10): change the file name in AGENTS.md to tests/known-failures.txt"
+ },
+ "S1-018": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S2-030": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S2-031": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S2-032": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S2-033": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S2-034": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S2-035": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S3-033": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S3-035": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S4-026": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S5-026": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "S6-034": {
+  "owner_decision": false,
+  "owner_question": "OQ-13",
+  "disposition": "rejected",
+  "note": "OQ-13 decided (R10): keep each item; the matrix rows are added in harmony.md"
+ },
+ "J2-009": {
+  "severity": "Low",
+  "owner_decision": false,
+  "note": "OQ-06 decided: no resume or retry by design; repair only the wording that 'Start from this run' opens a new submission"
+ },
+ "J5-005": {
+  "owner_decision": false
+ },
+ "J5-010": {
+  "owner_decision": false
+ },
+ "J5-004": {
+  "kind": "ordinary",
+  "note": "two issuers merged under one ID is corrupted data, always repaired (R3); long legal names sharing 40 characters are ordinary"
+ },
+ "J3-021": {
+  "disposition": "rejected",
+  "owner_decision": false,
+  "note": "a limit of the synthetic proof's canned handoffs (they cite annual.txt), not of the application; listed under Not verified"
+ },
+ "J4-012": {
+  "disposition": "rejected",
+  "owner_decision": false,
+  "note": "the downloads carry what the modules wrote; recomputing ratios is a method request outside delivery (AGENTS.md: delivery adds no analysis)"
+ },
+ "J5-011": {
+  "disposition": "rejected",
+  "note": "the synthetic proof returns the same canned handoffs for every issuer by design; listed under Not verified"
+ },
+ "J6-001": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "J6-004": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "J6-008": {
+  "severity": "Low",
+  "note": "fixture content only: the release ships an empty data.js and nothing writes a populated one (S5-024), so no release user sees it; repair the fixture"
+ },
+ "J1-003": {
+  "severity": "Low",
+  "note": "the synthetic proof's documented limit (proof/launcher.py; docs/react-workflow.md tells the user to choose Full with the Northbridge files); what remains is that the page offers and submits other choices without saying so"
+ },
+ "J2-014": {
+  "severity": "Low",
+  "note": "the synthetic proof's documented limit (proof/launcher.py; docs/react-workflow.md tells the user to choose Full with the Northbridge files); what remains is that the page offers and submits other choices without saying so"
+ },
+ "J2-011": {
+  "kind": "hostile-input",
+  "note": "two submissions of the same issuer 0.2 s apart from two tabs is an unusual input; both runs are valid; parked (R3)"
+ },
+ "J6-007": {
+  "severity": "Low",
+  "note": "fixture content only: forecastHref is null in web/fixtures/library.json while a Forecast module is delivered; repair the fixture"
+ },
+ "J6-009": {
+  "disposition": "rejected",
+  "note": "OQ-01 decided (R10): the static app is a design reference reached by address; its one code gap, the Runs breadcrumb, is S6-007's repair"
+ },
+ "J3-002": {
+  "severity": "Info",
+  "note": "the proof harness refuses a run with a prior (proof/launcher.py:101); the product launcher accepts one; Changes with a real comparison is listed under Not verified"
+ },
+ "R3-001": {
+  "owner_decision": false,
+  "owner_question": "OQ-14",
+  "disposition": "batch",
+  "note": "OQ-14 decided (R15): show a one-case model run with a stated gap on its Forecast page"
+ },
+ "R2-001": {
+  "disposition": "batch",
+  "note": "repaired inside T13 by ruling L11 (same file and predicate)"
+ },
+ "R1-012": {
+  "owner_decision": false,
+  "owner_question": "OQ-15",
+  "disposition": "deferred",
+  "note": "OQ-15 decided (R15): the engine records a reader-safe reason for a checker stop, as separate work after the audit"
+ },
+ "R3-002": {
+  "disposition": "rejected",
+  "owner_question": "OQ-01",
+  "owner_decision": false,
+  "note": "OQ-01 decided (R10): the static app is a design reference; the model slice's reduced trace content is by design, and nothing writes model data (S5-024)"
+ },
+ "C1-001": {
+  "severity": "Info",
+  "disposition": "repair",
+  "note": "R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays"
+ },
+ "R1-001": {
+  "severity": "Info",
+  "disposition": "repair",
+  "note": "R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays"
+ },
+ "R1-007": {
+  "severity": "Info",
+  "disposition": "repair",
+  "note": "R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays"
+ },
+ "R1-008": {
+  "severity": "Info",
+  "disposition": "repair",
+  "note": "R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; the reviewed fix already made stays"
+ },
+ "R1-004": {
+  "severity": "Info",
+  "disposition": "rejected",
+  "note": "R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; not repaired"
+ },
+ "R1-013": {
+  "severity": "Info",
+  "disposition": "rejected",
+  "note": "R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; not repaired"
+ },
+ "R1-014": {
+  "severity": "Info",
+  "disposition": "rejected",
+  "note": "R13 (owner, 2026-11-17: 'path leakage is fine this is internal company app'): a server path is not a defect; not repaired"
+ },
+ "C2-001": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C2-005": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "J5-003": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C3-004": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C5-002": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C5-007": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C5-034": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S1-003": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S1-005": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S1-006": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S2-005": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S3-002": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S3-003": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S4-005": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S4-007": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S5-005": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S5-008": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S6-001": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S6-002": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S6-010": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C1-020": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C1-021": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C1-030": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C3-013": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C4-014": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C4-032": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C4-037": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "J4-008": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S1-009": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S2-021": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S3-021": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S3-022": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S3-024": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S3-029": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S4-017": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S5-006": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S5-007": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S6-013": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S6-028": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "S6-030": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "X1-021": {
+  "disposition": "rejected",
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; any reviewed fix already merged stays"
+ },
+ "C3-002": {
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; the focus half is dropped; the scroll and Back half (C3-003, C4-034, J3-001) stays"
+ },
+ "S1-002": {
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; the focus and announcement half is dropped (R14, R16); route titles and scroll stay"
+ },
+ "S3-006": {
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; the narrow-screen picker is dropped; the navigator search (C3-025) stays"
+ },
+ "S4-018": {
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; the 390 px half is dropped; matching ids in the jump search stays"
+ },
+ "R2-002": {
+  "note": "R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; stays: the table is wider than its card at 1440 px too; it now needs its own scroll cue, since S3-021 is dropped"
+ },
+ "R1-009": {
+  "disposition": "deferred",
+  "note": "R15: Teams run cards are implemented and checked only on the work PC; goes to the work-PC prompt"
+ },
+ "C1-006": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "C1-015": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "C3-010": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "C3-014": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "C3-019": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "C5-015": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "C5-016": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "S5-025": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "X1-005": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "X1-011": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "S4-021": {
+  "disposition": "rejected",
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; any reviewed fix already merged stays"
+ },
+ "C1-024": {
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; the repeated announcement is dropped; the visible flicker of the alert on every poll stays"
+ },
+ "S2-015": {
+  "note": "R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; the unnamed, unannounced skeleton is dropped; the Overview-shaped skeleton on every tab (S3-019, S4-015) stays"
+ },
+ "J1-015": {
+  "note": "closed with J2-002 in T07 by ruling L15: the as-of date opens empty on every new form"
+ }
+}

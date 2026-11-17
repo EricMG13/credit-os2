@@ -1,0 +1,494 @@
+[
+ {
+  "primary": "C1-001",
+  "members": [
+   "C5-001"
+  ],
+  "cause": "/connected/snapshot returns catalogue.workspace, the server's absolute path"
+ },
+ {
+  "primary": "C1-014",
+  "members": [
+   "C3-030",
+   "C5-031",
+   "J1-010",
+   "J3-018"
+  ],
+  "cause": "connected document titles do not name the page, tab or module (title set only per report)"
+ },
+ {
+  "primary": "S1-002",
+  "members": [
+   "S2-003",
+   "S2-013",
+   "S3-001",
+   "S4-004",
+   "S4-020",
+   "S5-017",
+   "J6-011",
+   "J6-002",
+   "J6-003"
+  ],
+  "cause": "static app: a route change applies no route title, moves no focus and keeps the scroll offset of main (App.tsx, Shell.tsx)"
+ },
+ {
+  "primary": "C3-002",
+  "members": [
+   "C3-003",
+   "C4-034",
+   "J3-001"
+  ],
+  "cause": "connected report: moving to another module keeps the scroll offset and drops focus to body (Modules.tsx, ReportLibrary.tsx)"
+ },
+ {
+  "primary": "C3-013",
+  "members": [
+   "C1-016",
+   "C4-008",
+   "S2-018"
+  ],
+  "cause": "ButtonGroup radiogroup: arrow keys move focus without selecting, both radios are tab stops (button-group.tsx)"
+ },
+ {
+  "primary": "C3-004",
+  "members": [
+   "C5-006"
+  ],
+  "cause": "a Module select navigates on every ArrowDown (select onChange navigates) on Modules and Evidence"
+ },
+ {
+  "primary": "X1-001",
+  "members": [
+   "C1-017",
+   "C2-016",
+   "C3-032",
+   "C4-016",
+   "S1-014",
+   "S2-019",
+   "S3-015",
+   "S4-016",
+   "S6-021"
+  ],
+  "cause": "text set below the 13 px floor in project-written components and pages"
+ },
+ {
+  "primary": "C3-014",
+  "members": [
+   "C4-009",
+   "S2-016",
+   "S3-023",
+   "J4-010",
+   "J6-015"
+  ],
+  "cause": "trace controls share generic accessible names (TraceControl naming)"
+ },
+ {
+  "primary": "C3-006",
+  "members": [
+   "C5-026"
+  ],
+  "cause": "service note 'the Basis file is not in the CP-0 inventory' puts a module code in reader text (credit_os_chips.py)"
+ },
+ {
+  "primary": "S1-007",
+  "members": [
+   "S6-004"
+  ],
+  "cause": "the static fixture draws a Full credit review with a USD 20.00 cap; the Full cap is USD 25"
+ },
+ {
+  "primary": "C5-005",
+  "members": [
+   "S4-019"
+  ],
+  "cause": "the page-level Show sources switch is drawn on Evidence where it has nothing to show (RunFrame.tsx)"
+ },
+ {
+  "primary": "C3-029",
+  "members": [
+   "C4-005"
+  ],
+  "cause": "a chart's Table form leaves out the published Basis and limitation column (visualData.ts)"
+ },
+ {
+  "primary": "C4-003",
+  "members": [
+   "C5-004"
+  ],
+  "cause": "every Forecast figure that traces to the forward model opens the same generic drawer"
+ },
+ {
+  "primary": "S3-006",
+  "members": [
+   "C3-025"
+  ],
+  "cause": "the Modules navigator has no search and no labelled picker on narrow screens (ModuleNav.tsx)"
+ },
+ {
+  "primary": "S2-002",
+  "members": [
+   "S3-008",
+   "S4-013",
+   "J6-013"
+  ],
+  "cause": "the shipped data.js is empty and every library page shows one bare builder sentence (LibraryPage.tsx)"
+ },
+ {
+  "primary": "S3-009",
+  "members": [
+   "S4-014"
+  ],
+  "cause": "one malformed record makes every library page unreadable and prints the reader's data path (App.tsx)"
+ },
+ {
+  "primary": "X1-008",
+  "members": [
+   "S4-022"
+  ],
+  "cause": "components throw on out-of-contract props and the static app has no error boundary"
+ },
+ {
+  "primary": "X1-004",
+  "members": [
+   "S6-020"
+  ],
+  "cause": "a table cell draws n.a. only for null; an empty string draws blank"
+ },
+ {
+  "primary": "C3-031",
+  "members": [
+   "C4-023"
+  ],
+  "cause": "'Compare with the 5% move' is a select with one option (MacroSensitivity.tsx)"
+ },
+ {
+  "primary": "C4-013",
+  "members": [
+   "C3-022"
+  ],
+  "cause": "the connected report writes the same money unit several ways (publishedReport.ts)"
+ },
+ {
+  "primary": "S3-003",
+  "members": [
+   "S2-004"
+  ],
+  "cause": "the Limitations header overflows its card at narrow widths (Limitations.tsx)"
+ },
+ {
+  "primary": "S2-015",
+  "members": [
+   "S3-019",
+   "S4-015"
+  ],
+  "cause": "a loading run draws the Overview-shaped skeleton on every tab, unnamed and unannounced (RunFrame.tsx)"
+ },
+ {
+  "primary": "C1-015",
+  "members": [
+   "X1-012"
+  ],
+  "cause": "heading levels skip; Card draws its title as a fixed h3"
+ },
+ {
+  "primary": "C4-032",
+  "members": [
+   "X1-007"
+  ],
+  "cause": "each chart is an application widget named only by its title, with no description"
+ },
+ {
+  "primary": "C3-023",
+  "members": [
+   "C5-029"
+  ],
+  "cause": "traceForLine takes an index nothing reads, threaded through three components"
+ },
+ {
+  "primary": "C5-032",
+  "members": [
+   "C1-029",
+   "C2-028",
+   "S3-038",
+   "S4-024"
+  ],
+  "cause": "stage 0 inventory gaps and misattributions (audit note, not an application defect)"
+ },
+ {
+  "primary": "S1-004",
+  "members": [
+   "X1-018"
+  ],
+  "cause": "the component kit page is offered to readers in the static rail"
+ },
+ {
+  "primary": "S6-008",
+  "members": [
+   "S2-024",
+   "S5-003",
+   "J6-004"
+  ],
+  "cause": "static fixture links run and model pages to an issuer and runs the fixture library does not hold (TransDigm)"
+ },
+ {
+  "primary": "S1-006",
+  "members": [
+   "S2-014"
+  ],
+  "cause": "Clear filters on the library home removes the focused button and leaves focus on body"
+ },
+ {
+  "primary": "S3-021",
+  "members": [
+   "C4-015"
+  ],
+  "cause": "ChartTable clips at 390 px with no scroll cue (ChartTable.tsx)"
+ },
+ {
+  "primary": "S6-024",
+  "members": [
+   "C2-017"
+  ],
+  "cause": "every purpose card carries the same FileCheck icon (Purpose.tsx, drawn on both surfaces)"
+ },
+ {
+  "primary": "C3-020",
+  "members": [
+   "C1-009",
+   "J4-007"
+  ],
+  "cause": "a headline figure the module could not supply is dropped without a stated gap (HeadlineFigures.tsx)"
+ },
+ {
+  "primary": "C2-015",
+  "members": [
+   "J1-005"
+  ],
+  "cause": "Your name is required but not marked; checked only at Review run"
+ },
+ {
+  "primary": "J1-011",
+  "members": [
+   "J3-009"
+  ],
+  "cause": "the connected rail's two icon links have no visible label or tooltip"
+ },
+ {
+  "primary": "C1-023",
+  "members": [
+   "J1-013"
+  ],
+  "cause": "the same dates are written in several formats across screens"
+ },
+ {
+  "primary": "B0-003",
+  "members": [
+   "J1-014"
+  ],
+  "cause": "docs/react-workflow.md's synthetic steps are incomplete and name buttons that do not exist"
+ },
+ {
+  "primary": "J1-019",
+  "members": [
+   "J3-022"
+  ],
+  "cause": "proof.serve refuses a non-empty root with argparse usage text, so a synthetic run cannot be reopened"
+ },
+ {
+  "primary": "C2-002",
+  "members": [
+   "J2-001"
+  ],
+  "cause": "leaving Start a run part-way discards the whole form without warning; steps add no history entry"
+ },
+ {
+  "primary": "J2-003",
+  "members": [
+   "C2-011",
+   "J2-007"
+  ],
+  "cause": "document refusals quote raw parser text, change the file name's case and mark no row (plain.ts)"
+ },
+ {
+  "primary": "C2-013",
+  "members": [
+   "J2-004"
+  ],
+  "cause": "the same file chosen twice is listed twice and refused only at Continue or Inspect without naming the row"
+ },
+ {
+  "primary": "C2-010",
+  "members": [
+   "J2-008"
+  ],
+  "cause": "an edit after approval silently discards the review, its approval and its limit decisions"
+ },
+ {
+  "primary": "C3-007",
+  "members": [
+   "J2-016",
+   "J5-007"
+  ],
+  "cause": "the report address gives no cause and no next step for a running, failed or unknown run"
+ },
+ {
+  "primary": "J1-003",
+  "members": [
+   "J3-002",
+   "J2-014"
+  ],
+  "cause": "the synthetic launcher completes only one run of the Full pathway with the three Northbridge files; every other choice the page offers ends Failed with 'launcher exited 2'"
+ },
+ {
+  "primary": "C3-001",
+  "members": [
+   "J3-003",
+   "J4-001"
+  ],
+  "cause": "the five headline figure tiles on Overview have no trace control"
+ },
+ {
+  "primary": "J3-004",
+  "members": [],
+  "cause": "Evidence > Gaps says the run lists no gaps while the report states what was not supplied and the analyst accepted limits"
+ },
+ {
+  "primary": "C4-001",
+  "members": [
+   "J3-005",
+   "J4-009"
+  ],
+  "cause": "Forecast text names module codes, 'Python' and 'handoff', and uses unexplained shorthand"
+ },
+ {
+  "primary": "J4-002",
+  "members": [
+   "J3-006",
+   "J3-010",
+   "J4-013"
+  ],
+  "cause": "the same measure shows different values or names on different screens with no basis, period or reason stated"
+ },
+ {
+  "primary": "J3-007",
+  "members": [
+   "C5-036"
+  ],
+  "cause": "Evidence > Trace with no item chosen repeats Summary's handoff buttons and says nothing about how to trace"
+ },
+ {
+  "primary": "J1-009",
+  "members": [
+   "J3-008",
+   "J4-014"
+  ],
+  "cause": "the modules appear in different orders on Overview, the navigator and the Evidence filter, and Overview lists 13 of 14"
+ },
+ {
+  "primary": "J3-012",
+  "members": [
+   "J4-011"
+  ],
+  "cause": "Script checks counts 215 although 205 did not run, and says nothing about what a check is"
+ },
+ {
+  "primary": "C5-009",
+  "members": [
+   "J3-013"
+  ],
+  "cause": ""
+ },
+ {
+  "primary": "C4-024",
+  "members": [
+   "J3-014"
+  ],
+  "cause": "the stress case is named 'Downside shock' and 'Downside case' on the same report"
+ },
+ {
+  "primary": "C5-003",
+  "members": [
+   "J4-005",
+   "J3-015"
+  ],
+  "cause": "the Confidence score has no method or scale, and its drawer lists fourteen identical 'no page' lines"
+ },
+ {
+  "primary": "J4-003",
+  "members": [
+   "C4-019"
+  ],
+  "cause": "the Forecast page does not state the downside shock or the case drivers"
+ },
+ {
+  "primary": "C5-007",
+  "members": [
+   "J5-002"
+  ],
+  "cause": "tables that scroll sideways at 390 px give no cue and their scroll wrappers are not keyboard reachable"
+ },
+ {
+  "primary": "J5-004",
+  "members": [
+   "C2-014"
+  ],
+  "cause": "the Issuer ID derived from the name is cut at 40 characters and drops letters, so different issuers can share one ID"
+ },
+ {
+  "primary": "C1-020",
+  "members": [
+   "J5-008"
+  ],
+  "cause": "the Report history frame is wider than a phone screen"
+ },
+ {
+  "primary": "C4-014",
+  "members": [
+   "J5-009"
+  ],
+  "cause": "calendar and timeline markers are 14 by 14 px, under the target size"
+ },
+ {
+  "primary": "S4-003",
+  "members": [
+   "J6-001"
+  ],
+  "cause": ""
+ },
+ {
+  "primary": "S1-001",
+  "members": [
+   "J6-005"
+  ],
+  "cause": "the static 'Start a run' and 'New run' buttons open a saved running run, not a run start"
+ },
+ {
+  "primary": "S2-001",
+  "members": [
+   "J6-006"
+  ],
+  "cause": "an issuer page draws none of its runs when the issuer has no readable report, while the home card describes a finished run"
+ },
+ {
+  "primary": "S2-008",
+  "members": [
+   "J6-008",
+   "J6-016"
+  ],
+  "cause": ""
+ },
+ {
+  "primary": "S6-003",
+  "members": [
+   "J6-010"
+  ],
+  "cause": "the static run start is a saved example but offers Submit, a paid-run dialog and 'Run started' without saying so"
+ },
+ {
+  "primary": "S2-020",
+  "members": [
+   "J6-012"
+  ],
+  "cause": "Library search and filters are lost on Back"
+ }
+]
