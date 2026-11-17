@@ -1,0 +1,129 @@
+{
+  "url": "http://127.0.0.1:38619/report/20261117-191429-01#evidence/record/CP-1",
+  "columns": [
+    "Started (UTC)",
+    "Accepted (UTC)",
+    "Attempt",
+    "Started (UTC)",
+    "HTTP status",
+    "Error class",
+    "Settled USD",
+    "Applies to",
+    "Recorded qualification"
+  ],
+  "text": "Library\n / Northbridge Synthetic Group\nNorthbridge Synthetic Group\nAs of 31 March 2025\nFull credit assessment\nFinished\nSynthetic test\nRun progress\n\nBusiness description not in this run\n\nMoody's\nB1\nNegative\n\nEntered at run start\n\nHistory\nOverview\nChanges\nModules\n14\nForecast\nEvidence\nEvidence\nModule\nAll modules\nSource readiness\nFinancial foundation\nBusiness & governance\nResearch questions\nLegal & covenants\nFundamental credit\nDownside\nRates, FX & hedging\nLiquidity\nForward credit model\nRefinancing & LME\nSecurity selection\nEvidence validation\nCommittee decision\nSummary\nTrace\nSources\nGaps\nScript checks\n0 of 2\nRecord\nRun record\n\n20261117-191429-01\n\nRun type\nLive provider\nElapsed\n3 s\nFinished at 19:14:32 UTC\nDelivery\nReport delivered 17 Nov 2026, 19:14 UTC\nCap usage\nUSD 0.00\nUSD 0.00 of USD 25.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown\n\nThis run is listed in the current library.\n\nResponse provenance\nSource readiness\nResponse recorded for this run\n713833b329fb9d4fbf62c2e8443cb51382769ac42ee5e6fced2a8369569e725b\nFinancial foundation\nResponse recorded for this run\nd501fa953f12a1e9eafb6da6612c85f8a249c035c063232acab9e8e27282ab7e\nBusiness & governance\nResponse recorded for this run\n9d681a33ea370e9749532c3920632d4509e24fb235e63f1728f28c64ef90a71e\nResearch questions\nResponse recorded for this run\n4a4a38ab5707c430a67c011f29870c8243e8da247c7d243602882b807ad14831\nLegal & covenants\nResponse recorded for this run\n22eee15feca52c098833b5bc412037cfcc79c7d7d2c14e847441110a88d49d04\nFundamental credit\nResponse recorded for this run\n08a7de22594c8f6a98572fcf68df829e8acf5027ba3f633edeccb148f574c946\nDownside\nResponse recorded for this run\n393a5419db0e48a1dc23baf12a99dda208325e74f131ea90a9aba182c1a7330d\nRates, FX & hedging\nResponse recorded for this run\nbda1463f75639c11f05be4fdfaea7f60e9d9ed1988c80c1cf8f9099c2f927293\nLiquidity\nResponse recorded for this run\n0cc605e3ac5613c49519d3e80ec0ede5d1dc91b5b191df08cd294c5b901e5743\nForward credit model\nResponse recorded for this run\n31b71b2e449fc117a69c0a5546eed1f390eaa68997fa0c8a4e049ccd5c7cccbd\nRefinancing & LME\nResponse recorded for this run\n95643c10605bea7e8e468276cbe9f1f57999245cd1a5eb06d79171715018094b\nSecurity selection\nResponse recorded for this run\n32bb494dc93287a35612f0c806c038c3e41b3d49145682b694e46ddb340fd562\nEvidence validation\nResponse recorded for this run\n63abc16f02a470cc8015dfc4debaae73d4664b0679739f80a44cbc088d1e9bf7\nCommittee decision\nResponse recorded for this run\n82ce5db628fc637943db5cd92274619bda82aa077fed41d042242ae5f6f84188\nApproved summary limits\nRun\nCheck\n\nNo filed financial report is recognised among the files, so financials are management claims, not filed statements.\n\nAdd the filed annual or quarterly report.\n\nFinancial foundation\nCheck\n\nNo file is recognised as a financial report, earnings release or offering document with financial pages.\n\nAdd the financial report to the documents.\n\nSecurity selection\nGap\n\nNo quotes and no price talk were entered, and no quotes file is recognised.\n\nAdd observed quotes under Observed quotes, or a quotes file.\n\nModule records\nFinancial foundation1 response\nStarted and accepted\nStarted (UTC)\tAccepted (UTC)\n2026-11-17T19:14:30Z\t2026-11-17T19:14:30Z\nModel calls\nAttempt\tStarted (UTC)\tHTTP status\tError class\tSettled USD\n0\t2026-11-17T19:14:30.892367Z\t200\t—\t0\nDownload instructions\nRecorded file hashes\nRecorded model notes and limitations\n\nModel aec2707cf66dd3ea64a754201bcfb11c2281cbdbf069d38bf644d7236527f46f\n\nRecorded model qualification ledger\nApplies to\tRecorded qualification\nModel note\tLast twelve months is the last fiscal year when that is the latest period Financial foundation labels; otherwise the last fiscal year plus the year to date less the prior year to date.\nModel note\tBase case is the model's reference case: a conditional illustration, not an evidence-supported central issuer forecast.\nModel note\tAdj EBITDA is the earnings line the forecast inputs name in Financial foundation; in the forecast it is the model's earnings on that basis, not issuer guidance.\nModel note\tLeverage is closing debt, as the forecast inputs name it in Financial foundation, over Adj EBITDA. Leverage is shown for twelve-month periods only.\nModel note\tHistorical interest is the Financial foundation line the forecast inputs name, which may be interest expense rather than cash paid.\nModel note\tn.m. — not modelled: the calculation record does not project this line.\nModel note\tDownside case is the stress case: a shock applied to the base-case drivers.\nWhole model\tEvery figure is arithmetic over inputs the Forward credit model stated; the inputs, not the arithmetic, are unreviewed. Not analytical review.\nWhole model\tSynthetic; not analytical review.\nWhole model\tThe last twelve months could not be built from the periods CP-1 prints, so there was nothing to check against its period dates.\nWhole model\trevenue: the forecast inputs do not name the row and period of this line\nWhole model\tEBITDA: the forecast inputs do not name the row and period of this line\nWhole model\tcash interest: the forecast inputs do not name the row and period of this line\nWhole model\tcash taxes: the forecast inputs do not name the row and period of this line\nWhole model\tworking capital change: the forecast inputs do not name the row and period of this line\nWhole model\tcapital expenditure: the forecast inputs do not name the row and period of this line\nWhole model\tfree cash flow: the forecast inputs do not name the row and period of this line\nWhole model\ttotal debt: the forecast inputs do not name the row and period of this line\nWhole model\tcash and cash equivalents: the forecast inputs do not name the row and period of this line\nWhole model\tundrawn revolver: the forecast inputs do not name the row and period of this line\nRevenue · Quarter · Quarter · Revenue · Year to date · YTD · Revenue · Year to date · PYTD · Revenue · Fiscal year · Fiscal year · Revenue · Last twelve months · LTM · Revenue · Last twelve months · Prior LTM · Revenue YoY growth · Quarter · Quarter · Revenue YoY growth · Year to date · YTD · Revenue YoY growth · Year to date · PYTD · Revenue YoY growth · Fiscal year · Fiscal year · Revenue YoY growth · Last twelve months · LTM · Revenue YoY growth · Last twelve months · Prior LTM · COGS (cost of sales) · Quarter · Quarter · COGS (cost of sales) · Year to date · YTD · COGS (cost of sales) · Year to date · PYTD · COGS (cost of sales) · Fiscal year · Fiscal year · COGS (cost of sales) · Last twelve months · LTM · COGS (cost of sales) · Last twelve months · Prior LTM · Gross profit · Quarter · Quarter · Gross profit · Year to date · YTD · Gross profit · Year to date · PYTD · Gross profit · Fiscal year · Fiscal year · Gross profit · Last twelve months · LTM · Gross profit · Last twelve months · Prior LTM · Gross profit margin · Quarter · Quarter · Gross profit margin · Year to date · YTD · Gross profit margin · Year to date · PYTD · Gross profit margin · Fiscal year · Fiscal year · Gross profit margin · Last twelve months · LTM · Gross profit margin · Last twelve months · Prior LTM · Opex (selling and administrative, amortization of intangibles) · Quarter · Quarter · Opex (selling and administrative, amortization of intangibles) · Year to date · YTD · Opex (selling and administrative, amortization of intangibles) · Year to date · PYTD · Opex (selling and administrative, amortization of intangibles) · Fiscal year · Fiscal year · Opex (selling and administrative, amortization of intangibles) · Last twelve months · LTM · Opex (selling and administrative, amortization of intangibles) · Last twelve months · Prior LTM · EBIT (income from operations) · Quarter · Quarter · EBIT (income from operations) · Year to date · YTD · EBIT (income from operations) · Year to date · PYTD · EBIT (income from operations) · Fiscal year · Fiscal year · EBIT (income from operations) · Last twelve months · LTM · EBIT (income from operations) · Last twelve months · Prior LTM · D&A (depreciation and amortization) · Quarter · Quarter · D&A (depreciation and amortization) · Year to date · YTD · D&A (depreciation and amortization) · Year to date · PYTD · D&A (depreciation and amortization) · Fiscal year · Fiscal year · D&A (depreciation and amortization) · Last twelve months · LTM · D&A (depreciation and amortization) · Last twelve months · Prior LTM · EBITDA (EBIT + D&A) · Quarter · Quarter · EBITDA (EBIT + D&A) · Year to date · YTD · EBITDA (EBIT + D&A) · Year to date · PYTD · EBITDA (EBIT + D&A) · Fiscal year · Fiscal year · EBITDA (EBIT + D&A) · Last twelve months · LTM · EBITDA (EBIT + D&A) · Last twelve months · Prior LTM · Issuer EBITDA (reported) · Quarter · Quarter · Issuer EBITDA (reported) · Year to date · YTD · Issuer EBITDA (reported) · Year to date · PYTD · Issuer EBITDA (reported) · Fiscal year · Fiscal year · Issuer EBITDA (reported) · Last twelve months · LTM · Issuer EBITDA (reported) · Last twelve months · Prior LTM · Adj EBITDA (as named in Financial foundation) · Quarter · Quarter · Adj EBITDA (as named in Financial foundation) · Year to date · YTD · Adj EBITDA (as named in Financial foundation) · Year to date · PYTD · Adj EBITDA (as named in Financial foundation) · Fiscal year · Fiscal year · Adj EBITDA (as named in Financial foundation) · Last twelve months · LTM · Adj EBITDA (as named in Financial foundation) · Last twelve months · Prior LTM · Adj EBITDA margin · Quarter · Quarter · Adj EBITDA margin · Year to date · YTD · Adj EBITDA margin · Year to date · PYTD · Adj EBITDA margin · Fiscal year · Fiscal year · Adj EBITDA margin · Last twelve months · LTM · Adj EBITDA margin · Last twelve months · Prior LTM · Adj EBITDA YoY growth · Quarter · Quarter · Adj EBITDA YoY growth · Year to date · YTD · Adj EBITDA YoY growth · Year to date · PYTD · Adj EBITDA YoY growth · Fiscal year · Fiscal year · Adj EBITDA YoY growth · Last twelve months · LTM · Adj EBITDA YoY growth · Last twelve months · Prior LTM · LTM Adj EBITDA · Quarter · Quarter · LTM Adj EBITDA · Year to date · YTD · LTM Adj EBITDA · Year to date · PYTD · LTM Adj EBITDA · Fiscal year · Fiscal year · LTM Adj EBITDA · Last twelve months · LTM · LTM Adj EBITDA · Last twelve months · Prior LTM · Interest · Quarter · Quarter · Interest · Year to date · YTD · Interest · Year to date · PYTD · Interest · Fiscal year · Fiscal year · Interest · Last twelve months · LTM · Interest · Last twelve months · Prior LTM · Cash taxes · Quarter · Quarter · Cash taxes · Year to date · YTD · Cash taxes · Year to date · PYTD · Cash taxes · Fiscal year · Fiscal year · Cash taxes · Last twelve months · LTM · Cash taxes · Last twelve months · Prior LTM · Cash taxes and working capital, combined · Quarter · Quarter · Cash taxes and working capital, combined · Year to date · YTD · Cash taxes and working capital, combined · Year to date · PYTD · Cash taxes and working capital, combined · Fiscal year · Fiscal year · Cash taxes and working capital, combined · Last twelve months · LTM · Cash taxes and working capital, combined · Last twelve months · Prior LTM · Model cash from operations · Quarter · Quarter · Model cash from operations · Year to date · YTD · Model cash from operations · Year to date · PYTD · Model cash from operations · Fiscal year · Fiscal year · Model cash from operations · Last twelve months · LTM · Model cash from operations · Last twelve months · Prior LTM · Capital expenditure (outflow) · Quarter · Quarter · Capital expenditure (outflow) · Year to date · YTD · Capital expenditure (outflow) · Year to date · PYTD · Capital expenditure (outflow) · Fiscal year · Fiscal year · Capital expenditure (outflow) · Last twelve months · LTM · Capital expenditure (outflow) · Last twelve months · Prior LTM · Cash proxy (not issuer free cash flow) · Quarter · Quarter · Cash proxy (not issuer free cash flow) · Year to date · YTD · Cash proxy (not issuer free cash flow) · Year to date · PYTD · Cash proxy (not issuer free cash flow) · Fiscal year · Fiscal year · Cash proxy (not issuer free cash flow) · Last twelve months · LTM · Cash proxy (not issuer free cash flow) · Last twelve months · Prior LTM · Distributions · Quarter · Quarter · Distributions · Year to date · YTD · Distributions · Year to date · PYTD · Distributions · Fiscal year · Fiscal year · Distributions · Last twelve months · LTM · Distributions · Last twelve months · Prior LTM · Debt repayment · Quarter · Quarter · Debt repayment · Year to date · YTD · Debt repayment · Year to date · PYTD · Debt repayment · Fiscal year · Fiscal year · Debt repayment · Last twelve months · LTM · Debt repayment · Last twelve months · Prior LTM · Opening cash · Quarter · Quarter · Opening cash · Year to date · YTD · Opening cash · Year to date · PYTD · Opening cash · Fiscal year · Fiscal year · Opening cash · Last twelve months · LTM · Opening cash · Last twelve months · Prior LTM · Closing cash · Quarter · Quarter · Closing cash · Year to date · YTD · Closing cash · Year to date · PYTD · Closing cash · Fiscal year · Fiscal year · Closing cash · Last twelve months · LTM · Closing cash · Last twelve months · Prior LTM · Undrawn facility · Quarter · Quarter · Undrawn facility · Year to date · YTD · Undrawn facility · Year to date · PYTD · Undrawn facility · Fiscal year · Fiscal year · Undrawn facility · Last twelve months · LTM · Undrawn facility · Last twelve months · Prior LTM · Accessible liquidity · Quarter · Quarter · Accessible liquidity · Year to date · YTD · Accessible liquidity · Year to date · PYTD · Accessible liquidity · Fiscal year · Fiscal year · Accessible liquidity · Last twelve months · LTM · Accessible liquidity · Last twelve months · Prior LTM · Opening debt · Quarter · Quarter · Opening debt · Year to date · YTD · Opening debt · Year to date · PYTD · Opening debt · Fiscal year · Fiscal year · Opening debt · Last twelve months · LTM · Opening debt · Last twelve months · Prior LTM · Closing debt · Quarter · Quarter · Closing debt · Year to date · YTD · Closing debt · Year to date · PYTD · Closing debt · Fiscal year · Fiscal year · Closing debt · Last twelve months · LTM · Closing debt · Last twelve months · Prior LTM · Net debt (all modelled cash deducted) · Quarter · Quarter · Net debt (all modelled cash deducted) · Year to date · YTD · Net debt (all modelled cash deducted) · Year to date · PYTD · Net debt (all modelled cash deducted) · Fiscal year · Fiscal year · Net debt (all modelled cash deducted) · Last twelve months · LTM · Net debt (all modelled cash deducted) · Last twelve months · Prior LTM · Senior secured leverage (secured debt / Adj EBITDA) · Quarter · Quarter · Senior secured leverage (secured debt / Adj EBITDA) · Year to date · YTD · Senior secured leverage (secured debt / Adj EBITDA) · Year to date · PYTD · Senior secured leverage (secured debt / Adj EBITDA) · Fiscal year · Fiscal year · Senior secured leverage (secured debt / Adj EBITDA) · Last twelve months · LTM · Senior secured leverage (secured debt / Adj EBITDA) · Last twelve months · Prior LTM · Total leverage (debt / Adj EBITDA) · Quarter · Quarter · Total leverage (debt / Adj EBITDA) · Year to date · YTD · Total leverage (debt / Adj EBITDA) · Year to date · PYTD · Total leverage (debt / Adj EBITDA) · Fiscal year · Fiscal year · Total leverage (debt / Adj EBITDA) · Last twelve months · LTM · Total leverage (debt / Adj EBITDA) · Last twelve months · Prior LTM · Net leverage (net debt / Adj EBITDA) · Quarter · Quarter · Net leverage (net debt / Adj EBITDA) · Year to date · YTD · Net leverage (net debt / Adj EBITDA) · Year to date · PYTD · Net leverage (net debt / Adj EBITDA) · Fiscal year · Fiscal year · Net leverage (net debt / Adj EBITDA) · Last twelve months · LTM · Net leverage (net debt / Adj EBITDA) · Last twelve months · Prior LTM · Interest coverage (Adj EBITDA / interest) · Quarter · Quarter · Interest coverage (Adj EBITDA / interest) · Year to date · YTD · Interest coverage (Adj EBITDA / interest) · Year to date · PYTD · Interest coverage (Adj EBITDA / interest) · Fiscal year · Fiscal year · Interest coverage (Adj EBITDA / interest) · Last twelve months · LTM · Interest coverage (Adj EBITDA / interest) · Last twelve months · Prior LTM · Cash proxy / closing debt · Quarter · Quarter · Cash proxy / closing debt · Year to date · YTD · Cash proxy / closing debt · Year to date · PYTD · Cash proxy / closing debt · Fiscal year · Fiscal year · Cash proxy / closing debt · Last twelve months · LTM · Cash proxy / closing debt · Last twelve months · Prior LTM\tthe forecast inputs do not name the row and period of this line\nRevenue · Pro forma · PF LTM · Revenue YoY growth · Pro forma · PF LTM · COGS (cost of sales) · Pro forma · PF LTM · Gross profit · Pro forma · PF LTM · Gross profit margin · Pro forma · PF LTM · Opex (selling and administrative, amortization of intangibles) · Pro forma · PF LTM · EBIT (income from operations) · Pro forma · PF LTM · D&A (depreciation and amortization) · Pro forma · PF LTM · EBITDA (EBIT + D&A) · Pro forma · PF LTM · Issuer EBITDA (reported) · Pro forma · PF LTM · Adj EBITDA (as named in Financial foundation) · Pro forma · PF LTM · Adj EBITDA margin · Pro forma · PF LTM · Adj EBITDA YoY growth · Pro forma · PF LTM · LTM Adj EBITDA · Pro forma · PF LTM · Interest · Pro forma · PF LTM · Cash taxes · Pro forma · PF LTM · Cash taxes and working capital, combined · Pro forma · PF LTM · Model cash from operations · Pro forma · PF LTM · Capital expenditure (outflow) · Pro forma · PF LTM · Cash proxy (not issuer free cash flow) · Pro forma · PF LTM · Distributions · Pro forma · PF LTM · Debt repayment · Pro forma · PF LTM · Opening cash · Pro forma · PF LTM · Closing cash · Pro forma · PF LTM · Undrawn facility · Pro forma · PF LTM · Accessible liquidity · Pro forma · PF LTM · Opening debt · Pro forma · PF LTM · Closing debt · Pro forma · PF LTM · Net debt (all modelled cash deducted) · Pro forma · PF LTM · Senior secured leverage (secured debt / Adj EBITDA) · Pro forma · PF LTM · Total leverage (debt / Adj EBITDA) · Pro forma · PF LTM · Net leverage (net debt / Adj EBITDA) · Pro forma · PF LTM · Interest coverage (Adj EBITDA / interest) · Pro forma · PF LTM · Cash proxy / closing debt · Pro forma · PF LTM\tpro forma figures are not placed in this column; the financial foundation shows any it states\nRevenue YoY growth · Base case · FY2025E · Revenue YoY growth · Downside shock · FY2025E · Adj EBITDA YoY growth · Base case · FY2025E · Adj EBITDA YoY growth · Downside shock · FY2025E\tprior-year period not stated in the analysis\nCOGS (cost of sales) · Base case · FY2025E · COGS (cost of sales) · Base case · FY2026E · COGS (cost of sales) · Base case · FY2027E · COGS (cost of sales) · Downside shock · FY2025E · COGS (cost of sales) · Downside shock · FY2026E · COGS (cost of sales) · Downside shock · FY2027E · Gross profit · Base case · FY2025E · Gross profit · Base case · FY2026E · Gross profit · Base case · FY2027E · Gross profit · Downside shock · FY2025E · Gross profit · Downside shock · FY2026E · Gross profit · Downside shock · FY2027E · Gross profit margin · Base case · FY2025E · Gross profit margin · Base case · FY2026E · Gross profit margin · Base case · FY2027E · Gross profit margin · Downside shock · FY2025E · Gross profit margin · Downside shock · FY2026E · Gross profit margin · Downside shock · FY2027E · Opex (selling and administrative, amortization of intangibles) · Base case · FY2025E · Opex (selling and administrative, amortization of intangibles) · Base case · FY2026E · Opex (selling and administrative, amortization of intangibles) · Base case · FY2027E · Opex (selling and administrative, amortization of intangibles) · Downside shock · FY2025E · Opex (selling and administrative, amortization of intangibles) · Downside shock · FY2026E · Opex (selling and administrative, amortization of intangibles) · Downside shock · FY2027E · EBIT (income from operations) · Base case · FY2025E · EBIT (income from operations) · Base case · FY2026E · EBIT (income from operations) · Base case · FY2027E · EBIT (income from operations) · Downside shock · FY2025E · EBIT (income from operations) · Downside shock · FY2026E · EBIT (income from operations) · Downside shock · FY2027E · D&A (depreciation and amortization) · Base case · FY2025E · D&A (depreciation and amortization) · Base case · FY2026E · D&A (depreciation and amortization) · Base case · FY2027E · D&A (depreciation and amortization) · Downside shock · FY2025E · D&A (depreciation and amortization) · Downside shock · FY2026E · D&A (depreciation and amortization) · Downside shock · FY2027E · EBITDA (EBIT + D&A) · Base case · FY2025E · EBITDA (EBIT + D&A) · Base case · FY2026E · EBITDA (EBIT + D&A) · Base case · FY2027E · EBITDA (EBIT + D&A) · Downside shock · FY2025E · EBITDA (EBIT + D&A) · Downside shock · FY2026E · EBITDA (EBIT + D&A) · Downside shock · FY2027E · Issuer EBITDA (reported) · Base case · FY2025E · Issuer EBITDA (reported) · Base case · FY2026E · Issuer EBITDA (reported) · Base case · FY2027E · Issuer EBITDA (reported) · Downside shock · FY2025E · Issuer EBITDA (reported) · Downside shock · FY2026E · Issuer EBITDA (reported) · Downside shock · FY2027E · LTM Adj EBITDA · Base case · FY2025E · LTM Adj EBITDA · Base case · FY2026E · LTM Adj EBITDA · Base case · FY2027E · LTM Adj EBITDA · Downside shock · FY2025E · LTM Adj EBITDA · Downside shock · FY2026E · LTM Adj EBITDA · Downside shock · FY2027E · Cash taxes · Base case · FY2025E · Cash taxes · Base case · FY2026E · Cash taxes · Base case · FY2027E · Cash taxes · Downside shock · FY2025E · Cash taxes · Downside shock · FY2026E · Cash taxes · Downside shock · FY2027E · Senior secured leverage (secured debt / Adj EBITDA) · Base case · FY2025E · Senior secured leverage (secured debt / Adj EBITDA) · Base case · FY2026E · Senior secured leverage (secured debt / Adj EBITDA) · Base case · FY2027E · Senior secured leverage (secured debt / Adj EBITDA) · Downside shock · FY2025E · Senior secured leverage (secured debt / Adj EBITDA) · Downside shock · FY2026E · Senior secured leverage (secured debt / Adj EBITDA) · Downside shock · FY2027E\tnot modelled in the calculation record\nReturn to Forecast",
+  "calls": [
+    {
+      "module": "CP-0",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:30.831589Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-1",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:30.892367Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-1A",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:30.995582Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-DR",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.077482Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-4",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.148501Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-2",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.235357Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-2A",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.293795Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-2E",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.357127Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-2D",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.464395Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-2G",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.518633Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-3C",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.575176Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-3",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.652300Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-5",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.765398Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    },
+    {
+      "module": "CP-6",
+      "attempt": 0,
+      "started": "2026-11-17T19:14:31.828285Z",
+      "http_status": 200,
+      "error_class": null,
+      "settled_usd": "0"
+    }
+  ]
+}

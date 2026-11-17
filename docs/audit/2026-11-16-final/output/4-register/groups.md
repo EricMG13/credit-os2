@@ -4,9 +4,9 @@ Each group is one `repair-<n>` session (`sessions/repair.md`). No file is in two
 
 ## Group 1: Connected shell, run activity, Start a run, the service and the synthetic proof
 
-Tasks, in order: T01, T01b, T02, T03, T04, T05, T07, T08, T09, T10, T11, T12, T43.
+Tasks, in order: T01, T01b, T02, T03, T04, T05, T07, T08, T09, T10, T11, T12, T43, T45.
 
-Findings: 29 (plus their merged ids).
+Findings: 30 (plus their merged ids).
 
 Files:
 
@@ -29,6 +29,7 @@ Files:
 - `web/src/pages/connected/StartRun.tsx`
 - `web/src/pages/connected/api.ts`
 - `web/src/pages/connected/layout.tsx`
+- `web/src/pages/connected/report/Record.tsx`
 - `web/src/pages/connected/runFigures.ts`
 - `web/src/pages/connected/start/ReviewSheet.tsx`
 - `web/src/pages/connected/start/plain.ts`

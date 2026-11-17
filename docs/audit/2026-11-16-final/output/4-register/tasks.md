@@ -715,3 +715,19 @@ Probes:
 Touches money, ordering or security code: reader-content fidelity; independent review required.
 
 Note: Lead step7 follow-up on audit/lead-reference-predicate from stable candidate d309b859. Repair common predicate only; keep all independent expected strings and genuine citation withholding. Not reassigned to original repair2.
+
+## T45 (group 1). Keep actual synthetic run execution metadata truthful after loading
+
+Findings:
+
+- R4-015, Medium: A synthetic run Record changes to Live provider after metadata loads.
+
+Files: `react_frontend/run_activity.py`, `web/src/pages/connected/report/Record.tsx`
+
+Probes:
+
+- R4-015 (Both native browsers time out on unchanged Adapter status check after settled Record flips to Live provider.): `Run the retained offline connected proof through Evidence Record, preserving the Adapter status and settled Synthetic test assertions; actual artifact regression pending fresh repair.`
+
+Touches money, ordering or security code: execution provenance; fresh primary and adversarial review required.
+
+Note: Lead stage5 follow-up from offline browser proof; fresh audit/lead-synthetic-classification worker owns actual-artifact RED and smallest source classification fix. Do not weaken original Adapter status assertion.

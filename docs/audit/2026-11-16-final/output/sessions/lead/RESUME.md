@@ -1,3 +1,39 @@
+## Lead checkpoint 2026-11-17T19:29Z
+
+Stage5 active, mainuntouched. R4-015/T45 registeredMedium: finalsettledsynthetic
+Record reportsLiveprovider evenwith14syntheticcalls/CP1status200; capturedbothnative
+browserdiagnostics, notmissingcalls. Fresh /root/repair_synthetic_classification
+on /workspace/audit-synthetic-classification base135d has actualengineAPI RED,
+firstGREEN1testobserved; completingexactadaptermarker identity/mixed/unknown tests
+andpending-onlyUI fallback beforestablepin/freshprimary+adversarialreviews. DoNOT
+infer unobservedlongcheckpasses afterbriefexecdisconnect (service returnedintact).
+
+Proofharness f251fbc7 (2webscripts) +report/evidence0b0af426 /workspace/audit-proof-alignment
+freshsecurity/callerreviewPASS0HMLcode;rootsecondreadguards/URLinitials/proxyteardown
+findsnoblocker. Completejourney remainsRED onR4-015, exactsettledAPI syntheticassert
+preserved. R4-016LowbatchregisteredONLYoptionalevidenceprobecleanup onmissingbrowser,
+notmainharness; originalworkerfixingtry/finally withsamebeforetimeout5vsafterprompt
+failedexitcontrol; nooriginalnetworkassertionschanged. Freshreviewreportretained.
+
+Currentlocalcandidateb813f205 includesR4-012final78/cfac +actualfinal94c9ancestry;
+307focusedpasses(afterunchangedtitlecasealone17pass), portable8+9case45checks0,
+lintformattypes0. Actualfinalstill94c9ea57, notpromotedcandidateuntilR4-015/proofreview.
+OriginalgroupsPR56/57/58mergedauditbranchonly; T18/T22/finalreferencePASS accepted.
+
+Newfidelityalignmentagentisolated fromproof0b preparescaptureselector/guardchanges,
+comparison/beforekeysREADONLY; finalAFTERcaptureWAITROOTGOsourcepin. /workspace/audit-fidelity-alignment.
+Readonlysendoffprep completeoutput/5-repair/sendoff-readonly-prep.md; stage7NOTstarted.
+Rootmuststillcopyreviewedaudithelpers+frozenhelpertestsZIP/register/fidelitytools
+additivelypreservingnewreports/status, fullcombinedselfreview/gates/proof/fidelity,
+closureannotationsafterlastrebuild, VERIFICATION<1000 andpush BEFOREseparatestage6.
+
+Liveafterlatestrebuild:519source/404canonical;H6/M109/L204/I85;
+repair83,batch161,sweep17,deferred6,parked31,rejected106. Newrequiredstage5total244.
+Historicalclosureplanning63a snapshots242oldrequired, all195notes/15extras retained;
+refreshcurrentmapping includingR4-015/R4-016 afteracceptance. Priorhelper11tests passed
+afterR4-015registration; frozenexpected/sourcevalues untouched. Noownerquestionopen.
+No paid/provider/live/seat/realSubmit/Teams or mainmerge.
+
 ## Lead milestone 2026-11-17T19:15Z
 
 PR58 group2 at37ad6561 passed bothCI checks, merged19:12:23Z as94c9ea57;

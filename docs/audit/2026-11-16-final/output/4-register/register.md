@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-517 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 115 were merged into another finding with the same cause, which leaves 402 findings. Counts below are of those 402, after re-grading.
+519 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 115 were merged into another finding with the same cause, which leaves 404 findings. Counts below are of those 404, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -9,10 +9,10 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | Severity | repair | batch | sweep | owner | deferred | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 6 |
-| Medium | 73 | 0 | 0 | 0 | 1 | 2 | 32 | 108 |
-| Low | 0 | 143 | 0 | 0 | 2 | 19 | 39 | 203 |
+| Medium | 74 | 0 | 0 | 0 | 1 | 2 | 32 | 109 |
+| Low | 0 | 144 | 0 | 0 | 2 | 19 | 39 | 204 |
 | Info | 3 | 17 | 17 | 0 | 3 | 10 | 35 | 85 |
-| Total | 82 | 160 | 17 | 0 | 6 | 31 | 106 | 402 |
+| Total | 83 | 161 | 17 | 0 | 6 | 31 | 106 | 404 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -20,7 +20,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | C2 | 0 | 9 | 13 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 3 | 8 | 21 | 4 |
-| C5 | 0 | 11 | 19 | 7 |
+| C5 | 0 | 12 | 19 | 7 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
 | J3 | 0 | 1 | 6 | 2 |
@@ -33,9 +33,9 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S4 | 0 | 8 | 7 | 3 |
 | S5 | 0 | 6 | 12 | 8 |
 | S6 | 0 | 10 | 18 | 5 |
-| X1 | 0 | 2 | 11 | 12 |
+| X1 | 0 | 2 | 12 | 12 |
 
-Verification of High and Medium findings: confirmed 127, not a defect 4, not verified 2.
+Verification of High and Medium findings: confirmed 128, not a defect 4, not verified 2.
 
 ## Findings
 
@@ -102,6 +102,7 @@ High first. `Merged` lists the ids with the same cause.
 | R4-001 | Medium | C5 | The trace drawer drops every earlier cited page range when one source file is cited more than once. | repair | T42 |  | confirmed |
 | R4-011 | Medium | C1 | Runtime metadata compares the scheduler folder ID to the distinct analytical run ID and drops ordinary module metadata. | repair | T43 |  | confirmed |
 | R4-012 | Medium | C4 | Shared reference detector withholds ordinary Forecast prose and parenthesized mathematical labels. | repair | T44 |  | confirmed |
+| R4-015 | Medium | C5 | A synthetic run Record changes to Live provider after metadata loads. | repair | T45 |  | confirmed |
 | S1-002 | Medium | S1 | Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing. | repair | T27 | S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003 | confirmed |
 | S1-004 | Medium | S1 | The component kit, a developer page with sample figures, buttons that do nothing and looping animations, is offered to readers as a rail item of the static app. | repair (OQ-05) | T25 | X1-018 | confirmed |
 | S2-001 | Medium | S2 | An issuer's history page draws none of its runs when the issuer has no readable report, although its subtitle counts them and its home card describes a finishe… | repair | T32 | J6-006 | confirmed |
@@ -243,6 +244,7 @@ High first. `Merged` lists the ids with the same cause.
 | R2-002 | Low | C4 | With the Basis and limitation column added (C3-029), a chart's Table form is still wider than its card (749 px against 604 at 1440, 316 at 390), so the reader… | batch |  |  | not required (Low or Info) |
 | R4-003 | Low | S4 | The fixture download repair replaced an existing confidentiality qualification with a generic missing-sample explanation. | batch |  |  | not required (Low or Info) |
 | R4-004 | Low | C5 | The approved-limit Record draws raw module codes although the analyst approved the same reasons with plain module names. | batch |  |  | not required (Low or Info) |
+| R4-016 | Low | X1 | The retained negative browser probe leaves local listeners open when browser launch fails. | batch |  |  | not required (Low or Info) |
 | S1-007 | Low (was Medium) | S1 | Every fixture run is a "Full credit review" drawn with a USD 20.00 spend cap; the Full tier's cap is USD 25. | batch |  | S6-004 | confirmed |
 | S1-008 | Low | S1 | #/kit/ shows "Page not found" while every other address ignores one trailing slash. | batch |  |  | not required (Low or Info) |
 | S1-010 | Low | S1 | Back and Forward do not restore the scroll position, because the page scrolls inside main and the browser only restores window scroll. | batch |  |  | not required (Low or Info) |
