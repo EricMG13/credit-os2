@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import type { LibraryData } from "@/data";
 import { SourceContext } from "../source";
 import { readSlice } from "./read";
@@ -36,6 +36,29 @@ const sourceGap = (text: string | null) => /source details.*not recorded/i.test(
 afterEach(cleanup);
 
 describe("final audit fixture consistency", () => {
+  it("preserves the confidentiality qualification of Halden's already-unavailable Withheld register", () => {
+    const withheld = full().evidence.record.registers.rows.find(
+      (row) => row.name === "Withheld register",
+    );
+    const reason =
+      "The withheld register lists figures the sources marked confidential, so it is not published.";
+    expect(withheld?.href).toBeNull();
+    expect(withheld?.reason).toBe(reason);
+    const route = routes.find((item) => item.path === "/library/:issuer/:run/evidence/record");
+    if (route === undefined) throw new Error("no Record route");
+    render(
+      <SourceContext.Provider
+        value={{ schema: "credit-os-data/1", issuers: fixture.issuers, library: fixture.slice }}
+      >
+        {route.render({ issuer: "halden-aerostructures", run: "2026-09-30" })}
+      </SourceContext.Provider>,
+    );
+    const row = screen.getByRole("row", { name: /Withheld register/ });
+    expect(within(row).getByText(reason)).toBeVisible();
+    expect(within(row).getByRole("button", { name: "Open" })).toBeDisabled();
+    expect(within(row).queryByRole("link", { name: "Open" })).toBeNull();
+  });
+
   it("is still accepted by the library reader", () => {
     expect(readSlice(fixture.slice).kind).toBe("ok");
   });
@@ -48,7 +71,13 @@ describe("final audit fixture consistency", () => {
       ];
       for (const offer of [...downloads, ...run.evidence.record.registers.rows]) {
         expect(offer.href, run.id).toBeNull();
-        expect(offer.reason, run.id).toMatch(/not included in this saved example/i);
+        if (run === full() && "name" in offer && offer.name === "Withheld register") {
+          expect(offer.reason).toBe(
+            "The withheld register lists figures the sources marked confidential, so it is not published.",
+          );
+        } else {
+          expect(offer.reason, run.id).toMatch(/not included in this saved example/i);
+        }
       }
     }
     const route = routes.find((r) => r.path === "/library/:issuer/:run/evidence/summary");

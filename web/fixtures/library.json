@@ -1988,7 +1988,7 @@
                       "rows": "2",
                       "file": "registers/withheld.md",
                       "href": null,
-                      "reason": "These sample bytes are not included in this saved example."
+                      "reason": "The withheld register lists figures the sources marked confidential, so it is not published."
                     }
                   ]
                 }

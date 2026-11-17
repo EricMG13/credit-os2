@@ -226,7 +226,8 @@ describe("Evidence, Record", () => {
     });
     const open = within(row).getByRole("button", { name: "Open" });
     expect(open).toBeDisabled();
-    const reason = "These sample bytes are not included in this saved example.";
+    const reason =
+      "The withheld register lists figures the sources marked confidential, so it is not published.";
     expect(within(row).getByText(reason)).toBeVisible();
     expect(open).toHaveAccessibleDescription(reason);
     // Sweep SW-09: a wrapping row of button + reason put the button 32 px from the cell's left edge in
