@@ -118,6 +118,7 @@ Findings:
 - J2-002, Medium: Start a run opens with an example issuer already typed into the required Issuer name and Issuer ID fields, and today's date as the case date.
 - C2-002 (with J2-001), Medium: Moving between steps adds no browser history entry, so Back, Reload or the Library link silently discards every document, answer and approval typed so far.
 - C2-003, Medium: Start from an earlier run says it copies the earlier answers but drops which documents are the agreement and the portfolio workbook, so the review opens with 'Will refuse: Legal & covenants'.
+- J1-015, Low: 'Start from this run' opens with today's date in As-of date and an empty Your name, although the page says to 'add dates' and the README says the analyst's own name is kept; the documents list says 'No documents yet' until Inspect documents is pressed. Ruling: closed with J2-002 in T07 by ruling L15: the as-of date opens empty on every new form
 
 Files: `react_frontend/__init__.py`, `web/src/pages/connected/StartRun.tsx`
 
@@ -127,6 +128,7 @@ Probes:
 - C2-002 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p10-navigation.cjs`
 - C2-002 (output): `docs/audit/2026-11-16-final/output/3-journeys/J2/probes/j2-001-leave-mid-form.cjs`
 - C2-003 (output): `node docs/audit/2026-11-16-final/output/2-sections/C2/probes/p13-from-run.cjs`
+- J1-015 (see the probe header): `docs/audit/2026-11-16-final/output/3-journeys/J1/probes/j1-journey.cjs`
 
 Touches money, ordering or security code: no.
 

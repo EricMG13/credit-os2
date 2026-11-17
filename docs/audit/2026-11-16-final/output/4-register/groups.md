@@ -6,7 +6,7 @@ Each group is one `repair-<n>` session (`sessions/repair.md`). No file is in two
 
 Tasks, in order: T01, T01b, T02, T03, T04, T05, T07, T08, T09, T10, T11, T12.
 
-Findings: 27 (plus their merged ids).
+Findings: 28 (plus their merged ids).
 
 Files:
 
