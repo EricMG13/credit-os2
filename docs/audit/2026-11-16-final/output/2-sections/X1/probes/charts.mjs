@@ -80,9 +80,8 @@ try {
     await page.screenshot({ path: path.join(dir, "limits-390.png") });
     await context.close();
   }
-  for (const c of ["columns-3", "waterfall-colours", "stack-zero-ok", "scatter", "path"]) {
-    const { context, page } = await load(c === "stack-zero-ok" ? "stack-zero" : c);
-    if (c === "stack-zero-ok") { await context.close(); continue; }
+  for (const c of ["columns-3", "waterfall-colours", "stack-ok", "scatter", "path"]) {
+    const { context, page } = await load(c);
     const svg = page.locator("svg.recharts-surface").first();
     await svg.focus();
     for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");

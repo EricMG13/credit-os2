@@ -280,6 +280,23 @@ const cases = (which: string): ReactNode => {
           }}
         />
       );
+    case "stack-ok":
+      return (
+        <StackChart
+          title="Debt by instrument"
+          parts={[
+            { name: "Term loan", value: 80, text: "80", share: "80%" },
+            { name: "Notes", value: 20, text: "20", share: "20%" },
+          ]}
+          table={{
+            head: ["Instrument", "Amount", "Share"],
+            rows: [
+              { label: "Term loan", cells: ["80", "80%"] },
+              { label: "Notes", cells: ["20", "20%"] },
+            ],
+          }}
+        />
+      );
     case "tabs-hover":
       return (
         <Tabs>
