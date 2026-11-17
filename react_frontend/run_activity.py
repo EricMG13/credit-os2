@@ -19,6 +19,8 @@ from deploy_workflow.model.pricing import money_text
 from deploy_workflow.owners.cpos_launch import METHODS
 from deploy_workflow.run_events import EVENTS, progress, read_events
 
+from .run_metadata import library_admission, module_outputs
+
 _MODULE_EVENTS = frozenset({"module_started", "module_accepted", "draft_rejected"})
 _RUN_EVENTS = frozenset(
     {"delivery_started", "delivered", "stopped", "changes_not_produced", "model_not_published"}
@@ -427,6 +429,8 @@ def reply(layout: Layout, run_id: str) -> http_base.Reply:
             "submitted_by": record.submitted_by,
             "observed_at": snapshot["updated"],
             "approved_summary_limits": record.approved_summary_limits,
+            "module_outputs": module_outputs(directory, record),
+            "library_admission": library_admission(layout, record),
             "execution": execution
             if isinstance(execution, str) and execution in _EXECUTIONS
             else None,

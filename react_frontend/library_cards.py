@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from credit_os.handoff_fields import reader_fields, report_fields
+from credit_os.source import structured
+
 
 def _bottom_line(sections: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The first text block in Findings > Bottom line, without altering its Basis line."""
@@ -98,3 +101,10 @@ def not_assessable_modules(
         if blocked or output.get("parseError"):
             result.append(code)
     return result
+
+
+def response_assessment(raw: bytes) -> str:
+    """Apply the same explicit blocked/unreadable rule before the full run is published."""
+    sections, problem = structured(raw, strict=False)
+    fields = report_fields(sections, reader_fields(sections)["summary"])
+    return "not-assessable" if problem or _blocked(fields, sections) else "readable"
