@@ -351,7 +351,7 @@ describe("low batch", () => {
   });
 
   it.each([
-    ["run.run_type", "Purpose", "Run purpose", "'research', 'primary' or 'secondary'"],
+    ["run.run_type", "Purpose", "Market view", "'research', 'primary' or 'secondary'"],
     ["run.case_kind", "Purpose", "Case kind", "'public', 'private' or 'synthetic'"],
     ["run.pathway", "Purpose", "Pathway", "'credit_snapshot' or 'earnings_update'"],
   ])("L1 labels %s as the screen does", (path, section, label, values) => {

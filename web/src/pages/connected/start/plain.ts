@@ -19,11 +19,11 @@ export const PURPOSES = {
   secondary: "Trading (secondary)",
   earnings: "Earnings update",
 };
-export const LEVELS = { basic: "Basic", standard: "Standard", advanced: "Advanced" };
+export const LEVELS = { basic: "Basic", advanced: "Advanced" };
 /** The Purpose step's title and the labels of its three run boxes. */
 export const PURPOSE_STEP = "Purpose";
 export const PATHWAY_LABEL = "Pathway";
-export const RUN_PURPOSE_LABEL = "Run purpose";
+export const RUN_PURPOSE_LABEL = "Market view";
 export const CASE_KIND_LABEL = "Case kind";
 export const CASE_KINDS = {
   public: "Public filer",
@@ -344,8 +344,8 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
  * A launcher refusal (`--flag <arguments>: <message>`) without its command-line prefix, module codes
- * as names; "" when the text does not start with `--`. A flag other than `--modules` is dropped with
- * its raw text in `console.warn` (a documented fail-open: the analyst cannot act on a flag).
+ * as names; "" when the text does not start with `--`. A prefix other than `--modules` is removed,
+ * its explanation remains visible, and its raw text is retained in `console.warn`.
  */
 function launcherLine(error: string): string {
   if (!error.startsWith("--")) return "";
@@ -357,7 +357,7 @@ function launcherLine(error: string): string {
       ? `The modules chosen (${codes.join(", ")}): ${body}`
       : `Requested modules: ${body}`;
   }
-  console.warn(`Launcher flag not shown to the analyst: ${error}`);
+  console.warn(`Launcher flag prefix removed; its explanation is shown to the analyst: ${error}`);
   return capital(serviceText(flag ? message : error.replace(/^--[a-z][a-z-]*\s*/, "")));
 }
 

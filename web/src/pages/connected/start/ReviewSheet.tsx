@@ -154,9 +154,11 @@ const OUTCOME_STATE = {
 } as const;
 
 /** The omitted report sections by title; an older service sends no titles, so only their count. */
-function omittedSentence({ omitted, omitted_titles }: Summary) {
+function omittedSentence({ omitted, omitted_titles, prior, changes }: Summary) {
+  if (omitted.length === 1 && omitted[0] === "what-changed" && !prior && /first run/i.test(changes))
+    return "Changes: not compared (first run of this pathway).";
   if (omitted_titles?.length === omitted.length)
-    return `Report sections omitted · ${omitted_titles.join(", ")}`;
+    return `Report sections omitted · ${omitted_titles.map((title) => (title === "What changed since the last Report" ? "Changes since the last run" : title)).join(", ")}`;
   return `${String(omitted.length)} report section${omitted.length === 1 ? " is" : "s are"} not produced`;
 }
 
@@ -172,9 +174,12 @@ function scopeText(scope: string) {
 
 function acceptanceLabel(group: LimitGroup) {
   if (group.kind === "check") return "I have checked this";
-  return group.ids.length === 1
-    ? "I accept this limit"
-    : `I accept these ${String(group.ids.length)} limits`;
+  const limits = group.causes.length;
+  const label = limits === 1 ? "I accept this limit" : `I accept these ${String(limits)} limits`;
+  const consequences = group.consequences.length;
+  return consequences === 0
+    ? label
+    : `${label} and ${limits === 1 ? "its" : "their"} ${String(consequences)} ${consequences === 1 ? "consequence" : "consequences"}`;
 }
 
 function moduleNames(items: readonly { scope: string }[]): string[] {
@@ -190,6 +195,7 @@ type ModuleChoice = {
   requested: readonly string[];
   modules: readonly string[];
   onModules: (modules: string[]) => void;
+  onEdit: (step: EditStep) => void;
 };
 
 function LeaveOut({
@@ -219,6 +225,7 @@ function LeaveOut({
       >
         {`Leave out ${nameList(left.map(moduleName))}`}
       </Button>
+      <p>You will return to More context and review again; approval will be cleared.</p>
       <p>
         {plural
           ? "The report sections of the modules left out are not filled, and a run with modules left out is not used as the earlier run in a later Changes comparison."
@@ -257,6 +264,18 @@ function LimitCard({
       {fixes.map((fix) => (
         <p key={fix}>{serviceText(fix)}</p>
       ))}
+      {fixes.some((fix) => /portfolio workbook/i.test(fix)) && (
+        <Button
+          color="secondary"
+          size="sm"
+          isDisabled={disabled}
+          onPress={() => {
+            choice.onEdit("context");
+          }}
+        >
+          Choose the Portfolio workbook
+        </Button>
+      )}
       {refusing.length > 0 && <p>Will also refuse: {refusing.join(", ")}</p>}
       {affected.length > 0 && <p>Also affects: {affected.join(", ")}</p>}
       <LeaveOut group={group} choice={choice} disabled={disabled} />
@@ -326,7 +345,12 @@ function LimitsToDecide({
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {passive.map((item) => (
               <li key={item.id}>
-                {serviceText(item.reason)}
+                {serviceText(item.reason)
+                  .replace("What changed since the last Report", "Changes since the last run")
+                  .replace(
+                    /^This pathway does not produce the (.+) report section\.$/,
+                    'This pathway does not produce the "$1" section.',
+                  )}
                 {item.fix ? ` ${serviceText(item.fix)}` : ""}
               </li>
             ))}
@@ -344,13 +368,19 @@ export function ReviewSheet({
   onEdit,
   onModules,
   disabled,
+  synthetic = false,
 }: {
-  review: { answers: Answers; summary: Summary };
+  review: {
+    answers: Answers;
+    summary: Summary;
+    attachmentNames?: Readonly<Record<string, string | undefined>>;
+  };
   accepted: ReadonlySet<string>;
   onAccept: (ids: readonly string[], checked: boolean) => void;
   onEdit: (step: EditStep) => void;
   onModules: (modules: string[]) => void;
   disabled: boolean;
+  synthetic?: boolean;
 }) {
   const titleId = useId();
   const { summary, answers } = review;
@@ -360,7 +390,7 @@ export function ReviewSheet({
     : changesSentence(summary.changes);
   const block = { onEdit, disabled };
   const requested = pathwayModules(run.pathway);
-  const choice = { requested, modules: answers.modules, onModules };
+  const choice = { requested, modules: answers.modules, onModules, onEdit };
   const leftOut = answers.modules.length
     ? requested.filter((code) => !answers.modules.includes(code)).map(moduleName)
     : [];
@@ -403,6 +433,12 @@ export function ReviewSheet({
               (doc) => `${storedName(doc)} · ${documentDescription(doc)}`,
             )}
           />
+          {synthetic && summary.documents.some((doc) => doc.kind === "unrecognised") && (
+            <p className="text-sm text-text-secondary">
+              These are synthetic test documents; an unrecognised document type can still be a
+              supplied sample file.
+            </p>
+          )}
           <List
             title="Documents ignored"
             items={summary.ignored.map((doc) =>
@@ -414,7 +450,7 @@ export function ReviewSheet({
           <Facts
             rows={[
               ["Pathway", pathwayName(run.pathway)],
-              ["Purpose", chosen(PURPOSES, run.run_type)],
+              ["Market view", chosen(PURPOSES, run.run_type)],
               ["Case kind", choiceLabel(CASE_KINDS, run.case_kind)],
               ["Form level", choiceLabel(LEVELS, answers.level)],
             ]}
@@ -436,6 +472,7 @@ export function ReviewSheet({
               >
                 Put back
               </Button>
+              <p>You will return to More context and review again; approval will be cleared.</p>
             </div>
           )}
           {summary.omitted.length > 0 && (
@@ -450,7 +487,7 @@ export function ReviewSheet({
               ["Research cutoff", given(run.cutoff)],
               // The service's own sentence, not an input: drawn only when it wrote one.
               ["Changes", changes || undefined],
-              ...attachmentFacts(answers.context),
+              ...attachmentFacts(answers.context, review.attachmentNames),
             ]}
           />
           <List title="Source lookup" items={(summary.lookup ?? []).map(lookupSentence)} />
@@ -489,7 +526,9 @@ export function ReviewSheet({
             ]}
           />
           {!advanced && (
-            <p className="text-sm text-text-secondary">Fixed below the Advanced form level.</p>
+            <p className="text-sm text-text-secondary">
+              Model and effort are set at the Advanced form level.
+            </p>
           )}
         </Block>
       </section>

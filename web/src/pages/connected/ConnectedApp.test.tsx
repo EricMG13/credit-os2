@@ -1,11 +1,15 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { webcrypto } from "node:crypto";
 import { ConnectedApp } from "./ConnectedApp";
 import { SelectField, carriedModules, stepOfField } from "./StartRun";
 import { moduleName, pathwayModules, type Summary } from "./api";
 
 const scrollIntoView = vi.fn();
 Element.prototype.scrollIntoView = scrollIntoView;
+beforeEach(() => {
+  vi.stubGlobal("crypto", webcrypto);
+});
 
 const context = {
   run: { as_of: "", pathway: "credit_snapshot", case_kind: "synthetic", reporting_currency: "USD" },
@@ -163,6 +167,7 @@ describe("connected run start", () => {
     const issuer = await screen.findByLabelText("Issuer name");
     fireEvent.change(issuer, { target: { value: "Synthetic Générale" } });
     fireEvent.change(screen.getByLabelText("As-of date"), { target: { value: "2026-10-31" } });
+    typeName();
     const action = screen.getByRole("button", { name: "Continue to purpose" });
     expect(action).toBeDisabled();
     expect(screen.getByRole("progressbar", { name: "USD 0.00 of USD 25.00" })).toHaveAttribute(
@@ -301,19 +306,27 @@ describe("connected run start", () => {
     const submit = await screen.findByRole("button", { name: "Submit run" });
     expect(screen.getByText("Step 4 of 4", { exact: true })).toBeInTheDocument();
     expect(screen.queryByText(/of 5/)).toBeNull();
-    const paths = fetchMock.mock.calls.map(([path]) => path);
+    // The issuer notice is a second read, independent of the review's ownership check.
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(([path]) => path === "/api/issuers/synthetic-generale"),
+      ).toHaveLength(2);
+    });
+    const paths = fetchMock.mock.calls
+      .map(([path]) => path)
+      .filter((path) => !path.startsWith("/api/issuers/"));
     expect(paths).toEqual([
       "/connected/context",
       "/api/submissions",
       "/api/submissions/sub-1/files?name=Credit%20%26%20facts.html",
       "/api/submissions/sub-1/reading",
       "/api/submissions/sub-1/reading",
-      "/api/issuers/synthetic-generale", // who holds the name's usual Issuer ID (T09)
       "/api/submissions/sub-1/summary",
     ]);
     expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: "POST", body: file });
-    expect(fetchMock.mock.calls[6]?.[1]?.headers).toMatchObject({ "X-Shown-Cap": "25" });
-    const rawAnswers = fetchMock.mock.calls[6]?.[1]?.body;
+    const summaryRequest = fetchMock.mock.calls.find(([path]) => path.endsWith("/summary"));
+    expect(summaryRequest?.[1]?.headers).toMatchObject({ "X-Shown-Cap": "25" });
+    const rawAnswers = summaryRequest?.[1]?.body;
     expect(typeof rawAnswers).toBe("string");
     const body = JSON.parse(rawAnswers as string) as unknown;
     expect(body).toEqual({
@@ -337,7 +350,7 @@ describe("connected run start", () => {
     expect(submit).toBeDisabled();
     approve();
     await confirmSynthetic(submit);
-    const rawSubmit = fetchMock.mock.calls[7]?.[1]?.body;
+    const rawSubmit = fetchMock.mock.calls.find(([path]) => path.endsWith("/submit"))?.[1]?.body;
     expect(typeof rawSubmit).toBe("string");
     expect(JSON.parse(rawSubmit as string)).toEqual({
       answers: body,
@@ -662,15 +675,17 @@ describe("connected run start", () => {
       render(<ConnectedApp path="/start" mode="synthetic" />);
       await fillInputs();
       fireEvent.change(screen.getByLabelText("Your name"), { target: { value: name } });
-      await advanceToPurpose();
-      advanceToContext();
-      fireEvent.click(screen.getByRole("button", { name: "Review run" }));
-      expect(await screen.findByRole("alert")).toHaveTextContent(
-        "Enter your name as your first name and initial, for example Eric G, or two initials, for example Eric MG.",
-      );
+      fireEvent.click(screen.getByRole("button", { name: "Continue to purpose" }));
       const field = await screen.findByLabelText("Your name");
-      expect(field).toHaveAttribute("aria-invalid", "true");
-      await waitFor(() => expect(field).toHaveFocus());
+      if (name === "") expect(field).toBeInvalid();
+      else {
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "Enter your name as your first name and initial, for example Eric G, or two initials, for example Eric MG.",
+        );
+        expect(field).toHaveAttribute("aria-invalid", "true");
+        await waitFor(() => expect(field).toHaveFocus());
+      }
+      expect(screen.getByRole("heading", { name: "Documents" })).toBeInTheDocument();
       fireEvent.change(field, { target: { value: "Eric G" } });
       expect(field).not.toHaveAttribute("aria-invalid");
       expect(fetchMock.mock.calls.some(([path]) => path.endsWith("/summary"))).toBe(false);
@@ -756,7 +771,7 @@ describe("connected run start", () => {
     render(<ConnectedApp path="/start" mode="synthetic" />);
     await fillInputs();
     await advanceToPurpose();
-    fireEvent.change(screen.getByLabelText("Run purpose"), { target: { value: "primary" } });
+    fireEvent.change(screen.getByLabelText("Market view"), { target: { value: "primary" } });
     advanceToContext();
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Add at least one facility");
@@ -796,7 +811,7 @@ describe("connected run start", () => {
     await fillInputs();
     fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Dana R" } });
     await advanceToPurpose();
-    fireEvent.change(screen.getByLabelText("Run purpose"), { target: { value: "primary" } });
+    fireEvent.change(screen.getByLabelText("Market view"), { target: { value: "primary" } });
     fireEvent.change(screen.getByLabelText("Run form level"), { target: { value: "advanced" } });
     advanceToContext();
     fireEvent.change(screen.getByLabelText("Model"), { target: { value: "claude" } });
@@ -830,14 +845,14 @@ describe("connected run start", () => {
     render(<ConnectedApp path="/start" mode="synthetic" />);
     await fillInputs();
     await advanceToPurpose();
-    fireEvent.change(screen.getByLabelText("Run purpose"), { target: { value: "primary" } });
+    fireEvent.change(screen.getByLabelText("Market view"), { target: { value: "primary" } });
     advanceToContext();
     fireEvent.click(screen.getByRole("button", { name: "Add facility" }));
     fireEvent.change(screen.getByLabelText("Facility ID"), { target: { value: "TL-B" } });
     fireEvent.change(screen.getByLabelText("Tenor (years)"), { target: { value: "7" } });
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     await screen.findByRole("heading", { name: "Purpose" });
-    fireEvent.change(screen.getByLabelText("Run purpose"), { target: { value: "secondary" } });
+    fireEvent.change(screen.getByLabelText("Market view"), { target: { value: "secondary" } });
     advanceToContext();
     expect(screen.queryByLabelText("Tenor (years)")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
@@ -871,9 +886,9 @@ describe("connected run start", () => {
     await fillInputs();
     await advanceToPurpose();
     fireEvent.click(screen.getByRole("radio", { name: "Relative Value" }));
-    expect(screen.getByLabelText("Run purpose")).toHaveValue("secondary");
+    expect(screen.getByLabelText("Market view")).toHaveValue("secondary");
     fireEvent.click(screen.getByRole("radio", { name: "Earnings Update" }));
-    expect(screen.getByLabelText("Run purpose")).toHaveValue("earnings");
+    expect(screen.getByLabelText("Market view")).toHaveValue("earnings");
     advanceToContext();
     expect(screen.getByLabelText(/^Current period/)).toBeRequired();
     expect(screen.getByLabelText(/^Prior period/)).toBeRequired();
@@ -1399,6 +1414,7 @@ describe("connected run start: Module options and Valuation as fields", () => {
     render(<ConnectedApp path="/start" search="?from=earlier" mode="synthetic" />);
     expect(await screen.findByLabelText("Issuer name")).toHaveValue("Northbridge");
     typeDate();
+    typeName();
     await advanceToPurpose();
     advanceToContext();
     const shown = peers();
@@ -1606,6 +1622,7 @@ describe("connected run start: Scenario assumptions as fields", () => {
     render(<ConnectedApp path="/start" search="?from=earlier" mode="synthetic" />);
     expect(await screen.findByLabelText("Issuer name")).toHaveValue("Northbridge");
     typeDate();
+    typeName();
     await advanceToPurpose();
     advanceToContext();
     expect(
@@ -2228,7 +2245,9 @@ describe("connected run start limits as decisions", () => {
     const approval = screen.getByRole("checkbox", { name: /Approve: I have read this summary/ });
     expect(approval).toBeDisabled();
     expect(submit).toBeDisabled();
-    fireEvent.click(screen.getByRole("checkbox", { name: "I accept these 3 limits" }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
+    );
     expect(approval).toBeEnabled();
     expect(submit).toBeDisabled();
     approve();
@@ -2271,7 +2290,9 @@ describe("connected run start limits as decisions", () => {
     expect(limits).toHaveTextContent("Will also refuse: Recovery & fulcrum");
     expect(limits).toHaveTextContent("Also affects: Evidence validation");
     expect(limits).not.toHaveTextContent("Also affects: Recovery");
-    expect(screen.getByRole("checkbox", { name: "I accept these 3 limits" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
+    ).toBeInTheDocument();
     expect(limits).not.toHaveTextContent(/CP-\d/);
   });
 
@@ -2313,11 +2334,15 @@ describe("connected run start limits as decisions", () => {
     testingFetch({ ...plan, items: cascade });
     render(<ConnectedApp path="/start" mode="synthetic" />);
     await review();
-    fireEvent.click(await screen.findByRole("checkbox", { name: "I accept these 3 limits" }));
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
+    );
     approve();
     fireEvent.click(screen.getByRole("button", { name: "Edit context" }));
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
-    expect(await screen.findByRole("checkbox", { name: "I accept these 3 limits" })).toBeChecked();
+    expect(
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
+    ).toBeChecked();
     expect(
       screen.getByRole("checkbox", { name: /Approve: I have read this summary/ }),
     ).not.toBeChecked();
@@ -2338,11 +2363,13 @@ describe("connected run start limits as decisions", () => {
     });
     render(<ConnectedApp path="/start" mode="synthetic" />);
     await review();
-    fireEvent.click(await screen.findByRole("checkbox", { name: "I accept these 3 limits" }));
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Edit context" }));
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
     expect(
-      await screen.findByRole("checkbox", { name: "I accept these 3 limits" }),
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
     ).not.toBeChecked();
     expect(
       screen.getByRole("checkbox", { name: /Approve: I have read this summary/ }),
@@ -2369,7 +2396,9 @@ describe("connected run start limits as decisions", () => {
     await advanceToPurpose();
     advanceToContext();
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: "I accept these 3 limits" }));
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Edit issuer and documents" }));
     fireEvent.click(screen.getByRole("button", { name: "This is a different issuer" }));
     await fillInputs();
@@ -2378,7 +2407,7 @@ describe("connected run start limits as decisions", () => {
     advanceToContext();
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
     expect(
-      await screen.findByRole("checkbox", { name: "I accept these 3 limits" }),
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
     ).not.toBeChecked();
   });
 
@@ -2402,7 +2431,9 @@ describe("connected run start limits as decisions", () => {
     await advanceToPurpose();
     advanceToContext();
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
-    fireEvent.click(await screen.findByRole("checkbox", { name: "I accept these 3 limits" }));
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Edit issuer and documents" }));
     fireEvent.click(screen.getByRole("button", { name: "This is a different issuer" }));
     fireEvent.change(await screen.findByLabelText("Issuer name"), {
@@ -2415,7 +2446,7 @@ describe("connected run start limits as decisions", () => {
     advanceToContext();
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
     expect(
-      await screen.findByRole("checkbox", { name: "I accept these 3 limits" }),
+      await screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
     ).not.toBeChecked();
   });
 
@@ -2468,7 +2499,8 @@ describe("connected run start limits as decisions", () => {
 });
 
 describe("connected run start: what an acceptance carries to", () => {
-  const limitBox = () => screen.findByRole("checkbox", { name: "I accept these 3 limits" });
+  const limitBox = () =>
+    screen.findByRole("checkbox", { name: "I accept this limit and its 2 consequences" });
   const approvalBox = () =>
     screen.getByRole("checkbox", { name: /Approve: I have read this summary/ });
 
@@ -3806,21 +3838,21 @@ describe("connected run start: the review sheet shows every input Submit sends",
   it("V4 shows the run purpose, the form level, and the model, effort and turns below Advanced", async () => {
     const { sheet } = await sheetAfter({
       purpose: () => {
-        pick("Run purpose", "secondary");
+        pick("Market view", "secondary");
       },
     });
     const purpose = part(sheet, "Purpose and modules");
-    expect(shown(purpose, "Purpose")).toEqual(["Trading (secondary)"]);
+    expect(shown(purpose, "Market view")).toEqual(["Trading (secondary)"]);
     expect(shown(purpose, "Form level")).toEqual(["Basic"]);
     const advanced = part(sheet, "Advanced choices");
     expect(shown(advanced, "Model and effort")).toEqual(["GPT Sol · Balanced"]);
     expect(shown(advanced, "Turns per module")).toEqual(["32"]);
-    expect(advanced).toHaveTextContent("Fixed below the Advanced form level.");
+    expect(advanced).toHaveTextContent("Model and effort are set at the Advanced form level.");
   });
 
   it("V5 reads a purpose the context does not carry as not given", async () => {
     const { sheet } = await sheetAfter({ template: context });
-    expect(shown(part(sheet, "Purpose and modules"), "Purpose")).toEqual(["Not given"]);
+    expect(shown(part(sheet, "Purpose and modules"), "Market view")).toEqual(["Not given"]);
   });
 
   it("V6 shows the Advanced model, effort and turns as chosen, with no fixed note", async () => {
@@ -3837,7 +3869,7 @@ describe("connected run start: the review sheet shows every input Submit sends",
     const advanced = part(sheet, "Advanced choices");
     expect(shown(advanced, "Model and effort")).toEqual(["Claude Opus · High"]);
     expect(shown(advanced, "Turns per module")).toEqual(["48"]);
-    expect(advanced).not.toHaveTextContent("Fixed below");
+    expect(advanced).not.toHaveTextContent("Model and effort are set at the Advanced form level.");
   });
 
   it("V7 shows the periods, and a blank period as not given, never 0", async () => {
@@ -3912,7 +3944,7 @@ describe("connected run start: the review sheet shows every input Submit sends",
   it("V13 shows a new issue's tenor and pricing talk", async () => {
     const { sheet } = await sheetAfter({
       purpose: () => {
-        pick("Run purpose", "primary");
+        pick("Market view", "primary");
       },
       more: () => {
         addFacility({
@@ -4232,6 +4264,7 @@ describe("connected run start: the case date is the analyst's to enter (J2-002, 
       target: { value: "Synthetic Générale" },
     });
     fireEvent.change(screen.getByLabelText("Documents"), { target: { files: [file] } });
+    typeName();
     fireEvent.click(screen.getByRole("button", { name: "Continue to purpose" }));
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 60));
@@ -4436,6 +4469,7 @@ describe("connected run start: leaving the form without losing it (C2-002)", () 
     expect(await screen.findByRole("list", { name: "Documents added" })).toHaveTextContent(
       file.name,
     );
+    await screen.findByText("1 document inspected, 0 ignored.");
     expect(screen.getByLabelText("Your name")).toHaveValue("");
     expect(away()).toBe(true);
   });
@@ -4451,6 +4485,7 @@ describe("connected run start: leaving the form without losing it (C2-002)", () 
     expect(away()).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Inspect documents" }));
     await screen.findByRole("list", { name: "Documents added" });
+    await screen.findByText("1 document inspected, 0 ignored.");
     expect(away()).toBe(true);
   });
 
@@ -4477,6 +4512,7 @@ describe("connected run start: leaving the form without losing it (C2-002)", () 
       await screen.findByText("No documents yet.");
       fireEvent.change(screen.getByLabelText("Issuer name"), { target: { value: "" } });
       fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "" } });
+      fireEvent.change(screen.getByLabelText("As-of date"), { target: { value: "" } });
       expect(away()).toBe(chosen);
     },
   );

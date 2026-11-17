@@ -148,6 +148,11 @@ const PATHWAY_CARDS = Object.entries(PATHWAYS).map(([id, pathway]) => ({
   description: PATHWAY_DESCRIPTIONS[id] ?? "",
   modules: `${String(drawnModules(pathway.modules).length)} base modules`,
 }));
+const FILE_SIZE_LIMIT = 50 * 1024 * 1024;
+const SOURCE_TYPES = /\.(?:pdf|htm|html|docx|txt|md|xlsx|csv|json|jsonl)$/i;
+const SOURCE_TYPE_HINT = "PDF, HTML, DOCX, TXT, Markdown, XLSX, CSV, JSON and JSONL";
+const SYNTHETIC_LIMITS =
+  "The synthetic test can complete only a first Full credit assessment, with no earlier run to compare. Use northbridge-filing.txt and, optionally, northbridge-portfolio.xlsx and northbridge-credit-agreement.txt from the proof folder; no other files are accepted.";
 
 type FieldKey =
   | "issuer_name"
@@ -237,7 +242,13 @@ function focusField(field: FieldKey) {
   control?.scrollIntoView({ block: "center" });
 }
 
-type Review = { id: string; answers: Answers; summary: Summary; cap: string };
+type Review = {
+  id: string;
+  answers: Answers;
+  summary: Summary;
+  cap: string;
+  attachmentNames: Partial<Record<Attachment, string>>;
+};
 type Draft = { id: string; uploaded: Map<File, string>; copied: boolean };
 type Reviewed = {
   pathway: string;
@@ -290,13 +301,22 @@ async function latestIssuerInputs(issuer: string): Promise<LatestIssuerInputs | 
 }
 
 type Attachment = keyof typeof ATTACHMENTS | "agreement";
-type DocumentRow = { name: string; stored?: string; file?: File };
+type DocumentRow = {
+  name: string;
+  stored?: string;
+  file?: File;
+  pendingCopy?: boolean;
+  copied?: boolean;
+};
 type IntakeView = {
   step: FormStep;
   busy?: "review" | "submit" | "documents" | "copy";
   canRead: boolean;
   copy?: { run: string; prior: PriorInputs };
   priorNote: string;
+  issuerNotice: string;
+  changeNotice: string;
+  repeatedContent: ReadonlyMap<File, string>;
   identity: Context["identity"];
   issuerId: string;
   submittedBy: string;
@@ -327,6 +347,7 @@ type IntakeView = {
   model: string;
   effort: string;
   capText: string | null;
+  caps: Record<string, string>;
   synthetic: boolean;
   addFiles: (selected: Iterable<File> | null) => void;
   inspectDocuments: () => void;
@@ -402,6 +423,7 @@ function useIntakeDocumentsState(initial?: { run: string; prior: PriorInputs }) 
   const [files, setFiles] = useState<File[]>([]);
   const [reading, setReading] = useState<Reading>();
   const [uploaded, setUploaded] = useState(new Map<File, string>());
+  const [documentsCopied, setDocumentsCopied] = useState(false);
   const [ignoredCopies, setIgnoredCopies] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<Partial<Record<Attachment, string>>>({});
   const [legal, setLegal] = useState(() => carriedLegal(initial?.prior));
@@ -415,6 +437,8 @@ function useIntakeDocumentsState(initial?: { run: string; prior: PriorInputs }) 
     setReading,
     uploaded,
     setUploaded,
+    documentsCopied,
+    setDocumentsCopied,
     ignoredCopies,
     setIgnoredCopies,
     attachments,
@@ -431,7 +455,9 @@ function useIntakeDocumentsState(initial?: { run: string; prior: PriorInputs }) 
 }
 
 function useIntakeRunOptions(initial?: { run: string; prior: PriorInputs }) {
-  const [level, setLevel] = useState(() => initial?.prior.level || "basic");
+  const [level, setLevel] = useState(() =>
+    initial?.prior.level === "advanced" ? "advanced" : "basic",
+  );
   const [model, setModel] = useState("gpt");
   const [effort, setEffort] = useState("balanced");
   const [turns, setTurns] = useState(() => String(initial?.prior.max_turns || 32));
@@ -482,20 +508,39 @@ function useIntakeReviewState() {
   };
 }
 
-function intakeDocuments(reading: Reading | undefined, files: File[], uploaded: Map<File, string>) {
+function intakeDocuments(
+  reading: Reading | undefined,
+  files: File[],
+  uploaded: Map<File, string>,
+  copy: { prior: PriorInputs } | undefined,
+  ignoredCopies: string[],
+  copied: boolean,
+) {
   const shownDocs = reading?.documents ?? [];
   const inspected = new Map(shownDocs.map((doc) => [storedName(doc), documentDescription(doc)]));
   const ignored = new Map(
     (reading?.ignored ?? []).map((item) =>
-      typeof item === "string" ? [item, "Will not be read"] : [item.source, item.reason],
+      typeof item === "string"
+        ? [
+            item,
+            SOURCE_TYPES.test(item)
+              ? "Not read; reason not recorded."
+              : "Not a document type the run reads.",
+          ]
+        : [item.source, item.reason],
     ),
   );
   const localNames = new Set(uploaded.values());
-  const documentRows = [
+  const documentRows: DocumentRow[] = [
     ...files.map((file) => ({ name: fileName(file), stored: uploaded.get(file), file })),
     ...[...new Set([...inspected.keys(), ...ignored.keys()])]
       .filter((name) => !localNames.has(name))
       .map((name) => ({ name, stored: name, file: undefined })),
+    ...(reading === undefined && !copy?.prior.error
+      ? (copy?.prior.files ?? [])
+          .filter(({ name }) => !ignoredCopies.includes(name) && !localNames.has(name))
+          .map(({ name }) => ({ name, pendingCopy: !copied, copied }))
+      : []),
   ];
   const fileChoices: Record<string, string> = Object.fromEntries([
     ["", "None"] as const,
@@ -553,6 +598,7 @@ function intakeRunDetails({
   accepted,
   newestOverride,
   reading,
+  ignoredCopies,
 }: {
   context: Context;
   customSlug?: string;
@@ -564,6 +610,7 @@ function intakeRunDetails({
   accepted: Set<string>;
   newestOverride?: string;
   reading?: Reading;
+  ignoredCopies: readonly string[];
 }) {
   const { run, identity } = context;
   const selectedCap = caps[run.pathway];
@@ -577,7 +624,10 @@ function intakeRunDetails({
     requested: pathwayModules(run.pathway),
     cap: selectedCap ? Number(selectedCap) : null,
     earnings: run.pathway === "earnings_update",
-    canRead: files.length > 0 || (!!copy?.prior.files.length && !copy.prior.error),
+    canRead:
+      files.length > 0 ||
+      (copy?.prior.files.some(({ name }) => !ignoredCopies.includes(name)) === true &&
+        !copy.prior.error),
     checksComplete: review?.summary.items.every(
       (item) => !needsCheck(item) || accepted.has(item.id),
     ),
@@ -662,6 +712,78 @@ function documentsRead(inspected: number, ignored: number) {
   return `${String(inspected)} ${noun} inspected, ${String(ignored)} ignored.`;
 }
 
+/** One file's bytes are released after hashing; the comparison map retains only compact digests. */
+async function documentDigest(file: File) {
+  const bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result !== null && typeof reader.result !== "string") resolve(reader.result);
+      else reject(new Error(`${fileName(file)} could not be compared with the other documents.`));
+    };
+    reader.onerror = () => {
+      reject(new Error(`${fileName(file)} could not be compared with the other documents.`));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** Hash equal-size candidates sequentially, stopping when a newer selection replaces them. */
+async function repeatedDocuments(files: readonly File[], current: () => boolean) {
+  const counts = new Map<number, number>();
+  for (const file of files) counts.set(file.size, (counts.get(file.size) ?? 0) + 1);
+  const firstName = new Map<string, string>();
+  const repeated = new Map<File, string>();
+  for (const file of files) {
+    if (!current()) return repeated;
+    if ((counts.get(file.size) ?? 0) < 2) continue;
+    const content = await documentDigest(file);
+    const first = firstName.get(content);
+    if (first !== undefined)
+      repeated.set(file, `Same content as ${first}. Remove one copy before inspection.`);
+    else firstName.set(content, fileName(file));
+  }
+  return repeated;
+}
+
+/** A notice is for the ID still in the field; a late reply for a previous ID is ignored. */
+function useIssuerNotice(issuerId: string, typedName: string) {
+  const [notice, setNotice] = useState<{ issuerId: string; text: string }>();
+  useEffect(() => {
+    if (!issuerId) return;
+    let current = true;
+    const timer = window.setTimeout(() => {
+      void getLatestIssuerRun(issuerId).then(
+        (latest) => {
+          const named: typeof latest & { issuer_name?: string } = latest;
+          const filed =
+            named.issuer_name && named.issuer_name !== typedName.trim()
+              ? ` Filed name: ${named.issuer_name}.`
+              : "";
+          if (current)
+            setNotice(
+              latest.runs > 0
+                ? {
+                    issuerId,
+                    text: `This issuer has ${String(latest.runs)} ${latest.runs === 1 ? "run" : "runs"}; the latest is as of ${latest.latest_as_of}.${filed}`,
+                  }
+                : undefined,
+            );
+        },
+        () => {
+          if (current) setNotice(undefined);
+        },
+      );
+    }, 250);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [issuerId, typedName]);
+  return notice?.issuerId === issuerId ? notice.text : "";
+}
+
 function DocumentFields({
   view,
   folderInput,
@@ -675,7 +797,7 @@ function DocumentFields({
         <FileUpload.DropZone
           inputLabel="Documents"
           chooseFiles
-          hint="Add filings and other source documents. Up to 50 MB per file."
+          hint={`Add ${SOURCE_TYPE_HINT}. Up to 50 MB per file.`}
           isDisabled={view.busy !== undefined}
           onDropFiles={view.addFiles}
         />
@@ -717,8 +839,9 @@ function DocumentFields({
         </p>
         {view.documentRows.length > 0 ? (
           <FileUpload.List aria-label="Documents added">
-            {view.documentRows.map(({ name, stored, file }, index) => {
-              const reason = stored ? view.ignored.get(stored) : undefined;
+            {view.documentRows.map(({ name, stored, file, pendingCopy, copied }, index) => {
+              const repeat = file ? view.repeatedContent.get(file) : undefined;
+              const reason = repeat ?? (stored ? view.ignored.get(stored) : undefined);
               const description = stored ? view.inspected.get(stored) : undefined;
               return (
                 <li
@@ -729,7 +852,17 @@ function DocumentFields({
                   <div className="min-w-0 flex-1">
                     <p className="font-medium wrap-anywhere">{name}</p>
                     <Badge size="sm" color={reason ? "error" : description ? "success" : "gray"}>
-                      {reason ? "Ignored" : description ? "Inspected" : "Selected"}
+                      {repeat
+                        ? "Repeated content"
+                        : reason
+                          ? "Ignored"
+                          : description
+                            ? "Inspected"
+                            : pendingCopy
+                              ? "Will be copied"
+                              : copied
+                                ? "Copied"
+                                : "Selected"}
                     </Badge>
                     {(reason || description) && (
                       <p className="mt-1 wrap-anywhere text-text-secondary">
@@ -815,6 +948,7 @@ function DocumentFields({
         <p className="text-sm text-text-secondary">
           Letters a–z, digits and hyphens, up to 40 characters.
         </p>
+        {view.issuerNotice && <p className="text-sm text-text-secondary">{view.issuerNotice}</p>}
       </div>
       <div className="grid content-start gap-1">
         <label className={label}>
@@ -840,9 +974,11 @@ function DocumentFields({
       />
       <div className="grid gap-2">
         <label className={label}>
-          Your name
+          Your name <span aria-hidden="true">*</span>
           <input
             className={field}
+            required
+            aria-label="Your name"
             maxLength={80}
             autoComplete="off"
             placeholder="Eric G"
@@ -884,10 +1020,20 @@ function PurposeFields({ view }: { view: IntakeView }) {
         <PurposeCards
           label={PATHWAY_LABEL}
           value={view.run.pathway}
-          purposes={PATHWAY_CARDS}
+          purposes={PATHWAY_CARDS.map((pathway) => {
+            const cap = view.caps[pathway.id];
+            const capText = cap && shownCapText(Number(cap));
+            return {
+              ...pathway,
+              description: `${pathway.description} ${capText ? `Cap ${capText}.` : "Cap unavailable."}`,
+            };
+          })}
           onChange={view.changePathway}
         />
       </div>
+      {view.synthetic && (
+        <p className="text-sm text-text-secondary sm:col-span-2">{SYNTHETIC_LIMITS}</p>
+      )}
       <SelectField
         title={RUN_PURPOSE_LABEL}
         value={view.run.run_type ?? "research"}
@@ -1369,6 +1515,9 @@ export function StartRun({
   navigate: (path: string) => void;
   from?: string;
 }) {
+  useEffect(() => {
+    document.title = "Start a run — Credit OS";
+  }, []);
   const load = useCallback(
     async (signal: AbortSignal) => {
       const runOptions = await getContext(signal);
@@ -1470,6 +1619,8 @@ function IntakeForm({
     setReading,
     uploaded,
     setUploaded,
+    documentsCopied,
+    setDocumentsCopied,
     ignoredCopies,
     setIgnoredCopies,
     attachments,
@@ -1530,6 +1681,16 @@ function IntakeForm({
   const [moved, setMoved] = useState(false);
   // Counts finished inspections, so a repeated result is announced again.
   const [inspections, setInspections] = useState(0);
+  const [changeNotice, setChangeNotice] = useState("");
+  const [repeatedContent, setRepeatedContent] = useState<ReadonlyMap<File, string>>(new Map());
+  const selectionRevision = useRef(0);
+  const contentQueue = useRef<Promise<void>>(Promise.resolve());
+  useEffect(
+    () => () => {
+      selectionRevision.current += 1;
+    },
+    [],
+  );
 
   const { run, identity, issuerId, requested, cap, earnings, canRead, checksComplete, newest } =
     intakeRunDetails({
@@ -1543,7 +1704,9 @@ function IntakeForm({
       accepted,
       newestOverride,
       reading,
+      ignoredCopies,
     });
+  const issuerNotice = useIssuerNotice(issuerId, identity.issuer_name);
 
   function clearProblem(...fields: FieldKey[]) {
     setFieldError((previous) =>
@@ -1608,6 +1771,7 @@ function IntakeForm({
       }
       if (failure instanceof RequestError && failure.status === 404) {
         draftRef.current = null;
+        setDocumentsCopied(false);
         setUploaded(new Map());
         setReading(undefined);
       }
@@ -1618,12 +1782,28 @@ function IntakeForm({
     }
   }
 
+  /** Selection and inspection share one queue, so at most one file buffer is being hashed. */
+  function checkRepeatedDocuments(selected: readonly File[], revision = selectionRevision.current) {
+    const result = contentQueue.current.then(() =>
+      repeatedDocuments(selected, () => revision === selectionRevision.current),
+    );
+    // Each caller handles its own error; a failed read must not prevent a later selection's check.
+    contentQueue.current = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
   async function refreshDocuments() {
     const incoming = files.map((file) => ({ file, name: fileName(file) }));
     const names = incoming.map(({ name }) => name.normalize("NFC").toLowerCase());
     if (new Set(names).size !== names.length) {
       throw new Error("Choose documents with distinct file names.");
     }
+    const repeated = await checkRepeatedDocuments(files);
+    setRepeatedContent(repeated);
+    if (repeated.size > 0) throw new Error([...repeated.values()].join(" "));
     if (!draftRef.current) {
       const { id } = await createSubmission();
       draftRef.current = { id, uploaded: new Map(), copied: false };
@@ -1639,6 +1819,7 @@ function IntakeForm({
         )
       ) {
         draftRef.current = null;
+        setDocumentsCopied(false);
         setUploaded(new Map());
         setReading(undefined);
         throw new Error(
@@ -1654,6 +1835,7 @@ function IntakeForm({
         if (![...draft.uploaded.values()].includes(name)) await removeDocument(draft.id, name);
       }
       draft.copied = true;
+      setDocumentsCopied(true);
     }
     return { draft, result: await readDocuments(draft) };
   }
@@ -1692,9 +1874,14 @@ function IntakeForm({
           draft.uploaded.delete(file);
           setUploaded(new Map(draft.uploaded));
         }
-        if (copy) setIgnoredCopies((previous) => [...new Set([...previous, stored])]);
       }
-      if (file) setFiles((previous) => previous.filter((item) => item !== file));
+      if (copy && stored) setIgnoredCopies((previous) => [...new Set([...previous, stored])]);
+      if (file) {
+        const remaining = files.filter((item) => item !== file);
+        setFiles(remaining);
+        selectionRevision.current += 1;
+        setRepeatedContent(await checkRepeatedDocuments(remaining));
+      }
       setAttachments((previous) =>
         Object.fromEntries(
           Object.entries(previous).filter(([, chosen]) => chosen !== (stored || name)),
@@ -1706,15 +1893,39 @@ function IntakeForm({
 
   function addFiles(selected: Iterable<File> | null) {
     if (active.current) return;
-    const added = Array.from(selected ?? []).filter(
+    const candidates = Array.from(selected ?? []).filter(
       (file) =>
         !fileName(file)
           .split("/")
           .some((part) => part.startsWith(".")),
     );
+    const names = new Set(files.map((file) => fileName(file).normalize("NFC").toLowerCase()));
+    const added: File[] = [];
+    const problems: string[] = [];
+    for (const file of candidates) {
+      const name = fileName(file);
+      const key = name.normalize("NFC").toLowerCase();
+      if (file.size > FILE_SIZE_LIMIT) problems.push(`${name} exceeds the 50 MB limit.`);
+      else if (!SOURCE_TYPES.test(name))
+        problems.push(`${name} is not a document type the run reads.`);
+      else if (names.has(key)) problems.push(`${name} is already selected.`);
+      else {
+        names.add(key);
+        added.push(file);
+      }
+    }
     setFiles((previous) => [...previous, ...added]);
+    const revision = ++selectionRevision.current;
+    void checkRepeatedDocuments([...files, ...added], revision).then(
+      (repeated) => {
+        if (revision === selectionRevision.current) setRepeatedContent(repeated);
+      },
+      (failure: unknown) => {
+        if (revision === selectionRevision.current) setError(errorText(failure));
+      },
+    );
     if (added.length > 0) setReading(undefined);
-    setError("");
+    setError(problems.join(" "));
   }
 
   async function copyLatestWork() {
@@ -1747,6 +1958,7 @@ function IntakeForm({
     setNewestOverride(undefined);
     setReading(undefined);
     draftRef.current = null;
+    setDocumentsCopied(false);
     setUploaded(new Map());
   }
 
@@ -1921,6 +2133,7 @@ function IntakeForm({
       answers,
       summary: { ...summary, items },
       cap: shownCap,
+      attachmentNames: { portfolio_workbook: attachments.portfolio_workbook },
     });
   }
 
@@ -1944,6 +2157,8 @@ function IntakeForm({
       case "documents":
         if (!canRead) return;
         await withDraft("documents", async () => {
+          if (!isAnalystName(submittedBy.trim()))
+            throw new FieldProblem("submitted_by", ANALYST_NAME_RULE);
           const { result } = await refreshDocuments();
           if (!result.documents.length)
             throw new Error("The service could not read any of the selected documents.");
@@ -1989,6 +2204,7 @@ function IntakeForm({
         if (failure instanceof RequestError && [400, 404].includes(failure.status)) {
           if (failure.status === 404) {
             draftRef.current = null;
+            setDocumentsCopied(false);
             setUploaded(new Map());
             setReading(undefined);
           }
@@ -2015,6 +2231,15 @@ function IntakeForm({
   }
 
   function changePathway(pathway: string) {
+    if (modules.length > 0)
+      setChangeNotice(
+        "Module choice reset for the new pathway. Review the run again and decide its limits.",
+      );
+    else if (approved || accepted.size > 0 || reviewedRef.current)
+      setChangeNotice(
+        "You changed the pathway, so the approval and your decisions were cleared. Decide again.",
+      );
+    reviewedRef.current = null;
     invalidateReview();
     setContext((previous) => ({
       ...previous,
@@ -2035,6 +2260,13 @@ function IntakeForm({
   }
 
   function changePurpose(value: string) {
+    if (approved || accepted.size > 0 || reviewedRef.current) {
+      setChangeNotice(
+        "You changed the market view, so the approval and your decisions were cleared. Decide again.",
+      );
+      reviewedRef.current = null;
+      invalidateReview();
+    }
     setPurposeTouched(true);
     changeRun("run_type", value);
   }
@@ -2064,8 +2296,12 @@ function IntakeForm({
     setEffort("balanced");
     setTurns("32");
     setIgnoredCopies([]);
+    setChangeNotice("");
+    selectionRevision.current += 1;
+    setRepeatedContent(new Map());
     setNewestOverride(undefined);
     draftRef.current = null;
+    setDocumentsCopied(false);
     setUploaded(new Map());
   }
 
@@ -2093,6 +2329,9 @@ function IntakeForm({
     reading,
     files,
     uploaded,
+    copy,
+    ignoredCopies,
+    documentsCopied,
   );
 
   const { title, previous, next } = FORM_STEPS[step];
@@ -2129,6 +2368,10 @@ function IntakeForm({
     // A review is made by Review run and not kept once left, and a step past Documents needs
     // documents that were read: Forward to either is passed over.
     if (target === "review" || (target !== "documents" && reading === undefined)) return false;
+    if (step === "documents" && target !== "documents" && !isAnalystName(submittedBy.trim())) {
+      setFieldError(new FieldProblem("submitted_by", ANALYST_NAME_RULE));
+      return false;
+    }
     editReviewedInputs(target);
     return true;
   }
@@ -2156,6 +2399,9 @@ function IntakeForm({
     canRead,
     copy,
     priorNote,
+    issuerNotice,
+    changeNotice,
+    repeatedContent,
     identity,
     issuerId,
     submittedBy,
@@ -2195,6 +2441,7 @@ function IntakeForm({
     model,
     effort,
     capText,
+    caps,
     synthetic,
     addFiles,
     inspectDocuments,
@@ -2276,11 +2523,18 @@ function IntakeForm({
   // Documents carried from an earlier run count as much as chosen ones. A legal or module choice
   // is made on More context, which opens only once a purpose has been chosen.
   const holdsWork =
-    documentRows.length > 0 ||
+    documentRows.some((row) => !row.pendingCopy) ||
+    ignoredCopies.length > 0 ||
     purposeChosen ||
     review !== undefined ||
     submittedBy.trim() !== "" ||
     analystNote.trim() !== "" ||
+    run.as_of !== "" ||
+    (customSlug !== undefined &&
+      customSlug !== (copy?.prior.issuer_id ?? template.identity.issuer_id)) ||
+    identity.issue_classification !==
+      (copy?.prior.context?.identity.issue_classification ??
+        template.identity.issue_classification) ||
     identity.issuer_name !== (copy?.prior.issuer_name ?? template.identity.issuer_name);
   useLeaveWarning(holdsWork, submitted);
   useStepHistory(review ? "review" : step, showPlace);
@@ -2421,6 +2675,7 @@ function IntakePanels(props: IntakePanelsProps) {
           </p>
         </div>
         {error && !review && <RefusalNotice lines={refusalLines(error)} />}
+        {view.changeNotice && <p className="text-sm text-text-secondary">{view.changeNotice}</p>}
         {otherProblems.length > 0 && <RefusalNotice lines={otherProblems} />}
         {review ? (
           <ReviewConfirmation
@@ -2526,7 +2781,9 @@ function ReviewConfirmation({
         onEdit={onEdit}
         onModules={onModules}
         onAccept={onAccept}
+        synthetic={synthetic}
       />
+      {synthetic && <p className="text-sm text-text-secondary">{SYNTHETIC_LIMITS}</p>}
       {idNote && <p className="text-sm text-text-secondary">{idNote}</p>}
       {blocker && (
         <p id="run-submit-blocker" className="text-sm text-text-secondary">

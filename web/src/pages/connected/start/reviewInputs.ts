@@ -93,14 +93,17 @@ function rowSection(
 }
 
 /** The legal documents choice, and whether each other file box named a document. */
-export function attachmentFacts({ attachments }: Context): Fact[] {
+export function attachmentFacts(
+  { attachments }: Context,
+  names: Readonly<Record<string, string | undefined>> = {},
+): Fact[] {
   const sent = record(attachments);
   const legal = sent && choiceLabel(LEGAL_CHOICES, text(sent, "legal_documents"));
   return [
     [LEGAL_DOCUMENTS, legal ?? NOT_GIVEN],
     ...Object.entries(ATTACHMENTS).map(([key, title]): Fact => [
       title,
-      sent?.[key] === true ? AMONG_DOCUMENTS : NOT_GIVEN,
+      sent?.[key] === true ? names[key] || AMONG_DOCUMENTS : NOT_GIVEN,
     ]),
   ];
 }
