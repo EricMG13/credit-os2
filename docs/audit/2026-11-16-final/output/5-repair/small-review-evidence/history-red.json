@@ -1,0 +1,35 @@
+[
+  {
+    "name": "Chrome",
+    "version": "157.0.8103.78",
+    "start": 700,
+    "offsets": [
+      {
+        "round": 1,
+        "arrival": 0,
+        "restored": 732,
+        "drift": 32
+      },
+      {
+        "round": 2,
+        "arrival": 0,
+        "restored": 764,
+        "drift": 64
+      },
+      {
+        "round": 3,
+        "arrival": 0,
+        "restored": 796,
+        "drift": 96
+      },
+      {
+        "round": 4,
+        "arrival": 0,
+        "restored": 828,
+        "drift": 128
+      }
+    ],
+    "external": [],
+    "pageErrors": []
+  }
+]

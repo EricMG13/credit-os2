@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Chrome",
+    "version": "157.0.8103.78",
+    "initial": {
+      "message": "Loading report…",
+      "skeletonBlocks": 5,
+      "animations": 0,
+      "animationNames": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none"
+      ],
+      "height": 380,
+      "noPreference": true
+    },
+    "settled": {
+      "message": "Loading report…",
+      "skeletonBlocks": 5,
+      "animations": 0,
+      "animationNames": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none"
+      ],
+      "height": 380,
+      "noPreference": true
+    },
+    "external": [],
+    "pageErrors": []
+  },
+  {
+    "name": "Edge",
+    "version": "155.0.4283.62",
+    "initial": {
+      "message": "Loading report…",
+      "skeletonBlocks": 5,
+      "animations": 0,
+      "animationNames": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none"
+      ],
+      "height": 380,
+      "noPreference": true
+    },
+    "settled": {
+      "message": "Loading report…",
+      "skeletonBlocks": 5,
+      "animations": 0,
+      "animationNames": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none"
+      ],
+      "height": 380,
+      "noPreference": true
+    },
+    "external": [],
+    "pageErrors": []
+  }
+]

@@ -193,6 +193,8 @@ function useRouteChange(route: string, title: string) {
   useLayoutEffect(() => {
     const main = document.getElementById("main");
     if (main === null || shown.current?.route === route) return;
+    // This hook restores exact history offsets; native anchoring would add late chart growth.
+    main.style.overflowAnchor = "none";
     const entry = entryOf(created);
     shown.current = { route, entry };
     main.scrollTop = offsets.current.get(entry) ?? 0;

@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Chrome",
+    "version": "157.0.8103.78",
+    "start": 700,
+    "offsets": [
+      {
+        "round": 1,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      },
+      {
+        "round": 2,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      },
+      {
+        "round": 3,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      },
+      {
+        "round": 4,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      }
+    ],
+    "manualBack": 910,
+    "manualForward": 310,
+    "external": [],
+    "pageErrors": []
+  },
+  {
+    "name": "Edge",
+    "version": "155.0.4283.62",
+    "start": 700,
+    "offsets": [
+      {
+        "round": 1,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      },
+      {
+        "round": 2,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      },
+      {
+        "round": 3,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      },
+      {
+        "round": 4,
+        "arrival": 0,
+        "restored": 700,
+        "drift": 0
+      }
+    ],
+    "manualBack": 910,
+    "manualForward": 310,
+    "external": [],
+    "pageErrors": []
+  }
+]
