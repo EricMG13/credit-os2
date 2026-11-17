@@ -6,9 +6,9 @@ Capture tree 1a68d2d4 (audit/final-coordination), web/dist 31eeb9c32aa8; rules v
 
 | Surface | Screens | Items | matches source | derived | not found in source | source has it, screen differs | Source items not on screen |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| connected | 29 | 3332 | 1611 | 1721 | 0 | 0 | 391 |
-| static | 89 | 2374 | 2272 | 102 | 0 | 0 | 5 |
-| **Total** | 118 | 5706 | 3883 | 1823 | 0 | 0 | 396 |
+| connected | 29 | 3332 | 1612 | 1720 | 0 | 0 | 391 |
+| static | 89 | 2374 | 2349 | 25 | 0 | 0 | 5 |
+| **Total** | 118 | 5706 | 3961 | 1745 | 0 | 0 | 396 |
 
 ## Counts per surface, kind and class
 
@@ -16,12 +16,12 @@ Capture tree 1a68d2d4 (audit/final-coordination), web/dist 31eeb9c32aa8; rules v
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | connected | drawer | 445 | 421 | 24 | 0 | 0 |
 | connected | figure | 2577 | 1101 | 1476 | 0 | 0 |
-| connected | limitation | 228 | 67 | 161 | 0 | 0 |
+| connected | limitation | 228 | 68 | 160 | 0 | 0 |
 | connected | source | 82 | 22 | 60 | 0 | 0 |
 | static | drawer | 235 | 235 | 0 | 0 | 0 |
 | static | figure | 1712 | 1691 | 21 | 0 | 0 |
-| static | limitation | 353 | 275 | 78 | 0 | 0 |
-| static | source | 74 | 71 | 3 | 0 | 0 |
+| static | limitation | 353 | 349 | 4 | 0 | 0 |
+| static | source | 74 | 74 | 0 | 0 | 0 |
 
 Kinds: figure = a drawn value (page view or a chart's Table view); source = a source line on screen; limitation = a limitation sentence; drawer = what a source drawer states (statement, handoff line, basis).
 
@@ -47,11 +47,11 @@ None.
 | connected | modules--CP-5 | 15 | 13 | 2 | 0 | 0 | 21 |
 | connected | modules--CP-6 | 68 | 60 | 8 | 0 | 0 | 22 |
 | connected | modules--CP-DR | 36 | 28 | 8 | 0 | 0 | 24 |
-| static | library--brevane-marine--r-0412--overview | 9 | 8 | 1 | 0 | 0 | 1 |
-| static | library--halden-aerostructures--2025-09-30--overview | 28 | 27 | 1 | 0 | 0 | 1 |
-| static | library--halden-aerostructures--2026-03-31--overview | 31 | 30 | 1 | 0 | 0 | 1 |
-| static | library--halden-aerostructures--2026-09-30--modules--capital-structure | 180 | 179 | 1 | 0 | 0 | 1 |
-| static | library--halden-aerostructures--2026-09-30--overview | 111 | 109 | 2 | 0 | 0 | 1 |
+| static | library--brevane-marine--r-0412--overview | 9 | 9 | 0 | 0 | 0 | 1 |
+| static | library--halden-aerostructures--2025-09-30--overview | 28 | 28 | 0 | 0 | 0 | 1 |
+| static | library--halden-aerostructures--2026-03-31--overview | 31 | 31 | 0 | 0 | 0 | 1 |
+| static | library--halden-aerostructures--2026-09-30--modules--capital-structure | 180 | 180 | 0 | 0 | 0 | 1 |
+| static | library--halden-aerostructures--2026-09-30--overview | 111 | 111 | 0 | 0 | 0 | 1 |
 
 99 further screens have only "matches source" and "derived" items and no omitted source item.
 
@@ -60,20 +60,20 @@ None.
 | Surface | Computation | Items | Recomputed here | Where it is computed |
 | --- | --- | ---: | --- | --- |
 | connected | forecast model output | 738 | no (named only) | src/deploy_workflow/owners/cpos_forecast.py and the model files the service publishes (forecast_exact.json, calculation.json); not in a handoff and not recomputed here |
-| connected | script checks | 465 | no (named only) | the service's checks over the module handoffs (src/deploy_workflow/owners/cpos_*check*); not a handoff value and not recomputed here |
+| connected | script checks | 468 | no (named only) | the service's checks over the module handoffs (src/deploy_workflow/owners/cpos_*check*); not a handoff value and not recomputed here |
 | connected | chart axis scale | 224 | no (named only) | web/src/pages/connected/visuals/visualData.ts ticks (value-axis ticks at round numbers) |
 | connected | run record | 66 | no (named only) | the service's record of requests, files and spend for the run; not a handoff value |
 | connected | digest of a delivered handoff or record | 53 | no (named only) | the service's record; the delivered handoff text (with its request and sources preamble) is not kept in this repository, so the digest is not recomputed |
 | connected | event year group, checked here against the Events tables' dates | 53 | yes | web/src/pages/connected/visuals/EventLane.tsx and report/Calendar.tsx (events grouped by status and by year of the event date) |
-| connected | page wording | 50 | no (named only) | label drawn by the page (heading, control, state word); not a source sentence |
-| connected | event counts by status, recounted here from the Events tables | 30 | yes | web/src/pages/connected/visuals/EventLane.tsx and report/Calendar.tsx (events grouped by status and by year of the event date) |
-| connected | run counts and file identities | 17 | no (named only) | web/src/pages/connected/report/Evidence.tsx over the run's own record (counts of modules, script checks, source files) |
+| connected | page wording | 40 | no (named only) | label drawn by the page (heading, control, state word, module name); not a source sentence |
+| connected | event counts by status, recounted here from the Events tables | 33 | yes | web/src/pages/connected/visuals/EventLane.tsx and report/Calendar.tsx (events grouped by status and by year of the event date) |
+| connected | run counts and file identities | 20 | no (named only) | web/src/pages/connected/report/Evidence.tsx over the run's own record (counts of modules, script checks, source files) |
 | connected | confidence score | 15 | yes | src/deploy_workflow/confidence.py score (weights, gate and penalties as documented there), recomputed here from the handoff's Confidence inputs table |
 | connected | year-on-year change = latest period - period a year earlier, exact decimal, recomputed here from the CP-1 chart table | 5 | yes | src/deploy_workflow/credit_os_catalogue.py handoff_metrics, prior_metric, _exact_change (latest row of the CP-1 chart table, change against the row a year earlier); web/src/pages/connected/report/YearChange.tsx, HeadlineFigures.tsx |
 | connected | event status word, checked here against the Events tables' Status column | 4 | yes | web/src/pages/connected/visuals/EventLane.tsx and report/Calendar.tsx (events grouped by status and by year of the event date) |
 | connected | page wording with a digit | 1 | no (named only) | a label or legend drawn by the page; not a source value |
-| static | page wording | 79 | no (named only) | label drawn by the page (heading, control, state word); not a source sentence |
 | static | page wording with a digit | 23 | no (named only) | a label or legend drawn by the page; not a source value |
+| static | page wording | 2 | no (named only) | label drawn by the page (heading, control, state word, module name); not a source sentence |
 
 ## Source items a screen should show and does not
 

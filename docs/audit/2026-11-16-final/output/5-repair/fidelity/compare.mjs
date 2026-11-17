@@ -875,43 +875,44 @@ const PAGE_WORDS = /^(delivered|delivered with gaps|not assessable|show less|sho
 
 function classifyText(kind, entry, ctx, kindOf) {
   const text = norm(entry.text);
-  const outlineKind = kindOf.get(fold(text));
-  if (PAGE_WORDS.test(text) || Object.values(MODULE_NAMES).includes(text) || (outlineKind && UI_KINDS.has(outlineKind) && words(text).size < 8)) {
-    return derived("page wording", "label drawn by the page (heading, control, state word); not a source sentence");
-  }
   const scope = ctx.scope;
+  const connected = ctx.surface === "connected";
+  const search = (fn) => (connected ? fn(scope) : inPageThenRun(ctx, fn));
   if (PAGE_WORDS_WITH_DIGITS.some((re) => re.test(text))) return derived("page wording with a digit", "a label or legend drawn by the page; not a source value");
-  if (ctx.surface === "connected") {
+  if (connected) {
     const events = eventCheck({ text }, ctx);
     if (events) return events;
+    const fam0 = familyFor(ctx.screenId);
+    if (fam0?.pure) {
+      const exact = textSearch(text, scope);
+      return exact && exact.via === "exact text" ? matched(exact.fact, exact.via) : derived(fam0.name, fam0.where);
+    }
   }
-  const fam0 = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
-  if (fam0?.pure) {
-    const exact = textSearch(text, scope);
-    return exact && exact.via === "exact text" ? matched(exact.fact, exact.via) : derived(fam0.name, fam0.where);
-  }
-  const found = ctx.surface === "static" ? inPageThenRun(ctx, (sc) => textSearch(text, sc)) : textSearch(text, scope);
+  const found = search((sc) => textSearch(text, sc));
   if (found) return matched(found.fact, found.wide ? `${found.via} (elsewhere in this run)` : found.via);
   const pn = takeNumbers(text);
   if (pn.periods.size && !pn.tokens.length && [...pn.periods].every((p) => scope.periods.has(p) || ctx.allPeriods?.has(p))) return matched(null, "period appears in the source");
-  if (isMissing(text)) {
-    const hits = scope.facts.filter((fact) => fact.missing || isMissing(fact.text));
-    if (hits.length) return matched(hits[0], "the source has a missing value in this run (cell not identified)");
-  }
-  const files = ctx.fileNames;
   const opened = /^Open source file:\s*(.+)$/i.exec(text);
   const named = opened ? opened[1].trim() : text;
-  if (files?.has(named)) return matched(null, opened ? "Open source file link wording over an uploaded file name" : "uploaded file name");
-  const near = ctx.surface === "static" ? inPageThenRun(ctx, (sc) => nearest(text, sc)) : nearest(text, scope);
-  if (near) return differing(near.fact, "nearest sentence", ["text"]);
-  if (kind === "source") {
-    const hasDigits = figureTokens({ text }).tokens.length > 0;
-    if (hasDigits) {
-      const search = valueSearch({ text, kind: "text" }, scope);
-      if (search?.found) return matched(search.fact, "values in the source");
-    }
+  if (ctx.fileNames?.has(named)) return matched(null, opened ? "Open source file link wording over an uploaded file name" : "uploaded file name");
+  if (isMissing(text)) {
+    const hit = search((sc) => {
+      const fact = sc.facts.find((x) => x.missing || isMissing(x.text));
+      return fact ? { fact } : null;
+    });
+    if (hit) return matched(hit.fact, "the source has a missing value in this run (cell not identified)");
   }
-  const fam = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
+  const outlineKind = kindOf.get(fold(text));
+  if (PAGE_WORDS.test(text) || Object.values(MODULE_NAMES).includes(text) || (outlineKind && UI_KINDS.has(outlineKind) && words(text).size < 8)) {
+    return derived("page wording", "label drawn by the page (heading, control, state word, module name); not a source sentence");
+  }
+  const near = search((sc) => nearest(text, sc));
+  if (near) return differing(near.fact, "nearest sentence", ["text"]);
+  if (kind === "source" && pn.tokens.length) {
+    const hit = valueSearch({ text, kind: "text" }, scope);
+    if (hit?.found) return matched(hit.fact, "values in the source");
+  }
+  const fam = connected ? familyFor(ctx.screenId) : null;
   if (fam) return derived(fam.name, fam.where);
   return notFound("no source sentence or file name like it");
 }
