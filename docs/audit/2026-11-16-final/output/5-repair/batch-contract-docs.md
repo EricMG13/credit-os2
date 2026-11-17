@@ -1,8 +1,9 @@
 # Stage 5 batch: current contracts, source icons and Record downloads
 
 Base: `d988f71a` on the local combined review candidate. Implementation commits are
-`1e66f273` (documentation), `6d89aa68` (current matrices) and `eb50afb6`
-(download presentation), followed by this report and the annual-only confidence control.
+`1e66f273` (documentation), `6d89aa68` (current matrices), `eb50afb6`
+(download presentation) and `43ed1a76` (report and annual-only confidence control),
+followed by the primary-source placement clarification recorded here.
 No branch was pushed or merged by this worker.
 
 ## Outcomes
@@ -10,10 +11,10 @@ No branch was pushed or merged by this worker.
 | Finding / decision | Outcome |
 | :--- | :--- |
 | S2-012 / R10 OQ-09 | Repaired. The current design-system Trace control row, component-map paragraph/Q4 and module-coverage row say controls are visible at rest. The header switch highlights the source icons where offered; Evidence hides it under OQ-03. Historical mocks and original ruling files are unchanged. |
-| R10 matrix amendments | Completed in separate current copies under `matrices/`; the stage 1 CSVs remain byte-identical historical inputs. Existing headers and all 332 CM / 49 CT IDs are retained; the current copies contain 346 CM / 64 CT rows. The amendment log records each changed existing field and every new row. |
+| R10 matrix amendments | Completed in separate current copies under `matrices/`; the stage 1 CSVs remain byte-identical historical inputs. Existing headers and all 332 CM / 49 CT IDs are retained; the current copies contain 347 CM / 64 CT rows. The amendment log records each changed existing field and every new row. |
 | J1-019 | Repaired as a documentation/contract clarification. The nonempty-root refusal remains the deliberate synthetic safety boundary. `docs/react-workflow.md` says to use a fresh root of at most 80 characters after a stopped proof session, never empty an existing workspace, and distinguishes same-session reloads from restart. It documents the existing qualified read-only retained preview with its required inputs and no scheduler/provider. |
 | C5-013, download clause | Repaired. Record retains its metadata first, then the same handoff list, original handoff ZIP and original model/calculation offers already available elsewhere. Existing Summary/Trace offers and every address/label are preserved. Module-filtered Record keeps the run-wide model offers. Missing groups keep their explicit unavailable explanations. |
-| C5-013, registers/confidence-table clause | **Partial, reported to the lead.** This narrowly assigned reuse does not add per-handoff register/confidence tables to Record or a new sortable register renderer. Those tables remain reachable in the original Trace view. Their existing C5 matrix requirements were not amended merely to match the build. |
+| C5-013, registers/confidence-table clause | Closed by the lead's primary-source clarification. The owner ruling permits retained module tables/registers in the inspector or Run record and does not require a new sortable interface. The current matrices correct the derived exclusive Record destination while retaining every content requirement. CM-076 keeps true run internals on Record; new CM-347 extracts the unchanged module-written register/confidence requirement. Existing exact Trace/inspector tables remain valid. |
 | C5-030 | Clarified while preserving the asset. `cpos_forecast.py` returns `annual.md: cp1` directly and `react_frontend/artifacts.py` names that asset Annual model handoff. A conditional sentence identifies it as the Financial foundation handoff used as model input. The original label/address/bytes and the separate HTML Model availability claim are retained. |
 
 The current matrix amendments apply only the decided recommendations:
@@ -30,11 +31,12 @@ The current matrix amendments apply only the decided recommendations:
 - OQ-13 removes S2 from CT-028 and adds rows for the retained unmapped shell, run-header,
   tab, filter, tooltip, disclosure, Model and start/activity content and controls.
 
-`matrices/amendments.md` includes both original SHA-256 values and all 202 existing-field
-changes. Mechanical checks confirmed unchanged original headers/IDs, unique current IDs,
-valid section IDs, and retention of every original connected section.
+`matrices/amendments.md` includes both original SHA-256 values, the initial 202 existing-field
+changes, and the separately recorded C5-013 primary-source correction. Mechanical checks
+confirmed unchanged original headers/IDs, unique current IDs, valid section IDs, and
+retention of every original connected section.
 
-### C5-013 placement source hierarchy, retained for the lead's ruling
+### C5-013 placement source hierarchy, resolved by the lead
 
 The primary owner record `docs/rulings/2026-11-11-reader-and-issuer-report.md` says:
 
@@ -48,13 +50,18 @@ The primary owner record `docs/rulings/2026-11-11-reader-and-issuer-report.md` s
   "stay where the method puts them; the app may show them in the inspector or the Run record,
   but never removes them."
 
-CM-076 adds source/method registers and confidence inputs to decision 10's run-internals list.
-The specific Record destinations in CM-212/CM-216 and the later register/confidence rows derive
-from `docs/design/react-live-handoff-crosswalk.csv`. CT-048 similarly turns decision 9's
-Evidence scope into an Evidence > Record placement. The quoted primary ruling does not require
-all module-written registers/confidence tables to be sortable Record tables. The lead was sent
-these exact sources before any expansion: no new register schema/UI or unsupported matrix
-placement amendment was made by this worker.
+The original CM-076 added source/method registers and confidence inputs to decision 10's
+run-internals list. The specific Record destinations in CM-212/CM-216 and the later
+register/confidence rows derive from `docs/design/react-live-handoff-crosswalk.csv`. CT-048
+similarly turned decision 9's Evidence scope into an Evidence > Record placement. The lead
+resolved that conflict in favor of the quoted primary ruling: module-written tables/registers
+retain inspector or Record options; hashes, instructions, retries and cost remain Record.
+No sorting interface is mandated by that ruling. The current matrices correct only those
+derived overconstraints, preserve all exact rows/columns/IDs/values/order, and retain the
+existing gap-table severity grouping. CM-347 separates the module content from CM-076's
+run internals. The amendment log records the historical crosswalk override; the historical
+source itself is unchanged. The additional reused Record downloads also satisfy decision 9.
+This is a source-hierarchy correction, not a reopened owner question or a new register schema.
 
 ## Tests first and checks
 
@@ -80,7 +87,7 @@ and is declared as `PublishedRun` without a type assertion. This changed no expe
 | `npm --prefix web run typecheck` after completing the new fixture identity | 0 |
 | Targeted Prettier / ESLint after the confidence control | 0 |
 | `uv run --no-sync python tools/quality_gate.py` against `origin/main` | 0; 35 inherited changed Python files, 3,219 lines, no findings; no Python changed by this chunk |
-| CSV header, original-ID, unique-ID and section-scope checks | 0; current 346 CM / 64 CT rows; original source hashes unchanged |
+| CSV header, original-ID, unique-ID and section-scope checks | 0; current 347 CM / 64 CT rows; original source hashes unchanged |
 | `git diff --check` | 0 |
 
 Commands used `timeout 300`, Vitest `--maxWorkers=1`, uv **0.12.5** and explicit worktree
@@ -94,11 +101,12 @@ The main doubts were lost existing offers, model downloads disappearing under a 
 confusing an input Markdown handoff with the HTML Model, and making the matrix agree with a
 defect. The tests preserve existing addresses and unavailable states, exercise Record/CP-1,
 and explicitly keep the HTML Model unavailable with only annual.md present. The matrices keep
-all connected requirements, including the unimplemented C5-013 table clause and C5-033.
+all connected content requirements and C5-033. The lead's primary-source review resolves the
+C5-013 placement conflict without inventing a register renderer or changing analytical content.
 
 Reusing `EvidenceHandoffs` and `ArtifactDownloads` through the existing tab guards is simpler
 than duplicating their markup or adding a Record prop/component abstraction. No Record.tsx,
 source metadata, calculation, module-written text or original asset was edited. The new
 caption is interface wording grounded in the unchanged producer's direct mapping.
 
-Not verified: the remaining C5-013 register/confidence-table presentation clause; original downloads' bytes in a newly executed browser proof (producer/route mappings and exact existing offer addresses were read and unit-tested); browser/pixel rendering of these two added Record sections; the final combined fidelity capture and repository-wide frontend/Signal gates, which belong to the lead; every current matrix row against a live run; Windows, a real issuer/model/provider run, real Submit, Teams or a retained-preview execution. No Signal or shared library-part code changed, so Signal's suite was not repeated in this chunk. Historical named models/skills were unavailable; direct confidence and simplest-design reviews above used the available worker.
+Not verified: original downloads' bytes in a newly executed browser proof (producer/route mappings and exact existing offer addresses were read and unit-tested); browser/pixel rendering of these two added Record sections; the final combined fidelity capture and repository-wide frontend/Signal gates, which belong to the lead; every current matrix row against a live run; Windows, a real issuer/model/provider run, real Submit, Teams or a retained-preview execution. No Signal or shared library-part code changed, so Signal's suite was not repeated in this chunk. Historical named models/skills were unavailable; direct confidence and simplest-design reviews above used the available worker.

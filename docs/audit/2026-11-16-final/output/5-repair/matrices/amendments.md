@@ -260,8 +260,85 @@ The stage 1 CSVs remain unchanged historical audit inputs. These current copies 
 ## Mechanical validation
 
 - Exact original headers and all 332 CM / 49 CT IDs retained.
-- Current counts: 346 content rows and 64 control rows.
-- 202 existing fields changed, including 193 OQ-01 section-scope reductions derived from original missing harmony rows.
+- Current counts: 347 content rows and 64 control rows.
+- The initial R10 amendment changed 202 substantive existing fields, including 193 OQ-01 section-scope reductions derived from original missing harmony rows. The additional C5-013 source-hierarchy corrections are listed below. Original authority annotations are retained and the applied authority is appended.
 - Unique IDs, correct column counts and valid section IDs checked with Python csv; original CSV hashes above checked after generation.
+
+## C5-013: primary placement authority
+
+The lead resolved this against the actual owner record, not against the existing build:
+
+- Decision 9 (lines 66–69) requires handoffs and calculation/Model downloads on **Evidence**, not specifically Record.
+- Decision 10 (lines 70–71) requires true run internals—hashes, instructions sent, retry and cost log—under **Run record**, closed by default. That requirement remains in CM-076.
+- H4 (lines 172–176) retains every table/register row, column, ID, value and order, and explicitly permits raw locators/hashes/reference columns in the **inspector or Run record**. It does not mandate a newly sortable interface.
+
+CM-347 extracts module-written registers/confidence inputs from CM-076 without losing their content requirements. The original per-module row IDs/items remain. Their derived destinations/components now retain the primary inspector/Record options. Gap tables keep stated-severity grouping and may use their existing Evidence Gaps location. The original crosswalk remains an unchanged historical design source; its exclusive `Evidence → Record` destination and mandatory RegisterTable rendering are superseded here only to the extent they overconstrain the quoted primary ruling. The repeated Record download controls are valid additional reuse; Summary/Trace controls remain. No new owner question or analytical schema is introduced.
+
+| Matrix | Row | Field | Previous | Current |
+| :--- | :--- | :--- | :--- | :--- |
+| content | CM-018 | must_show_on | Evidence > Record | Evidence; the same original offers may also be shown on Record |
+| content | CM-069 | must_show_on | Evidence > Record (downloads); trace drawer | Evidence (downloads); trace drawer (calculation steps) |
+| control | CT-048 | where | Evidence > Record (handoffs and download all, calculation JSON, model) | Evidence (handoffs and download all, calculation JSON, original Model); Record may repeat these offers |
+| content | CM-076 | handoff_section | Registers, calls, timings, instructions, run record | Provider calls, timings, instructions and run internals |
+| content | CM-076 | item | Source and method registers, confidence inputs, provider calls, timings, retry and cost log, instructions sent and run internals, closed by default. | Run internals: hashes, instructions sent, provider calls, timings, retry and cost log, closed by default. Module-written registers and confidence inputs are covered separately by CM-347 and their unchanged per-module rows. |
+| content | CM-076 | component | R13 RegisterTable, R16, R17 timing spans (Record.tsx) | Existing Run record, call/timing tables and instruction/hash controls |
+| content | CM-212 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-212 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-216 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-216 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-221 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-221 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-231 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-231 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-235 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-235 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-236 | must_show_on | Evidence > Record | Evidence > Gaps, Trace / inspector, or Record |
+| content | CM-236 | component | R13 RegisterTable grouped by stated severity | Exact retained gap table and trace; groups follow stated severity; no new sorting control required |
+| content | CM-241 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-241 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-246 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-246 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-249 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-249 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-253 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-253 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-254 | must_show_on | Evidence > Record | Evidence > Gaps, Trace / inspector, or Record |
+| content | CM-254 | component | R13 RegisterTable grouped by stated severity | Exact retained gap table and trace; groups follow stated severity; no new sorting control required |
+| content | CM-257 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-257 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-261 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-261 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-262 | must_show_on | Evidence > Record | Evidence > Gaps, Trace / inspector, or Record |
+| content | CM-262 | component | R13 RegisterTable grouped by stated severity | Exact retained gap table and trace; groups follow stated severity; no new sorting control required |
+| content | CM-265 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-265 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-269 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-269 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-271 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-271 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-276 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-276 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-279 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-279 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-284 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-284 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-285 | must_show_on | Evidence > Record | Evidence > Gaps, Trace / inspector, or Record |
+| content | CM-285 | component | R13 RegisterTable grouped by stated severity | Exact retained gap table and trace; groups follow stated severity; no new sorting control required |
+| content | CM-291 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-291 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-295 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-295 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-298 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-298 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-303 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-303 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-307 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-307 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+| content | CM-311 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-311 | component | R13 RegisterTable and exact trace | Exact retained register table and trace; no new sorting control required |
+| content | CM-314 | must_show_on | Evidence > Record | Evidence > Trace / inspector or Record |
+| content | CM-314 | component | R13 confidence inputs and published state | Exact retained confidence-input table and published state; no new sorting control required |
+
+New row: **CM-347**, extracted module-written register/confidence content; all original content requirements are retained.
 
 Not verified: this document is not a re-audit of every matrix row against a live run. The final combined browser/fidelity checks belong to the lead; no paid run, Windows operation or Teams call was made.
