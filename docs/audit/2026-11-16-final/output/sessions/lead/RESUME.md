@@ -1,4 +1,4 @@
-## Recovery checkpoint 2026-11-17T19:26Z
+## Recovery checkpoint 2026-11-17T18:55Z
 
 Environment restarted, returnedready; allworktrees/commits/uncommittedfixes survived.
 Prior agents lost their live sessions. Fresh implementation/review agents resumed from
