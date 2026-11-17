@@ -165,13 +165,12 @@ describe("Task 4 carry-overs (class names are all jsdom can read)", () => {
     expect(strip).toHaveClass("border-b", "border-border-hairline");
   });
 
-  it("draws the Purpose icon at the 32px kit size", () => {
+  it("S6-024 omits the repeated decorative Purpose icon", () => {
     show("/run/start/purpose", fixture.slice);
     const icon = screen
       .getByText("Full credit review")
       .parentElement?.querySelector("[data-featured-icon]");
-    expect(icon).toHaveClass("size-8");
-    expect(icon).not.toHaveClass("size-10");
+    expect(icon).toBeNull();
   });
 
   it("names each radio by its title and describes it with its text and module label", () => {
@@ -186,12 +185,12 @@ describe("Task 4 carry-overs (class names are all jsdom can read)", () => {
     show("/run/start/purpose", fixture.slice);
     const svgs = (name: string) =>
       screen.getByRole("radio", { name }).closest("label")?.querySelectorAll("svg").length;
-    expect(svgs("Full credit review")).toBe(2);
-    expect(svgs("Earnings update")).toBe(1);
-    expect(svgs("Event review")).toBe(1);
-    fireEvent.click(screen.getByRole("radio", { name: "Event review" }));
     expect(svgs("Full credit review")).toBe(1);
-    expect(svgs("Event review")).toBe(2);
+    expect(svgs("Earnings update")).toBe(0);
+    expect(svgs("Event review")).toBe(0);
+    fireEvent.click(screen.getByRole("radio", { name: "Event review" }));
+    expect(svgs("Full credit review")).toBe(0);
+    expect(svgs("Event review")).toBe(1);
   });
 
   it("separates details-list rows with the hairline token", () => {

@@ -25,9 +25,9 @@ function FileRow({ file, reasonId }: { file: Files[number]; reasonId: string }) 
         bad && "ring-2 ring-error",
       )}
     >
-      <div aria-hidden="true" className="relative size-10 shrink-0">
-        <div className="absolute top-0 left-[7px] h-[38px] w-[27px] rounded-tl rounded-tr-[10px] rounded-b border-[1.5px] border-container bg-primary" />
-        <div className="absolute top-[18px] left-px h-4 min-w-[26px] rounded-[2px] bg-text-secondary px-[3px] text-center text-[9px] leading-4 font-bold tracking-[.02em] text-white">
+      <div aria-hidden="true" className="relative size-8 shrink-0">
+        <div className="absolute top-0 left-1 h-8 w-6 rounded-tl rounded-tr-lg rounded-b border border-container bg-primary" />
+        <div className="absolute top-4 left-0 h-4 min-w-6 rounded bg-text-secondary px-1 text-center text-xs leading-4 font-bold tracking-wide text-white">
           {file.kind}
         </div>
       </div>

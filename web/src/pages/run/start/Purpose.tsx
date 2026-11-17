@@ -1,7 +1,5 @@
 import { useId, useState } from "react";
 import { RadioButton, RadioField, RadioGroup, Text } from "react-aria-components";
-import { FileCheck02 } from "@untitledui/icons";
-import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { cx } from "@/utils/cx";
 import type { StartDraft } from "../slice";
 
@@ -66,7 +64,6 @@ export function PurposeCards({
             {({ isSelected }) => (
               <>
                 <div className="flex items-center gap-3 rounded-t-xl border-b border-border-hairline py-3 pr-5 pl-3">
-                  <FeaturedIcon icon={FileCheck02} color="brand" size="sm" />
                   <span className="text-md font-semibold text-secondary">{p.title}</span>
                   <span
                     aria-hidden="true"

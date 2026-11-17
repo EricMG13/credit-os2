@@ -116,7 +116,7 @@ export function SubmitConfirmation({
                       </span>
                     }
                   />
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1">
                     <Heading slot="title" className="text-md font-semibold text-text-primary">
                       {confirm.title}
                     </Heading>

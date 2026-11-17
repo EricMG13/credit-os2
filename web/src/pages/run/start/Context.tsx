@@ -15,7 +15,7 @@ export function Context({ note }: { note: string }) {
           Optional. Skip this step if the documents say everything.
         </p>
       </div>
-      <TextField value={value} onChange={setValue} className="group flex flex-col gap-1.5">
+      <TextField value={value} onChange={setValue} className="group flex flex-col gap-2">
         <Label>Anything the analysis should know</Label>
         <TextArea
           rows={6}

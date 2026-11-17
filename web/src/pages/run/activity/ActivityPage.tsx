@@ -8,7 +8,6 @@ import { StatusBadge } from "@/components/status/StatusBadge";
 import { PageHeader } from "@/shell/PageHeader";
 import { useSource } from "../../source";
 import { TextLink } from "../TextLink";
-import { NOT_CONNECTED } from "../reasons";
 import { readSlice } from "../slice";
 import type { StartDraft } from "../slice-start";
 import type { ActivityRecord, RunRecord } from "../slice-activity";
@@ -172,15 +171,6 @@ function Run({ run }: { run: RunRecord }) {
             <Button href={run.open.href} size="lg" color="primary">
               {run.open.label}
             </Button>
-          ) : live ? (
-            <div className="flex max-w-xs flex-col items-start gap-2">
-              <Button color="secondary" isDisabled aria-describedby="stop-reason">
-                Stop run
-              </Button>
-              <span id="stop-reason" className="text-sm text-text-secondary">
-                {NOT_CONNECTED}
-              </span>
-            </div>
           ) : null
         }
       />
@@ -207,7 +197,19 @@ function Run({ run }: { run: RunRecord }) {
 /** One run's activity: the run the address names, or (no id) the one the slice names as current. */
 export function ActivityPage({ run: id }: { run: string | null }) {
   const slice = readSlice(useSource().run);
-  if (slice.kind !== "ok") return <Empty title="No run data in this library" />;
+  if (slice.kind !== "ok")
+    return (
+      <Empty
+        title="No run data in this library"
+        action={
+          <Button href="#/" color="secondary">
+            Back to the library
+          </Button>
+        }
+      >
+        <EmptyState.Description>This library holds no run records.</EmptyState.Description>
+      </Empty>
+    );
   const wanted = id ?? slice.data.current;
   const record = slice.data.runs.find((r) => r.id === wanted);
   if (wanted === null) return <NoRun draft={slice.data.drafts[0]} />;

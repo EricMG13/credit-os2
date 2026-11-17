@@ -2,8 +2,6 @@ import { screen, within } from "@testing-library/react";
 import { fixture, show, showFixture } from "../test-helpers";
 
 const LIVE_CLASSES = ".status-halo, .queued-shimmer, .animate-spin, .feed-rise";
-const STOP_REASON =
-  "Not available here: this page shows a saved example and is not connected to the run service.";
 
 const modulesList = () =>
   within(screen.getByRole("region", { name: "Modules" })).queryByRole("list");
@@ -75,11 +73,8 @@ describe("Run activity, running", () => {
     expect(lines[6]?.textContent).toContain("Started. 13 modules queued, cap USD 25.00.");
   });
 
-  it("disables Stop run and says why", () => {
-    const stop = screen.getByRole("button", { name: "Stop run" });
-    expect(stop.hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText(STOP_REASON)).toBeTruthy();
-    expect(stop.getAttribute("aria-describedby")).toBe(screen.getByText(STOP_REASON).id);
+  it("S6-033 offers no unsupported Stop run action", () => {
+    expect(screen.queryByRole("button", { name: "Stop run" })).toBeNull();
   });
 });
 

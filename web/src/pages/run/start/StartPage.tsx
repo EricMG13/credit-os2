@@ -56,7 +56,15 @@ function Actions({ draft }: { draft: StartDraft }) {
   );
 }
 
-function Empty({ title, action }: { title: string; action?: boolean }) {
+function Empty({
+  title,
+  action,
+  noData = false,
+}: {
+  title: string;
+  action?: boolean;
+  noData?: boolean;
+}) {
   return (
     <EmptyState>
       <EmptyState.Header>
@@ -64,8 +72,17 @@ function Empty({ title, action }: { title: string; action?: boolean }) {
       </EmptyState.Header>
       <EmptyState.Content>
         <EmptyState.Title>{title}</EmptyState.Title>
+        {noData ? (
+          <EmptyState.Description>This library holds no run records.</EmptyState.Description>
+        ) : null}
       </EmptyState.Content>
-      {action === true ? (
+      {noData ? (
+        <EmptyState.Footer>
+          <Button href="#/" color="secondary">
+            Back to the library
+          </Button>
+        </EmptyState.Footer>
+      ) : action === true ? (
         <EmptyState.Footer>
           <Button href="#/run" color="secondary">
             Go to Run
@@ -79,7 +96,7 @@ function Empty({ title, action }: { title: string; action?: boolean }) {
 /** One snapshot of the run start: the step card (stepper, the step's panel, actions) and readiness. */
 export function StartPage({ draft: id }: { draft: string }) {
   const slice = readSlice(useSource().run);
-  if (slice.kind !== "ok") return <Empty title="No run data in this library" />;
+  if (slice.kind !== "ok") return <Empty title="No run data in this library" noData />;
   const draft = slice.data.drafts.find((d) => d.id === id);
   if (draft === undefined) return <Empty title="No draft has this address" action />;
   return (
@@ -88,10 +105,12 @@ export function StartPage({ draft: id }: { draft: string }) {
         <TextLink href="#/">Library</TextLink>
         {` / ${draft.issuer} / New run`}
       </nav>
-      <p className="text-body text-text-secondary">
-        Add the documents, say what the run is for, approve what was read, then start. Nothing is
-        spent before the last step.
-      </p>
+      {draft.step === "started" ? null : (
+        <p className="text-body text-text-secondary">
+          Add the documents, say what the run is for, approve what was read, then start. Nothing is
+          spent before the last step.
+        </p>
+      )}
       <div className="grid items-start gap-6 min-[1041px]:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex flex-col gap-6 rounded-ds-lg border border-border-subtle bg-surface-card p-8 shadow-1">
           <Stepper step={draft.step} />
