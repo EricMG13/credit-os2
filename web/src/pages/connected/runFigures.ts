@@ -1,13 +1,28 @@
 import type { ActivityLine, Figure, ModuleStep, ModuleWord } from "../run/slice-activity";
-import { moduleName, type Run, type RunEvent } from "./api";
+import { moduleName, serviceText, type Run, type RunEvent } from "./api";
 
-function amount(text: string | null | undefined): number | undefined {
+function amount(text: string | null | undefined): { value: number; text: string } | undefined {
   if (!text || !/^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(text)) return;
   const value = Number(text);
-  if (Number.isFinite(value)) return value;
+  if (Number.isFinite(value)) return { value, text };
 }
 
-const usd = (value: number) => `USD ${value.toFixed(2)}`;
+/** Round the service's decimal text half up; binary floats are used only for bar geometry. */
+function usd({ text }: { text: string }) {
+  const [mantissa = "", exponent = "0"] = text.toLowerCase().split("e");
+  const [whole = "", fraction = ""] = mantissa.split(".");
+  const digits = whole + fraction;
+  if (BigInt(digits) === 0n) return "USD 0.00";
+  const shift = Number(exponent) - fraction.length + 2;
+  let cents: bigint;
+  if (shift >= 0) cents = BigInt(digits) * 10n ** BigInt(shift);
+  else if (-shift > digits.length) cents = 0n;
+  else {
+    const divisor = 10n ** BigInt(-shift);
+    cents = (BigInt(digits) + divisor / 2n) / divisor;
+  }
+  return `USD ${String(cents / 100n)}.${String(cents % 100n).padStart(2, "0")}`;
+}
 
 export function spendFigure(run: Run): Figure {
   const spent = amount(run.spent);
@@ -24,17 +39,17 @@ export function spendFigure(run: Run): Figure {
       ? `; ${usd(settled)} settled, ${usd(held)} reserved or unknown`
       : "";
   const cap = amount(run.cap);
-  if (!cap)
+  if (!cap?.value)
     return {
       value: usd(spent),
       bar: null,
-      note: `${cap === 0 ? "Configured cap is USD 0.00" : "Cap is unavailable"}${breakdown}`,
+      note: `${cap?.value === 0 ? "Configured cap is USD 0.00" : "Cap is unavailable"}${breakdown}`,
     };
   return {
     value: usd(spent),
     bar: {
-      value: Math.min(spent, cap),
-      max: cap,
+      value: Math.min(spent.value, cap.value),
+      max: cap.value,
       label: `${usd(spent)} of ${usd(cap)} cap usage${breakdown}`,
     },
   };
@@ -121,6 +136,21 @@ export function feedLines(run: Run): ActivityLine[] {
       text,
     });
   }
+  if (run.ended_at && run.status !== "running" && run.status !== "queued") {
+    const word = {
+      finished: "Finished",
+      failed: "Failed",
+      capped: "Capped",
+      rejected: "Rejected",
+      interrupted: "Interrupted",
+    } as const;
+    lines.push({
+      who: "Run",
+      time: clock(run.ended_at),
+      state: word[run.status],
+      text: [`Run ${run.status}.`, serviceText(run.reason)].filter(Boolean).join(" "),
+    });
+  }
   return lines.reverse();
 }
 
@@ -137,15 +167,11 @@ export function moduleWord(
   return live ? "Queued" : "Not run";
 }
 
-/** A run with the kind of stop its log ended on (`stopped_by`: "checker", "provider",
- * "interrupted" or "ruling"; empty for any other end), which the service sends beside `Run`. */
-type StoppedRun = Run & { stopped_by?: string };
-
 /** The module the checks stopped the run at: the last module its log started, in a failed run whose
  * recorded stop was the checks'. A run that ended any other way (a model provider's call, the
  * ruling, an interruption, a launcher that exited, a failure the scheduler found after a clean exit)
  * has none. */
-function refusedModule(run: StoppedRun) {
+function refusedModule(run: Run) {
   if (run.status !== "failed" || run.stopped_by !== "checker") return;
   return (run.events ?? []).filter((event) => event.kind === "module_started").at(-1)?.module;
 }
@@ -161,7 +187,7 @@ function stoppedDetail(run: Run, code: string) {
 
 /** The run page's module rows. Only what the run's record shows is said: the module the checks
  * stopped the run at, and how many drafts of it they rejected. */
-export function moduleSteps(run: StoppedRun, live: boolean): ModuleStep[] {
+export function moduleSteps(run: Run, live: boolean): ModuleStep[] {
   const refused = refusedModule(run);
   return run.modules.map(([code, state]): ModuleStep => {
     const word = moduleWord(state, live, code === refused);

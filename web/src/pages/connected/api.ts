@@ -131,6 +131,8 @@ export type Run = {
    * kept "running" after its log ended (a library that could not be rebuilt); else "". Absent
    * from an older service. */
   held_reason?: string;
+  /** The recorded cause of the engine's last stop; absent from an older service. */
+  stopped_by?: string;
   events: RunEvent[] | null;
 };
 
