@@ -155,7 +155,7 @@
           },
           "ebitda": {
             "title": "EBITDA by case",
-            "subtitle": "EBITDA as defined, USD millions",
+            "subtitle": "EBITDA as defined, US$m",
             "note": "Both cases start from the twelve months to June 2025.",
             "trace": "#/library/transdigm/2025-06-30/evidence",
             "divider": { "period": "LTM", "at": "on", "label": "Last actual" },
@@ -192,7 +192,7 @@
           },
           "walk": {
             "title": "From EBITDA to free cash flow",
-            "subtitle": "FY26, USD millions",
+            "subtitle": "FY26, US$m",
             "note": "Other cash items were not forecast: the slot stays empty and is not counted as zero.",
             "trace": "#/library/transdigm/2025-06-30/evidence",
             "yTicks": [
@@ -294,7 +294,7 @@
                 }
               ]
             ],
-            "head": ["FY26, USD millions", "Base case", "Downside case"],
+            "head": ["FY26, US$m", "Base case", "Downside case"],
             "rows": [
               {
                 "label": "EBITDA as defined",
@@ -637,7 +637,7 @@
                 "label": "Revenue",
                 "definition": "Net sales, latest twelve months",
                 "value": {
-                  "text": "$8,580m"
+                  "text": "US$m 8,580"
                 },
                 "delta": "↗ 8.1% on FY24",
                 "note": null,
@@ -647,7 +647,7 @@
                 "label": "EBITDA as defined",
                 "definition": "EBITDA as the company defines it in its credit agreement",
                 "value": {
-                  "text": "$4,560m"
+                  "text": "US$m 4,560"
                 },
                 "delta": "↗ 9.3% on FY24",
                 "note": null,
@@ -687,7 +687,7 @@
                 "label": "Free cash flow",
                 "definition": "EBITDA as defined less cash interest, cash tax, working capital and capital expenditure",
                 "value": {
-                  "text": "$1,950m"
+                  "text": "US$m 1,950"
                 },
                 "delta": "↗ 10.3% on FY24",
                 "note": null,
@@ -719,7 +719,7 @@
             "facts": [
               {
                 "label": "Currency and units",
-                "value": "US dollars, millions",
+                "value": "US$m",
                 "trace": "#/library/transdigm/2025-06-30/evidence"
               },
               {
@@ -1014,7 +1014,7 @@
           }
         },
         "statements": {
-          "intro": "USD millions unless a unit is shown. Fiscal years end 30 September.",
+          "intro": "US$m unless a unit is shown. Fiscal years end 30 September.",
           "columns": [
             {
               "period": "FY22",
@@ -1842,7 +1842,7 @@
           "bridges": [
             {
               "title": "EBITDA bridge",
-              "subtitle": "FY24 to FY25E, USD millions",
+              "subtitle": "FY24 to FY25E, US$m",
               "note": "Costs include the first full year of the 2024 acquisitions.",
               "trace": "#/library/transdigm/2025-06-30/evidence",
               "yTicks": [
@@ -1882,7 +1882,7 @@
                   { "label": "FY25E", "kind": "total", "from": 0, "to": 4560, "text": "4,560" }
                 ]
               ],
-              "head": ["USD millions", "Base case", "Downside case"],
+              "head": ["US$m", "Base case", "Downside case"],
               "rows": [
                 {
                   "label": "EBITDA as defined, FY24",
@@ -1918,8 +1918,8 @@
             },
             {
               "title": "Net debt walk",
-              "subtitle": "FY25E to FY27E, USD millions",
-              "note": "Acquisitions are assumed at zero (0). Shareholder returns were not forecast (n.a.) and are not counted as zero.",
+              "subtitle": "FY25E to FY27E, US$m",
+              "note": "Free cash flow reduces net debt and is shown as a negative contribution. Acquisitions are assumed at zero (0). Shareholder returns were not forecast (n.a.) and are not counted as zero.",
               "trace": "#/library/transdigm/2025-06-30/evidence",
               "yTicks": [
                 { "value": 0, "label": "0" },
@@ -1932,14 +1932,14 @@
                 [
                   { "label": "FY25E", "kind": "total", "from": 0, "to": 26300, "text": "26,300" },
                   {
-                    "label": "Cash flow FY26",
+                    "label": "Effect of free cash flow on net debt, FY26",
                     "kind": "down",
                     "from": 26300,
                     "to": 23760,
                     "text": "-2,540"
                   },
                   {
-                    "label": "Cash flow FY27",
+                    "label": "Effect of free cash flow on net debt, FY27",
                     "kind": "down",
                     "from": 23760,
                     "to": 20924,
@@ -1958,14 +1958,14 @@
                 [
                   { "label": "FY25E", "kind": "total", "from": 0, "to": 26320, "text": "26,320" },
                   {
-                    "label": "Cash flow FY26",
+                    "label": "Effect of free cash flow on net debt, FY26",
                     "kind": "down",
                     "from": 26320,
                     "to": 24510,
                     "text": "-1,810"
                   },
                   {
-                    "label": "Cash flow FY27",
+                    "label": "Effect of free cash flow on net debt, FY27",
                     "kind": "down",
                     "from": 24510,
                     "to": 22640,
@@ -1982,7 +1982,7 @@
                   { "label": "FY27E", "kind": "total", "from": 0, "to": 22640, "text": "22,640" }
                 ]
               ],
-              "head": ["USD millions", "Base case", "Downside case"],
+              "head": ["US$m", "Base case", "Downside case"],
               "rows": [
                 {
                   "label": "Net debt, FY25E",
@@ -2026,24 +2026,24 @@
             "tableHead": "FY27",
             "panels": [
               {
-                "measure": "Revenue, USD millions",
-                "tableLabel": "Revenue, USD millions",
+                "measure": "Revenue, US$m",
+                "tableLabel": "Revenue, US$m",
                 "max": 10190,
                 "values": [10190, 9050],
                 "texts": ["10,190", "9,050"],
                 "trace": "#/library/transdigm/2025-06-30/evidence"
               },
               {
-                "measure": "EBITDA as defined, USD millions",
-                "tableLabel": "EBITDA as defined, USD millions",
+                "measure": "EBITDA as defined, US$m",
+                "tableLabel": "EBITDA as defined, US$m",
                 "max": 5460,
                 "values": [5460, 4350],
                 "texts": ["5,460", "4,350"],
                 "trace": "#/library/transdigm/2025-06-30/evidence"
               },
               {
-                "measure": "Free cash flow, USD millions",
-                "tableLabel": "Free cash flow, USD millions",
+                "measure": "Free cash flow, US$m",
+                "tableLabel": "Free cash flow, US$m",
                 "max": 2836,
                 "values": [2836, 1870],
                 "texts": ["2,836", "1,870"],
@@ -2066,8 +2066,8 @@
                 "trace": "#/library/transdigm/2025-06-30/evidence"
               },
               {
-                "measure": "Lowest cash balance, USD millions",
-                "tableLabel": "Lowest cash balance, USD millions",
+                "measure": "Lowest cash balance, US$m",
+                "tableLabel": "Lowest cash balance, US$m",
                 "max": 2790,
                 "values": [2790, null],
                 "texts": ["2,790", null],
@@ -2078,10 +2078,10 @@
           "debt": {
             "stack": {
               "title": "Debt by instrument",
-              "subtitle": "30 June 2025, USD 29,700 million in all",
+              "subtitle": "30 June 2025, US$m 29,700 in all",
               "note": "Ranked by size. Term loans and secured notes share the same security.",
               "trace": "#/library/transdigm/2025-06-30/evidence",
-              "head": ["Instrument", "USD millions", "Share"],
+              "head": ["Instrument", "US$m", "Share"],
               "parts": [
                 {
                   "name": "Term loans",
@@ -2115,7 +2115,7 @@
             },
             "maturities": {
               "title": "Maturities by year",
-              "subtitle": "Calendar years, USD millions",
+              "subtitle": "Calendar years, US$m",
               "note": "Nothing falls due in 2026 on the notes (0). Loan repayments for 2026 were not established (n.a.).",
               "trace": "#/library/transdigm/2025-06-30/evidence",
               "yTicks": [
