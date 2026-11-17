@@ -116,7 +116,7 @@ function sectionFor(screen, inDialog, region) {
 }
 
 // Collects interactive elements in the page; runs in the browser.
-function collect() {
+function collect(mark) {
   const norm = (s) => (s || "").replace(/\s+/g, " ").trim();
   const text = (el) => norm(el.innerText || el.textContent || "");
   const byIds = (ids) =>
@@ -205,12 +205,16 @@ function collect() {
       if (el.hasAttribute(a)) extra[a] = el.getAttribute(a);
     }
     if (el.tagName.toLowerCase() === "details") extra.open = el.open;
-    items.push({ role, name: nameOf(el).slice(0, 160), inDialog, region, extra, tag: el.tagName.toLowerCase() });
+    const fresh = !el.hasAttribute("data-s0-seen");
+    if (mark) el.setAttribute("data-s0-seen", "");
+    items.push({ role, name: nameOf(el).slice(0, 160), inDialog, region, extra, tag: el.tagName.toLowerCase(), fresh });
   }
   // Drop zones: React handlers are not visible in the DOM; find them by their label text.
   for (const el of document.querySelectorAll("*")) {
     if (el.children.length === 0 && /^Drop files here$/.test(norm(el.textContent))) {
-      items.push({ role: "drop-zone", name: "Drop files here", inDialog: false, region: "body", extra: {}, tag: el.tagName.toLowerCase() });
+      const fresh = !el.hasAttribute("data-s0-seen");
+      if (mark) el.setAttribute("data-s0-seen", "");
+      items.push({ role: "drop-zone", name: "Drop files here", inDialog: false, region: "body", extra: {}, tag: el.tagName.toLowerCase(), fresh });
     }
   }
   return items;
@@ -238,7 +242,9 @@ function baseLocator(item) {
 }
 
 async function inventory(page, { screen, state, revealedBy = null, known = null }) {
-  const items = await page.evaluate(collect);
+  // A plain inventory marks every element it lists; an inventory after opening something lists
+  // only the elements that were not there before (the mark survives React re-renders).
+  const items = await page.evaluate(collect, !revealedBy);
   const counts = new Map();
   const out = [];
   for (const item of items) {
@@ -254,7 +260,7 @@ async function inventory(page, { screen, state, revealedBy = null, known = null 
     const locator = `page.${item.base}${total > 1 ? `.nth(${item.index})` : ""}`;
     const key = `${item.role}|${item.name}|${locator}`;
     keys.add(key);
-    if (known && known.has(key)) continue;
+    if (revealedBy && !item.fresh) continue;
     const row = {
       section: sectionFor(screen, item.inDialog, item.region),
       surface: "connected",
@@ -286,7 +292,18 @@ async function shoot(page, name, { widths = [1440, 390], element = null } = {}) 
     const file = path.join(SHOTS, `${name}--${width}.png`);
     try {
       if (element) await element.screenshot({ path: file });
-      else await page.screenshot({ path: file, fullPage: true });
+      else {
+        // The shell scrolls inside <main>, so fullPage would only capture the viewport; grow the
+        // viewport to the content height instead (bounded).
+        const height = await page.evaluate(() => {
+          const main = document.querySelector("main");
+          const extra = main ? main.scrollHeight - main.clientHeight : 0;
+          return document.documentElement.scrollHeight + Math.max(0, extra);
+        });
+        await page.setViewportSize({ width, height: Math.min(Math.max(height, width === 390 ? 844 : 900), 16000) });
+        await page.waitForTimeout(250);
+        await page.screenshot({ path: file });
+      }
       log.shots.push({ file: path.basename(file), screen: page.url().replace(/^https?:\/\/[^/]+/, ""), name, width });
     } catch (e) {
       log.notes.push(`screenshot ${name} at ${width} failed: ${e.message.split("\n")[0]}`);
@@ -426,7 +443,7 @@ async function exploreFigureToggles(page, { screen, state, shotPrefix }) {
 const T0 = Date.now();
 const progress = (msg) => process.stderr.write(`[${((Date.now() - T0) / 1000).toFixed(1)}s] ${msg}\n`);
 
-async function visit(page, base, address, { state, shot, waitFor = null, explore: doExplore = true, figures = false }) {
+async function visit(page, base, address, { state, shot, waitFor = null, explore: doExplore = true, figures = false, list = true }) {
   tick();
   progress(`visit ${address} (${state})`);
   await page.goto(base + address);
@@ -437,7 +454,7 @@ async function visit(page, base, address, { state, shot, waitFor = null, explore
   log.screens.push({ address, state, title: await page.title() });
   await shoot(page, shot);
   if (doExplore) await explore(page, { screen: address, state, shotPrefix: shot });
-  else await inventory(page, { screen: address, state });
+  else if (list) await inventory(page, { screen: address, state });
   if (figures) await exploreFigureToggles(page, { screen: address, state, shotPrefix: shot });
 }
 
@@ -490,6 +507,25 @@ async function waitForEnd(page) {
   return "timeout";
 }
 
+// ---------------------------------------------------------------- browser
+// chromium.launch() with no options looks for the build its Playwright version expects. When that
+// build is absent but another Playwright Chromium build is installed, use it and say so.
+async function launchBrowser() {
+  try {
+    return await chromium.launch();
+  } catch (error) {
+    const dir = process.env.PLAYWRIGHT_BROWSERS_PATH || path.join(os.homedir(), ".cache", "ms-playwright");
+    const candidates = fs.existsSync(dir)
+      ? fs.readdirSync(dir).filter((d) => d.startsWith("chromium_headless_shell-")).sort().reverse()
+          .map((d) => path.join(dir, d, "chrome-headless-shell-linux64", "chrome-headless-shell"))
+          .filter((f) => fs.existsSync(f))
+      : [];
+    if (!candidates.length) throw error;
+    log.notes.push(`chromium.launch() failed (${String(error.message).split("\n")[0]}); used ${candidates[0]}`);
+    return chromium.launch({ executablePath: candidates[0] });
+  }
+}
+
 // ---------------------------------------------------------------- main
 async function main() {
   const { child } = await startService();
@@ -501,12 +537,13 @@ async function main() {
     });
   }
   const base = `http://127.0.0.1:${PORT}`;
-  const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-  await guard(context);
-  const page = await context.newPage();
-  watchPage(page);
+  let browser = null;
   try {
+    browser = await launchBrowser();
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+    await guard(context);
+    const page = await context.newPage();
+    watchPage(page);
     // ---- empty state, before any run
     await visit(page, base, "/", { state: "empty", shot: "c1-library--empty" });
     await page.getByRole("radio", { name: "List", exact: true }).check();
@@ -516,19 +553,26 @@ async function main() {
     await visit(page, base, "/runs", { state: "empty", shot: "c1-run-activity--empty" });
     await visit(page, base, "/run/20000101-000000-01", { state: "error", shot: "c1-run-progress-unknown-id--error" });
     await visit(page, base, "/report/no-such-run", { state: "error", shot: "c3-report-unknown-folder--error" });
-    await visit(page, base, "/report/a%2Fb", { state: "error", shot: "c1-page-not-found--error", explore: false });
+    await visit(page, base, "/report/a%2Fb", { state: "error", shot: "c1-page-not-found--error", explore: false, list: false }); // the service answers JSON 404; Chromium's JSON viewer is not the app
 
     // ---- start run: every step (run 1 = documented manual flow, no agreement)
     await visit(page, base, "/start", { state: "empty", shot: "c2-start-1-documents--empty" });
-    // a validation error: files but no name
+    // files added, before inspection
     await startForm(page, base, { agreement: false, name: "" });
+    await inventory(page, { screen: "/start", state: "partial" });
+    await shoot(page, "c2-start-1-documents-added--partial");
+    // a validation error: no name; Review run sends the analyst back to step 1
     await page.getByRole("button", { name: "Continue to purpose", exact: true }).click();
-    await page.waitForTimeout(800);
+    await page.getByRole("heading", { name: "Purpose", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Continue to context", exact: true }).click();
+    await page.getByRole("heading", { name: "More context", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Review run", exact: true }).click();
+    await page.getByRole("alert").first().waitFor({ timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(500);
     await inventory(page, { screen: "/start", state: "error" });
     await shoot(page, "c2-start-1-documents-name-missing--error");
     await page.getByRole("textbox", { name: "Your name", exact: true }).fill("Audit Z");
     await page.waitForTimeout(300);
-    await inventory(page, { screen: "/start", state: "partial" });
     await shoot(page, "c2-start-1-documents-inspected--partial");
     await page.getByRole("button", { name: "Continue to purpose", exact: true }).click();
     await page.getByRole("heading", { name: "Purpose", exact: true }).waitFor();
@@ -544,7 +588,7 @@ async function main() {
     await page.getByRole("button", { name: "Continue to context", exact: true }).click();
     await page.getByRole("heading", { name: "More context", exact: true }).waitFor();
     await page.waitForTimeout(500);
-    const contextKnown = await inventory(page, { screen: "/start", state: "partial" });
+    await inventory(page, { screen: "/start", state: "partial" });
     await shoot(page, "c2-start-3-context-advanced--partial");
     await explore(page, { screen: "/start", state: "partial", shotPrefix: "c2-start-3-context-advanced--partial" });
     for (const add of ["Add facility", "Add quote", "Add rating", "Add research question"]) {
@@ -553,11 +597,12 @@ async function main() {
       if ((await button.count()) === 0) continue;
       await button.first().click();
       await page.waitForTimeout(300);
-      await inventory(page, { screen: "/start", state: "partial", revealedBy: `page.getByRole('button', { name: ${quote(add)}, exact: true })`, known: contextKnown });
+      await inventory(page, { screen: "/start", state: "partial", revealedBy: `page.getByRole('button', { name: ${quote(add)}, exact: true })` });
+      await page.evaluate(collect, true); // mark, so the next reveal lists only its own rows
     }
     await page.getByRole("combobox", { name: "Legal documents", exact: true }).selectOption("executed");
     await page.waitForTimeout(300);
-    await inventory(page, { screen: "/start", state: "partial", revealedBy: "page.getByRole('combobox', { name: \"Legal documents\", exact: true }) = executed", known: contextKnown });
+    await inventory(page, { screen: "/start", state: "partial", revealedBy: "page.getByRole('combobox', { name: \"Legal documents\", exact: true }) = executed" });
     await shoot(page, "c2-start-3-context-rows-added--partial");
     // Abandon this advanced draft; the real run uses the Basic level as the documentation says.
 
@@ -677,7 +722,7 @@ async function main() {
     );
     log.runs = { run1, status1, run2, status2 };
   } finally {
-    await browser.close();
+    if (browser) await browser.close();
     stopService(child);
   }
   log.clickables = clickableCount;

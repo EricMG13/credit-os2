@@ -351,6 +351,7 @@ for (const variant of VARIANTS) {
       await page.setViewportSize({ width: 1440, height: 900 });
     }
 
+    flush();
     // open every control that might reveal something (not links, not text entry), one at a time
     const sigKey = `${variant}|${pattern}|${sig}`;
     if (exploredSignatures.has(sigKey)) { notes.push(`openers skipped (same controls as an explored ${pattern}): ${variant} #${address}`); continue; }
@@ -397,7 +398,7 @@ for (const variant of VARIANTS) {
       if (nowSig !== sig || (await page.evaluate(() => location.hash)) !== hashBefore) needReload = true;
     }
   }
-  writeFileSync(path.join(outDir, `console-${variant}.json`), JSON.stringify(consoleErrors, null, 1));
+  writeFileSync(path.join(outDir, `static-console-${variant}.json`), JSON.stringify(consoleErrors, null, 1));
   await context.close();
 }
 await browser.close();
@@ -419,6 +420,11 @@ function row(section, variant, address, state, it, revealedBy) {
   };
 }
 
+flush();
+console.log(JSON.stringify({ visited: visited.length, screens: screens.length, blocked: blocked.length, openerClicks, otherSchemes: Object.fromEntries(otherSchemes) }));
+
+// Written after every screen, so a run that is stopped keeps what it reached.
+function flush() {
 // dedupe rows (same screen, data, role, name, locator, revealed_by)
 const uniq = new Map();
 for (const c of clickables) uniq.set(JSON.stringify([c.data, c.screen, c.role, c.name, c.locator, c.revealed_by]), c);
@@ -427,4 +433,4 @@ writeFileSync(path.join(outDir, "static-visited.json"), JSON.stringify(visited, 
 writeFileSync(path.join(outDir, "static-screens.json"), JSON.stringify(screens, null, 1));
 writeFileSync(path.join(outDir, "static-blocked.json"), JSON.stringify({ blocked, otherSchemes: Object.fromEntries(otherSchemes) }, null, 1));
 writeFileSync(path.join(outDir, "static-crawl-notes.txt"), notes.join("\n") + "\n");
-console.log(JSON.stringify({ visited: visited.length, clickables: uniq.size, screens: screens.length, blocked: blocked.length, openerClicks, otherSchemes: Object.fromEntries(otherSchemes) }));
+}
