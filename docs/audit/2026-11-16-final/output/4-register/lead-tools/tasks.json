@@ -631,5 +631,21 @@
     ],
     "sensitive": "execution provenance; fresh primary and adversarial review required",
     "note": "Lead stage5 follow-up from offline browser proof; fresh audit/lead-synthetic-classification worker owns actual-artifact RED and smallest source classification fix. Do not weaken original Adapter status assertion."
+  },
+  {
+    "id": "T46",
+    "group": 2,
+    "title": "Make fidelity capture dependency loading and direct reads safe offline",
+    "findings": [
+      "R4-017",
+      "R4-018"
+    ],
+    "files": [
+      "docs/audit/2026-11-16-final/output/5-repair/fidelity/capture.mjs",
+      "web/scripts/connected-proof.mjs",
+      "web/scripts/offline-network.mjs"
+    ],
+    "sensitive": "offline guard; fresh security/caller review required",
+    "note": "Lead stage5 first fresh return on audit/lead-fidelity-guard-return. Existing3guard helpers move to pure shared module if simplest; all existing tests/data/baseline/comparator keys remain immutable. Negative network fixtures loopback only; no resolver override."
   }
 ]

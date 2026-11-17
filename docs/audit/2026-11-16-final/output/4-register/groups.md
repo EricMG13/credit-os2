@@ -37,16 +37,19 @@ Files:
 
 ## Group 2: Connected report
 
-Tasks, in order: T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T42, T44.
+Tasks, in order: T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T42, T44, T46.
 
-Findings: 34 (plus their merged ids).
+Findings: 36 (plus their merged ids).
 
 Files:
 
+- `docs/audit/2026-11-16-final/output/5-repair/fidelity/capture.mjs`
 - `src/deploy_workflow/confidence.py`
 - `src/deploy_workflow/credit_os_chips.py`
 - `src/deploy_workflow/owners/cpos_forecast.py`
 - `src/deploy_workflow/owners/cpos_periods.py`
+- `web/scripts/connected-proof.mjs`
+- `web/scripts/offline-network.mjs`
 - `web/src/components/chart/BarCanvas.tsx`
 - `web/src/components/chart/ChartTable.tsx`
 - `web/src/components/chart/ColumnsChart.tsx`

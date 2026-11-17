@@ -731,3 +731,21 @@ Probes:
 Touches money, ordering or security code: execution provenance; fresh primary and adversarial review required.
 
 Note: Lead stage5 follow-up from offline browser proof; fresh audit/lead-synthetic-classification worker owns actual-artifact RED and smallest source classification fix. Do not weaken original Adapter status assertion.
+
+## T46 (group 2). Make fidelity capture dependency loading and direct reads safe offline
+
+Findings:
+
+- R4-017, Medium: Fidelity capture evaluates an old proof dependency before validating its guard API.
+- R4-018, Medium: Fidelity Node/API snapshot reads can follow redirects outside the browser guard.
+
+Files: `docs/audit/2026-11-16-final/output/5-repair/fidelity/capture.mjs`, `web/scripts/connected-proof.mjs`, `web/scripts/offline-network.mjs`
+
+Probes:
+
+- R4-017 (Safe negative local control confirms the undesired execution/redirect condition at738433b8.): `timeout 60 node docs/audit/2026-11-16-final/output/5-repair/probes/fidelity-capture-review-controls.mjs`
+- R4-018 (Safe negative local control confirms the undesired execution/redirect condition at738433b8.): `timeout 60 node docs/audit/2026-11-16-final/output/5-repair/probes/fidelity-capture-review-controls.mjs`
+
+Touches money, ordering or security code: offline guard; fresh security/caller review required.
+
+Note: Lead stage5 first fresh return on audit/lead-fidelity-guard-return. Existing3guard helpers move to pure shared module if simplest; all existing tests/data/baseline/comparator keys remain immutable. Negative network fixtures loopback only; no resolver override.
