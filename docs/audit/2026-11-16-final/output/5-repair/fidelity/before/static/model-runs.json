@@ -1,0 +1,27 @@
+{
+  "screen": {"id":"model--runs","surface":"static","address":"/model/runs","extra":true,"variant":null},
+  "page": {"title":"Credit OS","headings":["Financial models"]},
+  "counts": {"textRuns":3,"figures":1,"figuresByKind":{"card":1},"tableViewFigures":0,"chartTableViews":0,"tables":0,"tableRows":0,"sourceLines":0,"drawerLines":0,"limitationSentences":0,"marks":0,"images":0,"traceControls":0,"traceDrawers":0,"traceErrors":0,"coverageGap":0},
+  "expandedDisclosures": 0,
+  "outline": [
+    {"section":"Financial models","kind":"heading","text":"Financial models"},
+    {"section":"Financial models","kind":"link","text":"TransDigm Group"},
+    {"section":"Financial models","kind":"link","text":"As of 30 June 2025"}
+  ],
+  "tables": [],
+  "figures": [
+    {"kind":"card","text":"As of 30 June 2025","tokens":["30","2025"],"section":"Financial models","label":"TransDigm Group","period":"As of 30 June 2025","unit":null,"basis":null,"beside":"TransDigm Group | As of 30 June 2025"}
+  ],
+  "sources": [],
+  "limitations": [],
+  "marks": [],
+  "controls": [],
+  "links": [
+    {"text":"TransDigm Group As of 30 June 2025","href":"#/model/transdigm/2025-06-30/front"}
+  ],
+  "images": [],
+  "screenReaderOnly": [],
+  "coverage": {"innerText":2,"captured":2,"optionsNotDrawn":0,"selected":0,"typed":0,"screenReaderOnly":0},
+  "chartTableViews": [],
+  "sourceDrawers": []
+}

@@ -16,8 +16,14 @@
 //   static:    web/dist/index.html opened from disk, with the fixture data that stage 0's crawl used: a copy
 //              of web/dist in a temporary folder whose data.js is written by web/scripts/fixture-data.mjs
 //              from web/fixtures/*.json. web/dist itself is not touched.
+// Besides each screen's default state the script captures: every chart in its Table view, every
+// <details> and closed disclosure opened, the source drawer behind every "Show sources" control, each
+// other case of a Forecast case / Case choice (as its own screen), and the Table presentation of a
+// Cards/Table choice (as its own screen). The connected Changes page of the real run has no earlier run to
+// compare, so it is also captured with an earlier run injected into the snapshot (a labelled fixture).
 // <outDir>/index.json is rebuilt from the screen files on disk, so a surface captured in an earlier run
 // stays listed. Nothing here calls a provider; the synthetic service substitutes canned responses.
+// Exit code 1: a screen failed, a screen's text was not fully captured, or a source control did not open.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -1209,13 +1215,14 @@ async function captureStatic(browser) {
 mkdirSync(outDir, { recursive: true });
 const browser = await launch();
 let failures = 0;
+const browserVersion = browser.version();
 try {
   if (surfaceArg !== "static") failures += await captureConnected(browser);
   if (surfaceArg !== "connected") failures += await captureStatic(browser);
 } finally {
   await browser.close();
 }
-const surfaces = writeIndex(treeInfo());
+const surfaces = writeIndex({ ...treeInfo(), runtime: { node: process.version, browser: browserVersion } });
 for (const [name, s] of Object.entries(surfaces)) {
   console.log(
     `${name}: ${s.screens} screens (${s.screensNotExtra} asked for), ${s.figures} figures, ${s.sourceLines} source lines on screen, ${s.drawerLines} in source drawers, ${s.limitationSentences} limitation sentences`,

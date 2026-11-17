@@ -1,0 +1,5 @@
+{
+  "surface": "static",
+  "data": "web/dist copied to a temporary folder, data.js written by web/scripts/fixture-data.mjs from web/fixtures/*.json (the stage 0 'fixture' variant)",
+  "failed": []
+}

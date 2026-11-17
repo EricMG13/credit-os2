@@ -1,0 +1,62 @@
+{
+  "screen": {"id":"changes","surface":"connected","address":"#changes","extra":false,"variant":null},
+  "page": {"title":"Changes — Northbridge Synthetic Group — Credit OS","headings":["Northbridge Synthetic Group","No earlier run to compare."]},
+  "counts": {"textRuns":24,"figures":3,"figuresByKind":{"card":3},"tableViewFigures":0,"chartTableViews":0,"tables":0,"tableRows":0,"sourceLines":0,"drawerLines":0,"limitationSentences":0,"marks":1,"images":0,"traceControls":0,"traceDrawers":0,"traceErrors":0,"coverageGap":0},
+  "expandedDisclosures": 0,
+  "outline": [
+    {"section":"","kind":"link","text":"Library"},
+    {"section":"","kind":"text","text":"/ Report"},
+    {"section":"Northbridge Synthetic Group","kind":"heading","text":"Northbridge Synthetic Group"},
+    {"section":"Northbridge Synthetic Group","kind":"text","text":"As of 31 March 2025"},
+    {"section":"Northbridge Synthetic Group","kind":"text","text":"Full credit assessment"},
+    {"section":"Northbridge Synthetic Group","kind":"text","text":"Finished"},
+    {"section":"Northbridge Synthetic Group","kind":"text","text":"Synthetic test"},
+    {"section":"Northbridge Synthetic Group","kind":"text","text":"Show sources"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"Run activity"},
+    {"section":"Northbridge Synthetic Group","kind":"paragraph","text":"Business description not in this run"},
+    {"section":"Northbridge Synthetic Group","kind":"item","text":"Moody's"},
+    {"section":"Northbridge Synthetic Group","kind":"item","text":"B1"},
+    {"section":"Northbridge Synthetic Group","kind":"item","text":"Negative"},
+    {"section":"Northbridge Synthetic Group","kind":"paragraph","text":"Entered at run start"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"Report"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"Overview"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"Changes"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"Modules"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"14"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"Forecast"},
+    {"section":"Northbridge Synthetic Group","kind":"link","text":"Evidence"},
+    {"section":"Northbridge Synthetic Group > No earlier run to compare.","kind":"heading","text":"No earlier run to compare."},
+    {"section":"Northbridge Synthetic Group > No earlier run to compare.","kind":"paragraph","text":"This is the first listed run for this issuer on this pathway."},
+    {"section":"Northbridge Synthetic Group > No earlier run to compare.","kind":"link","text":"Open the Overview"}
+  ],
+  "tables": [],
+  "figures": [
+    {"kind":"card","text":"As of 31 March 2025","tokens":["31","2025"],"section":"Northbridge Synthetic Group","label":"Full credit assessment","period":"As of 31 March 2025","unit":null,"basis":"Synthetic test","beside":"As of 31 March 2025 | Full credit assessment | Finished | Synthetic test"},
+    {"kind":"card","text":"B1","tokens":["1"],"section":"Northbridge Synthetic Group","label":"Moody's","period":null,"unit":null,"basis":null,"beside":"Business description not in this run | Moody's | B1 | Negative | Entered at run start"},
+    {"kind":"card","text":"14","tokens":["14"],"section":"Northbridge Synthetic Group","label":"Modules","period":null,"unit":null,"basis":null,"beside":"Modules | 14"}
+  ],
+  "sources": [],
+  "limitations": [],
+  "marks": [
+    {"in":null,"tag":"div","attrs":{"data-featured-icon":"true"}}
+  ],
+  "controls": [
+    {"role":"switch","name":"Show sources","checked":false,"selected":null,"pressed":null}
+  ],
+  "links": [
+    {"text":"Library","href":"/"},
+    {"text":"Run activity","href":"/run/<run-id>"},
+    {"text":"Report","href":"#history"},
+    {"text":"Overview","href":"#overview"},
+    {"text":"Changes","href":"#changes"},
+    {"text":"Modules 14","href":"#modules"},
+    {"text":"Forecast","href":"#forecast"},
+    {"text":"Evidence","href":"#evidence"},
+    {"text":"Open the Overview","href":"#overview"}
+  ],
+  "images": [],
+  "screenReaderOnly": [],
+  "coverage": {"innerText":4,"captured":4,"optionsNotDrawn":0,"selected":0,"typed":0,"screenReaderOnly":0},
+  "chartTableViews": [],
+  "sourceDrawers": []
+}

@@ -1,0 +1,90 @@
+{
+  "screen": {"id":"library--brevane-marine--r-0412--evidence--sources","surface":"static","address":"/library/brevane-marine/r-0412/evidence/sources","extra":false,"variant":null},
+  "page": {"title":"Credit OS","headings":["Brevane Marine","Evidence"]},
+  "counts": {"textRuns":37,"figures":10,"figuresByKind":{"card":10},"tableViewFigures":0,"chartTableViews":0,"tables":0,"tableRows":0,"sourceLines":1,"drawerLines":0,"limitationSentences":0,"marks":0,"images":1,"traceControls":0,"traceDrawers":0,"traceErrors":0,"coverageGap":0},
+  "expandedDisclosures": 0,
+  "outline": [
+    {"section":"","kind":"link","text":"Library"},
+    {"section":"Brevane Marine","kind":"heading","text":"Brevane Marine"},
+    {"section":"Brevane Marine","kind":"text","text":"As of 31 Dec 2026"},
+    {"section":"Brevane Marine","kind":"text","text":"Full review"},
+    {"section":"Brevane Marine","kind":"text","text":"Finished"},
+    {"section":"Brevane Marine","kind":"text","text":"Show sources"},
+    {"section":"Brevane Marine","kind":"link","text":"Report history"},
+    {"section":"Brevane Marine","kind":"link","text":"New run"},
+    {"section":"Brevane Marine","kind":"link","text":"Overview"},
+    {"section":"Brevane Marine","kind":"link","text":"Changes"},
+    {"section":"Brevane Marine","kind":"link","text":"Modules"},
+    {"section":"Brevane Marine","kind":"link","text":"2"},
+    {"section":"Brevane Marine","kind":"text","text":"Forecast"},
+    {"section":"Brevane Marine","kind":"text","text":"No forecast for this run"},
+    {"section":"Brevane Marine","kind":"link","text":"Evidence"},
+    {"section":"Brevane Marine > Evidence","kind":"heading","text":"Evidence"},
+    {"section":"Brevane Marine > Evidence","kind":"paragraph","text":"Where every figure and claim in this run comes from."},
+    {"section":"Brevane Marine > Evidence","kind":"control","text":"Module: All"},
+    {"section":"Brevane Marine > Evidence","kind":"select","text":"All"},
+    {"section":"Brevane Marine > Evidence","kind":"control","text":"Jump to an item"},
+    {"section":"Brevane Marine > Evidence","kind":"control","text":"Ctrl K"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"Summary"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"Trace"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"0"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"Sources"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"1"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"Gaps"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"1"},
+    {"section":"Brevane Marine > Evidence","kind":"link","text":"Record"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"PDF"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"annual-report-2026.pdf"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"4.1 MB · 96 pages"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"Read in full"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"Read by 1 module"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"BP"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"SHA-256"},
+    {"section":"Brevane Marine > Evidence","kind":"item","text":"9b04e6c2a81d5f37e0c9a4b6d2183f75a6e0b1c94d27f853e1a0c6b9d4725f8e"}
+  ],
+  "tables": [],
+  "figures": [
+    {"kind":"card","text":"As of 31 Dec 2026","tokens":["31","2026"],"section":"Brevane Marine","label":"Full review","period":"As of 31 Dec 2026","unit":null,"basis":null,"beside":"As of 31 Dec 2026 | Full review | Finished"},
+    {"kind":"card","text":"2","tokens":["2"],"section":"Brevane Marine","label":"Modules","period":null,"unit":null,"basis":null,"beside":"Modules | 2"},
+    {"kind":"card","text":"0","tokens":["0"],"section":"Brevane Marine > Evidence","label":"Trace","period":null,"unit":null,"basis":null,"beside":"Trace | 0"},
+    {"kind":"card","text":"1","tokens":["1"],"section":"Brevane Marine > Evidence","label":"Sources","period":null,"unit":null,"basis":null,"beside":"Sources | 1"},
+    {"kind":"card","text":"1","tokens":["1"],"section":"Brevane Marine > Evidence","label":"Gaps","period":null,"unit":null,"basis":null,"beside":"Gaps | 1"},
+    {"kind":"card","text":"annual-report-2026.pdf","tokens":["-2026"],"section":"Brevane Marine > Evidence","label":"Read in full","period":null,"unit":null,"basis":null,"beside":"annual-report-2026.pdf | 4.1 MB · 96 pages | Read in full"},
+    {"kind":"card","text":"4.1 MB · 96 pages","tokens":["4.1","96"],"section":"Brevane Marine > Evidence","label":"Read in full","period":"annual-report-2026.pdf","unit":null,"basis":null,"beside":"annual-report-2026.pdf | 4.1 MB · 96 pages | Read in full"},
+    {"kind":"card","text":"Read by 1 module","tokens":["1"],"section":"Brevane Marine > Evidence","label":"BP","period":null,"unit":null,"basis":null,"beside":"Read by 1 module | BP"},
+    {"kind":"card","text":"SHA-256","tokens":["-256"],"section":"Brevane Marine > Evidence","label":null,"period":null,"unit":null,"basis":null,"beside":"SHA-256 | 9b04e6c2a81d5f37e0c9a4b6d2183f75a6e0b1c94d27f853e1a0c6b9d4725f8e"},
+    {"kind":"card","text":"9b04e6c2a81d5f37e0c9a4b6d2183f75a6e0b1c94d27f853e1a0c6b9d4725f8e","tokens":["9","04","6","2","81","5","37","0","9","4","6","2183","75","6","0","1","94","27","853","1","0","6","9","4725","8"],"section":"Brevane Marine > Evidence","label":null,"period":null,"unit":null,"basis":null,"beside":"SHA-256 | 9b04e6c2a81d5f37e0c9a4b6d2183f75a6e0b1c94d27f853e1a0c6b9d4725f8e"}
+  ],
+  "sources": [
+    {"via":"text","section":"Brevane Marine > Evidence","text":"annual-report-2026.pdf"}
+  ],
+  "limitations": [],
+  "marks": [],
+  "controls": [
+    {"role":"switch","name":"Show sources","checked":false,"selected":null,"pressed":null},
+    {"role":"select","name":"All Business profile Source readiness","value":"All","options":[" ","All","Business profile","Source readiness"]}
+  ],
+  "links": [
+    {"text":"Library","href":"#/library/home"},
+    {"text":"Report history","href":"#/library/brevane-marine/history"},
+    {"text":"New run","href":"#/run"},
+    {"text":"Overview","href":"#/library/brevane-marine/r-0412/overview"},
+    {"text":"Changes","href":"#/library/brevane-marine/r-0412/changes"},
+    {"text":"Modules 2","href":"#/library/brevane-marine/r-0412/modules/business-profile"},
+    {"text":"Evidence","href":"#/library/brevane-marine/r-0412/evidence/summary"},
+    {"text":"Summary","href":"#/library/brevane-marine/r-0412/evidence/summary"},
+    {"text":"Trace 0","href":"#/library/brevane-marine/r-0412/evidence/trace"},
+    {"text":"Sources 1","href":"#/library/brevane-marine/r-0412/evidence/sources"},
+    {"text":"Gaps 1","href":"#/library/brevane-marine/r-0412/evidence/gaps"},
+    {"text":"Record","href":"#/library/brevane-marine/r-0412/evidence/record"}
+  ],
+  "images": [
+    {"name":"Business profile","in":"Evidence"}
+  ],
+  "screenReaderOnly": [
+    "Source files"
+  ],
+  "coverage": {"innerText":36,"captured":36,"optionsNotDrawn":0,"selected":0,"typed":0,"screenReaderOnly":0},
+  "chartTableViews": [],
+  "sourceDrawers": []
+}
