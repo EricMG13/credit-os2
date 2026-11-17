@@ -1,0 +1,51 @@
+# Probe: GET/POST/DELETE against proof.serve on 127.0.0.1:8741, root /tmp/claude-0/s0-apimap (fresh, empty; no run started). Run by the stage-0 API-map worker, 2026-11-17.
+# Format: METHOD PATH -> STATUS CONTENT-TYPE | first 120 bytes of body. Requests without an Origin header are marked by the 403 reply.
+GET / -> 200 text/html; charset=utf-8 | <!doctype html> <html lang="en">   <head><meta name="credit-os-backend" content="legacy"><meta name="credit-os-mode" con
+GET /index.html -> 200 text/html; charset=utf-8 | <!doctype html> <html lang="en">   <head><meta name="credit-os-backend" content="legacy"><meta name="credit-os-mode" con
+GET /start -> 200 text/html; charset=utf-8 | <!doctype html> <html lang="en">   <head><meta name="credit-os-backend" content="legacy"><meta name="credit-os-mode" con
+GET /runs -> 200 text/html; charset=utf-8 | <!doctype html> <html lang="en">   <head><meta name="credit-os-backend" content="legacy"><meta name="credit-os-mode" con
+GET /run/abc -> 200 text/html; charset=utf-8 | <!doctype html> <html lang="en">   <head><meta name="credit-os-backend" content="legacy"><meta name="credit-os-mode" con
+GET /report/abc -> 200 text/html; charset=utf-8 | <!doctype html> <html lang="en">   <head><meta name="credit-os-backend" content="legacy"><meta name="credit-os-mode" con
+GET /connected/context -> 200 application/json; charset=utf-8 | {"schema": "context/1", "run": {"run_type": "research", "pathway": "credit_snapshot", "case_kind": "synthetic", "as_of":
+GET /connected/activity -> 200 application/json; charset=utf-8 | {"updated": "2026-11-17T03:38:03Z", "held": "", "runs": [], "ended": [], "ended_total": 0, "unreadable": 0}
+GET /connected/activity/abc -> 404 application/json; charset=utf-8 | {"error": "unknown run"}
+GET /connected/library -> 200 application/json; charset=utf-8 | {"catalogue": {"real": []}, "workspace": {"runs": {}}, "preview": null}
+GET /connected/snapshot -> 200 application/json; charset=utf-8 | {"catalogue": {"real": [], "illustrative": [], "sources": {}, "built_at": "17 Nov 2026, 03:37:49 UTC", "issues": [], "wo
+GET /connected/snapshot?run=abc -> 404 application/json; charset=utf-8 | {"error": "unknown report"}
+GET /connected/reports -> 200 application/json; charset=utf-8 | {"reports": []}
+GET /connected/report/abc -> 404 application/json; charset=utf-8 | {"error": "unknown report"}
+GET /connected/artifacts/abc -> 404 application/json; charset=utf-8 | {"error": "unknown report"}
+GET /connected/artifacts/abc/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/model.html -> 404 application/json; charset=utf-8 | {"error": "unknown report"}
+GET /connected/portfolio/abc -> 200 application/json; charset=utf-8 | {"basis": null}
+GET /connected/sources/abc/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/x.pdf -> 404 application/json; charset=utf-8 | {"error": "source unavailable"}
+GET /api/runs/abc -> 404 application/json; charset=utf-8 | {"error": "unknown run"}
+GET /api/runs/abc/inputs -> 404 application/json; charset=utf-8 | {"error": "unknown run"}
+GET /api/issuers/abc -> 200 application/json; charset=utf-8 | {"runs": 0, "latest_as_of": "", "latest_run": "", "issuer_name": ""}
+GET /api/submissions/zz/reading -> 404 application/json; charset=utf-8 | {"error": "unknown submission"}
+GET /activity.js -> 200 text/javascript | window.RUN_ACTIVITY={"updated": "2026-11-17T03:38:03Z", "held": "", "runs": []};window.onRunActivity&&window.onRunActivi
+GET /library/index.html -> 200 text/html | <!doctype html> <html lang="en"> <head>   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script
+GET /data.js -> 200 text/javascript | window.CREDIT_OS_DATA = { schema: "credit-os-data/1", issuers: [] }; 
+GET /symbol.svg -> 200 image/svg+xml | <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1521 1515">   <path fill="#000533" d="m724.8 173c238.6-82.4 489.9-1
+GET /THIRD-PARTY-NOTICES.md -> 200 text/markdown | # Third-party notices  Some kit and page files in `web/src` are copied from, or follow the look of, the MIT-licensed sou
+GET /fonts/ -> 404 application/json; charset=utf-8 | {"error": "not found"}
+GET /assets/ -> 404 application/json; charset=utf-8 | {"error": "not found"}
+GET /nothing -> 404 application/json; charset=utf-8 | {"error": "not found"}
+GET /kit -> 404 application/json; charset=utf-8 | {"error": "not found"}
+POST /api/submissions -> 200 application/json; charset=utf-8 | {"id": "996ad895e2ce15bbe387cde4a335b53a"}
+POST /api/submissions -> 403 application/json; charset=utf-8 | {"error": "the request did not come from the service's own page"}
+DELETE /api/submissions/zz/files?name=a.pdf -> 404 application/json; charset=utf-8 | {"error": "unknown submission"}
+POST /api/submissions/zz/summary -> 200 application/json; charset=utf-8 | {"error": "the answers need exactly these parts: context, effort, level, max_turns, model, modules, submitted_by"}
+POST /api/submissions/zz/carry -> 400 application/json; charset=utf-8 | {"error": "the request needs the id of an earlier run"}
+POST /api/submissions/zz/reading -> 404 application/json; charset=utf-8 | {"error": "not found"}
+POST /connected/context -> 404 application/json; charset=utf-8 | {"error": "not found"}
+HTTP/1.0 200 OK
+Server: RunStart 
+Date: Tue, 17 Nov 2026 03:38:07 GMT
+Content-Length: 114
+Content-Type: application/json; charset=utf-8
+Cache-Control: no-store
+Vary: Accept-Encoding
+X-Content-Type-Options: nosniff
+Cross-Origin-Resource-Policy: same-origin
+
+{"error": "the answers need exactly these parts: context, effort, level, max_turns, model, modules, submitted_by"}
