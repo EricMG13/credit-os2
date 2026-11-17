@@ -4,9 +4,9 @@ Each group is one `repair-<n>` session (`sessions/repair.md`). No file is in two
 
 ## Group 1: Connected shell, run activity, Start a run, the service and the synthetic proof
 
-Tasks, in order: T01, T02, T03, T04, T05, T06, T07, T08, T09, T10, T11, T12.
+Tasks, in order: T01, T01b, T02, T03, T04, T05, T06, T07, T08, T09, T10, T11, T12.
 
-Findings: 30 (plus their merged ids).
+Findings: 32 (plus their merged ids).
 
 Files:
 
@@ -15,6 +15,7 @@ Files:
 - `proof/launcher.py`
 - `react_frontend/__init__.py`
 - `react_frontend/run_activity.py`
+- `react_frontend/sources.py`
 - `src/deploy_workflow/credit_os_catalogue.py`
 - `src/deploy_workflow/inbox/runs.py`
 - `src/deploy_workflow/inbox/scheduler.py`

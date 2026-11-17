@@ -21,6 +21,24 @@ Probes:
 
 Touches money, ordering or security code: security (a leaked path).
 
+## T01b (group 1). No absolute path in source warnings or the library-rebuild note
+
+Findings:
+
+- R1-007, High: An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evidence page draws it.
+- R1-008, High: When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.js serves it with the absolute path.
+
+Files: `react_frontend/sources.py`, `src/deploy_workflow/inbox/scheduler.py`
+
+Probes:
+
+- R1-007 (none): `found by repair-1's T01 adversarial review (2026-11-17): chmod 000 on an inputs/<digest> source of a copied synthetic root; the T01b test is the probe`
+- R1-008 (none): `found by repair-1's T01 adversarial review (2026-11-17) for an unreadable pinned context; the T01b test is the probe`
+
+Touches money, ordering or security code: security (a leaked path).
+
+Note: Added during stage 5 (ruling L10); found by T01's adversarial review.
+
 ## T02 (group 1). Leaving a module out must not make Submit refuse 'unknown module CP-MODEL'
 
 Findings:
