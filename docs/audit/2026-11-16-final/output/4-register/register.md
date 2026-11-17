@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-505 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 396 findings. Counts below are of those 396, after re-grading.
+507 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 398 findings. Counts below are of those 398, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -10,9 +10,9 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
 | Medium | 71 | 0 | 0 | 0 | 1 | 2 | 32 | 106 |
-| Low | 0 | 141 | 0 | 0 | 2 | 18 | 39 | 200 |
+| Low | 0 | 143 | 0 | 0 | 2 | 18 | 39 | 202 |
 | Info | 3 | 18 | 17 | 0 | 3 | 10 | 34 | 85 |
-| Total | 79 | 159 | 17 | 0 | 6 | 30 | 105 | 396 |
+| Total | 79 | 161 | 17 | 0 | 6 | 30 | 105 | 398 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -20,7 +20,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | C2 | 0 | 9 | 13 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 2 | 7 | 20 | 4 |
-| C5 | 0 | 11 | 18 | 7 |
+| C5 | 0 | 11 | 19 | 7 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
 | J3 | 0 | 1 | 6 | 2 |
@@ -30,7 +30,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S1 | 1 | 5 | 11 | 3 |
 | S2 | 0 | 5 | 13 | 9 |
 | S3 | 0 | 8 | 19 | 5 |
-| S4 | 0 | 8 | 6 | 3 |
+| S4 | 0 | 8 | 7 | 3 |
 | S5 | 0 | 6 | 12 | 8 |
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 12 |
@@ -238,6 +238,8 @@ High first. `Merged` lists the ids with the same cause.
 | J6-014 | Low | J6 | "Page not found" has no link or button; every other error page offers a way back. | batch |  |  | not required (Low or Info) |
 | R2-001 | Low | C4 | The predicate that holds source references back from table cells (visualData.ts containsReference) misses gap ids such as '(G12)', run codes such as '20261117-… | batch |  |  | not required (Low or Info) |
 | R2-002 | Low | C4 | With the Basis and limitation column added (C3-029), a chart's Table form is still wider than its card (749 px against 604 at 1440, 316 at 390), so the reader… | batch |  |  | not required (Low or Info) |
+| R4-003 | Low | S4 | The fixture download repair replaced an existing confidentiality qualification with a generic missing-sample explanation. | batch |  |  | not required (Low or Info) |
+| R4-004 | Low | C5 | The approved-limit Record draws raw module codes although the analyst approved the same reasons with plain module names. | batch |  |  | not required (Low or Info) |
 | S1-007 | Low (was Medium) | S1 | Every fixture run is a "Full credit review" drawn with a USD 20.00 spend cap; the Full tier's cap is USD 25. | batch |  | S6-004 | confirmed |
 | S1-008 | Low | S1 | #/kit/ shows "Page not found" while every other address ignores one trailing slash. | batch |  |  | not required (Low or Info) |
 | S1-010 | Low | S1 | Back and Forward do not restore the scroll position, because the page scrolls inside main and the browser only restores window scroll. | batch |  |  | not required (Low or Info) |
