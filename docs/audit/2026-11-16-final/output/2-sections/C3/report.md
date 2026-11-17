@@ -75,7 +75,7 @@ Files: `ReportContent.tsx`, `HeadlineFigures.tsx`, `publishedReport.ts`, `report
 | C3-002 | Medium | accessibility | After the reader chooses another module in the Modules navigator (link by keyboard, or the Module select at 390 px), keyboard focus drops to <body>. |
 | C3-003 | Medium | state | Switching module keeps the previous module's scroll offset, so the new module opens part-way down its page instead of at its Bottom line. |
 | C3-004 | Medium | accessibility | Below 1001 px the Module select navigates on every ArrowDown, so a keyboard user cannot browse the options without changing page each time. |
-| C3-005 | Medium | harmony | 'On this page' lists 'Key findings' on modules that wrote no Key findings (Financial foundation and other data modules); the entry scrolls to a table  |
+| C3-005 | Medium | harmony | 'On this page' lists 'Key findings' on Financial foundation, whose handoff wrote no Key findings (checked on all 14 modules: it is the only one); the entry scrolls to a table section. |
 | C3-006 | Medium | design | The trace drawer prints a module code ('CP-0') in a sentence the service wrote: 'the Basis file is not in the CP-0 inventory'. |
 | C3-007 | Medium | state | Report error states give the reader no cause and no next step: a failed or unknown run reads 'The published report could not be loaded.', a network fa |
 | C3-008 | Medium | harmony | A run in the earlier format or with changed methods is not labelled 'Earlier format' or 'Earlier methods' on Overview or Changes; neither string exist |
