@@ -1,3 +1,84 @@
+## Current lead checkpoint 2026-11-17T17:21Z
+
+Stage5 continues. Main is untouched; no application provider, real Submit, seat or Teams call.
+
+| Branch | Local committed tip |
+| :--- | :--- |
+| `audit/final-coordination` | `c68e0bac98` |
+| `audit/final-repairs` | `a1961e22b7` |
+| `audit/review-connected-integration` | `d988f71a17` |
+| `audit/lead-charts-shared` | `3e6ea0d863` |
+| `audit/lead-report-followups` | `153a319173` |
+| `audit/lead-runtime-metadata` | `d988f71a17` |
+| `audit/lead-contract-docs` | `d988f71a17` |
+| `audit/lead-connected-start` | `8e251fbf90` |
+| `audit/lead-connected-shell` | `803cf84637` |
+| `audit/lead-connected-evidence` | `7ebb647613` |
+| `audit/lead-static-library-run` | `9e3112219e` |
+
+Accepted/pushed: ABC integration152fdeef; fixture+Model/nav pair independently rereviewed
+PASS after both round2 repairs, promoted to final-repairs with fullR1–R17 README (a1961e22).
+Native Chrome157 and Edge155 exercised newstaticlinks/drawers/navigation atdesktop widths.
+Audit-tool R4-002 refactor and input-isolation fixes plus fresh reviews are on coordination;
+default main-based gate0, old six outputhashes+54requirementsrows preserved. Frozen snapshot
+tests remain505findings by design; LIVE register is now507source findings,398canonical:
+High5,Medium106,Low202,Info85; dispositions repair79,batch161,sweep17,deferred6,parked30,rejected105.
+Root helper-only tests passed after registering newR4-003/004; expected values untouched.
+
+Local combined candidate d988f71a includes originalgroup1/2 PUSHED snapshots and lead Start,
+Shell, Evidence, staticLibrary/run, approved static/fixture pair +round2fixes. It is a REVIEW
+snapshot ONLY, not accepted as original-group completion or promoted. It passed targeted
+integration checks; integration report details graph/conflicts/exact test consequences.
+Independent new-chunk reviews saved in /workspace/scratch/lead-connected-start-shell-review.md
+(START0H0M0L, Shell0H0M1L liveblockedstatus partial) and lead-evidence-static-library-review.md
+(Evidence/static0H0M, oneLow approvedReason rawcodes). Need retain these in audit output.
+R4-004 approved-reader wording is fixed in report worker0af85674, awaits narrow rereview.
+Runtime metadata worker is completing Shell SC-1/C1-028 duringrunning +C5-033 actual listed/
+retained/new metadata from existing validated accepted records; no engine/method changes.
+
+Original remote branches STILL no new push and no PR as of17:18Z:
+- repair2 f9453f27 lastpush15:32:06Z; takeover permitted ONLY at/after17:32:06Z.
+  T18 is round4 recovery (unpublished code unavailable), T22 reviewed code also NOT pushed.
+  Complete remaining tasks on audit/repair-2 after threshold, testfirst+freshreview; no fifth
+  review-loop round beyondR12. Do not infer unpushed work is present.
+- repair1 301c7ded lastpush15:42:23Z; takeover permitted ONLY at/after17:42:23Z.
+  All codeT01..T12inclT10 and reports are committed, STATUSstale running. Earlier independent
+  review no H/M. After threshold finalize branch gates/status/PR then greenCI+leadreviewmerge.
+
+Remaining active/queued work:
+- charts_shared_batch owns charts5IDs+shared6IDs, broad projectfontfloor, MetricCardcomposition,
+  lightnessOQ09, L16gap reasons/globalcontainsReference. publishedReport onlypredicate owned;
+  moneyformatters/key copied as dependency0a918fa7 from report9ad50265, skipduplicate.
+- report_followups DONE own-only range2a5af229..153a3191: core9ad50265, R4-0040af85674,
+  lazycardtraceed76e94f, CP8/dateb8bb7319, Forecastdisplay54d36d85, asynca752a690, report153a3191.
+  SKIP dependenciesfe2d381a(asOfDate shell) and2a5af229(Evidence final). Needs freshreview/
+  integration preserving ShellLibraryIndex and currentcontainsReference/runtimeRecord fields.
+- runtime worker branch above; scope Run.module_outputs and library_admission optionalfields,
+  verified accepted response/request/review identity; old/ambiguous is null.
+- contract_docs_batch doing S2-012 currenttrace docs, exactR10 finalmatrices preserving original
+  stage1 CSVs, J1-019 freshroot documentation, C5-013 reused Record downloads and C5-030 annual
+  input explanation. Extra register/confidence table placement interpretation still to settle
+  against primaryruling9/10; do not merelychange answerkey tofitbuild.
+- Forecast8Lowbatch family remains unassigned, best combined with recoveredT18 toavoid overlap.
+- Must still complete fullbatchledger all161IDs +leadextras; every finding needs exactoutcome
+  and closed_by after final register rebuild. Existing build_register intentionallydrops closure
+  annotations: apply them AFTER last rebuild and retain a closure ledger.
+
+Worktrees/env: rootcoordination /workspace/credit-os2; actualfinal /workspace/audit-final now has
+OWN uv/npm installs (both locked setup0), keeping future proofimports correct. Most workers use
+shared rootvenv with explicitownPYTHONPATH and --no-sync; node_modules symlink. uvexact at
+/workspace/audit-tooling/bin/uv. NativeChrome /workspace/audit-browsers/chrome/opt/google/chrome/chrome;
+Edge /workspace/audit-browsers/edge/opt/microsoft/msedge/msedge; systemChromium blocksfile URLs.
+
+After allstage5code: combined confidence/simplification review, copy needed coordination audit
+tools/register/fidelity outputs additively preserving newreports, fullPythonchangedcode+frontend
+gates and connectedproof (legacy proof likely needs finding-required expectation updates for
+listed-only sources, newwording/caps/units; never weaken coverage/gates). Build/capture.mjs AFTER,
+compare.mjs and --diff against before, explain/repair everynew mismatch/omission, VERIFICATION
+under1000lines, push. Then stage6 separateaudit/final-sweep branch+PR+review/merge; stage7 native
+browsers/offline/screens/ZIPchecksum/workPCprompt requirements+dryrun freshagentmissing2pins/
+SUMMARY/finalPR into main UNMERGED. Attach everycreatedPR. No stagedone claimed prematurely.
+
 ## Batch integration accepted and pushed (2026-11-17T16:09Z)
 
 `audit/final-repairs` is now **152fdeef** on origin. Batches a/b/c merged in order,
