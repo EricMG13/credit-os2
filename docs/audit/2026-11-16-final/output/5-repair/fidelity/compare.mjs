@@ -43,7 +43,7 @@ const plainNames = (text) =>
   String(text ?? "").replace(/\bCP-[A-Z0-9]+\b/g, (code) => MODULE_NAMES[code] ?? code);
 
 const MISSING =
-  /^(not supplied\b|not calculated\b|not assessable\b|n\.?a\.?$|not available$|withheld\b|[—–-]$)/i;
+  /^(not supplied\b|not calculated\b|not assessable\b|not established\b|n\.?a\.?$|not available$|withheld\b|[—–-]$)/i;
 const isMissing = (text) => MISSING.test(norm(text));
 
 const MONTHS = {
@@ -120,6 +120,7 @@ function canonUnit(unit) {
   if (/^(us\$|usd|\$)(m|mn|mm|million|millions)$|^(usd|us\$)millions?$/.test(u)) return "$m";
   if (/^(us\$|usd|\$)$/.test(u)) return "$";
   if (/^(us\$|usd|\$)(bn|billion|billions)$/.test(u)) return "$bn";
+  if (/^%/.test(u)) return "%";
   return u.replace(/s$/, "");
 }
 const unitsAgree = (a, b) => !canonUnit(a) || !canonUnit(b) || canonUnit(a) === canonUnit(b);
@@ -148,7 +149,7 @@ function makeFact(fields) {
   const { tokens, periods } = takeNumbers(fields.text);
   const extra = new Set(fields.periods ?? []);
   for (const p of periods) extra.add(p);
-  return { ...fields, tokens, periods: extra, unit: fields.unit ?? tokens[0]?.unit ?? "" };
+  return { ...fields, tokens, periods: extra, unit: fields.unit ?? "" };
 }
 
 function parseHandoff(file, moduleId, repo) {
@@ -165,8 +166,8 @@ function parseHandoff(file, moduleId, repo) {
     if (/^## /.test(line)) {
       h2 = line.slice(3).trim();
       h3 = "";
-    } else if (/^### /.test(line)) {
-      h3 = line.slice(4).trim();
+    } else if (/^#{3,6} /.test(line)) {
+      h3 = line.replace(/^#{3,6} /, "").trim();
     } else if (/^\|/.test(line)) {
       const start = i;
       while (i + 1 < lines.length && /^\|/.test(lines[i + 1])) i++;
@@ -248,52 +249,44 @@ function makeScope(name, facts) {
 // ---------------------------------------------------------------------------------------------
 
 const FIXTURE_IGNORED_KEYS = new Set(["trace", "id", "kind", "moduleKind", "href", "evidenceItem", "moduleId", "key", "tone", "state"]);
+// keys whose strings are not drawn as text (ids, addresses, tones): left out of the "should show" check only
+const LABEL_KEYS = /^(label|measure|title|heading|name|indicator|risk|line|item|term|metric|id|gap|period|operand|facility|instrument)$/i;
 
-/** Every string and number leaf under `value`, with its JSON path and the strings beside it. */
-function leaves(value, base, file, out = [], skip = FIXTURE_IGNORED_KEYS) {
-  const walk = (node, p, parentKey, siblings) => {
+/** Every string, number and null leaf under `value`, with its JSON path, the strings beside it and the labels above it. */
+function leaves(value, base, file, out = [], skip = new Set()) {
+  const walk = (node, p, parentKey, siblings, gap, labels) => {
     if (typeof node === "string" || typeof node === "number") {
       const text = String(node);
       if (!text.trim()) return;
-      out.push({ path: p, key: parentKey, text, siblings });
+      out.push({ path: p, key: parentKey, text, siblings, labels, missing: gap, isString: typeof node === "string" });
+    } else if (node === null) {
+      out.push({ path: p, key: parentKey, text: "null", siblings, labels, missing: true, isString: false });
     } else if (Array.isArray(node)) {
-      node.forEach((item, k) => walk(item, `${p}/${k}`, parentKey, siblings));
-    } else if (node && typeof node === "object") {
-      const own = Object.entries(node)
-        .filter(([, v]) => typeof v === "string")
-        .map(([k, v]) => [k, v]);
+      node.forEach((item, k) => walk(item, `${p}/${k}`, parentKey, siblings, gap, labels));
+    } else if (typeof node === "object") {
+      const own = Object.entries(node).filter(([, v]) => typeof v === "string");
+      const mine = own.filter(([k]) => LABEL_KEYS.test(k)).map(([, v]) => v);
+      const here = [...mine, ...labels].slice(0, 4);
+      const isGap = gap || (typeof node.kind === "string" && /^(gap|withheld|missing|not-assessable)$/.test(node.kind));
       for (const [k, v] of Object.entries(node)) {
         if (skip.has(k)) continue;
-        walk(v, `${p}/${k}`, k, own);
+        walk(v, `${p}/${k}`, k, own, isGap, here);
       }
     }
   };
-  walk(value, base, "", []);
+  walk(value, base, "", [], false, []);
   return out.map((leaf) => ({ ...leaf, file }));
 }
 
-function fixtureFacts(object, base, file, ignored) {
-  const rows = leaves(object, base, file, [], ignored);
-  return rows.map((leaf) => {
-    const periodsFromSiblings = new Set();
+function fixtureFacts(object, base, file, skip = new Set()) {
+  return leaves(object, base, file, [], skip).map((leaf) => {
+    const periods = new Set();
     let unit;
     for (const [k, v] of leaf.siblings) {
-      if (/^(period|asOf|at)$/i.test(k)) for (const p of takePeriods(v).periods) periodsFromSiblings.add(p);
+      if (/^(period|asOf|at)$/i.test(k)) for (const p of takePeriods(v).periods) periods.add(p);
       if (/^unit$/i.test(k)) unit = v;
     }
-    const rowKey = leaf.siblings.find(([k]) => /^(label|measure|title|heading|name|indicator|risk|line|item|term)$/i.test(k))?.[1] ?? "";
-    return makeFact({
-      kind: "leaf",
-      file,
-      line: 0,
-      path: leaf.path,
-      rowKey,
-      header: leaf.key,
-      text: leaf.text,
-      periods: periodsFromSiblings,
-      unit,
-      loc: `${file}#${leaf.path}`,
-    });
+    return makeFact({ kind: "leaf", file, line: 0, path: leaf.path, rowKey: leaf.labels[0] ?? "", labels: leaf.labels, header: leaf.key, text: leaf.text, periods, unit, missing: leaf.missing, loc: `${file}#${leaf.path}` });
   });
 }
 
@@ -464,7 +457,9 @@ function headlineCheck(f, ctx) {
     const drawn = tokens[0];
     const wanted = takePeriods(prior.obj.Period).periods;
     const problems = [];
-    if (!drawn || drawn.value !== expected) problems.push(drawn && drawn.value.replace("-", "") === expected.replace("-", "") ? "sign" : "digits");
+    const expectedValue = expected.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+    if (!drawn || drawn.value !== expectedValue) problems.push(drawn && drawn.value.replace("-", "") === expectedValue.replace("-", "") ? "sign" : "digits");
+    else if (drawn.exact !== expected) problems.push("precision");
     if (drawn && drawn.unit && !unitsAgree(drawn.unit, unit)) problems.push("unit");
     if (!periodsAgree(periods, wanted)) problems.push("period");
     const source = { loc: `${priorFact.loc} and ${fact.loc}`, text: `${value} - ${prior.obj[header]} = ${expected}` };
@@ -475,6 +470,7 @@ function headlineCheck(f, ctx) {
     const cmp = compareValue(text, value);
     const problems = [...cmp.differs];
     if (tokens[0].unit && !unitsAgree(tokens[0].unit, unit)) problems.push("unit");
+    if (unit && !tokens[0].unit) problems.push("unit missing");
     return problems.length ? differing(fact, "headline value", [...new Set(problems)]) : matched(fact, "headline value (latest period of the CP-1 chart table)");
   }
   if (periods.size) {
@@ -561,9 +557,19 @@ function sameDigits(drawn, fact) {
   return compareValue(drawn, fact.text);
 }
 
-function conflictFree(f, fig, fact, figPeriods) {
-  const figUnit = f.kind === "cell" ? (f.unit ?? "") : (fig.tokens[0]?.unit ?? "");
-  return periodsAgree(figPeriods, fact.periods) && unitsAgree(figUnit, fact.unit);
+function labelSupport(f, fact) {
+  const wanted = labelKey(f.label ?? f.figure ?? "");
+  if (!wanted) return false;
+  const have = labelKey([fact.rowKey, ...(fact.labels ?? []), fact.header, fact.tableTitle, fact.text].join(" "));
+  const row = labelKey(fact.rowKey ?? "");
+  return have.includes(wanted) || (row.length > 2 && wanted.includes(row));
+}
+
+/** No period or unit conflict between a drawn token and the source item it is found in. */
+function conflictFree(f, fig, fact, figPeriods, token) {
+  const drawnUnit = token.unit || (f.kind === "cell" ? (f.unit ?? "") : "");
+  const sourceUnit = fact.unit || fact.tokens.find((t) => t.value === token.value)?.unit || "";
+  return periodsAgree(figPeriods, fact.periods) && unitsAgree(drawnUnit, sourceUnit);
 }
 
 /** Value search: every number token of the figure appears, with the same sign, in an item of the scope. */
@@ -579,8 +585,10 @@ function valueSearch(f, scope) {
     const exact = facts.filter((fact) => fact.tokens.some((t) => t.exact === token.exact));
     const pool = exact.length ? exact : facts;
     if (!exact.length && facts.length) precision = true;
-    const ok = pool.find((fact) => conflictFree(f, fig, fact, figPeriods));
-    if (!ok) return { found: false, conflicting: pool[0] ?? null, token };
+    // a bare small number ("0", "12") is in too many places: it needs the label beside it in the source
+    const weak = !token.unit && /^-?\d{1,2}$/.test(token.exact);
+    const ok = pool.find((fact) => conflictFree(f, fig, fact, figPeriods, token) && (!weak || labelSupport(f, fact)));
+    if (!ok) return { found: false, conflicting: pool[0] ?? null, token, weak };
     used.push(ok);
   }
   const same = used.find((fact) => fig.tokens.every((t) => fact.tokens.some((x) => x.value === t.value)));
@@ -617,10 +625,110 @@ function nearest(text, scope) {
   return best;
 }
 
+const PAGE_WORDS_WITH_DIGITS = [/^SHA-?256$/i, /^Compare with the .+ move$/i, /^n\.a\. means the figure is missing/i];
+
+/** Events of the scope: rows of the handoff tables headed "Events: ..." with their status and the year of the event date. */
+function eventRows(ctx) {
+  const modules = ctx.moduleId ? [ctx.handoffs.get(ctx.moduleId)] : [...ctx.handoffs.values()];
+  return modules.flatMap((h) => h?.tables.filter((t) => /^Events:/i.test(t.title)).flatMap((t) => t.rows.map((r) => ({ status: r.obj.Status ?? "", date: r.obj["Event date"] ?? "", loc: `${t.file}:${r.line}` }))) ?? []);
+}
+
+/** "Historical 9", "Scheduled 18": counts of event rows by status; "2025": a year an event falls in. */
+function eventCheck(f, ctx) {
+  const text = norm(f.text);
+  const count = /^(Historical|Scheduled|Scenario) (\d+)$/.exec(text);
+  const year = /^(19|20)\d{2}$/.test(text);
+  const status = /^(Historical|Scheduled|Scenario)$/.exec(text);
+  if (!count && !year && !status) return null;
+  const rows = eventRows(ctx);
+  if (!rows.length) return null;
+  const where = "web/src/pages/connected/visuals/EventLane.tsx and report/Calendar.tsx (events grouped by status and by year of the event date)";
+  if (count) {
+    const n = rows.filter((r) => fold(r.status).startsWith(fold(count[1]))).length;
+    const source = { loc: rows[0].loc.replace(/:\d+$/, ""), text: `${n} event row(s) with status ${count[1]}` };
+    return Number(count[2]) === n ? derived("event counts by status, recounted here from the Events tables", where, { source, verified: true }) : differing(null, "event count", ["digits"], { source });
+  }
+  if (status) {
+    const row = rows.find((r) => fold(r.status).startsWith(fold(status[1])));
+    return row ? derived("event status word, checked here against the Events tables' Status column", where, { source: { loc: row.loc, text: row.status }, verified: true }) : notFound("no event row has that status");
+  }
+  const hit = rows.find((r) => r.date.startsWith(text));
+  return hit ? derived("event year group, checked here against the Events tables' dates", where, { source: { loc: hit.loc, text: hit.date }, verified: true }) : notFound("no event date falls in that year");
+}
+
+const wordCount = (s) => norm(s).split(" ").filter(Boolean).length;
+
+/** First hit in the page's own fixture data, then in the rest of the run (weaker: the item is named). */
+function inPageThenRun(ctx, search) {
+  const here = search(ctx.scope);
+  if (here) return { ...here, wide: false };
+  const there = ctx.wide && ctx.wide !== ctx.scope ? search(ctx.wide) : null;
+  return there ? { ...there, wide: true } : null;
+}
+
+/** A static screen's figure against the fixture: the page's own data first, then the rest of the run. */
+function classifyStaticFigure(f, ctx) {
+  const text = norm(f.text);
+  const fig = figureTokens(f);
+  const named = (hit, via) => matched(hit.fact, hit.wide ? `${via} (elsewhere in this run, not in the page's own data)` : via);
+  if (isMissing(text)) {
+    const exact = inPageThenRun(ctx, (sc) => textSearch(text, sc));
+    if (exact) return named(exact, exact.via);
+    const any = inPageThenRun(ctx, (sc) => {
+      const hits = sc.facts.filter((fact) => fact.missing || isMissing(fact.text));
+      const best = hits.find((fact) => labelSupport(f, fact)) ?? hits[0];
+      return best ? { fact: best } : null;
+    });
+    return any ? named(any, "the fixture has a missing value, gap or null here (cell not identified)") : notFound("the fixture states no missing value in this run");
+  }
+  if (!fig.tokens.length && fig.periods.size) {
+    const hit = inPageThenRun(ctx, (sc) => ([...fig.periods].every((p) => sc.periods.has(p)) ? { fact: null } : null));
+    return hit ? named(hit, "period appears in the fixture") : notFound("period is in no fixture string of this run");
+  }
+  const words5 = wordCount(text) >= 5;
+  const exact = inPageThenRun(ctx, (sc) => textSearch(text, sc));
+  if (exact && !(exact.wide && !words5 && fig.tokens.length && labelledCandidates(f, ctx.scope).length)) return named(exact, exact.via);
+  if (words5) {
+    const near = inPageThenRun(ctx, (sc) => nearest(text, sc));
+    if (near) {
+      const cmp = compareValue(text, near.fact.text);
+      const numeric = cmp.differs.filter((d) => d !== "text");
+      return numeric.length ? differing(near.fact, "nearest sentence", numeric) : named(near, "reworded sentence (digits, signs, units and periods agree)");
+    }
+    return notFound("no fixture sentence like it");
+  }
+  // a short value: the fixture items carrying the same label on this page
+  const keyed = labelledCandidates(f, ctx.scope);
+  if (keyed.length) {
+    const results = keyed.map((fact) => ({ fact, cmp: compareValue(text, fact.text) }));
+    const hit = results.find((r) => r.cmp.ok);
+    if (hit) return matched(hit.fact, "same label in the page's data");
+    const first = results.find((r) => r.fact.header === "text" || r.fact.header === "value") ?? results[0];
+    return differing(first.fact, "same label in the page's data", first.cmp.differs.length ? first.cmp.differs : ["text"], { sourceAlternatives: keyed.slice(0, 4).map((x) => x.loc) });
+  }
+  const search = inPageThenRun(ctx, (sc) => {
+    const r = valueSearch(f, sc);
+    return r?.found ? r : null;
+  });
+  if (search) return named(search, search.oneItem ? "value in one fixture item" : "values in the fixture (not one item)");
+  return notFound(fig.tokens.length ? "value is in no fixture item of this run, and no fixture item on this page carries its label" : "text is in no fixture string of this run");
+}
+
+/** Numeric, short items of the page's fixture data that sit under the figure's label. */
+function labelledCandidates(f, scope) {
+  const lab = labelKey(f.label ?? "");
+  if (!lab || lab.length < 3) return [];
+  return scope.facts.filter((fact) => fact.tokens.length && wordCount(fact.text) <= 4 && (fact.labels ?? []).some((l) => labelKey(l) === lab));
+}
+
 function classifyFigure(f, ctx) {
   const text = norm(f.text);
   const scope = ctx.scope;
+  if (PAGE_WORDS_WITH_DIGITS.some((re) => re.test(text))) return derived("page wording with a digit", "a label or legend drawn by the page (algorithm name, comparison label); not a source value");
+  if (ctx.surface === "static") return classifyStaticFigure(f, ctx);
   if (ctx.surface === "connected") {
+    const events = eventCheck(f, ctx);
+    if (events) return events;
     if (isAxisTick(f)) return derived("chart axis scale", "web/src/pages/connected/visuals/visualData.ts ticks (value-axis ticks at round numbers)");
     const head = headlineCheck(f, ctx) ?? confidenceCheck(f, ctx);
     if (head) return head;
@@ -656,14 +764,19 @@ function classifyFigure(f, ctx) {
   const fig = figureTokens(f);
   if (!fig.tokens.length && fig.periods.size && !isMissing(text)) {
     const all = scope.periods;
-    return [...fig.periods].every((p) => all.has(p) || ctx.allPeriods?.has(p))
-      ? matched(null, "period appears in the source")
-      : notFound("period is in no source item of this scope");
+    if ([...fig.periods].every((p) => all.has(p) || ctx.allPeriods?.has(p))) return matched(null, "period appears in the source");
+    const fam = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
+    return fam ? derived(fam.name, fam.where) : notFound("period is in no source item of this scope");
   }
-  // 3. a missing marker
+  // 3. a missing marker: the source must state a missing value (a "Not supplied" cell, or in a fixture a null or gap)
   if (isMissing(text)) {
-    const hits = scope.facts.filter((fact) => isMissing(fact.text));
-    return hits.length ? matched(hits[0], "missing marker (source has a missing cell in this scope; cell not identified)") : notFound("the source has no missing value in this scope");
+    const exact = textSearch(text, scope);
+    if (exact) return matched(exact.fact, exact.via);
+    const fam = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
+    if (fam) return derived(fam.name, fam.where);
+    const hits = scope.facts.filter((fact) => fact.missing || isMissing(fact.text));
+    const near = hits.find((fact) => labelSupport(f, fact)) ?? hits[0];
+    return near ? matched(near, "the source has a missing value in this run (cell not identified)") : notFound("the source states no missing value in this scope");
   }
   // 4. text, then values
   const long = words(text).size >= 5;
@@ -682,6 +795,7 @@ function classifyFigure(f, ctx) {
   // 5. page-computed families
   const fam = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
   if (fam) return derived(fam.name, fam.where);
+  if (search && !search.found && search.weak) return notFound("a bare small number: not matched by value alone, and no source item carries its label");
   if (search && !search.found && search.conflicting) return notFound(`value in the source only with a different period or unit (${search.conflicting.loc})`);
   return notFound(long ? "no source sentence like it" : "value not in the source for this scope");
 }
@@ -696,17 +810,28 @@ const PAGE_WORDS = /^(delivered|delivered with gaps|not assessable|show less|sho
 function classifyText(kind, entry, ctx, kindOf) {
   const text = norm(entry.text);
   const outlineKind = kindOf.get(fold(text));
-  if (PAGE_WORDS.test(text) || (outlineKind && UI_KINDS.has(outlineKind) && words(text).size < 8)) {
+  if (PAGE_WORDS.test(text) || Object.values(MODULE_NAMES).includes(text) || (outlineKind && UI_KINDS.has(outlineKind) && words(text).size < 8)) {
     return derived("page wording", "label drawn by the page (heading, control, state word); not a source sentence");
   }
   const scope = ctx.scope;
-  const found = textSearch(text, scope);
-  if (found) return matched(found.fact, found.via);
+  if (PAGE_WORDS_WITH_DIGITS.some((re) => re.test(text))) return derived("page wording with a digit", "a label or legend drawn by the page; not a source value");
+  if (ctx.surface === "connected") {
+    const events = eventCheck({ text }, ctx);
+    if (events) return events;
+  }
+  const found = ctx.surface === "static" ? inPageThenRun(ctx, (sc) => textSearch(text, sc)) : textSearch(text, scope);
+  if (found) return matched(found.fact, found.wide ? `${found.via} (elsewhere in this run)` : found.via);
+  const pn = takeNumbers(text);
+  if (pn.periods.size && !pn.tokens.length && [...pn.periods].every((p) => scope.periods.has(p) || ctx.allPeriods?.has(p))) return matched(null, "period appears in the source");
+  if (isMissing(text)) {
+    const hits = scope.facts.filter((fact) => fact.missing || isMissing(fact.text));
+    if (hits.length) return matched(hits[0], "the source has a missing value in this run (cell not identified)");
+  }
   const files = ctx.fileNames;
   const opened = /^Open source file:\s*(.+)$/i.exec(text);
   const named = opened ? opened[1].trim() : text;
   if (files?.has(named)) return matched(null, opened ? "Open source file link wording over an uploaded file name" : "uploaded file name");
-  const near = nearest(text, scope);
+  const near = ctx.surface === "static" ? inPageThenRun(ctx, (sc) => nearest(text, sc)) : nearest(text, scope);
   if (near) return differing(near.fact, "nearest sentence", ["text"]);
   if (kind === "source") {
     const hasDigits = figureTokens({ text }).tokens.length > 0;
@@ -715,6 +840,8 @@ function classifyText(kind, entry, ctx, kindOf) {
       if (search?.found) return matched(search.fact, "values in the source");
     }
   }
+  const fam = ctx.surface === "connected" ? familyFor(ctx.screenId) : null;
+  if (fam) return derived(fam.name, fam.where);
   return notFound("no source sentence or file name like it");
 }
 
@@ -723,23 +850,23 @@ function classifyText(kind, entry, ctx, kindOf) {
 // ---------------------------------------------------------------------------------------------
 
 const collapse = (s) => norm(plainNames(s)).replace(/\s+/g, " ");
-const isBasisHeader = (h) => /basis|^sources?$|^evidence$/i.test(norm(h));
+const isBasisHeader = (h) => /\b(basis|sources?|evidence)\b/i.test(norm(h)) && !/gate/i.test(h);
 
 /** What the drawer for a handoff line should state, and the basis it should carry. */
 function drawerExpectation(h, line) {
   const block = h.blocks.find((b) => b.type !== "table" && b.type !== "basis" && b.line === line);
-  if (block) return { statement: collapse(block.text), pairs: null, basis: block.basis ? [collapse(block.basis)] : [], at: line };
+  if (block) return { statement: collapse(block.text), pairs: null, basis: block.basis ? [collapse(block.basis)] : [], rowCells: [], at: line };
   for (const table of h.tables) {
     if (table.line === line) {
       const basis = [];
       for (const row of table.rows) table.headers.forEach((hd, k) => isBasisHeader(hd) && row.cells[k] && basis.push(collapse(row.cells[k])));
-      return { statement: collapse(table.title), pairs: null, basis: [...new Set(basis)], at: line };
+      return { statement: collapse(table.title), pairs: null, basis: [...new Set(basis)], rowCells: table.rows.flatMap((r) => r.cells.filter(Boolean).map(collapse)), at: line };
     }
     const row = table.rows.find((r) => r.line === line);
     if (row) {
       const pairs = table.headers.map((hd, k) => (row.cells[k] ? collapse(`${hd} — ${row.cells[k]}`) : "")).filter(Boolean);
       const basis = table.headers.flatMap((hd, k) => (isBasisHeader(hd) && row.cells[k] ? [collapse(row.cells[k])] : []));
-      return { statement: pairs.join(" "), pairs, basis: [...new Set(basis)], at: line };
+      return { statement: pairs.join(" "), pairs, basis: [...new Set(basis)], rowCells: row.cells.filter(Boolean).map(collapse), at: line };
     }
   }
   return null;
@@ -755,13 +882,21 @@ function statementAgrees(drawn, expected) {
   return pos >= text.length;
 }
 
-function basisAgrees(drawnItem, expected) {
+/** Basis: every basis cell of the row is in the drawer, and whatever else the drawer lists is another cell of the row. */
+function basisAgrees(drawnItem, expected, rowCells, drawerText) {
   const drawn = collapse(drawnItem ?? "");
   const none = /^Basis was not recorded for this item/i.test(drawn) || drawn === "";
-  if (!expected.length) return none || null;
+  // no Basis line in the drawer: the row's basis cells may still be stated in the drawer's own statement
+  if (drawn === "" && expected.length && expected.every((v) => collapse(drawerText).includes(v))) return true;
+  if (!expected.length) {
+    if (none) return true;
+    let rest = drawn.replace(/^Basis\s*/i, "");
+    for (const value of [...rowCells].sort((a, b) => b.length - a.length)) rest = rest.replace(value, " ");
+    return rest.trim() === "" ? true : null;
+  }
   if (none) return false;
   let rest = drawn.replace(/^Basis\s*/i, "");
-  for (const value of expected) rest = rest.replace(value, " ");
+  for (const value of [...expected, ...rowCells].sort((a, b) => b.length - a.length)) rest = rest.replace(value, " ");
   return rest.trim() === "" && expected.every((v) => drawn.includes(v));
 }
 
@@ -804,12 +939,16 @@ function connectedDrawerItems(screen, ctx, base) {
   }
   for (const p of parsed) {
     const entry = { ...base, kind: "drawer", view: "drawer", section: norm(p.d.drawer.title), label: norm(p.d.control), text: norm(p.parts.statement ?? "").slice(0, 160) };
+    const fam = familyFor(ctx.screenId);
     if (!p.h || p.parts.line === null) {
-      out.push({ ...entry, ...notFound("the drawer names no module handoff line") });
+      const paired = /^changes--paired-run-fixture/.test(ctx.screenId) ? takeNumbers(p.parts.statement ?? "").tokens : [];
+      if (paired.length && paired.every((t) => ctx.scope.byValue.has(t.value))) out.push({ ...entry, ...matched(ctx.scope.byValue.get(paired[0].value)[0], "paired-run fixture values (connected-proof.mjs injects them)") });
+      else out.push({ ...entry, ...notFound("the drawer names no module handoff line") });
       continue;
     }
     if (!p.candidates.length) {
-      out.push({ ...entry, ...notFound(`statement is on no line of ${p.h.file}`, { drawerLine: p.parts.line }) });
+      const hasNumber = takeNumbers(p.parts.statement ?? "").tokens.length > 0;
+      out.push({ ...entry, ...(fam && !hasNumber ? derived(fam.name, fam.where) : notFound(`statement is on no line of ${p.h.file}`, { drawerLine: p.parts.line })) });
       continue;
     }
     const mode = modes.get(p.id);
@@ -819,7 +958,7 @@ function connectedDrawerItems(screen, ctx, base) {
       out.push({ ...entry, ...differing({ loc: `${p.h.file}:${at.line}`, text: at.expectation.statement }, "drawer handoff line", ["source line"], { drawerLine: p.parts.line, note: `the drawer says line ${p.parts.line}; the statement is at ${p.h.file}:${at.line}, and the module's lines are numbered ${mode} higher` }) });
       continue;
     }
-    const basisOk = basisAgrees(p.parts.basis, hit.expectation.basis);
+    const basisOk = basisAgrees(p.parts.basis, hit.expectation.basis, hit.expectation.rowCells, p.d.drawer.outline.map((o) => o.text).join(" "));
     const fact = { loc: `${p.h.file}:${hit.line}`, text: hit.expectation.statement };
     const extra = { drawerLine: p.parts.line, lineOffset: mode };
     if (basisOk === false) out.push({ ...entry, ...differing(fact, "drawer basis", ["basis"], { ...extra, note: `source basis: ${hit.expectation.basis.join(" | ") || "none"}; drawer: ${collapse(p.parts.basis ?? "none")}` }) });
@@ -839,7 +978,7 @@ function staticDrawerItems(screen, ctx, base) {
     const lines = outline.filter((o) => o.kind === "item" || o === statementEntry);
     for (const line of lines) {
       const entry = { ...base, kind: "drawer", view: "drawer", section: norm(d.drawer.title), label: norm(d.control), text: norm(line.text).slice(0, 160) };
-      const found = textSearch(line.text, ctx.scope);
+      const found = textSearch(line.text, ctx.wide);
       out.push({ ...entry, ...(found ? matched(found.fact, found.via) : notFound("no fixture string equals or contains it")) });
     }
     void parts;
@@ -861,8 +1000,13 @@ function analyseScreen(sc, world) {
   const { entry, screen, surface } = sc;
   const id = entry.id;
   const base = { surface, screen: id };
-  const moduleMatch = /^modules--(CP-[A-Z0-9]+)$/.exec(id);
-  const ctx = surface === "connected" ? world.connectedContext(id, moduleMatch?.[1] ?? null) : world.staticContext(id);
+  let moduleId = /^modules--(CP-[A-Z0-9]+)$/.exec(id)?.[1] ?? null;
+  if (id === "modules--default") {
+    // the Modules tab opens on one module: the page heading after the issuer name says which
+    const names = new Map(Object.entries(MODULE_NAMES).map(([code, name]) => [name, code]));
+    moduleId = (screen.page?.headings ?? []).map((h) => names.get(h)).find(Boolean) ?? null;
+  }
+  const ctx = surface === "connected" ? world.connectedContext(id, moduleId) : world.staticContext(id);
   const kindOf = new Map();
   for (const o of outlineTexts(screen)) {
     const key = fold(o.text);
@@ -957,7 +1101,7 @@ function staticOmissions(world) {
         const blob = blobOf(screenId);
         for (const leaf of leaves(object, base, "web/fixtures/library.json", [], STATIC_HIDDEN)) {
           const text = norm(leaf.text);
-          if (typeof leaf.text !== "string" || text.length < 3 || /^[a-z0-9-]+$/.test(text) || /^\d+$/.test(text)) continue;
+          if (!leaf.isString || leaf.missing || text.length < 3 || /^[a-z0-9-]+$/.test(text) || /^\d+$/.test(text)) continue;
           const key = numKey(text);
           if (blob?.joined.includes(key)) continue;
           out.push({ surface: "static", screen: screenId, onCapturedScreen: Boolean(blob), itemKind, section: leaf.key, text: text.slice(0, 200), source: { loc: `web/fixtures/library.json#${leaf.path}` }, verdict: blob ? "not drawn" : "screen not captured" });
@@ -975,38 +1119,440 @@ function staticOmissions(world) {
 // Static scopes
 // ---------------------------------------------------------------------------------------------
 
+/** The fixture subtrees a static screen is drawn from (narrow) and the whole run (wide). */
 function staticScopeFor(id, library, model, cache) {
-  const get = (key, make) => cache.get(key) ?? (cache.set(key, makeScope(key, make())), cache.get(key));
+  const memo = (key, make) => cache.get(key) ?? (cache.set(key, makeScope(key, make())), cache.get(key));
+  const lib = "web/fixtures/library.json";
   const parts = id.split("--");
+  const facts = (obj, base, file) => [...fixtureFacts(obj, base, file), ...compositeFacts(obj, base)];
   if (parts[0] === "library") {
-    if (parts[1] === "home") return get("library-home", () => fixtureFacts(library.slice.home, "/slice/home", "web/fixtures/library.json", FIXTURE_IGNORED_KEYS));
+    if (parts[1] === "home") {
+      const all = memo("library-home", () => facts(library.slice.home, "/slice/home", lib));
+      return { narrow: all, wide: all };
+    }
     const issuerIndex = library.slice.issuers.findIndex((i) => i.id === parts[1]);
     const issuer = library.slice.issuers[issuerIndex];
-    if (parts[2] === "history") return get(`history-${parts[1]}`, () => fixtureFacts(issuer.history, `/slice/issuers/${issuerIndex}/history`, "web/fixtures/library.json", FIXTURE_IGNORED_KEYS));
+    if (parts[2] === "history") {
+      const all = memo(`history-${parts[1]}`, () => facts(issuer.history, `/slice/issuers/${issuerIndex}/history`, lib));
+      return { narrow: all, wide: all };
+    }
     const runIndex = issuer?.runs.findIndex((r) => r.id === parts[2]);
     const run = issuer?.runs[runIndex];
-    if (run) return get(`${parts[1]}-${parts[2]}`, () => [...fixtureFacts(run, `/slice/issuers/${issuerIndex}/runs/${runIndex}`, "web/fixtures/library.json", FIXTURE_IGNORED_KEYS), ...compositeFacts(run, `/slice/issuers/${issuerIndex}/runs/${runIndex}`)]);
+    if (run) {
+      const base = `/slice/issuers/${issuerIndex}/runs/${runIndex}`;
+      const wide = memo(`${parts[1]}-${parts[2]}`, () => facts(run, base, lib));
+      const page = parts[3];
+      const sub = (key, obj, path) => memo(`${parts[1]}-${parts[2]}-${key}`, () => [...facts(run.head, `${base}/head`, lib), ...facts(obj, `${base}/${path}`, lib)]);
+      if (page === "overview") return { narrow: sub("overview", run.overview, "overview"), wide };
+      if (page === "changes") return { narrow: sub("changes", run.changes, "changes"), wide };
+      if (page === "modules" && parts[4]) {
+        const k = run.modules.findIndex((m) => m.id === parts[4]);
+        if (k >= 0) return { narrow: sub(`module-${parts[4]}`, run.modules[k], `modules/${k}`), wide };
+      }
+      if (page === "modules") return { narrow: sub("modules", run.modules, "modules"), wide };
+      if (page === "evidence" && run.evidence?.[parts[4]]) return { narrow: memo(`${parts[1]}-${parts[2]}-evidence-${parts[4]}`, () => [...facts(run.head, `${base}/head`, lib), ...facts(run.evidence[parts[4]], `${base}/evidence/${parts[4]}`, lib), ...facts(run.traces, `${base}/traces`, lib)]), wide };
+      return { narrow: wide, wide };
+    }
   }
   if (parts[0] === "model") {
-    if (parts[1] === "runs") return get("model-runs", () => fixtureFacts(model.slice, "/slice", "web/fixtures/model.json", FIXTURE_IGNORED_KEYS));
+    const mod = "web/fixtures/model.json";
+    if (parts[1] === "runs") {
+      const all = memo("model-runs", () => facts(model.slice, "/slice", mod));
+      return { narrow: all, wide: all };
+    }
     const runIndex = model.slice.runs.findIndex((r) => r.issuer === parts[1] && r.run === parts[2]);
-    if (runIndex >= 0) return get(`model-${parts[1]}-${parts[2]}`, () => fixtureFacts(model.slice.runs[runIndex], `/slice/runs/${runIndex}`, "web/fixtures/model.json", FIXTURE_IGNORED_KEYS));
+    if (runIndex >= 0) {
+      const run = model.slice.runs[runIndex];
+      const base = `/slice/runs/${runIndex}`;
+      const wide = memo(`model-${parts[1]}-${parts[2]}`, () => facts(run, base, mod));
+      const page = parts[3];
+      if (run[page]) return { narrow: memo(`model-${parts[1]}-${parts[2]}-${page}`, () => [...facts(run.header ?? {}, `${base}/header`, mod), ...facts(run[page], `${base}/${page}`, mod)]), wide };
+      return { narrow: wide, wide };
+    }
   }
-  return makeScope("empty", []);
+  const empty = memo("empty", () => []);
+  return { narrow: empty, wide: empty };
 }
 
-/** A derivation node {label, value, note} is drawn as "label value note": make that a source string too. */
+/** An object drawn as "a b" (label and value, severity and count): every pair of its short string props is a source string too. */
 function compositeFacts(object, base) {
   const out = [];
   const walk = (node, p) => {
     if (Array.isArray(node)) node.forEach((x, k) => walk(x, `${p}/${k}`));
     else if (node && typeof node === "object") {
-      if (typeof node.label === "string" && typeof node.value === "string") {
-        for (const text of [`${node.label} ${node.value}`, `${node.label} ${node.value} ${node.note ?? ""}`.trim()]) out.push(makeFact({ kind: "leaf", file: "web/fixtures/library.json", line: 0, path: p, rowKey: node.label, header: "derivation", text, loc: `web/fixtures/library.json#${p}` }));
+      const own = Object.entries(node).filter(([, v]) => (typeof v === "string" || typeof v === "number") && String(v).length <= 80);
+      if (own.length >= 2 && own.length <= 8) {
+        for (let i = 0; i < own.length; i++) {
+          for (let j = 0; j < own.length; j++) {
+            if (i === j) continue;
+            const text = `${own[i][1]} ${own[j][1]}`;
+            out.push(makeFact({ kind: "leaf", file: "web/fixtures/library.json", line: 0, path: p, rowKey: String(own[0][1]), header: `${own[i][0]} ${own[j][0]}`, text, loc: `web/fixtures/library.json#${p}` }));
+          }
+        }
+        const note = typeof node.note === "string" && typeof node.label === "string" && typeof node.value === "string" ? `${node.label} ${node.value} ${node.note}` : null;
+        if (note) out.push(makeFact({ kind: "leaf", file: "web/fixtures/library.json", line: 0, path: p, rowKey: node.label, header: "derivation", text: note, loc: `web/fixtures/library.json#${p}` }));
       }
       for (const [k, v] of Object.entries(node)) walk(v, `${p}/${k}`);
     }
   };
   walk(object, base);
   return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The world: sources, scopes, contexts
+// ---------------------------------------------------------------------------------------------
+
+function parseModuleNames(repo) {
+  const text = fs.readFileSync(path.join(repo, "web/src/pages/connected/api.ts"), "utf8");
+  const block = /const MODULE_NAMES[^=]*=\s*\{([\s\S]*?)\};/.exec(text)?.[1] ?? "";
+  return Object.fromEntries([...block.matchAll(/"(CP-[A-Z0-9]+)":\s*"([^"]+)"/g)].map((m) => [m[1], m[2]]));
+}
+
+/** What connected-proof.mjs injects for the two paired-run screens (checkChangesTrace); not a run. */
+function pairedFixtureFacts() {
+  const file = "web/scripts/connected-proof.mjs";
+  const make = (text, header, rowKey, unit, periods) => makeFact({ kind: "run", file, line: 0, rowKey, header, tableTitle: "Debt maturity schedules", text, unit, periods: new Set(periods ?? []), loc: `${file}: checkChangesTrace fixture (${rowKey} ${header})` });
+  return [
+    make("600", "Earlier", "Net debt", "US$m"),
+    make("550", "Current", "Net debt", "US$m"),
+    make("-50", "Difference", "Net debt", "US$m"),
+    make("0", "prior", "FY2026", "US$m", ["FY2026"]),
+    make("500", "current", "FY2026", "US$m", ["FY2026"]),
+    make("0.00", "Debt maturing", "FY2026", "US$m", ["FY2026"]),
+    make("FY2026", "Period", "FY2026", "", ["FY2026"]),
+    make("FY2027", "Period", "FY2027", "", ["FY2027"]),
+  ];
+}
+
+function buildWorld(repo, screens) {
+  MODULE_NAMES = parseModuleNames(repo);
+  const dir = path.join(repo, "proof/handoffs");
+  const handoffs = new Map();
+  for (const name of fs.readdirSync(dir).filter((n) => n.endsWith(".md")).sort()) {
+    const id = name.replace(/\.md$/, "");
+    handoffs.set(id, parseHandoff(path.join(dir, name), id, repo));
+  }
+  const moduleScopes = new Map([...handoffs].map(([id, h]) => [id, makeScope(id, h.facts)]));
+  const allFacts = [...handoffs.values()].flatMap((h) => h.facts);
+  const allScope = makeScope("all handoffs", allFacts);
+  const pairedScope = makeScope("all handoffs and the paired-run fixture", [...allFacts, ...pairedFixtureFacts()]);
+  const runScope = makeScope("run request", runRequestFacts(handoffs.size));
+  const pairedRunScope = makeScope("run request (paired fixture)", runRequestFacts(handoffs.size + 1));
+  const uploads = fs.readdirSync(path.join(repo, "proof")).filter((n) => /^northbridge-/.test(n));
+  const fileNames = new Set([...uploads, ...[...allFacts.map((f) => f.text.match(/[\w.-]+\.(?:txt|xlsx|md|pdf)\b/g) ?? [])].flat()]);
+  const hashes = new Set(uploads.map((n) => sha256(fs.readFileSync(path.join(repo, "proof", n)))));
+  const fixtures = {};
+  for (const name of ["library", "model"]) fixtures[name] = JSON.parse(fs.readFileSync(path.join(repo, "web/fixtures", `${name}.json`), "utf8"));
+  const cache = new Map();
+  return {
+    repo,
+    screens,
+    handoffs,
+    fixtures,
+    library: fixtures.library,
+    model: fixtures.model,
+    uploadHashes: hashes,
+    connectedContext(screenId, moduleId) {
+      const paired = /^changes--paired-run-fixture/.test(screenId);
+      return {
+        surface: "connected",
+        screenId,
+        page: screenId.split("--")[0],
+        moduleId,
+        scope: moduleId ? moduleScopes.get(moduleId) : paired ? pairedScope : allScope,
+        runScope: paired ? pairedRunScope : runScope,
+        handoffs,
+        allPeriods: allScope.periods,
+        fileNames,
+        hashes,
+      };
+    },
+    staticContext(screenId) {
+      const { narrow, wide } = staticScopeFor(screenId, fixtures.library, fixtures.model, cache);
+      return { surface: "static", screenId, page: screenId.split("--").at(-1), scope: narrow, wide, fileNames: new Set() };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Counts, JSON and Markdown
+// ---------------------------------------------------------------------------------------------
+
+const countBy = (items, keyOf) => {
+  const out = {};
+  for (const item of items) {
+    const key = keyOf(item);
+    out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
+};
+const zeroed = () => Object.fromEntries(CLASSES.map((c) => [c, 0]));
+
+function summarise(items, omissions, screens) {
+  const surfaces = {};
+  for (const surface of [...new Set(items.map((i) => i.surface))].sort()) {
+    const mine = items.filter((i) => i.surface === surface);
+    const byKind = {};
+    for (const kind of [...new Set(mine.map((i) => i.kind))].sort()) byKind[kind] = { ...zeroed(), ...countBy(mine.filter((i) => i.kind === kind), (i) => i.class), total: mine.filter((i) => i.kind === kind).length };
+    surfaces[surface] = { screens: screens.filter((s) => s.surface === surface).length, items: mine.length, byClass: { ...zeroed(), ...countBy(mine, (i) => i.class) }, byKind, omissions: omissions.filter((o) => o.surface === surface).length };
+  }
+  const perScreen = screens.map((s) => {
+    const mine = items.filter((i) => i.screen === s.entry.id && i.surface === s.surface);
+    const c = { ...zeroed(), ...countBy(mine, (i) => i.class) };
+    return { surface: s.surface, screen: s.entry.id, items: mine.length, [MATCH]: c[MATCH], [DERIVED]: c[DERIVED], [NOT_FOUND]: c[NOT_FOUND], [DIFFERS]: c[DIFFERS], omitted: omissions.filter((o) => o.screen === s.entry.id && o.surface === s.surface).length };
+  });
+  return { surfaces, perScreen };
+}
+
+function jsonLines(report) {
+  const lines = ["{"];
+  const keys = Object.keys(report);
+  keys.forEach((key, k) => {
+    const value = report[key];
+    const comma = k < keys.length - 1 ? "," : "";
+    if (Array.isArray(value)) {
+      lines.push(`  ${JSON.stringify(key)}: [`);
+      value.forEach((item, j) => lines.push(`    ${JSON.stringify(item)}${j < value.length - 1 ? "," : ""}`));
+      lines.push(`  ]${comma}`);
+    } else lines.push(`  ${JSON.stringify(key)}: ${JSON.stringify(value)}${comma}`);
+  });
+  lines.push("}");
+  return lines.join("\n") + "\n";
+}
+
+const cell = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+const row = (...cells) => `| ${cells.map(cell).join(" | ")} |`;
+
+function markdown(report) {
+  const out = [];
+  const { counts } = report;
+  out.push(`# Handoff comparison: ${report.capture.folder}`, "");
+  out.push(`Capture tree ${report.capture.tree?.commit?.slice(0, 8) ?? "?"} (${report.capture.tree?.branch ?? "?"}), web/dist ${report.capture.tree?.webDistSha256?.slice(0, 12) ?? "?"}; rules version ${report.rulesVersion}; made by \`compare.mjs\`. Sources: connected screens against \`proof/handoffs/*.md\` and the run request; static screens against \`web/fixtures/library.json\` and \`model.json\`. Rules: README.md, "Comparison".`, "");
+  out.push("## Counts per surface and class", "");
+  out.push(row("Surface", "Screens", "Items", ...CLASSES, "Source items not on screen"), row("---", "---:", "---:", ...CLASSES.map(() => "---:"), "---:"));
+  for (const [surface, c] of Object.entries(counts.surfaces)) out.push(row(surface, c.screens, c.items, ...CLASSES.map((k) => c.byClass[k]), c.omissions));
+  const total = counts.total;
+  out.push(row("**Total**", total.screens, total.items, ...CLASSES.map((k) => total.byClass[k]), total.omissions), "");
+  out.push("## Counts per surface, kind and class", "");
+  out.push(row("Surface", "Kind", "Items", ...CLASSES), row("---", "---", "---:", ...CLASSES.map(() => "---:")));
+  for (const [surface, c] of Object.entries(counts.surfaces)) for (const [kind, k] of Object.entries(c.byKind)) out.push(row(surface, kind, k.total, ...CLASSES.map((x) => k[x])));
+  out.push("", "Kinds: figure = a drawn value (page view or a chart's Table view); source = a source line on screen; limitation = a limitation sentence; drawer = what a source drawer states (statement, handoff line, basis).", "");
+  out.push(`## ${DIFFERS} (${report.differences.length})`, "");
+  if (!report.differences.length) out.push("None.", "");
+  else {
+    out.push(row("#", "Screen", "Kind", "Figure (as drawn)", "Where on the screen", "What differs", "Source location", "Source says"), row("---", "---", "---", "---", "---", "---", "---", "---"));
+    report.differences.forEach((d, k) => out.push(row(k + 1, d.screen, d.kind, d.text, [d.section ? lastSegment(d.section) : "", d.label, d.column, d.period].filter(Boolean).join(" / "), (d.differs ?? []).join(", "), d.source?.loc ?? "", `${d.source?.text ?? ""}${d.note ? ` (${d.note})` : ""}`)));
+    out.push("");
+  }
+  out.push("## Per screen (screens with a difference, a not-found item or an omitted source item)", "");
+  out.push(row("Surface", "Screen", "Items", ...CLASSES, "Omitted"), row("---", "---", "---:", ...CLASSES.map(() => "---:"), "---:"));
+  const noisy = report.perScreen.filter((s) => s[DIFFERS] || s[NOT_FOUND] || s.omitted);
+  for (const s of noisy) out.push(row(s.surface, s.screen, s.items, ...CLASSES.map((c) => s[c]), s.omitted));
+  out.push("", `${report.perScreen.length - noisy.length} further screens have only "${MATCH}" and "${DERIVED}" items and no omitted source item.`, "");
+  out.push("## Derived items, by computation", "");
+  out.push(row("Surface", "Computation", "Items", "Verified here"), row("---", "---", "---:", "---"));
+  for (const d of report.derivedSummary) out.push(row(d.surface, d.name, d.count, d.verified ? "yes" : "no (named only)"));
+  out.push("", "## Source items a screen should show and does not", "");
+  out.push(row("Surface", "Module or screen", "Item kind", "Items"), row("---", "---", "---", "---:"));
+  for (const o of report.omissionSummary) out.push(row(o.surface, o.where, o.itemKind, o.count));
+  out.push("", "The full list, with source location, what is missing and where else the text is drawn, is `omissions` in the JSON file.", "");
+  out.push(`Not verified: see README.md, "Comparison", end of section.`, "");
+  return out.join("\n");
+}
+
+function derivedSummary(items) {
+  const map = new Map();
+  for (const i of items.filter((x) => x.class === DERIVED)) {
+    const key = `${i.surface}|${i.derived.name}`;
+    const cur = map.get(key) ?? { surface: i.surface, name: i.derived.name, count: 0, verified: true };
+    cur.count++;
+    cur.verified = cur.verified && Boolean(i.derived.verified ?? i.verified);
+    map.set(key, cur);
+  }
+  return [...map.values()].sort((a, b) => a.surface.localeCompare(b.surface) || b.count - a.count || a.name.localeCompare(b.name));
+}
+
+function omissionSummary(omissions) {
+  const map = new Map();
+  for (const o of omissions) {
+    const where = o.surface === "connected" ? o.module : o.screen;
+    const key = `${o.surface}|${where}|${o.itemKind}`;
+    map.set(key, { surface: o.surface, where, itemKind: o.itemKind, count: (map.get(key)?.count ?? 0) + 1 });
+  }
+  return [...map.values()];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Diff mode
+// ---------------------------------------------------------------------------------------------
+
+function keyed(list, keyOf) {
+  const seen = new Map();
+  const out = new Map();
+  for (const item of list) {
+    const base = keyOf(item);
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    out.set(`${base}#${n}`, item);
+  }
+  return out;
+}
+const itemKey = (i) => [i.screen, i.kind, i.view, i.section, i.label ?? "", i.column ?? "", i.text].join("|");
+const omissionKey = (o) => [o.screen, o.source?.loc ?? "", o.itemKind].join("|");
+
+function diffReports(before, after) {
+  const out = [];
+  const b = keyed(before.items, itemKey);
+  const a = keyed(after.items, itemKey);
+  const classOf = (m, k) => m.get(k)?.class;
+  const newDiff = [...a].filter(([k, v]) => v.class === DIFFERS && classOf(b, k) !== DIFFERS);
+  const goneDiff = [...b].filter(([k, v]) => v.class === DIFFERS && classOf(a, k) !== DIFFERS);
+  const bo = keyed(before.omissions, omissionKey);
+  const ao = keyed(after.omissions, omissionKey);
+  const newOmit = [...ao].filter(([k]) => !bo.has(k));
+  const goneOmit = [...bo].filter(([k]) => !ao.has(k));
+  const screensB = new Set(before.perScreen.map((s) => `${s.surface}/${s.screen}`));
+  const screensA = new Set(after.perScreen.map((s) => `${s.surface}/${s.screen}`));
+  out.push(`# Comparison diff: ${before.capture.folder} -> ${after.capture.folder}`, "");
+  out.push(`Before: tree ${before.capture.tree?.commit?.slice(0, 8) ?? "?"}, web/dist ${before.capture.tree?.webDistSha256?.slice(0, 12) ?? "?"}. After: tree ${after.capture.tree?.commit?.slice(0, 8) ?? "?"}, web/dist ${after.capture.tree?.webDistSha256?.slice(0, 12) ?? "?"}.`, "");
+  if (JSON.stringify(before.sources) !== JSON.stringify(after.sources)) out.push("The sources differ between the two comparisons (handoffs or fixtures changed); read every difference against that.", "");
+  out.push("## Counts", "", row("Surface", "Class", "Before", "After", "Change"), row("---", "---", "---:", "---:", "---:"));
+  for (const surface of [...new Set([...Object.keys(before.counts.surfaces), ...Object.keys(after.counts.surfaces)])].sort()) {
+    for (const cls of CLASSES) {
+      const x = before.counts.surfaces[surface]?.byClass[cls] ?? 0;
+      const y = after.counts.surfaces[surface]?.byClass[cls] ?? 0;
+      out.push(row(surface, cls, x, y, y - x > 0 ? `+${y - x}` : y - x));
+    }
+    const ox = before.counts.surfaces[surface]?.omissions ?? 0;
+    const oy = after.counts.surfaces[surface]?.omissions ?? 0;
+    out.push(row(surface, "source items not on screen", ox, oy, oy - ox > 0 ? `+${oy - ox}` : oy - ox));
+  }
+  const grew = newDiff.length > 0 || newOmit.length > 0;
+  out.push("", `## Verdict`, "", grew ? `GREW: ${newDiff.length} new "${DIFFERS}" item(s) and ${newOmit.length} new omitted source item(s). Each is listed below and must be explained or repaired.` : `No new "${DIFFERS}" item and no new omitted source item.`, "");
+  const list = (title, entries, fields) => {
+    out.push(`## ${title} (${entries.length})`, "");
+    if (!entries.length) out.push("None.", "");
+    else {
+      out.push(row(...fields.map((f) => f[0])), row(...fields.map(() => "---")));
+      for (const [, v] of entries) out.push(row(...fields.map((f) => f[1](v))));
+      out.push("");
+    }
+  };
+  const itemFields = [["Screen", (v) => v.screen], ["Kind", (v) => v.kind], ["As drawn", (v) => v.text], ["Where", (v) => [v.section ? lastSegment(v.section) : "", v.label, v.column].filter(Boolean).join(" / ")], ["What differs", (v) => (v.differs ?? []).join(", ")], ["Source", (v) => `${v.source?.loc ?? ""} ${v.source?.text ?? ""}`]];
+  list(`New "${DIFFERS}" items (in the after, not in the before)`, newDiff, itemFields);
+  list(`"${DIFFERS}" items that are gone (resolved, or the drawn text changed so the item has a new identity)`, goneDiff, itemFields);
+  const omitFields = [["Screen", (v) => v.screen], ["Item", (v) => `${v.itemKind}: ${v.text}`], ["Source", (v) => v.source?.loc ?? ""], ["Verdict", (v) => v.verdict]];
+  list("Source items newly not on screen", newOmit, omitFields);
+  list("Source items no longer missing", goneOmit, omitFields);
+  const moved = [];
+  for (const [k, v] of a) {
+    const was = classOf(b, k);
+    if (was && was !== v.class && v.class !== DIFFERS && was !== DIFFERS) moved.push([k, { ...v, was }]);
+  }
+  list("Items whose class changed (other than into or out of the difference class)", moved, [["Screen", (v) => v.screen], ["As drawn", (v) => v.text], ["Was", (v) => v.was], ["Now", (v) => v.class]]);
+  out.push("## Screens", "");
+  out.push(`In the before only: ${[...screensB].filter((s) => !screensA.has(s)).join(", ") || "none"}.`, "");
+  out.push(`In the after only: ${[...screensA].filter((s) => !screensB.has(s)).join(", ") || "none"}.`, "");
+  const bs = new Map(before.perScreen.map((s) => [`${s.surface}/${s.screen}`, s]));
+  const rows = [];
+  for (const s of after.perScreen) {
+    const was = bs.get(`${s.surface}/${s.screen}`);
+    if (!was) continue;
+    const delta = (c) => s[c] - was[c];
+    if (delta(DIFFERS) || delta(NOT_FOUND) || s.omitted - was.omitted) rows.push(row(s.surface, s.screen, `${was[DIFFERS]} -> ${s[DIFFERS]}`, `${was[NOT_FOUND]} -> ${s[NOT_FOUND]}`, `${was.omitted} -> ${s.omitted}`));
+  }
+  out.push("", "Screens whose differences, not-found items or omitted source items changed:", "");
+  if (rows.length) out.push(row("Surface", "Screen", DIFFERS, NOT_FOUND, "Omitted"), row("---", "---", "---", "---", "---"), ...rows);
+  else out.push("None.");
+  out.push("");
+  return { text: out.join("\n"), grew };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------------------------
+
+function parseArgs(argv) {
+  const args = { positional: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--diff") args.diff = true;
+    else if (a === "--out" || a === "--name" || a === "--repo") args[a.slice(2)] = argv[++i];
+    else args.positional.push(a);
+  }
+  return args;
+}
+
+function findRepo(explicit) {
+  if (explicit) return path.resolve(explicit);
+  let dir = HERE;
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, "proof/handoffs")) && fs.existsSync(path.join(dir, "web/fixtures"))) return dir;
+    dir = path.dirname(dir);
+  }
+  throw new Error("cannot find the repository root (proof/handoffs and web/fixtures); pass --repo");
+}
+
+function compareCapture(folder, repo) {
+  const capture = loadCapture(folder);
+  const world = buildWorld(repo, capture.screens.sort((x, y) => x.surface.localeCompare(y.surface) || x.entry.id.localeCompare(y.entry.id)));
+  const items = world.screens.flatMap((sc) => analyseScreen(sc, world));
+  for (const item of items) if (!CLASSES.includes(item.class)) throw new Error(`unclassified item on ${item.screen}: ${item.text}`);
+  const surfaces = new Set(world.screens.map((s) => s.surface));
+  const omissions = [...(surfaces.has("connected") ? connectedOmissions(world) : []), ...(surfaces.has("static") ? staticOmissions(world) : [])];
+  const summary = summarise(items, omissions, world.screens);
+  const total = { screens: world.screens.length, items: items.length, byClass: { ...zeroed(), ...countBy(items, (i) => i.class) }, omissions: omissions.length };
+  const rel = (p) => path.relative(repo, p).split(path.sep).join("/");
+  const sources = {
+    handoffs: Object.fromEntries([...world.handoffs].map(([id, h]) => [id, { file: h.file, sha256: h.sha256 }])),
+    fixtures: Object.fromEntries(["library", "model"].map((n) => [`${n}.json`, sha256(fs.readFileSync(path.join(repo, "web/fixtures", `${n}.json`)))])),
+    apiModuleNames: sha256(fs.readFileSync(path.join(repo, "web/src/pages/connected/api.ts"))),
+  };
+  return {
+    tool: "compare.mjs",
+    rulesVersion: RULES_VERSION,
+    capture: { folder: path.basename(path.resolve(folder)), tree: capture.index.tree ?? null, screens: world.screens.length, tool: capture.index.tool },
+    sources,
+    counts: { total, surfaces: summary.surfaces },
+    perScreen: summary.perScreen,
+    derivedSummary: derivedSummary(items),
+    omissionSummary: omissionSummary(omissions),
+    differences: items.filter((i) => i.class === DIFFERS),
+    omissions,
+    items,
+    _folder: rel(path.resolve(folder)),
+  };
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.diff) {
+    const [beforeFile, afterFile] = args.positional;
+    if (!beforeFile || !afterFile) throw new Error("usage: node compare.mjs --diff <compare-before.json> <compare-after.json> [--out <file.md>]");
+    const { text, grew } = diffReports(JSON.parse(fs.readFileSync(beforeFile, "utf8")), JSON.parse(fs.readFileSync(afterFile, "utf8")));
+    if (args.out) fs.writeFileSync(args.out, text);
+    else process.stdout.write(text);
+    process.exitCode = grew ? 1 : 0;
+    return;
+  }
+  const [folder] = args.positional;
+  if (!folder) throw new Error("usage: node compare.mjs <capture-folder> [--out <dir>] [--name <name>] [--repo <root>]");
+  const repo = findRepo(args.repo);
+  const report = compareCapture(path.resolve(folder), repo);
+  delete report._folder;
+  const name = args.name ?? path.basename(path.resolve(folder));
+  const outDir = path.resolve(args.out ?? HERE);
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, `compare-${name}.json`), jsonLines(report));
+  fs.writeFileSync(path.join(outDir, `compare-${name}.md`), markdown(report));
+  const t = report.counts.total;
+  console.log(`${name}: ${t.screens} screens, ${t.items} items; ${CLASSES.map((c) => `${c}: ${t.byClass[c]}`).join("; ")}; source items not on screen: ${t.omissions}`);
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(`compare.mjs: ${error.message}`);
+  process.exitCode = 2;
 }
