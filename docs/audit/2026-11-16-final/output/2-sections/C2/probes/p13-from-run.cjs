@@ -16,6 +16,8 @@ const val = (page, label) => page.getByRole("textbox", { name: label, exact: tru
     out.run = run;
     const page = await ctx.newPage();
     L.watch(page, log);
+    const inputs = await (await fetch(`${L.BASE}/api/runs/${run}/inputs`)).json();
+    out.earlierAnswers = inputs.context?.attachments; // what the earlier run recorded: legal_documents, portfolio_workbook ...
     await page.goto(`${L.BASE}/start?from=${run}`);
     await val(page, "Issuer name").waitFor();
     await page.waitForTimeout(500);
@@ -30,13 +32,6 @@ const val = (page, label) => page.getByRole("textbox", { name: label, exact: tru
     await page.getByRole("button", { name: "Inspect documents" }).click();
     await page.waitForTimeout(1200);
     out.afterInspect = { status: await page.locator("p[role=status]").allInnerTexts(), rows: await page.locator("[aria-label='Documents added'] li").allInnerTexts().then((t) => t.map((x) => x.replace(/\n+/g, " | "))), alerts: await page.locator("[role=alert]").allInnerTexts() };
-    // Remove a carried doc (server delete) then continue
-    if (out.afterInspect.rows.length > 1) {
-      const before = log.requests.length;
-      await page.getByRole("button", { name: /^Remove / }).first().click();
-      await page.waitForTimeout(800);
-      out.removeCarried = { requests: log.requests.slice(before), rows: await page.locator("[aria-label='Documents added'] li").count(), alerts: await page.locator("[role=alert]").allInnerTexts() };
-    }
     await L.toPurpose(page);
     out.purpose = { checked: await page.getByRole("radio", { checked: true }).getAttribute("aria-label"), level: await page.getByRole("combobox", { name: /Run form level/ }).inputValue(), kind: await page.getByRole("combobox", { name: /Case kind/ }).inputValue(), purpose: await page.getByRole("combobox", { name: /Run purpose/ }).inputValue() };
     await L.toContext(page);
@@ -47,6 +42,15 @@ const val = (page, label) => page.getByRole("textbox", { name: label, exact: tru
     const text = await page.locator("main").innerText();
     out.review = text.split("\n").filter((l) => /Compared|first run|Changes|Legal documents|Portfolio workbook|As-of|Submitted|Documents read|\.txt|\.xlsx|Will refuse|Gap|Limited|Check/.test(l)).slice(0, 30);
     await L.shot(page, "p13-from-review-1440");
+    // Remove a carried document (server delete) after the review has been read: back to Documents, then Remove
+    await page.getByRole("button", { name: "Edit issuer and documents", exact: true }).click();
+    await page.getByRole("heading", { name: "Documents", exact: true }).waitFor();
+    {
+      const before = log.requests.length;
+      await page.getByRole("button", { name: "Remove northbridge-portfolio.xlsx", exact: true }).click();
+      await page.waitForTimeout(800);
+      out.removeCarried = { requests: log.requests.slice(before), rows: await page.locator("[aria-label='Documents added'] li").count(), alerts: await page.locator("[role=alert]").allInnerTexts() };
+    }
   } catch (e) {
     out.error = String(e).slice(0, 700);
   } finally {
