@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import { Button } from "@/components/base/buttons/button";
+import { Badge } from "@/components/base/badges/badges";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
-import { getRun, moduleName, type Mode, type Run } from "../api";
+import { getRun, moduleName, type Mode, type ReadinessItem, type Run } from "../api";
 import { card, heading } from "../layout";
 import { PublishedTable } from "../ReportContent";
 import { publishedHref, type OutputEntry, type PublishedRun } from "../publishedReport";
@@ -13,6 +14,12 @@ const EXECUTION: Record<NonNullable<Run["execution"]>, string> = {
   "live-provider": "Live provider",
   "host-session": "Host session",
   "retained-response-replay": "Retained response replay",
+};
+const SUMMARY_OUTCOME: Record<string, string> = {
+  will_refuse: "Will refuse",
+  gap: "Gap",
+  limited: "Limited",
+  check: "Check",
 };
 
 type RecordModule = {
@@ -55,8 +62,11 @@ function RunTotals({
 }) {
   const elapsed = value && elapsedFigure(value);
   const spend = value && spendFigure(value);
-  const runType =
-    mode === "synthetic" ? EXECUTION.synthetic : value?.execution && EXECUTION[value.execution];
+  const runType = value?.execution
+    ? EXECUTION[value.execution]
+    : mode === "synthetic"
+      ? EXECUTION.synthetic
+      : null;
   const missing = pending ? "Loading…" : "Unavailable";
   return (
     <dl className="grid gap-5 rounded-ds-md bg-surface-subtle p-5 sm:grid-cols-3">
@@ -101,6 +111,7 @@ function ModuleRecord({
       {group.steps.length > 0 && (
         <PublishedTable
           evidence
+          emptyLabel="Not recorded for this module"
           table={{
             type: "table",
             line: 0,
@@ -119,6 +130,7 @@ function ModuleRecord({
           </h5>
           <PublishedTable
             evidence
+            emptyLabel="Not recorded for this call"
             table={{
               type: "table",
               line: 0,
@@ -155,7 +167,7 @@ function ModuleRecord({
       })}
       {group.issues.map(({ output }) => (
         <div key={output.id} className="grid gap-1 text-sm text-text-secondary wrap-anywhere">
-          <h5 className="font-semibold">{output.label} · Handoff issues</h5>
+          <h5 className="font-semibold">{moduleName(output.module)} · Handoff issues</h5>
           {output.parseError && <p>{output.parseError}</p>}
           {output.issue?.split("; ").map((issue, i) => (
             <p key={i}>{issue}</p>
@@ -180,7 +192,9 @@ export function ReportRecord({
   const load = useCallback((signal: AbortSignal) => getRun(run.folder, signal), [run.folder]);
   const { value, error } = useResource(load);
   const groups = [...moduleGroups(run, entries)].filter(([id]) => !module || id === module);
-  const synthetic = mode === "synthetic" || value?.execution === "synthetic";
+  const synthetic = value?.execution ? value.execution === "synthetic" : mode === "synthetic";
+  const recorded: (Run & { approved_summary_limits?: ReadinessItem[] | null }) | undefined = value;
+  const approvedLimits = recorded?.approved_summary_limits;
   return (
     <div className="grid min-w-0 gap-5">
       <section className={card}>
@@ -198,6 +212,44 @@ export function ReportRecord({
           cap={run.evidence.record.cap}
           pending={!value && !error}
         />
+        {error && (
+          <p role="alert" className="text-sm text-text-secondary">
+            {error}
+          </p>
+        )}
+        <p className="text-sm text-text-secondary">
+          Library admission is not recorded in this run record.
+        </p>
+        <p className="text-sm text-text-secondary">
+          Original execution provenance is not recorded in this run record.
+        </p>
+      </section>
+      <section className={card}>
+        <h3 className={heading}>Approved summary limits</h3>
+        {!value && !error ? (
+          <p className="text-text-secondary">Loading the approved summary limits…</p>
+        ) : approvedLimits == null ? (
+          <p className="text-text-secondary">
+            Approved summary limits were not recorded for this run.
+          </p>
+        ) : approvedLimits.length === 0 ? (
+          <p className="text-text-secondary">
+            The approved summary recorded no limits requiring a decision.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border-hairline">
+            {approvedLimits.map((item, index) => (
+              <li key={`${item.id}-${String(index)}`} className="grid gap-2 py-3">
+                <h4 className="font-semibold">
+                  {item.scope === "run" ? "Run" : moduleName(item.scope)}
+                </h4>
+                <Badge>{SUMMARY_OUTCOME[item.outcome] ?? item.outcome}</Badge>
+                <p className="text-text-secondary">{item.reason}</p>
+                {item.fix && <p className="text-sm text-text-secondary">{item.fix}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <section className={card}>
         <h3 className={heading}>Module records</h3>
@@ -215,7 +267,7 @@ export function ReportRecord({
           <details
             key={id}
             open={module ? true : undefined}
-            className="min-w-0 rounded-ds-md border border-border-hairline p-4"
+            className="min-w-0 border-t border-border-hairline py-4"
           >
             <summary className="cursor-pointer font-semibold">
               {id ? moduleName(id) : "Unassigned calls"}
