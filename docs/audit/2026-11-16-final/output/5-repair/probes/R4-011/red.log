@@ -1,0 +1,92 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+_____ test_completed_engine_responses_supply_their_exact_verified_metadata _____
+
+actual_run = (Layout(root=PosixPath('/tmp/pytest-of-agent/pytest-46/test_completed_engine_response0/case')), Record(id='20261117-18...]}]), PosixPath('/tmp/pytest-of-agent/pytest-46/test_completed_engine_response0/case/_engine/runs/20261117-183317-01'))
+
+    def test_completed_engine_responses_supply_their_exact_verified_metadata(
+        actual_run: tuple[Layout, runs.Record, Path],
+    ) -> None:
+        layout, record, directory = actual_run
+        workflow = json.loads((directory / "workflow.json").read_bytes())
+        assert workflow["run"]["run_id"] != record.id
+        assert workflow["run"]["run_id"] == "example-2025-04-30-credit_snapshot-sol-medium"
+        body = reply(layout, record.id).body
+>       assert body["module_outputs"] is not None
+E       assert None is not None
+
+tests/test_react_runtime_identity.py:50: AssertionError
+__ test_retained_engine_event_phases_distinguish_pending_and_accepted[False] ___
+
+actual_run = (Layout(root=PosixPath('/tmp/pytest-of-agent/pytest-46/test_retained_engine_event_pha0/case')), Record(id='20261117-18...]}]), PosixPath('/tmp/pytest-of-agent/pytest-46/test_retained_engine_event_pha0/case/_engine/runs/20261117-183317-01'))
+accepted = False
+
+    @pytest.mark.parametrize("accepted", [False, True])
+    def test_retained_engine_event_phases_distinguish_pending_and_accepted(
+        actual_run: tuple[Layout, runs.Record, Path], accepted: bool
+    ) -> None:
+        """Replay genuine engine event prefixes, with no final delivery selection available."""
+        layout, record, directory = actual_run
+        record.status = "running"
+        runs.save(layout, record)
+        for path in directory.glob("completed-*.json"):
+            path.unlink()
+        events = (directory / "events.jsonl").read_text().splitlines(keepends=True)
+        stop = "module_accepted" if accepted else "module_started"
+        end = next(
+            index + 1
+            for index, line in enumerate(events)
+            if (event := json.loads(line)).get("module") == "CP-0" and event.get("event") == stop
+        )
+        (directory / "events.jsonl").write_text("".join(events[:end]))
+        body = reply(layout, record.id).body
+        assert body["status"] == "running"
+        assert body["library_admission"] == "not-listed"
+        if accepted:
+            [output] = body["module_outputs"]
+            response = next((directory / "requests/CP-0").glob("*/1.response.md"))
+            assert output["module"] == "CP-0"
+            assert output["response_sha256"] == hashlib.sha256(response.read_bytes()).hexdigest()
+            assert output["provenance"] == "new-response"
+        else:
+>           assert body["module_outputs"] == []
+E           assert None == []
+
+tests/test_react_runtime_identity.py:90: AssertionError
+___ test_retained_engine_event_phases_distinguish_pending_and_accepted[True] ___
+
+actual_run = (Layout(root=PosixPath('/tmp/pytest-of-agent/pytest-46/test_retained_engine_event_pha1/case')), Record(id='20261117-18...]}]), PosixPath('/tmp/pytest-of-agent/pytest-46/test_retained_engine_event_pha1/case/_engine/runs/20261117-183317-01'))
+accepted = True
+
+    @pytest.mark.parametrize("accepted", [False, True])
+    def test_retained_engine_event_phases_distinguish_pending_and_accepted(
+        actual_run: tuple[Layout, runs.Record, Path], accepted: bool
+    ) -> None:
+        """Replay genuine engine event prefixes, with no final delivery selection available."""
+        layout, record, directory = actual_run
+        record.status = "running"
+        runs.save(layout, record)
+        for path in directory.glob("completed-*.json"):
+            path.unlink()
+        events = (directory / "events.jsonl").read_text().splitlines(keepends=True)
+        stop = "module_accepted" if accepted else "module_started"
+        end = next(
+            index + 1
+            for index, line in enumerate(events)
+            if (event := json.loads(line)).get("module") == "CP-0" and event.get("event") == stop
+        )
+        (directory / "events.jsonl").write_text("".join(events[:end]))
+        body = reply(layout, record.id).body
+        assert body["status"] == "running"
+        assert body["library_admission"] == "not-listed"
+        if accepted:
+>           [output] = body["module_outputs"]
+            ^^^^^^^^
+E           TypeError: cannot unpack non-iterable NoneType object
+
+tests/test_react_runtime_identity.py:84: TypeError
+=========================== short test summary info ============================
+FAILED tests/test_react_runtime_identity.py::test_completed_engine_responses_supply_their_exact_verified_metadata
+FAILED tests/test_react_runtime_identity.py::test_retained_engine_event_phases_distinguish_pending_and_accepted[False]
+FAILED tests/test_react_runtime_identity.py::test_retained_engine_event_phases_distinguish_pending_and_accepted[True]
+3 failed in 6.74s

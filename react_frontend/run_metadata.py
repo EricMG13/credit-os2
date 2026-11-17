@@ -80,14 +80,17 @@ def _workflow(reader: _Reads, record: runs.Record) -> dict[str, Any]:
     if not isinstance(workflow.get("run"), dict):
         raise Refused("workflow run identity is not recorded")
     identity = run_identity(workflow.get("run", {}))
+    config = runs.config_for(record.model, record.effort)
     expected = {
-        "run_id": record.id,
+        "run_id": f"{record.issuer_id}-{record.as_of}-{record.pathway}-{config}",
         "issuer_id": record.issuer_id,
         "issuer_name": record.issuer_name,
         "as_of": record.as_of,
         "pathway": record.pathway,
     }
     same_identity(identity, expected, "workflow")
+    if reader.object("identity.json").get("run") != workflow["run"]:
+        raise Refused("workflow differs from the engine's run identity")
     if not isinstance(workflow.get("instructions"), dict):
         raise Refused("workflow instructions are not recorded")
     return workflow

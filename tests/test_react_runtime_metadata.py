@@ -73,7 +73,7 @@ def runtime(tmp_path: Path, *, retained: bool = False) -> tuple[Layout, Path, di
     directory.mkdir(parents=True)
     workflow: dict[str, Any] = {
         "run": {
-            "run_id": "case",
+            "run_id": "issuer-2026-11-17-credit_snapshot-sol-medium",
             "issuer_id": "issuer",
             "issuer_name": "Issuer",
             "as_of": "2026-11-17",
@@ -98,6 +98,7 @@ def runtime(tmp_path: Path, *, retained: bool = False) -> tuple[Layout, Path, di
         "execution": "synthetic",
     }
     (directory / "workflow.json").write_text(json.dumps(workflow))
+    (directory / "identity.json").write_text(json.dumps({"run": workflow["run"]}))
     path = candidate(directory, workflow, BLOCKED, retained=retained)
     append_event(directory, "module_started", module="CP-0")
     append_event(directory, "module_accepted", module="CP-0")
