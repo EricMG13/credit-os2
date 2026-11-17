@@ -1,0 +1,97 @@
+row_id,kind,module_or_decision,item_or_where,mark,finding,notes
+CM-008,content,All prose modules,Basis line,shown but wrong place or form,C4-003,Basis line is not printed and a figure opens the drawer; but the Forecast model figures all open one generic drawer (not the figure's own basis).
+CM-009,content,All prose modules,Trace control,shown as required,C4-009,"One icon control per figure/paragraph, visible at rest; border on hover/focus (TraceControl.tsx comment). Focus returns to the opener (26/26 Forecast, 36/36 Calendar). Scenario comparison rows share one name."
+CM-011,content,All prose modules,"Source references, file names, hashes, ids, registers, gap ledgers, run codes",shown but wrong place or form,C4-002,"No file name, hash or id on screen (Show sources on: none), but the ten-line gap ledger of unnamed model lines is drawn on Forecast."
+CM-012,content,All prose modules,Module code in module-written text,shown but wrong place or form,C4-001,'CP-1' and 'CP-2G' appear in Forecast notes and limits; a chart-gap reason keeps '(CP-4)'.
+CM-015,content,All prose modules,Text written for another module,correctly not shown,,No text written for another module on the Forecast tab or the Calendar.
+CM-017,content,All prose modules,Request and front matter,correctly not shown,,Request and front matter are not drawn on Forecast or Calendar.
+CM-019,content,All prose modules,Pipeline wording in sentences,shown but wrong place or form,C4-001,"'Python', 'handoff', 'forecast inputs' in sentences; button 'Open the forward credit handoff'."
+CM-020,content,All prose modules,"Chart, map and timeline sections",shown as required,,Each chart is drawn once in its panel on Forecast; 'Chart data:' text is not printed again.
+CM-021,content,All prose modules,Chart with no numbers,shown as required,C4-021,A chart gap draws 'Not established for this run' with the reason (intercepted chart-gap and withheld states); the undrawable-chart fallback uses a sentence and a table.
+CM-022,content,All prose modules,Figures and units,shown but wrong place or form,C4-006;C4-013;C4-011,Figures carry a unit in tables and charts; the basis note has unitless figures; four unit forms; a 4-decimal yield.
+CM-023,content,All prose modules,"Missing, zero, withheld",shown as required,C4-010,'n.a.' with reason in the grid and charts; the case card says 'Not available' without reason. A zero stays 0 (Stressed FCF 0.00 drawn as a zero bar).
+CM-024,content,All prose modules,Gap state,shown as required,,'Not established for this run' on withheld and gap charts.
+CM-025,content,All prose modules,Table form of every chart,shown but wrong place or form,C4-005,Every chart has a Table form; the form omits the Basis and limitation column.
+CM-030,content,Model,Delivered HTML Model,shown as required,,Forecast grid (Cash flow model) drawn; Modules entry belongs to C3.
+CM-031,content,Report,Run label,shown as required,,"Issuer, as-of date, pathway and state stay visible on Forecast, Calendar and module pages."
+CM-042,content,Overview,Key charts,correctly not shown,,"Overview-only row (C3); not part of the Forecast tab. Run charts on Forecast repeat the owning modules' charts, as CM-122ff. ask."
+CM-046,content,Overview,Unjudged figures,correctly not shown,,"No better/worse mark or colour on cash, Downside, rate sensitivity or Forecast."
+CM-064,content,CP-MODEL,Published model grid,shown as required,,Published grid with cash proxy labelled 'Cash proxy (not issuer free cash flow)'. The last-actual mark could not be checked: the canned grid has no actual column.
+CM-065,content,CP-MODEL,Forecast cases,shown but wrong place or form,C4-019,"Cases, shared choice (CT-045), cash proxy path, trends, comparison table, debt and cash views drawn; drivers not on the case cards; comparison is a table beside a path chart."
+CM-066,content,CP-MODEL,Negative cash years,shown as required,,"Builder-side rule; the page draws the published cell and its reason ('Not calculable: cash is negative before funding', null-case state)."
+CM-067,content,CP-MODEL,No forecast published,shown as required,,'No forecast model was published from this run’s files.' (no-model state); Run charts still draw.
+CM-068,content,CP-MODEL,Forecast inputs (machine-readable),shown but wrong place or form,C4-003,"Block not drawn on the page, but the drawer title is 'Forecast inputs (machine-readable)' for every model figure."
+CM-070,content,CP-MODEL,Event calendar,shown as required,C4-007,Routed Calendar (#calendar) from Overview; not a tab; Back to Overview. Bad-date state misleads.
+CM-071,content,CP-MODEL,Portfolio basis,shown as required,C4-021,Portfolio limits chart drawn only with an attested basis (the service returns it); with no basis a note and table replace it. Proposed exposure is not on the chart.
+CM-105,content,CP-2G,Module output (lead),shown as required,C4-019,"Forecast draws the model, limitations and (closed) assumptions; narrative is on Modules (C3)."
+CM-116,content,CP-MODEL,Module output (lead),shown as required,,"Published model grid, Forecast evidence link to Evidence summary. Bridges and calculation lineage live on Evidence (C5)."
+CM-122,content,CP-1,Visual CP-1-V01,shown but wrong place or form,C4-020,Leverage drawn as grouped columns (matrix: trend or paths).
+CM-123,content,CP-1,Visual CP-1-V02,shown but wrong place or form,C4-020,Interest cover drawn as columns.
+CM-124,content,CP-1,Visual CP-1-V03,shown but wrong place or form,C4-020,Cash and liquidity drawn as columns.
+CM-125,content,CP-1,Visual CP-1-V04,shown as required,,"Debt maturities: columns, FY2027 'n.a.' leaves an empty slot, not zero."
+CM-126,content,CP-1,Visual CP-1-V05,shown as required,,"Revenue and Adjusted EBITDA: grouped columns, FY2024 EBITDA 'n.a.'."
+CM-127,content,CP-1,Visual CP-1-V06,shown but wrong place or form,C4-004,Balance stack renders (allowed: design gap) but with no ranked legend or colour key.
+CM-128,content,CP-1,Visual CP-1-V07,shown as required,,"EBITDA bridge as waterfall: 410, +30, -10, 430 match CP-1."
+CM-143,content,CP-1C,Visual CP-1C-V01,not exercised: no data in the canned run,,No CP-1C output in the canned run.
+CM-144,content,CP-1C,Visual CP-1C-V02,not exercised: no data in the canned run,,No CP-1C output in the canned run.
+CM-156,content,CP-2D,Visual CP-2D-V01,shown as required,,"Liquidity bridge waterfall 900, +120, -450, 570 match CP-2D."
+CM-157,content,CP-2D,Visual CP-2D-V02,not exercised: no data in the canned run,,No runway observation in the canned run.
+CM-163,content,CP-2G,Visual CP-2G-V01,shown as required,,"Forward debt, cash and metrics: Cash proxy path chart, Revenue / Closing cash / Closing debt trends and the grid."
+CM-164,content,CP-2G,Visual CP-2G-V02,missing,C4-019,No deleveraging or break-point timing lane on Forecast; T2H.7/T2H.8 are empty registers in the canned run and are not drawn.
+CM-165,content,CP-2G,Visual CP-2G-V03,shown but wrong place or form,C4-019,"T2H.3 assumptions only, closed by default; no driver comparison."
+CM-166,content,CP-2H,Visual CP-2H-V01,not exercised: no data in the canned run,,No CP-2H output in the canned run.
+CM-172,content,CP-3C,Visual CP-3C-V01,shown as required,,"Refinancing need columns: 500/300 and 1,250/n.a. match CP-3C."
+CM-176,content,CP-3D,Visual CP-3D-V01,not exercised: no data in the canned run,,No CP-3D output in the canned run.
+CM-179,content,CP-4,Visual CP-4-V01,shown as required,,Covenant headroom bullets with threshold line and direction; Minimum liquidity 'n.a.' matches CP-4.
+CM-185,content,CP-4C,Visual CP-4C-V01,not exercised: no data in the canned run,,No CP-4C output in the canned run.
+CM-186,content,CP-4C,Visual CP-4C-V02,not exercised: no data in the canned run,,No CP-4C output in the canned run.
+CM-187,content,CP-4C,Visual CP-4C-V03,not exercised: no data in the canned run,,No CP-4C output in the canned run.
+CM-188,content,CP-4C,Visual CP-4C-V04,not exercised: no data in the canned run,,No CP-4C output in the canned run.
+CM-195,content,CP-6,Visual CP-6-V03,shown as required,C4-021,Portfolio limits chart drawn (2.37 vs 2.50; 3.73 vs 5.00); proposed 2.40 only in the closed details.
+CM-202,content,CP-MODEL,Visual CP-MODEL-V01,shown but wrong place or form,C4-003,Forecast grid shown; provenance drawer generic.
+CM-203,content,CP-MODEL,Visual CP-MODEL-V02,shown as required,,Run charts collection with N6 toggle and trace on every figure.
+CM-208,content,Delivery,Visual DELIVERY-V02,shown as required,,Cross-module calendar: 36 events (4 repeated by 9 modules) with Chart/Table and per-event trace.
+CM-217,content,CP-0,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-223,content,CP-1,Chart data: revenue and EBITDA,shown as required,,Revenue and EBITDA with Table form; values match CP-1.
+CM-224,content,CP-1,Chart data: EBITDA bridge,shown as required,,EBITDA bridge with Table form.
+CM-225,content,CP-1,Chart data: leverage,shown as required,C4-020,Leverage drawn once with Table form (columns).
+CM-226,content,CP-1,Chart data: interest cover,shown as required,C4-020,Interest cover drawn once with Table form.
+CM-227,content,CP-1,Chart data: liquidity,shown as required,C4-020,Liquidity drawn once with Table form.
+CM-228,content,CP-1,Chart data: debt maturities,shown as required,,Debt maturities drawn once with Table form.
+CM-229,content,CP-1,Chart data: debt stack,shown but wrong place or form,C4-004,Debt stack: no colour key in the partial form.
+CM-232,content,CP-1,Request; Next module,correctly not shown,,Request and Next module not drawn.
+CM-242,content,CP-1A,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-250,content,CP-2,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-258,content,CP-2A,Front matter; Request; Source gate and module status; Next module,correctly not shown,,"Front matter, Request, Source gate and module status, Next module not drawn."
+CM-266,content,CP-2E,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-268,content,CP-2G,Forward-credit trajectory,not exercised: no data in the canned run,,The canned CP-2G handoff has no 'Forward-credit trajectory' section.
+CM-272,content,CP-2G,Front matter; Request; Forecast inputs (machine-readable); Next module,shown but wrong place or form,C4-003,The inputs block is not drawn but is named in every model drawer.
+CM-280,content,CP-3,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-286,content,CP-4,Chart data: covenant headroom,shown as required,,Covenant headroom drawn once with Table form.
+CM-292,content,CP-4,Request; Next module,correctly not shown,,Request and Next module not drawn.
+CM-299,content,CP-5,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-304,content,CP-6,Chart data: portfolio limits,shown as required,C4-021,"Portfolio limits: chart when attested, else note and table (see CM-071)."
+CM-308,content,CP-6,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-315,content,CP-DR,Front matter; Request; Next module,correctly not shown,,"Front matter, Request, Next module not drawn."
+CM-318,content,CP-1,Findings > EBITDA basis,shown as required,,Forecast labels 'Adj EBITDA (as named in Financial foundation)' and 'Total leverage (debt / Adj EBITDA)'.
+CM-320,content,All modules,Money unit and currency labels,shown as required,C4-013,"Units read from the source ('Reporting unit' column, model units); four unit forms."
+CM-321,content,CP-1,"Findings > Chart data tables (leverage, interest cover, liquidity, debt maturities)",shown as required,C4-020,Four period-row chart tables drawn once as charts; no section added.
+CT-041,control,CP-OS (delivery process),Delivery and library admission,shown as required,,"Not a user control. Overview, Changes, Modules, Forecast and Evidence pages are populated from the handoffs; the Forecast and Calendar figures checked against the handoffs: 12 chart figures, 6 breakpoints/downside/FX/rate/yield figures, 5 grid figures (all match)."
+CT-045,control,the user,Choosing a forecast case,shown as required,C4-010;C4-018,"The user chooses among the model's published cases only (radiogroup 'Forecast case'; mouse, Space and arrow keys); no case is derived by the page. Choice is not kept on reload (state in memory)."
+CT-047,control,the user,Opening the trace drawer,shown as required,C4-003;C4-009,"One keyboard-reachable control per figure; Enter opens, Escape and Close return focus to the opener (26 Forecast and 36 Calendar controls). Drawer content is generic on Forecast model figures."
+U-01,unaccounted,Forecast,'Model scope and basis' box (selected notes and limits),not in any matrix row,,Drawn from model notes; duplicates Model limitations; no matrix row. C4-002
+U-02,unaccounted,Forecast,'On this page' navigation (4 buttons; mobile select),not in any matrix row,,"Not in the matrix; works by mouse, Enter and the mobile select. C4-017"
+U-03,unaccounted,Forecast,'Published model' selector when there are two models,not in any matrix row,,Not in the matrix (single model assumed). C4-022
+U-04,unaccounted,Forecast,'Forecast evidence and artifacts' link to #evidence/summary,not in any matrix row,,Reasonable entry to CM-116; no row.
+U-05,unaccounted,Forecast,'Open the forward credit handoff' button in the Forecast assumptions details,not in any matrix row,,Pipeline word 'handoff'. C4-001
+U-06,unaccounted,Forecast,'Show 11 unavailable rows and reasons' and 'Show 7 columns with no values' disclosure buttons,not in any matrix row,,"Not in the matrix; both work (mouse and Enter), aria-expanded plus label change."
+U-07,unaccounted,Calendar,"Legend filter buttons (Historical, Scheduled, Scenario), 'Show all details', per-row Details buttons, year markers",not in any matrix row,,Not in the matrix (CM-070/CM-208 name the lane); all 36 rows and 36 markers work.
+U-08,unaccounted,Modules (C4 files),"Downside scenarios, EBITDA break points, rate and FX comparison charts and Instrument decisions drawn by Downside.tsx, BreakPoints.tsx, MacroSensitivity.tsx, Securities.tsx",not in any matrix row,,"Matrix rows for these sit under C3/S3 (CM-102, CM-104, CM-107, CM-153..155, CM-160, CM-169); figures checked against the handoffs here: all match."
+U-09,unaccounted,Run charts,"Module link buttons above each chart group (Financial foundation, Liquidity, Refinancing & LME, Legal & covenants, Committee decision)",not in any matrix row,,Navigation to #modules/<id>; works.
+R-01,retired,report.html,"no link, button or download of a separate report on Forecast or Calendar",correctly not shown,,None offered.
+R-04,retired,Excel/workbook,no workbook export on Forecast or Calendar,correctly not shown,,None offered.
+R-13,retired,module codes on screen,"no CP- code as label, tab or heading",shown but wrong place or form,C4-001,Codes appear inside Forecast note sentences only; hrefs hold codes (allowed).
+R-15,retired,Event calendar as a tab,"calendar is routed, not a tab; Overview stays current",correctly not shown,,#calendar keeps the Overview tab current; no tab named Event calendar.
+R-20,retired,"better/worse mark on cash, Downside, rate sensitivity, Forecast",no mark or colour,correctly not shown,,
+R-18,retired,fixed US$m for non-USD issuer,units read from data,correctly not shown,C4-013,Units come from data; the canned run is USD only (non-USD not exercised).
+R-17,retired,routing text and no-consumer registers,none drawn on Forecast/Calendar,correctly not shown,,
