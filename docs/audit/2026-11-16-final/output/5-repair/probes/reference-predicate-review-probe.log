@@ -1,0 +1,9 @@
+{"pass":false,"expected":false,"actual":true,"text":"A gap remains between the Group of Seven (G7) economies.","actualCell":"Qualification recorded in Evidence.","expectedCell":"A gap remains between the Group of Seven (G7) economies."}
+{"pass":false,"expected":false,"actual":true,"text":"The margin rose eleven pp. 3 quarters running.","actualCell":"Qualification recorded in Evidence.","expectedCell":"The margin rose eleven pp. 3 quarters running."}
+{"pass":true,"expected":false,"actual":false,"text":"No series is available for the Group of Seven (G7) economies.","actualCell":"No series is available for the Group of Seven (G7) economies.","expectedCell":"No series is available for the Group of Seven (G7) economies."}
+{"pass":false,"expected":true,"actual":false,"text":"Lease detail not available (G12).","actualCell":"Lease detail not available (G12).","expectedCell":"Qualification recorded in Evidence."}
+{"pass":false,"expected":true,"actual":false,"text":"Threshold unknown (G12).","actualCell":"Threshold unknown (G12).","expectedCell":"Qualification recorded in Evidence."}
+{"pass":false,"expected":true,"actual":false,"text":"(G12).","actualCell":"(G12).","expectedCell":"Qualification recorded in Evidence."}
+{"pass":false,"expected":true,"actual":false,"text":"See p. 1000 for the covenant.","actualCell":"See p. 1000 for the covenant.","expectedCell":"Qualification recorded in Evidence."}
+{"pass":false,"expected":true,"actual":false,"text":"See pages 1024–1026 for the covenant.","actualCell":"See pages 1024–1026 for the covenant.","expectedCell":"Qualification recorded in Evidence."}
+{"failures":7}

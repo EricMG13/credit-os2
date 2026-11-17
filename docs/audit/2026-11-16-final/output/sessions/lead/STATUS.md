@@ -1,3 +1,41 @@
+## Recovery checkpoint 2026-11-17T19:26Z
+
+Environment restarted, returnedready; allworktrees/commits/uncommittedfixes survived.
+Prior agents lost their live sessions. Fresh implementation/review agents resumed from
+saved artifacts; interrupted checks are not inferred aspassed. Coordination3a19962a
+was already pushed and clean. Reviewed source milestones (including group2T18reports82,
+runtimeidentity76, docscopee896, UItails/drafttails/Appscroll) now pushed to own branches.
+Main untouched; no actual provider/live/seat/realSubmit/Teams action.
+
+Actualfinal a11e4def (PR57mergedCIgreen). Local integration ff93a150 plusreportb9cbcacf
+has accepted runtime ownchunk+identityfix and recovered gates (88Py,82explicitfrontend,
+lint/format/types/defaultquality0). It is review-only; contract own6commits nowbeing
+integrated after e896 independentPASS. Original contract5c39 had0H/M soleLow resolved.
+T18 f7 code +82reports BOTHfreshfinalPASS; no fifthloopR12. T22 initial12e/4b has
+registeredMediumR4-013 qualification/source-chip fallback loss; fresh round2resumed in
+/workspace/recovery-t22-round2, code notyetpinned. R4-012initiala302 fixed26baseline
+failures but freshreviewfound2Medium consequences (ordinaryG7/elevenpp hidden, genuine
+G12/page1000 refsleak); fresh round2 in/workspace/audit-reference-round2. Bothremainopen
+until finalpin+freshreviews. Alloldexpectations unchanged for these regressions.
+
+Fresh proof alignment worker onff93: preliminarybuild0/proof2fail dueapproved duplicate
+Start action (main+footer); updating selectors/assertions onlyasnamedfindingsrequire,
+preservingcoverage. R8 outsidehostabortguard strengthenedandtested; negativeharness
+redirect test initiallyhadunverifiedDNSattemptstatus toreservedinvalidtesthost, no
+actualservice/provider targeted. Localdenialproxybackstop nowbeingadded beforefurther
+negativeprobes. Actualappofflineproof stillpending, no outsideapprequest is claimed.
+
+Read-only closureinventory mapsall242repair/batchcanonicalIDs plus15leadextras andold
+reviewnotes withoutinflatinghypotheticals. Run-switch useResource concern is not a
+confirmedordinarydefect: ReportReader key={report} andHistoryRow key={record.folder}
+remounttheactualcallers. Stage6measuredcostsonly remainforlater. LIVE register unchanged:
+517source/402canonical,H6/M108/L203/I85;repair82/batch160/sweep17/deferred6/parked31/rejected106.
+
+NextfinishT22round2/refround2+freshreviews; proofalignmentreview; originalgroup2PR/CImerge;
+reviewedcandidatepromotion; combinedselfreview/fidelityafter/fullgates+proof andpush.
+Then separate stage6sweepPR andstage7 finalgates/offline/package/promptdryrun/SUMMARY/
+UNMERGEDmainPR. Stages6and7 notstarted. Noownerquestionopen.
+
 ## Current lead checkpoint 2026-11-17T18:43Z
 
 Stage 5 remains active; the owner asked the current stage and the lead confirmed
