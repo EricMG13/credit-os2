@@ -11,8 +11,8 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
 | Medium | 70 | 0 | 0 | 0 | 1 | 2 | 32 | 105 |
 | Low | 0 | 141 | 0 | 0 | 1 | 18 | 39 | 199 |
-| Info | 3 | 18 | 17 | 1 | 0 | 10 | 34 | 83 |
-| Total | 78 | 159 | 17 | 1 | 2 | 30 | 105 | 392 |
+| Info | 3 | 18 | 17 | 0 | 1 | 10 | 34 | 83 |
+| Total | 78 | 159 | 17 | 0 | 3 | 30 | 105 | 392 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -390,7 +390,7 @@ High first. `Merged` lists the ids with the same cause.
 | X1-013 | Info | X1 | Several component variants and props have no caller outside the kit page or tests. | sweep (OQ-05) |  |  | not required (Low or Info) |
 | X1-014 | Info | X1 | components/chart/ChartFrame.tsx imports a string constant from pages/library/parts/TraceControl. | sweep |  |  | not required (Low or Info) |
 | X1-025 | Info | X1 | The chart files repeat the same blocks, and shared helpers live in individual chart files. | sweep |  |  | not required (Low or Info) |
-| B0-006 | Info | C1 | The legacy issuer library and the legacy run-start form ship in the release ZIP and stay reachable at /library/*, outside the two audited surfaces. | owner (OQ-05) |  |  | not required (Low or Info) |
+| B0-006 | Info | C1 | The legacy issuer library and the legacy run-start form ship in the release ZIP and stay reachable at /library/*, outside the two audited surfaces. | deferred (OQ-05) |  |  | not required (Low or Info) |
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. | parked |  |  | not required (Low or Info) |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps… | parked |  |  | not required (Low or Info) |
 | R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. | parked |  |  | not required (Low or Info) |

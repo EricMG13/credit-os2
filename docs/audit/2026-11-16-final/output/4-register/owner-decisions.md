@@ -207,3 +207,7 @@ is not affected, and T12 makes the documented synthetic path finish.
 ## Owner ruling on OQ-14 and OQ-15 (R15)
 
 Owner, 2026-11-17: "everything else is fine ... 4. OQ-15 - your recommendation". OQ-14 is decided as recommended: a one-case model run is shown, with a stated gap on its Forecast page (R3-001, Low and Info batch). OQ-15 is decided as recommended: the engine records a short reader-safe reason with each checker rejection and stop, as separate work after the audit (R1-012, deferred; listed in the work-PC prompt and the summary). Teams run cards are implemented and checked only on the work PC (R1-009 and the Teams items go to the work-PC prompt).
+
+## B0-006, the legacy pages (R17)
+
+Owner, 2026-11-17: "agreed". Both legacy pages stay for this hand-over. They work offline. The connected app does not open the old library page, but it reads `library/data.js` and links `library/downloads/`, which the legacy library's build writes (`apps/issuer-library/update_library.py`), and the build also writes the old page. The Python context checks (`src/deploy_vii/context.py`) and five test files rely on the legacy form. After the audit: separate the data build from the old page, and move the form's rules into Python, before either is removed.
