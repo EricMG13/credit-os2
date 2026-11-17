@@ -6,13 +6,13 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 
 ## Counts
 
-| Severity | repair | batch | sweep | owner | parked | rejected | Total |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| High | 5 | 0 | 0 | 0 | 0 | 0 | 5 |
-| Medium | 71 | 0 | 0 | 1 | 2 | 31 | 105 |
-| Low | 0 | 151 | 0 | 0 | 18 | 30 | 199 |
-| Info | 3 | 18 | 17 | 2 | 10 | 33 | 83 |
-| Total | 79 | 169 | 17 | 3 | 30 | 94 | 392 |
+| Severity | repair | batch | sweep | owner | deferred | parked | rejected | Total |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
+| Medium | 71 | 0 | 0 | 0 | 1 | 2 | 31 | 105 |
+| Low | 0 | 150 | 0 | 0 | 1 | 18 | 30 | 199 |
+| Info | 3 | 19 | 17 | 1 | 0 | 10 | 33 | 83 |
+| Total | 79 | 169 | 17 | 1 | 2 | 30 | 94 | 392 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -119,7 +119,7 @@ High first. `Merged` lists the ids with the same cause.
 | S6-007 | Medium | S6 | The 'Runs' breadcrumb opens #/run, which draws the one run the slice calls current (the running one), not a list of runs; no static page lists runs in progress… | repair | T41 |  | confirmed |
 | X1-019 | Medium | X1 | In a group of three or more series, the value label of the middle series is cut off at the top of the drawing when its bar reaches the top tick. | repair | T19 |  | confirmed |
 | X1-024 | Medium | X1 | One debt part with a zero balance makes every Model page of that run unreadable in the static app. | repair | T19 |  | confirmed |
-| R1-012 | Medium | C1 | When the checker refuses a module's draft and the run stops, no page can say why (for example that no executed agreement was chosen): the engine records only '… | owner (OQ-15) |  |  | not verified |
+| R1-012 | Medium | C1 | When the checker refuses a module's draft and the run stops, no page can say why (for example that no executed agreement was chosen): the engine records only '… | deferred (OQ-15) |  |  | not verified |
 | J2-011 | Medium | J2 | Two runs of the same issuer, date and pathway started together are both accepted and finish, and the library then lists two identical history rows, each called… | parked |  |  | confirmed |
 | S3-009 | Medium | S3 | One malformed record makes every library page unreadable and prints the reader's internal data path in the page body. | parked |  | S4-014 | confirmed |
 | C2-001 | Medium | C2 | At 390 px a file name or issuer name with no spaces widens the whole review sheet, clipping every Edit button, the file name and the Submit button. | rejected |  |  | confirmed |
@@ -241,7 +241,6 @@ High first. `Merged` lists the ids with the same cause.
 | J5-005 | Low | J5 | Changes says 'This is the first listed run for this issuer on this pathway' while Report history on the same issuer lists an earlier-dated run of the same path… | batch |  |  | not required (Low or Info) |
 | J6-007 | Low (was Medium) | J6 | The Forecast tab reads "No forecast for this run" on a page whose module list shows a Forecast module as Delivered with a base case. | batch |  |  | confirmed |
 | J6-014 | Low | J6 | "Page not found" has no link or button; every other error page offers a way back. | batch |  |  | not required (Low or Info) |
-| R1-009 | Low | C1 | With an earlier run listed, the Teams started card counts CP-8 only from its first event, so it reads 13 against the run page's 14, and a run stopped before CP… | batch |  |  | not required (Low or Info) |
 | R2-001 | Low | C4 | The predicate that holds source references back from table cells (visualData.ts containsReference) misses gap ids such as '(G12)', run codes such as '20261117-… | batch |  |  | not required (Low or Info) |
 | R2-002 | Low | C4 | With the Basis and limitation column added (C3-029), a chart's Table form is still wider than its card (749 px against 604 at 1440, 316 at 390), so the reader… | batch |  |  | not required (Low or Info) |
 | S1-007 | Low (was Medium) | S1 | Every fixture run is a "Full credit review" drawn with a USD 20.00 spend cap; the Full tier's cap is USD 25. | batch |  | S6-004 | confirmed |
@@ -304,6 +303,7 @@ High first. `Merged` lists the ids with the same cause.
 | X1-016 | Low | X1 | The kit's paid-run sample dialog tells the reader the run 'stops at the cap of USD 20' with no pathway named. | batch |  |  | not required (Low or Info) |
 | X1-020 | Low | X1 | Bar, stack and strip series are told apart by colour alone, and the first and third chart colours are almost the same grey. | batch (OQ-09) |  |  | not required (Low or Info) |
 | X1-023 | Low | X1 | A range strip row with no range draws neither the strip nor the two case markers, and no n.a. in the track, although both case values are delivered. | batch |  |  | not required (Low or Info) |
+| R1-009 | Low | C1 | With an earlier run listed, the Teams started card counts CP-8 only from its first event, so it reads 13 against the run page's 14, and a run stopped before CP… | deferred |  |  | not required (Low or Info) |
 | C1-010 | Low | C1 | One malformed catalogue entry takes down the whole Library page: the user sees only 'This page could not be loaded' and a Reload button that fails the same way. | parked |  |  | not required (Low or Info) |
 | C1-011 | Low | C1 | A run status, module state or event kind the client does not know crashes the whole Run activity or run page into the load-failure screen. | parked |  |  | not required (Low or Info) |
 | C1-012 | Low | C1 | getLibraryIndex and getSnapshot hand the browser's JSON parse error to the reader ('Unexpected token '<', "<html>oops</html>" is not valid JSON'). | parked |  |  | not required (Low or Info) |
@@ -364,6 +364,7 @@ High first. `Merged` lists the ids with the same cause.
 | J1-019 | Info | J1 | proof.serve refuses any root that already holds a file, so a restarted synthetic service cannot reopen earlier runs; the refusal is argparse usage text. | batch |  | J3-022 | not required (Low or Info) |
 | J5-010 | Info | J5 | The limits the analyst accepted at Submit (no quotes, financials that are management claims) appear nowhere in the finished report, and Evidence > Gaps says 'T… | batch |  |  | not required (Low or Info) |
 | J6-017 | Info | J6 | After the Kit page is opened, a text-measurement span holding "FY21" stays in <body> at top -20000, outside the app root, and is part of the page text on every… | batch |  |  | not required (Low or Info) |
+| R3-001 | Info | S5 | A model run that delivers one case instead of two is refused whole by the Model reader ('expected two cases'), so none of its pages can be read. | batch (OQ-14) |  |  | not required (Low or Info) |
 | S2-025 | Info | S2 | The Overview puts the headline figures and For and against between the bottom line and Key findings; D-11 fixes bottom line, key findings, then contrary eviden… | batch (OQ-02) |  |  | not required (Low or Info) |
 | S3-032 | Info | S3 | StatementBlock shadows its row index with the cell index inside the row's map. | batch |  |  | not required (Low or Info) |
 | S6-033 | Info | S6 | A 'Stop run' button is drawn (disabled) on every live run page, but no control-matrix row or ruling gives the analyst a Stop. | batch (OQ-06) |  |  | not required (Low or Info) |
@@ -391,7 +392,6 @@ High first. `Merged` lists the ids with the same cause.
 | X1-014 | Info | X1 | components/chart/ChartFrame.tsx imports a string constant from pages/library/parts/TraceControl. | sweep |  |  | not required (Low or Info) |
 | X1-025 | Info | X1 | The chart files repeat the same blocks, and shared helpers live in individual chart files. | sweep |  |  | not required (Low or Info) |
 | B0-006 | Info | C1 | The legacy issuer library and the legacy run-start form ship in the release ZIP and stay reachable at /library/*, outside the two audited surfaces. | owner (OQ-05) |  |  | not required (Low or Info) |
-| R3-001 | Info | S5 | A model run that delivers one case instead of two is refused whole by the Model reader ('expected two cases'), so none of its pages can be read. | owner (OQ-14) |  |  | not required (Low or Info) |
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. | parked |  |  | not required (Low or Info) |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps… | parked |  |  | not required (Low or Info) |
 | R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. | parked |  |  | not required (Low or Info) |

@@ -203,3 +203,7 @@ activity passes it on: a change to what the orchestrator records, outside this a
 
 Recommendation: option 1, as separate work after the audit. A run that has the documents it needs
 is not affected, and T12 makes the documented synthetic path finish.
+
+## Owner ruling on OQ-14 and OQ-15 (R15)
+
+Owner, 2026-11-17: "everything else is fine ... 4. OQ-15 - your recommendation". OQ-14 is decided as recommended: a one-case model run is shown, with a stated gap on its Forecast page (R3-001, Low and Info batch). OQ-15 is decided as recommended: the engine records a short reader-safe reason with each checker rejection and stop, as separate work after the audit (R1-012, deferred; listed in the work-PC prompt and the summary). Teams run cards are implemented and checked only on the work PC (R1-009 and the Teams items go to the work-PC prompt).
