@@ -75,7 +75,7 @@ Findings:
 
 - C1-004, Medium: Run and report error states are one plain red line with no icon or action, and say the wrong thing: an unknown report reads 'could not be loaded' and an unknown run reads 'unknown run'.
 - C1-005, Medium: A finished run with no published report polls every 2 seconds for ever and keeps saying 'Waiting for the report to become available…'.
-- C1-024, Medium: The run page removes and re-inserts its red error alert on every 2-second poll, so a screen reader announces the same error again every cycle and the line flickers.
+- C1-024, Medium: The run page removes and re-inserts its red error alert on every 2-second poll, so a screen reader announces the same error again every cycle and the line flickers. Ruling: R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; the repeated announcement is dropped; the visible flicker of the alert on every poll stays
 - J5-001, Medium: On a failed run the refused module is labelled Interrupted while the run reads Failed, three 'Module draft rejected.' events give no reason, and nothing on the page says why the run stopped or what to change.
 
 Files: `web/src/pages/connected/RunProgress.tsx`, `web/src/pages/connected/layout.tsx`, `web/src/pages/connected/useResource.ts`, `web/src/pages/connected/runFigures.ts`, `react_frontend/run_activity.py`
@@ -97,7 +97,6 @@ Findings:
 
 - C1-002, Medium: The empty Library is a bare 'No reports yet' card with no icon, no explanation and no next step, drawn under filter and layout controls that have nothing to act on.
 - C1-003, Medium: Run activity's Waiting and Ended tables are cut off inside overflow-hidden panels: the Pathway column is clipped at 1280 to 1440 px and Ended, State and Reason cannot be seen or scrolled to on a phone.
-- C1-006, Medium: Run activity changes run state on screen every 5 seconds but exposes no live region, so a screen-reader user is never told that a run started, ended, failed or was capped.
 - C1-031, Medium: When one poll of Run activity fails, every run and the counts disappear behind a neutral empty-state panel with a magnifier icon, no alert role and no tone; the same icon is used for 'No run in progress'.
 
 Files: `web/src/pages/connected/LibraryIndex.tsx`, `web/src/pages/connected/RunActivity.tsx`, `web/src/pages/connected/RunProgress.tsx`
@@ -106,7 +105,6 @@ Probes:
 
 - C1-002 (exit): `docs/audit/2026-11-16-final/output/2-sections/C1/probes/c1-002-library-empty-state.cjs`
 - C1-003 (exit): `docs/audit/2026-11-16-final/output/2-sections/C1/probes/c1-003-run-activity-table-clipping.cjs`
-- C1-006 (exit): `docs/audit/2026-11-16-final/output/2-sections/C1/probes/c1-006-run-activity-no-live-region.cjs`
 - C1-031 (exit): `docs/audit/2026-11-16-final/output/2-sections/C1/probes/c1-031-run-activity-read-failure.cjs`
 
 Touches money, ordering or security code: no.
@@ -474,7 +472,7 @@ Touches money, ordering or security code: no.
 
 Findings:
 
-- S1-002 (with S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003), Medium: Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing. Ruling: R14 (owner, 2026-11-17: 'only pc, no need for keyboard'): the app runs on desktop PCs with a mouse; narrow-screen, touch and keyboard-only findings are not defects; the focus half is dropped; route titles and scroll stay
+- S1-002 (with S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003), Medium: Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing. Ruling: R16 (owner, 2026-11-17: 'screen reader - not required'): a finding that changes only what a screen reader announces is not a defect; the focus and announcement half is dropped (R14, R16); route titles and scroll stay
 
 Files: `web/src/App.tsx`, `web/src/shell/Shell.tsx`, `web/src/pages/route-table.ts`, `web/src/pages/library/routes.tsx`, `web/src/pages/model/routes.tsx`, `web/src/pages/library/Evidence.tsx`, `web/src/pages/library/parts/EvidenceFrame.tsx`, `web/src/pages/library/Module.tsx`, `web/src/pages/library/parts/ModuleNav.tsx`
 

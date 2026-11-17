@@ -281,7 +281,7 @@ Every content-matrix (CM) and control-matrix (CT) row as each section marked it,
 | CM-075 | S4 | shown as required |  |
 | CM-076 | C5 | shown but wrong place or form | C5-013: batch |
 | CM-076 | S4 | shown but wrong place or form |  |
-| CM-077 | C5 | shown as required | C5-014: batch; C5-015: batch |
+| CM-077 | C5 | shown as required | C5-014: batch; C5-015: rejected |
 | CM-078 | C5 | shown but wrong place or form | C5-017: batch |
 | CM-078 | S4 | shown as required |  |
 | CM-079 | C5 | shown but wrong place or form | C5-003: repair; C5-004: repair (C4-003) |
@@ -313,7 +313,7 @@ Every content-matrix (CM) and control-matrix (CT) row as each section marked it,
 | CM-088 | S6 | shown but wrong place or form |  |
 | CM-089 | C1 | shown as required | C1-018: batch |
 | CM-089 | S6 | shown but wrong place or form |  |
-| CM-090 | C1 | shown as required | C1-003: repair; C1-006: repair |
+| CM-090 | C1 | shown as required | C1-003: repair; C1-006: rejected |
 | CM-090 | S6 | shown but wrong place or form |  |
 | CM-091 | C1 | correctly not shown |  |
 | CM-091 | C2 | correctly not shown | C2-025: batch |

@@ -9,10 +9,10 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | Severity | repair | batch | sweep | owner | deferred | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
-| Medium | 71 | 0 | 0 | 0 | 1 | 2 | 31 | 105 |
-| Low | 0 | 150 | 0 | 0 | 1 | 18 | 30 | 199 |
-| Info | 3 | 19 | 17 | 1 | 0 | 10 | 33 | 83 |
-| Total | 79 | 169 | 17 | 1 | 2 | 30 | 94 | 392 |
+| Medium | 70 | 0 | 0 | 0 | 1 | 2 | 32 | 105 |
+| Low | 0 | 141 | 0 | 0 | 1 | 18 | 39 | 199 |
+| Info | 3 | 18 | 17 | 1 | 0 | 10 | 34 | 83 |
+| Total | 78 | 159 | 17 | 1 | 2 | 30 | 105 | 392 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -53,7 +53,6 @@ High first. `Merged` lists the ids with the same cause.
 | C1-003 | Medium | C1 | Run activity's Waiting and Ended tables are cut off inside overflow-hidden panels: the Pathway column is clipped at 1280 to 1440 px and Ended, State and Reason… | repair | T05 |  | confirmed |
 | C1-004 | Medium | C1 | Run and report error states are one plain red line with no icon or action, and say the wrong thing: an unknown report reads 'could not be loaded' and an unknow… | repair | T04 |  | confirmed |
 | C1-005 | Medium | C1 | A finished run with no published report polls every 2 seconds for ever and keeps saying 'Waiting for the report to become available…'. | repair | T04 |  | confirmed |
-| C1-006 | Medium | C1 | Run activity changes run state on screen every 5 seconds but exposes no live region, so a screen-reader user is never told that a run started, ended, failed or… | repair | T05 |  | confirmed |
 | C1-007 | Medium | C1 | Report history rows omit the modules run and each run's status, and no row can carry 'Earlier format' or 'Earlier methods'. | repair | T17 |  | confirmed |
 | C1-013 | Medium | C1 | Run reasons are drawn exactly as the scheduler wrote them: launcher exit codes and log paths, and (from the library's refusals) module codes such as 'CP-1' and… | repair | T03 |  | confirmed |
 | C1-024 | Medium | C1 | The run page removes and re-inserts its red error alert on every 2-second poll, so a screen reader announces the same error again every cycle and the line flic… | repair | T04 |  | confirmed |
@@ -122,6 +121,7 @@ High first. `Merged` lists the ids with the same cause.
 | R1-012 | Medium | C1 | When the checker refuses a module's draft and the run stops, no page can say why (for example that no executed agreement was chosen): the engine records only '… | deferred (OQ-15) |  |  | not verified |
 | J2-011 | Medium | J2 | Two runs of the same issuer, date and pathway started together are both accepted and finish, and the library then lists two identical history rows, each called… | parked |  |  | confirmed |
 | S3-009 | Medium | S3 | One malformed record makes every library page unreadable and prints the reader's internal data path in the page body. | parked |  | S4-014 | confirmed |
+| C1-006 | Medium | C1 | Run activity changes run state on screen every 5 seconds but exposes no live region, so a screen-reader user is never told that a run started, ended, failed or… | rejected |  |  | confirmed |
 | C2-001 | Medium | C2 | At 390 px a file name or issuer name with no spaces widens the whole review sheet, clipping every Edit button, the file name and the Submit button. | rejected |  |  | confirmed |
 | C2-005 | Medium | C2 | Pressing Carry over from latest run leaves keyboard focus on the page body and announces nothing, because the button is replaced by 'This is a different issuer… | rejected |  |  | confirmed |
 | C3-004 | Medium | C3 | Below 1001 px the Module select navigates on every ArrowDown, so a keyboard user cannot browse the options without changing page each time. | rejected |  | C5-006 | confirmed |
@@ -156,7 +156,6 @@ High first. `Merged` lists the ids with the same cause.
 | B0-002 | Low | X1 | AGENTS.md names tests/nightly-known-failures.txt, which does not exist; the file is tests/known-failures.txt. | batch (OQ-12) |  |  | not required (Low or Info) |
 | C1-008 | Low | C1 | The connected library card shows no delivery state and no bottom line, unlike the static IssuerCard it is meant to match, and shows the issuer's raw identifier… | batch |  |  | not required (Low or Info) |
 | C1-014 | Low | C1 | Every connected page except the report is titled 'Credit OS', so tabs, history entries and screen-reader page announcements cannot tell Library, Run activity a… | batch |  | C3-030, C5-031, J1-010, J3-018 | not required (Low or Info) |
-| C1-015 | Low | C1 | Heading levels skip: the Library goes from the h1 straight to h3 issuer names, and the run page from h1 to h3 'Modules' and 'Activity'. | batch |  | X1-012 | not required (Low or Info) |
 | C1-018 | Low | C1 | On a Running card each module is a status badge whose word is the module's name, so a sighted reader sees the state only as a small glyph and colour; the state… | batch |  |  | not required (Low or Info) |
 | C1-019 | Low | C1 | The Library search text, Sector and Pathway filters and the Cards/List choice are lost when the reader opens a report and comes back. | batch |  |  | not required (Low or Info) |
 | C1-022 | Low | C1 | The Library filter bar labels its three fields in two styles: 'Search issuers' is a medium-weight primary-colour label above a wide input; 'Sector' and 'Pathwa… | batch |  |  | not required (Low or Info) |
@@ -173,15 +172,12 @@ High first. `Merged` lists the ids with the same cause.
 | C2-020 | Low | C2 | With documents waiting to be carried the list says 'No documents yet.' while Continue and Inspect are enabled. | batch |  |  | not required (Low or Info) |
 | C2-022 | Low | C2 | Choosing a different pathway silently clears the Requested modules selection. | batch |  |  | not required (Low or Info) |
 | C2-023 | Low | C2 | A service sentence reads 'This pathway does not produce the What changed since the last Report report section.' and the same part of the report has two names o… | batch |  |  | not required (Low or Info) |
-| C3-010 | Low | C3 | The heading outline does not follow the page structure: the whole Bottom line paragraph is the h2 (no 'Bottom line' heading text), module sections are h2 sibli… | batch |  |  | not required (Low or Info) |
 | C3-011 | Low | C3 | A change card shows a positive difference without a sign ('0.80x') while the Overview tile for the same measure shows '+0.80x vs FY2023'. | batch |  |  | not required (Low or Info) |
 | C3-012 | Low | C3 | When CP-8 delivered, the same handoff is drawn twice: on the Changes tab and again as a module 'Changes since the last run' in the Modules navigator, counted i… | batch (OQ-10) |  |  | not required (Low or Info) |
-| C3-014 | Low | C3 | Controls repeat identical accessible names with no context: 'Show sources for this passage' (several per module page) and six links named 'Evidence' on Overvie… | batch |  | C4-009, S2-016, S3-023, J4-010, J6-015 | not required (Low or Info) |
 | C3-015 | Low | C3 | The disclosure that holds the lead's second Bottom line paragraph is always labelled 'Decision rationale', also when the lead is Fundamental credit or Earnings… | batch |  |  | not required (Low or Info) |
 | C3-016 | Low | C3 | When the lead Bottom line holds a source reference, the navy band is lost: the heading 'Bottom line' is followed by the five figure tiles and then a link 'Read… | batch |  |  | not required (Low or Info) |
 | C3-017 | Low | C3 | The three 'no comparison' sentences (not produced, not compared, no comparison recorded) and the unreadable-comparison sentence carry no link; only the first-r… | batch |  |  | not required (Low or Info) |
 | C3-018 | Low | C3 | On Overview the trace control of each 'Bottom line by module' row sits alone on a third line under the paragraph, unlike every other paragraph where it sits at… | batch |  |  | not required (Low or Info) |
-| C3-019 | Low | C3 | The Modules navigator's <aside> has no accessible name, so the page has two unnamed complementary landmarks (axe landmark-unique); the 'Modules 14' tab has a n… | batch |  |  | not required (Low or Info) |
 | C3-021 | Low | C3 | The change cards are cards inside the 'Changes since the last run' card. | batch |  |  | not required (Low or Info) |
 | C3-027 | Low | C3 | The lead band on Overview is labelled 'Bottom line'; the ruling and the matrix name its kicker 'Credit view' ('Earnings view' on an Earnings Update). | batch |  |  | not required (Low or Info) |
 | C3-031 | Low | C3 | 'Compare with the 5% move' on Rates, FX and hedging is a <select> with one option ('10%'), so the control offers no choice. | batch |  | C4-023 | not required (Low or Info) |
@@ -202,8 +198,6 @@ High first. `Merged` lists the ids with the same cause.
 | C4-036 | Low | C4 | The break points are re-ordered by delivery (smallest required EBITDA decline first) and drawn as an ordered list, a ranking the module did not write for this… | batch |  |  | not required (Low or Info) |
 | C5-013 | Low | C5 | Handoff, calculation and Model downloads are on Summary and Trace, and registers and confidence inputs are drawn per handoff on Trace, not on Record as the mat… | batch |  |  | not required (Low or Info) |
 | C5-014 | Low | C5 | Script check cards are titled "columns", "rows", "all" or "Headroom: all", and draw the service's raw markup, snake_case register names and module codes. | batch |  |  | not required (Low or Info) |
-| C5-015 | Low | C5 | Script checks expose 215 region landmarks with duplicate names, and Record tables are all named "Table". | batch |  |  | not required (Low or Info) |
-| C5-016 | Low | C5 | Record jumps from h3 to h5 ("Synthetic adapter responses" / "Model calls", "Handoff issues"). | batch |  |  | not required (Low or Info) |
 | C5-017 | Low | C5 | The Summary count reads "1 designated handoffs" and gives only two counts. | batch |  |  | not required (Low or Info) |
 | C5-018 | Low | C5 | Handoff names are links styled as plain semibold labels, so the reader cannot tell they open that handoff's evidence. | batch |  |  | not required (Low or Info) |
 | C5-019 | Low | C5 | In "Model and calculation files" the three download buttons stretch to the full card width. | batch |  |  | not required (Low or Info) |
@@ -271,7 +265,6 @@ High first. `Merged` lists the ids with the same cause.
 | S4-002 | Low (was Medium) | S4 | 57 of the 58 trace drawers list no source, file, page or quoted passage, while the matching Evidence Trace row reports 'Sources 1' to '6'. | batch |  |  | confirmed |
 | S4-003 | Low (was Medium) | S4 | 'Download handoffs', 'Download all' and every register 'Open' point at files that are not in the built app; clicking Download handoffs replaces the page with t… | batch |  | J6-001 | confirmed |
 | S4-018 | Low | S4 | The jump search matches labels only, so an id the row itself shows (T-0014, G-03, C-0412) finds nothing; at 390 px ids break across lines and the Ctrl K hint i… | batch |  |  | not required (Low or Info) |
-| S4-021 | Low | S4 | The trace drawer has two buttons named 'Close' that do the same thing. | batch |  |  | not required (Low or Info) |
 | S5-009 | Low (was Medium) | S5 | The Net debt walk table labels a row 'Free cash flow, FY26' with -2,540 while the Statements table shows free cash flow FY26E as +2,540: the same label carries… | batch |  |  | confirmed |
 | S5-010 | Low | S5 | The case choice is private state of each page: choosing Downside on Statements leaves Forecast on Base, and leaving a page resets it. | batch |  |  | not required (Low or Info) |
 | S5-011 | Low | S5 | The case-choice line says 'every chart below follows it', but on Statements only the two bridges change and on Forecast only the interest cover line, the walk… | batch |  |  | not required (Low or Info) |
@@ -280,7 +273,6 @@ High first. `Merged` lists the ids with the same cause.
 | S5-018 | Low | S5 | One USD unit is written three ways: '$8,580m' on the Front page, 'USD millions' on Statements and charts, 'US dollars, millions' in the covers list; the matrix… | batch |  |  | not required (Low or Info) |
 | S5-019 | Low | S5 | In the Bars view a negative figure's bar differs from a positive one only by colour: both are right-aligned from the same edge. | batch |  |  | not required (Low or Info) |
 | S5-020 | Low | S5 | The Forecast page's headings 'Two cases' and 'Cash flow in FY26' are written in the page, not taken from the data, so a walk for another year or a one-case run… | batch |  |  | not required (Low or Info) |
-| S5-025 | Low | S5 | Chart titles are h3 headings placed after an unrelated h2: Headroom and Segment margins follow 'Measures and what they mean', and the Forecast charts follow 'T… | batch |  |  | not required (Low or Info) |
 | S6-008 | Low (was Medium) | S6 | 'Open the library' and 'Open what finished' go to the Library home (#/), which does not hold the run's issuer, so the finished work cannot be reached. | batch |  | S2-024, S5-003, J6-004 | confirmed |
 | S6-014 | Low | S6 | The run alerts offer 'Review and resume' and 'Review and start again', but the control matrix says no page control for resuming exists and that a resume is a l… | batch (OQ-06) |  |  | not required (Low or Info) |
 | S6-016 | Low | S6 | The cap is not named on Run activity: the figure is captioned 'Spend' and the bar reads 'USD 7.40 of USD 20.00'. | batch |  |  | not required (Low or Info) |
@@ -298,7 +290,6 @@ High first. `Merged` lists the ids with the same cause.
 | X1-002 | Low | X1 | The empty-state title is set in Geist, not in the heading face. | batch |  |  | not required (Low or Info) |
 | X1-003 | Low | X1 | Three different cards draw a headline figure: the kit MetricCard, the library MetricTile and the model MetricTile. | batch |  |  | not required (Low or Info) |
 | X1-004 | Low | X1 | A table cell draws n.a. only for null; an undefined or empty-string cell is drawn blank. | batch |  | S6-020 | not required (Low or Info) |
-| X1-005 | Low | X1 | Every warning or error Alert is role=alert, including the permanent 'Contrary evidence' passage on each module page. | batch |  |  | not required (Low or Info) |
 | X1-009 | Low | X1 | A hovered, unselected tab is drawn exactly like the selected tab. | batch (OQ-09) |  |  | not required (Low or Info) |
 | X1-016 | Low | X1 | The kit's paid-run sample dialog tells the reader the run 'stops at the cap of USD 20' with no pathway named. | batch |  |  | not required (Low or Info) |
 | X1-020 | Low | X1 | Bar, stack and strip series are told apart by colour alone, and the first and third chart colours are almost the same grey. | batch (OQ-09) |  |  | not required (Low or Info) |
@@ -322,13 +313,19 @@ High first. `Merged` lists the ids with the same cause.
 | S3-016 | Low | S3 | A long unbroken word overflows its row: an indicator threshold runs under the neighbouring column, a fact value and a key-finding lead run past the card. | parked |  |  | not required (Low or Info) |
 | S5-021 | Low | S5 | A very long unbroken word in the issuer name makes the breadcrumb 735 px wide and the page scroll sideways at 390 px. | parked |  |  | not required (Low or Info) |
 | S6-019 | Low | S6 | One invalid string makes every run page a bare message that prints the validator's path text, and no run page can be read. | parked |  |  | not required (Low or Info) |
+| C1-015 | Low | C1 | Heading levels skip: the Library goes from the h1 straight to h3 issuer names, and the run page from h1 to h3 'Modules' and 'Activity'. | rejected |  | X1-012 | not required (Low or Info) |
 | C1-020 | Low | C1 | On the Report history tab the report frame is wider than a phone screen: the page scrolls sideways (6 px at 390 px, 76 px at 320 px) because each history row's… | rejected |  | J5-008 | not required (Low or Info) |
 | C1-021 | Low | C1 | Issuer names on Run activity are links that never wrap, so an 85-character name makes the page scroll sideways 737 px at 390 px; at 320 px the header's counts… | rejected |  |  | not required (Low or Info) |
 | C1-030 | Low | C1 | At 390 px the navigation rail is drawn at the bottom of the screen but is first in the tab order, so keyboard focus starts at the bottom bar, jumps to the top… | rejected |  |  | not required (Low or Info) |
+| C3-010 | Low | C3 | The heading outline does not follow the page structure: the whole Bottom line paragraph is the h2 (no 'Bottom line' heading text), module sections are h2 sibli… | rejected |  |  | not required (Low or Info) |
 | C3-013 | Low | C3 | The Chart/Table and Cards/Table switches are role=radiogroup buttons whose arrow keys move focus without selecting and whose radios are both Tab stops. | rejected |  | C1-016, C4-008, S2-018 | not required (Low or Info) |
+| C3-014 | Low | C3 | Controls repeat identical accessible names with no context: 'Show sources for this passage' (several per module page) and six links named 'Evidence' on Overvie… | rejected |  | C4-009, S2-016, S3-023, J4-010, J6-015 | not required (Low or Info) |
+| C3-019 | Low | C3 | The Modules navigator's <aside> has no accessible name, so the page has two unnamed complementary landmarks (axe landmark-unique); the 'Modules 14' tab has a n… | rejected |  |  | not required (Low or Info) |
 | C4-014 | Low | C4 | The calendar's year markers are 14 by 14 px, are not tab stops and cannot be pressed at 480 px or less. | rejected |  | J5-009 | not required (Low or Info) |
 | C4-032 | Low | C4 | Each Recharts chart is an extra tab stop with role=application, named only by its title, with an empty description. | rejected |  | X1-007 | not required (Low or Info) |
 | C4-037 | Low | C4 | At 390 px the EBITDA bridge's x-axis labels touch or overlap ('Restructuring add-back', 'Disposal', 'Issuer-adjusted EBITDA'). | rejected |  |  | not required (Low or Info) |
+| C5-015 | Low | C5 | Script checks expose 215 region landmarks with duplicate names, and Record tables are all named "Table". | rejected |  |  | not required (Low or Info) |
+| C5-016 | Low | C5 | Record jumps from h3 to h5 ("Synthetic adapter responses" / "Model calls", "Handoff issues"). | rejected |  |  | not required (Low or Info) |
 | J4-002 | Low (was Medium) | J4 | The finished synthetic run shows different values for the same measure on different screens, and nothing states a definition, a period or a reason for the diff… | rejected |  | J3-006, J3-010, J4-013 | not a defect |
 | J4-006 | Low (was Medium) | J4 | The issuer calendar counts one dated event once per module that repeats it, and the Overview's Dates to watch lists one event five times. | rejected |  |  | not a defect |
 | J4-008 | Low | J4 | The rating's as-of date (2025-02-28) is only in a hover title on a non-focusable element, so it is not visible on a touch screen or by keyboard. | rejected |  |  | not required (Low or Info) |
@@ -345,12 +342,15 @@ High first. `Merged` lists the ids with the same cause.
 | S3-029 | Low | S3 | At 320 px the New run button runs 47 px past the window edge. | rejected |  |  | not required (Low or Info) |
 | S3-030 | Low | S3 | The Modules navigator has no Model entry although decision 3 says the delivered Model appears as an entry in Modules. | rejected (OQ-01) |  |  | not required (Low or Info) |
 | S4-017 | Low | S4 | At 390 px the copy toast touches the left edge and covers the bottom navigation. | rejected |  |  | not required (Low or Info) |
+| S4-021 | Low | S4 | The trace drawer has two buttons named 'Close' that do the same thing. | rejected |  |  | not required (Low or Info) |
 | S5-006 | Low | S5 | At 390 px the Statements tab list is 445 px wide inside a 260 px card with overflow visible: 'Balance sheet' is cut by the card edge, 'Key measures' lies past… | rejected |  |  | not required (Low or Info) |
 | S5-007 | Low | S5 | At 390 px the range strips shrink to a blob about 30 px wide between a wrapped label column and the value column, so range and marker positions cannot be read. | rejected |  |  | not required (Low or Info) |
+| S5-025 | Low | S5 | Chart titles are h3 headings placed after an unrelated h2: Headroom and Segment margins follow 'Measures and what they mean', and the Forecast charts follow 'T… | rejected |  |  | not required (Low or Info) |
 | S6-013 | Low | S6 | The Start step's Submit button is whitespace-nowrap and 307 px wide, so the card is wider than the viewport: 15 px past the right gutter at 390 px, and at 320… | rejected |  |  | not required (Low or Info) |
 | S6-015 | Low | S6 | Run activity shows module states only: plan, delivery and library admission have no state of their own, so a run whose modules finished cannot be told from one… | rejected (OQ-10) |  |  | not required (Low or Info) |
 | S6-028 | Low | S6 | Moving to another step keeps the previous scroll offset: at 390 px the new step opens with its heading 326 px above the viewport. | rejected |  |  | not required (Low or Info) |
 | S6-030 | Low | S6 | Disabled controls are unfocusable, so the reason attached to them with aria-describedby is never reached by Tab. | rejected |  |  | not required (Low or Info) |
+| X1-005 | Low | X1 | Every warning or error Alert is role=alert, including the permanent 'Contrary evidence' passage on each module page. | rejected |  |  | not required (Low or Info) |
 | X1-021 | Low | X1 | Each path chart has a focusable 'scroll horizontally' region that does not scroll, in addition to the chart's own tab stop. | rejected |  |  | not required (Low or Info) |
 | R1-001 | Info (was High) | C5 | When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute p… | repair | T01 |  | confirmed |
 | R1-007 | Info (was High) | C5 | An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evid… | repair | T01b |  | confirmed |
@@ -370,7 +370,6 @@ High first. `Merged` lists the ids with the same cause.
 | S6-033 | Info | S6 | A 'Stop run' button is drawn (disabled) on every live run page, but no control-matrix row or ruling gives the analyst a Stop. | batch (OQ-06) |  |  | not required (Low or Info) |
 | S6-037 | Info | C1 | The connected Run page says '14 of 14 modules' while the list under 'Modules' holds 15 rows, the last being 'Report'. | batch |  |  | not required (Low or Info) |
 | X1-006 | Info | X1 | Alert wraps its children in a p element, so a block child is invalid HTML. | batch |  |  | not required (Low or Info) |
-| X1-011 | Info | X1 | LoadingIndicator hides its visible label from assistive technology and leaves the status region with only a name. | batch |  |  | not required (Low or Info) |
 | X1-015 | Info | X1 | Select values and options, and file names in the file row, are cut with an ellipsis and carry no full-text fallback. | batch |  |  | not required (Low or Info) |
 | X1-017 | Info | X1 | The design system says the slashed circle means 'Not assessable' and nothing else, and its own set table gives it to 'Not ready'. | batch (OQ-09) |  |  | not required (Low or Info) |
 | X1-026 | Info | X1 | The waterfall colours are three local constants under a 'come later' comment, and 'up' uses a brand tint outside the chart palette. | batch (OQ-09) |  |  | not required (Low or Info) |
@@ -435,3 +434,4 @@ High first. `Merged` lists the ids with the same cause.
 | S6-032 | Info | S6 | The review step shows 'Reporting currency USD' as a value read from the documents; CM-088 says neither start page asks for or shows it. | rejected (OQ-01) |  |  | not required (Low or Info) |
 | S6-034 | Info | S6 | Parts of the static run screens that no matrix row accounts for: Readiness panel, the More context free-text step, run header chips (pathway, as-of) and status… | rejected (OQ-13) |  |  | not required (Low or Info) |
 | S6-035 | Info | S6 | Rows for controls that exist only on the connected page or in the launching environment have no counterpart on the static run screens: the synthetic Submit (CT… | rejected (OQ-11) |  |  | not required (Low or Info) |
+| X1-011 | Info | X1 | LoadingIndicator hides its visible label from assistive technology and leaves the status region with only a name. | rejected |  |  | not required (Low or Info) |
