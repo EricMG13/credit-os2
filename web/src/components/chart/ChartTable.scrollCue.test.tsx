@@ -15,7 +15,7 @@ it("shows a visible scroll cue exactly when the source columns exceed the availa
   );
   expect(await screen.findByText("Scroll horizontally to see every column.")).toBeVisible();
   width = 900;
-  await act(() => {
+  act(() => {
     window.dispatchEvent(new Event("resize"));
   });
   expect(screen.queryByText("Scroll horizontally to see every column.")).toBeNull();

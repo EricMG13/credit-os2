@@ -79,7 +79,9 @@ describe("ordinary source number typography", () => {
     ["2\u00a0100", 2100],
     ["2\u202f100", 2100],
     ["(1,250.50)", -1250.5],
-  ])("places %s at its exact value %d", (text, expected) => expect(amount(text)).toBe(expected));
+  ])("places %s at its exact value %d", (text, expected) => {
+    expect(amount(text)).toBe(expected);
+  });
   it("reads a suffix only when the stated unit confirms its family and scale", () => {
     expect(amount("2,100m", "US$m")).toBe(2100);
     expect(amount("3,75%", "%")).toBe(3.75);

@@ -272,7 +272,7 @@ describe("Overview, fix round 1", () => {
     renderOverview("2026-09-30");
     const metric = tiles()[5] as HTMLElement;
     const cases: [HTMLElement, HTMLElement, string][] = [
-      [within(metric).getByText("n.a."), metric, "text-[30px]/[38px]"],
+      [within(metric).getByText("n.a."), metric, "text-metric"],
     ];
     cleanup();
     renderOverview("2026-03-31");
