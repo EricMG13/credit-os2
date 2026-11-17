@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-504 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 395 findings. Counts below are of those 395, after re-grading.
+505 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 396 findings. Counts below are of those 396, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -11,8 +11,8 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 5 |
 | Medium | 71 | 0 | 0 | 0 | 1 | 2 | 32 | 106 |
 | Low | 0 | 141 | 0 | 0 | 2 | 18 | 39 | 200 |
-| Info | 3 | 17 | 17 | 0 | 3 | 10 | 34 | 84 |
-| Total | 79 | 158 | 17 | 0 | 6 | 30 | 105 | 395 |
+| Info | 3 | 18 | 17 | 0 | 3 | 10 | 34 | 85 |
+| Total | 79 | 159 | 17 | 0 | 6 | 30 | 105 | 396 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -33,7 +33,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S4 | 0 | 8 | 6 | 3 |
 | S5 | 0 | 6 | 12 | 8 |
 | S6 | 0 | 10 | 18 | 5 |
-| X1 | 0 | 2 | 11 | 11 |
+| X1 | 0 | 2 | 11 | 12 |
 
 Verification of High and Medium findings: confirmed 124, not a defect 4, not verified 2.
 
@@ -366,6 +366,7 @@ High first. `Merged` lists the ids with the same cause.
 | J5-010 | Info | J5 | The limits the analyst accepted at Submit (no quotes, financials that are management claims) appear nowhere in the finished report, and Evidence > Gaps says 'T… | batch |  |  | not required (Low or Info) |
 | J6-017 | Info | J6 | After the Kit page is opened, a text-measurement span holding "FY21" stays in <body> at top -20000, outside the app root, and is part of the page text on every… | batch |  |  | not required (Low or Info) |
 | R3-001 | Info | S5 | A model run that delivers one case instead of two is refused whole by the Model reader ('expected two cases'), so none of its pages can be read. | batch (OQ-14) |  |  | not required (Low or Info) |
+| R4-002 | Info | X1 | The four retained audit Python helpers fail the mandatory cumulative changed-code gate against main. | batch |  |  | not required (Low or Info) |
 | S2-025 | Info | S2 | The Overview puts the headline figures and For and against between the bottom line and Key findings; D-11 fixes bottom line, key findings, then contrary eviden… | batch (OQ-02) |  |  | not required (Low or Info) |
 | S3-032 | Info | S3 | StatementBlock shadows its row index with the cell index inside the row's map. | batch |  |  | not required (Low or Info) |
 | S6-033 | Info | S6 | A 'Stop run' button is drawn (disabled) on every live run page, but no control-matrix row or ruling gives the analyst a Stop. | batch (OQ-06) |  |  | not required (Low or Info) |
