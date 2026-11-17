@@ -133,6 +133,8 @@ export type Run = {
   held_reason?: string;
   /** The recorded cause of the engine's last stop; absent from an older service. */
   stopped_by?: string;
+  /** Exact non-ready items in the approved summary; null/absent for historical records. */
+  approved_summary_limits?: ReadinessItem[] | null;
   events: RunEvent[] | null;
 };
 
@@ -234,7 +236,7 @@ export const removeDocument = (id: string, name: string) =>
 export const getPriorInputs = (run: string) =>
   request<PriorInputs>(`/api/runs/${encodeURIComponent(run)}/inputs`, undefined, true);
 export const getLatestIssuerRun = (issuer: string) =>
-  request<{ latest_run: string; runs: number; latest_as_of: string }>(
+  request<{ latest_run: string; runs: number; latest_as_of: string; issuer_name?: string }>(
     `/api/issuers/${encodeURIComponent(issuer)}`,
   );
 export const carryDocuments = (id: string, run: string) =>
