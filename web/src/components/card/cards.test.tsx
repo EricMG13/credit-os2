@@ -76,7 +76,7 @@ describe("MetricCard", () => {
     expect(within(card).getByText("Net leverage")).toBeInTheDocument();
     const value = within(card).getByText("4.2x");
     expect(value).toHaveClass("tabular-nums");
-    expect(card).toHaveClass("rounded-lg", "border-border-subtle", "p-6");
+    expect(card).toHaveClass("rounded-ds-sm", "border-border-subtle", "p-6");
   });
 
   it("reads the value then from, with a space between, and keeps the source's single block", () => {
