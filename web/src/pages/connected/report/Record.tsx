@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
-import { getRun, moduleName, type Mode, type ReadinessItem, type Run } from "../api";
+import { getRun, moduleName, serviceText, type Mode, type ReadinessItem, type Run } from "../api";
 import { card, heading } from "../layout";
 import { PublishedTable } from "../ReportContent";
 import { publishedHref, type OutputEntry, type PublishedRun } from "../publishedReport";
@@ -241,11 +241,11 @@ export function ReportRecord({
             {approvedLimits.map((item, index) => (
               <li key={`${item.id}-${String(index)}`} className="grid gap-2 py-3">
                 <h4 className="font-semibold">
-                  {item.scope === "run" ? "Run" : moduleName(item.scope)}
+                  {item.scope === "run" ? "Run" : serviceText(item.scope)}
                 </h4>
                 <Badge>{SUMMARY_OUTCOME[item.outcome] ?? item.outcome}</Badge>
-                <p className="text-text-secondary">{item.reason}</p>
-                {item.fix && <p className="text-sm text-text-secondary">{item.fix}</p>}
+                <p className="text-text-secondary">{serviceText(item.reason)}</p>
+                {item.fix && <p className="text-sm text-text-secondary">{serviceText(item.fix)}</p>}
               </li>
             ))}
           </ul>

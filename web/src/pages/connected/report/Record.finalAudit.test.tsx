@@ -137,6 +137,29 @@ it("shows exact approved-summary limit labels and distinguishes old records", as
   expect(screen.queryByText("Approved summary limits were not recorded for this run.")).toBeNull();
 });
 
+it("R4-004 preserves approved wording when the service labels name modules", async () => {
+  response({
+    ...record,
+    approved_summary_limits: [
+      {
+        id: "peers-no-sources",
+        scope: "CP-1C",
+        outcome: "gap",
+        reason: "CP-1C has no peer sources; CP-DR can retain this gap.",
+        fix: "Add peer sources for CP-1C.",
+      },
+    ],
+  });
+  render(<ReportRecord run={run} entries={[]} mode="live" />);
+  expect(
+    await screen.findByText(
+      "Peer benchmark has no peer sources; Research questions can retain this gap.",
+    ),
+  ).toBeVisible();
+  expect(screen.getByText("Add peer sources for Peer benchmark.")).toBeVisible();
+  expect(document.body.textContent).not.toMatch(/CP-1C|CP-DR/);
+});
+
 it.each([undefined, null])(
   "states historical missing approved-summary metadata (%s)",
   async (approved_summary_limits) => {
