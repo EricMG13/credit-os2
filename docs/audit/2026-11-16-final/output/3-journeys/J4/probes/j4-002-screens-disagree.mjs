@@ -43,9 +43,20 @@ await runProbe("p002", async ({ page, run, endpoint }) => {
       .map((m) => `${m[1]}=${m[2]}`)
       .join(", ");
   };
+  const stack = debt.match(/Debt stack[\s\S]{0,500}?Senior notes\t[^\n]*/)?.[0].replace(/\s+/g, " ");
+  notes.push(`Financial foundation Debt stack (table view): ${JSON.stringify(stack)}; Net debt data FY2024 gross debt 1400 -> 2.80x`);
   const cp1 = maturity(debt, "Debt maturities\nPeriod", 3);
   const cp3c = maturity(refi, "Refinancing need\nPeriod", 2);
   notes.push(`USD 1,250m maturity: Financial foundation Debt maturities [${cp1}]; Refinancing & LME Refinancing need [${cp3c}]`);
+
+  // Source readiness against what the run holds.
+  const readiness = await moduleText(page, endpoint, run, "CP-0", false);
+  const onlyFiling = /Only the synthetic filing is available/.test(readiness);
+  const absentTerms = /Financing terms are absent/.test(readiness);
+  await page.goto(`${endpoint}report/${run}#evidence/sources`);
+  await page.waitForTimeout(900);
+  const heldFiles = [...(await bodyText(page)).matchAll(/^(northbridge[\w.-]+)$/gm)].map((m) => m[1]);
+  notes.push(`Source readiness says "Only the synthetic filing is available": ${onlyFiling}, "Financing terms are absent": ${absentTerms}; the run holds ${JSON.stringify(heldFiles)} (agreement chosen as executed)`);
 
   // The sources the person is shown for the 3.1x claim on the Overview.
   await page.goto(`${endpoint}report/${run}#overview`);
@@ -60,5 +71,5 @@ await runProbe("p002", async ({ page, run, endpoint }) => {
   const levDisagree = distinct([tileLeverage, covLeverage, dsLeverage, fcLeverage]) >= 3;
   const maturityDisagree = /FY2028=1,250/.test(cp1) && /FY2027=1,250/.test(cp3c);
   notes.push(`cover values differ: ${coverDisagree}; net leverage values differ: ${levDisagree}; 1,250 maturity in different years: ${maturityDisagree}`);
-  return { reproduced: coverDisagree && levDisagree && maturityDisagree, notes };
+  return { reproduced: coverDisagree && levDisagree && maturityDisagree && onlyFiling && heldFiles.length === 3, notes };
 });

@@ -1,0 +1,6 @@
+  tile shows: 89 High
+  drawer: "Confidence inputs Financial foundation · Handoff line 161 The statement Confidence inputs How it was derived Evidence retained with this item no page the row cites no page or register no page the row ..." (14 "the row cites no page or register" lines)
+  method words on the module page: false; in the drawer: false
+  hand calculation: evidence 90, coverage 95, gate 1, minor 1 -> 89 (rounds to 89)
+REPRODUCED p005
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

@@ -1,0 +1,7 @@
+  Sources tab (heading "Named in a handoff"): files ["northbridge-credit-agreement.txt","northbridge-filing.txt","northbridge-portfolio.xlsx"]; modules listed per file [14,14,14]
+  Sources tab mentions annual.txt: false
+  Gaps tab: "Gaps 0 What this run could not establish, with the detail each handoff records. This run lists no gaps."
+  citations in the 14 downloaded handoff bodies: {"northbridge-filing.txt":1,"northbridge-credit-agreement.txt":0,"northbridge-portfolio.xlsx":0,"annual.txt":38} {"annual.txt":["CP-1:25","CP-1A:1","CP-DR:1","CP-4:1","CP-2:1","CP-2A:1","CP-2E:1","CP-2D:1","CP-2G:1","CP-3C:1","CP-3:1","CP-5:1","CP-6:2"],"northbridge-filing.txt":["CP-2E:1"]}
+  Overview key-finding drawer says "not in inventory": true
+REPRODUCED p004
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

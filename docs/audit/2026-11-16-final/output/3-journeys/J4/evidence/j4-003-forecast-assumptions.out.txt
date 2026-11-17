@@ -1,0 +1,9 @@
+  "Forecast assumptions" section text: "Forecast assumptions Item Value Sources Observed Not supplied: nothing to report Open the forward credit handoff"
+  Forecast page states the downside shock size (20% EBITDA decline, 10% rate rise): false
+  Forecast page states the tax/working-capital (10% of revenue) or interest-rate (6%) drivers: false
+  handoff CP-2G.md: "downside_shock": {"ebitda_decline": "0.20", "rate_increase": "0.10"}
+  handoff CP-2G.md drivers: revenue_growth=[0.05, 0.04, 0.03]; ebitda_margin=[0.30, 0.31, 0.32]; capex_pct_revenue=[0.04, 0.04, 0.04]; tax_wc_pct_revenue=[0.10, 0.10, 0.10]; interest_rate=[0.06, 0.06, 0.06]; dividends=[20, 20, 20]; debt_repayment=[50, 50, 50]
+  Evidence > Trace > Forward credit model (full handoff view) shows the JSON block: false
+  Downside module shock: EBITDA decline 0.1 (10%), cash-interest increase 0
+REPRODUCED p003
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

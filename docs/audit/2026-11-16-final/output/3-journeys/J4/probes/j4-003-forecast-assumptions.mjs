@@ -29,12 +29,21 @@ await runProbe("p003", async ({ page, run, endpoint }) => {
   notes.push(`handoff CP-2G.md: ${shock}`);
   notes.push(`handoff CP-2G.md drivers: ${drivers.join("; ")}`);
 
+  // The Evidence Trace tab's full view of the Forward credit model handoff does not carry the JSON block.
+  await page.goto(`${endpoint}report/${run}#evidence/trace/CP-2G`);
+  await page.waitForTimeout(900);
+  await page.getByRole("link", { name: "Forward credit model", exact: true }).last().click();
+  await page.waitForTimeout(900);
+  const fullView = await bodyText(page);
+  const jsonInFullView = /cpos-forecast-inputs|downside_shock/.test(fullView);
+  notes.push(`Evidence > Trace > Forward credit model (full handoff view) shows the JSON block: ${jsonInFullView}`);
+
   // The Downside module uses a different shock.
   const downside = await moduleText(page, endpoint, run, "CP-2A", false);
   const ds = downside.match(/EBITDA decline\s+([^\n]+)\nCash-interest increase\s+([^\n]+)/);
   notes.push(`Downside module shock: EBITDA decline ${ds?.[1]}, cash-interest increase ${ds?.[2]}`);
 
   const reproduced =
-    /Not supplied: nothing to report/.test(section) && !mentionsShock && !mentionsDrivers && Boolean(shock);
+    /Not supplied: nothing to report/.test(section) && !mentionsShock && !mentionsDrivers && Boolean(shock) && !jsonInFullView;
   return { reproduced, notes };
 });

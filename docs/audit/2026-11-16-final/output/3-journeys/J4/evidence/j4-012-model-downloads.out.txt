@@ -1,0 +1,8 @@
+  Annual model handoff: annual.md 7136 bytes sha256 d501fa953f12a1e9
+  Calculation JSON: calculation.json 20942 bytes sha256 55a89fc92fbae494
+  Exact forecast JSON: forecast_exact.json 15596 bytes sha256 433f51ee1810fa5f
+  Financial foundation handoff CP-1.md: 7136 bytes sha256 d501fa953f12a1e9
+  Calculation JSON: annual_periods=[] values={} history amounts all null: true
+  page says the HTML Model is unavailable: true
+REPRODUCED p012
+  browser: blocked=0 failed=0 pageErrors=0 status>=400=0

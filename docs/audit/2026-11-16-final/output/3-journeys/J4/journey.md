@@ -112,5 +112,159 @@ Extra checks that came up: the Confidence score (89, High) and the rating card.
   `Passes at or above 2.0 x` current `2.6`; Minimum liquidity `Passes at or above 100 US$m` current
   `n.a.`. The agreement holds Section 1 (net leverage at or below 5.0x) and Section 2 (interest cover
   at or above 2.0x) and nothing on minimum liquidity: the third test has no source. The screen's
-  basis for all three is `Synthetic.` The `4.2x` current net leverage disagrees with the Overview's
-  2.25x (J4-002). The `Headroom` column (0.8x, 0.6x) is in the handoff and not drawn.
+  basis for all three is `Synthetic.` The `Table` view adds headroom `0.8x` and `0.6x` (5.0 - 4.2 and
+  2.6 - 2.0, right). The `4.2x` current net leverage disagrees with the Overview's 2.25x (J4-002).
+
+## Step 6. F2, Max single issuer exposure 2.37% NAV against a 2.50% limit
+
+- Wanted: the exposure, its limit, the date and the source.
+- Did: Modules > Committee decision > Portfolio limits (chart, then the collapsed `Published
+  exposures and proposals` table, then `Show sources for Portfolio limits`); then Evidence > Sources >
+  `Open source file: northbridge-portfolio.xlsx` and read its `Compliance_Monitor` sheet.
+- Happened: chart `2.37%` against `limit 2.50%` and `3.73%` against `limit 5.00%`; caption `Current
+  exposure and limits in % NAV · 2025-03-31`; the table adds proposed `2.40` and `Not supplied: no
+  proposal`; the drawer's Basis is `Synthetic Compliance_Monitor snapshot as of 2025-03-31. Proposal is
+  illustrative.` The workbook: C-01 `Max single issuer exposure`, limit 2.5 `% NAV`, current 2.37,
+  `last_checked` 2025-03-31; C-05 `Max unrated exposure`, limit 5, current 3.73.
+- Result for F2: value, limit, unit and date right and checkable from the screen plus the source file.
+  This is the best-traced figure in the run. Two small points: the drawer joins both rows' Basis texts
+  into one run-on line, and the file name is not on the page (only the sheet name).
+
+## Step 7. F3, Forecast: Base case cash proxy FY2027E 172.46, Downside shock 97.47
+
+- Wanted: how the forecast was built and what the downside assumes.
+- Did: Forecast tab; read `Forecast cases`, `Cash flow model`, `Model limitations`; opened `Forecast
+  assumptions`; pressed `Show sources for Base case` and `Open in Evidence`; downloaded `Exact
+  forecast JSON`.
+- Happened: the cash flow model table gives every line for FY2025E to FY2027E (revenue 1,050 /
+  1,092 / 1,125, Adj EBITDA 315 / 339 / 360, interest 36 / 33 / 30, taxes and working capital 105 /
+  109 / 112, capex 42 / 44 / 45, cash proxy 132 / 153 / 172). `Units not recorded` is stated beside it.
+  `Forecast assumptions` opens to a one-row table `Observed | Not supplied: nothing to report`. The
+  trace opens `Forward credit model · Handoff line 93`, whose Evidence view is a raw JSON block: base
+  drivers (growth 5% / 4% / 3%, EBITDA margin 30% / 31% / 32%, capex 4% of revenue, tax and working
+  capital 10% of revenue, interest 6% of debt, distributions 20, repayments 50) and `downside_shock`
+  `ebitda_decline 0.20`, `rate_increase 0.10`. The Forecast page never states the shock size
+  (J4-003; `probes/j4-003-forecast-assumptions.mjs`).
+- Recomputed by hand from the JSON: FY2025E EBITDA 30% x 1,050 = 315; CFO 315 - 36 - 105 = 174; capex
+  4% x 1,050 = 42; cash proxy 132. FY2026E 152.64, FY2027E 172.4568 (shown 172.46). Downside:
+  EBITDA x 0.8 and interest at 6.6%: FY2025E 65.4, FY2026E 81.636, FY2027E 97.47216 (shown 65.40 /
+  81.64 / 97.47). `forecast_exact.json` carries 172.4568 and 97.47216. Right.
+- Result for F3: the arithmetic is right; the unit is `not recorded`; the assumptions are on no page
+  except as raw JSON; the base year (revenue 1,000, debt 600, cash 100) is not the reported FY2024
+  (revenue 2,250, debt 1,400, cash 275) and `Model limitations` says so only as "the forecast inputs do
+  not name the row and period of this line" (ten times). The Downside module's own scenarios shock
+  EBITDA by 10% or 20% with interest unchanged or +5% (`k = 0.05`), so the run has two different
+  downsides (J4-002, J4-003). The page also names `CP-1`, `CP-2G` and `Python` in its prose (J4-009).
+
+## Step 8. Download the original handoff through the screen and compare
+
+- Did: Evidence > Summary: `Download all handoffs` (zip), `Download Financial foundation`, `Download
+  Committee decision`, `Download Source readiness`, `Download Research questions`, and the three
+  model files. Compared them with `proof/handoffs/` and with the screen.
+- Happened:
+  - All 14 files in `handoffs.zip` are byte-identical to the 14 single downloads.
+  - Each download is the canned handoff with a 12-to-24-line header added by the run (`# CP-1`,
+    `## Request`, `## Sources` listing the three uploaded files, `context`, and the earlier modules by
+    hash). Everything from `## Findings` on is byte-identical to `proof/handoffs/<module>.md` for all 14.
+  - The sha-256 in each handoff link on the screen equals the hash of the file downloaded
+    (CP-1 `d501fa95...`, CP-0 `713833b3...`).
+  - Every trace drawer's `Handoff line N` was checked against the downloaded file: 92 drawers on the
+    Overview, Financial foundation, Legal & covenants, Committee decision, Downside and Refinancing
+    pages, 0 mismatches (the line is the heading's first row or the paragraph itself).
+  - The three source hashes on Evidence > Sources equal the sha-256 of the files in `proof/`.
+  - Numbers: for each of the 14 module pages, every numeric cell of the handoff's chart and table
+    sections was found on the page (charts turned to `Table`): 1 miss, the proposed exposure `2.40`,
+    which is in the collapsed `Published exposures and proposals` table, so 0 real misses.
+  - `Annual model handoff` is `annual.md`, byte-identical to the Financial foundation handoff;
+    `Calculation JSON` has `annual_periods: []`, `values: {}` and a history whose every amount is
+    null; `The original HTML Model is unavailable for this run.` (J4-012).
+- Result: screen and handoff agree. What the screen shows is what the handoff says; the defects
+  are in what the handoffs say (J4-002) and in what the screen leaves out.
+
+## Step 9. Look for contrary evidence and for what would change the view
+
+- Did: Overview card; each module page's section of the same name (13 pages); Evidence > Gaps.
+- Happened: the Overview card shows one passage (from Committee decision). Every module page repeats
+  the identical sentence "Nothing supplied contradicts the view; a USD 1,250 million refinancing
+  would." with the same `Basis was not recorded for this item`. The Evidence validation module's
+  map holds one `Supports` edge. Gaps: `0 / This run lists no gaps.` while the pages carry `Not
+  supplied` cells (Financial foundation: cash flow statement lines, balance sheet totals, debt
+  principal; Refinancing: committed resources; Legal: minimum liquidity), a missing FY2027 maturity,
+  and the Forecast's ten "do not name the row and period" lines. And the screens contradict each
+  other on cover, leverage and the timing of the USD 1,250m (J4-002). Nothing flags any of it.
+- Result: contrary evidence is present as a sentence and is not corroborated or challenged anywhere
+  the person can see; what would change the view is "a USD 1,250 million refinancing", which the
+  person cannot place in time.
+
+## Step 10. Evidence > Sources, Gaps, Script checks, Record
+
+- Sources: three files, each `Named in a handoff` against all 14 modules, each with its hash and an
+  `Open source file` link that works (the two text files and the workbook download; 422, 52 and
+  11,137 bytes). The handoff bodies cite `annual.txt` 38 times (25 in Financial foundation), and name
+  `northbridge-filing.txt` once (Rates, FX & hedging), the agreement never and the workbook never. `annual.txt` is on no Sources list and no Gaps list; only the drawer says `not in inventory`
+  (J4-004).
+- Script checks: tab badge 215; per module 205 `not checked`, 9 `agreed`, 1 `noted` (J4-011).
+- Confidence score 89 High: recomputed from the inputs table (8 / 2 / 2 lineage, 95 of 100 fields,
+  gate pass, one minor finding): evidence 90, coverage 95, (0.6 x 90 + 0.4 x 95) - 3 = 89. Right; the
+  method is on no page (J4-005).
+- Calendar: `Historical 9 / Scheduled 18 / Scenario 9` for four distinct events repeated by nine
+  modules; the Overview's `Dates to watch` lists one event five times (J4-006).
+- Overview shows five of six headline tiles; Adjusted EBITDA is dropped without a word (J4-007).
+
+## Step 11. What the person could decide, against the control matrix
+
+| Matrix row | What the person could do here | Match |
+| --- | --- | --- |
+| CT-047 trace drawer: "any paragraph, row or figure's single trace control" | Every passage, chart, table row and confidence tile has one; the five Overview tiles have none | No (J4-001) |
+| CT-048 download handoffs, calculation JSON, the Model | Handoffs and zip: yes and exact. Calculation JSON: yes, no historical values. Model: unavailable | Partly (J4-012) |
+| CT-046 Evidence module filter and tab | Module filter and six tabs work; Gaps and Sources leave out unmatched citations | Partly (J4-004) |
+| CT-041 delivery and library admission: not a user control | The person cannot repair or flag a conflict; there is no "challenge" control | As designed |
+| CT-045 forecast case | Cases card, charts and tables follow the case; the assumptions are not readable | Partly (J4-003) |
+| CT-049 method and revision: fixed by ruling | The Confidence method is not shown on the page, so the person cannot see which method gave 89 | Partly (J4-005) |
+
+## Step 12. Smaller things the person met on the way
+
+- Rating card: `Moody's B1 Negative / Entered at run start`; the date entered (2025-02-28) is only a hover title (J4-008).
+- Names: Gross leverage / Total debt / EBITDA / Total leverage for one measure; Interest coverage / Interest cover / All-in cover (J4-013).
+- Module order differs between the Overview, the Modules navigator and the Evidence filter; the Overview lists 13 of 14 (J4-014).
+- The Forecast page says "Python's arithmetic" and names `CP-1` and `CP-2G` (J4-009).
+- Two "Show sources for FY2024" controls on one page, three "Cash proxy by scenario" (J4-010).
+- Keyboard: `Show sources` opens with Enter, focus moves into the dialog, Escape returns focus to the control. Good.
+- Back after `Open in Evidence` returns to the screen the person came from. Good.
+- No absolute file path appeared in any captured screen or downloaded file; the Script checks tab prints repository-relative script paths only.
+
+## Findings, in order
+
+| Id | Severity | One line |
+| --- | --- | --- |
+| J4-001 | Medium | Five headline tiles have no trace control |
+| J4-002 | Medium | Screens disagree on cover, leverage, the 1,250 maturity, source readiness; unflagged (canned handoffs) |
+| J4-003 | Medium | Forecast assumptions section empty; downside shock and drivers not stated |
+| J4-004 | Medium | Sources and Gaps hide citations that match no file; Sources claims all 14 modules name every file |
+| J4-005 | Medium | Confidence score method shown nowhere |
+| J4-006 | Medium | Calendar counts one event once per module (36 for 4) |
+| J4-007 | Medium | Adjusted EBITDA tile dropped silently |
+| J4-008 | Low | Rating date in a hover title only |
+| J4-009 | Low | Module codes and "Python" in Forecast prose |
+| J4-010 | Low | Duplicate accessible names on trace controls |
+| J4-011 | Low | Script checks badge 215, 205 not run |
+| J4-012 | Info | Model and calculation downloads hold nothing to recompute history |
+| J4-013 | Low | Same measure, different names across screens |
+| J4-014 | Low | Module order differs across screens; Overview lists 13 |
+
+## Step 13. Is the Evidence "Handoff evidence" view the whole handoff? (fidelity check)
+
+- Did: for each of the 14 modules, opened Evidence > Trace > module > handoff link and looked for
+  every paragraph line and every table cell of the downloaded handoff in the view (2,487 lines and
+  cells in all, whitespace folded).
+- Happened: every line and cell is present except four things. (1) `## Request` and its line
+  (issuer and as-of) in all 14. (2) `## Next module` in all 14. (3) The `Escalation Consequence`
+  column of the Downside handoff's `T2B.7 Monitoring sensitivity flags` (`Review falling cash
+  cover`, `Review cash deficit`): dropped on every screen, the module page, the drawer and the view,
+  because the page treats that header as text written for another module (the rule in AGENTS.md:
+  "text written for another module is drawn nowhere"), so by ruling, not registered. The person who
+  is looking for "what would change the view" does not see that the handoff named an action for each
+  trigger. (4) The Forward credit model's `Forecast inputs (machine-readable)` JSON block is not in
+  the full view; it is only in the single-passage view opened from the Forecast page's drawers
+  (added to J4-003).
+- Result: the view is a faithful render apart from these; nothing in it is altered.
