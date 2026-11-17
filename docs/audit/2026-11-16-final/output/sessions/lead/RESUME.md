@@ -1,3 +1,16 @@
+# Current takeover checkpoint (2026-11-17T15:53Z)
+
+Read the "Lead takeover" section in STATUS.md first; the earlier handover below remains the
+full task/decision source. Main has not been changed. Review/integration agents are temporary
+workers in this lead session; their intermediate scratch files are not pushed evidence.
+
+Repository `/workspace/credit-os2`, coordination branch `audit/final-coordination`. Environment
+setup complete (uv0.12.5 at `/workspace/audit-tooling/bin/uv`, Chromium `/usr/bin/chromium`,
+Node24.22.1). Three reviewed batch branches are being merged on `audit/batch-integration` in
+`/workspace/audit-batch-integration`; do not redo those merges without inspecting that branch.
+Two independent preliminary repair reviews and a complete batch inventory are in progress.
+Groups1/2 are still active (<2h since push); do not take them over prematurely.
+
 # Resume note for the lead (written 2026-11-17 12:35Z)
 
 The lead session may stop because of the account's usage. A new lead session resumes from this
