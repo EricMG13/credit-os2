@@ -24,6 +24,9 @@ mkdirSync(shotsDir, { recursive: true });
 const CAP = 1000;
 const OPENER_CAP = 1000;
 const ONLY = process.env.ONLY;
+// ONLY_LIST: comma-separated exact addresses (a follow-up pass); OPENER_ROLE: open only controls of this role.
+const ONLY_LIST = process.env.ONLY_LIST ? new Set(process.env.ONLY_LIST.split(",")) : null;
+const OPENER_ROLE = process.env.OPENER_ROLE;
 const VARIANTS = (process.env.VARIANTS ?? "shipped,fixture").split(",");
 
 // ---- variants -------------------------------------------------------------------------------
@@ -313,7 +316,7 @@ for (const variant of VARIANTS) {
   await cdp.send("DOM.enable");
   await cdp.send("Accessibility.enable");
 
-  const queue = [...new Set(seeds)].filter((a) => !a.startsWith("/signal") && (!ONLY || a.includes(ONLY)));
+  const queue = [...new Set(seeds)].filter((a) => !a.startsWith("/signal") && (!ONLY || a.includes(ONLY)) && (!ONLY_LIST || ONLY_LIST.has(a)));
   const seen = new Set(queue);
   for (let qi = 0; qi < queue.length && qi < CAP; qi++) {
     const address = queue[qi];
@@ -331,7 +334,7 @@ for (const variant of VARIANTS) {
     for (const h of hrefs) {
       const a = h.slice(1);
       if (a.startsWith("/signal")) continue;
-      if (!seen.has(a) && seen.size < CAP && !ONLY) { seen.add(a); queue.push(a); }
+      if (!seen.has(a) && seen.size < CAP && !ONLY && !ONLY_LIST) { seen.add(a); queue.push(a); }
     }
 
     const base = await inventory(page, cdp);
@@ -359,6 +362,7 @@ for (const variant of VARIANTS) {
     const openers = base.filter((b) => !b.disabled && !b.inShell && b.role !== "link" && b.tag !== "a"
       && !(b.tag === "input" && !["checkbox", "radio", "button", "submit", "file"].includes(b.type ?? "text") && b.role !== "combobox")
       && b.tag !== "textarea" && !["textbox", "searchbox", "spinbutton", "slider", "region", "main", "tabpanel", "img", "table", "figure", "gridcell", "grid", "treegrid", "none"].includes(b.role));
+    if (OPENER_ROLE) openers.splice(0, openers.length, ...openers.filter((o) => o.role === OPENER_ROLE));
     const baseKeys = new Set(base.map((b) => `${b.role}|${b.name}|${b.locator}`));
     let needReload = false;
     for (const op of openers) {
@@ -376,7 +380,12 @@ for (const variant of VARIANTS) {
         } else {
           await page.locator(`[data-audit-i="${op.i}"]`).click({ timeout: 1500 });
         }
-      } catch (e) { clicked = false; notes.push(`could not click ${op.locator} on ${variant} #${address}: ${String(e.message).split("\n")[0]}`); }
+      } catch (e) {
+        // a visually hidden input (React Aria switch or checkbox) is clicked through its label
+        clicked = await page.locator(`[data-audit-i="${op.i}"]`).locator("xpath=ancestor::label[1]").click({ timeout: 1500 }).then(() => true, () => false);
+        if (clicked) notes.push(`clicked ${op.locator} through its label on ${variant} #${address}`);
+        else notes.push(`could not click ${op.locator} on ${variant} #${address}: ${String(e.message).split("\n")[0]}`);
+      }
       await page.waitForTimeout(200);
       const hashAfter = await page.evaluate(() => location.hash);
       if (clicked) {

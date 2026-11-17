@@ -680,11 +680,17 @@ async function main() {
     // Sources switch on
     const sw = page.getByRole("switch", { name: "Show sources", exact: true });
     if (await sw.count()) {
-      await sw.click();
-      await page.waitForTimeout(300);
-      await inventory(page, { screen: `${report}#overview`, state: "full", revealedBy: "page.getByRole('switch', { name: \"Show sources\", exact: true })" });
-      await shoot(page, "c3-report-overview-sources-on--full");
-      await sw.click();
+      // React Aria hides the input under its drawn track; click the wrapping label.
+      const label = sw.locator("xpath=ancestor::label[1]");
+      try {
+        await label.click({ timeout: 5000 });
+        await page.waitForTimeout(300);
+        await inventory(page, { screen: `${report}#overview`, state: "full", revealedBy: "page.getByRole('switch', { name: \"Show sources\", exact: true })" });
+        await shoot(page, "c3-report-overview-sources-on--full");
+        await label.click({ timeout: 5000 });
+      } catch (e) {
+        log.notes.push(`Show sources switch: ${e.message.split("\n")[0]}`);
+      }
     }
     await visit(page, base, `${report}#changes`, { state: "full", shot: "c3-report-changes--full", figures: true });
     await visit(page, base, `${report}#modules`, { state: "full", shot: "c3-report-modules--full", figures: true });
@@ -724,11 +730,11 @@ async function main() {
   } finally {
     if (browser) await browser.close();
     stopService(child);
+    log.clickables = clickableCount;
+    log.loops = loops;
+    fs.writeFileSync(path.join(OUT, "offline-browser-connected.json"), JSON.stringify({ blocked: log.blocked, websockets: log.websockets }, null, 2));
+    fs.writeFileSync(path.join(OUT, "probe-log-connected.json"), JSON.stringify(log, null, 2));
   }
-  log.clickables = clickableCount;
-  log.loops = loops;
-  fs.writeFileSync(path.join(OUT, "offline-browser-connected.json"), JSON.stringify({ blocked: log.blocked, websockets: log.websockets }, null, 2));
-  fs.writeFileSync(path.join(OUT, "probe-log-connected.json"), JSON.stringify(log, null, 2));
   console.log(JSON.stringify({ clickables: clickableCount, shots: log.shots.length, blocked: log.blocked.length, websockets: log.websockets.length, notes: log.notes.length, runs: log.runs }));
 }
 
