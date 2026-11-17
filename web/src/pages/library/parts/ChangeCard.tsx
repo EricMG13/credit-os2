@@ -40,7 +40,7 @@ export function ChangeCard({ change, source }: { change: Change; source?: ReactN
       className={`${TRACE_HOST} flex min-w-0 flex-col gap-4 rounded-lg border border-border-hairline bg-surface-card p-6`}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <span className={source || change.trace ? "ml-9" : undefined}>
+        <span className={(source ?? true) ? "ml-9" : undefined}>
           <Badge size="sm">{change.kind}</Badge>
         </span>
         <Direction change={change} />
@@ -58,10 +58,7 @@ export function ChangeCard({ change, source }: { change: Change; source?: ReactN
         <span className="font-semibold text-text-primary">{change.cause}</span> {change.effect}
       </p>
       <span className="absolute top-5 left-5">
-        {source ??
-          (change.trace && (
-            <TraceControl trace={change.trace} label="Show sources for this change" />
-          ))}
+        {source ?? <TraceControl trace={change.trace} label="Show sources for this change" />}
       </span>
     </li>
   );
