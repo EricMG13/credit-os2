@@ -32,10 +32,10 @@ The proof's handoffs are canned (`proof/handoffs/`), so report text never depend
 | Step | Wanted | Screen offered | Did | Happened | Time to the next step |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | A1 | Start a run | Library home with a 'Start a run' button, left rail | Clicked it | /start, four steps (Documents, Purpose, More context, Review and start) | at once |
-| A2 | Give the issuer and files | Issuer name, Issuer ID (auto), As-of date, Your name; Choose files | Filled, uploaded the three proof files, Inspect documents | 'northbridge-filing.txt unrecognised', workbook 'unrecognised', agreement 'credit agreement, executed, found on page 1' | 2 s |
+| A2 | Give the issuer and files | Issuer name, Issuer ID (auto), As-of date, Your name; Choose files | Filled, uploaded the three proof files, Inspect documents | 'northbridge-filing.txt unrecognised', workbook 'unrecognised', agreement 'credit agreement, executed, found on page 1' | script time 2 s |
 | A3 | Choose the purpose | Eight pathways, Full credit assessment selected | Continue to context | The agreement and workbook are chosen on this step, not before; the agreement is detected but not pre-chosen | needed to know to pick them |
-| A4 | Review, approve, submit | Limits to decide (accept boxes), approval checkbox, Submit run, dialog 'Start a synthetic test?' ('spends USD 0.00') | Accepted limits, approved, started | /run/<id>, 14 of 14 modules in 3 s | 2.3 s from Documents to a running page |
-| A5 | Open the report | 'Open report' on the run page | Clicked | Report in about 6.6 s after Submit | |
+| A4 | Review, approve, submit | Limits to decide (accept boxes), approval checkbox, Submit run, dialog 'Start a synthetic test?' ('spends USD 0.00') | Accepted limits, approved, started | /run/<id>, 14 of 14 modules in 3 s | 2.3 s of script time from Documents to a running page |
+| A5 | Open the report | 'Open report' on the run page | Clicked | Report published about 6.6 s after the form was started (script time, includes the 3 s run) | |
 | A6 | See what changed | Changes tab | Opened | Designed empty state: 'No earlier run to compare. This is the first listed run for this issuer on this pathway.' and 'Open the Overview'. Works at 390 px. | at once |
 
 ## Segment B: two issuers and a run listed later
