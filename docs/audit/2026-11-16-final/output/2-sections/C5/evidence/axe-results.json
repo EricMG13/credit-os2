@@ -1,0 +1,1079 @@
+[
+ {
+  "width": 1440,
+  "name": "summary",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Run evidence",
+   "H3:Handoffs",
+   "H3:Model and calculation files"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "trace",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Handoffs"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "sources",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Sources",
+   "H3:Named in a handoff"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "gaps",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Gaps 0"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "checks",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "nodes": [
+     {
+      "target": "details:nth-child(2) > .mt-4.gap-4 > .p-4[aria-label=\"columns: not checked\"]:nth-child(4)",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"columns: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     },
+     {
+      "target": "details:nth-child(5) > .mt-4.gap-4 > .p-4[aria-label=\"2 registers: not checked\"]",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"2 registers: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     },
+     {
+      "target": "details:nth-child(5) > .mt-4.gap-4 > .p-4[aria-label=\"columns: agreed\"]",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"columns: agreed\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     },
+     {
+      "target": "details:nth-child(8) > .mt-4.gap-4 > .p-4[aria-label=\"3 registers: not checked\"]",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"3 registers: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     }
+    ],
+    "count": 4
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Script checks",
+   "H4:11 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:T4.8",
+   "H4:Check",
+   "H4:columns",
+   "H4:8 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:2 registers",
+   "H4:columns",
+   "H4:rows",
+   "H4:columns",
+   "H4:columns",
+   "H4:9 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Ending accessible liquidity",
+   "H4:Months to Empty",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Unhedged floating-rate debt",
+   "H4:Unhedged debt percentage",
+   "H4:+100 bps cash-interest impact",
+   "H4:columns",
+   "H4:3 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:T2H.4-T2H.6",
+   "H4:3 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Enterprise value (Low)",
+   "H4:Fulcrum (Low)",
+   "H4:Residual to equity (Low)",
+   "H4:Enterprise value (Base)",
+   "H4:Fulcrum (Base)",
+   "H4:Residual to equity (Base)",
+   "H4:Enterprise value (High)",
+   "H4:Fulcrum (High)",
+   "H4:Residual to equity (High)",
+   "H4:15 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Maturities due",
+   "H4:Available liquidity",
+   "H4:Funding gap",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Headroom: all",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:13 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:2 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:2 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "record",
+  "violations": [
+   {
+    "id": "heading-order",
+    "impact": "moderate",
+    "help": "Heading levels should only increase by one",
+    "nodes": [
+     {
+      "target": "details:nth-child(3) > .mt-3.gap-4.grid > .gap-2 > h5",
+      "html": "<h5 class=\"font-semibold\">Synthetic adapter responses</h5>",
+      "summary": "Fix any of the following:   Heading order invalid"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "nodes": [
+     {
+      "target": "details:nth-child(3) > .mt-3.gap-4.grid > .gap-2 > .overflow-x-auto[role=\"region\"][aria-label=\"Table\"]",
+      "html": "<div role=\"region\" aria-label=\"Table\" tabindex=\"0\" class=\"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Run record",
+   "H3:Module records",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "handoff-CP-1",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H2:Financial foundation · Handoff evidence",
+   "H3:CP-1",
+   "H3:Sources",
+   "H3:Findings",
+   "H3:Bottom line",
+   "H3:Chart data: leverage",
+   "H3:Chart data: interest cover",
+   "H3:Chart data: liquidity",
+   "H3:Chart data: debt maturities",
+   "H3:Financials and credit metrics",
+   "H3:Net debt data",
+   "H3:T4.4 Income statement",
+   "H3:T4.5 Cash flow statement",
+   "H3:T4.6 Balance sheet",
+   "H3:T4.9 Calculation register",
+   "H3:Debt principal to carrying value",
+   "H3:Period table",
+   "H3:Post-balance-sheet adjustments",
+   "H3:Base operands",
+   "H3:Chart data: revenue and EBITDA",
+   "H3:Chart data: debt stack",
+   "H3:Chart data: EBITDA bridge",
+   "H3:Confidence inputs",
+   "H3:Calculations",
+   "H3:Gaps"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "handoff-CP-6-line",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H2:Committee decision · Line 32",
+   "H3:Derivation",
+   "H3:Key findings"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "checks-CP-4",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "nodes": [
+     {
+      "target": ".p-4[aria-label=\"columns: not checked\"]:nth-child(4)",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"columns: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Script checks",
+   "H4:Headroom: all",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "summary",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Run evidence",
+   "H3:Handoffs",
+   "H3:Model and calculation files"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "trace",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Handoffs"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "sources",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Sources",
+   "H3:Named in a handoff"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "gaps",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Gaps 0"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "checks",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "nodes": [
+     {
+      "target": "details:nth-child(2) > .mt-4.gap-4 > .p-4[aria-label=\"columns: not checked\"]:nth-child(4)",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"columns: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     },
+     {
+      "target": "details:nth-child(5) > .mt-4.gap-4 > .p-4[aria-label=\"2 registers: not checked\"]",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"2 registers: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     },
+     {
+      "target": "details:nth-child(5) > .mt-4.gap-4 > .p-4[aria-label=\"columns: agreed\"]",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"columns: agreed\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     },
+     {
+      "target": "details:nth-child(8) > .mt-4.gap-4 > .p-4[aria-label=\"3 registers: not checked\"]",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"3 registers: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     }
+    ],
+    "count": 4
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Script checks",
+   "H4:11 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:T4.8",
+   "H4:Check",
+   "H4:columns",
+   "H4:8 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:2 registers",
+   "H4:columns",
+   "H4:rows",
+   "H4:columns",
+   "H4:columns",
+   "H4:9 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Ending accessible liquidity",
+   "H4:Months to Empty",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Unhedged floating-rate debt",
+   "H4:Unhedged debt percentage",
+   "H4:+100 bps cash-interest impact",
+   "H4:columns",
+   "H4:3 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:T2H.4-T2H.6",
+   "H4:3 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Enterprise value (Low)",
+   "H4:Fulcrum (Low)",
+   "H4:Residual to equity (Low)",
+   "H4:Enterprise value (Base)",
+   "H4:Fulcrum (Base)",
+   "H4:Residual to equity (Base)",
+   "H4:Enterprise value (High)",
+   "H4:Fulcrum (High)",
+   "H4:Residual to equity (High)",
+   "H4:15 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Maturities due",
+   "H4:Available liquidity",
+   "H4:Funding gap",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:Headroom: all",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:13 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:2 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:2 registers",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "record",
+  "violations": [
+   {
+    "id": "heading-order",
+    "impact": "moderate",
+    "help": "Heading levels should only increase by one",
+    "nodes": [
+     {
+      "target": "details:nth-child(3) > .mt-3.gap-4.grid > .gap-2 > h5",
+      "html": "<h5 class=\"font-semibold\">Synthetic adapter responses</h5>",
+      "summary": "Fix any of the following:   Heading order invalid"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "nodes": [
+     {
+      "target": "details:nth-child(3) > .mt-3.gap-4.grid > .gap-2 > .overflow-x-auto[role=\"region\"][aria-label=\"Table\"]",
+      "html": "<div role=\"region\" aria-label=\"Table\" tabindex=\"0\" class=\"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Run record",
+   "H3:Module records",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses",
+   "H5:Synthetic adapter responses"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "handoff-CP-1",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "scrollable-region-focusable",
+    "impact": "serious",
+    "help": "Scrollable region must have keyboard access",
+    "nodes": [
+     {
+      "target": "#evidence-20261117-072535-01\\%2Fdeliveries\\%2F6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585\\%2FCP-1\\.md\\~eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77-29 > .overflow-x-auto.rounded-ds-md.min-w-0",
+      "html": "<div class=\"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline\">",
+      "summary": "Fix any of the following:   Element should have focusable content   Element should be focusable"
+     },
+     {
+      "target": "#evidence-20261117-072535-01\\%2Fdeliveries\\%2F6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585\\%2FCP-1\\.md\\~eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77-43 > .overflow-x-auto.rounded-ds-md.min-w-0",
+      "html": "<div class=\"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline\">",
+      "summary": "Fix any of the following:   Element should have focusable content   Element should be focusable"
+     },
+     {
+      "target": "#evidence-20261117-072535-01\\%2Fdeliveries\\%2F6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585\\%2FCP-1\\.md\\~eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77-152 > .overflow-x-auto.rounded-ds-md.min-w-0",
+      "html": "<div class=\"relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline\">",
+      "summary": "Fix any of the following:   Element should have focusable content   Element should be focusable"
+     }
+    ],
+    "count": 3
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H2:Financial foundation · Handoff evidence",
+   "H3:CP-1",
+   "H3:Sources",
+   "H3:Findings",
+   "H3:Bottom line",
+   "H3:Chart data: leverage",
+   "H3:Chart data: interest cover",
+   "H3:Chart data: liquidity",
+   "H3:Chart data: debt maturities",
+   "H3:Financials and credit metrics",
+   "H3:Net debt data",
+   "H3:T4.4 Income statement",
+   "H3:T4.5 Cash flow statement",
+   "H3:T4.6 Balance sheet",
+   "H3:T4.9 Calculation register",
+   "H3:Debt principal to carrying value",
+   "H3:Period table",
+   "H3:Post-balance-sheet adjustments",
+   "H3:Base operands",
+   "H3:Chart data: revenue and EBITDA",
+   "H3:Chart data: debt stack",
+   "H3:Chart data: EBITDA bridge",
+   "H3:Confidence inputs",
+   "H3:Calculations",
+   "H3:Gaps"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "handoff-CP-6-line",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H2:Committee decision · Line 32",
+   "H3:Derivation",
+   "H3:Key findings"
+  ]
+ },
+ {
+  "width": 390,
+  "name": "checks-CP-4",
+  "violations": [
+   {
+    "id": "label-content-name-mismatch",
+    "impact": "serious",
+    "help": "Elements must have their visible text as part of their accessible name",
+    "nodes": [
+     {
+      "target": "a[aria-label=\"Modules 14\"]",
+      "html": "<a class=\"inline-flex items-ce...\" data-rac=\"\" aria-label=\"Modules 14\" href=\"#modules\" tabindex=\"0\" data-react-aria-pres...=\"true\">",
+      "summary": "Fix any of the following:   Text inside the element is not included in the accessible name"
+     }
+    ],
+    "count": 1
+   },
+   {
+    "id": "landmark-unique",
+    "impact": "moderate",
+    "help": "Landmarks should have a unique role or role/label/title (i.e. accessible name) combination",
+    "nodes": [
+     {
+      "target": ".p-4[aria-label=\"columns: not checked\"]:nth-child(4)",
+      "html": "<section class=\"grid gap-3 rounded-ds-md border border-border-hairline p-4\" aria-label=\"columns: not checked\">",
+      "summary": "Fix any of the following:   The landmark must have a unique aria-label, aria-labelledby, or title to make landmarks distinguishable"
+     }
+    ],
+    "count": 1
+   }
+  ],
+  "headings": [
+   "H1:Northbridge Synthetic Group",
+   "H2:Evidence",
+   "H3:Script checks",
+   "H4:Headroom: all",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns",
+   "H4:columns"
+  ]
+ },
+ {
+  "width": 1440,
+  "name": "drawer-CP-1-confidence",
+  "violations": [],
+  "headings": [
+   "H2:Confidence inputs"
+  ],
+  "dialogBox": {
+   "x": 1040,
+   "y": 0,
+   "width": 400,
+   "height": 900
+  }
+ },
+ {
+  "width": 390,
+  "name": "drawer-CP-1-confidence",
+  "violations": [],
+  "headings": [
+   "H2:Confidence inputs"
+  ],
+  "dialogBox": {
+   "x": 24,
+   "y": 0,
+   "width": 366,
+   "height": 900
+  }
+ }
+]

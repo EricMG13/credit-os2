@@ -15,6 +15,21 @@ const PORT = Number(process.env.C2_PORT || 8732);
 const BASE = `http://127.0.0.1:${PORT}`;
 const SCRATCH = process.env.C2_SCRATCH || "/tmp/cs-C2/scratch";
 fs.mkdirSync(SCRATCH, { recursive: true });
+// Fixture files used by several probes (unusual names and types); created when missing, never read from the repository.
+const FIX = "/tmp/cs-C2/files";
+(function fixtures() {
+  fs.mkdirSync(path.join(FIX, "sub", "inner"), { recursive: true });
+  const put = (name, data) => { const f = path.join(FIX, name); if (!fs.existsSync(f)) fs.writeFileSync(f, data); };
+  put("long-" + "a".repeat(200) + ".txt", "Long name file\nRevenue 100\n");
+  put(".hidden.txt", "hidden");
+  put("empty.txt", "");
+  put("image.png", Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(100, 0x30)]));
+  put("notes.docx", Buffer.concat([Buffer.from("PK\x03\x04", "latin1"), Buffer.alloc(100, 0x30)]));
+  put("big52.txt", Buffer.alloc(52 * 1024 * 1024, 0x78));
+  put("dup.txt", "dup top");
+  put(path.join("sub", "inner", "dup.txt"), "dup");
+  put("Åccent-Résumé.txt", "accent file");
+})();
 const FILES = {
   filing: path.join(REPO, "proof", "northbridge-filing.txt"),
   workbook: path.join(REPO, "proof", "northbridge-portfolio.xlsx"),

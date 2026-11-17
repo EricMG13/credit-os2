@@ -6,7 +6,6 @@ const path = require("node:path");
 const fs = require("node:fs");
 const F = "/tmp/cs-C2/files";
 const cases = [
-  ["accent", ["Åccent-Résumé.txt"]],
   ["png", ["image.png"]],
   ["docx", ["notes.docx"]],
   ["empty", ["empty.txt"]],

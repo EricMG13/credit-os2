@@ -1,0 +1,900 @@
+[
+ {
+  "name": "summary",
+  "codes": [],
+  "retired": []
+ },
+ {
+  "name": "trace",
+  "codes": [],
+  "retired": []
+ },
+ {
+  "name": "sources",
+  "codes": [],
+  "retired": []
+ },
+ {
+  "name": "gaps",
+  "codes": [],
+  "retired": []
+ },
+ {
+  "name": "checks",
+  "codes": [
+   {
+    "code": "CP-3",
+    "tag": "DD",
+    "cls": "",
+    "ctx": "CP-3 states no enterprise value can be supported for Low: `Not supplied: no enterprise val"
+   },
+   {
+    "code": "CP-3",
+    "tag": "DD",
+    "cls": "",
+    "ctx": "CP-3 states no enterprise value can be supported for Base: `Not supplied: no enterprise va"
+   },
+   {
+    "code": "CP-3",
+    "tag": "DD",
+    "cls": "",
+    "ctx": "CP-3 states no enterprise value can be supported for High: `Not supplied: no enterprise va"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "SPAN",
+    "ctx": "downstream_readiness"
+   }
+  ]
+ },
+ {
+  "name": "record",
+  "codes": [
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-0.md"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-1.md"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-1A.md"
+   },
+   {
+    "code": "CP-DR",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-DR.md"
+   },
+   {
+    "code": "CP-4",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-4.md"
+   },
+   {
+    "code": "CP-2",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-2.md"
+   },
+   {
+    "code": "CP-2A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-2A.md"
+   },
+   {
+    "code": "CP-2E",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-2E.md"
+   },
+   {
+    "code": "CP-2D",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-2D.md"
+   },
+   {
+    "code": "CP-2G",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-2G.md"
+   },
+   {
+    "code": "CP-3C",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-3C.md"
+   },
+   {
+    "code": "CP-3",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-3.md"
+   },
+   {
+    "code": "CP-5",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-5.md"
+   },
+   {
+    "code": "CP-6",
+    "tag": "P",
+    "cls": "",
+    "ctx": "instructions/CP-6.md"
+   }
+  ],
+  "retired": []
+ },
+ {
+  "name": "handoff CP-0",
+  "codes": [
+   {
+    "code": "CP-0",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-0"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-1",
+  "codes": [
+   {
+    "code": "CP-1",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-1"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   }
+  ],
+  "retired": []
+ },
+ {
+  "name": "handoff CP-1A",
+  "codes": [
+   {
+    "code": "CP-1A",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-1A"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-2",
+  "codes": [
+   {
+    "code": "CP-2",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-2"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1A de1dec37f57a4bc59f945666a5e69a3b6e172a7a2b957911b94111b4305c203b"
+   },
+   {
+    "code": "CP-DR",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-DR 5a1a83542d7b09542ebfe09a598c5700b9b484162e59ab94aed8835154283602"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": []
+ },
+ {
+  "name": "handoff CP-2A",
+  "codes": [
+   {
+    "code": "CP-2A",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-2A"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-2",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2 18373046a3d5c8449d3df147a2245dfbfb4f72f6a313d2321c7e2d3cad46e18b"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   },
+   {
+    "code": "CP-2A-MON-001",
+    "tag": "TD",
+    "cls": "",
+    "ctx": "CP-2A-MON-001"
+   },
+   {
+    "code": "CP-2A-MON-002",
+    "tag": "TD",
+    "cls": "",
+    "ctx": "CP-2A-MON-002"
+   },
+   {
+    "code": "CP-2A-MON-001",
+    "tag": "P",
+    "cls": "",
+    "ctx": "CP-2A-MON-001\nB1\nFiling p.2\nCP-2A-MON-002\nB2\nFiling p.1"
+   },
+   {
+    "code": "CP-2A-MON-002",
+    "tag": "P",
+    "cls": "",
+    "ctx": "CP-2A-MON-001\nB1\nFiling p.2\nCP-2A-MON-002\nB2\nFiling p.1"
+   }
+  ],
+  "retired": []
+ },
+ {
+  "name": "handoff CP-2D",
+  "codes": [
+   {
+    "code": "CP-2D",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-2D"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-2",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2 18373046a3d5c8449d3df147a2245dfbfb4f72f6a313d2321c7e2d3cad46e18b"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-2E",
+  "codes": [
+   {
+    "code": "CP-2E",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-2E"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1A de1dec37f57a4bc59f945666a5e69a3b6e172a7a2b957911b94111b4305c203b"
+   },
+   {
+    "code": "CP-2",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2 18373046a3d5c8449d3df147a2245dfbfb4f72f6a313d2321c7e2d3cad46e18b"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-2G",
+  "codes": [
+   {
+    "code": "CP-2G",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-2G"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-2A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2A bf10c4bc43b35c6b71be2771d5b4f07312a3a9c3699c85d3d624346e071f4d65"
+   },
+   {
+    "code": "CP-2D",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2D d5e662a5cc87b3af8e7fd445f5d1603f64fbf78260ebf46595c7b57ab9de859f"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": []
+ },
+ {
+  "name": "handoff CP-3",
+  "codes": [
+   {
+    "code": "CP-3",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-3"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1A de1dec37f57a4bc59f945666a5e69a3b6e172a7a2b957911b94111b4305c203b"
+   },
+   {
+    "code": "CP-4",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-4 051155c5102cce3b2a7c4b020cb90975fcb6f1df5d38bd550c5ff0961ef53fb6"
+   },
+   {
+    "code": "CP-2",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2 18373046a3d5c8449d3df147a2245dfbfb4f72f6a313d2321c7e2d3cad46e18b"
+   },
+   {
+    "code": "CP-2D",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2D d5e662a5cc87b3af8e7fd445f5d1603f64fbf78260ebf46595c7b57ab9de859f"
+   },
+   {
+    "code": "CP-2G",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2G 059a81de288c0747f7d015b04fb026666822638cb07e7365a12b349b90fbc7cc"
+   },
+   {
+    "code": "CP-3C",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-3C c6596e43795520cd7fd8c9e6dc56b638ba44a2d0f2460bcaebff8c8a92b3cb67"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-3C",
+  "codes": [
+   {
+    "code": "CP-3C",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-3C"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1A de1dec37f57a4bc59f945666a5e69a3b6e172a7a2b957911b94111b4305c203b"
+   },
+   {
+    "code": "CP-4",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-4 051155c5102cce3b2a7c4b020cb90975fcb6f1df5d38bd550c5ff0961ef53fb6"
+   },
+   {
+    "code": "CP-2A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2A bf10c4bc43b35c6b71be2771d5b4f07312a3a9c3699c85d3d624346e071f4d65"
+   },
+   {
+    "code": "CP-2D",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2D d5e662a5cc87b3af8e7fd445f5d1603f64fbf78260ebf46595c7b57ab9de859f"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-4",
+  "codes": [
+   {
+    "code": "CP-4",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-4"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1A de1dec37f57a4bc59f945666a5e69a3b6e172a7a2b957911b94111b4305c203b"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-5",
+  "codes": [
+   {
+    "code": "CP-5",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-5"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1A de1dec37f57a4bc59f945666a5e69a3b6e172a7a2b957911b94111b4305c203b"
+   },
+   {
+    "code": "CP-DR",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-DR 5a1a83542d7b09542ebfe09a598c5700b9b484162e59ab94aed8835154283602"
+   },
+   {
+    "code": "CP-4",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-4 051155c5102cce3b2a7c4b020cb90975fcb6f1df5d38bd550c5ff0961ef53fb6"
+   },
+   {
+    "code": "CP-2",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2 18373046a3d5c8449d3df147a2245dfbfb4f72f6a313d2321c7e2d3cad46e18b"
+   },
+   {
+    "code": "CP-2A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2A bf10c4bc43b35c6b71be2771d5b4f07312a3a9c3699c85d3d624346e071f4d65"
+   },
+   {
+    "code": "CP-2E",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2E d9c9dd63b420e9eedc42d909df2ef7e096980ca5dbb56326314ad36eee3dca39"
+   },
+   {
+    "code": "CP-2D",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2D d5e662a5cc87b3af8e7fd445f5d1603f64fbf78260ebf46595c7b57ab9de859f"
+   },
+   {
+    "code": "CP-2G",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2G 059a81de288c0747f7d015b04fb026666822638cb07e7365a12b349b90fbc7cc"
+   },
+   {
+    "code": "CP-3C",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-3C c6596e43795520cd7fd8c9e6dc56b638ba44a2d0f2460bcaebff8c8a92b3cb67"
+   },
+   {
+    "code": "CP-3",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-3 24eaffa7ea47c4a5e2393b18c3e6509509d7e9573318127443fea9386418b579"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": []
+ },
+ {
+  "name": "handoff CP-6",
+  "codes": [
+   {
+    "code": "CP-6",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-6"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-1A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1A de1dec37f57a4bc59f945666a5e69a3b6e172a7a2b957911b94111b4305c203b"
+   },
+   {
+    "code": "CP-4",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-4 051155c5102cce3b2a7c4b020cb90975fcb6f1df5d38bd550c5ff0961ef53fb6"
+   },
+   {
+    "code": "CP-2",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2 18373046a3d5c8449d3df147a2245dfbfb4f72f6a313d2321c7e2d3cad46e18b"
+   },
+   {
+    "code": "CP-2A",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2A bf10c4bc43b35c6b71be2771d5b4f07312a3a9c3699c85d3d624346e071f4d65"
+   },
+   {
+    "code": "CP-2E",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2E d9c9dd63b420e9eedc42d909df2ef7e096980ca5dbb56326314ad36eee3dca39"
+   },
+   {
+    "code": "CP-2D",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-2D d5e662a5cc87b3af8e7fd445f5d1603f64fbf78260ebf46595c7b57ab9de859f"
+   },
+   {
+    "code": "CP-3C",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-3C c6596e43795520cd7fd8c9e6dc56b638ba44a2d0f2460bcaebff8c8a92b3cb67"
+   },
+   {
+    "code": "CP-3",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-3 24eaffa7ea47c4a5e2393b18c3e6509509d7e9573318127443fea9386418b579"
+   },
+   {
+    "code": "CP-5",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-5 54279e9dada33283626f8b894fd1cba40bc40be94f96f35f20a1d22540e64843"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ },
+ {
+  "name": "handoff CP-DR",
+  "codes": [
+   {
+    "code": "CP-DR",
+    "tag": "H3",
+    "cls": "",
+    "ctx": "CP-DR"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-0 84fc7c28723d20b240e0d7c402af27f2be7b9688fb5ef61ed84775786bc0b714"
+   },
+   {
+    "code": "CP-1",
+    "tag": "P",
+    "cls": "",
+    "ctx": "- CP-1 eacd31f382417f384eba4e23572961e529188cdab32c8cef8436b9ba3bc48a77"
+   },
+   {
+    "code": "CP-0",
+    "tag": "P",
+    "cls": "",
+    "ctx": "the Basis file is not in the CP-0 inventory"
+   }
+  ],
+  "retired": [
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "TD",
+    "ctx": "Memo"
+   },
+   {
+    "tag": "P",
+    "ctx": "Filing p.1\nMemo\nFiling p.2"
+   }
+  ]
+ }
+]

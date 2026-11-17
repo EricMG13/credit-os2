@@ -1,0 +1,59 @@
+source,row_id,item,mark,note,findings
+content-matrix,CM-012,Module code in module-written text: not shown,correctly not shown,"p15-harmony-scan: 28 screens (every step, 8 pathways, Basic and Advanced, review, dialog), text, aria-labels, titles, placeholders and option texts: no CP- code",
+content-matrix,CM-013,"Module name wording: A module is shown by its plain name (for example 'Financial foundation'), never by its code, in navigator, his",shown as required,"Plain module names in the review Modules list, Requested modules, Focus module, Limits cards, Scenario assumptions pins",
+content-matrix,CM-082,Excel or workbook export: not shown (no workbook download or export action),correctly not shown,No export or workbook download anywhere on /start; the workbook is an input (Portfolio workbook select),
+content-matrix,CM-083,"Run start pages: Run start has a stepper whose completed steps are buttons: five steps on the static page (Documents, Purpose, ",shown as required,"Four steps Documents, Purpose, More context, Review and start; completed steps are buttons 'Go back to <step>'; Documents lists files by name",C2-002
+content-matrix,CM-084,"Pathway choices and caps: Eight pathway choices (Lite, Full, Deep, Earnings Update, Relative Value, Covenant & Refinancing, Distressed &",shown as required,"Eight cards, Lite first, Full selected on opening; caps read 15/25/40/20x5 in Readiness, cost text, Submit label and dialog (live wording seen by meta rewrite, cancelled)",C2-017
+content-matrix,CM-085,Short credit snapshot: not shown (not offered on run start; a new run is refused),correctly not shown,Only eight radios; no short snapshot; from= run of that pathway not testable (see report),
+content-matrix,CM-086,"Review sheet: The review sheet shows what will run (modules plain-named, left-out modules, run limits and decisions needed, ",shown but wrong place or form,"All required parts are on the sheet (modules, left-out, limits, Changes row, lookup statements, approval); the decisions come last after about 2,700 px",C2-007
+content-matrix,CM-087,Submit: Submit is an explicit paid action on an approved summary with a confirmation dialog stating the cap ('This run,shown as required,Dialog 'Start a paid run?' says 'This run can spend up to USD 25.00 and stops when it reaches that cap'; synthetic dialog says USD 0.00,
+content-matrix,CM-088,Reporting currency field: not shown (the run's currency is the currency of the source statements; neither start page asks for it),correctly not shown,No reporting currency field or warning; the only Currency is a facility row field,
+content-matrix,CM-091,Teams cards: not shown (Teams cards are posted by the service when configured; the interface shows no webhook or secret),correctly not shown,"No webhook, secret or Teams card shown; but the help text under Your name mentions Teams",C2-025
+content-matrix,CM-093,"Memo module: not shown (no separate memo module, route or analytical stage; the delivery process assembles the report pages",correctly not shown,"No memo module, step or entry",
+control-matrix,CT-001,Issuer name,shown as required,"Issuer name, required, native validation; derived ID",C2-014
+control-matrix,CT-002,Issuer id,shown but wrong place or form,Issuer ID is editable and read-only after carry; the pattern is not stated beside the field and the derived ID drops Ø and is empty for non-Latin names,C2-014
+control-matrix,CT-003,Case date (as-of date),shown as required,"As-of date, ISO; default today; Research cutoff max = as-of (native)",
+control-matrix,CT-004,"Case kind (public, private, synthetic)",shown as required,"Case kind select with help; review states lookup/search per kind (public: both and Yahoo; private: search only, lookup Off; synthetic: none)",
+control-matrix,CT-005,Run form level (Basic or Advanced),shown but wrong place or form,"Three levels offered (Basic, Standard, Advanced); Standard has no distinct effect; switching back to Basic clears module selection (verified)",C2-009
+control-matrix,CT-006,"Documents (add, remove, carry from an earlier run)",shown as required,"Add by picker, folder, drop; Remove (local and server DELETE); carry via ?from= and the button; limits and ignored reasons shown",C2-003; C2-011; C2-012; C2-013; C2-020
+control-matrix,CT-007,"Which file is which (agreement, management bridge, prior case)",shown as required,"The agreement, Management EBITDA bridge, Portfolio workbook, Prior decision record selects appear per pathway and level as the row says; agreement refused with 'Choose the uploaded file that is the agreement.'",
+control-matrix,CT-008,Portfolio workbook (and fund export files),shown as required,"Portfolio workbook select on Full, Deep, Portfolio Decision and Advanced; absent on Lite, Relative Value, Covenant, Distressed at Basic",
+control-matrix,CT-009,Analyst name,shown as required,"Rule shown as help text, checked as the service's own rule; field is not marked required and is checked only at Review run",C2-015
+control-matrix,CT-010,"Ratings, valuation and assumption fields",shown as required,"Ratings, valuation, assumptions entered, sent (p16: every value reached the request) and shown on the sheet",C2-028
+control-matrix,CT-011,Reporting currency,correctly not shown,Not asked on any step,
+control-matrix,CT-012,Pathway: Lite credit assessment (lite_credit_assessment),shown as required,"Lite: 5 base modules, cap USD 15.00",
+control-matrix,CT-013,Pathway: Full credit assessment (credit_snapshot),shown as required,"Full: selected on opening, 14 base modules + Changes when an earlier run exists = 15 on the sheet, cap USD 25.00",
+control-matrix,CT-014,Pathway: Deep credit assessment (deep_credit_assessment),shown as required,"Deep: 20 base modules, cap USD 40.00, Requested modules lists 20",
+control-matrix,CT-015,Pathway: Earnings Update (earnings_update),shown as required,"Earnings Update: 8 base modules, cap USD 20.00, Run purpose fixed to 'Earnings update', Current and Prior period required, Management EBITDA bridge shown",
+control-matrix,CT-016,Pathway: Relative Value (relative_value),shown as required,"Relative Value: 11 base modules, cap USD 20.00, purpose defaults to Trading (secondary)",
+control-matrix,CT-017,Pathway: Covenant & Refinancing (covenant_refinancing),shown as required,"Covenant & Refinancing: 12 base modules, cap USD 20.00",
+control-matrix,CT-018,Pathway: Distressed & Restructuring (distressed_restructuring),shown as required,"Distressed & Restructuring: 13 base modules, cap USD 20.00",
+control-matrix,CT-019,Pathway: Portfolio Decision (portfolio_decision),shown as required,"Portfolio Decision: 8 base modules, cap USD 20.00, Portfolio workbook and Prior decision record selects",
+control-matrix,CT-020,Pathway: Short credit snapshot (short_snapshot),correctly not shown,Not offered; message about deactivation not reachable from the page,
+control-matrix,CT-021,Cap per run folder,shown as required,"Cap shown in Readiness (USD 0.00 of cap), cost sentence, Submit label (live), dialog; X-Shown-Cap sent with summary and submit; no cap makes Review refuse with 'The cap for this pathway is unavailable. Reload the form.'",C2-006
+control-matrix,CT-022,Module selection (preset or leave modules out),shown as required,Requested modules (Advanced) and 'Leave out <modules>' on the sheet; Changes since the last run is not selectable; last checked module disabled,C2-010; C2-022
+control-matrix,CT-023,Module order and fan-in,shown as required,Not a control; the plan order is shown in the review Modules list,
+control-matrix,CT-024,Model (GPT Sol or Claude Opus),shown as required,Model select GPT Sol / Claude Opus at Advanced; the proof service answers 'Claude Opus is not available on this service' at Review,C2-006
+control-matrix,CT-025,"Reasoning effort (Fast, Balanced, High)",shown as required,Reasoning effort Fast / Balanced / High at Advanced; default Balanced; sheet shows 'GPT Sol · Balanced',
+control-matrix,CT-026,Turns per module,shown as required,"Turns per module 1 to 64 (native min, max, step); Basic sends 32",
+control-matrix,CT-027,Web search and lookup for the research module,shown as required,"Statement on the sheet: public shows search, lookup and Yahoo sentence; private shows search and 'Off'; synthetic 'Off'",
+control-matrix,CT-028,Earlier run that Changes compares with,shown as required,'Compared with the Full credit assessment run as of 2025-03-31' / 'first run of this pathway',
+control-matrix,CT-029,Run summary (readiness and what will run),shown as required,Summary requested with X-Shown-Cap; refusals shown on the control or in a list; no digest refuses,C2-006
+control-matrix,CT-030,Accepting a run limit (decisions on the review sheet),shown as required,Limit cards with accept checkboxes; 'N decisions left before you can approve.',C2-018
+control-matrix,CT-031,Approval of the summary,shown as required,Approve checkbox; Submit disabled until approved; unchecking a limit or editing un-approves,
+control-matrix,CT-032,Submit (paid run),shown as required,"Live wording: 'Submit, spend up to USD 25.00' then 'Start a paid run?'; opened and cancelled only; one request on a double Enter",
+control-matrix,CT-033,Submit in a synthetic or proof run,shown as required,'Submit run' then 'Start a synthetic test?' ... 'spends USD 0.00'; the run finished; no provider call,
+control-matrix,CT-034,Paid execution outside the run start page,correctly not shown,No control on /start for paid execution outside the page,
+control-matrix,CT-037,Retry of a failed Submit request,shown as required,'Retrying Submit run is safe.' shown after a 500 or network failure; Submit stays enabled and a second press sent a second request that the probe answered,C2-006
+control-matrix,CT-038,Resume of an interrupted or capped run,correctly not shown,No resume control on /start,
+control-matrix,CT-042,Run cards to Teams,correctly not shown,No webhook or secret on screen,
+unaccounted,-,Readiness side panel (four Met/Not met rows and the cap bar 'USD 0.00 of USD 25.00'),not accounted for by any matrix row,Not in either matrix; accurate; the bar shows zero spend before any run,C2-007
+unaccounted,-,'Synthetic test' badge in the page header,not accounted for by any matrix row,Not in a row; labels the proof mode (D-17 asks the synthetic mode to be labelled),
+unaccounted,-,"Issue classification select (Investment grade, High yield)",not accounted for by any matrix row,No control-matrix row; sent as identity.issue_classification,
+unaccounted,-,"Run purpose select (No market view, New issue, Trading, Earnings update)",not accounted for by any matrix row,No control row names it; CT-016 mentions only the default for Relative Value,
+unaccounted,-,"Anything the analysis should know (analyst note), Date of your newest file, Research cutoff, Current period, Prior period",not accounted for by any matrix row,Only CT-003 and CT-015 touch the periods; the note becomes a research question,
+unaccounted,-,"Issuer details block: Borrower, Parent, Sector, Country, Sponsor, Other names, Guarantors, Listed equity, Ticker",not accounted for by any matrix row,No control-matrix row for these identity fields,
+unaccounted,-,"Facilities and deal terms and Observed quotes row editors (Add facility, Add quote ...)",not accounted for by any matrix row,"CT-010 names ratings, valuation and assumptions, not facilities or quotes",C2-019
+unaccounted,-,Put back button and the 'No action needed' disclosure on the review sheet,not accounted for by any matrix row,Not in a row; Put back leaves the sheet,C2-010; C2-023
+unaccounted,-,'Your name' help sentence 'Shown on Run activity and in Teams',not accounted for by any matrix row,"Not accounted for (CM-091, CT-042 say the interface shows nothing about Teams)",C2-025
+unaccounted,-,Pathway card descriptions and the 'N base modules' chips,not accounted for by any matrix row,Not in a row; the counts agree with CT-012 to CT-019,

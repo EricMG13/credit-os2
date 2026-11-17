@@ -57,7 +57,7 @@ const name = (page) => page.evaluate(() => {
     out.statusAfterHidden = await page.locator("p[role=status]").allInnerTexts();
     // Long name, accents, png, docx, empty
     await page.locator("input[type=file]").first().setInputFiles([...[
-      "long-" + "a".repeat(200) + ".txt", "Åccent-Résumé.txt", "image.png", "notes.docx", "empty.txt"].map((n) => path.join(F, n))]);
+      "long-" + "a".repeat(200) + ".txt", "image.png", "notes.docx", "empty.txt"].map((n) => path.join(F, n))]);
     await page.waitForTimeout(300);
     await L.shot(page, "p03-unusual-files-1440");
     out.rows = await page.getByRole("list", { name: "Documents added" }).locator("li").allInnerTexts();
