@@ -1,0 +1,3 @@
+{"curIcon":"rgb(0, 26, 255)","otherIcon":"rgb(99, 103, 110)","curBg":"rgb(229, 232, 255)","railBg":"rgb(255, 255, 255)","curBorder":"0px","curOutline":"none"}
+current icon vs other icon: 1.43:1
+current tint vs rail: 1.21:1 (WCAG 1.4.11 asks 3:1 for a state indicator; D-39 asks a second cue besides colour)

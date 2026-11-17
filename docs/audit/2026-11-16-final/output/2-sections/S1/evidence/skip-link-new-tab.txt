@@ -1,0 +1,3 @@
+skip link href: #main
+Enter on the skip link: hash #/model, h1 Financial models
+the same href opened as an address (#main): h1 Page not found, main text: Page not found No page has this address
