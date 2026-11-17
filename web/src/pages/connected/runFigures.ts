@@ -59,6 +59,22 @@ const STAMP = new Intl.DateTimeFormat("en-GB", {
   hourCycle: "h23",
 });
 
+const CASE_DATE = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "UTC",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+/** The case date, distinct from the UTC time at which a run event happened. */
+export function asOfDate(at: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) return at;
+  const date = new Date(`${at}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === at
+    ? CASE_DATE.format(date)
+    : at;
+}
+
 /** "16 Nov 2026, 14:32 UTC" for the service's UTC time; any other text is returned as it is. */
 export function stamp(at: string) {
   const time = Date.parse(at);
