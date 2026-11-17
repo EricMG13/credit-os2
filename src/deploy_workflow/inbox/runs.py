@@ -19,6 +19,7 @@ from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 from deploy_workflow import platform_io
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.owners.cpos_launch import METHODS
+from deploy_workflow.run_expectations import Item
 from deploy_workflow.run_events import EVENTS, progress, read_events
 
 log = logging.getLogger(__name__)
@@ -73,6 +74,23 @@ class Record:
     digest: str = ""  # the approved digest of the submitted files; the move is checked against it
     prior: str = ""  # the earlier run the approval named (a run folder name or `none`); "": search
     cap: str = ""  # USD the approved summary showed (`cap_of`); "": written before per-pathway caps
+    # Exact decision items from the issued summary; None means a record predates this metadata.
+    approved_summary_limits: list[Item] | None = None
+
+
+def approved_summary_limits(value: object) -> list[Item] | None:
+    """Validate stored reader metadata without rebuilding or interpreting its limitations."""
+    if value is None:
+        return None
+    fields = ("id", "scope", "outcome", "reason", "fix")
+    if not isinstance(value, list) or any(
+        not isinstance(item, dict)
+        or not all(isinstance(item.get(key), str) for key in fields)
+        or item["outcome"] not in ("will_refuse", "gap", "limited", "check")
+        for item in value
+    ):
+        raise ValueError("approved summary limits could not be read")
+    return cast(list[Item], value)
 
 
 # The one cap of the standing ruling before per-pathway caps (ruling 2026-11-11-run-start-submit):
@@ -143,6 +161,9 @@ def _load(path: Path) -> Record:
         data = json.loads(path.read_text(encoding="utf-8"))
         data["files"] = tuple(data.get("files", ()))
         data["modules"] = tuple(data.get("modules", ()))
+        data["approved_summary_limits"] = approved_summary_limits(
+            data.get("approved_summary_limits")
+        )
         record = Record(**data)
         if record.status not in get_args(Status):
             raise ValueError(f"unknown status {record.status!r}")

@@ -320,6 +320,7 @@ def reply(layout: Layout, run_id: str) -> http_base.Reply:
             "ended_at": record.ended_at,
             "submitted_by": record.submitted_by,
             "observed_at": snapshot["updated"],
+            "approved_summary_limits": record.approved_summary_limits,
             "execution": execution
             if isinstance(execution, str) and execution in _EXECUTIONS
             else None,

@@ -28,7 +28,7 @@ from deploy_vii.contracts import PATHWAY_CAP_USD
 from deploy_workflow.context import load_context
 from deploy_workflow.inbox.filing import safe_name
 from deploy_workflow.inbox.layout import MAX_ISSUER_ID, Layout
-from deploy_workflow.inbox.runs import EFFORTS, MODELS, config_for
+from deploy_workflow.inbox.runs import EFFORTS, MODELS, approved_summary_limits, config_for
 from deploy_workflow.inbox.startup import STANDING_RULING
 from deploy_workflow.model.adapter import KEY_VARIABLES
 from deploy_workflow.model.handoff import settled_web_lookup
@@ -43,6 +43,7 @@ from deploy_workflow.owners.cpos_launch import (
     web_search_on,
 )
 from deploy_workflow.platform_io import regular_open
+from deploy_workflow.run_expectations import Item
 
 MAX_FILE = 50 * 1024 * 1024
 MAX_FILES = 500
@@ -708,13 +709,14 @@ def issued(layout: Layout, sid: str) -> str:
 
 
 _CAP_LINE = "cap="
+_LIMITS_LINE = "limits="
 
 
 def issued_prior(layout: Layout, sid: str) -> str:
     """The earlier run the latest summary named (a run folder name, or ``none`` for a first run);
     empty when there is none. It is part of the issued digest."""
     lines = _issued_lines(layout, sid)
-    return lines[1] if len(lines) > 1 and not lines[1].startswith(_CAP_LINE) else ""
+    return lines[1] if len(lines) > 1 and not lines[1].startswith((_CAP_LINE, _LIMITS_LINE)) else ""
 
 
 def issued_cap(layout: Layout, sid: str) -> str:
@@ -724,10 +726,38 @@ def issued_cap(layout: Layout, sid: str) -> str:
     return next((x.removeprefix(_CAP_LINE) for x in lines[1:] if x.startswith(_CAP_LINE)), "")
 
 
-def _record_issued(layout: Layout, sid: str, value: str, prior: str = "", cap: str = "") -> None:
+def issued_summary_limits(layout: Layout, sid: str) -> list[Item] | None:
+    """The exact non-ready decision items beside the latest issued digest; None for old metadata."""
+    encoded = next(
+        (
+            line.removeprefix(_LIMITS_LINE)
+            for line in _issued_lines(layout, sid)
+            if line.startswith(_LIMITS_LINE)
+        ),
+        None,
+    )
+    if encoded is None:
+        return None
+    try:
+        return approved_summary_limits(json.loads(bytes.fromhex(encoded).decode("utf-8")))
+    except (ValueError, UnicodeError) as error:
+        raise Refused(
+            "approved summary limits could not be read; review the summary again"
+        ) from error
+
+
+def _record_issued(layout: Layout, sid: str, result: dict[str, Any]) -> None:
     """Replace the submission's issued digest (and the earlier run and the cap the summary showed)
     with ``value`` (none when empty), under the lock."""
     folder = _folder(layout, sid)
+    value = result.get("digest", "")
+    prior, cap = result.get("prior_choice", ""), result.get("cap", "")
+    limits = [
+        item
+        for item in result.get("items", [])
+        if item["outcome"] in ("will_refuse", "gap", "limited", "check")
+    ]
+    encoded = json.dumps(approved_summary_limits(limits), ensure_ascii=False).encode("utf-8").hex()
     with _LOCK:
         if not folder.is_dir():  # the scheduler's release removed it after the check above
             raise Refused("unknown submission")
@@ -737,7 +767,7 @@ def _record_issued(layout: Layout, sid: str, value: str, prior: str = "", cap: s
             return
         temp = folder / f".issued-{uuid.uuid4().hex}"
         try:
-            lines = (value, prior, _CAP_LINE + cap if cap else "")
+            lines = (value, prior, _CAP_LINE + cap if cap else "", _LIMITS_LINE + encoded)
             temp.write_text("".join(f"{x}\n" for x in lines if x), encoding="ascii")
             os.replace(temp, path)
         finally:
@@ -760,9 +790,7 @@ def summary(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
     result = _summarise(layout, sid, answers)
     digest_issued = result.get("digest", "")
     try:
-        _record_issued(
-            layout, sid, digest_issued, result.get("prior_choice", ""), result.get("cap", "")
-        )
+        _record_issued(layout, sid, result)
     except Refused:
         if digest_issued:  # a digest was made for a submission that is not there: not possible
             raise

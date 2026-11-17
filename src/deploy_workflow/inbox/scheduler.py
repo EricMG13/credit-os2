@@ -377,6 +377,7 @@ class Scheduler:
             digest=current,
             prior=prior,
             cap=cap,
+            approved_summary_limits=submissions.issued_summary_limits(self.layout, sid),
         )
         self._put(record)
         return record
