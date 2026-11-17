@@ -96,10 +96,10 @@ describe("the Trace routes", () => {
 describe("Evidence, Trace", () => {
   it("draws the card with the mock's title, delivered count and sentence, in one scroll region", () => {
     renderTrace(FULL);
-    expect(screen.getByRole("heading", { name: "Trace 59" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Trace 66" })).toBeVisible();
     expect(
       screen.getByText(
-        "One row per traced paragraph, row or figure. Open a row to see how it was derived.",
+        "One row per traced paragraph, row or figure. Source details and a derivation are shown only where recorded.",
       ),
     ).toBeVisible();
     const region = screen.getByRole("region", { name: "Trace" });
@@ -300,10 +300,10 @@ describe("Evidence, Trace", () => {
         .filter((r) => r.moduleId === "recovery")
         .map((r) => r.id),
     );
-    expect(screen.queryByRole("heading", { name: "Trace 59" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Trace 66" })).toBeNull();
     expect(screen.getByRole("heading", { name: "Trace" })).toBeVisible();
     pick("All");
-    expect(ids()).toHaveLength(59);
+    expect(ids()).toHaveLength(66);
   });
 
   it("draws an empty state for a module no item sits in, and its way back", () => {
@@ -316,7 +316,7 @@ describe("Evidence, Trace", () => {
     ).toBeVisible();
     expect(screen.queryByRole("table")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show all items" }));
-    expect(ids()).toHaveLength(59);
+    expect(ids()).toHaveLength(66);
   });
 
   it("draws an empty state for a run that traces nothing, with the delivered count", () => {

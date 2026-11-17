@@ -1693,6 +1693,44 @@ function countsRows(tabs: Rec, key: string, path: string, rows: number): string 
   return text;
 }
 
+/** A counted source needs retained detail, or an explicit missing-source qualification. */
+function hasSourceDetail(node: TreeNode): boolean {
+  return (
+    (/^sources?\b/i.test(node.label) && Boolean(node.value?.trim() || node.note?.trim())) ||
+    node.children.some(hasSourceDetail)
+  );
+}
+
+function sourceDetailsHeld(traces: Traces, table: TraceTable, path: string): void {
+  const rows = new Map(table.rows.map((row) => [row.id, row]));
+  for (const [key, trace] of Object.entries(traces)) {
+    const row = rows.get(trace.evidenceItem);
+    if (row === undefined || Number(row.sources) <= 0) continue;
+    const gap = /source details.*not recorded/i.test(trace.qualification ?? "");
+    const excerptSource = Boolean(trace.excerpt?.source.trim());
+    if (!excerptSource && !hasSourceDetail(trace.derivation) && !gap) {
+      throw new SliceError(
+        child(child(path, key), "sources"),
+        "source details or a stated missing-source gap",
+      );
+    }
+  }
+}
+
+/** Summary calculations count only the rows with a retained derivation. */
+function calculationsMatch(summary: Evidence["summary"], table: TraceTable, path: string): void {
+  const calculations = table.rows.filter((row) => row.calc !== null).length;
+  const index = summary.counts.findIndex((metric) => metric.label === "Calculations");
+  const metric = summary.counts[index];
+  if (metric === undefined) return;
+  if (metric.value?.kind !== "value" || metric.value.text !== String(calculations)) {
+    throw new SliceError(
+      nth(child(path, "counts"), index),
+      `${String(calculations)}, the number of calculation derivations`,
+    );
+  }
+}
+
 /** Every item a trace opens is a row of the Trace tab. */
 function itemsHeld(traces: Traces, path: string, trace: TraceTable): void {
   const held = new Set(trace.rows.map((row) => row.id));
@@ -2004,11 +2042,14 @@ function readEvidence(value: unknown, path: string, traces: Traces, modules: Mod
     ),
   };
   gapsHeld(trace, gaps, child(path, "trace"));
+  const summary = readSummary(own(e, "summary"), child(path, "summary"), traces);
+  calculationsMatch(summary, trace, child(path, "summary"));
+  sourceDetailsHeld(traces, trace, path);
   return {
     intro: named(e, "intro", path),
     moduleFilter,
     tabs: counted,
-    summary: readSummary(own(e, "summary"), child(path, "summary"), traces),
+    summary,
     sources,
     trace,
     gaps,

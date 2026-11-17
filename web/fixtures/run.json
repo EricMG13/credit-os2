@@ -243,7 +243,7 @@
           { "label": "Issuer", "value": "TransDigm Group Incorporated" },
           { "label": "Purpose", "value": "Full credit review, 13 modules" },
           { "label": "Documents", "value": "4, approved today at 14:36" },
-          { "label": "More context", "value": "One note added" }
+          { "label": "More context", "value": "No note added" }
         ],
         "paid": {
           "text": "It can spend up to USD 25.00 and stops there. You confirm once more before anything is spent.",
@@ -494,7 +494,10 @@
         "labels": ["Full credit review", "As of Q3 FY2026"],
         "line": null,
         "alert": null,
-        "open": { "label": "Open the library", "href": "#/" },
+        "open": {
+          "label": "Open the library",
+          "href": "#/library/transdigm/activity-finished/overview"
+        },
         "spend": {
           "value": "USD 16.65",
           "bar": { "label": "USD 16.65 of USD 25.00", "value": 16.65, "max": 25 }
@@ -636,7 +639,10 @@
         "alert": {
           "title": "The run failed",
           "text": "Financial analysis stopped after three attempts because the model service returned no usable answer. Two modules finished and are kept.",
-          "action": { "label": "Open what finished", "href": "#/" },
+          "action": {
+            "label": "Open what finished",
+            "href": "#/library/transdigm/activity-failed/overview"
+          },
           "alt": null
         },
         "open": null,
@@ -755,7 +761,10 @@
         "alert": {
           "title": "The run reached its USD 25.00 cap",
           "text": "Nine modules finished and are in the library. Recovery was stopped part-way and three modules did not run. A new run has its own cap.",
-          "action": { "label": "Open what finished", "href": "#/" },
+          "action": {
+            "label": "Open what finished",
+            "href": "#/library/transdigm/activity-capped/overview"
+          },
           "alt": { "label": "Start a new run", "href": "#/run/start/no-documents" }
         },
         "open": null,
@@ -927,7 +936,10 @@
         "alert": {
           "title": "The run was interrupted",
           "text": "The run stopped at 14:56 while Covenants was running. Five modules finished and are kept.",
-          "action": { "label": "Open what finished", "href": "#/" },
+          "action": {
+            "label": "Open what finished",
+            "href": "#/library/transdigm/activity-interrupted/overview"
+          },
           "alt": null
         },
         "open": null,

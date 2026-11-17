@@ -8,6 +8,7 @@ import path from "node:path";
  */
 type Json = Record<string, unknown>;
 type TraceRow = {
+  calc: { label: string } | null;
   id: string;
   item: string;
   module: string;
@@ -269,12 +270,16 @@ describe("the fixture's runs agree with themselves", () => {
       expect(orphans, run.id).toEqual(run.evidence.trace.rows.length === 0 ? [] : ["T-0068"]);
       const rows = String(run.evidence.trace.rows.length);
       expect(run.evidence.tabs.trace, run.id).toBe(rows);
-      expect(count(run, "Calculations").value.text, run.id).toBe(rows);
+      expect(count(run, "Calculations").value.text, run.id).toBe(
+        String(run.evidence.trace.rows.filter((row) => row.calc !== null).length),
+      );
     }
-    expect(fullRun().evidence.trace.rows).toHaveLength(59);
-    expect(count(fullRun(), "Calculations").note).toBe("Each one traceable to its inputs");
+    expect(fullRun().evidence.trace.rows).toHaveLength(66);
+    expect(count(fullRun(), "Calculations").note).toBe("Derivations shown for calculated figures.");
     for (const run of loaded.filter((r) => r.evidence.trace.rows.length === 0)) {
-      expect(count(run, "Calculations").note, run.id).toBe("Not traced item by item in this run");
+      expect(count(run, "Calculations").note, run.id).toBe(
+        "No calculation derivations are recorded in this saved example.",
+      );
       expect(run.evidence.trace.emptyText, run.id).toContain("not traced item by item");
     }
   });

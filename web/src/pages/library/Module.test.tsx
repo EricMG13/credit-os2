@@ -827,7 +827,7 @@ describe("Module, the facility terms", () => {
       Array<string>(7).fill("Show sources for this fact"),
     );
     fireEvent.click(buttons[0] as HTMLElement);
-    expect(screen.getByRole("dialog", { name: "Sources for the term loan" })).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "Sources for Term loan B amount" })).toBeVisible();
   });
 
   it("sets a group of no name without a label, and a gap as the inline badge", () => {
@@ -1433,7 +1433,7 @@ describe("Module, a module that could not be delivered", () => {
 
   it("draws a module that did not run as Not run, never as Not assessable", () => {
     renderModule("forecast", "2026-03-31");
-    expect(screen.getByRole("heading", { level: 2, name: "Forecast" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 2, name: "Forward credit view" })).toBeVisible();
     expect(
       screen.getByText("The run reached its cost cap before this module started."),
     ).toBeVisible();
@@ -1452,12 +1452,12 @@ describe("Module, a module that could not be delivered", () => {
       "Recovery, Not run",
       "Rating outlook, Delivered",
       "Environmental, social and governance, Delivered",
-      "Forecast, Not run",
+      "Forward credit view, Not run",
       "Credit snapshot, Delivered",
     ]);
     expect(
       links.filter((l) => l.hasAttribute("aria-current")).map((l) => l.getAttribute("aria-label")),
-    ).toEqual(["Forecast, Not run"]);
+    ).toEqual(["Forward credit view, Not run"]);
   });
 });
 

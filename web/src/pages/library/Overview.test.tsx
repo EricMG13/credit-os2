@@ -70,10 +70,10 @@ describe("Overview, the mock's run", () => {
     renderOverview("2026-09-30");
     expect(tiles().map((tile) => tile.textContent)).toEqual([
       "Revenue, USD m2,105Year to 30 Sep 2026",
-      "EBITDA margin23.1%Company-adjusted basis",
-      "Net leverage4.6xNet debt to EBITDA",
-      "Interest cover2.4xEBITDA to cash interest",
-      "Liquidity, USD m412Cash and undrawn facility",
+      "EBITDA margin23.1%Company-adjusted EBITDA, year to 30 Sep 2026",
+      "Net leverage4.6xNet debt to company-adjusted EBITDA, year to 30 Sep 2026",
+      "Interest cover2.4xCompany-adjusted EBITDA to cash interest, year to 30 Sep 2026",
+      "Liquidity, USD m412Cash and undrawn facility, as of 30 Sep 2026",
       "Recovery, senior notesn.a.not availableRecovery was not assessable",
     ]);
     expect(within(tiles()[5] as HTMLElement).getByText("n.a.").parentElement).toHaveClass(
@@ -106,7 +106,7 @@ describe("Overview, the mock's run", () => {
     expect(
       within(sides[0]?.parentElement as HTMLElement).getAllByRole("listitem")[0]?.textContent,
     ).toBe(
-      "4.6xNet leverage fell from 4.9x a year earlier as EBITDA grew faster than debt.Reported",
+      "4.6xNet leverage fell from 4.9x since 30 June 2026 as EBITDA grew faster than debt.Company-adjusted",
     );
   });
 
@@ -302,7 +302,7 @@ describe("Overview, findings, what would change the view and dates", () => {
     renderOverview("2026-09-30");
     expect(screen.getByRole("heading", { level: 2, name: "Key findings" })).toBeVisible();
     expect(findings().map((item) => item.textContent)).toEqual([
-      "01Deleveraging is real but slowLeverage fell by 0.3x in the year. Almost all of it came from EBITDA growth; net debt rose after the Corvane Fasteners purchase.",
+      "01Deleveraging is real but slowLeverage fell by 0.3x since 30 June 2026. Almost all of it came from EBITDA growth; net debt rose after the Corvane Fasteners purchase.",
       "02Cash conversion lags marginWorking capital absorbed USD 71m as inventory was built for the engine ramp. Free cash flow covered interest but little else.",
       "03Pricing power sits in the aftermarketSole-source parts carry most of the profit. Original-equipment contracts are fixed-price and thinner than peers.",
       "04The 2028 notes are the first real testThe term loan and secured notes run to 2030 and 2031. The unsecured notes come first and rank behind both.",
@@ -470,7 +470,7 @@ describe("Overview, modules and limitations", () => {
       "Financial performance",
       "Cash flow and liquidity",
       "Recovery",
-      "Forecast",
+      "Forward credit view",
     ]) {
       const item = items().find((el) => el.textContent.startsWith(title)) as HTMLElement;
       expect(within(item).getByText("Not run")).toBeVisible();
@@ -503,7 +503,7 @@ describe("Overview, modules and limitations", () => {
       "Financial performance",
       "Cash flow and liquidity",
       "Recovery",
-      "Forecast",
+      "Forward credit view",
     ]);
     // Sweep ruling SW-01: the Modules tab counts the modules the run lists (as the mock's "Modules 13"
     // beside "12 of 13 delivered"), here the delivered ones and the four not run.

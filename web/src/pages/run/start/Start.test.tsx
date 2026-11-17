@@ -23,7 +23,7 @@ describe("Start (frame 06)", () => {
       ["Issuer", "TransDigm Group Incorporated"],
       ["Purpose", "Full credit review, 13 modules"],
       ["Documents", "4, approved today at 14:36"],
-      ["More context", "One note added"],
+      ["More context", "No note added"],
     ];
     for (const [label, value] of expected) {
       const term = screen.getAllByText(label).find((el) => el.tagName === "DT");

@@ -28,6 +28,28 @@ function renderRecord(run: string, library: unknown = fixture.slice) {
   );
 }
 
+function withAvailableRegisters() {
+  const slice = structuredClone(fixture.slice) as {
+    issuers: {
+      runs: { evidence: { record: { registers: { downloadAll: Json; rows: Json[] } } } }[];
+    }[];
+  };
+  const registers = slice.issuers[0]?.runs[0]?.evidence.record.registers;
+  if (registers === undefined) throw new Error("no registers");
+  Object.assign(registers.downloadAll, {
+    href: "downloads/halden-aerostructures-2026-09-30-registers.zip",
+    reason: null,
+  });
+  const names = ["sources", "calculations", "gaps", "assumptions"];
+  for (const [index, name] of names.entries()) {
+    Object.assign(registers.rows[index] ?? {}, {
+      href: `downloads/halden-aerostructures-2026-09-30-registers/${name}.md`,
+      reason: null,
+    });
+  }
+  return slice;
+}
+
 afterEach(cleanup);
 
 const table = (name: string) => screen.getByRole("table", { name });
@@ -91,7 +113,7 @@ describe("Evidence, Record", () => {
       ["Capital structure", "5.6", "16.0", "10.4", "Delivered with gaps"],
       ["Recovery", "14.4", "n.a.", "n.a.", "Not assessable"],
       ["Peer comparison", "16.8", "25.6", "8.8", "Delivered with gaps"],
-      ["Forecast", "26.4", "37.6", "11.2", "Delivered"],
+      ["Forward credit view", "26.4", "37.6", "11.2", "Delivered"],
     ]);
   });
 
@@ -164,13 +186,13 @@ describe("Evidence, Record", () => {
     expect(table("Model calls").closest("section")).toHaveClass("rounded-xl");
   });
 
-  it("lists the registers, each with Open as a link, and Download all", () => {
-    renderRecord(FULL);
+  it("lists explicitly available registers with Open links and Download all", () => {
+    renderRecord(FULL, withAvailableRegisters());
     expect(textOf("Registers as written").map((r) => r.slice(0, 4))).toEqual([
       ["Source register", "Every module", "212", "registers/sources.md"],
       ["Calculation register", "Financial kernel", "148", "registers/calculations.md"],
       ["Gap ledger", "Every module", "7", "registers/gaps.md"],
-      ["Assumption register", "Forecast", "23", "registers/assumptions.md"],
+      ["Assumption register", "Forward credit view", "23", "registers/assumptions.md"],
       ["Withheld register", "Delivery", "2", "registers/withheld.md"],
     ]);
     expect(screen.getByRole("link", { name: "Download all" })).toHaveAttribute(
@@ -204,8 +226,7 @@ describe("Evidence, Record", () => {
     });
     const open = within(row).getByRole("button", { name: "Open" });
     expect(open).toBeDisabled();
-    const reason =
-      "The withheld register lists figures the sources marked confidential, so it is not published.";
+    const reason = "These sample bytes are not included in this saved example.";
     expect(within(row).getByText(reason)).toBeVisible();
     expect(open).toHaveAccessibleDescription(reason);
     // Sweep SW-09: a wrapping row of button + reason put the button 32 px from the cell's left edge in
@@ -222,7 +243,7 @@ describe("Evidence, Record", () => {
     renderRecord("2026-03-31");
     expect(screen.getByRole("button", { name: "Download all" })).toBeDisabled();
     expect(
-      screen.getByText("The run's registers were not packed, so there is nothing to download."),
+      screen.getAllByText("These sample bytes are not included in this saved example.")[0],
     ).toBeVisible();
   });
 

@@ -104,6 +104,7 @@ describe("WBR-04 a delivered address stays inside the library folder", () => {
     ["an encoded single dot", "downloads/%2e/x.zip"],
   ])("refuses %s as a download", (_, href) => {
     const slice = fresh();
+    run(slice).evidence.summary.take.download["reason"] = null;
     run(slice).evidence.summary.take.download["href"] = href;
     expect(reasonOf(slice)).toContain(`${RUN}.evidence.summary.take.download.href`);
   });
@@ -123,6 +124,7 @@ describe("WBR-04 a delivered address stays inside the library folder", () => {
     ["a non-hex escape", "downloads/%zz/x.zip"],
   ])("returns a reason, not a thrown error, for %s", (_, href) => {
     const slice = fresh();
+    run(slice).evidence.summary.take.download["reason"] = null;
     run(slice).evidence.summary.take.download["href"] = href;
     const result = readSlice(slice);
     expect(result.kind).toBe("invalid");
@@ -133,12 +135,14 @@ describe("WBR-04 a delivered address stays inside the library folder", () => {
 
   it("keeps reading a valid escape as it did", () => {
     const slice = fresh();
+    run(slice).evidence.summary.take.download["reason"] = null;
     run(slice).evidence.summary.take.download["href"] = "downloads/a%20b/x.zip";
     expect(readSlice(slice).kind).toBe("ok");
   });
 
   it("keeps reading a relative path inside the folder", () => {
     const slice = fresh();
+    run(slice).evidence.summary.take.download["reason"] = null;
     run(slice).evidence.summary.take.download["href"] = "downloads/a/b-2026.zip";
     expect(readSlice(slice).kind).toBe("ok");
   });

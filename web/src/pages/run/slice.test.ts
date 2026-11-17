@@ -401,7 +401,10 @@ describe("committed fixture, run activity", () => {
 
   it("finished", () => {
     const r = run("finished");
-    expect(r.open).toEqual({ label: "Open the library", href: "#/" });
+    expect(r.open).toEqual({
+      label: "Open the library",
+      href: "#/library/transdigm/activity-finished/overview",
+    });
     expect(r.spend.value).toBe("USD 16.65");
     expect(r.finished.value).toBe("12 of 13");
     expect(steps("finished")[9]).toEqual({
@@ -425,7 +428,7 @@ describe("committed fixture, run activity", () => {
     expect(failed.alert).toEqual({
       title: "The run failed",
       text: "Financial analysis stopped after three attempts because the model service returned no usable answer. Two modules finished and are kept.",
-      action: { label: "Open what finished", href: "#/" },
+      action: { label: "Open what finished", href: "#/library/transdigm/activity-failed/overview" },
       alt: null,
     });
     expect(steps("failed")[2]).toMatchObject({ state: "Not assessable" });
@@ -438,7 +441,10 @@ describe("committed fixture, run activity", () => {
     });
     const capped = run("capped");
     expect(capped.spend.bar).toEqual(SPEND("USD 25.00 of USD 25.00", 25));
-    expect(capped.alert?.action).toEqual({ label: "Open what finished", href: "#/" });
+    expect(capped.alert?.action).toEqual({
+      label: "Open what finished",
+      href: "#/library/transdigm/activity-capped/overview",
+    });
     expect(capped.alert?.alt).toEqual({
       label: "Start a new run",
       href: "#/run/start/no-documents",
@@ -459,7 +465,10 @@ describe("committed fixture, run activity", () => {
     expect(rejected.spend.bar?.value).toBe(0);
     expect(rejected.feed.map((e) => e.state)).toEqual(["Rejected", "Queued"]);
     const interrupted = run("interrupted");
-    expect(interrupted.alert?.action).toEqual({ label: "Open what finished", href: "#/" });
+    expect(interrupted.alert?.action).toEqual({
+      label: "Open what finished",
+      href: "#/library/transdigm/activity-interrupted/overview",
+    });
     expect(interrupted.alert?.alt).toBeNull();
     expect(steps("interrupted")[5]).toMatchObject({ name: "Covenants", state: "Interrupted" });
     expect(interrupted.feed[0]?.state).toBe("Interrupted");

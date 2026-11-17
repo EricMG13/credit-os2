@@ -141,10 +141,15 @@ describe("Record, with a module chosen in the filter", () => {
 
   it("says what a table lists nothing of, and the way back clears the filter", () => {
     renderRecord("2026-09-30");
-    pick("Forecast");
-    expect(textOf("Module timings")).toEqual([["Forecast", "26.4", "37.6", "11.2", "Delivered"]]);
+    pick("Forward credit view");
+    expect(textOf("Module timings")).toEqual([
+      ["Forward credit view", "26.4", "37.6", "11.2", "Delivered"],
+    ]);
     expect(
-      screen.getByRole("heading", { level: 3, name: "No model calls are listed for Forecast" }),
+      screen.getByRole("heading", {
+        level: 3,
+        name: "No model calls are listed for Forward credit view",
+      }),
     ).toBeVisible();
     expect(screen.queryByRole("table", { name: "Model calls" })).toBeNull();
     pick("Industry and competition");

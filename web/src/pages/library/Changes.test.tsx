@@ -307,7 +307,7 @@ describe("Changes, the Modules section", () => {
     const item = screen.getByText("9 modules unchanged").closest("li") as HTMLElement;
     expect(item).toHaveTextContent("Unchanged");
     expect(item).toHaveTextContent(
-      "Business profile, Industry and competition, Financial performance, Covenants and documentation, Management and governance, Peer comparison, Environmental, social and governance, Forecast, Credit snapshot.",
+      "Business profile, Industry and competition, Financial performance, Covenants and documentation, Management and governance, Peer comparison, Environmental, social and governance, Forward credit view, Credit snapshot.",
     );
     expect(within(item).queryByRole("link")).toBeNull();
   });

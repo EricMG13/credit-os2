@@ -25,6 +25,17 @@ function invalidReason(source: unknown): string {
   return result.reason;
 }
 
+function withAddress() {
+  const slice = fresh();
+  const issuer = slice.issuers[0] as Json & {
+    runs: { evidence: { summary: { take: { download: Json } } } }[];
+  };
+  const offer = issuer.runs[0]?.evidence.summary.take.download;
+  if (offer === undefined) throw new Error("no download");
+  Object.assign(offer, { href: "downloads/sample.zip", reason: null });
+  return slice;
+}
+
 describe("the address rule's decode", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -34,14 +45,14 @@ describe("the address rule's decode", () => {
     vi.spyOn(globalThis, "decodeURIComponent").mockImplementation(() => {
       throw new TypeError("injected");
     });
-    expect(() => readSlice(fixture.slice)).toThrow(TypeError);
+    expect(() => readSlice(withAddress())).toThrow(TypeError);
   });
 
   it("refuses the address on a URIError", () => {
     vi.spyOn(globalThis, "decodeURIComponent").mockImplementation(() => {
       throw new URIError("injected");
     });
-    expect(readSlice(fixture.slice).kind).toBe("invalid");
+    expect(readSlice(withAddress()).kind).toBe("invalid");
   });
 });
 
@@ -966,7 +977,7 @@ describe("readSlice, modules", () => {
       "Recovery",
       "Rating outlook",
       "Environmental, social and governance",
-      "Forecast",
+      "Forward credit view",
       "Credit snapshot",
     ]);
     expect(full.map((m) => m.state).filter((s) => s !== "Delivered")).toEqual([

@@ -35,6 +35,16 @@ function renderEvidence(
   );
 }
 
+function withAvailableHandoffs() {
+  const slice = structuredClone(fixture.slice) as {
+    issuers: { runs: { evidence: { summary: { take: { download: Json } } } }[] }[];
+  };
+  const offer = slice.issuers[0]?.runs[0]?.evidence.summary.take.download;
+  if (offer === undefined) throw new Error("no download");
+  Object.assign(offer, { href: "downloads/available-unit-example.zip", reason: null });
+  return slice;
+}
+
 const tabs = () => within(screen.getByRole("navigation", { name: "Evidence sections" }));
 
 afterEach(() => {
@@ -85,7 +95,7 @@ describe("the Evidence frame", () => {
     const links = tabs().getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
       "Summary",
-      "Trace59",
+      "Trace66",
       "Sources9",
       "Gaps7",
       "Record",
@@ -149,7 +159,7 @@ describe("Evidence, Summary", () => {
     const tiles = within(screen.getByRole("region", { name: "Counts" })).getAllByRole("listitem");
     expect(tiles.map((t) => t.textContent)).toEqual([
       "Source files97 read in full, 1 read in part, 1 unreadable",
-      "Calculations59Each one traceable to its inputs",
+      "Calculations1Derivations shown for calculated figures.",
       "Gaps72 high, 3 medium, 2 low",
     ]);
     expect(within(screen.getByRole("region", { name: "Counts" })).queryByRole("button")).toBeNull();
@@ -167,17 +177,15 @@ describe("Evidence, Summary", () => {
     expect(screen.getByRole("button", { name: "Copy hash" })).toBeVisible();
   });
 
-  it("draws Take it with you: the delivered sentence, a download link and the link to Sources", () => {
+  it("draws Take it with you with an unavailable download and the link to Sources", () => {
     renderEvidence("2026-09-30");
     expect(
       screen.getByText(
         "The module handoffs are the record this library was written from. Download them to read a module exactly as it was delivered.",
       ),
     ).toBeVisible();
-    expect(screen.getByRole("link", { name: "Download handoffs" })).toHaveAttribute(
-      "href",
-      "downloads/halden-aerostructures-2026-09-30-handoffs.zip",
-    );
+    expect(screen.getByRole("button", { name: "Download handoffs" })).toBeDisabled();
+    expect(screen.queryByRole("link", { name: "Download handoffs" })).toBeNull();
     expect(screen.getByRole("link", { name: "See which files were used" })).toHaveAttribute(
       "href",
       `${BASE}/sources`,
@@ -185,7 +193,7 @@ describe("Evidence, Summary", () => {
   });
 
   it("draws the download in the secondary look, with and without an address", () => {
-    renderEvidence("2026-09-30");
+    renderEvidence("2026-09-30", SUMMARY, withAvailableHandoffs());
     expect(screen.getByRole("link", { name: "Download handoffs" })).toHaveClass("bg-primary");
     expect(screen.getByRole("link", { name: "Download handoffs" })).not.toHaveClass(
       "bg-brand-solid",
@@ -212,8 +220,7 @@ describe("Evidence, Summary", () => {
     expect(screen.queryByRole("link", { name: "Download handoffs" })).toBeNull();
     const button = screen.getByRole("button", { name: "Download handoffs" });
     expect(button).toBeDisabled();
-    const reason =
-      "The run reached its cost cap before its handoffs were packed, so there is nothing to download.";
+    const reason = "These sample bytes are not included in this saved example.";
     expect(screen.getByText(reason)).toBeVisible();
     expect(button).toHaveAccessibleDescription(reason);
   });
@@ -437,7 +444,7 @@ describe("Evidence, Sources", () => {
       "interim-results-q3-2026.pdf",
     ]);
     expect(screen.queryByRole("button", { name: /Show the other/ })).toBeNull();
-    pick("Forecast");
+    pick("Forward credit view");
     expect(names()).toEqual(["annual-report-2026.pdf", "interim-results-q3-2026.pdf"]);
     pick("All");
     expect(names()).toEqual(FIVE);

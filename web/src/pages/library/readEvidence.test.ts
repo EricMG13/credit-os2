@@ -47,7 +47,7 @@ describe("readSlice, evidence", () => {
     if (result.kind !== "ok") throw new Error(result.kind);
     const evidence = result.data.issuers[0]?.runs[0]?.evidence;
     expect(evidence?.intro).toBe("Where every figure and claim in this run comes from.");
-    expect(evidence?.tabs).toEqual({ trace: "59", sources: "9", gaps: "7" });
+    expect(evidence?.tabs).toEqual({ trace: "66", sources: "9", gaps: "7" });
     expect(evidence?.summary.delivered).toEqual({
       note: "Recovery was not assessable",
       progress: { text: "12 of 13", value: 12, max: 13 },
@@ -58,7 +58,11 @@ describe("readSlice, evidence", () => {
         { kind: "value", text: "9", at: null },
         "7 read in full, 1 read in part, 1 unreadable",
       ],
-      ["Calculations", { kind: "value", text: "59", at: null }, "Each one traceable to its inputs"],
+      [
+        "Calculations",
+        { kind: "value", text: "1", at: null },
+        "Derivations shown for calculated figures.",
+      ],
       ["Gaps", { kind: "value", text: "7", at: null }, "2 high, 3 medium, 2 low"],
     ]);
     expect(evidence?.summary.run).toEqual({
@@ -198,12 +202,13 @@ describe("readSlice, evidence", () => {
     ],
     [
       "a download with no address and no reason",
-      (e) => (e.summary.take.download["href"] = null),
+      (e) => Object.assign(e.summary.take.download, { href: null, reason: null }),
       "summary.take.download.reason",
     ],
     [
       "a download with an address and a reason",
-      (e) => (e.summary.take.download["reason"] = "No."),
+      (e) =>
+        Object.assign(e.summary.take.download, { href: "downloads/sample.zip", reason: "No." }),
       "summary.take.download.reason",
     ],
     ["a tab count that is not text", (e) => ((e["tabs"] as Json)["gaps"] = 7), "tabs.gaps"],
@@ -237,7 +242,7 @@ describe("readSlice, trace", () => {
     const trace = read()[0]?.evidence?.trace;
     expect(trace?.title).toBe("Trace");
     expect(trace?.description).toBe(
-      "One row per traced paragraph, row or figure. Open a row to see how it was derived.",
+      "One row per traced paragraph, row or figure. Source details and a derivation are shown only where recorded.",
     );
     expect(trace?.columns).toEqual({
       id: "Item",
@@ -248,7 +253,7 @@ describe("readSlice, trace", () => {
       sources: "Sources",
     });
     const rows = trace?.rows ?? [];
-    expect(rows).toHaveLength(59);
+    expect(rows).toHaveLength(66);
     const mock = ["T-0001", "T-0014", "T-0015", "T-0031", "T-0047", "T-0052", "T-0068"];
     expect(rows.map((r) => r.id).filter((id) => mock.includes(id))).toEqual(mock);
     expect(
@@ -313,7 +318,7 @@ describe("readSlice, trace", () => {
       for (const trace of Object.values(run.traces)) expect(held).toContain(trace.evidenceItem);
       expect(run.evidence.tabs.trace).toBe(String(held.length));
     }
-    expect(read().map((run) => run.evidence?.trace.rows.length)).toEqual([59, undefined, 0, 0]);
+    expect(read().map((run) => run.evidence?.trace.rows.length)).toEqual([66, undefined, 0, 0]);
   });
 
   const brokenRows: [string, (e: ReturnType<typeof evidenceOf>) => unknown, string][] = [

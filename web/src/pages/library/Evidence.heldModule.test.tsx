@@ -83,13 +83,13 @@ describe("the module filter on Evidence", () => {
     render(page("summary"));
     expect(tiles()).toEqual([
       "Source files9" + "7 read in full, 1 read in part, 1 unreadable",
-      "Calculations59" + "Each one traceable to its inputs",
+      "Calculations1" + "Derivations shown for calculated figures.",
       "Gaps7" + "2 high, 3 medium, 2 low",
     ]);
     pick("Capital structure");
     expect(tiles()).toEqual([
       "Source files read5By Capital structure",
-      "Traced items26In Capital structure",
+      "Traced items33In Capital structure",
       "Gaps3In Capital structure",
     ]);
     pick("Recovery");
@@ -157,7 +157,9 @@ describe("the Summary of a run that was not traced item by item", () => {
     ({ issuer, run, module, files, gaps }) => {
       render(page("summary", { issuer, run }));
       const delivered = tiles()[1];
-      expect(delivered).toBe("Calculations0" + "Not traced item by item in this run");
+      expect(delivered).toBe(
+        "Calculations0" + "No calculation derivations are recorded in this saved example.",
+      );
       pick(module);
       expect(tiles()).toEqual([
         `Source files read${String(files)}By ${module}`,
