@@ -37,6 +37,11 @@ export function ArtifactDownloads({ folder }: { folder: string }) {
           ))}
         </div>
       )}
+      {value?.some((file) => file.label === "Annual model handoff") && (
+        <p className="text-sm text-text-secondary">
+          The annual model handoff is the Financial foundation handoff used as the model input.
+        </p>
+      )}
       {value && !value.some((file) => file.label === "HTML Model") && (
         <p className="text-text-secondary">The original HTML Model is unavailable for this run.</p>
       )}

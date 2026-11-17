@@ -825,7 +825,7 @@ function EvidenceHandoff({
 }
 
 function showHandoffs(tab: EvidenceTab, entry: OutputEntry | undefined, invalid: boolean) {
-  return tab === "Summary" || (tab === "Trace" && !entry && !invalid);
+  return tab === "Summary" || tab === "Record" || (tab === "Trace" && !entry && !invalid);
 }
 
 export function ReportEvidence({
@@ -900,13 +900,14 @@ export function ReportEvidence({
           was derived, or open a handoff below.
         </p>
       )}
+      {tab === "Record" && <ReportRecord run={run} entries={entries} module={module} mode={mode} />}
       {showHandoffs(tab, entry, invalidTraceAddress) && (
         <EvidenceHandoffs entries={entries} module={module} run={run} />
       )}
-      {tab === "Summary" && evidence.downloads.length > 0 && (
+      {(tab === "Summary" || tab === "Record") && evidence.downloads.length > 0 && (
         <ArtifactDownloads folder={run.folder} />
       )}
-      {tab === "Summary" && evidence.downloads.length === 0 && (
+      {(tab === "Summary" || tab === "Record") && evidence.downloads.length === 0 && (
         <section className={card}>
           <h3 className={heading}>Model and calculation files</h3>
           <p className="text-text-secondary">
@@ -917,7 +918,6 @@ export function ReportEvidence({
       {tab === "Trace" && !entry && (!module || module === "CP-8") && comparison}
       {tab === "Gaps" && <EvidenceGaps run={run} entries={entries} module={module} />}
       {tab === "Script checks" && <ScriptChecks records={checks} module={module} />}
-      {tab === "Record" && <ReportRecord run={run} entries={entries} module={module} mode={mode} />}
     </div>
   );
 }
