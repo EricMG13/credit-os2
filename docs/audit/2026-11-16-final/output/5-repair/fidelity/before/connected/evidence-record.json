@@ -1,7 +1,7 @@
 {
   "screen": {"id":"evidence--record","surface":"connected","address":"#evidence/record","extra":false,"variant":null},
   "page": {"title":"Evidence — Northbridge Synthetic Group — Credit OS","headings":["Northbridge Synthetic Group","Evidence","Run record","Module records","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses","Synthetic adapter responses"]},
-  "counts": {"textRuns":322,"figures":111,"figuresByKind":{"cell":56,"card":26,"summary":14,"paragraph":15},"tableViewFigures":0,"chartTableViews":0,"tables":28,"tableRows":28,"sourceLines":19,"drawerLines":0,"limitationSentences":0,"marks":0,"images":0,"traceControls":0,"traceDrawers":0,"traceErrors":0,"coverageGap":259},
+  "counts": {"textRuns":322,"figures":111,"figuresByKind":{"cell":56,"card":26,"summary":14,"paragraph":15},"tableViewFigures":0,"chartTableViews":0,"tables":28,"tableRows":28,"sourceLines":19,"drawerLines":0,"limitationSentences":0,"marks":0,"images":0,"traceControls":0,"traceDrawers":0,"traceErrors":0,"coverageGap":0},
   "expandedDisclosures": 0,
   "outline": [
     {"section":"","kind":"link","text":"Library"},
@@ -544,7 +544,7 @@
   ],
   "images": [],
   "screenReaderOnly": [],
-  "coverage": {"innerText":684,"captured":425,"optionsNotDrawn":0,"selected":0,"typed":0,"screenReaderOnly":0},
+  "coverage": {"innerText":425,"captured":425,"optionsNotDrawn":0,"selected":0,"typed":0,"screenReaderOnly":0},
   "chartTableViews": [],
   "sourceDrawers": []
 }

@@ -597,21 +597,44 @@ async function captureTraces(page) {
 }
 
 // One screen: load, settle, open everything, read the page as drawn, then the Table view of every chart
-// and the source drawer behind every control. `prepare` runs after load (a case choice, for example).
-async function captureScreen(page, screen, { ready, prepare }) {
+// and the source drawer behind every control. `screen.prepare` runs after load (a case choice, for
+// example). A page with a Cards/Table presentation choice is captured a second time with Table chosen.
+// Returns the records captured: one, or two.
+async function captureScreen(page, screen, ready) {
   await page.goto("about:blank");
+  const undo = screen.intercept ? await screen.intercept(page) : null;
+  try {
+    const first = await captureLoaded(page, screen, ready);
+    if (!first.hasPresentation) return [first];
+    const table = {
+      ...screen,
+      id: `${screen.id}--presentation-table`,
+      variant: [screen.variant, "Presentation: Table"].filter(Boolean).join("; "),
+      prepare: async (p) => {
+        await screen.prepare?.(p);
+        await p.locator('main [role=radiogroup][aria-label="Presentation"]').getByRole("radio", { name: "Table", exact: true }).click({ timeout: 3000 });
+      },
+    };
+    return [first, await captureLoaded(page, table, ready)];
+  } finally {
+    if (undo) await undo();
+  }
+}
+
+async function captureLoaded(page, screen, ready) {
   await page.goto(screen.url, { waitUntil: "load" });
   await ready(page);
-  if (prepare) await prepare(page);
+  if (screen.prepare) await screen.prepare(page);
   await settle(page);
   const expanded = await openDisclosures(page);
   await settle(page);
   const view = await page.evaluate(extractInPage, { mode: "page", rules: RULES });
+  const hasPresentation = (await page.locator('main [role=radiogroup][aria-label="Presentation"]').count()) > 0;
   const toggles = await toTableViews(page);
   await settle(page);
   const tableViews = toggles ? await page.evaluate(extractInPage, { mode: "figures", rules: RULES }) : [];
   const traces = await captureTraces(page);
-  return { ...screen, view, tableViews, traces, expanded, toggles };
+  return { ...screen, view, tableViews, traces, expanded, toggles, hasPresentation };
 }
 
 // ---- normalising ---------------------------------------------------------------------------------
@@ -882,6 +905,92 @@ async function submitSyntheticRun(page, endpoint) {
   return run;
 }
 
+// The Changes screen of the real run only says there is no earlier run. To capture the comparison as it
+// is drawn, the snapshot the page fetches is given an earlier run and a comparison pack, copied from
+// checkChangesTrace in web/scripts/connected-proof.mjs. This is a fixture injected in the browser, not a run.
+async function pairedSnapshot(endpoint, id) {
+  const digest = (value) => sha256(value);
+  const snapshot = await (await fetch(new URL("/connected/snapshot", endpoint))).json();
+  const [key, current] = Object.entries(snapshot.workspace.runs).find(([, r]) => r.folder === id);
+  const prior = {
+    ...current,
+    asOf: "2024-12-31",
+    folder: "comparison-fixture",
+    modules: { "CP-1": { outputs: ["earlier-schedule"], default: "earlier-schedule" } },
+    changes: null,
+  };
+  snapshot.workspace.runs["comparison-fixture"] = prior;
+  snapshot.workspace.outputs["earlier-schedule"] = {
+    id: "earlier-schedule",
+    module: "CP-1",
+    run: "comparison-fixture",
+    sha256: digest("earlier-schedule"),
+    href: "",
+    label: "Financial foundation",
+  };
+  snapshot.workspace.handoffs[digest("earlier-schedule")] = [
+    {
+      heading: "Chart data: debt maturities",
+      line: 20,
+      level: 3,
+      blocks: [
+        {
+          type: "table",
+          line: 22,
+          headers: ["Period", "Debt maturing", "Reporting unit", "Basis and limitation"],
+          rows: [{ line: 24, cells: ["FY2026", "0.00", "US$m", "Earlier schedule evidence."] }],
+        },
+      ],
+    },
+  ];
+  const output = "comparison-output";
+  current.modules["CP-8"] = { outputs: [output], default: output };
+  snapshot.workspace.outputs[output] = { id: output, module: "CP-8", run: key, sha256: digest(output), href: "", label: "Comparison" };
+  snapshot.workspace.handoffs[digest(output)] = [
+    {
+      heading: "What changed: the issuer",
+      line: 10,
+      level: 3,
+      blocks: [
+        {
+          type: "table",
+          line: 12,
+          headers: ["Measure or fact", "Earlier", "Current", "Cause", "Effect on the credit view"],
+          rows: [
+            { line: 14, cells: ["**Net debt**", "600 US$m", "550 US$m", "New period", "Debt fell."] },
+            { line: 15, cells: ["Interest cover", "3.1x", "3.2x", "New period", "Coverage improved."] },
+          ],
+        },
+      ],
+    },
+  ];
+  current.changes = {
+    pack: {
+      prior: { run: prior.folder, as_of: prior.asOf, pathway: current.pathway },
+      current: { as_of: current.asOf, pathway: current.pathway },
+      maturity_profile: {
+        unit: "US$m",
+        rows: [
+          { period: "FY2026", prior: "0", current: "500" },
+          { period: "FY2027", prior: null, current: null },
+        ],
+      },
+      measures: [
+        {
+          key: "debt",
+          label: "Net debt",
+          prior: { value: "600", unit: "US$m" },
+          current: { value: "550", unit: "US$m" },
+          difference: "-50",
+          unit: "US$m",
+        },
+      ],
+    },
+    verdicts: { measures: { debt: { kind: "comparable", label: "Same definition" } } },
+  };
+  return snapshot;
+}
+
 const connectedReady = async (page) => {
   await page
     .waitForFunction(() => {
@@ -956,22 +1065,35 @@ async function captureConnected(browser) {
       { id: "modules--default", address: "#modules" },
       ...modules.map((m) => ({ id: `modules--${m.href.replace("#modules/", "")}`, address: m.href, title: m.text })),
       { id: "forecast", address: "#forecast" },
-      ...forecastCases.flatMap((c, k) => (c.checked ? [] : [{ id: `forecast--case-${slug(c.label)}`, address: "#forecast", variant: `Forecast case: ${c.label}`, caseIndex: k }])),
+      ...forecastCases.flatMap((c, k) => (c.checked ? [] : [{ id: `forecast--case-${slug(c.label)}`, address: "#forecast", variant: `Forecast case: ${c.label}`, prepare: (p) => selectCase(p, k) }])),
       ...evidence.map((e) => ({ id: `evidence--${e.href.replace("#evidence/", "")}`, address: e.href, title: e.text })),
       { id: "history", address: "#history", extra: true },
       { id: "calendar", address: "#calendar", extra: true },
+      {
+        id: "changes--paired-run-fixture",
+        address: "#changes",
+        extra: true,
+        variant: "an earlier run and comparison pack injected into the snapshot (connected-proof.mjs fixture), not a run",
+        intercept: async (page) => {
+          const snapshot = await pairedSnapshot(endpoint, run);
+          const pattern = "**/connected/snapshot?run=*";
+          await page.route(pattern, (route) => route.fulfill({ json: snapshot }));
+          return () => page.unroute(pattern);
+        },
+      },
     ]
       .filter((s) => !ONLY || s.id.includes(ONLY))
       .map((s) => ({ ...s, surface: "connected", url: `${base}${s.address}` }));
-    const done = await pool(screens, workers, async (screen, page) => {
-      try {
-        const rec = await captureScreen(page, screen, { ready: connectedReady, prepare: screen.caseIndex === undefined ? null : (p) => selectCase(p, screen.caseIndex) });
-        return rec;
-      } catch (e) {
-        console.error(`connected ${screen.id}: ${e.message.split("\n")[0]}`);
-        return { ...screen, failed: String(e.message).split("\n")[0] };
-      }
-    });
+    const done = (
+      await pool(screens, workers, async (screen, page) => {
+        try {
+          return await captureScreen(page, screen, connectedReady);
+        } catch (e) {
+          console.error(`connected ${screen.id}: ${e.message.split("\n")[0]}`);
+          return [{ ...screen, failed: String(e.message).split("\n")[0] }];
+        }
+      })
+    ).flat();
     const normalise = normaliser(RULES);
     for (const rec of done) {
       if (rec.failed) continue;
@@ -1047,18 +1169,20 @@ async function captureStatic(browser) {
     for (const s of wanted.filter((x) => x.id.endsWith("--statements"))) {
       const choices = await caseChoices(workers[0].page, s.url, staticReady);
       choices.forEach((c, k) => {
-        if (!c.checked) withCases.push({ ...s, id: `${s.id}--case-${slug(c.label)}`, variant: `Case: ${c.label}`, caseIndex: k, extra: false });
+        if (!c.checked) withCases.push({ ...s, id: `${s.id}--case-${slug(c.label)}`, variant: `Case: ${c.label}`, prepare: (p) => selectCase(p, k), extra: false });
       });
     }
     const all = [...wanted, ...withCases];
-    const done = await pool(all, workers, async (screen, page) => {
-      try {
-        return await captureScreen(page, screen, { ready: staticReady, prepare: screen.caseIndex === undefined ? null : (p) => selectCase(p, screen.caseIndex) });
-      } catch (e) {
-        console.error(`static ${screen.id}: ${e.message.split("\n")[0]}`);
-        return { ...screen, failed: String(e.message).split("\n")[0] };
-      }
-    });
+    const done = (
+      await pool(all, workers, async (screen, page) => {
+        try {
+          return await captureScreen(page, screen, staticReady);
+        } catch (e) {
+          console.error(`static ${screen.id}: ${e.message.split("\n")[0]}`);
+          return [{ ...screen, failed: String(e.message).split("\n")[0] }];
+        }
+      })
+    ).flat();
     const normalise = normaliser(RULES);
     for (const rec of done) {
       if (rec.failed) continue;
