@@ -1,3 +1,42 @@
+## Lead checkpoint 2026-11-17T20:13Z
+
+ALLsource/application fixesnowreviewed. Actualfinal b97e9ea2 pushed containsalllead
+chunks+originalgroups andR4-01501 classification/R4-0163dfcleanup. Its canonical
+nativeproof passedRecord(executionSynthetic/Adapterstatus),checks,downloads and
+pairedChanges, thenfailedonlystalecompact-runkeyset(approvedleadfield) andEdge's
+browser-localfileicon falseoutside classification. Noactualoutsideapphost isclaimed.
+Thoseconsequences+R4-017/018fidelityguardreturn are fixedfinalcode8f4ba250/reportbffc2732,
+branch audit/lead-proof-local-consequences: freshPASS0HML +rootsecondreadPASS,12guards,
+73scripts,28comparator,126immutablehashes+actualpackageinclusion verified. No source
+comparisonkeys/baselines changed. Rootregister19metadatausesvalidschema surfaceboth.
+
+Localcandidate0baca6f7 includesallacceptedreturnhistory(cleanmergedd077360c),rootcan
+FFactualfromb97; app/websrc/Python/packagernotchangedbyguardreturn,6reviewedfilesbyte
+match8f, optionalprobeR4-016cleanup preserved. Integration12/73/28/gates/quality0,
+126SHAexact,helper+packagedcallers included. Rawdiagnosticlogwhitespace ispreserved
+andreported separately;code/testdiffcheck0. NeedfinalcanonicalproofonOWNactualvenv.
+
+Live522source/407canonical:H6/M111/L205/I85;repair85/batch162/sweep17/deferred6/
+parked31/rejected106. Stage5required247. AllR4-015..019haveacceptedfixes/reviews, but
+closed_byonlyafterlastregisterrebuild+actualacceptance/gates/fidelity. R4-002helpers
+stillmustcopyreviewed4scripts+tests/test_final_audit_tools.py+tests/fixtures/final-audit-register-baseline.zip
+fromcoordination; expectedfrozen505inputs/hashes/countsunchanged. Currentclosureplanning
+63a snapshot242oldrequired isHISTORICAL, refresh247withlatestcodesafterpromotion.
+
+NextrootFF0baca, additivecopycoordoutput preservingexistingnew5-repair reports/fidelity
+capture/repair-sessionSTATUS; 4-register +leadSTATUS coordauthoritative. CopyhelpertestZIP,
+validateQG/helper11, build. Runfullcanonicalproofandnpmgates+fastPython; runFINALfidelity
+AFTERonlyafterGOsourcepinusingacceptedcapture andnativeChrome, compare+--diffimmutable
+before explainallnewdifference/omission; combinedselfreview/VERIFICATION<1000,push.
+No finalAFTERexistsyet. Thenstage6separatebranch40items/2attempts PRreviewmerge; stage7
+finalgates/offline/screens/packagehash/source-vs-docprovenance/prompt54rows+fresh2pinindex
+STOPdryrun/SUMMARY/finalmainPRUNMERGED. Mainuntouched;nodeps/lock/method/Signal/prompt/
+cannedhandoff/moduletextchanges. Allownerquestionsdecided. ToolnegativeDNSuncertainty
+retainedinreviews; futuretestsnetworkloopbackonlyorlocaldenialproxy, noresolveroverride.
+
+Environment brieflyrestartedandreadyagain; files/commits survived. Allremainingwork
+resumablefromcurrentbranches/reports, no interruptedcheckinferredaspass.
+
 ## Lead checkpoint 2026-11-17T19:29Z
 
 Stage5 active, mainuntouched. R4-015/T45 registeredMedium: finalsettledsynthetic

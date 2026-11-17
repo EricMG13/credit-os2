@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-521 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 115 were merged into another finding with the same cause, which leaves 406 findings. Counts below are of those 406, after re-grading.
+522 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 115 were merged into another finding with the same cause, which leaves 407 findings. Counts below are of those 407, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -10,9 +10,9 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | High | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 6 |
 | Medium | 76 | 0 | 0 | 0 | 1 | 2 | 32 | 111 |
-| Low | 0 | 144 | 0 | 0 | 2 | 19 | 39 | 204 |
+| Low | 0 | 145 | 0 | 0 | 2 | 19 | 39 | 205 |
 | Info | 3 | 17 | 17 | 0 | 3 | 10 | 35 | 85 |
-| Total | 85 | 161 | 17 | 0 | 6 | 31 | 106 | 406 |
+| Total | 85 | 162 | 17 | 0 | 6 | 31 | 106 | 407 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -33,7 +33,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S4 | 0 | 8 | 7 | 3 |
 | S5 | 0 | 6 | 12 | 8 |
 | S6 | 0 | 10 | 18 | 5 |
-| X1 | 0 | 4 | 12 | 12 |
+| X1 | 0 | 4 | 13 | 12 |
 
 Verification of High and Medium findings: confirmed 130, not a defect 4, not verified 2.
 
@@ -247,6 +247,7 @@ High first. `Merged` lists the ids with the same cause.
 | R4-003 | Low | S4 | The fixture download repair replaced an existing confidentiality qualification with a generic missing-sample explanation. | batch |  |  | not required (Low or Info) |
 | R4-004 | Low | C5 | The approved-limit Record draws raw module codes although the analyst approved the same reasons with plain module names. | batch |  |  | not required (Low or Info) |
 | R4-016 | Low | X1 | The retained negative browser probe leaves local listeners open when browser launch fails. | batch |  |  | not required (Low or Info) |
+| R4-019 | Low | X1 | The offline guard counts an Edge local file-icon image as an outside request. | batch |  |  | not required (Low or Info) |
 | S1-007 | Low (was Medium) | S1 | Every fixture run is a "Full credit review" drawn with a USD 20.00 spend cap; the Full tier's cap is USD 25. | batch |  | S6-004 | confirmed |
 | S1-008 | Low | S1 | #/kit/ shows "Page not found" while every other address ignores one trailing slash. | batch |  |  | not required (Low or Info) |
 | S1-010 | Low | S1 | Back and Forward do not restore the scroll position, because the page scrolls inside main and the browser only restores window scroll. | batch |  |  | not required (Low or Info) |

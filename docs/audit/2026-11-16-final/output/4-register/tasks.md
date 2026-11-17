@@ -743,8 +743,8 @@ Files: `docs/audit/2026-11-16-final/output/5-repair/fidelity/capture.mjs`, `web/
 
 Probes:
 
-- R4-017 (Safe negative local control confirms the undesired execution/redirect condition at738433b8.): `timeout 60 node docs/audit/2026-11-16-final/output/5-repair/probes/fidelity-capture-review-controls.mjs`
-- R4-018 (Safe negative local control confirms the undesired execution/redirect condition at738433b8.): `timeout 60 node docs/audit/2026-11-16-final/output/5-repair/probes/fidelity-capture-review-controls.mjs`
+- R4-017 (Safe negative local control confirms the undesired execution/redirect condition at738433b8.): `timeout 300 node --test docs/audit/2026-11-16-final/output/5-repair/fidelity/guard-return.test.mjs`
+- R4-018 (Safe negative local control confirms the undesired execution/redirect condition at738433b8.): `timeout 300 node --test docs/audit/2026-11-16-final/output/5-repair/fidelity/guard-return.test.mjs`
 
 Touches money, ordering or security code: offline guard; fresh security/caller review required.
 
