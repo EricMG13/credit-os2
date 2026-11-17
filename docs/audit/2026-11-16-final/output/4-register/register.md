@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-499 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 390 findings. Counts below are of those 390, after re-grading.
+501 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 392 findings. Counts below are of those 392, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -8,15 +8,15 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 
 | Severity | repair | batch | sweep | owner | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| High | 9 | 0 | 0 | 0 | 0 | 0 | 9 |
+| High | 10 | 0 | 0 | 0 | 0 | 0 | 10 |
 | Medium | 91 | 0 | 0 | 1 | 2 | 11 | 105 |
 | Low | 0 | 172 | 0 | 0 | 18 | 9 | 199 |
-| Info | 0 | 18 | 17 | 2 | 10 | 30 | 77 |
-| Total | 100 | 190 | 17 | 3 | 30 | 50 | 390 |
+| Info | 0 | 18 | 17 | 2 | 11 | 30 | 78 |
+| Total | 101 | 190 | 17 | 3 | 31 | 50 | 392 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
-| C1 | 2 | 11 | 16 | 11 |
+| C1 | 3 | 11 | 16 | 12 |
 | C2 | 0 | 9 | 12 | 5 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 2 | 7 | 20 | 3 |
@@ -35,7 +35,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
-Verification of High and Medium findings: confirmed 122, not a defect 4, not verified 2.
+Verification of High and Medium findings: confirmed 123, not a defect 4, not verified 2.
 
 ## Findings
 
@@ -50,6 +50,7 @@ High first. `Merged` lists the ids with the same cause.
 | R1-004 | High | C5 | The issuer library's issue text keeps the first 80 characters of an OSError's message, which hold the server's absolute path, and those issues reach run activi… | repair | T01 |  | confirmed |
 | R1-007 | High | C5 | An unreadable source file sets sourceWarning to the OSError's text, which holds the server's absolute path; /connected/snapshot sends it and the connected Evid… | repair | T01b |  | confirmed |
 | R1-008 | High | C1 | When the library rebuild fails on an unreadable file, the scheduler writes 'the library could not be rebuilt (<error text>)' into the held note, and /activity.… | repair | T01b |  | confirmed |
+| R1-013 | High | C1 | The scheduler stores run reasons with an OSError's text ('could not be started: [Errno 13] Permission denied: <launcher path>'), and /activity.js and /api/runs… | repair | T01c |  | confirmed |
 | R2-003 | High | C4 | The debt stack reads each cell on its own, so a column mixing '3,75' with '2,800' draws 3,75 as 375. | repair | T19 |  | confirmed |
 | S1-001 | High | S1 | The library's "Start a run" button opens Run activity (a saved running example), not the run start page. | repair | T26 | J6-005 | confirmed |
 | B0-003 | Medium | C2 | Following the documented manual synthetic run in docs/react-workflow.md ends Failed at Legal & covenants; the run completes only if the credit agreement is als… | repair | T12 | J1-014 | confirmed |
@@ -400,6 +401,7 @@ High first. `Merged` lists the ids with the same cause.
 | R1-006 | Info | C1 | A data.js with two 'catalogue' keys, the first holding 'workspace', is served as read. | parked |  |  | not required (Low or Info) |
 | R1-010 | Info | C1 | A hand-edited event log can make the Teams card count a left-out module. | parked |  |  | not required (Low or Info) |
 | R1-011 | Info | C2 | A crafted Submit body can put CP-MODEL on a pathway that publishes no forecast; Submit accepts any known module on any pathway. | parked |  |  | not required (Low or Info) |
+| R1-014 | Info | C1 | Filing an earlier-format delivery against a hand-edited issuer registry stores 'could not be filed: <absolute path>/_engine/state/issuers.json is not a map'. | parked |  |  | not required (Low or Info) |
 | X1-008 | Info | X1 | Five components throw on out-of-contract props, and only the connected app has an error boundary around them. | parked |  | S4-022 | not required (Low or Info) |
 | X1-010 | Info | X1 | Timeline keys each item by date and title, so two items with the same date and title collide. | parked |  |  | not required (Low or Info) |
 | X1-022 | Info | X1 | Only four of eleven chart kinds check that the table's figures equal the chart's figures. | parked |  |  | not required (Low or Info) |

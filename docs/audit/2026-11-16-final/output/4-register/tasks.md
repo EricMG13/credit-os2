@@ -39,6 +39,22 @@ Touches money, ordering or security code: security (a leaked path).
 
 Note: Added during stage 5 (ruling L10); found by T01's adversarial review.
 
+## T01c (group 1). No absolute path in stored run reasons
+
+Findings:
+
+- R1-013, High: The scheduler stores run reasons with an OSError's text ('could not be started: [Errno 13] Permission denied: <launcher path>'), and /activity.js and /api/runs/<id> serve them with the absolute path.
+
+Files: `src/deploy_workflow/inbox/scheduler.py`
+
+Probes:
+
+- R1-013 (none): `found by repair-1's T01b reviews (2026-11-17), reproduced with a missing and an unreadable launcher and a directory in place of a log; the T01c tests are the probe`
+
+Touches money, ordering or security code: security (a leaked path).
+
+Note: Added during stage 5 (ruling L13); found by T01b's reviews.
+
 ## T02 (group 1). Leaving a module out must not make Submit refuse 'unknown module CP-MODEL'
 
 Findings:
