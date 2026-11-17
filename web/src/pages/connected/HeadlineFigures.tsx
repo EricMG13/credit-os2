@@ -1,6 +1,6 @@
 import { Missing } from "@/components/gap/Missing";
 import { FileSearch02 } from "@untitledui/icons";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { TraceDrawer } from "@/pages/library/parts/TraceDrawer";
 import type { Trace } from "@/pages/library/slice";
@@ -28,15 +28,15 @@ const label = (traceable: boolean) => `text-sm text-text-secondary${traceable ? 
 function TileSource({
   name,
   source,
-  request,
+  onRequest,
   loading,
 }: {
   name: string;
   source?: HeadlineSource;
-  request?: () => void;
+  onRequest?: () => void;
   loading?: boolean;
 }) {
-  if (request)
+  if (onRequest)
     return (
       <dd className="absolute top-3.5 right-3.5">
         <Button
@@ -44,7 +44,7 @@ function TileSource({
           iconLeading={FileSearch02}
           color="tertiary"
           size="sm"
-          onPress={request}
+          onPress={onRequest}
           isDisabled={loading}
         />
       </dd>
@@ -76,23 +76,23 @@ function gapWords(source?: HeadlineSource) {
 function GapTile({
   name,
   source,
-  request,
+  onRequest,
   loading,
 }: {
   name: string;
   source?: HeadlineSource;
-  request?: () => void;
+  onRequest?: () => void;
   loading?: boolean;
 }) {
   return (
     <div className={tile}>
-      <dt className={label(Boolean(source || request))}>{name}</dt>
+      <dt className={label(Boolean(source || onRequest))}>{name}</dt>
       <dd className="mt-1 font-display text-h3 whitespace-nowrap">
         <Missing />
       </dd>
       <dd className="text-sm wrap-anywhere text-text-secondary">{gapWords(source)}</dd>
       {source && <dd className="text-sm text-text-secondary">{source.period}</dd>}
-      <TileSource name={name} source={source} request={request} loading={loading} />
+      <TileSource name={name} source={source} onRequest={onRequest} loading={loading} />
     </div>
   );
 }
@@ -112,48 +112,56 @@ export function HeadlineFigures({
   ) => Promise<{ trace: Trace; href: string } | null>;
 }) {
   const scope = `${catalogue?.id ?? ""}:${JSON.stringify(catalogue?.metrics ?? {})}`;
-  const pending = useRef<AbortController | null>(null);
   const [lookup, setLookup] = useState<{
     scope: string;
+    controller?: AbortController;
     metric?: string;
     name?: string;
     trace?: Trace;
     href?: string;
     error?: string;
   } | null>(null);
+  const pending = lookup?.controller;
   useEffect(
     () => () => {
-      pending.current?.abort();
+      pending?.abort();
     },
-    [scope],
+    [scope, pending],
   );
-  const request = requestSource
-    ? async (key: string, name: string) => {
-        pending.current?.abort();
-        const controller = new AbortController();
-        pending.current = controller;
-        setLookup({ scope, metric: key, name });
-        try {
-          const found = await requestSource(key, controller.signal);
-          if (controller.signal.aborted || pending.current !== controller) return;
-          setLookup(
-            found
+  const request = useCallback(
+    async (key: string, name: string) => {
+      if (!requestSource) return;
+      pending?.abort();
+      const controller = new AbortController();
+      setLookup({ scope, metric: key, name, controller });
+      try {
+        const found = await requestSource(key, controller.signal);
+        if (controller.signal.aborted) return;
+        setLookup((previous) =>
+          previous?.controller !== controller
+            ? previous
+            : found
               ? { scope, ...found }
               : {
                   scope,
                   error:
                     "The original source row for this figure is not available in this run’s published record.",
                 },
-          );
-        } catch {
-          if (controller.signal.aborted || pending.current !== controller) return;
-          setLookup({
-            scope,
-            error: "Sources for this figure could not be loaded. Try its source control again.",
-          });
-        }
+        );
+      } catch {
+        if (controller.signal.aborted) return;
+        setLookup((previous) =>
+          previous?.controller !== controller
+            ? previous
+            : {
+                scope,
+                error: "Sources for this figure could not be loaded. Try its source control again.",
+              },
+        );
       }
-    : undefined;
+    },
+    [requestSource, scope, pending],
+  );
   const active = lookup?.scope === scope ? lookup : null;
   if (!metricLabels.some(([key]) => stated(catalogue?.metrics[key]))) return null;
   return (
@@ -162,7 +170,7 @@ export function HeadlineFigures({
         {metricLabels.map(([key, name]) => {
           const figure = catalogue?.metrics[key];
           const source = sources[key];
-          const load = request
+          const load = requestSource
             ? () => {
                 void request(key, name);
               }
@@ -173,7 +181,7 @@ export function HeadlineFigures({
                 key={name}
                 name={name}
                 source={source}
-                request={load}
+                onRequest={load}
                 loading={active?.metric === key}
               />
             );
@@ -197,7 +205,7 @@ export function HeadlineFigures({
               <TileSource
                 name={name}
                 source={source}
-                request={load}
+                onRequest={load}
                 loading={active?.metric === key}
               />
             </div>

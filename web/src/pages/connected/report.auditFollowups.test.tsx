@@ -255,7 +255,7 @@ it("C5-025 groups real row citations and omits no-page boilerplate from source-f
   const { snapshot } = fixture();
   const entry: OutputEntry = {
     selected: true,
-    output: { id: "current/CP-1", module: "CP-1", label: "", href: "", sha256: hashes[0] ?? "" },
+    output: { id: "current/CP-1", module: "CP-1", label: "", href: "", sha256: hashes[0] },
     sections: [
       section("Findings", 1, []),
       {
@@ -307,7 +307,7 @@ it("C5-025 ties each real table citation to its exact row", () => {
   const { snapshot } = fixture();
   const entry: OutputEntry = {
     selected: true,
-    output: { id: "current/CP-1", module: "CP-1", label: "", href: "", sha256: hashes[0] ?? "" },
+    output: { id: "current/CP-1", module: "CP-1", label: "", href: "", sha256: hashes[0] },
     sections: [
       {
         heading: "Debt measures",
