@@ -1,5 +1,6 @@
 import { Button } from "@/components/base/buttons/button";
-import { ArrowRight } from "@untitledui/icons";
+import { ArrowRight, FileSearch02 } from "@untitledui/icons";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { citedSourcePages, sourceCitationNote } from "../sourceFiles";
 import type { ReactNode } from "react";
 import { DownloadButton } from "@/pages/library/parts/DownloadButton";
@@ -137,6 +138,35 @@ function EvidenceLocation({
             block,
             line ?? block.line,
           );
+          const rowCitations =
+            block.type === "table"
+              ? [
+                  { line: block.line, cells: ["Table"] },
+                  ...block.rows.filter(
+                    (row) =>
+                      line === undefined ||
+                      line === section.line ||
+                      line === block.line ||
+                      row.line === line,
+                  ),
+                ]
+                  .map((row) => ({
+                    line: row.line,
+                    label: row.cells[0] || `Handoff line ${String(row.line)}`,
+                    chips: (snapshot.chips[`${entry.output.id}:${String(row.line)}`] ?? []).filter(
+                      (chip) =>
+                        block.headers.some((header) =>
+                          /source|basis|reference|citation/i.test(header),
+                        ) ||
+                        chip.file ||
+                        chip.source ||
+                        chip.quote ||
+                        chip.excerpt ||
+                        !/cites no page|no page or register/i.test(chip.reason ?? chip.label ?? ""),
+                    ),
+                  }))
+                  .filter((row) => row.chips.length > 0)
+              : [];
           return (
             <div
               className="grid gap-2"
@@ -159,7 +189,25 @@ function EvidenceLocation({
               {block.type === "table" && basis && (
                 <p className="text-sm text-text-secondary">{plainModuleNames(basis)}</p>
               )}
-              {chips.length > 0 && (
+              {block.type === "table" && rowCitations.length > 0 && (
+                <ul className="grid gap-3">
+                  {rowCitations.map((row) => (
+                    <li key={row.line}>
+                      <h4 className="font-medium text-text-primary">{richParts(row.label)}</h4>
+                      <ul className="grid gap-2">
+                        {row.chips.map((chip, chipIndex) => (
+                          <EvidenceCitation
+                            key={chipIndex}
+                            chip={chip}
+                            outputId={entry.output.id}
+                          />
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {block.type !== "table" && chips.length > 0 && (
                 <ul className="grid gap-2">
                   {chips.map((chip, chipIndex) => (
                     <EvidenceCitation key={chipIndex} chip={chip} outputId={entry.output.id} />
@@ -186,7 +234,7 @@ function EvidenceCitation({
   const note = sourceCitationNote(chip);
   const pages = citedSourcePages(outputId.split("/")[0] ?? "", chip);
   return (
-    <li className="rounded-ds-sm border border-border-hairline p-3 text-sm text-text-secondary">
+    <li className="border-t border-border-hairline py-3 text-sm text-text-secondary">
       <p className="font-medium text-text-primary">{chip.label}</p>
       {(chip.file || chip.source) && <p className="wrap-anywhere">{chip.file ?? chip.source}</p>}
       {note && <p>{note}</p>}
@@ -246,19 +294,20 @@ function TraceDetailsView({
   ].filter((source) => namesSource(references, source.name));
   return (
     <div className={`grid min-w-0 gap-4 ${sources.length ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
-      <section className="grid min-w-0 content-start gap-3 rounded-ds-md border border-border-hairline p-5">
+      <section className="grid min-w-0 content-start gap-3 border-t border-border-hairline pt-5">
         <h3 className={heading}>Derivation</h3>
         <DerivationTree node={trace.derivation} />
       </section>
       {sources.length > 0 && (
-        <section className="grid min-w-0 content-start gap-3 rounded-ds-md border border-border-hairline p-5">
+        <section className="grid min-w-0 content-start gap-3 border-t border-border-hairline pt-5">
           <h3 className={heading}>Source records</h3>
           <ul className="divide-y divide-border-hairline">
             {sources.map(({ name, documentDate, type, sha256 }) => (
               <li key={name} className="grid gap-1 py-2">
                 <strong className="text-sm wrap-anywhere">{name}</strong>
+                <p className="text-sm text-text-secondary">{type || "Document type n.a."}</p>
                 <p className="text-sm text-text-secondary">
-                  {[type, documentDate].filter(Boolean).join(" · ")}
+                  {documentDate || "Document date n.a."}
                 </p>
                 {sha256 && <code className="text-xs break-all text-text-tertiary">{sha256}</code>}
               </li>
@@ -358,13 +407,14 @@ function EvidenceGaps({
                     </th>
                     <td className="px-4 py-3">
                       {moduleName(entry.output.module)}
-                      {!entry.selected && ` · ${entry.output.label}`}
+                      {!entry.selected &&
+                        ` · ${BARE_MODULE_CODE.test(entry.output.label.trim()) ? "Alternate handoff" : entry.output.label}`}
                     </td>
                     <td className="px-4 py-3">
                       <GapSeverity severity={gap.severity} />
                     </td>
                     <td className="max-w-xl whitespace-pre-wrap px-4 py-3 text-text-secondary">
-                      {plainModuleNames(gap.details) || "No additional detail recorded."}
+                      {richParts(gap.details || "No additional detail recorded.")}
                     </td>
                     <td className="px-4 py-3">
                       <Button
@@ -372,7 +422,7 @@ function EvidenceGaps({
                         color="link-gray"
                         size="sm"
                       >
-                        Open source
+                        Open handoff line
                       </Button>
                     </td>
                   </tr>
@@ -382,9 +432,17 @@ function EvidenceGaps({
           </table>
         </div>
       ) : (
-        <p className="mt-4 text-text-secondary">
-          {module ? `No recorded gaps for ${moduleName(module)}.` : "This run lists no gaps."}
-        </p>
+        <EmptyState className="py-5">
+          <EmptyState.Header>
+            <EmptyState.FeaturedIcon icon={FileSearch02} />
+          </EmptyState.Header>
+          <EmptyState.Content>
+            <EmptyState.Title as="h3">No gaps recorded</EmptyState.Title>
+            <EmptyState.Description>
+              {module ? `No recorded gaps for ${moduleName(module)}.` : "This run lists no gaps."}
+            </EmptyState.Description>
+          </EmptyState.Content>
+        </EmptyState>
       )}
     </section>
   );
@@ -460,29 +518,60 @@ function EvidenceSummary({
   entries,
   module,
   sourceGroups,
+  checks,
+  snapshot,
 }: {
   entries: OutputEntry[];
   module?: string;
   sourceGroups: SourceGroup[];
+  checks: ScriptCheckRecord[];
+  snapshot: Snapshot;
 }) {
+  const selected = entries.filter((item) => !module || item.output.module === module);
+  const handoffs = selected.filter((item) => item.selected).length;
+  const sources = sourceGroups.reduce(
+    (total, { rows }) =>
+      total + rows.filter((source) => !module || source.readBy.includes(module)).length,
+    0,
+  );
+  const gaps = selected.flatMap((entry) =>
+    classifySections(entry.sections)
+      .filter(({ role }) => role === "gaps")
+      .flatMap(({ section }) => gapRecords(section.blocks)),
+  ).length;
+  const outcomes = checks
+    .filter((record) => !module || record.module === module)
+    .flatMap((record) => record.outcomes);
+  const ran = outcomes.filter((outcome) => outcome.status !== "not checked").length;
+  const unlocated = selected.filter((entry) =>
+    Object.entries(snapshot.chips).some(
+      ([key, chips]) =>
+        key.startsWith(`${entry.output.id}:`) &&
+        chips.some(
+          (chip) =>
+            chip.quote_found === false ||
+            /not located|not found|could not be located/i.test(chip.reason ?? ""),
+        ),
+    ),
+  ).length;
   return (
     <section className={card}>
       <h3 className={heading}>Run evidence</h3>
       <p>
-        {String(
-          entries.filter((item) => item.selected && (!module || item.output.module === module))
-            .length,
-        )}{" "}
-        designated handoffs ·{" "}
-        {String(
-          sourceGroups.reduce(
-            (total, { rows }) =>
-              total + rows.filter((source) => !module || source.readBy.includes(module)).length,
-            0,
-          ),
-        )}{" "}
-        source files
+        {handoffs} designated {handoffs === 1 ? "handoff" : "handoffs"} · {sources} source{" "}
+        {sources === 1 ? "file" : "files"}
       </p>
+      <ul className="grid gap-1 text-sm text-text-secondary">
+        <li>
+          {gaps} recorded {gaps === 1 ? "gap" : "gaps"}
+        </li>
+        <li>
+          {ran} of {outcomes.length} script checks ran
+        </li>
+        <li>
+          {unlocated} {unlocated === 1 ? "handoff" : "handoffs"} with an unlocated Basis
+        </li>
+      </ul>
     </section>
   );
 }
@@ -490,9 +579,11 @@ function EvidenceSummary({
 function EvidenceSources({
   sourceGroups,
   module,
+  modules,
 }: {
   sourceGroups: SourceGroup[];
   module?: string;
+  modules: string[];
 }) {
   return (
     <section className={card}>
@@ -500,11 +591,19 @@ function EvidenceSources({
       {sourceGroups.every(
         ({ rows }) => !rows.some((source) => !module || source.readBy.includes(module)),
       ) && (
-        <p className="text-text-secondary">
-          {module
-            ? `No issuer files are listed for ${moduleName(module)}.`
-            : "No issuer files listed in this run’s published record."}
-        </p>
+        <EmptyState className="py-5">
+          <EmptyState.Header>
+            <EmptyState.FeaturedIcon icon={FileSearch02} />
+          </EmptyState.Header>
+          <EmptyState.Content>
+            <EmptyState.Title as="h3">No source files recorded</EmptyState.Title>
+            <EmptyState.Description>
+              {module
+                ? `No issuer files are listed for ${moduleName(module)}.`
+                : "No issuer files listed in this run’s published record."}
+            </EmptyState.Description>
+          </EmptyState.Content>
+        </EmptyState>
       )}
       {sourceGroups
         .map((group) => ({
@@ -519,11 +618,19 @@ function EvidenceSources({
               {rows.map((source) => (
                 <li key={source.name} className="grid gap-1 px-4 py-3 text-sm">
                   <p className="font-semibold wrap-anywhere">{source.name}</p>
+                  <p className="text-text-secondary">{source.type || "Document type n.a."}</p>
                   <p className="text-text-secondary">
-                    {[source.type, source.documentDate, ...source.readBy.map(moduleName)]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    {source.documentDate || "Document date n.a."}
                   </p>
+                  {source.readBy.length > 0 && (
+                    <p className="text-text-secondary">
+                      {modules.length > 0 &&
+                      modules.every((id) => source.readBy.includes(id)) &&
+                      source.readBy.length === modules.length
+                        ? `Read by all ${String(modules.length)} modules`
+                        : `Read by ${source.readBy.map(moduleName).join(" · ")}`}
+                    </p>
+                  )}
                   {source.sourceWarning && <p>{source.sourceWarning}</p>}
                   {source.sha256 && (
                     <code className="wrap-anywhere text-text-tertiary">{source.sha256}</code>
@@ -555,6 +662,13 @@ function EvidenceHandoffs({
           <DownloadButton download={{ label: "Download all handoffs", href: zip, reason: null }} />
         )}
       </div>
+      {!zip && (
+        <p className="text-sm text-text-secondary">No handoff ZIP was delivered for this run.</p>
+      )}
+      {run.evidence.handoffs.filter((handoff) => !module || handoff.module === module).length ===
+        0 && (
+        <p className="text-sm text-text-secondary">No handoff files were delivered for this run.</p>
+      )}
       <ul className="grid gap-2">
         {entries.map(
           (item) =>
@@ -563,9 +677,17 @@ function EvidenceHandoffs({
                 key={item.output.id}
                 className="flex flex-wrap items-center justify-between gap-3 border-t border-border-hairline pt-2"
               >
-                <Button href={evidencePath(run.folder, item)} color="link-gray" size="sm">
+                <Button
+                  href={evidencePath(run.folder, item)}
+                  color="link-gray"
+                  size="sm"
+                  className="underline"
+                  iconTrailing={ArrowRight}
+                >
                   {moduleName(item.output.module)}
-                  {item.selected ? "" : ` · ${item.output.label}`}
+                  {item.selected
+                    ? ""
+                    : ` · ${BARE_MODULE_CODE.test(item.output.label.trim()) ? "Alternate handoff" : item.output.label}`}
                 </Button>
                 <HandoffDownload run={run} entry={item} />
               </li>
@@ -608,6 +730,10 @@ function EvidenceNavigation({
   selectedModule?: string;
   checks: ScriptCheckRecord[];
 }) {
+  const outcomes = checks
+    .filter((record) => !selectedModule || record.module === selectedModule)
+    .flatMap((record) => record.outcomes);
+  const ran = outcomes.filter((outcome) => outcome.status !== "not checked").length;
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -649,11 +775,7 @@ function EvidenceNavigation({
               label={item}
               count={
                 item === "Script checks"
-                  ? String(
-                      checks
-                        .filter((record) => !selectedModule || record.module === selectedModule)
-                        .reduce((n, record) => n + record.outcomes.length, 0),
-                    )
+                  ? `${String(ran)} of ${String(outcomes.length)}`
                   : undefined
               }
               current={tab === item}
@@ -726,9 +848,9 @@ export function ReportEvidence({
     evidenceRoute(entries, target, checks.length > 0);
   const { evidence } = run;
   const sourceGroups = [
-    { label: "Named in a handoff", rows: evidence.sources },
-    { label: "Supplied but unnamed in handoffs", rows: evidence.unused },
-    { label: "Use unrecorded", rows: evidence.unrecorded },
+    { label: "Used by a module", rows: evidence.sources },
+    { label: "Supplied, not used", rows: evidence.unused },
+    { label: "Not recorded as used", rows: evidence.unrecorded },
   ];
   return (
     <div className="grid min-w-0 gap-5">
@@ -739,7 +861,13 @@ export function ReportEvidence({
         checks={checks}
       />
       {tab === "Summary" && (
-        <EvidenceSummary entries={entries} module={module} sourceGroups={sourceGroups} />
+        <EvidenceSummary
+          entries={entries}
+          module={module}
+          sourceGroups={sourceGroups}
+          checks={checks}
+          snapshot={snapshot}
+        />
       )}
       {entry && (
         <EvidenceHandoff
@@ -759,7 +887,13 @@ export function ReportEvidence({
           </p>
         </section>
       )}
-      {tab === "Sources" && <EvidenceSources sourceGroups={sourceGroups} module={module} />}
+      {tab === "Sources" && (
+        <EvidenceSources
+          sourceGroups={sourceGroups}
+          module={module}
+          modules={[...new Set(entries.map((item) => item.output.module))]}
+        />
+      )}
       {tab === "Trace" && !entry && !invalidTraceAddress && (
         <p className="text-text-secondary">
           Choose Show sources beside a paragraph, row or figure on another page to see here how it
@@ -771,6 +905,14 @@ export function ReportEvidence({
       )}
       {tab === "Summary" && evidence.downloads.length > 0 && (
         <ArtifactDownloads folder={run.folder} />
+      )}
+      {tab === "Summary" && evidence.downloads.length === 0 && (
+        <section className={card}>
+          <h3 className={heading}>Model and calculation files</h3>
+          <p className="text-text-secondary">
+            No model or calculation downloads are listed for this run.
+          </p>
+        </section>
       )}
       {tab === "Trace" && !entry && (!module || module === "CP-8") && comparison}
       {tab === "Gaps" && <EvidenceGaps run={run} entries={entries} module={module} />}

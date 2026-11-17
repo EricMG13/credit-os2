@@ -1,4 +1,6 @@
 import { Badge } from "@/components/base/badges/badges";
+import { EmptyState } from "@/components/application/empty-state/empty-state";
+import { FileSearch02 } from "@untitledui/icons";
 import { moduleName } from "../api";
 import { card, heading } from "../layout";
 import type { ScriptCheckOutcome, ScriptCheckRecord } from "../publishedReport";
@@ -60,7 +62,7 @@ function CheckCard({ group }: { group: ScriptCheckOutcome[] }) {
     .join(" ");
   return (
     <section
-      className="grid gap-3 rounded-ds-md border border-border-hairline p-4"
+      className="grid gap-3 border-t border-border-hairline pt-4"
       aria-label={`${title}: ${outcome.status}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -147,16 +149,32 @@ export function ScriptChecks({
   return (
     <section className="grid gap-4">
       <h3 className={heading}>Script checks</h3>
+      <p className="text-sm text-text-secondary">
+        A script check compares a recorded figure or register with the result of a recorded checking
+        script.
+      </p>
+      <p className="text-sm text-text-secondary">
+        “Not checked” means no completed script check is recorded for that item; its reason states
+        whether a script was unavailable or was not run.
+      </p>
       {selected.length ? (
         selected.map((record, index) => (
           <ModuleChecks key={index} record={record} expanded={Boolean(module)} />
         ))
       ) : (
-        <p className={card}>
-          {module
-            ? `No script-check record is held for ${moduleName(module)}.`
-            : "No script-check record is held for this run."}
-        </p>
+        <EmptyState className="py-5">
+          <EmptyState.Header>
+            <EmptyState.FeaturedIcon icon={FileSearch02} />
+          </EmptyState.Header>
+          <EmptyState.Content>
+            <EmptyState.Title as="h3">No script checks recorded</EmptyState.Title>
+            <EmptyState.Description>
+              {module
+                ? `No script-check record is held for ${moduleName(module)}.`
+                : "No script-check record is held for this run."}
+            </EmptyState.Description>
+          </EmptyState.Content>
+        </EmptyState>
       )}
     </section>
   );

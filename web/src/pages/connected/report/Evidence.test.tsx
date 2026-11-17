@@ -133,7 +133,7 @@ describe("published evidence gaps", () => {
     expect(screen.getByRole("heading", { name: "Gaps 1" })).toBeVisible();
     expect(screen.getByText("Effect: Could increase liquidity pressure")).toBeVisible();
     expect(screen.getByText("Financial foundation · Saved alternate")).toBeVisible();
-    expect(screen.getByRole("link", { name: "Open source" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open handoff line" })).toHaveAttribute(
       "href",
       `/report/case#evidence/${encodeURIComponent(saved.output.id)}~${saved.output.sha256}-7`,
     );
@@ -187,7 +187,7 @@ describe("published evidence gaps", () => {
     expect(row).toHaveTextContent("ID: G-1 Amount: 0 Reason: Last");
     expect(row).not.toHaveTextContent("Empty:");
     expect(screen.getByRole("row", { name: /Sparse trailing cells/ })).toBeVisible();
-    const links = screen.getAllByRole("link", { name: "Open source" });
+    const links = screen.getAllByRole("link", { name: "Open handoff line" });
     expect(links.map((link) => link.getAttribute("href"))).toEqual(
       [6, 7].map(
         (line) =>
@@ -270,7 +270,7 @@ it("keeps filtered summary counts, alternate handoffs and source identities acro
     unrecorded: [{ ...source, name: "Use unknown", sha256: null }],
   };
   const summary = renderEvidence(entries, "summary/CP-1", evidence);
-  expect(screen.getByText("1 designated handoffs · 2 source files")).toBeVisible();
+  expect(screen.getByText("1 designated handoff · 2 source files")).toBeVisible();
   expect(
     screen.getByRole("link", { name: "Financial foundation · Saved alternate" }),
   ).toHaveAttribute("href", `/report/case#evidence/alternate~${"a".repeat(64)}`);

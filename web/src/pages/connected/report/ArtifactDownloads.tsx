@@ -30,10 +30,13 @@ export function ArtifactDownloads({ folder }: { folder: string }) {
         </p>
       )}
       {error && <p role="status">{error}</p>}
-      {value &&
-        value.map(({ label, href }) => (
-          <DownloadButton key={href} download={{ label, href, reason: null }} />
-        ))}
+      {value && (
+        <div className="flex flex-wrap gap-3">
+          {value.map(({ label, href }) => (
+            <DownloadButton key={href} download={{ label, href, reason: null }} />
+          ))}
+        </div>
+      )}
       {value && !value.some((file) => file.label === "HTML Model") && (
         <p className="text-text-secondary">The original HTML Model is unavailable for this run.</p>
       )}
