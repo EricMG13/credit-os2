@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-485 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 376 findings. Counts below are of those 376, after re-grading.
+486 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 377 findings. Counts below are of those 377, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -11,8 +11,8 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | High | 5 | 0 | 0 | 0 | 0 | 0 | 5 |
 | Medium | 91 | 0 | 0 | 0 | 2 | 10 | 103 |
 | Low | 0 | 169 | 0 | 0 | 18 | 9 | 196 |
-| Info | 0 | 18 | 17 | 1 | 6 | 30 | 72 |
-| Total | 96 | 187 | 17 | 1 | 26 | 49 | 376 |
+| Info | 0 | 18 | 17 | 2 | 6 | 30 | 73 |
+| Total | 96 | 187 | 17 | 2 | 26 | 49 | 377 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
@@ -31,7 +31,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S2 | 0 | 5 | 13 | 9 |
 | S3 | 0 | 8 | 19 | 5 |
 | S4 | 0 | 8 | 6 | 3 |
-| S5 | 0 | 5 | 12 | 7 |
+| S5 | 0 | 5 | 12 | 8 |
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
@@ -383,6 +383,7 @@ High first. `Merged` lists the ids with the same cause.
 | X1-014 | Info | X1 | components/chart/ChartFrame.tsx imports a string constant from pages/library/parts/TraceControl. | sweep |  |  | not required (Low or Info) |
 | X1-025 | Info | X1 | The chart files repeat the same blocks, and shared helpers live in individual chart files. | sweep |  |  | not required (Low or Info) |
 | B0-006 | Info | C1 | The legacy issuer library and the legacy run-start form ship in the release ZIP and stay reachable at /library/*, outside the two audited surfaces. | owner (OQ-05) |  |  | not required (Low or Info) |
+| R3-001 | Info | S5 | A model run that delivers one case instead of two is refused whole by the Model reader ('expected two cases'), so none of its pages can be read. | owner (OQ-14) |  |  | not required (Low or Info) |
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. | parked |  |  | not required (Low or Info) |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps… | parked |  |  | not required (Low or Info) |
 | R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. | parked |  |  | not required (Low or Info) |

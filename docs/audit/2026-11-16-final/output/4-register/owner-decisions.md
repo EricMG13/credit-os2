@@ -174,3 +174,16 @@ row CT-028 names S2, but S2 offers no such control.
 
 Recommendation: keep every item and add the missing rows to the matrices; correct CT-028's
 section. No screen changes.
+
+## OQ-14. A model with one case (raised during stage 5)
+
+Finding: R3-001. The static Model reader refuses a whole run when its model delivers one case
+instead of two (`web/src/pages/model/slice/read.ts:302`), so none of the run's Model pages can be
+read. The Model pages compare two cases by design. Repair T38 makes a run with no forecast readable
+(S5-001), but leaves this check as it is.
+
+Options: 1. show the run, and say on the Forecast page that the model delivered one case; 2. keep
+refusing it.
+
+Recommendation: option 1. It matches S5-001's repair: a missing part is stated, not a reason to hide
+the run. The static app is a design reference (OQ-01), so this is Info and can wait for the owner.
