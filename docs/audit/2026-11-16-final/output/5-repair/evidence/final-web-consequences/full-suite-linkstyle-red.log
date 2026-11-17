@@ -1,0 +1,42 @@
+
+> credit-os-web@0.0.0 test
+> vitest run --coverage src/pages/connected/linkStyle.test.ts --maxWorkers=1 --coverage.processingConcurrency=1 --reporter=verbose --reporter=json --outputFile.json=/workspace/scratch/final-frontend-coverage/repro-linkstyle.json --coverage.reportsDirectory=/workspace/scratch/final-frontend-coverage/repro-linkstyle-coverage
+
+
+ RUN  v4.1.12 /workspace/audit-final/web
+      Coverage enabled with v8
+
+ × src/pages/connected/linkStyle.test.ts > no page draws a link as blue underlined text 48ms
+   → expected [ Array(1) ] to deeply equal []
+ ✓ src/pages/connected/linkStyle.test.ts > pages draw links in link-gray, not the action blue link-color 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/connected/linkStyle.test.ts > no page draws a link as blue underlined text
+AssertionError: expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   "connected/visuals/LegacyForecast.tsx:514",
++ ]
+
+ ❯ src/pages/connected/linkStyle.test.ts:27:17
+     25|     });
+     26|   }
+     27|   expect(found).toEqual([]);
+       |                 ^
+     28| });
+     29|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  21:08:11
+   Duration  3.25s (transform 44ms, setup 101ms, import 15ms, tests 61ms, environment 468ms)
+
+JSON report written to /workspace/scratch/final-frontend-coverage/repro-linkstyle.json

@@ -1,3 +1,26 @@
+## Lead checkpoint 2026-11-17T21:35Z
+
+The owner asked to start stage 6. Branch `audit/final-sweep` is pushed from
+`5e1d98b37305a9da59fb6944740ff17b721051af` and has its own worktree at
+`/workspace/audit-final-sweep`, contract, status and first candidate register.
+Discovery and baseline measurement are active. Compare each sweep change on
+identical repair inputs. Final sweep acceptance waits for the updated repair
+tip and its checks.
+
+Stage 5 repair branch is `d6a09b9a`. The historical issued-record fixture and
+fidelity collector fixes passed fresh review and are integrated. The actual
+tree now passes all 46 pathway-tier tests. On `5e1d98b3`, Chrome and Edge
+connected proof passed. The complete frontend selection had 5,257 passes and
+two deterministic failures. The original global line coverage threshold passed
+at 97.69%. Both failures reproduced. The isolated link style and currency
+expectation patch is undergoing review. The full AFTER capture and comparison,
+combined gates and closure annotations remain open.
+
+Register now covers 523 source rows and 408 canonical findings. High 6,
+Medium 111, Low 206, Info 85. Repair 85, batch 163, sweep 17, deferred 6,
+parked 31, rejected 106. R4-020 is the Forecast Record link style. The C3-022
+currency and J5-010 issued fixture consequences do not add canonical findings.
+
 ## Lead checkpoint 2026-11-17T20:13Z
 
 ALLsource/application fixesnowreviewed. Actualfinal b97e9ea2 pushed containsalllead
