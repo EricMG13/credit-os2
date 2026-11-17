@@ -457,7 +457,7 @@ out; a seventh series folds into Other.
 | :--- | :--- | :--- | ---: | ---: | :--- |
 | 1 | Ultramarine | `#001AFF` | 8.10 | 44 | Solid, circle marker |
 | 2 | Violet D2 | `#827BCC` | 3.71 | 134 | Dashed, square marker |
-| 3 | Reef D4 | `#994A34` | 6.21 | 95 | Solid, triangle marker |
+| 3 | Reef D8 | `#331911` | 16.31 | 32 | Solid, triangle marker |
 | 4 | Orange D3 | `#B28B00` | 3.19 | 135 | Dotted, diamond marker |
 | 5 | Green D5 | `#0F8048` | 5.00 | 88 | Solid, ring marker |
 | 6 | Yellow D4 | `#8C9900` | 3.15 | 132 | Dash-dot, cross marker |
@@ -465,7 +465,18 @@ out; a seventh series folds into Other.
 
 Gray value is Rec. 601 luma on the 8-bit sRGB values: 0.299 R + 0.587 G + 0.114 B, rounded.
 
-How it was tested (palette validator, light mode, white surface, exit 0):
+The final audit's X1-020 repair darkens slot 3 within the existing Reef family. This is the
+implementer's choice under OQ-09's accepted lightness recommendation, not an owner-selected hex.
+The first three slots now have relative luminances 0.0796, 0.2327 and 0.0144; their pairwise
+contrast ratios are 2.18, 2.01 and 4.39. Each remains at least 3:1 against white. Only the chart
+slot and its waterfall-down alias changed; action and status colours did not.
+
+The measurements below describe the **previous Reef D4 palette**, before that repair. Its
+lightness-band and colour-blind separation results do not establish those properties for the
+new slot 3; simulated colour-blind separation has not been re-measured for the revised palette.
+Current grayscale and white-background contrast are checked independently in the frontend tests.
+
+How the previous palette was tested (palette validator, light mode, white surface, exit 0):
 
 - Every slot is at least 3:1 against white, inside the lightness band (OKLCH L 0.43 to 0.77)
   and above the chroma floor.
@@ -497,7 +508,7 @@ OQ-09), so no colour in the chart is a local constant:
 | :--- | :--- | :--- | :--- |
 | `waterfall-total` | Ultramarine (slot 1) | `#001AFF` | A total, drawn from the baseline |
 | `waterfall-up` | Ultramarine L3 (`brand-400`) | `#4D5FFF` | A step up |
-| `waterfall-down` | Reef D4 (slot 3) | `#994A34` | A step down |
+| `waterfall-down` | Reef D8 (slot 3) | `#331911` | A step down |
 
 Marks follow the source chart (review 2, ruling 5), read on the Untitled UI line and bar
 charts page on 2026-11-13: horizontal gridlines only, solid, in `border-hairline`; bars up to
@@ -542,7 +553,7 @@ and focus change state at once.
 | Rounded tiles, radius undefined | Radii 6, 12, 20, 28 and full | The owner's "rounded" |
 | Secondary colours paired with Navy as accents | Secondaries appear only as tints (L steps) and dark steps (D steps), never at full strength in the interface | At full strength none passes 3:1 on white |
 | Tertiary used sparingly | Tertiary steps supply all secondary text, borders, status and chart colours | They are the only brand values that pass contrast |
-| Chart series seen as Ultramarine, Green, Yellow, Violet, dark teal, Reef | Ultramarine, Violet D2, Reef D4, Orange D3, Green D5, Yellow D4 | Neon Green and Yellow fail 3:1; every dark Cyan step falls below the chroma floor and reads as grey; the order was searched for colour-blind separation |
+| Chart series seen as Ultramarine, Green, Yellow, Violet, dark teal, Reef | Ultramarine, Violet D2, Reef D8, Orange D3, Green D5, Yellow D4 | Neon Green and Yellow fail 3:1; every dark Cyan step falls below the chroma floor and reads as grey; the order was searched for colour-blind separation |
 | Flat fills, no gridlines | Flat fills kept; faint horizontal gridlines and the source chart's bar corners | Charts follow their source (review 2, ruling 5) |
 
 Kept from the guide: the 4-unit grid, sentence case, Navy as the anchor, Ultramarine for
