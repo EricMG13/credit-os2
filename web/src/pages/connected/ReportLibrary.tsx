@@ -777,7 +777,11 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
   const hash = useSyncExternalStore(listenHash, readHash);
   const [route, ...parts] = hash.slice(1).split("/");
   const tab =
-    route === "calendar" ? route : (tabs.find(([name]) => name === route)?.[0] ?? "overview");
+    route === "calendar"
+      ? route
+      : route === "modules" && parts[0] === "CP-8"
+        ? "changes"
+        : (tabs.find(([name]) => name === route)?.[0] ?? "overview");
   const found = value && Object.entries(value.workspace.runs).find(([, run]) => run.folder === id);
   const catalogue = value?.catalogue.real.find((entry) => entry.id === id);
   const run = found ? found[1] : null;

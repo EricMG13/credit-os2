@@ -18,7 +18,7 @@ import { ModuleConfidence } from "./report/Confidence";
 import { Changes } from "./report/Changes";
 
 const names = ["CP-2", "CP-6", "CP-8"];
-const hashes = ["a".repeat(64), "b".repeat(64), "c".repeat(64)];
+const hashes = ["a".repeat(64), "b".repeat(64), "c".repeat(64)] as const;
 const section = (heading: string, line: number, texts: string[]): Section => ({
   heading,
   line,
@@ -133,6 +133,14 @@ it("C1-014 names the chosen module in the browser title", async () => {
   reader(snapshot, "#modules/CP-2");
   await screen.findByRole("heading", { name: "Fundamental credit" });
   expect(document.title).toBe("Fundamental credit — Acme — Credit OS");
+});
+
+it("C3-012 keeps an earlier comparison-module address on Changes", async () => {
+  const { snapshot } = fixture();
+  reader(snapshot, "#modules/CP-8");
+  await screen.findByRole("heading", { name: "Changes since the last run" });
+  expect(document.title).toBe("Changes — Acme — Credit OS");
+  expect(screen.queryByRole("heading", { name: "Committee decision" })).toBeNull();
 });
 
 it("C1-014 C5-005 names the Evidence page and hides its ineffective source switch", async () => {
@@ -353,6 +361,7 @@ it("J5-005 preserves the ruled first-run sentence and explains its decision time
 
 it("C1-023 uses the long as-of date on the report", () => {
   expect(runTiming({ asOf: "2025-03-31", period: "FY2024" })).toBe("As of 31 March 2025 · FY2024");
+  expect(runTiming({ asOf: "2025-03-31", period: "As of 2025-03-31" })).toBe("As of 31 March 2025");
 });
 
 it("C4-013 uses canonical money units without altering digits or signs", () => {

@@ -308,7 +308,11 @@ export function runPathway(run: Pick<PublishedRun, "pathway">, catalogue?: Catal
 }
 
 export function runTiming(run: Pick<PublishedRun, "asOf" | "period">) {
-  if (/^As of\s/i.test(run.period)) return run.period;
+  if (/^As of\s/i.test(run.period))
+    return run.period.replace(
+      /^(As of\s+)(\d{4}-\d{2}-\d{2})\b/i,
+      (_, prefix: string, date: string) => `${prefix}${asOfDate(date)}`,
+    );
   const date = run.asOf ? `As of ${asOfDate(run.asOf)}` : "";
   return [date, run.period !== run.asOf ? run.period : ""].filter(Boolean).join(" · ");
 }
