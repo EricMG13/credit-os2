@@ -4,6 +4,18 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-17 — CP-DR: a Yahoo Finance page's row and date are checked (branch `claude/inspiring-thompson-jy5l0f`, on #52)
+
+Scope: this branch on top of `claude/cpdr-yahoo-allowlist` at `4863dfa` (PR #52, open, not on `main`). Ruling: `docs/rulings/2026-11-13-cpdr-web-lookup.md`, amendment 2026-11-17 ("Checks, 2026-11-17") and A14. No provider was called, nothing was fetched from a live host and no paid run was made. Synthetic: hand-written pages through the fake network.
+- Owner, 2026-11-17: on the two proposed checks, "both"; on how the date check treats price-history pages, "Exempt history pages".
+- A14: a `## Sources` row naming a Yahoo page (its `final_url` on `finance.yahoo.com` or a subdomain) has Source type `Other` only, and `## Gaps` names its id.
+- At fetch: an undated Yahoo page other than `/quote/<ticker>/history`, fetched after the cutoff (UTC day), is `later-event`, with its own lookup sentence; A7 and A13(ii) then apply. `WEB_LOOKUP_RULES` says both. `SOURCE_TYPES` and the Source type cell reader moved to `weblookup.py` (same values).
+- Pins: `WEB_LOOKUP_RULES` is added to CP-DR's system prompt per request and is in no instruction file or `method_text`. No test or executed case pins its hash: `METHOD_TEXT_SHA256_AT_1B41E65` and the CP-4 executed-case pin pass unchanged. A call's `prompt_sha256` goes into a content-addressed invocation preimage, so a resumed CP-DR step gets a new digest, not a refusal.
+- Tests first: on `4863dfa` with the new tests, 17 cases failed, 514 passed. The other 9 new cases guard unchanged behaviour (history pages, the cutoff day, dated pages, other hosts, the repaired probe). The review probe of #52 (statistics page fetched after the cutoff, typed `Financial press`, `Undated` with a Gaps item, current figure in TDR.6) gave 0 issues before and 3 after.
+- Commands, exit 0 on `e3ce2b1`: `tools/quality_gate.py` (0 findings) and `lint-imports`; `tests/test_weblookup.py` and `tests/test_web_lookup_tools.py` (531 passed); web search scope, handoff loop, citation markers, register scope, run-start submissions and context form (527 passed, 3 skipped); `tests/test_cpos_launch.py` (950 passed, 1 skipped: paid).
+- Reviews: confidence-review and rewrite-tournament (post-edit) by the implementer; an independent adversarial review of `e3ce2b1` is running and is recorded here when it reports. Low, parked: a dot segment as the ticker (`/quote/../history`) passes as price history, since addresses are not normalised; what Yahoo serves there is unknown.
+- Not verified: a live Yahoo page (its layout, dates and redirects); whether a model follows the new text; a Yahoo URL cited from hosted `web_search` and not retained (outside A14); the full weekly suite.
+
 ## 2026-11-17 — PR 2: a run in the currency its source files report in (branch `claude/reporting-currency`)
 
 Scope: the whole branch against `main` 0bca1822. That covers the two entries below (PRs 44 and 46, merged into this branch) and the work listed here. Ruling: `docs/rulings/2026-11-16-reporting-currency-from-sources.md`. No provider was called and no paid run was made. The proof is synthetic: retained, canned module answers, labelled as such.
@@ -948,50 +960,3 @@ Scope: presentation only, all under `web/`; no backend, handoff, provider or mod
   Focused tests passed (70 web and 15 Python), with clean lint, format, build and
   quality gate results. The work-PC browser proof and ZIP publication are pending.
 
-## 2026-11-15 — Credit OS 2 React issuer report redesign
-
-- Upstream GitHub main was verified at RBOT-HTML `fc010a7`. Engine files and
-  Python/workspace pins match that commit. React and its lockfile are preserved.
-- Read-only Caesars replay, macOS Chrome 157.0.8103.78 and Edge 157.0.4341.60.
-  Verified five report views, 12 retained handoffs, eight chart descriptors,
-  seven event lanes, seven maps and the explicit portfolio chart gap.
-- Fidelity checks used 3,962 US$m 2030 maturities, the original CP-2 hash,
-  C11/C14 lineage, and 464.86 versus 647.95 US$m FY2027 forecast bases.
-  Narrow report views fit at 720 px; Escape returned focus from the trace.
-- Confidence review checked run and output identity, qualified forecasts, zero
-  versus missing, comparable units and same-run artifact downloads. Fixed the
-  driver-only downside label, lost module filter, chart qualification,
-  methodology files in the package, and responsive overflow.
-- The 91-figure map documents available producers and table/gap states. The
-  browser evidence covers delivered cases and fixtures, not every pathway or
-  a new paid run. The Caesars replay remains a labelled test preview.
-- Candidate source `df9902b` and ZIP digest
-  `f0e0dde8da058c9d8e739bfc7d9265e7234b7295cc4efec849a9093281912507`.
-  A clean extraction passed the full 14-module synthetic workflow in macOS
-  Chrome (run `20261115-152941-01`) and Edge (run `20261115-152946-01`).
-  Both verified the exact handoff download. Package validation confirmed the
-  14 synthetic handoffs and excluded retained issuer data and credentials.
-  The extracted proof uses its own fixtures and made no provider calls.
-- Paired CP-8 proof used the RBOT-HTML synthetic lite-assessment publisher with
-  an earlier-format prior. macOS Chrome and Edge checked the exact −1.40x
-  leverage change, the withheld cash difference, maturity gap, module
-  explanation, and Evidence reload and back/forward. Targeted tests also cover
-  same-period revisions, mismatched pair identity, maturity zero versus missing,
-  and the distinction between missing, unreadable and first-run comparisons.
-- Work-PC proof is pending. Keep the ZIP local until both Windows browsers pass.
-
-## 2026-11-15 — Unified React frontend on RBOT-HTML
-
-- The RBOT-HTML engine under `src/`, Python pin and lock inputs match `9d040f8`.
-  The new entry point uses the same scheduler, run approval, spend cap and publisher.
-- Chrome 157.0.8103.78 and Edge 157.0.4341.60 on macOS completed synthetic Northbridge
-  from upload and approval to a finished report with original handoff download.
-  Both showed CP-1 debt maturities, its FY2027 gap, and calculated base revenue of 1,050.
-- Focused Python tests passed (369). Adapter quality gate reported zero findings.
-  Report checks exposed and corrected duplicate dating, retained-folder routing,
-  and event and relationship figures appearing among forecast charts.
-- The synthetic proof covers one full pathway with canned model responses.
-  Native Claude medium preflight could plan the pathway offline. The available
-  OpenRouter credential did not supply the direct Anthropic key it requires, and
-  the available sample pack lacks the evidence for a complete analytical report.
-  See [React workflow](docs/react-workflow.md).
