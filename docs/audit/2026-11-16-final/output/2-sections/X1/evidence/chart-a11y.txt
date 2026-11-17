@@ -1,0 +1,21 @@
+chart svg: {
+  role: 'application',
+  tabindex: '0',
+  ariaLabel: null,
+  ariaDescribedby: null,
+  title: 'Debt by period',
+  desc: ''
+}
+- figure "Debt by period":
+  - heading "Debt by period" [level=3]
+  - 'radiogroup "Debt by period: Chart or Table"':
+    - radio "Chart" [checked]
+    - radio "Table"
+  - application "Debt by period": FY21 FY22 FY23 FY24 FY25 FY26 0 200 400 600
+  - list "Legend":
+    - listitem: Net debt
+    - listitem: Gross debt
+    - listitem: Cash
+  - text: Sample figures in millions. Gross debt is missing for FY23.
+tooltip after ArrowRight: FY22Net debt398Gross debt511Cash113
+blocked: [] console: []

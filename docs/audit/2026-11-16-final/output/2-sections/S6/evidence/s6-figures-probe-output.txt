@@ -1,0 +1,2 @@
+NOT DRAWN #/run/start/started: position "Step 5 of 5"
+figure checks 447, mismatches 0, slice fields read and never drawn 1

@@ -1,0 +1,21 @@
+MetricCard (components/metric, #/model/transdigm/2025-06-30/portfolio-fit): {
+  figure: '24px Geist',
+  radius: '8px',
+  padding: '24px',
+  shadow: 'none',
+  sample: 'B1'
+}
+library MetricTile (#/library/halden-aerostructures/2026-09-30/overview): {
+  figure: '30px Geist',
+  radius: '12px',
+  padding: '20px',
+  shadow: 'yes',
+  sample: '2,105'
+}
+model MetricTile (#/model/transdigm/2025-06-30/front): {
+  figure: '28px Geist',
+  radius: '28px',
+  padding: '20px',
+  shadow: 'yes',
+  sample: '$8,580m'
+}

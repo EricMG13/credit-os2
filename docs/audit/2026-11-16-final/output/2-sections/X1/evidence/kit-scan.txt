@@ -1,0 +1,93 @@
+=== 1440px
+blocked: [] console: [] pageErrors: []
+font faces: Schibsted Grotesk 600 loaded; Schibsted Grotesk 700 loaded; Geist 400 loaded; Geist 500 loaded; Geist 600 loaded; Geist Mono 400 unloaded; Geist Mono 500 unloaded
+heading font families: {
+ "Schibsted Grotesk": [
+  "H1 Component kit",
+  "H2 Button",
+  "H2 Tooltip",
+  "H2 Badge",
+  "H2 Status badge",
+  "H3 Status",
+  "... 50 in all"
+ ],
+ "Geist": [
+  "H3 No changes yet",
+  "H3 No sources yet"
+ ]
+}
+text under 13px: {
+ "12px": [
+  "span: Size sm",
+  "span: 12",
+  "span: from",
+  "time: 12 Feb 2025",
+  "time: 15 Mar 2026",
+  "time: 24 Apr 2027",
+  "span: Module",
+  "span: State",
+  "span: Findings",
+  "span: Source",
+  "span: Items per week",
+  "p: PDF, XLSX or DOCX files",
+  "tspan: FY21",
+  "tspan: FY22"
+ ],
+ "10px": [
+  "span: 3",
+  "span: 4"
+ ]
+}
+looping animations: [
+  'span status-halo 1.6s',
+  'div queued-shimmer 1.8s',
+  'svg spin 1s',
+  'circle spin 1s'
+]
+=== 390px
+blocked: [] console: [] pageErrors: []
+font faces: Schibsted Grotesk 600 loaded; Schibsted Grotesk 700 loaded; Geist 400 loaded; Geist 500 loaded; Geist 600 loaded; Geist Mono 400 unloaded; Geist Mono 500 unloaded
+heading font families: {
+ "Schibsted Grotesk": [
+  "H1 Component kit",
+  "H2 Button",
+  "H2 Tooltip",
+  "H2 Badge",
+  "H2 Status badge",
+  "H3 Status",
+  "... 50 in all"
+ ],
+ "Geist": [
+  "H3 No changes yet",
+  "H3 No sources yet"
+ ]
+}
+text under 13px: {
+ "12px": [
+  "span: Size sm",
+  "span: from",
+  "time: 12 Feb 2025",
+  "time: 15 Mar 2026",
+  "time: 24 Apr 2027",
+  "span: Module",
+  "span: State",
+  "span: Findings",
+  "span: Source",
+  "span: Items per week",
+  "p: PDF, XLSX or DOCX files",
+  "tspan: FY21",
+  "tspan: FY22",
+  "tspan: FY23"
+ ],
+ "10px": [
+  "span: 3",
+  "span: 4"
+ ]
+}
+looping animations: [
+  'span status-halo 1.6s',
+  'div queued-shimmer 1.8s',
+  'svg spin 1s',
+  'circle spin 1s'
+]
+=== reduced motion: elements with a running animation: 0
