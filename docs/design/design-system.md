@@ -342,7 +342,7 @@ system's colours and typefaces.
 | Label badge | Word only, neutral (`text-secondary` on `surface-subtle`) | Pathway, kind, qualifier, "AI" |
 | Count badge | Number only, neutral | Counts on tabs and navigation items |
 | Dot badge | 8px `action` dot | Unread |
-| Trace control | Icon only, with an accessible name and tooltip; shown on hover and focus, and always shown on a touch device | One per paragraph, row or figure |
+| Trace control | Icon only, with an accessible name and tooltip; visible at rest. The page-level source-icon switch highlights the controls where offered (R10, OQ-09). | One per paragraph, row or figure |
 
 **Status shapes.** Eleven shapes, each with one meaning:
 

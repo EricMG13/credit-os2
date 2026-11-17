@@ -134,6 +134,23 @@ start the service on a new empty folder for each run.
 PYTHONPATH=src uv run --locked python -m proof.serve --root /path/to/empty-proof-folder
 ```
 
+Keep that root path at most 80 characters. After stopping the synthetic service, choose another
+new empty root for the next proof session; `proof.serve` deliberately refuses a nonempty root.
+Do not empty an existing workspace to work around that check. Refreshes and navigation within
+the running session retain its runs, but restarting `proof.serve` is not a way to reopen them.
+
+A retained publication can instead be inspected with the separate read-only preview, when its
+qualified snapshot JSON and engine folder are available:
+
+```sh
+PYTHONPATH=src uv run --locked python -m react_frontend.preview --engine /path/to/engine --snapshot /path/to/qualified-snapshot.json --run RUN_FOLDER --web web/dist
+```
+
+This preview copies the selected retained files into a temporary folder and refuses write
+endpoints; it starts no scheduler or provider. Its snapshot must already carry an explicit
+preview qualification and contain the selected run. It is an inspection of retained results,
+not a resumed synthetic session or a new execution.
+
 For the regular RBOT-HTML workflow:
 
 ```sh
