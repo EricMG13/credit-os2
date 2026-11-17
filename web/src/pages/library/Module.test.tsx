@@ -1408,7 +1408,7 @@ describe("Module, the navigator of the data module", () => {
 });
 
 describe("Module, a module that could not be delivered", () => {
-  it("draws the name, the kit's blocked line, the note and the gap link, and nothing else", () => {
+  it("S3-012 draws the blocked reason as Bottom line, with its note, state and gap link", () => {
     renderModule("recovery");
     expect(screen.getByRole("heading", { level: 2, name: "Recovery" })).toBeVisible();
     expect(screen.getByText("Not assessable")).toBeVisible();
@@ -1424,11 +1424,12 @@ describe("Module, a module that could not be delivered", () => {
       "href",
       `${BASE}2026-09-30/evidence/gaps`,
     );
-    expect(screen.queryByRole("region", { name: "Bottom line" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Bottom line" })).toBeVisible();
     expect(screen.queryByRole("region", { name: "Limitations" })).toBeNull();
-    expect(within(nav()).queryByText("On this page")).toBeNull();
+    expect(within(nav()).getByText("On this page")).toBeVisible();
+    expect(within(nav()).getByRole("button", { name: "Bottom line" })).toBeVisible();
     expect(within(nav()).getByText("Modules in this run")).toBeVisible();
-    expect(screen.getAllByRole("heading").map((h) => h.tagName)).toEqual(["H1", "H2"]);
+    expect(screen.getAllByRole("heading").map((h) => h.tagName)).toEqual(["H1", "H2", "H3"]);
   });
 
   it("draws a module that did not run as Not run, never as Not assessable", () => {
@@ -1470,28 +1471,18 @@ describe("Module, a limitation longer than three lines", () => {
     vi.restoreAllMocks();
   });
 
-  it("clamps at three lines and offers Show all, then Show less, and prints open", () => {
+  it("S3-017 draws every limitation in full, with only the card collapse", () => {
     layout(true);
     renderModule("business-profile");
     const limits = region("Limitations");
-    const buttons = within(limits).getAllByRole("button", { name: /^Show (all|less)$/ });
-    expect(buttons).toHaveLength(2);
     const long = within(limits).getByText(/^The share of revenue under cost pass-through/);
-    expect(long).toHaveClass("line-clamp-3", "print:line-clamp-none");
-    const show = buttons[1] as HTMLElement;
-    expect(show).toHaveAttribute("aria-expanded", "false");
-    expect(show).toHaveClass("print:hidden");
-    fireEvent.click(show);
     expect(long).not.toHaveClass("line-clamp-3");
-    expect(show).toHaveTextContent("Show less");
-    expect(show).toHaveAttribute("aria-expanded", "true");
     expect(long.textContent).toMatch(/which the files do not show\.$/);
-    fireEvent.click(show);
-    expect(long).toHaveClass("line-clamp-3");
-    expect(show).toHaveTextContent("Show all");
+    expect(within(limits).queryByRole("button", { name: /^Show (all|less)$/ })).toBeNull();
+    expect(within(limits).getByRole("button", { name: "Collapse limitations" })).toBeVisible();
   });
 
-  it("builds one observer for each limitation, not one for every render", () => {
+  it("S3-017 needs no per-limitation resize observer when text is always whole", () => {
     layout(true);
     const Original = globalThis.ResizeObserver;
     let built = 0;
@@ -1504,7 +1495,7 @@ describe("Module, a limitation longer than three lines", () => {
     try {
       renderModule("business-profile");
       const first = built;
-      expect(first).toBe(2);
+      expect(first).toBe(0);
       fireEvent.click(screen.getByRole("switch", { name: "Show sources" }));
       fireEvent.click(screen.getByRole("switch", { name: "Show sources" }));
       expect(built).toBe(first);

@@ -28,8 +28,8 @@ export const changesHref = (issuer: string, run: string): string =>
   `#/library/${seg(issuer)}/${seg(run)}/changes`;
 
 /** A module's page, the target of the Modules tab. */
-export const modulesHref = (issuer: string, run: string, module: string): string =>
-  `#/library/${seg(issuer)}/${seg(run)}/modules/${seg(module)}`;
+export const modulesHref = (issuer: string, run: string, module?: string): string =>
+  `#/library/${seg(issuer)}/${seg(run)}/modules${module === undefined ? "" : `/${seg(module)}`}`;
 
 /** One page of a run's Evidence section: its Summary, Trace, Sources, Gaps or Record tab. */
 export const evidenceHref = (

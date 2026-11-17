@@ -65,16 +65,6 @@ export function Overview({ issuer, run }: { issuer: string | undefined; run: str
       {({ overview, id: runId }, issuerId) => (
         <div className="flex flex-col gap-8">
           <BottomLine text={overview.bottomLine} level={SECTION_HEADING} />
-          {overview.metrics.length === 0 ? null : (
-            <section aria-label={overview.metricsLabel}>
-              <ul className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
-                {overview.metrics.map((metric) => (
-                  <MetricTile key={metric.label} metric={metric} />
-                ))}
-              </ul>
-            </section>
-          )}
-          {overview.sides === null ? null : <ForAndAgainst sides={overview.sides} />}
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <Section title="Key findings">
               <Findings findings={overview.findings} />
@@ -93,6 +83,16 @@ export function Overview({ issuer, run }: { issuer: string | undefined; run: str
               </Section>
             </div>
           </div>
+          {overview.metrics.length === 0 ? null : (
+            <section aria-label={overview.metricsLabel}>
+              <ul className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
+                {overview.metrics.map((metric) => (
+                  <MetricTile key={metric.label} metric={metric} />
+                ))}
+              </ul>
+            </section>
+          )}
+          {overview.sides === null ? null : <ForAndAgainst sides={overview.sides} />}
           <Section title="Modules" note={overview.modules.summary}>
             <ModuleItems items={overview.modules.items} issuer={issuerId} run={runId} />
           </Section>

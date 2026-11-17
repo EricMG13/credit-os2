@@ -573,3 +573,8 @@ describe("Library home, List side", () => {
     expect(within(table()).getAllByRole("columnheader")).toHaveLength(9);
   });
 });
+
+// S2-020 persists choices in a browser history entry; every independent test starts a fresh entry.
+beforeEach(() => {
+  window.history.replaceState({}, "");
+});

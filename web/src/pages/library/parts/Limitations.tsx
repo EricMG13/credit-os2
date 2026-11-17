@@ -1,52 +1,16 @@
 import { Button as KitButton } from "@/components/base/buttons/button";
 import { ArrowRight } from "@untitledui/icons";
 import { ChevronDown, ChevronUp } from "@untitledui/icons";
-import { useEffect, useRef, useState } from "react";
 import { Button, Disclosure, DisclosurePanel } from "react-aria-components";
-import { cx } from "@/utils/cx";
 import type { Limitations as LimitationsData } from "../slice";
 import type { SECTION_HEADING, SUBSECTION_HEADING } from "./heading";
 import { TRACE_HOST, TraceControl } from "./TraceControl";
 
-/**
- * One limitation. Text longer than three lines is cut there with a Show all control, found by
- * measuring the clamped text (the observer fires again when the width changes); it prints in full.
- */
+/** One complete limitation; the surrounding card owns the only collapse control. */
 function Limitation({ text, trace }: LimitationsData["items"][number]) {
-  const [open, setOpen] = useState(false);
-  const [overflows, setOverflows] = useState(false);
-  const clamped = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const el = clamped.current;
-    if (el === null || open) return;
-    const watch = new ResizeObserver(() => {
-      setOverflows(el.scrollHeight > el.clientHeight);
-    });
-    watch.observe(el);
-    return () => {
-      watch.disconnect();
-    };
-  }, [open]);
   return (
     <li className={`${TRACE_HOST} flex max-w-[86ch] items-start gap-3`}>
-      <span className="flex flex-1 flex-col items-start gap-1">
-        <span ref={clamped} className={cx(!open && "line-clamp-3 print:line-clamp-none")}>
-          {text}
-        </span>
-        {overflows ? (
-          <KitButton
-            aria-expanded={open}
-            onPress={() => {
-              setOpen(!open);
-            }}
-            className="print:hidden"
-            color="link-gray"
-            size="sm"
-          >
-            {open ? "Show less" : "Show all"}
-          </KitButton>
-        ) : null}
-      </span>
+      <span className="min-w-0 flex-1 wrap-anywhere">{text}</span>
       <TraceControl trace={trace} label="Show sources for this limitation" />
     </li>
   );

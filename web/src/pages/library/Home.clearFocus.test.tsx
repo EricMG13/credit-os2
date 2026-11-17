@@ -60,3 +60,8 @@ describe("Library home, focus after Clear filters", () => {
     expect(search()).toHaveFocus();
   });
 });
+
+// S2-020 persists choices in a browser history entry; every independent test starts a fresh entry.
+beforeEach(() => {
+  window.history.replaceState({}, "");
+});

@@ -1,8 +1,7 @@
 import { Button } from "@/components/base/buttons/button";
 import { ArrowRight } from "@untitledui/icons";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Alert } from "@/components/alert/Alert";
-import { Blocked } from "@/components/gap/Blocked";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import type { BlockedBody, DeliveredBody, LoadedRun, Module as ModuleData } from "./slice";
 import { BottomLine } from "./parts/BottomLine";
@@ -122,15 +121,11 @@ function BlockedModule({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      {state === "Not assessable" ? (
-        <Blocked reason={body.reason} />
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge set="Module state" state={state} />
-          <p className="text-small text-text-secondary">{body.reason}</p>
-        </div>
-      )}
-      <p className="max-w-[72ch] text-small text-text-secondary">{body.note}</p>
+      <StatusBadge set="Module state" state={state} />
+      <BottomLine
+        text={{ label: "Bottom line", lead: body.reason, rest: body.note, trace: null }}
+        level={SUBSECTION_HEADING}
+      />
       <Button
         className="w-fit"
         href={gapsHref}
@@ -163,8 +158,33 @@ function ModuleView({
   const Heading = SECTION_HEADING;
   const content = useRef<HTMLDivElement>(null);
   const body = module.body;
-  const sections = body.kind === "delivered" ? sectionsOf(body) : [];
+  const sections = useMemo(
+    () =>
+      body.kind === "delivered"
+        ? sectionsOf(body)
+        : [{ key: "bottom-line", label: "Bottom line", icon: "bottom-line" as const }],
+    [body],
+  );
   const [active, setActive] = useState<string | null>(sections[0]?.key ?? null);
+  useEffect(() => {
+    const node = content.current;
+    const scroller = node?.closest("main");
+    if (!node || !scroller) return;
+    const update = () => {
+      if (scroller.clientHeight === 0) return;
+      const top = scroller.getBoundingClientRect().top + 24;
+      let current = sections[0]?.key ?? null;
+      for (const target of node.querySelectorAll<HTMLElement>("[data-section]")) {
+        if (target.getBoundingClientRect().top <= top) current = target.dataset["section"] ?? null;
+      }
+      setActive(current);
+    };
+    update();
+    scroller.addEventListener("scroll", update, { passive: true });
+    return () => {
+      scroller.removeEventListener("scroll", update);
+    };
+  }, [sections]);
   const gapsHref = evidenceHref(issuer, run.id, "gaps");
   const goTo = (key: string) => {
     const target = content.current?.querySelector<HTMLElement>(`[data-section="${key}"]`);
@@ -204,7 +224,9 @@ function ModuleView({
         {body.kind === "delivered" ? (
           <Prose body={body} gapsHref={gapsHref} />
         ) : (
-          <BlockedModule body={body} state={module.state} gapsHref={gapsHref} />
+          <Target id="bottom-line">
+            <BlockedModule body={body} state={module.state} gapsHref={gapsHref} />
+          </Target>
         )}
       </div>
     </div>

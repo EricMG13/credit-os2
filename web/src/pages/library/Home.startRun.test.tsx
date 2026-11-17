@@ -57,8 +57,33 @@ describe("the library's start buttons open the run start page", () => {
   });
 
   it("an issuer with no report yet: Start a run", async () => {
-    visit("#/library/corvane-packaging/history");
+    const absent = structuredClone(library.slice) as {
+      issuers: {
+        id: string;
+        runs: unknown[];
+        history: {
+          latest: string | null;
+          empty: string | null;
+          entries: { report: string | null; changes: unknown }[];
+        };
+      }[];
+    };
+    const issuer = absent.issuers.find((item) => item.id === "corvane-packaging");
+    if (!issuer) throw new Error("missing test issuer");
+    issuer.runs = [];
+    issuer.history.latest = null;
+    issuer.history.empty = "No report has been published for this issuer yet.";
+    for (const entry of issuer.history.entries) {
+      entry.report = null;
+      entry.changes = null;
+    }
+    visit("#/library/corvane-packaging/history", absent);
     expect(screen.getByRole("heading", { name: "No report yet" })).toBeVisible();
     await expectRunStart("Start a run");
   });
+});
+
+// S2-020 persists choices in a browser history entry; every independent test starts a fresh entry.
+beforeEach(() => {
+  window.history.replaceState({}, "");
 });

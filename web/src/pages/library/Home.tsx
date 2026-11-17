@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen01 } from "@untitledui/icons";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Button } from "@/components/base/buttons/button";
@@ -127,9 +127,21 @@ function RangeFilters({
 }
 
 function Layout({ home }: { home: LibraryHome }) {
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
-  const [bands, setBands] = useState<Bands>(NO_BANDS);
-  const [layout, setLayout] = useState<"cards" | "list">("cards");
+  // Browser history restores this entry's choices before the home is mounted again.
+  const saved = (
+    window.history.state as {
+      libraryHome?: { filters: Filters; bands: Bands; layout: "cards" | "list" };
+    } | null
+  )?.libraryHome;
+  const [filters, setFilters] = useState<Filters>(saved?.filters ?? NO_FILTERS);
+  const [bands, setBands] = useState<Bands>(saved?.bands ?? NO_BANDS);
+  const [layout, setLayout] = useState<"cards" | "list">(saved?.layout ?? "cards");
+  useEffect(() => {
+    window.history.replaceState(
+      { ...window.history.state, libraryHome: { filters, bands, layout } },
+      "",
+    );
+  }, [filters, bands, layout]);
   const narrowed = applied(filters) > 0;
   const shown = home.cards.filter((card) => (isIssuer(card) ? matches(card, filters) : !narrowed));
   /** The bar's first input is the search field. */

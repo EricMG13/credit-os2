@@ -37,7 +37,10 @@ export function StatementBlock({
           )
         }
       >
-        <div className="overflow-x-auto">
+        <div
+          data-statement-surface
+          className="overflow-x-auto rounded-xl border border-border-hairline bg-surface-card"
+        >
           <table className="min-w-full border-collapse text-body">
             <caption className="sr-only">{block.title}</caption>
             <thead>
@@ -63,9 +66,9 @@ export function StatementBlock({
                     <th scope="row" className={`${STICKY} px-3 py-2 text-left ${weight}`}>
                       {row.label}
                     </th>
-                    {row.cells.map((cell, index) => (
+                    {row.cells.map((cell, cellIndex) => (
                       <td
-                        key={block.periods[index]}
+                        key={block.periods[cellIndex]}
                         className={`px-3 py-2 text-right whitespace-nowrap tabular-nums ${row.emphasis && cell?.kind === "value" ? "font-semibold" : ""}`}
                       >
                         <div className="flex justify-end">

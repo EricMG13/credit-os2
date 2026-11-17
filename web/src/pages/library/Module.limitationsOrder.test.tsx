@@ -74,7 +74,10 @@ describe("a module page's reading order", () => {
       "Contrary evidence",
       "What would change the view",
       "Limitations",
-      "Records",
+      "Risks by probability and impact",
+      "Indicators to watch",
+      "Questions this module set out to answer",
+      "How a programme delay reaches the credit",
     ]);
   });
 
