@@ -192,8 +192,9 @@ screen came from, and lists the source items a screen should show and does not. 
 capture folder, `proof/handoffs/*.md`, `web/fixtures/library.json`, `web/fixtures/model.json`, `proof/northbridge-*`
 and `web/src/pages/connected/api.ts` (the module names), makes no network or paid call, and gives byte-identical
 output for the same inputs (about 3 seconds for both surfaces). `compare-selftest.mjs` changes a copy of
-`before/` in 26 known ways (a digit, a sign, a unit, a unit left out, a period, a value drawn as missing, a missing
-value drawn as zero, a reworded sentence, a drawer's handoff line and basis, on both surfaces) and fails unless each is reported.
+`before/` in 28 known ways (a digit, a sign, a unit, a unit left out, a period, a value drawn as missing, a missing
+value drawn as zero, a chart bar for a missing value, a zero bar for a value, a reworded sentence, a drawer's handoff
+line and basis, on both surfaces) and fails unless each is reported.
 
 ### Run it
 
@@ -233,7 +234,8 @@ line, or fixture path; `text`) and, as they apply, `differs`, `derived` (`name`,
 `compare-<name>.md` is the short report: counts per surface and class, per kind, every difference, the screens with a
 difference or omission, the derived computations and the omission matrix.
 
-Kinds: `figure` is a drawn value (an item of `figures`, in the page view and in each chart's Table view);
+Kinds: `figure` is a drawn value (an item of `figures`, in the page view and in each chart's Table view; and, with `view`
+`chart mark`, one item for each bar, zero bar and "n.a." mark of a chart drawn from a handoff table);
 `source` and `limitation` are the capture's `sources` and `limitations` entries; `drawer` is what a source drawer
 states (its statement with the handoff line it names, and its Basis line).
 
@@ -242,7 +244,7 @@ states (its statement with the handoff line it names, and its Basis line).
 | Class | Meaning |
 | :--- | :--- |
 | `matches source` | The same digits, sign, unit and period are in the source item the screen attributes it to, or in the same module's handoff (for a page that is not one module's, any handoff). `via` says which. |
-| `derived` | A value the page computes. `derived.name` says what; where it is computed is in `derivedSummary`. `verified` is true only where `compare.mjs` recomputed it from the source: the Overview year-on-year changes, the module confidence score, the event counts, years and status words. All other derived items are named only. |
+| `derived` | A value the page computes. `derived.name` says what; where it is computed is in `derivedSummary`. `verified` is true only where `compare.mjs` recomputed or checked it from the source: the Overview year-on-year changes, the module confidence score, the event counts, years and status words, and that a chart's value-axis ticks are evenly spaced at a round step. All other derived items are named only. |
 | `not found in source` | The screen shows something no source item of its scope has, and no rule names a computation for it. |
 | `source has it, screen differs` | The source item the screen attributes it to is identified and a digit, sign, unit, period, or the missing-versus-zero reading, differs. `differs` lists which: `digits`, `sign`, `precision` (the same number with other decimal places: 3.20 drawn as 3.2), `unit`, `unit missing`, `period`, `text`, `value drawn as missing`, `missing drawn as zero`, `zero drawn as missing`, `missing drawn as a value`, `source line`, `basis`, `basis not in source`. |
 
@@ -267,7 +269,8 @@ A period or unit conflicts only when both the screen and the source state one an
 4. A 64-hex digest: equal to the SHA-256 of a file `proof/northbridge-*`: `matches`; any other: `derived` (the delivered handoff, which has a
    request-and-sources preamble, is not in the repository).
 5. The run's own record (`evidence--checks`, `--record`, `--summary`, `--gaps`, `--sources`, `--trace`): `derived`, named, unless the text equals a handoff sentence: `matches`.
-6. A chart's value-axis tick (chart text with no series, step or tick attribute): `derived`, named only.
+6. A chart's value-axis tick (chart text with no series, step or tick attribute): `derived`; verified when the chart's ticks are evenly spaced
+   at a step of 1, 2, 2.5 or 5 times a power of ten (that they cover the data is not checked). Other chart text without an attribute (the node counts of an edge map): `derived`, named only.
 7. Overview headline cards (Net leverage, Gross leverage, Interest coverage, Revenue, Adjusted EBITDA, Cash): the value must equal the
    latest-period cell of the CP-1 `Chart data:` table for that measure (column and unit from the table), the period must be that
    row's, and a unit the source has must be drawn; the change (`-0.75x vs FY2023`) must equal the latest minus the prior period,
@@ -279,6 +282,10 @@ A period or unit conflicts only when both the screen and the source state one an
 10. Keyed cell: a table cell, a chart's Table-view cell or a chart value label is compared with the cell of the handoff table of the same name (a
     `Chart data: ` prefix is dropped), the same first-column cell and the same column header (a chart label: the series column, with its group if known).
     Equal: `matches`. Not equal: `differs`, with the reason from the list above.
+10b. Chart marks (the capture's `marks`: a bar, a zero bar, an "n.a." text, with series and group or step), for a chart whose title is a handoff table's:
+    the cell of that table at the group (or step) and series must be missing for an "n.a." mark, zero for a zero bar and neither for a bar; else `differs`
+    (`missing drawn as a value`, `value drawn as zero`, `zero drawn as a bar`, `value drawn as missing`, `zero drawn as missing`, `missing drawn as zero`).
+    This is a separate item, not part of the figure rules.
 11. Period-only text (`FY2024`, `2025-03-31 · day`, `Published 2024-11-07`): every period must occur in some source item of the scope.
 12. A missing marker: equal to a source missing cell; else, on the forecast and calendar pages, `derived`; else it must exist in the scope (cell not identified).
 13. Text: exact (or inside a longer source item, or a source item that is at least 80% of it); words of one cell plus numbers of the same row
@@ -326,7 +333,8 @@ Limits that follow from these rules, kept in the report: items whose source cann
 `period appears in the source`, `... elsewhere in this run`) is a match by existence, not by position.
 
 Not verified: whether a drawn value is right where it is `derived` and not recomputed (the forecast model output, the script checks, the run record, axis ticks, the calendar,
-the evidence counts, and everything named only in `derivedSummary`); any item whose source cannot be identified and matched by existence only (the `via` values that say so), so a wrong
+the evidence counts, whether a chart's ticks cover its data, and everything named only in `derivedSummary`); the height of a bar against its value (only
+whether the mark is a bar, a zero bar or missing is checked); any item whose source cannot be identified and matched by existence only (the `via` values that say so), so a wrong
 number on a screen that happens to be in the same module's handoff, or the same run's fixture, under another label is not reported; the label, period, unit and basis fields
 of the capture, which the rules use where they are present (they are heuristics, see above), and a unit, period or label the screen leaves out altogether (except the Overview unit check);
 colour, tone, ordering, layout and everything under "What it leaves out"; that the page's drawn text is what a reader understands; the wording of a drawer other than its statement, handoff line and basis;

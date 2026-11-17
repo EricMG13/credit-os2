@@ -6,16 +6,16 @@ Capture tree 1a68d2d4 (audit/final-coordination), web/dist 31eeb9c32aa8; rules v
 
 | Surface | Screens | Items | matches source | derived | not found in source | source has it, screen differs | Source items not on screen |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| connected | 29 | 3332 | 1612 | 1720 | 0 | 0 | 391 |
+| connected | 29 | 3444 | 1724 | 1720 | 0 | 0 | 391 |
 | static | 89 | 2374 | 2349 | 25 | 0 | 0 | 5 |
-| **Total** | 118 | 5706 | 3961 | 1745 | 0 | 0 | 396 |
+| **Total** | 118 | 5818 | 4073 | 1745 | 0 | 0 | 396 |
 
 ## Counts per surface, kind and class
 
 | Surface | Kind | Items | matches source | derived | not found in source | source has it, screen differs |
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | connected | drawer | 445 | 421 | 24 | 0 | 0 |
-| connected | figure | 2577 | 1101 | 1476 | 0 | 0 |
+| connected | figure | 2689 | 1213 | 1476 | 0 | 0 |
 | connected | limitation | 228 | 68 | 160 | 0 | 0 |
 | connected | source | 82 | 22 | 60 | 0 | 0 |
 | static | drawer | 235 | 235 | 0 | 0 | 0 |
@@ -34,15 +34,15 @@ None.
 | Surface | Screen | Items | matches source | derived | not found in source | source has it, screen differs | Omitted |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | connected | modules--CP-0 | 88 | 44 | 44 | 0 | 0 | 25 |
-| connected | modules--CP-1 | 175 | 140 | 35 | 0 | 0 | 35 |
+| connected | modules--CP-1 | 196 | 161 | 35 | 0 | 0 | 35 |
 | connected | modules--CP-1A | 47 | 37 | 10 | 0 | 0 | 36 |
 | connected | modules--CP-2 | 21 | 19 | 2 | 0 | 0 | 21 |
 | connected | modules--CP-2A | 71 | 69 | 2 | 0 | 0 | 37 |
-| connected | modules--CP-2D | 55 | 41 | 14 | 0 | 0 | 24 |
+| connected | modules--CP-2D | 59 | 45 | 14 | 0 | 0 | 24 |
 | connected | modules--CP-2E | 130 | 121 | 9 | 0 | 0 | 39 |
 | connected | modules--CP-2G | 12 | 11 | 1 | 0 | 0 | 24 |
 | connected | modules--CP-3 | 70 | 62 | 8 | 0 | 0 | 36 |
-| connected | modules--CP-3C | 55 | 41 | 14 | 0 | 0 | 22 |
+| connected | modules--CP-3C | 59 | 45 | 14 | 0 | 0 | 22 |
 | connected | modules--CP-4 | 64 | 54 | 10 | 0 | 0 | 25 |
 | connected | modules--CP-5 | 15 | 13 | 2 | 0 | 0 | 21 |
 | connected | modules--CP-6 | 68 | 60 | 8 | 0 | 0 | 22 |
@@ -69,7 +69,7 @@ None.
 | connected | event counts by status, recounted here from the Events tables | 33 | yes | web/src/pages/connected/visuals/EventLane.tsx and report/Calendar.tsx (events grouped by status and by year of the event date) |
 | connected | run counts and file identities | 20 | no (named only) | web/src/pages/connected/report/Evidence.tsx over the run's own record (counts of modules, script checks, source files) |
 | connected | confidence score | 15 | yes | src/deploy_workflow/confidence.py score (weights, gate and penalties as documented there), recomputed here from the handoff's Confidence inputs table |
-| connected | chart axis scale (named only) | 7 | no (named only) | web/src/pages/connected/visuals/visualData.ts ticks (value-axis ticks at round numbers) |
+| connected | chart text with no data attribute: an axis tick that is not evenly spaced, or a node count (named only) | 7 | no (named only) | web/src/pages/connected/visuals/visualData.ts ticks (value-axis ticks at round numbers) |
 | connected | year-on-year change = latest period - period a year earlier, exact decimal, recomputed here from the CP-1 chart table | 5 | yes | src/deploy_workflow/credit_os_catalogue.py handoff_metrics, prior_metric, _exact_change (latest row of the CP-1 chart table, change against the row a year earlier); web/src/pages/connected/report/YearChange.tsx, HeadlineFigures.tsx |
 | connected | event status word, checked here against the Events tables' Status column | 4 | yes | web/src/pages/connected/visuals/EventLane.tsx and report/Calendar.tsx (events grouped by status and by year of the event date) |
 | connected | page wording with a digit | 1 | no (named only) | a label or legend drawn by the page; not a source value |
@@ -78,7 +78,7 @@ None.
 
 ## Source items a screen should show and does not
 
-Bottom line, Key findings, Contrary evidence, Limitations and chart-data lines or rows missing from their screen: 11 (listed below).
+Bottom line, Key findings, Contrary evidence and Limitations lines of a handoff not drawn on its module's screen: 0. Chart-data rows not fully shown: 11. Basis lines under a paragraph neither drawn nor in a source drawer: 0. The chart-data rows and any such lines are listed below.
 
 | Surface | Module or screen | chart data rows | confidence inputs rows | events rows | map rows | module body | other prose lines | overview | register rows | table rows |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
