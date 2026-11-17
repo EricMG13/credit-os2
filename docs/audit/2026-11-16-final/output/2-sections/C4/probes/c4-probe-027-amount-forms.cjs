@@ -37,9 +37,9 @@ const variants = {
       const seg = all.slice(i, i + 700);
       let bad;
       if (v.scale) {
-        const ticks = (seg.match(/\n(\d+)\n/g) || []).map((t) => Number(t.trim()));
+        const ticks = await page.getByRole("figure", { name: v.title }).evaluate((f) => [...f.querySelectorAll("svg text")].map((t) => Number(t.textContent.replace(/,/g, ""))).filter((n) => Number.isFinite(n)));
         bad = Math.max(...ticks) >= 100;
-        console.log(`${name}: axis ticks ${JSON.stringify(ticks)} (published values are at most 3.75) -> ${bad ? "DEFECT: bar drawn at 375" : "ok"}`);
+        console.log(`${name}: axis and label numbers ${JSON.stringify(ticks)} (published values are at most 3.75) -> ${bad ? "DEFECT: bar drawn at 375" : "ok"}`);
       } else {
         bad = /Source table available\. The chart could not be drawn on a common basis\./.test(seg);
         console.log(`${name}: ${bad ? "chart replaced by the sentence and the table" : "chart drawn"}`);
