@@ -1,0 +1,26 @@
+
+ RUN  v4.1.12 /workspace/audit-draft-tail/web
+
+ ❯ src/pages/connected/start/StartRun.finalAudit.test.tsx (25 tests | 1 failed | 23 skipped) 726ms
+     × T10 explains an unavailable draft and retries with the selected files and answers 580ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/pages/connected/start/StartRun.finalAudit.test.tsx > final audit: connected intake > T10 explains an unavailable draft and retries with the selected files and answers
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  This draft is unavailable and may have expired. Your answers and selected documents are still here. Continue the form or review the run again to create a new draft and re-upload the documents.
+Received:
+  unknown submission
+ ❯ src/pages/connected/start/StartRun.finalAudit.test.tsx:98:46
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed | 23 skipped (25)
+   Start at  18:00:47
+   Duration  4.03s (transform 857ms, setup 94ms, import 2.47s, tests 726ms, environment 536ms)
+

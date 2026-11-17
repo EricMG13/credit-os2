@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______________ test_a_full_active_ceiling_explains_how_to_recover ______________
+
+layout = Layout(root=PosixPath('/tmp/ibjgyjjrl9'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f6076b89480>
+
+    def test_a_full_active_ceiling_explains_how_to_recover(layout, monkeypatch):
+        monkeypatch.setattr(submissions, "MAX_OPEN", 1)
+        sid = new(layout)
+        with pytest.raises(Refused) as refused:
+            new(layout)
+>       assert str(refused.value) == (
+            "too many unfinished submissions; continue an existing form, or try again after an unused "
+            "draft has been idle for 2 hours (24 hours if it reached review)"
+        )
+E       AssertionError: assert 'too many unf...y again later' == 'too many unf...ached review)'
+E         
+E         - too many unfinished submissions; continue an existing form, or try again after an unused draft has been idle for 2 hours (24 hours if it reached review)
+E         + too many unfinished submissions; try again later
+
+tests/test_run_start_submissions.py:2034: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_run_start_submissions.py::test_a_full_active_ceiling_explains_how_to_recover
+1 failed, 201 deselected in 2.71s
