@@ -85,3 +85,40 @@ it("S3-028 scrolls the current mouse-selected module into its own navigator", ()
     bounds.mockRestore();
   }
 });
+
+it("S3-028 keeps the current entry inside the visible window when the reader header precedes the navigator", () => {
+  const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
+  Object.defineProperty(window, "innerHeight", { configurable: true, value: 900 });
+  const bounds = vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      return {
+        top: this.tagName === "NAV" ? 364 : 1112,
+        bottom: this.tagName === "NAV" ? 1216 : 1170,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: this.tagName === "NAV" ? 852 : 58,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      };
+    });
+  try {
+    render(
+      <ModuleNav
+        issuer="issuer"
+        run="run"
+        sections={sections}
+        active="bottom-line"
+        onSection={() => undefined}
+        modules={modules}
+        current="capital"
+      />,
+    );
+    expect(screen.getByRole("navigation", { name: "Modules and sections" }).scrollTop).toBe(270);
+  } finally {
+    bounds.mockRestore();
+    if (height !== undefined) Object.defineProperty(window, "innerHeight", height);
+  }
+});

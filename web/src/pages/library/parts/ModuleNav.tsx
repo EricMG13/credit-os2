@@ -84,8 +84,10 @@ export function ModuleNav({
     const view = nav.getBoundingClientRect();
     const item = entry.getBoundingClientRect();
     if (view.height === 0 || item.height === 0) return;
-    if (item.bottom > view.bottom) nav.scrollTop += item.bottom - view.bottom;
-    else if (item.top < view.top) nav.scrollTop -= view.top - item.top;
+    const bottom = Math.min(view.bottom, window.innerHeight);
+    const top = Math.max(view.top, 0);
+    if (item.bottom > bottom) nav.scrollTop += item.bottom - bottom;
+    else if (item.top < top) nav.scrollTop -= top - item.top;
   }, [current, wanted]);
   const heading = "px-4 pt-3 pb-1 pl-4.75 text-xs font-medium text-text-tertiary";
   return (
