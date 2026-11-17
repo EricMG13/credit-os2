@@ -7,7 +7,7 @@ lib.withRun(async ({ page, base, run, log }) => {
   const out = {};
   // 1. handoff name links on the Trace tab
   await page.goto(`${base}/report/${run}#evidence/trace`); await page.reload(); await page.waitForTimeout(600);
-  const names = await page.locator("main ul li > a").evaluateAll((as) => as.map((a) => [a.textContent.trim(), a.getAttribute("href")]));
+  const names = await page.locator('main ul li > a[href*="#evidence/"]').evaluateAll((as) => as.map((a) => [a.textContent.trim(), a.getAttribute("href")]));
   out.handoffLinks = { count: names.length, results: [] };
   for (const [text, href] of names) {
     await page.goto(`${base}/report/${run}#evidence/trace`); await page.waitForTimeout(150);
@@ -19,7 +19,7 @@ lib.withRun(async ({ page, base, run, log }) => {
   out.handoffLinks.bad = out.handoffLinks.results.filter((r) => !r.ok);
   // keyboard Enter on one
   await page.goto(`${base}/report/${run}#evidence/trace`); await page.reload(); await page.waitForTimeout(400);
-  await page.locator("main ul li > a").nth(5).focus(); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
+  await page.locator('main ul li > a[href*="#evidence/"]').nth(5).focus(); await page.keyboard.press("Enter"); await page.waitForTimeout(300);
   out.handoffEnter = await page.locator("main article h2").first().innerText().catch(() => null);
   // 2/3. disclosures on checks and record
   for (const tab of ["checks", "record"]) {

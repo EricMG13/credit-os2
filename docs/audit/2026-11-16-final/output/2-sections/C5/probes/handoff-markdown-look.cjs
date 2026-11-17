@@ -15,5 +15,9 @@ lib.withRun(async ({ page, base, run }) => {
     for (const k of Object.keys(total)) total[k] += r[k];
     if (m === "CP-6" || m === "CP-2G") console.log(m, JSON.stringify(r));
   }
+  const g = mods.find(([m]) => m === "CP-2G");
+  await page.goto(`${base}/report/${run}#evidence/${g[1]}-93`); await page.reload(); await page.waitForTimeout(500);
+  const pre = await page.locator("main article pre").first().innerText().catch(() => "");
+  console.log("CP-2G line 93 <pre> starts with:", JSON.stringify(pre.slice(0, 40)), "| length", pre.length, "| newlines", (pre.match(/\n/g) || []).length);
   console.log("TOTAL over", mods.length, "handoff views:", JSON.stringify(total));
 }).catch((e) => { console.error(e); process.exit(1); });

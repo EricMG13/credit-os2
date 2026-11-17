@@ -1,0 +1,79 @@
+{
+ "sourcesEmpty": "Sources\n\nNo issuer files listed in this run’s published record.",
+ "summaryNoSources": [
+  "14 designated handoffs · 0 source files"
+ ],
+ "sourcesEmptyModule": "Sources\n\nNo issuer files are listed for Liquidity.",
+ "sourcesLong1440": {
+  "overflow": {
+   "docOverflow": false,
+   "mainOverflow": false
+  },
+  "text": "el · Security selection · Refinancing & LME · Legal & covenants · Evidence validation · Committee decision · Research questions\n\nOpen source file: northbridge-portfolio.xlsx\n1866831c60158355205d27caf7e15c8cd948ecc3abf0795d6df8386a6fcbf6ec\nSupplied but unnamed in handoffs\n\nvery-long-source-file-name-without-any-spaces-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.pdf\n\npdf\n\nThis file was not parsed.\n\nUse unrecorded\n\nsecond file.xlsx\n\n2025-12-31 · Financial foundation · CP-BOGUS\n\nabc"
+ },
+ "sourcesLong390": {
+  "overflow": {
+   "docOverflow": false,
+   "mainOverflow": false
+  },
+  "text": "el · Security selection · Refinancing & LME · Legal & covenants · Evidence validation · Committee decision · Research questions\n\nOpen source file: northbridge-portfolio.xlsx\n1866831c60158355205d27caf7e15c8cd948ecc3abf0795d6df8386a6fcbf6ec\nSupplied but unnamed in handoffs\n\nvery-long-source-file-name-without-any-spaces-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.pdf\n\npdf\n\nThis file was not parsed.\n\nUse unrecorded\n\nsecond file.xlsx\n\n2025-12-31 · Financial foundation · CP-BOGUS\n\nabc"
+ },
+ "gaps1440": {
+  "overflow": {
+   "docOverflow": false,
+   "mainOverflow": false
+  },
+  "text": "Gaps 6\n\nWhat this run could not establish, with the detail each handoff records.\n\nGap\tModule\tSeverity\tRecorded detail\tTrace\nCovenant schedule missing\tLiquidity\t\nHigh\n\tAffected conclusion: Headroom not computed\nZero check: 0\t\nOpen source\n\nRating agency report stale\tLiquidity\t\nMedium\n\tZero check: 0.00\t\nOpen source\n\nPeer set thin\tLiquidity\t\nLow\n\tAffected conclusion: none\t\nOpen source\n\nHedge book not seen\tLiquidity\tCRITICAL\tAffected conclusion: Cost of debt\nZero check: n.a.\t\nOpen source\n\nUnranked gap\tLiquidity\tNot recorded\tAffected conclusion: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nZero check: 0\t\nOpen source\n\nGap recorded as text\tLiquidity\tNot recorded\tA free-text gap with **bold** and `code` and a long run word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word\t\nOpen source"
+ },
+ "gaps390": {
+  "overflow": {
+   "docOverflow": false,
+   "mainOverflow": true
+  },
+  "text": "Gaps 6\n\nWhat this run could not establish, with the detail each handoff records.\n\nGap\tModule\tSeverity\tRecorded detail\tTrace\nCovenant schedule missing\tLiquidity\t\nHigh\n\tAffected conclusion: Headroom not computed\nZero check: 0\t\nOpen source\n\nRating agency report stale\tLiquidity\t\nMedium\n\tZero check: 0.00\t\nOpen source\n\nPeer set thin\tLiquidity\t\nLow\n\tAffected conclusion: none\t\nOpen source\n\nHedge book not seen\tLiquidity\tCRITICAL\tAffected conclusion: Cost of debt\nZero check: n.a.\t\nOpen source\n\nUnranked gap\tLiquidity\tNot recorded\tAffected conclusion: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nZero check: 0\t\nOpen source\n\nGap recorded as text\tLiquidity\tNot recorded\tA free-text gap with **bold** and `code` and a long run word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word\t\nOpen source"
+ },
+ "gapsModule": "Gaps 6\n\nWhat this run could not establish, with the detail each handoff records.\n\nGap\tModule\tSeverity\tRecorded detail\tTrace\nCovenant schedule missing\tLiquidity\t\nHigh\n\tAffected conclusion: Headroom not computed\nZero check: 0\t\nOpen source\n\nRating agency report stale\tLiquidity\t\nMedium\n\tZero check: 0.00",
+ "gapOpenSourceHref": "/report/20261117-072535-01#evidence/20261117-072535-01%2Fdeliveries%2F6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585%2FCP-2D.md~d5e662a5cc87b3af8e7fd445f5d1603f64fbf78260ebf46595c7b57ab9de859f-902",
+ "gapOpenSourceResult": {
+  "url": "/report/20261117-072535-01#evidence/20261117-072535-01%2Fdeliveries%2F6db777d690651e26d1fa6a9706bd571fa0f4fba908d022d6cfa87407d92b5585%2FCP-2D.md~d5e662a5cc87b3af8e7fd445f5d1603f64fbf78260ebf46595c7b57ab9de859f-902",
+  "alert": 0,
+  "h2": "Liquidity · Line 902",
+  "body": "Liquidity · Line 902\nDownload Liquidity\nDerivation\nEvidence retained with this item\nBasis was not recorded for this item n.a.\nnot available\nGaps\nGap\tSeverity\tAffected conclusion\tZero check\nCovenant schedule missing\tHigh\tHeadroom not computed\t0"
+ },
+ "noZipNoDownloads": "Run evidence\n\n14 designated handoffs · 3 source files\n\nHandoffs\nSource readiness\nFinancial foundation\nBusiness & governance\nFundamental credit\nDownside\nLiquidity\nRates, FX & hedging\nForward credit model\nSecurity selection\nRefinancing & LME\nLegal & covenants\nEvidence validation\nCommittee decision\nResearch questions",
+ "noZipTrace": "Handoffs\nSource readiness\nFinancial foundation\nBusiness & governance\nFundamental credit\nDownside\nLiquidity\nRates, FX & hedging\nForward credit model\nSecurity selection\nRefinancing & LME\nLegal & covenants\nEvidence validation\nCommittee decision\nResearch questions",
+ "checksNoneAddr": {
+  "current": "Summary",
+  "body": "Run evidence\n\n14 designated handoffs · 3 source files\n\nHandoffs\nDownload all handoffs\nSource readiness\nDownload Source readiness\nFinancial foundation\nDownload Financial foundation\nBusiness & governanc"
+ },
+ "checksVariants1440": {
+  "overflow": {
+   "docOverflow": false,
+   "mainOverflow": true
+  },
+  "text": "Script checks\nLiquidity\n1 agreed\n1 disagreed\n1 contradicted\n1 missing\n1 weird status\nAccepted attempt\n2\nvery-long-source-file-name-without-any-spaces-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.pdf\nNot recorded\nNet debt\nagreed\nRegister\nT2D.1\nRow\nFY2024\nStated\n1125\nRecomputed\n1125 US$m\nTolerance\n0\nScript\na.py\nCover\ndisagreed\nReason\nstated 4.0x, recomputed 3.1x\nRegister\nT2D.2\nStated\n4.0\nRecomputed\n0 x\nTolerance\n0.05\nScript\na.py\nCheck\ncontradicted\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nmissing\nReason\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\nRegister\nR\nRecomputed\nlabel only x\nScript\nvery-long-source-file-name-without-any-spaces-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.pdf\nOdd\nweird status\nReason\nr\nRegister\nR2\nRow\nr\nStated\nn.a.\nRecomputed\n0 %\nScript\na.py"
+ },
+ "checksVariants390": {
+  "overflow": {
+   "docOverflow": false,
+   "mainOverflow": true
+  },
+  "text": "Script checks\nLiquidity\n1 agreed\n1 disagreed\n1 contradicted\n1 missing\n1 weird status\nAccepted attempt\n2\nvery-long-source-file-name-without-any-spaces-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.pdf\nNot recorded\nNet debt\nagreed\nRegister\nT2D.1\nRow\nFY2024\nStated\n1125\nRecomputed\n1125 US$m\nTolerance\n0\nScript\na.py\nCover\ndisagreed\nReason\nstated 4.0x, recomputed 3.1x\nRegister\nT2D.2\nStated\n4.0\nRecomputed\n0 x\nTolerance\n0.05\nScript\na.py\nCheck\ncontradicted\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nmissing\nReason\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\nRegister\nR\nRecomputed\nlabel only x\nScript\nvery-long-source-file-name-without-any-spaces-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.pdf\nOdd\nweird status\nReason\nr\nRegister\nR2\nRow\nr\nStated\nn.a.\nRecomputed\n0 %\nScript\na.py"
+ },
+ "recordVariants": "Run record\n\n20261117-072535-01\n\nRun type\nSynthetic test\nElapsed\n3 s\nFinished at 07:25:38 UTC\nCap usage\nUSD 0.00\nUSD 0.00 of USD 25.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown\nModule records\n\nThe synthetic adapter returned these responses without contacting a provider.\n\nUnassigned calls1 response\nFinancial foundation1 response\nRecorded file hashes",
+ "activity500": "Run record\n\n20261117-072535-01\n\nRun type\nSynthetic test\nElapsed\nUnavailable\nCap usage\nUnavailable\nRecorded cap USD 25\nModule records\n\nThe synthetic adapter returned these responses without contacting a provider.\n\nSource readiness1 response\nFinancial foundation1 response\nBusiness & governance1 response\nResearch questions1 response\nLegal & covenants1 response\nFundamental credit1 response\nDownside1 response\nRates, FX & hedging1 response\nLiquidity1 response\nForward credit model1 response\nRefinancing",
+ "activityEmpty": "Run record\n\n20261117-072535-01\n\nRun type\nSynthetic test\nElapsed\nUnavailable\nNo start time recorded\nCap usage\nUnavailable\nCap usage is unavailable; the budget journal could not be read\nModule records\n\nThe synthetic adapter returned these responses without contacting a provider.\n\nSource readiness1 response\nFinancial foundation1 response\nBusiness & governance1 response\nResearch questions1 response\nLegal & covenants1 response\nFundamental credit1 response\nDownside1 response\nRates, FX & hedging1 respo",
+ "activitySlow": "Run record\n\n20261117-072535-01\n\nRun type\nSynthetic test\nElapsed\n3 s\nFinished at 07:25:38 UTC\nCap usage\nUSD 0.00\nUSD 0.00 of USD 25.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown\nModule records\n\nThe synthetic adapter returned these responses without contacting a provider.\n\nSource readiness1 response\nFinancial foundation1 response\nBusiness & governance1 response\nResearch questions1 res",
+ "artifacts500": "egal & covenants\nEvidence validation\nDownload Evidence validation\nCommittee decision\nDownload Committee decision\nResearch questions\nDownload Research questions\nModel and calculation files\n\nThe original model and calculation files could not be listed.",
+ "artifactsEmpty": "e validation\nCommittee decision\nDownload Committee decision\nResearch questions\nDownload Research questions\nModel and calculation files\n\nThe original HTML Model is unavailable for this run.\n\nThe original calculation files are unavailable for this run.",
+ "artifactsModel": " & LME\nLegal & covenants\nDownload Legal & covenants\nEvidence validation\nDownload Evidence validation\nCommittee decision\nDownload Committee decision\nResearch questions\nDownload Research questions\nModel and calculation files\nHTML Model\nCalculation JSON",
+ "artifactsSlow": "dence validation\nCommittee decision\nDownload Committee decision\nResearch questions\nDownload Research questions\nModel and calculation files\nAnnual model handoff\nCalculation JSON\nExact forecast JSON\n\nThe original HTML Model is unavailable for this run.",
+ "artifactsMalformed": "g & LME\nDownload Refinancing & LME\nLegal & covenants\nDownload Legal & covenants\nEvidence validation\nDownload Evidence validation\nCommittee decision\nDownload Committee decision\nResearch questions\nDownload Research questions\nModel and calculation files",
+ "artifactsForeignHref": {
+  "tail": "load Refinancing & LME\nLegal & covenants\nDownload Legal & covenants\nEvidence validation\nDownload Evidence validation\nCommittee decision\nDownload Committee decision\nResearch questions\nDownload Research questions\nModel and calculation files\nEvil\nJS\n\nThe original HTML Model is unavailable for this run.",
+  "hrefs": [
+   "https://example.com/x",
+   "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')"
+  ]
+ }
+}

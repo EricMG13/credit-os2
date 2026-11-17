@@ -4,7 +4,7 @@
 // finished synthetic run (c4-setup-run.cjs):
 //   C4_STATE=<name> node docs/audit/2026-11-16-final/output/2-sections/C4/probes/c4-states.cjs
 // States: no-model, no-charts, no-events, error500, slow, null-case, negative-cash, long-text, units-usd,
-//         two-models, nan-grid, many-cases, dup-case, chart-gap, withheld, basis-note, cal-bad-date, cal-gap-years, cal-many, cal-long, no-forecast-handoff
+//         two-models, nan-grid, many-cases, dup-case, chart-gap, withheld, basis-note, cal-bad-date, cal-gap-years, cal-many, cal-long, no-forecast-handoff, cal-gap-cards, upside-case, other-grid, cal-ref, sent-back
 "use strict";
 const lib = require("./c4-lib.cjs");
 const state = process.env.C4_STATE || "no-model";
@@ -69,6 +69,7 @@ function mutate(snap) {
       ];
       break;
     }
+    case "cal-ref":
     case "cal-bad-date":
     case "cal-gap-years":
     case "cal-many":
@@ -78,6 +79,7 @@ function mutate(snap) {
       const entry = Object.values(ws.outputs).find((o) => o.module === "CP-2D");
       const table = ws.handoffs[entry.sha256].flatMap((sec) => sec.blocks).find((b) => b.type === "table" && b.line === entry.events[0].table);
       const row = (date, precision, event, status, line) => ({ line, cells: [date, precision, "2024-11-07", event, status, "Filing p.1", "Wall"] });
+      if (state === "cal-ref") table.rows = [row("2025-03-31", "day", "Redemption notice per notice_of_redemption.pdf", "Scheduled — matures", table.line + 2), row("2025-06-30", "day", "Coupon", "Scheduled — pays", table.line + 3)];
       if (state === "cal-bad-date") table.rows = [row("2025-02-30", "day", "Impossible date", "Scheduled — matures", table.line + 2), row("2025-06", "month", "Fine", "Historical — noted", table.line + 3)];
       if (state === "cal-gap-years") table.rows = [row("2025-03-31", "day", "Near", "Scheduled — matures", table.line + 2), row("2031", "year", "Far maturity", "Scheduled — maturity", table.line + 3), row("2025-05-01", "day", "User note", "User reminder — set", table.line + 4)];
       if (state === "cal-many") table.rows = Array.from({ length: 250 }, (_, i) => row(`2025-${String((i % 12) + 1).padStart(2, "0")}-${String((i % 27) + 1).padStart(2, "0")}`, "day", `Event ${i}`, i % 3 ? "Scheduled — x" : "Historical — y", table.line + 2 + i));
@@ -87,6 +89,31 @@ function mutate(snap) {
     case "no-forecast-handoff": {
       // the model no longer matches exactly one CP-2G handoff
       m.download = "../runs/other/deliveries/other/annual.md";
+      break;
+    }
+    case "cal-gap-cards": {
+      const gaps = ["Maturity schedule not supplied.", "Dates are in annual_report.pdf p.12"];
+      let k = 0;
+      for (const o of Object.values(ws.outputs)) { if (o.events && o.events.length && k < 2) { o.events[0].gap = gaps[k]; k += 1; } }
+      break;
+    }
+    case "upside-case": {
+      const base = colsOf("Base case");
+      base.forEach((i) => cf.columns.push({ ...cf.columns[i], group: "Upside" }));
+      cf.rows.forEach((r) => base.forEach((i) => r.cells.push(clone(r.cells[i]))));
+      cf.notes.push("Upside is the optimistic case: growth above the base case.");
+      break;
+    }
+    case "other-grid": {
+      const other = clone({ columns: cf.columns.filter((c) => /^FY/.test(c.label) && c.group === "Base case"), rows: cf.rows.map((r) => ({ ...r, cells: r.cells.filter((_, i) => cf.columns[i].group === "Base case" && /^FY/.test(cf.columns[i].label)) })) });
+      other.columns.forEach((c) => { c.group = "Downside (CP-2G drivers)"; });
+      cf.other = other;
+      break;
+    }
+    case "sent-back": {
+      const cp1 = Object.values(ws.outputs).find((o) => o.module === "CP-1");
+      cp1.charts = cp1.charts.filter((c) => c.title !== "Leverage");
+      cp1.issue = "Chart data: leverage is not in its fixed table";
       break;
     }
     case "withheld": {

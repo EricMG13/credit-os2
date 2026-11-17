@@ -23,6 +23,11 @@ const lib = require("./c4-lib.cjs");
   const out = execFileSync("node", [require("node:path").join(__dirname, "c4-states.cjs")], { env: { ...process.env, C4_STATE: "chart-gap", C4_CHARS: "20000" }, encoding: "utf8", timeout: 90000 });
   const gap = /Not established: see Filing p\.12[^|]*/.exec(out);
   if (gap) { console.log("CHART GAP TEXT:", gap[0]); found += 1; }
+  const other = execFileSync("node", [require("node:path").join(__dirname, "c4-states.cjs")], { env: { ...process.env, C4_STATE: "other-grid", C4_CHARS: "40000" }, encoding: "utf8", timeout: 90000 });
+  const head = /Other forecast cases \| Line item\s+Downside \(CP-2G drivers\)/.exec(other);
+  if (head) { console.log("OTHER GRID HEADER:", head[0]); found += 1; }
+  const sent = execFileSync("node", [require("node:path").join(__dirname, "c4-states.cjs")], { env: { ...process.env, C4_STATE: "sent-back", C4_CHARS: "40000" }, encoding: "utf8", timeout: 90000 });
+  if (/Sent back by the build\./.test(sent)) { console.log("SENT BACK TEXT: Sent back by the build."); found += 1; }
   console.log(found ? `DEFECT PRESENT (${found} lines)` : "no defect seen");
   process.exit(found ? 1 : 0);
 })();
