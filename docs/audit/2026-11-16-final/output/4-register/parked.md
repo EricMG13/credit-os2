@@ -26,6 +26,7 @@ Hostile or unusual inputs no roadmap line names (ruling R3). Registered, not rep
 | S6-019 | Low | S6 | One invalid string makes every run page a bare message that prints the validator's path text, and no run page can be read. |  |
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. |  |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps everywhere without clipping. |  |
+| R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. |  |
 | X1-008 | Info | X1 | Five components throw on out-of-contract props, and only the connected app has an error boundary around them. | S4-022 |
 | X1-010 | Info | X1 | Timeline keys each item by date and title, so two items with the same date and title collide. |  |
 | X1-022 | Info | X1 | Only four of eleven chart kinds check that the table's figures equal the chart's figures. |  |

@@ -7,6 +7,7 @@ One task per cause or per tightly related set in the same files. Tasks in differ
 Findings:
 
 - C1-001 (with C5-001), High: GET /connected/snapshot sends the server's absolute workspace path to the browser (catalogue.workspace).
+- R1-001, High: When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute path, and /connected/snapshot sends it to the browser.
 
 Files: `react_frontend/__init__.py`, `src/deploy_workflow/credit_os_catalogue.py`
 
@@ -14,6 +15,7 @@ Probes:
 
 - C1-001 (exit): `docs/audit/2026-11-16-final/output/2-sections/C1/probes/c1-001-snapshot-leaks-workspace-path.cjs`
 - C1-001 (exit): `node docs/audit/2026-11-16-final/output/2-sections/C5/probes/snapshot-path-leak.cjs`
+- R1-001 (none): `found by repair-1's T01/T02 review (2026-11-17); the T01 follow-up test is the probe`
 
 Touches money, ordering or security code: security (a leaked path).
 
@@ -22,12 +24,14 @@ Touches money, ordering or security code: security (a leaked path).
 Findings:
 
 - J1-001, High: Leaving a module out, which the review sheet offers as the way past a Will refuse limit, ends with Submit refused as "unknown module CP-MODEL" and no run starts.
+- R1-003, Medium: The Teams cards count CP-MODEL as a module, so a run that finished every requested module reads '13/14 modules'; T02 makes such runs reachable.
 
-Files: `web/src/pages/connected/api.ts`, `src/deploy_workflow/inbox/scheduler.py`, `web/src/pages/connected/StartRun.tsx`
+Files: `web/src/pages/connected/api.ts`, `src/deploy_workflow/inbox/scheduler.py`, `web/src/pages/connected/StartRun.tsx`, `src/deploy_workflow/inbox/runs.py`, `src/deploy_workflow/inbox/teams.py`
 
 Probes:
 
 - J1-001 (exit): `docs/audit/2026-11-16-final/output/3-journeys/J1/probes/j1-001-leave-out-refused-at-submit.cjs`
+- R1-003 (none): `found by repair-1's T02 review (2026-11-17); the T02 test is the probe`
 
 Touches money, ordering or security code: run ordering and module selection (scheduler).
 

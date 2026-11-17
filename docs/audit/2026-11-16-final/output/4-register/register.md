@@ -1,6 +1,6 @@
 # Register (stage 4)
 
-482 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 373 findings. Counts below are of those 373, after re-grading.
+485 findings were merged: 376 from stage 2, 99 from stage 3 and 7 carried from stage 0. 109 were merged into another finding with the same cause, which leaves 376 findings. Counts below are of those 376, after re-grading.
 
 Each finding's full record is in `register.jsonl` (fields of the schema, plus `verified`, `original_severity`, `disposition`, `task`, `merged_ids`, `merged_into`, `owner_question` and `ruling_note`).
 
@@ -8,19 +8,19 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 
 | Severity | repair | batch | sweep | owner | parked | rejected | Total |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| High | 4 | 0 | 0 | 0 | 0 | 0 | 4 |
-| Medium | 90 | 0 | 0 | 0 | 2 | 10 | 102 |
+| High | 5 | 0 | 0 | 0 | 0 | 0 | 5 |
+| Medium | 91 | 0 | 0 | 0 | 2 | 10 | 103 |
 | Low | 0 | 169 | 0 | 0 | 18 | 9 | 196 |
-| Info | 0 | 18 | 17 | 1 | 5 | 30 | 71 |
-| Total | 94 | 187 | 17 | 1 | 25 | 49 | 373 |
+| Info | 0 | 18 | 17 | 1 | 6 | 30 | 72 |
+| Total | 96 | 187 | 17 | 1 | 26 | 49 | 376 |
 
 | Section | High | Medium | Low | Info |
 | :--- | ---: | ---: | ---: | ---: |
-| C1 | 1 | 9 | 15 | 8 |
-| C2 | 0 | 9 | 12 | 3 |
+| C1 | 1 | 10 | 15 | 8 |
+| C2 | 0 | 9 | 12 | 4 |
 | C3 | 0 | 12 | 14 | 1 |
 | C4 | 1 | 7 | 18 | 3 |
-| C5 | 0 | 10 | 18 | 4 |
+| C5 | 1 | 10 | 18 | 4 |
 | J1 | 1 | 2 | 11 | 1 |
 | J2 | 0 | 4 | 6 | 0 |
 | J3 | 0 | 1 | 6 | 2 |
@@ -35,7 +35,7 @@ Each finding's full record is in `register.jsonl` (fields of the schema, plus `v
 | S6 | 0 | 10 | 18 | 5 |
 | X1 | 0 | 2 | 11 | 11 |
 
-Verification of High and Medium findings: confirmed 116, not a defect 4.
+Verification of High and Medium findings: confirmed 118, not a defect 4.
 
 ## Findings
 
@@ -46,6 +46,7 @@ High first. `Merged` lists the ids with the same cause.
 | C1-001 | High | C1 | GET /connected/snapshot sends the server's absolute workspace path to the browser (catalogue.workspace). | repair | T01 | C5-001 | confirmed |
 | C4-028 | High (was Medium) | C4 | A published value written with a decimal comma ('3,75') is read as 375 and its bar is drawn at 375 beside 2.80. | repair | T13 |  | confirmed |
 | J1-001 | High | J1 | Leaving a module out, which the review sheet offers as the way past a Will refuse limit, ends with Submit refused as "unknown module CP-MODEL" and no run start… | repair | T02 |  | confirmed |
+| R1-001 | High | C5 | When a pinned context or delivery file cannot be read, the catalogue issue text carries the error's message, which for an OSError holds the server's absolute p… | repair | T01 |  | confirmed |
 | S1-001 | High | S1 | The library's "Start a run" button opens Run activity (a saved running example), not the run start page. | repair | T26 | J6-005 | confirmed |
 | B0-003 | Medium | C2 | Following the documented manual synthetic run in docs/react-workflow.md ends Failed at Legal & covenants; the run completes only if the credit agreement is als… | repair | T12 | J1-014 | confirmed |
 | C1-002 | Medium | C1 | The empty Library is a bare 'No reports yet' card with no icon, no explanation and no next step, drawn under filter and layout controls that have nothing to ac… | repair | T05 |  | confirmed |
@@ -104,6 +105,7 @@ High first. `Merged` lists the ids with the same cause.
 | J5-001 | Medium | J5 | On a failed run the refused module is labelled Interrupted while the run reads Failed, three 'Module draft rejected.' events give no reason, and nothing on the… | repair | T04 |  | confirmed |
 | J5-003 | Medium | J5 | With the keyboard only, every change of page (Start a run, Start synthetic run, Open report, Open in Evidence, Back) leaves focus on the page body, so the next… | repair | T06 |  | confirmed |
 | J5-004 | Medium | J5 | The Issuer ID built from the name is cut at 40 characters, so two different issuers with long names that share their first 40 characters get one ID; the Librar… | repair | T09 | C2-014 | confirmed |
+| R1-003 | Medium | C1 | The Teams cards count CP-MODEL as a module, so a run that finished every requested module reads '13/14 modules'; T02 makes such runs reachable. | repair | T02 |  | confirmed |
 | S1-002 | Medium | S1 | Every page has the title "Credit OS", and moving between pages through the rail moves no focus and announces nothing. | repair | T27 | S2-003, S2-013, S3-001, S4-004, S4-020, S5-017, J6-011, J6-002, J6-003 | confirmed |
 | S1-003 | Medium | S1 | On a phone-width screen the visible label under each rail icon is not part of the link, so tapping it does nothing, and the label is read a second time as plai… | repair | T28 |  | confirmed |
 | S1-004 | Medium | S1 | The component kit, a developer page with sample figures, buttons that do nothing and looping animations, is offered to readers as a rail item of the static app. | repair (OQ-05) | T25 | X1-018 | confirmed |
@@ -383,6 +385,7 @@ High first. `Merged` lists the ids with the same cause.
 | B0-006 | Info | C1 | The legacy issuer library and the legacy run-start form ship in the release ZIP and stay reachable at /library/*, outside the two audited surfaces. | owner (OQ-05) |  |  | not required (Low or Info) |
 | C4-018 | Info | C4 | Two columns with the same case name, or more than six cases, silently lose the cash proxy chart or the case cards. | parked |  |  | not required (Low or Info) |
 | J5-006 | Info | J5 | At 390 px a 184-character issuer name fills 504 of the 844 px of the first screen on every report page, and the browser title is 207 characters; the name wraps… | parked |  |  | not required (Low or Info) |
+| R1-002 | Info | C2 | A hand-built module list holding CP-8 passes the server's module check at Submit and is refused by the launcher at launch. | parked |  |  | not required (Low or Info) |
 | X1-008 | Info | X1 | Five components throw on out-of-contract props, and only the connected app has an error boundary around them. | parked |  | S4-022 | not required (Low or Info) |
 | X1-010 | Info | X1 | Timeline keys each item by date and title, so two items with the same date and title collide. | parked |  |  | not required (Low or Info) |
 | X1-022 | Info | X1 | Only four of eleven chart kinds check that the table's figures equal the chart's figures. | parked |  |  | not required (Low or Info) |

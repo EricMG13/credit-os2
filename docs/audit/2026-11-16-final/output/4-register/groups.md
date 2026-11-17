@@ -6,7 +6,7 @@ Each group is one `repair-<n>` session (`sessions/repair.md`). No file is in two
 
 Tasks, in order: T01, T02, T03, T04, T05, T06, T07, T08, T09, T10, T11, T12.
 
-Findings: 27 (plus their merged ids).
+Findings: 29 (plus their merged ids).
 
 Files:
 
@@ -15,7 +15,9 @@ Files:
 - `react_frontend/__init__.py`
 - `react_frontend/run_activity.py`
 - `src/deploy_workflow/credit_os_catalogue.py`
+- `src/deploy_workflow/inbox/runs.py`
 - `src/deploy_workflow/inbox/scheduler.py`
+- `src/deploy_workflow/inbox/teams.py`
 - `src/deploy_workflow/run_start/submissions.py`
 - `web/src/pages/connected/ConnectedApp.tsx`
 - `web/src/pages/connected/LibraryIndex.tsx`
