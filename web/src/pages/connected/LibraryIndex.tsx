@@ -123,6 +123,8 @@ function LibraryFilter({
   value: string;
   onChange: (value: string) => void;
 }) {
+  // With nothing recorded to choose between, the control could only offer "All".
+  if (choices.length === 0 && value === "all") return null;
   return (
     <label className={`${label} max-w-64`}>
       {name}

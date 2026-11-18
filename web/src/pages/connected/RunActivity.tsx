@@ -340,7 +340,7 @@ export function RunActivity() {
         tabIndex={-1}
         className="mt-6 grid min-w-0 gap-6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
-        {read && (
+        {read && running.length + waiting.length + endedTotal > 0 && (
           <Tally
             counts={[
               ["Running", running.length],

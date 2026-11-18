@@ -1,8 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import type { OutputEntry, PublishedRun } from "../publishedReport";
-import type { moduleBottomLines } from "../reportView";
-import { ModuleBottomLines } from "./OverviewModules";
+import type { moduleBottomLines, runLimitations } from "../reportView";
+import { ModuleBottomLines, RunLimitations } from "./OverviewModules";
 
 const entry = (module: string): OutputEntry => ({
   output: {
@@ -62,4 +62,28 @@ it("draws each row's trace control beside its sentence, not alone on a line belo
   expect(first.parentElement).toBe(
     within(items[0] as HTMLElement).getByRole("link", { name: /^Source for / }).parentElement,
   );
+});
+
+it("names the module once per limitation group, with one trace control beside each limitation", () => {
+  const limitations = [
+    {
+      id: "CP-1",
+      name: "Financial foundation",
+      entry: entry("CP-1"),
+      text: "Interim only.",
+      line: 9,
+    },
+    { id: "CP-1", name: "Financial foundation", entry: entry("CP-1"), text: "No audit.", line: 12 },
+  ] as unknown as ReturnType<typeof runLimitations>;
+  render(<RunLimitations run={{ folder: "run" } as PublishedRun} rows={limitations} />);
+  expect(screen.getAllByText(/Financial foundation/)).toHaveLength(1);
+  expect(screen.getByText("Financial foundation (2)")).toBeInTheDocument();
+  for (const text of ["Interim only.", "No audit."]) {
+    const item = screen.getByText(text).closest("li") as HTMLElement;
+    expect(
+      within(item).getAllByRole("link", {
+        name: "Source for this limitation from Financial foundation",
+      }),
+    ).toHaveLength(1);
+  }
 });

@@ -93,6 +93,16 @@ afterEach(() => {
 });
 
 describe("connected library and report design", () => {
+  it("offers no sector filter when no listed issuer records a sector", async () => {
+    const snapshot = librarySnapshot() as unknown as Snapshot;
+    for (const entry of snapshot.catalogue.real) entry.sector = "";
+    useSnapshot(snapshot);
+    render(<ConnectedApp path="/" mode="synthetic" />);
+    expect(await screen.findByRole("heading", { name: "Northbridge" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Sector")).toBeNull();
+    expect(screen.getByLabelText("Pathway")).toBeInTheDocument();
+  });
+
   it("filters by sector and pathway and keeps filters available to reset an empty result", async () => {
     const snapshot = librarySnapshot() as unknown as Snapshot;
     const north = snapshot.workspace.runs.north;
