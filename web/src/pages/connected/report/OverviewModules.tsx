@@ -100,7 +100,7 @@ export function RunLimitations({
                 return (
                   <li
                     key={`${row.entry.output.id}:${String(row.line)}`}
-                    className="grid gap-1 border-t border-border-hairline pt-3 first:border-t-0 first:pt-0"
+                    className="flex items-start justify-start gap-3 border-t border-border-hairline pt-3 first:border-t-0 first:pt-0"
                   >
                     <p className="reading-copy text-body text-text-secondary">
                       {containsReference(row.text) ? (
@@ -111,16 +111,13 @@ export function RunLimitations({
                         richParts(row.text, readerText)
                       )}
                     </p>
-                    <div className="flex flex-wrap items-center gap-3 text-small text-text-tertiary">
-                      <span>{row.name}</span>
-                      <PublishedSource
-                        href={href}
-                        name={`this limitation from ${row.name}`}
-                        linkLabel={`Source for this limitation from ${row.name}`}
-                      >
-                        View source
-                      </PublishedSource>
-                    </div>
+                    <PublishedSource
+                      href={href}
+                      name={`this limitation from ${row.name}`}
+                      linkLabel={`Source for this limitation from ${row.name}`}
+                    >
+                      View source
+                    </PublishedSource>
                   </li>
                 );
               })}

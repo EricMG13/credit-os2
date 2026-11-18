@@ -1925,6 +1925,8 @@ describe("connected activity and reports", () => {
     render(<ConnectedApp path="/runs" mode="synthetic" />);
     expect(await screen.findByText("No run in progress")).toBeVisible();
     expect(screen.queryByRole("region", { name: "Ended without a report" })).toBeNull();
+    // The empty state says it once; three zero counts above it would say it again.
+    expect(screen.queryByText("Running", { selector: "dt" })).toBeNull();
   });
 
   it("says why a held run still reads running and shows the module the stop ended", async () => {
