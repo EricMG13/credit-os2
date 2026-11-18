@@ -11,6 +11,14 @@ state from the markers. A reservation with no ``.settled`` marker at load is a c
 charge: it stays held, is listed by ``unsettled``, and stops the run until settled or released
 (an operator step); no ``retry_of`` may name it.
 
+One ``Budget`` serves every module of a run that is in flight (CP-OS may run independent modules at
+once): its lock makes the cap check and the marker write one step, so spend plus open holds never
+passes the cap. A reserve that passes the cap only because another thread's hold is still open
+waits for a settlement and checks again; one that passes it on the settled spend and the caller's
+own holds is refused at once, as it always was. A hold its thread ended without settling
+(``abandon``, or a thread found dead while another waits for its hold) is left as a crash leaves
+it, so nobody waits for it for ever.
+
 Meaning of the numbers: ``reserved`` is the sum of unsettled holds; ``spent`` is the actual
 charges plus the full holds of unknown-charge calls. The cap check is
 ``reserved + spent + usd <= cap``.
@@ -64,6 +72,10 @@ _SETTLED = ".settled"
 # Money sums must be exact: a sum wider than the context raises instead of rounding.
 _EXACT = Context(prec=120, traps=[InvalidOperation, Inexact])
 _ID = re.compile(r"[A-Za-z0-9_-]+")
+# How often a reserve that waits for another thread's hold looks whether that thread is still
+# alive. A settlement, a release or ``abandon`` wakes it at once; this bounds only the wait for a
+# thread that died holding a reservation and told nobody.
+_OWNER_CHECK_S = 2  # seconds; a whole number: this module holds no float (money is Decimal)
 
 
 class BudgetError(RuntimeError):
@@ -324,6 +336,9 @@ class Budget:
         # ponytail: single-process runner. Add an exclusive flock on owner-run-audit/ if a second
         # process can share an Execution dir (two Budgets over one dir are not coordinated).
         self._lock = threading.Lock()
+        self._changed = threading.Condition(self._lock)  # a hold was settled, released or left
+        # open hold -> the thread that reserved it here
+        self._owners: dict[str, threading.Thread] = {}
         self._holds: dict[str, _Hold] = {}
         self._settled: dict[str, _Settlement] = {}
         self._crash_left: set[str] = set()
@@ -451,23 +466,63 @@ class Budget:
         if not isinstance(config_id, str) or not config_id:
             raise BudgetError("config_id must be a non-empty string")
         price_of(config_id)  # NoPrice for a configuration the table does not cover
-        with self._lock:
-            if retry_of is None:
-                reason = self._stops()
-                if reason is not None:
-                    raise RunStopped(f"the run is stopped: {reason}")
-            else:
-                self._check_retry(_call_id(retry_of))
-            committed = _add(_add(self._reserved(), self._spent()), amount)
-            if committed > self._cap:
-                raise BudgetExhausted(
-                    f"reserving {money_text(amount)} passes the cap {money_text(self._cap)}"
-                )
+        with self._changed:
+            while True:
+                self._orphan()
+                if retry_of is None:
+                    reason = self._stops()
+                    if reason is not None:
+                        raise RunStopped(f"the run is stopped: {reason}")
+                else:
+                    self._check_retry(_call_id(retry_of))
+                committed = _add(_add(self._reserved(), self._spent()), amount)
+                if committed <= self._cap:
+                    break
+                if not self._others_hold(amount):
+                    raise BudgetExhausted(
+                        f"reserving {money_text(amount)} passes the cap {money_text(self._cap)}"
+                    )
+                # nothing is held or written while waiting
+                self._changed.wait(_OWNER_CHECK_S)
             self._write(
                 self._dir / call_id,
                 {"usd": str(amount), "config_id": config_id, "retry_of": retry_of},
             )
             self._holds[call_id] = _Hold(amount, config_id, retry_of)
+            self._owners[call_id] = threading.current_thread()
+
+    def _orphan(self) -> None:
+        """A hold whose thread has ended without settling it will never be settled: it is left
+        as a crash leaves one (the run stops), exactly as ``abandon`` leaves it, so a reserve
+        never waits for a dead thread."""
+        dead = [c for c, owner in self._owners.items() if not owner.is_alive()]
+        for call_id in dead:
+            del self._owners[call_id]
+        self._crash_left.update(dead)
+
+    def _others_hold(self, amount: Decimal) -> bool:
+        """Whether ``amount`` passes the cap only because of holds other threads still have open:
+        it fits beside the settled spend and this thread's own open holds, which no wait frees.
+        A hold with no owner here (found at load) is the caller's to that end: it never settles."""
+        me = threading.current_thread()
+        mine = self._sum(
+            h.usd
+            for c, h in self._holds.items()
+            if c not in self._settled and self._owners.get(c, me) is me
+        )
+        return _add(_add(mine, self._spent()), amount) <= self._cap
+
+    def abandon(self) -> None:
+        """The calling thread's work has ended: a hold it reserved and never settled may have been
+        sent, so it is left as a crash leaves one (the run stops; settle it with its charge), and
+        whoever waits for it is told. Nothing is written: a reload reads it from the markers."""
+        me = threading.current_thread()
+        with self._changed:
+            left = [c for c, owner in self._owners.items() if owner is me]
+            for call_id in left:
+                del self._owners[call_id]
+            self._crash_left.update(left)
+            self._changed.notify_all()
 
     def _check_retry(self, retry_of: str) -> None:
         if self._retried():
@@ -487,6 +542,7 @@ class Budget:
             raise
         except OSError:
             self._faulted = True
+            self._changed.notify_all()  # the stop is sticky: nobody waits past it
             raise
 
     def settle(self, call_id: str, actual: Decimal | None, *, retryable: bool = False) -> None:
@@ -537,3 +593,5 @@ class Budget:
         )
         self._settled[call_id] = settlement
         self._crash_left.discard(call_id)
+        self._owners.pop(call_id, None)
+        self._changed.notify_all()

@@ -696,12 +696,65 @@ def answer(context: dict, plan_routes: list) -> str:
     return "\n".join(lines)
 
 
+ONE_WIDTH = "one_width"  # the marker of a test that cannot run a launch at two modules at once
+
+
+def pytest_generate_tests(metafunc):
+    """Run each launcher test that uses the fake provider at one module at a time and at two at
+    once. A test marked `one_width` makes no launch that reads the width (it refuses before the
+    module loop, or calls `run_live_handoffs` itself, whose default is one at a time), so it runs
+    once."""
+    if "provider" in metafunc.fixturenames:
+        once = metafunc.definition.get_closest_marker(ONE_WIDTH) is not None
+        widths = (1,) if once else (1, 2)
+        ids = [("one-at-a-time", "two-at-once")[width - 1] for width in widths]
+        metafunc.parametrize("provider", widths, indirect=True, ids=ids)
+
+
+def launched_widths(folder: Path) -> list[int]:
+    """The width of every launch recorded under ``folder`` (`launch_started`)."""
+    return [
+        event["modules_at_once"]
+        for log in sorted(folder.rglob("events.jsonl"))
+        for event in read_events(log)
+        if event["event"] == "launch_started"
+    ]
+
+
+def assert_called(provider, modules) -> None:
+    """The fake was called once for each of ``modules``: in plan order one module at a time;
+    with two in flight the calls of independent modules come in either order, so only which
+    modules were called is compared."""
+    called = tuple(c[0] for c in provider.calls)
+    if provider.width == 1:
+        assert called == tuple(modules)
+    else:
+        assert sorted(called) == sorted(modules)
+
+
 @pytest.fixture
-def provider(monkeypatch):
+def provider(monkeypatch, request, tmp_path):
     """Historical HTTP integration fake; it never creates a real transport or makes a request."""
     calls = []
     monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
+    # Each test that takes this fixture runs twice (`pytest_generate_tests`): one module at a time,
+    # the default, and two at once. The width is the launching environment's setting, so it reaches
+    # every launch the test makes through `main`. A two-at-once case must really have launched at
+    # that width, which is checked when the test ends.
+    width = getattr(request, "param", 1)  # another file that borrows the fixture runs it once
+    if width == 1:
+        monkeypatch.delenv(cpos_launch.PARALLEL_VARIABLE, raising=False)
+    else:
+        monkeypatch.setenv(cpos_launch.PARALLEL_VARIABLE, str(width))
+    provider.width = width
+    yield from _provider(monkeypatch, calls)
+    if width > 1:
+        assert width in launched_widths(tmp_path), (
+            f"no launch of this test ran at width {width}: mark it `{ONE_WIDTH}` with the reason"
+        )
 
+
+def _provider(monkeypatch, calls):
     # These old tests exercise ordering, persistence and delivery through the former HTTP route.
     # Keep that route local to the fixture; real CLI routing is covered by the Copilot tests below.
     monkeypatch.setattr(cpos, "_require_live_route", lambda config: None)
@@ -779,7 +832,7 @@ def provider(monkeypatch):
     provider.models = set()
     provider.reported = "fake"
     provider.answer = lambda context: pytest.fail("no answer set")
-    return provider
+    yield provider
 
 
 def launch(tmp_path: Path, *extra: str, pathway: str = "covenant_refinancing") -> list[str]:
@@ -1181,6 +1234,7 @@ def test_invalid_context_is_refused_with_its_problem(tmp_path, capsys):
     assert not (tmp_path / "out").exists()
 
 
+@pytest.mark.one_width  # refuses before the module loop: no launch reads the width
 def test_without_live_nothing_is_sent_and_the_plan_is_shown(tmp_path, provider, capsys):
     assert main(launch(tmp_path)) == 0
     printed = capsys.readouterr().out
@@ -1192,6 +1246,7 @@ def test_without_live_nothing_is_sent_and_the_plan_is_shown(tmp_path, provider, 
     assert "5.73" in printed  # The per-call hold, seen from the live budget.
 
 
+@pytest.mark.one_width  # refuses before the module loop: no launch reads the width
 @pytest.mark.parametrize("missing", ["ruling", "key", "config-not-in-ruling"])
 def test_live_gates_refuse_before_any_provider_call(
     tmp_path, provider, monkeypatch, capsys, missing
@@ -1337,6 +1392,7 @@ def test_cp_l10_is_a_prose_module_sent_the_reader_passages_and_its_own_method(tm
     assert "financial change screen" not in method.lower()
 
 
+@pytest.mark.one_width  # calls run_live_handoffs itself, which is one at a time
 def test_a_short_snapshot_still_runs_end_to_end_through_the_lower_level_functions(
     tmp_path, provider, capsys
 ):
@@ -1543,7 +1599,7 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
     completed = json.loads(next(out.glob("completed-*.json")).read_text())
     assert completed["cp_forecast_published"] is False and completed["forecast_failure"] is None
     assert completed["cp_model_published"] is False
-    assert tuple(c[0] for c in provider.calls) == LITE_MODULES
+    assert_called(provider, LITE_MODULES)
     receipt = next((out / "deliveries").glob("*/delivery.json"))
     assert verify_delivery(next(out.glob("delivery-*.json")), receipt.parent) == receipt
     delivered = json.loads(receipt.read_text())
@@ -1635,7 +1691,7 @@ def test_every_pathway_runs_end_to_end_to_a_verified_report(tmp_path, provider, 
     )
     assert main(argv) == 0
     out = tmp_path / "out"
-    assert tuple(c[0] for c in provider.calls) == PATHWAY_MODULES[pathway]
+    assert_called(provider, PATHWAY_MODULES[pathway])
     receipt = next((out / "deliveries").glob("*/delivery.json"))
     assert verify_delivery(next(out.glob("delivery-*.json")), receipt.parent) == receipt
     assert str(receipt) in capsys.readouterr().out
@@ -2574,6 +2630,7 @@ def test_cpdr_runs_one_method_text_the_cp_os_version_2_skill():
     assert "a gap row, which records a search that found nothing, takes `gap`" in text
 
 
+@pytest.mark.one_width  # calls run_live_handoffs itself, which is one at a time
 def test_cpdr_open_web_limit_is_conditional_on_the_web_search_rules(tmp_path, provider):
     """Named edit 2a. The skill said there is no open-web discovery in this host while the project
     offers `web_search` with WEB_SEARCH_RULES appended to the system text. The condition is named as
@@ -5274,6 +5331,7 @@ def test_the_forecast_tab_shows_the_model_only_for_the_run_that_published_one(
 UNFILLED = re.compile(r"\b(undefined|NaN|null|\[object Object\])\b")
 
 
+@pytest.mark.one_width  # calls run_live_handoffs itself, which is one at a time
 @pytest.mark.browser
 def test_a_short_snapshot_run_in_the_library_is_listed_with_its_label_and_cp_l10_leads_the_overview(
     tmp_path, provider, capsys
@@ -5401,7 +5459,7 @@ def test_a_lite_run_fills_the_library_pages_and_its_forecast_page_states_the_gap
     assert main(argv) == 0
     seen = capsys.readouterr()
     assert "Library not updated" not in seen.err and "Model not published" not in seen.err
-    assert tuple(c[0] for c in provider.calls) == LITE_MODULES
+    assert_called(provider, LITE_MODULES)
     text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
     data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
     assert data["workspace"]["runs"][RUN_ID]["pathway"] == "lite_credit_assessment"
@@ -5456,7 +5514,7 @@ def test_a_deep_run_is_delivered_and_listed_by_the_library_with_every_module(
     the launcher to the library's data, not any analysis."""
     data = _deep_run_in_the_library(tmp_path, provider, capsys)
     deep = PATHWAY_MODULES["deep_credit_assessment"]
-    assert tuple(c[0] for c in provider.calls) == deep
+    assert_called(provider, deep)
     run = data["workspace"]["runs"][RUN_ID]
     assert run["pathway"] == "deep_credit_assessment"
     held = {code for code, entry in run["modules"].items() if entry.get("outputs")}
@@ -5723,6 +5781,7 @@ def test_h_without_the_variable_no_file_is_written(tmp_path, monkeypatch):
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.one_width  # calls run_live_handoffs itself, which is one at a time
 def test_web_search_follows_the_ruling_and_reaches_only_the_research_module(
     tmp_path, provider, capsys
 ):

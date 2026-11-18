@@ -4,6 +4,38 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-18 — Modules at once: an opt-in, off by default
+
+- Scope: synthetic adapters and canned replies only, one shared Linux container. Nothing above
+  width 1 has run against a live provider; no Windows. Ruling:
+  `docs/rulings/2026-11-18-parallel-modules.md` (owner, 2026-11-18: "Parallel modules
+  permitted.").
+- Changed: CP-OS can run up to four modules whose producers are accepted at once
+  (`--parallel-modules`, `CREDIT_OS_PARALLEL_MODULES`). The default is 1. Modules start and are
+  accepted in plan order, one budget serves the run, and a reserve blocked only by another
+  module's open hold waits for it to settle.
+- Width 1, two independent reviews: 35 launches over 19 scenarios (clean, rejections, kills,
+  interrupts, overruns, cap stops, relaunches) leave the same run folder, library, stdout and
+  exit codes as before, apart from one new `launch_started` event that every reader ignores.
+- Width 2 to 4: the cap held in every stress (3,114 rounds, never above the cap; no call sent
+  twice), and accepted handoffs, deliveries and the library are byte-identical to width 1 over
+  14 seeded runs. Three review rounds found and closed: a module that started and paid after
+  another had failed; a cap stop reported as a provider failure; a running module shown stopped
+  after a relaunch; a hang after an observer stop; a budget wait on a hold whose thread had
+  ended; an interrupt that did not exit.
+- Known limits of the opt-in, each stated in the ruling: a module in flight when another fails
+  keeps its request without an answer and must be repaired too before the run resumes; a call
+  can still begin in the instant between a bad reply and its report (5 of 80 trials built to
+  hit it, within 0.05 ms median); a later module's result waits for the modules before it,
+  which a live provider has not been seen to tolerate.
+- Commands: `tools/quality_gate.py` 0 findings; `tests/test_cpos_parallel.py` (58) with the
+  handoff, model, inbox, run page and proof files 1,453 passed; `tests/test_cpos_launch.py` and
+  the run start scheduler and service 1,172 passed. The reviewer's reproductions for the last
+  four findings were run again on the final commit: hang gone (1.1 s), second interrupt exits
+  in 1.3 s, no start after a bad reply, no call after its report.
+- Not verified: any live run above width 1; two sessions on one seat; Windows locks. The last
+  fix round was checked against its four findings only, not by a further open review.
+
 ## 2026-11-18 — Connected pages: first draw and report redraws
 
 - Scope: headless Chromium only, the two-run synthetic workspace, one shared Linux container.
@@ -960,24 +992,3 @@ Scope: presentation only, all under `web/`; no backend, handoff, provider or mod
 - This is source-snapshot proof, not Windows or archive acceptance. The held ZIP
   was not regenerated or published; release still requires Chrome and Edge passes
   on the Windows work PC. Oldest complete entries trimmed; git retains them.
-
-## 2026-11-16 — Two requested Fallow findings resolved
-
-- Verified both findings with `fallow inspect --file` for
-  `scripts/connected-proof.mjs` and `src/pages/connected/report/Forecast.tsx`.
-  Separated the forecast's recorded bridge validation from its rendering;
-  split the browser proof into debt, portfolio, forecast and Evidence checks.
-  No suppression or threshold change. Fallow audit against `b3a607f` PASS:
-  zero introduced findings, four inherited findings remain outside this request.
-- Confidence review checked zero versus missing values, unit identity,
-  duplicate or absent rows, nonfinite values, source line identity and proof
-  ordering. Nine new rendering cases plus existing Forecast tests pass (15).
-  AST comparison confirms all 45 assertions/waits from the original checkCharts
-  remain exact. TypeScript, ESLint, Prettier and changed-code quality gate pass.
-- Built staged source tree `ed759e0477d3c685619568dc160b7631368b0dbe` in an isolated
-  directory using installed pinned dependencies. Chrome 157.0.8103.78 run
-  `20261116-023941-01` and Edge 157.0.4341.60 run `20261116-023955-01` each passed
-  all 30 synthetic checks on macOS. Proof: `proof-artifacts/run-z6RLzy/proof.json`.
-  This is source-snapshot proof; the previously held ZIP was not regenerated.
-- RBOT-HTML and pins still match `256101a`; React lock unchanged. Windows work
-  PC acceptance remains pending. No ZIP publication, Signal work or tournaments.

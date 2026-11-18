@@ -6,6 +6,7 @@ replays and verify scripts pass nothing and so never gain this file.
 
 import json
 import os
+import threading
 import warnings
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
@@ -17,6 +18,9 @@ from deploy_workflow.model.adapter import LivePauseInForce
 from deploy_workflow.model.budget import BudgetExhausted, OverrunStop, RunStopped
 
 EVENTS = "events.jsonl"
+# One append at a time in this process: modules in flight at once each write events, and a failed
+# write is cut back to the size the file had before it, which must not be another thread's line.
+_APPENDING = threading.Lock()
 
 # A module's (or the Report's) state in a run, as `progress` reads it from the log.
 ModuleState = Literal["waiting", "running", "done", "stopped"]
@@ -37,25 +41,36 @@ def _ended(states: Mapping[str, ModuleState]) -> dict[str, ModuleState]:
 
 
 def progress(events: Iterable[Mapping[str, Any]]) -> Progress:
-    """The one reading of the log, in order. CP-OS runs one module at a time, so a module runs
-    from ``module_started`` until ``module_accepted`` (done), or until the run's ``stopped``, the
-    next ``module_started`` or ``delivery_started`` (stopped: it was not finished; a CP-8 not
-    produced is one). The Report entry likewise runs from ``delivery_started`` until ``delivered``
-    or ``stopped``. One log spans every launch of a run folder, so a later start (a relaunch) runs
-    a module again and ends the earlier stop."""
+    """The one reading of the log, in order. A module runs from ``module_started`` until
+    ``module_accepted`` (done), or until the run's ``stopped`` or ``delivery_started`` (stopped: it
+    was not finished; a CP-8 not produced is one). The Report entry likewise runs from
+    ``delivery_started`` until ``delivered`` or ``stopped``. One log spans every launch of a run
+    folder, so a later start (a relaunch) runs a module again and ends the earlier stop.
+
+    A launch that was killed wrote no ``stopped``, so what it left running must end when the next
+    launch begins. A launch writes ``launch_started`` before it starts anything: that ends what
+    was running, and from then on another module's ``module_started`` ends nothing, because CP-OS
+    may run independent modules at once. A log written before that event existed has none, and
+    is read as it always was: every ``module_started`` ends the module running before it, which
+    is right for the one-at-a-time loop that wrote it."""
     modules: dict[str, ModuleState] = {}
     report: ModuleState = "waiting"
     delivered = False
     stop: str | None = None
+    launches = False  # the log names its launches
     for event in events:
         name = event.get("event")
-        if name == "stopped":
-            stop = str(event.get("reason", ""))
+        if name in ("stopped", "launch_started"):
             modules = _ended(modules)
             report = "stopped" if report == "running" else report
+            if name == "stopped":
+                stop = str(event.get("reason", ""))
+            else:
+                launches = True
         elif name == "module_started":
-            modules, stop = _ended(modules), None
-            modules[str(event.get("module"))] = "running"
+            if not launches:
+                modules = _ended(modules)
+            modules[str(event.get("module"))], stop = "running", None
         elif name == "module_accepted":
             modules[str(event.get("module"))] = "done"
         elif name == "delivery_started":
@@ -77,7 +92,7 @@ def append_event(directory: Path, event: str, **fields: str | int) -> None:
     line = (json.dumps(record) + "\n").encode("ascii")
     try:
         directory.mkdir(parents=True, exist_ok=True)
-        with (directory / EVENTS).open("ab", buffering=0) as handle:
+        with _APPENDING, (directory / EVENTS).open("ab", buffering=0) as handle:
             before = handle.tell()  # append mode opens at the end
             try:
                 if handle.write(line) != len(line):  # unbuffered: a short write is a torn line

@@ -100,6 +100,8 @@ from deploy_workflow.workflow import _put
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
+
     from deploy_workflow.owners.cpos import HandoffTask
 
 Check = Callable[["HandoffTask", bytes], tuple[str, ...]]
@@ -1173,6 +1175,27 @@ def _searched_queries(turn: Turn) -> list[str]:
     return queries
 
 
+class _PerModule[T]:
+    """An executor attribute kept per thread. CP-OS may run independent modules at once, each on
+    its own thread through the one executor; what a module run has seen (its digest, its session's
+    compactions, its search check) is that thread's alone and is never read from another."""
+
+    def __init__(self, default: Callable[[], T]) -> None:
+        self._default = default
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self._name = name
+
+    def __get__(self, executor: HandoffExecutor, owner: type | None = None) -> T:
+        held: dict[str, T] = executor._module.__dict__
+        if self._name not in held:
+            held[self._name] = self._default()
+        return held[self._name]
+
+    def __set__(self, executor: HandoffExecutor, value: T) -> None:
+        executor._module.__dict__[self._name] = value
+
+
 def _handoff_transport(directory: Path, copilot: bool) -> str | None:
     path = directory / "loop.json"
     if not path.exists():
@@ -1188,7 +1211,24 @@ def _handoff_transport(directory: Path, copilot: bool) -> str | None:
 
 
 class HandoffExecutor:
-    """One bounded module at a time; no routing, delivery, or automatic provider retry."""
+    """One bounded module per call; no routing, delivery, or automatic provider retry.
+
+    Calls may overlap, one per thread, when CP-OS runs independent modules at once. They share the
+    folder's writer lock, the one ``Budget`` (so the cap holds across them), the call log, the
+    redactor and the adapter. The Copilot adapter serves every call from its one loop thread and
+    keeps a separate runtime client and session for each module's digest. Everything a module run
+    has seen is per thread (``_PerModule``)."""
+
+    # The first completed compaction of the module this thread ran last: the GitHub Copilot
+    # runtime summarised the session's context, so the handoff it wrote may rest on a summary.
+    written_after_compaction = _PerModule[Compaction | None](lambda: None)
+    # what the module run in progress on this thread has seen of the runtime's compactions
+    _digest = _PerModule[str | None](lambda: None)
+    _last_call = _PerModule[int](lambda: 0)
+    _starts = _PerModule[dict[str, tuple[int, int | None]]](dict)  # attempt -> (call, tokens)
+    _ended = _PerModule[set[str]](set)  # attempts that reported a completion (charged or not)
+    _reported = _PerModule[set[str]](set)  # starts already disclosed as uncharged
+    _query_check = _PerModule[tuple[Mapping[str, str], str] | None](lambda: None)
 
     def __init__(  # noqa: PLR0913 -- keyword-only run limits, one of them the optional event folder
         self,
@@ -1226,7 +1266,8 @@ class HandoffExecutor:
         # investor-relations hosts, ``lookup_cutoff`` the run's research cutoff (the as-of date
         # of the first task when the caller gives none) and ``lookup_runtime`` the injected network
         # for tests. The run keeps ONE WebLookup: its sec.gov pacing is per instance, and it has no
-        # lock, which holds because the tool loop makes one call at a time.
+        # lock, which holds because the tool loop makes one call at a time and one module alone
+        # (``WEB_LOOKUP_MODULES``) is offered it, so two modules in flight never share it.
         if web_lookup not in ("on", "off"):
             raise ValueError("web_lookup must be on or off: the caller resolves default first")
         if bad := [h for h in web_hosts if bare_host_problem(h)]:
@@ -1243,7 +1284,10 @@ class HandoffExecutor:
         ):
             raise ValueError(f"effort_by_module refused for {self.config.model}: {bad}")
         self.effort_by_module: Mapping[str, str] = MappingProxyType(efforts)
-        self._query_check: tuple[Mapping[str, str], str] | None = None
+        self._module = threading.local()  # the ``_PerModule`` attributes of each thread
+        self._gate = threading.Lock()  # guards the two below
+        self._in_flight = 0  # module runs between entering and leaving ``__call__``
+        self._writer: AbstractContextManager[None] | None = None  # the folder lock they share
         self.directory, self.adapter, self.check = directory, adapter, check
         self.events = events
         self.notice = (
@@ -1254,15 +1298,6 @@ class HandoffExecutor:
         self.budget = Budget(cap_usd, directory)
         self.log = CallLog(directory, self.redactor)
         self.handoff_transport = _handoff_transport(directory, self.config.provider == "copilot")
-        # The first completed compaction of the module run last: the GitHub Copilot runtime
-        # summarised the session's context, so the handoff it wrote may rest on a summary.
-        self.written_after_compaction: Compaction | None = None
-        # what the module run in progress has seen of the runtime's compactions
-        self._digest: str | None = None
-        self._last_call = 0
-        self._starts: dict[str, tuple[int, int | None]] = {}  # attempt -> (call, tokens at start)
-        self._ended: set[str] = set()  # attempts that reported a completion (charged or not)
-        self._reported: set[str] = set()  # starts already disclosed as uncharged
         # the settled module runs whose session the adapter keeps until it is closed
         self._sessions: list[_Session] = []
         _put(
@@ -1420,19 +1455,67 @@ class HandoffExecutor:
         return (WEB_PAGES_UNREADABLE,) if unreadable and issues else issues
 
     def __call__(self, task: HandoffTask) -> bytes:
-        with _single_writer(self.directory):
-            # Reload only after acquiring the writer lock: a second executor may
-            # have been constructed before the preceding module settled its spend.
-            self.budget = Budget(self.budget.cap_usd, self.directory)
+        self._enter()
+        try:
             return self._run(task)
+        finally:
+            self._leave()
+
+    def _enter(self) -> None:
+        """Take the folder's writer lock and load the budget for the first module run in flight;
+        one that overlaps it shares both. One module at a time therefore locks and reloads for
+        every call, as it always did. Overlapping runs cannot each take the lock (the second would
+        be refused as another run) and must share one budget, or the cap would be checked against
+        half the holds."""
+        with self._gate:
+            if self._in_flight == 0:
+                writer = _single_writer(self.directory)
+                writer.__enter__()
+                try:
+                    # Reload only after acquiring the writer lock: a second executor may
+                    # have been constructed before the preceding module settled its spend.
+                    self.budget = Budget(self.budget.cap_usd, self.directory)
+                except BaseException:
+                    writer.__exit__(None, None, None)
+                    raise
+                self._writer = writer
+            self._in_flight += 1
+
+    def _leave(self) -> None:
+        """The last module run in flight lets the writer lock go."""
+        with self._gate:
+            self._in_flight -= 1
+            writer = self._writer
+            if self._in_flight == 0 and writer is not None:
+                self._writer = None
+                writer.__exit__(None, None, None)
 
     def _run(self, task: HandoffTask) -> bytes:
         self._digest, self._last_call = None, 0
         self._starts, self._ended, self._reported = {}, set(), set()
         try:
             return self._run_module(task)
+        except Exception as error:
+            # Told now, before the session is drained below (the drain may take seconds): CP-OS
+            # starts no module and lets no other module send a call on a failure it has not heard.
+            task.failed(error)
+            raise
         finally:
-            self._finish_module(task)
+            try:
+                self._finish_module(task)
+            finally:
+                # A hold this module left unsettled is an unknown charge: no other module in
+                # flight waits for it, and the run stops, as a relaunch reading the markers would.
+                self.budget.abandon()
+
+    def _hold(self, task: HandoffTask, call_id: str, usd: Decimal) -> None:
+        """Reserve one exchange's hold. Not for a module the run can no longer accept
+        (``HandoffTask.proceed`` raises): asked before the hold, and again after it, since the
+        reserve may have waited for another module's settlement; that hold is then released, the
+        call it was for not sent."""
+        task.proceed()
+        self.budget.reserve(call_id, usd, config_id=self.adapter.config_id)
+        self._last_look(task, call_id)
 
     def _run_module(self, task: HandoffTask) -> bytes:
         if task.draft is not None and self.redactor.bytes_(task.draft) != task.draft:
@@ -1800,6 +1883,25 @@ class HandoffExecutor:
                     reason=reason,
                 )
 
+    def _last_look(self, task: HandoffTask, call_id: str) -> None:
+        """Asked once more immediately before the call is handed to the adapter (the hold and the
+        turn event were written since ``_hold`` asked): a module the run can no longer accept
+        releases its hold and sends nothing. A call handed over before the launch stopped
+        cannot be recalled; it is settled when it returns."""
+        try:
+            task.proceed()
+        except BaseException:
+            self.budget.release(call_id)
+            raise
+
+    @staticmethod
+    def _known_failed(task: HandoffTask, known: bool, what: str) -> None:
+        """An exchange is known to end the module's run (``_turn`` raises at its end). CP-OS is
+        told at once, before the reply is priced, settled and logged, so that no other module
+        starts or begins a call meanwhile; the failure CP-OS raises is the one ``_turn`` raises."""
+        if known:
+            task.failed(RuntimeError(f"cpos_live_stopped: {what}"))
+
     def _turn(
         self, task: HandoffTask, folder: Path, digest: str, index: int, request: TurnRequest
     ) -> Turn:
@@ -1813,7 +1915,7 @@ class HandoffExecutor:
             self.adapter.config_id, len(raw_request), request.max_output_tokens
         )
         call_id = f"call-{uuid4().hex}"
-        self.budget.reserve(call_id, reserved, config_id=self.adapter.config_id)
+        self._hold(task, call_id, reserved)
         if self.events is not None:
             append_event(
                 self.events,
@@ -1825,6 +1927,7 @@ class HandoffExecutor:
                 held_usd=str(reserved),
                 cap_usd=str(self.budget.cap_usd),
             )
+        self._last_look(task, call_id)
         started = time.time()
         self._last_call = index
         try:
@@ -1843,6 +1946,7 @@ class HandoffExecutor:
                 time.time(),
                 message=self._fault_text(exc),
             )
+        self._known_failed(task, reply.kind != "ok", reply.kind)
         reply = self._fresh(reply)
         received, failure = _caught(partial(self._receive, reply))
         fault: str | None = None  # one line, for the stop message
@@ -1858,6 +1962,8 @@ class HandoffExecutor:
             turn, usage, priced = received
         actual = _charge(reply, priced, turn, search_hold)
         fault_class = reply.error_class if reply.kind != "ok" else "BadTurn"  # as loop.py
+        # an ``ok`` reply that cannot be used ends the run too
+        self._known_failed(task, turn is None or actual is None, f"{reply.kind}; charge={actual}")
         overrun = False
         try:
             if reply.kind == "not_sent":
@@ -1866,6 +1972,7 @@ class HandoffExecutor:
                 self.budget.settle(call_id, actual)
         except OverrunStop:
             overrun = True
+            self._known_failed(task, overrun, f"{reply.kind}; overrun=True")
         self.log.append(
             CallRecord.build(
                 self.redactor,

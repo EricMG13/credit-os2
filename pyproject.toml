@@ -42,7 +42,11 @@ dev = ["pytest==9.1.1", "ruff==0.17.1", "mypy==2.4.0", "hypothesis==6.170.5", "i
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers"
-markers = ["live: paid/provider execution; paused", "browser: real browser proof"]
+markers = [
+    "live: paid/provider execution; paused",
+    "browser: real browser proof",
+    "one_width: a fake-provider launcher test that makes no launch at two modules at once",
+]
 
 [tool.ruff]
 target-version = "py313"

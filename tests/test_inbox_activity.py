@@ -93,8 +93,9 @@ def test_a_stop_ends_the_running_module_and_a_relaunch_runs_it_again():
 
 
 def test_one_module_runs_at_a_time_and_delivery_ends_one_not_produced():
-    """CP-OS runs modules in turn: a start ends the one before it (a launch killed mid-module and
-    relaunched), and delivery ends one still running (CP-8 not produced, which the run survives)."""
+    """A log with no `launch_started` was written by the one-at-a-time loop: a start ends the
+    module before it (a launch killed mid-module and relaunched), and delivery ends one still
+    running (CP-8 not produced, which the run survives)."""
     events = [
         {"event": "module_started", "module": "CP-0"},
         {"event": "module_started", "module": "CP-1"},  # the relaunch after a kill
@@ -109,6 +110,26 @@ def test_one_module_runs_at_a_time_and_delivery_ends_one_not_produced():
     ]
     states = dict(module_states("relative_value", cp8))
     assert (states["CP-8"], states["Report"]) == ("stopped", "done")
+
+
+def test_a_launch_that_records_its_start_may_run_modules_at_once():
+    """`launch_started` ends what a killed launch left running; after it another module's start
+    ends nothing, because independent modules may be in flight together."""
+    launch = {"event": "launch_started", "modules_at_once": 2}
+    events = [
+        launch,
+        {"event": "module_started", "module": "CP-0"},
+        {"event": "module_accepted", "module": "CP-0"},
+        {"event": "module_started", "module": "CP-1"},
+        {"event": "module_started", "module": "CP-1A"},
+    ]
+    states = dict(module_states("relative_value", events))
+    assert (states["CP-0"], states["CP-1"], states["CP-1A"]) == ("done", "running", "running")
+    states = dict(module_states("relative_value", [*events, launch]))  # killed, then relaunched
+    assert (states["CP-0"], states["CP-1"], states["CP-1A"]) == ("done", "stopped", "stopped")
+    again = [*events, launch, *events[1:]]  # the relaunch has both in flight again
+    states = dict(module_states("relative_value", again))
+    assert (states["CP-0"], states["CP-1"], states["CP-1A"]) == ("done", "running", "running")
 
 
 def test_spend_counts_settled_charges_and_full_unknown_holds(tmp_path):

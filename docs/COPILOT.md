@@ -50,6 +50,33 @@ uv run python -m deploy_workflow.owners.cpos_launch --context ... --sources ... 
   --config copilot-luna-xhigh --cap 25 --out runs/example
 ```
 
+A run keeps one module in flight at a time. `--parallel-modules N`, or
+`CREDIT_OS_PARALLEL_MODULES=N` in the launching environment (the run start
+service passes no flag), lets CP-OS keep up to `N` independent modules in flight
+at once, `N` from 2 to 4 (`docs/rulings/2026-11-18-parallel-modules.md`). Modules
+still start and are accepted in plan order, and the run's cap covers all of them:
+a call that would pass the cap only because another module's hold is open waits
+for that call to settle. The adapter serves every call from one loop thread and
+gives each module its own runtime client and session, so a run at width `N` holds
+up to `N` sessions on the seat.
+
+A width above 1 has not been run against a live provider. Not checked: several
+sessions of one run on one seat, the seat's rate limits, and a tool result that
+waits for an earlier module (a handler the runtime drops ends as an unknown
+charge, which stops the run). Leave the setting unset until a separately
+authorized paid run has checked them.
+
+At a width above 1 a stopped run can need more repair than one at a time. When a
+module fails, a later module already in flight is halted with its request sent and
+no answer kept. After the failed module is repaired, the relaunch stops with
+`cpos_interrupted: response not retained for <module>` at each such module:
+repair it the same way (a changed instruction gives it a new request) or start a
+new run folder. Nothing is sent or charged twice. Ctrl-C at a width above 1 waits
+for the calls already out to return before the launcher exits. A second Ctrl-C
+exits at once and abandons those calls: their holds stay open, as after a kill,
+and the relaunch stops on them as it does after a kill. The ruling lists every
+known difference.
+
 Add `--live --ruling docs/rulings/<file>.md` only for a separately authorized
 paid CLI run. The ruling must name the configuration. In the connected app,
 Submit on the approved summary authorizes the run at the displayed pathway

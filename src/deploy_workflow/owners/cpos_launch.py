@@ -108,6 +108,8 @@ from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
 from deploy_workflow.owners import cpos_forecast
 from deploy_workflow.owners.cpos import (
     _require_live_route,
+    MAX_MODULE_WIDTH,
+    MODULE_WIDTH,
     WEB_SEARCH_GRANT,
     HandoffPlan,
     HandoffTask,
@@ -1839,11 +1841,40 @@ def _parser() -> argparse.ArgumentParser:
         help="send high effort to the balanced effort map's modules in this run",
     )
     parser.add_argument(
+        "--parallel-modules",
+        type=int,
+        choices=range(1, MAX_MODULE_WIDTH + 1),
+        help="independent modules in flight at once, each one provider session: default "
+        f"{MODULE_WIDTH} (one at a time), or {PARALLEL_VARIABLE} when set; above 1 has not "
+        "been run against a live provider",
+    )
+    parser.add_argument(
         "--no-library",
         action="store_true",
         help="do not rebuild the library; the run start service does",
     )
     return parser
+
+
+# The launching environment's setting for --parallel-modules, so the run start service, which
+# passes no such flag, can be given a width above one without a code change. Unset, a run keeps
+# one module at a time.
+PARALLEL_VARIABLE = "CREDIT_OS_PARALLEL_MODULES"
+
+
+def module_width(asked: int | None, environ: Mapping[str, str]) -> int:
+    """How many modules the run keeps in flight: the flag, else the environment's setting, else
+    the default. A setting outside 1 to the maximum is refused, never rounded."""
+    if asked is not None:
+        return asked
+    text = environ.get(PARALLEL_VARIABLE, "").strip()
+    if not text:
+        return MODULE_WIDTH
+    if not text.isascii() or not text.isdigit() or not 1 <= int(text) <= MAX_MODULE_WIDTH:
+        raise LaunchRefused(
+            f"{PARALLEL_VARIABLE} must be a whole number from 1 to {MAX_MODULE_WIDTH}, not {text!r}"
+        )
+    return int(text)
 
 
 def update_library_at(workspace: Path) -> Any:
@@ -1923,6 +1954,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
         if args.live and not allow_live:
             raise LaunchRefused("the embedded Windows launcher supports offline preparation only")
         _check_cli_route(args.config, args.live, args.ruling)
+        width = module_width(args.parallel_modules, os.environ)
         if args.balanced and args.high_modules:
             raise LaunchRefused("--balanced and --high-modules cannot be combined")
         if args.balanced or args.high_modules:
@@ -1975,6 +2007,12 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
     if not args.live:
         print("No provider was called. Add --live --ruling <file> to start the paid run.")
         return 0
+    if width > 1:
+        print(
+            f"Parallel: up to {width} independent modules at once, as asked "
+            f"(--parallel-modules or {PARALLEL_VARIABLE}); the default is one at a time",
+            flush=True,
+        )
     try:
         receipt = run_live_handoffs(
             prepared.manifest,
@@ -1990,6 +2028,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
             web_lookup=lookup,
             web_hosts=tuple(args.web_host),
             lookup_cutoff=effective_cutoff(prepared.plan.run.as_of, context.run.cutoff),
+            module_width=width,
         )
     except (ValueError, RuntimeError) as error:
         print(
