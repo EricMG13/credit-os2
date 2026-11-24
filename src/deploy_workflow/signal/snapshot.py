@@ -43,6 +43,9 @@ OLDER = 90
 # Bytes the group part and the stories deliver together (the group part spends first, within its
 # own budgets); everything else the snapshot holds is small and bounded by the store's limits.
 STORY_AND_GROUP_BUDGET = 2304 << 10  # 2.25 MiB
+SNAPSHOT_BUDGET = 2816 << 10  # 2.75 MiB: all but the digests (bounded by their own limits)
+HEADLINE_LIMIT = 500  # characters; a feed's title has no limit of its own
+MAX_LINK = 2048  # a longer link is delivered as no link
 _THREAD_FIELDS = 1024  # at most what sharedBy, commentCount and threadRef add to a card
 _MAIN = ("saved", "for-you", "latest")
 _WEEK = timedelta(days=7)
@@ -93,7 +96,10 @@ def build(
         sources = _sources(checked, now, named=user is not None)
         held = _Cards(db, user, now)
         parts = group_view.build(db, user, now, focus=focus.thread, story_cost=held.cost)
-        stories, views = _stories_and_views(held, listed, parts, focus.topic)
+        channels = _channels(db, user, listed)
+        settings = _settings(db, listed, sources, now)
+        rest = group_view.encoded_size([channels, settings])
+        stories, views = _stories_and_views(held, listed, parts, (focus.topic, rest))
         feed = {
             "status": "ready",
             "error": None,
@@ -104,9 +110,8 @@ def build(
             "views": {key: views.pop(key) for key in ("for-you", "latest", "saved")},
             "topics": views,
         }
-        channels = _channels(db, user, listed)
+        _blank_counts(channels, feed)
         channels["groups"] = parts.channels
-        settings = _settings(db, listed, sources, now)
         settings["groups"] = parts.settings_groups
         settings["rules"] = group_view.rules(db)
         settings["notifications"] = group_view.notifications(db, user)
@@ -181,6 +186,15 @@ def _view(ids: list[int], rank: Callable[[list[int]], list[int]] | None = None) 
     }
 
 
+def _headline(title: str) -> str:
+    """A title as stored, or, past HEADLINE_LIMIT characters, cut at a space with an ellipsis."""
+    if len(title) <= HEADLINE_LIMIT:
+        return title
+    head = title[:HEADLINE_LIMIT]
+    cut = head.rsplit(" ", 1)[0] if " " in head else head
+    return cut.rstrip() + "\u2026"
+
+
 def _story(db: sqlite3.Connection, card: feedview.Card, now: datetime, threaded: Json) -> Json:
     """`threaded` holds the story's sharedBy, commentCount and threadRef (group_view)."""
     others = feedview.other_sources(db, card.id)
@@ -191,12 +205,12 @@ def _story(db: sqlite3.Connection, card: feedview.Card, now: datetime, threaded:
             "monograms": [monogram(name) for name in others[:3]],
             "more": f"+{len(others) - 3}" if len(others) > 3 else None,
         }
-    web = card.link.lower().startswith(("http://", "https://"))
+    web = card.link.lower().startswith(("http://", "https://")) and len(card.link) <= MAX_LINK
     return {
         "id": str(card.id),
         "kind": card.kind,
         "kindLabel": _KIND[card.kind],
-        "headline": card.title,
+        "headline": _headline(card.title),
         "url": card.link if web else None,
         "source": {"name": card.source, "monogram": monogram(card.source)},
         "time": _capital(ago(datetime.fromisoformat(card.published_at), now)),
@@ -238,16 +252,28 @@ class _Cards:
 
 
 def _priority(held: dict[str, list[int]], focused: str | None) -> list[int]:
-    """The order stories are paid in: the newest SHOWN of Saved, For you and Latest; the focused
-    topic's whole list; the other topics' newest, one of each in turn; then the older stories
-    of the three main views, one of each in turn."""
+    """The order stories are paid in: the newest of Saved, For you and Latest; the focused topic's
+    whole list; the newest of every other topic; the rest of the three main views' SHOWN; the
+    other topics' SHOWN, one of each in turn; then the main views' older stories, likewise."""
     main = [held[key] for key in _MAIN]
     topics_ = [ids for key, ids in held.items() if key not in _MAIN and key != focused]
-    order = [n for ids in main for n in ids[:SHOWN]]
+    order = [ids[0] for ids in main if ids]
     order += held[focused] if focused is not None else []
-    order += [ids[i] for i in range(SHOWN) for ids in topics_ if i < len(ids)]
+    order += [ids[0] for ids in topics_ if ids]
+    order += [n for ids in main for n in ids[1:SHOWN]]
+    order += [ids[i] for i in range(1, SHOWN) for ids in topics_ if i < len(ids)]
     order += [ids[i] for i in range(SHOWN, SHOWN + OLDER) for ids in main if i < len(ids)]
     return order
+
+
+def _blank_counts(channels: Json, feed: Json) -> None:
+    """A count beside a view that the size bound left empty is not delivered (the reader never
+    shows a count beside an empty list): a topic's, and the Saved badge."""
+    for topic in channels["topics"]:
+        if topic["count"] != "0" and not feed["topics"][topic["id"]]["latest"]:
+            topic["count"] = None
+    if channels["savedCount"] != "0" and not feed["views"]["saved"]["latest"]:
+        channels["savedCount"] = None
 
 
 def _paid(order: list[int], costs: dict[int, int], free: set[int], left: int) -> set[int]:
@@ -264,13 +290,18 @@ def _paid(order: list[int], costs: dict[int, int], free: set[int], left: int) ->
 
 
 def _stories_and_views(
-    held_cards: _Cards, listed: list[sqlite3.Row], parts: group_view.Parts, topic: int | None
+    held_cards: _Cards,
+    listed: list[sqlite3.Row],
+    parts: group_view.Parts,
+    asked: tuple[int | None, int],
 ) -> tuple[list[Json], dict[str, Json]]:
     """Every story a view or a delivered thread names, newest first, and each view's ids: the
     three fixed views by name and one per topic by its id. A viewer with no name has no stories
-    and empty views. The stories share STORY_AND_GROUP_BUDGET with the group part, which spent
-    its part first."""
+    and empty views. `asked` is the focused topic and the bytes the rest of the snapshot takes.
+    The stories share STORY_AND_GROUP_BUDGET with the group part, which spent its part first;
+    with the rest they stay within SNAPSHOT_BUDGET."""
     db, user, now = held_cards.db, held_cards.user, held_cards.now
+    topic, rest = asked
     names = {"for-you": "foryou", "latest": "latest", "saved": "saved"}
     names.update({str(row["id"]): f"topic:{row['id']}" for row in listed})
     if user is None:
@@ -286,7 +317,7 @@ def _stories_and_views(
         if (card := held_cards.story(n, parts.on_story.get(n, {}))) is not None
     }
     costs = {n: group_view.encoded_size(card) for n, card in built.items()}
-    left = STORY_AND_GROUP_BUDGET - parts.spent
+    left = min(STORY_AND_GROUP_BUDGET, SNAPSHOT_BUDGET - rest) - parts.spent
     chosen = _paid(_priority(held, focused), costs, free & set(built), left)
     cards = sorted((held_cards.found[n] for n in chosen), key=lambda c: (c.published_at, c.id))
     published = {card.id: card.published_at for card in reversed(cards)}

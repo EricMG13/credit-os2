@@ -135,3 +135,121 @@ def test_a_group_holds_at_most_a_thousand_threads(db):
     with pytest.raises(Conflict) as refused:
         threads.share(db, INES, desk, threads.Item(None, "one more"), NOW)
     assert str(refused.value) == "this group holds 1,000 threads, the most it can hold"
+
+
+# The worst reachable store
+
+
+LETTER = "\U0001d504"  # a letter of four UTF-8 bytes
+
+
+def _long(prefix: str, length: int) -> str:
+    return (prefix + LETTER * length)[:length]
+
+
+def _seed_stories(db: sqlite3.Connection) -> list[int]:
+    """One source; 50 topics (names, 12 keywords at their limits) each with 120 stories of its
+    own; 120 newer stories in no topic; 120 older ones in every topic, saved by Mara L, who
+    follows every topic. Titles of 1,000 characters, summaries at their 300, links of 2,000.
+    Returns the ids of the stories in no view (for the group threads to share)."""
+    db.execute(
+        "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+        " VALUES(?, 'news', 'https://wire.example/feed', 'approved', 'Mara L', ?)",
+        (_long("", 80), _stamp(days=30)),
+    )
+    keywords = json.dumps([_long(f"{k:02d}", 60) for k in range(12)], ensure_ascii=False)
+    db.executemany(
+        "INSERT INTO topics(name, keywords, kinds, created_by, created_at) VALUES(?, ?, '[]', ?, ?)",
+        [(_long(f"{t:02d}", 80), keywords, "Mara L", _stamp(days=30)) for t in range(50)],
+    )
+    db.executemany(
+        "INSERT INTO topic_follows(user_name, topic_id) VALUES('Mara L', ?)",
+        [(t,) for t in range(1, 51)],
+    )
+    rows = []
+    for n in range(120 + 50 * 200 + 120):
+        title, link = _long(f"{n:05d} ", 1000), f"https://wire.example/{n:05d}/" + "a" * 2000
+        rows.append((title, link, link, f"key {n}", _stamp(minutes=n), _long("", 300)))
+    db.executemany(
+        "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+        " fetched_at, summary) VALUES(1, ?, ?, ?, ?, ?, ?5, ?)",
+        rows,
+    )
+    pairs = [(1 + (n - 120) // 200, n + 1) for n in range(120, 120 + 50 * 200)]
+    old = range(120 + 50 * 200 + 1, 120 + 50 * 200 + 121)
+    pairs += [(t, s) for s in old for t in range(1, 51)]
+    db.executemany("INSERT INTO topic_stories(topic_id, story_id) VALUES(?, ?)", pairs)
+    db.executemany(
+        "INSERT INTO saves(user_name, story_id, saved_at) VALUES('Mara L', ?, ?)",
+        [(s, _stamp()) for s in old],
+    )
+    # Each topic's stories 121 to 200 are in no view (its newest 120 are the most any holds).
+    return [120 + t * 200 + k + 1 for t in range(50) for k in range(120, 200)]
+
+
+def _seed_groups(db: sqlite3.Connection, spare: list[int]) -> tuple[int, int]:
+    """100 groups open to everyone, names at their limit, 200 members each (Mara L among them);
+    30 threads each with a note at its limit, every other one a story share; the newest thread
+    holds 70 comments at their limit; one old thread holds 500 (its bound), 100 top-level
+    comments with four replies each. Returns the newest and the full thread's ids."""
+    for g in range(1, 101):
+        db.execute(
+            "INSERT INTO groups(name, visibility, created_by, created_at)"
+            " VALUES(?, 'everyone', 'Mara L', ?)",
+            (_long(f"{g:03d}", groups.MAX_GROUP_NAME), _stamp(days=30)),
+        )
+        names = ["Mara L"] + [_long(f"{m:03d} ", 60) for m in range(199)]
+        db.executemany("INSERT INTO group_members VALUES(?, ?)", [(g, name) for name in names])
+        for t in range(30):
+            story = spare.pop() if t % 2 else None
+            stamp = _stamp(minutes=g * 30 + t)
+            db.execute(
+                "INSERT INTO threads(group_id, story_id, created_at, created_by, note,"
+                " last_activity_at) VALUES(?, ?, ?, ?, ?, ?)",
+                (g, story, stamp, _long("", 60), LONGEST, stamp),
+            )
+    newest = int(
+        db.execute(
+            "SELECT id FROM threads WHERE group_id=1 AND note IS NOT NULL"
+            " ORDER BY last_activity_at DESC LIMIT 1"
+        ).fetchone()[0]
+    )
+    full = 3000
+    comment = (
+        "INSERT INTO comments(thread_id, parent_id, author, body, created_at) VALUES(?, ?, ?, ?, ?)"
+    )
+    db.executemany(comment, [(newest, None, "Ines K", LONGEST, _stamp())] * 70)
+    for _ in range(100):
+        top = db.execute(comment, (full, None, "Ines K", LONGEST, _stamp(days=1))).lastrowid
+        db.executemany(comment, [(full, top, "Mara L", LONGEST, _stamp(hours=20))] * 4)
+    return newest, full
+
+
+@pytest.fixture(scope="module")
+def worst(tmp_path_factory: pytest.TempPathFactory) -> Any:
+    held = open_db(tmp_path_factory.mktemp("worst"))
+    with held:
+        spare = _seed_stories(held)
+        ids = _seed_groups(held, spare)
+    yield held, ids
+    held.close()
+
+
+def test_the_worst_reachable_store_stays_under_the_cap_for_every_viewer(worst):
+    db, (newest, full) = worst
+    started = time.perf_counter()
+    snap = _read(db, MARA)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 2
+    views = snap["feed"]["views"]
+    assert len(views["saved"]["latest"]) > 0
+    first = snap["threads"][0]
+    assert first["id"] == str(newest) and first["comments"] == []
+    assert first["subline"].endswith(", 70 comments, shown when the thread is opened")
+    for viewer in (STRANGER, INES, None):
+        _read(db, viewer)
+    _read(db, MARA, topic=7)
+    opened = _read(db, MARA, thread=full)
+    (whole,) = [t for t in opened["threads"] if t["id"] == str(full)]
+    assert whole["subline"].endswith(", 500 comments, the latest shown")
+    assert whole["comments"]

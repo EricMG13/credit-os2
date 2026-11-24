@@ -779,6 +779,73 @@ def test_thirty_one_stories_put_one_in_older(tmp_path):
     db.close()
 
 
+def _read_by_react(db: sqlite3.Connection, user: User | None, **focus: Any) -> dict[str, Any]:
+    from signal_reader_check import react_refusal
+
+    built = snapshot.build(db, user, NOW, focus=snapshot.Focus(**focus))
+    assert react_refusal(built) is None
+    return built["scenes"][0]["snapshot"]
+
+
+def test_a_topic_view_holds_its_newest_thirty_and_its_older_ones_only_when_asked(tmp_path):
+    db = _many(tmp_path, 130)
+    items = add_topic(db, "Items", ["Item"], [], "Mara L")  # every story is an item
+    newest_thirty = [str(n) for n in range(130, 100, -1)]
+    view = _read_by_react(db, WRITER)["feed"]["topics"][str(items)]
+    assert (view["latest"], view["older"]) == (newest_thirty, [])
+    focused = _read_by_react(db, WRITER, topic=items)
+    view = focused["feed"]["topics"][str(items)]
+    assert view["latest"] == newest_thirty
+    assert view["older"] == [str(n) for n in range(100, 10, -1)]
+    # Unknown or zero: the same snapshot as no focus (nothing says whether such a topic exists).
+    plain = snapshot.build(db, WRITER, NOW)
+    for unknown in (999, 0):
+        assert snapshot.build(db, WRITER, NOW, focus=snapshot.Focus(topic=unknown)) == plain
+    db.close()
+
+
+def test_the_three_main_views_keep_their_older_ones_whatever_the_focus(tmp_path):
+    db = _many(tmp_path, 130)
+    items = add_topic(db, "Items", ["Item"], [], "Mara L")
+    follow(db, "Mara L", items)
+    older = [str(n) for n in range(100, 10, -1)]
+    for focus in ({}, {"topic": items}):
+        views = _read_by_react(db, WRITER, **focus)["feed"]["views"]
+        assert views["latest"]["older"] == older and views["for-you"]["older"] == older
+    db.close()
+
+
+def test_ordinary_stories_in_every_topic_are_all_delivered(tmp_path):
+    """50 topics of 120 stories each with an ordinary 90-character title and a summary at its 300
+    characters: the size bound leaves every view whole."""
+    db = open_db(tmp_path)
+    wire = _source(db, "Harbour Wire", "news", "approved")
+    summary = ("Lenders agreed to extend the loan by three years at a higher margin. " * 5)[:300]
+    for n in range(6000):
+        title = f"word{n % 50:02d} Company {n:04d} agrees the refinancing of its senior term loan"
+        title = title.ljust(90, ".")
+        _story(db, wire, title, f"https://x.example/{n}", timedelta(minutes=n + 1), summary)
+    for t in range(50):  # a new topic is matched against the stories already stored
+        add_topic(db, f"Topic {t:02d}", [f"word{t:02d}"], [], "Mara L")
+    snap = _read_by_react(db, WRITER)
+    assert all(len(view["latest"]) == 30 for view in snap["feed"]["topics"].values())
+    assert len(snap["feed"]["views"]["latest"]["older"]) == 90
+    # The 1,500 newest are each in their topic's newest 30, Latest's 120 among them.
+    assert len(snap["feed"]["stories"]) == 1500
+    db.close()
+
+
+def test_a_title_past_its_limit_is_cut_and_an_overlong_link_is_not_delivered(tmp_path):
+    db = open_db(tmp_path)
+    wire = _source(db, "Harbour Wire", "news", "approved")
+    words = "word " * 200  # 1,000 characters
+    _story(db, wire, words, "https://x.example/" + "a" * 2100, timedelta(minutes=1), "")
+    (story,) = _read_by_react(db, WRITER)["feed"]["stories"]
+    assert story["headline"] == "word " * 99 + "word…"
+    assert story["url"] is None
+    db.close()
+
+
 def test_a_story_in_several_views_is_sent_once(sample):
     stories = [story["id"] for story in _snap(sample, WRITER)["feed"]["stories"]]
     assert sorted(stories) == ["1", "2", "3", "4", "5", "6"]
