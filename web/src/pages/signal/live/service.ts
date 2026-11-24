@@ -2,6 +2,7 @@
 // the local server forwards. The browser never calls the Signal service itself.
 import { postJson, request, RequestError } from "../../connected/api";
 import { errorText, isUnreachable } from "../../connected/useResource";
+import type { SignalAnswer, SignalWrite } from "../actions";
 import { readSlice, type SignalSlice } from "../slice";
 import type { FeedError } from "./hold";
 
@@ -62,24 +63,13 @@ export async function readSnapshot(stop: AbortSignal): Promise<Read> {
   }
 }
 
-export type Write =
-  { kind: "save" | "follow"; id: string; on: boolean } | { kind: "rename"; name: string };
-
-function sent(write: Write): [string, RequestInit] {
-  if (write.kind === "rename") return ["/me", postJson({ name: write.name })];
-  const list = write.kind === "save" ? "stories" : "topics";
-  return [
-    `/${list}/${encodeURIComponent(write.id)}/${write.kind}`,
-    { method: write.on ? "POST" : "DELETE" },
-  ];
-}
-
-/** Null once the service has accepted the write, else the sentence to show. */
-export async function sendWrite(write: Write, stop: AbortSignal): Promise<string | null> {
+/** The write's answer: the service's reply, or the sentence saying why it was not accepted. */
+export async function sendWrite(request: SignalWrite, stop: AbortSignal): Promise<SignalAnswer> {
+  const init =
+    request.body === undefined ? { method: request.method } : postJson(request.body);
   try {
-    await ask(...sent(write), stop);
-    return null;
+    return { refusal: null, reply: await ask(request.path, init, stop) };
   } catch (failure) {
-    return sentence(failure);
+    return { refusal: sentence(failure), reply: null };
   }
 }

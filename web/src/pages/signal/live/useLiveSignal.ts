@@ -14,7 +14,7 @@ import {
   type ViewAt,
 } from "./hold";
 import { viewNow } from "./place";
-import { readSnapshot, sendWrite, type Failure, type Write } from "./service";
+import { readSnapshot, sendWrite, type Failure } from "./service";
 
 /** How often the snapshot is read again while the tab is visible. */
 export const REREAD_MS = 60_000;
@@ -82,17 +82,13 @@ async function load(stop: AbortSignal, dispatch: Dispatch<Event>, hold: boolean)
 }
 
 function actionsOn(line: Line, dispatch: Dispatch<Event>): SignalActions {
-  // A new name is a new reader (another role, other follows and saves), so nothing drawn is held.
-  const write = (sent: Write) =>
-    line.add(async (stop) => {
-      const refusal = await sendWrite(sent, stop);
-      if (refusal === null) await load(stop, dispatch, sent.kind !== "rename");
-      return refusal;
-    });
   return {
-    save: (id, on) => write({ kind: "save", id, on }),
-    follow: (id, on) => write({ kind: "follow", id, on }),
-    rename: (name) => write({ kind: "rename", name }),
+    write: (request) =>
+      line.add(async (stop) => {
+        const answer = await sendWrite(request, stop);
+        if (answer.refusal === null) await load(stop, dispatch, request.fresh !== true);
+        return answer;
+      }),
     reveal: () => {
       dispatch({ type: "reveal", at: viewNow() });
     },

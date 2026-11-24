@@ -180,6 +180,7 @@ function FeedNotices({
   error: "unreachable" | "request" | "unreadable" | null;
   shared: number;
 }) {
+  const live = useSignalActions() !== null;
   return (
     <>
       {/* Always on the page, so a pill that arrives with a later read is announced. */}
@@ -194,7 +195,10 @@ function FeedNotices({
       <div aria-live="polite">
         {shared === 0 ? null : (
           <div key={shared} className="mt-4">
-            <Alert tone="success" title="Sample data: the story was not shared." />
+            <Alert
+              tone="success"
+              title={live ? "The story was shared." : "Sample data: the story was not shared."}
+            />
           </div>
         )}
       </div>
@@ -335,7 +339,7 @@ export function FeedPage({
   /** Set on a topic's view only. */
   topic: FeedTopic | null;
 }) {
-  // Share to group writes nothing: this sentence is the in-memory stand-in for the service's reply.
+  // In the sample Share to group writes nothing and the sentence says so; on a service it says the story was shared.
   // It counts the shares: the live wrapper below stays on the page and each share puts a fresh
   // status node inside it, so each one is announced again.
   const [shared, setShared] = useState(0);

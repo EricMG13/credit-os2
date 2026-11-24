@@ -22,6 +22,7 @@ import { useSignalActions } from "./actions";
 import { NameDialog, initialsOf } from "./NameDialog";
 import { SignalViewerContext } from "./viewer";
 import type { SignalScene } from "./slice";
+import { writes } from "./writes";
 
 /** Which channel the page is on; the item with the same key is marked current. */
 export type SignalCurrent =
@@ -287,7 +288,7 @@ export function SignalFrame({
   const [refused, setRefused] = useState<{ name: string; reason: string } | null>(null);
   const send = (next: string) => {
     if (actions === null) return;
-    void actions.rename(next).then((reason) => {
+    void actions.write(writes.rename(next)).then(({ refusal: reason }) => {
       setTyped(null);
       if (reason === null) return;
       setRefused({ name: next, reason });

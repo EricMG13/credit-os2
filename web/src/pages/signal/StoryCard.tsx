@@ -16,9 +16,11 @@ import { BadgeGroup } from "./parts/BadgeGroup";
 import { Rating } from "./parts/Rating";
 import { StageProgress } from "./parts/StageProgress";
 import { Tags } from "./parts/Tags";
+import { useSignalActions } from "./actions";
 import { sceneHref } from "./SignalFrame";
 import { ShareDialog } from "./ShareDialog";
 import type { SignalScene, SignalStory } from "./slice";
+import { writes } from "./writes";
 
 const FOCUS = "outline-focus-ring focus-visible:outline-2";
 /** The predecessor's safe-link test: only an http or https address is drawn as a link. */
@@ -41,7 +43,7 @@ export type SignalSave = {
 /** `inGroup`: the card sits in a group view, where "Open thread" is the way in, so a writer's Comment and Share to group are left out. */
 type Props = { story: SignalStory; scene: SignalScene; writer: boolean; save: SignalSave } & (
   | { inGroup: true }
-  /** `onShared`: Share was pressed with a group chosen; the page says so (nothing is written). */
+  /** `onShared`: the story was shared (on a service), or Share was pressed in the sample, where nothing is written; the page says which. */
   | { inGroup?: false; onShared: () => void }
 );
 
@@ -259,6 +261,21 @@ export function StoryCard(props: Props) {
     opener.current = from;
     setSharing(true);
   };
+  const actions = useSignalActions();
+  const shared = () => {
+    setSharing(false);
+    onShared?.();
+  };
+  const send = (groupId: string, note: string) => {
+    if (actions === null) {
+      shared();
+      return undefined;
+    }
+    return actions.write(writes.thread(groupId, story.id, note)).then(({ refusal }) => {
+      if (refusal === null) shared();
+      return refusal;
+    });
+  };
   return (
     <article ref={card} className="py-6">
       <MediaObject tile={story.source.monogram}>
@@ -281,10 +298,7 @@ export function StoryCard(props: Props) {
           open={sharing}
           headline={headline}
           groups={scene.snapshot.groups.map((g) => ({ id: g.id, name: g.name }))}
-          onShare={() => {
-            setSharing(false);
-            onShared();
-          }}
+          onShare={send}
           onCancel={() => {
             setSharing(false);
           }}

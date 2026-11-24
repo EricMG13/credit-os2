@@ -3,7 +3,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { useSource } from "../source";
-import { useSignalActions } from "./actions";
+import {
+  SignalPageWriteContext,
+  useSignalActions,
+  type SignalPageWrite,
+  type SignalWrite,
+} from "./actions";
+import { useChoices } from "./choices";
 import { SignalFrame, sceneHref, type SignalCurrent, type SignalFollow } from "./SignalFrame";
 import { DigestPage } from "./DigestPage";
 import { GroupPage } from "./GroupPage";
@@ -14,6 +20,7 @@ import type { EmptyContext } from "./FeedStates";
 import type { SignalSave } from "./StoryCard";
 import { PageTitle } from "./parts/PageTitle";
 import { readSlice, type SignalFeedView, type SignalScene } from "./slice";
+import { writes } from "./writes";
 
 export type SignalPageKind = "feed" | "topic" | "group" | "thread" | "digest" | "settings";
 
@@ -278,18 +285,14 @@ function digestFor(
 
 function pageFor({ scene, kind, params, follow, save, live }: PageFor): PageContent {
   const writer = scene.snapshot.viewer.role === "writer";
-  // On a service the page writes saves, follows and the name only. A writer's other controls
-  // (Comment, Share to group, Propose a source, a new thread, a reply) would look saved and save
-  // nothing, so the feed, group and thread screens are drawn there as a reader has them.
-  const feedWriter = writer && !live;
   switch (kind) {
     case "feed":
-      return feedFor(scene, params, follow, save, feedWriter);
+      return feedFor(scene, params, follow, save, writer);
     case "topic":
-      return topicFor(scene, params, follow, save, feedWriter);
+      return topicFor(scene, params, follow, save, writer);
     case "group":
     case "thread":
-      return groupFor(scene, params, kind, save, feedWriter);
+      return groupFor(scene, params, kind, save, writer);
     case "digest":
       return digestFor(scene, params, writer, live);
     case "settings":
@@ -342,59 +345,30 @@ export function SignalPage({
   return <SceneView key={scene.id} scene={scene} kind={kind} params={params} />;
 }
 
-type Write = (id: string, on: boolean) => Promise<string | null>;
-
 /**
- * A yes or no per id, over the value the slice delivers. With no service (`write` null) a choice is
- * kept in memory only. With one, a choice shows at once and is sent; when its answer comes and no
- * later press on the same id is still out, the page goes back to the slice's value: the re-read one
- * after a write the service accepted, the earlier one after a write it refused (`onRefused` says why).
+ * What the service last said, for the alert above the page it was said on: a refusal, or a sentence
+ * of its own about a write it accepted. Counted, so each draws a fresh alert and the same sentence
+ * twice is announced twice. The next write, or moving to another page, takes it away.
  */
-function useChoices(write: Write | null, onRefused: (sentence: string) => void) {
-  const [chosen, setChosen] = useState<ReadonlyMap<string, boolean>>(new Map());
-  const out = useRef(new Map<string, number>());
-  const count = (id: string, change: 1 | -1) => {
-    const left = (out.current.get(id) ?? 0) + change;
-    out.current.set(id, left);
-    return left;
-  };
-  const forget = (id: string) => {
-    setChosen((held) => new Map([...held].filter(([key]) => key !== id)));
-  };
-  return {
-    on: (id: string, delivered: boolean) => chosen.get(id) ?? delivered,
-    toggle: (id: string, delivered: boolean) => {
-      const next = !(chosen.get(id) ?? delivered);
-      setChosen((held) => new Map(held).set(id, next));
-      if (write === null) return;
-      count(id, 1);
-      void write(id, next).then((refusal) => {
-        if (refusal !== null) onRefused(refusal);
-        if (count(id, -1) === 0) forget(id);
-      });
-    },
-  };
-}
-
-/**
- * What the service last refused, for the alert above the page it was refused on. Counted, so each
- * refusal draws a fresh alert and the same sentence twice is announced twice. The next press, or
- * moving to another page, takes it away.
- */
-function useRefusal(page: string) {
-  const [refused, setRefused] = useState({ count: 0, text: "", page });
+function useNotice(page: string) {
+  const [said, setSaid] = useState({ count: 0, text: "", refusal: true, page });
   const shown = useRef(page);
   useEffect(() => {
     shown.current = page;
   }, [page]);
+  const say = (text: string, refusal: boolean) => {
+    setSaid((last) => ({ count: last.count + 1, text, refusal, page: shown.current }));
+  };
   return {
-    count: refused.count,
-    text: refused.text !== "" && refused.page === page ? refused.text : null,
-    say: (text: string) => {
-      setRefused((last) => ({ count: last.count + 1, text, page: shown.current }));
+    said: said.text !== "" && said.page === page ? said : null,
+    refuse: (text: string) => {
+      say(text, true);
+    },
+    note: (text: string) => {
+      say(text, false);
     },
     clear: () => {
-      setRefused((last) => ({ ...last, text: "" }));
+      setSaid((last) => ({ ...last, text: "" }));
     },
   };
 }
@@ -410,33 +384,54 @@ function SceneView({
   params: Record<string, string>;
 }) {
   const actions = useSignalActions();
-  const refusal = useRefusal(`${kind} ${JSON.stringify(params)}`);
-  const follows = useChoices(actions?.follow ?? null, refusal.say);
-  const saves = useChoices(actions?.save ?? null, refusal.say);
-  const { clear } = refusal;
+  const notice = useNotice(`${kind} ${JSON.stringify(params)}`);
+  // On a service every write from inside the frame goes through here: a new one takes the last
+  // sentence away, and a refusal is said above the page.
+  const page: SignalPageWrite | null =
+    actions === null
+      ? null
+      : {
+          send: (request) => {
+            notice.clear();
+            return actions.write(request).then((answer) => {
+              if (answer.refusal !== null) notice.refuse(answer.refusal);
+              return answer;
+            });
+          },
+          note: notice.note,
+        };
+  const sent = (request: (id: string, on: boolean) => SignalWrite) =>
+    actions === null
+      ? null
+      : (id: string, on: boolean) =>
+          actions.write(request(id, on)).then((answer) => answer.refusal);
+  const follows = useChoices(sent(writes.follow), notice.refuse);
+  const saves = useChoices(sent(writes.save), notice.refuse);
   const follow: SignalFollow = {
     on: (topic) => follows.on(topic.id, topic.followed),
     toggle: (topic) => {
-      clear();
+      notice.clear();
       follows.toggle(topic.id, topic.followed);
     },
   };
   const save: SignalSave = {
     on: (story) => saves.on(story.id, story.saved),
     toggle: (story) => {
-      clear();
+      notice.clear();
       saves.toggle(story.id, story.saved);
     },
   };
   const { current, body } = pageFor({ scene, kind, params, follow, save, live: actions !== null });
   return (
-    <SignalFrame scene={scene} current={current} follow={follow}>
-      {refusal.text === null ? null : (
-        <div key={refusal.count} className="mb-4">
-          <Alert tone="error" title={refusal.text} />
-        </div>
-      )}
-      {body}
-    </SignalFrame>
+    <SignalPageWriteContext value={page}>
+      <SignalFrame scene={scene} current={current} follow={follow}>
+        {notice.said === null ? null : (
+          <div key={notice.said.count} className="mb-4">
+            <Alert tone={notice.said.refusal ? "error" : "info"} title={notice.said.text} />
+          </div>
+        )}
+        {body}
+      </SignalFrame>
+    </SignalPageWriteContext>
   );
 }
