@@ -464,7 +464,8 @@ def _thread(db: sqlite3.Connection, one: _Shown, viewer: _Viewer, limit: int) ->
     """The thread with its newest comments within `limit` bytes; True when every comment the
     bounds admit fits."""
     tops = _top_comments(db, one.row["id"])
-    comments, shown, whole = _comment_records(db, tops, viewer, limit)
+    state = threads.thread_state(db, one.row, viewer.now)
+    comments, shown, whole = _comment_records(db, tops, viewer, limit, state)
     subline = f"{one.group_name}, {_comments_text(one.comments) or 'no comments yet'}"
     if one.comments > shown:
         subline += _LATEST
@@ -515,10 +516,16 @@ def _reactions(db: sqlite3.Connection, ids: list[int], user_name: str) -> dict[i
 
 
 def _comment_records(
-    db: sqlite3.Connection, tops: list[Json], viewer: _Viewer, limit: int
+    db: sqlite3.Connection,
+    tops: list[Json],
+    viewer: _Viewer,
+    limit: int,
+    state: threads.ThreadState,
 ) -> tuple[list[Json], int, bool]:
     """The records of `tops` (newest first) spent newest first within `limit` bytes, returned
-    oldest first; how many comments they hold; and whether all of them fit."""
+    oldest first; how many comments they hold; and whether all of them fit. `canEdit` and
+    `canRemove` say whether the edit and remove routes would accept the viewer's request now
+    (the routes' own checks, `threads.check_edit` and `threads.check_remove`)."""
     ids = [int(t["row"]["id"]) for t in tops] + [int(r["id"]) for t in tops for r in t["replies"]]
     held = _reactions(db, ids, viewer.user.name)
     budget = _Budget(limit)
@@ -535,6 +542,8 @@ def _comment_records(
             "removed": removed,
             "reactions": [] if removed else held[int(row["id"])],
             "replies": [],
+            "canEdit": threads.can_edit(viewer.user, row, state, viewer.now),
+            "canRemove": threads.can_remove(viewer.user, row, state),
         }
 
     kept: list[Json] = []

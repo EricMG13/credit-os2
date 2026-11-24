@@ -1,6 +1,17 @@
 // The layout every Signal page sits in: the channel list on the left, the page's content on the
 // right, each scrolling on its own, filling the full-bleed page region after mock/signal.js (SgShell) and `.sub`, `.ni`, `.cnt`, `.dot`, `.me`.
-import { useId, useRef, useState, type FC, type ReactNode, type RefObject } from "react";
+// Where the window has no room for the list as a column (parts/useWide.ts) the page takes the whole
+// region and the list opens from a button ahead of the page (ChannelPanel.tsx).
+import {
+  createContext,
+  useContext,
+  useId,
+  useRef,
+  useState,
+  type FC,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   Bookmark,
   Clock,
@@ -18,7 +29,9 @@ import { Button as AriaButton } from "react-aria-components";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { cx } from "@/utils/cx";
 import { AvatarLabelGroup } from "./parts/Avatar";
+import { useWide } from "./parts/useWide";
 import { useSignalActions } from "./actions";
+import { ChannelPanel } from "./ChannelPanel";
 import { NameDialog, initialsOf } from "./NameDialog";
 import { SignalViewerContext } from "./viewer";
 import type { SignalScene } from "./slice";
@@ -42,10 +55,20 @@ export function sceneHref(scene: SignalScene, path: string): string {
   return `#/signal/${encodeURIComponent(scene.id)}/${path}`;
 }
 
+const VIEWS = [
+  { id: "for-you", label: "For you", icon: Stars01 },
+  { id: "latest", label: "Latest", icon: Clock },
+  { id: "saved", label: "Saved", icon: Bookmark },
+] as const;
+
 function isCurrent(current: SignalCurrent, kind: SignalCurrent["kind"], id?: string): boolean {
   if (current.kind !== kind || current.kind === "none") return false;
   return current.kind === "settings" || current.id === id;
 }
+
+/** How the list is drawn: a column beside the page, or the content of the panel a narrow window opens. */
+type ListForm = { panel: boolean; onGo: (() => void) | undefined };
+const ListFormContext = createContext<ListForm>({ panel: false, onGo: undefined });
 
 type RowProps = {
   href: string;
@@ -62,17 +85,23 @@ function Row({
   mark,
   after,
 }: RowProps & { mark?: ReactNode; after?: ReactNode }) {
+  const { panel, onGo } = useContext(ListFormContext);
   return (
     <li
       className={cx(
-        "my-px flex min-h-9 items-center py-1.5 rounded-ds-xs px-2 text-sm font-semibold",
+        "my-px flex items-center rounded-ds-xs px-2 text-sm font-semibold",
         on ? "bg-surface-selected text-text-link" : "text-text-secondary",
       )}
     >
+      {/* The link is as tall as its row, so the whole row takes a press: 44px in the panel. */}
       <a
         href={href}
         aria-current={on ? "page" : undefined}
-        className="flex min-w-0 flex-1 items-center gap-2 outline-focus-ring focus-visible:outline-2"
+        onClick={onGo}
+        className={cx(
+          "flex min-w-0 flex-1 items-center gap-2 py-1.5 outline-focus-ring focus-visible:outline-2",
+          panel ? "min-h-11" : "min-h-9",
+        )}
       >
         <Icon className={cx("size-4 shrink-0", on ? "text-text-link" : "text-fg-quaternary")} />
         <span className="min-w-0 flex-1">{children}</span> {mark}
@@ -105,15 +134,21 @@ function ChannelList({
 }) {
   const { channels } = scene.snapshot;
   const headingId = useId();
-  const views = [
-    { id: "for-you", label: "For you", icon: Stars01, count: null },
-    { id: "latest", label: "Latest", icon: Clock, count: null },
-    { id: "saved", label: "Saved", icon: Bookmark, count: channels.savedCount },
-  ] as const;
+  const { panel } = useContext(ListFormContext);
+  const views = VIEWS.map((view) => ({
+    ...view,
+    count: view.id === "saved" ? channels.savedCount : null,
+  }));
   return (
     <nav
       aria-labelledby={headingId}
-      className="flex h-full w-64 shrink-0 flex-col overflow-y-auto border-r-[1.5px] border-border-hairline bg-surface-card px-4 pt-6 pb-5"
+      className={cx(
+        "flex flex-col bg-surface-card px-4 pt-6 pb-5",
+        // The panel scrolls, so the list in it takes the panel's width and at least its height.
+        panel
+          ? "min-h-full w-full"
+          : "h-full w-64 shrink-0 overflow-y-auto border-r-[1.5px] border-border-hairline",
+      )}
     >
       <h2 id={headingId} className="px-2 text-sm font-semibold text-text-link">
         Signal

@@ -231,3 +231,65 @@ def test_kinds_with_spaces_after_commas_are_trimmed(tmp_path):
         "ak",
     )
     assert code == 0
+
+
+def _group_store(tmp_path):
+    """Desk (everyone) with Mara L's note thread 1 and her comment 1; Spare (everyone) empty."""
+    from deploy_workflow.signal import groups, threads
+    from deploy_workflow.signal.identity import User
+
+    db = open_db(tmp_path)
+    mara = User("Mara L", "writer")
+    desk = groups.create_group(db, mara, "Desk", "everyone")
+    groups.create_group(db, mara, "Spare", "everyone")
+    thread, _ = threads.share(db, mara, desk, threads.Item(None, "Note"), datetime.now(UTC))
+    threads.comment(db, mara, thread, "Mine", datetime.now(UTC))
+    db.close()
+
+
+def _count(tmp_path, table):
+    db = open_db(tmp_path)
+    try:
+        return db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    finally:
+        db.close()
+
+
+def test_the_owner_removes_any_comment_leaving_a_line(tmp_path):
+    _group_store(tmp_path)
+    assert run(tmp_path, "comments", "remove", "1") == (
+        0,
+        "comment 1 removed; a removed line stays in its thread\n",
+    )
+    db = open_db(tmp_path)
+    row = db.execute("SELECT body, removed_at IS NOT NULL FROM comments WHERE id=1").fetchone()
+    db.close()
+    assert tuple(row) == ("", 1)
+    assert run(tmp_path, "comments", "remove", "9") == (2, "error: no comment with id 9\n")
+
+
+def test_the_owner_removes_a_thread_with_its_comments(tmp_path):
+    _group_store(tmp_path)
+    assert run(tmp_path, "threads", "remove", "1") == (
+        0,
+        "thread 1 removed with 1 comment line\n",
+    )
+    assert (_count(tmp_path, "threads"), _count(tmp_path, "comments")) == (0, 0)
+    assert run(tmp_path, "threads", "remove", "1") == (2, "error: no thread with id 1\n")
+
+
+def test_a_group_with_threads_is_deleted_only_with_its_threads(tmp_path):
+    _group_store(tmp_path)
+    assert run(tmp_path, "groups", "delete", "1") == (
+        2,
+        "error: a group that holds threads cannot be deleted\n",
+    )
+    assert run(tmp_path, "groups", "delete", "2") == (0, "group 2 deleted\n")
+    assert run(tmp_path, "groups", "delete", "1", "--with-threads") == (0, "group 1 deleted\n")
+    assert [_count(tmp_path, t) for t in ("groups", "threads", "comments")] == [0, 0, 0]
+    assert run(tmp_path, "groups", "delete", "1") == (2, "error: no group with id 1\n")
+
+
+@pytest.mark.parametrize("args", [("threads", "remove", "x"), ("comments", "remove", "0")])
+def test_moderation_ids_must_be_positive_integers(tmp_path, args):
+    assert run(tmp_path, *args)[0] == 2

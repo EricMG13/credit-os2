@@ -224,11 +224,39 @@ def _read_page(db: sqlite3.Connection, user_name: str, view: str, filters: Filte
     return Page(cards, f"{last.published_at}|{last.id}" if last else None, _newest(db))
 
 
+# The story ids of a view, read from the rows that put a story in it; the parameters are the
+# view's own (`_view_clause`). Latest has none: every story is in it.
+_MEMBERS = {
+    "topic": "SELECT story_id FROM topic_stories WHERE topic_id = ?",
+    "saved": "SELECT story_id FROM saves WHERE user_name = ?",
+    "foryou": (
+        "SELECT ts.story_id FROM topic_stories ts JOIN topic_follows f"
+        " ON f.topic_id = ts.topic_id AND f.user_name = ?"
+        " UNION SELECT t.story_id FROM threads t JOIN group_members m"
+        " ON m.group_id = t.group_id AND m.user_name = ? WHERE t.story_id IS NOT NULL"
+    ),
+}
+
+
 def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> list[int]:
     """The ids of the newest `limit` stories in the view, newest first (the feed's own order).
 
+    Two ways to read them, the cheaper for the view: walk the stories newest first until `limit`
+    are in the view (about limit * stories / members steps), or read the view's members and sort
+    them (about members steps). A sparse view in a large store would otherwise walk every story.
     It opens no transaction: a caller reading several views holds one (`read_transaction`)."""
     clause, params = _view_clause(db, user_name, view)
+    members = _MEMBERS.get(view.partition(":")[0])
+    if members is not None:
+        held = db.execute(f"SELECT COUNT(*) FROM ({members})", params).fetchone()[0]
+        total = db.execute("SELECT COUNT(*) FROM stories").fetchone()[0]
+        if held * held <= limit * total or held <= limit:
+            rows = db.execute(
+                f"SELECT s.id FROM ({members}) d CROSS JOIN stories s ON s.id = d.story_id"
+                " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
+                [*params, limit],
+            ).fetchall()
+            return [int(row["id"]) for row in rows]
     where = " WHERE " + clause if clause is not None else ""
     rows = db.execute(
         "SELECT s.id FROM stories s" + where + " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",

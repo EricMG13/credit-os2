@@ -253,3 +253,98 @@ def test_the_worst_reachable_store_stays_under_the_cap_for_every_viewer(worst):
     (whole,) = [t for t in opened["threads"] if t["id"] == str(full)]
     assert whole["subline"].endswith(", 500 comments, the latest shown")
     assert whole["comments"]
+
+
+# Time
+
+
+def _busy_store(db: sqlite3.Connection) -> None:
+    """One open group of 60 threads holding 500 short comments each (30,000 in all): 100
+    top-level comments with four replies each."""
+    desk = groups.create_group(db, MARA, "Desk", "everyone")
+    comment = (
+        "INSERT INTO comments(thread_id, parent_id, author, body, created_at)"
+        " VALUES(?, ?, 'Ines K', 'A fairly ordinary comment of about eighty characters.', ?)"
+    )
+    with db:
+        for t in range(60):
+            stamp = _stamp(minutes=t)
+            thread = db.execute(
+                "INSERT INTO threads(group_id, created_at, created_by, note, last_activity_at)"
+                " VALUES(?, ?, 'Ines K', 'A note', ?)",
+                (desk, stamp, stamp),
+            ).lastrowid
+            for _ in range(100):
+                top = db.execute(comment, (thread, None, stamp)).lastrowid
+                db.executemany(comment, [(thread, top, stamp)] * 4)
+
+
+def test_a_store_of_thirty_thousand_comments_builds_fast(db):
+    _busy_store(db)
+    for viewer, focus in ((MARA, {}), (STRANGER, {}), (MARA, {"thread": 60})):
+        started = time.perf_counter()
+        _read(db, viewer, **focus)
+        assert time.perf_counter() - started < 2
+
+
+def test_no_snapshot_read_scans_the_comments_or_their_reactions(db):
+    _busy_store(db)
+    threads.react(db, MARA, threads.Reaction(1, "Seen", True), NOW)
+    threads.mark_read(db, MARA, 1, NOW)
+    statements: list[str] = []
+    db.set_trace_callback(statements.append)
+    snapshot.build(db, MARA, NOW, focus=snapshot.Focus(thread=2))
+    db.set_trace_callback(None)
+    scans = set()
+    for sql in statements:
+        if not sql.lstrip().upper().startswith("SELECT"):
+            continue
+        for row in db.execute("EXPLAIN QUERY PLAN " + sql):
+            words = str(row[3]).split()
+            if words[0] != "SCAN":
+                continue
+            table = {"c": "comments", "p": "comments", "r": "read_marks"}.get(words[1], words[1])
+            if words[1] == "t" and "threads t" in sql:
+                table = "threads"
+            if table in ("comments", "reactions", "read_marks", "threads"):
+                scans.add((table, sql[:80]))
+    assert scans == set()
+
+
+def test_a_sparse_view_in_a_large_store_reads_the_same_ids_without_walking_every_story(db):
+    """`feedview.view_ids` reads a view with few members from its members; the ids are those of
+    walking the stories newest first (hand-built here from the seed's own rule)."""
+    from deploy_workflow.signal import feedview
+
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('W', 'news', 'https://w.example/f', 'approved', 'Mara L', ?)",
+            (_stamp(days=1),),
+        )
+        db.executemany(
+            "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(1, ?, ?, ?, ?, ?, ?, '')",
+            [
+                (f"S{n}", f"https://w.example/{n}", f"k{n}", f"t{n}", _stamp(minutes=n % 997), "x")
+                for n in range(20000)
+            ],
+        )
+        db.execute("INSERT INTO topics VALUES(1, 'Sparse', '[]', '[]', 'Mara L', 'x')")
+        db.execute("INSERT INTO topics VALUES(2, 'Dense', '[]', '[]', 'Mara L', 'x')")
+        db.executemany(
+            "INSERT INTO topic_stories VALUES(1, ?)", [(n,) for n in range(7, 20001, 400)]
+        )
+        db.executemany("INSERT INTO topic_stories VALUES(2, ?)", [(n,) for n in range(1, 20001, 2)])
+        db.executemany("INSERT INTO saves VALUES('Mara L', ?, 'x')", [(n,) for n in (5, 99, 19999)])
+        db.execute("INSERT INTO topic_follows VALUES('Mara L', 1)")
+
+    def newest(ids: set[int], limit: int) -> list[int]:
+        # Story n was published (n - 1) % 997 minutes before NOW; ties: the higher id first.
+        return sorted(ids, key=lambda n: (-((n - 1) % 997), n), reverse=True)[:limit]
+
+    sparse = set(range(7, 20001, 400))
+    assert feedview.view_ids(db, "Mara L", "topic:1", 30) == newest(sparse, 30)
+    assert feedview.view_ids(db, "Mara L", "topic:2", 30) == newest(set(range(1, 20001, 2)), 30)
+    assert feedview.view_ids(db, "Mara L", "saved", 120) == newest({5, 99, 19999}, 120)
+    assert feedview.view_ids(db, "Mara L", "foryou", 120) == newest(sparse, 120)

@@ -256,8 +256,12 @@ def test_a_thread_holds_its_comments_replies_removed_line_and_reactions(grouped,
                     "removed": False,
                     "reactions": [],
                     "replies": [],
+                    "canEdit": False,  # her own, but 50 minutes old: past the 15-minute window
+                    "canRemove": True,
                 }
             ],
+            "canEdit": False,  # Ines K's
+            "canRemove": False,
         },
         {
             "id": "3",
@@ -269,6 +273,8 @@ def test_a_thread_holds_its_comments_replies_removed_line_and_reactions(grouped,
             "removed": True,
             "reactions": [],
             "replies": [],
+            "canEdit": False,  # removed already
+            "canRemove": False,
         },
         {
             "id": "4",
@@ -280,6 +286,8 @@ def test_a_thread_holds_its_comments_replies_removed_line_and_reactions(grouped,
             "removed": False,
             "reactions": [],
             "replies": [],
+            "canEdit": False,  # 30 minutes old
+            "canRemove": True,
         },
     ]
     note = snap["threads"][1]
@@ -550,3 +558,87 @@ def test_a_group_made_invited_disappears_with_everything_it_lent_its_stories(
     mara = read_by_react(grouped, WRITER)
     assert [g["id"] for g in mara["groups"]] == ["2"]
     assert mara["feed"]["views"]["for-you"]["latest"] == ["1"]  # the followed topic's story
+
+
+# Review finding 11: the cases each listed mutation of the unread, badge and Top rules survived.
+
+
+def test_top_counts_only_threads_in_the_viewers_own_groups_and_live_comments(
+    tmp_path, read_by_react
+):
+    """Story 2 (Tessaly, 40 min old) stays first in Top for Mara L unless Corvane (2 h old) is
+    raised by her own groups: a share in an open group she is not a member of, or comments that
+    were removed, raise nothing."""
+    db = seed_sample(tmp_path)
+    add_user(db, "Ines K", "writer")
+    open_desk = groups.create_group(db, WRITER, "Open desk", "everyone")
+    thread, _ = threads.share(db, INES, open_desk, threads.Item(1), at(minutes=30))
+    for n in range(8):
+        threads.comment(db, INES, thread, f"point {n}", at(minutes=20))
+    top = read_by_react(db, WRITER)["feed"]["views"]["latest"]["top"]
+    assert top[:2] == ["2", "1"]  # not a member: no raise
+    mine = groups.create_group(db, WRITER, "Mine", "invited")
+    groups.add_member(db, WRITER, mine, "Mara L")
+    groups.add_member(db, WRITER, mine, "Ines K")
+    own, _ = threads.share(db, INES, mine, threads.Item(1), at(minutes=30))
+    made = [threads.comment(db, INES, own, f"line {n}", at(minutes=10)) for n in range(8)]
+    for comment_id in made:
+        threads.remove(db, INES, comment_id, at(minutes=5))
+    # One share in her group, removed comments not counted: 1 + 1 = 2 against 2 h of age
+    # (log 2 - 2/24 log 2 > -40/1440 log 2): raised above Tessaly.
+    assert read_by_react(db, WRITER)["feed"]["views"]["latest"]["top"][:2] == ["1", "2"]
+    # The order alone cannot tell the eight removed comments apart (it is raised either way):
+    # the counts it reads hold one share and no live comment.
+    assert group_view.engagement(db, "Mara L", [1]) == {1: (1, 0)}
+
+
+def test_a_removed_comment_makes_nothing_unread_and_raises_no_badge(tmp_path, read_by_react):
+    db = seed_sample(tmp_path)
+    add_user(db, "Ines K", "writer")
+    desk = groups.create_group(db, WRITER, "Desk", "everyone")
+    groups.add_member(db, WRITER, desk, "Mara L")
+    thread, _ = threads.share(db, WRITER, desk, threads.Item(None, "Note"), at(hours=2))
+    mine = threads.comment(db, WRITER, thread, "Mine", at(hours=2))
+    threads.mark_read(db, WRITER, thread, at(hours=1))
+    reply = threads.reply(db, INES, mine, "A reply", at(minutes=30))
+    other = threads.comment(db, INES, thread, "Another", at(minutes=30))
+    snap = read_by_react(db, WRITER)
+    assert snap["groups"][0]["threads"][0]["unread"] is True
+    assert snap["channels"]["groups"][0]["unread"] == "1"  # the reply to her comment
+    threads.remove(db, INES, reply, at(minutes=20))
+    snap = read_by_react(db, WRITER)
+    assert snap["groups"][0]["threads"][0]["unread"] is True  # "Another" is still unread
+    assert snap["channels"]["groups"][0]["unread"] is None  # a removed reply raises no badge
+    threads.remove(db, INES, other, at(minutes=20))
+    assert read_by_react(db, WRITER)["groups"][0]["threads"][0]["unread"] is False
+
+
+def test_an_edited_comment_is_marked_edited(tmp_path, read_by_react):
+    db = seed_sample(tmp_path)
+    desk = groups.create_group(db, WRITER, "Desk", "everyone")
+    thread, _ = threads.share(db, WRITER, desk, threads.Item(None, "Note"), at(minutes=10))
+    first = threads.comment(db, WRITER, thread, "First", at(minutes=10))
+    threads.comment(db, WRITER, thread, "Second", at(minutes=9))
+    threads.edit(db, WRITER, first, "First, fixed", at(minutes=8))
+    (whole,) = read_by_react(db, WRITER)["threads"]
+    assert [(c["text"], c["edited"]) for c in whole["comments"]] == [
+        ("First, fixed", True),
+        ("Second", False),
+    ]
+
+
+def test_comment_opens_the_thread_in_her_own_group_before_a_livelier_open_one(
+    tmp_path, read_by_react
+):
+    db = seed_sample(tmp_path)
+    add_user(db, "Ines K", "writer")
+    mine = groups.create_group(db, WRITER, "Mine", "invited")
+    groups.add_member(db, WRITER, mine, "Mara L")
+    groups.add_member(db, WRITER, mine, "Ines K")
+    lively = groups.create_group(db, WRITER, "Lively", "everyone")
+    threads.share(db, INES, mine, threads.Item(1), at(hours=1))
+    other, _ = threads.share(db, INES, lively, threads.Item(1), at(minutes=30))
+    threads.comment(db, INES, other, "Busy here", at(minutes=5))
+    story = _story(read_by_react(db, WRITER), "1")
+    assert story["threadRef"] == {"groupId": str(mine), "threadId": "1"}
+    assert story["commentCount"] is None  # her group's thread has no comment yet

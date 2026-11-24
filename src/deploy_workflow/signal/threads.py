@@ -277,19 +277,81 @@ def _own(row: sqlite3.Row, actor: User, what: str) -> None:
         raise Forbidden(f"only its author can {what} a comment")
 
 
+@dataclass(frozen=True)
+class ThreadState:
+    """What the edit and remove checks read about a thread at one time."""
+
+    archived: bool
+    editing: bool  # the "comments-edited" rule
+    removing: bool  # the "authors-remove" rule
+
+
+def thread_state(db: sqlite3.Connection, thread: sqlite3.Row, at: datetime) -> ThreadState:
+    group = thread["group_id"]
+    return ThreadState(
+        archived_at(db, thread, at) is not None,
+        groups.rule_on(db, group, "comments-edited"),
+        groups.rule_on(db, group, "authors-remove"),
+    )
+
+
+def _check_change(actor: User, comment: sqlite3.Row, state: ThreadState, what: str) -> None:
+    """The checks an edit and a removal share, in the order the routes answer them."""
+    _require_writer(actor)
+    if state.archived:
+        raise Conflict("this thread is archived: it can be read but not added to")
+    if comment["removed_at"] is not None:
+        raise Conflict("this comment was removed")
+    _own(comment, actor, what)
+
+
+def check_edit(actor: User, comment: sqlite3.Row, state: ThreadState, at: datetime) -> None:
+    """Raise the refusal `edit` answers for this comment at `at`; None when it would pass."""
+    _check_change(actor, comment, state, "edit")
+    if not state.editing:
+        raise Forbidden("comments cannot be edited in this group")
+    if at - datetime.fromisoformat(comment["created_at"]) > EDIT_WINDOW:
+        raise Conflict(f"a comment can be edited for {groups.EDIT_MINUTES} minutes only")
+
+
+def check_remove(actor: User, comment: sqlite3.Row, state: ThreadState) -> None:
+    """Raise the refusal `remove` answers for this comment; None when it would pass."""
+    _check_change(actor, comment, state, "remove")
+    if not state.removing:
+        raise Forbidden("comments cannot be removed in this group")
+
+
+def can_edit(actor: User, comment: sqlite3.Row, state: ThreadState, at: datetime) -> bool:
+    try:
+        check_edit(actor, comment, state, at)
+    except GroupError:
+        return False
+    return True
+
+
+def can_remove(actor: User, comment: sqlite3.Row, state: ThreadState) -> bool:
+    try:
+        check_remove(actor, comment, state)
+    except GroupError:
+        return False
+    return True
+
+
+def _changing(
+    db: sqlite3.Connection, actor: User, comment_id: int, at: datetime
+) -> tuple[sqlite3.Row, ThreadState]:
+    row = _comment_row(db, actor.name, comment_id)
+    return row, thread_state(db, thread_row(db, actor.name, row["thread_id"]), at)
+
+
 def edit(db: sqlite3.Connection, actor: User, comment_id: int, text: object, clock: Moment) -> None:
     """The author edits within EDIT_WINDOW of posting; the comment is then marked edited."""
     _require_writer(actor)
     body = clean_text(text, "a comment")
     with _write_transaction(db):
         at = _when(clock)
-        row = _open_comment(db, actor.name, comment_id, at)
-        _own(row, actor, "edit")
-        thread = thread_row(db, actor.name, row["thread_id"])
-        if not groups.rule_on(db, thread["group_id"], "comments-edited"):
-            raise Forbidden("comments cannot be edited in this group")
-        if at - datetime.fromisoformat(row["created_at"]) > EDIT_WINDOW:
-            raise Conflict(f"a comment can be edited for {groups.EDIT_MINUTES} minutes only")
+        row, state = _changing(db, actor, comment_id, at)
+        check_edit(actor, row, state, at)
         db.execute(
             "UPDATE comments SET body=?, edited_at=? WHERE id=?",
             (body, _utc_text(at), comment_id),
@@ -302,11 +364,8 @@ def remove(db: sqlite3.Connection, actor: User, comment_id: int, clock: Moment) 
     _require_writer(actor)
     with _write_transaction(db):
         at = _when(clock)
-        row = _open_comment(db, actor.name, comment_id, at)
-        _own(row, actor, "remove")
-        thread = thread_row(db, actor.name, row["thread_id"])
-        if not groups.rule_on(db, thread["group_id"], "authors-remove"):
-            raise Forbidden("comments cannot be removed in this group")
+        row, state = _changing(db, actor, comment_id, at)
+        check_remove(actor, row, state)
         db.execute(
             "UPDATE comments SET body='', removed_at=? WHERE id=?", (_utc_text(at), comment_id)
         )

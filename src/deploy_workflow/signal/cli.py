@@ -27,6 +27,7 @@ from deploy_workflow.signal.store import (
     set_source_state,
     sources,
 )
+from deploy_workflow.signal.texts import plural
 from deploy_workflow.signal.topics import add_topic, list_topics
 
 LOOP_SECONDS = 60
@@ -97,7 +98,7 @@ def _moderation(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -
 def _moderate(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     if args.command == "threads":
         count = threads.remove_thread(db, args.id)
-        print(f"thread {args.id} removed with {count} comment lines")
+        print(f"thread {args.id} removed with {plural(count, 'comment line', 'comment lines')}")
     elif args.command == "comments":
         threads.moderate_comment(db, args.id, lambda: datetime.now(UTC))
         print(f"comment {args.id} removed; a removed line stays in its thread")

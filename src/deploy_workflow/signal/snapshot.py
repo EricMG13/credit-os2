@@ -6,17 +6,31 @@ The shape is the one ``web/src/pages/signal/slice.ts`` (``readSlice``) accepts:
 passes. Dates and the day boundaries behind "yesterday" are UTC.
 
 The store holds users and roles, sources with their checks, stories with their duplicates, topics
-with their follows, and saves. Digests are the viewer's own and are written by ``digestview``: with
-the AI pass not built every digest is delivered paused. Everything else the slice can carry
-(groups, threads, thread rules, notification events, the AI pass and its spend) does not exist in
-this service and is delivered empty: AI is off with a notice saying it is not set up, and no story
-carries an AI line, a strength, a sharer, comments, a thread, a case stage or rating moves.
+with their follows, saves, and groups with their threads, comments, reactions, read marks, thread
+rules and notification switches (written by ``group_view``, which also gives a story its sharer,
+comment count and thread). Digests are the viewer's own and are written by ``digestview``: with
+the AI pass not built every digest is delivered paused. The AI pass does not exist in this
+service: AI is off with a notice saying it is not set up, and no story carries an AI line, a
+strength, a case stage or rating moves.
 
-Views: For you (stories in followed topics), Latest, Saved and one per topic. Each holds its newest
-``SHOWN`` story ids in both ``top`` and ``latest`` (nothing is ranked, so the two orders are equal)
-and the next up to ``OLDER`` in ``older``; ``waiting`` is null (the React app composes it when it
-reads again). A viewer with no display name sees no stories and no counts. The whole snapshot is
-read in one read transaction.
+Views: For you (stories in followed topics or shared in the viewer's groups), Latest, Saved and
+one per topic. Each holds its newest ``SHOWN`` story ids in ``latest`` and in the Top order
+(``group_view.ranker``) in ``top``; the three main views hold the next up to ``OLDER`` in
+``older``, a topic view only when the request focuses it (``Focus.topic``), else ``older`` is
+empty. ``waiting`` is null (the React app composes it when it reads again). A viewer with no
+display name sees no stories and no counts. The whole snapshot is read in one read transaction.
+
+Size: the forwarder in front of the service refuses a reply over 4 MiB, so the snapshot is kept
+under 3 MiB in every store state. The group part keeps its own budgets (``group_view``); the
+stories then share what is left of ``STORY_AND_GROUP_BUDGET`` (and of ``SNAPSHOT_BUDGET`` after
+the rest of the snapshot), paid in the order ``_priority`` gives; a story that does not fit is
+left out of every view, and a count beside a view left empty by it is not delivered. A headline
+longer than ``HEADLINE_LIMIT`` characters is cut, and a link longer than ``MAX_LINK`` is not
+delivered, so no one story outgrows the budget.
+
+Focus: ``GET /api/snapshot?topic=<id>&thread=<id>`` (``Focus``) asks for a topic's older stories
+and a thread's comments. An id that names nothing the viewer can see is ignored: the reply is the
+same as without it.
 """
 
 from __future__ import annotations

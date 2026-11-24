@@ -92,3 +92,12 @@ def test_an_older_copy_of_a_story_never_ranks_above_it(items, data):
     )
     order = top_order([*items, older], NOW)
     assert order.index(one.story_id) < order.index(10_000)
+
+
+def test_a_comment_is_worth_a_quarter_of_a_share():
+    # 48 h of age halves twice: a story needs a raise above 4 to beat an untouched new one.
+    # One share and four comments: 1 + 1 + 1 = 3, below; one share and twelve: 5, above.
+    assert top_order([story(1, 0), story(2, 48, shares=1, comments=4)], NOW) == [1, 2]
+    assert top_order([story(1, 0), story(2, 48, shares=1, comments=12)], NOW) == [2, 1]
+    # Eight comments alone: 1 + 2 = 3, below; with weight 1 they would be 9, above.
+    assert top_order([story(1, 0), story(2, 48, comments=8)], NOW) == [1, 2]

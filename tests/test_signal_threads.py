@@ -299,3 +299,109 @@ def test_a_groups_topics_post_each_new_story_once_per_group(db):
     assert threads.share(db, MARA, 1, threads.Item(3, "Ours now."), fetched) == (1, True)
     # Stories 1 and 2 existed before the topics: they are not posted.
     assert rows(db, "SELECT COUNT(*) FROM threads WHERE story_id IN (1, 2)") == [(0,)]
+
+
+def read_at(db: sqlite3.Connection, user: str, thread: int) -> object:
+    found = rows(
+        db, "SELECT read_at FROM read_marks WHERE user_name=? AND thread_id=?", user, thread
+    )
+    return found[0][0] if found else None
+
+
+def test_a_writes_clock_is_read_once_it_holds_the_write_lock(db):
+    """Review finding 9a: a comment whose time was taken before a reader's read mark but that
+    committed after it was never unread. The routes now hand the clock to the write, which reads
+    it inside its transaction, so it comes after every write committed before it."""
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1, "Mine."), NOW)
+    seen: list[bool] = []
+
+    def clock(at: datetime) -> threads.Moment:
+        def now() -> datetime:
+            seen.append(db.in_transaction)
+            return at
+
+        return now
+
+    threads.mark_read(db, TOBIAS, thread, clock(NOW + timedelta(seconds=10, milliseconds=5)))
+    made = threads.comment(db, INES, thread, "Late", clock(NOW + timedelta(seconds=11)))
+    threads.reply(db, MARA, made, "Answer", clock(NOW + timedelta(seconds=12)))
+    threads.edit(db, MARA, 1, "Mine, edited.", clock(NOW + timedelta(seconds=13)))
+    threads.react(
+        db, MARA, threads.Reaction(made, "Seen", True), clock(NOW + timedelta(seconds=14))
+    )
+    threads.remove(db, MARA, 3, clock(NOW + timedelta(seconds=15)))
+    threads.share(db, INES, 1, threads.Item(None, "Note"), clock(NOW + timedelta(seconds=16)))
+    assert seen == [True] * 7
+    assert rows(db, "SELECT created_at FROM comments WHERE id=?", made) == [
+        ("2026-11-24T12:00:11+00:00",)
+    ]
+
+
+def test_the_routes_hand_the_clock_to_the_write_not_a_time(monkeypatch):
+    from deploy_workflow.signal import api_groups
+
+    given: list[object] = []
+    monkeypatch.setattr(threads, "comment", lambda db, actor, tid, text, at: given.append(at) or 9)
+
+    class Req:
+        db = None
+        person = MARA
+        groups = ("1",)
+
+        @staticmethod
+        def body() -> dict[str, object]:
+            return {"text": "x"}
+
+    api_groups._comment(Req())  # type: ignore[arg-type]
+    assert given == [api_groups._now]
+
+
+def test_joining_a_thread_by_sharing_does_not_mark_it_read_for_the_sharer(db):
+    """Review finding 9b: the sharer shared from the feed and has not read the thread, so what
+    others wrote there stays unread for them; their own comment never counts as unread."""
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1, "Mine."), NOW)
+    threads.mark_read(db, INES, thread, NOW + timedelta(minutes=1))
+    threads.comment(db, MARA, thread, "Second", NOW + timedelta(minutes=2))
+    joined = threads.share(db, INES, 1, threads.Item(1, "Sharing too."), NOW + timedelta(minutes=3))
+    assert joined == (thread, True)
+    assert read_at(db, "Ines K", thread) == "2026-11-24T12:01:00+00:00"  # unmoved
+    # A first share starts the sharer's own thread: it is read for them.
+    threads.share(db, INES, 1, threads.Item(2, "Mine too."), NOW + timedelta(minutes=4))
+    assert read_at(db, "Ines K", 2) == "2026-11-24T12:04:00+00:00"
+    # Commenting or replying in the thread itself does mark it read.
+    threads.comment(db, INES, thread, "Read it now", NOW + timedelta(minutes=5))
+    assert read_at(db, "Ines K", thread) == "2026-11-24T12:05:00+00:00"
+
+
+def test_the_owner_removes_a_thread_or_any_comment(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1, "Mine."), NOW)
+    reply = threads.reply(db, INES, 1, "Hers", NOW)
+    threads.react(db, MARA, threads.Reaction(reply, "Agree", True), NOW)
+    groups.set_rule(db, MARA, "authors-remove", False)
+    threads.moderate_comment(db, reply, NOW + timedelta(minutes=1))
+    assert rows(db, "SELECT id, body, removed_at FROM comments ORDER BY id") == [
+        (1, "Mine.", None),
+        (2, "", "2026-11-24T12:01:00+00:00"),
+    ]
+    assert rows(db, "SELECT * FROM reactions") == []
+    with pytest.raises(NotFound, match="no comment with id 9"):
+        threads.moderate_comment(db, 9, NOW)
+    threads.mark_read(db, TOBIAS, thread, NOW)
+    assert threads.remove_thread(db, thread) == 2
+    assert rows(db, "SELECT COUNT(*) FROM threads") == [(0,)]
+    assert rows(db, "SELECT COUNT(*) FROM comments") == [(0,)]
+    assert rows(db, "SELECT COUNT(*) FROM read_marks") == [(0,)]
+    with pytest.raises(NotFound, match="no thread with id 1"):
+        threads.remove_thread(db, thread)
+
+
+def test_a_topic_story_is_not_posted_into_a_group_at_its_thread_bound(db, monkeypatch):
+    monkeypatch.setattr(groups, "MAX_THREADS", 1)
+    topic = add_topic(db, "Plants", ["plants"], [], "Mara L")
+    groups.set_topics(db, MARA, 1, [topic])
+    groups.set_topics(db, MARA, 2, [topic])
+    threads.share(db, INES, 2, threads.Item(None, "Already one"), NOW)
+    source = 1
+    add_story(db, source, Entry("Corvane plants again", "https://w.example/3", NOW, ""), NOW)
+    match_story(db, 3)
+    assert rows(db, "SELECT group_id, story_id FROM threads ORDER BY id") == [(2, None), (1, 3)]

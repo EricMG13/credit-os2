@@ -3,7 +3,9 @@
 It serves no page and no file: the screens are the React application's (``react_frontend``, started
 with ``--signal-url``), which forwards its ``/signal/api/*`` requests here server-side.
 ``GET /api/snapshot`` is the whole reader-facing state for the asking user
-(``deploy_workflow.signal.snapshot``); the other routes read pages of the feed and save or follow.
+(``deploy_workflow.signal.snapshot``); ``?topic=<id>`` and ``?thread=<id>`` ask it to carry that
+topic's older stories and that thread's comments (decimal ids, else 400; an id naming nothing the
+asker can see is ignored). The other routes read pages of the feed and save or follow.
 
 Plain ``http.server``; no framework. The service has no login and may be reachable from other
 machines, so every request is hostile input. The rules are those of the run start page's service,
