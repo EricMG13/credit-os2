@@ -427,8 +427,8 @@ function SceneView({
     <SignalPageWriteContext value={page}>
       <SignalFrame scene={scene} current={current} follow={follow}>
         {notice.said === null ? null : (
-          // It stays in view: the control that was pressed may be far down the page.
-          <div key={notice.said.count} className="sticky top-0 z-10 mb-4">
+          // It stays in view, under the Channels strip below 1024px: the control pressed may be far down the page.
+          <div key={notice.said.count} className="sticky top-16 z-10 mb-4 min-[1024px]:top-0">
             <Alert tone={notice.said.refusal ? "error" : "info"} title={notice.said.text} />
           </div>
         )}

@@ -31,7 +31,11 @@ export function ChannelPanel({
 }) {
   const label = ["Channels", place === null ? null : `: ${place}`, unread ? ". Unread" : null];
   return (
-    <div className="mb-4">
+    // The strip stays at the top of the scrolling page (SignalFrame gives that region the matching
+    // scroll-padding and SignalPage's refusal alert sits under it). It reaches out over the page's
+    // padding so the page does not show round it; z-30 is above the page's tabs (z-10) and under the
+    // panels (z-40) and dialogs (z-50).
+    <div className="sticky top-0 z-30 -mx-4 -mt-4 mb-4 border-b border-border-hairline bg-surface-canvas px-4 py-2 min-[768px]:-mx-8 min-[768px]:-mt-8 min-[768px]:px-8">
       <SlideoutMenu.Trigger isOpen={open} onOpenChange={onOpenChange}>
         <Button
           ref={buttonRef}

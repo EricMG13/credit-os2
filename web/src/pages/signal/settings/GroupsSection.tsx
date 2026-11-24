@@ -7,6 +7,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Plus, Users01 } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
+import { cx } from "@/utils/cx";
 import { Select } from "@/components/base/select/select";
 import { AvatarLabelGroup } from "../parts/Avatar";
 import { AvatarGroup } from "../parts/AvatarGroup";
@@ -22,6 +23,14 @@ import { SampleReason, useSampleOff } from "./SampleReason";
 const REASON_ID = "signal-groups-write-reason";
 const LINK =
   "inline-flex min-h-6 items-center font-semibold text-text-link outline-focus-ring focus-visible:outline-2";
+
+/**
+ * The row's buttons, Delete last. In a narrow row an even grid of two columns on a line of its own
+ * (the first spans both when the count is odd); from 28rem one line under the select; from 62rem, where
+ * the row has room, one line beside it. The row is the container, not the window.
+ */
+const ACTIONS = "grid basis-full grid-cols-2 gap-2 @md:flex @md:gap-x-1 @[62rem]:basis-auto";
+const ACTION = "w-full @md:w-auto";
 
 const NEW_GROUP: readonly FormField[] = [
   { key: "name", kind: "text", label: "Name", missing: "Enter the group's name." },
@@ -224,7 +233,7 @@ function Row({
     ([purpose]) => live && (purpose !== "topics" || group.topics !== null),
   );
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-border-hairline py-4">
+    <li className="@container flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-border-hairline py-4">
       <div className="min-w-48 flex-1">
         <AvatarLabelGroup
           size="md"
@@ -257,10 +266,11 @@ function Row({
       >
         {(item) => <Select.Item id={item.id} label={item.label} />}
       </Select>
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+      <div className={ACTIONS}>
         <Button
           color="tertiary"
           aria-label={`Edit members: ${group.name}`}
+          className={cx(ACTION, offered.length % 2 === 0 && "col-span-2 @md:col-span-1")}
           {...off}
           onPress={() => {
             onOpen("members");
@@ -273,6 +283,7 @@ function Row({
             key={purpose}
             color="tertiary"
             aria-label={`${word}: ${group.name}`}
+            className={ACTION}
             onPress={() => {
               onOpen(purpose);
             }}

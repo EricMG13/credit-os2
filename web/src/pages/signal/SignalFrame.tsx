@@ -445,7 +445,9 @@ export function SignalFrame({
         id="signal-content"
         ref={content}
         tabIndex={-1}
-        className="min-w-0 flex-1 overflow-y-auto p-4 outline-none min-[768px]:p-8"
+        // Below 1024px the Channels strip (64px with its hairline) is stuck to the top: what focus or
+        // a link scrolls to stops below it.
+        className="min-w-0 flex-1 scroll-pt-16 overflow-y-auto p-4 outline-none min-[768px]:p-8 min-[1024px]:scroll-pt-0"
       >
         {wide ? null : (
           <ChannelPanel

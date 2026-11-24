@@ -213,7 +213,8 @@ def _run_digest(req: Req) -> Reply:
     try:
         if req.loop is not None and req.loop.ai_status(req.db, now).state == "on":
             digests.request_run(req.db, req.person.name, _number(req), now)
-            return Reply(200, {"outcome": "queued", "issueId": None, "message": QUEUED})
+            queued = {"outcome": "queued", "issueId": None, "stories": None, "message": QUEUED}
+            return Reply(200, queued)
         run = digests.run_now(req.db, req.person.name, _number(req), now)
     except store.StoreError as error:
         raise _fail(error) from None
