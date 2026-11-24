@@ -7,10 +7,10 @@
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
-import { useSignalActions } from "../actions";
 import { TextArea } from "../parts/TextArea";
 import type { SignalDigestForm } from "../slice";
 import { Section } from "./Section";
+import { useNotWritable } from "./WriteReason";
 
 const SAVE_ID = "signal-digest-save-reason";
 const RUN_ID = "signal-digest-run-reason";
@@ -54,12 +54,11 @@ export function DigestsSection({
   value: Record<"name" | "covers" | "schedule" | "length" | "brief", string>;
   onChange: (field: keyof typeof value, text: string) => void;
 }) {
-  const live = useSignalActions() !== null;
-  if (live) {
+  if (useNotWritable()) {
     return (
       <Section title="Digests" hint={HINT}>
         <p className="text-sm text-text-tertiary">
-          No digests yet. Digests cannot be set up from this page yet.
+          Digests cannot be set up or changed from this page yet.
         </p>
       </Section>
     );

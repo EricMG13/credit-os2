@@ -9,7 +9,7 @@ import { AvatarLabelGroup } from "../parts/Avatar";
 import { AvatarGroup } from "../parts/AvatarGroup";
 import type { SignalSettingsGroup } from "../slice";
 import { Section } from "./Section";
-import { WriteReason } from "./WriteReason";
+import { useNotWritable, WriteReason } from "./WriteReason";
 
 const REASON_ID = "signal-groups-write-reason";
 
@@ -22,6 +22,8 @@ function Row({
   visibility: string;
   onVisibility: (value: string) => void;
 }) {
+  // In the sample the choice changes in memory; on a service it shows what the service holds.
+  const fixed = useNotWritable();
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-border-hairline py-4">
       <div className="min-w-48 flex-1">
@@ -47,6 +49,8 @@ function Row({
       )}
       <Select
         aria-label={`Visibility: ${group.name}`}
+        aria-describedby={fixed ? REASON_ID : undefined}
+        isDisabled={fixed}
         className="w-50"
         items={group.visibilityOptions.map((id) => ({ id, label: id }))}
         value={visibility}

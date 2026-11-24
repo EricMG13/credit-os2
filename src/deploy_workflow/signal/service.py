@@ -50,7 +50,6 @@ import sys
 import threading
 import urllib.parse
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -60,8 +59,22 @@ from deploy_workflow import http_base
 from deploy_workflow.http_base import WILDCARD_MESSAGE
 from deploy_workflow.http_base import Reply as _Reply
 from deploy_workflow.http_base import refuse as _refuse
-from deploy_workflow.signal import feedview, identity, ingest, snapshot, store, topics
+from deploy_workflow.signal import (
+    api_groups,
+    api_settings,
+    digests,
+    feedview,
+    identity,
+    ingest,
+    snapshot,
+    store,
+    topics,
+)
 from deploy_workflow.signal.ingest import FetchFn
+from deploy_workflow.signal.routing import ID as _ID
+from deploy_workflow.signal.routing import NEEDS_NAME as _NEEDS_NAME
+from deploy_workflow.signal.routing import Req as _Req
+from deploy_workflow.signal.routing import Route as _Route
 
 __all__ = ["Handler", "Loop", "make_server", "serve"]
 
@@ -77,63 +90,46 @@ MAX_PER_ADDRESS = 16  # one remote address may hold this many of the MAX_CONNECT
 MAX_PARAMS = 20
 # A reply is data: it may load nothing, run nothing and be framed nowhere.
 _POLICY = "default-src 'none'; frame-ancestors 'none'"
-_NEEDS_NAME = "choose a display name first"
 
 
 class Loop:
-    """The background ingest loop: one pass per tick over the approved sources that are due."""
+    """The background loop: one pass per tick, the ingest of the approved sources that are due and
+    then the digests that are due. The two jobs fail alone: each has its own connection and its
+    own recorded error."""
 
     def __init__(self, root: Path, fetch_fn: FetchFn | None = None) -> None:
         self.root = root
         self.fetch_fn = fetch_fn
-        self.last_error: str | None = None
+        self.last_error: str | None = None  # the ingest job's
+        self.digest_error: str | None = None
 
     def run_once(self, now: datetime) -> None:
-        """One pass on this thread's own connection; a failing pass is logged and recorded."""
+        """One pass: each job on its own connection; a failing job is logged and recorded."""
+        self.last_error = self._job("ingest", lambda db: ingest.run_due(db, now, self.fetch_fn))
+        self.digest_error = self._job("digest", lambda db: digests.run_due(db, now))
+
+    def _job(self, name: str, job: Callable[[sqlite3.Connection], object]) -> str | None:
+        """Run `job`; None when it finished, else the text /api/status shows for its failure."""
         try:
             db = store.open_db(self.root)
             try:
-                ingest.run_due(db, now, self.fetch_fn)
+                job(db)
             finally:
                 db.close()
         except Exception as error:
-            # The one documented fail-open of the loop: whatever a pass raises (a bug, a locked
-            # store) must not end the service, so the traceback goes to the log, the failure is
-            # shown by /api/status (its type only, never the cause), and the next tick tries
-            # again. KeyboardInterrupt and SystemExit (BaseException) are not caught.
-            log.exception("ingest pass failed")
-            self.last_error = f"the last ingest pass failed ({type(error).__name__}); see the log"
-        else:
-            self.last_error = None
+            # The one documented fail-open of the loop: whatever a job raises (a bug, a locked
+            # store) must not end the service or stop the other job, so the traceback goes to the
+            # log, the failure is shown by /api/status (its type only, never the cause), and the
+            # next tick tries again. KeyboardInterrupt and SystemExit are not caught.
+            log.exception("%s pass failed", name)
+            return f"the last {name} pass failed ({type(error).__name__}); see the log"
+        return None
 
     def run_until(self, stop: threading.Event, tick: float) -> None:
         while True:
             self.run_once(datetime.now(UTC))
             if stop.wait(tick):
                 return
-
-
-@dataclass
-class _Req:
-    """What a route handler may use: its own connection, who asked, and the request's parts."""
-
-    db: sqlite3.Connection
-    user: identity.User | None
-    groups: tuple[str, ...]
-    params: dict[str, str]
-    body: Callable[[], dict[str, Any]]
-    loop: Loop | None
-
-    @property
-    def person(self) -> identity.User:
-        if self.user is None:
-            raise _refuse(401, _NEEDS_NAME)
-        return self.user
-
-    def param(self, name: str) -> str:
-        if name not in self.params:
-            raise _refuse(400, f"the request needs {name}")
-        return self.params[name]
 
 
 def _me(req: _Req) -> _Reply:
@@ -234,7 +230,7 @@ def _status(req: _Req) -> _Reply:
         {
             "last_pass_at": store.get_meta(req.db, "last_pass_at"),
             "sources": {"approved": len(approved), "failing": failing},
-            "loop_error": req.loop.last_error if req.loop is not None else None,
+            "loop_error": (req.loop.last_error or req.loop.digest_error) if req.loop else None,
         },
     )
 
@@ -244,16 +240,7 @@ def _snapshot(req: _Req) -> _Reply:
     return _Reply(200, snapshot.build(req.db, req.user, datetime.now(UTC), pass_failed=failed))
 
 
-@dataclass(frozen=True)
-class _Route:
-    method: str
-    pattern: re.Pattern[str]
-    handler: Callable[[_Req], _Reply]
-    open_to_all: bool = False  # only /api/me, /api/status and /api/snapshot need no display name
-
-
-_ID = "([0-9]{1,18})"  # ASCII digits only (a str pattern's \d also matches other scripts)
-_ROUTES = (
+_ROUTES: tuple[_Route, ...] = (
     _Route("GET", re.compile("/api/me"), _me, open_to_all=True),
     _Route("POST", re.compile("/api/me"), _set_me, open_to_all=True),
     _Route("GET", re.compile("/api/status"), _status, open_to_all=True),
@@ -265,6 +252,8 @@ _ROUTES = (
     _Route("GET", re.compile("/api/topics"), _topics),
     _Route("POST", re.compile(f"/api/topics/{_ID}/follow"), _follow),
     _Route("DELETE", re.compile(f"/api/topics/{_ID}/follow"), _unfollow),
+    *api_groups.ROUTES,
+    *api_settings.ROUTES,
 )
 
 

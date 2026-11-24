@@ -53,6 +53,11 @@ _FOLLOWED = (
     "EXISTS(SELECT 1 FROM topic_stories ts JOIN topic_follows f ON f.topic_id = ts.topic_id"
     " WHERE ts.story_id = s.id AND f.user_name = ?)"
 )
+# For you (spec 5.6): stories in the user's followed topics or shared in a group they belong to.
+_FOR_YOU = (
+    "(" + _FOLLOWED + " OR EXISTS(SELECT 1 FROM threads t JOIN group_members m"
+    " ON m.group_id = t.group_id WHERE t.story_id = s.id AND m.user_name = ?))"
+)
 _SAVED = "EXISTS(SELECT 1 FROM saves v WHERE v.story_id = s.id AND v.user_name = ?)"
 _IN_TOPIC = "EXISTS(SELECT 1 FROM topic_stories ts WHERE ts.story_id = s.id AND ts.topic_id = ?)"
 
@@ -115,7 +120,7 @@ def _view_clause(
     if view == "latest":
         return None, []
     if view == "foryou":
-        return _FOLLOWED, [user_name]
+        return _FOR_YOU, [user_name, user_name]
     if view == "saved":
         return _SAVED, [user_name]
     prefix, _, number = view.partition(":")

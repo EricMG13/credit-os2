@@ -1,6 +1,6 @@
 // Where the live page is: the connected app draws it at the path /signal and it routes on the URL
 // hash with the Signal routes, so every address the screens write (`#/signal/main/…`) works there.
-import { matchRoute } from "../../route-table";
+import { matchRoute } from "../../route-match";
 import { signalRoutes } from "../routes";
 import { LIVE_SCENE, viewAtOf, type ViewAt } from "./hold";
 

@@ -57,6 +57,7 @@ Clock = Callable[[], float]
 _LABEL = r"(?:[a-z0-9]|[a-z0-9][a-z0-9-]{0,61}[a-z0-9])"
 _NETLOC = re.compile(rf"({_LABEL}(?:\.{_LABEL})+)(?::[0-9]{{1,5}})?")
 _DIGITS = re.compile(r"[0-9]{1,18}")
+_PRINTABLE = re.compile(r"[\x21-\x7e]+")
 _VALIDATOR = re.compile(r"[\x20-\x7e]{1,256}")
 _EMBEDDING_V4 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("::/96"))
 
@@ -177,6 +178,18 @@ def check_address(url: str, resolve: Resolver | None = None) -> None:
     """Raise FetchRefused unless url is https, a plain host name, resolving only to public IPs."""
     # The resolver is looked up now, so tests can replace it.
     _checked(_locate(url, redirect=False).host, _resolve if resolve is None else resolve)
+
+
+def check_form(url: str) -> None:
+    """Raise FetchRefused unless `url` has the form of an address that may be fetched: printable
+    ASCII, https, a plain host name (no IP literal), the default port. It makes no lookup, so a
+    host that does not exist or resolves to a private address is refused only when it is fetched
+    (`check_address`)."""
+    if not _PRINTABLE.fullmatch(url):
+        raise FetchRefused("feed address must be plain printable text with no spaces")
+    place = _locate(url, redirect=False)
+    if place.port != _DEFAULT_PORT:
+        raise FetchRefused("feed address must use the default port")
 
 
 def _declared_length(response: ResponseLike) -> int | None:

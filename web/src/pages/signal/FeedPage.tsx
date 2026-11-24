@@ -182,11 +182,14 @@ function FeedNotices({
 }) {
   return (
     <>
-      {waiting === null || waitingVisible ? null : (
-        <div className="mt-4 flex justify-center">
-          <Pill label={waiting.label} action="Show" onAction={onReveal} />
-        </div>
-      )}
+      {/* Always on the page, so a pill that arrives with a later read is announced. */}
+      <div aria-live="polite">
+        {waiting === null || waitingVisible ? null : (
+          <div className="mt-4 flex justify-center">
+            <Pill label={waiting.label} action="Show" onAction={onReveal} />
+          </div>
+        )}
+      </div>
       {error === null ? null : <FeedAlert error={error} />}
       <div aria-live="polite">
         {shared === 0 ? null : (

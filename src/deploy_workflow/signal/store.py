@@ -23,6 +23,14 @@ class StoreError(ValueError):
     """An invalid role, kind, state, empty name or duplicate."""
 
 
+class Conflict(StoreError):
+    """What was asked clashes with what is stored: a name already taken, or a limit reached."""
+
+
+class Missing(StoreError):
+    """What was asked about is not stored: an unknown id."""
+
+
 _MIGRATION_1 = """
 CREATE TABLE users(
     id INTEGER PRIMARY KEY,
@@ -119,8 +127,150 @@ CREATE INDEX IF NOT EXISTS idx_stories_link_key ON stories(link_key);
 CREATE INDEX IF NOT EXISTS idx_stories_title_key ON stories(title_key);
 """
 
+# Groups, members, threads, comments, reactions, read marks and notification settings.
+# A thread's story_id is NULL for a note thread; topic_id is set when a group topic posted it.
+# A thread_rules row with group_id NULL applies to every group; a group's own row overrides it.
+# A deleted group's id is never given again (AUTOINCREMENT): a page that still names it gets 404.
+_MIGRATION_3 = """
+CREATE TABLE groups(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    visibility TEXT NOT NULL CHECK (visibility IN ('everyone','invited')),
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE group_members(
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_name TEXT NOT NULL,
+    UNIQUE(group_id, user_name)
+);
+CREATE TABLE group_topics(
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    topic_id INTEGER NOT NULL REFERENCES topics(id),
+    UNIQUE(group_id, topic_id)
+);
+CREATE TABLE threads(
+    id INTEGER PRIMARY KEY,
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    story_id INTEGER REFERENCES stories(id),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    topic_id INTEGER REFERENCES topics(id),
+    note TEXT,
+    last_activity_at TEXT NOT NULL,
+    CHECK (story_id IS NOT NULL OR note IS NOT NULL),
+    CHECK ((created_by IS NULL) != (topic_id IS NULL)),
+    UNIQUE(group_id, story_id)
+);
+CREATE TABLE comments(
+    id INTEGER PRIMARY KEY,
+    thread_id INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+    author TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    edited_at TEXT,
+    removed_at TEXT
+);
+CREATE TABLE reactions(
+    comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+    user_name TEXT NOT NULL,
+    word TEXT NOT NULL CHECK (word IN ('Agree','Disagree','Seen')),
+    UNIQUE(comment_id, user_name, word)
+);
+CREATE TABLE read_marks(
+    user_name TEXT NOT NULL,
+    thread_id INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+    read_at TEXT NOT NULL,
+    UNIQUE(user_name, thread_id)
+);
+CREATE TABLE thread_rules(
+    group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+    rule TEXT NOT NULL,
+    is_on INTEGER NOT NULL CHECK (is_on IN (0, 1))
+);
+CREATE UNIQUE INDEX idx_thread_rules_scope ON thread_rules(ifnull(group_id, 0), rule);
+CREATE TABLE notification_settings(
+    user_name TEXT NOT NULL,
+    event TEXT NOT NULL CHECK (event IN ('replies','threads','signal','digest')),
+    in_signal INTEGER NOT NULL CHECK (in_signal IN (0, 1)),
+    on_desktop INTEGER NOT NULL CHECK (on_desktop IN (0, 1)),
+    UNIQUE(user_name, event)
+);
+CREATE INDEX idx_threads_group_activity ON threads(group_id, last_activity_at);
+CREATE INDEX idx_threads_story_id ON threads(story_id);
+CREATE INDEX idx_comments_thread_id ON comments(thread_id, created_at);
+CREATE INDEX idx_group_topics_topic_id ON group_topics(topic_id);
+CREATE INDEX idx_group_members_user ON group_members(user_name);
+"""
+
+# Digests, their covers and runs. A digest belongs to one user and is read by that user only, so an
+# issue's unread state is the digest owner's (`read_at`). `period_from` is where the next issue's
+# period starts; `next_run_at` is the next scheduled run, in the store's UTC text form. A run is
+# recorded for every attempt: 'nothing' (an issue saying nothing material happened), 'skipped'
+# (stories were in scope and no writer was available) or 'written' (reserved for the AI pass).
+_MIGRATION_4 = """
+CREATE TABLE digests(
+    id INTEGER PRIMARY KEY,
+    owner TEXT NOT NULL,
+    name TEXT NOT NULL,
+    cadence TEXT NOT NULL CHECK (cadence IN ('daily','weekly','monthly')),
+    minute INTEGER NOT NULL CHECK (minute BETWEEN 0 AND 1439),
+    weekday INTEGER CHECK (weekday BETWEEN 0 AND 6),
+    month_day INTEGER CHECK (month_day BETWEEN 1 AND 31),
+    covers_all INTEGER NOT NULL CHECK (covers_all IN (0, 1)),
+    subject TEXT NOT NULL,
+    length TEXT NOT NULL CHECK (length IN ('short','standard')),
+    points INTEGER NOT NULL CHECK (points BETWEEN 1 AND 10),
+    upcoming TEXT NOT NULL,
+    look_ahead_days INTEGER NOT NULL CHECK (look_ahead_days BETWEEN 0 AND 60),
+    period_from TEXT NOT NULL,
+    next_run_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK ((cadence = 'weekly') = (weekday IS NOT NULL)),
+    CHECK ((cadence = 'monthly') = (month_day IS NOT NULL)),
+    UNIQUE(owner, name)
+);
+CREATE TABLE digest_topics(
+    digest_id INTEGER NOT NULL REFERENCES digests(id),
+    topic_id INTEGER NOT NULL REFERENCES topics(id),
+    UNIQUE(digest_id, topic_id)
+);
+CREATE TABLE digest_groups(
+    digest_id INTEGER NOT NULL REFERENCES digests(id),
+    group_id INTEGER NOT NULL REFERENCES groups(id),
+    UNIQUE(digest_id, group_id)
+);
+CREATE TABLE digest_issues(
+    id INTEGER PRIMARY KEY,
+    digest_id INTEGER NOT NULL REFERENCES digests(id),
+    kind TEXT NOT NULL,  -- 'nothing'; the AI pass adds its own kind
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT
+);
+CREATE TABLE digest_runs(
+    id INTEGER PRIMARY KEY,
+    digest_id INTEGER NOT NULL REFERENCES digests(id),
+    trigger TEXT NOT NULL CHECK (trigger IN ('schedule','manual')),
+    ran_at TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (outcome IN ('nothing','skipped','written')),
+    reason TEXT NOT NULL,
+    stories INTEGER NOT NULL,
+    issue_id INTEGER REFERENCES digest_issues(id)
+);
+CREATE INDEX idx_digests_next_run ON digests(next_run_at);
+CREATE INDEX idx_digest_topics_topic ON digest_topics(topic_id);
+CREATE INDEX idx_digest_groups_group ON digest_groups(group_id);
+CREATE INDEX idx_digest_issues_digest ON digest_issues(digest_id, id);
+CREATE INDEX idx_digest_runs_digest ON digest_runs(digest_id, id);
+"""
+
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
-MIGRATIONS = [_MIGRATION_1, _MIGRATION_2]
+MIGRATIONS = [_MIGRATION_1, _MIGRATION_2, _MIGRATION_3, _MIGRATION_4]
 _BUSY_SECONDS = 30
 
 
@@ -246,22 +396,56 @@ def role_of(db: sqlite3.Connection, name: str) -> str:
     return str(row["role"]) if row else "reader"
 
 
+MAX_SOURCE_NAME = 80
+MAX_URL = 512
+MAX_PENDING = 5  # proposals one user may have waiting for the owner at a time
+
+
 def propose_source(db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str) -> int:
+    return _propose(db, (name, kind, url, proposed_by), None)
+
+
+def propose_source_limited(
+    db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str
+) -> int:
+    """`propose_source` for a user of the service: Conflict when `proposed_by` already has
+    `MAX_PENDING` proposals waiting for the owner. The count and the insert share one write
+    transaction."""
+    return _propose(db, (name, kind, url, proposed_by), MAX_PENDING)
+
+
+def _propose(
+    db: sqlite3.Connection, fields: tuple[str, str, str, str], max_pending: int | None
+) -> int:
+    name, kind, url, proposed_by = fields
     _require_name(name)
     _require(kind, KINDS, "kind")
     if not url.strip():
         raise StoreError("url must not be empty")
-    try:
-        with db:
+    if len(name) > MAX_SOURCE_NAME or len(url) > MAX_URL:
+        raise StoreError(
+            f"a source name is at most {MAX_SOURCE_NAME} characters, an address {MAX_URL}"
+        )
+    with _write_transaction(db):
+        if max_pending is not None and _pending(db, proposed_by) >= max_pending:
+            raise Conflict(f"you already have {max_pending} proposals waiting for the owner")
+        try:
             cur = db.execute(
                 "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
                 " VALUES(?, ?, ?, 'proposed', ?, ?)",
                 (name, kind, url, proposed_by, _utc_text(datetime.now(UTC))),
             )
-    except sqlite3.IntegrityError as exc:
-        raise StoreError(f"source url {url!r} already exists") from exc
+        except sqlite3.IntegrityError as exc:
+            raise Conflict(f"source url {url!r} already exists") from exc
     assert cur.lastrowid is not None
     return cur.lastrowid
+
+
+def _pending(db: sqlite3.Connection, user_name: str) -> int:
+    row = db.execute(
+        "SELECT COUNT(*) FROM sources WHERE state='proposed' AND proposed_by=?", (user_name,)
+    ).fetchone()
+    return int(row[0])
 
 
 def set_source_state(db: sqlite3.Connection, source_id: int, state: str) -> None:

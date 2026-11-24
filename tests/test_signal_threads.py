@@ -1,0 +1,301 @@
+"""Threads: sharing, notes, comments, one level of replies, editing, removal, reactions, read
+marks, archiving and the topic posts. Expected values are written by hand.
+
+Users: Mara L and Ines K (writers), Tobias O (reader). Group 1 "Desk" (everyone, members Mara L
+and Tobias O); group 2 "Closed" (invited, member Ines K only). Stories 1 and 2 exist.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+
+from deploy_workflow.signal import groups, threads
+from deploy_workflow.signal.feeds import Entry
+from deploy_workflow.signal.groups import Conflict, Forbidden, GroupError, NotFound
+from deploy_workflow.signal.identity import User
+from deploy_workflow.signal.store import add_story, open_db, propose_source, set_source_state
+from deploy_workflow.signal.topics import add_topic, match_story
+
+NOW = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
+MARA = User("Mara L", "writer")
+INES = User("Ines K", "writer")
+TOBIAS = User("Tobias O", "reader")
+
+
+@pytest.fixture
+def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
+    database = open_db(tmp_path)
+    source = propose_source(database, "Wire", "news", "https://wire.example/feed", "Mara L")
+    set_source_state(database, source, "approved")
+    for n, title in ((1, "Corvane closes two plants"), (2, "Tessaly sells its towers")):
+        add_story(database, source, Entry(title, f"https://w.example/{n}", NOW, ""), NOW)
+    desk = groups.create_group(database, MARA, "Desk", "everyone")
+    groups.add_member(database, MARA, desk, "Mara L")
+    groups.add_member(database, MARA, desk, "Tobias O")
+    closed = groups.create_group(database, MARA, "Closed", "invited")
+    groups.add_member(database, MARA, closed, "Ines K")
+    yield database
+    database.close()
+
+
+def rows(db: sqlite3.Connection, sql: str, *args: object) -> list[tuple[object, ...]]:
+    return [tuple(row) for row in db.execute(sql, args).fetchall()]
+
+
+def comments(db: sqlite3.Connection) -> list[tuple[object, ...]]:
+    return rows(db, "SELECT id, thread_id, parent_id, author, body FROM comments ORDER BY id")
+
+
+def test_sharing_a_story_with_a_note_makes_the_note_the_sharers_first_comment(db):
+    assert threads.share(db, MARA, 1, threads.Item(1, "Worth a look."), NOW) == (1, False)
+    assert rows(db, "SELECT group_id, story_id, created_by, note, topic_id FROM threads") == [
+        (1, 1, "Mara L", None, None)
+    ]
+    assert comments(db) == [(1, 1, None, "Mara L", "Worth a look.")]
+
+
+def test_a_second_share_of_the_story_joins_its_thread_and_its_note_is_a_comment(db):
+    threads.share(db, MARA, 1, threads.Item(1), NOW)
+    later = NOW + timedelta(minutes=5)
+    assert threads.share(db, INES, 1, threads.Item(1, "Me too."), later) == (1, True)
+    assert threads.share(db, INES, 1, threads.Item(1), later) == (1, True)  # nothing to add
+    assert threads.share(db, INES, 1, threads.Item(1, "  \n"), later) == (1, True)  # a blank box
+    assert rows(db, "SELECT COUNT(*) FROM threads") == [(1,)]
+    assert comments(db) == [(1, 1, None, "Ines K", "Me too.")]
+    assert rows(db, "SELECT last_activity_at FROM threads") == [(later.isoformat(),)]
+    # The same story in another group is that group's own thread.
+    assert threads.share(db, INES, 2, threads.Item(1), later) == (2, False)
+
+
+def test_a_note_alone_starts_a_thread_and_may_repeat(db):
+    assert threads.share(db, MARA, 1, threads.Item(None, " Thursday?\r\nAgenda. "), NOW) == (
+        1,
+        False,
+    )
+    assert threads.share(db, MARA, 1, threads.Item(None, "Thursday?"), NOW) == (2, False)
+    assert rows(db, "SELECT story_id, note FROM threads ORDER BY id") == [
+        (None, "Thursday?\nAgenda."),
+        (None, "Thursday?"),
+    ]
+    for empty in (None, "", "  \n ", 3):
+        with pytest.raises(GroupError):
+            threads.share(db, MARA, 1, threads.Item(None, empty), NOW)
+
+
+def test_a_reader_reads_and_marks_read_but_posts_nothing(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    comment = threads.comment(db, MARA, thread, "First.", NOW)
+    refused = [
+        lambda: threads.share(db, TOBIAS, 1, threads.Item(2), NOW),
+        lambda: threads.share(db, TOBIAS, 1, threads.Item(None, "Note"), NOW),
+        lambda: threads.comment(db, TOBIAS, thread, "Mine.", NOW),
+        lambda: threads.reply(db, TOBIAS, comment, "Mine.", NOW),
+        lambda: threads.react(db, TOBIAS, threads.Reaction(comment, "Seen", True), NOW),
+        lambda: threads.edit(db, TOBIAS, comment, "Mine.", NOW),
+        lambda: threads.remove(db, TOBIAS, comment, NOW),
+    ]
+    for write in refused:
+        with pytest.raises(Forbidden):
+            write()
+    threads.mark_read(db, TOBIAS, thread, NOW)
+    assert rows(db, "SELECT user_name, thread_id FROM read_marks ORDER BY user_name") == [
+        ("Mara L", 1),
+        ("Tobias O", 1),
+    ]
+
+
+def test_a_group_the_writer_cannot_see_is_answered_as_missing(db):
+    hidden, _ = threads.share(db, INES, 2, threads.Item(1, "Ours."), NOW)
+    refused = [
+        lambda: threads.share(db, MARA, 2, threads.Item(2), NOW),
+        lambda: threads.comment(db, MARA, hidden, "Hello?", NOW),
+        lambda: threads.reply(db, MARA, 1, "Hello?", NOW),
+        lambda: threads.react(db, MARA, threads.Reaction(1, "Seen", True), NOW),
+        lambda: threads.mark_read(db, MARA, hidden, NOW),
+    ]
+    for write in refused:
+        with pytest.raises(NotFound):
+            write()
+    assert comments(db) == [(1, 1, None, "Ines K", "Ours.")]
+
+
+def test_unknown_groups_stories_threads_and_comments(db):
+    for write, text in [
+        (lambda: threads.share(db, MARA, 9, threads.Item(1), NOW), "no group with id 9"),
+        (lambda: threads.share(db, MARA, 1, threads.Item(9), NOW), "no story with id 9"),
+        (lambda: threads.comment(db, MARA, 9, "x", NOW), "no thread with id 9"),
+        (lambda: threads.reply(db, MARA, 9, "x", NOW), "no comment with id 9"),
+        (lambda: threads.edit(db, MARA, 9, "x", NOW), "no comment with id 9"),
+        (lambda: threads.remove(db, MARA, 9, NOW), "no comment with id 9"),
+        (lambda: threads.mark_read(db, MARA, 9, NOW), "no thread with id 9"),
+    ]:
+        with pytest.raises(NotFound, match=text):
+            write()
+
+
+def test_replies_nest_one_level(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    top = threads.comment(db, MARA, thread, "Top.", NOW)
+    answer = threads.reply(db, INES, top, "Answer.", NOW)
+    assert comments(db) == [
+        (top, thread, None, "Mara L", "Top."),
+        (answer, thread, top, "Ines K", "Answer."),
+    ]
+    with pytest.raises(GroupError, match="replies nest one level") as caught:
+        threads.reply(db, MARA, answer, "Deeper.", NOW)
+    assert caught.value.status == 400
+    threads.remove(db, MARA, top, NOW)
+    with pytest.raises(Conflict, match="removed"):
+        threads.reply(db, INES, top, "Late.", NOW)
+
+
+def test_the_author_edits_for_fifteen_minutes_and_the_comment_is_marked_edited(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    comment = threads.comment(db, MARA, thread, "Frist.", NOW)
+    threads.edit(db, MARA, comment, "First.", NOW + timedelta(minutes=15))
+    assert rows(db, "SELECT body, edited_at FROM comments") == [
+        ("First.", (NOW + timedelta(minutes=15)).isoformat())
+    ]
+    with pytest.raises(Conflict, match="15 minutes"):
+        threads.edit(db, MARA, comment, "Later.", NOW + timedelta(minutes=15, microseconds=1))
+    with pytest.raises(Forbidden, match="only its author"):
+        threads.edit(db, INES, comment, "Hers.", NOW)
+    groups.set_rule(db, MARA, "comments-edited", False)
+    with pytest.raises(Forbidden, match="cannot be edited"):
+        threads.edit(db, MARA, comment, "Again.", NOW)
+    assert rows(db, "SELECT body FROM comments") == [("First.",)]
+
+
+def test_a_removed_comment_keeps_a_line_and_its_replies_and_loses_text_and_reactions(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    top = threads.comment(db, MARA, thread, "Wrong.", NOW)
+    threads.reply(db, INES, top, "Why?", NOW)
+    threads.react(db, INES, threads.Reaction(top, "Disagree", True), NOW)
+    with pytest.raises(Forbidden, match="only its author"):
+        threads.remove(db, INES, top, NOW)
+    threads.remove(db, MARA, top, NOW)
+    assert rows(db, "SELECT body, removed_at IS NOT NULL FROM comments ORDER BY id") == [
+        ("", 1),
+        ("Why?", 0),
+    ]
+    assert rows(db, "SELECT COUNT(*) FROM reactions") == [(0,)]
+    for write in (
+        lambda: threads.edit(db, MARA, top, "Back.", NOW),
+        lambda: threads.remove(db, MARA, top, NOW),
+        lambda: threads.react(db, INES, threads.Reaction(top, "Seen", True), NOW),
+    ):
+        with pytest.raises(Conflict, match="removed"):
+            write()
+
+
+def test_authors_cannot_remove_while_the_rule_is_off(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    comment = threads.comment(db, MARA, thread, "Stays.", NOW)
+    groups.set_rule(db, MARA, "authors-remove", False)
+    with pytest.raises(Forbidden, match="cannot be removed"):
+        threads.remove(db, MARA, comment, NOW)
+
+
+def test_reactions_are_the_fixed_words_once_each_per_user(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    comment = threads.comment(db, MARA, thread, "Point.", NOW)
+    for who, word in [(MARA, "Agree"), (MARA, "Agree"), (MARA, "Seen"), (INES, "Agree")]:
+        threads.react(db, who, threads.Reaction(comment, word, True), NOW)
+    threads.react(db, MARA, threads.Reaction(comment, "Seen", False), NOW)
+    threads.react(db, MARA, threads.Reaction(comment, "Disagree", False), NOW)  # was not set
+    assert rows(db, "SELECT user_name, word FROM reactions ORDER BY user_name, word") == [
+        ("Ines K", "Agree"),
+        ("Mara L", "Agree"),
+    ]
+    for word in ("agree", "Like", "", None):
+        with pytest.raises(GroupError, match="Agree, Disagree or Seen"):
+            threads.react(db, MARA, threads.Reaction(comment, word, True), NOW)
+
+
+def test_a_thread_quiet_for_ninety_days_is_archived_only_while_the_rule_is_on(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    comment = threads.comment(db, MARA, thread, "Last word.", NOW)
+    row = db.execute("SELECT * FROM threads").fetchone()
+    quiet = NOW + timedelta(days=90)
+    assert threads.archived_at(db, row, quiet + timedelta(days=400)) is None  # rule off
+    groups.set_rule(db, MARA, "archive-quiet", True)
+    assert threads.archived_at(db, row, quiet - timedelta(microseconds=1)) is None
+    assert threads.archived_at(db, row, quiet) == quiet
+    refused = [
+        lambda: threads.comment(db, INES, thread, "Late.", quiet),
+        lambda: threads.reply(db, INES, comment, "Late.", quiet),
+        lambda: threads.react(db, INES, threads.Reaction(comment, "Seen", True), quiet),
+        lambda: threads.react(db, INES, threads.Reaction(comment, "Seen", False), quiet),
+        lambda: threads.remove(db, MARA, comment, quiet),
+        lambda: threads.share(db, INES, 1, threads.Item(1, "Again."), quiet),
+    ]
+    for write in refused:
+        with pytest.raises(Conflict, match="archived"):
+            write()
+    assert threads.share(db, INES, 1, threads.Item(1), quiet) == (thread, True)  # adds nothing
+    threads.mark_read(db, TOBIAS, thread, quiet)  # reading stays open
+    groups.set_rule(db, MARA, "archive-quiet", False)
+    threads.comment(db, INES, thread, "Reopened.", quiet)
+
+
+def test_a_comment_moves_the_threads_activity_and_marks_it_read_for_its_author(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
+    later = NOW + timedelta(hours=1)
+    threads.comment(db, INES, thread, "Seen it.", later)
+    threads.comment(db, MARA, thread, "Earlier clock.", NOW + timedelta(minutes=1))
+    assert rows(db, "SELECT last_activity_at FROM threads") == [(later.isoformat(),)]
+    assert rows(db, "SELECT user_name, read_at FROM read_marks ORDER BY user_name") == [
+        ("Ines K", later.isoformat()),
+        ("Mara L", (NOW + timedelta(minutes=1)).isoformat()),
+    ]
+    threads.mark_read(db, MARA, thread, NOW)  # a read mark never moves back
+    assert rows(db, "SELECT read_at FROM read_marks WHERE user_name='Mara L'") == [
+        ((NOW + timedelta(minutes=1)).isoformat(),)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("raw", "kept"),
+    [
+        ("plain", "plain"),
+        ("<b>x</b> **y** [z](javascript:1)", "<b>x</b> **y** [z](javascript:1)"),
+        ("a\r\nb\rc\td", "a\nb\nc\td"),
+        ("bell\x07 null\x00 esc\x1b", "bell null esc"),
+        ("  trimmed  ", "trimmed"),
+        ("x" * threads.MAX_TEXT, "x" * threads.MAX_TEXT),
+    ],
+)
+def test_text_is_plain_and_kept_as_written(raw, kept):
+    assert threads.clean_text(raw, "a comment") == kept
+
+
+@pytest.mark.parametrize("raw", ["", " \n\t ", "\x00", "x" * (threads.MAX_TEXT + 1), None, 1])
+def test_empty_long_or_non_text_is_refused(raw):
+    with pytest.raises(GroupError) as caught:
+        threads.clean_text(raw, "a comment")
+    assert caught.value.status == 400
+
+
+def test_a_groups_topics_post_each_new_story_once_per_group(db):
+    packaging = add_topic(db, "Packaging", ["plants"], [], "Mara L")
+    closures = add_topic(db, "Closures", ["closes"], [], "Mara L")
+    groups.set_topics(db, MARA, 1, [packaging, closures])
+    groups.set_topics(db, MARA, 2, [closures])
+    fetched = NOW + timedelta(minutes=10)
+    entry = Entry("Lenmark closes two plants", "https://w.example/3", fetched, "")
+    assert add_story(db, 1, entry, fetched) == "new"
+    assert match_story(db, 3) == [packaging, closures]
+    match_story(db, 3)  # matching again posts nothing new
+    assert rows(db, "SELECT group_id, story_id, created_by, topic_id, created_at FROM threads") == [
+        (1, 3, None, packaging, fetched.isoformat()),
+        (2, 3, None, closures, fetched.isoformat()),
+    ]
+    # A writer's later share joins the topic's thread.
+    assert threads.share(db, MARA, 1, threads.Item(3, "Ours now."), fetched) == (1, True)
+    # Stories 1 and 2 existed before the topics: they are not posted.
+    assert rows(db, "SELECT COUNT(*) FROM threads WHERE story_id IN (1, 2)") == [(0,)]

@@ -20,7 +20,8 @@ type ListProps = {
   /** A writer on an open thread can reply; otherwise null and no Reply is drawn. */
   onReply: ((comment: SignalComment) => void) | null;
   isPressed: (comment: SignalComment, word: ReactionWord) => boolean;
-  onToggle: (comment: SignalComment, word: ReactionWord) => void;
+  /** Null where a reaction cannot be given from the page: each is drawn as delivered, disabled. */
+  onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
 };
 
 /** Own comments are labelled "You" whatever name they carry. */
@@ -44,11 +45,12 @@ function Reactions({
               type="button"
               aria-pressed={on}
               aria-label={`${word}${count === null ? "" : `, ${count}`}: comment by ${author}`}
+              disabled={onToggle === null}
               onClick={() => {
-                onToggle(comment, word);
+                onToggle?.(comment, word);
               }}
               className={cx(
-                "h-6 rounded-ds-full px-2 text-sm font-medium ring-1 ring-border-hairline ring-inset",
+                "h-6 rounded-ds-full px-2 text-sm font-medium ring-1 ring-border-hairline ring-inset disabled:cursor-not-allowed",
                 FOCUS,
                 on
                   ? "bg-surface-selected text-text-link"

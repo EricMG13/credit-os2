@@ -278,8 +278,9 @@ function digestFor(
 
 function pageFor({ scene, kind, params, follow, save, live }: PageFor): PageContent {
   const writer = scene.snapshot.viewer.role === "writer";
-  // The service stores no groups and takes no source proposals yet, so a live feed draws a writer
-  // no Comment, Share to group or Propose a source: each would look saved and save nothing.
+  // On a service the page writes saves, follows and the name only. A writer's other controls
+  // (Comment, Share to group, Propose a source, a new thread, a reply) would look saved and save
+  // nothing, so the feed, group and thread screens are drawn there as a reader has them.
   const feedWriter = writer && !live;
   switch (kind) {
     case "feed":
@@ -288,7 +289,7 @@ function pageFor({ scene, kind, params, follow, save, live }: PageFor): PageCont
       return topicFor(scene, params, follow, save, feedWriter);
     case "group":
     case "thread":
-      return groupFor(scene, params, kind, save, writer);
+      return groupFor(scene, params, kind, save, feedWriter);
     case "digest":
       return digestFor(scene, params, writer, live);
     case "settings":

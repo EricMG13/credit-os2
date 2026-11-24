@@ -33,8 +33,32 @@
               "keywords": ["Halvorsen", "Lenmark"]
             }
           ],
-          "groups": [],
-          "digests": [],
+          "groups": [
+            {
+              "id": "1",
+              "name": "Leveraged credit",
+              "unread": "2"
+            },
+            {
+              "id": "2",
+              "name": "Shipping desk",
+              "unread": null
+            }
+          ],
+          "digests": [
+            {
+              "id": "1",
+              "name": "Daily shipping",
+              "unread": false,
+              "paused": true
+            },
+            {
+              "id": "2",
+              "name": "Weekly packaging",
+              "unread": false,
+              "paused": true
+            }
+          ],
           "savedCount": "1"
         },
         "feed": {
@@ -91,12 +115,18 @@
                 "monograms": ["CL", "MP"],
                 "more": null
               },
-              "sharedBy": null,
+              "sharedBy": {
+                "initials": "IK",
+                "label": "Shared to Leveraged credit by Ines K"
+              },
               "ai": null,
               "strength": null,
               "saved": false,
-              "commentCount": null,
-              "threadRef": null,
+              "commentCount": "4",
+              "threadRef": {
+                "groupId": "1",
+                "threadId": "1"
+              },
               "stage": null,
               "ratingMoves": []
             },
@@ -137,12 +167,18 @@
               "summary": "The agency cites weaker charter rates and a refinancing due in 2027.",
               "tags": ["Shipping"],
               "alsoIn": null,
-              "sharedBy": null,
+              "sharedBy": {
+                "initials": "IK",
+                "label": "Shared to Leveraged credit by Ines K"
+              },
               "ai": null,
               "strength": null,
               "saved": true,
               "commentCount": null,
-              "threadRef": null,
+              "threadRef": {
+                "groupId": "1",
+                "threadId": "3"
+              },
               "stage": null,
               "ratingMoves": []
             },
@@ -193,16 +229,45 @@
               "ratingMoves": []
             }
           ],
-          "digests": [],
+          "digests": [
+            {
+              "id": "d2",
+              "digestId": "1",
+              "issueId": "2",
+              "digestName": "Daily shipping",
+              "monogram": "DS",
+              "title": "Daily shipping: 24 November",
+              "date": "Tue 24 Nov",
+              "unread": true,
+              "ai": false,
+              "points": [],
+              "summary": null,
+              "nothing": "Nothing material to report: no story reached what this digest covers from Mon 23 Nov 12:00 to Tue 24 Nov 12:00 UTC."
+            },
+            {
+              "id": "d1",
+              "digestId": "1",
+              "issueId": "1",
+              "digestName": "Daily shipping",
+              "monogram": "DS",
+              "title": "Daily shipping: 23 November",
+              "date": "Mon 23 Nov",
+              "unread": false,
+              "ai": false,
+              "points": [],
+              "summary": null,
+              "nothing": "Nothing material to report: no story reached what this digest covers from Mon 23 Nov 07:00 to Mon 23 Nov 12:00 UTC."
+            }
+          ],
           "views": {
             "for-you": {
-              "top": ["1"],
-              "latest": ["1"],
+              "top": ["d2", "1", "d1", "5"],
+              "latest": ["d2", "1", "d1", "5"],
               "waiting": null,
               "older": []
             },
             "latest": {
-              "top": ["2", "1", "3", "5", "4", "6"],
+              "top": ["1", "2", "3", "5", "4", "6"],
               "latest": ["2", "1", "3", "5", "4", "6"],
               "waiting": null,
               "older": []
@@ -235,9 +300,283 @@
             }
           }
         },
-        "groups": [],
-        "threads": [],
-        "digests": [],
+        "groups": [
+          {
+            "id": "1",
+            "name": "Leveraged credit",
+            "visibility": "Open to everyone",
+            "memberSummary": "6 members",
+            "members": [
+              {
+                "initials": "TO",
+                "name": "Tobias O"
+              },
+              {
+                "initials": "IK",
+                "name": "Ines K"
+              },
+              {
+                "initials": "ML",
+                "name": "Mara L"
+              },
+              {
+                "initials": "JW",
+                "name": "Jonas W"
+              }
+            ],
+            "moreMembers": "+2",
+            "threads": [
+              {
+                "id": "1",
+                "storyId": "1",
+                "note": null,
+                "sharedBy": {
+                  "initials": "IK",
+                  "label": "Shared by Ines K, 1 h ago"
+                },
+                "commentCount": "4 comments",
+                "archived": false,
+                "unread": false,
+                "lastActivity": "30 min ago"
+              },
+              {
+                "id": "2",
+                "storyId": null,
+                "note": "Has anyone looked at the closures?",
+                "sharedBy": {
+                  "initials": "IK",
+                  "label": "Ines K started a thread"
+                },
+                "commentCount": "2 comments",
+                "archived": false,
+                "unread": true,
+                "lastActivity": "2 h ago"
+              },
+              {
+                "id": "3",
+                "storyId": "5",
+                "note": null,
+                "sharedBy": {
+                  "initials": "IK",
+                  "label": "Shared by Ines K, 3 h ago"
+                },
+                "commentCount": null,
+                "archived": false,
+                "unread": true,
+                "lastActivity": "3 h ago"
+              }
+            ]
+          },
+          {
+            "id": "2",
+            "name": "Shipping desk",
+            "visibility": "Invited only",
+            "memberSummary": "3 members",
+            "members": [
+              {
+                "initials": "ML",
+                "name": "Mara L"
+              },
+              {
+                "initials": "TO",
+                "name": "Tobias O"
+              },
+              {
+                "initials": "AS",
+                "name": "Amir S"
+              }
+            ],
+            "moreMembers": null,
+            "threads": []
+          }
+        ],
+        "threads": [
+          {
+            "id": "1",
+            "groupId": "1",
+            "storyId": "1",
+            "note": null,
+            "archived": false,
+            "title": "Thread",
+            "subline": "Leveraged credit, 4 comments",
+            "archivedLine": null,
+            "comments": [
+              {
+                "id": "1",
+                "author": {
+                  "initials": "IK",
+                  "name": "Ines K"
+                },
+                "own": false,
+                "time": "11:00 UTC",
+                "text": "Sharing for Thursday.",
+                "edited": false,
+                "removed": false,
+                "reactions": [
+                  {
+                    "word": "Agree",
+                    "count": "2",
+                    "mine": true
+                  },
+                  {
+                    "word": "Seen",
+                    "count": "1",
+                    "mine": true
+                  }
+                ],
+                "replies": [
+                  {
+                    "id": "2",
+                    "author": {
+                      "initials": "ML",
+                      "name": "Mara L"
+                    },
+                    "own": true,
+                    "time": "11:10 UTC",
+                    "text": "Agreed. Check the test date.",
+                    "edited": false,
+                    "removed": false,
+                    "reactions": [],
+                    "replies": []
+                  }
+                ]
+              },
+              {
+                "id": "3",
+                "author": {
+                  "initials": "JW",
+                  "name": "Jonas W"
+                },
+                "own": false,
+                "time": "11:20 UTC",
+                "text": null,
+                "edited": false,
+                "removed": true,
+                "reactions": [],
+                "replies": []
+              },
+              {
+                "id": "4",
+                "author": {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                "own": true,
+                "time": "11:30 UTC",
+                "text": "I will pull the dates.",
+                "edited": false,
+                "removed": false,
+                "reactions": [],
+                "replies": []
+              }
+            ]
+          },
+          {
+            "id": "2",
+            "groupId": "1",
+            "storyId": null,
+            "note": "Has anyone looked at the closures?",
+            "archived": false,
+            "title": "Thread",
+            "subline": "Leveraged credit, 2 comments",
+            "archivedLine": null,
+            "comments": [
+              {
+                "id": "5",
+                "author": {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                "own": true,
+                "time": "Yesterday 16:40 UTC",
+                "text": "Closures look manageable.",
+                "edited": false,
+                "removed": false,
+                "reactions": [],
+                "replies": [
+                  {
+                    "id": "6",
+                    "author": {
+                      "initials": "IK",
+                      "name": "Ines K"
+                    },
+                    "own": false,
+                    "time": "10:00 UTC",
+                    "text": "Good. Add it to the list.",
+                    "edited": false,
+                    "removed": false,
+                    "reactions": [],
+                    "replies": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "3",
+            "groupId": "1",
+            "storyId": "5",
+            "note": null,
+            "archived": false,
+            "title": "Thread",
+            "subline": "Leveraged credit, no comments yet",
+            "archivedLine": null,
+            "comments": []
+          }
+        ],
+        "digests": [
+          {
+            "id": "1",
+            "name": "Daily shipping",
+            "monogram": "DS",
+            "paused": "No new digest is written while AI is off or at its cap. Earlier digests stay readable.",
+            "issues": [
+              {
+                "id": "2",
+                "title": "Daily shipping: 24 November",
+                "date": "Tue 24 Nov 2026",
+                "ai": false,
+                "summary": null,
+                "nothing": "No story reached what this digest covers from Mon 23 Nov 12:00 to Tue 24 Nov 12:00 UTC.",
+                "points": []
+              },
+              {
+                "id": "1",
+                "title": "Daily shipping: 23 November",
+                "date": "Mon 23 Nov",
+                "ai": false,
+                "summary": null,
+                "nothing": "No story reached what this digest covers from Mon 23 Nov 07:00 to Mon 23 Nov 12:00 UTC.",
+                "points": []
+              }
+            ],
+            "form": {
+              "name": "Daily shipping",
+              "covers": ["Topic: Shipping"],
+              "schedule": "Daily, 07:00 UTC",
+              "length": "Up to 3 points",
+              "brief": "",
+              "upcoming": "",
+              "lookAhead": 7
+            }
+          },
+          {
+            "id": "2",
+            "name": "Weekly packaging",
+            "monogram": "WP",
+            "paused": "No new digest is written while AI is off or at its cap. Earlier digests stay readable.",
+            "issues": [],
+            "form": {
+              "name": "Weekly packaging",
+              "covers": ["Topic: Packaging"],
+              "schedule": "Weekly, Friday 07:00 UTC",
+              "length": "Up to 5 points",
+              "brief": "Lead with plant closures. Skip price moves.",
+              "upcoming": "",
+              "lookAhead": 7
+            }
+          }
+        ],
         "settings": {
           "topics": [
             {
@@ -262,34 +601,126 @@
               "kinds": ["News", "Regulatory cases", "Rating actions", "Research"]
             }
           ],
-          "digestForm": {
-            "name": "New digest",
-            "covers": "All stories",
-            "coversOptions": [
-              "All stories",
-              "Topic: Packaging",
-              "Topic: Telecoms",
-              "Topic: Shipping"
-            ],
-            "schedule": "Weekly, Friday 07:00 UTC",
-            "scheduleOptions": ["Weekly, Friday 07:00 UTC", "Daily, 07:00 UTC"],
-            "length": "Up to 5 points",
-            "lengthOptions": ["Up to 3 points", "Up to 5 points", "Up to 8 points"],
-            "brief": ""
-          },
           "ai": {
             "state": "off",
             "notice": {
               "title": "AI is off",
-              "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI line and no signal strength, and there are no digests."
+              "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI line and no signal strength, and a digest with stories to cover writes no issue. Nothing is spent."
             },
             "spend": null,
             "parts": []
           },
-          "groups": [],
-          "rules": [],
+          "groups": [
+            {
+              "id": "3",
+              "name": "Committee prep",
+              "members": [
+                {
+                  "initials": "IK",
+                  "name": "Ines K"
+                }
+              ],
+              "moreMembers": null,
+              "memberSummary": "1 member",
+              "visibility": "Members only",
+              "visibilityOptions": ["Visible to everyone", "Members only"]
+            },
+            {
+              "id": "1",
+              "name": "Leveraged credit",
+              "members": [
+                {
+                  "initials": "TO",
+                  "name": "Tobias O"
+                },
+                {
+                  "initials": "IK",
+                  "name": "Ines K"
+                },
+                {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                {
+                  "initials": "JW",
+                  "name": "Jonas W"
+                }
+              ],
+              "moreMembers": "+2",
+              "memberSummary": "6 members",
+              "visibility": "Visible to everyone",
+              "visibilityOptions": ["Visible to everyone", "Members only"]
+            },
+            {
+              "id": "2",
+              "name": "Shipping desk",
+              "members": [
+                {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                {
+                  "initials": "TO",
+                  "name": "Tobias O"
+                },
+                {
+                  "initials": "AS",
+                  "name": "Amir S"
+                }
+              ],
+              "moreMembers": null,
+              "memberSummary": "3 members",
+              "visibility": "Members only",
+              "visibilityOptions": ["Visible to everyone", "Members only"]
+            }
+          ],
+          "rules": [
+            {
+              "id": "comments-edited",
+              "label": "Comments can be edited for 15 minutes",
+              "hint": "An edited comment is marked \"edited\".",
+              "on": true
+            },
+            {
+              "id": "authors-remove",
+              "label": "Authors can remove their own comments",
+              "hint": "The thread keeps a line saying a comment was removed.",
+              "on": true
+            },
+            {
+              "id": "archive-quiet",
+              "label": "Archive a thread after 90 days without a comment",
+              "hint": "An archived thread can be read but not added to.",
+              "on": false
+            }
+          ],
           "notifications": {
-            "events": []
+            "events": [
+              {
+                "id": "replies",
+                "label": "A reply to one of my comments",
+                "inSignal": true,
+                "onDesktop": false
+              },
+              {
+                "id": "threads",
+                "label": "A new thread in one of my groups",
+                "inSignal": true,
+                "onDesktop": false
+              },
+              {
+                "id": "signal",
+                "label": "A high-signal story in a topic I follow",
+                "inSignal": true,
+                "onDesktop": false
+              },
+              {
+                "id": "digest",
+                "label": "A digest of mine is ready",
+                "inSignal": true,
+                "onDesktop": false
+              }
+            ]
           },
           "sources": [
             {
@@ -556,7 +987,62 @@
               }
             }
           ],
-          "sourceWeeksHeading": "Items per week, 6 weeks"
+          "sourceWeeksHeading": "Items per week, 6 weeks",
+          "digestForm": {
+            "name": "New digest",
+            "covers": "All stories",
+            "coversOptions": [
+              "All stories",
+              "Group: Leveraged credit",
+              "Group: Shipping desk",
+              "Topic: Packaging",
+              "Topic: Telecoms",
+              "Topic: Shipping"
+            ],
+            "schedule": "Weekly, Friday 07:00 UTC",
+            "scheduleOptions": [
+              "Daily, 07:00 UTC",
+              "Weekly, Monday 07:00 UTC",
+              "Weekly, Tuesday 07:00 UTC",
+              "Weekly, Wednesday 07:00 UTC",
+              "Weekly, Thursday 07:00 UTC",
+              "Weekly, Friday 07:00 UTC",
+              "Weekly, Saturday 07:00 UTC",
+              "Weekly, Sunday 07:00 UTC",
+              "Monthly, day 1, 07:00 UTC",
+              "Monthly, day 2, 07:00 UTC",
+              "Monthly, day 3, 07:00 UTC",
+              "Monthly, day 4, 07:00 UTC",
+              "Monthly, day 5, 07:00 UTC",
+              "Monthly, day 6, 07:00 UTC",
+              "Monthly, day 7, 07:00 UTC",
+              "Monthly, day 8, 07:00 UTC",
+              "Monthly, day 9, 07:00 UTC",
+              "Monthly, day 10, 07:00 UTC",
+              "Monthly, day 11, 07:00 UTC",
+              "Monthly, day 12, 07:00 UTC",
+              "Monthly, day 13, 07:00 UTC",
+              "Monthly, day 14, 07:00 UTC",
+              "Monthly, day 15, 07:00 UTC",
+              "Monthly, day 16, 07:00 UTC",
+              "Monthly, day 17, 07:00 UTC",
+              "Monthly, day 18, 07:00 UTC",
+              "Monthly, day 19, 07:00 UTC",
+              "Monthly, day 20, 07:00 UTC",
+              "Monthly, day 21, 07:00 UTC",
+              "Monthly, day 22, 07:00 UTC",
+              "Monthly, day 23, 07:00 UTC",
+              "Monthly, day 24, 07:00 UTC",
+              "Monthly, day 25, 07:00 UTC",
+              "Monthly, day 26, 07:00 UTC",
+              "Monthly, day 27, 07:00 UTC",
+              "Monthly, day 28, 07:00 UTC",
+              "Monthly, last day, 07:00 UTC"
+            ],
+            "length": "Up to 5 points",
+            "lengthOptions": ["Up to 3 points", "Up to 5 points", "Up to 8 points"],
+            "brief": ""
+          }
         }
       }
     }

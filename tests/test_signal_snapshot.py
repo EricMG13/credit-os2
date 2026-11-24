@@ -21,7 +21,7 @@ from typing import Any
 
 import pytest
 
-from deploy_workflow.signal import snapshot
+from deploy_workflow.signal import digests, snapshot
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.feedview import save
 from deploy_workflow.signal.identity import User
@@ -152,6 +152,35 @@ def sample(tmp_path: Path) -> Any:
     db.close()
 
 
+def seed_digests(db: sqlite3.Connection) -> None:
+    """The writer's two digests: a daily one over Shipping, which has no story in its period, so it
+    holds two "nothing material" issues (the older one read); and a weekly one over Packaging,
+    which has a story in scope, so its run is skipped while AI is off and it holds no issue."""
+    shipping = digests.Form(
+        "Daily shipping", ["Topic: Shipping"], "Daily, 07:00 UTC", "Up to 3 points", ""
+    )
+    packaging = digests.Form(
+        "Weekly packaging",
+        ["Topic: Packaging"],
+        "Weekly, Friday 07:00 UTC",
+        "Up to 5 points",
+        "Lead with plant closures. Skip price moves.",
+    )
+    for form in (shipping, packaging):
+        spec = digests.spec_from_form(db, "Mara L", form)
+        digests.create(db, "Mara L", spec, NOW - timedelta(days=1))
+    digests.run_now(db, "Mara L", 1, NOW - timedelta(days=1))
+    digests.mark_read(db, "Mara L", 1, 1, NOW - timedelta(hours=20))
+    digests.run_now(db, "Mara L", 1, NOW)
+    digests.run_now(db, "Mara L", 2, NOW)
+
+
+@pytest.fixture
+def sample_with_digests(sample: Any) -> Any:
+    seed_digests(sample)
+    return sample
+
+
 def _snap(db: sqlite3.Connection, user: User | None, **options: Any) -> dict[str, Any]:
     built = snapshot.build(db, user, NOW, **options)
     (scene,) = built["scenes"]
@@ -192,8 +221,11 @@ def pretty_json(value: Any) -> str:
     return _pretty(value, 0, 0, 0) + "\n"
 
 
-def test_the_committed_sample_is_the_sample_store_built_for_its_writer(sample):
-    text = pretty_json(snapshot.build(sample, WRITER, NOW))
+def test_the_committed_sample_is_the_sample_store_built_for_its_writer(sample_with_digests):
+    from test_signal_group_snapshot import seed_groups  # groups and threads, over this seed
+
+    seed_groups(sample_with_digests)
+    text = pretty_json(snapshot.build(sample_with_digests, WRITER, NOW))
     if os.environ.get("SIGNAL_SNAPSHOT_SAMPLE") == "write":
         SAMPLE.parent.mkdir(parents=True, exist_ok=True)
         SAMPLE.write_text(text, encoding="utf-8")
@@ -347,17 +379,14 @@ def test_everything_the_service_does_not_have_is_delivered_empty(sample):
         [],
     )
     settings = snap["settings"]
-    assert (settings["groups"], settings["rules"], settings["notifications"]) == (
-        [],
-        [],
-        {"events": []},
-    )
+    assert settings["groups"] == []  # rules and notifications: tests/test_signal_group_snapshot.py
     assert settings["ai"] == {
         "state": "off",
         "notice": {
             "title": "AI is off",
             "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI "
-            "line and no signal strength, and there are no digests.",
+            "line and no signal strength, and a digest with stories to cover writes no issue. "
+            "Nothing is spent.",
         },
         "spend": None,
         "parts": [],
@@ -365,16 +394,19 @@ def test_everything_the_service_does_not_have_is_delivered_empty(sample):
     for story in snap["feed"]["stories"]:
         empty = ("ai", "strength", "sharedBy", "commentCount", "threadRef", "stage")
         assert [story[key] for key in empty] == [None] * 6 and story["ratingMoves"] == []
-    assert settings["digestForm"] == {
-        "name": "New digest",
-        "covers": "All stories",
-        "coversOptions": ["All stories", "Topic: Packaging", "Topic: Telecoms", "Topic: Shipping"],
-        "schedule": "Weekly, Friday 07:00 UTC",
-        "scheduleOptions": ["Weekly, Friday 07:00 UTC", "Daily, 07:00 UTC"],
-        "length": "Up to 5 points",
-        "lengthOptions": ["Up to 3 points", "Up to 5 points", "Up to 8 points"],
-        "brief": "",
-    }
+    form = settings["digestForm"]  # its options meet the routes in test_signal_digest*
+    assert [form[k] for k in ("name", "covers", "schedule", "length", "brief")] == [
+        "New digest",
+        "All stories",
+        "Weekly, Friday 07:00 UTC",
+        "Up to 5 points",
+        "",
+    ]
+    assert form["coversOptions"][0] == "All stories"
+    assert form["coversOptions"][-3:] == ["Topic: Packaging", "Topic: Telecoms", "Topic: Shipping"]
+    assert form["scheduleOptions"][:2] == ["Daily, 07:00 UTC", "Weekly, Monday 07:00 UTC"]
+    assert len(form["scheduleOptions"]) == 37
+    assert form["lengthOptions"] == ["Up to 3 points", "Up to 5 points", "Up to 8 points"]
 
 
 def test_a_reader_follows_nothing_and_saves_nothing_yet(sample):

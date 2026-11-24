@@ -1,7 +1,7 @@
 // Signal in the connected app: the Signal screens on the service's snapshot. The page sits at the
 // path /signal, edge to edge in the shell, and moves between its screens on the URL hash. Only the
 // connected app mounts it; the design-reference app has no service and never asks for one.
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { useHashRoute } from "../../../route";
 import { PageHeader } from "../../../shell/PageHeader";
@@ -59,8 +59,20 @@ function Unread({ failure, onRetry }: { failure: Failure; onRetry: () => void })
   );
 }
 
+/**
+ * A page load would start at the top. A hash route keeps the frame, whose content region is the one
+ * scroller, so another screen would open at the offset the last one was left at.
+ */
+function useTopOnRoute(route: string) {
+  useLayoutEffect(() => {
+    const content = document.getElementById("signal-content");
+    if (content !== null) content.scrollTop = 0;
+  }, [route]);
+}
+
 export function SignalLive() {
   const route = useHashRoute();
+  useTopOnRoute(route);
   const place = useMemo(() => placeOf(route), [route]);
   const { source, failure, actions } = useLiveSignal(place.at);
   if (place.matched === null) return <NotFound />;

@@ -9,6 +9,7 @@ import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-m
 import { Badge } from "@/components/base/badges/badges";
 import { CloseButton } from "@/components/base/buttons/close-button";
 import { cx } from "@/utils/cx";
+import { useSignalActions } from "./actions";
 import { sceneHref } from "./SignalFrame";
 import { isWebLink } from "./StoryCard";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
@@ -90,6 +91,7 @@ const pressKey = (comment: SignalComment, word: ReactionWord) => JSON.stringify(
 function ConversationFooter({
   thread,
   writer,
+  live,
   viewer,
   replyTo,
   box,
@@ -98,6 +100,8 @@ function ConversationFooter({
 }: {
   thread: SignalThread;
   writer: boolean;
+  /** Drawn on a service, which takes no comment or reaction from the page yet. */
+  live: boolean;
   viewer: ReturnType<typeof useSignalViewer>;
   replyTo: SignalComment | null;
   box: RefObject<HTMLTextAreaElement | null>;
@@ -107,6 +111,8 @@ function ConversationFooter({
   let footer;
   if (thread.archived) {
     footer = <p className={NOTE}>This thread is archived. It can be read but not added to.</p>;
+  } else if (live) {
+    footer = <p className={NOTE}>Comments and reactions cannot be added from this page yet.</p>;
   } else if (!writer) {
     footer = <p className={NOTE}>Readers see this thread but not the reply box.</p>;
   } else if (viewer.name === null || viewer.initials === null) {
@@ -147,7 +153,7 @@ function ConversationContent({
   setReplyTo: (comment: SignalComment) => void;
   box: RefObject<HTMLTextAreaElement | null>;
   said: { count: number; text: string };
-  onToggle: (comment: SignalComment, word: ReactionWord) => void;
+  onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
 }) {
   return (
     <SlideoutMenu.Content>
@@ -200,6 +206,8 @@ function Conversation({
   writer: boolean;
 }) {
   const viewer = useSignalViewer();
+  // On a service nothing here is written yet, so nothing is offered that would only change the page.
+  const live = useSignalActions() !== null;
   const box = useRef<HTMLTextAreaElement>(null);
   const [added, setAdded] = useState<Added[]>([]);
   const [replyTo, setReplyTo] = useState<SignalComment | null>(null);
@@ -208,7 +216,7 @@ function Conversation({
   const [said, setSaid] = useState({ count: 0, text: "" });
   const comments = withAdded(thread.comments, added);
   const named = viewer.name !== null && viewer.initials !== null;
-  const canWrite = writer && !thread.archived;
+  const canWrite = writer && !thread.archived && !live;
   const send = (text: string) => {
     if (viewer.name === null || viewer.initials === null) {
       throw new Error("the composer was drawn with no viewer name");
@@ -249,11 +257,12 @@ function Conversation({
         setReplyTo={setReplyTo}
         box={box}
         said={said}
-        onToggle={onToggle}
+        onToggle={live ? null : onToggle}
       />
       <ConversationFooter
         thread={thread}
         writer={writer}
+        live={live}
         viewer={viewer}
         replyTo={replyTo}
         box={box}

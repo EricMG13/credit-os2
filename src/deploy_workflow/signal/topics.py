@@ -4,12 +4,24 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import unicodedata
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from deploy_workflow.signal.store import KINDS, StoreError, _utc_text, _write_transaction
+from deploy_workflow.signal import threads
+from deploy_workflow.signal.store import (
+    KINDS,
+    Conflict,
+    Missing,
+    StoreError,
+    _utc_text,
+    _write_transaction,
+)
 
 MAX_KEYWORD = 60
+MAX_KEYWORDS = 12  # a topic's rule costs one index query per keyword for every story that arrives
+MAX_NAME = 80
+MAX_TOPICS = 50
 
 
 def fts_phrase(text: str) -> str:
@@ -17,10 +29,21 @@ def fts_phrase(text: str) -> str:
     return '"' + text.replace("\x00", " ").replace('"', '""') + '"'
 
 
+def _clean_name(name: str) -> str:
+    cleaned = name.strip()
+    if not cleaned:
+        raise StoreError("name must not be empty")
+    if len(cleaned) > MAX_NAME or any(unicodedata.category(ch)[0] == "C" for ch in cleaned):
+        raise StoreError(f"a topic name is 1 to {MAX_NAME} characters of plain text")
+    return cleaned
+
+
 def _clean_keywords(keywords: Sequence[str]) -> list[str]:
     cleaned = [keyword.strip() for keyword in keywords]
     if not cleaned:
         raise StoreError("a topic needs at least one keyword")
+    if len(cleaned) > MAX_KEYWORDS:
+        raise StoreError(f"a topic has at most {MAX_KEYWORDS} keywords")
     for keyword in cleaned:
         if not 1 <= len(keyword) <= MAX_KEYWORD:
             raise StoreError(f"a keyword must be 1 to {MAX_KEYWORD} characters, got {keyword!r}")
@@ -70,6 +93,7 @@ def match_story(db: sqlite3.Connection, story_id: int) -> list[int]:
         ]
         for topic_id in found:
             _link(db, topic_id, story_id)
+        threads.post_topic_story(db, story_id, found)  # a group topic's new story posts there
     return found
 
 
@@ -96,22 +120,66 @@ def add_topic(
     created_by: str,
 ) -> int:
     """Create a topic and match every existing story against it before returning."""
-    if not name.strip():
-        raise StoreError("name must not be empty")
+    title = _clean_name(name)
     cleaned = _clean_keywords(keywords)
     allowed = _clean_kinds(kinds)
     with _write_transaction(db):
+        if db.execute("SELECT COUNT(*) FROM topics").fetchone()[0] >= MAX_TOPICS:
+            raise Conflict(f"there are already {MAX_TOPICS} topics; delete one first")
         try:
             cur = db.execute(
                 "INSERT INTO topics(name, keywords, kinds, created_by, created_at)"
                 " VALUES(?, ?, ?, ?, ?)",
-                (name, json.dumps(cleaned), json.dumps(allowed), created_by, _utc_text(_now())),
+                (title, json.dumps(cleaned), json.dumps(allowed), created_by, _utc_text(_now())),
             )
         except sqlite3.IntegrityError as exc:
-            raise StoreError(f"topic {name!r} already exists") from exc
+            raise Conflict(f"topic {title!r} already exists") from exc
         assert cur.lastrowid is not None
         _link_existing(db, cur.lastrowid, cleaned, allowed)
     return cur.lastrowid
+
+
+def edit_topic(
+    db: sqlite3.Connection,
+    topic_id: int,
+    name: str,
+    keywords: Sequence[str],
+    kinds: Sequence[str],
+) -> None:
+    """Change a topic's name and rule. A changed rule re-matches every stored story in the same
+    write transaction (one index query per keyword, as `add_topic` does), so the topic holds
+    exactly the stories a new topic with that rule would; follows are kept."""
+    title = _clean_name(name)
+    cleaned = _clean_keywords(keywords)
+    allowed = _clean_kinds(kinds)
+    with _write_transaction(db):
+        old = db.execute("SELECT keywords, kinds FROM topics WHERE id=?", (topic_id,)).fetchone()
+        if old is None:
+            raise Missing(f"no topic with id {topic_id}")
+        try:
+            db.execute(
+                "UPDATE topics SET name=?, keywords=?, kinds=? WHERE id=?",
+                (title, json.dumps(cleaned), json.dumps(allowed), topic_id),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise Conflict(f"topic {title!r} already exists") from exc
+        if (json.loads(old["keywords"]), json.loads(old["kinds"])) != (cleaned, allowed):
+            db.execute("DELETE FROM topic_stories WHERE topic_id=?", (topic_id,))
+            _link_existing(db, topic_id, cleaned, allowed)
+
+
+def delete_topic(db: sqlite3.Connection, topic_id: int) -> None:
+    """Delete a topic with its matches and follows; Conflict while a group or a digest uses it."""
+    with _write_transaction(db):
+        _require_topic(db, topic_id)
+        db.execute("DELETE FROM topic_stories WHERE topic_id=?", (topic_id,))
+        db.execute("DELETE FROM topic_follows WHERE topic_id=?", (topic_id,))
+        try:
+            db.execute("DELETE FROM topics WHERE id=?", (topic_id,))
+        except sqlite3.IntegrityError as exc:
+            raise Conflict(
+                "a group or a digest still uses this topic; remove it there first"
+            ) from exc
 
 
 def _now() -> datetime:
@@ -120,7 +188,7 @@ def _now() -> datetime:
 
 def _require_topic(db: sqlite3.Connection, topic_id: int) -> None:
     if db.execute("SELECT 1 FROM topics WHERE id=?", (topic_id,)).fetchone() is None:
-        raise StoreError(f"no topic with id {topic_id}")
+        raise Missing(f"no topic with id {topic_id}")
 
 
 def follow(db: sqlite3.Connection, user_name: str, topic_id: int) -> None:
