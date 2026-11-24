@@ -8,6 +8,7 @@ import re
 import threading
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from functools import partialmethod
 from pathlib import Path
 from typing import Any
 from urllib.parse import SplitResult, parse_qs, unquote
@@ -19,7 +20,7 @@ from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.run_start import service
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 
-from . import admission, artifacts, portfolio, run_activity, sources
+from . import admission, artifacts, portfolio, run_activity, signal_forward, sources
 from .library_cards import lead_summary, not_assessable_modules
 
 PROJECT = Path(__file__).resolve().parent.parent
@@ -249,9 +250,11 @@ def _static_cache(path: str, relative: str) -> str | None:
     return None
 
 
-def _app_page(path: str) -> bool:
+def _app_page(path: str, *, signal: bool = False) -> bool:
+    """Whether ``path`` is a page of the app; ``/signal`` only where a Signal service is set."""
     return bool(
         path in {"/", "/index.html", "/start", "/runs"}
+        or (signal and path in signal_forward.PAGE_PATHS)
         or RUN_PAGE.fullmatch(path)
         or _report_page(path)
     )
@@ -333,7 +336,12 @@ def _form_template(*, synthetic: bool) -> dict[str, Any]:
 
 
 def _handler(
-    dist: Path, page: bytes, context: dict[str, Any], *, read_only: bool = False
+    dist: Path,
+    page: bytes,
+    context: dict[str, Any],
+    *,
+    read_only: bool = False,
+    signal: signal_forward.SignalForwarder | None = None,
 ) -> type[service.Handler]:
     caps = {pathway: str(amount) for pathway, amount in PATHWAY_CAP_USD.items()}
 
@@ -364,18 +372,24 @@ def _handler(
             super().send_reply(response)
 
         def _post(self, url: SplitResult) -> None:
+            signal_forward.divert(signal, self, url)
             _require_writable(read_only)
             super()._post(url)
 
         def _delete(self, url: SplitResult) -> None:
+            signal_forward.divert(signal, self, url)
             _require_writable(read_only)
             super()._delete(url)
+
+        do_PUT = do_PATCH = do_HEAD = do_OPTIONS = partialmethod(
+            signal_forward.other_method, signal
+        )
 
         def _get(self, url: SplitResult) -> None:
             path = url.path
             if path in {"/library", "/library/", "/library/index.html", "/library.html"}:
                 raise http_base.Reply(308, b"", {"Location": "/"})
-            if _app_page(path):
+            if _app_page(path, signal=signal is not None):
                 raise http_base.Reply(
                     200,
                     page,
@@ -386,6 +400,7 @@ def _handler(
                         "Cache-Control": "no-store",
                     },
                 )
+            signal_forward.divert(signal, self, url)
             reply = _connected_reply(self._layout, url, context, caps)
             if reply is not None:
                 raise reply
@@ -422,6 +437,10 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
         raise ValueError("--port must be from 0 to 65535")
     dist = (web or PROJECT / "web" / "dist").resolve()
     signal_link = service.signal_link(signal_url) if signal_url else ""
+    # The read-only preview has no Signal: its page shows the library only.
+    forwarder = None
+    if signal_link and not read_only:
+        forwarder = signal_forward.SignalForwarder(signal_link)
     page = _read_page(dist, synthetic=synthetic, signal_url=signal_link, read_only=read_only)
     context = _form_template(synthetic=synthetic)
     settings = (  # Teams cards are for real runs only: a synthetic service never posts
@@ -437,7 +456,9 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     context["copilot_models"] = scheduler.model_choices
     try:
         with service.make_server(scheduler, "127.0.0.1", port, signal_link) as server:
-            server.RequestHandlerClass = _handler(dist, page, context, read_only=read_only)
+            server.RequestHandlerClass = _handler(
+                dist, page, context, read_only=read_only, signal=forwarder
+            )
             assert isinstance(server, service._Server)
             yield server
     finally:

@@ -30,7 +30,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True, help="the shared folder")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--signal-url", default="", help="http://<host>:<port>/ of Signal")
+    parser.add_argument(
+        "--signal-url",
+        default="",
+        help="http://<host>:<port>/ of Signal: serves /signal and forwards /signal/api/ to it",
+    )
     parser.add_argument(
         "--copilot-preflight",
         action="store_true",
