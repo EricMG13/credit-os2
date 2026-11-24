@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import signal_reader_check
 from signal_reader_check import react_refusal
 
 from deploy_workflow.signal import digests, digestview, groups, snapshot, store, topics
@@ -27,7 +28,10 @@ NOW = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
 WRITER = User("Mara L", "writer")
 READER = User("Tobias O", "reader")
 PAUSED = "No new digest is written while AI is off or at its cap. Earlier digests stay readable."
-NO_COVER = "What this digest covered was removed, so no digest is written. Edit it to choose what it covers."
+NO_COVER = (
+    "What this digest covered was removed, so no digest is written."
+    " Edit it to choose what it covers."
+)
 
 
 @pytest.fixture
@@ -329,3 +333,14 @@ def test_the_react_reader_check_does_refuse_a_wrong_digest_snapshot(db):
 def test_the_committed_sample_is_read_by_the_react_reader():
     sample = Path(__file__).resolve().parents[1] / "web/src/pages/signal/live/snapshot.sample.json"
     assert react_refusal(json.loads(sample.read_text(encoding="utf-8"))) is None
+
+
+def test_without_the_react_reader_a_check_skips_here_and_fails_under_ci(monkeypatch, tmp_path):
+    monkeypatch.setattr(signal_reader_check, "ESBUILD", tmp_path / "no-esbuild")
+    monkeypatch.setattr(signal_reader_check, "_built", [])
+    monkeypatch.delenv("CI", raising=False)
+    with pytest.raises(pytest.skip.Exception, match="npm --prefix web ci"):
+        react_refusal({})
+    monkeypatch.setenv("CI", "true")
+    with pytest.raises(pytest.fail.Exception, match="npm --prefix web ci"):
+        react_refusal({})

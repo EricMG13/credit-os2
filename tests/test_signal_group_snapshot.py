@@ -489,8 +489,9 @@ def test_threads_and_comments_delivered_are_bounded(grouped, read_by_react, monk
     one = snap["threads"][0]
     assert [c["id"] for c in one["comments"]] == ["4"]
     assert one["subline"] == "Leveraged credit, 4 comments, the latest shown"
-    # The badge still counts every thread of the group.
-    assert snap["channels"]["groups"][0]["unread"] == "2"
+    # The badge counts the delivered threads only (2 raises it; 3, unread too, is not delivered),
+    # so reading every thread shown clears it.
+    assert snap["channels"]["groups"][0]["unread"] == "1"
 
 
 def test_hostile_text_is_delivered_as_data(tmp_path, read_by_react):

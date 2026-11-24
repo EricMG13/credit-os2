@@ -26,6 +26,7 @@ MAX_GROUP_NAME = 60
 MAX_GROUPS = 100
 MAX_MEMBERS = 200
 MAX_GROUP_TOPICS = 20
+MAX_THREADS = 1000  # per group (threads.py refuses a new one beyond it)
 _MAX_ID = 2**63 - 1
 
 
@@ -177,9 +178,17 @@ def rename_group(db: sqlite3.Connection, actor: User, group_id: int, name: objec
 def delete_group(db: sqlite3.Connection, actor: User, group_id: int) -> None:
     """Delete a group that holds no thread; one with threads is kept (its talk is not lost)."""
     require_manager(actor)
+    remove_group(db, group_id, with_threads=False)
+
+
+def remove_group(db: sqlite3.Connection, group_id: int, *, with_threads: bool) -> None:
+    """Delete a group; `with_threads` (the owner, on the command line) deletes its threads, their
+    comments, reactions and read marks with it, else a group that holds threads is refused."""
     with _write_transaction(db):
         require_group(db, group_id)
-        if db.execute("SELECT 1 FROM threads WHERE group_id=?", (group_id,)).fetchone():
+        if with_threads:
+            db.execute("DELETE FROM threads WHERE group_id=?", (group_id,))
+        elif db.execute("SELECT 1 FROM threads WHERE group_id=?", (group_id,)).fetchone():
             raise Conflict("a group that holds threads cannot be deleted")
         db.execute("DELETE FROM groups WHERE id=?", (group_id,))  # digest covers go with it
 

@@ -355,18 +355,20 @@ def create(db: sqlite3.Connection, owner: str, spec: Spec, now: datetime) -> int
 
 
 def edit(db: sqlite3.Connection, owner: str, digest_id: int, spec: Spec, now: datetime) -> None:
-    """Replace a digest's settings. Its issues stay; a changed schedule is next due after `now`."""
+    """Replace a digest's settings. Its issues stay. A changed schedule is next due after `now`, and
+    its first period starts no earlier than one new period before that run."""
     with _write_transaction(db):
         old = owned(db, owner, digest_id)
-        due = old.next_run_at
+        due, period_from = old.next_run_at, old.period_from
         if old.spec.schedule != spec.schedule:
             due = schedule.next_run(spec.schedule, now)
+            period_from = max(period_from, schedule.previous_run(spec.schedule, due))
         try:
             db.execute(
                 "UPDATE digests SET name=?, cadence=?, minute=?, weekday=?, month_day=?,"
                 " covers_all=?, subject=?, length=?, points=?, upcoming=?, look_ahead_days=?,"
-                " next_run_at=? WHERE id=?",
-                (*_fields(spec), _utc_text(due), digest_id),
+                " next_run_at=?, period_from=? WHERE id=?",
+                (*_fields(spec), _utc_text(due), _utc_text(period_from), digest_id),
             )
         except sqlite3.IntegrityError as exc:
             raise Conflict(f"you already have a digest called {spec.name!r}") from exc
@@ -410,6 +412,16 @@ def cover_options(db: sqlite3.Connection, owner: str | None) -> list[str]:
         TOPIC_PREFIX + row["name"] for row in db.execute("SELECT name FROM topics ORDER BY id")
     ]
     return options
+
+
+def covers_nothing(db: sqlite3.Connection, digest: Digest) -> bool:
+    """Whether the digest has no cover left: not all stories, no topic, and no group its owner can
+    see. A digest is left so when its topics or groups are deleted or its owner leaves the groups;
+    editing it to choose a cover starts it again."""
+    spec = digest.spec
+    if spec.covers_all or spec.topic_ids:
+        return False
+    return not set(spec.group_ids) & set(groups.visible_group_ids(db, digest.owner))
 
 
 # Issues and reading them
@@ -512,8 +524,8 @@ def _scope_stories(
 def _add_issue(db: sqlite3.Connection, scope: Scope, now: datetime) -> int:
     cur = db.execute(
         "INSERT INTO digest_issues(digest_id, kind, period_start, period_end, created_at)"
-        " VALUES(?, 'nothing', ?, ?, ?)",
-        (scope.digest.id, _utc_text(scope.start), _utc_text(scope.end), _utc_text(now)),
+        " VALUES(?, ?, ?, ?, ?)",
+        (scope.digest.id, NOTHING, _utc_text(scope.start), _utc_text(scope.end), _utc_text(now)),
     )
     assert cur.lastrowid is not None
     return cur.lastrowid
@@ -563,19 +575,21 @@ def _run(
 ) -> Run:
     """One run, inside the caller's write transaction."""
     start = min(digest.period_from, now)
-    stories = _scope_stories(db, digest, start, now)
+    bare = covers_nothing(db, digest)
+    stories = () if bare else _scope_stories(db, digest, start, now)
     scope = Scope(digest, start, now, stories)
-    if not stories:
+    if bare:
+        run = Run("skipped", None, 0, NO_COVER)
+    elif not stories:
         run = Run("nothing", _add_issue(db, scope, now), 0, "no story was in scope")
     elif writer is None:
         run = Run("skipped", None, len(stories), SKIPPED)
     else:
         run = Run("written", writer(db, scope), len(stories), "written by the AI pass")
     _record(db, scope, run, trigger, now)
-    # The period moves on only when an issue covered it, so stories skipped while AI is off are
-    # still in scope for the first issue written after.
-    if run.issue_id is not None:
-        db.execute("UPDATE digests SET period_from=? WHERE id=?", (_utc_text(now), digest.id))
+    # Every run ends its period, so a period is never longer than the time since the last run;
+    # the stories of a skipped run are not carried into the next period.
+    db.execute("UPDATE digests SET period_from=? WHERE id=?", (_utc_text(now), digest.id))
     if trigger == "schedule":
         due = schedule.next_run(digest.spec.schedule, now)
         db.execute("UPDATE digests SET next_run_at=? WHERE id=?", (_utc_text(due), digest.id))
@@ -606,8 +620,8 @@ def _run_scheduled(
 
 
 def _record_failure(db: sqlite3.Connection, digest_id: int, now: datetime, name: str) -> None:
-    """A run that raised is recorded as skipped and the digest moves to its next slot, so one bad
-    digest is not retried on every pass."""
+    """A run that raised is recorded as skipped and the digest moves to its next slot, with its
+    period ended, so one bad digest is not retried on every pass and its period does not grow."""
     with _write_transaction(db):
         row = _row(db, digest_id)
         if row is None:
@@ -617,7 +631,18 @@ def _record_failure(db: sqlite3.Connection, digest_id: int, now: datetime, name:
         reason = f"the run failed ({name}); see the log"
         _record(db, scope, Run("skipped", None, 0, reason), "schedule", now)
         due = schedule.next_run(digest.spec.schedule, now)
-        db.execute("UPDATE digests SET next_run_at=? WHERE id=?", (_utc_text(due), digest_id))
+        db.execute(
+            "UPDATE digests SET next_run_at=?, period_from=? WHERE id=?",
+            (_utc_text(due), _utc_text(now), digest_id),
+        )
+
+
+def _fail(db: sqlite3.Connection, digest_id: int, now: datetime, error: Exception) -> None:
+    """Record a failed run; if recording fails too, log it and leave the digest due."""
+    try:
+        _record_failure(db, digest_id, now, type(error).__name__)
+    except sqlite3.Error:
+        log.exception("digest %s: the failure could not be recorded", digest_id)
 
 
 def run_due(
@@ -625,7 +650,9 @@ def run_due(
 ) -> list[tuple[int, Run]]:
     """Run every digest whose time has come, once each, however many periods it missed.
 
-    A digest whose run raises is logged and recorded as skipped; the pass goes on to the others."""
+    A digest whose run raises is logged and recorded as skipped, unless the database was busy or
+    failed (a `sqlite3.OperationalError`): that one is left due for the next tick. Either way the
+    pass goes on to the others, even when recording a failure fails too."""
     due = db.execute(
         "SELECT id FROM digests WHERE next_run_at <= ? ORDER BY next_run_at, id", (_utc_text(now),)
     ).fetchall()
@@ -633,9 +660,12 @@ def run_due(
     for row in due:
         try:
             run = _run_scheduled(db, row["id"], now, writer)
+        except sqlite3.OperationalError:
+            log.exception("digest %s could not run now (database busy); it stays due", row["id"])
+            continue
         except Exception as error:
             log.exception("digest %s failed", row["id"])
-            _record_failure(db, row["id"], now, type(error).__name__)
+            _fail(db, row["id"], now, error)
             continue
         if run is not None:
             results.append((row["id"], run))

@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -33,13 +34,29 @@ from deploy_workflow.signal.texts import ago, day, initials, monogram
 from deploy_workflow.signal.texts import capital as _capital
 from deploy_workflow.signal.texts import plural as _plural
 
-__all__ = ["OLDER", "SHOWN", "ago", "build", "day", "initials", "monogram"]
+__all__ = ["NO_FOCUS", "OLDER", "SHOWN", "Focus", "ago", "build", "day", "initials", "monogram"]
 
 Json = dict[str, Any]
 
 SHOWN = 30
 OLDER = 90
+# Bytes the group part and the stories deliver together (the group part spends first, within its
+# own budgets); everything else the snapshot holds is small and bounded by the store's limits.
+STORY_AND_GROUP_BUDGET = 2304 << 10  # 2.25 MiB
+_THREAD_FIELDS = 1024  # at most what sharedBy, commentCount and threadRef add to a card
+_MAIN = ("saved", "for-you", "latest")
 _WEEK = timedelta(days=7)
+
+
+@dataclass(frozen=True)
+class Focus:
+    """What ``GET /api/snapshot?topic=<id>&thread=<id>`` asks to deliver in full."""
+
+    topic: int | None = None
+    thread: int | None = None
+
+
+NO_FOCUS = Focus()
 _KIND = {
     "regulator": "Regulatory case",
     "news": "News",
@@ -59,17 +76,24 @@ _HEALTH_RANK = {"Healthy": 1, "Quiet": 2, "Failing": 3, None: 4}
 
 
 def build(
-    db: sqlite3.Connection, user: User | None, now: datetime, *, pass_failed: bool = False
+    db: sqlite3.Connection,
+    user: User | None,
+    now: datetime,
+    *,
+    pass_failed: bool = False,
+    focus: Focus = NO_FOCUS,
 ) -> Json:
     """The slice for `user` (None: no display name yet) as of `now`, read in one transaction.
 
-    `pass_failed` says the ingest loop's last pass failed; the freshness line then says so."""
+    `pass_failed` says the ingest loop's last pass failed; the freshness line then says so.
+    `focus` names a topic and a thread to deliver in full (see the module docstring)."""
     with feedview.read_transaction(db):
         listed = topics.list_topics(db, user.name if user is not None else "")
         checked = [(row, ingest.health(db, row["id"], now)) for row in store.sources(db)]
-        sources = _sources(checked, now)
-        parts = group_view.build(db, user, now)
-        stories, views = _stories_and_views(db, user, listed, now, parts)
+        sources = _sources(checked, now, named=user is not None)
+        held = _Cards(db, user, now)
+        parts = group_view.build(db, user, now, focus=focus.thread, story_cost=held.cost)
+        stories, views = _stories_and_views(held, listed, parts, focus.topic)
         feed = {
             "status": "ready",
             "error": None,
@@ -95,7 +119,7 @@ def build(
             "digests": [],
             "settings": settings,
         }
-        digestview.apply(db, user, now, snapshot)
+        digestview.apply(db, user, now, snapshot, (SHOWN, OLDER))
     return {"scenes": [{"id": "main", "snapshot": snapshot}]}
 
 
@@ -190,30 +214,85 @@ def _story(db: sqlite3.Connection, card: feedview.Card, now: datetime, threaded:
     }
 
 
+class _Cards:
+    """The viewer's story cards, read once each; `cost` is a card's bytes for the group part."""
+
+    def __init__(self, db: sqlite3.Connection, user: User | None, now: datetime) -> None:
+        self.db, self.user, self.now = db, user, now
+        self.found: dict[int, feedview.Card] = {}
+
+    def load(self, ids: list[int]) -> None:
+        missing = sorted(set(ids) - set(self.found))
+        if missing and self.user is not None:
+            self.found.update(feedview.cards(self.db, self.user.name, missing))
+
+    def story(self, story_id: int, threaded: Json) -> Json | None:
+        card = self.found.get(story_id)
+        return None if card is None else _story(self.db, card, self.now, threaded)
+
+    def cost(self, story_id: int) -> int:
+        """The card's bytes, with room for the fields a delivered thread adds to it."""
+        self.load([story_id])
+        built = self.story(story_id, {})
+        return 0 if built is None else group_view.encoded_size(built) + _THREAD_FIELDS
+
+
+def _priority(held: dict[str, list[int]], focused: str | None) -> list[int]:
+    """The order stories are paid in: the newest SHOWN of Saved, For you and Latest; the focused
+    topic's whole list; the other topics' newest, one of each in turn; then the older stories
+    of the three main views, one of each in turn."""
+    main = [held[key] for key in _MAIN]
+    topics_ = [ids for key, ids in held.items() if key not in _MAIN and key != focused]
+    order = [n for ids in main for n in ids[:SHOWN]]
+    order += held[focused] if focused is not None else []
+    order += [ids[i] for i in range(SHOWN) for ids in topics_ if i < len(ids)]
+    order += [ids[i] for i in range(SHOWN, SHOWN + OLDER) for ids in main if i < len(ids)]
+    return order
+
+
+def _paid(order: list[int], costs: dict[int, int], free: set[int], left: int) -> set[int]:
+    """The stories delivered: those `free` (a delivered thread paid for them), then each in
+    `order` whose card fits in what is left of `left` bytes (one that does not is left out)."""
+    chosen = set(free)
+    for story_id in order:
+        if story_id in chosen or story_id not in costs:
+            continue
+        if costs[story_id] + 1 <= left:  # one more byte: the comma between cards
+            chosen.add(story_id)
+            left -= costs[story_id] + 1
+    return chosen
+
+
 def _stories_and_views(
-    db: sqlite3.Connection,
-    user: User | None,
-    listed: list[sqlite3.Row],
-    now: datetime,
-    parts: group_view.Parts,
+    held_cards: _Cards, listed: list[sqlite3.Row], parts: group_view.Parts, topic: int | None
 ) -> tuple[list[Json], dict[str, Json]]:
     """Every story a view or a delivered thread names, newest first, and each view's ids: the
     three fixed views by name and one per topic by its id. A viewer with no name has no stories
-    and empty views."""
+    and empty views. The stories share STORY_AND_GROUP_BUDGET with the group part, which spent
+    its part first."""
+    db, user, now = held_cards.db, held_cards.user, held_cards.now
     names = {"for-you": "foryou", "latest": "latest", "saved": "saved"}
     names.update({str(row["id"]): f"topic:{row['id']}" for row in listed})
     if user is None:
         return [], {key: _view([]) for key in names}
-    held = {
-        key: feedview.view_ids(db, user.name, view, SHOWN + OLDER) for key, view in names.items()
+    focused = str(topic) if topic is not None and str(topic) in names else None
+    depth = {key: SHOWN + OLDER if key in _MAIN or key == focused else SHOWN for key in names}
+    held = {key: feedview.view_ids(db, user.name, view, depth[key]) for key, view in names.items()}
+    free = set(group_view.story_ids(parts))
+    held_cards.load([n for ids in held.values() for n in ids] + sorted(free))
+    built = {
+        n: card
+        for n in held_cards.found
+        if (card := held_cards.story(n, parts.on_story.get(n, {}))) is not None
     }
-    named = {n for ids in held.values() for n in ids} | set(group_view.story_ids(parts))
-    found = feedview.cards(db, user.name, sorted(named))
-    newest_first = sorted(found.values(), key=lambda c: (c.published_at, c.id), reverse=True)
-    published = {card.id: card.published_at for card in newest_first}
+    costs = {n: group_view.encoded_size(card) for n, card in built.items()}
+    left = STORY_AND_GROUP_BUDGET - parts.spent
+    chosen = _paid(_priority(held, focused), costs, free & set(built), left)
+    cards = sorted((held_cards.found[n] for n in chosen), key=lambda c: (c.published_at, c.id))
+    published = {card.id: card.published_at for card in reversed(cards)}
     rank = group_view.ranker(db, user.name, published, now)
-    stories = [_story(db, card, now, parts.on_story.get(card.id, {})) for card in newest_first]
-    return stories, {key: _view(ids, rank) for key, ids in held.items()}
+    stories = [built[card.id] for card in reversed(cards)]
+    return stories, {key: _view([n for n in ids if n in chosen], rank) for key, ids in held.items()}
 
 
 Checked = list[tuple[sqlite3.Row, ingest.Health]]
@@ -302,7 +381,9 @@ def _health_texts(health: ingest.Health, now: datetime) -> tuple[str | None, str
     return None, "No item for " + _plural((now - health.last_item).days, "day", "days")
 
 
-def _source(row: sqlite3.Row, health: ingest.Health, now: datetime, name_rank: int) -> Json:
+def _source(
+    row: sqlite3.Row, health: ingest.Health, now: datetime, name_rank: int, *, named: bool
+) -> Json:
     state = _STATE[row["state"]]
     shown = _HEALTH.get(health.state) if state == "Approved" else None  # only approved are checked
     reason, note = _health_texts(health, now) if shown is not None else (None, None)
@@ -316,7 +397,7 @@ def _source(row: sqlite3.Row, health: ingest.Health, now: datetime, name_rank: i
         "state": state,
         "health": shown,
         "reason": reason,
-        "stateNote": proposed if state == "Proposed" else None,
+        "stateNote": proposed if state == "Proposed" and named else None,
         "healthNote": note,
         "lastCheck": ago(checked, now) if checked is not None else None,
         "lastItem": ago(item, now) if item is not None else None,
@@ -325,8 +406,11 @@ def _source(row: sqlite3.Row, health: ingest.Health, now: datetime, name_rank: i
     }
 
 
-def _sources(checked: Checked, now: datetime) -> list[Json]:
-    """Every source, in the order it was added; `sort.name` ranks the names A to Z."""
+def _sources(checked: Checked, now: datetime, *, named: bool) -> list[Json]:
+    """Every source, in the order it was added; `sort.name` ranks the names A to Z. A viewer with
+    no display name is not told who proposed a source (`named` False)."""
     order = sorted(range(len(checked)), key=lambda i: (checked[i][0]["name"].casefold(), i))
     rank = {index: place for place, index in enumerate(order, start=1)}
-    return [_source(row, health, now, rank[i]) for i, (row, health) in enumerate(checked)]
+    return [
+        _source(row, health, now, rank[i], named=named) for i, (row, health) in enumerate(checked)
+    ]

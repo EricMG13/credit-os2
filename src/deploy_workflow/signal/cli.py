@@ -1,4 +1,5 @@
-"""Command line for Signal users, sources, ingest passes and stories."""
+"""Command line for Signal users, sources, ingest passes and stories, and the owner's moderation
+and clean-up of groups, threads and comments (which have no browser route)."""
 
 from __future__ import annotations
 
@@ -10,7 +11,9 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from deploy_workflow.signal import groups, threads
 from deploy_workflow.signal.fetch import FetchRefused, check_address
+from deploy_workflow.signal.groups import GroupError
 from deploy_workflow.signal.identity import IdentityError, clean_name
 from deploy_workflow.signal.ingest import health, run_due
 from deploy_workflow.signal.service import serve
@@ -74,7 +77,33 @@ def _parser() -> argparse.ArgumentParser:
 
     stories = commands.add_parser("stories")
     stories.add_argument("--limit", type=_positive_int, default=20)
+    _moderation(commands)
     return parser
+
+
+def _moderation(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    """`threads remove <id>`, `comments remove <id>`, `groups delete <id> [--with-threads]`."""
+    for noun in ("threads", "comments"):
+        verbs = commands.add_parser(noun).add_subparsers(dest="action", required=True)
+        verbs.add_parser("remove").add_argument("id", type=_positive_int)
+    held = commands.add_parser("groups").add_subparsers(dest="action", required=True)
+    delete = held.add_parser("delete")
+    delete.add_argument("id", type=_positive_int)
+    delete.add_argument(
+        "--with-threads", action="store_true", help="delete its threads and comments too"
+    )
+
+
+def _moderate(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    if args.command == "threads":
+        count = threads.remove_thread(db, args.id)
+        print(f"thread {args.id} removed with {count} comment lines")
+    elif args.command == "comments":
+        threads.moderate_comment(db, args.id, lambda: datetime.now(UTC))
+        print(f"comment {args.id} removed; a removed line stays in its thread")
+    else:
+        groups.remove_group(db, args.id, with_threads=args.with_threads)
+        print(f"group {args.id} deleted")
 
 
 def _stamp(value: datetime | None, missing: str = "") -> str:
@@ -145,6 +174,8 @@ def _dispatch(args: argparse.Namespace) -> None:
             _topics(db, args)
         elif args.command == "ingest":
             _ingest(db, args.loop)
+        elif args.command in ("threads", "comments", "groups"):
+            _moderate(db, args)
         else:
             _stories(db, args.limit)
     finally:
@@ -171,7 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return serve(args.root, args.host, args.port)
     try:
         _dispatch(args)
-    except (StoreError, FetchRefused, IdentityError) as error:
+    except (StoreError, FetchRefused, IdentityError, GroupError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
     return 0

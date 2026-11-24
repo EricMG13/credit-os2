@@ -36,18 +36,28 @@ def _writer(req: Req, what: str) -> str:
     return person.name
 
 
+def _encodable(value: str, key: str) -> str:
+    """`value` unchanged, or a 400: text with a lone surrogate (a JSON "\\ud800" escape) can be
+    neither stored nor sent back, so it is refused where it comes in."""
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise refuse(400, f"{key} holds a character that is not valid text") from None
+    return value
+
+
 def _text(body: dict[str, Any], key: str) -> str:
     value = body.get(key)
     if not isinstance(value, str):
         raise refuse(400, f"the request needs {key} as text")
-    return value
+    return _encodable(value, key)
 
 
 def _texts(body: dict[str, Any], key: str) -> list[str]:
     value = body.get(key)
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise refuse(400, f"the request needs {key} as a list of text")
-    return list(value)
+    return [_encodable(item, key) for item in value]
 
 
 def _number(req: Req, index: int = 0) -> int:
@@ -123,7 +133,7 @@ def _optional_text(body: dict[str, Any], key: str) -> str:
 def _covers(body: dict[str, Any]) -> list[str]:
     """The `covers` of a digest body: one option as delivered, or a list of them."""
     value = body.get("covers")
-    return [value] if isinstance(value, str) else _texts(body, "covers")
+    return [_encodable(value, "covers")] if isinstance(value, str) else _texts(body, "covers")
 
 
 def _look_ahead(body: dict[str, Any]) -> int:
@@ -179,6 +189,11 @@ def _delete_digest(req: Req) -> Reply:
 def _run_message(run: digests.Run) -> str:
     if run.outcome == "nothing":
         return "Nothing material happened in this period. The new issue says so."
+    if run.outcome == "skipped" and run.reason == digests.NO_COVER:
+        return (
+            "This digest covers nothing now, so no issue was written."
+            " Edit it to choose what it covers."
+        )
     if run.outcome == "skipped":
         many = "story is" if run.stories == 1 else "stories are"
         return f"{run.stories} {many} in scope, but the AI pass is off, so no issue was written."

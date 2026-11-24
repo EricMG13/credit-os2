@@ -109,18 +109,21 @@ def test_keywords_with_query_syntax_are_plain_text(db_two_sources, keyword):
     add_topic(db_two_sources, f"T {keyword}", [keyword], [], "ak")
 
 
-@given(st.text(min_size=1, max_size=60).filter(lambda s: s.strip()))
-def test_any_keyword_is_accepted_without_error(keyword):
+@given(
+    st.text(st.characters(blacklist_categories=("C",)), min_size=1, max_size=60).filter(
+        lambda s: s.strip()
+    )
+)
+def test_any_plain_text_keyword_is_accepted_without_error(keyword):
     with fresh_db() as db:
         add_topic(db, "T", [keyword], [], "ak")
 
 
-def test_nul_in_a_keyword_is_plain_text_and_does_not_poison_matching(db_two_sources):
-    t0 = datetime(2026, 11, 13, 9, tzinfo=UTC)
-    add_topic(db_two_sources, "Nul", ["a\x00b"], [], "ak")
-    add_story(db_two_sources, 1, Entry("Authority review", "https://a.org/1", t0, ""), t0)
-    assert match_story(db_two_sources, 1) == []
-    add_topic(db_two_sources, "Nul again", ["a\x00b"], [], "ak")
+@pytest.mark.parametrize("keyword", ["a\x00b", "bell\x07", "flip\u202eit", "x\ud800y", "a\nb"])
+def test_a_keyword_with_a_control_or_invisible_character_is_refused(db_two_sources, keyword):
+    with pytest.raises(StoreError, match="keyword is plain text"):
+        add_topic(db_two_sources, "Odd", [keyword], [], "ak")
+    assert count(db_two_sources, "topics") == 0
 
 
 def test_follow_is_personal_and_idempotent(db_two_sources):
@@ -242,4 +245,4 @@ def test_a_topic_that_posted_threads_can_be_deleted_and_the_threads_read_posted_
     built = snapshot.build(db_two_sources, TOBIAS, t0 + timedelta(hours=2))
     assert react_refusal(built) is None, react_refusal(built)
     (thread,) = built["scenes"][0]["snapshot"]["groups"][0]["threads"]
-    assert thread["sharedBy"] == {"initials": "T", "label": "Posted from a topic, 2 h ago"}
+    assert thread["sharedBy"] == {"initials": "?", "label": "Posted from a topic, 2 h ago"}

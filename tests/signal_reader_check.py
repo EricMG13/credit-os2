@@ -3,12 +3,16 @@
 ``react_refusal`` bundles the reader with the web folder's esbuild once per test session, then runs
 ``readSlice`` over the snapshot in node. It returns None when the reader accepts the snapshot and
 its reason otherwise (a snapshot the reader refuses blanks the whole screen). Without node or
-esbuild the calling test is skipped: the reader is not available to check against.
+esbuild the calling test is skipped on a developer's machine, where the reader is not available to
+check against; under ``CI=true`` (GitHub Actions sets it) it fails instead, so a runner that never
+installed the web dependencies cannot pass without the check. Every Signal test that needs the
+reader uses this module's ``react_refusal``.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -34,7 +38,10 @@ def _bundle() -> Path:
         return _built[0]
     node = shutil.which("node")
     if node is None or not ESBUILD.exists():
-        pytest.skip("node or the web folder's esbuild is not available")
+        reason = "node or the web folder's esbuild is not available (run `npm --prefix web ci`)"
+        if os.environ.get("CI") == "true":
+            pytest.fail(reason, pytrace=False)
+        pytest.skip(reason)
     folder = Path(tempfile.mkdtemp(prefix="signal-reader-"))
     subprocess.run(
         [str(ESBUILD), str(SLICE), "--bundle", "--format=esm", f"--outfile={folder}/slice.mjs"],

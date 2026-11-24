@@ -141,6 +141,8 @@ def _locate(url: str, *, redirect: bool) -> _Place:
         raise FetchRefused(f"feed address is not valid: {_short(error)}") from error
     if parts.scheme != "https":
         raise FetchRefused("only https addresses are fetched")
+    if port == 0:
+        raise FetchRefused("feed address must use the default port")
     if not parts.netloc:
         raise FetchRefused("address has no host")
     host = _plain_host(parts.netloc)

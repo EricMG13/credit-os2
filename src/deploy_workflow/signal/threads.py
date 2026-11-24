@@ -1,13 +1,20 @@
 """Threads in groups: sharing a story or a note, comments with one level of replies, reactions,
-read marks, and the archive rule. Every write takes the time it happens at (`at`), so the
-15-minute edit window and the 90-day archive are decided from a given time, never the wall clock.
+read marks, and the archive rule. Every write is given its time (`at`): a time, or a clock that
+is read once the write lock is held, so a write's time is never earlier than a write committed
+before it (a comment stamped before someone's read mark but committed after it would never be
+unread). The 15-minute edit window and the 90-day archive are decided from that time.
 
 Decisions where spec 5.7 and the screens leave a choice:
 
 * Sharing a story with a note: the note is the sharer's first comment (the Share dialog says
   "Members see it as your first comment"), so a story thread holds no note of its own. A thread
   started from a note alone holds the note. A second share of the same story to the same group
-  joins the existing thread: its note, if any, becomes the second sharer's comment there.
+  joins the existing thread: its note, if any, becomes the second sharer's comment there. Joining
+  does not mark the thread read for the sharer (they shared from the feed and have not read what
+  others wrote there); their own comment never counts as unread for them.
+* Bounds: a thread holds at most MAX_COMMENTS comment lines (replies and removed lines included)
+  and a group at most ``groups.MAX_THREADS`` threads; a write beyond either is refused (409). A
+  story a group topic posts into a group already at its bound is not posted there.
 * "A comment can be edited for 15 minutes and is then marked edited": its author may edit it for
   15 minutes after posting it (not later), and an edited comment is marked edited. The group's
   "comments-edited" rule switches editing off altogether.
@@ -25,7 +32,7 @@ from __future__ import annotations
 
 import sqlite3
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -35,10 +42,17 @@ from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.store import _utc_text, _write_transaction
 
 MAX_TEXT = 4000
+MAX_COMMENTS = 500
 WORDS = ("Agree", "Disagree", "Seen")
 EDIT_WINDOW = timedelta(minutes=groups.EDIT_MINUTES)
 QUIET = timedelta(days=groups.QUIET_DAYS)
 _KEPT_CONTROLS = {"\n", "\t"}
+Moment = datetime | Callable[[], datetime]  # a write's time, or the clock read under its lock
+
+
+def _when(at: Moment) -> datetime:
+    """The write's time: call this inside the write transaction."""
+    return at() if callable(at) else at
 
 
 @dataclass(frozen=True)
@@ -103,26 +117,31 @@ def _mark_read(db: sqlite3.Connection, user_name: str, thread_id: int, at: datet
     )
 
 
+def _require_room(db: sqlite3.Connection, thread_id: int) -> None:
+    held = db.execute("SELECT COUNT(*) FROM comments WHERE thread_id=?", (thread_id,)).fetchone()
+    if held[0] >= MAX_COMMENTS:
+        raise Conflict(f"this thread holds {MAX_COMMENTS} comments, the most it can hold")
+
+
 def _add_comment(
     db: sqlite3.Connection, thread_id: int, actor: User, text: str, at: datetime
 ) -> int:
-    """Insert a top-level comment, move the thread's activity and mark it read for the author."""
-    stamp = _utc_text(at)
+    """Insert a top-level comment and move the thread's activity (no read mark: the caller's)."""
+    _require_room(db, thread_id)
     cur = db.execute(
         "INSERT INTO comments(thread_id, author, body, created_at) VALUES(?, ?, ?, ?)",
-        (thread_id, actor.name, text, stamp),
+        (thread_id, actor.name, text, _utc_text(at)),
     )
-    _touch(db, thread_id, actor.name, at)
+    _touch(db, thread_id, at)
     assert cur.lastrowid is not None
     return cur.lastrowid
 
 
-def _touch(db: sqlite3.Connection, thread_id: int, user_name: str, at: datetime) -> None:
+def _touch(db: sqlite3.Connection, thread_id: int, at: datetime) -> None:
     db.execute(
         "UPDATE threads SET last_activity_at=max(last_activity_at, ?) WHERE id=?",
         (_utc_text(at), thread_id),
     )
-    _mark_read(db, user_name, thread_id, at)
 
 
 def _require_story(db: sqlite3.Connection, story_id: int) -> None:
@@ -134,6 +153,9 @@ def _new_thread(
     db: sqlite3.Connection, group_id: int, actor: User, item: Item, at: datetime
 ) -> int:
     """Insert a thread (`item.note` already cleaned, or None) and mark it read for its sharer."""
+    held = db.execute("SELECT COUNT(*) FROM threads WHERE group_id=?", (group_id,)).fetchone()
+    if held[0] >= groups.MAX_THREADS:
+        raise Conflict(f"this group holds {groups.MAX_THREADS:,} threads, the most it can hold")
     stamp = _utc_text(at)
     cur = db.execute(
         "INSERT INTO threads(group_id, story_id, created_at, created_by, note, last_activity_at)"
@@ -153,7 +175,7 @@ def _optional_note(raw: object) -> str | None:
 
 
 def share(
-    db: sqlite3.Connection, actor: User, group_id: int, item: Item, at: datetime
+    db: sqlite3.Connection, actor: User, group_id: int, item: Item, at: Moment
 ) -> tuple[int, bool]:
     """Share a story (its note becomes the sharer's comment) or start a note thread.
 
@@ -164,15 +186,16 @@ def share(
     note = Item(None, clean_text(item.note, "a note"))
     with _write_transaction(db):
         groups.require_visible(db, actor.name, group_id)
-        return _new_thread(db, group_id, actor, note, at), False
+        return _new_thread(db, group_id, actor, note, _when(at)), False
 
 
 def _share_story(
-    db: sqlite3.Connection, actor: User, group_id: int, item: Item, at: datetime
+    db: sqlite3.Connection, actor: User, group_id: int, item: Item, clock: Moment
 ) -> tuple[int, bool]:
     assert item.story_id is not None
     note = _optional_note(item.note)
     with _write_transaction(db):
+        at = _when(clock)
         groups.require_visible(db, actor.name, group_id)
         _require_story(db, item.story_id)
         held = db.execute(
@@ -189,23 +212,30 @@ def _share_story(
         return thread_id, held is not None
 
 
-def comment(db: sqlite3.Connection, actor: User, thread_id: int, text: object, at: datetime) -> int:
-    """A top-level comment on an open thread."""
+def comment(db: sqlite3.Connection, actor: User, thread_id: int, text: object, at: Moment) -> int:
+    """A top-level comment on an open thread; the thread is then read for its author."""
     _require_writer(actor)
     body = clean_text(text, "a comment")
     with _write_transaction(db):
+        when = _when(at)
         thread = thread_row(db, actor.name, thread_id)
-        _require_open(db, thread, at)
-        return _add_comment(db, thread_id, actor, body, at)
+        _require_open(db, thread, when)
+        made = _add_comment(db, thread_id, actor, body, when)
+        _mark_read(db, actor.name, thread_id, when)
+        return made
 
 
 def _comment_row(db: sqlite3.Connection, user_name: str, comment_id: int) -> sqlite3.Row:
     row: sqlite3.Row | None = db.execute(
         "SELECT * FROM comments WHERE id=?", (comment_id,)
     ).fetchone()
-    if row is None:
-        raise NotFound(f"no comment with id {comment_id}")
-    thread_row(db, user_name, row["thread_id"])  # an unseen group's comment does not exist
+    thread = (
+        None
+        if row is None
+        else db.execute("SELECT group_id FROM threads WHERE id=?", (row["thread_id"],)).fetchone()
+    )
+    if row is None or thread is None or not groups.can_see(db, user_name, thread["group_id"]):
+        raise NotFound(f"no comment with id {comment_id}")  # an unseen group's: as no comment
     return row
 
 
@@ -220,20 +250,24 @@ def _open_comment(
     return row
 
 
-def reply(db: sqlite3.Connection, actor: User, comment_id: int, text: object, at: datetime) -> int:
-    """A reply to a top-level comment; replies nest one level only."""
+def reply(db: sqlite3.Connection, actor: User, comment_id: int, text: object, at: Moment) -> int:
+    """A reply to a top-level comment; replies nest one level only. The thread is then read for
+    its author."""
     _require_writer(actor)
     body = clean_text(text, "a reply")
     with _write_transaction(db):
-        parent = _open_comment(db, actor.name, comment_id, at)
+        when = _when(at)
+        parent = _open_comment(db, actor.name, comment_id, when)
         if parent["parent_id"] is not None:
             raise GroupError("replies nest one level: reply to the comment this reply answers")
+        _require_room(db, parent["thread_id"])
         cur = db.execute(
             "INSERT INTO comments(thread_id, parent_id, author, body, created_at)"
             " VALUES(?, ?, ?, ?, ?)",
-            (parent["thread_id"], comment_id, actor.name, body, _utc_text(at)),
+            (parent["thread_id"], comment_id, actor.name, body, _utc_text(when)),
         )
-        _touch(db, parent["thread_id"], actor.name, at)
+        _touch(db, parent["thread_id"], when)
+        _mark_read(db, actor.name, parent["thread_id"], when)
     assert cur.lastrowid is not None
     return cur.lastrowid
 
@@ -243,11 +277,12 @@ def _own(row: sqlite3.Row, actor: User, what: str) -> None:
         raise Forbidden(f"only its author can {what} a comment")
 
 
-def edit(db: sqlite3.Connection, actor: User, comment_id: int, text: object, at: datetime) -> None:
+def edit(db: sqlite3.Connection, actor: User, comment_id: int, text: object, clock: Moment) -> None:
     """The author edits within EDIT_WINDOW of posting; the comment is then marked edited."""
     _require_writer(actor)
     body = clean_text(text, "a comment")
     with _write_transaction(db):
+        at = _when(clock)
         row = _open_comment(db, actor.name, comment_id, at)
         _own(row, actor, "edit")
         thread = thread_row(db, actor.name, row["thread_id"])
@@ -261,11 +296,12 @@ def edit(db: sqlite3.Connection, actor: User, comment_id: int, text: object, at:
         )
 
 
-def remove(db: sqlite3.Connection, actor: User, comment_id: int, at: datetime) -> None:
+def remove(db: sqlite3.Connection, actor: User, comment_id: int, clock: Moment) -> None:
     """The author removes a comment: a removed line stays, with no text, no reactions; its
     replies stay."""
     _require_writer(actor)
     with _write_transaction(db):
+        at = _when(clock)
         row = _open_comment(db, actor.name, comment_id, at)
         _own(row, actor, "remove")
         thread = thread_row(db, actor.name, row["thread_id"])
@@ -286,7 +322,7 @@ class Reaction:
     on: bool
 
 
-def react(db: sqlite3.Connection, actor: User, reaction: Reaction, at: datetime) -> None:
+def react(db: sqlite3.Connection, actor: User, reaction: Reaction, at: Moment) -> None:
     """Set or clear a word on a comment. One of each word per user per comment; setting twice or
     clearing an unset word changes nothing."""
     _require_writer(actor)
@@ -294,7 +330,7 @@ def react(db: sqlite3.Connection, actor: User, reaction: Reaction, at: datetime)
         raise GroupError("a reaction is Agree, Disagree or Seen")
     key = (reaction.comment_id, actor.name, reaction.word)
     with _write_transaction(db):
-        _open_comment(db, actor.name, reaction.comment_id, at)
+        _open_comment(db, actor.name, reaction.comment_id, _when(at))
         if reaction.on:
             db.execute(
                 "INSERT OR IGNORE INTO reactions(comment_id, user_name, word) VALUES(?, ?, ?)", key
@@ -303,17 +339,19 @@ def react(db: sqlite3.Connection, actor: User, reaction: Reaction, at: datetime)
             db.execute("DELETE FROM reactions WHERE comment_id=? AND user_name=? AND word=?", key)
 
 
-def mark_read(db: sqlite3.Connection, user: User, thread_id: int, at: datetime) -> None:
+def mark_read(db: sqlite3.Connection, user: User, thread_id: int, at: Moment) -> None:
     """Anyone who sees the thread, readers included, marks it read up to `at`."""
     with _write_transaction(db):
+        when = _when(at)
         thread_row(db, user.name, thread_id)
-        _mark_read(db, user.name, thread_id, at)
+        _mark_read(db, user.name, thread_id, when)
 
 
 def post_topic_story(db: sqlite3.Connection, story_id: int, topic_ids: Sequence[int]) -> None:
     """Post a story that just matched `topic_ids` into every group following one of them: one
-    thread per story per group, at the story's fetch time. Runs inside the caller's write
-    transaction (where the topic matches are recorded)."""
+    thread per story per group, at the story's fetch time; a group already holding
+    ``groups.MAX_THREADS`` threads is skipped. Runs inside the caller's write transaction (where
+    the topic matches are recorded)."""
     if not topic_ids:
         return
     marks = ", ".join("?" * len(topic_ids))
@@ -321,6 +359,37 @@ def post_topic_story(db: sqlite3.Connection, story_id: int, topic_ids: Sequence[
         "INSERT OR IGNORE INTO threads(group_id, story_id, created_at, topic_id, last_activity_at)"
         " SELECT gt.group_id, s.id, s.fetched_at, MIN(gt.topic_id), s.fetched_at"
         " FROM group_topics gt JOIN stories s ON s.id = ?"
-        " WHERE gt.topic_id IN (" + marks + ") GROUP BY gt.group_id",
-        [story_id, *topic_ids],
+        " WHERE gt.topic_id IN (" + marks + ")"
+        " AND (SELECT COUNT(*) FROM threads x WHERE x.group_id = gt.group_id) < ?"
+        " GROUP BY gt.group_id",
+        [story_id, *topic_ids, groups.MAX_THREADS],
     )
+
+
+# The owner's moderation and clean-up, on the command line only (no browser route).
+
+
+def remove_thread(db: sqlite3.Connection, thread_id: int) -> int:
+    """Delete a thread with its comments, reactions and read marks; returns how many comment
+    lines went with it."""
+    with _write_transaction(db):
+        if db.execute("SELECT 1 FROM threads WHERE id=?", (thread_id,)).fetchone() is None:
+            raise NotFound(f"no thread with id {thread_id}")
+        held = db.execute("SELECT COUNT(*) FROM comments WHERE thread_id=?", (thread_id,))
+        count = int(held.fetchone()[0])
+        db.execute("DELETE FROM threads WHERE id=?", (thread_id,))
+    return count
+
+
+def moderate_comment(db: sqlite3.Connection, comment_id: int, at: Moment) -> None:
+    """Remove any comment, whatever the rules, its author or its thread's state: as an author's
+    removal, a removed line stays, with no text and no reactions; its replies stay."""
+    with _write_transaction(db):
+        when = _when(at)
+        if db.execute("SELECT 1 FROM comments WHERE id=?", (comment_id,)).fetchone() is None:
+            raise NotFound(f"no comment with id {comment_id}")
+        db.execute(
+            "UPDATE comments SET body='', removed_at=coalesce(removed_at, ?) WHERE id=?",
+            (_utc_text(when), comment_id),
+        )
+        db.execute("DELETE FROM reactions WHERE comment_id=?", (comment_id,))

@@ -9,7 +9,7 @@ type, the checks every request passes before any body byte is read (``Handler.se
 this order: the target is a path, ``Host``, ``Sec-Fetch-Site``, ``Origin``, no
 ``Transfer-Encoding``; an HTTP/0.9 request line is closed with no reply before them), the
 ``Content-Length`` and JSON body rules, the headers every response carries, the fixed 500, and
-the two ways a file is served.
+the way a file is served (``contained_file``).
 
 What differs between the services is a named parameter, never a branch on which service it is:
 
@@ -57,7 +57,6 @@ __all__ = [
     "Server",
     "contained_file",
     "hosts",
-    "listed_file",
     "read_regular",
     "refuse",
     "wildcard",
@@ -364,17 +363,6 @@ def read_regular(
         return None
     with os.fdopen(fd, "rb") as handle:  # the handle owns the descriptor now
         return handle.read() if limit is None else handle.read(limit)
-
-
-def listed_file(entry: tuple[Path, str] | None) -> Reply:
-    """The reply serving an allowlist entry ``(file, type)``; 404 for None (a name not listed).
-
-    The caller compares the request path with its allowlist's names; no path is joined here."""
-    if entry is None:
-        raise refuse(404, "not found")
-    return Reply(
-        200, entry[0].read_bytes(), {"Content-Type": entry[1], "Cache-Control": "no-cache"}
-    )
 
 
 def wildcard(host: str) -> bool:

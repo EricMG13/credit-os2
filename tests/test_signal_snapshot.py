@@ -256,7 +256,7 @@ def test_a_viewer_with_no_name_is_told_no_persons_name(sample):
     for person in people:
         groups.add_member(sample, WRITER, desk, person.name)
     thread, _ = threads.share(sample, people[2], desk, threads.Item(1, "Ines K's note"), NOW)
-    threads.comment(sample, READER, thread, "A comment by Tobias", NOW)
+    threads.comment(sample, WRITER, thread, "A comment by Mara", NOW)
     digests.run_now(
         sample,
         "Mara L",
@@ -272,15 +272,16 @@ def test_a_viewer_with_no_name_is_told_no_persons_name(sample):
         ),
         NOW,
     )
-    proposed = [row for row in _snap(sample, None)["settings"]["sources"] if row["state"] == "Proposed"]
+    unnamed = _snap(sample, None)["settings"]["sources"]
+    proposed = [row for row in unnamed if row["state"] == "Proposed"]
     assert [row["stateNote"] for row in proposed] == [None]  # no "By Mara L, ..." for a stranger
     delivered = json.dumps(_snap(sample, None), ensure_ascii=False)
     for person in people:
         assert person.name not in delivered and person.name.split()[0] not in delivered
-    # A named viewer still reads who proposed it.
+    # A named viewer still reads who proposed it (the sample's Freight Monitor).
     named = _snap(sample, READER)["settings"]["sources"]
     assert [row["stateNote"] for row in named if row["state"] == "Proposed"] == [
-        "By Mara L, 1 d ago"
+        "By Tobias O, yesterday"
     ]
 
 

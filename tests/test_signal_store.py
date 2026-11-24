@@ -8,11 +8,15 @@ from multiprocessing.synchronize import Barrier
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from deploy_workflow.signal.store import (
     Check,
+    Conflict,
     StoreError,
     add_user,
+    canonical_url,
     last_check,
     open_db,
     propose_source,
@@ -256,3 +260,37 @@ def test_a_storys_own_source_is_never_recorded_as_its_duplicate(tmp_path: Path) 
         " WHERE d.duplicate_source_id = s.source_id"
     ).fetchone()[0]
     assert own == 0
+
+
+@pytest.mark.parametrize(
+    ("given", "stored"),
+    [
+        ("https://Feeds.Example/rss", "https://feeds.example/rss"),
+        ("https://feeds.example:443/rss", "https://feeds.example/rss"),
+        ("https://feeds.example/rss#top", "https://feeds.example/rss"),
+        ("HTTPS://FEEDS.EXAMPLE:443", "https://feeds.example/"),
+        ("https://feeds.example/rss?", "https://feeds.example/rss"),
+        ("https://feeds.example/rss?a=1&B=2", "https://feeds.example/rss?a=1&B=2"),
+        ("https://feeds.example:8443/Rss", "https://feeds.example:8443/Rss"),
+        ("http://feeds.example:80/rss", "http://feeds.example/rss"),
+        ("  https://feeds.example/rss  ", "https://feeds.example/rss"),
+        ("not an address", "not an address"),
+    ],
+)
+def test_a_source_address_is_stored_in_one_spelling_and_proposed_once(tmp_path, given, stored):
+    db = open_db(tmp_path)
+    first = propose_source(db, "Feeds", "news", given, "x")
+    assert db.execute("SELECT url FROM sources WHERE id=?", (first,)).fetchone()[0] == stored
+    with pytest.raises(Conflict, match="already exists"):
+        propose_source(db, "Again", "news", stored, "y")
+    db.close()
+
+
+@given(
+    st.sampled_from(["https", "HTTP", "ftp", ""]),
+    st.text(alphabet="abcXYZ.-:[]@%0123456789", max_size=20),
+    st.text(alphabet="/abc?=&#% ", max_size=15),
+)
+def test_canonical_form_never_fails_and_is_its_own_canonical_form(scheme, authority, rest):
+    once = canonical_url(f"{scheme}://{authority}{rest}")
+    assert canonical_url(once) == once

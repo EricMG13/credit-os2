@@ -203,6 +203,7 @@ CREATE TABLE notification_settings(
 CREATE INDEX idx_threads_group_activity ON threads(group_id, last_activity_at);
 CREATE INDEX idx_threads_story_id ON threads(story_id);
 CREATE INDEX idx_comments_thread_id ON comments(thread_id, created_at);
+CREATE INDEX idx_comments_parent_id ON comments(parent_id, created_at);
 CREATE INDEX idx_group_topics_topic_id ON group_topics(topic_id);
 CREATE INDEX idx_group_members_user ON group_members(user_name);
 """
@@ -418,6 +419,7 @@ def role_of(db: sqlite3.Connection, name: str) -> str:
 
 MAX_SOURCE_NAME = 80
 MAX_URL = 512
+MAX_PENDING = 5  # proposals one user may have waiting for the owner at a time
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
@@ -439,8 +441,6 @@ def canonical_url(url: str) -> str:
     shown = f"[{host}]" if ":" in host else host
     netloc = shown if port in (None, _DEFAULT_PORTS[scheme]) else f"{shown}:{port}"
     return urlunsplit((scheme, netloc, parts.path or "/", parts.query, ""))
-
-MAX_PENDING = 5  # proposals one user may have waiting for the owner at a time
 
 
 def propose_source(db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str) -> int:

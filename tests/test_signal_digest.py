@@ -534,15 +534,15 @@ def test_skipped_runs_while_ai_is_off_never_let_a_period_outgrow_one_day(db):
     wire = source(db)
     story(db, wire, "One early story", NOW)
     ident = make(db, schedule="Daily, 07:00 UTC")
-    for day in range(1, 91):
-        digests.run_due(db, NOW + timedelta(days=day))
+    for day in range(90):
+        digests.run_due(db, at("2026-11-25 07:00") + timedelta(days=day))
     spans = [
         datetime.fromisoformat(row["period_end"]) - datetime.fromisoformat(row["period_start"])
         for row in db.execute(
             "SELECT period_start, period_end FROM digest_runs WHERE digest_id=?", (ident,)
         )
     ]
-    assert len(spans) == digests.KEEP_RUNS and max(spans) <= timedelta(days=1)
+    assert len(spans) == 90 and max(spans) <= timedelta(days=1)
 
 
 def test_a_period_is_the_gap_since_the_last_run_so_catching_up_covers_the_downtime_once(db):

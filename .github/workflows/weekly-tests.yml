@@ -16,6 +16,14 @@ jobs:
         with:
           version: "0.12.5"
       - run: uv sync --group dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # The Signal tests check every snapshot with the real React reader; under CI=true they fail,
+      # not skip, when web's dependencies (esbuild) are missing.
+      - run: npm --prefix web ci
       - name: pytest (known failures deselected)
         run: |
           deselect=$(sed -e 's/#.*//' -e '/^\s*$/d' tests/known-failures.txt | awk '{print "--deselect=" $1}')

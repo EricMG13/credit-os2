@@ -31,10 +31,15 @@ object rule) is passed to that base here. Every request is checked before any bo
 Only the routes in ``_ROUTES`` exist; any other path is 404 and a listed path with another method
 is 405. No request path is ever joined to a directory, so no file under the data root is reachable.
 
-Identity is a display name in a cookie, not authentication. Every API route except ``/api/me``,
-``/api/status`` and ``/api/snapshot`` needs a name (401 otherwise); the snapshot of a viewer with no
-name holds no stories. No owner or writer action is exposed. Each request opens its own database
-connection and closes it; the ingest loop has its own.
+Identity is a display name in a cookie, not authentication, and anyone who can reach the service
+can type any name. A name the store lists as a writer or the owner therefore carries that role's
+writer powers for whoever types it: proposing sources and writing topics, groups, threads and
+comments in that person's name. That is the accepted interim design of spec 5.2, until real sign-in
+exists. Owner powers are not exposed on any route and stay on the command line: approving or
+pausing a source, the AI cap, and removing threads, comments or groups. Every API route except
+``/api/me``, ``/api/status`` and ``/api/snapshot`` needs a name (401 otherwise); the snapshot of a
+viewer with no name holds no stories, no groups and no person's name. Each request opens its own
+database connection and closes it; the ingest loop has its own.
 
 A refusal is ``{"error": "<plain sentence>"}``; an unexpected failure is 500
 ``{"error": "the service failed; see its log"}``, its cause in the log only.
@@ -235,9 +240,21 @@ def _status(req: _Req) -> _Reply:
     )
 
 
+def _focus_id(req: _Req, name: str) -> int | None:
+    """A focus parameter: absent, or a decimal id (one that names nothing is ignored)."""
+    if name not in req.params:
+        return None
+    value = req.params[name]
+    if re.fullmatch(_ID, value) is None:
+        raise _refuse(400, f"{name} must be an id: digits only")
+    return int(value)
+
+
 def _snapshot(req: _Req) -> _Reply:
     failed = req.loop is not None and req.loop.last_error is not None
-    return _Reply(200, snapshot.build(req.db, req.user, datetime.now(UTC), pass_failed=failed))
+    focus = snapshot.Focus(_focus_id(req, "topic"), _focus_id(req, "thread"))
+    built = snapshot.build(req.db, req.user, datetime.now(UTC), pass_failed=failed, focus=focus)
+    return _Reply(200, built)
 
 
 _ROUTES: tuple[_Route, ...] = (

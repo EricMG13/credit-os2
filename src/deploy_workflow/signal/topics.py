@@ -46,7 +46,9 @@ def _clean_keywords(keywords: Sequence[str]) -> list[str]:
         raise StoreError(f"a topic has at most {MAX_KEYWORDS} keywords")
     for keyword in cleaned:
         if not 1 <= len(keyword) <= MAX_KEYWORD:
-            raise StoreError(f"a keyword must be 1 to {MAX_KEYWORD} characters, got {keyword[:60]!r}")
+            raise StoreError(
+                f"a keyword must be 1 to {MAX_KEYWORD} characters, got {keyword[:60]!r}"
+            )
         if any(unicodedata.category(ch)[0] == "C" for ch in keyword):
             raise StoreError("a keyword is plain text: it has no control or invisible character")
     return cleaned

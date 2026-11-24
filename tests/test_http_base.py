@@ -542,17 +542,6 @@ def test_a_link_that_stays_inside_is_followed_and_direct_needs_the_folder_itself
     assert served(base, "top.js", direct=True)[1] == b"t"
 
 
-def test_a_listed_file_is_served_uncached_and_an_unlisted_name_is_404(tmp_path):
-    page = tmp_path / "page.css"
-    page.write_bytes(b"css")
-    reply = http_base.listed_file((page, "text/css; charset=utf-8"))
-    assert (reply.status, reply.body) == (200, b"css")
-    assert reply.headers == {"Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-cache"}
-    with pytest.raises(Reply) as refusal:
-        http_base.listed_file(None)
-    assert (refusal.value.status, refusal.value.body) == (404, {"error": "not found"})
-
-
 @pytest.mark.parametrize("host", ["", "0.0.0.0", "::", "0", "0x0", "::ffff:0.0.0.0"])
 def test_every_spelling_of_every_interface_is_a_wildcard(host):
     assert http_base.wildcard(host)

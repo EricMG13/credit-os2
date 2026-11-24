@@ -793,7 +793,10 @@ def test_editing_a_rule_over_a_large_store_holds_exactly_the_stories_found_by_ha
             )
             expected_titles.append((number + 1, kinds_of[number % 3], title, summary))
     topics.add_topic(db, "Old rule", ["merger"], [], "x")
-    keywords, kinds = ["spectrum", 'say "tariff"', "remedy spectrum", "no such word"], ["regulator", "news"]
+    keywords, kinds = (
+        ["spectrum", 'say "tariff"', "remedy spectrum", "no such word"],
+        ["regulator", "news"],
+    )
     started = datetime.now(UTC)
     topics.edit_topic(db, 1, "Edited", keywords, kinds)
     assert datetime.now(UTC) - started < timedelta(seconds=10)  # one index query per keyword
@@ -831,7 +834,10 @@ def test_another_spelling_of_a_proposed_address_is_the_same_source(svc, root, sp
 
 def test_a_proposed_address_is_stored_in_its_canonical_spelling(svc, root):
     url = "https://Freight-Monitor.EXAMPLE:443/feed?x=1#top"
-    assert svc.call("POST", "/api/sources", body={**SOURCE, "url": url}, cookie=cookie(WRITER))[0] == 200
+    assert (
+        svc.call("POST", "/api/sources", body={**SOURCE, "url": url}, cookie=cookie(WRITER))[0]
+        == 200
+    )
     assert rows(root, "SELECT url FROM sources") == [("https://freight-monitor.example/feed?x=1",)]
 
 
@@ -908,7 +914,12 @@ def test_deleting_a_topic_a_digest_covers_works_and_the_digest_says_what_happene
     (record,) = snap["digests"]
     assert record["form"]["covers"] == [] and "covered was removed" in record["paused"]
     status, _, reply = svc.call("POST", "/api/digests/1/run", cookie=cookie(READER))
-    assert (status, reply["outcome"], reply["issueId"], reply["stories"]) == (200, "skipped", None, 0)
+    assert (status, reply["outcome"], reply["issueId"], reply["stories"]) == (
+        200,
+        "skipped",
+        None,
+        0,
+    )
     assert reply["message"] == (
         "This digest covers nothing now, so no issue was written. Edit it to choose what it covers."
     )

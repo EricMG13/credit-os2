@@ -6,7 +6,9 @@ read the request and call the domain modules (``groups``, ``threads``, ``notif``
 roles, visibility, limits and rules; a refusal is ``{"error": "<sentence>"}`` with 400 (not
 valid), 403 (not allowed), 404 (no such thing, or one in a group the user cannot see) or 409 (the
 state does not allow it). A success answers with the ids it made; the screens read the snapshot
-again for everything else.
+again for everything else. A thread write is given the clock, not a time: the domain module
+reads it once it holds the write lock. Moderation and clean-up (removing a thread or anyone's
+comment, deleting a group with its threads) are the owner's, on the command line only.
 """
 
 from __future__ import annotations
@@ -103,33 +105,33 @@ def _rule(req: Req) -> Any:
 def _share(req: Req) -> Any:
     body = req.body()
     item = threads.Item(_body_id(body, "story"), body.get("note"))
-    made, joined = threads.share(req.db, req.person, _path_id(req), item, _now())
+    made, joined = threads.share(req.db, req.person, _path_id(req), item, _now)
     return {"thread": str(made), "joined": joined}
 
 
 def _comment(req: Req) -> Any:
-    made = threads.comment(req.db, req.person, _path_id(req), req.body().get("text"), _now())
+    made = threads.comment(req.db, req.person, _path_id(req), req.body().get("text"), _now)
     return {"comment": str(made)}
 
 
 def _reply(req: Req) -> Any:
-    made = threads.reply(req.db, req.person, _path_id(req), req.body().get("text"), _now())
+    made = threads.reply(req.db, req.person, _path_id(req), req.body().get("text"), _now)
     return {"comment": str(made)}
 
 
 def _edit(req: Req) -> Any:
-    threads.edit(req.db, req.person, _path_id(req), req.body().get("text"), _now())
+    threads.edit(req.db, req.person, _path_id(req), req.body().get("text"), _now)
     return {"comment": req.groups[0]}
 
 
 def _remove(req: Req) -> Any:
-    threads.remove(req.db, req.person, _path_id(req), _now())
+    threads.remove(req.db, req.person, _path_id(req), _now)
     return {"comment": req.groups[0]}
 
 
 def _reaction(req: Req, on: bool) -> Any:
     reaction = threads.Reaction(_path_id(req), _WORDS[req.groups[1]], on)
-    threads.react(req.db, req.person, reaction, _now())
+    threads.react(req.db, req.person, reaction, _now)
     return {"comment": req.groups[0], "word": _WORDS[req.groups[1]], "on": on}
 
 
@@ -142,7 +144,7 @@ def _unreact(req: Req) -> Any:
 
 
 def _read(req: Req) -> Any:
-    threads.mark_read(req.db, req.person, _path_id(req), _now())
+    threads.mark_read(req.db, req.person, _path_id(req), _now)
     return {"thread": req.groups[0]}
 
 
