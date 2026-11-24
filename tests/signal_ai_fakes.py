@@ -30,14 +30,18 @@ ENV = {"COPILOT_GITHUB_TOKEN": "test-token-not-a-real-key"}
 
 
 def write_ruling(
-    folder: Path, configs: str = CONFIG, name: str = "2026-11-25-signal-ai-pass.md"
+    folder: Path,
+    configs: str = CONFIG,
+    name: str = "2026-11-25-signal-ai-pass.md",
+    cap: str | None = "15",
 ) -> Path:
+    """A Signal ruling in a temporary folder; `cap` is its ``cap_usd:`` text (None: no line)."""
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / name
     path.write_text(
         "# Standing ruling: Signal AI pass (TEST, temporary folder)\n\n"
         "lifts: live-provider-pause\nby: user\ndate: 2026-11-25\n"
-        f"configs: {configs}\n",
+        f"configs: {configs}\n" + ("" if cap is None else f"cap_usd: {cap}\n"),
         encoding="utf-8",
     )
     return path

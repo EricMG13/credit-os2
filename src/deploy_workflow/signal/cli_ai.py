@@ -1,6 +1,6 @@
 """The owner's AI commands (spec 5.2: the owner's powers stay on the command line).
 
-    signal ai cap <amount>   set the monthly cap, in USD
+    signal ai cap <amount>   set the monthly cap, in USD, no higher than the ruling's cap_usd:
     signal ai status         the state, each precondition, the month's spend and holds
     signal ai clear          clear the switch-off a call of unknown cost caused
     signal ai pass           one pass over the new stories now, only while the pass is on
@@ -14,10 +14,12 @@ from __future__ import annotations
 import argparse
 import sqlite3
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from deploy_workflow.model.pricing import money_text
 from deploy_workflow.signal import ai_gate, ai_ledger, ai_run
 from deploy_workflow.signal.ai_ledger import CURRENCY
+from deploy_workflow.signal.store import StoreError
 
 
 def add_parser(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -30,9 +32,13 @@ def add_parser(commands: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     verbs.add_parser("pass", help="one pass over the new stories now")
 
 
-def _holds(gate: ai_gate.Gate) -> list[str]:
+def _holds(gate: ai_gate.Gate, stored: Decimal | None) -> list[str]:
+    """The ruling and the cap lines; `stored` is the cap the owner set (which the gate does not
+    count when it is above the ruling's)."""
     ruling = "missing" if gate.ruling is None else f"{gate.ruling.name} ({gate.config_id})"
-    cap = "not set" if gate.cap is None else f"{CURRENCY} {money_text(gate.cap)} a month"
+    cap = "not set" if stored is None else f"{CURRENCY} {money_text(stored)} a month"
+    if stored is not None and gate.cap is None:
+        cap += ", above the ruled cap"
     return [f"ruling: {ruling}", f"cap: {cap}"]
 
 
@@ -40,7 +46,7 @@ def _status(db: sqlite3.Connection, now: datetime, setup: ai_run.Setup) -> None:
     held = ai_run.status(db, now, setup)
     month = held.month
     print(f"state: {held.state}")
-    for line in _holds(held.gate):
+    for line in _holds(held.gate, ai_ledger.cap(db)):
         print(line)
     for sentence in held.gate.missing:
         print(f"missing: {sentence}")
@@ -74,11 +80,21 @@ def _pass(db: sqlite3.Connection, now: datetime, setup: ai_run.Setup) -> int:
     return 0
 
 
+def _within_ruling(amount: Decimal, setup: ai_run.Setup) -> None:
+    """Refuse a cap above the newest Signal ruling's (with no accepted ruling the pass stays off,
+    whatever the cap, and the gate checks it again once one exists)."""
+    held = ai_gate.newest_ruled_cap(setup.rulings_root)
+    if held is not None and amount > held[1]:
+        ruled = f"{CURRENCY} {money_text(held[1])}"
+        raise StoreError(f"the cap is at most the ruled {ruled} a month ({held[0].name})")
+
+
 def run(db: sqlite3.Connection, args: argparse.Namespace, setup: ai_run.Setup) -> int:
     """One `ai` command; its exit code. A refused amount raises StoreError (the caller says so)."""
     now = datetime.now(UTC)
     if args.action == "cap":
         amount = ai_ledger.parse_cap(args.amount)
+        _within_ruling(amount, setup)
         ai_ledger.set_cap(db, amount, now)
         print(f"monthly cap set to {CURRENCY} {money_text(amount)}")
     elif args.action == "status":

@@ -10,7 +10,16 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
-from signal_ai_fakes import CONFIG, ENV, FakeModel, label, labels_reply, ok, setup
+from signal_ai_fakes import (
+    CONFIG,
+    ENV,
+    FakeModel,
+    label,
+    labels_reply,
+    ok,
+    setup,
+    write_ruling,
+)
 
 from deploy_workflow.signal import ai_ledger
 from deploy_workflow.signal.cli import main
@@ -32,6 +41,29 @@ def test_the_owner_sets_the_cap_and_a_bad_amount_is_refused(tmp_path):
     db = open_db(tmp_path)
     assert ai_ledger.cap(db) == Decimal(15)
     db.close()
+
+
+def test_a_cap_above_the_rulings_is_refused_and_a_lower_one_is_set(tmp_path):
+    held = setup(tmp_path)  # the ruling carries cap_usd: 15
+    root = tmp_path / "store"
+    assert run(root, "cap", "15.01", ai=held) == (
+        2,
+        "error: the cap is at most the ruled USD 15 a month (2026-11-25-signal-ai-pass.md)\n",
+    )
+    assert run(root, "cap", "15", ai=held) == (0, "monthly cap set to USD 15\n")
+    assert run(root, "cap", "9.50", ai=held) == (0, "monthly cap set to USD 9.50\n")
+    # The owner lowers the ruled cap below the stored one: the pass goes off and says why.
+    write_ruling(tmp_path / "rulings", cap="5", name="2026-12-01-signal-ai-pass.md")
+    lines = run(root, "status", ai=held)[1].splitlines()
+    assert lines[:3] == [
+        "state: off",
+        f"ruling: 2026-12-01-signal-ai-pass.md ({CONFIG})",
+        "cap: USD 9.50 a month, above the ruled cap",
+    ]
+    assert lines[3] == (
+        "missing: The owner's monthly cap of USD 9.50 is above the ruled cap of USD 5; the owner"
+        " sets one no higher (signal ai cap)."
+    )
 
 
 def test_status_names_each_missing_precondition_and_never_a_key(tmp_path):

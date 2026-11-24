@@ -5,9 +5,14 @@ The pass is on only when all four hold at the time of the check:
 1. A standing ruling for Signal exists in ``docs/rulings/``: the newest file named
    ``YYYY-MM-DD-signal-ai-pass.md`` (``RULING_PATTERN``), in the project's ``check_ruling`` format
    (``lifts: live-provider-pause``, ``by: user``, ``date:``, ``configs:``), naming a configuration
-   Signal may use (``CONFIGS``). Only that file is read: another ruling that names the same
-   configuration (the run start page's does) never switches Signal on.
-2. The owner has set a monthly cap on the command line (``signal ai cap <amount>``).
+   Signal may use (``CONFIGS``), and carrying the ruled monthly cap as exactly one header line
+   ``cap_usd: <amount>`` (USD, a plain amount above zero with at most two decimal places, read as
+   an exact Decimal: ``cap_usd: 15`` or ``cap_usd: 12.50``; ``ruled_cap``). Only that file is read:
+   another ruling that names the same configuration (the run start page's does) never switches
+   Signal on.
+2. The owner has set a monthly cap on the command line (``signal ai cap <amount>``) no higher
+   than the ruled one. The command refuses a higher amount; a stored cap above the newest
+   ruling's figure (the ruling changed since) counts as no valid cap.
 3. The provider's credentials are in the launching environment: the variables the existing
    Copilot adapter reads, ``COPILOT_GITHUB_TOKEN`` (or ``COPILOT_USE_GH_LOGIN=1``) and
    ``COPILOT_CLI_PATH`` naming the runtime. Only their presence is checked; no value is read
@@ -39,7 +44,9 @@ from deploy_workflow.model.adapter import (
     check_ruling,
 )
 from deploy_workflow.model.budget import exact_sum
+from deploy_workflow.model.pricing import money_text
 from deploy_workflow.signal import ai_call, ai_ledger
+from deploy_workflow.signal.ai_ledger import CURRENCY
 
 RULING_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}-signal-ai-pass\.md")
 # The configurations Signal may use, cheapest first; it uses the first one the ruling names. Only
@@ -53,6 +60,9 @@ NO_RULING = (
     " (a file named YYYY-MM-DD-signal-ai-pass.md)."
 )
 NO_CAP = "The owner has not set a monthly cap."
+# The ruled monthly cap: one header line, as the other header lines of a ruling are written.
+CAP_LINE = re.compile(r"^[ \t]*cap_usd:[ \t]*(.*?)[ \t]*$", re.MULTILINE)
+_AMOUNT = re.compile(r"(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{1,2})?")
 NO_KEY = (
     f"The service was started without the provider's key: {TOKEN_VARIABLE}"
     f" (or {COPILOT_GH_LOGIN_VARIABLE}=1) is not set."
@@ -86,11 +96,36 @@ def find_ruling(rulings_root: Path) -> Path | None:
     return rulings_root / names[-1] if names else None
 
 
-def _ruling(rulings_root: Path) -> tuple[Path | None, str | None, str | None]:
-    """(ruling, configuration, the sentence when it does not hold)."""
+def ruled_cap(ruling: Path) -> Decimal | None:
+    """The monthly cap in USD that the ruling carries on its one ``cap_usd:`` line; None when it
+    has no such line, more than one, or one that is not a plain amount above zero with at most two
+    decimal places (a blank left in a draft included)."""
+    try:
+        text = ruling.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    found = [value.rstrip("\r") for value in CAP_LINE.findall(text)]
+    if len(found) != 1 or _AMOUNT.fullmatch(found[0]) is None:
+        return None
+    amount = Decimal(found[0])
+    return amount if amount > 0 else None
+
+
+@dataclass(frozen=True)
+class _Ruled:
+    """The newest Signal ruling as checked: the file, its configuration and its cap when it holds,
+    else the sentence saying why it does not."""
+
+    ruling: Path | None = None
+    config_id: str | None = None
+    cap: Decimal | None = None
+    problem: str | None = None
+
+
+def _ruling(rulings_root: Path) -> _Ruled:
     found = find_ruling(rulings_root)
     if found is None:
-        return None, None, NO_RULING
+        return _Ruled(problem=NO_RULING)
     problem = ""
     for config_id in CONFIGS:
         try:
@@ -98,8 +133,30 @@ def _ruling(rulings_root: Path) -> tuple[Path | None, str | None, str | None]:
         except LivePauseInForce as error:
             problem = str(error)
             continue
-        return found, config_id, None
-    return None, None, f"The ruling {found.name} is not accepted: {problem}."
+        cap = ruled_cap(found)
+        if cap is None:
+            return _Ruled(
+                problem=f"The ruling {found.name} is not accepted: it needs exactly one"
+                f" cap_usd: line holding the ruled monthly cap in {CURRENCY}, such as"
+                " cap_usd: 15."
+            )
+        return _Ruled(found, config_id, cap)
+    return _Ruled(problem=f"The ruling {found.name} is not accepted: {problem}.")
+
+
+def newest_ruled_cap(rulings_root: Path) -> tuple[Path, Decimal] | None:
+    """The newest Signal ruling and its ruled cap, when it is accepted; else None."""
+    ruled = _ruling(rulings_root)
+    if ruled.ruling is None or ruled.cap is None:
+        return None
+    return ruled.ruling, ruled.cap
+
+
+def _above(cap: Decimal, ruled: Decimal) -> str:
+    return (
+        f"The owner's monthly cap of {CURRENCY} {money_text(cap)} is above the ruled cap of"
+        f" {CURRENCY} {money_text(ruled)}; the owner sets one no higher (signal ai cap)."
+    )
 
 
 def _credentials(environ: Mapping[str, str]) -> list[str]:
@@ -114,12 +171,16 @@ def _credentials(environ: Mapping[str, str]) -> list[str]:
 
 
 def check(db: sqlite3.Connection, environ: Mapping[str, str], rulings_root: Path) -> Gate:
-    """The one decision: which of the four preconditions hold now."""
-    ruling, config_id, no_ruling = _ruling(rulings_root)
-    missing = [] if no_ruling is None else [no_ruling]
+    """The one decision: which of the four preconditions hold now. A stored cap above the
+    ruling's is no valid cap (`Gate.cap` None)."""
+    ruled = _ruling(rulings_root)
+    missing = [] if ruled.problem is None else [ruled.problem]
     limit = ai_ledger.cap(db)
     if limit is None:
         missing.append(NO_CAP)
+    elif ruled.cap is not None and limit > ruled.cap:
+        missing.append(_above(limit, ruled.cap))
+        limit = None
     missing += _credentials(environ)
     off = ai_ledger.switched_off(db)
     if off is not None:
@@ -128,7 +189,7 @@ def check(db: sqlite3.Connection, environ: Mapping[str, str], rulings_root: Path
             f"The pass was switched off because {reason}; only the owner can clear it"
             " (signal ai clear)."
         )
-    return Gate(ruling, config_id, limit, tuple(missing))
+    return Gate(ruled.ruling, ruled.config_id, limit, tuple(missing))
 
 
 # The smallest call the pass makes: a one-story batch, whose hold every other call is at least.

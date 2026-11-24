@@ -408,7 +408,7 @@ WITH tops AS (
     SELECT author, body FROM (
         SELECT c.author, c.body, ROW_NUMBER() OVER (
             PARTITION BY c.parent_id ORDER BY c.created_at DESC, c.id DESC) AS k
-        FROM tops JOIN comments c ON c.parent_id = tops.id
+        FROM tops CROSS JOIN comments c ON c.parent_id = tops.id
     ) WHERE k <= :replies
 )
 SELECT COUNT(*), COALESCE(SUM(length(CAST(author AS BLOB)) + length(CAST(body AS BLOB))), 0)
