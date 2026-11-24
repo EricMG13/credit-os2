@@ -42,7 +42,7 @@ export function AiSection({ ai }: { ai: SignalAi }) {
         {parts.length === 0 ? null : (
           <>
             <p id={REASON_ID} className="-mb-2 text-sm text-text-tertiary">
-              AI parts stay off until the owner sets a cap.
+              The switches show the state of each part. They cannot be changed here.
             </p>
             <ul className="flex flex-col gap-5">
               {parts.map((part) => (

@@ -428,7 +428,10 @@ function SceneView({
       <SignalFrame scene={scene} current={current} follow={follow}>
         {notice.said === null ? null : (
           // It stays in view, under the Channels strip below 1024px: the control pressed may be far down the page.
-          <div key={notice.said.count} className="sticky top-16 z-10 mb-4 min-[1024px]:top-0">
+          <div
+            key={notice.said.count}
+            className="sticky top-12 z-10 mb-4 min-[768px]:top-8 min-[1024px]:top-0"
+          >
             <Alert tone={notice.said.refusal ? "error" : "info"} title={notice.said.text} />
           </div>
         )}

@@ -82,6 +82,34 @@ describe("the Signal frame in a narrow window", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
+  it("keeps the button on a sticky strip at the top of the page region, which scrolls clear of it", () => {
+    windowIs(false);
+    show("/signal/main/feed/for-you");
+    const content = document.getElementById("signal-content") as HTMLElement;
+    const strip = button().closest(".sticky") as HTMLElement;
+    expect(strip.parentElement).toBe(content);
+    expect(content.firstElementChild).toBe(strip);
+    expect(strip.className).toContain("bg-surface-canvas");
+    expect(strip.className).toContain("z-30");
+    expect(content.className).toContain("scroll-pt-16");
+    expect(content.className).toContain("min-[1024px]:scroll-pt-0");
+  });
+
+  it("draws no sticky strip and no scroll padding where the list is a column", () => {
+    windowIs(true);
+    show("/signal/main/feed/for-you");
+    expect(document.querySelector("#signal-content .sticky")).toBeNull();
+  });
+
+  it("opens the channel panel from the left edge", () => {
+    windowIs(false);
+    show("/signal/main/feed/for-you");
+    open();
+    const modal = panel().closest("[class*='left-0']");
+    expect(modal).not.toBeNull();
+    expect(modal?.className).not.toContain("right-0");
+  });
+
   it.each([
     ["/signal/main/feed/for-you", "For you"],
     ["/signal/main/feed/latest", "Latest"],

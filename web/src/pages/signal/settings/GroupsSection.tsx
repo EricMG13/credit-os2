@@ -30,7 +30,8 @@ const LINK =
  * the row has room, one line beside it. The row is the container, not the window.
  */
 const ACTIONS = "grid basis-full grid-cols-2 gap-2 @md:flex @md:gap-x-1 @[62rem]:basis-auto";
-const ACTION = "w-full @md:w-auto";
+// In the grid each cell has a hairline outline, so the two columns read as equal buttons; in a line they are plain text buttons.
+const ACTION = "w-full ring-1 ring-secondary ring-inset @md:w-auto @md:ring-0";
 
 const NEW_GROUP: readonly FormField[] = [
   { key: "name", kind: "text", label: "Name", missing: "Enter the group's name." },

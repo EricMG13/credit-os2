@@ -63,12 +63,31 @@ describe("a group's row on a service", () => {
     }
   });
 
+  it("lays its buttons out as one group, Delete last: a grid of two columns in a narrow row", async () => {
+    await settings("groups");
+    const buttons = row("Shipping desk")
+      .getAllByRole("button")
+      .filter((button) => button.getAttribute("aria-haspopup") === null);
+    const holder = buttons[0]?.parentElement as HTMLElement;
+    expect(buttons.every((button) => button.parentElement === holder)).toBe(true);
+    expect(holder.className).toContain("grid-cols-2");
+    expect(buttons.at(-1)).toHaveTextContent("Delete");
+    // Four fill the grid evenly: none spans both columns.
+    expect(buttons.some((button) => button.className.includes("col-span-2"))).toBe(false);
+  });
+
   it("has no Topics where the service says nothing of a group's topics", async () => {
     await settings("groups", (snapshot) => {
       for (const group of snapshot.settings.groups) Reflect.deleteProperty(group, "topics");
     });
     expect(content().queryByRole("button", { name: /^Topics: / })).toBeNull();
     expect(content().getAllByRole("button", { name: /^Rename: / })).toHaveLength(3);
+    // Three: the first spans both columns of the narrow grid, the other two share the next line.
+    const first = row("Shipping desk").getByRole("button", { name: /^Edit members: / });
+    expect(first.className).toContain("col-span-2");
+    expect(row("Shipping desk").getByRole("button", { name: /^Delete: / }).className).not.toContain(
+      "col-span-2",
+    );
   });
 
   it("lists the topics that post into it, by name, and nothing where there are none", async () => {
