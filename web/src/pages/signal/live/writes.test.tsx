@@ -321,6 +321,16 @@ const CASES: Case[] = [
   },
 ];
 
+/** A thread's panel asks for its thread in full, which may still be on its way when the steps begin. */
+const READ_AGAIN = /^GET \/signal\/api\/snapshot(\?thread=\d+)?$/;
+const sinceFirstWrite = (calls: string[]) =>
+  calls.slice(
+    Math.max(
+      0,
+      calls.findIndex((call) => !call.startsWith(READ)),
+    ),
+  );
+
 const drawn = (name: string) => screen.findByRole("heading", { name, hidden: true });
 const parsed = (bodies: unknown[]) => bodies.map((body) => JSON.parse(body as string) as unknown);
 
@@ -332,7 +342,10 @@ describe.each(CASES)("$name", ({ at, ready, steps, sent, bodies, given }) => {
     const before = service.calls.length;
     steps();
     await waitFor(() => {
-      expect(service.calls.slice(before)).toEqual([...sent, READ]);
+      expect(sinceFirstWrite(service.calls.slice(before))).toEqual([
+        ...sent,
+        expect.stringMatching(READ_AGAIN),
+      ]);
     });
     expect(parsed(service.bodies)).toEqual(bodies);
     expect(screen.queryByText(REFUSED)).toBeNull();
@@ -348,7 +361,7 @@ describe.each(CASES)("$name", ({ at, ready, steps, sent, bodies, given }) => {
     steps();
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(`Error: ${REFUSED}`);
-    expect(service.calls.slice(before)).toEqual(sent.slice(0, 1));
+    expect(sinceFirstWrite(service.calls.slice(before))).toEqual(sent.slice(0, 1));
   });
 });
 
@@ -451,6 +464,41 @@ describe("what the service says about a write it accepted", () => {
     const dialog = within(await screen.findByRole("dialog"));
     expect(await dialog.findByRole("alert")).toHaveTextContent("writers only");
     expect(dialog.getByRole("textbox", { name: /Note/ })).toHaveValue("For Thursday.");
+  });
+});
+
+describe("a thread's panel", () => {
+  it("asks for the snapshot that carries that thread's comments, and again for another thread", async () => {
+    const service = serve(currentWith());
+    showLive("#/signal/main/group/1/thread/1");
+    await drawn("Thread");
+    await waitFor(() => {
+      expect(service.calls).toEqual([READ, `${READ}?thread=1`]);
+    });
+    window.location.hash = "#/signal/main/group/1/thread/3";
+    await waitFor(() => {
+      expect(service.calls.filter((call) => call.startsWith(READ)).at(-1)).toBe(`${READ}?thread=3`);
+    });
+    // Back on the group's page nothing more is asked: the snapshot in hand holds it.
+    const reads = service.reads();
+    window.location.hash = "#/signal/main/group/1";
+    await screen.findByRole("heading", { level: 1, name: "Leveraged credit" });
+    expect(service.reads()).toBe(reads);
+  });
+
+  it("draws a thread delivered without its comments, then the comments once they arrive", async () => {
+    const service = serve(
+      currentWith((s) => {
+        const first = s.threads.find((thread) => thread.id === "1");
+        if (first !== undefined) first.comments = [];
+      }),
+    );
+    service.replies.set(`${READ}?thread=1`, () => Response.json(currentWith()));
+    showLive("#/signal/main/group/1/thread/1");
+    const panel = within(await screen.findByRole("dialog"));
+    // The comment itself, and the reply that quotes it.
+    expect(await panel.findAllByText("Sharing for Thursday.")).toHaveLength(2);
+    expect(service.calls).toEqual([READ, `${READ}?thread=1`]);
   });
 });
 

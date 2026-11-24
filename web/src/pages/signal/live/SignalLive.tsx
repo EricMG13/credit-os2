@@ -74,7 +74,7 @@ export function SignalLive() {
   const route = useHashRoute();
   useTopOnRoute(route);
   const place = useMemo(() => placeOf(route), [route]);
-  const { source, failure, actions } = useLiveSignal(place.at);
+  const { source, failure, actions } = useLiveSignal(place.at, route);
   if (place.matched === null) return <NotFound />;
   if (source === null) {
     return failure === null ? <Loading /> : <Unread failure={failure} onRetry={actions.refresh} />;

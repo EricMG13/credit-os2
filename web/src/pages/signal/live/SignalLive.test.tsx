@@ -142,6 +142,90 @@ describe("moving to another screen", () => {
   });
 });
 
+describe("what the snapshot is asked to carry", () => {
+  it("asks for nothing more on a feed view or in Settings", async () => {
+    const service = serve();
+    showLive("#/signal/main/feed/latest");
+    await title("Latest");
+    await go("#/signal/main/settings/topics");
+    await title("Settings");
+    await lookAgain();
+    expect(service.calls).toEqual([READ, READ]);
+  });
+
+  it("asks for a topic in full on its page, once the snapshot lists it", async () => {
+    const service = serve();
+    showLive("#/signal/main/topic/2");
+    await title("Telecoms");
+    await waitFor(() => {
+      expect(service.calls).toEqual([READ, `${READ}?topic=2`]);
+    });
+    // Later reads on that page ask the same; the page was kept while the fuller one loaded.
+    await lookAgain();
+    expect(service.calls).toEqual([READ, `${READ}?topic=2`, `${READ}?topic=2`]);
+    expect(headlines()).toEqual([TESSALY, REVIEW]);
+  });
+
+  it("reads again on moving to another topic, keeping the page meanwhile, and not on leaving", async () => {
+    const service = serve();
+    showLive("#/signal/main/topic/2");
+    await title("Telecoms");
+    await waitFor(() => {
+      expect(service.reads()).toBe(2);
+    });
+    service.replies.set(`${READ}?topic=3`, never);
+    await go("#/signal/main/topic/3");
+    // The snapshot in hand draws the topic while the fuller one is on its way.
+    expect(await title("Shipping")).toBeInTheDocument();
+    expect(headlines()).toEqual([HALVORSEN, LENMARK]);
+    expect(service.calls.at(-1)).toBe(`${READ}?topic=3`);
+    expect(service.reads()).toBe(3);
+  });
+
+  it("asks for nothing on leaving a topic for a feed view", async () => {
+    const service = serve();
+    showLive("#/signal/main/topic/2");
+    await title("Telecoms");
+    await waitFor(() => {
+      expect(service.reads()).toBe(2);
+    });
+    await go("#/signal/main/feed/saved");
+    await title("Saved");
+    expect(service.reads()).toBe(2);
+    await lookAgain();
+    expect(service.calls.at(-1)).toBe(READ);
+  });
+
+  it("shows a topic's older stories behind Show older, not as new stories", async () => {
+    const service = serve();
+    service.replies.set(`${READ}?topic=2`, () =>
+      Response.json(
+        sampleWith((s) => {
+          const telecoms = s.feed.topics["2"];
+          if (telecoms !== undefined) telecoms.older = ["3"];
+        }),
+      ),
+    );
+    showLive("#/signal/main/topic/2");
+    await title("Telecoms");
+    fireEvent.click(await content().findByRole("button", { name: "Show older" }));
+    expect(headlines()).toEqual([TESSALY, REVIEW, BRIGHTWELL]);
+    expect(content().queryByText(/new stor/)).toBeNull();
+  });
+
+  it.each([
+    ["a topic the snapshot does not list", "#/signal/main/topic/99"],
+    ["an id that is no id", "#/signal/main/topic/2%26thread%3D1"],
+    ["a thread the snapshot does not list", "#/signal/main/group/1/thread/7"],
+  ])("sends no id for %s", async (_, hash) => {
+    const service = serve();
+    showLive(hash);
+    await screen.findByRole("navigation", { name: "Signal", hidden: true });
+    await lookAgain();
+    expect(service.calls).toEqual([READ, READ]);
+  });
+});
+
 describe("addresses that name nothing", () => {
   it.each([
     "#/library/acme/2026/overview",
@@ -403,7 +487,12 @@ describe("saving and following", () => {
     expect(star("Telecoms")).toHaveAttribute("aria-pressed", "true");
     expect(content().getByRole("button", { name: "Following" })).toBeInTheDocument();
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, "POST /signal/api/topics/2/follow", READ]);
+      expect(service.calls).toEqual([
+        READ,
+        `${READ}?topic=2`,
+        "POST /signal/api/topics/2/follow",
+        `${READ}?topic=2`,
+      ]);
     });
     expect(star("Telecoms")).toHaveAttribute("aria-pressed", "true");
   });

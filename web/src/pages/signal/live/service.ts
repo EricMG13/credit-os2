@@ -52,9 +52,13 @@ type Read = { ok: true; slice: SignalSlice } | { ok: false; failure: Failure };
 
 const UNREADABLE = "Signal sent an answer this page could not read.";
 
-export async function readSnapshot(stop: AbortSignal): Promise<Read> {
+/**
+ * `query` is what the address on screen asks the snapshot to carry in full (`topic=<id>`: that
+ * topic's older stories; `thread=<id>`: that thread's comments), or "" for the plain snapshot.
+ */
+export async function readSnapshot(stop: AbortSignal, query: string): Promise<Read> {
   try {
-    const got = readSlice(await ask("/snapshot", {}, stop));
+    const got = readSlice(await ask(query === "" ? "/snapshot" : `/snapshot?${query}`, {}, stop));
     if (got.kind === "ok") return { ok: true, slice: got.data };
     const reason = got.kind === "invalid" ? got.reason : null;
     return { ok: false, failure: { kind: "unreadable", text: UNREADABLE, reason } };

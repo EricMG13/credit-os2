@@ -85,8 +85,9 @@ export function serve(first: unknown = sample) {
     calls: [] as string[],
     bodies: [] as unknown[],
     replies: new Map<string, Reply>(),
-    reads: () => service.calls.filter((call) => call === READ).length,
-    writes: () => service.calls.filter((call) => call !== READ),
+    /** Snapshot reads, whatever each asked to be carried in full. */
+    reads: () => service.calls.filter((call) => call.startsWith(READ)).length,
+    writes: () => service.calls.filter((call) => !call.startsWith(READ)),
   };
   const fetch = vi.fn((path: string, init?: RequestInit) => {
     const call = `${init?.method ?? "GET"} ${path}`;
@@ -94,7 +95,7 @@ export function serve(first: unknown = sample) {
     if (init?.body !== undefined) service.bodies.push(init.body);
     const reply = service.replies.get(call);
     if (reply !== undefined) return Promise.resolve(reply(init));
-    return Promise.resolve(Response.json(call === READ ? service.snapshot : {}));
+    return Promise.resolve(Response.json(call.startsWith(READ) ? service.snapshot : {}));
   });
   vi.stubGlobal("fetch", fetch);
   return service;

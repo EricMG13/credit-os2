@@ -70,6 +70,53 @@ describe("the service's sample snapshot", () => {
   });
 });
 
+describe("what a digest carries for its edit form", () => {
+  /** The sample with its first digest's `form` replaced (`undefined` leaves the member out). */
+  const withForm = (form: unknown) => {
+    const copy = structuredClone(sample) as unknown as {
+      scenes: { snapshot: { digests: Record<string, unknown>[] } }[];
+    };
+    const first = copy.scenes[0]?.snapshot.digests[0];
+    if (first === undefined) throw new Error("the sample has a digest");
+    if (form === undefined) delete first["form"];
+    else first["form"] = form;
+    return copy;
+  };
+  const HELD = {
+    name: "Daily shipping",
+    covers: ["Topic: Shipping"],
+    schedule: "Daily, 07:00 UTC",
+    length: "Up to 3 points",
+    brief: "",
+  };
+
+  it("is kept whole, with members the form does not show", () => {
+    const form = { ...HELD, upcoming: "Results dates", lookAhead: 14 };
+    expect(read(withForm(form)).scenes[0].snapshot.digests[0]?.form).toEqual(form);
+  });
+
+  it("may cover nothing (what it covered was removed), and may be absent", () => {
+    const none = read(withForm({ ...HELD, covers: [] })).scenes[0].snapshot.digests[0];
+    expect(none?.form?.["covers"]).toEqual([]);
+    expect(read(withForm(undefined)).scenes[0].snapshot.digests[0]?.form).toBeNull();
+  });
+
+  it.each([
+    ["a schedule that is no string", { ...HELD, schedule: 7 }, "form.schedule: expected a string"],
+    [
+      "covers that is one string",
+      { ...HELD, covers: "All stories" },
+      "form.covers: expected a list",
+    ],
+    ["no object", "weekly", "form: expected an object"],
+  ])("is refused with %s", (_, form, reason) => {
+    expect(readSlice(withForm(form))).toEqual({
+      kind: "invalid",
+      reason: `scenes[0].snapshot.digests[0].${reason}`,
+    });
+  });
+});
+
 describe("the earlier sample the feed tests read", () => {
   it("is a slice the reader accepts too", () => {
     expect(readSlice(feedOnly)).toEqual({ kind: "ok", data: expect.anything() as unknown });

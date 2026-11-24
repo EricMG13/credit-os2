@@ -13,16 +13,22 @@ import {
   type Held,
   type ViewAt,
 } from "./hold";
-import { viewNow } from "./place";
+import { snapshotQuery, viewNow } from "./place";
 import { readSnapshot, sendWrite, type Failure } from "./service";
 
 /** How often the snapshot is read again while the tab is visible. */
 export const REREAD_MS = 60_000;
 
-type State = { fresh: SignalSlice | null; held: Held | null; failure: Failure | null };
+/** `query` is what the snapshot in hand was asked to carry in full (see `snapshotQuery`). */
+type State = {
+  fresh: SignalSlice | null;
+  query: string;
+  held: Held | null;
+  failure: Failure | null;
+};
 type Event =
   /** `at` is the view on screen when the answer arrived; null holds nothing against it. */
-  | { type: "read"; slice: SignalSlice; at: ViewAt | null }
+  | { type: "read"; slice: SignalSlice; query: string; at: ViewAt | null }
   | { type: "failed"; failure: Failure }
   | { type: "retry" }
   | { type: "reveal"; at: ViewAt | null };
@@ -32,7 +38,13 @@ function reduce(state: State, event: Event): State {
     case "read":
       return {
         fresh: event.slice,
-        held: holdAfterRead(state.fresh, state.held, event.slice, event.at),
+        query: event.query,
+        // A snapshot asked to carry more (a topic's older stories) is not a later reading of the
+        // same lists: what it adds was always there, so nothing is held against it as new.
+        held:
+          event.query === state.query
+            ? holdAfterRead(state.fresh, state.held, event.slice, event.at)
+            : null,
         failure: null,
       };
     case "failed":
@@ -44,11 +56,19 @@ function reduce(state: State, event: Event): State {
   }
 }
 
+const START: State = { fresh: null, query: "", held: null, failure: null };
+
 /** Requests one at a time, in the order asked. Nothing is asked for a page that has gone. */
 class Line {
   private last: Promise<unknown> = Promise.resolve();
   private waiting = 0;
   private stop = new AbortController();
+  /** What the next snapshot is asked to carry in full: the page on screen says. */
+  query = "";
+
+  want(query: string) {
+    this.query = query;
+  }
 
   open() {
     this.stop = new AbortController();
@@ -74,10 +94,11 @@ class Line {
 }
 
 /** Read the snapshot and say what came; `hold` keeps the view on screen as the reader has it. */
-async function load(stop: AbortSignal, dispatch: Dispatch<Event>, hold: boolean) {
-  const got = await readSnapshot(stop);
+async function load(line: Line, stop: AbortSignal, dispatch: Dispatch<Event>, hold: boolean) {
+  const { query } = line;
+  const got = await readSnapshot(stop, query);
   if (stop.aborted) return;
-  if (got.ok) dispatch({ type: "read", slice: got.slice, at: hold ? viewNow() : null });
+  if (got.ok) dispatch({ type: "read", slice: got.slice, query, at: hold ? viewNow() : null });
   else dispatch({ type: "failed", failure: got.failure });
 }
 
@@ -86,7 +107,7 @@ function actionsOn(line: Line, dispatch: Dispatch<Event>): SignalActions {
     write: (request) =>
       line.add(async (stop) => {
         const answer = await sendWrite(request, stop);
-        if (answer.refusal === null) await load(stop, dispatch, request.fresh !== true);
+        if (answer.refusal === null) await load(line, stop, dispatch, request.fresh !== true);
         return answer;
       }),
     reveal: () => {
@@ -94,7 +115,7 @@ function actionsOn(line: Line, dispatch: Dispatch<Event>): SignalActions {
     },
     refresh: () => {
       dispatch({ type: "retry" });
-      void line.add((stop) => load(stop, dispatch, true));
+      void line.add((stop) => load(line, stop, dispatch, true));
     },
   };
 }
@@ -104,7 +125,7 @@ function useReading(line: Line, dispatch: Dispatch<Event>) {
   useEffect(() => {
     line.open();
     const read = () => {
-      void line.add((stop) => load(stop, dispatch, true));
+      void line.add((stop) => load(line, stop, dispatch, true));
     };
     const again = () => {
       if (document.visibilityState === "visible" && line.idle) read();
@@ -121,18 +142,35 @@ function useReading(line: Line, dispatch: Dispatch<Event>) {
 }
 
 /**
- * `at` is the feed view the address draws. `source` is null until a first snapshot has been read;
+ * Moving to a topic's page or a thread's panel asks for the snapshot that carries it in full. The
+ * page keeps what it has until that one arrives. Leaving for a page that needs no more reads
+ * nothing: the snapshot in hand already holds it.
+ */
+function useFullerSnapshot(line: Line, dispatch: Dispatch<Event>, wanted: string, state: State) {
+  const behind = state.fresh !== null && wanted !== "" && wanted !== state.query;
+  useEffect(() => {
+    line.want(wanted);
+    if (behind) void line.add((stop) => load(line, stop, dispatch, true));
+  }, [line, dispatch, wanted, behind]);
+}
+
+/**
+ * `at` is the feed view the address draws, `route` the address itself. `source` is null until a first snapshot has been read;
  * `failure` then says why none came. With a snapshot in hand a failed re-read keeps the page and
  * sets the feed's own error, which the feed pages draw with Retry.
  */
-export function useLiveSignal(at: ViewAt | null): {
+export function useLiveSignal(
+  at: ViewAt | null,
+  route: string,
+): {
   source: LibraryData | null;
   failure: Failure | null;
   actions: SignalActions;
 } {
-  const [state, dispatch] = useReducer(reduce, { fresh: null, held: null, failure: null });
+  const [state, dispatch] = useReducer(reduce, START);
   const [line] = useState(() => new Line());
   useReading(line, dispatch);
+  useFullerSnapshot(line, dispatch, snapshotQuery(route, state.fresh), state);
   const actions = useMemo(() => actionsOn(line, dispatch), [line]);
   const source = useMemo((): LibraryData | null => {
     if (state.fresh === null) return null;

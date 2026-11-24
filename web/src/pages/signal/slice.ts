@@ -487,12 +487,22 @@ const digestIssue = noModel(
   }),
   "nothing-to-report issue",
 );
-/** Optional: the sample's digests carry none. */
+/** The form's own strings; `covers` is a list and holds none once what it covered was removed. */
+const digestEditForm = shape({
+  name: str,
+  covers: list(str),
+  schedule: str,
+  length: str,
+  brief: str,
+});
+/**
+ * Optional: the sample's digests carry none. Where one is delivered its form strings are checked,
+ * and the whole record is kept as delivered, since an edit posts every member back.
+ */
 const digestEdit: Reader<Readonly<Record<string, unknown>> | null> = (v, path) => {
   if (v === undefined || v === null) return good(null);
-  return typeof v === "object" && !Array.isArray(v)
-    ? good(v as Record<string, unknown>)
-    : bad(path, "an object, or nothing");
+  const got = digestEditForm(v, path);
+  return got.ok ? good(v as Record<string, unknown>) : got;
 };
 const digestRecord = shape<SignalDigest>({
   id,
