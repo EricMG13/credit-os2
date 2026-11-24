@@ -1,7 +1,7 @@
 // Settings, Sources (mock settings frame 3): the kit's dense Table, one row per source. Source,
 // State and Health sort by the delivered ranks (a source with no health sorts last either way);
-// Failing shows its reason under the badge. Proposing a source would write, so it is disabled with
-// its reason in view.
+// Failing shows its reason under the badge. Proposing a source writes: in the sample it is disabled
+// with its reason in view; on a service it opens a form, and the owner approves from the command line.
 import { useState } from "react";
 import type { SortDescriptor } from "react-aria-components";
 import { Plus } from "@untitledui/icons";
@@ -10,8 +10,12 @@ import { Button } from "@/components/base/buttons/button";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { WeekBars } from "../parts/WeekBars";
 import type { SignalSource } from "../slice";
+import { useSignalActions } from "../actions";
+import { useOpener } from "../parts/focus";
+import { FormDialog, type FormField } from "../parts/FormDialog";
+import { KINDS, writes } from "../writes";
 import { Section } from "./Section";
-import { WriteReason } from "./WriteReason";
+import { SampleReason, useSampleOff } from "./WriteReason";
 
 const REASON_ID = "signal-sources-write-reason";
 const COLUMNS = ["name", "state", "health"] as const;
@@ -48,6 +52,63 @@ function health(source: SignalSource) {
   );
 }
 
+const PROPOSAL: readonly FormField[] = [
+  { key: "name", kind: "text", label: "Name", missing: "Enter the source's name." },
+  { key: "kind", kind: "choice", label: "Kind", options: KINDS.map((k) => k.label), value: "News" },
+  {
+    key: "url",
+    kind: "text",
+    label: "Feed address",
+    hint: "The https address of the source's feed.",
+    missing: "Enter the address of the source's feed.",
+  },
+];
+
+/** Propose a source: the button, and on a service the form it opens. */
+function Propose() {
+  const actions = useSignalActions();
+  const off = useSampleOff(REASON_ID);
+  const opener = useOpener();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        color="primary"
+        iconLeading={Plus}
+        {...off}
+        onPress={() => {
+          opener.remember();
+          setOpen(true);
+        }}
+      >
+        Propose a source
+      </Button>
+      {actions === null ? null : (
+        <FormDialog
+          open={open}
+          title="Propose a source"
+          intro="A proposed source brings no stories until the owner approves it."
+          fields={PROPOSAL}
+          action="Propose"
+          onSend={({ text }) => {
+            const kind = KINDS.find((k) => k.label === text["kind"])?.key ?? "news";
+            const request = writes.source(
+              (text["name"] ?? "").trim(),
+              kind,
+              (text["url"] ?? "").trim(),
+            );
+            return actions.write(request).then((answer) => answer.refusal);
+          }}
+          onClose={() => {
+            setOpen(false);
+          }}
+          onGone={opener.restore}
+        />
+      )}
+    </>
+  );
+}
+
 export function SourcesSection({
   sources,
   weeksHeading,
@@ -61,17 +122,9 @@ export function SourcesSection({
       wide
       title="Sources"
       hint="Stories come only from approved sources. Anyone who writes can propose one; the owner approves."
-      action={
-        <Button color="primary" iconLeading={Plus} isDisabled aria-describedby={REASON_ID}>
-          Propose a source
-        </Button>
-      }
+      action={<Propose />}
     >
-      <WriteReason
-        id={REASON_ID}
-        sample="Sample data: sources cannot be proposed here."
-        live="Sources cannot be proposed from this page yet."
-      />
+      <SampleReason id={REASON_ID}>Sample data: sources cannot be proposed here.</SampleReason>
       {sources.length === 0 ? (
         <p className="text-sm text-text-tertiary">No sources yet.</p>
       ) : (

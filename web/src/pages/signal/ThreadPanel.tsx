@@ -4,12 +4,14 @@
 // route and moves focus to that thread's "Open thread" link. Everything here is in memory: posting
 // adds the comment to this page's list and a reaction toggle flips its pressed state; no count is
 // recomputed (the delivered string stays) and nothing is written.
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { Alert } from "@/components/alert/Alert";
 import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-menu";
 import { Badge } from "@/components/base/badges/badges";
 import { CloseButton } from "@/components/base/buttons/close-button";
 import { cx } from "@/utils/cx";
 import { useSignalActions } from "./actions";
+import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
 import { isWebLink } from "./StoryCard";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
@@ -20,6 +22,7 @@ import { Composer, MessageList } from "./parts/Messages";
 import type { ReactionWord } from "./parts/Messages";
 import type { SignalComment, SignalGroup, SignalScene, SignalStory, SignalThread } from "./slice";
 import { useSignalViewer } from "./viewer";
+import { writes } from "./writes";
 
 const TITLE_ID = "signal-thread-title";
 const FOCUS = "outline-focus-ring focus-visible:outline-2";
@@ -91,7 +94,6 @@ const pressKey = (comment: SignalComment, word: ReactionWord) => JSON.stringify(
 function ConversationFooter({
   thread,
   writer,
-  live,
   viewer,
   replyTo,
   box,
@@ -100,8 +102,6 @@ function ConversationFooter({
 }: {
   thread: SignalThread;
   writer: boolean;
-  /** Drawn on a service, which takes no comment or reaction from the page yet. */
-  live: boolean;
   viewer: ReturnType<typeof useSignalViewer>;
   replyTo: SignalComment | null;
   box: RefObject<HTMLTextAreaElement | null>;
@@ -111,8 +111,6 @@ function ConversationFooter({
   let footer;
   if (thread.archived) {
     footer = <p className={NOTE}>This thread is archived. It can be read but not added to.</p>;
-  } else if (live) {
-    footer = <p className={NOTE}>Comments and reactions cannot be added from this page yet.</p>;
   } else if (!writer) {
     footer = <p className={NOTE}>Readers see this thread but not the reply box.</p>;
   } else if (viewer.name === null || viewer.initials === null) {
@@ -138,10 +136,11 @@ function ConversationContent({
   comments,
   canWrite,
   named,
-  flipped,
+  isPressed,
   setReplyTo,
   box,
   said,
+  refused,
   onToggle,
 }: {
   thread: SignalThread;
@@ -149,10 +148,12 @@ function ConversationContent({
   comments: SignalComment[];
   canWrite: boolean;
   named: boolean;
-  flipped: ReadonlySet<string>;
+  isPressed: (comment: SignalComment, word: ReactionWord) => boolean;
   setReplyTo: (comment: SignalComment) => void;
   box: RefObject<HTMLTextAreaElement | null>;
   said: { count: number; text: string };
+  /** What the service last refused here, counted so each refusal draws a fresh alert. */
+  refused: { count: number; text: string };
   onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
 }) {
   return (
@@ -181,12 +182,14 @@ function ConversationContent({
                 }
               : null
           }
-          isPressed={(comment, word) =>
-            (comment.reactions.find((r) => r.word === word)?.mine ?? false) !==
-            flipped.has(pressKey(comment, word))
-          }
+          isPressed={isPressed}
           onToggle={onToggle}
         />
+      )}
+      {refused.text === "" ? null : (
+        <div key={refused.count}>
+          <Alert tone="error" title={refused.text} />
+        </div>
       )}
       <div role="status" className="sr-only">
         {said.count > 0 ? <span key={said.count}>{said.text}</span> : null}
@@ -195,28 +198,56 @@ function ConversationContent({
   );
 }
 
+/** On a service, opening a thread with something unread in it tells the service it was read. */
+function useThreadRead(threadId: string, unread: boolean) {
+  const actions = useSignalActions();
+  useEffect(() => {
+    // A refusal changes nothing the reader did, so nothing is said about it.
+    if (actions !== null && unread) void actions.write(writes.readThread(threadId));
+  }, [actions, threadId, unread]);
+}
+
 /** The thread's top, comments and footer; its state (what was posted, which reactions flipped) lives here. */
 function Conversation({
   thread,
   story,
   writer,
+  unread,
 }: {
   thread: SignalThread;
   story: SignalStory | null;
   writer: boolean;
+  /** The group lists this thread as unread. */
+  unread: boolean;
 }) {
   const viewer = useSignalViewer();
-  // On a service nothing here is written yet, so nothing is offered that would only change the page.
-  const live = useSignalActions() !== null;
+  const actions = useSignalActions();
   const box = useRef<HTMLTextAreaElement>(null);
+  // A comment shows at once. On a service it is sent, and once answered the thread read again
+  // holds it (or the service refused it), so the page's own copy goes.
   const [added, setAdded] = useState<Added[]>([]);
   const [replyTo, setReplyTo] = useState<SignalComment | null>(null);
-  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
+  const [refused, setRefused] = useState({ count: 0, text: "" });
+  const refuse = (text: string) => {
+    setRefused((last) => ({ count: last.count + 1, text }));
+  };
+  const reactions = useChoices(
+    actions === null
+      ? null
+      : (key, on) => {
+          const [commentId, word] = JSON.parse(key) as [string, string];
+          return actions.write(writes.react(commentId, word, on)).then((answer) => answer.refusal);
+        },
+    refuse,
+  );
+  const mine = (comment: SignalComment, word: ReactionWord) =>
+    comment.reactions.find((r) => r.word === word)?.mine ?? false;
+  useThreadRead(thread.id, unread);
   // The live region stays and each post puts a fresh node in it (as Share does), so the same sentence twice is announced twice.
   const [said, setSaid] = useState({ count: 0, text: "" });
   const comments = withAdded(thread.comments, added);
   const named = viewer.name !== null && viewer.initials !== null;
-  const canWrite = writer && !thread.archived && !live;
+  const canWrite = writer && !thread.archived;
   const send = (text: string) => {
     if (viewer.name === null || viewer.initials === null) {
       throw new Error("the composer was drawn with no viewer name");
@@ -232,18 +263,25 @@ function Conversation({
       reactions: [],
       replies: [],
     };
-    setAdded([...added, { parentId: replyTo?.id ?? null, comment }]);
+    const entry: Added = { parentId: replyTo?.id ?? null, comment };
+    setAdded((held) => [...held, entry]);
     setReplyTo(null);
+    setRefused((last) => ({ ...last, text: "" }));
+    if (actions !== null) {
+      const request =
+        replyTo === null ? writes.comment(thread.id, text) : writes.reply(replyTo.id, text);
+      void actions.write(request).then(({ refusal }) => {
+        setAdded((held) => held.filter((one) => one !== entry));
+        if (refusal !== null) refuse(refusal);
+      });
+    }
     setSaid({
       count: said.count + 1,
       text: replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`,
     });
   };
   const onToggle = (comment: SignalComment, word: ReactionWord) => {
-    const next = new Set(flipped);
-    const key = pressKey(comment, word);
-    if (!next.delete(key)) next.add(key);
-    setFlipped(next);
+    reactions.toggle(pressKey(comment, word), mine(comment, word));
   };
   return (
     <>
@@ -253,16 +291,17 @@ function Conversation({
         comments={comments}
         canWrite={canWrite}
         named={named}
-        flipped={flipped}
+        isPressed={(comment, word) => reactions.on(pressKey(comment, word), mine(comment, word))}
         setReplyTo={setReplyTo}
         box={box}
         said={said}
-        onToggle={live ? null : onToggle}
+        refused={refused}
+        // On a service a reader may not react (the service refuses it), so no button is offered.
+        onToggle={actions !== null && !writer ? null : onToggle}
       />
       <ConversationFooter
         thread={thread}
         writer={writer}
-        live={live}
         viewer={viewer}
         replyTo={replyTo}
         box={box}
@@ -329,6 +368,7 @@ export function ThreadPanel({
           thread={thread}
           story={story}
           writer={writer}
+          unread={group.threads.some((one) => one.id === thread.id && one.unread)}
         />
       )}
     </SlideoutMenu>

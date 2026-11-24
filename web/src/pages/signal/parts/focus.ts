@@ -35,7 +35,8 @@ export function useOpener() {
   const opener = useRef<HTMLElement | null>(null);
   return {
     remember: () => {
-      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      opener.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
     },
     restore: () => {
       focusAgainIfLost(() => (opener.current?.isConnected === true ? opener.current : null));

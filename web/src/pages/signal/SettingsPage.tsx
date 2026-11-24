@@ -1,9 +1,12 @@
 // Settings (mock "Signal: settings"): the page's h1, the section list as vertical tabs with the side
-// line, and the section beside it. Every change is in memory (state here, so it survives moving
-// between sections; a reload shows the slice again); nothing is written. A reader's list holds
-// Topics and Notifications only (ruling 18).
+// line, and the section beside it. In the sample every change is in memory (state here, so it
+// survives moving between sections; a reload shows the slice again) and nothing is written. On a
+// service a switch and a group's visibility show at once and are written; a refusal puts them back.
+// A reader's list holds Topics and Notifications only (ruling 18).
 import { useState, type ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
+import { usePageWrite } from "./actions";
+import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
 import { PageTitle } from "./parts/PageTitle";
 import type { SignalScene } from "./slice";
@@ -14,6 +17,15 @@ import { DigestsSection } from "./settings/DigestsSection";
 import { RulesSection } from "./settings/RulesSection";
 import { SourcesSection } from "./settings/SourcesSection";
 import { TopicsSection } from "./settings/TopicsSection";
+import { VISIBILITY, writes } from "./writes";
+
+/** A switch's key: which rule, or which event on which channel. */
+type Flag = ["rule", string] | ["event", string, string];
+const flagKey = (flag: Flag) => JSON.stringify(flag);
+const flagWrite = (key: string, on: boolean) => {
+  const flag = JSON.parse(key) as Flag;
+  return flag[0] === "rule" ? writes.rule(flag[1], on) : writes.notification(flag[1], flag[2], on);
+};
 
 type SectionId =
   "groups" | "thread-rules" | "sources" | "topics" | "digests" | "notifications" | "ai";
@@ -42,15 +54,27 @@ export function SettingsPage({
   state: (title: string) => ReactNode;
 }) {
   const { settings } = scene.snapshot;
-  const [flags, setFlags] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const page = usePageWrite();
+  // The page says a refusal itself, so the switch only needs to go back.
+  const flags = useChoices(
+    page === null
+      ? null
+      : (key, on) => page.send(flagWrite(key, on)).then((answer) => answer.refusal),
+    () => undefined,
+  );
   const [typed, setTyped] = useState<ReadonlyMap<string, string>>(new Map());
   const [visible, setVisible] = useState<ReadonlyMap<string, string>>(new Map());
+  const see = (groupId: string, value: string) => {
+    setVisible(new Map(visible).set(groupId, value));
+    const word = VISIBILITY.find((v) => v.label === value)?.key;
+    if (page === null || word === undefined) return;
+    // Answered, the slice says who can see the group: as written, or as before a refusal.
+    void page.send(writes.visibility(groupId, word)).then(() => {
+      setVisible((held) => new Map([...held].filter(([id]) => id !== groupId)));
+    });
+  };
   const listed = SECTIONS.filter((s) => writer || s.reader);
   const current = SECTIONS.find((s) => s.id === section);
-  const flag = (key: string, shown: boolean) => flags.get(key) ?? shown;
-  const set = (key: string, value: boolean) => {
-    setFlags(new Map(flags).set(key, value));
-  };
 
   function content(): ReactNode {
     if (current === undefined) return state("No such settings section");
@@ -62,7 +86,7 @@ export function SettingsPage({
             groups={settings.groups}
             visibility={(g) => visible.get(g.id) ?? g.visibility}
             onVisibility={(g, value) => {
-              setVisible(new Map(visible).set(g.id, value));
+              see(g.id, value);
             }}
           />
         );
@@ -70,9 +94,9 @@ export function SettingsPage({
         return (
           <RulesSection
             rules={settings.rules}
-            on={(r) => flag(`rule:${r.id}`, r.on)}
-            onChange={(r, value) => {
-              set(`rule:${r.id}`, value);
+            on={(r) => flags.on(flagKey(["rule", r.id]), r.on)}
+            onChange={(r) => {
+              flags.toggle(flagKey(["rule", r.id]), r.on);
             }}
           />
         );
@@ -80,9 +104,9 @@ export function SettingsPage({
         return (
           <NotificationsSection
             events={settings.notifications.events}
-            on={(e, channel) => flag(`event:${e.id}:${channel}`, e[channel])}
-            onChange={(e, channel, value) => {
-              set(`event:${e.id}:${channel}`, value);
+            on={(e, channel) => flags.on(flagKey(["event", e.id, channel]), e[channel])}
+            onChange={(e, channel) => {
+              flags.toggle(flagKey(["event", e.id, channel]), e[channel]);
             }}
           />
         );
@@ -107,6 +131,15 @@ export function SettingsPage({
             }}
             onChange={(key, text) => {
               setTyped(new Map(typed).set(key, text));
+            }}
+            digests={scene.snapshot.digests}
+            editing={typed.get("editing") ?? null}
+            onEdit={(edit) => {
+              setTyped(
+                edit === null
+                  ? new Map()
+                  : new Map([...Object.entries(edit.value), ["editing", edit.id]]),
+              );
             }}
           />
         );

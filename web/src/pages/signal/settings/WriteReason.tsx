@@ -1,29 +1,28 @@
-// The sentence beside a control that cannot write, which the control names as its description. The
-// sample has no service; on the service the page says what cannot be written from it yet.
+// A control that writes has no service to write to in the sample, so it is drawn disabled with its
+// reason in view, which it names as its description. On a service the control works and nothing is
+// said.
+import type { ReactNode } from "react";
 import { useSignalActions } from "../actions";
 
-/** True on a service: a control that would only change the page's memory is drawn unavailable. */
-export function useNotWritable(): boolean {
-  return useSignalActions() !== null;
+/** What a writing control takes in the sample (disabled, described by its reason) and on a service (neither). */
+export function useSampleOff(reasonId: string) {
+  const sample = useSignalActions() === null;
+  return { isDisabled: sample, "aria-describedby": sample ? reasonId : undefined };
 }
 
-/** `sample` absent: the control works in memory in the sample, so only the service's page says anything. */
-export function WriteReason({
+export function SampleReason({
   id,
   className = "mb-3",
-  sample,
-  live,
+  children,
 }: {
   id: string;
   className?: string;
-  sample?: string;
-  live: string;
+  children: ReactNode;
 }) {
-  const text = useNotWritable() ? live : sample;
-  if (text === undefined) return null;
+  if (useSignalActions() !== null) return null;
   return (
     <p id={id} className={`${className} text-sm text-text-tertiary`}>
-      {text}
+      {children}
     </p>
   );
 }

@@ -5,18 +5,20 @@
 // the kit's empty state instead of the list. "Earlier digests" is a card of rows, one per earlier
 // issue (not links: no page holds one issue). A paused digest says so in an info alert, takes its own
 // name as the h1 and draws every issue as a row. The column is the mock's 820px.
-import { useRef, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { Alert } from "@/components/alert/Alert";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { StatusBadge } from "@/components/status/StatusBadge";
+import { useSignalActions } from "./actions";
 import { MediaObject } from "./parts/MediaObject";
 import { NumberedPanel } from "./parts/NumberedPanel";
 import { PageTitle } from "./parts/PageTitle";
 import { sceneHref } from "./SignalFrame";
 import type { SignalDigest, SignalDigestIssue, SignalScene } from "./slice";
 import { isWebLink } from "./StoryCard";
+import { writes } from "./writes";
 
 const FOCUS = "outline-focus-ring focus-visible:outline-2";
 const META = "mb-1.5 flex flex-wrap items-center gap-2 text-sm text-text-tertiary";
@@ -231,6 +233,19 @@ function EarlierDigests({
 }
 
 /** `none` is the empty state a digest with no issue draws (the page that owns the empty states passes it). */
+/** On a service, opening a digest with an unread issue tells the service it was read. */
+function useDigestRead(scene: SignalScene, digestId: string) {
+  const actions = useSignalActions();
+  const { channels, feed } = scene.snapshot;
+  const unread =
+    channels.digests.some((one) => one.id === digestId && one.unread) ||
+    feed.digests.some((card) => card.digestId === digestId && card.unread);
+  useEffect(() => {
+    // Only its owner may; a refusal changes nothing the reader did, so nothing is said about it.
+    if (actions !== null && unread) void actions.write(writes.readDigest(digestId));
+  }, [actions, digestId, unread]);
+}
+
 export function DigestPage({
   scene,
   digest,
@@ -243,6 +258,7 @@ export function DigestPage({
   digest: SignalDigest;
   none: ReactNode;
 }) {
+  useDigestRead(scene, digest.id);
   const earlierTitle = useRef<HTMLHeadingElement>(null);
   const [first, ...rest] = digest.issues;
   // A paused digest writes no new issue: every issue is an earlier one.

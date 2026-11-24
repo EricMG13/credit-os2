@@ -14,13 +14,14 @@ const REACTION_WORDS = ["Agree", "Disagree", "Seen"] as const;
 export type ReactionWord = (typeof REACTION_WORDS)[number];
 
 const FOCUS = "outline-focus-ring focus-visible:outline-2";
+const CHIP = "h-6 rounded-ds-full px-2 text-sm font-medium ring-1 ring-border-hairline ring-inset";
 
 type ListProps = {
   comments: SignalComment[];
   /** A writer on an open thread can reply; otherwise null and no Reply is drawn. */
   onReply: ((comment: SignalComment) => void) | null;
   isPressed: (comment: SignalComment, word: ReactionWord) => boolean;
-  /** Null where a reaction cannot be given from the page: each is drawn as delivered, disabled. */
+  /** Null where the viewer may not react (a reader on a service): the delivered counts are drawn, with no button. */
   onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
 };
 
@@ -33,6 +34,17 @@ function Reactions({
   onToggle,
 }: { comment: SignalComment } & Pick<ListProps, "isPressed" | "onToggle">) {
   const author = authorOf(comment);
+  if (onToggle === null) {
+    return comment.reactions.length === 0 ? null : (
+      <ul aria-label={`Reactions to the comment by ${author}`} className="flex gap-1">
+        {comment.reactions.map((held) => (
+          <li key={held.word} className={cx(CHIP, "bg-surface-subtle text-text-secondary")}>
+            {`${held.word} ${held.count}`}
+          </li>
+        ))}
+      </ul>
+    );
+  }
   return (
     <ul aria-label={`Reactions to the comment by ${author}`} className="flex gap-1">
       {REACTION_WORDS.map((word) => {
@@ -45,12 +57,11 @@ function Reactions({
               type="button"
               aria-pressed={on}
               aria-label={`${word}${count === null ? "" : `, ${count}`}: comment by ${author}`}
-              disabled={onToggle === null}
               onClick={() => {
-                onToggle?.(comment, word);
+                onToggle(comment, word);
               }}
               className={cx(
-                "h-6 rounded-ds-full px-2 text-sm font-medium ring-1 ring-border-hairline ring-inset disabled:cursor-not-allowed",
+                CHIP,
                 FOCUS,
                 on
                   ? "bg-surface-selected text-text-link"

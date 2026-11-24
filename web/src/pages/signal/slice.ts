@@ -95,6 +95,11 @@ export type SignalDigest = {
   monogram: string;
   paused: string | null;
   issues: SignalDigestIssue[];
+  /**
+   * What a service holds for changing the digest: its form's strings as chosen, and whatever else
+   * an edit must post back unchanged. Unread by the page beyond that; null where none is delivered.
+   */
+  form: Readonly<Record<string, unknown>> | null;
 };
 /**
  * Entry ids (story or digest card) in each order the service supplies; the page orders by them and
@@ -482,12 +487,20 @@ const digestIssue = noModel(
   }),
   "nothing-to-report issue",
 );
+/** Optional: the sample's digests carry none. */
+const digestEdit: Reader<Readonly<Record<string, unknown>> | null> = (v, path) => {
+  if (v === undefined || v === null) return good(null);
+  return typeof v === "object" && !Array.isArray(v)
+    ? good(v as Record<string, unknown>)
+    : bad(path, "an object, or nothing");
+};
 const digestRecord = shape<SignalDigest>({
   id,
   name: str,
   monogram: str,
   paused: strOrNull,
   issues: list(digestIssue),
+  form: digestEdit,
 });
 const feedView = shape<SignalFeedView>({
   top: list(str),

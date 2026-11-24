@@ -65,8 +65,7 @@ export async function readSnapshot(stop: AbortSignal): Promise<Read> {
 
 /** The write's answer: the service's reply, or the sentence saying why it was not accepted. */
 export async function sendWrite(request: SignalWrite, stop: AbortSignal): Promise<SignalAnswer> {
-  const init =
-    request.body === undefined ? { method: request.method } : postJson(request.body);
+  const init = request.body === undefined ? { method: request.method } : postJson(request.body);
   try {
     return { refusal: null, reply: await ask(request.path, init, stop) };
   } catch (failure) {
