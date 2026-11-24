@@ -641,25 +641,38 @@ def notifications(db: sqlite3.Connection, user: User | None) -> Json:
     }
 
 
+class Ranker:
+    """The Top order of a list of story ids for one viewer (call it), and each story's place in
+    it (`key`: its ``threadrank.score`` and published time), so other entries rank beside them."""
+
+    def __init__(
+        self,
+        held: Mapping[int, tuple[int, int]],
+        published: Mapping[int, str],
+        strengths: Mapping[int, int],
+        now: datetime,
+    ) -> None:
+        self.held, self.published, self.strengths, self.now = held, published, strengths, now
+
+    def _standing(self, n: int) -> threadrank.Standing:
+        at = datetime.fromisoformat(self.published[n])
+        return threadrank.Standing(n, at, *self.held.get(n, (0, 0)), self.strengths.get(n))
+
+    def __call__(self, ids: list[int]) -> list[int]:
+        return threadrank.top_order([self._standing(n) for n in ids], self.now)
+
+    def key(self, n: int) -> tuple[float, datetime]:
+        standing = self._standing(n)
+        return threadrank.score(standing, self.now), standing.published_at
+
+
 def ranker(
     db: sqlite3.Connection,
     user_name: str,
     published: dict[int, str],
     now: datetime,
     strengths: Mapping[int, int] | None = None,
-) -> Callable[[list[int]], list[int]]:
+) -> Ranker:
     """The Top order of a list of story ids (their published times given), for this viewer;
     `strengths` holds the AI pass's signal strength of the stories that have one."""
-    held = engagement(db, user_name, list(published))
-    strong = strengths or {}
-
-    def rank(ids: list[int]) -> list[int]:
-        standings = [
-            threadrank.Standing(
-                n, datetime.fromisoformat(published[n]), *held.get(n, (0, 0)), strong.get(n)
-            )
-            for n in ids
-        ]
-        return threadrank.top_order(standings, now)
-
-    return rank
+    return Ranker(engagement(db, user_name, list(published)), published, strengths or {}, now)

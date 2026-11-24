@@ -26,7 +26,7 @@ import re
 import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
@@ -142,7 +142,7 @@ class Status:
     gate: Gate
     month: ai_ledger.Month
     invalid: int  # stories this month whose output failed its check
-    last_problem: tuple[str, str] | None  # (UTC time, outcome) of the month's last failed call
+    last_problem: tuple[str, str] | None  # ("YYYY-MM-DD HH:MM" UTC, outcome): the last failed call
     state: State
 
 
@@ -171,6 +171,9 @@ def status(
         " ('ok','in progress') ORDER BY id DESC LIMIT 1",
         (month.month,),
     ).fetchone()
-    problem = None if row is None else (str(row["reserved_at"]), str(row["outcome"]))
+    problem = None
+    if row is not None:
+        at = datetime.fromisoformat(row["reserved_at"]).astimezone(UTC)
+        problem = (f"{at:%Y-%m-%d %H:%M}", str(row["outcome"]))
     state: State = "off" if not gate.on else "capped" if _capped(gate, month) else "on"
     return Status(gate, month, int(invalid), problem, state)

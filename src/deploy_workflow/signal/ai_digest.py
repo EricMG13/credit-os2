@@ -29,7 +29,6 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from deploy_workflow.signal import ai_call, ai_labels, ai_ledger, digests
-from deploy_workflow.signal.store import _utc_text
 
 log = logging.getLogger(__name__)
 
@@ -162,7 +161,8 @@ class Writer:
         except ai_ledger.Refused as refused:
             raise digests.WriterFailed(str(refused)) from None
         if answer.text is None:
-            raise digests.WriterFailed(f"the model call failed ({answer.outcome})")
+            failed = f"the model call failed ({answer.outcome})"
+            raise digests.WriterFailed(failed, transient=answer.transient)
         draft = read(answer.text, scope)
         if draft is None:
             ai_ledger.relabel(self.db, answer.call_id, "result failed its check")
@@ -174,19 +174,7 @@ class Writer:
         self, db: sqlite3.Connection, scope: digests.Scope, draft: object, now: datetime
     ) -> int:
         assert isinstance(draft, Draft)
-        cur = db.execute(
-            "INSERT INTO digest_issues(digest_id, kind, period_start, period_end, created_at)"
-            " VALUES(?, ?, ?, ?, ?)",
-            (
-                scope.digest.id,
-                digests.WRITTEN,
-                _utc_text(scope.start),
-                _utc_text(scope.end),
-                _utc_text(now),
-            ),
-        )
-        assert cur.lastrowid is not None
-        issue = cur.lastrowid
+        issue = digests.add_issue(db, scope, digests.WRITTEN, now)
         db.execute(
             "INSERT INTO digest_issue_ai(issue_id, stories, config_id) VALUES(?, ?, ?)",
             (issue, len(scope.stories), self.model.config_id),

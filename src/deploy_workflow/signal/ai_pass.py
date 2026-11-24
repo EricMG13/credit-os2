@@ -14,7 +14,8 @@ again), and a reply that cannot be read at all costs what it cost and marks noth
 
 The pass stops at the first call that is refused (cap, switch-off), fails or comes back unreadable,
 and after such a failure it makes no call for ``RETRY_AFTER``, so a model that keeps failing is
-not paid every minute.
+not paid every minute; a failure that may pass (``ai_call.transient``: the provider asked to be
+called later) is tried again at the next tick.
 """
 
 from __future__ import annotations
@@ -151,6 +152,8 @@ def _cooling(db: sqlite3.Connection, now: datetime) -> bool:
     ).fetchone()
     if row is None or row["outcome"] in ("ok", "in progress"):
         return False
+    if str(row["outcome"]).startswith(ai_call.TRANSIENT):
+        return False  # it may pass: the next tick tries again
     return datetime.fromisoformat(row["reserved_at"]) > now - RETRY_AFTER
 
 

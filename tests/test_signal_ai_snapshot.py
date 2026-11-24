@@ -178,11 +178,7 @@ def test_with_ai_on_a_story_carries_what_the_pass_wrote(db):
             {"name": "Decision", "current": False},
         ],
     }
-    assert tessaly["tags"] == [
-        "Shipping",
-        "Telecoms",
-        "Disposals",
-    ]  # its topic first, then the pass's
+    assert tessaly["tags"] == ["Telecoms", "Disposals", "Shipping"]  # the pass's, then its topic
     halvorsen = story_of(snap, ids["halvorsen"])
     assert halvorsen["ratingMoves"] == [
         {"from": "BB-", "to": "B+", "word": "Downgrade, one notch"},
@@ -453,3 +449,20 @@ def test_the_worst_state_with_every_ai_field_at_its_limit_stays_under_three_mib(
     size = len(json.dumps(document, ensure_ascii=False).encode("utf-8"))
     assert size < 3 * 1024 * 1024
     assert react_refusal(document) is None
+
+
+def test_a_story_carries_at_most_six_tags_the_passs_first(db):
+    ids = seed(db)
+    for n in range(8):
+        topics.add_topic(db, f"Corvane watch {n}", ["Corvane"], [], "Mara L")
+    on = story_of(built(db, WRITER, status_on()), ids["corvane"])["tags"]
+    assert on == [
+        "Packaging",
+        "Restructuring",
+        "Corvane watch 0",
+        "Corvane watch 1",
+        "Corvane watch 2",
+        "Corvane watch 3",
+    ]
+    off = story_of(built(db, WRITER, None), ids["corvane"])["tags"]
+    assert off == ["Packaging", *(f"Corvane watch {n}" for n in range(5))]

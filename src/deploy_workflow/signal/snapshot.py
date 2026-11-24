@@ -186,7 +186,8 @@ def build(
             "digests": [],
             "settings": settings,
         }
-        digestview.place(db, user, drawn, snapshot, (SHOWN + OLDER, 0))  # For you: all in latest
+        key = held.rank.key if held.rank is not None else _unranked
+        digestview.place(db, drawn, snapshot, (SHOWN + OLDER, 0), key)  # For you: all in latest
     return {"scenes": [{"id": "main", "snapshot": snapshot}]}
 
 
@@ -293,7 +294,7 @@ def _story(
         "source": {"name": card.source, "monogram": monogram(card.source)},
         "time": _capital(ago(datetime.fromisoformat(card.published_at), now)),
         "summary": card.summary if card.summary.strip() else None,
-        "tags": list(card.topics),
+        "tags": list(card.topics[: ai_view.MAX_STORY_TAGS]),
         "alsoIn": also,
         "sharedBy": threaded.get("sharedBy"),
         "ai": None,
@@ -319,6 +320,7 @@ class _Cards:
         self.db, self.user, self.now, self.ai_on = db, user, now, ai_on
         self.found: dict[int, feedview.Card] = {}
         self.ai: dict[int, ai_view.StoryAi] = {}
+        self.rank: group_view.Ranker | None = None  # the Top order, once the stories are chosen
 
     def load(self, ids: list[int]) -> None:
         missing = sorted(set(ids) - set(self.found))
@@ -414,6 +416,7 @@ def _stories_and_views(
     cards = sorted((held_cards.found[n] for n in chosen), key=lambda c: (c.published_at, c.id))
     published = {card.id: card.published_at for card in reversed(cards)}
     rank = group_view.ranker(db, user.name, published, now, held_cards.strengths())
+    held_cards.rank = rank
     stories = [built[card.id] for card in reversed(cards)]
     return stories, {
         key: _view([n for n in ids if n in chosen], rank, ranked=key not in _UNRANKED)
@@ -453,6 +456,10 @@ def _settings(
         "sources": sources,
         "sourceWeeksHeading": f"Items per week, {ingest.HEALTH_WEEKS} weeks",
     }
+
+
+def _unranked(story_id: int) -> tuple[float, datetime]:
+    raise AssertionError("a viewer with no name has no stories to rank")
 
 
 def _strong_counts(db: sqlite3.Connection, user: User, now: datetime, channels: Json) -> None:

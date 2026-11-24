@@ -67,10 +67,18 @@ def story_pass(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_pass.R
         return None if model is None else ai_pass.run(db, model, now)
 
 
+class DigestsLeftDue(RuntimeError):
+    """A pass left digests due (a busy database, or a model call that may pass)."""
+
+
 def digest_pass(
     db: sqlite3.Connection, now: datetime, setup: Setup
 ) -> list[tuple[int, digests.Run]]:
-    """The due digests, with the AI pass's writer while it is on."""
+    """The due digests, with the AI pass's writer while it is on. DigestsLeftDue when the pass
+    left any due for the next tick, so the loop's digest error says so."""
     with session(db, now, setup) as model:
         writer = None if model is None else ai_digest.Writer(db, model, now)
-        return digests.run_due(db, now, writer)
+        ran = digests.run_due(db, now, writer)
+    if ran.left_due:
+        raise DigestsLeftDue(f"{len(ran.left_due)} digests were left due for the next tick")
+    return list(ran)

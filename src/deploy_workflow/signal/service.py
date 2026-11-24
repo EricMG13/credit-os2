@@ -252,8 +252,19 @@ def _status(req: _Req) -> _Reply:
             "loop_error": (req.loop.last_error or req.loop.ai_error or req.loop.digest_error)
             if req.loop
             else None,
+            **_ai_status(req, now),
         },
     )
+
+
+def _ai_status(req: _Req, now: datetime) -> dict[str, str | None]:
+    """The AI pass's state and the month's last failed call ("<UTC time> UTC: <outcome>")."""
+    if req.loop is None:
+        return {"ai_state": "off", "ai_last_problem": None}
+    held = req.loop.ai_status(req.db, now)
+    last = held.last_problem
+    problem = None if last is None else f"{last[0]} UTC: {last[1]}"
+    return {"ai_state": held.state, "ai_last_problem": problem}
 
 
 def _focus_id(req: _Req, name: str) -> int | None:

@@ -80,6 +80,7 @@ class Answer:
     text: str | None
     outcome: str
     call_id: int
+    transient: bool = False  # the call failed in a way that may pass: try again at the next tick
 
 
 def reservation_usd(config_id: str, prompt: Prompt) -> Decimal:
@@ -119,10 +120,21 @@ def charge(reply: AdapterReply, config_id: str) -> Decimal | None:
     return exact_sum((priced.usd, extra))
 
 
+# A 4xx refusal that asks to be called later (payment wait, timeout, conflict, too early, rate
+# limit). Every other failure is lasting: it is recorded, and a digest moves to its next slot.
+TRANSIENT_STATUSES = frozenset({402, 408, 409, 425, 429})
+TRANSIENT = "transient "  # the outcome text of such a call starts so
+
+
+def transient(reply: AdapterReply) -> bool:
+    return reply.kind == "sent_known" and reply.http_status in TRANSIENT_STATUSES
+
+
 def _outcome(reply: AdapterReply) -> str:
     if reply.kind == "ok":
         return "ok"
-    return f"{reply.kind}: {reply.error_class or 'no class'}"[:80]
+    text = f"{reply.kind}: {reply.error_class or 'no class'}"
+    return (TRANSIENT + text if transient(reply) else text)[:80]
 
 
 def _release(model: Model, digest: str) -> None:
@@ -163,4 +175,4 @@ def call(
     _release(model, digest)
     log.info("Signal %s call %s: %s", purpose, call_id, outcome)
     text = reply.turn.text if reply.turn is not None else None
-    return Answer(text, outcome, call_id)
+    return Answer(text, outcome, call_id, transient(reply))

@@ -20,7 +20,7 @@ import signal_ai_fakes
 import signal_reader_check
 from signal_reader_check import react_refusal
 
-from deploy_workflow.signal import digests, digestview, groups, snapshot, store, topics
+from deploy_workflow.signal import digests, groups, snapshot, store, topics
 from deploy_workflow.signal.digests import Form
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.identity import User
@@ -211,13 +211,12 @@ def test_an_issue_title_says_the_real_start_and_end_of_its_period(db):
     assert got["Monthly"][-1] == "Monthly: 1 November to 31 December"
 
 
-def test_an_issue_kind_the_page_does_not_know_is_refused_not_called_nothing_material(db):
+def test_an_issue_the_page_cannot_draw_is_left_out_not_called_nothing_material(db):
     ident = make(db, "Mara L")
     digests.run_now(db, "Mara L", ident, NOW)
-    db.execute("UPDATE digest_issues SET kind='written'")
+    db.execute("UPDATE digest_issues SET kind='written'")  # written, but with no points stored
     db.commit()
-    with pytest.raises(digestview.UnknownIssueKind, match="written"):
-        snapshot.build(db, WRITER, NOW)
+    assert snap(db, WRITER)["digests"][0]["issues"] == []  # second review N8: not a 500
     assert snapshot.build(db, READER, NOW)  # another viewer's snapshot is not affected
 
 

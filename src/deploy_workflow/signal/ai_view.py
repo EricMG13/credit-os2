@@ -2,8 +2,9 @@
 
 Only while the pass is on (``settings.ai.state`` "on") does a story carry what the pass wrote for
 it: ``ai`` (the AI line, which the page marks AI), ``strength`` (marks and a word), its kind from
-the pass (``kind``/``kindLabel``; "other" keeps the source's kind), the pass's tags after the
-topic-name tags it already has (a tag already there is not repeated), the case stage
+the pass (``kind``/``kindLabel``; "other" keeps the source's kind), its tags (the pass's first,
+then the names of the topics it is in, a name not repeated, at most ``MAX_STORY_TAGS``; with the
+pass off a story carries at most that many topic names), the case stage
 (``stage``, only when the model returned one) and the rating moves (``ratingMoves``, only when
 it returned them, each with a word written here, never by the model). Off or at the cap, no story
 carries any of it, as the reader requires: the feed is as it was before the pass existed. Every
@@ -35,6 +36,7 @@ from deploy_workflow.signal.texts import plural
 Json = dict[str, Any]
 
 STRENGTH_WORDS = {1: "Light", 2: "Moderate", 3: "Strong"}
+MAX_STORY_TAGS = 6  # tags delivered per story: the pass's first, then topic names
 _KIND = {  # the pass's kind: (the reader's kind, its label)
     "news": ("news", "News"),
     "regulatory case": ("regulator", "Regulatory case"),
@@ -105,12 +107,13 @@ def _stage(stage: str) -> Json:
 def story_fields(found: StoryAi, kind: str, label: str, tags: Sequence[str]) -> Json:
     """The AI fields of a story card; `kind`, `label` and `tags` are what it has without them."""
     kind, label = _KIND.get(found.kind, (kind, label))
-    held = {tag.casefold() for tag in tags}
+    held = {tag.casefold() for tag in found.tags}
+    named = [*found.tags, *(tag for tag in tags if tag.casefold() not in held)]
     moves = sorted(found.moves, key=lambda move: move.outlook)  # the rating before the outlook
     return {
         "kind": kind,
         "kindLabel": label,
-        "tags": [*tags, *(tag for tag in found.tags if tag.casefold() not in held)],
+        "tags": named[:MAX_STORY_TAGS],
         "ai": {"line": found.why},
         "strength": {"marks": found.signal, "word": STRENGTH_WORDS[found.signal]},
         "stage": _stage(found.stage) if found.stage is not None else None,

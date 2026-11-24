@@ -590,7 +590,9 @@ def test_a_locked_database_leaves_the_digest_due_and_the_next_tick_runs_it(db, m
     real = digests._plan
 
     def locked(*args: Any) -> digests.Run:
-        raise sqlite3.OperationalError("database is locked")
+        error = sqlite3.OperationalError("database is locked")
+        error.sqlite_errorcode = sqlite3.SQLITE_BUSY  # as SQLite itself raises it
+        raise error
 
     monkeypatch.setattr(digests, "_plan", locked)
     assert digests.run_due(db, at("2026-11-27 07:00")) == []

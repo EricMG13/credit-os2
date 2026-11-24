@@ -16,8 +16,9 @@ it) or "written" (the AI pass's, with numbered points, marked AI). Only the newe
 that is not paused is drawn with its points on the digest's page (number, lead, body, the stories
 line and at most ``POINT_STORIES`` of the stories behind the point); any other is a row with its
 summary. A written issue's feed card holds each point's number and lead. An issue of a kind the
-page does not know how to draw is refused (``UnknownIssueKind``), not drawn as one that says
-nothing material happened.
+page does not know how to draw (one a later build wrote, read after a rollback) is left out of
+what is delivered and logged, never drawn as one that says nothing material happened; the
+snapshot stays readable.
 
 Size: ``build`` makes every digest part before the stories are chosen, so the snapshot can count
 their bytes (``Built.size``) before it pays for stories; ``place`` then puts the cards among the
@@ -31,17 +32,22 @@ read transaction.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-from deploy_workflow.signal import digests, schedule
+from deploy_workflow.signal import digests, schedule, threadrank
 from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.texts import day, monogram, plural, utc
 
 Json = dict[str, Any]
+Key = tuple[float, datetime]  # an entry's place in Top: its threadrank score, then its time
+
+log = logging.getLogger(__name__)
+WRITTEN_STRENGTH = 2  # a written issue ranks in Top as a story of strength 2; "nothing" as none
 
 PAUSED = "No new digest is written while AI is off or at its cap. Earlier digests stay readable."
 NO_COVER = (
@@ -379,14 +385,32 @@ def _story_times(db: sqlite3.Connection, ids: list[str]) -> dict[str, datetime]:
     return {str(row["id"]): datetime.fromisoformat(row["published_at"]) for row in found}
 
 
+def card_score(written: bool, at: datetime, now: datetime) -> float:
+    """A digest card's score in Top: ``threadrank.score`` of a story of the card's time with no
+    shares or comments, of strength ``WRITTEN_STRENGTH`` when the AI pass wrote the issue, and
+    none (the weakest) when it says nothing material happened."""
+    strength = WRITTEN_STRENGTH if written else None
+    return threadrank.score(threadrank.Standing(0, at, strength=strength), now)
+
+
+def top_order(entries: list[str], keys: dict[str, Key]) -> list[str]:
+    """Entries highest key first; equal keys keep their order (the stories' own Top order)."""
+    return sorted(entries, key=keys.__getitem__, reverse=True)
+
+
 def _place(
-    db: sqlite3.Connection, view: Json, cards: list[tuple[datetime, Json]], limits: tuple[int, int]
+    db: sqlite3.Connection,
+    view: Json,
+    built: Built,
+    limits: tuple[int, int],
+    story_key: Callable[[int], Key],
 ) -> list[Json]:
-    """Put the cards among the For you view's stories by time. `latest` and `older` stay in time
-    order; `top` keeps its order of the stories and takes each card before the first story that is
-    older than it, so `top` and `latest` still hold the same entries. A card the view has no room
-    for is dropped. `limits` are the view's counts of newest stories shown and older ones held.
-    Returns the cards placed."""
+    """Put the cards among the For you view's stories. `latest` and `older` are in time order;
+    `top` ranks stories and cards by one score (`story_key`, ``card_score``), so a card stands
+    where a story of its time would, and `top` and `latest` hold the same entries. A card the view
+    has no room for is dropped. `limits` are the view's counts of newest stories shown and older
+    ones held. Returns the cards placed."""
+    cards = built.cards
     when = _story_times(db, [*view["latest"], *view["older"]])
     when.update((card["id"], at) for at, card in cards)
     merged = [*view["latest"], *view["older"], *(card["id"] for _, card in cards)]
@@ -394,14 +418,11 @@ def _place(
     shown_count, older_count = limits
     merged = merged[: shown_count + older_count]
     shown = set(merged[:shown_count])
-    top = [entry for entry in view["top"] if entry in shown]
-    for _, card in sorted(cards, key=lambda held: held[0], reverse=True):
-        if card["id"] in shown:
-            index = next(
-                (n for n, entry in enumerate(top) if when[entry] < when[card["id"]]), len(top)
-            )
-            top.insert(index, card["id"])
-    view["top"], view["latest"] = top, merged[:shown_count]
+    keys = {entry: story_key(int(entry)) for entry in view["top"] if entry in shown}
+    keys.update((card, key) for card, key in built.card_keys.items() if card in shown)
+    ranked = [entry for entry in view["top"] if entry in shown]
+    ranked += [card["id"] for _, card in cards if card["id"] in shown]
+    view["top"], view["latest"] = top_order(ranked, keys), merged[:shown_count]
     view["older"] = merged[shown_count:]
     return [card for _, card in cards if card["id"] in set(merged)]
 
@@ -411,9 +432,11 @@ class Built:
     """Every digest part of a snapshot, before the cards are placed in the For you view."""
 
     form: Json
+    named: bool = False  # the viewer has a display name
     records: list[Json] = field(default_factory=list)
     channel: list[Json] = field(default_factory=list)
     cards: list[tuple[datetime, Json]] = field(default_factory=list)
+    card_keys: dict[str, Key] = field(default_factory=dict)
 
     @property
     def size(self) -> int:
@@ -422,15 +445,29 @@ class Built:
         return len(json.dumps(parts, ensure_ascii=False).encode("utf-8"))
 
 
+def _drawable(issues: list[digests.Issue], written: dict[int, Written]) -> list[digests.Issue]:
+    """The issues this build can draw: a kind it knows (a written one with its points)."""
+    return [
+        one
+        for one in issues
+        if one.kind in _DRAWN and (one.kind != digests.WRITTEN or one.id in written)
+    ]
+
+
 def build(db: sqlite3.Connection, user: User | None, now: datetime, *, ai_on: bool) -> Built:
-    """The digest parts for `user`; `ai_on` says whether ``settings.ai.state`` is "on"."""
+    """The digest parts for `user`; `ai_on` says whether ``settings.ai.state`` is "on". An issue
+    of a kind this build does not draw (a later build wrote it) is left out, logged once."""
     paused = not ai_on
-    built = Built(_form(db, user.name if user is not None else None))
+    built = Built(_form(db, user.name if user is not None else None), named=user is not None)
     if user is None:
         return built
+    left_out = 0
     for digest in digests.list_digests(db, user.name):
-        issues = digests.recent_issues(db, digest.id, ISSUES_SHOWN)
-        drawing = Drawing(now, False, _written(db, digest, issues, now))
+        stored = digests.recent_issues(db, digest.id, ISSUES_SHOWN)
+        written = _written(db, digest, stored, now)
+        issues = _drawable(stored, written)
+        left_out += len(stored) - len(issues)
+        drawing = Drawing(now, False, written)
         built.records.append(_record(db, digest, issues, drawing, paused))
         unread = any(not one.read for one in issues)
         built.channel.append(
@@ -441,20 +478,29 @@ def build(db: sqlite3.Connection, user: User | None, now: datetime, *, ai_on: bo
                 "paused": paused,
             }
         )
-        built.cards += [
-            (one.created_at, _card(digest, one, drawing)) for one in issues[:CARDS_PER_DIGEST]
-        ]
+        for one in issues[:CARDS_PER_DIGEST]:
+            built.cards.append((one.created_at, _card(digest, one, drawing)))
+            score = card_score(one.kind == digests.WRITTEN, one.created_at, now)
+            built.card_keys[f"d{one.id}"] = (score, one.created_at)
+    if left_out:
+        log.warning("%s digest issues of a kind this build does not draw were left out", left_out)
     return built
 
 
 def place(
-    db: sqlite3.Connection, user: User | None, built: Built, snap: Json, limits: tuple[int, int]
+    db: sqlite3.Connection,
+    built: Built,
+    snap: Json,
+    limits: tuple[int, int],
+    story_key: Callable[[int], Key],
 ) -> None:
     """Fill the digest parts of `snap`, a snapshot the other parts have built, from `built`.
-    `limits` are the For you view's counts of newest stories shown and older ones held."""
+    `limits` are the For you view's counts of newest stories shown and older ones held;
+    `story_key` is a story's place in Top (``group_view.Ranker.key``)."""
     snap["settings"]["digestForm"] = built.form
-    if user is None:
+    if not built.named:
         return
     snap["digests"] = built.records
     snap["channels"]["digests"] = built.channel
-    snap["feed"]["digests"] = _place(db, snap["feed"]["views"]["for-you"], built.cards, limits)
+    view = snap["feed"]["views"]["for-you"]
+    snap["feed"]["digests"] = _place(db, view, built, limits, story_key)
