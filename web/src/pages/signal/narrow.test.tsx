@@ -281,7 +281,9 @@ describe("the Signal frame in a narrow window", () => {
     windowIs(false);
     show("/signal/main/feed/for-you");
     const content = document.getElementById("signal-content") as HTMLElement;
-    expect(content.className.split(" ")).toEqual(expect.arrayContaining(["p-4", "min-[768px]:p-8"]));
+    expect(content.className.split(" ")).toEqual(
+      expect.arrayContaining(["p-4", "min-[768px]:p-8"]),
+    );
     expect(page().getByRole("heading", { level: 1, name: "For you" })).toBeInTheDocument();
   });
 

@@ -43,8 +43,7 @@ export const writes = {
   react: (comment: string, word: string, on: boolean) =>
     held(on, `/comments/${part(comment)}/reactions/${part(word.toLowerCase())}`),
   /** Its author's, while the service still takes it (the comment's `canEdit`, `canRemove`). */
-  editComment: (comment: string, text: string) =>
-    post(`/comments/${part(comment)}/edit`, { text }),
+  editComment: (comment: string, text: string) => post(`/comments/${part(comment)}/edit`, { text }),
   dropComment: (comment: string) => remove(`/comments/${part(comment)}`),
   readThread: (thread: string) => post(`/threads/${part(thread)}/read`),
   group: (name: string, visibility: string) => post("/groups", { name, visibility }),

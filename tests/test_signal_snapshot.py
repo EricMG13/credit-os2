@@ -430,8 +430,8 @@ def test_everything_the_service_does_not_have_is_delivered_empty(sample):
         "notice": {
             "title": "AI is off",
             "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI "
-            "line and no signal strength, and a digest with stories to cover writes no issue. "
-            "Nothing is spent.",
+            "line and no signal strength, and digests are paused. Nothing more is spent while it "
+            "is off.",
         },
         "spend": None,
         "parts": [],
@@ -752,7 +752,8 @@ def test_two_failing_sources_are_counted_in_the_freshness_line(sample):
 
 
 def test_a_failed_ingest_pass_is_said_in_the_freshness_line(sample):
-    freshness = _snap(sample, WRITER, pass_failed=True)["feed"]["freshness"]
+    failed = snapshot.Service(pass_failed=True)
+    freshness = _snap(sample, WRITER, service=failed)["feed"]["freshness"]
     assert freshness["error"] == "last ingest pass failed"
 
 

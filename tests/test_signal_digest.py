@@ -1,9 +1,10 @@
 """Digests: building them, the runs and what a run holds, the due-run pass and the background loop.
 
 Expected values are written by hand from the calendar (2026-11-24 is a Tuesday; 2026-11-27 and
-2026-12-04 are Fridays). No model is called anywhere: the AI pass is not built, so a run with
-stories in scope is recorded as skipped. The tests that give a run a writer use a plain test double
-standing in for step 5's, and say so in their names.
+2026-12-04 are Fridays). No model is called anywhere: with no writer a run with stories in scope is
+recorded as skipped. The tests that give a run a writer use a plain test double standing in for
+step 5's (``tests/test_signal_ai_digest.py`` tests the real one against a fake model), and say so
+in their names.
 """
 
 from __future__ import annotations
@@ -345,8 +346,14 @@ class RecordingWriter:
     def __init__(self) -> None:
         self.scopes: list[digests.Scope] = []
 
-    def __call__(self, db: sqlite3.Connection, scope: digests.Scope) -> int:
+    def draft(self, scope: digests.Scope) -> object:
         self.scopes.append(scope)
+        return "draft"
+
+    def store(
+        self, db: sqlite3.Connection, scope: digests.Scope, draft: object, now: datetime
+    ) -> int:
+        assert draft == "draft"
         cur = db.execute(
             "INSERT INTO digest_issues(digest_id, kind, period_start, period_end, created_at)"
             " VALUES(?, 'test-double', ?, ?, ?)",
@@ -580,23 +587,23 @@ def test_changing_the_schedule_never_leaves_a_period_longer_than_the_new_one(db)
 
 def test_a_locked_database_leaves_the_digest_due_and_the_next_tick_runs_it(db, monkeypatch):
     ident = make(db)
-    real = digests._run
+    real = digests._plan
 
     def locked(*args: Any) -> digests.Run:
         raise sqlite3.OperationalError("database is locked")
 
-    monkeypatch.setattr(digests, "_run", locked)
+    monkeypatch.setattr(digests, "_plan", locked)
     assert digests.run_due(db, at("2026-11-27 07:00")) == []
     assert digests.owned(db, "Mara L", ident).next_run_at == at("2026-11-27 07:00")  # still due
     assert count(db, "digest_runs") == 0  # nothing was recorded as a failure
-    monkeypatch.setattr(digests, "_run", real)
+    monkeypatch.setattr(digests, "_plan", real)
     ran = digests.run_due(db, at("2026-11-27 07:01"))
     assert [(found, run.outcome) for found, run in ran] == [(ident, "nothing")]
 
 
 def test_a_failure_while_recording_a_failure_does_not_stop_the_other_digests(db, monkeypatch):
     first, second, third = (make(db, name=n) for n in ("First", "Second", "Third"))
-    real = digests._run
+    real = digests._plan
 
     def flaky(database: sqlite3.Connection, digest: digests.Digest, *rest: Any) -> digests.Run:
         if digest.id == first:
@@ -606,7 +613,7 @@ def test_a_failure_while_recording_a_failure_does_not_stop_the_other_digests(db,
     def broken(*args: Any) -> None:
         raise sqlite3.OperationalError("disk I/O error")
 
-    monkeypatch.setattr(digests, "_run", flaky)
+    monkeypatch.setattr(digests, "_plan", flaky)
     monkeypatch.setattr(digests, "_record_failure", broken)
     ran = digests.run_due(db, at("2026-11-27 07:00"))
     assert [found for found, _ in ran] == [second, third]
@@ -666,14 +673,14 @@ def test_a_digest_left_with_no_cover_runs_as_skipped_and_is_edited_back_into_use
 
 def test_one_digest_that_raises_is_recorded_and_the_others_still_run(db, monkeypatch):
     first, second = make(db, name="First"), make(db, name="Second")
-    real = digests._run
+    real = digests._plan
 
     def flaky(database: sqlite3.Connection, digest: digests.Digest, *rest: Any) -> digests.Run:
         if digest.id == first:
             raise RuntimeError("secret detail")
         return real(database, digest, *rest)
 
-    monkeypatch.setattr(digests, "_run", flaky)
+    monkeypatch.setattr(digests, "_plan", flaky)
     ran = digests.run_due(db, at("2026-11-27 07:00"))
     assert [found for found, _ in ran] == [second]
     row = db.execute("SELECT * FROM digest_runs WHERE digest_id=?", (first,)).fetchone()
@@ -722,7 +729,7 @@ def test_a_failing_digest_job_does_not_stop_the_ingest_job_and_the_reverse(loop_
         raise RuntimeError("secret")
 
     monkeypatch.setattr(service.ingest, "run_due", lambda db, now, fetch: ingested.append(now))
-    monkeypatch.setattr(service.digests, "run_due", boom)
+    monkeypatch.setattr(digests, "run_due", boom)
     loop.run_once(at("2026-11-27 07:00"))  # must not raise
     assert ingested == [at("2026-11-27 07:00")]
     assert loop.last_error is None

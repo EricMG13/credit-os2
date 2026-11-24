@@ -11,7 +11,8 @@ export function BadgeGroup({ from, to, word }: { from: string; to: string; word:
     <span
       role="img"
       aria-label={`${from} to ${to}, ${word}`}
-      className="inline-flex items-center gap-1.5 rounded-full bg-surface-subtle p-1 text-sm font-medium text-text-secondary ring-1 ring-border-hairline ring-inset"
+      // One line is 32px tall, so a 16px corner draws the source's pill; narrower than its parts, it wraps.
+      className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-2xl bg-surface-subtle p-1 text-sm font-medium text-text-secondary ring-1 ring-border-hairline ring-inset"
     >
       <b aria-hidden="true" className={BADGE}>
         {from}

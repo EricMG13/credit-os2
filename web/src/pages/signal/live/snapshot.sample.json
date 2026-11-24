@@ -621,7 +621,7 @@
             "state": "off",
             "notice": {
               "title": "AI is off",
-              "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI line and no signal strength, and a digest with stories to cover writes no issue. Nothing is spent."
+              "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI line and no signal strength, and digests are paused. Nothing more is spent while it is off."
             },
             "spend": null,
             "parts": []

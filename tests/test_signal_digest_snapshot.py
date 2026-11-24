@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import signal_ai_fakes
 import signal_reader_check
 from signal_reader_check import react_refusal
 
@@ -43,8 +44,10 @@ def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database.close()
 
 
-def snap(db: sqlite3.Connection, user: User | None, now: datetime = NOW) -> dict[str, Any]:
-    built = snapshot.build(db, user, now)
+def snap(
+    db: sqlite3.Connection, user: User | None, now: datetime = NOW, **options: Any
+) -> dict[str, Any]:
+    built = snapshot.build(db, user, now, **options)
     assert react_refusal(built) is None, react_refusal(built)
     (scene,) = built["scenes"]
     return dict(scene["snapshot"])
@@ -310,12 +313,12 @@ def test_a_card_goes_between_the_stories_it_falls_between(db):
     assert sorted(view["top"]) == sorted(view["latest"])
 
 
-def test_the_digest_parts_follow_the_ai_state_when_ai_is_on(db, monkeypatch):
+def test_the_digest_parts_follow_the_ai_state_when_ai_is_on(db):
     ident = make(db, "Mara L")
     digests.run_now(db, "Mara L", ident, NOW)
-    on = {"state": "on", "notice": None, "spend": None, "parts": []}
-    monkeypatch.setattr(snapshot, "_ai_off", lambda: on)
-    got = snap(db, WRITER)  # the reader accepts it, too
+    got = snap(
+        db, WRITER, service=snapshot.Service(ai=signal_ai_fakes.status_on())
+    )  # the reader accepts it, too
     assert got["digests"][0]["paused"] is None
     assert got["channels"]["digests"] == [
         {"id": "1", "name": "Weekly brief", "unread": True, "paused": False}

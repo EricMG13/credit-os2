@@ -200,9 +200,21 @@ def _run_message(run: digests.Run) -> str:
     return "The issue is written."
 
 
+QUEUED = (
+    "The AI pass is writing this issue now. It appears here within a few minutes;"
+    " nothing is written if no story is in scope."
+)
+
+
 def _run_digest(req: Req) -> Reply:
+    """ "Run once now". While AI is on the background loop runs it (``digests.request_run``), so
+    no model call is made in a request handler; otherwise it runs here, with no writer."""
+    now = _now()
     try:
-        run = digests.run_now(req.db, req.person.name, _number(req), _now())
+        if req.loop is not None and req.loop.ai_status(req.db, now).state == "on":
+            digests.request_run(req.db, req.person.name, _number(req), now)
+            return Reply(200, {"outcome": "queued", "issueId": None, "message": QUEUED})
+        run = digests.run_now(req.db, req.person.name, _number(req), now)
     except store.StoreError as error:
         raise _fail(error) from None
     issue = None if run.issue_id is None else str(run.issue_id)

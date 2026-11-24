@@ -276,8 +276,70 @@ CREATE INDEX idx_digest_issues_digest ON digest_issues(digest_id, id);
 CREATE INDEX idx_digest_runs_digest ON digest_runs(digest_id, id);
 """
 
+# The AI pass (step 5). `story_ai`: one row per story the pass has answered for, 'written' (the
+# validated fields) or 'invalid' (the model's output for it failed its check: no AI field is kept,
+# and the story is not sent again). `ai_usage`: one row per model call, in USD as exact decimal
+# text; `month` (UTC, YYYY-MM) is the month of its reservation, where it counts. A call is 'open'
+# while it holds its reservation, 'settled' at its actual cost, or 'unknown' (its cost could not be
+# established: it counts at its full reservation, never as zero). `settings`: the owner's monthly
+# cap and the switched-off state. `digest_points`: a written issue's numbered points, each with the
+# ids of the stories behind it; `digest_issue_ai` the issue's model and story count.
+# `digests.run_requested_at`: "Run once now" asked while AI is on; the background loop runs it.
+_MIGRATION_5 = """
+CREATE TABLE story_ai(
+    story_id INTEGER PRIMARY KEY REFERENCES stories(id),
+    outcome TEXT NOT NULL CHECK (outcome IN ('written','invalid')),
+    why TEXT,
+    signal INTEGER CHECK (signal BETWEEN 1 AND 3),
+    tags TEXT,
+    kind TEXT CHECK (kind IN ('news','regulatory case','rating action','other')),
+    stage TEXT CHECK (stage IN ('opened','initial review','in-depth review','decision')),
+    moves TEXT,
+    config_id TEXT NOT NULL,
+    written_at TEXT NOT NULL,
+    month TEXT NOT NULL,
+    CHECK ((outcome = 'written') = (why IS NOT NULL AND signal IS NOT NULL AND tags IS NOT NULL
+        AND kind IS NOT NULL AND moves IS NOT NULL)),
+    CHECK (outcome = 'written' OR stage IS NULL)
+);
+CREATE INDEX idx_story_ai_month ON story_ai(month, outcome);
+CREATE TABLE ai_usage(
+    id INTEGER PRIMARY KEY,
+    purpose TEXT NOT NULL CHECK (purpose IN ('stories','digest')),
+    config_id TEXT NOT NULL,
+    month TEXT NOT NULL,
+    reserved_usd TEXT NOT NULL,
+    settled_usd TEXT,
+    status TEXT NOT NULL CHECK (status IN ('open','settled','unknown')),
+    outcome TEXT NOT NULL,
+    reserved_at TEXT NOT NULL,
+    settled_at TEXT,
+    CHECK ((status = 'settled') = (settled_usd IS NOT NULL))
+);
+CREATE INDEX idx_ai_usage_month ON ai_usage(month, status);
+CREATE TABLE settings(
+    key TEXT PRIMARY KEY CHECK (key IN ('ai_cap_usd','ai_switched_off')),
+    value TEXT NOT NULL,
+    set_at TEXT NOT NULL
+);
+CREATE TABLE digest_issue_ai(
+    issue_id INTEGER PRIMARY KEY REFERENCES digest_issues(id) ON DELETE CASCADE,
+    stories INTEGER NOT NULL,
+    config_id TEXT NOT NULL
+);
+CREATE TABLE digest_points(
+    issue_id INTEGER NOT NULL REFERENCES digest_issues(id) ON DELETE CASCADE,
+    number INTEGER NOT NULL CHECK (number BETWEEN 1 AND 10),
+    lead TEXT NOT NULL,
+    body TEXT NOT NULL,
+    story_ids TEXT NOT NULL,
+    PRIMARY KEY(issue_id, number)
+);
+ALTER TABLE digests ADD COLUMN run_requested_at TEXT;
+"""
+
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
-MIGRATIONS = [_MIGRATION_1, _MIGRATION_2, _MIGRATION_3, _MIGRATION_4]
+MIGRATIONS = [_MIGRATION_1, _MIGRATION_2, _MIGRATION_3, _MIGRATION_4, _MIGRATION_5]
 _BUSY_SECONDS = 30
 
 

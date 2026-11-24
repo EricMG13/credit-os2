@@ -4,7 +4,7 @@
 // would write, are disabled with the reason in view. On a service the visibility is written, each
 // of the two opens a form, and a row also has Rename and Delete, and Topics where the service says
 // which topics post their new stories into the group (the row then lists them).
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Plus, Users01 } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Select } from "@/components/base/select/select";
@@ -302,7 +302,9 @@ export function GroupsSection({
   onVisibility: (group: SignalSettingsGroup, value: string) => void;
 }) {
   const off = useSampleOff(REASON_ID);
-  const opener = useOpener();
+  // A deleted group's row goes with its Delete: New group then takes focus.
+  const first = useRef<HTMLButtonElement>(null);
+  const opener = useOpener(() => first.current);
   const [form, setForm] = useState<Form>({ open: false, group: null, purpose: "members" });
   const open = (group: SignalSettingsGroup | null, purpose: Purpose = "members") => {
     opener.remember();
@@ -314,6 +316,7 @@ export function GroupsSection({
       hint="A group has a thread for every story shared to it."
       action={
         <Button
+          ref={first}
           color="primary"
           iconLeading={Plus}
           {...off}

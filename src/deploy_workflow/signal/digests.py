@@ -6,12 +6,22 @@ parts: the subject (the form's brief text), the period (the schedule's own day, 
 number of points, what to list as upcoming and the look-ahead days. Its length is short or standard.
 A user has at most ``MAX_DIGESTS`` digests.
 
-A run gathers the stories in scope for the period, newest first, at most ``SCOPE_CAP``: the stories
+A run gathers the stories in scope for the period, highest signal first (the AI pass's 1 to 3; a
+story with none comes after those with one), then newest first, at most ``SCOPE_CAP``: the stories
 of the covered topics published in the period, and the stories shared in the covered groups (a
 thread started from a story) in the period. With none in scope it stores an issue saying nothing
-material happened and makes no model call. With some in scope a model call would be needed. The AI
-pass is not built, so unless a ``Writer`` is supplied (the seam step 5 fills) no issue is written
-and the run is recorded as skipped, with the reason.
+material happened and makes no model call. With some in scope it needs a ``Writer`` (the AI pass's,
+``ai_digest``, given only while the pass is on); without one no issue is written and the run is
+recorded as skipped, with the reason.
+
+A run with a writer makes its model call outside every transaction: a first write transaction
+reads the scope (a scheduled run also claims its slot there, by moving ``next_run_at`` on, so no
+other runner takes it); the writer then drafts the issue, holding no lock; a second write
+transaction re-reads the digest and stores the issue only if the digest still exists with the same
+settings and the same period start. A draft for a digest that changed meanwhile is dropped (its
+call is already paid and counted). A writer that fails (``WriterFailed``: the call was refused,
+failed or came back invalid) stores no issue and leaves the period where it was, so the next run
+covers it again.
 
 Every run, whatever its outcome, ends its period and the next period starts there, so a period is
 as long as the time since the last run: one schedule period, plus the downtime a late run catches
@@ -31,10 +41,10 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from deploy_workflow.signal import groups, schedule
 from deploy_workflow.signal.store import (
@@ -73,6 +83,9 @@ DEFAULT_SCHEDULE = "Weekly, Friday 07:00 UTC"
 SKIPPED = "the AI pass is off, so no issue was written for the stories in scope"
 NO_COVER = "the digest covers nothing now, so no issue was written"
 NOTHING = "nothing"  # the kind of an issue saying that no story reached the digest
+WRITTEN = "written"  # the kind of an issue the AI pass wrote, with its points
+CHANGED = "the digest changed while its issue was being written; run it again"
+NOT_WRITTEN = "no issue was written: "  # a writer's failure; the run leaves the period as it was
 
 Outcome = Literal["nothing", "skipped", "written"]
 Trigger = Literal["schedule", "manual"]
@@ -122,6 +135,8 @@ class ScopedStory:
     link: str
     source: str
     published_at: datetime
+    why: str | None = None  # the AI line, when the pass wrote one
+    signal: int | None = None
 
 
 @dataclass(frozen=True)
@@ -142,9 +157,21 @@ class Run:
     reason: str
 
 
-# The seam for the AI pass (step 5): given the write connection of the run's transaction and the
-# scope, it stores an issue in the form step 5 defines and returns the issue's id. None: AI is off.
-Writer = Callable[[sqlite3.Connection, Scope], int]
+class WriterFailed(Exception):
+    """The writer wrote no issue: its call was refused or failed, or its result was invalid."""
+
+
+class Writer(Protocol):
+    """The AI pass's digest writer (``ai_digest``). None in its place: AI is off or at its cap."""
+
+    def draft(self, scope: Scope) -> object:
+        """Make the one model call for `scope` and return the validated result; WriterFailed
+        otherwise. Called outside every transaction."""
+        ...
+
+    def store(self, db: sqlite3.Connection, scope: Scope, draft: object, now: datetime) -> int:
+        """Store the issue `draft` describes inside the caller's write transaction; its id."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -477,7 +504,8 @@ def _marks(count: int) -> str:
 def _scope_stories(
     db: sqlite3.Connection, digest: Digest, start: datetime, end: datetime
 ) -> tuple[ScopedStory, ...]:
-    """The stories in scope for (start, end], newest first, at most `SCOPE_CAP`."""
+    """The stories in scope for (start, end], highest signal then newest first, at most
+    `SCOPE_CAP`."""
     span = [_utc_text(start), _utc_text(end)]
     spec = digest.spec
     parts: list[str] = []
@@ -502,10 +530,11 @@ def _scope_stories(
     if not parts:
         return ()
     rows = db.execute(
-        "SELECT s.id, s.title, s.summary, s.link, s.published_at, src.name AS source"
-        " FROM stories s JOIN sources src ON src.id = s.source_id"
+        "SELECT s.id, s.title, s.summary, s.link, s.published_at, src.name AS source,"
+        " a.why, a.signal FROM stories s JOIN sources src ON src.id = s.source_id"
+        " LEFT JOIN story_ai a ON a.story_id = s.id AND a.outcome = 'written'"
         f" WHERE s.id IN ({' UNION '.join(parts)})"
-        " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
+        " ORDER BY COALESCE(a.signal, 0) DESC, s.published_at DESC, s.id DESC LIMIT ?",
         [*params, SCOPE_CAP],
     ).fetchall()
     return tuple(
@@ -516,6 +545,8 @@ def _scope_stories(
             row["link"],
             row["source"],
             datetime.fromisoformat(row["published_at"]),
+            row["why"],
+            row["signal"],
         )
         for row in rows
     )
@@ -566,34 +597,78 @@ def _record(
     )
 
 
-def _run(
+def _plan(
     db: sqlite3.Connection,
     digest: Digest,
     now: datetime,
     trigger: Trigger,
     writer: Writer | None,
-) -> Run:
-    """One run, inside the caller's write transaction."""
+) -> Run | Scope:
+    """Inside the caller's write transaction: a run that needs no model call is made here (its Run);
+    one that does returns its scope, with a scheduled run's slot claimed."""
     start = min(digest.period_from, now)
     bare = covers_nothing(db, digest)
     stories = () if bare else _scope_stories(db, digest, start, now)
     scope = Scope(digest, start, now, stories)
+    db.execute("UPDATE digests SET run_requested_at=NULL WHERE id=?", (digest.id,))
+    if trigger == "schedule":
+        due = schedule.next_run(digest.spec.schedule, now)
+        db.execute("UPDATE digests SET next_run_at=? WHERE id=?", (_utc_text(due), digest.id))
+    if stories and writer is not None and not bare:
+        return scope
     if bare:
         run = Run("skipped", None, 0, NO_COVER)
     elif not stories:
         run = Run("nothing", _add_issue(db, scope, now), 0, "no story was in scope")
-    elif writer is None:
-        run = Run("skipped", None, len(stories), SKIPPED)
     else:
-        run = Run("written", writer(db, scope), len(stories), "written by the AI pass")
+        run = Run("skipped", None, len(stories), SKIPPED)
+    _close(db, scope, run, trigger, now)
+    return run
+
+
+def _close(db: sqlite3.Connection, scope: Scope, run: Run, trigger: Trigger, now: datetime) -> None:
+    """Record the run and end its period (every run but a failed write does, so a period is never
+    longer than the time since the last run; the stories of a skipped run are not carried on)."""
     _record(db, scope, run, trigger, now)
-    # Every run ends its period, so a period is never longer than the time since the last run;
-    # the stories of a skipped run are not carried into the next period.
-    db.execute("UPDATE digests SET period_from=? WHERE id=?", (_utc_text(now), digest.id))
-    if trigger == "schedule":
-        due = schedule.next_run(digest.spec.schedule, now)
-        db.execute("UPDATE digests SET next_run_at=? WHERE id=?", (_utc_text(due), digest.id))
-    _prune(db, digest.id)
+    if not run.reason.startswith(NOT_WRITTEN):
+        db.execute("UPDATE digests SET period_from=? WHERE id=?", (_utc_text(now), scope.digest.id))
+    _prune(db, scope.digest.id)
+
+
+def _unchanged(db: sqlite3.Connection, scope: Scope) -> bool:
+    """Whether the digest still exists with the settings and period start of its scope."""
+    row = _row(db, scope.digest.id)
+    if row is None:
+        return False
+    now = _digest(db, row)
+    return (now.owner, now.spec, now.period_from) == (
+        scope.digest.owner,
+        scope.digest.spec,
+        scope.digest.period_from,
+    )
+
+
+def _write(
+    db: sqlite3.Connection, scope: Scope, trigger: Trigger, writer: Writer, now: datetime
+) -> Run | None:
+    """Draft the issue outside any transaction, then store it in one; None when the digest changed
+    meanwhile (nothing is stored then)."""
+    count = len(scope.stories)
+    try:
+        draft = writer.draft(scope)
+    except WriterFailed as failed:
+        run = Run("skipped", None, count, f"{NOT_WRITTEN}{failed}")
+        with _write_transaction(db):
+            if not _unchanged(db, scope):
+                return None
+            _close(db, scope, run, trigger, now)  # the period stays where it was
+        return run
+    with _write_transaction(db):
+        if not _unchanged(db, scope):
+            log.warning("digest %s changed while its issue was written; dropped", scope.digest.id)
+            return None
+        run = Run("written", writer.store(db, scope, draft, now), count, "written by the AI pass")
+        _close(db, scope, run, trigger, now)
     return run
 
 
@@ -604,19 +679,47 @@ def run_now(
     now: datetime,
     writer: Writer | None = None,
 ) -> Run:
-    """ "Run once now": a run of the owner's digest that leaves its schedule as it was."""
+    """ "Run once now": a run of the owner's digest that leaves its schedule as it was. With a
+    writer the model call is made outside any transaction; Conflict (``CHANGED``) when the digest
+    changed while its issue was being written."""
     with _write_transaction(db):
-        return _run(db, owned(db, owner, digest_id), now, "manual", writer)
+        planned = _plan(db, owned(db, owner, digest_id), now, "manual", writer)
+    if isinstance(planned, Run):
+        return planned
+    assert writer is not None
+    run = _write(db, planned, "manual", writer, now)
+    if run is None:
+        raise Conflict(CHANGED)
+    return run
+
+
+def request_run(db: sqlite3.Connection, owner: str, digest_id: int, now: datetime) -> None:
+    """Ask the background loop to run the owner's digest once (``run_due``): "Run once now" while
+    AI is on, so no model call is made in a request handler."""
+    with _write_transaction(db):
+        owned(db, owner, digest_id)
+        db.execute("UPDATE digests SET run_requested_at=? WHERE id=?", (_utc_text(now), digest_id))
 
 
 def _run_scheduled(
     db: sqlite3.Connection, digest_id: int, now: datetime, writer: Writer | None
 ) -> Run | None:
+    """The digest's scheduled run, or the run its owner asked for; None when neither is due now
+    (deleted, or another runner took it, since the list was read)."""
     with _write_transaction(db):
         row = _row(db, digest_id)
-        if row is None or datetime.fromisoformat(row["next_run_at"]) > now:
-            return None  # deleted, or another runner took it, since the list was read
-        return _run(db, _digest(db, row), now, "schedule", writer)
+        if row is None:
+            return None
+        trigger: Trigger = "schedule"
+        if datetime.fromisoformat(row["next_run_at"]) > now:
+            if row["run_requested_at"] is None:
+                return None
+            trigger = "manual"
+        planned = _plan(db, _digest(db, row), now, trigger, writer)
+    if isinstance(planned, Run):
+        return planned
+    assert writer is not None
+    return _write(db, planned, trigger, writer, now)
 
 
 def _record_failure(db: sqlite3.Connection, digest_id: int, now: datetime, name: str) -> None:
@@ -632,7 +735,7 @@ def _record_failure(db: sqlite3.Connection, digest_id: int, now: datetime, name:
         _record(db, scope, Run("skipped", None, 0, reason), "schedule", now)
         due = schedule.next_run(digest.spec.schedule, now)
         db.execute(
-            "UPDATE digests SET next_run_at=?, period_from=? WHERE id=?",
+            "UPDATE digests SET next_run_at=?, period_from=?, run_requested_at=NULL WHERE id=?",
             (_utc_text(due), _utc_text(now), digest_id),
         )
 
@@ -648,13 +751,16 @@ def _fail(db: sqlite3.Connection, digest_id: int, now: datetime, error: Exceptio
 def run_due(
     db: sqlite3.Connection, now: datetime, writer: Writer | None = None
 ) -> list[tuple[int, Run]]:
-    """Run every digest whose time has come, once each, however many periods it missed.
+    """Run every digest whose time has come, once each, however many periods it missed, and every
+    digest whose owner asked for a run (``request_run``).
 
     A digest whose run raises is logged and recorded as skipped, unless the database was busy or
     failed (a `sqlite3.OperationalError`): that one is left due for the next tick. Either way the
     pass goes on to the others, even when recording a failure fails too."""
     due = db.execute(
-        "SELECT id FROM digests WHERE next_run_at <= ? ORDER BY next_run_at, id", (_utc_text(now),)
+        "SELECT id FROM digests WHERE next_run_at <= ? OR run_requested_at IS NOT NULL"
+        " ORDER BY next_run_at, id",
+        (_utc_text(now),),
     ).fetchall()
     results: list[tuple[int, Run]] = []
     for row in due:
@@ -681,11 +787,13 @@ __all__ = [
     "ScopedStory",
     "Spec",
     "Writer",
+    "WriterFailed",
     "create",
     "delete",
     "edit",
     "mark_read",
     "owned",
+    "request_run",
     "run_due",
     "run_now",
     "spec_from_form",

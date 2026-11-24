@@ -233,6 +233,92 @@ describe("a read while a feed view is on screen", () => {
   });
 });
 
+/** A ranked view as the service delivers it: its whole window in both orders, and how many are drawn first. */
+function ranked(
+  top: string[],
+  latest: string[],
+  shown: number,
+  waiting: SignalFeedView["waiting"] = null,
+): SignalFeedView {
+  return { top, latest, waiting, older: [], shown };
+}
+
+describe("a ranked view that holds its whole window", () => {
+  it("keeps a story that rose in rank where it was: it does not jump into the drawn part, nor wait as new", () => {
+    // The page draws the first two of the order on screen. Story 4 was fifth in Top; the service now ranks it first.
+    const held = ranked(["5", "1", "2", "3", "4"], ["5", "4", "3", "2", "1"], 2);
+    const fresh = ranked(["4", "5", "1", "2", "3"], ["5", "4", "3", "2", "1"], 2);
+    expect(holdView(held, fresh)).toEqual(
+      ranked(["5", "1", "2", "3", "4"], ["5", "4", "3", "2", "1"], 2),
+    );
+  });
+
+  it("keeps a story that fell in rank where it was, too", () => {
+    const held = ranked(["5", "1", "2"], ["5", "2", "1"], 2);
+    const fresh = ranked(["1", "2", "5"], ["5", "2", "1"], 2);
+    expect(holdView(held, fresh)).toEqual(ranked(["5", "1", "2"], ["5", "2", "1"], 2));
+  });
+
+  it("puts a story the view did not hold behind the pill, wherever the service ranks it", () => {
+    const held = ranked(["5", "1", "2"], ["5", "2", "1"], 2);
+    const fresh = ranked(["9", "5", "1", "8", "2"], ["9", "8", "5", "2", "1"], 2);
+    expect(holdView(held, fresh)).toEqual(
+      ranked(["5", "1", "2"], ["5", "2", "1"], 2, { label: "2 new stories", ids: ["9", "8"] }),
+    );
+  });
+
+  it("drops a story the service no longer lists from both orders and keeps the count", () => {
+    const held = ranked(["5", "1", "2", "3"], ["5", "3", "2", "1"], 2);
+    const fresh = ranked(["5", "2", "3"], ["5", "3", "2"], 2);
+    expect(holdView(held, fresh)).toEqual(ranked(["5", "2", "3"], ["5", "3", "2"], 2));
+  });
+
+  it("holds the count the reader's view has, whatever the service now says", () => {
+    const held = ranked(["5", "1"], ["5", "1"], 4);
+    expect(holdView(held, ranked(["5", "1"], ["5", "1"], 30)).shown).toBe(4);
+    // A view read before the service counted keeps drawing its whole order.
+    expect("shown" in holdView(view(["5", "1"]), ranked(["5", "1"], ["5", "1"], 30))).toBe(false);
+  });
+
+  /** The sample with its Telecoms topic (stories 2 and 4) ranked: the first one is drawn. */
+  const rankedTopic = (edit: (snapshot: Parameters<typeof unsaved>[0]) => void = () => undefined) =>
+    sampleWith((snapshot) => {
+      edit(snapshot);
+      const topic = snapshot.feed.topics["2"];
+      if (topic === undefined) throw new Error("the sample has the Telecoms topic");
+      topic.shown = 1;
+    });
+
+  it("is held across a read with its count, and the reader accepts the result", () => {
+    const before = read(rankedTopic());
+    const fresh = read(
+      rankedTopic((snapshot) => {
+        arrival("7", "Tessaly Telecom names a new finance chief")(snapshot);
+        // The service also ranks the review above the sale now.
+        const topic = snapshot.feed.topics["2"];
+        if (topic !== undefined) topic.top = ["4", "7", "2"];
+      }),
+    );
+    expect(mainView(fresh, TELECOMS)).toEqual(ranked(["4", "7", "2"], ["7", "2", "4"], 1));
+    const held = holdAfterRead(before, null, fresh, TELECOMS);
+    expect(held?.view).toEqual(
+      ranked(["2", "4"], ["2", "4"], 1, { label: "1 new story", ids: ["7"] }),
+    );
+    expect(readSlice(shownSlice(fresh, held, TELECOMS)).kind).toBe("ok");
+    // Show draws the new story as well as the one that was drawn: the count grows by it.
+    const shown = holdAfterReveal(fresh, held, TELECOMS);
+    expect(shown?.view).toEqual(ranked(["7", "2", "4"], ["7", "2", "4"], 2));
+    expect(readSlice(shownSlice(fresh, shown, TELECOMS)).kind).toBe("ok");
+  });
+
+  it("leaves a view with no count without one when its pill is shown", () => {
+    const fresh = read(withArrival());
+    const held = holdAfterRead(read(sampleWith()), null, fresh, LATEST);
+    const shown = holdAfterReveal(fresh, held, LATEST);
+    expect(shown === null || "shown" in shown.view).toBe(false);
+  });
+});
+
 describe("the feed's own error", () => {
   it("is set and cleared on the live scene, and the reader accepts both", () => {
     const fresh = read(sampleWith());

@@ -4,8 +4,9 @@ The switches are the Notifications screen's two channels: "In Signal" (the event
 on the channel rail) and "On the desktop" (stored and delivered for the desktop app to act on; the
 service itself sends nothing to a desktop). A user who never set a switch has the default.
 
-Events: replies to my comments, new threads in my groups, high-signal stories in my topics (needs
-the AI pass's strength, so nothing raises it yet), a digest is ready (read by the digests module).
+Events: replies to my comments, new threads in my groups, high-signal stories in my topics (while
+the AI pass is on, a followed topic's rail count says how many strong stories it got in the last
+day: ``snapshot._strong_counts``), a digest is ready (read by the digests module).
 """
 
 from __future__ import annotations

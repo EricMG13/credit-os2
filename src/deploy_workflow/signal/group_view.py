@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -642,14 +642,22 @@ def notifications(db: sqlite3.Connection, user: User | None) -> Json:
 
 
 def ranker(
-    db: sqlite3.Connection, user_name: str, published: dict[int, str], now: datetime
+    db: sqlite3.Connection,
+    user_name: str,
+    published: dict[int, str],
+    now: datetime,
+    strengths: Mapping[int, int] | None = None,
 ) -> Callable[[list[int]], list[int]]:
-    """The Top order of a list of story ids (their published times given), for this viewer."""
+    """The Top order of a list of story ids (their published times given), for this viewer;
+    `strengths` holds the AI pass's signal strength of the stories that have one."""
     held = engagement(db, user_name, list(published))
+    strong = strengths or {}
 
     def rank(ids: list[int]) -> list[int]:
         standings = [
-            threadrank.Standing(n, datetime.fromisoformat(published[n]), *held.get(n, (0, 0)))
+            threadrank.Standing(
+                n, datetime.fromisoformat(published[n]), *held.get(n, (0, 0)), strong.get(n)
+            )
             for n in ids
         ]
         return threadrank.top_order(standings, now)

@@ -4,8 +4,8 @@ and comments in the viewer's groups. Deterministic and free of any AI call.
     score = (strength + SHARE_WEIGHT * shares + COMMENT_WEIGHT * comments)
             * 0.5 ** (age / HALF_LIFE)
 
-`strength` is the AI pass's 1, 2 or 3. That pass is not built, so every story's strength is absent
-today and counts as NO_STRENGTH; the order is then age decay raised by shares and comments. Age
+`strength` is the AI pass's 1, 2 or 3, given while the pass is on; a story with none (the pass is
+off, or its output for the story failed its check) counts as NO_STRENGTH, the weakest. Age
 is measured from the published time to `now` (a time ahead of `now` counts as age 0). Ties keep
 the Latest order: newer published time first, then the higher id.
 """
@@ -31,7 +31,7 @@ class Standing:
     published_at: datetime
     shares: int = 0  # threads it has in the viewer's groups
     comments: int = 0  # comments in those threads, removed ones left out
-    strength: int | None = None  # the AI pass's signal strength; None while there is none
+    strength: int | None = None  # the AI pass's signal strength; None when there is none
 
 
 def score(item: Standing, now: datetime) -> float:

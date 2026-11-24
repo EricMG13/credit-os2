@@ -46,7 +46,7 @@ function GroupRules({
 }: { group: SignalSettingsGroup; rules: SignalSettingsRule[] } & Switches) {
   const id = useId();
   return (
-    <li role="group" aria-labelledby={id} className="border-t border-border-hairline py-5">
+    <div role="group" aria-labelledby={id} className="border-t border-border-hairline py-5">
       <h3 id={id} className="mb-4 text-md font-semibold text-text-primary">
         {group.name}
       </h3>
@@ -55,7 +55,7 @@ function GroupRules({
       ) : (
         <RuleList rules={rules} group={group} {...switches} />
       )}
-    </li>
+    </div>
   );
 }
 
@@ -101,11 +101,11 @@ export function RulesSection({
       ) : own.length === 0 ? (
         <p className="text-sm text-text-tertiary">No thread rules yet.</p>
       ) : (
-        <ul>
+        <div>
           {own.map(({ group, rules: held }) => (
             <GroupRules key={group.id} group={group} rules={held} {...switches} />
           ))}
-        </ul>
+        </div>
       )}
     </Section>
   );

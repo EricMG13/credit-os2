@@ -7,10 +7,11 @@ import re
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 
 from deploy_workflow.http_base import Reply, refuse
-from deploy_workflow.signal import identity
+from deploy_workflow.signal import ai_gate, identity
 
 NEEDS_NAME = "choose a display name first"
 ID = "([0-9]{1,18})"  # ASCII digits only (a str pattern's \d also matches other scripts)
@@ -20,7 +21,10 @@ class LoopState(Protocol):
     """The part of the background loop a handler may read."""
 
     last_error: str | None
+    ai_error: str | None
     digest_error: str | None
+
+    def ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status: ...
 
 
 @dataclass

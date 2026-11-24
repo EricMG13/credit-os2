@@ -17,7 +17,8 @@ export function Pill({
         type="button"
         aria-label={`${action} ${label}`}
         onClick={onAction}
-        className="cursor-pointer rounded-full outline-focus-ring hover:underline focus-visible:outline-2"
+        // 24px to press, inside the pill's own height.
+        className="-my-1 min-h-6 min-w-6 cursor-pointer rounded-full outline-focus-ring hover:underline focus-visible:outline-2"
       >
         {action}
       </button>

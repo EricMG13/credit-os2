@@ -67,9 +67,10 @@ from deploy_workflow.http_base import WILDCARD_MESSAGE
 from deploy_workflow.http_base import Reply as _Reply
 from deploy_workflow.http_base import refuse as _refuse
 from deploy_workflow.signal import (
+    ai_gate,
+    ai_run,
     api_groups,
     api_settings,
-    digests,
     feedview,
     identity,
     ingest,
@@ -100,20 +101,31 @@ _POLICY = "default-src 'none'; frame-ancestors 'none'"
 
 
 class Loop:
-    """The background loop: one pass per tick, the ingest of the approved sources that are due and
-    then the digests that are due. The two jobs fail alone: each has its own connection and its
-    own recorded error."""
+    """The background loop: one pass per tick, the ingest of the approved sources that are due,
+    then the AI pass over the new stories, then the digests that are due. The three jobs fail
+    alone: each has its own connection and its own recorded error. The AI pass and the digests'
+    writer get a model only while ``ai_gate`` says the pass is on (``ai_run``); `ai` holds the
+    launching environment and the rulings folder it reads (the process's own by default)."""
 
-    def __init__(self, root: Path, fetch_fn: FetchFn | None = None) -> None:
+    def __init__(
+        self, root: Path, fetch_fn: FetchFn | None = None, ai: ai_run.Setup | None = None
+    ) -> None:
         self.root = root
         self.fetch_fn = fetch_fn
+        self.ai = ai_run.Setup() if ai is None else ai
         self.last_error: str | None = None  # the ingest job's
+        self.ai_error: str | None = None
         self.digest_error: str | None = None
 
     def run_once(self, now: datetime) -> None:
         """One pass: each job on its own connection; a failing job is logged and recorded."""
         self.last_error = self._job("ingest", lambda db: ingest.run_due(db, now, self.fetch_fn))
-        self.digest_error = self._job("digest", lambda db: digests.run_due(db, now))
+        self.ai_error = self._job("AI", lambda db: ai_run.story_pass(db, now, self.ai))
+        self.digest_error = self._job("digest", lambda db: ai_run.digest_pass(db, now, self.ai))
+
+    def ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status:
+        """The AI pass's status now (no model is built and no call made)."""
+        return ai_run.status(db, now, self.ai)
 
     def _job(self, name: str, job: Callable[[sqlite3.Connection], object]) -> str | None:
         """Run `job`; None when it finished, else the text /api/status shows for its failure."""
@@ -237,7 +249,9 @@ def _status(req: _Req) -> _Reply:
         {
             "last_pass_at": store.get_meta(req.db, "last_pass_at"),
             "sources": {"approved": len(approved), "failing": failing},
-            "loop_error": (req.loop.last_error or req.loop.digest_error) if req.loop else None,
+            "loop_error": (req.loop.last_error or req.loop.ai_error or req.loop.digest_error)
+            if req.loop
+            else None,
         },
     )
 
@@ -255,7 +269,10 @@ def _focus_id(req: _Req, name: str) -> int | None:
 def _snapshot(req: _Req) -> _Reply:
     failed = req.loop is not None and req.loop.last_error is not None
     focus = snapshot.Focus(_focus_id(req, "topic"), _focus_id(req, "thread"))
-    built = snapshot.build(req.db, req.user, datetime.now(UTC), pass_failed=failed, focus=focus)
+    now = datetime.now(UTC)
+    ai = None if req.loop is None else req.loop.ai_status(req.db, now)
+    state = snapshot.Service(pass_failed=failed, ai=ai)
+    built = snapshot.build(req.db, req.user, now, focus=focus, service=state)
     return _Reply(200, built)
 
 

@@ -8,10 +8,12 @@ passes. Dates and the day boundaries behind "yesterday" are UTC.
 The store holds users and roles, sources with their checks, stories with their duplicates, topics
 with their follows, saves, and groups with their threads, comments, reactions, read marks, thread
 rules and notification switches (written by ``group_view``, which also gives a story its sharer,
-comment count and thread). Digests are the viewer's own and are written by ``digestview``: with
-the AI pass not built every digest is delivered paused. The AI pass does not exist in this
-service: AI is off with a notice saying it is not set up, and no story carries an AI line, a
-strength, a case stage or rating moves.
+comment count and thread). Digests are the viewer's own and are written by ``digestview``. The AI
+pass's state is the caller's (``ai``, an ``ai_gate.Status``; None: not set up): while it is on a
+story carries what the pass wrote for it (``ai_view``), the Top order reads its signal strength,
+and the "signal" notification event marks a followed topic's count with its strong stories of the
+last day (``_strong_counts``); off or at its cap none of that is delivered and every digest is
+paused.
 
 Views: For you (stories in followed topics or shared in the viewer's groups), Latest, Saved and
 one per topic. For you and each topic are ranked whole: ``latest`` holds every delivered id
@@ -27,10 +29,10 @@ read in one read transaction.
 Size: the forwarder in front of the service refuses a reply over 4 MiB, so the snapshot is kept
 under 3 MiB in every store state. The group part keeps its own budgets (``group_view``); the
 stories then share what is left of ``STORY_AND_GROUP_BUDGET`` (and of ``SNAPSHOT_BUDGET`` after
-the rest of the snapshot), paid in the order ``_priority`` gives; a story that does not fit is
-left out of every view, and a count beside a view left empty by it is not delivered. A headline
-longer than ``HEADLINE_LIMIT`` characters is cut, and a link longer than ``MAX_LINK`` is not
-delivered, so no one story outgrows the budget.
+the rest of the snapshot, the digest parts included), paid in the order ``_priority`` gives; a
+story that does not fit is left out of every view, and a count beside a view left empty by it is
+not delivered. A headline longer than ``HEADLINE_LIMIT`` characters is cut, and a link longer
+than ``MAX_LINK`` is not delivered, so no one story outgrows the budget.
 
 Focus: ``GET /api/snapshot?topic=<id>&thread=<id>`` (``Focus``) asks for a topic's older stories
 and a thread's comments. An id that names nothing the viewer can see is ignored: the reply is the
@@ -46,13 +48,34 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from deploy_workflow.signal import digestview, feedview, group_view, ingest, store, topics
+from deploy_workflow.signal import (
+    ai_gate,
+    ai_view,
+    digestview,
+    feedview,
+    group_view,
+    ingest,
+    notif,
+    store,
+    topics,
+)
 from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.texts import ago, day, initials, monogram
 from deploy_workflow.signal.texts import capital as _capital
 from deploy_workflow.signal.texts import plural as _plural
 
-__all__ = ["NO_FOCUS", "OLDER", "SHOWN", "Focus", "ago", "build", "day", "initials", "monogram"]
+__all__ = [
+    "NO_FOCUS",
+    "OLDER",
+    "SHOWN",
+    "Focus",
+    "Service",
+    "ago",
+    "build",
+    "day",
+    "initials",
+    "monogram",
+]
 
 Json = dict[str, Any]
 
@@ -61,13 +84,14 @@ OLDER = 90
 # Bytes the group part and the stories deliver together (the group part spends first, within its
 # own budgets); everything else the snapshot holds is small and bounded by the store's limits.
 STORY_AND_GROUP_BUDGET = 2304 << 10  # 2.25 MiB
-SNAPSHOT_BUDGET = 2816 << 10  # 2.75 MiB: all but the digests (bounded by their own limits)
+SNAPSHOT_BUDGET = 2816 << 10  # 2.75 MiB: everything (the stories are paid from what is left)
 HEADLINE_LIMIT = 500  # characters; a feed's title has no limit of its own
 MAX_LINK = 2048  # a longer link is delivered as no link
 _THREAD_FIELDS = 1024  # at most what sharedBy, commentCount and threadRef add to a card
 _MAIN = ("saved", "for-you", "latest")
 _UNRANKED = ("latest", "saved")  # views that keep SHOWN + older; the others are ranked whole
 _WEEK = timedelta(days=7)
+_STRONG_FOR = timedelta(hours=24)  # the "signal" event counts a topic's strong stories this recent
 
 
 @dataclass(frozen=True)
@@ -79,6 +103,18 @@ class Focus:
 
 
 NO_FOCUS = Focus()
+
+
+@dataclass(frozen=True)
+class Service:
+    """What the running service adds: whether the ingest loop's last pass failed, and the AI
+    pass's status (None: no AI pass is set up, so it is off)."""
+
+    pass_failed: bool = False
+    ai: ai_gate.Status | None = None
+
+
+NO_SERVICE = Service()
 _KIND = {
     "regulator": "Regulatory case",
     "news": "News",
@@ -102,28 +138,35 @@ def build(
     user: User | None,
     now: datetime,
     *,
-    pass_failed: bool = False,
     focus: Focus = NO_FOCUS,
+    service: Service = NO_SERVICE,
 ) -> Json:
     """The slice for `user` (None: no display name yet) as of `now`, read in one transaction.
 
-    `pass_failed` says the ingest loop's last pass failed; the freshness line then says so.
-    `focus` names a topic and a thread to deliver in full (see the module docstring)."""
+    `focus` names a topic and a thread to deliver in full (see the module docstring). `service`
+    says whether the ingest loop's last pass failed (the freshness line then says so) and gives
+    the AI pass's status."""
+    ai = service.ai
+    on = ai is not None and ai.state == "on"
     with feedview.read_transaction(db):
         listed = topics.list_topics(db, user.name if user is not None else "")
         checked = [(row, ingest.health(db, row["id"], now)) for row in store.sources(db)]
         sources = _sources(checked, now, named=user is not None)
-        held = _Cards(db, user, now)
+        held = _Cards(db, user, now, ai_on=on)
         parts = group_view.build(db, user, now, focus=focus.thread, story_cost=held.cost)
         channels = _channels(db, user, listed)
+        if on and user is not None:
+            _strong_counts(db, user, now, channels)
         settings = _settings(db, listed, sources, now)
-        rest = group_view.encoded_size([channels, settings])
+        settings["ai"] = ai_view.settings_ai(ai, user, now)
+        drawn = digestview.build(db, user, now, ai_on=on)
+        rest = group_view.encoded_size([channels, settings]) + drawn.size
         stories, views = _stories_and_views(held, listed, parts, (focus.topic, rest))
         feed = {
             "status": "ready",
             "error": None,
             "sources": {"approved": any(row["state"] == "approved" for row, _ in checked)},
-            "freshness": _freshness(checked, now, pass_failed=pass_failed),
+            "freshness": _freshness(checked, now, pass_failed=service.pass_failed),
             "stories": stories,
             "digests": [],
             "views": {key: views.pop(key) for key in ("for-you", "latest", "saved")},
@@ -143,7 +186,7 @@ def build(
             "digests": [],
             "settings": settings,
         }
-        digestview.apply(db, user, now, snapshot, (SHOWN + OLDER, 0))  # For you: all in latest
+        digestview.place(db, user, drawn, snapshot, (SHOWN + OLDER, 0))  # For you: all in latest
     return {"scenes": [{"id": "main", "snapshot": snapshot}]}
 
 
@@ -223,8 +266,15 @@ def _headline(title: str) -> str:
     return cut.rstrip() + "\u2026"
 
 
-def _story(db: sqlite3.Connection, card: feedview.Card, now: datetime, threaded: Json) -> Json:
-    """`threaded` holds the story's sharedBy, commentCount and threadRef (group_view)."""
+def _story(
+    db: sqlite3.Connection,
+    card: feedview.Card,
+    now: datetime,
+    threaded: Json,
+    found: ai_view.StoryAi | None = None,
+) -> Json:
+    """`threaded` holds the story's sharedBy, commentCount and threadRef (group_view); `found` what
+    the AI pass wrote for it, delivered only while the pass is on."""
     others = feedview.other_sources(db, card.id)
     also = None
     if others:
@@ -234,7 +284,7 @@ def _story(db: sqlite3.Connection, card: feedview.Card, now: datetime, threaded:
             "more": f"+{len(others) - 3}" if len(others) > 3 else None,
         }
     web = card.link.lower().startswith(("http://", "https://")) and len(card.link) <= MAX_LINK
-    return {
+    story: Json = {
         "id": str(card.id),
         "kind": card.kind,
         "kindLabel": _KIND[card.kind],
@@ -254,23 +304,37 @@ def _story(db: sqlite3.Connection, card: feedview.Card, now: datetime, threaded:
         "stage": None,
         "ratingMoves": [],
     }
+    if found is not None:
+        story.update(ai_view.story_fields(found, card.kind, _KIND[card.kind], card.topics))
+    return story
 
 
 class _Cards:
-    """The viewer's story cards, read once each; `cost` is a card's bytes for the group part."""
+    """The viewer's story cards, read once each; `cost` is a card's bytes for the group part.
+    While the AI pass is on (`ai_on`) each card carries what the pass wrote for its story."""
 
-    def __init__(self, db: sqlite3.Connection, user: User | None, now: datetime) -> None:
-        self.db, self.user, self.now = db, user, now
+    def __init__(
+        self, db: sqlite3.Connection, user: User | None, now: datetime, *, ai_on: bool = False
+    ) -> None:
+        self.db, self.user, self.now, self.ai_on = db, user, now, ai_on
         self.found: dict[int, feedview.Card] = {}
+        self.ai: dict[int, ai_view.StoryAi] = {}
 
     def load(self, ids: list[int]) -> None:
         missing = sorted(set(ids) - set(self.found))
         if missing and self.user is not None:
             self.found.update(feedview.cards(self.db, self.user.name, missing))
+            if self.ai_on:
+                self.ai.update(ai_view.load(self.db, missing))
 
     def story(self, story_id: int, threaded: Json) -> Json | None:
         card = self.found.get(story_id)
-        return None if card is None else _story(self.db, card, self.now, threaded)
+        if card is None:
+            return None
+        return _story(self.db, card, self.now, threaded, self.ai.get(story_id))
+
+    def strengths(self) -> dict[int, int]:
+        return {story_id: found.signal for story_id, found in self.ai.items()}
 
     def cost(self, story_id: int) -> int:
         """The card's bytes, with room for the fields a delivered thread adds to it."""
@@ -349,7 +413,7 @@ def _stories_and_views(
     chosen = _paid(_priority(held, focused), costs, free & set(built), left)
     cards = sorted((held_cards.found[n] for n in chosen), key=lambda c: (c.published_at, c.id))
     published = {card.id: card.published_at for card in reversed(cards)}
-    rank = group_view.ranker(db, user.name, published, now)
+    rank = group_view.ranker(db, user.name, published, now, held_cards.strengths())
     stories = [built[card.id] for card in reversed(cards)]
     return stories, {
         key: _view([n for n in ids if n in chosen], rank, ranked=key not in _UNRANKED)
@@ -382,7 +446,7 @@ def _settings(
     recent = topics.counts_since(db, now - _WEEK)
     return {
         "topics": [_settings_topic(row, recent.get(row["id"], 0)) for row in listed],
-        "ai": _ai_off(),
+        "ai": ai_view.settings_ai(None, None, now),
         "groups": [],
         "rules": [],
         "notifications": {"events": []},
@@ -391,18 +455,23 @@ def _settings(
     }
 
 
-def _ai_off() -> Json:
-    """AI and cost: off, because this service has no AI pass, so nothing is spent."""
-    text = (
-        "The AI pass is not set up on this Signal service. Stories arrive with no AI line and "
-        "no signal strength, and a digest with stories to cover writes no issue. Nothing is spent."
-    )
-    return {
-        "state": "off",
-        "notice": {"title": "AI is off", "text": text},
-        "spend": None,
-        "parts": [],
-    }
+def _strong_counts(db: sqlite3.Connection, user: User, now: datetime, channels: Json) -> None:
+    """The "signal" notification event (spec 5.9): while its "In Signal" switch is on, a followed
+    topic holding strong stories (3 marks) published in the last 24 hours shows how many beside it
+    ("2 strong") in place of its story count. Only while the AI pass is on."""
+    if not notif.switches(db, user.name)["signal"][0]:
+        return
+    rows = db.execute(
+        "SELECT ts.topic_id, COUNT(*) AS n FROM topic_stories ts"
+        " JOIN topic_follows f ON f.topic_id = ts.topic_id AND f.user_name = ?"
+        " JOIN story_ai a ON a.story_id = ts.story_id AND a.outcome = 'written' AND a.signal = 3"
+        " JOIN stories s ON s.id = ts.story_id WHERE s.published_at > ? GROUP BY ts.topic_id",
+        (user.name, store._utc_text(now - _STRONG_FOR)),
+    ).fetchall()
+    strong = {str(row["topic_id"]): int(row["n"]) for row in rows}
+    for topic in channels["topics"]:
+        if strong.get(topic["id"]):
+            topic["count"] = f"{strong[topic['id']]} strong"
 
 
 def _settings_topic(row: sqlite3.Row, recent: int) -> Json:

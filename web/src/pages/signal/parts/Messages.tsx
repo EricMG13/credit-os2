@@ -35,7 +35,7 @@ export type OwnComments = {
 const CHIP =
   "h-6 rounded-ds-full px-2 text-sm font-medium whitespace-nowrap ring-1 ring-border-hairline ring-inset";
 /** The chips keep their words on one line each and wrap as a row where the panel is narrow. */
-const CHIPS = "flex flex-wrap justify-end gap-1";
+const CHIPS = "ml-auto flex flex-wrap justify-end gap-1";
 
 type ListProps = {
   comments: SignalComment[];
@@ -143,6 +143,8 @@ function EditBox({ comment, own }: { comment: SignalComment; own: OwnComments })
   const panel = useRef<HTMLElement | null>(null);
   useEffect(() => {
     box.current?.focus();
+    // Save and Cancel sit under the box: the whole form is brought into view, not the box alone.
+    box.current?.closest("form")?.scrollIntoView({ block: "nearest" });
     panel.current = box.current?.closest<HTMLElement>("[role='dialog']") ?? null;
   }, []);
   // Where Edit is no longer offered once the box has gone (the service's time for it ran out), the panel takes focus.

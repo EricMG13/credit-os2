@@ -1,5 +1,6 @@
-"""Command line for Signal users, sources, ingest passes and stories, and the owner's moderation
-and clean-up of groups, threads and comments (which have no browser route)."""
+"""Command line for Signal users, sources, ingest passes and stories, the owner's moderation and
+clean-up of groups, threads and comments (which have no browser route), and the owner's AI
+commands (``cli_ai``)."""
 
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
-from deploy_workflow.signal import groups, threads
+from deploy_workflow.signal import ai_run, cli_ai, groups, threads
 from deploy_workflow.signal.fetch import FetchRefused, check_address
 from deploy_workflow.signal.groups import GroupError
 from deploy_workflow.signal.identity import IdentityError, clean_name
@@ -79,6 +80,7 @@ def _parser() -> argparse.ArgumentParser:
     stories = commands.add_parser("stories")
     stories.add_argument("--limit", type=_positive_int, default=20)
     _moderation(commands)
+    cli_ai.add_parser(commands)
     return parser
 
 
@@ -193,8 +195,17 @@ def _positive_int(text: str) -> int:
     return value
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Run one command; 2 on a usage error, a store error or a refused address."""
+def _ai(args: argparse.Namespace, setup: ai_run.Setup) -> int:
+    db = open_db(args.root)
+    try:
+        return cli_ai.run(db, args, setup)
+    finally:
+        db.close()
+
+
+def main(argv: Sequence[str] | None = None, ai: ai_run.Setup | None = None) -> int:
+    """Run one command; 2 on a usage error, a store error or a refused address. `ai` is what the
+    AI commands read (the launching environment and the project's rulings by default)."""
     try:
         args = _parser().parse_args(argv)
     except SystemExit as exit_:
@@ -202,6 +213,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "serve":
         return serve(args.root, args.host, args.port)
     try:
+        if args.command == "ai":
+            return _ai(args, ai_run.Setup() if ai is None else ai)
         _dispatch(args)
     except (StoreError, FetchRefused, IdentityError, GroupError) as error:
         print(f"error: {error}", file=sys.stderr)

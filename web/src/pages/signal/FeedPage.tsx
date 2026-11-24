@@ -243,11 +243,10 @@ function entriesOnScreen(
   filter: { kind: FeedKind; needle: string },
 ): { first: FeedEntry[]; rest: FeedEntry[] } {
   const pass = (list: FeedEntry[]) => visible(list, filter.kind, filter.needle);
-  const listed = pass([
-    ...(revealed && entries.waiting !== null ? entries.waiting.entries : []),
-    ...entries[order],
-  ]);
-  const count = entries.shown ?? listed.length;
+  const waiting = revealed && entries.waiting !== null ? entries.waiting.entries : [];
+  const listed = pass([...waiting, ...entries[order]]);
+  // Stories shown from the pill are drawn as well as what was: nothing leaves the foot of the list.
+  const count = entries.shown == null ? listed.length : entries.shown + waiting.length;
   return { first: listed.slice(0, count), rest: [...listed.slice(count), ...pass(entries.older)] };
 }
 
