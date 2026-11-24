@@ -9,6 +9,7 @@
 import { act, render, within } from "@testing-library/react";
 import type { SignalScene, SignalSlice, SignalStory } from "../slice";
 import sample from "../../../../fixtures/signal-live.json";
+import current from "./snapshot.sample.json";
 import { SignalLive } from "./SignalLive";
 
 export type Snapshot = SignalScene["snapshot"];
@@ -19,6 +20,13 @@ export type Snapshot = SignalScene["snapshot"];
  */
 export function sampleWith(edit: (snapshot: Snapshot) => void = () => undefined): SignalSlice {
   const copy = structuredClone(sample) as unknown as SignalSlice;
+  edit(copy.scenes[0].snapshot);
+  return copy;
+}
+
+/** A copy of the service's current sample (groups, threads, digests, rules and events), changed by `edit`. */
+export function currentWith(edit: (snapshot: Snapshot) => void = () => undefined): SignalSlice {
+  const copy = structuredClone(current) as unknown as SignalSlice;
   edit(copy.scenes[0].snapshot);
   return copy;
 }

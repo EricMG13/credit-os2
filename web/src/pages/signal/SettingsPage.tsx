@@ -66,12 +66,19 @@ export function SettingsPage({
   const [visible, setVisible] = useState<ReadonlyMap<string, string>>(new Map());
   const see = (groupId: string, value: string) => {
     setVisible(new Map(visible).set(groupId, value));
-    const word = VISIBILITY.find((v) => v.label === value)?.key;
-    if (page === null || word === undefined) return;
-    // Answered, the slice says who can see the group: as written, or as before a refusal.
-    void page.send(writes.visibility(groupId, word)).then(() => {
+    if (page === null) return;
+    const back = () => {
       setVisible((held) => new Map([...held].filter(([id]) => id !== groupId)));
-    });
+    };
+    const word = VISIBILITY.find((v) => v.label === value)?.key;
+    if (word === undefined) {
+      // A choice the service has no word for is not kept on the page as if it were saved.
+      back();
+      page.note("This choice cannot be saved from this page.");
+      return;
+    }
+    // Answered, the slice says who can see the group: as written, or as before a refusal.
+    void page.send(writes.visibility(groupId, word)).then(back);
   };
   const listed = SECTIONS.filter((s) => writer || s.reader);
   const current = SECTIONS.find((s) => s.id === section);

@@ -178,36 +178,21 @@ describe("addresses that name nothing", () => {
   });
 });
 
-describe("no control pretends to save", () => {
-  it("draws a writer's story with Save and Open source only", async () => {
+describe("a service with no groups, digests, rules or events yet", () => {
+  it("draws a writer's story with its controls, each of them written", async () => {
     serve();
     showLive("#/signal/main/feed/latest");
     await title("Latest");
     const card = within(content().getAllByRole("article")[0] as HTMLElement);
-    expect(card.getAllByRole("button").map((button) => button.textContent)).toEqual(["Save"]);
+    expect(card.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Save",
+      "Comment",
+      "Share to group",
+    ]);
     expect(card.getByRole("link", { name: /Open source/ })).toHaveAttribute(
       "href",
       "https://harbour-wire.example/tessaly",
     );
-    expect(content().queryByRole("button", { name: /Comment|Share to group/ })).toBeNull();
-  });
-
-  it("offers no source proposal from an empty feed", async () => {
-    serve(
-      sampleWith((s) => {
-        unnamed(s);
-        s.viewer = { name: "Mara L", initials: "ML", role: "writer", roleLabel: "Writer" };
-        s.feed.sources.approved = false;
-        s.feed.freshness = { state: "not-checked", checked: null, failing: null, error: null };
-        s.settings.sources = [];
-      }),
-    );
-    showLive("#/signal/main/feed/latest");
-    await title("Latest");
-    expect(content().getByRole("heading", { level: 2 })).toHaveTextContent(
-      "No approved sources yet",
-    );
-    expect(content().queryByRole("link", { name: "Propose a source" })).toBeNull();
   });
 
   it("lists the empty channel sections as empty", async () => {
@@ -229,14 +214,10 @@ describe("no control pretends to save", () => {
     return within(content().getByRole("region", { name }));
   };
 
-  it("Groups: none yet, and New group is unavailable with the reason", async () => {
+  it("Groups: none yet, and New group can be pressed", async () => {
     const groups = await section("groups", "Groups");
     expect(groups.getByText("No groups yet.")).toBeInTheDocument();
-    const add = groups.getByRole("button", { name: "New group" });
-    expect(add).toBeDisabled();
-    expect(add).toHaveAccessibleDescription(
-      "Groups cannot be created or changed from this page yet.",
-    );
+    expect(groups.getByRole("button", { name: "New group" })).toBeEnabled();
   });
 
   it("Thread rules and Notifications: none yet, and no switch", async () => {
@@ -248,34 +229,24 @@ describe("no control pretends to save", () => {
     expect(content().queryByRole("switch")).toBeNull();
   });
 
-  it("Sources: the service's sources, and proposing is unavailable with the reason", async () => {
+  it("Sources and Topics: the service's own, with the forms that write", async () => {
     const sources = await section("sources", "Sources");
     const names = sources.getAllByRole("rowheader").map((cell) => cell.querySelector("b"));
     expect(names.map((name) => name?.textContent)).toContain("Harbour Wire");
-    const propose = sources.getByRole("button", { name: "Propose a source" });
-    expect(propose).toBeDisabled();
-    expect(propose).toHaveAccessibleDescription("Sources cannot be proposed from this page yet.");
-  });
-
-  it("Topics: the service's topics, and editing is unavailable with the reason", async () => {
-    const topics = await section("topics", "Topics");
+    expect(sources.getByRole("button", { name: "Propose a source" })).toBeEnabled();
+    await go("#/signal/main/settings/topics");
+    const topics = within(content().getByRole("region", { name: "Topics" }));
     expect(topics.getByText("Telecoms")).toBeInTheDocument();
-    for (const name of ["New topic", "Edit: Telecoms"]) {
-      const button = topics.getByRole("button", { name });
-      expect(button).toBeDisabled();
-      expect(button).toHaveAccessibleDescription(
-        "Topics cannot be created or changed from this page yet.",
-      );
-    }
+    expect(topics.getByRole("button", { name: "New topic" })).toBeEnabled();
+    expect(topics.getByRole("button", { name: "Edit: Telecoms" })).toBeEnabled();
   });
 
-  it("Digests: none yet and no form to fill in", async () => {
-    const digests = await section("digests", "Digests");
-    expect(
-      digests.getByText("No digests yet. Digests cannot be set up from this page yet."),
-    ).toBeInTheDocument();
-    expect(content().queryByRole("textbox")).toBeNull();
-    expect(content().queryByRole("button", { name: /Save digest|Run once now/ })).toBeNull();
+  it("Digests: none yet, and the form for a first one", async () => {
+    const digests = await section("digests", "New digest");
+    expect(digests.getByText("No digests yet.")).toBeInTheDocument();
+    expect(digests.getByRole("button", { name: "Save digest" })).toBeEnabled();
+    // A run belongs to a digest that exists, so the form offers none.
+    expect(content().queryByRole("button", { name: /Run once now/ })).toBeNull();
   });
 
   it("AI and cost: off with the service's notice, no spend and no switch", async () => {

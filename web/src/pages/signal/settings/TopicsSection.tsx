@@ -13,7 +13,7 @@ import { useOpener } from "../parts/focus";
 import { FormDialog, type FormField, type FormValues } from "../parts/FormDialog";
 import { KINDS, writes, type TopicRule } from "../writes";
 import { Section } from "./Section";
-import { SampleReason, useSampleOff } from "./WriteReason";
+import { SampleReason, useSampleOff } from "./SampleReason";
 
 const REASON_ID = "signal-topics-write-reason";
 

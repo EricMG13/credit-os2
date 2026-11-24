@@ -32,118 +32,98 @@ function screensOf(slice: SignalSlice): string[] {
   ];
 }
 
-/** What a reader may press on a service: it is written there, or it changes only what is on screen. */
+/**
+ * What a reader may press on a service. Each is written there (writes.test.tsx holds each to its
+ * route), or changes only what is on screen and says nothing was saved.
+ */
 const PRESSABLE = [
-  /^Saved?: /, // written: a story's save
-  /^(Follow|Following)$/, // written: the topic's follow, on its page
-  /^(Follow|Unfollow) /, // written: a topic's follow, in the channel list and the empty For you
-  /^.+\n?(Writer|Reader)$/, // the name chip: opens the name dialog, whose name is written
+  /^Saved?: /, // a story's save
+  /^(Follow|Following)$/, // the topic's follow, on its page
+  /^(Follow|Unfollow) /, // a topic's follow, in the channel list and the empty For you
+  /(Writer|Reader)$/, // the name chip: opens the name dialog, whose name is written
+  /^Comment( \d+)?: /, // opens the share form (a link where the story has a thread)
+  /^Share to group: /,
+  /^(New thread|Attach story)$/, // the group's thread forms
+  /^Reply to /, // puts the reply box on a comment
+  /^(Agree|Disagree|Seen)(, \d+)?: comment by /, // a reaction
+  /^Send$/, // a comment or a reply
+  /^(New group|New topic|Propose a source|Save digest)$/,
+  /^(Edit members|Edit|Delete|Run once now): /, // a group's members, a topic, a digest
   /^(Top|Latest)$/, // the order of the list on screen
   /^Show older$/,
   /^Show \d+ new (story|stories)$/,
-  /^Show earlier digests$/,
-  /^Close thread$/,
+  /^Earlier digests/,
+  /^(Close thread|Dismiss)$/, // closes the thread panel
   /^(Source|State|Health)$/, // sorts the sources table on screen
+];
+const OTHERS = [
+  /^textbox: (Search stories|Write a comment)$/,
+  /^textbox: (Name|Brief)/, // the digest form's fields
+  /^radio: (Top|Latest)$/,
+  /^switch: /, // a thread rule or a notification choice
 ];
 
 function enabledControls(): string[] {
   const named = (element: Element) =>
     element.getAttribute("aria-label") ?? element.textContent.trim();
-  const buttons = screen
-    .queryAllByRole("button", { hidden: true })
-    .filter((button) => !(button as HTMLButtonElement).disabled)
-    .map(named);
-  const others = ["switch", "combobox", "checkbox", "radio"].flatMap((role) =>
+  const of = (role: string) =>
     screen
       .queryAllByRole(role, { hidden: true })
-      .filter((control) => !(control as HTMLInputElement).disabled)
-      .map((control) => `${role}: ${named(control)}`),
-  );
-  const boxes = screen
-    .queryAllByRole("textbox", { hidden: true })
-    .map((box) => `textbox: ${box.getAttribute("placeholder") ?? named(box)}`);
-  return [...buttons, ...others, ...boxes];
+      .filter((control) => !(control as HTMLInputElement).disabled);
+  return [
+    // A select's trigger is left out: its choice is written (a group's visibility) or sent with its form.
+    ...of("button")
+      .filter((button) => button.getAttribute("aria-haspopup") === null)
+      .map(named),
+    ...["switch", "radio", "checkbox"].flatMap((role) =>
+      of(role).map((control) => `${role}: ${named(control)}`),
+    ),
+    ...of("textbox").map((box) => {
+      const label = (box as HTMLInputElement).labels?.[0]?.textContent;
+      return `textbox: ${box.getAttribute("placeholder") ?? label ?? named(box)}`;
+    }),
+  ];
 }
-
-const ALLOWED_OTHERS = [/^textbox: Search stories$/, /^radio: (Top|Latest)$/];
 
 describe.each([
   ["the service's current sample", read(current)],
   ["the design fixture's fullest scene", read({ scenes: [fixture.slice.scenes[0]] })],
 ])("on a service, over %s", (_, slice) => {
-  it.each(screensOf(slice))("%s draws, and offers only what is written", async (path) => {
-    serve(slice);
-    showLive(`#/signal/main/${path}`);
-    const title = await screen.findByRole("heading", { level: 1, hidden: true });
-    expect(title.textContent).not.toMatch(/^(Signal|Page not found|No such)/);
-    await act(() => Promise.resolve());
-    expect(document.body).not.toHaveTextContent(/sample/i);
-    const unexpected = enabledControls().filter(
-      (name) => ![...PRESSABLE, ...ALLOWED_OTHERS].some((allowed) => allowed.test(name)),
-    );
-    expect(unexpected).toEqual([]);
-    cleanup();
-  });
+  it.each(screensOf(slice))(
+    "%s draws, with no sample wording and no control unaccounted for",
+    async (path) => {
+      serve(slice);
+      showLive(`#/signal/main/${path}`);
+      // The frame is drawn once the snapshot is read; until then the page's own title stands.
+      await screen.findByRole("navigation", { name: "Signal", hidden: true });
+      const title = screen.getByRole("heading", { level: 1, hidden: true });
+      expect(title.textContent).not.toMatch(/^(Page not found|No such)/);
+      await act(() => Promise.resolve());
+      expect(document.body).not.toHaveTextContent(/sample/i);
+      const unexpected = enabledControls().filter(
+        (name) => ![...PRESSABLE, ...OTHERS].some((allowed) => allowed.test(name)),
+      );
+      expect(unexpected).toEqual([]);
+      cleanup();
+    },
+  );
 });
 
-describe("a thread on a service", () => {
-  it("shows comments and reactions as delivered, and says nothing can be added", async () => {
-    const slice = read({ scenes: [fixture.slice.scenes[0]] });
-    const group = slice.scenes[0].snapshot.groups.find((one) => one.threads.length > 0);
-    const thread = slice.scenes[0].snapshot.threads.find(
-      (one) => one.groupId === group?.id && !one.archived && one.comments.length > 0,
-    );
-    if (group === undefined || thread === undefined) throw new Error("the fixture has a thread");
-    serve(slice);
-    showLive(`#/signal/main/group/${group.id}/thread/${thread.id}`);
-    const panel = await screen.findByRole("dialog");
-    expect(panel).toHaveTextContent("Comments and reactions cannot be added from this page yet.");
-    const reactions = screen.getAllByRole("button", { name: /: comment by / });
-    expect(reactions.length).toBeGreaterThan(0);
-    for (const reaction of reactions) expect(reaction).toBeDisabled();
-    expect(screen.queryByRole("textbox")).toBeNull();
-    expect(screen.queryByRole("button", { name: /^Reply to / })).toBeNull();
-  });
-});
-
-describe("settings on a service that delivers rules, events and groups", () => {
-  const slice = read({ scenes: [fixture.slice.scenes[0]] });
-
-  it.each([
-    ["thread-rules", "Thread rules cannot be changed from this page yet."],
-    ["notifications", "Notification choices cannot be changed from this page yet."],
-  ])("%s: each switch shows its state, disabled, with the reason", async (section, reason) => {
-    serve(slice);
-    showLive(`#/signal/main/settings/${section}`);
+describe("what stays read-only on a service", () => {
+  it("AI and cost: every part's switch is disabled, with its reason", async () => {
+    serve(read({ scenes: [fixture.slice.scenes[0]] }));
+    showLive("#/signal/main/settings/ai");
     await screen.findByRole("heading", { level: 1, name: "Settings" });
-    const switches = screen.getAllByRole("switch");
-    expect(switches.length).toBeGreaterThan(0);
-    for (const one of switches) {
-      expect(one).toBeDisabled();
-      expect(one).toHaveAccessibleDescription(expect.stringContaining(reason) as string);
-    }
-    expect(screen.getByText(reason)).toBeInTheDocument();
+    const parts = screen.getAllByRole("switch");
+    expect(parts).toHaveLength(3);
+    for (const part of parts) expect(part).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /cap|approve|pause/i })).toBeNull();
   });
 
-  it("groups: who can see a group is shown and cannot be changed", async () => {
-    serve(slice);
-    showLive("#/signal/main/settings/groups");
+  it("Sources: a source is proposed here; approving and pausing have no control", async () => {
+    serve(read(current));
+    showLive("#/signal/main/settings/sources");
     await screen.findByRole("heading", { level: 1, name: "Settings" });
-    const choices = screen.getAllByRole("button", { name: /^Visibility: / });
-    expect(choices.length).toBeGreaterThan(0);
-    for (const choice of choices) expect(choice).toBeDisabled();
-    expect(
-      screen.getByText("Groups cannot be created or changed from this page yet."),
-    ).toBeInTheDocument();
-  });
-
-  it("digests: no form, and no claim that there are none", async () => {
-    serve(slice);
-    showLive("#/signal/main/settings/digests");
-    await screen.findByRole("heading", { level: 1, name: "Settings" });
-    expect(
-      screen.getByText("Digests cannot be set up or changed from this page yet."),
-    ).toBeInTheDocument();
-    expect(document.body).not.toHaveTextContent("No digests yet");
+    expect(screen.queryByRole("button", { name: /approve|pause/i })).toBeNull();
   });
 });

@@ -15,7 +15,7 @@ import { useOpener } from "../parts/focus";
 import { FormDialog, type FormField } from "../parts/FormDialog";
 import { KINDS, writes } from "../writes";
 import { Section } from "./Section";
-import { SampleReason, useSampleOff } from "./WriteReason";
+import { SampleReason, useSampleOff } from "./SampleReason";
 
 const REASON_ID = "signal-sources-write-reason";
 const COLUMNS = ["name", "state", "health"] as const;
