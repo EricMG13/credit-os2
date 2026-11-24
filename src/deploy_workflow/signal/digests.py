@@ -703,7 +703,8 @@ def _write(
 
 
 def _due_again(db: sqlite3.Connection, scope: Scope, trigger: Trigger, now: datetime) -> None:
-    """Undo a run's claim: a scheduled run is due at its old time again, a manual one asked again."""
+    """Undo a run's claim: a scheduled run is due at its old time again, a manual one is asked
+    for again."""
     with _write_transaction(db):
         if not _unchanged(db, scope):
             return

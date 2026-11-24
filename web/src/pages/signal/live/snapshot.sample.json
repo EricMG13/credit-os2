@@ -261,7 +261,7 @@
           ],
           "views": {
             "for-you": {
-              "top": ["d2", "1", "d1", "5"],
+              "top": ["1", "d2", "d1", "5"],
               "latest": ["d2", "1", "d1", "5"],
               "waiting": null,
               "older": [],
