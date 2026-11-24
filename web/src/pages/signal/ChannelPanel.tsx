@@ -54,7 +54,13 @@ export function ChannelPanel({
           </span>
         </Button>
         {/* Above the page's own layers (a tab is z-10) and under a dialog opened from the list (z-50). */}
-        <SlideoutMenu isDismissable aria-label="Channels" className="z-40" dialogClassName="gap-0">
+        <SlideoutMenu
+          side="left"
+          isDismissable
+          aria-label="Channels"
+          className="z-40"
+          dialogClassName="gap-0"
+        >
           <CloseButton label="Close channels" className="absolute top-3 right-3 z-1" />
           {children}
         </SlideoutMenu>
