@@ -48,12 +48,30 @@ describe("the service's sample snapshot", () => {
       "Weekly, Friday 07:00 UTC",
     ]);
     expect(feed.digests.length).toBeGreaterThan(0);
-    expect(settings.groups.map((group) => group.name)).toContain("Committee prep");
-    expect(settings.rules.map((rule) => rule.id)).toEqual([
-      "comments-edited",
-      "authors-remove",
-      "archive-quiet",
+    expect(settings.groups.map((group) => group.name)).toEqual([
+      "Committee prep",
+      "Leveraged credit",
+      "Shipping desk",
     ]);
+    // The thread rules are each group's own; no list stands for every group.
+    expect(settings.rules).toEqual([]);
+    for (const group of settings.groups) {
+      expect(group.rules?.map((rule) => rule.id)).toEqual([
+        "comments-edited",
+        "authors-remove",
+        "archive-quiet",
+      ]);
+      // Which topics post into the group is said for each (none in the sample).
+      expect(group.topics).toEqual([]);
+    }
+    // A comment says what its author may still do to it.
+    const all = comments.flatMap((comment) => [comment, ...comment.replies]);
+    expect(all.every((one) => typeof one.canEdit === "boolean")).toBe(true);
+    expect(all.every((one) => typeof one.canRemove === "boolean")).toBe(true);
+    // A ranked view holds its whole window in both orders and says how many are drawn first.
+    expect(feed.views["for-you"].shown).toBe(30);
+    expect(feed.views["for-you"].older).toEqual([]);
+    expect(feed.views.latest.shown).toBeUndefined();
     expect(settings.notifications.events.map((event) => event.id)).toEqual([
       "replies",
       "threads",

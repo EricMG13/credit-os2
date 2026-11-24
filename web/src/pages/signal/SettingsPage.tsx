@@ -19,12 +19,15 @@ import { SourcesSection } from "./settings/SourcesSection";
 import { TopicsSection } from "./settings/TopicsSection";
 import { VISIBILITY, writes } from "./writes";
 
-/** A switch's key: which rule, or which event on which channel. */
-type Flag = ["rule", string] | ["event", string, string];
+/** A switch's key: which rule of which group (the sample's one list has no group), or which event on which channel. */
+type Flag = ["rule", string | null, string] | ["event", string, string];
 const flagKey = (flag: Flag) => JSON.stringify(flag);
 const flagWrite = (key: string, on: boolean) => {
   const flag = JSON.parse(key) as Flag;
-  return flag[0] === "rule" ? writes.rule(flag[1], on) : writes.notification(flag[1], flag[2], on);
+  if (flag[0] === "event") return writes.notification(flag[1], flag[2], on);
+  // On a service every rule drawn is a group's own; one of no group is a wiring fault, so it is loud.
+  if (flag[1] === null) throw new Error(`the rule "${flag[2]}" of no group cannot be written`);
+  return writes.rule(flag[1], flag[2], on);
 };
 
 type SectionId =
@@ -62,6 +65,8 @@ export function SettingsPage({
       : (key, on) => page.send(flagWrite(key, on)).then((answer) => answer.refusal),
     () => undefined,
   );
+  // A service keeps the thread rules by group; so does a sample whose groups carry their own.
+  const rulesByGroup = page !== null || settings.groups.some((group) => group.rules !== null);
   const [typed, setTyped] = useState<ReadonlyMap<string, string>>(new Map());
   const [visible, setVisible] = useState<ReadonlyMap<string, string>>(new Map());
   const see = (groupId: string, value: string) => {
@@ -91,6 +96,8 @@ export function SettingsPage({
         return (
           <GroupsSection
             groups={settings.groups}
+            topics={settings.topics}
+            topicsHref={sceneHref(scene, "settings/topics")}
             visibility={(g) => visible.get(g.id) ?? g.visibility}
             onVisibility={(g, value) => {
               see(g.id, value);
@@ -101,9 +108,11 @@ export function SettingsPage({
         return (
           <RulesSection
             rules={settings.rules}
-            on={(r) => flags.on(flagKey(["rule", r.id]), r.on)}
-            onChange={(r) => {
-              flags.toggle(flagKey(["rule", r.id]), r.on);
+            groups={rulesByGroup ? settings.groups : null}
+            groupsHref={sceneHref(scene, "settings/groups")}
+            on={(r, g) => flags.on(flagKey(["rule", g?.id ?? null, r.id]), r.on)}
+            onChange={(r, g) => {
+              flags.toggle(flagKey(["rule", g?.id ?? null, r.id]), r.on);
             }}
           />
         );

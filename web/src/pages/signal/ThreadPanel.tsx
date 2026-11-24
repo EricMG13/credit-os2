@@ -4,7 +4,7 @@
 // route and moves focus to that thread's "Open thread" link. Everything here is in memory: posting
 // adds the comment to this page's list and a reaction toggle flips its pressed state; no count is
 // recomputed (the delivered string stays) and nothing is written.
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Alert } from "@/components/alert/Alert";
 import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-menu";
 import { Badge } from "@/components/base/badges/badges";
@@ -16,10 +16,11 @@ import { sceneHref } from "./SignalFrame";
 import { isWebLink } from "./StoryCard";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
 import { MediaObject } from "./parts/MediaObject";
-import { useOnGone, focusAgainIfLost } from "./parts/focus";
+import { useOnGone, useOpener, focusAgainIfLost } from "./parts/focus";
+import { FormDialog } from "./parts/FormDialog";
 import { OpenSourceButton } from "./parts/OpenSourceButton";
 import { Composer, MessageList } from "./parts/Messages";
-import type { ReactionWord } from "./parts/Messages";
+import type { OwnComments, ReactionWord } from "./parts/Messages";
 import type { SignalComment, SignalGroup, SignalScene, SignalStory, SignalThread } from "./slice";
 import { useSignalViewer } from "./viewer";
 import { writes } from "./writes";
@@ -142,6 +143,7 @@ function ConversationContent({
   said,
   refused,
   onToggle,
+  own,
 }: {
   thread: SignalThread;
   story: SignalStory | null;
@@ -155,6 +157,7 @@ function ConversationContent({
   /** What the service last refused here, counted so each refusal draws a fresh alert. */
   refused: { count: number; text: string };
   onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
+  own: OwnComments | null;
 }) {
   return (
     <SlideoutMenu.Content>
@@ -184,10 +187,17 @@ function ConversationContent({
           }
           isPressed={isPressed}
           onToggle={onToggle}
+          own={own}
         />
       )}
       {refused.text === "" ? null : (
-        <div key={refused.count}>
+        // It is brought into view: the control that was refused may be far up the thread.
+        <div
+          key={refused.count}
+          ref={(node) => {
+            node?.scrollIntoView({ block: "nearest" });
+          }}
+        >
           <Alert tone="error" title={refused.text} />
         </div>
       )}
@@ -205,6 +215,78 @@ function useThreadRead(threadId: string, unread: boolean) {
     // A refusal changes nothing the reader did, so nothing is said about it.
     if (actions !== null && unread) void actions.write(writes.readThread(threadId));
   }, [actions, threadId, unread]);
+}
+
+/**
+ * On a service, the viewer's own comments: which one is in the edit box, which removal is being
+ * asked about, and the two writes. The service decides (the time for an edit may run out between
+ * the read and the press), so a refusal is said in the panel's alert; an edit refused keeps its box
+ * and what was typed.
+ */
+function useOwnComments(
+  refuse: (text: string) => void,
+  say: (text: string) => void,
+  box: RefObject<HTMLTextAreaElement | null>,
+): { own: OwnComments | null; confirm: ReactNode } {
+  const actions = useSignalActions();
+  const [editing, setEditing] = useState<OwnComments["editing"]>(null);
+  const [removing, setRemoving] = useState<SignalComment | null>(null);
+  // A removed comment has no Remove to go back to: the reply box takes focus, or the panel.
+  const opener = useOpener(
+    () => box.current ?? document.getElementById(TITLE_ID)?.closest<HTMLElement>("[role='dialog']"),
+  );
+  if (actions === null) return { own: null, confirm: null };
+  const own: OwnComments = {
+    editing,
+    onEdit: (comment) => {
+      setEditing({ id: comment.id, busy: false });
+    },
+    onCancel: () => {
+      setEditing(null);
+    },
+    onSave: (comment, text) => {
+      setEditing({ id: comment.id, busy: true });
+      refuse("");
+      void actions.write(writes.editComment(comment.id, text)).then(({ refusal }) => {
+        if (refusal === null) {
+          setEditing(null);
+          say("Comment changed");
+        } else {
+          setEditing({ id: comment.id, busy: false });
+          refuse(refusal);
+        }
+      });
+    },
+    onRemove: (comment) => {
+      opener.remember();
+      setRemoving(comment);
+    },
+  };
+  const remove = (comment: SignalComment) => {
+    refuse("");
+    return actions.write(writes.dropComment(comment.id)).then(({ refusal }) => {
+      if (refusal === null) say("Comment removed");
+      else refuse(refusal);
+      // Either way the question is answered: the dialog goes and the panel says what happened.
+      return null;
+    });
+  };
+  const confirm = (
+    <FormDialog
+      open={removing !== null}
+      title="Remove this comment?"
+      intro="Its replies stay."
+      fields={[]}
+      action="Remove"
+      destructive
+      onSend={() => (removing === null ? Promise.resolve(null) : remove(removing))}
+      onClose={() => {
+        setRemoving(null);
+      }}
+      onGone={opener.restore}
+    />
+  );
+  return { own, confirm };
 }
 
 /** The thread's top, comments and footer; its state (what was posted, which reactions flipped) lives here. */
@@ -245,6 +327,10 @@ function Conversation({
   useThreadRead(thread.id, unread);
   // The live region stays and each post puts a fresh node in it (as Share does), so the same sentence twice is announced twice.
   const [said, setSaid] = useState({ count: 0, text: "" });
+  const say = (text: string) => {
+    setSaid((last) => ({ count: last.count + 1, text }));
+  };
+  const { own, confirm } = useOwnComments(refuse, say, box);
   const comments = withAdded(thread.comments, added);
   const named = viewer.name !== null && viewer.initials !== null;
   const canWrite = writer && !thread.archived;
@@ -275,10 +361,7 @@ function Conversation({
         if (refusal !== null) refuse(refusal);
       });
     }
-    setSaid({
-      count: said.count + 1,
-      text: replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`,
-    });
+    say(replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`);
   };
   const onToggle = (comment: SignalComment, word: ReactionWord) => {
     reactions.toggle(pressKey(comment, word), mine(comment, word));
@@ -298,7 +381,9 @@ function Conversation({
         refused={refused}
         // On a service a reader may not react (the service refuses it), so no button is offered.
         onToggle={actions !== null && !writer ? null : onToggle}
+        own={own}
       />
+      {confirm}
       <ConversationFooter
         thread={thread}
         writer={writer}

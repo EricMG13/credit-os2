@@ -23,12 +23,17 @@ export type FeedEntry =
   | { kind: "story"; story: SignalStory }
   | { kind: "digest"; digest: SignalDigestCard; href: string };
 
-/** A view's entries as the slice orders them; `waiting` and `older` are the ones not yet drawn. */
+/**
+ * A view's entries as the slice orders them; `waiting` and `older` are the ones not yet drawn.
+ * With `shown`, each order holds the whole view and the page draws the first `shown` of the chosen
+ * order that pass the filter; Show older then draws the rest of it. Null: the whole order is drawn.
+ */
 export type FeedEntries = {
   top: FeedEntry[];
   latest: FeedEntry[];
   waiting: { label: string; entries: FeedEntry[] } | null;
   older: FeedEntry[];
+  shown?: number | null;
 };
 
 /** A topic view's own header parts: the follow state and the keywords it follows. */
@@ -208,14 +213,15 @@ function FeedNotices({
 
 function OlderStories({
   loading,
-  older,
+  more,
   onShow,
 }: {
   loading: boolean;
-  older: FeedEntry[];
+  /** Something waits behind the button. */
+  more: boolean;
   onShow: () => void;
 }) {
-  if (loading || older.length === 0) return null;
+  if (loading || !more) return null;
   return (
     <div className="mt-4 flex justify-center">
       <Button color="secondary" size="sm" onPress={onShow}>
@@ -225,17 +231,24 @@ function OlderStories({
   );
 }
 
+/**
+ * What the list draws and what Show older would add. The filter and the search take the whole of
+ * the chosen order; where the view says how many to show, the first that many of what passes are
+ * drawn and the rest of it waits behind Show older, ahead of the view's `older`.
+ */
 function entriesOnScreen(
   entries: FeedEntries,
   order: FeedOrder,
   revealed: boolean,
-  olderShown: boolean,
-): FeedEntry[] {
-  return [
+  filter: { kind: FeedKind; needle: string },
+): { first: FeedEntry[]; rest: FeedEntry[] } {
+  const pass = (list: FeedEntry[]) => visible(list, filter.kind, filter.needle);
+  const listed = pass([
     ...(revealed && entries.waiting !== null ? entries.waiting.entries : []),
     ...entries[order],
-    ...(olderShown ? entries.older : []),
-  ];
+  ]);
+  const count = entries.shown ?? listed.length;
+  return { first: listed.slice(0, count), rest: [...listed.slice(count), ...pass(entries.older)] };
 }
 
 function focusIndex(
@@ -245,6 +258,14 @@ function focusIndex(
   fallback: number | "title",
 ) {
   return visible(entries, kind, needle).length > 0 ? fallback : "title";
+}
+
+/**
+ * Show older is offered while something waits behind it: more of the chosen order that passes the
+ * filter, or, as before the view said how many to show, any entry in `older` whatever the filter.
+ */
+function moreWaits(entries: FeedEntries, rest: FeedEntry[]): boolean {
+  return (entries.shown ?? null) === null ? entries.older.length > 0 : rest.length > 0;
 }
 
 function restoreFeedFocus(
@@ -284,10 +305,10 @@ function useFeedView(entries: FeedEntries, startOn: FeedOrder) {
   const [revealed, setRevealed] = useState(false);
   const [olderShown, setOlderShown] = useState(false);
   const { list, title, setFocusAt } = useFeedFocus(revealed, olderShown);
-  const { waiting, older } = entries;
+  const { waiting } = entries;
   const needle = query.trim();
-  const drawn = entriesOnScreen(entries, order, revealed, olderShown);
-  const shown = visible(drawn, kind, needle);
+  const { first, rest } = entriesOnScreen(entries, order, revealed, { kind, needle });
+  const shown = olderShown ? [...first, ...rest] : first;
 
   const reveal = () => {
     setFocusAt(focusIndex(waiting?.entries ?? [], kind, needle, 0));
@@ -295,14 +316,15 @@ function useFeedView(entries: FeedEntries, startOn: FeedOrder) {
     else fold();
   };
   const showOlder = () => {
-    setFocusAt(focusIndex(older, kind, needle, shown.length));
+    // Focus goes to the first entry the button adds; where none passes the filter, to the title.
+    setFocusAt(rest.length > 0 ? shown.length : "title");
     setOlderShown(true);
   };
 
   return {
     header: { order, setOrder },
     filter: { kind, setKind, query, setQuery, needle },
-    listing: { waiting, shown, older, revealed, olderShown },
+    listing: { waiting, shown, more: moreWaits(entries, rest), revealed, olderShown },
     actions: { reveal, showOlder },
     refs: { list, title },
   };
@@ -390,7 +412,7 @@ export function FeedPage({
         {feed.listing.olderShown ? null : (
           <OlderStories
             loading={loading}
-            older={feed.listing.older}
+            more={feed.listing.more}
             onShow={feed.actions.showOlder}
           />
         )}

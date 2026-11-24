@@ -81,6 +81,7 @@ function entriesOf(scene: SignalScene, view: SignalFeedView): FeedEntries {
         ? null
         : { label: view.waiting.label, entries: ordered(scene, view.waiting.ids) },
     older: ordered(scene, view.older),
+    shown: view.shown ?? null,
   };
 }
 

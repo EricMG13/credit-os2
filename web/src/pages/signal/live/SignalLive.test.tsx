@@ -306,7 +306,13 @@ describe("a service with no groups, digests, rules or events yet", () => {
 
   it("Thread rules and Notifications: none yet, and no switch", async () => {
     const rules = await section("thread-rules", "Thread rules");
-    expect(rules.getByText("No thread rules yet.")).toBeInTheDocument();
+    // A rule is a group's own, so with no group the section points to where one is made.
+    expect(rules.getByText(/^No groups yet\. Thread rules are set for each group\./)).toBeTruthy();
+    expect(rules.getByRole("link", { name: "Open Groups" })).toHaveAttribute(
+      "href",
+      "#/signal/main/settings/groups",
+    );
+    expect(rules.queryByText("These apply to every group.")).toBeNull();
     await go("#/signal/main/settings/notifications");
     const events = within(content().getByRole("region", { name: "Notifications" }));
     expect(events.getByText("No notification events yet.")).toBeInTheDocument();

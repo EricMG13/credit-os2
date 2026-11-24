@@ -111,6 +111,11 @@ export type SignalFeedView = {
   latest: string[];
   waiting: { label: string; ids: string[] } | null;
   older: string[];
+  /**
+   * How many entries of the chosen order the page draws before Show older (a positive whole
+   * number). Optional as delivered: absent, the whole order is drawn and only `older` waits.
+   */
+  shown?: number;
 };
 /** The freshness line: `checked` is the delivered time, `failing` and `error` the delivered suffix texts. */
 export type SignalFreshness = {
@@ -170,6 +175,12 @@ export type SignalComment = {
   text: string | null;
   edited: boolean;
   removed: boolean;
+  /**
+   * Whether the service would now take an edit, or a removal, of this comment from the viewer.
+   * Optional as delivered (the sample carries neither); the reader gives a missing one as false.
+   */
+  canEdit?: boolean;
+  canRemove?: boolean;
   reactions: SignalReaction[];
   replies: SignalComment[];
 };
@@ -201,6 +212,13 @@ export type SignalSettingsGroup = {
   memberSummary: string;
   visibility: string;
   visibilityOptions: string[];
+  /**
+   * The topics whose new stories are posted into the group, as ids of `settings.topics` (the reader
+   * checks). Optional as delivered: null where the snapshot says nothing of it (the sample).
+   */
+  topics: string[] | null;
+  /** The group's own thread rules. Optional as delivered: null where the rules are not per group (the sample). */
+  rules: SignalSettingsRule[] | null;
 };
 /** A thread rule: a switch with its label and an optional hint line. */
 export type SignalSettingsRule = { id: string; label: string; hint: string | null; on: boolean };
@@ -324,6 +342,14 @@ function oneOf<T extends string | null>(words: readonly T[], expected: string): 
     const found = words.find((word) => word === v);
     return found === undefined ? bad(path, expected) : good(found);
   };
+}
+
+/**
+ * A member the service may leave out: absent, it reads as `absent`. What the reader gives is read
+ * again as given (a held view is), so `absent` itself reads as absent too.
+ */
+function optional<T, A>(each: Reader<T>, absent: A): Reader<T | A> {
+  return (v, path) => (v === undefined || v === absent ? good(absent) : each(v, path));
 }
 
 function orNull<T>(each: Reader<T>): Reader<T | null> {
@@ -512,12 +538,22 @@ const digestRecord = shape<SignalDigest>({
   issues: list(digestIssue),
   form: digestEdit,
 });
-const feedView = shape<SignalFeedView>({
+const feedViewBase = shape<Omit<SignalFeedView, "shown">>({
   top: list(str),
   latest: list(str),
   waiting: orNull(shape({ label: str, ids: list(str) })),
   older: list(str),
 });
+/** `shown` is read only where it is delivered, so a view without one stays as it was read before. */
+const feedView: Reader<SignalFeedView> = (v, path) => {
+  const got = feedViewBase(v, path);
+  if (!got.ok) return got;
+  const shown = Object.hasOwn(v as object, "shown") ? (v as { shown: unknown }).shown : undefined;
+  if (shown === undefined) return got;
+  return typeof shown === "number" && Number.isInteger(shown) && shown > 0
+    ? good({ ...got.value, shown })
+    : bad(`${path}.shown`, "a positive whole number");
+};
 /** Checked sources always come with the delivered time to show. */
 const freshness: Reader<SignalFreshness> = (v, path) => {
   const got = shape<SignalFreshness>({
@@ -806,6 +842,8 @@ function comment(replies: Reader<SignalComment[]>): Reader<SignalComment> {
     text: strOrNull,
     edited: bool,
     removed: bool,
+    canEdit: optional(bool, false),
+    canRemove: optional(bool, false),
     reactions: list(reaction),
     replies,
   });
@@ -819,6 +857,9 @@ function comment(replies: Reader<SignalComment[]>): Reader<SignalComment> {
     }
     if (!one.removed && one.text === null) {
       return bad(`${path}.text`, "the comment's text (only a removed comment has none)");
+    }
+    for (const flag of ["canEdit", "canRemove"] as const) {
+      if (one.removed && one[flag]) return bad(`${path}.${flag}`, "false on a removed comment");
     }
     const words = new Set<string>();
     for (const [index, held] of one.reactions.entries()) {
@@ -869,6 +910,7 @@ const threadRecord: Reader<SignalThread> = (v, path) => {
   }
   return got;
 };
+const settingsRule = shape<SignalSettingsRule>({ id: str, label: str, hint: strOrNull, on: bool });
 const settingsGroupBase = shape<SignalSettingsGroup>({
   id,
   name: str,
@@ -877,6 +919,8 @@ const settingsGroupBase = shape<SignalSettingsGroup>({
   memberSummary: str,
   visibility: str,
   visibilityOptions: list(str),
+  topics: optional(list(id), null),
+  rules: optional(list(settingsRule), null),
 });
 /** The chosen visibility is one the Select offers; the offers repeat none; "+N" needs shown members. */
 const settingsGroup: Reader<SignalSettingsGroup> = (v, path) => {
@@ -1014,7 +1058,7 @@ const settings = shape<SignalSettings>({
       : got;
   },
   groups: list(settingsGroup),
-  rules: list(shape<SignalSettingsRule>({ id: str, label: str, hint: strOrNull, on: bool })),
+  rules: list(settingsRule),
   notifications: shape({
     events: list(
       shape<SignalNotificationEvent>({ id: str, label: str, inSignal: bool, onDesktop: bool }),
@@ -1155,10 +1199,36 @@ function settingsProblem(snap: SignalSnapshot, path: string): string | null {
   }
   return (
     settingsTopicsProblem(snap, path) ??
+    settingsGroupTopicsProblem(snap, path) ??
     settingsAiProblem(snap, path) ??
     settingsSourcesProblem(snap, path) ??
     settingsMembersProblem(snap, path)
   );
+}
+
+/**
+ * Where a group says which topics post into it, each is a topic Settings lists, named once; and a
+ * group's own rules repeat no id (a switch is told from the others by it).
+ */
+function settingsGroupTopicsProblem(snap: SignalSnapshot, path: string): string | null {
+  const known = new Set(snap.settings.topics.map((topic) => topic.id));
+  for (const [g, group] of snap.settings.groups.entries()) {
+    const at = `${path}.settings.groups[${String(g)}]`;
+    const topics = group.topics ?? [];
+    const unknown = topics.findIndex((topic) => !known.has(topic));
+    if (unknown !== -1) {
+      return `${at}.topics[${String(unknown)}]: expected the id of a topic in settings.topics`;
+    }
+    const twice = repeatAt(topics);
+    if (twice !== -1) {
+      return `${at}.topics[${String(twice)}]: expected an id the list does not repeat`;
+    }
+    const rule = repeatAt((group.rules ?? []).map((one) => one.id));
+    if (rule !== -1) {
+      return `${at}.rules[${String(rule)}].id: expected an id the list does not repeat`;
+    }
+  }
+  return null;
 }
 
 /**

@@ -20,6 +20,19 @@ const choose = (trigger: string | RegExp, option: string) => {
 const flip = (name: string) => {
   fireEvent.click(screen.getByRole("switch", { name }));
 };
+/** A switch of one group's own block in Thread rules. */
+const flipIn = (group: string, name: string) => {
+  fireEvent.click(within(screen.getByRole("group", { name: group })).getByRole("switch", { name }));
+};
+/** The viewer's own comments in the sample (the reply 2 and the comment 4) with what the service says may be done to each. */
+const mayChange =
+  (flags: Record<string, { canEdit?: boolean; canRemove?: boolean }>) => (snapshot: Snapshot) => {
+    for (const thread of snapshot.threads) {
+      for (const one of thread.comments.flatMap((comment) => [comment, ...comment.replies])) {
+        Object.assign(one, flags[one.id] ?? {});
+      }
+    }
+  };
 
 const TESSALY = "Tessaly Telecom agrees the sale of its towers";
 
@@ -131,14 +144,80 @@ const CASES: Case[] = [
     bodies: [],
   },
   {
-    name: "a thread rule",
+    name: "a comment edited by its author",
+    at: "group/1/thread/1",
+    ready: "Thread",
+    given: mayChange({ "2": { canEdit: true }, "4": { canEdit: false } }),
+    steps: () => {
+      press("Edit your comment");
+      type("Edit your comment", "  Agreed. Check the covenant test date.  ");
+      press("Save");
+    },
+    sent: ["POST /signal/api/comments/2/edit"],
+    bodies: [{ text: "Agreed. Check the covenant test date." }],
+  },
+  {
+    name: "a comment removed by its author, once the question is answered",
+    at: "group/1/thread/1",
+    ready: "Thread",
+    given: mayChange({ "2": { canRemove: false }, "4": { canRemove: true } }),
+    steps: () => {
+      press("Remove your comment");
+      press("Remove");
+    },
+    sent: ["DELETE /signal/api/comments/4"],
+    bodies: [],
+  },
+  {
+    name: "a thread rule, to its own group",
     at: "settings/thread-rules",
     ready: "Settings",
     steps: () => {
-      flip("Archive a thread after 90 days without a comment");
+      flipIn("Leveraged credit", "Archive a thread after 90 days without a comment");
     },
-    sent: ["POST /signal/api/rules"],
+    sent: ["POST /signal/api/groups/1/rules"],
     bodies: [{ rule: "archive-quiet", on: true }],
+  },
+  {
+    name: "a group renamed",
+    at: "settings/groups",
+    ready: "Settings",
+    steps: () => {
+      press("Rename: Shipping desk");
+      type(/^Name/, "  Shipping and ports ");
+      press("Rename group");
+    },
+    sent: ["POST /signal/api/groups/2/rename"],
+    bodies: [{ name: "Shipping and ports" }],
+  },
+  {
+    name: "a group deleted, once the question is answered",
+    at: "settings/groups",
+    ready: "Settings",
+    steps: () => {
+      press("Delete: Shipping desk");
+      press("Delete group");
+    },
+    sent: ["DELETE /signal/api/groups/2"],
+    bodies: [],
+  },
+  {
+    name: "the topics that post into a group: the whole set",
+    at: "settings/groups",
+    ready: "Settings",
+    given: (snapshot) => {
+      const group = snapshot.settings.groups.find((one) => one.id === "1");
+      if (group !== undefined) group.topics = ["2"];
+    },
+    steps: () => {
+      press("Topics: Leveraged credit");
+      flip("Packaging");
+      flip("Telecoms");
+      flip("Shipping");
+      press("Save");
+    },
+    sent: ["POST /signal/api/groups/1/topics"],
+    bodies: [{ topics: ["1", "3"] }],
   },
   {
     name: "a notification choice",

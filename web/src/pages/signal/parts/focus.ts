@@ -30,8 +30,11 @@ export function focusAgainIfLost(target: () => HTMLElement | null | undefined) {
   });
 }
 
-/** Remembers the control that opened a dialog, to give focus back to it once the dialog has gone. */
-export function useOpener() {
+/**
+ * Remembers the control that opened a dialog, to give focus back to it once the dialog has gone.
+ * `otherwise` says where focus goes when what the dialog did took that control off the page.
+ */
+export function useOpener(otherwise?: () => HTMLElement | null | undefined) {
   const opener = useRef<HTMLElement | null>(null);
   return {
     remember: () => {
@@ -39,7 +42,9 @@ export function useOpener() {
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
     },
     restore: () => {
-      focusAgainIfLost(() => (opener.current?.isConnected === true ? opener.current : null));
+      focusAgainIfLost(() =>
+        opener.current?.isConnected === true ? opener.current : otherwise?.(),
+      );
     },
   };
 }

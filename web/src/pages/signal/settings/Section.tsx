@@ -1,5 +1,6 @@
-// A settings section: its h2 and hint line (the mock's `.sb h4` and the paragraph after it), an
-// optional action at the right of the head, then the section's content.
+// A settings section: its h2 and hint line (the mock's `.sb h4` and the paragraph after it; a
+// section with nothing to add has none), an optional action at the right of the head, then the
+// section's content.
 import { useId, type ReactNode } from "react";
 
 export function Section({
@@ -10,7 +11,7 @@ export function Section({
   children,
 }: {
   title: string;
-  hint: string;
+  hint?: string;
   action?: ReactNode;
   /** The mock lets a table section use the full width (`max-width:none`). */
   wide?: boolean;
@@ -24,7 +25,9 @@ export function Section({
           <h2 id={id} className="text-lg font-semibold text-text-primary">
             {title}
           </h2>
-          <p className="mt-0.5 max-w-[72ch] text-sm text-text-tertiary">{hint}</p>
+          {hint === undefined ? null : (
+            <p className="mt-0.5 max-w-[72ch] text-sm text-text-tertiary">{hint}</p>
+          )}
         </div>
         {action === undefined ? null : <div className="ml-auto">{action}</div>}
       </div>

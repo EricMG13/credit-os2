@@ -42,13 +42,25 @@ export const writes = {
   reply: (comment: string, text: string) => post(`/comments/${part(comment)}/replies`, { text }),
   react: (comment: string, word: string, on: boolean) =>
     held(on, `/comments/${part(comment)}/reactions/${part(word.toLowerCase())}`),
+  /** Its author's, while the service still takes it (the comment's `canEdit`, `canRemove`). */
+  editComment: (comment: string, text: string) =>
+    post(`/comments/${part(comment)}/edit`, { text }),
+  dropComment: (comment: string) => remove(`/comments/${part(comment)}`),
   readThread: (thread: string) => post(`/threads/${part(thread)}/read`),
   group: (name: string, visibility: string) => post("/groups", { name, visibility }),
+  renameGroup: (group: string, name: string) => post(`/groups/${part(group)}/rename`, { name }),
+  /** Refused while the group holds threads or a digest names it. */
+  dropGroup: (group: string) => remove(`/groups/${part(group)}`),
+  /** The topics whose new stories are posted into the group: the whole set, replacing the last. */
+  groupTopics: (group: string, topics: string[]) =>
+    post(`/groups/${part(group)}/topics`, { topics }),
   visibility: (group: string, visibility: string) =>
     post(`/groups/${part(group)}/visibility`, { visibility }),
   member: (group: string, name: string, on: boolean) =>
     post(`/groups/${part(group)}/members${on ? "" : "/remove"}`, { name }),
-  rule: (rule: string, on: boolean) => post("/rules", { rule, on }),
+  /** A thread rule is a group's own. */
+  rule: (group: string, rule: string, on: boolean) =>
+    post(`/groups/${part(group)}/rules`, { rule, on }),
   notification: (event: string, channel: string, on: boolean) =>
     post("/notifications", { event, channel, on }),
   /** `id` null adds a topic; otherwise the topic is changed. */

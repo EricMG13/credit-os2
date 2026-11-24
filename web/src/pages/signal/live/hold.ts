@@ -1,7 +1,15 @@
 // Reading the service again must not move the list under the reader. The feed view on screen keeps
-// the stories it draws, in the order it draws them; a story the service now lists and the page has
-// not drawn waits behind the new-stories pill; a story the service no longer lists is dropped. Every
-// other view, and everything else in the snapshot, is the service's newest answer as delivered.
+// the stories it holds, in the orders it holds them; a story the service now lists and the view
+// does not hold waits behind the new-stories pill; a story the service no longer lists is dropped.
+// Every other view, and everything else in the snapshot, is the service's newest answer as delivered.
+//
+// A ranked view holds its whole window in both orders and says how many the page draws first
+// (`shown`); which order is on screen and whether Show older was pressed is the page's own state.
+// So both orders are held whole, as first read: whatever part of either the reader has drawn stays
+// as it is. A story that rises in rank between reads therefore stays where it was in the held Top
+// order (it does not jump into the drawn part, nor wait behind the pill, which says "new"); the
+// service's new ranking is drawn when the view is opened again. Dropping a story can only bring the
+// next one of that order up at the foot of the drawn part.
 // Pure: no request, no clock, no state.
 import { readSlice, type SignalFeedView, type SignalScene, type SignalSlice } from "../slice";
 
@@ -43,10 +51,20 @@ export function holdView(shown: SignalFeedView, fresh: SignalFeedView): SignalFe
     latest: kept(shown.latest),
     waiting: ids.length === 0 ? null : { label: newStories(ids.length), ids },
     older: kept(shown.older),
+    ...drawnFirst(shown.shown),
   };
 }
 
-/** The view once Show is pressed on its pill: the waiting stories lead both orders, as the page draws them. */
+/** The view's count of entries drawn first, where it holds one. */
+function drawnFirst(shown: number | undefined): { shown?: number } {
+  return shown === undefined ? {} : { shown };
+}
+
+/**
+ * The view once Show is pressed on its pill: the waiting stories lead both orders, as the page draws
+ * them, and where the view counts what is drawn first they are drawn as well as what was, so
+ * nothing the reader had leaves the foot of the list.
+ */
 function revealView(view: SignalFeedView): SignalFeedView {
   if (view.waiting === null) return view;
   const { ids } = view.waiting;
@@ -55,6 +73,7 @@ function revealView(view: SignalFeedView): SignalFeedView {
     latest: [...ids, ...view.latest],
     waiting: null,
     older: view.older,
+    ...drawnFirst(view.shown === undefined ? undefined : view.shown + ids.length),
   };
 }
 

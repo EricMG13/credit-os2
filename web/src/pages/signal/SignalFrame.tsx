@@ -399,6 +399,8 @@ export function SignalFrame({
   const wide = useWide();
   // The list's panel, in a narrow window only: choosing a destination closes it.
   const [listOpen, setListOpen] = useState(false);
+  // A window made wide has the list beside the page; made narrow again, the panel starts closed.
+  if (wide && listOpen) setListOpen(false);
   const { name, initials } = viewer;
   const list = (
     <ChannelList

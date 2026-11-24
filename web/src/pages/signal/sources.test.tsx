@@ -161,7 +161,7 @@ describe("Sources (frame 3)", () => {
     expect(header("State").getAttribute("aria-sort")).toBe("none");
   });
 
-  it("fits 1024px by class contract: one column below xl, wrapping tab row, last check moves into the Source cell", () => {
+  it("fits 1024px by class contract: one column below xl, wrapping tab row, last check in the Source cell below 2xl", () => {
     show("/signal/main/settings/sources");
     const list = page().getByRole("tablist", { name: "Settings sections" });
     expect(list.className).toMatch(/(^| )flex-row( |$)/);
@@ -170,13 +170,14 @@ describe("Sources (frame 3)", () => {
     expect(list.parentElement?.className).toContain("xl:grid-cols-[200px_minmax(0,1fr)]");
     // the column and its copy under the kind are never both shown: each hidden by display
     const column = header("Last check and item");
-    expect(column.className).toContain("max-xl:hidden");
+    // Its own column from 2xl only: at xl five columns were wider than the section (709px in 644px).
+    expect(column.className).toContain("max-2xl:hidden");
     const first = rows()[0] as HTMLElement;
     const own = within(first).getAllByRole("rowheader")[0] as HTMLElement;
     const copy = own.querySelector("[data-last-check]");
-    expect(copy?.className).toContain("xl:hidden");
+    expect(copy?.className).toBe("2xl:hidden");
     expect(copy?.textContent).toBe("Last check 6 min agoLast item 2 h ago");
-    expect(within(first).getAllByRole("gridcell")[2]?.className).toContain("max-xl:hidden");
+    expect(within(first).getAllByRole("gridcell")[2]?.className).toContain("max-2xl:hidden");
     // the source name wraps
     expect(within(own).getByText("Harbour Wire").className).not.toContain("nowrap");
     const freight = within(rows()[4] as HTMLElement).getAllByRole("rowheader")[0] as HTMLElement;

@@ -1,8 +1,8 @@
 // A form modal for one write to the service: a few fields, Cancel and the action. It stays open
 // while the service answers, shows the service's sentence when it refuses (what was typed is kept)
-// and closes once the write is accepted. Built as the name and share dialogs are; drawn on a
+// and closes once the write is accepted. With no field it is the question asked before a removal. Built as the name and share dialogs are; drawn on a
 // service only, so the design-reference app never opens one.
-import { useState, type SyntheticEvent } from "react";
+import { useState, type ReactNode, type SyntheticEvent } from "react";
 import { Alert } from "@/components/alert/Alert";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Button } from "@/components/base/buttons/button";
@@ -28,9 +28,13 @@ type Send = (values: FormValues) => Promise<string | null>;
 
 type Props = {
   title: string;
-  intro?: string;
+  /** A sentence under the title; it may hold a link. */
+  intro?: ReactNode;
   fields: readonly FormField[];
-  action: string;
+  /** The action's word. Without one the form has nothing to send and only Cancel is drawn. */
+  action?: string;
+  /** The action cannot be undone (a removal): its button is the kit's destructive one. */
+  destructive?: boolean;
   onSend: Send;
   /** A second write the form offers (a topic's Delete), with no field checked. */
   other?: { label: string; onSend: () => Promise<string | null> };
@@ -112,7 +116,17 @@ function FieldInput({
 }
 
 /** The form is the dialog's content, so each opening starts from the fields' own values. */
-function Form({ title, intro, fields, action, onSend, other, onClose, onGone }: Props) {
+function Form({
+  title,
+  intro,
+  fields,
+  action,
+  destructive = false,
+  onSend,
+  other,
+  onClose,
+  onGone,
+}: Props) {
   useOnGone(onGone);
   const [values, setValues] = useState(() => start(fields));
   const [missing, setMissing] = useState<string | null>(null);
@@ -176,9 +190,15 @@ function Form({ title, intro, fields, action, onSend, other, onClose, onGone }: 
         <Button color="secondary" onPress={onClose}>
           Cancel
         </Button>
-        <Button color="primary" type="submit" isDisabled={busy}>
-          {action}
-        </Button>
+        {action === undefined ? null : (
+          <Button
+            color={destructive ? "primary-destructive" : "primary"}
+            type="submit"
+            isDisabled={busy}
+          >
+            {action}
+          </Button>
+        )}
       </div>
     </form>
   );

@@ -45,10 +45,12 @@ const PRESSABLE = [
   /^Share to group: /,
   /^(New thread|Attach story)$/, // the group's thread forms
   /^Reply to /, // puts the reply box on a comment
+  /^(Edit|Remove) your comment$/, // the author's own, where the service says they still may
   /^(Agree|Disagree|Seen)(, \d+)?: comment by /, // a reaction
   /^Send$/, // a comment or a reply
   /^(New group|New topic|Propose a source|Save digest)$/,
-  /^(Edit members|Edit|Delete|Run once now): /, // a group's members, a topic, a digest
+  /^(Edit members|Edit|Delete|Run once now): /, // a group's members, a topic, a digest, a group
+  /^(Topics|Rename): /, // a group's topics and its name
   /^(Top|Latest)$/, // the order of the list on screen
   /^Show older$/,
   /^Show \d+ new (story|stories)$/,
