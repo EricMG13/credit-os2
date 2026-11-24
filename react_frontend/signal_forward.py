@@ -9,8 +9,11 @@ runs them before any route), so what is decided here is only what may leave this
   request chooses a host, port or scheme: the path is matched against a strict allowlist
   (``/signal/api/`` and lowercase letters, digits and ``/`` between segments: no ``.``, ``%``,
   empty segment or trailing ``/``) and anything else is 404 before a connection is opened.
-* GET, POST and DELETE only (405 otherwise). The query string goes with a GET only, printable ASCII
-  and at most ``MAX_QUERY`` bytes. A POST body is at most ``MAX_BODY`` (64 KiB, Signal's own limit).
+* GET, POST and DELETE only (405 otherwise) for a path that passes that allowlist. A path that
+  does not, ``/signal/api`` and ``/signal/api/`` included, is 404 for every method, PUT, PATCH,
+  HEAD and OPTIONS among them, where a Signal service is set. The query string goes with a GET
+  only, printable ASCII and at most ``MAX_QUERY`` bytes. A POST body is at most ``MAX_BODY``
+  (64 KiB, Signal's own limit).
 * The outbound request carries ``Host`` and, for a write, ``Origin`` of Signal's own address (its
   service requires them), ``Content-Type`` and ``Content-Length`` when there is a body, and the one
   ``signal_name=<value>`` pair of the browser's ``Cookie`` when it is well formed. No other browser
@@ -20,6 +23,13 @@ runs them before any route), so what is decided here is only what may leave this
   requests can hold) and a ``Set-Cookie`` that sets ``signal_name`` in the form Signal writes it.
   A redirect, a body over the cap, another content type or encoding, a failed or slow connection
   (``IO_TIMEOUT`` per read, ``DEADLINE`` for the whole exchange) is 502 ``Signal is not reachable``.
+  The ``DEADLINE`` clock starts before the connection is made and each connect attempt waits at most
+  what is left of it; resolving the host name is the one step the standard library cannot bound,
+  so a resolver that hangs is not covered by it.
+
+Memory: a reply is held up to ``MAX_REPLY`` bytes as a chunk list, again as the joined body and,
+when the browser accepts gzip, once more as the compressed copy ``send_reply`` makes, so one
+request can hold about two to three times ``MAX_REPLY`` while it is being answered.
 """
 
 from __future__ import annotations
@@ -29,6 +39,7 @@ import logging
 import re
 import socket
 import threading
+import time
 import urllib.parse
 
 from deploy_workflow import http_base
@@ -60,8 +71,14 @@ _UNREACHABLE = "Signal is not reachable"
 
 
 def is_api(path: str) -> bool:
-    """Whether ``path`` is in the forwarded area (it may still be refused as a path)."""
-    return path.startswith(API_PREFIX)
+    """Whether ``path`` is in the forwarded area (it may still be refused as a path): under
+    ``/signal/api/``, or ``/signal/api`` itself, which is refused the same way."""
+    return path.startswith(API_PREFIX) or path == API_PREFIX.rstrip("/")
+
+
+def connect_timeout(started: float, now: float) -> float:
+    """Seconds one connect may wait: ``IO_TIMEOUT``, or what is left of ``DEADLINE`` if less."""
+    return min(IO_TIMEOUT, DEADLINE - (now - started))
 
 
 class _Failed(Exception):
@@ -146,9 +163,14 @@ class SignalForwarder:
             return self._exchange(method, f"{sent}?{query}" if query else sent, headers, body)
         except (OSError, http.client.HTTPException, _Failed) as error:
             # One line per failed request: the method and path, the failure's type and the start of
-            # its text (it may quote what Signal sent). Never the headers, so never the cookie.
+            # its text, escaped (it may quote what Signal sent). Never the headers, so never the
+            # cookie.
             log.warning(
-                "Signal forward %s %s failed: %s: %.200s", method, path, type(error).__name__, error
+                "Signal forward %s %s failed: %s: %.200r",
+                method,
+                path,
+                type(error).__name__,
+                str(error),
             )
             raise refuse(502, _UNREACHABLE) from None
 
@@ -168,13 +190,20 @@ class SignalForwarder:
         return data
 
     def _exchange(self, method: str, target: str, headers: dict[str, str], body: bytes) -> Reply:
+        started = time.monotonic()
         connection = http.client.HTTPConnection(self.host, self.port, timeout=IO_TIMEOUT)
         expired = threading.Event()
         timer: threading.Timer | None = None
         try:
+            left = connect_timeout(started, time.monotonic())
+            if left <= 0:
+                raise _Failed("no time left to connect")
+            connection.timeout = left  # bounds each address create_connection tries
             connection.connect()
             assert connection.sock is not None
-            timer = threading.Timer(DEADLINE, _cut, args=(connection.sock, expired))
+            connection.sock.settimeout(IO_TIMEOUT)
+            remaining = DEADLINE - (time.monotonic() - started)
+            timer = threading.Timer(max(remaining, 0.0), _cut, args=(connection.sock, expired))
             timer.daemon = True
             timer.start()
             connection.request(method, target, body=body or None, headers=headers)

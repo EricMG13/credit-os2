@@ -390,6 +390,35 @@ def test_other_methods_are_405_and_never_forwarded(root: Path, web: Path, method
         assert call(server, "/start", "PUT")[0] == 501  # the rest of the server is unchanged
 
 
+@pytest.mark.parametrize("path", ["/signal/api", "/signal/api/"])
+@pytest.mark.parametrize("method", ["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS", "HEAD"])
+def test_the_api_root_is_404_for_every_method_with_or_without_a_slash(
+    root: Path, web: Path, path: str, method: str
+) -> None:
+    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+        assert call(server, path, method)[0] == 404
+        settle()
+        assert fake.connections == 0
+
+
+def test_the_connect_timeout_is_what_is_left_of_the_deadline() -> None:
+    assert signal_forward.connect_timeout(100.0, 100.0) == signal_forward.IO_TIMEOUT
+    assert signal_forward.connect_timeout(100.0, 108.0) == pytest.approx(2.0)
+    assert signal_forward.connect_timeout(100.0, 120.0) <= 0  # none left: no connect attempt
+
+
+def test_a_status_line_with_control_bytes_reaches_the_log_escaped(
+    root: Path, web: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    hostile = b"garbage\r2026-11-24 ERROR fake: key=sk-xxx\x1b[2K\r\n"
+    with upstream(answer(hostile)) as fake, react(root, web, fake.url) as server:
+        assert call(server, "/signal/api/me")[0] == 502
+    messages = [r.getMessage() for r in caplog.records if r.name == signal_forward.log.name]
+    assert len(messages) == 1
+    assert not any(c in messages[0] for c in "\r\n\x1b")
+
+
 # -- the local checks come first -----------------------------------------------------------------
 
 
@@ -850,6 +879,7 @@ def test_the_read_only_preview_has_neither_the_page_nor_the_forwarding(
         for method in ("POST", "DELETE"):
             assert call(server, "/signal/api/stories/1/save", method)[0] == 404
         assert call(server, "/api/submissions", "POST")[0] == 405  # the preview's own refusal
+        assert b"credit-os-signal-url" not in call(server, "/")[1]
         settle()
         assert fake.connections == 0
 

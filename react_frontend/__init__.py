@@ -441,7 +441,9 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     forwarder = None
     if signal_link and not read_only:
         forwarder = signal_forward.SignalForwarder(signal_link)
-    page = _read_page(dist, synthetic=synthetic, signal_url=signal_link, read_only=read_only)
+    page = _read_page(
+        dist, synthetic=synthetic, signal_url=signal_link if forwarder else "", read_only=read_only
+    )
     context = _form_template(synthetic=synthetic)
     settings = (  # Teams cards are for real runs only: a synthetic service never posts
         Settings(
