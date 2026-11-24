@@ -52,7 +52,7 @@ function Quoted({ story }: { story: SignalStory }) {
               href={link}
               target="_blank"
               rel="noopener noreferrer"
-              className={cx("hover:underline", FOCUS)}
+              className={cx("py-0.5 hover:underline", FOCUS)}
             >
               {story.headline}
             </a>

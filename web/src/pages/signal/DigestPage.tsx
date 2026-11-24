@@ -50,7 +50,7 @@ function Stories({ point }: { point: Point }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Open source: ${story.headline} (opens in a new tab)`}
-                      className={`font-medium text-text-link hover:underline ${FOCUS}`}
+                      className={`py-0.5 font-medium text-text-link hover:underline ${FOCUS}`}
                     >
                       {story.headline}
                     </a>
@@ -193,7 +193,7 @@ function PausedNotice({
           writer ? (
             <a
               href={sceneHref(scene, "settings/ai")}
-              className={`text-sm font-semibold text-text-link ${FOCUS}`}
+              className={`inline-flex min-h-6 items-center text-sm font-semibold text-text-link ${FOCUS}`}
             >
               Open AI and cost
             </a>
@@ -223,7 +223,7 @@ function EarlierDigests({
       >
         Earlier digests
       </h2>
-      <ul className="divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-8 py-2 shadow-1">
+      <ul className="divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-4 py-2 shadow-1 min-[768px]:px-8">
         {issues.map((issue) => (
           <Row key={issue.id} digest={digest} issue={issue} />
         ))}

@@ -437,9 +437,13 @@
                     "edited": false,
                     "removed": false,
                     "reactions": [],
-                    "replies": []
+                    "replies": [],
+                    "canEdit": false,
+                    "canRemove": true
                   }
-                ]
+                ],
+                "canEdit": false,
+                "canRemove": false
               },
               {
                 "id": "3",
@@ -453,7 +457,9 @@
                 "edited": false,
                 "removed": true,
                 "reactions": [],
-                "replies": []
+                "replies": [],
+                "canEdit": false,
+                "canRemove": false
               },
               {
                 "id": "4",
@@ -467,7 +473,9 @@
                 "edited": false,
                 "removed": false,
                 "reactions": [],
-                "replies": []
+                "replies": [],
+                "canEdit": false,
+                "canRemove": true
               }
             ]
           },
@@ -506,9 +514,13 @@
                     "edited": false,
                     "removed": false,
                     "reactions": [],
-                    "replies": []
+                    "replies": [],
+                    "canEdit": false,
+                    "canRemove": false
                   }
-                ]
+                ],
+                "canEdit": false,
+                "canRemove": true
               }
             ]
           },
@@ -623,7 +635,8 @@
               "moreMembers": null,
               "memberSummary": "1 member",
               "visibility": "Members only",
-              "visibilityOptions": ["Visible to everyone", "Members only"]
+              "visibilityOptions": ["Visible to everyone", "Members only"],
+              "topics": []
             },
             {
               "id": "1",
@@ -649,7 +662,8 @@
               "moreMembers": "+2",
               "memberSummary": "6 members",
               "visibility": "Visible to everyone",
-              "visibilityOptions": ["Visible to everyone", "Members only"]
+              "visibilityOptions": ["Visible to everyone", "Members only"],
+              "topics": []
             },
             {
               "id": "2",
@@ -671,7 +685,8 @@
               "moreMembers": null,
               "memberSummary": "3 members",
               "visibility": "Members only",
-              "visibilityOptions": ["Visible to everyone", "Members only"]
+              "visibilityOptions": ["Visible to everyone", "Members only"],
+              "topics": []
             }
           ],
           "rules": [

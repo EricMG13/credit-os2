@@ -299,20 +299,34 @@ function NameChip({
   );
 }
 
-export function SignalFrame({
-  scene,
-  current,
-  follow,
-  children,
-}: {
-  scene: SignalScene;
-  current: SignalCurrent;
-  follow: SignalFollow;
-  children: ReactNode;
-}) {
-  const content = useRef<HTMLDivElement>(null);
-  const chipRef = useRef<HTMLButtonElement>(null);
-  const { viewer } = scene.snapshot;
+/** The name the channel list gives the item the page is on; null where the address names none. */
+function placeOf(scene: SignalScene, current: SignalCurrent): string | null {
+  const { channels } = scene.snapshot;
+  switch (current.kind) {
+    case "view":
+      return VIEWS.find((view) => view.id === current.id)?.label ?? null;
+    case "topic":
+    case "group":
+    case "digest":
+      return channels[`${current.kind}s`].find((item) => item.id === current.id)?.name ?? null;
+    case "settings":
+      return "Settings";
+    case "none":
+      return null;
+  }
+}
+
+/** Whether the list draws an unread mark: a group's unread badge, or an unread digest's dot. */
+function anyUnread(scene: SignalScene): boolean {
+  const { groups, digests } = scene.snapshot.channels;
+  return (
+    groups.some((group) => group.unread !== null && group.unread !== "0") ||
+    digests.some((digest) => digest.unread && !digest.paused)
+  );
+}
+
+/** The viewer's name as the frame shows it, and the dialog that sets it. */
+function useViewerName(viewer: SignalScene["snapshot"]["viewer"]) {
   const actions = useSignalActions();
   // With no service a typed name is in memory only and lasts until the page is left. With one it
   // shows at once and is sent, and once answered the slice says who is reading: accepted, the
@@ -342,11 +356,71 @@ export function SignalFrame({
       : typedInitials === ""
         ? "?"
         : typedInitials;
+  return {
+    name,
+    initials,
+    said,
+    dialog: { open, current: name, refused },
+    ask: () => {
+      setOpen(true);
+    },
+    submit: (next: string) => {
+      setTyped(next);
+      setSaid({ count: said.count + 1, text: `Signed in as ${next}` });
+      setOpen(false);
+      setRefused(null);
+      send(next);
+    },
+    cancel: () => {
+      setOpen(false);
+      setRefused(null);
+    },
+  };
+}
+
+const SKIP =
+  "sr-only outline-focus-ring focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:fixed focus:top-2 focus:left-2 focus:z-10 focus:rounded-ds-xs focus:bg-surface-card focus:p-2 focus:text-text-link";
+
+export function SignalFrame({
+  scene,
+  current,
+  follow,
+  children,
+}: {
+  scene: SignalScene;
+  current: SignalCurrent;
+  follow: SignalFollow;
+  children: ReactNode;
+}) {
+  const content = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const listButton = useRef<HTMLButtonElement>(null);
+  const viewer = useViewerName(scene.snapshot.viewer);
+  const wide = useWide();
+  // The list's panel, in a narrow window only: choosing a destination closes it.
+  const [listOpen, setListOpen] = useState(false);
+  const { name, initials } = viewer;
+  const list = (
+    <ChannelList
+      scene={scene}
+      current={current}
+      follow={follow}
+      chip={
+        <NameChip
+          name={name}
+          initials={initials}
+          roleLabel={scene.snapshot.viewer.roleLabel}
+          chipRef={chipRef}
+          onPress={viewer.ask}
+        />
+      }
+    />
+  );
   return (
     <div className="flex h-full">
       <a
         href="#signal-content"
-        className="sr-only outline-focus-ring focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:fixed focus:top-2 focus:left-2 focus:z-10 focus:rounded-ds-xs focus:bg-surface-card focus:p-2 focus:text-text-link"
+        className={SKIP}
         onClick={(event) => {
           event.preventDefault();
           content.current?.focus();
@@ -354,48 +428,43 @@ export function SignalFrame({
       >
         Skip to the feed
       </a>
-      <ChannelList
-        scene={scene}
-        current={current}
-        follow={follow}
-        chip={
-          <NameChip
-            name={name}
-            initials={initials}
-            roleLabel={viewer.roleLabel}
-            chipRef={chipRef}
-            onPress={() => {
-              setOpen(true);
-            }}
-          />
-        }
-      />
+      {wide ? list : null}
       <NameDialog
-        open={open}
-        current={name}
-        refused={refused}
-        onSubmit={(next) => {
-          setTyped(next);
-          setSaid({ count: said.count + 1, text: `Signed in as ${next}` });
-          setOpen(false);
-          setRefused(null);
-          send(next);
-        }}
-        onCancel={() => {
-          setOpen(false);
-          setRefused(null);
-        }}
-        onGone={() => chipRef.current?.focus()}
+        {...viewer.dialog}
+        onSubmit={viewer.submit}
+        onCancel={viewer.cancel}
+        // The chip is in the list: beside the page, or in the panel while that is open.
+        onGone={() => (chipRef.current ?? listButton.current)?.focus()}
       />
       <div role="status" className="sr-only">
-        {said.count > 0 ? <span key={said.count}>{said.text}</span> : null}
+        {viewer.said.count > 0 ? <span key={viewer.said.count}>{viewer.said.text}</span> : null}
       </div>
       <div
         id="signal-content"
         ref={content}
         tabIndex={-1}
-        className="min-w-0 flex-1 overflow-y-auto p-8 outline-none"
+        className="min-w-0 flex-1 overflow-y-auto p-4 outline-none min-[768px]:p-8"
       >
+        {wide ? null : (
+          <ChannelPanel
+            place={placeOf(scene, current)}
+            unread={anyUnread(scene)}
+            open={listOpen}
+            onOpenChange={setListOpen}
+            buttonRef={listButton}
+          >
+            <ListFormContext
+              value={{
+                panel: true,
+                onGo: () => {
+                  setListOpen(false);
+                },
+              }}
+            >
+              {list}
+            </ListFormContext>
+          </ChannelPanel>
+        )}
         <SignalViewerContext value={{ name, initials }}>{children}</SignalViewerContext>
       </div>
     </div>

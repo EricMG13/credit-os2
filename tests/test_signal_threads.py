@@ -405,3 +405,21 @@ def test_a_topic_story_is_not_posted_into_a_group_at_its_thread_bound(db, monkey
     add_story(db, source, Entry("Corvane plants again", "https://w.example/3", NOW, ""), NOW)
     match_story(db, 3)
     assert rows(db, "SELECT group_id, story_id FROM threads ORDER BY id") == [(2, None), (1, 3)]
+
+
+def test_an_author_who_can_no_longer_see_the_group_cannot_touch_their_comment(db):
+    """Review finding 11 (own_edit_in_unseen_group_allowed): the author's own comment in a group
+    they no longer see is answered as no comment at all."""
+    thread, _ = threads.share(db, MARA, 1, threads.Item(1, "Mine."), NOW)
+    groups.set_visibility(db, MARA, 1, "invited")
+    groups.remove_member(db, MARA, 1, "Mara L")
+    for call in (
+        lambda: threads.edit(db, MARA, 1, "x", NOW),
+        lambda: threads.remove(db, MARA, 1, NOW),
+        lambda: threads.reply(db, MARA, 1, "x", NOW),
+        lambda: threads.react(db, MARA, threads.Reaction(1, "Seen", True), NOW),
+    ):
+        with pytest.raises(NotFound) as refused:
+            call()
+        assert str(refused.value) == "no comment with id 1"
+    assert thread == 1

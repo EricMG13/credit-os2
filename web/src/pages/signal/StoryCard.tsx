@@ -77,7 +77,7 @@ function HeadlineBlock({ story, link }: { story: SignalStory; link: string | nul
             href={link}
             target="_blank"
             rel="noopener noreferrer"
-            className={`text-text-primary hover:underline ${FOCUS}`}
+            className={`py-0.5 text-text-primary hover:underline ${FOCUS}`}
           >
             {headline}
           </a>

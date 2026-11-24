@@ -204,6 +204,8 @@ def _settings_group(db: sqlite3.Connection, row: sqlite3.Row) -> Json:
         **_members(db, row["id"]),  # members, moreMembers, memberSummary: as the group page
         "visibility": SETTINGS_VISIBILITY[row["visibility"]],
         "visibilityOptions": list(SETTINGS_VISIBILITY.values()),
+        # The topics whose new stories post into the group, as settings.topics names them (by id).
+        "topics": [str(n) for n in groups.group_topic_ids(db, row["id"])],
     }
 
 

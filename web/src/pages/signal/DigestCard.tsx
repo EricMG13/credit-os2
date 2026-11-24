@@ -31,7 +31,7 @@ export function DigestCard({ digest, href }: { digest: SignalDigestCard; href: s
         {digest.nothing === null ? (
           <>
             <h2 tabIndex={-1} className="text-lg font-medium text-text-primary">
-              <a href={href} className={`text-text-primary hover:underline ${FOCUS}`}>
+              <a href={href} className={`py-0.5 text-text-primary hover:underline ${FOCUS}`}>
                 {title}
               </a>
             </h2>
@@ -45,6 +45,7 @@ export function DigestCard({ digest, href }: { digest: SignalDigestCard; href: s
               <Button
                 size="sm"
                 color="link-color"
+                className="min-h-6"
                 iconTrailing={ArrowRight}
                 href={href}
                 aria-label={`Read the digest: ${title}`}

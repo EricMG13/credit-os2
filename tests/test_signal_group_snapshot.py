@@ -329,7 +329,8 @@ def test_nothing_of_a_group_she_cannot_see_reaches_her(grouped, read_by_react):
     text = json.dumps({key: snap[key] for key in ("groups", "threads", "channels", "feed")})
     assert "Committee prep" not in text and "Not for everyone." not in text
     assert all(t["groupId"] != "3" for t in snap["threads"])
-    # A writer manages every group, so Settings lists it with its members, and nothing else.
+    # A writer manages every group, so Settings lists it with its members and topics, nothing
+    # else.
     assert [g["name"] for g in snap["settings"]["groups"]] == [
         "Committee prep",
         "Leveraged credit",
@@ -343,6 +344,7 @@ def test_nothing_of_a_group_she_cannot_see_reaches_her(grouped, read_by_react):
         "memberSummary": "1 member",
         "visibility": "Members only",
         "visibilityOptions": ["Visible to everyone", "Members only"],
+        "topics": [],
     }
 
 
@@ -642,3 +644,41 @@ def test_comment_opens_the_thread_in_her_own_group_before_a_livelier_open_one(
     story = _story(read_by_react(db, WRITER), "1")
     assert story["threadRef"] == {"groupId": str(mine), "threadId": "1"}
     assert story["commentCount"] is None  # her group's thread has no comment yet
+
+
+def _group_topics(snap: dict[str, Any]) -> dict[str, list[str]]:
+    listed = {t["id"] for t in snap["settings"]["topics"]}
+    held = {g["name"]: g["topics"] for g in snap["settings"]["groups"]}
+    assert all(set(ids) <= listed for ids in held.values())  # ids Settings' topics use
+    return held
+
+
+def test_settings_lists_each_groups_topics_as_set_replaced_and_cleared(grouped, read_by_react):
+    from deploy_workflow.signal.topics import delete_topic
+
+    # The sample's topics: 1 Packaging, 2 Telecoms, 3 Shipping.
+    assert _group_topics(read_by_react(grouped, WRITER)) == {
+        "Committee prep": [],
+        "Leveraged credit": [],
+        "Shipping desk": [],
+    }
+    groups.set_topics(grouped, WRITER, 2, ["3", 1])
+    groups.set_topics(grouped, WRITER, 1, [2])
+    held = _group_topics(read_by_react(grouped, WRITER))
+    assert (held["Shipping desk"], held["Leveraged credit"]) == (["1", "3"], ["2"])  # by id
+    groups.set_topics(grouped, WRITER, 2, [2])  # replaced
+    groups.set_topics(grouped, WRITER, 1, [])  # cleared
+    held = _group_topics(read_by_react(grouped, WRITER))
+    assert (held["Shipping desk"], held["Leveraged credit"]) == (["2"], [])
+    # A topic a group names cannot be deleted; once no group names it, it goes from every list.
+    from deploy_workflow.signal.store import StoreError
+
+    with pytest.raises(StoreError, match="a group still follows this topic"):
+        delete_topic(grouped, 2)
+    groups.set_topics(grouped, WRITER, 2, [3])
+    delete_topic(grouped, 2)
+    snap = read_by_react(grouped, WRITER)
+    assert [t["id"] for t in snap["settings"]["topics"]] == ["1", "3"]
+    assert _group_topics(snap)["Shipping desk"] == ["3"]
+    # A reader's Settings lists the groups they see, with their topics too.
+    assert _group_topics(read_by_react(grouped, READER))["Shipping desk"] == ["3"]

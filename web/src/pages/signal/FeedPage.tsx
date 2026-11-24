@@ -115,7 +115,7 @@ function EntryList({
   return (
     <div
       ref={listRef}
-      className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-8 py-2 shadow-1"
+      className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-4 py-2 shadow-1 min-[768px]:px-8"
     >
       {entries.map((entry) =>
         entry.kind === "story" ? (

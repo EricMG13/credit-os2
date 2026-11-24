@@ -205,7 +205,7 @@ function Item({
           inGroup
         />
       )}
-      <div className="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 pb-5 text-sm text-text-tertiary sm:pl-24">
+      <div className="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 pb-5 pl-15 text-sm text-text-tertiary min-[768px]:pl-24">
         {story !== null && thread.note !== null ? (
           <p className="basis-full text-text-secondary">{thread.note}</p>
         ) : null}
@@ -230,7 +230,7 @@ function Item({
           )}
           data-thread-link={thread.id}
           aria-label={`Open thread: ${story === null ? thread.sharedBy.label : story.headline}`}
-          className={`font-semibold text-text-link ${FOCUS}`}
+          className={`inline-flex min-h-6 items-center font-semibold text-text-link ${FOCUS}`}
         >
           Open thread
         </a>
@@ -271,7 +271,7 @@ export function GroupPage({
       ) : (
         <ul
           aria-label="Shared in this group"
-          className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-8 py-2 shadow-1"
+          className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-4 py-2 shadow-1 min-[768px]:px-8"
         >
           {group.threads.map((thread) => {
             const story = thread.storyId === null ? null : (stories.get(thread.storyId) ?? null);

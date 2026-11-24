@@ -14,7 +14,10 @@ const REACTION_WORDS = ["Agree", "Disagree", "Seen"] as const;
 export type ReactionWord = (typeof REACTION_WORDS)[number];
 
 const FOCUS = "outline-focus-ring focus-visible:outline-2";
-const CHIP = "h-6 rounded-ds-full px-2 text-sm font-medium ring-1 ring-border-hairline ring-inset";
+const CHIP =
+  "h-6 rounded-ds-full px-2 text-sm font-medium whitespace-nowrap ring-1 ring-border-hairline ring-inset";
+/** The chips keep their words on one line each and wrap as a row where the panel is narrow. */
+const CHIPS = "flex flex-wrap justify-end gap-1";
 
 type ListProps = {
   comments: SignalComment[];
@@ -36,7 +39,7 @@ function Reactions({
   const author = authorOf(comment);
   if (onToggle === null) {
     return comment.reactions.length === 0 ? null : (
-      <ul aria-label={`Reactions to the comment by ${author}`} className="flex gap-1">
+      <ul aria-label={`Reactions to the comment by ${author}`} className={CHIPS}>
         {comment.reactions.map((held) => (
           <li key={held.word} className={cx(CHIP, "bg-surface-subtle text-text-secondary")}>
             {`${held.word} ${held.count}`}
@@ -46,7 +49,7 @@ function Reactions({
     );
   }
   return (
-    <ul aria-label={`Reactions to the comment by ${author}`} className="flex gap-1">
+    <ul aria-label={`Reactions to the comment by ${author}`} className={CHIPS}>
       {REACTION_WORDS.map((word) => {
         // A word the slice does not hold has no count; one it holds shows the delivered string.
         const count = comment.reactions.find((r) => r.word === word)?.count ?? null;
@@ -116,7 +119,7 @@ function MessageActions({
 } & Pick<ListProps, "onReply" | "isPressed" | "onToggle">) {
   if (comment.removed) return null;
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       {onReply === null || isReply ? (
         <span />
       ) : (
@@ -126,7 +129,7 @@ function MessageActions({
           onClick={() => {
             onReply(comment);
           }}
-          className={cx("rounded-ds-xs text-sm font-semibold text-text-link", FOCUS)}
+          className={cx("min-h-6 rounded-ds-xs text-sm font-semibold text-text-link", FOCUS)}
         >
           Reply
         </button>
@@ -247,6 +250,7 @@ export function Composer({
           <Button
             size="sm"
             color="link-color"
+            className="min-h-6"
             onPress={() => {
               onCancelReply();
               boxRef.current?.focus();
@@ -275,7 +279,7 @@ export function Composer({
             <Avatar size="xs" initials={initials} own />
             {name}
           </span>
-          <Button size="sm" color="link-color" type="submit">
+          <Button size="sm" color="link-color" className="min-h-6" type="submit">
             Send
           </Button>
         </div>

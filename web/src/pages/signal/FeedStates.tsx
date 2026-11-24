@@ -14,12 +14,15 @@ export function FeedSkeleton() {
     <section
       aria-label="Stories"
       aria-busy="true"
-      className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-8 py-2 shadow-1"
+      className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-4 py-2 shadow-1 min-[768px]:px-8"
     >
       <span className="sr-only">Loading stories</span>
       {[4, 4, 3].map((lines, index) => (
-        <div key={index} data-skeleton-story className="flex gap-4 py-6">
-          <div aria-hidden="true" className="size-20 shrink-0 rounded-ds-xs bg-surface-subtle" />
+        <div key={index} data-skeleton-story className="flex gap-3 py-6 min-[768px]:gap-4">
+          <div
+            aria-hidden="true"
+            className="size-12 shrink-0 rounded-ds-xs bg-surface-subtle min-[768px]:size-20"
+          />
           <div className="min-w-0 flex-1">
             <Skeleton lines={lines} />
           </div>

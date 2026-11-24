@@ -103,14 +103,19 @@ export function FeedControls({
       }}
     >
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <TabList aria-label="Kind of story" size="sm" className="w-auto">
+        {/* The five tabs wrap where the page is narrower than their row (under about 360px). */}
+        <TabList
+          aria-label="Kind of story"
+          size="sm"
+          className="w-auto max-w-full flex-wrap gap-y-2"
+        >
           {KINDS.map(([id, label]) => (
             <Tab key={id} id={id}>
               {label}
             </Tab>
           ))}
         </TabList>
-        <div className="ml-auto w-70">
+        <div className="w-full min-[768px]:ml-auto min-[768px]:w-70">
           <Input
             ref={field}
             icon={SearchLg}

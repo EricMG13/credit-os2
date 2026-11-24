@@ -159,7 +159,8 @@ def _seed_stories(db: sqlite3.Connection) -> list[int]:
     )
     keywords = json.dumps([_long(f"{k:02d}", 60) for k in range(12)], ensure_ascii=False)
     db.executemany(
-        "INSERT INTO topics(name, keywords, kinds, created_by, created_at) VALUES(?, ?, '[]', ?, ?)",
+        "INSERT INTO topics(name, keywords, kinds, created_by, created_at)"
+        " VALUES(?, ?, '[]', ?, ?)",
         [(_long(f"{t:02d}", 80), keywords, "Mara L", _stamp(days=30)) for t in range(50)],
     )
     db.executemany(
@@ -348,3 +349,34 @@ def test_a_sparse_view_in_a_large_store_reads_the_same_ids_without_walking_every
     assert feedview.view_ids(db, "Mara L", "topic:2", 30) == newest(set(range(1, 20001, 2)), 30)
     assert feedview.view_ids(db, "Mara L", "saved", 120) == newest({5, 99, 19999}, 120)
     assert feedview.view_ids(db, "Mara L", "foryou", 120) == newest(sparse, 120)
+
+
+def test_a_sparse_view_reads_its_members_and_a_dense_one_walks_the_stories(db):
+    """Which of the two ways `view_ids` takes (the same ids either way, as the test above shows):
+    a sparse view in a large store must not walk every story, a dense one need not sort all its
+    members."""
+    from deploy_workflow.signal import feedview
+
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('W', 'news', 'https://w.example/f', 'approved', 'Mara L', 'x')"
+        )
+        db.executemany(
+            "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(1, 'S', ?, ?, 't', ?, 'x', '')",
+            [(f"https://w.example/{n}", f"k{n}", _stamp(minutes=n)) for n in range(5000)],
+        )
+        db.execute("INSERT INTO topics VALUES(1, 'Sparse', '[]', '[]', 'Mara L', 'x')")
+        db.execute("INSERT INTO topics VALUES(2, 'Dense', '[]', '[]', 'Mara L', 'x')")
+        db.executemany("INSERT INTO topic_stories VALUES(1, ?)", [(n,) for n in (10, 20, 4990)])
+        db.executemany("INSERT INTO topic_stories VALUES(2, ?)", [(n,) for n in range(1, 5001)])
+    statements: list[str] = []
+    db.set_trace_callback(statements.append)
+    feedview.view_ids(db, "Mara L", "topic:1", 30)
+    sparse, statements[:] = list(statements), []
+    feedview.view_ids(db, "Mara L", "topic:2", 30)
+    dense = list(statements)
+    db.set_trace_callback(None)
+    assert any("CROSS JOIN stories" in sql for sql in sparse)
+    assert not any("CROSS JOIN stories" in sql for sql in dense)
