@@ -9,7 +9,17 @@ from __future__ import annotations
 import unicodedata
 from datetime import UTC, datetime
 
-__all__ = ["ago", "capital", "clock", "day", "initials", "monogram", "plural", "utc"]
+__all__ = [
+    "ago",
+    "capital",
+    "clock",
+    "day",
+    "initials",
+    "monogram",
+    "plural",
+    "shortened",
+    "utc",
+]
 
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _ARTICLES = frozenset({"the", "a", "an"})
@@ -57,6 +67,16 @@ def capital(text: str) -> str:
 
 def plural(count: int, one: str, many: str) -> str:
     return f"{count} {one if count == 1 else many}"
+
+
+def shortened(text: str, limit: int) -> str:
+    """`text` as it is, or, past `limit` characters, cut at its last space within them (at
+    `limit` when there is none) with an ellipsis."""
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    cut = head.rsplit(" ", 1)[0] if " " in head else head
+    return cut.rstrip() + "\u2026"
 
 
 def _first_marks(words: list[str]) -> str:

@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from signal_reader_check import react_refusal
 
 from deploy_workflow.signal import groups, snapshot, threads
@@ -90,6 +92,172 @@ def test_one_writer_filling_a_thread_cannot_blank_anyone_else(db):
     assert all(c["text"] == LONGEST for c in held)
     newest_top = max(tops)
     assert whole["comments"][-1]["id"] == str(newest_top)  # the newest top-level comment is kept
+
+
+def _desk(db: sqlite3.Connection) -> int:
+    """The victim's desk: an invited group of five ordinary threads, two hours old, each with
+    one short comment; Mara L and the reader Tobias O are its members."""
+    desk = groups.create_group(db, MARA, "Credit desk", "invited")
+    groups.add_member(db, MARA, desk, "Mara L")
+    groups.add_member(db, MARA, desk, "Tobias O")
+    for n in range(5):
+        made, _ = threads.share(db, MARA, desk, threads.Item(None, f"Desk note {n}"), _ago(hours=2))
+        threads.comment(db, MARA, made, "An ordinary comment.", _ago(hours=2))
+    return desk
+
+
+def _ago(**ago: float) -> datetime:
+    return NOW - timedelta(**ago)
+
+
+def _page(snap: dict[str, Any], name: str) -> dict[str, Any]:
+    (found,) = [g for g in snap["groups"] if g["name"] == name]
+    return found
+
+
+def _desk_threads(snap: dict[str, Any], desk: int) -> list[dict[str, Any]]:
+    return [t for t in snap["threads"] if t["groupId"] == str(desk)]
+
+
+TOBIAS = User("Tobias O", "reader")
+
+
+def test_one_oversize_thread_is_a_summary_and_the_threads_after_it_keep_their_comments(db):
+    desk = _desk(db)
+    junk = groups.create_group(db, INES, "Junk", "everyone")
+    fat, _ = threads.share(db, INES, junk, threads.Item(None, "x"), _ago(minutes=5))
+    for _ in range(70):  # 72 requests: more than the whole group budget in one thread
+        threads.comment(db, INES, fat, LONGEST, _ago(minutes=5))
+    snap = _read(db, TOBIAS)
+    held = _desk_threads(snap, desk)
+    assert [t["note"] for t in held] == [f"Desk note {n}" for n in (4, 3, 2, 1, 0)]
+    assert all(len(t["comments"]) == 1 for t in held)
+    assert {t["subline"] for t in held} == {"Credit desk, 1 comment"}
+    (big,) = [t for t in snap["threads"] if t["id"] == str(fat)]
+    assert big["comments"] == []
+    assert big["subline"] == "Junk, 70 comments, shown when the thread is opened"
+
+
+def test_newer_junk_groups_cannot_push_a_members_desk_off_its_page(db):
+    desk = _desk(db)
+    for g in range(2):  # 62 requests: two open groups of 30 notes at their limit, all newer
+        junk = groups.create_group(db, INES, f"Junk {g}", "everyone")
+        for _ in range(30):
+            threads.share(db, INES, junk, threads.Item(None, LONGEST), _ago(minutes=1))
+    for viewer in (TOBIAS, MARA):
+        snap = _read(db, viewer)
+        held = _desk_threads(snap, desk)
+        assert [t["note"] for t in held] == [f"Desk note {n}" for n in (4, 3, 2, 1, 0)]
+        assert all(len(t["comments"]) == 1 for t in held)
+        assert _page(snap, "Credit desk")["more"] is None
+        # Every junk group still shows its newest threads; past the budget a summary's note is
+        # cut to a short excerpt.
+        notes = []
+        for g in range(2):
+            page = _page(snap, f"Junk {g}")
+            assert len(page["threads"]) >= 5
+            notes += [item["note"] for item in page["threads"]]
+        assert set(notes) == {LONGEST, BOMB * 280 + "\u2026"}
+    opened = _read(db, TOBIAS, thread=1)
+    (first,) = [t for t in opened["threads"] if t["id"] == "1"]
+    assert first["note"] == "Desk note 0" and len(first["comments"]) == 1
+
+
+def test_a_summary_holds_a_short_excerpt_of_its_note_in_both_records_and_the_whole_note_opened(
+    db,
+):
+    desk = groups.create_group(db, MARA, "Desk", "everyone")
+    words = " ".join(f"word{n:03d}" for n in range(500))  # 7-character words and a space
+    made, _ = threads.share(db, INES, desk, threads.Item(None, words), NOW)
+    for _ in range(70):
+        threads.comment(db, INES, made, LONGEST, NOW)  # too big to deliver with its comments
+    snap = _read(db, STRANGER)
+    excerpt = " ".join(f"word{n:03d}" for n in range(35)) + "\u2026"  # 35 words: 279 characters
+    assert snap["groups"][0]["threads"][0]["note"] == excerpt
+    assert snap["threads"][0]["note"] == excerpt
+    opened = _read(db, STRANGER, thread=made)
+    assert opened["groups"][0]["threads"][0]["note"] == words
+    assert opened["threads"][0]["note"] == words
+
+
+def test_a_note_with_no_space_in_its_first_280_characters_is_cut_at_280(db):
+    desk = groups.create_group(db, MARA, "Desk", "everyone")
+    made, _ = threads.share(db, INES, desk, threads.Item(None, "y" * 300 + " end"), NOW)
+    for _ in range(70):
+        threads.comment(db, INES, made, LONGEST, NOW)
+    snap = _read(db, STRANGER)
+    assert snap["threads"][0]["note"] == "y" * 280 + "\u2026"
+
+
+def test_a_group_with_threads_left_out_says_how_many_it_shows(db):
+    desk = groups.create_group(db, MARA, "Desk", "everyone")
+    stamp = _stamp(hours=1)
+    with db:
+        db.executemany(
+            "INSERT INTO threads(group_id, created_at, created_by, note, last_activity_at)"
+            " VALUES(?, ?, 'Ines K', 'n', ?)",
+            [(desk, stamp, stamp)] * 31,
+        )
+    snap = _read(db, STRANGER)
+    page = snap["groups"][0]
+    assert len(page["threads"]) == 30
+    assert page["more"] == "Showing the latest 30 of 31 threads."
+    with db:
+        db.execute("DELETE FROM threads WHERE id = 31")
+    assert _read(db, STRANGER)["groups"][0]["more"] is None
+
+
+_LONG_NOTE = st.sampled_from(["A short note.", LONGEST, ("Long words " * 400)[:4000]])
+
+
+@settings(max_examples=12, deadline=None)
+@given(
+    st.lists(
+        st.tuples(
+            st.integers(0, 32),  # threads in the group, all newer than the desk's
+            _LONG_NOTE,
+            st.integers(0, 40),  # comments at their limit on the group's newest thread
+            st.booleans(),  # Tobias O is a member of that group too
+        ),
+        max_size=4,
+    )
+)
+def test_the_viewers_own_group_always_delivers_its_newest_five(tmp_path_factory, others):
+    db = open_db(tmp_path_factory.mktemp("own"))
+    add_user(db, "Mara L", "writer")
+    add_user(db, "Ines K", "writer")
+    desk = groups.create_group(db, MARA, "Credit desk", "invited")
+    groups.add_member(db, MARA, desk, "Tobias O")
+    with db:
+        for n in range(8):  # the desk's threads 1 to 8, thread 8 the newest
+            stamp = _stamp(hours=10 - n)
+            db.execute(
+                "INSERT INTO threads(group_id, created_at, created_by, note, last_activity_at)"
+                " VALUES(?, ?, 'Mara L', ?, ?)",
+                (desk, stamp, f"Desk note {n + 1}", stamp),
+            )
+    for g, (count, note, comments, member) in enumerate(others):
+        other = groups.create_group(db, INES, f"Other {g}", "everyone")
+        if member:
+            groups.add_member(db, INES, other, "Tobias O")
+        with db:
+            made = [
+                db.execute(
+                    "INSERT INTO threads(group_id, created_at, created_by, note,"
+                    " last_activity_at) VALUES(?, ?, 'Ines K', ?, ?)",
+                    (other, _stamp(minutes=n), note, _stamp(minutes=n)),
+                ).lastrowid
+                for n in range(count)
+            ]
+            if made:
+                db.executemany(
+                    "INSERT INTO comments(thread_id, author, body, created_at)"
+                    " VALUES(?, 'Ines K', ?, ?)",
+                    [(made[0], LONGEST, _stamp())] * comments,
+                )
+    page = _page(_read(db, TOBIAS), "Credit desk")
+    assert [t["id"] for t in page["threads"]][:5] == ["8", "7", "6", "5", "4"]
+    db.close()
 
 
 def test_a_thread_past_its_comment_bound_says_the_latest_are_shown(db):

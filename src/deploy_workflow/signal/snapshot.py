@@ -60,7 +60,7 @@ from deploy_workflow.signal import (
     topics,
 )
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.texts import ago, day, initials, monogram
+from deploy_workflow.signal.texts import ago, day, initials, monogram, shortened
 from deploy_workflow.signal.texts import capital as _capital
 from deploy_workflow.signal.texts import plural as _plural
 
@@ -260,11 +260,7 @@ def _view(
 
 def _headline(title: str) -> str:
     """A title as stored, or, past HEADLINE_LIMIT characters, cut at a space with an ellipsis."""
-    if len(title) <= HEADLINE_LIMIT:
-        return title
-    head = title[:HEADLINE_LIMIT]
-    cut = head.rsplit(" ", 1)[0] if " " in head else head
-    return cut.rstrip() + "\u2026"
+    return shortened(title, HEADLINE_LIMIT)
 
 
 def _story(

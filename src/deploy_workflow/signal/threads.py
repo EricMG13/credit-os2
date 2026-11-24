@@ -13,8 +13,10 @@ Decisions where spec 5.7 and the screens leave a choice:
   does not mark the thread read for the sharer (they shared from the feed and have not read what
   others wrote there); their own comment never counts as unread for them.
 * Bounds: a thread holds at most MAX_COMMENTS comment lines (replies and removed lines included)
-  and a group at most ``groups.MAX_THREADS`` threads; a write beyond either is refused (409). A
-  story a group topic posts into a group already at its bound is not posted there.
+  and a group at most ``groups.MAX_THREADS`` threads; a person's write beyond either is refused
+  (409). A story a group topic posts into a group at its bound takes the place of the group's
+  oldest topic-posted thread that has no comment; with none, it is not posted there (the group's
+  page says the group is full). The owner removes old topic posts with ``signal groups prune``.
 * "A comment can be edited for 15 minutes and is then marked edited": its author may edit it for
   15 minutes after posting it (not later), and an edited comment is marked edited. The group's
   "comments-edited" rule switches editing off altogether.
@@ -408,21 +410,73 @@ def mark_read(db: sqlite3.Connection, user: User, thread_id: int, at: Moment) ->
 
 def post_topic_story(db: sqlite3.Connection, story_id: int, topic_ids: Sequence[int]) -> None:
     """Post a story that just matched `topic_ids` into every group following one of them: one
-    thread per story per group, at the story's fetch time; a group already holding
-    ``groups.MAX_THREADS`` threads is skipped. Runs inside the caller's write transaction (where
-    the topic matches are recorded)."""
+    thread per story per group, at the story's fetch time. A group already holding
+    ``groups.MAX_THREADS`` threads makes room by dropping its oldest topic-posted thread that has
+    no comment; one with no such thread is skipped (``topics_blocked``). Runs inside the caller's
+    write transaction (where the topic matches are recorded)."""
     if not topic_ids:
         return
     marks = ", ".join("?" * len(topic_ids))
-    db.execute(
-        "INSERT OR IGNORE INTO threads(group_id, story_id, created_at, topic_id, last_activity_at)"
-        " SELECT gt.group_id, s.id, s.fetched_at, MIN(gt.topic_id), s.fetched_at"
-        " FROM group_topics gt JOIN stories s ON s.id = ?"
-        " WHERE gt.topic_id IN (" + marks + ")"
-        " AND (SELECT COUNT(*) FROM threads x WHERE x.group_id = gt.group_id) < ?"
-        " GROUP BY gt.group_id",
-        [story_id, *topic_ids, groups.MAX_THREADS],
+    rows = db.execute(
+        "SELECT gt.group_id, MIN(gt.topic_id) AS topic_id FROM group_topics gt"
+        " WHERE gt.topic_id IN (" + marks + ") AND NOT EXISTS(SELECT 1 FROM threads x"
+        " WHERE x.group_id = gt.group_id AND x.story_id = ?) GROUP BY gt.group_id",
+        [*topic_ids, story_id],
+    ).fetchall()
+    for row in rows:
+        if _held_threads(db, row["group_id"]) >= groups.MAX_THREADS:
+            oldest = _oldest_topic_post(db, row["group_id"])
+            if oldest is None:
+                continue
+            db.execute("DELETE FROM threads WHERE id=?", (oldest,))
+        db.execute(
+            "INSERT INTO threads(group_id, story_id, created_at, topic_id, last_activity_at)"
+            " SELECT ?, s.id, s.fetched_at, ?, s.fetched_at FROM stories s WHERE s.id = ?",
+            (row["group_id"], row["topic_id"], story_id),
+        )
+
+
+def _held_threads(db: sqlite3.Connection, group_id: int) -> int:
+    held = db.execute("SELECT COUNT(*) FROM threads WHERE group_id=?", (group_id,)).fetchone()
+    return int(held[0])
+
+
+# A thread a topic posted (no person started it) that holds no comment line.
+_TOPIC_POST = (
+    "t.group_id = ? AND t.created_by IS NULL"
+    " AND NOT EXISTS(SELECT 1 FROM comments c WHERE c.thread_id = t.id)"
+)
+
+
+def _oldest_topic_post(db: sqlite3.Connection, group_id: int) -> int | None:
+    row = db.execute(
+        f"SELECT t.id FROM threads t WHERE {_TOPIC_POST} ORDER BY t.last_activity_at, t.id LIMIT 1",
+        (group_id,),
+    ).fetchone()
+    return None if row is None else int(row["id"])
+
+
+def topics_blocked(db: sqlite3.Connection, group_id: int) -> bool:
+    """Whether new stories of the group's topics are not posted there: it follows a topic, holds
+    ``groups.MAX_THREADS`` threads and none of them is a topic post without comments."""
+    return (
+        _held_threads(db, group_id) >= groups.MAX_THREADS
+        and bool(groups.group_topic_ids(db, group_id))
+        and _oldest_topic_post(db, group_id) is None
     )
+
+
+def prune_topic_posts(db: sqlite3.Connection, group_id: int, before: datetime) -> int:
+    """Remove the group's topic-posted threads with no comment whose last activity is before
+    `before` (the owner, on the command line); returns how many went."""
+    with _write_transaction(db):
+        groups.require_group(db, group_id)
+        cur = db.execute(
+            f"DELETE FROM threads WHERE id IN (SELECT t.id FROM threads t WHERE {_TOPIC_POST}"
+            " AND t.last_activity_at < ?)",
+            (group_id, _utc_text(before)),
+        )
+    return int(cur.rowcount)
 
 
 # The owner's moderation and clean-up, on the command line only (no browser route).
