@@ -407,6 +407,92 @@ def test_a_topic_story_is_not_posted_into_a_group_at_its_thread_bound(db, monkey
     assert rows(db, "SELECT group_id, story_id FROM threads ORDER BY id") == [(2, None), (1, 3)]
 
 
+def _topic_stories(db: sqlite3.Connection, count: int) -> list[int]:
+    """`count` new stories about plants, a minute apart (each later than those stored), each
+    matched as the ingest pass does; returns their ids."""
+    made = []
+    held = int(db.execute("SELECT COUNT(*) FROM stories").fetchone()[0])
+    for n in range(held, held + count):
+        at = NOW - timedelta(hours=1) + timedelta(minutes=n)
+        link = f"https://w.example/plants/{n}"
+        add_story(db, 1, Entry(f"Corvane plants item {n} unique{n}", link, at, ""), at)
+        made.append(int(db.execute("SELECT MAX(id) FROM stories").fetchone()[0]))
+        match_story(db, made[-1])
+    return made
+
+
+def test_a_topic_post_into_a_full_group_takes_the_place_of_its_oldest_quiet_topic_post(
+    db, monkeypatch
+):
+    monkeypatch.setattr(groups, "MAX_THREADS", 3)
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    first, second = _topic_stories(db, 2)
+    note, _ = threads.share(db, MARA, 1, threads.Item(None, "A person's note"), NOW)
+    assert rows(db, "SELECT story_id FROM threads WHERE group_id=1 ORDER BY id") == [
+        (first,),
+        (second,),
+        (None,),
+    ]
+    (third,) = _topic_stories(db, 1)  # full: the oldest topic post without a comment goes
+    assert rows(db, "SELECT story_id FROM threads WHERE group_id=1 ORDER BY id") == [
+        (second,),
+        (None,),
+        (third,),
+    ]
+    talked = int(rows(db, "SELECT id FROM threads WHERE story_id=?", second)[0][0])
+    threads.comment(db, MARA, talked, "Worth a look.", NOW)
+    (fourth,) = _topic_stories(db, 1)  # the commented post and the note stay; the next goes
+    assert rows(db, "SELECT story_id FROM threads WHERE group_id=1 ORDER BY id") == [
+        (second,),
+        (None,),
+        (fourth,),
+    ]
+    with pytest.raises(Conflict, match="this group holds 3 threads, the most it can hold"):
+        threads.share(db, MARA, 1, threads.Item(None, "One more note"), NOW)
+    assert note == 3
+
+
+def test_a_full_group_with_no_quiet_topic_post_takes_no_story_and_says_so(db, monkeypatch):
+    from deploy_workflow.signal import group_view
+
+    monkeypatch.setattr(groups, "MAX_THREADS", 2)
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    for text in ("One", "Two"):
+        threads.share(db, MARA, 1, threads.Item(None, text), NOW)
+    assert not threads.topics_blocked(db, 2)  # a full group that follows no topic is not blocked
+    _topic_stories(db, 1)
+    assert rows(db, "SELECT note FROM threads WHERE group_id=1 ORDER BY id") == [("One",), ("Two",)]
+    assert threads.topics_blocked(db, 1)
+    parts = group_view.build(db, MARA, NOW)
+    assert parts.groups[0]["more"] == (
+        "The group is full, so new stories from its topics are not posted here."
+    )
+    monkeypatch.setattr(group_view, "THREADS_SHOWN", 1)
+    assert group_view.build(db, MARA, NOW).groups[0]["more"] == (
+        "Showing the latest 1 of 2 threads."
+        " The group is full, so new stories from its topics are not posted here."
+    )
+
+
+def test_the_owner_prunes_a_groups_old_topic_posts_that_hold_no_comment(db):
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    old, kept, recent = _topic_stories(db, 3)
+    db.execute("UPDATE threads SET last_activity_at=? WHERE story_id IN (?, ?)", (
+        (NOW - timedelta(days=40)).isoformat(), old, kept))
+    db.commit()
+    talked = int(rows(db, "SELECT id FROM threads WHERE story_id=?", kept)[0][0])
+    threads.comment(db, MARA, talked, "Still relevant.", NOW)
+    threads.share(db, MARA, 1, threads.Item(None, "A person's old note"), NOW - timedelta(days=50))
+    assert threads.prune_topic_posts(db, 1, NOW - timedelta(days=30)) == 1
+    assert rows(db, "SELECT story_id, note FROM threads WHERE group_id=1 ORDER BY id") == [
+        (kept, None),
+        (recent, None),
+        (None, "A person's old note"),
+    ]
+    with pytest.raises(NotFound, match="no group with id 9"):
+        threads.prune_topic_posts(db, 9, NOW)
+
+
 def test_an_author_who_can_no_longer_see_the_group_cannot_touch_their_comment(db):
     """Review finding 11 (own_edit_in_unseen_group_allowed): the author's own comment in a group
     they no longer see is answered as no comment at all."""

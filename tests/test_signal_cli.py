@@ -290,6 +290,35 @@ def test_a_group_with_threads_is_deleted_only_with_its_threads(tmp_path):
     assert run(tmp_path, "groups", "delete", "1") == (2, "error: no group with id 1\n")
 
 
+def test_the_owner_prunes_old_topic_posts_of_a_group(tmp_path):
+    _group_store(tmp_path)
+    db = open_db(tmp_path)
+    stamp = "2020-01-01T00:00:00+00:00"
+    with db:
+        db.execute("INSERT INTO topics VALUES(1, 'Plants', '[\"p\"]', '[]', 'Mara L', ?)", (stamp,))
+        db.executemany(
+            "INSERT INTO threads(group_id, created_at, topic_id, note, last_activity_at)"
+            " VALUES(1, ?, 1, 'posted', ?)",
+            [(stamp, stamp)] * 2,
+        )
+    db.close()
+    assert run(tmp_path, "groups", "prune", "1", "--older-than", "30") == (
+        0,
+        "group 1: 2 topic posts removed\n",
+    )
+    assert _count(tmp_path, "threads") == 1  # the person's note thread stays
+    assert run(tmp_path, "groups", "prune", "1", "--older-than", "30") == (
+        0,
+        "group 1: 0 topic posts removed\n",
+    )
+    assert run(tmp_path, "groups", "prune", "9", "--older-than", "30") == (
+        2,
+        "error: no group with id 9\n",
+    )
+    assert run(tmp_path, "groups", "prune", "1")[0] == 2  # --older-than is required
+    assert run(tmp_path, "groups", "prune", "1", "--older-than", "0")[0] == 2
+
+
 @pytest.mark.parametrize("args", [("threads", "remove", "x"), ("comments", "remove", "0")])
 def test_moderation_ids_must_be_positive_integers(tmp_path, args):
     assert run(tmp_path, *args)[0] == 2

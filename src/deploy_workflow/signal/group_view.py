@@ -364,7 +364,10 @@ def _pay(picking: _Picking, one: _Shown, records: tuple[Json, Json], budgets: li
 
 
 def _with_comments(db: sqlite3.Connection, one: _Shown, viewer: _Viewer, picking: _Picking) -> bool:
-    """Deliver the thread with its comments, if they all fit in what is left of GROUP_BUDGET."""
+    """Deliver the thread with its comments, if they all fit in what is left of GROUP_BUDGET (a
+    thread whose comments cannot fit is not drawn to find out)."""
+    if one.comments and _least_comment_bytes(db, one.row["id"]) > picking.main.left:
+        return False
     thread, whole = _thread(db, one, viewer, picking.main.left)
     item = {**one.item, "note": one.row["note"]}
     return whole and _pay(picking, one, (item, thread), [picking.main])
@@ -375,6 +378,51 @@ def _as_summary(one: _Shown, viewer: _Viewer, picking: _Picking) -> bool:
     note = None if one.row["note"] is None else shortened(one.row["note"], NOTE_EXCERPT)
     item = {**one.item, "note": note}
     return _pay(picking, one, (item, _summary_thread(one, viewer, note)), [picking.main, picking.spare])
+
+
+# The bytes of a comment record with every text empty (``_comment_records``), plus its comma and
+# the least its id, initials and time take ("1", "?", "10:02 UTC").
+_EMPTY_COMMENT = encoded_size(
+    {
+        "id": "",
+        "author": {"initials": "", "name": ""},
+        "own": True,
+        "time": "",
+        "text": "",
+        "edited": True,
+        "removed": True,
+        "reactions": [],
+        "replies": [],
+        "canEdit": True,
+        "canRemove": True,
+    }
+) + len(",1?10:02 UTC")
+# The comments the bounds admit: the newest top-level ones, each with its newest replies.
+_ADMITTED = """
+WITH tops AS (
+    SELECT id, author, body FROM comments WHERE thread_id = :thread AND parent_id IS NULL
+    ORDER BY created_at DESC, id DESC LIMIT :tops
+), picked AS (
+    SELECT author, body FROM tops
+    UNION ALL
+    SELECT author, body FROM (
+        SELECT c.author, c.body, ROW_NUMBER() OVER (
+            PARTITION BY c.parent_id ORDER BY c.created_at DESC, c.id DESC) AS k
+        FROM tops JOIN comments c ON c.parent_id = tops.id
+    ) WHERE k <= :replies
+)
+SELECT COUNT(*), COALESCE(SUM(length(CAST(author AS BLOB)) + length(CAST(body AS BLOB))), 0)
+FROM picked
+"""
+
+
+def _least_comment_bytes(db: sqlite3.Connection, thread_id: int) -> int:
+    """At most the bytes the thread's delivered comments take (their texts, never escaped, and
+    the least each record adds), read without drawing them."""
+    count, text = db.execute(
+        _ADMITTED, {"thread": thread_id, "tops": COMMENTS_SHOWN, "replies": REPLIES_SHOWN}
+    ).fetchone()
+    return int(text) + int(count) * _EMPTY_COMMENT
 
 
 def _held(db: sqlite3.Connection, candidate: Candidate, viewer: _Viewer) -> _Shown:
