@@ -33,7 +33,7 @@ console.log(JSON.stringify(result.kind === "ok" ? { kind: "ok" } : result));
 _built: list[Path] = []
 
 
-def _bundle() -> Path:
+def bundle() -> Path:
     if _built:
         return _built[0]
     node = shutil.which("node")
@@ -55,7 +55,7 @@ def _bundle() -> Path:
 
 def react_refusal(document: dict[str, Any]) -> str | None:
     """None when the React reader accepts the snapshot document, else the reason it gives."""
-    folder = _bundle()
+    folder = bundle()
     source = folder / "snapshot.json"
     source.write_text(json.dumps(document), encoding="utf-8")
     done = subprocess.run(

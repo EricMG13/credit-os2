@@ -199,7 +199,7 @@ def test_the_snapshot_of_a_named_reader(svc, cookie):
     assert latest["older"] == [str(n) for n in range(6, 0, -1)]
     assert snap["feed"]["views"]["saved"]["top"] == ["5"] and snap["channels"]["savedCount"] == "1"
     assert snap["feed"]["topics"] == {
-        "1": {"top": ["36"], "latest": ["36"], "waiting": None, "older": []}
+        "1": {"top": ["36"], "latest": ["36"], "waiting": None, "older": [], "shown": 30}
     }
     assert len(snap["feed"]["stories"]) == 36
 

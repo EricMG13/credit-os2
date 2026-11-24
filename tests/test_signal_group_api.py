@@ -104,7 +104,7 @@ WRITES = [
     ("POST", "/api/groups/1/members", {"name": "Amir S"}),
     ("POST", "/api/groups/1/members/remove", {"name": "Tobias O"}),
     ("POST", "/api/groups/1/topics", {"topics": ["1"]}),
-    ("POST", "/api/rules", {"rule": "archive-quiet", "on": True}),
+    ("POST", "/api/groups/1/rules", {"rule": "archive-quiet", "on": True}),
     ("POST", "/api/groups/1/threads", {"story": "2", "note": "Also this."}),
     ("POST", "/api/threads/1/comments", {"text": "More."}),
     ("POST", "/api/comments/1/replies", {"text": "Answer."}),
@@ -180,7 +180,8 @@ def test_readers_mark_read_and_set_their_own_switches(svc, checked):
         ("POST", "/api/groups/99/members/remove", {"name": "X"}),
         ("POST", "/api/groups/99/topics", {"topics": []}),
         ("POST", "/api/groups/1/topics", {"topics": [99]}),
-        ("POST", "/api/rules", {"rule": "archive-30", "on": True}),
+        ("POST", "/api/groups/1/rules", {"rule": "archive-30", "on": True}),
+        ("POST", "/api/groups/99/rules", {"rule": "archive-quiet", "on": True}),
         ("POST", "/api/groups/99/threads", {"story": 1}),
         ("POST", "/api/groups/1/threads", {"story": 99}),
         ("POST", "/api/threads/99/comments", {"text": "x"}),
@@ -217,7 +218,7 @@ def test_unknown_and_unseen_ids_are_404(svc, method, path, body):
         ("/api/threads/1/comments", {"text": " "}, 400),
         ("/api/threads/1/comments", {}, 400),
         ("/api/comments/1/edit", {"text": 3}, 400),
-        ("/api/rules", {"rule": "archive-quiet", "on": "yes"}, 400),
+        ("/api/groups/1/rules", {"rule": "archive-quiet", "on": "yes"}, 400),
         ("/api/notifications", {"event": "digest", "channel": "email", "on": True}, 400),
     ],
 )
@@ -280,7 +281,9 @@ def test_group_management_shows_in_the_next_snapshot(svc, checked):
     assert made[2] == {"group": "4"}
     svc.call("POST", "/api/groups/4/members", body={"name": "Ines K"}, cookie=MARA)
     svc.call("POST", "/api/groups/1/visibility", body={"visibility": "invited"}, cookie=MARA)
-    svc.call("POST", "/api/rules", body={"rule": "comments-edited", "on": False}, cookie=MARA)
+    svc.call(
+        "POST", "/api/groups/1/rules", body={"rule": "comments-edited", "on": False}, cookie=MARA
+    )
     deleted = svc.call("DELETE", "/api/groups/3", cookie=MARA)
     assert deleted[:1] == (200,)
     assert svc.call("DELETE", "/api/groups/1", cookie=MARA)[0] == 409  # it holds a thread
@@ -292,7 +295,13 @@ def test_group_management_shows_in_the_next_snapshot(svc, checked):
         ("Desk", "Members only", "2 members"),
         ("Rates", "Visible to everyone", "1 member"),
     ]
-    assert [r["on"] for r in after["settings"]["rules"]] == [False, True, False]
+    rules = {g["name"]: [r["on"] for r in g["rules"]] for g in after["settings"]["groups"]}
+    assert rules == {
+        "Closed": [True, True, False],
+        "Desk": [False, True, False],  # only Desk's editing was switched off
+        "Rates": [True, True, False],
+    }
+    assert after["settings"]["rules"] == []
     assert svc.call("POST", "/api/comments/1/edit", body={"text": "x"}, cookie=MARA)[0] == 403
     assert json.dumps(after).count("Spare") == 0
 
@@ -386,3 +395,24 @@ def test_a_focused_thread_is_delivered_with_its_comments(svc, checked, monkeypat
     (one,) = [t for t in body["scenes"][0]["snapshot"]["threads"] if t["id"] == "1"]
     assert one["subline"] == "Desk, 1 comment"
     assert [c["text"] for c in one["comments"]] == ["Mine."]
+
+
+def test_the_every_group_rule_route_is_gone_and_a_groups_rule_answers_what_it_set(svc):
+    status, _, reply = svc.call(
+        "POST", "/api/rules", body={"rule": "archive-quiet", "on": True}, cookie=MARA
+    )
+    assert status == 404
+    status, _, reply = svc.call(
+        "POST", "/api/groups/1/rules", body={"rule": "archive-quiet", "on": True}, cookie=MARA
+    )
+    assert (status, reply) == (200, {"group": "1", "rule": "archive-quiet", "on": True})
+    for body, answer in (
+        ({"rule": "archive-30", "on": True}, (404, "no thread rule 'archive-30'")),
+        ({"rule": "archive-quiet", "on": 1}, (400, "on must be true or false")),
+    ):
+        status, _, reply = svc.call("POST", "/api/groups/1/rules", body=body, cookie=MARA)
+        assert (status, reply["error"]) == answer
+    status, _, reply = svc.call(
+        "POST", "/api/groups/1/rules", body={"rule": "archive-quiet", "on": True}, cookie=TOBIAS
+    )
+    assert (status, reply["error"]) == (403, "only a writer can manage groups")

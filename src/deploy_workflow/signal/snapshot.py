@@ -14,11 +14,15 @@ service: AI is off with a notice saying it is not set up, and no story carries a
 strength, a case stage or rating moves.
 
 Views: For you (stories in followed topics or shared in the viewer's groups), Latest, Saved and
-one per topic. Each holds its newest ``SHOWN`` story ids in ``latest`` and in the Top order
-(``group_view.ranker``) in ``top``; the three main views hold the next up to ``OLDER`` in
-``older``, a topic view only when the request focuses it (``Focus.topic``), else ``older`` is
-empty. ``waiting`` is null (the React app composes it when it reads again). A viewer with no
-display name sees no stories and no counts. The whole snapshot is read in one read transaction.
+one per topic. For you and each topic are ranked whole: ``latest`` holds every delivered id
+newest first, ``top`` the same ids in the Top order (``group_view.ranker``), ``older`` is empty
+and ``shown`` (SHOWN) is how many the page draws before Show older. For you delivers up to
+``SHOWN + OLDER`` ids, a topic ``SHOWN``, or ``SHOWN + OLDER`` when the request focuses it
+(``Focus.topic``). Latest and Saved keep their newest ``SHOWN`` in ``latest`` and ``top`` (Top
+order among those) and the next up to ``OLDER`` in ``older``, with no ``shown``. Digest cards
+join For you by time (``digestview``). ``waiting`` is null (the React app composes it when it
+reads again). A viewer with no display name sees no stories and no counts. The whole snapshot is
+read in one read transaction.
 
 Size: the forwarder in front of the service refuses a reply over 4 MiB, so the snapshot is kept
 under 3 MiB in every store state. The group part keeps its own budgets (``group_view``); the
@@ -62,6 +66,7 @@ HEADLINE_LIMIT = 500  # characters; a feed's title has no limit of its own
 MAX_LINK = 2048  # a longer link is delivered as no link
 _THREAD_FIELDS = 1024  # at most what sharedBy, commentCount and threadRef add to a card
 _MAIN = ("saved", "for-you", "latest")
+_UNRANKED = ("latest", "saved")  # views that keep SHOWN + older; the others are ranked whole
 _WEEK = timedelta(days=7)
 
 
@@ -127,7 +132,7 @@ def build(
         _blank_counts(channels, feed)
         channels["groups"] = parts.channels
         settings["groups"] = parts.settings_groups
-        settings["rules"] = group_view.rules(db)
+        settings["rules"] = []  # per group now: settings.groups[].rules
         settings["notifications"] = group_view.notifications(db, user)
         snapshot = {
             "viewer": _viewer(user),
@@ -138,7 +143,7 @@ def build(
             "digests": [],
             "settings": settings,
         }
-        digestview.apply(db, user, now, snapshot, (SHOWN, OLDER))
+        digestview.apply(db, user, now, snapshot, (SHOWN + OLDER, 0))  # For you: all in latest
     return {"scenes": [{"id": "main", "snapshot": snapshot}]}
 
 
@@ -188,15 +193,24 @@ def _channels(db: sqlite3.Connection, user: User | None, listed: list[sqlite3.Ro
 # Feed
 
 
-def _view(ids: list[int], rank: Callable[[list[int]], list[int]] | None = None) -> Json:
-    """The newest SHOWN ids in `latest` and, in the Top order (`rank`), in `top`; the rest older."""
-    shown = [str(number) for number in ids]
-    top = ids[:SHOWN] if rank is None else rank(ids[:SHOWN])
+def _view(
+    ids: list[int], rank: Callable[[list[int]], list[int]] | None = None, *, ranked: bool = False
+) -> Json:
+    """A view's delivered ids, newest first. A `ranked` view (For you, a topic) holds them all in
+    `latest` and, in the Top order (`rank`), all in `top`, with `older` empty and `shown` the
+    count the page draws before Show older. Any other view (Latest, Saved) holds the newest SHOWN
+    in `latest` and, in the Top order, in `top`, and the rest in `older`."""
+    every = [str(number) for number in ids]
+    if ranked:
+        order = ids if rank is None else rank(ids)
+        top = [str(number) for number in order]
+        return {"top": top, "latest": every, "waiting": None, "older": [], "shown": SHOWN}
+    first = ids[:SHOWN] if rank is None else rank(ids[:SHOWN])
     return {
-        "top": [str(number) for number in top],
-        "latest": shown[:SHOWN],
+        "top": [str(number) for number in first],
+        "latest": every[:SHOWN],
         "waiting": None,
-        "older": shown[SHOWN : SHOWN + OLDER],
+        "older": every[SHOWN : SHOWN + OLDER],
     }
 
 
@@ -319,7 +333,7 @@ def _stories_and_views(
     names = {"for-you": "foryou", "latest": "latest", "saved": "saved"}
     names.update({str(row["id"]): f"topic:{row['id']}" for row in listed})
     if user is None:
-        return [], {key: _view([]) for key in names}
+        return [], {key: _view([], ranked=key not in _UNRANKED) for key in names}
     focused = str(topic) if topic is not None and str(topic) in names else None
     depth = {key: SHOWN + OLDER if key in _MAIN or key == focused else SHOWN for key in names}
     held = {key: feedview.view_ids(db, user.name, view, depth[key]) for key, view in names.items()}
@@ -337,7 +351,10 @@ def _stories_and_views(
     published = {card.id: card.published_at for card in reversed(cards)}
     rank = group_view.ranker(db, user.name, published, now)
     stories = [built[card.id] for card in reversed(cards)]
-    return stories, {key: _view([n for n in ids if n in chosen], rank) for key, ids in held.items()}
+    return stories, {
+        key: _view([n for n in ids if n in chosen], rank, ranked=key not in _UNRANKED)
+        for key, ids in held.items()
+    }
 
 
 Checked = list[tuple[sqlite3.Row, ingest.Health]]

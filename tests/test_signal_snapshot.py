@@ -243,6 +243,14 @@ def _view(*ids: str) -> dict[str, Any]:
     return {"top": list(ids), "latest": list(ids), "waiting": None, "older": []}
 
 
+def _ranked(*ids: str) -> dict[str, Any]:
+    """For you and a topic view: every delivered id in both orders, 30 drawn before Show older."""
+    return {"top": list(ids), "latest": list(ids), "waiting": None, "older": [], "shown": 30}
+
+
+EMPTY_RANKED = _ranked()
+
+
 def _story_of(snap: dict[str, Any], ident: str) -> dict[str, Any]:
     (found,) = [story for story in snap["feed"]["stories"] if story["id"] == ident]
     return found
@@ -295,11 +303,11 @@ def test_a_viewer_with_no_name_sees_no_stories_and_no_counts(sample):
     }
     assert snap["feed"]["stories"] == []
     assert snap["feed"]["views"] == {
-        "for-you": EMPTY_VIEW,
+        "for-you": EMPTY_RANKED,
         "latest": EMPTY_VIEW,
         "saved": EMPTY_VIEW,
     }
-    assert snap["feed"]["topics"] == {"1": EMPTY_VIEW, "2": EMPTY_VIEW, "3": EMPTY_VIEW}
+    assert snap["feed"]["topics"] == {"1": EMPTY_RANKED, "2": EMPTY_RANKED, "3": EMPTY_RANKED}
     assert snap["channels"] == {
         "topics": [
             {
@@ -356,11 +364,11 @@ def test_the_writer_sees_every_view_with_its_follows_and_saves(sample):
     feed = snap["feed"]
     assert (feed["status"], feed["error"], feed["sources"]) == ("ready", None, {"approved": True})
     assert feed["views"] == {
-        "for-you": _view("1"),
+        "for-you": _ranked("1"),
         "latest": _view("2", "1", "3", "5", "4", "6"),
         "saved": _view("5"),
     }
-    assert feed["topics"] == {"1": _view("1"), "2": _view("2", "4"), "3": _view("5", "6")}
+    assert feed["topics"] == {"1": _ranked("1"), "2": _ranked("2", "4"), "3": _ranked("5", "6")}
     assert [story["id"] for story in feed["stories"]] == ["2", "1", "3", "5", "4", "6"]
     assert [(t["count"], t["followed"]) for t in snap["channels"]["topics"]] == [
         ("1", True),
@@ -454,7 +462,7 @@ def test_a_reader_follows_nothing_and_saves_nothing_yet(sample):
         "role": "reader",
         "roleLabel": "Reader",
     }
-    assert snap["feed"]["views"]["for-you"] == EMPTY_VIEW
+    assert snap["feed"]["views"]["for-you"] == EMPTY_RANKED
     assert snap["feed"]["views"]["saved"] == EMPTY_VIEW
     assert snap["channels"]["savedCount"] == "0"
     assert [t["followed"] for t in snap["channels"]["topics"]] == [False, False, False]
@@ -472,7 +480,7 @@ def test_a_save_and_a_follow_show_in_the_next_snapshot(sample):
     follow(sample, "Mara L", 2)
     snap = _snap(sample, WRITER)
     assert snap["feed"]["views"]["saved"] == _view("2", "5")
-    assert snap["feed"]["views"]["for-you"] == _view("2", "1", "4")
+    assert snap["feed"]["views"]["for-you"] == _ranked("2", "1", "4")
     assert snap["channels"]["savedCount"] == "2"
     assert [t["followed"] for t in snap["channels"]["topics"]] == [True, True, False]
     assert _story_of(snap, "2")["saved"] is True
@@ -516,7 +524,7 @@ def test_a_topic_with_no_stories_has_an_empty_view_and_a_zero_count(sample):
         "followed": False,
         "keywords": ["steel mill"],
     }
-    assert snap["feed"]["topics"]["4"] == EMPTY_VIEW
+    assert snap["feed"]["topics"]["4"] == EMPTY_RANKED
     assert snap["settings"]["topics"][3] == {
         "id": "4",
         "name": "Steel",
@@ -792,11 +800,12 @@ def test_a_topic_view_holds_its_newest_thirty_and_its_older_ones_only_when_asked
     items = add_topic(db, "Items", ["Item"], [], "Mara L")  # every story is an item
     newest_thirty = [str(n) for n in range(130, 100, -1)]
     view = _read_by_react(db, WRITER)["feed"]["topics"][str(items)]
-    assert (view["latest"], view["older"]) == (newest_thirty, [])
+    assert (view["latest"], view["older"], view["shown"]) == (newest_thirty, [], 30)
     focused = _read_by_react(db, WRITER, topic=items)
     view = focused["feed"]["topics"][str(items)]
-    assert view["latest"] == newest_thirty
-    assert view["older"] == [str(n) for n in range(100, 10, -1)]
+    # A topic is a ranked view: all its delivered ids in both orders, 30 drawn at first.
+    assert view["latest"] == [str(n) for n in range(130, 10, -1)]
+    assert sorted(view["top"]) == sorted(view["latest"]) and view["older"] == []
     # Unknown or zero: the same snapshot as no focus (nothing says whether such a topic exists).
     plain = snapshot.build(db, WRITER, NOW)
     for unknown in (999, 0):
@@ -804,14 +813,16 @@ def test_a_topic_view_holds_its_newest_thirty_and_its_older_ones_only_when_asked
     db.close()
 
 
-def test_the_three_main_views_keep_their_older_ones_whatever_the_focus(tmp_path):
+def test_latest_keeps_its_older_ones_and_for_you_is_ranked_whole_whatever_the_focus(tmp_path):
     db = _many(tmp_path, 130)
     items = add_topic(db, "Items", ["Item"], [], "Mara L")
     follow(db, "Mara L", items)
     older = [str(n) for n in range(100, 10, -1)]
     for focus in ({}, {"topic": items}):
         views = _read_by_react(db, WRITER, **focus)["feed"]["views"]
-        assert views["latest"]["older"] == older and views["for-you"]["older"] == older
+        assert views["latest"]["older"] == older and "shown" not in views["latest"]
+        assert views["for-you"]["latest"] == [str(n) for n in range(130, 10, -1)]
+        assert (views["for-you"]["older"], views["for-you"]["shown"]) == ([], 30)
     db.close()
 
 
@@ -867,7 +878,7 @@ def test_hostile_text_passes_through_as_data(tmp_path):
     assert story["source"] == {"name": "</script> <b>Wire</b>", "monogram": "SB"}
     assert snap["viewer"]["name"] == name and snap["viewer"]["initials"] == "IS"
     assert snap["channels"]["topics"][0]["name"] == "__proto__"
-    assert snap["feed"]["topics"] == {"1": _view("1")}
+    assert snap["feed"]["topics"] == {"1": _ranked("1")}
     # The text survives a JSON round trip unchanged.
     assert json.loads(json.dumps(snapshot.build(db, None, NOW))) == snapshot.build(db, None, NOW)
     db.close()

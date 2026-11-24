@@ -132,7 +132,7 @@ CREATE INDEX IF NOT EXISTS idx_stories_title_key ON stories(title_key);
 # Groups, members, threads, comments, reactions, read marks and notification settings.
 # A thread's story_id is NULL for a note thread; topic_id is set when a group topic posted it
 # (created_by is then NULL) and goes back to NULL when that topic is deleted.
-# A thread_rules row with group_id NULL applies to every group; a group's own row overrides it.
+# A group's thread rules: a row per rule the group has set; a rule with no row has its default.
 # A deleted group's id is never given again (AUTOINCREMENT): a page that still names it gets 404.
 _MIGRATION_3 = """
 CREATE TABLE groups(
@@ -188,11 +188,11 @@ CREATE TABLE read_marks(
     UNIQUE(user_name, thread_id)
 );
 CREATE TABLE thread_rules(
-    group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
-    rule TEXT NOT NULL,
-    is_on INTEGER NOT NULL CHECK (is_on IN (0, 1))
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    rule TEXT NOT NULL CHECK (rule IN ('comments-edited','authors-remove','archive-quiet')),
+    is_on INTEGER NOT NULL CHECK (is_on IN (0, 1)),
+    UNIQUE(group_id, rule)
 );
-CREATE UNIQUE INDEX idx_thread_rules_scope ON thread_rules(ifnull(group_id, 0), rule);
 CREATE TABLE notification_settings(
     user_name TEXT NOT NULL,
     event TEXT NOT NULL CHECK (event IN ('replies','threads','signal','digest')),
@@ -429,6 +429,8 @@ def canonical_url(url: str) -> str:
     and an empty query dropped. Text that is not an http or https address with a host is returned
     trimmed and otherwise as it is (the feed rules refuse it elsewhere)."""
     text = url.strip()
+    if any(ch.isspace() for ch in text):  # never an address; left alone so the form is stable
+        return text
     try:
         parts = urlsplit(text)
         port = parts.port

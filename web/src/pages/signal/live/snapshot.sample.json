@@ -264,7 +264,8 @@
               "top": ["d2", "1", "d1", "5"],
               "latest": ["d2", "1", "d1", "5"],
               "waiting": null,
-              "older": []
+              "older": [],
+              "shown": 30
             },
             "latest": {
               "top": ["1", "2", "3", "5", "4", "6"],
@@ -284,19 +285,22 @@
               "top": ["1"],
               "latest": ["1"],
               "waiting": null,
-              "older": []
+              "older": [],
+              "shown": 30
             },
             "2": {
               "top": ["2", "4"],
               "latest": ["2", "4"],
               "waiting": null,
-              "older": []
+              "older": [],
+              "shown": 30
             },
             "3": {
               "top": ["5", "6"],
               "latest": ["5", "6"],
               "waiting": null,
-              "older": []
+              "older": [],
+              "shown": 30
             }
           }
         },
@@ -636,7 +640,27 @@
               "memberSummary": "1 member",
               "visibility": "Members only",
               "visibilityOptions": ["Visible to everyone", "Members only"],
-              "topics": []
+              "topics": [],
+              "rules": [
+                {
+                  "id": "comments-edited",
+                  "label": "Comments can be edited for 15 minutes",
+                  "hint": "An edited comment is marked \"edited\".",
+                  "on": true
+                },
+                {
+                  "id": "authors-remove",
+                  "label": "Authors can remove their own comments",
+                  "hint": "The thread keeps a line saying a comment was removed.",
+                  "on": true
+                },
+                {
+                  "id": "archive-quiet",
+                  "label": "Archive a thread after 90 days without a comment",
+                  "hint": "An archived thread can be read but not added to.",
+                  "on": false
+                }
+              ]
             },
             {
               "id": "1",
@@ -663,7 +687,27 @@
               "memberSummary": "6 members",
               "visibility": "Visible to everyone",
               "visibilityOptions": ["Visible to everyone", "Members only"],
-              "topics": []
+              "topics": [],
+              "rules": [
+                {
+                  "id": "comments-edited",
+                  "label": "Comments can be edited for 15 minutes",
+                  "hint": "An edited comment is marked \"edited\".",
+                  "on": true
+                },
+                {
+                  "id": "authors-remove",
+                  "label": "Authors can remove their own comments",
+                  "hint": "The thread keeps a line saying a comment was removed.",
+                  "on": true
+                },
+                {
+                  "id": "archive-quiet",
+                  "label": "Archive a thread after 90 days without a comment",
+                  "hint": "An archived thread can be read but not added to.",
+                  "on": false
+                }
+              ]
             },
             {
               "id": "2",
@@ -686,29 +730,30 @@
               "memberSummary": "3 members",
               "visibility": "Members only",
               "visibilityOptions": ["Visible to everyone", "Members only"],
-              "topics": []
+              "topics": [],
+              "rules": [
+                {
+                  "id": "comments-edited",
+                  "label": "Comments can be edited for 15 minutes",
+                  "hint": "An edited comment is marked \"edited\".",
+                  "on": true
+                },
+                {
+                  "id": "authors-remove",
+                  "label": "Authors can remove their own comments",
+                  "hint": "The thread keeps a line saying a comment was removed.",
+                  "on": true
+                },
+                {
+                  "id": "archive-quiet",
+                  "label": "Archive a thread after 90 days without a comment",
+                  "hint": "An archived thread can be read but not added to.",
+                  "on": false
+                }
+              ]
             }
           ],
-          "rules": [
-            {
-              "id": "comments-edited",
-              "label": "Comments can be edited for 15 minutes",
-              "hint": "An edited comment is marked \"edited\".",
-              "on": true
-            },
-            {
-              "id": "authors-remove",
-              "label": "Authors can remove their own comments",
-              "hint": "The thread keeps a line saying a comment was removed.",
-              "on": true
-            },
-            {
-              "id": "archive-quiet",
-              "label": "Archive a thread after 90 days without a comment",
-              "hint": "An archived thread can be read but not added to.",
-              "on": false
-            }
-          ],
+          "rules": [],
           "notifications": {
             "events": [
               {

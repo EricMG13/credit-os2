@@ -165,7 +165,7 @@ def test_the_author_edits_for_fifteen_minutes_and_the_comment_is_marked_edited(d
         threads.edit(db, MARA, comment, "Later.", NOW + timedelta(minutes=15, microseconds=1))
     with pytest.raises(Forbidden, match="only its author"):
         threads.edit(db, INES, comment, "Hers.", NOW)
-    groups.set_rule(db, MARA, "comments-edited", False)
+    groups.set_rule(db, MARA, 1, "comments-edited", False)
     with pytest.raises(Forbidden, match="cannot be edited"):
         threads.edit(db, MARA, comment, "Again.", NOW)
     assert rows(db, "SELECT body FROM comments") == [("First.",)]
@@ -196,7 +196,7 @@ def test_a_removed_comment_keeps_a_line_and_its_replies_and_loses_text_and_react
 def test_authors_cannot_remove_while_the_rule_is_off(db):
     thread, _ = threads.share(db, MARA, 1, threads.Item(1), NOW)
     comment = threads.comment(db, MARA, thread, "Stays.", NOW)
-    groups.set_rule(db, MARA, "authors-remove", False)
+    groups.set_rule(db, MARA, 1, "authors-remove", False)
     with pytest.raises(Forbidden, match="cannot be removed"):
         threads.remove(db, MARA, comment, NOW)
 
@@ -223,7 +223,7 @@ def test_a_thread_quiet_for_ninety_days_is_archived_only_while_the_rule_is_on(db
     row = db.execute("SELECT * FROM threads").fetchone()
     quiet = NOW + timedelta(days=90)
     assert threads.archived_at(db, row, quiet + timedelta(days=400)) is None  # rule off
-    groups.set_rule(db, MARA, "archive-quiet", True)
+    groups.set_rule(db, MARA, 1, "archive-quiet", True)
     assert threads.archived_at(db, row, quiet - timedelta(microseconds=1)) is None
     assert threads.archived_at(db, row, quiet) == quiet
     refused = [
@@ -239,7 +239,7 @@ def test_a_thread_quiet_for_ninety_days_is_archived_only_while_the_rule_is_on(db
             write()
     assert threads.share(db, INES, 1, threads.Item(1), quiet) == (thread, True)  # adds nothing
     threads.mark_read(db, TOBIAS, thread, quiet)  # reading stays open
-    groups.set_rule(db, MARA, "archive-quiet", False)
+    groups.set_rule(db, MARA, 1, "archive-quiet", False)
     threads.comment(db, INES, thread, "Reopened.", quiet)
 
 
@@ -377,7 +377,7 @@ def test_the_owner_removes_a_thread_or_any_comment(db):
     thread, _ = threads.share(db, MARA, 1, threads.Item(1, "Mine."), NOW)
     reply = threads.reply(db, INES, 1, "Hers", NOW)
     threads.react(db, MARA, threads.Reaction(reply, "Agree", True), NOW)
-    groups.set_rule(db, MARA, "authors-remove", False)
+    groups.set_rule(db, MARA, 1, "authors-remove", False)
     threads.moderate_comment(db, reply, NOW + timedelta(minutes=1))
     assert rows(db, "SELECT id, body, removed_at FROM comments ORDER BY id") == [
         (1, "Mine.", None),
@@ -423,3 +423,33 @@ def test_an_author_who_can_no_longer_see_the_group_cannot_touch_their_comment(db
             call()
         assert str(refused.value) == "no comment with id 1"
     assert thread == 1
+
+
+def test_two_groups_with_different_rules_behave_differently(db):
+    """Spec 5.7: the rules are per group. Desk switches all three away from the defaults;
+    Closed keeps them."""
+    old = NOW - timedelta(days=91)
+    desk, _ = threads.share(db, MARA, 1, threads.Item(None, "Desk note"), old)
+    closed, _ = threads.share(db, INES, 2, threads.Item(None, "Closed note"), old)
+    mine = threads.comment(db, MARA, desk, "Mine", NOW - timedelta(minutes=1))
+    hers = threads.comment(db, INES, closed, "Hers", NOW - timedelta(minutes=1))
+    for rule, on in (("comments-edited", False), ("authors-remove", False)):
+        groups.set_rule(db, MARA, 1, rule, on)
+    with pytest.raises(Forbidden, match="comments cannot be edited in this group"):
+        threads.edit(db, MARA, mine, "x", NOW)
+    with pytest.raises(Forbidden, match="comments cannot be removed in this group"):
+        threads.remove(db, MARA, mine, NOW)
+    threads.edit(db, INES, hers, "Hers, edited", NOW)
+    threads.remove(db, INES, hers, NOW)
+    # Archiving: both threads were quiet for 91 days before their comments; 91 days on, only
+    # Desk's rule archives.
+    later = NOW + timedelta(days=91)
+    groups.set_rule(db, MARA, 1, "archive-quiet", True)
+    row = {n: db.execute("SELECT * FROM threads WHERE id=?", (n,)).fetchone() for n in (1, 2)}
+    assert threads.archived_at(db, row[1], later) is not None
+    assert threads.archived_at(db, row[2], later) is None
+    assert threads.thread_state(db, row[1], later) == threads.ThreadState(True, False, False)
+    assert threads.thread_state(db, row[2], later) == threads.ThreadState(False, True, True)
+    with pytest.raises(Conflict, match="archived"):
+        threads.comment(db, MARA, desk, "Too late", later)
+    threads.comment(db, INES, closed, "Still open", later)

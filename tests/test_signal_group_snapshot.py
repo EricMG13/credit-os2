@@ -10,70 +10,35 @@ Where node or the bundler is missing the reader check skips, and says so.
 from __future__ import annotations
 
 import json
-import shutil
 import sqlite3
-import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+import signal_reader_check
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from test_signal_snapshot import NOW, READER, WRITER, seed_sample
 
 from deploy_workflow.signal import group_view, groups, notif, snapshot, threads
 from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.store import add_user
 
-ROOT = Path(__file__).resolve().parents[1]
-ESBUILD = ROOT / "web/node_modules/.bin/esbuild"
 INES = User("Ines K", "writer")
 JONAS = User("Jonas W", "writer")
-_RUN = """
-const { readSlice } = require("./slice.js");
-let data = "";
-process.stdin.on("data", (chunk) => (data += chunk));
-process.stdin.on("end", () => {
-  const got = readSlice(JSON.parse(data));
-  process.stdout.write(got.kind === "ok" ? "ok" : `refused: ${got.reason ?? got.kind}`);
-});
-"""
 
 
 @pytest.fixture(scope="session")
-def reader_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The React slice reader bundled for node, outside the web folder."""
-    node = shutil.which("node")
-    if node is None or not ESBUILD.exists():
-        pytest.skip("node or web/node_modules/.bin/esbuild is missing: the React reader check")
-    folder = tmp_path_factory.mktemp("reader")
-    subprocess.run(
-        [
-            str(ESBUILD),
-            str(ROOT / "web/src/pages/signal/slice.ts"),
-            "--bundle",
-            "--format=cjs",
-            "--platform=node",
-            f"--outfile={folder / 'slice.js'}",
-            "--log-level=error",
-        ],
-        check=True,
-        timeout=120,
-    )
-    (folder / "run.js").write_text(_RUN, encoding="utf-8")
-    return folder
+def reader_dir() -> Path:
+    """The React slice reader, bundled once by ``signal_reader_check`` (skips or, under CI, fails
+    when node or esbuild is missing)."""
+    return signal_reader_check.bundle()
 
 
 def reader_says(folder: Path, built: dict[str, Any]) -> str:
-    done = subprocess.run(
-        ["node", str(folder / "run.js")],
-        input=json.dumps(built),
-        capture_output=True,
-        text=True,
-        check=True,
-        timeout=60,
-        cwd=folder,
-    )
-    return done.stdout
+    refusal = signal_reader_check.react_refusal(built)
+    return "ok" if refusal is None else f"refused: {refusal}"
 
 
 @pytest.fixture
@@ -345,6 +310,26 @@ def test_nothing_of_a_group_she_cannot_see_reaches_her(grouped, read_by_react):
         "visibility": "Members only",
         "visibilityOptions": ["Visible to everyone", "Members only"],
         "topics": [],
+        "rules": [
+            {
+                "id": "comments-edited",
+                "label": "Comments can be edited for 15 minutes",
+                "hint": 'An edited comment is marked "edited".',
+                "on": True,
+            },
+            {
+                "id": "authors-remove",
+                "label": "Authors can remove their own comments",
+                "hint": "The thread keeps a line saying a comment was removed.",
+                "on": True,
+            },
+            {
+                "id": "archive-quiet",
+                "label": "Archive a thread after 90 days without a comment",
+                "hint": "An archived thread can be read but not added to.",
+                "on": False,
+            },
+        ],
     }
 
 
@@ -390,7 +375,7 @@ def test_the_in_signal_switches_decide_what_the_badge_counts(grouped, read_by_re
 
 
 def test_an_archived_thread_is_listed_read_only_and_never_unread(grouped, read_by_react):
-    groups.set_rule(grouped, WRITER, "archive-quiet", True)
+    groups.set_rule(grouped, WRITER, 1, "archive-quiet", True)
     later = NOW + timedelta(days=90)  # thread 1's last comment was 30 min before NOW
     snap = read_by_react(grouped, WRITER, later)
     lev = snap["groups"][0]
@@ -404,10 +389,13 @@ def test_an_archived_thread_is_listed_read_only_and_never_unread(grouped, read_b
 
 
 def test_thread_rules_and_notification_settings_are_delivered(grouped, read_by_react):
-    groups.set_rule(grouped, WRITER, "authors-remove", False)
+    groups.set_rule(grouped, WRITER, 1, "authors-remove", False)
     notif.set_switch(grouped, "Mara L", "digest", "onDesktop", True)
     settings = read_by_react(grouped, WRITER)["settings"]
-    assert settings["rules"] == [
+    assert settings["rules"] == []  # per group now
+    lev, ship = (g for g in settings["groups"] if g["id"] in ("1", "2"))
+    assert [r["on"] for r in ship["rules"]] == [True, True, False]  # the defaults
+    assert lev["rules"] == [
         {
             "id": "comments-edited",
             "label": "Comments can be edited for 15 minutes",
@@ -682,3 +670,80 @@ def test_settings_lists_each_groups_topics_as_set_replaced_and_cleared(grouped, 
     assert _group_topics(snap)["Shipping desk"] == ["3"]
     # A reader's Settings lists the groups they see, with their topics too.
     assert _group_topics(read_by_react(grouped, READER))["Shipping desk"] == ["3"]
+
+
+# Top over the whole delivered window (review-groups finding 5, spec 5.6)
+
+
+def _forty(tmp_path: Path) -> sqlite3.Connection:
+    """40 stories, story n published n minutes before NOW, all in the topic Plants that Tobias O
+    follows; a group Desk with him as a member."""
+    from deploy_workflow.signal.feeds import Entry
+    from deploy_workflow.signal.store import add_story, open_db, propose_source, set_source_state
+    from deploy_workflow.signal.topics import add_topic, follow
+
+    db = open_db(tmp_path)
+    for name in ("Mara L", "Ines K"):
+        add_user(db, name, "writer")
+    source = propose_source(db, "Wire", "news", "https://wire.example/feed", "Mara L")
+    set_source_state(db, source, "approved")
+    for n in range(1, 41):
+        when = NOW - timedelta(minutes=n)
+        add_story(db, source, Entry(f"Plants item {n}", f"https://w.example/{n}", when, ""), NOW)
+    follow(db, "Tobias O", add_topic(db, "Plants", ["plants"], [], "Mara L"))
+    desk = groups.create_group(db, WRITER, "Desk", "everyone")
+    groups.add_member(db, WRITER, desk, "Tobias O")
+    return db
+
+
+def test_a_discussed_story_past_the_newest_thirty_rises_to_the_top(tmp_path, read_by_react):
+    db = _forty(tmp_path)
+    thread, _ = threads.share(db, WRITER, 1, threads.Item(31, "Read this."), NOW)
+    for n in range(12):
+        threads.comment(db, INES, thread, f"point {n}", NOW)
+    # Story 31: one share and 13 live comments: log(1 + 1 + 3.25) - (31/1440) log 2, about 1.64,
+    # against at most 0 for every quiet story.
+    feed = read_by_react(db, READER)["feed"]
+    assert feed["topics"]["1"]["latest"] == [str(n) for n in range(1, 31)]  # unfocused: 30
+    focused = snapshot.build(db, READER, NOW, focus=snapshot.Focus(topic=1))
+    from signal_reader_check import react_refusal
+
+    assert react_refusal(focused) is None
+    topic = focused["scenes"][0]["snapshot"]["feed"]["topics"]["1"]
+    for view in (feed["views"]["for-you"], topic):
+        assert view["top"][0] == "31"
+        assert view["latest"] == [str(n) for n in range(1, 41)]
+        assert sorted(view["top"]) == sorted(view["latest"]) and view["older"] == []
+        assert view["shown"] == 30
+        assert view["top"][1:] == [str(n) for n in range(1, 41) if n != 31]
+    # Latest keeps its shape: the newest 30 (ranked among themselves) and the rest older.
+    latest = feed["views"]["latest"]
+    assert "shown" not in latest and "shown" not in feed["views"]["saved"]
+    assert latest["latest"] == [str(n) for n in range(1, 31)]
+    assert latest["older"] == [str(n) for n in range(31, 41)]
+
+
+@settings(max_examples=15, deadline=None)
+@given(
+    st.lists(st.tuples(st.integers(1, 40), st.integers(0, 6)), max_size=8, unique_by=lambda x: x[0])
+)
+def test_top_is_the_rank_of_every_delivered_story(tmp_path_factory, shared):
+    from deploy_workflow.signal import threadrank
+
+    db = _forty(tmp_path_factory.mktemp("top"))
+    for story, comments in shared:
+        thread, _ = threads.share(db, WRITER, 1, threads.Item(story), NOW)
+        for n in range(comments):
+            threads.comment(db, INES, thread, f"c{n}", NOW)
+    built = snapshot.build(db, READER, NOW)
+    from signal_reader_check import react_refusal
+
+    assert react_refusal(built) is None
+    view = built["scenes"][0]["snapshot"]["feed"]["views"]["for-you"]
+    engaged = {story: comments for story, comments in shared}
+    standings = [
+        threadrank.Standing(n, NOW - timedelta(minutes=n), int(n in engaged), engaged.get(n, 0))
+        for n in range(1, 41)
+    ]
+    assert view["top"] == [str(n) for n in threadrank.top_order(standings, NOW)]
+    assert sorted(view["top"], key=int) == sorted(view["latest"], key=int)

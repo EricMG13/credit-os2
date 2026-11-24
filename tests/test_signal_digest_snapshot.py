@@ -286,7 +286,9 @@ def test_cards_sit_before_older_for_you_stories_and_the_view_stays_coherent(db):
     got = snap(db, WRITER)
     view = got["feed"]["views"]["for-you"]
     assert [c["id"] for c in got["feed"]["digests"]] == ["d2", "d1"]
-    assert (len(view["top"]), len(view["latest"]), len(view["older"])) == (30, 30, 90)
+    # A ranked view holds every delivered entry in both orders; the page draws the first `shown`.
+    assert (len(view["top"]), len(view["latest"]), len(view["older"])) == (120, 120, 0)
+    assert view["shown"] == 30
     assert view["latest"][:2] == ["d2", "d1"]  # both are newer than every story
     assert sorted(view["top"]) == sorted(view["latest"])  # the same entries, in two orders
     assert {"d1", "d2"} <= set(view["top"])

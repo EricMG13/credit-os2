@@ -60,11 +60,11 @@ def _routes(db: sqlite3.Connection, viewer: User) -> tuple[bool, bool]:
 
 
 def _no_edit_rule(db: sqlite3.Connection) -> None:
-    groups.set_rule(db, MARA, "comments-edited", False)
+    groups.set_rule(db, MARA, 1, "comments-edited", False)
 
 
 def _no_remove_rule(db: sqlite3.Connection) -> None:
-    groups.set_rule(db, MARA, "authors-remove", False)
+    groups.set_rule(db, MARA, 1, "authors-remove", False)
 
 
 def _removed(db: sqlite3.Connection) -> None:
@@ -103,7 +103,7 @@ def test_each_condition_turns_its_flag_and_the_flags_match_the_routes(
 def test_an_archived_thread_offers_neither(tmp_path):
     db = _store(tmp_path, NOW - timedelta(days=91))
     assert _flags(db, MARA) == (False, True)  # quiet for 91 days, but archiving is off
-    groups.set_rule(db, MARA, "archive-quiet", True)
+    groups.set_rule(db, MARA, 1, "archive-quiet", True)
     assert _flags(db, MARA) == (False, False)
     assert _routes(db, MARA) == (False, False)
     db.close()

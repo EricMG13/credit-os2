@@ -5,9 +5,8 @@ manage groups, their members, topics and visibility, and the thread rules; a rea
 nothing. Seeing a group (its threads, comments and counts) follows its visibility for everyone,
 writers included; a writer still lists every group in Settings, because managing a group needs it.
 
-Thread rules are kept per group with one row for every group (group_id NULL); a group's own row
-overrides it. The Settings screen says the rules "apply to every group", so only the every-group
-row is written from the service.
+Thread rules are per group (spec 5.7: "per-group settings with the defaults above"): each group
+has its own three switches; a new group starts at the defaults, and a group's rules go with it.
 """
 
 from __future__ import annotations
@@ -278,27 +277,27 @@ def group_topic_ids(db: sqlite3.Connection, group_id: int) -> list[int]:
     return [int(row["topic_id"]) for row in rows]
 
 
-def rule_on(db: sqlite3.Connection, group_id: int | None, rule: str) -> bool:
-    """The rule for this group: its own row, else the every-group row, else the default."""
+def rule_on(db: sqlite3.Connection, group_id: int, rule: str) -> bool:
+    """The group's rule: its own setting, else the rule's default."""
     row = db.execute(
-        "SELECT is_on FROM thread_rules WHERE rule=? AND (group_id IS ? OR group_id IS NULL)"
-        " ORDER BY group_id IS NULL LIMIT 1",
-        (rule, group_id),
+        "SELECT is_on FROM thread_rules WHERE group_id=? AND rule=?", (group_id, rule)
     ).fetchone()
     return RULES[rule].default if row is None else bool(row["is_on"])
 
 
-def set_rule(db: sqlite3.Connection, actor: User, rule: object, on: object) -> None:
-    """Set a thread rule for every group."""
+def set_rule(db: sqlite3.Connection, actor: User, group_id: int, rule: object, on: object) -> None:
+    """Set one of a group's thread rules; the other groups keep theirs."""
     require_manager(actor)
     if not isinstance(rule, str) or rule not in RULES:
         raise NotFound(f"no thread rule {rule!r}")
     if not isinstance(on, bool):
         raise GroupError("on must be true or false")
     with _write_transaction(db):
-        db.execute("DELETE FROM thread_rules WHERE group_id IS NULL AND rule=?", (rule,))
+        require_group(db, group_id)
         db.execute(
-            "INSERT INTO thread_rules(group_id, rule, is_on) VALUES(NULL, ?, ?)", (rule, int(on))
+            "INSERT INTO thread_rules(group_id, rule, is_on) VALUES(?, ?, ?)"
+            " ON CONFLICT(group_id, rule) DO UPDATE SET is_on=excluded.is_on",
+            (group_id, rule, int(on)),
         )
 
 

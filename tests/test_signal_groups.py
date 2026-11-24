@@ -179,27 +179,31 @@ def test_rename(db):
         groups.rename_group(db, WRITER, 5, "Five")
 
 
-def test_thread_rules_have_defaults_apply_to_every_group_and_a_group_row_wins(db):
-    made = groups.create_group(db, WRITER, "Desk", "everyone")
-    assert [groups.rule_on(db, made, r) for r in groups.RULES] == [True, True, False]
-    groups.set_rule(db, WRITER, "archive-quiet", True)
-    groups.set_rule(db, OWNER, "archive-quiet", True)  # repeating keeps one row
-    groups.set_rule(db, WRITER, "comments-edited", False)
-    assert [groups.rule_on(db, made, r) for r in groups.RULES] == [False, True, True]
-    assert [groups.rule_on(db, None, r) for r in groups.RULES] == [False, True, True]
+def test_each_group_has_its_own_thread_rules_starting_at_the_defaults(db):
+    desk = groups.create_group(db, WRITER, "Desk", "everyone")
+    other = groups.create_group(db, WRITER, "Other", "everyone")
+    assert [groups.rule_on(db, desk, r) for r in groups.RULES] == [True, True, False]
+    groups.set_rule(db, WRITER, desk, "archive-quiet", True)
+    groups.set_rule(db, OWNER, desk, "archive-quiet", True)  # repeating keeps one row
+    groups.set_rule(db, WRITER, desk, "comments-edited", False)
+    assert [groups.rule_on(db, desk, r) for r in groups.RULES] == [False, True, True]
+    assert [groups.rule_on(db, other, r) for r in groups.RULES] == [True, True, False]
     assert db.execute("SELECT COUNT(*) FROM thread_rules").fetchone()[0] == 2
-    with db:  # a group's own row (no route writes one yet) overrides the every-group row
-        db.execute(
-            "INSERT INTO thread_rules(group_id, rule, is_on) VALUES(?, 'archive-quiet', 0)", (made,)
-        )
-    assert groups.rule_on(db, made, "archive-quiet") is False
-    assert groups.rule_on(db, None, "archive-quiet") is True
+    groups.set_rule(db, WRITER, desk, "archive-quiet", False)
+    assert groups.rule_on(db, desk, "archive-quiet") is False
+    # A new group starts at the defaults; a deleted group's rules go with it.
+    groups.delete_group(db, WRITER, desk)
+    assert db.execute("SELECT COUNT(*) FROM thread_rules").fetchone()[0] == 0
+    third = groups.create_group(db, WRITER, "Third", "everyone")
+    assert [groups.rule_on(db, third, r) for r in groups.RULES] == [True, True, False]
     with pytest.raises(Forbidden):
-        groups.set_rule(db, READER, "archive-quiet", False)
-    with pytest.raises(NotFound, match="no thread rule"):
-        groups.set_rule(db, WRITER, "archive-30", True)
-    with pytest.raises(GroupError, match="true or false"):
-        groups.set_rule(db, WRITER, "archive-quiet", 1)
+        groups.set_rule(db, READER, other, "archive-quiet", False)
+    with pytest.raises(NotFound, match="no thread rule 'archive-30'"):
+        groups.set_rule(db, WRITER, other, "archive-30", True)
+    with pytest.raises(GroupError, match="on must be true or false"):
+        groups.set_rule(db, WRITER, other, "archive-quiet", 1)
+    with pytest.raises(NotFound, match="no group with id 99"):
+        groups.set_rule(db, WRITER, 99, "archive-quiet", True)
 
 
 def test_the_migration_holds_the_names_the_digests_rely_on(db):

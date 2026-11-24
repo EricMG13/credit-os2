@@ -206,6 +206,7 @@ def _settings_group(db: sqlite3.Connection, row: sqlite3.Row) -> Json:
         "visibilityOptions": list(SETTINGS_VISIBILITY.values()),
         # The topics whose new stories post into the group, as settings.topics names them (by id).
         "topics": [str(n) for n in groups.group_topic_ids(db, row["id"])],
+        "rules": rules(db, row["id"]),
     }
 
 
@@ -619,10 +620,10 @@ def engagement(
     return found
 
 
-def rules(db: sqlite3.Connection) -> list[Json]:
-    """The thread rules as they apply to every group."""
+def rules(db: sqlite3.Connection, group_id: int) -> list[Json]:
+    """The group's thread rules, in the order Settings lists them."""
     return [
-        {"id": key, "label": rule.label, "hint": rule.hint, "on": groups.rule_on(db, None, key)}
+        {"id": key, "label": rule.label, "hint": rule.hint, "on": groups.rule_on(db, group_id, key)}
         for key, rule in groups.RULES.items()
     ]
 

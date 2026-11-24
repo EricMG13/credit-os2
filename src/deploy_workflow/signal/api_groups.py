@@ -95,8 +95,8 @@ def _topics(req: Req) -> Any:
 
 def _rule(req: Req) -> Any:
     body = req.body()
-    groups.set_rule(req.db, req.person, body.get("rule"), body.get("on"))
-    return {"rule": body["rule"]}
+    groups.set_rule(req.db, req.person, _path_id(req), body.get("rule"), body.get("on"))
+    return {"group": req.groups[0], "rule": body["rule"], "on": body["on"]}
 
 
 # Threads, comments and reactions (writers post; anyone who sees the group marks it read)
@@ -169,7 +169,7 @@ ROUTES: tuple[Route, ...] = (
     _route("POST", f"/api/groups/{ID}/members/remove", _remove_member),
     _route("POST", f"/api/groups/{ID}/topics", _topics),
     _route("POST", f"/api/groups/{ID}/threads", _share),
-    _route("POST", "/api/rules", _rule),
+    _route("POST", f"/api/groups/{ID}/rules", _rule),
     _route("POST", f"/api/threads/{ID}/comments", _comment),
     _route("POST", f"/api/threads/{ID}/read", _read),
     _route("POST", f"/api/comments/{ID}/replies", _reply),
