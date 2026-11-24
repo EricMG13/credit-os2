@@ -1,5 +1,6 @@
 // Settings, Notifications (mock settings frame 6): a grid, one row per event with a switch under
 // "In Signal" and one under "On the desktop". Each switch is named "<event>, <channel>". In memory only.
+// On a service there is no desktop notification, so only the "In Signal" column is drawn.
 import type { SignalNotificationEvent } from "../slice";
 import { Toggle } from "../parts/Toggle";
 import { Section } from "./Section";
@@ -15,13 +16,24 @@ export function NotificationsSection({
   events,
   on,
   onChange,
+  desktop,
 }: {
   events: SignalNotificationEvent[];
   on: (event: SignalNotificationEvent, channel: NotificationChannel) => boolean;
   onChange: (event: SignalNotificationEvent, channel: NotificationChannel, value: boolean) => void;
+  /** Whether the "On the desktop" column is drawn: the design-reference app only. */
+  desktop: boolean;
 }) {
+  const channels = desktop ? CHANNELS : CHANNELS.filter((channel) => channel.key === "inSignal");
   return (
-    <Section title="Notifications" hint="Choose where each event reaches you.">
+    <Section
+      title="Notifications"
+      hint={
+        desktop
+          ? "Choose where each event reaches you."
+          : "Choose which events reach you in Signal."
+      }
+    >
       {events.length === 0 ? (
         <p className="text-sm text-text-tertiary">No notification events yet.</p>
       ) : (
@@ -31,7 +43,7 @@ export function NotificationsSection({
               <th scope="col" className="sr-only">
                 Event
               </th>
-              {CHANNELS.map((channel) => (
+              {channels.map((channel) => (
                 <th
                   key={channel.key}
                   scope="col"
@@ -51,7 +63,7 @@ export function NotificationsSection({
                 >
                   {event.label}
                 </th>
-                {CHANNELS.map((channel) => (
+                {channels.map((channel) => (
                   <td key={channel.key} className="py-4">
                     <Toggle
                       aria-label={`${event.label}, ${channel.name}`}

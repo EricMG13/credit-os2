@@ -224,10 +224,10 @@ const CASES: Case[] = [
     at: "settings/notifications",
     ready: "Settings",
     steps: () => {
-      flip("A reply to one of my comments, On the desktop");
+      flip("A reply to one of my comments, In Signal");
     },
     sent: ["POST /signal/api/notifications"],
-    bodies: [{ event: "replies", channel: "onDesktop", on: true }],
+    bodies: [{ event: "replies", channel: "inSignal", on: false }],
   },
   {
     name: "who can see a group",
@@ -651,9 +651,45 @@ describe("a reader on a service", () => {
     await drawn("Settings");
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Topics",
+      "Digests",
       "Notifications",
     ]);
     expect(screen.queryByRole("button", { name: /^(New topic|Edit: )/ })).toBeNull();
+    window.location.hash = "#/signal/main/settings/groups";
+    expect(await screen.findByText("This section is for writers")).toBeInTheDocument();
+  });
+
+  it("builds a digest of their own from Settings", async () => {
+    const service = serve(currentWith(reader));
+    showLive("#/signal/main/settings/digests");
+    await drawn("Settings");
+    type(/^Name/, "Weekly credit");
+    press("Save digest");
+    await waitFor(() => {
+      expect(service.writes()).toEqual(["POST /signal/api/digests"]);
+    });
+    expect(parsed(service.bodies)[0]).toMatchObject({ name: "Weekly credit" });
+  });
+
+  it("opens a digest from the channel list", async () => {
+    serve(currentWith(reader));
+    showLive("#/signal/main/digest/2");
+    await drawn("Weekly packaging");
+  });
+
+  it("is offered one switch per notification event, never the desktop", async () => {
+    const service = serve(currentWith(reader));
+    showLive("#/signal/main/settings/notifications");
+    await drawn("Settings");
+    const names = screen.getAllByRole("switch").map((s) => s.getAttribute("aria-label"));
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((name) => name?.endsWith(", In Signal"))).toBe(true);
+    expect(screen.queryByText("On the desktop")).toBeNull();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Event",
+      "In Signal",
+    ]);
+    expect(service.writes()).toEqual([]);
   });
 
   it("can still choose their own notifications", async () => {

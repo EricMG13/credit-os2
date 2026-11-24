@@ -208,7 +208,7 @@ describe("Remove", () => {
     expect(screen.getByText("I will pull the dates.")).toBeInTheDocument();
   });
 
-  it("refused, closes the question and says the service's sentence in the panel", async () => {
+  it("refused, keeps the question open with the service's sentence in it; Cancel closes it", async () => {
     const service = await openThread(REMOVABLE());
     service.replies.set(
       "DELETE /signal/api/comments/4",
@@ -216,14 +216,16 @@ describe("Remove", () => {
     );
     press("Remove your comment");
     fireEvent.click(within(question()).getByRole("button", { name: "Remove" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Remove this comment?" })).toBeNull();
-    });
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(question()).findByRole("alert")).toHaveTextContent(
       "Error: comments cannot be removed in this group",
     );
     expect(screen.getByText("I will pull the dates.")).toBeInTheDocument();
     expect(writes(service)).toEqual(["DELETE /signal/api/comments/4"]);
+    fireEvent.click(within(question()).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Remove this comment?" })).toBeNull();
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("accepted, draws the removed line the service delivers and keeps focus in the thread", async () => {

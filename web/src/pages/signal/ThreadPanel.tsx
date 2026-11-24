@@ -220,8 +220,8 @@ function useThreadRead(threadId: string, unread: boolean) {
 /**
  * On a service, the viewer's own comments: which one is in the edit box, which removal is being
  * asked about, and the two writes. The service decides (the time for an edit may run out between
- * the read and the press), so a refusal is said in the panel's alert; an edit refused keeps its box
- * and what was typed.
+ * the read and the press): a removal refused is said inside its question, an edit refused in the
+ * panel's alert with its box and what was typed kept.
  */
 function useOwnComments(
   refuse: (text: string) => void,
@@ -266,9 +266,8 @@ function useOwnComments(
     refuse("");
     return actions.write(writes.dropComment(comment.id)).then(({ refusal }) => {
       if (refusal === null) say("Comment removed");
-      else refuse(refusal);
-      // Either way the question is answered: the dialog goes and the panel says what happened.
-      return null;
+      // A refusal stays in the question, as a group's delete does: the dialog says it, Cancel closes.
+      return refusal;
     });
   };
   const confirm = (

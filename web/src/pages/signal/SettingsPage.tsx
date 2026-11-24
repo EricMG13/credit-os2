@@ -2,7 +2,8 @@
 // line, and the section beside it. In the sample every change is in memory (state here, so it
 // survives moving between sections; a reload shows the slice again) and nothing is written. On a
 // service a switch and a group's visibility show at once and are written; a refusal puts them back.
-// A reader's list holds Topics and Notifications only (ruling 18).
+// A reader's list holds Topics and Notifications; on a service it also holds Digests, which any
+// named user builds (spec section 2); the design-reference app's reader list stays as it was.
 import { useState, type ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
 import { usePageWrite } from "./actions";
@@ -85,12 +86,15 @@ export function SettingsPage({
     // Answered, the slice says who can see the group: as written, or as before a refusal.
     void page.send(writes.visibility(groupId, word)).then(back);
   };
-  const listed = SECTIONS.filter((s) => writer || s.reader);
+  const live = page !== null;
+  const allowed = (s: (typeof SECTIONS)[number]) =>
+    writer || s.reader || (live && s.id === "digests");
+  const listed = SECTIONS.filter(allowed);
   const current = SECTIONS.find((s) => s.id === section);
 
   function content(): ReactNode {
     if (current === undefined) return state("No such settings section");
-    if (!writer && !current.reader) return state("This section is for writers");
+    if (!allowed(current)) return state("This section is for writers");
     switch (current.id) {
       case "groups":
         return (
@@ -119,6 +123,7 @@ export function SettingsPage({
       case "notifications":
         return (
           <NotificationsSection
+            desktop={!live}
             events={settings.notifications.events}
             on={(e, channel) => flags.on(flagKey(["event", e.id, channel]), e[channel])}
             onChange={(e, channel) => {

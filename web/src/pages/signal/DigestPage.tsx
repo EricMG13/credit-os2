@@ -253,7 +253,7 @@ export function DigestPage({
   none,
 }: {
   scene: SignalScene;
-  /** A reader's Settings holds Topics and Notifications only (ruling 18), so only a writer is sent to AI and cost. */
+  /** A reader's Settings has no AI and cost section, so only a writer is sent there. */
   writer: boolean;
   digest: SignalDigest;
   none: ReactNode;
