@@ -179,7 +179,9 @@ def test_the_writer_sees_the_groups_visible_to_her_with_their_threads(grouped, r
         "members": SHIP_MEMBERS,
         "moreMembers": None,
         "threads": [],
+        "more": None,
     }
+    assert lev["more"] is None  # it shows every thread it holds
 
 
 def test_a_thread_holds_its_comments_replies_removed_line_and_reactions(grouped, read_by_react):

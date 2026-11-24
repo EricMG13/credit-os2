@@ -9,7 +9,7 @@ import sqlite3
 import sys
 import time
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from deploy_workflow.signal import ai_run, cli_ai, groups, threads
@@ -85,7 +85,8 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _moderation(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
-    """`threads remove <id>`, `comments remove <id>`, `groups delete <id> [--with-threads]`."""
+    """`threads remove <id>`, `comments remove <id>`, `groups delete <id> [--with-threads]`,
+    `groups prune <id> --older-than <days>`."""
     for noun in ("threads", "comments"):
         verbs = commands.add_parser(noun).add_subparsers(dest="action", required=True)
         verbs.add_parser("remove").add_argument("id", type=_positive_int)
@@ -95,6 +96,9 @@ def _moderation(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -
     delete.add_argument(
         "--with-threads", action="store_true", help="delete its threads and comments too"
     )
+    prune = held.add_parser("prune", help="remove old topic posts that hold no comment")
+    prune.add_argument("id", type=_positive_int)
+    prune.add_argument("--older-than", type=_positive_int, required=True, metavar="DAYS")
 
 
 def _moderate(db: sqlite3.Connection, args: argparse.Namespace) -> None:
@@ -104,6 +108,10 @@ def _moderate(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     elif args.command == "comments":
         threads.moderate_comment(db, args.id, lambda: datetime.now(UTC))
         print(f"comment {args.id} removed; a removed line stays in its thread")
+    elif args.action == "prune":
+        before = datetime.now(UTC) - timedelta(days=args.older_than)
+        count = threads.prune_topic_posts(db, args.id, before)
+        print(f"group {args.id}: {plural(count, 'topic post', 'topic posts')} removed")
     else:
         groups.remove_group(db, args.id, with_threads=args.with_threads)
         print(f"group {args.id} deleted")
