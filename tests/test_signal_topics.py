@@ -11,10 +11,15 @@ from hypothesis import strategies as st
 from test_signal_feeds import RSS
 from test_signal_ingest import NOW, recorded
 
+from signal_reader_check import react_refusal
+
+from deploy_workflow.signal import groups, snapshot
 from deploy_workflow.signal.feeds import Entry
+from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.ingest import run_due
 from deploy_workflow.signal.store import (
     MIGRATIONS,
+    Conflict,
     StoreError,
     add_story,
     get_meta,
@@ -23,6 +28,7 @@ from deploy_workflow.signal.store import (
 )
 from deploy_workflow.signal.topics import (
     add_topic,
+    delete_topic,
     follow,
     list_topics,
     match_story,
@@ -199,3 +205,41 @@ def test_add_topic_links_exactly_what_the_per_story_path_links(tmp_path):
         assert 0 < len(linked(first)) < 2000
     finally:
         database.close()
+
+
+# Deleting a topic
+
+MARA = User("Mara L", "writer")
+TOBIAS = User("Tobias O", "reader")
+
+
+def test_a_topic_a_group_still_lists_is_refused_and_the_refusal_says_so(db_two_sources):
+    tid = add_topic(db_two_sources, "Competition", ["review"], [], "ak")
+    group = groups.create_group(db_two_sources, MARA, "Desk", "invited")
+    groups.set_topics(db_two_sources, MARA, group, [tid])
+    with pytest.raises(Conflict, match="a group still follows this topic"):
+        delete_topic(db_two_sources, tid)
+    assert count(db_two_sources, "topics") == 1
+    groups.set_topics(db_two_sources, MARA, group, [])
+    delete_topic(db_two_sources, tid)
+    assert count(db_two_sources, "topics") == 0
+
+
+def test_a_topic_that_posted_threads_can_be_deleted_and_the_threads_read_posted_from_a_topic(
+    db_two_sources,
+):
+    t0 = datetime(2026, 11, 13, 9, tzinfo=UTC)
+    tid = add_topic(db_two_sources, "Competition", ["review"], [], "ak")
+    group = groups.create_group(db_two_sources, MARA, "Desk", "everyone")
+    groups.set_topics(db_two_sources, MARA, group, [tid])
+    add_story(db_two_sources, 1, Entry("Authority opens review", "https://a.org/1", t0, ""), t0)
+    assert match_story(db_two_sources, 1) == [tid]
+    follow(db_two_sources, "Tobias O", tid)
+    assert rows(db_two_sources, "SELECT topic_id, created_by FROM threads") == [(tid, None)]
+    groups.set_topics(db_two_sources, MARA, group, [])  # the group stops following it
+    delete_topic(db_two_sources, tid)
+    assert rows(db_two_sources, "SELECT topic_id, created_by FROM threads") == [(None, None)]
+    built = snapshot.build(db_two_sources, TOBIAS, t0 + timedelta(hours=2))
+    assert react_refusal(built) is None, react_refusal(built)
+    (thread,) = built["scenes"][0]["snapshot"]["groups"][0]["threads"]
+    assert thread["sharedBy"] == {"initials": "T", "label": "Posted from a topic, 2 h ago"}

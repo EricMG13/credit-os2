@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import sqlite3
 import time
+import unicodedata
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.fold import MIN_TITLE_WORDS, TITLE_WINDOW, link_key, title_key
@@ -128,7 +130,8 @@ CREATE INDEX IF NOT EXISTS idx_stories_title_key ON stories(title_key);
 """
 
 # Groups, members, threads, comments, reactions, read marks and notification settings.
-# A thread's story_id is NULL for a note thread; topic_id is set when a group topic posted it.
+# A thread's story_id is NULL for a note thread; topic_id is set when a group topic posted it
+# (created_by is then NULL) and goes back to NULL when that topic is deleted.
 # A thread_rules row with group_id NULL applies to every group; a group's own row overrides it.
 # A deleted group's id is never given again (AUTOINCREMENT): a page that still names it gets 404.
 _MIGRATION_3 = """
@@ -155,11 +158,11 @@ CREATE TABLE threads(
     story_id INTEGER REFERENCES stories(id),
     created_at TEXT NOT NULL,
     created_by TEXT,
-    topic_id INTEGER REFERENCES topics(id),
+    topic_id INTEGER REFERENCES topics(id) ON DELETE SET NULL,
     note TEXT,
     last_activity_at TEXT NOT NULL,
     CHECK (story_id IS NOT NULL OR note IS NOT NULL),
-    CHECK ((created_by IS NULL) != (topic_id IS NULL)),
+    CHECK (created_by IS NULL OR topic_id IS NULL),
     UNIQUE(group_id, story_id)
 );
 CREATE TABLE comments(
@@ -205,10 +208,13 @@ CREATE INDEX idx_group_members_user ON group_members(user_name);
 """
 
 # Digests, their covers and runs. A digest belongs to one user and is read by that user only, so an
-# issue's unread state is the digest owner's (`read_at`). `period_from` is where the next issue's
-# period starts; `next_run_at` is the next scheduled run, in the store's UTC text form. A run is
-# recorded for every attempt: 'nothing' (an issue saying nothing material happened), 'skipped'
-# (stories were in scope and no writer was available) or 'written' (reserved for the AI pass).
+# issue's unread state is the digest owner's (`read_at`). `period_from` is where the next run's
+# period starts: every run, whatever its outcome, moves it to the run's end, so a period is never
+# longer than the time since the last run. `next_run_at` is the next scheduled run, in the store's
+# UTC text form. A run is recorded for every attempt: 'nothing' (an issue saying nothing material
+# happened), 'skipped' (stories were in scope and no writer was available, or the digest covers
+# nothing now) or 'written' (reserved for the AI pass). A deleted topic or group takes its cover
+# rows with it (ON DELETE CASCADE): a digest never blocks a deletion.
 _MIGRATION_4 = """
 CREATE TABLE digests(
     id INTEGER PRIMARY KEY,
@@ -233,12 +239,12 @@ CREATE TABLE digests(
 );
 CREATE TABLE digest_topics(
     digest_id INTEGER NOT NULL REFERENCES digests(id),
-    topic_id INTEGER NOT NULL REFERENCES topics(id),
+    topic_id INTEGER NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
     UNIQUE(digest_id, topic_id)
 );
 CREATE TABLE digest_groups(
     digest_id INTEGER NOT NULL REFERENCES digests(id),
-    group_id INTEGER NOT NULL REFERENCES groups(id),
+    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     UNIQUE(digest_id, group_id)
 );
 CREATE TABLE digest_issues(
@@ -379,6 +385,20 @@ def _require_name(name: str) -> None:
         raise StoreError("name must not be empty")
 
 
+def plain_text(text: str, limit: int, what: str, *, lines: bool = False) -> str:
+    """`text` trimmed, at most `limit` characters, with no control, format or surrogate character
+    (a brief may keep its line breaks and tabs: `lines`); StoreError otherwise. A lone surrogate
+    is refused here because no database or reply can hold it."""
+    cleaned = text.strip()
+    allowed = "\n\t" if lines else ""
+    odd = any(unicodedata.category(ch)[0] == "C" and ch not in allowed for ch in cleaned)
+    if len(cleaned) > limit or odd:
+        raise StoreError(f"{what} is at most {limit} characters of plain text")
+    if not cleaned and not lines:
+        raise StoreError(f"{what} must not be empty")
+    return cleaned
+
+
 def add_user(db: sqlite3.Connection, name: str, role: str) -> int:
     _require_name(name)
     _require(role, ROLES, "role")
@@ -398,6 +418,28 @@ def role_of(db: sqlite3.Connection, name: str) -> str:
 
 MAX_SOURCE_NAME = 80
 MAX_URL = 512
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def canonical_url(url: str) -> str:
+    """A feed address in one spelling, so two spellings of one address are one source: the scheme
+    and host in lower case, the scheme's default port and the fragment dropped, an empty path "/"
+    and an empty query dropped. Text that is not an http or https address with a host is returned
+    trimmed and otherwise as it is (the feed rules refuse it elsewhere)."""
+    text = url.strip()
+    try:
+        parts = urlsplit(text)
+        port = parts.port
+    except ValueError:
+        return text
+    host = parts.hostname
+    if host is None or "@" in parts.netloc or parts.scheme.lower() not in _DEFAULT_PORTS:
+        return text
+    scheme = parts.scheme.lower()
+    shown = f"[{host}]" if ":" in host else host
+    netloc = shown if port in (None, _DEFAULT_PORTS[scheme]) else f"{shown}:{port}"
+    return urlunsplit((scheme, netloc, parts.path or "/", parts.query, ""))
+
 MAX_PENDING = 5  # proposals one user may have waiting for the owner at a time
 
 
@@ -419,13 +461,13 @@ def _propose(
 ) -> int:
     name, kind, url, proposed_by = fields
     _require_name(name)
+    name = plain_text(name, MAX_SOURCE_NAME, "a source name")
     _require(kind, KINDS, "kind")
     if not url.strip():
         raise StoreError("url must not be empty")
-    if len(name) > MAX_SOURCE_NAME or len(url) > MAX_URL:
-        raise StoreError(
-            f"a source name is at most {MAX_SOURCE_NAME} characters, an address {MAX_URL}"
-        )
+    if len(url) > MAX_URL:
+        raise StoreError(f"a source address is at most {MAX_URL} characters")
+    url = canonical_url(url)
     with _write_transaction(db):
         if max_pending is not None and _pending(db, proposed_by) >= max_pending:
             raise Conflict(f"you already have {max_pending} proposals waiting for the owner")

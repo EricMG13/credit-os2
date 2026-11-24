@@ -248,6 +248,42 @@ def _story_of(snap: dict[str, Any], ident: str) -> dict[str, Any]:
     return found
 
 
+def test_a_viewer_with_no_name_is_told_no_persons_name(sample):
+    from deploy_workflow.signal import groups, threads
+
+    people = [WRITER, READER, User("Ines K", "writer")]
+    desk = groups.create_group(sample, WRITER, "Desk", "everyone")
+    for person in people:
+        groups.add_member(sample, WRITER, desk, person.name)
+    thread, _ = threads.share(sample, people[2], desk, threads.Item(1, "Ines K's note"), NOW)
+    threads.comment(sample, READER, thread, "A comment by Tobias", NOW)
+    digests.run_now(
+        sample,
+        "Mara L",
+        digests.create(
+            sample,
+            "Mara L",
+            digests.spec_from_form(
+                sample,
+                "Mara L",
+                digests.Form("Brief", ["All stories"], "Daily, 07:00 UTC", "Up to 3 points", ""),
+            ),
+            NOW,
+        ),
+        NOW,
+    )
+    proposed = [row for row in _snap(sample, None)["settings"]["sources"] if row["state"] == "Proposed"]
+    assert [row["stateNote"] for row in proposed] == [None]  # no "By Mara L, ..." for a stranger
+    delivered = json.dumps(_snap(sample, None), ensure_ascii=False)
+    for person in people:
+        assert person.name not in delivered and person.name.split()[0] not in delivered
+    # A named viewer still reads who proposed it.
+    named = _snap(sample, READER)["settings"]["sources"]
+    assert [row["stateNote"] for row in named if row["state"] == "Proposed"] == [
+        "By Mara L, 1 d ago"
+    ]
+
+
 def test_a_viewer_with_no_name_sees_no_stories_and_no_counts(sample):
     snap = _snap(sample, None)
     assert snap["viewer"] == {

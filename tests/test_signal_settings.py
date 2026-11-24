@@ -6,6 +6,7 @@ React reader. Nothing here reaches beyond loopback; no source is fetched and no 
 
 from __future__ import annotations
 
+import re
 import socket
 import urllib.parse
 from collections.abc import Iterator
@@ -235,6 +236,9 @@ BAD_TOPICS = [
     ({"name": "  ", "keywords": ["k"], "kinds": []}, "must not be empty"),
     ({"name": "x" * 81, "keywords": ["k"], "kinds": []}, "plain text"),
     ({"name": "bell\x07", "keywords": ["k"], "kinds": []}, "plain text"),
+    ({"name": "T", "keywords": ["bell\x07"], "kinds": []}, "keyword is plain text"),
+    ({"name": "T", "keywords": ["flip\u202eit"], "kinds": []}, "keyword is plain text"),
+    ({"name": "T", "keywords": ["two\nlines"], "kinds": []}, "keyword is plain text"),
 ]
 
 
@@ -278,21 +282,22 @@ def test_editing_a_topic_rule_rematches_the_stored_stories_in_one_step(svc, root
     assert snap["channels"]["topics"][0]["followed"] is True
 
 
-def test_the_edit_leaves_a_topic_exactly_as_a_new_one_with_that_rule_would_be(svc, root):
+def test_an_edited_rule_holds_exactly_the_stories_it_names_whatever_the_old_rule_held(svc, root):
     seed_story(root, "Merger review opens", "The remedy phase", "news")
     seed_story(root, "Spectrum auction", "Roaming and tariff", "news")
+    seed_story(root, "Spectrum auction paper", "Roaming and tariff", "research")
     svc.call(
         "POST",
         "/api/topics",
         body={"name": "A", "keywords": ["spectrum"], "kinds": []},
         cookie=cookie(WRITER),
     )
+    assert rows(root, "SELECT story_id FROM topic_stories ORDER BY story_id") == [(2,), (3,)]
     rule = {"keywords": ["merger", "roaming", 'say "tariff"'], "kinds": ["news"]}
     svc.call("POST", "/api/topics/1/edit", body={"name": "A", **rule}, cookie=cookie(WRITER))
-    svc.call("POST", "/api/topics", body={"name": "B", **rule}, cookie=cookie(WRITER))
-    first = rows(root, "SELECT story_id FROM topic_stories WHERE topic_id=1 ORDER BY story_id")
-    second = rows(root, "SELECT story_id FROM topic_stories WHERE topic_id=2 ORDER BY story_id")
-    assert first == second == [(1,), (2,)]
+    # Stories 1 (merger) and 2 (roaming) are news; story 3 matches but is research; the phrase
+    # "say tariff" is in no story.
+    assert rows(root, "SELECT story_id FROM topic_stories ORDER BY story_id") == [(1,), (2,)]
 
 
 def test_editing_only_the_name_keeps_the_matches(svc, root):
@@ -330,28 +335,6 @@ def test_deleting_a_topic_removes_its_matches_and_follows(svc, root):
         assert rows(root, f"SELECT COUNT(*) FROM {table}") == [(0,)]
     assert snapshot_of(svc, READER)["settings"]["topics"] == []
     assert svc.call("DELETE", "/api/topics/1", cookie=cookie(WRITER))[0] == 404
-
-
-def test_a_topic_a_digest_or_a_group_uses_cannot_be_deleted(svc, root):
-    svc.call("POST", "/api/topics", body=TOPIC, cookie=cookie(WRITER))
-    svc.call("POST", "/api/topics", body={**TOPIC, "name": "Second"}, cookie=cookie(WRITER))
-    made = {
-        "name": "Mine",
-        "covers": "Topic: Packaging",
-        "schedule": "Daily, 07:00 UTC",
-        "length": "Up to 3 points",
-    }
-    assert svc.call("POST", "/api/digests", body=made, cookie=cookie(READER))[0] == 200
-    status, _, reply = svc.call("DELETE", "/api/topics/1", cookie=cookie(WRITER))
-    assert status == 409 and "still uses" in reply["error"]
-    db = store.open_db(root)
-    group = groups.create_group(db, User(WRITER, "writer"), "Desk", "everyone")
-    groups.set_topics(db, User(WRITER, "writer"), group, [2])
-    db.close()
-    status, _, reply = svc.call("DELETE", "/api/topics/2", cookie=cookie(WRITER))
-    assert status == 409
-    assert rows(root, "SELECT COUNT(*) FROM topics") == [(2,)]
-    assert rows(root, "SELECT COUNT(*) FROM topic_follows") == [(0,)]
 
 
 # Sources
@@ -404,7 +387,7 @@ BAD_SOURCES = [
     ({**SOURCE, "url": "https://user@freight.example/feed"}, "plain host name"),
     ({**SOURCE, "url": "https://freight.example/feed with space"}, "no spaces"),
     ({**SOURCE, "url": "https://freight.example/é"}, "no spaces"),
-    ({**SOURCE, "url": "https://freight.example/" + "a" * 520}, "at most 80 characters"),
+    ({**SOURCE, "url": "https://freight.example/" + "a" * 520}, "at most 512 characters"),
     ({**SOURCE, "url": "ftp://freight.example/feed"}, "only https"),
     ({**SOURCE, "url": ""}, "no spaces"),
     ({**SOURCE, "kind": "blog"}, "invalid kind"),
@@ -413,6 +396,10 @@ BAD_SOURCES = [
     ({**SOURCE, "url": 5}, "url as text"),
     ({"name": "x", "kind": "news"}, "url as text"),
     ({**SOURCE, "kind": ["news"]}, "kind as text"),
+    ({**SOURCE, "url": "https://freight.example:0/feed"}, "default port"),
+    ({**SOURCE, "name": "bell\x07"}, "plain text"),
+    ({**SOURCE, "name": "flip\u202eit"}, "plain text"),
+    ({**SOURCE, "name": "two\nlines"}, "plain text"),
 ]
 
 
@@ -766,12 +753,29 @@ def test_a_failing_digest_job_is_shown_by_status_but_is_not_an_ingest_failure(ro
         live.close()
 
 
-def test_editing_a_rule_over_a_large_store_matches_exactly_what_a_new_topic_does(root):
+def _tokens(text: str) -> list[str]:
+    """Words as the full-text index sees them: runs of letters and digits, lower case."""
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def _holds(title: str, summary: str, keyword: str) -> bool:
+    """Whether the keyword, as a phrase of whole words, occurs in the title or in the summary."""
+    phrase = _tokens(keyword)
+    for words in (_tokens(title), _tokens(summary)):
+        for start in range(len(words) - len(phrase) + 1):
+            if words[start : start + len(phrase)] == phrase:
+                return True
+    return False
+
+
+def test_editing_a_rule_over_a_large_store_holds_exactly_the_stories_found_by_hand(root):
     db = store.open_db(root)
     words = ["merger", "remedy", "spectrum", "auction", "roaming", "tariff", "licence", "appeal"]
     base = datetime(2026, 1, 1, tzinfo=UTC)
+    kinds_of = ("regulator", "news", "research")
+    expected_titles: list[tuple[int, str, str, str]] = []
     with db:
-        for index, kind in enumerate(("regulator", "news", "research")):
+        for index, kind in enumerate(kinds_of):
             db.execute(
                 "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
                 " VALUES(?, ?, ?, 'approved', 'x', ?)",
@@ -780,21 +784,146 @@ def test_editing_a_rule_over_a_large_store_matches_exactly_what_a_new_topic_does
         for number in range(1500):
             at = (base + timedelta(minutes=number)).isoformat()
             title = " ".join(words[(number * k + k) % len(words)] for k in (1, 3, 5))
+            summary = words[number % len(words)]
             link = f"https://s{number % 3}.example/{number}"
             db.execute(
                 "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
                 " fetched_at, summary) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
-                (number % 3 + 1, title, link, link, title, at, at, words[number % len(words)]),
+                (number % 3 + 1, title, link, link, title, at, at, summary),
             )
+            expected_titles.append((number + 1, kinds_of[number % 3], title, summary))
     topics.add_topic(db, "Old rule", ["merger"], [], "x")
-    keywords, kinds = ["spectrum", 'say "tariff"', "no such word"], ["regulator", "news"]
+    keywords, kinds = ["spectrum", 'say "tariff"', "remedy spectrum", "no such word"], ["regulator", "news"]
     started = datetime.now(UTC)
     topics.edit_topic(db, 1, "Edited", keywords, kinds)
     assert datetime.now(UTC) - started < timedelta(seconds=10)  # one index query per keyword
-    fresh = topics.add_topic(db, "Fresh", keywords, kinds, "x")
-    mine = {r[0] for r in db.execute("SELECT story_id FROM topic_stories WHERE topic_id=1")}
-    theirs = {
-        r[0] for r in db.execute("SELECT story_id FROM topic_stories WHERE topic_id=?", (fresh,))
+    held = {r[0] for r in db.execute("SELECT story_id FROM topic_stories WHERE topic_id=1")}
+    by_hand = {
+        number
+        for number, kind, title, summary in expected_titles
+        if kind in kinds and any(_holds(title, summary, keyword) for keyword in keywords)
     }
-    assert mine == theirs and 0 < len(mine) < 1500
+    assert held == by_hand and 0 < len(held) < 1500
     db.close()
+
+
+# One address, one source
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        "https://FREIGHT-monitor.example/feed",
+        "https://freight-monitor.example:443/feed",
+        "https://freight-monitor.example/feed#top",
+        "https://Freight-Monitor.Example:443/feed#a",
+        "HTTPS://freight-monitor.example/feed",
+    ],
+)
+def test_another_spelling_of_a_proposed_address_is_the_same_source(svc, root, spelling):
+    assert svc.call("POST", "/api/sources", body=SOURCE, cookie=cookie(WRITER))[0] == 200
+    status, _, reply = svc.call(
+        "POST", "/api/sources", body={**SOURCE, "url": spelling}, cookie=cookie(OWNER)
+    )
+    assert status == 409 and "already exists" in reply["error"]
+    assert rows(root, "SELECT url FROM sources") == [(SOURCE["url"],)]
+
+
+def test_a_proposed_address_is_stored_in_its_canonical_spelling(svc, root):
+    url = "https://Freight-Monitor.EXAMPLE:443/feed?x=1#top"
+    assert svc.call("POST", "/api/sources", body={**SOURCE, "url": url}, cookie=cookie(WRITER))[0] == 200
+    assert rows(root, "SELECT url FROM sources") == [("https://freight-monitor.example/feed?x=1",)]
+
+
+# Text no database can hold is refused, not a failure of the service
+
+LONE = "x\ud800y"
+TOPIC_OK = {"name": "Packaging", "keywords": ["plant"], "kinds": []}
+DIGEST_OK = {
+    "name": "Brief",
+    "covers": "All stories",
+    "schedule": "Daily, 07:00 UTC",
+    "length": "Up to 3 points",
+    "brief": "",
+}
+UNENCODABLE = [
+    ("POST", "/api/topics", {**TOPIC_OK, "name": LONE}),
+    ("POST", "/api/topics", {**TOPIC_OK, "keywords": [LONE]}),
+    ("POST", "/api/topics", {**TOPIC_OK, "kinds": [LONE]}),
+    ("POST", "/api/topics/1/edit", {**TOPIC_OK, "name": LONE}),
+    ("POST", "/api/topics/1/edit", {**TOPIC_OK, "keywords": [LONE]}),
+    ("POST", "/api/sources", {**SOURCE, "name": LONE}),
+    ("POST", "/api/sources", {**SOURCE, "kind": LONE}),
+    ("POST", "/api/sources", {**SOURCE, "url": f"https://a.example/{LONE}"}),
+    ("POST", "/api/digests", {**DIGEST_OK, "name": LONE}),
+    ("POST", "/api/digests", {**DIGEST_OK, "covers": f"Topic: {LONE}"}),
+    ("POST", "/api/digests", {**DIGEST_OK, "covers": [f"Group: {LONE}"]}),
+    ("POST", "/api/digests", {**DIGEST_OK, "schedule": LONE}),
+    ("POST", "/api/digests", {**DIGEST_OK, "length": LONE}),
+    ("POST", "/api/digests", {**DIGEST_OK, "brief": LONE}),
+    ("POST", "/api/digests", {**DIGEST_OK, "upcoming": LONE}),
+    ("POST", "/api/digests/1/edit", {**DIGEST_OK, "brief": LONE}),
+    ("POST", "/api/digests/1/edit", {**DIGEST_OK, "covers": [f"Topic: {LONE}"]}),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"), UNENCODABLE, ids=[f"{m} {p} {sorted(b)}" for m, p, b in UNENCODABLE]
+)
+def test_a_lone_surrogate_in_any_text_is_refused_with_400_on_every_settings_route(
+    svc, root, method, path, body
+):
+    svc.call("POST", "/api/topics", body={**TOPIC_OK, "name": "Existing"}, cookie=cookie(WRITER))
+    svc.call("POST", "/api/digests", body={**DIGEST_OK, "name": "Existing"}, cookie=cookie(WRITER))
+    before = rows(
+        root,
+        "SELECT (SELECT COUNT(*) FROM topics), (SELECT COUNT(*) FROM sources),"
+        " (SELECT COUNT(*) FROM digests), (SELECT name FROM topics), (SELECT name FROM digests)",
+    )
+    status, _, reply = svc.call(method, path, body=body, cookie=cookie(WRITER))
+    assert status == 400, (status, reply)
+    assert isinstance(reply["error"], str) and "traceback" not in reply["error"].lower()
+    after = rows(
+        root,
+        "SELECT (SELECT COUNT(*) FROM topics), (SELECT COUNT(*) FROM sources),"
+        " (SELECT COUNT(*) FROM digests), (SELECT name FROM topics), (SELECT name FROM digests)",
+    )
+    assert after == before
+
+
+# A digest with no cover
+
+
+def test_deleting_a_topic_a_digest_covers_works_and_the_digest_says_what_happened(svc, root):
+    svc.call("POST", "/api/topics", body=TOPIC, cookie=cookie(WRITER))
+    svc.call(
+        "POST", "/api/digests", body=digest_body(covers=["Topic: Packaging"]), cookie=cookie(READER)
+    )
+    status, _, reply = svc.call("DELETE", "/api/topics/1", cookie=cookie(WRITER))
+    assert (status, reply) == (200, {"deleted": True})
+    assert rows(root, "SELECT COUNT(*) FROM topics") == [(0,)] and rows(
+        root, "SELECT COUNT(*) FROM digest_topics"
+    ) == [(0,)]
+    snap = snapshot_of(svc, READER)
+    (record,) = snap["digests"]
+    assert record["form"]["covers"] == [] and "covered was removed" in record["paused"]
+    status, _, reply = svc.call("POST", "/api/digests/1/run", cookie=cookie(READER))
+    assert (status, reply["outcome"], reply["issueId"], reply["stories"]) == (200, "skipped", None, 0)
+    assert reply["message"] == (
+        "This digest covers nothing now, so no issue was written. Edit it to choose what it covers."
+    )
+    edit = digest_body(covers=["All stories"])
+    assert svc.call("POST", "/api/digests/1/edit", body=edit, cookie=cookie(READER))[0] == 200
+
+
+def test_a_topic_a_group_still_lists_is_refused_with_a_sentence_that_says_so(svc, root):
+    svc.call("POST", "/api/topics", body=TOPIC, cookie=cookie(WRITER))
+    db = store.open_db(root)
+    desk = groups.create_group(db, User(WRITER, "writer"), "Desk", "invited")
+    groups.set_topics(db, User(WRITER, "writer"), desk, [1])
+    db.close()
+    status, _, reply = svc.call("DELETE", "/api/topics/1", cookie=cookie(WRITER))
+    assert status == 409 and reply["error"] == (
+        "a group still follows this topic; take it off the group's topics first"
+    )
+    assert rows(root, "SELECT COUNT(*) FROM topics") == [(1,)]

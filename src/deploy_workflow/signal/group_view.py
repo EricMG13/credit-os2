@@ -23,12 +23,13 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
-from deploy_workflow.signal import groups, notif, snapshot, threadrank, threads
+from deploy_workflow.signal import groups, notif, threadrank, threads
 from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.store import _utc_text
+from deploy_workflow.signal.texts import ago, capital, clock, day, initials, monogram, plural
 
 Json = dict[str, Any]
 
@@ -39,18 +40,6 @@ MEMBERS_SHOWN = 4
 _CHUNK = 500
 _PAGE_VISIBILITY = {"everyone": "Open to everyone", "invited": "Invited only"}
 SETTINGS_VISIBILITY = {"everyone": "Visible to everyone", "invited": "Members only"}
-
-
-def _plural(count: int, one: str, many: str) -> str:
-    return f"{count} {one if count == 1 else many}"
-
-
-def _capital(text: str) -> str:
-    return text[:1].upper() + text[1:]
-
-
-def _utc(at: datetime) -> datetime:
-    return at.astimezone(UTC)
 
 
 @dataclass
@@ -120,9 +109,9 @@ def _ordered(db: sqlite3.Connection, ids: Sequence[int]) -> list[sqlite3.Row]:
 def _members(db: sqlite3.Connection, group_id: int) -> Json:
     names = groups.members(db, group_id)
     shown = names[:MEMBERS_SHOWN]
-    summary = "No members yet" if not names else _plural(len(names), "member", "members")
+    summary = "No members yet" if not names else plural(len(names), "member", "members")
     return {
-        "members": [{"initials": snapshot.initials(name), "name": name} for name in shown],
+        "members": [{"initials": initials(name), "name": name} for name in shown],
         "moreMembers": f"+{len(names) - len(shown)}" if len(names) > len(shown) else None,
         "memberSummary": summary,
     }
@@ -224,7 +213,7 @@ def _comment_count(db: sqlite3.Connection, thread_id: int) -> int:
 
 
 def _comments_text(count: int) -> str | None:
-    return _plural(count, "comment", "comments") if count else None
+    return plural(count, "comment", "comments") if count else None
 
 
 def _who(name: str, viewer: _Viewer) -> str:
@@ -237,11 +226,13 @@ def _topic_name(db: sqlite3.Connection, topic_id: int) -> str:
 
 
 def _shared_by(db: sqlite3.Connection, row: sqlite3.Row, viewer: _Viewer) -> Json:
-    when = snapshot.ago(datetime.fromisoformat(row["created_at"]), viewer.now)
+    when = ago(datetime.fromisoformat(row["created_at"]), viewer.now)
     if row["created_by"] is None:
+        if row["topic_id"] is None:  # the topic that posted it was deleted
+            return {"initials": "T", "label": f"Posted from a topic, {when}"}
         topic = _topic_name(db, row["topic_id"])
         return {
-            "initials": snapshot.monogram(topic),
+            "initials": monogram(topic),
             "label": f"Posted from the topic {topic}, {when}",
         }
     by = row["created_by"]
@@ -249,7 +240,7 @@ def _shared_by(db: sqlite3.Connection, row: sqlite3.Row, viewer: _Viewer) -> Jso
         label = "You started a thread" if by == viewer.user.name else f"{by} started a thread"
     else:
         label = f"Shared by {_who(by, viewer)}, {when}"
-    return {"initials": snapshot.initials(by), "label": label}
+    return {"initials": initials(by), "label": label}
 
 
 def _archived(db: sqlite3.Connection, row: sqlite3.Row, now: datetime) -> datetime | None:
@@ -267,7 +258,7 @@ def _summary(db: sqlite3.Connection, row: sqlite3.Row, viewer: _Viewer, count: i
         "commentCount": _comments_text(count),
         "archived": archived,
         "unread": not archived and _unread(db, row["id"], viewer.user.name),
-        "lastActivity": _capital(snapshot.ago(last, viewer.now)),
+        "lastActivity": capital(ago(last, viewer.now)),
     }
 
 
@@ -286,7 +277,7 @@ def _thread(db: sqlite3.Connection, held: tuple[sqlite3.Row, str, int], viewer: 
         "archived": since is not None,
         "title": "Thread",
         "subline": subline,
-        "archivedLine": None if since is None else f"Archived on {snapshot.day(since, viewer.now)}",
+        "archivedLine": None if since is None else f"Archived on {day(since, viewer.now)}",
         "comments": _comment_records(db, tops, viewer),
     }
 
@@ -332,7 +323,7 @@ def _comment_records(db: sqlite3.Connection, tops: list[Json], viewer: _Viewer) 
         removed = row["removed_at"] is not None
         return {
             "id": str(row["id"]),
-            "author": {"initials": snapshot.initials(row["author"]), "name": row["author"]},
+            "author": {"initials": initials(row["author"]), "name": row["author"]},
             "own": row["author"] == viewer.user.name,
             "time": clock(datetime.fromisoformat(row["created_at"]), viewer.now),
             "text": None if removed else row["body"],
@@ -345,17 +336,6 @@ def _comment_records(db: sqlite3.Connection, tops: list[Json], viewer: _Viewer) 
     return [one(t["row"], [one(r, []) for r in t["replies"]]) for t in tops]
 
 
-def clock(at: datetime, now: datetime) -> str:
-    """A comment's time: "10:02 UTC" today, "Yesterday 16:40 UTC", else "4 Nov 16:40 UTC"."""
-    hours = _utc(at).strftime("%H:%M")
-    days = (_utc(now).date() - _utc(at).date()).days
-    if days <= 0:
-        return f"{hours} UTC"
-    if days == 1:
-        return f"Yesterday {hours} UTC"
-    return f"{snapshot.day(at, now)} {hours} UTC"
-
-
 def _colleague(held: list[_Shown], viewer: _Viewer) -> Json | None:
     """The latest share by a person (not a topic) among a story's delivered threads."""
     people = [s for s in held if s.row["created_by"] is not None]
@@ -364,7 +344,7 @@ def _colleague(held: list[_Shown], viewer: _Viewer) -> Json | None:
         return None
     sharer = str(latest.row["created_by"])
     return {
-        "initials": snapshot.initials(sharer),
+        "initials": initials(sharer),
         "label": f"Shared to {latest.group_name} by {_who(sharer, viewer)}",
     }
 

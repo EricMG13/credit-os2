@@ -328,13 +328,13 @@ def test_stories_in_scope_and_no_writer_records_a_skipped_run_and_writes_no_issu
         None,
         digests.SKIPPED,
     )
-    # The period did not move, so the stories are still in scope for the first issue written after.
-    assert digests.owned(db, "Mara L", ident).period_from == at("2026-11-20 07:00")
+    # A skipped run moves the period on, as any run does: a period never outgrows its schedule.
+    assert digests.owned(db, "Mara L", ident).period_from == NOW
     ran = digests.run_due(db, at("2026-11-27 07:00"))
-    assert [run.outcome for _, run in ran] == ["skipped"]
+    assert [run.outcome for _, run in ran] == ["nothing"]  # the story was before this period
     digest = digests.owned(db, "Mara L", ident)
     assert (digest.period_from, digest.next_run_at) == (
-        at("2026-11-20 07:00"),
+        at("2026-11-27 07:00"),
         at("2026-12-04 07:00"),
     )
 
@@ -480,7 +480,9 @@ def test_a_group_the_owner_can_no_longer_see_adds_nothing_to_a_digest(db):
     groups.remove_member(db, WRITER, group, "Tobias O")  # the owner leaves the group
     assert digests._scope_stories(db, digest, at("2026-11-10 08:00"), at("2026-11-10 12:00")) == ()
     run = digests.run_now(db, "Tobias O", ident, at("2026-11-10 12:00"))
-    assert run.outcome == "nothing"  # nothing of the closed group reaches the run
+    assert digests.covers_nothing(db, digest)
+    assert (run.outcome, run.stories, run.reason) == ("skipped", 0, digests.NO_COVER)
+    assert count(db, "digest_issues") == 0  # no issue claims that nothing happened
 
 
 def test_all_stories_takes_every_story_of_the_period(db):
@@ -525,6 +527,140 @@ def test_a_digest_keeps_its_newest_sixty_issues_and_one_hundred_twenty_runs(db):
     assert count(db, "digest_runs") == digests.KEEP_RUNS == 120
 
 
+# Periods stay as long as the schedule says
+
+
+def test_skipped_runs_while_ai_is_off_never_let_a_period_outgrow_one_day(db):
+    wire = source(db)
+    story(db, wire, "One early story", NOW)
+    ident = make(db, schedule="Daily, 07:00 UTC")
+    for day in range(1, 91):
+        digests.run_due(db, NOW + timedelta(days=day))
+    spans = [
+        datetime.fromisoformat(row["period_end"]) - datetime.fromisoformat(row["period_start"])
+        for row in db.execute(
+            "SELECT period_start, period_end FROM digest_runs WHERE digest_id=?", (ident,)
+        )
+    ]
+    assert len(spans) == digests.KEEP_RUNS and max(spans) <= timedelta(days=1)
+
+
+def test_a_period_is_the_gap_since_the_last_run_so_catching_up_covers_the_downtime_once(db):
+    wire = source(db)
+    story(db, wire, "During the outage", at("2026-12-10 09:00"))
+    ident = make(db)  # weekly, first period from Fri 20 Nov 07:00
+    digests.run_due(db, at("2026-11-27 07:00"))
+    # The service is down for three weeks, then one run covers the whole gap and no more.
+    ran = digests.run_due(db, at("2026-12-20 09:00"))
+    assert [run.outcome for _, run in ran] == ["skipped"]
+    row = db.execute("SELECT * FROM digest_runs ORDER BY id DESC LIMIT 1").fetchone()
+    assert (row["period_start"], row["period_end"]) == (
+        at("2026-11-27 07:00").isoformat(),
+        at("2026-12-20 09:00").isoformat(),
+    )
+    assert digests.owned(db, "Mara L", ident).period_from == at("2026-12-20 09:00")
+
+
+def test_changing_the_schedule_never_leaves_a_period_longer_than_the_new_one(db):
+    ident = make(db)  # weekly: the next period starts Fri 20 Nov 07:00
+    daily = digests.spec_from_form(db, "Mara L", form(schedule="Daily, 07:00 UTC"))
+    digests.edit(db, "Mara L", ident, daily, NOW)  # Tue 24 Nov 12:00; next run Wed 25 Nov 07:00
+    digest = digests.owned(db, "Mara L", ident)
+    assert (digest.period_from, digest.next_run_at) == (
+        at("2026-11-24 07:00"),
+        at("2026-11-25 07:00"),
+    )
+    again = digests.spec_from_form(db, "Mara L", form(schedule=FRIDAY))
+    digests.edit(db, "Mara L", ident, again, NOW)  # a longer period may keep its earlier start
+    assert digests.owned(db, "Mara L", ident).period_from == at("2026-11-24 07:00")
+
+
+# Which runs are retried
+
+
+def test_a_locked_database_leaves_the_digest_due_and_the_next_tick_runs_it(db, monkeypatch):
+    ident = make(db)
+    real = digests._run
+
+    def locked(*args: Any) -> digests.Run:
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(digests, "_run", locked)
+    assert digests.run_due(db, at("2026-11-27 07:00")) == []
+    assert digests.owned(db, "Mara L", ident).next_run_at == at("2026-11-27 07:00")  # still due
+    assert count(db, "digest_runs") == 0  # nothing was recorded as a failure
+    monkeypatch.setattr(digests, "_run", real)
+    ran = digests.run_due(db, at("2026-11-27 07:01"))
+    assert [(found, run.outcome) for found, run in ran] == [(ident, "nothing")]
+
+
+def test_a_failure_while_recording_a_failure_does_not_stop_the_other_digests(db, monkeypatch):
+    first, second, third = (make(db, name=n) for n in ("First", "Second", "Third"))
+    real = digests._run
+
+    def flaky(database: sqlite3.Connection, digest: digests.Digest, *rest: Any) -> digests.Run:
+        if digest.id == first:
+            raise RuntimeError("bug")
+        return real(database, digest, *rest)
+
+    def broken(*args: Any) -> None:
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(digests, "_run", flaky)
+    monkeypatch.setattr(digests, "_record_failure", broken)
+    ran = digests.run_due(db, at("2026-11-27 07:00"))
+    assert [found for found, _ in ran] == [second, third]
+
+
+# Covers that were removed
+
+
+def test_deleting_a_topic_or_a_group_never_fails_because_of_a_digest_and_keeps_the_others(db):
+    packaging = topics.add_topic(db, "Packaging", ["plant"], [], "Mara L")
+    shipping = topics.add_topic(db, "Shipping", ["tanker"], [], "Mara L")
+    desk = groups.create_group(db, WRITER, "Desk", "everyone")
+    mine = make(db, covers=["Topic: Packaging", "Topic: Shipping", "Group: Desk"])
+    theirs = make(db, owner="Tobias O", covers=["Topic: Packaging", "Group: Desk"])
+    topics.delete_topic(db, packaging)
+    groups.delete_group(db, WRITER, desk)
+    first = digests.owned(db, "Mara L", mine)
+    assert (first.spec.topic_ids, first.spec.group_ids) == ((shipping,), ())
+    assert digests.cover_texts(db, first) == ["Topic: Shipping"]
+    assert not digests.covers_nothing(db, first)
+    second = digests.owned(db, "Tobias O", theirs)
+    assert (second.spec.topic_ids, second.spec.group_ids) == ((), ())
+    assert digests.covers_nothing(db, second)
+    assert [tuple(r) for r in db.execute("SELECT digest_id, topic_id FROM digest_topics")] == [
+        (mine, shipping)
+    ]
+    assert count(db, "digest_groups") == 0
+
+
+def test_a_digest_left_with_no_cover_runs_as_skipped_and_is_edited_back_into_use(db):
+    wire = source(db)
+    story(db, wire, "A story in the period", NOW - timedelta(hours=1))
+    packaging = topics.add_topic(db, "Packaging", ["plant"], [], "Mara L")
+    ident = make(db, covers=["Topic: Packaging"])
+    topics.delete_topic(db, packaging)
+    run = digests.run_now(db, "Mara L", ident, NOW)
+    assert run == digests.Run("skipped", None, 0, digests.NO_COVER)
+    assert count(db, "digest_issues") == 0
+    ran = digests.run_due(db, at("2026-11-27 07:00"))  # and so does a scheduled run
+    assert [(found, r.outcome, r.reason) for found, r in ran] == [
+        (ident, "skipped", digests.NO_COVER)
+    ]
+    assert digests.owned(db, "Mara L", ident).next_run_at == at("2026-12-04 07:00")
+    with pytest.raises(StoreError, match="1 to 10"):
+        digests.spec_from_form(db, "Mara L", form(covers=[]))  # the form still needs a cover
+    digests.edit(db, "Mara L", ident, digests.spec_from_form(db, "Mara L", form()), NOW)
+    revived = digests.owned(db, "Mara L", ident)
+    assert not digests.covers_nothing(db, revived)
+    story(db, wire, "A story after the removal", at("2026-11-28 09:00"))
+    assert digests.run_now(db, "Mara L", ident, at("2026-11-28 12:00")) == digests.Run(
+        "skipped", None, 1, digests.SKIPPED
+    )
+
+
 # The pass and the loop
 
 
@@ -546,6 +682,7 @@ def test_one_digest_that_raises_is_recorded_and_the_others_still_run(db, monkeyp
         "the run failed (RuntimeError); see the log",
     )
     assert digests.owned(db, "Mara L", first).next_run_at == at("2026-12-04 07:00")  # not retried
+    assert digests.owned(db, "Mara L", first).period_from == at("2026-11-27 07:00")  # period moved
     assert digests.run_due(db, at("2026-11-27 07:00")) == []
 
 

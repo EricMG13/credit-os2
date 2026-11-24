@@ -181,10 +181,7 @@ def delete_group(db: sqlite3.Connection, actor: User, group_id: int) -> None:
         require_group(db, group_id)
         if db.execute("SELECT 1 FROM threads WHERE group_id=?", (group_id,)).fetchone():
             raise Conflict("a group that holds threads cannot be deleted")
-        try:
-            db.execute("DELETE FROM groups WHERE id=?", (group_id,))
-        except sqlite3.IntegrityError:  # something else (a digest) still names it
-            raise Conflict("the group is still used and cannot be deleted") from None
+        db.execute("DELETE FROM groups WHERE id=?", (group_id,))  # digest covers go with it
 
 
 def set_visibility(db: sqlite3.Connection, actor: User, group_id: int, visibility: object) -> None:

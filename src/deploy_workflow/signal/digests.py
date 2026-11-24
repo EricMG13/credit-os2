@@ -13,16 +13,24 @@ material happened and makes no model call. With some in scope a model call would
 pass is not built, so unless a ``Writer`` is supplied (the seam step 5 fills) no issue is written
 and the run is recorded as skipped, with the reason.
 
+Every run, whatever its outcome, ends its period and the next period starts there, so a period is
+as long as the time since the last run: one schedule period, plus the downtime a late run catches
+up. A digest whose schedule changes starts its new period no earlier than one new period before its
+next run. A digest left with nothing to cover (its topics and groups were deleted, or its groups
+are no longer visible to its owner) runs as skipped, with the reason ``NO_COVER``, and writes no
+issue: it never says that nothing material happened.
+
 Runs are due when ``next_run_at`` has passed. A digest whose time passed while the service was down
 runs once at the next start: the run covers the whole gap and the next run is the first slot after
-now. Every write is one write transaction.
+now. A run that fails because the database is busy is left due, so the next tick retries it; any
+other failure is recorded as skipped and the digest moves to its next slot. Every write is one
+write transaction.
 """
 
 from __future__ import annotations
 
 import logging
 import sqlite3
-import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -35,6 +43,7 @@ from deploy_workflow.signal.store import (
     StoreError,
     _utc_text,
     _write_transaction,
+    plain_text,
 )
 
 log = logging.getLogger(__name__)
@@ -62,6 +71,8 @@ LENGTHS = {
 DEFAULT_LENGTH = "Up to 5 points"
 DEFAULT_SCHEDULE = "Weekly, Friday 07:00 UTC"
 SKIPPED = "the AI pass is off, so no issue was written for the stories in scope"
+NO_COVER = "the digest covers nothing now, so no issue was written"
+NOTHING = "nothing"  # the kind of an issue saying that no story reached the digest
 
 Outcome = Literal["nothing", "skipped", "written"]
 Trigger = Literal["schedule", "manual"]
@@ -152,21 +163,11 @@ class Form:
 # Building a spec from the form's strings
 
 
-def _plain(text: str, limit: int, what: str, *, lines: bool = False) -> str:
-    """`text` trimmed, at most `limit` characters with no control character (a brief may keep its
-    line breaks and tabs: `lines`); StoreError otherwise."""
-    cleaned = text.strip()
-    allowed = "\n\t" if lines else ""
-    odd = any(unicodedata.category(ch)[0] == "C" and ch not in allowed for ch in cleaned)
-    if len(cleaned) > limit or odd:
-        raise StoreError(f"{what} is at most {limit} characters of plain text")
-    if not cleaned and not lines:
-        raise StoreError(f"{what} must not be empty")
-    return cleaned
-
-
 def _lookup(db: sqlite3.Connection, sql: str, name: str, what: str) -> int:
-    row = db.execute(sql, (name,)).fetchone()
+    try:
+        row = db.execute(sql, (name,)).fetchone()
+    except UnicodeEncodeError:  # a lone surrogate: no name stored can match it
+        row = None
     if row is None:
         raise StoreError(f"there is no {what} called {name!r}")
     return int(row["id"])
@@ -215,15 +216,15 @@ def spec_from_form(db: sqlite3.Connection, owner: str, form: Form) -> Spec:
     covers_all, topic_ids, group_ids = _resolve_covers(db, owner, form.covers)
     length, points = LENGTHS[form.length]
     return Spec(
-        name=_plain(form.name, MAX_NAME, "the name"),
+        name=plain_text(form.name, MAX_NAME, "the name"),
         schedule=when,
         covers_all=covers_all,
         topic_ids=topic_ids,
         group_ids=group_ids,
-        subject=_plain(form.brief, MAX_SUBJECT, "the brief", lines=True),
+        subject=plain_text(form.brief, MAX_SUBJECT, "the brief", lines=True),
         length=length,
         points=points,
-        upcoming=_plain(form.upcoming, MAX_UPCOMING, "the upcoming list", lines=True),
+        upcoming=plain_text(form.upcoming, MAX_UPCOMING, "the upcoming list", lines=True),
         look_ahead_days=form.look_ahead_days,
     )
 

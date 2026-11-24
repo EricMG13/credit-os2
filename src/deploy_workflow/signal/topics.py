@@ -46,7 +46,9 @@ def _clean_keywords(keywords: Sequence[str]) -> list[str]:
         raise StoreError(f"a topic has at most {MAX_KEYWORDS} keywords")
     for keyword in cleaned:
         if not 1 <= len(keyword) <= MAX_KEYWORD:
-            raise StoreError(f"a keyword must be 1 to {MAX_KEYWORD} characters, got {keyword!r}")
+            raise StoreError(f"a keyword must be 1 to {MAX_KEYWORD} characters, got {keyword[:60]!r}")
+        if any(unicodedata.category(ch)[0] == "C" for ch in keyword):
+            raise StoreError("a keyword is plain text: it has no control or invisible character")
     return cleaned
 
 
@@ -169,17 +171,16 @@ def edit_topic(
 
 
 def delete_topic(db: sqlite3.Connection, topic_id: int) -> None:
-    """Delete a topic with its matches and follows; Conflict while a group or a digest uses it."""
+    """Delete a topic with its matches and follows. A digest's cover on it is removed with it and
+    a thread it posted stays, no longer naming a topic. Conflict while a group's topic list names
+    it."""
     with _write_transaction(db):
         _require_topic(db, topic_id)
+        if db.execute("SELECT 1 FROM group_topics WHERE topic_id=?", (topic_id,)).fetchone():
+            raise Conflict("a group still follows this topic; take it off the group's topics first")
         db.execute("DELETE FROM topic_stories WHERE topic_id=?", (topic_id,))
         db.execute("DELETE FROM topic_follows WHERE topic_id=?", (topic_id,))
-        try:
-            db.execute("DELETE FROM topics WHERE id=?", (topic_id,))
-        except sqlite3.IntegrityError as exc:
-            raise Conflict(
-                "a group or a digest still uses this topic; remove it there first"
-            ) from exc
+        db.execute("DELETE FROM topics WHERE id=?", (topic_id,))
 
 
 def _now() -> datetime:

@@ -23,22 +23,23 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import unicodedata
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from deploy_workflow.signal import digestview, feedview, group_view, ingest, store, topics
 from deploy_workflow.signal.identity import User
+from deploy_workflow.signal.texts import ago, day, initials, monogram
+from deploy_workflow.signal.texts import capital as _capital
+from deploy_workflow.signal.texts import plural as _plural
 
-__all__ = ["OLDER", "SHOWN", "build", "initials", "monogram"]
+__all__ = ["OLDER", "SHOWN", "ago", "build", "day", "initials", "monogram"]
 
 Json = dict[str, Any]
 
 SHOWN = 30
 OLDER = 90
 _WEEK = timedelta(days=7)
-_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _KIND = {
     "regulator": "Regulatory case",
     "news": "News",
@@ -55,7 +56,6 @@ _STATE = {"approved": "Approved", "paused": "Paused", "proposed": "Proposed"}
 _STATE_RANK = {"Approved": 1, "Paused": 2, "Proposed": 3}
 _HEALTH = {"healthy": "Healthy", "quiet": "Quiet", "failing": "Failing"}
 _HEALTH_RANK = {"Healthy": 1, "Quiet": 2, "Failing": 3, None: 4}
-_ARTICLES = frozenset({"the", "a", "an"})
 
 
 def build(
@@ -100,62 +100,6 @@ def build(
 
 
 # Delivered text
-
-
-def _utc(at: datetime) -> datetime:
-    return at.astimezone(UTC)
-
-
-def day(at: datetime, now: datetime) -> str:
-    """A UTC date as "4 Nov", with the year when it is not `now`'s."""
-    when = _utc(at)
-    text = f"{when.day} {_MONTHS[when.month - 1]}"
-    return text if when.year == _utc(now).year else f"{text} {when.year}"
-
-
-def ago(at: datetime, now: datetime) -> str:
-    """How long before `now`: "just now", "6 min ago", "2 h ago", "yesterday" or a date."""
-    seconds = (now - at).total_seconds()
-    if seconds < 60:
-        return "just now"  # also a time a little ahead of `now` (another machine's clock)
-    if seconds < 3600:
-        return f"{int(seconds // 60)} min ago"
-    if seconds < 86400:
-        return f"{int(seconds // 3600)} h ago"
-    if (_utc(now).date() - _utc(at).date()).days == 1:
-        return "yesterday"
-    return day(at, now)
-
-
-def _capital(text: str) -> str:
-    return text[:1].upper() + text[1:]
-
-
-def _plural(count: int, one: str, many: str) -> str:
-    return f"{count} {one if count == 1 else many}"
-
-
-def _first_marks(words: list[str]) -> str:
-    """The first letter or digit of each of the first two words that have one, upper case."""
-    marks = []
-    for word in words:
-        found = next((ch for ch in word if unicodedata.category(ch)[0] in "LN"), None)
-        if found is not None:
-            marks.append(found)
-    return "".join(marks[:2]).upper()
-
-
-def initials(name: str) -> str:
-    """A viewer's initials as the React name dialog makes them; "?" when the name has none."""
-    return _first_marks(name.split()) or "?"
-
-
-def monogram(name: str) -> str:
-    """A publication's tile: its initials, a leading article left out ("The Meridian Post": MP)."""
-    words = name.split()
-    if len(words) > 1 and words[0].casefold() in _ARTICLES:
-        words = words[1:]
-    return _first_marks(words) or "?"
 
 
 def _number(value: float) -> float | int:

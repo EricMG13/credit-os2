@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 from signal_reader_check import react_refusal
 
-from deploy_workflow.signal import digests, groups, snapshot, store, topics
+from deploy_workflow.signal import digests, digestview, groups, snapshot, store, topics
 from deploy_workflow.signal.digests import Form
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.identity import User
@@ -27,6 +27,7 @@ NOW = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
 WRITER = User("Mara L", "writer")
 READER = User("Tobias O", "reader")
 PAUSED = "No new digest is written while AI is off or at its cap. Earlier digests stay readable."
+NO_COVER = "What this digest covered was removed, so no digest is written. Edit it to choose what it covers."
 
 
 @pytest.fixture
@@ -135,7 +136,7 @@ def test_a_digest_with_a_nothing_issue_is_delivered_paused_with_its_card(db):
             "issues": [
                 {
                     "id": "1",
-                    "title": "Weekly brief: the week to 24 November",
+                    "title": "Weekly brief: 20 to 24 November",
                     "date": "Tue 24 Nov 2026",
                     "ai": False,
                     "summary": None,
@@ -166,7 +167,7 @@ def test_a_digest_with_a_nothing_issue_is_delivered_paused_with_its_card(db):
             "issueId": "1",
             "digestName": "Weekly brief",
             "monogram": "WB",
-            "title": "Weekly brief: the week to 24 November",
+            "title": "Weekly brief: 20 to 24 November",
             "date": "Tue 24 Nov",
             "unread": True,
             "ai": False,
@@ -179,6 +180,57 @@ def test_a_digest_with_a_nothing_issue_is_delivered_paused_with_its_card(db):
     assert got["feed"]["views"]["for-you"]["top"] == ["d1"]
     assert got["feed"]["views"]["for-you"]["latest"] == ["d1"]
     assert got["feed"]["views"]["latest"]["top"] == []  # a card is in For you only
+
+
+def at(text: str) -> datetime:
+    return datetime.fromisoformat(text).replace(tzinfo=UTC)
+
+
+def test_an_issue_title_says_the_real_start_and_end_of_its_period(db):
+    make(db, "Mara L", name="Weekly")  # the first period starts Fri 20 Nov 07:00
+    make(db, "Mara L", name="Daily", schedule="Daily, 07:00 UTC")  # from Tue 24 Nov 07:00
+    make(db, "Mara L", name="Monthly", schedule="Monthly, day 1, 07:00 UTC")  # from Sun 1 Nov
+    digests.run_due(db, at("2026-11-25 07:00"))  # only the daily digest is due: a regular day
+    for when in ("2026-11-27 07:00", "2026-12-31 09:00", "2027-01-12 09:00"):
+        digests.run_due(db, at(when))
+    later = snap(db, WRITER, at("2027-01-12 12:00"))
+    got = {d["name"]: [i["title"] for i in d["issues"]] for d in later["digests"]}
+    assert got["Weekly"] == [
+        "Weekly: 31 December 2026 to 12 January 2027",  # a catch-up names both ends, and both years
+        "Weekly: 27 November to 31 December",  # five weeks down, across a month
+        "Weekly: the week to 27 November",  # a regular week
+    ]
+    assert got["Daily"][-1] == "Daily: 25 November"  # a regular day
+    assert got["Monthly"][-1] == "Monthly: 1 November to 31 December"
+
+
+def test_an_issue_kind_the_page_does_not_know_is_refused_not_called_nothing_material(db):
+    ident = make(db, "Mara L")
+    digests.run_now(db, "Mara L", ident, NOW)
+    db.execute("UPDATE digest_issues SET kind='written'")
+    db.commit()
+    with pytest.raises(digestview.UnknownIssueKind, match="written"):
+        snapshot.build(db, WRITER, NOW)
+    assert snapshot.build(db, READER, NOW)  # another viewer's snapshot is not affected
+
+
+def test_a_digest_whose_cover_was_removed_is_delivered_paused_with_that_sentence(db):
+    packaging = topics.add_topic(db, "Packaging", ["plant"], [], "Mara L")
+    topics.add_topic(db, "Shipping", ["tanker"], [], "Mara L")
+    gone = make(db, "Mara L", name="Gone", covers=["Topic: Packaging"])
+    make(db, "Mara L", name="Kept", covers=["Topic: Shipping"])
+    topics.delete_topic(db, packaging)
+    got = snap(db, WRITER)
+    by_name = {d["name"]: d for d in got["digests"]}
+    assert by_name["Gone"]["paused"] == NO_COVER
+    assert by_name["Gone"]["form"]["covers"] == []
+    assert by_name["Kept"]["paused"] == PAUSED
+    assert by_name["Kept"]["form"]["covers"] == ["Topic: Shipping"]
+    assert [c["paused"] for c in got["channels"]["digests"]] == [True, True]
+    chosen = Form("Gone", ["Topic: Shipping"], "Daily, 07:00 UTC", "Up to 3 points", "")
+    digests.edit(db, "Mara L", gone, digests.spec_from_form(db, "Mara L", chosen), NOW)
+    again = {d["name"]: d["paused"] for d in snap(db, WRITER)["digests"]}
+    assert again == {"Gone": PAUSED, "Kept": PAUSED}  # covering something again
 
 
 def test_reading_the_issue_clears_the_cards_unread_mark(db):
@@ -198,8 +250,8 @@ def test_each_cadence_words_its_issue_title_and_a_reader_owns_digests_too(db):
     assert got["viewer"]["role"] == "reader"
     titles = {d["name"]: d["issues"][0]["title"] for d in got["digests"]}
     assert titles == {
-        "Daily ratings": "Daily ratings: 24 November",
-        "Monthly": "Monthly: the month to 24 November",
+        "Daily ratings": "Daily ratings: 24 November",  # a run five hours into its day
+        "Monthly": "Monthly: 31 October to 24 November",  # a manual run, 24 days into its month
     }
     assert [c["name"] for c in got["channels"]["digests"]] == ["Daily ratings", "Monthly"]
     assert snap(db, WRITER)["digests"] == []  # digests are the owner's alone
