@@ -1,5 +1,10 @@
 # Signal: shared feed of external research with group threads
 
+> Note, 2026-11-24: by owner instruction the plain HTML/JS pages this spec describes were replaced
+> by the React Signal screens (`web/src/pages/signal/`), shown by `react_frontend` when it is started
+> with `--signal-url`. The Signal service is now API-only (`GET /api/snapshot` and the feed routes)
+> with its ingest loop. The rest of this spec is unchanged.
+
 Status: draft for owner approval, 2026-11-13. Mockup: `docs/design/mockups/signal.html`
 (invented sample content; open it in a browser, "Signal settings" switches views).
 

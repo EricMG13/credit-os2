@@ -94,7 +94,7 @@ def _after(after: object) -> int:
 
 
 @contextmanager
-def _snapshot(db: sqlite3.Connection) -> Iterator[None]:
+def read_transaction(db: sqlite3.Connection) -> Iterator[None]:
     """One read transaction, so every read inside it sees the same committed state."""
     db.execute("BEGIN")
     try:
@@ -148,6 +148,18 @@ def _topic_names(db: sqlite3.Connection, story_id: int) -> tuple[str, ...]:
     return tuple(row["name"] for row in rows)
 
 
+# A card's columns; the one parameter is the user whose saves are read.
+_CARD_SELECT = (
+    "SELECT s.id, s.title, s.link, s.summary, s.published_at, src.name AS source,"
+    " src.kind AS kind,"
+    " (SELECT COUNT(DISTINCT d.duplicate_source_id) FROM story_duplicates d"
+    "  WHERE d.story_id = s.id) AS other_sources,"
+    " EXISTS(SELECT 1 FROM saves me WHERE me.story_id = s.id AND me.user_name = ?) AS saved"
+    " FROM stories s JOIN sources src ON src.id = s.source_id"
+)
+_CHUNK = 500  # ids per IN list, well under SQLite's variable limit
+
+
 def _card(db: sqlite3.Connection, row: sqlite3.Row) -> Card:
     return Card(
         id=row["id"],
@@ -170,7 +182,7 @@ def feed(
     **filters: Unpack[Filters],
 ) -> Page:
     """One page of stories, newest first. Raises ViewError for an invalid request."""
-    with _snapshot(db):
+    with read_transaction(db):
         return _read_page(db, user_name, view, filters)
 
 
@@ -198,20 +210,50 @@ def _read_page(db: sqlite3.Connection, user_name: str, view: str, filters: Filte
         params += [stamp, stamp, story_id]
     where = " WHERE " + " AND ".join(conditions) if conditions else ""
     rows = db.execute(
-        "SELECT s.id, s.title, s.link, s.summary, s.published_at, src.name AS source,"
-        " src.kind AS kind,"
-        " (SELECT COUNT(DISTINCT d.duplicate_source_id) FROM story_duplicates d"
-        "  WHERE d.story_id = s.id) AS other_sources,"
-        " EXISTS(SELECT 1 FROM saves me WHERE me.story_id = s.id AND me.user_name = ?) AS saved"
-        " FROM stories s JOIN sources src ON src.id = s.source_id"
-        + where
-        + " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
+        _CARD_SELECT + where + " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
         [user_name, *params, PAGE + 1],
     ).fetchall()
     cards = tuple(_card(db, row) for row in rows[:PAGE])
     more = len(rows) > PAGE
     last = cards[-1] if more else None
     return Page(cards, f"{last.published_at}|{last.id}" if last else None, _newest(db))
+
+
+def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> list[int]:
+    """The ids of the newest `limit` stories in the view, newest first (the feed's own order).
+
+    It opens no transaction: a caller reading several views holds one (`read_transaction`)."""
+    clause, params = _view_clause(db, user_name, view)
+    where = " WHERE " + clause if clause is not None else ""
+    rows = db.execute(
+        "SELECT s.id FROM stories s" + where + " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
+        [*params, limit],
+    ).fetchall()
+    return [int(row["id"]) for row in rows]
+
+
+def cards(db: sqlite3.Connection, user_name: str, ids: list[int]) -> dict[int, Card]:
+    """The card of each listed story that exists, by id; `saved` is `user_name`'s."""
+    found: dict[int, Card] = {}
+    for start in range(0, len(ids), _CHUNK):
+        part = ids[start : start + _CHUNK]
+        marks = ", ".join("?" * len(part))
+        rows = db.execute(
+            _CARD_SELECT + " WHERE s.id IN (" + marks + ")", [user_name, *part]
+        ).fetchall()
+        found.update((int(row["id"]), _card(db, row)) for row in rows)
+    return found
+
+
+def other_sources(db: sqlite3.Connection, story_id: int) -> tuple[str, ...]:
+    """The names of the other sources a story was folded from, in the order they were first seen."""
+    rows = db.execute(
+        "SELECT src.name FROM story_duplicates d JOIN sources src ON src.id = d.duplicate_source_id"
+        " WHERE d.story_id = ? GROUP BY d.duplicate_source_id"
+        " ORDER BY MIN(d.seen_at), d.duplicate_source_id",
+        (story_id,),
+    ).fetchall()
+    return tuple(str(row["name"]) for row in rows)
 
 
 def new_count(db: sqlite3.Connection, user_name: str, view: str, after: int) -> int:

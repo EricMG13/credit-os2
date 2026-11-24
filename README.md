@@ -28,13 +28,13 @@ Excel workbooks are analysis inputs only; they are not deliverables.
 
 ## Signal
 
-Signal is a separate feed service that runs offline from model providers:
+Signal is a separate feed service that runs offline from model providers. It is an API and an ingest loop; it serves no page:
 
 ```sh
 uv run python -m deploy_workflow.signal --root /path/to/workflow-folder serve --host 127.0.0.1 --port 8766
 ```
 
-To show a Signal link in the React application, pass `--signal-url http://<address>:8766/` when starting `react_frontend`. The optional link must use the address and port at which Signal is served. The `Start signal.cmd` entry point is also available in the retained Windows runtime package.
+The Signal screens are in the React application. Start `react_frontend` with `--signal-url http://<address>:8766/` (the address and port at which Signal is served) to show them: the application adds Signal to its navigation and passes the screens' requests to the service. Without `--signal-url` no Signal screen is shown. The `Start signal.cmd` entry point in the retained Windows runtime package starts the same service.
 
 ## Project references
 

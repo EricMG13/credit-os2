@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/status/StatusBadge";
 import { WeekBars } from "../parts/WeekBars";
 import type { SignalSource } from "../slice";
 import { Section } from "./Section";
+import { WriteReason } from "./WriteReason";
 
 const REASON_ID = "signal-sources-write-reason";
 const COLUMNS = ["name", "state", "health"] as const;
@@ -66,9 +67,11 @@ export function SourcesSection({
         </Button>
       }
     >
-      <p id={REASON_ID} className="mb-3 text-sm text-text-tertiary">
-        Sample data: sources cannot be proposed here.
-      </p>
+      <WriteReason
+        id={REASON_ID}
+        sample="Sample data: sources cannot be proposed here."
+        live="Sources cannot be proposed from this page yet."
+      />
       {sources.length === 0 ? (
         <p className="text-sm text-text-tertiary">No sources yet.</p>
       ) : (

@@ -78,7 +78,9 @@ WRAPPERS = {
     "Start signal.cmd": [
         "@echo off",
         "setlocal",
-        "rem Serve the Signal feed: stories from the approved news, regulator and ratings feeds.",
+        "rem Start the Signal service: its API and the loop that reads the approved news,",
+        "rem regulator and ratings feeds. It serves no page: the Signal screens are in the React",
+        "rem application, started with --signal-url pointing at this service.",
         "rem Folder: the first argument, else FINAL_WORKFLOW_WORKSPACE.",
         "rem Address: the second argument, else 127.0.0.1 (this machine only). Pass this machine's",
         "rem own address to serve colleagues; 0.0.0.0 is refused. It makes no model call and needs",

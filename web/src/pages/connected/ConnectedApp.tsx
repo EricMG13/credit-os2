@@ -50,13 +50,15 @@ const ReportReader = page(() => import("./ReportLibrary").then((file) => file.Re
 const RunActivity = page(() => import("./RunActivity").then((file) => file.RunActivity));
 const RunProgress = page(() => import("./RunProgress").then((file) => file.RunProgress));
 const StartRun = page(() => import("./StartRun").then((file) => file.StartRun));
+const SignalLive = page(() => import("../signal/live/SignalLive").then((file) => file.SignalLive));
 
-function LoadingPage() {
+/** `bleed`: the page is drawn edge to edge, so the loading state takes the padding the shell left out. */
+function LoadingPage({ bleed = false }: { bleed?: boolean }) {
   return (
     <div
       role="status"
       aria-label="Loading this page"
-      className="mx-auto mt-6 grid w-full max-w-[96rem] gap-6"
+      className={`mx-auto mt-6 grid w-full max-w-[96rem] gap-6${bleed ? " px-4 sm:px-8" : ""}`}
     >
       <Skeleton lines={2} />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -70,10 +72,17 @@ function LoadingPage() {
   );
 }
 
-const SECTIONS: { area: Area; href: string; label?: string }[] = [
-  { area: "library", href: "/" },
-  { area: "run", href: "/runs", label: "Run activity" },
-];
+type Section = { area: Area; href: string; label?: string };
+
+const LIBRARY: Section = { area: "library", href: "/" };
+const RUNS: Section = { area: "run", href: "/runs", label: "Run activity" };
+const SIGNAL: Section = { area: "signal", href: "/signal" };
+
+/** A read-only preview shows the library only; Signal is listed where a Signal service is set. */
+function sectionsFor(readOnly: boolean, signal: boolean): Section[] {
+  if (readOnly) return [LIBRARY];
+  return signal ? [LIBRARY, RUNS, SIGNAL] : [LIBRARY, RUNS];
+}
 
 function assign(path: string) {
   window.location.assign(path);
@@ -100,12 +109,15 @@ type Route =
   | { kind: "run"; id: string }
   | { kind: "report"; id: string }
   | { kind: "start" }
+  | { kind: "signal" }
   | { kind: "missing" };
 
-function routeOf(path: string): Route {
+/** `signal`: a Signal service is set and this is not a read-only preview; without it /signal is no page. */
+function routeOf(path: string, signal: boolean): Route {
   if (path === "/" || path === "/index.html") return { kind: "library" };
   if (path === "/runs" || path === "/runs/") return { kind: "run-list" };
   if (path === "/start" || path === "/start/") return { kind: "start" };
+  if (signal && (path === "/signal" || path === "/signal/")) return { kind: "signal" };
   const run = RUN.exec(path)?.[1];
   if (run) return { kind: "run", id: run };
   const report = reportFolder(path);
@@ -116,8 +128,8 @@ function routeOf(path: string): Route {
  * Ask for the file that draws this route. For the library and reports, start their first data
  * request once the file arrives, while React draws the page.
  */
-export function preloadPage(path: string, readOnly: boolean): Promise<unknown> {
-  const route = routeOf(path);
+export function preloadPage(path: string, readOnly: boolean, signal = false): Promise<unknown> {
+  const route = routeOf(path, signal && !readOnly);
   const reads = (address: string) => () => {
     askAhead(address);
   };
@@ -129,7 +141,15 @@ export function preloadPage(path: string, readOnly: boolean): Promise<unknown> {
   if (route.kind === "start") return StartRun.ask().catch(unloaded);
   if (route.kind === "run-list") return RunActivity.ask().catch(unloaded);
   if (route.kind === "run") return RunProgress.ask().catch(unloaded);
+  if (route.kind === "signal") return SignalLive.ask().catch(unloaded);
   return Promise.resolve();
+}
+
+function areaOf(route: Route): Area {
+  if (route.kind === "signal") return "signal";
+  return route.kind === "start" || route.kind === "run-list" || route.kind === "run"
+    ? "run"
+    : "library";
 }
 
 function routeTitle(route: Route) {
@@ -137,6 +157,7 @@ function routeTitle(route: Route) {
   if (route.kind === "run-list") return "Run activity";
   if (route.kind === "run") return "Run progress";
   if (route.kind === "report") return "Credit report";
+  if (route.kind === "signal") return "Signal";
   return "Library";
 }
 
@@ -164,6 +185,7 @@ function CurrentPage({
   if (route.kind === "run-list") return <RunActivity />;
   if (route.kind === "run") return <RunProgress key={route.id} id={route.id} mode={mode} />;
   if (route.kind === "report") return <ReportReader key={route.id} id={route.id} mode={mode} />;
+  if (route.kind === "signal") return <SignalLive />;
   return <PageHeader title="Page not found" actions={<Button href="/">Library</Button>} />;
 }
 
@@ -172,29 +194,33 @@ export function ConnectedApp({
   search = window.location.search,
   mode,
   readOnly = false,
+  signal = false,
   navigate = assign,
 }: {
   path: string;
   search?: string;
   mode: Mode;
   readOnly?: boolean;
+  /** A Signal service is set for this app: the page was served with its address. */
+  signal?: boolean;
   navigate?: (path: string) => void;
 }) {
-  const route = routeOf(path);
+  const route = routeOf(path, signal && !readOnly);
   const prior = new URLSearchParams(search).get("from");
   const title = routeTitle(route);
   useEffect(() => {
     document.title = `${title} — Credit OS`;
   }, [title]);
-  const current =
-    route.kind === "start" || route.kind === "run-list" || route.kind === "run" ? "run" : "library";
+  // The Signal screens fill the page region edge to edge, as they do in the design reference.
+  const bleed = route.kind === "signal";
   return (
     <Shell
-      current={current}
-      sections={readOnly ? SECTIONS.slice(0, 1) : SECTIONS}
+      current={areaOf(route)}
+      bleed={bleed}
+      sections={sectionsFor(readOnly, signal)}
       symbol="/symbol.svg"
     >
-      <Suspense fallback={<LoadingPage />}>
+      <Suspense fallback={<LoadingPage bleed={bleed} />}>
         <CurrentPage
           route={route}
           prior={prior}

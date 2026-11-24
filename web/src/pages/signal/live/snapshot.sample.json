@@ -1,0 +1,564 @@
+{
+  "scenes": [
+    {
+      "id": "main",
+      "snapshot": {
+        "viewer": {
+          "name": "Mara L",
+          "initials": "ML",
+          "role": "writer",
+          "roleLabel": "Writer"
+        },
+        "channels": {
+          "topics": [
+            {
+              "id": "1",
+              "name": "Packaging",
+              "count": "1",
+              "followed": true,
+              "keywords": ["packaging", "plant closure"]
+            },
+            {
+              "id": "2",
+              "name": "Telecoms",
+              "count": "2",
+              "followed": false,
+              "keywords": ["Tessaly", "towers"]
+            },
+            {
+              "id": "3",
+              "name": "Shipping",
+              "count": "2",
+              "followed": false,
+              "keywords": ["Halvorsen", "Lenmark"]
+            }
+          ],
+          "groups": [],
+          "digests": [],
+          "savedCount": "1"
+        },
+        "feed": {
+          "status": "ready",
+          "error": null,
+          "sources": {
+            "approved": true
+          },
+          "freshness": {
+            "state": "checked",
+            "checked": "6 min ago",
+            "failing": "1 source failing",
+            "error": null
+          },
+          "stories": [
+            {
+              "id": "2",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Tessaly Telecom agrees the sale of its towers",
+              "url": "https://harbour-wire.example/tessaly",
+              "source": {
+                "name": "Harbour Wire",
+                "monogram": "HW"
+              },
+              "time": "40 min ago",
+              "summary": "The buyer takes 4,100 masts; the sale needs clearance.",
+              "tags": ["Telecoms"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": []
+            },
+            {
+              "id": "1",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Corvane Packaging to close two plants as volumes fall",
+              "url": "https://harbour-wire.example/corvane",
+              "source": {
+                "name": "Harbour Wire",
+                "monogram": "HW"
+              },
+              "time": "2 h ago",
+              "summary": "Corvane will shut two of its nine plants by March and take a one-off charge.",
+              "tags": ["Packaging"],
+              "alsoIn": {
+                "label": "Also in 2 other sources",
+                "monograms": ["CL", "MP"],
+                "more": null
+              },
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": []
+            },
+            {
+              "id": "3",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Brightwell Foods extends its term loan by three years",
+              "url": "https://harbour-wire.example/brightwell",
+              "source": {
+                "name": "Harbour Wire",
+                "monogram": "HW"
+              },
+              "time": "Yesterday",
+              "summary": "Lenders holding most of the EUR 400m loan agreed to the extension.",
+              "tags": [],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": []
+            },
+            {
+              "id": "5",
+              "kind": "ratings",
+              "kindLabel": "Rating action",
+              "headline": "Northgate Ratings downgrades Halvorsen Marine to B+",
+              "url": "https://northgate-ratings.example/halvorsen",
+              "source": {
+                "name": "Northgate Ratings",
+                "monogram": "NR"
+              },
+              "time": "21 Nov",
+              "summary": "The agency cites weaker charter rates and a refinancing due in 2027.",
+              "tags": ["Shipping"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": true,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": []
+            },
+            {
+              "id": "4",
+              "kind": "regulator",
+              "kindLabel": "Regulatory case",
+              "headline": "Authority opens a review of the Tessaly Telecom tower sale",
+              "url": "https://regulatory-gazette.example/case-17",
+              "source": {
+                "name": "Regulatory Gazette",
+                "monogram": "RG"
+              },
+              "time": "15 Nov",
+              "summary": "The authority says the sale could reduce competition for mast access.",
+              "tags": ["Telecoms"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": []
+            },
+            {
+              "id": "6",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Lenmark Shipping refinances its fleet loan",
+              "url": "https://the-meridian-post.example/lenmark",
+              "source": {
+                "name": "The Meridian Post",
+                "monogram": "MP"
+              },
+              "time": "4 Nov",
+              "summary": null,
+              "tags": ["Shipping"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": []
+            }
+          ],
+          "digests": [],
+          "views": {
+            "for-you": {
+              "top": ["1"],
+              "latest": ["1"],
+              "waiting": null,
+              "older": []
+            },
+            "latest": {
+              "top": ["2", "1", "3", "5", "4", "6"],
+              "latest": ["2", "1", "3", "5", "4", "6"],
+              "waiting": null,
+              "older": []
+            },
+            "saved": {
+              "top": ["5"],
+              "latest": ["5"],
+              "waiting": null,
+              "older": []
+            }
+          },
+          "topics": {
+            "1": {
+              "top": ["1"],
+              "latest": ["1"],
+              "waiting": null,
+              "older": []
+            },
+            "2": {
+              "top": ["2", "4"],
+              "latest": ["2", "4"],
+              "waiting": null,
+              "older": []
+            },
+            "3": {
+              "top": ["5", "6"],
+              "latest": ["5", "6"],
+              "waiting": null,
+              "older": []
+            }
+          }
+        },
+        "groups": [],
+        "threads": [],
+        "digests": [],
+        "settings": {
+          "topics": [
+            {
+              "id": "1",
+              "name": "Packaging",
+              "weekly": "1 story this week",
+              "keywords": ["packaging", "plant closure"],
+              "kinds": ["News", "Regulatory cases", "Rating actions", "Research"]
+            },
+            {
+              "id": "2",
+              "name": "Telecoms",
+              "weekly": "1 story this week",
+              "keywords": ["Tessaly", "towers"],
+              "kinds": ["News", "Regulatory cases"]
+            },
+            {
+              "id": "3",
+              "name": "Shipping",
+              "weekly": "1 story this week",
+              "keywords": ["Halvorsen", "Lenmark"],
+              "kinds": ["News", "Regulatory cases", "Rating actions", "Research"]
+            }
+          ],
+          "digestForm": {
+            "name": "New digest",
+            "covers": "All stories",
+            "coversOptions": [
+              "All stories",
+              "Topic: Packaging",
+              "Topic: Telecoms",
+              "Topic: Shipping"
+            ],
+            "schedule": "Weekly, Friday 07:00 UTC",
+            "scheduleOptions": ["Weekly, Friday 07:00 UTC", "Daily, 07:00 UTC"],
+            "length": "Up to 5 points",
+            "lengthOptions": ["Up to 3 points", "Up to 5 points", "Up to 8 points"],
+            "brief": ""
+          },
+          "ai": {
+            "state": "off",
+            "notice": {
+              "title": "AI is off",
+              "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI line and no signal strength, and there are no digests."
+            },
+            "spend": null,
+            "parts": []
+          },
+          "groups": [],
+          "rules": [],
+          "notifications": {
+            "events": []
+          },
+          "sources": [
+            {
+              "id": "1",
+              "name": "Harbour Wire",
+              "kind": "News",
+              "state": "Approved",
+              "health": "Healthy",
+              "reason": null,
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "6 min ago",
+              "lastItem": "40 min ago",
+              "weeks": [
+                {
+                  "label": "Week of 13 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 20 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 27 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 3 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 10 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 17 Nov",
+                  "items": "3",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 3,
+                "state": 1,
+                "health": 1
+              }
+            },
+            {
+              "id": "2",
+              "name": "Credit Ledger Daily",
+              "kind": "News",
+              "state": "Approved",
+              "health": "Healthy",
+              "reason": null,
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "6 min ago",
+              "lastItem": "2 h ago",
+              "weeks": [
+                {
+                  "label": "Week of 13 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 20 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 27 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 3 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 10 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 17 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 1,
+                "state": 1,
+                "health": 1
+              }
+            },
+            {
+              "id": "3",
+              "name": "Regulatory Gazette",
+              "kind": "Regulatory cases",
+              "state": "Approved",
+              "health": "Quiet",
+              "reason": null,
+              "stateNote": null,
+              "healthNote": "No item for 9 days",
+              "lastCheck": "6 min ago",
+              "lastItem": "15 Nov",
+              "weeks": [
+                {
+                  "label": "Week of 13 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 20 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 27 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 3 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 10 Nov",
+                  "items": "1",
+                  "height": 1
+                },
+                {
+                  "label": "Week of 17 Nov",
+                  "items": "0",
+                  "height": 0
+                }
+              ],
+              "sort": {
+                "name": 5,
+                "state": 1,
+                "health": 2
+              }
+            },
+            {
+              "id": "4",
+              "name": "Northgate Ratings",
+              "kind": "Rating actions",
+              "state": "Approved",
+              "health": "Failing",
+              "reason": "The last check failed: feed is larger than 2 MB",
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "6 min ago",
+              "lastItem": "21 Nov",
+              "weeks": [
+                {
+                  "label": "Week of 13 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 20 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 27 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 3 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 10 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 17 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 4,
+                "state": 1,
+                "health": 3
+              }
+            },
+            {
+              "id": "5",
+              "name": "The Meridian Post",
+              "kind": "News",
+              "state": "Paused",
+              "health": null,
+              "reason": null,
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "8 min ago",
+              "lastItem": "2 h ago",
+              "weeks": [
+                {
+                  "label": "Week of 13 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 20 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 27 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 3 Nov",
+                  "items": "1",
+                  "height": 1
+                },
+                {
+                  "label": "Week of 10 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 17 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 6,
+                "state": 2,
+                "health": 4
+              }
+            },
+            {
+              "id": "6",
+              "name": "Freight Monitor",
+              "kind": "News",
+              "state": "Proposed",
+              "health": null,
+              "reason": null,
+              "stateNote": "By Tobias O, yesterday",
+              "healthNote": null,
+              "lastCheck": null,
+              "lastItem": null,
+              "weeks": [],
+              "sort": {
+                "name": 2,
+                "state": 3,
+                "health": 4
+              }
+            }
+          ],
+          "sourceWeeksHeading": "Items per week, 6 weeks"
+        }
+      }
+    }
+  ]
+}

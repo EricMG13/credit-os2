@@ -2,15 +2,19 @@
 // schedule, its length and a brief. Every field is edited in memory. Save and Run once now would
 // write or call a paid model (decision 0006 ruling 21, decision 0003 ruling 9), so they are
 // disabled with the reason in view; the frame labels them "Save digest" and "Run once now".
+// On a service that keeps no digests the form is left out: a form that can be filled in and never
+// saved would look like one that can.
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
+import { useSignalActions } from "../actions";
 import { TextArea } from "../parts/TextArea";
 import type { SignalDigestForm } from "../slice";
 import { Section } from "./Section";
 
 const SAVE_ID = "signal-digest-save-reason";
 const RUN_ID = "signal-digest-run-reason";
+const HINT = "A digest is written by a model from the stories it covers, on its schedule.";
 
 function Choice({
   label,
@@ -50,11 +54,18 @@ export function DigestsSection({
   value: Record<"name" | "covers" | "schedule" | "length" | "brief", string>;
   onChange: (field: keyof typeof value, text: string) => void;
 }) {
+  const live = useSignalActions() !== null;
+  if (live) {
+    return (
+      <Section title="Digests" hint={HINT}>
+        <p className="text-sm text-text-tertiary">
+          No digests yet. Digests cannot be set up from this page yet.
+        </p>
+      </Section>
+    );
+  }
   return (
-    <Section
-      title={form.name}
-      hint="A digest is written by a model from the stories it covers, on its schedule."
-    >
+    <Section title={form.name} hint={HINT}>
       <div className="flex max-w-[640px] flex-col gap-5">
         <Input
           label="Name"

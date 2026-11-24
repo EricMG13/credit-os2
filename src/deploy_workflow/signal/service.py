@@ -1,11 +1,15 @@
-"""Signal's HTTP service: the feed API, its page files and the background ingest loop.
+"""Signal's HTTP service: the JSON API the React Signal screens read, and the ingest loop.
+
+It serves no page and no file: the screens are the React application's (``react_frontend``, started
+with ``--signal-url``), which forwards its ``/signal/api/*`` requests here server-side.
+``GET /api/snapshot`` is the whole reader-facing state for the asking user
+(``deploy_workflow.signal.snapshot``); the other routes read pages of the feed and save or follow.
 
 Plain ``http.server``; no framework. The service has no login and may be reachable from other
 machines, so every request is hostile input. The rules are those of the run start page's service,
 implemented once in ``deploy_workflow.http_base`` for both; what Signal adds or sets differently
-(the per-address ceiling, the connection deadline, the page policy on every
-response, the JSON object rule) is passed to that base here. Every request is checked before any
-body byte is read:
+(the per-address ceiling, the connection deadline, the response policy on every response, the JSON
+object rule) is passed to that base here. Every request is checked before any body byte is read:
 
 * ``Host`` must be exactly ``<host>:<port>`` as started (and ``localhost:<port>`` when the host is
   ``127.0.0.1``); otherwise 403. On port 80 the port may be left out of ``Host`` and ``Origin``.
@@ -15,22 +19,22 @@ body byte is read:
   present and is not ``same-origin`` or ``none`` is 403, except a top-level navigation: a GET with
   ``Sec-Fetch-Mode: navigate`` and ``Sec-Fetch-Dest: document``. A request with neither header (not
   a browser) is served.
-* Every response carries ``Cross-Origin-Resource-Policy: same-origin``, ``nosniff`` and the page
-  policy ``Content-Security-Policy`` (same-origin scripts, styles, fonts and connections, ``data:``
-  images for the brand marks, no framing, no inline script or style).
+* Every response carries ``Cross-Origin-Resource-Policy: same-origin``, ``nosniff``,
+  ``X-Frame-Options: DENY`` and the policy ``Content-Security-Policy: default-src 'none';
+  frame-ancestors 'none'``: a reply is data, never a document that may run, load or be framed.
 * At most ``MAX_CONNECTIONS`` connections are open, and at most ``MAX_PER_ADDRESS`` per remote
   address; one beyond either is closed at once. A connection is shut down ``2 * SOCKET_TIMEOUT``
   seconds after it opens, however it trickles. An HTTP/0.9 request line is closed without a reply.
 * A JSON body needs ``Content-Length`` (else 411), is at most 64 KiB (else 413) and must be a JSON
   object (else 400). Every connection serves one request and closes.
 
-The service serves only its own page files and API. Static names come from the fixed ``STATIC``
-allowlist (URL name -> file and type); a request path is compared with those names and is never
-joined to a directory, so no file under the data root is reachable.
+Only the routes in ``_ROUTES`` exist; any other path is 404 and a listed path with another method
+is 405. No request path is ever joined to a directory, so no file under the data root is reachable.
 
-Identity is a display name in a cookie, not authentication. Every API route except ``/api/me`` and
-``/api/status`` needs a name (401 otherwise). No owner or writer action is exposed. Each request
-opens its own database connection and closes it; the ingest loop has its own.
+Identity is a display name in a cookie, not authentication. Every API route except ``/api/me``,
+``/api/status`` and ``/api/snapshot`` needs a name (401 otherwise); the snapshot of a viewer with no
+name holds no stories. No owner or writer action is exposed. Each request opens its own database
+connection and closes it; the ingest loop has its own.
 
 A refusal is ``{"error": "<plain sentence>"}``; an unexpected failure is 500
 ``{"error": "the service failed; see its log"}``, its cause in the log only.
@@ -56,10 +60,10 @@ from deploy_workflow import http_base
 from deploy_workflow.http_base import WILDCARD_MESSAGE
 from deploy_workflow.http_base import Reply as _Reply
 from deploy_workflow.http_base import refuse as _refuse
-from deploy_workflow.signal import feedview, identity, ingest, store, topics
+from deploy_workflow.signal import feedview, identity, ingest, snapshot, store, topics
 from deploy_workflow.signal.ingest import FetchFn
 
-__all__ = ["STATIC", "Handler", "Loop", "StartError", "make_server", "serve"]
+__all__ = ["Handler", "Loop", "make_server", "serve"]
 
 log = logging.getLogger(__name__)
 
@@ -71,55 +75,9 @@ SOCKET_TIMEOUT = 60
 MAX_CONNECTIONS = 64
 MAX_PER_ADDRESS = 16  # one remote address may hold this many of the MAX_CONNECTIONS
 MAX_PARAMS = 20
-_POLICY = (
-    "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; "
-    "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; "
-    "frame-ancestors 'none'"
-)
+# A reply is data: it may load nothing, run nothing and be framed nowhere.
+_POLICY = "default-src 'none'; frame-ancestors 'none'"
 _NEEDS_NAME = "choose a display name first"
-
-_WEB = Path(__file__).resolve().parent / "web"
-
-
-def find_brand() -> Path:
-    """The folder holding brand.css, fonts and brand/: ``web`` in the installed ``credit_os``
-    package (the issuer library). Without that package this is the checkout's path for it, so
-    importing this module still works and start-up names the missing files."""
-    from importlib.resources import files  # Kept to this function: the only package-data lookup.
-
-    try:
-        return Path(str(files("credit_os").joinpath("web")))
-    except ModuleNotFoundError:
-        checkout = Path(__file__).resolve().parents[3]
-        return checkout / "apps" / "issuer-library" / "credit_os" / "web"
-
-
-_BRAND = find_brand()
-PAGE = _WEB / "index.html"
-_HTML = "text/html; charset=utf-8"
-_CSS = "text/css; charset=utf-8"
-_JS = "text/javascript; charset=utf-8"
-_FONTS = (
-    "RedHatDisplay-Bold.woff2",
-    "RedHatDisplay-SemiBold.woff2",
-    "RedHatMono-Medium.woff2",
-    "RedHatMono-SemiBold.woff2",
-    "RedHatText-Medium.woff2",
-    "RedHatText-Regular.woff2",
-    "RedHatText-SemiBold.woff2",
-)
-STATIC: dict[str, tuple[Path, str]] = {
-    "signal.css": (_WEB / "signal.css", _CSS),
-    "signal.js": (_WEB / "signal.js", _JS),
-    "render.js": (_WEB / "render.js", _JS),
-    "brand.css": (_BRAND / "brand.css", _CSS),
-    "brand/symbol.svg": (_BRAND / "brand" / "symbol.svg", "image/svg+xml"),
-    **{f"fonts/{name}": (_BRAND / "fonts" / name, "font/woff2") for name in _FONTS},
-}
-
-
-class StartError(Exception):
-    """The service cannot start: a page or brand file it serves is missing."""
 
 
 class Loop:
@@ -281,12 +239,17 @@ def _status(req: _Req) -> _Reply:
     )
 
 
+def _snapshot(req: _Req) -> _Reply:
+    failed = req.loop is not None and req.loop.last_error is not None
+    return _Reply(200, snapshot.build(req.db, req.user, datetime.now(UTC), pass_failed=failed))
+
+
 @dataclass(frozen=True)
 class _Route:
     method: str
     pattern: re.Pattern[str]
     handler: Callable[[_Req], _Reply]
-    open_to_all: bool = False  # only /api/me and /api/status work without a display name
+    open_to_all: bool = False  # only /api/me, /api/status and /api/snapshot need no display name
 
 
 _ID = "([0-9]{1,18})"  # ASCII digits only (a str pattern's \d also matches other scripts)
@@ -294,6 +257,7 @@ _ROUTES = (
     _Route("GET", re.compile("/api/me"), _me, open_to_all=True),
     _Route("POST", re.compile("/api/me"), _set_me, open_to_all=True),
     _Route("GET", re.compile("/api/status"), _status, open_to_all=True),
+    _Route("GET", re.compile("/api/snapshot"), _snapshot, open_to_all=True),
     _Route("GET", re.compile("/api/feed"), _feed),
     _Route("GET", re.compile("/api/feed/new"), _feed_new),
     _Route("POST", re.compile(f"/api/stories/{_ID}/save"), _save),
@@ -323,19 +287,11 @@ def _params(query: str) -> dict[str, str]:
     return {name: values[0] for name, values in found.items()}
 
 
-def _static(path: str) -> _Reply:
-    """The page for ``/`` or the allowlisted file for ``/static/<name>``; the path is compared with
-    the allowlist's names and never joined to a directory."""
-    return http_base.listed_file(
-        (PAGE, _HTML) if path == "/" else STATIC.get(path[len("/static/") :])
-    )
-
-
 class Handler(http_base.Handler):
     timeout = SOCKET_TIMEOUT
     server_version = "Signal"
     logger = log
-    # The page policy on every response, the replies http.server writes itself included.
+    # The policy on every response, the replies http.server writes itself included.
     response_headers = (("Content-Security-Policy", _POLICY), ("X-Frame-Options", "DENY"))
 
     def connection_deadline(self) -> float:
@@ -365,10 +321,6 @@ class Handler(http_base.Handler):
 
     def _dispatch(self, url: urllib.parse.SplitResult) -> _Reply:
         path = url.path
-        if path == "/" or path.startswith("/static/"):
-            if self.command != "GET":
-                raise _Reply(405, {"error": "method not allowed"}, {"Allow": "GET"})
-            return _static(path)
         allowed: list[str] = []
         for route in _ROUTES:
             found = route.pattern.fullmatch(path)
@@ -394,21 +346,14 @@ class Handler(http_base.Handler):
             db.close()
 
 
-def _require_files() -> None:
-    missing = [str(path) for path, _ in [(PAGE, ""), *STATIC.values()] if not path.is_file()]
-    if missing:
-        raise StartError("page files missing: " + ", ".join(missing))
-
-
 def make_server(
     root: Path, host: str, port: int, *, loop: Loop | None = None
 ) -> ThreadingHTTPServer:
     """A server bound to ``host:port`` (port 0 picks one); not yet serving.
 
-    Raises ValueError for a wildcard host and StartError for a missing page file, before binding."""
+    Raises ValueError for a wildcard host, before binding."""
     if http_base.wildcard(host):
         raise ValueError(WILDCARD_MESSAGE)
-    _require_files()
     server = _Server((host, port), Handler)
     server.root, server.loop = root, loop
     return server
@@ -423,7 +368,7 @@ def serve(root: Path, host: str, port: int, *, tick: float = 60.0) -> int:
     loop = Loop(root)
     try:
         server = make_server(root, host, port, loop=loop)
-    except (ValueError, StartError) as error:  # wildcard address, missing page file
+    except ValueError as error:  # a wildcard address
         print(error, file=sys.stderr)
         return 2
     except (OSError, OverflowError) as error:  # the address cannot be bound

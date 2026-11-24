@@ -18,6 +18,7 @@ import { Button as AriaButton } from "react-aria-components";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { cx } from "@/utils/cx";
 import { AvatarLabelGroup } from "./parts/Avatar";
+import { useSignalActions } from "./actions";
 import { NameDialog, initialsOf } from "./NameDialog";
 import { SignalViewerContext } from "./viewer";
 import type { SignalScene } from "./slice";
@@ -30,7 +31,7 @@ export type SignalCurrent =
   /** The address names no channel item (an unknown view or topic): nothing is marked current. */
   | { kind: "none" };
 
-/** Follow state kept above the frame so the channel list and the page agree; in memory only. */
+/** Follow state kept above the frame so the channel list and the page agree; in memory unless the page is drawn on a service. */
 export type SignalFollow = {
   on: (topic: { id: string; followed: boolean }) => boolean;
   toggle: (topic: { id: string; followed: boolean }) => void;
@@ -180,19 +181,23 @@ function ChannelList({
         </ul>
       )}
       <Heading>Digests</Heading>
-      <ul>
-        {channels.digests.map((digest) => (
-          <Row
-            key={digest.id}
-            href={sceneHref(scene, `digest/${encodeURIComponent(digest.id)}`)}
-            icon={File05}
-            on={isCurrent(current, "digest", digest.id)}
-            mark={<DigestMark paused={digest.paused} unread={digest.unread} />}
-          >
-            {digest.name}
-          </Row>
-        ))}
-      </ul>
+      {channels.digests.length === 0 ? (
+        <p className="px-2 py-2 text-sm text-text-tertiary">No digests yet</p>
+      ) : (
+        <ul>
+          {channels.digests.map((digest) => (
+            <Row
+              key={digest.id}
+              href={sceneHref(scene, `digest/${encodeURIComponent(digest.id)}`)}
+              icon={File05}
+              on={isCurrent(current, "digest", digest.id)}
+              mark={<DigestMark paused={digest.paused} unread={digest.unread} />}
+            >
+              {digest.name}
+            </Row>
+          ))}
+        </ul>
+      )}
       <ul className="mt-2">
         <Row
           href={sceneHref(scene, "settings/topics")}
@@ -272,9 +277,23 @@ export function SignalFrame({
   const content = useRef<HTMLDivElement>(null);
   const chipRef = useRef<HTMLButtonElement>(null);
   const { viewer } = scene.snapshot;
-  // In memory only: a typed name lasts until the page is left; nothing is written.
+  const actions = useSignalActions();
+  // With no service a typed name is in memory only and lasts until the page is left. With one it
+  // shows at once and is sent, and once answered the slice says who is reading: accepted, the
+  // snapshot read again holds the name as the service keeps it; refused, the slice still holds the
+  // name before, and the dialog opens again on the refused name with the service's sentence.
   const [typed, setTyped] = useState<string | null>(null);
   const [open, setOpen] = useState(viewer.name === null);
+  const [refused, setRefused] = useState<{ name: string; reason: string } | null>(null);
+  const send = (next: string) => {
+    if (actions === null) return;
+    void actions.rename(next).then((reason) => {
+      setTyped(null);
+      if (reason === null) return;
+      setRefused({ name: next, reason });
+      setOpen(true);
+    });
+  };
   // What the live region says, with a counter: the region stays on the page and each name set puts a
   // fresh node inside it (as Share does), so the same sentence twice is announced twice.
   const [said, setSaid] = useState({ count: 0, text: "" });
@@ -318,13 +337,17 @@ export function SignalFrame({
       <NameDialog
         open={open}
         current={name}
+        refused={refused}
         onSubmit={(next) => {
           setTyped(next);
           setSaid({ count: said.count + 1, text: `Signed in as ${next}` });
           setOpen(false);
+          setRefused(null);
+          send(next);
         }}
         onCancel={() => {
           setOpen(false);
+          setRefused(null);
         }}
         onGone={() => chipRef.current?.focus()}
       />

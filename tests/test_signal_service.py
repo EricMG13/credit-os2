@@ -1,8 +1,8 @@
 """Signal's HTTP service, run for real on a loopback port over a seeded store.
 
-Every request is hostile input: these tests pin the host and origin checks, the static allowlist,
-the body limits, the display-name rule and that the ingest loop survives a failing pass. Tests whose
-fetch is replaced say so in their names; nothing here reaches beyond loopback.
+Every request is hostile input: these tests pin the host and origin checks, that no page or file
+is served, the body limits, the display-name rule and that the ingest loop survives a failing
+pass. Tests whose fetch is replaced say so in their names; nothing here reaches beyond loopback.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from deploy_workflow.signal.service import Loop, make_server
 from deploy_workflow.signal.store import add_story, open_db, propose_source, set_source_state
 
 NOW = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)
-SAME = object()  # "the page's own origin", the default for a request that is not a GET
+SAME = object()  # "the service's own origin", the default for a request that is not a GET
 
 
 class Live:
@@ -139,15 +139,15 @@ def pass_in_progress(loop: Loop) -> Iterator[None]:
     assert not worker.is_alive()
 
 
-def test_page_and_static_files_with_strict_policy(svc):
-    status, headers, _ = svc.call("GET", "/")
-    assert status == 200 and "script-src 'self'" in headers["Content-Security-Policy"]
-    assert "'unsafe-inline'" not in headers["Content-Security-Policy"]
-    assert (
-        headers["X-Content-Type-Options"] == "nosniff"
-        and headers["Cross-Origin-Resource-Policy"] == "same-origin"
-    )
-    assert svc.call("GET", "/static/signal.js")[0] == 200
+POLICY = "default-src 'none'; frame-ancestors 'none'"
+
+
+def test_the_service_serves_no_page_and_no_static_file(svc):
+    for path in ("/", "/index.html", "/static/x", "/static/signal.js", "/static/brand.css"):
+        status, headers, data = svc.call("GET", path)
+        assert (status, data) == (404, {"error": "not found"}), path
+        assert headers["Content-Type"] == "application/json; charset=utf-8"
+    assert svc.call("POST", "/")[0] == 404  # no route, so no method is allowed there
     for path in (
         "/static/../store.py",
         "/static/store.py",
@@ -158,53 +158,78 @@ def test_page_and_static_files_with_strict_policy(svc):
         assert svc.call("GET", path)[0] == 404
 
 
-def test_page_policy_is_exact_and_on_every_response(svc):
-    policy = (
-        "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; "
-        "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; "
-        "frame-ancestors 'none'"
-    )
-    for path in ("/", "/static/signal.css", "/api/me", "/nowhere"):
-        assert svc.call("GET", path)[1]["Content-Security-Policy"] == policy
-    assert svc.call("GET", "/")[2].lstrip().lower().startswith("<!doctype html>")
+def test_every_response_carries_the_api_policy(svc, cookie):
+    for path in ("/api/me", "/api/snapshot", "/nowhere", "/"):
+        headers = svc.call("GET", path, cookie=cookie)[1]
+        assert headers["Content-Security-Policy"] == POLICY, path
+        assert headers["X-Frame-Options"] == "DENY"
+        assert headers["X-Content-Type-Options"] == "nosniff"
+        assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
+    assert svc.call("POST", "/api/me", body={"name": 5})[1]["Content-Security-Policy"] == POLICY
 
 
-def test_brand_files_are_served_with_their_types(svc):
-    for name, kind in (
-        ("brand.css", "text/css"),
-        ("fonts/RedHatText-Regular.woff2", "font/woff2"),
-        ("brand/symbol.svg", "image/svg+xml"),
-    ):
-        status, headers, _ = svc.call("GET", "/static/" + name)
-        assert status == 200 and headers["Content-Type"].startswith(kind)
-        assert headers["Cache-Control"] == "no-cache"
-    assert svc.call("GET", "/static/fonts/OFL.txt")[0] == 404
-    assert svc.call("GET", "/static/fonts/../brand.css")[0] == 404
+def test_the_snapshot_needs_no_name_and_then_holds_no_stories(svc):
+    status, headers, data = svc.call("GET", "/api/snapshot")
+    assert status == 200 and headers["Cache-Control"] == "no-store"
+    (scene,) = data["scenes"]
+    snap = scene["snapshot"]
+    assert scene["id"] == "main"
+    assert snap["viewer"] == {
+        "name": None,
+        "initials": None,
+        "role": "reader",
+        "roleLabel": "Reader",
+    }
+    assert snap["feed"]["stories"] == [] and snap["channels"]["savedCount"] is None
+    assert [t["name"] for t in snap["channels"]["topics"]] == ["Remedy"]
 
 
-def test_a_missing_brand_file_fails_at_start(tmp_path, monkeypatch):
-    monkeypatch.setitem(service.STATIC, "gone.css", (tmp_path / "gone.css", "text/css"))
-    with pytest.raises(service.StartError, match="gone.css"):
-        make_server(tmp_path, "127.0.0.1", 0)
+def test_the_snapshot_of_a_named_reader(svc, cookie):
+    svc.call("POST", "/api/stories/5/save", cookie=cookie)
+    snap = svc.call("GET", "/api/snapshot", cookie=cookie)[2]["scenes"][0]["snapshot"]
+    assert snap["viewer"] == {
+        "name": "Reader",
+        "initials": "R",
+        "role": "reader",
+        "roleLabel": "Reader",
+    }
+    latest = snap["feed"]["views"]["latest"]
+    # 36 stories (build_feed_db): the wire piece (36) is newest, then Story 35 down to Story 01.
+    assert latest["top"] == ["36", *(str(n) for n in range(35, 6, -1))]
+    assert latest["older"] == [str(n) for n in range(6, 0, -1)]
+    assert snap["feed"]["views"]["saved"]["top"] == ["5"] and snap["channels"]["savedCount"] == "1"
+    assert snap["feed"]["topics"] == {
+        "1": {"top": ["36"], "latest": ["36"], "waiting": None, "older": []}
+    }
+    assert len(snap["feed"]["stories"]) == 36
 
 
-def test_brand_files_come_from_the_installed_credit_os_package():
-    import credit_os
+def test_the_snapshot_route_takes_get_only_and_keeps_the_origin_rules(svc, cookie):
+    for method in ("POST", "DELETE", "PUT"):
+        status, headers, _ = svc.call(method, "/api/snapshot", cookie=cookie)
+        assert (status, headers["Allow"]) == (405, "GET"), method
+    assert svc.call("POST", "/api/snapshot", origin="http://evil.example")[0] == 403
+    foreign = {"Origin": "http://evil.example"}
+    assert svc.call("GET", "/api/snapshot", cookie=cookie, headers=foreign)[0] == 403
+    cross = {"Sec-Fetch-Site": "cross-site"}
+    assert svc.call("GET", "/api/snapshot", cookie=cookie, headers=cross)[0] == 403
+    assert svc.call("GET", "/api/snapshot", host="evil.example")[0] == 403
+    assert svc.call("GET", "/api/snapshot", headers={"Sec-Fetch-Site": "same-origin"})[0] == 200
+    assert svc.call("GET", "/api/snapshot?view=x&view=y")[0] == 200  # parameters are ignored
+    assert svc.call("GET", "/api/snapshot?" + "&".join(f"a{n}=1" for n in range(21)))[0] == 400
 
-    brand = service.find_brand()
-    assert brand == Path(credit_os.__file__).resolve().parent / "web"
-    assert brand == Path(__file__).resolve().parents[1] / "apps/issuer-library/credit_os/web"
-    assert (brand / "brand.css").is_file() and (brand / "brand" / "symbol.svg").is_file()
 
+def test_a_failed_pass_is_in_the_snapshot_freshness_with_recorded_feed(svc_with_loop, monkeypatch):
+    loop, call = svc_with_loop
 
-def test_without_the_credit_os_package_the_brand_folder_is_the_checkout_path(monkeypatch):
-    # Importing the service must not need the library: start-up names the files it lacks.
-    def absent(package):
-        raise ModuleNotFoundError(f"No module named {package!r}", name=package)
+    def boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("secret")
 
-    monkeypatch.setattr("importlib.resources.files", absent)
-    expected = Path(__file__).resolve().parents[1] / "apps/issuer-library/credit_os/web"
-    assert service.find_brand() == expected
+    monkeypatch.setattr(service.ingest, "run_due", boom)
+    loop.run_once(NOW)
+    freshness = call("GET", "/api/snapshot")[2]["scenes"][0]["snapshot"]["feed"]["freshness"]
+    assert freshness["error"] == "last ingest pass failed"
+    assert "secret" not in json.dumps(freshness)
 
 
 def test_name_then_feed(svc):
@@ -329,7 +354,7 @@ def test_a_write_from_another_origin_changes_nothing(svc, cookie, origin):
 
 
 def test_other_host_names_and_cross_site_reads_are_refused(svc, cookie):
-    assert svc.call("GET", "/", host="evil.example")[0] == 403
+    assert svc.call("GET", "/api/snapshot", host="evil.example")[0] == 403
     assert (
         svc.call(
             "GET", "/api/feed?view=latest", cookie=cookie, headers={"Sec-Fetch-Site": "cross-site"}
@@ -349,7 +374,7 @@ def test_host_rules_and_fetch_metadata(svc, cookie):
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Dest": "document",
     }
-    assert svc.call("GET", "/", headers=navigation)[0] == 200
+    assert svc.call("GET", "/api/snapshot", headers=navigation)[0] == 200
     assert svc.call("GET", "/api/me", headers=navigation)[0] == 200
     assert svc.call("POST", "/api/stories/5/save", cookie=cookie, headers=navigation)[0] == 403
     assert svc.call("GET", "/api/me", headers={"Origin": "http://evil.example"})[0] == 403
@@ -385,7 +410,7 @@ def test_unknown_paths_and_methods(svc, cookie):
     assert svc.call("DELETE", "/api/me", cookie=cookie)[0] == 405
     assert svc.call("POST", "/api/feed?view=latest", cookie=cookie)[0] == 405
     assert svc.call("PUT", "/api/me", cookie=cookie)[0] == 405
-    assert svc.call("POST", "/")[0] == 405
+    assert svc.call("POST", "/")[0] == 404
     assert svc.call("GET", "/api/stories/5/save", cookie=cookie)[0] == 405
 
 

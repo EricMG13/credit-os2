@@ -6,6 +6,7 @@ import { Alert } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Button } from "@/components/base/buttons/button";
 import { Skeleton } from "@/components/gap/Skeleton";
+import { useSignalActions } from "./actions";
 
 /** The three stories' skeleton: a tile and lines each, static, in the card's own frame. */
 export function FeedSkeleton() {
@@ -36,22 +37,32 @@ const SENTENCES: Record<FeedError, string> = {
   unreadable: "The service sent an unreadable answer.",
 };
 
-/** Retry has no service to call in the sample, so it is drawn disabled with its reason in view. */
+/**
+ * Retry has no service to call in the sample, so it is drawn disabled with its reason in view. On a
+ * service it reads the snapshot again.
+ */
 export function FeedAlert({ error }: { error: FeedError }) {
+  const actions = useSignalActions();
   return (
     <div className="mt-4">
       <Alert
         tone="error"
         title={SENTENCES[error]}
         action={
-          <div className="flex flex-wrap items-center gap-3">
-            <Button color="secondary" size="sm" isDisabled aria-describedby="feed-retry-reason">
+          actions === null ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button color="secondary" size="sm" isDisabled aria-describedby="feed-retry-reason">
+                Retry
+              </Button>
+              <span id="feed-retry-reason" className="text-sm text-error-text">
+                Sample data: there is no service to retry.
+              </span>
+            </div>
+          ) : (
+            <Button color="secondary" size="sm" onPress={actions.refresh}>
               Retry
             </Button>
-            <span id="feed-retry-reason" className="text-sm text-error-text">
-              Sample data: there is no service to retry.
-            </span>
-          </div>
+          )
         }
       />
     </div>

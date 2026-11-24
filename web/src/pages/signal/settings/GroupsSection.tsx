@@ -9,6 +9,7 @@ import { AvatarLabelGroup } from "../parts/Avatar";
 import { AvatarGroup } from "../parts/AvatarGroup";
 import type { SignalSettingsGroup } from "../slice";
 import { Section } from "./Section";
+import { WriteReason } from "./WriteReason";
 
 const REASON_ID = "signal-groups-write-reason";
 
@@ -86,9 +87,11 @@ export function GroupsSection({
         </Button>
       }
     >
-      <p id={REASON_ID} className="mb-3 text-sm text-text-tertiary">
-        Sample data: groups and their members cannot be changed here.
-      </p>
+      <WriteReason
+        id={REASON_ID}
+        sample="Sample data: groups and their members cannot be changed here."
+        live="Groups cannot be created or changed from this page yet."
+      />
       {groups.length === 0 ? (
         <p className="text-sm text-text-tertiary">No groups yet.</p>
       ) : (

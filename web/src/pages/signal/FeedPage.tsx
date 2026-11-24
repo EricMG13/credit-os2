@@ -1,11 +1,14 @@
 // A feed page: its view title row (title, freshness, Top or Latest), the kind tabs and search, the
 // pill for new stories, then the entries on one card with hairlines between them, then Show older.
 // An entry is a story or a digest card. Order, filter, search, the pill and Show older all act on
-// in-memory state over the entries the slice supplied; nothing is fetched or stored.
+// in-memory state over the entries the slice supplied; nothing is fetched or stored. On a service
+// the pill's Show is the one exception: the service's page folds the waiting stories into the list
+// it supplies, so the next ones to arrive wait behind a pill of their own.
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { Star01 } from "@untitledui/icons";
 import { Alert } from "@/components/alert/Alert";
 import { Button } from "@/components/base/buttons/button";
+import { useSignalActions } from "./actions";
 import { DigestCard } from "./DigestCard";
 import { FeedControls, OrderToggle, type FeedKind, type FeedOrder } from "./FeedControls";
 import { EmptyNote, FeedAlert, FeedEmpty, FeedSkeleton, type EmptyContext } from "./FeedStates";
@@ -267,6 +270,7 @@ function useFeedFocus(revealed: boolean, olderShown: boolean) {
 }
 
 function useFeedView(entries: FeedEntries, startOn: FeedOrder) {
+  const fold = useSignalActions()?.reveal;
   const [order, setOrder] = useState<FeedOrder>(startOn);
   const [kind, setKind] = useState<FeedKind>("all");
   const [query, setQuery] = useState("");
@@ -280,7 +284,8 @@ function useFeedView(entries: FeedEntries, startOn: FeedOrder) {
 
   const reveal = () => {
     setFocusAt(focusIndex(waiting?.entries ?? [], kind, needle, 0));
-    setRevealed(true);
+    if (fold === undefined) setRevealed(true);
+    else fold();
   };
   const showOlder = () => {
     setFocusAt(focusIndex(older, kind, needle, shown.length));

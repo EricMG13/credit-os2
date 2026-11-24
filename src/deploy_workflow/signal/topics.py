@@ -141,12 +141,23 @@ def unfollow(db: sqlite3.Connection, user_name: str, topic_id: int) -> None:
 
 
 def list_topics(db: sqlite3.Connection, user_name: str) -> list[sqlite3.Row]:
-    """Every topic with whether `user_name` follows it and how many stories it holds."""
+    """Every topic with its rule (keywords and kinds, JSON lists), whether `user_name` follows it
+    and how many stories it holds."""
     return db.execute(
-        "SELECT t.id, t.name,"
+        "SELECT t.id, t.name, t.keywords, t.kinds,"
         " EXISTS(SELECT 1 FROM topic_follows f WHERE f.topic_id = t.id AND f.user_name = ?)"
         "  AS following,"
         " (SELECT COUNT(*) FROM topic_stories ts WHERE ts.topic_id = t.id) AS stories"
         " FROM topics t ORDER BY t.id",
         (user_name,),
     ).fetchall()
+
+
+def counts_since(db: sqlite3.Connection, since: datetime) -> dict[int, int]:
+    """Stories published after `since`, per topic id; a topic with none is left out."""
+    rows = db.execute(
+        "SELECT ts.topic_id, COUNT(*) AS n FROM topic_stories ts"
+        " JOIN stories s ON s.id = ts.story_id WHERE s.published_at > ? GROUP BY ts.topic_id",
+        (_utc_text(since),),
+    ).fetchall()
+    return {int(row["topic_id"]): int(row["n"]) for row in rows}

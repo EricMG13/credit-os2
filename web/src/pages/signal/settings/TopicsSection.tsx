@@ -7,6 +7,7 @@ import { Button } from "@/components/base/buttons/button";
 import { Tags } from "../parts/Tags";
 import type { SignalSettingsTopic } from "../slice";
 import { Section } from "./Section";
+import { WriteReason } from "./WriteReason";
 
 const REASON_ID = "signal-topics-write-reason";
 
@@ -59,9 +60,11 @@ export function TopicsSection({
       }
     >
       {writer ? (
-        <p id={REASON_ID} className="mb-3 text-sm text-text-tertiary">
-          Sample data: topics cannot be changed here.
-        </p>
+        <WriteReason
+          id={REASON_ID}
+          sample="Sample data: topics cannot be changed here."
+          live="Topics cannot be created or changed from this page yet."
+        />
       ) : null}
       {topics.length === 0 ? (
         <p className="text-sm text-text-tertiary">No topics yet</p>
