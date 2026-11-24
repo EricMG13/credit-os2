@@ -22,27 +22,20 @@ type Props = {
 };
 
 export function NotificationsSection({ events, on, onChange }: Props) {
-  const fixed = useNotWritable();
   return (
     <Section title="Notifications" hint="Choose where each event reaches you.">
       {events.length === 0 ? (
         <p className="text-sm text-text-tertiary">No notification events yet.</p>
       ) : (
-        <NotificationsTable events={events} on={on} onChange={onChange} fixed={fixed} />
+        <NotificationsTable events={events} on={on} onChange={onChange} />
       )}
     </Section>
   );
 }
 
-function NotificationsTable({
-  events,
-  on,
-  onChange,
-  fixed,
-}: Props & {
-  /** The switches show their state and cannot be changed. */
-  fixed: boolean;
-}) {
+function NotificationsTable({ events, on, onChange }: Props) {
+  // On a service the switches show their state and cannot be changed.
+  const fixed = useNotWritable();
   return (
     <>
       <WriteReason

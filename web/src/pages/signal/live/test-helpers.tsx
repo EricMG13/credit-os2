@@ -1,16 +1,21 @@
-// Shared set-up for the live Signal tests: the service's sample snapshot and copies of it, a
-// stand-in for the local server that records every request, and the page drawn at a hash. Test-only:
-// no test's expected value lives here.
+// Shared set-up for the live Signal tests: a snapshot the service wrote and copies of it, a stand-in
+// for the local server that records every request, and the page drawn at a hash. Test-only: no
+// test's expected value lives here.
+//
+// The snapshot is fixtures/signal-live.json: the service's own sample as its snapshot builder wrote
+// it when the service held users, sources, stories, topics, follows and saves only (commit 8ea9a5b).
+// The tests that name headlines and counts read this fixed copy, so they do not move when the
+// service's sample grows; sample.test.ts and screens.test.tsx read the service's current sample.
 import { act, render, within } from "@testing-library/react";
 import type { SignalScene, SignalSlice, SignalStory } from "../slice";
-import sample from "./snapshot.sample.json";
+import sample from "../../../../fixtures/signal-live.json";
 import { SignalLive } from "./SignalLive";
 
 export type Snapshot = SignalScene["snapshot"];
 
 /**
- * A copy of the sample slice, its one snapshot changed by `edit`. The sample is typed as the slice
- * it is: sample.test.ts holds it to the reader, so the copy's types are the reader's own.
+ * A copy of the snapshot, changed by `edit`. It is typed as the slice it is (hold.test.ts reads it
+ * with the reader, which refuses anything else), so the copy's types are the reader's own.
  */
 export function sampleWith(edit: (snapshot: Snapshot) => void = () => undefined): SignalSlice {
   const copy = structuredClone(sample) as unknown as SignalSlice;
