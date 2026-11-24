@@ -295,3 +295,94 @@ def test_group_management_shows_in_the_next_snapshot(svc, checked):
     assert [r["on"] for r in after["settings"]["rules"]] == [False, True, False]
     assert svc.call("POST", "/api/comments/1/edit", body={"text": "x"}, cookie=MARA)[0] == 403
     assert json.dumps(after).count("Spare") == 0
+
+
+# What lies in a group the asker cannot see is answered as what does not exist (review finding 4)
+
+COMMENT_ROUTES = [
+    ("POST", "/api/comments/{}/replies", {"text": "x"}),
+    ("POST", "/api/comments/{}/edit", {"text": "x"}),
+    ("DELETE", "/api/comments/{}", None),
+    *[("POST", "/api/comments/{}/reactions/" + w, None) for w in ("agree", "disagree", "seen")],
+    *[("DELETE", "/api/comments/{}/reactions/" + w, None) for w in ("agree", "disagree", "seen")],
+]
+THREAD_ROUTES = [
+    ("POST", "/api/threads/{}/comments", {"text": "x"}),
+    ("POST", "/api/threads/{}/read", None),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "body"), COMMENT_ROUTES + THREAD_ROUTES)
+def test_an_unseen_comment_or_thread_answers_exactly_as_an_unknown_one(svc, method, path, body):
+    # Comment 2 and thread 2 are in Closed, which Mara L cannot see; 98765 exists nowhere.
+    unseen = svc.call(method, path.format(2), body=body, cookie=MARA)
+    unknown = svc.call(method, path.format(98765), body=body, cookie=MARA)
+    assert unseen[0] == unknown[0] == 404
+    assert unseen[2] == json.loads(json.dumps(unknown[2]).replace("98765", "2"))
+    assert unknown[2]["error"] in ("no comment with id 98765", "no thread with id 98765")
+
+
+def test_a_full_thread_refuses_another_comment_with_a_sentence(svc, tmp_path):
+    db = open_db(tmp_path)
+    with db:
+        db.executemany(
+            "INSERT INTO comments(thread_id, author, body, created_at) VALUES(1, 'Ines K', 'x', ?)",
+            [(datetime.now(UTC).isoformat(),)] * (threads.MAX_COMMENTS - 1),  # 1 is the seed's
+        )
+    db.close()
+    for path in ("/api/threads/1/comments", "/api/comments/1/replies"):
+        status, _, reply = svc.call("POST", path, body={"text": "more"}, cookie=MARA)
+        assert (status, reply) == (
+            409,
+            {"error": "this thread holds 500 comments, the most it can hold"},
+        )
+
+
+# The snapshot's two focus parameters
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "thread=",
+        "thread=abc",
+        "thread=-1",
+        "thread=1.5",
+        "thread=%D9%A3",
+        "thread=1%20",
+        "topic=",
+        "topic=x1",
+        "topic=1e3",
+        "topic=" + "9" * 19,
+    ],
+)
+def test_a_focus_that_is_not_a_decimal_id_is_400(svc, query):
+    status, _, reply = svc.call("GET", "/api/snapshot?" + query, cookie=MARA)
+    name = query.split("=")[0]
+    assert (status, reply) == (400, {"error": f"{name} must be an id: digits only"})
+
+
+def test_an_unseen_or_unknown_focus_is_ignored_silently(svc, checked):
+    # Thread 2 is in Closed, which Mara L cannot see; topic 2 and thread 98765 do not exist.
+    plain = checked()
+    for query in ("thread=2", "thread=98765", "thread=0", "topic=2", "topic=2&thread=2"):
+        status, _, body = svc.call("GET", "/api/snapshot?" + query, cookie=MARA)
+        assert status == 200
+        assert body["scenes"][0]["snapshot"] == plain, query
+
+
+def test_a_focused_thread_is_delivered_with_its_comments(svc, checked, monkeypatch, reader_dir):
+    from deploy_workflow.signal import group_view
+
+    monkeypatch.setattr(group_view, "GROUP_BUDGET", 0)  # nothing fits: every thread a summary
+    plain = checked()
+    (one,) = [t for t in plain["threads"] if t["id"] == "1"]
+    assert (one["comments"], one["subline"]) == (
+        [],
+        "Desk, 1 comment, shown when the thread is opened",
+    )
+    status, _, body = svc.call("GET", "/api/snapshot?thread=1", cookie=MARA)
+    assert status == 200 and reader_says(reader_dir, body) == "ok"
+    (one,) = [t for t in body["scenes"][0]["snapshot"]["threads"] if t["id"] == "1"]
+    assert one["subline"] == "Desk, 1 comment"
+    assert [c["text"] for c in one["comments"]] == ["Mine."]
