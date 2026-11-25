@@ -26,7 +26,6 @@ from deploy_workflow.signal.fetch import FetchRefused, check_address
 from deploy_workflow.signal.groups import GroupError
 from deploy_workflow.signal.identity import IdentityError, clean_name
 from deploy_workflow.signal.ingest import health, run_due
-from deploy_workflow.signal.service import serve
 from deploy_workflow.signal.store import (
     KINDS,
     ROLES,
@@ -84,10 +83,6 @@ def _parser() -> argparse.ArgumentParser:
 
     ingest = commands.add_parser("ingest")
     ingest.add_argument("--loop", action="store_true", help="a pass every 60 seconds")
-
-    serving = commands.add_parser("serve", help="the feed service and its ingest loop")
-    serving.add_argument("--host", default="127.0.0.1")
-    serving.add_argument("--port", type=int, default=8766)
 
     stories = commands.add_parser("stories")
     stories.add_argument("--limit", type=_positive_int, default=20)
@@ -256,8 +251,6 @@ def main(argv: Sequence[str] | None = None, ai: ai_run.Setup | None = None) -> i
         args = _parser().parse_args(argv)
     except SystemExit as exit_:
         return exit_.code if isinstance(exit_.code, int) else 2
-    if args.command == "serve":
-        return serve(args.root, args.host, args.port)
     try:
         if args.command == "ai":
             return _ai(args, ai_run.Setup() if ai is None else ai)

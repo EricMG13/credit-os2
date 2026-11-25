@@ -281,12 +281,12 @@ def test_the_jobs_expiry_reads_the_clock_not_the_ticks_time(tmp_path):
 def test_a_call_in_flight_leaves_the_state_on_the_ai_fields_shown_and_run_once_now_queued(
     tmp_path,
 ):
+    from signal_app import Live
     from signal_reader_check import react_refusal
-    from test_signal_service import Live
 
     from deploy_workflow.signal import ai_gate, snapshot
     from deploy_workflow.signal.identity import User
-    from deploy_workflow.signal.service import Loop, make_server
+    from deploy_workflow.signal.service import Loop
 
     root = tmp_path / "root"
     db, rulings, env = _world(tmp_path, 1)
@@ -313,7 +313,7 @@ def test_a_call_in_flight_leaves_the_state_on_the_ai_fields_shown_and_run_once_n
     assert story["ai"]["line"] == "Why it matters."
     db.close()
     loop = Loop(root, ai=ai_run.Setup(env, rulings, lambda c, p: FakeModel(), clock_at(now)))
-    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    live = Live(root, loop=loop)
     try:
         status, _, body = live.call(
             "POST", f"/api/digests/{ident}/run", cookie="signal_name=Rita%20Reader", body={}
@@ -326,10 +326,10 @@ def test_a_call_in_flight_leaves_the_state_on_the_ai_fields_shown_and_run_once_n
 def test_at_its_cap_run_once_now_is_answered_with_the_cap_and_changes_nothing(tmp_path):
     """Fourth review, N8: at the cap the route used to queue the run and answer "writing this
     issue now"; the loop then recorded it skipped and moved its period, dropping its stories."""
-    from test_signal_service import Live
+    from signal_app import Live
 
     from deploy_workflow.signal import ai_gate
-    from deploy_workflow.signal.service import Loop, make_server
+    from deploy_workflow.signal.service import Loop
 
     root = tmp_path / "root"
     db, rulings, env = _world(tmp_path, 1)
@@ -344,7 +344,7 @@ def test_at_its_cap_run_once_now_is_answered_with_the_cap_and_changes_nothing(tm
     assert ai_gate.status(db, now, env, rulings).state == "capped"
     db.close()
     loop = Loop(root, ai=ai_run.Setup(env, rulings, lambda c, p: FakeModel(), clock_at(now)))
-    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    live = Live(root, loop=loop)
     months = [
         "January",
         "February",

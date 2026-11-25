@@ -1,7 +1,14 @@
-"""Signal's HTTP service: the JSON API the React Signal screens read, and the ingest loop.
+"""Signal's service without a transport: the route table of the JSON API the React Signal
+screens read, and the background loop.
 
-It serves no page and no file: the screens are the React application's (``react_frontend``, started
-with ``--signal-url``), which forwards its ``/signal/api/*`` requests here server-side.
+There is one caller, ``react_frontend`` (``react_frontend.signal_host``). The application's server
+answers ``/signal/api/*`` in its own process by calling ``answer`` with the ``/signal`` prefix
+dropped, and runs ``Loop`` on one thread. This module opens no socket and serves no page and no
+file. What belongs to a transport is decided there, not here: the ``Host``, ``Origin`` and
+``Sec-Fetch-Site`` checks, the body's rules (a body on a POST only, ``Content-Length``, 64 KiB, a
+JSON object), the headers every reply carries, the connection limits, the fixed 500 and the
+loop's tick.
+
 ``GET /api/snapshot`` is the whole reader-facing state for the asking user
 (``deploy_workflow.signal.snapshot``); ``?topic=<id>`` and ``?thread=<id>`` ask it to carry that
 topic's older stories and that thread's comments (decimal ids, else 400; an id naming nothing the
@@ -12,44 +19,23 @@ reply carries ``asOf``, the time it was built (UTC, ISO 8601), which the page se
 ``seen`` when it marks a thread read (``POST /api/threads/<id>/read``), so nothing that arrived
 after the page was drawn is marked read. The other routes read pages of the feed and save or follow.
 
-Plain ``http.server``; no framework. The service has no login and may be reachable from other
-machines, so every request is hostile input. The rules are those of the run start page's service,
-implemented once in ``deploy_workflow.http_base`` for both; what Signal adds or sets differently
-(the per-address ceiling, the connection deadline, the response policy on every response, the JSON
-object rule) is passed to that base here. Every request is checked before any body byte is read:
-
-* ``Host`` must be exactly ``<host>:<port>`` as started (and ``localhost:<port>`` when the host is
-  ``127.0.0.1``); otherwise 403. On port 80 the port may be left out of ``Host`` and ``Origin``.
-* A request target must be a path (it starts with ``/``): an absolute URI is 400.
-* Every request other than GET must carry ``Origin: http://<Host>``; otherwise 403 and no change.
-  A GET that carries ``Origin`` must carry the same value. Any request whose ``Sec-Fetch-Site`` is
-  present and is not ``same-origin`` or ``none`` is 403, except a top-level navigation: a GET with
-  ``Sec-Fetch-Mode: navigate`` and ``Sec-Fetch-Dest: document``. A request with neither header (not
-  a browser) is served.
-* Every response carries ``Cross-Origin-Resource-Policy: same-origin``, ``nosniff``,
-  ``X-Frame-Options: DENY`` and the policy ``Content-Security-Policy: default-src 'none';
-  frame-ancestors 'none'``: a reply is data, never a document that may run, load or be framed.
-* At most ``MAX_CONNECTIONS`` connections are open, and at most ``MAX_PER_ADDRESS`` per remote
-  address; one beyond either is closed at once. A connection is shut down ``2 * SOCKET_TIMEOUT``
-  seconds after it opens, however it trickles. An HTTP/0.9 request line is closed without a reply.
-* A JSON body needs ``Content-Length`` (else 411), is at most 64 KiB (else 413) and must be a JSON
-  object (else 400). Every connection serves one request and closes.
-
 Only the routes in ``_ROUTES`` exist; any other path is 404 and a listed path with another method
-is 405. No request path is ever joined to a directory, so no file under the data root is reachable.
+is 405 with ``Allow``. A query string holds at most ``MAX_PARAMS`` parameters (else 400). No
+request path is ever joined to a directory, so no file under the data root is reachable.
 
-Identity is a display name in a cookie, not authentication, and anyone who can reach the service
-can type any name. A name the store lists as a writer or the owner therefore carries that role's
-writer powers for whoever types it: proposing sources and writing topics, groups, threads and
-comments in that person's name. That is the accepted interim design of spec 5.2, until real sign-in
-exists. Owner powers are not exposed on any route and stay on the command line: approving or
-pausing a source, the AI cap, and removing threads, comments or groups. Every API route except
-``/api/me``, ``/api/status`` and ``/api/snapshot`` needs a name (401 otherwise); the snapshot of a
-viewer with no name holds no stories, no groups and no person's name. Each request opens its own
-database connection and closes it; the ingest loop has its own.
+Identity is a display name in a cookie, not authentication, and anyone who can reach the
+application can type any name. A name the store lists as a writer or the owner therefore carries
+that role's writer powers for whoever types it: proposing sources and writing topics, groups,
+threads and comments in that person's name. That is the accepted interim design of spec 5.2, until
+real sign-in exists. Owner powers are not exposed on any route and stay on the command line:
+approving or pausing a source, the AI cap, and removing threads, comments or groups. Every API
+route except ``/api/me``, ``/api/status`` and ``/api/snapshot`` needs a name (401 otherwise); the
+snapshot of a viewer with no name holds no stories, no groups and no person's name. Each request
+opens its own database connection and closes it; the loop has its own.
 
-A refusal is ``{"error": "<plain sentence>"}``; an unexpected failure is 500
-``{"error": "the service failed; see its log"}``, its cause in the log only.
+A refusal is ``{"error": "<plain sentence>"}``, returned or raised as ``http_base.Reply``. Whatever
+else a handler raises passes through ``answer`` to the caller, whose server answers 500
+``{"error": "the service failed; see its log"}``, the cause in its log only.
 """
 
 from __future__ import annotations
@@ -58,17 +44,12 @@ import dataclasses
 import logging
 import re
 import sqlite3
-import sys
 import threading
 import urllib.parse
 from collections.abc import Callable
 from datetime import UTC, datetime
-from http.server import ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, cast
 
-from deploy_workflow import http_base
-from deploy_workflow.http_base import WILDCARD_MESSAGE
 from deploy_workflow.http_base import Reply as _Reply
 from deploy_workflow.http_base import refuse as _refuse
 from deploy_workflow.signal import (
@@ -96,20 +77,11 @@ from deploy_workflow.signal.routing import NEEDS_NAME as _NEEDS_NAME
 from deploy_workflow.signal.routing import Req as _Req
 from deploy_workflow.signal.routing import Route as _Route
 
-__all__ = ["Handler", "Loop", "answer", "make_server", "serve"]
+__all__ = ["Loop", "answer"]
 
 log = logging.getLogger(__name__)
 
-MAX_JSON = 64 * 1024
-# Seconds one socket read may wait. It is per read, so a client trickling bytes would never hit it;
-# the absolute limit is the connection deadline, 2 * SOCKET_TIMEOUT from accept (Handler.setup).
-SOCKET_TIMEOUT = 60
-# Each connection holds a thread for up to the deadline; a few colleagues use the service.
-MAX_CONNECTIONS = 64
-MAX_PER_ADDRESS = 16  # one remote address may hold this many of the MAX_CONNECTIONS
-MAX_PARAMS = 20
-# A reply is data: it may load nothing, run nothing and be framed nowhere.
-_POLICY = "default-src 'none'; frame-ancestors 'none'"
+MAX_PARAMS = 20  # the most parameters one query string may hold
 
 
 def _fetch_logo(url: str) -> fetch.Fetched:
@@ -123,7 +95,7 @@ class Loop:
     new stories, then the digests that are due, then the day's market post when it is due
     (``market.run_due``). The jobs fail alone: each has its own connection and its own recorded
     error. Logos are fetched with `logo_fetch`; left out, with the real fetcher when no `fetch_fn`
-    is given either (the service), and not at all when a `fetch_fn` stands in for the network (a
+    is given either (the hosted loop), and not at all when a `fetch_fn` stands in for the network (a
     test's fake world fetches no logo unless it gives one). The AI pass and the digests'
     writer get a model only while ``ai_gate`` says the pass is on (``ai_run``); `ai` holds the
     launching environment and the rulings folder it reads (the process's own by default)."""
@@ -366,14 +338,6 @@ _ROUTES: tuple[_Route, ...] = (
 )
 
 
-class _Server(http_base.Server):
-    root: Path
-    loop: Loop | None = None
-
-    def connection_limits(self) -> tuple[int, int | None]:
-        return MAX_CONNECTIONS, MAX_PER_ADDRESS
-
-
 def _params(query: str) -> dict[str, str]:
     """The query's parameters, blanks kept, the first of a repeated one."""
     try:
@@ -383,57 +347,6 @@ def _params(query: str) -> dict[str, str]:
     except (UnicodeDecodeError, ValueError):  # not UTF-8, or too many fields
         raise _refuse(400, "the query string is not valid") from None
     return {name: values[0] for name, values in found.items()}
-
-
-class Handler(http_base.Handler):
-    timeout = SOCKET_TIMEOUT
-    server_version = "Signal"
-    logger = log
-    # The policy on every response, the replies http.server writes itself included.
-    response_headers = (("Content-Security-Policy", _POLICY), ("X-Frame-Options", "DENY"))
-
-    def connection_deadline(self) -> float:
-        return 2 * SOCKET_TIMEOUT
-
-    @property
-    def _service(self) -> _Server:
-        return cast(_Server, self.server)
-
-    def do_GET(self) -> None:
-        self.serve_request(self._dispatch)
-
-    do_POST = do_DELETE = do_PUT = do_PATCH = do_HEAD = do_OPTIONS = do_GET
-
-    def read_body(self, length: int) -> bytes:
-        try:
-            return self.rfile.read(length)
-        except OSError as error:  # the body stalled past the socket timeout or the peer reset
-            log.info("%s %s: request body did not arrive (%s)", self.command, self.path, error)
-            raise _refuse(400, "the request body did not arrive") from None
-
-    def _json_body(self) -> dict[str, Any]:
-        body = self.json_body(MAX_JSON)
-        if not isinstance(body, dict):
-            raise _refuse(400, "the request body must be a JSON object")
-        return body
-
-    def _optional_body(self) -> dict[str, Any]:
-        """The JSON object body, or {} when the request carries none (no length, or 0)."""
-        length = self.headers.get("Content-Length")
-        if self.headers.get("Transfer-Encoding") is None and length in (None, "0"):
-            return {}
-        return self._json_body()
-
-    def _dispatch(self, url: urllib.parse.SplitResult) -> _Reply:
-        request = _Incoming(
-            self.command,
-            url.path,
-            url.query,
-            self.headers.get("Cookie"),
-            body=self._json_body,
-            optional_body=self._optional_body,
-        )
-        return answer(self._service.root, self._service.loop, request)
 
 
 def _match(method: str, path: str) -> tuple[_Route, tuple[str, ...]]:
@@ -481,56 +394,3 @@ def answer(root: Path, loop: LoopState | None, request: _Incoming) -> _Reply:
         )
     finally:
         db.close()
-
-
-def make_server(
-    root: Path, host: str, port: int, *, loop: Loop | None = None
-) -> ThreadingHTTPServer:
-    """A server bound to ``host:port`` (port 0 picks one); not yet serving.
-
-    Raises ValueError for a wildcard host, before binding."""
-    if http_base.wildcard(host):
-        raise ValueError(WILDCARD_MESSAGE)
-    server = _Server((host, port), Handler)
-    server.root, server.loop = root, loop
-    return server
-
-
-def serve(root: Path, host: str, port: int, *, tick: float = 60.0) -> int:
-    """Run the service and its ingest loop until interrupted; 2 when it cannot start."""
-    if not 0 <= port <= 65535:
-        print("--port must be from 0 to 65535", file=sys.stderr)
-        return 2
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
-    loop = Loop(root)
-    try:
-        server = make_server(root, host, port, loop=loop)
-    except ValueError as error:  # a wildcard address
-        print(error, file=sys.stderr)
-        return 2
-    except (OSError, OverflowError) as error:  # the address cannot be bound
-        print(f"cannot listen on {host}:{port}: {error}", file=sys.stderr)
-        return 2
-    try:
-        db = store.open_db(root)  # a store that cannot be opened fails here, not per request
-        try:
-            ai_run.recover(db, loop.ai)  # calls and digest runs a stop or crash cut short
-        finally:
-            db.close()
-    except (OSError, sqlite3.Error, store.StoreError) as error:
-        server.server_close()
-        print(f"cannot open the store under {root}: {error}", file=sys.stderr)
-        return 2
-    stop = threading.Event()
-    worker = threading.Thread(target=loop.run_until, args=(stop, tick), daemon=True)
-    worker.start()
-    print(f"serving http://{host}:{server.server_address[1]}/", file=sys.stderr)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        stop.set()
-        server.server_close()
-        worker.join(timeout=5)
-    return 0

@@ -11,11 +11,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_app import Live
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
-from test_signal_service import Live
 
 from deploy_workflow.signal import store
-from deploy_workflow.signal.service import make_server
 
 WRITER, READER, OWNER = "Mara L", "Tobias O", "Ida Owner"
 ACME = {"name": "Acme Corp", "aliases": ["ACME"], "cik": "0000320193", "libraryKey": "id:acme"}
@@ -37,7 +36,7 @@ def root(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def svc(root: Path) -> Iterator[Live]:
-    live = Live(make_server(root, "127.0.0.1", 0))
+    live = Live(root)
     yield live
     live.close()
 
@@ -185,8 +184,8 @@ def test_a_body_over_64_kib_is_refused(svc):
 
 def test_an_id_the_route_pattern_does_not_take_is_not_found(svc):
     for path in ("/api/issuers/abc/edit", "/api/issuers/-1", "/api/issuers/1234567890123456789"):
-        method = "POST" if path.endswith("edit") else "DELETE"
-        assert svc.call(method, path, body=ACME, cookie=cookie(WRITER))[0] == 404
+        method, body = ("POST", ACME) if path.endswith("edit") else ("DELETE", None)
+        assert svc.call(method, path, body=body, cookie=cookie(WRITER))[0] == 404
 
 
 def test_hostile_text_is_stored_and_returned_as_plain_data(svc):

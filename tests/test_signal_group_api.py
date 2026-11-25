@@ -21,13 +21,12 @@ from typing import Any
 
 import pytest
 import test_signal_group_snapshot as group_snapshot
+from signal_app import Live
 from signal_reader_check import reader_part  # noqa: F401 (autouse)
-from test_signal_service import Live
 
 from deploy_workflow.signal import api_groups, groups, threads
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.service import make_server
 from deploy_workflow.signal.store import (
     add_story,
     add_user,
@@ -72,7 +71,7 @@ def seed(root: Path) -> None:
 @pytest.fixture
 def svc(tmp_path: Path) -> Iterator[Live]:
     seed(tmp_path)
-    live = Live(make_server(tmp_path, "127.0.0.1", 0))
+    live = Live(tmp_path)
     yield live
     live.close()
 

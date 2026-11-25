@@ -1,17 +1,20 @@
-"""The hardened ``http.server`` base shared by the run start service and Signal.
+"""The hardened ``http.server`` base of the run start service, and through it of the React
+application's server, which hosts Signal.
 
-Both services have no login and may be reachable from other machines, so every request is hostile
+The service has no login and may be reachable from other machines, so every request is hostile
 input. The rules are specified in the module docstring of ``run_start/service.py``; this module is
 their one implementation. Plain ``http.server``; no framework.
 
-What is the same for both services lives here: the server with its connection ceiling, the reply
-type, the checks every request passes before any body byte is read (``Handler.serve_request``, in
-this order: the target is a path, ``Host``, ``Sec-Fetch-Site``, ``Origin``, no
-``Transfer-Encoding``; an HTTP/0.9 request line is closed with no reply before them), the
-``Content-Length`` and JSON body rules, the headers every response carries, the fixed 500, and
-the way a file is served (``contained_file``).
+What every service on this base shares lives here: the server with its connection ceiling, the
+reply type, the checks every request passes before any body byte is read
+(``Handler.serve_request``, in this order: the target is a path, ``Host``, ``Sec-Fetch-Site``,
+``Origin``, no ``Transfer-Encoding``; an HTTP/0.9 request line is closed with no reply before
+them), the ``Content-Length`` and JSON body rules, the headers every response carries, the fixed
+500, and the way a file is served (``contained_file``).
 
-What differs between the services is a named parameter, never a branch on which service it is:
+What a service may set differently is a named parameter, never a branch on which service it is.
+The run start service sets the first without a ceiling per address, and its logger; the others
+keep the defaults given here (Signal's own server, which set them, is gone):
 
 ``Server.connection_limits``
     ``(most connections, most per remote address or None)``, read for every connection.

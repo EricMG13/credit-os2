@@ -19,10 +19,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_app import Live
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_fetch import PUBLIC, Reply, Wire, redirect
 from test_signal_issuer_api import cookie
-from test_signal_service import Live
 
 from deploy_workflow.signal import cli_logos, filings, ingest, logos, market, snapshot, store
 from deploy_workflow.signal.cli import main
@@ -30,7 +30,6 @@ from deploy_workflow.signal.feeds import Entry, parse
 from deploy_workflow.signal.fetch import Fetched, FetchRefused, Wiring, fetch
 from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.logos import LogoError, sniff
-from deploy_workflow.signal.service import make_server
 
 NOW = datetime(2026, 11, 25, 9, 0, tzinfo=UTC)
 VIEWER = User("Tobias O", "reader")
@@ -362,7 +361,7 @@ def test_the_route_answers_the_icon_and_one_404_for_every_other_case(tmp_path):
     logos.fetch_one(db, _due_row(db, paused), NOW, Icons())
     store.set_source_state(db, paused, "paused")
     db.close()
-    svc = Live(make_server(tmp_path, "127.0.0.1", 0))
+    svc = Live(tmp_path)
     try:
         status, _, reply = svc.call("GET", f"/api/logos/{with_logo}", cookie=cookie("Tobias O"))
         assert (status, reply) == (

@@ -12,14 +12,14 @@ from pathlib import Path
 from typing import Any
 
 from signal_ai_fakes import FakeModel, environ, label, labels_reply, ok, setup, write_ruling
+from signal_app import Live
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_feeds import RSS
-from test_signal_service import Live
 
 from deploy_workflow.model.turn import TurnRequest
 from deploy_workflow.signal import ai_ledger, ai_run, digests, store, topics
 from deploy_workflow.signal.fetch import Fetched, FetchRefused
-from deploy_workflow.signal.service import Loop, make_server
+from deploy_workflow.signal.service import Loop
 
 NOW = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)  # the recorded feed's stories are from this day
 COOKIE = "signal_name=Mara%20L"
@@ -82,7 +82,7 @@ def test_one_tick_ingests_labels_and_writes_the_due_digest_and_the_snapshot_show
     assert tuple(run) == ("written", 2)
     db.close()
     assert model.closed  # each job closes the adapter it was given
-    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    live = Live(root, loop=loop)
     try:
         status, _, document = live.call("GET", "/api/snapshot", cookie=COOKIE)
         assert status == 200 and react_refusal(document) is None
@@ -130,7 +130,7 @@ def test_with_no_ruling_the_service_makes_no_model_call_and_runs_as_before(tmp_p
     assert db.execute("SELECT COUNT(*) FROM ai_usage").fetchone()[0] == 0
     assert db.execute("SELECT outcome FROM digest_runs").fetchone()[0] == "skipped"
     db.close()
-    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    live = Live(root, loop=loop)
     try:
         snap = live.call("GET", "/api/snapshot", cookie=COOKIE)[2]["scenes"][0]["snapshot"]
         assert snap["settings"]["ai"]["state"] == "off"
@@ -164,7 +164,7 @@ def test_a_hand_edited_ai_setting_shows_the_pass_off_and_every_page_still_reads(
     loop = Loop(  # the ingest job's fetch is a stand-in: no test reaches the network
         root, fetch_fn=_offline, ai=ai_run.Setup(environ(tmp_path), rulings, lambda c, p: model)
     )
-    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    live = Live(root, loop=loop)
     try:
         code, _, built = live.call("GET", "/api/snapshot", cookie="signal_name=Olga")
         assert code == 200 and react_refusal(built) is None

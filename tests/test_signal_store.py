@@ -378,12 +378,13 @@ def test_a_store_another_build_made_is_refused_with_its_remedy(tmp_path, version
     assert _meta(tmp_path)["schema_version"] == version  # nothing was migrated
 
 
-def test_the_service_names_the_remedy_when_it_cannot_open_the_store(tmp_path, capsys):
-    from deploy_workflow.signal import service
+def test_the_service_names_the_remedy_when_it_cannot_open_the_store(tmp_path):
+    from react_frontend import signal_host
 
     open_db(tmp_path).close()
     _set_meta(tmp_path, schema_version="5", schema_hash=None)
-    assert service.serve(tmp_path, "127.0.0.1", 0) == 2
-    said = capsys.readouterr().err
+    with pytest.raises(OSError) as refused:  # what stops the application's start-up
+        signal_host.SignalHost(tmp_path, environ={}).recover()
+    said = str(refused.value)
     assert said.startswith(f"cannot open the store under {tmp_path}: the store at schema version 5")
     assert "delete the development store" in said

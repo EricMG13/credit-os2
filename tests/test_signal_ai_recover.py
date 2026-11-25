@@ -2,7 +2,7 @@
 adapter's own bound on a call is settled as unknown at its full hold (the pass goes off), a
 younger one is left; a digest run cut short during its model call is recorded as a failed write
 and waits for its next slot. SYNTHETIC: replies come from ``signal_ai_fakes.FakeModel``; the
-service is started on 127.0.0.1 and stopped at once; no paid or networked call is made.
+application's Signal start runs with the loop's passes replaced; no paid or networked call is made.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from deploy_workflow.signal import ai_digest, ai_ledger, ai_run, digests, servic
 from deploy_workflow.signal.cli import main
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.store import Conflict
+from react_frontend import signal_host
 
 NOW = datetime(2026, 11, 25, 12, 0, tzinfo=UTC)
 CONFIG = "copilot-luna-xhigh"
@@ -137,12 +138,8 @@ def test_the_service_recovers_as_it_starts(tmp_path, monkeypatch):
     _reserve(db, datetime.now(UTC) - timedelta(minutes=40))
     db.close()
     monkeypatch.setattr(service.Loop, "run_until", lambda self, stop, tick: None)
-    monkeypatch.setattr(
-        service.ThreadingHTTPServer,
-        "serve_forever",
-        lambda self: (_ for _ in ()).throw(KeyboardInterrupt),
-    )
-    assert service.serve(root, "127.0.0.1", 0) == 0
+    with signal_host.running(signal_host.SignalHost(root, environ={})):
+        pass  # the application's start: recovery, then the loop's thread (replaced: no pass runs)
     db = store.open_db(root)
     assert db.execute("SELECT status FROM ai_usage").fetchone()[0] == "unknown"
     db.close()

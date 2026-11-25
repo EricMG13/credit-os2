@@ -17,14 +17,14 @@ from typing import Any
 
 import pytest
 from signal_ai_fakes import FakeModel, clock_at, guard, ok, setup
+from signal_app import Live
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
-from test_signal_service import Live
 
 from deploy_workflow.model.turn import TurnRequest
 from deploy_workflow.signal import ai_digest, ai_gate, ai_ledger, ai_run, ai_view, digests, store
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.service import Loop, make_server
+from deploy_workflow.signal.service import Loop
 from deploy_workflow.signal.store import Conflict
 
 NOW = datetime(2026, 11, 25, 12, 0, tzinfo=UTC)
@@ -153,7 +153,7 @@ def test_the_route_refuses_run_once_now_with_409_and_the_sentence(tmp_path):
     ident = _digest(db)
     db.close()
     loop = Loop(root, ai=setup(tmp_path, FakeModel(answer=written)))
-    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    live = Live(root, loop=loop)
     cookie = "signal_name=Rita%20Reader"
     try:
         status, _, body = live.call("POST", f"/api/digests/{ident}/run", cookie=cookie, body={})

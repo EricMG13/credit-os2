@@ -16,13 +16,12 @@ from typing import Any
 
 import pytest
 from signal_ai_fakes import off_setup
+from signal_app import Live
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
-from test_signal_service import Live
 
 from deploy_workflow.signal import digests, groups, ingest, store, topics
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.service import make_server
 
 WRITER = "Mara L"
 READER = "Tobias O"
@@ -45,7 +44,7 @@ def root(tmp_path: Path) -> Iterator[Path]:
 
 @pytest.fixture
 def svc(root: Path) -> Iterator[Live]:
-    live = Live(make_server(root, "127.0.0.1", 0))
+    live = Live(root)
     yield live
     live.close()
 
@@ -176,7 +175,7 @@ TOPIC = {"name": "Packaging", "keywords": ["plant closure", "containerboard"], "
 
 def test_a_reader_cannot_write_topics_and_the_writer_and_owner_can(svc, root):
     for method, path, body in WRITES[:3]:
-        status, _, reply = svc.call(method, path, body=body or TOPIC, cookie=cookie(READER))
+        status, _, reply = svc.call(method, path, body=body, cookie=cookie(READER))
         assert status == 403 and "only a writer" in reply["error"]
     assert rows(root, "SELECT COUNT(*) FROM topics") == [(0,)]
     for name in (WRITER, OWNER):
@@ -768,7 +767,7 @@ def test_a_failing_digest_job_is_shown_by_status_but_is_not_an_ingest_failure(ro
     from deploy_workflow.signal import digests, service
 
     loop = service.Loop(root, ai=off_setup(root))
-    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    live = Live(root, loop=loop)
     try:
 
         def boom(*args: object, **kwargs: object) -> None:

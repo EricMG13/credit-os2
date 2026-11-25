@@ -460,3 +460,9 @@ def test_removing_a_digest_needs_an_id_or_an_owner_not_both(tmp_path):
         )
     assert _count(tmp_path, "digests") == 3
     assert run(tmp_path, "digests", "list")[0] == 0
+
+
+def test_serve_is_not_a_command_the_application_hosts_signal(tmp_path, capsys):
+    assert main(["--root", str(tmp_path), "serve"]) == 2
+    assert "invalid choice: 'serve'" in capsys.readouterr().err
+    assert not (tmp_path / "signal").exists()  # nothing was opened or started

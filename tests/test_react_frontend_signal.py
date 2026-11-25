@@ -729,6 +729,31 @@ def test_the_signal_page_and_its_meta_are_served_where_signal_is_hosted(
         assert call(server, "/Signal")[0] == 404
 
 
+def test_no_file_of_the_store_or_the_source_is_served(seeded: Path, web: Path) -> None:
+    """The store is under the folder the application serves: no path reaches it, or a module."""
+    assert (seeded / "signal" / "signal.db").is_file()
+    with react(seeded, web) as server:
+        for path in ("/static/x", "/static/signal.js", "/static/brand.css"):
+            status, body, headers = call(server, path)
+            assert (status, json.loads(body)) == (404, {"error": "not found"}), path
+            assert header(headers, "Content-Type") == "application/json; charset=utf-8"
+        for path in (
+            "/static/../store.py",
+            "/static/store.py",
+            "/static/%2e%2e/cli.py",
+            "/signal/signal.db",
+            "/static/",
+        ):
+            assert call(server, path)[0] == 404
+        for path in (
+            "/signal/signal.db",
+            "/signal.db",
+            "/static/signal.db",
+            "/..%2fsignal/signal.db",
+        ):
+            assert call(server, path)[0] in (403, 404)
+
+
 @pytest.mark.parametrize("mode", ["preview", "synthetic"])
 def test_the_read_only_preview_and_synthetic_mode_host_no_signal(
     root: Path, web: Path, mode: str, monkeypatch: pytest.MonkeyPatch

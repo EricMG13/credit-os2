@@ -118,7 +118,7 @@ class SignalHost:
 
     def recover(self) -> None:
         """What a start does before the first pass: open the store once and settle what a stop or
-        crash cut short (``ai_run.recover``). OSError with ``signal serve``'s sentence when the
+        crash cut short (``ai_run.recover``). OSError naming the folder and the cause when the
         store cannot be opened, so start-up stops there and not at each request."""
         try:
             db = store.open_db(self.loop.root)

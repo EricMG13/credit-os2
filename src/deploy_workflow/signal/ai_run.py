@@ -93,8 +93,8 @@ def session(db: sqlite3.Connection, now: datetime, setup: Setup) -> Iterator[Job
 
 
 def recover(db: sqlite3.Connection, setup: Setup) -> tuple[int, int]:
-    """What a process does as it starts (``service.serve``, ``signal ai pass``): every open
-    reservation older than the adapter's own bound on a call (``ai_ledger.CALL_BOUND``) is
+    """What a process does as it starts (the application hosting Signal, ``signal ai pass``): every
+    open reservation older than the adapter's own bound on a call (``ai_ledger.CALL_BOUND``) is
     settled as unknown at its full hold, which switches the pass off; every digest run claimed
     before then with no result is recorded as failed (``digests.recover_claims``). Younger ones are
     left: another process may own them. (reservations settled, runs recorded)."""
