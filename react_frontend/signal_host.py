@@ -193,9 +193,14 @@ def reply_headers(host: SignalHost | None, request_line: bytes) -> Mapping[str, 
     """The headers every reply to the request that began with `request_line` carries besides its
     own: ``REPLY_HEADERS`` for a target under ``/signal/api/`` where Signal is hosted, none
     anywhere else. The line is the one received (``raw_requestline``), read as ``http.server``
-    reads it, because that server refuses some requests before it has a path."""
+    reads it, because that server refuses some requests before it has a path. Leading slashes are
+    collapsed to one, as that server does before routing (gh-87389): ``//signal/api/me`` is
+    Signal's."""
     words = request_line.decode("iso-8859-1").split()
-    hosted = host is not None and len(words) > 1 and _api_target(words[1])
+    target = words[1] if len(words) > 1 else ""
+    if target.startswith("//"):
+        target = "/" + target.lstrip("/")
+    hosted = host is not None and _api_target(target)
     return REPLY_HEADERS if hosted else {}
 
 
