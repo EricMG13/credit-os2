@@ -59,7 +59,7 @@ def is_credential_file(path: str) -> bool:
         return True
     if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
         return True
-    if name.endswith(_CREDENTIAL_SUFFIXES) or name == "id_rsa":
+    if name.endswith(_CREDENTIAL_SUFFIXES) or name.startswith("id_rsa"):
         return True
     return name.startswith("credentials") and name.endswith(".json")
 
