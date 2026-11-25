@@ -320,3 +320,60 @@ def test_two_threads_with_their_own_connections_never_pass_the_cap_together(tmp_
     total = ai_ledger.totals(db, "2026-11").total
     db.close()
     assert total <= Decimal("1.00") and len(made) == 3  # 0.25 * 3 + a 0.30 hold would pass 1.00
+
+
+# Third review, finding 12: reserve's expiry of a stale hold is committed even when it refuses
+
+
+def test_the_expiry_a_refused_reserve_makes_is_kept_in_the_store(tmp_path):
+    db = open_db(tmp_path)
+    ai_ledger.set_cap(db, Decimal(15), NOW)
+    call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), NOW, ruled_cap=RULED)
+    later = NOW + timedelta(hours=2)
+    with pytest.raises(Refused, match="switched off"):
+        ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), later, ruled_cap=RULED)
+    db.close()
+    reopened = open_db(tmp_path)  # what another connection reads: the stored state
+    assert _row(reopened, call) == ("0.3585", None, "unknown")
+    off = ai_ledger.switched_off(reopened)
+    assert off is not None and off[0] == "a call reserved at 2026-11-24 12:00 UTC was never settled"
+    assert reopened.execute("SELECT COUNT(*) FROM ai_usage").fetchone()[0] == 1
+    reopened.close()
+
+
+# Third review, finding 18: any amount the ledger can hold is shown without raising
+
+
+@pytest.mark.parametrize(
+    ("amount", "up", "shown"),
+    [
+        (Decimal("6.401"), True, "USD 6.41"),
+        (Decimal("6.401"), False, "USD 6.40"),
+        (Decimal("0.000123456789"), True, "USD 0.01"),
+        (Decimal(0), True, "USD 0.00"),
+        (Decimal("999999999999.99"), True, "USD 999999999999.99"),
+        (Decimal("999999999999.991"), True, "USD 1000000000000.00"),  # rounded up, never down
+        (Decimal(10) ** 27, True, "more than USD 999999999999.99"),
+        (Decimal("1E+999999"), False, "more than USD 999999999999.99"),
+    ],
+)
+def test_money_is_shown_to_the_cent_or_as_more_than_the_largest_shown(amount, up, shown):
+    from deploy_workflow.signal import ai_view
+
+    assert ai_view.usd(amount, up=up) == shown
+
+
+def test_an_absurd_reported_cost_leaves_the_owners_settings_readable(db, tmp_path):
+    from signal_ai_fakes import environ, write_ruling
+
+    from deploy_workflow.signal import ai_gate, ai_view
+    from deploy_workflow.signal.identity import User
+
+    ai_ledger.set_cap(db, Decimal(15), NOW)
+    call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), NOW, ruled_cap=RULED)
+    ai_ledger.settle(db, call, Decimal(10) ** 27, "ok", NOW)  # USD 1e27 reported by a runtime
+    write_ruling(tmp_path / "rulings")
+    held = ai_gate.status(db, NOW, environ(tmp_path), tmp_path / "rulings")
+    spend = ai_view.settings_ai(held, User("Olga", "owner"), NOW)["spend"]
+    assert spend["label"] == "more than USD 999999999999.99 of USD 15.00"
+    assert spend["position"] == 1.0

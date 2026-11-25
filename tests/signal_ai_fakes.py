@@ -29,18 +29,22 @@ LUNA_HOLD = Decimal("0.3585")
 ENV = {"COPILOT_GITHUB_TOKEN": "test-token-not-a-real-key"}
 
 
+RULING_NAME = "2026-11-01-signal-ai-pass.md"  # dated before every test's NOW
+
+
 def write_ruling(
     folder: Path,
     configs: str = CONFIG,
-    name: str = "2026-11-25-signal-ai-pass.md",
+    name: str = RULING_NAME,
     cap: str | None = "15",
 ) -> Path:
-    """A Signal ruling in a temporary folder; `cap` is its ``cap_usd:`` text (None: no line)."""
+    """A Signal ruling in a temporary folder; `cap` is its ``cap_usd:`` text (None: no line). Its
+    ``date:`` line is the date in its name."""
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / name
     path.write_text(
         "# Standing ruling: Signal AI pass (TEST, temporary folder)\n\n"
-        "lifts: live-provider-pause\nby: user\ndate: 2026-11-25\n"
+        f"lifts: live-provider-pause\nby: user\ndate: {name[:10]}\n"
         f"configs: {configs}\n" + ("" if cap is None else f"cap_usd: {cap}\n"),
         encoding="utf-8",
     )
@@ -65,11 +69,6 @@ def ok(text: str, usd: str | None = "0.004") -> AdapterReply:
 
 def not_sent() -> AdapterReply:
     return AdapterReply("not_sent", None, None, None, "KeyMissing", None, None, None)
-
-
-def refused_400() -> AdapterReply:
-    """A 4xx answer the provider gave before any work (charged nothing)."""
-    return AdapterReply("sent_known", None, None, 400, "BadRequest", None, None, None)
 
 
 def sent_unknown() -> AdapterReply:
@@ -106,6 +105,12 @@ def refusing_factory(config_id: str, ruling: Path) -> Any:
     raise AssertionError("no model may be built here")
 
 
+def off_setup(tmp: Path) -> ai_run.Setup:
+    """A Setup with the AI pass off whatever ``docs/rulings`` holds or the process's environment
+    carries: no key, an empty rulings folder of its own, and a factory that refuses to build."""
+    return ai_run.Setup({}, tmp / "no-rulings", refusing_factory)
+
+
 Clock = Callable[[], datetime]
 
 
@@ -119,7 +124,7 @@ def guard(tmp: Path, now: datetime | Clock, *, ruling: bool = True) -> ai_call.G
     ruling (cap_usd: 15), a fake key and runtime, and a clock reading `now`."""
     rulings = tmp / "rulings"
     rulings.mkdir(parents=True, exist_ok=True)
-    if ruling and not (rulings / "2026-11-25-signal-ai-pass.md").exists():
+    if ruling and not (rulings / RULING_NAME).exists():
         write_ruling(rulings)
     return ai_call.Guard(environ(tmp), rulings, clock_at(now))
 
@@ -147,7 +152,7 @@ def setup(
 
 def status_on(cap: str = "15") -> ai_gate.Status:
     """A hand-built "on" status for snapshot tests."""
-    gate = ai_gate.Gate(Path("2026-11-25-signal-ai-pass.md"), CONFIG, Decimal(cap), ())
+    gate = ai_gate.Gate(Path(RULING_NAME), CONFIG, Decimal(cap), (), Decimal(cap))
     month = ai_ledger.Month("2026-11", Decimal("6.4"), Decimal(0), 0, 0)
     return ai_gate.Status(gate, month, 0, None, "on")
 

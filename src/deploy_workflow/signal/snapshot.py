@@ -24,7 +24,9 @@ and ``shown`` (SHOWN) is how many the page draws before Show older. For you deli
 order among those) and the next up to ``OLDER`` in ``older``, with no ``shown``. Digest cards
 join For you by time (``digestview``). ``waiting`` is null (the React app composes it when it
 reads again). A viewer with no display name sees no stories and no counts. The whole snapshot is
-read in one read transaction.
+read in one read transaction. A view of more than ``feedview.MEMBERS_READ`` members is read from
+the newest ``feedview.WINDOW`` stories (``feedview.view_ids``), so a very large topic whose newest
+stories are older than that window delivers fewer stories than it holds.
 
 Size: the forwarder in front of the service refuses a reply over 4 MiB, so the snapshot is kept
 under 3 MiB in every store state. The group part keeps its own budgets (``group_view``); the
@@ -32,7 +34,10 @@ stories then share what is left of ``STORY_AND_GROUP_BUDGET`` (and of ``SNAPSHOT
 the rest of the snapshot, the digest parts included), paid in the order ``_priority`` gives; a
 story that does not fit is left out of every view, and a count beside a view left empty by it is
 not delivered. A headline longer than ``HEADLINE_LIMIT`` characters is cut, and a link longer
-than ``MAX_LINK`` is not delivered, so no one story outgrows the budget.
+than ``MAX_LINK`` is not delivered, so no one story outgrows the budget. Settings lists at most
+``MAX_SOURCES`` sources (the approved first, a failing one before the others; then the proposed,
+then the paused; each by name) and, when it leaves some out, says so in ``settings.sourcesMore``
+(absent otherwise; the owner removes sources on the command line).
 
 Focus: ``GET /api/snapshot?topic=<id>&thread=<id>`` (``Focus``) asks for a topic's older stories
 and a thread's comments. An id that names nothing the viewer can see is ignored: the reply is the
@@ -85,6 +90,7 @@ OLDER = 90
 # own budgets); everything else the snapshot holds is small and bounded by the store's limits.
 STORY_AND_GROUP_BUDGET = 2304 << 10  # 2.25 MiB
 SNAPSHOT_BUDGET = 2816 << 10  # 2.75 MiB: everything (the stories are paid from what is left)
+MAX_SOURCES = 200  # source rows Settings delivers (the owner can remove the rest)
 HEADLINE_LIMIT = 500  # characters; a feed's title has no limit of its own
 MAX_LINK = 2048  # a longer link is delivered as no link
 _THREAD_FIELDS = 1024  # at most what sharedBy, commentCount and threadRef add to a card
@@ -131,25 +137,30 @@ _STATE = {"approved": "Approved", "paused": "Paused", "proposed": "Proposed"}
 _STATE_RANK = {"Approved": 1, "Paused": 2, "Proposed": 3}
 _HEALTH = {"healthy": "Healthy", "quiet": "Quiet", "failing": "Failing"}
 _HEALTH_RANK = {"Healthy": 1, "Quiet": 2, "Failing": 3, None: 4}
+_LISTED_FIRST = ("approved", "proposed", "paused")  # the order Settings keeps sources in
 
 
 def build(
     db: sqlite3.Connection,
     user: User | None,
-    now: datetime,
+    at: datetime | Callable[[], datetime],
     *,
     focus: Focus = NO_FOCUS,
     service: Service = NO_SERVICE,
 ) -> Json:
-    """The slice for `user` (None: no display name yet) as of `now`, read in one transaction.
+    """The slice for `user` (None: no display name yet) as of `at`, read in one transaction.
 
-    `focus` names a topic and a thread to deliver in full (see the module docstring). `service`
-    says whether the ingest loop's last pass failed (the freshness line then says so) and gives
-    the AI pass's status."""
+    `at` is a time, or a clock: the clock is read once, inside the read transaction after its first
+    read, so everything the snapshot holds (a comment committed before that read) is stamped no
+    later than the time it is then delivered as (`asOf`, beside `scenes`); a time given is the
+    caller's and no `asOf` is added. `focus` names a topic and a thread to deliver in full (see the
+    module docstring). `service` says whether the ingest loop's last pass failed (the freshness
+    line then says so) and gives the AI pass's status."""
     ai = service.ai
     on = ai is not None and ai.state == "on"
     with feedview.read_transaction(db):
         listed = topics.list_topics(db, user.name if user is not None else "")
+        now = at() if callable(at) else at
         checked = [(row, ingest.health(db, row["id"], now)) for row in store.sources(db)]
         sources = _sources(checked, now, named=user is not None)
         held = _Cards(db, user, now, ai_on=on)
@@ -158,6 +169,8 @@ def build(
         if on and user is not None:
             _strong_counts(db, user, now, channels)
         settings = _settings(db, listed, sources, now)
+        if (more := _sources_more(len(checked))) is not None:
+            settings["sourcesMore"] = more  # optional: only while sources are left out
         settings["ai"] = ai_view.settings_ai(ai, user, now)
         drawn = digestview.build(db, user, now, ai_on=on)
         rest = group_view.encoded_size([channels, settings]) + drawn.size
@@ -188,7 +201,10 @@ def build(
         }
         key = held.rank.key if held.rank is not None else _unranked
         digestview.place(db, drawn, snapshot, (SHOWN + OLDER, 0), key)  # For you: all in latest
-    return {"scenes": [{"id": "main", "snapshot": snapshot}]}
+    built: Json = {"scenes": [{"id": "main", "snapshot": snapshot}]}
+    if callable(at):
+        built["asOf"] = store._utc_text(now)
+    return built
 
 
 # Delivered text
@@ -540,11 +556,35 @@ def _source(
     }
 
 
+def _shown_sources(checked: Checked) -> list[int]:
+    """Which sources Settings delivers, as positions in `checked` (the order they were added): at
+    most MAX_SOURCES, the approved first (a failing one before the others, so the freshness line's
+    failing source is always listed), then the proposed, then the paused, each by name."""
+
+    def rank(i: int) -> tuple[int, bool, str, int]:
+        row, health = checked[i]
+        state = row["state"]
+        failing = state == "approved" and health.state == "failing"
+        return _LISTED_FIRST.index(state), not failing, row["name"].casefold(), i
+
+    return sorted(sorted(range(len(checked)), key=rank)[:MAX_SOURCES])
+
+
 def _sources(checked: Checked, now: datetime, *, named: bool) -> list[Json]:
-    """Every source, in the order it was added; `sort.name` ranks the names A to Z. A viewer with
-    no display name is not told who proposed a source (`named` False)."""
-    order = sorted(range(len(checked)), key=lambda i: (checked[i][0]["name"].casefold(), i))
+    """Up to MAX_SOURCES sources (`_shown_sources`), in the order they were added; `sort.name`
+    ranks the names A to Z among them. A viewer with no display name is not told who proposed a
+    source (`named` False)."""
+    shown = _shown_sources(checked)
+    order = sorted(shown, key=lambda i: (checked[i][0]["name"].casefold(), i))
     rank = {index: place for place, index in enumerate(order, start=1)}
-    return [
-        _source(row, health, now, rank[i], named=named) for i, (row, health) in enumerate(checked)
-    ]
+    return [_source(checked[i][0], checked[i][1], now, rank[i], named=named) for i in shown]
+
+
+def _sources_more(total: int) -> str | None:
+    """The sentence saying Settings lists fewer sources than the store holds, if it does."""
+    if total <= MAX_SOURCES:
+        return None
+    return (
+        f"Showing {MAX_SOURCES} of {total:,} sources: the approved ones first, then the proposed,"
+        " then the paused."
+    )

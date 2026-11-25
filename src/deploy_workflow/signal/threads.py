@@ -9,14 +9,18 @@ Decisions where spec 5.7 and the screens leave a choice:
 * Sharing a story with a note: the note is the sharer's first comment (the Share dialog says
   "Members see it as your first comment"), so a story thread holds no note of its own. A thread
   started from a note alone holds the note. A second share of the same story to the same group
-  joins the existing thread: its note, if any, becomes the second sharer's comment there. Joining
+  joins the existing thread: its note, if any, becomes the second sharer's comment there. Joining a
+  thread a topic posted makes it the sharer's (``_adopt``): it is then a person's thread, shown as
+  shared by them and never taken for room, so a share is never lost with a quiet topic post. Joining
   does not mark the thread read for the sharer (they shared from the feed and have not read what
   others wrote there); their own comment never counts as unread for them.
 * Bounds: a thread holds at most MAX_COMMENTS comment lines (replies and removed lines included)
   and a group at most ``groups.MAX_THREADS`` threads; a person's write beyond either is refused
-  (409). A story a group topic posts into a group at its bound takes the place of the group's
-  oldest topic-posted thread that has no comment; with none, it is not posted there (the group's
-  page says the group is full). The owner removes old topic posts with ``signal groups prune``.
+  (409). A thread a person starts, and a story a group topic posts, in a group at its bound take
+  the place of the group's oldest topic-posted thread that has no comment; with none, the person
+  is refused and the topic's story is not posted there (the group's page says the group is full).
+  A thread a person has shared into, or commented on, is never taken. The owner removes old topic
+  posts with ``signal groups prune``.
 * "A comment can be edited for 15 minutes and is then marked edited": its author may edit it for
   15 minutes after posting it (not later), and an edited comment is marked edited. The group's
   "comments-edited" rule switches editing off altogether.
@@ -155,8 +159,7 @@ def _new_thread(
     db: sqlite3.Connection, group_id: int, actor: User, item: Item, at: datetime
 ) -> int:
     """Insert a thread (`item.note` already cleaned, or None) and mark it read for its sharer."""
-    held = db.execute("SELECT COUNT(*) FROM threads WHERE group_id=?", (group_id,)).fetchone()
-    if held[0] >= groups.MAX_THREADS:
+    if not _make_room(db, group_id):
         raise Conflict(f"this group holds {groups.MAX_THREADS:,} threads, the most it can hold")
     stamp = _utc_text(at)
     cur = db.execute(
@@ -209,9 +212,25 @@ def _share_story(
             thread_id = held["id"]
             if note is not None:
                 _require_open(db, held, at)
+            if held["created_by"] is None:
+                _adopt(db, held, actor, at)
         if note is not None:
             _add_comment(db, thread_id, actor, note, at)
         return thread_id, held is not None
+
+
+def _adopt(db: sqlite3.Connection, thread: sqlite3.Row, actor: User, at: datetime) -> None:
+    """Record a person's share of a story a topic posted: the thread becomes the sharer's
+    (``created_by``, shown as "Shared by", and no longer a topic post, so never taken for room),
+    dated from the share and moved up by it unless it is archived (a share does not reopen an
+    archived thread)."""
+    moved = archived_at(db, thread, at) is None
+    db.execute(
+        "UPDATE threads SET created_by=?, topic_id=NULL, created_at=max(created_at, ?),"
+        " last_activity_at=CASE WHEN ? THEN max(last_activity_at, ?) ELSE last_activity_at END"
+        " WHERE id=?",
+        (actor.name, _utc_text(at), moved, _utc_text(at), thread["id"]),
+    )
 
 
 def comment(db: sqlite3.Connection, actor: User, thread_id: int, text: object, at: Moment) -> int:
@@ -448,11 +467,8 @@ def post_topic_story(db: sqlite3.Connection, story_id: int, topic_ids: Sequence[
         [*topic_ids, story_id],
     ).fetchall()
     for row in rows:
-        if _held_threads(db, row["group_id"]) >= groups.MAX_THREADS:
-            oldest = _oldest_topic_post(db, row["group_id"])
-            if oldest is None:
-                continue
-            db.execute("DELETE FROM threads WHERE id=?", (oldest,))
+        if not _make_room(db, row["group_id"]):
+            continue
         db.execute(
             "INSERT INTO threads(group_id, story_id, created_at, topic_id, last_activity_at)"
             " SELECT ?, s.id, s.fetched_at, ?, s.fetched_at FROM stories s WHERE s.id = ?",
@@ -463,6 +479,20 @@ def post_topic_story(db: sqlite3.Connection, story_id: int, topic_ids: Sequence[
 def _held_threads(db: sqlite3.Connection, group_id: int) -> int:
     held = db.execute("SELECT COUNT(*) FROM threads WHERE group_id=?", (group_id,)).fetchone()
     return int(held[0])
+
+
+def _make_room(db: sqlite3.Connection, group_id: int) -> bool:
+    """Whether the group has room for one more thread: it does while it holds fewer than
+    ``groups.MAX_THREADS``; a full group makes room by dropping its oldest topic-posted thread
+    that has no comment (the caller's write transaction), and has none to give if it holds no such
+    thread. A person's new thread and a topic's post are made room for the same way."""
+    if _held_threads(db, group_id) < groups.MAX_THREADS:
+        return True
+    oldest = _oldest_topic_post(db, group_id)
+    if oldest is None:
+        return False
+    db.execute("DELETE FROM threads WHERE id=?", (oldest,))
+    return True
 
 
 # A thread a topic posted (no person started it) that holds no comment line.
@@ -492,15 +522,20 @@ def topics_blocked(db: sqlite3.Connection, group_id: int) -> bool:
 
 def prune_topic_posts(db: sqlite3.Connection, group_id: int, before: datetime) -> int:
     """Remove the group's topic-posted threads with no comment whose last activity is before
-    `before` (the owner, on the command line); returns how many went."""
-    with _write_transaction(db):
-        groups.require_group(db, group_id)
-        cur = db.execute(
-            f"DELETE FROM threads WHERE id IN (SELECT t.id FROM threads t WHERE {_TOPIC_POST}"
-            " AND t.last_activity_at < ?)",
-            (group_id, _utc_text(before)),
-        )
-    return int(cur.rowcount)
+    `before` (the owner, on the command line), ``groups.BATCH`` at a time, each batch its own
+    transaction so the write lock is let go between them; returns how many went."""
+    gone = 0
+    while True:
+        with _write_transaction(db):
+            groups.require_group(db, group_id)
+            cur = db.execute(
+                "DELETE FROM threads WHERE id IN (SELECT t.id FROM threads t"
+                f" WHERE {_TOPIC_POST} AND t.last_activity_at < ? LIMIT ?)",
+                (group_id, _utc_text(before), groups.BATCH),
+            )
+        gone += cur.rowcount
+        if cur.rowcount < groups.BATCH:
+            return gone
 
 
 # The owner's moderation and clean-up, on the command line only (no browser route).

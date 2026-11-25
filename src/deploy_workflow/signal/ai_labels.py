@@ -12,8 +12,12 @@ Every field is checked with pydantic, strictly (no coercion, no field the schema
 
 A reply is one JSON object ``{"stories": [...]}``. An entry belongs to the story whose id it names,
 and only the ids this service put in the prompt count: an entry naming another id is ignored, and
-two entries naming one id make that story invalid (neither is taken), so one story's text can at
-worst mislabel that story itself. A story with no valid entry is invalid.
+two entries naming one id make that story invalid (neither is taken). A story with no valid entry
+is invalid. That does not keep one story's text from deciding another's fields: a model that obeys
+an instruction injected into one story can mislabel the other stories of the same batch. What
+bounds the harm is that every field is validated as above (a fixed list, a whole number, or one
+checked sentence with nothing that looks like a link or a scheme), and the page renders each as
+plain text marked AI: nothing a model writes becomes a link or markup.
 """
 
 from __future__ import annotations
@@ -44,16 +48,26 @@ SCALES: tuple[tuple[str, ...], ...] = (
 )  # fmt: skip
 OUTLOOKS = ("Positive", "Stable", "Negative", "Developing")
 _NUMBERS = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
-_LINK = re.compile(r"(?i)https?:|www\.|://|\b[a-z0-9-]+\.(?:com|org|net|io|co|uk|eu|de|fr)\b")
+_LINK = re.compile(
+    r"(?i)https?:|www\.|://|//\S"  # a scheme, a web host, a protocol-relative address
+    r"|\b[a-z][a-z0-9+.-]*:(?=[^\s\d])"  # any scheme-like word: javascript:, mailto:, data:
+    r"|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/"  # any label.tld/ (bit.ly/x, evil.ru/login)
+    r"|\b[a-z0-9-]+\.[a-z0-9-]+\.[a-z]{2,}\b"  # a host of three labels (evil.example.info)
+    r"|\b[a-z0-9-]+\.(?:com|org|net|io|co|uk|eu|de|fr|me|ly|ru|info|biz|xyz|app|dev)\b"
+)
 _SECOND_SENTENCE = re.compile(r"[.!?]\s+\S")
 
 
 def plain(text: str) -> bool:
-    """Text a page can show as it is: no control, format, surrogate or unassigned character."""
-    return not any(unicodedata.category(ch)[0] == "C" for ch in text)
+    """Text a page can show as it is: no control, format, surrogate or unassigned character, and
+    no line or paragraph separator (U+2028, U+2029)."""
+    return not any(unicodedata.category(ch)[0] == "C" or ch in "\u2028\u2029" for ch in text)
 
 
 def has_link(text: str) -> bool:
+    """Whether `text` holds anything shaped like a link: a scheme or scheme-like word, a
+    protocol-relative address, ``www.``, a ``label.tld/`` path, a host of three labels, or a bare
+    host on a common top-level domain."""
     return _LINK.search(text) is not None
 
 

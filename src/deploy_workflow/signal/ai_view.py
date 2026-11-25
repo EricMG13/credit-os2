@@ -1,7 +1,8 @@
 """The AI parts of the snapshot: a story's AI fields and the "AI and cost" section of Settings.
 
 Only while the pass is on (``settings.ai.state`` "on") does a story carry what the pass wrote for
-it: ``ai`` (the AI line, which the page marks AI), ``strength`` (marks and a word), its kind from
+it: ``ai`` (the AI line, and which fields the pass wrote: ``kind`` true when the story's kind is
+the pass's, ``tags`` the tags it wrote; the page marks each AI), ``strength`` (marks and a word), its kind from
 the pass (``kind``/``kindLabel``; "other" keeps the source's kind), its tags (the pass's first,
 then the names of the topics it is in, a name not repeated, at most ``MAX_STORY_TAGS``; with the
 pass off a story carries at most that many topic names), the case stage
@@ -11,8 +12,9 @@ carries any of it, as the reader requires: the feed is as it was before the pass
 field is plain text from a fixed list or a checked sentence, delivered as data; nothing the model
 wrote becomes a link or markup, and nothing of it is put where a colleague's words go.
 
-Settings: the notice says why AI is off (each missing precondition in a plain sentence; never a
-key) or that it is at its cap; the spend line (writers and the owner, once a cap is set) shows the
+Settings: the notice says why AI is off (to a writer or the owner each missing precondition in a
+plain sentence, never a key or a variable name; to anyone else the title and one fixed sentence)
+or that it is at its cap; the spend line (writers and the owner, once a cap is set) shows the
 month's spend in USD against the cap, with the reservations in progress and the count of stories
 whose output failed its check; the three parts are shown as switches the page cannot change.
 """
@@ -24,7 +26,7 @@ import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import ROUND_CEILING, Decimal
+from decimal import ROUND_CEILING, Decimal, localcontext
 from typing import Any
 
 from pydantic import ValidationError
@@ -51,7 +53,12 @@ STOPPED = (
     " Nothing more is spent while it is off."
 )
 NOT_SET_UP = "The AI pass is not set up on this Signal service."
+DAY_FULL = (
+    "Digests have made today's {count} model calls, the most a day allows; the others are"
+    " written after 00:00 UTC."
+)
 _CENT = Decimal("0.01")
+SHOWN_UP_TO = Decimal(10) ** 12  # USD amounts from here up are shown as "more than ..."
 
 
 @dataclass(frozen=True)
@@ -114,7 +121,10 @@ def story_fields(found: StoryAi, kind: str, label: str, tags: Sequence[str]) -> 
         "kind": kind,
         "kindLabel": label,
         "tags": named[:MAX_STORY_TAGS],
-        "ai": {"line": found.why},
+        # what the pass wrote, so the page can mark each such field AI: the line, whether the
+        # kind is the pass's, and which of the tags are (strength, stage and rating moves are only
+        # ever delivered from the pass)
+        "ai": {"line": found.why, "kind": found.kind in _KIND, "tags": list(found.tags)},
         "strength": {"marks": found.signal, "word": STRENGTH_WORDS[found.signal]},
         "stage": _stage(found.stage) if found.stage is not None else None,
         "ratingMoves": [
@@ -127,8 +137,14 @@ def story_fields(found: StoryAi, kind: str, label: str, tags: Sequence[str]) -> 
 
 
 def usd(amount: Decimal, *, up: bool = False) -> str:
-    """ "USD 6.40": to the cent; `up` rounds up, so a spend is never shown below what it is."""
-    shown = amount.quantize(_CENT, rounding=ROUND_CEILING) if up else amount.quantize(_CENT)
+    """ "USD 6.40": to the cent; `up` rounds up, so a spend is never shown below what it is. Any
+    finite amount the ledger can hold is shown without raising: one of ``SHOWN_UP_TO`` or more
+    (a reported cost no real call has, such as USD 1E+27) is "more than USD 999999999999.99"."""
+    if amount >= SHOWN_UP_TO:
+        return f"more than USD {SHOWN_UP_TO - _CENT}"
+    with localcontext() as exact:
+        exact.prec = 28  # room for every amount below SHOWN_UP_TO to the cent
+        shown = amount.quantize(_CENT, rounding=ROUND_CEILING) if up else amount.quantize(_CENT)
     return f"USD {shown}"
 
 
@@ -137,7 +153,9 @@ def _next_month(now: datetime) -> str:
     return _MONTHS[at.month % 12]
 
 
-def _notice(status: ai_gate.Status | None, now: datetime) -> Json | None:
+def _notice(status: ai_gate.Status | None, now: datetime, managing: bool) -> Json | None:
+    """Why AI is not on. A writer or the owner is told each reason; anyone else (a reader, a
+    viewer with no name) the title and one fixed sentence: no cap, ruling or file name."""
     if status is None:
         return {"title": "AI is off", "text": f"{NOT_SET_UP} {STOPPED}"}
     if status.state == "on":
@@ -149,7 +167,9 @@ def _notice(status: ai_gate.Status | None, now: datetime) -> Json | None:
             "text": "Stories arrive with no AI line and no signal strength, and digests are"
             f" paused until 1 {_next_month(now)}. Only the owner can raise the cap.",
         }
-    return {"title": "AI is off", "text": " ".join([*status.gate.missing, STOPPED])}
+    if not managing:
+        return {"title": "AI is off", "text": STOPPED}
+    return {"title": "AI is off", "text": " ".join([*status.gate.reasons, STOPPED])}
 
 
 def _note(status: ai_gate.Status, now: datetime) -> str | None:
@@ -161,12 +181,14 @@ def _note(status: ai_gate.Status, now: datetime) -> str | None:
         status.state == "capped"
         and cap is not None
         and config is not None
-        and status.month.total < cap
+        and status.month.spent < cap
     ):
         hold = usd(ai_gate.smallest_hold(config), up=True)
         lines.append(f"Each call holds up to {hold} until it is settled, and that no longer fits.")
     if status.month.held:
         lines.append(f"{usd(status.month.held, up=True)} more is held for calls in progress.")
+    if status.state == "on" and status.day_full:
+        lines.append(DAY_FULL.format(count=status.digests_per_day))
     if status.invalid:
         many = plural(status.invalid, "story", "stories")
         lines.append(f"{many} this month had AI output that failed its check and show no AI line.")
@@ -216,7 +238,7 @@ def settings_ai(status: ai_gate.Status | None, user: User | None, now: datetime)
     shown = status is not None and managing
     return {
         "state": state,
-        "notice": _notice(status, now),
+        "notice": _notice(status, now, managing),
         "spend": _spend(status, now) if status is not None and shown else None,
         "parts": _parts(state) if shown else [],
     }

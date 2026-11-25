@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 import signal_ai_fakes as fakes
-from signal_ai_fakes import FakeModel, not_sent, ok, refused_400
+from signal_ai_fakes import FakeModel, ok, sent_unknown
 from test_signal_digest import NOW, at, count, make, source, story
 
 from deploy_workflow.model.turn import TurnRequest
@@ -153,10 +153,15 @@ def test_a_failed_call_writes_no_issue_and_the_next_slot_covers_the_period_again
     ident = make(db)
     start = digests.owned(db, "Mara L", ident).period_from
     run = digests.run_now(
-        db, "Mara L", ident, NOW, ai_digest.Writer(db, FakeModel([refused_400()]), guard, NOW)
+        db, "Mara L", ident, NOW, ai_digest.Writer(db, FakeModel([sent_unknown()]), guard, NOW)
     )
-    assert run.reason == "no issue was written: the model call failed (sent_known: BadRequest)"
-    later = NOW + timedelta(hours=1)  # one paid attempt per period: no retry by hand before the slot
+    assert (
+        run.reason == "no issue was written: the model call failed (sent_unknown: OverallTimeout)"
+    )
+    ai_ledger.clear(db)  # the owner clears the switch-off the unknown cost caused
+    later = NOW + timedelta(
+        hours=1
+    )  # one paid attempt per period: no retry by hand before the slot
     with pytest.raises(Conflict, match="runs again at its next scheduled time, 27 Nov 07:00 UTC"):
         digests.run_now(db, "Mara L", ident, later, ai_digest.Writer(db, FakeModel(), guard, later))
     friday = at("2026-11-27 07:00")
@@ -240,7 +245,7 @@ def test_a_scheduled_run_claims_its_slot_before_the_call_and_keeps_the_period_on
 
     def look(request: TurnRequest) -> Any:
         seen.append(digests.owned(db, "Mara L", ident).next_run_at)
-        return not_sent()
+        return ok("not JSON", usd="0.002")  # paid; the result fails its check
 
     friday = at("2026-11-27 07:00")
     ran = digests.run_due(db, friday, ai_digest.Writer(db, FakeModel(answer=look), guard, friday))

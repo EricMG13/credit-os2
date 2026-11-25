@@ -28,7 +28,7 @@ Excel workbooks are analysis inputs only; they are not deliverables.
 
 ## Signal
 
-Signal is a separate feed service that runs offline from model providers. It is an API and an ingest loop; it serves no page:
+Signal is a separate feed service. It is an API and an ingest loop; it serves no page. It makes no model call unless the owner has made a standing ruling for it (`docs/rulings/`), set a monthly cap (`signal ai cap`) and supplied the model adapter's key in the launching environment; only then do the AI pass over new stories and the digest writer call the provider, and only from the service's background loop, never when a page is read. Without all three the feed, groups and topics work, no story carries an AI line and digests are paused.
 
 ```sh
 uv run python -m deploy_workflow.signal --root /path/to/workflow-folder serve --host 127.0.0.1 --port 8766

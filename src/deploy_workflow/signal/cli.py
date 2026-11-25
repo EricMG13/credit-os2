@@ -1,6 +1,6 @@
 """Command line for Signal users, sources, ingest passes and stories, the owner's moderation and
-clean-up of groups, threads and comments (which have no browser route), and the owner's AI
-commands (``cli_ai``)."""
+clean-up of groups, threads and comments (which have no browser route), of sources and digests
+(``cli_clean``), and the owner's AI commands (``cli_ai``)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from deploy_workflow.signal import ai_run, cli_ai, groups, threads
+from deploy_workflow.signal import ai_run, cli_ai, cli_clean, groups, threads
 from deploy_workflow.signal.fetch import FetchRefused, check_address
 from deploy_workflow.signal.groups import GroupError
 from deploy_workflow.signal.identity import IdentityError, clean_name
@@ -32,6 +32,8 @@ from deploy_workflow.signal.texts import plural
 from deploy_workflow.signal.topics import add_topic, list_topics
 
 LOOP_SECONDS = 60
+MAX_DAYS = 36500  # the longest age `groups prune` takes (a hundred years)
+_positive_int = cli_clean.bounded_int()
 _STORIES_SQL = """
 SELECT s.id, s.title, s.published_at, src.name AS source_name,
        (SELECT COUNT(DISTINCT d.duplicate_source_id) FROM story_duplicates d
@@ -59,8 +61,9 @@ def _parser() -> argparse.ArgumentParser:
     propose.add_argument("--url", required=True)
     propose.add_argument("--by", required=True)
     for action in ("approve", "pause"):
-        srcs.add_parser(action).add_argument("id", type=int)
+        srcs.add_parser(action).add_argument("id", type=_positive_int)
     srcs.add_parser("list")
+    cli_clean.add_source_remove(srcs)
 
     topics = commands.add_parser("topics").add_subparsers(dest="action", required=True)
     new_topic = topics.add_parser("add")
@@ -80,6 +83,7 @@ def _parser() -> argparse.ArgumentParser:
     stories = commands.add_parser("stories")
     stories.add_argument("--limit", type=_positive_int, default=20)
     _moderation(commands)
+    cli_clean.add_digests(commands)
     cli_ai.add_parser(commands)
     return parser
 
@@ -98,7 +102,9 @@ def _moderation(commands: argparse._SubParsersAction[argparse.ArgumentParser]) -
     )
     prune = held.add_parser("prune", help="remove old topic posts that hold no comment")
     prune.add_argument("id", type=_positive_int)
-    prune.add_argument("--older-than", type=_positive_int, required=True, metavar="DAYS")
+    prune.add_argument(
+        "--older-than", type=cli_clean.bounded_int(MAX_DAYS), required=True, metavar="DAYS"
+    )
 
 
 def _moderate(db: sqlite3.Connection, args: argparse.Namespace) -> None:
@@ -178,6 +184,8 @@ def _dispatch(args: argparse.Namespace) -> None:
                 propose_source(db, args.name, args.kind, args.url, args.by)
             elif args.action == "list":
                 _list_sources(db)
+            elif args.action == "remove":
+                cli_clean.run_source_remove(db, args)
             else:
                 state = "approved" if args.action == "approve" else "paused"
                 set_source_state(db, args.id, state)
@@ -185,22 +193,14 @@ def _dispatch(args: argparse.Namespace) -> None:
             _topics(db, args)
         elif args.command == "ingest":
             _ingest(db, args.loop)
+        elif args.command == "digests":
+            cli_clean.run_digests(db, args)
         elif args.command in ("threads", "comments", "groups"):
             _moderate(db, args)
         else:
             _stories(db, args.limit)
     finally:
         db.close()
-
-
-def _positive_int(text: str) -> int:
-    try:
-        value = int(text)
-    except ValueError:
-        value = 0
-    if value < 1:
-        raise argparse.ArgumentTypeError("must be an integer >= 1")
-    return value
 
 
 def _ai(args: argparse.Namespace, setup: ai_run.Setup) -> int:
@@ -211,9 +211,15 @@ def _ai(args: argparse.Namespace, setup: ai_run.Setup) -> int:
         db.close()
 
 
+def _db_file(root: Path) -> Path:
+    return root / "signal" / "signal.db"
+
+
 def main(argv: Sequence[str] | None = None, ai: ai_run.Setup | None = None) -> int:
-    """Run one command; 2 on a usage error, a store error or a refused address. `ai` is what the
-    AI commands read (the launching environment and the project's rulings by default)."""
+    """Run one command; 2 on a usage error, a store that cannot be used or a refused address.
+
+    `ai` is what the AI commands read (the launching environment and the project's rulings by
+    default)."""
     try:
         args = _parser().parse_args(argv)
     except SystemExit as exit_:
@@ -226,5 +232,8 @@ def main(argv: Sequence[str] | None = None, ai: ai_run.Setup | None = None) -> i
         _dispatch(args)
     except (StoreError, FetchRefused, IdentityError, GroupError) as error:
         print(f"error: {error}", file=sys.stderr)
+        return 2
+    except (sqlite3.Error, OverflowError, OSError) as error:  # a store that cannot be used
+        print(f"error: the store {_db_file(args.root)} cannot be used: {error}", file=sys.stderr)
         return 2
     return 0

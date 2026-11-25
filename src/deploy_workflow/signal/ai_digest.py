@@ -177,7 +177,7 @@ class Writer:
             self.stopped = f"this pass made its {self.per_pass} digest calls; the others wait"
         if answer.text is None:
             failed = f"the model call failed ({answer.outcome})"
-            if answer.transient:
+            if answer.not_sent:
                 raise self._stop(failed, fault=True)
             raise digests.WriterFailed(failed)
         draft = read(answer.text, scope)
@@ -193,8 +193,13 @@ class Writer:
         assert isinstance(draft, Draft)
         issue = digests.add_issue(db, scope, digests.WRITTEN, now)
         db.execute(
-            "INSERT INTO digest_issue_ai(issue_id, stories, config_id) VALUES(?, ?, ?)",
-            (issue, len(scope.stories), self.model.config_id),
+            "INSERT INTO digest_issue_ai(issue_id, stories, config_id, covers) VALUES(?, ?, ?, ?)",
+            (
+                issue,
+                len(scope.stories),
+                self.model.config_id,
+                digests.covers_phrase(db, scope.digest),
+            ),
         )
         db.executemany(
             "INSERT INTO digest_points(issue_id, number, lead, body, story_ids)"

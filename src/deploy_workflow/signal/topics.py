@@ -16,6 +16,8 @@ from deploy_workflow.signal.store import (
     StoreError,
     _utc_text,
     _write_transaction,
+    fresh_id,
+    retire_id,
 )
 
 MAX_KEYWORD = 60
@@ -130,17 +132,24 @@ def add_topic(
     with _write_transaction(db):
         if db.execute("SELECT COUNT(*) FROM topics").fetchone()[0] >= MAX_TOPICS:
             raise Conflict(f"there are already {MAX_TOPICS} topics; delete one first")
+        topic_id = fresh_id(db, "topics")  # never the id of a topic deleted since
         try:
-            cur = db.execute(
-                "INSERT INTO topics(name, keywords, kinds, created_by, created_at)"
-                " VALUES(?, ?, ?, ?, ?)",
-                (title, json.dumps(cleaned), json.dumps(allowed), created_by, _utc_text(_now())),
+            db.execute(
+                "INSERT INTO topics(id, name, keywords, kinds, created_by, created_at)"
+                " VALUES(?, ?, ?, ?, ?, ?)",
+                (
+                    topic_id,
+                    title,
+                    json.dumps(cleaned),
+                    json.dumps(allowed),
+                    created_by,
+                    _utc_text(_now()),
+                ),
             )
         except sqlite3.IntegrityError as exc:
             raise Conflict(f"topic {title!r} already exists") from exc
-        assert cur.lastrowid is not None
-        _link_existing(db, cur.lastrowid, cleaned, allowed)
-    return cur.lastrowid
+        _link_existing(db, topic_id, cleaned, allowed)
+    return topic_id
 
 
 def edit_topic(
@@ -182,6 +191,7 @@ def delete_topic(db: sqlite3.Connection, topic_id: int) -> None:
             raise Conflict("a group still follows this topic; take it off the group's topics first")
         db.execute("DELETE FROM topic_stories WHERE topic_id=?", (topic_id,))
         db.execute("DELETE FROM topic_follows WHERE topic_id=?", (topic_id,))
+        retire_id(db, "topics", topic_id)  # its id is never given to a new topic
         db.execute("DELETE FROM topics WHERE id=?", (topic_id,))
 
 

@@ -11,18 +11,30 @@ text in it included), whatever the writers posted:
 
 * Every visible group's page record, channel and Settings row are always delivered; their bytes
   are spent first from GROUP_BUDGET.
-* Candidates are each group's THREADS_SHOWN threads with the latest activity, taken round-robin
-  across the groups (each group's newest, then each group's next), the groups the viewer is a
-  member of first, so no group takes another's place. First the floor is paid, as summaries:
-  every group's newest thread, then the next FLOOR - 1 of the viewer's own groups, then those of
-  the other groups. Then, in the same order and on to the rest, a thread is delivered with its
-  comments (its COMMENTS_SHOWN latest top-level comments, each with its REPLIES_SHOWN latest
-  replies) when they all fit in what is left of GROUP_BUDGET; one that does not fit stays (or is
-  delivered as) its summary and the next ones are still offered theirs. A summary is the group's
-  item and a thread with no comments, whose subline says the comments are shown when the thread
-  is opened, and whose note (in both records) is cut to NOTE_EXCERPT characters. Summaries are
-  paid from what is left of GROUP_BUDGET, then from SUMMARY_BUDGET; a group whose next thread
-  does not fit delivers no later one, so a group always shows its latest threads.
+* Candidates are each group's THREADS_SHOWN threads with the latest activity. First the floor is
+  paid, as summaries, FAIRLY. The budget it may spend is what is left of GROUP_BUDGET and
+  SUMMARY_BUDGET after the fixed parts above (the pool), and each visible group is reserved an
+  equal share of it (pool // groups). A group spends only its own share, on its newest threads in
+  order (up to FLOOR of them; one that does not fit its share ends its turn), so no group's floor
+  takes another's. What a group leaves unspent returns to the pool, and the groups whose floor is
+  not yet paid are offered their next thread from the pool round by round (the viewer's own groups
+  first, then the others, each in page order), each until a thread does not fit.
+  The guarantee: every group is delivered its newest threads as summaries, up to FLOOR of them,
+  while they take at most its share, whatever any other group holds. A summary of the largest
+  note (cut to NOTE_EXCERPT characters of four bytes) in a group named at the limit is 2.8 KB (no
+  story card), so with 100 visible groups (a share of about 10 KB) the least a group is delivered
+  is its newest 3 such threads (and a 4th while the pool lasts), and with 70 or fewer visible
+  groups all 5.
+  Then, in the order of rounds (each group's newest, then the next FLOOR - 1 of the viewer's
+  groups, then of the other groups, then the rest), a thread is delivered with its comments (its
+  COMMENTS_SHOWN latest top-level comments, each with its REPLIES_SHOWN latest replies) when they
+  all fit in what is left of GROUP_BUDGET; one that does not fit stays (or is delivered as) its
+  summary and the next ones are still offered theirs. A summary is the group's item and a thread
+  with no comments, whose subline says the comments are shown when the thread is opened, and
+  whose note (in both records) is cut to NOTE_EXCERPT characters. The floor spends SUMMARY_BUDGET
+  first (it holds only summaries) and then GROUP_BUDGET; later summaries are paid from what is
+  left of GROUP_BUDGET, then from SUMMARY_BUDGET; a group whose next thread does not fit delivers
+  no later one, so a group always shows its latest threads.
 * A group that delivers fewer threads than it holds says so (``more``: "Showing the latest 30 of
   45 threads."), and a group too full for its topics to post into says that too.
 * The story card a delivered thread names (`story_cost`, given by the snapshot) is paid with it.
@@ -44,6 +56,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -146,6 +159,19 @@ class _Picking:
     spent: int = 0
     stopped: set[int] = field(default_factory=set)
     held: dict[int, _Shown] = field(default_factory=dict)  # the delivered, by thread id
+    focused: int | None = None  # the thread delivered whole apart (it needs no offer)
+
+    def take_floor(self, cost: int) -> bool:
+        """Take `cost` from what is left of both budgets, SUMMARY_BUDGET first (the floor's own)."""
+        if cost > self.main.left + self.spare.left:
+            return False
+        from_spare = min(cost, self.spare.left)
+        self.spare.left -= from_spare
+        self.main.left -= cost - from_spare
+        return True
+
+    def take_summary(self, cost: int) -> bool:
+        return self.main.take(cost) or self.spare.take(cost)
 
     def story(self, row: sqlite3.Row) -> int:
         story = row["story_id"]
@@ -259,24 +285,39 @@ def _page_cost(page: Json) -> int:
 Candidate = tuple[str, sqlite3.Row]  # a thread and its group's name
 
 
+def _newest(db: sqlite3.Connection, seen: list[sqlite3.Row]) -> dict[int, list[Candidate]]:
+    """Each group's THREADS_SHOWN threads with the latest activity, newest first."""
+    return {
+        int(group["id"]): [
+            (str(group["name"]), row)
+            for row in db.execute(
+                "SELECT * FROM threads WHERE group_id=? ORDER BY last_activity_at DESC, id DESC"
+                " LIMIT ?",
+                (group["id"], THREADS_SHOWN),
+            ).fetchall()
+        ]
+        for group in seen
+    }
+
+
+def _viewers_first(seen: list[sqlite3.Row], members_of: frozenset[int]) -> list[int]:
+    """The groups' ids, the viewer's own groups first, each part in page order."""
+    ids = [int(group["id"]) for group in seen]
+    return sorted(ids, key=lambda gid: gid not in members_of)  # stable: page order within each
+
+
 def _candidates(
-    db: sqlite3.Connection, seen: list[sqlite3.Row], members_of: frozenset[int]
-) -> list[tuple[Candidate, bool]]:
-    """Each group's THREADS_SHOWN threads with the latest activity, in the order they are offered
-    (see the module docstring), each with whether it is in the floor: every group's newest, then
-    round by round the next FLOOR - 1 and then the rest, in each round the viewer's own groups
-    first, then the others, each in page order."""
+    newest: dict[int, list[Candidate]], seen: list[sqlite3.Row], members_of: frozenset[int]
+) -> list[Candidate]:
+    """The threads in the order they are offered their comments: round by round (each group's
+    newest, then the next FLOOR - 1, then the rest), in each round the viewer's groups first, then
+    the others, each in page order."""
     keyed = []
     for place, group in enumerate(seen):
         other = int(group["id"]) not in members_of
-        rows = db.execute(
-            "SELECT * FROM threads WHERE group_id=? ORDER BY last_activity_at DESC, id DESC"
-            " LIMIT ?",
-            (group["id"], THREADS_SHOWN),
-        ).fetchall()
-        for turn, row in enumerate(rows):
+        for turn, candidate in enumerate(newest[int(group["id"])]):
             band = 0 if turn == 0 else 1 if turn < FLOOR else 2
-            keyed.append(((band, other, turn, place), ((str(group["name"]), row), band < 2)))
+            keyed.append(((band, other, turn, place), candidate))
     return [offered for _, offered in sorted(keyed, key=lambda one: one[0])]
 
 
@@ -311,24 +352,64 @@ def _pick(
             one, encoded_size(one.item) + encoded_size(one.thread) + picking.story(one.row)
         )
         shown.append(one)
-    order = [
-        offered
-        for offered in _candidates(db, seen, viewer.members_of)
-        if focused is None or offered[0][1]["id"] != focused[1]["id"]
-    ]
-    for candidate, floor in order:
-        if floor:
-            _offer(db, candidate, viewer, picking, whole=False)
-    for candidate, _ in order:
-        _offer(db, candidate, viewer, picking, whole=True)
+    newest = _newest(db, seen)
+    if focused is not None:
+        picking.focused = int(focused[1]["id"])
+    _pay_floor(db, (newest, _viewers_first(seen, viewer.members_of)), viewer, picking)
+    for candidate in _candidates(newest, seen, viewer.members_of):
+        if candidate[1]["id"] != picking.focused:
+            _offer(db, candidate, viewer, picking)
     return shown + list(picking.held.values())
 
 
-def _offer(
-    db: sqlite3.Connection, candidate: Candidate, viewer: _Viewer, picking: _Picking, *, whole: bool
+def _pay_floor(
+    db: sqlite3.Connection,
+    held: tuple[dict[int, list[Candidate]], list[int]],
+    viewer: _Viewer,
+    picking: _Picking,
 ) -> None:
-    """Offer the thread its comments (`whole`), else its summary; a group whose thread gets
-    neither is offered nothing more."""
+    """Pay the floor as summaries, fairly (see the module docstring): each group its newest FLOOR
+    threads within its equal share of the pool, then the groups that have more offered them from
+    what the shares left, round by round."""
+    newest, order = held
+    waiting = {
+        gid: deque(c for c in newest[gid][:FLOOR] if c[1]["id"] != picking.focused) for gid in order
+    }
+    share = (picking.main.left + picking.spare.left) // max(len(order), 1)
+    built: dict[int, _Shown] = {}
+
+    def deliver(gid: int, room: int) -> int | None:
+        """Deliver the group's next floor thread if it costs at most `room`: what it cost, or None
+        (nothing paid) when it does not."""
+        candidate = waiting[gid][0]
+        one = built.setdefault(int(candidate[1]["id"]), _held(db, candidate, viewer))
+        records = _summary_records(one, viewer)
+        cost = _extra(picking, one, records)
+        if cost > room or not picking.take_floor(cost):
+            return None
+        _pay(picking, one, records, cost)
+        picking.held[int(candidate[1]["id"])] = one
+        waiting[gid].popleft()
+        return cost
+
+    for gid in order:
+        room = share
+        while waiting[gid] and (cost := deliver(gid, room)) is not None:
+            room -= cost
+    live = [gid for gid in order if waiting[gid]]
+    while live:
+        progress = [
+            gid for gid in live if deliver(gid, picking.main.left + picking.spare.left) is not None
+        ]
+        picking.stopped.update(gid for gid in live if gid not in progress)
+        live = [gid for gid in progress if waiting[gid]]
+
+
+def _offer(
+    db: sqlite3.Connection, candidate: Candidate, viewer: _Viewer, picking: _Picking
+) -> None:
+    """Offer the thread its comments, else (if it has none yet) its summary; a group whose thread
+    gets neither is offered nothing more."""
     held = picking.held
     thread_id, group_id = int(candidate[1]["id"]), int(candidate[1]["group_id"])
     one = held.get(thread_id)
@@ -336,28 +417,30 @@ def _offer(
         return
     if one is None:
         one = _held(db, candidate, viewer)
-    if whole and _with_comments(db, one, viewer, picking):
+    if _with_comments(db, one, viewer, picking):
         held[thread_id] = one
     elif thread_id not in held:
-        if _as_summary(one, viewer, picking):
+        records = _summary_records(one, viewer)
+        cost = _extra(picking, one, records)
+        if picking.take_summary(cost):
+            _pay(picking, one, records, cost)
             held[thread_id] = one
         else:
             picking.stopped.add(group_id)
 
 
-def _pay(
-    picking: _Picking, one: _Shown, records: tuple[Json, Json], budgets: list[_Budget]
-) -> bool:
-    """Deliver the thread as `records` (its item and thread record) if what they add to what it
-    already holds, its story card included, fits in one of `budgets`."""
+def _extra(picking: _Picking, one: _Shown, records: tuple[Json, Json]) -> int:
+    """The bytes delivering the thread as `records` (its item and thread record) adds to what it
+    already holds, its story card included."""
     item, thread = records
-    cost = encoded_size(item) + encoded_size(thread)
-    extra = cost - one.cost + picking.story(one.row)
-    if not any(budget.take(extra) for budget in budgets):
-        return False
-    one.item, one.thread, one.cost = item, thread, cost
+    return encoded_size(item) + encoded_size(thread) - one.cost + picking.story(one.row)
+
+
+def _pay(picking: _Picking, one: _Shown, records: tuple[Json, Json], extra: int) -> None:
+    """Record the thread as delivered as `records`, which cost `extra` more bytes (`_extra`)."""
+    item, thread = records
+    one.item, one.thread, one.cost = item, thread, encoded_size(item) + encoded_size(thread)
     picking.paid_for(one, extra)
-    return True
 
 
 def _with_comments(db: sqlite3.Connection, one: _Shown, viewer: _Viewer, picking: _Picking) -> bool:
@@ -367,17 +450,19 @@ def _with_comments(db: sqlite3.Connection, one: _Shown, viewer: _Viewer, picking
         return False
     thread, whole = _thread(db, one, viewer, picking.main.left)
     item = {**one.item, "note": one.row["note"]}
-    return whole and _pay(picking, one, (item, thread), [picking.main])
+    if not whole:
+        return False
+    extra = _extra(picking, one, (item, thread))
+    if not picking.main.take(extra):
+        return False
+    _pay(picking, one, (item, thread), extra)
+    return True
 
 
-def _as_summary(one: _Shown, viewer: _Viewer, picking: _Picking) -> bool:
-    """Deliver the thread as its summary, its note cut short, from GROUP_BUDGET (else from
-    SUMMARY_BUDGET)."""
+def _summary_records(one: _Shown, viewer: _Viewer) -> tuple[Json, Json]:
+    """The thread as its summary: its note cut short, in the item and in the thread record."""
     note = None if one.row["note"] is None else shortened(one.row["note"], NOTE_EXCERPT)
-    item = {**one.item, "note": note}
-    return _pay(
-        picking, one, (item, _summary_thread(one, viewer, note)), [picking.main, picking.spare]
-    )
+    return {**one.item, "note": note}, _summary_thread(one, viewer, note)
 
 
 # The bytes of a comment record with every text empty (``_comment_records``), plus its comma and

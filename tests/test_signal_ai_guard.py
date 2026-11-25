@@ -75,7 +75,7 @@ def _first_call_only(action: Callable[[], None]) -> Callable[[], None]:
 
 def test_a_ruling_withdrawn_during_the_first_call_stops_the_story_pass_at_the_next(tmp_path):
     db, rulings, env = _world(tmp_path, 100)
-    ruling = rulings / "2026-11-25-signal-ai-pass.md"
+    ruling = rulings / "2026-11-01-signal-ai-pass.md"
     model = _labelling(_first_call_only(ruling.unlink))
     setup = ai_run.Setup(env, rulings, lambda config_id, path: model, clock_at(NOW))
     report = ai_run.story_pass(db, NOW, setup)
@@ -112,7 +112,7 @@ def test_a_ruled_cap_lowered_below_the_stored_cap_during_a_call_stops_the_next(t
         ),
         (
             lambda env, rulings: write_ruling(rulings, configs="copilot-sol-medium"),
-            "the AI pass is off: The ruling 2026-11-25-signal-ai-pass.md is not accepted:",
+            "the AI pass is off: The ruling 2026-11-01-signal-ai-pass.md is not accepted:",
         ),
     ],
 )
@@ -176,7 +176,7 @@ def _digest_world(tmp: Path, count: int) -> tuple[sqlite3.Connection, Path, dict
 
 def test_a_ruling_withdrawn_during_the_first_digest_call_stops_the_digest_pass(tmp_path):
     db, rulings, env = _digest_world(tmp_path, 40)
-    ruling = rulings / "2026-11-25-signal-ai-pass.md"
+    ruling = rulings / "2026-11-01-signal-ai-pass.md"
     reply = json.dumps({"points": [{"lead": "L", "body": "B.", "stories": ["1"]}]})
 
     def answer(request: TurnRequest) -> Any:
@@ -214,3 +214,138 @@ def test_a_ruling_that_now_allows_another_configuration_refuses_the_models_calls
     assert len(model.requests) == 1
     assert report.stopped == f"the ruling no longer allows {CONFIG}"
     db.close()
+
+
+# Finding 3: reserve, settle and expiry read the clock at the moment they happen
+
+
+class Steps:
+    """A clock that moves on by `step` each time it is read (SYNTHETIC: a slow pass)."""
+
+    def __init__(self, start: datetime, step: timedelta) -> None:
+        self.at, self.step, self.reads = start, step, 0
+
+    def __call__(self) -> datetime:
+        self.reads += 1
+        self.at += self.step
+        return self.at
+
+
+def test_a_call_made_after_the_month_turned_counts_in_the_month_it_was_reserved_in(tmp_path):
+    tick = datetime(2026, 11, 30, 23, 59, 30, tzinfo=UTC)  # the pass begins in November
+    db, rulings, env = _world(tmp_path, 40)
+    clock = Steps(tick + timedelta(minutes=1), timedelta(seconds=10))  # its calls are in December
+    report = ai_pass.run(db, _labelling(lambda: None), ai_call.Guard(env, rulings, clock), tick)
+    assert report.calls == 2
+    rows = db.execute("SELECT month, reserved_at, settled_at FROM ai_usage ORDER BY id").fetchall()
+    assert [row["month"] for row in rows] == ["2026-12", "2026-12"]
+    # the clock is read for the pending list (00:00:40), the claim (00:00:50), then:
+    assert rows[0]["reserved_at"] == "2026-12-01T00:01:00+00:00"  # read when reserved
+    assert rows[0]["settled_at"] == "2026-12-01T00:01:10+00:00"  # read when settled
+    assert ai_ledger.totals(db, "2026-11").total == 0
+    assert ai_ledger.totals(db, "2026-12").spent == Decimal("0.010")
+    db.close()
+
+
+def test_a_call_in_flight_is_not_expired_by_another_process_while_it_is_young(tmp_path):
+    tick = datetime(2026, 11, 25, 12, 0, tzinfo=UTC)
+    db, rulings, env = _world(tmp_path, 20)
+    other = store.open_db(tmp_path / "root")
+    real = tick + timedelta(minutes=61)  # earlier calls of the pass were slow
+    seen: list[int] = []
+    model = _labelling(lambda: seen.append(ai_ledger.expire(other, real + timedelta(seconds=5))))
+    report = ai_pass.run(db, model, ai_call.Guard(env, rulings, clock_at(real)), tick)
+    assert seen == [0] and report.stopped is None and report.written == 20
+    row = db.execute("SELECT status, settled_usd FROM ai_usage").fetchone()
+    assert tuple(row) == ("settled", "0.005")  # its real cost, not a full hold
+    assert ai_ledger.switched_off(db) is None
+    other.close()
+    db.close()
+
+
+def test_the_jobs_expiry_reads_the_clock_not_the_ticks_time(tmp_path):
+    tick = datetime(2026, 11, 25, 12, 0, tzinfo=UTC)
+    db, rulings, env = _world(tmp_path, 0)
+    ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), tick, ruled_cap=Decimal(15))
+    setup = ai_run.Setup(
+        env, rulings, lambda c, p: FakeModel(), clock_at(tick + timedelta(hours=2))
+    )
+    ai_run.story_pass(db, tick, setup)  # the tick's own time would see the hold as young
+    assert ai_ledger.switched_off(db) is not None
+    db.close()
+
+
+# Finding 11: a call merely in flight is not "capped"
+
+
+def test_a_call_in_flight_leaves_the_state_on_the_ai_fields_shown_and_run_once_now_queued(
+    tmp_path,
+):
+    from signal_reader_check import react_refusal
+    from test_signal_service import Live
+
+    from deploy_workflow.signal import ai_gate, snapshot
+    from deploy_workflow.signal.identity import User
+    from deploy_workflow.signal.service import Loop, make_server
+
+    root = tmp_path / "root"
+    db, rulings, env = _world(tmp_path, 1)
+    store.add_user(db, "Rita Reader", "reader")
+    with db:
+        db.execute(
+            "INSERT INTO story_ai(story_id, outcome, why, signal, tags, kind, stage, moves,"
+            " config_id, written_at, month) VALUES(1, 'written', 'Why it matters.', 2, '[]',"
+            " 'news', NULL, '[]', ?, ?, '2026-11')",
+            (CONFIG, store._utc_text(NOW)),
+        )
+    form = digests.Form("D", ["All stories"], "Daily, 07:00 UTC", "Up to 3 points", "")
+    ident = digests.create(db, "Rita Reader", digests.spec_from_form(db, "Rita Reader", form), NOW)
+    ai_ledger.set_cap(db, Decimal("0.70"), NOW)
+    now = datetime.now(UTC)
+    ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), now, ruled_cap=Decimal(15))
+    held = ai_gate.status(db, now, env, rulings)
+    assert held.state == "on"  # 0.3585 held, nothing settled: room for the smallest call
+    built = snapshot.build(
+        db, User("Rita Reader", "reader"), now, service=snapshot.Service(ai=held)
+    )
+    assert react_refusal(built) is None
+    (story,) = built["scenes"][0]["snapshot"]["feed"]["stories"]
+    assert story["ai"]["line"] == "Why it matters."
+    db.close()
+    loop = Loop(root, ai=ai_run.Setup(env, rulings, lambda c, p: FakeModel(), clock_at(now)))
+    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    try:
+        status, _, body = live.call(
+            "POST", f"/api/digests/{ident}/run", cookie="signal_name=Rita%20Reader", body={}
+        )
+        assert (status, body["outcome"]) == (200, "queued")
+    finally:
+        live.close()
+
+
+def test_at_its_cap_run_once_now_is_still_queued_for_the_loop(tmp_path):
+    from test_signal_service import Live
+
+    from deploy_workflow.signal import ai_gate
+    from deploy_workflow.signal.service import Loop, make_server
+
+    root = tmp_path / "root"
+    db, rulings, env = _world(tmp_path, 1)
+    store.add_user(db, "Rita Reader", "reader")
+    form = digests.Form("D", ["All stories"], "Daily, 07:00 UTC", "Up to 3 points", "")
+    ident = digests.create(db, "Rita Reader", digests.spec_from_form(db, "Rita Reader", form), NOW)
+    ai_ledger.set_cap(db, Decimal("0.70"), NOW)
+    now = datetime.now(UTC)
+    call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.40"), now, ruled_cap=Decimal(15))
+    ai_ledger.settle(db, call, Decimal("0.36"), "ok", now)
+    assert ai_gate.status(db, now, env, rulings).state == "capped"
+    db.close()
+    loop = Loop(root, ai=ai_run.Setup(env, rulings, lambda c, p: FakeModel(), clock_at(now)))
+    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    try:
+        status, _, body = live.call(
+            "POST", f"/api/digests/{ident}/run", cookie="signal_name=Rita%20Reader", body={}
+        )
+        assert (status, body["outcome"]) == (200, "queued")
+    finally:
+        live.close()

@@ -9,6 +9,8 @@ ledger of the same reserve-then-settle design (spec 5.10).
 The rules, each applied inside one write transaction (``BEGIN IMMEDIATE``), so two passes in two
 processes are serialised by the database lock and cannot both fit under the cap:
 
+* The ledger and the cap are per Signal store (the ``signal.db`` under one ``--root``): a second
+  root, or a store deleted and made again, starts its month at zero.
 * A month is a UTC calendar month (``month_of``). A call counts in the month of its reservation,
   whenever it settles.
 * ``spent`` is the month's settled actual costs plus the full reservation of every call whose cost
@@ -44,10 +46,14 @@ from typing import Literal
 
 from deploy_workflow.model.budget import exact_sum
 from deploy_workflow.model.pricing import money_text
+from deploy_workflow.model.transport import OVERALL_S
 from deploy_workflow.signal.store import StoreError, _utc_text, _write_transaction
 
 CURRENCY = "USD"
 STALE_AFTER = timedelta(hours=1)
+# The model adapter's own bound on one call (its overall bound, with a minute for its abort and
+# teardown): a call reserved longer ago than this is no longer in flight in any process.
+CALL_BOUND = timedelta(seconds=OVERALL_S) + timedelta(minutes=1)
 MAX_CAP = Decimal(100000)
 DIGESTS_PER_DAY = 50  # the digest writer's calls a UTC day for the whole service, until set
 MAX_DIGESTS_PER_DAY = 1000
@@ -129,6 +135,14 @@ def set_cap(db: sqlite3.Connection, amount: Decimal, now: datetime) -> None:
             "INSERT OR REPLACE INTO settings(key, value, set_at) VALUES(?, ?, ?)",
             (_CAP, money_text(checked), _utc_text(now)),
         )
+
+
+def store_id(db: sqlite3.Connection) -> str:
+    """The store's own random id (made with the store, ``meta.store_id``): 16 hex digits."""
+    row = db.execute("SELECT value FROM meta WHERE key='store_id'").fetchone()
+    if row is None:
+        raise StoreError("the store has no store_id")
+    return str(row["value"])
 
 
 def parse_per_day(text: str) -> int:
@@ -219,10 +233,10 @@ def totals(db: sqlite3.Connection, month: str) -> Month:
     )
 
 
-def _expire(db: sqlite3.Connection, now: datetime) -> int:
-    """Inside the caller's write transaction: every open reservation older than STALE_AFTER becomes
-    a call of unknown cost (counted in full), and the pass is switched off. Returns how many."""
-    limit = _utc_text(now - STALE_AFTER)
+def _expire(db: sqlite3.Connection, now: datetime, bound: timedelta = STALE_AFTER) -> int:
+    """Inside the caller's write transaction: every open reservation older than `bound` becomes a
+    call of unknown cost (counted in full), and the pass is switched off. Returns how many."""
+    limit = _utc_text(now - bound)
     stale = db.execute(
         "SELECT id, reserved_at FROM ai_usage WHERE status='open' AND reserved_at < ? ORDER BY id",
         (limit,),
@@ -239,10 +253,12 @@ def _expire(db: sqlite3.Connection, now: datetime) -> int:
     return len(stale)
 
 
-def expire(db: sqlite3.Connection, now: datetime) -> int:
-    """Apply the stale-reservation rule now (the background loop does, every tick)."""
+def expire(db: sqlite3.Connection, now: datetime, bound: timedelta = STALE_AFTER) -> int:
+    """Apply the stale-reservation rule now (the background loop does, every tick, with
+    STALE_AFTER; a process starting up does with CALL_BOUND, since no call older than the
+    adapter's own bound can still be in flight anywhere)."""
     with _write_transaction(db):
-        return _expire(db, now)
+        return _expire(db, now, bound)
 
 
 def reserve(
@@ -265,25 +281,36 @@ def reserve(
         raise StoreError("the ruled cap is a positive Decimal amount")
     month = month_of(now)
     with _write_transaction(db):
-        _expire(db, now)
-        if switched_off(db) is not None:
-            raise Refused("the AI pass is switched off until the owner clears it")
-        stored = cap(db)
-        if stored is None:
-            raise Refused("no monthly cap is set")
-        limit = min(stored, ruled_cap)
-        per_day = digests_per_day(db)
-        if purpose == "digest" and digest_calls_on(db, now) >= per_day:
-            raise Refused(day_full(per_day))
-        if exact_sum((totals(db, month).total, usd)) > limit:
-            raise Refused(f"the call would pass the monthly cap of {CURRENCY} {money_text(limit)}")
-        cur = db.execute(
-            "INSERT INTO ai_usage(purpose, config_id, month, reserved_usd, status, outcome,"
-            " reserved_at) VALUES(?, ?, ?, ?, 'open', 'in progress', ?)",
-            (purpose, config_id, month, money_text(usd), _utc_text(now)),
-        )
+        _expire(db, now)  # committed whether or not the call is refused
+        refusal = _refusal(db, purpose, usd, now, ruled_cap)
+        if refusal is None:
+            cur = db.execute(
+                "INSERT INTO ai_usage(purpose, config_id, month, reserved_usd, status, outcome,"
+                " reserved_at) VALUES(?, ?, ?, ?, 'open', 'in progress', ?)",
+                (purpose, config_id, month, money_text(usd), _utc_text(now)),
+            )
+    if refusal is not None:
+        raise Refused(refusal)
     assert cur.lastrowid is not None
     return cur.lastrowid
+
+
+def _refusal(
+    db: sqlite3.Connection, purpose: Purpose, usd: Decimal, now: datetime, ruled_cap: Decimal
+) -> str | None:
+    """Inside the caller's write transaction: why the call may not be reserved, or None."""
+    if switched_off(db) is not None:
+        return "the AI pass is switched off until the owner clears it"
+    stored = cap(db)
+    if stored is None:
+        return "no monthly cap is set"
+    limit = min(stored, ruled_cap)
+    per_day = digests_per_day(db)
+    if purpose == "digest" and digest_calls_on(db, now) >= per_day:
+        return day_full(per_day)
+    if exact_sum((totals(db, month_of(now)).total, usd)) > limit:
+        return f"the call would pass the monthly cap of {CURRENCY} {money_text(limit)}"
+    return None
 
 
 def settle(
@@ -326,6 +353,7 @@ def relabel(db: sqlite3.Connection, call_id: int, outcome: str) -> None:
 
 
 __all__ = [
+    "CALL_BOUND",
     "CURRENCY",
     "DIGESTS_PER_DAY",
     "STALE_AFTER",
@@ -345,6 +373,7 @@ __all__ = [
     "set_cap",
     "set_digests_per_day",
     "settle",
+    "store_id",
     "switched_off",
     "totals",
 ]

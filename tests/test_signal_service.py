@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_ai_fakes import off_setup
 from test_signal_feeds import RSS
 from test_signal_feedview import build_feed_db
 
@@ -111,7 +112,7 @@ def svc_with_loop(tmp_path: Path) -> Iterator[tuple[Loop, Any]]:
     )
     add_story(db, 1, Entry("Story one", "https://a.org/1", NOW, "Summary"), NOW)
     db.close()
-    loop = Loop(tmp_path, fetch_fn=_recorded_feed_fn())
+    loop = Loop(tmp_path, fetch_fn=_recorded_feed_fn(), ai=off_setup(tmp_path))
     live = Live(make_server(tmp_path, "127.0.0.1", 0, loop=loop))
     yield loop, live.call
     live.close()

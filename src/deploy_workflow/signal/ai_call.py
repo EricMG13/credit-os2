@@ -13,7 +13,14 @@ call. A call refused so (``ai_ledger.Refused``) holds nothing, costs nothing and
 The charge follows the analytical modules' rules (``model.handoff``): nothing for a call refused
 before it was sent or answered with a 4xx; unknown for a call whose outcome is unknown; else the
 priced usage (``pricing.price_usage``: for Copilot the runtime's reported cost, unknown when it
-reports none) plus the charges of any context compactions the runtime reported.
+reports none) plus the charges of any context compactions the runtime reported. A cost that is
+not established counts at the call's full hold and switches the pass off (``ai_ledger.settle``).
+
+Only a call the adapter established was not sent (``not_sent``: refused before anything left,
+such as a missing key, runtime or home) is one that may be tried again at no cost
+(``Answer.not_sent``). The Copilot adapter reports every failure after sending, a provider rate
+limit included (a session error), as ``sent_unknown``: that call counts at its full hold and the
+pass stays off until the owner runs ``signal ai clear``.
 
 Nothing here logs a prompt, a reply or a key: a log line names the purpose, the call id and the
 outcome only.
@@ -22,9 +29,10 @@ outcome only.
 from __future__ import annotations
 
 import logging
+import shutil
 import sqlite3
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
@@ -40,7 +48,18 @@ from deploy_workflow.signal.ai_price import FRAMING_TOKENS, Prompt, reservation_
 
 log = logging.getLogger(__name__)
 
-__all__ = ["FRAMING_TOKENS", "Answer", "Guard", "Model", "Prompt", "call", "reservation_usd"]
+__all__ = [
+    "FRAMING_TOKENS",
+    "Answer",
+    "Guard",
+    "Model",
+    "Prompt",
+    "call",
+    "remove_homes",
+    "reservation_usd",
+]
+
+HOMES = ".copilot-home"  # where the Copilot adapter keeps each exchange's home, under the cwd
 
 
 class Model(Protocol):
@@ -70,6 +89,7 @@ class Guard:
     environ: Mapping[str, str]
     rulings_root: Path
     clock: Callable[[], datetime]
+    homes: list[Path] = field(default_factory=list)  # exchange homes this job's calls named
 
 
 @dataclass(frozen=True)
@@ -79,7 +99,7 @@ class Answer:
     text: str | None
     outcome: str
     call_id: int
-    transient: bool = False  # the call failed in a way that may pass: try again at the next tick
+    not_sent: bool = False  # the adapter established that nothing was sent: it cost nothing
 
 
 def _compactions_usd(reply: AdapterReply) -> Decimal | None:
@@ -113,21 +133,10 @@ def charge(reply: AdapterReply, config_id: str) -> Decimal | None:
     return exact_sum((priced.usd, extra))
 
 
-# A 4xx refusal that asks to be called later (payment wait, timeout, conflict, too early, rate
-# limit). Every other failure is lasting: it is recorded, and a digest moves to its next slot.
-TRANSIENT_STATUSES = frozenset({402, 408, 409, 425, 429})
-TRANSIENT = "transient "  # the outcome text of such a call starts so
-
-
-def transient(reply: AdapterReply) -> bool:
-    return reply.kind == "sent_known" and reply.http_status in TRANSIENT_STATUSES
-
-
 def _outcome(reply: AdapterReply) -> str:
     if reply.kind == "ok":
         return "ok"
-    text = f"{reply.kind}: {reply.error_class or 'no class'}"
-    return (TRANSIENT + text if transient(reply) else text)[:80]
+    return f"{reply.kind}: {reply.error_class or 'no class'}"[:80]
 
 
 def _release(model: Model, digest: str) -> None:
@@ -154,6 +163,31 @@ def _reserve(
     return ai_ledger.reserve(db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap)
 
 
+def _home(digest: str, reservation: str) -> Path:
+    """The home the Copilot adapter makes for this exchange (``cwd/.copilot-home/<digest>/<id>``)."""
+    return Path.cwd() / HOMES / digest / reservation
+
+
+def remove_homes(guard: Guard) -> None:
+    """Remove the exchange homes this job's calls caused to be made, once its model is closed:
+    each only when it is a real directory where Signal named it, under ``.copilot-home`` in the
+    working directory (the path is never followed elsewhere), then its digest folder when empty.
+    Nothing else is touched; a home that cannot be removed is logged by type and left (its ids
+    are the store's own, so it never collides with a later call)."""
+    for home in guard.homes:
+        parent = home.parent
+        if parent.parent.name != HOMES or home.is_symlink() or not home.is_dir():
+            continue
+        if not home.resolve().is_relative_to(parent.parent.resolve()):
+            continue
+        try:
+            shutil.rmtree(home)
+            parent.rmdir()
+        except OSError as error:
+            log.warning("could not remove a Signal exchange home: %s", type(error).__name__)
+    guard.homes.clear()
+
+
 def call(
     db: sqlite3.Connection,
     model: Model,
@@ -166,7 +200,9 @@ def call(
     which switches the pass off; the error is logged by type only."""
     usd = reservation_usd(model.config_id, prompt)
     call_id = _reserve(db, guard, purpose, model.config_id, usd)
-    digest = f"signal-{purpose}-{call_id}"
+    tag = f"{ai_ledger.store_id(db)}-{call_id}"  # never the same in another store
+    digest, reservation = f"signal-{purpose}-{tag}", f"signal-{tag}"
+    guard.homes.append(_home(digest, reservation))
     request = TurnRequest(
         (Message("system", prompt.system), Message("user", prompt.user)),
         (),
@@ -175,7 +211,7 @@ def call(
     )
     try:
         reply = model.complete(
-            request, invocation_digest=digest, call_index=0, reservation_id=f"signal-{call_id}"
+            request, invocation_digest=digest, call_index=0, reservation_id=reservation
         )
     except Exception as error:  # noqa: BLE001 -- settled as unknown, never as zero
         log.warning("Signal %s call %s raised %s", purpose, call_id, type(error).__name__)
@@ -186,4 +222,4 @@ def call(
     _release(model, digest)
     log.info("Signal %s call %s: %s", purpose, call_id, outcome)
     text = reply.turn.text if reply.turn is not None else None
-    return Answer(text, outcome, call_id, transient(reply))
+    return Answer(text, outcome, call_id, reply.kind == "not_sent")

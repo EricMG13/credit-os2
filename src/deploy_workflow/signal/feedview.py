@@ -225,7 +225,9 @@ def _read_page(db: sqlite3.Connection, user_name: str, view: str, filters: Filte
 
 
 # The story ids of a view, read from the rows that put a story in it; the parameters are the
-# view's own (`_view_clause`). Latest has none: every story is in it.
+# view's own (`_view_clause`). Latest has none: every story is in it. For you is not read from one
+# query: it is the newest of its followed topics' views and of the stories shared in the viewer's
+# groups (`_for_you`).
 _MEMBERS = {
     "topic": "SELECT story_id FROM topic_stories WHERE topic_id = ?",
     "saved": "SELECT story_id FROM saves WHERE user_name = ?",
@@ -236,6 +238,13 @@ _MEMBERS = {
         " ON m.group_id = t.group_id AND m.user_name = ? WHERE t.story_id IS NOT NULL"
     ),
 }
+# A view with more members than this is never read from them (it would sort them all); it is read
+# from the newest WINDOW stories instead, so its work does not grow with the store. A view of more
+# members whose newest ones are older than that window delivers fewer stories (or none) than it
+# holds: the page shows what its topic found lately.
+MEMBERS_READ = 10_000
+WINDOW = 20_000
+WALK_FACTOR = 4
 
 
 def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> list[int]:
@@ -246,14 +255,20 @@ def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> l
     store is read from its members. Any other view is walked, but at most WALK_FACTOR times the
     steps an evenly spread view would take (`limit` * stories / members); a walk that finds fewer
     than `limit` in that many (the members are old: a topic whose keyword left the news) reads the
-    members instead. Either way the ids and their order are those of the full walk, and the work is
-    at most a few times the members. It opens no transaction: a caller reading several views holds
-    one (`read_transaction`)."""
+    members instead, as long as they are at most MEMBERS_READ. A view of more members is walked
+    over the newest WINDOW stories only. Either way, up to those bounds, the ids and their order
+    are those of the full walk, and the work is at most a few times MEMBERS_READ or WINDOW. It
+    opens no transaction: a caller reading several views holds one (`read_transaction`)."""
     clause, params = _view_clause(db, user_name, view)
-    members = _MEMBERS.get(view.partition(":")[0])
+    kind = view.partition(":")[0]
+    members = _MEMBERS.get(kind)
     if members is None:  # Latest: every story is in it
         return _walk(db, None, [], limit, None)
-    held = db.execute(f"SELECT COUNT(*) FROM ({members})", params).fetchone()[0]
+    if kind == "foryou":
+        return _for_you(db, user_name, limit)
+    held = _held(db, members, params)
+    if held > MEMBERS_READ:
+        return _walk(db, clause, params, limit, WINDOW)
     total = db.execute("SELECT COALESCE(MAX(id), 0) FROM stories").fetchone()[0]
     if held <= limit or held * held <= limit * total:
         return _from_members(db, members, params, limit)
@@ -262,7 +277,41 @@ def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> l
     return found if len(found) == limit else _from_members(db, members, params, limit)
 
 
-WALK_FACTOR = 4
+def _held(db: sqlite3.Connection, members: str, params: list[object]) -> int:
+    """How many members the view has, counted no further than MEMBERS_READ + 1."""
+    sql = f"SELECT COUNT(*) FROM (SELECT 1 FROM ({members}) LIMIT ?)"
+    return int(db.execute(sql, [*params, MEMBERS_READ + 1]).fetchone()[0])
+
+
+# The stories shared into the groups the viewer is a member of, newest first.
+_SHARED = (
+    "SELECT s.id FROM threads t JOIN group_members m ON m.group_id = t.group_id AND m.user_name = ?"
+    " JOIN stories s ON s.id = t.story_id GROUP BY s.id"
+    " ORDER BY s.published_at DESC, s.id DESC LIMIT ?"
+)
+
+
+def _for_you(db: sqlite3.Connection, user_name: str, limit: int) -> list[int]:
+    """The newest `limit` of the viewer's followed topics' views and of the stories shared in
+    their groups: the newest of the whole is among the newest of each part."""
+    found = {int(row[0]) for row in db.execute(_SHARED, (user_name, limit))}
+    for row in db.execute("SELECT topic_id FROM topic_follows WHERE user_name=?", (user_name,)):
+        found.update(view_ids(db, user_name, f"topic:{row[0]}", limit))
+    return _newest_of(db, found, limit)
+
+
+def _newest_of(db: sqlite3.Connection, ids: set[int], limit: int) -> list[int]:
+    """The newest `limit` of the stories `ids`, newest first (published time, then id)."""
+    stamped: list[tuple[str, int]] = []
+    listed = sorted(ids)
+    for start in range(0, len(listed), _CHUNK):
+        part = listed[start : start + _CHUNK]
+        rows = db.execute(
+            "SELECT published_at, id FROM stories WHERE id IN (" + ", ".join("?" * len(part)) + ")",
+            part,
+        ).fetchall()
+        stamped += [(row[0], int(row[1])) for row in rows]
+    return [story_id for _, story_id in sorted(stamped, reverse=True)[:limit]]
 
 
 def _from_members(

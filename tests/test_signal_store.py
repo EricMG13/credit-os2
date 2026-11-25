@@ -371,7 +371,9 @@ def test_a_store_another_build_made_is_refused_with_its_remedy(tmp_path, version
         open_db(tmp_path)
     assert str(refused.value) == (
         f"{says}: delete the development store {tmp_path / 'signal' / 'signal.db'} (with its"
-        " -wal and -shm files) or open it with the build that made it"
+        " -wal and -shm files) or open it with the build that made it; deleting it also erases"
+        " this store's record of the month's AI spend, so its cap starts the month again from"
+        " nothing"
     )
     assert _meta(tmp_path)["schema_version"] == version  # nothing was migrated
 

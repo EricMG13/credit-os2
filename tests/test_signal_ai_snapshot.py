@@ -169,7 +169,11 @@ def test_with_ai_on_a_story_carries_what_the_pass_wrote(db):
     ids = seed(db)
     snap = built(db, WRITER, status_on())
     corvane = story_of(snap, ids["corvane"])
-    assert corvane["ai"] == {"line": "The charge lands in the covenant step-down quarter."}
+    assert corvane["ai"] == {
+        "line": "The charge lands in the covenant step-down quarter.",
+        "kind": True,  # the pass said news: the page marks the kind AI
+        "tags": ["Packaging", "Restructuring"],  # the pass's tags, which the page marks AI
+    }
     assert corvane["strength"] == {"marks": 3, "word": "Strong"}
     assert (corvane["kind"], corvane["kindLabel"]) == ("news", "News")
     assert corvane["tags"] == ["Packaging", "Restructuring"]  # the topic name is not repeated
@@ -450,7 +454,9 @@ def test_the_worst_state_with_every_ai_field_at_its_limit_stays_under_three_mib(
                     (ident, start.isoformat(), end.isoformat(), end.isoformat()),
                 )
                 issue = cur.lastrowid
-                db.execute("INSERT INTO digest_issue_ai VALUES(?, 60, ?)", (issue, CONFIG))
+                db.execute(
+                    "INSERT INTO digest_issue_ai VALUES(?, 60, ?, ?)", (issue, CONFIG, "x" * 600)
+                )
                 db.executemany(
                     "INSERT INTO digest_points VALUES(?, ?, ?, ?, ?)",
                     [(issue, n, lead, body, named) for n in range(1, 9)],

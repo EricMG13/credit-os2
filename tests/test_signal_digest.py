@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_ai_fakes import off_setup
 
 from deploy_workflow.signal import digests, groups, service, store, topics
 from deploy_workflow.signal.digests import Form
@@ -747,7 +748,7 @@ def issue_count(root: Path) -> int:
 
 
 def test_the_loop_runs_the_digests_that_are_due_next_to_the_ingest_pass(loop_root):
-    loop = service.Loop(loop_root)
+    loop = service.Loop(loop_root, ai=off_setup(loop_root))
     loop.run_once(at("2026-11-26 12:00"))
     assert issue_count(loop_root) == 0
     loop.run_once(at("2026-11-27 07:00"))
@@ -758,7 +759,7 @@ def test_the_loop_runs_the_digests_that_are_due_next_to_the_ingest_pass(loop_roo
 
 
 def test_a_failing_digest_job_does_not_stop_the_ingest_job_and_the_reverse(loop_root, monkeypatch):
-    loop = service.Loop(loop_root)
+    loop = service.Loop(loop_root, ai=off_setup(loop_root))
     ingested: list[datetime] = []
 
     def boom(*args: object, **kwargs: object) -> None:

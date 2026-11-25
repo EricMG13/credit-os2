@@ -78,7 +78,8 @@ def test_twenty_one_new_stories_take_two_calls(db, guard):
     ]
     assert [len(batch) for batch in sent] == [20, 1]
     assert sent[0] == [str(n) for n in made[:20]] and sent[1] == [str(made[20])]
-    assert model.released == ["signal-stories-1", "signal-stories-2"]
+    tag = ai_ledger.store_id(db)
+    assert model.released == [f"signal-stories-{tag}-1", f"signal-stories-{tag}-2"]
     assert ai_pass.pending(db, NOW) == []  # every story has its answer now
     assert ai_pass.run(db, model, guard, NOW).calls == 0
 

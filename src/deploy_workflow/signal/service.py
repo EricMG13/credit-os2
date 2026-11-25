@@ -283,11 +283,12 @@ def _focus_id(req: _Req, name: str) -> int | None:
 def _snapshot(req: _Req) -> _Reply:
     failed = req.loop is not None and req.loop.last_error is not None
     focus = snapshot.Focus(_focus_id(req, "topic"), _focus_id(req, "thread"))
-    now = datetime.now(UTC)
-    ai = None if req.loop is None else req.loop.ai_status(req.db, now)
+    ai = None if req.loop is None else req.loop.ai_status(req.db, datetime.now(UTC))
     state = snapshot.Service(pass_failed=failed, ai=ai)
-    built = snapshot.build(req.db, req.user, now, focus=focus, service=state)
-    return _Reply(200, {**built, "asOf": store._utc_text(now)})
+    # The clock is read inside the snapshot's read transaction: its `asOf` is never earlier than
+    # a comment the snapshot holds.
+    built = snapshot.build(req.db, req.user, lambda: datetime.now(UTC), focus=focus, service=state)
+    return _Reply(200, built)
 
 
 _ROUTES: tuple[_Route, ...] = (
@@ -423,7 +424,11 @@ def serve(root: Path, host: str, port: int, *, tick: float = 60.0) -> int:
         print(f"cannot listen on {host}:{port}: {error}", file=sys.stderr)
         return 2
     try:
-        store.open_db(root).close()  # a store that cannot be opened fails here, not per request
+        db = store.open_db(root)  # a store that cannot be opened fails here, not per request
+        try:
+            ai_run.recover(db, loop.ai)  # calls and digest runs a stop or crash cut short
+        finally:
+            db.close()
     except (OSError, sqlite3.Error, store.StoreError) as error:
         server.server_close()
         print(f"cannot open the store under {root}: {error}", file=sys.stderr)

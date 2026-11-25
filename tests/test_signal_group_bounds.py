@@ -409,12 +409,34 @@ def _seed_groups(db: sqlite3.Connection, spare: list[int]) -> tuple[int, int]:
     return newest, full
 
 
+def _seed_sources(db: sqlite3.Connection, count: int = 1000) -> None:
+    """`count` more approved sources (names, proposers and failure reasons at their limits), each
+    with a failed check and a story: far more than Settings delivers rows for."""
+    for n in range(2, 2 + count):
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES(?, 'news', ?, 'approved', ?, ?)",
+            (_long(f"{n:04d}", 80), f"https://s{n}.example/feed", _long("", 60), _stamp(days=50)),
+        )
+        db.execute(
+            "INSERT INTO source_checks(source_id, at, ok, reason, new_stories)"
+            " VALUES(?, ?, 0, ?, 0)",
+            (n, _stamp(minutes=5), "feed is not well-formed XML: " + LETTER * 200),
+        )
+        db.execute(
+            "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(?, 't', 'l', ?, ?, ?, ?, '')",
+            (n, f"sk{n}", f"st{n}", _stamp(days=1), _stamp()),
+        )
+
+
 @pytest.fixture(scope="module")
 def worst(tmp_path_factory: pytest.TempPathFactory) -> Any:
     held = open_db(tmp_path_factory.mktemp("worst"))
     with held:
         spare = _seed_stories(held)
         ids = _seed_groups(held, spare)
+        _seed_sources(held)
     yield held, ids
     held.close()
 
@@ -440,6 +462,8 @@ def test_the_worst_reachable_store_stays_under_the_cap_for_every_viewer(worst):
     seconds: list[float] = []
     snap = _read(db, MARA, seconds=seconds)
     assert seconds[0] < 2  # the build alone
+    assert len(snap["settings"]["sources"]) == snapshot.MAX_SOURCES  # of 1,001 sources
+    assert snap["settings"]["sourcesMore"].startswith("Showing 200 of 1,001 sources")
     views = snap["feed"]["views"]
     assert len(views["saved"]["latest"]) > 0
     first = snap["threads"][0]
@@ -464,12 +488,13 @@ def test_the_worst_store_stays_under_the_cap_with_the_ai_pass_on(tmp_path):
     with db:
         spare = _seed_stories(db)
         _seed_groups(db, spare)
+        _seed_sources(db)
     _ai_everywhere(db)
     on = status_on()
     seconds: list[float] = []
     snap = _read(db, MARA, ai=on, seconds=seconds)
     assert seconds[0] < 2
-    assert snap["feed"]["stories"][0]["ai"] == {"line": LETTER * 240}
+    assert snap["feed"]["stories"][0]["ai"]["line"] == LETTER * 240
     assert all(page["threads"] for page in snap["groups"])
     for viewer in (STRANGER, INES, None):
         _read(db, viewer, ai=on)
@@ -824,3 +849,210 @@ def test_a_thread_whose_comments_cannot_fit_is_not_drawn_to_find_out(db):
     db.set_trace_callback(None)
     tops = f"SELECT * FROM comments WHERE thread_id={fat} AND parent_id IS NULL"
     assert not [sql for sql in statements if sql.startswith(tops)]
+
+
+# The floor is fair (review finding F5: a writer who made 99 groups and added the victim to all of
+# them cut the victim's desk to 3 of its 5 newest threads, because the floor was paid group by group
+# in page order)
+
+
+def _crowd(db: sqlite3.Connection, count: int, *, per_group: int = 30, member: bool = True) -> None:
+    """`count` groups named to sort before "Zeta desk", each of `per_group` threads whose notes
+    are at their limit; Tobias O is a member of each if `member`."""
+    with db:
+        for g in range(count):
+            made = db.execute(
+                "INSERT INTO groups(name, visibility, created_by, created_at)"
+                " VALUES(?, ?, 'Ines K', ?)",
+                (
+                    _long(f"A{g:02d}", groups.MAX_GROUP_NAME),
+                    "invited" if member else "everyone",
+                    _stamp(),
+                ),
+            ).lastrowid
+            if member:
+                db.execute("INSERT INTO group_members VALUES(?, 'Tobias O')", (made,))
+            db.executemany(
+                "INSERT INTO threads(group_id, created_at, created_by, note, last_activity_at)"
+                " VALUES(?, ?, 'Ines K', ?, ?)",
+                [
+                    (made, _stamp(minutes=1 + n), LONGEST, _stamp(minutes=1 + n))
+                    for n in range(per_group)
+                ],
+            )
+
+
+def _zeta_desk(db: sqlite3.Connection) -> int:
+    """The victim's desk, sorting after every crowd group: five threads of 200-character notes
+    (maximal four-byte letters), two hours old, each with one short comment."""
+    desk = groups.create_group(db, MARA, "Zeta desk", "invited")
+    groups.add_member(db, MARA, desk, "Mara L")
+    groups.add_member(db, MARA, desk, "Tobias O")
+    for n in range(5):
+        note = (LETTER * 196) + f" n{n}"
+        made, _ = threads.share(db, MARA, desk, threads.Item(None, note), _ago(hours=2))
+        threads.comment(db, MARA, made, "An ordinary comment.", _ago(hours=2))
+    return desk
+
+
+def test_a_desk_among_a_hundred_groups_that_sort_before_it_delivers_its_newest_five(db):
+    desk = _zeta_desk(db)
+    _crowd(db, 99)
+    snap = _read(db, TOBIAS)
+    page = _page(snap, "Zeta desk")
+    assert [item["note"][-2:] for item in page["threads"]] == ["n4", "n3", "n2", "n1", "n0"]
+    assert page["more"] is None
+    assert len(_desk_threads(snap, desk)) == 5
+
+
+def test_every_group_of_a_full_crowd_delivers_the_same_newest_threads_at_least(db):
+    """100 groups with 30 notes at their limit each, all the viewer's: the floor budget is 100
+    equal shares and each group's newest threads (summaries of 2.8 KB at most) fill its share, so
+    every group, the last by name too, delivers at least 3 of its newest."""
+    _crowd(db, 100)
+    snap = _read(db, TOBIAS)
+    counts = [len(page["threads"]) for page in snap["groups"]]
+    assert len(counts) == 100 and min(counts) >= 3 and max(counts) <= 30
+    assert counts[0] == counts[-1] or abs(counts[0] - counts[-1]) <= 1  # no group is starved
+
+
+def test_with_seventy_groups_of_the_largest_notes_every_group_delivers_all_five(db):
+    """The guarantee, stated in the module docstring: 5 summaries of 2.8 KB fit the equal share of
+    70 groups (about 15 KB) and not that of 100 (about 10 KB: 3, above)."""
+    _crowd(db, 70)
+    snap = _read(db, TOBIAS)
+    assert [len(page["threads"]) >= 5 for page in snap["groups"]] == [True] * 70
+
+
+def test_a_group_with_nothing_to_deliver_gives_its_share_to_the_others(db):
+    """Ninety groups of no thread, ten of 30 maximal notes: the ten spend the unused shares, so
+    each delivers its full floor of five."""
+    for g in range(90):
+        groups.create_group(db, INES, f"B{g:02d} empty", "everyone")
+    _crowd(db, 10, member=False)
+    counts = [len(_page(_read(db, STRANGER), _long(f"A{g:02d}", 60))["threads"]) for g in range(10)]
+    assert all(n >= 5 for n in counts)
+
+
+def test_one_groups_floor_never_spends_another_groups_share(db, monkeypatch):
+    """With the budget cut to four groups' worth of fixed text and three summaries' worth of
+    floor, a heavy group sorting first takes its own share and no more; the light group sorting
+    last still gets its five."""
+    from deploy_workflow.signal import group_view
+
+    heavy = groups.create_group(db, MARA, "A heavy", "everyone")
+    light = groups.create_group(db, MARA, "Z light", "everyone")
+    _notes(db, heavy, 10)
+    for n in range(5):
+        threads.share(db, MARA, light, threads.Item(None, f"Light {n}"), _ago(hours=n + 1))
+    pages = group_view.build(db, STRANGER, NOW).settings_groups
+    rows = group_view._ordered(db, [heavy, light])
+    fixed = group_view.encoded_size(pages) + sum(
+        group_view._page_cost(group_view._page(db, row)) for row in rows
+    )
+    monkeypatch.setattr(group_view, "GROUP_BUDGET", fixed + 6_000)  # about 5 maximal summaries
+    monkeypatch.setattr(group_view, "SUMMARY_BUDGET", 0)
+    snap = _read(db, STRANGER)
+    assert [t["note"] for t in _page(snap, "Z light")["threads"]] == [
+        f"Light {n}" for n in range(5)
+    ]
+    delivered = len(_page(snap, "A heavy")["threads"])
+    assert 1 <= delivered <= 3  # its half of the floor budget, then what Z light leaves over
+
+
+@settings(max_examples=25, deadline=None)
+@given(
+    st.integers(2, 12),  # identical groups
+    st.integers(1, 8),  # threads in each
+    st.sampled_from(["short", "A note of a few words " * 8, LONGEST]),
+    st.integers(0, 60_000),  # bytes of budget beyond the fixed parts
+)
+def test_identical_groups_get_the_same_floor_whatever_their_names_sort_to(
+    tmp_path_factory, count, per_group, note, extra
+):
+    """The floor is paid by shares, not in page order: groups holding the same threads deliver
+    counts that differ by at most one (the round-robin's last place), each a contiguous run of
+    its newest threads, and the whole stays within the budget."""
+    from deploy_workflow.signal import group_view
+
+    held = open_db(tmp_path_factory.mktemp("same"))
+    with held:
+        for g in range(count):
+            gid = held.execute(
+                "INSERT INTO groups(name, visibility, created_by, created_at)"
+                " VALUES(?, 'everyone', 'x', ?)",
+                (f"G{g:02d}", _stamp()),
+            ).lastrowid
+            held.executemany(
+                "INSERT INTO threads(group_id, created_at, created_by, note, last_activity_at)"
+                " VALUES(?, ?, 'Ines K', ?, ?)",
+                [(gid, _stamp(minutes=n), note, _stamp(minutes=n)) for n in range(per_group)],
+            )
+    parts = group_view.build(held, STRANGER, NOW)
+    fixed = group_view.encoded_size(parts.settings_groups) + sum(
+        group_view._page_cost(group_view._page(held, row))
+        for row in group_view._ordered(held, groups.visible_group_ids(held, STRANGER.name))
+    )
+    tight = group_view.GROUP_BUDGET
+    try:
+        group_view.GROUP_BUDGET = fixed + extra
+        group_view.SUMMARY_BUDGET = 0
+        parts = group_view.build(held, STRANGER, NOW)
+    finally:
+        group_view.GROUP_BUDGET, group_view.SUMMARY_BUDGET = tight, 128 << 10
+    sizes = [len(page["threads"]) for page in parts.groups]
+    assert max(sizes) - min(sizes) <= 1
+    for page in parts.groups:
+        newest_first = [item["lastActivity"] for item in page["threads"]]
+        assert newest_first == sorted(newest_first, key=lambda t: _ages(t))
+    assert parts.spent <= fixed + extra
+    held.close()
+
+
+def _ages(text: str) -> float:
+    """The minutes a "lastActivity" text such as "5 min ago" or "Just now" stands for."""
+    words = text.split()
+    return 0.0 if text == "Just now" else float(words[0])
+
+
+def test_the_floor_is_paid_before_any_thread_is_upgraded_to_its_whole_note(db, monkeypatch):
+    """What the groups leave of their shares is spent on the floor first. A heavy group (five
+    notes at the limit) and three light ones (a short note each): after the heavy group's share
+    (four summaries) and the light threads the budget leaves room for one whole note but not for
+    it and a fifth summary. The fifth summary goes first; no note is upgraded."""
+    from deploy_workflow.signal import group_view
+
+    heavy = groups.create_group(db, MARA, "A heavy", "everyone")
+    lights = [groups.create_group(db, MARA, f"Z light {n}", "everyone") for n in range(3)]
+    _notes(db, heavy, 5)
+    for light in lights:
+        threads.share(db, MARA, light, threads.Item(None, "tiny"), _ago(hours=1))
+    pages = group_view.build(db, STRANGER, NOW).settings_groups
+    rows = group_view._ordered(db, [heavy, *lights])
+    fixed = group_view.encoded_size(pages) + sum(
+        group_view._page_cost(group_view._page(db, row)) for row in rows
+    )
+
+    def sizes(main: int, spare: int) -> tuple[int, int]:
+        """Bytes of the heavy group's newest thread and of a light one, as delivered."""
+        monkeypatch.setattr(group_view, "GROUP_BUDGET", main)
+        monkeypatch.setattr(group_view, "SUMMARY_BUDGET", spare)
+        snap = _read(db, STRANGER)
+        by_group = {page["name"]: page["threads"][0] for page in snap["groups"]}
+        records = {t["groupId"]: t for t in snap["threads"]}
+        first, other = (
+            group_view.encoded_size(by_group[name]) + group_view.encoded_size(records[str(gid)])
+            for name, gid in (("A heavy", heavy), ("Z light 0", lights[0]))
+        )
+        return first, other
+
+    whole, _ = sizes(fixed + 10**7, 0)  # room for everything: every note whole
+    unit, tiny = sizes(fixed, 10**7)  # no room for a whole note: every thread a summary
+    leftover = (whole - unit) + unit // 2  # room for a whole note, not for it and a summary
+    pool = 4 * unit + 3 * tiny + leftover
+    assert 4 * unit <= pool // 4 < 5 * unit  # the heavy group's share holds four summaries
+    monkeypatch.setattr(group_view, "GROUP_BUDGET", fixed + pool)
+    monkeypatch.setattr(group_view, "SUMMARY_BUDGET", 0)
+    snap = _read(db, STRANGER)
+    notes = [item["note"] for item in _page(snap, "A heavy")["threads"]]
+    assert len(notes) == 5 and LONGEST not in notes  # all five newest, none upgraded

@@ -258,17 +258,6 @@ def _point_story(row: sqlite3.Row, now: datetime) -> Json:
     }
 
 
-def _covers(db: sqlite3.Connection, digest: digests.Digest) -> str:
-    """The digest's covers as a phrase ("Shipping and Packaging"); empty for all stories."""
-    if digest.spec.covers_all:
-        return ""
-    names = [
-        text.removeprefix(digests.TOPIC_PREFIX).removeprefix(digests.GROUP_PREFIX)
-        for text in digests.cover_texts(db, digest)
-    ]
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
-
-
 def _written(
     db: sqlite3.Connection, digest: digests.Digest, issues: list[digests.Issue], now: datetime
 ) -> dict[int, Written]:
@@ -277,11 +266,13 @@ def _written(
     if not ids:
         return {}
     marks = ", ".join("?" * len(ids))
-    counts = dict(
-        db.execute(
-            f"SELECT issue_id, stories FROM digest_issue_ai WHERE issue_id IN ({marks})", ids
+    held = {
+        int(row["issue_id"]): (int(row["stories"]), str(row["covers"]))
+        for row in db.execute(
+            f"SELECT issue_id, stories, covers FROM digest_issue_ai WHERE issue_id IN ({marks})",
+            ids,
         ).fetchall()
-    )
+    }
     rows = db.execute(
         f"SELECT * FROM digest_points WHERE issue_id IN ({marks}) ORDER BY issue_id, number", ids
     ).fetchall()
@@ -295,7 +286,6 @@ def _written(
             (json.dumps(named),),
         ).fetchall()
     }
-    covers = _covers(db, digest)
     points: dict[int, list[tuple[int, str, str, tuple[Json, ...], int]]] = {n: [] for n in ids}
     for row in rows:
         behind = [stories[n] for n in json.loads(row["story_ids"]) if n in stories]
@@ -303,7 +293,9 @@ def _written(
         points[row["issue_id"]].append(
             (row["number"], row["lead"], row["body"], shown, len(behind))
         )
-    return {n: Written(int(counts.get(n, 0)), covers, tuple(points[n])) for n in ids if points[n]}
+    return {
+        n: Written(*held.get(n, (0, "")), tuple(points[n])) for n in ids if points[n]
+    }  # each issue says what it covered when it was written
 
 
 # The form

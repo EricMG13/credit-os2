@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_ai_fakes import off_setup
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_service import Live
 
@@ -766,7 +767,7 @@ def test_the_digests_in_the_snapshot_are_the_viewers_only_and_survive_a_restart(
 def test_a_failing_digest_job_is_shown_by_status_but_is_not_an_ingest_failure(root, monkeypatch):
     from deploy_workflow.signal import digests, service
 
-    loop = service.Loop(root)
+    loop = service.Loop(root, ai=off_setup(root))
     live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
     try:
 

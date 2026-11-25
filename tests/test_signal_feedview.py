@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -259,3 +260,94 @@ def test_every_plan_gives_the_ids_and_order_of_reading_every_story(tmp_path, sto
     assert new_count(db, "ak", "saved", 0) == len(members)
     assert new_count(db, "ak", "topic:1", 10) == len([n for n in members if n > 10])
     db.close()
+
+
+# Review doubt: 50 followed topics of 200,000 old members each took 6 s (For you read every member)
+
+
+def _work(db: sqlite3.Connection, view: str) -> int:
+    """How many hundreds of virtual-machine steps SQLite took to read the view's 120 newest ids."""
+    from deploy_workflow.signal import feedview
+
+    counted = [0]
+
+    def tick() -> int:
+        counted[0] += 1
+        return 0
+
+    db.set_progress_handler(tick, 100)
+    feedview.view_ids(db, "ak", view, 120)
+    db.set_progress_handler(None, 0)
+    return counted[0]
+
+
+def test_a_view_of_more_members_than_it_reads_is_walked_over_the_newest_window(
+    tmp_path, monkeypatch
+):
+    from deploy_workflow.signal import feedview
+
+    monkeypatch.setattr(feedview, "MEMBERS_READ", 30)
+    monkeypatch.setattr(feedview, "WINDOW", 50)
+    # 200 stories, story n the n-th oldest; topic 1: 40 old members and 5 within the newest 50.
+    db = _stale_store(tmp_path, 200, [*range(1, 41), *range(191, 196)])
+    seen: list[str] = []
+    db.set_trace_callback(seen.append)
+    assert feedview.view_ids(db, "ak", "topic:1", 3) == [195, 194, 193]
+    assert feedview.view_ids(db, "ak", "topic:1", 8) == [195, 194, 193, 192, 191]  # no older ones
+    db.set_trace_callback(None)
+    assert not any("CROSS JOIN stories" in sql for sql in seen)  # never read from the members
+    assert sum("LIMIT 31)" in sql for sql in seen) == 2  # counted no further than MEMBERS_READ + 1
+    # With the bound a view of 45 members is not one: raised to 50, it is read from its members.
+    monkeypatch.setattr(feedview, "MEMBERS_READ", 50)
+    assert feedview.view_ids(db, "ak", "topic:1", 8) == [195, 194, 193, 192, 191, 40, 39, 38]
+
+
+def test_for_you_is_the_newest_of_the_followed_topics_and_the_shared_stories(tmp_path):
+    from deploy_workflow.signal import feedview
+
+    db = _stale_store(tmp_path, 100, [10, 20])
+    with db:
+        db.execute("INSERT INTO topics VALUES(2, 'Second', '[]', '[]', 'x', 'x')")
+        db.execute("INSERT INTO topics VALUES(3, 'Unfollowed', '[]', '[]', 'x', 'x')")
+        db.executemany("INSERT INTO topic_stories VALUES(2, ?)", [(15,), (30,)])
+        db.executemany("INSERT INTO topic_stories VALUES(3, ?)", [(99,)])
+        db.execute("INSERT INTO topic_follows VALUES('ak', 2)")
+        db.execute("INSERT INTO groups VALUES(1, 'Desk', 'everyone', 'x', 'x')")
+        db.execute("INSERT INTO group_members VALUES(1, 'ak')")
+        db.execute("INSERT INTO groups VALUES(2, 'Other', 'everyone', 'x', 'x')")
+        for story, group in ((25, 1), (80, 2), (25, 2), (None, 1)):
+            db.execute(
+                "INSERT INTO threads(group_id, story_id, created_at, note, last_activity_at)"
+                " VALUES(?, ?, 'x', 'n', 'x')",
+                (group, story),
+            )
+    assert feedview.view_ids(db, "ak", "foryou", 3) == [30, 25, 20]
+    assert feedview.view_ids(db, "ak", "foryou", 10) == [30, 25, 20, 15, 10]
+
+
+def test_the_work_of_a_big_topic_view_and_of_for_you_does_not_grow_with_its_members(
+    tmp_path, monkeypatch
+):
+    from deploy_workflow.signal import feedview
+
+    monkeypatch.setattr(feedview, "MEMBERS_READ", 500)
+    monkeypatch.setattr(feedview, "WINDOW", 1000)
+    work = []
+    for members in (3000, 9000):  # all older than the newest 1,000 of 10,000 stories
+        db = _stale_store(Path(tempfile.mkdtemp(dir=tmp_path)), 10000, [])
+        with db:
+            for topic in range(1, 9):
+                db.execute(
+                    "INSERT OR IGNORE INTO topics VALUES(?, ?, '[]', '[]', 'x', 'x')",
+                    (topic, f"T{topic}"),
+                )
+                db.execute("INSERT OR IGNORE INTO topic_follows VALUES('ak', ?)", (topic,))
+                db.executemany(
+                    "INSERT INTO topic_stories VALUES(?, ?)",
+                    [(topic, n) for n in range(1, members + 1)],
+                )
+        work.append((_work(db, "topic:1"), _work(db, "foryou")))
+        db.close()
+    (topic_small, for_you_small), (topic_big, for_you_big) = work
+    assert topic_big <= topic_small * 1.1 + 2
+    assert for_you_big <= for_you_small * 1.1 + 2

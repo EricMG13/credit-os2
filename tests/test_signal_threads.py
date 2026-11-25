@@ -480,13 +480,17 @@ def test_a_topic_post_into_a_full_group_takes_the_place_of_its_oldest_quiet_topi
         (third,),
     ]
     talked = int(rows(db, "SELECT id FROM threads WHERE story_id=?", second)[0][0])
-    threads.comment(db, MARA, talked, "Worth a look.", NOW)
+    # Commented just after it was posted, so it stays the oldest by activity: only its comment
+    # keeps it (the next post must take the newer, quiet one).
+    threads.comment(db, MARA, talked, "Worth a look.", NOW - timedelta(hours=1, minutes=-3))
     (fourth,) = _topic_stories(db, 1)  # the commented post and the note stay; the next goes
     assert rows(db, "SELECT story_id FROM threads WHERE group_id=1 ORDER BY id") == [
         (second,),
         (None,),
         (fourth,),
     ]
+    fourth_thread = int(rows(db, "SELECT id FROM threads WHERE story_id=?", fourth)[0][0])
+    threads.comment(db, MARA, fourth_thread, "And this one.", NOW)  # no quiet topic post is left
     with pytest.raises(Conflict, match="this group holds 3 threads, the most it can hold"):
         threads.share(db, MARA, 1, threads.Item(None, "One more note"), NOW)
     assert note == 3
@@ -581,3 +585,128 @@ def test_two_groups_with_different_rules_behave_differently(db):
     with pytest.raises(Conflict, match="archived"):
         threads.comment(db, MARA, desk, "Too late", later)
     threads.comment(db, INES, closed, "Still open", later)
+
+
+def test_a_person_can_start_a_thread_in_a_group_its_topics_filled(db, monkeypatch):
+    """Review finding F2: once a topic-fed group held its maximum of threads, no person could post
+    in it again, because the topic's posts kept it full. A person's new thread takes the place of
+    the group's oldest topic post that holds no comment, in the same transaction; with none to
+    take it is refused."""
+    monkeypatch.setattr(groups, "MAX_THREADS", 3)
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    first, second, third = _topic_stories(db, 3)
+    talked = int(rows(db, "SELECT id FROM threads WHERE story_id=?", first)[0][0])
+    threads.comment(db, MARA, talked, "Mine, keep it.", NOW)
+    note, joined = threads.share(db, MARA, 1, threads.Item(None, "Agenda for Thursday"), NOW)
+    assert (note, joined) == (4, False)
+    assert rows(db, "SELECT story_id, note FROM threads WHERE group_id=1 ORDER BY id") == [
+        (first, None),
+        (third, None),
+        (None, "Agenda for Thursday"),
+    ]  # the commented post stayed; the oldest one without a comment (second) went
+    assert rows(db, "SELECT story_id FROM threads WHERE story_id=?", second) == []
+    assert rows(
+        db, "SELECT COUNT(*) FROM read_marks WHERE thread_id NOT IN (SELECT id FROM threads)"
+    ) == [(0,)]
+    # A story shared by a person into the full group takes a place the same way.
+    shared, _ = threads.share(db, INES, 1, threads.Item(1, "Worth a look."), NOW)
+    assert rows(db, "SELECT story_id FROM threads WHERE group_id=1 AND id=?", shared) == [(1,)]
+    assert rows(db, "SELECT story_id FROM threads WHERE group_id=1 AND story_id=?", third) == []
+    # Now the group holds the commented post, a note and a shared story: nothing is evictable.
+    with pytest.raises(Conflict, match="this group holds 3 threads, the most it can hold"):
+        threads.share(db, MARA, 1, threads.Item(None, "No room"), NOW)
+    assert rows(db, "SELECT COUNT(*) FROM threads WHERE group_id=1") == [(3,)]
+    # The group's other thread (in Closed) is untouched by all of this.
+    assert rows(db, "SELECT COUNT(*) FROM threads WHERE group_id=2") == [(0,)]
+
+
+def test_a_refused_thread_in_a_full_group_evicts_nothing(db, monkeypatch):
+    monkeypatch.setattr(groups, "MAX_THREADS", 2)
+    threads.share(db, MARA, 1, threads.Item(None, "One"), NOW)
+    threads.share(db, MARA, 1, threads.Item(None, "Two"), NOW)
+    with pytest.raises(Conflict):
+        threads.share(db, MARA, 1, threads.Item(1, "A story"), NOW)
+    assert rows(db, "SELECT note FROM threads ORDER BY id") == [("One",), ("Two",)]
+
+
+def test_a_persons_share_of_a_story_a_topic_posted_makes_the_thread_theirs_and_keeps_it(
+    db, monkeypatch
+):
+    """Review finding F1: a share that joined a topic-posted thread without a note recorded
+    nothing, so the thread still counted as an unanswered topic post and was evicted. The share is
+    recorded as the thread's sharer; the thread nobody shared keeps its topic."""
+    from deploy_workflow.signal import group_view
+
+    monkeypatch.setattr(groups, "MAX_THREADS", 3)
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    first, second, third = _topic_stories(db, 3)
+    # Shared a second after the first post: still older than the other posts, so the oldest.
+    at = NOW - timedelta(hours=1) + timedelta(minutes=2, seconds=1)
+    mine, joined = threads.share(db, MARA, 1, threads.Item(first), at)
+    assert joined
+    assert rows(db, "SELECT created_by, topic_id FROM threads WHERE id=?", mine) == [
+        ("Mara L", None)
+    ]
+    parts = group_view.build(db, TOBIAS, NOW)
+    labels = {one["storyId"]: one["sharedBy"]["label"] for one in parts.groups[0]["threads"]}
+    assert labels == {
+        str(first): "Shared by Mara L, 57 min ago",
+        str(second): "Posted from the topic Plants, 57 min ago",
+        str(third): "Posted from the topic Plants, 56 min ago",
+    }
+    assert parts.on_story[first]["sharedBy"]["label"] == "Shared to Desk by Mara L"
+    assert parts.on_story[second]["sharedBy"] is None
+    (fourth,) = _topic_stories(db, 1)  # full: the oldest quiet topic post goes, never the share
+    assert rows(db, "SELECT story_id FROM threads WHERE group_id=1 ORDER BY id") == [
+        (first,),
+        (third,),
+        (fourth,),
+    ]
+
+
+def test_sharing_into_a_topic_post_that_others_commented_on_still_records_the_share(db):
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    (first,) = _topic_stories(db, 1)
+    thread = int(rows(db, "SELECT id FROM threads WHERE story_id=?", first)[0][0])
+    threads.comment(db, MARA, thread, "Mine.", NOW)
+    assert threads.share(db, INES, 1, threads.Item(first), NOW) == (thread, True)
+    assert rows(db, "SELECT created_by, topic_id, last_activity_at FROM threads") == [
+        ("Ines K", None, NOW.isoformat())
+    ]
+    # A second person joining changes nothing: the thread keeps its first sharer.
+    assert threads.share(db, MARA, 1, threads.Item(first), NOW + timedelta(hours=1)) == (
+        thread,
+        True,
+    )
+    assert rows(db, "SELECT created_by FROM threads") == [("Ines K",)]
+
+
+def test_a_share_into_an_archived_topic_post_is_kept_but_does_not_reopen_it(db):
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    groups.set_rule(db, MARA, 1, "archive-quiet", True)
+    (first,) = _topic_stories(db, 1)
+    later = NOW + timedelta(days=120)
+    thread = int(rows(db, "SELECT id FROM threads WHERE story_id=?", first)[0][0])
+    stamp = rows(db, "SELECT last_activity_at FROM threads")
+    assert threads.share(db, INES, 1, threads.Item(first), later) == (thread, True)
+    assert rows(db, "SELECT created_by, last_activity_at FROM threads") == [("Ines K", stamp[0][0])]
+    row = db.execute("SELECT * FROM threads WHERE id=?", (thread,)).fetchone()
+    assert threads.archived_at(db, row, later) is not None
+
+
+def test_a_new_thread_in_a_full_group_never_takes_a_share_even_the_oldest_quiet_one(
+    db, monkeypatch
+):
+    """F1 and F2 together: the oldest quiet thread is a topic post someone shared into (so no
+    longer a topic post); the person's new thread takes the next quiet topic post instead."""
+    monkeypatch.setattr(groups, "MAX_THREADS", 3)
+    groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
+    first, _, third = _topic_stories(db, 3)
+    at = NOW - timedelta(hours=1) + timedelta(minutes=2, seconds=1)  # still the oldest
+    threads.share(db, INES, 1, threads.Item(first), at)
+    threads.share(db, MARA, 1, threads.Item(None, "A note"), NOW)
+    assert rows(db, "SELECT story_id, note FROM threads WHERE group_id=1 ORDER BY id") == [
+        (first, None),
+        (third, None),
+        (None, "A note"),
+    ]

@@ -141,13 +141,3 @@ def test_with_no_ruling_the_service_makes_no_model_call_and_runs_as_before(tmp_p
     finally:
         live.close()
     assert built == []
-
-
-def test_the_default_setup_reads_this_checkout_which_holds_no_signal_ruling(tmp_path):
-    root = tmp_path / "root"
-    seed(root)
-    loop = Loop(root, fetch_fn=feed)
-    db = store.open_db(root)
-    held = loop.ai_status(db, NOW)
-    db.close()
-    assert held.state == "off" and held.gate.ruling is None

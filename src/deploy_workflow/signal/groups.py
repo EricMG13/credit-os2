@@ -26,6 +26,7 @@ MAX_GROUPS = 100
 MAX_MEMBERS = 200
 MAX_GROUP_TOPICS = 20
 MAX_THREADS = 1000  # per group (threads.py refuses a new one beyond it)
+BATCH = 200  # threads one transaction of the owner's bulk deletes removes (the lock is then let go)
 _MAX_ID = 2**63 - 1
 
 
@@ -180,16 +181,30 @@ def delete_group(db: sqlite3.Connection, actor: User, group_id: int) -> None:
     remove_group(db, group_id, with_threads=False)
 
 
+def _delete_threads(db: sqlite3.Connection, group_id: int) -> None:
+    """Delete at most BATCH of the group's threads, with their comments, reactions, read marks."""
+    db.execute(
+        "DELETE FROM threads WHERE id IN (SELECT id FROM threads WHERE group_id=? LIMIT ?)",
+        (group_id, BATCH),
+    )
+
+
 def remove_group(db: sqlite3.Connection, group_id: int, *, with_threads: bool) -> None:
     """Delete a group; `with_threads` (the owner, on the command line) deletes its threads, their
-    comments, reactions and read marks with it, else a group that holds threads is refused."""
-    with _write_transaction(db):
-        require_group(db, group_id)
-        if with_threads:
-            db.execute("DELETE FROM threads WHERE group_id=?", (group_id,))
-        elif db.execute("SELECT 1 FROM threads WHERE group_id=?", (group_id,)).fetchone():
-            raise Conflict("a group that holds threads cannot be deleted")
-        db.execute("DELETE FROM groups WHERE id=?", (group_id,))  # digest covers go with it
+    comments, reactions and read marks with it, else a group that holds threads is refused. The
+    threads go BATCH at a time, each batch its own transaction (the write lock is let go between
+    them, so the service and the other writers carry on); the group goes with the last batch."""
+    while True:
+        with _write_transaction(db):
+            require_group(db, group_id)
+            if with_threads:
+                _delete_threads(db, group_id)
+            if db.execute("SELECT 1 FROM threads WHERE group_id=?", (group_id,)).fetchone():
+                if not with_threads:
+                    raise Conflict("a group that holds threads cannot be deleted")
+                continue
+            db.execute("DELETE FROM groups WHERE id=?", (group_id,))  # digest covers go with it
+            return
 
 
 def set_visibility(db: sqlite3.Connection, actor: User, group_id: int, visibility: object) -> None:

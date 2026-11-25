@@ -210,6 +210,8 @@ CREATE INDEX idx_comments_thread_id ON comments(thread_id, created_at);
 CREATE INDEX idx_comments_parent_id ON comments(parent_id, created_at);
 CREATE INDEX idx_group_topics_topic_id ON group_topics(topic_id);
 CREATE INDEX idx_group_members_user ON group_members(user_name);
+CREATE INDEX idx_read_marks_thread ON read_marks(thread_id);
+CREATE INDEX idx_threads_topic_id ON threads(topic_id);
 """
 
 # Digests, their covers and runs. A digest belongs to one user and is read by that user only, so an
@@ -222,7 +224,7 @@ CREATE INDEX idx_group_members_user ON group_members(user_name);
 # rows with it (ON DELETE CASCADE): a digest never blocks a deletion.
 _MIGRATION_4 = """
 CREATE TABLE digests(
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     owner TEXT NOT NULL,
     name TEXT NOT NULL,
     cadence TEXT NOT NULL CHECK (cadence IN ('daily','weekly','monthly')),
@@ -282,13 +284,21 @@ CREATE INDEX idx_digest_runs_digest ON digest_runs(digest_id, id);
 
 # The AI pass (step 5). `story_ai`: one row per story the pass has answered for, 'written' (the
 # validated fields) or 'invalid' (the model's output for it failed its check: no AI field is kept,
-# and the story is not sent again). `ai_usage`: one row per model call, in USD as exact decimal
+# and the story is not sent again). `story_ai_tries`: a story still waiting for its answer that a
+# pass has sent: its paid attempts, the largest batch it may go in next (halved after a reply that
+# could not be read) and the time a pass claimed it for its call in flight. `ai_usage`: one row per
+# model call, in USD as exact decimal
 # text; `month` (UTC, YYYY-MM) is the month of its reservation, where it counts. A call is 'open'
 # while it holds its reservation, 'settled' at its actual cost, or 'unknown' (its cost could not be
 # established: it counts at its full reservation, never as zero). `settings`: the owner's monthly
 # cap, the switched-off state and the digest writer's calls a UTC day. `digest_points`: a written issue's numbered points, each with the
-# ids of the stories behind it; `digest_issue_ai` the issue's model and story count.
+# ids of the stories behind it; `digest_issue_ai` the issue's model, story count and what it
+# covered when it was written, in words (an old issue never depends on the digest's covers now).
 # `digests.run_requested_at`: "Run once now" asked while AI is on; the background loop runs it.
+# `digests.claimed_by`/`claimed_at`: a run whose model call is in flight (its trigger, its time), so
+# a run a crash cut short is found and recorded at the next start.
+# `meta.store_id`: a random id made with the store; a model call's exchange id carries it with the
+# call's id, so a re-created store never reuses an earlier store's ids (or their homes).
 _MIGRATION_5 = """
 CREATE TABLE story_ai(
     story_id INTEGER PRIMARY KEY REFERENCES stories(id),
@@ -307,6 +317,12 @@ CREATE TABLE story_ai(
     CHECK (outcome = 'written' OR stage IS NULL)
 );
 CREATE INDEX idx_story_ai_month ON story_ai(month, outcome);
+CREATE TABLE story_ai_tries(
+    story_id INTEGER PRIMARY KEY REFERENCES stories(id) ON DELETE CASCADE,
+    attempts INTEGER NOT NULL CHECK (attempts >= 0),
+    batch INTEGER NOT NULL CHECK (batch BETWEEN 1 AND 20),
+    claimed_at TEXT
+);
 CREATE TABLE ai_usage(
     id INTEGER PRIMARY KEY,
     purpose TEXT NOT NULL CHECK (purpose IN ('stories','digest')),
@@ -329,7 +345,8 @@ CREATE TABLE settings(
 CREATE TABLE digest_issue_ai(
     issue_id INTEGER PRIMARY KEY REFERENCES digest_issues(id) ON DELETE CASCADE,
     stories INTEGER NOT NULL,
-    config_id TEXT NOT NULL
+    config_id TEXT NOT NULL,
+    covers TEXT NOT NULL
 );
 CREATE TABLE digest_points(
     issue_id INTEGER NOT NULL REFERENCES digest_issues(id) ON DELETE CASCADE,
@@ -340,16 +357,24 @@ CREATE TABLE digest_points(
     PRIMARY KEY(issue_id, number)
 );
 ALTER TABLE digests ADD COLUMN run_requested_at TEXT;
+ALTER TABLE digests ADD COLUMN claimed_by TEXT CHECK (claimed_by IN ('schedule','manual'));
+ALTER TABLE digests ADD COLUMN claimed_at TEXT;
+INSERT INTO meta(key, value) VALUES ('store_id', lower(hex(randomblob(8))));
 """
 
 # Indexes the reads of a long-running service need on the tables of migrations 1 and 2: a
 # source's last check (``last_check``, the loop's due check every tick), the checks the ingest pass
-# prunes, and a source's recent stories and folded duplicates (``ingest.health``).
+# prunes, and a source's recent stories and folded duplicates (``ingest.health``); and the child
+# side of the foreign keys a delete follows (a topic's follows, a story's saves, a digest issue's
+# runs), so no delete scans a table (tests/test_signal_deletes.py checks every key).
 _MIGRATION_6 = """
 CREATE INDEX idx_source_checks_source_at ON source_checks(source_id, at, id);
 CREATE INDEX idx_stories_source_published ON stories(source_id, published_at);
 CREATE INDEX idx_story_duplicates_source_published
     ON story_duplicates(duplicate_source_id, published_at);
+CREATE INDEX idx_topic_follows_topic ON topic_follows(topic_id);
+CREATE INDEX idx_saves_story ON saves(story_id);
+CREATE INDEX idx_digest_runs_issue ON digest_runs(issue_id);
 """
 
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
@@ -430,7 +455,8 @@ def _check_made_here(db: sqlite3.Connection, folder: Path) -> None:
     version, recorded = _made_by(db)
     remedy = (
         f"delete the development store {folder / 'signal.db'} (with its -wal and -shm files)"
-        " or open it with the build that made it"
+        " or open it with the build that made it; deleting it also erases this store's record"
+        " of the month's AI spend, so its cap starts the month again from nothing"
     )
     if version > len(MIGRATIONS):
         raise StoreError(
@@ -556,19 +582,23 @@ _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 _ESCAPE = re.compile(r"%([0-9A-Fa-f]{2})")
-_UNRESERVED = frozenset(string.ascii_letters + string.digits + "-._~")
+# Characters whose escape is decoded: the unreserved ones but the dot. "%2E" stays an escape, so a
+# "%2e%2e" is never made a dot segment (and never merged with a literal "..", which a server may
+# read differently).
+_DECODED = frozenset(string.ascii_letters + string.digits + "-_~")
 
 
 def _escapes(text: str) -> str:
     """Percent-escapes in one spelling (RFC 3986 6.2.2): an unreserved character's decoded
-    ("%7E" is "~"), any other's hex in upper case ("%2f" is "%2F"). Text with a "%" that starts no
-    escape is left as it is: decoding next to it could make a new escape of other characters."""
+    ("%7E" is "~"; not the dot: "%2E" stays), any other's hex in upper case ("%2f" is "%2F"). Text
+    with a "%" that starts no escape is left as it is: decoding next to it could make a new
+    escape of other characters."""
     if "%" in _ESCAPE.sub("", text):
         return text
 
     def one(found: re.Match[str]) -> str:
         char = chr(int(found.group(1), 16))
-        return char if char in _UNRESERVED else "%" + found.group(1).upper()
+        return char if char in _DECODED else "%" + found.group(1).upper()
 
     return _ESCAPE.sub(one, text)
 
@@ -665,6 +695,78 @@ def set_source_state(db: sqlite3.Connection, source_id: int, state: str) -> None
         cur = db.execute("UPDATE sources SET state=? WHERE id=?", (state, source_id))
     if cur.rowcount == 0:
         raise StoreError(f"no source with id {source_id}")
+
+
+STORY_BATCH = 200  # stories one transaction of a source's removal deletes
+_STORY_DEPENDENTS = ("story_duplicates", "topic_stories", "saves", "story_ai", "threads")
+
+
+def fresh_id(db: sqlite3.Connection, table: str) -> int:
+    """An id above every one `table` holds and every one removed from it (`retire_id`), for a table
+    whose ids the schema may reuse: a removed row's id is never given to another, so a page or a
+    saved reference to the old one never lands on the new. In the caller's write transaction."""
+    top = db.execute(f"SELECT COALESCE(MAX(id), 0) FROM {table}").fetchone()[0]
+    floor = db.execute("SELECT value FROM meta WHERE key=?", (f"{table}_floor",)).fetchone()
+    return max(int(top), int(floor[0]) if floor else 0) + 1
+
+
+def retire_id(db: sqlite3.Connection, table: str, highest: int) -> None:
+    """Note that `table` held an id up to `highest` (before removing rows), for ``fresh_id``."""
+    db.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE"
+        " SET value = CAST(MAX(CAST(value AS INTEGER), CAST(excluded.value AS INTEGER)) AS TEXT)",
+        (f"{table}_floor", str(highest)),
+    )
+
+
+def remove_source(db: sqlite3.Connection, source_id: int, *, with_stories: bool) -> int:
+    """Delete a source with its checks and the copies it folded into other stories (the owner, on
+    the command line); returns how many stories went. A source that has stories is refused
+    (Conflict) unless `with_stories`, which deletes them too, with their topic matches, saves,
+    folded copies, AI rows and group threads (comments, reactions and read marks with them),
+    STORY_BATCH stories per transaction so the write lock is let go between batches. The source is
+    paused first, so no fetch adds to it meanwhile; its stories' ids are never given again."""
+    gone = 0
+    while True:
+        with _write_transaction(db):
+            row = db.execute("SELECT 1 FROM sources WHERE id=?", (source_id,)).fetchone()
+            if row is None:
+                raise Missing(f"no source with id {source_id}")
+            held = db.execute("SELECT COUNT(*) FROM stories WHERE source_id=?", (source_id,))
+            count = int(held.fetchone()[0])
+            if count and not with_stories:
+                raise Conflict(
+                    f"source {source_id} has {count:,} stories; remove them with it using"
+                    " --with-stories"
+                )
+            if count:
+                db.execute("UPDATE sources SET state='paused' WHERE id=?", (source_id,))
+                gone += _remove_stories(db, source_id)
+                continue
+            for table, column in (
+                ("story_duplicates", "duplicate_source_id"),
+                ("source_checks", "source_id"),
+            ):
+                db.execute(f"DELETE FROM {table} WHERE {column}=?", (source_id,))
+            db.execute("DELETE FROM sources WHERE id=?", (source_id,))
+            return gone
+
+
+def _remove_stories(db: sqlite3.Connection, source_id: int) -> int:
+    """Delete up to STORY_BATCH of the source's stories with what hangs on them; how many."""
+    ids = [
+        int(row[0])
+        for row in db.execute(
+            "SELECT id FROM stories WHERE source_id=? ORDER BY id LIMIT ?",
+            (source_id, STORY_BATCH),
+        )
+    ]
+    marks = ", ".join("?" * len(ids))
+    retire_id(db, "stories", max(ids))
+    for table in _STORY_DEPENDENTS:
+        db.execute(f"DELETE FROM {table} WHERE story_id IN ({marks})", ids)
+    db.execute(f"DELETE FROM stories WHERE id IN ({marks})", ids)
+    return len(ids)
 
 
 def sources(db: sqlite3.Connection, state: str | None = None) -> list[sqlite3.Row]:
@@ -782,9 +884,10 @@ def _fold_or_insert(
         )
         return "duplicate"
     db.execute(
-        "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
-        " fetched_at, summary) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO stories(id, source_id, title, link, link_key, title_key, published_at,"
+        " fetched_at, summary) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
+            fresh_id(db, "stories"),
             source_id,
             entry.title,
             entry.link,

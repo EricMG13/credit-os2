@@ -204,16 +204,25 @@ QUEUED = (
     "The AI pass is writing this issue now. It appears here within a few minutes;"
     " nothing is written if no story is in scope."
 )
+QUEUED_TOMORROW = (
+    "Digests have made today's model calls, the most a day allows. This issue is written after"
+    " 00:00 UTC; nothing is written if no story is in scope."
+)
 
 
 def _run_digest(req: Req) -> Reply:
-    """ "Run once now". While AI is on the background loop runs it (``digests.request_run``), so
-    no model call is made in a request handler; otherwise it runs here, with no writer."""
+    """ "Run once now". While the AI gate is on (at its cap included) the background loop runs it
+    (``digests.request_run``), so no model call is made in a request handler; otherwise it runs
+    here, with no writer. Within
+    30 minutes of the digest's last run, or after a run whose paid call wrote no issue and before
+    its next scheduled time, it is refused (409, the sentence saying when it can run)."""
     now = _now()
     try:
-        if req.loop is not None and req.loop.ai_status(req.db, now).state == "on":
+        held = None if req.loop is None else req.loop.ai_status(req.db, now)
+        if held is not None and held.gate.on:  # on or at its cap: the loop decides when it runs
             digests.request_run(req.db, req.person.name, _number(req), now)
-            queued = {"outcome": "queued", "issueId": None, "stories": None, "message": QUEUED}
+            message = QUEUED_TOMORROW if held.day_full else QUEUED
+            queued = {"outcome": "queued", "issueId": None, "stories": None, "message": message}
             return Reply(200, queued)
         run = digests.run_now(req.db, req.person.name, _number(req), now)
     except store.StoreError as error:

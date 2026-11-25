@@ -56,27 +56,51 @@ def status(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_gate.Statu
     return ai_gate.status(db, now, setup.environ, setup.rulings_root)
 
 
+@dataclass(frozen=True)
+class Job:
+    """One job's model and the guard every one of its calls is checked against."""
+
+    model: ai_call.Model
+    guard: ai_call.Guard
+
+
 @contextmanager
-def session(db: sqlite3.Connection, now: datetime, setup: Setup) -> Iterator[ai_call.Model | None]:
-    """The model for one job while the pass is on, else None; closed when the job ends."""
+def session(db: sqlite3.Connection, now: datetime, setup: Setup) -> Iterator[Job | None]:
+    """The model for one job while the pass is on, else None. When the job ends the model is
+    closed (the adapter's exchanges are torn down) and the exchange homes its calls caused are
+    removed (``ai_call.remove_homes``)."""
     ai_ledger.expire(db, setup.clock())
     held = status(db, now, setup)
     if held.state != "on" or held.gate.config_id is None or held.gate.ruling is None:
         yield None
         return
-    model = setup.factory(held.gate.config_id, held.gate.ruling)
+    job = Job(setup.factory(held.gate.config_id, held.gate.ruling), setup.guard)
     try:
-        yield model
+        yield job
     finally:
-        close = getattr(model, "close", None)
-        if callable(close):
-            close()
+        close = getattr(job.model, "close", None)
+        try:
+            if callable(close):
+                close()
+        finally:
+            ai_call.remove_homes(job.guard)
+
+
+def recover(db: sqlite3.Connection, setup: Setup) -> tuple[int, int]:
+    """What a process does as it starts (``service.serve``, ``signal ai pass``): every open
+    reservation older than the adapter's own bound on a call (``ai_ledger.CALL_BOUND``) is
+    settled as unknown at its full hold, which switches the pass off; every digest run claimed
+    before then with no result is recorded as failed (``digests.recover_claims``). Younger ones are
+    left: another process may own them. (reservations settled, runs recorded)."""
+    now = setup.clock()
+    held = ai_ledger.expire(db, now, ai_ledger.CALL_BOUND)
+    return held, digests.recover_claims(db, now - ai_ledger.CALL_BOUND, now)
 
 
 def story_pass(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_pass.Report | None:
     """One pass over the new stories; None when the pass is not on."""
-    with session(db, now, setup) as model:
-        return None if model is None else ai_pass.run(db, model, setup.guard, now)
+    with session(db, now, setup) as job:
+        return None if job is None else ai_pass.run(db, job.model, job.guard, now)
 
 
 class DigestsLeftDue(RuntimeError):
@@ -89,12 +113,8 @@ def digest_pass(
 ) -> list[tuple[int, digests.Run]]:
     """The due digests, with the AI pass's writer while it is on. DigestsLeftDue when the pass
     left any due for the next tick, so the loop's digest error says so."""
-    with session(db, now, setup) as model:
-        writer = None if model is None else ai_digest.Writer(db, model, setup.guard, now)
-        if writer is not None and ai_ledger.digest_calls_on(db, setup.clock()) >= (
-            per_day := ai_ledger.digests_per_day(db)
-        ):
-            writer.stopped = ai_ledger.day_full(per_day)  # every due digest waits for tomorrow
+    with session(db, now, setup) as job:
+        writer = None if job is None else ai_digest.Writer(db, job.model, job.guard, now)
         ran = digests.run_due(db, now, writer)
     if ran.left_due:
         raise DigestsLeftDue(f"{len(ran.left_due)} digests were left due for the next tick")
