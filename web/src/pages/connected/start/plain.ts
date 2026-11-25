@@ -1,4 +1,10 @@
-import { issuerSlug, moduleName, serviceText, type DocumentRecord } from "../api";
+import {
+  issuerSlug,
+  moduleName,
+  serviceText,
+  type DocumentRecord,
+  type ReferencePortfolio,
+} from "../api";
 import { ASSUMPTIONS_TITLE, PINS } from "./assumptions";
 import { ROW_SPECS, type RowField, type RowKind } from "./rows";
 import {
@@ -76,6 +82,53 @@ export const ATTACHMENTS = {
   portfolio_workbook: "Portfolio workbook",
   prior_case: "Prior decision record",
 };
+/**
+ * The comparison portfolio: a reference portfolio the analyst supplies for one run, beside the
+ * standing three. Not the Portfolio workbook above, which is a document the run reads.
+ */
+export const COMPARISON_PORTFOLIO = "Comparison portfolio";
+export const COMPARISON_TITLE = "Compare against another portfolio (optional)";
+export const COMPARISON_EXPLANATION =
+  "The report compares this issuer with three standing portfolios: a CLO portfolio, a loan index and a high yield index. To compare it with a different portfolio as well, add that portfolio's holdings file here and give it a name. Accepted: a holdings file with its limits and mandate files (CSV or Excel), or an index holdings workbook. It is used for this run only.";
+export const COMPARISON_NAME = "Portfolio name";
+export const COMPARISON_HOLDS = "What it holds";
+export const COMPARISON_HOLDS_CHOICES = { "": "Not stated", loans: "Loans", bonds: "Bonds" };
+export const COMPARISON_NEEDS_NAME = "Give the comparison portfolio a name.";
+
+const counted = (count: number, one: string, many: string) =>
+  `${String(count)} ${count === 1 ? one : many}`;
+
+const comparisonDate = (portfolio: ReferencePortfolio) =>
+  portfolio.as_of ? `As of ${portfolio.as_of}.` : "The file does not state an as-of date.";
+
+/** What the service read from a comparison portfolio's files, one sentence per line. */
+export function comparisonFacts(portfolio: ReferencePortfolio): string[] {
+  const priced = ["Bid", "Ask", "Mid price", "Market value"].some((name) =>
+    portfolio.found.includes(name),
+  );
+  return [
+    comparisonDate(portfolio),
+    `${counted(portfolio.positions, "position", "positions")}.`,
+    portfolio.unpriced > 0
+      ? `${counted(portfolio.unpriced, "position has", "positions have")} no price.`
+      : priced
+        ? "Every position has a price."
+        : "The file has no price or market value column.",
+    portfolio.limits > 0
+      ? `${counted(portfolio.limits, "limit", "limits")} read.`
+      : "No limits were read.",
+    ...(portfolio.not_found.length
+      ? [`Not found in the file: ${portfolio.not_found.join(", ")}.`]
+      : []),
+  ];
+}
+
+/** The comparison portfolio on the review, in one line: its name, its date and its size. */
+export function comparisonLine(portfolio: ReferencePortfolio) {
+  const dated = portfolio.as_of ? `as of ${portfolio.as_of}` : "no as-of date stated";
+  return `${portfolio.name} · ${dated} · ${counted(portfolio.positions, "position", "positions")}`;
+}
+
 export const LISTED_EQUITY = "Listed equity";
 export const TICKER = "Ticker";
 export const CONTEXT_DETAILS = "Context details";

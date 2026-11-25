@@ -80,6 +80,7 @@ import {
 } from "./start/intake";
 import { type FieldKey, FieldProblem, refusedField, stepOfField, focusField } from "./start/fields";
 import { IntakePanels } from "./start/IntakePanels";
+import { useComparisonPortfolio } from "./start/referencePortfolio";
 import {
   useStepHistory,
   useLeaveWarning,
@@ -490,6 +491,9 @@ function IntakeForm({
       ignoredCopies,
     });
   const issuerNotice = useIssuerNotice(issuerId, identity.issuer_name);
+  const comparison = useComparisonPortfolio(() => {
+    clearProblem("reference_portfolio");
+  });
 
   function clearProblem(...fields: FieldKey[]) {
     setFieldError((previous) => previous?.without(fields));
@@ -589,11 +593,7 @@ function IntakeForm({
     const repeated = await checkRepeatedDocuments(files);
     setRepeatedContent(repeated);
     if (repeated.size > 0) throw new Error([...repeated.values()].join(" "));
-    if (!draftRef.current) {
-      const { id } = await createSubmission();
-      draftRef.current = { id, uploaded: new Map(), copied: false };
-    }
-    const draft = draftRef.current;
+    const draft = await openDraft();
     for (const { file, name } of incoming) {
       if (draft.uploaded.has(file)) continue;
       const result = await upload(draft.id, file, name);
@@ -623,6 +623,15 @@ function IntakeForm({
       setDocumentsCopied(true);
     }
     return { draft, result: await readDocuments(draft) };
+  }
+
+  /** The draft the uploads go to, made on first need. */
+  async function openDraft() {
+    if (!draftRef.current) {
+      const { id } = await createSubmission();
+      draftRef.current = { id, uploaded: new Map(), copied: false };
+    }
+    return draftRef.current;
   }
 
   /**
@@ -909,12 +918,18 @@ function IntakeForm({
     const answers = makeAnswers(result, details, await settleIssuerId());
     const noteAt = noteIndex(details, analystNote);
     const shownCap = capForPathway(caps, answers.context.run.pathway);
+    // The comparison portfolio is settled on the draft first, so the summary's digest covers it.
+    await comparison.settle(draft.id);
     const summary = await getSummary(draft.id, answers, shownCap).catch(
       async (failure: unknown) => {
         throw (await idProblem(failure)) ?? refusedField(failure, requested, noteAt) ?? failure;
       },
     );
     requireSummaryCap(summary, shownCap);
+    if (comparison.files.length > 0 && !summary.reference_portfolio)
+      throw new Error(
+        "This summary does not cover the comparison portfolio. Select Review run to request a new summary.",
+      );
     if (!summary.digest)
       throw new Error(
         "This summary could not be approved. Select Review run to request a new summary.",
@@ -1265,6 +1280,13 @@ function IntakeForm({
     caps,
     synthetic,
     addFiles,
+    comparison: {
+      ...comparison,
+      read: () =>
+        void withDraft("documents", async () => {
+          await comparison.send((await openDraft()).id);
+        }),
+    },
     inspectDocuments,
     discardDocument: (name, file) => void discardDocument(name, file),
     changeIdentity,
@@ -1342,6 +1364,7 @@ function IntakeForm({
   // is made on More context, which opens only once a purpose has been chosen.
   const holdsWork = [
     documentRows.some((row) => !row.pendingCopy),
+    comparison.files.length > 0,
     ignoredCopies.length > 0,
     purposeChosen,
     review !== undefined,

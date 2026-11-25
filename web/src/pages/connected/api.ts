@@ -92,6 +92,34 @@ export type Summary = Reading & {
   prior?: { id: string; as_of: string; pathway: string } | null;
   model: string;
   effort: string;
+  /** The comparison portfolio this summary covers; absent when the run has none. */
+  reference_portfolio?: ReferencePortfolio;
+};
+/**
+ * A comparison portfolio as the service read it: a reference portfolio the analyst supplies for
+ * one run, beside the standing three. It is not the fund's Portfolio workbook and not a document
+ * the run reads.
+ */
+export type ReferencePortfolio = {
+  name: string;
+  /** The date the files state; null when they state none. */
+  as_of: string | null;
+  positions: number;
+  /** Positions with no price or market value. */
+  unpriced: number;
+  limits: number;
+  /** The fields the holdings supplied and did not, in the service's words. */
+  found: string[];
+  not_found: string[];
+  findings: string[];
+};
+export type ReferenceReading = {
+  name: string;
+  holds: string;
+  files: string[];
+  portfolio: ReferencePortfolio | null;
+  /** Why the files are not a portfolio, as a sentence; "" when they are, or there are none. */
+  error: string;
 };
 
 // Held to `deploy_workflow.inbox.runs.Status` and `deploy_workflow.run_events.ModuleState` by
@@ -275,6 +303,17 @@ export const getLatestIssuerRun = (issuer: string) =>
 export const carryDocuments = (id: string, run: string) =>
   request<{ carried: string[]; kept: string[] }>(`${submission(id)}/carry`, postJson({ run }));
 export const getReading = (id: string) => request<Reading>(`${submission(id)}/reading`);
+const referencePortfolio = (id: string) => `${submission(id)}/reference-portfolio`;
+export const uploadReferenceFile = (id: string, file: File) =>
+  request<{ name: string }>(
+    `${referencePortfolio(id)}/files?name=${encodeURIComponent(file.name)}`,
+    { method: "POST", body: file },
+  );
+/** Names the uploaded comparison portfolio; the answer says what was read, or why it was not. */
+export const nameReferencePortfolio = (id: string, name: string, holds: string) =>
+  request<ReferenceReading>(referencePortfolio(id), postJson({ name, holds }), true);
+export const removeReferencePortfolio = (id: string) =>
+  request<{ removed: boolean }>(referencePortfolio(id), { method: "DELETE" });
 function postShownCap(payload: unknown, shownCap: string): RequestInit {
   return {
     method: "POST",

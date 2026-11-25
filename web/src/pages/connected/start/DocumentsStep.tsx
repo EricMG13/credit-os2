@@ -19,6 +19,7 @@ import {
   carriedIntro,
 } from "./intake";
 import { FieldMessage, problemAttrs, problemOn, SelectField } from "./fields";
+import { ComparisonPortfolio } from "./ComparisonPortfolio";
 
 /** At least 32 px tall everywhere, 44 px at phone width. */
 const TARGET = "min-h-8 max-[480px]:min-h-11";
@@ -315,6 +316,11 @@ export function DocumentFields({
         )}
       </FileUpload.Root>
       {view.missing !== undefined && <MissingForModules missing={view.missing} />}
+      <ComparisonPortfolio
+        view={view.comparison}
+        problem={view.problem}
+        busy={view.busy !== undefined}
+      />
       <div className="grid gap-2 sm:col-span-2">
         <h3 className="text-h4 font-medium">Issuer and case date</h3>
         {view.copy && (

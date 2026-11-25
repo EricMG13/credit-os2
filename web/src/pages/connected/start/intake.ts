@@ -15,6 +15,7 @@ import {
   type Reading,
   type Summary,
 } from "../api";
+import type { ComparisonView } from "./referencePortfolio";
 import { readAssumptions, type AssumptionsForm } from "./assumptions";
 import { CONTEXT_ROW_KINDS, type Row, type RowKind } from "./rows";
 import {
@@ -218,6 +219,8 @@ export type IntakeView = {
   caps: Record<string, string>;
   synthetic: boolean;
   addFiles: (selected: Iterable<File> | null) => void;
+  /** The optional comparison portfolio: not a document of the run, and not in the answers. */
+  comparison: ComparisonView;
   inspectDocuments: () => void;
   discardDocument: (name: string, file?: File) => void;
   changeIdentity: (

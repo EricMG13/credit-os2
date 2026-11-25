@@ -82,6 +82,32 @@ failure is 500 ``{"error": "the service failed; see its log"}`` (its cause goes 
     Body ``{"run": "<run id>"}``. 200 ``{"carried": [...], "kept": [...]}``: the run's stored
     files copied into the submission, a name already held kept. 404 for an unknown run or
     submission; 400 for a bad body, a run with no stored documents or any other refusal.
+``POST /api/submissions/<id>/reference-portfolio/files?name=<percent-encoded UTF-8 file name>``
+    One file of the submission's comparison portfolio (``reference_portfolio``): a reference
+    portfolio the analyst supplies for this run, optional in every pathway and never a source
+    document (it is not in ``reading``, ``documents`` or the run's files). The body is the file's
+    raw bytes, a .csv or .xlsx file of at most ``reference_portfolio.MAX_FILE`` bytes, at most
+    ``reference_portfolio.MAX_FILES`` files; the name has no folder. 200 ``{"name": "<stored
+    name>"}``; a name already stored is replaced. 400 for a bad name, a limit or a submission
+    already submitted.
+``DELETE /api/submissions/<id>/reference-portfolio/files?name=<file name>``
+    No body. 200 ``{"name": "<name>"}``; 400 when it is not stored.
+``POST /api/submissions/<id>/reference-portfolio``
+    Body ``{"name": "<the analyst's name for the portfolio>", "holds": "loans" | "bonds" | ""}``
+    (``holds`` may be left out: not stated). The name is trimmed, at most 80 printable characters;
+    400 otherwise. 200: the reading below.
+``GET /api/submissions/<id>/reference-portfolio``
+    200 ``{"name", "holds", "files": [<stored names>], "portfolio", "error"}``. ``portfolio`` is
+    null with no file, or when the files cannot be read as a portfolio, and then ``error`` is a
+    sentence for a reader (the rest of the submission stays usable); otherwise ``{"name", "kind":
+    "custom", "as_of": "YYYY-MM-DD" | null, "positions", "unpriced", "limits", "found",
+    "not_found", "findings"}``: the counts of positions, of positions with no price and of limits,
+    the fields the holdings supplied and did not, and the reader's findings. While a portfolio
+    file is stored the summary carries the same object as ``reference_portfolio`` and its digest
+    covers the name, ``holds`` and each file; a portfolio that cannot be read makes the summary an
+    ``error`` until it is replaced or removed. Submit stores the approved portfolio for the run.
+``DELETE /api/submissions/<id>/reference-portfolio``
+    No body. 200 ``{"removed": true}``: the files and the name are gone (none is not an error).
 ``GET /library/downloads/<path>``
     A read-only file under ``_engine/library/downloads``. The final path (``index.html``
     appended for a folder) must be a regular file inside that folder. Other legacy static-library
@@ -120,7 +146,7 @@ from deploy_workflow.http_base import Body, Reply, refuse
 from deploy_workflow.inbox import activity, runs, teams
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
-from deploy_workflow.run_start import prior, submissions
+from deploy_workflow.run_start import prior, reference_portfolio, submissions
 from deploy_workflow.run_start.submissions import Answers
 
 __all__ = ["Handler", "main", "make_server"]
@@ -141,6 +167,7 @@ _LIBRARY_POLICY = "connect-src 'none'; form-action 'none'; frame-ancestors 'self
 _UNKNOWN = "unknown submission"  # the text submissions raises for an id it does not hold
 _UNKNOWN_RUN = "unknown run"  # the text prior raises for a run id with no record
 _SUBMISSION = re.compile(r"/api/submissions/([^/]+)/(files|reading|summary|submit|carry)")
+_REFERENCE = re.compile(r"/api/submissions/([^/]+)/reference-portfolio(/files)?")
 _RUN_ID = r"[0-9A-Za-z._-]{1,80}"
 _RUN = re.compile(rf"/api/runs/({_RUN_ID})")
 _RUN_INPUTS = re.compile(rf"/api/runs/({_RUN_ID})/inputs")
@@ -245,6 +272,10 @@ class Handler(http_base.Handler):
         found = _SUBMISSION.fullmatch(path)
         if found and found[2] == "reading":
             raise Reply(200, self._guarded(lambda: submissions.reading(self._layout, found[1])))
+        reference = _REFERENCE.fullmatch(path)
+        if reference and not reference[2]:
+            sid = reference[1]
+            raise Reply(200, self._guarded(lambda: reference_portfolio.reading(self._layout, sid)))
         inputs = _RUN_INPUTS.fullmatch(path)
         if inputs:
             raise Reply(200, self._guarded(lambda: prior.inputs(self._layout, inputs[1])))
@@ -258,6 +289,8 @@ class Handler(http_base.Handler):
     def _post(self, url: urllib.parse.SplitResult) -> None:
         if url.path == "/api/submissions":
             raise Reply(200, {"id": self._guarded(lambda: submissions.new(self._layout))})
+        if reference := _REFERENCE.fullmatch(url.path):
+            self._post_reference(reference[1], url.query if reference[2] else None)
         found = _SUBMISSION.fullmatch(url.path)
         if not found:
             return
@@ -275,7 +308,38 @@ class Handler(http_base.Handler):
         if action == "carry":
             self._carry(sid, self._json_body())
 
+    def _post_reference(self, sid: str, query: str | None) -> None:
+        """A comparison portfolio file (``query`` holds its name), or its name and what it holds."""
+        if query is not None:
+            name, length = self._name(query), self.content_length()
+            body = cast(BinaryIO, Body(self.rfile))
+            stored = self._guarded(
+                lambda: reference_portfolio.add_file(self._layout, sid, name, body, length)
+            )
+            raise Reply(200, {"name": stored})
+        given = self._json_body()
+        if not isinstance(given, dict):
+            raise refuse(400, "the request needs the portfolio's name")
+        raise Reply(
+            200,
+            self._guarded(
+                lambda: reference_portfolio.name_it(
+                    self._layout, sid, given.get("name"), given.get("holds", "")
+                )
+            ),
+        )
+
+    def _delete_reference(self, sid: str, query: str | None) -> None:
+        if query is None:
+            self._guarded(lambda: reference_portfolio.remove(self._layout, sid))
+            raise Reply(200, {"removed": True})
+        name = self._name(query)
+        self._guarded(lambda: reference_portfolio.remove_file(self._layout, sid, name))
+        raise Reply(200, {"name": name})
+
     def _delete(self, url: urllib.parse.SplitResult) -> None:
+        if reference := _REFERENCE.fullmatch(url.path):
+            self._delete_reference(reference[1], url.query if reference[2] else None)
         found = _SUBMISSION.fullmatch(url.path)
         if found and found[2] == "files":
             name = self._name(url.query)
