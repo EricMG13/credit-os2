@@ -1944,8 +1944,8 @@ def test_a_non_finite_level_on_a_shared_name_is_refused_in_every_list_order() ->
             portfolio_reading(credit(3), listed, reference("clo"))
 
 
-_POOL_NAMES = ["A", "B"]  # two names, so that sharing one is common
-_POOL_LEVELS = [None, Decimal(300), Decimal(350), Decimal("350.0")]
+_POOL_NAMES = ["A", "B", "C"]  # three names, so that sharing one is still common
+_POOL_LEVELS = [None, Decimal(200), Decimal(300), Decimal(350), Decimal("350.0"), Decimal(400)]
 _POOL_PRICES = [None, Decimal(80), Decimal(99), Decimal("99.0")]
 
 
