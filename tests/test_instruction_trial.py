@@ -111,3 +111,26 @@ def test_the_pilot_ruling_gives_the_direct_adapter_for_its_configuration_only():
         trial.live_adapter("opus-medium", PILOT_RULING)
     with pytest.raises(LivePauseInForce, match="does not list 'copilot-opus-high'"):
         trial.live_adapter("copilot-opus-high", PILOT_RULING)
+
+
+def test_arm_d_is_arm_a_with_the_reading_notes_and_their_rule_after_it():
+    got = trial.arm_text("D", "CP-X", PREPARED, "### Notes on a.jsonl\n\np.3 | Covenant | 7.25x")
+    assert got.startswith(PREPARED.rstrip() + "\n\nFirst-pass reading notes. ")
+    assert "a finding aid, not a source" in got
+    assert got.endswith("### Notes on a.jsonl\n\np.3 | Covenant | 7.25x\n")
+    with pytest.raises(SystemExit, match="needs the first-pass reading notes"):
+        trial.arm_text("D", "CP-X", PREPARED)
+
+
+def test_the_reader_is_priced_by_the_size_of_its_prompt():
+    small = {"input_tokens": 100_000, "output_tokens": 1_000}
+    large = {"input_tokens": 300_000, "cache_read_input_tokens": 100_000, "output_tokens": 2_000}
+    assert trial.reader_usd(small) == Decimal("0.0105")  # 100,000 x 0.10 + 1,000 x 0.50 per million
+    assert trial.reader_usd(large) == Decimal("0.205")  # 400,000 x 0.50 + 2,000 x 2.50 per million
+
+
+def test_the_trial_total_counts_the_reader_calls_too(tmp_path):
+    _run(tmp_path / "cp4-A", "1.00")
+    (tmp_path / "cp4-D").mkdir()
+    (tmp_path / "cp4-D/reader-calls.jsonl").write_text(json.dumps({"settled_usd": "0.75"}) + "\n")
+    assert trial.trial_spent(tmp_path / "cp4-E") == Decimal("1.75")

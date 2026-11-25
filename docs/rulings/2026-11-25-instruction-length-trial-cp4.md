@@ -54,3 +54,16 @@ although "no run is repeated", the owner said "approved for both". The eight are
 new folders (B-4 to B-6, C-6 to C-10) with another supplied key; what the refused runs settled
 (USD 2.23) counts toward the USD 101 total.
 
+Amendment by the owner on 2026-11-25, after groups A, B and C had run: shown how a published
+framework (Harness², arXiv 2610.14224) moves bulky reading out of the main agent, and the
+recommendation to test that for CP-4, the owner said "apply the recommendations and re-test as
+group D and compare with prior runs". Group D: five runs of CP-4, each as group A with one
+addition. Before the module runs, a separate reader on `claude-haiku-5-5` (Anthropic API, same
+key) is given each legal document whole, one document a call in a clean context, and writes
+page-referenced notes on the topics named by CP-4's own method step titles; the notes and one
+rule (they are a finding aid, the page governs, cite the document) are placed after the module's
+instructions. The reader's cost (USD 0.50 per million prompt tokens above 100,000 and 2.50 of
+output; about USD 1 a run estimated) counts toward the run's USD 15 and the trial's USD 101.
+The reader is a second model beside `opus-high` and is called from `tools/instruction_trial.py`
+alone. No run is repeated.
+

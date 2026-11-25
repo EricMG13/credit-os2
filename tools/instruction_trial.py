@@ -13,6 +13,8 @@ the module is then given the bundle's upstream handoffs and one arm's instructio
     A  the instructions as prepared, unchanged
     B  A less text that repeats or cannot apply here (`neutral`), nothing reworded
     C  A's head with the restructured method in `trial/arms/C/<module>.md`
+    D  A, followed by first-pass reading notes on each legal document, written by a separate
+       reader on a cheaper model that sees one whole document in a clean context (live only)
 
 The acceptance check is the launcher's own, built from the canonical method, for every arm.
 `offline` calls no provider: it measures each arm, lists the ids the arm no longer names, and
@@ -48,7 +50,8 @@ from deploy_workflow.owners import cpos, cpos_launch
 from deploy_workflow.owners.cpos_launch_prompts import METHOD_MARK
 
 ROOT = Path(__file__).resolve().parents[1]
-ARMS = ("A", "B", "C")
+ARMS = ("A", "B", "C", "D")
+OFFLINE_ARMS = ("A", "B", "C")  # D needs a provider for its first-pass reader
 ARM_C = ROOT / "trial/arms/C"
 SENT_FILE = re.compile(r"^=== (.+?) sha256 [0-9a-f]{64} ===$", re.MULTILINE)
 # The shared sections a module is sent after its own skill files: arm C carries them unchanged.
@@ -117,13 +120,121 @@ def restructured(module: str, method: str) -> str:
     return f"{heading}\n{text}\n\n{tail}"
 
 
-def arm_text(arm: str, module: str, prepared_text: str) -> str:
+def arm_text(arm: str, module: str, prepared_text: str, notes: str = "") -> str:
     head, mark, method = prepared_text.partition(METHOD_MARK)
     if not mark:
         raise SystemExit(f"{module}: the prepared instructions have no method block")
     if arm == "A":
         return prepared_text
+    if arm == "D":
+        if not notes:
+            raise SystemExit("arm D needs the first-pass reading notes")
+        return f"{prepared_text.rstrip()}\n\n{NOTES_RULE}\n\n{notes}\n"
     return head + mark + (neutral(method) if arm == "B" else restructured(module, method))
+
+
+# ---------------------------------------------------------------- arm D: the first-pass reader
+READER_MODEL = "claude-haiku-5-5"
+READER_URL = "https://api.anthropic.com/v1/messages"
+READER_MAX_TOKENS = 12000
+# USD per million tokens (input, output): up to 100,000 prompt tokens, and beyond.
+READER_PRICES = ((Decimal("0.10"), Decimal("0.50")), (Decimal("0.50"), Decimal("2.50")))
+READER_TIER = 100_000
+# The topics are the step titles of CP-4's own method (its 4, 4A, 4B and 4D workflows), word
+# for word: the reader is told what the module looks for, not what any reading list scores.
+READER_TOPICS = (
+    "Controlling Documents and Source Authority",
+    "Covenant Feature Register",
+    "EBITDA, Definitions, and Ratio Mechanics",
+    "Debt Incurrence, Incremental Facilities, and MFN",
+    "Leakage, Restricted Payments, Investments, and Asset Transfers",
+    "Collateral, Guarantees, and Structural Subordination",
+    "Events of Default, Remedies, and Amendment Risk",
+    "Class & Rank Map",
+    "Standstill & Enforcement Control",
+    "Turnover, Release & Purchase Options",
+)
+READER_BRIEF = (
+    "You are a first-pass reader for a credit analyst who will study the governing debt "
+    "documents of one issuer. You are given one document, page by page. Go through all of it "
+    "and write notes that tell the analyst where things are. Start with three lines: what the "
+    "document is (title, date, parties), whether it is executed, and what it amends or annexes. "
+    "Then one line per entry: `p.<page> | <topic> | <what the page says, with the exact figure, "
+    'ratio, date, percentage or party as written> | "<a few words quoted from the page>"`. '
+    "Topics: " + "; ".join(READER_TOPICS) + ". Where the text shows struck and inserted wording "
+    "side by side, give the wording now in force and say the page is marked up. Record what the "
+    "page says; do not interpret, compare or conclude. Write `none found` for a topic with no "
+    "entry. At most 3,000 words."
+)
+NOTES_RULE = (
+    "First-pass reading notes. A separate reader went through each legal document once and "
+    "noted, page by page, where its terms are. The notes are a finding aid, not a source: "
+    "before you state a term, figure or date, read the cited page with `read_pages`, and cite "
+    "the document and page, never the notes. A term the notes do not list may still be in the "
+    "document. Where the notes and the page differ, the page governs."
+)
+
+
+def legal_sources(case: "Case", inputs: Path) -> list[str]:
+    """The run's page-text sources that the launcher's own reading does not class as a
+    financial report: the agreements, indentures and amendments."""
+    reports = {
+        d["source"]
+        for d in cpos_launch.read_documents(inputs).documents
+        if d["kind"] == "financial_report"
+    }
+    return sorted(n for n in case.sources if n.endswith(".jsonl") and n not in reports)
+
+
+def reader_usd(usage: dict[str, Any]) -> Decimal:
+    prompt = sum(int(usage.get(k) or 0) for k in READER_PROMPT_FIELDS)
+    rate_in, rate_out = READER_PRICES[prompt > READER_TIER]
+    return (prompt * rate_in + int(usage.get("output_tokens") or 0) * rate_out) / 1_000_000
+
+
+READER_PROMPT_FIELDS = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens")
+
+
+def read_legal_documents(case: "Case", inputs: Path, out: Path, cap: Decimal) -> str:
+    """One reader call per legal document, each a clean context holding that document alone.
+    Returns the notes; writes each document's notes and one line per call to
+    `reader-calls.jsonl`, which the trial total counts. Stops once ``cap`` is settled."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key:
+        raise SystemExit("arm D needs ANTHROPIC_API_KEY in the launching environment")
+    (out / "reader").mkdir(parents=True)
+    spent, notes = Decimal(0), []
+    for name in legal_sources(case, inputs):
+        pages = [json.loads(line) for line in case.sources[name].decode().splitlines()]
+        document = "\n\n".join(f"[page {p['page']}]\n{p['text']}" for p in pages)
+        body = {
+            "model": READER_MODEL,
+            "max_tokens": READER_MAX_TOKENS,
+            "system": READER_BRIEF,
+            "messages": [{"role": "user", "content": f"Document: {name}\n\n{document}"}],
+        }
+        headers = {
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "anthropic-version": "2023-06-01",
+        }
+        reply = direct_transport(Request(READER_URL, headers, json.dumps(body).encode()))
+        answer = json.loads(reply.body)
+        if reply.status != 200:
+            message = str(answer.get("error", {}).get("message", ""))[:200]
+            raise SystemExit(f"first-pass reader refused for {name}: {reply.status} {message}")
+        text = "\n".join(b["text"] for b in answer["content"] if b["type"] == "text")
+        usd = reader_usd(answer["usage"])
+        spent += usd
+        record = {"source": name, "model": READER_MODEL, "settled_usd": str(usd)}
+        record.update(usage=answer["usage"], stop_reason=answer["stop_reason"])
+        with (out / "reader-calls.jsonl").open("a") as log:
+            log.write(json.dumps(record) + "\n")
+        (out / "reader" / f"{name}.notes.md").write_text(text)
+        notes.append(f"### Notes on {name}\n\n{text.strip()}")
+        if spent >= cap:
+            raise SystemExit(f"first-pass reader settled USD {spent}, the run's cap: stopped")
+    return "\n\n".join(notes)
 
 
 def dropped_ids(prepared_text: str, text: str) -> list[str]:
@@ -311,7 +422,8 @@ def trial_spent(folder: Path) -> Decimal:
     """What the trial's runs beside ``folder`` have settled so far (their `live/calls.jsonl`).
     A call whose charge is unknown stops the trial: the total can no longer be known."""
     spent = Decimal(0)
-    for log in sorted(folder.parent.glob("*/live/calls.jsonl")):
+    logs = [*folder.parent.glob("*/live/calls.jsonl"), *folder.parent.glob("*/reader-calls.jsonl")]
+    for log in sorted(logs):
         for line in log.read_text().splitlines():
             settled = json.loads(line)["settled_usd"]
             if settled is None:
@@ -349,9 +461,15 @@ def live(args: argparse.Namespace) -> int:
         raise SystemExit(f"the trial's runs have settled USD {args.trial_cap} or more: stopped")
     args.cap = str(min(Decimal(args.cap), left))
     case = load_case(args.bundle, args.out / "case", args.config)
-    text = arm_text(args.arm, args.module, case.instructions(args.module))
+    adapter = live_adapter(args.config, args.ruling)  # the ruling gate, before any paid call
+    notes, read_usd = "", Decimal(0)
+    if args.arm == "D":
+        notes = read_legal_documents(case, args.bundle / "inputs", args.out, Decimal(args.cap))
+        logged = (args.out / "reader-calls.jsonl").read_text().splitlines()
+        read_usd = sum((Decimal(json.loads(line)["settled_usd"]) for line in logged), Decimal(0))
+        args.cap = str(Decimal(args.cap) - read_usd)
+    text = arm_text(args.arm, args.module, case.instructions(args.module), notes)
     task = case.task(args.module, text)
-    adapter = live_adapter(args.config, args.ruling)
     executor = None
     outcome = "accepted"
     try:
@@ -364,6 +482,7 @@ def live(args: argparse.Namespace) -> int:
     summary = {"module": args.module, "arm": args.arm, "config": args.config, "outcome": outcome}
     summary.update(instruction_metrics.measure(text))
     summary.update(run_summary(args.out))
+    summary.update(reader_usd=str(read_usd), reader_notes_chars=len(notes))
     (args.out / "trial-summary.json").write_text(json.dumps(summary, indent=1) + "\n")
     print(json.dumps(summary, indent=1))
     return 0
@@ -379,7 +498,9 @@ def main() -> int:
         mode.add_argument("--out", type=Path, required=True)
         mode.add_argument("--max-turns", type=int, default=32)
         mode.add_argument("--cap", default="50", help="USD the module's calls may total")
-    modes.choices["offline"].add_argument("--arms", nargs="+", choices=ARMS, default=list(ARMS))
+    modes.choices["offline"].add_argument(
+        "--arms", nargs="+", choices=OFFLINE_ARMS, default=list(OFFLINE_ARMS)
+    )
     modes.choices["offline"].add_argument("--config", choices=tuple(CONFIGS), default=REPLAY_CONFIG)
     modes.choices["live"].add_argument("--arm", choices=ARMS, required=True)
     modes.choices["live"].add_argument("--ruling", type=Path, required=True)
