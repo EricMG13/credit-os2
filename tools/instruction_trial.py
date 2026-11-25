@@ -46,7 +46,7 @@ from deploy_workflow.model.copilot_adapter import CopilotAdapter
 from deploy_workflow.model.handoff import HandoffExecutor
 from deploy_workflow.model.transport import Request, Response, https_transport
 from deploy_workflow.model.turn import ModelSpec, ToolCall, Turn, TurnRequest, Usage
-from deploy_workflow.owners import cpos, cpos_launch
+from deploy_workflow.owners import cpos, cpos_launch, cpos_reader
 from deploy_workflow.owners.cpos_launch_methods import trim_method
 from deploy_workflow.owners.cpos_launch_prompts import METHOD_MARK
 
@@ -105,39 +105,8 @@ READER_MAX_TOKENS = 32000
 # USD per million tokens (input, output): up to 100,000 prompt tokens, and beyond.
 READER_PRICES = ((Decimal("0.10"), Decimal("0.50")), (Decimal("0.50"), Decimal("2.50")))
 READER_TIER = 100_000
-# The topics are the step titles of CP-4's own method (its 4, 4A, 4B and 4D workflows), word
-# for word: the reader is told what the module looks for, not what any reading list scores.
-READER_TOPICS = (
-    "Controlling Documents and Source Authority",
-    "Covenant Feature Register",
-    "EBITDA, Definitions, and Ratio Mechanics",
-    "Debt Incurrence, Incremental Facilities, and MFN",
-    "Leakage, Restricted Payments, Investments, and Asset Transfers",
-    "Collateral, Guarantees, and Structural Subordination",
-    "Events of Default, Remedies, and Amendment Risk",
-    "Class & Rank Map",
-    "Standstill & Enforcement Control",
-    "Turnover, Release & Purchase Options",
-)
-READER_BRIEF = (
-    "You are a first-pass reader for a credit analyst who will study the governing debt "
-    "documents of one issuer. You are given one document, page by page. Go through all of it "
-    "and write notes that tell the analyst where things are. Start with three lines: what the "
-    "document is (title, date, parties), whether it is executed, and what it amends or annexes. "
-    "Then one line per entry: `p.<page> | <topic> | <what the page says, with the exact figure, "
-    'ratio, date, percentage or party as written> | "<a few words quoted from the page>"`. '
-    "Topics: " + "; ".join(READER_TOPICS) + ". Where the text shows struck and inserted wording "
-    "side by side, give the wording now in force and say the page is marked up. Record what the "
-    "page says; do not interpret, compare or conclude. Write `none found` for a topic with no "
-    "entry. At most 3,000 words."
-)
-NOTES_RULE = (
-    "First-pass reading notes. A separate reader went through each legal document once and "
-    "noted, page by page, where its terms are. The notes are a finding aid, not a source: "
-    "before you state a term, figure or date, read the cited page with `read_pages`, and cite "
-    "the document and page, never the notes. A term the notes do not list may still be in the "
-    "document. Where the notes and the page differ, the page governs."
-)
+READER_BRIEF = cpos_reader.reader_brief("CP-4")
+NOTES_RULE = cpos_reader.NOTES_RULE
 
 
 def legal_sources(case: "Case", inputs: Path) -> list[str]:
@@ -197,6 +166,12 @@ def read_legal_documents(case: "Case", inputs: Path, out: Path, cap: Decimal) ->
         with (out / "reader-calls.jsonl").open("a") as log:
             log.write(json.dumps(record) + "\n")
         (out / "reader" / f"{name}.notes.md").write_text(text)
+        sha256 = hashlib.sha256(case.sources[name]).hexdigest()
+        launch = out / "reading-notes" / "CP-4"
+        launch.mkdir(parents=True, exist_ok=True)  # the form `--reading-notes` takes
+        (launch / f"{name}{cpos_reader.SUFFIX}").write_text(
+            cpos_reader.notes_file(name, sha256, text)
+        )
         if not text.strip():
             raise SystemExit(f"first-pass reader wrote nothing for {name}: {answer['stop_reason']}")
         notes.append(f"### Notes on {name}\n\n{text.strip()}")

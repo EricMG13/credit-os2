@@ -107,14 +107,14 @@ from deploy_workflow.model.pricing import (
     web_search_usd,
 )
 from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
-from deploy_workflow.owners import cpos_forecast
+from deploy_workflow.owners import cpos_forecast, cpos_reader
 from deploy_workflow.owners.cpos import (
-    _require_live_route,
     MAX_MODULE_WIDTH,
     MODULE_WIDTH,
     WEB_SEARCH_GRANT,
     HandoffPlan,
     HandoffTask,
+    _require_live_route,
     run_live_handoffs,
     web_search_ruled,
     web_search_run,
@@ -193,6 +193,7 @@ from deploy_workflow.owners.cpos_launch_tables import (
     _owner_tables,
     chart_issues,
 )
+from deploy_workflow.owners.cpos_reader import without_notes
 from deploy_workflow.portfolio_workbook import NOT_COLLECTED, PortfolioCheck
 from deploy_workflow.portfolio_workbook import check as portfolio_check
 from deploy_workflow.portfolio_workbook import instructions as portfolio_instructions
@@ -285,6 +286,7 @@ __all__ = [
     "_selector",
     "chart_issues",
     "cp2_scorecard_block",
+    "without_notes",
 ]
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -1000,6 +1002,7 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
     web_search: bool = False,
     workspace: Path | None = None,
     prior: str | None = None,
+    reading_notes: Path | None = None,
 ) -> Prepared:
     """Check everything and write the manifest and instructions; a refusal writes nothing.
 
@@ -1031,12 +1034,28 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
             workspace=workspace,
             choice=prior,
             left_out=left_out,
+            reading_notes=reading_notes,
         )
 
     try:
         return attempt(None)
     except _Cp8DoesNotFit as unfit:
         return attempt(unfit.note)
+
+
+def _add_reading_notes(
+    texts: dict[str, bytes], folder: Path | None, pinned: Mapping[str, HandoffInput]
+) -> None:
+    """Put each module's first-pass reading notes after its instructions, where group D of the
+    instruction-length trial placed them (`cpos_reader`). Nothing when no folder is named."""
+    if folder is None:
+        return
+    shas = {name: spec.sha256 for name, spec in pinned.items()}
+    for module in texts:
+        try:
+            texts[module] += cpos_reader.notes_block(module, folder, shas).encode()
+        except cpos_reader.NotesRefused as refused:
+            raise LaunchRefused(f"--reading-notes: {refused}") from None
 
 
 def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per setting
@@ -1051,6 +1070,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     workspace: Path | None,
     choice: str | None,
     left_out: str | None,
+    reading_notes: Path | None = None,
 ) -> Prepared:
     """`prepare`; ``left_out`` is the note of a run planned without CP-8 because its call did not
     fit the cap."""
@@ -1165,6 +1185,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         if wanted and module in texts:
             head, mark, method = texts[module].partition(METHOD_MARK.encode())
             texts[module] = head + block.encode() + mark + method
+    _add_reading_notes(texts, reading_notes, pinned)
     guesses, documents = _documents(covers)
     items = expectations(
         ordered,
@@ -1835,6 +1856,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-turns", type=int, default=32, help="model turns per module")
     parser.add_argument("--out", type=Path, help="run folder; default runs/<run id>")
     parser.add_argument("--live", action="store_true", help="make paid provider calls")
+    parser.add_argument(
+        "--reading-notes",
+        type=Path,
+        help="folder of first-pass reading notes (<module>/<source>.notes.md); off when absent",
+    )
     parser.add_argument("--ruling", type=Path, help="docs/rulings/<file>.md naming this config")
     parser.add_argument(
         "--prior",
@@ -2017,6 +2043,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
             modules=args.modules,
             web_search=web_search_run(args.config, args.ruling),
             prior=args.prior,
+            reading_notes=args.reading_notes,
         )
         efforts = (
             _high_efforts(
