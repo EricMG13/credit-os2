@@ -20,6 +20,7 @@ from deploy_workflow.signal.store import open_db
 
 NOW = datetime(2026, 11, 24, 12, 0, tzinfo=UTC)
 KEY_VALUE = "test-token-not-a-real-key"
+RULED = Decimal(100000)  # a ruled cap above every stored one: the stored cap binds
 NO_RULING = (
     "No standing ruling for Signal's model calls is in docs/rulings"
     " (a file named YYYY-MM-DD-signal-ai-pass.md)."
@@ -44,7 +45,7 @@ def db(tmp_path: Path) -> Any:
 
 def _switch_off(db: Any) -> None:
     ai_ledger.set_cap(db, Decimal(15), NOW)
-    call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), NOW)
+    call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), NOW, ruled_cap=RULED)
     ai_ledger.settle(db, call, None, "raised: RuntimeError", NOW)
 
 
@@ -63,7 +64,7 @@ def test_the_pass_is_on_exactly_when_all_four_preconditions_hold(tmp_path, db, h
         db.execute("DELETE FROM settings WHERE key='ai_cap_usd'")
         db.commit()
     env = environ(tmp_path) if key else {"COPILOT_CLI_PATH": environ(tmp_path)["COPILOT_CLI_PATH"]}
-    gate = ai_gate.check(db, env, rulings)
+    gate = ai_gate.check(db, env, rulings, NOW)
     expected = [
         *([] if ruling else [NO_RULING]),
         *([] if cap else [NO_CAP]),
@@ -108,7 +109,7 @@ def test_the_stored_cap_is_checked_against_the_rulings_cap(tmp_path, db, line, s
     rulings = tmp_path / "rulings"
     write_ruling(rulings, cap=line)
     ai_ledger.set_cap(db, Decimal(stored), NOW)
-    gate = ai_gate.check(db, environ(tmp_path), rulings)
+    gate = ai_gate.check(db, environ(tmp_path), rulings, NOW)
     assert gate.missing == missing
     assert gate.on is (not missing)
     held = ai_gate.newest_ruled_cap(rulings)
@@ -127,30 +128,30 @@ def test_the_run_start_ruling_never_switches_signal_on(tmp_path, db):
     rulings.mkdir()
     ai_ledger.set_cap(db, Decimal(15), NOW)
     (rulings / real.name).write_bytes(real.read_bytes())
-    assert ai_gate.check(db, environ(tmp_path), rulings).missing == (NO_RULING,)
+    assert ai_gate.check(db, environ(tmp_path), rulings, NOW).missing == (NO_RULING,)
     (rulings / "2026-11-25-signal-ai-pass.md").write_bytes(real.read_bytes())
-    assert ai_gate.check(db, environ(tmp_path), rulings).missing == (NO_RULED_CAP,)
+    assert ai_gate.check(db, environ(tmp_path), rulings, NOW).missing == (NO_RULED_CAP,)
 
 
 def test_the_runtime_is_part_of_the_credentials(tmp_path, db):
     rulings = tmp_path / "rulings"
     write_ruling(rulings)
     ai_ledger.set_cap(db, Decimal(15), NOW)
-    gate = ai_gate.check(db, {"COPILOT_GITHUB_TOKEN": KEY_VALUE}, rulings)
+    gate = ai_gate.check(db, {"COPILOT_GITHUB_TOKEN": KEY_VALUE}, rulings, NOW)
     assert gate.missing == (
         "The service was started without COPILOT_CLI_PATH naming the Copilot runtime.",
     )
     login = environ(tmp_path)
     del login["COPILOT_GITHUB_TOKEN"]
     login["COPILOT_USE_GH_LOGIN"] = "1"
-    assert ai_gate.check(db, login, rulings).on
+    assert ai_gate.check(db, login, rulings, NOW).on
 
 
 def test_another_ruling_naming_the_same_configuration_does_not_switch_signal_on(tmp_path, db):
     rulings = tmp_path / "rulings"
     write_ruling(rulings, name="2026-11-11-run-start-submit.md")  # names copilot-luna-xhigh too
     ai_ledger.set_cap(db, Decimal(15), NOW)
-    assert ai_gate.check(db, environ(tmp_path), rulings).missing == (NO_RULING,)
+    assert ai_gate.check(db, environ(tmp_path), rulings, NOW).missing == (NO_RULING,)
 
 
 def test_a_ruling_that_does_not_name_signals_configuration_is_not_accepted(tmp_path, db):
@@ -161,7 +162,7 @@ def test_a_ruling_that_does_not_name_signals_configuration_is_not_accepted(tmp_p
         "The ruling 2026-11-25-signal-ai-pass.md is not accepted: the ruling does not list"
         " 'copilot-luna-xhigh'."
     )
-    assert ai_gate.check(db, environ(tmp_path), rulings).missing == (refused,)
+    assert ai_gate.check(db, environ(tmp_path), rulings, NOW).missing == (refused,)
 
 
 def test_a_ruling_not_by_the_user_is_not_accepted(tmp_path, db):
@@ -169,7 +170,7 @@ def test_a_ruling_not_by_the_user_is_not_accepted(tmp_path, db):
     path = write_ruling(rulings)
     path.write_text(path.read_text().replace("by: user", "by: agent"), encoding="utf-8")
     ai_ledger.set_cap(db, Decimal(15), NOW)
-    missing = ai_gate.check(db, environ(tmp_path), rulings).missing
+    missing = ai_gate.check(db, environ(tmp_path), rulings, NOW).missing
     assert missing == (
         "The ruling 2026-11-25-signal-ai-pass.md is not accepted: the ruling is not by: user.",
     )
@@ -180,7 +181,7 @@ def test_the_newest_ruling_by_its_dated_name_is_the_one_read(tmp_path, db):
     write_ruling(rulings, name="2026-11-25-signal-ai-pass.md")
     write_ruling(rulings, configs="copilot-sol-medium", name="2026-12-01-signal-ai-pass.md")
     ai_ledger.set_cap(db, Decimal(15), NOW)
-    gate = ai_gate.check(db, environ(tmp_path), rulings)
+    gate = ai_gate.check(db, environ(tmp_path), rulings, NOW)
     assert gate.ruling is None and "2026-12-01-signal-ai-pass.md" in gate.missing[0]
 
 
@@ -196,7 +197,9 @@ def test_a_month_without_room_for_the_smallest_call_is_capped(tmp_path, db):
     env = environ(tmp_path)
     ai_ledger.set_cap(db, Decimal("0.71"), NOW)
     assert ai_gate.status(db, NOW, env, rulings).state == "on"
-    ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), NOW)  # 0.3585 + 0.3585 > 0.71
+    ai_ledger.reserve(
+        db, "stories", CONFIG, Decimal("0.3585"), NOW, ruled_cap=RULED
+    )  # 0.3585 + 0.3585 > 0.71
     held = ai_gate.status(db, NOW, env, rulings)
     assert held.state == "capped" and held.month.held == Decimal("0.3585")
     ai_ledger.set_cap(db, Decimal("0.72"), NOW)

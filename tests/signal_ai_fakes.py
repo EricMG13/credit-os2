@@ -18,7 +18,7 @@ from typing import Any
 
 from deploy_workflow.model.adapter import AdapterReply
 from deploy_workflow.model.turn import Turn, TurnRequest, Usage
-from deploy_workflow.signal import ai_gate, ai_ledger, ai_run
+from deploy_workflow.signal import ai_call, ai_gate, ai_ledger, ai_run
 
 CONFIG = "copilot-luna-xhigh"
 # The worst case the pricing table holds for any Luna call through Copilot: its whole 1,050,000-
@@ -67,6 +67,11 @@ def not_sent() -> AdapterReply:
     return AdapterReply("not_sent", None, None, None, "KeyMissing", None, None, None)
 
 
+def refused_400() -> AdapterReply:
+    """A 4xx answer the provider gave before any work (charged nothing)."""
+    return AdapterReply("sent_known", None, None, 400, "BadRequest", None, None, None)
+
+
 def sent_unknown() -> AdapterReply:
     return AdapterReply("sent_unknown", None, None, None, "OverallTimeout", None, None, None)
 
@@ -101,18 +106,43 @@ def refusing_factory(config_id: str, ruling: Path) -> Any:
     raise AssertionError("no model may be built here")
 
 
+Clock = Callable[[], datetime]
+
+
+def clock_at(now: datetime | Clock) -> Clock:
+    """A clock that always reads `now` (or `now` itself when it is already a clock)."""
+    return now if callable(now) else lambda: now
+
+
+def guard(tmp: Path, now: datetime | Clock, *, ruling: bool = True) -> ai_call.Guard:
+    """What every call is checked against (SYNTHETIC): a temporary rulings folder holding a valid
+    ruling (cap_usd: 15), a fake key and runtime, and a clock reading `now`."""
+    rulings = tmp / "rulings"
+    rulings.mkdir(parents=True, exist_ok=True)
+    if ruling and not (rulings / "2026-11-25-signal-ai-pass.md").exists():
+        write_ruling(rulings)
+    return ai_call.Guard(environ(tmp), rulings, clock_at(now))
+
+
 def setup(
-    tmp: Path, model: FakeModel | None = None, *, ruling: bool = True, key: bool = True
+    tmp: Path,
+    model: FakeModel | None = None,
+    *,
+    ruling: bool = True,
+    key: bool = True,
+    clock: datetime | Clock | None = None,
 ) -> ai_run.Setup:
-    """A Setup over a temporary rulings folder; the factory hands out `model` (SYNTHETIC)."""
+    """A Setup over a temporary rulings folder; the factory hands out `model` (SYNTHETIC). With no
+    `clock` the ledger reads the real time."""
     rulings = tmp / "rulings"
     rulings.mkdir(parents=True, exist_ok=True)
     if ruling:
         write_ruling(rulings)
     env = environ(tmp) if key else {}
+    read = ai_run.utc_now if clock is None else clock_at(clock)
     if model is None:
-        return ai_run.Setup(env, rulings, refusing_factory)
-    return ai_run.Setup(env, rulings, lambda config_id, path: model)
+        return ai_run.Setup(env, rulings, refusing_factory, read)
+    return ai_run.Setup(env, rulings, lambda config_id, path: model, read)
 
 
 def status_on(cap: str = "15") -> ai_gate.Status:

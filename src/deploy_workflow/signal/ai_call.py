@@ -1,19 +1,19 @@
-"""One paid model call for Signal, through the ledger: reserve the worst case, call, settle.
+"""One paid model call for Signal, through the gate and the ledger: check, reserve, call, settle.
 
 Signal reaches the project's existing model adapter (``deploy_workflow.model``; the live one is
 the GitHub Copilot adapter, the provider every live call now uses) through ``Model``, a narrow
 interface of its own, so tests inject a fake and nothing here imports a provider. Prices are the
-project's existing table (``deploy_workflow.model.pricing``):
+project's existing table (``deploy_workflow.model.pricing``); the hold is ``ai_price``'s.
 
-* The hold is ``pricing.request_reservation_usd`` for the prompt's input bound (one token per
-  byte of prompt, which no tokenizer exceeds, plus ``FRAMING_TOKENS`` for the runtime's own
-  framing) and the request's output cap. For a Copilot configuration the table widens the hold
-  to the model's whole context and to the output the runtime cannot cap, as for the analytical
-  modules.
-* The charge follows the analytical modules' rules (``model.handoff``): nothing for a call refused
-  before it was sent or answered with a 4xx; unknown for a call whose outcome is unknown; else the
-  priced usage (``pricing.price_usage``: for Copilot the runtime's reported cost, unknown when it
-  reports none) plus the charges of any context compactions the runtime reported.
+Immediately before every reservation the whole gate is checked again (``ai_gate.check`` with the
+``Guard``'s launching environment and rulings folder): a job's model is built once, but a ruling
+withdrawn, made invalid or lowered, a key gone or a switch-off during the job stops its very next
+call. A call refused so (``ai_ledger.Refused``) holds nothing, costs nothing and ends the job.
+
+The charge follows the analytical modules' rules (``model.handoff``): nothing for a call refused
+before it was sent or answered with a 4xx; unknown for a call whose outcome is unknown; else the
+priced usage (``pricing.price_usage``: for Copilot the runtime's reported cost, unknown when it
+reports none) plus the charges of any context compactions the runtime reported.
 
 Nothing here logs a prompt, a reply or a key: a log line names the purpose, the call id and the
 outcome only.
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -33,18 +33,14 @@ from typing import Protocol
 from deploy_workflow.model.adapter import AdapterReply
 from deploy_workflow.model.budget import exact_sum
 from deploy_workflow.model.configs import CONFIGS
-from deploy_workflow.model.pricing import (
-    PricingError,
-    price_of,
-    price_usage,
-    request_reservation_usd,
-)
+from deploy_workflow.model.pricing import PricingError, price_usage
 from deploy_workflow.model.turn import Message, TurnRequest, Usage
-from deploy_workflow.signal import ai_ledger
+from deploy_workflow.signal import ai_gate, ai_ledger
+from deploy_workflow.signal.ai_price import FRAMING_TOKENS, Prompt, reservation_usd
 
 log = logging.getLogger(__name__)
 
-FRAMING_TOKENS = 4096
+__all__ = ["FRAMING_TOKENS", "Answer", "Guard", "Model", "Prompt", "call", "reservation_usd"]
 
 
 class Model(Protocol):
@@ -67,10 +63,13 @@ ModelFactory = Callable[[str, Path], Model]
 
 
 @dataclass(frozen=True)
-class Prompt:
-    system: str
-    user: str
-    max_output: int  # tokens
+class Guard:
+    """What every call is checked against just before it is reserved: the gate's launching
+    environment and rulings folder, and the clock the ledger's times are read from."""
+
+    environ: Mapping[str, str]
+    rulings_root: Path
+    clock: Callable[[], datetime]
 
 
 @dataclass(frozen=True)
@@ -81,12 +80,6 @@ class Answer:
     outcome: str
     call_id: int
     transient: bool = False  # the call failed in a way that may pass: try again at the next tick
-
-
-def reservation_usd(config_id: str, prompt: Prompt) -> Decimal:
-    """The call's worst-case cost in USD, from the pricing table."""
-    size = len(prompt.system.encode("utf-8")) + len(prompt.user.encode("utf-8"))
-    return request_reservation_usd(price_of(config_id), size + FRAMING_TOKENS, prompt.max_output)
 
 
 def _compactions_usd(reply: AdapterReply) -> Decimal | None:
@@ -147,14 +140,32 @@ def _release(model: Model, digest: str) -> None:
             log.warning("could not release a Signal model session: %s", type(error).__name__)
 
 
+def _reserve(
+    db: sqlite3.Connection, guard: Guard, purpose: ai_ledger.Purpose, config_id: str, usd: Decimal
+) -> int:
+    """The gate checked again, then the hold; ai_ledger.Refused (nothing held) when it is off or
+    no longer names `config_id`."""
+    now = guard.clock()
+    gate = ai_gate.check(db, guard.environ, guard.rulings_root, now)
+    if not gate.on or gate.ruled_cap is None:
+        raise ai_ledger.Refused(f"the AI pass is off: {gate.missing[0] if gate.missing else ''}")
+    if gate.config_id != config_id:
+        raise ai_ledger.Refused(f"the ruling no longer allows {config_id}")
+    return ai_ledger.reserve(db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap)
+
+
 def call(
-    db: sqlite3.Connection, model: Model, purpose: ai_ledger.Purpose, prompt: Prompt, now: datetime
+    db: sqlite3.Connection,
+    model: Model,
+    guard: Guard,
+    purpose: ai_ledger.Purpose,
+    prompt: Prompt,
 ) -> Answer:
-    """Reserve, make one call, settle. ai_ledger.Refused when no call may be made (nothing is held
-    then). A call that raises is settled as unknown (it may have been sent), which switches the
-    pass off; the error is logged by type only."""
+    """Check the gate, reserve, make one call, settle. ai_ledger.Refused when no call may be made
+    (nothing is held then). A call that raises is settled as unknown (it may have been sent),
+    which switches the pass off; the error is logged by type only."""
     usd = reservation_usd(model.config_id, prompt)
-    call_id = ai_ledger.reserve(db, purpose, model.config_id, usd, now)
+    call_id = _reserve(db, guard, purpose, model.config_id, usd)
     digest = f"signal-{purpose}-{call_id}"
     request = TurnRequest(
         (Message("system", prompt.system), Message("user", prompt.user)),
@@ -168,10 +179,10 @@ def call(
         )
     except Exception as error:  # noqa: BLE001 -- settled as unknown, never as zero
         log.warning("Signal %s call %s raised %s", purpose, call_id, type(error).__name__)
-        ai_ledger.settle(db, call_id, None, f"raised: {type(error).__name__}"[:80], now)
+        ai_ledger.settle(db, call_id, None, f"raised: {type(error).__name__}"[:80], guard.clock())
         return Answer(None, "raised", call_id)
     outcome = _outcome(reply)
-    ai_ledger.settle(db, call_id, charge(reply, model.config_id), outcome, now)
+    ai_ledger.settle(db, call_id, charge(reply, model.config_id), outcome, guard.clock())
     _release(model, digest)
     log.info("Signal %s call %s: %s", purpose, call_id, outcome)
     text = reply.turn.text if reply.turn is not None else None

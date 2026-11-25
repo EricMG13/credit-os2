@@ -286,7 +286,7 @@ CREATE INDEX idx_digest_runs_digest ON digest_runs(digest_id, id);
 # text; `month` (UTC, YYYY-MM) is the month of its reservation, where it counts. A call is 'open'
 # while it holds its reservation, 'settled' at its actual cost, or 'unknown' (its cost could not be
 # established: it counts at its full reservation, never as zero). `settings`: the owner's monthly
-# cap and the switched-off state. `digest_points`: a written issue's numbered points, each with the
+# cap, the switched-off state and the digest writer's calls a UTC day. `digest_points`: a written issue's numbered points, each with the
 # ids of the stories behind it; `digest_issue_ai` the issue's model and story count.
 # `digests.run_requested_at`: "Run once now" asked while AI is on; the background loop runs it.
 _MIGRATION_5 = """
@@ -322,7 +322,7 @@ CREATE TABLE ai_usage(
 );
 CREATE INDEX idx_ai_usage_month ON ai_usage(month, status);
 CREATE TABLE settings(
-    key TEXT PRIMARY KEY CHECK (key IN ('ai_cap_usd','ai_switched_off')),
+    key TEXT PRIMARY KEY CHECK (key IN ('ai_cap_usd','ai_switched_off','ai_digests_per_day')),
     value TEXT NOT NULL,
     set_at TEXT NOT NULL
 );

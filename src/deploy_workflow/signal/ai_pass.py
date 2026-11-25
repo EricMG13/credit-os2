@@ -161,11 +161,15 @@ Labels = dict[int, ai_labels.Label | None]
 
 
 def _batch(
-    db: sqlite3.Connection, model: ai_call.Model, batch: list[Story], nonce: str, now: datetime
+    db: sqlite3.Connection,
+    model: ai_call.Model,
+    guard: ai_call.Guard,
+    batch: list[Story],
+    nonce: str,
 ) -> tuple[bool, Labels | str]:
     """(whether a call was made, the labels or why the pass stops); the call is made only here."""
     try:
-        answer = ai_call.call(db, model, "stories", prompt(batch, nonce), now)
+        answer = ai_call.call(db, model, guard, "stories", prompt(batch, nonce))
     except ai_ledger.Refused as refused:
         return False, str(refused)
     if answer.text is None:
@@ -181,17 +185,18 @@ def _batch(
 def run(
     db: sqlite3.Connection,
     model: ai_call.Model,
+    guard: ai_call.Guard,
     now: datetime,
     nonce: Callable[[], str] = lambda: secrets.token_hex(8),
 ) -> Report:
-    """One pass over the new stories."""
+    """One pass over the new stories at `now`; every call is checked against `guard` first."""
     report = Report()
     if _cooling(db, now):
         report.stopped = "the last call failed less than 30 minutes ago"
         return report
     stories = pending(db, now)
     for start in range(0, len(stories), BATCH):
-        called, got = _batch(db, model, stories[start : start + BATCH], nonce(), now)
+        called, got = _batch(db, model, guard, stories[start : start + BATCH], nonce())
         report.calls += called
         if isinstance(got, str):
             report.stopped = got

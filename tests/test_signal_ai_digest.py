@@ -15,12 +15,19 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from signal_ai_fakes import FakeModel, not_sent, ok
+import signal_ai_fakes as fakes
+from signal_ai_fakes import FakeModel, not_sent, ok, refused_400
 from test_signal_digest import NOW, at, count, make, source, story
 
 from deploy_workflow.model.turn import TurnRequest
-from deploy_workflow.signal import ai_digest, ai_ledger, digests, store
+from deploy_workflow.signal import ai_call, ai_digest, ai_ledger, digests, store
 from deploy_workflow.signal.store import Conflict
+
+
+@pytest.fixture
+def guard(tmp_path: Path) -> ai_call.Guard:
+    """What every call is checked against: a temporary valid ruling, a fake key (SYNTHETIC)."""
+    return fakes.guard(tmp_path / "gate", NOW)
 
 
 @pytest.fixture
@@ -51,7 +58,7 @@ def label(db: sqlite3.Connection, story_id: int, signal: int, why: str) -> None:
         )
 
 
-def test_a_written_issue_is_stored_with_its_points_and_ends_the_period(db):
+def test_a_written_issue_is_stored_with_its_points_and_ends_the_period(db, guard):
     wire = source(db)
     first = story(db, wire, "Corvane closes two plants", NOW - timedelta(hours=5))
     second = story(db, wire, "Tessaly sells its towers", NOW - timedelta(hours=1))
@@ -65,7 +72,7 @@ def test_a_written_issue_is_stored_with_its_points_and_ends_the_period(db):
         ),
     )
     model = FakeModel([ok(reply, usd="0.003")])
-    run = digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, NOW))
+    run = digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, guard, NOW))
     assert (run.outcome, run.stories, run.reason) == ("written", 2, "written by the AI pass")
     issue = db.execute("SELECT * FROM digest_issues").fetchone()
     assert (issue["id"], issue["kind"]) == (run.issue_id, "written")
@@ -88,7 +95,7 @@ def test_a_written_issue_is_stored_with_its_points_and_ends_the_period(db):
     assert tuple(usage) == ("digest", "0.003")
 
 
-def test_the_scope_goes_to_the_model_highest_signal_first_with_its_ai_line(db):
+def test_the_scope_goes_to_the_model_highest_signal_first_with_its_ai_line(db, guard):
     wire = source(db)
     quiet = story(db, wire, "Newest but light", NOW - timedelta(hours=1))
     loud = story(db, wire, "Older but strong", NOW - timedelta(hours=3))
@@ -97,7 +104,9 @@ def test_the_scope_goes_to_the_model_highest_signal_first_with_its_ai_line(db):
     label(db, loud, 3, "A default is likely.")
     ident = make(db, brief="Lead with defaults.")
     model = FakeModel([ok(points(("Lead", "Body.", [loud])))])
-    digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, NOW, nonce=lambda: "n1"))
+    digests.run_now(
+        db, "Mara L", ident, NOW, ai_digest.Writer(db, model, guard, NOW, nonce=lambda: "n1")
+    )
     user = model.requests[0].messages[1].text.splitlines()
     assert user[0] == "Write at most 5 points."
     assert user[1] == "BEGIN BRIEF n1" and user[3] == "END BRIEF n1"
@@ -123,13 +132,13 @@ def test_the_scope_goes_to_the_model_highest_signal_first_with_its_ai_line(db):
         "not JSON",
     ],
 )
-def test_a_result_that_fails_its_check_writes_no_issue_and_keeps_the_period(db, reply):
+def test_a_result_that_fails_its_check_writes_no_issue_and_keeps_the_period(db, reply, guard):
     wire = source(db)
     story(db, wire, "Only story", NOW - timedelta(hours=1))
     ident = make(db)
     before = digests.owned(db, "Mara L", ident).period_from
     run = digests.run_now(
-        db, "Mara L", ident, NOW, ai_digest.Writer(db, FakeModel([ok(reply)]), NOW)
+        db, "Mara L", ident, NOW, ai_digest.Writer(db, FakeModel([ok(reply)]), guard, NOW)
     )
     assert (run.outcome, run.issue_id) == ("skipped", None)
     assert run.reason == "no issue was written: the model's result failed its check"
@@ -138,43 +147,47 @@ def test_a_result_that_fails_its_check_writes_no_issue_and_keeps_the_period(db, 
     assert db.execute("SELECT outcome FROM ai_usage").fetchone()[0] == "result failed its check"
 
 
-def test_a_failed_call_writes_no_issue_and_the_next_run_covers_the_period_again(db):
+def test_a_failed_call_writes_no_issue_and_the_next_slot_covers_the_period_again(db, guard):
     wire = source(db)
     only = story(db, wire, "Only story", NOW - timedelta(hours=1))
     ident = make(db)
     start = digests.owned(db, "Mara L", ident).period_from
     run = digests.run_now(
-        db, "Mara L", ident, NOW, ai_digest.Writer(db, FakeModel([not_sent()]), NOW)
+        db, "Mara L", ident, NOW, ai_digest.Writer(db, FakeModel([refused_400()]), guard, NOW)
     )
-    assert run.reason == "no issue was written: the model call failed (not_sent: KeyMissing)"
-    later = NOW + timedelta(hours=1)
+    assert run.reason == "no issue was written: the model call failed (sent_known: BadRequest)"
+    later = NOW + timedelta(hours=1)  # one paid attempt per period: no retry by hand before the slot
+    with pytest.raises(Conflict, match="runs again at its next scheduled time, 27 Nov 07:00 UTC"):
+        digests.run_now(db, "Mara L", ident, later, ai_digest.Writer(db, FakeModel(), guard, later))
+    friday = at("2026-11-27 07:00")
     model = FakeModel([ok(points(("Lead", "Body.", [only])))])
-    again = digests.run_now(db, "Mara L", ident, later, ai_digest.Writer(db, model, later))
-    assert again.outcome == "written"
+    ran = digests.run_due(db, friday, ai_digest.Writer(db, model, guard, friday))
+    assert [(n, r.outcome) for n, r in ran] == [(ident, "written")]
     period = db.execute("SELECT period_start FROM digest_issues").fetchone()[0]
     assert period == start.isoformat()
 
 
-def test_with_no_story_in_scope_the_issue_says_nothing_material_and_no_call_is_made(db):
+def test_with_no_story_in_scope_the_issue_says_nothing_material_and_no_call_is_made(db, guard):
     ident = make(db)
     model = FakeModel()
-    run = digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, NOW))
+    run = digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, guard, NOW))
     assert run.outcome == "nothing" and model.requests == []
     assert db.execute("SELECT COUNT(*) FROM ai_usage").fetchone()[0] == 0
 
 
-def test_at_the_cap_no_call_is_made_and_no_issue_written(db):
+def test_at_the_cap_no_call_is_made_and_no_issue_written(db, guard):
     wire = source(db)
     story(db, wire, "Only story", NOW - timedelta(hours=1))
     ident = make(db)
     ai_ledger.set_cap(db, Decimal("0.10"), NOW)
     model = FakeModel()
-    run = digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, NOW))
+    run = digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, guard, NOW))
     assert model.requests == []
     assert run.reason == "no issue was written: the call would pass the monthly cap of USD 0.10"
+    assert count(db, "digest_runs") == 0  # no paid call: nothing is recorded, the period stays
 
 
-def test_the_model_call_is_made_while_no_write_lock_is_held(db, tmp_path):
+def test_the_model_call_is_made_while_no_write_lock_is_held(db, tmp_path, guard):
     wire = source(db)
     only = story(db, wire, "Only story", NOW - timedelta(hours=1))
     ident = make(db)
@@ -189,12 +202,12 @@ def test_the_model_call_is_made_while_no_write_lock_is_held(db, tmp_path):
 
     model = FakeModel(answer=write_meanwhile)
     assert (
-        digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, NOW)).outcome
+        digests.run_now(db, "Mara L", ident, NOW, ai_digest.Writer(db, model, guard, NOW)).outcome
         == "written"
     )
 
 
-def test_a_digest_changed_during_the_call_keeps_no_issue(db):
+def test_a_digest_changed_during_the_call_keeps_no_issue(db, guard):
     wire = source(db)
     only = story(db, wire, "Only story", NOW - timedelta(hours=1))
     ident = make(db)
@@ -210,12 +223,16 @@ def test_a_digest_changed_during_the_call_keeps_no_issue(db):
 
     with pytest.raises(Conflict, match="changed while its issue was being written"):
         digests.run_now(
-            db, "Mara L", ident, NOW, ai_digest.Writer(db, FakeModel(answer=edit_meanwhile), NOW)
+            db,
+            "Mara L",
+            ident,
+            NOW,
+            ai_digest.Writer(db, FakeModel(answer=edit_meanwhile), guard, NOW),
         )
     assert count(db, "digest_issues") == 0 and count(db, "digest_runs") == 0
 
 
-def test_a_scheduled_run_claims_its_slot_before_the_call_and_keeps_the_period_on_failure(db):
+def test_a_scheduled_run_claims_its_slot_before_the_call_and_keeps_the_period_on_failure(db, guard):
     wire = source(db)
     story(db, wire, "Only story", at("2026-11-26 09:00"))
     ident = make(db)
@@ -226,22 +243,22 @@ def test_a_scheduled_run_claims_its_slot_before_the_call_and_keeps_the_period_on
         return not_sent()
 
     friday = at("2026-11-27 07:00")
-    ran = digests.run_due(db, friday, ai_digest.Writer(db, FakeModel(answer=look), friday))
+    ran = digests.run_due(db, friday, ai_digest.Writer(db, FakeModel(answer=look), guard, friday))
     assert seen == [at("2026-12-04 07:00")]  # claimed before the call: no other runner takes it
     assert [(n, r.outcome) for n, r in ran] == [(ident, "skipped")]
     assert digests.owned(db, "Mara L", ident).period_from == at("2026-11-20 07:00")
 
 
-def test_run_once_now_while_ai_is_on_is_run_by_the_loop_as_a_manual_run(db):
+def test_run_once_now_while_ai_is_on_is_run_by_the_loop_as_a_manual_run(db, guard):
     wire = source(db)
     only = story(db, wire, "Only story", NOW - timedelta(hours=1))
     ident = make(db)
     digests.request_run(db, "Mara L", ident, NOW)
     model = FakeModel([ok(points(("Lead", "Body.", [only])))])
     later = NOW + timedelta(minutes=1)
-    ran = digests.run_due(db, later, ai_digest.Writer(db, model, later))
+    ran = digests.run_due(db, later, ai_digest.Writer(db, model, guard, later))
     assert [(n, r.outcome) for n, r in ran] == [(ident, "written")]
     row = db.execute("SELECT trigger FROM digest_runs").fetchone()
     assert row["trigger"] == "manual"
     assert digests.owned(db, "Mara L", ident).next_run_at == at("2026-11-27 07:00")  # unchanged
-    assert digests.run_due(db, later, ai_digest.Writer(db, FakeModel(), later)) == []  # once
+    assert digests.run_due(db, later, ai_digest.Writer(db, FakeModel(), guard, later)) == []  # once

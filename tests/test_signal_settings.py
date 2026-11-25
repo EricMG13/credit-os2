@@ -715,9 +715,21 @@ def test_run_once_now_with_stories_in_scope_writes_no_issue_and_says_why(svc, ro
     assert snap["feed"]["digests"] == []
 
 
-def test_marking_issues_read_clears_the_cards_unread_mark(svc):
+def ran_earlier(root: Path, minutes: int) -> None:
+    """Move every recorded run `minutes` earlier, as if it had run then ("Run once now" waits 30
+    minutes after a run)."""
+    db = store.open_db(root)
+    for row in db.execute("SELECT id, ran_at FROM digest_runs").fetchall():
+        moved = datetime.fromisoformat(row["ran_at"]) - timedelta(minutes=minutes)
+        db.execute("UPDATE digest_runs SET ran_at=? WHERE id=?", (moved.isoformat(), row["id"]))
+    db.commit()
+    db.close()
+
+
+def test_marking_issues_read_clears_the_cards_unread_mark(svc, root):
     svc.call("POST", "/api/digests", body=digest_body(), cookie=cookie(READER))
     svc.call("POST", "/api/digests/1/run", cookie=cookie(READER))
+    ran_earlier(root, 31)
     svc.call("POST", "/api/digests/1/run", cookie=cookie(READER))
     status, _, reply = svc.call("POST", "/api/digests/1/issues/2/read", cookie=cookie(READER))
     assert (status, reply) == (200, {"read": True})

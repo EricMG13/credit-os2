@@ -45,7 +45,7 @@ from deploy_workflow.model.adapter import (
 )
 from deploy_workflow.model.budget import exact_sum
 from deploy_workflow.model.pricing import money_text
-from deploy_workflow.signal import ai_call, ai_ledger
+from deploy_workflow.signal import ai_ledger, ai_price
 from deploy_workflow.signal.ai_ledger import CURRENCY
 
 RULING_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}-signal-ai-pass\.md")
@@ -79,8 +79,9 @@ class Gate:
 
     ruling: Path | None  # the ruling file, when it holds
     config_id: str | None  # the configuration it allows Signal, when it holds
-    cap: Decimal | None
+    cap: Decimal | None  # the owner's stored cap, when it is a valid one
     missing: tuple[str, ...]
+    ruled_cap: Decimal | None = None  # the ruling's cap_usd:, when the ruling holds
 
     @property
     def on(self) -> bool:
@@ -170,9 +171,12 @@ def _credentials(environ: Mapping[str, str]) -> list[str]:
     return missing
 
 
-def check(db: sqlite3.Connection, environ: Mapping[str, str], rulings_root: Path) -> Gate:
-    """The one decision: which of the four preconditions hold now. A stored cap above the
-    ruling's is no valid cap (`Gate.cap` None)."""
+def check(
+    db: sqlite3.Connection, environ: Mapping[str, str], rulings_root: Path, now: datetime
+) -> Gate:
+    """The one decision: which of the four preconditions hold at `now`. A stored cap above the
+    ruling's is no valid cap (`Gate.cap` None). ``ai_call.call`` makes it again immediately before
+    every reservation, so a ruling withdrawn or lowered during a job stops the job's next call."""
     ruled = _ruling(rulings_root)
     missing = [] if ruled.problem is None else [ruled.problem]
     limit = ai_ledger.cap(db)
@@ -189,11 +193,7 @@ def check(db: sqlite3.Connection, environ: Mapping[str, str], rulings_root: Path
             f"The pass was switched off because {reason}; only the owner can clear it"
             " (signal ai clear)."
         )
-    return Gate(ruled.ruling, ruled.config_id, limit, tuple(missing))
-
-
-# The smallest call the pass makes: a one-story batch, whose hold every other call is at least.
-_SMALLEST = ai_call.Prompt("", "", 1)
+    return Gate(ruled.ruling, ruled.config_id, limit, tuple(missing), ruled.cap)
 
 
 @dataclass(frozen=True)
@@ -207,9 +207,7 @@ class Status:
     state: State
 
 
-def smallest_hold(config_id: str) -> Decimal:
-    """What the smallest call the pass makes holds until it settles, in USD."""
-    return ai_call.reservation_usd(config_id, _SMALLEST)
+smallest_hold = ai_price.smallest_hold
 
 
 def _capped(gate: Gate, month: ai_ledger.Month) -> bool:
@@ -222,7 +220,7 @@ def status(
     db: sqlite3.Connection, now: datetime, environ: Mapping[str, str], rulings_root: Path
 ) -> Status:
     """Everything about the pass at `now`, read without writing (the caller's transaction)."""
-    gate = check(db, environ, rulings_root)
+    gate = check(db, environ, rulings_root, now)
     month = ai_ledger.totals(db, ai_ledger.month_of(now))
     invalid = db.execute(
         "SELECT COUNT(*) FROM story_ai WHERE month=? AND outcome='invalid'", (month.month,)

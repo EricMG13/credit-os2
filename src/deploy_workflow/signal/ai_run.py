@@ -1,9 +1,11 @@
 """Where the AI pass is wired in: what the service and the command line give it, and its two jobs.
 
-``Setup`` holds the launching environment, the rulings folder and the factory that builds the live
-adapter. ``session`` builds a model only while ``ai_gate.status`` says the pass is on (not off, not
-at its cap), and closes it after the job; otherwise it yields None and nothing is built, so with no
-ruling, cap or key the service runs exactly as before. The jobs: ``story_pass`` (``ai_pass.run``)
+``Setup`` holds the launching environment, the rulings folder, the factory that builds the live
+adapter and the clock the ledger reads. ``session`` builds a model only while ``ai_gate.status``
+says the pass is on (not off, not at its cap), and closes it after the job; otherwise it yields
+None and nothing is built, so with no ruling, cap or key the service runs exactly as before. The
+model is built once per job, but every call the job makes checks the whole gate again first
+(``ai_call.call`` with ``Setup.guard``), so a precondition lost during a job ends it. The jobs: ``story_pass`` (``ai_pass.run``)
 and ``digest_pass`` (``digests.run_due`` with ``ai_digest.Writer`` while on, without it otherwise).
 """
 
@@ -13,8 +15,9 @@ import os
 import sqlite3
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from deploy_workflow.model.adapter import LIVE_RULINGS_ROOT
@@ -33,11 +36,20 @@ def live_model(config_id: str, ruling: Path) -> ai_call.Model:
     return CopilotAdapter(spec, ruling)
 
 
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
 @dataclass(frozen=True)
 class Setup:
     environ: Mapping[str, str] = field(default_factory=lambda: os.environ)
     rulings_root: Path = LIVE_RULINGS_ROOT
     factory: ai_call.ModelFactory = live_model
+    clock: Callable[[], datetime] = utc_now  # read when a call is reserved, settled or expired
+
+    @property
+    def guard(self) -> ai_call.Guard:
+        return ai_call.Guard(self.environ, self.rulings_root, self.clock)
 
 
 def status(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_gate.Status:
@@ -47,7 +59,7 @@ def status(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_gate.Statu
 @contextmanager
 def session(db: sqlite3.Connection, now: datetime, setup: Setup) -> Iterator[ai_call.Model | None]:
     """The model for one job while the pass is on, else None; closed when the job ends."""
-    ai_ledger.expire(db, now)
+    ai_ledger.expire(db, setup.clock())
     held = status(db, now, setup)
     if held.state != "on" or held.gate.config_id is None or held.gate.ruling is None:
         yield None
@@ -64,11 +76,12 @@ def session(db: sqlite3.Connection, now: datetime, setup: Setup) -> Iterator[ai_
 def story_pass(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_pass.Report | None:
     """One pass over the new stories; None when the pass is not on."""
     with session(db, now, setup) as model:
-        return None if model is None else ai_pass.run(db, model, now)
+        return None if model is None else ai_pass.run(db, model, setup.guard, now)
 
 
 class DigestsLeftDue(RuntimeError):
-    """A pass left digests due (a busy database, or a model call that may pass)."""
+    """A pass left digests due by a fault (a busy database, or a call the adapter did not send);
+    digests left waiting for a limit or a refusal are not a fault."""
 
 
 def digest_pass(
@@ -77,7 +90,11 @@ def digest_pass(
     """The due digests, with the AI pass's writer while it is on. DigestsLeftDue when the pass
     left any due for the next tick, so the loop's digest error says so."""
     with session(db, now, setup) as model:
-        writer = None if model is None else ai_digest.Writer(db, model, now)
+        writer = None if model is None else ai_digest.Writer(db, model, setup.guard, now)
+        if writer is not None and ai_ledger.digest_calls_on(db, setup.clock()) >= (
+            per_day := ai_ledger.digests_per_day(db)
+        ):
+            writer.stopped = ai_ledger.day_full(per_day)  # every due digest waits for tomorrow
         ran = digests.run_due(db, now, writer)
     if ran.left_due:
         raise DigestsLeftDue(f"{len(ran.left_due)} digests were left due for the next tick")

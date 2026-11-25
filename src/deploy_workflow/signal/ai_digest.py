@@ -36,6 +36,7 @@ MAX_LEAD = 120
 MAX_BODY = 480
 MAX_STORIES = 10  # ids behind one point
 MAX_OUTPUT = 4000  # tokens
+CALLS_PER_PASS = 10  # digest calls one due pass makes at most; the others wait for the next
 
 SYSTEM = f"""You write a short credit brief for one reader, from the stories you are given only.
 
@@ -142,27 +143,43 @@ def prompt(scope: digests.Scope, nonce: str) -> ai_call.Prompt:
 
 
 class Writer:
-    """``digests.Writer`` for one job of the background loop (one model, one `now`)."""
+    """``digests.Writer`` for one job of the background loop (one model, one `now`). Every call
+    goes through ``ai_call.call`` and its `guard`. The writer stops (``stopped``) at a refused
+    call (the gate, the cap, the day's digest calls), at a call not sent, and after `per_pass`
+    calls, so the due pass ends there and the other digests wait for the next pass."""
 
     def __init__(
         self,
         db: sqlite3.Connection,
         model: ai_call.Model,
+        guard: ai_call.Guard,
         now: datetime,
         nonce: Callable[[], str] = lambda: secrets.token_hex(8),
+        per_pass: int = CALLS_PER_PASS,
     ) -> None:
-        self.db, self.model, self.now, self.nonce = db, model, now, nonce
+        self.db, self.model, self.guard, self.now, self.nonce = db, model, guard, now, nonce
+        self.per_pass, self.calls = per_pass, 0
+        self.stopped: str | None = None
+
+    def _stop(self, reason: str, *, fault: bool) -> digests.WriterFailed:
+        self.stopped = reason
+        return digests.WriterFailed(reason, again=True, fault=fault)
 
     def draft(self, scope: digests.Scope) -> object:
         try:
             answer = ai_call.call(
-                self.db, self.model, "digest", prompt(scope, self.nonce()), self.now
+                self.db, self.model, self.guard, "digest", prompt(scope, self.nonce())
             )
         except ai_ledger.Refused as refused:
-            raise digests.WriterFailed(str(refused)) from None
+            raise self._stop(str(refused), fault=False) from None
+        self.calls += 1
+        if self.calls >= self.per_pass:
+            self.stopped = f"this pass made its {self.per_pass} digest calls; the others wait"
         if answer.text is None:
             failed = f"the model call failed ({answer.outcome})"
-            raise digests.WriterFailed(failed, transient=answer.transient)
+            if answer.transient:
+                raise self._stop(failed, fault=True)
+            raise digests.WriterFailed(failed)
         draft = read(answer.text, scope)
         if draft is None:
             ai_ledger.relabel(self.db, answer.call_id, "result failed its check")

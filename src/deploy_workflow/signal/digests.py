@@ -47,10 +47,11 @@ import logging
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
 
 from deploy_workflow.signal import groups, schedule
+from deploy_workflow.signal.texts import day, utc
 from deploy_workflow.signal.store import (
     Conflict,
     Missing,
@@ -75,6 +76,7 @@ DEFAULT_LOOK_AHEAD = 7
 MAX_LOOK_AHEAD = 60
 KEEP_ISSUES = 60  # issues kept per digest; older ones are dropped as new ones are written
 KEEP_RUNS = 120
+RUN_AGAIN_AFTER = timedelta(minutes=30)  # "Run once now" waits this long after any run
 
 COVER_ALL = "All stories"
 TOPIC_PREFIX = "Topic: "
@@ -122,6 +124,7 @@ class Digest:
     spec: Spec
     period_from: datetime
     next_run_at: datetime
+    requested_at: datetime | None = None  # when "Run once now" was asked, while it waits
 
 
 @dataclass(frozen=True)
@@ -167,28 +170,40 @@ class Run:
 
 class WriterFailed(Exception):
     """The writer wrote no issue: its call was refused or failed, or its result was invalid.
-    `transient`: the failure may pass (the provider asked to be called later), so the run is left
-    due rather than recorded."""
+    `again`: no call was paid (it was refused before its reservation, or the adapter established
+    that it was not sent), so the run is left due rather than recorded; `fault` says whether that
+    is a fault the loop shows (a call not sent) or a limit doing its work (a refusal)."""
 
-    def __init__(self, reason: str, *, transient: bool = False) -> None:
+    def __init__(self, reason: str, *, again: bool = False, fault: bool = False) -> None:
         super().__init__(reason)
-        self.transient = transient
+        self.again, self.fault = again, fault
 
 
 class _RetryLater(Exception):
-    """A run left due: its writer's failure may pass."""
+    """A run left due: its writer made no paid call."""
+
+    def __init__(self, reason: str, *, fault: bool) -> None:
+        super().__init__(reason)
+        self.fault = fault
 
 
 class Ran(list[tuple[int, "Run"]]):
-    """The runs a pass made, and the digests it left due for the next tick (`left_due`)."""
+    """The runs a pass made; the digests it left due for the next tick by a fault (`left_due`: a
+    busy database, a call not sent) and those left waiting because the writer stopped for a limit
+    or a refusal (`waiting`)."""
 
     def __init__(self) -> None:
         super().__init__()
         self.left_due: list[int] = []
+        self.waiting: list[int] = []
 
 
 class Writer(Protocol):
-    """The AI pass's digest writer (``ai_digest``). None in its place: AI is off or at its cap."""
+    """The AI pass's digest writer (``ai_digest``). None in its place: AI is off or at its cap.
+    `stopped` is why it makes no more calls in this pass (None while it may): the due pass then
+    ends, and the digests not yet run wait for the next one."""
+
+    stopped: str | None
 
     def draft(self, scope: Scope) -> object:
         """Make the one model call for `scope` and return the validated result; WriterFailed
@@ -322,12 +337,14 @@ def _digest(db: sqlite3.Connection, row: sqlite3.Row) -> Digest:
         upcoming=row["upcoming"],
         look_ahead_days=row["look_ahead_days"],
     )
+    asked = row["run_requested_at"]
     return Digest(
         row["id"],
         row["owner"],
         spec,
         datetime.fromisoformat(row["period_from"]),
         datetime.fromisoformat(row["next_run_at"]),
+        None if asked is None else datetime.fromisoformat(asked),
     )
 
 
@@ -684,15 +701,15 @@ def _write(
     db: sqlite3.Connection, scope: Scope, trigger: Trigger, writer: Writer, now: datetime
 ) -> Run | None:
     """Draft the issue outside any transaction, then store it in one; None when the digest changed
-    meanwhile (nothing is stored then). _RetryLater when the writer's failure may pass: the digest
-    is made due again, with its period as it was."""
+    meanwhile (nothing is stored then). _RetryLater when the writer made no paid call: the digest
+    is made due again as it was, with its period and its place in the queue."""
     count = len(scope.stories)
     try:
         draft = writer.draft(scope)
     except WriterFailed as failed:
-        if failed.transient:
-            _due_again(db, scope, trigger, now)
-            raise _RetryLater(str(failed)) from None
+        if failed.again:
+            _due_again(db, scope)
+            raise _RetryLater(str(failed), fault=failed.fault) from None
         run = Run("skipped", None, count, f"{NOT_WRITTEN}{failed}")
         with _write_transaction(db):
             if not _unchanged(db, scope):
@@ -708,20 +725,53 @@ def _write(
     return run
 
 
-def _due_again(db: sqlite3.Connection, scope: Scope, trigger: Trigger, now: datetime) -> None:
-    """Undo a run's claim: a scheduled run is due at its old time again, a manual one is asked
-    for again."""
+def _due_again(db: sqlite3.Connection, scope: Scope) -> None:
+    """Undo a run's claim: its scheduled time and the time its run was asked for are put back as
+    they were, so it keeps its place among the due digests (longest due first)."""
+    digest = scope.digest
+    asked = None if digest.requested_at is None else _utc_text(digest.requested_at)
     with _write_transaction(db):
         if not _unchanged(db, scope):
             return
-        if trigger == "schedule":
-            stamp = _utc_text(scope.digest.next_run_at)
-            db.execute("UPDATE digests SET next_run_at=? WHERE id=?", (stamp, scope.digest.id))
-        else:
-            db.execute(
-                "UPDATE digests SET run_requested_at=? WHERE id=?",
-                (_utc_text(now), scope.digest.id),
-            )
+        db.execute(
+            "UPDATE digests SET next_run_at=?, run_requested_at=? WHERE id=?",
+            (_utc_text(digest.next_run_at), asked, digest.id),
+        )
+
+
+def _moment(at: datetime, now: datetime) -> str:
+    """ "14:35 UTC" on `now`'s UTC day, else "27 Nov 07:00 UTC"."""
+    hours = f"{utc(at):%H:%M} UTC"
+    return hours if utc(at).date() == utc(now).date() else f"{day(at, now)} {hours}"
+
+
+def _run_refusal(db: sqlite3.Connection, digest: Digest, now: datetime) -> str | None:
+    """Why "Run once now" may not run the digest at `now`, or None: within RUN_AGAIN_AFTER of its
+    last run of any outcome, or, after a run whose paid model call wrote no issue, before its next
+    scheduled time (one paid attempt per period)."""
+    row = db.execute(
+        "SELECT ran_at, reason FROM digest_runs WHERE digest_id=? ORDER BY id DESC LIMIT 1",
+        (digest.id,),
+    ).fetchone()
+    if row is None:
+        return None
+    ran = datetime.fromisoformat(row["ran_at"])
+    if now < ran + RUN_AGAIN_AFTER:
+        again = _moment(ran + RUN_AGAIN_AFTER, now)
+        return f"This digest ran at {_moment(ran, now)}. It can run again from {again}."
+    if str(row["reason"]).startswith(NOT_WRITTEN) and now < digest.next_run_at:
+        return (
+            "The last run of this digest wrote no issue, so it runs again at its next scheduled"
+            f" time, {_moment(digest.next_run_at, now)}."
+        )
+    return None
+
+
+def _may_run_now(db: sqlite3.Connection, digest: Digest, now: datetime) -> Digest:
+    refusal = _run_refusal(db, digest, now)
+    if refusal is not None:
+        raise Conflict(refusal)
+    return digest
 
 
 def run_now(
@@ -733,18 +783,19 @@ def run_now(
 ) -> Run:
     """ "Run once now": a run of the owner's digest that leaves its schedule as it was. With a
     writer the model call is made outside any transaction; Conflict (``CHANGED``) when the digest
-    changed while its issue was being written. A writer's failure that may pass leaves the run
-    asked for, so the background loop tries it again."""
+    changed while its issue was being written. Conflict too, with the sentence saying when it can
+    run, when ``_run_refusal`` refuses it. A writer that made no paid call leaves the run as it
+    was."""
     with _write_transaction(db):
-        planned = _plan(db, owned(db, owner, digest_id), now, "manual", writer)
+        digest = _may_run_now(db, owned(db, owner, digest_id), now)
+        planned = _plan(db, digest, now, "manual", writer)
     if isinstance(planned, Run):
         return planned
     assert writer is not None
     try:
         run = _write(db, planned, "manual", writer, now)
     except _RetryLater as later:
-        reason = f"{NOT_WRITTEN}{later}; the run is tried again within a minute"
-        return Run("skipped", None, len(planned.stories), reason)
+        return Run("skipped", None, len(planned.stories), f"{NOT_WRITTEN}{later}")
     if run is None:
         raise Conflict(CHANGED)
     return run
@@ -752,10 +803,14 @@ def run_now(
 
 def request_run(db: sqlite3.Connection, owner: str, digest_id: int, now: datetime) -> None:
     """Ask the background loop to run the owner's digest once (``run_due``): "Run once now" while
-    AI is on, so no model call is made in a request handler."""
+    AI is on, so no model call is made in a request handler. Refused as ``run_now`` is; asking
+    again while a run is asked for keeps its first time, and so its place among the due digests."""
     with _write_transaction(db):
-        owned(db, owner, digest_id)
-        db.execute("UPDATE digests SET run_requested_at=? WHERE id=?", (_utc_text(now), digest_id))
+        _may_run_now(db, owned(db, owner, digest_id), now)
+        db.execute(
+            "UPDATE digests SET run_requested_at=coalesce(run_requested_at, ?) WHERE id=?",
+            (_utc_text(now), digest_id),
+        )
 
 
 def _run_scheduled(
@@ -816,6 +871,34 @@ def _passing(error: sqlite3.OperationalError) -> bool:
     return isinstance(code, int) and code & 0xFF in _RETRIED
 
 
+def _run_one(
+    db: sqlite3.Connection, digest_id: int, now: datetime, writer: Writer | None, results: Ran
+) -> None:
+    """Run one due digest into `results`; a fault is logged and recorded, or left due."""
+    try:
+        run = _run_scheduled(db, digest_id, now, writer)
+    except _RetryLater as later:
+        log.warning("digest %s: no paid call was made (%s); it stays due", digest_id, later)
+        (results.left_due if later.fault else results.waiting).append(digest_id)
+        return
+    except sqlite3.OperationalError as error:
+        if _passing(error):
+            log.exception("digest %s could not run now (database busy or locked)", digest_id)
+            results.left_due.append(digest_id)
+            return
+        log.exception("digest %s failed (a lasting database fault)", digest_id)
+        if not _fail(db, digest_id, now, error):
+            results.left_due.append(digest_id)
+        return
+    except Exception as error:
+        log.exception("digest %s failed", digest_id)
+        if not _fail(db, digest_id, now, error):
+            results.left_due.append(digest_id)
+        return
+    if run is not None:
+        results.append((digest_id, run))
+
+
 def run_due(db: sqlite3.Connection, now: datetime, writer: Writer | None = None) -> Ran:
     """Run every digest whose time has come, once each, however many periods it missed, and every
     digest whose owner asked for a run (``request_run``): at most DUE_PER_PASS of them, the one
@@ -823,38 +906,23 @@ def run_due(db: sqlite3.Connection, now: datetime, writer: Writer | None = None)
     others stay due for the next pass.
 
     A digest whose run raises is logged and recorded as skipped, its digest moved to its next
-    slot, unless the fault may pass (the database was busy or locked, or the writer's failure is
-    transient): that one is left due for the next tick and listed in ``left_due``. Either way the
-    pass goes on to the others, even when recording a failure fails too."""
+    slot, unless the fault may pass (the database was busy or locked, or the writer's call was not
+    sent): that one is left due for the next tick and listed in ``left_due``. Either way the pass
+    goes on to the others, even when recording a failure fails too. Once the writer has stopped
+    (``Writer.stopped``: a refused call, a call not sent, or its limits for this pass) the pass
+    ends, and every digest not yet run waits for the next one (``waiting``)."""
     due = db.execute(
         "SELECT id FROM digests WHERE next_run_at <= ? OR run_requested_at IS NOT NULL"
         " ORDER BY min(next_run_at, coalesce(run_requested_at, next_run_at)), id LIMIT ?",
         (_utc_text(now), DUE_PER_PASS),
     ).fetchall()
     results = Ran()
-    for row in due:
-        try:
-            run = _run_scheduled(db, row["id"], now, writer)
-        except _RetryLater:
-            log.warning("digest %s: its model call may pass; it stays due", row["id"])
-            results.left_due.append(row["id"])
-            continue
-        except sqlite3.OperationalError as error:
-            if not _passing(error):
-                log.exception("digest %s failed (a lasting database fault)", row["id"])
-                if not _fail(db, row["id"], now, error):
-                    results.left_due.append(row["id"])
-                continue
-            log.exception("digest %s could not run now (database busy or locked)", row["id"])
-            results.left_due.append(row["id"])
-            continue
-        except Exception as error:
-            log.exception("digest %s failed", row["id"])
-            if not _fail(db, row["id"], now, error):
-                results.left_due.append(row["id"])
-            continue
-        if run is not None:
-            results.append((row["id"], run))
+    ids = [int(row["id"]) for row in due]
+    for index, digest_id in enumerate(ids):
+        if writer is not None and writer.stopped is not None:
+            results.waiting += ids[index:]
+            break
+        _run_one(db, digest_id, now, writer, results)
     return results
 
 

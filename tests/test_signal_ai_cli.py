@@ -26,6 +26,8 @@ from deploy_workflow.signal.cli import main
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.store import add_story, open_db, propose_source
 
+RULED = Decimal(100000)  # a ruled cap above every stored one: the stored cap binds
+
 
 def run(root: Path, *args: str, **kwargs: object) -> tuple[int, str]:
     out = io.StringIO()
@@ -101,7 +103,7 @@ def test_status_when_on_and_clear_after_an_unknown_cost(tmp_path):
     ]
     db = open_db(root)
     now = datetime.now(UTC)
-    call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), now)
+    call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.3585"), now, ruled_cap=RULED)
     ai_ledger.settle(db, call, None, "sent_unknown: OverallTimeout", now)
     db.close()
     out = run(root, "status", ai=held)[1]

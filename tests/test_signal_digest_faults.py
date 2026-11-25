@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import signal_ai_fakes as fakes
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from signal_ai_fakes import FakeModel, ok
@@ -21,6 +22,7 @@ from test_signal_digest import NOW, WRITER, at, count, make, source, story
 
 from deploy_workflow.model.adapter import AdapterReply
 from deploy_workflow.signal import (
+    ai_call,
     ai_digest,
     ai_ledger,
     digests,
@@ -30,6 +32,12 @@ from deploy_workflow.signal import (
     topics,
 )
 from deploy_workflow.signal.service import Loop
+
+
+@pytest.fixture
+def guard(tmp_path: Path) -> ai_call.Guard:
+    """What every call is checked against: a temporary valid ruling, a fake key (SYNTHETIC)."""
+    return fakes.guard(tmp_path / "gate", NOW)
 
 
 @pytest.fixture
@@ -91,30 +99,32 @@ def _rate_limited() -> AdapterReply:
     return AdapterReply("sent_known", None, None, 429, "RateLimited", None, None, None)
 
 
-def test_a_transient_provider_failure_leaves_the_digest_due_with_its_period(db):
+def test_a_transient_provider_failure_leaves_the_digest_due_with_its_period(db, guard):
     ai_ledger.set_cap(db, Decimal(15), NOW)
     wire = source(db)
     only = story(db, wire, "Only story", at("2026-11-26 09:00"))
     ident = make(db)
     friday = at("2026-11-27 07:00")
-    ran = digests.run_due(db, friday, ai_digest.Writer(db, FakeModel([_rate_limited()]), friday))
+    ran = digests.run_due(
+        db, friday, ai_digest.Writer(db, FakeModel([_rate_limited()]), guard, friday)
+    )
     assert ran.left_due == [ident] and count(db, "digest_runs") == 0
     held = digests.owned(db, "Mara L", ident)
     assert (held.next_run_at, held.period_from) == (friday, at("2026-11-20 07:00"))
     reply = json.dumps({"points": [{"lead": "L", "body": "B.", "stories": [str(only)]}]})
     later = friday + timedelta(minutes=1)
-    again = digests.run_due(db, later, ai_digest.Writer(db, FakeModel([ok(reply)]), later))
+    again = digests.run_due(db, later, ai_digest.Writer(db, FakeModel([ok(reply)]), guard, later))
     assert [(n, r.outcome) for n, r in again] == [(ident, "written")]
 
 
-def test_a_lasting_provider_failure_is_recorded_and_the_digest_moves_on(db):
+def test_a_lasting_provider_failure_is_recorded_and_the_digest_moves_on(db, guard):
     ai_ledger.set_cap(db, Decimal(15), NOW)
     wire = source(db)
     story(db, wire, "Only story", at("2026-11-26 09:00"))
     ident = make(db)
     refused = AdapterReply("sent_known", None, None, 400, "BadRequest", None, None, None)
     friday = at("2026-11-27 07:00")
-    ran = digests.run_due(db, friday, ai_digest.Writer(db, FakeModel([refused]), friday))
+    ran = digests.run_due(db, friday, ai_digest.Writer(db, FakeModel([refused]), guard, friday))
     assert [(n, r.outcome) for n, r in ran] == [(ident, "skipped")] and ran.left_due == []
     assert digests.owned(db, "Mara L", ident).next_run_at == at("2026-12-04 07:00")
     assert digests.owned(db, "Mara L", ident).period_from == at("2026-11-20 07:00")

@@ -14,10 +14,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import signal_ai_fakes as fakes
 from signal_ai_fakes import CONFIG, FakeModel, ok, status_on
 from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 
 from deploy_workflow.signal import (
+    ai_call,
     ai_digest,
     ai_gate,
     ai_ledger,
@@ -37,6 +39,12 @@ NO_RULING = (
     " (a file named YYYY-MM-DD-signal-ai-pass.md)."
 )
 READER = User("Tobias O", "reader")
+
+
+@pytest.fixture
+def guard(tmp_path: Path) -> ai_call.Guard:
+    """What every call is checked against: a temporary valid ruling, a fake key (SYNTHETIC)."""
+    return fakes.guard(tmp_path / "gate", NOW)
 
 
 @pytest.fixture
@@ -320,9 +328,11 @@ def test_the_signal_event_marks_a_followed_topics_strong_stories_while_its_switc
     assert [(t["name"], t["count"]) for t in stopped] == [("Packaging", "2"), ("Shipping", "2")]
 
 
-def write_issue(db: sqlite3.Connection, ident: int, when: datetime, reply: str) -> None:
+def write_issue(
+    db: sqlite3.Connection, guard: ai_call.Guard, ident: int, when: datetime, reply: str
+) -> None:
     ai_ledger.set_cap(db, Decimal(15), NOW)
-    writer = ai_digest.Writer(db, FakeModel([ok(reply)]), when)
+    writer = ai_digest.Writer(db, FakeModel([ok(reply)]), guard, when)
     assert digests.run_now(db, "Mara L", ident, when, writer).outcome == "written"
 
 
@@ -330,7 +340,7 @@ def _point(lead: str, body: str, *stories: int) -> dict[str, Any]:
     return {"lead": lead, "body": body, "stories": [str(n) for n in stories]}
 
 
-def test_a_written_issue_is_drawn_with_its_points_while_ai_is_on(db):
+def test_a_written_issue_is_drawn_with_its_points_while_ai_is_on(db, guard):
     ids = seed(db)
     form = digests.Form(
         "Weekly brief",
@@ -343,12 +353,12 @@ def test_a_written_issue_is_drawn_with_its_points_while_ai_is_on(db):
         db, "Mara L", digests.spec_from_form(db, "Mara L", form), NOW - timedelta(days=2)
     )
     older = json.dumps({"points": [_point("Older lead", "Older body.", ids["corvane"])]})
-    write_issue(db, ident, NOW - timedelta(minutes=30), older)  # its scope: the four stories
+    write_issue(db, guard, ident, NOW - timedelta(minutes=30), older)  # its scope: the four stories
     charge = add(db, 1, "Corvane books a charge", 0.1)  # the only story of the next period
     newer = json.dumps(
         {"points": [_point("Packaging cuts capacity", "Corvane books a charge.", charge)]}
     )
-    write_issue(db, ident, NOW, newer)
+    write_issue(db, guard, ident, NOW, newer)
     snap = built(db, WRITER, status_on())
     (record,) = snap["digests"]
     assert record["paused"] is None

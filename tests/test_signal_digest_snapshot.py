@@ -284,7 +284,7 @@ def test_cards_sit_before_older_for_you_stories_and_the_view_stays_coherent(db):
     topics.add_topic(db, "Quiet", ["nothing here"], [], "Mara L")  # no story, so a nothing issue
     ident = make(db, "Mara L", covers=["Topic: Quiet"])
     digests.run_now(db, "Mara L", ident, NOW - timedelta(minutes=50))
-    digests.run_now(db, "Mara L", ident, NOW - timedelta(minutes=30))
+    digests.run_now(db, "Mara L", ident, NOW - timedelta(minutes=20))  # Run once now waits 30
     got = snap(db, WRITER)
     view = got["feed"]["views"]["for-you"]
     assert [c["id"] for c in got["feed"]["digests"]] == ["d2", "d1"]
@@ -364,10 +364,10 @@ def test_a_second_issue_of_the_same_day_carries_its_time_in_its_title(db):
     """Two runs of a daily digest on one day were both titled "Daily: 24 November"; the later one
     now says when its period ended (UTC)."""
     ident = make(db, "Mara L", name="Daily", schedule="Daily, 07:00 UTC")
-    first, second = NOW.replace(hour=14, minute=5), NOW.replace(hour=14, minute=10)
+    first, second = NOW.replace(hour=14, minute=5), NOW.replace(hour=14, minute=35)
     digests.run_now(db, "Mara L", ident, first)
     digests.run_now(db, "Mara L", ident, second)
     got = snap(db, WRITER, second)
-    titles = ["Daily: 24 November, 14:10 UTC", "Daily: 24 November"]
+    titles = ["Daily: 24 November, 14:35 UTC", "Daily: 24 November"]
     assert [issue["title"] for issue in got["digests"][0]["issues"]] == titles
     assert [card["title"] for card in got["feed"]["digests"]] == titles

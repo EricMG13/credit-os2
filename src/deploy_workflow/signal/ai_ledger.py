@@ -13,8 +13,12 @@ processes are serialised by the database lock and cannot both fit under the cap:
   whenever it settles.
 * ``spent`` is the month's settled actual costs plus the full reservation of every call whose cost
   could not be established; ``held`` is the month's open reservations. ``reserve`` refuses a call
-  unless ``spent + held + reservation <= cap``; it refuses every call while no cap is set or while
-  the pass is switched off.
+  unless ``spent + held + reservation <= cap``, where the cap is the lower of the owner's stored
+  cap and the ruled cap its caller checked just before; it refuses every call while no cap is set
+  or while the pass is switched off.
+* The digest writer makes at most ``digests_per_day`` calls (reservations, whatever became of them)
+  in one UTC day for the whole service (``DIGESTS_PER_DAY`` until the owner sets it with
+  ``signal ai digests-per-day <n>``); ``reserve`` refuses the next one (``day_full``).
 * ``settle`` records the actual cost. A cost that cannot be established (``None``) leaves the call
   counted at its full reservation (status ``unknown``) and switches the pass off until the owner
   clears it (``clear``); it is never counted as zero. A cost above the reservation is recorded in
@@ -45,8 +49,11 @@ from deploy_workflow.signal.store import StoreError, _utc_text, _write_transacti
 CURRENCY = "USD"
 STALE_AFTER = timedelta(hours=1)
 MAX_CAP = Decimal(100000)
+DIGESTS_PER_DAY = 50  # the digest writer's calls a UTC day for the whole service, until set
+MAX_DIGESTS_PER_DAY = 1000
 _CAP = "ai_cap_usd"
 _OFF = "ai_switched_off"
+_PER_DAY = "ai_digests_per_day"
 
 Purpose = Literal["stories", "digest"]
 
@@ -124,6 +131,52 @@ def set_cap(db: sqlite3.Connection, amount: Decimal, now: datetime) -> None:
         )
 
 
+def parse_per_day(text: str) -> int:
+    """The digest writer's calls a day as the owner types them: a whole number from 0 to
+    `MAX_DIGESTS_PER_DAY` in plain digits; StoreError otherwise."""
+    cleaned = text.strip()
+    if not (cleaned.isascii() and cleaned.isdecimal()) or len(cleaned) > 4:
+        raise StoreError("the digest calls a day are a whole number, such as 50")
+    count = int(cleaned)
+    if count > MAX_DIGESTS_PER_DAY:
+        raise StoreError(f"the digest calls a day are at most {MAX_DIGESTS_PER_DAY}")
+    return count
+
+
+def digests_per_day(db: sqlite3.Connection) -> int:
+    """The most digest-writer calls the whole service makes in one UTC day."""
+    row = _setting(db, _PER_DAY)
+    return DIGESTS_PER_DAY if row is None else int(row["value"])
+
+
+def set_digests_per_day(db: sqlite3.Connection, count: int, now: datetime) -> None:
+    checked = parse_per_day(str(count))
+    with _write_transaction(db):
+        db.execute(
+            "INSERT OR REPLACE INTO settings(key, value, set_at) VALUES(?, ?, ?)",
+            (_PER_DAY, str(checked), _utc_text(now)),
+        )
+
+
+def digest_calls_on(db: sqlite3.Connection, at: datetime) -> int:
+    """The digest-writer calls reserved in `at`'s UTC day, whatever became of them."""
+    day = f"{at.astimezone(UTC):%Y-%m-%d}"
+    found = db.execute(
+        "SELECT COUNT(*) FROM ai_usage WHERE purpose='digest' AND month=?"
+        " AND substr(reserved_at, 1, 10)=?",
+        (day[:7], day),
+    ).fetchone()[0]
+    return int(found)
+
+
+def day_full(count: int) -> str:
+    """Why a digest call is refused once the day's calls are made."""
+    return (
+        f"the digests have made today's {count} model calls, the most a day allows;"
+        " the others wait until 00:00 UTC"
+    )
+
+
 def switched_off(db: sqlite3.Connection) -> tuple[str, datetime] | None:
     """Why and when the pass was switched off for a cost it could not establish, or None."""
     row = _setting(db, _OFF)
@@ -193,21 +246,35 @@ def expire(db: sqlite3.Connection, now: datetime) -> int:
 
 
 def reserve(
-    db: sqlite3.Connection, purpose: Purpose, config_id: str, usd: Decimal, now: datetime
+    db: sqlite3.Connection,
+    purpose: Purpose,
+    config_id: str,
+    usd: Decimal,
+    now: datetime,
+    *,
+    ruled_cap: Decimal,
 ) -> int:
     """Hold `usd` for one call and return the call's id; Refused when no call may be made.
 
-    The cap check and the hold are one write transaction."""
+    The limit is the lower of the owner's stored cap and `ruled_cap`, the cap of the ruling the
+    caller checked just before (``ai_call.call``), so a ruling lowered below the stored cap bounds
+    the very next call. The cap check and the hold are one write transaction."""
     if not isinstance(usd, Decimal) or not usd.is_finite() or usd <= 0:
         raise StoreError("a reservation is a positive Decimal amount")
+    if not isinstance(ruled_cap, Decimal) or not ruled_cap.is_finite() or ruled_cap <= 0:
+        raise StoreError("the ruled cap is a positive Decimal amount")
     month = month_of(now)
     with _write_transaction(db):
         _expire(db, now)
         if switched_off(db) is not None:
             raise Refused("the AI pass is switched off until the owner clears it")
-        limit = cap(db)
-        if limit is None:
+        stored = cap(db)
+        if stored is None:
             raise Refused("no monthly cap is set")
+        limit = min(stored, ruled_cap)
+        per_day = digests_per_day(db)
+        if purpose == "digest" and digest_calls_on(db, now) >= per_day:
+            raise Refused(day_full(per_day))
         if exact_sum((totals(db, month).total, usd)) > limit:
             raise Refused(f"the call would pass the monthly cap of {CURRENCY} {money_text(limit)}")
         cur = db.execute(
@@ -260,17 +327,23 @@ def relabel(db: sqlite3.Connection, call_id: int, outcome: str) -> None:
 
 __all__ = [
     "CURRENCY",
+    "DIGESTS_PER_DAY",
     "STALE_AFTER",
     "Month",
     "Refused",
     "cap",
     "clear",
+    "day_full",
+    "digest_calls_on",
+    "digests_per_day",
     "expire",
     "month_of",
     "parse_cap",
+    "parse_per_day",
     "relabel",
     "reserve",
     "set_cap",
+    "set_digests_per_day",
     "settle",
     "switched_off",
     "totals",
