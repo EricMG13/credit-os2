@@ -34,6 +34,14 @@ credential files".
 The last two limits are the planning session's reading of "No credential files" applied to Entra,
 not the owner's words. The owner may overrule them.
 
+## Amendment, 2026-11-26: a Reader needs no passcode
+
+Asked "Does a Reader need a passcode?", the owner said: "no". There are two passcodes, Analyst
+and Admin. A first sign-in with an account of the organisation's own tenant creates a Reader
+account; a valid passcode makes it an Analyst or an Admin. Where the text above says three
+passcodes, or that a missing passcode creates no account, this amendment replaces it. Everything
+else stands.
+
 ## Known, not decided here
 
 - How a passcode is rotated, and whether changing one affects accounts already registered.

@@ -13,8 +13,8 @@ Owner decisions, 2026-11-25:
 - Sign-in uses Microsoft Entra ID with OpenID Connect. The authorization-code flow with PKCE is
   the one described in the note the owner attached.
 - Token checking uses Microsoft's `msal` library, a new pinned dependency.
-- Entra proves who the user is. A passcode the owner sets chooses the profile type at
-  registration: Reader, Analyst (Signal's writer) or Admin (Signal's owner). Passcodes are
+- Entra proves who the user is. A first sign-in makes a Reader; a passcode the owner sets
+  makes the account an Analyst (Signal's writer) or an Admin (Signal's owner). Passcodes are
   stored as hashes only (`docs/rulings/2026-11-25-registration-passcodes.md`).
 - Users with offline pages get Signal as a read-only snapshot of stories only. Threads and
   comments stay in the running service.
@@ -24,7 +24,7 @@ Owner decisions, 2026-11-25:
 | 1 | Landing page: one entry point for the library, run start and Signal, where sign-in is applied | This repository | Not started |
 | 2 | Entra sign-in in the Python service with `msal`: identity checked server-side, a session cookie, and every API route and report or source download protected, not only the page controls | This repository, proved against a stand-in identity provider only | Not started |
 | 3 | SQLite store for accounts, profile types, sessions and passcode hashes. No analytical data, no passwords | This repository | Not started |
-| 4 | Registration on first Entra sign-in: the passcode entered sets the profile type (Reader, Analyst, Admin); a wrong or missing passcode creates no account | This repository | Not started |
+| 4 | Registration on first Entra sign-in: a first sign-in creates a Reader; a valid passcode makes the account an Analyst or an Admin | This repository | Not started |
 | 5 | Replace Signal's display-name cookie (`deploy_workflow.signal.identity.current_user`) with the signed-in account, and move the owner's source and AI-cap powers into the browser | This repository | Not started |
 | 6 | Read-only Signal snapshot for offline pages: stories only, no threads, comments or posting | This repository | Not started |
 | 7 | **Full Entra deployment: app registration limited to the organisation's own tenant, tenant and client ids, redirect address, and a sign-in with real work accounts** | **Work PC only** | Not started |
