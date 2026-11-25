@@ -190,7 +190,8 @@ _REPEAT_FLOOR = 200
 # head says Python computes. A paragraph that also holds a rule that still applies is not listed.
 CANNOT_APPLY = re.compile(
     r"## Invocation fields — binding before drafting\n"
-    r"|## Automated QA validation\n"
+    # the heading goes only with the script line under it: in CP-5 a live rule follows it
+    r"|## Automated QA validation\nRun `python3 \./scripts/validate_handoff\.py"
     r"|Run `python3 \./scripts/validate_handoff\.py"
     r"|#### Worked example\n"
 )

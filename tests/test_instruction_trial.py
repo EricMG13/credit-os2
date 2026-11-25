@@ -136,6 +136,16 @@ def test_the_trial_total_counts_the_reader_calls_too(tmp_path):
     assert trial.trial_spent(tmp_path / "cp4-E") == Decimal("1.75")
 
 
+def test_cp5_keeps_the_loan_market_rule_under_the_automated_qa_heading_and_cp4_loses_the_script():
+    from deploy_workflow.owners import cpos_launch
+
+    assert (
+        "Verify its rows, values, instrument identity and calculation basis"
+        in cpos_launch.method_text("CP-5")
+    )
+    assert "## Automated QA validation" not in cpos_launch.method_text("CP-4")
+
+
 def test_the_engine_sends_every_module_its_method_without_repeats_and_names_every_file():
     from deploy_workflow.owners import cpos_launch
     from deploy_workflow.owners.cpos_launch_methods import METHODS, TRIMMED_METHODS, trim_method
@@ -144,7 +154,7 @@ def test_the_engine_sends_every_module_its_method_without_repeats_and_names_ever
     for module in METHODS:
         block = cpos_launch.method_text(module)
         assert trim_method(block) == block  # trimming what was trimmed changes nothing
-        assert "## Automated QA validation" not in block
+        assert "Run `python3 ./scripts/validate_handoff.py" not in block
         for name, text in cpos_launch.method_sections(module):
             assert cpos_launch.method_heading(name, text) in block, (module, name)
         assert all(i in block for i in cpos_launch.required_registers(module)), module

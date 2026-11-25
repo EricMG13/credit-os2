@@ -597,6 +597,25 @@ and route, "CP-4 now, probe CP-0 and CP-1 (Recommended)" and "Copilot, add a che
   has any run evidence: group D's result is CP-4's alone. For CP-5 in particular the topics are
   audit steps, and a reader of source documents may find little to note.
 
+## Pre-merge review and fixes (ninth pass, 2026-11-25)
+
+Reviewer: the `mx-architect` agent on the code and instruction changes. No High finding; four
+Medium, fixed by an `mx-feature` agent and checked again here; five Low.
+
+- Fixed: the trimming dropped a live rule from CP-5 (a "cannot apply" pattern matched a heading
+  that, in CP-5's method alone, is followed by the rule on checking loan-market claims). The
+  pattern now needs the script line under the heading. CP-5 was sent without that rule only
+  between two commits of this branch; no run used it.
+- Fixed in the reader: a source in a subfolder lost its notes after a paid call; a missing notes
+  folder or a reading that stopped part-way was accepted silently (now refused, naming what is
+  missing); a reply the runtime had summarised, or one cut off, became notes (now stops).
+- Added tests for the cumulative cap and for a document read in parts.
+- Left as found (Low): after trimming, a few step shells and empty wrappers remain where the full
+  copy of a step appears earlier; the trial tool's direct route stays runnable with a ruling.
+- Cleared by the review: no method file heading is lost and every required register is named in
+  all 22 modules; the trial's direct transport cannot reach an engine run; the library comparison
+  cannot hide a method change; no key-like string is in the diff.
+
 ## Not verified
 
 - Any effect of length on output: the pilot ran each group once, which cannot show one.

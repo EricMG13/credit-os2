@@ -1044,18 +1044,33 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
 
 
 def _add_reading_notes(
-    texts: dict[str, bytes], folder: Path | None, pinned: Mapping[str, HandoffInput]
+    texts: dict[str, bytes],
+    folder: Path | None,
+    pinned: Mapping[str, HandoffInput],
+    documents: Sequence[Mapping[str, Any]],
 ) -> None:
     """Put each module's first-pass reading notes after its instructions, where group D of the
-    instruction-length trial placed them (`cpos_reader`). Nothing when no folder is named."""
+    instruction-length trial placed them (`cpos_reader`). Nothing when no folder is named; a
+    named folder that is missing, or gives no module notes, refuses (it would be off unseen)."""
     if folder is None:
         return
+    if not folder.is_dir():
+        raise LaunchRefused(f"--reading-notes: {folder} is not a folder")
     shas = {name: spec.sha256 for name, spec in pinned.items()}
+    given = False
     for module in texts:
+        if module not in cpos_reader.READERS:
+            continue
         try:
-            texts[module] += cpos_reader.notes_block(module, folder, shas).encode()
+            block = cpos_reader.notes_block(
+                module, folder, shas, cpos_reader.reader_documents(module, documents)
+            )
         except cpos_reader.NotesRefused as refused:
             raise LaunchRefused(f"--reading-notes: {refused}") from None
+        texts[module] += block.encode()
+        given = given or bool(block)
+    if not given:
+        raise LaunchRefused(f"--reading-notes: {folder} holds no notes for any module of this run")
 
 
 def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per setting
@@ -1185,8 +1200,8 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         if wanted and module in texts:
             head, mark, method = texts[module].partition(METHOD_MARK.encode())
             texts[module] = head + block.encode() + mark + method
-    _add_reading_notes(texts, reading_notes, pinned)
     guesses, documents = _documents(covers)
+    _add_reading_notes(texts, reading_notes, pinned, documents)
     items = expectations(
         ordered,
         tuple(guesses.values()),

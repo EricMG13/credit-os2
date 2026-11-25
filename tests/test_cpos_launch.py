@@ -3609,7 +3609,8 @@ METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-3D": "c818a4237fcf30c38c54bebba751cfb0be438451cc5b346d997f8dd503524a4f",
     "CP-4": "2b18bf3a399e1a73c624ba12541caf3071e9695bbcb571c3d35ecf1369d9cfbe",
     "CP-4C": "28c02bf5af3be8ea20403f8ffe52d2584622448a7bc3e08f906cb3a7b362c08e",
-    "CP-5": "1e622e4bab4ce25cf8a5d1b285e88d287a3ba37bd46c45122be407df980bb7f4",
+    # CP-5 recomputed after the Automated QA validation match was narrowed (review, 2026-11-25)
+    "CP-5": "d96d31c11e2d134c220c3fd3a352aed5eeb8bbc227df73188163e54c4e58d389",
     "CP-6": "9a00e24fbf90d75df4dddf5afb23ceac62a6d32697c0ac5953b77e2be5b68ebb",
     "CP-8": "46f8c05ff744c2c2bb9eee94f1aceefd57588d265f7289389c189a12fc2ff41d",
     "CP-DR": "92d1f6c3445864670f9d685d8e8133e8f4f7fb1bb1aec9244a2a5f2a08535ece",

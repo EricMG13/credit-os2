@@ -77,6 +77,13 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   `test_instruction_trial.py`, `test_library_index.py`, 86 passed; CP-4's brief and rule unchanged
   (compared with the version before). No model run of any of the five; no run evidence for them.
   Merged `main` at `bc0a025` (conflicts in this file and `.importlinter`; both sides kept).
+- Pre-merge review (`mx-architect`, code and instruction changes): no High, four Medium, five Low.
+  The four Medium (a live CP-5 rule dropped by the trim; reader notes lost for a source in a
+  subfolder; a missing or partial notes folder accepted; summarised or cut-off replies kept as
+  notes) fixed by `mx-feature`, only the first test-first for all cases by its own account;
+  rechecked here: 118 passed in six test files, CP-5 keeps the rule, gate exit 0. Not run in
+  this session (skills absent): `confidence-review`, `rewrite-tournament`, the refactoring sweep,
+  `adversarial-reviewer`.
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the
@@ -987,12 +994,3 @@ Scope: the connected React start page (`web/src/pages/connected/StartRun.tsx`, `
 - Commands, exit 0, on the final tree: `npm --prefix web run` build, lint, format:check, typecheck, unused, duplication, test (172 files, 3,889 tests) and proof:connected (Chrome and Edge, 2 pass); `uv run python tools/quality_gate.py` (0 findings, 430 lines in scope); `pytest tests/test_start_forecast_pathways.py tests/test_run_expectations_words.py tests/test_run_start_submissions.py tests/test_run_start_service.py tests/test_context_form.py` (352 passed); `pytest -m browser tests/test_run_start_page.py` 152 passed (before the fix round, which changed only `web/src`).
 - Review: one adversarial whole-branch review on Opus (High 0, Medium 2: a Basic run sending an Advanced module choice; the note's refusal on a question row that does not exist) and two scoped re-reviews (round 1 left a Medium: Leave out named "Cash flow model"; round 2 pass); the pathway-list change had its own task review (a Medium: the review sheet's Modules list showed and counted "Cash flow model"; fixed, re-review pass). Clean, with probes: Submit sends only the reviewed body; Leave out bypasses no acceptance, cap or digest; left-out modules do not run; the fields send loaded values back exactly ("0", "-50", "8.50", null, ""). A register-only refactoring sweep found no defect introduced and 13 Low structural costs, left for the next phase sweep; 7 Low and 2 Info review findings wait for the end batch.
 - Not verified: a live or paid run from the page; focus, scroll and section opening for a routed refusal in a real browser by hand (jsdom tests and the browser proof only); Windows; the full Python suite.
-
-## 2026-11-16 — Older start page: name refusal routes to the pathway step again (branch `claude/legacy-start-page-name`)
-
-Scope: `docs/templates/context-form.html` (`errorStage`), `tests/test_run_start_page.py` and `web/scripts/connected-proof.mjs` only.
-- Broke: after #40 the 15 browser tests in `tests/test_run_start_page.py` that open the review failed. Causes: (1) the service's new name sentence ("Enter your name as your first name and initial...") has no `submitted_by`, so `errorStage` gave a name refusal no "Go to" button; (2) setups that never typed a name now got a name refusal and so no summary items.
-- Fixed: `errorStage` also matches `first name and initial` and sends it to `pathway`; eight page setups type `Ana L`; the "80 characters" assertion now reads the service's new sentence. `links == ["pathway"]` unchanged; it failed (`[]`) before the page fix and passed after.
-- Commands: `pytest -m browser tests/test_run_start_page.py` 152 passed (one earlier loaded-machine run had 3 unrelated tests fail with a Chrome `CalledProcessError`; each passed alone and in the next full run); `tests/test_run_start_submissions.py tests/test_run_start_service.py` 257 passed; `tools/quality_gate.py` 0 findings.
-- Proof: `npm --prefix web run proof:connected` also failed on a438cb9f (Chrome and Edge, exit 1: the Submit, spend up to USD 25.00 button never appeared) because `web/scripts/connected-proof.mjs` never entered "Your name"; it now fills `Ana L` and passes (2 pass, exit 0).
-- Not verified: the page in a real browser by hand; React start page (unchanged); CI (deselects browser tests).

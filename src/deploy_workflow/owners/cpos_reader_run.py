@@ -45,6 +45,7 @@ NOTES_TOOL = ToolSpec(
         "additionalProperties": False,
     },
 )
+_COMPLETE = ("tool_use", "end")  # the other stop reasons: `max_tokens` (cut short) and `other`
 SUBMIT = " Submit the notes with write_notes."
 
 
@@ -78,17 +79,23 @@ def read_documents(  # noqa: PLR0913 - one keyword per setting of the reading
     *,
     cap: Decimal,
     redactor: Redactor,
+    part_bytes: int = PART_BYTES,
 ) -> Decimal:
     """Read each named source and write its notes file under ``out``/``module``; returns what
     the calls settled. Raises `ReadingStopped` before a call whose hold would pass ``cap`` and
-    after one that failed or has no known charge."""
+    after one that failed, has no known charge, was cut short or refused, or was summarised by
+    the runtime (the notes would not be of the whole document)."""
     config = CONFIGS[adapter.config_id]
     folder = out / module
     folder.mkdir(parents=True, exist_ok=True)
     spent = Decimal(0)
     for name in names:
         pages = [json.loads(line) for line in sources[name].decode().splitlines()]
-        pieces = parts(pages)
+        pieces = parts(pages, part_bytes)
+        notes_path = folder / f"{name}{cpos_reader.SUFFIX}"
+        # a source named by a path (`filings/a.htm.jsonl`) needs its folder; made before the first
+        # call, so a path problem cannot follow a paid one
+        notes_path.parent.mkdir(parents=True, exist_ok=True)
         notes = []
         for number, piece in enumerate(pieces, 1):
             which = f" (part {number} of {len(pieces)})" if len(pieces) > 1 else ""
@@ -116,20 +123,31 @@ def read_documents(  # noqa: PLR0913 - one keyword per setting of the reading
             record.update(config=config.config_id, kind=reply.kind, error=reply.error_class)
             record["settled_usd"] = None if reply.billed_usd is None else str(reply.billed_usd)
             record["usage"] = None if reply.usage is None else asdict(reply.usage)
+            record["compactions"] = len(reply.compactions)
             with (out / "reader-calls.jsonl").open("a") as log:
                 log.write(json.dumps(record) + "\n")
+            # `release` is the Copilot adapter's (stop this exchange's runtime); the `ModelAdapter`
+            # Protocol does not declare it, so it is called only where the adapter has it
+            release = getattr(adapter, "release", None)
+            if callable(release):
+                release(digest)
             if reply.kind != "ok" or reply.turn is None or reply.billed_usd is None:
                 raise ReadingStopped(f"{name}{which}: {reply.kind}; charge {reply.billed_usd}")
             spent += reply.billed_usd
+            if reply.compactions:
+                raise ReadingStopped(
+                    f"{name}{which}: the runtime summarised the document; "
+                    "notes from a summary are not a reading of the whole"
+                )
+            if reply.turn.stop_reason not in _COMPLETE:
+                raise ReadingStopped(f"{name}{which}: stopped with {reply.turn.stop_reason}")
             written = [c.arguments.get("markdown", "") for c in reply.turn.tool_calls]
             text = "\n".join(str(w) for w in written if w) or reply.turn.text
             if not text.strip():
                 raise ReadingStopped(f"{name}{which}: the reader wrote no notes")
             notes.append(text.strip())
         sha256 = hashlib.sha256(sources[name]).hexdigest()
-        (folder / f"{name}{cpos_reader.SUFFIX}").write_text(
-            cpos_reader.notes_file(name, sha256, "\n\n".join(notes))
-        )
+        notes_path.write_text(cpos_reader.notes_file(name, sha256, "\n\n".join(notes)))
     return spent
 
 

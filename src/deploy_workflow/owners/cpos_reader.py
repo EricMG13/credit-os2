@@ -179,29 +179,39 @@ def notes_file(name: str, sha256: str, notes: str) -> str:
     return f"source: {name} sha256 {sha256}\n\n{notes.strip()}\n"
 
 
-def notes_block(module: str, folder: Path, sources: Mapping[str, str]) -> str:
+def notes_block(
+    module: str, folder: Path, sources: Mapping[str, str], documents: Sequence[str]
+) -> str:
     """What follows ``module``'s instructions: the rule, then each document's notes in name
     order; empty when the folder holds none for the module. ``sources`` is each pinned source's
-    sha256. Refuses notes for a source this run does not have, for another version of one it has,
-    and a file with no notes."""
-    files = sorted((folder / module).glob(f"*{SUFFIX}"))
+    sha256; ``documents`` the sources the module's reader is given (`reader_documents`). Refuses
+    notes for a source this run does not have, for another version of one it has, for a source
+    the reader is not given, two files for one source, a file with no notes, and a set of notes
+    that leaves one of ``documents`` out (the rule says the reader went through each)."""
+    files = sorted((folder / module).rglob(f"*{SUFFIX}"))
     if module not in READERS or not files:
         return ""
-    parts = []
+    parts = {}
     for path in files:
         first, _, notes = path.read_text(encoding="utf-8").partition("\n")
         named = _FIRST_LINE.fullmatch(first)
         if named is None:
             raise NotesRefused(f"{path.name}: the first line must be `source: <name> sha256 <hex>`")
         name, sha256 = named[1], named[2]
+        if name not in documents:
+            raise NotesRefused(f"{path.name}: {name} is not a document {module}'s reader is given")
+        if name in parts:
+            raise NotesRefused(f"{path.name}: a second file of notes on {name}")
         if sources.get(name) != sha256:
             raise NotesRefused(
                 f"{path.name}: written for a version of {name} this run does not pin"
             )
         if not notes.strip():
             raise NotesRefused(f"{path.name}: holds no notes")
-        parts.append(f"### Notes on {name}\n\n{notes.strip()}")
-    return "\n" + notes_rule(module) + "\n\n" + "\n\n".join(parts) + "\n"
+        parts[name] = f"### Notes on {name}\n\n{notes.strip()}"
+    if missing := [d for d in documents if d not in parts]:
+        raise NotesRefused(f"no notes on {missing[0]}, which {module}'s reader is given")
+    return "\n" + notes_rule(module) + "\n\n" + "\n\n".join(parts[n] for n in sorted(parts)) + "\n"
 
 
 def without_notes(method_block: str) -> str:

@@ -2,10 +2,11 @@
 module they are for, pinned to the source they were written from. Texts here are literal."""
 
 import hashlib
+import json
 
 import pytest
 
-from deploy_workflow.owners import cpos_launch, cpos_reader
+from deploy_workflow.owners import cpos_reader
 from deploy_workflow.owners.cpos_launch import METHOD_MARK, LaunchRefused, method_text, prepare
 from tests.test_cpos_launch import context_file, issuer_folder
 
@@ -13,14 +14,38 @@ SHA = "c" * 64
 
 
 def notes_folder(tmp_path, name="agreement.jsonl", sha256=SHA, notes="p.3 | Covenant | 7.25x"):
-    folder = tmp_path / "notes" / "CP-4"
-    folder.mkdir(parents=True)
-    (folder / f"{name}.notes.md").write_text(cpos_reader.notes_file(name, sha256, notes))
-    return tmp_path / "notes"
+    folder = tmp_path / "notes"
+    (folder / "CP-4" / f"{name}.notes.md").parent.mkdir(parents=True)
+    (folder / "CP-4" / f"{name}.notes.md").write_text(cpos_reader.notes_file(name, sha256, notes))
+    return folder
+
+
+def put_notes(folder, module, name, sha256, notes="p.1 | topic | value"):
+    path = folder / module / f"{name}.notes.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(cpos_reader.notes_file(name, sha256, notes))
+
+
+AGREEMENT, REPORT = "filings/agreement.jsonl", "annual report 2024.jsonl"
+
+
+def reading_issuer(tmp_path):
+    """The tests' synthetic issuer plus two page-text sources a reader is given: an agreement
+    (kind unrecognised) and a file the launcher takes for a financial report."""
+    folder = tmp_path / "issuer"
+    if folder.exists():
+        return folder
+    issuer_folder(tmp_path)
+    page = json.dumps({"page": 1, "text": "Maximum net leverage 7.25x."}) + "\n"
+    (folder / AGREEMENT).write_text(page)
+    (folder / REPORT).write_text(page)
+    return folder
 
 
 def test_a_modules_notes_follow_the_rule_under_the_name_of_their_document(tmp_path):
-    block = cpos_reader.notes_block("CP-4", notes_folder(tmp_path), {"agreement.jsonl": SHA})
+    block = cpos_reader.notes_block(
+        "CP-4", notes_folder(tmp_path), {"agreement.jsonl": SHA}, ["agreement.jsonl"]
+    )
     assert block == (
         "\n" + cpos_reader.NOTES_RULE + "\n\n### Notes on agreement.jsonl\n\n"
         "p.3 | Covenant | 7.25x\n"
@@ -30,10 +55,10 @@ def test_a_modules_notes_follow_the_rule_under_the_name_of_their_document(tmp_pa
 
 def test_no_notes_and_a_module_without_a_reader_give_nothing(tmp_path):
     folder = notes_folder(tmp_path)
-    assert cpos_reader.notes_block("CP-4", tmp_path / "elsewhere", {}) == ""
+    assert cpos_reader.notes_block("CP-4", tmp_path / "elsewhere", {}, []) == ""
     (folder / "CP-6").mkdir()
     (folder / "CP-6" / "a.notes.md").write_text(cpos_reader.notes_file("a", SHA, "n"))
-    assert cpos_reader.notes_block("CP-6", folder, {"a": SHA}) == ""  # no reader is defined for it
+    assert cpos_reader.notes_block("CP-6", folder, {"a": SHA}, ["a"]) == ""  # no reader for it
 
 
 @pytest.mark.parametrize(
@@ -50,7 +75,7 @@ def test_notes_for_another_document_or_without_content_are_refused(tmp_path, sou
     if text is not None:
         (folder / "CP-4" / "agreement.jsonl.notes.md").write_text(text)
     with pytest.raises(cpos_reader.NotesRefused, match=why):
-        cpos_reader.notes_block("CP-4", folder, sources)
+        cpos_reader.notes_block("CP-4", folder, sources, ["agreement.jsonl"])
 
 
 def test_the_brief_names_the_modules_own_step_titles():
@@ -62,12 +87,10 @@ def test_the_brief_names_the_modules_own_step_titles():
 
 
 def test_a_launch_with_notes_adds_them_to_that_module_alone_and_pins_them(tmp_path):
-    context, issuer = context_file(tmp_path), issuer_folder(tmp_path)
+    context, issuer = context_file(tmp_path), reading_issuer(tmp_path)
     plain = prepare(context, issuer, tmp_path / "plain", config="sol-medium", cap="15")
-    name, spec = next(
-        (n, s) for n, s in plain.plan.sources.items() if n != cpos_launch.CONTEXT_SOURCE_ID
-    )
-    folder = notes_folder(tmp_path, name, spec.sha256)
+    sha256 = plain.plan.sources[AGREEMENT].sha256
+    folder = notes_folder(tmp_path, AGREEMENT, sha256)
     noted = prepare(
         context, issuer, tmp_path / "noted", config="sol-medium", cap="15", reading_notes=folder
     )
@@ -77,7 +100,7 @@ def test_a_launch_with_notes_adds_them_to_that_module_alone_and_pins_them(tmp_pa
         if module != "CP-4":
             assert after == before, module
             continue
-        added = cpos_reader.notes_block("CP-4", folder, {name: spec.sha256}).encode()
+        added = cpos_reader.notes_block("CP-4", folder, {AGREEMENT: sha256}, [AGREEMENT]).encode()
         assert after == before + added
         assert noted.plan.instructions[module].sha256 == hashlib.sha256(after).hexdigest()
         block = after.decode().partition(METHOD_MARK)[2]
@@ -85,18 +108,80 @@ def test_a_launch_with_notes_adds_them_to_that_module_alone_and_pins_them(tmp_pa
         assert cpos_reader.without_notes(block) == method_text("CP-4") + "\n"
 
 
-def test_a_launch_refuses_notes_written_for_another_version_and_writes_nothing(tmp_path):
-    folder = notes_folder(tmp_path, "annual.txt", "e" * 64)
-    with pytest.raises(LaunchRefused, match="--reading-notes: .*this run does not pin"):
+def refused_launch(tmp_path, folder, match):
+    with pytest.raises(LaunchRefused, match=match):
         prepare(
-            context_file(tmp_path),
-            issuer_folder(tmp_path),
+            context_file(tmp_path, "deep_credit_assessment"),
+            reading_issuer(tmp_path),
             tmp_path / "out",
             config="sol-medium",
-            cap="15",
+            cap="50",
             reading_notes=folder,
         )
     assert not (tmp_path / "out" / "workflow.json").exists()
+
+
+def test_a_launch_refuses_notes_written_for_another_version_and_writes_nothing(tmp_path):
+    folder = notes_folder(tmp_path, AGREEMENT, "e" * 64)
+    refused_launch(tmp_path, folder, "--reading-notes: .*this run does not pin")
+
+
+def test_a_launch_refuses_a_notes_folder_that_does_not_exist(tmp_path):
+    refused_launch(tmp_path, tmp_path / "no-such-folder", "--reading-notes: .*not a folder")
+
+
+def test_a_launch_refuses_a_notes_folder_that_gives_no_module_any_notes(tmp_path):
+    (tmp_path / "empty").mkdir()
+    refused_launch(tmp_path, tmp_path / "empty", "--reading-notes: .*no notes for any module")
+
+
+def test_a_launch_refuses_a_reading_that_stopped_before_every_document_was_read(tmp_path):
+    """CP-0's reader is given two documents here; the folder has notes on one."""
+    plain = prepare(
+        context_file(tmp_path, "deep_credit_assessment"),
+        reading_issuer(tmp_path),
+        tmp_path / "plain",
+        config="sol-medium",
+        cap="50",
+    )
+    folder = tmp_path / "partial"
+    put_notes(folder, "CP-0", AGREEMENT, plain.plan.sources[AGREEMENT].sha256)
+    refused_launch(tmp_path, folder, f"--reading-notes: .*no notes on {REPORT}")
+
+
+def test_notes_on_a_source_the_reader_is_not_given_or_two_files_on_one_are_refused(tmp_path):
+    folder = tmp_path / "notes"
+    put_notes(folder, "CP-4", "annual.txt", SHA)
+    with pytest.raises(cpos_reader.NotesRefused, match="annual.txt is not a document CP-4's"):
+        cpos_reader.notes_block("CP-4", folder, {"annual.txt": SHA}, [AGREEMENT])
+    other = tmp_path / "twice"
+    put_notes(other, "CP-4", AGREEMENT, SHA)
+    (other / "CP-4" / "copy.notes.md").write_text(cpos_reader.notes_file(AGREEMENT, SHA, "n"))
+    with pytest.raises(cpos_reader.NotesRefused, match=f"a second file of notes on {AGREEMENT}"):
+        cpos_reader.notes_block("CP-4", other, {AGREEMENT: SHA}, [AGREEMENT])
+
+
+def test_notes_for_one_of_two_documents_name_the_one_left_out(tmp_path):
+    folder = tmp_path / "notes"
+    put_notes(folder, "CP-4", "a.jsonl", SHA)
+    with pytest.raises(cpos_reader.NotesRefused, match="no notes on b.jsonl, which CP-4's reader"):
+        cpos_reader.notes_block("CP-4", folder, {"a.jsonl": SHA}, ["a.jsonl", "b.jsonl"])
+
+
+def test_notes_in_a_subfolder_are_found_in_name_order(tmp_path):
+    folder = tmp_path / "notes"
+    put_notes(folder, "CP-4", "filings/agreement.jsonl", SHA, "p.1 | Covenant | 7.25x")
+    put_notes(folder, "CP-4", "annual.jsonl", SHA, "p.2 | Maturity | 2029")
+    block = cpos_reader.notes_block(
+        "CP-4",
+        folder,
+        {"filings/agreement.jsonl": SHA, "annual.jsonl": SHA},
+        ["annual.jsonl", "filings/agreement.jsonl"],
+    )
+    assert block.endswith(
+        "### Notes on annual.jsonl\n\np.2 | Maturity | 2029\n\n"
+        "### Notes on filings/agreement.jsonl\n\np.1 | Covenant | 7.25x\n"
+    )
 
 
 def test_cp4s_reader_is_given_the_page_text_documents_that_are_not_financial_reports():
@@ -149,18 +234,23 @@ def test_readers_exist_for_the_core_modules_but_cp6_and_each_has_its_own_brief_a
     assert "each document once" in cpos_reader.notes_rule("CP-1")
 
 
+# What each module's reader is given from `reading_issuer`, worked out from the readers' kinds.
+GIVEN = {
+    "CP-0": [REPORT, AGREEMENT],
+    "CP-1": [REPORT],
+    "CP-2": [REPORT],
+    "CP-3": [REPORT, AGREEMENT],
+    "CP-5": [REPORT, AGREEMENT],
+}
+
+
 @pytest.mark.parametrize("module", ["CP-0", "CP-1", "CP-2", "CP-3", "CP-5"])
 def test_a_launch_gives_each_module_its_own_notes_and_no_other(tmp_path, module):
-    context, issuer = context_file(tmp_path, "deep_credit_assessment"), issuer_folder(tmp_path)
+    context, issuer = context_file(tmp_path, "deep_credit_assessment"), reading_issuer(tmp_path)
     plain = prepare(context, issuer, tmp_path / "plain", config="sol-medium", cap="50")
-    name, spec = next(
-        (n, s) for n, s in plain.plan.sources.items() if n != cpos_launch.CONTEXT_SOURCE_ID
-    )
     folder = tmp_path / "notes"
-    (folder / module).mkdir(parents=True)
-    (folder / module / f"{name}.notes.md").write_text(
-        cpos_reader.notes_file(name, spec.sha256, "p.1 | topic | value")
-    )
+    for name in GIVEN[module]:
+        put_notes(folder, module, name, plain.plan.sources[name].sha256)
     noted = prepare(
         context, issuer, tmp_path / "noted", config="sol-medium", cap="50", reading_notes=folder
     )
@@ -172,6 +262,6 @@ def test_a_launch_gives_each_module_its_own_notes_and_no_other(tmp_path, module)
     ]
     assert changed == [module]
     text = (tmp_path / "noted" / noted.plan.instructions[module].path).read_text()
-    assert text.endswith(f"### Notes on {name}\n\np.1 | topic | value\n")
+    assert text.endswith(f"### Notes on {GIVEN[module][-1]}\n\np.1 | topic | value\n")
     block = text.partition(METHOD_MARK)[2]
     assert cpos_reader.without_notes(block) == method_text(module) + "\n"
