@@ -47,7 +47,7 @@ export function TraceSplit({
   index: number;
   line: number;
 }) {
-  const base = traceForLine(snapshot, entry, index, line);
+  const base = traceForLine(snapshot, entry, index, line, run.pathway);
   if (!base) return null;
   const sourced: SourcedTrace = { ...base, citations: citationsAt(snapshot, entry, line) };
   const references = referencedText(base.derivation);

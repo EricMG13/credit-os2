@@ -50,15 +50,15 @@ function moduleOutput(current: ModuleItem, output: string | undefined) {
   return /^(?:0|[1-9]\d*)$/.test(output) ? current.outputs[Number(output)] : undefined;
 }
 
-function pageTraces(snapshot: Snapshot, entry: OutputEntry, index: number) {
-  const traces: Record<string, Trace> = sectionTraces(snapshot, entry, entry.sections);
+function pageTraces(snapshot: Snapshot, entry: OutputEntry, index: number, pathway: string | null) {
+  const traces: Record<string, Trace> = sectionTraces(snapshot, entry, entry.sections, pathway);
   const extra = [entry.output.summary?.line, ...chartGaps(entry).map(({ line }) => line)];
   for (const line of extra) {
     if (line === undefined) continue;
-    const trace = traceForLine(snapshot, entry, index, line);
+    const trace = traceForLine(snapshot, entry, index, line, pathway);
     if (trace) traces[traceKey(entry, line)] = trace;
   }
-  const confidence = traceForConfidence(snapshot, entry);
+  const confidence = traceForConfidence(snapshot, entry, pathway);
   if (confidence) traces[CONFIDENCE_TRACE] = confidence;
   return traces;
 }
@@ -162,7 +162,7 @@ function ModulePage({
   const [open, setOpen] = useState<string | null>(null);
   const { figures, Lead, kinds, frame, gaps, limitations } = page;
   const index = view.entries.indexOf(entry);
-  const traces = pageTraces(snapshot, entry, index);
+  const traces = pageTraces(snapshot, entry, index, run.pathway);
   const module = { ...current, state: moduleState(entry) };
   const next = nextModule(view, current.id);
   const active = open === null ? undefined : traces[open];

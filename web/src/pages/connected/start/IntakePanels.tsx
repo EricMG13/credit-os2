@@ -213,7 +213,7 @@ export function IntakePanels(props: IntakePanelsProps) {
           cap={shownCap}
           capTitle={synthetic ? "Configured cap for paid runs" : "Spending cap for this run"}
           pathway={pathwayName(view.run.pathway)}
-          modules={moduleReadiness(planned, checked)}
+          modules={moduleReadiness(planned, checked, view.run.pathway)}
           source={source}
           stagesInReview={review !== undefined}
         />

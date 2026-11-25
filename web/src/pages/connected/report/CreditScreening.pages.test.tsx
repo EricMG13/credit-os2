@@ -3,7 +3,11 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { PublishedRun, Snapshot } from "../publishedReport";
-import type { ReportView } from "../reportView";
+import { buildReportView } from "../reportView";
+import { CallRow } from "./overview/CallRow";
+import { LimitsRow } from "./overview/LimitsRow";
+import { PipelineRow } from "./overview/PipelineRow";
+import { overviewView } from "./overview/decision";
 import { Modules } from "./Modules";
 import { ReportEvidence } from "./Evidence";
 import { Forecast } from "./Forecast";
@@ -23,7 +27,8 @@ const SCREENS = [
 ];
 
 const fixture = creditScreeningEntry();
-const entry = { ...fixture, output: { ...fixture.output, id: "out", sha256: "a".repeat(64) } };
+const ID = "case/CP-L10.md";
+const SHA = "a".repeat(64);
 const evidence = {
   sources: [],
   unused: [],
@@ -34,18 +39,54 @@ const evidence = {
   downloads: [],
   record: { hashes: [], instructions: [], calls: [], cap: null },
 };
-const run = { folder: "case", pathway: "credit_screening", evidence } as unknown as PublishedRun;
-const view = {
-  entries: [entry],
-  modules: [{ id: "CP-L10", name: "Credit screening", state: "Delivered", outputs: [entry] }],
-  catalogue: undefined,
-  lead: entry,
-  models: [],
-} as unknown as ReportView;
+const run = {
+  folder: "case",
+  issuer: "Harbourline Synthetic Foods plc",
+  issuerKey: "harbourline",
+  title: "Credit screening",
+  period: "FY2024",
+  asOf: "2025-03-31",
+  pathway: "credit_screening",
+  modules: { "CP-L10": { outputs: [ID], default: ID } },
+  record: { steps: [{ module: "CP-L10" }] },
+  evidence,
+} as unknown as PublishedRun;
 const snapshot = {
+  catalogue: { real: [] },
   chips: {},
-  workspace: { runs: {}, outputs: {}, handoffs: {}, models: [] },
+  workspace: {
+    runs: { case: run },
+    outputs: { [ID]: { ...fixture.output, id: ID, sha256: SHA } },
+    handoffs: { [SHA]: fixture.sections },
+    models: [],
+  },
 } as unknown as Snapshot;
+const view = buildReportView(snapshot, "case", run);
+const [entry] = view.entries;
+if (!entry) throw new Error("the published run holds no CP-L10 output");
+
+/**
+ * The module ids the page already prints for every module of every run: the navigator caption and
+ * the title chip are mono spans holding exactly a module id (library/parts/ModuleNav.tsx, not this
+ * PR's). Only those nodes are stripped; the stripped texts are returned so a test can assert they
+ * are the run's own module ids and nothing else.
+ */
+const KNOWN_ID_NODES = "span.font-mono";
+
+function withoutKnownIds(container: HTMLElement) {
+  const clone = container.cloneNode(true) as HTMLElement;
+  const stripped: string[] = [];
+  clone.querySelectorAll(KNOWN_ID_NODES).forEach((node) => {
+    if (!/^CP-[A-Z0-9]+$/.test(node.textContent)) return;
+    stripped.push(node.textContent);
+    node.remove();
+  });
+  return { text: clone.textContent, stripped };
+}
+
+it("builds the run's view with the pathway's name for CP-L10", () => {
+  expect(view.modules.map(({ id, name }) => [id, name])).toEqual([["CP-L10", "Credit screening"]]);
+});
 
 it("Modules: the five reader tables, no module code, no source or register column", () => {
   const { container } = render(
@@ -54,17 +95,33 @@ it("Modules: the five reader tables, no module code, no source or register colum
   expect(screen.getByRole("heading", { name: "Credit screening" })).toBeInTheDocument();
   for (const title of SCREENS)
     expect(screen.getByRole("table", { name: title, hidden: true })).toBeInTheDocument();
-  // The navigator prints a module's code beside its name for every module of every run (library/
-  // parts/ModuleNav.tsx, not this PR's); nothing else on the page may.
-  const clone = container.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll("span.font-mono").forEach((code) => {
-    code.remove();
-  });
-  const text = clone.textContent;
+  // The navigator prints a module's id beside its name for every module of every run
+  // (library/parts/ModuleNav.tsx, not this PR's); nothing else on the page may print a code.
+  const { text, stripped } = withoutKnownIds(container);
+  expect(stripped.length).toBeGreaterThan(0);
+  expect(new Set(stripped)).toEqual(new Set(Object.keys(run.modules)));
   expect(text).not.toMatch(/CP-/);
   expect(text).not.toMatch(/Short credit snapshot/);
   expect(text).not.toMatch(/source_ref|_module_id|_module_ids|source_owner_module/);
   expect(text).not.toMatch(/TL\d\d?\.\d/);
+});
+
+it("Overview: no module code and no source or register column", () => {
+  const props = { snapshot, run, view: overviewView(view, run) };
+  const { container } = render(
+    <>
+      <CallRow {...props} />
+      <LimitsRow {...props} />
+      <PipelineRow {...props} />
+    </>,
+  );
+  const { text, stripped } = withoutKnownIds(container);
+  // Overview prints no module id at all.
+  expect(stripped).toEqual([]);
+  expect(text).not.toMatch(/CP-/);
+  expect(text).not.toMatch(/Short credit snapshot/);
+  expect(text).not.toMatch(/source_ref|_module_id|_module_ids|source_owner_module/);
+  expect(text).toContain("Credit screening");
 });
 
 it("Evidence: every one of the 20 register ids is reachable", () => {
@@ -72,8 +129,8 @@ it("Evidence: every one of the 20 register ids is reachable", () => {
     <ReportEvidence
       snapshot={snapshot}
       run={run}
-      entries={[entry]}
-      target={`${entry.output.id}~${entry.output.sha256}`}
+      entries={view.entries}
+      target={`${encodeURIComponent(ID)}~${SHA}`}
       mode="synthetic"
     />,
   );

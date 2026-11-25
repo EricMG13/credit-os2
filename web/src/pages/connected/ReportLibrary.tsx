@@ -280,6 +280,7 @@ const ReportPage = memo(function ReportPage({
           route={JSON.stringify([routeKey, tab, parts])}
           snapshot={snapshot}
           folder={run.folder}
+          pathway={run.pathway}
           entries={view.entries}
         >
           <ReportHeader

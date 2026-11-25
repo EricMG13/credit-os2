@@ -70,7 +70,7 @@ function deliveryFigure(run: Run) {
   return "No delivery recorded";
 }
 
-function ResponseProvenance({ value }: { value?: Run }) {
+function ResponseProvenance({ value, pathway }: { value?: Run; pathway?: string | null }) {
   const outputs = value?.module_outputs;
   return (
     <section aria-label="Response provenance" className="grid gap-3">
@@ -87,7 +87,7 @@ function ResponseProvenance({ value }: { value?: Run }) {
         <ul className="divide-y divide-border-hairline">
           {outputs.map((output) => (
             <li key={output.module} className="grid gap-1 py-3">
-              <span className="font-semibold">{moduleName(output.module)}</span>
+              <span className="font-semibold">{moduleName(output.module, pathway)}</span>
               <span>
                 {output.provenance === "retained-response"
                   ? "Reused retained response"
@@ -272,7 +272,7 @@ function ModuleRecord({
       })}
       {group.issues.map(({ output }) => (
         <div key={output.id} className="grid gap-1 text-sm text-text-secondary wrap-anywhere">
-          <h4 className="font-semibold">{moduleName(output.module)} · Handoff issues</h4>
+          <h4 className="font-semibold">{name} · Handoff issues</h4>
           {output.parseError && <p>{output.parseError}</p>}
           {output.issue?.split("; ").map((issue, i) => (
             <p key={i}>{issue}</p>
@@ -359,7 +359,7 @@ function RunRecordSummary({
         </p>
       )}
       <p className="text-sm text-text-secondary">{admission}</p>
-      <ResponseProvenance value={value} />
+      <ResponseProvenance value={value} pathway={run.pathway} />
     </section>
   );
 }

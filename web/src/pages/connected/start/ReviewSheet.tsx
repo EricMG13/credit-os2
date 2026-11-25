@@ -241,6 +241,7 @@ function nameList(names: readonly string[]): string {
 }
 
 type ModuleChoice = {
+  pathway: string;
   requested: readonly string[];
   modules: readonly string[];
   onModules: (modules: string[]) => void;
@@ -272,7 +273,7 @@ function LeaveOut({
           choice.onModules(kept);
         }}
       >
-        {`Leave out ${nameList(left.map((code) => moduleName(code)))}`}
+        {`Leave out ${nameList(left.map((code) => moduleName(code, choice.pathway)))}`}
       </Button>
       <p>You will return to More context and review again; approval will be cleared.</p>
       <p>
@@ -339,8 +340,13 @@ function LimitRow({
   choice: ModuleChoice;
 }) {
   const fixes = [...new Set(group.causes.map((cause) => cause.fix ?? "").filter(Boolean))];
-  const refusing = moduleNames(group.consequences.filter((item) => item.outcome === "will_refuse"));
-  const affected = moduleNames(group.consequences).filter((name) => !refusing.includes(name));
+  const refusing = moduleNames(
+    group.consequences.filter((item) => item.outcome === "will_refuse"),
+    choice.pathway,
+  );
+  const affected = moduleNames(group.consequences, choice.pathway).filter(
+    (name) => !refusing.includes(name),
+  );
   const reasonId = useId();
   return (
     <li className="grid gap-x-6 gap-y-1 py-2 text-small text-text-secondary first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_auto]">
@@ -354,7 +360,9 @@ function LimitRow({
         <div className="grid min-w-0 flex-1 gap-0.5">
           {group.causes.map((cause, index) => (
             <p key={cause.id}>
-              <span className="font-medium text-text-primary">{scopeText(cause.scope)}</span>
+              <span className="font-medium text-text-primary">
+                {scopeText(cause.scope, choice.pathway)}
+              </span>
               {" · "}
               <span id={index === 0 ? reasonId : undefined}>{serviceText(cause.reason)}</span>
             </p>
@@ -571,7 +579,13 @@ export function ReviewSheet({
 }) {
   const { summary, answers } = review;
   const requested = pathwayModules(answers.context.run.pathway);
-  const choice = { requested, modules: answers.modules, onModules, onEdit };
+  const choice = {
+    pathway: answers.context.run.pathway,
+    requested,
+    modules: answers.modules,
+    onModules,
+    onEdit,
+  };
   return (
     <>
       <Tile span={12} label="Review and start" className="gap-4">
@@ -610,7 +624,11 @@ export function ReviewSheet({
         >
           <h3 className="text-small font-medium text-text-primary">Modules by stage</h3>
           <StagePipeline
-            readiness={moduleReadiness([], { modules: summary.modules, items: summary.items })}
+            readiness={moduleReadiness(
+              [],
+              { modules: summary.modules, items: summary.items },
+              answers.context.run.pathway,
+            )}
             label="Stages in this run"
             named={false}
             layout="matrix"

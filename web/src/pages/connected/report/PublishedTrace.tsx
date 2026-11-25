@@ -26,12 +26,14 @@ const TraceContext = createContext<OpenTrace | null>(null);
 export function PublishedTraceProvider({
   snapshot,
   folder,
+  pathway,
   entries,
   route,
   children,
 }: {
   snapshot: Snapshot;
   folder: string;
+  pathway?: string | null;
   entries: OutputEntry[];
   route: string;
   children: ReactNode;
@@ -50,7 +52,7 @@ export function PublishedTraceProvider({
       const line = location?.line;
       if (!location || line === undefined || !handoffBlockAt(location.entry, line)) return null;
       return () => {
-        const base = traceForLine(snapshot, location.entry, location.index, line);
+        const base = traceForLine(snapshot, location.entry, location.index, line, pathway);
         const trace = base && { ...base, citations: citationsAt(snapshot, location.entry, line) };
         if (trace)
           setSelection({
@@ -82,7 +84,7 @@ export function PublishedTraceProvider({
           });
       };
     },
-    [snapshot, folder, entries, route],
+    [snapshot, folder, pathway, entries, route],
   );
   const citationsFor = useCallback(
     (item: string) => {
