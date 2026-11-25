@@ -31,6 +31,13 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   script alone calls the Anthropic API directly; the engine's Copilot-only guard is unchanged.
   `tests/test_instruction_trial.py` 9 passed; the live path was dry-run with the network call
   replaced, never sent.
+- Pilot (fifth pass), on the owner's instructions ("use key from here", "run all offline and live
+  test concurrently", "raise the turn limit if a run hits 32", "run the blind reading when the
+  runs finish"): fourteen live single-module runs on `opus-high`, 263 calls, none failed, USD
+  54.83 settled against the USD 54 limit; ten accepted handoffs scored blind against the fixed
+  lists by agents. Records in `docs/sweeps/2026-11-25-instruction-length/pilot/`. One run per
+  group: no difference between groups can be claimed. The key came from the launching
+  environment only; no key is in the repository (checked by search of the copied records).
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the
@@ -987,10 +994,3 @@ Scope: PR D of `docs/superpowers/plans/2026-11-16-start-run-review-and-rows.md`,
 - Rulings / Known: one ruled change to the plan's own test: "Purpose chosen" is Not met on the Purpose step until Continue. #31 known, handled in #30 or left for the owner: the footer says "1 problem" when more than one field is wrong, the next one shows after the first is fixed; cutoff and turns messages sit behind the browser's own date and number checks.
 - For the owner (not fixed here): a step not yet reached is drawn as amber "Not met"; the badge set has two states. Below 1041px the one-line summary and the full panel are both drawn. The Basic-level help line names Advanced inputs (the plan's sentence). Older than this work: a run id in "Starting from run …" on Documents; a general notice drawn above the step heading with no scroll to it; the review's content reaching the card edge at 390px; focus lost after removing a document. Owed at merge: this entry, and the `/impeccable critique` re-run against the 21/40 baseline, which is still owed.
 - Not verified: Edge and Windows; a screen reader (whether the message is read once or twice; the announcements); Safari and Firefox; development StrictMode focus order (the built bundle is not affected); a paid run against a live provider; the earnings and new-issue pathways in the browser proof; the `/impeccable critique` re-run; #30 was retargeted to `main` after #31 merged; the merged tree equals #30's head tree, on which CI's two checks had passed; nothing was re-run on `main`.
-
-## 2026-11-16 — Final audit: stage briefs and cloud launch prompt (PR #29, merged to `main` as `7e2724b8`)
-
-Scope: documentation only: the new `docs/audit/2026-11-16-final/` (the briefs for the final audit before the work-PC hand-over); no application code changes.
-- Changed: `README.md` (scope with Signal excluded, stages, the 12 sections, rulings and the rules every agent follows), `FINDINGS-SCHEMA.md` (one finding format and the severity table), `stages/0-baseline.md` to `stages/7-send-off.md` (one brief per stage), `CLOUD-PROMPT.md` (the prompt that starts the audit in a cloud session) and `work-pc-init-prompt.draft.md` (draft first-setup prompt for the work PC; stage 7 finishes it as `docs/work-pc/WORK-PC-INIT-PROMPT.md`). Docs only, so it took the batched docs review; no sweep or whole-branch review applies.
-- Gates: none stated in the PR body beyond: every path the briefs cite was checked to exist.
-- Not verified: the audit has not been run; the briefs are untested as a workflow; the commands the briefs name were not executed; ruling R3 (which findings are repaired or parked) is the author's reading, not confirmed by the owner; CI's two checks passed on the PR head before merge.

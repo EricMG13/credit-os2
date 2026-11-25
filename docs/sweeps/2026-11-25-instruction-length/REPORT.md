@@ -397,13 +397,87 @@ Before a live run:
   thinking, output limit 64,000, and the run records and summary are written. The key is sent as
   the engine has always sent it (`Authorization: Bearer`); not sent anywhere in this check.
 
+## Pilot: live runs and blind reading (fifth pass, 2026-11-25)
+
+Ruling: `docs/rulings/2026-11-25-instruction-length-trial-pilot.md`, as amended that day.
+Fourteen single-module runs on `opus-high` (Claude Opus 5.5, Anthropic API directly), started
+together. Records of every run are in `pilot/`; the blind scores and the code table in
+`pilot/reading/`. TransDigm as of 2024-09-30: outdated evidence, used to test module output.
+
+Bottom line: the live path, the caps and the reading procedure work. One run per group shows no
+difference between the groups that this pilot can support, in either direction.
+
+| Module | Group | Outcome | Turns | First request, tokens | USD | Check issues per write | Blind reading: right / wrong / absent |
+| --- | --- | --- | ---: | ---: | ---: | --- | --- |
+| CP-3 | A | accepted | 4 | 333,564 | 3.15 | 0 | 15 / 1 / 2 of 18 |
+| | B | accepted | 15 | 328,564 | 4.10 | 0 | 13 / 2 / 3 |
+| | C | accepted | 16 | 300,986 | 4.02 | 1, 0 | 15 / 2 / 1 |
+| CP-4 | A | no handoff at 32 turns | 32 | 191,035 | 3.46 | none written | not read |
+| | A, 64 turns | accepted | 46 | 191,035 | 6.35 | 8, 0 | 10 / 1 / 7 of 18 |
+| | B | rejected at turn 32 | 32 | 182,028 | 3.82 | 6 | not read |
+| | C | no handoff at 32 turns | 32 | 148,131 | 2.49 | none written | not read |
+| | C, 64 turns | accepted | 44 | 148,131 | 5.13 | 11, 0 | 9 / 2 / 7 |
+| CP-5 | A | accepted | 11 | 406,964 | 3.86 | 0 | 12 / 1 / 7 of 20 |
+| | B | stopped by its USD 10 cap | 16 | 402,384 | 4.27 | 3 | not read |
+| | C | accepted | 19 | 388,498 | 4.51 | 1, 0 | 13 / 0 / 7 |
+| CP-6 | A | accepted | 6 | 360,151 | 3.26 | 0 | 11 / 0 / 8 of 19 |
+| | B | accepted | 6 | 355,239 | 3.28 | 0 | 12 / 2 / 5 |
+| | C | accepted | 6 | 336,823 | 3.13 | 1, 0 | 13 / 2 / 4 |
+
+Total settled USD 54.83 against the USD 54 limit: the last rerun's calls were in flight when the
+total passed it. The estimate was USD 36.
+
+What the pilot established:
+
+- The direct route works end to end: 263 calls, none failed, caching held, every run wrote its
+  records. First requests were 148,000 to 407,000 tokens (the provider's count), 1.3 times the
+  offline estimate at 2.5 bytes per token.
+- 32 turns is too few for CP-4 on this model in every group: it reads the agreements a few pages
+  a turn. With 64 turns groups A and C were accepted at 46 and 44 turns.
+- The reading procedure works: ten handoffs scored against 75 items by readers who were not told
+  the group, each score with its quoted passage.
+
+What it suggests and cannot show (one run per cell):
+
+- Group C needed a second write in all four modules; group A needed one only in CP-4. Two of C's
+  first-write issues were words from the restructured text reaching the reader passage
+  ("issuer_id", "canonical"). Worth checking in the C texts before any further run.
+- CP-4's first write failed the same chart rule in all three groups (the Direction cell wants
+  "Passes at or below", and each group wrote a sentence). That is a gap in the instructions all
+  groups share, not a group effect.
+- Blind scores do not separate the groups: right answers differ by at most two items within a
+  module, and the direction is not consistent (C highest in CP-5 and CP-6, A and C equal in CP-3,
+  A higher in CP-4).
+- Cost did not fall with shorter instructions on this route. The handoffs dominate the request,
+  and C's smaller first request was offset by a second write or more turns.
+
+Weaknesses of the measure, found by running it:
+
+- The rule for an item that bundles several values scores Absent when one listed value is
+  missing. It produced most of the Absent scores in CP-4, CP-5 and CP-6 (four fact items Absent
+  for every CP-6 handoff). The lists should split those items before a full trial.
+- Several scores were close calls the readers flagged (a figure given to one more decimal than
+  the source; a qualified verdict that names blocked modules only in its sources table). At
+  differences of one or two items, such calls decide the order.
+- The readers were agents; no person has checked a sample of their scores.
+- Two modules' handoffs call the dividend paid on 2024-10-18 "the September payment", in groups
+  A and C alike. It is outside the lists and probably comes from a fixed upstream handoff.
+
+Missing: CP-4 group B and CP-5 group B have no accepted handoff. Rerunning them would have taken
+the total past the limit.
+
+For a full trial, in this order: fix the chart Direction wording that failed every CP-4 first
+write; split the bundled items; read the C texts for the leaked words; set the turn limit to 64
+for CP-4; decide the route, since on the direct route only CP-4's request is mostly
+instructions; then repeats of each group, group A first for its own spread.
+
 ## Not verified
 
-- Any effect of length on output: no model was run.
+- Any effect of length on output: the pilot ran each group once, which cannot show one.
 - Token counts: estimates from bytes, not counted by a provider for the model in use.
 - The overridden and requirement counts are keyword counts; no paragraph was read to confirm it
   is safe to remove. Whether the three content-neutral removals overlap was not checked.
-- The trial's `live` mode: written, never run. The offline stage used a stand-in provider.
+- A person's check of the blind readers' scores, and of the reading lists.
 - The C texts against their sources, rule by rule (see the offline stage).
 - Whether the contradictions the 2026-11-13 sweep recorded have since been repaired.
 - CP-8 and CP-L10; pathways other than deep and lite were prepared but not tabulated.
