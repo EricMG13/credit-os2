@@ -4,17 +4,21 @@ Answer key: `docs/methodology/portfolio-recommendation.md` sections 4 and 6, and
 `docs/rulings/2026-11-25-deliverables-and-recommendations.md`. Where they differ the ruling governs.
 
 This module computes and reads nothing else: no file, no provider, no workbook. Arithmetic is exact
-(`int` and `Fraction`; no `float`). Levels that later parts of this module compare are in basis
-points and are not converted: a reference's figures are in the file's own unit, and converting
-them is the caller's job.
+(`int`, `Fraction` and `Decimal`; no `float`). Levels that Valuation compares are in basis points
+and are not converted: a reference's figures are in the file's own unit, and converting them is the
+caller's job.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from decimal import Context, Decimal, Inexact
 from fractions import Fraction
+from math import floor
 
 from deploy_workflow.cp2_scorecard import FACTORS, Scorecard
+from deploy_workflow.reference_portfolios import AssetType, Measure, Portfolio, rows
 
 MIN_SCORED = 12
 FLOOR_FACTORS = ("Liquidity", "Maturity profile")
@@ -46,7 +50,7 @@ class CreditScore:
 
 def _hundredths(value: Fraction) -> str:
     """A value to two decimals, in exact arithmetic."""
-    cents = round(value * 100)
+    cents = floor(value * 100 + Fraction(1, 2))  # an exact half rounds up
     return f"{cents // 100}.{cents % 100:02d}"
 
 
@@ -103,3 +107,136 @@ def proposal(credit: int | None, valuation: int | None) -> int | None:
     if credit is None or valuation is None:
         return None
     return TABLE[credit - 1][valuation - 1]
+
+
+# --- Valuation (methodology section 5) -----------------------------------------------------------
+
+MIN_NAMES = 5
+EXACT = Context(prec=200, traps=[Inexact])  # a sum or difference that would round raises instead
+MEASURE_WORDS: dict[Measure, str] = {
+    "discount_margin": "discount margin",
+    "margin": "margin",
+    "spread": "spread",
+}
+
+
+@dataclass(frozen=True)
+class Instrument:
+    """A loan or bond as the caller supplies it; `level_bp` is its spread, in basis points."""
+
+    name: str
+    asset_type: AssetType
+    rating_bucket: str
+    level_bp: Decimal | None
+    price: Decimal | None
+
+
+@dataclass(frozen=True)
+class Valuation:
+    """One instrument against its rating bucket. `score` None means blank, and `reason` says why.
+    `names` counts distinct borrowers with a level in the bucket and `positions` the bucket
+    positions with a level (what the median rests on)."""
+
+    score: int | None
+    difference_bp: Decimal | None
+    median_bp: Decimal | None
+    bucket: str
+    names: int
+    positions: int
+    measures: tuple[Measure, ...]
+    reason: str
+
+
+def _finite(value: Decimal, what: str) -> Decimal:
+    if not value.is_finite():
+        raise ValueError(f"{what} must be a finite number, not {value}.")
+    return value
+
+
+def band(difference_bp: Decimal) -> int:
+    """Methodology section 5, with the ruled edges: +40 and -40 are 3, +100 is 1, -100 is 5."""
+    _finite(difference_bp, "The difference")
+    if difference_bp >= 100:
+        return 1
+    if difference_bp > 40:
+        return 2
+    if difference_bp >= -40:
+        return 3
+    return 4 if difference_bp > -100 else 5
+
+
+def _median(levels: Sequence[Decimal]) -> Decimal:
+    """The exact median: the mean of the two middle values for an even count."""
+    ordered = sorted(levels)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return EXACT.divide(EXACT.add(ordered[middle - 1], ordered[middle]), Decimal(2))
+
+
+def _name_key(name: str) -> str:
+    return "".join(char for char in name.casefold() if char.isalnum())
+
+
+def _count(number: int, noun: str) -> str:
+    return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
+
+
+def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
+    """The instrument's level less its rating bucket's median in the portfolio, banded.
+    Blank with no level, no price or fewer than five distinct borrowers in the bucket."""
+    if instrument.level_bp is not None:
+        _finite(instrument.level_bp, f"The level of {instrument.name}")
+    in_bucket = rows(
+        portfolio, asset_type=instrument.asset_type, rating_bucket=instrument.rating_bucket
+    )
+    bucket_rows = [row for row in in_bucket if row.spread is not None]
+    levels = [
+        _finite(row.spread, "A reference level") for row in bucket_rows if row.spread is not None
+    ]
+    names = {_name_key(row.position.borrower or "") for row in bucket_rows} - {""}
+    measures = tuple(sorted({row.measure for row in bucket_rows if row.measure}))
+    median = _median(levels) if levels else None
+    causes = []
+    if instrument.level_bp is None:
+        causes.append(f"{instrument.name} has no level")
+    if instrument.price is None:
+        causes.append(f"{instrument.name} has no price")
+    if len(names) < MIN_NAMES:
+        causes.append(
+            f"the {instrument.rating_bucket} bucket holds {_count(len(names), 'name')} "
+            f"and {MIN_NAMES} are needed"
+        )
+    score = difference = None
+    if not causes and median is not None and instrument.level_bp is not None:
+        difference = EXACT.subtract(instrument.level_bp, median)
+        score = band(difference)
+        reason = (
+            f"Valuation {score}: {instrument.name} is {difference} bp from the "
+            f"{instrument.rating_bucket} median of {median} bp "
+            f"({_count(len(names), 'name')}, {_count(len(levels), 'position')})."
+        )
+    else:
+        reason = f"No Valuation: {'; '.join(causes)}."
+    if len(measures) > 1:
+        words = " and ".join(MEASURE_WORDS[m] for m in measures)
+        reason += f" The {instrument.rating_bucket} bucket mixes {words}."
+    return Valuation(
+        score,
+        difference,
+        median,
+        instrument.rating_bucket,
+        len(names),
+        len(levels),
+        measures,
+        reason,
+    )
+
+
+def best(valuations: Sequence[Valuation]) -> int | None:
+    """The index of the lowest (best) score, the first on a tie; blanks are skipped and None
+    means every one is blank. An index, so the caller knows which instrument it came from."""
+    scored = [
+        (item.score, index) for index, item in enumerate(valuations) if item.score is not None
+    ]
+    return min(scored)[1] if scored else None
