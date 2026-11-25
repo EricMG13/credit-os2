@@ -3,6 +3,7 @@ import { containsReference, readerText } from "../publishedReport";
 import { driverTable } from "./forecastDrivers";
 import { RecordedForecastAssumptions, type ForecastSource } from "./ForecastRecord";
 import { GapChip } from "./ForecastGaps";
+import { useOverflows } from "./leads/kit/useWidth";
 import { GapNote, Tile } from "./overview/Tile";
 
 const SPAN = "Assumptions by case";
@@ -59,6 +60,7 @@ export function AssumptionsByCase({
   caseNames?: ReadonlyMap<string, string>;
   downsideNote?: string | undefined;
 }) {
+  const [scroller, overflows] = useOverflows();
   const tile = {
     span: 8,
     label: SPAN,
@@ -79,42 +81,55 @@ export function AssumptionsByCase({
         <GapNote>The forecast inputs state no driver for any case.</GapNote>
       </Tile>
     );
+  const drawn = rows.flatMap(({ cells }) => cells);
+  const uses = {
+    differs: drawn.some((cell) => cell.stated && cell.differs),
+    only: drawn.some((cell) => cell.stated && cell.only),
+    notStated: drawn.some((cell) => !cell.stated || cell.parts.includes(null)),
+  };
   return (
     <Tile {...tile}>
-      <div className="flex flex-col gap-1 text-small text-text-secondary">
-        <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="grid size-4 place-items-center rounded-ds-xs border border-action-subtle-hover bg-surface-selected"
-            >
-              <Mark />
+      {/* The key names only the marks this table draws. */}
+      {(uses.differs || uses.only || uses.notStated) && (
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-small text-text-secondary">
+          {uses.differs && (
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="grid size-4 place-items-center rounded-ds-xs border border-action-subtle-hover bg-surface-selected"
+              >
+                <Mark />
+              </span>
+              Differs from base
             </span>
-            Differs from base
-          </span>
-          <span className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="grid size-4 place-items-center rounded-ds-xs border border-border-hairline bg-surface-card"
-            >
-              <OnlyMark />
+          )}
+          {uses.only && (
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="grid size-4 place-items-center rounded-ds-xs border border-border-hairline bg-surface-card"
+              >
+                <OnlyMark />
+              </span>
+              <span>Only this case states it: base does not give the driver</span>
             </span>
-            <span>Only this case states it: base does not give the driver</span>
-          </span>
-          <span className="flex items-center gap-2">
-            <NotStated />
-            the inputs do not give this driver for the case; nothing is assumed
-          </span>
+          )}
+          {uses.notStated && (
+            <span className="flex items-center gap-2">
+              <NotStated />
+              the inputs do not give this driver for the case; nothing is assumed
+            </span>
+          )}
         </p>
-        <p>Values are the module&apos;s recorded fractions (0.05 is 5%) or amounts, as recorded.</p>
-        {years.length > 0 && <p>Planning years: {years.join(" · ")}</p>}
-      </div>
+      )}
       <div
+        ref={scroller}
         role="region"
         aria-label="Assumptions by case table"
+        // A scrolling box must be reachable by keyboard; one that fits adds no inert stop.
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-        tabIndex={0}
-        className="relative min-w-0 overflow-x-auto max-[480px]:p-2"
+        tabIndex={overflows ? 0 : undefined}
+        className="relative min-w-0 overflow-x-auto rounded-ds-sm outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:p-2"
       >
         <table className="w-full min-w-[36rem] border-collapse text-small">
           <caption className="sr-only">Forecast drivers by case</caption>
@@ -123,9 +138,18 @@ export function AssumptionsByCase({
               <th scope="col" className="py-2 pr-3 font-medium">
                 Driver
               </th>
-              {cases.map(({ key, name }) => (
-                <th key={key} scope="col" className="px-3 py-2 font-medium">
+              {cases.map(({ key, name, shock }) => (
+                <th key={key} scope="col" className="px-3 py-2 align-top font-medium">
                   {name}
+                  {/* A case column's values run in the planning years' order, named here. */}
+                  {!shock && years.length > 0 && (
+                    <span
+                      data-part="years"
+                      className="block font-mono font-normal whitespace-nowrap tabular-nums"
+                    >
+                      {years.join(" · ")}
+                    </span>
+                  )}
                 </th>
               ))}
               <th scope="col" className="py-2 pl-3 font-medium">
@@ -161,7 +185,7 @@ export function AssumptionsByCase({
                       {cell.stated ? (
                         <>
                           <span
-                            className="inline-flex flex-wrap items-center gap-x-1.5"
+                            className="inline-flex items-center gap-x-1.5 whitespace-nowrap"
                             title={cell.title}
                           >
                             {cell.differs && <Mark />}
@@ -199,9 +223,12 @@ export function AssumptionsByCase({
           </tbody>
         </table>
       </div>
-      {downsideNote !== undefined && cases.some(({ shock }) => shock) && (
-        <p className="text-small text-text-secondary">{readerNote(downsideNote)}</p>
-      )}
+      <div className="flex flex-col gap-1 text-small text-text-secondary">
+        <p>Values are the module&apos;s recorded fractions (0.05 is 5%) or amounts, as recorded.</p>
+        {downsideNote !== undefined && cases.some(({ shock }) => shock) && (
+          <p>{readerNote(downsideNote)}</p>
+        )}
+      </div>
       <details className="group">
         <summary className="flex min-h-8 cursor-pointer items-center gap-1.5 rounded-ds-sm text-small font-medium text-text-link outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11">
           <ChevronRight

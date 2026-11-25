@@ -456,13 +456,43 @@ const MODULE_NAMES: Readonly<Record<string, string>> = {
   "CP-MODEL": "Cash flow model",
 };
 
-export function moduleName(id: string) {
-  return (Object.hasOwn(MODULE_NAMES, id) ? MODULE_NAMES[id] : undefined) ?? id;
+/** What a reader sees for a methodology module the page has no name for: never its code. */
+export const UNNAMED_MODULE = "Unnamed module";
+
+/**
+ * The methodology's module ids and aliases that have no reader name here
+ * (src/deploy_vii/methodology.json); with `MODULE_NAMES` they are every module code there is.
+ */
+const UNNAMED_CODES: ReadonlySet<string> = new Set([
+  ...["CP-MEMO", "CP-OS", "CP-PARSE", "CP-1E", "CP-2B", "CP-2C", "CP-2F", "CP-3A", "CP-3B"],
+  ...["CP-4A", "CP-4B", "CP-4D", "CP-5A", "CP-6A", "CP-L20", "CP-L23", "CP-L30", "CP-L40"],
+]);
+
+/**
+ * A methodology module code's reader name, the unnamed wording for one that has none, or null for
+ * anything that is not a methodology code (an issuer's "CP-10", commercial paper's "CP-BACKSTOP").
+ */
+export function moduleCodeName(code: string): string | null {
+  if (Object.hasOwn(MODULE_NAMES, code)) return MODULE_NAMES[code] ?? null;
+  return UNNAMED_CODES.has(code) ? UNNAMED_MODULE : null;
 }
 
-/** Replaces each whole module code the page knows with the module's name; others stay. */
+/**
+ * The reader's name for a module id held in a module field (never for free text: `serviceText`).
+ * A code is never returned: an id shaped as one that the page cannot name reads as unnamed. So does
+ * an empty id. An id that is no code ("Report") stays as written.
+ */
+export function moduleName(id: string) {
+  return moduleCodeName(id) ?? (/^(?:CP-[A-Z0-9]+|\s*)$/.test(id) ? UNNAMED_MODULE : id);
+}
+
+/**
+ * Replaces each whole, exact methodology module code in written text with the module's name. Any
+ * other "CP-…" word (commercial paper's "CP-backed", a case named "CP-10") is the writer's own and
+ * stays as written.
+ */
 export function serviceText(text: string) {
-  return text.replace(/\bCP-[A-Z0-9]+\b/g, (code) => moduleName(code));
+  return text.replace(/(?<![\w-])CP-[A-Z0-9]+(?![\w-])/g, (code) => moduleCodeName(code) ?? code);
 }
 
 /** The changes line without the launcher's "changes:" label or the service's `(not used: <run>: <why>)` note, which names a run id. */

@@ -43,8 +43,8 @@ const SHAPE: Record<ReadinessMark, string> = {
 
 /** The state as a shape, so that colour is never what tells ready from not ready. */
 function ReadinessMarkShape({ mark }: { mark: ReadinessMark }) {
-  const teal = mark === "ready" || mark === "limited";
-  const stroke = teal ? "stroke-chart-1" : "stroke-warning-mark";
+  const primary = mark === "ready" || mark === "limited";
+  const stroke = primary ? "stroke-chart-1" : "stroke-warning-mark";
   return (
     <svg
       viewBox="0 0 16 16"

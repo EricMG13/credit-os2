@@ -22,7 +22,39 @@ it("keeps the trace and caption of a small head that has no title", () => {
   expect(within(tile).queryByRole("heading")).toBeNull();
 });
 
-it("leaves the default head unchanged and gives the small head the asked level", () => {
+it("draws the default head's kicker as a quiet caption under the title, never above it", () => {
+  render(
+    <Tile span={12} label="Sources" title="Sources" kicker="The supplied files.">
+      <p>Body</p>
+    </Tile>,
+  );
+  const title = screen.getByRole("heading", { level: 3, name: "Sources" });
+  const caption = screen.getByText("The supplied files.");
+  expect(title.nextElementSibling).toBe(caption);
+  expect(caption).toHaveClass("text-caption", "text-text-tertiary");
+});
+
+it("takes focus from script, with the token ring, only when it is given an address", () => {
+  const { unmount } = render(
+    <Tile id="evidence-claim" span={7} label="The claim" title="Net leverage">
+      <p>Body</p>
+    </Tile>,
+  );
+  const tile = screen.getByRole("region", { name: "The claim" });
+  expect(tile).toHaveAttribute("tabindex", "-1");
+  expect(tile).toHaveClass("outline-focus-ring", "focus-visible:outline-2");
+  tile.focus();
+  expect(tile).toHaveFocus();
+  unmount();
+  render(
+    <Tile span={7} label="Plain" title="Plain">
+      <p>Body</p>
+    </Tile>,
+  );
+  expect(screen.getByRole("region", { name: "Plain" })).not.toHaveAttribute("tabindex");
+});
+
+it("keeps the default head's title style and gives the small head the asked level", () => {
   const { unmount } = render(
     <Tile span={4} label="A" title="Default">
       <p>Body</p>

@@ -326,10 +326,6 @@ describe("Trace drawer", () => {
       "the header Close",
       () => fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0] as HTMLElement),
     ],
-    [
-      "the footer Close",
-      () => fireEvent.click(screen.getAllByRole("button", { name: "Close" })[1] as HTMLElement),
-    ],
     ["Escape", () => fireEvent.keyDown(document.activeElement as Element, { key: "Escape" })],
   ])("closes on %s and returns focus to the control", async (_, close) => {
     renderFrame();
@@ -338,7 +334,8 @@ describe("Trace drawer", () => {
     await waitFor(() => {
       expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
     });
-    expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(2);
+    // One close control: the footer holds the one forward action, Open in Evidence.
+    expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
     close();
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();

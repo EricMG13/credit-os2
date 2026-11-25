@@ -1,7 +1,7 @@
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 import { blocked, evidencePath, type OutputEntry, type Table } from "../publishedReport";
 import { namedRow, namedTable } from "../reportView";
-import { citesSource, proseWithoutMachinery } from "./moduleRecords";
+import { citesSource, proseWithoutMachinery } from "./moduleRecordsModel";
 import { PublishedSource } from "./PublishedTrace";
 
 /*

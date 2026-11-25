@@ -78,8 +78,8 @@ it("tells a figure the model did not calculate apart from a period it does not p
   expect(screen.queryByText(/0\.00x/)).toBeNull();
 });
 
-it("labels the selected case's highest year by value and year, never as a peak", () => {
-  draw(
+it("labels the selected case's highest year with its figure at its own point, never as a peak", () => {
+  const { container } = draw(
     measureOf(cols("Base case", ["FY2025E", "FY2026E", "FY2027E"]), [
       value("5.5", "5.50x"),
       value("5.65", "5.65x"),
@@ -87,9 +87,39 @@ it("labels the selected case's highest year by value and year, never as a peak",
     ]),
   );
   const figure = within(screen.getByRole("figure"));
-  expect(figure.getByText("5.65x · FY2026E")).toBeInTheDocument();
+  // The figure alone: the point's place on the axis says the year.
+  expect(container.querySelector('[data-label="Base case-FY2026E"]')).toHaveTextContent(/^5\.65x$/);
   expect(figure.getByText(/^3\.05x/)).toBeInTheDocument();
   expect(figure.queryByText(/peak/i)).toBeNull();
+});
+
+it("keeps the highest year's label beside its own point when another case runs above it", () => {
+  // A falling path under a higher case: the label is not pushed up between the two lines, where
+  // it reads as a point of the other case.
+  const { container } = draw(
+    measureOf(
+      [
+        ...cols("Base case", ["FY2025E", "FY2026E", "FY2027E"]),
+        ...cols("Downside shock", ["FY2025E", "FY2026E", "FY2027E"]),
+      ],
+      [
+        value("1.23"),
+        value("0.75"),
+        value("0.29"),
+        value("1.8", "1.80x"),
+        value("1.45"),
+        value("1.1", "1.10x"),
+      ],
+    ),
+  );
+  const label = container.querySelector('[data-label="Base case-FY2025E"]');
+  const point = container.querySelector('[data-point="Base case FY2025E"]');
+  expect(label).toHaveTextContent(/^1\.23x$/);
+  const [labelY, pointY] = [Number(label?.getAttribute("y")), Number(point?.getAttribute("cy"))];
+  // Level with its point (a baseline 4px under the centre), on the side the path leaves free.
+  expect(Math.abs(labelY - pointY)).toBeLessThanOrEqual(10);
+  expect(label).toHaveAttribute("text-anchor", "end");
+  expect(Number(label?.getAttribute("x"))).toBeLessThan(Number(point?.getAttribute("cx")));
 });
 
 it("labels every drawn case's end point and marks another case's missing year", () => {
@@ -98,7 +128,7 @@ it("labels every drawn case's end point and marks another case's missing year", 
       [
         ...cols("Base case", ["FY2025E", "FY2026E", "FY2027E"]),
         ...cols("Downside case", ["FY2025E", "FY2026E", "FY2027E"]),
-        ...cols("Upside", ["FY2025E", "FY2026E", "FY2027E"]),
+        ...cols("Upside with disposals", ["FY2025E", "FY2026E", "FY2027E"]),
       ],
       [
         value("2"),
@@ -114,7 +144,7 @@ it("labels every drawn case's end point and marks another case's missing year", 
     ),
   );
   const labels = [...container.querySelectorAll("[data-label]")].map((label) => label.textContent);
-  // In a 600px drawing the names do not fit beside the points: each label carries its case's key,
+  // In a 600px drawing the longest name does not fit beside its point: each label carries its case's key,
   // and the legend names the case beside the same key.
   expect(labels).toEqual(expect.arrayContaining(["1x A", "2.8x B", "0.4x C"]));
   const legend = screen.getByRole("list", { name: "Chart key" });
@@ -125,9 +155,9 @@ it("labels every drawn case's end point and marks another case's missing year", 
   const dash = (group: string) =>
     container.querySelector(`[data-segment="${group}"]`)?.getAttribute("stroke-dasharray");
   expect(dash("Base case")).toBeNull();
-  expect(dash("Upside")).not.toBeNull();
+  expect(dash("Upside with disposals")).not.toBeNull();
   expect(dash("Downside case")).not.toBeNull();
-  expect(dash("Upside")).not.toBe(dash("Downside case"));
+  expect(dash("Upside with disposals")).not.toBe(dash("Downside case"));
   // Another case's missing year is a mark of its own kind in the legend, naming the case.
   expect(within(legend).getByText(/no figure for Downside case/)).toBeInTheDocument();
 });
@@ -348,4 +378,36 @@ it("draws every schedule row of a year that has two, side by side and in the tab
   const table = within(screen.getByRole("table", { name: /Net leverage by case/ }));
   expect(table.getByText("FY2026: 300")).toBeInTheDocument();
   expect(table.getByText("FY2026: 200")).toBeInTheDocument();
+});
+
+it("words a narrow year's missing amount as one label on two lines, never two that touch", () => {
+  // Six forecast years in the 600px drawing: each year is narrower than the words on one line.
+  const years = ["FY2025E", "FY2026E", "FY2027E", "FY2028E", "FY2029E", "FY2030E"];
+  const { container } = draw(
+    measureOf(
+      cols("Base case", years),
+      years.map(() => value("2")),
+    ),
+    {
+      schedule: {
+        years: [
+          {
+            year: 2027,
+            label: "FY2027",
+            key: "FY2027",
+            cell: {
+              text: "Not supplied: the schedule stops here",
+              value: null,
+              reason: "the schedule stops here",
+            },
+          },
+        ],
+        offAxis: [],
+      },
+    },
+  );
+  const gap = container.querySelector('[data-lane-gap="FY2027"]');
+  expect(gap?.querySelectorAll("text")).toHaveLength(1);
+  expect(gap?.querySelector("text")).toHaveTextContent("Not supplied");
+  expect(gap?.querySelectorAll("tspan")).toHaveLength(2);
 });

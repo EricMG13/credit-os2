@@ -1,5 +1,5 @@
 import { LIBRARY_ADDRESS, request, snapshotAddress } from "./ahead";
-import { moduleName, pathwayName, RequestError } from "./api";
+import { moduleCodeName, pathwayName, RequestError } from "./api";
 import { asOfDate } from "./runFigures";
 import { changeText } from "./signal";
 import { withUnit } from "./moneyUnits";
@@ -27,8 +27,7 @@ const STANDALONE_CODES =
 const BRACKETED_CODE = / \((CP-[A-Za-z0-9]+)\)/gi;
 /** The module's name for a code in either case; a code the page does not know stays as written. */
 function nameOfCode(code: string) {
-  const name = moduleName(code.toUpperCase());
-  return name === code.toUpperCase() ? code : name;
+  return moduleCodeName(code.toUpperCase()) ?? code;
 }
 /**
  * Findings-page text: a " (CP-x)" right after that module's own name is dropped, after any other

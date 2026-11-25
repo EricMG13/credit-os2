@@ -26,9 +26,9 @@
  *     | { kind: "gap"; label: string; reason: string };
  *   <Waterfall rows unit width axisStart?: number | "auto" label? legend?: { level?, step?,
  *     closing?, gap? } />
- *   Levels and the closing are drawn from the axis start (level teal, closing navy); a step
+ *   Levels and the closing are drawn from the axis start (level blue, closing plum); a step
  *   floats from the running total, its tone from its sign (`tone?: "increase" | "decrease"`:
- *   increase a teal outline on a teal tint, decrease the signal outline on its tint; the legend
+ *   increase a blue outline on a blue tint, decrease the signal outline on its tint; the legend
  *   names them "Increase" and "Decrease" whenever a legend is given, `legend.step` is not drawn),
  *   its figure signed (`+70`, `−10`), a fall drawn leftward. `asWritten: true` on a step prints its
  *   text (and its prior's) exactly as given, grouped, a minus only where written ("1158" paid →

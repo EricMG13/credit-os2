@@ -293,6 +293,23 @@ it("shows each covenant test as the legal module writes it, with the model's cav
   expect(part.getByRole("link", { name: "Source for the Net leverage test" })).toBeInTheDocument();
 });
 
+it("draws a covenant test as its current figure against its level, on the test's own scale", () => {
+  const { container } = breaks([legal, forward]);
+  const test = screen
+    .getByRole("region", { name: "Covenant tests" })
+    .querySelector("li") as HTMLElement;
+  expect(within(test).getByText("Net leverage")).toBeInTheDocument();
+  // 4.2 against 5.0 on a scale of 5.0 x 1.15: position only, no figure of its own.
+  const bar = test.querySelector("[data-limit-bar]") as HTMLElement;
+  expect(bar).toHaveAttribute("aria-hidden", "true");
+  expect(bar).toHaveTextContent("");
+  expect(bar.querySelector("[data-current]")).toHaveAttribute("data-current", "73%");
+  expect(bar.querySelector("[data-level]")).toHaveAttribute("data-level", "87%");
+  // A test whose current figure is not given draws its level alone, never a bar at zero.
+  for (const drawn of container.querySelectorAll("[data-limit-bar]"))
+    expect(drawn.querySelector("[data-level]")).not.toBeNull();
+});
+
 it("draws the legal module blocked in the designed blocked state with its reason", () => {
   const blockedLegal = entryOf("CP-4", [
     findings,

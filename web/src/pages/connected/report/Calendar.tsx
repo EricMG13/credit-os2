@@ -15,6 +15,7 @@ import {
 } from "../publishedReport";
 import { EventAxis } from "../visuals/EventAxis";
 import { EVENT_HEADERS, eventRecords, recordedRange, type EventRecord } from "../visuals/EventLane";
+import { asOfDate } from "../runFigures";
 import { publishedTables, word } from "../visuals/visualData";
 import { Bento, GapNote, Tile, Well } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
@@ -42,7 +43,7 @@ function eventDisplay(cells: string[]) {
             } as Record<string, string>
           )[text] ?? text)
         : text;
-    if (!containsReference(relevant)) return relevant;
+    if (!containsReference(relevant)) return readerText(relevant);
     if (index === 4) {
       const lane = /^(Historical|Scheduled|Scenario|User reminder)(?: — |$)/.exec(text)?.[1];
       return lane ? `${lane} — See Evidence` : "See Evidence";
@@ -402,16 +403,12 @@ function CalendarFigure({ rows, asOf }: { rows: CalendarRow[]; asOf: string | nu
   const ordered = [...events].sort((a, b) => a.from - b.from || a.to - b.to);
   return (
     <>
-      <Tile
-        span={12}
-        label="Dated events"
-        kicker="Calendar"
-        title={axisReading(ordered, events.length)}
-      >
+      <Tile span={12} label="Dated events" title="Dated events">
+        <p className="text-caption text-text-tertiary">{axisReading(ordered, events.length)}</p>
         <figure aria-label="Published events" className="grid min-w-0 gap-3">
           <EventAxis
             events={events}
-            asOf={time === null || !asOf ? null : { time, text: asOf }}
+            asOf={time === null || !asOf ? null : { time, text: asOf, label: asOfDate(asOf) }}
             rowId={rowId}
             onSelect={(index) => {
               if (table.current) table.current.open = true;
@@ -421,12 +418,7 @@ function CalendarFigure({ rows, asOf }: { rows: CalendarRow[]; asOf: string | nu
           <figcaption className="max-w-prose text-caption text-text-tertiary">{CAPTION}</figcaption>
         </figure>
       </Tile>
-      <Tile
-        span={12}
-        label="Event list"
-        kicker="Behind the axis"
-        title="Every event, in date order"
-      >
+      <Tile span={12} label="Event list" title="Every event, in date order">
         <TableDisclosure detailsRef={table}>
           <EventsTable rows={rows} rowId={rowId} />
         </TableDisclosure>
@@ -519,7 +511,7 @@ export function Calendar({
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-x-4">
-        <h2 className="font-display text-h2">Issuer calendar</h2>
+        <h2 className="font-display text-h3 text-text-primary">Issuer calendar</h2>
         <a
           href="#overview"
           className="inline-flex min-h-8 items-center rounded-ds-sm text-small text-text-secondary underline underline-offset-4 hover:text-text-primary focus-visible:ring-2 focus-visible:ring-focus max-[480px]:min-h-11"

@@ -1,5 +1,7 @@
 import { useId } from "react";
+import { containsReference, readParagraph, type OutputEntry } from "../../publishedReport";
 import { GapPattern } from "../overview/figureParts";
+import { bottomLine } from "../overview/read";
 import { GapNote } from "../overview/Tile";
 import { FigureTile, GapTile, LeadFrame } from "./kit/LeadFrame";
 import { svgId } from "./kit/marks/text";
@@ -300,6 +302,11 @@ function ClearanceTile(props: LeadProps) {
             </p>
           )}
         </div>
+      ) : headerDrawsIt(entry) ? (
+        // The fallback is the bottom line the header just above already draws: not drawn twice.
+        <p className="text-small text-text-secondary">
+          This page could not read a clearance status.
+        </p>
       ) : (
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-lead text-text-primary text-pretty wrap-anywhere">{verdict.status}</p>
@@ -403,6 +410,15 @@ function RemediationTile(props: LeadProps) {
 }
 
 /** CP-5: the clearance status, the issues listed by severity word, the module's remediation actions. */
+/**
+ * Whether the module header already draws the paragraph the status falls back to: the bottom
+ * line's first paragraph, when it has words of its own and names no source.
+ */
+function headerDrawsIt(entry: OutputEntry) {
+  const text = bottomLine(entry)[0]?.text ?? "";
+  return readParagraph(text).body !== "" && !containsReference(text);
+}
+
 function Clearance(props: LeadProps) {
   return (
     <LeadFrame props={props}>

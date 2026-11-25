@@ -363,7 +363,7 @@ describe("a period the module did not supply between stated periods", () => {
     expect(tile).not.toHaveTextContent(/Better|Worse/);
   });
 
-  it("breaks the dot strip and the small slope at the gap too", () => {
+  it("breaks the net slope and the small slope at the gap too", () => {
     const entry = gapped();
     const revenue = entry.sections.find(({ heading }) => heading.endsWith("revenue and EBITDA"))
       ?.blocks[0];
@@ -469,7 +469,7 @@ describe("mark labels sit clear of the lines", () => {
     ["FY2023", "3.75", "3.00"],
     ["FY2024", "2.80", "2.25"],
   ];
-  it("keeps every dot-strip label off its connector", () => {
+  it("keeps every net-leverage label off its line", () => {
     draw(foundation(chart("leverage", LEVERAGE, ...cases.map((row) => [...row, "x", "Stated."]))));
     const mark = within(screen.getByRole("region", { name: "Net debt / EBITDA" })).getByRole("img");
     expect(within(mark).getByText("3.00x")).toBeTruthy();
@@ -518,11 +518,11 @@ describe("the small figure tiles", () => {
   });
 
   it("set the two large figures below the bottom line's size", () => {
+    // The bottom line is metric (36 px) or display (44 px); a headline figure is h1 (32 px).
     draw(foundation(chart("leverage", LEVERAGE, ["FY2024", "4.00", "3.50", "x", "Stated."])));
-    expect(within(gross()).getByText("4.00x", { selector: "span" })).toHaveClass("text-metric");
-    expect(within(gross()).getByText("4.00x", { selector: "span" })).not.toHaveClass(
-      "text-display",
-    );
+    const figure = within(gross()).getByText("4.00x", { selector: "span" });
+    expect(figure).toHaveClass("text-h1");
+    expect(figure.className).not.toMatch(/text-display|text-metric/);
   });
 });
 
@@ -607,14 +607,17 @@ describe("the figure rows' layout", () => {
     }
   });
 
-  it("lets the large tiles and their grid take their content height, not stretch", () => {
+  it("gives each leverage tile half the row and the four small tiles one line beneath", () => {
     draw(foundation(chart("leverage", LEVERAGE, ["FY2024", "4.00", "3.50", "x", "Stated."])));
     for (const name of ["Total debt / EBITDA", "Net debt / EBITDA"]) {
       const tile = screen.getByRole("region", { name });
-      expect(tile).toHaveClass("self-start");
-      expect(tile).not.toHaveClass("justify-between");
+      // The pair shares a row's height; neither is pinned short beside a hole.
+      expect(tile).toHaveClass("lg:col-span-6");
+      expect(tile.className).not.toMatch(/self-start|justify-between/);
     }
-    expect(screen.getByRole("region", { name: "Revenue" }).parentElement).toHaveClass("self-start");
+    const small = screen.getByRole("region", { name: "Revenue" }).parentElement;
+    expect(small).toHaveClass("lg:col-span-12", "lg:grid-cols-4", "auto-rows-fr");
+    expect(small?.className).not.toMatch(/self-start/);
   });
 
   it("keeps each small tile's trace in its head row, the title wrapping instead", () => {
@@ -731,5 +734,70 @@ describe("the cash tile", () => {
       "Cash US$275m",
       "Undrawn committed facilities US$400m",
     ]);
+  });
+});
+
+it("draws gross and net leverage on one axis, so the two slopes read against each other", () => {
+  draw(
+    foundation(
+      chart(
+        "leverage",
+        LEVERAGE,
+        ["FY2023", "3.75", "3.00", "x", "Stated."],
+        ["FY2024", "2.80", "2.25", "x", "Stated."],
+      ),
+    ),
+  );
+  const ticks = (name: string) =>
+    [
+      ...within(screen.getByRole("region", { name }))
+        .getByRole("img")
+        .querySelectorAll("text[data-tick]"),
+    ]
+      .map((text) => text.textContent)
+      .filter((text) => /^\d/.test(text));
+  const gross = ticks("Total debt / EBITDA");
+  expect(gross.length).toBeGreaterThan(1);
+  expect(ticks("Net debt / EBITDA")).toEqual(gross);
+});
+
+describe("a figure stated for one period only (real TransDigm lite CP-1 chart tables)", () => {
+  const single = () => {
+    const entry = foundation(
+      chart("leverage", LEVERAGE, [
+        "FY2024 / 2024-09-30",
+        "6.53",
+        "4.88",
+        "x",
+        "Not covenant leverage; retrospective.",
+      ]),
+      {},
+      null,
+    );
+    const liquidity = entry.sections.find(({ heading }) => heading === "Chart data: liquidity")
+      ?.blocks[0];
+    if (liquidity?.type !== "table") throw new Error("fixture");
+    liquidity.rows = [
+      { line: 1, cells: ["FY2024 / 2024-09-30", "6261", "843", "US$m", "Retrospective cash."] },
+    ];
+    return entry;
+  };
+
+  it("says one period is stated and draws no gap mark: nothing is missing", () => {
+    draw(single());
+    const tile = screen.getByRole("region", { name: "Total debt / EBITDA" });
+    expect(within(tile).getByText("6.53x")).toBeVisible();
+    expect(within(tile).getByText("One period is stated, so no change is drawn.")).toBeVisible();
+    expect(tile).not.toHaveTextContent(/period table/);
+    expect(tile.querySelector(".gap-hatch")).toBeNull();
+  });
+
+  it("still draws cash beside the undrawn facilities the same period states", () => {
+    draw(single());
+    const tile = screen.getByRole("region", { name: "Cash" });
+    const parts = within(tile).getByRole("list", { name: "Parts of the bar" });
+    expect(parts).toHaveTextContent("US$6,261m");
+    expect(parts).toHaveTextContent("US$843m");
+    expect(tile.querySelector(".gap-hatch")).toBeNull();
   });
 });

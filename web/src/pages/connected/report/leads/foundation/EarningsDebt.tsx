@@ -31,6 +31,7 @@ import {
   leverageWord,
   lineLayout,
   pairNamed,
+  PERIOD_BASE,
   periodSpan,
 } from "./earningsDebtGeometry";
 import {
@@ -46,7 +47,7 @@ const KICKER = "Earnings against debt and leverage";
 const FILL = { primary: "fill-chart-1", secondary: "fill-chart-2" } as const;
 const STROKE = { primary: "stroke-chart-1", secondary: "stroke-chart-2" } as const;
 
-/** One period: one bar per measure from zero, earnings teal, debt navy, gaps hatched with the reason. */
+/** One period: one bar per measure from zero, earnings blue, debt plum, gaps hatched with the reason. */
 function PeriodBars({ data, width }: { data: EarningsAgainstDebt; width: number }) {
   const layout = barLayout(data, width);
   const period = data.periods[0]?.label ?? "";
@@ -252,7 +253,7 @@ function PeriodLines({ data, width }: { data: EarningsAgainstDebt; width: number
               <text
                 data-part="period"
                 x={point.x}
-                y={panel.top + top + height + 18}
+                y={panel.top + top + height + PERIOD_BASE}
                 textAnchor="middle"
                 fontSize={SIZE.tick}
                 className="fill-text-secondary font-body"
@@ -261,7 +262,13 @@ function PeriodLines({ data, width }: { data: EarningsAgainstDebt; width: number
                   <tspan
                     key={`${String(n)}-${line}`}
                     x={point.x}
-                    y={panel.top + top + height + 18 + n * 13}
+                    y={
+                      panel.top +
+                      top +
+                      height +
+                      PERIOD_BASE +
+                      ((panel.periodShift[at] ?? 0) + n) * 13
+                    }
                   >
                     {line}
                   </tspan>
@@ -272,13 +279,7 @@ function PeriodLines({ data, width }: { data: EarningsAgainstDebt; width: number
           <Reasons
             lines={panel.reasons}
             x={panel.left}
-            y={
-              panel.top +
-              top +
-              height +
-              24 +
-              Math.max(1, ...panel.periodLines.map((lines) => lines.length)) * 13
-            }
+            y={panel.top + top + height + PERIOD_BASE + 6 + panel.periodDepth * 13}
           />
         </g>
       ))}
@@ -579,7 +580,16 @@ export function EarningsDebtTile({ lead }: { lead: LeadProps }) {
       notes={data.ordered ? [] : [UNORDERED_SENTENCE]}
       table={earningsTable(data)}
     >
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_408px]">
+      <div
+        className={cx(
+          "grid min-w-0 gap-6",
+          // Three or more periods are a small multiple, which needs the row to itself until the
+          // tile is wide enough for both: leverage then sits under it.
+          data.periods.length > 2
+            ? "xl:grid-cols-[minmax(0,1fr)_408px]"
+            : "lg:grid-cols-[minmax(0,1fr)_408px]",
+        )}
+      >
         {data.measures.length ? <Money data={data} /> : <GapNote>{absentText(data)}</GapNote>}
         {data.leverage ? (
           <Leverage

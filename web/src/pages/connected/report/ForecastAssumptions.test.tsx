@@ -23,6 +23,7 @@ const document = {
 const names = new Map([["Downside case", "Downside (EBITDA -15%)"]]);
 const note = "Downside case is the base case with an EBITDA decline applied to EBITDA and margin.";
 
+const YEARS = "2025 · 2026 · 2027";
 const region = () => screen.getByRole("region", { name: "Assumptions by case table" });
 const rowOf = (name: string) =>
   within(region()).getByRole("row", { name: new RegExp(`^${name}`, "u") });
@@ -61,11 +62,19 @@ it("gives the shock its own column named by the model's case name, with the down
     within(region())
       .getAllByRole("columnheader")
       .map((head) => head.textContent),
-  ).toEqual(["Driver", "Base case", "Upside case", "Downside (EBITDA -15%)", "Trace"]);
+  ).toEqual([
+    "Driver",
+    // The planning years head each case's per-year values; the shock is one value, not a run.
+    "Base case2025 · 2026 · 2027",
+    "Upside case2025 · 2026 · 2027",
+    "Downside (EBITDA -15%)",
+    "Trace",
+  ]);
   expect(texts(rowOf("Downside EBITDA decline"))).toEqual(["Not stated", "Not stated", "0.15", ""]);
   expect(texts(rowOf("Revenue growth"))[2]).toBe("Not stated");
   expect(screen.getByText(note)).toBeInTheDocument();
-  expect(screen.getByText("Planning years: 2025 · 2026 · 2027")).toBeInTheDocument();
+  for (const years of region().querySelectorAll('[data-part="years"]'))
+    expect(years).toHaveClass("whitespace-nowrap");
 });
 
 it("falls back to the raw case name and adds a downside drivers column only when it states something", () => {
@@ -78,7 +87,14 @@ it("falls back to the raw case name and adds a downside drivers column only when
     within(region())
       .getAllByRole("columnheader")
       .map((head) => head.textContent),
-  ).toEqual(["Driver", "Base case", "Upside case", "Downside drivers", "Downside case", "Trace"]);
+  ).toEqual([
+    "Driver",
+    `Base case${YEARS}`,
+    `Upside case${YEARS}`,
+    `Downside drivers${YEARS}`,
+    "Downside case",
+    "Trace",
+  ]);
   expect(screen.queryByText(note)).toBeNull();
 });
 
@@ -208,4 +224,29 @@ it("draws a null year as the gap chip, an unknown key with no unit, and unlike f
   expect(rowOf("mystery").textContent).not.toContain("USD");
   expect(texts(rowOf("mystery"))[0]).toBe("0.0000001");
   expect(within(rowOf("mystery")).getByTitle("1e-7")).toBeInTheDocument();
+});
+
+it("draws only the key entries the table uses", () => {
+  render(
+    <AssumptionsByCase
+      document={{
+        years: document.years,
+        base_drivers: { revenue_growth: { values: [0.05, 0.05, 0.05] } },
+        upside_drivers: { revenue_growth: { values: [0.05, 0.05, 0.05] } },
+      }}
+    />,
+  );
+  expect(screen.queryByText("Differs from base")).toBeNull();
+  expect(screen.queryByText(/Only this case states it:/u)).toBeNull();
+  expect(screen.queryByText(/nothing is assumed/u)).toBeNull();
+  // The note on how values are recorded stays, under the table.
+  const note = screen.getByText(/Values are the module's recorded fractions/u);
+  expect(region().compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("makes the table's scroll box a tab stop only while it overflows, with the token ring", () => {
+  render(<AssumptionsByCase document={document} />);
+  // Nothing overflows where nothing is measured (jsdom): no inert stop.
+  expect(region()).not.toHaveAttribute("tabindex");
+  expect(region()).toHaveClass("outline-focus-ring", "focus-visible:outline-2");
 });

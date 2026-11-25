@@ -281,7 +281,7 @@ function Headroom({ source, href }: { source: Ready; href: NoteHref }) {
     <>
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <Figure className="text-metric">{lead.headroom ?? shown(lead, lead.current)}</Figure>
+          <Figure className="text-h1">{lead.headroom ?? shown(lead, lead.current)}</Figure>
           <span className="text-small text-text-secondary">
             {lead.headroom ? `headroom, ${lead.label}` : lead.label}
           </span>
@@ -712,7 +712,8 @@ function PathHeadline({ path }: { path: Path }) {
     ) : null;
   return (
     <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-      <Figure className="text-metric">{last.display}</Figure>
+      {/* A supporting figure: two steps under the headline figures, three under the call. */}
+      <Figure className="text-h2">{last.display}</Figure>
       <span className="text-small text-text-secondary">
         {base.group}, by {last.period}
       </span>
@@ -736,7 +737,7 @@ function ForwardPath({ path, href }: { path: Path; href: NoteHref }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {first && <Key tone="primary">{first.group}</Key>}
         {others.map(({ group }) => (
-          <Key key={group} tone="secondary">
+          <Key key={group} tone="secondaryOpen">
             {group}
           </Key>
         ))}
@@ -786,6 +787,7 @@ export function StressRow({ run, view }: RowProps) {
   return (
     <>
       <FigureTile
+        fit
         span={4}
         title="Covenant headroom"
         basis="Each test against its threshold"
@@ -805,6 +807,7 @@ export function StressRow({ run, view }: RowProps) {
         )}
       </FigureTile>
       <FigureTile
+        fit
         span={5}
         title="Downside scenarios"
         basis="Each stressed metric by case, from zero"
@@ -824,6 +827,7 @@ export function StressRow({ run, view }: RowProps) {
         )}
       </FigureTile>
       <FigureTile
+        fit
         span={3}
         title="Forward path"
         basis={forward.path?.measure ?? "Net leverage by forecast period"}

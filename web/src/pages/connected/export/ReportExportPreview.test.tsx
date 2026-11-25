@@ -160,6 +160,10 @@ it("opens from the menu and returns to the same evidence tab on the same run", a
   });
   expect(window.location.pathname).toBe(address);
   expect(fetch).toHaveBeenCalledOnce();
+  // Closing hands focus back to the control that opened the preview, not to the page body.
+  await waitFor(() => {
+    expect(screen.getByRole("button", { name: "Export PDF" })).toHaveFocus();
+  });
 });
 
 it.each([

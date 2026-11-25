@@ -249,12 +249,15 @@ it("10: reads a long section in two columns and pairs short ones side by side", 
     words,
   });
   const spans = (...words: number[]) =>
-    placeProse(words.map((count, at) => prose(at + 1, count))).map(({ span }) => span);
-  // V5: a long section takes the row; short ones of like length pair; a lone short one takes 8.
-  expect(spans(400, 50, 50, 50)).toEqual([12, 6, 6, 8]);
+    placeProse(words.map((count, at) => prose(at + 1, count))).map(({ span, measured }) =>
+      measured ? `${String(span)} measured` : span,
+    );
+  // V5: a long section takes the row; short ones of like length pair; a lone short one takes the
+  // row with its text held to the reading measure, leaving no boxed hole beside it.
+  expect(spans(400, 50, 50, 50)).toEqual([12, 6, 6, "12 measured"]);
   // Two short sections of unlike length do not pair: the shorter tile would be mostly empty.
-  expect(spans(170, 40)).toEqual([8, 8]);
-  expect(spans(60)).toEqual([8]);
+  expect(spans(170, 40)).toEqual(["12 measured", "12 measured"]);
+  expect(spans(60)).toEqual(["12 measured"]);
 });
 
 const metrics = {
@@ -320,7 +323,7 @@ it("11: draws no strip for another module or a catalogue that states no headline
   expect(screen.queryByLabelText("Headline figures")).toBeNull();
 });
 
-it("14: states the basis from the entity period key and puts the code after the name", () => {
+it("14: states the basis from the entity period key and names the module without its code", () => {
   page(
     [
       findings,
@@ -348,9 +351,10 @@ it("14: states the basis from the entity period key and puts the code after the 
   expect(header).toHaveTextContent(
     "Issuer: Fiscal year end September 30 · USD millions · US GAAP · FY2024; FY2023",
   );
-  const name = within(header).getByRole("heading", { level: 2, name: "Financial foundation" });
-  const code = within(header).getByText("CP-1");
-  expect(name.compareDocumentPosition(code)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  expect(
+    within(header).getByRole("heading", { level: 2, name: "Financial foundation" }),
+  ).toBeVisible();
+  expect(header.textContent).not.toMatch(/CP-\d/);
 });
 
 it.each([

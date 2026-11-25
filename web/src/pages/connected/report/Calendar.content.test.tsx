@@ -82,7 +82,7 @@ const ends = () => ({
   start: document.querySelector("[data-axis-end='start']")?.textContent,
   end: document.querySelector("[data-axis-end='end']")?.textContent,
 });
-const reading = () => screen.getByRole("heading", { level: 3, name: /dated event/ }).textContent;
+const reading = () => screen.getByText(/^\d+ dated event/).textContent;
 const groupName = () =>
   screen.getByRole("group", { name: /^Events on a time axis/ }).getAttribute("aria-label");
 

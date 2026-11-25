@@ -159,10 +159,12 @@ it("states the foreign-share gap, lists the hedge terms without sources and the 
     within(region).getAllByRole("cell", { name: "Three-month SOFR floor 2.00%; ceiling 3.50%" }),
   ).toHaveLength(2);
   expect(within(terms).queryByText(/tdg-20240930/)).toBeNull();
-  // Review 4, Q7: the hedge dates sit in the column beside the rate figure, under the hedged split.
-  const column = screen.getByRole("region", { name: "Hedge dates" }).parentElement as HTMLElement;
-  expect(column).toHaveClass("lg:col-span-4");
-  expect(within(column).getByRole("region", { name: "Hedged against unhedged" })).toBeVisible();
+  // The hedge dates take their own row, after the hedged split.
+  const lane = screen.getByRole("region", { name: "Hedge dates" });
+  expect(lane).toHaveClass("lg:col-span-12");
+  expect(
+    screen.getByRole("region", { name: "Hedged against unhedged" }).compareDocumentPosition(lane),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   const dates = screen.getByRole("list", { name: "Hedge dates" });
   const rows = within(dates).getAllByRole("listitem");
   // All five dated rows are drawn: the first three in the lane, the other two behind its disclosure.

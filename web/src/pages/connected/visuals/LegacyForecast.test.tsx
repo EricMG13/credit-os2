@@ -86,7 +86,7 @@ it("labels absent units as not recorded in the case data and model", () => {
 it("applies the selected downside to forecast chart and model table", () => {
   render(<LegacyForecast model={model} selectedCase="Downside shock" />);
   const chart = within(screen.getByRole("figure", { name: "Revenue" }));
-  fireEvent.click(chart.getByRole("radio", { name: "Table" }));
+  fireEvent.click(chart.getByRole("button", { name: "Table" }));
   expect(chart.getByRole("cell", { name: "80" })).toBeInTheDocument();
   expect(chart.getByRole("cell", { name: "90" })).toBeInTheDocument();
   expect(chart.queryByRole("cell", { name: "100" })).toBeNull();
@@ -102,7 +102,7 @@ it("applies the selected downside to forecast chart and model table", () => {
 it("draws every case on the cash proxy chart and table, emphasising the selected one", () => {
   render(<CashProxy model={model} selectedCase="Downside shock" />);
   const chart = within(screen.getByRole("figure", { name: "Cash proxy by scenario" }));
-  fireEvent.click(chart.getByRole("radio", { name: "Table" }));
+  fireEvent.click(chart.getByRole("button", { name: "Table" }));
   expect(chart.getByRole("row", { name: /Downside shock/ })).toBeInTheDocument();
   expect(chart.getByRole("row", { name: /Base case/ })).toBeInTheDocument();
   expect(chart.getByRole("cell", { name: "6.00" })).toBeInTheDocument();
@@ -393,7 +393,7 @@ it("retains other cases when the selected cash proxy is entirely missing", () =>
   );
   expect(comparison.getAllByText("not available")).toHaveLength(2);
   const chart = within(screen.getByRole("figure", { name: "Cash proxy by scenario" }));
-  fireEvent.click(chart.getByRole("radio", { name: "Table" }));
+  fireEvent.click(chart.getByRole("button", { name: "Table" }));
   expect(chart.getAllByText("not available")).toHaveLength(2);
   expect(chart.getByRole("row", { name: /Base case/ })).toBeInTheDocument();
 });
@@ -570,7 +570,7 @@ it.each([
     />,
   );
   const chart = within(screen.getByRole("figure", { name: "Revenue" }));
-  fireEvent.click(chart.getByRole("radio", { name: "Table" }));
+  fireEvent.click(chart.getByRole("button", { name: "Table" }));
   const table = within(screen.getByRole("region", { name: "Cash flow model" }));
   for (const part of [chart, table]) {
     for (const value of own) expect(part.getByRole("cell", { name: value })).toBeInTheDocument();
@@ -802,7 +802,7 @@ it("names a module-coded raw group the same in every caller, with no module code
   // The line-item trends and the model table, over the main grid.
   render(<LegacyForecast model={model} />);
   const chart = within(screen.getByRole("figure", { name: "Revenue" }));
-  fireEvent.click(chart.getByRole("radio", { name: "Table" }));
+  fireEvent.click(chart.getByRole("button", { name: "Table" }));
   expect(chart.getByRole("rowheader", { name })).toBeInTheDocument();
   expect(
     within(screen.getByRole("region", { name: "Cash flow model" })).getByRole("columnheader", {

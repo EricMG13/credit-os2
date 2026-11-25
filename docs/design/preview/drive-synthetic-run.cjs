@@ -35,7 +35,7 @@ const ORIGIN = process.env.PREVIEW_ORIGIN || 'http://127.0.0.1:8765';
  for (const c of await page.getByRole('region',{name:'Limits to decide'}).getByRole('checkbox').all()) await c.check();
  await page.getByRole('checkbox',{name:'Approve: I have read this summary and want this run started',...x}).check();
  await submit.click();
- await page.getByRole('dialog').getByRole('button',{name:'Start synthetic run',...x}).click();
+ await page.getByRole('dialog').getByRole('button',{name:'Start no-cost test',...x}).click();
  await page.waitForURL(/\/run\/\d{8}-\d{6}-\d{2}$/u);
  console.log('run', page.url());
  const open=page.getByRole('link',{name:'Open report',...x});

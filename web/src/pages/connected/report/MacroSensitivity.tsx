@@ -514,7 +514,7 @@ export function FxShocksTile({
                   <th
                     scope="colgroup"
                     colSpan={moves.length}
-                    className="pt-2.5 text-left text-caption font-medium wrap-anywhere text-text-secondary"
+                    className="pt-2.5 text-left text-small font-medium wrap-anywhere text-text-secondary"
                   >
                     {row.measure}
                   </th>

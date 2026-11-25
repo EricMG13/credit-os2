@@ -107,10 +107,12 @@ it("draws one counter tile, the untyped outcomes a one-line gap inside it", () =
   expect(screen.queryByRole("region", { name: "What would change the view" })).toBeNull();
   const counter = screen.getByRole("region", { name: CONTRARY });
   const gap = within(counter).getByText(
-    "The two outcomes, resolved favourably and resolved adversely, are not typed in this run.",
+    "The module does not separate the outcome resolved favourably from the one resolved adversely.",
   );
   expect(gap.closest(".min-h-24")).toBeNull();
-  expect(gap).toHaveClass("text-gap-text");
+  expect(gap.closest("p")).toHaveClass("text-gap-text");
+  // The line-sized gap mark, not a rule: the hatched swatch leads the sentence.
+  expect(gap.closest("p")?.querySelector(".gap-hatch")).not.toBeNull();
 });
 
 it("says under a passage table which columns are held in Evidence, and links the table", () => {
@@ -157,11 +159,15 @@ it("links a block it cannot draw inside a passage instead of dropping it", () =>
   ).toBeVisible();
 });
 
-it("lets the counter tile take its content height, the findings tile carrying the row", () => {
+it("ends the counter tile level with the findings tile, its gap line at the foot", () => {
   draw(lead([words(4, "Distributions exceed free cash flow.")], [words(41, "Cash improved.")]));
   const counter = screen.getByRole("region", { name: CONTRARY });
-  expect(counter).toHaveClass("self-start");
-  expect(counter).not.toHaveClass("flex-1");
+  expect(counter.className).not.toMatch(/self-start|\bflex-1\b/);
+  expect(
+    within(counter)
+      .getByText(/does not separate the outcome/)
+      .closest("p"),
+  ).toHaveClass("mt-auto");
 });
 
 it("draws findings, counter paragraphs and table cells without inline markers or unnamed ids", () => {

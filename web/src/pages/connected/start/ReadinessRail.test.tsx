@@ -81,11 +81,18 @@ describe("the readiness rail", () => {
     expect(aside).toHaveTextContent(
       "Each module is checked against your documents when you review the run.",
     );
+    // Each module is drawn by name beside its mark, and the marks have a key.
+    expect(within(stages).getByText("Legal & covenants")).toBeVisible();
+    expect(
+      within(within(aside).getByRole("list", { name: "What the marks mean" }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Not checked yet"]);
     expect(aside).not.toHaveTextContent(/CP-|Cash flow model/);
     expect(within(aside).queryByRole("list", { name: "Carrying a limit" })).toBeNull();
   });
 
-  it("after a review marks modules in the Run limits words and names those carrying a limit, without their reasons", () => {
+  it("after a review marks each named module in the Run limits words, names a whole-run limit once, and gives no reasons", () => {
     const reason = "No executed agreement is among the files.";
     const aside = rail(
       moduleReadiness([], {
@@ -107,12 +114,17 @@ describe("the readiness rail", () => {
     expect(
       within(aside).getByRole("img", { name: "Committee decision: no limit in this review" }),
     ).toBeInTheDocument();
+    expect(
+      within(within(aside).getByRole("list", { name: "What the marks mean" }))
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Will refuse", "Gap", "No limit in this review"]);
     const limited = within(aside).getByRole("list", { name: "Carrying a limit" });
     expect(
       within(limited)
         .getAllByRole("listitem")
         .map((item) => item.textContent),
-    ).toEqual(["Whole runCheck", "Financial foundationGap", "Legal & covenantsWill refuse"]);
+    ).toEqual(["Whole runCheck"]);
     // The reason is the limits block's to give, not repeated here.
     expect(aside).not.toHaveTextContent(reason);
     expect(aside).not.toHaveTextContent(/Ready|Conditional|Not assessable|No limit stated/);
@@ -141,5 +153,9 @@ describe("the readiness rail", () => {
       />,
     );
     expect(screen.getByRole("region", { name: "Modules by stage" })).toHaveClass("max-xl:hidden");
+    // The review's own cost figure is the page's one metric; the rail's cap steps down.
+    const cap = screen.getByText("USD 25.00", { exact: true });
+    expect(cap).toHaveClass("font-mono", "text-h4");
+    expect(cap).not.toHaveClass("text-metric");
   });
 });

@@ -13,7 +13,7 @@ const proof = () => fixtureEntry("CP-2A", retained("..", "..", "proof", "handoff
 it("draws the break-point ladder in authored order on the fall-in-EBITDA axis, with the basis choice", () => {
   render(<DownsideLead {...leadProps(proof())} />);
   const ladder = screen.getByRole("region", { name: "EBITDA break points" });
-  expect(ladder.className).toMatch(/lg:col-span-8/);
+  expect(ladder.className).toMatch(/lg:col-span-12/);
   const figure = within(ladder).getByRole("img");
   expect(figure).toHaveAccessibleName(
     /FCF reaches zero 10%.*Cover reaches watch level 15%.*Net leverage watch level 32%/,
@@ -21,9 +21,11 @@ it("draws the break-point ladder in authored order on the fall-in-EBITDA axis, w
   // Review 4, Q3(c): the axis runs to a nice maximum above the largest break (32% → 40%) and says so.
   expect(figure.querySelector('[data-decline="0.32"]')).toHaveStyle({ width: "80%" });
   expect(within(ladder).getByText("Fall in EBITDA")).toBeVisible();
-  // Review 4, Q5: the scenarios sit in the column beside the ladder, not under a hole.
-  const column = screen.getByRole("region", { name: "Downside scenarios" }).parentElement;
-  expect(column).toHaveClass("lg:col-span-4", "flex-col");
+  // Screen review F1/F2: the scenarios take their own row under the ladder. In a third of the row
+  // their assumptions were set a letter a line at 1024 px and a hole opened under the ladder.
+  expect(screen.getByRole("region", { name: "Downside scenarios" }).className).toMatch(
+    /lg:col-span-12/,
+  );
   expect(within(figure).getByText("Analyst watch level, not a covenant")).toBeInTheDocument();
   fireEvent.click(within(ladder).getByRole("button", { name: "Cash-interest increase 5%" }));
   const shocked = within(ladder).getByRole("img");
@@ -39,7 +41,7 @@ it("draws the break-point ladder in authored order on the fall-in-EBITDA axis, w
 it("compares every case on each measure, lists the measure it cannot place, and keeps the table", () => {
   render(<DownsideLead {...leadProps(proof())} />);
   const tile = screen.getByRole("region", { name: "Downside scenarios" });
-  expect(tile.className).toMatch(/lg:col-span-4/);
+  expect(tile.className).toMatch(/lg:col-span-12/);
   const figure = within(tile).getByRole("img");
   expect(figure).toHaveAccessibleName(
     /All-in cover \(x\): Control \(unstressed\) \(control\) 3\.10, Cost shock 2\.00, Cost and rate shock 1\.40/,

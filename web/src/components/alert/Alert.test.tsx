@@ -13,6 +13,13 @@ function blockChildren() {
   );
 }
 
+describe("Alert surface", () => {
+  it("carries no shadow: only floating menus and tooltips are raised (DESIGN.md, Shape)", () => {
+    render(<Alert tone="error" title="Run failed" />);
+    expect(screen.getByRole("alert").className).not.toMatch(/\bshadow/);
+  });
+});
+
 describe("Alert and Callout children", () => {
   afterEach(() => {
     vi.restoreAllMocks();

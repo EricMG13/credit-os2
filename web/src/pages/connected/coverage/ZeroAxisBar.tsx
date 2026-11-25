@@ -38,7 +38,7 @@ export function ZeroAxisBar({
       </span>
       <span
         aria-hidden="true"
-        className="relative mb-3 h-2 min-w-0 flex-1 rounded-ds-full bg-surface-subtle"
+        className="relative mb-4 h-2 min-w-0 flex-1 rounded-ds-full bg-surface-subtle"
       >
         {value !== 0 && (
           <span
@@ -56,7 +56,7 @@ export function ZeroAxisBar({
           style={{ left: `${String(zero)}%` }}
         />
         <span
-          className="absolute top-full -translate-x-1/2 font-mono text-caption text-text-tertiary"
+          className="absolute top-full mt-1 -translate-x-1/2 font-mono text-caption text-text-tertiary"
           style={{ left: `${String(zero)}%` }}
         >
           0

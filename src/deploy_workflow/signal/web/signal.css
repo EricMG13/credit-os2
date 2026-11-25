@@ -10,7 +10,7 @@
   --navy:#000533;--blue:#001aff;--blue-50:#e5e8ff;--blue-ink:#0012b2;
   --ground:#f4f4f5;--rule:#e8e9eb;--line:#d1d4d8;--muted:#474a4f;--quiet:#5a5e65;--card:#fff;
   --amber:#806300;--amber-bg:#fff4cc;--red:#8e413e;--red-bg:#fbeceb;
-  --green:#0b6b3a;--green-bg:#e3f6ec;--violet:#514d80;--violet-bg:#eeedff;
+  --pos:#1d4ed8;--pos-bg:#eff6ff;--violet:#514d80;--violet-bg:#eeedff;
   --on-navy-quiet:#d9dcf8;
   --shadow:0 1px 3px rgba(0,5,51,.1),0 1px 2px -1px rgba(0,5,51,.1);
   --depth:0 8px 28px rgba(0,5,51,.085);
@@ -81,7 +81,7 @@ button{background:none;border:0;cursor:pointer}
 .top h2{font:700 22px/1.2 var(--display);overflow-wrap:anywhere}
 .live{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:var(--fs-label);color:var(--quiet)}
 .live.warn{color:var(--amber)}
-.pulse{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2.4s ease-in-out infinite}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--pos);animation:pulse 2.4s ease-in-out infinite}
 .live.warn .pulse{background:var(--amber);animation:none}
 @keyframes pulse{50%{opacity:.35}}
 .btn.channels-toggle{display:none}
@@ -117,13 +117,13 @@ kbd{font:500 var(--fs-label) var(--mono);border:1px solid var(--line);border-rad
 .card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .card-regulator{--accent:var(--violet)}
 .card-ratings{--accent:var(--amber)}
-.card-research{--accent:var(--green)}
+.card-research{--accent:var(--pos)}
 .card-news{--accent:var(--muted)}
 .card-other{--accent:var(--quiet)}
 .kind{display:inline-block;font-size:var(--fs-label);font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:1px 8px;margin-bottom:6px;background:var(--ground);color:var(--muted)}
 .card-regulator .kind{background:var(--violet-bg);color:var(--violet)}
 .card-ratings .kind{background:var(--amber-bg);color:var(--amber)}
-.card-research .kind{background:var(--green-bg);color:var(--green)}
+.card-research .kind{background:var(--pos-bg);color:var(--pos)}
 .headline{font:600 18px/1.3 var(--display);overflow-wrap:anywhere;margin-bottom:4px}
 .headline-link{color:var(--navy);text-decoration:none}
 .headline-link:hover{color:var(--blue-ink);text-decoration:underline}
@@ -131,7 +131,7 @@ kbd{font:500 var(--fs-label) var(--mono);border:1px solid var(--line);border-rad
 .src{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;font:600 12px var(--mono);color:#fff;background:var(--navy);flex:none}
 .card-regulator .src{background:var(--violet)}
 .card-ratings .src{background:var(--amber)}
-.card-research .src{background:var(--green)}
+.card-research .src{background:var(--pos)}
 .src-name{font-weight:600;color:var(--muted);overflow-wrap:anywhere}
 .when{white-space:nowrap}
 .when:before{content:"\00b7";margin-right:8px}

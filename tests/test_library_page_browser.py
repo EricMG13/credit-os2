@@ -395,7 +395,7 @@ def test_live_run_chips_show_their_state_colours(tmp_path):
     # Each module's step carries its state as a word and a colour (running blue-700, done green,
     # waiting text-tertiary); the card's own mark reads running blue-700 on the quiet surface.
     assert seen["running"] == ["rgb(0, 18, 178)", "Running"]
-    assert seen["done"] == ["rgb(15, 128, 72)", "Done"]
+    assert seen["done"] == ["rgb(29, 78, 216)", "Done"]
     assert seen["waiting"] == ["rgb(71, 74, 79)", "Waiting"]
     assert seen["head"] == ["rgb(250, 250, 251)", "rgb(0, 18, 178)"]
 

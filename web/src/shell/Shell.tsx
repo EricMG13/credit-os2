@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from "react";
 import { BarChartSquare02, BookOpen01, Cube01, PlayCircle, Signal01 } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
 
 /** `kit` is a page of the shell with no bar item: #/kit is reached by its address only. */
 export type Area = "library" | "coverage" | "model" | "run" | "signal" | "kit";
@@ -15,18 +16,24 @@ const ITEMS = [
 const COVERAGE = { area: "coverage", label: "Coverage", href: "/coverage", icon: BarChartSquare02 };
 const [LIBRARY, ...AFTER_LIBRARY] = ITEMS;
 
-/** The top bar (symbol, product name, areas) and the page region on the canvas. */
+/**
+ * The top bar (symbol, product name, areas, and the one primary action when the app has one) and
+ * the page region on the canvas.
+ */
 export function Shell({
   current,
   bleed = false,
   sections,
   symbol = "./symbol.svg",
+  action,
   children,
 }: {
   current: Area | null;
   bleed?: boolean;
   sections?: readonly { area: Area; href: string; label?: string }[];
   symbol?: string;
+  /** The bar's one primary action, at its end; it is a link, never an area, so never current. */
+  action?: { href: string; label: string };
   children: ReactNode;
 }) {
   const items =
@@ -90,6 +97,13 @@ export function Shell({
               })}
             </ul>
           </nav>
+          {action && (
+            <div className="flex min-h-14 shrink-0 items-center">
+              <Button href={action.href} size="sm">
+                {action.label}
+              </Button>
+            </div>
+          )}
         </div>
       </header>
       <main

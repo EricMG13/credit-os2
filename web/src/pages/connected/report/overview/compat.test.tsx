@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { OutputEntry, Section } from "../../publishedReport";
 import { FigureNotes } from "./figureParts";
-import { DeltaBar, DotStrip, MiniSlope, Slope, type Mark } from "./marks";
+import { DeltaBar, MiniSlope, Slope, type Mark } from "./marks";
 import { bottomLine, gapReason, lastTwo, passageParagraphs, periodSeries } from "./read";
 
 afterEach(cleanup);
@@ -112,9 +112,6 @@ it("draws the series marks from the earlier Mark[] with the same points and labe
   expect(
     screen.getByRole("img", { name: "Slope" }).querySelectorAll("[data-segment]"),
   ).toHaveLength(1);
-  render(<DotStrip marks={marks} tone="better" suffix="x" label="Strip" />);
-  expect(dots("Strip")).toHaveLength(2);
-  expect(texts("Strip").sort()).toEqual(["4.00x", "5.00x", "FY2023", "FY2024"]);
   render(<MiniSlope marks={marks} tone="better" label="Mini slope" />);
   expect(dots("Mini slope")).toHaveLength(2);
   expect(screen.getByRole("img", { name: "Mini slope" }).querySelectorAll("polyline")).toHaveLength(

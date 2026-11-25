@@ -270,13 +270,13 @@ function HedgedTile({ entry, href, span }: { entry: OutputEntry; href: Href; spa
           </div>
           <div aria-hidden="true" className="flex flex-wrap justify-between gap-x-4 gap-y-1">
             <span className="flex flex-col">
-              <span className="text-caption text-text-secondary">Hedged</span>
+              <span className="text-small text-text-secondary">Hedged</span>
               <span className="font-mono text-small text-text-primary tabular-nums">
                 {hedged.text}
               </span>
             </span>
             <span className="flex flex-col items-end">
-              <span className="text-caption text-text-secondary">Unhedged</span>
+              <span className="text-small text-text-secondary">Unhedged</span>
               <span className="font-mono text-small text-text-primary tabular-nums">
                 {unhedged.text}
               </span>
@@ -342,7 +342,6 @@ export const MacroLead = withDraws(
             <Beside>
               <HedgedTile entry={entry} href={href} span={12} />
               {foreign}
-              {dates}
             </Beside>
           </>
         ) : (
@@ -354,11 +353,8 @@ export const MacroLead = withDraws(
               title={LADDER}
               reason="This page could not read the cash cost of each rate shock."
             />
-            <HedgedTile entry={entry} href={href} span={8} />
-            <Beside>
-              {foreign}
-              {dates}
-            </Beside>
+            <HedgedTile entry={entry} href={href} span={foreign ? 8 : 12} />
+            {foreign && <Beside>{foreign}</Beside>}
           </>
         )}
         {data?.retained && <RetainedCoverTile retained={data.retained} href={href} span={12} />}
@@ -380,6 +376,8 @@ export const MacroLead = withDraws(
             {others}
           </>
         )}
+        {/* The hedge dates take the last row whole: a dated list beside a two-step table leaves a hole. */}
+        {dates}
       </Bento>
     );
   },

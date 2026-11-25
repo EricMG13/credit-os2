@@ -16,8 +16,9 @@ import { moduleState, traceKey, type ReportView } from "../reportView";
 import { CompanyProfile } from "./CompanyProfile";
 import { ModuleConfidence } from "./Confidence";
 import { leadFor } from "./leads";
+import { LeadEvidence } from "./leads/kit/LeadFrame";
 import { framed, ModuleFigures, moduleFigures } from "./ModuleFigures";
-import { CONTRARY, KEY_FINDINGS, moduleFrame } from "./moduleFrame";
+import { CONTRARY, KEY_FINDINGS, moduleFrame } from "./moduleFrameModel";
 import {
   ANCHOR,
   ModuleFindings,
@@ -30,7 +31,7 @@ import {
 import { ProseTiles } from "./ModuleProse";
 import { ModuleRecords } from "./ModuleRecords";
 import { ModuleStats } from "./ModuleStats";
-import { moduleRecords } from "./moduleRecords";
+import { moduleRecords } from "./moduleRecordsModel";
 import { Bento, GapNote, Tile } from "./overview/Tile";
 import { byStage } from "./stages";
 
@@ -109,8 +110,8 @@ function pageSections({ frame, limitations, hasRecords }: Page) {
       id: ANCHOR.section(section.line),
       label: title,
     })),
-    ...(hasRecords ? [{ id: ANCHOR.records, label: "Statements and records" }] : []),
     ...(limitations ? [{ id: ANCHOR.limitations, label: "Limitations" }] : []),
+    ...(hasRecords ? [{ id: ANCHOR.records, label: "Statements and records" }] : []),
   ];
 }
 
@@ -160,7 +161,7 @@ function ModulePage({
   table?: string;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  const { figures, Lead, kinds, frame, gaps, limitations } = page;
+  const { figures, Lead, kinds, frame, gaps } = page;
   const index = view.entries.indexOf(entry);
   const traces = pageTraces(snapshot, entry, index);
   const module = { ...current, state: moduleState(entry) };
@@ -183,28 +184,29 @@ function ModulePage({
             ) : undefined
           }
           confidence={
-            <ModuleConfidence
-              confidence={entry.output.confidence}
-              trace={traces[CONFIDENCE_TRACE] ? CONFIDENCE_TRACE : null}
-            />
+            // A module that is not assessable or unreadable made no assessment to be confident
+            // in: its stored score stays in Evidence and is not drawn as a meter here.
+            module.state === "Not assessable" ? undefined : (
+              <ModuleConfidence
+                confidence={entry.output.confidence}
+                trace={traces[CONFIDENCE_TRACE] ? CONFIDENCE_TRACE : null}
+              />
+            )
           }
         />
         {isEmpty(page) && <EmptyHandoff run={run} entry={entry} />}
         <ModuleStats entry={entry} catalogue={view.catalogue} folder={run.folder} />
         {Lead && (
-          <div className="min-w-0 lg:col-span-12">
-            {/* leadFor returns a component defined once at module scope, never one made here. */}
-            {createElement(Lead, { snapshot, run, view, entry, entryIndex: index })}
+          // A lead that draws nothing (a blocked or unreadable module) leaves no empty row behind.
+          <div className="min-w-0 empty:hidden lg:col-span-12">
+            <LeadEvidence.Provider value={evidencePath(run.folder, entry)}>
+              {/* leadFor returns a component defined once at module scope, never one made here. */}
+              {createElement(Lead, { snapshot, run, view, entry, entryIndex: index })}
+            </LeadEvidence.Provider>
           </div>
         )}
-        <ModuleFigures
-          entry={entry}
-          run={run}
-          view={view}
-          figures={figures}
-          kinds={kinds}
-          gaps={frame.drawingGaps}
-        />
+        {/* Screen map: the findings follow the lead (P2), the limitations follow the findings;
+            the module's other drawings (dates, maps, limits: P3) and its records come after. */}
         <ModuleFindings
           keyFindings={frame.keyFindings}
           contrary={frame.contrary}
@@ -214,6 +216,23 @@ function ModulePage({
           folder={run.folder}
         />
         <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} />
+        <ModuleLimitations
+          section={frame.limitations}
+          hollow={frame.hollow.Limitations}
+          owed={frame.missing.includes("Limitations")}
+          gaps={gaps}
+          entry={entry}
+          folder={run.folder}
+          span={12}
+        />
+        <ModuleFigures
+          entry={entry}
+          run={run}
+          view={view}
+          figures={figures}
+          kinds={kinds}
+          gaps={frame.drawingGaps}
+        />
         <ModuleRecords
           // A new address that names the records opens them on its table, as a first draw does.
           key={records ? `records:${table ?? ""}` : "page"}
@@ -223,16 +242,7 @@ function ModulePage({
           initiallyOpen={records}
           initialTable={table}
         />
-        <ModuleLimitations
-          section={frame.limitations}
-          hollow={frame.hollow.Limitations}
-          owed={frame.missing.includes("Limitations")}
-          gaps={gaps}
-          entry={entry}
-          folder={run.folder}
-          span={next ? 8 : 12}
-        />
-        <NextModule next={next} href={moduleHref} wide={!limitations} />
+        <NextModule next={next} href={moduleHref} wide />
       </Bento>
       {active && (
         <TraceDrawer

@@ -2,7 +2,7 @@ import { unitLabel } from "../../publishedReport";
 import { Bento } from "../overview/Tile";
 import { Bridge, BridgeLegend, bridgeOf, stepTable, type Step } from "./bridge";
 import { withDraws } from "./draws";
-import { onlyGaps, OtherCharts, rowBasis } from "./written";
+import { onlyGaps, otherCharts, OtherCharts, rowBasis } from "./written";
 import { CompactGap, LaneTile, LeadFigure, LeadGap, Trace, type LeadTable, Beside } from "./parts";
 import { chartOf, eventsOf, leadHref, drawsNothing, statedInProse } from "./read";
 import type { LeadProps } from "./types";
@@ -28,9 +28,11 @@ function bridgeTable(
 function LiquidityBridge({
   entry,
   href,
+  span,
 }: {
   entry: LeadProps["entry"];
   href: (line?: number) => string;
+  span: 8 | 12;
 }) {
   const chart = chartOf(entry, TITLE);
   const read = bridgeOf(chart);
@@ -49,7 +51,7 @@ function LiquidityBridge({
   const basis = rowBasis(table);
   return (
     <LeadFigure
-      span={8}
+      span={span}
       label={TITLE}
       title={TITLE}
       basis={unit ? unitLabel(unit) : undefined}
@@ -86,7 +88,7 @@ export const LiquidityLead = withDraws(
     const dates = !statedInProse(entry, "Events: Financing") && (
       <LaneTile
         lane={eventsOf(entry, "Financing")}
-        span={drawn ? 4 : 12}
+        span={12}
         label="Funding dates"
         title="Funding dates"
         href={href}
@@ -95,26 +97,14 @@ export const LiquidityLead = withDraws(
       />
     );
     const others = <OtherCharts entry={entry} module="CP-2D" href={href} drawn={[TITLE]} />;
-    const short = onlyGaps(entry, [TITLE]);
-    // The bridge heads the page with the dates (and short gap tiles) stacked beside it; a bridge
-    // that is only a gap is one full row and the dates take the next.
+    // Short gap tiles stack beside a drawn bridge; with none the bridge takes the row. The dates
+    // always take a row of their own, where their time axis has room.
+    const beside = drawn && otherCharts(entry, [TITLE]) > 0 && onlyGaps(entry, [TITLE]);
     return (
       <Bento>
-        {bridge && <LiquidityBridge entry={entry} href={href} />}
-        {drawn ? (
-          <>
-            <Beside>
-              {dates}
-              {short && others}
-            </Beside>
-            {!short && others}
-          </>
-        ) : (
-          <>
-            {dates}
-            {others}
-          </>
-        )}
+        {bridge && <LiquidityBridge entry={entry} href={href} span={beside ? 8 : 12} />}
+        {beside ? <Beside>{others}</Beside> : others}
+        {dates}
       </Bento>
     );
   },

@@ -225,6 +225,37 @@ function SchedulePart({ schedule, folder }: { schedule: BreaksSchedule; folder: 
   );
 }
 
+/**
+ * A covenant test drawn as value against limit: the current figure as a bar from zero and the
+ * level as a dashed mark, on the test's own scale. Position only: the figures are the words under
+ * it, as the module writes them. A current figure the module does not give draws the level alone.
+ */
+function LimitBar({ current, level }: { current: number | null; level: number }) {
+  // Room past the larger of the two, so the level's mark never sits on the track's end.
+  const most = Math.max(level, current ?? 0) * 1.15;
+  const at = (value: number) => `${String(Math.round((value / most) * 1000) / 10)}%`;
+  return (
+    <span
+      aria-hidden="true"
+      data-limit-bar=""
+      className="relative my-1 block h-2 rounded-ds-full bg-surface-subtle"
+    >
+      {current !== null && (
+        <span
+          data-current={at(current)}
+          className="block h-full rounded-ds-full bg-chart-1"
+          style={{ width: at(current), minWidth: "2px" }}
+        />
+      )}
+      <span
+        data-level={at(level)}
+        className="absolute -inset-y-1 border-l-2 border-dashed border-text-primary"
+        style={{ left: at(level) }}
+      />
+    </span>
+  );
+}
+
 function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
   const { tests, reason, source } = covenantTests(view);
   const name = moduleName("CP-4");
@@ -237,7 +268,7 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
   const table = source.state === "ready" ? source.table : undefined;
   return (
     <Part title="Covenant tests" detail={`As ${name} writes them`}>
-      <ul className="grid gap-2">
+      <ul className="grid gap-3">
         {tests.map((test, at) => (
           <li key={`${test.label}-${String(at)}`} className="grid gap-0.5">
             <span className="flex items-start justify-between gap-2">
@@ -249,6 +280,12 @@ function CovenantPart({ view, folder }: { view: ReportView; folder: string }) {
                 `the ${test.label} test`,
               )}
             </span>
+            {/* Drawn only where both sit on a scale from zero; else the words alone. */}
+            {test.threshold.value !== null &&
+              test.threshold.value > 0 &&
+              (test.current.value === null || test.current.value >= 0) && (
+                <LimitBar current={test.current.value} level={test.threshold.value} />
+              )}
             {/* Each cell as the module writes it; its unit column once, joined to no figure. */}
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-secondary">
               <span>
@@ -305,7 +342,8 @@ function useMeasuredWidth(fallback: number) {
 }
 
 const ROW = 27;
-const HEAD = 22;
+/** A panel's title row: tall enough for the measure's trace control at its right. */
+const HEAD = 34;
 const NAMES = 104;
 const LABEL = 56;
 const GUTTER = 12;
@@ -332,9 +370,12 @@ function wrapName(text: string, chars: number): string[] {
 function StressMultiple({
   cases,
   panels,
+  traces,
 }: {
   cases: { id: string; name: string; control: boolean }[];
   panels: DownsidePanel[];
+  /** Each panel's source control, in panel order. */
+  traces: ReactNode[];
 }) {
   const { ref, width } = useMeasuredWidth(400);
   const across = (width - NAMES) / panels.length >= 150 ? panels.length : 1;
@@ -354,7 +395,7 @@ function StressMultiple({
     )
     .join(". ");
   return (
-    <div ref={ref} className="min-w-0">
+    <div ref={ref} className="relative min-w-0">
       <svg
         role="img"
         aria-label={`Point-in-time stress. ${reading}.`}
@@ -375,7 +416,7 @@ function StressMultiple({
               {/* Stacked panels have the full width for their title, above the names. */}
               <text
                 x={across === 1 ? 0 : left}
-                y={top + 12}
+                y={top + 21}
                 className="fill-text-secondary text-caption"
               >
                 {panel.measure}
@@ -461,6 +502,31 @@ function StressMultiple({
           );
         })}
       </svg>
+      {/* Stacked panels: each measure's trace at the right of its own title. */}
+      {across === 1 &&
+        panels.map((panel, index) => (
+          <span
+            key={panel.measure}
+            className="absolute right-0 flex"
+            style={{ top: `${String(index * block + 1)}px` }}
+          >
+            {traces[index]}
+          </span>
+        ))}
+      {/* Side by side, a title has no room beside it: the traces are listed under the drawing. */}
+      {across > 1 && (
+        <ul aria-label="Stressed measures" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {panels.map((panel, index) => (
+            <li
+              key={panel.measure}
+              className="flex items-center gap-1 text-caption text-text-secondary"
+            >
+              {panel.measure}
+              {traces[index]}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -511,27 +577,22 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
       }
     >
       <div role="group" aria-label="Point-in-time stress" className="grid gap-2">
-        <StressMultiple cases={data.cases} panels={data.panels} />
-        <ul aria-label="Stressed measures" className="flex flex-wrap gap-x-4 gap-y-1">
-          {data.panels.map((panel) => (
-            <li
-              key={panel.measure}
-              className="flex items-center gap-1 text-caption text-text-secondary"
-            >
-              {panel.measure}
-              {/* The measure's own matrix row; where the table records none, the table, named so. */}
-              {panel.line === undefined
-                ? rowTrace(
-                    folder,
-                    entry,
-                    data.line,
-                    `stress, ${panel.measure}`,
-                    `Source table for stress, ${panel.measure}`,
-                  )
-                : rowTrace(folder, entry, panel.line, `stress, ${panel.measure}`)}
-            </li>
-          ))}
-        </ul>
+        <StressMultiple
+          cases={data.cases}
+          panels={data.panels}
+          traces={data.panels.map((panel) =>
+            // The measure's own matrix row; where the table records none, the table, named so.
+            panel.line === undefined
+              ? rowTrace(
+                  folder,
+                  entry,
+                  data.line,
+                  `stress, ${panel.measure}`,
+                  `Source table for stress, ${panel.measure}`,
+                )
+              : rowTrace(folder, entry, panel.line, `stress, ${panel.measure}`),
+          )}
+        />
         <ul className="grid gap-1 text-caption text-text-secondary">
           {notes.map((note) => (
             <li key={note}>{note}</li>

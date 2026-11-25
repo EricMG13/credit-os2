@@ -341,7 +341,9 @@ function LimitRow({
   const affected = moduleNames(group.consequences).filter((name) => !refusing.includes(name));
   const reasonId = useId();
   return (
-    <li className="grid gap-x-6 gap-y-1 py-2 text-small text-text-secondary first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_auto]">
+    // The deciding column is capped: an opened "How to lift it" wraps inside it and never takes the
+    // reason's room.
+    <li className="grid gap-x-6 gap-y-1 py-2 text-small text-text-secondary first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_fit-content(22rem)]">
       <div className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1">
         <StatusBadge
           set="Run limits"
@@ -365,7 +367,7 @@ function LimitRow({
           )}
         </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 md:flex-col md:items-end md:justify-start">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-0.5 md:flex-col md:items-end md:justify-start">
         <label
           className={cx("flex items-center gap-2 font-medium text-text-primary", CHECK_TARGET)}
         >
@@ -488,25 +490,27 @@ function LeavesTheBuilding({ summary }: { summary: Summary }) {
   );
 }
 
-/** The run in one line from the reviewed answers and the summary. */
-function RunLine({ answers, summary }: { answers: Answers; summary: Summary }) {
+/** What will run, as the reviewed answers and the summary state it: one term and value each. */
+function RunFacts({ answers, summary }: { answers: Answers; summary: Summary }) {
   const { run, identity } = answers.context;
   const view = chosen(PURPOSES, run.run_type);
-  const documents = summary.documents.length;
-  const modules = drawnModules(summary.modules).length;
+  const facts: readonly (readonly [string, ReactNode])[] = [
+    ["Issuer", identity.issuer_name],
+    ["As of", given(run.as_of)],
+    ["Pathway", pathwayName(run.pathway)],
+    ...(view === NOT_GIVEN ? [] : ([["Market view", view]] as const)),
+    ["Documents read", <Figure key="documents">{summary.documents.length}</Figure>],
+    ["Modules", <Figure key="modules">{drawnModules(summary.modules).length}</Figure>],
+  ];
   return (
-    <p className="min-w-0 text-small text-text-secondary wrap-anywhere">
-      <span className="font-medium text-text-primary">
-        {`${pathwayName(run.pathway)} of ${identity.issuer_name}`}
-      </span>
-      {" · "}
-      {[`As of ${given(run.as_of)}`, view === NOT_GIVEN ? undefined : view]
-        .filter(Boolean)
-        .join(" · ")}
-      {" · "}
-      <Figure>{documents}</Figure> {documents === 1 ? "document" : "documents"} read ·{" "}
-      <Figure>{modules}</Figure> {modules === 1 ? "module" : "modules"}
-    </p>
+    <dl className="flex min-w-0 flex-wrap gap-x-8 gap-y-2 wrap-anywhere">
+      {facts.map(([term, value]) => (
+        <div key={term} className="grid min-w-0 gap-0.5">
+          <dt className="text-caption text-text-tertiary">{term}</dt>
+          <dd className="text-small font-medium text-text-primary">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -541,8 +545,9 @@ export type DecisionParts = {
 /**
  * Review and start: one decision tile, then everything Submit sends behind one closed disclosure.
  * The tile leads with the run and its cap, then each limit with the control that decides it, then
- * what leaves the building beside the consent and Submit, and last the modules by stage (from xl
- * the rail beside the tile draws those, so the tile does not draw them twice).
+ * the modules by stage (below xl only: from xl the rail beside the tile draws those, so the tile
+ * does not draw them twice), and last what leaves the building beside the consent and Submit, so
+ * Submit ends the tile at every width.
  */
 export function ReviewSheet({
   review,
@@ -574,12 +579,12 @@ export function ReviewSheet({
     <>
       <Tile span={12} label="Review and start" className="gap-4">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-          <div className="grid min-w-0 flex-1 basis-72 gap-1">
+          <div className="grid min-w-0 flex-1 basis-72 gap-3">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {decision?.head}
               {decision?.mode}
             </div>
-            <RunLine answers={answers} summary={summary} />
+            <RunFacts answers={answers} summary={summary} />
           </div>
           <section
             aria-label="What it will cost"
@@ -595,13 +600,6 @@ export function ReviewSheet({
           onAccept={onAccept}
           choice={choice}
         />
-        <div className="grid min-w-0 grid-cols-1 gap-5 border-t border-border-hairline pt-4 md:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] md:gap-x-8">
-          <div className="flex min-w-0 flex-col gap-3">
-            <LeavesTheBuilding summary={summary} />
-            {decision?.notes}
-          </div>
-          <div className="flex min-w-0 flex-col gap-3">{decision?.submit}</div>
-        </div>
         <section
           aria-label="Modules by stage"
           className="grid min-w-0 content-start gap-2 border-t border-border-hairline pt-4 xl:hidden"
@@ -614,6 +612,13 @@ export function ReviewSheet({
             layout="matrix"
           />
         </section>
+        <div className="grid min-w-0 grid-cols-1 gap-5 border-t border-border-hairline pt-4 md:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] md:gap-x-8">
+          <div className="flex min-w-0 flex-col gap-3">
+            <LeavesTheBuilding summary={summary} />
+            {decision?.notes}
+          </div>
+          <div className="flex min-w-0 flex-col gap-3">{decision?.submit}</div>
+        </div>
       </Tile>
       <EverythingSubmitSends
         review={review}

@@ -413,7 +413,7 @@ describe("cash ladder: other real handoffs and mutations", () => {
     render(<CashLadderTile lead={leadProps(dropTable(cp1Entry(), CASH))} />);
     const tile = screen.getByRole("region", { name: "Cash conversion" });
     expect(tile.textContent).toBe(
-      "Cash conversion · This page could not read the cash flow statement.",
+      "Cash conversionThis page could not read the cash flow statement.",
     );
     expect(tile.querySelector("svg")).toBeNull();
   });

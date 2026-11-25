@@ -216,21 +216,68 @@ function BottomLine({
   const [first] = bottomLine(found.entry);
   if (!first) return <ModuleGap>{`${name} wrote no bottom line.`}</ModuleGap>;
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-caption font-medium text-text-tertiary">Bottom line</span>
-        <PublishedSource
-          href={evidencePath(folder, found.entry, first.line)}
-          name="the forward view"
-          linkLabel="Source for the forward view"
-        >
-          View source
-        </PublishedSource>
-      </div>
+    // The sentence is the largest text in the tile and needs no label over it.
+    <div className="flex items-start justify-between gap-3">
       <p className="max-w-[68rem] text-h3 font-medium text-pretty text-text-primary lg:text-h1">
         {first.text ?? "The forward view cites its sources by name; read it in Evidence."}
       </p>
+      <PublishedSource
+        href={evidencePath(folder, found.entry, first.line)}
+        name="the forward view"
+        linkLabel="Source for the forward view"
+      >
+        View source
+      </PublishedSource>
     </div>
+  );
+}
+
+/** The page's tiles by their region name, in page order, with the short word the index shows. */
+const PARTS = [
+  ["Net leverage path", "Path"],
+  ["What breaks, and when", "What breaks"],
+  ["Assumptions by case", "Assumptions"],
+  ["Scope and limits", "Scope"],
+  ["Forecast grid", "Grid"],
+] as const;
+
+const PART_LINK =
+  "min-h-8 cursor-pointer rounded-ds-sm px-2 text-small font-medium text-text-secondary outline-focus-ring transition-colors duration-100 ease-linear hover:bg-surface-subtle hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2";
+
+/** Brings a tile to the top and puts the keyboard inside it: its first control takes focus. */
+function showPart(region: string) {
+  const part = [...document.querySelectorAll<HTMLElement>("section[aria-label]")].find(
+    (section) => section.getAttribute("aria-label") === region,
+  );
+  if (!part) return;
+  part.scrollIntoView({ block: "start" });
+  part
+    .querySelector<HTMLElement>("button, a[href], summary, [tabindex='0']")
+    ?.focus({ preventScroll: true });
+}
+
+/**
+ * The page is several screens long: its parts are named once, under the title, so the grid is
+ * one press from the top by mouse or keyboard. Buttons, not links: the address names the report
+ * section and stays as it is.
+ */
+function PageIndex() {
+  return (
+    <ul aria-label="Parts of this page" className="-ml-2 flex flex-wrap gap-x-1 gap-y-0.5">
+      {PARTS.map(([region, word]) => (
+        <li key={region}>
+          <button
+            type="button"
+            className={PART_LINK}
+            onClick={() => {
+              showPart(region);
+            }}
+          >
+            {word}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -264,15 +311,17 @@ export function ForecastHeader({
   const state = view.modules.find(({ id }) => id === "CP-2G")?.state;
   const module = moduleName("CP-2G");
   return (
-    <Tile span={12} label="Forecast" className="gap-6">
+    <Tile span={12} label="Forecast" className="gap-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-h4 font-medium text-balance text-text-primary">Forecast</h2>
+          {/* One step above the tile titles under it, so the page title reads as the page's. */}
+          <h2 className="text-h3 font-medium text-balance text-text-primary">Forecast</h2>
           <p className="text-small text-text-secondary">
             {run.issuerHeading || run.issuer}
             {preview && " · Test preview"}
             {hasModel ? ` · ${module}, the cases it publishes` : " · No forward model in this run"}
           </p>
+          {hasModel && <PageIndex />}
         </div>
         <div className="flex min-w-0 flex-col items-start gap-3 lg:max-w-[60%] lg:items-end">
           {/* New case names are measured afresh, on one line. */}
@@ -287,13 +336,15 @@ export function ForecastHeader({
       </div>
       <BottomLine view={view} handoff={handoff} folder={run.folder} />
       {children}
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-t border-border-hairline pt-5">
-        <dl className="grid min-w-0 flex-[999_1_40rem] grid-cols-[repeat(auto-fit,minmax(min(10rem,100%),1fr))] gap-x-6 gap-y-4">
+      {/* The basis, stated once: each fact on the line with its label, so the row is one line
+          where the facts fit and the lead chart sits higher on the first screen. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <dl className="flex min-w-0 flex-[999_1_40rem] flex-wrap gap-x-6 gap-y-1">
           {[
             ...basis,
             ...(state ? [{ label: "Module", value: `${module}, ${state.toLowerCase()}` }] : []),
           ].map((item) => (
-            <div key={item.label} className="flex min-w-0 flex-col gap-1">
+            <div key={item.label} className="flex min-w-0 flex-wrap items-baseline gap-x-2">
               <dt className="text-caption text-text-tertiary">{item.label}</dt>
               <dd className="text-small wrap-anywhere text-text-primary">{item.value}</dd>
             </div>
@@ -363,9 +414,16 @@ function selection(
 }
 
 function fundingStat(view: ReportView, folder: string): Stat {
-  const { gaps, looked } = fundingGap(view);
+  const { gaps } = fundingGap(view);
   const label = "Funding gap";
-  if (!gaps.length) return { label, value: null, gap: looked.join(" ") };
+  // The strip says only that no figure was read; What breaks, under it, gives each module's
+  // reason whole.
+  if (!gaps.length)
+    return {
+      label,
+      value: null,
+      gap: "No figure read: the reasons are in What breaks, and when",
+    };
   const figures = gaps.flatMap((gap) => gap.figures.map((figure) => ({ gap, figure })));
   const [only] = figures;
   if (figures.length !== 1 || !only)

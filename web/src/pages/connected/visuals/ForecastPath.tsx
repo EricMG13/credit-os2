@@ -153,17 +153,27 @@ type Anchor = "start" | "middle" | "end";
 /** Where a label may sit; `far` is how far it has moved out from the spots beside its point. */
 type Spot = { x: number; y: number; anchor: Anchor; far?: number };
 /** A mark a label should keep clear of; `weight` is what covering a pixel of it costs. */
-type Box = { left: number; right: number; top: number; bottom: number; weight?: number };
+type Box = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  weight?: number;
+  /** The point this box is the room around, where it is one. */
+  around?: { x: number; y: number };
+};
 type Wanted = {
   key: string;
   text: string;
   /** Point labels are mono 14px; gap words are 12px captions. */
   kind: "figure" | "gap";
   spots: Spot[];
+  /** The point the label names: it may sit in the room kept around that point, beside it. */
+  own?: { x: number; y: number };
   /** A label the chart may leave out where no spot is clear: its figure is stated elsewhere. */
   optional?: boolean;
 };
-type Label = Wanted & Spot;
+type Label = Wanted & Spot & { width: number };
 
 /** How wide a label draws, as the browser measures its font; an estimate until it has. */
 type TextWidth = (text: string, kind: Wanted["kind"]) => number;
@@ -203,7 +213,11 @@ function place(wanted: Wanted[], marks: Box[], bounds: Box, widthOf: TextWidth):
         box.top < bounds.top ||
         box.bottom > bounds.bottom;
       const covered = taken.reduce(
-        (sum, mark) => sum + overlap(box, mark) * (mark.weight ?? 100),
+        (sum, mark) =>
+          // The room around a point keeps other points' labels away, not its own.
+          mark.around && mark.around.x === label.own?.x && mark.around.y === label.own.y
+            ? sum
+            : sum + overlap(box, mark) * (mark.weight ?? 100),
         0,
       );
       const cost = (outside ? 1e6 : 0) + covered + rank + (spot.far ?? 0) * 6;
@@ -218,7 +232,7 @@ function place(wanted: Wanted[], marks: Box[], bounds: Box, widthOf: TextWidth):
     if (label.optional && !clear) return [];
     const spot = best?.spot ?? label.spots[0] ?? { x: 0, y: 0, anchor: "start" as const };
     if (box) taken.push(box);
-    return [{ ...label, ...spot }];
+    return [{ ...label, ...spot, width }];
   });
 }
 
@@ -238,7 +252,10 @@ function marksOf(drawn: MeasureCase[], slots: Slot[], g: Geometry, measure: Meas
       if (cell?.value == null) continue;
       boxes.push(dot(g.x(slot.year), g.y(cell.value), 7));
       // A little room around every point, so no label sits against a point it does not name.
-      boxes.push(dot(g.x(slot.year), g.y(cell.value), 18, 2));
+      boxes.push({
+        ...dot(g.x(slot.year), g.y(cell.value), 18, 2),
+        around: { x: g.x(slot.year), y: g.y(cell.value) },
+      });
     }
     for (const { from, to } of segments(item, slots)) {
       const [x1, y1] = [g.x(fiscalYear(from.period) ?? 0), g.y(from.value ?? 0)];
@@ -303,6 +320,7 @@ function pointLabels(
         key: `${item.group}-end`,
         text: endText(item, last, drawn, keyed),
         kind: "figure",
+        own: { x, y },
         spots: ringed(around(x, y)),
       });
     }
@@ -316,15 +334,22 @@ function pointLabels(
         const spots = around(x, y);
         wanted.push({
           key: `${item.group}-${cell.period}`,
-          text: `${cell.display} · ${cell.period}`,
+          // The figure alone: the point's place on the axis is its year, and a short label fits
+          // beside its own point where a longer one is pushed between the lines or left out.
+          text: cell.display,
           kind: "figure",
           // The strip above states the highest year; the chart labels it only where it is clear.
           optional: true,
-          spots: ringed(
-            [spots[3], spots[4], spots[0], spots[5], spots[1], spots[6], spots[2], spots[7]].filter(
+          own: { x, y },
+          // Beside its point first, on the side a falling path leaves free; then straight above
+          // it, clear of the marker; then the other spots around it.
+          spots: ringed([
+            { x: x - 12, y: y + 4, anchor: "end" },
+            { x, y: y - 14, anchor: "middle" },
+            ...[spots[6], spots[1], spots[0], spots[4], spots[7], spots[2]].filter(
               (spot): spot is Spot => spot !== undefined,
             ),
-          ),
+          ]),
         });
       }
   }
@@ -511,6 +536,7 @@ function Lines({
               return cell?.value == null ? null : (
                 <circle
                   key={slot.year}
+                  data-point={`${item.group} ${cell.period}`}
                   cx={g.x(slot.year)}
                   cy={g.y(cell.value)}
                   r={on ? 5.5 : 4}
@@ -529,6 +555,19 @@ function Lines({
 function Labels({ labels }: { labels: Label[] }) {
   return (
     <g>
+      {/* A figure's label sits on the tile's surface, so no gridline runs through its words. */}
+      {labels
+        .filter(({ kind }) => kind === "figure")
+        .map(({ key, x, y, anchor, width }) => (
+          <rect
+            key={key}
+            x={(anchor === "start" ? x : anchor === "end" ? x - width : x - width / 2) - 3}
+            y={y - 13}
+            width={width + 6}
+            height={17}
+            className="fill-surface-card"
+          />
+        ))}
       {labels.map((label) => (
         <text
           key={label.key}
@@ -631,18 +670,18 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
                 textAnchor="middle"
                 className="fill-gap-text text-caption"
               >
-                {g.step < 96 ? first : `${first} ${second}`}
+                {/* One label, on two lines where the year is narrow: never two labels that touch. */}
+                {g.step < 96 ? (
+                  <>
+                    <tspan x={x}>{first}</tspan>{" "}
+                    <tspan x={x} dy="14">
+                      {second}
+                    </tspan>
+                  </>
+                ) : (
+                  `${first} ${second}`
+                )}
               </text>
-              {g.step < 96 && (
-                <text
-                  x={x}
-                  y={LANE_BASE - 20}
-                  textAnchor="middle"
-                  className="fill-gap-text text-caption"
-                >
-                  {second}
-                </text>
-              )}
             </g>
           );
         }
@@ -915,7 +954,7 @@ function PathTable({
       // The wide read-only table must be reachable for keyboard scrolling.
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
-      className="relative min-w-0 overflow-x-auto max-[480px]:p-2"
+      className="relative min-w-0 overflow-x-auto rounded-ds-sm outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:p-2"
     >
       <table className="w-full border-collapse text-small">
         <caption className="sr-only">Net leverage by case</caption>
@@ -1040,7 +1079,9 @@ function labelRoom(drawn: MeasureCase[], slots: Slot[], width: number, widthOf: 
       ...ends.map(({ item, last }) => widthOf(endText(item, last, drawn, keyed), "figure") + 16),
     );
   const named = need(false);
-  return named <= width * 0.24 ? { keyed: false, room: named } : { keyed: true, room: need(true) };
+  // Names take up to a third of the drawing before the labels fall back to keys: at the
+  // narrowest supported page two-word case names still sit beside their lines.
+  return named <= width * 0.32 ? { keyed: false, room: named } : { keyed: true, room: need(true) };
 }
 
 function Chart({

@@ -125,3 +125,14 @@ it("says an earlier-looking row could not be placed beside the event it does fin
   );
   expect(found).toMatchObject({ date: "2029-06-30", unplaced: true });
 });
+
+it("names a module code in an event's words, never drawing the code", () => {
+  const found = nextDatedEvent(
+    snapshot([row("2026-09-15", "CP-4 covenant test", "Scheduled — CP-2D")]),
+    "acme-run",
+  );
+  expect(found).toMatchObject({
+    name: "Legal & covenants covenant test",
+    status: "Scheduled — Liquidity",
+  });
+});

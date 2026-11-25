@@ -29,8 +29,8 @@ import {
   type Basis,
   type BottomLineSource,
   type TextBlock,
-} from "./moduleFrame";
-import { holdsCode, proseWithoutMachinery, readableTitle } from "./moduleRecords";
+} from "./moduleFrameModel";
+import { holdsCode, proseWithoutMachinery, readableTitle } from "./moduleRecordsModel";
 
 const MISSING_PASSAGE = "Not established for this run. The module wrote no such passage.";
 
@@ -184,6 +184,9 @@ function Continuation({
   );
 }
 
+/** The text closed by one full stop, so the link after it starts a new sentence. */
+const closedSentence = (text: string) => `${text.trim().replace(/[.\s]+$/, "")}.`;
+
 function stageLine(module: FrameModule) {
   const stage = stageOf(module.id);
   return stage.number ? `${stage.name} · stage ${String(stage.number)} of ${String(stage.of)}` : "";
@@ -259,7 +262,7 @@ function HeaderBottom({
       <Bottom>
         <GapNote>
           This module's output could not be read into sections
-          {containsReference(reason) ? "." : `: ${readerText(reason)}`}{" "}
+          {containsReference(reason) ? "." : `: ${closedSentence(readerText(reason))}`}{" "}
           <Button href={evidencePath(folder, entry)} color="link-gray" size="sm">
             Open Evidence
           </Button>
@@ -296,9 +299,6 @@ function TitleRow({ module }: { module: FrameModule }) {
       <h2 className="min-w-0 font-display text-h4 text-balance wrap-anywhere sm:text-h3">
         {module.name}
       </h2>
-      <span className="rounded-ds-xs bg-surface-subtle px-1.5 py-0.5 font-mono text-caption text-text-tertiary">
-        {module.id}
-      </span>
       {blocked ? (
         <span className="flex items-center gap-1.5 text-small font-medium text-warning-text">
           <SlashCircle />
@@ -654,11 +654,15 @@ function ChartGapWell({
         {title}: not drawn
       </p>
       <p className="text-caption text-text-secondary">{gapReason(gap.reason)}</p>
-      <span className="flex min-h-8 items-center max-[480px]:min-h-11">
-        <Button href={evidencePath(folder, entry, gap.line)} color="link-gray" size="sm">
-          Source table in Evidence
-        </Button>
-      </span>
+      {/* The link itself is the 32 px target, not a taller box around a 20 px link. */}
+      <Button
+        href={evidencePath(folder, entry, gap.line)}
+        color="link-gray"
+        size="sm"
+        className="min-h-8 items-center self-start max-[480px]:min-h-11"
+      >
+        Source table in Evidence
+      </Button>
     </GapWell>
   );
 }
@@ -697,8 +701,8 @@ export function ModuleLimitations({
       className="self-start"
       label={title}
       title={<Anchor id={ANCHOR.limitations}>{title}</Anchor>}
+      kicker="As the module reports them"
     >
-      <p className="-mt-2 text-caption text-text-tertiary">As the module reports them</p>
       {hollow ? (
         <HollowPassage section={hollow} title={title} entry={entry} folder={folder} />
       ) : (
@@ -765,10 +769,7 @@ export function NextModule({
     >
       <span className="flex min-w-0 flex-col gap-1">
         <span className="text-caption font-medium text-text-secondary">Next module</span>
-        <span className="font-display text-h4 font-medium text-text-primary">
-          {next.name}{" "}
-          <span className="font-mono text-caption font-normal text-text-tertiary">{next.id}</span>
-        </span>
+        <span className="font-display text-h4 font-medium text-text-primary">{next.name}</span>
         <span className="text-caption text-text-secondary">
           {place} · {next.state}
         </span>

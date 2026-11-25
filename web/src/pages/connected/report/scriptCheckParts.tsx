@@ -1,15 +1,21 @@
 import { AlertTriangle, Check, Minus } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
+import { serviceText } from "../api";
 import type { ScriptCheckOutcome } from "../publishedReport";
 
 const meaningful = (value: string | null) => (value === "all" || value === "" ? null : value);
 
-/** Text without the markdown marks the service leaves on a register or a reason: backticks and heading hashes. */
+/**
+ * Text without the markdown marks the service leaves on a register or a reason (backticks and
+ * heading hashes), with each exact module code read as the module's name.
+ */
 const plain = (text: string) =>
-  text
-    .replaceAll("`", "")
-    .replace(/(^|\s)#{2,6}\s+/g, "$1")
-    .trim();
+  serviceText(
+    text
+      .replaceAll("`", "")
+      .replace(/(^|\s)#{2,6}\s+/g, "$1")
+      .trim(),
+  );
 
 const WARNED = ["disagreed", "contradicted", "missing"];
 

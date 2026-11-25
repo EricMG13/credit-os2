@@ -226,6 +226,10 @@ function Stat({ name, trace, children }: { name: string; trace?: ReactNode; chil
   );
 }
 
+/** The three measures side by side from lg, divided by hairlines; one under another below it. */
+const STRIP =
+  "grid min-w-0 grid-cols-1 gap-x-6 gap-y-3 lg:grid-cols-3 lg:[&>div]:border-t-0 lg:[&>div]:pt-0 lg:[&>div:not(:first-child)]:border-l lg:[&>div:not(:first-child)]:pl-6";
+
 const Reason = ({ children }: { children: ReactNode }) => (
   <span className="text-small text-gap-text">{children}</span>
 );
@@ -412,14 +416,14 @@ export const CreditLead = withDraws(
     const read = ledgerOf(entry);
     // A written ledger passage is the frame's; the lead adds no gap of the same title above it.
     const written = !read && sectionParagraphs(entry, LEDGER).length > 0;
-    const measures = (
+    const measures = (strip: boolean) => (
       <Tile
-        span={4}
+        span={strip ? 12 : 4}
         label="Leverage, cover and headroom"
         title="Leverage, cover and headroom"
         className="w-full self-start"
       >
-        <dl className="flex flex-col gap-3">
+        <dl className={strip ? STRIP : "flex flex-col gap-3"}>
           <SeriesStat
             props={props}
             name="Total debt / EBITDA"
@@ -436,7 +440,9 @@ export const CreditLead = withDraws(
         </dl>
       </Tile>
     );
-    const map = (span: 4 | 8) =>
+    const transmission = mapOf(entry, "credit-risk transmission");
+    const longMap = "edges" in transmission && transmission.edges.length > 3;
+    const map = (span: 4 | 12) =>
       !statedInProse(entry, "Map: credit-risk transmission") && (
         <MapTile
           map={mapOf(entry, "credit-risk transmission")}
@@ -447,20 +453,28 @@ export const CreditLead = withDraws(
           absent="This page could not read the credit-risk transmission."
         />
       );
-    // The ledger heads the page with the measures and the map stacked beside it; a ledger that is
-    // only a gap is one full row, the measures and the map then beside each other.
+    // The ledger heads the page with the measures and the map stacked beside it. With no ledger
+    // the measures are one strip across the row and the map takes the next: three stacked figures
+    // in a third of the row stood far taller than the map beside them.
     return (
       <Bento>
         {!written && <LedgerTile ledger={read} href={href} />}
-        {read ? (
+        {read && longMap ? (
+          // A map of several edges is a long flow: beside the ledger it ran far below it and left
+          // the ledger's side of the row empty. It takes its own row.
+          <>
+            <Beside>{measures(false)}</Beside>
+            {map(12)}
+          </>
+        ) : read ? (
           <Beside>
-            {measures}
+            {measures(false)}
             {map(4)}
           </Beside>
         ) : (
           <>
-            {measures}
-            {map(8)}
+            {measures(true)}
+            {map(12)}
           </>
         )}
       </Bento>

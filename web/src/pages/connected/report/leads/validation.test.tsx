@@ -25,6 +25,11 @@ const text = (heading: string, paragraph: string): Section => ({
   blocks: [{ type: "text", line: (at += 2), end: at, text: paragraph }],
 });
 const FINDINGS: Section = { heading: "Findings", level: 2, line: 1, blocks: [] };
+/** What the Clearance tile draws in its figure view (the table view holds the same rows, hidden). */
+const figureText = () =>
+  screen.getByRole("region", { name: "Clearance" }).querySelector('[data-view="figure"]')
+    ?.textContent ?? "";
+
 const cp5 = (...sections: Section[]): OutputEntry =>
   buildEntry("CP-5", [], [FINDINGS, ...sections]);
 
@@ -366,8 +371,9 @@ describe("ClearanceLead", () => {
       ),
     ).toBeVisible();
     expect(screen.queryByText("No issues are listed.")).toBeNull();
-    // The thin handoff still has its bottom line, drawn as the status fallback.
-    expect(screen.getAllByText("The synthetic issuer shows one observed item.")[0]).toBeVisible();
+    // The thin handoff's bottom line is the header's: the status says only that none was read.
+    expect(figureText()).not.toContain("The synthetic issuer shows one observed item.");
+    expect(screen.getByText("This page could not read a clearance status.")).toBeVisible();
     expect(screen.getByText(/This page could not read the actions for the gaps\./)).toBeVisible();
   });
   it("says no issues are listed only when both registers state none", () => {
@@ -400,7 +406,9 @@ describe("ClearanceLead", () => {
       ),
     );
     expect(container.textContent).not.toContain("annual.pdf");
-    expect(screen.getAllByText("Evidence is thin.")[0]).toBeVisible();
+    // The fallback is the header's bottom line: stated as unread here, not drawn a second time.
+    expect(figureText()).not.toContain("Evidence is thin.");
+    expect(screen.getByText("This page could not read a clearance status.")).toBeVisible();
   });
   it("wraps very long text and keeps a long action readable", () => {
     const long = "x".repeat(300);
@@ -422,7 +430,7 @@ describe("ClearanceLead", () => {
     const { container } = render5(full());
     expect(container.textContent).not.toMatch(/use restriction|committee use/i);
   });
-  it("draws each issue's mark at a real size and keeps Material off the teal 'better' colour", () => {
+  it("draws each issue's mark at a real size and keeps Material off the blue 'better' colour", () => {
     const { container } = render5(full());
     const marks = [...container.querySelectorAll("li[data-issue] svg")];
     expect(marks).toHaveLength(5);
@@ -569,7 +577,7 @@ describe("round 3 wording and text", () => {
 });
 
 describe("round 4 status text", () => {
-  it("draws the whole bottom-line paragraph as the status when there is no verdict table", () => {
+  it("does not repeat the header's bottom line as the status when there is no verdict table", () => {
     render5(
       cp5(
         text(
@@ -579,12 +587,17 @@ describe("round 4 status text", () => {
       ),
     );
     const clearanceTile = screen.getByRole("region", { name: "Clearance" });
+    // The paragraph is the header's bottom line, whole there; the tile does not repeat it.
+    expect(figureText()).not.toContain("Cleared for the U.S. notes only.");
     expect(
-      within(clearanceTile).getAllByText(
-        "Cleared for the U.S. notes only. Committee use is restricted to the evaluated set.",
-      )[0],
+      within(clearanceTile).getByText("This page could not read a clearance status."),
     ).toBeVisible();
     expect(clearanceTile.textContent).not.toMatch(/opening sentence/i);
+  });
+  it("does not repeat a bottom line that carries a Basis line either", () => {
+    render5(cp5(text("Bottom line", "Evidence is thin.\nBasis: the annual report")));
+    expect(figureText()).toContain("This page could not read a clearance status.");
+    expect(figureText()).not.toContain("Evidence is thin.");
   });
   it("keeps the shape's name in the accessible name, not in the visible text", () => {
     const { container } = render5(full());

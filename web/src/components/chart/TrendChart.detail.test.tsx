@@ -37,7 +37,7 @@ function tableForm(detail?: typeof DETAIL) {
       detailTable={detail}
     />,
   );
-  fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
   return within(screen.getByRole("table", { name: "Leverage" }));
 }
 

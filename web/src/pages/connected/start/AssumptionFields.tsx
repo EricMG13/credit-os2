@@ -31,7 +31,7 @@ export function AssumptionFields({
           <section
             key={pin.key}
             aria-label={title}
-            className="grid gap-3 rounded-lg border border-border-hairline p-3"
+            className="grid gap-3 rounded-ds-sm border border-border-hairline p-3"
           >
             <h4 className="text-small font-medium">{title}</h4>
             <div className="grid gap-1">

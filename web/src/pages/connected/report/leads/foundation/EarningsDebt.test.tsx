@@ -84,7 +84,7 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
     expect(Number(tick?.getAttribute("x"))).toBeCloseTo(zero, 6);
   });
 
-  it("draws earnings teal and gross debt navy, with debt's own legend entry", () => {
+  it("draws earnings blue and gross debt plum, with debt's own legend entry", () => {
     const tile = draw();
     const current = (label: string) =>
       tile.querySelector(`[data-row="${label}"] [data-current]`)?.getAttribute("class");
@@ -340,7 +340,7 @@ describe("Earnings and debt: three or more periods, gaps and absences", () => {
 describe("Dumbbell series (the one kit extension)", () => {
   const periods = { prior: "FY2023", current: "FY2024" };
   const pair = { prior: { value: 1, text: "1" }, current: { value: 2, text: "2" } };
-  it("draws a secondary row's current dot navy and marks it; a plain row stays teal and unmarked", () => {
+  it("draws a secondary row's current dot plum and marks it; a plain row stays blue and unmarked", () => {
     render(
       <Dumbbell
         width={640}

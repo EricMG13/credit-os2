@@ -286,6 +286,10 @@ it("holds back a page-citing qualification", () => {
       folder="current"
     />,
   );
+  // The table and its qualification are drawn when the row is opened.
+  fireEvent.click(
+    rowOf("Debt maturities").getByRole("button", { name: "Table for Debt maturities" }),
+  );
   expect(document.body.textContent).not.toMatch(/p\. 12/);
   expect(
     rowOf("Debt maturities").getByText("Qualification recorded in Evidence."),

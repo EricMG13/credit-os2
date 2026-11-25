@@ -10,6 +10,7 @@ import {
 import { namedTable } from "../reportView";
 import { amount, distinct, sharePosition } from "../visuals/visualData";
 import { Segmented } from "@/components/kit/Segmented";
+import { cx } from "@/utils/cx";
 import { Key } from "./overview/figureParts";
 import { Bento } from "./overview/Tile";
 import {
@@ -156,6 +157,9 @@ type MultiplePanel = { measure: string; bars: { text: string; value: number }[] 
 
 const BAR_TONE = { control: "prior", chosen: "primary", other: "secondary" } as const;
 
+/** A figure and nothing else ("10.00", "-5.1250", "3.1x", "12%"): it is never broken across lines. */
+const PLAIN_FIGURE = /^[\u2212-]?[\d,]+(?:\.\d+)?[x%]?$/;
+
 function PanelRows({
   panel,
   cases,
@@ -180,7 +184,7 @@ function PanelRows({
           return (
             <li key={index} className="flex min-w-0 flex-col gap-1">
               <span className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 text-caption wrap-anywhere text-text-secondary">
+                <span className="min-w-0 text-small wrap-anywhere text-text-secondary">
                   {item?.name}
                   {item?.role === "control" && (
                     <span className="ml-1.5 rounded-ds-xs border border-border-hairline px-1 text-text-tertiary">
@@ -188,7 +192,13 @@ function PanelRows({
                     </span>
                   )}
                 </span>
-                <span className="text-right font-mono text-small wrap-anywhere text-text-primary tabular-nums">
+                <span
+                  className={cx(
+                    "text-right font-mono text-small text-text-primary tabular-nums",
+                    // A plain figure never breaks inside itself ("10." / "00"); words may wrap.
+                    PLAIN_FIGURE.test(bar.text) ? "whitespace-nowrap" : "wrap-anywhere",
+                  )}
+                >
                   {bar.text}
                 </span>
               </span>
@@ -339,8 +349,8 @@ function CaseDetails({
       aria-label={control ? `${name} (control)` : name}
       className="flex min-w-0 items-start justify-between gap-3"
     >
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className="text-caption font-medium text-text-secondary">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-small font-medium text-text-secondary">
           {control ? `${caseName(selected)} (control)` : caseName(selected)}
         </span>
         <KeyValues items={items} />

@@ -30,6 +30,14 @@ const FILL = { worse: "fill-warning-mark", other: "fill-chart-1" } as const;
 const STROKE = { worse: "stroke-warning-mark", other: "stroke-chart-1" } as const;
 const ink = (tone: MarkTone) => (tone === "worse" ? "worse" : "other");
 
+/** The part a level fell by: a direction's ink only where the caller states one, else neutral. */
+const FALLEN = {
+  worse: "fill-warning-fill stroke-warning-mark",
+  better: "fill-success-fill stroke-chart-1",
+  neutral: "fill-surface-subtle stroke-border-gap",
+} as const;
+const fallInk = (tone: MarkTone) => (tone === "worse" || tone === "better" ? tone : "neutral");
+
 const TICK = "fill-text-tertiary font-mono";
 const GRID = "stroke-border-hairline";
 const PRIOR_RING = "fill-surface-card stroke-chart-3";
@@ -112,9 +120,10 @@ function placeValues(
 }
 
 const SLOPE = { view: 408, height: 180 } as const;
+const NO_SPAN: readonly number[] = [];
 
-function slopeLayout(marks: Slot[], suffix: string, width: number) {
-  const scale = axis(stated(marks), 3, suffix);
+function slopeLayout(marks: Slot[], suffix: string, width: number, span: readonly number[]) {
+  const scale = axis([...stated(marks), ...span], 3, suffix);
   const gridLeft = Math.max(...scale.ticks.map((tick) => textWidth(scale.label(tick), TEXT))) + 8;
   const widest = Math.max(...marks.map((mark) => textWidth(mark.text, VALUE)), 24);
   const half = Math.min(widest / 2 + 4, (width - gridLeft) / 4);
@@ -163,14 +172,17 @@ export function Slope({
   tone,
   suffix,
   label,
+  span = NO_SPAN,
 }: {
   marks: Slot[];
   tone: MarkTone;
   suffix: string;
   label: string;
+  /** Stated values of a sibling figure the axis must also hold, so the two read on one scale. */
+  span?: readonly number[];
 }) {
   const { ref, width } = useFrame(SLOPE.view);
-  const layout = slopeLayout(marks, suffix, width);
+  const layout = slopeLayout(marks, suffix, width, span);
   const { x, y } = layout;
   const last = marks.length - 1;
   return (
@@ -265,118 +277,6 @@ function Dot({
     <circle cx={x} cy={y} r="6" className={FILL[ink(tone)]} />
   ) : (
     <circle cx={x} cy={y} r="5" strokeWidth="2" className={PRIOR_RING} />
-  );
-}
-
-const STRIP = { view: 408, top: 36, row: 46 } as const;
-
-/** Beside the point first (the strip reads across), then above or below it. */
-const stripSpots = (x: number, y: number): [Spot, ...Spot[]] => [
-  { x: x + 12, y: y + TEXT * 0.35, anchor: "start" },
-  { x: x - 12, y: y + TEXT * 0.35, anchor: "end" },
-  ...around(x, y, TEXT, 10),
-];
-
-function stripLayout(marks: Slot[], suffix: string, width: number) {
-  const scale = axis(stated(marks), 4, suffix);
-  const column = Math.max(...marks.map((mark) => textWidth(mark.label, TEXT))) + 12;
-  const x = (value: number) => scale.place(value, column + 8, width - 12);
-  const y = (at: number) => STRIP.top + at * STRIP.row;
-  const floor = y(marks.length - 1) + 22;
-  const height = floor + TEXT + 10;
-  const ticks = keep(
-    scale.ticks.map((tick) => under(x(tick), floor + TEXT + 4, scale.label(tick), width)),
-    TEXT,
-  );
-  const names = marks.map((mark, at): Placed => ({
-    x: 0,
-    y: y(at) + 4,
-    anchor: "start",
-    text: mark.label,
-  }));
-  const steps = segments(marks);
-  const lines = steps.map((step): Line => [x(step.from), y(step.at), x(step.to), y(step.at + 1)]);
-  const taken = [...ticks, ...names].map((label) => boxOf(label, TEXT));
-  const points = marks.flatMap((mark, at) =>
-    mark.value === null ? [] : [{ at, x: x(mark.value), y: y(at), text: mark.text }],
-  );
-  const frame = { left: column, right: width, top: 0, bottom: floor };
-  const values = placeValues(points, TEXT, stripSpots, lines, taken, frame);
-  return { scale, column, x, y, floor, height, ticks, names, steps, values };
-}
-
-/** One row per period on a shared axis, so each level reads against the same scale. */
-export function DotStrip({
-  marks,
-  tone,
-  suffix,
-  label,
-}: {
-  marks: Slot[];
-  tone: MarkTone;
-  suffix: string;
-  label: string;
-}) {
-  const { ref, width } = useFrame(STRIP.view);
-  const layout = stripLayout(marks, suffix, width);
-  const { x, y } = layout;
-  const last = marks.length - 1;
-  return (
-    <svg
-      ref={ref}
-      viewBox={viewBox(width, layout.height)}
-      width="100%"
-      role="img"
-      aria-label={label}
-      className="block"
-    >
-      {layout.scale.ticks.map((tick) => (
-        <line key={tick} x1={x(tick)} x2={x(tick)} y1="14" y2={layout.floor} className={GRID} />
-      ))}
-      {layout.ticks.map((tick) => (
-        <Label key={tick.text} label={tick} size={TEXT} className={TICK} tick />
-      ))}
-      {layout.steps.map((step) => (
-        <line
-          key={step.label}
-          data-segment=""
-          x1={x(step.from)}
-          y1={y(step.at)}
-          x2={x(step.to)}
-          y2={y(step.at + 1)}
-          strokeWidth="1.5"
-          strokeDasharray="3 3"
-          className="stroke-chart-3"
-        />
-      ))}
-      {marks.map((mark, at) => (
-        <g key={mark.label}>
-          <Label
-            label={layout.names[at] as Placed}
-            size={TEXT}
-            className={at === last ? "fill-text-primary font-medium" : "fill-text-secondary"}
-          />
-          <Dot
-            cx={mark.value === null ? layout.column + 14 : x(mark.value)}
-            cy={y(at)}
-            gap={mark.value === null}
-            latest={at === last}
-            tone={tone}
-          />
-        </g>
-      ))}
-      {[...layout.values].map(([at, value]) => (
-        <Label
-          key={value.text + String(at)}
-          label={value}
-          size={TEXT}
-          className={cx(
-            "font-mono",
-            at === last ? "fill-text-primary font-medium" : "fill-text-secondary",
-          )}
-        />
-      ))}
-    </svg>
   );
 }
 
@@ -552,9 +452,7 @@ export function DeltaBar({
         height="13"
         rx="2"
         strokeWidth="1"
-        className={
-          rose ? cx(FILL[ink(tone)], STROKE[ink(tone)]) : "fill-warning-fill stroke-warning-mark"
-        }
+        className={rose ? cx(FILL[ink(tone)], STROKE[ink(tone)]) : FALLEN[fallInk(tone)]}
       />
       <line x1={x(low)} x2={x(low)} y1="2" y2="24" className="stroke-text-primary" />
       <Label label={ends.left} size={TEXT} className={cx(TICK, !rose && "fill-text-primary")} />

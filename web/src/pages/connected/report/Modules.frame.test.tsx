@@ -85,22 +85,22 @@ const written: Section[] = [
   section("Limitations", 3, 30, [text(31, "Only one period was supplied.")]),
 ];
 
-it("draws the frame in the mockup's order: header, findings beside the counter, records, limitations beside next", () => {
+it("draws the frame in reading order: header, findings beside the counter, limitations, records, next", () => {
   page(written, { charts: [{ table: 21, title: "Leverage", kind: "line" }] });
   const order = [
     screen.getByRole("heading", { level: 2, name: "Fundamental credit" }),
     screen.getByRole("region", { name: "Key findings" }),
     screen.getByRole("region", { name: "Contrary evidence and what would change the view" }),
-    screen.getByRole("heading", { name: "Statements and records" }),
     screen.getByRole("region", { name: "Limitations of this module" }),
+    screen.getByRole("heading", { name: "Statements and records" }),
     screen.getByRole("link", { name: "Next module: Committee decision" }),
   ];
-  // The last row: limitations in eight columns, the next module in four.
+  // The limitations close the written view, before the reference tables; each takes its own row.
   expect(screen.getByRole("region", { name: "Limitations of this module" })).toHaveClass(
-    "lg:col-span-8",
+    "lg:col-span-12",
   );
   expect(screen.getByRole("link", { name: "Next module: Committee decision" })).toHaveClass(
-    "lg:col-span-4",
+    "lg:col-span-12",
   );
   for (const [at, item] of order.entries())
     if (at)
@@ -230,6 +230,23 @@ it.each([
     expect(
       within(header).getByRole("button", { name: "Show sources for Bottom line" }),
     ).toBeVisible();
+});
+
+it("draws no confidence meter for a module that is not assessable or unreadable", () => {
+  const confidence = { value: 89, band: "High" };
+  const blocked = [
+    section("Findings", 2, 1),
+    section("Bottom line", 3, 2, [text(3, "Not assessable: the documents were not supplied.")]),
+  ];
+  page(blocked, { confidence }, "Not assessable");
+  expect(screen.queryByRole("group", { name: "Confidence score" })).toBeNull();
+  cleanup();
+  page([], { confidence, parseError: "the front matter is not valid YAML" });
+  expect(screen.queryByRole("group", { name: "Confidence score" })).toBeNull();
+  cleanup();
+  // A delivered module keeps its meter.
+  page(written, { confidence });
+  expect(screen.getByRole("group", { name: "Confidence score" })).toBeVisible();
 });
 
 it("states an unreadable handoff once, with its reason, and no passage gaps", () => {

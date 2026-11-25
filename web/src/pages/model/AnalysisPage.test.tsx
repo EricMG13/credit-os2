@@ -195,7 +195,7 @@ describe("Analysis page", () => {
         .getByRole("heading", { name: "Headroom to covenants and rating triggers" })
         .closest<HTMLElement>("figure"),
     );
-    fireEvent.click(within(chart).getByRole("radio", { name: "Table" }));
+    fireEvent.click(within(chart).getByRole("button", { name: "Table" }));
     const row = within(within(chart).getByRole("row", { name: /Secured net leverage/ }));
     expect(row.getAllByRole("cell").map((c) => c.textContent.replace("not available", ""))).toEqual(
       ["n.a.", "Covenant limit 7.25x", "Source not recorded"],

@@ -1,3 +1,5 @@
+import { ArrowRight } from "@untitledui/icons";
+import { Button } from "@/components/base/buttons/button";
 import { containsReference } from "../../publishedReport";
 import type { SourceTable } from "../../visuals/visualData";
 import type { Cell } from "./figureData";
@@ -30,13 +32,38 @@ export function NoteText({ note, href }: { note: Note; href: NoteHref }) {
 /** The notes under a figure, each through the reader rule, set apart by a hairline. */
 export function ReasonNotes({ notes, href }: { notes: readonly Note[]; href: NoteHref }) {
   if (!notes.length) return null;
+  // Notes that cite a source are read in Evidence. Several of them with no lead of their own
+  // would be the same link over and over, so they are one link that says how many there are.
+  const cited = notes.filter((note) => !note.lead && readerReason(note.text) === null);
+  const together = cited.length > 1;
+  const shown = together ? notes.filter((note) => !cited.includes(note)) : notes;
+  const to = href(cited[0]?.line);
+  const count = `${String(cited.length)} notes on this figure cite a source`;
   return (
-    <ul className="flex flex-col gap-1.5 border-t border-border-hairline pt-3 text-caption font-normal text-text-secondary">
-      {notes.map((note, at) => (
+    <ul className="mt-auto flex flex-col gap-1.5 border-t border-border-hairline pt-3 text-caption font-normal text-text-secondary">
+      {shown.map((note, at) => (
         <li key={at} className="wrap-anywhere">
           <NoteText note={note} href={href} />
         </li>
       ))}
+      {together && (
+        <li className="min-w-0">
+          {to ? (
+            <Button
+              // The sentence wraps in a narrow tile; a link on one line would push the page wide.
+              className="min-h-8 max-w-full text-left whitespace-normal max-[480px]:min-h-11"
+              color="link-gray"
+              size="sm"
+              href={to}
+              iconTrailing={ArrowRight}
+            >
+              {`${count}: read them in Evidence`}
+            </Button>
+          ) : (
+            `${count}; they are read in Evidence.`
+          )}
+        </li>
+      )}
     </ul>
   );
 }

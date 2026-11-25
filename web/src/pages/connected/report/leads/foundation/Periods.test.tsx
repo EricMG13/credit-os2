@@ -161,7 +161,7 @@ describe("PeriodsTile beyond two periods (mutations; not a real handoff)", () =>
   });
   it("draws the one gap pattern when no figure table states a period", () => {
     const tile = draw(edited(cp1Entry(), () => null));
-    expect(tile.textContent).toBe("Periods · This page could not read a period.");
+    expect(tile.textContent).toBe("PeriodsThis page could not read a period.");
     expect(tile.className).not.toMatch(/gap-hatch/);
   });
 });

@@ -10158,3 +10158,139 @@ def test_an_adapter_refusal_that_is_only_a_prefix_of_a_listed_fault_is_still_nam
     named = "boundary pipes: line "
     assert sum(i.endswith(f"{named}{bad_a}") for i in review) == 1, review
     assert sum(i.endswith(f"{named}{bad_b}") for i in review) == 1, review
+
+
+# ---- --test-assume-distress: a screen-test-only launcher flag (owner, 2026-11-25) ----
+# The two strings are the owner-approved answer key, written here independently of production.
+DISTRESS_BLOCK_KEY = (
+    "Test run, not a delivery. For this run only, treat the Phase 1 distress gate as passed by "
+    "assumption: model a hypothetical restructuring of this issuer at the as-of date on the "
+    "supplied sources and complete every later phase. Begin `### Bottom line` with `Test "
+    "assumption, no distress is evidenced: ` and make `Test assumption: hypothetical distress; "
+    "no trigger is evidenced.` the first item of `### Limitations`. Assume nothing else.\n\n"
+)
+DISTRESS_SCOPE_KEY = "Test run, not a delivery: CP-4C assumed a distress trigger. "
+DISTRESS_RULING = (
+    "lifts: live-provider-pause\nby: user\ndate: 2026-11-25\n"
+    "configs: copilot-sol-medium test-assume-distress\n"
+)
+
+
+def distress_prep(tmp_path, name, *adaptations, pathway="distressed_restructuring"):
+    return prepare(
+        context_file(tmp_path, pathway),
+        tmp_path / "issuer" if (tmp_path / "issuer").exists() else issuer_folder(tmp_path),
+        tmp_path / name,
+        config="sol-medium",
+        cap="15",
+        test_adaptations=adaptations,
+    )
+
+
+def instruction_bytes(prepared) -> dict[str, bytes]:
+    folder = prepared.directory / "instructions"
+    return {p.stem: p.read_bytes() for p in sorted(folder.glob("*.md"))}
+
+
+def distress_ruling(tmp_path, monkeypatch, text=DISTRESS_RULING):
+    root = tmp_path / "rulings"
+    root.mkdir(exist_ok=True)
+    ruling = root / "grant.md"
+    ruling.write_text(text, encoding="utf-8")
+    monkeypatch.setattr("deploy_workflow.model.adapter.LIVE_RULINGS_ROOT", root)
+    return ruling
+
+
+def distress_argv(tmp_path, *extra):
+    argv = launch(tmp_path, *extra, "--test-assume-distress", pathway="distressed_restructuring")
+    argv[argv.index("--config") + 1] = "copilot-sol-medium"
+    return argv
+
+
+def test_the_distress_block_reaches_cp4c_only_and_before_the_method(tmp_path):
+    plain = instruction_bytes(distress_prep(tmp_path, "plain"))
+    tested = distress_prep(tmp_path, "tested", "test-assume-distress")
+    texts = instruction_bytes(tested)
+    assert plain.keys() == texts.keys() and "CP-4C" in texts
+    assert [m for m in texts if texts[m] != plain[m]] == ["CP-4C"]
+    head, mark, method = texts["CP-4C"].partition(cpos_launch.METHOD_MARK.encode())
+    assert mark and DISTRESS_BLOCK_KEY.encode() in head
+    assert (
+        plain["CP-4C"].partition(cpos_launch.METHOD_MARK.encode())[2] == method
+    )  # the method alone is equal
+    assert texts["CP-4C"].replace(DISTRESS_BLOCK_KEY.encode(), b"", 1) == plain["CP-4C"]
+
+
+def test_without_the_flag_nothing_records_a_test_adaptation(tmp_path):
+    prepared = distress_prep(tmp_path, "plain")
+    manifest = (prepared.directory / "workflow.json").read_text()
+    assert "test_adaptations" not in manifest and DISTRESS_SCOPE_KEY not in manifest
+    assert prepared.plan.test_adaptations == ()
+    assert all(b"Test run, not a delivery" not in t for t in instruction_bytes(prepared).values())
+
+
+def test_the_flag_is_recorded_in_the_manifest_and_opens_the_scope_sentence(tmp_path):
+    prepared = distress_prep(tmp_path, "tested", "test-assume-distress")
+    saved = json.loads((prepared.directory / "workflow.json").read_text())
+    assert saved["test_adaptations"] == ["test-assume-distress"]
+    assert saved["layout"]["scope"].startswith(DISTRESS_SCOPE_KEY)
+    plain = distress_prep(tmp_path, "plain")
+    assert not plain.layout.scope.startswith("Test run")
+    assert prepared.layout.scope == DISTRESS_SCOPE_KEY + plain.layout.scope
+
+
+def test_the_distress_flag_is_refused_when_cp4c_is_not_in_the_run(tmp_path):
+    with pytest.raises(LaunchRefused, match="CP-4C"):
+        distress_prep(tmp_path, "x", "test-assume-distress", pathway="covenant_refinancing")
+    assert not (tmp_path / "x").exists()
+
+
+def test_an_unknown_test_adaptation_is_refused(tmp_path):
+    with pytest.raises(LaunchRefused, match="no-such"):
+        distress_prep(tmp_path, "x", "no-such")
+
+
+def test_the_flag_runs_dry_under_a_ruling_that_lists_the_grant(tmp_path, monkeypatch, capsys):
+    ruling = distress_ruling(tmp_path, monkeypatch)
+    argv = distress_argv(tmp_path, "--ruling", str(ruling))
+    assert main(argv) == 0
+    saved = json.loads((tmp_path / "out" / "workflow.json").read_text())
+    assert saved["test_adaptations"] == ["test-assume-distress"]
+    assert "No provider was called" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("ruled", [False, True])
+def test_the_flag_is_refused_without_a_ruling_that_lists_the_grant(
+    tmp_path, monkeypatch, capsys, ruled
+):
+    text = DISTRESS_RULING.replace(" test-assume-distress", "")
+    ruling = distress_ruling(tmp_path, monkeypatch, text)
+    argv = distress_argv(tmp_path, *(["--ruling", str(ruling)] if ruled else []))
+    assert main(argv) == 2
+    assert "test-assume-distress" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()
+
+
+def test_no_environment_variable_enables_the_flag(tmp_path, monkeypatch, capsys):
+    for name in ("TEST_ASSUME_DISTRESS", "CPOS_TEST_ASSUME_DISTRESS", "DEPLOY_WORKFLOW_TEST"):
+        monkeypatch.setenv(name, "1")
+    argv = distress_argv(tmp_path)
+    assert main(argv) == 2
+    assert not (tmp_path / "out").exists()
+    argv.remove("--test-assume-distress")
+    assert main(argv) == 0
+    assert "test_adaptations" not in (tmp_path / "out" / "workflow.json").read_text()
+
+
+def test_the_flag_is_refused_in_the_run_start_services_environment(tmp_path, monkeypatch, capsys):
+    ruling = distress_ruling(tmp_path, monkeypatch)
+    monkeypatch.setenv("DEPLOY_WORKFLOW_PID_FILE", str(tmp_path / "pid"))
+    assert main(distress_argv(tmp_path, "--ruling", str(ruling))) == 2
+    assert "run start service" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()
+
+
+def test_the_flag_is_refused_by_a_launcher_that_cannot_go_live(tmp_path, monkeypatch, capsys):
+    ruling = distress_ruling(tmp_path, monkeypatch)
+    assert main(distress_argv(tmp_path, "--ruling", str(ruling)), allow_live=False) == 2
+    assert not (tmp_path / "out").exists()

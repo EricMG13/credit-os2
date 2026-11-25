@@ -9,7 +9,7 @@ import {
 } from "../../overview/figureData";
 import { wallSlots } from "../../overview/structureData";
 import { FigureTile, GapTile, Link } from "../kit/LeadFrame";
-import { GapSlot, Measured, SIZE } from "../kit/marks";
+import { GapSlot, LINE, Measured, SIZE } from "../kit/marks";
 import { IN_EVIDENCE, namesSource, safeText } from "../kit/reader";
 import { unitLabel } from "../../../publishedReport";
 import type { LeadProps } from "../types";
@@ -196,7 +196,13 @@ function RowLabels({ mark, layout }: { mark: WallMark; layout: WallLayout }) {
         fontSize={SIZE.label}
         className="fill-text-secondary font-body"
       >
-        {mark.label}
+        {mark.labelLines
+          ? mark.labelLines.map((line, at) => (
+              <tspan key={`${String(at)}-${line}`} x="0" y={(mark.labelTop ?? 0) + 11 + at * LINE}>
+                {line}
+              </tspan>
+            ))
+          : mark.label}
       </text>
       {mark.kind === "bar" ? (
         <text
@@ -355,7 +361,7 @@ function marksOf(slots: { dated: WallSlot[]; undated: WallSlot[] }) {
   return wallLayout(slots.dated, slots.undated, FALLBACK).marks;
 }
 
-function MaturityFigure({ lead, source }: { lead: LeadProps; source: Ready }) {
+function MaturityFigure({ lead, source, span }: { lead: LeadProps; source: Ready; span: 6 | 12 }) {
   const unit = unitLabel(unitOf(source.descriptor));
   const kicker = unit ? `${LABEL} · ${unit}` : LABEL;
   const labels = source.table.rows.map((row) => row[0] ?? "");
@@ -365,7 +371,7 @@ function MaturityFigure({ lead, source }: { lead: LeadProps; source: Ready }) {
   const raw = wallSlots(source.table, source.descriptor, unitOf(source.descriptor));
   const common = {
     props: lead,
-    span: 6 as const,
+    span,
     label: LABEL,
     kicker,
     title: LABEL,
@@ -375,13 +381,13 @@ function MaturityFigure({ lead, source }: { lead: LeadProps; source: Ready }) {
   // The wall keeps one row per period; a period stated twice would silently lose a row.
   if (twice !== undefined)
     return (
-      <GapTile span={6} label={LABEL} kicker={kicker}>
+      <GapTile span={span} label={LABEL} kicker={kicker}>
         This page could not read the maturity wall because {words(twice)} appears more than once.
       </GapTile>
     );
   if (!raw)
     return (
-      <GapTile span={6} label={LABEL} kicker={kicker}>
+      <GapTile span={span} label={LABEL} kicker={kicker}>
         {everyReason(source, unitOf(source.descriptor)) ??
           "This page could not read an amount for any period of the maturity wall."}
       </GapTile>
@@ -427,14 +433,18 @@ function MaturityFigure({ lead, source }: { lead: LeadProps; source: Ready }) {
   );
 }
 
-/** Tile 6 of the financial foundation: the compact maturity wall; the full one is on Overview. */
-export function MaturityTile({ lead }: { lead: LeadProps }) {
+/**
+ * Tile 6 of the financial foundation: the compact maturity wall; the full one is on Overview. It
+ * shares its row with the periods tile, and takes the whole row (`span` 12) when it is the last,
+ * unpaired figure.
+ */
+export function MaturityTile({ lead, span = 6 }: { lead: LeadProps; span?: 6 | 12 }) {
   const source = figureSource(lead.view, "CP-1", "Debt maturities", "Financial foundation");
   if (source.state === "gap")
     return (
-      <GapTile span={6} label={LABEL} kicker={LABEL}>
+      <GapTile span={span} label={LABEL} kicker={LABEL}>
         This page could not read the debt maturities.
       </GapTile>
     );
-  return <MaturityFigure lead={lead} source={source} />;
+  return <MaturityFigure lead={lead} source={source} span={span} />;
 }

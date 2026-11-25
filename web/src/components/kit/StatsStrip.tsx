@@ -26,7 +26,11 @@ export function StatsStrip({ label, stats }: { label: string; stats: readonly St
   return (
     <dl
       aria-label={label}
-      className="grid min-w-0 grid-cols-2 overflow-hidden rounded-ds-lg border border-border-subtle bg-surface-card md:grid-cols-3 xl:grid-flow-col xl:auto-cols-fr xl:grid-cols-none"
+      className={cx(
+        "grid min-w-0 grid-cols-2 overflow-hidden rounded-ds-lg border border-border-subtle bg-surface-card md:grid-cols-3 xl:grid-flow-col xl:auto-cols-fr xl:grid-cols-none",
+        // Four figures sit two by two, then four across: never three and one alone on a row.
+        stats.length === 4 && "md:grid-cols-2 lg:grid-cols-4",
+      )}
     >
       {stats.map((stat) => (
         <div

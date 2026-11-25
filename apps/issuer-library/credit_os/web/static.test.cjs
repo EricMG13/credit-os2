@@ -3909,12 +3909,12 @@ test('brand colours: screen.css declares each brand token with the plan value (R
   const expected = {
     '--navy': '#000533', '--blue': '#001aff', '--ground': '#f4f4f5', '--rule': '#e8e9eb', '--muted': '#474a4f',
     '--quiet': '#fafafb', '--selection': '#e5e8ff', '--blue-50': '#e5e8ff', '--blue-100': '#c2c9ff', '--blue-700': '#0012b2',
-    '--amber': '#806300', '--amber-bg': '#fff4cc', '--amber-border': '#f2dc8c', '--red': '#8e413e', '--green': '#0f8048',
+    '--amber': '#806300', '--amber-bg': '#fff4cc', '--amber-border': '#f2dc8c', '--red': '#8e413e', '--green': '#1d4ed8',
     '--text-primary': '#000533', '--text-secondary': '#383b3f', '--text-tertiary': '#474a4f', '--text-quaternary': '#63676e',
     '--gray-25': '#fcfcfd', '--gray-50': '#fafafb', '--gray-100': '#f4f4f5', '--gray-200': '#e8e9eb', '--gray-300': '#d1d4d8',
     '--ring': '0 0 0 4px rgba(0,26,255,.16)', '--dot-quiet': '#8d939d',
-    '--series-1': '#001aff', '--series-2': '#1eff8f', '--series-3': '#eaff00', '--series-4': '#a29aff',
-    '--series-1-ln': '#001aff', '--series-2-ln': '#0f8048', '--series-3-ln': '#758000', '--series-4-ln': '#514d80',
+    '--series-1': '#001aff', '--series-2': '#341b55', '--series-3': '#eaff00', '--series-4': '#a29aff',
+    '--series-1-ln': '#001aff', '--series-2-ln': '#341b55', '--series-3-ln': '#758000', '--series-4-ln': '#514d80',
   };
   const declared = {};
   for (const block of css.matchAll(/:root\{([^}]*)\}/g)) for (const m of block[1].matchAll(/(--[\w-]+):([^;]+)/g)) declared[m[1]] = m[2].trim();

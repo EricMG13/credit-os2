@@ -5,7 +5,7 @@ import { blocked, evidencePath, type OutputEntry } from "../../publishedReport";
 import { changeSign, changeText, exactDifference, tone } from "../../signal";
 import { PublishedSource } from "../PublishedTrace";
 import { Key } from "./figureParts";
-import { DeltaBar, DotStrip, GapBar, MiniSlope, Ruler, Slope, SplitBar } from "./marks";
+import { DeltaBar, GapBar, MiniSlope, Ruler, Slope, SplitBar } from "./marks";
 import type { Mark, MarkTone, Slot } from "./marks";
 import {
   entryOf,
@@ -222,14 +222,20 @@ function AsWritten({ series, href }: { series: Series; href: Href }) {
   );
 }
 
+/** Headline figures sit one step under the bottom line (h1 against metric or display). */
 const FIGURE = {
-  large: "text-metric font-medium",
+  large: "text-h1 font-medium",
   small: "text-h3 font-medium whitespace-nowrap",
+} as const;
+/** A gap word in a figure's place is words, not a figure: one step smaller, and it may wrap. */
+const GAP_FIGURE = {
+  large: "text-h2 font-medium text-text-tertiary",
+  small: "text-h4 font-medium text-text-tertiary",
 } as const;
 
 /** The latest figure, its basis, how it moved and every gap in the series, in the module's words. */
 function Level({ reading, large, href }: { reading: Reading; large: boolean; href: Href }) {
-  const size = large ? FIGURE.large : FIGURE.small;
+  const at = large ? "large" : "small";
   if (reading.state === "absent")
     return (
       <GapNote>
@@ -249,7 +255,7 @@ function Level({ reading, large, href }: { reading: Reading; large: boolean; hre
           !large && "min-w-0 gap-x-2",
         )}
       >
-        <Figure className={cx(size, !stated && "text-text-tertiary")}>
+        <Figure className={stated ? FIGURE[at] : GAP_FIGURE[at]}>
           {figureShown(latest, reading.series.unit) ?? gapWord(latest.cell)}
         </Figure>
         <ToneChip reading={reading} large={large} />
@@ -290,13 +296,16 @@ function Source({ reading, href }: { reading: Reading; href: Href }) {
   );
 }
 
-/** A series mark needs the latest figure and one more stated period; otherwise a gap bar. */
+/**
+ * A series mark needs the latest figure and one more stated period. A figure whose only period is
+ * stated has nothing missing, so it draws no mark and no gap; a gap bar stands only where a
+ * period the module lists has no figure.
+ */
 function Drawn({ reading, children }: { reading: Reading; children: ReactNode }) {
   if (reading.state !== "ready") return null;
-  const comparable =
-    reading.timeline.latest.value !== null &&
-    reading.slots.filter(({ value }) => value !== null).length >= 2;
-  return comparable ? children : <GapBar />;
+  const stated = reading.slots.filter(({ value }) => value !== null).length;
+  if (reading.timeline.latest.value !== null && stated >= 2) return children;
+  return stated === reading.slots.length ? null : <GapBar />;
 }
 
 type TileProps = { reading: Reading; href: Href; children: ReactNode };
@@ -306,7 +315,7 @@ type TileProps = { reading: Reading; href: Href; children: ReactNode };
  * A small tile's head: the 13 px title, which wraps, and the trace, which never leaves the row
  * (Tile's own small head lets the trace wrap below a long title in a narrow tile).
  */
-function SmallTile({ reading, href, children }: TileProps) {
+function SmallTile({ reading, href, whole = false, children }: TileProps & { whole?: boolean }) {
   return (
     <Tile
       span={12}
@@ -314,10 +323,14 @@ function SmallTile({ reading, href, children }: TileProps) {
       label={reading.title}
       title={reading.title}
       trace={<Source reading={reading} href={href} />}
-      className="justify-between gap-2 p-4 sm:p-4 lg:col-span-1"
+      className="gap-2 p-4 sm:p-4 lg:col-span-1"
     >
       <Level reading={reading} large={false} href={href} />
-      <Drawn reading={reading}>{children}</Drawn>
+      {/* Figures start on one line across the four tiles; each mark sits at its tile's foot. */}
+      <div className="mt-auto pt-1">
+        {/* `whole`: the mark compares parts of one period, so it needs no second period. */}
+        {whole ? children : <Drawn reading={reading}>{children}</Drawn>}
+      </div>
     </Tile>
   );
 }
@@ -325,13 +338,12 @@ function SmallTile({ reading, href, children }: TileProps) {
 function LargeTile({ reading, href, children }: TileProps) {
   return (
     <Tile
-      span={4}
+      span={6}
       head="small"
       label={reading.title}
       title={reading.title}
       kicker={reading.state === "ready" ? reading.timeline.latest.period : undefined}
       trace={<Source reading={reading} href={href} />}
-      className="self-start"
     >
       <Level reading={reading} large href={href} />
       <Drawn reading={reading}>{children}</Drawn>
@@ -358,8 +370,19 @@ function ends(reading: Reading) {
 }
 
 const slotsOf = (reading: Reading) => (reading.state === "ready" ? reading.slots : []);
+const statedOf = (reading: Reading) =>
+  slotsOf(reading).flatMap(({ value }) => (value === null ? [] : [value]));
+const sameUnit = (a: Reading, b: Reading) =>
+  a.state === "ready" && b.state === "ready" && a.series.unit === b.series.unit;
 const markToneOf = (reading: Reading) => (reading.state === "ready" ? reading.markTone : "none");
 const toneOf = (reading: Reading) => (reading.state === "ready" ? reading.tone : "none");
+
+/** Cash and undrawn facilities are both stated for the same latest period: one bar, two parts. */
+function split(cash: Reading, undrawn: Reading) {
+  const first = latestMark(cash);
+  const second = latestMark(undrawn);
+  return Boolean(first && second && first.label === second.label);
+}
 
 function CashMark({ cash, undrawn }: { cash: Reading; undrawn: Reading }) {
   const first = latestMark(cash);
@@ -388,24 +411,32 @@ function CashMark({ cash, undrawn }: { cash: Reading; undrawn: Reading }) {
   );
 }
 
-function SeriesMark({ reading, kind }: { reading: Reading; kind: "slope" | "strip" | "mini" }) {
+function SeriesMark({
+  reading,
+  kind,
+  span,
+}: {
+  reading: Reading;
+  kind: "slope" | "mini";
+  span?: readonly number[];
+}) {
   const props = {
     marks: slotsOf(reading),
     tone: markToneOf(reading),
     label: spoken(reading.title, slotsOf(reading)),
   };
   const suffix = reading.state === "ready" && reading.series.unit === "x" ? "x" : "";
-  if (kind === "mini") return <MiniSlope {...props} />;
-  return kind === "slope" ? (
-    <Slope {...props} suffix={suffix} />
+  return kind === "mini" ? (
+    <MiniSlope {...props} />
   ) : (
-    <DotStrip {...props} suffix={suffix} />
+    <Slope {...props} suffix={suffix} span={span} />
   );
 }
 
 /**
- * Row 2: the headline figures, period against period. Two large tiles carry leverage; four small
- * ones support them. Each has its own mark, and a figure the module did not supply is a gap.
+ * Row 2: the headline figures, period against period. Two large tiles carry leverage, each half
+ * the row and on the same mark so gross reads against net; four small ones support them in one
+ * line beneath, each with its own mark. A figure the module did not supply is a gap.
  */
 export function FigureRow({ run, view }: RowProps) {
   const entry = entryOf(view, "CP-1");
@@ -427,17 +458,20 @@ export function FigureRow({ run, view }: RowProps) {
     of("ebitda"),
     of("cash"),
   ];
+  // Gross and net leverage are one unit side by side: both slopes take one axis, so the gap
+  // between them reads across the two tiles. Only stated values set it; nothing is derived.
+  const leverage = sameUnit(gross, net) ? [...statedOf(gross), ...statedOf(net)] : undefined;
   const coverEnds = ends(cover);
   const ebitdaEnds = ends(ebitda);
   return (
     <>
       <LargeTile reading={gross} href={href}>
-        <SeriesMark reading={gross} kind="slope" />
+        <SeriesMark reading={gross} kind="slope" span={leverage} />
       </LargeTile>
       <LargeTile reading={net} href={href}>
-        <SeriesMark reading={net} kind="strip" />
+        <SeriesMark reading={net} kind="slope" span={leverage} />
       </LargeTile>
-      <div className="grid min-w-0 auto-rows-fr grid-cols-2 gap-3 self-start sm:gap-4 lg:col-span-4">
+      <div className="grid min-w-0 auto-rows-fr grid-cols-2 gap-3 sm:gap-4 lg:col-span-12 lg:grid-cols-4">
         <SmallTile reading={revenue} href={href}>
           <SeriesMark reading={revenue} kind="mini" />
         </SmallTile>
@@ -460,7 +494,7 @@ export function FigureRow({ run, view }: RowProps) {
             />
           )}
         </SmallTile>
-        <SmallTile reading={cash} href={href}>
+        <SmallTile reading={cash} href={href} whole={split(cash, of("undrawn"))}>
           <CashMark cash={cash} undrawn={of("undrawn")} />
         </SmallTile>
       </div>

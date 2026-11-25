@@ -46,7 +46,7 @@ describe("SegmentsTile on the accepted handoff (two periods)", () => {
     expect(num(bar(tile, "Airframe ebitda"), "width") / unit).toBeCloseTo(1962, 6);
     expect(num(bar(tile, "Non-aviation sales"), "width") / unit).toBeCloseTo(190, 6);
     expect(num(bar(tile, "Non-aviation ebitda"), "width") / unit).toBeCloseTo(81, 6);
-    // Sales in navy, EBITDA As Defined in teal, as the mockup.
+    // Sales in plum, EBITDA As Defined in blue, as the mockup.
     expect(pcSales?.getAttribute("class")).toBe("fill-chart-2");
     expect(bar(tile, "Power & Control ebitda")?.getAttribute("class")).toBe("fill-chart-1");
   });
@@ -250,14 +250,14 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
   });
   it("draws the one gap pattern when the schedule is absent or states a figure twice", () => {
     let tile = draw(dropTable(cp1Entry(), SCHEDULE));
-    expect(tile.textContent).toBe("Segments · This page could not read the segment schedule.");
+    expect(tile.textContent).toBe("SegmentsThis page could not read the segment schedule.");
     expect(tile.className).not.toMatch(/gap-hatch/);
     cleanup();
     tile = draw(
       addRow(cp1Entry(), SCHEDULE, ["Airframe", "FY2024", "1", "1", "USD millions", "-", "-"]),
     );
     expect(tile.textContent).toBe(
-      "Segments · This page could not read the segment schedule because Airframe net sales appears more than once for FY2024.",
+      "SegmentsThis page could not read the segment schedule because Airframe net sales appears more than once for FY2024.",
     );
   });
   it("draws the gap when no segment states an amount for the drawn period", () => {
@@ -267,7 +267,7 @@ describe("SegmentsTile states (mutations of the accepted handoff; not a real han
         data = setCell(data, SCHEDULE, row, column, "Not supplied: withheld");
     const tile = draw(data);
     expect(tile.textContent).toBe(
-      "Segments · US$m, FY2024 · This page could not read an amount for any business unit in FY2024.",
+      "Segments · US$m, FY2024This page could not read an amount for any business unit in FY2024.",
     );
   });
 });

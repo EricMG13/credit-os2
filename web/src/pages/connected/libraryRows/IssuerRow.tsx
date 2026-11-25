@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { StatusBadge } from "@/components/status/StatusBadge";
@@ -14,27 +14,19 @@ import { CreditView } from "./CreditView";
 import { FigureMark, figureName } from "./FigureMark";
 import { useFigureTrace } from "./figureTrace";
 import type { IssuerGroup } from "./group";
-import { useNextEvent } from "./nextEvent";
+import { useNextEvent, useSeen } from "./nextEvent";
 import { useScopedSnapshots } from "./rowSnapshot";
 
 /** The columns of a row on a wide screen; below it a row stacks and each cell names itself. */
 export const ROW_COLUMNS =
-  "xl:grid-cols-[minmax(15rem,1.6fr)_8rem_repeat(3,minmax(8rem,1fr))_minmax(10rem,1.1fr)_minmax(9.5rem,1fr)]";
+  "xl:grid-cols-[minmax(15rem,1.6fr)_6.5rem_repeat(3,minmax(8rem,1fr))_minmax(10rem,1.1fr)_minmax(11rem,1.2fr)]";
 
 const CELL_LABEL = "text-caption text-text-tertiary xl:sr-only";
 const QUIET_LINK =
   "inline-flex min-h-8 min-w-8 items-center text-left text-small font-normal whitespace-normal max-[480px]:min-h-11 max-[480px]:min-w-11";
 
-/** What is not known, in the chip's place: dashed, hatched, with the reason in words. */
-function GapChip({ children }: { children: string }) {
-  return (
-    <span className="gap-hatch inline-flex w-fit rounded-ds-xs border border-dashed border-border-gap">
-      <span className="m-px rounded-ds-xs bg-surface-card px-2 py-1 text-caption text-gap-text">
-        {children}
-      </span>
-    </span>
-  );
-}
+/** A machine date only for a full calendar day; any other module-written date is text alone. */
+const isoDay = (date: string) => (/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined);
 
 function StateChip({ group }: { group: IssuerGroup }) {
   if (group.state === "Test preview") return <Badge color="brand">Test preview</Badge>;
@@ -115,7 +107,9 @@ function NextEventDetail({
   return (
     <div className="grid gap-1 text-small">
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <time className="font-mono text-text-primary tabular-nums">{event.date}</time>
+        <time dateTime={isoDay(event.date)} className="font-mono text-text-primary tabular-nums">
+          {asOfDate(event.date)}
+        </time>
         <span className="text-text-secondary">{event.name}</span>
         <PublishedSource href={event.href} name={event.name} linkLabel={`Source for ${event.name}`}>
           View source
@@ -168,9 +162,9 @@ function moreStats(catalogue: CatalogueRun, trace: ReturnType<typeof useFigureTr
 }
 
 /**
- * One issuer: its newest run's three headline figures, stance slot, run chips and report links in
- * one row; the row opens to the credit view, every run, the next dated event and the figures the
- * row does not show.
+ * One issuer: its newest run's three headline figures, decision slot, run chips, next dated event
+ * (read when the row comes into view) and report links in one row; the row opens to the credit
+ * view, every run, the event's detail and the figures the row does not show.
  */
 export function IssuerRow({
   group,
@@ -186,7 +180,8 @@ export function IssuerRow({
   const { newest, linked, published, pathway, entries, related } = group;
   const load = useScopedSnapshots();
   const trace = useFigureTrace(newest, load);
-  const next = useNextEvent(linked?.id, opened, load);
+  const row = useRef<HTMLLIElement>(null);
+  const next = useNextEvent(linked?.id, useSeen(row) || opened, load);
   const { metrics } = newest;
   // Published runs, as the run list the link opens counts them.
   const count = group.openable.size || entries.length;
@@ -206,7 +201,7 @@ export function IssuerRow({
     );
   };
   return (
-    <li className="rounded-ds-lg border border-border-subtle bg-surface-card">
+    <li ref={row} className="rounded-ds-lg border border-border-subtle bg-surface-card">
       <div className={`grid gap-x-4 gap-y-4 p-4 sm:p-5 xl:items-start ${ROW_COLUMNS}`}>
         <div className="flex min-w-0 items-start gap-2 xl:order-1">
           <button
@@ -293,7 +288,7 @@ export function IssuerRow({
         <div className="flex flex-wrap items-start gap-x-4 gap-y-3 xl:contents">
           <div className="flex min-w-0 flex-col gap-1 xl:order-2">
             <span className={CELL_LABEL}>Decision</span>
-            <GapChip>Not shown in the Library</GapChip>
+            <span className="text-caption text-gap-text">Not shown in the Library</span>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2 xl:order-6">
             <span className={`${CELL_LABEL} w-full`}>Run</span>
@@ -314,9 +309,25 @@ export function IssuerRow({
         <div className="flex min-w-0 flex-col gap-1 xl:order-7">
           <span className={CELL_LABEL}>Next event</span>
           {published ? (
-            <TextLink href={`${reportPath(newest.id)}#calendar`} grey className={QUIET_LINK}>
-              Open Calendar
-            </TextLink>
+            <>
+              {"event" in next && (
+                <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-small wrap-anywhere">
+                  <time
+                    dateTime={isoDay(next.event.date)}
+                    className="font-mono text-text-primary tabular-nums"
+                  >
+                    {asOfDate(next.event.date)}
+                  </time>
+                  <span className="text-text-secondary">{next.event.name}</span>
+                </p>
+              )}
+              {next.status === "none" && (
+                <span className="text-small text-gap-text">No upcoming date stated</span>
+              )}
+              <TextLink href={`${reportPath(newest.id)}#calendar`} grey className={QUIET_LINK}>
+                Open Calendar
+              </TextLink>
+            </>
           ) : (
             <span className="text-small text-gap-text">Needs a published report</span>
           )}
@@ -343,16 +354,6 @@ export function IssuerRow({
           <section aria-label={`Runs, ${newest.name}`} className="grid min-w-0 content-start gap-2">
             <h4 className="text-small font-medium text-text-primary">Runs, newest first</h4>
             <Runs group={group} />
-          </section>
-          <section
-            aria-label={`Decision, ${newest.name}`}
-            className="grid min-w-0 content-start gap-2"
-          >
-            <h4 className="text-small font-medium text-text-primary">Decision</h4>
-            <p className="text-small text-gap-text">
-              The Library shows a committee decision only with a recorded clearance. Where a report
-              has a Committee decision page, that page shows what the module wrote.
-            </p>
           </section>
           <section
             aria-label={`Next dated event, ${newest.name}`}

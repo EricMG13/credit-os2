@@ -243,18 +243,18 @@ def due_slot(now: datetime) -> str:
 # a container or column. A tint is partly transparent, so Teams' own text stays readable on it in
 # the light and the dark theme alike.
 
-_BLUE, _GREEN, _AMBER = (0, 26, 255), (15, 128, 72), (224, 168, 0)
+_BLUE, _DONE, _AMBER = (0, 26, 255), (29, 78, 216), (224, 168, 0)
 _RED, _GREY = (165, 76, 72), (127, 132, 141)
 _TONE: Mapping[str, tuple[int, int, int]] = {
     "queued": _GREY,
     "running": _BLUE,
-    "finished": _GREEN,
+    "finished": _DONE,
     "failed": _RED,
     "capped": _AMBER,
     "rejected": _GREY,
     "interrupted": _AMBER,
 }
-_TINT_ALPHA = {_BLUE: 18, _AMBER: 30, _RED: 22, _GREEN: 22, _GREY: 22}  # out of 255
+_TINT_ALPHA = {_BLUE: 18, _AMBER: 30, _RED: 22, _DONE: 22, _GREY: 22}  # out of 255
 _TRACK = (*_GREY, 64)
 _EDGE_PX, _EDGE_SPAN = 3, 1600  # a callout's left rule, and the widest a card is drawn
 _STRIPE_PX = 160  # 1px high, stretched: about 3px high on a card 480px wide

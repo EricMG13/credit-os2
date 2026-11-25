@@ -97,7 +97,10 @@ export function EvidenceHandoffs({
                     data-label={HEADINGS[1]}
                     className={`${STACK.cell} font-mono text-mono wrap-anywhere text-text-tertiary`}
                   >
-                    <code>{item.output.sha256}</code>
+                    {/* 64 characters as two even lines of 32, as on Sources. */}
+                    <code className="inline-block w-[32ch] max-w-full break-all">
+                      {item.output.sha256}
+                    </code>
                   </td>
                   <td
                     role="cell"

@@ -95,14 +95,23 @@ describe("Review and start", () => {
     expect(within(decision).getByRole("heading", { level: 2 })).toHaveTextContent(
       "Review and start",
     );
-    expect(decision).toHaveTextContent("Full credit assessment of Northbridge");
-    expect(decision).toHaveTextContent("As of 2025-03-31");
-    expect(decision).toHaveTextContent("1 document read · 3 modules");
+    // What will run, as terms and values rather than one run-on line.
+    const run = within(decision).getByText("Issuer", { selector: "dt" }).closest("dl");
+    expect(run).toHaveTextContent(
+      /^IssuerNorthbridge.*As of2025-03-31PathwayFull credit assessment/,
+    );
+    expect(run).toHaveTextContent(/Documents read1Modules3$/);
     expect(within(decision).getByText("Paid run")).toBeInTheDocument();
-    // On a phone the limits follow the cost and the stages come last.
+    // Where the rail sits under the form, the stages follow the limits and Submit ends the tile.
     expect(before(cost, limits)).toBe(true);
-    expect(before(limits, leaves)).toBe(true);
-    expect(before(leaves, stages)).toBe(true);
+    expect(before(limits, stages)).toBe(true);
+    expect(before(stages, leaves)).toBe(true);
+    expect(
+      before(
+        stages,
+        within(decision).getByRole("button", { name: "Submit, spend up to USD 25.00" }),
+      ),
+    ).toBe(true);
     expect(within(limits).getByRole("checkbox", { name: "I accept this limit" })).toBeEnabled();
     expect(within(stages).getByRole("list", { name: "Stages in this run" })).toBeInTheDocument();
     const inputs = screen.getByRole("region", { name: "What will run" });
@@ -183,6 +192,14 @@ describe("Review and start", () => {
     expect(dialog).toHaveTextContent("IssuerNorthbridge");
     expect(dialog).toHaveTextContent("PathwayFull credit assessment");
     expect(dialog).toHaveTextContent("CapUSD 25.00");
+    // The rest of what the review shows is restated too: nothing the summary does not hold.
+    expect(dialog).toHaveTextContent("As of2025-03-31");
+    expect(dialog).toHaveTextContent("Documents read1");
+    expect(dialog).toHaveTextContent("Modules3");
+    expect(dialog).toHaveTextContent("Limits accepted1");
+    expect(dialog).toHaveTextContent("Will refuseLegal & covenants");
+    expect(dialog).toHaveTextContent(`Submitted by${answers.submitted_by}`);
+    expect(dialog).not.toHaveTextContent(/CP-/);
     await waitFor(() => {
       expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
     });

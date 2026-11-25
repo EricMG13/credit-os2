@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { cx } from "@/utils/cx";
 import { VerticalAxis } from "./EventAxisVertical";
 import {
@@ -344,12 +344,14 @@ function axisTicks(min: number, max: number, plotPx: number): Tick[] {
     const months = monthStarts(min, max);
     const monthPx = plotPx / Math.max((max - min) / (30.4 * DAY), 1);
     const step = Math.max(1, Math.ceil(TICK_GAP_PX / monthPx));
+    // The year is written on the first tick drawn in each calendar year: a step of two or more
+    // months can skip January, and the reader must still see where the year turns.
     return months
       .filter((_, at) => at % step === 0)
-      .map(({ year, month, time }, at) => ({
+      .map(({ year, month, time }, at, kept) => ({
         key: `${String(year)}-${String(month + 1).padStart(2, "0")}`,
         label:
-          month === 0 || at === 0
+          kept[at - 1]?.year !== year
             ? `${MONTHS[month] ?? ""} ${String(year)}`
             : (MONTHS[month] ?? ""),
         time,
@@ -423,6 +425,9 @@ function EventLabel({
       data-label-side={side}
       className={cx(
         "pointer-events-none absolute flex items-baseline gap-1.5 overflow-hidden whitespace-nowrap",
+        // A label beside its mark sits on the tile's own surface, so the as-of rule and the tick
+        // lines pass behind its text, not through it.
+        side !== "inside" && "bg-surface-card",
         side === "inside" && "top-1/2 left-1.5 -translate-y-1/2 text-caption",
         side === "left" && "top-1/2 right-full mr-1.5 -translate-y-1/2 flex-row-reverse text-right",
         side === "right" && "top-1/2 left-full ml-1.5 -translate-y-1/2 text-left",
@@ -456,11 +461,16 @@ function EventButton({
   item,
   rowId,
   plotPx,
+  tabStop,
+  onFocus,
   onSelect,
 }: {
   item: Placed;
   rowId: string;
   plotPx: number;
+  /** Whether Tab stops here: one event of the axis does, and the arrow keys reach the rest. */
+  tabStop: boolean;
+  onFocus: () => void;
   onSelect: () => void;
 }) {
   const { event, start, width, row, side, labelPx, shift } = item;
@@ -474,6 +484,9 @@ function EventButton({
       data-event-category={category}
       data-event-precision={precision}
       data-event-shape={period ? "span" : "mark"}
+      data-event-stop=""
+      tabIndex={tabStop ? 0 : -1}
+      onFocus={onFocus}
       title={`${event.event} · ${date}`}
       className={cx(
         "group absolute flex h-11 cursor-pointer items-center rounded-ds-sm focus-visible:ring-2 focus-visible:ring-focus",
@@ -521,7 +534,8 @@ function axisRange(events: EventRecord[], asOf: number | null) {
   return { min, max, range: max - min };
 }
 
-type AsOf = { time: number; text: string };
+/** `text` is the date as recorded; `label`, when given, is how the rule's words write it. */
+type AsOf = { time: number; text: string; label?: string };
 type Range = ReturnType<typeof axisRange>;
 
 /**
@@ -559,6 +573,32 @@ function useNarrow(container: RefObject<HTMLDivElement | null>) {
     };
   }, [container]);
   return measured ?? viewport;
+}
+
+const STEP: Record<string, number> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+
+/**
+ * The arrow keys move between the events of the axis in the order they are drawn, Home and End
+ * go to the first and last, so the whole axis is one Tab stop and the table after it is one more.
+ */
+function moveBetweenEvents(press: KeyboardEvent<HTMLElement>) {
+  const from =
+    press.target instanceof HTMLElement ? press.target.closest("[data-event-stop]") : null;
+  if (!from) return;
+  const stops = [...press.currentTarget.querySelectorAll<HTMLElement>("[data-event-stop]")];
+  const at = stops.indexOf(from as HTMLElement);
+  const to =
+    press.key === "Home"
+      ? 0
+      : press.key === "End"
+        ? stops.length - 1
+        : Object.hasOwn(STEP, press.key)
+          ? at + (STEP[press.key] ?? 0)
+          : -1;
+  const next = stops[to];
+  if (at === -1 || !next || next === from) return;
+  press.preventDefault();
+  next.focus();
 }
 
 function HorizontalAxis({
@@ -599,6 +639,9 @@ function HorizontalAxis({
   });
   const ticks = axisTicks(min, max, plotPx);
   const labelled = tickLabels(ticks, min, range, plotPx, measure);
+  const drawn = lanes.flatMap(({ placed }) => placed.map(({ event }) => event.index));
+  const [focused, setFocused] = useState<number | null>(null);
+  const stop = focused !== null && drawn.includes(focused) ? focused : drawn[0];
   const right = asOf !== null && x(asOf.time) > 80;
   return (
     <>
@@ -610,7 +653,8 @@ function HorizontalAxis({
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
       >
-        <div className="relative min-w-[720px]">
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+        <div className="relative min-w-[720px]" onKeyDown={moveBetweenEvents}>
           {probes}
           <div
             aria-hidden="true"
@@ -667,7 +711,7 @@ function HorizontalAxis({
                   )}
                   style={{ left: `${String(x(asOf.time))}%` }}
                 >
-                  {`As of ${asOf.text}`}
+                  {`As of ${asOf.label ?? asOf.text}`}
                 </span>
               </div>
             </div>
@@ -691,6 +735,10 @@ function HorizontalAxis({
                     item={item}
                     rowId={rowId(item.event.index)}
                     plotPx={plotPx}
+                    tabStop={item.event.index === stop}
+                    onFocus={() => {
+                      setFocused(item.event.index);
+                    }}
                     onSelect={() => {
                       onSelect(item.event.index);
                     }}

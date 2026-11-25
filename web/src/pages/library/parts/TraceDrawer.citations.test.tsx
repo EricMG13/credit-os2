@@ -59,3 +59,9 @@ it("falls back to the trace's own excerpt where there is no lookup or it does no
   draw(() => undefined);
   expect(screen.getByText("first only")).toBeVisible();
 });
+
+it("has one way forward in its footer and one close control", () => {
+  draw(null);
+  expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "Open in Evidence" })).toHaveAttribute("href", "#e");
+});

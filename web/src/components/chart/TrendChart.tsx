@@ -111,12 +111,42 @@ function ChartTooltip({
   );
 }
 
-export function YAxisLabels({ yTicks }: { yTicks: YTick[] | undefined }) {
-  if (yTicks === undefined || yTicks.length === 0) {
+/** recharts' default x-axis height. */
+const X_AXIS_HEIGHT = 30;
+/** The least room, in pixels, between two y-axis labels: one 13 px label line and air. */
+const TICK_ROOM = 18;
+
+/**
+ * The ticks a plot `room` pixels tall can label without one label touching the next: both ends and
+ * zero always, then each other tick that clears every tick kept. The scale and every value drawn
+ * are unchanged; with enough room every tick is kept.
+ */
+export function ticksThatFit(yTicks: YTick[], room: number): YTick[] {
+  const first = yTicks[0]?.value ?? 0;
+  const last = yTicks.at(-1)?.value ?? 0;
+  if (last === first) return yTicks;
+  const at = (tick: YTick) => ((tick.value - first) / (last - first)) * room;
+  const kept = yTicks.filter((tick, i) => i === 0 || i === yTicks.length - 1 || tick.value === 0);
+  for (const tick of yTicks.slice(1, -1))
+    if (!kept.includes(tick) && kept.every((k) => Math.abs(at(k) - at(tick)) >= TICK_ROOM))
+      kept.push(tick);
+  return yTicks.filter((tick) => kept.includes(tick));
+}
+
+export function YAxisLabels({
+  yTicks: every,
+  room,
+}: {
+  yTicks: YTick[] | undefined;
+  /** The plot's height in pixels, where the caller knows it: a short plot labels fewer ticks. */
+  room?: number;
+}) {
+  if (every === undefined || every.length === 0) {
     return <YAxis width={0} tick={false} tickLine={false} axisLine={false} />;
   }
-  const first = yTicks[0]?.value ?? 0;
-  const last = yTicks[yTicks.length - 1]?.value ?? 0;
+  const first = every[0]?.value ?? 0;
+  const last = every[every.length - 1]?.value ?? 0;
+  const yTicks = room === undefined ? every : ticksThatFit(every, room);
   const labels = new Map(yTicks.map((t) => [t.value, t.label]));
   return (
     <YAxis
@@ -156,7 +186,7 @@ function Chart({ title, periods, series, table, yTicks }: Omit<TrendChartProps, 
         <LineChart title={title} data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--color-border-hairline)" />
           <XAxis dataKey="period" tickLine={false} axisLine={BASELINE} tick={TICK} tickMargin={8} />
-          <YAxisLabels yTicks={yTicks} />
+          <YAxisLabels yTicks={yTicks} room={height - 8 - X_AXIS_HEIGHT} />
           <Tooltip
             isAnimationActive={false}
             cursor={false}

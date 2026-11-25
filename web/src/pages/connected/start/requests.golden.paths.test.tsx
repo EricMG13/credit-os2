@@ -183,7 +183,7 @@ function decideAndApprove() {
 
 async function submit(navigate: ReturnType<typeof vi.fn>) {
   fireEvent.click(screen.getByRole("button", { name: "Submit run" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Start synthetic run" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Start no-cost test" }));
   await waitFor(() => {
     expect(navigate).toHaveBeenCalledWith(`/run/${RUN}`);
   });
@@ -291,7 +291,7 @@ describe("the requests the Start run page sends on the remaining paths", { timeo
     await throughToReview();
     decideAndApprove();
     fireEvent.click(screen.getByRole("button", { name: "Submit run" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Start synthetic run" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start no-cost test" }));
     await screen.findByText(/Review the run again before submitting/);
     await review();
     decideAndApprove();
@@ -381,7 +381,7 @@ describe("the requests the Start run page sends on the remaining paths", { timeo
     await throughToReview();
     decideAndApprove();
     fireEvent.click(screen.getByRole("button", { name: "Submit run" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Start synthetic run" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start no-cost test" }));
     const offer = await screen.findByRole("button", { name: /^Use northbridge-synthetic-group-/ });
     const release = holdIssuerNotice();
     fireEvent.click(offer);

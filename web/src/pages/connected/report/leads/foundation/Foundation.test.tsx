@@ -25,7 +25,7 @@ const spans = () =>
   screen.getAllByRole("region").map((region) => /lg:col-span-(\d+)/.exec(region.className)?.[1]);
 
 describe("the composition", () => {
-  it("draws the eight tiles in rows of neighbours: 12, 7 + 5, 6 + 6, 6 + 6, then the wall", () => {
+  it("draws the eight tiles in rows of neighbours: 12, 7 + 5, 6 + 6, 6 + 6, then the wall across the row", () => {
     render(<FoundationLead {...leadProps(cp1Entry())} />);
     expect(regions()).toEqual([
       "Earnings and debt",
@@ -37,7 +37,8 @@ describe("the composition", () => {
       "Debt stack",
       "Debt maturities",
     ]);
-    expect(spans()).toEqual(["12", "7", "5", "6", "6", "6", "6", "6"]);
+    // The wall is the last, unpaired figure: it takes the whole row.
+    expect(spans()).toEqual(["12", "7", "5", "6", "6", "6", "6", "12"]);
   });
 
   it("adds the periods tile beside the wall only for three periods (or another kind, or a gap)", () => {
@@ -74,7 +75,7 @@ describe("gaps", () => {
     render(<FoundationLead {...leadProps(dropTable(cp1Entry(), "Segment schedule"))} />);
     expect(regions()).toHaveLength(8);
     const segments = screen.getByRole("region", { name: "Segments" });
-    expect(segments.textContent).toBe("Segments · This page could not read the segment schedule.");
+    expect(segments.textContent).toBe("SegmentsThis page could not read the segment schedule.");
     expect(segments.className).not.toMatch(/gap-hatch/);
   });
 
@@ -83,10 +84,10 @@ describe("gaps", () => {
     entry = dropTable(entry, "Chart data: debt stack");
     render(<FoundationLead {...leadProps(entry)} />);
     expect(screen.getByRole("region", { name: "Interest cover" }).textContent).toBe(
-      "Interest cover · This page could not read interest cover.",
+      "Interest coverThis page could not read interest cover.",
     );
     expect(screen.getByRole("region", { name: "Debt stack" }).textContent).toBe(
-      "Debt stack · This page could not read the debt stack.",
+      "Debt stackThis page could not read the debt stack.",
     );
   });
 
@@ -94,7 +95,7 @@ describe("gaps", () => {
     render(<FoundationLead {...leadProps(edited(cp1Entry(), () => null))} />);
     expect(regions()).toEqual(["Financial foundation"]);
     expect(screen.getByRole("region").textContent).toBe(
-      "Financial foundation · This page could not read a figure of the financial foundation.",
+      "Financial foundationThis page could not read a figure of the financial foundation.",
     );
     expect(screen.queryAllByRole("img")).toHaveLength(0);
   });

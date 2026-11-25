@@ -216,19 +216,17 @@ describe("MaturityTile states (synthetic, from the module contract)", () => {
       ]),
     );
     expect(tile.textContent).toBe(
-      "Debt maturities · US$m · This page could not read the maturity wall because 2026 appears more than once.",
+      "Debt maturities · US$mThis page could not read the maturity wall because 2026 appears more than once.",
     );
     cleanup();
     // No amount and no reason stated: the page's own words.
     tile = draw(wall([["FY2026", "n/a"]]));
     expect(tile.textContent).toBe(
-      "Debt maturities · US$m · This page could not read an amount for any period of the maturity wall.",
+      "Debt maturities · US$mThis page could not read an amount for any period of the maturity wall.",
     );
     cleanup();
     tile = draw(wall([["FY2026", "1"]], []));
-    expect(tile.textContent).toBe(
-      "Debt maturities · This page could not read the debt maturities.",
-    );
+    expect(tile.textContent).toBe("Debt maturitiesThis page could not read the debt maturities.");
     expect(tile.className).not.toMatch(/gap-hatch/);
   });
 });
@@ -243,7 +241,7 @@ describe("MaturityTile: every amount is a stated gap", () => {
         ["FY2027", REASON],
       ]),
     );
-    expect(tile.textContent).toBe(`Debt maturities · US$m · ${REASON}.`);
+    expect(tile.textContent).toBe(`Debt maturities · US$m${REASON}.`);
     expect(tile.textContent).not.toMatch(/could not read an amount/);
     expect(tile.querySelector("svg")).toBeNull();
   });
@@ -256,7 +254,7 @@ describe("MaturityTile: every amount is a stated gap", () => {
       ]),
     );
     expect(tile.textContent).toBe(
-      `Debt maturities · US$m · FY2025, FY2027: ${REASON}. FY2026: Not supplied: refinancing terms pending.`,
+      `Debt maturities · US$mFY2025, FY2027: ${REASON}. FY2026: Not supplied: refinancing terms pending.`,
     );
   });
   it("uses the page's wording when one period states no reason", () => {
@@ -267,12 +265,12 @@ describe("MaturityTile: every amount is a stated gap", () => {
       ]),
     );
     expect(tile.textContent).toBe(
-      "Debt maturities · US$m · This page could not read an amount for any period of the maturity wall.",
+      "Debt maturities · US$mThis page could not read an amount for any period of the maturity wall.",
     );
   });
   it("draws a source dash as the dash", () => {
     const tile = draw(wall([["FY2025", "Not supplied: source dash"]]));
-    expect(tile.textContent).toBe("Debt maturities · US$m · —");
+    expect(tile.textContent).toBe("Debt maturities · US$m—");
   });
 });
 

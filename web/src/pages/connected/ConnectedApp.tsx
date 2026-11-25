@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { Skeleton } from "@/components/gap/Skeleton";
 import { PageHeader } from "../../shell/PageHeader";
@@ -7,6 +7,7 @@ import { askAhead, LIBRARY_ADDRESS, snapshotAddress } from "./ahead";
 import type { Mode } from "./api";
 import { COVERAGE_ADDRESS } from "./coverageData";
 import { RunReadOnly } from "./RunReadOnly";
+import { canStartRun, PreviewReport } from "./startAction";
 
 type PageFile<P> = { default: ComponentType<P> };
 
@@ -78,6 +79,8 @@ const SECTIONS: { area: Area; href: string; label?: string }[] = [
   { area: "coverage", href: "/coverage" },
   { area: "run", href: "/runs", label: "Run activity" },
 ];
+
+const START_ACTION = { href: "/start", label: "Start run" };
 
 function assign(path: string) {
   window.location.assign(path);
@@ -162,7 +165,7 @@ function CurrentPage({
   navigate: (path: string) => void;
 }) {
   if (route.kind === "library") return <ReportLibrary readOnly={readOnly} />;
-  if (route.kind === "coverage") return <Coverage />;
+  if (route.kind === "coverage") return <Coverage readOnly={readOnly} />;
   if (readOnly && route.kind === "run-list") return <RunReadOnly title="Run activity" />;
   if (readOnly && route.kind === "run") return <RunReadOnly title="Run progress" />;
   if (readOnly && route.kind === "start") return <RunReadOnly title="Start run" />;
@@ -171,7 +174,26 @@ function CurrentPage({
   if (route.kind === "run-list") return <RunActivity mode={mode} />;
   if (route.kind === "run") return <RunProgress key={route.id} id={route.id} mode={mode} />;
   if (route.kind === "report") return <ReportReader key={route.id} id={route.id} mode={mode} />;
-  return <PageHeader title="Page not found" actions={<Button href="/">Library</Button>} />;
+  return (
+    <>
+      <PageHeader
+        title="Page not found"
+        actions={
+          <>
+            <Button href="/">Open the Library</Button>
+            {!readOnly && (
+              <Button href="/runs" color="secondary">
+                Open Run activity
+              </Button>
+            )}
+          </>
+        }
+      />
+      <p className="reading-copy mt-6 max-w-3xl text-body text-text-secondary">
+        This address has no page. The link may be mistyped, or the report may have been renamed.
+      </p>
+    </>
+  );
 }
 
 export function ConnectedApp({
@@ -190,6 +212,8 @@ export function ConnectedApp({
   const route = routeOf(path);
   const prior = new URLSearchParams(search).get("from");
   const title = routeTitle(route);
+  // A page showing a retained test preview says so; the bar's action follows the pages' condition.
+  const [preview, setPreview] = useState(false);
   useEffect(() => {
     document.title = `${title} — Credit OS`;
   }, [title]);
@@ -204,16 +228,20 @@ export function ConnectedApp({
       current={current}
       sections={readOnly ? SECTIONS.slice(0, 2) : SECTIONS}
       symbol="/symbol.svg"
+      // Screen map, "On every screen": Start run is the bar's primary action, except on itself.
+      action={route.kind === "start" || !canStartRun(readOnly, preview) ? undefined : START_ACTION}
     >
-      <Suspense fallback={<LoadingPage />}>
-        <CurrentPage
-          route={route}
-          prior={prior}
-          mode={mode}
-          readOnly={readOnly}
-          navigate={navigate}
-        />
-      </Suspense>
+      <PreviewReport value={setPreview}>
+        <Suspense fallback={<LoadingPage />}>
+          <CurrentPage
+            route={route}
+            prior={prior}
+            mode={mode}
+            readOnly={readOnly}
+            navigate={navigate}
+          />
+        </Suspense>
+      </PreviewReport>
     </Shell>
   );
 }

@@ -151,3 +151,117 @@ it("matches actual run identities across punctuation without matching a ticker s
   expect(containsRunIdentifier("runXv2 accessed ABCCORP.", ids)).toBe(false);
   expect(containsRunIdentifier("See swamp-swarm-czr-dated-copy.", ids)).toBe(false);
 });
+
+// Rows as TransDigm's Financial foundation handoff wrote them (test run, as of 2024-09-30): the
+// source is named in words with its pages, as the last clause of the basis.
+const realStack: Table = {
+  type: "table",
+  line: 303,
+  headers: [
+    "Facility",
+    "Ranking",
+    "Secured",
+    "Amount",
+    "Reporting unit",
+    "Basis and limitation",
+    "Leverage note",
+  ],
+  rows: [
+    {
+      line: 305,
+      cells: [
+        "Term Loans Facility, tranches I/J/K",
+        "1",
+        "Yes",
+        "7173",
+        "US$m",
+        "June carrying value; TransDigm Inc. borrower, guaranteed senior secured credit facilities; exact subsidiary scope requires operative agreement verification; June quarterly report pages 18–19, 63–66",
+        "Not supplied: positive common LTM EBITDA",
+      ],
+    },
+    {
+      line: 312,
+      cells: [
+        "4.625% 2029 subordinated notes",
+        "2",
+        "No",
+        "1194",
+        "US$m",
+        "Same disclosed subordinated note obligor and guarantor scope; June quarterly report pages 19, 65–66",
+        "Not supplied: positive common LTM EBITDA",
+      ],
+    },
+  ],
+};
+
+it("keeps a real row's figures and qualification when its basis ends in a named report's pages", () => {
+  const { table, withheld } = printableTable(realStack);
+  expect(withheld).toBe(false);
+  expect(table.rows.map(({ cells }) => cells)).toEqual([
+    [
+      "Term Loans Facility, tranches I/J/K",
+      "1",
+      "Yes",
+      "7173",
+      "US$m",
+      "June carrying value; TransDigm Inc. borrower, guaranteed senior secured credit facilities; exact subsidiary scope requires operative agreement verification",
+      "Not supplied: positive common LTM EBITDA",
+    ],
+    [
+      "4.625% 2029 subordinated notes",
+      "2",
+      "No",
+      "1194",
+      "US$m",
+      "Same disclosed subordinated note obligor and guarantor scope",
+      "Not supplied: positive common LTM EBITDA",
+    ],
+  ]);
+});
+
+it("drops only a clause that is nothing but the citation, and still withholds a mixed one", () => {
+  expect(
+    printableBasis(
+      "Reported cash and revolving availability after USD 71m letters of credit against USD 910m commitments; securitization fully drawn; June quarterly report pages 21, 60 and 64",
+    ),
+  ).toBe(
+    "Reported cash and revolving availability after USD 71m letters of credit against USD 910m commitments; securitization fully drawn",
+  );
+  // The page sits inside the qualification's own sentence: nothing is cut, and the row is gated.
+  const mixed = printableTable({
+    ...realStack,
+    rows: [
+      {
+        line: 305,
+        cells: [
+          "Notes",
+          "1",
+          "Yes",
+          "100",
+          "US$m",
+          "Carrying value as shown on page 19 of the June report",
+        ],
+      },
+    ],
+  });
+  expect(mixed.withheld).toBe(true);
+  expect(mixed.table.rows[0]?.cells[3]).toBe("Withheld");
+});
+
+it.each([
+  ["Amount; USD 450m per report page 25"],
+  ["Carrying value; not disclosed in annual report page 5"],
+  ["Carrying value; unaudited interim financial statements pages 4–6"],
+  ["Facility size; draft credit agreement page 12"],
+])("keeps a clause that carries a value or qualifier beside its page: %s", (source) => {
+  expect(printableBasis(source)).toBe(source);
+});
+
+it.each([
+  ["Amount; June quarterly report pages 18–19, 63–66", "Amount"],
+  ["Amount; June report page 21", "Amount"],
+  ["Amount; 2023 annual report page 88", "Amount"],
+  ["Amount; Annual report page 153", "Amount"],
+])("drops a clause that is only a document name and pages: %s", (source, expected) => {
+  expect(printableBasis(source)).toBe(expected);
+});

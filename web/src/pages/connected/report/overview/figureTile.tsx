@@ -7,8 +7,11 @@ export function FigureTile({
   title,
   basis,
   trace,
+  fit = false,
   children,
 }: {
+  /** The tile ends under its own content instead of sharing the row's height. */
+  fit?: boolean;
   span: 3 | 4 | 5 | 8;
   title: string;
   basis: string;
@@ -16,8 +19,17 @@ export function FigureTile({
   children: ReactNode;
 }) {
   return (
-    // A tile takes its content's height: no stretched tile with an empty interior.
-    <Tile span={span} label={title} head="small" title={title} trace={trace} className="self-start">
+    // The tiles of a row share its height, a figure's notes at the foot (`mt-auto`), where their
+    // contents are near in height. Where one tile is far taller (`fit`), the others end under
+    // their own notes: a short figure is not stretched over a dead band.
+    <Tile
+      span={span}
+      label={title}
+      head="small"
+      title={title}
+      trace={trace}
+      className={fit ? "self-start" : undefined}
+    >
       <p className="pointer-events-none -mt-3 text-caption font-normal text-text-tertiary">
         {basis}
       </p>

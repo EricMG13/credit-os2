@@ -23,7 +23,7 @@
   --color-text-secondary: var(--color-brand-950);
   --color-text-tertiary: var(--color-brand-950);
   --color-surface-card: var(--color-white);
-  --color-surface-subtle: color-mix(in srgb, var(--color-brand-600) 4%, var(--color-white));
+  --color-surface-subtle: color-mix(in srgb, var(--color-brand-700) 4%, var(--color-white));
   --color-border-hairline: color-mix(in srgb, var(--color-brand-950) 20%, var(--color-white));
   color-scheme: light;
   background: white;
@@ -59,7 +59,7 @@
 .report-export-brand span {
   border-left: 1px solid var(--color-brand-950);
   padding-left: 0.5rem;
-  color: var(--color-brand-600);
+  color: var(--color-brand-700);
 }
 
 .report-export-paper .issuer-front-page-charts {
@@ -78,6 +78,30 @@
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
 }
 
+/* A profile with one side empty is one column: its only line sits under the heading, not beside a blank. */
+.report-export-paper .issuer-brief-company-fields > :empty {
+  display: none;
+}
+
+.report-export-paper .issuer-brief-company-fields:has(> :empty) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+ * The preview shows what prints: the capital table fits its column whatever its column count, with
+ * no scroll box hiding a column the sheet will carry.
+ */
+.report-export-paper .issuer-brief-capital div:has(> table) {
+  overflow-x: visible;
+}
+
+.report-export-paper .issuer-brief-capital :is(th, td) {
+  min-width: 0;
+  padding-inline: 0.375rem;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
 @media screen and (max-width: 850px) {
   .report-export-paper .issuer-brief-columns,
   .report-export-paper .issuer-brief-company-fields {
@@ -90,7 +114,9 @@
   margin: 9mm 11mm 17mm;
 
   @bottom-left {
-    content: var(--report-export-identity) " · " var(--report-export-scope);
+    /* Two lines on purpose: who and when, then scope and restrictions. Never one line that wraps. */
+    content: var(--report-export-identity) "\A" var(--report-export-scope);
+    white-space: pre-line;
     overflow-wrap: anywhere;
     vertical-align: middle;
     font:
@@ -120,6 +146,11 @@
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* The page ground would print as a grey block under the last line of the sheet. */
+  html:has([data-report-export]) {
+    background: white !important;
   }
 
   [data-report-export] {
@@ -233,25 +264,20 @@
     padding: 2pt 4pt;
   }
 
-  .report-export-paper .issuer-brief-capital :is(th, td):first-child {
-    width: 27%;
+  /*
+   * Sized by content, not by position: the table has as many columns as the handoff wrote, and a
+   * fixed share per position leaves any further column with no width at all.
+   */
+  .report-export-paper .issuer-brief-capital table {
+    table-layout: auto;
   }
 
-  .report-export-paper .issuer-brief-capital :is(th, td):nth-child(2) {
-    width: 20%;
+  .report-export-paper .issuer-brief-capital :is(th, td) {
+    overflow-wrap: normal;
   }
 
   .report-export-paper .issuer-brief-capital :is(th, td):nth-child(3) {
-    width: 11%;
     text-align: right;
-  }
-
-  .report-export-paper .issuer-brief-capital :is(th, td):nth-child(4):not(:last-child) {
-    width: 23%;
-  }
-
-  .report-export-paper .issuer-brief-capital :is(th, td):last-child {
-    width: 19%;
   }
 
   .report-export-paper .issuer-brief-metrics table {

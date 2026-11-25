@@ -276,6 +276,7 @@ function oneYearBefore(date: string) {
 
 const dateOf = (period: string) => /(\d{4}-\d{2}-\d{2})$/.exec(period)?.[1];
 const NO_YEAR = "No period a year earlier to compare.";
+export const ONE_PERIOD = "One period is stated, so no change is drawn.";
 
 type Earlier = { prior?: Point; why?: string };
 
@@ -286,6 +287,8 @@ type Earlier = { prior?: Point; why?: string };
  * period (by its name or its end date) is the prior.
  */
 function yearEarlier(entry: OutputEntry, latest: Point, ordered: Point[]): Earlier {
+  // One stated period has nothing to move from: say that, not that a period table is wanting.
+  if (ordered.length === 1) return { why: ONE_PERIOD };
   const table = namedTable(entry, "Period table", ["Period", "Start", "End"]);
   const [name, start, end] = ["Period", "Start", "End"].map((h) => table?.headers.indexOf(h) ?? -1);
   const cell = (row: Row, at: number | undefined) => (row.cells[at ?? -1] ?? "").trim();

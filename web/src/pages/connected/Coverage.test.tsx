@@ -141,7 +141,7 @@ test("a rank shows the figure as written with period and basis, and missing apar
   expect(within(row).getByText("Alpha plc")).toBeInTheDocument();
   expect(within(row).getByText("4.6x")).toBeInTheDocument();
   expect(within(row).getByText(/FY2025 · Issuer-adjusted EBITDA\./)).toBeInTheDocument();
-  expect(within(row).getByRole("link", { name: "View sources" })).toHaveAttribute(
+  expect(within(row).getByRole("link", { name: "Open in Evidence" })).toHaveAttribute(
     "href",
     `/report/alpha-run#evidence/alpha-run%2FCP-1.md~${SHA}-22`,
   );
@@ -181,7 +181,9 @@ test("searching module text narrows the issuers and Find lists the passage", asy
   render(<Coverage />);
   fireEvent.change(await screen.findByRole("searchbox"), { target: { value: "headroom" } });
   expect(screen.getByText("1 of 2 issuers shown")).toBeInTheDocument();
-  expect(screen.getByText("Covenant headroom is thin.")).toBeInTheDocument();
+  // The searched word is marked; the passage read through is exactly as written.
+  const passage = screen.getByText("headroom", { selector: "mark" }).closest("p");
+  expect(passage).toHaveTextContent(/^Covenant headroom is thin\.$/);
   expect(screen.getByText("Waiver risk")).toBeInTheDocument();
   expect(window.location.search).toContain("q=headroom");
 });
@@ -291,10 +293,51 @@ test("a retained test preview says so, as the Library does", async () => {
   expect(await screen.findByText("Retained preview of one run.")).toBeInTheDocument();
 });
 
-test("nothing published is said plainly", async () => {
+test("nothing published is said plainly, with the one action that fixes it", async () => {
   answer(null);
   render(<Coverage />);
   expect(await screen.findByText("No published runs yet")).toBeInTheDocument();
+  expect(screen.getAllByRole("link", { name: "Start a run" })).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "Start a run" })).toHaveAttribute("href", "/start");
+});
+
+test("a read-only page with nothing published offers the Library, never a run", async () => {
+  answer(null);
+  render(<Coverage readOnly />);
+  expect(await screen.findByRole("link", { name: "Open the Library" })).toHaveAttribute(
+    "href",
+    "/",
+  );
+  expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
+});
+
+test("with issuers listed the page draws no run action of its own: the top bar carries Start run", async () => {
+  answer(data);
+  render(<Coverage />);
+  await screen.findByRole("table");
+  expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
+});
+
+test("an empty test preview offers the Library, never a run", async () => {
+  answer({ ...data, issuers: [], preview: { reason: "Retained preview of one run." } });
+  render(<Coverage />);
+  expect(await screen.findByRole("link", { name: "Open the Library" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
+});
+
+test("the filter disclosure shows that it opens, and compare controls appear only once an issuer is ticked", async () => {
+  answer(data);
+  render(<Coverage />);
+  await screen.findByRole("table");
+  const summary = screen.getByText(/^More filters/, { selector: "summary" });
+  expect(summary.querySelector("svg")).toHaveClass("group-open:rotate-90");
+  expect(summary.closest("details")).toHaveClass("group");
+  expect(screen.queryByRole("group", { name: "Compare" })).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Compare Alpha plc" }));
+  const compare = screen.getByRole("group", { name: "Compare" });
+  expect(compare.closest("details")).toBeNull();
+  expect(within(compare).getByText("1 issuer ticked to compare")).toBeVisible();
+  expect(within(compare).getByRole("textbox", { name: "Save ticked issuers as" })).toBeVisible();
 });
 
 test("an unreadable bound shows as an error chip and a marked summary with the disclosure closed", async () => {
@@ -694,7 +737,28 @@ test("the trend view draws the figure by period, and only ticked issuers can be 
     within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Modules" }),
   );
   fireEvent.click(screen.getByRole("checkbox", { name: "Compare Beta SA" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: /Only the 1 issuers ticked/ }));
+  expect(screen.getByText("1 issuer ticked to compare")).toBeVisible();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show only ticked issuers" }));
   expect(screen.getByText("1 of 2 issuers shown")).toBeInTheDocument();
   expect(window.location.search).not.toContain("view=");
+});
+
+test("a module code in a figure's label or stated heading is drawn as the module's name", async () => {
+  const [figure, ...rest] = data.facts;
+  const [lev, ...others] = data.fields;
+  if (!figure || !lev) throw new Error("fixture");
+  answer({
+    ...data,
+    fields: [{ ...lev, group: "CP-1 leverage", label: "Net debt / EBITDA per CP-2" }, ...others],
+    facts: [{ ...figure, heading: "As CP-1 states it" }, ...rest],
+  });
+  window.history.replaceState(null, "", "/coverage?view=rank");
+  const { container } = render(<Coverage />);
+  expect(
+    await screen.findByRole("heading", {
+      name: "Net debt / EBITDA per Fundamental credit, FY2025, ranked",
+    }),
+  ).toBeVisible();
+  expect(screen.getByText(/Stated as As Financial foundation states it/)).toBeVisible();
+  expect(container.innerHTML).not.toMatch(/>[^<]*CP-\d|aria-label="[^"]*CP-\d|title="[^"]*CP-\d/);
 });

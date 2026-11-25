@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { DeltaBar, DotStrip, Ruler, Slope, SplitBar, type Mark, type Slot } from "./marks";
+import { DeltaBar, Ruler, Slope, SplitBar, type Mark, type Slot } from "./marks";
 import { measuredAt } from "./resize.fixture";
 import { outside, overprinted, struck, tooSmall } from "./svgText.fixture";
 
@@ -42,13 +42,6 @@ describe("large marks drawn smaller than their viewBox", () => {
     render(<Slope marks={marks} tone="better" suffix="x" label="Slope" />);
     values(readable(width, "line"), ["3.10x", "3.75x", "3.00x", "2.80x"]);
   });
-
-  it.each([300, 345])("keep the dot strip's text at least 12 px at %i px", (width) => {
-    at(width);
-    const marks = slots("x", ["FY2023 / 2023-09-30", 3.0], ["FY2024 / 2024-09-30", 2.25]);
-    render(<DotStrip marks={marks} tone="better" suffix="x" label="Strip" />);
-    values(readable(width), ["3.00x", "2.25x"]);
-  });
 });
 
 describe("small marks drawn smaller than their viewBox", () => {
@@ -89,5 +82,41 @@ describe("small marks drawn smaller than their viewBox", () => {
       />,
     );
     values(readable(width), ["US$275m", "US$400m"]);
+  });
+});
+
+describe("the delta bar's changed part takes a direction's ink only when one is stated", () => {
+  const changed = () => screen.getByRole("img").querySelectorAll("rect")[1];
+  const draw = (from: number, to: number, tone: "better" | "worse" | "flat" | "none") => {
+    at(200);
+    render(
+      <DeltaBar
+        from={mark("FY2023", from, String(from))}
+        to={mark("FY2024", to, String(to))}
+        tone={tone}
+        label="Delta"
+      />,
+    );
+    return changed();
+  };
+
+  it.each(["none", "flat"] as const)("draws a fall with tone %s in neutral ink", (tone) => {
+    const part = draw(300, 275, tone);
+    expect(part).toHaveClass("fill-surface-subtle", "stroke-border-gap");
+    expect(part?.getAttribute("class")).not.toMatch(/warning/);
+  });
+
+  it("draws a fall the caller states as worse in signal ink", () => {
+    expect(draw(300, 275, "worse")).toHaveClass("fill-warning-fill", "stroke-warning-mark");
+  });
+
+  it("draws a fall the caller states as better in the accent, never in signal ink", () => {
+    const part = draw(300, 275, "better");
+    expect(part).toHaveClass("fill-success-fill", "stroke-chart-1");
+    expect(part?.getAttribute("class")).not.toMatch(/warning/);
+  });
+
+  it("draws a rise the caller states as worse in signal ink", () => {
+    expect(draw(275, 300, "worse")).toHaveClass("fill-warning-mark", "stroke-warning-mark");
   });
 });

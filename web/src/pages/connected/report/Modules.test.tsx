@@ -33,7 +33,9 @@ function fixture(outputs: OutputEntry[]) {
 it("defaults to financial foundation and the designated output, retaining alternate trace identity", () => {
   const props = fixture([output("a"), output("b", true)]);
   const { rerender } = render(<Modules {...props} />);
-  expect(screen.getByRole("heading", { name: "Financial foundation" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { level: 2, name: "Financial foundation" }),
+  ).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Open Evidence" })).toHaveAttribute(
     "href",
     `/report/retained%20case#evidence/b~${"b".repeat(64)}`,
@@ -248,7 +250,7 @@ it("skips no heading level on a module page that draws a relationship map", () =
     ],
   };
   const { container } = render(<Modules {...fixture([entry])} />);
-  expect(screen.getByRole("heading", { name: "credit-risk transmission" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Credit-risk transmission" })).toBeInTheDocument();
   const levels = Array.from(container.querySelectorAll("h1,h2,h3,h4,h5,h6"), (node) =>
     Number(node.tagName.slice(1)),
   );

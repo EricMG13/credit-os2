@@ -22,6 +22,7 @@ const DASH: Record<string, string> = {
   Dashed: "6 4",
   Dotted: "1.5 4",
   "Dash-dot": "8 4 1.5 4",
+  "Long-dashed": "12 4",
 };
 
 describe("SERIES", () => {

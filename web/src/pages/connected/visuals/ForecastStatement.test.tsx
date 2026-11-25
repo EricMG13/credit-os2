@@ -396,6 +396,7 @@ it("groups the rows by their bands, with ratios and growth in the same table as 
   expect(within(credit).getByRole("cell", { name: "5.65x" })).toBeInTheDocument();
   expect(within(credit).getByRole("rowheader", { name: "Interest cover" })).toBeInTheDocument();
   expect(screen.queryByRole("radiogroup")).toBeNull();
+  expect(screen.queryByRole("group", { name: /figure or table/u })).toBeNull();
   expect(screen.queryByRole("combobox")).toBeNull();
   expect(screen.queryByText("USD millions")).toBeNull();
 });

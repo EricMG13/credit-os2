@@ -73,7 +73,9 @@ it("draws the figure first and its table behind a pressed Figure / Table switch"
   expect(within(tile).getByRole("cell", { name: "900" })).toBeVisible();
 });
 
-it("draws a gap in place of the figure with the reason only, compact", () => {
+// Screen review F4: one tile-level gap for every lead, the screen map's: the titled tile holding
+// the hatched gap note in the figure's place (the kit's `GapTile` draws the same).
+it("draws a gap in place of the figure as the gap note, with the reason only", () => {
   render(
     <LeadGap
       span={4}
@@ -85,8 +87,10 @@ it("draws a gap in place of the figure with the reason only, compact", () => {
   const tile = screen.getByRole("region", { name: "Revenue mix" });
   const reason = within(tile).getByText("The handoff states the mix only in words.");
   expect(reason).toBeVisible();
-  expect(reason).not.toHaveClass("min-h-24");
-  expect(reason).not.toHaveClass("gap-hatch");
+  expect(reason.parentElement).toHaveClass("gap-hatch", "border-dashed");
+  expect(within(tile).getByRole("heading", { level: 3, name: "Revenue mix" })).toBeVisible();
+  // No way on is drawn where the page gives none (the module page provides it).
+  expect(within(tile).queryByRole("link")).toBeNull();
   expect(tile).toHaveClass("self-start");
   expect(tile.textContent).not.toMatch(/Needs|methodology|contract/);
   expect(within(tile).queryByText("0")).toBeNull();
@@ -317,8 +321,19 @@ it("draws one gap chip with the reason, never a double colon", () => {
 it("lists named values as a two-column list", () => {
   render(<KeyValues items={[{ key: "Feasibility", value: "High" }]} />);
   const list = screen.getByRole("term").closest("dl");
-  expect(list).toHaveClass("grid-cols-[auto_minmax(0,1fr)]");
+  expect(list).toHaveClass("grid-cols-[fit-content(55%)_minmax(0,1fr)]");
   expect(screen.getByRole("definition")).toHaveTextContent("High");
+});
+
+// Review F1: with an `auto` label column a long label ("What the assumption leaves out") took the
+// whole width of a narrow tile and the value, which may break anywhere, was set a letter a line.
+it("bounds the label column so a long label never leaves the value no width", () => {
+  render(
+    <KeyValues items={[{ key: "What the assumption leaves out", value: "Working capital" }]} />,
+  );
+  const list = screen.getByRole("term").closest("dl");
+  expect(list?.className).not.toMatch(/grid-cols-\[auto_/);
+  expect(screen.getByRole("term")).toHaveClass("wrap-anywhere");
 });
 
 it("lays a map's nodes in columns by depth, a loop edge not moving them", () => {
@@ -436,6 +451,37 @@ it("draws a two-node map in a tile too narrow for columns as the vertical flow, 
   expect(list).not.toHaveClass("sr-only");
   expect(within(list).getByText("Hold security over")).toBeInTheDocument();
   expect(within(list).getByText("Security")).toBeInTheDocument();
+});
+
+// Real output (TransDigm, operating model to credit): relationships are clauses, not one word. On
+// a connector they wrapped to three lines and ran over the next connector's words and edge type.
+it("draws a map whose relationships are clauses as the flow, even in a tile wide enough for columns", () => {
+  measured(1200);
+  const { container } = render(
+    <NodeList
+      label="Operating model to credit"
+      edges={[
+        edge(
+          "Customized proprietary products",
+          "Pricing and margin resilience",
+          1,
+          "Supports product differentiation",
+          "Management Language",
+        ),
+        edge(
+          "Flight-hour exposure",
+          "Aftermarket revenue sensitivity",
+          2,
+          "Lower utilization reduces replacement demand",
+          "Analyst Interpretation",
+        ),
+      ]}
+    />,
+  );
+  expect(container.querySelector("[data-map-columns]")).toBeNull();
+  const list = screen.getByRole("list", { name: "Operating model to credit" });
+  expect(list).not.toHaveClass("sr-only");
+  expect(within(list).getByText("Lower utilization reduces replacement demand")).toBeVisible();
 });
 
 it("lays a deep map in columns only when they fit the tile, each connector with its relationship and type", () => {
@@ -640,5 +686,5 @@ it("lays named values key above value when asked, for long keys", () => {
   );
   const list = screen.getByRole("term").closest("dl");
   expect(list).toHaveClass("grid-cols-1");
-  expect(list).not.toHaveClass("grid-cols-[auto_minmax(0,1fr)]");
+  expect(list).not.toHaveClass("grid-cols-[fit-content(55%)_minmax(0,1fr)]");
 });
