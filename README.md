@@ -28,15 +28,13 @@ Excel workbooks are analysis inputs only; they are not deliverables.
 
 ## Signal
 
-Signal is a separate feed service. It is an API and an ingest loop; it serves no page. It makes no model call unless the owner has made a standing ruling for it (`docs/rulings/`), set a monthly cap (`signal ai cap`) and supplied the model adapter's key in the launching environment; only then do the AI pass over new stories and the digest writer call the provider, and only from the service's background loop and the owner's `signal ai pass` command (one pass over the new stories), never when a page is read. Without all three the feed, groups and topics work, no story carries an AI line and digests are paused.
+Signal is a shared feed of external research: stories, groups and topics, an issuer watchlist and digests. In live mode the application hosts it: the one `python -m react_frontend` command above answers Signal's requests under `/signal/api/` and runs Signal's background loop (fetching the sources the owner approved) on the same port, and the Signal screens are in the application's navigation. There is no second command and no second address. Signal is not hosted in the read-only preview or in synthetic mode, and there the application shows no Signal screen.
+
+Signal makes no model call unless the owner has made a standing ruling for it (`docs/rulings/`), set a monthly cap (`signal ai cap`) and supplied the model adapter's key in the launching environment. The application's environment already carries that key for analysis runs, so the AI pass over new stories and the digest writer run in the hosted loop only when the launching environment also sets `CREDIT_OS_SIGNAL_AI=1` (exactly `1`). Without it the loop is given no key and the AI pass is off: the feed, groups and topics work, no story carries an AI line and digests are paused. Either way no model call is made when a page is read. The owner's `signal ai pass` command (one pass over the new stories) is unchanged and does not need the switch.
 
 Signal also keeps an issuer watchlist (issuers tied to stories by name, alias and SEC filings) and writes one deterministic market backdrop post a day from FRED's public CSV. Both new sources are owner-approved on the command line, and filings are fetched only after the owner sets the contact the SEC requires (`signal filings contact`); see `docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md`.
 
-```sh
-uv run python -m deploy_workflow.signal --root /path/to/workflow-folder serve --host 127.0.0.1 --port 8766
-```
-
-The Signal screens are in the React application. Start `react_frontend` with `--signal-url http://<address>:8766/` (the address and port at which Signal is served) to show them: the application adds Signal to its navigation and passes the screens' requests to the service. Without `--signal-url` no Signal screen is shown. The `Start signal.cmd` entry point in the retained Windows runtime package starts the same service.
+The owner administers Signal from the command line with the other commands of `python -m deploy_workflow.signal --root /path/to/workflow-folder` (`users`, `sources`, `topics`, `ingest`, `stories`, `threads`, `comments`, `groups`, `digests`, `ai`, `issuers`, `filings`, `market`, `logos`; add `--help` for each). It has no `serve` command.
 
 ## Project references
 

@@ -4,6 +4,8 @@
 > by the React Signal screens (`web/src/pages/signal/`), shown by `react_frontend` when it is started
 > with `--signal-url`. The Signal service is now API-only (`GET /api/snapshot` and the feed routes)
 > with its ingest loop. The rest of this spec is unchanged.
+>
+> Note, 2026-11-25: `--signal-url` and the separate service no longer exist; see the note at 5.1.
 
 Status: draft for owner approval, 2026-11-13. Mockup: `docs/design/mockups/signal.html`
 (invented sample content; open it in a browser, "Signal settings" switches views).
@@ -85,6 +87,13 @@ for B's library.
 ## 5. Design
 
 ### 5.1 Shape
+
+> Note, 2026-11-25: `docs/superpowers/specs/2026-11-25-signal-one-process.md` replaces "a separate
+> service" below. Signal is hosted by the application's process (`python -m react_frontend`, live
+> mode): one start command and one port, no `--signal-url`, no `serve` command in
+> `python -m deploy_workflow.signal`, no run start Signal link and no `Start signal.cmd` in the
+> Windows package (5.2 and the later text on a separate start are superseded the same way). The
+> text below is the 2026-11-13 design, kept as written.
 
 A separate service, `python -m deploy_workflow.signal --root <root> --host <address> --port
 <port>` **(call)**, in the style of `deploy_workflow.run_start.service`: standard-library HTTP

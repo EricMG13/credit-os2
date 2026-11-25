@@ -288,8 +288,8 @@ numeral is animated (ruling 6).
 ### 3.4 Signal
 
 Signal is a page of the connected application: it is drawn at `/signal`, under the same top bar
-as every other area, from its service (since 2026-11-24), where the server is started with
-`--signal-url`. It is not a separate page. The open-from-disk rule and its gate (ruling 9) cover
+as every other area, from Signal's routes (since 2026-11-24), where the server hosts Signal (live mode; not the
+read-only preview or synthetic mode). It is not a separate page. The open-from-disk rule and its gate (ruling 9) cover
 the design-reference app, which draws the same screens on `web/fixtures/signal.json`.
 Parts that need paid model calls are marked "needs ruling".
 
