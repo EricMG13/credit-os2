@@ -227,9 +227,8 @@ function useOwnComments(
   const [editing, setEditing] = useState<OwnComments["editing"]>(null);
   const [removing, setRemoving] = useState<SignalComment | null>(null);
   // A removed comment has no Remove to go back to: the reply box takes focus, or the panel.
-  const opener = useOpener(
-    () => box.current ?? document.getElementById(TITLE_ID)?.closest<HTMLElement>("[role='dialog']"),
-  );
+  const panel = () => document.getElementById(TITLE_ID)?.closest<HTMLElement>("[role='dialog']");
+  const opener = useOpener(() => box.current ?? panel(), panel);
   if (actions === null) return { own: null, confirm: null };
   const own: OwnComments = {
     editing,
@@ -260,7 +259,11 @@ function useOwnComments(
   const remove = (comment: SignalComment) => {
     refuse("");
     return actions.write(writes.dropComment(comment.id)).then(({ refusal }) => {
-      if (refusal === null) say("Comment removed");
+      if (refusal === null) {
+        // The comment's Remove goes with it: when the question closes, focus stays in the thread.
+        opener.forget();
+        say("Comment removed");
+      }
       // A refusal stays in the question, as a group's delete does: the dialog says it, Cancel closes.
       return refusal;
     });
