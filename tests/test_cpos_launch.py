@@ -1755,10 +1755,10 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 # 2026-11-25 (owner ruling R12, the credit screening): a new row, not a change to any other.
 # Measured on this file's input: CP-0 75,257, CP-1 59,045, CP-DR 72,504, CP-L10 120,540 (its
 # five-screen method, 104,782 characters, and the 20-register rules), total 327,346; ceiling
-# 330,000, the measured total plus the 0.8% the lite and short rows carry. The other ceilings are
-# unchanged.
+# 346,500, the measured total rounded up to the next 10,000 plus 5% (as for deep_credit_assessment
+# above). The other ceilings are unchanged.
 INSTRUCTION_BUDGET = {
-    "credit_screening": 330_000,
+    "credit_screening": 346_500,
     "deep_credit_assessment": 1_903_059,
     "lite_credit_assessment": 682_393,
     "credit_snapshot": 1_667_319,
@@ -1801,14 +1801,21 @@ def test_every_pathway_runs_end_to_end_to_a_verified_report(tmp_path, provider, 
         ).plan.layout.routes
     )
     # CP-2G after CP-1 must write a forecast block; the declined one publishes no model.
-    provider.answer = lambda context: (
-        forecast_answer(context, routes, REAL_DECLINED_BLOCK)
-        if context["module_id"] == "CP-2G"
-        else answer(context, routes)
-    )
+    sent: dict[str, list[str]] = {}
+
+    def respond(context):
+        sent[context["module_id"]] = sorted(context["handoffs"])
+        if context["module_id"] == "CP-2G":
+            return forecast_answer(context, routes, REAL_DECLINED_BLOCK)
+        return answer(context, routes)
+
+    provider.answer = respond
     assert main(argv) == 0
     out = tmp_path / "out"
     assert_called(provider, PATHWAY_MODULES[pathway])
+    if pathway == "credit_screening":
+        # The launcher's producer join, not a hand-built context: CP-L10 is sent CP-DR's handoff.
+        assert "CP-DR" in sent["CP-L10"], sent["CP-L10"]
     receipt = next((out / "deliveries").glob("*/delivery.json"))
     assert verify_delivery(next(out.glob("delivery-*.json")), receipt.parent) == receipt
     assert str(receipt) in capsys.readouterr().out

@@ -277,7 +277,8 @@ def test_the_launcher_sends_back_a_missing_register_and_a_missing_column_in_cred
 
     def raised(pathway: str, text: str) -> list[str]:
         screened = dataclasses.replace(task, run=task.run.model_copy(update={"pathway": pathway}))
-        return check(screened, text.encode())  # type: ignore[return-value]
+        issues: list[str] = list(check(screened, text.encode()))
+        return issues
 
     for words, text in cases.items():
         assert [i for i in raised(PATHWAY, text) if words in i], words

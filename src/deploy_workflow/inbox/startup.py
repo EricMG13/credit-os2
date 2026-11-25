@@ -23,11 +23,15 @@ ROOT = Path(__file__).resolve().parents[3]
 STANDING_RULING = ROOT / "docs/rulings/2026-11-11-run-start-submit.md"
 
 
+LAYER_1_RULING = "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
+CREDIT_SCREENING_CAP_RULING = "docs/rulings/2026-11-25-deliverables-and-recommendations.md"
+
 # The caps the owner ruled, USD per run (docs/rulings/2026-11-15-pathway-tiers-and-caps.md; Lite,
 # Full and Deep raised on 2026-11-25, "raise cap to 20/30/50",
-# docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md), written here a second time on
-# purpose: start-up refuses a `PATHWAY_CAP_USD` entry above its figure here (or with none), so
-# raising a cap takes a ruling and two deliberate edits.
+# docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md; the credit screening's USD 10 is
+# ruled in docs/rulings/2026-11-25-deliverables-and-recommendations.md), written here a second
+# time on purpose: start-up refuses a `PATHWAY_CAP_USD` entry above its figure here (or with
+# none), so raising a cap takes a ruling and two deliberate edits.
 RULED_CAPS_USD: dict[str, int] = {
     "lite_credit_assessment": 20,
     "credit_snapshot": 30,
@@ -96,12 +100,11 @@ def check_launchable(ruling: Path) -> None:
     for pathway, cap in PATHWAY_CAP_USD.items():
         ruled = RULED_CAPS_USD.get(pathway)
         if ruled is None or not cap.is_finite() or cap > ruled:
+            cited = CREDIT_SCREENING_CAP_RULING if pathway == "credit_screening" else LAYER_1_RULING
             raise StartupRefused(
-                f"the {pathway} cap USD {cap} is above the ruled USD {ruled} of "
-                "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
+                f"the {pathway} cap USD {cap} is above the ruled USD {ruled} of {cited}"
                 if ruled is not None
-                else f"the {pathway} cap USD {cap} has no ruled figure in "
-                "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
+                else f"the {pathway} cap USD {cap} has no ruled figure in {cited}"
             )
     if ruling.resolve() != STANDING_RULING.resolve():
         raise StartupRefused(

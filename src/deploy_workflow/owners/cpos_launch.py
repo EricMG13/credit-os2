@@ -295,6 +295,8 @@ __all__ = [
 ]
 
 ROOT = Path(__file__).resolve().parents[3]
+LAYER_1_RULING = "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
+CREDIT_SCREENING_CAP_RULING = "docs/rulings/2026-11-25-deliverables-and-recommendations.md"
 HTML_SUFFIXES = frozenset({".htm", ".html"})
 # Converted to text pages, pinned as ``<name>.jsonl``: HTML filings and Word documents.
 CONVERTED_SUFFIXES = HTML_SUFFIXES | {".docx"}
@@ -1641,9 +1643,9 @@ def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal:
     if asked is None:
         return ceiling
     if asked > ceiling:
+        ruling = CREDIT_SCREENING_CAP_RULING if pathway == "credit_screening" else LAYER_1_RULING
         raise LaunchRefused(
-            f"--cap {asked}: above the {pathway} cap of USD {ceiling} "
-            "(docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md); "
+            f"--cap {asked}: above the {pathway} cap of USD {ceiling} ({ruling}); "
             "a lower cap is allowed"
         )
     return asked

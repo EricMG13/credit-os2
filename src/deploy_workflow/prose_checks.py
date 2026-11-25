@@ -1210,6 +1210,16 @@ KEY_FIGURES_HEADING = "### Key figures"
 KEY_FIGURES_HEADER = ["Measure", "Value", "Period", "Source"]
 
 
+def _tables_under(lines: list[str], start: int) -> list[list[list[str]]]:
+    """The tables in the rows after line `start` up to the next heading."""
+    section: list[str] = []
+    for line in lines[start + 1 :]:
+        if re.match(r"#{1,6}\s", line):
+            break
+        section.append(line)
+    return _tables("\n".join(section))
+
+
 def key_figures_issues(text: str, cp1: str) -> tuple[str, ...]:
     """CP-L10's Key figures: exactly one table with the columns `Measure | Value | Period |
     Source`, and every figure of a Value cell held in the CP-1 handoff with the same sign, unit
@@ -1219,12 +1229,7 @@ def key_figures_issues(text: str, cp1: str) -> tuple[str, ...]:
     start = next((i for i, line in enumerate(lines) if line.strip() == KEY_FIGURES_HEADING), None)
     if start is None:
         return ()  # the report selector check names a missing section
-    section: list[str] = []
-    for line in lines[start + 1 :]:
-        if re.match(r"#{1,6}\s", line):
-            break
-        section.append(line)
-    tables = _tables("\n".join(section))
+    tables = _tables_under(lines, start)
     if not tables or any(t[0] != KEY_FIGURES_HEADER for t in tables):
         header = "`| Measure | Value | Period | Source |`"
         return (f"Key figures: the table header must be exactly {header}.",)
@@ -1270,12 +1275,7 @@ def screen_table_issues(text: str) -> tuple[str, ...]:
         if start is None:
             issues.append(f"`### {title}` is missing: write that screen's reader table under it.")
             continue
-        section: list[str] = []
-        for line in lines[start + 1 :]:
-            if re.match(r"#{1,6}\s", line):
-                break
-            section.append(line)
-        tables = _tables("\n".join(section))
+        tables = _tables_under(lines, start)
         if not tables:
             issues.append(f"`### {title}` has no table: write the screen's reader table under it.")
         elif any(t[0] != SCREEN_HEADER for t in tables):

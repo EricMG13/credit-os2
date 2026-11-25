@@ -114,7 +114,8 @@ PATHWAY_MODULES: Mapping[PathwayId, tuple[str, ...]] = MappingProxyType(_PRESETS
 # pathways: Deep max $40, Full $25 and Lite $15"; the five purpose pathways keep the USD 20 of
 # ruling 2026-11-11-run-start-submit). Ruling 2026-11-15-pathway-tiers-and-caps. Owner, 2026-11-25:
 # "raise cap to 20/30/50": Lite USD 20, Full 30, Deep 50; the others stay at USD 20 (ruling
-# 2026-11-25-layer-1-in-all-assessment-pathways).
+# 2026-11-25-layer-1-in-all-assessment-pathways); the credit screening's USD 10 is ruled in
+# 2026-11-25-deliverables-and-recommendations.
 _CAPS_USD: dict[PathwayId, Decimal] = {
     "lite_credit_assessment": Decimal(20),
     "credit_snapshot": Decimal(30),

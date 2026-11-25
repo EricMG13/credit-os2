@@ -503,3 +503,22 @@ def test_evidence_reaches_all_twenty_registers_and_the_sources(screening_library
     assert _section(sections, "Sources")["blocks"]
     assert [s["name"] for s in run["evidence"]["sources"]] == ["harbourline_annual_report.txt"]
     assert {h["module"] for h in run["evidence"]["handoffs"]} == set(PATHWAY_MODULES[PATHWAY])
+
+
+CAP_RULING = "docs/rulings/2026-11-25-deliverables-and-recommendations.md"
+LAYER_1_RULING = "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
+
+
+def test_the_credit_screening_cap_refusals_cite_the_ruling_that_holds_the_figure(monkeypatch):
+    """Review finding L1: the USD 10 figure is in R12's ruling, so a refusal of that cap cites it
+    and not the layer-1 ruling, which has no credit screening cap. Other pathways keep theirs."""
+    with pytest.raises(cpos_launch.LaunchRefused) as launch:
+        cpos_launch.run_cap("credit_screening", Decimal(11))
+    caps = {**startup.PATHWAY_CAP_USD, "credit_screening": Decimal(11)}
+    monkeypatch.setattr(startup, "PATHWAY_CAP_USD", caps)
+    with pytest.raises(startup.StartupRefused) as start:
+        startup.check_launchable(startup.STANDING_RULING)
+    for message in (str(launch.value), str(start.value)):
+        assert CAP_RULING in message and LAYER_1_RULING not in message
+    with pytest.raises(cpos_launch.LaunchRefused, match=LAYER_1_RULING):
+        cpos_launch.run_cap("credit_snapshot", Decimal(31))
