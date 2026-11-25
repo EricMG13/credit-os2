@@ -1,10 +1,9 @@
 """The shared HTTP base, driven directly through a toy service over real sockets.
 
-Scope: ``deploy_workflow.http_base`` alone. The toy service is started twice (``plain`` with the
-parameters the run start service sets, ``strict`` with every parameter the base offers set: a
-ceiling per address, a connection deadline, headers on every response, a lost body answered),
-so every shared check is exercised under both. The last test pins the parameters the run start
-service, the one real service on this base, passes.
+Scope: ``deploy_workflow.http_base`` alone. The toy service sets the parameters the run start
+service sets (the connection ceiling and a logger), so every shared check is exercised as that
+service runs it. The last test pins the parameters the run start service, the one real service on
+this base, passes.
 """
 
 from __future__ import annotations
@@ -29,14 +28,10 @@ LIMIT = 64  # bytes of JSON the toy accepts
 
 
 class _Plain(http_base.Server):
-    most = (64, None)
+    most = 64
 
-    def connection_limits(self) -> tuple[int, int | None]:
+    def connection_limits(self) -> int:
         return self.most
-
-
-class _Strict(_Plain):
-    most = (64, 2)
 
 
 class _PlainHandler(http_base.Handler):
@@ -61,25 +56,9 @@ class _PlainHandler(http_base.Handler):
     do_POST = do_HEAD = do_GET
 
 
-class _StrictHandler(_PlainHandler):
-    response_headers = (("Content-Security-Policy", "default-src 'none'"), ("X-Extra", "1"))
-    deadline = 30.0
-
-    def connection_deadline(self) -> float:
-        return self.deadline
-
-    def read_body(self, length: int) -> bytes:
-        try:
-            return self.rfile.read(length)
-        except OSError:
-            raise refuse(400, "the request body did not arrive") from None
-
-
 class Toy:
-    def __init__(self, kind: str) -> None:
-        self.kind = kind
-        server, handler = (_Strict, _StrictHandler) if kind == "strict" else (_Plain, _PlainHandler)
-        self.server = server(("127.0.0.1", 0), handler)
+    def __init__(self) -> None:
+        self.server = _Plain(("127.0.0.1", 0), _PlainHandler)
         self.port = self.server.server_address[1]
         self.host = f"127.0.0.1:{self.port}"
         threading.Thread(target=self.server.serve_forever, args=(0.02,), daemon=True).start()
@@ -109,9 +88,9 @@ def parse(answer: bytes) -> tuple[int, dict[str, str], bytes]:
     return int(first.split()[1]), headers, body
 
 
-@pytest.fixture(params=["plain", "strict"])
-def toy(request: pytest.FixtureRequest) -> Iterator[Toy]:
-    made = Toy(request.param)
+@pytest.fixture
+def toy() -> Iterator[Toy]:
+    made = Toy()
     yield made
     made.server.shutdown()
     made.server.server_close()
@@ -137,14 +116,12 @@ def test_a_request_is_served_and_carries_the_fixed_headers(toy):
     assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
     assert headers["Server"].strip() == "Toy"  # no Python version
     assert headers["Content-Length"] == "4"
-    assert ("X-Extra" in headers) == (toy.kind == "strict")
 
 
 def test_the_headers_every_response_carries_come_in_a_fixed_order(toy):
     names = list(toy.ask("GET", "/nothing")[1])
     fixed = ["X-Content-Type-Options", "Cross-Origin-Resource-Policy"]
-    extra = ["Content-Security-Policy", "X-Extra"] if toy.kind == "strict" else []
-    assert names[-len(fixed + extra) :] == fixed + extra
+    assert names[-len(fixed) :] == fixed
 
 
 @pytest.mark.parametrize("target", ["http://evil.example/", "*", "evil.example:80", "//x"[1:2]])
@@ -300,7 +277,6 @@ def test_the_replies_http_server_writes_itself_carry_the_headers(toy, request_by
     assert got == status
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
-    assert ("Content-Security-Policy" in headers) == (toy.kind == "strict")
 
 
 def test_an_http_09_request_line_is_closed_with_no_reply(toy):
@@ -395,7 +371,7 @@ def test_a_body_that_is_not_one_json_value_is_400(toy, body):
     assert error(post(toy, body, str(len(body)))) == (400, "the request body is not valid JSON")
 
 
-def test_a_body_that_stalls_is_dropped_or_refused_by_parameter(toy, monkeypatch, caplog):
+def test_a_body_that_stalls_is_dropped_with_no_reply(toy, monkeypatch, caplog):
     monkeypatch.setattr(_PlainHandler, "timeout", 0.3)
     head = f"POST /echo HTTP/1.1\r\nHost: {toy.host}\r\nOrigin: http://{toy.host}\r\n"
     with (
@@ -406,12 +382,9 @@ def test_a_body_that_stalls_is_dropped_or_refused_by_parameter(toy, monkeypatch,
         answer = b""
         while chunk := sock.recv(65536):
             answer += chunk
-    if toy.kind == "strict":
-        assert error(parse(answer)) == (400, "the request body did not arrive")
-    else:
-        assert answer == b""  # ClientGone: no reply, one info line, no error
-        assert "connection lost" in caplog.text
-        assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert answer == b""  # ClientGone: no reply, one info line, no error
+    assert "connection lost" in caplog.text
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
 
 
 # -- connections ------------------------------------------------------------------------------
@@ -426,7 +399,7 @@ def closed(sock: socket.socket, within: float) -> bool:
 
 
 def test_connections_beyond_the_ceiling_are_closed_and_slots_are_returned(toy, monkeypatch):
-    monkeypatch.setattr(type(toy.server), "most", (2, None))
+    monkeypatch.setattr(type(toy.server), "most", 2)
     held = [socket.create_connection(("127.0.0.1", toy.port)) for _ in range(2)]
     server = cast(http_base.Server, toy.server)
     try:
@@ -444,47 +417,7 @@ def test_connections_beyond_the_ceiling_are_closed_and_slots_are_returned(toy, m
     while server.active_connections:
         assert time.monotonic() < deadline
         time.sleep(0.01)
-    assert server._per_address == {}  # nothing is left counted for the address
     assert toy.ask("GET", "/")[0] == 200
-
-
-def test_the_ceiling_per_address_applies_only_where_it_is_set(toy):
-    held = [socket.create_connection(("127.0.0.1", toy.port)) for _ in range(2)]
-    try:
-        time.sleep(0.3)
-        with socket.create_connection(("127.0.0.1", toy.port)) as extra:
-            extra.sendall(f"GET / HTTP/1.1\r\nHost: {toy.host}\r\n\r\n".encode())
-            answer = extra.recv(65536)
-        assert (answer == b"") == (toy.kind == "strict")  # strict allows two per address
-    finally:
-        for sock in held:
-            sock.close()
-
-
-def test_a_trickling_connection_is_cut_only_where_a_deadline_is_set(toy, monkeypatch, caplog):
-    monkeypatch.setattr(_StrictHandler, "deadline", 0.4)
-    caplog.set_level(logging.INFO, logger=log.name)
-    with socket.create_connection(("127.0.0.1", toy.port)) as sock:
-        sock.sendall(f"GET / HTTP/1.1\r\nHost: {toy.host}\r\nX-Pad: ".encode())
-        began = time.monotonic()
-        cut = False
-        while time.monotonic() - began < 1.5 and not cut:
-            try:
-                sock.sendall(b"a")
-            except OSError:
-                cut = True
-            cut = cut or closed(sock, 0.1)
-    assert cut == (toy.kind == "strict")
-    assert ("connection deadline reached" in caplog.text) == (toy.kind == "strict")
-
-
-def test_a_served_request_cancels_its_deadline(toy, caplog):
-    caplog.set_level(logging.INFO, logger=log.name)
-    before = threading.active_count()
-    assert toy.ask("GET", "/")[0] == 200
-    time.sleep(0.2)
-    assert threading.active_count() <= before
-    assert "connection deadline reached" not in caplog.text
 
 
 # -- files ------------------------------------------------------------------------------------
@@ -568,12 +501,9 @@ def test_an_own_address_or_no_address_is_not_a_wildcard(host, monkeypatch):
 
 def test_the_run_start_service_passes_its_own_parameters():
     handler = run_start_service.Handler
-    assert handler.response_headers == ()  # its policies differ per route, so none is global
-    assert handler.connection_deadline is http_base.Handler.connection_deadline  # none
-    assert handler.read_body is http_base.Handler.read_body  # a lost body is ClientGone
     assert handler.logger is run_start_service.log
     limits = run_start_service._Server.connection_limits(cast(Any, None))
-    assert limits == (run_start_service.MAX_CONNECTIONS, None) == (64, None)
+    assert limits == run_start_service.MAX_CONNECTIONS == 64
     assert run_start_service.MAX_JSON == 1024 * 1024
     assert {name for name in vars(handler) if name.startswith("do_")} == {
         "do_GET",
