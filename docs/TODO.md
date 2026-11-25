@@ -11,7 +11,8 @@ Owner decisions, 2026-11-25:
 - Sign-in uses Microsoft Entra ID (OpenID Connect, authorization-code flow with PKCE).
 - Token checking uses Microsoft's `msal` library, a new pinned dependency.
 - Entra proves who the user is. A passcode the owner sets chooses the profile type at
-  registration: Reader, Analyst (Signal's writer) or Admin.
+  registration: Reader, Analyst (Signal's writer) or Admin (Signal's owner). Passcodes are
+  stored as hashes only (`docs/rulings/2026-11-25-registration-passcodes.md`).
 - Users with offline pages get Signal as a read-only snapshot of stories only. Threads and
   comments stay in the running service.
 
@@ -31,6 +32,4 @@ provider and must be labelled with that scope in VERIFICATION.md.
 
 ## Open decisions
 
-- Whether Admin is the same as Signal's owner (approves sources, sets the AI spend cap) or a
-  separate type below the owner.
-- Whether stored passcode hashes need an owner ruling under "no credential files" (AGENTS.md).
+- Passcode rotation and the limit on wrong attempts (left open by the ruling above).
