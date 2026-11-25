@@ -20,6 +20,7 @@ import {
 } from "./intake";
 import { FieldMessage, problemAttrs, problemOn, SelectField } from "./fields";
 import { ComparisonPortfolio } from "./ComparisonPortfolio";
+import { StandingPortfolios } from "./StandingPortfolios";
 
 /** At least 32 px tall everywhere, 44 px at phone width. */
 const TARGET = "min-h-8 max-[480px]:min-h-11";
@@ -316,6 +317,7 @@ export function DocumentFields({
         )}
       </FileUpload.Root>
       {view.missing !== undefined && <MissingForModules missing={view.missing} />}
+      <StandingPortfolios view={view.standing} />
       <ComparisonPortfolio
         view={view.comparison}
         problem={view.problem}

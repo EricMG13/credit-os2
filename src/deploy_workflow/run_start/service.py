@@ -108,6 +108,38 @@ failure is 500 ``{"error": "the service failed; see its log"}`` (its cause goes 
     ``error`` until it is replaced or removed. Submit stores the approved portfolio for the run.
 ``DELETE /api/submissions/<id>/reference-portfolio``
     No body. 200 ``{"removed": true}``: the files and the name are gone (none is not an error).
+``GET /api/reference-portfolios``
+    The standing reference portfolios (``standing_portfolios``), read from their store alone: it
+    never fetches. 200 ``{"portfolios": [{"key", "name", "kind", "as_of", "stored_at",
+    "positions", "failure", "error", "fetchable"}, ...]}``, one per standing key (``clo``,
+    ``lvln``, ``jnk``): ``as_of`` (YYYY-MM-DD), ``stored_at`` (ISO time, UTC) and ``positions``
+    are the stored set's, null with none; ``failure`` is ``{"message", "at"}`` of the last failed
+    fetch since that set was stored, or null; ``error`` says why a stored file cannot be read
+    (without the key: it is shown on the portfolio's own line), or null; ``fetchable`` is whether
+    the service fetches the key's file (the two funds).
+``POST /api/reference-portfolios/<key>/refresh``
+    No body. The analyst's "fetch latest": one fetch of the key's holdings file. 200 ``{"key",
+    "name", "outcome": "stored" | "kept" | "failed", "as_of", "stored_at", "file_as_of",
+    "message", "columns_gained", "columns_lost", "portfolios"}``: the set in the store after the
+    fetch, the date the fetched file states, a sentence for a reader on ``kept`` and ``failed``,
+    the columns (in a reader's words) the file has and the previous set's had not and the
+    reverse, and the listing after the fetch. A failure leaves the previous set as it was. 400
+    for a key with no file to fetch (nothing is fetched), 404 for a key that is not a standing
+    one, 409 while that key is being fetched or replaced.
+``POST /api/reference-portfolios/ensure``
+    No body. Fetches each fetchable key with no stored set and no recorded failure (a key being
+    fetched is skipped), then 200: the listing. After a failure only ``refresh`` fetches again.
+``POST /api/reference-portfolios/<key>/files?name=<percent-encoded UTF-8 file name>``
+    One file of a set the analyst supplies for a standing key, staged under the comparison
+    portfolio's rules and limits. 200 ``{"name": "<stored name>"}``.
+``DELETE /api/reference-portfolios/<key>/files``
+    No body. 200 ``{"cleared": true}``: every staged file of the key is removed.
+``POST /api/reference-portfolios/<key>``
+    No body. Reads the staged files as the key's set and stores it, replacing the one before;
+    the staged files are removed whatever the outcome. 200 ``{"portfolio": {...}, "portfolios":
+    [...]}``: what was read (the comparison portfolio's ``portfolio`` shape) and the listing. 400
+    with a sentence for a reader, the stored set kept, when nothing is staged or the files are
+    not a dated portfolio; 409 while the key is being fetched or replaced.
 ``GET /library/downloads/<path>``
     A read-only file under ``_engine/library/downloads``. The final path (``index.html``
     appended for a folder) must be a regular file inside that folder. Other legacy static-library
@@ -146,7 +178,7 @@ from deploy_workflow.http_base import Body, Reply, refuse
 from deploy_workflow.inbox import activity, runs, teams
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
-from deploy_workflow.run_start import prior, reference_portfolio, submissions
+from deploy_workflow.run_start import prior, reference_portfolio, standing_portfolios, submissions
 from deploy_workflow.run_start.submissions import Answers
 
 __all__ = ["Handler", "main", "make_server"]
@@ -168,6 +200,7 @@ _UNKNOWN = "unknown submission"  # the text submissions raises for an id it does
 _UNKNOWN_RUN = "unknown run"  # the text prior raises for a run id with no record
 _SUBMISSION = re.compile(r"/api/submissions/([^/]+)/(files|reading|summary|submit|carry)")
 _REFERENCE = re.compile(r"/api/submissions/([^/]+)/reference-portfolio(/files)?")
+_STANDING = re.compile(r"/api/reference-portfolios(?:/([a-z0-9_-]{1,64})(/refresh|/files)?)?")
 _RUN_ID = r"[0-9A-Za-z._-]{1,80}"
 _RUN = re.compile(rf"/api/runs/({_RUN_ID})")
 _RUN_INPUTS = re.compile(rf"/api/runs/({_RUN_ID})/inputs")
@@ -193,6 +226,7 @@ _HOSTNAME = re.compile(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?")
 
 class _Server(http_base.Server):
     scheduler: Scheduler
+    standing: standing_portfolios.Desk  # the standing portfolios' locks and fetch wiring
 
     def connection_limits(self) -> tuple[int, int | None]:
         return MAX_CONNECTIONS, None  # no ceiling per remote address
@@ -269,6 +303,8 @@ class Handler(http_base.Handler):
             raise refuse(404, "not found")
         if path == "/activity.js":
             raise self._file(self._layout.engine, "activity.js", direct=True)
+        if path == "/api/reference-portfolios":
+            raise Reply(200, standing_portfolios.listing(self._layout))
         found = _SUBMISSION.fullmatch(path)
         if found and found[2] == "reading":
             raise Reply(200, self._guarded(lambda: submissions.reading(self._layout, found[1])))
@@ -291,6 +327,8 @@ class Handler(http_base.Handler):
             raise Reply(200, {"id": self._guarded(lambda: submissions.new(self._layout))})
         if reference := _REFERENCE.fullmatch(url.path):
             self._post_reference(reference[1], url.query if reference[2] else None)
+        if (standing := _STANDING.fullmatch(url.path)) and standing[1]:
+            self._post_standing(standing[1], standing[2], url.query)
         found = _SUBMISSION.fullmatch(url.path)
         if not found:
             return
@@ -329,6 +367,27 @@ class Handler(http_base.Handler):
             ),
         )
 
+    def _post_standing(self, key: str, tail: str | None, query: str) -> None:
+        """A standing portfolio's action: the first fetches, a fetch, a staged file or the read.
+        Times are the scheduler's clock in UTC, as Submit stamps a run's own portfolio."""
+        layout, desk = self._layout, self._service.standing
+        now = self._service.scheduler.now().astimezone(UTC)
+        if key == "ensure" and tail is None:
+            listed = self._guarded(lambda: standing_portfolios.ensure_absent(layout, desk, now))
+            raise Reply(200, listed)
+        if tail == "/refresh":
+            done = self._guarded(lambda: standing_portfolios.refresh(layout, desk, key, now))
+            raise Reply(200, done)
+        if tail == "/files":
+            name, length = self._name(query), self.content_length()
+            body = cast(BinaryIO, Body(self.rfile))
+            stored = self._guarded(
+                lambda: standing_portfolios.add_file(layout, key, name, body, length)
+            )
+            raise Reply(200, {"name": stored})
+        read = self._guarded(lambda: standing_portfolios.supply(layout, desk, key, now))
+        raise Reply(200, read)
+
     def _delete_reference(self, sid: str, query: str | None) -> None:
         if query is None:
             self._guarded(lambda: reference_portfolio.remove(self._layout, sid))
@@ -340,6 +399,11 @@ class Handler(http_base.Handler):
     def _delete(self, url: urllib.parse.SplitResult) -> None:
         if reference := _REFERENCE.fullmatch(url.path):
             self._delete_reference(reference[1], url.query if reference[2] else None)
+        standing = _STANDING.fullmatch(url.path)
+        if standing and standing[1] and standing[2] == "/files":
+            key = standing[1]
+            self._guarded(lambda: standing_portfolios.clear(self._layout, key))
+            raise Reply(200, {"cleared": True})
         found = _SUBMISSION.fullmatch(url.path)
         if found and found[2] == "files":
             name = self._name(url.query)
@@ -347,11 +411,14 @@ class Handler(http_base.Handler):
             raise Reply(200, {"name": name})
 
     def _guarded(self, action: Any) -> Any:
-        """The result of ``action``; a ``Refused`` becomes its 400 (404 for an unknown id)."""
+        """The result of ``action``; a ``Refused`` becomes its 400 (404 for an unknown id or
+        standing portfolio), a standing portfolio that is busy a 409."""
         try:
             return action()
+        except standing_portfolios.Busy as busy:
+            raise refuse(409, str(busy)) from None
         except submissions.Refused as refusal:
-            missing = str(refusal) in (_UNKNOWN, _UNKNOWN_RUN)
+            missing = str(refusal) in (_UNKNOWN, _UNKNOWN_RUN, standing_portfolios.UNKNOWN)
             raise refuse(404 if missing else 400, str(refusal)) from None
 
     def _upload(self, sid: str, name: str) -> None:
@@ -456,6 +523,7 @@ def make_server(
         signal_link(signal_url)
     server = _Server((host, port), Handler)
     server.scheduler = scheduler
+    server.standing = standing_portfolios.Desk()
     return server
 
 

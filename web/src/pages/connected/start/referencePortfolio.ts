@@ -10,10 +10,10 @@ import { asSentence } from "../useResource";
 import { FieldProblem } from "./fields";
 import { COMPARISON_NEEDS_NAME } from "./plain";
 
-/** The service's own ceilings for a comparison portfolio's files. */
-const FILE_SIZE_LIMIT = 20 * 1024 * 1024;
-const FILE_COUNT_LIMIT = 4;
-const FILE_TYPES = /\.(?:csv|xlsx)$/i;
+/** The service's own ceilings for a reference portfolio's files (a standing one's too). */
+export const FILE_SIZE_LIMIT = 20 * 1024 * 1024;
+export const FILE_COUNT_LIMIT = 4;
+export const FILE_TYPES = /\.(?:csv|xlsx)$/i;
 export const COMPARISON_FILE_HINT = "CSV or Excel (.xlsx). Up to 4 files, 20 MB each.";
 
 /**

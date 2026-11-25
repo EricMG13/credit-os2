@@ -15,6 +15,7 @@ import {
   toContext,
   toPurpose,
   setUpConnectedPage,
+  standingApart,
   type Recorded,
 } from "./connectedTesting";
 
@@ -32,9 +33,15 @@ import {
 } from "./goldenFixtures";
 import { chooseControl } from "./testControls";
 
+/** What each drive sent on the standing portfolios' own routes, kept out of its golden file. */
+let standingCalls: Recorded[] = [];
+/** The standing portfolios' requests of a drive whose listing has every set stored: one listing. */
+const LISTED_ONCE: Recorded[] = [{ method: "GET", path: "/api/reference-portfolios" }];
+
 /**
  * A fetch that answers as the synthetic service would and records every call. `submits` answers
- * Submit in turn; a path the service would not know is answered 404, as it would be.
+ * Submit in turn; a path the service would not know is answered 404, as it would be. The standing
+ * portfolios' routes are answered apart (`standingApart`) and recorded in `standingCalls`.
  */
 function service({
   cap = "25",
@@ -115,7 +122,8 @@ function service({
       return reply({ latest_run: "", runs: 0, latest_as_of: "" });
     return reply({ error: `unknown path ${input}` }, 404);
   });
-  vi.stubGlobal("fetch", fetchMock);
+  standingCalls = [];
+  vi.stubGlobal("fetch", standingApart(fetchMock, standingCalls));
   return log;
 }
 
@@ -181,6 +189,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
     await expect(golden(log)).toMatchFileSnapshot("./requests.golden/northbridge-synthetic.golden");
+    expect(standingCalls).toEqual(LISTED_ONCE);
   });
 
   it("a paid Deep run at the Advanced level: a module left out, another model, effort and turns", async () => {
@@ -207,6 +216,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
     await expect(golden(log)).toMatchFileSnapshot("./requests.golden/deep-advanced-live.golden");
+    expect(standingCalls).toEqual(LISTED_ONCE);
   });
 
   it("an Earnings Update with periods, a removed file, and a step back and forward", async () => {
@@ -232,6 +242,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
     await expect(golden(log)).toMatchFileSnapshot("./requests.golden/earnings-update.golden");
+    expect(standingCalls).toEqual(LISTED_ONCE);
   });
 
   it("a run started from an earlier run: its documents carried, a new date, the same issuer", async () => {
@@ -283,6 +294,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
     await expect(golden(log)).toMatchFileSnapshot("./requests.golden/carried-from-earlier.golden");
+    expect(standingCalls).toEqual(LISTED_ONCE);
   });
 
   it("a Submit with no answer, then the same Submit again", async () => {
@@ -307,5 +319,6 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
     await expect(golden(log)).toMatchFileSnapshot("./requests.golden/submit-retry.golden");
+    expect(standingCalls).toEqual(LISTED_ONCE);
   });
 });

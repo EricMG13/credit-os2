@@ -81,6 +81,7 @@ import {
 import { type FieldKey, FieldProblem, refusedField, stepOfField, focusField } from "./start/fields";
 import { IntakePanels } from "./start/IntakePanels";
 import { useComparisonPortfolio } from "./start/referencePortfolio";
+import { useStandingPortfolios } from "./start/standingPortfolios";
 import {
   useStepHistory,
   useLeaveWarning,
@@ -494,6 +495,7 @@ function IntakeForm({
   const comparison = useComparisonPortfolio(() => {
     clearProblem("reference_portfolio");
   });
+  const standing = useStandingPortfolios();
 
   function clearProblem(...fields: FieldKey[]) {
     setFieldError((previous) => previous?.without(fields));
@@ -1287,6 +1289,7 @@ function IntakeForm({
           await comparison.send((await openDraft()).id);
         }),
     },
+    standing,
     inspectDocuments,
     discardDocument: (name, file) => void discardDocument(name, file),
     changeIdentity,

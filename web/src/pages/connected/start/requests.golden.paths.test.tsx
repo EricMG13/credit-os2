@@ -17,6 +17,7 @@ import {
   toContext,
   toPurpose,
   setUpConnectedPage,
+  standingApart,
   type Recorded,
 } from "./connectedTesting";
 
@@ -130,7 +131,7 @@ function service({
       return Promise.resolve(ok({ latest_run: "", runs: 0, latest_as_of: "" }));
     return Promise.resolve(refused(`unknown path ${input}`, 404));
   });
-  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("fetch", standingApart(fetchMock));
   return log;
 }
 

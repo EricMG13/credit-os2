@@ -60,6 +60,7 @@ function makeView(over: Partial<IntakeView> = {}): IntakeView {
     inspections: 1,
     addFiles: vi.fn(),
     comparison: { name: "", holds: "", files: [], fileProblem: "" },
+    standing: { problem: "", working: {}, notes: {} },
     discardDocument: vi.fn(),
     ...over,
   } as unknown as IntakeView;

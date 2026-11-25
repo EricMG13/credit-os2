@@ -4,6 +4,7 @@ import { webcrypto } from "node:crypto";
 import { ConnectedApp } from "./ConnectedApp";
 import { SelectField, carriedModules, stepOfField } from "./StartRun";
 import { moduleName, pathwayModules, type Summary } from "./api";
+import { standingApart } from "./start/connectedTesting";
 import { chooseControl, controlValue } from "./start/testControls";
 
 const scrollIntoView = vi.fn();
@@ -73,7 +74,7 @@ function testingFetch(
     if (typeof entry === "function") return (entry as () => Promise<Response>)();
     return Promise.resolve(Response.json(entry));
   });
-  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("fetch", standingApart(fetchMock));
   return fetchMock;
 }
 

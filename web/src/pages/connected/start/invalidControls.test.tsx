@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConnectedApp } from "../ConnectedApp";
-import { setUpConnectedPage } from "./connectedTesting";
+import { setUpConnectedPage, standingApart } from "./connectedTesting";
 import { chooseControl } from "./testControls";
 
 // The browser checks a step's controls when it is sent. In place of its bubbles the page says what
@@ -30,7 +30,7 @@ function stubFetch() {
     if (!Object.hasOwn(entries, path)) throw new Error(`Unexpected request ${path}`);
     return Promise.resolve(Response.json(entries[path]));
   });
-  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("fetch", standingApart(fetchMock));
   return fetchMock;
 }
 
