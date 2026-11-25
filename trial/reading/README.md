@@ -16,10 +16,11 @@ group and noted here with the date; it is not reworded.
 ## Running the pilot
 
 Ruling: `docs/rulings/2026-11-25-instruction-length-trial-pilot.md`. One run per module and group,
-interleaved, every run folder under one parent outside the repository:
+interleaved, every run folder under one parent outside the repository, with `ANTHROPIC_API_KEY` set
+in the launching environment:
 
 ```bash
-uv run python tools/instruction_trial.py live --bundle trial/bundles/case2-cp4 --module CP-4 --arm A --out ~/cos-live/instruction-trial/CP-4-A-1 --ruling docs/rulings/2026-11-25-instruction-length-trial-pilot.md --config copilot-opus-high --cap 10 --trial-cap 50
+uv run python tools/instruction_trial.py live --bundle trial/bundles/case2-cp4 --module CP-4 --arm A --out ~/cos-live/instruction-trial/CP-4-A-1 --ruling docs/rulings/2026-11-25-instruction-length-trial-pilot.md --config opus-high --cap 10 --trial-cap 54
 ```
 
 Then `--arm B` and `--arm C` with `CP-4-B-1` and `CP-4-C-1`, then CP-3, CP-6 and CP-5 on

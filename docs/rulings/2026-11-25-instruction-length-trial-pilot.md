@@ -1,9 +1,9 @@
-# Instruction-length trial, pilot: twelve single-module runs through GitHub Copilot on Claude Opus, high effort
+# Instruction-length trial, pilot: twelve single-module runs on the Anthropic API, Claude Opus at high effort
 
 lifts: live-provider-pause
 by: user
 date: 2026-11-25
-configs: copilot-opus-high
+configs: opus-high
 
 The owner asked for a review of module instruction length ("certain modules instructions +
 references may be too long, and could impact performance (unmeasured)... findings must be
@@ -15,10 +15,23 @@ three content-neutral removals. c) deeper restructuring". The offline stage is r
 which model and under what limit, the owner chose "Pilot: 1 of each first", "anthropic opus high"
 and "Estimate plus 50% (Recommended)".
 
-Configuration: `copilot-opus-high` (Claude Opus 5.5 at high effort through GitHub Copilot; gh CLI
-login, `COPILOT_USE_GH_LOGIN=1`; the gh CLI's active account pays). The engine refuses a live run
-on any configuration that is not a Copilot one (`cpos._require_live_route`), so the direct
-Anthropic `opus-high` cannot be used and is not listed. No web search.
+Configuration: `opus-high` (Claude Opus 5.5, `claude-opus-5-5`, at high effort, called on the
+Anthropic API directly; the key comes from `ANTHROPIC_API_KEY` in the launching environment and
+that account pays). No web search.
+
+Exception to an earlier ruling, for this trial only: the amendment of 2026-11-18 to
+`2026-11-11-run-start-submit.md` ("all routing should be through co-pilot CLI") retired direct
+provider calls, and the engine refuses them. The first draft of this ruling therefore named the
+Copilot configuration. The owner then said "model is anthropic api opus high" and, told that the
+engine's guard stood in the way, "Lift the guard yourself for this trial". The guard is lifted in
+`tools/instruction_trial.py` alone (`direct_transport`), which makes the engine's own HTTPS call
+for a non-Copilot configuration. The engine, its launcher and the run start page are unchanged
+and still refuse a direct configuration.
+
+What the direct route changes: every module is sent its upstream handoffs in full (only the
+Copilot route sends CP-3, CP-5 and CP-6 an index), so their first requests are about 720,000 to
+960,000 bytes, of which the instructions are 9% to 24%. CP-4's is 357,000 to 457,000 bytes, about
+a third to a half instructions.
 
 Scope: twelve runs of `tools/instruction_trial.py live`, one module each, one per combination of
 
@@ -37,13 +50,15 @@ test input assigned to that date. It is not a delivery, is not listed in the lib
 handoff it produces is supplied to another module. The acceptance check is the launcher's own,
 from the canonical method, for every group.
 
-Cap: USD 10 for each run folder (a single call holds USD 4 to 6.25 on this configuration before it
-settles) and USD 50 for the twelve runs together. The total is the estimate plus 50%: the retained
-`copilot-sol-medium` runs of these four modules cost USD 3.73 together (CP-3 0.82, CP-5 1.07, CP-6
-0.84, CP-4 1.00); the earlier Opus medium run cost 2.26 times the Sol medium run (USD 19.45 against
-8.62) and high effort cost 1.32 times medium on Sol, giving about USD 11.1 for one group of four and
-USD 33 for three. No Opus high run of these modules exists, so the estimate may be wrong in either
-direction; the pilot stops when the settled total reaches USD 50, whatever remains unrun.
+Cap: USD 10 for each run folder (a single call holds USD 2.74 to 5.15 on this configuration
+before it settles) and USD 54 for the twelve runs together. The total is the estimate plus 50%.
+The estimate, USD 36, is worked from the first-request sizes of the offline stage at about 2.5
+bytes per token for this model (the earlier pilot measured 2.39 to 2.55), list prices of USD 5
+per million tokens written to the cache, 0.20 read from it and 20 of output, the call counts of
+the retained runs (5 to 13 a module) and 30,000 to 60,000 output tokens a module at high effort:
+about USD 3 for each of CP-3, CP-4 and CP-6 and USD 4 for CP-5, for each group. No run of these
+modules on this configuration exists, so the estimate may be wrong in either direction; the pilot
+stops when the settled total reaches USD 54, whatever remains unrun.
 
 Reading: each accepted handoff is scored against `trial/reading/<module>.md`, a list fixed before
 the first run, by a reader who is not told the group (`trial/reading/README.md`).

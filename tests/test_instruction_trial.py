@@ -95,3 +95,19 @@ def test_a_live_run_is_refused_once_the_trial_cap_is_settled(tmp_path):
     args = argparse.Namespace(out=tmp_path / "cp3-B", trial_cap="50", cap="10")
     with pytest.raises(SystemExit, match="settled USD 50 or more"):
         trial.live(args)
+
+
+PILOT_RULING = Path(__file__).resolve().parents[1] / (
+    "docs/rulings/2026-11-25-instruction-length-trial-pilot.md"
+)
+
+
+def test_the_pilot_ruling_gives_the_direct_adapter_for_its_configuration_only():
+    from deploy_workflow.model.adapter import LiveAdapter, LivePauseInForce
+
+    adapter = trial.live_adapter("opus-high", PILOT_RULING)
+    assert isinstance(adapter, LiveAdapter) and adapter.config_id == "opus-high"
+    with pytest.raises(LivePauseInForce, match="does not list 'opus-medium'"):
+        trial.live_adapter("opus-medium", PILOT_RULING)
+    with pytest.raises(LivePauseInForce, match="does not list 'copilot-opus-high'"):
+        trial.live_adapter("copilot-opus-high", PILOT_RULING)

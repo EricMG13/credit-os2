@@ -372,10 +372,30 @@ Before a live run:
   sheet that is not in the bundle; the source-readiness handoff says no ratings or prices were
   supplied while the context carries both.
 - `docs/rulings/2026-11-25-instruction-length-trial-pilot.md`: twelve runs, one per module and
-  group, on `copilot-opus-high`, USD 10 a run and USD 50 in total (owner, 2026-11-25: "Pilot: 1 of
-  each first", "anthropic opus high", "Estimate plus 50% (Recommended)"). The engine's gate accepts
-  the file for that configuration. `tools/instruction_trial.py live` now takes `--trial-cap` and
-  refuses a run once the runs beside it have settled that total. Nothing was run.
+  group, USD 10 a run. `tools/instruction_trial.py live` takes `--trial-cap` and refuses a run
+  once the runs beside it have settled that total. Nothing was run.
+- Model (owner, 2026-11-25: "model is anthropic api opus high"; "Lift the guard yourself for this
+  trial"): `opus-high`, Claude Opus 5.5 on the Anthropic API directly, total USD 54 (an estimate
+  of USD 36 plus 50%). Direct provider calls were retired on 2026-11-18 and the engine refuses
+  them; the exception is made in the trial script alone and recorded in the ruling. The engine
+  is unchanged.
+- What the direct route does to the trial: every module is sent its handoffs in full, so the
+  instruction text is a small part of what CP-3, CP-5 and CP-6 read.
+
+  | Module | First request, bytes: A | C | C against A | Instructions' share in A |
+  | --- | ---: | ---: | ---: | ---: |
+  | CP-4 | 456,652 | 357,123 | -22% | 48% |
+  | CP-3 | 794,425 | 717,924 | -10% | 24% |
+  | CP-6 | 850,291 | 798,586 | -6% | 17% |
+  | CP-5 | 958,015 | 915,651 | -4% | 13% |
+
+  On this route CP-4 is the only module where the groups differ much in what the model is sent.
+  A null result for CP-3, CP-5 and CP-6 here would say little about the Copilot route, where
+  their first request is about 80% instructions.
+- Dry run of the live path with the network call replaced: the request is built for
+  `https://api.anthropic.com/v1/messages`, model `claude-opus-5-5`, effort high, adaptive
+  thinking, output limit 64,000, and the run records and summary are written. The key is sent as
+  the engine has always sent it (`Authorization: Bearer`); not sent anywhere in this check.
 
 ## Not verified
 

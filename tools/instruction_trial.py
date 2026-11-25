@@ -2,7 +2,7 @@
 
     uv run python tools/instruction_trial.py offline --bundle BUNDLE --module CP-3 --out SCRATCH
     uv run python tools/instruction_trial.py live --bundle BUNDLE --module CP-3 --arm B \\
-        --out RUNS/cp3-B-1 --ruling docs/rulings/<file>.md --config copilot-opus-high \\
+        --out RUNS/cp3-B-1 --ruling docs/rulings/<file>.md --config opus-high \\
         --cap 10 --trial-cap 50
 
 A temporary adaptation for docs/sweeps/2026-11-25-instruction-length/REPORT.md, not a launcher.
@@ -37,11 +37,13 @@ from typing import Any
 import instruction_metrics
 
 from deploy_vii.registry import dependencies
-from deploy_workflow.model.adapter import AdapterReply, ModelAdapter
+from deploy_workflow.model.adapter import AdapterReply, LiveAdapter, ModelAdapter
 from deploy_workflow.model.configs import CONFIGS
 from deploy_workflow.model.copilot import prompt_tokens_estimate
+from deploy_workflow.model.copilot_adapter import CopilotAdapter
 from deploy_workflow.model.handoff import HandoffExecutor
-from deploy_workflow.model.turn import ToolCall, Turn, TurnRequest, Usage
+from deploy_workflow.model.transport import Request, Response, https_transport
+from deploy_workflow.model.turn import ModelSpec, ToolCall, Turn, TurnRequest, Usage
 from deploy_workflow.owners import cpos, cpos_launch
 from deploy_workflow.owners.cpos_launch_prompts import METHOD_MARK
 
@@ -182,13 +184,13 @@ class Replay:
     """Stands for a provider offline: each turn submits the same Markdown through `write_handoff`.
     It records the size of the first request, which is what a model would be sent."""
 
-    config_id = REPLAY_CONFIG
     # Not a ruling and never read: with None the executor would price this route from tokens,
     # which the Copilot route has no price for, and stop on an unknown charge.
     ruling = Path("offline-replay-no-ruling")
 
-    def __init__(self, markdown: str) -> None:
+    def __init__(self, markdown: str, config: str) -> None:
         self.markdown = markdown
+        self.config_id = config
         self.first_request_bytes = 0
         self.turns = 0
 
@@ -203,7 +205,7 @@ class Replay:
         self.turns += 1
         usage = Usage(1, 0, 0, output_tokens=1, reasoning_tokens=0)  # priced, and next to nothing
         call = ToolCall(f"replay-{self.turns}", "write_handoff", {"markdown": self.markdown})
-        model = CONFIGS[REPLAY_CONFIG].model
+        model = CONFIGS[self.config_id].model
         turn = Turn("", (call,), usage, "tool_use", model, "replay", 200, Decimal(0))
         return AdapterReply("ok", turn, None, 200, None, None, 0.0, 0.0, usage, Decimal(0))
 
@@ -234,7 +236,7 @@ def replay(
     case: Case, module: str, text: str, folder: Path, args: argparse.Namespace
 ) -> dict[str, Any]:
     """Run the real executor and check on one arm with the bundle's own handoff as the answer."""
-    stand_in = Replay(case.handoffs[module].decode("utf-8"))
+    stand_in = Replay(case.handoffs[module].decode("utf-8"), args.config)
     executor = _executor(folder, stand_in, case, args)
     task = case.task(module, text)
     try:
@@ -253,12 +255,13 @@ def replay(
 
 
 def offline(args: argparse.Namespace) -> int:
-    case = load_case(args.bundle, args.out / "case", REPLAY_CONFIG)
+    case = load_case(args.bundle, args.out / "case", args.config)
     module = args.module
     if module not in case.handoffs:
         raise SystemExit(f"{module}: the bundle holds no handoff of its own to replay")
     prepared_text = case.instructions(module)
     report: dict[str, Any] = {"module": module, "bundle": args.bundle.name, "arms": {}}
+    report["config"] = args.config
     for arm in args.arms:
         text = arm_text(arm, module, prepared_text)
         row: dict[str, Any] = dict(instruction_metrics.measure(text))
@@ -317,6 +320,26 @@ def trial_spent(folder: Path) -> Decimal:
     return spent
 
 
+def direct_transport(request: Request) -> Response:
+    """The engine's own HTTPS call, for this trial only. `LiveAdapter` refuses that function
+    when it is passed as is: direct provider calls were retired for the product on 2026-11-18
+    ("all routing should be through co-pilot CLI"). The owner lifted that for this trial on
+    2026-11-25 ("model is anthropic api opus high"; "Lift the guard yourself for this trial"),
+    recorded in the trial's ruling. The engine and its guard are unchanged."""
+    return https_transport(request)
+
+
+def live_adapter(config: str, ruling: Path) -> LiveAdapter | CopilotAdapter:
+    """The Copilot adapter for a Copilot configuration (the engine's `live_adapter_for`), else
+    the direct HTTPS adapter. Both refuse a ruling that does not name ``config``; the direct one
+    reads the provider's key from the launching environment at its first call."""
+    selected = CONFIGS[config]
+    if selected.provider == "copilot":
+        return cpos.live_adapter_for(selected, ruling, os.environ, None)
+    spec = ModelSpec(selected.config_id, selected.provider, selected.model, selected.effort)
+    return LiveAdapter(spec, ruling, transport=direct_transport, environ=os.environ)
+
+
 def live(args: argparse.Namespace) -> int:
     """One paid run of one arm. The ruling gate is the engine's own (`live_adapter_for`)."""
     if args.out.exists():
@@ -328,7 +351,7 @@ def live(args: argparse.Namespace) -> int:
     case = load_case(args.bundle, args.out / "case", args.config)
     text = arm_text(args.arm, args.module, case.instructions(args.module))
     task = case.task(args.module, text)
-    adapter = cpos.live_adapter_for(CONFIGS[args.config], args.ruling, os.environ, None)
+    adapter = live_adapter(args.config, args.ruling)
     executor = None
     outcome = "accepted"
     try:
@@ -357,6 +380,7 @@ def main() -> int:
         mode.add_argument("--max-turns", type=int, default=32)
         mode.add_argument("--cap", default="50", help="USD the module's calls may total")
     modes.choices["offline"].add_argument("--arms", nargs="+", choices=ARMS, default=list(ARMS))
+    modes.choices["offline"].add_argument("--config", choices=tuple(CONFIGS), default=REPLAY_CONFIG)
     modes.choices["live"].add_argument("--arm", choices=ARMS, required=True)
     modes.choices["live"].add_argument("--ruling", type=Path, required=True)
     modes.choices["live"].add_argument("--config", choices=tuple(CONFIGS), required=True)

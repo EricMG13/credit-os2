@@ -26,7 +26,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   quoted source passages, each matched exactly to its page or handoff by script; expected values
   not checked by a person), the pilot ruling `docs/rulings/2026-11-25-instruction-length-trial-pilot.md`
   (`check_ruling` accepts it for `copilot-opus-high` only) and a trial-wide cap in the script
-  (`tests/test_instruction_trial.py` 8 passed; gate exit 0). Nothing was run live.
+  (gate exit 0). Nothing was run live. Then, on the owner's instruction ("model is anthropic api
+  opus high"; "Lift the guard yourself for this trial"), the ruling names `opus-high` and the
+  script alone calls the Anthropic API directly; the engine's Copilot-only guard is unchanged.
+  `tests/test_instruction_trial.py` 9 passed; the live path was dry-run with the network call
+  replaced, never sent.
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the
@@ -990,10 +994,3 @@ Scope: documentation only: the new `docs/audit/2026-11-16-final/` (the briefs fo
 - Changed: `README.md` (scope with Signal excluded, stages, the 12 sections, rulings and the rules every agent follows), `FINDINGS-SCHEMA.md` (one finding format and the severity table), `stages/0-baseline.md` to `stages/7-send-off.md` (one brief per stage), `CLOUD-PROMPT.md` (the prompt that starts the audit in a cloud session) and `work-pc-init-prompt.draft.md` (draft first-setup prompt for the work PC; stage 7 finishes it as `docs/work-pc/WORK-PC-INIT-PROMPT.md`). Docs only, so it took the batched docs review; no sweep or whole-branch review applies.
 - Gates: none stated in the PR body beyond: every path the briefs cite was checked to exist.
 - Not verified: the audit has not been run; the briefs are untested as a workflow; the commands the briefs name were not executed; ruling R3 (which findings are repaired or parked) is the author's reading, not confirmed by the owner; CI's two checks passed on the PR head before merge.
-
-## 2026-11-16 — Wayfinding test: wait up to 5 s for the first render (PR #28, merged to `main` as `a9a9420b`)
-
-Scope: test only: `web/src/pages/connected/ReportLibrary.wayfinding.test.tsx`. No assertion, fixture, source or config file changes.
-- Changed: one line, `configure({ asyncUtilTimeout: 5000 })`, for this file only (its 14 `findBy…` waits were on Testing Library's 1,000 ms default); the rest of the diff is prettier wrapping the import.
-- Gates: before, on `main`'s reader code at a load average of about 60, the full suite failed 1 of 3,456 (this file) and the file alone failed 2 of 3 runs, always its first test at 1.0–1.2 s. After, on `a1ec33f9`: `npm test` exit 0 (load rose from 15 to 89 during the run); the file alone passed 6 of 6 runs; `npm run lint`, `format:check`, `typecheck`, `unused` exit 0.
-- Not verified: not run at the load of 170–210 where up to 4 of the 14 tests failed, so a slower machine could still pass 5 s; why the first render takes over a second was not profiled; CI's two checks passed on the PR head before merge.
