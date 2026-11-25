@@ -13,7 +13,7 @@ import {
 import { drawingLines, findingBlocks } from "../ReportContent";
 import { namedTable } from "../reportView";
 import { typedModuleTable } from "./ModuleTable";
-import { heldInEvidence, readableTitle } from "./moduleRecords";
+import { heldInEvidence, readableTitle } from "./moduleRecordsModel";
 import type { LeadKind } from "./leads/types";
 
 export type TextBlock = Extract<Block, { type: "text" }>;

@@ -168,7 +168,7 @@ describe("ColumnsChart chart side", () => {
 describe("ColumnsChart table side", () => {
   it("shows the mock's maturities strings, n.a. for the missing loan repayment", () => {
     renderMat();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const cells = (name: string) =>
       within(screen.getByRole("row", { name: new RegExp(name) }))
         .getAllByRole("cell")
@@ -179,7 +179,7 @@ describe("ColumnsChart table side", () => {
 
   it("shows the mock's recovery strings", () => {
     renderRec();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const row = screen.getByRole("row", { name: /Receivables facility/ });
     expect(
       within(row)

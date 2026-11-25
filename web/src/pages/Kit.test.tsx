@@ -187,7 +187,7 @@ describe("Kit", () => {
     expect(within(legends[1] as HTMLElement).getAllByRole("listitem")).toHaveLength(7);
     const paths = [...trend.querySelectorAll("path.recharts-line-curve")];
     expect(paths.some((p) => p.getAttribute("d")?.match(/M/g)?.length === 2)).toBe(true);
-    expect(within(trend).getAllByRole("radio", { name: "Table" })).toHaveLength(2);
+    expect(within(trend).getAllByRole("button", { name: "Table" })).toHaveLength(2);
   });
 
   it("names each chart by its title and labels the y-axis from the supplied ticks", () => {

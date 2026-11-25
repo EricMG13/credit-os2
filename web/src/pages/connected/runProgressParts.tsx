@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Missing } from "@/components/gap/Missing";
 import type { PipelineNode, PipelineStage, PipelineState } from "@/components/pipeline";
 import type { Figure as RunFigure, ModuleStep, ModuleWord } from "../run/slice-activity";
@@ -64,15 +65,36 @@ export const HEADER_GRID = "grid gap-2 lg:grid-cols-[minmax(0,1fr)_22rem] lg:ite
 export const HEADER_BLOCK = "grid min-w-0 gap-2 lg:col-start-1 lg:row-start-1";
 export const SPEND_BLOCK = "min-w-0 lg:col-start-2 lg:row-start-1";
 
-/** Spend against the cap as one meter, with the amount in mono. */
-export function SpendBlock({ spend, label = "Spend" }: { spend: RunFigure; label?: string }) {
+type SpendParts = { cap: string | null; settled: string | null; held: string | null };
+
+/**
+ * Spend against the cap: the amount "of" the cap, one meter, then settled and reserved as two
+ * items. The full sentence is the meter's text for assistive technology only.
+ */
+export function SpendBlock({
+  spend,
+  parts,
+  label = "Spend",
+}: {
+  spend: RunFigure;
+  parts: SpendParts;
+  label?: string;
+}) {
+  const metered = spend.value !== null && spend.bar !== null;
   return (
     <section aria-label={label} className={SPEND_BLOCK}>
       <Well className="flex flex-col gap-2 border border-border-hairline p-3">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          {spend.value !== null && <Figure className="text-h3 font-medium">{spend.value}</Figure>}
-          <p className="text-caption text-text-tertiary">Spend against the cap</p>
-        </div>
+        <p className="text-caption text-text-tertiary">Spend against the cap</p>
+        {spend.value !== null && (
+          <p className="flex flex-wrap items-baseline gap-x-2 text-small text-text-secondary">
+            <Figure className="text-h3 font-medium">{spend.value}</Figure>
+            {metered && parts.cap !== null && (
+              <span>
+                of <Figure className="text-text-secondary">{parts.cap}</Figure>
+              </span>
+            )}
+          </p>
+        )}
         {spend.value === null ? (
           <GapNote>{spend.bar === null ? spend.note : "Spend is not known"}</GapNote>
         ) : spend.bar === null ? (
@@ -86,7 +108,21 @@ export function SpendBlock({ spend, label = "Spend" }: { spend: RunFigure; label
               valueText={spend.bar.label}
               limit
             />
-            <span className="text-caption text-text-secondary tabular-nums">{spend.bar.label}</span>
+            {parts.settled !== null && parts.held !== null && (
+              <dl className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-text-secondary">
+                {[
+                  ["Settled", parts.settled],
+                  ["Reserved or unknown", parts.held],
+                ].map(([term, value]) => (
+                  <div key={term} className="flex items-baseline gap-1.5">
+                    <dt>{term}</dt>
+                    <dd>
+                      <Figure className="text-caption">{value}</Figure>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </>
         )}
       </Well>
@@ -94,12 +130,23 @@ export function SpendBlock({ spend, label = "Spend" }: { spend: RunFigure; label
   );
 }
 
-/** How long the run has been going, as its record states it. */
+/** How long the run has been going, as its record states it: numerals in mono, units in text. */
 export function ElapsedLine({ elapsed }: { elapsed: { value: string | null; note: string } }) {
   return (
     <p className="flex flex-wrap items-baseline gap-x-3 text-small text-text-secondary">
       <span>Elapsed</span>
-      <Figure className="font-medium">{elapsed.value ?? <Missing />}</Figure>
+      <span className="font-medium text-text-primary">
+        {elapsed.value === null ? (
+          <Missing />
+        ) : (
+          elapsed.value.split(" ").map((token, index) => (
+            <Fragment key={index}>
+              {index > 0 && " "}
+              {/^\d+$/.test(token) ? <Figure>{token}</Figure> : token}
+            </Fragment>
+          ))
+        )}
+      </span>
       <span className="text-text-tertiary">{elapsed.note}</span>
     </p>
   );

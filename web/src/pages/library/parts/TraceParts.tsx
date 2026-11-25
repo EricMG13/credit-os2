@@ -80,7 +80,7 @@ function Citation({ citation }: { citation: TraceCitation }) {
           aria-label={`Passage from ${citation.label}`}
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           tabIndex={0}
-          className="reading-copy max-h-60 overflow-y-auto rounded-ds-sm border-l-2 border-action bg-surface-subtle px-4 py-3 text-small wrap-anywhere text-text-primary"
+          className="reading-copy max-h-60 overflow-y-auto rounded-ds-sm bg-surface-subtle px-4 py-3 text-small wrap-anywhere text-text-primary"
         >
           {citation.quote}
         </blockquote>
@@ -131,7 +131,7 @@ export function TraceSourcePassage({ trace }: { trace: SourcedTrace }) {
         aria-label="Source excerpt"
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
-        className="reading-copy max-h-60 overflow-y-auto rounded-ds-sm border-l-2 border-action bg-surface-subtle px-4 py-3 text-small wrap-anywhere text-text-primary"
+        className="reading-copy max-h-60 overflow-y-auto rounded-ds-sm bg-surface-subtle px-4 py-3 text-small wrap-anywhere text-text-primary"
       >
         {trace.excerpt.quote}
       </blockquote>

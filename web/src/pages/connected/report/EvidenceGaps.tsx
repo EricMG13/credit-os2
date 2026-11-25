@@ -9,7 +9,7 @@ import { moduleName } from "../api";
 import {
   classifySections,
   evidencePath,
-  plainModuleNames,
+  readerText,
   type OutputEntry,
   type PublishedRun,
   type Section,
@@ -36,12 +36,26 @@ function gapTitleIndex(headers: string[]) {
   return titled >= 0 ? titled : Math.max(0, headers.findIndex(titleHeader));
 }
 
+const TEXT_GAP = "Gap recorded as text";
+// A cell that is only an identifier ("G1", "GAP-12"): it names the row, it does not say the gap.
+const BARE_ID = /^[A-Z]{1,4}-?\d+[a-z]?$/;
+
 function tableGapRecords(block: Table): GapRecord[] {
   const severityIndex = block.headers.findIndex((header) => /severity/i.test(header));
-  const titleIndex = gapTitleIndex(block.headers);
+  const idIndex = gapTitleIndex(block.headers);
+  // Where the gap column holds ids, the words are in the first column beside it that is not a source.
+  const wordsIndex = block.headers.findIndex(
+    (header, index) =>
+      index !== idIndex &&
+      index !== severityIndex &&
+      !/source|basis|reference|citation/i.test(header),
+  );
   return block.rows.flatMap((row) => {
-    const title = row.cells[titleIndex]?.trim() ?? "";
-    if (!title || noGap(title)) return [];
+    const own = row.cells[idIndex]?.trim() ?? "";
+    if (!own || noGap(own)) return [];
+    const words = BARE_ID.test(own) ? (row.cells[wordsIndex]?.trim() ?? "") : "";
+    const title = words ? `${own} · ${words}` : own;
+    const titleIndex = idIndex;
     return [
       {
         line: row.line,
@@ -49,7 +63,13 @@ function tableGapRecords(block: Table): GapRecord[] {
         severity: severityIndex < 0 ? null : row.cells[severityIndex]?.trim() || null,
         details: block.headers
           .map((header, index) => ({ header, value: row.cells[index]?.trim() ?? "" }))
-          .filter(({ value }, index) => value && index !== titleIndex && index !== severityIndex)
+          .filter(
+            ({ value }, index) =>
+              value &&
+              index !== titleIndex &&
+              index !== severityIndex &&
+              !(words && index === wordsIndex),
+          )
           .map(({ header, value }) => `${header}: ${value}`)
           .join("\n"),
       },
@@ -65,7 +85,7 @@ function gapRecords(blocks: Section["blocks"]): GapRecord[] {
       if (text && !noGap(text))
         records.push({
           line: block.line,
-          title: "Gap recorded as text",
+          title: TEXT_GAP,
           severity: null,
           details: text,
         });
@@ -252,7 +272,17 @@ function GapLedger({
                   data-label={headings[0]}
                   className={`${STACK.cell} min-w-40 font-medium text-text-primary`}
                 >
-                  {plainModuleNames(gap.title || section.heading)}
+                  {
+                    // With no detail column a text gap would be a row of the page's own label
+                    // only: its words are the row.
+                    !detail && gap.title === TEXT_GAP ? (
+                      <span className="font-normal whitespace-pre-wrap text-text-secondary">
+                        {richParts(readerText(gap.details))}
+                      </span>
+                    ) : (
+                      readerText(gap.title || section.heading)
+                    )
+                  }
                 </th>
                 {detail && (
                   <td
@@ -260,7 +290,7 @@ function GapLedger({
                     data-label="Recorded detail"
                     className={`${STACK.cell} min-w-56 whitespace-pre-wrap text-text-secondary`}
                   >
-                    {richParts(gap.details || "No additional detail recorded.")}
+                    {richParts(readerText(gap.details || "No additional detail recorded."))}
                   </td>
                 )}
                 <td role="cell" data-label="Module" className={`${STACK.cell} text-text-secondary`}>
@@ -290,6 +320,12 @@ function GapLedger({
   );
 }
 
+const ORDER =
+  "Ordered by severity as written: words the page does not rank first, then High, Medium, Low, then none stated.";
+
+/** What the block holds, as the caption under its title; the ordering rule only where a list follows it. */
+const gapsNote = (lead: string, listed: boolean) => (listed ? `${lead} ${ORDER}` : lead);
+
 /** The Summary's gaps: the counts, then the list in severity order. */
 export function GapSummary({
   run,
@@ -306,13 +342,13 @@ export function GapSummary({
       span={12}
       label="Gaps summary"
       className={items.length === 0 ? "gap-2 p-4 sm:p-4" : undefined}
-      kicker="What this run could not establish. Severity words the page does not rank come first, as written; then High, Medium, Low; then none stated"
       title={
         <>
           Gaps{" "}
           <span className="ml-1 text-small font-normal text-text-secondary">{items.length}</span>
         </>
       }
+      kicker={items.length === 0 ? undefined : gapsNote("What this run could not establish.", true)}
     >
       {items.length === 0 ? (
         <NoGaps module={module} compact />
@@ -341,13 +377,16 @@ export function EvidenceGaps({
     <Tile
       span={12}
       label="Gaps"
-      kicker="What this run could not establish, with the detail each handoff records"
       title={
         <>
           Gaps{" "}
           <span className="ml-1 text-small font-normal text-text-secondary">{items.length}</span>
         </>
       }
+      kicker={gapsNote(
+        "What this run could not establish, with the detail each handoff records.",
+        items.length > 0,
+      )}
     >
       {items.length === 0 ? (
         <NoGaps module={module} />

@@ -1,3 +1,4 @@
+import { ChevronDown } from "@untitledui/icons";
 import { memo, useState } from "react";
 import { Missing } from "@/components/gap/Missing";
 import {
@@ -205,7 +206,7 @@ function ChartRow({
   return (
     <li className="grid min-w-0 gap-2 border-t border-border-hairline py-1">
       <div className="flex min-h-8 min-w-0 flex-wrap items-center gap-x-3 gap-y-0 max-[480px]:min-h-11">
-        <span className="min-w-0 font-medium text-text-primary first-letter:uppercase">
+        <span className="min-w-0 text-small font-medium text-text-primary first-letter:uppercase">
           {title}
         </span>
         {unit && <span className="text-small text-text-secondary">{unit}</span>}
@@ -222,9 +223,14 @@ function ChartRow({
             onClick={() => {
               setOpen(!open);
             }}
-            className={`ml-auto min-h-8 cursor-pointer rounded-ds-sm text-small text-text-link max-[480px]:min-w-11 ${FOCUS}`}
+            className={`ml-auto flex min-h-8 cursor-pointer items-center gap-1 rounded-ds-sm text-small text-text-link max-[480px]:min-w-11 ${FOCUS}`}
           >
-            Table
+            {/* The control says which way it goes: a closed row offers the table, an open one hides it. */}
+            {open ? "Hide table" : "Table"}
+            <ChevronDown
+              aria-hidden="true"
+              className={`size-4 transition-transform duration-150 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+            />
           </button>
         )}
       </div>
@@ -236,8 +242,10 @@ function ChartRow({
           </p>
         </div>
       ) : (
-        source && (
-          <div hidden={!open} className="grid min-w-0 gap-2 pb-2 [&[hidden]]:hidden">
+        // Drawn when asked for: the page does not carry every module's table unopened.
+        source &&
+        open && (
+          <div className="grid min-w-0 gap-2 pb-2">
             <ChartTableView
               title={title}
               table={chartTable({
@@ -288,8 +296,9 @@ export const RunCharts = memo(function RunCharts({
         Chart tables from this run
       </h3>
       {groups.length ? (
-        // Two columns where the page is wide, each module's group kept whole.
-        <div className="min-w-0 gap-x-10 lg:columns-2 xl:columns-3">
+        // Two columns, each module's group kept whole: an opened table has half the tile, not a
+        // third of it.
+        <div className="min-w-0 gap-x-10 lg:columns-2">
           {groups.map(({ id, name, entry, output, tables }) => {
             const rows = [...output.charts, ...output.chartGaps].sort((a, b) => a.table - b.table);
             return (
@@ -318,7 +327,7 @@ export const RunCharts = memo(function RunCharts({
           })}
         </div>
       ) : (
-        <p>No charts were published for this run.</p>
+        <p className="text-small text-text-secondary">No charts were published for this run.</p>
       )}
     </section>
   );

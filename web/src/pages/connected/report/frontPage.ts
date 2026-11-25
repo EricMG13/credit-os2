@@ -121,7 +121,7 @@ export function decisionTreatment(
   return {
     status: "not shown",
     reason: NOT_SHOWN_DECISION,
-    screenReason: `This page does not show a bottom line for the ${name} module, because no clearance for it is recorded. Other passages of that module, such as its limitations, may be shown on this page. The ${name} page under Modules shows that module's findings.`,
+    screenReason: `This page does not show a bottom line for the ${name} module, because no clearance for it is recorded. Its other passages, such as its limitations, may be shown here; the ${name} page shows its findings.`,
     held,
     entry,
   };

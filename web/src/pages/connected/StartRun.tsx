@@ -81,7 +81,7 @@ import {
 import { type FieldKey, FieldProblem, refusedField, stepOfField, focusField } from "./start/fields";
 import { IntakePanels } from "./start/IntakePanels";
 import { useComparisonPortfolio } from "./start/referencePortfolio";
-import { useStandingPortfolios } from "./start/standingPortfolios";
+import { useStandingPortfolios } from "./start/standingPortfoliosModel";
 import {
   useStepHistory,
   useLeaveWarning,

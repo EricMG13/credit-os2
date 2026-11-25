@@ -6,6 +6,7 @@ import { Matrix } from "./Matrix";
 import { IssuerDetail } from "./IssuerDetail";
 import { RunStates } from "./RunStates";
 import { RankView } from "./Rank";
+import { moduleTitle, named } from "./shared";
 
 afterEach(cleanup);
 
@@ -260,7 +261,7 @@ it("groups found passages by issuer, one section each, with a sources link per p
   );
   const alpha = screen.getByRole("region", { name: "Alpha plc" });
   expect(within(alpha).getByText("Covenants are tight.")).toBeVisible();
-  expect(within(alpha).getByRole("link", { name: "View sources" })).toHaveAttribute(
+  expect(within(alpha).getByRole("link", { name: "Open in Evidence" })).toHaveAttribute(
     "href",
     `/report/a1-run#evidence/a-run%2FCP-1.md~${SHA}-9`,
   );
@@ -421,4 +422,77 @@ it("keeps each figure's qualifying heading beside it when a period is stated twi
       /states this period more than once \(3\.3x, stated as Net debt \/ adjusted EBITDA; 3\.7x\), so none is ranked/,
     ),
   ).toBeVisible();
+});
+
+it("names a module by the app's name, else the service's title, and never by its code", () => {
+  expect(named({ code: "CP-2", title: "Fundamental credit synthesizer" })).toBe(
+    "Fundamental credit",
+  );
+  expect(named({ code: "CP-X9", title: "Sector overlay" })).toBe("Sector overlay");
+  for (const title of ["CP-X9", "CP-77", "", undefined])
+    expect(named({ code: "CP-X9", title })).toBe("Unnamed module");
+  expect(moduleTitle("CP-X9", new Map())).toBe("Unnamed module");
+  expect(moduleTitle(undefined, new Map())).toBe("Unnamed module");
+});
+
+it("draws a column the service names only by code as the gap wording, in header, cell and tooltip", () => {
+  const coded: Coverage = {
+    ...data,
+    columns: [...data.columns, { code: "CP-X9", title: "CP-X9" }],
+  };
+  const { container } = render(
+    <Matrix
+      data={coded}
+      issuers={[...coded.issuers]}
+      chosen={new Set()}
+      toggle={() => undefined}
+      open={null}
+      setOpen={() => undefined}
+    />,
+  );
+  expect(screen.getByRole("columnheader", { name: "Unnamed module" })).toBeVisible();
+  expect(container.innerHTML).not.toMatch(/>[^<]*CP-X9|title="[^"]*CP-X9|aria-label="[^"]*CP-X9/);
+});
+
+it("offers the newest report once in the issuer detail and says nothing of other modules when there are none", () => {
+  const issuer = data.issuers[0] as Issuer;
+  render(<IssuerDetail data={data} issuer={issuer} />);
+  expect(screen.getByRole("link", { name: "Open newest report" })).toBeVisible();
+  expect(screen.queryByRole("link", { name: "Open report" })).toBeNull();
+  expect(screen.queryByText(/Other modules/)).toBeNull();
+});
+
+it("captions a ranked list with only its unit and order, the subject staying in the heading and the list's name", () => {
+  render(
+    <RankView
+      data={data}
+      issuers={[...data.issuers]}
+      field={data.fields.find((item) => item.kind === "number")}
+      period="FY2025"
+      order="high"
+      by="none"
+      boundUnit={null}
+    />,
+  );
+  expect(screen.getByText("Stated in x · highest first")).toBeVisible();
+  expect(screen.getByRole("list", { name: /FY2025, reporting unit x, highest first/ })).toBeVisible();
+});
+
+it("never cuts a stage name: a one-module stage keeps a wider column and longer names wrap", () => {
+  const { container } = render(
+    <Matrix
+      data={data}
+      issuers={[...data.issuers]}
+      chosen={new Set()}
+      toggle={() => undefined}
+      open={null}
+      setOpen={() => undefined}
+    />,
+  );
+  for (const stage of container.querySelectorAll('th[scope="colgroup"]')) {
+    expect(stage).not.toHaveClass("truncate");
+    expect(stage).not.toHaveClass("max-w-0");
+  }
+  const cols = [...container.querySelectorAll("col")];
+  expect(cols).toHaveLength(1 + container.querySelectorAll('thead tr:nth-child(2) th').length);
 });

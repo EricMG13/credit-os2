@@ -287,7 +287,18 @@ it.each(["matched", "wrong table", "private basis", "proposal note"])(
       ).toBeInTheDocument();
       expect(screen.getByText("2.37%")).toBeInTheDocument();
       expect(screen.getByText("0%")).toBeInTheDocument();
-      expect(screen.getByText("limit 2.50%")).toBeInTheDocument();
+      // Each limit is a bullet row: its value as written beside the word, and as the tick.
+      expect(screen.getByText("2.50%")).toBeInTheDocument();
+      expect(screen.getByText("5.00%")).toBeInTheDocument();
+      expect(
+        screen.getByRole("img", {
+          name: "Single issuer: current exposure 2.37% against a limit of 2.50%.",
+        }),
+      ).toBeInTheDocument();
+      expect(container.querySelector('[data-limit="2.50%"]')).not.toBeNull();
+      expect(
+        screen.getByText(`Current exposure and limits in % NAV · ${date}`),
+      ).toBeInTheDocument();
     } else {
       expect(
         await screen.findByText(
@@ -979,7 +990,7 @@ function occurrences(container: HTMLElement, sentence: string) {
 const NOT_SHOWN_DECISION =
   "This decision is not shown in this report because no clearance for it is recorded.";
 const NOT_SHOWN_ON_SCREEN =
-  "This page does not show a bottom line for the Security selection module, because no clearance for it is recorded. Other passages of that module, such as its limitations, may be shown on this page. The Security selection page under Modules shows that module's findings.";
+  "This page does not show a bottom line for the Security selection module, because no clearance for it is recorded. Its other passages, such as its limitations, may be shown here; the Security selection page shows its findings.";
 const UNAVAILABLE_DECISION = "A published decision is unavailable for this run.";
 const OTHER_ROWS = "Other rows of the module's yield table are not shown in this report.";
 

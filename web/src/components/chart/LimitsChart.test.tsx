@@ -310,7 +310,7 @@ describe("LimitsChart limit with no exposure", () => {
 describe("LimitsChart table side", () => {
   it("shows the mock's table with n.a. in the same cells", () => {
     render(<LimitsChart {...base} />);
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const row = screen.getByRole("row", { name: /United States/ });
     expect(
       within(row)

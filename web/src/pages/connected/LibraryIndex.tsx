@@ -7,6 +7,7 @@ import { Callout } from "@/components/alert/Alert";
 import { Button } from "@/components/base/buttons/button";
 import { PageHeader } from "../../shell/PageHeader";
 import { card } from "./layout";
+import { useCanStart } from "./startAction";
 import { getLibraryIndex, type LibraryIndex } from "./publishedReport";
 import { isUnreachable } from "./useResource";
 import { ChipGroup } from "@/components/kit/Chip";
@@ -80,34 +81,41 @@ function MatchRuns({
           onChange={(event) => {
             choose({ query: event.currentTarget.value });
           }}
-          className="h-10 w-full rounded-ds-md border border-border-hairline bg-surface-canvas pr-3 pl-9 text-body text-text-primary placeholder:text-text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus max-[480px]:min-h-11"
+          className="h-10 w-full rounded-ds-md border border-border-control bg-surface-canvas pr-3 pl-9 text-body text-text-primary placeholder:text-text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus max-[480px]:min-h-11"
         />
       </label>
+      {/* A group with nothing to choose filters nothing, so it is not drawn. */}
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <ChipGroup
-          label="Sector"
-          choices={sectors}
-          value={filters.sector}
-          onChange={(sector) => {
-            choose({ sector });
-          }}
-        />
-        <ChipGroup
-          label="Pathway"
-          choices={pathways}
-          value={filters.pathway}
-          onChange={(pathway) => {
-            choose({ pathway });
-          }}
-        />
-        <ChipGroup
-          label="State"
-          choices={states}
-          value={filters.state}
-          onChange={(state) => {
-            choose({ state });
-          }}
-        />
+        {(sectors.length > 0 || filters.sector !== "all") && (
+          <ChipGroup
+            label="Sector"
+            choices={sectors}
+            value={filters.sector}
+            onChange={(sector) => {
+              choose({ sector });
+            }}
+          />
+        )}
+        {(pathways.length > 0 || filters.pathway !== "all") && (
+          <ChipGroup
+            label="Pathway"
+            choices={pathways}
+            value={filters.pathway}
+            onChange={(pathway) => {
+              choose({ pathway });
+            }}
+          />
+        )}
+        {(states.length > 0 || filters.state !== "all") && (
+          <ChipGroup
+            label="State"
+            choices={states}
+            value={filters.state}
+            onChange={(state) => {
+              choose({ state });
+            }}
+          />
+        )}
       </div>
       {rows.length === 0 ? (
         <div className={`${card} items-start`}>
@@ -142,6 +150,10 @@ function MatchRuns({
               <IssuerRow key={group.key} group={group} coverageInHeader={coverageInHeader} />
             ))}
           </ul>
+          <p className="reading-copy max-w-3xl text-caption text-text-tertiary">
+            Decision: the Library shows a committee decision only with a recorded clearance. A
+            report’s Committee decision page shows what the module wrote.
+          </p>
         </div>
       )}
     </div>
@@ -199,13 +211,12 @@ function EmptyLibrary({ readOnly }: { readOnly: boolean }) {
         <EmptyState.Title>No reports yet</EmptyState.Title>
         <EmptyState.Description>
           Reports appear here after they’re published.
+          {readOnly ? "" : " Start a run to publish the first."}
         </EmptyState.Description>
       </EmptyState.Content>
       {!readOnly && (
         <EmptyState.Footer>
-          <Button href="/start" color="secondary">
-            Start a run
-          </Button>
+          <Button href="/start">Start a run</Button>
         </EmptyState.Footer>
       )}
     </EmptyState>
@@ -236,21 +247,11 @@ export function ReportLibrary({ readOnly = false }: { readOnly?: boolean }) {
     window.history.replaceState(window.history.state, "", address);
   }, [filters]);
   // No index and an index with no report are one state; with nothing to filter, no filter is shown.
-  const canStart = !readOnly && !value?.preview;
+  const canStart = useCanStart(readOnly, Boolean(value?.preview));
   const empty = value === null || value?.catalogue.real.length === 0;
   return (
     <>
-      <PageHeader
-        title="Library"
-        actions={
-          canStart &&
-          !empty && (
-            <Button href="/start" className="max-md:min-h-11">
-              Start a run
-            </Button>
-          )
-        }
-      />
+      <PageHeader title="Library" />
       <section className="mt-6 grid gap-4">
         {problem && (
           <Alert
@@ -270,7 +271,7 @@ export function ReportLibrary({ readOnly = false }: { readOnly?: boolean }) {
             {[0, 1, 2].map((key) => (
               <div
                 key={key}
-                className="grid gap-4 rounded-ds-lg border border-border-subtle bg-surface-card p-4 sm:p-5 xl:grid-cols-[minmax(15rem,1.6fr)_8rem_repeat(3,minmax(8rem,1fr))_minmax(10rem,1.1fr)_minmax(9.5rem,1fr)]"
+                className={`grid gap-4 rounded-ds-lg border border-border-subtle bg-surface-card p-4 sm:p-5 ${ROW_COLUMNS}`}
               >
                 <Skeleton lines={3} />
                 <div className="h-6 rounded-ds-xs bg-surface-subtle" />

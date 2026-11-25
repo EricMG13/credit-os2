@@ -14,7 +14,7 @@ import {
   readableTitle,
   statedGap,
   unitColumn,
-} from "./moduleRecords";
+} from "./moduleRecordsModel";
 
 const table = (line: number, headers: string[], rows: string[][]): Table => ({
   type: "table",

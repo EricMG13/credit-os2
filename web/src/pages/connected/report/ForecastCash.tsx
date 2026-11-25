@@ -28,6 +28,8 @@ const LINE = 14;
 /** The widest gap word ("Not published", "Distributions") at 12px mono, plus breathing room. */
 const LABEL_ROOM = 100;
 const MIN_INSIDE = 16;
+/** The box height of one caption-size text line: outside labels of a bar sit this far apart. */
+const CAPTION_LINE = 16;
 
 type Part = { name: string; cell: MeasureCell | undefined };
 type Slot = { period: string; parts: [Part, Part] };
@@ -142,6 +144,8 @@ function Chart({ slots }: { slots: Slot[] }) {
             (Number(hasBar) + gapParts.length - 1) * 4;
           const x = middle - used / 2;
           let level = 0;
+          // Outside labels of one bar rise with its stack; each sits a text line above the last.
+          let lastOutside = Infinity;
           const stated = slot.parts.flatMap(({ name, cell }, index) => {
             if (cell?.value == null || isNegative(cell)) return [];
             const barHeight = cell.value * scale;
@@ -149,6 +153,9 @@ function Chart({ slots }: { slots: Slot[] }) {
             level += cell.value;
             const inside = barHeight >= MIN_INSIDE;
             const barMiddle = x + barWidth / 2;
+            const natural = y + barHeight / 2 + 4;
+            const textY = inside ? natural : Math.min(natural, lastOutside - CAPTION_LINE);
+            if (!inside) lastOutside = textY;
             return [
               <g key={name}>
                 <rect
@@ -161,7 +168,7 @@ function Chart({ slots }: { slots: Slot[] }) {
                 />
                 <text
                   x={inside ? barMiddle : x + barWidth + 4}
-                  y={y + barHeight / 2 + 4}
+                  y={textY}
                   textAnchor={inside ? "middle" : "start"}
                   className={`font-mono text-caption ${inside ? "fill-surface-card" : "fill-text-secondary"}`}
                 >
@@ -417,7 +424,7 @@ export function UsesOfCash({
           aria-label="Uses of cash table"
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           tabIndex={0}
-          className="relative min-w-0 overflow-x-auto max-[480px]:p-2"
+          className="relative min-w-0 overflow-x-auto rounded-ds-sm outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:p-2"
         >
           <table className="w-full border-collapse text-small">
             <caption className="sr-only">Distributions and debt repayment by period</caption>

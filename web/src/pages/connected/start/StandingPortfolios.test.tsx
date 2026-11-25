@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StandingPortfolio } from "../api";
 import { recorded, type Recorded } from "./connectedTesting";
 import { StandingPortfolios } from "./StandingPortfolios";
-import { useStandingPortfolios } from "./standingPortfolios";
+import { useStandingPortfolios } from "./standingPortfoliosModel";
 
 afterEach(() => {
   cleanup();

@@ -75,7 +75,8 @@ function Foundation(props: LeadProps) {
           <SegmentsTile lead={props} />
           <InterestCoverTile lead={props} />
           <DebtStackTile lead={props} />
-          <MaturityTile lead={props} />
+          {/* The wall takes the whole row when no periods tile shares it. */}
+          <MaturityTile lead={props} span={showPeriodsTile(props.entry) ? 6 : 12} />
           {showPeriodsTile(props.entry) && <PeriodsTile lead={props} />}
           <UnreadFigures lead={props} drawn={DRAWN} />
         </div>

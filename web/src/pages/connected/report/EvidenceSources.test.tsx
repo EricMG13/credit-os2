@@ -471,3 +471,62 @@ it("attaches a label to the longest file name it starts with, once", () => {
   expect(screen.getAllByText("filing.txt restated p.4 · ambiguous")).toHaveLength(1);
   expect(screen.getAllByText("No citation names this file")).toHaveLength(1);
 });
+
+it("keeps an empty group and says it is empty, so supplied-not-used always has an answer", () => {
+  render(
+    <EvidenceSources
+      folder="case"
+      entries={[h1]}
+      sourceGroups={[
+        { label: "Used by a module", rows: [source] },
+        { label: "Supplied, not used", rows: [] },
+        { label: "Not recorded as used", rows: [] },
+      ]}
+      modules={["CP-1"]}
+      snapshot={snapshot({})}
+    />,
+  );
+  expect(screen.getByRole("heading", { name: "Supplied, not used 0" })).toBeVisible();
+  expect(screen.getByText("No supplied file is recorded as unused.")).toBeVisible();
+  expect(screen.getByText("No supplied file lacks a record of its use.")).toBeVisible();
+  expect(screen.getAllByRole("table")).toHaveLength(1);
+});
+
+it("drops the empty groups under a module filter, where only that module's files are in scope", () => {
+  render(
+    <EvidenceSources
+      folder="case"
+      module="CP-1"
+      entries={[h1]}
+      sourceGroups={[
+        { label: "Used by a module", rows: [source] },
+        { label: "Supplied, not used", rows: [] },
+      ]}
+      modules={["CP-1"]}
+      snapshot={snapshot({})}
+    />,
+  );
+  expect(screen.queryByText("No supplied file is recorded as unused.")).toBeNull();
+});
+
+it("lists a page many lines cite once, with how many citations name it, as a real filing is cited", () => {
+  // TransDigm's June 10-Q is cited on dozens of handoff lines, most of them on the same few pages.
+  render(
+    <EvidenceSources
+      folder="case"
+      entries={[h1]}
+      sourceGroups={[{ label: "Used by a module", rows: [source] }]}
+      modules={["CP-1"]}
+      snapshot={snapshot({
+        "case/CP-1.md:5": [chip({})],
+        "case/CP-1.md:9": [chip({})],
+        "case/CP-1.md:12": [chip({}), chip({ pageHref: `${base}?page=40&end=41` })],
+      })}
+    />,
+  );
+  const used = within(screen.getByRole("table", { name: "Used by a module" }));
+  expect(used.getAllByText("Cited pages 2–3")).toHaveLength(1);
+  expect(used.getByText("3 citations")).toBeVisible();
+  expect(used.getAllByText("Cited pages 40–41")).toHaveLength(1);
+  expect(used.queryByText("1 citation")).toBeNull();
+});

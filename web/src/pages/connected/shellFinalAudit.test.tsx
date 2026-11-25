@@ -199,7 +199,7 @@ describe("Run progress batch findings", () => {
     expect(within(pipeline).getByText("Report", { selector: "span" })).toBeVisible();
     expect(screen.getByText("31 March 2026")).toBeVisible();
     await waitFor(() => {
-      expect(document.title).toBe("Northbridge run — Credit OS");
+      expect(document.title).toBe("Failed · Northbridge run — Credit OS");
     });
   });
 

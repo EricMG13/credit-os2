@@ -484,7 +484,11 @@ def assessment_scope(workflow: Mapping[str, Any], delivered: Mapping[str, Any]) 
     selection = workflow.get("selection")
     planned = set(instructions)
     required = planned - comparison
-    if selection == "explicit" or not (required <= modules <= planned):
+    if (
+        selection == "explicit"
+        or workflow.get("test_adaptations")
+        or not (required <= modules <= planned)
+    ):  # a run with a test-only adaptation is never the standard scope
         return "partial"
     preset = _module_set(workflow.get("preset_requested_modules"))
     if selection != "preset" or preset is None:

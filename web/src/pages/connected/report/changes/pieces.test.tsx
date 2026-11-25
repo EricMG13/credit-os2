@@ -6,18 +6,64 @@ import { MaturityPair, usableProfile } from "./MaturityPair";
 import { ModuleMatrix } from "./ModuleMatrix";
 
 describe("Dumbbell", () => {
-  it("places the dots on a zero-based axis so the length is the size of the move", () => {
-    const { container } = render(<Dumbbell before={2} after={4} tone="worse" />);
-    const dots = [...container.querySelectorAll<HTMLElement>("span.size-3")];
-    const left = dots.map((dot) => Number.parseFloat(dot.style.left));
-    expect(left[0]).toBeLessThan(left[1] ?? 0);
-    expect(left[1]).toBeCloseTo(92, 5);
-    expect(left[0]).toBeCloseTo(50, 5);
+  const left = (container: HTMLElement, mark: "earlier" | "current" | "axis-zero") =>
+    Number.parseFloat(container.querySelector<HTMLElement>(`[data-${mark}]`)?.style.left ?? "");
+
+  it("places both marks on an axis from zero so the length is the size of the move", () => {
+    const { container } = render(
+      <Dumbbell before={2} after={4} tone="worse" reading="Cover, 2x to 4x" />,
+    );
+    expect(left(container, "axis-zero")).toBeCloseTo(0, 5);
+    expect(left(container, "earlier")).toBeCloseTo(50, 5);
+    expect(left(container, "current")).toBeCloseTo(100, 5);
   });
 
-  it("draws a zero line when a figure is negative", () => {
-    const { container } = render(<Dumbbell before={-1} after={3} tone={null} />);
-    expect(container.querySelector("span.w-px")).not.toBeNull();
+  it("draws the earlier figure as a tick taller than the current dot, so a small move shows two marks", () => {
+    const { container } = render(
+      <Dumbbell before={3.2} after={3.1} tone="worse" reading="Cover, 3.2x to 3.1x" />,
+    );
+    const earlier = container.querySelector("[data-earlier]");
+    const current = container.querySelector("[data-current]");
+    expect(earlier?.className).toMatch(/inset-y-0/);
+    expect(earlier?.className).toMatch(/w-0\.5/);
+    expect(current?.className).toMatch(/size-2\.5/);
+    expect(left(container, "current")).toBeLessThan(left(container, "earlier"));
+  });
+
+  it.each([
+    [5.4, 5.8, "up"],
+    [3.2, 3.1, "down"],
+  ])("points the way the figure went, %s to %s", (before, after, way) => {
+    const { container } = render(
+      <Dumbbell before={before} after={after} tone={null} reading="A, 1 to 2" />,
+    );
+    const mark = container.querySelector('[data-mark="dumbbell"]');
+    expect(mark).toHaveAttribute("data-direction", way);
+    expect(mark?.querySelectorAll("svg")).toHaveLength(1);
+  });
+
+  it("says in its text alternative what the axis starts at", () => {
+    const { unmount } = render(
+      <Dumbbell before={2} after={4} tone="worse" reading="Cover, 2x to 4x" />,
+    );
+    expect(
+      screen.getByRole("img", { name: "Cover, 2x to 4x; the axis starts at zero" }),
+    ).toBeInTheDocument();
+    unmount();
+    render(<Dumbbell before={-1} after={3} tone={null} reading="Net cash, -1 to 3" />);
+    expect(
+      screen.getByRole("img", {
+        name: "Net cash, -1 to 3; the axis starts at the lowest figure and marks zero",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("marks zero inside the axis when a figure is negative", () => {
+    const { container } = render(
+      <Dumbbell before={-1} after={3} tone={null} reading="Net cash, -1 to 3" />,
+    );
+    expect(left(container, "axis-zero")).toBeCloseTo(25, 5);
+    expect(left(container, "earlier")).toBeCloseTo(0, 5);
   });
 });
 
@@ -27,6 +73,30 @@ describe("MaturityPair", () => {
     { period: "FY2029", prior: null, current: "7" },
     { period: "Thereafter", prior: "3", current: "3" },
   ];
+  // The first real profile: seven periods, one a long label, the largest figure in the last two.
+  it("lets seven periods share a 1024px page: a column needs no more than 120px", () => {
+    const real = [
+      { period: "FY2025", prior: "93", current: null },
+      { period: "FY2026", prior: "92", current: null },
+      { period: "FY2027", prior: "92", current: null },
+      { period: "FY2028", prior: "6637", current: null },
+      { period: "FY2029", prior: "4768", current: null },
+      {
+        period: "All remaining maturities, unallocated at 2024-06-29",
+        prior: null,
+        current: "22057",
+      },
+      { period: "Thereafter", prior: "12637", current: null },
+    ];
+    render(<MaturityPair profile={{ unit: "US$m", rows: real }} />);
+    const walls = screen.getByRole("region", { name: "Maturity walls" });
+    const column = within(walls).getByText("FY2025").parentElement as HTMLElement;
+    expect(column.className).toMatch(/\bmin-w-28\b/);
+    expect(column.className).not.toMatch(/min-w-52/);
+    expect(within(walls).getByText("22057")).toBeInTheDocument();
+    expect(within(walls).getByText("12637")).toBeInTheDocument();
+  });
+
   it("draws the stated periods in the pack's order, inventing none", () => {
     render(<MaturityPair profile={{ unit: "US$m", rows }} />);
     const walls = within(screen.getByRole("region", { name: "Maturity walls" }));
@@ -71,7 +141,7 @@ describe("ModuleMatrix", () => {
         ["CP-1", "Financial foundation"],
         ["CP-2", "Fundamental credit"],
         ["CP-3", "Security selection"],
-        ["CP-4", "Legal and covenants"],
+        ["CP-4", "Legal & covenants"],
         ["CP-5", "Evidence validation"],
       ].map(([module, title]) => ({
         module: module ?? "",
@@ -102,10 +172,73 @@ describe("ModuleMatrix", () => {
     expect(mark("Financial foundation")).toEqual(["Unchanged"]);
     expect(mark("Fundamental credit")).toEqual(["Revised"]);
     expect(mark("Security selection")).toEqual(["New"]);
-    expect(mark("Legal and covenants")).toEqual(["Missing"]);
+    expect(mark("Legal & covenants")).toEqual(["Missing"]);
     expect(mark("Evidence validation")).toEqual([]);
     expect(within(table).getByText("Weakened")).toBeVisible();
     expect(within(table).getByText("Explanation not stated")).toBeVisible();
+  });
+
+  it("gives a weakened or strengthened conclusion its direction with a shape, and a reversed one none", () => {
+    const status = (word: string) => ({ status: word, cause: "", why: "" });
+    render(
+      <ModuleMatrix
+        change={{
+          ...change,
+          verdicts: {
+            modules: {
+              "CP-1": status("Strengthened"),
+              "CP-2": status("Weakened"),
+              "CP-3": status("Reversed"),
+              "CP-4": status("Unchanged"),
+            },
+          },
+        }}
+        source={() => undefined}
+      />,
+    );
+    const direction = (word: string) =>
+      screen
+        .getAllByText(word)
+        .find((node) => !node.matches("th, .sr-only"))
+        ?.closest("[data-direction]") ?? null;
+    expect(direction("Strengthened")).toHaveAttribute("data-direction", "better");
+    expect(direction("Strengthened")?.className).toMatch(/text-success-text/);
+    expect(direction("Weakened")).toHaveAttribute("data-direction", "worse");
+    expect(direction("Weakened")?.className).toMatch(/text-warning-text/);
+    expect(direction("Weakened")?.querySelector("svg")).not.toBeNull();
+    expect(direction("Reversed")).toBeNull();
+    expect(direction("Unchanged")).toBeNull();
+  });
+
+  // The first real pack titled its modules "Canonical data foundation", "Downside pathway": names the
+  // reader meets nowhere else. A module the page has no name for arrives titled with its code.
+  it("names each module as the rest of the report does, never by the pack's own title or a code", () => {
+    const module = (code: string, title: string) => ({
+      module: code,
+      title,
+      ran_prior: true,
+      ran_current: true,
+      prior_bottom_line: "Before.",
+      current_bottom_line: "Now.",
+    });
+    render(
+      <ModuleMatrix
+        change={{
+          pack: {
+            modules: [
+              module("CP-1", "Canonical data foundation"),
+              module("CP-2A", "Downside pathway"),
+              module("CP-ZZ", "CP-ZZ"),
+            ],
+          },
+        }}
+        source={() => undefined}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Financial foundation/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Downside/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Unnamed module/ })).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Canonical data foundation|pathway|CP-/);
   });
 
   it("lists each module once and opens a row to its earlier and current conclusion", () => {

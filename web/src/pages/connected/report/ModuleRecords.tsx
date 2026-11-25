@@ -29,7 +29,7 @@ import {
   type AmountColumn,
   type HeldRecord,
   type RecordTable,
-} from "./moduleRecords";
+} from "./moduleRecordsModel";
 
 type Run = Pick<PublishedRun, "folder">;
 

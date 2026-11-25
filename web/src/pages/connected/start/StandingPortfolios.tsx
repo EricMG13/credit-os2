@@ -7,7 +7,7 @@ import {
   failureLine,
   standingFacts,
   type StandingView,
-} from "./standingPortfolios";
+} from "./standingPortfoliosModel";
 
 /** At least 32 px tall everywhere, 44 px at phone width. */
 const TARGET = "min-h-8 max-[480px]:min-h-11";

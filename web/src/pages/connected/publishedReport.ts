@@ -1,5 +1,5 @@
 import { LIBRARY_ADDRESS, request, snapshotAddress } from "./ahead";
-import { moduleName, pathwayName, RequestError } from "./api";
+import { moduleCodeName, pathwayName, RequestError } from "./api";
 import { asOfDate } from "./runFigures";
 import { changeText } from "./signal";
 import { withUnit } from "./moneyUnits";
@@ -27,8 +27,7 @@ const STANDALONE_CODES =
 const BRACKETED_CODE = / \((CP-[A-Za-z0-9]+)\)/gi;
 /** The module's name for a code in either case; a code the page does not know stays as written. */
 function nameOfCode(code: string) {
-  const name = moduleName(code.toUpperCase());
-  return name === code.toUpperCase() ? code : name;
+  return moduleCodeName(code.toUpperCase()) ?? code;
 }
 /**
  * Findings-page text: a " (CP-x)" right after that module's own name is dropped, after any other
@@ -473,7 +472,7 @@ const isTopRole = (heading: string): heading is keyof typeof TOP_ROLE =>
   Object.hasOwn(TOP_ROLE, heading);
 const DRAWING = /^(Chart data|Map|Events): /;
 
-function sectionRole(chain: string[]) {
+function sectionRole(chain: string[], afterAppendix = false) {
   const first = chain[0] ?? "";
   const own = chain.at(-1) ?? "";
   if (chain.some((heading) => HIDDEN.test(heading))) return "hidden";
@@ -483,6 +482,7 @@ function sectionRole(chain: string[]) {
   if (DRAWING.test(own)) return "drawing";
   if (
     own === "Reader summary" ||
+    afterAppendix ||
     chain.some((heading) => /^Analytical appendix/.test(heading)) ||
     REGISTERS.test(own)
   )
@@ -493,12 +493,26 @@ function sectionRole(chain: string[]) {
 // Match RBOT's heading-chain routing, including hidden descendants.
 export function classifySections(sections: Section[]) {
   const stack: Section[] = [];
+  // Real handoffs write each appendix register as a sibling heading after the appendix heading
+  // (synthetic ones nest them); every table section after it at that level, until the next
+  // top-level section, is part of the registers.
+  let appendixLevel = 0;
+  // A section after the appendix heading that holds module prose and no table is a reader
+  // conclusion (an overall view, a decision), not a register; it stays a finding.
+  const readerProse = ({ blocks }: Section) =>
+    blocks.some((block) => block.type === "text" && !/^Basis:/.test(block.text.trim())) &&
+    !blocks.some((block) => block.type === "table");
   return sections.map((section) => {
     while ((stack.at(-1)?.level ?? 0) >= section.level) stack.pop();
     stack.push(section);
+    if (section.level <= 2 || section.level < appendixLevel) appendixLevel = 0;
+    if (/^Analytical appendix/.test(section.heading)) appendixLevel = section.level;
     return {
       section,
-      role: sectionRole(stack.filter((item) => item.level >= 2).map((item) => item.heading)),
+      role: sectionRole(
+        stack.filter((item) => item.level >= 2).map((item) => item.heading),
+        appendixLevel > 0 && !readerProse(section),
+      ),
     };
   });
 }
@@ -629,6 +643,10 @@ const REGISTER_ID = /\bCP-[A-Z0-9]+-(?:GAP|MON|FACT|CALC|EVID|SRC|ASSUMPTION)-[A
 // name (`readerText`, D-13 part 2), so it is not held back.
 const GAP_ID = /∅\s*\[?G\d+\b/;
 const RUN_CODE = /\b\d{8}-\d{6}-\d{2}\b/;
+// A register, calculation or scenario id written inside a sentence ("CP-1C T4.10 EV/EBITDA",
+// "(calculation R9)", "the Downside scenario S02"): machinery, drawn only in Evidence.
+const REGISTER_CODE_IN_TEXT =
+  /\bCP-[A-Z0-9]+ T[A-Z0-9]{0,4}\.\d+(?:\.\d+)?\b|\bcalculations? R\d+\b|\bscenario S\d{2}\b/;
 
 function contextualMatch(
   text: string,
@@ -688,26 +706,39 @@ export function containsReference(text: string) {
     REGISTER_ID.test(text) ||
     GAP_ID.test(text) ||
     parenthesizedGap(text) ||
+    REGISTER_CODE_IN_TEXT.test(text) ||
     pageCitation(text) ||
     RUN_CODE.test(text)
   );
 }
 
 const INTERMODULE =
-  /^(?:supplied handoff|use in this module|effect on this module|consumer|downstream module|receiving module|responsible module|command|required consumer action|escalation consequence|next commands?|next modules?|downstream consumers?|downstream modules? affected|downstream handoff impact|downstream owners|affected consumers|affected modules|downstream_use|consumer_module_id)$|^consequence for cp-/;
+  /^(?:supplied handoff|use in this module|effect on this module|consumer|downstream module|receiving module|responsible module|command|required consumer action|escalation consequence|next commands?|next modules?|downstream consumers?|downstream modules? affected|downstream handoff impact|downstream owners|affected consumers|affected modules|downstream use|consumer module id)$|^consequence for cp-/;
+// "Evidence" and "Source / Limitation" columns carry either source references or the module's
+// own qualification; with rows to judge, they are hidden only when the cells are references.
+const MIXED_COLUMN = /^(?:evidence|sources?\s*\/\s*limitation)$/;
 const SOURCE_COLUMN =
-  /\bid$|^linked pathway row$|^(?:(?:sources?|evidence)(?:\s*\/\s*(?:clause|limitation)|\s+(?:trace|locator|register|document|file|sha|hash|page|reference|ref|link)s?)?|sha256|source document name|source and basis|basis and source|source\(s\)|source row\/section\/quote|sha256 hash|where found)$|\b(?:hash(?:es)?|sha|sha256|locators?|citations?|file ?names?)\b/;
+  /\bids?$|^linked pathway row$|^(?:(?:sources?|evidence)(?:\s*\/\s*(?:clause|limitation)|\s+(?:trace|locator|register|document|file|sha|hash|page|reference|ref|link)s?)?|sha256|source document name|source and basis|basis and source|source\(s\)|source row\/section\/quote|sha256 hash|where found)$|\b(?:hash(?:es)?|sha|sha256|locators?|citations?|file ?names?)\b/;
 
 export function displayColumns(headers: string[], evidence: boolean, rows: Row[] = []) {
   return headers.flatMap((text, index) => {
-    const header = text.trim().toLowerCase().replaceAll("-", " ").replace(/\s+/g, " ");
+    const header = text.trim().toLowerCase().replaceAll(/[-_]/g, " ").replace(/\s+/g, " ");
     if (INTERMODULE.test(header)) return [];
     const populated = rows.map((row) => row.cells[index]?.trim() ?? "").filter(Boolean);
     const ambiguousId =
       /^(?:references?|ref\.?|code)$/.test(header) &&
       populated.length > 0 &&
       populated.filter(containsReference).length * 2 >= populated.length;
-    return evidence || (!SOURCE_COLUMN.test(header) && !ambiguousId) ? [index] : [];
+    // "Evidence" is the module's own text only beside a separate Source column; alone it names
+    // the source.
+    const separateSource = headers.some((other) => /^sources?$/i.test(other.trim()));
+    const mixed =
+      MIXED_COLUMN.test(header) &&
+      (header !== "evidence" || separateSource) &&
+      populated.length > 0 &&
+      populated.filter(containsReference).length * 2 < populated.length;
+    if (evidence || mixed) return [index];
+    return !SOURCE_COLUMN.test(header) && !ambiguousId ? [index] : [];
   });
 }
 

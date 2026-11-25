@@ -135,7 +135,7 @@ describe("ScatterPlot chart side", () => {
 describe("ScatterPlot table side", () => {
   it("lists every point with n.a. in the missing cell", () => {
     render(<ScatterPlot {...base} />);
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const row = screen.getByRole("row", { name: /Holding J/ });
     expect(
       within(row)

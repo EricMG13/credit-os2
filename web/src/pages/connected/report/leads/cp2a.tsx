@@ -3,8 +3,8 @@ import { downsideView, DownsideTile } from "../Downside";
 import { type OutputEntry } from "../../publishedReport";
 import { Bento } from "../overview/Tile";
 import { withDraws } from "./draws";
-import { onlyGaps, OtherCharts } from "./written";
-import { LeadGap, Trace, Beside } from "./parts";
+import { OtherCharts } from "./written";
+import { LeadGap, Trace } from "./parts";
 import { drawsNothing, leadHref } from "./read";
 import type { LeadProps } from "./types";
 
@@ -43,15 +43,13 @@ export const DownsideLead = withDraws(
       };
     };
     const others = <OtherCharts entry={entry} module="CP-2A" href={evidence} drawn={[]} />;
-    const short = onlyGaps(entry, []);
-    // A ladder heads the page with the shorter tiles beside it; a first tile that is only a gap
-    // spans the row as one compact tile and the scenarios take the next row whole.
-    const span = breaks ? 4 : 12;
+    // Each of the two figures takes a row: the scenario comparison (several cases on several
+    // measures, with each case's assumptions) is never set in a third of the page beside the ladder.
     const second = scenarios ? (
-      <DownsideTile data={scenarios} href={href} span={span} />
+      <DownsideTile data={scenarios} href={href} span={12} />
     ) : (
       <LeadGap
-        span={span}
+        span={12}
         label={SCENARIOS}
         title={SCENARIOS}
         {...gap("T2DS.4", "the stressed metrics by scenario", SCENARIOS)}
@@ -60,26 +58,17 @@ export const DownsideLead = withDraws(
     return (
       <Bento>
         {breaks ? (
-          <>
-            <BreakPointsTile data={breaks} href={href} span={8} />
-            <Beside>
-              {second}
-              {short && others}
-            </Beside>
-            {!short && others}
-          </>
+          <BreakPointsTile data={breaks} href={href} span={12} />
         ) : (
-          <>
-            <LeadGap
-              span={12}
-              label={LADDER}
-              title={LADDER}
-              {...gap("T2DS.6", "the break points", LADDER)}
-            />
-            {second}
-            {others}
-          </>
+          <LeadGap
+            span={12}
+            label={LADDER}
+            title={LADDER}
+            {...gap("T2DS.6", "the break points", LADDER)}
+          />
         )}
+        {second}
+        {others}
       </Bento>
     );
   },

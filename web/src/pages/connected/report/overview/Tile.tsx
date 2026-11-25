@@ -36,7 +36,8 @@ function SmallHead({
 }) {
   return (
     // The head never wraps: a long title wraps inside itself and the trace keeps its place.
-    <div className="flex items-start justify-between gap-3">
+    // 32 px, the trace control's height, with or without one: tiles in a row start level.
+    <div className="flex min-h-8 items-start justify-between gap-3">
       {title != null && (
         <Heading className="flex min-w-0 items-center gap-2 text-small font-medium text-pretty text-text-primary">
           {title}
@@ -51,11 +52,13 @@ function SmallHead({
 }
 
 /**
- * One bento tile: one fact with one visual. `title` states the reading; `kicker` is the small
- * label above it; `trace` is the tile's single source control. `head="small"` draws the
- * Overview's 14 px (`small`) head with the kicker as a quiet caption at its right; `as` sets its level.
+ * One bento tile: one fact with one visual. `title` states the reading; `kicker` is the quiet
+ * caption under it (never a label above it); `trace` is the tile's single source control.
+ * `head="small"` draws the Overview's 14 px (`small`) head with the kicker as a quiet caption at
+ * its right; `as` sets its level.
  */
 export function Tile({
+  id,
   span,
   label,
   kicker,
@@ -67,9 +70,12 @@ export function Tile({
   className,
   children,
 }: {
+  /** An address a link lands on: the tile then takes focus from script, with the token ring. */
+  id?: string;
   span: keyof typeof SPANS;
   /** The region's accessible name. */
   label: string;
+  /** A quiet caption under the title. */
   kicker?: ReactNode;
   title?: ReactNode;
   trace?: ReactNode;
@@ -82,9 +88,13 @@ export function Tile({
   const Heading = as;
   return (
     <section
+      id={id}
+      tabIndex={id === undefined ? undefined : -1}
       aria-label={label}
       className={cx(
         "flex min-w-0 flex-col gap-4 rounded-ds-lg border p-5 sm:p-6",
+        id !== undefined &&
+          "outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2",
         SPANS[span],
         TONES[tone],
         className,
@@ -96,11 +106,18 @@ export function Tile({
       {head === "default" && (kicker ?? title ?? trace) != null && (
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
-            {kicker != null && <p className="text-caption text-text-tertiary">{kicker}</p>}
             {title != null && (
               <Heading className="text-h4 font-medium text-balance text-text-primary">
                 {title}
               </Heading>
+            )}
+            {kicker != null && (
+              <p
+                data-part="kicker"
+                className="max-w-prose text-caption text-pretty text-text-tertiary"
+              >
+                {kicker}
+              </p>
             )}
           </div>
           {trace}
@@ -119,11 +136,33 @@ export function Well({ className, children }: { className?: string; children: Re
 }
 
 /** What is not known, drawn in place: never zero, never blank. */
-export function GapNote({ children }: { children: ReactNode }) {
+export function GapNote({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className="gap-hatch flex min-h-24 items-center justify-center rounded-ds-sm border border-dashed border-border-gap p-4 text-center text-small text-gap-text">
+    <div
+      className={cx(
+        "gap-hatch flex min-h-24 items-center justify-center rounded-ds-sm border border-dashed border-border-gap p-4 text-center text-small text-gap-text",
+        className,
+      )}
+    >
       <span className="rounded-ds-xs bg-surface-card px-2 py-1">{children}</span>
     </div>
+  );
+}
+
+/**
+ * The same gap where a sentence stands in for a passage, not a figure: the hatched mark, then the
+ * words. One line-sized member of the gap pattern, so a sentence that says what the page does not
+ * show reads as a gap and not as a finding.
+ */
+export function GapSentence({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <p className={cx("flex min-w-0 items-start gap-2 text-small text-gap-text", className)}>
+      <span
+        aria-hidden="true"
+        className="gap-hatch mt-0.5 size-4 flex-none rounded-ds-xs border border-dashed border-border-gap"
+      />
+      <span className="min-w-0 text-pretty">{children}</span>
+    </p>
   );
 }
 

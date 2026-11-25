@@ -99,10 +99,8 @@ it("lists the funding dates earliest first and claims no runway the handoff does
       .getAllByRole("listitem")
       .map((item) => item.textContent),
   ).toEqual([expect.stringContaining("2025-03-31"), expect.stringContaining("2026")]);
-  expect(dates.closest("section, div[class*='col-span']")?.parentElement).toHaveClass(
-    "lg:col-span-4",
-    "self-start",
-  );
+  // The dated lane takes its own row, as on every module.
+  expect(screen.getByRole("region", { name: "Funding dates" })).toHaveClass("lg:col-span-12");
   // F1: the page reads no runway, so it says nothing about one; and no methodology note.
   expect(screen.queryByRole("region", { name: "Runway" })).toBeNull();
   expect(document.body.textContent).not.toMatch(/runway|methodology|Needs/i);
@@ -228,15 +226,15 @@ it("states a stated gap or a withheld table of another chart the module publishe
   render(<LiquidityLead {...leadProps(made)} />);
   const runway = screen.getByRole("region", { name: "Cash runway" });
   expect(within(runway).getByText("No monthly cash flow supplied")).toBeVisible();
-  // Review 4, Q5: the dates and a short gap tile stack in the column beside the bridge.
+  // A short gap tile sits in the column beside the bridge; the dates take the last row.
   const bridge = screen.getByRole("region", { name: "Liquidity bridge" });
   expect(bridge.className).toMatch(/lg:col-span-8/);
   const column = bridge.nextElementSibling as HTMLElement;
   expect(column).toHaveClass("lg:col-span-4", "flex-col");
   expect([...column.children].map((item) => item.getAttribute("aria-label"))).toEqual([
-    "Funding dates",
     "Cash runway",
   ]);
+  expect(screen.getByRole("region", { name: "Funding dates" })).toHaveClass("lg:col-span-12");
 });
 
 it("makes a bridge that is only a gap one full row, and the dates the next", () => {

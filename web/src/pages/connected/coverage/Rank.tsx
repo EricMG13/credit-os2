@@ -73,7 +73,9 @@ export function RankView({
               const name = `${field.label}, ${period}, ${unit === "" ? unitName(unit) : `reporting unit ${unit}`}${order === "high" ? ", highest first" : ", lowest first"}`;
               return (
                 <div key={unit} className="grid gap-2">
-                  <p className="text-small text-text-secondary">{name}</p>
+                  <p className="text-small text-text-secondary">
+                    {`${unit === "" ? unitName(unit) : `Stated in ${unit}`} · ${order === "high" ? "highest first" : "lowest first"}`}
+                  </p>
                   {boundUnit !== null && unit !== boundUnit && (
                     <p className="text-caption text-gap-text">
                       Bound not applied: this list is in {unitName(unit)}, and the bound compares{" "}
@@ -116,7 +118,7 @@ export function RankView({
                           grey
                           className="inline-flex min-h-8 items-center text-small font-normal max-[480px]:min-h-11"
                         >
-                          View sources
+                          Open in Evidence
                         </TextLink>
                         <p className="text-caption text-text-secondary wrap-anywhere sm:col-span-4 sm:col-start-2">
                           {fact.period ?? fact.row ?? "Period not stated"}

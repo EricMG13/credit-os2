@@ -10,6 +10,7 @@ import {
 import { namedTable } from "../reportView";
 import { amount, distinct, sharePosition } from "../visuals/visualData";
 import { Segmented } from "@/components/kit/Segmented";
+import { cx } from "@/utils/cx";
 import { Key } from "./overview/figureParts";
 import { Bento } from "./overview/Tile";
 import {
@@ -81,15 +82,71 @@ export function canReadDownside(entry: OutputEntry) {
   );
 }
 
+/**
+ * The results as the module may write them, one row per case (`Case | <measure> … | Source`), turned
+ * into one row per measure (`Metric | <case> … | Source`) with every cell as written.
+ */
+function perMeasure(table: Table): Table {
+  const measures = table.headers.slice(1, -1);
+  const rows = table.rows;
+  return {
+    ...table,
+    headers: ["Metric", ...rows.map(({ cells }) => cells[0] ?? ""), "Source"],
+    rows: measures.map((measure, at) => ({
+      // The row of a measure is the table's first row: every case's cell for it lies in that table.
+      line: rows[0]?.line ?? table.line,
+      cells: [measure, ...rows.map(({ cells }) => cells[at + 1] ?? ""), ""],
+    })),
+  };
+}
+
+/** The scenario register as the module may write it (`Case` = "<id> <name>", `Classification / confidence`). */
+function writtenCases(register: Table) {
+  const at = (name: string) => register.headers.indexOf(name);
+  const [decline, interest, kind, anchor, scope] = [
+    "EBITDA decline fraction s",
+    "Cash-interest increase fraction k",
+    "Classification / confidence",
+    "Anchor and selection rationale",
+    "Exclusions",
+  ].map(at);
+  if (register.headers[0] !== "Case" || [decline, interest, kind, anchor, scope].includes(-1))
+    return [];
+  return register.rows.map(({ line, cells }) => {
+    const [id = "", ...words] = (cells[0] ?? "").trim().split(/\s+/);
+    const [category = "", confidence = ""] = (cells[kind ?? 0] ?? "")
+      .split(";")
+      .map((part) => part.trim());
+    return {
+      line,
+      id,
+      name: words.join(" "),
+      decline: cells[decline ?? 0] ?? "",
+      interest: cells[interest ?? 0] ?? "",
+      anchor: cells[anchor ?? 0] ?? "",
+      scope: cells[scope ?? 0] ?? "",
+      category,
+      confidence,
+    };
+  });
+}
+
 export function downsideView(entry: OutputEntry) {
   if (!canReadDownside(entry)) return null;
-  const matrix = registerOrTitled(entry, "T2DS.4", RESULTS, ["Metric", "Source"]);
+  const found = registerOrTitled(entry, "T2DS.4", RESULTS, ["Metric", "Source"]);
+  const byCase = found ? undefined : registerOrTitled(entry, "T2DS.4", RESULTS, ["Case", "Source"]);
+  const matrix = found ?? (byCase?.headers[0] === "Case" ? perMeasure(byCase) : undefined);
   if (!matrix?.rows.length || matrix.headers[0] !== "Metric" || matrix.headers.at(-1) !== "Source")
     return null;
   const names = matrix.headers.slice(1, -1);
   const register = registerOrTitled(entry, "T2DS.1", "T2DS.1 Scenarios", SCENARIOS);
+  const written = registerOrTitled(entry, "T2DS.1", "T2DS.1 Scenario assumptions", ["Case"]);
   const cases =
-    register?.headers.join("|") === SCENARIOS.join("|") ? register.rows.map(scenario) : [];
+    register?.headers.join("|") === SCENARIOS.join("|")
+      ? register.rows.map(scenario)
+      : written
+        ? writtenCases(written)
+        : [];
   const control = cases.filter(
     ({ decline, interest }) => sharePosition(decline) === 0 && sharePosition(interest) === 0,
   );
@@ -113,7 +170,11 @@ export function downsideView(entry: OutputEntry) {
 /** A stressed measure's cell as a number on the measure's stated unit; null when it does not read. */
 function position(measure: string, cell: string) {
   const unit = /\(([A-Z]{3}) millions\)$/.exec(measure)?.[1];
-  if (!unit && !/\((?:x|%)\)$/.test(measure)) return null;
+  if (!unit && !/\((?:x|%)\)$/.test(measure)) {
+    // A measure with no stated unit: a cell opening with a multiple ("6.53x", "4.88x; pro forma 6.02x") is read as that multiple.
+    const multiple = /^(-?\d+(?:\.\d+)?)x(?:;|$)/.exec(cell.trim())?.[1];
+    return multiple === undefined ? null : Number(multiple);
+  }
   const numeric = cell.replaceAll("−", "-");
   const direct = amount(numeric);
   if (direct !== null) return direct;
@@ -156,6 +217,9 @@ type MultiplePanel = { measure: string; bars: { text: string; value: number }[] 
 
 const BAR_TONE = { control: "prior", chosen: "primary", other: "secondary" } as const;
 
+/** A figure and nothing else ("10.00", "-5.1250", "3.1x", "12%"): it is never broken across lines. */
+const PLAIN_FIGURE = /^[\u2212-]?[\d,]+(?:\.\d+)?[x%]?$/;
+
 function PanelRows({
   panel,
   cases,
@@ -180,15 +244,21 @@ function PanelRows({
           return (
             <li key={index} className="flex min-w-0 flex-col gap-1">
               <span className="flex items-baseline justify-between gap-3">
-                <span className="min-w-0 text-caption wrap-anywhere text-text-secondary">
+                <span className="min-w-0 text-small wrap-anywhere text-text-secondary">
                   {item?.name}
-                  {item?.role === "control" && (
+                  {item?.role === "control" && !/control/i.test(item.name) && (
                     <span className="ml-1.5 rounded-ds-xs border border-border-hairline px-1 text-text-tertiary">
                       control
                     </span>
                   )}
                 </span>
-                <span className="text-right font-mono text-small wrap-anywhere text-text-primary tabular-nums">
+                <span
+                  className={cx(
+                    "text-right font-mono text-small text-text-primary tabular-nums",
+                    // A plain figure never breaks inside itself ("10." / "00"); words may wrap.
+                    PLAIN_FIGURE.test(bar.text) ? "whitespace-nowrap" : "wrap-anywhere",
+                  )}
+                >
                   {bar.text}
                 </span>
               </span>
@@ -275,7 +345,7 @@ function casePanels(matrix: Table, cases: readonly Case[]) {
   const placed: MultiplePanel[] = [];
   const unplaced: ReactNode[] = [];
   if (!distinct(measures)) return { placed, unplaced };
-  for (const { cells, line } of matrix.rows) {
+  for (const { cells } of matrix.rows) {
     const measure = cells[0] ?? "";
     if (containsReference(measure)) continue;
     const texts = columns.map((at) => cells[at] ?? "");
@@ -295,12 +365,12 @@ function casePanels(matrix: Table, cases: readonly Case[]) {
     );
     unplaced.push(
       stated.length ? (
-        <span key={line} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span key={name} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span>{`${name} is not drawn.`}</span>
           {stated}
         </span>
       ) : (
-        `${name} is not drawn: this page could not place its cells on one stated basis; the table has them as written.`
+        `${name} is not drawn; the table has its cells as written.`
       ),
     );
   }
@@ -339,8 +409,8 @@ function CaseDetails({
       aria-label={control ? `${name} (control)` : name}
       className="flex min-w-0 items-start justify-between gap-3"
     >
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className="text-caption font-medium text-text-secondary">
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="text-small font-medium text-text-secondary">
           {control ? `${caseName(selected)} (control)` : caseName(selected)}
         </span>
         <KeyValues items={items} />

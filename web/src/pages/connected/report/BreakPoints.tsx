@@ -14,6 +14,7 @@ const RETAINED = "T2DS.6 Break points";
 const RANKINGS = ["T2B.7 First-break ranking", "First-break ranking"];
 const FIXED_INTEREST = "EBITDA decline at break (interest held)";
 const RATES_COLUMN = /^EBITDA decline at break \(k = (0(?:\.\d+)?|1(?:\.0+)?)\)$/;
+const PERCENT_COLUMN = "EBITDA decline, %";
 const REQUIRED_DECLINE = "Required EBITDA decline";
 
 type Basis = { name: string; column: number };
@@ -49,7 +50,7 @@ export function breakPointView(entry: OutputEntry) {
     namedTable(entry, title, ["Break point", REQUIRED_DECLINE]),
   ).filter(Boolean);
   const ranking = ranked.length === 1 ? ranked[0] : undefined;
-  if (!ranking?.rows.length) return null;
+  if (!ranking?.rows.length) return writtenBreaks(entry);
   const test = ranking.headers.indexOf("Break point");
   const column = ranking.headers.indexOf(REQUIRED_DECLINE);
   const compatible =
@@ -57,6 +58,24 @@ export function breakPointView(entry: OutputEntry) {
     ranking.headers.join("|") === `Rank|Break point|${REQUIRED_DECLINE}`;
   const bases = compatible ? [{ name: REQUIRED_DECLINE, column }] : [];
   return { table: ranking, bases, test, status: undefined, ranked: true };
+}
+
+/**
+ * The module's own `Break points` table (`Order | Condition | EBITDA decline, % | … | Interpretation`):
+ * the conditions in the order written, each decline as the module states it in percent.
+ */
+function writtenBreaks(entry: OutputEntry) {
+  const table = namedTable(entry, "Break points", ["Condition", PERCENT_COLUMN]);
+  if (!table?.rows.length) return null;
+  const column = table.headers.indexOf(PERCENT_COLUMN);
+  const status = table.headers.indexOf("Interpretation");
+  return {
+    table,
+    bases: [{ name: REQUIRED_DECLINE, column }],
+    test: table.headers.indexOf("Condition"),
+    status: status < 0 ? undefined : status,
+    ranked: false,
+  };
 }
 
 function threshold(text: string) {

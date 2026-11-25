@@ -151,13 +151,13 @@ describe("connected library and report design", () => {
     render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
     const header = await screen.findByRole("region", { name: "Northbridge" }, { timeout: 5000 });
     expect(within(header).getByText("Synthetic test")).toBeInTheDocument();
-    // The header carries no run-state chip; each run's "Finished" state is on its row in Runs.
+    // The header carries no run-state chip; Runs says once that every listed run is finished.
     expect(within(header).queryByText("Finished")).toBeNull();
     cleanup();
     window.history.replaceState(null, "", "/report/northbridge-2026#history");
     render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
     const runs = await screen.findByRole("region", { name: "Runs of Northbridge" });
-    expect(within(runs).getAllByText("Finished")).toHaveLength(2);
+    expect(within(runs).getAllByText(/Finished runs, newest first\./)).toHaveLength(1);
   });
 
   it("draws the figures the row does not show as one stats strip with the value in mono", async () => {
@@ -607,6 +607,11 @@ describe("the overview carries every module's bottom line and the run's limitati
     const wells = within(limits).getAllByRole("listitem");
     const lineItems = wells.filter((item) => item.querySelector(":scope > p.reading-copy"));
     expect(lineItems).toHaveLength(runLimitations(view, run).length);
+    // A module's first limitation is shown; its others are counted behind one named control.
+    const more = [...limits.querySelectorAll("details")];
+    expect(more).toHaveLength(1);
+    expect(more[0]?.querySelector("summary")).toHaveTextContent(/^1 more from /);
+    for (const details of more) details.open = true;
     expect(within(limits).getByText("Cash is shown under Liquidity only.")).toBeVisible();
     expect(within(limits).getByText("Lead limitation.")).toBeVisible();
     expect(

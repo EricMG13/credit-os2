@@ -120,3 +120,23 @@ it("draws the basis once on the page: in the claim tile and not in the derivatio
   show();
   expect(screen.getAllByText("FY2024 reported, USD m.")).toHaveLength(1);
 });
+
+it("names a module in the claim as the drawer does, never by its code", () => {
+  const coded: OutputEntry = {
+    ...entry,
+    sections: [
+      {
+        heading: "Key findings",
+        level: 2,
+        line: 3,
+        blocks: [{ type: "text", line: 4, end: 4, text: "CP-1 holds the leverage figure." }],
+      },
+    ],
+  };
+  const { container } = render(
+    <TraceSplit snapshot={snapshot({})} run={run} entry={coded} line={4} index={0} />,
+  );
+  const claim = within(screen.getByRole("region", { name: "The claim" }));
+  expect(claim.getByText("Financial foundation holds the leverage figure.")).toBeVisible();
+  expect(container.textContent).not.toMatch(/CP-\d/);
+});

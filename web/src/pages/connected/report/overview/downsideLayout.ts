@@ -1,7 +1,7 @@
 import { ticks } from "../../visuals/visualData";
 import { textWidth, thinTicks, wrapText } from "./chartText";
 import { figureText, gapWord } from "./notes";
-import { panelScale, type DownsidePanel } from "./stressData";
+import { panelScale, stressLabel, type DownsidePanel } from "./stressData";
 
 /**
  * The downside figure, drawn at its frame's own width (one user unit a pixel). The case names sit
@@ -32,7 +32,7 @@ function panelLayout(panel: DownsidePanel, room: number) {
   const longest = Math.max(
     0,
     ...panel.cells.map((cell) =>
-      cell.value === null ? 0 : textWidth(figureText(cell.text), "mono"),
+      cell.value === null ? 0 : textWidth(figureText(stressLabel(cell.text)), "mono"),
     ),
   );
   const labels = Math.min(Math.max(DOWNSIDE.labels, longest + 8), room / 2);
@@ -46,7 +46,7 @@ function panelLayout(panel: DownsidePanel, room: number) {
     room,
     head: wrapText(panel.measure, room),
     values: panel.cells.map((cell) =>
-      cell.value === null ? [] : wrapText(figureText(cell.text), labels - 8, "mono"),
+      cell.value === null ? [] : wrapText(figureText(stressLabel(cell.text)), labels - 8, "mono"),
     ),
     bars,
     zero,

@@ -310,7 +310,7 @@ it("phone: the as-of rule sits between the events either side of its date", () =
   draw(phoneRows, "2026-09-20");
   const rule = document.querySelector("[data-as-of-rule='2026-09-20']");
   expect(rule).not.toBeNull();
-  expect(screen.getByText("As of 2026-09-20")).toBeInTheDocument();
+  expect(screen.getByText("As of 20 September 2026")).toBeInTheDocument();
   const order = Array.from(
     screen.getByTestId("event-axis").querySelectorAll("button, [data-as-of-rule]"),
   ).map((element) => element.getAttribute("data-as-of-rule") ?? element.getAttribute("aria-label"));

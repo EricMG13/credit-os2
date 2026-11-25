@@ -16,7 +16,7 @@ populated from its actual handoffs and checked against them (AGENTS.md).
 
 | Persona | Who | Comes to the product to | Time on a screen | Reads | Never wants to see |
 |---|---|---|---|---|---|
-| **Decider** (portfolio manager, committee member) | Senior, has not read the source documents | Decide: act, wait or pass, and know how far to trust the call | 2–5 minutes on Overview; seconds on anything else | The call, the bottom line, the numbers that carry it, what argues against it, what the run could not do | Module codes without names, file names, hashes, run ids, registers, a wall of tables |
+| **Decider** (portfolio manager, committee member) | Senior, has not read the source documents | Decide: act, wait or pass, and know how far to trust the call | 2–5 minutes on Overview; seconds on anything else | The call, the bottom line, the numbers that carry it, what argues against it, what the run could not do | Module codes (none are drawn), file names, hashes, run ids, registers, a wall of tables |
 | **Analyst** (credit analyst, starts runs) | Knows credit, not JSON or launcher flags | Start a paid run knowing what it will and will not do; check that it landed; work inside one module's numbers | Minutes on run start; long sessions inside Modules and Forecast | Readiness, cost cap, progress, the full statements and calculations, gaps to repair | Surprise spend, a failed run with no reason, a figure with no way to its source |
 | **Reviewer** (second analyst, risk, audit) | Checks someone else's run | Confirm a figure or sentence is supported and see what was left out | Targeted visits, starting from one figure | Evidence: sources, trace, gaps, checks, run record | Findings re-argued; they want provenance only |
 
@@ -41,6 +41,12 @@ see first, and that — not the goal — sets the layout.
 | Run activity | Analyst | Show progress | Is it working, where is it, what failed | The module pipeline live; the feed second |
 
 ## Modules: goal against the insight wanted
+
+The first column keeps the module code as this document's own reference. The interface shows
+names only: no module code is drawn anywhere a reader sees or hears, Evidence, the trace drawer and
+the PDF export included; a known module with no name reads "Unnamed module" (owner, 2026-11-25:
+"remove module IDs" and "remove module IDs from evidence and trace drawer too"). Codes remain in
+URLs, data keys and stored file names.
 
 Source of the module list: `src/deploy_vii/methodology.json`. "Data today" is what a retained
 real handoff carries (TransDigm FY2024 runs; see `DESIGN.md` § Evidence base).
@@ -132,3 +138,7 @@ Until a bin-2 or bin-3 item lands, its visual shows the designed gap state.
 
 WCAG 2.2 AA is the working standard until the owner sets one. Colour never carries meaning
 alone; series that must be told apart also differ in lightness.
+
+The app is desktop only (owner, 2026-11-25: "no phone screen related work, app is only desktop").
+Supported widths are 1024 px and wider, checked at 1024, 1280 and 1440. Any earlier phone
+requirement (a 44 px touch area, widths of 390 or 768) is superseded.

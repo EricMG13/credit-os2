@@ -33,7 +33,7 @@ it("draws only classified source tables and switches to the exact published valu
   expect(figure.getByText("US$m")).toBeInTheDocument();
   expect(figure.getByRole("link", { name: "Source table" })).toHaveAttribute("href", "#line-20");
   expect(screen.queryByText("Wrong line")).toBeNull();
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   expect(figure.getByRole("table", { name: "Refinancing need" })).toHaveTextContent("250.00");
   expect(figure.getByRole("table")).toHaveTextContent("Not supplied: No estimate");
 });
@@ -45,7 +45,7 @@ it("keeps unhandled chart contracts visible as source tables and published gaps 
   };
   render(<LegacyVisuals output={output} sections={fixture(["Line", "Value"], [["Debt", "10"]])} />);
   expect(screen.getByRole("table", { name: "Unsupported" })).toHaveTextContent("Debt10");
-  expect(screen.queryByRole("radio", { name: "Chart" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Figure" })).toBeNull();
   expect(screen.getByText("Ranking was withheld")).toBeInTheDocument();
 });
 
@@ -166,7 +166,7 @@ it("plots the quoted note and retains the unquoted note, spread and quote date i
   );
   const figure = within(screen.getByRole("figure", { name: "Yield against maturity" }));
   expect(figure.getByText(/Not plotted: Synthetic 2031 note/)).toBeInTheDocument();
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   expect(figure.getByRole("cell", { name: "+310 bp" })).toBeInTheDocument();
   expect(figure.getAllByRole("cell", { name: "2024-12-31" })).toHaveLength(2);
   expect(figure.getAllByRole("cell", { name: "Not supplied: no quote" })).toHaveLength(2);
@@ -209,7 +209,7 @@ it("preserves native claim size, recovery percent, zero and an explicit recovery
     />,
   );
   const figure = within(screen.getByRole("figure", { name: "Recovery by class" }));
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   expect(figure.getByRole("columnheader", { name: "Claim" })).toBeInTheDocument();
   expect(figure.getByRole("columnheader", { name: "Recovery %" })).toBeInTheDocument();
   expect(figure.getAllByRole("cell", { name: "1,200" })).toHaveLength(2);
@@ -252,7 +252,7 @@ it("keeps compatible earnings comparisons plotted when one value is missing", ()
     />,
   );
   const figure = within(screen.getByRole("figure", { name: "Prior and current results" }));
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   expect(figure.getByRole("columnheader", { name: "Prior period" })).toBeInTheDocument();
   expect(figure.getByRole("cell", { name: "2,250" })).toBeInTheDocument();
   expect(figure.getByRole("cell", { name: "Not supplied: not stated" })).toBeInTheDocument();
@@ -342,7 +342,7 @@ it.each([
       />,
     );
     const figure = within(screen.getByRole("figure", { name: title }));
-    fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+    fireEvent.click(figure.getByRole("button", { name: "Table" }));
     expect(figure.getByRole("table", { name: title })).toHaveTextContent(expected);
   },
 );
@@ -399,7 +399,7 @@ it("renders a published time lane and relationship without inferring exact dates
   expect(map.getByRole("list", { name: "Connection key" })).toHaveTextContent(
     "guarantees debt for",
   );
-  fireEvent.click(map.getByRole("radio", { name: "Table" }));
+  fireEvent.click(map.getByRole("button", { name: "Table" }));
   expect(map.getByRole("table")).toHaveTextContent("Source B");
 });
 
@@ -416,7 +416,7 @@ it("charts published forecast series and renders the separately formatted figure
     />,
   );
   const figure = within(screen.getByRole("figure", { name: "Revenue" }));
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   const table = figure.getByRole("table", { name: "Revenue" });
   expect(table).toHaveTextContent("1,050");
   expect(table).toHaveTextContent("n.a. Source absent");
@@ -461,7 +461,7 @@ it("keeps unstated stack balances out of the plot while retaining their stated r
     ["Subordinated notes", "Not supplied: balance not stated"],
   ]);
   expect(rows.map((li) => li.querySelector("svg") !== null)).toEqual([true, false, false]);
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   expect(figure.getByRole("row", { name: /Senior notes/ })).toHaveTextContent("0");
   expect(figure.getByRole("table")).toHaveTextContent("Not supplied: no balance");
 });
@@ -537,7 +537,7 @@ it("draws each named node once and connects published parallel, return and self 
   expect(graph.querySelector('[data-map-edge="3"] title')).toHaveTextContent(
     "B → A · Ownership · Owns parent stake",
   );
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   expect(figure.getByRole("table")).toHaveTextContent("Own security");
   expect(figure.getByRole("table")).toHaveTextContent("Source 4");
 });

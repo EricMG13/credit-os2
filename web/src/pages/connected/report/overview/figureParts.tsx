@@ -32,6 +32,8 @@ const SWATCH = {
   primary: "bg-chart-1",
   undated: "border-[1.5px] border-chart-1 bg-surface-selected",
   secondary: "bg-chart-2",
+  /** A second series drawn as a dashed line with open points. */
+  secondaryOpen: "border-[1.5px] border-dashed border-chart-2 bg-surface-card",
   prior: "bg-chart-3",
   signal: "bg-warning-mark",
   gap: "gap-hatch border border-dashed border-border-gap",
@@ -74,7 +76,7 @@ export function FigureNotes({
 
 /** The figure's place when the run does not carry it: the reason, in the gap treatment. */
 export function FigureGap({ reason }: { reason: string }) {
-  return <GapNote>{reason}</GapNote>;
+  return <GapNote className="flex-1">{reason}</GapNote>;
 }
 
 /** The diagonal hatch a gap mark is filled with inside an SVG; `id` is unique per figure. */

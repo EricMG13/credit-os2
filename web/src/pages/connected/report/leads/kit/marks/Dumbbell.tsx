@@ -19,8 +19,8 @@ export type DumbbellRow = {
   /** `worse` draws the current dot in the signal colour; the word must be in `note`. */
   tone?: MarkTone;
   /**
-   * Which series the row belongs to: "primary" (the default) draws the current dot teal,
-   * "secondary" navy (`fill-chart-2`), so a second kind of measure on the same scale (debt beside
+   * Which series the row belongs to: "primary" (the default) draws the current dot blue,
+   * "secondary" plum (`fill-chart-2`), so a second kind of measure on the same scale (debt beside
    * earnings) reads apart; the page names it in its own legend. `tone: "worse"` still wins.
    */
   series?: "primary" | "secondary";

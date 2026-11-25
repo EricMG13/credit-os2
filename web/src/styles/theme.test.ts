@@ -234,3 +234,12 @@ describe("theme.css", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("browser surfaces", () => {
+  it("draws selected text from tokens: an accent tint ground and primary ink", () => {
+    const rule = /::selection\s*\{([^}]*)\}/.exec(theme)?.[1] ?? "";
+    expect(rule).toMatch(/background-color:\s*var\(--color-action-subtle(?:-hover)?\)/);
+    expect(rule).toMatch(/(?<![\w-])color:\s*var\(--color-text-primary\)/);
+    expect(rule).not.toMatch(HEX);
+  });
+});
