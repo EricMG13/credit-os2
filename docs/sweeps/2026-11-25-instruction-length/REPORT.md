@@ -184,17 +184,21 @@ One module session, in the order the model receives it:
 | User: upstream handoffs | Every producer's handoff in full | Each as one JSON string, so line breaks arrive as `\n` (1.8% larger on a 95,333-character handoff) |
 | Later turns | Tool results | Source pages of 3,000 characters, at most 8 per read |
 
-- Handoffs received in the deep pathway: CP-4 4, CP-3 13, CP-6 14, CP-5 18. For CP-4 the
-  instructions are most of the first prompt; for CP-5 they are about a sixth (sweep figures).
+- Handoffs received in the deep pathway: CP-4 4, CP-3 13, CP-6 14, CP-5 18. Correction (offline
+  stage): on the Copilot route CP-3, CP-5 and CP-6 are now sent an index of their handoffs and
+  read the text on request, so their first request is about 80% instructions (table below). CP-4
+  is sent its four handoffs in full and its instructions are just under half of the first request.
+  The sweep's larger first prompts predate the index.
 - The handoffs are the largest text most late modules read and they are sent inside JSON. OpenAI's
   GPT-4.1 guide reports JSON performing poorly for long documents and Anthropic advises one tagged
   block per document. Not measured here.
 - The method files are sent as written for another packaging, and the head corrects them by
-  override. Beyond the keyword count above, paragraphs that set Deploy V's own packaging are still
-  sent: YAML front matter (about 11,000 to 22,000 characters of paragraphs in each of CP-3, CP-4,
-  CP-5 and CP-6), the output file name rule (7,000 to 13,000) and export formats (6,000 to 15,000).
-  These counts overlap each other and are by keyword. The head then says `## Analysis` is
-  `## Findings` here, that no score, band or QA status is written, and that the scripts cannot run.
+  override: `## Analysis` is `## Findings` here, no score, band or QA status is written, the
+  helper scripts cannot run. Correction (offline stage): the YAML front matter is not withdrawn.
+  The engine reads `module_status` and the issuer fields from it and 23 of the 30 retained
+  handoffs carry one; only the score, the band and `qa_status` are refused in it. The file name
+  rule and export formats are still sent and have no use here (7,000 to 13,000 and 6,000 to
+  15,000 characters of paragraphs in each of the four largest; keyword counts that overlap).
 - One example of a mixed paragraph: CP-4's "Canon Core" (1,919 characters) holds the live rule on
   conclusion-first analysis and the withdrawn rules on file name, front matter and `qa_status` in
   the same numbered list.
@@ -258,14 +262,95 @@ Cost, estimated from one retained run per setting (Copilot gpt-6.1-sol, medium t
 0.80 to 0.97, CP-6 0.73 to 0.99, CP-5 2.26 to 2.80 per run. Three groups of five repeats on those
 three modules is about USD 57 to 71. An unblocked CP-4 has no retained cost.
 
+## Offline stage of the trial (third pass, 2026-11-25)
+
+Built: `tools/instruction_trial.py`, a temporary adaptation, with `tests/test_instruction_trial.py`.
+No provider was called. Case material: the two bundles of PR #87 (`trial/bundles/`, not merged
+here), both TransDigm as of 2024-09-30, deep credit assessment, Copilot gpt-6.1-sol medium.
+Outdated evidence, used to prove function, not a current credit view.
+
+How it works: the run is prepared afresh from the bundle's context and issuer files, so the
+instructions are today's. The module's task is built as CP-OS builds it, with the bundle's
+handoffs standing for its producers'. The engine's own per-module runner, executor and acceptance
+check are used unchanged; the check is built from the canonical method for every group. Offline, a
+stand-in for the provider submits the bundle's own handoff for the module.
+
+The three groups as built:
+
+- **A**: the prepared instructions, unchanged.
+- **B**: A less (1) every second and later copy of a paragraph body of 200 characters or more,
+  including a copy under a renamed heading ("relocated from", "continued"), and (2) four kinds of
+  paragraph that only tell the model to run a helper script or show a score Python computes.
+  Nothing is reworded. Narrower than first proposed: a paragraph that mixes a live rule with
+  withdrawn text stays, and CP-4's 4A and 4B method stays because the case has legal documents.
+- **C**: A's head, then a restructured method (`trial/arms/C/<module>.md`), then the shared
+  sections unchanged. Each text was written by a separate agent from the module's own skill
+  files under one brief: keep every id, column, value set, threshold, gate and prohibition as
+  written; remove script runs, receipts, file naming, export and chat text; state a repeated rule
+  once; add nothing. Not reviewed by a person.
+
+| Module (case) | Group | Characters | Lines | Requirement sentences | First request, tokens (est.) | Ids dropped | Replay of retained handoff |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| CP-4 (case 2, agreements) | A | 216,976 | 2,760 | 257 | 118,614 | 0 | accepted |
+| | B | 194,240 | 2,453 | 240 | 112,671 | 0 | accepted |
+| | C | 118,050 | 1,001 | 174 | 92,762 | 0 | accepted |
+| CP-3 (case 1) | A | 188,333 | 2,176 | 298 | 59,143 | 0 | rejected, 1 issue |
+| | B | 175,406 | 2,045 | 262 | 55,765 | 0 | rejected, same issue |
+| | C | 112,196 | 742 | 192 | 39,273 | 0 | rejected, same issue |
+| CP-6 (case 1) | A | 141,625 | 1,810 | 235 | 47,753 | 0 | accepted |
+| | B | 129,540 | 1,668 | 215 | 44,577 | 0 | accepted |
+| | C | 90,491 | 932 | 170 | 34,323 | 0 | accepted |
+| CP-5 (case 1) | A | 126,833 | 1,409 | 227 | 45,776 | 0 | accepted |
+| | B | 115,576 | 1,319 | 206 | 42,839 | 0 | accepted |
+| | C | 84,750 | 823 | 149 | 34,772 | 0 | accepted |
+
+Per-module files are in `offline/`. What the table shows:
+
+- B is 7% to 10% shorter than A; C is 33% to 46% shorter. No group drops a register or table
+  id, and every required register is still named.
+- The preparation, task, executor, check and records work end to end for all twelve combinations.
+- The replay verdict is the same across groups by construction: it shows the retained handoff
+  against today's check, not what a model would write from the text.
+- CP-3's retained handoff fails today's check in every group ("expected one CP-3/Capital
+  structure"): today's layout asks CP-3 for a section the 2026-11-16 run was not asked for. It
+  stays usable as a fixed input to CP-5 and CP-6; it is not a baseline answer for CP-3.
+- The bundle's Bloomberg quote sheet is absent and the run still prepares; `context.json`
+  carries the quote values.
+
+The retained runs give one observation of the current text each (older instructions, handoffs
+sent in full, so not like for like with group A today): CP-3 6 calls and USD 0.82, CP-5 11 calls
+and USD 1.07, CP-6 5 calls and USD 0.84, CP-4 (with agreements) 13 calls and USD 1.00. Each was
+accepted on its first write, so "issues on the first write" was zero for all four: that measure
+will not separate the groups, and the blind reading against a fixed list remains necessary.
+
+Reported by the authors of the C texts, not checked independently:
+
+- Places where the source method disagrees with itself are kept and marked "Conflict in the
+  source method:" (CP-4 2, CP-3 3, CP-5 5, CP-6 3). They exist in A and B too, unmarked.
+- CP-3: the recovery waterfall has no formula in the method, only a description of what the
+  helper script works out. No group gives the model a formula for it.
+- CP-3's first draft had changed four rules (a ban extended to a phase without it, a formula
+  written out, one rewording, one more ban); all were restored to the source wording.
+- CP-5's author checked the result against reading notes, not line by line.
+- Dropped as already said by the head or the shared sections: the opening heading and word
+  range, routing and research-request text, and (CP-4) two readiness sub-steps.
+
+Before a live run:
+
+1. A person should read at least one C text against its source; the id check cannot see a
+   dropped rule that has no id.
+2. The fixed list of facts and conclusions for the blind reading is not written.
+3. A new ruling file naming the configuration; `live` mode is written and has not been run.
+4. Each run reserves about USD 7.17 per call against its cap before settling at well under USD 1.
+
 ## Not verified
 
 - Any effect of length on output: no model was run.
 - Token counts: estimates from bytes, not counted by a provider for the model in use.
 - The overridden and requirement counts are keyword counts; no paragraph was read to confirm it
   is safe to remove. Whether the three content-neutral removals overlap was not checked.
-- The trial adaptation itself: described from the code and the launcher tests, not built or run.
-- Whether the handoffs on the owner's machine still pass today's check.
+- The trial's `live` mode: written, never run. The offline stage used a stand-in provider.
+- The C texts against their sources, rule by rule (see the offline stage).
 - Whether the contradictions the 2026-11-13 sweep recorded have since been repaired.
 - CP-8 and CP-L10; pathways other than deep and lite were prepared but not tabulated.
 - Guidance read from search extracts (most OpenAI pages and every independent paper): check the
