@@ -194,13 +194,17 @@ def _count(number: int, noun: str) -> str:
     return f"{number} {noun}" if number == 1 else f"{number} {noun}s"
 
 
-def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
-    """The instrument's level less its rating bucket's median in the portfolio, banded.
-    Blank with no level, no price or fewer than five distinct borrowers in the bucket."""
+def _finite_figures(instrument: Instrument) -> None:
     if instrument.level_bp is not None:
         _finite(instrument.level_bp, f"The level of {instrument.name}")
     if instrument.price is not None:
         _finite(instrument.price, f"The price of {instrument.name}")
+
+
+def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
+    """The instrument's level less its rating bucket's median in the portfolio, banded.
+    Blank with no level, no price or fewer than five distinct borrowers in the bucket."""
+    _finite_figures(instrument)
     in_bucket = [  # a position with no stated asset type is read as the instrument's
         row
         for row in rows(portfolio, rating_bucket=instrument.rating_bucket)
@@ -697,7 +701,10 @@ def portfolio_reading(
     coordinator's)."""
     issuer = issuer or Issuer()
     types = eligible_types(portfolio, issuer.declared)
-    eligible = sorted((item for item in instruments if item.asset_type in types), key=_tie_key)
+    eligible = [item for item in instruments if item.asset_type in types]
+    for item in eligible:  # a non-finite figure is refused before any ordering compares it
+        _finite_figures(item)
+    eligible.sort(key=_tie_key)
     valued = [(item, valuation(item, portfolio)) for item in eligible]
     candidates = [
         _candidate(credit, item, scored, portfolio, issuer.sector)

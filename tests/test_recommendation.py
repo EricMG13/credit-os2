@@ -1936,17 +1936,33 @@ def test_a_better_valuation_is_taken_first_when_there_is_no_credit_score() -> No
         assert portfolio_reading(no_credit, listed, reference("clo")).instrument == better
 
 
-_POOL_NAMES = ["A", "B", "C"]
-_POOL_LEVELS = [None, Decimal(200), Decimal(300), Decimal(350), Decimal(400)]
-_POOL_PRICES = [None, Decimal(80), Decimal(99)]
-_pool_instrument = st.builds(
-    Instrument,
-    st.sampled_from(_POOL_NAMES),
-    st.sampled_from(["loan", "bond"]),
-    st.sampled_from(["BB", "CCC", "B"]),  # B has four names: its Valuation is blank
-    st.sampled_from(_POOL_LEVELS),
-    st.sampled_from(_POOL_PRICES),
-)
+def test_a_non_finite_level_on_a_shared_name_is_refused_in_every_list_order() -> None:
+    nan = Instrument("TL", "loan", "BB", Decimal("NaN"), Decimal(99))
+    fine = Instrument("TL", "loan", "BB", Decimal(300), Decimal(99))
+    for listed in ([nan, fine], [fine, nan]):
+        with pytest.raises(ValueError, match=r"The level of TL must be a finite number"):
+            portfolio_reading(credit(3), listed, reference("clo"))
+
+
+_POOL_NAMES = ["A", "B"]  # two names, so that sharing one is common
+_POOL_LEVELS = [None, Decimal(300), Decimal(350), Decimal("350.0")]
+_POOL_PRICES = [None, Decimal(80), Decimal(99), Decimal("99.0")]
+
+
+def _pool_instruments(blanks: int) -> st.SearchStrategy[Instrument]:
+    """Mostly loans with a level and a price, in the buckets that have a Valuation (BB and CCC; the
+    CCC row breaches), a minority of bonds, missing figures and the thin bucket B (its Valuation
+    is blank); `blanks` is how many times the missing figures and bucket B are drawn."""
+    return st.builds(
+        Instrument,
+        st.sampled_from(_POOL_NAMES),
+        st.sampled_from(["loan"] * 6 + ["bond"]),
+        st.sampled_from(["BB"] * 3 + ["CCC"] * 3 + ["B"] * blanks),
+        st.sampled_from(_POOL_LEVELS[1:] * 3 + _POOL_LEVELS[:1] * blanks),
+        st.sampled_from(_POOL_PRICES[1:] * 3 + _POOL_PRICES[:1] * blanks),
+    )
+
+
 _POOL_CREDITS = [credit(1), credit(2), credit(3), credit(5), credit_score(card([3] * 11))]
 
 
@@ -1962,7 +1978,7 @@ def _pool_book() -> Portfolio:
 
 @settings(max_examples=150, deadline=None)
 @given(
-    st.lists(_pool_instrument, max_size=4).flatmap(
+    st.lists(_pool_instruments(3), min_size=2, max_size=4).flatmap(
         lambda items: st.tuples(st.just(items), st.permutations(items))
     ),
     st.sampled_from(_POOL_CREDITS),
@@ -1977,7 +1993,7 @@ def test_property_the_order_of_the_instruments_never_changes_any_field_of_the_re
 
 @settings(max_examples=150, deadline=None)
 @given(
-    st.lists(_pool_instrument, min_size=1, max_size=4),
+    st.lists(_pool_instruments(1), min_size=2, max_size=4),
     st.sampled_from([credit(1), credit(2), credit(3), credit(4), credit(5)]),
 )
 def test_property_the_portfolio_takes_the_lowest_result_of_its_eligible_instruments(
