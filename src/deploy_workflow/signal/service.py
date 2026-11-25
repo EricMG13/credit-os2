@@ -90,10 +90,10 @@ from deploy_workflow.signal import (
 )
 from deploy_workflow.signal.ingest import FetchFn
 from deploy_workflow.signal.routing import ID as _ID
+from deploy_workflow.signal.routing import Incoming as _Incoming
 from deploy_workflow.signal.routing import LoopState
 from deploy_workflow.signal.routing import NEEDS_NAME as _NEEDS_NAME
 from deploy_workflow.signal.routing import Req as _Req
-from deploy_workflow.signal.routing import Request as _Request
 from deploy_workflow.signal.routing import Route as _Route
 
 __all__ = ["Handler", "Loop", "answer", "make_server", "serve"]
@@ -425,18 +425,18 @@ class Handler(http_base.Handler):
         return self._json_body()
 
     def _dispatch(self, url: urllib.parse.SplitResult) -> _Reply:
-        request = _Request(
+        request = _Incoming(
             self.command,
             url.path,
             url.query,
             self.headers.get("Cookie"),
-            self._json_body,
-            self._optional_body,
+            body=self._json_body,
+            optional_body=self._optional_body,
         )
         return answer(self._service.root, self._service.loop, request)
 
 
-def _route(method: str, path: str) -> tuple[_Route, tuple[str, ...]]:
+def _match(method: str, path: str) -> tuple[_Route, tuple[str, ...]]:
     """The route for `method` and `path` with the path's groups; 405 with ``Allow`` for a listed
     path and another method, 404 for any other path."""
     allowed: list[str] = []
@@ -452,14 +452,16 @@ def _route(method: str, path: str) -> tuple[_Route, tuple[str, ...]]:
     raise _refuse(404, "not found")
 
 
-def answer(root: Path, loop: LoopState | None, request: _Request) -> _Reply:
+def answer(root: Path, loop: LoopState | None, request: _Incoming) -> _Reply:
     """The reply to one API request, returned or (a refusal) raised.
 
-    The transport has already made its own checks (``Host``, ``Origin``, the body's length);
-    `request` is what is left for Signal to read. The request gets its own connection to the
-    store under `root`, closed before this returns or raises. `loop` is the background loop
-    whose state ``/api/status`` and the snapshot show, or None where none runs."""
-    route, groups = _route(request.method, request.path)
+    The transport has already checked ``Host`` and ``Origin``. The body's rules (its length,
+    that it is a JSON object) are the transport's too, applied when a handler calls
+    ``request.body`` or ``request.optional_body``, whose refusal passes through here. The
+    request gets its own connection to the store under `root`, closed before this returns or
+    raises. `loop` is the background loop whose state ``/api/status`` and the snapshot show, or
+    None where none runs."""
+    route, groups = _match(request.method, request.path)
     params = _params(request.query)
     db = store.open_db(root)  # this request's own connection
     try:
@@ -467,7 +469,15 @@ def answer(root: Path, loop: LoopState | None, request: _Request) -> _Reply:
         if user is None and not route.open_to_all:
             raise _refuse(401, _NEEDS_NAME)
         return route.handler(
-            _Req(db, user, groups, params, request.body, loop, request.optional_body)
+            _Req(
+                db,
+                user,
+                groups,
+                params,
+                body=request.body,
+                loop=loop,
+                optional_body=request.optional_body,
+            )
         )
     finally:
         db.close()

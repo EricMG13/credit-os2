@@ -1,22 +1,24 @@
 """``service.answer`` called directly over a seeded store: no socket, no server, no loop.
 
 What the transport checks before a request reaches Signal (``Host``, ``Origin``, the body's
-length) is not ``answer``'s and is not tested here. Expected values are written by hand.
+length) is not ``answer``'s and is not tested here. The ``ask`` helper returns the reply whether
+``answer`` returned it or raised it, because a transport must handle both. Expected values are
+written by hand.
 """
 
 from __future__ import annotations
 
-import re
 import sqlite3
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from test_signal_feedview import build_feed_db
 
 from deploy_workflow.http_base import Reply
-from deploy_workflow.signal import service
-from deploy_workflow.signal.routing import Req, Request, Route
+from deploy_workflow.signal import ai_gate, service, store
+from deploy_workflow.signal.routing import Incoming
 
 READER = "signal_name=Reader"
 
@@ -35,7 +37,9 @@ def ask(
         return _no_body() if body is None else body
 
     path, _, query = target.partition("?")
-    request = Request(method, path, query, cookie, body=given, optional_body=lambda: body or {})
+    request = Incoming(
+        method, path, query, cookie, body=given, optional_body=lambda: {} if body is None else body
+    )
     try:
         return service.answer(root, None, request)
     except Reply as refusal:
@@ -52,13 +56,13 @@ def root(tmp_path: Path) -> Path:
 def opened(monkeypatch: pytest.MonkeyPatch) -> list[sqlite3.Connection]:
     """Every connection the service opens while the test runs."""
     found: list[sqlite3.Connection] = []
-    real = service.store.open_db
+    real = store.open_db
 
     def recording(folder: Path) -> sqlite3.Connection:
         found.append(real(folder))
         return found[-1]
 
-    monkeypatch.setattr(service.store, "open_db", recording)
+    monkeypatch.setattr(store, "open_db", recording)
     return found
 
 
@@ -145,24 +149,51 @@ def test_connection_is_closed_after_the_handler_returns_or_refuses(
 
 
 def test_connection_is_closed_after_the_handler_raises(
-    root: Path, opened: list[sqlite3.Connection], monkeypatch: pytest.MonkeyPatch
+    root: Path, opened: list[sqlite3.Connection]
 ) -> None:
-    seen: list[Req] = []
+    seen: list[sqlite3.Connection] = []
 
-    def broken(req: Req) -> Reply:
-        seen.append(req)
-        assert req.db.execute("SELECT 1").fetchone()[0] == 1  # open while the handler runs
+    def broken() -> dict[str, Any]:
+        (db,) = opened
+        seen.append(db)
+        assert db.execute("SELECT 1").fetchone()[0] == 1  # open while the handler runs
         raise RuntimeError("the handler fell over")
 
-    routes = (Route("GET", re.compile("/api/broken"), broken, open_to_all=True),)
-    monkeypatch.setattr(service, "_ROUTES", routes)
-    request = Request("GET", "/api/broken", "", None, body=_no_body, optional_body=_no_body)
+    request = Incoming("POST", "/api/me", "", None, body=broken, optional_body=_no_body)
     with pytest.raises(RuntimeError, match="the handler fell over"):
         service.answer(root, None, request)
     assert len(seen) == 1
     assert len(opened) == 1
-    assert opened[0] is seen[0].db
+    assert opened[0] is seen[0]
     assert _is_closed(opened[0])
+
+
+class _FailedLoop:
+    """A background loop whose ingest pass last failed with "x"; its AI pass is off."""
+
+    last_error: str | None = "x"
+    ai_error: str | None = None
+    digest_error: str | None = None
+    market_error: str | None = None
+
+    def ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status:
+        raise AssertionError("/api/status shows the held status")
+
+    def shown_ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status:
+        return cast(ai_gate.Status, _OffStatus())
+
+
+class _OffStatus:
+    state = "off"
+    last_problem = None
+
+
+def test_handler_is_given_the_loop(root: Path) -> None:
+    request = Incoming("GET", "/api/status", "", None, body=_no_body, optional_body=_no_body)
+    reply = service.answer(root, _FailedLoop(), request)
+    assert reply.status == 200
+    assert reply.body["loop_error"] == "x"
+    assert reply.body["ai_state"] == "off"
 
 
 def test_query_that_cannot_be_read_is_400_before_a_connection_is_opened(

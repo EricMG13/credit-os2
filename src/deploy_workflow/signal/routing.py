@@ -1,5 +1,6 @@
-"""What a Signal route handler is given and how a route is declared; shared by the service and the
-modules that hold its handlers (``api_groups``, ``api_settings``), which the service imports."""
+"""What a Signal route handler is given, how a route is declared, and what a transport gives
+``service.answer`` (``Incoming``); shared by the service and the modules that hold its handlers
+(``api_groups``, ``api_settings``, ``api_issuers``, ``api_logos``), which the service imports."""
 
 from __future__ import annotations
 
@@ -56,11 +57,11 @@ class Req:
 
 
 @dataclass(frozen=True)
-class Request:
+class Incoming:
     """One request as ``service.answer`` takes it from whatever transport received it."""
 
     method: str
-    path: str  # the ``/signal`` prefix already removed: it starts ``/api/``
+    path: str  # the ``/signal`` prefix already removed; a path not under ``/api/`` is a 404
     query: str  # raw, as it came after the ``?``
     cookie: str | None  # the ``Cookie`` header's value
     body: Callable[[], dict[str, Any]]  # the required JSON object, or the transport's refusal
