@@ -556,8 +556,12 @@ Owner: "apply recommendations. can these be applied to all modules?"
   deep pathway and leaves every required register named. It removes 22,736 characters from CP-4
   (10.5%), 11,257 from CP-5 (8.9%), 12,085 from CP-6 (8.5%), 12,927 from CP-3 (6.9%) and 382 to
   2,448 from each of the other sixteen (0.6% to 3.8%, almost all of it the paragraphs that tell
-  the model to run a helper script). Only CP-4 has runs behind it, so only CP-4 is in the set:
-  one module at a time, each after its own comparison.
+  the model to run a helper script).
+- Then applied to every module (owner: "add now apply to all modules"): `TRIMMED_METHODS` is
+  every module with a method. 82,875 characters leave the 22 method blocks (5.7%); CP-8 and
+  CP-L10 are unchanged. Only CP-4 has runs behind the change; the other nineteen changed modules
+  rest on the offline check and the owner's instruction. The library marks those twenty modules
+  in every earlier run as answered under an earlier method.
 
 ## Not verified
 

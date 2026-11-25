@@ -60,6 +60,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   `test_method_scripts.py`, `test_cpos_register_scope.py`: passed, four pins and assertions
   changed on purpose with the reason beside each; gate exit 0. Not run: the end-to-end tests,
   any live run of the applied text (group B's three runs stand for it).
+- Then every module (owner: "add now apply to all modules"): checked for all 22 method blocks by
+  script (no register or table id lost, every required register and file heading present); the
+  same test files plus `test_library_index.py` and `test_update_library.py`, 1,562 passed, the
+  end-to-end and every-pathway tests left out; 19 more method-block pins recomputed. No live run
+  of any module but CP-4 on the trimmed text.
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the
