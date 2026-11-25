@@ -45,7 +45,7 @@ def root() -> Iterator[Path]:
 
 @pytest.fixture
 def hosted(root: Path, web: Path) -> Iterator[_Server]:
-    with make_server(root, web=web) as server:
+    with make_server(root, web=web, environ={}) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
         try:

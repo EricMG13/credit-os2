@@ -358,6 +358,20 @@ def _form_template(*, synthetic: bool) -> dict[str, Any]:
     return template
 
 
+class _SignalReplies(service.Handler):
+    """The run start handler whose replies under ``/signal/api/`` carry Signal's headers where
+    `hosted` is a host (``signal_host.reply_headers``)."""
+
+    hosted: signal_host.SignalHost | None = None
+    raw_requestline: bytes  # set by http.server before any reply; its stubs do not list it
+
+    def end_headers(self) -> None:
+        # Here, as the base's own: every reply passes, those http.server writes itself included.
+        for name, value in signal_host.reply_headers(self.hosted, self.raw_requestline).items():
+            self.send_header(name, value)
+        super().end_headers()
+
+
 def _handler(
     dist: Path,
     page: bytes,
@@ -368,7 +382,9 @@ def _handler(
 ) -> type[service.Handler]:
     caps = {pathway: str(amount) for pathway, amount in PATHWAY_CAP_USD.items()}
 
-    class Handler(service.Handler):
+    class Handler(_SignalReplies):
+        hosted = signal
+
         def send_reply(self, reply: http_base.Reply) -> None:
             if isinstance(reply.body, bytes):
                 body, headers = reply.body, dict(reply.headers)
@@ -379,7 +395,6 @@ def _handler(
                     "Cache-Control": "no-store",
                     **reply.headers,
                 }
-            headers.update(signal_host.reply_headers(signal, self.path))
             response = http_base.Reply(reply.status, body, headers)
             if _compressible(response, self.path):
                 _vary(headers)

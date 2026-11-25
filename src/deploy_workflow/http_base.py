@@ -57,6 +57,7 @@ __all__ = [
     "Server",
     "contained_file",
     "hosts",
+    "json_value",
     "read_regular",
     "refuse",
     "wildcard",
@@ -297,18 +298,27 @@ class Handler(BaseHTTPRequestHandler):
         """Up to ``length`` body bytes; a connection that fails meanwhile raises ``ClientGone``."""
         return Body(self.rfile).read(length)
 
-    def json_body(self, limit: int) -> Any:
-        """The body as one JSON value of at most ``limit`` bytes; 411, 413 or 400 otherwise."""
+    def sized_body(self, limit: int) -> bytes:
+        """The whole body, of at most ``limit`` bytes; 411, 413 or 400 otherwise."""
         length = self.content_length()
         if length > limit:
             raise refuse(413, f"a request body is at most {limit // 1024} KiB")
         data = self.read_body(length)
         if len(data) != length:
             raise refuse(400, "the request body ended early")
-        try:
-            return json.loads(data.decode("utf-8"))
-        except (ValueError, RecursionError):  # bad UTF-8, bad JSON, or nesting past the parser
-            raise refuse(400, "the request body is not valid JSON") from None
+        return data
+
+    def json_body(self, limit: int) -> Any:
+        """The body as one JSON value of at most ``limit`` bytes; 411, 413 or 400 otherwise."""
+        return json_value(self.sized_body(limit))
+
+
+def json_value(data: bytes) -> Any:
+    """``data`` as the one JSON value it spells in UTF-8; 400 otherwise."""
+    try:
+        return json.loads(data.decode("utf-8"))
+    except (ValueError, RecursionError):  # bad UTF-8, bad JSON, or nesting past the parser
+        raise refuse(400, "the request body is not valid JSON") from None
 
 
 def contained_file(

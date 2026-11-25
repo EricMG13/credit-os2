@@ -12,6 +12,7 @@ never computed from the code under test.
 import dataclasses
 import gzip
 import json
+import logging
 import os
 import socket
 import sqlite3
@@ -330,6 +331,29 @@ def test_other_methods_are_405_where_signal_is_hosted(seeded: Path, web: Path, m
         assert call(server, "/start", method)[0] == 501  # the rest of the server is unchanged
 
 
+@pytest.mark.parametrize("method", ["PUT", "PATCH", "OPTIONS", "HEAD"])
+def test_other_methods_with_a_body_are_405_all_the_same(
+    seeded: Path, web: Path, method: str
+) -> None:
+    """The route table decides before any body rule: a body changes nothing, and is not read."""
+    with react(seeded, web) as server:
+        sent = b'{"name": "Dana"}'
+        status, body, headers = call(server, "/signal/api/me", method, body=sent)
+        assert (status, header(headers, "Allow")) == (405, "GET, POST")
+        assert body == (b"" if method == "HEAD" else b'{"error": "method not allowed"}')
+        status, _, headers = call(
+            server, "/signal/api/stories/1/save", method, headers=DANA, body=sent
+        )
+        assert (status, header(headers, "Allow")) == (405, "POST, DELETE")
+        assert call(server, "/signal/api/Nothing", method, body=sent)[0] == 404
+        # Nor is its length read: one past the limit, or one that is no length, is 405 too.
+        for length in ("65537", "many", "-1"):
+            declared = {"Content-Length": length}
+            status, _, headers = call(server, "/signal/api/me", method, headers=declared)
+            assert (status, header(headers, "Allow")) == (405, "GET, POST"), length
+        assert rows(seeded, "SELECT COUNT(*) FROM saves") == [(0,)]
+
+
 @pytest.mark.parametrize("path", ["/signal/api", "/signal/api/"])
 @pytest.mark.parametrize("method", ["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS", "HEAD"])
 def test_the_api_root_is_404_for_every_method_with_or_without_a_slash(
@@ -547,21 +571,73 @@ def test_every_signal_reply_carries_the_policy_and_the_frame_refusal(
         def broken(folder: Path) -> sqlite3.Connection:
             raise sqlite3.OperationalError("disk I/O error at /secret/place")
 
-        monkeypatch.setattr(store, "open_db", broken)
-        status, body, headers = call(server, "/signal/api/me")
+        with monkeypatch.context() as patch:
+            patch.setattr(store, "open_db", broken)
+            status, body, headers = call(server, "/signal/api/me")
         assert (status, json.loads(body)) == (500, {"error": "the service failed; see its log"})
         assert header(headers, "Content-Security-Policy") == POLICY
         assert header(headers, "X-Frame-Options") == "DENY"
-        monkeypatch.undo()
 
         # The rest of the application keeps its own headers.
         status, _, headers = call(server, "/connected/context")
         assert (status, header(headers, "Content-Security-Policy")) == (200, None)
+        assert header(headers, "X-Frame-Options") is None
         status, _, headers = call(server, "/signal")
         assert (status, header(headers, "Content-Security-Policy")) == (
             200,
             "frame-ancestors 'none'",
         )
+        assert header(headers, "X-Frame-Options") == "DENY"
+
+
+def raw_headers(reply: bytes) -> list[bytes]:
+    """The header lines of a raw reply, lower-cased, in the order sent."""
+    return [line.lower() for line in reply.partition(b"\r\n\r\n")[0].split(b"\r\n")[1:]]
+
+
+# Requests the application's handler never sees: ``http.server`` refuses them and writes the reply.
+WRITTEN_BY_HTTP_SERVER = [
+    (505, b"GET %b HTTP/9.9\r\n"),  # no such version
+    (400, b"GET %b HTTP/1.1 more\r\n"),  # a request line of four words
+    (400, b"GET %b HTTP/1.x\r\n"),  # a version that is no number
+    (501, b"BREW %b HTTP/1.1\r\n"),  # a method the server has no handler for
+    (431, b"GET %b HTTP/1.1\r\nX-Long: " + b"a" * 70000 + b"\r\n"),  # a header line too long
+    (414, b"GET %b?" + b"a" * 70000 + b" HTTP/1.1\r\n"),  # a request line too long
+]
+
+
+def test_the_replies_http_server_writes_itself_carry_the_two_headers_under_the_api_only(
+    seeded: Path, web: Path
+) -> None:
+    policy = b"content-security-policy: " + POLICY.encode()
+    with react(seeded, web) as server:
+        host = b"Host: 127.0.0.1:%d\r\n\r\n" % server.server_address[1]
+        for status, request in WRITTEN_BY_HTTP_SERVER:
+            answered = raw_call(server, request % b"/signal/api/me" + host)
+            assert status_line(answered).split()[1] == str(status).encode(), request[:30]
+            sent = raw_headers(answered)
+            assert sent.count(policy) == 1, (status, sent)
+            assert sent.count(b"x-frame-options: deny") == 1, (status, sent)
+            assert len([line for line in sent if line.startswith(b"content-security-")]) == 1
+            assert len([line for line in sent if line.startswith(b"x-frame-options")]) == 1
+            for target in (b"/start", b"/signal", b"/signal/apix", b"/x?/signal/api/me"):
+                answered = raw_call(server, request % target + host)
+                assert status_line(answered).split()[1] == str(status).encode(), target
+                sent = raw_headers(answered)
+                assert not [line for line in sent if line.startswith(b"content-security-")], target
+                assert not [line for line in sent if line.startswith(b"x-frame-options")], target
+                assert b"x-content-type-options: nosniff" in sent  # the base's own stay
+
+
+def test_where_no_signal_is_hosted_no_reply_carries_signals_headers(root: Path, web: Path) -> None:
+    with react(root, web, read_only=True) as server:
+        host = b"Host: 127.0.0.1:%d\r\n\r\n" % server.server_address[1]
+        answered = raw_call(server, b"GET /signal/api/me HTTP/9.9\r\n" + host)
+        assert status_line(answered).split()[1] == b"505"
+        assert not [line for line in raw_headers(answered) if b"content-security" in line]
+        status, _, headers = call(server, "/signal/api/me")
+        assert (status, header(headers, "Content-Security-Policy")) == (404, None)
+        assert header(headers, "X-Frame-Options") is None
 
 
 def test_a_large_json_reply_is_gzipped_for_a_browser_that_accepts_it(
@@ -605,8 +681,6 @@ def test_answering_a_request_opens_no_outbound_connection(
         return real_lookup(host, *args, **kwargs)
 
     with react(seeded, web) as server:
-        monkeypatch.setattr(socket.socket, "connect", connect)
-        monkeypatch.setattr(socket, "getaddrinfo", lookup)
         asked = [
             ("GET", "/signal/api/me", None),
             ("POST", "/signal/api/me", '{"name": "Dana Reyes"}'),
@@ -619,9 +693,11 @@ def test_answering_a_request_opens_no_outbound_connection(
             ("POST", "/signal/api/topics/1/follow", None),
             ("GET", "/signal/api/logos/1", None),
         ]
-        for method, path, body in asked:
-            assert call(server, path, method, headers=DANA, body=body)[0] in (200, 404), path
-        monkeypatch.undo()
+        with monkeypatch.context() as patch:
+            patch.setattr(socket.socket, "connect", connect)
+            patch.setattr(socket, "getaddrinfo", lookup)
+            for method, path, body in asked:
+                assert call(server, path, method, headers=DANA, body=body)[0] in (200, 404), path
         port = server.server_address[1]
     # The only connections are this test's own ten, to the application's port.
     assert connected == [("127.0.0.1", port)] * 10
@@ -736,7 +812,11 @@ def test_make_server_starts_no_signal_thread(
 
 
 def test_serve_starts_the_loop_after_recovery_and_stops_it_on_the_way_out(
-    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    root: Path,
+    web: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     passes = Passes(monkeypatch)
     seen: dict[str, Any] = {}
@@ -766,6 +846,7 @@ def test_serve_starts_the_loop_after_recovery_and_stops_it_on_the_way_out(
     (worker,) = passes.threads
     assert not worker.is_alive()
     assert "signal-loop" not in [thread.name for thread in threading.enumerate()]
+    assert not [record for record in caplog.records if record.name.endswith("signal_host")]
 
 
 @pytest.mark.parametrize("ending", [KeyboardInterrupt, RuntimeError])
@@ -786,7 +867,7 @@ def test_serve_stops_the_loop_however_it_ends(
 
 
 def test_serve_does_not_wait_out_a_pass_in_flight(
-    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Shutdown waits ``STOP_SECONDS`` for the pass, then leaves it to its daemon thread, which
     ends with the process (``ai_run.recover`` settles what that cuts short at the next start)."""
@@ -801,9 +882,17 @@ def test_serve_does_not_wait_out_a_pass_in_flight(
     monkeypatch.setattr(signal_service.Loop, "run_once", slow_pass)
     monkeypatch.setattr(signal_host, "STOP_SECONDS", 0.2)
     monkeypatch.setattr(react_frontend.service, "_loop", lambda scheduler: started.wait(timeout=20))
-    react_frontend.serve(root, web=web, port=0, environ={})  # returns: it did not wait 60 s
+    with caplog.at_level(logging.WARNING, logger="react_frontend.signal_host"):
+        react_frontend.serve(root, web=web, port=0, environ={})  # returns: it did not wait 60 s
     (worker,) = workers
     assert worker.is_alive() and worker.daemon
+    assert [(record.name, record.levelname, record.getMessage()) for record in caplog.records] == [
+        (
+            "react_frontend.signal_host",
+            "WARNING",
+            "a Signal pass was still running at shutdown; it was left to end with the process",
+        )
+    ]
     release.set()
     worker.join(timeout=20)
     assert not worker.is_alive()  # the stop it was given ended it after that pass: no second one
