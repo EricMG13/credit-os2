@@ -669,6 +669,7 @@ export function NodeList({
         ? "columns"
         : "flow";
   const inline = layout === "inline";
+  const twoColumns = layout === "flow" && nodes.length >= 6 && (width ?? 0) >= 900;
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
       {layout === "columns" && <MapDrawing edges={edges} />}
@@ -676,7 +677,13 @@ export function NodeList({
       <ul
         aria-label={label}
         data-map={inline ? "inline" : undefined}
-        className={cx("flex min-w-0 flex-col gap-3", layout === "columns" && "sr-only")}
+        className={cx(
+          // A long flow in a wide tile reads in two columns, each node kept whole with its edges.
+          twoColumns
+            ? "block min-w-0 columns-2 gap-x-10 [&>li]:mb-3 [&>li]:break-inside-avoid"
+            : "flex min-w-0 flex-col gap-3",
+          layout === "columns" && "sr-only",
+        )}
       >
         {nodes.map(([node, name]) => (
           <li

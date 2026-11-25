@@ -482,6 +482,27 @@ it("draws a map whose relationships are clauses as the flow, even in a tile wide
   const list = screen.getByRole("list", { name: "Operating model to credit" });
   expect(list).not.toHaveClass("sr-only");
   expect(within(list).getByText("Lower utilization reduces replacement demand")).toBeVisible();
+  // Two nodes are a short flow: one column.
+  expect(list).not.toHaveClass("columns-2");
+});
+
+it("reads a long flow in two columns in a wide tile, and in one in a narrow tile", () => {
+  const long = Array.from({ length: 7 }, (_, at) =>
+    edge(
+      `Cause ${String(at)}`,
+      `Effect ${String(at)}`,
+      at + 1,
+      "Reduces internally generated funds",
+      "Analyst Interpretation",
+    ),
+  );
+  measured(1100);
+  const { unmount } = render(<NodeList label="Transmission" edges={long} />);
+  expect(screen.getByRole("list", { name: "Transmission" })).toHaveClass("columns-2");
+  unmount();
+  measured(620);
+  render(<NodeList label="Transmission" edges={long} />);
+  expect(screen.getByRole("list", { name: "Transmission" })).not.toHaveClass("columns-2");
 });
 
 it("lays a deep map in columns only when they fit the tile, each connector with its relationship and type", () => {
