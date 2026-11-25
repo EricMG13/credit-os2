@@ -50,3 +50,14 @@ the rubric probes were updated by hand and still exit 0, and how its merge of ma
 Any paid run of the new presets, caps or CP-2 scorecard; the SSGA holdings file columns; whether
 the app's host can reach ssga.com; the alias findings (CP-1E, CP-4B, CP-4D not wired end to end)
 beyond a read-only search.
+
+## Latest state (end of session, 2026-11-25)
+
+- PR 80: all six owner decisions folded in; main merged in cleanly (caps 20/30/50 kept). Its only
+  failing check was two run-start web tests (K5, K6 in `web/src/pages/connected/ConnectedApp.test.tsx`)
+  timing out just over 5 s because each ran two start flows. Split into four tests, assertions
+  unchanged, pushed as `f175b97d`; CI on that commit had NOT finished: check it. If green, PR 80
+  needs the owner's word to merge. Its last changes (six decisions) had no reviewer pass.
+- PR 81 (CP-2 scorecard) and PR 82 (chart periods, +8,321/−1,602) conflict with main after 79
+  merged; their cloud sessions were asked to merge main in. Neither is reviewed.
+- PR 3 (reference portfolios) had no PR yet.
