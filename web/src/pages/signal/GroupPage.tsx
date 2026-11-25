@@ -292,6 +292,7 @@ export function GroupPage({
           })}
         </ul>
       )}
+      {group.more === null ? null : <p className="mt-3 text-sm text-text-tertiary">{group.more}</p>}
     </>
   );
 }

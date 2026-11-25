@@ -160,6 +160,11 @@ export type SignalGroup = {
   /** The delivered "+N" after the shown members. */
   moreMembers: string | null;
   threads: SignalThreadSummary[];
+  /**
+   * The delivered sentence(s) saying what the page leaves out (threads not shown, a group that is
+   * full), or null when nothing is left out. The design fixture says nothing: it reads as null.
+   */
+  more: string | null;
 };
 /** One reaction a comment holds: the word, the delivered count and whether the viewer's own is set. */
 type SignalReaction = { word: "Agree" | "Disagree" | "Seen"; count: string; mine: boolean };
@@ -621,6 +626,7 @@ const groupBase = shape<SignalGroup>({
   members: list(shape({ initials: str, name: str })),
   moreMembers: strOrNull,
   threads: list(thread),
+  more: optional(strOrNull, null),
 });
 /** A "+N" counts members after the shown ones, so it needs shown members. */
 const group: Reader<SignalGroup> = (v, path) => {
@@ -1080,7 +1086,7 @@ const snapshotBase = shape<SignalSnapshot>({
 /** A thread is named by (group, id); the key is a pair so no id can run into another's. */
 const threadKey = (groupId: string, id: string) => JSON.stringify([groupId, id]);
 
-/** Each group item names exactly one thread and each thread is named by an item, with the same story, note and state. */
+/** Each group item names exactly one thread and each thread is named by an item, with the same story, note and state (the service cuts a long note to the same excerpt in both). */
 function threadProblem(snap: SignalSnapshot, path: string): string | null {
   const held = new Map<string, SignalThread>();
   for (const [index, one] of snap.threads.entries()) {

@@ -2,7 +2,7 @@
 // snapshot is read again once the service accepts, and that a refusal shows the service's own
 // sentence and reads nothing. Paths, bodies, names and sentences are written out by hand.
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { currentWith, refusal, serve, showLive, type Snapshot } from "./test-helpers";
+import { currentWith, lookAgain, refusal, serve, showLive, type Snapshot } from "./test-helpers";
 
 const READ = "GET /signal/api/snapshot";
 const REFUSED = "that is not allowed just now";
@@ -701,5 +701,43 @@ describe("a reader on a service", () => {
       expect(service.writes()).toEqual(["POST /signal/api/notifications"]);
     });
     expect(parsed(service.bodies)).toEqual([{ event: "threads", channel: "inSignal", on: false }]);
+  });
+});
+
+describe("the time the snapshot was built, sent with a thread's mark", () => {
+  const AS_OF = "2026-11-24T23:30:01.123456+00:00";
+  const LATER = "2026-11-24T23:31:02.000001+00:00";
+
+  it("sends the asOf of the snapshot the panel was drawn from as seen", async () => {
+    const service = serve({ ...currentWith(), asOf: AS_OF });
+    showLive("#/signal/main/group/1/thread/2");
+    await drawn("Thread");
+    await waitFor(() => {
+      expect(service.writes()).toEqual(["POST /signal/api/threads/2/read"]);
+    });
+    expect(service.bodies).toEqual([JSON.stringify({ seen: AS_OF })]);
+  });
+
+  it("sends no body when the reply has no asOf, or one that is not a string", async () => {
+    const service = serve({ ...currentWith(), asOf: 5 });
+    showLive("#/signal/main/group/1/thread/2");
+    await drawn("Thread");
+    await waitFor(() => {
+      expect(service.writes()).toEqual(["POST /signal/api/threads/2/read"]);
+    });
+    expect(service.bodies).toEqual([]);
+  });
+
+  it("holds the asOf of the latest read", async () => {
+    const service = serve({ ...currentWith(), asOf: AS_OF });
+    showLive("#/signal/main/group/1/thread/1");
+    await drawn("Thread");
+    service.snapshot = { ...currentWith(), asOf: LATER };
+    await lookAgain();
+    window.location.hash = "#/signal/main/group/1/thread/2";
+    await waitFor(() => {
+      expect(service.writes()).toEqual(["POST /signal/api/threads/2/read"]);
+    });
+    expect(service.bodies).toEqual([JSON.stringify({ seen: LATER })]);
   });
 });

@@ -48,9 +48,15 @@ function kindOf(failure: unknown): FeedError {
 
 /** Why a read gave no slice: the sentence to show and, for a slice the reader refused, its reason. */
 export type Failure = { kind: FeedError; text: string; reason: string | null };
-type Read = { ok: true; slice: SignalSlice } | { ok: false; failure: Failure };
+type Read = { ok: true; slice: SignalSlice; asOf: string | null } | { ok: false; failure: Failure };
 
 const UNREADABLE = "Signal sent an answer this page could not read.";
+
+/** The service's build time, beside the snapshot in the reply; a missing or non-string value is absent. */
+function asOfOf(reply: unknown): string | null {
+  const value = (reply as { asOf?: unknown } | null)?.asOf;
+  return typeof value === "string" ? value : null;
+}
 
 /**
  * `query` is what the address on screen asks the snapshot to carry in full (`topic=<id>`: that
@@ -58,8 +64,9 @@ const UNREADABLE = "Signal sent an answer this page could not read.";
  */
 export async function readSnapshot(stop: AbortSignal, query: string): Promise<Read> {
   try {
-    const got = readSlice(await ask(query === "" ? "/snapshot" : `/snapshot?${query}`, {}, stop));
-    if (got.kind === "ok") return { ok: true, slice: got.data };
+    const reply = await ask(query === "" ? "/snapshot" : `/snapshot?${query}`, {}, stop);
+    const got = readSlice(reply);
+    if (got.kind === "ok") return { ok: true, slice: got.data, asOf: asOfOf(reply) };
     const reason = got.kind === "invalid" ? got.reason : null;
     return { ok: false, failure: { kind: "unreadable", text: UNREADABLE, reason } };
   } catch (failure) {

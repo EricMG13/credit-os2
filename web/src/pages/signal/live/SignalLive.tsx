@@ -6,7 +6,7 @@ import { Button } from "@/components/base/buttons/button";
 import { useHashRoute } from "../../../route";
 import { PageHeader } from "../../../shell/PageHeader";
 import { SourceContext } from "../../source";
-import { SignalActionsContext } from "../actions";
+import { SignalActionsContext, SignalAsOfContext } from "../actions";
 import { FeedSkeleton } from "../FeedStates";
 import { HOME_HREF, placeOf } from "./place";
 import type { Failure } from "./service";
@@ -74,16 +74,18 @@ export function SignalLive() {
   const route = useHashRoute();
   useTopOnRoute(route);
   const place = useMemo(() => placeOf(route), [route]);
-  const { source, failure, actions } = useLiveSignal(place.at, route);
+  const { source, failure, actions, asOf } = useLiveSignal(place.at, route);
   if (place.matched === null) return <NotFound />;
   if (source === null) {
     return failure === null ? <Loading /> : <Unread failure={failure} onRetry={actions.refresh} />;
   }
   return (
     <SignalActionsContext value={actions}>
-      <SourceContext value={source}>
-        {place.matched.route.render(place.matched.params)}
-      </SourceContext>
+      <SignalAsOfContext value={asOf}>
+        <SourceContext value={source}>
+          {place.matched.route.render(place.matched.params)}
+        </SourceContext>
+      </SignalAsOfContext>
     </SignalActionsContext>
   );
 }

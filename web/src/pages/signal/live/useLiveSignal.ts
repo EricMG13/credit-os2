@@ -22,13 +22,15 @@ export const REREAD_MS = 60_000;
 /** `query` is what the snapshot in hand was asked to carry in full (see `snapshotQuery`). */
 type State = {
   fresh: SignalSlice | null;
+  /** The build time the service gave the snapshot in `fresh`; null when it gave none. */
+  asOf: string | null;
   query: string;
   held: Held | null;
   failure: Failure | null;
 };
 type Event =
   /** `at` is the view on screen when the answer arrived; null holds nothing against it. */
-  | { type: "read"; slice: SignalSlice; query: string; at: ViewAt | null }
+  | { type: "read"; slice: SignalSlice; asOf: string | null; query: string; at: ViewAt | null }
   | { type: "failed"; failure: Failure }
   | { type: "retry" }
   | { type: "reveal"; at: ViewAt | null };
@@ -38,6 +40,7 @@ function reduce(state: State, event: Event): State {
     case "read":
       return {
         fresh: event.slice,
+        asOf: event.asOf,
         query: event.query,
         // A snapshot asked to carry more (a topic's older stories) is not a later reading of the
         // same lists: what it adds was always there, so nothing is held against it as new.
@@ -56,7 +59,7 @@ function reduce(state: State, event: Event): State {
   }
 }
 
-const START: State = { fresh: null, query: "", held: null, failure: null };
+const START: State = { fresh: null, asOf: null, query: "", held: null, failure: null };
 
 /** Requests one at a time, in the order asked. Nothing is asked for a page that has gone. */
 class Line {
@@ -98,7 +101,14 @@ async function load(line: Line, stop: AbortSignal, dispatch: Dispatch<Event>, ho
   const { query } = line;
   const got = await readSnapshot(stop, query);
   if (stop.aborted) return;
-  if (got.ok) dispatch({ type: "read", slice: got.slice, query, at: hold ? viewNow() : null });
+  if (got.ok)
+    dispatch({
+      type: "read",
+      slice: got.slice,
+      asOf: got.asOf,
+      query,
+      at: hold ? viewNow() : null,
+    });
   else dispatch({ type: "failed", failure: got.failure });
 }
 
@@ -166,6 +176,7 @@ export function useLiveSignal(
   source: LibraryData | null;
   failure: Failure | null;
   actions: SignalActions;
+  asOf: string | null;
 } {
   const [state, dispatch] = useReducer(reduce, START);
   const [line] = useState(() => new Line());
@@ -181,5 +192,5 @@ export function useLiveSignal(
       signal: withFeedError(shown, state.failure?.kind ?? null),
     };
   }, [state, at]);
-  return { source, failure: state.failure, actions };
+  return { source, failure: state.failure, actions, asOf: state.asOf };
 }

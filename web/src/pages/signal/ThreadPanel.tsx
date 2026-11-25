@@ -10,7 +10,7 @@ import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-m
 import { Badge } from "@/components/base/badges/badges";
 import { CloseButton } from "@/components/base/buttons/close-button";
 import { cx } from "@/utils/cx";
-import { useSignalActions } from "./actions";
+import { useSignalActions, useSignalAsOf } from "./actions";
 import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
 import { isWebLink } from "./StoryCard";
@@ -211,10 +211,11 @@ function ConversationContent({
 /** On a service, opening a thread with something unread in it tells the service it was read. */
 function useThreadRead(threadId: string, unread: boolean) {
   const actions = useSignalActions();
+  const asOf = useSignalAsOf();
   useEffect(() => {
     // A refusal changes nothing the reader did, so nothing is said about it.
-    if (actions !== null && unread) void actions.write(writes.readThread(threadId));
-  }, [actions, threadId, unread]);
+    if (actions !== null && unread) void actions.write(writes.readThread(threadId, asOf));
+  }, [actions, threadId, unread, asOf]);
 }
 
 /**

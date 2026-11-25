@@ -45,7 +45,9 @@ export const writes = {
   /** Its author's, while the service still takes it (the comment's `canEdit`, `canRemove`). */
   editComment: (comment: string, text: string) => post(`/comments/${part(comment)}/edit`, { text }),
   dropComment: (comment: string) => remove(`/comments/${part(comment)}`),
-  readThread: (thread: string) => post(`/threads/${part(thread)}/read`),
+  /** `seen` is the build time of the snapshot the thread was drawn from: nothing later is marked read. */
+  readThread: (thread: string, seen: string | null = null) =>
+    post(`/threads/${part(thread)}/read`, seen === null ? undefined : { seen }),
   group: (name: string, visibility: string) => post("/groups", { name, visibility }),
   renameGroup: (group: string, name: string) => post(`/groups/${part(group)}/rename`, { name }),
   /** Refused while the group holds threads or a digest names it. */

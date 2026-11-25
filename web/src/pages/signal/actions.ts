@@ -32,6 +32,13 @@ export function useSignalActions(): SignalActions | null {
   return useContext(SignalActionsContext);
 }
 
+/** The build time (`asOf`) of the snapshot on screen; null where the service sent none and in the design-reference app. */
+export const SignalAsOfContext = createContext<string | null>(null);
+
+export function useSignalAsOf(): string | null {
+  return useContext(SignalAsOfContext);
+}
+
 /**
  * Writing from inside the frame, where a refusal is said in the alert above the page: `send` says
  * it and still gives the answer; `note` says a sentence of the service's that is not a refusal.
