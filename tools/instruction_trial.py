@@ -47,6 +47,7 @@ from deploy_workflow.model.handoff import HandoffExecutor
 from deploy_workflow.model.transport import Request, Response, https_transport
 from deploy_workflow.model.turn import ModelSpec, ToolCall, Turn, TurnRequest, Usage
 from deploy_workflow.owners import cpos, cpos_launch
+from deploy_workflow.owners.cpos_launch_methods import trim_method
 from deploy_workflow.owners.cpos_launch_prompts import METHOD_MARK
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,51 +58,13 @@ SENT_FILE = re.compile(r"^=== (.+?) sha256 [0-9a-f]{64} ===$", re.MULTILINE)
 # The shared sections a module is sent after its own skill files: arm C carries them unchanged.
 SHARED = ("CANON_SHARED.md", "CPOS_REGISTER_SCOPE.md")
 REGISTER_ID = re.compile(r"\bT\d+[A-Z]*\.\d+\b")
-# Paragraphs of the method that only tell the model to run a helper script or to copy what one
-# prints, which `TRANSPORT_RULES` in the head says cannot be done here; and the worked example of
-# a score the head says Python computes. Read one by one on 2026-11-25; a paragraph that also
-# holds a rule that still applies is not listed.
-CANNOT_APPLY = re.compile(
-    r"## Invocation fields — binding before drafting\n"
-    r"|## Automated QA validation\n"
-    r"|Run `python3 \./scripts/validate_handoff\.py"
-    r"|#### Worked example\n"
-)
-COMMENT_LINE = re.compile(r"<!--.*-->")
 REPLAY_CONFIG = "copilot-sol-medium"
 
 
-def _paragraphs(text: str) -> list[str]:
-    return re.split(r"\n[ \t]*\n", text)
-
-
-def _body(paragraph: str) -> str:
-    """A paragraph without its heading line: the same text sent again under a renamed heading
-    ("relocated from", "continued") is still a repeat."""
-    first, _, rest = paragraph.strip().partition("\n")
-    return rest.strip() if first.startswith("#") else paragraph.strip()
-
-
 def neutral(method: str) -> str:
-    """Arm B's method text: the second and later copies of a paragraph body of 200 characters or
-    more are dropped, and so is each paragraph that cannot apply here. Nothing is reworded."""
-    seen: set[str] = set()
-    kept = []
-    for paragraph in _paragraphs(method):
-        lines = paragraph.strip().split("\n")
-        opening = "\n".join(line for line in lines if not COMMENT_LINE.fullmatch(line.strip()))
-        if CANNOT_APPLY.match(opening + "\n"):
-            marker = COMMENT_LINE.fullmatch(lines[0].strip()) and "BEGIN" in lines[0]
-            if marker and not any("END" in line for line in lines[1:]):
-                kept.append(lines[0])  # an opening marker whose closing one is further down
-            continue
-        body = _body(paragraph)
-        if len(body) >= instruction_metrics.PARAGRAPH_FLOOR:
-            if body in seen:
-                continue
-            seen.add(body)
-        kept.append(paragraph)
-    return "\n\n".join(kept)
+    """Arm B's method text: the engine's own trimming of repeats (`trim_method`), which CP-4 has
+    been sent since 2026-11-25; for a module already trimmed this changes nothing."""
+    return trim_method(method)
 
 
 def restructured(module: str, method: str) -> str:

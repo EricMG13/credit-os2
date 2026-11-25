@@ -1085,7 +1085,9 @@ def test_selected_method_and_report_selectors_reach_the_instructions(tmp_path):
     )
     text = (tmp_path / "out" / prepared.plan.instructions["CP-4"].path).read_text()
     method = ROOT / "docs/reuse/selected-methods/skills/cp-4-legal-covenant-interpreter/SKILL.md"
-    assert method.read_text() in text
+    # CP-4 is sent its method without the block's repeats since 2026-11-25 (`TRIMMED_METHODS`):
+    # the block it carries is `method_text`, and each file's heading still names the file's sha.
+    assert cpos_launch.method_text("CP-4") in text
     assert hashlib.sha256(method.read_bytes()).hexdigest() in text
     assert "### Covenant tests and headroom" in text
     assert "search_source" in text  # runs/cpos-launch-live-001 read whole filings unprompted.
@@ -1104,9 +1106,14 @@ def test_instructions_ask_for_the_reader_passages_and_keep_the_method_verbatim(t
     assert "### Reader summary" not in text and "Reader summary" not in text
     assert "open `## Findings` with these four sections" in text
     method = ROOT / "docs/reuse/selected-methods/skills/cp-4-legal-covenant-interpreter/SKILL.md"
-    assert method.read_text() in text
+    block = cpos_launch.method_text("CP-4")  # CP-4's method less its repeats (`TRIMMED_METHODS`)
+    assert block in text
     assert hashlib.sha256(method.read_bytes()).hexdigest() in text
-    assert text.index("`### Bottom line`") < text.index(method.read_text())
+    assert text.index("`### Bottom line`") < text.index(block)
+    # A module outside `TRIMMED_METHODS` is still sent its method files word for word.
+    other = (tmp_path / "out" / prepared.plan.instructions["CP-1"].path).read_text()
+    for name, section in cpos_launch.method_sections("CP-1"):
+        assert section in other, name
 
 
 def test_explicit_modules_narrow_the_run_and_keep_dependencies(tmp_path):
@@ -2193,10 +2200,11 @@ def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider,
 # money-unit rule), so the value pinned at 0bca182 (a37cd27b...) was recomputed. Recompute only
 # when CP-4's instructions change on purpose, as for METHOD_TEXT_SHA256_AT_1B41E65.
 # 2026-11-25 (owner: "do the six fixes"): the covenant headroom rule names the four Direction
-# words, a change on purpose; the value pinned at 39f1803f (284d83b0...) was recomputed. The
-# constant keeps its name.
+# words, a change on purpose; the value pinned at 39f1803f (284d83b0...) was recomputed
+# (c41bfada...). The same day (owner: "apply recommendations") CP-4's method block is sent
+# without its repeats, and the value was recomputed again. The constant keeps its name.
 CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
-    "c41bfada98a9861cd3d35e4bebca733bfff84f52e87f51c59acb84acea998af8"
+    "d3c2d13b8612b80519353aaee84b74504e29de1206190710e6f30fffe925306a"
 )
 
 
@@ -3594,7 +3602,12 @@ METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-3": "94d14d6c62f6c682744c9f94cb227f58af36883a73c0c16fa68dd674c524a34f",
     "CP-3C": "d1038d5097955d6bf47ccae01fee07bdc1db0b2e49eb7b77d0153c07b48768ac",
     "CP-3D": "a35a8a1d6f1b7aaecf7e98613e80a04c4c158f9163f315edbd004647463aa698",
-    "CP-4": "a769b7456e5661d70cb25388fc4acb444cfd0aecd8f778554f98369ebadc7f7e",
+    # 2026-11-25 (owner: "apply recommendations"; docs/sweeps/2026-11-25-instruction-length,
+    # full trial of CP-4): CP-4's block is sent without its repeats (`TRIMMED_METHODS`). The
+    # method files are byte-identical; the block is not, so the library marks CP-4 in every
+    # earlier run as answered under an earlier method. Before: a769b7456e5661d70cb25388fc4acb44
+    # 4cfd0aecd8f778554f98369ebadc7f7e.
+    "CP-4": "2b18bf3a399e1a73c624ba12541caf3071e9695bbcb571c3d35ecf1369d9cfbe",
     "CP-4C": "1d96547563190f89b909c37ea47969ecb04a2c794c5971b6db8f7c94c836b1f8",
     "CP-5": "d9298b83eba40be26a7cc6ddf5d5c12558e5c5cd471e7ce39e9c3942dc27f733",
     "CP-6": "31de155b03d7632332e3f3e6f887767477b362cd1c963436afa6469b91c94b4a",
@@ -3604,7 +3617,7 @@ METHOD_TEXT_SHA256_AT_1B41E65 = {
 }
 
 
-def test_the_method_block_is_byte_identical_so_no_past_run_is_marked_earlier_methods():
+def test_the_method_block_is_pinned_so_a_past_run_is_marked_earlier_methods_only_on_purpose():
     now = {m: hashlib.sha256(cpos_launch.method_text(m).encode()).hexdigest() for m in METHODS}
     assert now == METHOD_TEXT_SHA256_AT_1B41E65
 

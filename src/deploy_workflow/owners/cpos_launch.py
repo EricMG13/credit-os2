@@ -129,6 +129,8 @@ from deploy_workflow.owners.cpos_launch_methods import (
     NOT_ANALYTICAL,
     REGISTER_SCOPE,
     REGISTER_SCOPE_MODULES,
+    TRIMMED_METHODS,
+    trim_method,
 )
 from deploy_workflow.owners.cpos_launch_prompts import (
     APPENDIX_HEADING_NOTE,
@@ -607,10 +609,13 @@ def method_heading(name: str, text: str) -> str:
 
 
 def method_text(module: str) -> str:
-    """The method block exactly as a module's instructions carry it."""
-    return "\n\n".join(
+    """The method block exactly as a module's instructions carry it: each selected section under
+    a heading that names it and the sha256 of its whole text, and, for a module in
+    `TRIMMED_METHODS`, without the block's repeats (`trim_method`)."""
+    block = "\n\n".join(
         f"{method_heading(name, text)}\n{text}" for name, text in method_sections(module)
     )
+    return trim_method(block) if module in TRIMMED_METHODS else block
 
 
 def register_scope(module: str) -> str:

@@ -134,3 +134,17 @@ def test_the_trial_total_counts_the_reader_calls_too(tmp_path):
     (tmp_path / "cp4-D").mkdir()
     (tmp_path / "cp4-D/reader-calls.jsonl").write_text(json.dumps({"settled_usd": "0.75"}) + "\n")
     assert trial.trial_spent(tmp_path / "cp4-E") == Decimal("1.75")
+
+
+def test_the_engine_sends_cp4_and_only_cp4_without_its_repeats():
+    from deploy_workflow.owners import cpos_launch
+    from deploy_workflow.owners.cpos_launch_methods import TRIMMED_METHODS, trim_method
+
+    assert frozenset({"CP-4"}) == TRIMMED_METHODS
+    block = cpos_launch.method_text("CP-4")
+    assert trim_method(block) == block  # trimming what was trimmed changes nothing
+    assert "relocated from ACTIVE_PROMPT" not in block and "## Automated QA validation" not in block
+    for name, text in cpos_launch.method_sections("CP-4"):
+        assert cpos_launch.method_heading(name, text) in block  # every file is still named
+    whole = cpos_launch.method_sections("CP-3")
+    assert all(text in cpos_launch.method_text("CP-3") for _, text in whole)
