@@ -93,9 +93,10 @@ from deploy_workflow.signal.routing import ID as _ID
 from deploy_workflow.signal.routing import LoopState
 from deploy_workflow.signal.routing import NEEDS_NAME as _NEEDS_NAME
 from deploy_workflow.signal.routing import Req as _Req
+from deploy_workflow.signal.routing import Request as _Request
 from deploy_workflow.signal.routing import Route as _Route
 
-__all__ = ["Handler", "Loop", "make_server", "serve"]
+__all__ = ["Handler", "Loop", "answer", "make_server", "serve"]
 
 log = logging.getLogger(__name__)
 
@@ -424,32 +425,52 @@ class Handler(http_base.Handler):
         return self._json_body()
 
     def _dispatch(self, url: urllib.parse.SplitResult) -> _Reply:
-        path = url.path
-        allowed: list[str] = []
-        for route in _ROUTES:
-            found = route.pattern.fullmatch(path)
-            if found is None:
-                continue
-            if route.method == self.command:
-                return self._api(route, found.groups(), url.query)
-            allowed.append(route.method)
-        if allowed:
-            raise _Reply(405, {"error": "method not allowed"}, {"Allow": ", ".join(allowed)})
-        raise _refuse(404, "not found")
+        request = _Request(
+            self.command,
+            url.path,
+            url.query,
+            self.headers.get("Cookie"),
+            self._json_body,
+            self._optional_body,
+        )
+        return answer(self._service.root, self._service.loop, request)
 
-    def _api(self, route: _Route, groups: tuple[str, ...], query: str) -> _Reply:
-        params = _params(query)
-        db = store.open_db(self._service.root)  # this request's own connection
-        try:
-            user = identity.current_user(db, self.headers.get("Cookie"))
-            if user is None and not route.open_to_all:
-                raise _refuse(401, _NEEDS_NAME)
-            request = _Req(
-                db, user, groups, params, self._json_body, self._service.loop, self._optional_body
-            )
-            return route.handler(request)
-        finally:
-            db.close()
+
+def _route(method: str, path: str) -> tuple[_Route, tuple[str, ...]]:
+    """The route for `method` and `path` with the path's groups; 405 with ``Allow`` for a listed
+    path and another method, 404 for any other path."""
+    allowed: list[str] = []
+    for route in _ROUTES:
+        found = route.pattern.fullmatch(path)
+        if found is None:
+            continue
+        if route.method == method:
+            return route, found.groups()
+        allowed.append(route.method)
+    if allowed:
+        raise _Reply(405, {"error": "method not allowed"}, {"Allow": ", ".join(allowed)})
+    raise _refuse(404, "not found")
+
+
+def answer(root: Path, loop: LoopState | None, request: _Request) -> _Reply:
+    """The reply to one API request, returned or (a refusal) raised.
+
+    The transport has already made its own checks (``Host``, ``Origin``, the body's length);
+    `request` is what is left for Signal to read. The request gets its own connection to the
+    store under `root`, closed before this returns or raises. `loop` is the background loop
+    whose state ``/api/status`` and the snapshot show, or None where none runs."""
+    route, groups = _route(request.method, request.path)
+    params = _params(request.query)
+    db = store.open_db(root)  # this request's own connection
+    try:
+        user = identity.current_user(db, request.cookie)
+        if user is None and not route.open_to_all:
+            raise _refuse(401, _NEEDS_NAME)
+        return route.handler(
+            _Req(db, user, groups, params, request.body, loop, request.optional_body)
+        )
+    finally:
+        db.close()
 
 
 def make_server(

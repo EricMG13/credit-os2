@@ -56,6 +56,18 @@ class Req:
 
 
 @dataclass(frozen=True)
+class Request:
+    """One request as ``service.answer`` takes it from whatever transport received it."""
+
+    method: str
+    path: str  # the ``/signal`` prefix already removed: it starts ``/api/``
+    query: str  # raw, as it came after the ``?``
+    cookie: str | None  # the ``Cookie`` header's value
+    body: Callable[[], dict[str, Any]]  # the required JSON object, or the transport's refusal
+    optional_body: Callable[[], dict[str, Any]]  # the same, {} when the request carries none
+
+
+@dataclass(frozen=True)
 class Route:
     method: str
     pattern: re.Pattern[str]
