@@ -72,6 +72,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   re-run") `owners/cpos_reader_run.py`, the reader on `copilot-luna-xhigh`: 6 tests with a stand-in
   adapter. Never run on a provider (no Copilot login here); no live launch with notes; Luna is not
   the reader the trial tested.
+- Readers for CP-0, CP-1, CP-2, CP-3 and CP-5 (owner: "add D to the other modules, run offline
+  test, then PR"); none for CP-6. Offline: `tests/test_cpos_reader.py`, `test_cpos_reader_run.py`,
+  `test_instruction_trial.py`, `test_library_index.py`, 86 passed; CP-4's brief and rule unchanged
+  (compared with the version before). No model run of any of the five; no run evidence for them.
+  Merged `main` at `bc0a025` (conflicts in this file and `.importlinter`; both sides kept).
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the

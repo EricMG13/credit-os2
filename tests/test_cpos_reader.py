@@ -31,9 +31,9 @@ def test_a_modules_notes_follow_the_rule_under_the_name_of_their_document(tmp_pa
 def test_no_notes_and_a_module_without_a_reader_give_nothing(tmp_path):
     folder = notes_folder(tmp_path)
     assert cpos_reader.notes_block("CP-4", tmp_path / "elsewhere", {}) == ""
-    (folder / "CP-1").mkdir()
-    (folder / "CP-1" / "a.notes.md").write_text(cpos_reader.notes_file("a", SHA, "n"))
-    assert cpos_reader.notes_block("CP-1", folder, {"a": SHA}) == ""  # no reader is defined for it
+    (folder / "CP-6").mkdir()
+    (folder / "CP-6" / "a.notes.md").write_text(cpos_reader.notes_file("a", SHA, "n"))
+    assert cpos_reader.notes_block("CP-6", folder, {"a": SHA}) == ""  # no reader is defined for it
 
 
 @pytest.mark.parametrize(
@@ -110,3 +110,68 @@ def test_cp4s_reader_is_given_the_page_text_documents_that_are_not_financial_rep
         "a-agreement.htm.jsonl",
         "b-indenture.htm.jsonl",
     ]
+
+
+DOCUMENTS = [
+    {"source": "b-indenture.htm.jsonl", "kind": "indenture"},
+    {"source": "10-K.htm.jsonl", "kind": "financial_report"},
+    {"source": "a-agreement.htm.jsonl", "kind": "unrecognised"},
+    {"source": "annual.pdf", "kind": "financial_report"},
+]
+ALL = ["10-K.htm.jsonl", "a-agreement.htm.jsonl", "b-indenture.htm.jsonl"]
+
+
+@pytest.mark.parametrize(
+    ("module", "given"),
+    [
+        ("CP-0", ALL),
+        ("CP-1", ["10-K.htm.jsonl"]),
+        ("CP-2", ["10-K.htm.jsonl"]),
+        ("CP-3", ALL),
+        ("CP-4", ["a-agreement.htm.jsonl", "b-indenture.htm.jsonl"]),
+        ("CP-5", ALL),
+    ],
+)
+def test_each_reader_is_given_the_documents_its_module_works_from(module, given):
+    assert cpos_reader.reader_documents(module, DOCUMENTS) == given
+
+
+def test_readers_exist_for_the_core_modules_but_cp6_and_each_has_its_own_brief_and_rule():
+    assert sorted(cpos_reader.READERS) == ["CP-0", "CP-1", "CP-2", "CP-3", "CP-4", "CP-5"]
+    assert "CP-6" not in cpos_reader.READERS  # none of its steps is about what a source says
+    briefs = {m: cpos_reader.reader_brief(m) for m in cpos_reader.READERS}
+    assert len(set(briefs.values())) == len(briefs)
+    for module, reader in cpos_reader.READERS.items():
+        assert "Topics: " + "; ".join(reader.topics) + "." in briefs[module]
+        rule = cpos_reader.notes_rule(module)
+        assert "a finding aid, not a source" in rule and "the page governs" in rule
+    assert "each legal document once" in cpos_reader.notes_rule("CP-4")  # as the trial gave it
+    assert "each document once" in cpos_reader.notes_rule("CP-1")
+
+
+@pytest.mark.parametrize("module", ["CP-0", "CP-1", "CP-2", "CP-3", "CP-5"])
+def test_a_launch_gives_each_module_its_own_notes_and_no_other(tmp_path, module):
+    context, issuer = context_file(tmp_path, "deep_credit_assessment"), issuer_folder(tmp_path)
+    plain = prepare(context, issuer, tmp_path / "plain", config="sol-medium", cap="50")
+    name, spec = next(
+        (n, s) for n, s in plain.plan.sources.items() if n != cpos_launch.CONTEXT_SOURCE_ID
+    )
+    folder = tmp_path / "notes"
+    (folder / module).mkdir(parents=True)
+    (folder / module / f"{name}.notes.md").write_text(
+        cpos_reader.notes_file(name, spec.sha256, "p.1 | topic | value")
+    )
+    noted = prepare(
+        context, issuer, tmp_path / "noted", config="sol-medium", cap="50", reading_notes=folder
+    )
+    changed = [
+        m
+        for m, pin in plain.plan.instructions.items()
+        if (tmp_path / "plain" / pin.path).read_bytes()
+        != (tmp_path / "noted" / noted.plan.instructions[m].path).read_bytes()
+    ]
+    assert changed == [module]
+    text = (tmp_path / "noted" / noted.plan.instructions[module].path).read_text()
+    assert text.endswith(f"### Notes on {name}\n\np.1 | topic | value\n")
+    block = text.partition(METHOD_MARK)[2]
+    assert cpos_reader.without_notes(block) == method_text(module) + "\n"

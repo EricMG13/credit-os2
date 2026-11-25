@@ -96,3 +96,22 @@ def test_an_unpriced_failed_or_empty_reading_stops_and_leaves_no_notes_file(tmp_
         read(tmp_path, adapter)
     assert not list((tmp_path / "notes/CP-4").glob("*.notes.md"))
     assert len((tmp_path / "notes/reader-calls.jsonl").read_text().splitlines()) == 1
+
+
+@pytest.mark.parametrize("module", ["CP-0", "CP-1", "CP-2", "CP-3", "CP-5"])
+def test_every_module_with_a_reader_can_be_read_for(tmp_path, module):
+    adapter = StandIn()
+    spent = read_documents(
+        adapter,
+        module,
+        {"report.jsonl": RAW},
+        ["report.jsonl"],
+        tmp_path / "notes",
+        cap=Decimal(5),
+        redactor=Redactor(),
+    )
+    assert spent == Decimal("0.02")
+    assert adapter.requests[0].messages[0].text.startswith(cpos_reader.reader_brief(module))
+    sha256 = hashlib.sha256(RAW).hexdigest()
+    block = cpos_reader.notes_block(module, tmp_path / "notes", {"report.jsonl": sha256})
+    assert block.startswith("\n" + cpos_reader.notes_rule(module))

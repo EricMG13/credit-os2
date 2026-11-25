@@ -585,7 +585,17 @@ and route, "CP-4 now, probe CP-0 and CP-1 (Recommended)" and "Copilot, add a che
   cap; a failed, unpriced or empty reading stops and leaves no notes file. Tested with a stand-in
   for the adapter only: the command has never been run on a provider, and Luna is not the
   reader the trial tested (Haiku on the Anthropic API).
-- CP-0 and CP-1: no reader is defined for them and none was probed (owner: no live re-run).
+- Readers for the other core modules (owner: "add D to the other modules, run offline test, then
+  PR"): CP-0, CP-1, CP-2, CP-3 and CP-5 each have a reader, with topics taken from the step titles
+  of the module's own method whose subject is in the documents, and the documents the module
+  works from (all page-text sources for CP-0, CP-3 and CP-5; the financial reports for CP-1 and
+  CP-2; the agreements for CP-4). CP-6 has none: no step of its method is about what a source
+  document says. CP-4's brief and rule are byte for byte what group D was given.
+- Offline only: a launch with notes for one module changes that module's instructions and no
+  other, for each of the five; the reader command writes notes the launcher accepts for each,
+  with a stand-in for the provider. None of the five readers has been run on a model, and none
+  has any run evidence: group D's result is CP-4's alone. For CP-5 in particular the topics are
+  audit steps, and a reader of source documents may find little to note.
 
 ## Not verified
 
