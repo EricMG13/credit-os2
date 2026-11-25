@@ -4,6 +4,22 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-25 — Instruction and reference length: review and offline measures
+
+- Scope: review only; no method text, launcher, prompt or presentation changed, no provider
+  called. Added `docs/sweeps/2026-11-25-instruction-length/REPORT.md` with two baseline files,
+  `tools/instruction_metrics.py` and `tests/test_instruction_metrics.py`. Trimmed here: the oldest
+  entry (2026-11-16, PR #17).
+- Checked: `tools/quality_gate.py` exit 0; `tests/test_instruction_metrics.py` 3 passed, expected
+  values counted by hand from a literal text. The tool's deep and lite totals (1,815,970 and
+  677,194 characters) equal `tools/cp1_check_proof.py --instructions` on the same tree.
+- Corrected while checking: a first count of "reference files named but not sent" (347) was wrong;
+  the files are sections of bundles that are sent. The measure now excludes them (5, all CP-0).
+- Not verified: any effect of instruction length on module output (no model run); token figures
+  are estimates from bytes; the overridden and requirement counts are keyword counts; guidance read
+  from search extracts where the report says so. `confidence-review` was a self-check of the
+  measures against the prepared instructions; `rewrite-tournament` was not run (one small tool).
+
 ## 2026-11-25 — Deliverables, Credit Snapshot workbook and recommendations: rulings and methodology
 
 - Scope: documentation only; no code, test, instruction or presentation changed, no provider
@@ -981,13 +997,3 @@ Scope: the connected issuer report reader only, under `web/src/pages/connected/`
 - Rulings / Known: the ledger's "What closed it" cell can hold a bare module code (the method requires a code there; a retained run wrote "CP-2A: …"); a bare code is drawn as stored, per the plan's ruling 2.
 - For the owner: the 2026-11-12 amendment says a reader sees no module code, which conflicts with the bare code above; not changed here.
 - Not verified: `/sweep refactoring discover`, `confidence-review`, `rewrite-tournament`, the browser proof and the fidelity check were not run; no live CP-8 handoff parsed end to end (fixtures are hand-built from the method); a passage drawn as a map or events table; the fallback generic table still draws the ledger's ref columns when a column is missing or a cell holds a reference; `ReportLibrary.wayfinding.test.tsx` (untouched) failed under heavy machine load during review and passed at normal load.
-
-## 2026-11-16 — Start a run: state before Submit that the research module searches the web (PR #17, merged to `main` as `f41ab956`)
-
-Scope: the run-start summary and review: `src/deploy_workflow/owners/cpos_launch.py`, `src/deploy_workflow/run_start/submissions.py`, `web/src/pages/connected/{api.ts,start/ReviewSheet.tsx}` with tests, and root `.gitignore`. The Submit gate, cap, digest and submit request (`StartRun.tsx` is not in the diff) and the `Web:` line's text do not change.
-- Changed: the summary gains `web_search` (boolean), from a new `web_search_on` in `cpos_launch.py` that the launcher's `Web:` line now also uses, so the line and the summary share one rule. When true, the review ("What will run") shows above the limits and the approval: "The research module will search the web. The issuer's name and the questions it researches go to OpenAI's search." Nothing is drawn when it is false or absent. Root `.gitignore` now ignores `/node_modules/`. The digest does not cover summary output fields, so no existing digest changed.
-- Gates at `86f1d169`, exit 0: `uv run python tools/quality_gate.py`; `pytest tests/test_run_start_submissions.py` (141 passed); from `web/`: lint, format:check, typecheck, vitest `ConnectedApp.test.tsx` (51 passed). `tests/test_cpos_launch.py` passed on the pre-amend commit with the same `cpos_launch.py` diff, not re-run after.
-- Reviews: `mx-adversary` (paid launch path): the summary's flag matched the executor's own search decision on 180 combinations (pathway, case kind, model, effort, module set); the `Web:` line is identical to `main` on 336 cases; four hand mutants of the sentence all caught. One Medium (six generated vitest cache files, two holding a local absolute path, in the first commit) fixed by rewriting the unpushed commit without them; no commit on the branch contains `node_modules` (checked from git). One Low (no public-case test), added. Both reviewer probes exit 0.
-- Rulings / Known: from `docs/rulings/2026-11-11-run-start-submit.md`, amendment 2026-11-12 (for a private case the page states this before Submit; no such text existed under `web/src`). Ruling by the PR-manager session, for the owner to confirm or reverse: the statement shows whenever search will run (public and private), not only for private cases.
-- For the owner: confirm or reverse that ruling. The Start plan's unstarted PRs C and D will edit `ReviewSheet.tsx` and `ConnectedApp.test.tsx` and must branch after this merge.
-- Not verified: a live or paid launch (no provider called); a browser render; the three web tests were not seen failing before the component existed (covered by the mutants); a ruling file or pause changing between summary and launch; Windows; the gates and CI ran on the branch head, not re-run on the merged tree.
