@@ -1,8 +1,8 @@
 """The state the test guards in ``tests/conftest.py`` share with the tests that check them.
 
 It lives here, not in ``conftest.py``: ``tests/model/conftest.py`` is also a module named
-``conftest``, so ``import conftest`` reaches whichever of the two was imported first in a whole-suite
-run. Import this module as ``signal_guard``.
+``conftest``, so ``import conftest`` reaches whichever of the two was imported first in a
+whole-suite run. Import this module as ``signal_guard``.
 """
 
 from __future__ import annotations

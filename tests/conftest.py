@@ -17,11 +17,13 @@ import neither (the analytical modules' live tests) are not touched.
 ``no_real_network`` (autouse, the same modules) keeps them off the network the same way: the real
 legs of ``fetch.fetch`` (its system lookup ``fetch._resolve`` and the pinned connection's
 ``webfetch.PinnedHTTPSConnection.connect``), any ``socket.getaddrinfo`` of a name that is not the
-loopback or wildcard address (an address written in numbers, or a name the system cannot encode, asks no name server and is let through), and any socket connection to an address that is not the loopback one
-are each recorded in ``signal_guard.NETWORK_ATTEMPTS`` and fail the test at once with ``pytest.fail`` (a test
-that replaces ``fetch.fetch``'s resolver or connector, or the fetch function itself, never reaches
-them); an attempt on another thread fails the test at its teardown. A test may still replace
-``fetch._resolve`` with its own answer (``monkeypatch.setattr`` after this fixture).
+loopback or wildcard address (an address written in numbers, or a name the system cannot encode,
+asks no name server and is let through), and any socket connection to an address that is not the
+loopback one are each recorded in ``signal_guard.NETWORK_ATTEMPTS`` and fail the test at once with
+``pytest.fail`` (a test that replaces ``fetch.fetch``'s resolver or connector, or the fetch
+function itself, never reaches them); an attempt on another thread fails the test at its
+teardown. A test may still replace ``fetch._resolve`` with its own answer (``monkeypatch.setattr``
+after this fixture).
 """
 
 from __future__ import annotations
