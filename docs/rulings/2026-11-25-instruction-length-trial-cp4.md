@@ -45,3 +45,12 @@ handoff by two readers independently (`trial/reading/README.md`).
 What it is and is not: a test of one module's output under three instruction texts with
 everything else fixed, on a historical case (TransDigm as of 2024-09-30). Not a delivery, not
 listed in the library, and no handoff it produces is supplied to another module.
+
+Amendment by the owner on 2026-11-25, during the trial: the five group A runs were accepted; the
+three B and five C runs were all refused by the provider for lack of credit on the account
+behind the key in use (two after 7 and 6 calls, six on their first call), with no handoff. Asked
+for credit or leave to use another of the keys supplied, and for leave to run those eight again
+although "no run is repeated", the owner said "approved for both". The eight are run once more in
+new folders (B-4 to B-6, C-6 to C-10) with another supplied key; what the refused runs settled
+(USD 2.23) counts toward the USD 101 total.
+
