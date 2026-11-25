@@ -4,6 +4,7 @@ import { webcrypto } from "node:crypto";
 import { ConnectedApp } from "./ConnectedApp";
 import { SelectField, carriedModules, stepOfField } from "./StartRun";
 import { moduleName, pathwayModules, type Summary } from "./api";
+import { standingApart } from "./start/connectedTesting";
 import { chooseControl, controlValue } from "./start/testControls";
 
 const scrollIntoView = vi.fn();
@@ -73,7 +74,7 @@ function testingFetch(
     if (typeof entry === "function") return (entry as () => Promise<Response>)();
     return Promise.resolve(Response.json(entry));
   });
-  vi.stubGlobal("fetch", fetchMock);
+  vi.stubGlobal("fetch", standingApart(fetchMock));
   return fetchMock;
 }
 
@@ -1360,7 +1361,7 @@ describe("connected run start: Module options and Valuation as fields", () => {
     ]);
   });
 
-  it("K4 sends peer figures, and no peers once the source no longer takes them", async () => {
+  it("K4 sends peer figures", async () => {
     const fetchMock = await advancedStart({ valuation: { ...loadedValuation, peers: [] } });
     pick("Peer source", "user_comps");
     fireEvent.click(within(peers()).getByRole("button", { name: "Add peer" }));
@@ -1373,7 +1374,9 @@ describe("connected run start: Module options and Valuation as fields", () => {
     expect(within(peers()).getByLabelText("As-of")).toHaveAttribute("type", "date");
     const sent = await sentContext(fetchMock);
     expect(sent.valuation.peers).toEqual([peer]);
-    cleanup();
+  });
+
+  it("K4 sends no peers once the source no longer takes them", async () => {
     const second = await advancedStart();
     pick("Peer source", "cp_dr_public");
     expect(screen.queryByRole("region", { name: "Peers" })).toBeNull();

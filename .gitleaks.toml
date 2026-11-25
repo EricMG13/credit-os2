@@ -1,0 +1,14 @@
+# Default gitleaks rules plus two path allowlists. These directories hold generated
+# digest maps (43 hex-digest findings, none a credential). The path form is kept for
+# simplicity, at the cost of not scanning anything else placed under them.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "generated file-name to sha digest maps"
+paths = [
+  # Generated manifests and audit baselines: file name -> sha digest, no credentials.
+  '''^docs/work-pc/''',
+  # Retained audit evidence: file name -> sha digest maps, no credentials.
+  '''^docs/audit/2026-11-16-final/''',
+]
