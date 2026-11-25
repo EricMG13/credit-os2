@@ -10,7 +10,7 @@ from typing import get_args
 from deploy_vii.business_context import Category
 from deploy_workflow import confidence
 from deploy_workflow import cp2_scorecard as scorecard
-from deploy_workflow.credit_os_chips import MODULE_NAMES
+from deploy_workflow.credit_os_chips import MODULE_NAMES, module_names
 from deploy_workflow.handoff_delivery import MarkdownRoute
 from deploy_workflow.owners import cp2g, cpos_forecast
 from deploy_workflow.owners import cpos_cp1_check as cp1_check
@@ -92,7 +92,7 @@ DATA_PASSAGE = (
     'is not blocked must not use the words "not assessable" in its Bottom line. Your tables '
     "follow as the main content, unchanged and exact.\n\n"
 )
-VOICE_RULES = (
+_VOICE_HEAD = (
     "- Write evidence, risk mechanism and credit implication as ordinary sentences, never as "
     "labels (no `Evidence:`, `Mechanic:` or `Implication:` lead-ins). This overrides method "
     "templates that write `Evidence:`, `Risk Mechanic:`, `Credit Implication:` or similar "
@@ -151,10 +151,17 @@ VOICE_RULES = (
     "forecast input sections are not sentence text.\n"
     "- Refer to another module only by its plain name from this list, never by its code or "
     "an invented name: "
-    + "; ".join(MODULE_NAMES.values())
-    + ". In a Basis item the form stays `<plain module name> (<code>)`.\n"
-    "\n"
 )
+_VOICE_TAIL = ". In a Basis item the form stays `<plain module name> (<code>)`.\n\n"
+
+
+def voice_rules(pathway: str | None = None) -> str:
+    """The voice rules sent to a module: the module-name list is the pathway's (``module_names``);
+    for a pathway with no variant name the bytes are ``VOICE_RULES``."""
+    return _VOICE_HEAD + "; ".join(module_names(pathway).values()) + _VOICE_TAIL
+
+
+VOICE_RULES = _VOICE_HEAD + "; ".join(MODULE_NAMES.values()) + _VOICE_TAIL
 # Sent only to a module that is asked for a chart table or a map (decision 11 of 2026-11-12).
 CHART_NOTE_RULE = (
     "After each `### Chart data:` table write one sentence stating the main qualification a "

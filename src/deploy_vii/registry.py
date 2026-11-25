@@ -47,6 +47,23 @@ def modules() -> tuple[Responsibility, ...]:
     return tuple(Responsibility.model_validate_json(json.dumps(row)) for row in raw)
 
 
+# What a module does, in one pathway's words, where it differs from `methodology.json` (ruling R12:
+# CP-L10 writes the five screens of the credit screening, not a short snapshot). Sent in the
+# request's `module_roles`; every other pathway is sent the registry's purpose.
+PATHWAY_PURPOSE: Mapping[tuple[str, str], str] = {
+    ("credit_screening", "CP-L10"): (
+        "Screens the issuer's financial change, credit, liquidity, market and legal position "
+        "and names where a full assessment is needed."
+    ),
+}
+
+
+def purpose(module_id: str, pathway: str) -> str:
+    """The module's purpose as a run of ``pathway`` is sent it."""
+    default = next(m.purpose for m in modules() if m.module_id == module_id)
+    return PATHWAY_PURPOSE.get((pathway, module_id), default)
+
+
 def canonical(entry: str) -> str:
     for module in modules():
         if entry == module.module_id or entry in module.aliases:

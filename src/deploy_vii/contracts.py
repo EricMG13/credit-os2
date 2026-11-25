@@ -43,6 +43,7 @@ PathwayId = Literal[
     "short_snapshot",
     "lite_credit_assessment",
     "deep_credit_assessment",
+    "credit_screening",
 ]
 # Requested module set per Pathway (decision 0009). Required producers are added when a view
 # or plan is built (registry.dependencies), so these list the modules the Front Page asks for.
@@ -102,6 +103,10 @@ _PRESETS: dict[PathwayId, tuple[str, ...]] = {
         *("CP-4", "CP-2A", "CP-2E", "CP-2D", "CP-2G", "CP-2H", "CP-3D", "CP-3C", "CP-4C"),
         *("CP-3", "CP-5", "CP-6"),
     ),
+    # Owner, 2026-11-25 (ruling R12): the credit screening, a screen and not an issuer assessment:
+    # CP-0 and CP-1 read the issuer, CP-DR adds public data, and CP-L10 writes the five screens
+    # (the archived combined five-screen method) and names where a full assessment is needed.
+    "credit_screening": ("CP-0", "CP-1", "CP-DR", "CP-L10"),
 }
 PATHWAY_MODULES: Mapping[PathwayId, tuple[str, ...]] = MappingProxyType(_PRESETS)
 # The provider cap per run folder, USD, by pathway: the one table the run start page, its summary,
@@ -120,6 +125,7 @@ _CAPS_USD: dict[PathwayId, Decimal] = {
     "distressed_restructuring": Decimal(20),
     "portfolio_decision": Decimal(20),
     "short_snapshot": Decimal(20),
+    "credit_screening": Decimal(10),
 }
 PATHWAY_CAP_USD: Mapping[PathwayId, Decimal] = MappingProxyType(_CAPS_USD)
 # Pathways that no longer take a new run. Their presets stay wired so retained runs still read and

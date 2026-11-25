@@ -694,11 +694,23 @@ OWNED_SECTIONS = {
 }
 
 
-def register_rows(module: str) -> list[str]:
+SCREENING_FIXTURE = ROOT / "tests/fixtures/credit-screening/CP-L10.md"
+
+
+def screening_sections() -> list[str]:
+    """The five reader tables, the Confidence inputs table and the 20 registers of Task 1's
+    synthetic CP-L10 handoff, as the lines CP-L10 writes in `credit_screening` (its method asks
+    for exactly those sections inside `## Findings`; the passages come from `answer`)."""
+    text = SCREENING_FIXTURE.read_text(encoding="utf-8")
+    start = text.index("### Financial change screen")
+    return [*text[start : text.index("\n## Sources")].splitlines(), ""]
+
+
+def register_rows(module: str, pathway: str | None = None) -> list[str]:
     """The in-scope registers a real handoff of the ten measured modules carries (T4 presence
     check), each with the row the method allows for one with nothing to report."""
     rows: list[str] = []
-    for ident in cpos_launch.required_registers(module):
+    for ident in cpos_launch.required_registers(module, pathway):
         note = "Not supplied: nothing to report"
         rows += [f"### {ident} - Register", "", "| Item | Value |", "| --- | --- |"]
         rows += [f"| Observed | {note} |", ""]
@@ -706,6 +718,8 @@ def register_rows(module: str) -> list[str]:
 
 
 def answer(context: dict, plan_routes: list) -> str:
+    # A context a test writes by hand carries no `run`: its pathway is then unnamed (None).
+    pathway = context.get("run", {}).get("pathway")
     lines = [f"# {context['module_id']}", "", "## Request", f"{ISSUER} as of {AS_OF}.", ""]
     lines += ["## Sources", ""]
     lines += [f"- {n} {h}" for n, h in context["sources"].items()]
@@ -721,7 +735,10 @@ def answer(context: dict, plan_routes: list) -> str:
         case = " ".join(case.split())
         lines += [*PASSAGES.format(case=case).splitlines(), ""]
     passages = {"Bottom line", "Key findings", "Contrary evidence and what would change the view"}
-    own = [r for r in plan_routes if r.module_id == context["module_id"]]
+    # CP-L10 in the credit screening writes its five reader tables whole (header and rows) from the
+    # fixture, so none of its routes is written as a stub table here.
+    screening = (context["module_id"], pathway) == ("CP-L10", "credit_screening")
+    own = [r for r in plan_routes if r.module_id == context["module_id"] and not screening]
     own = [r for r in own if r.heading not in passages]  # A selector so named is the passage.
     for route in own:
         lines += [f"### {route.heading}", ""]
@@ -743,7 +760,9 @@ def answer(context: dict, plan_routes: list) -> str:
     for heading, table in OWNER_TABLES.get(context["module_id"], {}).items():
         lines += [f"### {heading}", "", table, ""]
     lines += OWNED_SECTIONS.get(context["module_id"], [])
-    lines += register_rows(context["module_id"])
+    # The fixture slice carries the screening's own tables and registers; every other module
+    # writes the registers its pathway's method requires.
+    lines += screening_sections() if screening else register_rows(context["module_id"], pathway)
     for heading in ("Calculations", "Gaps", "Next module"):
         held = heading == "Calculations" and context["module_id"] not in DATA_MODULE_IDS
         # The passage figures (fidelity check) are held in a table outside the passages.
@@ -896,11 +915,17 @@ def _provider(monkeypatch, calls):
     yield provider
 
 
+# The cap these tests launch at: 15, except in a pathway whose own cap is lower (the credit
+# screening's USD 10, owner ruling R12), where a higher one is refused.
+LAUNCH_CAP = {"credit_screening": "10"}
+
+
 def launch(tmp_path: Path, *extra: str, pathway: str = "covenant_refinancing") -> list[str]:
     return [
         *("--context", str(context_file(tmp_path, pathway))),
         *("--sources", str(issuer_folder(tmp_path))),
-        *("--config", "sol-medium", "--cap", "15", "--out", str(tmp_path / "out")),
+        *("--config", "sol-medium", "--cap", LAUNCH_CAP.get(pathway, "15")),
+        *("--out", str(tmp_path / "out")),
         *extra,
     ]
 
@@ -1439,7 +1464,9 @@ def test_short_snapshot_plans_exactly_cp0_cp1_and_cp_l10_in_order(tmp_path):
 def test_the_other_presets_do_not_gain_cp_l10():
     from deploy_vii.contracts import PATHWAY_MODULES as PRESETS
 
-    assert all("CP-L10" not in m for p, m in PRESETS.items() if p != "short_snapshot")
+    # Owner, 2026-11-25 (R12): the credit screening runs CP-L10 for its five screens as well.
+    own = ("short_snapshot", "credit_screening")
+    assert all("CP-L10" not in m for p, m in PRESETS.items() if p not in own)
 
 
 def test_cp_l10_is_a_prose_module_sent_the_reader_passages_and_its_own_method(tmp_path):
@@ -1725,7 +1752,13 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 # Measured on this file's input before (base 9e6c586) and after: only lite_credit_assessment
 # passes its ceiling, 669,952 to 677,194 (+7,242), so its ceiling rises by that growth, 675,151 to
 # 682,393. The other ceilings hold and are unchanged.
+# 2026-11-25 (owner ruling R12, the credit screening): a new row, not a change to any other.
+# Measured on this file's input: CP-0 75,257, CP-1 59,045, CP-DR 72,504, CP-L10 120,540 (its
+# five-screen method, 104,782 characters, and the 20-register rules), total 327,346; ceiling
+# 330,000, the measured total plus the 0.8% the lite and short rows carry. The other ceilings are
+# unchanged.
 INSTRUCTION_BUDGET = {
+    "credit_screening": 330_000,
     "deep_credit_assessment": 1_903_059,
     "lite_credit_assessment": 682_393,
     "credit_snapshot": 1_667_319,
@@ -1764,7 +1797,7 @@ def test_every_pathway_runs_end_to_end_to_a_verified_report(tmp_path, provider, 
             tmp_path / "issuer",
             tmp_path / "preview",
             config="sol-medium",
-            cap="15",
+            cap=LAUNCH_CAP.get(pathway, "15"),
         ).plan.layout.routes
     )
     # CP-2G after CP-1 must write a forecast block; the declined one publishes no model.
@@ -3765,7 +3798,8 @@ def test_cpdr_and_cp2e_are_in_every_pathway_and_run_in_order(tmp_path, pathway, 
     order = list(prepared.plan.instructions)
     assert order == list(PATHWAY_MODULES[pathway])
     assert "CP-DR" in order
-    assert ("CP-2E" in order) is (pathway != "lite_credit_assessment")
+    # Owner, 2026-11-25 (R12): the credit screening has CP-DR and no CP-2E, as the lite one.
+    assert ("CP-2E" in order) is (pathway not in ("lite_credit_assessment", "credit_screening"))
     assert "CP-DR" in prepared.plan.run.requested_modules
     if "CP-1C" in order:
         assert order.index("CP-DR") < order.index("CP-1C")

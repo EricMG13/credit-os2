@@ -11,12 +11,12 @@ as-of date on or before this run's, excluding this run's own folder. A run is a 
 when its manifest records `selection: "preset"` (the pathway's own modules) and is not when it
 records `"explicit"` (a `--modules` subset); an older run that records neither is a base only if
 it delivered the pathway's lead module (`LEAD_MODULE`: CP-2, CP-1B for an earnings update, CP-L10
-for a short snapshot). A candidate that fails a test is never used and the reason is returned in
-`skipped`. The latest is chosen by (as-of date, first model-call start, folder name). None means
-no CP-8: the run records "first run of this pathway". The prior run's folder is read, never
-written. `prepare` copies its delivered handoffs into the run folder as `prior/<module>.md` and
-pins them as sources; a resume reuses those pins. A chosen run with a handoff that is not valid
-UTF-8 is not compared (reason in `skipped`).
+for a short snapshot or a credit screening). A candidate that fails a test is never used and the
+reason is returned in `skipped`. The latest is chosen by (as-of date, first model-call start,
+folder name). None means no CP-8: the run records "first run of this pathway". The prior run's
+folder is read, never written. `prepare` copies its delivered handoffs into the run folder as
+`prior/<module>.md` and pins them as sources; a resume reuses those pins. A chosen run with a
+handoff that is not valid UTF-8 is not compared (reason in `skipped`).
 
 The pack (`build_pack`) is computed before CP-8 is called, given to CP-8 as the source
 `changes.json` and published unchanged in the delivery as `changes.json`. Schema
@@ -152,7 +152,11 @@ NET_DEBT_CONVENTION = (
 )
 # The module a pathway's run is built around; an older run that did not record whether its
 # modules were the preset's or a subset is a comparison base only if it delivered this one.
-LEAD_MODULE = {"earnings_update": "CP-1B", "short_snapshot": "CP-L10"}
+LEAD_MODULE = {
+    "earnings_update": "CP-1B",
+    "short_snapshot": "CP-L10",
+    "credit_screening": "CP-L10",
+}
 DEFAULT_LEAD = "CP-2"
 
 
@@ -837,7 +841,7 @@ def build_pack(  # noqa: PLR0913 - the two runs' texts and the current run's ide
     else:
         pack["maturity_profile"] = profile
     pack["omitted"] = omitted
-    titles = module_titles()
+    titles = module_titles(pathway)
     ids = list(dict.fromkeys((*now, *before)))
     pack["modules"] = [
         {

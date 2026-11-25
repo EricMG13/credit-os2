@@ -39,6 +39,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote
 
+from deploy_workflow.credit_os_chips import PATHWAY_MODULE_NAMES
 from deploy_workflow.derived import derived
 from deploy_workflow.reader_summary import TABLES, reader_tables
 
@@ -429,16 +430,23 @@ def link(page_dir: Path, target: Path) -> str:
     return quote(PurePosixPath(Path(os.path.relpath(target, page_dir))).as_posix(), safe="/")
 
 
-def module_titles() -> dict[str, str]:
+def module_titles(pathway: str | None = None) -> dict[str, str]:
+    """The registry's module titles, with the reader names a pathway varies (ruling R12: CP-L10 in
+    a credit screening reads "Credit screening"); for any other pathway the registry's titles."""
     from deploy_vii.registry import modules
 
-    return {module.module_id: module.title for module in modules()}
+    names = PATHWAY_MODULE_NAMES.get(pathway or "", {})
+    return {m.module_id: names.get(m.module_id, m.title) for m in modules()}
 
 
 def module_entries(
-    folder: Path, page_dir: Path, delivered: Mapping[str, Any], execution: Mapping[str, Any]
+    folder: Path,
+    page_dir: Path,
+    delivered: Mapping[str, Any],
+    execution: Mapping[str, Any],
+    pathway: str | None = None,
 ) -> list[dict[str, Any]]:
-    titles = module_titles()
+    titles = module_titles(pathway)
     entries = []
     for module, pin in delivered["handoffs"].items():
         raw = read_inside(folder, pin["path"])
@@ -558,7 +566,7 @@ def admit_run(
         "requested_modules": [m for m in requested if isinstance(m, str)]
         if isinstance(requested, list)
         else [],
-        "modules": module_entries(folder, page_dir, delivered, execution),
+        "modules": module_entries(folder, page_dir, delivered, execution, identity["pathway"]),
         "scope": text_or_none(completion.get("scope")) or "",
         "cap_usd": cap if decimal_text(cap) is not None else None,
         # Only an earlier run has a rendered report page; a later run's report is the library's.

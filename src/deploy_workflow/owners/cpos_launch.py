@@ -170,6 +170,7 @@ from deploy_workflow.owners.cpos_launch_prompts import (
     _none_rule,
     _selector,
     cp2_scorecard_block,
+    voice_rules,
 )
 from deploy_workflow.owners.cpos_launch_review import _charge_notes, _print_review, _review_lines
 from deploy_workflow.owners.cpos_launch_tables import (
@@ -843,7 +844,7 @@ def _instructions(
         + READER_PERSONA
         + (DATA_PASSAGE if module in DATA_MODULES else PROSE_PASSAGES)
         + (APPENDIX_HEADING_NOTE if _APPENDIX in methods else "")
-        + VOICE_RULES
+        + voice_rules(run.pathway)
         + (CHART_NOTE_RULE if "### Chart data:" in selectors else "")
         + (MAP_TEXT_RULE if "### Map:" in selectors else "")
         + (CONFIDENCE_RULE if _SCORE in methods else "")
@@ -862,8 +863,8 @@ def pathway_modules(settings: RunContext) -> tuple[str, ...]:
     """A pathway's analytical modules: its preset less the modules that have their own route.
     Owner, 2026-11-11: CP-DR and CP-2E are in every preset except ``short_snapshot``, which has
     neither, and ``lite_credit_assessment``, which has CP-DR (owner, 2026-11-25: "lite runs cp-dr
-    too") and no CP-2E, so the context's peer source no longer adds a module. Explicit --modules
-    are run as given."""
+    too") and no CP-2E, so the context's peer source no longer adds a module. Owner, 2026-11-25
+    (R12): ``credit_screening`` has CP-DR and no CP-2E. Explicit --modules are run as given."""
     return tuple(m for m in PATHWAY_MODULES[settings.run.pathway] if m not in NOT_ANALYTICAL)
 
 

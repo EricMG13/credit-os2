@@ -678,7 +678,10 @@ def test_a_module_with_a_scope_section_gets_the_presence_rule_once_right_after_r
 
 @pytest.mark.parametrize("module", ["CP-1", "CP-1B", "CP-1D", "CP-L10"])
 def test_a_module_without_a_scope_section_gets_no_presence_rule(tmp_path, module):
-    for pathway in sorted(set(PATHWAY_MODULES) - set(DEACTIVATED_PATHWAYS)):
+    # CP-L10 in the credit screening is sent the five-screen method with its 20 registers, so it
+    # gets the presence rule there (plan C3, owner ruling R12); the test excludes that pathway.
+    other = {"credit_screening"} if module == "CP-L10" else set()
+    for pathway in sorted(set(PATHWAY_MODULES) - set(DEACTIVATED_PATHWAYS) - other):
         (tmp_path / pathway).mkdir()
         text = instructions_of(tmp_path / pathway, pathway=pathway).get(module)
         if text is None:

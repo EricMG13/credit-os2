@@ -38,6 +38,7 @@ RULED_CAPS_USD: dict[str, int] = {
     "distressed_restructuring": 20,
     "portfolio_decision": 20,
     "short_snapshot": 20,
+    "credit_screening": 10,
 }
 
 
