@@ -270,7 +270,7 @@
                 "name": "Harbour Wire",
                 "monogram": "HW",
                 "id": "1",
-                "logo": false
+                "logo": true
               },
               "time": "21 h ago",
               "summary": "The buyer takes 4,100 masts; the sale needs clearance.",
@@ -302,7 +302,7 @@
                 "name": "Harbour Wire",
                 "monogram": "HW",
                 "id": "1",
-                "logo": false
+                "logo": true
               },
               "time": "23 h ago",
               "summary": "Corvane will shut two of its nine plants by March and take a one-off charge.",
@@ -356,7 +356,7 @@
                 "name": "Harbour Wire",
                 "monogram": "HW",
                 "id": "1",
-                "logo": false
+                "logo": true
               },
               "time": "23 Nov",
               "summary": "Lenders holding most of the EUR 400m loan agreed to the extension.",
@@ -1162,7 +1162,7 @@
                 "state": 1,
                 "health": 1
               },
-              "logo": false
+              "logo": true
             },
             {
               "id": "2",

@@ -3428,7 +3428,7 @@
                         { "label": "Month", "since": "23 Oct", "value": "+12 bp" }
                       ],
                       "source": "Sample figures, not market data",
-                      "note": null
+                      "note": "An observation dated 26 Nov, after today (UTC), was left out"
                     },
                     {
                       "id": "SAMPLE-10Y",

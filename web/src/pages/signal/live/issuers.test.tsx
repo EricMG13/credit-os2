@@ -15,6 +15,14 @@ import {
 } from "./test-helpers";
 
 const READ = "GET /signal/api/snapshot?format=2";
+/**
+ * The sample says one source (Harbour Wire) has a logo, so the page also asks for that once; these
+ * tests are about everything else the page asks and writes (live/logos.test.tsx has the logos).
+ */
+const noLogos = (list: string[]) =>
+  list.filter((call) => !call.startsWith("GET /signal/api/logos/"));
+const calls = (service: { calls: string[] }) => noLogos(service.calls);
+const writes = (service: { writes: () => string[] }) => noLogos(service.writes());
 const FILING = "Tessaly Telecom: 8-K, current report";
 const TOWERS = "Tessaly Telecom agrees the sale of its towers";
 const REVIEW = "Authority opens a review of the Tessaly Telecom tower sale";
@@ -45,7 +53,7 @@ describe("what the page asks for", () => {
     const service = serve(format2With());
     showLive("#/signal/main/feed/latest");
     await title("Latest");
-    expect(service.calls).toEqual([READ]);
+    expect(calls(service)).toEqual([READ]);
     expect(headlines().slice(0, 3)).toEqual([MARKET, FILING, TOWERS]);
     expect(channels().getByRole("heading", { level: 2, name: "Issuers" })).toBeInTheDocument();
   });
@@ -55,16 +63,16 @@ describe("what the page asks for", () => {
     showLive("#/signal/main/issuer/1");
     await title("Tessaly Telecom");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, `${READ}&issuer=1`]);
+      expect(calls(service)).toEqual([READ, `${READ}&issuer=1`]);
     });
     expect(headlines()).toEqual([FILING, TOWERS, REVIEW, QUARTERLY, HOLDINGS]);
     // Later reads on that page ask the same; moving to another issuer asks for that one.
     await lookAgain();
-    expect(service.calls.at(-1)).toBe(`${READ}&issuer=1`);
+    expect(calls(service).at(-1)).toBe(`${READ}&issuer=1`);
     await go("#/signal/main/issuer/3");
     await title("Halvorsen Marine");
     await waitFor(() => {
-      expect(service.calls.at(-1)).toBe(`${READ}&issuer=3`);
+      expect(calls(service).at(-1)).toBe(`${READ}&issuer=3`);
     });
     // Leaving for a feed view asks for nothing more; the next read is the plain one.
     const reads = service.reads();
@@ -72,7 +80,7 @@ describe("what the page asks for", () => {
     await title("Saved");
     expect(service.reads()).toBe(reads);
     await lookAgain();
-    expect(service.calls.at(-1)).toBe(READ);
+    expect(calls(service).at(-1)).toBe(READ);
   });
 
   it("asks for a topic, not an issuer of the same id, on the topic's page", async () => {
@@ -80,7 +88,7 @@ describe("what the page asks for", () => {
     showLive("#/signal/main/topic/1");
     await title("Packaging");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, `${READ}&topic=1`]);
+      expect(calls(service)).toEqual([READ, `${READ}&topic=1`]);
     });
   });
 
@@ -93,7 +101,7 @@ describe("what the page asks for", () => {
     showLive(hash);
     await title("No such issuer");
     await lookAgain();
-    expect(service.calls).toEqual([READ, READ]);
+    expect(calls(service)).toEqual([READ, READ]);
     expect(document.body).not.toHaveTextContent(/sample/i);
   });
 
@@ -155,7 +163,7 @@ describe("following an issuer", () => {
       "true",
     );
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, "POST /signal/api/issuers/2/follow", READ]);
+      expect(calls(service)).toEqual([READ, "POST /signal/api/issuers/2/follow", READ]);
     });
     expect(service.bodies).toEqual([]);
   });
@@ -179,9 +187,9 @@ describe("following an issuer", () => {
       "true",
     );
     await waitFor(() => {
-      expect(service.writes()).toEqual(["DELETE /signal/api/issuers/1/follow"]);
+      expect(writes(service)).toEqual(["DELETE /signal/api/issuers/1/follow"]);
     });
-    expect(service.calls.at(-1)).toBe(`${READ}&issuer=1`);
+    expect(calls(service).at(-1)).toBe(`${READ}&issuer=1`);
   });
 
   it("puts a refused follow back and shows the service's sentence", async () => {
@@ -204,7 +212,7 @@ describe("following an issuer", () => {
     await title("Latest");
     fireEvent.click(channels().getByRole("button", { name: "Follow Halvorsen Marine" }));
     await waitFor(() => {
-      expect(service.writes()).toEqual(["POST /signal/api/issuers/3/follow"]);
+      expect(writes(service)).toEqual(["POST /signal/api/issuers/3/follow"]);
     });
   });
 });
@@ -268,7 +276,7 @@ describe("Settings, Issuers, on the service", () => {
     type(/^SEC number/, "0000000099");
     press("Add issuer");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, "POST /signal/api/issuers", READ]);
+      expect(calls(service)).toEqual([READ, "POST /signal/api/issuers", READ]);
     });
     expect(parsed(service.bodies)).toEqual([
       {
@@ -289,7 +297,7 @@ describe("Settings, Issuers, on the service", () => {
     await screen.findByRole("dialog");
     press("Add issuer");
     expect(screen.getByText("Enter the issuer's name.")).toBeInTheDocument();
-    expect(service.writes()).toEqual([]);
+    expect(writes(service)).toEqual([]);
   });
 
   it("edits an issuer from what it holds, replacing all four", async () => {
@@ -305,7 +313,7 @@ describe("Settings, Issuers, on the service", () => {
     type(/^SEC number/, "");
     press("Save issuer");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, "POST /signal/api/issuers/1/edit", READ]);
+      expect(calls(service)).toEqual([READ, "POST /signal/api/issuers/1/edit", READ]);
     });
     expect(parsed(service.bodies)).toEqual([
       {
@@ -324,7 +332,7 @@ describe("Settings, Issuers, on the service", () => {
     type(/^Aliases/, "");
     press("Save issuer");
     await waitFor(() => {
-      expect(service.writes()).toEqual(["POST /signal/api/issuers/2/edit"]);
+      expect(writes(service)).toEqual(["POST /signal/api/issuers/2/edit"]);
     });
     expect(parsed(service.bodies)).toEqual([
       { name: "Corvane Packaging", aliases: [], cik: null, libraryKey: null },
@@ -365,10 +373,10 @@ describe("Settings, Issuers, on the service", () => {
         "The issuer leaves the watchlist for everyone: its page, its follows and its place in digests go, and its filings are no longer fetched. Stories already in the feed stay. This cannot be undone.",
       ),
     ).toBeInTheDocument();
-    expect(service.writes()).toEqual([]);
+    expect(writes(service)).toEqual([]);
     press("Delete issuer");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, "DELETE /signal/api/issuers/3", READ]);
+      expect(calls(service)).toEqual([READ, "DELETE /signal/api/issuers/3", READ]);
     });
     expect(service.bodies).toEqual([]);
   });
@@ -381,7 +389,7 @@ describe("Settings, Issuers, on the service", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
-    expect(service.writes()).toEqual([]);
+    expect(writes(service)).toEqual([]);
   });
 
   it("shows the service's sentence where filings are not fetched, and each source's own", async () => {
@@ -419,7 +427,7 @@ describe("Settings, Issuers, on the service", () => {
     expect(content().getByText("This section is for writers")).toBeInTheDocument();
     expect(content().queryByRole("button", { name: "New issuer" })).toBeNull();
     expect(content().queryByText("0001702780")).toBeNull();
-    expect(service.writes()).toEqual([]);
+    expect(writes(service)).toEqual([]);
   });
 });
 
@@ -433,7 +441,7 @@ describe("what a digest covers", () => {
     fireEvent.click(screen.getByRole("option", { name: "Issuer: Tessaly Telecom" }));
     press("Save digest");
     await waitFor(() => {
-      expect(service.writes()).toEqual(["POST /signal/api/digests"]);
+      expect(writes(service)).toEqual(["POST /signal/api/digests"]);
     });
     expect(parsed(service.bodies)).toMatchObject([
       { name: "Tessaly watch", covers: "Issuer: Tessaly Telecom" },
@@ -459,7 +467,7 @@ describe("a topic that takes every kind", () => {
     type(/^Name/, "Packaging and paper");
     press("Save topic");
     await waitFor(() => {
-      expect(service.writes()).toEqual(["POST /signal/api/topics/1/edit"]);
+      expect(writes(service)).toEqual(["POST /signal/api/topics/1/edit"]);
     });
     expect(parsed(service.bodies)).toEqual([
       { name: "Packaging and paper", keywords: ["packaging", "plant closure"], kinds: [] },

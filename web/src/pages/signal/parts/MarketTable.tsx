@@ -1,7 +1,8 @@
 // A market post's table, under the date its figures are as of: one row per series with its short name, its value and the value's own
 // date, then each change with the date it is measured from. Every text is delivered; the page adds
 // the unit to a value and nothing else. A series that could not be read shows its note in place of
-// figures, and a change with no earlier observation shows a dash. A move is a sign and a number:
+// figures; a series with a value and a note shows both, the note beneath; and a change with no
+// earlier observation shows a dash. A move is a sign and a number:
 // no colour or arrow says whether it is good or bad, which this page does not know.
 //
 // The series' short name is a control: it shows the full name and where the series comes from on
@@ -70,8 +71,8 @@ function SeriesRow({
   onToggle: () => void;
 }) {
   const value = valueText(row);
-  // A series with a note shows the note in place of its figures, whatever else it holds.
-  const figures = row.note === null && value !== null;
+  // The columns a series with a value and no changes leaves empty (the reader lets a noted one).
+  const missing = columns - 1 - row.changes.length;
   return (
     <>
       <tr className="border-t border-border-hairline">
@@ -93,7 +94,13 @@ function SeriesRow({
             />
           </AriaButton>
         </th>
-        {figures ? (
+        {value === null ? (
+          // No value: the note says why, in the figures' place.
+          <td colSpan={columns} className={`${CELL} text-small text-text-secondary`}>
+            {/* Where the table scrolls, the note wraps within the part in view beside the name. */}
+            <span className="block @max-[351px]:max-w-48">{row.note}</span>
+          </td>
+        ) : (
           <>
             <td className={`${CELL} text-right whitespace-nowrap`}>
               <Dated figure={value} date={row.date} />
@@ -101,13 +108,18 @@ function SeriesRow({
             {row.changes.map((change, index) => (
               <ChangeCell key={index} change={change} />
             ))}
+            {missing > 0 ? <td colSpan={missing} /> : null}
           </>
-        ) : (
-          <td colSpan={columns} className={`${CELL} text-small text-text-secondary`}>
-            {row.note}
-          </td>
         )}
       </tr>
+      {value !== null && row.note !== null ? (
+        // A value with a note (an observation left out, say): the figures, and the note under them.
+        <tr>
+          <td colSpan={columns + 1} className="px-2 pb-2 text-small text-text-secondary">
+            <span className="block @max-[351px]:max-w-72">{row.note}</span>
+          </td>
+        </tr>
+      ) : null}
       {open ? (
         <tr id={detailId}>
           <td colSpan={columns + 1} className="px-2 pb-2 text-small text-text-secondary">

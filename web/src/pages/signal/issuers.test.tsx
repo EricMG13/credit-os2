@@ -364,7 +364,31 @@ describe("the market post", () => {
     const note = within(table()).getByText(
       "Could not be read: a sample of a series with no reading",
     );
-    expect(note).toHaveAttribute("colspan", "4");
+    expect(note.closest("td")).toHaveAttribute("colspan", "4");
+  });
+
+  it("shows a series' figures and its note together where it has both, the note beneath", () => {
+    show("/signal/issuers/feed/latest");
+    const figures = within(table())
+      .getByRole("button", { name: /^Sample BB:/ })
+      .closest("tr");
+    const note = within(table()).getByText(
+      "An observation dated 26 Nov, after today (UTC), was left out",
+    );
+    expect(note.closest("tr")?.previousElementSibling).toBe(figures);
+    expect(note.closest("td")).toHaveAttribute("colspan", "5");
+    expect(within(figures as HTMLElement).getAllByRole("cell")).toHaveLength(4);
+  });
+
+  it("leaves the change columns empty for a series with a value, a note and no changes", () => {
+    show(
+      "/signal/issuers/feed/latest",
+      change(SCENE, ["snapshot", "feed", "stories", 0, "market", "rows", 1, "changes"], []),
+    );
+    expect(cells(/^Sample BB:/)).toEqual(["2.22%24 Nov", ""]);
+    expect(
+      within(table()).getByText("An observation dated 26 Nov, after today (UTC), was left out"),
+    ).toBeInTheDocument();
   });
 
   it("shows a dash, named, where a change has no earlier observation", () => {
@@ -391,7 +415,7 @@ describe("the market post", () => {
       name: "Sample HY: Sample high-yield spread (a made-up series). Source: Sample figures, not market data",
     });
     expect(control).toHaveAttribute("aria-expanded", "false");
-    expect(within(table()).getAllByRole("row")).toHaveLength(6);
+    expect(within(table()).getAllByRole("row")).toHaveLength(7);
     fireEvent.click(control);
     expect(control).toHaveAttribute("aria-expanded", "true");
     const detail = document.getElementById(control.getAttribute("aria-controls") ?? "");
@@ -400,10 +424,10 @@ describe("the market post", () => {
       "Sample high-yield spread (a made-up series). Source: Sample figures, not market data",
     );
     expect(detail?.previousElementSibling).toBe(control.closest("tr"));
-    expect(within(table()).getAllByRole("row")).toHaveLength(7);
+    expect(within(table()).getAllByRole("row")).toHaveLength(8);
     fireEvent.click(control);
     expect(control).toHaveAttribute("aria-expanded", "false");
-    expect(within(table()).getAllByRole("row")).toHaveLength(6);
+    expect(within(table()).getAllByRole("row")).toHaveLength(7);
   });
 
   it("sets figures and dates in mono with tabular numerals, right-aligned, the series' name kept in view", () => {

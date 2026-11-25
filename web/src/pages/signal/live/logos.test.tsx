@@ -54,8 +54,30 @@ const logoCalls = (calls: string[]) => calls.filter((call) => call.startsWith(LO
 const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
 describe("a source with no logo", () => {
-  it("draws its letters and asks for nothing: the sample says nothing of logos", async () => {
+  it("asks only for the one logo the sample says the service holds", async () => {
+    // The sample's store holds a logo for source 1 (Harbour Wire) and for no other.
     const service = serve(format2With());
+    service.replies.set(`${LOGO}1`, () => Response.json(PNG));
+    showLive("#/signal/main/feed/latest");
+    await title("Latest");
+    await waitFor(() => {
+      expect(tile(TOWERS).querySelector("img")).toHaveAttribute("src", PNG_URL);
+    });
+    expect(tile(FILING)).toHaveTextContent("TT");
+    expect(service.calls).toEqual([READ, `${LOGO}1`]);
+  });
+
+  it("draws letters only and asks for nothing where a snapshot says nothing of logos", async () => {
+    const service = serve(
+      format2With((snapshot) => {
+        for (const story of snapshot.feed.stories) {
+          Reflect.deleteProperty(story.source, "id");
+          Reflect.deleteProperty(story.source, "logo");
+          if (story.alsoIn !== null) Reflect.deleteProperty(story.alsoIn, "sources");
+        }
+        for (const source of snapshot.settings.sources) Reflect.deleteProperty(source, "logo");
+      }),
+    );
     showLive("#/signal/main/feed/latest");
     await title("Latest");
     await settle();
