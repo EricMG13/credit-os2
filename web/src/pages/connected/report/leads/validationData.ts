@@ -117,7 +117,7 @@ function affectedOf(cell: string | undefined): Issue["affected"] {
     .split(/[,;]/)
     .map((part) => part.trim())
     .filter((part) => part !== "")
-    .map(readerText);
+    .map((text) => readerText(text));
 }
 
 function readRegister(entry: OutputEntry, headers: string[], kind: Issue["kind"]): Register {

@@ -26,8 +26,8 @@ const STANDALONE_CODES =
 // A bracketed code after text: " (CP-x)".
 const BRACKETED_CODE = / \((CP-[A-Za-z0-9]+)\)/gi;
 /** The module's name for a code in either case; a code the page does not know stays as written. */
-function nameOfCode(code: string) {
-  const name = moduleName(code.toUpperCase());
+function nameOfCode(code: string, pathway?: string | null) {
+  const name = moduleName(code.toUpperCase(), pathway);
   return name === code.toUpperCase() ? code : name;
 }
 /**
@@ -36,16 +36,16 @@ function nameOfCode(code: string) {
  * becomes the module's name. A code inside a stored file name stays. A code in lower case ("cp-2a")
  * reads as the upper-case code does; a gap id or a run code is not a module code (`containsReference`).
  */
-export function readerText(text: string) {
+export function readerText(text: string, pathway?: string | null) {
   const bracketed = text.replace(BRACKETED_CODE, (match, code: string, at: number) => {
-    const name = nameOfCode(code);
+    const name = nameOfCode(code, pathway);
     if (name === code || FILE_AHEAD.test(text.slice(at + match.length))) return match;
     return text.slice(0, at).toLowerCase().endsWith(name.toLowerCase()) ? "" : ` (${name})`;
   });
   return bracketed.replace(STANDALONE_CODES, (run, at: number, whole: string) => {
     const kept = whole.slice(0, at).endsWith(" (") && whole[at + run.length] === ")";
     if (kept && FILE_AHEAD.test(whole.slice(at + run.length + 1))) return run;
-    return run.replace(/CP-[A-Z0-9]+/gi, nameOfCode);
+    return run.replace(/CP-[A-Z0-9]+/gi, (code) => nameOfCode(code, pathway));
   });
 }
 export const CONFIDENCE_INPUTS = "Confidence inputs";
@@ -468,6 +468,7 @@ const HIDDEN =
   /^(Request|Next module|Front matter)$|downstream owners|Consumer readiness|command sheet|Readiness for downstream use|Upstream re-anchor|method trace|Module status|QA validation|machine-readable|research brief|Workstream plan|Cross-Module Handoff/i;
 const REGISTERS =
   /source assessment|confidence inputs|source context|period table|key located evidence|conflicts and duplicates|register|ledger/i;
+const SCREENING_REGISTER = /^TL\d+\.\d+\b/;
 const TOP_ROLE = { Sources: "sources", Calculations: "calculations", Gaps: "gaps" } as const;
 const isTopRole = (heading: string): heading is keyof typeof TOP_ROLE =>
   Object.hasOwn(TOP_ROLE, heading);
@@ -484,6 +485,9 @@ function sectionRole(chain: string[]) {
   if (
     own === "Reader summary" ||
     chain.some((heading) => /^Analytical appendix/.test(heading)) ||
+    // A screening register is a register wherever the handoff nests it: the launcher accepts its
+    // heading at any level, under the appendix or beside it.
+    SCREENING_REGISTER.test(own) ||
     REGISTERS.test(own)
   )
     return "registers";

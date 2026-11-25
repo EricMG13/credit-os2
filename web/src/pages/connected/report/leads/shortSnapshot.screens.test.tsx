@@ -119,4 +119,41 @@ describe("the credit screening lead", () => {
     render(<ShortSnapshotLead {...props(creditScreeningEntry(), "short_snapshot")} />);
     expect(screen.getAllByText(/could not read the key figures/i).length).toBeGreaterThan(0);
   });
+
+  it("draws the next step at secondary strength with a visible label, and the materiality mark without regard to case", () => {
+    const entry = creditScreeningEntry();
+    const sections = entry.sections.map((item) =>
+      item.heading === "Credit screen"
+        ? {
+            ...item,
+            blocks: item.blocks.map((block) =>
+              block.type === "table"
+                ? {
+                    ...block,
+                    rows: block.rows.map((row, at) => ({
+                      ...row,
+                      cells: row.cells.map((cell, column) =>
+                        column === 2
+                          ? (["HIGH", "high", "High", "Medium", "Low", "Low"][at] ?? cell)
+                          : cell,
+                      ),
+                    })),
+                  }
+                : block,
+            ),
+          }
+        : item,
+    );
+    render(<ShortSnapshotLead {...props({ ...entry, sections })} />);
+    const tile = screen.getByRole("region", { name: "Credit screen" });
+    const items = within(tile).getAllByRole("listitem");
+    const marks = items.map((item) => item.querySelector("span.font-medium"));
+    expect(marks.slice(0, 3).map((mark) => mark?.textContent)).toEqual(["HIGH", "high", "High"]);
+    for (const mark of marks.slice(0, 3)) expect(mark).toHaveClass("text-warning-text");
+    for (const mark of marks.slice(3)) expect(mark).not.toHaveClass("text-warning-text");
+    const next = within(items[1] as HTMLElement).getByText("Full assessment of resilience");
+    expect(next).toHaveClass("text-text-secondary");
+    expect(next.textContent).toBe("Full assessment of resilience");
+    expect(within(items[1] as HTMLElement).getByText("Next step")).toBeInTheDocument();
+  });
 });

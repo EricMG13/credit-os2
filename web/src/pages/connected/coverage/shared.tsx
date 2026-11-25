@@ -29,8 +29,8 @@ export const tableBox =
 export const th = "p-3 text-left align-bottom font-medium text-text-secondary";
 
 /** The module's name as the rest of the app says it; the service's title where the app has none. */
-export function named(column: { code: string; title: string }) {
-  const name = moduleName(column.code);
+export function named(column: { code: string; title: string }, pathway?: string | null) {
+  const name = moduleName(column.code, pathway);
   return name === column.code ? column.title : name;
 }
 

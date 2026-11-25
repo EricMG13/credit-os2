@@ -162,7 +162,7 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
         name: moduleName(id, run.pathway),
         state: moduleState(entry),
         entry,
-        text: body && !referenced ? readerText(body) : null,
+        text: body && !referenced ? readerText(body, run.pathway) : null,
         referenced,
         withheld: false,
         line: written?.line ?? null,
@@ -199,7 +199,9 @@ export function runLimitations(view: ReportView, run: PublishedRun, omit: readon
       const key = sameLimitation(body);
       if (!body || methodNote(text) || seen.has(key)) return [];
       seen.add(key);
-      return [{ id, name: moduleName(id, run.pathway), entry, text: readerText(body), line }];
+      return [
+        { id, name: moduleName(id, run.pathway), entry, text: readerText(body, run.pathway), line },
+      ];
     });
   });
 }

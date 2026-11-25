@@ -12,7 +12,7 @@ import { HIT, IN_EVIDENCE, named, prose, reportPath, RunLine } from "./shared";
 /** One issuer: every run's states by stage and what its newest run says. */
 export function IssuerDetail({ data, issuer }: { data: Data; issuer: Issuer }) {
   const newest = latestRun(issuer);
-  const titles = new Map(data.columns.map((column) => [column.code, named(column)]));
+  const titles = new Map(data.columns.map((column) => [column.code, named(column, newest?.pathway)]));
   const fields = new Map(data.fields.map((item) => [item.id, item]));
   const said = newest
     ? factsOf(data, newest.key).filter((fact) => fact.field.endsWith("/bottomline"))
@@ -48,7 +48,7 @@ export function IssuerDetail({ data, issuer }: { data: Data; issuer: Issuer }) {
               {run.other.length === 0
                 ? "None"
                 : run.other
-                    .map((item) => `${named(item)} (${stateWord(item).toLowerCase()})`)
+                    .map((item) => `${named(item, run.pathway)} (${stateWord(item).toLowerCase()})`)
                     .join("; ")}
             </p>
           </li>
@@ -62,7 +62,7 @@ export function IssuerDetail({ data, issuer }: { data: Data; issuer: Issuer }) {
               <li key={`${fact.output}-${String(fact.line)}`} className="grid gap-1">
                 <span className="text-small font-medium text-text-secondary">
                   {titles.get(fields.get(fact.field)?.module ?? "") ??
-                    moduleName(fields.get(fact.field)?.module ?? "")}
+                    moduleName(fields.get(fact.field)?.module ?? "", newest.pathway)}
                 </span>
                 <p className="reading-copy text-body text-text-primary">
                   {prose(fact.text) ?? IN_EVIDENCE}

@@ -143,3 +143,69 @@ it("Forecast: no forecast model was published", () => {
   render(<Forecast view={view} run={run} />);
   expect(screen.getByText("No forecast model was published for this run.")).toBeInTheDocument();
 });
+
+/** The fixture with its 20 register headings at `###`, siblings of the appendix heading (the launcher accepts either level). */
+const flatEntry = {
+  ...fixture,
+  sections: fixture.sections.map((item) =>
+    /^TL\d+\.\d+\b/.test(item.heading) ? { ...item, level: 3 } : item,
+  ),
+};
+
+function modulesPage(records: boolean, table?: string) {
+  const ids = { ...flatEntry.output, id: ID, sha256: SHA };
+  const flatSnapshot = {
+    ...snapshot,
+    workspace: {
+      ...snapshot.workspace,
+      outputs: { [ID]: ids },
+      handoffs: { [SHA]: flatEntry.sections },
+    },
+  } as unknown as Snapshot;
+  const flatView = buildReportView(flatSnapshot, "case", run);
+  const { container } = render(
+    <Modules
+      view={flatView}
+      run={run}
+      snapshot={flatSnapshot}
+      module="CP-L10"
+      records={records}
+      table={table}
+    />,
+  );
+  return withoutKnownIds(container).text;
+}
+
+it.each([
+  ["closed", false, undefined],
+  ["opened", true, undefined],
+  ["opened on a register", true, "Topic allocation"],
+  ["opened on another", true, "Source and scope gate"],
+] as const)(
+  "Modules, registers written as ### siblings, records %s: no register or source column",
+  (_, records, table) => {
+    expect(
+      flatEntry.sections.filter((item) => item.level === 3 && /^TL/.test(item.heading)),
+    ).toHaveLength(20);
+    const text = modulesPage(records, table);
+    expect(text).not.toMatch(
+      /source_ref|source_owner_module|_module_id|_module_ids|upgrade_module_ids|TL\d\d?\.\d|CP-/,
+    );
+  },
+);
+
+it("Evidence still reaches the 20 register ids when they are ### siblings", () => {
+  const sections = flatEntry.sections;
+  const flatEntries = view.entries.map((item) => ({ ...item, sections }));
+  render(
+    <ReportEvidence
+      snapshot={snapshot}
+      run={run}
+      entries={flatEntries}
+      target={`${encodeURIComponent(ID)}~${SHA}`}
+      mode="synthetic"
+    />,
+  );
+  const headings = screen.getAllByRole("heading").map((item) => item.textContent);
+  for (const id of REGISTERS) expect(headings.some((text) => text.startsWith(`${id} `))).toBe(true);
+});

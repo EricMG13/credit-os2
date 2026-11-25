@@ -160,7 +160,7 @@ export function IntakePanels(props: IntakePanelsProps) {
                 : `Step ${String(FORM_STEP_KEYS.indexOf(step) + 1)} of ${String(STEP_TOTAL)} · ${title}`}
             </p>
           </Tile>
-          {error && !review && <RefusalNotice lines={refusalLines(error)} />}
+          {error && !review && <RefusalNotice lines={refusalLines(error, view.run.pathway)} />}
           <p role="status" className="text-small text-text-secondary empty:hidden">
             {view.changeNotice}
           </p>

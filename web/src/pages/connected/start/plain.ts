@@ -435,7 +435,7 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
  * as names; "" when the text does not start with `--`. A prefix other than `--modules` is removed,
  * its explanation remains visible, and its raw text is retained in `console.warn`.
  */
-function launcherLine(error: string): string {
+function launcherLine(error: string, pathway?: string | null): string {
   if (!error.startsWith("--")) return "";
   const [, flag = "", args = "", message = ""] = FLAGGED.exec(error) ?? [];
   if (flag === "modules") {
@@ -443,8 +443,8 @@ function launcherLine(error: string): string {
       .trim()
       .split(" ")
       .filter(Boolean)
-      .map((code) => moduleName(code));
-    const body = serviceText(message);
+      .map((code) => moduleName(code, pathway));
+    const body = serviceText(message, pathway);
     return codes.length
       ? `The modules chosen (${codes.join(", ")}): ${body}`
       : `Requested modules: ${body}`;
@@ -459,8 +459,8 @@ function launcherLine(error: string): string {
  * in the service's refusal form is returned unchanged. A problem the labels cannot fully name is
  * still shown in plain words (a documented fail-open), and its raw text goes to `console.warn`.
  */
-export function refusalLines(error: string): string[] {
-  return splitRefusal(error).map(({ line }) => withoutFlags(line));
+export function refusalLines(error: string, pathway?: string | null): string[] {
+  return splitRefusal(error, pathway).map(({ line }) => withoutFlags(line));
 }
 
 /** The screen controls a refusal can be shown on: each carries `data-field` with this key. */
@@ -559,8 +559,11 @@ function withoutFlags(line: string) {
 }
 
 /** The problems of a refusal, each with its path ("" when the problem has none). */
-function splitRefusal(error: string): { path: string; line: string; text: string }[] {
-  const launcher = launcherLine(error);
+function splitRefusal(
+  error: string,
+  pathway?: string | null,
+): { path: string; line: string; text: string }[] {
+  const launcher = launcherLine(error, pathway);
   if (launcher) return [{ path: "", line: launcher, text: launcher }];
   if (!PROBLEM.test(error)) return [{ path: "", line: error, text: error }];
   return error.split(new RegExp(`; (?=${PATH}: )`)).map((problem) => {

@@ -78,7 +78,7 @@ export function RunGroup({
 function nowRunning(run: LiveRun) {
   const names = run.modules
     .filter(([, state]: [string, ConnectedModuleState]) => state === "running")
-    .map(([code]) => (code === "Report" ? "Report delivery" : moduleName(code)));
+    .map(([code]) => (code === "Report" ? "Report delivery" : moduleName(code, run.pathway)));
   return names.length === 0 ? null : names.join(", ");
 }
 

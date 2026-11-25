@@ -178,9 +178,9 @@ function ChangeScreen({ props }: { props: LeadProps }) {
   );
 }
 
-/** The materiality word's mark: the table's own word, never recomputed. */
+/** The materiality word's mark: the table's own word, matched without regard to case, never recomputed. */
 const MATERIALITY_TEXT: Readonly<Record<string, string>> = {
-  High: "text-warning-text",
+  high: "text-warning-text",
 };
 
 /** One screen: its topics as a list (topic, finding, then the module's own materiality, evidence and next step) over the table of the same cells. */
@@ -213,7 +213,12 @@ function ScreenTile({
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <p className="text-small font-medium text-text-primary">{topic}</p>
                 <p className="text-caption text-text-secondary">
-                  <span className={cx("font-medium", MATERIALITY_TEXT[materiality])}>
+                  <span
+                    className={cx(
+                      "font-medium",
+                      MATERIALITY_TEXT[materiality.trim().toLowerCase()],
+                    )}
+                  >
                     {materiality}
                   </span>
                   {" \u00b7 "}
@@ -221,7 +226,10 @@ function ScreenTile({
                 </p>
               </div>
               <p className="text-small text-text-secondary">{finding}</p>
-              <p className="text-caption text-text-tertiary">{next}</p>
+              <p className="text-caption">
+                <span className="text-text-tertiary">Next step</span>{" "}
+                <span className="text-text-secondary">{next}</span>
+              </p>
             </li>
           );
         })}

@@ -201,7 +201,7 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
             (output) => output.module === code && output.assessment !== null,
           ),
       )
-      .map(([code]) => moduleName(code)) ?? [];
+      .map(([code]) => moduleName(code, run.pathway)) ?? [];
   const runProblem = problem && RUN_PROBLEMS[problem];
   const reportProblem =
     run?.status === "finished" && report !== "pending" && report !== "ready"

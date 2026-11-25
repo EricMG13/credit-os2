@@ -146,7 +146,7 @@ export function feedLines(run: Run): ActivityLine[] {
   for (const event of run.events ?? []) {
     const [state, text] = MILESTONES[event.kind];
     lines.push({
-      who: event.module ? moduleName(event.module) : "Run",
+      who: event.module ? moduleName(event.module, run.pathway) : "Run",
       time: clock(event.at),
       state,
       text,
@@ -232,7 +232,7 @@ export function moduleSteps(
     const word = published ? "Not assessable" : moduleWord(state, live, code === refused);
     return {
       kind: "module",
-      name: moduleName(code),
+      name: moduleName(code, run.pathway),
       state: word,
       detail: word === "Not assessable" && !published ? stoppedDetail(run, code) : null,
     };
