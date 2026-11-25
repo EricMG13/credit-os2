@@ -4,6 +4,15 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-25 — Recommendation calculation: roll-up, 5×5 table, valuation bands, limit caps (PR #96, branch `claude/pr-2-recommendation-80b887`)
+
+- Scope: synthetic and deterministic only. One pure module, `src/deploy_workflow/recommendation.py`; no file read, no provider call, no real run, no real constraints or holdings file. Nothing calls it yet (the workbook, plan PR 4, will).
+- Answer key: `docs/methodology/portfolio-recommendation.md` sections 4 to 7 with the owner's four rulings of 2026-11-25 (exactly ±40 bp is a 3; per-instrument proposal on the instrument's own Valuation; eligibility by asset type; a limit is breached on no headroom, a breached status or a price below the floor). `tests/test_recommendation.py` (329 tests, the 25 table cells and both worked examples as literals, `hypothesis` properties): pass at `a62df0de`.
+- Coordinator's own check, written from the methodology and run against the PR's module: 25 table cells, both worked examples, the 12-factor threshold, an exact half, the Liquidity floor and every band edge: pass.
+- Gates at `a62df0de`, reported by the PR's controller: `tools/quality_gate.py`, `lint-imports`, and `tests/test_cp2_scorecard.py`, `tests/test_reference_portfolios.py`, `tests/test_quality_gate.py` (359 tests): exit 0. Mutation (`mutmut` 3.8.1): 971 mutants, 942 killed, 29 survivors justified as equivalent or reason-text only.
+- Reviews: three task reviews, a calculation audit (arithmetic correct by hand; 1 High and 6 Medium in limit-row matching, fixed) and the whole-branch review (1 High, 2 Medium, fixed in one wave, re-review approved). The limit code took four fix rounds and a fix wave; the fourth round and the sector-name fix were allowed by the owner. A limit row the code cannot tie to the issuer that the file shows breached, or shows nothing readable on, is "not read" and counted on the result, never a silent "does not apply".
+- Not verified: limit wording outside the closed word lists (such rows come out "not read"); any real constraints or holdings file; units (levels are taken in basis points, conversion is PR 4's); the 29 surviving mutants' equivalence by a second tool; the reason wording with a reader. Parked for the owner: with two equally attractive instruments the limit check rests on the first listed.
+
 ## 2026-11-25 — Prose rules to checks: repo-rules tests and gitleaks in CI (branch `claude/prose-to-checks`)
 
 - Scope: `tests/test_repo_rules.py` (14 tests, fast-tests job) checks `VERIFICATION.md` < 1000 lines, `AGENTS.md`/`CLAUDE.md` ≤ 200, no tracked credential files, no `.superpowers/` tracked, no provider secrets in workflows, the two tracked `.xlsx` inputs, and at most one allowed workbook writer in `src/`/`apps/` (none today). Answer keys hand-written; reviewer probe `task1_workbook_import_forms.py` exit 0.
