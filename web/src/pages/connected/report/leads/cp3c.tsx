@@ -1,5 +1,6 @@
 import { cx } from "@/utils/cx";
 import { unitLabel, type Row } from "../../publishedReport";
+import { fiscalYear, yearPrefix } from "../../visuals/scenarioPeriods";
 import { ticks, type SourceTable } from "../../visuals/visualData";
 import { Key } from "../overview/figureParts";
 import { basisNotes, readCell, type Cell } from "../overview/figureData";
@@ -42,9 +43,6 @@ const MOST_YEARS = 12;
 export const spoken = (cell: Cell) =>
   cell.value === null ? `not supplied${cell.reason ? ` (${cell.reason})` : ""}` : cell.text;
 
-/** A period the axis places: a year as the module writes it ("FY2026", "2026"). */
-const YEAR = /^(FY|CY)?\s?(\d{4})$/i;
-
 function needRows(table: SourceTable) {
   const [debt, resources] = MEASURES.map((name) => columnOf(table, name));
   const period = columnOf(table, "Period");
@@ -53,11 +51,12 @@ function needRows(table: SourceTable) {
   const scope = table.rows.flatMap((row) => [row[debt] ?? "", row[resources] ?? ""]);
   return table.rows.map((row, at) => {
     const label = readerCell(row[period] ?? "") || "Period not stated";
-    const year = YEAR.exec(label);
+    // A period the axis places: one whole year as the period rule reads it ("FY2026", "2026").
+    const year = fiscalYear(label);
     return {
       period: label,
-      prefix: year?.[1] ?? "",
-      year: year ? Number(year[2]) : null,
+      prefix: year === null ? "" : yearPrefix(label, year),
+      year,
       line: table.rowLines?.[at] ?? table.line,
       cells: [debt, resources].map((column) =>
         readerCellOf(readCell(row[column] ?? "", scope, row.at(-2) ?? "")),

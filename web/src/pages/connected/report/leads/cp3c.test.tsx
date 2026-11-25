@@ -131,6 +131,23 @@ it("keeps a slot for a year with no row and lists a row not labelled by a year a
   expect(figure.querySelector('[data-slot="Thereafter"]')).toBeNull();
 });
 
+// Review of 2026-11-25: a row's year is the whole year the one period rule reads.
+it("places a row by the year the period rule reads, and lists a period that is not one year", () => {
+  const written = MARKDOWN.replace("| FY2026 | 500 |", "| FY26 | 500 |")
+    .replace("| FY2027 | 1,250 |", "| FY2028E | 1,250 |")
+    .replace(
+      "| Synthetic. |\n\n### Events",
+      "| Synthetic. |\n| LTM 2027 | 900 | 100 | US$m | Synthetic. |\n\n### Events",
+    );
+  render(<RefinancingLead {...leadProps(made(written))} />);
+  const figure = within(screen.getByRole("region", { name: "Refinancing need" })).getByRole("img");
+  expect(slots(figure).map(([year]) => year)).toEqual(["FY26", "2027", "FY2028E"]);
+  expect(slots(figure)[1]).toEqual(["2027", []]);
+  const unplaced = within(figure).getByRole("list", { name: "Rows not placed by year" });
+  expect(within(unplaced).getByText("LTM 2027")).toBeInTheDocument();
+  expect(within(unplaced).getByText("900")).toBeInTheDocument();
+});
+
 it("draws a stated gap in the figure's place with its reason, never zero, and no shortfall", () => {
   render(<RefinancingLead {...leadProps(made())} />);
   const figure = within(screen.getByRole("region", { name: "Refinancing need" })).getByRole("img");

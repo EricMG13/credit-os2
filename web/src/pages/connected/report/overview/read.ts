@@ -11,7 +11,13 @@ import {
   type Table,
 } from "../../publishedReport";
 import { withUnit } from "../../moneyUnits";
-import { namedTable, periodOrder, type ReportView } from "../../reportView";
+import {
+  latestReported,
+  namedTable,
+  periodPlace,
+  type PeriodPlace,
+  type ReportView,
+} from "../../reportView";
 import { readerCell } from "./notes";
 import { readerReason } from "./reason";
 
@@ -131,8 +137,8 @@ export type Point = {
   value: number | null;
   /** The row's "Basis and limitation" (or "Basis") cell as written; null without that column. */
   basis: string | null;
-  /** `periodOrder` of the period; undefined when it cannot be ordered or the row is malformed. */
-  order: string | undefined;
+  /** `periodPlace` of the period; undefined when it cannot be read or the row is malformed. */
+  order: PeriodPlace | undefined;
   line: number;
 };
 export type Series = {
@@ -213,7 +219,7 @@ function points(table: Table, column: number, unit: string): Point[] {
       accounting: read?.accounting ?? false,
       value: figure === null ? null : Number(figure.replaceAll(",", "")),
       basis: basis < 0 ? null : (cells[basis] ?? ""),
-      order: cells.length === table.headers.length ? periodOrder(name) : undefined,
+      order: cells.length === table.headers.length ? periodPlace(name) : undefined,
       line,
     };
   });
@@ -248,21 +254,6 @@ export function periodSeries(
 ): Series | null {
   const read = entry && readSeries(entry, chart, heading, "");
   return read && "series" in read ? read.series : null;
-}
-
-/**
- * The points in period order, or null where no latest can be chosen: a period that cannot be
- * ordered (or a row whose cells do not match the headings), periods of mixed forms, or a period
- * that repeats. This is the rule of the private `latestRow` in `reportView.ts` (which mirrors
- * `chart_rows` of `credit_os_catalogue.py`), kept identical; change both together.
- */
-function inPeriodOrder(series: Series): Point[] | null {
-  const keys = series.points.map(({ order }) => order);
-  const known = keys.filter((key): key is string => key !== undefined);
-  if (!known.length || known.length !== keys.length) return null;
-  if (new Set(known.map((key) => key[0])).size !== 1 || new Set(known).size !== known.length)
-    return null;
-  return [...series.points].sort((a, b) => ((a.order ?? "") < (b.order ?? "") ? -1 : 1));
 }
 
 /** `oneYearBefore` of `reportView.ts`, kept identical: the same date a year earlier; none for 29 February. */
@@ -318,9 +309,9 @@ function yearEarlier(entry: OutputEntry, latest: Point, ordered: Point[]): Earli
 export type Timeline = { points: Point[]; latest: Point; prior: Point | undefined; why?: string };
 
 export function timeline(series: Series, entry: OutputEntry): Timeline | null {
-  const ordered = inPeriodOrder(series);
-  const latest = ordered?.at(-1);
-  if (!ordered || !latest) return null;
+  const placed = latestReported(series.points, ({ order }) => order);
+  if (!placed) return null;
+  const { ordered, latest } = placed;
   const { prior, why } = yearEarlier(entry, latest, ordered);
   return { points: ordered, latest, prior, ...(why !== undefined && { why }) };
 }

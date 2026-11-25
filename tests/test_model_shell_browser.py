@@ -26,7 +26,10 @@ from deploy_vii.contracts import (
     TableRow,
     View,
 )
+from deploy_vii.bindings.shipped import SHIPPED_MAPS
 from deploy_vii.render import empty_view, render
+from deploy_vii.report_view import _ChartPoint, _refs_by_fact, build, build_index, pathways
+from deploy_workflow import markdown_delivery, model_handoff_delivery
 
 pytestmark = pytest.mark.browser
 
@@ -198,3 +201,150 @@ def test_inspector_field_row_names_the_module_title(seen):
 
 def test_typing_a_code_into_the_filter_still_finds_the_module(seen):
     assert [row["href"] for row in seen["filter"]] == ["#CP-2D"]
+
+
+# --- what a figure says under its chart (chart periods, review item 2) ---------------------------
+# The shell draws a figure's `summary` only beside a table; a figure placed above states what the
+# reader must know in its table twin's note. Synthetic figures from the two delivery builders,
+# drawn by the real shell: the probe reads each figure's X labels and the sentences shown.
+FIGURE_PROBE = r"""(async () => {
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  for (let i = 0; i < 100 && !document.querySelector("figure.chart-figure"); i++) await sleep(50);
+  const out = {};
+  document.querySelectorAll("figure.chart-figure").forEach(figure => {
+    const said = [...figure.querySelectorAll("p.fig-summary")];
+    out[figure.dataset.figId] = {
+      said: said.map(p => p.textContent),
+      shown: said.map(p => p.getClientRects().length > 0 && p.getBoundingClientRect().height > 0),
+      marks: [...new Set([...figure.querySelectorAll(".chart-twin tbody th")]
+        .map(th => th.textContent.split(" · ")[1]))],
+    };
+  });
+  const pre = document.createElement("pre"); pre.id = "probe";
+  pre.textContent = JSON.stringify(out);
+  document.body.append(pre);
+})();"""
+LEVERAGE = (("FY2024", "2.80"), ("Run-rate", "2.50"), ("FY2023", "3.75"))
+COVER = (("FY2024", "4.10"), ("FY2023", "3.60"))
+MODEL_PERIODS = ("FY2024", "FY2023")
+MODEL_KEYS = (
+    "operating_ebitda",
+    "issuer_ordinary_ebitda",
+    "issuer_as_defined",
+    "cfo",
+    "cfo_less_capex",
+    "opex_magnitude",
+)
+
+
+def figure_facts(citations: tuple[Citation, ...]) -> tuple[Fact, ...]:
+    ratios = tuple(
+        Fact(
+            fact_id=f"{name}.{period}",
+            label=name,
+            table_id=name,
+            row_id=period,
+            field="value",
+            amount=Decimal(amount),
+            unit="MULTIPLE",
+            scale=Decimal(1),
+            period=period,
+            citations=citations,
+        )
+        for name, rows in (("leverage", LEVERAGE), ("cover", COVER))
+        for period, amount in rows
+    )
+    history = tuple(
+        Fact(
+            fact_id=f"history.{key}.{period}",
+            label=key,
+            table_id="history",
+            row_id=key,
+            field=period,
+            amount=Decimal(100 + place),
+            unit="MILLIONS",
+            scale=Decimal(1000000),
+            currency="USD",
+            period=period,
+            citations=citations,
+        )
+        for key in MODEL_KEYS
+        for place, period in enumerate(MODEL_PERIODS)
+    )
+    return (*ratios, *history)
+
+
+def strip(name: str, title: str, rows: tuple[tuple[str, str], ...]) -> tuple:
+    """A strip figure's spec as `markdown_files` hands it to `_strip_figure`."""
+    points = tuple(_ChartPoint(title, period, f"{name}.{period}") for period, _ in rows)
+    return ("CP-1", title, "x", (title,), markdown_delivery._chronological(points), "multiple")
+
+
+@pytest.fixture(scope="module")
+def figures_seen(tmp_path_factory) -> dict:
+    base = fixture_view()
+    pathway = next(item for item in pathways() if item.id == base.run.pathway)
+    report = build(base, pathway, SHIPPED_MAPS)
+    held = next(m for m in base.modules if m.module_id == "CP-1")
+    module = held.model_copy(
+        update={"facts": (*held.facts, *figure_facts(held.facts[0].citations))}
+    )
+    view = base.model_copy(
+        update={"modules": tuple(module if m is held else m for m in base.modules)}
+    )
+    passports, index = build_index(view)
+    refs = _refs_by_fact(index)
+    block = "model-chart-strip"
+    figures = (
+        markdown_delivery._strip_figure(
+            block, module, refs, "S.1", strip("leverage", "Total debt / EBITDA", LEVERAGE)
+        ),
+        markdown_delivery._strip_figure(
+            block, module, refs, "S.2", strip("cover", "Interest cover", COVER)
+        ),
+        *model_handoff_delivery._model_figures(module, refs, MODEL_PERIODS),
+    )
+    drawn = {"state": "populated", "kind": "chart", "figures": figures, "note": None}
+    blocks = tuple(
+        item.model_copy(update=drawn) if item.block_id == block else item for item in report.blocks
+    )
+    report = report.model_copy(update={"blocks": blocks, "passports": passports, "index": index})
+    page: Path = tmp_path_factory.mktemp("figures") / "model.html"
+    text = render(view, report)
+    assert "</body>" in text
+    page.write_text(
+        text.replace("</body>", f"<script>{FIGURE_PROBE}</script></body>"), encoding="utf-8"
+    )
+    dom, console = visit(page)
+    assert console == []
+    return json.loads(html.unescape(re.search(r'<pre id="probe">(.*?)</pre>', dom, re.DOTALL)[1]))
+
+
+def test_a_strip_figure_shows_the_reader_the_period_it_could_not_place(figures_seen):
+    stated = (
+        "Drawn last, in the order written, because no period could be read from the label: "
+        "Run-rate."
+    )
+    assert figures_seen["S.1"] == {
+        "said": [stated],
+        "shown": [True],
+        "marks": ["FY2023", "FY2024", "Run-rate"],
+    }
+
+
+def test_a_strip_figure_with_every_period_placed_says_nothing_more(figures_seen):
+    assert figures_seen["S.2"] == {"said": [], "shown": [], "marks": ["FY2023", "FY2024"]}
+
+
+def test_the_model_figures_show_the_reader_that_they_are_annual_only(figures_seen):
+    stated = (
+        "Every selected fiscal year, oldest first. This Model carries annual periods only: no "
+        "year-to-date, LTM or pro forma column. Distinct definitions and missing observations "
+        "retained."
+    )
+    for fig_id in ("M1", "M2", "M3"):
+        assert figures_seen[fig_id] == {
+            "said": [stated],
+            "shown": [True],
+            "marks": ["FY2023", "FY2024"],
+        }, fig_id

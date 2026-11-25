@@ -66,6 +66,18 @@ it("gives the last two rows without an entry, as before, and the stricter rule w
   expect(lastTwo(series, entry([LEVERAGE])).prior).toBeUndefined();
 });
 
+it("chooses no latest period where a fiscal year stands beside a dated period", () => {
+  const mixed = section(
+    "Chart data: leverage",
+    ["Period", "Total debt / EBITDA", "Reporting unit"],
+    ["FY2025", "4.00", "x"],
+    ["2025-06-30", "5.00", "x"],
+  );
+  const series = periodSeries(entry([mixed]), "leverage", /^Total debt/);
+  if (!series) throw new Error("fixture");
+  expect(lastTwo(series, entry([mixed]))).toEqual({ latest: undefined, prior: undefined });
+});
+
 it("reads a passage's paragraphs with the earlier arguments", () => {
   const written = entry([
     { heading: "Findings", level: 2, line: 1, blocks: [] },

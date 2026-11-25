@@ -58,7 +58,7 @@ it("draws an accounting negative as written when the module put the unit outside
     accounting: true,
     value: Number(figure),
     basis: null,
-    order: "1-2024",
+    order: { key: [0, 2024, 12, 31, 3, 1], reported: true, dated: false },
     line: 1,
   });
   expect(figureShown(point("(12.3)%", "-12.3"), "%")).toBe("(12.3)%");
