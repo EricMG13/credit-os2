@@ -657,7 +657,7 @@ def test_a_ccc_limit_does_not_apply_to_an_instrument_rated_b() -> None:
         ("Max Software exposure", "Software", "breached"),
         ("Max software exposure", "Software", "breached"),
         ("Max Healthcare exposure", "Software", "does_not_apply"),
-        ("Max single industry", "Software", "not_read"),
+        ("Max single industry", "Software", "does_not_apply"),
         ("Max Software exposure", None, "not_read"),
     ],
 )
@@ -685,7 +685,7 @@ def test_a_breached_sector_limit_caps_and_an_unreadable_one_does_not() -> None:
         reference("clo", vague),
         issuer=Issuer(sector="Software"),
     )
-    assert (free.recommendation, free.limits[0].outcome) == (1, "not_read")
+    assert (free.recommendation, free.limits[0].outcome) == (1, "does_not_apply")
 
 
 @pytest.mark.parametrize(
@@ -785,10 +785,26 @@ def test_blank_when_no_credit_score_or_no_valuation_and_the_limits_are_still_rea
 
 
 def test_the_best_eligible_instrument_decides_and_its_bucket_is_the_one_limits_read_on() -> None:
-    both = [issuer(4, asset="loan"), Instrument("Second", "loan", "BB", Decimal(350), Decimal(99))]
-    result = portfolio_reading(credit(2), both, reference("clo"))
-    assert (result.instrument, result.valuation) == (both[1], valuation(both[1], reference("clo")))
-    assert (result.uncapped, result.recommendation) == (2, 2)
+    # First: BB, level 250 against a BB median of 300 -> Valuation 4, price 99 (above the floor).
+    # Second: CCC, level 400 against a CCC median of 300 -> Valuation 1, price 80 (below the floor).
+    first = Instrument("First", "loan", "BB", Decimal(250), Decimal(99))
+    second = Instrument("Second", "loan", "CCC", Decimal(400), Decimal(80))
+    held = tuple(pos(f"Ccc {i}", "300", asset="loan", bucket="CCC") for i in range(5))
+    book_ = reference(
+        "clo", limit_row(*CCC_ROW), limit_row("Price", "Minimum price", "≥ 90"), extra=held
+    )
+    result = portfolio_reading(credit(1), [first, second], book_)
+    assert result.instrument is second
+    assert result.valuation is not None
+    assert (
+        result.valuation.score,
+        result.valuation.difference_bp,
+        result.valuation.median_bp,
+        result.valuation.bucket,
+    ) == (1, Decimal(100), Decimal(300), "CCC")
+    # Read on First (BB, price 99) neither limit would be breached and the cell would stay 1.
+    assert [r.outcome for r in result.limits] == ["breached", "breached"]
+    assert (result.uncapped, result.recommendation, len(result.capped_by)) == (1, 3, 2)
 
 
 def test_per_instrument_proposal_uses_the_index_for_its_type_and_no_cap() -> None:
@@ -797,7 +813,13 @@ def test_per_instrument_proposal_uses_the_index_for_its_type_and_no_cap() -> Non
     bonds_ = reference("hy_index", bucket="BB")
     loan = issuer(1, bucket="CCC", asset="loan")
     result = instrument_proposal(credit(1), loan, loan_index=loans, hy_index=bonds_)
-    assert (result.recommendation, result.valuation) == (1, valuation(loan, loans))
+    assert result.recommendation == 1 and result.valuation is not None
+    assert (
+        result.valuation.score,
+        result.valuation.difference_bp,
+        result.valuation.median_bp,
+        result.valuation.bucket,
+    ) == (1, Decimal(100), Decimal(300), "CCC")
     assert (
         instrument_proposal(credit(2), issuer(3), loan_index=loans, hy_index=bonds_).recommendation
         == 3
@@ -818,7 +840,9 @@ def test_per_instrument_proposal_is_blank_with_a_reason(case: str) -> None:
 
 def test_readings_carry_no_module_ids_or_field_names() -> None:
     held = reference("clo", limit_row(*CCC_ROW), limit_row("Price", "Minimum price", "≥ 90"))
-    texts = [credit_score(card({"Liquidity": 5, **{n: 1 for n in FACTORS[:14]}})).reason]
+    floored = credit_score(card({**{n: 1 for n in FACTORS[:14]}, "Liquidity": 5}))
+    assert floored.floored is True and floored.score == 4
+    texts = [floored.reason]
     for score, kind in (
         (credit(1), "clo"),
         (credit(3), "hy_index"),
@@ -854,3 +878,244 @@ def test_property_the_cap_never_improves_and_holds_a_1_or_2_to_3(
     assert result.recommendation >= cell
     assert result.recommendation == (max(cell, 3) if breached else cell)
     assert bool(result.capped_by) == (breached and cell < 3)
+
+
+# --- Fix round 1: how a limit row is read ---------------------------------------------------------
+
+
+def _one(
+    row: Limit,
+    *,
+    sector: str | None = None,
+    rating_bucket: str | None = "BB",
+    price: Decimal | None = None,
+) -> str:
+    [reading] = read_limits(
+        reference("clo", row), sector=sector, rating_bucket=rating_bucket, price=price
+    )
+    return reading.outcome
+
+
+@pytest.mark.parametrize(
+    ("parameter", "sector", "outcome"),
+    [
+        ("2nd largest sector: Healthcare", "Healthcare", "breached"),
+        ("3rd largest sector: Chemicals", "Chemicals", "breached"),
+        ("3rd largest sector: Chemicals", "Healthcare", "does_not_apply"),
+        ("Max Software & Services exposure", "Software and Services", "breached"),
+        ("Max Software and Services exposure", "Software & Services", "breached"),
+        ("Max HEALTHCARE, exposure.", "healthcare", "breached"),
+        ("Max single sector (largest: Software)", "Healthcare", "does_not_apply"),
+        ("Max Healthcare exposure", "Health", "does_not_apply"),
+        ("Excluded sectors (Tobacco, Weapons)", "Healthcare", "does_not_apply"),
+    ],
+)
+def test_a_sector_row_applies_when_it_names_the_issuers_sector_as_whole_words(
+    parameter: str, sector: str, outcome: str
+) -> None:
+    row = limit_row("Sector", parameter, "≤ 15% NAV", "-0.50%", "Breach")
+    assert _one(row, sector=sector) == outcome
+
+
+@pytest.mark.parametrize("sector", [None, "", "   "])
+def test_an_unknown_or_blank_sector_reads_no_sector_row(sector: str | None) -> None:
+    row = limit_row("Sector", "Excluded sectors (Tobacco, Weapons)", "0% NAV", "0.00%", "Pass")
+    [reading] = read_limits(reference("clo", row), sector=sector, rating_bucket="BB", price=None)
+    assert reading.outcome == "not_read" and "sector is not known" in reading.reason
+    result = portfolio_reading(
+        credit(1), [issuer(1, asset="loan")], reference("clo", row), Issuer(sector=sector)
+    )
+    assert (result.uncapped, result.recommendation, result.capped_by) == (1, 1, ())
+
+
+def test_a_breached_ordinal_sector_row_caps_a_healthcare_issuer_to_mw() -> None:
+    row = limit_row("Sector", "2nd largest sector: Healthcare", "≤ 15% NAV", "-0.50%", "Breach")
+    result = portfolio_reading(
+        credit(1), [issuer(1, asset="loan")], reference("clo", row), Issuer(sector="Healthcare")
+    )
+    assert (result.uncapped, result.recommendation) == (1, 3)
+    assert result.capped_by[0].limit is row
+
+
+@pytest.mark.parametrize(
+    ("headroom", "status", "outcome"),
+    [
+        ("0.40%", "No breach", "within"),
+        ("", "No Breach", "within"),
+        ("", "  no   breach ", "within"),
+        ("", "Fail", "breached"),
+        ("0.40%", "Fail", "breached"),
+        ("", "Failed", "breached"),
+        ("", "Non-compliant", "breached"),
+        ("", "Not compliant", "breached"),
+        ("", "In breach", "breached"),
+        ("", "Breached", "breached"),
+        ("", "In compliance", "within"),
+        ("", "Compliant", "within"),
+        ("", "OK", "within"),
+        ("", "Within limit", "within"),
+        ("", "Passed", "within"),
+        ("0.00%", "Pass", "breached"),
+        ("(0.50%)", "", "breached"),
+        ("(0.50%)", "Pass", "breached"),
+        ("−0.50%", "", "breached"),
+        ("0.40%", "Review", "within"),
+        ("", "Review", "not_read"),
+        ("", "Not a breach today", "not_read"),
+        ("(0.50%) x", "", "not_read"),
+    ],
+)
+def test_status_is_matched_whole_against_closed_sets_and_headroom_reads_signs(
+    headroom: str, status: str, outcome: str
+) -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "≤ 7.5% NAV", headroom, status)
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket="CCC", price=None)
+    assert reading.outcome == outcome
+    if outcome == "not_read":
+        assert "not recognised" in reading.reason
+
+
+def test_a_no_breach_row_does_not_cap() -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "≤ 7.5% NAV", "2.40%", "No breach")
+    result = portfolio_reading(
+        credit(1),
+        [issuer(1, bucket="CCC", asset="loan")],
+        reference("clo", row, bucket="CCC"),
+    )
+    assert (result.recommendation, result.capped_by) == (1, ())
+
+
+@pytest.mark.parametrize(
+    ("cells", "price", "outcome"),  # cells: parameter, limit, headroom, status
+    [
+        (("Maximum purchase price", "≤ 101", "", ""), "95", "not_read"),
+        (("Max assets priced below 80", "≤ 7.5% NAV", "-0.50%", "Breach"), "75", "not_read"),
+        (("Min weighted average price", "≥ 95.0", "1.20", "Pass"), "92", "not_read"),
+        (("Minimum average price", "≥ 95.0", "", ""), "92", "not_read"),
+        (("Minimum price", "≥ 90%", "", ""), "80", "not_read"),
+        (("Minimum price", "≤ 90", "", ""), "80", "not_read"),
+        (("Minimum price", "see agreement", "", ""), "80", "not_read"),
+        (("Minimum price", "≥ 90", "", ""), None, "not_read"),
+        (("Minimum price", "≥ 90", "", ""), "89.99", "breached"),
+        (("Min price", "> 90", "", ""), "90", "within"),
+        (("Price floor", "90", "", ""), "89", "breached"),
+        (("Price floor", "90", "", ""), "90", "within"),
+    ],
+)
+def test_only_a_minimum_price_on_one_instrument_is_a_floor(
+    cells: tuple[str, str, str, str], price: str | None, outcome: str
+) -> None:
+    row = limit_row("Price", *cells)
+    assert _one(row, price=_price(price)) == outcome
+
+
+def test_a_row_that_is_not_a_floor_says_so_and_does_not_cap() -> None:
+    row = limit_row("Price", "Maximum purchase price", "≤ 101")
+    result = portfolio_reading(
+        credit(1), [issuer(1, asset="loan", price="95")], reference("clo", row)
+    )
+    assert (result.uncapped, result.recommendation) == (1, 1)
+    assert "not a price floor on a single instrument" in result.limits[0].reason
+
+
+@pytest.mark.parametrize(
+    ("parameter", "bucket", "outcome"),
+    [
+        ("Max Caa1 and below", "CCC", "breached"),
+        ("Max Caa obligations", "CCC", "breached"),
+        ("Max CCC+ and below", "CCC", "breached"),
+        ("Max Caa1 and below", "B", "does_not_apply"),
+        ("Max B-rated", "B", "breached"),
+        ("Max investment grade", "IG", "breached"),
+        ("Max sub-investment grade", "BB", "not_read"),
+        ("Max sub investment grade", "IG", "not_read"),
+        ("Max non-investment grade", "BB", "not_read"),
+        ("Max non-IG exposure", "IG", "not_read"),
+        ("Max below investment grade", "CCC", "not_read"),
+        ("Max high yield", "BB", "not_read"),
+        ("Max speculative", "B", "not_read"),
+        ("Max rated obligations", "BB", "not_read"),
+    ],
+)
+def test_a_rating_row_is_tied_by_the_bucket_the_project_reads_from_it(
+    parameter: str, bucket: str, outcome: str
+) -> None:
+    row = limit_row("Rating", parameter, "≤ 7.5% NAV", "-1.00%", "Breach")
+    assert _one(row, rating_bucket=bucket) == outcome
+
+
+def test_a_custom_portfolio_with_no_declared_asset_type_still_has_a_bucket() -> None:
+    members = tuple(
+        Position(i, borrower=f"Name {i}", rating_bucket="BB", margin=Decimal(300 + 10 * i))
+        for i in range(6)
+    )
+    held = Portfolio("mine", "My book", "custom", None, AT, (), members, ())
+    bond = Instrument("Bond 2031", "bond", "BB", Decimal(425), Decimal(99))
+    result = portfolio_reading(credit(2), [bond], held, Issuer(declared=None))
+    assert result.valuation is not None
+    assert (result.status, result.recommendation) == ("proposed", 2)
+    assert (result.valuation.score, result.valuation.median_bp, result.valuation.names) == (
+        1,
+        Decimal(325),
+        6,
+    )
+
+
+def test_a_stated_asset_type_in_the_bucket_still_has_to_match() -> None:
+    stated = tuple(pos(f"Loan {i}", "500", asset="loan") for i in range(5))
+    unstated = tuple(
+        Position(i, borrower=f"Name {i}", rating_bucket="BB", margin=Decimal(300)) for i in range(5)
+    )
+    held = Portfolio("mine", "My book", "custom", None, AT, (), stated + unstated, ())
+    bond = Instrument("Bond 2031", "bond", "BB", Decimal(400), Decimal(99))
+    result = valuation(bond, held)
+    assert (result.median_bp, result.positions, result.names) == (Decimal(300), 5, 5)
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        limit_row("Sector", "Max single issuer in Healthcare", "≤ 2.5% NAV", "-1.00%", "Breach"),
+        limit_row("Rating", "Max single obligor rated CCC", "≤ 2.5% NAV", "-1.00%", "Breach"),
+        limit_row("Sector", "Largest issuer sector Healthcare", "≤ 2.5% NAV", "-1.00%", "Breach"),
+    ],
+)
+def test_a_single_name_row_carrying_a_sector_or_rating_word_still_does_not_apply(
+    row: Limit,
+) -> None:
+    assert _one(row, sector="Healthcare", rating_bucket="CCC") == "does_not_apply"
+
+
+def test_zero_headroom_beside_a_pass_caps() -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "≤ 7.5% NAV", "0.00%", "Pass")
+    result = portfolio_reading(
+        credit(1), [issuer(1, bucket="CCC", asset="loan")], reference("clo", row, bucket="CCC")
+    )
+    assert (result.uncapped, result.recommendation) == (1, 3)
+
+
+def test_the_identifier_alone_matches_the_weight() -> None:
+    held = (
+        Position(1, borrower="Aster Co", asset_type="loan", weight=Decimal(60), ticker="AST"),
+        Position(2, borrower="Birch Co", asset_type="loan", weight=Decimal(40)),
+    )
+    book_ = reference("clo", names=0, extra=held)
+    result = portfolio_reading(
+        credit(3), [issuer(3, asset="loan")], book_, Issuer(identifier="ast")
+    )
+    assert result.weight == Weight(Decimal(60), "stated_weight", 1, 0, ("identifier",))
+
+
+@pytest.mark.parametrize("bad", ["NaN", "Infinity", "-Infinity"])
+def test_a_non_finite_price_raises_value_error(bad: str) -> None:
+    loan = Instrument("TL", "loan", "BB", Decimal(400), Decimal(bad))
+    with pytest.raises(ValueError, match="finite"):
+        valuation(loan, reference("clo"))
+
+
+@pytest.mark.parametrize("borrower", ["", "   ", " - . "])
+def test_a_borrower_of_only_spaces_with_no_identifier_is_not_given(borrower: str) -> None:
+    result = portfolio_reading(
+        credit(3), [issuer(3, asset="loan")], reference("clo"), Issuer(borrower=borrower)
+    )
+    assert result.weight is None

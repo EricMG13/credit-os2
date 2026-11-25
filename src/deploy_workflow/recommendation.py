@@ -199,9 +199,13 @@ def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
     Blank with no level, no price or fewer than five distinct borrowers in the bucket."""
     if instrument.level_bp is not None:
         _finite(instrument.level_bp, f"The level of {instrument.name}")
-    in_bucket = rows(
-        portfolio, asset_type=instrument.asset_type, rating_bucket=instrument.rating_bucket
-    )
+    if instrument.price is not None:
+        _finite(instrument.price, f"The price of {instrument.name}")
+    in_bucket = [  # a position with no stated asset type is read as the instrument's
+        row
+        for row in rows(portfolio, rating_bucket=instrument.rating_bucket)
+        if row.position.asset_type in (instrument.asset_type, None)
+    ]
     bucket_rows = [row for row in in_bucket if row.spread is not None]
     levels = [
         _finite(row.spread, "A reference level") for row in bucket_rows if row.spread is not None
@@ -271,37 +275,32 @@ SINGLE_NAME = (
     "single borrower",
     "largest issuer",
 )
-# Words of a sector row that name no sector: what is left once these go is the sector it names.
-GENERIC_SECTOR_WORDS = frozenset(
-    {
-        "max",
-        "maximum",
-        "min",
-        "minimum",
-        "single",
-        "any",
-        "one",
-        "each",
-        "per",
-        "sector",
-        "sectors",
-        "industry",
-        "industries",
-        "exposure",
-        "concentration",
-        "limit",
-        "largest",
-        "top",
-        "of",
-        "the",
-        "a",
-        "in",
-        "to",
-        "and",
-        "nav",
-    }
+# Statuses are matched whole, after folding case and spaces; anything else decides nothing.
+BREACH_STATUS = frozenset(
+    {"breach", "breached", "in breach", "fail", "failed", "non-compliant", "not compliant"}
 )
-BUCKET_WORDS = {"ig": "IG", "bb": "BB", "b": "B", "ccc": "CCC", "unrated": "Unrated"}
+PASS_STATUS = frozenset(
+    {"pass", "passed", "ok", "compliant", "in compliance", "no breach", "within limit"}
+)
+# A rating row naming a group of buckets cannot be tied to the one bucket of an instrument.
+BUCKET_GROUPS = (
+    "sub-investment",
+    "sub investment",
+    "non-investment",
+    "non investment",
+    "non-ig",
+    "below investment",
+    "high yield",
+    "speculative",
+)
+PRICE_FLOOR_WORDS = frozenset({"minimum", "min", "floor"})
+PRICE_AVERAGE_WORDS = frozenset({"average", "weighted"})
+STATE: dict[Outcome, str] = {
+    "breached": "is breached",
+    "within": "is within",
+    "not_read": "is not read",
+    "does_not_apply": "does not apply",
+}
 WORD = re.compile(r"[a-z0-9]+")
 
 
@@ -318,8 +317,8 @@ def eligible_types(
 @dataclass(frozen=True)
 class LimitReading:
     """One constraints row read against the issuer, in the file's order. `outcome` is breached,
-    within, not_read (it applies and the file gives neither a headroom nor a status, or it cannot
-    be tied to the issuer) or does_not_apply."""
+    within, not_read (it applies but its status wording or headroom is not recognised, or it
+    cannot be tied to the issuer) or does_not_apply."""
 
     limit: Limit
     outcome: Outcome
@@ -348,51 +347,70 @@ def _kind(limit: Limit) -> Literal["sector", "rating", "price", "other"]:
     return "rating" if {"rating", "ccc"} & set(words) else "other"
 
 
+def _signed(headroom: str) -> str:
+    """A headroom as `quantity` reads signs: U+2212 is `-` and a figure wholly in parentheses is
+    negative. Nothing else is changed."""
+    text = headroom.strip().replace("\u2212", "-")
+    inner = text[1:-1].strip()
+    if text.startswith("(") and text.endswith(")") and "(" not in inner and ")" not in inner:
+        return f"-{inner}"
+    return text
+
+
 def _decided(limit: Limit) -> tuple[Outcome, str]:
-    """A sector or rating row that applies: breached on zero or negative headroom or a status that
-    says breach, within on a positive headroom or a pass, else not read."""
-    headroom = pe.quantity(limit.headroom)
+    """A sector or rating row that applies: breached on zero or negative headroom or a status in
+    the breach set, within on a positive headroom or a status in the pass set, else not read."""
+    headroom = pe.quantity(_signed(limit.headroom))
     status = pe.folded(limit.observed_status)
     if headroom is not None and headroom.value <= 0:
         return "breached", f"headroom is {limit.headroom}"
-    if "breach" in status:
+    if status in BREACH_STATUS:
         return "breached", f"its status is {limit.observed_status}"
-    if headroom is not None or "pass" in status:
-        return "within", f"headroom is {limit.headroom}" if headroom else "its status is a pass"
-    return "not_read", "the file gives neither a headroom nor a status"
+    if headroom is not None:
+        return "within", f"headroom is {limit.headroom}"
+    if status in PASS_STATUS:
+        return "within", f"its status is {limit.observed_status}"
+    return "not_read", "its status wording or headroom was not recognised"
 
 
 def _sector_reading(limit: Limit, sector: str | None) -> tuple[Outcome, str]:
-    if sector is None:
+    wanted = _words((sector or "").replace("&", " and "))
+    if not wanted:
         return "not_read", "the issuer's sector is not known"
-    named = [word for word in _words(limit.parameter) if word not in GENERIC_SECTOR_WORDS]
-    if not named or not all(word.isalpha() or word.isdigit() for word in named):
-        return "not_read", "it names no sector, so it cannot be tied to the issuer"
-    wanted, words = _words(sector), _words(limit.parameter)
+    words = _words(limit.parameter.replace("&", " and "))
     if any(words[i : i + len(wanted)] == wanted for i in range(len(words))):
         return _decided(limit)
-    return "does_not_apply", f"it names a sector other than {sector}"
+    return "does_not_apply", f"it does not name the issuer's sector, {sector}"
 
 
 def _rating_reading(limit: Limit, bucket: str | None) -> tuple[Outcome, str]:
-    named = {BUCKET_WORDS[word] for word in _words(limit.parameter) if word in BUCKET_WORDS}
-    if "investment grade" in pe.folded(limit.parameter):
-        named.add("IG")
-    if not named:
+    if any(group in pe.folded(limit.parameter) for group in BUCKET_GROUPS):
+        return "not_read", "it names a group of rating buckets, which cannot be tied to one"
+    named = pe.label_bucket(limit.parameter)
+    if named is None:
         return "not_read", "it names no rating bucket, so it cannot be tied to the issuer"
     if bucket is None:
         return "not_read", "there is no instrument to take a rating bucket from"
-    if bucket not in named:
+    if bucket != named:
         return "does_not_apply", f"the instrument is rated {bucket}"
     return _decided(limit)
 
 
 def _price_reading(limit: Limit, price: Decimal | None) -> tuple[Outcome, str]:
-    if limit.quantity is None:
-        return "not_read", "the floor states no figure"
+    words = set(_words(limit.parameter))
+    figure = limit.quantity
+    is_floor = (
+        bool(words & PRICE_FLOOR_WORDS)
+        and not words & PRICE_AVERAGE_WORDS
+        and figure is not None
+        and figure.operator in (">=", "")
+        and not figure.unit.startswith("%")
+    )
+    if figure is None or not is_floor:
+        return "not_read", "it is not a price floor on a single instrument"
     if price is None:
         return "not_read", "there is no price to compare with it"
-    if price < limit.quantity.value:
+    if price < figure.value:
         return "breached", f"the price {price} is below the floor"
     return "within", f"the price {price} is at or above the floor"
 
@@ -416,13 +434,7 @@ def read_limits(
             outcome, why = _rating_reading(limit, rating_bucket)
         else:
             outcome, why = _price_reading(limit, price)
-        state = {
-            "breached": "is breached",
-            "within": "is within",
-            "not_read": "is not read",
-            "does_not_apply": "does not apply",
-        }[outcome]
-        out.append(LimitReading(limit, outcome, f"{_label(limit)} {state}: {why}."))
+        out.append(LimitReading(limit, outcome, f"{_label(limit)} {STATE[outcome]}: {why}."))
     return tuple(out)
 
 
@@ -500,7 +512,7 @@ def portfolio_reading(
         price=None if instrument is None else instrument.price,
     )
     weight = None
-    if issuer.borrower or issuer.identifier:
+    if _name_key(issuer.borrower or "") or (issuer.identifier or "").strip():
         weight = issuer_weight(portfolio, borrower=issuer.borrower, identifier=issuer.identifier)
 
     def result(
