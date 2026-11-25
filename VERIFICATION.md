@@ -4,6 +4,42 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-25 — Signal: issuers, filings, daily market post, source logos; screens to the redesign
+
+Scope: `src/deploy_workflow/signal/` (issuers, filings, market, logos, migration 7) and
+`web/src/pages/signal/` at the merge with main `f6cebbd`. Spec:
+`docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md`.
+
+- No SEC, FRED or publisher request and no model call was made by the build or its tests; a
+  test guard fails any Signal test that reaches the real network. EDGAR and FRED documents in
+  tests are synthetic, written in the published formats.
+- Lead's runs on the merged state: 1,745 tests in `tests/test_signal_*.py` pass; 357 server,
+  run start, pathway and packaging tests pass; quality gate 0 findings in 105 changed files;
+  `lint-imports` 3 contracts kept; strict mypy clean on 47 files. Web: 67 files, 1,639 tests in
+  the Signal, shell, app, connected-app and style suites pass; lint, typecheck, format, knip,
+  duplication, build, script tests and file gates exit 0.
+- Real browser (Chromium, seeded service, `react_frontend --signal-url`, 1280 and 375 px): the
+  98 functional checks of every earlier control pass on the merged build. The new issuer pages,
+  Filings tab, market card and logos were NOT driven in a browser; they are covered by unit and
+  rendering tests only.
+- Review: one adversarial round on the backend (format gating, the SEC contact string, approval,
+  market arithmetic against an independent oracle on 30,000 generated files, issuer matching
+  against an oracle) found one top finding (filings and market posts reaching digests and the
+  digest model call) and others; all were fixed test first and the oracle probes rerun with 0
+  mismatches. The fix pass, the logo service and the React wiring for these features have had
+  no independent review.
+- Presentation (fidelity scope: the Signal screens only). Brought to `DESIGN.md`: channel list
+  as a tile beside the page from 960 px, Channels button and left panel below; type ramp, radii,
+  no card shadows, 32 px controls and 44 px on a phone; mono numerals for counts, times and
+  dates. New: Issuers in the channel list, an issuer page, a Filings tab, the market post as a
+  dated table in its card, Settings → Issuers, source logos in the letter tiles (from `data:`
+  URLs built from the service's JSON, never another site's address). Today's page asks for
+  snapshot format 2; format 1 is unchanged for any other caller.
+- Known limits: the top bar wraps to two rows between 480 and 589 px with four areas (shell);
+  reader words "n.a." and service refusals naming ids; "AT&T", "3M", "GE" need a longer alias;
+  stores opened by earlier commits of this branch are refused; the first live SEC, FRED and icon
+  fetches are unproven; the ICE BofA series' terms are for the owner to confirm.
+
 ## 2026-11-25 — Signal's AI pass ruled by the owner; merge with main
 
 - The owner approved the AI pass on 2026-11-25 ("approve AI pass") and chose a monthly cap of
@@ -956,43 +992,3 @@ Scope: PR D of `docs/superpowers/plans/2026-11-16-start-run-review-and-rows.md`,
 - Rulings / Known: one ruled change to the plan's own test: "Purpose chosen" is Not met on the Purpose step until Continue. #31 known, handled in #30 or left for the owner: the footer says "1 problem" when more than one field is wrong, the next one shows after the first is fixed; cutoff and turns messages sit behind the browser's own date and number checks.
 - For the owner (not fixed here): a step not yet reached is drawn as amber "Not met"; the badge set has two states. Below 1041px the one-line summary and the full panel are both drawn. The Basic-level help line names Advanced inputs (the plan's sentence). Older than this work: a run id in "Starting from run …" on Documents; a general notice drawn above the step heading with no scroll to it; the review's content reaching the card edge at 390px; focus lost after removing a document. Owed at merge: this entry, and the `/impeccable critique` re-run against the 21/40 baseline, which is still owed.
 - Not verified: Edge and Windows; a screen reader (whether the message is read once or twice; the announcements); Safari and Firefox; development StrictMode focus order (the built bundle is not affected); a paid run against a live provider; the earnings and new-issue pathways in the browser proof; the `/impeccable critique` re-run; #30 was retargeted to `main` after #31 merged; the merged tree equals #30's head tree, on which CI's two checks had passed; nothing was re-run on `main`.
-
-## 2026-11-16 — Final audit: stage briefs and cloud launch prompt (PR #29, merged to `main` as `7e2724b8`)
-
-Scope: documentation only: the new `docs/audit/2026-11-16-final/` (the briefs for the final audit before the work-PC hand-over); no application code changes.
-- Changed: `README.md` (scope with Signal excluded, stages, the 12 sections, rulings and the rules every agent follows), `FINDINGS-SCHEMA.md` (one finding format and the severity table), `stages/0-baseline.md` to `stages/7-send-off.md` (one brief per stage), `CLOUD-PROMPT.md` (the prompt that starts the audit in a cloud session) and `work-pc-init-prompt.draft.md` (draft first-setup prompt for the work PC; stage 7 finishes it as `docs/work-pc/WORK-PC-INIT-PROMPT.md`). Docs only, so it took the batched docs review; no sweep or whole-branch review applies.
-- Gates: none stated in the PR body beyond: every path the briefs cite was checked to exist.
-- Not verified: the audit has not been run; the briefs are untested as a workflow; the commands the briefs name were not executed; ruling R3 (which findings are repaired or parked) is the author's reading, not confirmed by the owner; CI's two checks passed on the PR head before merge.
-
-## 2026-11-16 — Wayfinding test: wait up to 5 s for the first render (PR #28, merged to `main` as `a9a9420b`)
-
-Scope: test only: `web/src/pages/connected/ReportLibrary.wayfinding.test.tsx`. No assertion, fixture, source or config file changes.
-- Changed: one line, `configure({ asyncUtilTimeout: 5000 })`, for this file only (its 14 `findBy…` waits were on Testing Library's 1,000 ms default); the rest of the diff is prettier wrapping the import.
-- Gates: before, on `main`'s reader code at a load average of about 60, the full suite failed 1 of 3,456 (this file) and the file alone failed 2 of 3 runs, always its first test at 1.0–1.2 s. After, on `a1ec33f9`: `npm test` exit 0 (load rose from 15 to 89 during the run); the file alone passed 6 of 6 runs; `npm run lint`, `format:check`, `typecheck`, `unused` exit 0.
-- Not verified: not run at the load of 170–210 where up to 4 of the 14 tests failed, so a slower machine could still pass 5 s; why the first render takes over a second was not profiled; CI's two checks passed on the PR head before merge.
-
-## 2026-11-16 — Reader: unnamed module brackets keep their attribution; the Changes page states no-comparison in plain words (PR #26, merged to `main` as `5df9c29b`)
-
-Scope: `readerText` and `publishedReport.ts`, `report/Changes.tsx`, `report/Record.tsx`, `api.ts` and `start/ReviewSheet.tsx` under `web/src/pages/connected/`, with two ruling files in `docs/rulings/`. Owner rulings of 2026-11-16 on three items left open by #23 and by the review of rewritten work: the dropped attribution, launcher text on a findings page, and the scope of the web-search statement.
-- Changed: on findings pages a bracketed code directly after that module's own name is still dropped; after any other words a known code becomes " (module name)" ("The haircut (CP-3) holds." now reads "The haircut (Security selection) holds."); an unknown code stays; `plainModuleNames` (Evidence page, trace drawer) is unchanged. The Changes page draws none of the service's reason text and states which case applies in a fixed sentence: "First run of this pathway." (plus "An earlier run exists but could not be used for comparison." when one was skipped), "The comparison was planned but not produced for this run.", "This run was not compared with an earlier run.", or the existing "No comparison was recorded for this run."; the reference check reads the raw note. Evidence draws the raw stored note as "Comparison note:" in the Run record card. `changesSentence` moved from `start/plain.ts` to `api.ts` beside `serviceText`; Start's review draws what it drew before.
-- Answer key: `moduleCodes.cases.json` gains 8 rows (34 in all); the earlier 26 are unchanged. One pins an accepted outcome: a handoff that names a module differently ("Financial data foundation (CP-1)") draws as "Financial data foundation (Financial foundation)".
-- Gates: at `14aa7326`, from `web/`, exit 0 (implementer): lint, format:check, typecheck, unused, duplication; the six affected test files (106 tests, also run by the reviewer). The full suite was run at `3b92ff61` (3,454 passed) and not re-run after the fix round because the machine was under heavy load; CI on the PR is the full-suite run. Merges cleanly with `main` at `1748db76` (#25 in); nothing else reads the note.
-- Reviews: task review (`mx-precise`) at `3b92ff61`: one Medium (the reference check ran on converted text and let a mangled register id through), fixed; scoped re-review approved. Every real note form the service writes (not accepted, pack not built, module failed with a register id, budget and cap notes, run folder, earlier run unavailable, first run with and without a skipped run) was run through the page: no error code, launcher wording, figure, module code, run id or folder is drawn. New tests were seen failing first. The whole-branch adversarial pass, `confidence-review` and `rewrite-tournament` were not run.
-- Rulings / Known: rulings recorded in `docs/rulings/2026-11-11-reader-and-issuer-report.md` (2026-11-16 amendment extended) and `docs/rulings/2026-11-11-run-start-submit.md` (the web-search statement shows for public and private cases). Low, parked: `Evidence.test.tsx` removes its `fetch` stub at the end of the test body, not in `afterEach`; three hand mutants of the new bracket code survive because a later pass gives the same text.
-- Not verified: any page in a browser; a retained run (literal notes and fixtures only); a stored note that begins with none of the three phrases, beyond the empty and referenced cases; Windows; CI's two checks passed on the PR head before merge; nothing was re-run on the merged tree.
-
-## 2026-11-16 — Reader Overview: one bottom line per module and the run's limitations (PR #25, merged to `main` as `1748db76`)
-
-Scope: PR 2b of `docs/superpowers/plans/2026-11-16-connected-reader-high-gaps.md` (Task 7): `ReportContent.tsx`, `ReportLibrary.tsx`, `reportView.ts` and the new `report/OverviewModules.tsx` under `web/src/pages/connected/`, with their tests. `readerText`, `report/Changes.tsx` and `api.ts` are not touched.
-- Changed: Overview shows, after the lead module's passages and the figures, a Bottom line by module (one row per other module that ran, in run order: name linked to its module page, state badge, the module's bottom line, one trace control; a bottom line that holds a source reference is a link to Evidence; a module that wrote none shows a gap) and Limitations (every limitation the run's modules wrote, each once, first writer kept, shown as written less its Basis line and module codes, with the module's name and a trace control). The lead's own Limitations passage is no longer drawn separately on Overview. Earlier-format runs (a Reader summary, no passages): the summary's bottom line and limitation are used, read without bracket citations. Module-written text goes through `readerText`.
-- Gates: on `9acc9b7f`, `npm run lint`, `format:check`, `typecheck`, `unused`, `duplication` exit 0. The full suite was not green on the head commit: `npm test` on `9acc9b7f` gave 163 files, 3,456 tests, 2 failed, both in `ReportLibrary.wayfinding.test.tsx`, at a machine load average of 170-210; that file is not touched, it failed the same way on `daf62560` (before this branch) under load and passed 14 of 14 at normal load. The last green full run is the previous commit `90063705` (3,452 tests). 681 changed lines against the 800 cap (including the plan document).
-- Reviews: task review approved, no High or Medium. Whole-branch adversarial review: one Medium (earlier-format runs said no limitation was recorded), fixed in `9acc9b7f` and re-reviewed clean with mutation checks. Not run: `/sweep refactoring discover`, `confidence-review`, `rewrite-tournament`, the browser proof and fidelity check.
-- Rulings / Known: parked Low findings: a lead limitation written as a table is not on Overview; a module with outputs but no designated one is absent from the list; two limitations from one module give same-named trace buttons; a `* ` bulleted list is parsed as one item (predates this branch); de-duplication ignores punctuation, as the producer's check does.
-- For the owner: the PR body asked for `npm test` to be rerun at normal load before merging.
-- Not verified: no real published run checked, earlier-format included; a summary limitation that reads "None" would be listed as a limitation; the full suite on the head commit; CI's two checks passed on the PR head before merge; nothing was re-run on the merged tree.
-
-## 2026-11-16 — Browser proof on merged `main` (`ab661d8d`)
-
-Scope: `npm --prefix web run proof:connected` on the merged tree at `ab661d8d`, after `uv sync --locked`, `npm --prefix web ci` and `npm --prefix web run build`. Synthetic Northbridge case with canned model responses; no provider, no paid run, no credentials.
-- Result: pass. Exit code 0; 2 of 2 browsers run and passed (tests 2, pass 2, fail 0, skipped 0). Google Chrome 157.0.8103.78 completed run `20261116-132537-01`; Microsoft Edge 157.0.4341.60 completed run `20261116-132612-01`. No check failed, so the `checkForecastEvidence` failure that #21's body reports on a tree with `main` merged did not occur here.
-- Not verified: Windows; the proof drives no row control of the typed-row editor (#20, #21); the proof ran once.
