@@ -50,13 +50,20 @@ def within_cap(text: str, cap: int) -> bool:
     return len(text.splitlines()) < cap
 
 
+_SECRET_REF = re.compile(
+    r"(?<![\w.])secrets(?:\.(?!GITHUB_TOKEN\b)\w+|\[\s*(['\"])(?!GITHUB_TOKEN\1)[^'\"]+\1\s*\])"
+    r"|toJSON\(\s*secrets\s*\)",
+    re.IGNORECASE,
+)
+
+
 def is_credential_file(path: str) -> bool:
     """Credential paths: `.gitignore:13-20` (`private/`, `.env`, `.env.*` except
     `.env.example`, `*.pem`, `*.key`, `.copilot-home/`) plus `*.p12`, `id_rsa*`
     and `credentials*.json` from the plan."""
     parts = PurePosixPath(path).parts
-    name = parts[-1]
-    if _CREDENTIAL_DIRS & set(parts[:-1]):
+    name = parts[-1].lower()
+    if _CREDENTIAL_DIRS & {part.lower() for part in parts[:-1]}:
         return True
     if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
         return True
@@ -70,7 +77,7 @@ def is_credential_file(path: str) -> bool:
 def provider_secret_refs(text: str) -> list[str]:
     """Provider-secret references in workflow text: `secrets.<NAME>` other than
     `GITHUB_TOKEN` (not preceded by `.`, so `needs.secrets.x` is skipped), and `API_KEY`."""
-    refs = [m.group(0) for m in re.finditer(r"(?<![\w.])secrets\.(?!GITHUB_TOKEN\b)\w+", text)]
+    refs = [m.group(0) for m in _SECRET_REF.finditer(text)]
     return refs + ["API_KEY"] * ("API_KEY" in text)
 
 
@@ -123,8 +130,10 @@ def _imports(tree: ast.AST) -> tuple[set[str], set[str], bool, set[int]]:
             if any(a.name.split(".")[0] == "xlsxwriter" for a in node.names):
                 xlsxwriter_lines.add(node.lineno)
             for alias in node.names:
+                root = f"{alias.asname or alias.name.split('.')[0]}."
                 if _is_openpyxl(alias.name):
-                    workbook_names.add(f"{alias.asname or alias.name.split('.')[0]}.")
+                    workbook_names.add(root)
+                zip_names.update({f"{root}ZipFile"} if alias.name == "zipfile" else ())
         elif isinstance(node, ast.Attribute) and node.attr == "load_workbook":
             loads_workbook = True
     return workbook_names, zip_names, loads_workbook, xlsxwriter_lines
@@ -178,6 +187,9 @@ def test_credential_patterns():
         assert not is_credential_file(ok), ok
     for bad in ("id_rsa", "id_rsa.pub", "credentials.json"):
         assert is_credential_file(bad), bad
+    for bad in ("deploy/SERVER.PEM", "ID_RSA", ".ENV", "Credentials.JSON"):
+        assert is_credential_file(bad), bad
+    assert not is_credential_file(".ENV.EXAMPLE")
 
 
 def test_no_tracked_credential_files():
@@ -193,6 +205,10 @@ def test_provider_secret_ref_rules():
     assert provider_secret_refs("${{ secrets.GITHUB_TOKEN }}") == []
     assert provider_secret_refs("needs.secrets.result") == []
     assert provider_secret_refs("OPENAI_API_KEY: x") == ["API_KEY"]
+    assert provider_secret_refs("${{ secrets['ANTHROPIC_KEY'] }}") == ["secrets['ANTHROPIC_KEY']"]
+    assert provider_secret_refs('${{ secrets["X"] }}') == ['secrets["X"]']
+    assert provider_secret_refs("${{ toJSON(secrets) }}") == ["toJSON(secrets)"]
+    assert provider_secret_refs("${{ secrets['GITHUB_TOKEN'] }}") == []
 
 
 def test_workflows_hold_no_provider_secrets():  # AGENTS.md: the build runs no providers
@@ -236,6 +252,13 @@ def test_workbook_writer_import_forms():
     assert workbook_writers(
         "from openpyxl.reader.excel import load_workbook\nb = load_workbook(p)\nb.save(q)\n"
     ) == [3]
+    assert workbook_writers(
+        'import zipfile as zf\nz = zf.ZipFile(p, "w")\nz.writestr("xl/workbook.xml", b)\n'
+    ) == [2]
+    assert (
+        workbook_writers('import zipfile as zf\nz = zf.ZipFile(p)\nz.read("xl/workbook.xml")\n')
+        == []
+    )
 
 
 def test_only_allowed_modules_write_workbooks():
