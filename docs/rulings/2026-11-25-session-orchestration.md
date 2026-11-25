@@ -8,4 +8,4 @@ Owner asked the coordinator to rule on the conflicts found while adding the coor
 4. Review: the `mx-architect` pre-merge review is the PR review; `/ship`'s review adds no round.
 5. The 2026-11-15 deadline rulings lapsed on 2026-11-16; merges are on the owner's instruction only.
 6. Repo copies of `mx-*` are checked for drift with `diff -rq` (see `CLAUDE.md`).
-7. Cloud loading of `.claude/agents/` is unverified.
+7. Cloud sessions load `.claude/agents/` (confirmed 2026-11-25; the owner relayed the cloud test session's result). Not verified: cloud loading of `.claude/commands/` and `CLAUDE.md`, and cloud agent models.
