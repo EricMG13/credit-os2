@@ -36,7 +36,11 @@ export type SignalStory = {
   tags: string[];
   alsoIn: { label: string; monograms: string[]; more: string | null } | null;
   sharedBy: { initials: string; label: string } | null;
-  ai: { line: string } | null;
+  /**
+   * What the AI pass wrote: the line; `kind` when the kind label came from the pass; `tags` the part of
+   * `tags` the pass wrote (the rest are topic names). Null when the pass wrote nothing for this story.
+   */
+  ai: { line: string; kind: boolean; tags: string[] } | null;
   strength: { marks: 1 | 2 | 3; word: string } | null;
   saved: boolean;
   commentCount: string | null;
@@ -429,7 +433,7 @@ const stageSteps: Reader<{ name: string; current: boolean }[]> = (v, path) => {
 const marks: Reader<1 | 2 | 3> = (v, path) =>
   v === 1 || v === 2 || v === 3 ? good(v) : bad(path, "1, 2 or 3");
 
-const story = shape<SignalStory>({
+const storyShape = shape<SignalStory>({
   id,
   kind: oneOf(["regulator", "news", "ratings", "research"], "regulator, news, ratings or research"),
   kindLabel: str,
@@ -441,7 +445,7 @@ const story = shape<SignalStory>({
   tags: list(str),
   alsoIn: orNull(shape({ label: str, monograms: list(str), more: strOrNull })),
   sharedBy: orNull(shape({ initials: str, label: str })),
-  ai: orNull(shape({ line: str })),
+  ai: orNull(shape({ line: str, kind: optional(bool, false), tags: optional(list(str), []) })),
   strength: orNull(shape({ marks, word: str })),
   saved: bool,
   commentCount: strOrNull,
@@ -456,6 +460,14 @@ const story = shape<SignalStory>({
   ),
   ratingMoves: list(shape({ from: str, to: str, word: str })),
 });
+/** A tag the pass wrote is one of the story's own tags. */
+const story: Reader<SignalStory> = (v, path) => {
+  const got = storyShape(v, path);
+  if (!got.ok || got.value.ai === null) return got;
+  const { tags, ai } = got.value;
+  const stray = ai.tags.findIndex((tag) => !tags.includes(tag));
+  return stray === -1 ? got : bad(`${path}.ai.tags[${String(stray)}]`, "one of the story's tags");
+};
 const digestBase = shape<SignalDigestCard>({
   id,
   digestId: id,

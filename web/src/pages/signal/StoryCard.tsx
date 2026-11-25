@@ -6,7 +6,7 @@ import { Bookmark, MessageSquare01, Share07 } from "@untitledui/icons";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { cx } from "@/utils/cx";
-import { Announcement } from "./parts/Announcement";
+import { AiMark, Announcement } from "./parts/Announcement";
 import { Avatar } from "./parts/Avatar";
 import { AvatarGroup } from "./parts/AvatarGroup";
 import { focusAgainIfLost } from "./parts/focus";
@@ -57,7 +57,15 @@ const shareLabelOf = (story: SignalStory) => `Share to group: ${story.headline}`
 function Byline({ story }: { story: SignalStory }) {
   return (
     <div className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-text-tertiary">
-      <Badge size="sm">{story.kindLabel}</Badge>
+      {story.ai?.kind === true ? (
+        <Badge size="sm" className="border border-dashed border-text-tertiary ring-transparent">
+          <span role="img" aria-label={`Kind chosen by AI: ${story.kindLabel}`}>
+            {story.kindLabel}
+          </span>
+        </Badge>
+      ) : (
+        <Badge size="sm">{story.kindLabel}</Badge>
+      )}
       <span>{story.source.name}</span>
       {story.time === null ? null : <span>{story.time}</span>}
     </div>
@@ -90,36 +98,67 @@ function HeadlineBlock({ story, link }: { story: SignalStory; link: string | nul
   );
 }
 
-/** The rating moves, stage, AI line and strength rows; each is left out when the story lacks it. */
+/**
+ * The rating moves, stage, strength and AI line: only a model writes them, so they sit together under
+ * one "AI" label. A line alone keeps its own pill label, as before. Each is left out when the story
+ * lacks it; the "also in" row is not the model's and stays outside the group.
+ */
 function SignalRows({ story }: { story: SignalStory }) {
+  const moves =
+    story.ratingMoves.length === 0 ? null : (
+      <div className={ROW}>
+        {story.ratingMoves.map((move, index) => (
+          <BadgeGroup key={index} {...move} />
+        ))}
+      </div>
+    );
+  const stage = story.stage === null ? null : <StageProgress stage={story.stage} />;
+  const strength =
+    story.strength === null ? null : (
+      <div className={ROW}>
+        <Rating marks={story.strength.marks} word={story.strength.word} />
+      </div>
+    );
+  const also =
+    story.alsoIn === null ? null : (
+      <div className={ROW}>
+        <AvatarGroup monograms={story.alsoIn.monograms} more={story.alsoIn.more} />
+        <span>{story.alsoIn.label}</span>
+      </div>
+    );
+  const written = story.ai !== null || story.strength !== null;
+  const alone = moves === null && stage === null && strength === null;
+  const line =
+    story.ai === null ? null : (
+      <div className={ROW}>
+        <Announcement marked={!written || alone}>{story.ai.line}</Announcement>
+      </div>
+    );
+  if (!written || alone) {
+    return (
+      <>
+        {moves}
+        {stage}
+        {line}
+        {strength}
+        {also}
+      </>
+    );
+  }
   return (
     <>
-      {story.ratingMoves.length === 0 ? null : (
-        <div className={ROW}>
-          {story.ratingMoves.map((move, index) => (
-            <BadgeGroup key={index} {...move} />
-          ))}
-        </div>
-      )}
-      {story.stage === null ? null : <StageProgress stage={story.stage} />}
-      {story.ai === null ? null : (
-        <div className={ROW}>
-          <Announcement>{story.ai.line}</Announcement>
-        </div>
-      )}
-      {story.strength === null && story.alsoIn === null ? null : (
-        <div className={ROW}>
-          {story.strength === null ? null : (
-            <Rating marks={story.strength.marks} word={story.strength.word} />
-          )}
-          {story.alsoIn === null ? null : (
-            <>
-              <AvatarGroup monograms={story.alsoIn.monograms} more={story.alsoIn.more} />
-              <span>{story.alsoIn.label}</span>
-            </>
-          )}
-        </div>
-      )}
+      <div
+        role="group"
+        aria-label="Written by AI"
+        className="mt-3 border-l-2 border-border-hairline pl-3"
+      >
+        <AiMark />
+        {moves}
+        {stage}
+        {strength}
+        {line}
+      </div>
+      {also}
     </>
   );
 }
@@ -136,7 +175,7 @@ function ShareRows({ story }: { story: SignalStory }) {
       )}
       {story.tags.length === 0 ? null : (
         <div className="mt-3">
-          <Tags tags={story.tags} />
+          <Tags tags={story.tags} written={story.ai?.tags} />
         </div>
       )}
     </>
