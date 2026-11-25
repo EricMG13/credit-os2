@@ -289,10 +289,30 @@ def sent_instructions(folder: Path, module: str, response: str, identity: Mappin
     return instructions
 
 
-def method_difference(block: str, module: str, headings: MethodHeadings) -> str:
-    """Which method sections differ between what was sent and what is selected today."""
+def pathway_method(module: str, pathway: str) -> tuple[str, list[tuple[str, str]]] | None:
+    """The method block and the section headings a pathway selects for a module in place of the
+    injected one-argument lookups (plan C2: credit screening's CP-L10); None when it has none."""
+    from deploy_workflow.owners.cpos_launch import (
+        method_heading,
+        method_sections,
+        method_text,
+    )
+    from deploy_workflow.owners.cpos_launch import pathway_method as selected
+
+    if selected(module, pathway) is None:
+        return None
+    sections = method_sections(module, pathway)
+    return method_text(module, pathway), [(n, method_heading(n, body)) for n, body in sections]
+
+
+def method_difference(
+    block: str, module: str, headings: MethodHeadings, pathway: str | None = None
+) -> str:
+    """Which method sections differ between what was sent and what is selected today (for
+    ``pathway``, when it selects a method of its own for the module)."""
     sent = set(_HEADING.findall(block))
-    current = headings(module)
+    own = None if pathway is None else pathway_method(module, pathway)
+    current = headings(module) if own is None else own[1]
     changed = [name for name, heading in current if heading not in block]
     dropped = sorted(sent - {name for name, _ in current})
     parts = [f"{', '.join(changed)} changed"] if changed else []
@@ -318,13 +338,14 @@ def check_methodology(
         if how not in ANSWERED:
             word = EXECUTION_WORDS.get(str(how), f"recorded as {how!r}")
             raise Refused(f"{module}: {word.lower()}; its methodology is not this run's")
-        current = method_text(module)
+        own = pathway_method(module, identity["pathway"])
+        current = method_text(module) if own is None else own[0]
         if current is None:
             raise Refused(f"{module}: no current method is selected for this module")
         text = sent_instructions(folder, module, pin["path"], identity).replace("\r\n", "\n")
         _, mark, block = text.partition(METHOD_MARK)
         if not mark or block != current + "\n":
-            detail = method_difference(block, module, method_headings)
+            detail = method_difference(block, module, method_headings, identity["pathway"])
             changes.append(f"{module}: {detail}")
     return changes
 

@@ -207,7 +207,7 @@ def test_cp0_no_longer_demands_t7_or_t8_or_the_registers_its_scope_cuts(every_mo
 
 def test_the_scope_file_has_exactly_the_ten_measured_modules_in_its_headings():
     text = (ROOT / SCOPE_FILE).read_text()
-    assert re.findall(r"^## (\S+)$", text, re.MULTILINE) == list(CUT)
+    assert re.findall(r"^## (\S+)$", text, re.MULTILINE) == [*CUT, "CP-L10"]
     assert tuple(CUT) == cpos_launch.REGISTER_SCOPE_MODULES
 
 

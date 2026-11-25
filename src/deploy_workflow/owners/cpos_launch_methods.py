@@ -165,12 +165,67 @@ READER_LAYER = (
     # ends at the next `####` heading, so the appendix rule needs its own entry.
     _APPENDIX,
 )
-METHODS: dict[str, tuple[str, ...]] = {
-    module: (
+
+
+def _method_of(module: str, paths: tuple[str, ...], *, scoped: bool) -> tuple[str, ...]:
+    """The sections one module is sent, in order: its files (and the Confidence Score rules when
+    any of them is a selected skill's), the reader layer unless it is a data module, and its
+    register-scope section when ``scoped``."""
+    return (
         *((*paths, _SCORE) if any(p.startswith(_SKILLS) for p in paths) else paths),
         *(() if module in DATA_MODULES else READER_LAYER),
-        *((f"{REGISTER_SCOPE} § {module}",) if module in REGISTER_SCOPE_MODULES else ()),
+        *((f"{REGISTER_SCOPE} § {module}",) if scoped else ()),
     )
+
+
+METHODS: dict[str, tuple[str, ...]] = {
+    module: _method_of(module, paths, scoped=module in REGISTER_SCOPE_MODULES)
     for module, paths in _SELECTED.items()
 }
+# Owner, 2026-11-25 (ruling R12, plan C1 and C2): the method a (pathway, module) is sent in place of
+# `METHODS[module]`. Credit screening runs CP-L10 as the archived five-screen method (SKILL.md, the
+# five adaptive methods, the lite policy and the five schema references) instead of the one page
+# the deactivated short snapshot is sent. The five `*payload.schema.txt` files are not sent: they
+# are JSON Schema for the JSON payload the Markdown transport overrides, each refers to a base
+# schema that is not in this repository, and what they constrain is restated in the sent SKILL.md
+# and schema references. Every other (pathway, module) is sent `METHODS[module]`.
+_L10 = _SKILLS + "cp-l10-financial-change-screen/"
+SCREENING = ("credit_screening", "CP-L10")  # the one (pathway, module) with a method of its own
+PATHWAY_SELECTED: dict[tuple[str, str], tuple[str, ...]] = {
+    SCREENING: (
+        _L10 + "SKILL.md",
+        *(f"{_L10}references/REF_CP-L{n}_ADAPTIVE_METHOD.md" for n in (10, 20, 23, 30, 40)),
+        _L10 + "references/CP-L10_CP_LITE_ANALYSIS_POLICY_v1.md",
+        *(f"{_L10}references/CP-L{n}_SCHEMA_REFERENCE.md" for n in (10, 20, 23, 30, 40)),
+    ),
+}
+# Each pathway method owes its module's register-scope section (`## CP-L10`: nothing cut, the 20
+# registers required).
+PATHWAY_SCOPED = frozenset(PATHWAY_SELECTED)
+PATHWAY_METHODS: dict[tuple[str, str], tuple[str, ...]] = {
+    key: _method_of(key[1], paths, scoped=key in PATHWAY_SCOPED)
+    for key, paths in PATHWAY_SELECTED.items()
+}
+
+
+def pathway_method(module: str, pathway: str | None) -> tuple[str, ...] | None:
+    """The method ``pathway`` sends ``module`` instead of `METHODS[module]`; None if none."""
+    return None if pathway is None else PATHWAY_METHODS.get((pathway, module))
+
+
+def has_scope(module: str, pathway: str | None = None) -> bool:
+    """Whether ``module`` carries a register-scope section in ``pathway``: one of the ten measured
+    modules in any pathway, or a module a pathway sends its own scoped method."""
+    return module in REGISTER_SCOPE_MODULES or (
+        pathway is not None and (pathway, module) in PATHWAY_SCOPED
+    )
+
+
+def methods_for(module: str, pathway: str | None = None) -> tuple[str, ...]:
+    """The sections ``module`` is sent in ``pathway``: its pathway method when there is one,
+    else `METHODS[module]` (a KeyError for a module with no method, as `METHODS[module]` raises)."""
+    found = pathway_method(module, pathway)
+    return METHODS[module] if found is None else found
+
+
 NOT_ANALYTICAL = frozenset({"CP-MODEL", "CP-8"})  # In the presets; each has its own route.

@@ -1245,6 +1245,46 @@ def key_figures_issues(text: str, cp1: str) -> tuple[str, ...]:
     return tuple(issues)
 
 
+# Owner, 2026-11-25 (ruling R12, plan C4): the five reader tables CP-L10 writes in a credit
+# screening, one per screen, under the titles of the method's own front tables.
+SCREEN_TITLES = (
+    "Financial change screen",
+    "Credit screen",
+    "Liquidity and forward-risk screen",
+    "Security opportunity screen",
+    "Creditor-document screen",
+)
+SCREEN_HEADER = ["Topic", "Finding", "Materiality", "Evidence", "Next step"]
+
+
+def screen_table_issues(text: str) -> tuple[str, ...]:
+    """Each screen's reader table: written under its own `### <title>` heading with exactly the
+    header `Topic | Finding | Materiality | Evidence | Next step`. One issue per screen that has no
+    such heading, no table under it, more than one table, or another header. Rows are not judged:
+    a register with few rows is noted, never refused (ruling 2026-11-15-method-script-checks)."""
+    lines = text.splitlines()
+    header = "`| " + " | ".join(SCREEN_HEADER) + " |`"
+    issues = []
+    for title in SCREEN_TITLES:
+        start = next((i for i, line in enumerate(lines) if line.strip() == f"### {title}"), None)
+        if start is None:
+            issues.append(f"`### {title}` is missing: write that screen's reader table under it.")
+            continue
+        section: list[str] = []
+        for line in lines[start + 1 :]:
+            if re.match(r"#{1,6}\s", line):
+                break
+            section.append(line)
+        tables = _tables("\n".join(section))
+        if not tables:
+            issues.append(f"`### {title}` has no table: write the screen's reader table under it.")
+        elif any(t[0] != SCREEN_HEADER for t in tables):
+            issues.append(f"`### {title}`: the table header must be exactly {header}.")
+        elif len(tables) > 1:
+            issues.append(f"`### {title}`: write exactly one table under the heading.")
+    return tuple(issues)
+
+
 FORECAST_HEADING = "### Forecast inputs (machine-readable)"
 
 

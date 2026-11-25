@@ -1047,9 +1047,17 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
   12 hex digits of the file as sent.
 - `shared` rows are sent by section: `CANON_SHARED.md § CP_CONFIDENCE_SCORE.md` to every module
   sent a skill, its reader-layer sections to every prose module, and `CPOS_REGISTER_SCOPE.md
-  § <module>` to the ten modules it names.
-- Registered, not sent: `manifest.json` registers 98 further files that CP-OS does not send (schema
-  and system references, unsent companions, the CP-L10 change-screen skill and others), kept on purpose (owner,
+  § <module>` to the ten modules it names, and `§ CP-L10` to CP-L10 in `credit_screening`.
+- CP-L10 is sent the one page `cpl10.md` in every pathway that selects it (only the deactivated
+  `short_snapshot`) and, in `credit_screening` only (owner, 2026-11-25, ruling R12), twelve archived
+  files of the cp-os `cp-l10-financial-change-screen` skill: `SKILL.md`, the five adaptive methods,
+  the lite analysis policy and the five schema references, whole and unedited. The five `*payload.schema.txt`
+  files are not sent: they are JSON Schema for the JSON payload the Markdown transport overrides, each
+  refers to a base schema that is not in this repository, and what they constrain is restated in the sent
+  `SKILL.md` and schema references. Revision `b57a344` is cp-os HEAD; the files last changed in `a31f3f5`,
+  and each sha256 equals the cp-os file (checked 2026-11-25).
+- Registered, not sent: `manifest.json` registers 86 further files that CP-OS does not send (schema
+  and system references, unsent companions, the five CP-L10 payload schemas and others), kept on purpose (owner,
   2026-11-10: keep a copy of the methodology in the repo). Its `project_files` list registers the three
   sent method files that live outside the archive (`prompts/CP-1.md`, `cpl10.md`, `cp8.md`).
 - Not registered: none. The three unregistered top-level duplicates (`CP-3B_RUNBOOK.md`,
@@ -1073,6 +1081,18 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-1C | `docs/reuse/selected-methods/skills/cp-1c-peer-benchmark/references/REF_CP-1C_STEPS.md` | cp-os | no | not recorded | `fbbed9bac006` |
 | CP-1D | `docs/reuse/selected-methods/skills/cp-1d-earnings-quality/SKILL.md` | cp-os | yes | e67bf0c, 99069f83 | `56b74b7274a9` |
 | CP-L10 | `src/deploy_vii/methods/cpl10.md` | this repo | no | this repo | `8c1eac8940dd` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/SKILL.md` | cp-os | no | b57a344 | `8ebb7d70cd46` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L10_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `0481a8aa4d7a` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L20_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `0d9a308aaa6e` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L23_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `51e2d1bfc4f6` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L30_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `852059fa62c4` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L40_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `f80e3cb4f91c` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L10_CP_LITE_ANALYSIS_POLICY_v1.md` | cp-os | no | b57a344 | `d0db9ea2476d` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L10_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `046bf01ddf46` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L20_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `1252e3a06b18` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L23_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `9a25fee9bd06` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L30_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `5a63b25907de` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L40_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `8f36b959e62c` |
 | CP-2 | `docs/reuse/selected-methods/skills/cp-2-fundamental-credit-synthesizer/SKILL.md` | cp-os | yes | b57a344, 99069f83 | `0b419cb292a5` |
 | CP-2 | `docs/reuse/selected-methods/skills/cp-2-fundamental-credit-synthesizer/references/REF_CP-2_STEPS.md` | cp-os | yes | b57a344, 99069f83 | `9200f6b0ab97` |
 | CP-2A | `docs/reuse/selected-methods/skills/cp-2a-downside-pathway/SKILL.md` | cp-os | no | not recorded | `4c23c05eb697` |
@@ -1121,4 +1141,4 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-DR | `docs/reuse/selected-methods/skills/cp-dr-deep-research/references/REF_CP-DR_STEPS.md` | cp-os | yes | b57a344, c746ad67 | `cab435618c7f` |
 | CP-DR | `docs/reuse/selected-methods/skills/cp-os-credit-os/references/CP_DR_RESEARCH_BRIEF_V1.md` | cp-os | no | b57a344 | `5028a6476cdf` |
 | shared | `docs/reuse/selected-methods/CANON_SHARED.md` | cp-os | no | b57a344 | `1ab484c5072a` |
-| shared | `docs/reuse/selected-methods/CPOS_REGISTER_SCOPE.md` | this repo | no | this repo | `0f97542230b3` |
+| shared | `docs/reuse/selected-methods/CPOS_REGISTER_SCOPE.md` | this repo | no | this repo | `207cf04c681d` |
