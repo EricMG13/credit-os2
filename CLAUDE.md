@@ -8,3 +8,5 @@ Project rules are in `AGENTS.md`; read it first. This file only fixes how sessio
 - A plan step is its own sub-session only if it ends in its own PR, shares no file with another step, and neither needs nor supplies another step's result. One roadmap phase at a time; no session sets a `/goal`.
 - Finish: quality gate, then the pre-merge review, then tell the user to type `/ship`. Only the user can start `/ship`, and it never merges. Merges happen on the owner's instruction.
 - Cloud sessions see only this repo. `.claude/agents/` and `.claude/commands/` are copies of `~/.claude/`; refresh them when the originals change.
+- Rulings (2026-11-25): the PR review is the `mx-architect` pre-merge review; `/ship`'s own review adds no round (act only on High or Medium findings; on docs/config PRs it is the whole review). Controllers here run Opus 5.5 `xhigh`. The 2026-11-15 deadline rulings lapsed on 2026-11-16: merges are on the owner's instruction only. Check copy drift with `diff -rq ~/.claude/agents .claude/agents | grep -v impeccable | grep -v opus55`.
+- Not verified: that cloud sessions load `.claude/agents/` and `.claude/commands/` from the checked-in repo.
