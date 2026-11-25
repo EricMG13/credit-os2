@@ -3,8 +3,9 @@
 The process holds the provider key and can start paid runs (each at its pathway's cap,
 ``PATHWAY_CAP_USD``), has no login and is reachable from other machines, so every request is
 hostile input. Plain ``http.server``; no framework. The rules below that are not about one route
-are implemented once, in ``deploy_workflow.http_base``, which Signal's service shares; this
-docstring is their specification. Every request is checked before any body byte is read:
+are implemented once, in ``deploy_workflow.http_base``; this docstring is their specification.
+The React application's server (``react_frontend``) is this one with its own routes added, Signal's
+among them, so they pass the same checks. Every request is checked before any body byte is read:
 
 * ``Host`` must be exactly ``<host>:<port>`` as started (and ``localhost:<port>`` when the host is
   ``127.0.0.1``); otherwise 403. On port 80 the port may be left out of ``Host`` and ``Origin``.
@@ -221,7 +222,6 @@ _RUN_FIELDS = (
 )
 _DOWNLOADS = "/library/downloads/"
 SHOWN_CAP_HEADER = "X-Shown-Cap"  # the cap the page displays, sent with summary and submit
-_HOSTNAME = re.compile(r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?")
 
 
 class _Server(http_base.Server):
@@ -488,39 +488,8 @@ class Handler(http_base.Handler):
         return http_base.contained_file(base, relative, direct=direct, headers=headers, logger=log)
 
 
-def signal_link(url: str) -> str:
-    """The normalised ``http://<host>:<port>/`` of a Signal address; ValueError otherwise."""
-    if not url.isascii() or not url.isprintable() or any(c in " \"'<>[]" for c in url):
-        raise ValueError("--signal-url: printable ASCII without spaces or quotes")
-    parts = urllib.parse.urlsplit(url)
-    host = parts.hostname or ""
-    try:
-        port = parts.port
-    except ValueError:
-        port = None
-    if (
-        not url.startswith("http://")
-        or not _HOSTNAME.fullmatch(host)
-        or port is None
-        or not 1 <= port <= 65535
-        or parts.path not in ("", "/")
-        or parts.query
-        or parts.fragment
-        or "@" in parts.netloc
-        or url.endswith(("?", "#"))
-    ):
-        raise ValueError("--signal-url: pass http://<host>:<port>/ (no path, query or login)")
-    return f"http://{host}:{port}/"
-
-
-def make_server(
-    scheduler: Scheduler, host: str, port: int, signal_url: str = ""
-) -> ThreadingHTTPServer:
-    """A server bound to ``host:port`` (port 0 picks one); not yet serving.
-
-    ``signal_url`` remains validated for callers that expose a Signal link in their own UI."""
-    if signal_url:
-        signal_link(signal_url)
+def make_server(scheduler: Scheduler, host: str, port: int) -> ThreadingHTTPServer:
+    """A server bound to ``host:port`` (port 0 picks one); not yet serving."""
     server = _Server((host, port), Handler)
     server.scheduler = scheduler
     server.standing = standing_portfolios.Desk()
@@ -535,7 +504,6 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--max-running", type=int, default=defaults.max_running)
     parser.add_argument("--max-per-day", type=int, default=defaults.max_per_day)
-    parser.add_argument("--signal-url", help="http://<host>:<port>/ of Signal: adds a rail link")
     return parser
 
 
@@ -562,11 +530,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(refusal, file=sys.stderr)
         return 2
     try:
-        signal_url = "" if args.signal_url is None else signal_link(args.signal_url)
-    except ValueError as error:
-        print(error, file=sys.stderr)
-        return 2
-    try:
         settings = Settings(
             args.root,
             max_running=args.max_running,
@@ -578,7 +541,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 2
     try:
-        server = make_server(scheduler, args.host, args.port, signal_url)
+        server = make_server(scheduler, args.host, args.port)
     except (OSError, OverflowError) as error:  # the address is taken or is not one
         scheduler.close()
         print(f"cannot listen on {args.host}:{args.port}: {error}", file=sys.stderr)

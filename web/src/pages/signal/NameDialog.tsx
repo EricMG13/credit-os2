@@ -1,9 +1,11 @@
-// The name dialog (ruling 19, mock departure 18): a form modal that sets the display name in memory.
+// The name dialog (ruling 19, mock departure 18): a form modal that sets the display name (in
+// memory, or on the service the page is drawn on).
 // Predecessor wording wins over the mock's ("Choose a display name", "Not now", "Save name").
 import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
+import { PHONE_TARGETS } from "./parts/classes";
 import { useOnGone } from "./parts/focus";
 
 const TITLE_ID = "signal-name-title";
@@ -22,17 +24,19 @@ export function initialsOf(name: string): string {
 type Props = {
   /** The name now set; null on a first visit, when the dialog cannot be dismissed. */
   current: string | null;
+  /** The name the service just refused and its sentence: the form opens on both. */
+  refused?: { name: string; reason: string } | null;
   onSubmit: (name: string) => void;
   onCancel: () => void;
   /** Where focus goes once the dialog has gone: the name chip. */
   onGone: () => void;
 };
 
-/** The form is the dialog's content, so each opening starts from the current name with no error. */
-function NameForm({ current, onSubmit, onCancel, onGone }: Props) {
+/** The form is the dialog's content, so each opening starts afresh: from the current name with no error, or from a name the service refused with its sentence. */
+function NameForm({ current, refused = null, onSubmit, onCancel, onGone }: Props) {
   useOnGone(onGone);
-  const [value, setValue] = useState(current ?? "");
-  const [error, setError] = useState(false);
+  const [value, setValue] = useState(refused?.name ?? current ?? "");
+  const [error, setError] = useState(refused?.reason ?? null);
   const field = useRef<HTMLInputElement>(null);
   // On every opening focus starts in the field (the modal's own autofocus only runs on first mount).
   useEffect(() => {
@@ -42,14 +46,18 @@ function NameForm({ current, onSubmit, onCancel, onGone }: Props) {
     event.preventDefault();
     const name = value.trim();
     if (name === "") {
-      setError(true);
+      setError("Enter a name to continue.");
       field.current?.focus();
       return;
     }
     onSubmit(name);
   };
   return (
-    <form noValidate onSubmit={submit} className="flex flex-col gap-5 p-6">
+    <form
+      noValidate
+      onSubmit={submit}
+      className={`flex flex-col gap-5 p-5 sm:p-6 ${PHONE_TARGETS}`}
+    >
       <div className="flex flex-col gap-1">
         <h2 id={TITLE_ID} className="font-display text-h3 text-text-primary">
           Your name
@@ -64,11 +72,11 @@ function NameForm({ current, onSubmit, onCancel, onGone }: Props) {
         label="Display name"
         maxLength={60}
         value={value}
-        isInvalid={error}
-        hint={error ? "Enter a name to continue." : undefined}
+        isInvalid={error !== null}
+        hint={error ?? undefined}
         onChange={(next) => {
           setValue(next);
-          setError(false);
+          setError(null);
         }}
       />
       <div className="flex justify-end gap-3">

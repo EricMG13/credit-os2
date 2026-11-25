@@ -8,7 +8,7 @@ type Stage = NonNullable<SignalStory["stage"]>;
 export function StageProgress({ stage }: { stage: Stage }) {
   return (
     <div className="mt-3 max-w-[440px]">
-      <div className="flex justify-between gap-4 text-sm font-medium text-text-primary">
+      <div className="flex justify-between gap-4 text-small font-medium text-text-primary tabular-nums">
         <span>{stage.current}</span>
         <span>{stage.label}</span>
       </div>
@@ -19,14 +19,14 @@ export function StageProgress({ stage }: { stage: Stage }) {
         aria-valuemax={1}
         aria-valuenow={stage.position}
         aria-valuetext={`${stage.label}: ${stage.current}`}
-        className="mt-2 h-2 overflow-hidden rounded-full bg-action-subtle"
+        className="mt-2 h-2 overflow-hidden rounded-ds-full bg-action-subtle"
       >
         <div
-          className="h-full rounded-full bg-action"
+          className="h-full rounded-ds-full bg-action"
           style={{ width: `${String(stage.position * 100)}%` }}
         />
       </div>
-      <ol className="mt-1.5 flex justify-between gap-2 text-sm text-text-tertiary">
+      <ol className="mt-1.5 flex justify-between gap-2 text-small text-text-tertiary">
         {stage.stages.map((s, index) => (
           <li
             key={index}

@@ -322,3 +322,44 @@ describe("the group view across groups that reuse a thread id", () => {
     expect(screen.getByRole("button", { name: `Save: ${tessaly}` })).toBeInTheDocument();
   });
 });
+
+describe("what the group page says it leaves out", () => {
+  const SENTENCE = "Showing the latest 2 of 9 threads.";
+
+  it("draws the delivered sentence once, under the thread list, as secondary text", () => {
+    show(
+      LEV,
+      withGroup((group) => Object.assign(group, { more: SENTENCE })),
+    );
+    const line = screen.getByText(SENTENCE);
+    expect(line.tagName).toBe("P");
+    expect(line).toHaveClass("text-text-tertiary");
+    const list = screen.getByRole("list", { name: "Shared in this group" });
+    expect(list.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("draws nothing when it is null or absent", () => {
+    show(
+      LEV,
+      withGroup((group) => Object.assign(group, { more: null })),
+    );
+    expect(screen.queryByText(/Showing the latest|group is full/)).toBeNull();
+  });
+
+  it("draws an excerpted note as delivered, on the group page and in the panel", () => {
+    const CUT = "Has anyone looked at how the packaging closures read across to the two…";
+    const slice = structuredClone(fixture.slice);
+    const snap = slice.scenes[0]?.snapshot;
+    const item = snap?.groups[0]?.threads.find((t) => t.id === "packaging-note");
+    const own = snap?.threads.find((t) => t.id === "packaging-note");
+    if (item === undefined || own === undefined) throw new Error("the note thread");
+    item.note = CUT;
+    own.note = CUT;
+    show(LEV, slice);
+    expect(screen.getByText(CUT)).toBeInTheDocument();
+    window.location.hash = `#${LEV}/thread/packaging-note`;
+    return waitFor(() => {
+      expect(within(screen.getByRole("dialog")).getByText(CUT)).toBeInTheDocument();
+    });
+  });
+});

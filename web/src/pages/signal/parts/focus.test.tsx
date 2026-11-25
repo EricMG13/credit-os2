@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { focusAgainIfLost, useOnGone } from "./focus";
+import { focusAgainIfLost, useOnGone, useOpener } from "./focus";
 
 // Frames are queued by a test double for requestAnimationFrame and run by hand, one generation at
 // a time, so a test can move focus between the first and the second frame.
@@ -67,6 +67,56 @@ describe("focusAgainIfLost", () => {
     expect(document.activeElement).toBe(second);
   });
 
+  it("with a home, takes focus back from an element outside it after the second frame", () => {
+    const home = document.createElement("div");
+    document.body.append(home);
+    const target = document.createElement("button");
+    home.append(target);
+    const outside = button("outside");
+    focusAgainIfLost(
+      () => target,
+      () => home,
+    );
+    outside.focus(); // as the dialog library's late restore can do
+    nextFrame();
+    expect(document.activeElement).toBe(outside);
+    nextFrame();
+    expect(document.activeElement).toBe(target);
+  });
+
+  it("with a home, takes focus back from an element taken off the page", () => {
+    const home = document.createElement("div");
+    document.body.append(home);
+    const target = document.createElement("button");
+    const gone = document.createElement("button");
+    home.append(target, gone);
+    focusAgainIfLost(
+      () => target,
+      () => home,
+    );
+    gone.focus();
+    gone.remove(); // a removed comment's Remove goes while it holds focus
+    nextFrame();
+    nextFrame();
+    expect(document.activeElement).toBe(target);
+  });
+
+  it("with a home, leaves focus on another element inside it", () => {
+    const home = document.createElement("div");
+    document.body.append(home);
+    const target = document.createElement("button");
+    const other = document.createElement("button");
+    home.append(target, other);
+    focusAgainIfLost(
+      () => target,
+      () => home,
+    );
+    other.focus();
+    nextFrame();
+    nextFrame();
+    expect(document.activeElement).toBe(other);
+  });
+
   it("does nothing, and does not throw, when there is no target", () => {
     focusAgainIfLost(() => null);
     nextFrame();
@@ -91,5 +141,29 @@ describe("useOnGone", () => {
     unmount();
     expect(first).not.toHaveBeenCalled();
     expect(latest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useOpener", () => {
+  it("gives focus back to the control that opened the dialog", () => {
+    const opener = button("opener");
+    const fallback = button("fallback");
+    const { result } = renderHook(() => useOpener(() => fallback));
+    opener.focus();
+    result.current.remember();
+    fallback.focus();
+    result.current.restore();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("once told to forget, gives focus to the fallback even while the opener is on the page", () => {
+    const opener = button("opener");
+    const fallback = button("fallback");
+    const { result } = renderHook(() => useOpener(() => fallback));
+    opener.focus();
+    result.current.remember();
+    result.current.forget();
+    result.current.restore();
+    expect(document.activeElement).toBe(fallback);
   });
 });

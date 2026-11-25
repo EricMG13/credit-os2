@@ -1,4 +1,4 @@
-// Shared by the DevTools Protocol drivers (browser_cdp_measure.cjs, browser_signal_driver.cjs): start a headless Chrome with its
+// Used by the DevTools Protocol driver (browser_cdp_measure.cjs): start a headless Chrome with its
 // own profile folder, find its DevTools endpoint, and open a WebSocket whose `send` returns each command's result.
 const { spawn } = require('child_process');
 const fs = require('fs');

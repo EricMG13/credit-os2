@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import gzip
+import os
 import re
 import threading
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from functools import partialmethod
 from pathlib import Path
 from typing import Any
 from urllib.parse import SplitResult, parse_qs, unquote
@@ -19,7 +21,7 @@ from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.run_start import service
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 
-from . import admission, artifacts, coverage, portfolio, run_activity, sources
+from . import admission, artifacts, coverage, portfolio, run_activity, signal_host, sources
 from .library_cards import lead_summary, not_assessable_modules
 
 PROJECT = Path(__file__).resolve().parent.parent
@@ -230,7 +232,7 @@ def _report_entries(snapshot: dict[str, Any] | None) -> dict[str, dict[str, Any]
     return entries
 
 
-def _read_page(dist: Path, *, synthetic: bool, signal_url: str, read_only: bool = False) -> bytes:
+def _read_page(dist: Path, *, synthetic: bool, signal: bool, read_only: bool = False) -> bytes:
     connected = dist / "connected.html"
     page = (connected if connected.is_file() else dist / "index.html").read_bytes()
     if b"<head>" not in page or page.count(b"connect-src 'none'") != 1:
@@ -240,8 +242,8 @@ def _read_page(dist: Path, *, synthetic: bool, signal_url: str, read_only: bool 
         '<meta name="credit-os-backend" content="legacy">'
         f'<meta name="credit-os-mode" content="{mode}">'
     )
-    if signal_url:
-        metadata += f'<meta name="credit-os-signal-url" content="{signal_url}">'
+    if signal:  # exactly where Signal is hosted: the page shows its screens
+        metadata += '<meta name="credit-os-signal" content="on">'
     page = page.replace(b"connect-src 'none'", b"connect-src 'self'", 1)
     page = page.replace(b"<head>", b"<head>" + metadata.encode("ascii"), 1)
     return page.replace(b'src="./', b'src="/').replace(b'href="./', b'href="/')
@@ -268,9 +270,11 @@ def _static_cache(path: str, relative: str) -> str | None:
     return None
 
 
-def _app_page(path: str) -> bool:
+def _app_page(path: str, *, signal: bool = False) -> bool:
+    """Whether ``path`` is a page of the app; ``/signal`` only where Signal is hosted."""
     return bool(
         path in {"/", "/index.html", "/start", "/runs", "/coverage"}
+        or (signal and path in signal_host.PAGE_PATHS)
         or RUN_PAGE.fullmatch(path)
         or _report_page(path)
     )
@@ -354,12 +358,33 @@ def _form_template(*, synthetic: bool) -> dict[str, Any]:
     return template
 
 
+class _SignalReplies(service.Handler):
+    """The run start handler whose replies under ``/signal/api/`` carry Signal's headers where
+    `hosted` is a host (``signal_host.reply_headers``)."""
+
+    hosted: signal_host.SignalHost | None = None
+    raw_requestline: bytes  # set by http.server before any reply; its stubs do not list it
+
+    def end_headers(self) -> None:
+        # Here, as the base's own: every reply passes, those http.server writes itself included.
+        for name, value in signal_host.reply_headers(self.hosted, self.raw_requestline).items():
+            self.send_header(name, value)
+        super().end_headers()
+
+
 def _handler(
-    dist: Path, page: bytes, context: dict[str, Any], *, read_only: bool = False
+    dist: Path,
+    page: bytes,
+    context: dict[str, Any],
+    *,
+    read_only: bool = False,
+    signal: signal_host.SignalHost | None = None,
 ) -> type[service.Handler]:
     caps = {pathway: str(amount) for pathway, amount in PATHWAY_CAP_USD.items()}
 
-    class Handler(service.Handler):
+    class Handler(_SignalReplies):
+        hosted = signal
+
         def send_reply(self, reply: http_base.Reply) -> None:
             if isinstance(reply.body, bytes):
                 body, headers = reply.body, dict(reply.headers)
@@ -386,18 +411,22 @@ def _handler(
             super().send_reply(response)
 
         def _post(self, url: SplitResult) -> None:
+            signal_host.divert(signal, self, url)
             _require_writable(read_only)
             super()._post(url)
 
         def _delete(self, url: SplitResult) -> None:
+            signal_host.divert(signal, self, url)
             _require_writable(read_only)
             super()._delete(url)
+
+        do_PUT = do_PATCH = do_HEAD = do_OPTIONS = partialmethod(signal_host.other_method, signal)
 
         def _get(self, url: SplitResult) -> None:
             path = url.path
             if path in {"/library", "/library/", "/library/index.html", "/library.html"}:
                 raise http_base.Reply(308, b"", {"Location": "/"})
-            if _app_page(path):
+            if _app_page(path, signal=signal is not None):
                 raise http_base.Reply(
                     200,
                     page,
@@ -408,6 +437,7 @@ def _handler(
                         "Cache-Control": "no-store",
                     },
                 )
+            signal_host.divert(signal, self, url)
             reply = _connected_reply(self._layout, url, context, caps)
             if reply is not None:
                 raise reply
@@ -425,6 +455,13 @@ def _handler(
     return Handler
 
 
+class Server(service._Server):
+    """The application's server: the run start service's, and the Signal it hosts (None in the
+    read-only preview and in synthetic mode)."""
+
+    signal: signal_host.SignalHost | None = None
+
+
 @contextmanager
 def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     root: Path,
@@ -433,18 +470,26 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     port: int = 0,
     launcher: tuple[str, ...] | None = None,
     synthetic: bool = False,
-    signal_url: str = "",
     read_only: bool = False,
     copilot_models: Mapping[str, frozenset[str]] | None = None,
-) -> Iterator[service._Server]:
-    """Hold the upstream scheduler for the lifetime of the React HTTP server."""
+    environ: Mapping[str, str] | None = None,
+) -> Iterator[Server]:
+    """Hold the upstream scheduler for the lifetime of the React HTTP server.
+
+    Signal is hosted in live mode only: its routes are answered here, and ``server.signal`` is its
+    host. No thread is started for it (``serve`` runs its loop). `environ` is the launching
+    environment (the process's own when left out), read only for whether Signal's AI gate may see
+    it (``signal_host.ai_environ``)."""
     if (synthetic and not launcher) or (not synthetic and launcher is not None):
         raise ValueError("an explicit launcher is required in synthetic mode only")
     if not 0 <= port <= 65535:
         raise ValueError("--port must be from 0 to 65535")
     dist = (web or PROJECT / "web" / "dist").resolve()
-    signal_link = service.signal_link(signal_url) if signal_url else ""
-    page = _read_page(dist, synthetic=synthetic, signal_url=signal_link, read_only=read_only)
+    # A proof run and the read-only preview open no feed store and run no background loop.
+    hosted = None
+    if not (read_only or synthetic):
+        hosted = signal_host.SignalHost(root, environ=os.environ if environ is None else environ)
+    page = _read_page(dist, synthetic=synthetic, signal=hosted is not None, read_only=read_only)
     context = _form_template(synthetic=synthetic)
     settings = (  # Teams cards are for real runs only: a synthetic service never posts
         Settings(
@@ -457,10 +502,10 @@ def make_server(  # noqa: PLR0913 - explicit launcher, mode and server options
     )
     scheduler = Scheduler(settings)
     context["copilot_models"] = scheduler.model_choices
+    handler = _handler(dist, page, context, read_only=read_only, signal=hosted)
     try:
-        with service.make_server(scheduler, "127.0.0.1", port, signal_link) as server:
-            server.RequestHandlerClass = _handler(dist, page, context, read_only=read_only)
-            assert isinstance(server, service._Server)
+        with Server(("127.0.0.1", port), handler) as server:
+            server.scheduler, server.signal = scheduler, hosted
             yield server
     finally:
         scheduler.close()
@@ -473,18 +518,24 @@ def serve(  # noqa: PLR0913 - match the server options
     port: int = 0,
     launcher: tuple[str, ...] | None = None,
     synthetic: bool = False,
-    signal_url: str = "",
     copilot_models: Mapping[str, frozenset[str]] | None = None,
+    environ: Mapping[str, str] | None = None,
 ) -> None:
-    with make_server(
-        root,
-        web=web,
-        port=port,
-        launcher=launcher,
-        synthetic=synthetic,
-        signal_url=signal_url,
-        copilot_models=copilot_models,
-    ) as server:
+    """Serve until interrupted: the HTTP server, the scheduler loop and, where Signal is hosted,
+    its loop (started once the server is bound, stopped and joined on the way out). OSError
+    when Signal's store cannot be opened."""
+    with (
+        make_server(
+            root,
+            web=web,
+            port=port,
+            launcher=launcher,
+            synthetic=synthetic,
+            copilot_models=copilot_models,
+            environ=environ,
+        ) as server,
+        signal_host.running(server.signal),
+    ):
         worker = threading.Thread(target=server.serve_forever)
         worker.start()
         try:

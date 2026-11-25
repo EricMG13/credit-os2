@@ -13,15 +13,22 @@ import {
 import { CloseButton } from "@/components/base/buttons/close-button";
 import { cx } from "@/utils/cx";
 
-interface ModalOverlayProps extends AriaModalOverlayProps, RefAttributes<HTMLDivElement> {}
+/** The edge of the window the panel is fixed to and slides from. */
+type Side = "left" | "right";
 
-const ModalOverlay = (props: ModalOverlayProps) => {
+interface ModalOverlayProps extends AriaModalOverlayProps, RefAttributes<HTMLDivElement> {
+  side: Side;
+}
+
+const ModalOverlay = ({ side, ...props }: ModalOverlayProps) => {
   return (
     <AriaModalOverlay
       {...props}
       className={(state) =>
         cx(
-          "fixed inset-0 flex min-h-dvh w-full items-center justify-end bg-overlay/70 pl-6 outline-hidden ease-[cubic-bezier(.2,0,0,1)] md:pl-10",
+          "fixed inset-0 flex min-h-dvh w-full items-center bg-overlay/70 outline-hidden ease-[cubic-bezier(.2,0,0,1)]",
+          // The strip of overlay left on the side away from the panel.
+          side === "left" ? "justify-start pr-6 md:pr-10" : "justify-end pl-6 md:pl-10",
           state.isEntering && "duration-200 animate-in fade-in",
           state.isExiting && "duration-200 animate-out fade-out",
           typeof props.className === "function" ? props.className(state) : props.className,
@@ -32,16 +39,27 @@ const ModalOverlay = (props: ModalOverlayProps) => {
 };
 ModalOverlay.displayName = "ModalOverlay";
 
-interface ModalProps extends AriaModalOverlayProps, RefAttributes<HTMLDivElement> {}
+interface ModalProps extends AriaModalOverlayProps, RefAttributes<HTMLDivElement> {
+  side: Side;
+}
 
-const Modal = (props: ModalProps) => (
+const Modal = ({ side, ...props }: ModalProps) => (
   <AriaModal
     {...props}
     className={(state) =>
       cx(
-        "inset-y-0 right-0 h-full w-full max-w-100 shadow-xl transition ease-[cubic-bezier(.2,0,0,1)]",
-        state.isEntering && "duration-200 animate-in slide-in-from-right",
-        state.isExiting && "duration-200 animate-out slide-out-to-right",
+        "inset-y-0 h-full w-full max-w-100 shadow-xl transition ease-[cubic-bezier(.2,0,0,1)]",
+        side === "left" ? "left-0" : "right-0",
+        state.isEntering &&
+          cx(
+            "duration-200 animate-in",
+            side === "left" ? "slide-in-from-left" : "slide-in-from-right",
+          ),
+        state.isExiting &&
+          cx(
+            "duration-200 animate-out",
+            side === "left" ? "slide-out-to-left" : "slide-out-to-right",
+          ),
         typeof props.className === "function" ? props.className(state) : props.className,
       )
     }
@@ -68,6 +86,8 @@ interface SlideoutMenuProps
   extends Omit<AriaModalOverlayProps, "children">, RefAttributes<HTMLDivElement> {
   /** The content of the menu. Can be a render prop that receives the modal state along with a `close` function. */
   children: ReactNode | ((children: AriaModalRenderProps & { close: () => void }) => ReactNode);
+  /** Which edge the panel opens from; the right unless said. */
+  side?: Side;
   /** The class name applied to the inner dialog, while `className` styles the sliding panel. */
   dialogClassName?: string;
   /** The dialog's accessible name, as a string or the id of the element that holds it. */
@@ -78,13 +98,15 @@ interface SlideoutMenuProps
 const Menu = ({
   children,
   dialogClassName,
+  side = "right",
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledby,
   ...props
 }: SlideoutMenuProps) => {
   return (
-    <ModalOverlay {...props}>
+    <ModalOverlay side={side} {...props}>
       <Modal
+        side={side}
         className={(state) =>
           cx(typeof props.className === "function" ? props.className(state) : props.className)
         }

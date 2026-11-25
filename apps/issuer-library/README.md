@@ -21,9 +21,9 @@ uv run python apps/issuer-library/update_library.py --workspace <folder>
 
 ## Retained reference assets and Windows runtime
 
-`credit_os/` retains the earlier static page parts as a design and fixture reference. They are not copied into the active publication. The Signal service still uses the required brand assets from this package.
+`credit_os/` retains the earlier static page parts as a design and fixture reference. They are not copied into the active publication.
 
-The legacy Windows runtime package is separate from the connected React application. Use `Run workflow.cmd` to prepare a run offline and `Start signal.cmd` to serve the Signal feed. Live Copilot runs use the connected package or the full CP-OS checkout. Build the embedded package with:
+The legacy Windows runtime package is separate from the connected React application. Use `Run workflow.cmd` to prepare a run offline. The package has no Signal entry point: the application hosts Signal in live mode (see the root README). Live Copilot runs use the connected package or the full CP-OS checkout. Build the embedded package with:
 
 ```sh
 python apps/issuer-library/packaging/build.py

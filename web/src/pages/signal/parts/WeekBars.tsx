@@ -16,10 +16,10 @@ function Slot({ week }: { week: SignalSourceWeek }) {
       className="flex h-full flex-1 items-end"
     >
       {height === 0 ? (
-        <span className="block h-0.5 w-full rounded-[2px] bg-brand-solid" />
+        <span className="block h-0.5 w-full rounded-[2px] bg-chart-1" />
       ) : (
         <span
-          className="block w-full rounded-[2px] bg-brand-solid"
+          className="block w-full rounded-[2px] bg-chart-1"
           style={{ height: `${String(height * 100)}%` }}
         />
       )}

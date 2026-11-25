@@ -8,7 +8,7 @@ export function Rating({ marks, word }: { marks: 1 | 2 | 3; word: string }) {
     <span
       role="img"
       aria-label={`${word} signal`}
-      className="inline-flex items-center gap-2 text-sm font-semibold text-text-primary"
+      className="inline-flex items-center gap-2 text-small font-medium text-text-primary"
     >
       <span className="flex gap-1" aria-hidden="true">
         {[1, 2, 3].map((position) => (

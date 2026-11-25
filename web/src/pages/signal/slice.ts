@@ -1,6 +1,7 @@
 // Signal's slice: what the service will later serve, read by hand. Each reader takes a value and
 // its path and returns the value or the first failing path; one malformed record fails the slice.
 import type { SliceResult } from "../route-table";
+import { readLogoUrl } from "./logo-data";
 
 type SignalViewer = {
   name: string | null;
@@ -16,6 +17,13 @@ type SignalTopicChannel = {
   /** The words the topic follows, drawn as tags in its view's header. */
   keywords: string[];
 };
+/** An issuer of the watchlist as the channel list draws it; `count` is the delivered story count. */
+export type SignalIssuerChannel = {
+  id: string;
+  name: string;
+  count: string | null;
+  followed: boolean;
+};
 type SignalGroupChannel = { id: string; name: string; unread: string | null };
 type SignalDigestChannel = { id: string; name: string; unread: boolean; paused: boolean };
 type SignalChannels = {
@@ -23,20 +31,54 @@ type SignalChannels = {
   groups: SignalGroupChannel[];
   digests: SignalDigestChannel[];
   savedCount: string | null;
+  /** The issuer watchlist. Optional as delivered: null where the snapshot says nothing of issuers. */
+  issuers: SignalIssuerChannel[] | null;
 };
+/** One change of a market series: the delivered label ("Week"), the earlier observation's date and the change ("+4 bp"); both null when there is no earlier observation. */
+export type SignalMarketChange = { label: string; since: string | null; value: string | null };
+/**
+ * One series of a market post, every text delivered: the value as its source wrote it, its own
+ * date, and its changes. A series that could not be read holds its `note` and no value.
+ */
+export type SignalMarketRow = {
+  id: string;
+  name: string;
+  short: string;
+  unit: string;
+  value: string | null;
+  date: string | null;
+  changes: SignalMarketChange[];
+  source: string;
+  note: string | null;
+};
+export type SignalMarket = { asOf: string; rows: SignalMarketRow[] };
 export type SignalStory = {
   id: string;
-  kind: "regulator" | "news" | "ratings" | "research";
+  kind: "regulator" | "news" | "ratings" | "research" | "filing" | "market";
   kindLabel: string;
   headline: string;
   url: string | null;
-  source: { name: string; monogram: string };
+  /**
+   * The source's name and its letters; `id` and `logo` say which source it is and whether the
+   * service holds a logo to draw in the letters' place. Optional as delivered: absent, no logo.
+   */
+  source: { name: string; monogram: string; id: string | null; logo: boolean };
   time: string | null;
   summary: string | null;
   tags: string[];
-  alsoIn: { label: string; monograms: string[]; more: string | null } | null;
+  /** `sources` names the other sources, one per monogram in order, where their logos may be drawn. Optional as delivered: null. */
+  alsoIn: {
+    label: string;
+    monograms: string[];
+    more: string | null;
+    sources: { id: string; name: string; logo: boolean }[] | null;
+  } | null;
   sharedBy: { initials: string; label: string } | null;
-  ai: { line: string } | null;
+  /**
+   * What the AI pass wrote: the line; `kind` when the kind label came from the pass; `tags` the part of
+   * `tags` the pass wrote (the rest are topic names). Null when the pass wrote nothing for this story.
+   */
+  ai: { line: string; kind: boolean; tags: string[] } | null;
   strength: { marks: 1 | 2 | 3; word: string } | null;
   saved: boolean;
   commentCount: string | null;
@@ -51,6 +93,10 @@ export type SignalStory = {
   } | null;
   /** Rating moves as delivered (from, to and the word); an affirmed rating keeps from equal to to. */
   ratingMoves: { from: string; to: string; word: string }[];
+  /** The watchlist issuers the story belongs to. Optional as delivered: absent reads as none. */
+  issuers: { id: string; name: string }[];
+  /** A market post's table (the reader checks: on a story of kind market, and only there). Optional as delivered: absent reads as null. */
+  market: SignalMarket | null;
 };
 /** A digest card in the feed; with `nothing` set it is the one-sentence card and holds no points. */
 export type SignalDigestCard = {
@@ -95,6 +141,11 @@ export type SignalDigest = {
   monogram: string;
   paused: string | null;
   issues: SignalDigestIssue[];
+  /**
+   * What a service holds for changing the digest: its form's strings as chosen, and whatever else
+   * an edit must post back unchanged. Unread by the page beyond that; null where none is delivered.
+   */
+  form: Readonly<Record<string, unknown>> | null;
 };
 /**
  * Entry ids (story or digest card) in each order the service supplies; the page orders by them and
@@ -106,6 +157,11 @@ export type SignalFeedView = {
   latest: string[];
   waiting: { label: string; ids: string[] } | null;
   older: string[];
+  /**
+   * How many entries of the chosen order the page draws before Show older (a positive whole
+   * number). Optional as delivered: absent, the whole order is drawn and only `older` waits.
+   */
+  shown?: number;
 };
 /** The freshness line: `checked` is the delivered time, `failing` and `error` the delivered suffix texts. */
 export type SignalFreshness = {
@@ -124,6 +180,8 @@ type SignalFeed = {
   digests: SignalDigestCard[];
   views: { "for-you": SignalFeedView; latest: SignalFeedView; saved: SignalFeedView };
   topics: Record<string, SignalFeedView>;
+  /** One view per issuer of the channel list (the reader checks). Optional as delivered: null where there is none. */
+  issuers: Record<string, SignalFeedView> | null;
 };
 /** One item shared in a group: a story, a note, or both (a story with the sharer's note). */
 export type SignalThreadSummary = {
@@ -150,6 +208,11 @@ export type SignalGroup = {
   /** The delivered "+N" after the shown members. */
   moreMembers: string | null;
   threads: SignalThreadSummary[];
+  /**
+   * The delivered sentence(s) saying what the page leaves out (threads not shown, a group that is
+   * full), or null when nothing is left out. The design fixture says nothing: it reads as null.
+   */
+  more: string | null;
 };
 /** One reaction a comment holds: the word, the delivered count and whether the viewer's own is set. */
 type SignalReaction = { word: "Agree" | "Disagree" | "Seen"; count: string; mine: boolean };
@@ -165,6 +228,12 @@ export type SignalComment = {
   text: string | null;
   edited: boolean;
   removed: boolean;
+  /**
+   * Whether the service would now take an edit, or a removal, of this comment from the viewer.
+   * Optional as delivered (the sample carries neither); the reader gives a missing one as false.
+   */
+  canEdit?: boolean;
+  canRemove?: boolean;
   reactions: SignalReaction[];
   replies: SignalComment[];
 };
@@ -196,6 +265,13 @@ export type SignalSettingsGroup = {
   memberSummary: string;
   visibility: string;
   visibilityOptions: string[];
+  /**
+   * The topics whose new stories are posted into the group, as ids of `settings.topics` (the reader
+   * checks). Optional as delivered: null where the snapshot says nothing of it (the sample).
+   */
+  topics: string[] | null;
+  /** The group's own thread rules. Optional as delivered: null where the rules are not per group (the sample). */
+  rules: SignalSettingsRule[] | null;
 };
 /** A thread rule: a switch with its label and an optional hint line. */
 export type SignalSettingsRule = { id: string; label: string; hint: string | null; on: boolean };
@@ -229,6 +305,8 @@ export type SignalSource = {
   lastItem: string | null;
   weeks: SignalSourceWeek[];
   sort: { name: number; state: number; health: number };
+  /** Whether the service holds a logo for the source (its id names it). Optional as delivered: absent, none. */
+  logo: boolean;
 };
 /**
  * A topic as Settings lists it: the delivered "N stories this week" line, its keywords (none means
@@ -255,6 +333,19 @@ export type SignalDigestForm = {
   lengthOptions: string[];
   brief: string;
 };
+/**
+ * An issuer as Settings lists it: its aliases, its SEC number (CIK) and the text a writer stored
+ * to find it in the Library. `source` is its filing source while it has a CIK: the state word and
+ * the delivered sentence on what Signal does with it.
+ */
+export type SignalSettingsIssuer = {
+  id: string;
+  name: string;
+  aliases: string[];
+  cik: string | null;
+  libraryKey: string | null;
+  source: { id: string; state: string; note: string } | null;
+};
 /** An AI part's switch (as delivered: it is not changed here) with its label and optional hint. */
 export type SignalAiPart = { id: string; label: string; hint: string | null; on: boolean };
 /**
@@ -278,6 +369,12 @@ type SignalSettings = {
   sources: SignalSource[];
   /** The Items per week column's heading, with its delivered week count ("Items per week, 6 weeks"). */
   sourceWeeksHeading: string;
+  /** The sentence under the sources table when the service cut the list ("Showing 200 of 1,001 sources: ..."), else null. */
+  sourcesMore: string | null;
+  /** The watchlist as writers keep it. Optional as delivered: null where the snapshot says nothing of issuers. */
+  issuers: SignalSettingsIssuer[] | null;
+  /** Whether filings are fetched, as the delivered sentence says. Optional as delivered: null where none is. */
+  filings: { contactSet: boolean; note: string } | null;
 };
 type SignalSnapshot = {
   viewer: SignalViewer;
@@ -287,6 +384,12 @@ type SignalSnapshot = {
   threads: SignalThread[];
   digests: SignalDigest[];
   settings: SignalSettings;
+  /**
+   * Sample logos by source id, each a `data:` URL of an image: the design fixture's way to show
+   * logos with no service to ask. A service delivers none here (the page asks it for each logo);
+   * absent reads as null.
+   */
+  logos: Record<string, string> | null;
 };
 export type SignalScene = { id: string; snapshot: SignalSnapshot };
 export type SignalSlice = { scenes: [SignalScene, ...SignalScene[]] };
@@ -319,6 +422,14 @@ function oneOf<T extends string | null>(words: readonly T[], expected: string): 
     const found = words.find((word) => word === v);
     return found === undefined ? bad(path, expected) : good(found);
   };
+}
+
+/**
+ * A member the service may leave out: absent, it reads as `absent`. What the reader gives is read
+ * again as given (a held view is), so `absent` itself reads as absent too.
+ */
+function optional<T, A>(each: Reader<T>, absent: A): Reader<T | A> {
+  return (v, path) => (v === undefined || v === absent ? good(absent) : each(v, path));
 }
 
 function orNull<T>(each: Reader<T>): Reader<T | null> {
@@ -391,19 +502,102 @@ const stageSteps: Reader<{ name: string; current: boolean }[]> = (v, path) => {
 const marks: Reader<1 | 2 | 3> = (v, path) =>
   v === 1 || v === 2 || v === 3 ? good(v) : bad(path, "1, 2 or 3");
 
-const story = shape<SignalStory>({
+const marketChange = shape<SignalMarketChange>({ label: str, since: strOrNull, value: strOrNull });
+const marketRowShape = shape<SignalMarketRow>({
   id,
-  kind: oneOf(["regulator", "news", "ratings", "research"], "regulator, news, ratings or research"),
+  name: str,
+  short: str,
+  unit: str,
+  value: strOrNull,
+  date: strOrNull,
+  changes: list(marketChange),
+  source: str,
+  note: strOrNull,
+});
+/**
+ * A series has a value with its own date and three changes, or the note saying why it has none
+ * (it then holds no changes, or the three). A change has its earlier date and its value, or neither.
+ */
+const marketRow: Reader<SignalMarketRow> = (v, path) => {
+  const got = marketRowShape(v, path);
+  if (!got.ok) return got;
+  const row = got.value;
+  if ((row.value === null) !== (row.date === null)) {
+    return bad(
+      `${path}.${row.value === null ? "value" : "date"}`,
+      "both a value and its date, or neither",
+    );
+  }
+  if (row.value === null && row.note === null) {
+    return bad(`${path}.note`, "the note saying why the series has no value");
+  }
+  const none = row.note !== null && row.changes.length === 0;
+  if (row.changes.length !== 3 && !none) {
+    return bad(
+      `${path}.changes`,
+      row.note === null ? "exactly three changes" : "three changes or none on a series with a note",
+    );
+  }
+  const half = row.changes.findIndex(
+    (change) => (change.since === null) !== (change.value === null),
+  );
+  return half === -1
+    ? got
+    : bad(
+        `${path}.changes[${String(half)}].${row.changes[half]?.since === null ? "since" : "value"}`,
+        "both a change and the date it is since, or neither",
+      );
+};
+/** A series is listed once, and every series names its three changes as the first that has any does: the table has one heading row. */
+const marketTable: Reader<SignalMarket> = (v, path) => {
+  const got = shape<SignalMarket>({ asOf: str, rows: list(marketRow) })(v, path);
+  if (!got.ok) return got;
+  const { rows } = got.value;
+  const again = repeatAt(rows.map((row) => row.id));
+  if (again !== -1)
+    return bad(`${path}.rows[${String(again)}].id`, "an id the table does not repeat");
+  const labels = (row: SignalMarketRow) =>
+    JSON.stringify(row.changes.map((change) => change.label));
+  const head = rows.find((row) => row.changes.length > 0);
+  const odd =
+    head === undefined
+      ? -1
+      : rows.findIndex((row) => row.changes.length > 0 && labels(row) !== labels(head));
+  return odd === -1
+    ? got
+    : bad(
+        `${path}.rows[${String(odd)}].changes`,
+        "the labels the table's first series gives its changes",
+      );
+};
+const storyShape = shape<SignalStory>({
+  id,
+  kind: oneOf(
+    ["regulator", "news", "ratings", "research", "filing", "market"],
+    "regulator, news, ratings, research, filing or market",
+  ),
   kindLabel: str,
   headline: str,
   url: strOrNull,
-  source: shape({ name: str, monogram: str }),
+  source: shape({
+    name: str,
+    monogram: str,
+    id: optional(id, null),
+    logo: optional(bool, false),
+  }),
   time: strOrNull,
   summary: strOrNull,
   tags: list(str),
-  alsoIn: orNull(shape({ label: str, monograms: list(str), more: strOrNull })),
+  alsoIn: orNull(
+    shape({
+      label: str,
+      monograms: list(str),
+      more: strOrNull,
+      sources: optional(list(shape({ id, name: str, logo: bool })), null),
+    }),
+  ),
   sharedBy: orNull(shape({ initials: str, label: str })),
-  ai: orNull(shape({ line: str })),
+  ai: orNull(shape({ line: str, kind: optional(bool, false), tags: optional(list(str), []) })),
   strength: orNull(shape({ marks, word: str })),
   saved: bool,
   commentCount: strOrNull,
@@ -417,7 +611,41 @@ const story = shape<SignalStory>({
     }),
   ),
   ratingMoves: list(shape({ from: str, to: str, word: str })),
+  issuers: optional(list(shape({ id, name: str })), []),
+  market: optional(orNull(marketTable), null),
 });
+/**
+ * What only some kinds carry: a market post has its table and no other story has one; no model
+ * writes for a filing or a market post, so neither carries an AI line or a signal strength.
+ */
+function kindProblem(one: SignalStory, path: string): Got<never> | null {
+  if ((one.kind === "market") !== (one.market !== null)) {
+    return bad(
+      `${path}.market`,
+      one.kind === "market"
+        ? "the table of a market post"
+        : "null on a story that is no market post",
+    );
+  }
+  if (one.kind !== "filing" && one.kind !== "market") return null;
+  if (one.ai !== null) return bad(`${path}.ai`, `null on a ${one.kind} story`);
+  return one.strength === null ? null : bad(`${path}.strength`, `null on a ${one.kind} story`);
+}
+/** A tag the pass wrote is one of the story's own tags; an issuer is named once. */
+const story: Reader<SignalStory> = (v, path) => {
+  const got = storyShape(v, path);
+  if (!got.ok) return got;
+  const problem = kindProblem(got.value, path);
+  if (problem !== null) return problem;
+  const twice = repeatAt(got.value.issuers.map((issuer) => issuer.id));
+  if (twice !== -1) {
+    return bad(`${path}.issuers[${String(twice)}].id`, "an id the story does not repeat");
+  }
+  const { tags, ai } = got.value;
+  if (ai === null) return got;
+  const stray = ai.tags.findIndex((tag) => !tags.includes(tag));
+  return stray === -1 ? got : bad(`${path}.ai.tags[${String(stray)}]`, "one of the story's tags");
+};
 const digestBase = shape<SignalDigestCard>({
   id,
   digestId: id,
@@ -482,19 +710,47 @@ const digestIssue = noModel(
   }),
   "nothing-to-report issue",
 );
+/** The form's own strings; `covers` is a list and holds none once what it covered was removed. */
+const digestEditForm = shape({
+  name: str,
+  covers: list(str),
+  schedule: str,
+  length: str,
+  brief: str,
+});
+/**
+ * Optional: the sample's digests carry none. Where one is delivered its form strings are checked,
+ * and the whole record is kept as delivered, since an edit posts every member back.
+ */
+const digestEdit: Reader<Readonly<Record<string, unknown>> | null> = (v, path) => {
+  if (v === undefined || v === null) return good(null);
+  const got = digestEditForm(v, path);
+  return got.ok ? good(v as Record<string, unknown>) : got;
+};
 const digestRecord = shape<SignalDigest>({
   id,
   name: str,
   monogram: str,
   paused: strOrNull,
   issues: list(digestIssue),
+  form: digestEdit,
 });
-const feedView = shape<SignalFeedView>({
+const feedViewBase = shape<Omit<SignalFeedView, "shown">>({
   top: list(str),
   latest: list(str),
   waiting: orNull(shape({ label: str, ids: list(str) })),
   older: list(str),
 });
+/** `shown` is read only where it is delivered, so a view without one stays as it was read before. */
+const feedView: Reader<SignalFeedView> = (v, path) => {
+  const got = feedViewBase(v, path);
+  if (!got.ok) return got;
+  const shown = Object.hasOwn(v as object, "shown") ? (v as { shown: unknown }).shown : undefined;
+  if (shown === undefined) return got;
+  return typeof shown === "number" && Number.isInteger(shown) && shown > 0
+    ? good({ ...got.value, shown })
+    : bad(`${path}.shown`, "a positive whole number");
+};
 /** Checked sources always come with the delivered time to show. */
 const freshness: Reader<SignalFreshness> = (v, path) => {
   const got = shape<SignalFreshness>({
@@ -562,6 +818,7 @@ const groupBase = shape<SignalGroup>({
   members: list(shape({ initials: str, name: str })),
   moreMembers: strOrNull,
   threads: list(thread),
+  more: optional(strOrNull, null),
 });
 /** A "+N" counts members after the shown ones, so it needs shown members. */
 const group: Reader<SignalGroup> = (v, path) => {
@@ -586,6 +843,10 @@ const channelsBase = shape<SignalChannels>({
   groups: list(shape<SignalGroupChannel>({ id, name: str, unread: strOrNull })),
   digests: list(shape<SignalDigestChannel>({ id, name: str, unread: bool, paused: bool })),
   savedCount: strOrNull,
+  issuers: optional(
+    list(shape<SignalIssuerChannel>({ id, name: str, count: strOrNull, followed: bool })),
+    null,
+  ),
 });
 /**
  * Each channel list holds an id once (its links and keys are made from it), and a paused digest has
@@ -598,6 +859,7 @@ const channels: Reader<SignalChannels> = (v, path) => {
     ["topics", got.value.topics],
     ["groups", got.value.groups],
     ["digests", got.value.digests],
+    ["issuers", got.value.issuers ?? []],
   ];
   for (const [name, items] of lists) {
     const again = repeatAt(items.map((item) => item.id));
@@ -623,6 +885,7 @@ const feedBase = shape<SignalFeed>({
   digests: list(digestCard),
   views: shape({ "for-you": feedView, latest: feedView, saved: feedView }),
   topics: record(feedView),
+  issuers: optional(record(feedView), null),
 });
 type IdProblem = { at: string; expected: string };
 
@@ -747,6 +1010,10 @@ const feed: Reader<SignalFeed> = (v, path) => {
       `topics.${k}`,
       w,
     ]),
+    ...Object.entries(got.value.issuers ?? {}).map(([k, w]): [string, SignalFeedView] => [
+      `issuers.${k}`,
+      w,
+    ]),
   ];
   for (const [where, view] of views) {
     const problem = viewIdProblem(view, known);
@@ -783,6 +1050,8 @@ function comment(replies: Reader<SignalComment[]>): Reader<SignalComment> {
     text: strOrNull,
     edited: bool,
     removed: bool,
+    canEdit: optional(bool, false),
+    canRemove: optional(bool, false),
     reactions: list(reaction),
     replies,
   });
@@ -796,6 +1065,9 @@ function comment(replies: Reader<SignalComment[]>): Reader<SignalComment> {
     }
     if (!one.removed && one.text === null) {
       return bad(`${path}.text`, "the comment's text (only a removed comment has none)");
+    }
+    for (const flag of ["canEdit", "canRemove"] as const) {
+      if (one.removed && one[flag]) return bad(`${path}.${flag}`, "false on a removed comment");
     }
     const words = new Set<string>();
     for (const [index, held] of one.reactions.entries()) {
@@ -846,6 +1118,7 @@ const threadRecord: Reader<SignalThread> = (v, path) => {
   }
   return got;
 };
+const settingsRule = shape<SignalSettingsRule>({ id: str, label: str, hint: strOrNull, on: bool });
 const settingsGroupBase = shape<SignalSettingsGroup>({
   id,
   name: str,
@@ -854,6 +1127,8 @@ const settingsGroupBase = shape<SignalSettingsGroup>({
   memberSummary: str,
   visibility: str,
   visibilityOptions: list(str),
+  topics: optional(list(id), null),
+  rules: optional(list(settingsRule), null),
 });
 /** The chosen visibility is one the Select offers; the offers repeat none; "+N" needs shown members. */
 const settingsGroup: Reader<SignalSettingsGroup> = (v, path) => {
@@ -910,6 +1185,7 @@ const sourceBase = shape<SignalSource>({
   lastItem: strOrNull,
   weeks: list(sourceWeek),
   sort: shape({ name: rank, state: rank, health: rank }),
+  logo: optional(bool, false),
 });
 /** A reason goes with Failing and only with it; a proposed source is not checked, so has no health. */
 const source: Reader<SignalSource> = (v, path) => {
@@ -991,7 +1267,7 @@ const settings = shape<SignalSettings>({
       : got;
   },
   groups: list(settingsGroup),
-  rules: list(shape<SignalSettingsRule>({ id: str, label: str, hint: strOrNull, on: bool })),
+  rules: list(settingsRule),
   notifications: shape({
     events: list(
       shape<SignalNotificationEvent>({ id: str, label: str, inSignal: bool, onDesktop: bool }),
@@ -999,7 +1275,27 @@ const settings = shape<SignalSettings>({
   }),
   sources: list(source),
   sourceWeeksHeading: str,
+  sourcesMore: optional(strOrNull, null),
+  issuers: optional(
+    list(
+      shape<SignalSettingsIssuer>({
+        id,
+        name: str,
+        aliases: list(str),
+        cik: strOrNull,
+        libraryKey: strOrNull,
+        source: orNull(shape({ id: str, state: str, note: str })),
+      }),
+    ),
+    null,
+  ),
+  filings: optional(orNull(shape({ contactSet: bool, note: str })), null),
 });
+/** A sample logo is an image the page may draw as it is: a `data:` URL of one of the logo types, of a logo's size. */
+const sampleLogo: Reader<string> = (v, path) =>
+  readLogoUrl(v) === null
+    ? bad(path, "a data: URL of a PNG, JPEG, GIF, WebP or ICO image of at most 32 KiB")
+    : good(v as string);
 const snapshotBase = shape<SignalSnapshot>({
   viewer,
   channels,
@@ -1008,12 +1304,13 @@ const snapshotBase = shape<SignalSnapshot>({
   threads: list(threadRecord),
   digests: list(digestRecord),
   settings,
+  logos: optional(record(sampleLogo), null),
 });
 
 /** A thread is named by (group, id); the key is a pair so no id can run into another's. */
 const threadKey = (groupId: string, id: string) => JSON.stringify([groupId, id]);
 
-/** Each group item names exactly one thread and each thread is named by an item, with the same story, note and state. */
+/** Each group item names exactly one thread and each thread is named by an item, with the same story, note and state (the service cuts a long note to the same excerpt in both). */
 function threadProblem(snap: SignalSnapshot, path: string): string | null {
   const held = new Map<string, SignalThread>();
   for (const [index, one] of snap.threads.entries()) {
@@ -1114,6 +1411,7 @@ function settingsProblem(snap: SignalSnapshot, path: string): string | null {
     ["notifications.events", snap.settings.notifications.events.map((e) => e.id)],
     ["sources", snap.settings.sources.map((o) => o.id)],
     ["topics", snap.settings.topics.map((t) => t.id)],
+    ["issuers", (snap.settings.issuers ?? []).map((i) => i.id)],
   ];
   for (const [name, ids] of lists) {
     const repeat = repeatAt(ids);
@@ -1132,10 +1430,37 @@ function settingsProblem(snap: SignalSnapshot, path: string): string | null {
   }
   return (
     settingsTopicsProblem(snap, path) ??
+    settingsIssuersProblem(snap, path) ??
+    settingsGroupTopicsProblem(snap, path) ??
     settingsAiProblem(snap, path) ??
     settingsSourcesProblem(snap, path) ??
     settingsMembersProblem(snap, path)
   );
+}
+
+/**
+ * Where a group says which topics post into it, each is a topic Settings lists, named once; and a
+ * group's own rules repeat no id (a switch is told from the others by it).
+ */
+function settingsGroupTopicsProblem(snap: SignalSnapshot, path: string): string | null {
+  const known = new Set(snap.settings.topics.map((topic) => topic.id));
+  for (const [g, group] of snap.settings.groups.entries()) {
+    const at = `${path}.settings.groups[${String(g)}]`;
+    const topics = group.topics ?? [];
+    const unknown = topics.findIndex((topic) => !known.has(topic));
+    if (unknown !== -1) {
+      return `${at}.topics[${String(unknown)}]: expected the id of a topic in settings.topics`;
+    }
+    const twice = repeatAt(topics);
+    if (twice !== -1) {
+      return `${at}.topics[${String(twice)}]: expected an id the list does not repeat`;
+    }
+    const rule = repeatAt((group.rules ?? []).map((one) => one.id));
+    if (rule !== -1) {
+      return `${at}.rules[${String(rule)}].id: expected an id the list does not repeat`;
+    }
+  }
+  return null;
 }
 
 /**
@@ -1163,6 +1488,29 @@ function settingsTopicsProblem(snap: SignalSnapshot, path: string): string | nul
   return missing === undefined
     ? null
     : `${at}: expected a topic for the channel list's "${missing.id}"`;
+}
+
+/**
+ * Where both are delivered, Settings lists the channel list's issuers and no others, each with the
+ * channel's name: the watchlist is one list, drawn in two places.
+ */
+function settingsIssuersProblem(snap: SignalSnapshot, path: string): string | null {
+  const [held, listed] = [snap.settings.issuers, snap.channels.issuers];
+  if (held === null || listed === null) return null;
+  const at = `${path}.settings.issuers`;
+  for (const [i, one] of held.entries()) {
+    const channel = listed.find((issuer) => issuer.id === one.id);
+    if (channel === undefined) {
+      return `${at}[${String(i)}].id: expected the id of an issuer in the channel list`;
+    }
+    if (channel.name !== one.name) {
+      return `${at}[${String(i)}].name: expected the name the channel list gives this issuer`;
+    }
+  }
+  const missing = listed.find((issuer) => !held.some((one) => one.id === issuer.id));
+  return missing === undefined
+    ? null
+    : `${at}: expected an issuer for the channel list's "${missing.id}"`;
 }
 
 /**
@@ -1375,20 +1723,25 @@ function savedProblem(snap: SignalSnapshot, path: string): string | null {
   return null;
 }
 
-/** A topic's count is null or "0" exactly when its view lists no story (a loading feed lists nothing, so it is skipped). */
-function topicCountProblem(snap: SignalSnapshot, path: string): string | null {
+/** A topic's or an issuer's count is null or "0" exactly when its view lists no story (a loading feed lists nothing, so it is skipped). */
+function viewCountProblem(snap: SignalSnapshot, path: string): string | null {
   const { channels: lists, feed: items } = snap;
   if (items.status === "loading") return null;
-  for (const [i, topic] of lists.topics.entries()) {
-    const listed = (Object.hasOwn(items.topics, topic.id) ? items.topics[topic.id]?.top : undefined)
-      ?.length;
-    const at = `${path}.channels.topics[${String(i)}].count`;
-    const none = topic.count === null || topic.count === "0";
-    if (listed === 0 && !none) {
-      return `${at}: expected null or "0" while the topic's view lists no stories`;
-    }
-    if (listed !== undefined && listed > 0 && topic.count === "0") {
-      return `${at}: expected a count other than "0" while the topic's view lists stories`;
+  const counted = [
+    { name: "topics", word: "topic", channels: lists.topics, views: items.topics },
+    { name: "issuers", word: "issuer", channels: lists.issuers ?? [], views: items.issuers ?? {} },
+  ];
+  for (const { name, word, channels: listed, views } of counted) {
+    for (const [i, channel] of listed.entries()) {
+      const held = (Object.hasOwn(views, channel.id) ? views[channel.id]?.top : undefined)?.length;
+      const at = `${path}.channels.${name}[${String(i)}].count`;
+      const none = channel.count === null || channel.count === "0";
+      if (held === 0 && !none) {
+        return `${at}: expected null or "0" while the ${word}'s view lists no stories`;
+      }
+      if (held !== undefined && held > 0 && channel.count === "0") {
+        return `${at}: expected a count other than "0" while the ${word}'s view lists stories`;
+      }
     }
   }
   return null;
@@ -1396,17 +1749,41 @@ function topicCountProblem(snap: SignalSnapshot, path: string): string | null {
 
 /**
  * A delivered count never sits beside a page that says there is nothing, and the reader never counts:
- * a topic's count and its view agree on emptiness, and a group's unread badge is null or "0" when the
+ * a topic's or an issuer's count and its view agree on emptiness, and a group's unread badge is null or "0" when the
  * group holds no thread.
  */
 function countProblem(snap: SignalSnapshot, path: string): string | null {
-  const topics = topicCountProblem(snap, path);
-  if (topics !== null) return topics;
+  const views = viewCountProblem(snap, path);
+  if (views !== null) return views;
   const lists = snap.channels;
   for (const [i, channel] of lists.groups.entries()) {
     const held = snap.groups.find((g) => g.id === channel.id);
     if (held?.threads.length === 0 && channel.unread !== null && channel.unread !== "0") {
       return `${path}.channels.groups[${String(i)}].unread: expected null or "0" while the group holds no thread`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Each channel issuer has exactly one view in the feed and the feed holds no other; where the
+ * channel list is delivered, every issuer a story names is in it (the card links to its page).
+ */
+function issuerProblem(snap: SignalSnapshot, path: string): string | null {
+  const listed = snap.channels.issuers;
+  const views = snap.feed.issuers ?? {};
+  const where = `${path}.feed.issuers`;
+  const missing = (listed ?? []).find((issuer) => !Object.hasOwn(views, issuer.id));
+  if (missing !== undefined)
+    return `${where}.${missing.id}: expected a view for this channel issuer`;
+  const known = new Set((listed ?? []).map((issuer) => issuer.id));
+  const extra = Object.keys(views).find((key) => !known.has(key));
+  if (extra !== undefined) return `${where}.${extra}: expected the id of a channel issuer`;
+  if (listed === null) return null;
+  for (const [s, one] of snap.feed.stories.entries()) {
+    const stray = one.issuers.findIndex((issuer) => !known.has(issuer.id));
+    if (stray !== -1) {
+      return `${path}.feed.stories[${String(s)}].issuers[${String(stray)}].id: expected the id of an issuer in the channel list`;
     }
   }
   return null;
@@ -1446,7 +1823,7 @@ const snapshot: Reader<SignalSnapshot> = (v, path) => {
   const known = new Set(lists.topics.map((t) => t.id));
   const extra = Object.keys(items.topics).find((id) => !known.has(id));
   if (extra !== undefined) return bad(`${where}.${extra}`, "the id of a channel topic");
-  const counted = countProblem(got.value, path);
+  const counted = issuerProblem(got.value, path) ?? countProblem(got.value, path);
   return counted === null ? got : { ok: false, reason: counted };
 };
 /** The slice always has a first scene, so the unknown-scene page can link home to it. */

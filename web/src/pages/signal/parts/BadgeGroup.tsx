@@ -4,14 +4,15 @@
 import { ArrowRight } from "@untitledui/icons";
 
 const BADGE =
-  "rounded-full bg-surface-card px-2.5 py-0.5 font-medium text-text-primary tabular-nums ring-1 ring-border-hairline ring-inset";
+  "rounded-ds-xs bg-surface-card px-2 py-0.5 font-medium text-text-primary tabular-nums ring-1 ring-border-hairline ring-inset";
 
 export function BadgeGroup({ from, to, word }: { from: string; to: string; word: string }) {
   return (
     <span
       role="img"
       aria-label={`${from} to ${to}, ${word}`}
-      className="inline-flex items-center gap-1.5 rounded-full bg-surface-subtle p-1 text-sm font-medium text-text-secondary ring-1 ring-border-hairline ring-inset"
+      // One line is 32px tall, so a 16px corner draws the source's pill; narrower than its parts, it wraps.
+      className="inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-ds-sm bg-surface-subtle p-1 text-small font-medium text-text-secondary ring-1 ring-border-hairline ring-inset"
     >
       <b aria-hidden="true" className={BADGE}>
         {from}
