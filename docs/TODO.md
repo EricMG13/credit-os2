@@ -21,7 +21,7 @@ Owner decisions, 2026-11-25:
 | 3 | SQLite store for accounts, roles and sessions. No analytical data, no passwords or passcodes | This repository | Not started |
 | 4 | Account creation on first Entra sign-in, as a reader; the owner assigns writer and owner roles | This repository | Not started |
 | 5 | Replace Signal's display-name cookie (`deploy_workflow.signal.identity.current_user`) with the signed-in account, and move the owner's source and AI-cap powers into the browser | This repository | Not started |
-| 6 | Read-only Signal snapshot for offline pages: stories and threads as published, no posting | This repository | Not started |
+| 6 | Read-only Signal snapshot for offline pages, with no posting (contents: see open decisions) | This repository | Not started |
 | 7 | **Full Entra deployment: app registration limited to the organisation's own tenant, tenant and client ids, redirect address, and a sign-in with real work accounts** | **Work PC only** | Not started |
 | 8 | Security audit of the sign-in code with `cloudflare/security-audit-skill` once items 2 to 5 exist | This repository | Not started |
 
