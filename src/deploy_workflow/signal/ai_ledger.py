@@ -38,6 +38,7 @@ arbitrary sequences of calls, failures, crashes, two processes and month ends).
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -60,6 +61,8 @@ MAX_DIGESTS_PER_DAY = 1000
 _CAP = "ai_cap_usd"
 _OFF = "ai_switched_off"
 _PER_DAY = "ai_digests_per_day"
+
+_STORE_ID = re.compile(r"[0-9a-f]{16}", re.ASCII)
 
 Purpose = Literal["stories", "digest"]
 
@@ -138,11 +141,16 @@ def set_cap(db: sqlite3.Connection, amount: Decimal, now: datetime) -> None:
 
 
 def store_id(db: sqlite3.Connection) -> str:
-    """The store's own random id (made with the store, ``meta.store_id``): 16 hex digits."""
+    """The store's own random id (made with the store, ``meta.store_id``): 16 lower-case hex
+    digits. StoreError for any other value (a hand-edited row), so no exchange name is built from
+    it and no call is reserved or made."""
     row = db.execute("SELECT value FROM meta WHERE key='store_id'").fetchone()
     if row is None:
         raise StoreError("the store has no store_id")
-    return str(row["value"])
+    value = row["value"]
+    if not isinstance(value, str) or _STORE_ID.fullmatch(value) is None:
+        raise StoreError("the store's store_id is not 16 lower-case hex digits; it was edited")
+    return value
 
 
 def parse_per_day(text: str) -> int:

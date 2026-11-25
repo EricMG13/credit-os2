@@ -28,9 +28,13 @@ outcome only.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+import os
+import re
 import shutil
 import sqlite3
+import stat
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -89,7 +93,7 @@ class Guard:
     environ: Mapping[str, str]
     rulings_root: Path
     clock: Callable[[], datetime]
-    homes: list[Path] = field(default_factory=list)  # exchange homes this job's calls named
+    homes: list[Path] = field(default_factory=list)  # exchange homes this job's calls made
 
 
 @dataclass(frozen=True)
@@ -163,29 +167,73 @@ def _reserve(
     return ai_ledger.reserve(db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap)
 
 
-def _home(digest: str, reservation: str) -> Path:
-    """The home the Copilot adapter makes for this exchange: cwd/.copilot-home/<digest>/<id>."""
-    return Path.cwd() / HOMES / digest / reservation
+_NAME = re.compile(r"[A-Za-z0-9_-]{1,128}", re.ASCII)  # the adapter's own rule for both names
+_DIR = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+
+
+def _named_here(home: Path, base: Path) -> bool:
+    """Whether `home` is <base>/<digest>/<id> by its real path, with two plain names."""
+    names = (home.parent.name, home.name)
+    if not all(_NAME.fullmatch(name) for name in names):
+        return False
+    return os.path.realpath(home.parent.parent) == os.path.realpath(base)
+
+
+def _caused(there: bool, reply: AdapterReply, home: Path) -> bool:
+    """Whether the exchange home is one this call caused: it was not there before the call, and
+    the call was sent, or the adapter made the home and then failed before sending. A call the
+    adapter refused because the home exists (``HomeExists``) never caused it."""
+    if there:
+        return False
+    if reply.kind != "not_sent":
+        return True
+    return reply.error_class != "HomeExists" and os.path.lexists(home)
+
+
+def _remove_one(base_fd: int, digest: str, reservation: str) -> None:
+    """Remove <digest>/<reservation> below the open folder `base_fd`, never through a link: each
+    folder is opened by name relative to the one above it, refusing a link (``O_NOFOLLOW``)."""
+    digest_fd = os.open(digest, _DIR, dir_fd=base_fd)
+    try:
+        found = os.stat(reservation, dir_fd=digest_fd, follow_symlinks=False)
+        if not stat.S_ISDIR(found.st_mode):
+            return
+        shutil.rmtree(reservation, dir_fd=digest_fd)
+    finally:
+        os.close(digest_fd)
+    with contextlib.suppress(OSError):  # it holds another exchange's home: kept
+        os.rmdir(digest, dir_fd=base_fd)
 
 
 def remove_homes(guard: Guard) -> None:
-    """Remove the exchange homes this job's calls caused to be made, once its model is closed:
-    each only when it is a real directory where Signal named it, under ``.copilot-home`` in the
-    working directory (the path is never followed elsewhere), then its digest folder when empty.
-    Nothing else is touched; a home that cannot be removed is logged by type and left (its ids
-    are the store's own, so it never collides with a later call)."""
-    for home in guard.homes:
-        parent = home.parent
-        if parent.parent.name != HOMES or home.is_symlink() or not home.is_dir():
-            continue
-        if not home.resolve().is_relative_to(parent.parent.resolve()):
-            continue
-        try:
-            shutil.rmtree(home)
-            parent.rmdir()
-        except OSError as error:
-            log.warning("could not remove a Signal exchange home: %s", type(error).__name__)
+    """Remove the exchange homes this job's calls caused to be made, once its model is closed.
+
+    A home is removed only when it is <cwd>/.copilot-home/<digest>/<id> by its real path, with
+    plain names, and ``.copilot-home``, the digest folder and the home are real folders, not
+    links (a link anywhere there, ``.copilot-home`` itself included, and nothing is removed); then
+    its digest folder when empty. The folders are opened one below the other without following a
+    link, so a folder swapped for a link meanwhile is not followed either. Nothing else is
+    touched; a home that cannot be removed is logged by type and left (its ids are the store's
+    own, so it never collides with a later call)."""
+    homes, base = list(guard.homes), Path.cwd() / HOMES
     guard.homes.clear()
+    named = [home for home in homes if _named_here(home, base)]
+    if not named:
+        return
+    try:
+        base_fd = os.open(base, _DIR)
+    except OSError:
+        return  # gone, or a link: nothing is removed
+    try:
+        for home in named:
+            try:
+                _remove_one(base_fd, home.parent.name, home.name)
+            except FileNotFoundError:
+                continue  # never made (the call failed before the adapter made it)
+            except OSError as error:
+                log.warning("could not remove a Signal exchange home: %s", type(error).__name__)
+    finally:
+        os.close(base_fd)
 
 
 def call(
@@ -200,10 +248,12 @@ def call(
     which switches the pass off; the error is logged by type only."""
     usd = reservation_usd(model.config_id, prompt)
     store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
+    homes = Path.cwd() / HOMES  # where the adapter makes this exchange's home
     call_id = _reserve(db, guard, purpose, model.config_id, usd)
     tag = f"{store_id}-{call_id}"  # never the same in another store
     digest, reservation = f"signal-{purpose}-{tag}", f"signal-{tag}"
-    guard.homes.append(_home(digest, reservation))
+    home = homes / digest / reservation
+    there = os.path.lexists(home)  # a home there before the call is never this call's
     request = TurnRequest(
         (Message("system", prompt.system), Message("user", prompt.user)),
         (),
@@ -216,8 +266,12 @@ def call(
         )
     except Exception as error:  # noqa: BLE001 -- settled as unknown, never as zero
         log.warning("Signal %s call %s raised %s", purpose, call_id, type(error).__name__)
+        if not there:
+            guard.homes.append(home)  # it may have been sent: the home is this call's
         ai_ledger.settle(db, call_id, None, f"raised: {type(error).__name__}"[:80], guard.clock())
         return Answer(None, "raised", call_id)
+    if _caused(there, reply, home):
+        guard.homes.append(home)
     outcome = _outcome(reply)
     ai_ledger.settle(db, call_id, charge(reply, model.config_id), outcome, guard.clock())
     _release(model, digest)
