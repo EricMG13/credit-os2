@@ -210,6 +210,18 @@
       "input": ["LTM Q2 2025", "Q2 2025", "9M 2025", "Q1 2025", "FY2024", "FY2025E"],
       "ordered": ["FY2024", "Q1 2025", "Q2 2025", "9M 2025", "LTM Q2 2025", "FY2025E"],
       "gaps": []
+    },
+    {
+      "name": "an identical label repeated keeps both, in the order written, and states no gap",
+      "input": ["FY2024", "FY2023", "FY2024"],
+      "ordered": ["FY2023", "FY2024", "FY2024"],
+      "gaps": []
+    },
+    {
+      "name": "a trailing run of quarters across a year end, Q3 2024 to Q2 2025",
+      "input": ["Q2 2025", "Q4 2024", "Q3 2024", "Q1 2025"],
+      "ordered": ["Q3 2024", "Q4 2024", "Q1 2025", "Q2 2025"],
+      "gaps": []
     }
   ]
 }
