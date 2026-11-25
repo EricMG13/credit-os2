@@ -11,9 +11,9 @@ The pass is on only when all four hold at the time of the check:
    ``check_ruling`` (``lifts: live-provider-pause``, ``by: user``, ``date:``, ``configs:``) naming
    a configuration Signal may use (``CONFIGS``), its ``date:`` line is the date in its name, and
    its header block (``header_lines``: the run of lines holding its ``lifts:`` line, between blank
-   lines) carries the ruled monthly cap as exactly one line ``cap_usd: <amount>`` (USD, a plain amount
-   above zero with at most two decimal places, read as an exact Decimal: ``cap_usd: 15`` or
-   ``cap_usd: 12.50``; ``ruled_cap``). A ``cap_usd:`` line in the body is never read. Another
+   lines) carries the ruled monthly cap as exactly one line ``cap_usd: <amount>`` (USD, a plain
+   amount above zero with at most two decimal places, read as an exact Decimal: ``cap_usd: 15``
+   or ``cap_usd: 12.50``; ``ruled_cap``). A ``cap_usd:`` line in the body is never read. Another
    ruling that names the same configuration (the run start page's does) never switches Signal on.
 2. The owner has set a monthly cap on the command line (``signal ai cap <amount>``) no higher
    than the ruled one. The command refuses a higher amount; a stored cap above the newest
@@ -28,8 +28,9 @@ The pass is on only when all four hold at the time of the check:
 
 With any missing the service runs as it did before the pass existed. ``status`` adds the month's
 ledger: the pass is "capped" when it is on but the smallest call it makes would not fit beside the
-month's settled spend under the cap (calls in flight are not counted there). Checking makes no model call and builds no adapter. ``ai_call.call`` makes the check again
-immediately before every reservation.
+month's settled spend under the cap (calls in flight are not counted there). Checking makes no
+model call and builds no adapter. ``ai_call.call`` makes the check again immediately before every
+reservation.
 """
 
 from __future__ import annotations
@@ -118,7 +119,7 @@ class Gate:
 
 
 def _named_date(name: str) -> date | None:
-    """The real calendar date in a ruling's name, or None (an impossible date such as 9999-99-99)."""
+    """The real calendar date in a ruling's name; None for an impossible one (9999-99-99)."""
     found = RULING_PATTERN.fullmatch(name)
     if found is None:
         return None
@@ -206,33 +207,39 @@ def _text(path: Path) -> str | None:
         return None
 
 
+NOT_A_FILE = "it is not a regular file of text (a link or folder is never read)."
+BLANKS = "it still holds a blank of the draft (____)."
+NO_RULED_CAP = (
+    f"it needs exactly one cap_usd: line among its header lines, holding the ruled monthly cap in"
+    f" {CURRENCY}, such as cap_usd: 15."
+)
+
+
 def _ruling(rulings_root: Path, today: date) -> _Ruled:
     newest = _newest(rulings_root, today)
     if isinstance(newest, _Ruled):
         return newest
     name, day = newest
-    found = rulings_root / name
-    text = _text(found)
-    if text is None:
-        return _refused(name, "it is not a regular file of text (a link or folder is never read).")
-    if "____" in text:
-        return _refused(name, "it still holds a blank of the draft (____).")
-    problem = ""
+    text = _text(rulings_root / name)
+    if text is None or "____" in text:
+        return _refused(name, NOT_A_FILE if text is None else BLANKS)
+    return _accepted(rulings_root, name, day, text)
+
+
+def _accepted(rulings_root: Path, name: str, day: date, text: str) -> _Ruled:
+    """The ruling `name` (a regular file holding `text`) checked as the project's rulings are,
+    for the first configuration Signal may use that it names, with its date and ruled cap."""
+    found, problem = rulings_root / name, ""
     for config_id in CONFIGS:
         try:
             checked = check_ruling(config_id, found, rulings_root=rulings_root)
         except LivePauseInForce as error:
             problem = str(error)
             continue
-        if checked.date != day:
-            return _refused(name, "its date: line is not the date in its name.")
         cap = ruled_cap(text)
-        if cap is None:
-            return _refused(
-                name,
-                f"it needs exactly one cap_usd: line among its header lines, holding the ruled"
-                f" monthly cap in {CURRENCY}, such as cap_usd: 15.",
-            )
+        if checked.date != day or cap is None:
+            why = "its date: line is not the date in its name." if checked.date != day else None
+            return _refused(name, why or NO_RULED_CAP)
         return _Ruled(found, config_id, cap)
     return _refused(name, f"{problem}.")
 

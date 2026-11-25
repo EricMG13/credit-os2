@@ -5,17 +5,17 @@ It runs only in the background loop, after the ingest job (``service.Loop``), an
 only while ``ai_gate`` says the pass is on.
 
 A story is new when it was fetched in the last ``NEW_FOR``, the pass has not answered for it (no
-``story_ai`` row) and no call in flight holds it (``ai_tries.claim``). A pass takes ``PASS_LIMIT`` of
-them: those never sent first, then those sent before with fewer paid attempts, each group newest
-first, so a story whose replies keep failing never holds up the others. Each call sends the
-stories' stored title (cut to ``TITLE_LIMIT`` characters) and summary only, as JSON lines between
-two marker lines that carry a random nonce, so no text inside a story can close the block; the
-prompt says the lines are data. A batch is claimed just before its call, so two passes at once
-never pay twice for one story. The reply is read by ``ai_labels``: a story with a valid entry is
-stored with its fields, a story without one is stored as 'invalid' (no AI field, counted in
-Settings, and not sent again). A reply that cannot be read at all costs what it cost, and its
-stories go in batches half as large next time; a story alone in such a reply, or after
-``ai_tries.MAX_ATTEMPTS`` paid attempts, is stored as invalid (``ai_tries``).
+``story_ai`` row) and no call in flight holds it (``ai_tries.claim``). A pass takes ``PASS_LIMIT``
+of them: those never sent first, then those sent before with fewer paid attempts, each group newest
+first, so a story whose replies keep failing never holds up the others. Each call sends the stories'
+stored title (cut to ``TITLE_LIMIT`` characters) and summary only, as JSON lines between two marker
+lines that carry a random nonce, so no text inside a story can close the block; the prompt says the
+lines are data. A batch is claimed just before its call, so two passes at once never pay twice for
+one story. The reply is read by ``ai_labels``: a story with a valid entry is stored with its fields,
+a story without one is stored as 'invalid' (no AI field, counted in Settings, and not sent again). A
+reply that cannot be read at all costs what it cost, and its stories go in batches half as large
+next time; a story alone in such a reply, or after ``ai_tries.MAX_ATTEMPTS`` paid attempts, is
+stored as invalid (``ai_tries``).
 
 The pass stops at the first call that is refused (cap, switch-off), fails or comes back unreadable,
 and after such a failure it makes no call for ``RETRY_AFTER``, so a model that keeps failing is

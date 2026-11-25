@@ -261,7 +261,7 @@ def expire(db: sqlite3.Connection, now: datetime, bound: timedelta = STALE_AFTER
         return _expire(db, now, bound)
 
 
-def reserve(
+def reserve(  # noqa: PLR0913 -- one call's record (purpose, configuration, hold, time) and its cap
     db: sqlite3.Connection,
     purpose: Purpose,
     config_id: str,

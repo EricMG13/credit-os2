@@ -2,11 +2,12 @@
 
 ``Setup`` holds the launching environment, the rulings folder, the factory that builds the live
 adapter and the clock the ledger reads. ``session`` builds a model only while ``ai_gate.status``
-says the pass is on (not off, not at its cap), and closes it after the job; otherwise it yields
-None and nothing is built, so with no ruling, cap or key the service runs exactly as before. The
-model is built once per job, but every call the job makes checks the whole gate again first
-(``ai_call.call`` with ``Setup.guard``), so a precondition lost during a job ends it. The jobs: ``story_pass`` (``ai_pass.run``)
-and ``digest_pass`` (``digests.run_due`` with ``ai_digest.Writer`` while on, without it otherwise).
+says the pass is on (not off, not at its cap), and closes it after the job; otherwise it yields None
+and nothing is built, so with no ruling, cap or key the service runs exactly as before. The model is
+built once per job, but every call the job makes checks the whole gate again first (``ai_call.call``
+with ``Setup.guard``), so a precondition lost during a job ends it. The jobs: ``story_pass``
+(``ai_pass.run``) and ``digest_pass`` (``digests.run_due`` with ``ai_digest.Writer`` while on,
+without it otherwise).
 """
 
 from __future__ import annotations

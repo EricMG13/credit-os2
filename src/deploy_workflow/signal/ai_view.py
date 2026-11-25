@@ -1,16 +1,16 @@
 """The AI parts of the snapshot: a story's AI fields and the "AI and cost" section of Settings.
 
 Only while the pass is on (``settings.ai.state`` "on") does a story carry what the pass wrote for
-it: ``ai`` (the AI line, and which fields the pass wrote: ``kind`` true when the story's kind is
-the pass's, ``tags`` the tags it wrote; the page marks each AI), ``strength`` (marks and a word), its kind from
-the pass (``kind``/``kindLabel``; "other" keeps the source's kind), its tags (the pass's first,
-then the names of the topics it is in, a name not repeated, at most ``MAX_STORY_TAGS``; with the
-pass off a story carries at most that many topic names), the case stage
-(``stage``, only when the model returned one) and the rating moves (``ratingMoves``, only when
-it returned them, each with a word written here, never by the model). Off or at the cap, no story
-carries any of it, as the reader requires: the feed is as it was before the pass existed. Every
-field is plain text from a fixed list or a checked sentence, delivered as data; nothing the model
-wrote becomes a link or markup, and nothing of it is put where a colleague's words go.
+it: ``ai`` (the AI line, and which fields the pass wrote: ``kind`` true when the story's kind is the
+pass's, ``tags`` the tags it wrote; the page marks each AI), ``strength`` (marks and a word), its
+kind from the pass (``kind``/``kindLabel``; "other" keeps the source's kind), its tags (the pass's
+first, then the names of the topics it is in, a name not repeated, at most ``MAX_STORY_TAGS``; with
+the pass off a story carries at most that many topic names), the case stage (``stage``, only when
+the model returned one) and the rating moves (``ratingMoves``, only when it returned them, each with
+a word written here, never by the model). Off or at the cap, no story carries any of it, as the
+reader requires: the feed is as it was before the pass existed. Every field is plain text from a
+fixed list or a checked sentence, delivered as data; nothing the model wrote becomes a link or
+markup, and nothing of it is put where a colleague's words go.
 
 Settings: the notice says why AI is off (to a writer or the owner each missing precondition in a
 plain sentence, never a key or a variable name; to anyone else the title and one fixed sentence)

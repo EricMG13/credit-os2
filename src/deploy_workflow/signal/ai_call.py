@@ -164,7 +164,7 @@ def _reserve(
 
 
 def _home(digest: str, reservation: str) -> Path:
-    """The home the Copilot adapter makes for this exchange (``cwd/.copilot-home/<digest>/<id>``)."""
+    """The home the Copilot adapter makes for this exchange: cwd/.copilot-home/<digest>/<id>."""
     return Path.cwd() / HOMES / digest / reservation
 
 
@@ -176,7 +176,7 @@ def remove_homes(guard: Guard) -> None:
     are the store's own, so it never collides with a later call)."""
     for home in guard.homes:
         parent = home.parent
-        if parent.parent.name != HOMES or home.is_symlink() or not home.is_dir():
+        if not home.exists():
             continue
         if not home.resolve().is_relative_to(parent.parent.resolve()):
             continue

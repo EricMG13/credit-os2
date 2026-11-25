@@ -155,10 +155,9 @@ class Writer:
         guard: ai_call.Guard,
         now: datetime,
         nonce: Callable[[], str] = lambda: secrets.token_hex(8),
-        per_pass: int = CALLS_PER_PASS,
     ) -> None:
         self.db, self.model, self.guard, self.now, self.nonce = db, model, guard, now, nonce
-        self.per_pass, self.calls = per_pass, 0
+        self.per_pass, self.calls = CALLS_PER_PASS, 0  # the calls this pass may make, and made
         self.stopped: str | None = None
 
     def _stop(self, reason: str, *, fault: bool) -> digests.WriterFailed:

@@ -47,7 +47,8 @@ def claim(db: sqlite3.Connection, ids: Sequence[int], at: datetime) -> list[int]
                 continue
             db.execute(
                 "INSERT INTO story_ai_tries(story_id, attempts, batch, claimed_at)"
-                " VALUES(?, 0, ?, ?) ON CONFLICT(story_id) DO UPDATE SET claimed_at=excluded.claimed_at",
+                " VALUES(?, 0, ?, ?)"
+                " ON CONFLICT(story_id) DO UPDATE SET claimed_at=excluded.claimed_at",
                 (story_id, FULL_BATCH, _utc_text(at)),
             )
             kept.append(story_id)

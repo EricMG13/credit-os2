@@ -179,7 +179,8 @@ def test_an_answered_story_is_never_claimed_again(tmp_path, answered):
         if answered == "written":
             db.execute(
                 "INSERT INTO story_ai(story_id, outcome, why, signal, tags, kind, moves, config_id,"
-                " written_at, month) VALUES(1, 'written', 'W.', 2, '[]', 'news', '[]', ?, ?, '2026-11')",
+                " written_at, month)"
+                " VALUES(1, 'written', 'W.', 2, '[]', 'news', '[]', ?, ?, '2026-11')",
                 (CONFIG, NOW.isoformat()),
             )
         else:

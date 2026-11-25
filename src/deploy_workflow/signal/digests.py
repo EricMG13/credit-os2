@@ -16,17 +16,17 @@ material happened and makes no model call. With some in scope it needs a ``Write
 ``ai_digest``, given only while the pass is on); without one no issue is written and the run is
 recorded as skipped, with the reason.
 
-A run with a writer makes its model call outside every transaction: a first write transaction
-reads the scope (a scheduled run also claims its slot there, by moving ``next_run_at`` on, so no
-other runner takes it); the writer then drafts the issue, holding no lock; a second write
-transaction re-reads the digest and stores the issue only if the digest still exists with the same
-settings and the same period start, and its owner still sees the same covered groups. A draft for a digest that changed meanwhile is dropped (its
-call is already paid and counted). A writer whose paid call failed or came back invalid
-(``WriterFailed``) stores no issue and leaves the period where it was, so the next scheduled run
-covers it again: the failure is recorded, the digest moves on to its next slot and "Run once now"
-waits for that slot too (one paid attempt per period). A writer that made no paid call
-(``WriterFailed.again``: the call was refused, or the adapter established it was not sent) leaves
-the run due exactly as it was, and the pass ends there (``Writer.stopped``).
+A run with a writer makes its model call outside every transaction: a first write transaction reads
+the scope (a scheduled run also claims its slot there, by moving ``next_run_at`` on, so no other
+runner takes it); the writer then drafts the issue, holding no lock; a second write transaction
+re-reads the digest and stores the issue only if the digest still exists with the same settings and
+the same period start, and its owner still sees the same covered groups. A draft for a digest that
+changed meanwhile is dropped (its call is already paid and counted). A writer whose paid call failed
+or came back invalid (``WriterFailed``) stores no issue and leaves the period where it was, so the
+next scheduled run covers it again: the failure is recorded, the digest moves on to its next slot
+and "Run once now" waits for that slot too (one paid attempt per period). A writer that made no paid
+call (``WriterFailed.again``: the call was refused, or the adapter established it was not sent)
+leaves the run due exactly as it was, and the pass ends there (``Writer.stopped``).
 
 "Run once now" (``run_now``, ``request_run``) is refused within ``RUN_AGAIN_AFTER`` (30 minutes) of
 the digest's last run of any outcome. With the writer's own limits (``ai_digest.CALLS_PER_PASS``

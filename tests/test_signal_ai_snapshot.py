@@ -482,3 +482,18 @@ def test_a_story_carries_at_most_six_tags_the_passs_first(db):
     ]
     off = story_of(built(db, WRITER, None), ids["corvane"])["tags"]
     assert off == ["Packaging", *(f"Corvane watch {n}" for n in range(5))]
+
+
+def test_the_ai_object_says_which_fields_the_pass_wrote():
+    """Spec 5.5: every output field is marked AI. ``ai.kind`` is false when the pass said "other"
+    (the source's kind stands); ``ai.tags`` are the pass's own, never a topic name."""
+    from deploy_workflow.signal import ai_view
+
+    found = ai_view.StoryAi("Why.", 1, ("Banks",), "other", None, ())
+    fields = ai_view.story_fields(found, "research", "Research", ["Bank topic"])
+    assert fields["ai"] == {"line": "Why.", "kind": False, "tags": ["Banks"]}
+    assert (fields["kind"], fields["kindLabel"], fields["tags"]) == (
+        "research",
+        "Research",
+        ["Banks", "Bank topic"],
+    )

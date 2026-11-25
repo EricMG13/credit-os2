@@ -1,10 +1,10 @@
 """The owner's AI commands (spec 5.2: the owner's powers stay on the command line).
 
-    signal ai cap <amount>          set the monthly cap, in USD, no higher than the ruling's cap_usd:
-    signal ai digests-per-day <n>   set the digest writer's model calls a UTC day (default 50)
-    signal ai status                the state, each precondition, the month's spend and holds
-    signal ai clear                 clear the switch-off a call of unknown cost caused
-    signal ai pass                  one pass over the new stories now, only while the pass is on
+    signal ai cap <amount>         the monthly cap in USD, no higher than the ruling's cap_usd:
+    signal ai digests-per-day <n>  the digest writer's model calls a UTC day (default 50)
+    signal ai status               the state, each precondition, the month's spend and holds
+    signal ai clear                clear the switch-off a call of unknown cost caused
+    signal ai pass                 one pass over the new stories now, only while the pass is on
 
 No command shows a key's value: the status names the variables it looked for, and whether each
 precondition holds.
@@ -40,7 +40,11 @@ def _holds(gate: ai_gate.Gate, stored: Decimal | None) -> list[str]:
     """The ruling and the cap lines; `stored` is the cap the owner set (which the gate does not
     count when it is above the ruling's)."""
     ruling = "missing" if gate.ruling is None else f"{gate.ruling.name} ({gate.config_id})"
-    cap = "not set" if stored is None else f"{CURRENCY} {money_text(stored)} a month, per Signal store"
+    cap = (
+        "not set"
+        if stored is None
+        else f"{CURRENCY} {money_text(stored)} a month, per Signal store"
+    )
     if stored is not None and gate.cap is None:
         cap += ", above the ruled cap"
     return [f"ruling: {ruling}", f"cap: {cap}"]

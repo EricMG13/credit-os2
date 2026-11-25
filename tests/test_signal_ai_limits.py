@@ -195,7 +195,8 @@ def test_the_longest_due_runs_first_and_a_queued_run_is_due_from_when_it_was_ask
     db.commit()
     digests.request_run(db, "Visitor 0", first, NOW - timedelta(hours=6))  # asked at 06:00
     model = FakeModel(answer=written)
-    writer = ai_digest.Writer(db, model, guard(tmp_path / "gate", NOW), NOW, per_pass=2)
+    writer = ai_digest.Writer(db, model, guard(tmp_path / "gate", NOW), NOW)
+    writer.per_pass = 2
     ran = digests.run_due(db, NOW, writer)
     assert [n for n, _ in ran] == [first, second] and ran.waiting == [third]
     db.close()
@@ -206,9 +207,8 @@ def test_a_digest_left_waiting_keeps_its_time_and_its_asked_time(tmp_path):
     first, second = _many(db, 2)
     digests.request_run(db, "Visitor 1", second, NOW - timedelta(minutes=1))
     before = digests.owned(db, "Visitor 1", second)
-    writer = ai_digest.Writer(
-        db, FakeModel(answer=written), guard(tmp_path / "gate", NOW), NOW, per_pass=1
-    )
+    writer = ai_digest.Writer(db, FakeModel(answer=written), guard(tmp_path / "gate", NOW), NOW)
+    writer.per_pass = 1
     ran = digests.run_due(db, NOW, writer)
     assert [n for n, _ in ran] == [first] and ran.waiting == [second]
     after = digests.owned(db, "Visitor 1", second)
