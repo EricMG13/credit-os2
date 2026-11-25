@@ -287,7 +287,7 @@ numeral is animated (ruling 6).
 
 ### 3.4 Signal
 
-Signal is a separate served page, outside the open-from-disk rule and its gate (ruling 9).
+Signal is drawn in the connected application from its service (since 2026-11-24), outside the open-from-disk rule and its gate (ruling 9).
 Parts that need paid model calls are marked "needs ruling".
 
 | Screen | Section | Kit |
