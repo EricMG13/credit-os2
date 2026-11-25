@@ -692,3 +692,61 @@ def test_a_module_without_a_scope_section_gets_no_presence_rule(tmp_path, module
 def test_the_routing_and_presence_rules_stay_short():
     assert len(cpos_launch.ROUTING_RULES) <= 1250
     assert len(cpos_launch.PRESENCE_RULE) <= 340
+
+
+# Credit screening (owner, 2026-11-25, ruling R12; plan C12): the registers CP-L10 owes in that
+# pathway only, hand-written from SKILL.md's `required_register_ids` (all five screens, nothing
+# cut).
+# A separate constant: REQUIRED above is keyed by module and parametrised over the other pathways.
+CREDIT_SCREENING_L10 = (
+    *("TL10.1", "TL10.2", "TL10.3", "TL10.4"),
+    *("TL20.1", "TL20.2", "TL20.3", "TL20.4"),
+    *("TL23.1", "TL23.2", "TL23.3", "TL23.4"),
+    *("TL30.1", "TL30.2", "TL30.3", "TL30.4"),
+    *("TL40.1", "TL40.2", "TL40.3", "TL40.4"),
+)
+SCREENING_FIXTURE = ROOT / "tests/fixtures/credit-screening/CP-L10.md"
+
+
+def _screening_text(*, without: str | None = None) -> str:
+    """The synthetic five-screen CP-L10 handoff; `without` drops that register (its `####`
+    heading and table, up to the next heading)."""
+    text = SCREENING_FIXTURE.read_text(encoding="utf-8")
+    if without is None:
+        return text
+    pattern = rf"^#### {re.escape(without)} - .*?(?=^#{{2,4}} )"
+    cut, count = re.subn(pattern, "", text, flags=re.MULTILINE | re.DOTALL)
+    assert count == 1, f"expected one {without} register in the fixture"
+    return cut
+
+
+def test_credit_screening_requires_the_twenty_registers_of_the_five_screens():
+    assert cpos_launch.required_registers("CP-L10", "credit_screening") == CREDIT_SCREENING_L10
+    assert len(set(CREDIT_SCREENING_L10)) == 20
+
+
+@pytest.mark.parametrize("pathway", [None, "short_snapshot"])
+def test_cp_l10_requires_no_register_outside_credit_screening(pathway):
+    assert cpos_launch.required_registers("CP-L10", pathway) == ()
+    assert cpos_launch.required_registers("CP-L10") == ()
+
+
+def test_the_screening_fixture_carries_every_register_and_is_accepted():
+    text = _screening_text()
+    assert cpos_launch.register_issues("CP-L10", text, "credit_screening") == ()
+    for ident in CREDIT_SCREENING_L10:
+        assert f"#### {ident} - " in text
+
+
+def test_the_screening_fixture_without_one_register_is_refused_naming_it():
+    issues = cpos_launch.register_issues(
+        "CP-L10", _screening_text(without="TL23.2"), "credit_screening"
+    )
+    assert len(issues) == 1
+    assert "Missing registers: TL23.2." in issues[0]
+
+
+def test_without_the_pathway_a_cp_l10_handoff_is_never_refused_for_registers():
+    text = _screening_text(without="TL23.2")
+    assert cpos_launch.register_issues("CP-L10", text) == ()
+    assert cpos_launch.register_issues("CP-L10", text, "short_snapshot") == ()

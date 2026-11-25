@@ -121,6 +121,9 @@ PATHWAY_MODULES = {
         *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-4", "CP-2A"),
         *("CP-2E", "CP-2D", "CP-2G", "CP-2H", "CP-3D", "CP-3C", "CP-4C", "CP-3", "CP-5", "CP-6"),
     ),
+    # Owner, 2026-11-25 (ruling R12): the credit screening is CP-0, CP-1, CP-DR and the one
+    # CP-L10 screen, in that order (CP-DR after CP-1, CP-L10 last).
+    "credit_screening": ("CP-0", "CP-1", "CP-DR", "CP-L10"),
 }
 # The owner's preset answer key (2026-11-11), hand-written as sets: what each pathway requests.
 PRESET_ANSWER_KEY = {
@@ -156,6 +159,8 @@ PRESET_ANSWER_KEY = {
         "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6 "
         "CP-1B CP-1C CP-1D CP-2H CP-3D CP-4C"
     ),
+    # Owner, 2026-11-25 (ruling R12): CP-0, CP-1, CP-DR and the five-screen CP-L10.
+    "credit_screening": "CP-0 CP-1 CP-DR CP-L10",
 }
 SHORT_SNAPSHOT = ("CP-0", "CP-1", "CP-L10")
 # Run order of the lite pathway and its report blocks, written by hand from the Front Page: the

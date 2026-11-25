@@ -72,6 +72,8 @@ CAPS = {
     DEEP: D(50),
     **{p: D(20) for p in PURPOSE},
     "short_snapshot": D(20),
+    # Owner, 2026-11-25 (ruling R12): the credit screening is capped at USD 10.
+    "credit_screening": D(10),
 }
 # What one GPT Sol call holds, whatever its size (pricing.request_reservation_usd at the configured
 # context ceiling): 1,050,000 tokens at the dearest input rate USD 5 a million, plus 32,000 output
@@ -223,6 +225,7 @@ def test_one_cap_per_pathway() -> None:
         ("credit_snapshot", 9),  # 24.00 + 5.73 = 29.73 <= 30; 27.00 + 5.73 > 30
         (DEEP, 15),  # 42.00 + 5.73 = 47.73 <= 50; 45.00 + 5.73 > 50
         ("relative_value", 5),  # 12.00 + 5.73 = 17.73 <= 20; 15.00 + 5.73 > 20
+        ("credit_screening", 2),  # 6.00 + 5.73 = 11.73 > 10; 3.00 + 5.73 = 8.73 <= 10
     ],
 )
 def test_a_run_stops_at_its_pathways_cap(tmp_path: Path, pathway: str, calls: int) -> None:
@@ -249,7 +252,12 @@ def _context(tmp_path: Path, pathway: str) -> Path:
 
 @pytest.mark.parametrize(
     ("pathway", "cap"),
-    [("lite_credit_assessment", "20"), ("credit_snapshot", "30"), (DEEP, "50")],
+    [
+        ("lite_credit_assessment", "20"),
+        ("credit_snapshot", "30"),
+        (DEEP, "50"),
+        ("credit_screening", "10"),
+    ],
 )
 def test_the_launcher_defaults_to_the_pathways_cap(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], pathway: str, cap: str
@@ -332,7 +340,8 @@ def test_a_summary_issued_before_per_pathway_caps_must_be_made_again(root: Path)
     ("pathway", "cap"),
     [
         # A record queued before this change: never more than USD 20 (what its summary showed),
-        # nor more than its pathway's cap now (no pathway's cap is below USD 20 since 2026-11-25).
+        # nor more than its pathway's cap now (since 2026-11-25 only the credit screening's cap,
+        # USD 10, is below USD 20).
         ("lite_credit_assessment", "20"),
         ("credit_snapshot", "20"),
         (DEEP, "20"),
@@ -351,7 +360,8 @@ def test_a_record_queued_before_per_pathway_caps_launches_at_no_more_than_was_ap
 def test_a_legacy_record_launches_at_its_pathways_cap_when_that_is_below_usd_20(
     root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No ruled cap is below USD 20 now, so the lower-of rule is shown on a table entry of 12: the
+    """Only the credit screening's ruled cap is below USD 20, so the lower-of rule is shown on a
+    table entry of 12 for another pathway: the
     record without a cap launches at 12, not at the USD 20 its summary showed, and its neighbour
     with a cap above 20 still launches at 20."""
     table = {**PATHWAY_CAP_USD, "lite_credit_assessment": Decimal(12)}
