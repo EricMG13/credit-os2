@@ -45,6 +45,14 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   items split; 332 quoted passages matched by script). Ruling
   `2026-11-25-instruction-length-trial-cp4.md`. CP-2H's rating-trigger rule had the same gap and
   was given the same words afterwards (owner: "fix the CP-2H chart wording too"); no run showed it.
+- Full trial of CP-4 (sixth pass; owner: "do the six fixes, then run the full trial", "approved
+  for both", "apply the recommendations and re-test as group D and compare with prior runs"): 18
+  accepted live runs in four groups on `opus-high`, plus a first-pass reader on `claude-haiku-5-5`
+  for group D; USD 98.53 settled of USD 101. Every accepted handoff but D-1 scored blind twice
+  against the 61-item list; readers agreed on 98.5% of scores. Records and scores in
+  `docs/sweeps/2026-11-25-instruction-length/trial-cp4/`. `tests/test_instruction_trial.py` 12
+  passed; gate exit 0. Three to five runs a group on one case: leads, not findings. No person
+  has checked the readers' scores. Keys came from the launching environment only.
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the

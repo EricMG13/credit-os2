@@ -471,6 +471,72 @@ write; split the bundled items; read the C texts for the leaked words; set the t
 for CP-4; decide the route, since on the direct route only CP-4's request is mostly
 instructions; then repeats of each group, group A first for its own spread.
 
+## Full trial of CP-4, four groups (sixth pass, 2026-11-25)
+
+Ruling: `docs/rulings/2026-11-25-instruction-length-trial-cp4.md` with its amendments. Records and
+blind scores: `trial-cp4/`. Case: TransDigm as of 2024-09-30 with the executed agreements;
+outdated evidence, used to test module output. Model: Claude Opus 5.5, high effort, Anthropic API.
+
+Bottom line: on this module, model and case, none of the three changes made runs cheaper or
+shorter. Removing repeated and inapplicable text (B) and adding first-pass reading notes (D)
+each scored about four items higher than the current instructions, with every run above the
+current instructions' middle; the full rewrite (C) scored higher on average but was the least
+steady. The samples are three to five runs a group on one case, so these are leads, not findings.
+
+| Group | Runs | Items right of 61, each run | Mean | Wrong, mean | Accepted on first write | Turns | Source calls | USD a run |
+| --- | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
+| A, current | 5 | 32, 32.5, 35.5, 36, 36.5 | 34.5 | 1.5 | 5 of 5 | 39 | 57 | 3.94 |
+| B, removals | 3 | 37, 39, 40.5 | 38.8 | 1.5 | 2 of 3 | 38 | 59 | 4.87 |
+| C, restructured | 5 | 31, 35, 37, 41, 42 | 37.2 | 1.2 | 1 of 5 | 36 | 59 | 4.76 |
+| D, A plus reading notes | 5 | 35.5, 36.5, 37, 42, 42 | 38.6 | 0.8 | 4 of 5 | 38 | 62 | 6.56 |
+
+A run's score is the mean of its two readers. Settled in all: USD 98.53 of the USD 101 limit,
+including USD 2.23 for the eight runs the provider refused for lack of credit and USD 5.25 for
+D-1.
+
+What the trial supports:
+
+- Shorter instructions did not reduce cost, turns or reading. First requests fell from 191,085
+  tokens (A) to 182,078 (B) and 148,183 (C); cost rose by about USD 0.90 a run in both, from
+  longer handoffs and second writes.
+- B is the only change that removes text and nothing else, and all three of its runs scored
+  above all five of A's. By chance that ordering has a probability of 1 in 56.
+- C's range (31 to 42) is twice A's (32 to 36.5), and four of its five first writes were
+  refused, mostly for a figure stated in prose and absent from the tables. A rewrite changes
+  more than length.
+- D did not replace reading: the module searched and read as much as in A. The rule that
+  every term be confirmed on its page makes the notes an addition. D cost USD 2.62 more a run
+  (USD 0.92 for the reader, the rest for carrying about 52,000 tokens of notes through every
+  turn). Its scores were the steadiest of the three changes and it had the fewest wrong items.
+- The Direction wording fix (in every group) took CP-4's first-write acceptance from 0 of 3 in
+  the pilot to 12 of 18 here, and 5 of 5 in group A.
+
+Limits of the measure:
+
+- Readers: six agents of one model, two a handoff; they agreed on 1,202 of 1,220 scores (98.5%).
+  Two group A handoffs re-read under new codes by the last pair scored 31.5 and 37 against 32
+  and 36.5 before. That is consistency between like readers, not a check of correctness; no
+  person has checked a sample.
+- The list's 61 items came from the agreements in detail. 29 were right in every group A run
+  and 18 in none, so about a quarter of the list separates runs.
+- One case, one module, one model and effort, one route. On the Copilot route, where the first
+  request of late modules is mostly instructions, the result may differ.
+- D-1 was run with a reader that wrote notes for four of six documents; it is kept and left out,
+  decided before it was read. It has not been scored.
+- Group B has three runs to the others' five.
+
+What follows, each to be probed the same way before it is adopted:
+
+1. Group B's removals are the candidate to take into the method files: mechanical, no rule
+   reworded, and the only change that scored above A in every run. Five more runs of B would
+   bring it level with the other groups.
+2. Do not adopt C as written. If a restructured method is wanted, change it in steps that can
+   each be probed, starting from B.
+3. D's notes help content at a cost. A cheaper form to test: notes for the two or three longest
+   documents only, or notes held outside the instructions and read on request.
+4. The recurring error in every group is the revolver's maturity given without its springing
+   condition. That is a candidate for one exact sentence backed by a check, as with Direction.
+
 ## Not verified
 
 - Any effect of length on output: the pilot ran each group once, which cannot show one.
