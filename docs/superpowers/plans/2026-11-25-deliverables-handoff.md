@@ -31,16 +31,19 @@ PR 2 recommendation code (after 0 and 1) · PR 4 workbook writer and PR 4b Model
 and chart periods) · PR 5 Deliverables page · PR 6 Credit Screening pathway and PR 7 custom routing
 with alias phases (after PR 79 merges).
 
-## Decisions waiting for the owner
+## Owner decisions (2026-11-25: "1. later 2. is fine 3. fix 4. fine 5. fine 6. update it")
 
-1. PR 79: a Full run on Claude Opus is estimated at USD 31–41, above the new USD 30 cap (estimate, not measured).
-2. PR 79: the Coverage page grows from 14 to 17 columns as a side effect; no test covers it.
-3. Rubric gaps: Leverage 5–6x (read as level 4); Market share 10–30% outside the top three.
-4. An add-back CP-1D marks as insufficient information is shown unclassified, not assumed realised.
-5. Methodology readings added in PR 80 that the spec did not state: no Credit Score means no
-   proposed recommendation; a limit breach leaves a 4 or 5 unchanged; wider than the bucket median
-   is more attractive; the four assessment cells do not enter the Credit Score.
-6. `PRODUCT.md` still says no workbook is a deliverable.
+1. Opus Full run above the USD 30 cap: deferred.
+2. Coverage page at 17 columns: accepted.
+3. Rubric gaps: fixed by the coordinating session's wording, sent to PR 80: Leverage level 4 "High
+   leverage (5–6x), limited covenant cushion"; Market share level 2 "Top 3 competitor, or 10–30%
+   share", level 3 "Mid-tier, 5–10% share". PR 1 (CP-2 scorecard) was told the two cells change.
+4. Insufficient-information add-backs shown unclassified: accepted.
+5. The four methodology readings in PR 80: confirmed.
+6. `PRODUCT.md`: to be updated in PR 80 after it merges main.
+
+All six were sent to PR 80's cloud session (delivery unconfirmed): check PR 80 carries them, that
+the rubric probes were updated by hand and still exit 0, and how its merge of main was resolved.
 
 ## Not verified
 
