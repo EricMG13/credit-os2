@@ -312,7 +312,7 @@ conditional_register_ids: none (all phases).
 Row rules:
 - T3.1 is accompanied by Module Status and Execution Mode. T3.3 is accompanied by the Composite Score and Credit Tier.
 - T3.4: when no override applies, the statement "No hard-risk override triggered." takes its place.
-- T3.6 and T3.7: every row carries an `Evidence ID` resolving to the T3.3 scorecard row and the source behind it. A ranking row without a resolvable Evidence ID is unsupported: the analytical chain that T3.3 carries must survive into the register the committee reads.
+- T3.6 and T3.7: every row carries an `Evidence ID` resolving to the T3.3 scorecard row and the source behind it. A ranking row without a resolvable Evidence ID is unsupported and fails QA: the analytical chain that T3.3 carries must survive into the register the committee reads.
 - T3.7: every row carries `Countervailing Evidence`, the strongest supported argument against that recommendation and what would make it win. `[None identified]` is permitted only where the evidence genuinely supports no counter-case, and is itself a claim the reader may test.
 - T3.7 reports one score on two scales (formula under `Calculations`).
 
@@ -435,7 +435,8 @@ Instrument Type Taxonomy:
 
 - Module Status: Completed / Completed with Limitations / Blocked. Output Mode: Mandate-Specific / Generic Portfolio-Fit Logic.
 - Fit Categories: Mandate fit | RV fit | Liquidity fit | Risk-budget fit | Not fit | Not assessable.
-- Portfolio Roles: Yield carry | Spread duration | Convexity | Defensive senior secured exposure | Catalyst | Relative-value switch | Recovery-sensitive upside | Watchlist / monitoring only. (The source also writes two of these as "Defensive senior secured" and "RV switch".)
+- Portfolio Roles: Yield carry | Spread duration | Convexity | Defensive senior secured exposure | Catalyst | Relative-value switch | Recovery-sensitive upside | Watchlist / monitoring only.
+- Conflict in the source method: two portfolio roles are spelled two ways, "Defensive senior secured exposure" and "Defensive senior secured", and "Relative-value switch" and "RV switch".
 - Sizing Posture Taxonomy (7 values):
   - Avoid: credit/legal/liquidity/mandate/downside issue makes implementation inappropriate on provided evidence.
   - Watchlist: analytically relevant but not currently implementable, or requires monitoring before capital deployment.
@@ -469,7 +470,7 @@ Instrument Type Taxonomy:
 
 ### Calculations
 
-- Scorecard (T3.3): Weighted Score = Weight × Raw Score, only when governing weights are available; the composite is the weighted sum on the 1–5 factor scale.
+- Scorecard (T3.3): apply Weight and calculate Weighted Score only when the governing weights are available; when factor evidence and governing weights support a composite, calculate the weighted sum (a weighted composite on the 1–5 factor scale).
 - Score scale (T3.7): `Normalized /5.0` is that composite, and `Composite Score /100` is `(5 − Normalized) / 4 × 100`, rounded to the nearest integer, so 1.0 maps to 100 and 5.0 maps to 0, and the /100 figure rises as credit quality rises. Report both from one number; never score twice on two scales.
 - Recovery allocation (CP-3A): compute the per-class recovery under each enterprise-value case and the fulcrum in each, on the T3B.2 debt stack; the instrument preference ranks off this allocation. Where the fulcrum moves between cases the preference ranking is case-dependent: surface that rather than letting a single-case ranking read as unconditional. Collateral, structural position and the preference conclusion remain your judgement.
 - Bid/ask midpoint: label any calculated midpoint and retain its inputs; it is not an executable bid or ask.
@@ -483,12 +484,6 @@ Worked example of this module's own prohibition (recommendation without comparab
 
 ### Prohibited behaviours
 
-All phases:
-- Do not assign a formal rating unless explicitly instructed.
-- Do not cite a source for a claim not explicitly supported by that source.
-- Do not convert missing information into either a positive or adverse conclusion.
-- Do not use generic adjectives (market-leading, robust, strong, resilient, diversified, ample, cheap, rich) unless immediately supported by issuer-specific evidence, current market data under the maintained-source policy, and credit implication.
-
 CP-3:
 1. Do not fabricate spreads, prices, yields, discount margins, ratings, maturity profiles, leverage, liquidity, covenant terms, recovery assumptions, ownership details, customer concentration, market share, rating-agency views or trading technicals.
 2. Do not force a value label, ranking, score or recommendation when evidence is weak.
@@ -499,6 +494,10 @@ CP-3:
 7. Do not use scoring overrides to force a desired ranking.
 8. Do not classify a weak credit as Preferred solely because spread is wide.
 9. Do not classify a strong credit as Avoid solely because spread is tight unless compensation is clearly inadequate or better alternatives exist.
+10. Do not assign a formal rating unless explicitly instructed.
+11. Do not use generic adjectives (market-leading, robust, strong, resilient, diversified, ample, cheap, rich) unless immediately supported by issuer-specific evidence, current market data under the maintained-source policy, and credit implication.
+12. Do not cite a source for a claim not explicitly supported by that source.
+13. Do not convert missing information into either a positive or adverse conclusion.
 
 CP-3A:
 1. Do not infer recovery values, collateral sufficiency, guarantor coverage, priming capacity, pricing, liquidity, instrument eligibility or preference ranking unless supported by provided evidence.
@@ -508,6 +507,10 @@ CP-3A:
 5. Do not perform legal advice; rely on CP-4/CP-4A outputs or flag the limitation.
 6. If documents are draft, unsigned, stale, incomplete or conflicting, flag the limitation and reduce confidence.
 7. Do not fabricate recovery or give portfolio sizing in this phase.
+8. Do not cite a source for a claim that the source does not support.
+9. Do not use generic adjectives (market-leading, robust, strong, resilient, diversified, ample, cheap, rich) unless immediately supported by issuer-specific evidence and credit implication.
+10. Do not convert missing information into either a positive or adverse conclusion.
+11. Do not assign a formal rating unless explicitly instructed.
 
 CP-3B:
 1. Do not invent mandate limits, fund constraints, liquidity capacity or current holdings.
@@ -521,3 +524,4 @@ CP-3B:
 9. Do not assume a loan or bond can be scaled without price impact unless supported by trading evidence.
 10. Do not express a numeric size unless the user provided one and portfolio constraints are available.
 11. Do not hide limitations in footnotes; state them next to the affected conclusion.
+12. Do not cite a source for a claim not explicitly supported by that source.

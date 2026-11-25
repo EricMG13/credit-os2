@@ -97,7 +97,10 @@ An optional front summary table is permitted per part (Covenant-implication summ
 - Subsequent event: flag it with its date; never blend it into period figures.
 - Non-debt funding float: trend deposits, deferred revenue and supplier finance as credit-relevant float, not payables, with the evidence, risk mechanic and credit implication.
 - Show source figures against normalized one-offs; label the normalization as analyst judgement. Never infer covenant capacity; absent inputs give `Not Calculable`.
+**Front matter.** The handoff's front matter carries the identity fields `issuer_id`, `module_id` and `analysis_date` (never a period, name or alias in their place), the module status set by the gates below, and `committee_status`.
+- Identity: module_id: CP-4 | module_name: LegalCovenantInterpreter | schema_family: Nested | layer: L4. The run authors one handoff under CP-4's identity; the absorbed parts (CP-4A CovenantCapacityCalculator, CP-4B RestrictedGroupGuaranteeMap, CP-4D) do not get their own. Header fields named by the CP-4A method: Issuer · Module · Reporting period · Analysis date · run_id.
 - `committee_status` is one of: Committee Ready | Draft Only | Requires More Work | Insufficient Information | Restricted | Blocked.
+- Front-matter limitation flag for a source-limited run: `SOURCE_LIMITED_NOT_COMMITTEE_READY`, with validation warning `FULL_UNDERWRITING_SOURCE_SET_NOT_RETAINED`. Fixture limitation flags: `INTEGRATION_FIXTURE_ONLY`; `PRESENTATION_FIXTURE_NOT_CURRENT_GOLDEN`; `SYNTHETIC_FORWARD_ASSUMPTIONS`. Fixture validation warnings: `INTEGRATION_FIXTURE_ONLY`; `PRESENTATION_FIXTURE`; `TEST_ONLY_FORECAST_ASSUMPTIONS`. A run carrying any fixture flag or warning is not a full run.
 
 **Credit implication labels (8-value legal/covenant subset), used by CP-4 and CP-4A.** Positive — Covenant Headroom Expansion | Positive — Deleveraging | Neutral — Stable | Negative — Covenant Erosion | Negative — Leverage Increase | Negative — Refinancing Risk | Negative — Liquidity Deterioration | Insufficient Information
 
