@@ -9,7 +9,8 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Scope: `tests/test_repo_rules.py` (13 tests, fast-tests job) checks `VERIFICATION.md` < 1000 lines, `AGENTS.md`/`CLAUDE.md` ≤ 200, no tracked credential files, no `.superpowers/` tracked, no provider secrets in workflows, the two tracked `.xlsx` inputs, and at most one allowed workbook writer in `src/`/`apps/` (none today). Answer keys hand-written; reviewer probe `task1_workbook_import_forms.py` exit 0.
 - `secrets` job: gitleaks 8.30.1 (SHA-256 pinned) over tracked files, archives to depth 2, inline allows ignored; on PRs also every commit in `origin/<base>..HEAD`, failing closed when that range cannot be resolved (adversary probes exit 0); local run exit 0; planted fake key exit 1; same key under an allowlisted path exit 0 (accepted blind spot: `docs/work-pc/`, `docs/audit/2026-11-16-final/`, 43 digest findings, none a credential).
 - Oldest entries (2026-11-16, 41 lines) trimmed; git history keeps them.
-- Not verified: the CI run of both jobs on ubuntu-latest.
+- CI on ubuntu-latest: fast-tests and the `secrets` job (tree and PR-history steps) passed on PR 95. Pre-merge fixes: download retry, `secrets.GITHUB_TOKEN`/`needs.secrets` and credential-name false positives (tests first).
+- Not verified: the curl retry path; rewrite-tournament skipped (test-only and sub-15-line scripts).
 
 ## 2026-11-25 — Reference portfolios: intake, index holdings fetch, comparison portfolio at the launcher (PR #84, branch `claude/cool-gates-o27q8z`)
 
