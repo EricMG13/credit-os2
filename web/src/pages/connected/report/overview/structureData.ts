@@ -1,3 +1,4 @@
+import { fiscalYear, yearPrefix } from "../../visuals/scenarioPeriods";
 import { items, ticks, type SourceTable } from "../../visuals/visualData";
 import { columnAt, readCell, type Cell } from "./figureData";
 import { labelText } from "./notes";
@@ -8,11 +9,10 @@ type Descriptor = Record<string, unknown>;
  * row's handoff line. */
 type WallSlot = { label: string; cell: Cell | null; line?: number };
 
-/** A single year as a period label: "2026", "FY2026", "FY 2026E". "2029+", "≥2030" or
- * "2030 and after" name no single year. */
-const YEAR = /^([A-Za-z]*\s?)(\d{4})[A-Za-z]?$/;
 const LONGEST_AXIS = 12;
 
+/** A row the wall places by year: one whole year as the period rule reads its label (`fiscalYear`:
+ * "2026", "FY2026", "FY26", "FY 2026E"). "2029+", "≥2030" or "2030 and after" name no single year. */
 type DatedRow = WallSlot & { year: number };
 
 function datedSlots(dated: DatedRow[]): WallSlot[] {
@@ -20,7 +20,7 @@ function datedSlots(dated: DatedRow[]): WallSlot[] {
   const first = sorted[0];
   const last = sorted.at(-1);
   if (!first || !last || last.year - first.year > LONGEST_AXIS) return sorted;
-  const prefix = YEAR.exec(first.label)?.[1] ?? "";
+  const prefix = yearPrefix(first.label, first.year);
   // A true time axis: every year between the first and the last has a slot, with or without a row.
   // A year with two rows keeps both, side by side as written: one is never hidden behind the other.
   return Array.from({ length: last.year - first.year + 1 }, (_, at) => {
@@ -42,12 +42,12 @@ export function wallSlots(table: SourceTable, descriptor: Descriptor, unit: stri
   }));
   if (!rows.some(({ cell }) => cell?.value != null)) return null;
   const dated = rows.flatMap((row) => {
-    const year = YEAR.exec(row.label)?.[2];
-    return year ? [{ ...row, year: Number(year) }] : [];
+    const year = fiscalYear(row.label);
+    return year === null ? [] : [{ ...row, year }];
   });
   return {
     dated: datedSlots(dated),
-    undated: rows.filter((row) => !YEAR.test(row.label)),
+    undated: rows.filter((row) => fiscalYear(row.label) === null),
   };
 }
 

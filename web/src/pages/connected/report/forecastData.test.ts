@@ -58,7 +58,7 @@ it("reads one case's published cells by period, as displayed, with missing kept 
     value: null,
     reason: "EBITDA not positive",
   });
-  expect(measure?.actual).toMatchObject({ period: "FY2024", display: "5.50x", value: 5.5 });
+  expect(measure?.history).toMatchObject([{ period: "FY2024", display: "5.50x", value: 5.5 }]);
 });
 
 it("keeps a period only one case publishes on the axis, absent from the other case", () => {
@@ -136,7 +136,8 @@ it("reads a fiscal year from actual and forecast labels only", () => {
   expect(fiscalYear("FY2024")).toBe(2024);
   expect(fiscalYear("FY2027E")).toBe(2027);
   expect(fiscalYear("LTM")).toBeNull();
-  expect(fiscalYear("2026")).toBeNull();
+  // A bare year is a fiscal year by the one period rule (owner's ruling, 2026-11-25).
+  expect(fiscalYear("2026")).toBe(2026);
 });
 
 it("gives a case without a row for the measure no cells, never another case's", () => {

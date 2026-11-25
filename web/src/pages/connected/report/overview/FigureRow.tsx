@@ -1,11 +1,13 @@
 import { ArrowDown, ArrowUp } from "@untitledui/icons";
 import type { ReactNode } from "react";
 import { cx } from "@/utils/cx";
+import { parsePeriod } from "@/utils/periodOrder";
 import { blocked, evidencePath, type OutputEntry } from "../../publishedReport";
 import { changeSign, changeText, exactDifference, tone } from "../../signal";
 import { PublishedSource } from "../PublishedTrace";
 import { Key } from "./figureParts";
 import { DeltaBar, DotStrip, GapBar, MiniSlope, Ruler, Slope, SplitBar } from "./marks";
+import { latestAt } from "./markLayout";
 import type { Mark, MarkTone, Slot } from "./marks";
 import {
   entryOf,
@@ -72,22 +74,33 @@ function compare({ latest, prior, why }: Timeline) {
   return { change: exactDifference(latest.figure, prior.figure), why: null };
 }
 
-/** Where a period sits in time, in years: a fiscal year as itself, a date by its day. */
-function timeAt(order: string | undefined) {
-  const [, year, date] = /^1-(\d{4})$|^2-(\d{4}-\d{2}-\d{2})$/.exec(order ?? "") ?? [];
-  if (year) return Number(year);
-  return date ? 1970 + Date.parse(`${date}T00:00:00Z`) / (365.25 * 86_400_000) : undefined;
+/**
+ * Where a period sits in time, in years, and the form it is written in: a fiscal year as itself, a
+ * date by its day. Nothing for any other period (a quarter, a year to date, a last twelve months,
+ * a pro forma, a forecast): such a series is spaced evenly in period order, never by time.
+ */
+function timeAt(period: string) {
+  const parsed = parsePeriod(period);
+  if (parsed?.periodClass !== "actual" || !parsed.end) return undefined;
+  const [year, month, day] = parsed.end;
+  if (parsed.span === "year") return { form: "year", at: year };
+  if (parsed.span !== "date") return undefined;
+  return { form: "date", at: 1970 + Date.UTC(year, month - 1, day) / (365.25 * 86_400_000) };
 }
 
-const slotOf =
-  (unit: string) =>
-  (point: Point): Slot => ({
+/** Each period's slot; placed by time only where every period is written in one form. */
+function slotsFor(points: Point[], latest: Point, unit: string): Slot[] {
+  const times = points.map((point) => timeAt(point.period));
+  const oneForm = new Set(times.map((time) => time?.form)).size === 1;
+  return points.map((point, at) => ({
     label: point.period,
     value: point.value,
     text: figureShown(point, unit) ?? gapWord(point.cell),
-    at: timeAt(point.order),
+    at: oneForm ? times[at]?.at : undefined,
     basis: (point.basis ?? "").trim(),
-  });
+    ...(point === latest && at < points.length - 1 && { latest: true }),
+  }));
+}
 
 /** A leverage ratio below zero (EBITDA below zero, or net cash) has no better or worse direction. */
 const RATIOS = new Set(["leverage", "net_leverage"]);
@@ -114,11 +127,11 @@ function read(entry: OutputEntry, key: FigureKey): Reading {
     title,
     series,
     timeline: line,
-    slots: line.points.map(slotOf(series.unit)),
+    slots: slotsFor(line.points, line.latest, series.unit),
     change,
     why,
     tone: toned,
-    markTone: line.points.at(-2) === line.prior ? toned : "none",
+    markTone: line.points[line.points.indexOf(line.latest) - 1] === line.prior ? toned : "none",
   };
 }
 
@@ -198,7 +211,8 @@ function Movement({ reading }: { reading: Ready }) {
   );
 }
 
-const UNORDERED = "The periods cannot be put in order, so no latest figure or change is drawn.";
+const UNORDERED =
+  "These periods give no single latest reported period, so no latest figure or change is drawn.";
 
 /** Every period's cell as written, in the table's order, where no latest can be chosen. */
 function AsWritten({ series, href }: { series: Series; href: Href }) {
@@ -345,14 +359,16 @@ const markOf = (slot: Slot): Mark | null =>
 /** The latest stated figure as a mark; none when the latest period is a gap. */
 function latestMark(reading: Reading) {
   if (reading.state !== "ready") return null;
-  const slot = reading.slots.at(-1);
+  const slot = reading.slots[latestAt(reading.slots)];
   return slot ? markOf(slot) : null;
 }
 
 /** The year-earlier and latest figures, only where their change is drawn. */
 function ends(reading: Reading) {
   if (reading.state !== "ready" || reading.change === null || !reading.timeline.prior) return null;
-  const from = markOf(slotOf(reading.series.unit)(reading.timeline.prior));
+  const { points, prior } = reading.timeline;
+  const earlier = reading.slots[points.indexOf(prior)];
+  const from = earlier ? markOf(earlier) : null;
   const to = latestMark(reading);
   return from && to ? { from, to } : null;
 }

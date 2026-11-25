@@ -12,6 +12,8 @@ import math
 import re
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
+from dataclasses import dataclass
+from itertools import pairwise
 from decimal import Decimal
 
 from deploy_vii.display import format_value, places_to_show
@@ -118,7 +120,8 @@ def _size(spec: ChartSpec) -> tuple[int, int]:
         return 460, 6 + len(_row_keys(spec)) * _RANGE_ROW + 4
     if spec.kind == "bullet":
         return 520, 8 + len(_categories(spec)) * _BULLET_ROW + 22
-    return 320, 160
+    axis = _x_axis(spec)
+    return axis.width, axis.height
 
 
 def _frame(width: int, height: int) -> ET.Element:
@@ -195,6 +198,85 @@ def _categories(spec: ChartSpec) -> list[str]:
     return seen
 
 
+_PLOT_WIDTH, _PLOT_HEIGHT = 320, 160
+_AXIS_FONT = 11.0  # `.chart text` in app.css
+_AXIS_CHAR = 0.6 * _AXIS_FONT  # estimated advance of one axis-label character
+_AXIS_GAP = 12.0  # least distance between the baselines of neighbouring turned labels
+_AXIS_TURNED_Y = _PLOT_HEIGHT - 16  # where a turned label starts, under the plot
+
+
+@dataclass(frozen=True, slots=True)
+class _XAxis:
+    """Where a line or column chart's categories sit and how their labels are turned.
+
+    Labels are flat while the estimated extents of neighbours clear each other. Otherwise each
+    label is turned to read down to the right from its tick, 45 degrees, or 90 when that is still
+    too tight; the frame grows downward by the labels' drop, the right margin by their run, and
+    at 90 degrees the frame widens until neighbouring baselines are `_AXIS_GAP` apart. Every
+    category keeps its full label.
+    """
+
+    width: int
+    height: int
+    right: float
+    first: float
+    step: float
+    turn: int
+
+    def x(self, index: int) -> float:
+        return self.first + index * self.step
+
+
+def _x_axis_at(spec: ChartSpec, width: int, turn: int) -> _XAxis:
+    """The axis of a frame `width` wide whose labels are turned `turn` degrees."""
+    labels = _categories(spec)
+    line = spec.kind == "line"
+    left, right = 40.0, 48.0 if line else 8.0
+    longest = max(len(label) for label in labels) * _AXIS_CHAR
+    angle = math.radians(turn)
+    run = longest * math.cos(angle) + _AXIS_FONT * math.sin(angle) + 2 if turn else 0.0
+    drop = math.ceil(longest * math.sin(angle) - 12) if turn else 0
+    if line:
+        right = max(right, run - _EDGE)
+        inner = width - left - right - 2 * _EDGE
+        only = len(labels) == 1
+        first = left + _EDGE + (inner / 2 if only else 0.0)
+        step = 0.0 if only else inner / (len(labels) - 1)
+    else:
+        # A column sits mid-slot, so half a slot already lies right of the last label's tick.
+        half_slots = 2 * len(labels)
+        right = max(right, (run - (width - left) / half_slots) / (1 - 1 / half_slots))
+        step = (width - left - right) / len(labels)
+        first = left + step / 2
+    return _XAxis(width, _PLOT_HEIGHT + max(drop, 0), right, first, step, turn)
+
+
+def _x_axis(spec: ChartSpec) -> _XAxis:
+    labels = _categories(spec)
+    flat = _x_axis_at(spec, _PLOT_WIDTH, 0)
+    widest = max(((len(a) + len(b)) / 2 * _AXIS_CHAR for a, b in pairwise(labels)), default=0.0)
+    if widest + 2 <= flat.step or len(labels) == 1:
+        return flat
+    slanted = _x_axis_at(spec, _PLOT_WIDTH, 45)
+    if slanted.step * math.sin(math.radians(45)) >= _AXIS_GAP:
+        return slanted
+    upright = _x_axis_at(spec, _PLOT_WIDTH, 90)
+    if upright.step >= _AXIS_GAP:
+        return upright
+    steps = len(labels) - (1 if spec.kind == "line" else 0)
+    return _x_axis_at(spec, _PLOT_WIDTH + math.ceil(steps * (_AXIS_GAP - upright.step)), 90)
+
+
+def _x_label(root: ET.Element, axis: _XAxis, index: int, label: str) -> None:
+    if not axis.turn:
+        y = str(_PLOT_HEIGHT - 8)
+        _el(root, "text", label, x=_n(axis.x(index)), y=y, text_anchor="middle", class_="ax")
+        return
+    x, y = _n(axis.x(index) - 3), str(_AXIS_TURNED_Y)
+    turned = f"rotate({axis.turn} {x} {y})"
+    _el(root, "text", label, x=x, y=y, text_anchor="start", class_="ax", transform=turned)
+
+
 def _lookup(spec: ChartSpec) -> dict[tuple[str, str], ChartMark]:
     return {(mark.series, mark.label): mark for mark in spec.marks}
 
@@ -260,37 +342,21 @@ def _na_slot(root: ET.Element, x: float, y: float) -> None:
 
 
 def _line(spec: ChartSpec, root: ET.Element) -> None:
-    width, height = 320, 160
-    left, right, top, bottom = 40.0, 48.0, 14.0, 26.0
+    axis = _x_axis(spec)  # end points stay `_EDGE` clear of the axis labels
+    width, height, x_of = axis.width, _PLOT_HEIGHT, axis.x
+    left, right, top, bottom = 40.0, axis.right, 14.0, 26.0
     categories = _categories(spec)
     points = _lookup(spec)
     values = [float(m.value) for m in spec.marks if m.value is not None]
     low, high = _bounds(values, 1.15)
     ticks = _ticks(low, high, 3)
-    span = width - left - right
-
-    def x_of(i: int) -> float:
-        inner = span - 2 * _EDGE  # keep end points clear of the axis labels
-        return (
-            left
-            + _EDGE
-            + (inner / 2 if len(categories) == 1 else i * inner / (len(categories) - 1))
-        )
 
     def y_of(v: float) -> float:
         return top + (height - top - bottom) * (1 - (v - low) / (high - low))
 
     _axis_y(root, spec, ticks, y_of, left, width - right)
     for i, category in enumerate(categories):
-        _el(
-            root,
-            "text",
-            category,
-            x=_n(x_of(i)),
-            y=str(height - 8),
-            text_anchor="middle",
-            class_="ax",
-        )
+        _x_label(root, axis, i, category)
     for series in spec.series:
         cls = _series_class(spec, series)
         path, pen, last = "", False, None
@@ -329,8 +395,9 @@ def _line(spec: ChartSpec, root: ET.Element) -> None:
 
 
 def _columns(spec: ChartSpec, root: ET.Element, chart_id: str, *, stacked: bool) -> None:
-    width, height = 320, 160
-    left, right, top, bottom = 40.0, 8.0, 18.0, 26.0
+    axis = _x_axis(spec)
+    width, height = axis.width, _PLOT_HEIGHT
+    left, right, top, bottom = 40.0, axis.right, 18.0, 26.0
     categories = _categories(spec)
     points = _lookup(spec)
 
@@ -346,7 +413,7 @@ def _columns(spec: ChartSpec, root: ET.Element, chart_id: str, *, stacked: bool)
         values = values + [positive_total(c) for c in categories]
     low, high = _bounds(values)
     ticks = _ticks(low, high, 3)
-    group_width = (width - left - right) / len(categories)
+    group_width = axis.step
 
     def y_of(v: float) -> float:
         return top + (height - top - bottom) * (1 - (v - low) / (high - low))
@@ -355,16 +422,8 @@ def _columns(spec: ChartSpec, root: ET.Element, chart_id: str, *, stacked: bool)
     count = len(spec.series)
     bar_width = min(group_width * 0.56, 44.0) if stacked else min(group_width / (count + 1), 28.0)
     for ci, category in enumerate(categories):
-        centre = left + group_width * (ci + 0.5)
-        _el(
-            root,
-            "text",
-            category,
-            x=_n(centre),
-            y=str(height - 8),
-            text_anchor="middle",
-            class_="ax",
-        )
+        centre = axis.x(ci)
+        _x_label(root, axis, ci, category)
         up = down = 0.0
         for si, series in enumerate(spec.series):
             mark = at(series, category)
@@ -392,10 +451,9 @@ def _columns(spec: ChartSpec, root: ET.Element, chart_id: str, *, stacked: bool)
                 group: ET.Element,
                 m: ChartMark = mark,
                 c: int = cls,
-                x0: float = x,
-                t: float = top_y,
-                b: float = bottom_y,
+                box: tuple[float, float, float] = (x, top_y, bottom_y),
             ) -> None:
+                x0, t, b = box
                 _el(
                     group,
                     "rect",

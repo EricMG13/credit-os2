@@ -325,6 +325,9 @@ def test_no_check_reader_or_library_names_a_cut_or_routing_register():
     # CP-3's method-script check names T3B.2, T3B.4 and T3B.6 only in its docstring, to say why it
     # does not read them (ruling 2026-11-15-method-script-checks.md); it reads its own table.
     allowed |= {("method_scripts_cp3.py", i) for i in ("T3B.2", "T3B.4", "T3B.6")}
+    # `cp2_scorecard_block` names T2.7 only to tell CP-2 that its new T2.13 credit scorecard is not
+    # the cut Financial Profile Scorecard, which stays unwritten (owner ruling R9, 2026-11-25).
+    allowed.add(("cpos_launch_prompts.py", "T2.7"))
     hits = []
     for ident in ids:
         pattern = re.compile(rf"(?<![A-Za-z0-9_.]){re.escape(ident)}(?![A-Za-z0-9_]|\.[0-9A-Za-z])")

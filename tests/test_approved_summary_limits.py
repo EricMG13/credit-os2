@@ -30,7 +30,7 @@ LIMIT = {
 
 def issue(monkeypatch, root, sid, answers, items):
     digest = submissions.bound(submissions.digest(layout(root), sid, answers), "none")
-    result = {"error": "", "digest": digest, "prior_choice": "none", "cap": "25", "items": items}
+    result = {"error": "", "digest": digest, "prior_choice": "none", "cap": "30", "items": items}
     monkeypatch.setattr(submissions, "_summarise", lambda *_: deepcopy(result))
     return submissions.summary(layout(root), sid, answers)
 

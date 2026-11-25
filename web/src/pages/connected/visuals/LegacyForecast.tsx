@@ -11,7 +11,10 @@ import { amount, items, record, stringsIn, ticks, word } from "./visualData";
 import type { ForecastSource } from "../report/ForecastRecord";
 import {
   analyzeScenarioPeriods,
-  isDatedForecastPeriod,
+  historyNotes,
+  historyOf,
+  isForecastPeriod,
+  periodsInOrder,
   scenarioComparisonNotice,
   scenarioGroupLabels,
   type ScenarioPeriodObservation,
@@ -242,7 +245,7 @@ function ForecastTrends({
 }) {
   const note = unitLabel(units) || undefined;
   const forecastColumns = grid.columns.flatMap((column, index) =>
-    isDatedForecastPeriod(column.label)
+    isForecastPeriod(column.label)
       ? [
           {
             ...column,
@@ -274,13 +277,13 @@ function ForecastTrends({
   if (comparing && analysis.noSharedPeriod) return status;
   const periods = comparing
     ? analysis.periods.map(({ period }) => period)
-    : [
+    : periodsInOrder([
         ...new Set(
           analysis.uniqueObservations
             .filter(({ group }) => groups.includes(group))
             .map(({ period }) => period),
         ),
-      ].sort();
+      ]);
   if (periods.length < 2 || groups.length === 0 || groups.length > 6) return null;
   return (
     <div className="grid gap-8">
@@ -298,12 +301,30 @@ function ForecastTrends({
           });
           return { name: nameOf(group), cells };
         });
+        const forecast = perCase.flatMap(({ cells }) => cells.map(exactValue));
+        if (forecast.filter((value) => value !== null).length < 2) return null;
+        // The row's reported and pro forma figures lead every case's line: the same in each.
+        // A figure under a label the rule cannot place is given too: the chart draws it last.
+        const { history, unplaced, gaps } = historyOf(
+          grid.columns.map((column, at) => {
+            const cell = row.cells[at];
+            return {
+              period: column.label,
+              display: word(cell?.display),
+              value: exactValue(cell),
+              reason: word(cell?.reason),
+              cell,
+            };
+          }),
+        );
         const series = perCase.map(({ name, cells }) => ({
           name,
-          values: cells.map((cell) => (cell?.status === "value" ? amount(word(cell.exact)) : null)),
+          values: [
+            ...history.map(({ value }) => value),
+            ...cells.map(exactValue),
+            ...unplaced.map(({ value }) => value),
+          ],
         }));
-        const values = series.flatMap((entry) => entry.values);
-        if (values.filter((value) => value !== null).length < 2) return null;
         return (
           <TrendChart
             title={label}
@@ -314,19 +335,43 @@ function ForecastTrends({
               periods,
             })}
             key={label}
-            periods={periods}
+            periods={[
+              ...history.map(({ period }) => period),
+              ...periods,
+              ...unplaced.map(({ period }) => period),
+            ]}
             series={series}
-            yTicks={forecastTicks(values)}
-            note={note}
+            yTicks={forecastTicks(series.flatMap((entry) => entry.values))}
+            note={historyCaption(note, history.length, groups.length, historyNotes(gaps))}
             table={perCase.map(({ name, cells }) => ({
               name,
-              cells: cells.map((cell) => (cell ? displayForecastCell(cell) : NOT_PUBLISHED)),
+              cells: [
+                ...history.map(({ cell }) => (cell ? displayForecastCell(cell) : null)),
+                ...cells.map((cell) => (cell ? displayForecastCell(cell) : NOT_PUBLISHED)),
+                ...unplaced.map(({ cell }) => (cell ? displayForecastCell(cell) : null)),
+              ],
             }))}
           />
         );
       })}
     </div>
   );
+}
+
+const exactValue = (cell: Record<string, unknown> | undefined) =>
+  cell?.status === "value" ? amount(word(cell.exact)) : null;
+
+/** A forecast line chart's caption: its units, what the periods before the forecast are, and what
+ * the row publishes there that is not drawn. */
+function historyCaption(units: string | undefined, drawn: number, cases: number, gaps: string[]) {
+  const before =
+    drawn === 0
+      ? []
+      : [
+          `Periods before the forecast are reported or pro forma figures${cases > 1 ? ", the same in every case" : ""}.`,
+        ];
+  const parts = [...(units ? [units] : []), ...before, ...gaps];
+  return parts.length ? parts.join(" · ") : undefined;
 }
 
 const CASH_PROXY = "Cash proxy (not issuer free cash flow)";
@@ -349,7 +394,7 @@ function cashProxyObservations(grid: Grid, other: Grid | null) {
     if (row)
       source.columns.forEach((column, index) => {
         const cell = row.cells[index];
-        if (isDatedForecastPeriod(column.label)) {
+        if (isForecastPeriod(column.label)) {
           observations.push({
             period: column.label,
             group: column.group,
@@ -390,10 +435,7 @@ function cashProxyCaseRows(observations: CashProxyObservation[], names: CaseName
       const name = names.get(group) ?? group;
       const placeholder = entries.find(({ placeholder: isPlaceholder }) => isPlaceholder);
       const dated = entries.filter(({ placeholder: isPlaceholder }) => !isPlaceholder);
-      const latestPeriod = dated
-        .map(({ period }) => period)
-        .sort()
-        .at(-1);
+      const latestPeriod = periodsInOrder(dated.map(({ period }) => period)).at(-1);
       const latest = latestPeriod ? dated.filter(({ period }) => period === latestPeriod) : [];
       const duplicate = latest.length > 1;
       // A placeholder column is not a period: such a case records no period or dates.
@@ -431,13 +473,13 @@ export function cashProxyCases(grid: Grid, other: Grid | null, names: CaseNames)
   );
   const singleGroup = groups.length === 1 ? groups[0] : undefined;
   const periods = singleGroup
-    ? [
+    ? periodsInOrder([
         ...new Set(
           analysis.uniqueObservations
             .filter(({ group }) => group === singleGroup)
             .map(({ period }) => period),
         ),
-      ].sort()
+      ])
     : analysis.periods.map(({ period }) => period);
   const validGroups = groups.length <= COMPARED_CASES;
   const series = validGroups

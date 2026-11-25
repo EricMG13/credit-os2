@@ -16,21 +16,22 @@ import { written } from "./periodsData";
 
 /**
  * The ladders drawn: `current` (with `prior` beneath it when exactly two periods are compared) and
- * `others`, each further stated period drawn as a ladder of its own, latest first.
+ * `others`, each further stated period drawn as a ladder of its own, in the one period order.
  */
 export type LadderPeriods = { current: string; prior: string | null; others: string[] };
 
 /**
- * One period: bars only. Two compared periods: the later as bars, the earlier beneath. Any other
- * set: every stated period is drawn, the latest first, each as its own ladder.
+ * One period: bars only. Two compared periods (two reported periods a year apart, kit
+ * `comparisonOf`): the later as bars, the earlier beneath. Any other set: every stated period is
+ * drawn as its own ladder, in the one period order (fiscal years oldest first, then year to date,
+ * last twelve months, pro forma, forecasts).
  */
 export function ladderPeriods(data: CashLadder): LadderPeriods | null {
-  const labels = data.periods.map((period) => period.label);
-  const current = data.comparison?.to ?? labels.at(-1);
-  if (current === undefined) return null;
-  const prior = labels.length === 2 && data.comparison ? data.comparison.from : null;
-  const others = labels.filter((label) => label !== current && label !== prior).reverse();
-  return { current, prior, others };
+  const [first, ...rest] = data.periods.map((period) => period.label);
+  if (first === undefined) return null;
+  if (rest.length === 1 && data.comparison)
+    return { current: data.comparison.to, prior: data.comparison.from, others: [] };
+  return { current: first, prior: null, others: rest };
 }
 
 /** One ladder's periods: a period on its own, nothing beneath it. */

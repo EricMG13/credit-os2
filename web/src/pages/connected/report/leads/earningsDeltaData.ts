@@ -1,3 +1,4 @@
+import { orderPeriods } from "@/utils/periodOrder";
 import { tone } from "../../signal";
 import { readerText, unitLabel, type OutputEntry, type Table } from "../../publishedReport";
 import { difference, group, readCell, sum } from "./kit/numbers";
@@ -465,7 +466,8 @@ function statement(entry: OutputEntry): Statement {
   if (found.length > 1) return { kind: "gap", reason: TWICE_EARNINGS };
   const { table } = only;
   const { annual, other } = periodsOf(table);
-  const ordered = [...annual].sort((a, b) => a.year - b.year);
+  // Annual headers only (`FY2024`, `CY2023`, `2024`): never a pro forma or forecast column.
+  const { ordered } = orderPeriods(annual, (column) => column.label);
   const current = ordered.at(-1);
   const prior = ordered.at(-2);
   if (!current || !prior) return { kind: "gap", reason: FEW_PERIODS, line: table.line };

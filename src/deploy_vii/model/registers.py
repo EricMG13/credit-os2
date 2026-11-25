@@ -16,7 +16,7 @@ from deploy_vii.model.dates import fiscal_year_number as fiscal_year_number
 from deploy_vii.model.dates import iso_date as iso_date
 from deploy_vii.model.frame import Cell, SourceRef
 
-PERIOD_TYPES = frozenset({"QUARTER", "YTD", "FY", "LTM", "PERIOD_END"})
+PERIOD_TYPES = frozenset({"QUARTER", "YTD", "FY", "LTM", "PF", "PERIOD_END"})
 PERIOD_UNITS = frozenset({"UNITS", "THOUSANDS", "MILLIONS"})
 CALCULATION_STATUSES = frozenset(
     {
@@ -69,7 +69,7 @@ class PeriodRow:
     period_id: str
     fiscal_year: str
     fiscal_quarter: str | None
-    period_type: str  # QUARTER|YTD|FY|LTM|PERIOD_END
+    period_type: str  # QUARTER|YTD|FY|LTM|PF|PERIOD_END
     start_date: str | None
     end_date: str | None
     day_count: int | None

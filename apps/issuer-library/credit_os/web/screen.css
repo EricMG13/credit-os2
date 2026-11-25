@@ -510,7 +510,7 @@ details.audit>summary span{font:400 var(--fs-compact)/1 'Red Hat Text',sans-seri
 .scatter-dot{fill:var(--blue)}
 .column-chart .recovery-group{display:flex;flex-direction:column;align-items:stretch;gap:8px;min-width:0;padding:0 4px 10px;text-align:center}
 .recovery-group .chart-label small{display:block;font:var(--fs-label) 'Red Hat Mono',monospace;color:var(--muted);overflow-wrap:anywhere}
-.recovery-group a.col{color:inherit;text-decoration:none}.recovery-group a.col:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.recovery-group a.col,.column-chart .chart-row a.col{color:inherit;text-decoration:none}.recovery-group a.col:focus-visible,.column-chart .chart-row a.col:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 /* Calendar lanes (package 5): existing tokens only; the span is a ruled band, the day a filled point. */
 .event-lanes{--lane-name:170px}
 .event-lanes .lane-row,.lane-axis,.lane-overlay{display:grid;grid-template-columns:var(--lane-name) minmax(0,1fr);gap:12px}

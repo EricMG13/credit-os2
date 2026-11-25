@@ -11,9 +11,9 @@ beforeEach(() => {
 });
 
 const caps = {
-  credit_snapshot: "25",
-  lite_credit_assessment: "15",
-  deep_credit_assessment: "40",
+  credit_snapshot: "30",
+  lite_credit_assessment: "20",
+  deep_credit_assessment: "50",
   earnings_update: "20",
   relative_value: "20",
   covenant_refinancing: "20",
@@ -30,7 +30,7 @@ const summary: Summary = {
   ignored: [],
   error: "",
   digest: "approved",
-  cap: "25",
+  cap: "30",
   modules: ["CP-0"],
   items: [],
   omitted: [],
@@ -440,9 +440,9 @@ describe("final audit: connected intake", () => {
     await filledDocuments();
     await purpose();
     for (const [title, cap] of [
-      ["Lite credit assessment", "15.00"],
-      ["Full credit assessment", "25.00"],
-      ["Deep credit assessment", "40.00"],
+      ["Lite credit assessment", "20.00"],
+      ["Full credit assessment", "30.00"],
+      ["Deep credit assessment", "50.00"],
     ] as const) {
       const choice = screen.getByRole("radio", { name: title });
       expect(

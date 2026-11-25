@@ -37,6 +37,11 @@ describe("pathway cards", () => {
     expect(PATHWAY_QUESTIONS.lite_credit_assessment).toBe(
       "Is the credit sound, and how far is its first break?",
     );
+    // Owner, 2026-11-25: earnings and peers are in every assessment, so Deep names what it adds.
+    expect(PATHWAY_QUESTIONS.deep_credit_assessment).toBe(
+      "Beyond the full assessment: how do rating triggers, market prices against fundamentals and recovery by class change the view?",
+    );
+    expect(Object.values(PATHWAY_QUESTIONS).join(" ")).not.toMatch(/CP-/);
   });
 
   it("shows the module count chip and the cap in mono, or Cap unavailable", () => {

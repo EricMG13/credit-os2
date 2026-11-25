@@ -503,6 +503,9 @@ class Pathway(Contract):
 # block ids follow each Front Page's outline (``rbot-fp-0N-*.dc.html``), "The call" excluded
 # because the call band is ``ReportView.call``. Ids that existing bindings name
 # (``financials-credit-metrics``, ``capital-structure``) keep those spellings.
+# Ruling 2026-11-25-layer-1-in-all-assessment-pathways: Lite and Full hold one lead section for each
+# layer 1 module they gained (CP-1B ``headline-results``, CP-1D ``earnings-quality``, CP-1C
+# ``peer-positioning``), owned and placed as in Deep.
 _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
     (
         "lite_credit_assessment",
@@ -513,6 +516,9 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
             "company-operating-model",
             "model-chart-strip",
             "financials-credit-metrics",
+            "headline-results",
+            "earnings-quality",
+            "peer-positioning",
             "strengths-weaknesses",
             "company-profile",
             "transaction-summary",
@@ -530,6 +536,9 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
             "model-chart-strip",
             "capital-structure",
             "financials-credit-metrics",
+            "headline-results",
+            "earnings-quality",
+            "peer-positioning",
             "strengths-weaknesses",
             "relative-value",
             "company-profile",
@@ -539,9 +548,9 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
             "what-changed",
         ),
     ),
-    # Ruling 2026-11-15-pathway-tiers-and-caps: the full assessment's twelve sections, the lite
-    # one's two downside sections and one lead section for each module Full does not run or show
-    # (CP-1B, CP-1D, CP-1C, CP-2D, CP-2G, CP-2H, CP-4, CP-4C, CP-3C, CP-3D), each owned as in its
+    # Ruling 2026-11-15-pathway-tiers-and-caps: the full assessment's sections (fifteen since
+    # 2026-11-25), the lite one's two downside sections and one lead section for each module Full
+    # does not run or show (CP-2D, CP-2G, CP-2H, CP-4, CP-4C, CP-3C, CP-3D), each owned as in its
     # purpose pathway. CP-DR and CP-2E keep no section, as in Full.
     (
         "deep_credit_assessment",
@@ -1998,6 +2007,112 @@ def _cp1_supplied(module: ModuleView) -> tuple[Any, ...]:
     return supplied
 
 
+type _Cp1Current = Callable[[str], tuple[Fact, tuple[str, ...]]]
+
+
+def _cp1_captions(spec: Any) -> dict[str, str]:
+    """The reader's caption of each raw series; S.4's series are already facility names."""
+    expected_kind, expected_class, expected_unit, _ = _CP1_FORMS[spec.fig_id]
+    if (
+        spec.kind != expected_kind
+        or spec.unit_class != expected_class
+        or spec.unit not in expected_unit
+        or len(set(spec.series)) != len(spec.series)
+        or (not spec.points and not spec.reason)
+    ):
+        raise ValueError("CP1 chart metadata is inconsistent")
+    captions = {
+        name: _CP1_CHART_LABELS.get(name, name) if spec.fig_id != "S.4" else name
+        for name in spec.series
+    }
+    if len(set(captions.values())) != len(captions):
+        raise ValueError("CP1 chart series captions must be distinct")
+    return captions
+
+
+def _cp1_marks(
+    spec: Any, captions: Mapping[str, str], current: _Cp1Current
+) -> tuple[list[ChartMark], list[Row]]:
+    """A mark and a table-twin row per supplied point, in the producer's order."""
+    marks, rows = [], []
+    for index, point in enumerate(spec.points):
+        if point.series not in captions:
+            raise ValueError("CP1 chart point names an undeclared raw series")
+        fact, fact_refs = current(point.fact_id)
+        cell = _chart_fact_cell(fact, spec.unit_class, fact_refs)
+        caption = captions[point.series]
+        labels = [f"{caption} · {point.category}"]
+        for companion_id in point.companion_fact_ids:
+            companion, companion_refs = current(companion_id)
+            companion_cell = _cell(companion, companion_refs)
+            companion_ref = companion_cell.gap_ref or companion_cell.ref_id
+            label = f"{companion.label}: {companion_cell.text}"
+            labels.append(label + (f" [{companion_ref}]" if companion_ref else ""))
+        marks.append(_chart_mark(fact, cell, series=caption, label=point.category))
+        rows.append(
+            Row(row_id=f"{spec.fig_id}.point.{index}", label=" · ".join(labels), cells=(cell,))
+        )
+    return marks, rows
+
+
+def _cp1_gaps_note(spec: Any, captions: Mapping[str, str]) -> str | None:
+    """The sentence for the periods a series has no fact at: "No reported value: Net leverage
+    (reported) at FY2023 and LTM 2025-06-30." Series in legend order, periods as labelled."""
+    periods: dict[str, list[str]] = {}
+    for gap in spec.gaps:
+        if gap.series not in captions:
+            raise ValueError("CP1 chart gap names an undeclared raw series")
+        periods.setdefault(captions[gap.series], []).append(gap.category)
+    stated = [
+        f"{caption} at {' and '.join(dict.fromkeys(periods[caption]))}"
+        for caption in captions.values()
+        if caption in periods
+    ]
+    return f"No reported value: {'; '.join(stated)}." if stated else None
+
+
+def _cp1_figure(
+    block_id: str, spec: Any, current: _Cp1Current, limitations: Mapping[str, str | None]
+) -> Figure:
+    """One supplied figure: its marks and its table twin, whose note states the gaps (the shell
+    draws a plotted chart's twin note under it). A ``reason`` figure carries no numeric point."""
+    captions = _cp1_captions(spec)
+    marks, rows = _cp1_marks(spec, captions, current)
+    plottable = any(mark.value is not None for mark in marks)
+    if plottable and spec.reason:
+        raise ValueError("CP1 unavailable chart metadata carries numeric points")
+    reason = spec.reason
+    if marks and not plottable:
+        stated = (reason, *(limitations[point.fact_id] for point in spec.points))
+        reason = "; ".join(dict.fromkeys(text for text in stated if text))
+    gaps = _cp1_gaps_note(spec, captions)
+    twin = Block(
+        block_id=f"{block_id}-{spec.fig_id.replace('.', '').lower()}-twin",
+        title=f"{spec.title} table",
+        owner="MODEL",
+        state="populated" if rows else "absent",
+        kind="dense",
+        scale=spec.unit,
+        columns=("Value",),
+        rows=tuple(rows),
+        note=" ".join(text for text in (reason, gaps) if text) or None,
+    )
+    return Figure(
+        fig_id=spec.fig_id,
+        title=spec.title,
+        placement=_CP1_FORMS[spec.fig_id][3],
+        chart=ChartSpec(
+            kind=spec.kind,
+            series=tuple(captions.values()),
+            table_twin=twin,
+            marks=tuple(marks),
+            unit=spec.unit,
+            unit_class=spec.unit_class,
+            reason=reason,
+        ),
+    )
+
+
 def _cp1_figures(
     block_id: str,
     module: ModuleView,
@@ -2007,85 +2122,18 @@ def _cp1_figures(
 ) -> tuple[Figure, ...]:
     """Render the supplied figures named in ``wanted`` against this CP1 and the report index."""
     facts = {fact.fact_id: fact for fact in module.facts}
+    limitations = {fact_id: fact.limitation for fact_id, fact in facts.items()}
 
     def current(fact_id: str) -> tuple[Fact, tuple[str, ...]]:
         if fact_id not in facts:
             raise ValueError("CP1 chart references an unknown selected fact")
         return facts[fact_id], refs.get((module.module_id, fact_id), ())
 
-    figures = []
-    for spec in supplied:
-        if spec.fig_id not in wanted:
-            continue
-        expected_kind, expected_class, expected_unit, placement = _CP1_FORMS[spec.fig_id]
-        if (
-            spec.kind != expected_kind
-            or spec.unit_class != expected_class
-            or spec.unit not in expected_unit
-            or len(set(spec.series)) != len(spec.series)
-            or (not spec.points and not spec.reason)
-        ):
-            raise ValueError("CP1 chart metadata is inconsistent")
-        captions = {
-            name: _CP1_CHART_LABELS.get(name, name) if spec.fig_id != "S.4" else name
-            for name in spec.series
-        }
-        if len(set(captions.values())) != len(captions):
-            raise ValueError("CP1 chart series captions must be distinct")
-        marks, rows = [], []
-        for index, point in enumerate(spec.points):
-            if point.series not in captions:
-                raise ValueError("CP1 chart point names an undeclared raw series")
-            fact, fact_refs = current(point.fact_id)
-            cell = _chart_fact_cell(fact, spec.unit_class, fact_refs)
-            caption = captions[point.series]
-            labels = [f"{caption} · {point.category}"]
-            for companion_id in point.companion_fact_ids:
-                companion, companion_refs = current(companion_id)
-                companion_cell = _cell(companion, companion_refs)
-                companion_ref = companion_cell.gap_ref or companion_cell.ref_id
-                label = f"{companion.label}: {companion_cell.text}"
-                labels.append(label + (f" [{companion_ref}]" if companion_ref else ""))
-            marks.append(_chart_mark(fact, cell, series=caption, label=point.category))
-            rows.append(
-                Row(row_id=f"{spec.fig_id}.point.{index}", label=" · ".join(labels), cells=(cell,))
-            )
-        plottable = any(mark.value is not None for mark in marks)
-        if plottable and spec.reason:
-            raise ValueError("CP1 unavailable chart metadata carries numeric points")
-        reason = spec.reason
-        if marks and not plottable:
-            limitations = [facts[point.fact_id].limitation for point in spec.points]
-            reasons = [text for text in (reason, *limitations) if text]
-            reason = "; ".join(dict.fromkeys(reasons))
-        twin = Block(
-            block_id=f"{block_id}-{spec.fig_id.replace('.', '').lower()}-twin",
-            title=f"{spec.title} table",
-            owner="MODEL",
-            state="populated" if rows else "absent",
-            kind="dense",
-            scale=spec.unit,
-            columns=("Value",),
-            rows=tuple(rows),
-            note=reason,
-        )
-        figures.append(
-            Figure(
-                fig_id=spec.fig_id,
-                title=spec.title,
-                placement=placement,
-                chart=ChartSpec(
-                    kind=spec.kind,
-                    series=tuple(captions.values()),
-                    table_twin=twin,
-                    marks=tuple(marks),
-                    unit=spec.unit,
-                    unit_class=spec.unit_class,
-                    reason=reason,
-                ),
-            )
-        )
-    return tuple(figures)
+    return tuple(
+        _cp1_figure(block_id, spec, current, limitations)
+        for spec in supplied
+        if spec.fig_id in wanted
+    )
 
 
 def _cp1_strip(
@@ -2812,6 +2860,16 @@ def _figure_of_points(
     )
 
 
+def _figure_with_note(figure: Figure, note: str | None) -> Figure:
+    """The figure with `note` on its table twin: the shell draws a plotted chart's twin note under
+    the chart, which is where a figure states what a reader must know about what is drawn. A
+    figure's `summary` is drawn only for a figure set beside a table."""
+    if not note:
+        return figure
+    twin = figure.chart.table_twin.model_copy(update={"note": note})
+    return figure.model_copy(update={"chart": figure.chart.model_copy(update={"table_twin": twin})})
+
+
 # RV.3: two panels, one unit class each (a ChartSpec has one). (fig_id, unit class, unit, metrics)
 _RV3_PANELS: tuple[tuple[str, UnitClass, str, tuple[str, ...]], ...] = (
     ("RV.3a", "percent", "%", ("adjusted_ebitda_margin", "ffo_to_debt")),
@@ -3001,10 +3059,15 @@ def _cr1_figures(
 
 # -- group b (RV.3, CR.1) --
 # Deep shows the same blocks, owned by the same modules (ruling 2026-11-15-pathway-tiers-and-caps).
+# Lite and Full show ``peer-positioning`` too (ruling
+# 2026-11-25-layer-1-in-all-assessment-pathways); RV.3 reads CP-1C's own facts only, and draws
+# nothing when no peer is included.
 register_figure_producer(
     "peer-positioning",
     _rv3_figures,
-    pathways=frozenset({"relative_value", "deep_credit_assessment"}),
+    pathways=frozenset(
+        {"relative_value", "lite_credit_assessment", "credit_snapshot", "deep_credit_assessment"}
+    ),
 )
 register_figure_producer(
     "covenant-tests-headroom",

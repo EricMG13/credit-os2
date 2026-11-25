@@ -22,7 +22,7 @@ const answers: Answers = {
 const summary: Summary = {
   error: "",
   digest: "approved",
-  cap: "25",
+  cap: "30",
   documents: [{ source: "filing.txt", kind: "annual_report" }],
   ignored: [],
   modules: ["CP-0", "CP-DR", "CP-4"],
@@ -41,7 +41,7 @@ const summary: Summary = {
   effort: "balanced",
 };
 
-const review: Review = { id: "sub-1", answers, summary, cap: "25", attachmentNames: {} };
+const review: Review = { id: "sub-1", answers, summary, cap: "30", attachmentNames: {} };
 
 function show({
   synthetic = false,
@@ -65,10 +65,10 @@ function show({
       checksComplete={accepted.size > 0}
       error=""
       submitUncertain={false}
-      capText="USD 25.00"
+      capText="USD 30.00"
       capAvailable
       synthetic={synthetic}
-      ready="2 of 4 ready · Cap USD 25.00"
+      ready="2 of 4 ready · Cap USD 30.00"
       onAccept={vi.fn()}
       onApprove={onApprove}
       onEdit={vi.fn()}
@@ -114,22 +114,22 @@ describe("Review and start", () => {
     show();
     const decision = screen.getByRole("region", { name: "Review and start" });
     const cost = within(decision).getByRole("region", { name: "What it will cost" });
-    const figure = within(cost).getByText("USD 25.00", { selector: "span" });
+    const figure = within(cost).getByText("USD 30.00", { selector: "span" });
     expect(figure).toHaveClass("font-mono", "tabular-nums", "text-metric");
-    expect(cost).toHaveTextContent("Spending capUSD 25.00Cap · Full credit assessment");
+    expect(cost).toHaveTextContent("Spending capUSD 30.00Cap · Full credit assessment");
     const leaves = within(decision).getByRole("heading", { name: "What leaves the building" });
     const search = within(decision).getByText(/The research module will search the web\./);
     const consent = within(decision).getByRole("checkbox", {
       name: "Approve: I have read this summary and want this run started",
     });
-    const submit = within(decision).getByRole("button", { name: "Submit, spend up to USD 25.00" });
+    const submit = within(decision).getByRole("button", { name: "Submit, spend up to USD 30.00" });
     expect(before(figure, leaves)).toBe(true);
     expect(before(leaves, search)).toBe(true);
     expect(before(search, consent)).toBe(true);
     expect(before(consent, submit)).toBe(true);
     expect(submit).toHaveAttribute("aria-describedby", "run-submit-cost");
     expect(document.getElementById("run-submit-cost")).toHaveTextContent(
-      "Once confirmed, this run can spend up to USD 25.00.",
+      "Once confirmed, this run can spend up to USD 30.00.",
     );
   });
 
@@ -155,15 +155,15 @@ describe("Review and start", () => {
     const consent = screen.getByRole("checkbox", { name: /^Approve:/ });
     expect(consent).toBeDisabled();
     expect(screen.getByText("1 decision left before you can approve.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Submit, spend up to USD 25.00" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit, spend up to USD 30.00" })).toBeDisabled();
     cleanup();
     const onApprove = show({ accepted: new Set(["CP-4:agreement"]) });
     fireEvent.click(screen.getByRole("checkbox", { name: /^Approve:/ }));
     expect(onApprove).toHaveBeenCalledWith(true);
-    expect(screen.getByRole("button", { name: "Submit, spend up to USD 25.00" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Submit, spend up to USD 30.00" })).toBeDisabled();
     cleanup();
     show({ accepted: new Set(["CP-4:agreement"]), approved: true });
-    expect(screen.getByRole("button", { name: "Submit, spend up to USD 25.00" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Submit, spend up to USD 30.00" })).toBeEnabled();
   });
 
   it("says a synthetic test costs nothing and keeps its own Submit label", () => {
@@ -171,18 +171,18 @@ describe("Review and start", () => {
     const decision = screen.getByRole("region", { name: "Review and start" });
     const cost = within(decision).getByRole("region", { name: "What it will cost" });
     expect(within(cost).getByText("USD 0.00", { selector: "span" })).toHaveClass("font-mono");
-    expect(cost).toHaveTextContent("USD 0.00A paid run is capped at USD 25.00");
+    expect(cost).toHaveTextContent("USD 0.00A paid run is capped at USD 30.00");
     expect(within(decision).getByText("No-cost test", { selector: "span" })).toBeInTheDocument();
     expect(within(decision).getByRole("button", { name: "Submit run" })).toBeEnabled();
   });
 
   it("restates the issuer, pathway and cap in the confirmation, with Cancel focused", async () => {
     show({ accepted: new Set(["CP-4:agreement"]), approved: true });
-    fireEvent.click(screen.getByRole("button", { name: "Submit, spend up to USD 25.00" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit, spend up to USD 30.00" }));
     const dialog = await screen.findByRole("dialog", { name: "Start a paid run?" });
     expect(dialog).toHaveTextContent("IssuerNorthbridge");
     expect(dialog).toHaveTextContent("PathwayFull credit assessment");
-    expect(dialog).toHaveTextContent("CapUSD 25.00");
+    expect(dialog).toHaveTextContent("CapUSD 30.00");
     await waitFor(() => {
       expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
     });

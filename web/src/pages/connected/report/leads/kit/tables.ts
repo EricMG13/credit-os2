@@ -1,5 +1,8 @@
 import type { OutputEntry, Row, Table } from "../../../publishedReport";
-import { periodKey, yearApart, type Period } from "./changes";
+import { orderPeriods } from "@/utils/periodOrder";
+import { periodGapNote } from "@/components/chart/seriesData";
+import { latestReported as latestPlaced, periodPlace } from "../../../reportView";
+import { changePeriod, yearApart, type Period as ChangePeriod } from "./changes";
 
 /** Every table of the entry, in the order the handoff wrote them, with its section's heading. */
 export function allTables(entry: OutputEntry) {
@@ -63,119 +66,89 @@ export function rowStarting(
 /** A period label as the handoff writes it ("FY2024 / 2024-09-30" → "FY2024"). */
 export const periodLabel = (cell: string) => (cell.split(" / ")[0] ?? "").trim();
 
-export type { Period } from "./changes";
+/**
+ * A period as the change rule reads its label (`changePeriod`), with the whole `cell` where the
+ * handoff writes more than the label (a stated date, "FY2024 / 2024-09-30"): the period order
+ * reads the cell, so a period that states its date goes by that date.
+ */
+export type Period = ChangePeriod & { cell?: string };
 
-/** The period a cell names, or null when it names no year (`Thereafter`, `Current`). See `periodKey`. */
+/** The period a cell names, or null when it names no year (`Thereafter`, `Current`). See `changePeriod`. */
 export function periodOf(cell: string): Period | null {
-  return periodKey(periodLabel(cell));
+  const period = changePeriod(periodLabel(cell));
+  const written = cell.trim();
+  return period && (written === period.label ? period : { ...period, cell: written });
 }
 
-/** What a page says when a set of periods cannot be put in time order: it draws them as stated. */
-export const UNORDERED_SENTENCE =
-  "Periods are in the order stated; this page could not put them in time order.";
-
-const MONTH_DAY = /\d{4}-(\d{2})-(\d{2})/;
-
-/** A balance-sheet date written in the cell ("FY2024 / 2024-09-30", "2025-06-30") as month and day, else null. */
-const dateOf = (cell: string) => {
-  const found = MONTH_DAY.exec(cell);
-  return found ? { month: Number(found[1]), day: Number(found[2]) } : null;
-};
-
 /**
- * Where a period falls inside its year, on one of two scales that are never compared with each
- * other: the fiscal scale (a year ends at 12; a quarter at 3q; a half at 6h) and the calendar scale
- * (a month and day: an LTM end month, a stated date, CY at December). `null` when the label says
- * nothing about where in its year it falls (`YTD 2025`, `LTM 2024`).
+ * The period of a cell, read (`periodOf`) or, for a label that names no year, kept as written (its
+ * year unknown, `NaN`): such a period is still drawn, and the period order places it where it can
+ * (an undated `LTM` after the dated ones) or leaves it last.
  */
-type Place = { scale: "fiscal" | "calendar"; at: number } | null;
-
-function placeOf(period: Period, date: { month: number; day: number } | null): Place {
-  if (period.quarter !== undefined) return { scale: "fiscal", at: period.quarter * 3 };
-  if (period.half !== undefined) return { scale: "fiscal", at: period.half * 6 };
-  if (date) return { scale: "calendar", at: date.month * 100 + date.day };
-  if (period.end !== undefined) return { scale: "calendar", at: period.end * 100 };
-  if (period.form === "CY") return { scale: "calendar", at: 1231 };
-  return period.kind === "annual" ? { scale: "fiscal", at: 12 } : null;
-}
-
-type Placed<T> = { period: Period; place: Place; item: T };
-
-/**
- * The items in time order: by year, then inside one year by place on each scale, each scale's
- * members sorted among the positions they hold in the handoff's order (so a fiscal and a calendar
- * period of one year keep the handoff's order between them: `FY2024` beside `LTM Dec-2024`). Null
- * when a year holds a period whose place is unknown beside another period: no order can be told.
- */
-function inTime<T>(items: readonly Placed<T>[]): Placed<T>[] | null {
-  const years = [...new Set(items.map(({ period }) => period.year))].sort((a, b) => a - b);
-  const out: Placed<T>[] = [];
-  for (const year of years) {
-    const members = items.filter(({ period }) => period.year === year);
-    if (members.length > 1 && members.some(({ place }) => place === null)) return null;
-    const slots = [...members];
-    for (const scale of ["fiscal", "calendar"] as const) {
-      const at = members.flatMap((one, index) => (one.place?.scale === scale ? [index] : []));
-      const sorted = at
-        .map((index) => members[index] as Placed<T>)
-        .sort((a, b) => (a.place?.at ?? 0) - (b.place?.at ?? 0));
-      at.forEach((index, n) => {
-        slots[index] = sorted[n] as Placed<T>;
-      });
+export function statedPeriod(cell: string): Period {
+  const label = periodLabel(cell);
+  return (
+    periodOf(cell) ?? {
+      label,
+      kind: "other",
+      form: label.toUpperCase().replace(/[^A-Z0-9]/g, ""),
+      year: Number.NaN,
     }
-    out.push(...slots);
-  }
-  return out;
+  );
 }
 
-/** Periods a set cannot put in time order, as the handoff lists them (`period` null where no year is named). */
-export type Unordered<T> = {
-  unordered: true;
-  reason: typeof UNORDERED_SENTENCE;
-  stated: { label: string; period: Period | null; item: T }[];
-};
+/** What the one period order reads for a period: its cell where the handoff wrote a date, else its label. */
+const written = (period: Period) => period.cell ?? period.label;
 
 /**
- * Items in time order; a stated gap (`reason`) when one period is stated twice; or, when they
- * cannot be put in time order, `unordered` with the items in the handoff's order. An unordered
- * result also carries `reason` (`UNORDERED_SENTENCE`), so a reader that only knows the first two
- * shapes draws the gap.
+ * True for a reported period: an actual, a year to date or a last twelve months (`periodPlace`).
+ * A pro forma, a forecast and a label the period order cannot read are not.
+ */
+export const isReported = (label: string) => periodPlace(label)?.reported === true;
+
+/**
+ * The latest reported one of these items, as `latestReported` of reportView chooses it among the
+ * ones the period order can place: the last of the reported classes, never a pro forma or
+ * forecast one. Undefined where it chooses none (no reported period, two periods on one place).
+ */
+export function latestReported<T>(items: readonly T[], label: (item: T) => string) {
+  const place = (item: T) => periodPlace(label(item));
+  return latestPlaced(items.filter(place), place)?.latest;
+}
+
+/**
+ * What a figure says of the periods the period order could not place: they are drawn last, as the
+ * handoff lists them, and named here (the wording of `periodGapNote`). Nothing when all are placed.
+ */
+export function unplacedNotes(unplaced: readonly string[], stated: number): string[] {
+  const note = periodGapNote(unplaced, undefined, unplaced.length === stated);
+  return note ? [note] : [];
+}
+
+/**
+ * Items in the one period order (`orderPeriods`: fiscal years oldest first, then year to date,
+ * last twelve months, pro forma, forecasts), every one kept; `unplaced` names the periods that
+ * order cannot read, which come last in the handoff's order. Or a stated gap (`reason`) when one
+ * period is stated twice.
  */
 export type Ordered<T> =
-  { periods: { period: Period; item: T }[] } | { reason: string } | Unordered<T>;
+  { periods: { period: Period; item: T }[]; unplaced: string[] } | { reason: string };
 
-/** True for a set that could not be put in time order. */
-export const isUnordered = <T>(read: Ordered<T>): read is Unordered<T> => "unordered" in read;
+/** Two readings of one period: one form and one year (an unread label: the same letters). */
+const samePeriod = (a: Period, b: Period) => a.form === b.form && Object.is(a.year, b.year);
 
 /**
- * Items keyed by a period cell, in time order: by year, then by quarter, half, LTM end month or
- * stated date inside the year (see `inTime`); items of one year and one place keep the handoff's
- * order. A stated gap when one period (one form, one year) is stated twice. `unordered`, with the
- * items as listed, when a cell names no year or a year's order cannot be told.
+ * Items keyed by a period cell, in the one period order; see `Ordered`. A stated gap when one
+ * period (one form, one year) is stated twice.
  */
 export function orderByPeriod<T>(items: readonly { cell: string; item: T }[]): Ordered<T> {
-  const read = items.map(({ cell, item }) => ({ cell, period: periodOf(cell), item }));
-  const unordered = (): Unordered<T> => ({
-    unordered: true,
-    reason: UNORDERED_SENTENCE,
-    stated: read.map(({ cell, period, item }) => ({
-      label: period?.label ?? periodLabel(cell),
-      period,
-      item,
-    })),
-  });
-  const placed: Placed<T>[] = [];
-  for (const { cell, period, item } of read) {
-    if (!period) return unordered();
-    const twice = placed.find(
-      (other) => other.period.form === period.form && other.period.year === period.year,
-    );
-    if (twice) return { reason: `${period.label} appears more than once` };
-    placed.push({ period, place: placeOf(period, dateOf(cell)), item });
-  }
-  const ordered = inTime(placed);
-  if (!ordered) return unordered();
-  return { periods: ordered.map(({ period, item }) => ({ period, item })) };
+  const read = items.map(({ cell, item }) => ({ period: statedPeriod(cell), item }));
+  const twice = read.find(
+    ({ period }, at) => read.findIndex((other) => samePeriod(other.period, period)) !== at,
+  );
+  if (twice) return { reason: `${twice.period.label} appears more than once` };
+  const { ordered, gaps } = orderPeriods(read, ({ period }) => written(period));
+  return { periods: ordered, unplaced: gaps.map(({ period }) => period.label) };
 }
 
 /** The rows of a period-rows table (`Chart data: …`, `Net debt data`), ordered by period; see `orderByPeriod`. */
@@ -193,45 +166,33 @@ export function statementColumns(table: Table): Ordered<number> {
   return orderByPeriod(columns);
 }
 
-const placedPeriods = (periods: readonly Period[]) =>
-  periods.map((period) => ({ period, place: placeOf(period, null), item: period }));
-
 /**
- * Every period of these lists once (by label), in time order as `orderByPeriod` orders them;
- * periods of one year whose order cannot be told keep the order they first appear in. Periods of
- * different kinds are all kept, never collapsed.
+ * Every period of these lists once (by label; the reading that states a date is kept), in the one
+ * period order, with the labels that order cannot place last and named. Periods of different
+ * kinds are all kept, never collapsed.
  */
-export function unionPeriods(lists: readonly (readonly Period[])[]): Period[] {
+export function unionPeriods(lists: readonly (readonly Period[])[]) {
   const seen = new Map<string, Period>();
-  for (const period of lists.flat()) if (!seen.has(period.label)) seen.set(period.label, period);
-  const all = [...seen.values()];
-  const ordered = inTime(placedPeriods(all));
-  return ordered ? ordered.map(({ period }) => period) : all.sort((a, b) => a.year - b.year);
+  for (const period of lists.flat()) {
+    const known = seen.get(period.label);
+    if (!known || (known.cell === undefined && period.cell !== undefined))
+      seen.set(period.label, period);
+  }
+  const { ordered, gaps } = orderPeriods([...seen.values()], written);
+  return { periods: ordered, unplaced: gaps.map((period) => period.label) };
 }
 
 /**
- * The two periods a comparison is drawn between, earlier first: the latest two of one form, annual
- * periods first (`FY2023 → FY2024` beside an `LTM Dec-2024`), and only when they are exactly one
- * year apart (`yearApart`). Null with fewer than two of one form, for two periods more than a year
- * apart, and for a set that cannot be put in time order (an `Unordered` read, a period that names
- * no year, or a year whose order cannot be told): one period, or an unordered set, is drawn as
- * stated, never compared.
+ * The two periods a comparison is drawn between, earlier first: the latest two reported periods
+ * of one form (never a pro forma or a forecast: `isReported`), annual periods first (`FY2023 →
+ * FY2024` beside an `LTM Dec-2024`), and only when they are exactly one year apart (`yearApart`).
+ * Null with fewer than two of one form and for two periods more than a year apart: one period is
+ * drawn as stated, never compared.
  */
-export function comparisonOf(
-  given: readonly (Period | null)[] | Ordered<unknown>,
-): { from: string; to: string } | null {
-  let periods: readonly (Period | null)[];
-  if (Array.isArray(given)) periods = given as readonly (Period | null)[];
-  else {
-    const read = given as Ordered<unknown>;
-    if (!("periods" in read)) return null;
-    periods = read.periods.map(({ period }) => period);
-  }
-  const known = periods.filter((period): period is Period => period !== null);
-  if (known.length < periods.length || !inTime(placedPeriods(known))) return null;
-  const ordered = unionPeriods([known]);
-  const annual = ordered.filter((period) => period.kind === "annual");
-  const pool = annual.length > 0 ? annual : ordered;
+export function comparisonOf(periods: readonly Period[]): { from: string; to: string } | null {
+  const reported = unionPeriods([periods]).periods.filter((period) => isReported(period.label));
+  const annual = reported.filter((period) => period.kind === "annual");
+  const pool = annual.length > 0 ? annual : reported;
   const form = pool.at(-1)?.form;
   const same = pool.filter((period) => period.form === form);
   const [from, to] = same.slice(-2);

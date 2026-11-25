@@ -114,7 +114,7 @@ def _snapshot() -> dict[str, Any]:
         ),
         _output("CP-6", "a1", "4" * 64, state={"established": False}),
         _output("CP-5", "a1", "5" * 64, parseError="Malformed table at line 3"),
-        _output("CP-1B", "a1", "6" * 64),
+        _output("CP-2H", "a1", "6" * 64),  # a Deep module, outside Full's columns
         _output("CP-1", "b1", "7" * 64),
     ]
     handoffs = {
@@ -172,10 +172,11 @@ def test_nothing_published_is_none() -> None:
     assert coverage.coverage(None) is None
 
 
-def test_the_fixed_columns_are_the_full_assessments_fourteen_analytical_modules() -> None:
+def test_the_fixed_columns_are_the_full_assessments_seventeen_analytical_modules() -> None:
+    # Full's preset less the Model, as the 2026-11-25 ruling lists it (CP-1B, CP-1C, CP-1D added).
     assert [c["code"] for c in coverage.columns()] == [
-        "CP-0", "CP-1", "CP-1A", "CP-DR", "CP-2", "CP-2A", "CP-2D",
-        "CP-2E", "CP-2G", "CP-4", "CP-3C", "CP-3", "CP-5", "CP-6",
+        "CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A",
+        "CP-2D", "CP-2E", "CP-2G", "CP-4", "CP-3C", "CP-3", "CP-5", "CP-6",
     ]  # fmt: skip
     assert coverage.columns()[1] == {"code": "CP-1", "title": "Canonical data foundation"}
 
@@ -200,15 +201,18 @@ def test_cells_say_their_state_from_the_runs_own_plan_and_never_guess() -> None:
     assert alpha["cells"]["CP-5"] == {"state": "unreadable"}
     assert alpha["cells"]["CP-0"] == {"state": "no-handoff"}  # asked for, none published
     assert alpha["cells"]["CP-3"] == {"state": "not-in-pathway"}  # this run did not ask for it
+    # A Full run planned before 2026-11-25 did not ask for the three added layer 1 modules.
+    for added in ("CP-1B", "CP-1C", "CP-1D"):
+        assert alpha["cells"][added] == {"state": "not-in-pathway"}
     assert alpha["other"] == [
-        {"code": "CP-1B", "title": "Earnings delta", "state": "assessed", "gaps": 0}
+        {"code": "CP-2H", "title": "Ratings migration trigger", "state": "assessed", "gaps": 0}
     ]
     beta = page["issuers"][1]["runs"][0]
     assert beta["cells"]["CP-1"] == {"state": "assessed", "gaps": 0}
     # No recorded plan: nothing is said about what the run asked for.
     assert beta["cells"]["CP-0"] == {"state": "plan-unknown"}
     assert beta["cells"]["CP-2"] == {"state": "plan-unknown"}
-    assert len(alpha["cells"]) == len(beta["cells"]) == 14
+    assert len(alpha["cells"]) == len(beta["cells"]) == 17
 
 
 def test_figures_keep_their_text_period_unit_and_basis_and_missing_is_not_zero() -> None:

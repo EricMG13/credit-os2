@@ -72,7 +72,7 @@ def test_actual_synthetic_adapter_is_classified_at_the_settled_record_api(
     workflow = json.loads((directory / "workflow.json").read_bytes())
     assert workflow["execution"] == "live-provider"  # The prepared engine route, not its adapter.
     calls = [json.loads(line) for line in (directory / "live/calls.jsonl").read_text().splitlines()]
-    assert len(calls) == 14
+    assert len(calls) == 17  # Full: seventeen model calls (2026-11-25)
     assert {call["reported_model"] for call in calls} == {"synthetic"}
     assert {call["request_id"] for call in calls} == {"synthetic"}
     body = reply(layout, record.id).body
@@ -107,7 +107,7 @@ def test_actual_adapter_classification_reaches_the_connected_http_record(
             assert response.getheader("Cache-Control") == "no-store"
             assert body["execution"] == "synthetic"
             assert body["status"] == "finished"
-            assert len(body["module_outputs"]) == 14
+            assert len(body["module_outputs"]) == 17
         finally:
             connection.close()
             server.shutdown()

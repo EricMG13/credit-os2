@@ -1,5 +1,5 @@
 import type { OutputEntry } from "../../publishedReport";
-import { changeBetween, periodKey, yearApart } from "./kit/changes";
+import { changeBetween, changePeriod, yearApart } from "./kit/changes";
 import { group, readCell } from "./kit/numbers";
 import { reasonText, safeText } from "./kit/reader";
 import { allTables, periodLabel, tableWith } from "./kit/tables";
@@ -97,7 +97,7 @@ type Row = { fig: Figure; line: number };
 /** Two rows of one measure as prior and current, only when their periods are a year apart. */
 function pair(measure: string, a: Row, b: Row) {
   if (!apart(a.fig.period, b.fig.period)) return null;
-  const [first, second] = [periodKey(a.fig.period), periodKey(b.fig.period)];
+  const [first, second] = [changePeriod(a.fig.period), changePeriod(b.fig.period)];
   if (!first || !second) return null;
   const [prior, current] = first.year < second.year ? [a, b] : [b, a];
   const p = prior.fig.kind === "value" ? split(prior.fig.text) : null;

@@ -1,4 +1,4 @@
-import { UNORDERED_SENTENCE } from "../kit/tables";
+import { unplacedNotes } from "../kit/tables";
 import { FigureTile, GapTile } from "../kit/LeadFrame";
 import { GapSlot, Measured, NARROW, SIZE, textWidth, wrap } from "../kit/marks";
 import { safeText } from "../kit/reader";
@@ -20,7 +20,7 @@ const listOf = (labels: readonly string[]) =>
 /** The words under a period's mark. */
 function stateWords(period: StripPeriod): string {
   if (period.state.kind === "gap") return period.state.reasons.join(" ");
-  if (period.compared === "to") return "Latest, compared";
+  if (period.compared === "to") return period.latest ? "Latest, compared" : "Compared";
   if (period.compared === "from") return "Compared";
   switch (period.state.kind) {
     case "figures":
@@ -447,7 +447,7 @@ export function PeriodsTile({ lead }: { lead: LeadProps }) {
             ]
           : []
       }
-      notes={[...gaps, ...(strip.ordered ? [] : [UNORDERED_SENTENCE])]}
+      notes={[...gaps, ...unplacedNotes(strip.unplaced, strip.axis.length + strip.apart.length)]}
       table={strip.figures.length ? tableOf(strip) : undefined}
     >
       <Measured fallback={FALLBACK}>{(width) => <Strip strip={strip} width={width} />}</Measured>

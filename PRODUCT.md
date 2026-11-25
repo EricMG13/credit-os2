@@ -95,10 +95,13 @@ Until a bin-2 or bin-3 item lands, its visual shows the designed gap state.
 ## Operating context and constraints (unchanged)
 
 - An analyst uploads documents, picks a pathway, reviews a summary and submits. Submit on an
-  approved summary starts a paid run capped by pathway: Lite USD 15, Full 25, Deep 40, the five
-  purpose pathways 20 (`docs/rulings/2026-11-15-pathway-tiers-and-caps.md`,
+  approved summary starts a paid run capped by pathway: Lite USD 20, Full 30, Deep 50, the five
+  purpose pathways 20 (`docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md`,
   `docs/rulings/2026-11-11-run-start-submit.md`). A synthetic test mode spends nothing.
-- Excel is an input format only. No workbook is a deliverable.
+- Excel is an input format for analysis. Exactly one generated workbook is permitted: the Credit
+  Snapshot deliverable, with its Model sheet
+  (`docs/rulings/2026-11-25-deliverables-and-recommendations.md`). No other workbook is a
+  deliverable.
 - Source references, file names, hashes, ids, registers, gap ledgers and run codes are drawn only
   on Evidence and in the trace drawer. Every other page shows findings and one trace control per
   paragraph, row or figure.

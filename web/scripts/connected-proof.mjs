@@ -112,7 +112,7 @@ async function checkRunDocuments(page, channel, paidPreview) {
   await stepper.getByText(paidPreview ? "Paid run" : "No-cost test", { exact: true }).waitFor();
   await page
     .getByRole("complementary", { name: "Readiness", exact: true })
-    .getByText("USD 25.00", { exact: true })
+    .getByText("USD 30.00", { exact: true })
     .waitFor();
   if (!paidPreview)
     await page.screenshot({ path: path.join(artifacts, `${channel}-run-documents.png`) });
@@ -293,7 +293,7 @@ async function approveRunInputs(page, paidPreview) {
   await ratings.getByLabel("As-of", { exact: true }).fill("2025-02-28");
   await page.getByRole("button", { name: "Review run", exact: true }).click();
   const submitButton = page.getByRole("button", {
-    name: paidPreview ? "Submit, spend up to USD 25.00" : "Submit run",
+    name: paidPreview ? "Submit, spend up to USD 30.00" : "Submit run",
     exact: true,
   });
   await submitButton.waitFor();
@@ -311,8 +311,8 @@ async function checkRunConfirmation(page, channel, paidPreview, consent, submitB
   });
   await dialog.waitFor();
   if (paidPreview) {
-    await dialog.getByText(/spend up to USD 25\.00/u).waitFor();
-    await dialog.getByRole("button", { name: "Start run, up to USD 25.00" }).waitFor();
+    await dialog.getByText(/spend up to USD 30\.00/u).waitFor();
+    await dialog.getByRole("button", { name: "Start run, up to USD 30.00" }).waitFor();
     await page.screenshot({
       path: path.join(artifacts, `${channel}-paid-confirmation.png`),
       animations: "disabled",
@@ -355,7 +355,7 @@ async function submit(page, channel, paidPreview = false) {
   const dialog = await checkRunConfirmation(page, channel, paidPreview, consent, submitButton);
   assert.equal(submitRequests, 0);
   if (paidPreview) {
-    assert.deepEqual(shownCaps, ["25"]);
+    assert.deepEqual(shownCaps, ["30"]);
     return;
   }
 
@@ -366,7 +366,7 @@ async function submit(page, channel, paidPreview = false) {
   assert.equal((await submitted).status(), 200);
   await activity;
   assert.equal(submitRequests, 1);
-  assert.deepEqual(shownCaps, ["25", "25"]);
+  assert.deepEqual(shownCaps, ["30", "30"]);
   return new URL(page.url()).pathname.split("/").at(-1);
 }
 
@@ -400,10 +400,10 @@ async function checkActivity(page, channel) {
   await activity.getByText("USD 0.00", { exact: true }).waitFor();
   await activity
     .getByRole("progressbar", {
-      name: "USD 0.00 of USD 25.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown",
+      name: "USD 0.00 of USD 30.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown",
     })
     .waitFor();
-  await activity.getByRole("progressbar", { name: "14 of 14 modules" }).waitFor();
+  await activity.getByRole("progressbar", { name: "17 of 17 modules" }).waitFor();
   await activity.getByText(/^(?:\d+ min )?\d+ s$/u).waitFor();
   // S6-037: the card includes the separately delivered report.
   const modules = activity.getByRole("group", { name: "Modules and report delivery", exact: true });
@@ -472,7 +472,7 @@ async function checkRecord(report, page, channel) {
   await report.getByText(/^(?:\d+ min )?\d+ s$/u).waitFor();
   await report
     .getByRole("progressbar", {
-      name: "USD 0.00 of USD 25.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown",
+      name: "USD 0.00 of USD 30.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown",
     })
     .waitFor();
   await report.getByRole("combobox", { name: "Module", exact: true }).selectOption("CP-1");
@@ -1493,7 +1493,8 @@ async function checkPublishedRun({ context, page, report, endpoint, run, publica
   const { workspace: publishedWorkspace } = await publication.json();
   const published = Object.values(publishedWorkspace.runs).find((item) => item.folder === run);
   assert.ok(published);
-  assert.equal(Object.values(published.modules).filter((module) => module.default).length, 14);
+  assert.equal(Object.values(published.modules).filter((module) => module.default).length, 17);
+  for (const added of ["CP-1B", "CP-1C", "CP-1D"]) assert.ok(published.modules[added].default);
   assert.ok(published.modules["CP-2D"].default);
   assert.ok(published.modules["CP-3C"].default);
   const designated = publishedWorkspace.outputs[published.modules["CP-2"].default];

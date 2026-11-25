@@ -131,7 +131,10 @@ def test_a_lite_credit_assessment_summary_is_accepted(root):
     sid = upload(root)
     got = submissions.summary(layout(root), sid, answers)
     assert got["error"] == "", got["error"]
-    assert got["modules"] == ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A"]
+    # Owner, 2026-11-25: every layer 1 module (CP-1B, CP-1C, CP-1D added) and CP-DR.
+    assert got["modules"] == [
+        *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A"),
+    ]
 
 
 def test_submit_twice_and_from_two_threads_gives_one_run(root, fake_env):

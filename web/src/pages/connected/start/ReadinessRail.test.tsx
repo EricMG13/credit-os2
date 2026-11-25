@@ -15,7 +15,7 @@ const ROWS = [
 function rail(
   modules = moduleReadiness(["CP-0", "CP-1", "CP-MODEL", "CP-4", "CP-6"]),
   source: ReadinessSource = "unchecked",
-  cap: string | null = "USD 25.00",
+  cap: string | null = "USD 30.00",
 ) {
   render(
     <ReadinessRail
@@ -33,7 +33,7 @@ function rail(
 describe("the readiness rail", () => {
   it("states the cap as its largest figure, in mono, with no meter before anything is spent", () => {
     const aside = rail();
-    const figure = within(aside).getByText("USD 25.00", { exact: true });
+    const figure = within(aside).getByText("USD 30.00", { exact: true });
     expect(figure).toHaveClass("font-mono", "tabular-nums", "text-metric");
     expect(aside).toHaveTextContent("Cap · Full credit assessment");
     expect(within(aside).queryByRole("progressbar")).toBeNull();
@@ -132,7 +132,7 @@ describe("the readiness rail", () => {
     render(
       <ReadinessRail
         rows={ROWS}
-        cap="USD 25.00"
+        cap="USD 30.00"
         capTitle="Spending cap for this run"
         pathway="Full credit assessment"
         modules={moduleReadiness([], { modules: ["CP-0"], items: [] })}

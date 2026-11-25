@@ -145,8 +145,9 @@ function CoverStrip({ cover, width }: { cover: InterestCover; width: number }) {
 }
 
 /**
- * Interest cover: EBITDA / cash interest for every period the module states, in time order, on
- * one scale from zero (the earlier periods as rings, the latest as the dot, a line by period),
+ * Interest cover: EBITDA / cash interest for every period the module states, in the one period
+ * order, on one scale from zero (the latest reported period as the dot, the others as rings, a
+ * line by period),
  * each figure as written. The one change printed is the kit's rule (`changeBetween`: the latest
  * two periods of one kind exactly a year apart), its better/worse word from signal.ts only.
  */

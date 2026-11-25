@@ -56,6 +56,8 @@ from deploy_workflow.changes import (
 )
 from deploy_workflow.changes_check import cp8_issues
 from deploy_workflow.context import CONTEXT_SOURCE_ID, RunContext, load_context
+from deploy_workflow.cp2_scorecard import PLACEMENT as SCORECARD_PLACEMENT
+from deploy_workflow.cp2_scorecard import scorecard_faults
 from deploy_workflow.credit_os_chips import MODULE_NAMES
 from deploy_workflow.docx_text import docx_text
 from deploy_workflow.handoff_delivery import (
@@ -163,6 +165,7 @@ from deploy_workflow.owners.cpos_launch_prompts import (
     _and_list,
     _none_rule,
     _selector,
+    cp2_scorecard_block,
 )
 from deploy_workflow.owners.cpos_launch_review import _charge_notes, _print_review, _review_lines
 from deploy_workflow.owners.cpos_launch_tables import (
@@ -279,6 +282,7 @@ __all__ = [
     "_review_lines",
     "_selector",
     "chart_issues",
+    "cp2_scorecard_block",
 ]
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -738,6 +742,18 @@ def posture_issues(module: str, text: str) -> tuple[str, ...]:
     return ()
 
 
+def scorecard_issues(module: str, text: str) -> tuple[str, ...]:
+    """CP-2's credit scorecard (`cp2_scorecard_block`): one issue listing every fault of its
+    T2.13 and T2.14 registers, a missing register included, and how to head them. None for any
+    other module or a blocked CP-2."""
+    if module != "CP-2" or _blocked_at_gate(text):
+        return ()
+    faults = scorecard_faults(text)
+    if not faults:
+        return ()
+    return (f"Credit scorecard registers: {' '.join(faults)} {SCORECARD_PLACEMENT}",)
+
+
 def upstream_scope_note(ordered: Sequence[str]) -> str:
     """What CP-5 is told about the handoffs it audits: the registers each module of the run planned
     before it was told not to write. Empty when the run has no CP-5 or none of them has a scope
@@ -814,9 +830,10 @@ def _instructions(
 
 def pathway_modules(settings: RunContext) -> tuple[str, ...]:
     """A pathway's analytical modules: its preset less the modules that have their own route.
-    Owner, 2026-11-11: CP-DR and CP-2E are in every preset except ``short_snapshot`` and
-    ``lite_credit_assessment``, which have neither (CP-1C needs CP-DR's peers), so the
-    context's peer source no longer adds a module. Explicit --modules are run as given."""
+    Owner, 2026-11-11: CP-DR and CP-2E are in every preset except ``short_snapshot``, which has
+    neither, and ``lite_credit_assessment``, which has CP-DR (owner, 2026-11-25: "lite runs cp-dr
+    too") and no CP-2E, so the context's peer source no longer adds a module. Explicit --modules
+    are run as given."""
     return tuple(m for m in PATHWAY_MODULES[settings.run.pathway] if m not in NOT_ANALYTICAL)
 
 
@@ -1125,6 +1142,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
             else "",
             bool(options.cp3_mode),
         ),
+        ("CP-2", cp2_scorecard_block() if "CP-2" in texts else "", "CP-2" in texts),
         ("CP-6", CP6A_BLOCK, True),
         ("CP-6", DEEP_DEBATE_BLOCK, options.cp6_deep_debate),
         *((m, note, True) for m, note in method_scripts.NOTES.items()),
@@ -1364,6 +1382,7 @@ def checker(layout: MarkdownLayout) -> Check:
         issues += _owned_issues(task.module_id, routes, text, task.handoffs.get("CP-1"))
         issues += register_issues(task.module_id, text)
         issues += posture_issues(task.module_id, text)
+        issues += scorecard_issues(task.module_id, text)
         upstream = method_scripts.upstream_texts(task.handoffs)  # a copied figure is compared
         issues += method_scripts.issues(task.module_id, text, upstream)
         issues += method_scripts.shared_issues(task.module_id, text)  # `completeness_check.py`
@@ -1584,7 +1603,8 @@ def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal:
     if asked > ceiling:
         raise LaunchRefused(
             f"--cap {asked}: above the {pathway} cap of USD {ceiling} "
-            "(docs/rulings/2026-11-15-pathway-tiers-and-caps.md); a lower cap is allowed"
+            "(docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md); "
+            "a lower cap is allowed"
         )
     return asked
 

@@ -55,6 +55,8 @@ def offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     (root / "src/deploy_workflow/inbox").mkdir(parents=True)
     (root / "src/deploy_workflow/inbox/scheduler.py").write_text("SCHEDULER = 1")
     (root / "docs/visualisations/catalogue.csv").write_text("id\nV1\n")
+    (root / runtime.RUBRIC_SOURCE).parent.mkdir(parents=True)
+    (root / runtime.RUBRIC_SOURCE).write_text("rubric")
     (root / "docs/rulings").mkdir()
     (root / "docs/rulings/2026-11-09-inbox-automation.md").write_text("old ruling")
     (root / "docs/rulings/2026-11-04-live-module-tests.md").write_text("another ruling")
@@ -181,6 +183,8 @@ def test_the_package_ships_the_static_library_and_its_two_windows_wrappers(
     assert shipped == ["catalog.json", "store.py", "web/brand/symbol.svg"]  # No page or node tests.
     # store.REPO is engine/ in the package, so visual_catalogue() reads this exact path.
     assert (engine / "docs/visualisations/catalogue.csv").read_text() == "id\nV1\n"
+    # The launcher reads CP-2's Risk Rubric table from this file, relative to engine/.
+    assert (engine / runtime.RUBRIC_SOURCE).read_text() == "rubric"
     assert not (engine / "static").exists()
     assert not (engine / "bridge.py").exists()  # The lean package has no server bridge.
     assert (engine / "src/deploy_workflow/inbox/scheduler.py").read_text() == "SCHEDULER = 1"

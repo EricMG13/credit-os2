@@ -7,6 +7,7 @@ import { ScatterPlot } from "@/components/chart/ScatterPlot";
 import { StackChart } from "@/components/chart/StackChart";
 import { TrendChart } from "@/components/chart/TrendChart";
 import { WaterfallChart, type WaterfallStep } from "@/components/chart/WaterfallChart";
+import { atPositions, periodPositions } from "@/components/chart/seriesData";
 import {
   amount,
   bounds,
@@ -84,7 +85,19 @@ function unitsMatch(table: SourceTable, unit: string, columns: number[]) {
   );
 }
 
-function periods(table: SourceTable, descriptor: Descriptor, frame: Frame) {
+/** A period table's rows in the one period order, each row whole: its cells and its source line.
+ * A Period cell that order cannot place stays last, as authored; the chart names it. */
+function inPeriodOrder(table: SourceTable): SourceTable {
+  const { order } = periodPositions(table.rows.map((row) => row[0] ?? ""));
+  return {
+    ...table,
+    rows: atPositions(table.rows, order),
+    rowLines: table.rowLines && atPositions(table.rowLines, order),
+  };
+}
+
+function periods(authored: SourceTable, descriptor: Descriptor, frame: Frame) {
+  const table = inPeriodOrder(authored);
   const columns = indices(table, items(descriptor.columns));
   if (
     table.headers[0] !== "Period" ||

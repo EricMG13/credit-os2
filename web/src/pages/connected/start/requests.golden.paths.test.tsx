@@ -56,7 +56,7 @@ const EXPIRED = () => refused("unknown submission", 404);
  * …), with `override` answering first. Each call is recorded as it was made.
  */
 function service({
-  cap = "25",
+  cap = "30",
   modules = [
     "CP-0",
     "CP-1",
@@ -613,7 +613,7 @@ describe("the requests the Start run page sends on the remaining paths", { timeo
       "CP-5",
       "CP-6",
     ];
-    const log = service({ cap: "40", modules: deep, items: refusal });
+    const log = service({ cap: "50", modules: deep, items: refusal });
     const navigate = start();
     await identify(log);
     addFiles([FILING]);
