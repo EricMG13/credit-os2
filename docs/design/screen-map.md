@@ -77,9 +77,9 @@ Credit OS
     └─ Settings                 Groups, Thread rules, Sources, Topics, Digests, Notifications, AI and cost
 ```
 
-Signal is in the app where the server is started with `--signal-url`. The static build's Model
-area is a design reference, not a reader screen, and is outside this map; the static build also
-draws the Signal screens on sample data, as a reference.
+Signal is in the app in live mode; the read-only preview and synthetic mode do not host it. The
+static build's Model area is a design reference, not a reader screen, and is outside this map; the
+static build also draws the Signal screens on sample data, as a reference.
 
 ## On every screen
 

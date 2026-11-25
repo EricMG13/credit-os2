@@ -15,9 +15,8 @@ const mode = document.querySelector<HTMLMetaElement>('meta[name="credit-os-mode"
 const path = window.location.pathname;
 const readOnly = mode?.content === "preview";
 // The server writes this meta into the page exactly when it hosts Signal.
-const signal = Array.from(
-  document.querySelectorAll<HTMLMetaElement>('meta[name="credit-os-signal"]'),
-).some((meta) => meta.content === "on");
+const signal =
+  document.querySelector<HTMLMetaElement>('meta[name="credit-os-signal"]')?.content === "on";
 const root = createRoot(container);
 
 function draw(page: ReactNode) {

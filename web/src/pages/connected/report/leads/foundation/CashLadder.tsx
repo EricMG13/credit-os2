@@ -1,5 +1,5 @@
 import type { WaterfallRow } from "../kit/marks";
-import { UNORDERED_SENTENCE } from "../kit/tables";
+import { unplacedNotes } from "../kit/tables";
 import { FigureTile, GapTile } from "../kit/LeadFrame";
 import { GapChip, Measured, Waterfall } from "../kit/marks";
 import type { LeadProps } from "../types";
@@ -55,9 +55,9 @@ function Ladder({
 /**
  * Tile 2: the handoff's own cash ladder, from EBITDA (Adjusted) through cash interest and taxes,
  * cash from operations, capex, free cash flow after capex, distributions and the module's own
- * after-distributions level to acquisitions: each as written, the latest period as bars, the
- * earlier of two beneath, stated gaps hatched with their reasons. With three or more periods every
- * stated period is a ladder of its own, the latest first; a period stated only as gaps is its
+ * after-distributions level to acquisitions: each as written, the later of two compared periods
+ * as bars, the earlier beneath, stated gaps hatched with their reasons. Any other set of periods
+ * is a ladder per stated period, in the one period order; a period stated only as gaps is its
  * reason in words.
  */
 export function CashLadderTile({ lead }: { lead: LeadProps }) {
@@ -122,7 +122,10 @@ export function CashLadderTile({ lead }: { lead: LeadProps }) {
       title={LABEL}
       line={data.line}
       source="cash conversion"
-      notes={[...(breaks ? [LEVELS_AS_STATED] : []), ...(data.ordered ? [] : [UNORDERED_SENTENCE])]}
+      notes={[
+        ...(breaks ? [LEVELS_AS_STATED] : []),
+        ...unplacedNotes(data.unplaced, data.periods.length),
+      ]}
       table={ladderTable(data)}
     >
       {drawn.map(({ each, rows }) =>

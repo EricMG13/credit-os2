@@ -9,6 +9,7 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1]
 ROOT = APP.parents[1]
+RUBRIC_SOURCE = "docs/methodology/portfolio-recommendation.md"
 CACHE = ROOT / "artifacts/issuer-library/runtime-cache"
 PINS = {
     "pydantic": "2.14.1",
@@ -99,6 +100,16 @@ def _purge_retired_outputs(target: Path) -> None:
         path.unlink(missing_ok=True)
 
 
+def _copy_documents(engine: Path) -> None:
+    """The single files under docs/ the engine reads, at the same paths relative to engine/:
+    store.REPO is engine/ in the package and the store reads the visualisation catalogue from it;
+    the launcher reads the Risk Rubric table CP-2 is sent from RUBRIC_SOURCE
+    (`deploy_workflow.cp2_scorecard.LEVEL_TEXT_SOURCE`)."""
+    for name in ("docs/visualisations/catalogue.csv", RUBRIC_SOURCE):
+        (engine / name).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, engine / name)
+
+
 def bundle(target: Path, architecture: str | None) -> None:
     _purge_retired_outputs(target)
     engine = target / "engine"
@@ -131,11 +142,7 @@ def bundle(target: Path, architecture: str | None) -> None:
         shutil.copytree(
             ROOT / name, engine / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
         )
-    # store.REPO is engine/ in the package; the store reads the visualisation catalogue from it.
-    (engine / "docs/visualisations").mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(
-        ROOT / "docs/visualisations/catalogue.csv", engine / "docs/visualisations/catalogue.csv"
-    )
+    _copy_documents(engine)
     if architecture is None:
         return
     runtime = engine / "runtime"

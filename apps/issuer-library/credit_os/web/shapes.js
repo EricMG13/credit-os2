@@ -45,7 +45,10 @@ const Shapes = (() => {
     ['intermodule', {test: text => INTERMODULE.test(text.replace(/-/g, ' ')) || /^consequence for cp-/.test(text)}],
     ['limitation', /limitation/],
     ['consequence', /creditor consequence|effect on the credit view/],
-    ['period', /^(?:(?:fy|cy|ltm|pf|[hq][1-4])\s*)?\d{4}[ae]?\b|^(?:fy|cy)\s*\d{2}[ae]?\b/],
+  ];
+  // A period column comes here in the precedence. Which columns are periods is the store's answer (handoff_fields.py period_columns: `block.periods.order`,
+  // a column whose header the one period rule reads); no header is read as a period on this page.
+  const LATER_KIND_RULES = [
     ['case', /\b(scenario|case|downside|upside|base|severe|moderate|stress)\b/],
     ['label', /^(line|metric|item|driver|exposure|from|to|question|gate item|decision driver|security group|rank|break)\b|\bmeasure$/],
   ];
@@ -55,16 +58,18 @@ const Shapes = (() => {
   // are id-shaped (an identifier of the module, a file name or a long hash). `cells` are the column's cell texts; without them the header alone decides, and these headers stay findings.
   const AMBIGUOUS_ID = /^(?:references?|ref\.?|code)$/;
   const idShaped = value => isToken(value) || FILE_NAME.test(value) || LONG_HEX.test(value);
-  function columnKind(header, cells = []) {
+  const kindBy = (rules, text) => (rules.find(([, rx]) => rx.test(text)) || [])[0];
+  // `period` is the store's word that the column is a period column; a header on its own (no table) is never one.
+  function columnKind(header, cells = [], period = false) {
     if (MACHINE_INTERMODULE.test(String(header ?? '').trim())) return 'intermodule';
     if (AMBIGUOUS_ID.test(norm(header))) {
       const filled = cells.map(cell => String(cell ?? '').trim()).filter(cell => cell !== '');
       return filled.length > 0 && filled.filter(idShaped).length * 2 >= filled.length ? 'id' : 'text';
     }
-    return (KIND_RULES.find(([, rx]) => rx.test(norm(header))) || ['text'])[0];
+    return kindBy(KIND_RULES, norm(header)) ?? (period ? 'period' : kindBy(LATER_KIND_RULES, norm(header)) ?? 'text');
   }
-  // The kind of each column of a table (its cells read where the header alone cannot decide).
-  const columnKinds = block => (block.headers ?? []).map((header, at) => columnKind(header, (block.rows ?? []).map(row => row.cells?.[at])));
+  // The kind of each column of a table (its cells read where the header alone cannot decide; its period columns as the store names them).
+  const columnKinds = block => (block.headers ?? []).map((header, at) => columnKind(header, (block.rows ?? []).map(row => row.cells?.[at]), (block.periods?.order ?? []).includes(at)));
   const HIDDEN_KINDS = new Set(['source', 'id', 'intermodule']);
   // A plain "Module" header says which module a row concerns, so it is not inter-module; `shape` is kept for the interface. `rows` (the table's) lets a "Reference" or "Code" column be read by its cells.
   const hiddenColumns = (headers, shape, rows) => columnKinds({headers, rows})
@@ -72,9 +77,9 @@ const Shapes = (() => {
     .filter(c => c >= 0);
 
   // ---- table shapes: the first rule that matches wins; the order is the precedence ----
-  // Each rule sees the normalised headers `h`. Narrow, named column sets come before the broad period and case rules.
+  // Each rule sees the normalised headers `h` and the kinds of the table's columns `k`. Narrow, named column sets come before the broad period and case rules.
   const has = (h, rx) => h.some(x => rx.test(x));
-  const periods = h => h.filter(x => columnKind(x) === 'period').length;
+  const count = (k, kind) => k.filter(x => x === kind).length;
   const SHAPE_RULES = [
     ['matrix', h => has(h, /^probability$/) && has(h, /^impact$/)],            // two graded columns
     ['watch', h => has(h, /leading/)],                                          // "Leading / Lagging"
@@ -87,17 +92,18 @@ const Shapes = (() => {
     ['sided', h => has(h, /^side\b/)],
     ['change', h => h.includes('earlier') && h.includes('current')],
     ['facts', h => h.includes('fact') && h.includes('category')],
-    ['cases', h => h.filter(x => columnKind(x) === 'case').length >= 2],        // named cases as columns; before status and measure
+    ['cases', (h, k) => count(k, 'case') >= 2],                                 // named cases as columns; before status and measure
     ['status', h => has(h, /status$/)],
-    ['metric', h => has(h, /definition|identity/) && periods(h) >= 1],
+    ['metric', (h, k) => has(h, /definition|identity/) && count(k, 'period') >= 1],
     ['measure', h => /measure$/.test(h[0]) && has(h, /creditor consequence/)],
-    ['statement', h => periods(h) >= 2],                                        // lines by two or more periods; after metric and measure, which also carry periods
+    ['statement', (h, k) => count(k, 'period') >= 2],                           // lines by two or more periods; after metric and measure, which also carry periods
   ];
   // Where two rules could match: matrix > watch > dated > edges > ranked > caseRows > moduleState > qa > sided > change > facts > cases > status > metric > measure > statement.
   function tableShape(block) {
     const h = (block?.headers ?? []).map(norm);
     if (!h.length || !(block.rows ?? []).length) return 'records';
-    return (SHAPE_RULES.find(([, rule]) => rule(h)) || ['records'])[0];
+    const k = columnKinds(block);
+    return (SHAPE_RULES.find(([, rule]) => rule(h, k)) || ['records'])[0];
   }
 
   // The store's fallback for a handoff its parser refused: one level-1 "Unstructured handoff" section holding the whole file as one text block (store.py `structured`).
@@ -148,7 +154,7 @@ const Shapes = (() => {
     const typed = (tables ?? []).map((block, index) => ({block, index})).filter(({block}) => block && Array.isArray(block.headers) && Array.isArray(block.rows)).map(entry => ({...entry, shape: tableShape(entry.block)}));
     const cases = typed.filter(entry => entry.shape === 'cases');
     if (cases.length !== 1) return null;
-    const names = cases[0].block.headers.filter(header => columnKind(header) === 'case').map(header => String(header).trim());
+    const names = cases[0].block.headers.filter((header, at) => columnKinds(cases[0].block)[at] === 'case').map(header => String(header).trim());
     // The source: exactly one caseRows table with one row per case column whose FIRST column is an id column, and whose ids are all different and non-empty.
     const sources = typed.filter(entry => entry.shape === 'caseRows' && entry.block.rows.length === names.length && columnKinds(entry.block)[0] === 'id');
     if (!names.length || sources.length !== 1) return null;

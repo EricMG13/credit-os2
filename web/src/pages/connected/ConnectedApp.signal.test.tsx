@@ -1,5 +1,5 @@
 // Signal in the connected app: the rail item and the page at /signal exist only where the server
-// was started with a Signal service, and never in a read-only preview.
+// hosts Signal, and never in a read-only preview.
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import sample from "../signal/live/snapshot.sample.json";
@@ -32,7 +32,7 @@ afterEach(() => {
   document.title = "Credit OS";
 });
 
-describe("with a Signal service", () => {
+describe("where the server hosts Signal", () => {
   it.each(["/signal", "/signal/"])("draws the Signal screens at %s, edge to edge", async (path) => {
     const fetch = serve();
     // As connected-main starts the app: the page's file is asked for before the app is drawn.

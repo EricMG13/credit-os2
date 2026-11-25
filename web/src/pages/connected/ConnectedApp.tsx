@@ -82,7 +82,7 @@ const COVERAGE: Section = { area: "coverage", href: "/coverage" };
 const RUNS: Section = { area: "run", href: "/runs", label: "Run activity" };
 const SIGNAL: Section = { area: "signal", href: "/signal" };
 
-/** A read-only preview shows the library and coverage; Signal is listed where a Signal service is set. */
+/** A read-only preview shows the library and coverage; Signal is listed where the server hosts Signal. */
 function sectionsFor(readOnly: boolean, signal: boolean): Section[] {
   if (readOnly) return [LIBRARY, COVERAGE];
   return signal ? [LIBRARY, COVERAGE, RUNS, SIGNAL] : [LIBRARY, COVERAGE, RUNS];
@@ -117,7 +117,7 @@ type Route =
   | { kind: "signal" }
   | { kind: "missing" };
 
-/** `signal`: a Signal service is set and this is not a read-only preview; without it /signal is no page. */
+/** `signal`: the server hosts Signal and this is not a read-only preview; without it /signal is no page. */
 function routeOf(path: string, signal: boolean): Route {
   if (path === "/" || path === "/index.html") return { kind: "library" };
   if (path === "/coverage" || path === "/coverage/") return { kind: "coverage" };
@@ -209,7 +209,7 @@ export function ConnectedApp({
   search?: string;
   mode: Mode;
   readOnly?: boolean;
-  /** A Signal service is set for this app: the page was served with its address. */
+  /** The server hosts Signal for this app: the page carries the hosted-Signal meta. */
   signal?: boolean;
   navigate?: (path: string) => void;
 }) {

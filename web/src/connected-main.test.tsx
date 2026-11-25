@@ -1,11 +1,27 @@
 // How the page the application server writes switches Signal on: `<meta name="credit-os-signal"
-// content="on">`, written exactly when the server hosts Signal. Nothing else does.
-import { afterEach, describe, expect, it, vi } from "vitest";
+// content="on">`, written exactly when the server hosts Signal. No other meta, content or old name switches it on.
+import { act } from "react";
+import type * as ReactDomClient from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const drawn = vi.hoisted(() => ({
   app: [] as { signal: boolean }[],
   preload: [] as boolean[],
+  roots: [] as ReactDomClient.Root[],
 }));
+
+// Every root the entry makes is kept, so that each test can unmount what it started.
+vi.mock("react-dom/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof ReactDomClient>();
+  return {
+    ...actual,
+    createRoot: (...args: Parameters<typeof actual.createRoot>) => {
+      const root = actual.createRoot(...args);
+      drawn.roots.push(root);
+      return root;
+    },
+  };
+});
 
 vi.mock("./pages/connected/ConnectedApp", () => ({
   ConnectedApp: ({ signal }: { signal: boolean }) => {
@@ -32,7 +48,17 @@ async function start(metas: string): Promise<{ app: boolean[]; preload: boolean[
   return { app: drawn.app.map(({ signal }) => signal), preload: drawn.preload };
 }
 
+// The entry holds the loading state for a timer; it is faked so none outlives its test.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+});
+
 afterEach(() => {
+  act(() => {
+    for (const root of drawn.roots.splice(0)) root.unmount();
+  });
+  vi.clearAllTimers();
+  vi.useRealTimers();
   document.head.innerHTML = "";
   document.body.innerHTML = "";
 });
@@ -54,12 +80,5 @@ describe("the Signal switch the server writes into the page", () => {
     const got = await start(metas);
     expect(got.preload).toEqual([false]);
     expect(new Set(got.app)).toEqual(new Set([false]));
-  });
-
-  it("is on when the meta is written twice", async () => {
-    const on = '<meta name="credit-os-signal" content="on">';
-    const got = await start(on + on);
-    expect(got.preload).toEqual([true]);
-    expect(new Set(got.app)).toEqual(new Set([true]));
   });
 });

@@ -1627,6 +1627,7 @@ def cashflow_of(
             "start": c["start"],
             "end": c["end"],
             "ytd": c["ytd"],
+            "forecast": c["kind"] == "fc",
         }
         for c in columns
     ]

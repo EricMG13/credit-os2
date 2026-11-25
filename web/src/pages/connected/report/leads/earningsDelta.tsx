@@ -12,7 +12,7 @@ import {
   type Side,
   type Unstated,
 } from "./earningsDeltaData";
-import { periodKey } from "./kit/changes";
+import { changePeriod } from "./kit/changes";
 import { FigureTile, GapTile, LeadFrame, type TableViewData } from "./kit/LeadFrame";
 import {
   Dumbbell,
@@ -213,7 +213,7 @@ function reasonOfPair({ pair }: Unstated) {
 /** The kind of the two periods a pair compares (`FY`, `Q1`): rows of another kind are never one line. */
 const periodKind = (pair: Pair) =>
   [pair.priorPeriod, pair.currentPeriod]
-    .map((label) => (label ? (periodKey(label)?.form ?? label) : ""))
+    .map((label) => (label ? (changePeriod(label)?.form ?? label) : ""))
     .join(">");
 
 /**

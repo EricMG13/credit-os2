@@ -6,8 +6,8 @@
 
 /**
  * One period of a series: a stated figure, or a gap (`value` null) the line breaks at. `at` places
- * it in time (in years) where every period gives one; a line joins two periods only when both are
- * stated and their `basis` is the same.
+ * it in time (in years) where every period gives one, else the periods are spaced evenly in the
+ * order given; a line joins two periods only when both are stated and their `basis` is the same.
  */
 export type Slot = {
   label: string;
@@ -15,6 +15,14 @@ export type Slot = {
   text: string;
   at?: number;
   basis?: string;
+  /** The latest reported period, where a later one (pro forma, forecast) follows it. */
+  latest?: boolean;
+};
+
+/** The place of the latest reported period: the marked one, else the last. */
+export const latestAt = (slots: Slot[]) => {
+  const marked = slots.findIndex((slot) => slot.latest);
+  return marked < 0 ? slots.length - 1 : marked;
 };
 
 /** A drawn line, x1 y1 x2 y2, that a label must keep clear of. */

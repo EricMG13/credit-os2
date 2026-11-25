@@ -20,7 +20,7 @@ import sys
 import threading
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from http.client import HTTPConnection
 from pathlib import Path
@@ -32,7 +32,7 @@ from signal_ai_fakes import environ as key_environ
 from signal_app import PAGE, short_folder, start_serving
 
 import react_frontend
-from deploy_workflow.signal import ai_ledger, ai_run, feedview, store, topics
+from deploy_workflow.signal import ai_ledger, ai_run, digests, feedview, store, topics
 from deploy_workflow.signal import service as signal_service
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.fetch import Fetched
@@ -624,6 +624,27 @@ def test_the_replies_http_server_writes_itself_carry_the_two_headers_under_the_a
                 assert b"x-content-type-options: nosniff" in sent  # the base's own stay
 
 
+def test_a_target_that_starts_with_two_slashes_is_answered_by_signal_with_its_headers(
+    seeded: Path, web: Path
+) -> None:
+    """``http.server`` routes ``//signal/api/me`` as ``/signal/api/me`` (it collapses the leading
+    slashes, gh-87389), so Signal answers it, and its reply must carry Signal's two headers."""
+    policy = b"content-security-policy: " + POLICY.encode()
+    with react(seeded, web) as server:
+        port = server.server_address[1]
+        head = f"Host: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\n\r\n".encode()
+        for method, target, status, body in (
+            (b"GET", b"//signal/api/me", b"200", {"name": None}),
+            (b"GET", b"///signal/api/me", b"200", {"name": None}),
+            (b"PUT", b"//signal/api/me", b"405", {"error": "method not allowed"}),
+        ):
+            answered = raw_call(server, method + b" " + target + b" HTTP/1.1\r\n" + head)
+            assert (status_line(answered).split()[1], json_of(answered)) == (status, body), target
+            sent = raw_headers(answered)
+            assert sent.count(policy) == 1, (target, sent)
+            assert sent.count(b"x-frame-options: deny") == 1, (target, sent)
+
+
 def test_where_no_signal_is_hosted_no_reply_carries_signals_headers(root: Path, web: Path) -> None:
     with react(root, web, read_only=True) as server:
         host = b"Host: 127.0.0.1:%d\r\n\r\n" % server.server_address[1]
@@ -1209,6 +1230,38 @@ def test_the_pages_see_the_pass_off_without_the_switch_and_on_with_it(
             assert [reason for reason in plain_reasons if reason in body.decode("utf-8")] == reasons
             assert "COPILOT" not in body.decode("utf-8")  # no variable name reaches a page
             assert factory.built == []  # a request builds no model, whatever the state
+
+
+def test_run_once_now_builds_no_model_without_the_switch_and_only_queues_with_it(
+    root: Path, web: Path, tmp_path: Path
+) -> None:
+    """ "Run once now" is the one route that can lead to a paid call: with keys in the launching
+    environment but no switch it runs at once with no writer, and the next pass builds nothing;
+    with the switch it is queued for the loop, and still no model is built in the request."""
+    keys, rulings = ready(root, tmp_path)
+    db = store.open_db(root)
+    store.add_user(db, "Mara L", "writer")
+    for name in ("Daily", "Morning"):
+        form = digests.Form(name, ["All stories"], "Daily, 07:00 UTC", "Up to 3 points", "")
+        digests.create(db, "Mara L", digests.spec_from_form(db, "Mara L", form), NOW)
+    db.close()
+    mara = {"Cookie": "signal_name=Mara%20L"}
+    for given, digest, outcome in (
+        (keys, 1, "nothing"),
+        ({**keys, "CREDIT_OS_SIGNAL_AI": "1"}, 2, "queued"),
+    ):
+        with react(root, web, environ=given) as server:
+            assert server.signal is not None
+            factory = faked(server.signal, rulings)
+            path = f"/signal/api/digests/{digest}/run"
+            status, body, _ = call(server, path, "POST", headers=mara, body="{}")
+            assert (status, json.loads(body)["outcome"]) == (200, outcome)
+            assert factory.built == []  # never in a request
+            if outcome == "nothing":
+                server.signal.loop.run_once(NOW + timedelta(days=1))  # the digest is due
+                assert loop_errors(server.signal.loop) == (None, None, None, None, None)
+                assert factory.built == []
+    assert rows(root, "SELECT COUNT(*) FROM ai_usage") == [(0,)]
 
 
 def test_the_command_takes_no_signal_address(

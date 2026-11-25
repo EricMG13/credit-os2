@@ -97,7 +97,7 @@ Status: **Done** (in a PR), **Needed** (the screen is wrong or incomplete withou
 
 | # | Cause | Screen | Change | Status | Source |
 | --- | --- | --- | --- | --- | --- |
-| 32 | The run-start service can show a Signal link | Run-start rail | Shown only when started with `--signal-url`; a change to the run-start page, so it needs the reader check | Check | Review of PR 109 |
+| 32 | The run-start service can show a Signal link | Run-start rail | Shown only when started with `--signal-url`; a change to the run-start page, so it needs the reader check | Removed 2026-11-25: the application hosts Signal, so the run-start service has no Signal link | Review of PR 109 |
 
 ## From the Forecast label fixes (PR 112)
 

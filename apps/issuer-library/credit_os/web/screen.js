@@ -177,15 +177,22 @@ function narrativeMarkup(module,block) {
   return `<section class="finding"><div class="prose">${rich(text)}</div>${sourceFooter(`${module}:${block.line}`)}</section>`;
 }
 function trendChart(module, metric) {
-  const {table,row,key}=findRow(module,'T4.10',metric),unit=data[module].basis.unit;
-  const points=[3,2,1].map(i=>({label:table.headers[i],exact:row.cells[i],n:Number(row.cells[i].replace(/,/g,''))}));
+  const {table,row,key}=findRow(module,'T4.10',metric),unit=data[module].basis.unit,periods=periodColumnsOf(table);
+  const basis=table.headers.findIndex((_,i)=>i>0&&!periods.includes(i));
+  const points=periods.map(i=>({label:table.headers[i],exact:row.cells[i],n:Number(row.cells[i].replace(/,/g,''))}));
   const max=Math.max(...points.map(p=>p.n));
-  return `<div class="chart-head"><h3>${esc(metric)}</h3><span>${esc(unit)} · ${esc(row.cells[4])}</span></div><div class="bars" role="group" aria-label="${esc(metric)} by financial year">${points.map(p=>`<button class="bar-column" data-evidence="${esc(key)}" aria-label="${esc(p.label)} ${esc(metric)} ${esc(p.exact)} ${esc(unit)}. View source"><span class="bar-value">${esc(p.exact)}</span><span class="bar" style="height:${Math.max(2,p.n/max*142)}px"></span><span class="bar-period">${esc(p.label)}</span></button>`).join('')}</div>${sourceFooter(key)}`;
+  return `<div class="chart-head"><h3>${esc(metric)}</h3><span>${esc([unit,basis>0?row.cells[basis]:''].filter(Boolean).join(' · '))}</span></div><div class="bars" role="group" aria-label="${esc(metric)} by period">${points.map(p=>`<button class="bar-column" data-evidence="${esc(key)}" aria-label="${esc(p.label)} ${esc(metric)} ${esc(p.exact)} ${esc(unit)}. View source"><span class="bar-value">${esc(p.exact)}</span><span class="bar" style="height:${Math.max(2,p.n/max*142)}px"></span><span class="bar-period">${esc(p.label)}</span></button>`).join('')}</div>${sourceFooter(key)}`;
 }
 function performanceView() {
-  const id=pins['CP-1'],{table}=findRow(id,'T4.10','Net sales');
+  const id=pins['CP-1'],{table}=findRow(id,'T4.10','Net sales'),periods=periodColumnsOf(table);
   const retainedNotes=sectionData(id,'performance').flatMap(s=>s.blocks.filter(b=>b.type==='text')).map(b=>narrativeMarkup(id,b)).join('');
-  return `<div class="section-heading"><h2>Performance</h2><span>${esc(table.headers[3])}–${esc(table.headers[1])}</span></div>${trendChart(id,'Net sales')}<div class="section-heading compact"><h3>Exact financial measures</h3></div>${tableMarkup(id,table)}${retainedNotes}`;
+  return `<div class="section-heading"><h2>Performance</h2><span>${esc(table.headers[periods[0]])}–${esc(table.headers[periods.at(-1)])}</span></div>${trendChart(id,'Net sales')}<div class="section-heading compact"><h3>Exact financial measures</h3></div>${tableMarkup(id,table)}${retainedNotes}`;
+}
+// The period columns of a pinned table, in the order the store supplies (handoff_fields.py period_columns); the page orders nothing.
+function periodColumnsOf(table) {
+  const order=table.periods?.order||[];
+  if(!order.length)throw new Error('Missing period columns in the pinned table');
+  return order;
 }
 function eventTimeline(id,table,tag='h2') {
   const rowMarkup=row=>{

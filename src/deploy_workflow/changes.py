@@ -90,8 +90,11 @@ from pydantic import Field
 from deploy_vii.contracts import Contract, Identifier
 from deploy_workflow.credit_os_catalogue import (
     CHART_PREFIX,
+    MixedPeriodForms,
     chart_row,
     definition_key as _definition_key,
+    is_reported,
+    mixes_dated_and_fiscal,
     period_order,
 )
 from deploy_workflow.library_index import (
@@ -411,8 +414,9 @@ def _heading(chart: str) -> str:
 
 def _followed(lines: list[str], chart: str, period: str, text: str | None) -> str | None:
     """The definition a basis cell points to, or None. A basis that says `identical definition` or
-    `same measure` points to the basis of the table's row for the period before; that is followed,
-    and only that. A pointer by calculation ID (`C01-C04`) is not followed: the calculation table
+    `same measure` points to the basis of the table's row for the period before (the last row
+    before it in the ordering rule's order, whatever the rows' forms); that is followed, and only
+    that. A pointer by calculation ID (`C01-C04`) is not followed: the calculation table
     is another section of the handoff, and the text is then left as written."""
     if text is None or POINTER.search(text) is None:
         return None
@@ -450,8 +454,10 @@ def _held(row: Mapping[str, str], column: str) -> str | None:
 def _chart_observation(lines: list[str], chart: str, column: str) -> Reading:
     try:
         found = chart_row(lines, chart, prefix="" if chart == NET_DEBT_TABLE else CHART_PREFIX)
-    except ValueError:  # Periods that cannot be ordered: never guess which row is the latest.
-        return "has periods in its table that cannot be ordered"
+    except MixedPeriodForms:  # Which is later depends on the year end: never a guess.
+        return "mixes dated and fiscal-labelled periods in its table, so the latest is not chosen"
+    except ValueError:  # Unplaceable or repeated periods, or no reported one: never a guess.
+        return "has periods in its table that cannot be ordered, or no reported period"
     if found is None:
         return None
     row = found[0]
@@ -470,10 +476,27 @@ def _chart_observation(lines: list[str], chart: str, column: str) -> Reading:
     )
 
 
+def _latest_reported_column(header: Sequence[str]) -> int | str:
+    """The index of the header's latest reported period column, or the reason there is none."""
+    columns = [
+        (key, i) for i, cell in enumerate(header) if i and (key := period_order(cell)) is not None
+    ]
+    if not columns or len({key for key, _ in columns}) != len(columns):
+        return "has periods in its row that cannot be ordered"
+    reported = [item for item in columns if is_reported(item[0])]
+    if not reported:
+        return "has only pro forma or forecast periods in its row"
+    if mixes_dated_and_fiscal(header[i] for _, i in columns):
+        return "mixes dated and fiscal-labelled periods in its row, so the latest is not chosen"
+    return max(reported)[1]
+
+
 def _row_observation(text: str, labels: Sequence[str]) -> Reading:
-    """The latest-period cell of the one table row labelled `labels`. None when no such row exists;
-    a reason when more than one does, when its periods cannot be ordered, or when no unit is
-    stated (a trailing `(unit)` in the label or a `Reporting unit` column)."""
+    """The latest reported cell of the one table row labelled `labels`: the last period column in
+    rule order among the actual, YTD and LTM classes, never a pro forma or forecast column. None
+    when no such row exists; a reason when more than one does, when no header cell is a period or
+    two have one key, when no period column is a reported one, or when no unit is stated (a
+    trailing `(unit)` in the label or a `Reporting unit` column)."""
     matches = [
         (table[0], row)
         for table in _tables(text)
@@ -486,10 +509,9 @@ def _row_observation(text: str, labels: Sequence[str]) -> Reading:
     if len(matches) != 1:
         return "states it in more than one row"
     header, row = matches[0]
-    columns = [(period_order(cell), i) for i, cell in enumerate(header) if i and period_order(cell)]
-    if not columns or len({key[0] for key, _ in columns if key}) != 1:
-        return "has periods in its row that cannot be ordered"
-    _, at = max(columns, key=lambda item: item[0] or ())
+    at = _latest_reported_column(header)
+    if isinstance(at, str):
+        return at
     held = dict(zip(header, row, strict=True))
     unit = re.search(r"\(([^)]+)\)\s*$", row[0].replace("*", ""))
     stated = (unit[1].strip() if unit else None) or held.get("Reporting unit") or None
@@ -530,10 +552,11 @@ _PERIOD = re.compile(r"FY(\d{4})(?: / (\d{4}-\d{2}-\d{2}))?")
 
 
 def same_period(a: str, b: str) -> bool:
-    """Whether two periods are one. A period is `FY2024`, `FY2024 / 2024-09-30` or `2024-09-30`
-    (what `period_order` and `chart_row` let through); any other text stands for itself in the date
-    place. If both sides have one, they are the same only if equal; otherwise only the same fiscal
-    year is the same period."""
+    """Whether two periods are one. `FY2024` and `FY2024 / 2024-09-30` are read as a fiscal year
+    and its date; any other text (`2024-09-30`, `LTM Jun 2025`, `PF FY2024`) stands for itself in
+    the date place. If both sides have one, they are the same only if equal; otherwise only the
+    same fiscal year is the same period. This compares identity only; `period_order` is what
+    orders periods."""
 
     def split(period: str) -> tuple[str | None, str | None]:
         found = _PERIOD.fullmatch(period.strip())
@@ -688,6 +711,7 @@ def _maturity_profile(prior_text: str, current_text: str) -> tuple[dict[str, Any
         return None, "a run has no debt maturities table with one unit"
     if before[0] != after[0]:
         return None, "the maturity tables are in different units"
+    # Rule order; a bucket the rule cannot place (`Thereafter`) sorts after every class (0-4).
     periods = sorted(set(before[1]) | set(after[1]), key=lambda p: (period_order(p) or (9,), p))
     rows = []
     for period in periods:

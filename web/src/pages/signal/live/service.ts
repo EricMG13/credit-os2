@@ -39,9 +39,8 @@ function sentence(failure: unknown): string {
 }
 
 /**
- * The application's server answers Signal in its own process and sends no 502; a 502 from
- * anything else on the way is read as Signal not reached. A reply that is not an error yet holds
- * no slice is unreadable.
+ * A 502 can only come from a proxy on the way (this server sends none); it is read as Signal not
+ * reached. A reply that is not an error yet holds no slice is unreadable.
  */
 function kindOf(failure: unknown): FeedError {
   if (failure instanceof TimedOut || isUnreachable(failure)) return "unreachable";

@@ -1603,7 +1603,8 @@ def _hit(spec: tuple[str, ...], period: Any) -> bool:
     if kind == "flow":
         return end == spec[2] and period.period_type == spec[1] and _months(period) == int(spec[3])
     if kind == "balance":
-        return end == spec[1] and period.period_type != "LTM"
+        # A reported position at a date: not a trailing flow, nor a pro forma restatement.
+        return end == spec[1] and period.period_type not in {"LTM", "PF"}
     return False
 
 
@@ -1694,9 +1695,9 @@ def _column_periods(headers: tuple[str, ...], periods: Any) -> tuple[frozenset[s
     """One set of acceptable period ids per column from explicit headings; nothing is inferred.
 
     A column is `Q<n> <yyyy>`, `FY <yyyy>`, `(Opening|Q<n>|FY) <date>`, a full date (a balance:
-    any non-LTM period ending then), or a year under a span row (`Three Months Ended`, `Six or
-    Nine Months Ended`, `Years Ended` give one period of that type ending then; a bare month and
-    day is a balance date). The column sets must be pairwise disjoint.
+    any period but an LTM or pro forma one ending then), or a year under a span row (`Three
+    Months Ended`, `Six or Nine Months Ended`, `Years Ended` give one period of that type ending
+    then; a bare month and day is a balance date). The column sets must be pairwise disjoint.
     """
     for index in range(len(headers)):
         specs = _spec_row(headers, index)

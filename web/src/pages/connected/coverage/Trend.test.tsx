@@ -650,21 +650,21 @@ describe("periods the page could not put in time order", () => {
   const SENTENCE =
     "Periods are in the order the modules state them; this page could not put them in time order, so no line joins them.";
 
-  it("draws no line through rows written newest first, says so, and writes every figure with its period", () => {
+  it("draws no line through periods it cannot read, says so, and writes every figure with its period", () => {
     const { container } = view([
-      ["LTM Jun 2026", 4.0],
-      ["LTM Dec 2025", 4.5],
-      ["LTM Jun 2025", 5.0],
-      ["LTM Dec 2024", 5.5],
+      ["Fourth period", 4.0],
+      ["Third period", 4.5],
+      ["Second period", 5.0],
+      ["First period", 5.5],
     ]);
     expect(container.querySelectorAll("[data-segment]")).toHaveLength(0);
     expect(screen.getByText(SENTENCE)).toBeVisible();
     // Four dots stay, and every figure is written with its period, in the order stated.
     expect(container.querySelectorAll("circle")).toHaveLength(4);
     const written = container.querySelector("[data-written]");
-    expect(written?.textContent).toContain("LTM Dec 2024");
+    expect(written?.textContent).toContain("First period");
     expect(written?.textContent).toContain("5.5x");
-    expect(written?.textContent).toContain("LTM Jun 2026");
+    expect(written?.textContent).toContain("Fourth period");
     expect(written?.textContent).not.toMatch(/latest/i);
   });
 
@@ -678,10 +678,29 @@ describe("periods the page could not put in time order", () => {
     expect(screen.queryByText(SENTENCE)).toBeNull();
   });
 
-  it("treats mixed forms as unorderable", () => {
+  it("orders last twelve months periods written newest first and joins them", () => {
+    const { container } = view([
+      ["LTM Jun 2026", 4.0],
+      ["LTM Dec 2025", 4.5],
+      ["LTM Jun 2025", 5.0],
+    ]);
+    expect(container.querySelectorAll("[data-segment]").length).toBeGreaterThan(0);
+    expect(screen.queryByText(SENTENCE)).toBeNull();
+  });
+
+  it("orders a fiscal year before the last twelve months that follows it", () => {
+    const { container } = view([
+      ["LTM Dec 2025", 4.5],
+      ["FY2025", 4.0],
+    ]);
+    expect(container.querySelectorAll("[data-segment]").length).toBeGreaterThan(0);
+    expect(screen.queryByText(SENTENCE)).toBeNull();
+  });
+
+  it("treats a period it cannot read beside one it can as unorderable", () => {
     const { container } = view([
       ["FY2025", 4.0],
-      ["LTM Dec 2025", 4.5],
+      ["Second period", 4.5],
     ]);
     expect(container.querySelectorAll("[data-segment]")).toHaveLength(0);
     expect(screen.getByText(SENTENCE)).toBeVisible();

@@ -30,6 +30,7 @@ from deploy_vii.contracts import (
     View,
 )
 from deploy_vii.display import UnitClass
+from deploy_vii.period_order import order_periods
 from deploy_vii.registry import modules
 from deploy_vii.report_view import (
     Block,
@@ -41,6 +42,7 @@ from deploy_vii.report_view import (
     _call,
     _ChartPoint,
     _figure_of_points,
+    _figure_with_note,
     _prose_lines,
     _refs_by_fact,
     _Slot,
@@ -518,36 +520,44 @@ def _token_decimals(token: str, chart_unit: str | None) -> int:
     return min(6, max(0, written - 2) if chart_unit == "%" else written)
 
 
-YEAR = re.compile(r"(?<![0-9])([0-9]{4})(?:-([0-9]{2})-[0-9]{2})?(?![0-9])")
-PART = re.compile(r"(?<![A-Za-z])([QH])([1-4])(?![0-9])")
+_OPEN_BUCKET = re.compile(r"\bthereafter\b", re.IGNORECASE)
 
 
-def _period_key(label: str) -> tuple[str, int, int] | None:
-    """(granularity, year, part) of a period label: `FY2024` ("year", 2024, 0), `Q3 2024`
-    ("Q", 2024, 3), `H1 2024` ("H", 2024, 1), `2024-09-30` ("date", 2024, 9); None without a
-    year."""
-    year = YEAR.search(label)
-    if year is None:
-        return None
-    if year[2]:
-        return ("date", int(year[1]), int(year[2]))
-    part = PART.search(label)
-    return (part[1], int(year[1]), int(part[2])) if part else ("year", int(year[1]), 0)
+def _categories_in_order(
+    points: tuple[_ChartPoint, ...],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(the points' categories in the one period order, those of them it cannot place).
+
+    `deploy_vii.period_order` decides: oldest fiscal year to latest, then YTD, LTM, pro forma and
+    forecasts; a category it cannot read as a period keeps its authored place after the others.
+    """
+    return order_periods(tuple(dict.fromkeys(p.category for p in points)), str)
 
 
 def _chronological(points: tuple[_ChartPoint, ...]) -> tuple[_ChartPoint, ...]:
-    """Oldest period first, so time reads left to right whatever order the table was written in.
+    """The points with their categories in period order, whatever order the table was written in.
 
-    Only the order of the points changes, never a value or label. The authored order stays unless
-    every category has a key, all of one granularity, and no two categories share one: a label
-    without a year, `Jun 2024` beside `Dec 2024`, or `FY2024` beside `Q1 2024` cannot be placed.
+    Only the order of the points changes, never a value or label, and no point is dropped; within
+    a category the authored order stays. Called only for a chart route's period (or maturity
+    year) categories; `_undated_note` states the categories that could not be placed.
     """
-    keys = {p.category: _period_key(p.category) for p in points}
-    known = {category: key for category, key in keys.items() if key is not None}
-    granularities = {key[0] for key in known.values()}
-    if len(known) < len(keys) or len(set(known.values())) < len(known) or len(granularities) > 1:
-        return points
-    return tuple(sorted(points, key=lambda p: known[p.category]))
+    place = {category: i for i, category in enumerate(_categories_in_order(points)[0])}
+    return tuple(sorted(points, key=lambda p: place[p.category]))
+
+
+def _undated_note(points: tuple[_ChartPoint, ...]) -> str:
+    """The sentence a figure owes for categories drawn outside the period order (`_strip_figure`
+    states it under the chart, less the leading space); empty when every category was placed. A
+    maturity ladder's open bucket (any category with the word `thereafter`: `Thereafter`,
+    `2027 and thereafter`) is rightly last and is not such a gap."""
+    unplaced = [c for c in _categories_in_order(points)[1] if not _OPEN_BUCKET.search(c)]
+    if not unplaced:
+        return ""
+    return (
+        " Drawn last, in the order written, because no period could be read from the label: "
+        + ", ".join(unplaced)
+        + "."
+    )
 
 
 def _is_money(route: MarkdownRoute) -> bool:
@@ -615,6 +625,42 @@ def _unitless(figure: Figure) -> Figure:
     twin = figure.chart.table_twin.model_copy(update={"scale": None})
     chart = figure.chart.model_copy(update={"unit": None, "table_twin": twin})
     return figure.model_copy(update={"chart": chart})
+
+
+type _StripSpec = tuple[str, str, str, tuple[str, ...], tuple[_ChartPoint, ...], UnitClass]
+
+
+def _strip_figure(
+    block_id: str,
+    module: ModuleView,
+    refs: Mapping[tuple[str, str], tuple[str, ...]],
+    fig_id: str,
+    spec: _StripSpec,
+) -> Figure:
+    """One figure of a chart strip from its (module, title, unit, series, points, unit class).
+
+    The table twin's note carries `_undated_note`: the shell draws that note under the chart,
+    where it draws the summary only for a figure set beside a table."""
+    _, title, unit, series, points, unit_class = spec
+    figure = _figure_of_points(
+        block_id,
+        module,
+        refs,
+        fig_id=fig_id,
+        title=title,
+        kind="grouped" if fig_id in {"S.4", "RV.1"} else "line",
+        unit_class=unit_class,
+        unit=unit or NO_UNIT,
+        series=series,
+        points=points,
+        placement="above",
+        summary=(
+            "Exact selected handoff/Model observations. Dates, definitions and "
+            "limitations remain in the source evidence; gaps are not zero."
+        ),
+    )
+    figure = _figure_with_note(figure, _undated_note(points).strip())
+    return figure if unit else _unitless(figure)
 
 
 def _headed_route(
@@ -1026,9 +1072,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
     used: set[tuple[str, str]] = set()
     source_of: dict[tuple[str, str], str] = {}  # typed chart copy -> its source table
     yield_charts: dict[str, tuple[str, tuple[str, ...], tuple[_ChartPoint, ...]]] = {}
-    strip_charts: dict[
-        str, dict[str, tuple[str, str, str, tuple[str, ...], tuple[_ChartPoint, ...], UnitClass]]
-    ] = {}
+    strip_charts: dict[str, dict[str, _StripSpec]] = {}
     for planned in layout.routes:
         module = next(m for m in module_views if m.module_id == planned.module_id)
         route = _headed_route(planned, module, metadata[module.module_id])
@@ -1185,27 +1229,16 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
                         "markdown_chart: supply every requested strip figure, "
                         "preserving explicit gaps"
                     )
-                figures = []
-                for fig_id in STRIP_FIGURES[block_id]:
-                    module_id, title, unit, series, points, unit_class = specs[fig_id]
-                    figure = _figure_of_points(
+                figures = [
+                    _strip_figure(
                         block_id,
-                        next(m for m in module_views if m.module_id == module_id),
+                        next(m for m in module_views if m.module_id == specs[fig_id][0]),
                         refs,
-                        fig_id=fig_id,
-                        title=title,
-                        kind="grouped" if fig_id in {"S.4", "RV.1"} else "line",
-                        unit_class=unit_class,
-                        unit=unit or NO_UNIT,
-                        series=series,
-                        points=points,
-                        placement="above",
-                        summary=(
-                            "Exact selected handoff/Model observations. Dates, definitions and "
-                            "limitations remain in the source evidence; gaps are not zero."
-                        ),
+                        fig_id,
+                        specs[fig_id],
                     )
-                    figures.append(figure if unit else _unitless(figure))
+                    for fig_id in STRIP_FIGURES[block_id]
+                ]
                 blocks.append(
                     Block(
                         block_id=block_id,

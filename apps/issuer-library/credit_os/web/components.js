@@ -520,13 +520,20 @@
   }
 
   // ---- metric and measure: tiles
-  // The latest period is the one whose header names the latest year (the first, when none does); the others, in order, are the earlier ones.
-  function periodOrder(periodCols) {
-    const year = col => Number((/\d{4}/.exec(col.label) || [0])[0]);
-    const latest = periodCols.reduce((best, col) => (year(col) > year(best) ? col : best), periodCols[0]);
-    return {latest, earlier: periodCols.filter(col => col !== latest)};
+  // The store says which columns are periods, which of them are reported and which one is the latest reported (handoff_fields.py period_columns: `block.periods`);
+  // no period is classed, ordered or picked here. `latest` is that column, or null: then no figure is drawn as the headline and `absence` says why. The store names
+  // none when every period is pro forma or a forecast, and when dated and fiscal-year periods are mixed (which is later depends on the year end). `others` are the
+  // remaining period columns as written, each drawn with its own label.
+  const NO_REPORTED = 'No reported period: pro forma or forecast only', NO_LATEST = 'Latest reported period not determined';
+  function periodParts(periodCols, block) {
+    const latest = periodCols.find(col => col.at === block.periods?.latest) ?? null;
+    const reported = periodCols.some(col => (block.periods?.reported ?? []).includes(col.at));
+    return {latest, others: periodCols.filter(col => col !== latest), absence: latest ? '' : reported ? NO_LATEST : NO_REPORTED};
   }
-  // A row's earlier periods: a number goes beneath the value with its period's label, any other text is a note.
+  // The headline of a tile or strip cell: the latest reported period's cell as written, or the dash of a figure that is not there (its reason is the text beside it).
+  const NO_HEADLINE = '<span class="na" aria-hidden="true">—</span>';
+  const headline = (row, parts, ctx) => (parts.latest ? {raw: cellText(row, parts.latest.at), value: valueHtml(cellText(row, parts.latest.at), ctx)} : {raw: '', value: NO_HEADLINE});
+  // A row's other periods: a number goes beneath the value with its period's label, any other text is a note.
   function earlierParts(row, cols, ctx) {
     const below = [], notes = [];
     for (const col of cols) {
@@ -538,12 +545,12 @@
   function metricTiles(block, ctx) {
     const cols = visibleColumns(block, 'metric', ctx), labelCol = cols[0], periodCols = cols.slice(1).filter(col => col.kind === 'period');
     if (!labelCol || !periodCols.length || !block.rows.length) return recordCards(block, ctx);
-    const {latest, earlier} = periodOrder(periodCols), definition = cols.find(col => /definition|identity/i.test(col.label));
+    const parts = periodParts(periodCols, block), definition = cols.find(col => /definition|identity/i.test(col.label));
     const others = cols.slice(1).filter(col => !periodCols.includes(col) && col !== definition);
     const tiles = block.rows.map(row => {
-      const raw = cellText(row, latest.at), {below, notes} = earlierParts(row, earlier, ctx);
+      const {raw, value} = headline(row, parts, ctx), {below, notes} = earlierParts(row, parts.others, ctx);
       const defText = definition ? cellText(row, definition.at) : '';
-      return tile({label: fieldHtml(cellText(row, labelCol.at), ctx), value: valueHtml(raw, ctx), raw, below, notes: notes.concat(others.map(col => [col, fieldHtml(cellText(row, col.at), ctx)]).filter(([, html]) => html !== '').map(([col, html]) => `${escapeHtml(col.label)} ${html}`)).concat(extrasOf(block, row, ctx)),
+      return tile({label: fieldHtml(cellText(row, labelCol.at), ctx), value, raw, below, absences: parts.absence ? [escapeHtml(parts.absence)] : [], notes: notes.concat(others.map(col => [col, fieldHtml(cellText(row, col.at), ctx)]).filter(([, html]) => html !== '').map(([col, html]) => `${escapeHtml(col.label)} ${html}`)).concat(extrasOf(block, row, ctx)),
         info: defText === '' ? '' : findingCell(defText, ctx).html !== undefined ? infoTip(defText) : fieldHtml(defText, ctx)});
     }).join('');
     const table = designedTable(block, cols, ctx);
@@ -551,13 +558,13 @@
   }
   // C4, the Overview's figure strip: the rows of one metric table whose label the lead text names, as one joined strip. A row is shown when its label, read as plain text,
   // is a whole phrase of `text` (case aside), in the table's own order and at most four; none matches, no strip. Each cell is the label (a link to the module that holds the
-  // table: `link` is {href, title}), the latest period's cell as written, the earlier periods' numeric cells beneath, and the row's trace control. Nothing is picked by position.
+  // table: `link` is {href, title}), the latest reported period's cell as written (the dash and its reason when the store names none), the other periods' numeric cells beneath, and the row's trace control. Nothing is picked by position.
   const STRIP_MAX = 4;
   const phrasesIn = (phrase, text) => (phrase === '' ? [] : [...text.matchAll(new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegex(phrase)}(?![\\p{L}\\p{N}])`, 'giu'))].map(m => [m.index, m.index + m[0].length]));
   function metricStrip(block, ctx, text, link) {
     const cols = visibleColumns(block, 'metric', ctx), labelCol = cols[0], periodCols = cols.slice(1).filter(col => col.kind === 'period');
     if (!labelCol || !periodCols.length || !block.rows.length) return '';
-    const {latest, earlier} = periodOrder(periodCols), reader = readerText();
+    const parts = periodParts(periodCols, block), reader = readerText();
     const plainText = reader.plainText(text);
     const named = block.rows.filter(row => fieldHtml(cellText(row, labelCol.at), ctx) !== '').map(row => ({row, spans: phrasesIn(reader.plainText(cellText(row, labelCol.at)).trim(), plainText)})).filter(item => item.spans.length);
     // A label found only inside the span of a longer label the text names ("EBITDA" in "EBITDA margin") is not cited on its own; one that also stands alone elsewhere stays.
@@ -565,26 +572,28 @@
     const cells = named.filter(item => item.spans.some(span => !named.some(other => other !== item && inside(span, other)))).map(item => item.row)
       .slice(0, STRIP_MAX).map(row => {
         const label = cellText(row, labelCol.at);
-        const below = earlier.map(col => [col, cellText(row, col.at)]).filter(([, value]) => value !== '' && startsWithNumber(value)).map(([col, value]) => `${escapeHtml(col.label)} ${fieldHtml(value, ctx)}`).join(' · ');
-        return `<div class="strip-i"><div class="strip-t"><a class="strip-k" href="${escapeHtml(link.href)}" title="${escapeHtml(`Open ${link.title}`)}">${fieldHtml(label, ctx)}</a>${traceFor(ctx, row, rowLabelOf(block, ctx, row, label))}</div><p class="strip-v${cellText(row, latest.at).length > WIDE_AT ? ' wide' : ''}">${valueHtml(cellText(row, latest.at), ctx)}</p>${below ? `<p class="strip-b">${below}</p>` : ''}</div>`;
+        const {raw, value} = headline(row, parts, ctx);
+        const below = parts.others.map(col => [col, cellText(row, col.at)]).filter(([, value]) => value !== '' && startsWithNumber(value)).map(([col, value]) => `${escapeHtml(col.label)} ${fieldHtml(value, ctx)}`).join(' · ');
+        return `<div class="strip-i"><div class="strip-t"><a class="strip-k" href="${escapeHtml(link.href)}" title="${escapeHtml(`Open ${link.title}`)}">${fieldHtml(label, ctx)}</a>${traceFor(ctx, row, rowLabelOf(block, ctx, row, label))}</div><p class="strip-v${raw.length > WIDE_AT ? ' wide' : ''}">${value}</p>${parts.absence ? `<p class="strip-b">${escapeHtml(parts.absence)}</p>` : ''}${below ? `<p class="strip-b">${below}</p>` : ''}</div>`;
       });
-    return cells.length ? `<div class="strip" role="group" aria-label="Figures the bottom line cites, ${escapeHtml(latest.label)}">${cells.join('')}</div>` : '';
+    return cells.length ? `<div class="strip" role="group" aria-label="Figures the bottom line cites${parts.latest ? `, ${escapeHtml(parts.latest.label)}` : ''}">${cells.join('')}</div>` : '';
   }
   const TILE_ABSENCE = /^(?:not (?:supplied|calculated)\b|none identified\b)/i;
   function measureTiles(block, ctx) {
     const cols = visibleColumns(block, 'measure', ctx), labelCol = cols[0];
     const consequence = cols.find(col => col.kind === 'consequence'), valueCols = cols.slice(1).filter(col => col.kind === 'period');
-    const main = valueCols.length ? periodOrder(valueCols) : {latest: cols.slice(1).find(col => col !== consequence), earlier: []};
-    if (!labelCol || !main.latest || !block.rows.length) return recordCards(block, ctx);
-    const tagCols = cols.slice(1).filter(col => col !== main.latest && !main.earlier.includes(col) && col !== consequence);
+    // A table with no period column: its first other column is the value.
+    const main = valueCols.length ? periodParts(valueCols, block) : {latest: cols.slice(1).find(col => col !== consequence) ?? null, others: [], absence: ''};
+    if (!labelCol || (!main.latest && !valueCols.length) || !block.rows.length) return recordCards(block, ctx);
+    const tagCols = cols.slice(1).filter(col => col !== main.latest && !main.others.includes(col) && col !== consequence);
     // A stated absence ("Not calculated: ...") is a sentence, not a value: a tile draws it as its own absence line, no tag; when every tile states the same one, the strip says it once beneath.
     const absent = (row, col) => TILE_ABSENCE.test(plain(cellText(row, col.at)).trim()) && fieldHtml(cellText(row, col.at), ctx) !== '';
     const common = tagCols.filter(col => block.rows.every(row => absent(row, col) && cellText(row, col.at) === cellText(block.rows[0], col.at)));
     const tiles = block.rows.map(row => {
-      const raw = cellText(row, main.latest.at), {below, notes} = earlierParts(row, main.earlier, ctx);
-      return tile({label: fieldHtml(cellText(row, labelCol.at), ctx), value: valueHtml(raw, ctx), raw, below, notes: notes.concat(extrasOf(block, row, ctx)),
+      const {raw, value} = headline(row, main, ctx), {below, notes} = earlierParts(row, main.others, ctx);
+      return tile({label: fieldHtml(cellText(row, labelCol.at), ctx), value, raw, below, notes: notes.concat(extrasOf(block, row, ctx)),
         tags: tagCols.filter(col => !absent(row, col)).map(col => [col, fieldHtml(cellText(row, col.at), ctx)]).filter(([, html]) => html !== '').map(([col, html]) => tag(col.label, html)),
-        absences: tagCols.filter(col => absent(row, col) && !common.includes(col)).map(col => fieldHtml(cellText(row, col.at), ctx)),
+        absences: (main.absence ? [escapeHtml(main.absence)] : []).concat(tagCols.filter(col => absent(row, col) && !common.includes(col)).map(col => fieldHtml(cellText(row, col.at), ctx))),
         caption: consequence ? fieldHtml(cellText(row, consequence.at), ctx) : ''});
     }).join('');
     return shapeBlock('shape-measure', ctx, '', shapeBar('', traceOfBlock(ctx, block)) + `<div class="tiles tiles-4">${tiles}</div>` + common.map(col => `<p class="tiles-absent">${fieldHtml(cellText(block.rows[0], col.at), ctx)}</p>`).join(''));

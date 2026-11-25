@@ -306,10 +306,11 @@ export function lineLayout(data: EarningsAgainstDebt, width: number) {
         reason: cell?.kind === "number" ? null : `${value.label}: ${cellWords(cell)}`,
       };
     });
-    // Periods that cannot be put in time order are never joined: each figure stands as stated.
+    // A period the period order could not place is never joined: its figure stands as stated.
+    const placed = (label: string) => !data.unplaced.includes(label);
     const segments = points.slice(1).flatMap((point, at) => {
       const before = points[at];
-      return data.ordered && before?.value && point.value
+      return before?.value && point.value && placed(before.label) && placed(point.label)
         ? [{ x1: before.x, y1: before.value.y, x2: point.x, y2: point.value.y }]
         : [];
     });

@@ -656,3 +656,70 @@ it("draws a year missing inside the selected case's span as Not published, in pl
     "120",
   ]);
 });
+
+// Review of 2026-11-25: the grid reads actual and forecast columns by the one period rule, and
+// its leading actual column is the latest reported period. Expected values are written by hand.
+const revenueRow = (cells: string[]) => [
+  { label: "Revenue", band: "Operating", kind: "money", cells: cells.map(value) },
+];
+const headersOf = () =>
+  grid()
+    .getAllByRole("columnheader")
+    .map((header) => header.textContent);
+
+it("leads the selected case with the latest reported period, never a pro forma one", () => {
+  renderGrid(revenueRow(["98", "95", "99", "90", "100", "110"]), [
+    { label: "LTM Jun 2025", group: "Last twelve months" },
+    { label: "FY2024", group: "Fiscal year" },
+    { label: "PF LTM Jun 2025", group: "Pro forma" },
+    { label: "2023", group: "Fiscal year" },
+    { label: "FY2026E", group: "Base case" },
+    { label: "FY2027E", group: "Base case" },
+  ]);
+  expect(headersOf()).toEqual([
+    "Measure",
+    "Actual",
+    "Forecast · Base case",
+    "Trace",
+    "LTM Jun 2025",
+    "FY2026E",
+    "FY2027E",
+  ]);
+  expect(within(rowOf("Revenue")).getByRole("cell", { name: "98" })).toBeInTheDocument();
+});
+
+it("reads an actual year the rule reads, whatever its spelling", () => {
+  renderGrid(revenueRow(["90", "95", "100", "110"]), [
+    { label: "FY24", group: "Fiscal year" },
+    { label: "2023", group: "Fiscal year" },
+    { label: "FY2026E", group: "Base case" },
+    { label: "FY2027E", group: "Base case" },
+  ]);
+  expect(headersOf().slice(4)).toEqual(["FY24", "FY2026E", "FY2027E"]);
+});
+
+it("leads with no actual column where a fiscal year stands beside a dated period", () => {
+  renderGrid(revenueRow(["90", "95", "100", "110"]), [
+    { label: "FY2025", group: "Fiscal year" },
+    { label: "2025-06-30", group: "Interim" },
+    { label: "FY2026E", group: "Base case" },
+    { label: "FY2027E", group: "Base case" },
+  ]);
+  expect(headersOf()).toEqual(["Measure", "Forecast · Base case", "Trace", "FY2026E", "FY2027E"]);
+  showColumns("History");
+  expect(headersOf().slice(-2)).toEqual(["FY2025", "2025-06-30"]);
+});
+
+it("finds a year missing inside a case's span from the years the rule reads", () => {
+  renderGrid(revenueRow(["100", "120"]), [
+    { label: "2026F", group: "Base case" },
+    { label: "FY28E", group: "Base case" },
+  ]);
+  expect(headersOf().slice(3)).toEqual(["2026F", "FY2027E", "FY28E"]);
+  expect(
+    within(rowOf("Revenue"))
+      .getAllByRole("cell")
+      .slice(0, 3)
+      .map((cell) => cell.getAttribute("aria-label") ?? cell.textContent),
+  ).toEqual(["100", "Not published This case publishes no FY2027E column.", "120"]);
+});

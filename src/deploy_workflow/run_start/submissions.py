@@ -64,6 +64,9 @@ _CHUNK = 1024 * 1024
 _ID = re.compile(r"[0-9a-f]{32}")
 _DRIVE = re.compile(r"[A-Za-z]:")
 _CONTEXT_NAME = "context.json"
+# Beside ``files``, never in it: the submission's comparison portfolio (``reference_portfolio``),
+# which is not a source document. Its bytes count toward the store's ceiling.
+REFERENCE_FOLDER = "reference_portfolio"
 _MODULES_AT_MOST = 40
 _MODULE_NAME_AT_MOST = 12
 _TURNS = (1, 64)
@@ -378,6 +381,12 @@ def _refuse_links(root: Path, parts: list[str]) -> None:
             return
 
 
+def _reference_bytes(folder: Path) -> int:
+    """The bytes of a submission's comparison portfolio files; 0 when it has none."""
+    root = folder / REFERENCE_FOLDER
+    return 0 if root.is_symlink() or not root.is_dir() else sum(_stored(root).values())
+
+
 def _reserve(layout: Layout, folder: Path, sid: str, stored: str, length: int) -> str:
     """Check the limits against what is stored and in flight; record the reservation."""
     tmp = f".part-{uuid.uuid4().hex}"
@@ -398,6 +407,7 @@ def _reserve(layout: Layout, folder: Path, sid: str, stored: str, length: int) -
             size for other, held in _PENDING.items() if other != sid for _, size in held.values()
         )
         for other in _open_folders(layout):
+            store += _reference_bytes(other)
             if other != folder and not (other / "files").is_symlink():
                 store += sum(_stored(other / "files").values())
         if store > MAX_STORE:
@@ -896,8 +906,15 @@ def summary(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
     returns an error. The context is written to a temporary folder and the run folder is another
     one; both are under the state folder, never in the files, and both are removed. A refusal
     comes back as ``error`` with no digest, and so does a change to the documents while the
-    forecast was being made."""
-    result = _summarise(layout, sid, answers)
+    forecast was being made.
+
+    A submission's comparison portfolio (``reference_portfolio``, optional and never a source
+    document) is bound in last: the answer then shows it as ``reference_portfolio`` and the digest
+    covers it; one that cannot be read is an ``error`` until it is replaced or removed."""
+    # Imported here: that module is built on this one's uploads.
+    from deploy_workflow.run_start import reference_portfolio
+
+    result = reference_portfolio.bind(layout, sid, _summarise(layout, sid, answers))
     digest_issued = result.get("digest", "")
     try:
         _record_issued(layout, sid, result)

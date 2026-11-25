@@ -10,7 +10,7 @@ import {
 } from "../publishedReport";
 import type { buildReportView } from "../reportView";
 import { forecastCaseLabel, forecastCaseNames, gridOf, type Grid } from "../visuals/LegacyForecast";
-import { isDatedForecastPeriod } from "../visuals/scenarioPeriods";
+import { isForecastPeriod } from "../visuals/scenarioPeriods";
 import { items, record, stringsIn, word } from "../visuals/visualData";
 import type { PublishedTraceContext } from "./PublishedTrace";
 
@@ -251,9 +251,7 @@ function addCaseDrivers(
 
 function forecastCases(model: ForecastModel, downsideNote: string, selection: ForecastSelection) {
   const available = rawGroups(model).flatMap((grid) =>
-    grid.columns
-      .filter((column) => isDatedForecastPeriod(column.label))
-      .map((column) => column.group),
+    grid.columns.filter((column) => isForecastPeriod(column.label)).map((column) => column.group),
   );
   const names = forecastCaseNames(model.cashflow);
   const chosen = selection.rawGroups ?? (selection.rawGroup ? [selection.rawGroup] : undefined);
