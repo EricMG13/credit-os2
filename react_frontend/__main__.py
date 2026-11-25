@@ -31,11 +31,6 @@ def main() -> None:
     parser.add_argument("--root", type=Path, required=True, help="the shared folder")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument(
-        "--signal-url",
-        default="",
-        help="http://<host>:<port>/ of Signal: serves /signal and forwards /signal/api/ to it",
-    )
-    parser.add_argument(
         "--copilot-preflight",
         action="store_true",
         help="check this seat's model catalogue before serving live run options",
@@ -43,7 +38,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         models = _seat_models() if args.copilot_preflight else {}
-        serve(args.root, port=args.port, signal_url=args.signal_url, copilot_models=models)
+        serve(args.root, port=args.port, copilot_models=models)
     except (OSError, ValueError) as error:
         parser.exit(2, f"{error}\n")
     except KeyboardInterrupt:

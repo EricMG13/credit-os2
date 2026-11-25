@@ -1,37 +1,53 @@
-"""The React server's Signal forwarding (react_frontend/signal_forward.py), run for real.
+"""Signal hosted by the React application's server (react_frontend/signal_host.py), run for real.
 
-Two kinds of upstream. The behaviour a reader depends on runs against a real Signal service on a
-loopback port over a temporary store (name round trip, a save reaching the store). The hostile
-cases run against a tiny scripted TCP upstream whose every byte the test controls (a redirect, an
-oversized or slow reply, extra headers) and which records exactly what the forwarder sent it.
-Expected values are written by hand, never computed from the code under test.
+One process: each test starts the application's own server on a loopback port over a temporary
+shared folder and talks to ``/signal/api/*`` through that port; Signal's store is the one under
+that folder. No test starts Signal's background loop against the network: ``make_server`` starts no
+thread at all, and the tests of ``serve`` replace the loop's pass with a recorder. SYNTHETIC where
+the AI pass is concerned: the environments, the ruling folder and the model factory are fakes
+written here; no key is real and no model is built or called. Expected values are written by hand,
+never computed from the code under test.
 """
 
+import dataclasses
 import gzip
 import json
-import logging
 import os
 import socket
-import socketserver
+import sqlite3
+import sys
 import threading
-import time
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from decimal import Decimal
 from http.client import HTTPConnection
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import pytest
+from signal_ai_fakes import FakeModel, write_ruling
+from signal_ai_fakes import environ as key_environ
 
-from deploy_workflow.run_start.service import _Server
+import react_frontend
+from deploy_workflow.signal import ai_ledger, ai_run, feedview, store, topics
 from deploy_workflow.signal import service as signal_service
-from deploy_workflow.signal import store, topics
 from deploy_workflow.signal.feeds import Entry
-from react_frontend import make_server, signal_forward
+from deploy_workflow.signal.fetch import Fetched
+from react_frontend import Server, make_server, signal_host
 
-NO_UPSTREAM = 1  # a port nothing listens on, for "Signal is down"
-NOT_REACHABLE = {"error": "Signal is not reachable"}
+NOW = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)
+DANA = {"Cookie": "unrelated=1; signal_name=Dana%20Reyes; other=2"}
+POLICY = "default-src 'none'; frame-ancestors 'none'"
+NO_KEY = (
+    "The service was started without the provider's key: COPILOT_GITHUB_TOKEN"
+    " (or COPILOT_USE_GH_LOGIN=1) is not set."
+)
+NO_RUNTIME = (
+    "The service was started without COPILOT_CLI_PATH naming the Copilot runtime"
+    " (an absolute path to an existing file)."
+)
 
 
 @pytest.fixture
@@ -51,10 +67,44 @@ def root() -> Iterator[Path]:
         yield Path(name)
 
 
+def seed(root: Path) -> None:
+    """One approved source with one story, and one topic. No loop runs, so nothing is fetched."""
+    db = store.open_db(root)
+    source = store.propose_source(db, "Authority", "regulator", "https://a.org/feed", "owner")
+    store.set_source_state(db, source, "approved")
+    entry = Entry("Remedy accepted by the regulator", "https://a.org/1", None, "A remedy.")
+    assert store.add_story(db, source, entry, datetime(2026, 11, 13, 9, 0, tzinfo=UTC)) == "new"
+    assert topics.add_topic(db, "Remedy", ["remedy"], [], "owner") == 1
+    db.close()
+
+
+@pytest.fixture
+def seeded(root: Path) -> Path:
+    seed(root)
+    return root
+
+
 @contextmanager
-def react(root: Path, web: Path, signal_url: str, *, read_only: bool = False) -> Iterator[_Server]:
-    with make_server(root, web=web, signal_url=signal_url, read_only=read_only) as server:
-        thread = threading.Thread(target=server.serve_forever)
+def react(
+    root: Path,
+    web: Path,
+    *,
+    read_only: bool = False,
+    synthetic: bool = False,
+    environ: Mapping[str, str] | None = None,
+) -> Iterator[Server]:
+    """The application's server, serving. Its Signal environment is empty unless one is given, so
+    no test depends on what the machine running it has set."""
+    launcher = ("unused-by-test",) if synthetic else None
+    with make_server(
+        root,
+        web=web,
+        read_only=read_only,
+        synthetic=synthetic,
+        launcher=launcher,
+        environ={} if environ is None else environ,
+    ) as server:
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
         thread.start()
         try:
             yield server
@@ -64,14 +114,14 @@ def react(root: Path, web: Path, signal_url: str, *, read_only: bool = False) ->
 
 
 def call(
-    server: _Server,
+    server: Server,
     path: str,
     method: str = "GET",
     *,
     headers: Mapping[str, str | None] | None = None,
     body: bytes | str | None = None,
 ) -> tuple[int, bytes, list[tuple[str, str]]]:
-    """One request to the React server. A write carries the page's own Origin; a header given as
+    """One request to the application. A write carries the page's own Origin; a header given as
     None is left out, so ``{"Origin": None}`` sends a write with no Origin."""
     port = server.server_address[1]
     sent: dict[str, str | None] = {"Origin": f"http://127.0.0.1:{port}"} if method != "GET" else {}
@@ -86,155 +136,37 @@ def call(
         connection.close()
 
 
-def raw_call(server: _Server, data: bytes) -> bytes:
+def raw_call(server: Server, data: bytes, *, half_close: bool = False) -> bytes:
     """Whatever the server answers to these exact bytes."""
     with socket.create_connection(("127.0.0.1", server.server_address[1]), timeout=10) as sock:
         sock.sendall(data)
+        if half_close:
+            sock.shutdown(socket.SHUT_WR)
         chunks = []
         while chunk := sock.recv(65536):
             chunks.append(chunk)
     return b"".join(chunks)
 
 
+def raw_post(server: Server, path: str, extra: str = "", body: str = "") -> bytes:
+    """A POST from the page's own origin as these exact bytes: no header the test did not write."""
+    port = server.server_address[1]
+    head = f"Host: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\n"
+    return raw_call(server, f"POST {path} HTTP/1.1\r\n{head}{extra}\r\n{body}".encode())
+
+
+def status_line(reply: bytes) -> bytes:
+    return reply.split(b"\r\n")[0]
+
+
+def json_of(reply: bytes) -> Any:
+    return json.loads(reply.partition(b"\r\n\r\n")[2])
+
+
 def header(headers: list[tuple[str, str]], name: str) -> str | None:
     found = [value for key, value in headers if key.lower() == name.lower()]
     assert len(found) <= 1, (name, found)
     return found[0] if found else None
-
-
-# -- a scripted upstream ------------------------------------------------------------------------
-
-
-def _read_request(sock: socket.socket) -> bytes:
-    data = b""
-    while b"\r\n\r\n" not in data:
-        chunk = sock.recv(65536)
-        if not chunk:
-            return data
-        data += chunk
-    head, _, rest = data.partition(b"\r\n\r\n")
-    length = 0
-    for line in head.split(b"\r\n")[1:]:
-        name, _, value = line.partition(b":")
-        if name.strip().lower() == b"content-length":
-            length = int(value)
-    while len(rest) < length:
-        chunk = sock.recv(65536)
-        if not chunk:
-            break
-        rest += chunk
-    return head + b"\r\n\r\n" + rest
-
-
-def reply_bytes(
-    body: bytes = b'{"ok": true}',
-    *,
-    status: str = "200 OK",
-    kind: str | None = "application/json; charset=utf-8",
-    extra: tuple[str, ...] = (),
-    length: int | None = None,
-) -> bytes:
-    lines = [f"HTTP/1.1 {status}", f"Content-Length: {len(body) if length is None else length}"]
-    if kind is not None:
-        lines.append(f"Content-Type: {kind}")
-    lines.extend(extra)
-    return ("\r\n".join(lines) + "\r\n\r\n").encode("latin-1") + body
-
-
-class Upstream:
-    """A TCP server on a loopback port that answers each request with ``script(socket, request)``
-    and records the raw bytes of every request and the number of connections."""
-
-    def __init__(self, script: Callable[[socket.socket, bytes], None]) -> None:
-        self.requests: list[bytes] = []
-        self.connections = 0
-        outer = self
-
-        class Handle(socketserver.BaseRequestHandler):
-            def handle(self) -> None:
-                outer.connections += 1
-                raw = _read_request(self.request)
-                outer.requests.append(raw)
-                try:
-                    script(self.request, raw)
-                except OSError:
-                    return
-
-        class Server(socketserver.ThreadingTCPServer):
-            allow_reuse_address = True
-            daemon_threads = True
-
-        self.server = Server(("127.0.0.1", 0), Handle)
-        self.port = self.server.server_address[1]
-        self.url = f"http://127.0.0.1:{self.port}/"
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-
-    def close(self) -> None:
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join(timeout=5)
-
-    def head(self, index: int = 0) -> tuple[str, dict[str, str]]:
-        """The request line and the headers (lower-cased names) of a recorded request."""
-        text = self.requests[index].partition(b"\r\n\r\n")[0].decode("latin-1")
-        first, *lines = text.split("\r\n")
-        return first, {line.partition(":")[0].lower(): line.partition(": ")[2] for line in lines}
-
-    def body(self, index: int = 0) -> bytes:
-        return self.requests[index].partition(b"\r\n\r\n")[2]
-
-
-def answer(data: bytes) -> Callable[[socket.socket, bytes], None]:
-    def script(sock: socket.socket, _raw: bytes) -> None:
-        sock.sendall(data)
-
-    return script
-
-
-@contextmanager
-def upstream(script: Callable[[socket.socket, bytes], None]) -> Iterator[Upstream]:
-    fake = Upstream(script)
-    try:
-        yield fake
-    finally:
-        fake.close()
-
-
-@contextmanager
-def forwarded(
-    root: Path, web: Path, script: Callable[[socket.socket, bytes], None]
-) -> Iterator[tuple[_Server, Upstream]]:
-    with upstream(script) as fake, react(root, web, fake.url) as server:
-        yield server, fake
-
-
-def settle() -> None:
-    time.sleep(0.15)  # a connection the forwarder wrongly opened would be counted by now
-
-
-# -- the real Signal service --------------------------------------------------------------------
-
-
-@contextmanager
-def real_signal(folder: Path) -> Iterator[tuple[str, Path]]:
-    folder.mkdir()
-    db = store.open_db(folder)
-    source = store.propose_source(db, "Authority", "regulator", "https://a.org/feed", "owner")
-    store.set_source_state(db, source, "approved")
-    entry = Entry("Remedy accepted by the regulator", "https://a.org/1", None, "A remedy.")
-    assert store.add_story(db, source, entry, datetime(2026, 11, 13, 9, 0, tzinfo=UTC)) == "new"
-    assert topics.add_topic(db, "Remedy", ["remedy"], [], "owner") == 1
-    db.close()
-    server = signal_service.make_server(folder, "127.0.0.1", 0)
-    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_address[1]}/", folder
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=10)
 
 
 def rows(folder: Path, sql: str) -> list[tuple[object, ...]]:
@@ -245,13 +177,13 @@ def rows(folder: Path, sql: str) -> list[tuple[object, ...]]:
         db.close()
 
 
-def test_name_round_trip_and_writes_reach_the_real_service(
-    root: Path, web: Path, tmp_path: Path
+# -- what a reader depends on --------------------------------------------------------------------
+
+
+def test_name_round_trip_and_writes_reach_the_store_through_the_applications_port(
+    seeded: Path, web: Path
 ) -> None:
-    with (
-        real_signal(tmp_path / "signal-data") as (url, data),
-        react(root, web, url) as server,
-    ):
+    with react(seeded, web) as server:
         status, body, headers = call(server, "/signal/api/me")
         assert (status, json.loads(body)) == (200, {"name": None})
         assert header(headers, "Cache-Control") == "no-store"
@@ -265,65 +197,74 @@ def test_name_round_trip_and_writes_reach_the_real_service(
         assert header(headers, "Set-Cookie") == (
             "signal_name=Dana%20Reyes; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly"
         )
-        cookie = {"Cookie": "unrelated=1; signal_name=Dana%20Reyes; other=2"}
-        status, body, _ = call(server, "/signal/api/me", headers=cookie)
+        status, body, _ = call(server, "/signal/api/me", headers=DANA)
         assert (status, json.loads(body)) == (200, {"name": "Dana Reyes", "role": "reader"})
 
         # A page that is not Signal's is refused by Signal's own 401, status and text intact.
         status, body, _ = call(server, "/signal/api/topics")
         assert (status, json.loads(body)) == (401, {"error": "choose a display name first"})
 
-        status, body, _ = call(server, "/signal/api/stories/1/save", "POST", headers=cookie)
+        status, body, _ = call(server, "/signal/api/stories/1/save", "POST", headers=DANA)
         assert (status, json.loads(body)) == (200, {"saved": True})
-        assert rows(data, "SELECT user_name, story_id FROM saves") == [("Dana Reyes", 1)]
-        status, body, _ = call(server, "/signal/api/stories/1/save", "DELETE", headers=cookie)
+        assert rows(seeded, "SELECT user_name, story_id FROM saves") == [("Dana Reyes", 1)]
+        status, body, _ = call(server, "/signal/api/stories/1/save", "DELETE", headers=DANA)
         assert (status, json.loads(body)) == (200, {"saved": False})
-        assert rows(data, "SELECT user_name, story_id FROM saves") == []
+        assert rows(seeded, "SELECT user_name, story_id FROM saves") == []
 
-        status, body, _ = call(server, "/signal/api/topics/1/follow", "POST", headers=cookie)
+        status, body, _ = call(server, "/signal/api/topics/1/follow", "POST", headers=DANA)
         assert (status, json.loads(body)) == (200, {"following": True})
-        assert rows(data, "SELECT user_name, topic_id FROM topic_follows") == [("Dana Reyes", 1)]
-        status, body, _ = call(server, "/signal/api/topics", headers=cookie)
+        assert rows(seeded, "SELECT user_name, topic_id FROM topic_follows") == [("Dana Reyes", 1)]
+        status, body, _ = call(server, "/signal/api/topics", headers=DANA)
         assert status == 200
         assert json.loads(body) == [{"id": 1, "name": "Remedy", "following": True, "stories": 1}]
-        status, body, _ = call(server, "/signal/api/stories/99/save", "POST", headers=cookie)
+        status, body, _ = call(server, "/signal/api/stories/99/save", "POST", headers=DANA)
         assert status == 404 and json.loads(body)["error"]
         status, body, _ = call(server, "/signal/api/status")
         assert status == 200
         assert json.loads(body) == {
-            "last_pass_at": None,
+            "last_pass_at": None,  # make_server started no loop: no pass has run
             "sources": {"approved": 1, "failing": 0},
             "loop_error": None,
-            "ai_state": "off",  # no background loop: the AI pass is off
+            "ai_state": "off",
             "ai_last_problem": None,
         }
 
 
-# -- the allowlist -------------------------------------------------------------------------------
+def test_the_snapshot_is_served_for_a_named_reader(seeded: Path, web: Path) -> None:
+    with react(seeded, web) as server:
+        status, body, _ = call(server, "/signal/api/snapshot", headers=DANA)
+        assert status == 200
+        document = json.loads(body)
+        assert "Remedy accepted by the regulator" in body.decode("utf-8")
+        assert isinstance(document["scenes"], list) and document["asOf"].startswith("20")
+        status, body, _ = call(server, "/signal/api/snapshot?format=3", headers=DANA)
+        assert (status, json.loads(body)) == (400, {"error": "format must be 1 or 2"})
 
+
+NEEDS_NAME = "choose a display name first"
+# Each of Signal's own routes, asked with no name: what only Signal's route table answers.
 REACHING = [
-    ("GET", "/signal/api/snapshot"),
-    ("GET", "/signal/api/me"),
-    ("POST", "/signal/api/me"),
-    ("GET", "/signal/api/status"),
-    ("GET", "/signal/api/feed"),
-    ("GET", "/signal/api/feed/new"),
-    ("GET", "/signal/api/topics"),
-    ("POST", "/signal/api/stories/12/save"),
-    ("DELETE", "/signal/api/stories/12/save"),
-    ("POST", "/signal/api/topics/3/follow"),
-    ("DELETE", "/signal/api/topics/3/follow"),
+    ("GET", "/signal/api/snapshot", 200, None),
+    ("GET", "/signal/api/me", 200, None),
+    ("POST", "/signal/api/me", 400, "the request body is not valid JSON"),  # a POST of no bytes
+    ("GET", "/signal/api/status", 200, None),
+    ("GET", "/signal/api/feed", 401, NEEDS_NAME),
+    ("GET", "/signal/api/feed/new", 401, NEEDS_NAME),
+    ("GET", "/signal/api/topics", 401, NEEDS_NAME),
+    ("POST", "/signal/api/stories/12/save", 401, NEEDS_NAME),
+    ("DELETE", "/signal/api/stories/12/save", 401, NEEDS_NAME),
+    ("POST", "/signal/api/topics/3/follow", 401, NEEDS_NAME),
+    ("DELETE", "/signal/api/topics/3/follow", 401, NEEDS_NAME),
 ]
 
 
-@pytest.mark.parametrize(("method", "path"), REACHING)
-def test_the_service_routes_pass_with_the_signal_prefix_dropped(
-    root: Path, web: Path, method: str, path: str
-) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
-        status, body, _ = call(server, path, method)
-        assert (status, body) == (200, b'{"ok": true}')
-        assert fake.head()[0] == f"{method} {path.removeprefix('/signal')} HTTP/1.1"
+def test_the_service_routes_answer_under_the_signal_prefix(seeded: Path, web: Path) -> None:
+    with react(seeded, web) as server:
+        for method, path, expected, error in REACHING:
+            status, body, _ = call(server, path, method)
+            assert status == expected, (method, path)
+            if error is not None:
+                assert json.loads(body) == {"error": error}, (method, path)
 
 
 REFUSED_PATHS = [
@@ -360,550 +301,796 @@ REFUSED_PATHS = [
 
 
 @pytest.mark.parametrize("path", REFUSED_PATHS)
-def test_a_path_outside_the_allowlist_is_404_before_any_outbound_call(
-    root: Path, web: Path, path: str
+def test_a_path_that_is_no_route_is_404_for_every_method(
+    seeded: Path, web: Path, path: str
 ) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+    with react(seeded, web) as server:
         for method in ("GET", "POST", "DELETE"):
-            assert call(server, path, method)[0] == 404, method
-        settle()
-        assert fake.connections == 0
+            assert call(server, path, method, headers=DANA)[0] == 404, method
 
 
-def test_an_absolute_target_is_refused_by_the_base_checks(root: Path, web: Path) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+def test_an_absolute_target_is_refused_by_the_base_checks(seeded: Path, web: Path) -> None:
+    with react(seeded, web) as server:
         port = server.server_address[1]
         data = f"GET http://evil.test/signal/api/me HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n"
         assert raw_call(server, data.encode()).startswith(b"HTTP/1.0 400")
-        settle()
-        assert fake.connections == 0
 
 
 @pytest.mark.parametrize("method", ["PUT", "PATCH", "OPTIONS", "HEAD"])
-def test_other_methods_are_405_and_never_forwarded(root: Path, web: Path, method: str) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+def test_other_methods_are_405_where_signal_is_hosted(seeded: Path, web: Path, method: str) -> None:
+    with react(seeded, web) as server:
         status, body, headers = call(server, "/signal/api/me", method)
         assert status == 405
-        assert header(headers, "Allow") == "GET, POST, DELETE"
+        assert header(headers, "Allow") == "GET, POST"  # the methods /api/me has
         assert body == (b"" if method == "HEAD" else b'{"error": "method not allowed"}')
+        status, _, headers = call(server, "/signal/api/stories/1/save", method)
+        assert (status, header(headers, "Allow")) == (405, "POST, DELETE")
         assert call(server, "/signal/api/Nothing", method)[0] == 404
-        settle()
-        assert fake.connections == 0
-        assert call(server, "/start", "PUT")[0] == 501  # the rest of the server is unchanged
+        assert call(server, "/signal/api/me", method, headers={"Origin": None})[0] == 403
+        assert call(server, "/start", method)[0] == 501  # the rest of the server is unchanged
 
 
 @pytest.mark.parametrize("path", ["/signal/api", "/signal/api/"])
 @pytest.mark.parametrize("method", ["GET", "POST", "DELETE", "PUT", "PATCH", "OPTIONS", "HEAD"])
 def test_the_api_root_is_404_for_every_method_with_or_without_a_slash(
-    root: Path, web: Path, path: str, method: str
+    seeded: Path, web: Path, path: str, method: str
 ) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+    with react(seeded, web) as server:
         assert call(server, path, method)[0] == 404
-        settle()
-        assert fake.connections == 0
 
 
-def test_the_connect_timeout_is_what_is_left_of_the_deadline() -> None:
-    assert signal_forward.connect_timeout(100.0, 100.0) == signal_forward.IO_TIMEOUT
-    assert signal_forward.connect_timeout(100.0, 108.0) == pytest.approx(2.0)
-    assert signal_forward.connect_timeout(100.0, 120.0) <= 0  # none left: no connect attempt
-
-
-def test_a_status_line_with_control_bytes_reaches_the_log_escaped(
-    root: Path, web: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    caplog.set_level(logging.INFO)
-    hostile = b"garbage\r2026-11-24 ERROR fake: key=sk-xxx\x1b[2K\r\n"
-    with upstream(answer(hostile)) as fake, react(root, web, fake.url) as server:
-        assert call(server, "/signal/api/me")[0] == 502
-    messages = [r.getMessage() for r in caplog.records if r.name == signal_forward.log.name]
-    assert len(messages) == 1
-    assert not any(c in messages[0] for c in "\r\n\x1b")
-
-
-# -- the local checks come first -----------------------------------------------------------------
+# -- the application's own checks come first -----------------------------------------------------
 
 
 @pytest.mark.parametrize("method", ["POST", "DELETE"])
-def test_a_write_from_another_origin_is_refused_locally(root: Path, web: Path, method: str) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+def test_a_write_needs_the_pages_own_origin(seeded: Path, web: Path, method: str) -> None:
+    db = store.open_db(seeded)
+    feedview.save(db, "Dana Reyes", 1)  # so a DELETE that got through would be seen too
+    db.close()
+    before = [("Dana Reyes", 1)]
+    with react(seeded, web) as server:
         path = "/signal/api/stories/1/save"
         port = server.server_address[1]
-        other = {"Origin": "http://evil.test"}
-        assert call(server, path, method, headers=other)[0] == 403
-        assert call(server, path, method, headers={"Origin": None})[0] == 403
-        assert (
-            call(server, path, method, headers={"Origin": f"http://localhost:{port + 1}"})[0] == 403
-        )
-        assert call(server, path, method, headers={"Origin": "null"})[0] == 403
-        site = {"Sec-Fetch-Site": "cross-site"}
-        assert call(server, path, method, headers=site)[0] == 403
-        settle()
-        assert fake.connections == 0
-        assert call(server, path, method)[0] == 200  # the page's own origin passes
+        refused = [
+            {"Origin": None},
+            {"Origin": "http://evil.test"},
+            {"Origin": f"http://localhost:{port + 1}"},
+            {"Origin": "null"},
+            {"Sec-Fetch-Site": "cross-site"},
+            {"Sec-Fetch-Site": "same-site"},
+        ]
+        for sent in refused:
+            assert call(server, path, method, headers={**DANA, **sent})[0] == 403, sent
+        _, body, _ = call(server, path, method, headers={**DANA, "Origin": None})
+        assert json.loads(body) == {"error": "the request did not come from the service's own page"}
+        assert rows(seeded, "SELECT user_name, story_id FROM saves") == before  # nothing changed
+        assert call(server, path, method, headers=DANA)[0] == 200  # the page's own origin passes
 
 
-def test_a_foreign_host_name_is_refused_before_anything_is_forwarded(root: Path, web: Path) -> None:
+def test_a_foreign_host_name_is_refused_before_signal_answers(seeded: Path, web: Path) -> None:
     """DNS rebinding: a page on evil.test that resolves to this machine sends Host: evil.test."""
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+    with react(seeded, web) as server:
         port = server.server_address[1]
         for host in ("evil.test", f"evil.test:{port}", f"127.0.0.1:{port + 1}"):
             for method in ("GET", "POST"):
                 headers = {"Host": host, "Origin": f"http://{host}"}
                 assert call(server, "/signal/api/me", method, headers=headers)[0] == 403
-        assert call(server, "/signal/api/me", headers={"Sec-Fetch-Site": "cross-site"})[0] == 403
+        status, body, _ = call(server, "/signal/api/me", headers={"Host": "evil.test"})
+        assert (status, json.loads(body)) == (
+            403,
+            {"error": "this address is not the one the service was started on"},
+        )
+        status, body, _ = call(server, "/signal/api/me", headers={"Sec-Fetch-Site": "cross-site"})
+        assert (status, json.loads(body)) == (
+            403,
+            {"error": "the request came from another site"},
+        )
         assert call(server, "/signal/api/me", headers={"Origin": "http://evil.test"})[0] == 403
-        settle()
-        assert fake.connections == 0
         assert call(server, "/signal/api/me", headers={"Host": f"localhost:{port}"})[0] == 200
 
 
-# -- what is sent upstream -----------------------------------------------------------------------
+def test_the_checks_run_before_any_signal_handler(
+    seeded: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[str] = []
+    real = signal_service.answer
+
+    def recording(folder: Path, loop: Any, request: Any) -> Any:
+        asked.append(f"{request.method} {request.path}")
+        return real(folder, loop, request)
+
+    monkeypatch.setattr(signal_service, "answer", recording)
+    with react(seeded, web) as server:
+        assert call(server, "/signal/api/me", headers={"Host": "evil.test"})[0] == 403
+        assert call(server, "/signal/api/me", "POST", headers={"Origin": None})[0] == 403
+        assert call(server, "/signal/api/me", headers={"Sec-Fetch-Site": "cross-site"})[0] == 403
+        chunked = raw_post(server, "/signal/api/me", "Transfer-Encoding: chunked\r\n", "0\r\n\r\n")
+        assert b" 411 " in status_line(chunked)
+        assert asked == []
+        assert call(server, "/signal/api/me")[0] == 200
+        assert asked == ["GET /api/me"]  # the prefix is dropped for Signal's route table
 
 
-def test_the_outbound_request_carries_only_the_listed_headers(root: Path, web: Path) -> None:
-    browser = {
-        "Cookie": "session=secret; signal_name=Dana%20Reyes; theme=dark",
-        "Authorization": "Bearer token",
-        "Referer": "http://127.0.0.1/start",
-        "User-Agent": "Browser/1.0",
-        "X-Forwarded-Host": "evil.test",
-        "X-Forwarded-For": "10.0.0.9",
-        "Forwarded": "host=evil.test",
-        "Accept": "text/html",
-        "Accept-Encoding": "gzip",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-Mode": "cors",
-        "Content-Type": "text/plain",
-        "Connection": "keep-alive",
-    }
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
-        port = fake.port
-        assert (
-            call(server, "/signal/api/me", "POST", headers=browser, body='{"name": "Dana"}')[0]
-            == 200
+# -- the body rules ------------------------------------------------------------------------------
+
+
+def test_a_body_is_read_on_a_post_only_and_bounded_at_64_kib(seeded: Path, web: Path) -> None:
+    with react(seeded, web) as server:
+        exact = b'{"name": "Dana", "pad": "' + b"x" * (64 * 1024 - 27) + b'"}'
+        assert len(exact) == 64 * 1024
+        status, body, _ = call(server, "/signal/api/me", "POST", body=exact)
+        assert (status, json.loads(body)) == (200, {"name": "Dana", "role": "reader"})
+        status, body, _ = call(server, "/signal/api/me", "POST", body=exact + b" ")
+        assert (status, json.loads(body)) == (413, {"error": "a request body is at most 64 KiB"})
+
+        no_body = {"error": "this request takes no body"}
+        status, body, _ = call(
+            server, "/signal/api/me", "GET", headers={"Content-Length": "2"}, body=b"{}"
         )
-        assert call(server, "/signal/api/feed?view=latest", headers=browser)[0] == 200
-    expected_write = {
-        "host": f"127.0.0.1:{port}",
-        "origin": f"http://127.0.0.1:{port}",
-        "cookie": "signal_name=Dana%20Reyes",
-        "content-type": "application/json",
-        "content-length": "16",
-        "connection": "close",
-        "accept-encoding": "identity",
-    }
-    assert fake.head(0) == ("POST /api/me HTTP/1.1", expected_write)
-    assert fake.body(0) == b'{"name": "Dana"}'
-    expected_read = {
-        "host": f"127.0.0.1:{port}",
-        "cookie": "signal_name=Dana%20Reyes",
-        "connection": "close",
-        "accept-encoding": "identity",
-    }
-    assert fake.head(1) == ("GET /api/feed?view=latest HTTP/1.1", expected_read)
+        assert (status, json.loads(body)) == (400, no_body)
+        status, body, _ = call(
+            server, "/signal/api/stories/1/save", "DELETE", headers=DANA, body=b"{}"
+        )
+        assert (status, json.loads(body)) == (400, no_body)
+        assert call(server, "/signal/api/me", headers={"Content-Length": "0"})[0] == 200
 
 
-@pytest.mark.parametrize(
-    ("sent", "forwarded_cookie"),
-    [
-        ("session=secret; theme=dark", None),
-        ("signal_name=Dana%20Reyes", "signal_name=Dana%20Reyes"),
-        (" signal_name = Dana%20Reyes ;x=1", "signal_name=Dana%20Reyes"),
-        ("signal_name=first; signal_name=second", "signal_name=first"),
-        ("xsignal_name=a; signal_name_x=b", None),
-        ("signal_name=a b", None),
-        ('signal_name="quoted"', None),
-        ("signal_name=a,b", None),
-        ("signal_name=" + "a" * 2000, None),
-        ("signal_name=", None),
-        ("signal_name=%0d%0aX-Evil%3A1", "signal_name=%0d%0aX-Evil%3A1"),
-        ("signal_name=a:b", None),
-        ("signal_name=a\\b", None),
-        ("signal_name=café", None),
-    ],
-)
-def test_only_the_one_well_formed_name_cookie_goes_upstream(
-    root: Path, web: Path, sent: str, forwarded_cookie: str | None
+def test_a_required_body_needs_content_length_and_an_optional_one_does_not(
+    seeded: Path, web: Path
 ) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
-        headers = {"Cookie": sent.encode("utf-8").decode("latin-1")}
-        assert call(server, "/signal/api/me", headers=headers)[0] == 200
-        _, seen = fake.head()
-        assert seen.get("cookie") == forwarded_cookie
-        assert b"\r\nX-Evil" not in fake.requests[0]  # nothing became a header of its own
-        assert len(fake.requests) == 1
+    with react(seeded, web) as server:
+        missing = raw_post(server, "/signal/api/me")
+        assert b" 411 " in status_line(missing)
+        assert json_of(missing) == {"error": "a body needs Content-Length"}
+        cookie = "Cookie: signal_name=Dana%20Reyes\r\n"
+        saved = raw_post(server, "/signal/api/stories/1/save", cookie)  # this route reads no body
+        assert b" 200 " in status_line(saved) and json_of(saved) == {"saved": True}
+        status, body, _ = call(server, "/signal/api/stories/1/save", "POST", headers=DANA)
+        assert (status, json.loads(body)) == (200, {"saved": True})  # Content-Length: 0
 
 
-def test_a_query_goes_with_a_get_only_and_only_when_printable_and_short(
-    root: Path, web: Path
-) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
-        query = "view=latest&q=a%20b&kind=%22x%22&q=%e2%82%ac"
-        assert call(server, f"/signal/api/feed?{query}")[0] == 200
-        assert fake.head(0)[0] == f"GET /api/feed?{query} HTTP/1.1"
-        assert call(server, "/signal/api/feed?")[0] == 200
-        assert fake.head(1)[0] == "GET /api/feed HTTP/1.1"
-        assert call(server, "/signal/api/stories/1/save?x=1&y=2", "POST")[0] == 200
-        assert fake.head(2)[0] == "POST /api/stories/1/save HTTP/1.1"
-        assert call(server, "/signal/api/topics/1/follow?x=1", "DELETE")[0] == 200
-        assert fake.head(3)[0] == "DELETE /api/topics/1/follow HTTP/1.1"
-        assert call(server, "/signal/api/feed?q=" + "a" * 600)[0] == 400
+@pytest.mark.parametrize("sent", ["[1]", '"Dana"', "3", "null", "true"])
+def test_a_json_body_that_is_not_an_object_is_refused(seeded: Path, web: Path, sent: str) -> None:
+    with react(seeded, web) as server:
+        status, body, _ = call(server, "/signal/api/me", "POST", body=sent)
+        assert (status, json.loads(body)) == (
+            400,
+            {"error": "the request body must be a JSON object"},
+        )
+
+
+def test_a_body_that_is_not_json_or_ends_early_is_refused(seeded: Path, web: Path) -> None:
+    with react(seeded, web) as server:
+        not_json = {"error": "the request body is not valid JSON"}
+        for sent in (b"{", b"name=Dana", b"\xff\xfe"):
+            status, body, _ = call(server, "/signal/api/me", "POST", body=sent)
+            assert (status, json.loads(body)) == (400, not_json), sent
         port = server.server_address[1]
-        for target in (b"/signal/api/feed?q=\xe2\x82\xac", b"/signal/api/feed?q=a\x01b"):
-            data = b"GET " + target + b" HTTP/1.1\r\nHost: 127.0.0.1:%d\r\n\r\n" % port
-            assert raw_call(server, data).startswith(b"HTTP/1.0 400")
-        settle()
-        assert fake.connections == 4
+        short = (
+            f"POST /signal/api/me HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
+            f"Origin: http://127.0.0.1:{port}\r\nContent-Length: 50\r\n\r\n{{}}"
+        )
+        early = raw_call(server, short.encode(), half_close=True)
+        assert b" 400 " in status_line(early)
+        assert json_of(early) == {"error": "the request body ended early"}
 
 
-def test_a_request_line_cannot_smuggle_a_second_request_or_header(root: Path, web: Path) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
+def test_a_request_line_cannot_smuggle_a_second_request_or_header(seeded: Path, web: Path) -> None:
+    with react(seeded, web) as server:
         port = server.server_address[1]
         head = f"Host: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\n"
         smuggled = (
             f"POST /signal/api/me%0d%0aX:y HTTP/1.1\r\n{head}Content-Length: 0\r\n\r\n"
             f"GET /signal/api/me HTTP/1.1\r\n{head}\r\n"
         )
-        assert b" 404 " in raw_call(server, smuggled.encode()).split(b"\r\n")[0]
-        chunked = (
-            f"POST /signal/api/me HTTP/1.1\r\n{head}Transfer-Encoding: chunked\r\n\r\n0\r\n\r\n"
+        answered = raw_call(server, smuggled.encode())
+        assert b" 404 " in status_line(answered)
+        assert answered.count(b"HTTP/1.0 ") == 1  # one request per connection: the second is unread
+        chunked = raw_post(server, "/signal/api/me", "Transfer-Encoding: chunked\r\n", "0\r\n\r\n")
+        assert b" 411 " in status_line(chunked)
+        twice = raw_post(
+            server, "/signal/api/me", "Content-Length: 2\r\nContent-Length: 3\r\n", "{}"
         )
-        assert b" 411 " in raw_call(server, chunked.encode()).split(b"\r\n")[0]
-        lengths = "Content-Length: 2\r\nContent-Length: 3\r\n"
-        twice = f"POST /signal/api/me HTTP/1.1\r\n{head}{lengths}\r\n{{}}"
-        assert b" 400 " in raw_call(server, twice.encode()).split(b"\r\n")[0]
-        settle()
-        assert fake.connections == 0
+        assert b" 400 " in status_line(twice)
+        assert json_of(twice) == {"error": "Content-Length is not a length"}
 
 
-def test_a_body_is_forwarded_exactly_and_bounded_at_64_kib(root: Path, web: Path) -> None:
-    with forwarded(root, web, answer(reply_bytes())) as (server, fake):
-        exact = b'{"name": "' + b"x" * (64 * 1024 - 12) + b'"}'
-        assert len(exact) == 64 * 1024
-        assert call(server, "/signal/api/me", "POST", body=exact)[0] == 200
-        assert fake.body() == exact
-        assert call(server, "/signal/api/me", "POST", body=exact + b" ")[0] == 413
-        assert (
-            call(server, "/signal/api/me", "GET", headers={"Content-Length": "2"}, body=b"{}")[0]
-            == 400
-        )
-        assert call(server, "/signal/api/stories/1/save", "DELETE", body=b"{}")[0] == 400
-        assert call(server, "/signal/api/stories/1/save", "POST")[0] == 200
-        assert fake.head(1) == (
-            "POST /api/stories/1/save HTTP/1.1",
-            {
-                "host": f"127.0.0.1:{fake.port}",
-                "origin": f"http://127.0.0.1:{fake.port}",
-                "content-length": "0",
-                "connection": "close",
-                "accept-encoding": "identity",
-            },
-        )
+def test_a_query_goes_with_a_get_only_and_only_when_printable_and_short(
+    seeded: Path, web: Path
+) -> None:
+    with react(seeded, web) as server:
+        status, body, _ = call(server, "/signal/api/snapshot?format=2&topic=1", headers=DANA)
+        assert status == 200 and json.loads(body)["scenes"]
+        assert call(server, "/signal/api/snapshot?", headers=DANA)[0] == 200
+        # A write's query is not read: a value the same route refuses on a GET changes nothing.
+        status, body, _ = call(server, "/signal/api/stories/1/save?format=3", "POST", headers=DANA)
+        assert (status, json.loads(body)) == (200, {"saved": True})
+        status, _, _ = call(server, "/signal/api/stories/1/save?x=%ff", "DELETE", headers=DANA)
+        assert status == 200
+        not_valid = {"error": "the query string is not valid"}
+        status, body, _ = call(server, "/signal/api/feed?q=" + "a" * 600, headers=DANA)
+        assert (status, json.loads(body)) == (400, not_valid)
         port = server.server_address[1]
-        short = (
-            f"POST /signal/api/me HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n"
-            f"Origin: http://127.0.0.1:{port}\r\nContent-Length: 50\r\n\r\n{{}}"
+        for target in (b"/signal/api/feed?q=\xe2\x82\xac", b"/signal/api/feed?q=a\x01b"):
+            data = b"GET " + target + b" HTTP/1.1\r\nHost: 127.0.0.1:%d\r\n\r\n" % port
+            answered = raw_call(server, data)
+            assert answered.startswith(b"HTTP/1.0 400") and json_of(answered) == not_valid
+
+
+# -- what every Signal reply carries -------------------------------------------------------------
+
+
+def test_every_signal_reply_carries_the_policy_and_the_frame_refusal(
+    seeded: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with react(seeded, web) as server:
+        asked = [
+            (200, "GET", "/signal/api/me", {}),
+            (200, "POST", "/signal/api/stories/1/save", DANA),
+            (401, "GET", "/signal/api/topics", {}),
+            (404, "GET", "/signal/api/nothing", {}),
+            (404, "GET", "/signal/api", {}),
+            (405, "PUT", "/signal/api/me", {}),
+            (400, "GET", "/signal/api/snapshot?format=3", {}),
+            (403, "POST", "/signal/api/me", {"Origin": "http://evil.test"}),
+            (403, "GET", "/signal/api/me", {"Host": "evil.test"}),
+        ]
+        for expected, method, path, sent in asked:
+            status, _, headers = call(server, path, method, headers=sent)
+            assert status == expected, (method, path)
+            assert header(headers, "Content-Security-Policy") == POLICY, (method, path)
+            assert header(headers, "X-Frame-Options") == "DENY", (method, path)
+            assert header(headers, "X-Content-Type-Options") == "nosniff", (method, path)
+            assert header(headers, "Cross-Origin-Resource-Policy") == "same-origin", (method, path)
+            assert header(headers, "Cache-Control") == "no-store", (method, path)
+
+        def broken(folder: Path) -> sqlite3.Connection:
+            raise sqlite3.OperationalError("disk I/O error at /secret/place")
+
+        monkeypatch.setattr(store, "open_db", broken)
+        status, body, headers = call(server, "/signal/api/me")
+        assert (status, json.loads(body)) == (500, {"error": "the service failed; see its log"})
+        assert header(headers, "Content-Security-Policy") == POLICY
+        assert header(headers, "X-Frame-Options") == "DENY"
+        monkeypatch.undo()
+
+        # The rest of the application keeps its own headers.
+        status, _, headers = call(server, "/connected/context")
+        assert (status, header(headers, "Content-Security-Policy")) == (200, None)
+        status, _, headers = call(server, "/signal")
+        assert (status, header(headers, "Content-Security-Policy")) == (
+            200,
+            "frame-ancestors 'none'",
         )
-        with socket.create_connection(("127.0.0.1", port), timeout=10) as sock:
-            sock.sendall(short.encode())
-            sock.shutdown(socket.SHUT_WR)
-            assert b" 400 " in sock.recv(4096).split(b"\r\n")[0]
-        settle()
-        assert fake.connections == 2
 
 
-# -- what comes back -----------------------------------------------------------------------------
-
-
-def test_status_and_body_bytes_pass_unchanged_and_only_the_name_cookie_is_set(
-    root: Path, web: Path
+def test_a_large_json_reply_is_gzipped_for_a_browser_that_accepts_it(
+    seeded: Path, web: Path
 ) -> None:
-    body = '{"error": "choose a display name first", "note": "café"}'.encode()
-    extra = (
-        "Set-Cookie: session=abc; Path=/",
-        "Set-Cookie: signal_name=Eve; Path=/; Domain=evil.test",
-        "Set-Cookie: signal_name=Dana%20Reyes; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly",
-        "Set-Cookie: signal_name=Other; Path=/",
-        "X-Secret: 1",
-        "Server: internal-box",
-        "Content-Security-Policy: default-src *",
-        "Cache-Control: public, max-age=999",
-    )
-    script = answer(reply_bytes(body, status="401 Unauthorized", extra=extra))
-    with forwarded(root, web, script) as (server, _):
-        status, got, headers = call(server, "/signal/api/me")
-    assert (status, got) == (401, body)
-    names = {key.lower() for key, _ in headers}
-    assert "x-secret" not in names and "location" not in names
-    assert header(headers, "Cache-Control") == "no-store"
-    assert header(headers, "Content-Type") == "application/json; charset=utf-8"
-    assert header(headers, "Content-Security-Policy") is None
-    assert header(headers, "Server") != "internal-box"
-    assert header(headers, "Set-Cookie") == (
-        "signal_name=Dana%20Reyes; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly"
-    )
-
-
-@pytest.mark.parametrize(
-    "cookie",
-    [
-        "session=abc",
-        "signal_name2=a",
-        "signal_name=a; Domain=evil.test",
-        "signal_name=a; Path=/x",
-        "signal_name=a; Expires=Thu, 01 Jan 2099 00:00:00 GMT",
-        "signal_name=a b",
-        "signal_name=a; SameSite=None",
-        "signal_name=a;\r\n Path=/",
-        "signal_name=a\x01",
-    ],
-)
-def test_a_set_cookie_that_is_not_the_name_cookie_is_dropped(
-    root: Path, web: Path, cookie: str
-) -> None:
-    script = answer(reply_bytes(extra=(f"Set-Cookie: {cookie}",)))
-    with forwarded(root, web, script) as (server, _):
-        status, _, headers = call(server, "/signal/api/me")
-    assert status == 200
-    assert header(headers, "Set-Cookie") is None
-
-
-def test_a_large_json_reply_is_gzipped_for_a_browser_that_accepts_it(root: Path, web: Path) -> None:
-    body = json.dumps({"scenes": [{"id": "main", "text": "word " * 20000}]}).encode()
-    with forwarded(root, web, answer(reply_bytes(body))) as (server, _):
-        status, got, headers = call(
-            server, "/signal/api/snapshot", headers={"Accept-Encoding": "gzip"}
+    db = store.open_db(seeded)
+    for number in range(2, 22):
+        assert topics.add_topic(db, f"Topic {number:02d}", [f"word{number}"], [], "owner") == number
+    db.close()
+    expected = [{"id": 1, "name": "Remedy", "following": False, "stories": 1}]
+    expected += [
+        {"id": number, "name": f"Topic {number:02d}", "following": False, "stories": 0}
+        for number in range(2, 22)
+    ]
+    with react(seeded, web) as server:
+        status, packed, headers = call(
+            server, "/signal/api/topics", headers={**DANA, "Accept-Encoding": "gzip"}
         )
         assert status == 200 and header(headers, "Content-Encoding") == "gzip"
-        assert gzip.decompress(got) == body
-        status, plain, headers = call(server, "/signal/api/snapshot")
-        assert (status, plain) == (200, body)
+        assert header(headers, "Vary") == "Accept-Encoding"
+        assert header(headers, "Content-Security-Policy") == POLICY
+        assert json.loads(gzip.decompress(packed)) == expected
+        status, plain, headers = call(server, "/signal/api/topics", headers=DANA)
+        assert (status, json.loads(plain)) == (200, expected)
         assert header(headers, "Content-Encoding") is None
 
 
-def test_a_chunked_reply_at_the_cap_passes(root: Path, web: Path) -> None:
-    with forwarded(root, web, chunked_reply(signal_forward.MAX_REPLY)) as (server, _):
-        status, got, _ = call(server, "/signal/api/snapshot")
-        assert (status, len(got), got[:9], got[-2:]) == (200, 4 * 1024 * 1024, b'{"pad": "', b'"}')
-
-
-def test_the_largest_accepted_reply_passes(root: Path, web: Path) -> None:
-    body = b'{"pad": "' + b"x" * (signal_forward.MAX_REPLY - 11) + b'"}'
-    assert len(body) == 4 * 1024 * 1024
-    with forwarded(root, web, answer(reply_bytes(body))) as (server, _):
-        status, got, _ = call(server, "/signal/api/snapshot")
-        assert (status, got) == (200, body)
-
-
-# -- hostile or broken upstreams -----------------------------------------------------------------
-
-
-def trickle(sock: socket.socket, _raw: bytes) -> None:
-    """A reply that starts and then never finishes: one byte every 0.05 s."""
-    sock.sendall(
-        b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 100000\r\n\r\n"
-    )
-    for _ in range(400):
-        sock.sendall(b" ")
-        time.sleep(0.05)
-
-
-def silence(sock: socket.socket, _raw: bytes) -> None:
-    time.sleep(3)
-
-
-def stream_over_the_cap(sock: socket.socket, _raw: bytes) -> None:
-    """No Content-Length: the size is unknown until it is past the cap."""
-    sock.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n")
-    block = b" " * 65536
-    for _ in range(signal_forward.MAX_REPLY // len(block) + 2):
-        sock.sendall(block)
-
-
-def close_delimited_trickle(sock: socket.socket, _raw: bytes) -> None:
-    sock.sendall(
-        b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{"a":'
-    )
-    for _ in range(400):
-        sock.sendall(b" ")
-        time.sleep(0.05)
-
-
-def chunked_reply(size: int) -> Callable[[socket.socket, bytes], None]:
-    """A chunked JSON reply of ``size`` bytes in 64 KiB chunks."""
-
-    def script(sock: socket.socket, _raw: bytes) -> None:
-        sock.sendall(
-            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
-            b"Transfer-Encoding: chunked\r\n\r\n"
-        )
-        body = b'{"pad": "' + b"x" * (size - 11) + b'"}'
-        for start in range(0, len(body), 65536):
-            piece = body[start : start + 65536]
-            sock.sendall(b"%x\r\n%s\r\n" % (len(piece), piece))
-        sock.sendall(b"0\r\n\r\n")
-
-    return script
-
-
-def header_flood(sock: socket.socket, _raw: bytes) -> None:
-    lines = "".join(f"X-{n}: y\r\n" for n in range(300))
-    sock.sendall(f"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{lines}\r\n{{}}".encode())
-
-
-BROKEN = {
-    "chunked over the cap": chunked_reply(signal_forward.MAX_REPLY + 1),
-    "more than a hundred headers": header_flood,
-    "a header line of 100 KiB": answer(reply_bytes(extra=("X-Long: " + "y" * 100_000,))),
-    "redirect": answer(
-        reply_bytes(b"", status="302 Found", extra=("Location: http://127.0.0.1:1/",))
-    ),
-    "redirect with a json body": answer(
-        reply_bytes(b"{}", status="307 Temporary Redirect", extra=("Location: /api/me",))
-    ),
-    "no content": answer(reply_bytes(b"", status="204 No Content", kind=None)),
-    "html": answer(reply_bytes(b"<html></html>", kind="text/html")),
-    "no content type": answer(reply_bytes(b"{}", kind=None)),
-    "json lookalike": answer(reply_bytes(b"{}", kind="application/jsonp")),
-    "encoded": answer(reply_bytes(b"{}", extra=("Content-Encoding: gzip",))),
-    "declared over the cap": answer(reply_bytes(b"{}", length=signal_forward.MAX_REPLY + 1)),
-    "streamed over the cap": stream_over_the_cap,
-    "one byte over the cap": answer(reply_bytes(b" " * (signal_forward.MAX_REPLY + 1))),
-    "truncated": answer(reply_bytes(b'{"a"', length=100)),
-    "not http": answer(b"\x00\x01 this is not http\r\n\r\n"),
-    "closes without a reply": answer(b""),
-}
-
-
-@pytest.mark.parametrize("name", list(BROKEN))
-def test_an_upstream_reply_that_cannot_be_passed_on_is_502(
-    root: Path, web: Path, name: str, caplog: pytest.LogCaptureFixture
+def test_answering_a_request_opens_no_outbound_connection(
+    seeded: Path, web: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    caplog.set_level(logging.INFO)
-    with upstream(BROKEN[name]) as fake, react(root, web, fake.url) as server:
-        cookie = {"Cookie": "signal_name=Dana%20Reyes"}
-        status, body, headers = call(server, "/signal/api/me", headers=cookie)
-        assert (status, json.loads(body)) == (502, NOT_REACHABLE)
-        assert header(headers, "Cache-Control") == "no-store"
-        assert header(headers, "Location") is None
-        assert fake.connections == 1  # a redirect was not followed
-    failures = [r for r in caplog.records if r.name == signal_forward.log.name]
-    assert len(failures) == 1 and failures[0].levelno == logging.WARNING
-    assert "Dana" not in caplog.text and "signal_name" not in caplog.text
+    connected: list[Any] = []
+    looked_up: list[Any] = []
+    real_connect, real_lookup = socket.socket.connect, socket.getaddrinfo
+
+    def connect(self: socket.socket, address: Any, *args: Any) -> Any:
+        connected.append(address)
+        return real_connect(self, address, *args)
+
+    def lookup(host: Any, *args: Any, **kwargs: Any) -> Any:
+        looked_up.append(host)
+        return real_lookup(host, *args, **kwargs)
+
+    with react(seeded, web) as server:
+        monkeypatch.setattr(socket.socket, "connect", connect)
+        monkeypatch.setattr(socket, "getaddrinfo", lookup)
+        asked = [
+            ("GET", "/signal/api/me", None),
+            ("POST", "/signal/api/me", '{"name": "Dana Reyes"}'),
+            ("GET", "/signal/api/status", None),
+            ("GET", "/signal/api/snapshot?format=2", None),
+            ("GET", "/signal/api/feed?view=latest", None),
+            ("GET", "/signal/api/topics", None),
+            ("POST", "/signal/api/stories/1/save", None),
+            ("DELETE", "/signal/api/stories/1/save", None),
+            ("POST", "/signal/api/topics/1/follow", None),
+            ("GET", "/signal/api/logos/1", None),
+        ]
+        for method, path, body in asked:
+            assert call(server, path, method, headers=DANA, body=body)[0] in (200, 404), path
+        monkeypatch.undo()
+        port = server.server_address[1]
+    # The only connections are this test's own ten, to the application's port.
+    assert connected == [("127.0.0.1", port)] * 10
+    assert set(looked_up) == {"127.0.0.1"}
 
 
-def test_a_redirect_to_a_live_server_is_not_followed(root: Path, web: Path) -> None:
-    with upstream(answer(reply_bytes())) as target:
-        redirect = reply_bytes(b"{}", status="302 Found", extra=(f"Location: {target.url}api/me",))
-        with forwarded(root, web, answer(redirect)) as (server, fake):
-            assert call(server, "/signal/api/me")[0] == 502
-            settle()
-            assert (fake.connections, target.connections) == (1, 0)
+# -- where Signal is hosted ----------------------------------------------------------------------
+
+META = b'<meta name="credit-os-signal" content="on">'
 
 
-def test_a_silent_upstream_times_out_to_502(
-    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+def test_the_signal_page_and_its_meta_are_served_where_signal_is_hosted(
+    seeded: Path, web: Path
 ) -> None:
-    monkeypatch.setattr(signal_forward, "IO_TIMEOUT", 0.4)
-    with forwarded(root, web, silence) as (server, _):
-        started = time.monotonic()
-        status, body, _ = call(server, "/signal/api/me")
-        assert (status, json.loads(body)) == (502, NOT_REACHABLE)
-        assert time.monotonic() - started < 2.5
-
-
-@pytest.mark.parametrize("script", [trickle, close_delimited_trickle])
-def test_an_upstream_that_trickles_is_cut_at_the_deadline(
-    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, script: Callable[..., None]
-) -> None:
-    monkeypatch.setattr(signal_forward, "DEADLINE", 0.6)
-    with forwarded(root, web, script) as (server, _):
-        started = time.monotonic()
-        status, body, _ = call(server, "/signal/api/snapshot")
-        assert (status, json.loads(body)) == (502, NOT_REACHABLE)
-        assert time.monotonic() - started < 3
-
-
-def test_a_dead_signal_is_502_and_the_rest_of_the_server_answers(root: Path, web: Path) -> None:
-    with react(root, web, f"http://127.0.0.1:{NO_UPSTREAM}/") as server:
-        for method in ("GET", "POST", "DELETE"):
-            status, body, _ = call(server, "/signal/api/stories/1/save", method)
-            assert (status, json.loads(body)) == (502, NOT_REACHABLE)
-        assert call(server, "/connected/context")[0] == 200
-        assert call(server, "/signal")[0] == 200
-
-
-def test_an_upstream_error_status_and_body_pass_through(root: Path, web: Path) -> None:
-    body = b'{"error": "the service failed; see its log"}'
-    with forwarded(root, web, answer(reply_bytes(body, status="500 Internal Server Error"))) as (
-        server,
-        _,
-    ):
-        assert call(server, "/signal/api/status")[:2] == (500, body)
-
-
-# -- where the page and the forwarding exist -----------------------------------------------------
-
-
-def test_the_signal_page_is_the_app_page_and_only_where_a_signal_url_is_set(
-    root: Path, web: Path
-) -> None:
-    with react(root, web, "http://127.0.0.1:1/") as server:
-        home = call(server, "/")
-        assert home[0] == 200
+    with react(seeded, web) as server:
+        assert isinstance(server.signal, signal_host.SignalHost)
+        status, home, _ = call(server, "/")
+        assert status == 200
+        assert home.count(META) == 1 and home.count(b"credit-os-signal") == 1
+        assert b'<meta name="credit-os-mode" content="live">' in home
+        assert b"credit-os-signal-url" not in home
         for path in ("/signal", "/signal/"):
             status, page, headers = call(server, path)
-            assert (status, page) == (200, home[1])
+            assert (status, page) == (200, home)
             assert header(headers, "X-Frame-Options") == "DENY"
             assert header(headers, "Cache-Control") == "no-store"
         assert call(server, "/signal/other")[0] == 404
         assert call(server, "/signal/x/y")[0] == 404
         assert call(server, "/Signal")[0] == 404
-    with react(root / "plain", web, "") as server:
-        for path in ("/signal", "/signal/", "/signal/api/me", "/signal/api/snapshot"):
-            assert call(server, path)[0] == 404
-        for method in ("POST", "DELETE"):
-            assert call(server, "/signal/api/me", method)[0] == 404
-        assert call(server, "/signal/api/me", "PUT")[0] == 501
-        assert b"credit-os-signal-url" not in call(server, "/")[1]
 
 
-def test_the_read_only_preview_has_neither_the_page_nor_the_forwarding(
-    root: Path, web: Path
+@pytest.mark.parametrize("mode", ["preview", "synthetic"])
+def test_the_read_only_preview_and_synthetic_mode_host_no_signal(
+    root: Path, web: Path, mode: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    with (
-        upstream(answer(reply_bytes())) as fake,
-        react(root, web, fake.url, read_only=True) as server,
-    ):
-        for path in ("/signal", "/signal/", "/signal/api/me", "/signal/api/snapshot"):
+    opened: list[Path] = []
+    real = store.open_db
+
+    def recording(folder: Path) -> sqlite3.Connection:
+        opened.append(folder)
+        return real(folder)
+
+    monkeypatch.setattr(store, "open_db", recording)
+    keys = {**key_environ(root), "CREDIT_OS_SIGNAL_AI": "1"}  # even asked for, none is hosted
+    with react(
+        root, web, read_only=mode == "preview", synthetic=mode == "synthetic", environ=keys
+    ) as server:
+        assert server.signal is None
+        not_found = {"error": "not found"}
+        for path in ("/signal/api/me", "/signal/api/snapshot", "/signal/api/status"):
+            status, body, _ = call(server, path)
+            assert (status, json.loads(body)) == (404, not_found), path
+        for path in ("/signal", "/signal/", "/signal/api", "/signal/api/"):
             assert call(server, path)[0] == 404, path
         for method in ("POST", "DELETE"):
-            assert call(server, "/signal/api/stories/1/save", method)[0] == 404
-        assert call(server, "/api/submissions", "POST")[0] == 405  # the preview's own refusal
-        assert b"credit-os-signal-url" not in call(server, "/")[1]
-        settle()
-        assert fake.connections == 0
+            status, body, _ = call(server, "/signal/api/stories/1/save", method, headers=DANA)
+            assert (status, json.loads(body)) == (404, not_found), method
+        for method in ("PUT", "PATCH", "HEAD", "OPTIONS"):
+            assert call(server, "/signal/api/me", method)[0] == 501, method
+        page = call(server, "/")[1]
+        assert f'<meta name="credit-os-mode" content="{mode}">'.encode() in page
+        assert b"credit-os-signal" not in page
+        if mode == "preview":
+            assert call(server, "/api/submissions", "POST")[0] == 405  # the preview's own refusal
+    assert opened == []  # no feed store was opened
+    assert not (root / "signal").exists()  # and none was made
 
 
-def test_the_target_is_fixed_by_the_validated_link() -> None:
-    forwarder = signal_forward.SignalForwarder("http://signal.internal:8770/")
-    assert (forwarder.host, forwarder.port, forwarder.address) == (
-        "signal.internal",
-        8770,
-        "signal.internal:8770",
+# -- the background loop -------------------------------------------------------------------------
+
+
+class Passes:
+    """Stands in for the loop's pass: records each one and the thread it ran on. No pass of the
+    real loop runs, so nothing is fetched."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.events: list[str] = []
+        self.threads: list[threading.Thread] = []
+        self.ran = threading.Event()
+        real_recover = ai_run.recover
+
+        def run_once(loop: signal_service.Loop, now: datetime) -> None:
+            self.events.append("pass")
+            self.threads.append(threading.current_thread())
+            self.ran.set()
+
+        def recover(db: sqlite3.Connection, setup: ai_run.Setup) -> tuple[int, int]:
+            self.events.append("recover")
+            return real_recover(db, setup)
+
+        monkeypatch.setattr(signal_service.Loop, "run_once", run_once)
+        monkeypatch.setattr(ai_run, "recover", recover)
+
+
+def test_make_server_starts_no_signal_thread(
+    seeded: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    passes = Passes(monkeypatch)
+    before = set(threading.enumerate())
+    with make_server(seeded, web=web, environ={}) as server:
+        assert isinstance(server.signal, signal_host.SignalHost)
+        assert isinstance(server.signal.loop, signal_service.Loop)
+        started = [thread.name for thread in set(threading.enumerate()) - before]
+        assert not [name for name in started if "signal" in name.lower()], started
+    with react(seeded, web) as server:
+        assert call(server, "/signal/api/status")[0] == 200
+        assert call(server, "/signal/api/snapshot", headers=DANA)[0] == 200
+        names = [thread.name for thread in threading.enumerate()]
+        assert "signal-loop" not in names
+    assert passes.events == []  # neither a pass nor the start-up recovery
+    assert rows(seeded, "SELECT value FROM meta WHERE key='last_pass_at'") == []
+
+
+def test_serve_starts_the_loop_after_recovery_and_stops_it_on_the_way_out(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    passes = Passes(monkeypatch)
+    seen: dict[str, Any] = {}
+
+    def scheduler_loop(scheduler: Any) -> None:
+        """Stands in for the scheduler loop ``serve`` blocks in; returning ends ``serve``."""
+        seen["ran"] = passes.ran.wait(timeout=20)
+        seen["alive"] = [thread.is_alive() for thread in passes.threads]
+        seen["names"] = [thread.name for thread in passes.threads]
+        seen["address"] = capsys.readouterr().out.strip()
+        port = int(seen["address"].rsplit(":", 1)[1].rstrip("/"))
+        connection = HTTPConnection("127.0.0.1", port, timeout=20)
+        try:
+            connection.request("GET", "/signal/api/status")
+            reply = connection.getresponse()
+            seen["status"] = (reply.status, json.loads(reply.read()))
+        finally:
+            connection.close()
+
+    monkeypatch.setattr(react_frontend.service, "_loop", scheduler_loop)
+    react_frontend.serve(root, web=web, port=0, environ={})
+    assert seen["ran"] is True
+    assert seen["alive"] == [True] and seen["names"] == ["signal-loop"]
+    assert seen["address"].startswith("http://127.0.0.1:")
+    assert seen["status"][0] == 200 and seen["status"][1]["ai_state"] == "off"
+    assert passes.events == ["recover", "pass"]  # recovery, then the first tick; one tick a minute
+    (worker,) = passes.threads
+    assert not worker.is_alive()
+    assert "signal-loop" not in [thread.name for thread in threading.enumerate()]
+
+
+@pytest.mark.parametrize("ending", [KeyboardInterrupt, RuntimeError])
+def test_serve_stops_the_loop_however_it_ends(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, ending: type[BaseException]
+) -> None:
+    passes = Passes(monkeypatch)
+
+    def scheduler_loop(scheduler: Any) -> None:
+        assert passes.ran.wait(timeout=20)
+        raise ending("stop")
+
+    monkeypatch.setattr(react_frontend.service, "_loop", scheduler_loop)
+    with pytest.raises(ending):
+        react_frontend.serve(root, web=web, port=0, environ={})
+    (worker,) = passes.threads
+    assert not worker.is_alive()
+
+
+def test_serve_does_not_wait_out_a_pass_in_flight(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Shutdown waits ``STOP_SECONDS`` for the pass, then leaves it to its daemon thread, which
+    ends with the process (``ai_run.recover`` settles what that cuts short at the next start)."""
+    started, release = threading.Event(), threading.Event()
+    workers: list[threading.Thread] = []
+
+    def slow_pass(loop: signal_service.Loop, now: datetime) -> None:
+        workers.append(threading.current_thread())
+        started.set()
+        release.wait(timeout=60)
+
+    monkeypatch.setattr(signal_service.Loop, "run_once", slow_pass)
+    monkeypatch.setattr(signal_host, "STOP_SECONDS", 0.2)
+    monkeypatch.setattr(react_frontend.service, "_loop", lambda scheduler: started.wait(timeout=20))
+    react_frontend.serve(root, web=web, port=0, environ={})  # returns: it did not wait 60 s
+    (worker,) = workers
+    assert worker.is_alive() and worker.daemon
+    release.set()
+    worker.join(timeout=20)
+    assert not worker.is_alive()  # the stop it was given ended it after that pass: no second one
+    assert len(workers) == 1
+
+
+def test_serve_starts_no_loop_in_synthetic_mode(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    passes = Passes(monkeypatch)
+    threads: list[str] = []
+
+    def scheduler_loop(scheduler: Any) -> None:
+        threads.extend(thread.name for thread in threading.enumerate())
+
+    monkeypatch.setattr(react_frontend.service, "_loop", scheduler_loop)
+    keys = {**key_environ(root), "CREDIT_OS_SIGNAL_AI": "1"}
+    react_frontend.serve(
+        root, web=web, port=0, launcher=("unused-by-test",), synthetic=True, environ=keys
     )
-    for link in ("https://x:1/", "http://x/", "x"):
-        with pytest.raises(ValueError, match="Signal link"):
-            signal_forward.SignalForwarder(link)
-    with pytest.raises(ValueError, match="signal-url"):
-        make_server_refusing("http://user@x:1/")
+    assert threads and "signal-loop" not in threads
+    assert passes.events == []
+    assert not (root / "signal").exists()
 
 
-def make_server_refusing(link: str) -> None:
-    with TemporaryDirectory() as folder, TemporaryDirectory() as web:
-        (Path(web) / "index.html").write_text(
-            "<html><head><meta content=\"connect-src 'none'\"></head></html>", encoding="utf-8"
-        )
-        with make_server(Path(folder), web=Path(web), signal_url=link):
-            pytest.fail("accepted a link with a login")
+def test_a_store_that_cannot_be_opened_stops_start_up_with_signal_serves_message(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    passes = Passes(monkeypatch)
+    (root / "signal").write_text("a file where the store's folder belongs", encoding="utf-8")
+    reached: list[str] = []
+    monkeypatch.setattr(react_frontend.service, "_loop", lambda scheduler: reached.append("loop"))
+    with pytest.raises(OSError) as refused:
+        react_frontend.serve(root, web=web, port=0, environ={})
+    message = str(refused.value)
+    assert message.startswith(f"cannot open the store under {root}: ")
+    assert "exists" in message  # the cause, as the system words it
+    assert reached == [] and passes.events == []  # no scheduler loop, no recovery, no pass
+    capsys.readouterr()
+
+    from react_frontend import __main__ as main
+
+    def serve_this_build(path: Path, **options: Any) -> None:
+        react_frontend.serve(path, web=web, environ={}, **options)  # the command has no --web
+
+    monkeypatch.setattr(main, "serve", serve_this_build)
+    monkeypatch.setattr(sys, "argv", ["react_frontend", "--root", str(root), "--port", "0"])
+    with pytest.raises(SystemExit) as ended:
+        main.main()
+    assert ended.value.code == 2
+    assert capsys.readouterr().err == message + "\n"
+    # Start-up let go of what it held: the same folder starts once the store can be opened.
+    (root / "signal").unlink()
+    with make_server(root, web=web, environ={}) as server:
+        assert server.server_address[1] > 0
+
+
+def test_a_store_made_by_another_build_stops_start_up(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    passes = Passes(monkeypatch)
+
+    def refusing(folder: Path) -> sqlite3.Connection:
+        raise store.StoreError("the store was made by a newer build")
+
+    monkeypatch.setattr(store, "open_db", refusing)
+    monkeypatch.setattr(react_frontend.service, "_loop", lambda scheduler: None)
+    with pytest.raises(OSError) as refused:
+        react_frontend.serve(root, web=web, port=0, environ={})
+    assert str(refused.value) == (
+        f"cannot open the store under {root}: the store was made by a newer build"
+    )
+    assert passes.events == []
+
+
+# -- money: the AI pass does not switch itself on (spec 4.4) -------------------------------------
+
+
+def no_fetch(url: str, etag: str | None, modified: str | None) -> Fetched:
+    raise AssertionError(f"a test of the AI switch fetched {url}")
+
+
+class Factory:
+    """SYNTHETIC: stands in for the live adapter's factory and records every model it is asked to
+    build. The models are ``FakeModel``: nothing is sent anywhere."""
+
+    def __init__(self) -> None:
+        self.built: list[FakeModel] = []
+
+    def __call__(self, config_id: str, ruling: Path) -> FakeModel:
+        self.built.append(FakeModel())
+        return self.built[-1]
+
+
+def ready(root: Path, tmp: Path) -> tuple[dict[str, str], Path]:
+    """Everything the AI pass needs but the switch: the owner's cap on the store, a valid ruling
+    (in a temporary rulings folder) and a launching environment holding a fake key and runtime."""
+    db = store.open_db(root)
+    ai_ledger.set_cap(db, Decimal(15), NOW)
+    db.close()
+    rulings = tmp / "rulings"
+    write_ruling(rulings)
+    return key_environ(tmp), rulings
+
+
+def faked(host: signal_host.SignalHost, rulings: Path) -> Factory:
+    """Point the hosted loop at the temporary rulings folder, a recording factory and a fetch that
+    refuses. The environment the host chose, the subject of these tests, is left as it is."""
+    factory = Factory()
+    host.loop.ai = dataclasses.replace(host.loop.ai, rulings_root=rulings, factory=factory)
+    host.loop.fetch_fn, host.loop.logo_fetch = no_fetch, None
+    return factory
+
+
+def loop_errors(loop: signal_service.Loop) -> tuple[str | None, ...]:
+    return (
+        loop.last_error,
+        loop.logo_error,
+        loop.ai_error,
+        loop.digest_error,
+        loop.market_error,
+    )
+
+
+def test_keys_in_the_environment_without_the_switch_leave_the_pass_off(
+    root: Path, tmp_path: Path
+) -> None:
+    keys, rulings = ready(root, tmp_path)
+    assert keys["COPILOT_GITHUB_TOKEN"] == "test-token-not-a-real-key"
+    assert "CREDIT_OS_SIGNAL_AI" not in keys
+    host = signal_host.SignalHost(root, environ=keys)
+    assert host.loop.ai.environ == {}
+    assert host.loop.ai.guard.environ == {}  # what every call is checked against, too
+    factory = faked(host, rulings)
+
+    db = store.open_db(root)
+    held = host.loop.ai_status(db, NOW)
+    shown = host.loop.shown_ai_status(db, NOW)
+    db.close()
+    assert held.state == "off" and shown.state == "off"
+    assert held.gate.missing == (NO_KEY, NO_RUNTIME)  # the ruling and the cap hold: only the key
+    assert shown.gate.missing == (NO_KEY, NO_RUNTIME)
+
+    host.loop.run_once(NOW)
+    assert loop_errors(host.loop) == (None, None, None, None, None)
+    assert factory.built == []  # no adapter was constructed, so none was called
+    assert rows(root, "SELECT COUNT(*) FROM ai_usage") == [(0,)]
+
+
+def test_the_switch_set_to_1_passes_the_given_environment_to_the_loop(
+    root: Path, tmp_path: Path
+) -> None:
+    keys, rulings = ready(root, tmp_path)
+    given = {**keys, "CREDIT_OS_SIGNAL_AI": "1"}
+    host = signal_host.SignalHost(root, environ=given)
+    assert host.loop.ai.environ is given
+    assert host.loop.ai.guard.environ is given
+    factory = faked(host, rulings)
+
+    db = store.open_db(root)
+    held = host.loop.ai_status(db, NOW)
+    db.close()
+    assert (held.state, held.gate.missing) == ("on", ())
+
+    host.loop.run_once(NOW)
+    assert loop_errors(host.loop) == (None, None, None, None, None)
+    assert len(factory.built) == 2  # one model per job: the story pass and the digest writer
+    assert [model.closed for model in factory.built] == [True, True]
+    assert [model.requests for model in factory.built] == [[], []]  # no story: nothing was asked
+
+
+@pytest.mark.parametrize(
+    "value", ["0", "", "true", " 1", "1 ", "01", "1.0", "yes", "on", "True", "11", "١"]
+)
+def test_any_value_but_exactly_1_leaves_the_pass_off(
+    root: Path, tmp_path: Path, value: str
+) -> None:
+    keys, rulings = ready(root, tmp_path)
+    host = signal_host.SignalHost(root, environ={**keys, "CREDIT_OS_SIGNAL_AI": value})
+    assert host.loop.ai.environ == {}
+    factory = faked(host, rulings)
+    db = store.open_db(root)
+    held = host.loop.ai_status(db, NOW)
+    db.close()
+    assert (held.state, held.gate.missing) == ("off", (NO_KEY, NO_RUNTIME))
+    host.loop.run_once(NOW)
+    assert factory.built == []
+
+
+def test_a_differently_named_switch_does_not_count(root: Path, tmp_path: Path) -> None:
+    keys, _ = ready(root, tmp_path)
+    for name in ("credit_os_signal_ai", "CREDIT_OS_SIGNAL_AI ", "CREDIT_OS_SIGNAL", "SIGNAL_AI"):
+        host = signal_host.SignalHost(root, environ={**keys, name: "1"})
+        assert host.loop.ai.environ == {}, name
+
+
+def test_the_switch_is_read_from_the_environment_given_not_the_processes(
+    root: Path, web: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    keys, _ = ready(root, tmp_path)
+    # The process says yes and holds keys; the environment given says nothing: off.
+    monkeypatch.setenv("CREDIT_OS_SIGNAL_AI", "1")
+    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "test-token-not-a-real-key")
+    monkeypatch.setenv("COPILOT_CLI_PATH", keys["COPILOT_CLI_PATH"])
+    with make_server(root, web=web, environ=keys) as server:
+        assert server.signal is not None
+        assert server.signal.loop.ai.environ == {}
+    # The process says nothing; the environment given says yes: that mapping, and only it.
+    monkeypatch.delenv("CREDIT_OS_SIGNAL_AI")
+    given = {**keys, "CREDIT_OS_SIGNAL_AI": "1"}
+    with make_server(root, web=web, environ=given) as server:
+        assert server.signal is not None
+        assert server.signal.loop.ai.environ is given
+
+
+def test_with_no_environment_given_the_processes_own_decides(
+    root: Path, web: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    keys, _ = ready(root, tmp_path)
+    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "test-token-not-a-real-key")
+    monkeypatch.setenv("COPILOT_CLI_PATH", keys["COPILOT_CLI_PATH"])
+    monkeypatch.delenv("CREDIT_OS_SIGNAL_AI", raising=False)
+    with make_server(root, web=web) as server:
+        assert server.signal is not None
+        assert server.signal.loop.ai.environ == {}
+    monkeypatch.setenv("CREDIT_OS_SIGNAL_AI", "1")
+    with make_server(root, web=web) as server:
+        assert server.signal is not None
+        assert server.signal.loop.ai.environ is os.environ
+
+
+def test_the_switch_is_read_once_when_the_host_is_built(root: Path, tmp_path: Path) -> None:
+    keys, rulings = ready(root, tmp_path)
+    given = dict(keys)
+    host = signal_host.SignalHost(root, environ=given)
+    factory = faked(host, rulings)
+    given["CREDIT_OS_SIGNAL_AI"] = "1"  # set after start-up: this process stays off
+    host.loop.run_once(NOW)
+    assert host.loop.ai.environ == {} and factory.built == []
+    with pytest.raises(TypeError):
+        host.loop.ai.environ["COPILOT_GITHUB_TOKEN"] = "x"  # type: ignore[index]
+
+
+def test_the_pages_see_the_pass_off_without_the_switch_and_on_with_it(
+    root: Path, web: Path, tmp_path: Path
+) -> None:
+    keys, rulings = ready(root, tmp_path)
+    db = store.open_db(root)
+    store.add_user(db, "Mara L", "writer")
+    db.close()
+    mara = {"Cookie": "signal_name=Mara%20L"}
+    plain_reasons = [
+        "The provider key is missing from the service's environment.",
+        "The Copilot runtime is missing from the service's environment.",
+    ]
+    for given, state, reasons in (
+        (keys, "off", plain_reasons),
+        ({**keys, "CREDIT_OS_SIGNAL_AI": "true"}, "off", plain_reasons),
+        ({**keys, "CREDIT_OS_SIGNAL_AI": "1"}, "on", []),
+    ):
+        with react(root, web, environ=given) as server:
+            assert server.signal is not None
+            factory = faked(server.signal, rulings)
+            status, body, _ = call(server, "/signal/api/status")
+            assert (status, json.loads(body)["ai_state"]) == (200, state)
+            status, body, _ = call(server, "/signal/api/snapshot", headers=mara)
+            assert status == 200
+            shown = json.loads(body)["scenes"][0]["snapshot"]["settings"]["ai"]
+            assert shown["state"] == state
+            assert [reason for reason in plain_reasons if reason in body.decode("utf-8")] == reasons
+            assert "COPILOT" not in body.decode("utf-8")  # no variable name reaches a page
+            assert factory.built == []  # a request builds no model, whatever the state
+
+
+def test_the_command_takes_no_signal_address(
+    root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from react_frontend import __main__ as main
+
+    launched: list[Path] = []
+    monkeypatch.setattr(main, "serve", lambda path, **options: launched.append(path))
+    argv = ["react_frontend", "--root", str(root), "--signal-url", "http://127.0.0.1:8766/"]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit) as ended:
+        main.main()
+    assert ended.value.code == 2 and launched == []
+    assert "unrecognized arguments: --signal-url" in capsys.readouterr().err
+    monkeypatch.setattr(sys, "argv", ["react_frontend", "--root", str(root), "--port", "0"])
+    main.main()
+    assert launched == [root]
