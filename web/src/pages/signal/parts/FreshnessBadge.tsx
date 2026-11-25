@@ -60,7 +60,7 @@ export function FreshnessBadge({ freshness }: { freshness: SignalFreshness }) {
       color={COLOUR[tone]}
       // One line is 24px tall, so a 12px corner draws the kit's pill; where the page is narrower
       // than the words (a failing source's suffix at 320px) they wrap inside it.
-      className="max-w-full gap-1.5 rounded-xl pl-2 whitespace-normal"
+      className="max-w-full gap-1.5 rounded-ds-md! pl-2 whitespace-normal"
       icon={
         <span className={cx("inline-flex shrink-0 rounded-ds-full", MARK[tone])}>
           <StatusShape shape={shape} />

@@ -21,7 +21,7 @@ export function SampleReason({
 }) {
   if (useSignalActions() !== null) return null;
   return (
-    <p id={id} className={`${className} text-sm text-text-tertiary`}>
+    <p id={id} className={`${className} text-small text-text-tertiary`}>
       {children}
     </p>
   );

@@ -1,7 +1,8 @@
-// The layout every Signal page sits in: the channel list on the left, the page's content on the
-// right, each scrolling on its own, filling the full-bleed page region after mock/signal.js (SgShell) and `.sub`, `.ni`, `.cnt`, `.dot`, `.me`.
-// Where the window has no room for the list as a column (parts/useWide.ts) the page takes the whole
-// region and the list opens from a button ahead of the page (ChannelPanel.tsx).
+// The layout every Signal page sits in, filling the full-bleed page region under the shell's top
+// bar: the channel list as a tile on the left (as the report's module list is), the page's content
+// on the right, each scrolling on its own. Where the window has no room for the list beside the
+// page (parts/useWide.ts) the page takes the whole region and the list opens from a button ahead
+// of the page (ChannelPanel.tsx).
 import {
   createContext,
   useContext,
@@ -22,13 +23,13 @@ import {
   Stars01,
   Users01,
 } from "@untitledui/icons";
-import { Badge } from "@/components/base/badges/badges";
 import { ButtonUtility } from "@/components/base/buttons/button-utility";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { Button as AriaButton } from "react-aria-components";
 import { Tooltip } from "@/components/base/tooltip/tooltip";
 import { cx } from "@/utils/cx";
 import { AvatarLabelGroup } from "./parts/Avatar";
+import { PHONE_TARGETS } from "./parts/classes";
 import { useWide } from "./parts/useWide";
 import { useSignalActions } from "./actions";
 import { ChannelPanel } from "./ChannelPanel";
@@ -89,8 +90,11 @@ function Row({
   return (
     <li
       className={cx(
-        "my-px flex items-center rounded-ds-xs px-2 text-sm font-semibold",
-        on ? "bg-surface-selected text-text-link" : "text-text-secondary",
+        "flex items-center rounded-ds-md border px-2 text-small font-medium",
+        // The current item: the accent tint and the accent edge, as the report's module list marks its own.
+        on
+          ? "border-action bg-surface-selected text-text-link"
+          : "border-transparent text-text-secondary hover:bg-surface-subtle",
       )}
     >
       {/* The link is as tall as its row, so the whole row takes a press: 44px in the panel. */}
@@ -99,8 +103,8 @@ function Row({
         aria-current={on ? "page" : undefined}
         onClick={onGo}
         className={cx(
-          "flex min-w-0 flex-1 items-center gap-2 py-1.5 outline-focus-ring focus-visible:outline-2",
-          panel ? "min-h-11" : "min-h-9",
+          "flex min-w-0 flex-1 items-center gap-2 rounded-ds-sm py-1.5 outline-focus-ring focus-visible:outline-2",
+          panel ? "min-h-11" : "min-h-8",
         )}
       >
         <Icon className={cx("size-4 shrink-0", on ? "text-text-link" : "text-fg-quaternary")} />
@@ -112,13 +116,13 @@ function Row({
 }
 
 const Count = ({ children }: { children: ReactNode }) => (
-  <Badge size="sm" className="ml-3">
+  <span className="ml-3 font-mono text-caption font-normal text-text-tertiary tabular-nums">
     {children}
-  </Badge>
+  </span>
 );
 
 function Heading({ children }: { children: string }) {
-  return <h2 className="px-2 pt-4 pb-1 text-xs font-bold text-text-tertiary">{children}</h2>;
+  return <h2 className="px-2 pt-4 pb-1 text-caption font-medium text-text-tertiary">{children}</h2>;
 }
 
 function ChannelList({
@@ -143,17 +147,25 @@ function ChannelList({
     <nav
       aria-labelledby={headingId}
       className={cx(
-        "flex flex-col bg-surface-card px-4 pt-6 pb-5",
+        "flex flex-col bg-surface-card",
         // The panel scrolls, so the list in it takes the panel's width and at least its height.
+        // Beside the page it is a tile inside the page gutter, as tall as the region allows.
         panel
-          ? "min-h-full w-full"
-          : "h-full w-64 shrink-0 overflow-y-auto border-r-[1.5px] border-border-hairline",
+          ? "min-h-full w-full px-4 pt-5 pb-5"
+          : "my-8 ml-8 w-64 shrink-0 overflow-y-auto rounded-ds-lg border border-border-subtle p-3",
       )}
     >
-      <h2 id={headingId} className="px-2 text-sm font-semibold text-text-link">
+      <h2
+        id={headingId}
+        className={cx(
+          "flex items-center px-2 text-small font-medium text-text-primary",
+          // In the panel it shares its row with the close button.
+          panel ? "min-h-9" : "min-h-8",
+        )}
+      >
         Signal
       </h2>
-      <ul className="pt-2">
+      <ul className="flex flex-col gap-px pt-1">
         {views.map((view) => (
           <Row
             key={view.id}
@@ -168,9 +180,9 @@ function ChannelList({
       </ul>
       <Heading>Topics</Heading>
       {channels.topics.length === 0 ? (
-        <p className="px-2 py-2 text-sm text-text-tertiary">No topics yet</p>
+        <p className="px-2 py-2 text-small text-text-tertiary">No topics yet</p>
       ) : (
-        <ul>
+        <ul className="flex flex-col gap-px">
           {channels.topics.map((topic) => {
             const on = follow.on(topic);
             return (
@@ -184,7 +196,7 @@ function ChannelList({
                   <ButtonUtility
                     tooltip={`${on ? "Unfollow" : "Follow"} ${topic.name}`}
                     aria-pressed={on}
-                    className={on ? "text-action hover:text-action-hover" : undefined}
+                    className={cx("size-8", on && "text-action hover:text-action-hover")}
                     icon={<Star01 data-icon className={on ? "fill-current" : undefined} />}
                     onPress={() => {
                       follow.toggle(topic);
@@ -200,9 +212,9 @@ function ChannelList({
       )}
       <Heading>Groups</Heading>
       {channels.groups.length === 0 ? (
-        <p className="px-2 py-2 text-sm text-text-tertiary">No groups yet</p>
+        <p className="px-2 py-2 text-small text-text-tertiary">No groups yet</p>
       ) : (
-        <ul>
+        <ul className="flex flex-col gap-px">
           {channels.groups.map((group) => (
             <Row
               key={group.id}
@@ -218,9 +230,9 @@ function ChannelList({
       )}
       <Heading>Digests</Heading>
       {channels.digests.length === 0 ? (
-        <p className="px-2 py-2 text-sm text-text-tertiary">No digests yet</p>
+        <p className="px-2 py-2 text-small text-text-tertiary">No digests yet</p>
       ) : (
-        <ul>
+        <ul className="flex flex-col gap-px">
           {channels.digests.map((digest) => (
             <Row
               key={digest.id}
@@ -251,14 +263,14 @@ function ChannelList({
 function DigestMark({ paused, unread }: { paused: boolean; unread: boolean }) {
   if (paused) {
     return (
-      <span className="ml-2 *:text-xs!">
+      <span className="ml-2 *:text-caption!">
         <StatusBadge set="Signal source states" state="Paused" />
       </span>
     );
   }
   if (!unread) return null;
   return (
-    <span className="ml-3 size-2 shrink-0 rounded-full bg-action">
+    <span className="ml-3 size-2 shrink-0 rounded-ds-full bg-action">
       <span className="sr-only">Unread</span>
     </span>
   );
@@ -279,12 +291,12 @@ function NameChip({
   onPress: () => void;
 }) {
   return (
-    <div className="mt-auto pt-4">
+    <div className="mt-auto px-2 pt-4 pb-1">
       <Tooltip title="A display name, not a login. It only labels what you save and follow.">
         <AriaButton
           ref={chipRef}
           onPress={onPress}
-          className="rounded-ds-xs text-left outline-focus-ring focus-visible:outline-2"
+          className="min-h-8 rounded-ds-sm text-left outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
         >
           <AvatarLabelGroup
             size="sm"
@@ -379,7 +391,7 @@ function useViewerName(viewer: SignalScene["snapshot"]["viewer"]) {
 }
 
 const SKIP =
-  "sr-only outline-focus-ring focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:fixed focus:top-2 focus:left-2 focus:z-10 focus:rounded-ds-xs focus:bg-surface-card focus:p-2 focus:text-text-link";
+  "sr-only outline-focus-ring focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-ds-sm focus:bg-surface-card focus:px-3 focus:py-2 focus:text-text-primary";
 
 export function SignalFrame({
   scene,
@@ -419,7 +431,7 @@ export function SignalFrame({
     />
   );
   return (
-    <div className="flex h-full">
+    <div className={cx("flex h-full text-body", PHONE_TARGETS)}>
       <a
         href="#signal-content"
         className={SKIP}
@@ -445,9 +457,13 @@ export function SignalFrame({
         id="signal-content"
         ref={content}
         tabIndex={-1}
-        // Below 1024px the Channels strip (64px with its hairline) is stuck to the top: what focus or
-        // a link scrolls to stops below it.
-        className="min-w-0 flex-1 scroll-pt-16 overflow-y-auto p-4 outline-none min-[768px]:p-8 min-[1024px]:scroll-pt-0"
+        // The region is the scroller and holds the Channels strip's height as `--strip` (none where
+        // the list is beside the page): the strip takes it, what focus or a link scrolls to stops
+        // below it, and the page's alert sticks under it (SignalPage.tsx).
+        className={cx(
+          "min-w-0 flex-1 scroll-pt-(--strip) overflow-y-auto outline-none",
+          wide ? "[--strip:0px]" : "[--strip:3.25rem] max-[480px]:[--strip:3.75rem]",
+        )}
       >
         {wide ? null : (
           <ChannelPanel
@@ -469,7 +485,10 @@ export function SignalFrame({
             </ListFormContext>
           </ChannelPanel>
         )}
-        <SignalViewerContext value={{ name, initials }}>{children}</SignalViewerContext>
+        {/* The shell's page padding; beside the list the left side is the 16px gap between tiles. */}
+        <div className={cx("p-4 sm:p-8", wide && "sm:pl-4")}>
+          <SignalViewerContext value={{ name, initials }}>{children}</SignalViewerContext>
+        </div>
       </div>
     </div>
   );

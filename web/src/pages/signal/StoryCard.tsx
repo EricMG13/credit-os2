@@ -9,6 +9,7 @@ import { cx } from "@/utils/cx";
 import { AiMark, Announcement } from "./parts/Announcement";
 import { Avatar } from "./parts/Avatar";
 import { AvatarGroup } from "./parts/AvatarGroup";
+import { FOCUS, TARGET } from "./parts/classes";
 import { focusAgainIfLost } from "./parts/focus";
 import { MediaObject } from "./parts/MediaObject";
 import { OpenSourceButton } from "./parts/OpenSourceButton";
@@ -22,10 +23,16 @@ import { ShareDialog } from "./ShareDialog";
 import type { SignalScene, SignalStory } from "./slice";
 import { writes } from "./writes";
 
-const FOCUS = "outline-focus-ring focus-visible:outline-2";
 /** The predecessor's safe-link test: only an http or https address is drawn as a link. */
 export const isWebLink = (url: string) => /^https?:\/\//i.test(url);
-const ROW = "mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-tertiary";
+const ROW = "mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-small text-text-tertiary";
+
+/** The kind, source and time line above a headline. */
+export const BYLINE =
+  "mb-0.5 flex flex-wrap items-center gap-2 text-small text-text-tertiary";
+/** A story's or an issue's headline, and the link it is when there is a page to open. */
+export const HEADLINE = "text-h4 font-medium text-text-primary";
+export const HEADLINE_LINK = `inline-flex items-center rounded-ds-xs text-text-primary hover:underline ${TARGET} ${FOCUS}`;
 
 /** The control that opened the share dialog, found by its label inside the card. */
 function openerIn(card: HTMLElement | null, label: string) {
@@ -56,7 +63,7 @@ const shareLabelOf = (story: SignalStory) => `Share to group: ${story.headline}`
 /** The kind, source and time line above the headline. */
 function Byline({ story }: { story: SignalStory }) {
   return (
-    <div className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-text-tertiary">
+    <div className={BYLINE}>
       {story.ai?.kind === true ? (
         <Badge size="sm" className="border border-dashed border-text-tertiary ring-transparent">
           <span role="img" aria-label={`Kind chosen by AI: ${story.kindLabel}`}>
@@ -67,7 +74,7 @@ function Byline({ story }: { story: SignalStory }) {
         <Badge size="sm">{story.kindLabel}</Badge>
       )}
       <span>{story.source.name}</span>
-      {story.time === null ? null : <span>{story.time}</span>}
+      {story.time === null ? null : <span className="tabular-nums">{story.time}</span>}
     </div>
   );
 }
@@ -77,22 +84,17 @@ function HeadlineBlock({ story, link }: { story: SignalStory; link: string | nul
   const { headline } = story;
   return (
     <>
-      <h2 tabIndex={-1} className="text-lg font-medium text-text-primary">
+      <h2 tabIndex={-1} className={HEADLINE}>
         {link === null ? (
           headline
         ) : (
-          <a
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`py-0.5 text-text-primary hover:underline ${FOCUS}`}
-          >
+          <a href={link} target="_blank" rel="noopener noreferrer" className={HEADLINE_LINK}>
             {headline}
           </a>
         )}
       </h2>
       {story.summary === null ? null : (
-        <p className="mt-0.5 max-w-[72ch] text-text-secondary">{story.summary}</p>
+        <p className="max-w-[72ch] text-text-secondary">{story.summary}</p>
       )}
     </>
   );

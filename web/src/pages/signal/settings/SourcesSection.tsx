@@ -33,7 +33,7 @@ function order(sources: SignalSource[], sort: SortDescriptor | undefined): Signa
 }
 
 function Small({ children }: { children: string }) {
-  return <small className="mt-1 block text-xs text-text-tertiary">{children}</small>;
+  return <small className="mt-1 block text-caption font-normal text-text-tertiary">{children}</small>;
 }
 
 /** Called, not drawn as an element: a null result is the cell's missing health (n.a.). */
@@ -129,14 +129,14 @@ export function SourcesSection({
     >
       <SampleReason id={REASON_ID}>Sample data: sources cannot be proposed here.</SampleReason>
       {sources.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No sources yet.</p>
+        <p className="text-small text-text-tertiary">No sources yet.</p>
       ) : (
         // The table keeps a width its columns can be read at (600px; 760px with its fifth column).
         // Where the section is narrower it scrolls sideways inside a named region the keyboard can
         // reach (as the issuer table does), and the sentence above it says so: it is drawn only
         // while the section is under 600px wide, which is when the table does not fit.
         <div className="@container">
-          <p className="mb-2 text-sm text-text-tertiary @min-[600px]:hidden">
+          <p className="mb-2 text-small text-text-tertiary @min-[600px]:hidden">
             Scroll horizontally to see every column.
           </p>
           <div
@@ -144,7 +144,7 @@ export function SourcesSection({
             aria-label="Sources table"
             // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
             tabIndex={0}
-            className="overflow-x-auto rounded-xl ring-1 ring-border-hairline outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 [&>div]:overflow-x-visible"
+            className="overflow-x-auto rounded-ds-md ring-1 ring-border-hairline outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 [&>div]:overflow-x-visible"
           >
             <Table
               aria-label="Sources"
@@ -201,7 +201,7 @@ export function SourcesSection({
               </Table.Body>
             </Table>
           </div>
-          {more === null ? null : <p className="mt-3 text-sm text-text-tertiary">{more}</p>}
+          {more === null ? null : <p className="mt-3 text-small text-text-tertiary">{more}</p>}
         </div>
       )}
     </Section>

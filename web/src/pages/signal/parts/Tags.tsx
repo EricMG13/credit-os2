@@ -17,7 +17,7 @@ export function Tags({
         return (
           <li
             key={index}
-            className={`rounded-md bg-surface-card px-2 py-[3px] text-xs font-medium text-text-secondary ring-1 ring-inset ${byAi ? "border border-dashed border-text-tertiary ring-transparent" : "ring-border-hairline"}`}
+            className={`rounded-ds-xs bg-surface-card px-2 py-1 text-caption text-text-secondary ring-1 ring-inset ${byAi ? "border border-dashed border-text-tertiary ring-transparent" : "ring-border-hairline"}`}
           >
             {byAi ? (
               <span role="img" aria-label={`Tag written by AI: ${tag}`}>

@@ -5,10 +5,10 @@ import type { ReactNode } from "react";
 
 export function MediaObject({ tile, children }: { tile: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 min-[768px]:gap-4">
+    <div className="flex items-start gap-3 md:gap-4">
       <span
         aria-hidden="true"
-        className="flex size-12 shrink-0 items-center justify-center rounded bg-surface-subtle font-display text-h4 text-text-secondary min-[768px]:size-20 min-[768px]:text-h2"
+        className="flex size-12 shrink-0 items-center justify-center rounded-ds-sm bg-surface-subtle font-display text-h4 text-text-secondary md:size-20 md:text-h2"
       >
         {tile}
       </span>

@@ -47,11 +47,11 @@ function GroupRules({
   const id = useId();
   return (
     <div role="group" aria-labelledby={id} className="border-t border-border-hairline py-5">
-      <h3 id={id} className="mb-4 text-md font-semibold text-text-primary">
+      <h3 id={id} className="mb-3 text-body font-semibold text-text-primary">
         {group.name}
       </h3>
       {rules.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No thread rules yet.</p>
+        <p className="text-small text-text-tertiary">No thread rules yet.</p>
       ) : (
         <RuleList rules={rules} group={group} {...switches} />
       )}
@@ -76,7 +76,7 @@ export function RulesSection({
     return (
       <Section title="Thread rules" hint="These apply to every group.">
         {rules.length === 0 ? (
-          <p className="text-sm text-text-tertiary">No thread rules yet.</p>
+          <p className="text-small text-text-tertiary">No thread rules yet.</p>
         ) : (
           <RuleList rules={rules} group={null} {...switches} />
         )}
@@ -89,17 +89,17 @@ export function RulesSection({
   return (
     <Section title="Thread rules">
       {groups.length === 0 ? (
-        <p className="text-sm text-text-tertiary">
+        <p className="text-small text-text-tertiary">
           No groups yet. Thread rules are set for each group.{" "}
           <a
             href={groupsHref}
-            className="inline-flex min-h-6 items-center font-semibold text-text-link outline-focus-ring focus-visible:outline-2"
+            className="font-semibold text-text-link underline-offset-2 outline-focus-ring hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Open Groups
           </a>
         </p>
       ) : own.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No thread rules yet.</p>
+        <p className="text-small text-text-tertiary">No thread rules yet.</p>
       ) : (
         <div>
           {own.map(({ group, rules: held }) => (

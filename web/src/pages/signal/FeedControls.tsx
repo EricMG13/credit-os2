@@ -110,12 +110,13 @@ export function FeedControls({
           className="w-auto max-w-full flex-wrap gap-y-2"
         >
           {KINDS.map(([id, label]) => (
-            <Tab key={id} id={id}>
+            <Tab key={id} id={id} className="min-h-8 min-w-8">
               {label}
             </Tab>
           ))}
         </TabList>
-        <div className="w-full min-[768px]:ml-auto min-[768px]:w-70">
+        {/* Beside the tabs it takes up to 280px and gives way before it drops to its own row. */}
+        <div className="w-full md:ml-auto md:w-auto md:max-w-70 md:min-w-48 md:flex-1">
           <Input
             ref={field}
             icon={SearchLg}

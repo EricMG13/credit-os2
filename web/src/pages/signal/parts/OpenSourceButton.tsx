@@ -20,8 +20,8 @@ export function OpenSourceButton({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`Open source: ${headline} (opens in a new tab)`}
-      // A text link's own box is 20px tall; a press needs 24px.
-      className={`min-h-6 ${className}`}
+      // A text link's own box is 20px tall; a control is 32px.
+      className={`min-h-8 ${className}`}
     >
       Open source
     </Button>

@@ -8,6 +8,7 @@ import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/mod
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
+import { PHONE_TARGETS } from "./classes";
 import { useOnGone } from "./focus";
 import { TextArea } from "./TextArea";
 import { Toggle } from "./Toggle";
@@ -86,7 +87,7 @@ function FieldInput({
     const on = values.chosen[field.key] ?? [];
     return (
       <fieldset className="flex flex-col gap-3">
-        <legend className="mb-2 text-sm font-medium text-text-secondary">{field.label}</legend>
+        <legend className="mb-2 text-small font-medium text-text-secondary">{field.label}</legend>
         {field.options.map((option) => (
           <Toggle
             key={option}
@@ -99,7 +100,7 @@ function FieldInput({
           />
         ))}
         {field.hint === undefined ? null : (
-          <p className="text-sm text-text-tertiary">{field.hint}</p>
+          <p className="text-small text-text-tertiary">{field.hint}</p>
         )}
       </fieldset>
     );
@@ -154,7 +155,7 @@ function Form({
     if (empty === undefined) run(() => onSend(values));
   };
   return (
-    <form noValidate onSubmit={submit} className="flex flex-col gap-5 p-6">
+    <form noValidate onSubmit={submit} className={`flex flex-col gap-5 p-5 sm:p-6 ${PHONE_TARGETS}`}>
       <div className="flex flex-col gap-1">
         <h2 id={TITLE_ID} className="font-display text-h3 text-text-primary">
           {title}

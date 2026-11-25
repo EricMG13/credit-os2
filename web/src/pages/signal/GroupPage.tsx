@@ -16,12 +16,12 @@ import { FormDialog, type FormField } from "./parts/FormDialog";
 import { writes } from "./writes";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
 import { Avatar } from "./parts/Avatar";
+import { LINK, LIST_TILE } from "./parts/classes";
 import { AvatarGroup } from "./parts/AvatarGroup";
 import { PageTitle } from "./parts/PageTitle";
 import type { SignalGroup, SignalScene, SignalStory, SignalThreadSummary } from "./slice";
 
 const REASON_ID = "signal-group-write-reason";
-const FOCUS = "outline-focus-ring focus-visible:outline-2";
 
 /** A new thread in the group: a story from the feed with an optional note, or a note alone. */
 function ThreadForm({
@@ -101,7 +101,7 @@ function Header({
         <Avatar size="md" initials={null} icon={Users01} />
         <div>
           <PageTitle>{group.name}</PageTitle>
-          <p className="text-sm text-text-tertiary">
+          <p className="text-small text-text-tertiary">
             <span>{group.memberSummary}</span>
             {" · "}
             <span>{group.visibility}</span>
@@ -141,7 +141,7 @@ function Header({
             New thread
           </Button>
           {live ? null : (
-            <span id={REASON_ID} className="basis-full text-right text-sm text-text-tertiary">
+            <span id={REASON_ID} className="basis-full text-right text-small text-text-tertiary">
               Sample data: threads cannot be started here.
             </span>
           )}
@@ -167,7 +167,7 @@ function Note({ thread }: { thread: SignalThreadSummary }) {
     <article className="flex items-start gap-3 py-6">
       <Avatar size="sm" initials={thread.sharedBy.initials} />
       <div className="min-w-0 flex-1">
-        <h2 className="text-sm font-semibold text-text-primary">{thread.sharedBy.label}</h2>
+        <h2 className="text-small font-semibold text-text-primary">{thread.sharedBy.label}</h2>
         <p className="mt-2 max-w-[72ch] rounded-ds-sm border border-border-hairline bg-surface-subtle px-3 py-2 text-text-primary">
           {thread.note}
         </p>
@@ -205,24 +205,24 @@ function Item({
           inGroup
         />
       )}
-      <div className="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 pb-5 pl-15 text-sm text-text-tertiary min-[768px]:pl-24">
+      <div className="-mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 pb-4 pl-15 text-small text-text-tertiary md:pl-24">
         {story !== null && thread.note !== null ? (
           <p className="basis-full text-text-secondary">{thread.note}</p>
         ) : null}
         {thread.unread ? (
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true" className="size-2 rounded-full bg-action" />
+            <span aria-hidden="true" className="size-2 rounded-ds-full bg-action" />
             <span className="sr-only">Unread</span>
           </span>
         ) : null}
         {thread.archived ? <ArchivedBadge /> : null}
         {thread.commentCount === null ? null : (
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-1 tabular-nums">
             <MessageSquare01 aria-hidden="true" className="size-4" />
             {thread.commentCount}
           </span>
         )}
-        {thread.lastActivity === null ? null : <time>{thread.lastActivity}</time>}
+        {thread.lastActivity === null ? null : <time className="tabular-nums">{thread.lastActivity}</time>}
         <a
           href={sceneHref(
             scene,
@@ -230,7 +230,7 @@ function Item({
           )}
           data-thread-link={thread.id}
           aria-label={`Open thread: ${story === null ? thread.sharedBy.label : story.headline}`}
-          className={`inline-flex min-h-6 items-center font-semibold text-text-link ${FOCUS}`}
+          className={LINK}
         >
           Open thread
         </a>
@@ -271,7 +271,7 @@ export function GroupPage({
       ) : (
         <ul
           aria-label="Shared in this group"
-          className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-4 py-2 shadow-1 min-[768px]:px-8"
+          className={`mt-4 ${LIST_TILE}`}
         >
           {group.threads.map((thread) => {
             const story = thread.storyId === null ? null : (stories.get(thread.storyId) ?? null);
@@ -292,7 +292,7 @@ export function GroupPage({
           })}
         </ul>
       )}
-      {group.more === null ? null : <p className="mt-3 text-sm text-text-tertiary">{group.more}</p>}
+      {group.more === null ? null : <p className="mt-3 text-small text-text-tertiary">{group.more}</p>}
     </>
   );
 }

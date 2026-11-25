@@ -12,16 +12,15 @@ import { Button } from "@/components/base/buttons/button";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { useSignalActions } from "./actions";
+import { FIGURE, FOCUS, LINK, LIST_TILE } from "./parts/classes";
 import { MediaObject } from "./parts/MediaObject";
 import { NumberedPanel } from "./parts/NumberedPanel";
 import { PageTitle } from "./parts/PageTitle";
 import { sceneHref } from "./SignalFrame";
 import type { SignalDigest, SignalDigestIssue, SignalScene } from "./slice";
-import { isWebLink } from "./StoryCard";
+import { BYLINE, HEADLINE, isWebLink } from "./StoryCard";
 import { writes } from "./writes";
 
-const FOCUS = "outline-focus-ring focus-visible:outline-2";
-const META = "mb-1.5 flex flex-wrap items-center gap-2 text-sm text-text-tertiary";
 
 type Point = SignalDigestIssue["points"][number];
 
@@ -29,18 +28,19 @@ function Stories({ point }: { point: Point }) {
   return (
     <>
       {point.storiesLine === null ? null : (
-        <p className="mt-2.5 text-sm text-text-tertiary">{point.storiesLine}</p>
+        <p className="mt-2.5 text-small text-text-tertiary">{point.storiesLine}</p>
       )}
       {point.stories.length === 0 ? null : (
         <ul
           aria-label={`Stories behind: ${point.lead}`}
-          className="mt-1 flex flex-col gap-1 text-sm text-text-tertiary"
+          className="flex flex-col text-small text-text-tertiary"
         >
           {point.stories.map((story, index) => {
             const link = story.url !== null && isWebLink(story.url) ? story.url : null;
             const rest = `, ${story.source}${story.time === null ? "" : `, ${story.time}`}`;
             return (
-              <li key={index}>
+              // Each line is a 32px row (44px on a phone) and its link's own box is as tall.
+              <li key={index} className="py-[5px] max-[480px]:py-[11px]">
                 {link === null ? (
                   `${story.headline}${rest} (no link)`
                 ) : (
@@ -50,7 +50,7 @@ function Stories({ point }: { point: Point }) {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`Open source: ${story.headline} (opens in a new tab)`}
-                      className={`py-0.5 font-medium text-text-link hover:underline ${FOCUS}`}
+                      className={`rounded-ds-xs py-[7px] font-medium text-text-link hover:underline max-[480px]:py-[13px] ${FOCUS}`}
                     >
                       {story.headline}
                     </a>
@@ -117,12 +117,12 @@ function Row({ digest, issue }: { digest: SignalDigest; issue: SignalDigestIssue
   return (
     <li className="py-6">
       <MediaObject tile={digest.monogram}>
-        <div className={META}>
+        <div className={BYLINE}>
           <Badge size="sm">Digest</Badge>
           {issue.ai ? <Badge size="sm">AI</Badge> : null}
-          {issue.date === null ? null : <span>{issue.date}</span>}
+          {issue.date === null ? null : <span className={FIGURE}>{issue.date}</span>}
         </div>
-        <h3 data-issue={issue.id} className="text-lg font-medium text-text-primary">
+        <h3 data-issue={issue.id} className={HEADLINE}>
           {issue.title}
         </h3>
         {/* Keyed by slot, not by text: the summary and the nothing line may be the same sentence. */}
@@ -133,7 +133,7 @@ function Row({ digest, issue }: { digest: SignalDigest; issue: SignalDigestIssue
           ] as const
         ).map(([slot, line]) =>
           line === null ? null : (
-            <p key={slot} className="mt-0.5 max-w-[72ch] text-sm text-text-tertiary">
+            <p key={slot} className="mt-0.5 max-w-[72ch] text-small text-text-secondary">
               {line}
             </p>
           ),
@@ -160,15 +160,15 @@ function DigestHeading({
   }
   return (
     <>
-      <div className={META}>
+      <div className={BYLINE}>
         <Badge size="sm">Digest</Badge>
         {current.ai ? <Badge size="sm">AI</Badge> : null}
         <span>{digest.name}</span>
-        {current.date === null ? null : <span>{current.date}</span>}
+        {current.date === null ? null : <span className={FIGURE}>{current.date}</span>}
       </div>
       <PageTitle>{current.title}</PageTitle>
       {current.summary === null ? null : (
-        <p className="mt-1 max-w-[72ch] text-sm text-text-tertiary">{current.summary}</p>
+        <p className="mt-2 max-w-[72ch] text-text-secondary">{current.summary}</p>
       )}
     </>
   );
@@ -193,7 +193,7 @@ function PausedNotice({
           writer ? (
             <a
               href={sceneHref(scene, "settings/ai")}
-              className={`inline-flex min-h-6 items-center text-sm font-semibold text-text-link ${FOCUS}`}
+              className={`text-small ${LINK}`}
             >
               Open AI and cost
             </a>
@@ -219,11 +219,11 @@ function EarlierDigests({
       <h2
         ref={titleRef}
         tabIndex={-1}
-        className={`mb-3 text-lg font-semibold text-text-primary ${FOCUS}`}
+        className={`mb-3 font-display text-h3 text-text-primary ${FOCUS}`}
       >
         Earlier digests
       </h2>
-      <ul className="divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-4 py-2 shadow-1 min-[768px]:px-8">
+      <ul className={LIST_TILE}>
         {issues.map((issue) => (
           <Row key={issue.id} digest={digest} issue={issue} />
         ))}

@@ -18,6 +18,7 @@ import { ThreadPanel } from "./ThreadPanel";
 import { FeedPage, type FeedEntries, type FeedEntry } from "./FeedPage";
 import type { EmptyContext } from "./FeedStates";
 import type { SignalSave } from "./StoryCard";
+import { LINK } from "./parts/classes";
 import { PageTitle } from "./parts/PageTitle";
 import { readSlice, type SignalFeedView, type SignalScene } from "./slice";
 import { writes } from "./writes";
@@ -218,7 +219,7 @@ function topicFor(
 function BackToFeed({ scene }: { scene: SignalScene }) {
   return (
     <EmptyState.Footer>
-      <a className="text-sm font-semibold text-text-link" href={sceneHref(scene, "feed/for-you")}>
+      <a className={`text-small ${LINK}`} href={sceneHref(scene, "feed/for-you")}>
         Back to For you
       </a>
     </EmptyState.Footer>
@@ -321,7 +322,7 @@ export function SignalPage({
   const slice = readSlice(useSource().signal);
   if (slice.kind !== "ok") {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <Empty page title="No Signal data in this library" />
       </div>
     );
@@ -329,11 +330,11 @@ export function SignalPage({
   const scene = slice.data.scenes.find((s) => s.id === params["scene"]);
   if (scene === undefined) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <Empty page title="No such sample scene">
           <EmptyState.Footer>
             <a
-              className="text-sm font-semibold text-text-link"
+              className={`text-small ${LINK}`}
               href={sceneHref(slice.data.scenes[0], "feed/for-you")}
             >
               Back to the sample scenes
@@ -427,10 +428,11 @@ function SceneView({
     <SignalPageWriteContext value={page}>
       <SignalFrame scene={scene} current={current} follow={follow}>
         {notice.said === null ? null : (
-          // It stays in view, under the Channels strip below 1024px: the control pressed may be far down the page.
+          // It stays in view, 8px under the Channels strip where there is one (the frame's
+          // `--strip`): the control pressed may be far down the page.
           <div
             key={notice.said.count}
-            className="sticky top-12 z-10 mb-4 min-[768px]:top-8 min-[1024px]:top-0"
+            className="sticky top-[calc(var(--strip,0px)+0.5rem)] z-10 mb-4"
           >
             <Alert tone={notice.said.refusal ? "error" : "info"} title={notice.said.text} />
           </div>

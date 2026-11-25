@@ -35,7 +35,7 @@ export function NotificationsSection({
       }
     >
       {events.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No notification events yet.</p>
+        <p className="text-small text-text-tertiary">No notification events yet.</p>
       ) : (
         <table className="w-full max-w-[640px] border-collapse">
           <thead>
@@ -47,7 +47,7 @@ export function NotificationsSection({
                 <th
                   key={channel.key}
                   scope="col"
-                  className="w-[110px] pb-2 text-left text-sm font-medium text-text-secondary"
+                  className="w-[110px] pb-2 text-left text-small font-medium text-text-secondary"
                 >
                   {channel.name}
                 </th>
@@ -59,12 +59,12 @@ export function NotificationsSection({
               <tr key={event.id} className="border-t border-border-hairline">
                 <th
                   scope="row"
-                  className="py-4 pr-4 text-left text-md font-medium text-text-primary"
+                  className="py-3 pr-4 text-left text-body font-medium text-text-primary"
                 >
                   {event.label}
                 </th>
                 {channels.map((channel) => (
-                  <td key={channel.key} className="py-4">
+                  <td key={channel.key} className="py-3">
                     <Toggle
                       aria-label={`${event.label}, ${channel.name}`}
                       isSelected={on(event, channel.key)}

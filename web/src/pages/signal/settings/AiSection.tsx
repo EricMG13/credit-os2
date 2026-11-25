@@ -25,23 +25,23 @@ export function AiSection({ ai }: { ai: SignalAi }) {
           </Alert>
         )}
         <div>
-          <span className="text-sm font-medium text-text-secondary">
+          <span className="text-small font-medium text-text-secondary">
             {spend === null ? "Spend" : spend.title}
           </span>
           <div className="mt-2">
             {spend === null ? (
-              <span className="text-sm text-text-tertiary">n.a.</span>
+              <span className="text-small text-text-tertiary">n.a.</span>
             ) : (
               <ProgressBar value={spend.position} max={1} label={spend.label} />
             )}
           </div>
           {spend === null || spend.note === null ? null : (
-            <p className="mt-1.5 text-sm text-text-tertiary">{spend.note}</p>
+            <p className="mt-1.5 text-small text-text-tertiary">{spend.note}</p>
           )}
         </div>
         {parts.length === 0 ? null : (
           <>
-            <p id={REASON_ID} className="-mb-2 text-sm text-text-tertiary">
+            <p id={REASON_ID} className="-mb-2 text-small text-text-tertiary">
               The switches show the state of each part. They cannot be changed here.
             </p>
             <ul className="flex flex-col gap-5">

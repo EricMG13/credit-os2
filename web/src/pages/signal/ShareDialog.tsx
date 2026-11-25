@@ -10,6 +10,7 @@ import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/mod
 import { Button } from "@/components/base/buttons/button";
 import { CloseButton } from "@/components/base/buttons/close-button";
 import { Select } from "@/components/base/select/select";
+import { PHONE_TARGETS } from "./parts/classes";
 import { useOnGone } from "./parts/focus";
 import { TextArea } from "./parts/TextArea";
 
@@ -62,11 +63,11 @@ function ShareForm({ headline, groups, onShare, onCancel, onGone }: Props) {
     } else share(group);
   };
   return (
-    <form noValidate onSubmit={submit} className="flex flex-col">
+    <form noValidate onSubmit={submit} className={`flex flex-col ${PHONE_TARGETS}`}>
       {/* In the dialog's close slot: it closes through the overlay, which calls onCancel. */}
       <CloseButton label="Close" className="absolute top-3 right-3" />
       <div className="flex flex-col gap-4 p-6 pr-14">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-ds-md bg-surface-card text-text-secondary shadow-1 ring-1 ring-border-subtle ring-inset">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-ds-sm bg-surface-subtle text-text-secondary">
           <Share07 aria-hidden="true" className="size-5" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
@@ -78,7 +79,7 @@ function ShareForm({ headline, groups, onShare, onCancel, onGone }: Props) {
       </div>
       <div className="flex flex-col gap-5 px-6 pb-6">
         {groups.length === 0 ? (
-          <p className="text-text-secondary">
+          <p className="text-body text-text-secondary">
             There are no groups yet. Create one to share this story.
           </p>
         ) : (

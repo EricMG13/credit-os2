@@ -89,7 +89,7 @@ function DigestList({
   onEdit: (edit: Edit) => void;
   form: SignalDigestForm;
 }) {
-  if (digests.length === 0) return <p className="text-sm text-text-tertiary">No digests yet.</p>;
+  if (digests.length === 0) return <p className="text-small text-text-tertiary">No digests yet.</p>;
   const run = (digest: SignalDigest) => {
     void page.send(writes.runDigest(digest.id)).then(({ reply }) => {
       const message = (reply as { message?: unknown } | null)?.message;
@@ -109,9 +109,9 @@ function DigestList({
           className="flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-border-hairline py-4"
         >
           <div className="min-w-48 flex-1">
-            <b className="block text-md font-semibold text-text-primary">{digest.name}</b>
+            <b className="block text-body font-semibold text-text-primary">{digest.name}</b>
             {digest.paused === null ? null : (
-              <small className="block text-sm text-text-tertiary">{digest.paused}</small>
+              <small className="block text-small text-text-tertiary">{digest.paused}</small>
             )}
           </div>
           <Button
@@ -183,10 +183,10 @@ function FormActions({
           Save digest
         </Button>
       </div>
-      <p id={RUN_ID} className="text-sm text-text-tertiary">
+      <p id={RUN_ID} className="text-small text-text-tertiary">
         Running a digest calls a paid model. It stays off until the owner sets a cap.
       </p>
-      <p id={SAVE_ID} className="-mt-3 text-sm text-text-tertiary">
+      <p id={SAVE_ID} className="-mt-3 text-small text-text-tertiary">
         Sample data: digests cannot be saved here.
       </p>
     </>

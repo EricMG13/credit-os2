@@ -5,33 +5,34 @@
 import { ArrowRight } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
+import { FIGURE } from "./parts/classes";
 import { MediaObject } from "./parts/MediaObject";
 import { NumberedPanel } from "./parts/NumberedPanel";
 import type { SignalDigestCard } from "./slice";
+import { BYLINE, HEADLINE, HEADLINE_LINK } from "./StoryCard";
 
-const FOCUS = "outline-focus-ring focus-visible:outline-2";
 
 export function DigestCard({ digest, href }: { digest: SignalDigestCard; href: string }) {
   const { title } = digest;
   return (
     <article className="py-6">
       <MediaObject tile={digest.monogram}>
-        <div className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-text-tertiary">
+        <div className={BYLINE}>
           <Badge size="sm">Digest</Badge>
           {digest.ai ? <Badge size="sm">AI</Badge> : null}
           <span>{digest.digestName}</span>
-          {digest.date === null ? null : <span>{digest.date}</span>}
+          {digest.date === null ? null : <span className={FIGURE}>{digest.date}</span>}
           {digest.unread ? (
             <>
-              <span aria-hidden="true" className="size-2 rounded-full bg-action" />
+              <span aria-hidden="true" className="size-2 rounded-ds-full bg-action" />
               <span>Unread</span>
             </>
           ) : null}
         </div>
         {digest.nothing === null ? (
           <>
-            <h2 tabIndex={-1} className="text-lg font-medium text-text-primary">
-              <a href={href} className={`py-0.5 text-text-primary hover:underline ${FOCUS}`}>
+            <h2 tabIndex={-1} className={HEADLINE}>
+              <a href={href} className={HEADLINE_LINK}>
                 {title}
               </a>
             </h2>
@@ -39,13 +40,13 @@ export function DigestCard({ digest, href }: { digest: SignalDigestCard; href: s
               <NumberedPanel items={digest.points} />
             </div>
             {digest.summary === null ? null : (
-              <p className="mt-3 text-sm text-text-tertiary">{digest.summary}</p>
+              <p className="mt-3 text-small text-text-tertiary">{digest.summary}</p>
             )}
             <div className="mt-3">
               <Button
                 size="sm"
                 color="link-color"
-                className="min-h-6"
+                className="min-h-8"
                 iconTrailing={ArrowRight}
                 href={href}
                 aria-label={`Read the digest: ${title}`}
@@ -56,10 +57,10 @@ export function DigestCard({ digest, href }: { digest: SignalDigestCard; href: s
           </>
         ) : (
           <>
-            <h2 tabIndex={-1} className="text-lg font-medium text-text-primary">
+            <h2 tabIndex={-1} className={HEADLINE}>
               {title}
             </h2>
-            <p className="mt-0.5 max-w-[72ch] text-text-secondary">{digest.nothing}</p>
+            <p className="max-w-[72ch] text-text-secondary">{digest.nothing}</p>
           </>
         )}
       </MediaObject>

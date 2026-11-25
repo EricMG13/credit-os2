@@ -11,8 +11,8 @@ export function AvatarGroup({ monograms, more }: { monograms: string[]; more: st
           key={`${String(index)}-${text}`}
           className={
             index === 0
-              ? "rounded-full ring-[1.5px] ring-surface-card"
-              : "-ml-1 rounded-full ring-[1.5px] ring-surface-card"
+              ? "rounded-ds-full ring-2 ring-surface-card"
+              : "-ml-1 rounded-ds-full ring-2 ring-surface-card"
           }
         >
           <Avatar size="xs" initials={text} />

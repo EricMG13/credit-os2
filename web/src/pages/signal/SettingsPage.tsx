@@ -1,11 +1,12 @@
-// Settings (mock "Signal: settings"): the page's h1, the section list as vertical tabs with the side
-// line, and the section beside it. In the sample every change is in memory (state here, so it
+// Settings: the page's h1, the section list as tabs (beside the section from 1280px, a wrapping
+// row above it below that; the current one has the accent tint and edge), and the section's tile. In the sample every change is in memory (state here, so it
 // survives moving between sections; a reload shows the slice again) and nothing is written. On a
 // service a switch and a group's visibility show at once and are written; a refusal puts them back.
 // A reader's list holds Topics and Notifications; on a service it also holds Digests, which any
 // named user builds (spec section 2); the design-reference app's reader list stays as it was.
 import { useState, type ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
+import { cx } from "@/utils/cx";
 import { usePageWrite } from "./actions";
 import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
@@ -33,6 +34,12 @@ const flagWrite = (key: string, on: boolean) => {
 
 type SectionId =
   "groups" | "thread-rules" | "sources" | "topics" | "digests" | "notifications" | "ai";
+
+/**
+ * A section's tab: a 32px row with the 12px radius and an edge all round in place of the kit's
+ * side line; the kit colours the selected one's edge and text, and the tint is added here.
+ */
+const SECTION_TAB = "min-h-8 rounded-ds-md! border px-2.5 py-1 text-small font-medium";
 
 const SECTIONS: { id: SectionId; name: string; reader: boolean }[] = [
   { id: "groups", name: "Groups", reader: false },
@@ -183,17 +190,22 @@ export function SettingsPage({
       <Tabs
         orientation="vertical"
         selectedKey={open === undefined ? "" : open.id}
-        className="mt-4 grid grid-cols-1 gap-y-4 xl:grid-cols-[200px_minmax(0,1fr)] xl:gap-x-12"
+        className="mt-5 grid grid-cols-1 gap-y-4 xl:grid-cols-[200px_minmax(0,1fr)] xl:gap-x-4"
       >
         <TabList
           aria-label="Settings sections"
           orientation="vertical"
           type="line"
           size="sm"
-          className="w-full flex-row flex-wrap gap-x-4 xl:w-max xl:flex-col"
+          className="w-full flex-row flex-wrap gap-1 xl:flex-col xl:flex-nowrap"
         >
           {listed.map((s) => (
-            <Tab key={s.id} id={s.id} href={sceneHref(scene, `settings/${s.id}`)}>
+            <Tab
+              key={s.id}
+              id={s.id}
+              href={sceneHref(scene, `settings/${s.id}`)}
+              className={({ isSelected }) => cx(SECTION_TAB, isSelected && "bg-surface-selected")}
+            >
               {s.name}
             </Tab>
           ))}

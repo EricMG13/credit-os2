@@ -9,6 +9,7 @@ import { Button } from "@/components/base/buttons/button";
 import type { SignalComment } from "../slice";
 import { cx } from "@/utils/cx";
 import { Avatar } from "./Avatar";
+import { FOCUS, TARGET } from "./classes";
 import { focusAgainIfLost, useOnGone } from "./focus";
 import { TextArea } from "./TextArea";
 
@@ -16,9 +17,9 @@ import { TextArea } from "./TextArea";
 const REACTION_WORDS = ["Agree", "Disagree", "Seen"] as const;
 export type ReactionWord = (typeof REACTION_WORDS)[number];
 
-const FOCUS = "outline-focus-ring focus-visible:outline-2";
-/** A text action under a comment: 24px tall, so it takes a press. */
-const ACTION = cx("min-h-6 rounded-ds-xs text-sm font-semibold text-text-link", FOCUS);
+/** A text action under a comment: a 32px target. */
+const ACTION = cx("cursor-pointer rounded-ds-xs text-small font-semibold text-text-link", TARGET, FOCUS);
+const TIME = "font-mono text-caption font-normal text-text-tertiary tabular-nums";
 const EMPTY = "Write something first.";
 
 /** What the viewer may do to their own comments on a service; the page owns each step. */
@@ -33,7 +34,7 @@ export type OwnComments = {
   onRemove: (comment: SignalComment) => void;
 };
 const CHIP =
-  "h-6 rounded-ds-full px-2 text-sm font-medium whitespace-nowrap ring-1 ring-border-hairline ring-inset";
+  "inline-flex min-h-8 items-center rounded-ds-xs px-2 text-caption whitespace-nowrap tabular-nums ring-1 ring-border-hairline ring-inset";
 /** The chips keep their words on one line each and wrap as a row where the panel is narrow. */
 const CHIPS = "ml-auto flex flex-wrap justify-end gap-1";
 
@@ -86,6 +87,7 @@ function Reactions({
               className={cx(
                 CHIP,
                 FOCUS,
+                "cursor-pointer",
                 on
                   ? "bg-surface-selected text-text-link"
                   : "bg-surface-subtle text-text-secondary hover:bg-surface-card",
@@ -116,7 +118,7 @@ function MessageText({ comment, quote }: { comment: SignalComment; quote: string
       )}
     >
       {quote === null ? null : (
-        <blockquote className="mb-1.5 rounded-ds-sm border border-border-hairline border-l-[3px] border-l-action bg-surface-card px-3 py-2 text-sm text-text-tertiary">
+        <blockquote className="mb-1.5 rounded-ds-sm border border-border-hairline border-l-[3px] border-l-action bg-surface-card px-3 py-2 text-small text-text-tertiary">
           {quote}
         </blockquote>
       )}
@@ -311,10 +313,10 @@ function Message({
       {comment.own ? null : <Avatar size="sm" initials={comment.author.initials} />}
       <article className="flex min-w-0 flex-1 flex-col gap-1.5">
         <header className="flex items-center gap-2">
-          <cite className="flex-1 text-sm font-medium text-text-secondary not-italic">
+          <cite className="flex-1 text-small font-medium text-text-secondary not-italic">
             {author}
           </cite>
-          {when === "" ? null : <span className="text-xs text-text-tertiary">{when}</span>}
+          {when === "" ? null : <span className={TIME}>{when}</span>}
         </header>
         {own != null && own.editing?.id === comment.id && !comment.removed ? (
           <EditBox comment={comment} own={own} />
@@ -392,12 +394,12 @@ export function Composer({
   return (
     <form noValidate onSubmit={submit} className="flex flex-col gap-2">
       {replyingTo === null ? null : (
-        <p className="flex items-center justify-between gap-2 text-sm text-text-secondary">
+        <p className="flex items-center justify-between gap-2 text-small text-text-secondary">
           <span>Replying to {replyingTo}</span>
           <Button
             size="sm"
             color="link-color"
-            className="min-h-6"
+            className="min-h-8"
             onPress={() => {
               onCancelReply();
               boxRef.current?.focus();
@@ -407,7 +409,7 @@ export function Composer({
           </Button>
         </p>
       )}
-      <div className="rounded-ds-lg border border-border-hairline bg-surface-subtle">
+      <div className="rounded-ds-md border border-border-hairline bg-surface-subtle p-1">
         <TextArea
           aria-label="Write a comment"
           placeholder="Write a comment"
@@ -421,12 +423,12 @@ export function Composer({
           isInvalid={empty}
           hint={empty ? EMPTY : undefined}
         />
-        <div className="flex items-center justify-between gap-3 px-3 py-2 text-xs font-semibold text-text-tertiary">
-          <span className="flex items-center gap-1">
+        <div className="flex items-center justify-between gap-3 px-2 pt-1 text-caption text-text-tertiary">
+          <span className="flex items-center gap-1.5">
             <Avatar size="xs" initials={initials} own />
             {name}
           </span>
-          <Button size="sm" color="link-color" className="min-h-6" type="submit">
+          <Button size="sm" color="link-color" className="min-h-8" type="submit">
             Send
           </Button>
         </div>

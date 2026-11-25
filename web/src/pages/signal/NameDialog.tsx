@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type SyntheticEvent } from "react";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Button } from "@/components/base/buttons/button";
 import { Input } from "@/components/base/input/input";
+import { PHONE_TARGETS } from "./parts/classes";
 import { useOnGone } from "./parts/focus";
 
 const TITLE_ID = "signal-name-title";
@@ -52,7 +53,7 @@ function NameForm({ current, refused = null, onSubmit, onCancel, onGone }: Props
     onSubmit(name);
   };
   return (
-    <form noValidate onSubmit={submit} className="flex flex-col gap-5 p-6">
+    <form noValidate onSubmit={submit} className={`flex flex-col gap-5 p-5 sm:p-6 ${PHONE_TARGETS}`}>
       <div className="flex flex-col gap-1">
         <h2 id={TITLE_ID} className="font-display text-h3 text-text-primary">
           Your name

@@ -202,7 +202,7 @@ function PostsFrom({
   const names = topics.filter((topic) => held.has(topic.id)).map((topic) => topic.name);
   if (names.length === 0) return null;
   return (
-    <div className="flex basis-full flex-wrap items-center gap-2 text-sm text-text-tertiary">
+    <div className="flex basis-full flex-wrap items-center gap-2 text-small text-text-tertiary">
       <span>Posts from</span>
       <Tags tags={names} label={`Topics posted into ${group.name}`} />
     </div>
@@ -245,7 +245,7 @@ function Row({
         />
       </div>
       {group.members.length === 0 ? (
-        <span className="text-sm text-text-tertiary">Add a member to start</span>
+        <span className="text-small text-text-tertiary">Add a member to start</span>
       ) : (
         <>
           <AvatarGroup monograms={group.members.map((m) => m.initials)} more={group.moreMembers} />
@@ -354,7 +354,7 @@ export function GroupsSection({
         onGone={opener.restore}
       />
       {groups.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No groups yet.</p>
+        <p className="text-small text-text-tertiary">No groups yet.</p>
       ) : (
         <ul>
           {groups.map((group) => (

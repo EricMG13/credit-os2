@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Button } from "@/components/base/buttons/button";
 import { Skeleton } from "@/components/gap/Skeleton";
 import { useSignalActions } from "./actions";
+import { LIST_TILE } from "./parts/classes";
 
 /** The three stories' skeleton: a tile and lines each, static, in the card's own frame. */
 export function FeedSkeleton() {
@@ -14,14 +15,14 @@ export function FeedSkeleton() {
     <section
       aria-label="Stories"
       aria-busy="true"
-      className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-4 py-2 shadow-1 min-[768px]:px-8"
+      className={`mt-4 ${LIST_TILE}`}
     >
       <span className="sr-only">Loading stories</span>
       {[4, 4, 3].map((lines, index) => (
-        <div key={index} data-skeleton-story className="flex gap-3 py-6 min-[768px]:gap-4">
+        <div key={index} data-skeleton-story className="flex gap-3 py-6 md:gap-4">
           <div
             aria-hidden="true"
-            className="size-12 shrink-0 rounded-ds-xs bg-surface-subtle min-[768px]:size-20"
+            className="size-12 shrink-0 rounded-ds-sm bg-surface-subtle md:size-20"
           />
           <div className="min-w-0 flex-1">
             <Skeleton lines={lines} />
@@ -57,7 +58,7 @@ export function FeedAlert({ error }: { error: FeedError }) {
               <Button color="secondary" size="sm" isDisabled aria-describedby="feed-retry-reason">
                 Retry
               </Button>
-              <span id="feed-retry-reason" className="text-sm text-error-text">
+              <span id="feed-retry-reason" className="text-small text-error-text">
                 Sample data: there is no service to retry.
               </span>
             </div>

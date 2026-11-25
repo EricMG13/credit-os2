@@ -20,14 +20,18 @@ export function Toggle({ label, hint, ...field }: ToggleProps) {
     <SwitchField {...field} className="flex w-max max-w-full flex-col gap-0.5">
       <SwitchButton
         className={(state) =>
-          cx("flex items-start gap-3", state.isDisabled ? "cursor-not-allowed" : "cursor-pointer")
+          cx(
+            // The track is 24px tall; the padding makes the switch a 32px target, 44px on a phone.
+            "flex items-start gap-3 py-1 max-[480px]:py-2.5",
+            state.isDisabled ? "cursor-not-allowed" : "cursor-pointer",
+          )
         }
       >
         {({ isSelected, isFocusVisible, isDisabled }) => (
           <>
             <span
               className={cx(
-                "block h-6 w-11 shrink-0 rounded-full p-0.5 outline-focus-ring",
+                "block h-6 w-11 shrink-0 rounded-ds-full p-0.5 outline-focus-ring",
                 isSelected
                   ? "bg-action"
                   : "bg-surface-subtle ring-1 ring-border-control ring-inset",
@@ -37,19 +41,19 @@ export function Toggle({ label, hint, ...field }: ToggleProps) {
             >
               <span
                 className={cx(
-                  "block size-5 rounded-full bg-surface-card shadow-sm",
+                  "block size-5 rounded-ds-full bg-surface-card",
                   isSelected ? "translate-x-5" : "ring-1 ring-border-control",
                 )}
               />
             </span>
             {label === undefined ? null : (
-              <span className="text-md font-medium text-text-primary select-none">{label}</span>
+              <span className="text-body font-medium text-text-primary select-none">{label}</span>
             )}
           </>
         )}
       </SwitchButton>
       {hint === undefined || hint === null ? null : (
-        <Text slot="description" className="ml-14 text-md text-text-tertiary">
+        <Text slot="description" className="ml-14 text-small text-text-tertiary">
           {hint}
         </Text>
       )}

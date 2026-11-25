@@ -2,12 +2,13 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * 1024px: the shell's side rail (68px, there from 768px), the channel list (256px) and a page
- * region of 700px, the least the pages' wide layout needs. So the page region is at least 700px
- * wide at every width from 768px, whichever side of this the window is on; below 768px the shell's
- * rail is a bar along the bottom and the page region is the window's width.
+ * 960px: the page gutter (32px), the channel list (256px), the gap to the page (16px), a page of
+ * 624px and the gutter again (32px). 624px is the least the pages' wide layout needs: the feed's
+ * kind tabs and its search on one row, and the sources table (600px) with no sideways scroll. The
+ * shell has no side rail, so nothing else stands beside the list. Below 960px the page takes the
+ * whole region and the list opens from the Channels button.
  */
-const QUERY = "(min-width: 1024px)";
+const QUERY = "(min-width: 960px)";
 
 function subscribe(onChange: () => void) {
   if (typeof window.matchMedia !== "function") return () => undefined;

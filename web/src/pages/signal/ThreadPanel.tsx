@@ -9,12 +9,12 @@ import { Alert } from "@/components/alert/Alert";
 import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-menu";
 import { Badge } from "@/components/base/badges/badges";
 import { CloseButton } from "@/components/base/buttons/close-button";
-import { cx } from "@/utils/cx";
 import { useSignalActions, useSignalAsOf } from "./actions";
 import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
-import { isWebLink } from "./StoryCard";
+import { BYLINE, HEADLINE, HEADLINE_LINK, isWebLink } from "./StoryCard";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
+import { PHONE_TARGETS } from "./parts/classes";
 import { MediaObject } from "./parts/MediaObject";
 import { useOnGone, useOpener, focusAgainIfLost } from "./parts/focus";
 import { FormDialog } from "./parts/FormDialog";
@@ -26,7 +26,6 @@ import { useSignalViewer } from "./viewer";
 import { writes } from "./writes";
 
 const TITLE_ID = "signal-thread-title";
-const FOCUS = "outline-focus-ring focus-visible:outline-2";
 
 /** The thread's own "Open thread" link in the group view; the page container when there is none. */
 function openLinkTarget(threadId: string | null): HTMLElement | null {
@@ -40,27 +39,22 @@ function Quoted({ story }: { story: SignalStory }) {
   return (
     <article>
       <MediaObject tile={story.source.monogram}>
-        <div className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-text-tertiary">
+        <div className={BYLINE}>
           <Badge size="sm">{story.kindLabel}</Badge>
           <span>{story.source.name}</span>
-          {story.time === null ? null : <span>{story.time}</span>}
+          {story.time === null ? null : <span className="tabular-nums">{story.time}</span>}
         </div>
-        <h3 className="text-lg font-medium text-text-primary">
+        <h3 className={HEADLINE}>
           {link === null ? (
             story.headline
           ) : (
-            <a
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cx("py-0.5 hover:underline", FOCUS)}
-            >
+            <a href={link} target="_blank" rel="noopener noreferrer" className={HEADLINE_LINK}>
               {story.headline}
             </a>
           )}
         </h3>
         {link === null ? null : (
-          <OpenSourceButton url={link} headline={story.headline} className="mt-2" />
+          <OpenSourceButton url={link} headline={story.headline} className="mt-1" />
         )}
       </MediaObject>
     </article>
@@ -89,7 +83,7 @@ function freshId(thread: SignalThread, added: Added[]): string {
   return `posted-${String(n)}`;
 }
 
-const NOTE = "text-sm text-text-tertiary";
+const NOTE = "text-small text-text-tertiary";
 const pressKey = (comment: SignalComment, word: ReactionWord) => JSON.stringify([comment.id, word]);
 
 function ConversationFooter({
@@ -432,17 +426,19 @@ export function ThreadPanel({
       isOpen
       isDismissable
       aria-labelledby={TITLE_ID}
-      // Ruling 20: the feed stays readable, so the kit's overlay token is drawn lighter.
-      className="bg-overlay/30"
+      // Ruling 20: the feed stays readable, so the kit's overlay token is drawn lighter. z-40, as
+      // the channel panel: above the Channels strip (z-30) and under a dialog opened from here (z-50).
+      className="z-40 bg-overlay/30"
+      dialogClassName={`text-body ${PHONE_TARGETS}`}
       onOpenChange={(open) => {
         if (!open) close();
       }}
     >
       <header className="relative w-full px-6 pt-6">
-        <h2 id={TITLE_ID} className="pr-10 text-lg font-semibold text-text-primary">
+        <h2 id={TITLE_ID} className="pr-10 font-display text-h3 text-text-primary">
           {thread === null ? "Thread not found" : thread.title}
         </h2>
-        <p className="text-sm text-text-tertiary">
+        <p className="text-small text-text-tertiary">
           {thread === null ? "This thread does not exist or is not open to you." : thread.subline}
         </p>
         <CloseButton label="Close thread" className="absolute top-3 right-3" />

@@ -104,12 +104,12 @@ function Row({
   return (
     <li className="flex flex-wrap items-start gap-x-4 gap-y-2 border-t border-border-hairline py-4">
       <div className="w-40 shrink-0">
-        <b className="block text-md font-semibold text-text-primary">{topic.name}</b>
-        <small className="block text-sm text-text-tertiary">{topic.weekly}</small>
+        <b className="block text-body font-semibold text-text-primary">{topic.name}</b>
+        <small className="block text-small text-text-tertiary">{topic.weekly}</small>
       </div>
       <div className="grid min-w-48 flex-1 gap-2">
         {topic.keywords.length === 0 ? (
-          <span className="text-sm text-text-tertiary">No keywords: every story of this kind</span>
+          <span className="text-small text-text-tertiary">No keywords: every story of this kind</span>
         ) : (
           <Tags tags={topic.keywords} label={`Keywords: ${topic.name}`} />
         )}
@@ -173,7 +173,7 @@ export function TopicsSection({
         />
       ) : null}
       {topics.length === 0 ? (
-        <p className="text-sm text-text-tertiary">No topics yet</p>
+        <p className="text-small text-text-tertiary">No topics yet</p>
       ) : (
         <ul>
           {topics.map((topic) => (
