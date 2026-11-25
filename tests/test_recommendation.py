@@ -11,21 +11,38 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from deploy_vii.inputs.portfolio_export import quantity
 from deploy_workflow import recommendation
 from deploy_workflow.cp2_scorecard import ASSESSMENTS, FACTORS, Assessment, FactorScore, Scorecard
 from deploy_workflow.recommendation import (
     RECOMMENDATION_NAMES,
     SCORE_NAMES,
     TABLE,
+    CreditScore,
     Instrument,
+    Issuer,
     Valuation,
     band,
     best,
     credit_score,
+    eligible_types,
+    instrument_proposal,
+    portfolio_reading,
     proposal,
+    read_limits,
     valuation,
 )
-from deploy_workflow.reference_portfolios import AssetType, Portfolio, Position
+from deploy_workflow.reference_portfolios import (
+    AssetType,
+    Kind,
+    Limit,
+    Portfolio,
+    Position,
+    Weight,
+    limits,
+    read_clo_pack,
+)
+from tools import synthetic_reference_portfolios as synth
 
 # Methodology section 6, row by Credit Score 1..5, column by Valuation 1..5.
 METHODOLOGY_TABLE = {
@@ -507,3 +524,333 @@ def test_property_shifting_every_level_leaves_the_score_unchanged(
         return valuation(bond(str(own + delta)), book(*members)).score
 
     assert score(0) == score(shift)
+
+
+# --- Eligibility, limits and the readings (methodology section 7; the four rulings) --------------
+
+AT = datetime(2026, 11, 25, tzinfo=UTC)
+CCC_ROW = ("Rating", "Max CCC+ and below", "≤ 7.5% NAV", "-12.50%", "Breach")
+LEVEL_FOR_VALUATION = {1: "400", 2: "350", 3: "300", 4: "250", 5: "200"}  # against a median of 300
+
+
+def limit_row(
+    category: str, parameter: str, limit: str, headroom: str = "", status: str = ""
+) -> Limit:
+    return Limit(
+        "limits.csv",
+        2,
+        category,
+        parameter,
+        limit,
+        "Hard",
+        "",
+        headroom,
+        status,
+        "",
+        quantity(limit),
+    )
+
+
+def reference(
+    kind: Kind, *limits: Limit, bucket: str = "BB", names: int = 5, extra: tuple[Position, ...] = ()
+) -> Portfolio:
+    asset: AssetType = "bond" if kind == "hy_index" else "loan"
+    members = tuple(pos(f"Name {i}", "300", asset=asset, bucket=bucket) for i in range(names))
+    return Portfolio("p", "Portfolio", kind, None, AT, (), members + extra, limits)
+
+
+def credit(score: int) -> CreditScore:
+    return credit_score(card([score] * 17))
+
+
+def issuer(
+    valuation_score: int, *, bucket: str = "BB", asset: AssetType = "bond", price: str | None = "99"
+) -> Instrument:
+    return Instrument(
+        "Issuer 2030", asset, bucket, Decimal(LEVEL_FOR_VALUATION[valuation_score]), _price(price)
+    )
+
+
+@pytest.mark.parametrize(
+    ("kind", "declared", "expected"),
+    [
+        ("clo", None, ("loan",)),
+        ("loan_index", None, ("loan",)),
+        ("hy_index", None, ("bond",)),
+        ("custom", "loan", ("loan",)),
+        ("custom", "bond", ("bond",)),
+        ("custom", None, ("loan", "bond")),
+    ],
+)
+def test_eligibility_is_by_asset_type_alone(
+    kind: Kind, declared: AssetType | None, expected: tuple[str, ...]
+) -> None:
+    assert eligible_types(reference(kind), declared) == expected
+
+
+@pytest.mark.parametrize(
+    ("kind", "asset", "holds"),
+    [("clo", "bond", "loans"), ("loan_index", "bond", "loans"), ("hy_index", "loan", "bonds")],
+)
+def test_no_eligible_instrument_is_n_a_not_blank(kind: Kind, asset: AssetType, holds: str) -> None:
+    result = portfolio_reading(credit(2), [issuer(2, asset=asset)], reference(kind))
+    assert (result.status, result.recommendation, result.uncapped) == ("n/a", None, None)
+    assert (result.instrument, result.valuation) == (None, None)
+    assert holds in result.reason
+
+
+@pytest.mark.parametrize(
+    ("score", "valuation_score", "cell", "expected", "capped"),
+    [
+        (1, 1, 1, 3, True),
+        (1, 2, 2, 3, True),
+        (3, 3, 3, 3, False),
+        (3, 4, 4, 4, False),
+        (5, 5, 5, 5, False),
+    ],
+)
+def test_a_breached_limit_holds_a_1_or_2_to_3_and_leaves_3_4_5(
+    score: int, valuation_score: int, cell: int, expected: int, capped: bool
+) -> None:
+    book_ = reference("clo", limit_row(*CCC_ROW), bucket="CCC")
+    result = portfolio_reading(
+        credit(score), [issuer(valuation_score, bucket="CCC", asset="loan")], book_
+    )
+    assert (result.status, result.uncapped, result.recommendation) == ("proposed", cell, expected)
+    assert len(result.capped_by) == (1 if capped else 0)
+    assert len(result.limits) == 1 and result.limits[0].outcome == "breached"
+    assert ("Max CCC+ and below" in result.reason) == capped
+
+
+@pytest.mark.parametrize(
+    ("headroom", "status", "outcome"),
+    [
+        ("0.00%", "", "breached"),
+        ("-12.50%", "", "breached"),
+        ("", "Breach", "breached"),
+        ("0.40%", "Breach", "breached"),
+        ("0.40%", "Pass", "within"),
+        ("0.40%", "", "within"),
+        ("", "Pass", "within"),
+        ("", "", "not_read"),
+        ("—", "Info", "not_read"),
+    ],
+)
+def test_breach_decision_each_alone(headroom: str, status: str, outcome: str) -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "≤ 7.5% NAV", headroom, status)
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket="CCC", price=None)
+    assert reading.outcome == outcome
+    assert reading.limit is row
+    assert "Max CCC+ and below" in reading.reason and "≤ 7.5% NAV" in reading.reason
+
+
+def test_a_ccc_limit_does_not_apply_to_an_instrument_rated_b() -> None:
+    book_ = reference("clo", limit_row(*CCC_ROW), bucket="B")
+    result = portfolio_reading(credit(1), [issuer(1, bucket="B", asset="loan")], book_)
+    assert result.limits[0].outcome == "does_not_apply"
+    assert (result.uncapped, result.recommendation, result.capped_by) == (1, 1, ())
+
+
+@pytest.mark.parametrize(
+    ("parameter", "sector", "outcome"),
+    [
+        ("Max Software exposure", "Software", "breached"),
+        ("Max software exposure", "Software", "breached"),
+        ("Max Healthcare exposure", "Software", "does_not_apply"),
+        ("Max single industry", "Software", "not_read"),
+        ("Max Software exposure", None, "not_read"),
+    ],
+)
+def test_a_sector_limit_is_tied_by_the_sector_it_names(
+    parameter: str, sector: str | None, outcome: str
+) -> None:
+    row = limit_row("Sector", parameter, "≤ 15% NAV", "-1.00%", "Breach")
+    [reading] = read_limits(reference("clo", row), sector=sector, rating_bucket="BB", price=None)
+    assert reading.outcome == outcome
+
+
+def test_a_breached_sector_limit_caps_and_an_unreadable_one_does_not() -> None:
+    breached = limit_row("Sector", "Max Software exposure", "≤ 15% NAV", "-1.00%")
+    vague = limit_row("Sector", "Max single industry", "≤ 15% NAV", "-1.00%")
+    capped = portfolio_reading(
+        credit(1),
+        [issuer(1, asset="loan")],
+        reference("clo", breached),
+        issuer=Issuer(sector="Software"),
+    )
+    assert (capped.uncapped, capped.recommendation) == (1, 3)
+    free = portfolio_reading(
+        credit(1),
+        [issuer(1, asset="loan")],
+        reference("clo", vague),
+        issuer=Issuer(sector="Software"),
+    )
+    assert (free.recommendation, free.limits[0].outcome) == (1, "not_read")
+
+
+@pytest.mark.parametrize(
+    ("price", "outcome"),
+    [("89.99", "breached"), ("90", "within"), ("95", "within"), (None, "not_read")],
+)
+def test_the_price_floor_compares_the_price_with_the_floor(price: str | None, outcome: str) -> None:
+    row = limit_row(
+        "Price", "Minimum price", "≥ 90", "0.00%", "Breach"
+    )  # its columns do not decide
+    [reading] = read_limits(
+        reference("clo", row), sector=None, rating_bucket="BB", price=_price(price)
+    )
+    assert reading.outcome == outcome
+
+
+def test_a_price_floor_with_no_figure_is_not_read() -> None:
+    row = limit_row("Price", "Minimum price", "see agreement")
+    [reading] = read_limits(
+        reference("clo", row), sector=None, rating_bucket="BB", price=Decimal(50)
+    )
+    assert reading.outcome == "not_read"
+
+
+def test_a_breached_price_floor_caps_on_the_best_instrument_price() -> None:
+    row = limit_row("Price", "Minimum price", "≥ 90")
+    result = portfolio_reading(
+        credit(1), [issuer(1, asset="loan", price="80")], reference("clo", row)
+    )
+    assert (result.uncapped, result.recommendation) == (1, 3)
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        limit_row("Single Name", "Max single issuer exposure", "≤ 2.5% NAV", "-1.00%", "Breach"),
+        limit_row("Spread", "Weighted average spread", "Info only", "-1.00%", "Breach"),
+        limit_row("Rating", "Max CCC+ and below", "Info only", "-1.00%", "Breach"),
+        limit_row("Liquidity", "Min cash", "≥ 1% NAV", "-1.00%", "Breach"),
+    ],
+)
+def test_single_name_info_and_other_rows_do_not_apply(row: Limit) -> None:
+    [reading] = read_limits(
+        reference("clo", row), sector="Software", rating_bucket="CCC", price=Decimal(1)
+    )
+    assert reading.outcome == "does_not_apply"
+
+
+@pytest.mark.parametrize(
+    ("bucket", "outcomes"),
+    [
+        ("CCC", ("does_not_apply", "breached", "does_not_apply")),
+        ("BB", ("does_not_apply", "does_not_apply", "does_not_apply")),
+        (None, ("does_not_apply", "not_read", "does_not_apply")),
+    ],
+)
+def test_the_synthetic_pack_gives_one_outcome_per_row_in_order(
+    bucket: str | None, outcomes: tuple[str, ...]
+) -> None:
+    found = read_clo_pack(synth.pack_files(), stored_at=AT)
+    readings = read_limits(found, sector="Software", rating_bucket=bucket, price=Decimal(99))
+    assert len(readings) == len(limits(found)) == 3
+    assert tuple(r.outcome for r in readings) == outcomes
+    assert [r.limit for r in readings] == list(limits(found))
+
+
+def test_the_weight_comes_from_the_issuers_matched_positions() -> None:
+    held = tuple(
+        Position(i, borrower=name, asset_type="loan", weight=Decimal(w))
+        for i, (name, w) in enumerate((("Aster Co", "60"), ("Birch Co", "40")), 1)
+    )
+    book_ = reference("clo", names=0, extra=held)
+    named = portfolio_reading(
+        credit(3), [issuer(3, asset="loan")], book_, Issuer(borrower="Aster Co")
+    )
+    assert named.weight == Weight(Decimal(60), "stated_weight", 1, 0, ("name",))
+    assert portfolio_reading(credit(3), [issuer(3, asset="loan")], book_).weight is None
+
+
+def test_blank_when_no_credit_score_or_no_valuation_and_the_limits_are_still_read() -> None:
+    row = limit_row(*CCC_ROW)
+    no_credit = portfolio_reading(
+        credit_score(card([3] * 11)),
+        [issuer(3, bucket="CCC", asset="loan")],
+        reference("clo", row, bucket="CCC"),
+    )
+    assert (no_credit.status, no_credit.recommendation, no_credit.uncapped) == ("blank", None, None)
+    assert "No Credit Score" in no_credit.reason and len(no_credit.limits) == 1
+    thin = portfolio_reading(credit(3), [issuer(3, asset="loan")], reference("clo", names=4))
+    assert (thin.status, thin.recommendation, thin.valuation, thin.instrument) == (
+        "blank",
+        None,
+        None,
+        None,
+    )
+    assert "No Valuation" in thin.reason and "4 names" in thin.reason
+
+
+def test_the_best_eligible_instrument_decides_and_its_bucket_is_the_one_limits_read_on() -> None:
+    both = [issuer(4, asset="loan"), Instrument("Second", "loan", "BB", Decimal(350), Decimal(99))]
+    result = portfolio_reading(credit(2), both, reference("clo"))
+    assert (result.instrument, result.valuation) == (both[1], valuation(both[1], reference("clo")))
+    assert (result.uncapped, result.recommendation) == (2, 2)
+
+
+def test_per_instrument_proposal_uses_the_index_for_its_type_and_no_cap() -> None:
+    breached = limit_row(*CCC_ROW)
+    loans = reference("loan_index", breached, bucket="CCC")
+    bonds_ = reference("hy_index", bucket="BB")
+    loan = issuer(1, bucket="CCC", asset="loan")
+    result = instrument_proposal(credit(1), loan, loan_index=loans, hy_index=bonds_)
+    assert (result.recommendation, result.valuation) == (1, valuation(loan, loans))
+    assert (
+        instrument_proposal(credit(2), issuer(3), loan_index=loans, hy_index=bonds_).recommendation
+        == 3
+    )
+
+
+@pytest.mark.parametrize("case", ["no credit", "no index", "no valuation"])
+def test_per_instrument_proposal_is_blank_with_a_reason(case: str) -> None:
+    held = reference("hy_index", names=4 if case == "no valuation" else 5)
+    score = credit_score(card([3] * 11)) if case == "no credit" else credit(3)
+    index = None if case == "no index" else held
+    result = instrument_proposal(score, issuer(3), loan_index=None, hy_index=index)
+    assert (result.recommendation, result.status) == (None, "blank")
+    assert {"no credit": "Credit Score", "no index": "high-yield", "no valuation": "Valuation"}[
+        case
+    ] in result.reason
+
+
+def test_readings_carry_no_module_ids_or_field_names() -> None:
+    held = reference("clo", limit_row(*CCC_ROW), limit_row("Price", "Minimum price", "≥ 90"))
+    texts = [credit_score(card({"Liquidity": 5, **{n: 1 for n in FACTORS[:14]}})).reason]
+    for score, kind in (
+        (credit(1), "clo"),
+        (credit(3), "hy_index"),
+        (credit_score(card([])), "clo"),
+    ):
+        result = portfolio_reading(score, [issuer(1, bucket="CCC", asset="loan")], held)
+        texts += [result.reason, *(r.reason for r in result.limits)]
+        texts.append(portfolio_reading(score, [issuer(1, asset="bond")], reference(kind)).reason)
+    texts.append(instrument_proposal(credit(1), issuer(1), loan_index=None, hy_index=None).reason)
+    for text in texts:
+        assert not any(b in text for b in ("CP-", "T2.", "_", "None", "Instrument(", "Fraction"))
+
+
+@settings(max_examples=300)
+@given(
+    st.integers(1, 5),
+    st.integers(1, 5),
+    st.sampled_from(["-12.50%", "0.00%", "0.40%", ""]),
+    st.sampled_from(["Breach", "Pass", ""]),
+)
+def test_property_the_cap_never_improves_and_holds_a_1_or_2_to_3(
+    score: int, valuation_score: int, headroom: str, status: str
+) -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "≤ 7.5% NAV", headroom, status)
+    result = portfolio_reading(
+        credit(score),
+        [issuer(valuation_score, bucket="CCC", asset="loan")],
+        reference("clo", row, bucket="CCC"),
+    )
+    cell = proposal(score, valuation_score)
+    breached = any(r.outcome == "breached" for r in result.limits)
+    assert result.uncapped == cell and result.recommendation is not None and cell is not None
+    assert result.recommendation >= cell
+    assert result.recommendation == (max(cell, 3) if breached else cell)
+    assert bool(result.capped_by) == (breached and cell < 3)
