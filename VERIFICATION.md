@@ -34,7 +34,18 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   handoffs and fixed; web tests 8,021 pass; rendered check 43 of 45 at 1440/1280/1024 (open: on
   `#modules/CP-1` an axis "0" touches a period label at 1440 and 1024; a fix was in progress and
   may be half-applied in `report/leads/foundation/`).
-- To do: finish the Deep run (CP-2E, 2D, 2G, 2H, 3D, 3C, 4C, 3, 5, 6); validate its 13 further module pages, Forecast and Overview; scoped
+- Owner, after the quota stop: "use what you have no further runs or use offline data". Offline
+  replay, USD 0: the no-cost proof engine (a scratch copy of `proof/`, repo untouched) fed the real
+  retained answers (Sol: today's 10 Deep modules and the 16 Nov subset's 2H, 3D, 3C, 4C, 3, 5, 6;
+  Opus: CP-1, 2E, 2D, 2G) for a full Deep TDG report, root `~/cos-live/tdg-replay-20261125`, run
+  `20261125-162721-01`, start script `SP/replay/start.sh` (SP = this session's scratchpad; lost on
+  reboot). Test assembly, not a delivery: pins are restated by the proof launcher. Sol's CP-1 was
+  refused by CP-2G ("no table cell of CP-1 is at row `Net sales`": Sol writes `NET SALES`; the
+  cross-module row match is case-sensitive, an engine finding), so CP-1 is Opus's. Rendered check
+  63 of 72: overlaps on CP-2G (all widths), #forecast "0"/"92" (all), #overview "5.12x"/"4.41x"
+  (1280, 1024), CP-1B labels outside at 1024. Validation of those pages stopped unstarted (Fable
+  limit). Next: fix those four, validate the 15 unseen module pages and Forecast on the replay.
+- To do (superseded by the line above for the Deep run): finish the Deep run (CP-2E, 2D, 2G, 2H, 3D, 3C, 4C, 3, 5, 6); validate its 13 further module pages, Forecast and Overview; scoped
   re-review of the narrowed print citation rule (`export/printTable.ts`); final gates; replace this
   entry with the result.
 - Found on real output, outside the frontend (not fixed): "Nine months ended …" periods match no
