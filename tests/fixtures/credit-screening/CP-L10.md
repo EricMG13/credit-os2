@@ -84,6 +84,25 @@ Basis: harbourline_annual_report.txt, page 34
 | Debt capacity and availability | The remaining debt capacity is limited by the leverage test. | Medium | Direct | Recompute capacity in the full assessment |
 | Pressure points and upgrade priority | Document gaps are the first priority for the full assessment. | High | Direct | Start with document review |
 
+### Confidence inputs
+
+| Input | Value |
+| --- | --- |
+| Directly Sourced | 14 |
+| Calculated | 3 |
+| Assumption-Based | 5 |
+| Analyst Inference | 4 |
+| Weak Lineage | 2 |
+| Untraced | 0 |
+| Conflicting | 0 |
+| Insufficient Information | 1 |
+| Fields present | 18 |
+| Fields total | 20 |
+| Source gate | partial |
+| CRITICAL | 0 |
+| MATERIAL | 1 |
+| MINOR | 2 |
+
 ### Analytical appendix — complete canonical registers
 
 #### TL10.1 - Source and scope gate
