@@ -35,3 +35,14 @@ The critique ran after PRs 88 and 89 merged, not before dispatch; this record an
 - Medium: in cloud sessions, a missing skill (`confidence-review`, `rewrite-tournament`, `/sweep`) is skipped and named in the PR's `Not verified:` line.
 - Medium: local sub-sessions get the brief's absolute path in the coordinator's worktree.
 - Low (batched): the `/sweep` discover step, the fallback review's scope, `mx-invariants` and the refused-audit route, and the §1 brief and report rules were added to `CLAUDE.md`.
+
+## Prose rules to checks (2026-11-25)
+
+- R1 Thin prose: `AGENTS.md` and `CLAUDE.md` each stay at most 200 lines (inverse-pyramid principle; today 96 and 17).
+- R2 Workbook check scope is `src/` and `apps/`; `tools/synthetic_*.py` are exempt; the allow-list holds at most one path, the Credit Snapshot module, added by the coordinator in that PR's brief.
+- R3 Workbook detection: openpyxl `Workbook` (any import form), `load_workbook` plus `.save(`, `xlsxwriter` import, `.to_excel(`, write-mode `ZipFile` in a file holding `"xl/workbook.xml"`; tracked `.xlsx` files equal the two inputs.
+- R4 Credential file patterns are `.gitignore:13-20` (`private/`, `.env`, `.env.*` except `.env.example`, `*.pem`, `*.key`, `.copilot-home/`) plus `*.p12`, `id_rsa*` and `credentials*.json` from the plan.
+- R5 gitleaks: the 43 findings are under `docs/work-pc/` and `docs/audit/2026-11-16-final/`; Task 2 reads each value first, stops on any real secret, else allowlists those two paths; CI only.
+- R6 `VERIFICATION.md` is at 991 lines; the coordinator trims its oldest entries before adding this PR's entry; `claude/screen-review-fable-agents-3cdf56` (1006 lines) will fail the check when it next runs.
+- R7 Reviews: Task 1 `mx-precise`; Task 2 `mx-precise` plus `mx-adversary` (security gate).
+- R8 Prior art: `caos-databricks/scripts/tracked.py` and `scripts/gitleaks_tree.sh` adapted; the gitleaks Action not used (a pinned binary with a checksum is auditable and needs no licence key).
