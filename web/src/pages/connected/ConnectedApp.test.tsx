@@ -1380,6 +1380,7 @@ describe("connected run start: Module options and Valuation as fields", () => {
     expect((await sentContext(second)).valuation.peers).toEqual([]);
   });
 
+  // Drives the whole run start twice (about 3 s alone): the 20 s limit the file gives such tests.
   it("K5 sends the analyst's own multiple, and blanks it when the basis changes", async () => {
     const fetchMock = await advancedStart();
     pick("Valuation basis", "user_multiple");
@@ -1400,8 +1401,9 @@ describe("connected run start: Module options and Valuation as fields", () => {
     for (const gone of ["Multiple (x)", "Multiple basis", "Rationale"])
       expect(screen.queryByLabelText(gone)).toBeNull();
     expect((await sentContext(second)).valuation.user_multiple).toEqual(blankMultiple);
-  });
+  }, 20_000);
 
+  // Drives the whole run start twice (about 3 s alone): the 20 s limit the file gives such tests.
   it("K6 sends precedents only for a basis that uses them", async () => {
     const fetchMock = await advancedStart();
     pick("Valuation basis", "precedents");
@@ -1431,7 +1433,7 @@ describe("connected run start: Module options and Valuation as fields", () => {
     pick("Valuation basis", "auto");
     expect(screen.queryByRole("region", { name: "Precedents" })).toBeNull();
     expect((await sentContext(second)).valuation.precedents).toEqual([]);
-  });
+  }, 20_000);
 
   it("K7 sends the issuer's market values for the issuer's own trading multiple", async () => {
     const fetchMock = await advancedStart();
