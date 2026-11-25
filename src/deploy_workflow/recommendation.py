@@ -249,15 +249,6 @@ def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
     )
 
 
-def best(valuations: Sequence[Valuation]) -> int | None:
-    """The index of the lowest (best) score, the first on a tie; blanks are skipped and None
-    means every one is blank. An index, so the caller knows which instrument it came from."""
-    scored = [
-        (item.score, index) for index, item in enumerate(valuations) if item.score is not None
-    ]
-    return min(scored)[1] if scored else None
-
-
 # --- Eligibility, limits and the readings (methodology section 7) --------------------------------
 
 ELIGIBLE: dict[str, tuple[AssetType, ...]] = {
@@ -431,14 +422,15 @@ def _sector_reading(limit: Limit, sector: str | None) -> tuple[Outcome, str]:
     return _decided(limit)
 
 
-def _covered(parameter: str) -> tuple[tuple[str, ...], bool] | None:
-    """The rating buckets a row covers, in the order IG, BB, B, CCC, Unrated, and whether by group
-    wording; None when it covers none or a word is not read."""
+def _covered(parameter: str) -> tuple[tuple[str, ...], bool, bool] | None:
+    """The rating buckets a row covers, in the order IG, BB, B, CCC, Unrated, whether by group
+    wording, and whether "and below" wording (after "and", "or" or "&") added the weaker buckets;
+    None when it covers none or a word is not read."""
     text = f" {' '.join(_stem(word) for word in _words(parameter.replace('&', ' and ')))} "
     for phrase, short in PHRASES.items():
         text = text.replace(phrase, short)
     covered: set[str] = set()
-    grouped = pending = False
+    grouped = pending = and_weaker = False
     previous = ""
     for word in text.split():
         bucket = pe.label_bucket(word)
@@ -450,6 +442,7 @@ def _covered(parameter: str) -> tuple[tuple[str, ...], bool] | None:
             pending = False
         elif joined and word in AND_WEAKER:
             covered.update(BUCKET_ORDER[min(ranks) :])
+            and_weaker = True
         elif joined and word in AND_STRONGER:
             covered.update(BUCKET_ORDER[: max(ranks) + 1])
         elif word in STRICTLY_WEAKER | GROUP_WORDS:
@@ -460,7 +453,22 @@ def _covered(parameter: str) -> tuple[tuple[str, ...], bool] | None:
         previous = word
     if pending or not covered:
         return None
-    return tuple(name for name in (*BUCKET_ORDER, "Unrated") if name in covered), grouped
+    return (
+        tuple(name for name in (*BUCKET_ORDER, "Unrated") if name in covered),
+        grouped,
+        and_weaker,
+    )
+
+
+def _unrated_not_read(and_weaker: bool, grouped: bool) -> str | None:
+    """Why an Unrated instrument cannot be placed against a row that does not name Unrated: None
+    when the row's wording leaves nothing unsaid. Ruled by the owner, 2026-11-25: a row worded
+    "and below" (lower, worse) that does not name Unrated is not read, whatever the file shows."""
+    if and_weaker:
+        return "it does not say whether it covers unrated instruments"
+    if grouped:
+        return "an unrated instrument cannot be placed against a group of rated buckets"
+    return None
 
 
 def _rating_reading(limit: Limit, bucket: str | None) -> tuple[Outcome, str]:
@@ -472,13 +480,14 @@ def _rating_reading(limit: Limit, bucket: str | None) -> tuple[Outcome, str]:
             "not_read",
             "no rating bucket could be read from it, so it is not tied to the issuer",
         )
-    covered, grouped = read
+    covered, grouped, and_weaker = read
     if bucket is None:
         return "not_read", "there is no instrument to take a rating bucket from"
     if bucket in covered:
         return _decided(limit)
-    if grouped and bucket == "Unrated":
-        return "not_read", "an unrated instrument cannot be placed against a group of rated buckets"
+    unrated = _unrated_not_read(and_weaker, grouped) if bucket == "Unrated" else None
+    if unrated:
+        return "not_read", unrated
     return "does_not_apply", f"it covers {', '.join(covered)} and the instrument is rated {bucket}"
 
 
@@ -566,9 +575,10 @@ class PortfolioReading:
     Valuation) or n/a (the portfolio holds no asset type the issuer has). `recommendation` is the
     table's cell `uncapped`, held to 3 when a limit is breached and the cell is 1 or 2, in which
     case `capped_by` names the breached limits. `not_read` holds the rows that could not be read,
-    in file order; they never cap, and a proposed `reason` says how many. `instrument` and
-    `valuation` are the best eligible instrument's, which is also what `limits` (every row, as
-    read) rests on."""
+    in file order; they never cap, and a proposed `reason` says how many. `instrument` is the
+    eligible instrument the recommendation rests on (the one with the best result), and
+    `valuation`, `limits` (every row, as read on that instrument), `uncapped`, `capped_by`,
+    `not_read` and `reason` are its."""
 
     portfolio: str
     name: str
@@ -613,28 +623,92 @@ def _proposed(
     return cell, reason
 
 
+@dataclass(frozen=True)
+class _Candidate:
+    """One eligible instrument with a Valuation, read on its own bucket and price. `cell` is the
+    table's cell (None with no Credit Score) and `final` that cell held to 3 by a breach."""
+
+    instrument: Instrument
+    valuation: Valuation
+    limits: tuple[LimitReading, ...]
+    cell: int | None
+    final: int | None
+    breached: tuple[LimitReading, ...]
+
+
+def _number_key(value: Decimal | None) -> tuple[bool, Decimal, str]:
+    """A total order over an optional figure: None first, then value, then its written form."""
+    return (value is not None, Decimal(0) if value is None else value, str(value))
+
+
+def _tie_key(item: Instrument) -> tuple[object, ...]:
+    """The name (plain, case-sensitive string order), then, so that two instruments sharing it are
+    still ordered, every other field. The name is the coordinator's key; the rest breaks a tie
+    on the name only, and no list order ever decides."""
+    return (
+        item.name,
+        item.asset_type,
+        item.rating_bucket,
+        _number_key(item.level_bp),
+        _number_key(item.price),
+    )
+
+
+def _rank(candidate: _Candidate) -> tuple[object, ...]:
+    """Lowest is best: the result, not capped before capped, the lower Valuation, then the name.
+    With no Credit Score there is no result and every candidate ties on the first two keys."""
+    capped = candidate.final != candidate.cell
+    return (
+        candidate.final or 0,
+        capped,
+        candidate.valuation.score,
+        _tie_key(candidate.instrument),
+    )
+
+
+def _candidate(
+    credit: CreditScore,
+    item: Instrument,
+    valued: Valuation,
+    portfolio: Portfolio,
+    sector: str | None,
+) -> _Candidate:
+    read = read_limits(portfolio, sector=sector, rating_bucket=item.rating_bucket, price=item.price)
+    breached = tuple(row for row in read if row.outcome == "breached")
+    cell = proposal(credit.score, valued.score)
+    final = CAP_AT if cell is not None and cell < CAP_AT and breached else cell
+    return _Candidate(item, valued, read, cell, final, breached)
+
+
 def portfolio_reading(
     credit: CreditScore,
     instruments: Sequence[Instrument],
     portfolio: Portfolio,
     issuer: Issuer | None = None,
 ) -> PortfolioReading:
-    """The issuer's recommendation in one portfolio: the table's cell on the Credit Score and the
-    best eligible instrument's Valuation, held to no better than 3 when an applicable limit is
-    breached (a 3, 4 or 5 is never changed). Limits are read on that instrument's rating bucket
-    and price; with none, on no instrument."""
+    """The issuer's recommendation in one portfolio: for each eligible instrument with a Valuation,
+    the table's cell on the Credit Score and that Valuation, held to no better than 3 when that
+    instrument breaches a limit (a 3, 4 or 5 is never changed); the portfolio takes the lowest
+    (best) of those results. Limits are read per instrument, on its own rating bucket and price;
+    the issuer's sector applies to all. Instruments with the same result are ranked: not capped
+    before capped, the lower Valuation, then the name. The order of `instruments` decides nothing.
+    With no Credit Score the instrument named is chosen by Valuation then name; with none valued,
+    limits are read on no instrument. Ruled by the owner, 2026-11-25 (the tie key is the
+    coordinator's)."""
     issuer = issuer or Issuer()
     types = eligible_types(portfolio, issuer.declared)
-    eligible = [item for item in instruments if item.asset_type in types]
-    valued = [valuation(item, portfolio) for item in eligible]
-    chosen = best(valued)
-    instrument = None if chosen is None else eligible[chosen]
-    best_valuation = None if chosen is None else valued[chosen]
-    read = read_limits(
-        portfolio,
-        sector=issuer.sector,
-        rating_bucket=None if instrument is None else instrument.rating_bucket,
-        price=None if instrument is None else instrument.price,
+    eligible = sorted((item for item in instruments if item.asset_type in types), key=_tie_key)
+    valued = [(item, valuation(item, portfolio)) for item in eligible]
+    candidates = [
+        _candidate(credit, item, scored, portfolio, issuer.sector)
+        for item, scored in valued
+        if scored.score is not None
+    ]
+    chosen = min(candidates, key=_rank, default=None)
+    read = (
+        read_limits(portfolio, sector=issuer.sector, rating_bucket=None, price=None)
+        if chosen is None
+        else chosen.limits
     )
     unread = tuple(item for item in read if item.outcome == "not_read")
     weight = None
@@ -656,8 +730,8 @@ def portfolio_reading(
             uncapped=uncapped,
             capped_by=capped_by,
             not_read=unread,
-            valuation=best_valuation,
-            instrument=instrument,
+            valuation=None if chosen is None else chosen.valuation,
+            instrument=None if chosen is None else chosen.instrument,
             limits=read,
             weight=weight,
             reason=reason,
@@ -667,16 +741,14 @@ def portfolio_reading(
         held_types = " and ".join(HOLDS[item] for item in types)
         return result("n/a", f"{portfolio.name} holds {held_types} and the issuer has none.")
     causes = [credit.reason] if credit.score is None else []
-    if best_valuation is None:
-        causes += [item.reason for item in valued]
-    cell = (
-        None if causes or best_valuation is None else proposal(credit.score, best_valuation.score)
-    )
-    if cell is None or best_valuation is None:
+    if chosen is None:
+        causes += [scored.reason for _, scored in valued]  # in the tie key's order, not the list's
+    if chosen is None or chosen.cell is None:
         return result("blank", " ".join(causes))
-    breached = tuple(item for item in read if item.outcome == "breached")
-    final, reason = _proposed(credit, best_valuation, cell, breached, unread)
-    return result("proposed", reason, final, cell, breached if final != cell else ())
+    final, reason = _proposed(credit, chosen.valuation, chosen.cell, chosen.breached, unread)
+    return result(
+        "proposed", reason, final, chosen.cell, chosen.breached if final != chosen.cell else ()
+    )
 
 
 @dataclass(frozen=True)
