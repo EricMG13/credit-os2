@@ -10,7 +10,13 @@ function Hash({ value }: { value: string | null }) {
 }
 
 /** Each module's accepted attempt, its response hash and the scripts run with their hashes. */
-export function CheckingRecord({ records }: { records: readonly ScriptCheckRecord[] }) {
+export function CheckingRecord({
+  records,
+  pathway,
+}: {
+  records: readonly ScriptCheckRecord[];
+  pathway?: string | null;
+}) {
   return (
     <div
       role="region"
@@ -42,7 +48,7 @@ export function CheckingRecord({ records }: { records: readonly ScriptCheckRecor
           {records.map((record, index) => (
             <tr key={index} className="border-t border-border-hairline">
               <th scope="row" className="px-3 py-2 text-left align-top font-medium">
-                {moduleName(record.module)}
+                {moduleName(record.module, pathway)}
               </th>
               <td className="px-3 py-2 align-top font-mono tabular-nums">{record.attempt}</td>
               <td className="min-w-24 px-3 py-2 align-top">

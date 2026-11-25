@@ -26,10 +26,12 @@ function OutcomeGroup({
   status,
   modules,
   count,
+  pathway,
 }: {
   status: string;
   modules: readonly ModuleOutcomes[];
   count: number;
+  pathway?: string | null;
 }) {
   const open = status === "not checked" ? false : status === "agreed" ? count <= OPEN_AGREED : true;
   const held = modules.flatMap(([id, outcomes]) => {
@@ -58,7 +60,9 @@ function OutcomeGroup({
         <div className="grid gap-5 px-4 pb-4">
           {held.map(([id, own]) => (
             <div className="grid min-w-0 gap-1" key={id}>
-              <h5 className="pt-2 text-small font-medium text-text-secondary">{moduleName(id)}</h5>
+              <h5 className="pt-2 text-small font-medium text-text-secondary">
+                {moduleName(id, pathway)}
+              </h5>
               {groupOutcomes(own).map((group, index) => (
                 <CheckCard group={group} key={index} />
               ))}
@@ -70,7 +74,13 @@ function OutcomeGroup({
   );
 }
 
-function Outcomes({ modules }: { modules: readonly ModuleOutcomes[] }) {
+function Outcomes({
+  modules,
+  pathway,
+}: {
+  modules: readonly ModuleOutcomes[];
+  pathway?: string | null;
+}) {
   const counts = tally(modules.flatMap(([, outcomes]) => outcomes));
   const statuses = counts.map(([status]) => status);
   if (counts.length === 0)
@@ -81,11 +91,17 @@ function Outcomes({ modules }: { modules: readonly ModuleOutcomes[] }) {
         label="Script check outcomes"
         stats={counts.map(([status, n]) => ({ label: status, value: String(n) }))}
       />
-      <ModuleOutcomeTable modules={modules} statuses={statuses} />
+      <ModuleOutcomeTable modules={modules} statuses={statuses} pathway={pathway} />
       {[...counts]
         .sort(([a], [b]) => byAttention(a, b))
         .map(([status, n]) => (
-          <OutcomeGroup key={status} status={status} modules={modules} count={n} />
+          <OutcomeGroup
+            key={status}
+            status={status}
+            modules={modules}
+            count={n}
+            pathway={pathway}
+          />
         ))}
     </>
   );
@@ -94,9 +110,11 @@ function Outcomes({ modules }: { modules: readonly ModuleOutcomes[] }) {
 export function ScriptChecks({
   records,
   module,
+  pathway,
 }: {
   records: ScriptCheckRecord[];
   module?: string;
+  pathway?: string | null;
 }) {
   const selected = records.filter((record) => !module || record.module === module);
   const modules = byModule(selected);
@@ -117,8 +135,8 @@ export function ScriptChecks({
       </p>
       {selected.length ? (
         <>
-          <Outcomes modules={modules} />
-          <CheckingRecord records={selected} />
+          <Outcomes modules={modules} pathway={pathway} />
+          <CheckingRecord records={selected} pathway={pathway} />
         </>
       ) : (
         <EmptyState className="py-5">
@@ -129,7 +147,7 @@ export function ScriptChecks({
             <EmptyState.Title as="h3">No script checks recorded</EmptyState.Title>
             <EmptyState.Description>
               {module
-                ? `No script-check record is held for ${moduleName(module)}.`
+                ? `No script-check record is held for ${moduleName(module, pathway)}.`
                 : "No script-check record is held for this run."}
             </EmptyState.Description>
           </EmptyState.Content>

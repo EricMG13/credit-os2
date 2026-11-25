@@ -5,9 +5,11 @@ import type { ScriptCheckOutcome } from "../publishedReport";
 export function ModuleOutcomeTable({
   modules,
   statuses,
+  pathway,
 }: {
   modules: readonly (readonly [string, readonly ScriptCheckOutcome[]])[];
   statuses: readonly string[];
+  pathway?: string | null;
 }) {
   return (
     <div
@@ -45,8 +47,8 @@ export function ModuleOutcomeTable({
                   href={`#evidence/checks/${encodeURIComponent(id)}`}
                   className="inline-flex min-h-8 flex-wrap items-center gap-x-2 text-text-primary underline-offset-2 hover:underline max-[480px]:min-h-11"
                 >
-                  <span>{moduleName(id)}</span>
-                  {moduleName(id) !== id && (
+                  <span>{moduleName(id, pathway)}</span>
+                  {moduleName(id, pathway) !== id && (
                     <span className="font-mono text-caption font-normal text-text-tertiary">
                       {id}
                     </span>

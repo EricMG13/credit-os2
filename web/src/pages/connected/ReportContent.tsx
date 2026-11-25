@@ -60,7 +60,7 @@ export function HandoffDownload({ run, entry }: { run: PublishedRun; entry: Outp
       download
       color="link-gray"
       size="sm"
-      aria-label={`Download ${moduleName(entry.output.module)}`}
+      aria-label={`Download ${moduleName(entry.output.module, run.pathway)}`}
     >
       Download
     </Button>

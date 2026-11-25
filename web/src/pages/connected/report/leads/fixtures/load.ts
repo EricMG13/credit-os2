@@ -6,6 +6,7 @@ import cp1 from "./cp1_tdg_fy2024.json";
 import cp1b from "./cp1b_tdg_fy2024.json";
 import cp5 from "./cp5_synthetic.json";
 import cp6 from "./cp6_synthetic.json";
+import creditScreening from "./credit_screening_cpl10.json";
 import distressedCp1 from "./distressed_cp1.json";
 import earningsUpdateCp1Draft1 from "./earnings_update_cp1_draft1.json";
 import relativeValueCp1 from "./relative_value_cp1.json";
@@ -52,3 +53,5 @@ export const cp1bEntry = () => fixtureEntry(cp1b);
 export const cp0Entry = () => fixtureEntry(cp0);
 export const cp5Entry = () => fixtureEntry(cp5);
 export const cp6Entry = () => fixtureEntry(cp6);
+/** The synthetic credit screening CP-L10 handoff (tests/fixtures/credit-screening/CP-L10.md), parsed as the library parses it. */
+export const creditScreeningEntry = () => fixtureEntry(creditScreening);

@@ -28,7 +28,13 @@ const MODULE_LINK =
 function blockedModules(view: ReportView, run: PublishedRun) {
   const lead =
     view.lead && moduleState(view.lead) === BLOCKED
-      ? [{ id: view.lead.output.module, name: moduleName(view.lead.output.module), text: null }]
+      ? [
+          {
+            id: view.lead.output.module,
+            name: moduleName(view.lead.output.module, run.pathway),
+            text: null,
+          },
+        ]
       : [];
   const others = moduleBottomLines(view, run)
     .filter((row) => row.state === BLOCKED)

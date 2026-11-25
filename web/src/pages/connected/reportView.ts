@@ -71,7 +71,12 @@ export function buildReportView(snapshot: Snapshot, routeKey: string, run: Publi
     .map((id) => {
       const outputs = entries.filter((entry) => entry.output.module === id);
       const selected = outputs.find((entry) => entry.selected);
-      return { id, name: moduleName(id), state: moduleState(selected ?? outputs[0]), outputs };
+      return {
+        id,
+        name: moduleName(id, run.pathway),
+        state: moduleState(selected ?? outputs[0]),
+        outputs,
+      };
     });
   const scope: { folder?: string } = { folder: run.folder };
   return {
@@ -131,7 +136,7 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
       return [
         {
           id,
-          name: moduleName(id),
+          name: moduleName(id, run.pathway),
           state: moduleState(entry),
           entry,
           text: null,
@@ -154,7 +159,7 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
     return [
       {
         id,
-        name: moduleName(id),
+        name: moduleName(id, run.pathway),
         state: moduleState(entry),
         entry,
         text: body && !referenced ? readerText(body) : null,
@@ -194,7 +199,7 @@ export function runLimitations(view: ReportView, run: PublishedRun, omit: readon
       const key = sameLimitation(body);
       if (!body || methodNote(text) || seen.has(key)) return [];
       seen.add(key);
-      return [{ id, name: moduleName(id), entry, text: readerText(body), line }];
+      return [{ id, name: moduleName(id, run.pathway), entry, text: readerText(body), line }];
     });
   });
 }

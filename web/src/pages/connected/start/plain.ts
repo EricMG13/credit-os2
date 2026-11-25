@@ -439,7 +439,11 @@ function launcherLine(error: string): string {
   if (!error.startsWith("--")) return "";
   const [, flag = "", args = "", message = ""] = FLAGGED.exec(error) ?? [];
   if (flag === "modules") {
-    const codes = args.trim().split(" ").filter(Boolean).map(moduleName);
+    const codes = args
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((code) => moduleName(code));
     const body = serviceText(message);
     return codes.length
       ? `The modules chosen (${codes.join(", ")}): ${body}`

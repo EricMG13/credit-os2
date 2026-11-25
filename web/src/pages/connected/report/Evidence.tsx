@@ -84,10 +84,12 @@ function EvidenceLocation({
   snapshot,
   entry,
   line,
+  pathway,
 }: {
   snapshot: Snapshot;
   entry: OutputEntry;
   line?: number;
+  pathway?: string | null;
 }) {
   if (entry.output.parseError)
     return (
@@ -115,7 +117,9 @@ function EvidenceLocation({
     visible.map((section) => (
       <section key={section.line} className="grid gap-3 border-t border-border-hairline pt-3">
         <h3 className="font-semibold text-text-primary">
-          {section.line === title ? moduleName(entry.output.module) : richParts(section.heading)}
+          {section.line === title
+            ? moduleName(entry.output.module, pathway)
+            : richParts(section.heading)}
         </h3>
         {section.blocks.map((block) => {
           if (block.type === "equity")
@@ -375,12 +379,14 @@ function EvidenceNavigation({
   selectedModule,
   checks,
   search,
+  pathway,
 }: {
   entries: OutputEntry[];
   tab: EvidenceTab;
   selectedModule?: string;
   checks: ScriptCheckRecord[];
   search: ReactNode;
+  pathway?: string | null;
 }) {
   const outcomes = checks
     .filter((record) => !selectedModule || record.module === selectedModule)
@@ -434,7 +440,7 @@ function EvidenceNavigation({
               ]),
             ].map((id) => (
               <option value={id} key={id}>
-                {moduleName(id)}
+                {moduleName(id, pathway)}
               </option>
             ))}
           </select>
@@ -458,14 +464,14 @@ function EvidenceHandoff({
   return (
     <Tile
       span={12}
-      label={`${moduleName(entry.output.module)} handoff`}
+      label={`${moduleName(entry.output.module, run.pathway)} handoff`}
       kicker={line === undefined ? "Handoff" : "Where the line sits in its handoff"}
-      title={`${moduleName(entry.output.module)} · ${
+      title={`${moduleName(entry.output.module, run.pathway)} · ${
         line === undefined ? "Handoff evidence" : `Line ${String(line)}`
       }`}
       trace={<HandoffDownload run={run} entry={entry} />}
     >
-      <EvidenceLocation snapshot={snapshot} entry={entry} line={line} />
+      <EvidenceLocation snapshot={snapshot} entry={entry} line={line} pathway={run.pathway} />
     </Tile>
   );
 }
@@ -663,6 +669,7 @@ export function ReportEvidence({
         tab={tab}
         selectedModule={selectedModule}
         checks={checks}
+        pathway={run.pathway}
         search={
           <div className="grid min-w-0 gap-2">
             <EvidenceSearchField value={query} onChange={setQuery} />
@@ -716,6 +723,7 @@ export function ReportEvidence({
               entries={entries}
               snapshot={snapshot}
               folder={run.folder}
+              pathway={run.pathway}
             />
           )}
           {tab === "Trace" && !entry && !invalidTraceAddress && (
@@ -774,7 +782,9 @@ export function ReportEvidence({
             <div className="min-w-0 lg:col-span-12">{comparison}</div>
           )}
           {tab === "Gaps" && <EvidenceGaps run={run} entries={entries} module={module} />}
-          {tab === "Script checks" && <ScriptChecks records={checks} module={module} />}
+          {tab === "Script checks" && (
+            <ScriptChecks records={checks} module={module} pathway={run.pathway} />
+          )}
         </Bento>
       )}
     </div>

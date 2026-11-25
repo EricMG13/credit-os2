@@ -17,12 +17,12 @@ type Line = ReturnType<typeof moduleBottomLines>[number];
 const DELIVERED = "Delivered";
 const BLOCKED = "Not assessable";
 /** Every module of the run as a node: the lead, which the bottom lines leave out, and the rest. */
-function nodes(view: ReportView, lines: readonly Line[]): PipelineNode[] {
+function nodes(view: ReportView, run: PublishedRun, lines: readonly Line[]): PipelineNode[] {
   const lead = view.lead
     ? [
         {
           id: view.lead.output.module,
-          name: moduleName(view.lead.output.module),
+          name: moduleName(view.lead.output.module, run.pathway),
           state: moduleState(view.lead),
         },
       ]
@@ -137,7 +137,7 @@ function OpenModules() {
 export function PipelineRow({ run, view }: RowProps) {
   // The graph's stage order, whatever order the service listed the lines in.
   const lines = byStage(moduleBottomLines(view, run)).flatMap((stage) => stage.rows);
-  const all = nodes(view, lines);
+  const all = nodes(view, run, lines);
   if (!all.length) return null;
   const stages = byStage(all).map(({ name, rows }) => ({ name, nodes: rows }));
   return (

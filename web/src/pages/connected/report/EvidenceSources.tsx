@@ -99,10 +99,12 @@ function UsedBy({
   source,
   modules,
   group,
+  pathway,
 }: {
   source: SourceRow;
   modules: string[];
   group: string;
+  pathway?: string | null;
 }) {
   if (source.readBy.length === 0)
     return (
@@ -115,7 +117,7 @@ function UsedBy({
     <>
       {all && source.readBy.length === modules.length
         ? `Read by all ${String(modules.length)} modules`
-        : `Read by ${source.readBy.map(moduleName).join(" · ")}`}
+        : `Read by ${source.readBy.map((id) => moduleName(id, pathway)).join(" · ")}`}
     </>
   );
 }
@@ -125,17 +127,19 @@ function SourceTable({
   modules,
   cited,
   scope,
+  pathway,
 }: {
   group: SourceGroup;
   modules: string[];
   cited: Cited;
   scope?: string;
+  pathway?: string | null;
 }) {
   const headings = [
     "File",
     "Type",
     "Document date",
-    scope ? `Cited in ${moduleName(scope)}` : "Cited as",
+    scope ? `Cited in ${moduleName(scope, pathway)}` : "Cited as",
     "Used by",
     "SHA-256",
   ];
@@ -232,7 +236,7 @@ function SourceTable({
                     ) : (
                       <GapText>
                         {scope
-                          ? `No citation in ${moduleName(scope)} names this file`
+                          ? `No citation in ${moduleName(scope, pathway)} names this file`
                           : "No citation names this file"}
                       </GapText>
                     )}
@@ -242,7 +246,12 @@ function SourceTable({
                     data-label={headings[4]}
                     className={`${STACK.cell} text-text-secondary`}
                   >
-                    <UsedBy source={source} modules={modules} group={group.label} />
+                    <UsedBy
+                      source={source}
+                      modules={modules}
+                      group={group.label}
+                      pathway={pathway}
+                    />
                   </td>
                   <td
                     role="cell"
@@ -267,7 +276,15 @@ function SourceTable({
 
 const UNMATCHED = "Entries on handoff lines not attached to a supplied file";
 
-function UnmatchedCitations({ cited, folder }: { cited: Cited; folder: string }) {
+function UnmatchedCitations({
+  cited,
+  folder,
+  pathway,
+}: {
+  cited: Cited;
+  folder: string;
+  pathway?: string | null;
+}) {
   const id = useId();
   const rows = [...cited.unmatched];
   if (rows.length === 0) return null;
@@ -288,7 +305,7 @@ function UnmatchedCitations({ cited, folder }: { cited: Cited; folder: string })
                   href={evidencePath(folder, first.entry, first.line)}
                   className="inline-flex min-h-8 items-center text-text-link underline max-[480px]:min-h-11"
                 >
-                  {`First: ${handoffName(first.entry)}, line ${String(first.line)}`}
+                  {`First: ${handoffName(first.entry, pathway)}, line ${String(first.line)}`}
                 </a>
               )}
             </li>
@@ -307,6 +324,7 @@ export function EvidenceSources({
   entries,
   snapshot,
   folder,
+  pathway,
 }: {
   sourceGroups: SourceGroup[];
   module?: string;
@@ -314,6 +332,7 @@ export function EvidenceSources({
   entries: OutputEntry[];
   snapshot: Snapshot;
   folder: string;
+  pathway?: string | null;
 }) {
   const cited = citationsByFile(
     snapshot,
@@ -337,7 +356,7 @@ export function EvidenceSources({
       kicker="Supplied files, and which modules read them"
       title="Sources"
     >
-      <UnmatchedCitations cited={cited} folder={folder} />
+      <UnmatchedCitations cited={cited} folder={folder} pathway={pathway} />
       {shown.length === 0 ? (
         <EmptyState className="py-5">
           <EmptyState.Header>
@@ -347,7 +366,7 @@ export function EvidenceSources({
             <EmptyState.Title as="h3">No source files recorded</EmptyState.Title>
             <EmptyState.Description>
               {module
-                ? `No issuer files are listed for ${moduleName(module)}.`
+                ? `No issuer files are listed for ${moduleName(module, pathway)}.`
                 : "No issuer files listed in this run’s published record."}
             </EmptyState.Description>
           </EmptyState.Content>
@@ -360,6 +379,7 @@ export function EvidenceSources({
             modules={modules}
             cited={cited}
             scope={module}
+            pathway={pathway}
           />
         ))
       )}

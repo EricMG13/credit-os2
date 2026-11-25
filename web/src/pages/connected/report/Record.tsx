@@ -435,7 +435,7 @@ function ModuleRecords({
           className="min-w-0 border-t border-border-hairline py-4"
         >
           <summary className="cursor-pointer font-semibold">
-            {id ? moduleName(id) : "Unassigned calls"}
+            {id ? moduleName(id, run.pathway) : "Unassigned calls"}
             {group.calls.length > 0 && (
               <span className="ml-2 text-sm font-normal text-text-tertiary">
                 {group.calls.length} {group.calls.length === 1 ? "response" : "responses"}
@@ -445,7 +445,7 @@ function ModuleRecords({
           <ModuleRecord
             group={group}
             folder={run.folder}
-            name={id ? moduleName(id) : "Unassigned calls"}
+            name={id ? moduleName(id, run.pathway) : "Unassigned calls"}
             synthetic={synthetic}
           />
         </details>

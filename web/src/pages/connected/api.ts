@@ -516,6 +516,11 @@ export const PATHWAYS: Readonly<Record<string, { label: string; modules: string[
     label: "Portfolio Decision",
     modules: ["CP-0", "CP-1", "CP-MODEL", "CP-DR", "CP-2", "CP-2E", "CP-3", "CP-5", "CP-6"],
   },
+  credit_screening: {
+    label: "Credit screening",
+    // A screen, not an assessment (owner, 2026-11-25; PR 6): CP-L10 names where a full one is needed.
+    modules: ["CP-0", "CP-1", "CP-DR", "CP-L10"],
+  },
 };
 /** `CP-MODEL` publishes the forecast and makes no model call: it is sent, never drawn as a module. */
 export const FORECAST_CODE = "CP-MODEL";
@@ -555,13 +560,23 @@ const MODULE_NAMES: Readonly<Record<string, string>> = {
   "CP-MODEL": "Cash flow model",
 };
 
-export function moduleName(id: string) {
-  return (Object.hasOwn(MODULE_NAMES, id) ? MODULE_NAMES[id] : undefined) ?? id;
+/** A module's name in one pathway where it differs from the default (ruling C6). */
+const PATHWAY_MODULE_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  credit_screening: { "CP-L10": "Credit screening" },
+};
+
+/** The reader's name for a module; `pathway` is the run's pathway, where a run's modules are named. */
+export function moduleName(id: string, pathway?: string | null) {
+  const named =
+    pathway && Object.hasOwn(PATHWAY_MODULE_NAMES, pathway)
+      ? PATHWAY_MODULE_NAMES[pathway]?.[id]
+      : undefined;
+  return named ?? (Object.hasOwn(MODULE_NAMES, id) ? MODULE_NAMES[id] : undefined) ?? id;
 }
 
 /** Replaces each whole module code the page knows with the module's name; others stay. */
-export function serviceText(text: string) {
-  return text.replace(/\bCP-[A-Z0-9]+\b/g, (code) => moduleName(code));
+export function serviceText(text: string, pathway?: string | null) {
+  return text.replace(/\bCP-[A-Z0-9]+\b/g, (code) => moduleName(code, pathway));
 }
 
 /** The changes line without the launcher's "changes:" label or the service's `(not used: <run>: <why>)` note, which names a run id. */

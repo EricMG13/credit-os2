@@ -3,7 +3,14 @@ import { Ruler } from "../overview/marks";
 import { FigureTile, GapTile, LeadFrame } from "./kit/LeadFrame";
 import { GapChip } from "./kit/marks";
 import { reasonText } from "./kit/reader";
-import { readChangeScreen, readKeyFigures, type Figure, type KeyFigure } from "./shortSnapshotData";
+import {
+  readChangeScreen,
+  readKeyFigures,
+  readScreens,
+  type Figure,
+  type KeyFigure,
+  type Screen,
+} from "./shortSnapshotData";
 import type { Lead, LeadProps } from "./types";
 
 /*
@@ -171,12 +178,89 @@ function ChangeScreen({ props }: { props: LeadProps }) {
   );
 }
 
+/** The materiality word's mark: the table's own word, never recomputed. */
+const MATERIALITY_TEXT: Readonly<Record<string, string>> = {
+  High: "text-warning-text",
+};
+
+/** One screen: its topics as a list (topic, finding, then the module's own materiality, evidence and next step) over the table of the same cells. */
+function ScreenTile({
+  props,
+  screen,
+}: {
+  props: LeadProps;
+  screen: Extract<Screen, { state: "ready" }>;
+}) {
+  return (
+    <FigureTile
+      props={props}
+      span={12}
+      label={screen.title}
+      kicker="Topic by topic"
+      title={screen.title}
+      line={screen.line}
+      source={`the ${screen.title.toLowerCase()}`}
+      table={{ caption: screen.title, headers: screen.headers, rows: screen.rows }}
+    >
+      <ul className="flex flex-col divide-y divide-border-hairline">
+        {screen.rows.map((cells, at) => {
+          const [topic = "", finding = "", materiality = "", evidence = "", next = ""] = cells;
+          return (
+            <li
+              key={`${topic}-${String(screen.lines[at])}`}
+              className="flex min-w-0 flex-col gap-1 py-3 first:pt-0 last:pb-0"
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <p className="text-small font-medium text-text-primary">{topic}</p>
+                <p className="text-caption text-text-secondary">
+                  <span className={cx("font-medium", MATERIALITY_TEXT[materiality])}>
+                    {materiality}
+                  </span>
+                  {" \u00b7 "}
+                  {evidence}
+                </p>
+              </div>
+              <p className="text-small text-text-secondary">{finding}</p>
+              <p className="text-caption text-text-tertiary">{next}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </FigureTile>
+  );
+}
+
+/** CP-L10 in a credit screening run: the five screens, each a tile or, where it cannot be read, the gap tile. */
+function Screens({ props }: { props: LeadProps }) {
+  return (
+    <>
+      {readScreens(props.entry).map((screen) =>
+        screen.state === "gap" ? (
+          <GapTile key={screen.title} span={12} label={screen.title} kicker={screen.title}>
+            {screen.reason}
+          </GapTile>
+        ) : (
+          <ScreenTile key={screen.title} props={props} screen={screen} />
+        ),
+      )}
+    </>
+  );
+}
+
 /** CP-L10: the key-figure strip, each figure prior to current where the table states both periods; then the change screen. */
 export const ShortSnapshotLead: Lead = function ShortSnapshotLead(props) {
+  // Ruling C7: in a credit screening run the module writes five screens, not key figures.
+  const screening = props.run.pathway === "credit_screening";
   return (
     <LeadFrame props={props}>
-      <Strip props={props} />
-      <ChangeScreen props={props} />
+      {screening ? (
+        <Screens props={props} />
+      ) : (
+        <>
+          <Strip props={props} />
+          <ChangeScreen props={props} />
+        </>
+      )}
     </LeadFrame>
   );
 };

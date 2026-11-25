@@ -44,7 +44,7 @@ export function GapTile({
  */
 export function LeadFrame({ props, children }: { props: LeadProps; children: ReactNode }) {
   const module = props.entry.output.module;
-  const { reason } = moduleSource(props.view, module, moduleName(module));
+  const { reason } = moduleSource(props.view, module, moduleName(module, props.run.pathway));
   return reason ? null : <Bento>{children}</Bento>;
 }
 

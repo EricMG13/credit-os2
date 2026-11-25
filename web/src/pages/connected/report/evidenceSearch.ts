@@ -41,7 +41,7 @@ export function searchEvidence(query: string, entries: OutputEntry[], run: Publi
   };
   const lines: SearchHit[] = [];
   for (const entry of entries.filter((item) => item.selected)) {
-    const module = moduleName(entry.output.module);
+    const module = moduleName(entry.output.module, run.pathway);
     for (const section of entry.sections) {
       const heading = plainModuleNames(clean(section.heading));
       const add = (line: number, title: string, text: string) => {
@@ -90,7 +90,7 @@ export function searchEvidence(query: string, entries: OutputEntry[], run: Publi
   );
   const gaps: SearchHit[] = collectGaps(entries)
     .filter(({ entry, gap }) =>
-      holds(`${gap.title} ${moduleName(entry.output.module)} ${entry.output.module}`),
+      holds(`${gap.title} ${moduleName(entry.output.module, run.pathway)} ${entry.output.module}`),
     )
     .map(({ entry, gap }) => ({
       key: `${entry.output.id}:${String(gap.line)}`,

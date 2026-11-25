@@ -272,7 +272,7 @@ function LeaveOut({
           choice.onModules(kept);
         }}
       >
-        {`Leave out ${nameList(left.map(moduleName))}`}
+        {`Leave out ${nameList(left.map((code) => moduleName(code)))}`}
       </Button>
       <p>You will return to More context and review again; approval will be cleared.</p>
       <p>
@@ -654,7 +654,9 @@ function EverythingSubmitSends({
   const block = { onEdit, disabled };
   const requested = pathwayModules(run.pathway);
   const leftOut = answers.modules.length
-    ? requested.filter((code) => !answers.modules.includes(code)).map(moduleName)
+    ? requested
+        .filter((code) => !answers.modules.includes(code))
+        .map((code) => moduleName(code, run.pathway))
     : [];
   const advanced = answers.level === "advanced";
   // Valuation, Module options and Scenario assumptions are drawn only at the Advanced level.
@@ -735,7 +737,7 @@ function EverythingSubmitSends({
               />
               <List
                 title={`Modules (${String(drawnModules(summary.modules).length)})`}
-                items={drawnModules(summary.modules).map(moduleName)}
+                items={drawnModules(summary.modules).map((code) => moduleName(code, run.pathway))}
                 columns
               />
               {leftOut.length > 0 && (
