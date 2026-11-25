@@ -1049,7 +1049,8 @@ provides comps if they want to at launcher."; "raise cap to 20/30/50"; ruling
 `docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md`).** No method text is newly selected
 and no method file changed. Layer 1 is CP-1, CP-1A, CP-1B, CP-1C and CP-1D, by the layer marks in
 `docs/reuse/selected-methods/skills/` (`Layer L1` in the CP-1A, CP-1B, CP-1C and CP-1D skill files;
-`layer`, `L1` in CP-1's system reference). CP-L10 carries the mark and stays deactivated; CP-MODEL
+`layer`, `L1` in CP-1's system reference). CP-L10 carries the mark; the `short_snapshot` pathway stays deactivated, and CP-L10 runs in
+`credit_screening` (see "CP-L10 in the Credit screening pathway, 2026-11-25" above); CP-MODEL
 is not a module. Lite (`lite_credit_assessment`) and Full (`credit_snapshot`) gain CP-1B, CP-1C and
 CP-1D, each on its own selected method as in Deep and the purpose pathways, and Lite gains CP-DR;
 Deep is unchanged and now differs from Full by CP-2H, CP-3D and CP-4C. Order is the registry's
@@ -1084,8 +1085,7 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 - `shared` rows are sent by section: `CANON_SHARED.md § CP_CONFIDENCE_SCORE.md` to every module
   sent a skill, its reader-layer sections to every prose module, and `CPOS_REGISTER_SCOPE.md
   § <module>` to the ten modules it names, and `§ CP-L10` to CP-L10 in `credit_screening`.
-- CP-L10 is sent the one page `cpl10.md` in every pathway that selects it (only the deactivated
-  `short_snapshot`) and, in `credit_screening` only (owner, 2026-11-25, ruling R12), twelve archived
+- CP-L10 is sent the one page `cpl10.md` in `short_snapshot` (deactivated) and, in `credit_screening` only (owner, 2026-11-25, ruling R12), twelve archived
   files of the cp-os `cp-l10-financial-change-screen` skill: `SKILL.md`, the five adaptive methods,
   the lite analysis policy and the five schema references, whole and unedited. The five `*payload.schema.txt`
   files are not sent: they are JSON Schema for the JSON payload the Markdown transport overrides, each

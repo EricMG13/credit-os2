@@ -69,6 +69,74 @@ describe("readScreens", () => {
   });
 });
 
+describe("readScreens reader text", () => {
+  function withCell(heading: string, row: number, column: number, value: string): OutputEntry {
+    const entry = creditScreeningEntry();
+    return {
+      ...entry,
+      sections: entry.sections.map((item) =>
+        item.heading === heading
+          ? {
+              ...item,
+              blocks: item.blocks.map((block) =>
+                block.type === "table"
+                  ? {
+                      ...block,
+                      rows: block.rows.map((r, at) =>
+                        at === row
+                          ? { ...r, cells: r.cells.map((c, k) => (k === column ? value : c)) }
+                          : r,
+                      ),
+                    }
+                  : block,
+              ),
+            }
+          : item,
+      ),
+    };
+  }
+  const cell = (entry: OutputEntry, pathway?: string) => {
+    const read = readScreens(entry, pathway)[1];
+    if (read?.state !== "ready") throw new Error("not ready");
+    return read.rows[0] ?? [];
+  };
+
+  it("names a module code in a Next step cell by the run's pathway", () => {
+    const row = cell(withCell("Credit screen", 0, 4, "Upgrade to CP-L10"), "credit_screening");
+    expect(row[4]).toBe("Upgrade to Credit screening");
+  });
+
+  it("answers a cell that names a source with the Evidence line, and drops a register id", () => {
+    const row = cell(
+      withCell("Credit screen", 0, 3, "harbourline_annual_report.txt, page 12"),
+      "credit_screening",
+    );
+    expect(row[3]).toBe("Detail is in Evidence.");
+    expect(
+      cell(withCell("Credit screen", 0, 1, "Leverage rose (TL10.2)."), "credit_screening")[1],
+    ).not.toMatch(/TL\d/);
+  });
+
+  it("leaves all 150 fixture cells unchanged", () => {
+    for (const item of readScreens(creditScreeningEntry(), "credit_screening")) {
+      if (item.state !== "ready") throw new Error("not ready");
+      expect(item.rows).toEqual(fixtureRows(item.title));
+    }
+  });
+
+  it("gives a materiality such as constructor no class", () => {
+    const entry = withCell("Credit screen", 0, 2, "constructor");
+    render(<ShortSnapshotLead {...props(entry)} />);
+    const tile = screen.getByRole("region", { name: "Credit screen" });
+    const marks = within(tile)
+      .getAllByText("constructor")
+      .filter((node) => node.tagName === "SPAN");
+    expect(marks).toHaveLength(1);
+    expect(marks[0]).not.toHaveClass("text-warning-text");
+    expect(marks[0]?.className).not.toMatch(/function|native code/);
+  });
+});
+
 describe("the credit screening lead", () => {
   it("draws the five screens and every cell of the fixture, verbatim", () => {
     render(<ShortSnapshotLead {...props(creditScreeningEntry())} />);

@@ -68,7 +68,7 @@ export function FindView({
                   className="grid gap-2 border-t border-border-hairline pt-4 first:border-t-0 first:pt-0"
                 >
                   <p className="text-small font-medium text-text-secondary">
-                    {titles.get(item?.module ?? "") ?? moduleName(item?.module ?? "")}
+                    {titles.get(item?.module ?? "") ?? moduleName(item?.module ?? "", run.pathway)}
                     {item?.label ? ` · ${item.label}` : ""}
                   </p>
                   <p className="reading-copy text-body text-text-primary wrap-anywhere">
@@ -85,8 +85,8 @@ export function FindView({
                       <span className="text-text-secondary">Confidence: {fact.confidence}</span>
                     )}
                     <TextLink href={evidenceLink(run, fact)} className={HIT}>
- View sources
- </TextLink>
+                      View sources
+                    </TextLink>
                   </div>
                 </li>
               );

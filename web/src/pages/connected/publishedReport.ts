@@ -9,7 +9,16 @@ export type Row = { line: number; cells: string[] };
 export type Table = { type: "table"; line: number; headers: string[]; rows: Row[] };
 type Paragraph = { type: "text"; line: number; end: number; text: string };
 export type Block = Table | Paragraph | { type: "equity"; line: number; text?: string };
-export type Section = { heading: string; level: number; line: number; blocks: Block[] };
+export type Section = {
+  heading: string;
+  level: number;
+  line: number;
+  blocks: Block[];
+  /** Set by `outputEntries` (ruling M2): a credit screening CP-L10 section that is not a finding. */
+  register?: true;
+  /** Set by `outputEntries`: one of the five screens, drawn by the credit screening lead. */
+  screen?: true;
+};
 const FILE_EXTENSIONS = "jsonl?|x?html?|xml|pdf|docx?|xlsx?|xlsm|csv|tsv|pptx?|txt|md|zip";
 // A file name ahead before the next ";", ",", "|" or line end: the code belongs to a stored name.
 const FILE_AHEAD = new RegExp(String.raw`^[^;,|\n]*\.(?:${FILE_EXTENSIONS})\b`, "i");
@@ -335,12 +344,35 @@ export function outputEntries(
         ? [
             {
               output,
-              sections: snapshot.workspace.handoffs[output.sha256] ?? [],
+              sections: screeningSections(
+                snapshot.workspace.handoffs[output.sha256] ?? [],
+                run.pathway === "credit_screening" && moduleId === "CP-L10",
+              ),
               selected: module.default === id,
             },
           ]
         : [];
     }),
+  );
+}
+
+export const SCREEN_TITLES = [
+  "Financial change screen",
+  "Credit screen",
+  "Liquidity and forward-risk screen",
+  "Security opportunity screen",
+  "Creditor-document screen",
+] as const;
+
+/** Ruling M2: in a credit screening CP-L10 handoff, a finding other than the five screens is a register. */
+function screeningSections(sections: Section[], screening: boolean) {
+  if (!screening) return sections;
+  return classifySections(sections).map(({ section, role }) =>
+    role !== "finding" || section.level <= 2
+      ? section
+      : SCREEN_TITLES.some((t) => t === section.heading)
+        ? { ...section, screen: true as const }
+        : { ...section, register: true as const },
   );
 }
 
@@ -468,7 +500,6 @@ const HIDDEN =
   /^(Request|Next module|Front matter)$|downstream owners|Consumer readiness|command sheet|Readiness for downstream use|Upstream re-anchor|method trace|Module status|QA validation|machine-readable|research brief|Workstream plan|Cross-Module Handoff/i;
 const REGISTERS =
   /source assessment|confidence inputs|source context|period table|key located evidence|conflicts and duplicates|register|ledger/i;
-const SCREENING_REGISTER = /^TL\d+\.\d+\b/;
 const TOP_ROLE = { Sources: "sources", Calculations: "calculations", Gaps: "gaps" } as const;
 const isTopRole = (heading: string): heading is keyof typeof TOP_ROLE =>
   Object.hasOwn(TOP_ROLE, heading);
@@ -485,9 +516,6 @@ function sectionRole(chain: string[]) {
   if (
     own === "Reader summary" ||
     chain.some((heading) => /^Analytical appendix/.test(heading)) ||
-    // A screening register is a register wherever the handoff nests it: the launcher accepts its
-    // heading at any level, under the appendix or beside it.
-    SCREENING_REGISTER.test(own) ||
     REGISTERS.test(own)
   )
     return "registers";
@@ -502,7 +530,9 @@ export function classifySections(sections: Section[]) {
     stack.push(section);
     return {
       section,
-      role: sectionRole(stack.filter((item) => item.level >= 2).map((item) => item.heading)),
+      role: section.register
+        ? "registers"
+        : sectionRole(stack.filter((item) => item.level >= 2).map((item) => item.heading)),
     };
   });
 }

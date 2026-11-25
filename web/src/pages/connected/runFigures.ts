@@ -164,7 +164,7 @@ export function feedLines(run: Run): ActivityLine[] {
       who: "Run",
       time: clock(run.ended_at),
       state: word[run.status],
-      text: [`Run ${run.status}.`, serviceText(run.reason)].filter(Boolean).join(" "),
+      text: [`Run ${run.status}.`, serviceText(run.reason, run.pathway)].filter(Boolean).join(" "),
     });
   }
   return lines.reverse();

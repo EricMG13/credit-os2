@@ -361,6 +361,18 @@ const rowLine = (item: Table, first: string) =>
 
 describe("readableTitle", () => {
   it.each([
+    ["1. TL10.1 - Source and scope gate", "Source and scope gate"],
+    ["TL10.1 and TL10.2 - Source and scope gate", "Source and scope gate"],
+    ["2) TL10.2: Topic allocation", "Topic allocation"],
+  ])("drops a leading number and register code list from %s", (heading, title) => {
+    expect(readableTitle(heading)).toBe(title);
+  });
+
+  it.each(["1. Overview", "2025 outlook"])("keeps %s as written", (heading) => {
+    expect(readableTitle(heading)).toBe(heading);
+  });
+
+  it.each([
     "Q4 2025 results",
     "H1 2026 liquidity",
     "B2 notes",

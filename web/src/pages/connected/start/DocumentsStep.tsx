@@ -112,7 +112,7 @@ function IntakeDocumentRow({
 
 function MissingRow({ group, pathway }: { group: LimitGroup; pathway: string }) {
   const fixes = [
-    ...new Set(group.causes.map((cause) => serviceText(cause.fix ?? "")).filter(Boolean)),
+    ...new Set(group.causes.map((cause) => serviceText(cause.fix ?? "", pathway)).filter(Boolean)),
   ];
   const also = moduleNames(group.consequences, pathway);
   return (
@@ -125,7 +125,7 @@ function MissingRow({ group, pathway }: { group: LimitGroup; pathway: string }) 
       </div>
       {group.causes.map((cause) => (
         <p key={cause.id} className="wrap-anywhere text-text-secondary">
-          {serviceText(cause.reason)}
+          {serviceText(cause.reason, pathway)}
         </p>
       ))}
       {fixes.map((fix) => (

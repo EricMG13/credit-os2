@@ -216,7 +216,9 @@ function ScreenTile({
                   <span
                     className={cx(
                       "font-medium",
-                      MATERIALITY_TEXT[materiality.trim().toLowerCase()],
+                      Object.hasOwn(MATERIALITY_TEXT, materiality.trim().toLowerCase())
+                        ? MATERIALITY_TEXT[materiality.trim().toLowerCase()]
+                        : undefined,
                     )}
                   >
                     {materiality}
@@ -242,7 +244,7 @@ function ScreenTile({
 function Screens({ props }: { props: LeadProps }) {
   return (
     <>
-      {readScreens(props.entry).map((screen) =>
+      {readScreens(props.entry, props.run.pathway).map((screen) =>
         screen.state === "gap" ? (
           <GapTile key={screen.title} span={12} label={screen.title} kicker={screen.title}>
             {screen.reason}

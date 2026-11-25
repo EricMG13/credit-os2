@@ -304,7 +304,7 @@ function HowToLift({
       <Opener>How to lift it</Opener>
       <div className="mt-2 grid gap-2">
         {fixes.map((fix) => (
-          <p key={fix}>{serviceText(fix)}</p>
+          <p key={fix}>{serviceText(fix, choice.pathway)}</p>
         ))}
         {fixes.some((fix) => /portfolio workbook/i.test(fix)) && (
           <Button
@@ -364,7 +364,9 @@ function LimitRow({
                 {scopeText(cause.scope, choice.pathway)}
               </span>
               {" · "}
-              <span id={index === 0 ? reasonId : undefined}>{serviceText(cause.reason)}</span>
+              <span id={index === 0 ? reasonId : undefined}>
+                {serviceText(cause.reason, choice.pathway)}
+              </span>
             </p>
           ))}
           {refusing.length > 0 && (
@@ -430,13 +432,13 @@ function LimitsToDecide({
             <ul className="mt-1 mb-2 list-disc space-y-1 pl-5">
               {passive.map((item) => (
                 <li key={item.id}>
-                  {serviceText(item.reason)
+                  {serviceText(item.reason, choice.pathway)
                     .replace("What changed since the last Report", "Changes since the last run")
                     .replace(
                       /^This pathway does not produce the (.+) report section\.$/,
                       'This pathway does not produce the "$1" section.',
                     )}
-                  {item.fix ? ` ${serviceText(item.fix)}` : ""}
+                  {item.fix ? ` ${serviceText(item.fix, choice.pathway)}` : ""}
                 </li>
               ))}
             </ul>

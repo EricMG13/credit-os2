@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifySections,
+  outputEntries,
   comparisonRows,
   comparisonForRun,
   type PublishedRun,
@@ -326,5 +327,55 @@ describe("missing reader passages", () => {
   });
   it("does not judge an earlier-format handoff", () => {
     expect(missingPassages(entry("CP-2", []))).toEqual([]);
+  });
+});
+
+describe("credit screening CP-L10 sections", () => {
+  const section = (heading: string, level: number, line: number) => ({
+    heading,
+    level,
+    line,
+    blocks: [],
+  });
+  const sections = [
+    section("Findings", 2, 1),
+    section("Bottom line", 3, 2),
+    section("Credit screen", 3, 3),
+    section("Source and scope gate", 3, 4),
+    section("Sources", 2, 5),
+  ];
+  const entriesFor = (pathway: string) => {
+    const snapshot = {
+      workspace: {
+        outputs: { o: { id: "o", module: "CP-L10", sha256: "s", run: "case" } },
+        handoffs: { s: sections },
+      },
+    } as unknown as Parameters<typeof outputEntries>[0];
+    const run = {
+      pathway,
+      modules: { "CP-L10": { outputs: ["o"], default: "o" } },
+    } as unknown as PublishedRun;
+    const [entry] = outputEntries(snapshot, run, "case");
+    return classifySections(entry?.sections ?? []).map(({ role }) => role);
+  };
+
+  it("turns a finding other than the five screens into a register, and nothing else", () => {
+    expect(entriesFor("credit_screening")).toEqual([
+      "finding",
+      "passage",
+      "finding",
+      "registers",
+      "sources",
+    ]);
+  });
+
+  it("keeps the base roles in another pathway", () => {
+    expect(entriesFor("short_snapshot")).toEqual([
+      "finding",
+      "passage",
+      "finding",
+      "finding",
+      "sources",
+    ]);
   });
 });

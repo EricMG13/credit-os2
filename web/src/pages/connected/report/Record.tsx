@@ -307,7 +307,12 @@ export function ReportRecord({
   return (
     <div className="grid min-w-0 gap-5">
       <RunRecordSummary run={run} value={value} error={error} mode={mode} />
-      <ApprovedSummaryLimits value={value} error={error} limits={approvedLimits} />
+      <ApprovedSummaryLimits
+        value={value}
+        error={error}
+        limits={approvedLimits}
+        pathway={run.pathway}
+      />
       <ModuleRecords groups={groups} run={run} synthetic={synthetic} module={module} />
       <RecordedHashes run={run} />
     </div>
@@ -368,10 +373,12 @@ function ApprovedSummaryLimits({
   value,
   error,
   limits,
+  pathway,
 }: {
   value?: Run;
   error?: string;
   limits?: ReadinessItem[] | null;
+  pathway?: string | null;
 }) {
   return (
     <section className={card}>
@@ -391,11 +398,13 @@ function ApprovedSummaryLimits({
           {limits.map((item, index) => (
             <li key={`${item.id}-${String(index)}`} className="grid gap-2 py-3">
               <h4 className="font-semibold">
-                {item.scope === "run" ? "Run" : serviceText(item.scope)}
+                {item.scope === "run" ? "Run" : serviceText(item.scope, pathway)}
               </h4>
               <Badge>{SUMMARY_OUTCOME[item.outcome] ?? item.outcome}</Badge>
-              <p className="text-text-secondary">{serviceText(item.reason)}</p>
-              {item.fix && <p className="text-sm text-text-secondary">{serviceText(item.fix)}</p>}
+              <p className="text-text-secondary">{serviceText(item.reason, pathway)}</p>
+              {item.fix && (
+                <p className="text-sm text-text-secondary">{serviceText(item.fix, pathway)}</p>
+              )}
             </li>
           ))}
         </ul>

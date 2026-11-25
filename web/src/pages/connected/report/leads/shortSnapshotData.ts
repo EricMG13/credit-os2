@@ -1,4 +1,4 @@
-import type { OutputEntry } from "../../publishedReport";
+import { SCREEN_TITLES, type OutputEntry } from "../../publishedReport";
 import { changeBetween, changePeriod, yearApart } from "./kit/changes";
 import { group, readCell } from "./kit/numbers";
 import { reasonText, safeText } from "./kit/reader";
@@ -259,13 +259,7 @@ export function readChangeScreen(entry: OutputEntry): ChangeScreen {
  * The five screens of a credit screening handoff (ruling C4), in the order the composition lists
  * them: each is one table under a heading of its own title, headed exactly `SCREEN_HEADERS`.
  */
-export const SCREEN_TITLES = [
-  "Financial change screen",
-  "Credit screen",
-  "Liquidity and forward-risk screen",
-  "Security opportunity screen",
-  "Creditor-document screen",
-] as const;
+export { SCREEN_TITLES };
 export const SCREEN_HEADERS = ["Topic", "Finding", "Materiality", "Evidence", "Next step"] as const;
 
 export type Screen =
@@ -285,7 +279,7 @@ export type Screen =
  * section without exactly one table, or a table whose header is not `SCREEN_HEADERS` is a gap for
  * that screen alone; nothing is guessed from another table.
  */
-export function readScreens(entry: OutputEntry): Screen[] {
+export function readScreens(entry: OutputEntry, pathway?: string | null): Screen[] {
   return SCREEN_TITLES.map((title): Screen => {
     const found = allTables(entry).filter((item) => item.heading === title);
     const table = found.length === 1 ? found[0]?.table : undefined;
@@ -313,7 +307,7 @@ export function readScreens(entry: OutputEntry): Screen[] {
       title,
       line: table.line,
       headers: [...table.headers],
-      rows: table.rows.map((row) => row.cells),
+      rows: table.rows.map((row) => row.cells.map((cell) => safeText(cell, pathway))),
       lines: table.rows.map((row) => row.line),
     };
   });

@@ -300,7 +300,9 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
               <p className="wrap-anywhere">
                 <span>{`Run ${run.status}.`}</span>{" "}
                 <span>
-                  {run.reason ? serviceText(run.reason) : "The run record gives no reason."}
+                  {run.reason
+                    ? serviceText(run.reason, run.pathway)
+                    : "The run record gives no reason."}
                 </span>{" "}
                 <span>
                   {stopped.names.length > 0
@@ -322,13 +324,13 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
           ) : (
             run.reason && (
               <Alert tone="error" title="Why this run ended without a report">
-                <span className="wrap-anywhere">{serviceText(run.reason)}</span>
+                <span className="wrap-anywhere">{serviceText(run.reason, run.pathway)}</span>
               </Alert>
             )
           )}
           {live && run.held_reason && (
             <Alert tone="warning" title="Held by the service">
-              <span className="wrap-anywhere">{serviceText(run.held_reason)}</span>
+              <span className="wrap-anywhere">{serviceText(run.held_reason, run.pathway)}</span>
             </Alert>
           )}
           {run.status === "queued" && !run.held_reason && !run.reason && (

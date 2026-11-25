@@ -450,7 +450,7 @@ function launcherLine(error: string, pathway?: string | null): string {
       : `Requested modules: ${body}`;
   }
   console.warn(`Launcher flag prefix removed; its explanation is shown to the analyst: ${error}`);
-  return capital(serviceText(flag ? message : error.replace(/^--[a-z][a-z-]*\s*/, "")));
+  return capital(serviceText(flag ? message : error.replace(/^--[a-z][a-z-]*\s*/, ""), pathway));
 }
 
 /**

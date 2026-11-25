@@ -1,7 +1,7 @@
 // A credit screening run, built from the published form of the Task 1 fixture
 // (tests/fixtures/credit-screening/CP-L10.md): Modules, Evidence and Forecast pages.
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { PublishedRun, Snapshot } from "../publishedReport";
 import { buildReportView } from "../reportView";
 import { CallRow } from "./overview/CallRow";
@@ -208,4 +208,95 @@ it("Evidence still reaches the 20 register ids when they are ### siblings", () =
   );
   const headings = screen.getAllByRole("heading").map((item) => item.textContent);
   for (const id of REGISTERS) expect(headings.some((text) => text.startsWith(`${id} `))).toBe(true);
+});
+
+/** The fixture with its 20 register headings written as `###` siblings in one of the forms the launcher accepts. */
+const HEADING_FORMS: [string, (code: string, title: string, n: number) => string][] = [
+  ["numbered", (code, title, n) => `${String(n)}. ${code} - ${title}`],
+  ["bold", (code, title) => `**${code}** - ${title}`],
+  ["backtick", (code, title) => `\`${code}\` - ${title}`],
+  ["title alone (tag form)", (_code, title) => title],
+  ["a list of codes", (code, title) => `${code} and TL99.9 - ${title}`],
+];
+
+function formsPage(
+  form: (code: string, title: string, n: number) => string,
+  records: boolean,
+  table?: string,
+) {
+  let n = 0;
+  const sections = fixture.sections.map((item) => {
+    const match = /^(TL\d+\.\d+) - (.*)$/.exec(item.heading);
+    if (!match) return item;
+    n += 1;
+    return { ...item, level: 3, heading: form(match[1] ?? "", match[2] ?? "", n) };
+  });
+  const formSnapshot = {
+    ...snapshot,
+    workspace: {
+      ...snapshot.workspace,
+      outputs: { [ID]: { ...fixture.output, id: ID, sha256: SHA } },
+      handoffs: { [SHA]: sections },
+    },
+  } as unknown as Snapshot;
+  const { container } = render(
+    <Modules
+      view={buildReportView(formSnapshot, "case", run)}
+      run={run}
+      snapshot={formSnapshot}
+      module="CP-L10"
+      records={records}
+      table={table}
+    />,
+  );
+  return withoutKnownIds(container).text;
+}
+
+describe.each(HEADING_FORMS)("Modules, register headings written as %s", (_, form) => {
+  it.each([
+    ["closed", false, undefined],
+    ["opened", true, undefined],
+    ["opened on a register", true, "Topic allocation"],
+  ] as const)(
+    "records %s: no register id, source column or module code",
+    (_label, records, table) => {
+      const text = formsPage(form, records, table);
+      expect(text).not.toMatch(/TL\d|source_ref|CP-/);
+    },
+  );
+});
+
+it("Modules, records open on a Finding cell holding a register id: no register id", () => {
+  const edited = {
+    ...fixture,
+    sections: fixture.sections.map((item) => ({
+      ...item,
+      blocks: item.blocks.map((block) =>
+        block.type === "table" && block.headers[0] === "Topic"
+          ? {
+              ...block,
+              rows: block.rows.map((row, at) =>
+                at === 0
+                  ? { ...row, cells: row.cells.map((c, k) => (k === 1 ? `${c} (TL10.2)` : c)) }
+                  : row,
+              ),
+            }
+          : block,
+      ),
+    })),
+  };
+  const editedSnapshot = {
+    ...snapshot,
+    workspace: { ...snapshot.workspace, handoffs: { [SHA]: edited.sections } },
+  };
+  const { container } = render(
+    <Modules
+      view={buildReportView(editedSnapshot, "case", run)}
+      run={run}
+      snapshot={editedSnapshot}
+      module="CP-L10"
+      records
+    />,
+  );
+  expect(withoutKnownIds(container).text).not.toMatch(/TL\d/);
 });
