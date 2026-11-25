@@ -26,6 +26,9 @@ export function figureName(key: string, name: string, figure: Figure | undefined
   return debtCashInterest ? "Reported EBITDA / cash interest on debt" : name;
 }
 
+/** Better is the accent with its word, worse the signal colour with its word; never colour alone. */
+const TONE_TEXT = { better: "text-success-text", worse: "text-warning-text", flat: "" } as const;
+
 /**
  * One headline figure of a library row: the value in mono with its period, and the change from the
  * prior value, written, with its direction word where the owner's table gives the measure one. No
@@ -90,7 +93,11 @@ export function FigureMark({
             {sign === 1 && <ArrowUp aria-hidden className="size-3.5 shrink-0" />}
             {sign === -1 && <ArrowDown aria-hidden className="size-3.5 shrink-0" />}
             <span className="font-mono">{changeText(change, figure.unit)}</span>
-            {kind !== "none" && <ToneMark tone={kind} />}
+            {kind !== "none" && (
+              <span className={TONE_TEXT[kind]}>
+                <ToneMark tone={kind} />
+              </span>
+            )}
           </span>
           <span className="text-caption text-text-tertiary">
             from {withUnit(prior.value, figure.unit)} in {prior.period}

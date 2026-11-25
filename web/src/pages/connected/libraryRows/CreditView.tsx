@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FileSearch02 } from "@untitledui/icons";
-import { Button } from "@/components/base/buttons/button";
 import { TextLink } from "../../run/TextLink";
 import {
   containsReference,
@@ -18,6 +17,10 @@ import type { LoadSnapshot } from "./rowSnapshot";
 
 type CardFinding = { body: string; href: string };
 
+/** The trace control as the row's figures draw it: one icon, the same everywhere. */
+const TRACE_LINK =
+  "flex size-8 flex-none items-center justify-center rounded-ds-sm border border-transparent text-text-tertiary outline-focus-ring hover:border-border-control hover:bg-action-subtle hover:text-action focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:size-11";
+
 /** A finding as written, with its one sources control. */
 function LinkedFinding({ body, href }: CardFinding) {
   return (
@@ -25,15 +28,14 @@ function LinkedFinding({ body, href }: CardFinding) {
       <p className="reading-copy min-w-0 text-body text-text-secondary">
         {richParts(body, readerText)}
       </p>
-      <Button
+      <a
         href={href}
         aria-label="Sources for this credit view"
-        color="tertiary"
-        size="sm"
-        iconLeading={FileSearch02}
+        title="Show sources"
+        className={TRACE_LINK}
       >
-        View sources
-      </Button>
+        <FileSearch02 aria-hidden="true" className="size-4" />
+      </a>
     </div>
   );
 }

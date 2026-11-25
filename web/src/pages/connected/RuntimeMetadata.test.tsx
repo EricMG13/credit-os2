@@ -73,7 +73,11 @@ it("C1-028 labels an accepted blocked output while downstream modules are still 
   render(<RunProgress id="case" mode="synthetic" />);
   const pipeline = await screen.findByRole("list", { name: "Modules in this run" });
   expect(within(pipeline).getByText("Not assessable")).toBeVisible();
-  expect(screen.getByText("1 of 2 modules")).toBeVisible();
+  expect(screen.getByRole("progressbar", { name: "Modules finished" })).toHaveAttribute(
+    "aria-valuetext",
+    "1 of 2 modules",
+  );
+  expect(screen.getByText("1 of 2")).toBeVisible();
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(fetch.mock.calls[0]?.[0]).toBe("/connected/activity/case");
 });
@@ -87,7 +91,11 @@ it("C1-028 says which completed output lacks assessment metadata instead of gues
   expect(
     await screen.findByText("No assessment status is recorded for Source readiness."),
   ).toBeVisible();
-  expect(screen.getByText("1 of 2 modules")).toBeVisible();
+  expect(screen.getByRole("progressbar", { name: "Modules finished" })).toHaveAttribute(
+    "aria-valuetext",
+    "1 of 2 modules",
+  );
+  expect(screen.getByText("1 of 2")).toBeVisible();
 });
 
 it("C1-028 keeps current recorded assessment when older report metadata omits its optional field", async () => {

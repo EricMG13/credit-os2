@@ -6,6 +6,7 @@ import { LINK } from "./PassageTile";
 import {
   withoutReferenceColumns,
   type Cell,
+  type PassageItem,
   type issuerFacts,
   type analysisRows,
   type leftovers,
@@ -131,7 +132,8 @@ export function AnalysisTile({
               <CellText cell={status} href={href} />
             </p>
             <p className="reading-copy text-small text-text-secondary">
-              Cause: <CellText cell={cause} href={href} /> · <CellText cell={why} href={href} />
+              Cause: <CellText cell={cause} href={href} /> · Why:{" "}
+              <CellText cell={why} href={href} />
             </p>
           </li>
         ))}
@@ -145,15 +147,22 @@ export function LedgerTile({
   ledger,
   entry,
   folder,
+  lead = [],
 }: {
   ledger: ReturnType<typeof ledgerOf>;
   entry: OutputEntry;
   folder: string;
+  /** What the module wrote above the ledger: it says how to read it, so it is drawn with it. */
+  lead?: PassageItem[];
 }) {
   if (!ledger) return null;
+  const intro = lead.length > 0 && (
+    <PassageBody items={lead} noun="passage" entry={entry} folder={folder} />
+  );
   if ("table" in ledger)
     return (
       <Tile span={12} label="Limitations ledger" title="Limitations ledger">
+        {intro}
         <PublishedTable
           table={withoutReferenceColumns(ledger.table)}
           rowSource={(line, label) => (
@@ -174,6 +183,7 @@ export function LedgerTile({
   ];
   return (
     <Tile span={12} label="Limitations ledger" title="Limitations ledger">
+      {intro}
       <div className="grid gap-6 md:grid-cols-2">
         {added ? <LedgerList group={added} /> : <Empty heading="Added" />}
         {removed ? <LedgerList group={removed} /> : <Empty heading="Removed" />}

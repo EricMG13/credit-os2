@@ -162,7 +162,7 @@ it("renders recorded gap Markdown and names the destination handoff line", () =>
 });
 
 it("explains every absent download group rather than dropping it", () => {
-  show("summary", [output()]);
+  show("record", [output()]);
   expect(screen.getByText("No handoff ZIP was delivered for this run.")).toBeVisible();
   expect(screen.getByText("No handoff files were delivered for this run.")).toBeVisible();
   expect(screen.getByRole("heading", { name: "Model and calculation files" })).toBeVisible();

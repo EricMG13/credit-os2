@@ -7,7 +7,7 @@ export function richParts(value: string, clean = plainModuleNames): ReactNode {
     if (part.startsWith("**") && part.endsWith("**"))
       return <strong key={index}>{clean(part.slice(2, -2))}</strong>;
     if (part.startsWith("`") && part.endsWith("`"))
-      return <code key={index}>{part.slice(1, -1)}</code>;
+      return <code key={index}>{clean(part.slice(1, -1))}</code>;
     return clean(part.replaceAll("\\|", "|"));
   });
 }

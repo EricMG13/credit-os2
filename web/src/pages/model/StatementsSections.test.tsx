@@ -22,7 +22,7 @@ function draft(): { slice: unknown; page: Record<string, unknown> } {
 
 const figure = (name: string): HTMLElement => screen.getByRole("figure", { name });
 const showTable = (name: string) => {
-  fireEvent.click(within(figure(name)).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(figure(name)).getByRole("button", { name: "Table" }));
 };
 const choose = (name: string) => {
   fireEvent.click(screen.getByRole("radio", { name }));

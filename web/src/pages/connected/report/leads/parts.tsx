@@ -1,3 +1,4 @@
+import { ChevronRight } from "@untitledui/icons";
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChartTable, type TableRowData } from "@/components/chart/ChartTable";
 import { Missing } from "@/components/gap/Missing";
@@ -5,7 +6,8 @@ import { Segmented } from "@/components/kit/Segmented";
 import { cx } from "@/utils/cx";
 import { EventAxis } from "../../visuals/EventAxis";
 import { PublishedSource } from "../PublishedTrace";
-import { Tile, Well } from "../overview/Tile";
+import { GapNote, Tile, Well } from "../overview/Tile";
+import { GapWayOn } from "./kit/LeadFrame";
 import {
   axisAsOf,
   IN_EVIDENCE,
@@ -51,7 +53,7 @@ export function TableRegion({ label, table }: { label: string; table: LeadTable 
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       className={cx(
-        "relative max-w-full min-w-0 overflow-x-auto rounded-ds-xs [&_td]:max-w-[28ch] [&_td]:whitespace-normal [&_td]:wrap-anywhere [&>div]:overflow-visible",
+        "relative max-w-full min-w-0 overflow-x-auto rounded-ds-xs [&_td]:max-w-[28ch] [&_td]:whitespace-normal [&_td]:wrap-break-word [&>div]:overflow-visible",
         FOCUS,
       )}
     >
@@ -127,9 +129,10 @@ export function Disclosure({
         )}
       >
         <span className="min-w-0 wrap-anywhere">{summary ?? label}</span>
-        <span aria-hidden="true" className="text-text-tertiary group-open:rotate-90">
-          ›
-        </span>
+        <ChevronRight
+          aria-hidden="true"
+          className="size-4 flex-none text-text-tertiary transition-transform group-open:rotate-90 motion-reduce:transition-none"
+        />
       </summary>
       <div className="border-t border-border-hairline p-3">
         <TableRegion label={label} table={table} />
@@ -168,14 +171,16 @@ export function KeyValues({
   return (
     <dl
       className={cx(
-        "grid gap-x-3 text-caption",
-        stacked ? "grid-cols-1 gap-y-0" : "grid-cols-[auto_minmax(0,1fr)] gap-y-0.5",
+        "grid gap-x-3 text-small",
+        // The label column takes its words up to 55% of the list, then wraps: the value always
+        // keeps the rest, so a long label in a narrow tile never leaves it a letter a line.
+        stacked ? "grid-cols-1 gap-y-0" : "grid-cols-[fit-content(55%)_minmax(0,1fr)] gap-y-0.5",
         className,
       )}
     >
       {items.map(({ key, value }) => (
         <div key={key} className="contents">
-          <dt className="text-text-tertiary">{key}</dt>
+          <dt className="wrap-anywhere text-text-tertiary">{key}</dt>
           <dd className={cx("wrap-anywhere text-text-secondary", stacked && "mb-1.5 last:mb-0")}>
             {value}
           </dd>
@@ -386,7 +391,11 @@ export function Beside({
   );
 }
 
-/** A lead tile whose figure the run does not carry: the reason in words, in the figure's place. */
+/**
+ * A lead tile whose figure the run does not carry: the tile's title, the gap note with the reason
+ * in words in the figure's place, and the way on: the tile's own trace where the handoff has a
+ * table for it, else the module's output in Evidence. The same pattern as the kit's `GapTile`.
+ */
 export function LeadGap({
   span,
   label,
@@ -413,8 +422,9 @@ export function LeadGap({
       trace={trace}
       className="w-full self-start"
     >
-      <CompactGap>{reason}</CompactGap>
+      <GapNote>{reason}</GapNote>
       {children}
+      {!trace && <GapWayOn />}
     </Tile>
   );
 }
@@ -500,6 +510,13 @@ const BETWEEN_PX = 144;
 /** Whether a map of `columns` depth columns fits a tile `width` pixels wide. */
 const fits = (columns: number, width: number | null) =>
   width !== null && columns * COLUMN_PX + (columns - 1) * BETWEEN_PX <= width;
+
+/**
+ * Whether an edge's relationship fits one line on a connector (w-32 at caption size). A clause
+ * wraps to several lines there and runs over the next connector's words, so a map that carries
+ * one is drawn as the flow, where every relationship has its own line.
+ */
+const shortWords = (edge: Edge) => edge.relationship.length <= 20;
 
 /** An edge's words: its relationship as written and its edge type, both at every width. */
 function EdgeWords({ edge }: { edge: Edge }) {
@@ -648,10 +665,11 @@ export function NodeList({
   const layout =
     only && edges.length === 1
       ? "inline"
-      : edges.length && fits(mapLayout(edges).length, width)
+      : edges.length && edges.every(shortWords) && fits(mapLayout(edges).length, width)
         ? "columns"
         : "flow";
   const inline = layout === "inline";
+  const twoColumns = layout === "flow" && nodes.length >= 6 && (width ?? 0) >= 900;
   return (
     <div ref={ref} className="flex min-w-0 flex-col gap-3">
       {layout === "columns" && <MapDrawing edges={edges} />}
@@ -659,7 +677,13 @@ export function NodeList({
       <ul
         aria-label={label}
         data-map={inline ? "inline" : undefined}
-        className={cx("flex min-w-0 flex-col gap-3", layout === "columns" && "sr-only")}
+        className={cx(
+          // A long flow in a wide tile reads in two columns, each node kept whole with its edges.
+          twoColumns
+            ? "block min-w-0 columns-2 gap-x-10 [&>li]:mb-3 [&>li]:break-inside-avoid"
+            : "flex min-w-0 flex-col gap-3",
+          layout === "columns" && "sr-only",
+        )}
       >
         {nodes.map(([node, name]) => (
           <li

@@ -2,6 +2,8 @@ import { runMoneyUnit } from "../../reportView";
 import { Bento } from "../overview/Tile";
 import {
   InstrumentTable,
+  PeerLevels,
+  peerLevels,
   quotedInstruments,
   recommendationInstruments,
   securityView,
@@ -24,11 +26,12 @@ export const SecurityLead = withDraws(
     const instruments =
       (data && quotedInstruments(data, runMoneyUnit(view.catalogue))) ??
       recommendationInstruments(entry);
+    const peers = peerLevels(entry);
     return (
       <Bento>
         {instruments ? (
           <InstrumentTable data={instruments} href={href} />
-        ) : (
+        ) : data?.outcomes ? null : (
           <LeadGap
             span={12}
             label={TITLE}
@@ -36,12 +39,16 @@ export const SecurityLead = withDraws(
             reason="This page could not read the instrument decisions."
           />
         )}
-        <LeadGap
-          span={12}
-          label="Relative value against peers"
-          title="Relative value against peers"
-          reason="This page could not read peer levels."
-        />
+        {peers ? (
+          <PeerLevels peers={peers} href={href} />
+        ) : (
+          <LeadGap
+            span={12}
+            label="Relative value against peers"
+            title="Relative value against peers"
+            reason="This page could not read peer levels."
+          />
+        )}
         {data?.outcomes && <ValueMatrix table={data.outcomes} href={href} />}
       </Bento>
     );

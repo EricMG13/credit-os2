@@ -99,7 +99,7 @@ it("F5b: the as-of words start to the right of the period brackets", () => {
   mockViewport(390);
   draw(december, "2026-12-15");
   const label = document.querySelector<HTMLElement>("[data-as-of-label]") as HTMLElement;
-  expect(label).toHaveTextContent("As of 2026-12-15");
+  expect(label).toHaveTextContent("As of 15 December 2026");
   expect(Number.parseFloat(label.style.marginLeft)).toBeGreaterThanOrEqual(10);
   const rule = document.querySelector("[data-as-of-rule]");
   expect(rule).toHaveClass("inset-x-0");

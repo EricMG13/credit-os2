@@ -90,6 +90,7 @@ class RunSpec:
     selection: str | None = "preset"  # workflow.json `selection`; None: an older run without it
     case_kind: str = "public"
     cp8: str | None = None  # The whole CP-8 handoff, when the run has that module.
+    test_adaptations: tuple[str, ...] = ()  # workflow.json `test_adaptations`, when a test flag ran
 
 
 def make_run(workspace: Path, folder: str, **changes) -> Path:
@@ -155,6 +156,8 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
     workflow = {"run": run, "instructions": instructions, "provider_cap_usd": "12"}
     if spec.selection is not None:
         workflow["selection"] = spec.selection
+    if spec.test_adaptations:
+        workflow["test_adaptations"] = list(spec.test_adaptations)
     if spec.supplied:
         workflow["sources"] = {
             name: {

@@ -1,5 +1,6 @@
 import { ArrowRight } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
+import { moduleName, UNNAMED_MODULE } from "../../api";
 import { containsReference, readParagraph, readerText } from "../../publishedReport";
 
 /** An inline source marker such as "[E3]" or "[E12, E14]": the trace carries it, the page does not. */
@@ -24,6 +25,10 @@ const REGISTER_ID = String.raw`T[A-Z0-9]*\.\d+(?:\.\d+)*(?!\w|\.\d)(?!\s*(?:bn|b
 const CITED_REGISTER_ID = new RegExp(
   String.raw`\b(?:[Pp]er|[Ss]ee|[Ii]n|[Ff]rom|[Tt]able|[Rr]egister|[Rr]ows? of)\s+${REGISTER_ID}|[[(]\s*${REGISTER_ID}\s*[\])]|^\s*${REGISTER_ID}\s*$`,
 );
+/** A register id as the subject of a clause: "…; T4.9 retains the missing ratios". */
+const SUBJECT_REGISTER_ID = new RegExp(String.raw`(?:^|[.;:]\s+)${REGISTER_ID}\s+[a-z]`);
+/** A calculation id from the handoff's calculation register: "C05", "calculation C12". */
+const CALCULATION_ID = /(?<![\w\-/.])C\d{2,3}(?![\w\-/.%])/;
 /** A module code standing on its own ("CP-1", not "US-CP-1"). */
 const CODE = /(?<![\w\-\\/.])CP-[A-Z0-9]+/g;
 
@@ -32,9 +37,20 @@ const CODE = /(?<![\w\-\\/.])CP-[A-Z0-9]+/g;
  * name: a cited register id, or a methodology module code left unnamed. Other codes stay as written.
  */
 export function carriesUnreadId(text: string) {
-  if (CITED_REGISTER_ID.test(text)) return true;
+  if (CITED_REGISTER_ID.test(text) || SUBJECT_REGISTER_ID.test(text) || CALCULATION_ID.test(text))
+    return true;
   return [...text.matchAll(CODE)].some(([code]) => METHODOLOGY_CODES.has(code));
 }
+
+/** A methodology module code the page has no name for: its sentence is read in Evidence. */
+const namesNoModule = (text: string) =>
+  [...text.matchAll(CODE)].some(
+    ([code]) => METHODOLOGY_CODES.has(code) && moduleName(code) === UNNAMED_MODULE,
+  );
+
+/** Marks a word set aside from the reader rule (a private-use character, never in a handoff). */
+const HELD = "\uE000";
+const OWN_WORD = new RegExp(`${HELD}(\\d+)${HELD}`, "g");
 
 /**
  * A reason a module wrote, as a working page may draw it: its body without the Basis line or
@@ -49,11 +65,18 @@ export function readerReason(text: string): string | null {
     .replace(MARKER, "")
     .trim();
   if (!body || containsReference(body)) return null;
-  const words = readerText(body);
+  if (namesNoModule(body)) return null;
+  // A code the methodology does not define ("CP-BACKSTOP", "CP-99") is the module's own word, not
+  // a module: it is set aside while the reader rule names the modules, and drawn as written.
+  const own: string[] = [];
+  const guarded = body.replace(CODE, (code) =>
+    METHODOLOGY_CODES.has(code) ? code : `${HELD}${String(own.push(code) - 1)}${HELD}`,
+  );
+  const words = readerText(guarded).replace(OWN_WORD, (_, at: string) => own[Number(at)] ?? "");
   return carriesUnreadId(words) ? null : words;
 }
 
-const LINK = "min-h-8 max-[480px]:min-h-11";
+const LINK = "min-h-8 max-w-full text-left whitespace-normal max-[480px]:min-h-11";
 
 /**
  * The one way every gap reason or note is drawn on the Overview: the module's words through

@@ -1,8 +1,8 @@
 import { unitLabel } from "../../publishedReport";
 import { word } from "../../visuals/visualData";
 import { Key } from "../overview/figureParts";
-import { basisNotes } from "../overview/figureData";
 import { Bento, Tile } from "../overview/Tile";
+import { basisNotes } from "../overview/figureData";
 import { Bullets, leadTests } from "./bullet";
 import { withDraws } from "./draws";
 import { Beside, KeyValues, LeadFigure, LeadGap, MapTile, Trace } from "./parts";
@@ -13,6 +13,7 @@ import {
   mapOf,
   readerCell,
   registerTable,
+  sectionParagraphs,
   rowName,
   drawsNothing,
   hasRegister,
@@ -37,6 +38,19 @@ function headroomOf(entry: LeadProps["entry"]) {
   const chart = chartOf(entry, TITLE);
   const tests = chart.state === "ready" ? leadTests(chart.table, chart.descriptor) : null;
   return { chart, tests: tests?.length ? tests : null };
+}
+
+/**
+ * The module's own words under its covenant chart (a note on what the thresholds are), in the
+ * section holding the chart's table; each test's own basis is on its row.
+ */
+function chartNotes(entry: LeadProps["entry"], line: number) {
+  const section = entry.sections.find(({ blocks }) =>
+    blocks.some((block) => block.type === "table" && block.line === line),
+  );
+  return section
+    ? sectionParagraphs(entry, section.heading).flatMap(({ text }) => (text ? [text] : []))
+    : [];
 }
 
 function Headroom({
@@ -88,12 +102,16 @@ function Headroom({
       trace={<Trace href={href(table.line)} name={TITLE} />}
       figure={<Bullets label="Covenant tests" tests={tests} href={rowHref} />}
       table={writtenTable(table, href)}
-      notes={basisNotes(table)}
+      notes={[
+        // A basis every test shares is one note; tests with their own carry it on their rows.
+        ...(tests.some((test) => test.condition) ? [] : basisNotes(table)),
+        ...chartNotes(entry, table.line),
+      ]}
     />
   );
 }
 
-const BASKET_FIELDS = ["Estimated Capacity", "Remaining Capacity", "Status"] as const;
+const BASKET_FIELDS = ["Formula", "Estimated Capacity", "Remaining Capacity", "Status"] as const;
 
 function Baskets({ entry, href, span }: { entry: LeadProps["entry"]; href: Href; span: 6 | 12 }) {
   const label = "Baskets and capacity";
@@ -128,10 +146,14 @@ function Baskets({ entry, href, span }: { entry: LeadProps["entry"]; href: Href;
                   {basket}
                 </span>
                 <KeyValues
-                  items={fields.map(({ field, at }) => ({
-                    key: field,
-                    value: readerCell(cells[at] ?? ""),
-                  }))}
+                  items={fields
+                    .map(({ field, at }) => ({ key: field, value: readerCell(cells[at] ?? "") }))
+                    // A formula the module repeats as the capacity is shown once.
+                    .filter(
+                      (item, _at, all) =>
+                        item.key !== "Formula" ||
+                        !all.some((other) => other.key !== item.key && other.value === item.value),
+                    )}
                 />
               </span>
               <Trace href={href(line)} name={basket} />

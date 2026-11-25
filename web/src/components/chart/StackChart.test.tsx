@@ -134,7 +134,7 @@ describe("StackChart chart side", () => {
 describe("StackChart table side", () => {
   it("shows the mock's strings", () => {
     renderStack();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const row = screen.getByRole("row", { name: /Receivables facility/ });
     expect(
       within(row)

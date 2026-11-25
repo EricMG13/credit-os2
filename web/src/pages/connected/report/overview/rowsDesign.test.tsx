@@ -81,6 +81,10 @@ it("labels each stack segment beside it, bracketed to the segment, with no dead 
   const segments = [...figure.querySelectorAll("[data-segment], [data-gap]")];
   expect(figure.querySelectorAll("[data-bracket]")).toHaveLength(segments.length);
   const labels = within(tile).getAllByRole("listitem");
+  // A long facility name keeps one line, so it never runs into the label below; its title holds it.
+  const name = within(labels[0] as HTMLElement).getByText("Term loan");
+  expect(name).toHaveClass("truncate");
+  expect(name).toHaveAttribute("title", "Term loan");
   const top = (item?: Element) =>
     Number.parseFloat((item as HTMLElement | undefined)?.style.top ?? "");
   // The first claim's label sits at its segment's middle; each next label lower, never above it.
@@ -250,7 +254,7 @@ it("draws each downside panel on an axis with ticks, and says nothing about a li
   );
 });
 
-it("sets every headline figure at the metric size, and no tile stretches past its content", () => {
+it("sets the stress figures under the bottom line, and the row shares one height", () => {
   const model = {
     cashflow: {
       columns: [{ label: "FY2025E", group: "Base case", start: "2025-04-01", end: "2026-03-31" }],
@@ -263,8 +267,11 @@ it("sets every headline figure at the metric size, and no tile stretches past it
     },
   };
   render(<StressRow {...rowProps([covenants("Net leverage")], [model])} />);
-  expect(screen.getByText("0.8x")).toHaveClass("text-metric");
-  expect(screen.getByText("2.00x", { selector: "span" })).toHaveClass("text-metric");
+  // Under the bottom line (36 or 44 px): the P2 headroom at h1, the P3 forward path at h2.
+  expect(screen.getByText("0.8x")).toHaveClass("text-h1");
+  expect(screen.getByText("2.00x", { selector: "span" })).toHaveClass("text-h2");
+  // The downside tile can be far taller than its neighbours: each ends under its own notes, so
+  // no short figure is stretched over a dead band.
   for (const name of ["Covenant headroom", "Downside scenarios", "Forward path"])
     expect(screen.getByRole("region", { name })).toHaveClass("self-start");
 });

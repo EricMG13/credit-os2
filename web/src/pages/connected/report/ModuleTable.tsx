@@ -118,6 +118,12 @@ export function monitoringLabel(module: string, title: string, table: Table) {
   return monitoringTitle(module, title, visible(table));
 }
 
+/** The monitoring table's own column headings as the page draws them: sentence case, like every label. */
+const WATCH_LABELS: Readonly<Record<string, string | undefined>> = {
+  "Why It Matters": "Why it matters",
+  "Credit Impact": "Credit impact",
+};
+
 function monitoring(
   title: string,
   data: ReturnType<typeof visible>,
@@ -137,7 +143,7 @@ function monitoring(
           timing: timed ? (cells[1]?.toLowerCase() === "leading" ? "leading" : "lagging") : null,
           detail: data.headers.slice(detailAt).flatMap((label, index) => {
             const text = cellText(cells[index + detailAt]);
-            return text ? [{ label, text }] : [];
+            return text ? [{ label: WATCH_LABELS[label] ?? label, text }] : [];
           }),
           trace: traceAt(line),
         })),

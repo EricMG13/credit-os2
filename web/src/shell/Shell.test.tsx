@@ -70,6 +70,24 @@ describe("Shell", () => {
     expect(img?.getAttribute("src")).toBe("./symbol.svg");
   });
 
+  it("carries one primary action at the end of the bar, outside the areas, only when given", () => {
+    const first = render(<Shell current="library">content</Shell>);
+    expect(screen.queryByRole("link", { name: "Start run" })).toBeNull();
+    first.unmount();
+    render(
+      <Shell current="library" action={{ href: "/start", label: "Start run" }}>
+        content
+      </Shell>,
+    );
+    const action = screen.getByRole("link", { name: "Start run" });
+    expect(action).toHaveAttribute("href", "/start");
+    expect(screen.getByRole("banner")).toContainElement(action);
+    expect(screen.getByRole("navigation", { name: "Areas" })).not.toContainElement(action);
+    expect(action).not.toHaveAttribute("aria-current");
+    // The current area keeps its own tint and underline; the action is never the current area.
+    expect(document.querySelectorAll("[data-current-area]")).toHaveLength(1);
+  });
+
   it("puts the page in one main region", () => {
     render(<Shell current="kit">page body</Shell>);
     expect(screen.getByRole("main")).toHaveTextContent("page body");

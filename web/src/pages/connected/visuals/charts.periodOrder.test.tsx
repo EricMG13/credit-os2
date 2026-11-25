@@ -60,7 +60,7 @@ it("draws a period chart's rows in period order with LTM and PF between actuals 
 
 it("keeps each row's figure, unit, basis and source with its own period in the Table form", () => {
   const { figure } = drawn();
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   const rows = within(figure.getByRole("table", { name: "Leverage" })).getAllByRole("row");
   const text = rows.slice(1).map((row) => [
     within(row).getByRole("rowheader").textContent,

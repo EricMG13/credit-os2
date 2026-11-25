@@ -284,3 +284,10 @@ The delivered report is retired from the library, so the copied report pages and
 | `web/components.js` | `runSteps` takes the step state `stopped` (word "interrupted"; labelled mark `stopped`, the warning tone and `triangle-alert`, word "Interrupted"); `RUN_MARKS` gains it | `run_events.progress` ends the running module when the run stops; it read "running" for good |
 | `web/screen.css` | `.step.stopped` amber in the compact bar, neutral on the labelled card (`.steps-l`), `GrayText` under forced colours | the stopped segment reads apart from done and running |
 | `web/components.test.cjs` | A `runSteps` test for the stopped step, compact and labelled | covers the above |
+
+Accent changed from teal to blue (owner, 2026-11-25):
+
+| File | Change | Why |
+| --- | --- | --- |
+| `web/screen.css` | `--green` `#0f8048` to `#1d4ed8`; `--series-2` `#1eff8f` and `--series-2-ln` `#0f8048` to `#341b55` | the status green follows the web register's Success mark, the second series its chart slot 2 (`docs/design/design-system.md`) |
+| `web/static.test.cjs` | the three expected token values | covers the above |

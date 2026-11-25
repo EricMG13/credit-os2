@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { cx } from "@/utils/cx";
-import { moduleName } from "../api";
 import { latestRun, type Coverage as Data, type CoverageRun, type Issuer } from "../coverageData";
 import { stageColumns, RunStates } from "./RunStates";
 import { named, reportPath, RunLine, runText, tableBox, th } from "./shared";
@@ -46,6 +45,10 @@ function StageHead({ data }: { data: Data }) {
       <tr className="border-b border-border-hairline">
         <th rowSpan={2} scope="col" className={cx(th, STICKY, "z-20 align-bottom")}>
           Issuer
+          {/* Each box is named "Compare <issuer>"; this is the column's visible hint. */}
+          <span aria-hidden="true" className="block text-caption font-normal text-text-tertiary">
+            Tick to compare
+          </span>
         </th>
         {groups.map((group) => (
           <th
@@ -53,7 +56,7 @@ function StageHead({ data }: { data: Data }) {
             colSpan={group.columns.length}
             scope="colgroup"
             title={group.name}
-            className="max-w-0 truncate border-l border-border-hairline px-1.5 pt-2 pb-1 text-left align-bottom text-caption font-medium text-text-tertiary"
+            className="border-l border-border-hairline px-1.5 pt-2 pb-1 text-left align-bottom text-caption font-medium text-text-tertiary"
           >
             {group.name}
           </th>
@@ -106,7 +109,7 @@ function ShapeCells({
       {stageColumns(data).flatMap((group) =>
         group.columns.map((column, index) => {
           const cell = run.cells[column.code];
-          const module = moduleName(column.code) === column.code ? column.title : moduleName(column.code);
+          const module = named(column);
           const label = `${module} for ${issuer}: ${stateWord(cell)}`;
           const reading = `${issuer} (${runText(run)}), ${module}: ${stateWord(cell)}`;
           const shared = {
@@ -255,8 +258,14 @@ export function Matrix({
           <caption className="sr-only">
             Each issuer’s newest run: what every module delivered, as shapes
           </caption>
+          {/* A stage of one module keeps room for its name; a longer stage name wraps, never cuts. */}
           <colgroup>
-            <col className="w-72" />
+            <col className="w-64 xl:w-72" />
+            {stageColumns(data).flatMap((group) =>
+              group.columns.map((column) => (
+                <col key={column.code} className={group.columns.length === 1 ? "w-20" : undefined} />
+              )),
+            )}
           </colgroup>
           <StageHead data={data} />
           <tbody>

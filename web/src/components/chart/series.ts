@@ -12,6 +12,8 @@ const SOLID = "none";
 const DASHED = "6 4";
 const DOTTED = "1.5 4";
 const DASH_DOT = "8 4 1.5 4";
+// Slot 5 is close to slot 1 in lightness, so its line is never solid.
+const LONG_DASHED = "12 4";
 
 /** The design system's Chart palette: six slots in order, then Other. */
 export const SERIES: readonly SeriesStyle[] = [
@@ -19,7 +21,7 @@ export const SERIES: readonly SeriesStyle[] = [
   { color: "var(--color-chart-2)", dash: DASHED, marker: "square" },
   { color: "var(--color-chart-3)", dash: SOLID, marker: "triangle" },
   { color: "var(--color-chart-4)", dash: DOTTED, marker: "diamond" },
-  { color: "var(--color-chart-5)", dash: SOLID, marker: "ring" },
+  { color: "var(--color-chart-5)", dash: LONG_DASHED, marker: "ring" },
   { color: "var(--color-chart-6)", dash: DASH_DOT, marker: "cross" },
   { color: "var(--color-chart-other)", dash: SOLID, marker: "none" },
 ];

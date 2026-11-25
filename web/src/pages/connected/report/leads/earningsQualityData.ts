@@ -45,8 +45,12 @@ export type Bridge = {
     /** The assessment's accepted and not accepted cells as written ("" without the column). */
     accepted: string;
     notAccepted: string;
+    /** The bridge table's own support cell for the step ("Rejected for …", "Challenged; …"), "" without it. */
+    stance: string;
+    /** The module's basis cell for the step, "" without it or where it names a source. */
+    basis: string;
   })[];
-  /** Whether the assessment table is there and states a word for at least one add-back. */
+  /** Whether a support word is stated for at least one add-back (assessment table or the bridge's own column). */
   supportStated: boolean;
   notes: string[];
 };
@@ -64,8 +68,23 @@ function stepTable(entry: OutputEntry): { table: Table; heading: string } | null
     ({ table }) => table.headers.includes("Step") && table.headers.includes("Amount"),
   );
   if (found.length <= 1) return found[0] ?? null;
+  // Two different bridges (earnings and debt) are not one bridge twice: the heading names which is which.
   const bridges = found.filter(({ heading }) => /bridge/i.test(heading));
-  return bridges.length === 1 ? (bridges[0] ?? null) : "several";
+  if (bridges.length === 1) return bridges[0] ?? null;
+  const earnings = bridges.filter(({ heading }) => /ebitda|earnings/i.test(heading));
+  return earnings.length === 1 ? (earnings[0] ?? null) : "several";
+}
+
+/** The currency and scale the module states for its monetary amounts ("USD millions"), or "". */
+function statedUnit(entry: OutputEntry) {
+  const pattern =
+    /monetary (?:amounts|quantities) are (?:consolidated )?((?:[A-Z]{3}|US\$)\s+(?:thousands|millions|billions))/i;
+  for (const { blocks } of entry.sections)
+    for (const block of blocks) {
+      const found = block.type === "text" ? pattern.exec(block.text) : null;
+      if (found?.[1]) return found[1];
+    }
+  return "";
 }
 
 /**
@@ -126,12 +145,13 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
   const heading = found === "several" || found === null ? "" : found.heading;
   if (table === "several")
     return gapOf(
-      "This page could not read the earnings quality bridge because it appears more than once.",
+      "This page could not tell which of the bridges the module wrote is the earnings quality bridge.",
     );
   if (!table) return gapOf("This page could not read the earnings quality bridge.");
   const unitAt = table.headers.indexOf("Reporting unit");
   const amountAt = table.headers.indexOf("Amount");
   const basisAt = table.headers.indexOf("Basis and limitation");
+  const basisOf = (cells: string[]) => safeText(cells[table.headers.indexOf("Basis")] ?? "");
   const stated = table.rows.map((row) => {
     const cell = safeText(row.cells[amountAt] ?? "");
     const unit = unitAt < 0 ? "" : safeText(row.cells[unitAt] ?? "");
@@ -139,8 +159,9 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
   });
   if (table.rows.length < 2)
     return gapOf("This page could not read two steps of the bridge.", stated, heading);
+  // Without a unit column the module's own statement of its monetary unit is the unit.
   const units = new Set(
-    table.rows.map((row) => (unitAt < 0 ? "" : (row.cells[unitAt] ?? "").trim())),
+    table.rows.map((row) => (unitAt < 0 ? statedUnit(entry) : (row.cells[unitAt] ?? "").trim())),
   );
   const [unit = ""] = units;
   if (units.size !== 1 || !unit)
@@ -153,7 +174,8 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
     );
   const steps = table.rows.map((row) => ({
     label: safeText(row.cells[0] ?? ""),
-    reading: readCell(row.cells[amountAt] ?? ""),
+    // A stated increase may carry its plus sign ("+15").
+    reading: readCell((row.cells[amountAt] ?? "").replace(/^\s*\+/, "")),
     line: row.line,
   }));
   const bad = steps.find((step) => step.reading.kind !== "number");
@@ -174,10 +196,48 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
       line: step.line,
     };
   });
-  const [opening, ...rest] = read;
-  const closing = rest.pop();
-  if (!opening || !closing)
+  const [opening, ...tail] = read;
+  if (!opening || tail.length === 0)
     return gapOf("This page could not read two steps of the bridge.", stated, heading);
+  // The closing is the last row that is exactly the opening plus the steps before it; rows after it
+  // (a stated sensitivity) are listed as the module wrote them. With none, the last row is tried.
+  let closingAt = tail.length - 1;
+  // A row equal to the running total before it is a subtotal, never the closing; when the table's
+  // final row is the opening plus every step that is not a subtotal, that row is the closing.
+  const isSubtotal = (at: number) => {
+    const before = sum([opening.amount, ...tail.slice(0, at).map((step) => step.amount)]);
+    return before !== null && signOf(difference(tail[at]?.amount ?? "", before)) === 0;
+  };
+  const subtotals = new Set(
+    tail.flatMap((_, at) => (at < tail.length - 1 && isSubtotal(at) ? [at] : [])),
+  );
+  const total = sum([
+    opening.amount,
+    ...tail.slice(0, -1).flatMap((step, at) => (subtotals.has(at) ? [] : [step.amount])),
+  ]);
+  const finalReconciles =
+    subtotals.size > 0 &&
+    total !== null &&
+    signOf(difference(tail.at(-1)?.amount ?? "", total)) === 0;
+  for (let at = tail.length - 1; at >= 0 && !finalReconciles; at -= 1) {
+    const made = sum([opening.amount, ...tail.slice(0, at).map((step) => step.amount)]);
+    if (made !== null && signOf(difference(tail[at]?.amount ?? "", made)) === 0) {
+      closingAt = at;
+      break;
+    }
+  }
+  const closing = tail[closingAt];
+  const rest = tail.slice(0, closingAt).filter((_, at) => !(finalReconciles && subtotals.has(at)));
+  const subtotalNotes = finalReconciles
+    ? [...subtotals].map((at) => `${tail[at]?.label ?? ""} ${group(tail[at]?.amount ?? "")}`)
+    : [];
+  const after = tail.slice(closingAt + 1).map((step, at) => {
+    const cells = table.rows[closingAt + 2 + at]?.cells ?? [];
+    const basis = basisOf(cells);
+    const amount = safeText(cells[amountAt] ?? step.amount);
+    return { label: step.label, text: basis ? `${amount} (${basis})` : amount };
+  });
+  if (!closing) return gapOf("This page could not read two steps of the bridge.", stated, heading);
   const rebuilt = sum([opening.amount, ...rest.map((step) => step.amount)]);
   if (rebuilt === null || signOf(difference(closing.amount, rebuilt)) !== 0)
     return gapOf(
@@ -186,9 +246,17 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
       heading,
     );
   const names = assessmentByName(entry);
+  const stanceAt = table.headers.findIndex(
+    (header) => /support|reject|challeng/i.test(header) && !/evidence|cumulative/i.test(header),
+  );
   const changes = rest.map((step) => {
     const found = names.get(norm(step.label));
+    const cells = table.rows.find((row) => row.line === step.line)?.cells ?? [];
+    const stance = stanceAt < 0 ? "" : safeText(cells[stanceAt] ?? "");
+    const basis = basisOf(cells);
     return {
+      stance,
+      basis: namesSource(basis) ? "" : basis,
       ...step,
       support: found?.support ?? null,
       split: splitOf(step, found),
@@ -203,6 +271,9 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
         return text && !namesSource(text) ? [readerText(text)] : [];
       }),
     ),
+    ...subtotalNotes,
+    // A step stated after the closing amount (a sensitivity) is not drawn; it is written as the module wrote it.
+    ...after.map((step) => `${step.label} ${step.text}`),
   ];
   return {
     state: "ready",
@@ -212,15 +283,24 @@ export function readBridge(entry: OutputEntry): Bridge | BridgeGap {
     opening,
     closing,
     changes,
-    supportStated: changes.some((step) => step.support !== null),
+    supportStated: changes.some((step) => step.support !== null || step.stance !== ""),
     notes,
   };
 }
 
 /** One basis of a leverage measure: the stated multiple, or the words / reason the table states instead. */
-export type Side = { value: number; text: string } | { gap: string; written: string };
+export type Side =
+  { value: number; text: string; written?: string } | { gap: string; written: string };
 
-type LeverageMeasure = { measure: string; reported: Side; restated: Side };
+type LeverageMeasure = {
+  measure: string;
+  reported: Side;
+  restated: Side;
+  /** The other EBITDA bases the table states, in its column order (see `others` of the lead). */
+  others?: Side[];
+  /** The table's delta cell as the module wrote it. */
+  delta?: string;
+};
 
 /** A multiple as the table writes it: a number with or without a trailing `x`, else words or a gap as written. */
 function sideOf(cell: string): Side {
@@ -233,20 +313,73 @@ function sideOf(cell: string): Side {
     : { gap: written, written };
 }
 
+/** A cell that opens with a multiple and goes on in words ("6.53x; denominator 3813"): the multiple, the words kept. */
+function leadingMultiple(cell: string): Side {
+  const found = /^(\d+(?:\.\d+)?)x(?![\w.])/i.exec(cell.trim());
+  if (!found?.[1]) return sideOf(cell);
+  return { value: Number(found[1]), text: `${found[1]}x`, written: safeText(cell) };
+}
+
 const BASIS_ROWS = { reported: "statements", restated: "supported" } as const;
 const MEASURES = ["Total leverage", "Net leverage"] as const;
 
 export type Leverage =
-  { state: "ready"; line: number; measures: LeverageMeasure[] } | { state: "gap"; reason: string };
+  | {
+      state: "ready";
+      line: number;
+      measures: LeverageMeasure[];
+      /** What the two sides are, in the table's words. */
+      labels: { reported: string; restated: string };
+      /** The further basis columns the table states ("On Adjusted EBITDA" as "Adjusted EBITDA"). */
+      others?: { label: string }[];
+      /** The delta column's header as written. */
+      deltaLabel?: string;
+    }
+  | { state: "gap"; reason: string };
+
+/** The leverage table in its other shape: one row per metric, a column per EBITDA basis. */
+function readMetricLeverage(entry: OutputEntry): Leverage | null {
+  const table = tableWith(entry, ["Metric", "On Reported EBITDA", "On Quality-Adjusted EBITDA"]);
+  if (!table) return null;
+  const from = table.headers.indexOf("On Reported EBITDA");
+  const to = table.headers.indexOf("On Quality-Adjusted EBITDA");
+  const otherAts = table.headers.flatMap((header, at) =>
+    /^on /i.test(header) && at !== from && at !== to ? [at] : [],
+  );
+  const deltaAt = table.headers.findIndex((header) => /^delta/i.test(header));
+  return {
+    state: "ready",
+    line: table.line,
+    labels: { reported: "Reported EBITDA", restated: "Quality-Adjusted EBITDA" },
+    ...(otherAts.length > 0
+      ? {
+          others: otherAts.map((at) => ({ label: (table.headers[at] ?? "").replace(/^on /i, "") })),
+        }
+      : {}),
+    ...(deltaAt >= 0 ? { deltaLabel: table.headers[deltaAt] ?? "" } : {}),
+    measures: table.rows.map((row) => ({
+      measure: safeText(row.cells[0] ?? ""),
+      reported: leadingMultiple(row.cells[from] ?? ""),
+      restated: leadingMultiple(row.cells[to] ?? ""),
+      ...(otherAts.length > 0
+        ? { others: otherAts.map((at) => leadingMultiple(row.cells[at] ?? "")) }
+        : {}),
+      ...(deltaAt >= 0 ? { delta: safeText(row.cells[deltaAt] ?? "") } : {}),
+    })),
+  };
+}
 
 /** Leverage on the statements and on supported earnings, each side as the table states it. */
 export function readLeverage(entry: OutputEntry): Leverage {
   const table = tableWith(entry, ["Total leverage", "Net leverage"]);
   if (!table)
-    return {
-      state: "gap",
-      reason: "This page could not read the leverage on the statements and on supported earnings.",
-    };
+    return (
+      readMetricLeverage(entry) ?? {
+        state: "gap",
+        reason:
+          "This page could not read the leverage on the statements and on supported earnings.",
+      }
+    );
   const rowOf = (basis: string) =>
     table.rows.filter((row) => norm(row.cells[0] ?? "").replace(/\s*\(cp-1\)$/, "") === basis);
   const reported = rowOf(BASIS_ROWS.reported);
@@ -267,7 +400,12 @@ export function readLeverage(entry: OutputEntry): Leverage {
       restated: sideOf(to.cells[at] ?? ""),
     };
   });
-  return { state: "ready", line: table.line, measures };
+  return {
+    state: "ready",
+    line: table.line,
+    measures,
+    labels: { reported: "Statements", restated: "Supported earnings" },
+  };
 }
 
 /** The chart title the store publishes for a `Chart data:` heading ("Add-back share"), or null. */

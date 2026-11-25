@@ -156,6 +156,17 @@ describe("connected report Changes", () => {
     expect(screen.queryByRole("link", { name: "Review comparison evidence" })).toBeNull();
   });
 
+  it.each([
+    ["a first run", { first_run: true }],
+    ["a comparison not produced", { first_run: false, pack: null, note: "Changes: not produced" }],
+  ] as const)("links %s to the list of this issuer's runs", (_state, change) => {
+    renderChanges(change);
+    expect(screen.getByRole("link", { name: "All runs of this issuer" })).toHaveAttribute(
+      "href",
+      "#history",
+    );
+  });
+
   it("draws each moved measure in the pack's order with earlier, current and the stated cause", () => {
     const measure = (key: string, prior: string, current: string, difference: number) => ({
       key,
@@ -318,7 +329,7 @@ describe("connected report Changes", () => {
         .className,
     ).toMatch(/text-h2/);
     expect(within(verdict).getByText("A second paragraph follows.")).toBeVisible();
-    expect(within(verdict).getByText("Earlier run, as of 2025-03-31")).toBeVisible();
+    expect(within(verdict).getByText("Earlier run, as of 31 March 2025")).toBeVisible();
     expect(within(verdict).getByText(/Stance, earlier → current/)).toBeVisible();
   });
 
@@ -403,7 +414,7 @@ describe("connected report Changes", () => {
     expect(screen.getByText("Credit is stable; Liquidity is thin.")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Follows Liquidity · The view follows Financial foundation, which did not change.",
+        "Cause: Follows Liquidity · Why: The view follows Financial foundation, which did not change.",
       ),
     ).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/\(CP-[A-Za-z0-9]+\)/);
@@ -966,7 +977,7 @@ describe("connected report Changes", () => {
     });
     expect(screen.getByText("Status not stated")).toBeVisible();
     expect(screen.queryByText("Explanation not stated")).toBeNull();
-    expect(screen.getByText("New period")).toBeInTheDocument();
+    expect(screen.getByText("Cause: New period")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Read the explanation in Evidence", hidden: true }),
     ).toBeInTheDocument();
@@ -1274,6 +1285,124 @@ describe("connected report Changes", () => {
       [entry],
     );
     expect(screen.queryByText("Effect not stated")).toBeNull();
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getByText("Effect on the credit view: —")).toBeVisible();
+  });
+
+  // Shaped like the first real comparison (TransDigm, two runs of one as-of date): every cause is
+  // "Unresolved", each effect opens with the verdict's own words, and the issuer section leads with
+  // a paragraph that qualifies the differences drawn from its table.
+  describe("a real comparison whose causes are unresolved", () => {
+    const realEntry = () => {
+      const entry = cp8([["E1", "C1", "Segment margins are not disclosed", "Remaining", "—"]]);
+      entry.sections.push({
+        heading: "What changed: the issuer",
+        level: 3,
+        line: 64,
+        blocks: [
+          {
+            type: "text" as const,
+            line: 66,
+            end: 66,
+            text: "The signed differences below are copied comparisons of different observation dates, not evidence of developments after the earlier review.",
+          },
+          {
+            type: "table" as const,
+            headers: [
+              "Measure or fact",
+              "Earlier",
+              "Current",
+              "Cause",
+              "Effect on the credit view",
+            ],
+            line: 69,
+            rows: [
+              {
+                line: 76,
+                cells: [
+                  "Undrawn committed facilities",
+                  "843 US$m (FY2024 / 2024-09-30)",
+                  "839 US$m (2024-06-29)",
+                  "Unresolved",
+                  "Same definition: available revolving commitments after letters of credit; supplied difference -4 US$m compares different observation dates. This does not establish a deterioration in access since the earlier review.",
+                ],
+              },
+              {
+                line: 77,
+                cells: ["Revenue", "6585 US$m", "7940 US$m", "Organic growth", "Supportive"],
+              },
+            ],
+          },
+        ],
+      });
+      const ledger = entry.sections.find((section) => section.heading === "Limitations ledger");
+      ledger?.blocks.unshift({
+        type: "text" as const,
+        line: 9,
+        end: 9,
+        text: "The ledger pairs limitations by economic meaning rather than wording.",
+      });
+      return entry;
+    };
+    const side = (value: string, period: string) => ({ value, unit: "US$m", period });
+    const real: PublishedChanges = {
+      pack: {
+        measures: [
+          {
+            key: "undrawn",
+            label: "Undrawn committed facilities",
+            unit: "US$m",
+            prior: side("843", "FY2024 / 2024-09-30"),
+            current: side("839", "2024-06-29"),
+            difference: "-4",
+          },
+          {
+            key: "revenue",
+            label: "Revenue",
+            unit: "US$m",
+            prior: side("6585", "FY2023"),
+            current: side("7940", "FY2024"),
+            difference: "1355",
+          },
+        ],
+      },
+      verdicts: {
+        measures: {
+          undrawn: { kind: "comparable", label: "Same definition" },
+          revenue: { kind: "comparable", label: "Comparable" },
+        },
+      },
+    };
+    const rowOf = (name: string) =>
+      screen.getByRole("heading", { name }).closest("li") as HTMLElement;
+
+    it("calls a move neither better nor worse when the comparison leaves its cause unresolved", () => {
+      renderChanges(real, [realEntry()]);
+      const unresolved = rowOf("Undrawn committed facilities");
+      expect(within(unresolved).getByText("Cause: Unresolved")).toBeVisible();
+      expect(unresolved.querySelector("[data-change]")).not.toHaveTextContent(/better|worse/);
+      expect(unresolved.querySelector('[data-mark="dumbbell"] [data-current]')?.className).toMatch(
+        /bg-text-secondary/,
+      );
+      expect(unresolved.querySelector("[data-change]")).toHaveTextContent("-US$4m");
+      expect(rowOf("Revenue").querySelector("[data-change]")).toHaveTextContent("better");
+    });
+
+    it("does not repeat the verdict's words above an effect that opens with them", () => {
+      renderChanges(real, [realEntry()]);
+      expect(
+        within(rowOf("Undrawn committed facilities")).getAllByText(/Same definition/),
+      ).toHaveLength(1);
+    });
+
+    it("draws each register's lead paragraph with the register it qualifies, not at the foot of the page", () => {
+      renderChanges(real, [realEntry()]);
+      const measures = within(screen.getByRole("region", { name: "Measures that moved" }));
+      expect(
+        measures.getByText(/The signed differences below are copied comparisons/),
+      ).toBeVisible();
+      const ledger = within(screen.getByRole("region", { name: "Limitations ledger" }));
+      expect(ledger.getByText(/The ledger pairs limitations by economic meaning/)).toBeVisible();
+      expect(screen.queryByRole("region", { name: "More from the comparison" })).toBeNull();
+    });
   });
 });

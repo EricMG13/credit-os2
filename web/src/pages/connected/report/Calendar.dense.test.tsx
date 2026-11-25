@@ -161,6 +161,17 @@ it.each([
   });
 });
 
+it("writes the year on the first tick of each calendar year, also when the step skips January", () => {
+  draw([row("2025-03-15", "day", "First"), row("2026-12-28", "day", "Last")]);
+  const text = (key: string) =>
+    document.querySelector(`[data-axis-tick-label='${key}']`)?.textContent;
+  expect(document.querySelector("[data-axis-tick-label='2026-01']")).toBeNull();
+  expect(text("2025-04")).toBe("Apr 2025");
+  expect(text("2025-06")).toBe("Jun");
+  expect(text("2026-02")).toBe("Feb 2026");
+  expect(text("2026-04")).toBe("Apr");
+});
+
 it("F4: tick labels never touch one another once the last one has slid left", () => {
   draw([row("2026-01-01", "day", "First"), row("2027-12-28", "day", "Last")]);
   const labels = Array.from(document.querySelectorAll<HTMLElement>("[data-axis-tick-label]"));

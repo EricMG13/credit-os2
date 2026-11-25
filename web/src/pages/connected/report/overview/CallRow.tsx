@@ -12,12 +12,9 @@ import {
   evidenceToken,
   publishedRunForFolder,
   readerText,
-  runPathway,
-  runTiming,
-  unitLabel,
   type OutputEntry,
 } from "../../publishedReport";
-import { moduleBottomLines, moduleState, runMoneyUnit, type ReportView } from "../../reportView";
+import { moduleBottomLines, moduleState, type ReportView } from "../../reportView";
 import { TextLink } from "../../../run/TextLink";
 import { PublishedSource } from "../PublishedTrace";
 import { decisionActions, type Action, type SpecialistOverview } from "../frontPage";
@@ -27,7 +24,7 @@ import { callBlocks } from "./decision";
 import { readerReason } from "./reason";
 import { useSvgScale } from "./svgScale";
 import { entryOf, type Passage, type PassageTable, type RowProps } from "./read";
-import { Figure, GapNote, Tile } from "./Tile";
+import { Figure, GapNote, GapSentence, Tile } from "./Tile";
 
 function Source({
   run,
@@ -130,23 +127,18 @@ function moduleCount(run: RowProps["run"], view: ReportView) {
 
 const LINK_CLASS = "inline-flex min-h-8 items-center max-[480px]:min-h-11";
 
+/**
+ * The foot of the call: how many modules ran, and the two places further down this page a decider
+ * goes next. Pathway, as-of date and unit are the report header's, stated once there.
+ */
 function RunFacts({ run, view }: Pick<RowProps, "run" | "view">) {
-  const unit = runMoneyUnit(view.catalogue);
-  const facts = [
-    ["Pathway", runPathway(run, view.catalogue)],
-    ["Timing", runTiming(run)],
-    ["Currency", unit ? unitLabel(unit) : ""],
-    ["Modules", moduleCount(run, view)],
-  ].filter(([, value]) => value);
   return (
-    <div className="flex flex-col gap-3 border-t border-border-hairline pt-5">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
-        {facts.map(([term, value]) => (
-          <div key={term} className="flex min-w-0 flex-col gap-1">
-            <dt className="text-caption text-text-tertiary">{term}</dt>
-            <dd className="text-small wrap-anywhere text-text-primary">{value}</dd>
-          </div>
-        ))}
+    <div className="mt-auto flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-border-hairline pt-4">
+      <dl>
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          <dt className="text-caption text-text-tertiary">Modules</dt>
+          <dd className="text-small wrap-anywhere text-text-primary">{moduleCount(run, view)}</dd>
+        </div>
       </dl>
       <nav aria-label="On this page" className="flex flex-wrap gap-x-5 text-small">
         <TextLink className={LINK_CLASS} href="#overview/limitations">
@@ -162,6 +154,9 @@ function RunFacts({ run, view }: Pick<RowProps, "run" | "view">) {
 
 /** A target-sized link inside a tile: 32 px, 44 px on a phone. */
 const LINK = "min-h-8 max-[480px]:min-h-11";
+
+/** A pointer row of the trust column: what this page leaves to another page, and the way there. */
+const POINTER = "flex min-w-0 flex-col gap-2 px-5 py-4 sm:px-6";
 
 /** A small tile's heading and its one trace control, as the mockup's 13 px tile head. */
 function Head({ children, trace }: { children: ReactNode; trace?: ReactNode }) {
@@ -184,10 +179,22 @@ function Decisions({ run, decisions }: { run: RowProps["run"]; decisions: Action
   return (
     <dl aria-label="Decisions" className="flex flex-col gap-2">
       {decisions.map(({ module, label, status, reason, screenReason, owner }) => (
-        <div key={module} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <div key={module} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <dt className="text-small font-medium text-text-primary">{label}</dt>
-          <dd className="min-w-0 flex-1 text-small text-text-secondary">
-            {status === "withheld" ? `Withheld: ${reason}` : (screenReason ?? reason)}
+          <dd className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3">
+            {status === "withheld" ? (
+              <span className="text-small text-text-secondary">{`Withheld: ${reason}`}</span>
+            ) : (
+              <GapSentence>{screenReason ?? reason}</GapSentence>
+            )}
+            {/* The same quiet arrow link the trust column uses, not a headline-weight link. */}
+            {status === "not shown" && (
+              <span className="basis-full pl-6">
+                <EvidenceLink href={`#modules/${module}`}>
+                  {`Open ${moduleName(module)}`}
+                </EvidenceLink>
+              </span>
+            )}
           </dd>
           {owner && (
             <dd>
@@ -302,14 +309,16 @@ function CallTile({ snapshot, run, view }: RowProps) {
     );
   const name = moduleName(lead.output.module);
   return (
-    <Tile span={8} label="The call" className="gap-7 self-start">
+    // No `self-start`: a call shorter than the trust column ends level with it, its foot at the foot.
+    <Tile span={8} label="The call" className="gap-7">
       <div className="flex flex-col gap-6">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <h3 className="text-small font-medium text-text-secondary">The call · {name}</h3>
-        </div>
         <div className="flex flex-col gap-3">
+          {/* One line names the tile and the passage, with the passage's trace at its right. */}
           <div className="flex items-center justify-between gap-3">
-            <span className="text-caption text-text-secondary">{heading}</span>
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h3 className="text-small font-medium text-text-secondary">The call · {name}</h3>
+              <span className="text-caption text-text-tertiary">{heading}</span>
+            </div>
             <Source
               run={run}
               entry={lead}
@@ -429,7 +438,7 @@ const meterReading = (first: Scored, second: Scored | null) =>
     : "");
 
 /**
- * A 0 to 100 meter: the score as the filled length, a second module's score as a tick. The two
+ * A 0 to 100 meter: the score as the filled length, a second module's score as an open ring. The two
  * scores are named on a line under the bar, so their labels never collide or leave the scale.
  */
 function Meter({ first, second }: { first: Scored; second: Second }) {
@@ -450,13 +459,14 @@ function Meter({ first, second }: { first: Scored; second: Second }) {
         <rect x="0" y="6" width="408" height="6" rx="3" className="fill-border-hairline" />
         <rect x="0" y="6" width={x(first.score.value)} height="6" rx="3" className="fill-chart-1" />
         {tick !== null && (
-          <line
-            x1={x(tick)}
-            x2={x(tick)}
-            y1="2"
-            y2="16"
+          // An open ring, the mark of another reading; a tick across a bar is a limit elsewhere.
+          <circle
+            data-second=""
+            cx={Math.min(Math.max(x(tick), 5), 403)}
+            cy="9"
+            r="4"
             strokeWidth="1.5"
-            className="stroke-text-primary"
+            className="fill-surface-card stroke-text-primary"
           />
         )}
         <text x="0" y="38" fontSize={font()} className="fill-text-tertiary font-mono">
@@ -479,7 +489,10 @@ function Meter({ first, second }: { first: Scored; second: Second }) {
         </span>
         {second && (
           <span className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="h-3 border-l-[1.5px] border-text-primary" />
+            <span
+              aria-hidden="true"
+              className="size-2.5 flex-none rounded-ds-full border-[1.5px] border-text-primary bg-surface-card"
+            />
             <span>
               {scored
                 ? `${scored.name} ${String(scored.score.value)} · ${scored.score.band}`
@@ -527,7 +540,7 @@ function ConfidenceTile({ run, view }: Pick<RowProps, "run" | "view">) {
         Confidence
       </Head>
       <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <Figure className="text-metric font-medium">{score.value}</Figure>
+        <Figure className="text-h1 font-medium">{score.value}</Figure>
         <span className="text-body font-medium text-text-primary">{score.band}</span>
         <span className="text-caption text-text-tertiary">{moduleName(lead.output.module)}</span>
       </p>
@@ -548,20 +561,20 @@ function ClearanceTile({ view }: Pick<RowProps, "view">) {
   const name = moduleName("CP-5");
   if (!entry)
     return (
-      <Tile span={12} label="Evidence clearance">
+      <section aria-label="Evidence clearance" className={POINTER}>
         <Head>Evidence clearance</Head>
-        <GapNote>{name} is not part of this run.</GapNote>
-      </Tile>
+        <GapSentence>{name} is not part of this run.</GapSentence>
+      </section>
     );
   return (
-    <Tile span={12} label="Evidence clearance" className="gap-3">
+    <section aria-label="Evidence clearance" className={POINTER}>
       <Head>Evidence clearance</Head>
       {moduleState(entry) !== "Delivered" && (
         <StatusBadge set="Module state" state={moduleState(entry)} />
       )}
-      <p className="text-small text-pretty text-text-secondary">
+      <GapSentence>
         {`This page does not show ${name}'s bottom line: no clearance for it is recorded.`}
-      </p>
+      </GapSentence>
       <div>
         <Button
           className={LINK}
@@ -573,22 +586,23 @@ function ClearanceTile({ view }: Pick<RowProps, "view">) {
           {`Open ${name}`}
         </Button>
       </div>
-    </Tile>
+    </section>
   );
 }
 
 function ChangesBody({ snapshot, run, view }: RowProps): ReactNode {
   const change = comparisonForRun(run, snapshot.workspace.runs);
   const entry = entryOf(view, "CP-8");
-  if (change?.problem) return <GapNote>{change.problem}</GapNote>;
-  if (change?.pack && !entry) return <GapNote>The changes module is not part of this run.</GapNote>;
+  if (change?.problem) return <GapSentence>{change.problem}</GapSentence>;
+  if (change?.pack && !entry)
+    return <GapSentence>The changes module is not part of this run.</GapSentence>;
   if (!change?.pack || !entry)
     return (
-      <p className="text-small text-text-secondary">
+      <GapSentence>
         {change?.first_run
           ? "No earlier run to compare."
           : "No comparison with an earlier run is shown for this run."}
-      </p>
+      </GapSentence>
     );
   // The changes module's bottom line can restate a decision no clearance is recorded for, so it
   // stays on the Changes page, as the other decision passages stay on theirs.
@@ -601,7 +615,7 @@ function ChangesBody({ snapshot, run, view }: RowProps): ReactNode {
 
 function ChangesTile(props: RowProps) {
   return (
-    <Tile span={12} label="Since the earlier run" className="gap-3">
+    <section aria-label="Since the earlier run" className={POINTER}>
       <Head>
         <ClockRewind aria-hidden="true" className="size-4" />
         Since the earlier run
@@ -618,7 +632,7 @@ function ChangesTile(props: RowProps) {
           Open Changes
         </Button>
       </div>
-    </Tile>
+    </section>
   );
 }
 
@@ -632,8 +646,11 @@ export function CallRow(props: RowProps) {
       <CallTile {...props} />
       <div className="flex min-w-0 flex-col gap-4 self-start lg:col-span-4">
         <ConfidenceTile run={props.run} view={props.view} />
-        <ClearanceTile view={props.view} />
-        <ChangesTile {...props} />
+        {/* Two pointers, one quiet card: neither states a fact of its own, so neither is a tile. */}
+        <div className="flex min-w-0 flex-col divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card">
+          <ClearanceTile view={props.view} />
+          <ChangesTile {...props} />
+        </div>
       </div>
     </>
   );

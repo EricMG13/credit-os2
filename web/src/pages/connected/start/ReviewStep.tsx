@@ -1,9 +1,10 @@
 import { Badge } from "@/components/base/badges/badges";
 import { SubmitConfirmation } from "../../run/start/Start";
-import { pathwayName } from "../api";
+import { drawnModules, pathwayName } from "../api";
 import { Figure } from "../report/overview/Tile";
 import { ErrorNotice, heading } from "../layout";
 import { decided, groupLimits } from "./limits";
+import { moduleNames } from "./limitWords";
 import { ReviewSheet } from "./ReviewSheet";
 import { type FormStep, SYNTHETIC_LIMITS, type Review } from "./intake";
 import { HEADING_FOCUS, focusStep } from "./fields";
@@ -46,10 +47,43 @@ function ReviewApproval({
 function ReviewNotes({ synthetic, idNote }: { synthetic: boolean; idNote: string }) {
   return (
     <>
-      {synthetic && <p className="text-small text-text-secondary">{SYNTHETIC_LIMITS}</p>}
+      {synthetic && (
+        // Its own heading: these are the test's rules, not a statement about what leaves.
+        <section aria-label="About this test" className="grid min-w-0 gap-2">
+          <h3 className="text-small font-medium text-text-primary">About this test</h3>
+          <p className="text-small text-text-secondary">{SYNTHETIC_LIMITS}</p>
+        </section>
+      )}
       {idNote && <p className="text-small text-text-secondary">{idNote}</p>}
     </>
   );
+}
+
+/**
+ * What is being started, restated where it is confirmed. Every row is a fact the review already
+ * shows: the reviewed answers, the summary's documents, modules and limits, and the cost or cap.
+ */
+function confirmationFacts(
+  review: Review,
+  synthetic: boolean,
+  capText: string | null,
+): readonly (readonly [string, string])[] {
+  const { run, identity } = review.answers.context;
+  const { groups } = groupLimits(review.summary.items);
+  const refusing = moduleNames(
+    review.summary.items.filter((item) => item.outcome === "will_refuse"),
+  );
+  return [
+    ["Issuer", identity.issuer_name],
+    ["As of", run.as_of],
+    ["Pathway", pathwayName(run.pathway)],
+    ["Documents read", String(review.summary.documents.length)],
+    ["Modules", String(drawnModules(review.summary.modules).length)],
+    ["Limits accepted", groups.length ? String(groups.length) : "No limits found"],
+    ...(refusing.length ? ([["Will refuse", refusing.join(", ")]] as const) : []),
+    ["Submitted by", review.answers.submitted_by],
+    synthetic ? ["Cost", "USD 0.00 · No-cost test"] : ["Cap", capText ?? "Unavailable"],
+  ];
 }
 
 /** The cap as the tile's largest figure, in mono, with what it caps. */
@@ -245,13 +279,7 @@ export function ReviewConfirmation({
                 capText={capText}
                 capAvailable={capAvailable}
                 ready={ready}
-                facts={[
-                  ["Issuer", review.answers.context.identity.issuer_name],
-                  ["Pathway", pathwayName(review.answers.context.run.pathway)],
-                  synthetic
-                    ? ["Cost", "USD 0.00 · No-cost test"]
-                    : ["Cap", capText ?? "Unavailable"],
-                ]}
+                facts={confirmationFacts(review, synthetic, capText)}
                 onSubmit={onSubmit}
               />
             </div>
@@ -303,9 +331,9 @@ function submitLabelFor({
 function confirmationFor(synthetic: boolean, capText: string | null) {
   if (synthetic)
     return {
-      title: "Start a synthetic test?",
+      title: "Start a no-cost test?",
       text: "This test runs the workflow with the supplied documents and spends USD 0.00.",
-      action: "Start synthetic run",
+      action: "Start no-cost test",
     };
   return {
     title: "Start a paid run?",

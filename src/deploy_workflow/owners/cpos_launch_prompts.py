@@ -793,5 +793,15 @@ SOURCES_RULES = (
     "source. A web page found by search is listed by the rules of this module's web section, "
     "which add a Source type cell.\n\n"
 )
+# A screen test only (owner, 2026-11-25): `--test-assume-distress` puts this before CP-4C's method
+# block, and `TEST_SCOPE_PREFIX` opens the run's scope sentence. Neither is ever sent otherwise.
+TEST_DISTRESS_BLOCK = (
+    "Test run, not a delivery. For this run only, treat the Phase 1 distress gate as passed by "
+    "assumption: model a hypothetical restructuring of this issuer at the as-of date on the "
+    "supplied sources and complete every later phase. Begin `### Bottom line` with `Test "
+    "assumption, no distress is evidenced: ` and make `Test assumption: hypothetical distress; "
+    "no trigger is evidenced.` the first item of `### Limitations`. Assume nothing else.\n\n"
+)
+TEST_SCOPE_PREFIX = "Test run, not a delivery: CP-4C assumed a distress trigger. "
 # The method block follows this line and runs to the end of a module's instructions.
 METHOD_MARK = "Selected method, verbatim:\n\n"

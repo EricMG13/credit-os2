@@ -3,7 +3,7 @@ import { Button } from "@/components/base/buttons/button";
 import { evidencePath, type OutputEntry } from "../../publishedReport";
 import { PublishedSource } from "../PublishedTrace";
 import { passageBlocks, type Passage, type PassageTable, type RowProps } from "./read";
-import { Figure, GapNote, Tile, Well } from "./Tile";
+import { Figure, GapNote, GapSentence, Tile, Well } from "./Tile";
 
 const CONTRARY = "Contrary evidence and what would change the view";
 const MISSING = "Not established for this run. The module wrote no such passage.";
@@ -133,7 +133,7 @@ function Findings({ run, entry }: Pick<RowProps, "run"> & { entry: OutputEntry }
                 run={run}
                 entry={entry}
                 passage={passage}
-                className="text-small text-pretty text-text-primary"
+                className="reading-copy text-body text-pretty text-text-primary"
               />
               <Source
                 run={run}
@@ -165,7 +165,7 @@ function PassageWell({ run, entry, passage, name }: Drawn & { name: string }) {
 }
 
 const NOT_TYPED =
-  "The two outcomes, resolved favourably and resolved adversely, are not typed in this run.";
+  "The module does not separate the outcome resolved favourably from the one resolved adversely.";
 
 /**
  * The counter-argument, under the module's own heading and on its own surface: the opening
@@ -186,18 +186,18 @@ function Counter({
       label={CONTRARY}
       title={CONTRARY}
       tone="counter"
-      className="self-start"
       trace={
         first && <Source run={run} entry={entry} passage={first} name="the contrary evidence" />
       }
     >
       {first ? (
-        <blockquote className="border-l-2 border-info-mark pl-4">
+        // The tinted surface marks the counter-argument; the quote needs no rule beside it.
+        <blockquote>
           <Words
             run={run}
             entry={entry}
             passage={first}
-            className="text-h4 font-medium text-pretty text-text-primary"
+            className="text-lead text-pretty text-text-primary"
           />
         </blockquote>
       ) : (
@@ -212,9 +212,7 @@ function Counter({
           name={`paragraph ${String(at + 2)} of the contrary evidence`}
         />
       ))}
-      <p className="border-t border-dashed border-border-gap pt-3 text-caption text-gap-text">
-        {NOT_TYPED}
-      </p>
+      <GapSentence className="mt-auto">{NOT_TYPED}</GapSentence>
     </Tile>
   );
 }

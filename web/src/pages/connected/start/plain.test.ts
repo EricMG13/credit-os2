@@ -408,7 +408,9 @@ describe("low batch", () => {
   it("L6 replaces any flag token left in a line, never a dash or a quoted value", () => {
     const [high = ""] = refusalLines("--high-modules names modules outside this run: CP-9");
     expect(high).not.toMatch(/(?<![\w-])--[a-z]/);
-    expect(high).toContain("CP-9");
+    // The line keeps what it names, but never as a module code: one with no name reads as unnamed.
+    expect(high).toContain("Unnamed module");
+    expect(high).not.toMatch(/CP-/);
     const [live = ""] = refusalLines("--live needs --ruling docs/x.md");
     expect(live).not.toMatch(/(?<![\w-])--[a-z]/);
     expect(live).toContain("this setting");
@@ -418,6 +420,16 @@ describe("low batch", () => {
     expect(warn).not.toHaveBeenCalled();
     const [inner = ""] = refusalLines("run.as_of: use --force here");
     expect(inner).toBe("Issuer and case date · As-of date: use this setting here");
+  });
+  it("L7 names every module id in a module flag's refusal and leaves another flag's value as written", () => {
+    expect(refusalLines("--modules: no launchable method for CP-9, CP-1")).toEqual([
+      "Requested modules: no launchable method for Unnamed module, Financial foundation",
+    ]);
+    // "CP-9" here is the name of a run folder the analyst typed, not a module id.
+    expect(refusalLines("--prior: 'CP-9' is neither `none` nor the name of a run folder")).toEqual([
+      "'CP-9' is neither `none` nor the name of a run folder",
+    ]);
+    warn.mockClear();
   });
 });
 

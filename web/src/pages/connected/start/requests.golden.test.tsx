@@ -184,7 +184,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
     fireEvent.change(within(ratings).getByLabelText("Outlook"), { target: { value: "Negative" } });
     fireEvent.change(within(ratings).getByLabelText("As-of"), { target: { value: "2025-02-28" } });
     await reviewAndDecide();
-    await submitWith("Submit run", "Start synthetic run");
+    await submitWith("Submit run", "Start no-cost test");
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
@@ -237,7 +237,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
     fireEvent.change(screen.getByLabelText(/^Prior period/), { target: { value: "q2-2026" } });
     choose("Legal documents", "none");
     await reviewAndDecide();
-    await submitWith("Submit run", "Start synthetic run");
+    await submitWith("Submit run", "Start no-cost test");
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
@@ -289,7 +289,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
     await toPurpose();
     await toContext();
     await reviewAndDecide();
-    await submitWith("Submit run", "Start synthetic run");
+    await submitWith("Submit run", "Start no-cost test");
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });
@@ -312,9 +312,9 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
     await toContext();
     choose("Legal documents", "none");
     await reviewAndDecide();
-    await submitWith("Submit run", "Start synthetic run");
+    await submitWith("Submit run", "Start no-cost test");
     await screen.findByText(/Submitting again is safe/);
-    await submitWith("Submit run", "Start synthetic run");
+    await submitWith("Submit run", "Start no-cost test");
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });

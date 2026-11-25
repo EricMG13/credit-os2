@@ -52,6 +52,25 @@ def test_assessment_scope_uses_the_frozen_plan(
     assert assessment_scope(workflow, {**verified, "manifest": {"run": {}}}) == "unverified"
 
 
+def test_a_run_with_test_adaptations_is_never_standard() -> None:
+    run = {"requested_modules": ["CP-2", "CP-8"]}
+    verified = {
+        "manifest": {"run": run},
+        "handoffs": dict.fromkeys(["CP-1", "CP-2"]),
+        "delivery_sha256": "verified",
+    }
+    workflow = {
+        "run": run,
+        "selection": "preset",
+        "instructions": dict.fromkeys(["CP-1", "CP-2", "CP-8"]),
+        "preset_requested_modules": ["CP-2"],
+    }
+    assert assessment_scope(workflow, verified) == "standard"
+    flagged = {**workflow, "test_adaptations": ["test-assume-distress"]}
+    assert assessment_scope(flagged, verified) == "partial"
+    assert assessment_scope(flagged, {**verified, "delivery_sha256": None}) == "unverified"
+
+
 def test_native_scope_requires_the_completion_to_pin_the_workflow(tmp_path: Path) -> None:
     directory = make_run(tmp_path, "acme", report_page=False)
     workflow = directory / "workflow.json"

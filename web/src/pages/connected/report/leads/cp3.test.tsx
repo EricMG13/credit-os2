@@ -223,3 +223,48 @@ it("gives a last-trade gap the market level's stated reason, never a bare chip",
   // The market level's reason, and the last trade's.
   expect(within(loan).getAllByText("No loan observation")).toHaveLength(2);
 });
+
+// Verbatim excerpt of the replayed TDG handoff: the matrix heading has no em dash, there is no
+// decision summary or Recommendation table, and the peer levels sit under their own heading.
+const REPLAY = `## Findings
+
+### Bottom line
+
+Requires more work.
+
+### T3.6 Fundamental value matrix
+
+All note amounts are carrying values; loan principal is a separately labelled identity check, never substituted for allocated carrying debt. All securities have Requires More Work selection status. Secured and subordinated classes are not pooled for spread comparison.
+
+| Security / Issuer | Fundamental View | Relative-Value View | Structural / Recovery View | Final Matrix Bucket | Rationale | Evidence ID | Source |
+|---|---|---|---|---|---|---|---|
+| TransDigm Inc. Tranche I, USD, 2028-08-24 | Cash generation supportive; leverage/policy constrain | Unclear; quote not supplied | Senior secured; recovery unquantified | Requires More Work | Principal USD 1,871 million; SOFR +275 bp; do not infer missing price from J | F1–F7 | Financial foundation (CP-1); TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 59 |
+| Revolver; securitization; finance leases; government advances | Relevant funding and competing claims, not quoted investment candidates | Unclear; investment market values not supplied | Separate receivables collateral; other relative priorities incomplete | No trade ranking | Facilities and asset-specific claims cannot be assumed freely purchasable; claim amounts remain in recovery table | F5–F7 | Financial foundation (CP-1); Legal & covenants (CP-4) |
+
+### Descriptive peer and benchmark evidence
+
+The comparisons retain the source's three-year discount-margin basis, not contractual margin or yield to worst. No loan-level average is calculated, and index observations are not individual peers.
+Basis: TDG market quotes 2024-09-30.md, page 1
+
+| Comparator and exact row identity | Terms and metric | Observation basis | J minus comparator | Interpretation and limitation | Source |
+|---|---|---|---|---|---|
+| StandardAero B1 / BL4793859 | 1L senior secured; Ba3/BB-; maturity 2031-10-31; YTM 5.6%; 3Y DM 193 bp | Assigned 2024-09-30; size USD 1,630 million | +54 bp | Closest indicated ratings; guarantee, covenants, reset/call basis and currency denomination not independently established | TDG market quotes 2024-09-30.md, page 1 |
+| Sector Ratings Average | Not supplied: no such block in the transcription | No observation | Not calculable: aggregate absent | No substitute aggregate or additional peer count invented | TDG market quotes 2024-09-30.md, page 1 |
+`;
+
+it("draws the matrix whatever its heading's dash and the peer levels the module wrote", () => {
+  render(<SecurityLead {...props(handoff(REPLAY))} />);
+  expect(document.body.textContent).not.toMatch(/could not read the instrument decisions/);
+  expect(document.body.textContent).not.toMatch(/could not read peer levels/);
+  const matrix = screen.getByRole("region", { name: "Credit and recovery rationale" });
+  expect(within(matrix).getAllByText("Requires More Work").length).toBeGreaterThan(0);
+  expect(within(matrix).getAllByText("No trade ranking").length).toBeGreaterThan(0);
+  const peers = screen.getByRole("region", { name: "Relative value against peers" });
+  expect(within(peers).getAllByText("+54 bp").length).toBeGreaterThan(0);
+  expect(within(peers).getAllByText(/3Y DM 193 bp/).length).toBeGreaterThan(0);
+  expect(within(peers).getAllByText("Aggregate absent").length).toBeGreaterThan(0);
+  expect(within(peers).getAllByText(/No loan-level average is calculated/).length).toBeGreaterThan(
+    0,
+  );
+  expect(peers.textContent).not.toMatch(/TDG market quotes|\.md/);
+});

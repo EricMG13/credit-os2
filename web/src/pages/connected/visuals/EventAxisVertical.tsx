@@ -12,7 +12,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const BRACKET_PX = 10;
 const RAIL_PX = 32;
 
-type AsOf = { time: number; text: string };
+/** `text` is the date as recorded; `label`, when given, is how the rule's words write it. */
+type AsOf = { time: number; text: string; label?: string };
 
 type Item =
   | { kind: "month"; key: string; label: string }
@@ -195,7 +196,7 @@ function AsOfRow({ asOf, columns }: { asOf: AsOf; columns: number }) {
         data-as-of-label=""
         className="relative bg-surface-card px-1.5 whitespace-nowrap"
         style={{ marginLeft: `${String(columns * BRACKET_PX)}px` }}
-      >{`As of ${asOf.text}`}</span>
+      >{`As of ${asOf.label ?? asOf.text}`}</span>
     </div>
   );
 }

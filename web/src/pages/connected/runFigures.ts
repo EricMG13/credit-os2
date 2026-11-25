@@ -55,6 +55,22 @@ export function spendFigure(run: Run): Figure {
   };
 }
 
+/**
+ * The cap and the two parts of cap usage as separate figures, each the service's amount through the
+ * same rounding as `spendFigure`; null where the service gave none (the two parts only together).
+ */
+export function spendParts(run: Pick<Run, "cap" | "settled_spent" | "held">) {
+  const cap = amount(run.cap);
+  const settled = amount(run.settled_spent);
+  const held = amount(run.held);
+  const both = settled !== undefined && held !== undefined;
+  return {
+    cap: cap?.value ? usd(cap) : null,
+    settled: both ? usd(settled) : null,
+    held: both ? usd(held) : null,
+  };
+}
+
 export function finishedFigure(run: Pick<Run, "modules">): Figure {
   const modules = run.modules.filter(([code]) => code !== "Report");
   const max = modules.length;

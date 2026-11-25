@@ -1,3 +1,4 @@
+import { UNNAMED_MODULE } from "../../api";
 import {
   classifySections,
   comparisonRows,
@@ -59,11 +60,18 @@ type MeasureGroups = {
   notAssessable: MeasureChange[];
 };
 
+/** The cause the comparison writes when it cannot attribute a difference. */
+export const UNRESOLVED = "Unresolved";
+
 /** The module's words: a module named where it is cited, and a bracketed code the reader does not know dropped. */
 /** A module code as the methodology names them: CP-2A, CP-L10, CP-DR, CP-MEMO. */
 const MODULE_CODE = /\s*\(CP-(?:\d+[A-Z]?|L\d+|DR|MEMO|MODEL|OS|PARSE)\)/gi;
 
-export const words = (text: string) => readerText(text).replace(MODULE_CODE, "");
+/** The bracket the shared reader leaves where it has no name for a bracketed code. */
+const UNNAMED_BRACKET = ` (${UNNAMED_MODULE})`;
+
+export const words = (text: string) =>
+  readerText(text).replace(MODULE_CODE, "").replaceAll(UNNAMED_BRACKET, "");
 
 const plain = (text = "") =>
   text.replaceAll("**", "").replaceAll("`", "").trim().replace(/\s+/g, " ");
@@ -173,6 +181,14 @@ export function classifyMeasures(
     const shown = delta !== "—";
     const toned = shown && sign !== null ? tone(measure.key, String(measure.difference)) : "none";
     const revision = reason.endsWith("Same-period analysis change");
+    const cause: Cause = !entry
+      ? { kind: "noModule" }
+      : issuer
+        ? causeOf(issuer.cells[3])
+        : { kind: "unmatched" };
+    // The comparison's own "Unresolved" says it cannot tell why the figure differs, so the page
+    // does not call the difference better or worse: the direction is not established.
+    const unresolved = cause.kind === "written" && cause.text === UNRESOLVED;
     const item: MeasureChange = {
       index,
       key: measure.key,
@@ -182,13 +198,9 @@ export function classifyMeasures(
       beforeValue: amountOf(measure.prior?.value),
       afterValue: amountOf(measure.current?.value),
       delta: shown && sign !== null ? delta : null,
-      tone: toned === "none" ? null : toned,
+      tone: toned === "none" || unresolved ? null : toned,
       reason: stated(reason.replace(/ · Same-period analysis change$/, "")),
-      cause: !entry
-        ? { kind: "noModule" }
-        : issuer
-          ? causeOf(issuer.cells[3])
-          : { kind: "unmatched" },
+      cause,
       effect:
         !entry || (!issuer && !written(effect))
           ? null
@@ -210,7 +222,7 @@ export function classifyMeasures(
 }
 
 function stated(reason: string) {
-  return containsReference(reason) ? "See comparison evidence." : reason;
+  return containsReference(reason) ? "See comparison evidence." : words(reason);
 }
 
 function amountOf(value: string | number | null | undefined) {
