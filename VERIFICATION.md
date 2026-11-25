@@ -15,6 +15,8 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   677,194 characters) equal `tools/cp1_check_proof.py --instructions` on the same tree.
 - Corrected while checking: a first count of "reference files named but not sent" (347) was wrong;
   the files are sections of bundles that are sent. The measure now excludes them (5, all CP-0).
+- Second pass (same day): the report gains the parts of one request with sizes, a narrower
+  reading of the three removals, and a review of the owner's three-group trial. Nothing built.
 - Not verified: any effect of instruction length on module output (no model run); token figures
   are estimates from bytes; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the

@@ -14,12 +14,12 @@ Added: `tools/instruction_metrics.py` (offline measures) and two baseline files 
 - No vendor publishes a length at which instructions start to hurt. Anthropic, OpenAI and the
   independent studies agree on the remedy: remove text the model does not need, one group at a
   time, and rerun the same cases. None supports summarising or machine-compressing rule text.
-- Three removals are content-neutral and can be measured offline today: 104,482 characters of
-  method paragraphs that the head of the same instruction tells the model to disregard (a keyword
-  count, so an upper bound), 32,313 characters of paragraphs sent twice within one module, and
-  73,540 characters of CP-4's 4A and 4B method sent even when the run has no legal documents.
-  Together about 12% of the deep pathway in a run without legal documents, if they do not
-  overlap (not checked).
+- Three removals were proposed as content-neutral. The deeper check (below) narrows that: the
+  32,313 characters of paragraphs sent twice within one module can be removed mechanically; the
+  104,482 characters of method paragraphs the head overrides (a keyword count) need a
+  paragraph-by-paragraph edit, because some paragraphs mix live and withdrawn rules; and the
+  73,540 characters of CP-4's 4A and 4B method can only be withheld in a run without legal
+  documents, where CP-4 blocks whatever it is sent.
 - Instructions are not the largest part of what a late module reads. The 2026-11-13 sweep recorded
   first prompts of 183,000 to 252,000 tokens for CP-5, of which its instructions are about 33,000.
   The upstream handoffs remain the larger lever for both cost and attention.
@@ -130,7 +130,8 @@ In order of risk, lowest first. Offline measures come from `tools/instruction_me
 | 5 | Rewrite one module's method to what the model needs, starting with CP-4 or CP-3 | Characters, lines and requirement sentences for that module | Every measure in the next section holds or improves |
 | 6 | Let a module read large reference bundles on request in place of receiving them all | Characters sent at the start | Required registers still present; the turns and reads it adds |
 
-Changes 1 to 3 remove nothing the model is meant to act on. Changes 5 and 6 can lose method
+Changes 1 and 3 remove nothing the model is meant to act on; change 2 needs the paragraph edit
+described in the deeper check. Changes 5 and 6 can lose method
 content and belong to the one-module-at-a-time rule in `AGENTS.md`.
 
 Not recommended: machine compression or summarising of method text (the rules carry exact
@@ -169,14 +170,102 @@ Outcome, needs paid runs:
   order shuffled, is optional and should be checked against a person's reading on a sample.
 - Pass rule: no measure worse than the current arm's range, and the size measure lower.
 
+## What is sent, checked deeper (second pass)
+
+One module session, in the order the model receives it:
+
+| Part | Size | Note |
+| --- | --- | --- |
+| Tool definitions | 5,071 characters, 7 tools | Same for every module; CP-DR adds lookup tools |
+| System: head rules | 15,000 to 30,000 characters | Written for this workflow |
+| System: method files | 30,000 to 197,000 characters | Deploy V skill files, verbatim |
+| System: closing format rules | about 800 characters | The six H2 headings and three attempts; web rules add 1,332 to 3,086 |
+| User: run, module roles, source hashes | about 3,000 characters | The 24 module purposes are sent to every module |
+| User: upstream handoffs | Every producer's handoff in full | Each as one JSON string, so line breaks arrive as `\n` (1.8% larger on a 95,333-character handoff) |
+| Later turns | Tool results | Source pages of 3,000 characters, at most 8 per read |
+
+- Handoffs received in the deep pathway: CP-4 4, CP-3 13, CP-6 14, CP-5 18. For CP-4 the
+  instructions are most of the first prompt; for CP-5 they are about a sixth (sweep figures).
+- The handoffs are the largest text most late modules read and they are sent inside JSON. OpenAI's
+  GPT-4.1 guide reports JSON performing poorly for long documents and Anthropic advises one tagged
+  block per document. Not measured here.
+- The method files are sent as written for another packaging, and the head corrects them by
+  override. Beyond the keyword count above, paragraphs that set Deploy V's own packaging are still
+  sent: YAML front matter (about 11,000 to 22,000 characters of paragraphs in each of CP-3, CP-4,
+  CP-5 and CP-6), the output file name rule (7,000 to 13,000) and export formats (6,000 to 15,000).
+  These counts overlap each other and are by keyword. The head then says `## Analysis` is
+  `## Findings` here, that no score, band or QA status is written, and that the scripts cannot run.
+- One example of a mixed paragraph: CP-4's "Canon Core" (1,919 characters) holds the live rule on
+  conclusion-first analysis and the withdrawn rules on file name, front matter and `qa_status` in
+  the same numbered list.
+- Every module is sent the confidence-score formula (2,175 characters) and told by the head not to
+  state a score, because Python computes it. The lineage classes in that section are still used.
+- Where the repeats are: CP-4's 18,592 are mostly its runbook and its steps bundle repeating each
+  other (11,534). CP-6's 5,334 are mostly inside one steps bundle (3,679).
+- What the three removals come to for the four largest: CP-4 11%, CP-5 14%, CP-6 7%, CP-3 5%
+  (repeats plus the overridden keyword count; CP-4's 4A and 4B not counted, see above).
+
+## Review of the proposed three-group trial
+
+Proposal (owner, 2026-11-25): reuse existing handoffs with temporary adaptations to the engine;
+run offline, then live, on the largest instructions with the same handoffs and issuer; group A the
+current text, B the three content-neutral removals, C a deeper restructuring.
+
+The design is sound: fixing the upstream handoffs makes the instruction the only difference, and
+three groups show whether more removal gives more effect. Eight points to settle first.
+
+1. **CP-4 needs a different case.** In both retained TDG runs CP-4 was correctly blocked for want
+   of an executed governing document (1,714 and 1,396 words). The largest instruction is not
+   exercised by those handoffs; it needs a case with the agreements in the sources.
+2. **Group B is a small dose.** 5% to 14% of each instruction. No effect is the likely result, so
+   B is a check that nothing is lost, not a test of length. It can take fewer repeats than A and C.
+3. **Run A against itself first.** One run per setting exists today. Without the spread of A, no
+   difference between groups can be read.
+4. **The check must stay the same for all groups.** The acceptance check takes its required
+   registers from the canonical method text. Group C's text must be swapped into the instruction
+   only, or C would be graded by its own rules.
+5. **The existing measures have little range.** The retained runs had 9 rejected drafts across 13
+   modules; CP-3 and CP-6 had 0 or 1 each. Five repeats cannot separate groups on that. The
+   earlier effort comparison found its differences by reading the handoffs. The trial needs a
+   reading against a list of facts and conclusions fixed before the first run, done blind to group.
+6. **Define C before running.** Proposed: the method rewritten for this transport (packaging rules
+   and overridden text removed, runbook and steps merged where they repeat, output rules after the
+   method) with every register id and table id kept, which can be checked offline.
+7. **CP-5 says little about instruction length.** It receives 18 handoffs. A result there is mostly
+   about the handoffs. CP-4 (4 handoffs) is the cleanest test, then CP-3 and CP-6.
+8. **Group order.** Interleave the groups run by run so that provider-side drift is not read as a
+   group effect.
+
+What the engine allows:
+
+- No command reruns one module on retained handoffs. The plan's `retained_handoffs` field and
+  `run_live_handoffs` do it, as the launcher tests do. The temporary adaptation is a script that
+  prepares a run, replaces the text after the method mark in the target's instruction file,
+  writes the plan with the retained handoffs and the new instruction hash, and calls that
+  function. No method file, pin or check changes.
+- Each repeat needs its own run folder; a second launch in one folder replays the stored answer.
+- A retained handoff is refused if today's check finds an issue in it, if its source hashes are
+  not exactly this run's, or if its upstream set differs. The first offline step is to find out
+  whether the existing handoffs still pass.
+- Offline proves assembly, sizes, the refusals above and that C keeps every required register.
+  It proves nothing about what a model writes.
+- Live needs a new ruling file naming the configuration. The gate does not check which modules
+  run, so a single-module run is allowed by it.
+- The repository holds no complete set of real handoffs. `VERIFICATION.md` names run folders on
+  the owner's machine (`~/cos-live/tdg-deep-20261116b`, `~/cos-live/tdg-agreements`).
+
+Cost, estimated from one retained run per setting (Copilot gpt-6.1-sol, medium to high): CP-3 USD
+0.80 to 0.97, CP-6 0.73 to 0.99, CP-5 2.26 to 2.80 per run. Three groups of five repeats on those
+three modules is about USD 57 to 71. An unblocked CP-4 has no retained cost.
+
 ## Not verified
 
 - Any effect of length on output: no model was run.
 - Token counts: estimates from bytes, not counted by a provider for the model in use.
 - The overridden and requirement counts are keyword counts; no paragraph was read to confirm it
   is safe to remove. Whether the three content-neutral removals overlap was not checked.
-- Whether the launcher can rerun one module against retained upstream handoffs without rerunning
-  its producers.
+- The trial adaptation itself: described from the code and the launcher tests, not built or run.
+- Whether the handoffs on the owner's machine still pass today's check.
 - Whether the contradictions the 2026-11-13 sweep recorded have since been repaired.
 - CP-8 and CP-L10; pathways other than deep and lite were prepared but not tabulated.
 - Guidance read from search extracts (most OpenAI pages and every independent paper): check the
