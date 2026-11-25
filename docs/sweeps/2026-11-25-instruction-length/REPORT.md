@@ -429,9 +429,9 @@ total passed it. The estimate was USD 36.
 
 What the pilot established:
 
-- The direct route works end to end: 263 calls, none failed, caching held, every run wrote its
-  records. First requests were 148,000 to 407,000 tokens (the provider's count), 1.3 times the
-  offline estimate at 2.5 bytes per token.
+- The direct route works end to end: 285 calls, none failed, caching held, every run wrote its
+  records. First requests were 148,000 to 407,000 tokens (the provider's count), within about 6%
+  of the offline estimate at 2.5 bytes per token.
 - 32 turns is too few for CP-4 on this model in every group: it reads the agreements a few pages
   a turn. With 64 turns groups A and C were accepted at 46 and 44 turns.
 - The reading procedure works: ten handoffs scored against 75 items by readers who were not told

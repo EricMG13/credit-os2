@@ -33,7 +33,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   replaced, never sent.
 - Pilot (fifth pass), on the owner's instructions ("use key from here", "run all offline and live
   test concurrently", "raise the turn limit if a run hits 32", "run the blind reading when the
-  runs finish"): fourteen live single-module runs on `opus-high`, 263 calls, none failed, USD
+  runs finish"): fourteen live single-module runs on `opus-high`, 285 calls, none failed, USD
   54.83 settled against the USD 54 limit; ten accepted handoffs scored blind against the fixed
   lists by agents. Records in `docs/sweeps/2026-11-25-instruction-length/pilot/`. One run per
   group: no difference between groups can be claimed. The key came from the launching
