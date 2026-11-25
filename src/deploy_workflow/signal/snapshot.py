@@ -29,7 +29,7 @@ the newest ``feedview.WINDOW`` stories (``feedview.view_ids``) and, when those h
 stories than it shows, from its own newest member rows, so a very large topic whose stories are
 older than that window still delivers its newest and keeps its count.
 
-Size: the forwarder in front of the service refuses a reply over 4 MiB, so the snapshot is kept
+Size: a reply must stay under 4 MiB, so this module's own budget keeps the snapshot
 under 3 MiB in every store state. The group part keeps its own budgets (``group_view``); the
 stories then share what is left of ``STORY_AND_GROUP_BUDGET`` (and of ``SNAPSHOT_BUDGET`` after
 the rest of the snapshot, the digest parts included), paid in the order ``_priority`` gives; a

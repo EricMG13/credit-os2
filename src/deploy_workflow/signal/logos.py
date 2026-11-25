@@ -2,7 +2,7 @@
 as JSON (docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md, "Source logos").
 
 Why the service fetches it. The page may load images only from its own origin or ``data:``
-addresses, it reaches the service only through a forwarder that passes JSON, and a page loading
+addresses, it reaches the service only for JSON, and a page loading
 icons from publishers would tell each publisher who opened Signal. So the service fetches each
 approved source's icon and the page reads it from ``GET /api/logos/<source id>``.
 

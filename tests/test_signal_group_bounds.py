@@ -1,12 +1,12 @@
 """The snapshot's size and time bounds (review findings: one writer could blank every screen with
 260 posts; the snapshot scanned the whole comments table for every delivered comment).
 
-The browser reaches the service through a forwarder that refuses a reply over 4 MiB and gives up
-after 5 s; the snapshot must stay under 3 MiB and build fast in every store state the routes can
-reach. The worst states are seeded with plain SQL for speed; every row is one a route or the
-ingest loop can write (lengths at the store's limits, text of four-byte characters, so a
-character costs the most bytes it can). Every snapshot built here is read by the real React
-reader (``tests/signal_reader_check.py``). Expected values are written by hand.
+A reply must stay under 4 MiB and be built within 5 s, so the snapshot must stay under 3 MiB and
+build fast in every store state the routes can reach. The worst states are seeded with plain SQL
+for speed; every row is one a route or the ingest loop can write (lengths at the store's limits,
+text of four-byte characters, so a character costs the most bytes it can). Every snapshot built
+here is read by the real React reader (``tests/signal_reader_check.py``). Expected values are
+written by hand.
 """
 
 from __future__ import annotations

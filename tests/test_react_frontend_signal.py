@@ -24,12 +24,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from http.client import HTTPConnection
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any
 
 import pytest
 from signal_ai_fakes import FakeModel, write_ruling
 from signal_ai_fakes import environ as key_environ
+from signal_app import PAGE, short_folder, start_serving
 
 import react_frontend
 from deploy_workflow.signal import ai_ledger, ai_run, feedview, store, topics
@@ -54,17 +54,13 @@ NO_RUNTIME = (
 @pytest.fixture
 def web(tmp_path: Path) -> Path:
     (tmp_path / "assets").mkdir()
-    (tmp_path / "index.html").write_text(
-        '<html><head><meta http-equiv="Content-Security-Policy" content="connect-src \'none\'">'
-        "</head><body></body></html>",
-        encoding="utf-8",
-    )
+    (tmp_path / "index.html").write_text(PAGE, encoding="utf-8")
     return tmp_path
 
 
 @pytest.fixture
 def root() -> Iterator[Path]:
-    with TemporaryDirectory(dir=None if os.name == "nt" else "/tmp") as name:
+    with short_folder() as name:
         yield Path(name)
 
 
@@ -105,8 +101,7 @@ def react(
         launcher=launcher,
         environ={} if environ is None else environ,
     ) as server:
-        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
-        thread.start()
+        thread = start_serving(server, daemon=False)
         try:
             yield server
         finally:
@@ -943,7 +938,7 @@ def test_serve_starts_no_loop_in_synthetic_mode(
     assert not (root / "signal").exists()
 
 
-def test_a_store_that_cannot_be_opened_stops_start_up_with_signal_serves_message(
+def test_a_store_that_cannot_be_opened_stops_start_up_with_one_message(
     root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     passes = Passes(monkeypatch)
@@ -973,6 +968,30 @@ def test_a_store_that_cannot_be_opened_stops_start_up_with_signal_serves_message
     (root / "signal").unlink()
     with make_server(root, web=web, environ={}) as server:
         assert server.server_address[1] > 0
+
+
+def test_a_port_that_is_taken_stops_the_command_with_one_stderr_line(
+    root: Path, web: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from react_frontend import __main__ as main
+
+    def serve_this_build(path: Path, **options: Any) -> None:
+        react_frontend.serve(path, web=web, environ={}, **options)  # the command has no --web
+
+    with socket.socket() as taken:
+        taken.bind(("127.0.0.1", 0))
+        taken.listen()
+        port = taken.getsockname()[1]
+        monkeypatch.setattr(main, "serve", serve_this_build)
+        monkeypatch.setattr(
+            sys, "argv", ["react_frontend", "--root", str(root), "--port", str(port)]
+        )
+        with pytest.raises(SystemExit) as ended:
+            main.main()
+    assert ended.value.code == 2
+    captured = capsys.readouterr()
+    assert len(captured.err.splitlines()) == 1 and captured.err.strip() != ""
+    assert "Traceback" not in captured.err
 
 
 def test_a_store_made_by_another_build_stops_start_up(

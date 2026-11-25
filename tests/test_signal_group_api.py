@@ -40,7 +40,7 @@ MARA = "signal_name=Mara%20L"
 INES = "signal_name=Ines%20K"
 TOBIAS = "signal_name=Tobias%20O"
 reader_says = group_snapshot.reader_says
-FORWARDED = re.compile("/api/[a-z0-9]+(/[a-z0-9]+)*")
+ROUTE_PATH = re.compile("/api/[a-z0-9]+(/[a-z0-9]+)*")
 
 
 def seed(root: Path) -> None:
@@ -118,11 +118,11 @@ OPEN_TO_READERS = [
 ]
 
 
-def test_every_route_fits_the_forwarder():
+def test_every_route_fits_the_reply_budget():
     for route in api_groups.ROUTES:
         assert route.method in ("GET", "POST", "DELETE")
     for method, path, _ in WRITES + OPEN_TO_READERS:
-        assert FORWARDED.fullmatch(path), path
+        assert ROUTE_PATH.fullmatch(path), path
         assert any(r.method == method and r.pattern.fullmatch(path) for r in api_groups.ROUTES)
     assert len(api_groups.ROUTES) == len(WRITES + OPEN_TO_READERS)
 

@@ -13,7 +13,7 @@ them), the ``Content-Length`` and JSON body rules, the headers every response ca
 500, and the way a file is served (``contained_file``).
 
 What a service may set differently is a named parameter, never a branch on which service it is.
-The run start service and the application built on it set the two that are left:
+The run start service sets the two that are left; the application built on it inherits them:
 
 ``Server.connection_limits``
     The most connections open at once, read for every connection.
