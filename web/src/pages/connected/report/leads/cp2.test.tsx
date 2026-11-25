@@ -181,7 +181,7 @@ it("draws the typed ledger: strengths left, weaknesses right, each ranked, under
   ]);
 });
 
-it("makes a ledger that is only a gap one full row, the measures and the map beside each other", () => {
+it("makes a ledger that is only a gap one full row, then the measures as a strip and the map", () => {
   render(<CreditLead {...leadProps(credit([]))} />);
   const ledger = screen.getByRole("region", { name: "Strengths and weaknesses" });
   expect(
@@ -189,10 +189,10 @@ it("makes a ledger that is only a gap one full row, the measures and the map bes
   ).toBeVisible();
   expect(ledger.className).toMatch(/lg:col-span-12/);
   expect(screen.getByRole("region", { name: "Leverage, cover and headroom" }).className).toMatch(
-    /lg:col-span-4/,
+    /lg:col-span-12/,
   );
   expect(screen.getByRole("region", { name: "Credit-risk transmission" }).className).toMatch(
-    /lg:col-span-8/,
+    /lg:col-span-12/,
   );
 });
 
@@ -246,7 +246,7 @@ it("draws neither the written passage nor a gap when no ledger table exists", ()
   expect(screen.queryByText(/could not read a ranked list/)).toBeNull();
   expect(screen.queryByRole("list", { name: "STRENGTH" })).toBeNull();
   expect(screen.getByRole("region", { name: "Credit-risk transmission" })).toHaveClass(
-    "lg:col-span-8",
+    "lg:col-span-12",
   );
 });
 
@@ -438,7 +438,7 @@ it("draws each stated leverage figure with its period and no latest when periods
   const made = cp1();
   const leverage = leverageOf(made);
   leverage.rows = [
-    { line: 61, cells: ["LTM June 2024", "2.80", "2.10", "x", "Synthetic."] },
+    { line: 61, cells: ["Run-rate", "2.80", "2.10", "x", "Synthetic."] },
     { line: 62, cells: ["FY2023", "3.75", "3.20", "x", "Synthetic."] },
   ];
   render(<CreditLead {...leadProps(credit([]), [made, cp4()])} />);
@@ -450,7 +450,7 @@ it("draws each stated leverage figure with its period and no latest when periods
     within(figures)
       .getAllByRole("listitem")
       .map((item) => item.textContent),
-  ).toEqual(["LTM June 20242.80x", "FY20233.75x"]);
+  ).toEqual(["Run-rate2.80x", "FY20233.75x"]);
   expect(within(stat).queryByText(/^from /)).toBeNull();
   expect(within(stat).queryByText(/, Financial foundation$/)).toBeNull();
 });

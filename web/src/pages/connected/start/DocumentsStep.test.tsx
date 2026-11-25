@@ -59,6 +59,8 @@ function makeView(over: Partial<IntakeView> = {}): IntakeView {
     read: docs.length > 0,
     inspections: 1,
     addFiles: vi.fn(),
+    comparison: { name: "", holds: "", files: [], fileProblem: "" },
+    standing: { problem: "", working: {}, notes: {} },
     discardDocument: vi.fn(),
     ...over,
   } as unknown as IntakeView;
@@ -144,7 +146,11 @@ describe("Documents step: the upload list", () => {
   // step says only what is not reported yet, so the fact is said once on the page.
   it("says only what is not reported before review, once, while files are listed", () => {
     const { container } = renderStep(makeView({ documentRows: [row("a.pdf")] }));
-    expect(screen.getAllByText(/not reported before review/)).toHaveLength(1);
+    const notes = screen.getAllByText(/not reported before review/);
+    expect(notes).toHaveLength(1);
+    // A quiet line under the list, not a hatched panel above the form.
+    expect(notes[0]).toHaveClass("text-small", "text-text-tertiary");
+    expect(notes[0]?.closest(".gap-hatch")).toBeNull();
     expect(container).not.toHaveTextContent(/when you review the run|Checked when you review/);
   });
 

@@ -211,3 +211,44 @@ describe("the viewer's name and initials", () => {
     expect(result.data.scenes[3]?.snapshot.viewer).toMatchObject({ name: null, initials: null });
   });
 });
+
+describe("what a group page leaves out (more)", () => {
+  const moreOf = (slice: unknown) => {
+    const got = readSlice(slice);
+    if (got.kind !== "ok") throw new Error("the slice reads");
+    return got.data.scenes[0].snapshot.groups[0]?.more;
+  };
+
+  it.each([
+    ["a sentence", "Showing the latest 2 of 9 threads.", "Showing the latest 2 of 9 threads."],
+    ["null", null, null],
+  ])("reads %s as given", (_, given, read) => {
+    expect(moreOf(withMain((scene) => Object.assign(lev(scene), { more: given })))).toBe(read);
+  });
+
+  it("reads an absent member, as the design fixture has it, as null", () => {
+    expect(moreOf(fixture.slice)).toBeNull();
+  });
+
+  it("refuses a number", () => {
+    expect(readSlice(withMain((scene) => Object.assign(lev(scene), { more: 3 })))).toEqual(
+      invalid("scenes[0].snapshot.groups[0].more: expected a string or null"),
+    );
+  });
+
+  it("reads an excerpted note held alike by the group page and its thread, and refuses two that differ", () => {
+    const excerpt = (onPage: string, inThread: string) => (scene: Scene) => {
+      const own = scene.snapshot.threads.find((t) => t.id === "packaging-note");
+      const item = lev(scene).threads.find((t) => t.id === "packaging-note");
+      if (own === undefined || item === undefined) throw new Error("the note thread");
+      item.note = onPage;
+      own.note = inThread;
+    };
+    const cut = "Has anyone looked at how the packaging…";
+    expect(readSlice(withMain(excerpt(cut, cut))).kind).toBe("ok");
+    expect(
+      readSlice(withMain(excerpt(cut, "Has anyone looked at how the packaging closures read")))
+        .kind,
+    ).toBe("invalid");
+  });
+});

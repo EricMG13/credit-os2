@@ -44,8 +44,18 @@ it("plots distinct nonnegative percent-of-NAV exposure and limit pairs and prese
   ).toBeInTheDocument();
   expect(within(figure).getByText("Single issuer")).toBeInTheDocument();
   expect(within(figure).getByText("Sector")).toBeInTheDocument();
+  // Screen review F7: value against a limit is a bullet, as on the covenant tests: the exposure a
+  // bar from zero and the limit a tick, every row on the one scale (here 0 to 5.0% NAV).
+  expect(
+    within(figure).getByRole("img", {
+      name: "Single issuer: current exposure 2.5% against a limit of 5.0%.",
+    }),
+  ).toBeInTheDocument();
+  expect(container.querySelector('[data-exposure="2.5%"]')).toHaveStyle({ width: "50%" });
+  expect(container.querySelector('[data-limit="5.0%"]')).toHaveStyle({ left: "100%" });
+  expect(container.querySelector('[data-limit="4.0%"]')).toHaveStyle({ left: "80%" });
 
-  fireEvent.click(within(figure).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(figure).getByRole("button", { name: "Table" }));
   expect(within(figure).getByRole("table", { name: "Portfolio limits" })).toBeInTheDocument();
   expect(within(figure).getByRole("cell", { name: "2.5%" })).toBeInTheDocument();
   expect(within(figure).getByRole("cell", { name: "5.0%" })).toBeInTheDocument();

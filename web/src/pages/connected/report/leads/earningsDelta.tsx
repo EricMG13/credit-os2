@@ -12,7 +12,7 @@ import {
   type Side,
   type Unstated,
 } from "./earningsDeltaData";
-import { periodKey } from "./kit/changes";
+import { changePeriod } from "./kit/changes";
 import { FigureTile, GapTile, LeadFrame, type TableViewData } from "./kit/LeadFrame";
 import {
   Dumbbell,
@@ -213,7 +213,7 @@ function reasonOfPair({ pair }: Unstated) {
 /** The kind of the two periods a pair compares (`FY`, `Q1`): rows of another kind are never one line. */
 const periodKind = (pair: Pair) =>
   [pair.priorPeriod, pair.currentPeriod]
-    .map((label) => (label ? (periodKey(label)?.form ?? label) : ""))
+    .map((label) => (label ? (changePeriod(label)?.form ?? label) : ""))
     .join(">");
 
 /**
@@ -400,24 +400,33 @@ export const EarningsDeltaLead: Lead = (props) => {
           )}
           {bridges.length === 0 && <Gap name={BRIDGE_NAME}>{NO_BRIDGE}</Gap>}
           {movers.kind === "ready" ? (
-            <PairTile
-              props={props}
-              figure={movers}
-              name={RESULTS_NAME}
-              span={beside ? 8 : 12}
-              source="the prior and current results"
-            />
+            <div className={beside ? "min-w-0 lg:col-span-12 xl:col-span-8" : "contents"}>
+              <PairTile
+                props={props}
+                figure={movers}
+                name={RESULTS_NAME}
+                span={12}
+                source="the prior and current results"
+              />
+            </div>
           ) : (
             <Gap name={RESULTS_NAME}>{movers.reason}</Gap>
           )}
           {kpis.kind === "ready" ? (
-            // Beside the results only when about as tall; else under them, full width.
-            <div className={beside ? "min-w-0 self-start lg:col-span-4" : "min-w-0 lg:col-span-12"}>
+            // Beside the results only when about as tall and only from xl (1280 px): at lg the
+            // 4-column tile is too narrow for a pair's two figures. Else under them, full width.
+            <div
+              className={
+                beside
+                  ? "min-w-0 self-start lg:col-span-12 xl:col-span-4"
+                  : "min-w-0 lg:col-span-12"
+              }
+            >
               <PairTile
                 props={props}
                 figure={kpis}
                 name={KPIS_NAME}
-                span={beside ? 4 : 12}
+                span={12}
                 source="the margin and KPI changes"
               />
             </div>

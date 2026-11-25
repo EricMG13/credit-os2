@@ -1,3 +1,4 @@
+import path from "node:path";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { OutputEntry } from "../../publishedReport";
@@ -159,10 +160,12 @@ it("states the foreign-share gap, lists the hedge terms without sources and the 
     within(region).getAllByRole("cell", { name: "Three-month SOFR floor 2.00%; ceiling 3.50%" }),
   ).toHaveLength(2);
   expect(within(terms).queryByText(/tdg-20240930/)).toBeNull();
-  // Review 4, Q7: the hedge dates sit in the column beside the rate figure, under the hedged split.
-  const column = screen.getByRole("region", { name: "Hedge dates" }).parentElement as HTMLElement;
-  expect(column).toHaveClass("lg:col-span-4");
-  expect(within(column).getByRole("region", { name: "Hedged against unhedged" })).toBeVisible();
+  // The hedge dates take their own row, after the hedged split.
+  const lane = screen.getByRole("region", { name: "Hedge dates" });
+  expect(lane).toHaveClass("lg:col-span-12");
+  expect(
+    screen.getByRole("region", { name: "Hedged against unhedged" }).compareDocumentPosition(lane),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   const dates = screen.getByRole("list", { name: "Hedge dates" });
   const rows = within(dates).getAllByRole("listitem");
   // All five dated rows are drawn: the first three in the lane, the other two behind its disclosure.
@@ -409,4 +412,107 @@ it("draws no foreign-share tile when the module writes no currency register or F
   render(<MacroLead {...leadProps(proof())} />);
   expect(screen.queryByRole("region", { name: "Foreign share" })).toBeNull();
   expect(screen.queryByText("This page could not read a foreign-currency share.")).toBeNull();
+});
+
+// Verbatim from the replayed TDG handoff's Gaps table (four columns, no FX register label); the
+// hedge register is a minimal stand-in only so that the page has a register to draw.
+it("gives the module's own gap about currency as the foreign-share gap, found by its words", () => {
+  const made = entry(
+    "CP-2E",
+    [],
+    [
+      tableSection(
+        "Gaps",
+        table(
+          10,
+          ["Gap", "Why it matters", "Conclusion affected", "Severity"],
+          [
+            [
+              "Issuer's +1 pp sensitivity of about USD 30 million against the method figure of USD 57.89 million, not reconciled",
+              "Doubles or halves the rate sensitivity",
+              "Rate sensitivity size; Moderate level holds either way",
+              "Material",
+            ],
+            [
+              "Hedges not mapped to named term loan tranches; swap all-in rates use a legacy 3.25% margin",
+              "Linkage of hedge to debt rests on general wording",
+              "Hedged amount of USD 3,400 million",
+              "Minor",
+            ],
+            [
+              "Invoicing currency of foreign-customer sales, cost currency split and cash by jurisdiction not stated",
+              "FX mismatch cannot be built",
+              "FX view relies on the issuer's 10% statement",
+              "Minor",
+            ],
+            [
+              "Environmental remediation accrual amount not read",
+              "Remediation cash outflow unsized",
+              "Remediation left unclassified",
+              "Minor",
+            ],
+            [
+              "No hedges disclosed beyond 2027-09-30 and no statement of plans to replace the 2025 expiries",
+              "Future protection unknown",
+              "Post-expiry sensitivity uses unchanged balances",
+              "Minor",
+            ],
+            [
+              "Hedge terms at later dates were not checked against the December 2024 quarterly report",
+              "A new hedge after the as-of date would reduce the cliff",
+              "Hedge cliff timing",
+              "Minor",
+            ],
+            [
+              "Use restriction",
+              "These results describe rate, FX, input-cost and ESG sensitivity only; they are not a forecast of rates, a hedge recommendation or a covenant measure",
+              "All conclusions",
+              "Minor",
+            ],
+          ],
+        ),
+      ),
+      tableSection(
+        "T2F.3 — Hedging register",
+        table(
+          40,
+          [
+            "Hedge Type",
+            "Notional",
+            "Instrument Covered",
+            "Rate / Strike",
+            "Maturity",
+            "Coverage Status",
+            "Limitation",
+            "Source",
+          ],
+          [["Swap", "USD 100 million", "Loan", "3%", "2026", "Effective", "None", "Memo"]],
+        ),
+      ),
+    ],
+  );
+  render(<MacroLead {...leadProps(made)} />);
+  const share = screen.getByRole("region", { name: "Foreign share" });
+  expect(
+    within(share).getByText(
+      "Invoicing currency of foreign-customer sales, cost currency split and cash by jurisdiction not stated",
+    ),
+  ).toBeVisible();
+  expect(share.textContent).not.toContain("could not read");
+});
+
+// The whole replayed TDG CP-2E handoff, verbatim (fixtures/cp2e_tdg_replay.md).
+it("shows the replayed handoff's own currency gap as the foreign share", () => {
+  const whole = fixtureEntry(
+    "CP-2E",
+    path.resolve(import.meta.dirname, "fixtures", "cp2e_tdg_replay.md"),
+  );
+  render(<MacroLead {...leadProps(whole)} />);
+  const share = screen.getByRole("region", { name: "Foreign share" });
+  expect(
+    within(share).getByText(
+      "Invoicing currency of foreign-customer sales, cost currency split and cash by jurisdiction not stated",
+    ),
+  ).toBeVisible();
+  expect(share.textContent).not.toContain("could not read");
 });

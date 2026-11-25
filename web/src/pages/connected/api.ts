@@ -92,6 +92,64 @@ export type Summary = Reading & {
   prior?: { id: string; as_of: string; pathway: string } | null;
   model: string;
   effort: string;
+  /** The comparison portfolio this summary covers; absent when the run has none. */
+  reference_portfolio?: ReferencePortfolio;
+};
+/**
+ * A comparison portfolio as the service read it: a reference portfolio the analyst supplies for
+ * one run, beside the standing three. It is not the fund's Portfolio workbook and not a document
+ * the run reads.
+ */
+export type ReferencePortfolio = {
+  name: string;
+  /** The date the files state; null when they state none. */
+  as_of: string | null;
+  positions: number;
+  /** Positions with no price or market value. */
+  unpriced: number;
+  limits: number;
+  /** The fields the holdings supplied and did not, in the service's words. */
+  found: string[];
+  not_found: string[];
+  findings: string[];
+};
+export type ReferenceReading = {
+  name: string;
+  holds: string;
+  files: string[];
+  portfolio: ReferencePortfolio | null;
+  /** Why the files are not a portfolio, as a sentence; "" when they are, or there are none. */
+  error: string;
+};
+/**
+ * A standing reference portfolio as the service holds it: the CLO portfolio and the two index
+ * funds every report is read against. `key` names it in requests and is never shown.
+ */
+export type StandingPortfolio = {
+  key: string;
+  name: string;
+  /** The stored set's date, time stored and positions; null when none is stored. */
+  as_of: string | null;
+  stored_at: string | null;
+  positions: number | null;
+  /** The last fetch that failed since the stored set was stored, as a sentence. */
+  failure: { message: string; at: string } | null;
+  /** Why the stored set cannot be read, as a sentence. */
+  error: string | null;
+  /** The service fetches this portfolio's holdings file (the two index funds). */
+  fetchable: boolean;
+};
+export type StandingListing = { portfolios: StandingPortfolio[] };
+/** What one "fetch latest" did; `as_of` is the stored set's after it, `file_as_of` the file's. */
+export type StandingFetch = {
+  outcome: "stored" | "kept" | "failed";
+  as_of: string | null;
+  file_as_of: string | null;
+  /** A sentence when the file was kept out, the fetch failed, or a stored file is stale. */
+  message: string | null;
+  /** The columns the fetched file has that the stored set's had not, and the reverse. */
+  columns_gained: string[];
+  columns_lost: string[];
 };
 
 // Held to `deploy_workflow.inbox.runs.Status` and `deploy_workflow.run_events.ModuleState` by
@@ -200,7 +258,11 @@ export class RequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit, allowWarning = false): Promise<T> {
+export async function request<T>(
+  path: string,
+  init?: RequestInit,
+  allowWarning = false,
+): Promise<T> {
   const response = await fetch(path, { cache: "no-store", ...init });
   const body: unknown = await response.json().catch(() => null);
   if (
@@ -222,7 +284,7 @@ async function request<T>(path: string, init?: RequestInit, allowWarning = false
   return body as T;
 }
 
-function postJson(payload: unknown): RequestInit {
+export function postJson(payload: unknown): RequestInit {
   return {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -275,6 +337,42 @@ export const getLatestIssuerRun = (issuer: string) =>
 export const carryDocuments = (id: string, run: string) =>
   request<{ carried: string[]; kept: string[] }>(`${submission(id)}/carry`, postJson({ run }));
 export const getReading = (id: string) => request<Reading>(`${submission(id)}/reading`);
+const referencePortfolio = (id: string) => `${submission(id)}/reference-portfolio`;
+export const uploadReferenceFile = (id: string, file: File) =>
+  request<{ name: string }>(
+    `${referencePortfolio(id)}/files?name=${encodeURIComponent(file.name)}`,
+    { method: "POST", body: file },
+  );
+/** Names the uploaded comparison portfolio; the answer says what was read, or why it was not. */
+export const nameReferencePortfolio = (id: string, name: string, holds: string) =>
+  request<ReferenceReading>(referencePortfolio(id), postJson({ name, holds }), true);
+export const removeReferencePortfolio = (id: string) =>
+  request<{ removed: boolean }>(referencePortfolio(id), { method: "DELETE" });
+/** The standing portfolios' own routes: never part of a run's requests or its answers. */
+const STANDING_PORTFOLIOS = "/api/reference-portfolios";
+const standingPortfolio = (key: string) => `${STANDING_PORTFOLIOS}/${encodeURIComponent(key)}`;
+export const getStandingPortfolios = (signal?: AbortSignal) =>
+  request<StandingListing>(STANDING_PORTFOLIOS, { signal });
+/** Fetches each index fund's holdings that has never been fetched; answers the listing. */
+export const ensureStandingPortfolios = () =>
+  request<StandingListing>(`${STANDING_PORTFOLIOS}/ensure`, { method: "POST" });
+/** One fetch of an index fund's holdings; answers what it did and the listing after it. */
+export const refreshStandingPortfolio = (key: string) =>
+  request<StandingFetch & StandingListing>(`${standingPortfolio(key)}/refresh`, {
+    method: "POST",
+  });
+export const clearStandingFiles = (key: string) =>
+  request<{ cleared: boolean }>(`${standingPortfolio(key)}/files`, { method: "DELETE" });
+export const uploadStandingFile = (key: string, file: File) =>
+  request<{ name: string }>(
+    `${standingPortfolio(key)}/files?name=${encodeURIComponent(file.name)}`,
+    { method: "POST", body: file },
+  );
+/** Reads the files sent for a standing portfolio and stores them as its holdings. */
+export const storeStandingFiles = (key: string) =>
+  request<StandingListing & { portfolio: ReferencePortfolio }>(standingPortfolio(key), {
+    method: "POST",
+  });
 function postShownCap(payload: unknown, shownCap: string): RequestInit {
   return {
     method: "POST",
@@ -461,13 +559,43 @@ const MODULE_NAMES: Readonly<Record<string, string>> = {
   "CP-MODEL": "Cash flow model",
 };
 
-export function moduleName(id: string) {
-  return (Object.hasOwn(MODULE_NAMES, id) ? MODULE_NAMES[id] : undefined) ?? id;
+/** What a reader sees for a methodology module the page has no name for: never its code. */
+export const UNNAMED_MODULE = "Unnamed module";
+
+/**
+ * The methodology's module ids and aliases that have no reader name here
+ * (src/deploy_vii/methodology.json); with `MODULE_NAMES` they are every module code there is.
+ */
+const UNNAMED_CODES: ReadonlySet<string> = new Set([
+  ...["CP-MEMO", "CP-OS", "CP-PARSE", "CP-1E", "CP-2B", "CP-2C", "CP-2F", "CP-3A", "CP-3B"],
+  ...["CP-4A", "CP-4B", "CP-4D", "CP-5A", "CP-6A", "CP-L20", "CP-L23", "CP-L30", "CP-L40"],
+]);
+
+/**
+ * A methodology module code's reader name, the unnamed wording for one that has none, or null for
+ * anything that is not a methodology code (an issuer's "CP-10", commercial paper's "CP-BACKSTOP").
+ */
+export function moduleCodeName(code: string): string | null {
+  if (Object.hasOwn(MODULE_NAMES, code)) return MODULE_NAMES[code] ?? null;
+  return UNNAMED_CODES.has(code) ? UNNAMED_MODULE : null;
 }
 
-/** Replaces each whole module code the page knows with the module's name; others stay. */
+/**
+ * The reader's name for a module id held in a module field (never for free text: `serviceText`).
+ * A code is never returned: an id shaped as one that the page cannot name reads as unnamed. So does
+ * an empty id. An id that is no code ("Report") stays as written.
+ */
+export function moduleName(id: string) {
+  return moduleCodeName(id) ?? (/^(?:CP-[A-Z0-9]+|\s*)$/.test(id) ? UNNAMED_MODULE : id);
+}
+
+/**
+ * Replaces each whole, exact methodology module code in written text with the module's name. Any
+ * other "CP-…" word (commercial paper's "CP-backed", a case named "CP-10") is the writer's own and
+ * stays as written.
+ */
 export function serviceText(text: string) {
-  return text.replace(/\bCP-[A-Z0-9]+\b/g, (code) => moduleName(code));
+  return text.replace(/(?<![\w-])CP-[A-Z0-9]+(?![\w-])/g, (code) => moduleCodeName(code) ?? code);
 }
 
 /** The changes line without the launcher's "changes:" label or the service's `(not used: <run>: <why>)` note, which names a run id. */

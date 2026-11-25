@@ -1,5 +1,12 @@
 # Signal mocks
 
+> **Superseded for the look, 2026-11-25.** These mocks were drawn against design system 0.6 and
+> the shell of that time (a slim area rail with the channel list as its second tier, a violet
+> canvas, ultramarine accent, each component in its source's look). The built screens
+> (`web/src/pages/signal/`) now follow `DESIGN.md`, as every other screen does; the section
+> "Under the 2026-11-24 redesign" below says what that changed. The screens, states and parts
+> listed here, the paid-call rulings and the departures that are about behaviour still hold.
+
 Step D1d of the [design track plan](../../superpowers/plans/2026-11-13-design-track.md), drawn
 2026-11-13 against [design system](../design-system.md) 0.6, the
 [component map](../component-map.md) and [decision 0003](../../decisions/0003-design-track.md)
@@ -75,6 +82,30 @@ files' content if the project becomes unreadable; neither is committed here.
 | Settings 9 | AI and cost | AI at its cap |
 
 Every Signal state in the [screen inventory](../screen-inventory.md) has a frame above.
+
+## Under the 2026-11-24 redesign
+
+Checked in a browser at 390, 768, 1024, 1280 and 1440px in the design-reference app and in the
+connected app at `/signal`.
+
+| The mock shows | The built screens show |
+| :--- | :--- |
+| A slim area rail, then the channel list as a full-height white column | One top bar for the areas. The channel list is a tile on the canvas beside the page (256px, 20px radius, hairline edge), from 960px |
+| Nothing below desktop width ("Not drawn: narrow widths") | Below 960px the page takes the region and a "Channels" button, on a 52px strip stuck to the top of the page (60px on a phone), opens the list from the left |
+| Violet canvas, ultramarine accent | Zinc canvas `#FAFAFA`, teal accent; orange only with a word or icon; red only for a failure or a refusal |
+| Current channel: a tinted row | Accent tint and accent edge, 12px radius. The settings section list has the same treatment in place of the side line |
+| Page titles at the source's 24px | The ramp's h1, 32/38. Text is on the ramp throughout: 15/24 body, 14/22 small, 12/16 caption, 18/26 headlines |
+| Counts as grey pill badges in the channel list | Plain mono numerals; dates and clock times in Geist Mono with tabular numerals |
+| Source radii and shadows per component | 20px tiles, 12px panels, 8px wells and controls, 6px chips; one-pixel hairlines; no shadow on a card or pill |
+| Settings sections straight on the canvas | Each section on one tile; the sources table is its own tile |
+| The pill's blue dot for new stories | The accent dot, as unread has |
+| Source control sizes (24px text actions and chips) | Every control at least 32px, 44px on a phone |
+
+Departures 1, 2, 11, 13 and 17 below were about the old canvas, rail, overlay and edges. On the
+built screens: the list of stories still sits on one tile (1); there is no icon-only rail (2);
+the thread panel's overlay is the lighter one of ruling 20 (11); edges are the design's
+`border-control` and hairline roles (13); the pill is white with a hairline edge on the zinc
+canvas (17).
 
 ## Parts that need a paid-call ruling
 

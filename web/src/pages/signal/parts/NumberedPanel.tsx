@@ -14,7 +14,7 @@ export function NumberedPanel({
   leadAs?: "span" | "h2" | "h3";
 }) {
   return (
-    <ol className="overflow-hidden rounded-md border border-border-hairline bg-surface-card">
+    <ol className="overflow-hidden rounded-ds-md border border-border-hairline bg-surface-card">
       {items.map((item, index) => (
         <li
           key={index}
@@ -22,14 +22,14 @@ export function NumberedPanel({
         >
           <span
             aria-hidden="true"
-            className="grid size-8 shrink-0 place-items-center rounded-xs border border-border-hairline bg-surface-subtle text-sm font-semibold text-text-primary tabular-nums"
+            className="grid size-8 shrink-0 place-items-center rounded-ds-xs border border-border-hairline bg-surface-subtle font-mono text-mono font-medium text-text-primary tabular-nums"
           >
             {item.number}
           </span>
           <div className="min-w-0 flex-1">
-            <Lead className="text-sm font-medium text-text-primary">{item.lead}</Lead>
+            <Lead className="text-small font-medium text-text-primary">{item.lead}</Lead>
             {item.body === undefined || item.body === null ? null : (
-              <p className="mt-1 max-w-[72ch] text-sm text-text-tertiary">{item.body}</p>
+              <p className="mt-1 max-w-[72ch] text-small text-text-secondary">{item.body}</p>
             )}
             {item.children}
           </div>

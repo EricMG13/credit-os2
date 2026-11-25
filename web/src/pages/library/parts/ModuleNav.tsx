@@ -387,7 +387,6 @@ function StageLink({
           </small>
         )}
       </span>
-      <span className="font-mono text-caption text-text-tertiary">{module.id}</span>
     </a>
   );
 }
@@ -480,32 +479,31 @@ function StageGroups({
   );
 }
 
-function Legend() {
-  const item = "inline-flex items-center gap-1.5";
+const STATE_ORDER: readonly ModuleState[] = [
+  "Delivered",
+  "Delivered with gaps",
+  "Not assessable",
+  "Not run",
+];
+
+/** The key to the marks this list draws: one entry per state present in the run, no other. */
+function Legend({ modules }: { modules: readonly NavModule[] }) {
+  const present = STATE_ORDER.filter((state) => modules.some((module) => module.state === state));
+  // One state needs no key: every link already carries its mark, and its word when not delivered.
+  if (present.length < 2) return null;
   return (
     <ul
       aria-label="Legend"
       className="mx-2 flex flex-wrap gap-x-3 gap-y-1.5 border-t border-border-subtle pt-2.5 text-caption text-text-secondary"
     >
-      <li className={item}>
-        <span aria-hidden="true" className={cx("flex", MARK.Delivered)}>
-          <StatusShape shape={STATUS_SETS["Module state"].Delivered.shape} />
-        </span>
-        Delivered
-      </li>
-      <li className={item}>
-        <span aria-hidden="true" className="flex">
-          <SlashCircle />
-        </span>
-        Not assessable
-      </li>
-      <li className={item}>
-        <span
-          aria-hidden="true"
-          className="h-2.5 w-3 rounded-ds-xs border border-action bg-surface-selected"
-        />
-        This page
-      </li>
+      {present.map((state) => (
+        <li key={state} className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="flex">
+            <StateMark state={state} />
+          </span>
+          {state}
+        </li>
+      ))}
     </ul>
   );
 }
@@ -592,7 +590,7 @@ export function StageNav({
               if (!desktop) setOpen(false);
             }}
           />
-          <Legend />
+          <Legend modules={modules} />
         </div>
       </details>
     </nav>

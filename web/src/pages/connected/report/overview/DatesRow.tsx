@@ -4,10 +4,11 @@ import type { PublishedRun, Snapshot } from "../../publishedReport";
 import type { ReportView } from "../../reportView";
 import { buildCalendar, upcomingCalendarRows } from "../Calendar";
 import { asOfDate } from "../../runFigures";
-import { TextLink } from "../../../run/TextLink";
+import { cx } from "@/utils/cx";
+import { TextLink, textLinkClass } from "../../../run/TextLink";
 import { PublishedSource } from "../PublishedTrace";
 import { labelText, readerCell } from "./notes";
-import { GapNote, Tile } from "./Tile";
+import { GapNote, GapSentence, Tile } from "./Tile";
 
 type RowProps = { snapshot: Snapshot; run: PublishedRun; view: ReportView };
 type WatchRow = NonNullable<ReturnType<typeof upcomingCalendarRows>>[number];
@@ -42,7 +43,7 @@ function events(rows: readonly WatchRow[]): Event[] {
 }
 
 const shown = (date: string) => asOfDate(date);
-const owners = (event: Event) => [...new Set(event.rows.map((row) => row.owner))].join(", ");
+const owners = (event: Event) => [...new Set(event.rows.map((row) => row.owner))];
 
 /** The events of one day share one mark, numbered by their places in the list below. */
 type Mark = { key: string; from: number; numbers: number[] };
@@ -160,49 +161,70 @@ function Axis({ list }: { list: readonly Event[] }) {
   );
 }
 
+/**
+ * Which modules recorded the event. One is named; several are counted and sent to the Calendar,
+ * which lists each module's own row with its own source, so the list here keeps one trace an event.
+ */
+function Recorded({ modules }: { modules: readonly string[] }) {
+  const [only] = modules;
+  if (modules.length <= 1)
+    return only ? (
+      <p className="text-caption text-text-secondary">{`Recorded by ${only}`}</p>
+    ) : null;
+  const count = `Recorded by ${String(modules.length)} modules`;
+  return (
+    <a
+      className={cx(
+        textLinkClass(true),
+        "inline-flex min-h-8 w-fit items-center text-caption max-[480px]:min-h-11",
+      )}
+      href="#calendar"
+    >
+      {count}
+      <span className="sr-only">{`: ${modules.join(", ")}. Open the issuer calendar`}</span>
+    </a>
+  );
+}
+
 function EventItem({ event, index }: { event: Event; index: number }) {
   const [row] = event.rows;
+  const kind = row?.cells[6] ? readerCell(row.cells[6]) : null;
+  const status = row?.cells[4] ? readerCell(row.cells[4]) : null;
+  const name = `${event.name} on ${shown(event.date)}`;
   return (
-    <li className="grid content-start gap-1 border-t border-border-hairline pt-3">
-      <p className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className="flex size-5 flex-none items-center justify-center rounded-ds-full border border-action font-mono text-caption text-text-primary tabular-nums"
-        >
-          {index + 1}
-        </span>
-        <span className="font-mono text-small text-text-primary tabular-nums">
-          {shown(event.date)}
-        </span>
-      </p>
-      <p className="text-small font-medium text-text-primary">{event.name}</p>
-      <p className="text-caption text-text-secondary">
-        {owners(event)}
-        {row?.cells[6] && readerCell(row.cells[6]) ? ` · ${readerCell(row.cells[6]) ?? ""}` : ""}
-      </p>
-      {row?.cells[4] && readerCell(row.cells[4]) && (
-        <p className="text-caption text-text-secondary">{readerCell(row.cells[4])}</p>
-      )}
-      {row?.timingWithinRecordedPeriod && (
-        <p className="text-caption text-text-secondary">
-          Timing falls within the recorded period; the exact date is unresolved.
+    <li className="flex items-start justify-between gap-2 border-t border-border-hairline pt-3">
+      <div className="grid min-w-0 content-start gap-1">
+        <p className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="flex size-5 flex-none items-center justify-center rounded-ds-full border border-action font-mono text-caption text-text-primary tabular-nums"
+          >
+            {index + 1}
+          </span>
+          <span className="font-mono text-small text-text-primary tabular-nums">
+            {shown(event.date)}
+          </span>
         </p>
+        <p className="text-body font-medium text-text-primary">{event.name}</p>
+        {kind && <p className="text-caption text-text-secondary">{kind}</p>}
+        {status && <p className="text-caption text-text-secondary">{status}</p>}
+        {row?.timingWithinRecordedPeriod && (
+          <p className="text-caption text-text-secondary">
+            Timing falls within the recorded period; the exact date is unresolved.
+          </p>
+        )}
+        <Recorded modules={owners(event)} />
+      </div>
+      {/* One trace an event: the first module's row. The Calendar holds every module's row. */}
+      {row && (
+        <PublishedSource
+          href={row.href}
+          name={`${name} from ${row.owner}`}
+          linkLabel={`Source for ${name} from ${row.owner}`}
+        >
+          View source
+        </PublishedSource>
       )}
-      <span className="flex flex-wrap gap-1">
-        {event.rows.map((item, at) => {
-          const name = `${event.name} on ${shown(event.date)} from ${item.owner}`;
-          return (
-            <PublishedSource
-              key={`${item.href}-${String(at)}`}
-              href={item.href}
-              name={name}
-              linkLabel={`Source for ${name}`}
-            >
-              View source
-            </PublishedSource>
-          );
-        })}
-      </span>
     </li>
   );
 }
@@ -210,15 +232,15 @@ function EventItem({ event, index }: { event: Event; index: number }) {
 function Watch({ rows }: { rows: readonly WatchRow[] | null }) {
   if (rows === null)
     return (
-      <p className="text-small text-text-secondary" role="status">
-        This run needs a valid as-of date to identify upcoming events.
-      </p>
+      <div role="status">
+        <GapSentence>This run needs a valid as-of date to identify upcoming events.</GapSentence>
+      </div>
     );
   if (rows.length === 0)
     return (
-      <p className="text-small text-text-secondary" role="status">
-        No recorded event dates fall on or after this run’s as-of date.
-      </p>
+      <div role="status">
+        <GapSentence>No recorded event dates fall on or after this run’s as-of date.</GapSentence>
+      </div>
     );
   const all = events(rows);
   const list = all.slice(0, SHOWN);
@@ -233,7 +255,7 @@ function Watch({ rows }: { rows: readonly WatchRow[] | null }) {
       </ol>
       {more > 0 && (
         <TextLink
-          className="inline-flex min-h-8 w-fit items-center max-[480px]:min-h-11"
+          className="inline-flex min-h-8 w-fit items-center text-small max-[480px]:min-h-11"
           href="#calendar"
         >
           {`${String(more)} later ${more === 1 ? "event" : "events"} in the Calendar`}
@@ -256,7 +278,7 @@ function Undated({ gaps }: { gaps: ReturnType<typeof buildCalendar>["gaps"] }) {
       : "Some recorded events could not be placed; see the Calendar";
   return (
     <TextLink
-      className="inline-flex min-h-8 w-fit items-center max-[480px]:min-h-11"
+      className="inline-flex min-h-8 w-fit items-center text-small max-[480px]:min-h-11"
       href="#calendar"
     >
       {words}
@@ -294,9 +316,9 @@ export function DatesRow({ run, view }: RowProps) {
           gaps.
         </GapNote>
       ) : calendar.rows.length === 0 ? (
-        <p className="text-small text-text-secondary" role="status">
-          No dated events were recorded in this run.
-        </p>
+        <div role="status">
+          <GapSentence>No dated events were recorded in this run.</GapSentence>
+        </div>
       ) : (
         <Watch rows={upcomingCalendarRows(calendar.rows, run.asOf)} />
       )}

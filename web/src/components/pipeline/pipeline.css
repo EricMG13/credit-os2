@@ -1,6 +1,12 @@
-/* The vertical half of the pipeline's one animation: the same slow dash as `.pipeline-flow` in
-   theme.css, run down a bus. It lives inside no-preference, so under reduced motion the bus keeps
-   its plain connector colour. */
+/* A run in flight: the path into each running module is drawn in the accent, with or without
+   motion. Under reduced motion this solid accent line is the whole cue. */
+.pipeline-edge[data-edge="running"],
+.pipeline-edge[data-for] {
+  background-color: var(--color-action);
+}
+
+/* The vertical half of the pipeline's dash: the same slow dash as `.pipeline-flow` in theme.css,
+   run down a bus. It lives inside no-preference, so under reduced motion nothing moves. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes pipeline-flow-y {
     from {
@@ -22,7 +28,6 @@
   }
 
   .pipeline-flow-y {
-    background-color: transparent;
     background-image: repeating-linear-gradient(
       180deg,
       var(--color-action) 0 4px,

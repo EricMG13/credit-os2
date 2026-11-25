@@ -1,5 +1,5 @@
 import { ArrowRight, Dataflow03 } from "@untitledui/icons";
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { GapPanel } from "@/components/gap/GapPanel";
 import { Pipeline, type PipelineNode } from "@/components/pipeline";
@@ -9,7 +9,7 @@ import { moduleBottomLines, moduleState, type ReportView } from "../../reportVie
 import { TextLink } from "../../../run/TextLink";
 import { PublishedSource } from "../PublishedTrace";
 import { byStage } from "../stages";
-import { Tile, Well } from "./Tile";
+import { GapSentence, Tile, Well } from "./Tile";
 
 type RowProps = { snapshot: Snapshot; run: PublishedRun; view: ReportView };
 type Line = ReturnType<typeof moduleBottomLines>[number];
@@ -75,14 +75,14 @@ function LineText({
           "--r3": three.row,
         } as CSSProperties
       }
-      className="flex items-start justify-between gap-2 border-t border-border-hairline pt-3 md:col-(--c2) md:row-(--r2) xl:col-(--c3) xl:row-(--r3)"
+      className="flex items-start justify-between gap-2 border-t border-border-hairline pt-3 md:col-(--c2) md:row-(--r2) lg:col-(--c3) lg:row-(--r3)"
     >
       <div className="grid min-w-0 gap-1">
-        <h3 className="text-small font-medium text-text-primary">{line.name}</h3>
+        <h4 className="text-small font-medium text-text-primary">{line.name}</h4>
         {line.withheld ? (
           <WithheldLine id={line.id} name={line.name} />
         ) : line.text !== null ? (
-          <p className="reading-copy text-small text-text-secondary">{line.text}</p>
+          <p className="reading-copy text-body text-text-secondary">{line.text}</p>
         ) : line.referenced ? (
           <Button color="link-gray" size="sm" href={source}>
             Read this bottom line in Evidence
@@ -107,17 +107,26 @@ function LineText({
  */
 function WithheldLine({ id, name }: { id: string; name: string }) {
   return (
-    <p className="text-small text-text-secondary">
-      This page does not show its bottom line: no clearance for it is recorded.{" "}
+    <div className="flex flex-col items-start">
+      <GapSentence>
+        This page does not show its bottom line: no clearance for it is recorded.
+      </GapSentence>
       <TextLink
         href={`#modules/${id}`}
         className="inline-flex min-h-8 items-center max-[480px]:min-h-11"
       >
         {`Open ${name}`}
       </TextLink>
-    </p>
+    </div>
   );
 }
+
+/**
+ * Whether the per-module lines start open: from 1280 px, where three columns hold them in a few
+ * rows. Where the width cannot be asked, they start open, so nothing is hidden by default.
+ */
+const wideAtFirst = () =>
+  typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 1280px)").matches;
 
 function OpenModules() {
   return (
@@ -138,6 +147,7 @@ export function PipelineRow({ run, view }: RowProps) {
   // The graph's stage order, whatever order the service listed the lines in.
   const lines = byStage(moduleBottomLines(view, run)).flatMap((stage) => stage.rows);
   const all = nodes(view, lines);
+  const [open, setOpen] = useState(wideAtFirst);
   if (!all.length) return null;
   const stages = byStage(all).map(({ name, rows }) => ({ name, nodes: rows }));
   return (
@@ -161,14 +171,29 @@ export function PipelineRow({ run, view }: RowProps) {
         <Pipeline label="Stages" stages={stages} flow="delivered" />
       </Well>
       {lines.length > 0 && (
-        <ul
-          aria-label="Bottom lines"
-          className="grid gap-x-8 gap-y-4 md:grid-cols-2 xl:grid-cols-3"
+        // The lines are the Modules page in brief: open where three columns keep them short,
+        // one press away where they would run to a screen of their own.
+        <details
+          open={open}
+          onToggle={(event) => {
+            setOpen(event.currentTarget.open);
+          }}
         >
-          {lines.map((line, index) => (
-            <LineText key={line.id} run={run} line={line} index={index} count={lines.length} />
-          ))}
-        </ul>
+          <summary className="flex min-h-8 w-fit cursor-pointer items-center gap-2 rounded-ds-xs text-small font-medium text-text-primary outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2">
+            Each module’s bottom line
+            <span className="font-mono text-caption font-normal text-text-tertiary tabular-nums">
+              {lines.length}
+            </span>
+          </summary>
+          <ul
+            aria-label="Bottom lines"
+            className="mt-3 grid gap-x-8 gap-y-4 md:grid-cols-2 lg:grid-cols-3"
+          >
+            {lines.map((line, index) => (
+              <LineText key={line.id} run={run} line={line} index={index} count={lines.length} />
+            ))}
+          </ul>
+        </details>
       )}
     </Tile>
   );

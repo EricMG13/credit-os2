@@ -231,8 +231,12 @@ test("a period of one form is put in time order whatever order the rows are in",
     "FY2024 / 2024-12-28",
     "FY2025 / 2025-06-30",
   ]);
+  // A date written in words is read by its month and year.
   const loose: Coverage = { ...data, facts: [dated("30 June 2025"), dated("31 March 2025")] };
-  expect(periodsOf(loose, loose.issuers, "x")).toEqual(["30 June 2025", "31 March 2025"]);
+  expect(periodsOf(loose, loose.issuers, "x")).toEqual(["31 March 2025", "30 June 2025"]);
+  // A label with no year is not placed, so the modules' own order stands.
+  const unread: Coverage = { ...data, facts: [dated("Second half"), dated("First half")] };
+  expect(periodsOf(unread, unread.issuers, "x")).toEqual(["Second half", "First half"]);
 });
 
 test("a period stated twice has no one figure: it is not ranked, bounded or drawn", () => {
@@ -307,42 +311,39 @@ const ltm = (rows: [string, number][]): Coverage => ({
   ),
 });
 
-test("a trend says whether it could put the periods in time order", () => {
+// Owner's ruling, 2026-11-25: fiscal years oldest first, then year to date, last twelve months,
+// pro forma and forecast periods; every expected order below is written by hand.
+test("a trend puts last twelve months, quarters and forecasts in the one period order", () => {
   const one = (rows: [string, number][]) => trend(ltm(rows), ltm(rows).issuers, LEVERAGE, "x");
-  // Rows written newest first, in a form the reader's rule cannot order.
   const newestFirst = one([
     ["LTM Jun 2026", 4.0],
     ["LTM Dec 2025", 4.5],
     ["LTM Jun 2025", 5.0],
     ["LTM Dec 2024", 5.5],
   ]);
-  expect(newestFirst.ordered).toBe(false);
+  expect(newestFirst.ordered).toBe(true);
   expect(newestFirst.periods).toEqual([
-    "LTM Jun 2026",
-    "LTM Dec 2025",
-    "LTM Jun 2025",
     "LTM Dec 2024",
+    "LTM Jun 2025",
+    "LTM Dec 2025",
+    "LTM Jun 2026",
   ]);
-  expect(
-    one([
-      ["Q3 2025", 1],
-      ["Q4 2025", 2],
-      ["Q1 2025", 3],
-    ]).ordered,
-  ).toBe(false);
-  expect(
-    one([
-      ["FY2026E", 1],
-      ["FY2024", 2],
-      ["FY2025", 3],
-    ]).ordered,
-  ).toBe(false);
-  expect(
-    one([
-      ["FY2025", 1],
-      ["LTM Dec 2025", 2],
-    ]).ordered,
-  ).toBe(false);
+  const quarters = one([
+    ["Q3 2025", 1],
+    ["Q4 2025", 2],
+    ["Q1 2025", 3],
+  ]);
+  expect(quarters.ordered).toBe(true);
+  expect(quarters.periods).toEqual(["Q1 2025", "Q3 2025", "Q4 2025"]);
+  const mixed = one([
+    ["FY2026E", 1],
+    ["PF LTM Dec 2025", 5],
+    ["LTM Dec 2025", 4],
+    ["FY2024", 2],
+    ["FY2025", 3],
+  ]);
+  expect(mixed.ordered).toBe(true);
+  expect(mixed.periods).toEqual(["FY2024", "FY2025", "LTM Dec 2025", "PF LTM Dec 2025", "FY2026E"]);
   const fiscal = one([
     ["FY2025", 3],
     ["FY2023", 1],
@@ -356,21 +357,83 @@ test("a trend says whether it could put the periods in time order", () => {
       ["2024-09-30", 2],
     ]).ordered,
   ).toBe(true);
-  // One label is trivially in order, whatever its form.
-  expect(one([["LTM Dec 2025", 1]]).ordered).toBe(true);
+  // A label the rule cannot read leaves the modules' own order, and says so.
+  const unread = one([
+    ["Second half", 1],
+    ["FY2024", 2],
+  ]);
+  expect(unread.ordered).toBe(false);
+  expect(unread.periods).toEqual(["Second half", "FY2024"]);
+  // One label is trivially in order, whatever it is.
+  expect(one([["Second half", 1]]).ordered).toBe(true);
 });
 
 test("a period the rule cannot order is opened on the first stated, never on 'the later'", () => {
   const unordered = ltm([
+    ["Second half", 4.0],
+    ["First half", 4.5],
+  ]);
+  expect(periodsOrdered(unordered, unordered.issuers, LEVERAGE)).toBe(false);
+  expect(commonPeriod(unordered, unordered.issuers, LEVERAGE)).toBe("Second half");
+  const newestFirst = ltm([
     ["LTM Jun 2026", 4.0],
     ["LTM Dec 2025", 4.5],
   ]);
-  expect(periodsOrdered(unordered, unordered.issuers, LEVERAGE)).toBe(false);
-  expect(commonPeriod(unordered, unordered.issuers, LEVERAGE)).toBe("LTM Jun 2026");
+  expect(periodsOrdered(newestFirst, newestFirst.issuers, LEVERAGE)).toBe(true);
+  expect(commonPeriod(newestFirst, newestFirst.issuers, LEVERAGE)).toBe("LTM Jun 2026");
   const ordered = ltm([
     ["FY2024", 4.0],
     ["FY2025", 4.5],
   ]);
   expect(periodsOrdered(ordered, ordered.issuers, LEVERAGE)).toBe(true);
   expect(commonPeriod(ordered, ordered.issuers, LEVERAGE)).toBe("FY2025");
+});
+
+// Review of 2026-11-25: Coverage opens on a reported period (an actual, a year to date or a last
+// twelve months) where the newest runs state one, never on a pro forma or forecast period that
+// happens to be stated as often.
+test("the view opens on the most stated reported period, not a pro forma or forecast one", () => {
+  const equal = ltm([
+    ["FY2026E", 3.1],
+    ["PF LTM Jun 2025", 3.9],
+    ["FY2024", 4.5],
+    ["LTM Jun 2025", 4.2],
+  ]);
+  expect(commonPeriod(equal, equal.issuers, LEVERAGE)).toBe("LTM Jun 2025");
+  // A forecast stated by more runs than any reported period still does not open the view.
+  const two: Coverage = {
+    ...data,
+    facts: [
+      fact("a2", "alpha", LEVERAGE, { period: "FY2026E", text: "3.1", at: 3.1, unit: "x" }),
+      fact("b1", "beta", LEVERAGE, { period: "FY2026E", text: "2.9", at: 2.9, unit: "x" }),
+      fact("a2", "alpha", LEVERAGE, { period: "FY2024", text: "4.5", at: 4.5, unit: "x" }),
+      fact("b1", "beta", LEVERAGE, { period: "FY2025", text: "4.0", at: 4.0, unit: "x" }),
+    ],
+  };
+  expect(commonPeriod(two, two.issuers, LEVERAGE)).toBe("FY2025");
+  // With no reported period stated, the most stated period of any class, the later of equals.
+  const forward = ltm([
+    ["FY2027E", 2.8],
+    ["PF FY2025", 3.9],
+    ["FY2026E", 3.1],
+  ]);
+  expect(commonPeriod(forward, forward.issuers, LEVERAGE)).toBe("FY2027E");
+  // Where a label cannot be placed there is no "later": the first reported period as written.
+  const unordered = ltm([
+    ["FY2026E", 3.1],
+    ["Run rate", 4.4],
+    ["FY2024", 4.5],
+    ["FY2023", 4.9],
+  ]);
+  expect(periodsOrdered(unordered, unordered.issuers, LEVERAGE)).toBe(false);
+  expect(commonPeriod(unordered, unordered.issuers, LEVERAGE)).toBe("FY2024");
+  // No figure stated for any period: still a reported period, the latest.
+  const gaps: Coverage = {
+    ...data,
+    issuers: [data.issuers[0] as Issuer],
+    facts: ["FY2026E", "FY2024", "FY2023"].map((period) =>
+      fact("a2", "alpha", LEVERAGE, { period, text: "Not supplied", gap: true }),
+    ),
+  };
+  expect(commonPeriod(gaps, gaps.issuers, LEVERAGE)).toBe("FY2024");
 });

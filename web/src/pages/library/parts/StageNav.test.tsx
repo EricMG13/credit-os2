@@ -93,11 +93,12 @@ it("marks only the current link and names each link by name and state", () => {
   expect(screen.getByRole("link", { name: "Credit profile, Delivered with gaps" })).toBeVisible();
 });
 
-it("takes each address from hrefFor and shows the module code", () => {
+it("takes each address from hrefFor and shows the module name, never its code", () => {
   renderNav();
   const link = screen.getByRole("link", { name: "Decision, Delivered" });
   expect(link).toHaveAttribute("href", "#/run/modules/CP-6");
-  expect(link).toHaveTextContent("CP-6");
+  expect(link).toHaveTextContent("Decision");
+  expect(link.textContent).not.toMatch(/CP-/);
 });
 
 it("draws the state word for a module that is not Delivered", () => {
@@ -142,14 +143,14 @@ function renderWithSections() {
   );
 }
 
-it("draws a legend with delivered, not assessable and this page", () => {
+it("draws a legend of the states present, each with the mark the links carry", () => {
   renderNav();
   const legend = screen.getByRole("list", { name: "Legend" });
   expect(
     within(legend)
       .getAllByRole("listitem")
       .map((li) => li.textContent),
-  ).toEqual(["Delivered", "Not assessable", "This page"]);
+  ).toEqual(["Delivered", "Delivered with gaps", "Not assessable", "Not run"]);
 });
 
 it("draws the not-assessable count as a warning chip", () => {
@@ -226,12 +227,9 @@ it("closes the disclosure when a section is pressed on a narrow screen", () => {
   }
 });
 
-it("draws the legend's This page swatch with the same teal edge as the current link", () => {
+it("marks the current link with the accent edge and keeps it out of the legend", () => {
   renderNav();
-  const swatch = within(screen.getByRole("list", { name: "Legend" }))
-    .getByText("This page")
-    .querySelector("span") as HTMLElement;
-  expect(swatch).toHaveClass("border", "border-action", "bg-surface-selected");
+  expect(within(screen.getByRole("list", { name: "Legend" })).queryByText("This page")).toBeNull();
   expect(screen.getByRole("link", { name: /Financial statements/ })).toHaveClass(
     "border-action",
     "bg-surface-selected",

@@ -1,7 +1,7 @@
 import type { OutputEntry } from "../../../publishedReport";
 import type { Reading } from "../kit/numbers";
 import { safeText } from "../kit/reader";
-import type { Period } from "../kit/tables";
+import { latestReported, type Period } from "../kit/tables";
 import {
   cashLadder,
   earningsAgainstDebt,
@@ -37,6 +37,8 @@ export type StripPeriod = {
   /** "Partly": numbers in one figure, only gaps in another. */
   partly: boolean;
   compared: "from" | "to" | null;
+  /** True for the latest reported period of all the stated ones: never a pro forma or a forecast. */
+  latest: boolean;
 };
 
 export type PeriodStrip = {
@@ -50,8 +52,9 @@ export type PeriodStrip = {
   shown: string[];
   /** Figure tables whose periods cannot be read, with the reason. */
   gaps: { table: string; reason: string }[];
-  /** False when the periods cannot be put in time order: they are as first stated, none compared. */
+  /** False when the period order cannot place a period (`unplaced`, drawn last): none is compared. */
   ordered: boolean;
+  unplaced: string[];
   line: number | null;
 };
 
@@ -124,8 +127,11 @@ function withUnstated(periods: readonly Period[]): (Period & { unstated?: true }
   const first = periods[0];
   const last = periods.at(-1);
   const prefix = first ? /^(\D*)\d{4}$/.exec(first.label)?.[1] : undefined;
-  if (!first || !last || prefix === undefined || last.year - first.year > 12) return [...periods];
-  const years = Array.from({ length: last.year - first.year + 1 }, (_, at) => first.year + at);
+  const span = first && last ? last.year - first.year : Number.NaN;
+  // A span is filled only between periods of one form, their years read and at most twelve apart.
+  const oneForm = periods.every((period) => period.form === first?.form);
+  if (!first || prefix === undefined || !oneForm || !(span >= 0 && span <= 12)) return [...periods];
+  const years = Array.from({ length: span + 1 }, (_, at) => first.year + at);
   return years.flatMap((year) => {
     const found = periods.filter((period) => period.year === year);
     return found.length
@@ -171,6 +177,7 @@ export function periodStrip(entry: OutputEntry): PeriodStrip {
   const apartPeriods = annual.length
     ? stated.periods.filter((period) => period.kind !== "annual")
     : [];
+  const latest = latestReported(stated.labels, (label) => label);
   const compared = (label: string) =>
     stated.comparison?.from === label ? "from" : stated.comparison?.to === label ? "to" : null;
   const axis = (stated.ordered ? withUnstated(onAxis) : onAxis).map((period): StripPeriod => ({
@@ -179,6 +186,7 @@ export function periodStrip(entry: OutputEntry): PeriodStrip {
     state: "unstated" in period ? { kind: "unstated" } : overall(period.label),
     partly: "unstated" in period ? false : partly(period.label),
     compared: compared(period.label),
+    latest: period.label === latest,
   }));
   const apart = apartPeriods.map((period) => ({
     label: period.label,
@@ -198,6 +206,7 @@ export function periodStrip(entry: OutputEntry): PeriodStrip {
     shown,
     gaps: stated.gaps,
     ordered: stated.ordered,
+    unplaced: stated.unplaced,
     line: found[0]?.line ?? null,
   };
 }

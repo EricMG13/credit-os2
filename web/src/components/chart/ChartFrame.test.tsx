@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ChartFrame } from "./ChartFrame";
 
@@ -8,15 +8,22 @@ describe("ChartFrame", () => {
   it("without subtitle and actions the header holds only the title and the toggle", () => {
     render(<ChartFrame title="Net debt path">{body}</ChartFrame>);
     expect(screen.getByRole("figure")).toHaveClass("group/trace");
-    const header = screen.getByRole("radiogroup", {
-      name: "Net debt path: Chart or Table",
-    }).parentElement?.parentElement;
+    const toggle = screen.getByRole("group", { name: "Net debt path: figure or table" });
+    expect(
+      within(toggle)
+        .getAllByRole("button")
+        .map((button) => [button.textContent, button.getAttribute("aria-pressed")]),
+    ).toEqual([
+      ["Figure", "true"],
+      ["Table", "false"],
+    ]);
+    const header = toggle.parentElement?.parentElement;
     expect(header?.children).toHaveLength(2);
     expect(header?.firstElementChild).toBe(screen.getByRole("heading", { name: "Net debt path" }));
     expect(screen.getByRole("figure")).not.toHaveAttribute("aria-describedby");
   });
 
-  it("draws the subtitle and actions in the order title, subtitle, actions, toggle", () => {
+  it("draws the head in the order title, subtitle, switch, then the trace control last", () => {
     render(
       <ChartFrame
         title="Net debt path"
@@ -29,12 +36,12 @@ describe("ChartFrame", () => {
     const title = screen.getByRole("heading", { name: "Net debt path" });
     const subtitle = screen.getByText("Base case, per share");
     const action = screen.getByRole("button", { name: "Trace" });
-    const toggle = screen.getByRole("radiogroup", { name: "Net debt path: Chart or Table" });
+    const toggle = screen.getByRole("group", { name: "Net debt path: figure or table" });
     const follows = (a: Node, b: Node) =>
       Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     expect(follows(title, subtitle)).toBe(true);
-    expect(follows(subtitle, action)).toBe(true);
-    expect(follows(action, toggle)).toBe(true);
+    expect(follows(subtitle, toggle)).toBe(true);
+    expect(follows(toggle, action)).toBe(true);
   });
 
   it("puts actions and the toggle in one right-hand group when there is no subtitle", () => {
@@ -44,9 +51,9 @@ describe("ChartFrame", () => {
       </ChartFrame>,
     );
     const action = screen.getByRole("button", { name: "Trace" });
-    const toggle = screen.getByRole("radiogroup", { name: "Net debt path: Chart or Table" });
+    const toggle = screen.getByRole("group", { name: "Net debt path: figure or table" });
     expect(action.parentElement).toBe(toggle.parentElement);
-    expect(action.nextElementSibling).toBe(toggle);
+    expect(toggle.nextElementSibling).toBe(action);
     const header = toggle.parentElement?.parentElement;
     expect(header?.children).toHaveLength(2);
     expect(header?.firstElementChild).toBe(screen.getByRole("heading", { name: "Net debt path" }));
@@ -63,9 +70,9 @@ describe("ChartFrame", () => {
       </ChartFrame>,
     );
     const action = screen.getByRole("button", { name: "Trace" });
-    const toggle = screen.getByRole("radiogroup", { name: "Net debt path: Chart or Table" });
+    const toggle = screen.getByRole("group", { name: "Net debt path: figure or table" });
     expect(action.parentElement).toBe(toggle.parentElement);
-    expect(action.nextElementSibling).toBe(toggle);
+    expect(toggle.nextElementSibling).toBe(action);
   });
 
   it("treats an empty subtitle as none: no element and no description", () => {
@@ -76,7 +83,7 @@ describe("ChartFrame", () => {
     );
     const figure = screen.getByRole("figure");
     expect(figure).not.toHaveAttribute("aria-describedby");
-    const toggle = screen.getByRole("radiogroup", { name: "Net debt path: Chart or Table" });
+    const toggle = screen.getByRole("group", { name: "Net debt path: figure or table" });
     expect(toggle.parentElement?.parentElement?.querySelector("p")).toBeNull();
     expect(toggle.parentElement?.parentElement?.children).toHaveLength(2);
   });

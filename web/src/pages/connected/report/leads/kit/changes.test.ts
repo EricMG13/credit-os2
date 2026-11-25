@@ -1,7 +1,7 @@
 // Inputs are the reviewer's (round 3, L2) and built here; every expected value is written out by
 // hand, none computed by the code under test.
 import { describe, expect, it } from "vitest";
-import { changeBetween, periodKey, yearApart } from "./changes";
+import { changeBetween, changePeriod, yearApart } from "./changes";
 import { readCell } from "./numbers";
 
 const side = (period: string, cell: string, unit?: string) => ({ period, cell, unit });
@@ -94,18 +94,18 @@ describe("a change the handoff states is returned as written", () => {
   });
 });
 
-describe("periodKey and yearApart", () => {
+describe("changePeriod and yearApart", () => {
   it("parses the label forms the tables share", () => {
-    expect(periodKey("LTM March 2025")).toMatchObject({ form: "LTMMAR", end: 3, year: 2025 });
-    expect(periodKey("2Q 2025")).toMatchObject({ form: "Q2", quarter: 2 });
-    expect(periodKey("2025-06-30")).toMatchObject({ year: 2025, end: 6, kind: "other" });
-    expect(periodKey("FY2024")).toEqual({
+    expect(changePeriod("LTM March 2025")).toMatchObject({ form: "LTMMAR", year: 2025 });
+    expect(changePeriod("2Q 2025")).toMatchObject({ form: "Q2", year: 2025 });
+    expect(changePeriod("2025-06-30")).toMatchObject({ year: 2025, kind: "other" });
+    expect(changePeriod("FY2024")).toEqual({
       label: "FY2024",
       year: 2024,
       form: "FY",
       kind: "annual",
     });
-    expect(periodKey("")).toBeNull();
+    expect(changePeriod("")).toBeNull();
   });
   it("matches one form across two- and four-digit years", () => {
     expect(yearApart("FY24", "FY2025")).toBe(true);

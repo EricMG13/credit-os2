@@ -1,4 +1,5 @@
 import { Button } from "@/components/base/buttons/button";
+import { ArrowRight } from "@untitledui/icons";
 import { Segmented } from "@/components/kit/Segmented";
 import { StatsStrip } from "@/components/kit/StatsStrip";
 import { citedSourcePages, sourceCitationNote } from "../sourceFiles";
@@ -10,7 +11,7 @@ import {
   evidencePath,
   evidenceToken,
   FORECAST_INPUTS,
-  plainModuleNames,
+  readerText,
   resolveEvidenceLocation,
   sectionContainsLine,
   type OutputEntry,
@@ -20,21 +21,21 @@ import {
   type ScriptCheckRecord,
   type Table,
 } from "../publishedReport";
-import { HandoffDownload, PublishedTable, traceDetails } from "../ReportContent";
+import { handoffBlockAt, HandoffDownload, PublishedTable, traceDetails } from "../ReportContent";
 import { ArtifactDownloads } from "./ArtifactDownloads";
 import { ReportRecord } from "./Record";
 import { namedTable } from "../reportView";
 import { plainText, richParts } from "../richText";
 import { forecastHandoff, RecordedModelQualifications, type ForecastModel } from "./ForecastRecord";
 import { ScriptChecks } from "./ScriptChecks";
-import { BARE_MODULE_CODE } from "./evidenceLabels";
+import { BARE_MODULE_CODE, handoffName } from "./evidenceLabels";
 import { collectGaps, EvidenceGaps, GapSummary } from "./EvidenceGaps";
 import { EvidenceHandoffs } from "./EvidenceHandoffs";
 import { Disclosure } from "./evidenceKit";
-import { EvidenceSources, type SourceGroup } from "./EvidenceSources";
+import { EvidenceSources, sourceRowId, type SourceGroup } from "./EvidenceSources";
 import { Bento, Tile } from "./overview/Tile";
 import { TraceSplit } from "./TraceSplit";
-import { searchEvidence } from "./evidenceSearch";
+import { searchEvidence } from "./evidenceSearchModel";
 import { EvidenceSearchField, EvidenceSearchResults, EvidenceSearchStatus } from "./EvidenceSearch";
 
 export { hasRecordedGap } from "./EvidenceGaps";
@@ -71,7 +72,9 @@ function HandoffText({ text }: { text: string }) {
       </div>
     );
   return (
-    <p className="whitespace-pre-wrap wrap-anywhere text-text-secondary">{richParts(plain)}</p>
+    <p className="whitespace-pre-wrap wrap-anywhere text-text-secondary">
+      {richParts(readerText(plain))}
+    </p>
   );
 }
 
@@ -115,7 +118,9 @@ function EvidenceLocation({
     visible.map((section) => (
       <section key={section.line} className="grid gap-3 border-t border-border-hairline pt-3">
         <h3 className="font-semibold text-text-primary">
-          {section.line === title ? moduleName(entry.output.module) : richParts(section.heading)}
+          {section.line === title
+            ? moduleName(entry.output.module)
+            : richParts(readerText(section.heading))}
         </h3>
         {section.blocks.map((block) => {
           if (block.type === "equity")
@@ -152,7 +157,7 @@ function EvidenceLocation({
                 ]
                   .map((row) => ({
                     line: row.line,
-                    label: row.cells[0] || `Handoff line ${String(row.line)}`,
+                    label: readerText(row.cells[0] ?? "") || `Handoff line ${String(row.line)}`,
                     chips: (snapshot.chips[`${entry.output.id}:${String(row.line)}`] ?? []).filter(
                       (chip) =>
                         block.headers.some((header) =>
@@ -187,13 +192,15 @@ function EvidenceLocation({
                 <HandoffText text={block.text} />
               )}
               {block.type === "table" && basis && (
-                <p className="text-small text-text-secondary">{plainModuleNames(basis)}</p>
+                <p className="text-small text-text-secondary">{readerText(basis)}</p>
               )}
               {block.type === "table" && rowCitations.length > 0 && (
                 <ul className="grid gap-3">
                   {rowCitations.map((row) => (
                     <li key={row.line}>
-                      <h4 className="font-medium text-text-primary">{richParts(row.label)}</h4>
+                      <h4 className="font-medium text-text-primary">
+                        {richParts(row.label, readerText)}
+                      </h4>
                       <ul className="grid gap-2">
                         {row.chips.map((chip, chipIndex) => (
                           <EvidenceCitation
@@ -235,13 +242,15 @@ function EvidenceCitation({
   const pages = citedSourcePages(outputId.split("/")[0] ?? "", chip);
   return (
     <li className="border-t border-border-hairline py-3 text-small text-text-secondary">
-      <p className="font-medium wrap-anywhere text-text-primary">{chip.label}</p>
+      <p className="font-medium wrap-anywhere text-text-primary">
+        {chip.label && readerText(chip.label)}
+      </p>
       {(chip.file || chip.source) && <p className="wrap-anywhere">{chip.file ?? chip.source}</p>}
       {note && <p>{note}</p>}
       {chip.excerpt && (
         <blockquote
           role="region"
-          aria-label={`Passage from ${chip.label ?? "the cited source"}`}
+          aria-label={`Passage from ${chip.label ? readerText(chip.label) : "the cited source"}`}
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           tabIndex={0}
           className="mt-1 max-h-60 overflow-y-auto border-l-2 border-border-hairline pl-3 wrap-anywhere"
@@ -300,21 +309,39 @@ function EvidenceSummary({
     ),
   ).length;
   const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  const open = (tab: string, label: string) => (
+    <a
+      href={`#evidence/${tab}${module ? `/${module}` : ""}`}
+      className="inline-flex min-h-8 w-fit items-center rounded-ds-xs text-caption text-text-link underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+    >
+      {label}
+    </a>
+  );
   return (
     <section aria-label="Run evidence" className="grid min-w-0 gap-2 lg:col-span-12">
       <h3 className="text-h4 font-medium text-text-primary">Run evidence</h3>
       <StatsStrip
         label="What this run holds"
         stats={[
-          { label: plural(gaps, "recorded gap", "recorded gaps"), value: String(gaps) },
+          {
+            label: plural(gaps, "recorded gap", "recorded gaps"),
+            value: String(gaps),
+            mark: open("gaps", "Open Gaps"),
+          },
           {
             label: plural(handoffs, "designated handoff", "designated handoffs"),
             value: String(handoffs),
+            mark: open("record", "Open Record"),
           },
-          { label: plural(sources, "source file", "source files"), value: String(sources) },
+          {
+            label: plural(sources, "source file", "source files"),
+            value: String(sources),
+            mark: open("sources", "Open Sources"),
+          },
           {
             label: "script checks ran",
             value: `${String(ran)} of ${String(outcomes.length)}`,
+            mark: checks.length > 0 ? open("checks", "Open Checks") : undefined,
           },
           {
             label: plural(
@@ -344,7 +371,10 @@ function evidenceRoute(entries: OutputEntry[], target: string | undefined, hasCh
   const [section, second, third] = (target ?? "").split("/");
   const recordTarget =
     section === "record" ? (asRecordTarget(second) ?? asRecordTarget(third)) : undefined;
-  const module = asRecordTarget(second) && section === "record" ? undefined : second;
+  // "-" stands for no module where a later part follows: the Sources address of one file's row.
+  const module =
+    (asRecordTarget(second) && section === "record") || second === "-" ? undefined : second;
+  const sourceRow = section === "sources" ? /^file-(\d+)$/.exec(third ?? "")?.[1] : undefined;
   const location = section ? resolveEvidenceLocation(entries, section) : null;
   const namedTab =
     section === "checks" && !hasChecks
@@ -366,6 +396,7 @@ function evidenceRoute(entries: OutputEntry[], target: string | undefined, hasCh
     selectedModule,
     line,
     recordTarget,
+    sourceRow: sourceRow === undefined ? undefined : Number(sourceRow),
   };
 }
 
@@ -375,12 +406,15 @@ function EvidenceNavigation({
   selectedModule,
   checks,
   search,
+  searching,
 }: {
   entries: OutputEntry[];
   tab: EvidenceTab;
   selectedModule?: string;
   checks: ScriptCheckRecord[];
   search: ReactNode;
+  /** While a query is typed the matches replace the page, so the tabs and the module filter step aside. */
+  searching: boolean;
 }) {
   const outcomes = checks
     .filter((record) => !selectedModule || record.module === selectedModule)
@@ -413,7 +447,7 @@ function EvidenceNavigation({
     <>
       <h2 className="font-display text-h2">Evidence</h2>
       {search}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3" hidden={searching}>
         <Segmented label="Evidence sections" current={tabRoute(tab)} segments={segments} />
         <label className="grid gap-1 text-small">
           Module
@@ -459,10 +493,10 @@ function EvidenceHandoff({
     <Tile
       span={12}
       label={`${moduleName(entry.output.module)} handoff`}
-      kicker={line === undefined ? "Handoff" : "Where the line sits in its handoff"}
       title={`${moduleName(entry.output.module)} · ${
         line === undefined ? "Handoff evidence" : `Line ${String(line)}`
       }`}
+      kicker={line === undefined ? undefined : "Where the line sits in its handoff."}
       trace={<HandoffDownload run={run} entry={entry} />}
     >
       <EvidenceLocation snapshot={snapshot} entry={entry} line={line} />
@@ -471,24 +505,22 @@ function EvidenceHandoff({
 }
 
 /**
- * Brings a Record address's target into view and puts focus on it, once the target is drawn: the
- * page may draw it after the address arrives. A new address lands again; the same one does not.
+ * Brings an address's target into view and puts focus on it, once the target is drawn: the page
+ * may draw it after the address arrives. A new address lands again; the same one does not.
  */
-function useLandOnRecordTarget(target: RecordTarget | undefined) {
-  const landed = useRef<RecordTarget | undefined>(undefined);
+function useLandOn(address: string | undefined, id: string | undefined) {
+  const landed = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!target) {
+    if (!address || !id) {
       landed.current = undefined;
       return;
     }
-    if (landed.current === target) return;
+    if (landed.current === address) return;
     // After the frame's own "a new address opens at the top" reset, which runs in the same commit.
     const timer = window.setTimeout(() => {
-      const element = document.getElementById(
-        `evidence-record-${target === "comparison" ? "run" : target}`,
-      );
+      const element = document.getElementById(id);
       if (!element) return;
-      landed.current = target;
+      landed.current = address;
       element.scrollIntoView({ block: "start" });
       element.focus({ preventScroll: true });
     }, 0);
@@ -498,8 +530,84 @@ function useLandOnRecordTarget(target: RecordTarget | undefined) {
   });
 }
 
-function showHandoffs(tab: EvidenceTab, entry: OutputEntry | undefined, invalid: boolean) {
-  return tab === "Summary" || tab === "Record" || (tab === "Trace" && !entry && !invalid);
+const CLAIM_ID = "evidence-claim";
+
+/** Where an Evidence address lands: a place on Record, one file's row on Sources, or the trace asked for. */
+function landingId(
+  tab: EvidenceTab,
+  recordTarget: RecordTarget | undefined,
+  sourceRow: number | undefined,
+  traced: boolean,
+  claim: boolean,
+) {
+  if (tab === "Record" && recordTarget)
+    return `evidence-record-${recordTarget === "comparison" ? "run" : recordTarget}`;
+  if (tab === "Sources" && sourceRow !== undefined) return sourceRowId(sourceRow);
+  if (!traced) return undefined;
+  // A traced line lands on its claim tile; a whole handoff, or a line it does not hold, on the heading.
+  return claim ? CLAIM_ID : "evidence-trace";
+}
+
+/**
+ * The run's handoffs as a short list of links, each opening that handoff line by line. The hashes
+ * and the files are machinery of the Record tab, and stay there.
+ */
+function HandoffIndex({
+  entries,
+  module,
+  run,
+}: {
+  entries: OutputEntry[];
+  module?: string;
+  run: PublishedRun;
+}) {
+  const shown = entries.filter((item) => !module || item.output.module === module);
+  return (
+    <Tile
+      span={12}
+      label="Handoffs"
+      title="Handoffs"
+      kicker={
+        <>
+          Open a handoff to read it line by line.{" "}
+          <a
+            href={`#evidence/record${module ? `/${module}` : ""}/files`}
+            className="rounded-ds-xs text-text-link underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+          >
+            Hashes and downloads are on Record
+          </a>
+          .
+        </>
+      }
+    >
+      {shown.length === 0 ? (
+        <p className="text-small text-text-secondary">
+          No handoff files were delivered for this run.
+        </p>
+      ) : (
+        <ul className="grid min-w-0 gap-x-6 sm:grid-cols-2 xl:grid-cols-3">
+          {shown.map((item) => (
+            <li key={item.output.id} className="min-w-0 border-t border-border-hairline">
+              <Button
+                href={evidencePath(run.folder, item)}
+                color="link-gray"
+                size="sm"
+                className="min-h-8 underline max-[480px]:min-h-11"
+                iconTrailing={ArrowRight}
+              >
+                {handoffName(item)}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Tile>
+  );
+}
+
+/** The short list of handoffs: on Summary, and on Trace while nothing is chosen. */
+function showHandoffIndex(tab: EvidenceTab, entry: OutputEntry | undefined, invalid: boolean) {
+  return tab === "Summary" || (tab === "Trace" && !entry && !invalid);
 }
 
 function assumptionSourceLines(
@@ -572,7 +680,7 @@ function AssumptionRegister({
                 <tr key={index} className="border-t border-border-hairline align-top">
                   {cells.map((cell, i) => (
                     <td key={i} className="px-3 py-2">
-                      {cell}
+                      {readerText(cell)}
                     </td>
                   ))}
                   <td className="px-3 py-2">
@@ -626,8 +734,11 @@ export function ReportEvidence({
     selectedModule,
     line,
     recordTarget,
+    sourceRow,
   } = evidenceRoute(entries, target, checks.length > 0);
-  useLandOnRecordTarget(tab === "Record" ? recordTarget : undefined);
+  const claim = Boolean(entry && line !== undefined && handoffBlockAt(entry, line));
+  const landing = landingId(tab, recordTarget, sourceRow, Boolean(entry), claim);
+  useLandOn(landing && target, landing);
   // A query belongs to the address it was typed at: following a result (a new address) clears it.
   const [typed, setTyped] = useState({ text: "", target });
   const query = typed.target === target ? typed.text : "";
@@ -645,12 +756,7 @@ export function ReportEvidence({
     evidence.downloads.length > 0 ? (
       <ArtifactDownloads folder={run.folder} />
     ) : (
-      <Tile
-        span={12}
-        label="Model and calculation files"
-        kicker="Delivered with the report"
-        title="Model and calculation files"
-      >
+      <Tile span={12} label="Model and calculation files" title="Model and calculation files">
         <p className="text-small text-text-secondary">
           No model or calculation downloads are listed for this run.
         </p>
@@ -663,6 +769,7 @@ export function ReportEvidence({
         tab={tab}
         selectedModule={selectedModule}
         checks={checks}
+        searching={Boolean(query.trim())}
         search={
           <div className="grid min-w-0 gap-2">
             <EvidenceSearchField value={query} onChange={setQuery} />
@@ -686,6 +793,13 @@ export function ReportEvidence({
               <GapSummary run={run} entries={entries} module={module} />
             </>
           )}
+          {entry && (
+            <h3 id="evidence-trace" tabIndex={-1} className="sr-only">
+              {`Trace: ${moduleName(entry.output.module)}${
+                line === undefined ? ", whole handoff" : `, handoff line ${String(line)}`
+              }`}
+            </h3>
+          )}
           {entry && line !== undefined && (
             <TraceSplit
               snapshot={snapshot}
@@ -693,6 +807,7 @@ export function ReportEvidence({
               entry={entry}
               line={line}
               index={selectedIndex}
+              claimId={CLAIM_ID}
             />
           )}
           {entry && <EvidenceHandoff snapshot={snapshot} run={run} entry={entry} line={line} />}
@@ -716,6 +831,7 @@ export function ReportEvidence({
               entries={entries}
               snapshot={snapshot}
               folder={run.folder}
+              rowTarget={sourceRow}
             />
           )}
           {tab === "Trace" && !entry && !invalidTraceAddress && (
@@ -740,17 +856,20 @@ export function ReportEvidence({
               <ReportRecord run={run} entries={entries} module={module} mode={mode} />
             </Disclosure>
           )}
-          {showHandoffs(tab, entry, invalidTraceAddress) && (
-            <EvidenceHandoffs entries={entries} module={module} run={run} />
+          {showHandoffIndex(tab, entry, invalidTraceAddress) && (
+            <HandoffIndex entries={entries} module={module} run={run} />
           )}
-          {(tab === "Summary" || tab === "Record") && (
-            <div
-              id={tab === "Record" ? "evidence-record-files" : undefined}
-              tabIndex={tab === "Record" ? -1 : undefined}
-              className="min-w-0 outline-none lg:col-span-12"
-            >
-              {downloads}
-            </div>
+          {tab === "Record" && (
+            <>
+              <EvidenceHandoffs entries={entries} module={module} run={run} />
+              <div
+                id="evidence-record-files"
+                tabIndex={-1}
+                className="min-w-0 outline-none lg:col-span-12"
+              >
+                {downloads}
+              </div>
+            </>
           )}
           {tab === "Record" && (!module || module === "CP-2G") && models.length > 0 && (
             <Disclosure

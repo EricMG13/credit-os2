@@ -8,7 +8,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { OutputEntry } from "../../../publishedReport";
 import { containsReference } from "../../../publishedReport";
 import { cp1Entry, distressedCp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
-import { dropTable, edited, ltmCp1, setCell, threePeriodCp1 } from "../fixtures/mutations";
+import {
+  dropTable,
+  edited,
+  ltmCp1,
+  mixedPeriodsCp1,
+  setCell,
+  threePeriodCp1,
+} from "../fixtures/mutations";
 import { Dumbbell } from "../kit/marks";
 import { EarningsDebtTile } from "./EarningsDebt";
 
@@ -84,7 +91,7 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
     expect(Number(tick?.getAttribute("x"))).toBeCloseTo(zero, 6);
   });
 
-  it("draws earnings teal and gross debt navy, with debt's own legend entry", () => {
+  it("draws earnings blue and gross debt plum, with debt's own legend entry", () => {
     const tile = draw();
     const current = (label: string) =>
       tile.querySelector(`[data-row="${label}"] [data-current]`)?.getAttribute("class");
@@ -340,7 +347,7 @@ describe("Earnings and debt: three or more periods, gaps and absences", () => {
 describe("Dumbbell series (the one kit extension)", () => {
   const periods = { prior: "FY2023", current: "FY2024" };
   const pair = { prior: { value: 1, text: "1" }, current: { value: 2, text: "2" } };
-  it("draws a secondary row's current dot navy and marks it; a plain row stays teal and unmarked", () => {
+  it("draws a secondary row's current dot plum and marks it; a plain row stays blue and unmarked", () => {
     render(
       <Dumbbell
         width={640}
@@ -509,5 +516,56 @@ describe("a third period: the compared pair is named and carries the tone (round
     const tile = draw();
     expect(tile.querySelector("[data-change]")?.textContent).toBe("+0.26x · worse");
     expect(everything(tile)).not.toContain("(FY2023 → FY2024)");
+  });
+});
+
+// The ruling of 2026-11-25: every supplied period on X, oldest fiscal year → latest fiscal year →
+// YTD → LTM → PF → forecast years. The fixture writes its rows scrambled; expected orders and
+// figures are written by hand from the fixture's cells.
+describe("Earnings and debt: five scrambled periods on X in the one period order", () => {
+  const ORDER = ["FY2023", "FY2024", "LTM Jun-2025", "PF FY2024", "FY2025E"];
+  const points = (tile: HTMLElement, panel: string) =>
+    [...tile.querySelectorAll(`[data-panel="${panel}"] [data-point]`)].map((point) => ({
+      at: point.getAttribute("data-point"),
+      value: attr(point, "data-value"),
+      cx: attr(point, "cx"),
+    }));
+
+  it("draws LTM and PF after the fiscal years and before the forecast year, each value its own", () => {
+    const tile = draw(mixedPeriodsCp1());
+    expect(tile.textContent).toContain("US$m, FY2023 → FY2025E");
+    const revenue = points(tile, "Revenue");
+    expect(revenue.map((point) => point.at)).toEqual(ORDER.map((label) => `Revenue ${label}`));
+    expect(revenue.map((point) => point.value)).toEqual([6585, 7940, 8500, 8100, 8800]);
+    // Left to right on X: every point is right of the one before it.
+    const xs = revenue.map((point) => point.cx);
+    expect(xs.every((x, at) => at === 0 || x > (xs[at - 1] ?? x))).toBe(true);
+    expect(points(tile, "Adjusted EBITDA").map((point) => point.value)).toEqual([
+      3395, 4173, 4500, 4250, 4700,
+    ]);
+    expect(points(tile, "Gross debt").map((point) => point.value)).toEqual([
+      19750, 24880, 24950, 24880, 25100,
+    ]);
+    // The income statement states the two fiscal years only: the other periods keep their place.
+    expect(points(tile, "EBITDA (Reported)").map((point) => point.value)).toEqual([3148, 3813]);
+    const axis = [...tile.querySelectorAll('[data-panel="Revenue"] [data-part=period]')].map(
+      (label) => lines(label),
+    );
+    expect(axis).toEqual(["FY2023", "FY2024", "LTM Jun-2025", "PF FY2024", "FY2025E"]);
+    expect(tile.textContent).not.toMatch(/time order/);
+  });
+
+  it("leverage runs in the same order; the change and the basis are the reported periods'", () => {
+    const tile = draw(mixedPeriodsCp1());
+    const lev = tile.querySelector("[data-leverage]") as HTMLElement;
+    expect([...lev.querySelectorAll("[data-part=period]")].map((node) => node.textContent)).toEqual(
+      ORDER,
+    );
+    expect(lev.querySelector("svg")?.getAttribute("aria-label")).toBe(
+      "Total debt / EBITDA on its own scale: FY2023 6.27x, FY2024 6.53x, LTM Jun-2025 6.40x, " +
+        "PF FY2024 7.10x, FY2025E 5.90x, +0.26x, worse (FY2023 → FY2024).",
+    );
+    // The basis words are the latest reported row's (LTM Jun-2025), never the forecast row's.
+    expect(lev.querySelector("[data-basis]")?.textContent).toBe("Twelve-month row.");
   });
 });

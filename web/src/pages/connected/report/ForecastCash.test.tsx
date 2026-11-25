@@ -221,3 +221,139 @@ it("shows units once in the kicker, and nothing when none are recorded", () => {
   render(view(full, { units: "" }));
   expect(screen.getAllByText(/Units not recorded/u)).toHaveLength(1);
 });
+
+// Owner's ruling, 2026-11-25: every reported and pro forma column that states a figure is drawn
+// before the forecast years, in the one period order. Expected values are written by hand.
+it("draws the reported, LTM and pro forma columns before the forecast years, in period order", () => {
+  const mixed = model(
+    [
+      row("Distributions", [
+        value("12"),
+        value("9"),
+        na("Not reported"),
+        value("11"),
+        value("20"),
+        value("30"),
+      ]),
+      row("Debt repayment", [
+        value("45"),
+        value("60"),
+        na("Not reported"),
+        na("No pro forma repayment"),
+        value("50"),
+        value("40"),
+      ]),
+    ],
+    [
+      { label: "LTM Jun 2025", group: "Last twelve months", start: "", end: "" },
+      { label: "FY2024", group: "Fiscal year", start: "", end: "" },
+      { label: "FY2023", group: "Fiscal year", start: "", end: "" },
+      { label: "PF LTM Jun 2025", group: "Pro forma", start: "", end: "" },
+      { label: "FY2026E", group: "Base case", start: "", end: "" },
+      { label: "FY2025E", group: "Base case", start: "", end: "" },
+    ],
+  );
+  render(view(mixed));
+  expect(screen.getByRole("img").getAttribute("aria-label")).toBe(
+    [
+      "Distributions FY2024 9",
+      "Debt repayment FY2024 60",
+      "Distributions LTM Jun 2025 12",
+      "Debt repayment LTM Jun 2025 45",
+      "Distributions PF LTM Jun 2025 11",
+      "Debt repayment PF LTM Jun 2025 not published",
+      "Distributions FY2025E 30",
+      "Debt repayment FY2025E 40",
+      "Distributions FY2026E 20",
+      "Debt repayment FY2026E 50",
+    ].join(", "),
+  );
+  expect(screen.getByText("PF LTM Jun 2025 Debt repayment: No pro forma repayment")).toBeVisible();
+  expect(
+    screen.getByText("Distributions: Before the forecast, FY2023: Not reported."),
+  ).toBeVisible();
+  expect(
+    screen.getByText("Debt repayment: Before the forecast, FY2023: Not reported."),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
+  expect(
+    screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((item) => [...item.children].map((cell) => cell.textContent)),
+  ).toEqual([
+    ["FY2024", "9", "60"],
+    ["LTM Jun 2025", "12", "45"],
+    ["PF LTM Jun 2025", "11", "No pro forma repayment"],
+    ["FY2025E", "30", "40"],
+    ["FY2026E", "20", "50"],
+  ]);
+});
+
+it("draws a figure the period rule cannot place last, after the forecast years, and says so", () => {
+  const mixed = model(
+    [
+      row("Distributions", [value("7"), value("9"), value("20"), value("30")]),
+      row("Debt repayment", [na("No run-rate repayment"), value("60"), value("50"), value("40")]),
+    ],
+    [
+      { label: "Run rate", group: "Run rate", start: "", end: "" },
+      { label: "FY2024", group: "Fiscal year", start: "", end: "" },
+      { label: "FY2026E", group: "Base case", start: "", end: "" },
+      { label: "FY2025E", group: "Base case", start: "", end: "" },
+    ],
+  );
+  const { container } = render(view(mixed));
+  expect(screen.getByRole("img").getAttribute("aria-label")).toBe(
+    [
+      "Distributions FY2024 9",
+      "Debt repayment FY2024 60",
+      "Distributions FY2025E 30",
+      "Debt repayment FY2025E 40",
+      "Distributions FY2026E 20",
+      "Debt repayment FY2026E 50",
+      "Distributions Run rate 7",
+      "Debt repayment Run rate not published",
+    ].join(", "),
+  );
+  expect(container.querySelector('[data-part="Distributions Run rate"]')).not.toBeNull();
+  expect(screen.getByText("Not placed in time order, shown last: Run rate.")).toBeVisible();
+  expect(screen.getByText("Run rate Debt repayment: No run-rate repayment")).toBeVisible();
+  expect(container.textContent).not.toContain("not drawn");
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
+  expect(
+    screen
+      .getAllByRole("row")
+      .slice(1)
+      .map((item) => [...item.children].map((cell) => cell.textContent)),
+  ).toEqual([
+    ["FY2024", "9", "60"],
+    ["FY2025E", "30", "40"],
+    ["FY2026E", "20", "50"],
+    ["Run rate", "7", "No run-rate repayment"],
+  ]);
+});
+
+it("stacks the outside labels of one bar a text line apart so 0 and 92 do not overprint", () => {
+  // FY2025E is large, so FY2026E's Distributions 0 and Debt repayment 92 are both too thin to
+  // hold a label inside; both are written beside the bar.
+  render(
+    view(
+      model([
+        row("Distributions", [value("600"), value("0"), value("30")]),
+        row("Debt repayment", [value("400"), value("92"), value("40")]),
+      ]),
+    ),
+  );
+  const chart = screen.getByRole("img");
+  const beside = (text: string) => {
+    const found = [...chart.querySelectorAll("text")].find(
+      (node) => node.textContent === text && node.getAttribute("text-anchor") === "start",
+    );
+    if (!found) throw new Error(`no outside label ${text}`);
+    return num(found, "y");
+  };
+  expect(Math.abs(beside("92") - beside("0"))).toBeGreaterThanOrEqual(16);
+  expect(chart.getAttribute("aria-label")).toContain("Distributions FY2026E 0");
+  expect(chart.getAttribute("aria-label")).toContain("Debt repayment FY2026E 92");
+});

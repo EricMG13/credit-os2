@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
+import { serviceText } from "../api";
 import { card, heading } from "../layout";
 import {
   containsReference,
@@ -10,7 +11,7 @@ import {
 } from "../publishedReport";
 import type { buildReportView } from "../reportView";
 import { forecastCaseLabel, forecastCaseNames, gridOf, type Grid } from "../visuals/LegacyForecast";
-import { isDatedForecastPeriod } from "../visuals/scenarioPeriods";
+import { isForecastPeriod } from "../visuals/scenarioPeriods";
 import { items, record, stringsIn, word } from "../visuals/visualData";
 import type { PublishedTraceContext } from "./PublishedTrace";
 
@@ -251,9 +252,7 @@ function addCaseDrivers(
 
 function forecastCases(model: ForecastModel, downsideNote: string, selection: ForecastSelection) {
   const available = rawGroups(model).flatMap((grid) =>
-    grid.columns
-      .filter((column) => isDatedForecastPeriod(column.label))
-      .map((column) => column.group),
+    grid.columns.filter((column) => isForecastPeriod(column.label)).map((column) => column.group),
   );
   const names = forecastCaseNames(model.cashflow);
   const chosen = selection.rawGroups ?? (selection.rawGroup ? [selection.rawGroup] : undefined);
@@ -404,7 +403,7 @@ export function RecordedForecastAssumptions({
             aria-label="Forecast driver values by planning year"
             // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
             tabIndex={0}
-            className="min-w-0 overflow-x-auto"
+            className="min-w-0 overflow-x-auto rounded-ds-sm outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             <table className="w-full min-w-[64rem] border-collapse text-small [&_th:first-child]:sticky [&_th:first-child]:left-0 [&_th:first-child]:bg-surface-card">
               <caption className="sr-only">Recorded forecast drivers</caption>
@@ -602,8 +601,9 @@ export function RecordedModelQualifications({ models }: { models: ForecastModel[
             <tbody>
               {rows.map(({ text, scope }) => (
                 <tr key={text} className="border-t border-border-hairline">
-                  <th className="max-w-md px-3 py-2 text-left font-normal">{scope}</th>
-                  <td className="max-w-prose px-3 py-2">{text}</td>
+                  {/* As recorded, with each exact module code read as the module's name. */}
+                  <th className="max-w-md px-3 py-2 text-left font-normal">{serviceText(scope)}</th>
+                  <td className="max-w-prose px-3 py-2">{serviceText(text)}</td>
                 </tr>
               ))}
             </tbody>

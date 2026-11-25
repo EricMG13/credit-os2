@@ -33,7 +33,7 @@ export const settled = () =>
 
 /** A copy of the fixture slice with scene `scene` changed at `path` (`undefined` deletes the member). */
 export function change(scene: number, path: (string | number)[], value: Json | undefined): unknown {
-  const copy = structuredClone(fixture.slice) as { scenes: Json[] };
+  const copy = structuredClone(fixture.slice) as unknown as { scenes: Json[] };
   let at: Json = copy.scenes[scene] ?? null;
   for (const step of path.slice(0, -1)) at = (at as Members)[step] ?? null;
   const last = path[path.length - 1] ?? "";

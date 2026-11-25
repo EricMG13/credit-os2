@@ -2,6 +2,9 @@ import {
   checkDistinctSeries,
   seriesKey as keyOf,
   checkLabeledSeriesLength,
+  atPositions,
+  periodGapNote,
+  periodPositions,
   periodSeriesData,
 } from "./seriesData";
 import { Fragment, useState, type ReactNode } from "react";
@@ -409,27 +412,44 @@ function Chart({
   );
 }
 
-/** Lines over periods, several series, one period marked, chosen points labelled directly. */
+/**
+ * Lines over periods, several series, one period marked, chosen points labelled directly. The
+ * periods are drawn in the one period order whatever order they are given in, each value, label
+ * and table cell with its own period; a label that order cannot place is drawn last and named.
+ */
 export function PathChart({
   title,
   as,
   note,
   subtitle,
   actions,
-  periods,
-  series,
+  periods: given,
+  series: givenSeries,
   divider,
   yTicks,
   emphasis,
-  table,
+  table: givenTable,
   tableCaption,
 }: PathChartProps) {
+  check({ periods: given, series: givenSeries, table: givenTable });
+  const { order, gaps } = periodPositions(given);
+  const periods = atPositions(given, order);
+  const series = givenSeries.map((item) => ({
+    ...item,
+    values: atPositions(item.values, order),
+    labels: atPositions(item.labels, order),
+  }));
+  const table = {
+    ...givenTable,
+    head: [...givenTable.head.slice(0, 1), ...atPositions(givenTable.head.slice(1), order)],
+    rows: givenTable.rows.map((row) => ({ ...row, cells: atPositions(row.cells, order) })),
+  };
   check({ periods, series, divider, table });
   return (
     <ChartWithTable
       title={title}
       as={as}
-      note={note}
+      note={periodGapNote(gaps, note, gaps.length === given.length)}
       subtitle={subtitle}
       actions={actions}
       table={table}

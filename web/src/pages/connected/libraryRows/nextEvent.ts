@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
+import { serviceText } from "../api";
 import { outputEntries, type Snapshot } from "../publishedReport";
 import { buildCalendar, upcomingCalendarRows } from "../report/Calendar";
 import type { LoadSnapshot } from "./rowSnapshot";
@@ -34,8 +35,9 @@ export function nextDatedEvent(snapshot: Snapshot, folder: string): NextEvent | 
   if (first && date && name)
     return {
       date,
-      name,
-      status: first.cells[4] ?? "",
+      // A module code in the event's words is drawn as the module's name, never as the code.
+      name: serviceText(name),
+      status: serviceText(first.cells[4] ?? ""),
       withinRecordedPeriod: first.timingWithinRecordedPeriod,
       href: first.href,
       unplaced: gaps.length > 0,
@@ -47,7 +49,7 @@ export type NextEventState =
   | { status: "idle" | "loading" | "none" | "unknown" | "failed" }
   | { status: "found"; event: NextEvent };
 
-/** The run's next dated event, read once the row has been opened (`enabled`) and kept after. */
+/** The run's next dated event, read once the row is in view or has been opened (`enabled`) and kept after. */
 export function useNextEvent(
   folder: string | undefined,
   enabled: boolean,
@@ -74,4 +76,26 @@ export function useNextEvent(
   }, [folder, enabled, load]);
   if (!enabled || !folder) return { status: "idle" };
   return state?.folder === folder ? state.value : { status: "loading" };
+}
+
+/**
+ * Whether the element has come into view, kept once true. Where the browser cannot say, it stays
+ * false and the row reads its dates when it is opened.
+ */
+export function useSeen(target: RefObject<Element | null>): boolean {
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const element = target.current;
+    if (seen || !element || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some(({ isIntersecting }) => isIntersecting)) return;
+      observer.disconnect();
+      setSeen(true);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [target, seen]);
+  return seen;
 }

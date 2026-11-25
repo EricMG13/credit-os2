@@ -63,7 +63,7 @@ const labels = (name: string, series?: string): string[] =>
 const cellText = (c: HTMLElement) => c.textContent.replace("not available", "");
 
 function tableRows(name: string): string[][] {
-  fireEvent.click(within(figure(name)).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(figure(name)).getByRole("button", { name: "Table" }));
   return within(figure(name))
     .getAllByRole("row")
     .slice(1)
@@ -500,7 +500,7 @@ describe("Forecast page: sources, tables and states", () => {
     renderAt(fixtureSlice());
     expect(document.querySelectorAll("table")).toHaveLength(0);
     for (const title of [DRIVERS, COVER, PATHS, WALK]) {
-      fireEvent.click(within(figure(title)).getByRole("radio", { name: "Table" }));
+      fireEvent.click(within(figure(title)).getByRole("button", { name: "Table" }));
       expect(card(title).querySelector("table")).not.toBeNull();
     }
     expect(document.querySelectorAll("table")).toHaveLength(4);
@@ -511,6 +511,7 @@ describe("Forecast page: sources, tables and states", () => {
     expect(screen.getByText("Not found for this run")).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.queryByRole("group", { name: /figure or table/u })).toBeNull();
   });
 
   it.each([

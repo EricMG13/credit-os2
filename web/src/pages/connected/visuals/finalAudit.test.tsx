@@ -37,7 +37,7 @@ it("draws a nonnegative period series as a path and keeps each original figure i
   );
   expect(container.querySelector(".recharts-line")).not.toBeNull();
   expect(container.querySelector(".recharts-bar")).toBeNull();
-  fireEvent.click(within(figure()).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(figure()).getByRole("button", { name: "Table" }));
   for (const text of ["FY2022", "2,100", "FY2023", "2,250", "FY2024", "2,400"])
     expect(within(figure()).getByText(text)).toBeVisible();
 });
@@ -67,7 +67,7 @@ it("keeps every covenant row when one threshold is missing and one current value
     3,
   );
   expect(within(figure()).getByText("Threshold not supplied")).toBeVisible();
-  fireEvent.click(within(figure()).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(figure()).getByRole("button", { name: "Table" }));
   for (const text of ["-0.50", "2.80", "1.60", "Not supplied: no covenant threshold"])
     expect(within(figure()).getByText(text)).toBeVisible();
 });
@@ -103,7 +103,7 @@ describe("ordinary source number typography", () => {
       ],
     );
     expect(figure()).toBeVisible();
-    fireEvent.click(within(figure()).getByRole("radio", { name: "Table" }));
+    fireEvent.click(within(figure()).getByRole("button", { name: "Table" }));
     expect(within(figure()).getByText("−10")).toBeVisible();
   });
 });

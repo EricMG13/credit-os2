@@ -8,6 +8,8 @@ An item leaves this list when its PR merges.
 Owner decisions, 2026-11-25:
 
 - The app is managed on a single machine. Other users only interact with offline pages.
+- Signal, the library and run start are one app in one process. Done: ericmg13/credit-os2#83,
+  merged 2026-11-25.
 - Sign-in uses Microsoft Entra ID (OpenID Connect, authorization-code flow with PKCE).
 - Token checking uses Microsoft's `msal` library, a new pinned dependency.
 - Entra proves who the user is. A passcode the owner sets chooses the profile type at

@@ -648,9 +648,44 @@ CP3_WATERFALL = [
     f"| Enterprise value | — | {NO_EV} | {NO_EV} | {NO_EV} | USD | m |",
     "",
 ]
+# CP-2's credit scorecard registers (owner ruling R9, 2026-11-25), synthetic. The 17 factors and
+# the four assessments are typed by hand from the ruling, not read from the code under test.
+CP2_FACTORS = (
+    *("Scale", "Market position", "Regulatory exposure", "Technology", "Barriers to entry"),
+    *("Leverage", "Free cash flow", "Liquidity", "Rating trend", "Geographic diversification"),
+    *("Product diversification", "Market share", "Customer concentration", "Market access"),
+    *("Maturity profile", "Interest cover", "Financial policy"),
+)
+CP2_SCORECARD = [
+    "### T2.13 - Credit scorecard",
+    "",
+    "| Factor | Level | Basis |",
+    "| --- | --- | --- |",
+    *(f"| {factor} | 3 | annual.txt, page 2 |" for factor in CP2_FACTORS[:-1]),
+    "| Financial policy | Not scored | No stated policy in the synthetic evidence |",
+    "",
+    "### T2.14 - Credit assessment",
+    "",
+    "| Assessment | View | Basis |",
+    "| --- | --- | --- |",
+    "| Management | Neutral | annual.txt, page 2 |",
+    "| Sector Outlook | Positive | annual.txt, page 2 |",
+    "| Sponsor Quality | Not assessed | No sponsor in the synthetic evidence |",
+    "| Credit Direction | Stable | annual.txt, page 2 |",
+    "",
+]
+# The Risk Rubric's Scale row, typed by hand from § 3 of
+# docs/methodology/portfolio-recommendation.md.
+RUBRIC_SCALE_ROW = (
+    "| 1 | Scale | EBITDA > $1bn — large, diversified issuer with global reach | $500m–$1bn — "
+    "strong mid-cap with solid market presence | $200m–$500m — medium-sized, regionally "
+    "focused | $100m–$200m — small-scale, limited diversification | < $100m — niche or "
+    "subscale, vulnerable to shocks |"
+)
 OWNED_SECTIONS = {
     "CP-6": ["### Portfolio posture", "", CP6A_POSTURE, ""],
     "CP-3": CP3_WATERFALL,
+    "CP-2": CP2_SCORECARD,
 }
 
 
@@ -1678,9 +1713,16 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 # 1,468,993 to 1,650,316 (+181,323: CP-1B 66,900, CP-1C 68,185, CP-1D 45,304, CP-DR 934 more for
 # the peer pack CP-1C now consumes), ceiling 1,485,996 to 1,667,319. The other seven pathways'
 # instructions are byte-identical and no other ceiling moved.
+# 2026-11-25 (owner ruling R9, "CP-2 writes a scorecard table using the owner's Risk Rubric";
+# docs/methodology/portfolio-recommendation.md § 3; and owner, 2026-11-25, Scale "must be in any
+# currency reported by the issuer"): CP-2's credit scorecard block with the rubric's 17 rows and the
+# Scale currency rule adds 7,242 characters to CP-2's instructions in every pathway that runs it.
+# Measured on this file's input before (base 9e6c586) and after: only lite_credit_assessment
+# passes its ceiling, 669,952 to 677,194 (+7,242), so its ceiling rises by that growth, 675,151 to
+# 682,393. The other ceilings hold and are unchanged.
 INSTRUCTION_BUDGET = {
     "deep_credit_assessment": 1_903_059,
-    "lite_credit_assessment": 675_151,
+    "lite_credit_assessment": 682_393,
     "credit_snapshot": 1_667_319,
     "covenant_refinancing": 1_157_279,
     "distressed_restructuring": 1_188_321,
@@ -3332,6 +3374,11 @@ def test_no_text_sent_to_a_model_gives_usd_as_its_only_example(tmp_path):
     found = {name: usd_only_examples(text) for name, text in sent.items()}
     quoted = {name for name, f in found.items() if f and set(f) == {CP4_QUOTED_PROVISION}}
     assert quoted == {"instructions CP-4", "method CP-4"}, "the known quote moved or went"
+    # Known and kept: the Risk Rubric's Scale row is the owner's own text, sent byte for byte
+    # (ruling R9, 2026-11-25), with its EBITDA thresholds in dollars. The sentence after the table
+    # has them converted into the issuer's reporting currency (owner, 2026-11-25: "must be in any
+    # currency reported by the issuer"), and that sentence is not flagged: only the row is.
+    assert found.pop("instructions CP-2") == [RUBRIC_SCALE_ROW]
     assert {name: f for name, f in found.items() if f and name not in quoted} == {}
 
 
@@ -3830,6 +3877,47 @@ def test_cp1_chart_tables_become_the_report_chart_strip(tmp_path):
     ]
     assert [m.value for m in figures[3].chart.marks] == [Decimal(500), None, Decimal(1250)]
     assert figures[3].chart.marks[1].ref_id.startswith("G")
+
+
+def test_the_strip_draws_every_period_in_the_one_order_and_states_the_unplaced(tmp_path):
+    """Owner's ruling 2026-11-25, on the Markdown chart path: fiscal years oldest first, then LTM,
+    then pro forma, then forecasts; a label with no period is drawn last and stated. Synthetic."""
+    prepared, _, context = good_task(tmp_path, "CP-1", "credit_snapshot")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    written = "| FY2023 | 3.75 | 3.00 | x | Synthetic. |\n| FY2024 | 2.80 | 2.25 | x | Synthetic. |"
+    mixed = "\n".join(
+        f"| {period} | {total} | {net} | x | Synthetic. |"
+        for period, total, net in (
+            ("FY2025E", "2.10", "1.60"),
+            ("PF FY2024", "2.60", "2.05"),
+            ("Run-rate", "2.50", "2.00"),
+            ("LTM Jun 2025", "2.70", "2.15"),
+            ("FY2024", "2.80", "2.25"),
+            ("FY2023", "3.75", "3.00"),
+        )
+    )
+    assert raw.count(written) == 1
+    figures = strip_of(prepared, raw.replace(written, mixed), tmp_path, "model-chart-strip").figures
+    leverage, cover = figures[0], figures[1]
+    total = [m for m in leverage.chart.marks if m.series == "Total debt / EBITDA"]
+    assert [(m.label, m.value) for m in total] == [
+        ("FY2023", Decimal("3.75")),
+        ("FY2024", Decimal("2.80")),
+        ("LTM Jun 2025", Decimal("2.70")),
+        ("PF FY2024", Decimal("2.60")),
+        ("FY2025E", Decimal("2.10")),
+        ("Run-rate", Decimal("2.50")),
+    ]
+    net = [m.value for m in leverage.chart.marks if m.series == "Net debt / EBITDA"]
+    assert net == [Decimal(v) for v in ("3.00", "2.25", "2.15", "2.05", "1.60", "2.00")]
+    # The shell draws a plotted chart's twin note under it; the summary of a figure placed above
+    # is not drawn (tests/test_model_shell_browser.py reads both in Chrome).
+    assert (leverage.placement, leverage.chart.reason) == ("above", None)
+    assert leverage.chart.table_twin.note == (
+        "Drawn last, in the order written, because no period could be read from the label: "
+        "Run-rate."
+    )
+    assert cover.chart.table_twin.note is None  # every period placed: nothing more is said
 
 
 def test_an_all_gaps_non_usd_issuer_passes_with_no_chart_values(tmp_path, monkeypatch):
@@ -8149,22 +8237,44 @@ def test_each_stated_form_of_the_net_debt_period_is_accepted(period):
 
 
 @pytest.mark.parametrize(
+    "periods",
+    [
+        ("FY2024 / 2024-09-30", "2025-06-30"),  # each carries its date
+        ("FY2023", "FY2024", "LTM Jun 2025"),
+        ("2024-09-30 reported",),  # the date is read; the extra word no longer stops the order
+        ("PF FY2024", "FY2024 / 2024-09-30"),  # the reported row is the latest, not the pro forma
+        ("Q3 2025", "FY2024", "FY2025E"),
+    ],
+)
+def test_net_debt_periods_the_one_rule_orders_are_accepted_whatever_their_forms(periods):
+    """Owner's ruling 2026-11-25: every supplied period orders (LTM, PF, quarters, forecasts)."""
+    assert cpos_launch._net_debt_issues(_net_debt_text(*periods)) == ()
+
+
+@pytest.mark.parametrize(
     ("periods", "cell"),
     [
-        (("2024-09-30 reported",), "2024-09-30 reported"),
-        (("FY2024 (2024-09-30)",), "FY2024 (2024-09-30)"),
+        (("latest reported",), "latest reported"),
+        (("FY2024", "Run-rate", "FY2023"), "Run-rate"),
         (("2024-02-31",), "2024-02-31"),
-        (("FY2024", "2025-06-30"), "2025-06-30"),
         (("FY2024", "FY2024"), "FY2024"),
+        (("FY2024", "2025-06-30", "FY 2024"), "FY 2024"),  # a second spelling of one period
+        (("PF FY2024", "FY2025E"), "PF FY2024"),  # no reported row: neither is the latest
+        # Which of a fiscal year and a date is later depends on the year end (refused on main too).
+        (("FY2024", "2025-06-30"), "2025-06-30"),
+        (("FY2023 / 2023-09-30", "PF FY2024", "FY2024", "LTM Jun 2025"), "FY2024"),
+        (("Q1 2025", "FY2024", "2024-12-31"), "2024-12-31"),
     ],
 )
 def test_a_net_debt_period_the_pack_cannot_order_is_refused_with_the_form_to_write(periods, cell):
     (issue,) = cpos_launch._net_debt_issues(_net_debt_text(*periods))
     assert issue == (
-        f"`### Net debt data` Period `{cell}` cannot be ordered: write "
-        "`FY2024 / 2024-09-30` for a fiscal year end or the date alone (`2025-06-30`) for an "
-        "interim balance sheet, one form for the whole table and each period once; put any "
-        "other word in the Basis and limitation cell."
+        f"`### Net debt data` Period `{cell}` keeps the latest reported row from being read. A "
+        "Period is refused when no period can be read from it, when it states a period an "
+        "earlier row states, when no row is a reported period (each is pro forma or a "
+        "forecast), or when some reported rows carry their date and others do not (which is "
+        "later then depends on the year end). Write `FY2024 / 2024-09-30` for a fiscal year end "
+        "or the date alone (`2025-06-30`) for an interim balance sheet, each period once."
     )
 
 
@@ -10218,3 +10328,322 @@ def test_an_adapter_refusal_that_is_only_a_prefix_of_a_listed_fault_is_still_nam
     named = "boundary pipes: line "
     assert sum(i.endswith(f"{named}{bad_a}") for i in review) == 1, review
     assert sum(i.endswith(f"{named}{bad_b}") for i in review) == 1, review
+
+
+# ---- --test-assume-distress: a screen-test-only launcher flag (owner, 2026-11-25) ----
+# The two strings are the owner-approved answer key, written here independently of production.
+DISTRESS_BLOCK_KEY = (
+    "Test run, not a delivery. For this run only, treat the Phase 1 distress gate as passed by "
+    "assumption: model a hypothetical restructuring of this issuer at the as-of date on the "
+    "supplied sources and complete every later phase. Begin `### Bottom line` with `Test "
+    "assumption, no distress is evidenced: ` and make `Test assumption: hypothetical distress; "
+    "no trigger is evidenced.` the first item of `### Limitations`. Assume nothing else.\n\n"
+)
+DISTRESS_SCOPE_KEY = "Test run, not a delivery: CP-4C assumed a distress trigger. "
+DISTRESS_RULING = (
+    "lifts: live-provider-pause\nby: user\ndate: 2026-11-25\n"
+    "configs: copilot-sol-medium test-assume-distress\n"
+)
+
+
+def distress_prep(tmp_path, name, *adaptations, pathway="distressed_restructuring"):
+    return prepare(
+        context_file(tmp_path, pathway),
+        tmp_path / "issuer" if (tmp_path / "issuer").exists() else issuer_folder(tmp_path),
+        tmp_path / name,
+        config="sol-medium",
+        cap="15",
+        test_adaptations=adaptations,
+    )
+
+
+def instruction_bytes(prepared) -> dict[str, bytes]:
+    folder = prepared.directory / "instructions"
+    return {p.stem: p.read_bytes() for p in sorted(folder.glob("*.md"))}
+
+
+def distress_ruling(tmp_path, monkeypatch, text=DISTRESS_RULING):
+    root = tmp_path / "rulings"
+    root.mkdir(exist_ok=True)
+    ruling = root / "grant.md"
+    ruling.write_text(text, encoding="utf-8")
+    monkeypatch.setattr("deploy_workflow.model.adapter.LIVE_RULINGS_ROOT", root)
+    return ruling
+
+
+def distress_argv(tmp_path, *extra):
+    argv = launch(tmp_path, *extra, "--test-assume-distress", pathway="distressed_restructuring")
+    argv[argv.index("--config") + 1] = "copilot-sol-medium"
+    return argv
+
+
+def test_the_distress_block_reaches_cp4c_only_and_before_the_method(tmp_path):
+    plain = instruction_bytes(distress_prep(tmp_path, "plain"))
+    tested = distress_prep(tmp_path, "tested", "test-assume-distress")
+    texts = instruction_bytes(tested)
+    assert plain.keys() == texts.keys() and "CP-4C" in texts
+    assert [m for m in texts if texts[m] != plain[m]] == ["CP-4C"]
+    head, mark, method = texts["CP-4C"].partition(cpos_launch.METHOD_MARK.encode())
+    assert mark and DISTRESS_BLOCK_KEY.encode() in head
+    assert (
+        plain["CP-4C"].partition(cpos_launch.METHOD_MARK.encode())[2] == method
+    )  # the method alone is equal
+    assert texts["CP-4C"].replace(DISTRESS_BLOCK_KEY.encode(), b"", 1) == plain["CP-4C"]
+
+
+def test_without_the_flag_nothing_records_a_test_adaptation(tmp_path):
+    prepared = distress_prep(tmp_path, "plain")
+    manifest = (prepared.directory / "workflow.json").read_text()
+    assert "test_adaptations" not in manifest and DISTRESS_SCOPE_KEY not in manifest
+    assert prepared.plan.test_adaptations == ()
+    assert all(b"Test run, not a delivery" not in t for t in instruction_bytes(prepared).values())
+
+
+def test_the_flag_is_recorded_in_the_manifest_and_opens_the_scope_sentence(tmp_path):
+    prepared = distress_prep(tmp_path, "tested", "test-assume-distress")
+    saved = json.loads((prepared.directory / "workflow.json").read_text())
+    assert saved["test_adaptations"] == ["test-assume-distress"]
+    assert saved["layout"]["scope"].startswith(DISTRESS_SCOPE_KEY)
+    plain = distress_prep(tmp_path, "plain")
+    assert not plain.layout.scope.startswith("Test run")
+    assert prepared.layout.scope == DISTRESS_SCOPE_KEY + plain.layout.scope
+
+
+def test_the_distress_flag_is_refused_when_cp4c_is_not_in_the_run(tmp_path):
+    with pytest.raises(LaunchRefused, match="CP-4C"):
+        distress_prep(tmp_path, "x", "test-assume-distress", pathway="covenant_refinancing")
+    assert not (tmp_path / "x").exists()
+
+
+def test_an_unknown_test_adaptation_is_refused(tmp_path):
+    with pytest.raises(LaunchRefused, match="no-such"):
+        distress_prep(tmp_path, "x", "no-such")
+
+
+def test_the_flag_runs_dry_under_a_ruling_that_lists_the_grant(tmp_path, monkeypatch, capsys):
+    ruling = distress_ruling(tmp_path, monkeypatch)
+    argv = distress_argv(tmp_path, "--ruling", str(ruling))
+    assert main(argv) == 0
+    saved = json.loads((tmp_path / "out" / "workflow.json").read_text())
+    assert saved["test_adaptations"] == ["test-assume-distress"]
+    assert "No provider was called" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("ruled", [False, True])
+def test_the_flag_is_refused_without_a_ruling_that_lists_the_grant(
+    tmp_path, monkeypatch, capsys, ruled
+):
+    text = DISTRESS_RULING.replace(" test-assume-distress", "")
+    ruling = distress_ruling(tmp_path, monkeypatch, text)
+    argv = distress_argv(tmp_path, *(["--ruling", str(ruling)] if ruled else []))
+    assert main(argv) == 2
+    assert "test-assume-distress" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()
+
+
+def test_no_environment_variable_enables_the_flag(tmp_path, monkeypatch, capsys):
+    for name in ("TEST_ASSUME_DISTRESS", "CPOS_TEST_ASSUME_DISTRESS", "DEPLOY_WORKFLOW_TEST"):
+        monkeypatch.setenv(name, "1")
+    argv = distress_argv(tmp_path)
+    assert main(argv) == 2
+    assert not (tmp_path / "out").exists()
+    argv.remove("--test-assume-distress")
+    assert main(argv) == 0
+    assert "test_adaptations" not in (tmp_path / "out" / "workflow.json").read_text()
+
+
+def test_the_flag_is_refused_in_the_run_start_services_environment(tmp_path, monkeypatch, capsys):
+    ruling = distress_ruling(tmp_path, monkeypatch)
+    monkeypatch.setenv("DEPLOY_WORKFLOW_PID_FILE", str(tmp_path / "pid"))
+    assert main(distress_argv(tmp_path, "--ruling", str(ruling))) == 2
+    assert "run start service" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()
+
+
+def test_the_flag_is_refused_by_a_launcher_that_cannot_go_live(tmp_path, monkeypatch, capsys):
+    ruling = distress_ruling(tmp_path, monkeypatch)
+    assert main(distress_argv(tmp_path, "--ruling", str(ruling)), allow_live=False) == 2
+    assert not (tmp_path / "out").exists()
+
+
+# --- CP-2's credit scorecard (owner ruling R9, 2026-11-25) ---------------------------------------
+# Scope: synthetic handoffs and the instructions as built offline; no model wrote or read them.
+
+
+@pytest.mark.parametrize("pathway", sorted(PATHWAY_MODULES))
+def test_cp2_is_asked_for_the_credit_scorecard_in_every_pathway_that_runs_it(tmp_path, pathway):
+    _, texts = all_instructions(tmp_path, pathway)
+    opening = "Credit scorecard: also write the registers T2.13 and T2.14."
+    for module, text in texts.items():
+        if module != "CP-2":
+            assert opening not in text, module
+    assert ("CP-2" in texts) == ("CP-2" in PATHWAY_MODULES[pathway])
+    if "CP-2" not in texts:
+        return
+    head, _, method = texts["CP-2"].partition(cpos_launch.METHOD_MARK)
+    assert head.count(opening) == 1 and opening not in method
+    block = cpos_launch.cp2_scorecard_block()
+    assert block.startswith(opening) and head.count(block) == 1
+    # Everything but the rubric table stays short.
+    rubric = block[block.index("| # | Factor |") : block.index("Scale's thresholds are")]
+    # 2,761 with the Scale currency rule (owner, 2026-11-25), 2,204 before it.
+    assert len(block) - len(rubric) < 2_800
+    assert_rubric(rubric)
+    assert "`### T2.13 - Credit scorecard` (columns `Factor | Level | Basis`" in block
+    assert "`### T2.14 - Credit assessment` (columns `Assessment | View | Basis`" in block
+    assert "each a `###` heading in `## Findings`, after `### Limitations`, never nested as a" in (
+        block
+    )
+    assert "`####` heading under the Analytical appendix heading or any other heading" in block
+    assert "headed by that heading alone (no `table-id` tag)" in block
+    # VOICE_RULES gives a table that cites sources a `Source` column; these two have none.
+    assert "A table that cites sources has a column headed `Source`" in head
+    assert "These two tables have no `Source` column: Basis carries the reference." in block
+    assert f"exactly these 17 rows, named exactly: {', '.join(CP2_FACTORS)}." in block
+    assert "1 (strongest) to 5 (weakest)" in block
+    assert "1 Excellent, 2 Strong, 3 Satisfactory, 4 Weak, 5 Poor" in block
+    assert "write `Not scored` as its Level, list the factor in `## Gaps` and never guess" in block
+    assert "Write `Not assessed` as a View only when the sources and supplied handoffs hold no" in (
+        block
+    )
+    assert "evidence for it, and list it in `## Gaps`." in block
+    assert (
+        "Every row has a Basis: one line of the evidence the Level or View rests on or, for "
+        "`Not scored` and `Not assessed`, of what evidence is missing."
+    ) in block
+    assert "Management, Sector Outlook and Sponsor Quality, each Positive, Neutral or Negative" in (
+        block
+    )
+    assert "Credit Direction, Improving, Stable or Deteriorating" in block
+    assert "Basis is the only cell of these tables that may hold a source reference." in block
+    assert "Do not write an overall credit score, a total or an average." in block
+    assert "not the method's T2.7 Financial Profile Scorecard, which stays unwritten" in block
+    assert "is refused unless the module is blocked" in block
+    assert "Choose it by the house Risk Rubric, given in full below, which describes" in block
+    # Owner, 2026-11-25: Scale "must be in any currency reported by the issuer". Typed by hand:
+    # the rubric's USD thresholds are converted into the reporting currency at the sources' stated
+    # rate (as ruling 2026-11-16-reporting-currency-from-sources.md does for a facility).
+    scale_rule = (
+        "Scale's thresholds are USD amounts, and Scale is scored in the currency CP-1's "
+        "statements report in: for another currency, convert each threshold into it with "
+        "calculate at the FX rate the source materials state for the reporting (for example "
+        "$1bn at 0.92 EUR per USD is EUR 920m), never a rate looked up or derived, and compare "
+        "the latest LTM reported EBITDA in the CP-1 handoff (the latest fiscal year where it "
+        "gives no LTM); Basis gives the EBITDA, the converted threshold and the rate. With no "
+        "stated rate, Scale is `Not scored` and listed in `## Gaps`."
+    )
+    assert scale_rule in block
+    assert block.index(scale_rule) > block.index("| 17 | Financial policy |")
+    # No file is named for the rubric: the table is the whole of it, and a named file that is not
+    # supplied reads as a missing companion file.
+    assert "portfolio-recommendation" not in texts["CP-2"]
+    assert "docs/methodology" not in texts["CP-2"] and "docs/superpowers" not in texts["CP-2"]
+    # The scope section CP-2 is sent still cuts T2.7, and names neither new register.
+    scope = method.rpartition("Register scope in this transport:")[2]
+    assert "T2.7 Financial Profile Scorecard" in scope
+    assert "T2.13" not in method and "T2.14" not in method
+
+
+def assert_rubric(rubric: str) -> None:
+    """The Risk Rubric table as CP-2 is sent it. Cells typed by hand from the table in § 3 of
+    docs/methodology/portfolio-recommendation.md (the owner's three amended cells included), never
+    read through the loader; the paragraph under that table is not sent."""
+    lines = rubric.rstrip("\n").split("\n")
+    assert lines[0] == "| # | Factor | 1 Excellent | 2 Strong | 3 Satisfactory | 4 Weak | 5 Poor |"
+    assert [line.split(" | ")[:2] for line in lines[1:]] == [
+        [f"| {n}", f] for n, f in enumerate(CP2_FACTORS, 1)
+    ]
+    assert all(line.count(" | ") == 6 and line.endswith(" |") for line in lines[1:])
+    assert lines[1] == RUBRIC_SCALE_ROW
+    assert lines[6] == (
+        "| 6 | Leverage | Low leverage (<3x), conservative structure | Moderate leverage (3–4x), "
+        "ample headroom | Elevated leverage (4–5x), stable but stretched | High leverage (5–6x), "
+        "limited covenant cushion | Very high leverage (>6x), fragile structure or covenant "
+        "breach risk |"
+    )
+    assert lines[12] == (
+        "| 12 | Market share | Dominant market leader (>30%) | Top 3 competitor, or 10–30% share | "
+        "Mid-tier, 5–10% share | Small player, <5% share | Marginal presence or niche operator |"
+    )
+    assert lines[16] == (
+        "| 16 | Interest cover | EBITDA/Interest >4.0x | 3.0–4.0x | 2.0–3.0x | 1.0–2.0x | <1.0x "
+        "(interest not covered) |"
+    )
+    assert lines[17].split(" | ")[4] == (
+        "Neutral or balanced policy. Leverage 3.5–4.5x; some shareholder bias."
+    )
+    unsent = ("amended", "High leverage (>5x)", "Mid-tier, <10%", "Probability of", "image")
+    for words in unsent:
+        assert words not in rubric, words
+
+
+def test_the_rubrics_gaps_paragraph_is_in_no_modules_instructions(tmp_path):
+    _, texts = all_instructions(tmp_path, "deep_credit_assessment")
+    for module, text in texts.items():
+        for unsent in ("Gaps in the rubric as written", "read here as 4 for 5–6x", 'was "High'):
+            assert unsent not in text, (module, unsent)
+    assert "Very high leverage (>6x)" in texts["CP-2"]
+    assert "High leverage (>5x)" not in texts["CP-2"]  # the cell the owner amended
+
+
+def test_sponsor_quality_names_registers_cp1a_writes_in_this_transport():
+    """Hand-read from REF_CP-2C_STEPS.md (T2D.4 Behavior Flag Register, T2D.5 Capital Allocation
+    Risk Table, T2D.9 Sponsor Risk Assessment Table) and CP-1A's SKILL.md (`ownership_register`).
+    T2D.2 and T2D.8 are cut by CP-1A's scope section, so the block must not send CP-2 to them."""
+    block = cpos_launch.cp2_scorecard_block()
+    written = cpos_launch.required_registers("CP-1A")
+    for ident in ("ownership_register", "T2D.4", "T2D.5", "T2D.9"):
+        assert ident in block and ident in written, ident
+    for cut in ("T2D.2", "T2D.8"):
+        assert cut not in block and cut not in written, cut
+    assert "T2D.4 Behavior Flag Register" in block
+    assert "T2D.5 Capital Allocation Risk Table" in block
+    assert "T2D.9 Sponsor Risk Assessment Table" in block
+
+
+def cp2_checked(tmp_path: Path, edit=lambda raw: raw) -> tuple[str, ...]:
+    prepared, task, context = good_task(tmp_path, "CP-2")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    assert "### T2.13 - Credit scorecard" in raw and "### T2.12 - Register" in raw
+    return _checked_handoff(task, edit(raw).encode(), checker(prepared.layout))
+
+
+def test_a_complete_cp2_handoff_with_the_scorecard_passes_every_check(tmp_path):
+    """Every check a handoff meets, the method's own included, accepts the two registers the
+    method does not list; unscored and unassessed rows are accepted as written."""
+    assert cp2_checked(tmp_path) == ()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "complaint"),
+    [
+        # Written to the old contract: neither register.
+        ("### T2.13 - Credit scorecard", "### Scorecard", "The handoff has no T2.13 register."),
+        ("### T2.14 - Credit assessment", "### Views", "The handoff has no T2.14 register."),
+        # A level with its name, a missing factor, a view from the other vocabulary.
+        ("| Leverage | 3 |", "| Leverage | 3 (Satisfactory) |", "T2.13 row `Leverage`: Level"),
+        ("| Liquidity | 3 | annual.txt, page 2 |\n", "", "T2.13 is missing the row Liquidity"),
+        ("| Management | Neutral |", "| Management | Stable |", "T2.14 row `Management`: View"),
+        ("| Credit Direction | Stable |", "| Credit Direction | Positive |", "`Credit Direction`"),
+        # A scored row with no evidence.
+        ("| Scale | 3 | annual.txt, page 2 |", "| Scale | 3 | n/a |", "`Scale`: Basis states no"),
+    ],
+)
+def test_a_cp2_handoff_with_a_faulty_scorecard_gets_a_targeted_repair(
+    tmp_path, old, new, complaint
+):
+    issues = cp2_checked(tmp_path, lambda raw: raw.replace(old, new, 1))
+    mine = [i for i in issues if i.startswith("Credit scorecard registers: ")]
+    assert len(mine) == 1, issues
+    assert complaint in mine[0]
+    assert "Head them exactly `### T2.13 - Credit scorecard`" in mine[0]
+    assert "`### T2.14 - Credit assessment`" in mine[0]
+
+
+def test_a_blocked_cp2_and_other_modules_owe_no_scorecard():
+    blocked = "---\nmodule_status: Blocked\n---\n# CP-2\n\n## Findings\n\n### Bottom line\n"
+    assert cpos_launch.scorecard_issues("CP-2", blocked) == ()
+    assert cpos_launch.scorecard_issues("CP-2", blocked.replace("Blocked", "Complete")) != ()
+    for module in METHODS:
+        if module != "CP-2":
+            assert cpos_launch.scorecard_issues(module, "## Findings\n") == (), module

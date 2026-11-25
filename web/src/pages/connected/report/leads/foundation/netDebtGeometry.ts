@@ -1,6 +1,7 @@
 import { LINE, SIZE, fittingTicks, gapSlotHeight, niceAxis, textWidth, wrap } from "../kit/marks";
 import { group, type Reading } from "../kit/numbers";
 import type { LiquidityPeriod, NetDebtPeriod, NetDebtView, ProForma } from "./foundationData";
+import { isReported, latestReported } from "../kit/tables";
 import { written } from "./periodsData";
 
 const safeText = written;
@@ -109,7 +110,9 @@ export function barsLayout(view: NetDebtView, proForma: readonly ProForma[], wid
   const right = width - textWidth(axis.ticks.at(-1)?.label ?? "", SIZE.tick) / 2 - 2;
   const x = (v: number) => axis.place(v, left, right);
   const slot = Math.min(96, (right - left) * 0.3);
-  const last = view.periods.length - 1;
+  // The latest reported period is the current bar and the base the pro forma bars are set
+  // against: never a pro forma or forecast period of the table.
+  const base = latestReported(view.periods, (period) => period.label);
   let y = 2;
   const take = (bar: Omit<NetBar, "top" | "barY" | "reading">, text: string): NetBar => {
     const reading = wrap(text, right - left, SIZE.label);
@@ -118,13 +121,13 @@ export function barsLayout(view: NetDebtView, proForma: readonly ProForma[], wid
     y = barY + BAR + 4 + reading.length * LINE + ROW_GAP;
     return laid;
   };
-  const bars = view.periods.map((p, index) => {
+  const bars = view.periods.map((p) => {
     const [net, cash, gross] = [value(p.net), value(p.cash), value(p.gross)];
     const netEnd = net === null ? x(0) + slot : x(Math.max(net, 0));
     return take(
       {
         label: p.label,
-        kind: index === last ? "current" : "prior",
+        kind: p === base ? "current" : "prior",
         net: net === null ? null : { ...spanOf(x, 0, net), value: net },
         netGap: net === null ? { x: x(0), width: slot, reason: words(p.net) } : null,
         cash:
@@ -141,7 +144,6 @@ export function barsLayout(view: NetDebtView, proForma: readonly ProForma[], wid
       periodReading(p),
     );
   });
-  const base = view.periods.at(-1);
   const reported = base ? value(base.net) : null;
   const proBars = proForma.flatMap((item) => {
     const pf = value(item.netDebt);
@@ -263,8 +265,8 @@ export type StripLayout = {
 export function stripLayout(
   entries: readonly StripEntry[],
   width: number,
-  /** False for periods that cannot be put in time order: nothing is joined. */
-  joined = true,
+  /** The periods the period order could not place: drawn last, never joined. */
+  unplaced: readonly string[] = [],
 ): StripLayout {
   const numbers = entries.flatMap((entry) =>
     entry.cell?.kind === "number" ? [entry.cell.value] : [],
@@ -279,7 +281,7 @@ export function stripLayout(
     : 8;
   const right = width - Math.max(...texts.map((text) => textWidth(text, SIZE.value))) - DOT - 14;
   const x = (value: number) => axis.place(value, left, right);
-  const lastPeriod = periods.length - 1;
+  const current = latestReported(periods, (entry) => entry.label);
   let top = 4;
   const rows = entries.map((entry, at): StripRow => {
     const beside = !entry.proForma;
@@ -305,15 +307,16 @@ export function stripLayout(
       gap: isNumber
         ? null
         : { x: left, y: top + block + 4, width: slotWidth, height: slotHeight, reason },
-      tone: entry.proForma ? "proForma" : at === lastPeriod ? "current" : "prior",
+      tone: entry.proForma ? "proForma" : entry === current ? "current" : "prior",
     };
     top += height;
     return row;
   });
   const joins = rows.flatMap((row, at) => {
     const next = rows[at + 1];
-    return joined &&
-      next &&
+    return next &&
+      !unplaced.includes(row.entry.label) &&
+      !unplaced.includes(next.entry.label) &&
       !row.entry.proForma &&
       !next.entry.proForma &&
       row.x !== null &&
@@ -321,7 +324,9 @@ export function stripLayout(
       ? [{ from: at, to: at + 1 }]
       : [];
   });
-  const latest = rows.filter((row) => !row.entry.proForma && row.x !== null).at(-1);
+  const latest = rows
+    .filter((row) => !row.entry.proForma && isReported(row.entry.label) && row.x !== null)
+    .at(-1);
   const firstPro = rows.find((row) => row.entry.proForma);
   const plotBottom = top;
   return {

@@ -82,6 +82,39 @@ it("draws net leverage by case as the model displays it, the highest year, the g
   expect(within(tile).getByRole("row", { name: /Downside case/ })).toHaveTextContent("7.10x");
 });
 
+// The real model publishes the upside case in `cashflow.other` (cashflow.py main_cases); the
+// figures are the replayed TDG forecast's own (net leverage 4.86x, 3.96x, 3.19x for FY2025-27).
+it("draws the upside case the model publishes in its other grid, beside the main grid's cases", () => {
+  const withUpside = {
+    cashflow: {
+      ...model.cashflow,
+      other: {
+        columns: [
+          { label: "FY2025E", group: "Upside", start: "2025-04-01", end: "2026-03-31" },
+          { label: "FY2026E", group: "Upside", start: "2026-04-01", end: "2027-03-31" },
+        ],
+        rows: [
+          {
+            band: "Credit metrics",
+            label: "Net leverage (net debt / Adj EBITDA)",
+            kind: "multiple",
+            total: false,
+            cells: [cell("4.86x", "4.8593"), cell("3.96x", "3.9612")],
+          },
+        ],
+      },
+    },
+  };
+  render(<ForwardLead {...leadProps(high(), [], [withUpside])} />);
+  const tile = screen.getByRole("region", { name: "Net leverage path" });
+  const figure = within(tile).getByRole("img");
+  expect(figure).toHaveAccessibleName(/Upside: FY2025E 4\.86x, FY2026E 3\.96x/);
+  expect(figure.querySelector("[data-columns]")).toHaveAttribute("data-columns", "3");
+  for (const text of ["4.86x", "3.96x"]) expect(within(figure).getByText(text)).toBeInTheDocument();
+  fireEvent.click(within(tile).getByRole("button", { name: "Table" }));
+  expect(within(tile).getByRole("row", { name: /Upside/ })).toHaveTextContent("3.96x");
+});
+
 it("draws every panel's text at 12px and one column per case", () => {
   render(<ForwardLead {...leadProps(high(), [], [model])} />);
   const figure = within(screen.getByRole("region", { name: "Net leverage path" })).getByRole("img");

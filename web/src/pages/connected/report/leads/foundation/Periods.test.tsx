@@ -12,6 +12,7 @@ import {
   addRow,
   edited,
   ltmCp1,
+  mixedPeriodsCp1,
   OUTSIDE,
   setCell,
   setLabelled,
@@ -161,7 +162,7 @@ describe("PeriodsTile beyond two periods (mutations; not a real handoff)", () =>
   });
   it("draws the one gap pattern when no figure table states a period", () => {
     const tile = draw(edited(cp1Entry(), () => null));
-    expect(tile.textContent).toBe("Periods · This page could not read a period.");
+    expect(tile.textContent).toBe("PeriodsThis page could not read a period.");
     expect(tile.className).not.toMatch(/gap-hatch/);
   });
 });
@@ -236,5 +237,32 @@ describe("periodsCaption: the line that replaces the tile for plain periods", ()
   });
   it("says nothing without a period", () => {
     expect(periodsCaption(entry("CP-1", [], []))).toBeNull();
+  });
+});
+
+// The ruling of 2026-11-25: the stated periods in the one period order; "Latest" is the latest
+// reported period. The fixture writes its rows scrambled; the expected order is written by hand.
+describe("PeriodsTile: five scrambled periods", () => {
+  it("lists fiscal years on the axis, then LTM, PF and the forecast year, in that order", () => {
+    const strip = periodStrip(mixedPeriodsCp1());
+    expect(strip.axis.map((one) => one.label)).toEqual(["FY2023", "FY2024"]);
+    expect(strip.apart.map((one) => one.label)).toEqual(["LTM Jun-2025", "PF FY2024", "FY2025E"]);
+    expect(strip.shown).toEqual(["FY2023", "FY2024", "LTM Jun-2025", "PF FY2024", "FY2025E"]);
+    expect([strip.ordered, strip.unplaced]).toEqual([true, []]);
+    const tile = draw(mixedPeriodsCp1());
+    expect(
+      within(tile).getByText("Figures show FY2023, FY2024, LTM Jun-2025, PF FY2024 and FY2025E."),
+    ).toBeVisible();
+  });
+  it("FY2024 is compared but not the latest reported period beside a later LTM", () => {
+    const tile = draw(mixedPeriodsCp1());
+    expect(period(tile, "FY2023")?.textContent).toBe("FY2023Compared");
+    expect(period(tile, "FY2024")?.textContent).toBe("FY2024Compared");
+    expect(periodStrip(mixedPeriodsCp1()).axis.map((one) => one.latest)).toEqual([false, false]);
+    // With the fiscal years alone, FY2024 is the latest reported period.
+    expect(periodStrip(cp1Entry()).axis.map((one) => [one.label, one.latest])).toEqual([
+      ["FY2023", false],
+      ["FY2024", true],
+    ]);
   });
 });

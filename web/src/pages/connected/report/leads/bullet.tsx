@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { cx } from "@/utils/cx";
 import { withUnit } from "../../publishedReport";
 import type { SourceTable } from "../../visuals/visualData";
@@ -9,7 +9,11 @@ import { BarRow, GapCell, statedGap, Trace, type LeadTable } from "./parts";
 import { closed, IN_EVIDENCE, readerCell, readerCellOf, withStatedUnit } from "./read";
 
 /** A test as a lead draws it: `headroomGap` is the reason the module gives for no headroom. */
-export type LeadTest = HeadroomTest & { headroomGap?: string | null };
+export type LeadTest = HeadroomTest & {
+  headroomGap?: string | null;
+  /** The row's own "Basis and limitation" in the reader's words: the condition the test carries. */
+  condition?: string;
+};
 
 /**
  * The tests of a value-against-limit table (`headroomTests`), every drawn text as a working page
@@ -20,6 +24,9 @@ export function leadTests(
   descriptor: Record<string, unknown>,
 ): LeadTest[] | null {
   const column = columnAt(table, descriptor.headroom);
+  const basis = table.headers.findIndex((header) => /^Basis and limitation$/i.test(header));
+  // One basis shared by every row is the figure's note (`basisNotes`); a test's own differs from the others'.
+  const own = basis >= 0 && new Set(table.rows.map((row) => (row[basis] ?? "").trim())).size > 1;
   return (
     headroomTests(table, descriptor)?.map((test, at): LeadTest => {
       const gap = column === null ? null : statedGap(table.rows[at]?.[column] ?? "");
@@ -31,9 +38,16 @@ export function leadTests(
         headroom: test.headroom === null ? null : readerCell(test.headroom) || null,
         headroomGap: gap ? readerCell(gap.reason) : null,
         direction: readerCell(test.direction),
+        condition: own ? conditionOf(table.rows[at]?.[basis] ?? "") : "",
       };
     }) ?? null
   );
+}
+
+/** A basis cell as the test's condition: its words, never the "in Evidence" stand-in for a bare citation. */
+function conditionOf(cell: string) {
+  const text = readerCell(cell);
+  return text === IN_EVIDENCE ? "" : text;
 }
 
 /** A test's cell as written, with the row's unit when it is a number. */
@@ -106,6 +120,9 @@ function BulletRow({ test, href }: { test: LeadTest; href?: string }) {
           <span className="text-caption text-text-tertiary">{test.direction}</span>
         )}
       </span>
+      {test.condition && (
+        <span className="text-caption wrap-anywhere text-text-secondary">{test.condition}</span>
+      )}
       {geometry ? (
         <div role="img" aria-label={reading(test)} className="flex flex-col gap-1">
           <BarRow
@@ -149,12 +166,21 @@ export function Bullets({
   tests: readonly LeadTest[];
   href?: (index: number) => string;
 }) {
+  const reader = useId();
   return (
-    <ul aria-label={label} className="flex min-w-0 flex-col gap-3">
-      {tests.map((test, at) => (
-        <BulletRow key={`${String(at)}-${test.label}`} test={test} href={href?.(at)} />
-      ))}
-    </ul>
+    <>
+      {/* The whole figure in words, for a reader who cannot see the bars; each test's condition is in it. */}
+      <span id={reader} className="sr-only">
+        {tests
+          .map((test) => `${reading(test)}${test.condition ? ` ${closed(test.condition)}` : ""}`)
+          .join(" ")}
+      </span>
+      <ul aria-label={label} aria-describedby={reader} className="flex min-w-0 flex-col gap-3">
+        {tests.map((test, at) => (
+          <BulletRow key={`${String(at)}-${test.label}`} test={test} href={href?.(at)} />
+        ))}
+      </ul>
+    </>
   );
 }
 

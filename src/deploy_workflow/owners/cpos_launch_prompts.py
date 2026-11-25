@@ -3,11 +3,13 @@ routing and per-module blocks, and the report selectors. Moved from ``cpos_launc
 launcher re-exports every name.
 """
 
+import functools
 from collections.abc import Sequence
 from typing import get_args
 
 from deploy_vii.business_context import Category
 from deploy_workflow import confidence
+from deploy_workflow import cp2_scorecard as scorecard
 from deploy_workflow.credit_os_chips import MODULE_NAMES
 from deploy_workflow.handoff_delivery import MarkdownRoute
 from deploy_workflow.owners import cp2g, cpos_forecast
@@ -722,6 +724,59 @@ CP6A_BLOCK = (
     "findings. A handoff without that section or that first sentence is refused unless the "
     "module is blocked.\n\n"
 )
+# CP-2 only, in every pathway that runs it (owner ruling R9, 2026-11-25): the credit scorecard
+# registers `cpos_launch.scorecard_issues` checks, built when a run's instructions are (as the
+# method files are read). Sponsor Quality's registers are the ones CP-1A
+# writes in this transport from its absorbed CP-2C phase (its scope section cuts that phase's
+# ownership-and-control and creditor-alignment registers, so the block does not send CP-2 to them).
+_LEVELS = ", ".join(f"{level} {name}" for level, name in scorecard.LEVEL_NAMES.items())
+_THREE, _DIRECTION = (
+    f"{', '.join(views[:-1])} or {views[-1]}"
+    for views in (scorecard.ASSESSMENTS["Management"], scorecard.ASSESSMENTS["Credit Direction"])
+)
+
+
+@functools.cache
+def cp2_scorecard_block() -> str:
+    """CP-2's credit scorecard instructions, with the Risk Rubric table read from its source (the
+    read fails loudly; the instructions never carry a partial rubric). The table is the whole
+    rubric and no file is named for it: a named file that is not supplied reads as missing."""
+    return (
+        f"Credit scorecard: also write the registers {scorecard.SCORECARD_ID} and "
+        f"{scorecard.ASSESSMENT_ID}. {scorecard.PLACEMENT} These two tables have no `Source` "
+        f"column: Basis carries the reference. {scorecard.SCORECARD_ID} has exactly these "
+        f"{len(scorecard.FACTORS)} rows, named exactly: {', '.join(scorecard.FACTORS)}. "
+        f"Level is one digit from 1 (strongest) to 5 (weakest), without its name: {_LEVELS}. "
+        "Choose it by the house Risk Rubric, given in full below, which describes each factor "
+        "at each level:\n"
+        f"{scorecard.level_text()}\n"
+        # Owner, 2026-11-25: Scale "must be in any currency reported by the issuer"; the rate
+        # rule is ruling 2026-11-16-reporting-currency-from-sources.md's for a facility.
+        "Scale's thresholds are USD amounts, and Scale is scored in the currency CP-1's "
+        "statements report in: for another currency, convert each threshold into it with "
+        "calculate at the FX rate the source materials state for the reporting (for example "
+        "$1bn at 0.92 EUR per USD is EUR 920m), never a rate looked up or derived, and compare "
+        "the latest LTM reported EBITDA in the CP-1 handoff (the latest fiscal year where it "
+        "gives no LTM); Basis gives the EBITDA, the converted threshold and the rate. With no "
+        f"stated rate, Scale is `{scorecard.NOT_SCORED}` and listed in `## Gaps`. "
+        "Score a factor only on evidence in this run's sources and supplied handoffs; where "
+        f"there is none write `{scorecard.NOT_SCORED}` as its Level, list the factor in `## Gaps` "
+        f"and never guess. {scorecard.ASSESSMENT_ID} has exactly four rows: Management, Sector "
+        f"Outlook and Sponsor Quality, each {_THREE}, and Credit Direction, {_DIRECTION}. Rest "
+        "Sponsor Quality on the supplied CP-1A handoff's `ownership_register`, T2D.4 Behavior "
+        "Flag Register, T2D.5 Capital Allocation Risk Table and T2D.9 Sponsor Risk Assessment "
+        f"Table. Write `{scorecard.NOT_ASSESSED}` as a View only when the sources and supplied "
+        "handoffs hold no evidence for it, and list it in `## Gaps`. Every row has a Basis: one "
+        "line of the evidence the Level or View rests on or, for "
+        f"`{scorecard.NOT_SCORED}` and `{scorecard.NOT_ASSESSED}`, of what evidence is missing. "
+        "Basis is the only cell of these tables that may hold a source reference. Do not write "
+        "an overall credit score, a total or an average. "
+        f"{scorecard.SCORECARD_ID} is not the method's T2.7 Financial Profile Scorecard, which "
+        f"stays unwritten. A handoff without valid {scorecard.SCORECARD_ID} and "
+        f"{scorecard.ASSESSMENT_ID} is refused unless the module is blocked.\n\n"
+    )
+
+
 DEEP_DEBATE_BLOCK = (
     "The user explicitly asks for a full debate (source `context`, "
     "module_options.cp6_deep_debate). Deep Debate Mode is ON.\n\n"
@@ -738,5 +793,15 @@ SOURCES_RULES = (
     "source. A web page found by search is listed by the rules of this module's web section, "
     "which add a Source type cell.\n\n"
 )
+# A screen test only (owner, 2026-11-25): `--test-assume-distress` puts this before CP-4C's method
+# block, and `TEST_SCOPE_PREFIX` opens the run's scope sentence. Neither is ever sent otherwise.
+TEST_DISTRESS_BLOCK = (
+    "Test run, not a delivery. For this run only, treat the Phase 1 distress gate as passed by "
+    "assumption: model a hypothetical restructuring of this issuer at the as-of date on the "
+    "supplied sources and complete every later phase. Begin `### Bottom line` with `Test "
+    "assumption, no distress is evidenced: ` and make `Test assumption: hypothetical distress; "
+    "no trigger is evidenced.` the first item of `### Limitations`. Assume nothing else.\n\n"
+)
+TEST_SCOPE_PREFIX = "Test run, not a delivery: CP-4C assumed a distress trigger. "
 # The method block follows this line and runs to the end of a module's instructions.
 METHOD_MARK = "Selected method, verbatim:\n\n"

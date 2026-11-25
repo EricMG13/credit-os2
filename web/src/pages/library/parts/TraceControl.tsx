@@ -44,9 +44,15 @@ export function TraceControl({
   );
 }
 
+/**
+ * The tooltip opens under the control, its end at the control's end: a trace sits at the top right
+ * of its item, so above or beside it there is often another control, under it the item's own body.
+ */
+const TIP = "bottom right";
+
 export function TraceButton({ label, open }: { label: string; open: () => void }) {
   return (
-    <Tooltip title="Show sources" placement="top right">
+    <Tooltip title="Show sources" placement={TIP}>
       <TooltipTrigger
         aria-label={label}
         onPress={open}
@@ -69,7 +75,7 @@ export function TraceButton({ label, open }: { label: string; open: () => void }
  */
 function MissingTrace({ label }: { label: string }) {
   return (
-    <Tooltip title="No source recorded" placement="top right">
+    <Tooltip title="No source recorded" placement={TIP}>
       <TooltipTrigger
         aria-label={`${label}: no source recorded`}
         aria-disabled="true"

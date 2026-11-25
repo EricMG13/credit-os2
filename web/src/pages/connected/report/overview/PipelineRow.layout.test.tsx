@@ -69,7 +69,7 @@ it("lists the bottom lines in stage order, as the graph has them (item 22)", () 
   ];
   render(<PipelineRow {...props} />);
   const names = within(screen.getByRole("list", { name: "Bottom lines" }))
-    .getAllByRole("heading", { level: 3 })
+    .getAllByRole("heading", { level: 4 })
     .map((h) => h.textContent);
   const stageOrder = [
     "CP-0",

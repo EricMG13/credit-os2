@@ -1,27 +1,22 @@
-"""The hardened ``http.server`` base shared by the run start service and Signal.
+"""The hardened ``http.server`` base of the run start service, and through it of the React
+application's server, which hosts Signal.
 
-Both services have no login and may be reachable from other machines, so every request is hostile
+The service has no login and may be reachable from other machines, so every request is hostile
 input. The rules are specified in the module docstring of ``run_start/service.py``; this module is
 their one implementation. Plain ``http.server``; no framework.
 
-What is the same for both services lives here: the server with its connection ceiling, the reply
-type, the checks every request passes before any body byte is read (``Handler.serve_request``, in
-this order: the target is a path, ``Host``, ``Sec-Fetch-Site``, ``Origin``, no
-``Transfer-Encoding``; an HTTP/0.9 request line is closed with no reply before them), the
-``Content-Length`` and JSON body rules, the headers every response carries, the fixed 500, and
-the two ways a file is served.
+What every service on this base shares lives here: the server with its connection ceiling, the
+reply type, the checks every request passes before any body byte is read
+(``Handler.serve_request``, in this order: the target is a path, ``Host``, ``Sec-Fetch-Site``,
+``Origin``, no ``Transfer-Encoding``; an HTTP/0.9 request line is closed with no reply before
+them), the ``Content-Length`` and JSON body rules, the headers every response carries, the fixed
+500, and the way a file is served (``contained_file``).
 
-What differs between the services is a named parameter, never a branch on which service it is:
+What a service may set differently is a named parameter, never a branch on which service it is.
+The run start service sets the two that are left; the application built on it inherits them:
 
 ``Server.connection_limits``
-    ``(most connections, most per remote address or None)``, read for every connection.
-``Handler.response_headers``
-    Headers on every response after ``nosniff`` and ``Cross-Origin-Resource-Policy``, the replies
-    ``http.server`` writes itself (501, 400, 414) included.
-``Handler.connection_deadline``
-    Seconds after accept at which the connection is shut down however it trickles, or None.
-``Handler.read_body``
-    What a body whose connection fails becomes: ``ClientGone`` (no reply) unless overridden.
+    The most connections open at once, read for every connection.
 ``Handler.logger``
     The service's own logger.
 
@@ -57,7 +52,7 @@ __all__ = [
     "Server",
     "contained_file",
     "hosts",
-    "listed_file",
+    "json_value",
     "read_regular",
     "refuse",
     "wildcard",
@@ -109,51 +104,40 @@ class Server(ThreadingHTTPServer):
 
     def __init__(self, address: tuple[str, int], handler: type[BaseHTTPRequestHandler]) -> None:
         self.active_connections = 0
-        self._per_address: dict[str, int] = {}
         self._count = threading.Lock()
         super().__init__(address, handler)
         self.advertised_port = self.server_address[1]
         self.allowed_hosts = hosts(address[0], self.advertised_port)
 
-    def connection_limits(self) -> tuple[int, int | None]:
-        """``(most connections open, most of them from one remote address or None)``."""
+    def connection_limits(self) -> int:
+        """The most connections open at once."""
         raise NotImplementedError
 
     def verify_request(self, request: Any, client_address: Any) -> bool:
-        most, most_per_address = self.connection_limits()
+        most = self.connection_limits()
         with self._count:
-            address = str(client_address[0])
-            held = self._per_address.get(address, 0)
-            if self.active_connections >= most or (
-                most_per_address is not None and held >= most_per_address
-            ):
+            if self.active_connections >= most:
                 return False  # closed by the server loop with no handler thread
             self.active_connections += 1
-            self._per_address[address] = held + 1
         return True
 
-    def _release(self, client_address: Any) -> None:
-        address = str(client_address[0])
+    def _release(self) -> None:
         with self._count:
             self.active_connections -= 1
-            if self._per_address[address] <= 1:
-                del self._per_address[address]
-            else:
-                self._per_address[address] -= 1
 
     def process_request(self, request: Any, client_address: Any) -> None:
         try:
             super().process_request(request, client_address)
         except BaseException:
             # the handler thread never ran (the OS refused it), so it cannot release
-            self._release(client_address)
+            self._release()
             raise
 
     def process_request_thread(self, request: Any, client_address: Any) -> None:
         try:
             super().process_request_thread(request, client_address)
         finally:
-            self._release(client_address)
+            self._release()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -165,38 +149,6 @@ class Handler(BaseHTTPRequestHandler):
 
     sys_version = ""
     logger: logging.Logger = log
-    response_headers: tuple[tuple[str, str], ...] = ()
-    _deadline: threading.Timer | None = None
-
-    def connection_deadline(self) -> float | None:
-        """Seconds after accept at which the connection is shut down, or None for no deadline."""
-        return None
-
-    def setup(self) -> None:
-        super().setup()
-        seconds = self.connection_deadline()
-        if seconds is None:
-            return
-        # The absolute limit on this connection: the socket timeout is per read and a trickling
-        # client never reaches it, so a timer shuts the socket down that long after accept.
-        self._deadline = threading.Timer(
-            seconds, self._expire, args=(self.connection, self.client_address[0], self.logger)
-        )
-        self._deadline.daemon = True
-        self._deadline.start()
-
-    @staticmethod
-    def _expire(connection: socket.socket, client: str, logger: logging.Logger) -> None:
-        try:
-            connection.shutdown(socket.SHUT_RDWR)
-        except OSError:  # already closed by the handler or the peer: nothing left to cut
-            return
-        logger.info("%s connection deadline reached", client)
-
-    def finish(self) -> None:
-        if self._deadline is not None:
-            self._deadline.cancel()
-        super().finish()
 
     def log_message(self, format: str, *args: Any) -> None:
         self.logger.info("%s %s", self.address_string(), format % args)
@@ -263,8 +215,6 @@ class Handler(BaseHTTPRequestHandler):
         # them.
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")
-        for name, value in self.response_headers:
-            self.send_header(name, value)
         super().end_headers()
 
     def send_reply(self, reply: Reply) -> None:
@@ -294,22 +244,27 @@ class Handler(BaseHTTPRequestHandler):
             raise refuse(400, "Content-Length is not a length")
         return int(text)
 
-    def read_body(self, length: int) -> bytes:
-        """Up to ``length`` body bytes; a connection that fails meanwhile raises ``ClientGone``."""
-        return Body(self.rfile).read(length)
-
-    def json_body(self, limit: int) -> Any:
-        """The body as one JSON value of at most ``limit`` bytes; 411, 413 or 400 otherwise."""
+    def sized_body(self, limit: int) -> bytes:
+        """The whole body, of at most ``limit`` bytes; 411, 413 or 400 otherwise."""
         length = self.content_length()
         if length > limit:
             raise refuse(413, f"a request body is at most {limit // 1024} KiB")
-        data = self.read_body(length)
+        data = Body(self.rfile).read(length)  # a connection that fails meanwhile is ClientGone
         if len(data) != length:
             raise refuse(400, "the request body ended early")
-        try:
-            return json.loads(data.decode("utf-8"))
-        except (ValueError, RecursionError):  # bad UTF-8, bad JSON, or nesting past the parser
-            raise refuse(400, "the request body is not valid JSON") from None
+        return data
+
+    def json_body(self, limit: int) -> Any:
+        """The body as one JSON value of at most ``limit`` bytes; 411, 413 or 400 otherwise."""
+        return json_value(self.sized_body(limit))
+
+
+def json_value(data: bytes) -> Any:
+    """``data`` as the one JSON value it spells in UTF-8; 400 otherwise."""
+    try:
+        return json.loads(data.decode("utf-8"))
+    except (ValueError, RecursionError):  # bad UTF-8, bad JSON, or nesting past the parser
+        raise refuse(400, "the request body is not valid JSON") from None
 
 
 def contained_file(
@@ -364,17 +319,6 @@ def read_regular(
         return None
     with os.fdopen(fd, "rb") as handle:  # the handle owns the descriptor now
         return handle.read() if limit is None else handle.read(limit)
-
-
-def listed_file(entry: tuple[Path, str] | None) -> Reply:
-    """The reply serving an allowlist entry ``(file, type)``; 404 for None (a name not listed).
-
-    The caller compares the request path with its allowlist's names; no path is joined here."""
-    if entry is None:
-        raise refuse(404, "not found")
-    return Reply(
-        200, entry[0].read_bytes(), {"Content-Type": entry[1], "Cache-Control": "no-cache"}
-    )
 
 
 def wildcard(host: str) -> bool:

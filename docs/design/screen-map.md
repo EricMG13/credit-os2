@@ -48,7 +48,7 @@ reason. Nothing is interpolated and missing is never zero.
 | First question | "What is the call and why?" | "Will this run do what I need, and did it?" | "Where does this come from, and what is missing?" |
 | Then | "What argues against it? What could it not see?" | "What does this module's data say?" | "What was supplied but not used?" |
 | Time | 2–5 minutes | Minutes to start; long sessions in modules | Targeted visits from one figure |
-| Vocabulary | Credit terms. No module codes, file names or run ids | Credit terms and module names | Everything, including codes and hashes |
+| Vocabulary | Credit terms. No module codes, file names or run ids | Credit terms and module names | Everything on Evidence except module codes: modules by name, with file names, hashes and run ids |
 | Home screens | Library, Overview, Changes, Calendar | Run start, Run activity, Modules, Forecast | Evidence, trace drawer |
 
 ## App map
@@ -68,24 +68,30 @@ Credit OS
 ├─ Coverage                     Decider, Analyst   across the book: who has what, who ranks where
 ├─ Run activity                 Analyst            what is running, what failed
 │   └─ Run progress             Analyst            where this run is
-└─ Start run                    Analyst            what will this run do, not do, and cost
-    └─ Documents → Purpose → More context → Review and start
+├─ Start run                    Analyst            what will this run do, not do, and cost
+│   └─ Documents → Purpose → More context → Review and start
+└─ Signal                       Analyst, Decider   what happened outside that touches my names
+    ├─ Feed                     For you, Latest, Saved, one topic
+    ├─ Group → Thread           what colleagues shared and said
+    ├─ Digest                   the scheduled brief
+    └─ Settings                 Groups, Thread rules, Sources, Topics, Digests, Notifications, AI and cost
 ```
 
-The static build's Model and Signal areas are design references, not reader screens, and are
-outside this map.
+Signal is in the app in live mode; the read-only preview and synthetic mode do not host it. The
+static build's Model area is a design reference, not a reader screen, and is outside this map; the
+static build also draws the Signal screens on sample data, as a reference.
 
 ## On every screen
 
 | Element | What | How | Where |
 |---|---|---|---|
-| Top bar | Symbol, "Credit OS", areas (Library, Coverage, Run activity; Start run as the primary action) | One bar; current area tinted and underlined | Top |
+| Top bar | Symbol, "Credit OS", areas (Library, Coverage, Run activity, and Signal where the server has it; Start run as the one primary action, on every screen except Run start and a read-only preview) | One bar; current area tinted blue and underlined | Top |
 | Report header | Breadcrumb, issuer name, sector line, pathway, as-of date and period, currency and unit | Name large; facts as quiet chips | Under the top bar on every report page |
 | Section control | Overview, Changes, Modules (count), Forecast, Evidence, Calendar | One segmented control; current section tinted with a dot | Right of the report header |
 | Basis label | Reported, as defined, or pro forma; fiscal year end; unit | One quiet line per tile or table, stated once | Under the tile title |
 | Trace control | Opens the sources for one paragraph, row or figure | One small icon button, the same everywhere | Top right of its item |
-| Gap state | What is not known and why | Hatched, dashed panel with the reason in words | In the place the figure would be |
-| Better / worse | Direction of a change, where the owner's table gives one | Teal with "better", orange with "worse", plus an arrow | Beside the figure |
+| Gap state | What is not known and why | One of two forms: a figure-sized hatched note in a titled tile, with at most one link to Evidence, or a line-sized hatched swatch with the sentence (owner, 2026-11-25) | In the place the figure would be |
+| Better / worse | Direction of a change, where the owner's table gives one | Blue with "better", orange with "worse", plus an arrow | Beside the figure |
 | Blocked | A module that could not run | Dashed orange outline, slash icon, "Not assessable" and the reason | Wherever the module appears |
 
 ## Screens
@@ -106,6 +112,8 @@ Insight wanted: which names need attention and what changed.
 | P3 | Earlier runs of an issuer | Expanding row, newest first | Under the issuer row | Code |
 | P1 (empty) | No runs yet, and the one action that fixes it | Empty state with "Start a run" | Centre | Code |
 
+The Decision gap is stated once for the list.
+
 ### Coverage
 
 For the Decider looking across the book and the Analyst checking what each name has. Goal:
@@ -115,13 +123,13 @@ others on a figure. The page adds no score, average or difference of its own.
 
 | Rank | What to show | How | Where | Needs |
 |---|---|---|---|---|
-| P1 | Issuer × module: delivered, limited, blocked, not run, missing | Matrix with the five stages as column groups; state as a shape and a word, not colour alone | Modules view, the default | Code |
+| P1 | Issuer × module: delivered, limited, blocked, not run, missing | Matrix with the five stages as column groups; state as a shape and a word, not colour alone. The matrix has seven states: Delivered, Delivered with gaps, Not assessable, Unreadable, No output published, Not asked for in this run, No output; run plan not recorded | Modules view, the default | Code |
 | P1 | One figure across issuers for a period the reader chooses | Ranked horizontal bars in the figure's own unit; stated gaps listed apart, never ranked or zero | Rank view | Code |
 | P2 | Find a sentence or figure across issuers | Search field with results grouped by issuer, each with its trace | Find view | Code |
 | P2 | One figure over the periods each issuer published | Small multiples on one scale, one panel per issuer | Trend view | Code; Method for more than two periods |
 | P2 | Saved groups of issuers; filters by sector and pathway | Chips above the views | Top | Code |
 | P3 | Open the issuer's report at the figure | Link per cell and row | In place | Code |
-| E | Module codes, hashes, file names, run folders | Not on this page | Evidence | — |
+| E | Hashes, file names, run folders (no page draws module codes) | Not on this page | Evidence | — |
 
 ### Report · Overview
 
@@ -130,14 +138,14 @@ trust it. This is the page the product is judged on.
 
 | Rank | What to show | How | Where | Needs |
 |---|---|---|---|---|
-| P1 | The call: stance word, and the bottom line in full | Largest type on the page in the largest tile; stance as a chip above it | Row 1, 8 columns | Code for the bottom line; Method for a typed stance |
+| P1 | The call: the bottom line in full | Largest type on the page in the largest tile; no stance chip (2026-11-25 Overview ruling, `VERIFICATION.md`). Headline figures are h1 mono; only the bottom line is metric or display size | Row 1, 8 columns | Code for the bottom line |
 | P1 | How far to trust it: confidence score and band | Meter 0–100 with the band word | Row 1, right column, top | Code |
-| P2 | Evidence clearance: status, issue counts by severity, committee use | Status word, one pip per issue, the use restriction in words | Row 1, right column, middle | Method: typed counts and use (CP-5). Until then status and sentence |
-| P2 | Since the earlier run: same, better, worse; stance was → now | One sentence and two chips | Row 1, right column, bottom | Code; Method for causes |
-| P2 | Gross and net leverage, prior → current, with pro forma where stated | Two large tiles: slope, and a dot strip with the pro forma state in orange | Row 2, left 8 columns | Code; Method for pro forma as a typed row |
-| P2 | Revenue, EBITDA, interest cover, liquidity, prior → current | Four small tiles, each a different two-point mark | Row 2, right 4 columns | Code |
+| P2 | Evidence clearance: status, issue counts by severity, committee use | Clearance and since-earlier are pointer rows in one card. No clearance pips (2026-11-25 Overview ruling, `VERIFICATION.md`) | Row 1, right column, middle | Method: typed counts and use (CP-5). Until then status and sentence |
+| P2 | Since the earlier run: same, better, worse | A pointer row in the same card, no "stance was → now" | Row 1, right column, bottom | Code; Method for causes |
+| P2 | Gross and net leverage, prior → current, with pro forma where stated | Leverage pair 6 + 6 columns, both slopes; four small tiles in one line beneath | Row 2, full width | Code; Method for pro forma as a typed row |
+| P2 | Revenue, EBITDA, interest cover, liquidity, prior → current | Four small tiles in one line beneath the leverage pair, each a different two-point mark | Row 2, beneath the pair | Code |
 | P2 | Key findings | Numbered claims, one sentence each, with a trace each | Row 3, 7 columns | Code |
-| P2 | Contrary evidence | Quote on the counter surface (navy tint) so it reads as the counter-argument | Row 3, 5 columns, top | Code |
+| P2 | Contrary evidence | Quote on the counter surface (slate tint) so it reads as the counter-argument | Row 3, 5 columns, top | Code |
 | P2 | What would change the view | Two outcome wells: resolved favourably, resolved adversely | Row 3, 5 columns, bottom | Method: typed split. Until then the passage as written |
 | P2 | When the debt falls due | Maturity wall on a true time axis; "thereafter" after an axis break | Row 4, 8 columns | Code |
 | P2 | Who ranks ahead of whom | Proportional stack in rank order with instrument segments | Row 4, 4 columns | Code; Method for a full stack (today secured notes only) |
@@ -147,8 +155,10 @@ trust it. This is the page the product is judged on.
 | P2 | What this run could not do | First-class tile: one hatched well per module with its limitation sentences; blocked modules first | Row 6, full width | Code |
 | P3 | The run as a pipeline | Five stages, modules as nodes, edges animated from delivered modules, blocked nodes dashed | Row 7, full width, top | Code |
 | P3 | Each module's bottom line | Three balanced columns under the pipeline, each linking to its module | Row 7, bottom | Code |
-| P3 | Dates to watch | Events on a true horizontal time axis, then a numbered list | Row 8, full width | Code; Method for event type and amount |
+| P3 | Dates to watch | Events on a true horizontal time axis, then a numbered list; one trace control per event, with "Recorded by N modules" linking to Calendar | Row 8, full width | Code; Method for event type and amount |
 | E | File names, hashes, run code, registers | Not on this page | Evidence | — |
+
+A page longer than three screens names its parts once under its title.
 
 ### Report · Changes
 
@@ -157,8 +167,8 @@ wanted: what moved, and why.
 
 | Rank | What to show | How | Where | Needs |
 |---|---|---|---|---|
-| P1 | Verdict in one sentence: about the same, better, worse | Largest type, with stance was → now | Top tile | Code; Method for typed stance |
-| P1 | Measures that moved, earlier → current, with the stated cause | Ranked list, largest move first; dumbbell per measure; cause in words | Main column | Code; Method: causes are often "Unresolved" |
+| P1 | Verdict in one sentence: about the same, better, worse | Largest type | Top tile | Code |
+| P1 | Measures that moved, earlier → current, with the stated cause | Ranked list, largest move first; dumbbell per measure, drawing the earlier figure as a tick and the current as a dot on an axis from zero; cause in words | Main column | Code; Method: causes are often "Unresolved" |
 | P2 | Which modules changed their conclusion | Module × status matrix: unchanged, revised, new, missing | Right column | Code |
 | P2 | Maturities then and now | Two walls on one axis | Under the measures | Code |
 | P3 | Measures that did not move | Collapsed count, expandable | Bottom | Code |
@@ -180,6 +190,8 @@ wanted: that module's own question, answered visually.
 | P3 | Navigator: modules by stage with status | Left column, grouped by the five stages; current tinted; blocked marked | Left, 232 px | Code |
 | P3 | Statements, registers, calculations | One region with tabs, closed by default; tables with inline bars | Bottom | Code |
 | P3 | Next module | One forward link | End | Code |
+
+Module page order: header, stats, lead, findings, limitations, figures, records, next. Dated lanes take a full row.
 | E | Source register, entity keys, definition conflicts, handoff file | Not on the module page | Evidence | — |
 
 ### Report · Forecast
@@ -191,7 +203,7 @@ the maturity wall.
 | Rank | What to show | How | Where | Needs |
 |---|---|---|---|---|
 | P1 | The forward view in one sentence | Bottom line in the header tile, with the case switch | Top | Code |
-| P1 | Net leverage path by case against the limits and the maturity wall | Line per case on a fiscal-year axis; limits dashed; the wall marked on the axis; peak labelled | Lead tile, 8 columns | Method: per-year path per case |
+| P1 | Net leverage path by case against the limits and the maturity wall | Line per case on a fiscal-year axis; the wall marked on the axis; the selected case's highest year labelled with its figure at its point; covenant levels are not drawn on the model's path | Lead tile, 8 columns | Method: per-year path per case |
 | P2 | Peak leverage and year, end leverage, minimum cover, shortfall at the wall | Stats strip | Under the header | Code |
 | P2 | What breaks, and when | Shortfall as a share of the wall; stress cases as small multiples | Beside the lead tile, 4 columns | Code |
 | P2 | Assumptions by case | Three-column table; cells that differ from base tinted | Under the lead | Code |
@@ -200,6 +212,8 @@ the maturity wall.
 | P3 | Scope and limits; the published model and its calculation download | List; one control | Bottom | Code |
 
 ### Report · Evidence
+
+No module code is drawn here or in the trace drawer: modules are shown by name, and a known module with no name reads "Unnamed module" (owner, 2026-11-25). While a query is typed, the results replace the tabs and the module filter.
 
 For the Reviewer. Goal: hold all machinery. Insight wanted: is this figure supported, and what
 is missing.
@@ -210,7 +224,7 @@ is missing.
 | P1 | Gaps by severity | Three counts, then the list, most severe first | Summary tab | Code |
 | P2 | Sources: used, and supplied but not used | Table with file, type, pages, hash, used by | Sources tab | Code |
 | P2 | Script checks: pass, fail, not run | Matrix of check × module | Checks tab | Code |
-| P3 | Handoffs, calculation JSON and Model downloads | File list with hashes | Record tab | Code |
+| P3 | Handoffs, calculation JSON and Model downloads | Summary lists handoffs as links; hashes and downloads are on Record. The Record list of recorded file hashes shows `instructions/CP-*.md` as stored | Record tab | Code |
 | P3 | Run record: calls, cap, spend, models, timings | Key-value table, closed by default | Record tab | Code |
 
 ### Report · Calendar and History
@@ -219,7 +233,7 @@ is missing.
 |---|---|---|---|---|---|
 | Calendar | P1 | Everything dated, on one axis | Lanes by kind (maturity, test, reporting, corporate) on a true time axis; today marked | Top | Code; Method for typed event kind |
 | Calendar | P2 | The list behind the axis | Table sorted by date with the owning module and a trace | Under the axis | Code |
-| History | P1 | This issuer's runs, newest first, with stance and the as-of date | Vertical timeline | Main | Code |
+| History | P1 | This issuer's runs, newest first, with the as-of date. Every listed run is finished; the tile says so once | Vertical timeline | Main | Code |
 | History | P2 | Pathway, state and who started each run | Chips | Timeline rows | Code |
 
 ### Start run
@@ -252,6 +266,39 @@ For the Analyst. Goal: show progress. Insight wanted: is it working, where is it
 | Progress | P2 | What just happened | Feed, newest first | Under the pipeline | Code |
 | Progress | P1 (done) | Open report | One primary button | Top right | Code |
 | Progress | P1 (failed) | What failed, why, and what to do | Notice with retry or resume | Top | Code |
+
+### Signal
+
+For the Analyst following outside sources and the Decider reading what was shared. Goal: one
+feed of stories from approved sources, and group threads about them. Insight wanted: what
+happened outside that touches my names, and what colleagues make of it. It is a news feed, not
+analysis: it is tied to no run, and nothing on it is a finding. Its issuers are a watchlist of
+names that stories are gathered under; the only tie to the Library is a link
+(`docs/superpowers/specs/2026-11-13-signal-design.md`; issuers, filings and the market post:
+`docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md`; look and widths:
+`docs/design/component-map.md` § 3.4).
+
+| Screen | Rank | What to show | How | Where | Needs |
+|---|---|---|---|---|---|
+| All | P2 | Where I am among views, topics, issuers, groups and digests, with what is unread | Channel list: a tile beside the page from 960px, behind a "Channels" button below it; current item tinted with an accent edge; counts in mono; a follow star on each topic and issuer; no Issuers heading while the watchlist is empty | Left | Code |
+| Feed | P1 | The stories, newest or most relevant first: kind, source, time, headline, one-line summary | One tile, a row per story with hairlines between; headline at the h4 size, linked to the source | Main | Code |
+| Feed | P1 | Whether the sources were checked, and whether one is failing | One badge beside the title: the state's shape and words; orange with an icon when a source fails | Beside the title | Code |
+| Feed | P2 | Kind filter, search, Top or Latest | Tabs (All, Regulators, News, Ratings, Research, Filings; a market post is under All only), a search field, a two-way toggle | Above the tile | Code |
+| Feed | P2 | New stories waiting | A pill with the accent dot and "Show" | Above the tile | Code |
+| Feed | P2 | Rating move, case stage, signal strength, the AI line, who shared it | Marks on the story row, each with its word; AI text under an "AI" label | In the row | Code; a paid-call ruling for the AI parts |
+| Feed | P3 | The source's logo, where the service holds one | The image in the source's own tile, in place of its letters: same size and radius, whole, on white; the letters while it loads and whenever there is none. Also in the "also in" avatars, the thread's story and a small tile in the Sources table | In the row | Code; the page's image policy must allow `data:` images |
+| Feed | P2 | Which watchlist issuers a story is about | A row of its own, "About:" and a link to each issuer's page, apart from the tags | In the row | Code |
+| Feed | P2 | A company filing: whose it is and which form | The story row with the "Filing" kind and the form type as its first tag; no AI mark | In the row | Code |
+| Feed | P2 | The day's market backdrop: each series' value, the value's own date, and its change since the previous observation, a week and a month | A compact table in the story row: figures and dates in mono, right-aligned; the date under each value and under each change; a sign and a number for a move, no better or worse colour or arrow; the note in place of figures for a series not read; a dash for a change with no earlier observation; the series' full name and source behind its short name. Narrower than the table (a phone), it scrolls sideways in a named region with the series names kept in view | In the row | Code |
+| Feed | P3 | Save, Comment, Share to group, Open source | Text buttons under the story; Share opens a dialog | In the row | Code |
+| Issuer | P1 | The stories that name one issuer of the watchlist | The feed page under the issuer's name, with Follow; "Open in Library" where a writer gave the issuer a library key (it opens the Library: the Library has no address for one issuer yet) | Main | Code |
+| Group | P1 | What was shared in the group, with its note, comment count and last activity | The feed's tile and rows, each with "Open thread" | Main | Code |
+| Thread | P1 | The story or note, the comments and replies, the reply box | Side panel over the group, from the right; comment times in mono | Right | Code |
+| Digest | P1 | The newest issue: its numbered points, each with the stories behind it | Numbered panel; the issue title as the page title; earlier issues on a tile under it | Main | Code; a paid-call ruling |
+| Settings | P2 | One section at a time: groups, thread rules, sources, topics, issuers, digests, notifications, AI and cost | Section tabs (beside from 1280px, a row above below it); each section on one tile; sources as a sortable table | Main | Code |
+| Settings, Issuers | P2 | The watchlist as writers keep it: each issuer's name, aliases, SEC number and library key, what the service does with its filings, and whether filings are fetched at all | A row per issuer; the service's sentence on filings once above the list; New issuer, Edit and Delete in a dialog, a refusal as the service's sentence in it. Writers only | Main | Code |
+| All | P1 (empty, failed) | Nothing followed, nothing saved, no approved source, no match; the service cannot be reached; a write was refused | Empty state with one sentence and one action; error notice with Retry; a refusal as a red notice that stays in view | In place | Code |
+| All | E | Source feed addresses and ids | Not on a reading screen | Settings, Sources; the service's own records | — |
 
 ### States every screen draws
 

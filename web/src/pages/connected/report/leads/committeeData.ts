@@ -22,6 +22,9 @@ export type Stance =
 const SENTENCE =
   /^Action bias: ([A-Za-z][A-Za-z ]*[A-Za-z]) \(confidence ([A-Za-z][A-Za-z ]*[A-Za-z])\)\./;
 
+/** The module's one-sentence stance ("Final Action Bias: Requires More Work. …"); it states no confidence. */
+const FINAL_BIAS = /^Final Action Bias:\s*([^.]*[^.\s])\./i;
+
 /** The Conditions cell as written: one item per cell, never split into parts. */
 function conditionsOf(cell: string | undefined): Conditions {
   const value = said(cell);
@@ -37,6 +40,16 @@ function sentenceStance(entry: OutputEntry): Stance | null {
       if (block.type !== "text") continue;
       const body = readParagraph(block.text).body.replaceAll("**", "");
       const match = SENTENCE.exec(body);
+      const final = match ? null : FINAL_BIAS.exec(body);
+      if (final?.[1])
+        return {
+          state: "stated",
+          word: final[1],
+          confidence: null,
+          source: "sentence",
+          conditions: null,
+          line: block.line,
+        };
       if (match?.[1] && match[2])
         return {
           state: "stated",

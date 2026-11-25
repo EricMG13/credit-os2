@@ -6,8 +6,10 @@ import { LegacyVisuals } from "../visuals";
 import { BreakPoints, breakPointView } from "./BreakPoints";
 import { Downside, downsideView } from "./Downside";
 import type { Lead } from "./leads/types";
+import { LaneTile, MapTile } from "./leads/parts";
+import { eventsOf, mapOf } from "./leads/read";
 import { MacroSensitivity, macroView } from "./MacroSensitivity";
-import type { DrawingGap, FigureKind } from "./moduleFrame";
+import type { DrawingGap, FigureKind } from "./moduleFrameModel";
 import { DrawingGapTile } from "./ModuleProse";
 import { Tile } from "./overview/Tile";
 import { Securities, securityView } from "./Securities";
@@ -83,6 +85,58 @@ function drawingCell(
   };
 }
 
+/** The screen map's own names for the lanes it names; any other lane reads "<lane> dates". */
+const LANE_TITLES: Readonly<Record<string, string>> = {
+  Sources: "Source timeline",
+  Instruments: "Instrument events",
+  Legal: "Legal events",
+};
+
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * A dated lane the lead does not draw, as the leads draw theirs: the event axis above the numbered
+ * list, across the row, so the same dates never look like two different things on two modules.
+ */
+function laneCell(entry: OutputEntry, run: PublishedRun, lane: string, table: number): Cell {
+  const title = Object.hasOwn(LANE_TITLES, lane)
+    ? (LANE_TITLES[lane] ?? lane)
+    : /dates$/i.test(lane)
+      ? capital(lane)
+      : `${capital(lane)} dates`;
+  return {
+    key: `events-${String(table)}`,
+    node: () => (
+      <LaneTile
+        lane={eventsOf(entry, lane)}
+        span={12}
+        label={title}
+        title={title}
+        href={(line) => evidencePath(run.folder, entry, line)}
+        asOf={run.asOf}
+      />
+    ),
+  };
+}
+
+/** A relationship map the lead does not draw, as the leads draw theirs: the chain and its table. */
+function mapCell(entry: OutputEntry, run: PublishedRun, name: string, table: number): Cell {
+  const title = capital(name);
+  return {
+    key: `maps-${String(table)}`,
+    node: () => (
+      <MapTile
+        map={mapOf(entry, name)}
+        span={12}
+        label={title}
+        title={title}
+        href={(line) => evidencePath(run.folder, entry, line)}
+        absent="This page could not read this map."
+      />
+    ),
+  };
+}
+
 /** A module figure that draws its own tile; it sits in the bento as one cell. */
 function figureCell(key: string, figure: ReactNode): Cell {
   return {
@@ -147,12 +201,16 @@ export function ModuleFigures({
     ...(kinds.has("figures") ? typedCells(entry, run, view, figures) : []),
     ...(kinds.has("events")
       ? drawable(entry, entry.output.events).map((item) =>
-          drawingCell(entry, run.folder, "events", item),
+          typeof item.lane === "string"
+            ? laneCell(entry, run, item.lane, item.table)
+            : drawingCell(entry, run.folder, "events", item),
         )
       : []),
     ...(kinds.has("maps")
       ? drawable(entry, entry.output.maps).map((item) =>
-          drawingCell(entry, run.folder, "maps", item),
+          typeof item.name === "string"
+            ? mapCell(entry, run, item.name, item.table)
+            : drawingCell(entry, run.folder, "maps", item),
         )
       : []),
     // A drawing section the module wrote as prose with no table carries the module's own reason:

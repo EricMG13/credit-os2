@@ -11,7 +11,14 @@ type Traces = ReturnType<typeof maturityTraces>;
 type Row = MaturityProfile["rows"][number];
 
 const HEIGHT = 128;
-const CHARS_PER_LINE = 12;
+/**
+ * One side of a period is 54px wide (wider from 1440px), so seven or eight periods share a 1024px
+ * page with no sideways scroll; a label wraps inside its own side.
+ */
+const SIDE = "w-[3.375rem] min-[1440px]:w-[4.75rem]";
+const BAR = "block w-10 min-[1440px]:w-14";
+/** The fewest characters a label line holds, at the narrow side width. */
+const CHARS_PER_LINE = 7;
 const LINE = 14;
 
 /** Room above a bar for its label and a hatched stub: enough for the longest cell text in the profile. */
@@ -70,7 +77,7 @@ function Side({
   const below = (-axis.low / span) * HEIGHT;
   const side = current ? "current" : "earlier";
   const label = (
-    <Figure className="max-w-24 text-center text-caption leading-tight wrap-anywhere">
+    <Figure className={cx(SIDE, "text-center text-caption leading-tight wrap-anywhere")}>
       {cell ?? "Not stated"}
     </Figure>
   );
@@ -78,21 +85,17 @@ function Side({
     <span
       data-bar={side}
       data-zone={zone}
-      className={cx(
-        "block w-16",
-        FILL[side],
-        zone === "above" ? "rounded-t-ds-xs" : "rounded-b-ds-xs",
-      )}
+      className={cx(BAR, FILL[side], zone === "above" ? "rounded-t-ds-xs" : "rounded-b-ds-xs")}
       style={{ height: `${String(Math.max(height, MIN_BAR))}px` }}
     />
   );
   const tick = (
-    <span data-bar={side} data-zone="zero" className="block h-0.5 w-16 bg-text-tertiary" />
+    <span data-bar={side} data-zone="zero" className={cx(BAR, "h-0.5 bg-text-tertiary")} />
   );
   if (zone === "above")
     return (
       <div
-        className="flex w-24 flex-col items-center justify-end gap-0.5"
+        className={cx(SIDE, "flex flex-col items-center justify-end gap-0.5")}
         style={{ height: `${String(axis.room + above)}px` }}
       >
         {value === null ? (
@@ -100,7 +103,10 @@ function Side({
             {label}
             <span
               data-gap
-              className="gap-hatch block h-6 w-16 rounded-t-ds-xs border border-dashed border-border-gap"
+              className={cx(
+                BAR,
+                "gap-hatch h-6 rounded-t-ds-xs border border-dashed border-border-gap",
+              )}
             />
           </>
         ) : value >= 0 ? (
@@ -113,7 +119,7 @@ function Side({
     );
   return (
     <div
-      className="flex w-24 flex-col items-center justify-start gap-0.5"
+      className={cx(SIDE, "flex flex-col items-center justify-start gap-0.5")}
       style={{ height: `${String(below + axis.room)}px` }}
     >
       {value !== null && value < 0 ? (
@@ -157,14 +163,14 @@ function Walls({ rows }: { rows: readonly Row[] }) {
       >
         <div className="flex min-w-max gap-3 pb-1">
           {rows.map((row) => (
-            <div key={row.period} className="flex min-w-52 flex-1 flex-col items-stretch">
-              <div className="flex items-end justify-center gap-2">
+            <div key={row.period} className="flex min-w-28 flex-1 flex-col items-stretch">
+              <div className="flex items-end justify-center gap-1">
                 <Side cell={row.prior} axis={axis} current={false} zone="above" />
                 <Side cell={row.current} axis={axis} current zone="above" />
               </div>
               <span aria-hidden="true" className="block h-px w-full bg-border-container" />
               {axis.low < 0 && (
-                <div className="flex items-start justify-center gap-2">
+                <div className="flex items-start justify-center gap-1">
                   <Side cell={row.prior} axis={axis} current={false} zone="below" />
                   <Side cell={row.current} axis={axis} current zone="below" />
                 </div>

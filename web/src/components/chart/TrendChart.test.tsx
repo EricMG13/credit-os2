@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { TrendChart } from "./TrendChart";
+import { ticksThatFit, TrendChart } from "./TrendChart";
 
 const PERIODS = ["FY21", "FY22", "FY23", "FY24", "FY25", "FY26"];
 
@@ -145,7 +145,7 @@ describe("TrendChart table side", () => {
   it("is the chart by default and the table after the toggle, with n.a. for a null", () => {
     renderTwo();
     expect(screen.queryByRole("table")).toBeNull();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const grid = screen.getByRole("table");
     const rows = within(grid).getAllByRole("row");
     const head = within(rows[0] as HTMLElement).getAllByRole("columnheader");
@@ -166,7 +166,7 @@ describe("TrendChart table side", () => {
 
   it("is the shared table: a sticky row-label column in a relative scroll wrapper", () => {
     renderTwo();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const grid = screen.getByRole("table");
     expect(within(grid).getAllByRole("rowheader")[0]).toHaveClass("sticky", "left-0");
     expect(grid.parentElement).toHaveClass("relative", "overflow-x-auto");
@@ -175,16 +175,16 @@ describe("TrendChart table side", () => {
 
   it("returns to the chart", () => {
     const { container } = renderTwo();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
-    fireEvent.click(screen.getByRole("radio", { name: "Chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Figure" }));
     expect(screen.queryByRole("table")).toBeNull();
     expect(container.querySelector("svg.recharts-surface")).not.toBeNull();
   });
 
   it("keeps a selected view when the selected segment is pressed again", () => {
     renderTwo();
-    fireEvent.click(screen.getByRole("radio", { name: "Chart" }));
-    expect(screen.getByRole("radio", { name: "Chart" })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Figure" }));
+    expect(screen.getByRole("button", { name: "Figure" })).toHaveAttribute("aria-pressed", "true");
   });
 });
 
@@ -277,5 +277,30 @@ describe("TrendChart review fixes", () => {
         />,
       ),
     ).toThrow(/periods/);
+  });
+});
+
+describe("ticksThatFit", () => {
+  const ticks = [0, 500, 1000, 1500, 2000].map((value) => ({ value, label: String(value) }));
+
+  it("keeps every tick where the plot has room for them", () => {
+    expect(ticksThatFit(ticks, 200)).toEqual(ticks);
+  });
+
+  it("labels fewer ticks on a short plot, keeping both ends, so no label touches the next", () => {
+    // 40 px of plot: the five ticks would sit 10 px apart.
+    expect(ticksThatFit(ticks, 40).map((tick) => tick.value)).toEqual([0, 1000, 2000]);
+    expect(ticksThatFit(ticks, 20).map((tick) => tick.value)).toEqual([0, 2000]);
+  });
+
+  it("keeps zero on a scale that crosses it", () => {
+    const crossing = [-200, -100, 0, 100, 200, 300, 400].map((value) => ({
+      value,
+      label: String(value),
+    }));
+    const kept = ticksThatFit(crossing, 60).map((tick) => tick.value);
+    expect(kept).toContain(0);
+    expect(kept[0]).toBe(-200);
+    expect(kept.at(-1)).toBe(400);
   });
 });

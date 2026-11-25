@@ -220,7 +220,7 @@ describe("EBITDA bridge: other handoffs and mutations", () => {
   it("without the bridge table: the one gap tile with the true reason", () => {
     render(<EbitdaBridgeTile lead={leadProps(dropTable(cp1Entry(), BRIDGE))} />);
     const tile = screen.getByRole("region", { name: "EBITDA bridge" });
-    expect(tile.textContent).toBe("EBITDA bridge · This page could not read the EBITDA bridge.");
+    expect(tile.textContent).toBe("EBITDA bridgeThis page could not read the EBITDA bridge.");
   });
 
   it("a subtotal row is a level drawn from the axis start, and the bridge reconciles around it", () => {
@@ -269,7 +269,7 @@ describe("EBITDA bridge: other handoffs and mutations", () => {
     ]);
     render(<EbitdaBridgeTile lead={leadProps(entry)} />);
     const tile = screen.getByRole("region", { name: "EBITDA bridge" });
-    expect(tile.textContent).toBe(`EBITDA bridge · ${REASON}`);
+    expect(tile.textContent).toBe(`EBITDA bridge${REASON}`);
     expect(tile.querySelector("svg")).toBeNull();
     expect(tile.textContent).not.toMatch(/0\.0|1\.0/);
   });

@@ -1,0 +1,1607 @@
+{
+  "scenes": [
+    {
+      "id": "main",
+      "snapshot": {
+        "viewer": {
+          "name": "Mara L",
+          "initials": "ML",
+          "role": "writer",
+          "roleLabel": "Writer"
+        },
+        "channels": {
+          "topics": [
+            {
+              "id": "1",
+              "name": "Packaging",
+              "count": "1",
+              "followed": true,
+              "keywords": ["packaging", "plant closure"]
+            },
+            {
+              "id": "2",
+              "name": "Telecoms",
+              "count": "2",
+              "followed": false,
+              "keywords": ["Tessaly", "towers"]
+            },
+            {
+              "id": "3",
+              "name": "Shipping",
+              "count": "2",
+              "followed": false,
+              "keywords": ["Halvorsen", "Lenmark"]
+            }
+          ],
+          "groups": [
+            {
+              "id": "1",
+              "name": "Leveraged credit",
+              "unread": "2"
+            },
+            {
+              "id": "2",
+              "name": "Shipping desk",
+              "unread": null
+            }
+          ],
+          "digests": [
+            {
+              "id": "1",
+              "name": "Daily shipping",
+              "unread": false,
+              "paused": true
+            },
+            {
+              "id": "2",
+              "name": "Weekly packaging",
+              "unread": false,
+              "paused": true
+            }
+          ],
+          "savedCount": "1",
+          "issuers": [
+            {
+              "id": "2",
+              "name": "Corvane Packaging",
+              "count": "1",
+              "followed": false
+            },
+            {
+              "id": "3",
+              "name": "Halvorsen Marine",
+              "count": "1",
+              "followed": false
+            },
+            {
+              "id": "1",
+              "name": "Tessaly Telecom",
+              "count": "5",
+              "followed": true
+            }
+          ]
+        },
+        "feed": {
+          "status": "ready",
+          "error": null,
+          "sources": {
+            "approved": true
+          },
+          "freshness": {
+            "state": "checked",
+            "checked": "just now",
+            "failing": "2 sources failing",
+            "error": null
+          },
+          "stories": [
+            {
+              "id": "10",
+              "kind": "market",
+              "kindLabel": "Market",
+              "headline": "Market backdrop: 25 November 2026",
+              "url": "https://fred.stlouisfed.org/",
+              "source": {
+                "name": "Market backdrop (FRED)",
+                "monogram": "MB",
+                "id": "9",
+                "logo": false
+              },
+              "time": "Just now",
+              "summary": "As of 24 Nov, change from the previous observation: US HY 3.12% (+4 bp); US BB not available; UST 2y not available; UST 10y 4.30% (23 Nov, -3.5 bp); SOFR 4.57%",
+              "tags": ["Market"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [],
+              "market": {
+                "asOf": "24 November 2026",
+                "rows": [
+                  {
+                    "id": "BAMLH0A0HYM2",
+                    "name": "ICE BofA US High Yield Index Option-Adjusted Spread",
+                    "short": "US HY",
+                    "unit": "Percent",
+                    "value": "3.12",
+                    "date": "24 Nov",
+                    "changes": [
+                      {
+                        "label": "Previous",
+                        "since": "20 Nov",
+                        "value": "+4 bp"
+                      },
+                      {
+                        "label": "Week",
+                        "since": "17 Nov",
+                        "value": "-8 bp"
+                      },
+                      {
+                        "label": "Month",
+                        "since": "23 Oct",
+                        "value": "+12 bp"
+                      }
+                    ],
+                    "source": "ICE Data Indices, LLC, via FRED",
+                    "note": null
+                  },
+                  {
+                    "id": "BAMLH0A1HYBB",
+                    "name": "ICE BofA BB US High Yield Index Option-Adjusted Spread",
+                    "short": "US BB",
+                    "unit": "Percent",
+                    "value": null,
+                    "date": null,
+                    "changes": [],
+                    "source": "ICE Data Indices, LLC, via FRED",
+                    "note": "Could not be read: the CSV's header is not observation_date,BAMLH0A1HYBB"
+                  },
+                  {
+                    "id": "DGS2",
+                    "name": "Market Yield on U.S. Treasury Securities at 2-Year Constant Maturity, Quoted on an Investment Basis",
+                    "short": "UST 2y",
+                    "unit": "Percent",
+                    "value": null,
+                    "date": null,
+                    "changes": [],
+                    "source": "Board of Governors of the Federal Reserve System (US), via FRED",
+                    "note": "Could not be read: server answered HTTP 500"
+                  },
+                  {
+                    "id": "DGS10",
+                    "name": "Market Yield on U.S. Treasury Securities at 10-Year Constant Maturity, Quoted on an Investment Basis",
+                    "short": "UST 10y",
+                    "unit": "Percent",
+                    "value": "4.30",
+                    "date": "23 Nov",
+                    "changes": [
+                      {
+                        "label": "Previous",
+                        "since": "20 Nov",
+                        "value": "-3.5 bp"
+                      },
+                      {
+                        "label": "Week",
+                        "since": "23 Oct",
+                        "value": "-10 bp"
+                      },
+                      {
+                        "label": "Month",
+                        "since": "23 Oct",
+                        "value": "-10 bp"
+                      }
+                    ],
+                    "source": "Board of Governors of the Federal Reserve System (US), via FRED",
+                    "note": null
+                  },
+                  {
+                    "id": "SOFR",
+                    "name": "Secured Overnight Financing Rate",
+                    "short": "SOFR",
+                    "unit": "Percent",
+                    "value": "4.57",
+                    "date": "24 Nov",
+                    "changes": [
+                      {
+                        "label": "Previous",
+                        "since": null,
+                        "value": null
+                      },
+                      {
+                        "label": "Week",
+                        "since": null,
+                        "value": null
+                      },
+                      {
+                        "label": "Month",
+                        "since": null,
+                        "value": null
+                      }
+                    ],
+                    "source": "Federal Reserve Bank of New York, via FRED",
+                    "note": null
+                  }
+                ]
+              }
+            },
+            {
+              "id": "7",
+              "kind": "filing",
+              "kindLabel": "Filing",
+              "headline": "Tessaly Telecom: 8-K, current report",
+              "url": "https://www.sec.gov/Archives/edgar/data/1702780/000119312526123456/0001193125-26-123456-index.htm",
+              "source": {
+                "name": "Tessaly Telecom filings (SEC)",
+                "monogram": "TT",
+                "id": "7",
+                "logo": false
+              },
+              "time": "11 h ago",
+              "summary": "Form 8-K, filed 2026-11-24, accession number 0001193125-26-123456. Item 2.02: Results of Operations and Financial Condition Item 9.01: Financial Statements and Exhibits",
+              "tags": ["8-K"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [
+                {
+                  "id": "1",
+                  "name": "Tessaly Telecom"
+                }
+              ],
+              "market": null
+            },
+            {
+              "id": "2",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Tessaly Telecom agrees the sale of its towers",
+              "url": "https://harbour-wire.example/tessaly",
+              "source": {
+                "name": "Harbour Wire",
+                "monogram": "HW",
+                "id": "1",
+                "logo": true
+              },
+              "time": "21 h ago",
+              "summary": "The buyer takes 4,100 masts; the sale needs clearance.",
+              "tags": ["Telecoms"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [
+                {
+                  "id": "1",
+                  "name": "Tessaly Telecom"
+                }
+              ],
+              "market": null
+            },
+            {
+              "id": "1",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Corvane Packaging to close two plants as volumes fall",
+              "url": "https://harbour-wire.example/corvane",
+              "source": {
+                "name": "Harbour Wire",
+                "monogram": "HW",
+                "id": "1",
+                "logo": true
+              },
+              "time": "23 h ago",
+              "summary": "Corvane will shut two of its nine plants by March and take a one-off charge.",
+              "tags": ["Packaging"],
+              "alsoIn": {
+                "label": "Also in 2 other sources",
+                "monograms": ["CL", "MP"],
+                "more": null,
+                "sources": [
+                  {
+                    "id": "2",
+                    "name": "Credit Ledger Daily",
+                    "logo": false
+                  },
+                  {
+                    "id": "5",
+                    "name": "The Meridian Post",
+                    "logo": false
+                  }
+                ]
+              },
+              "sharedBy": {
+                "initials": "IK",
+                "label": "Shared to Leveraged credit by Ines K"
+              },
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": "4",
+              "threadRef": {
+                "groupId": "1",
+                "threadId": "1"
+              },
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [
+                {
+                  "id": "2",
+                  "name": "Corvane Packaging"
+                }
+              ],
+              "market": null
+            },
+            {
+              "id": "3",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Brightwell Foods extends its term loan by three years",
+              "url": "https://harbour-wire.example/brightwell",
+              "source": {
+                "name": "Harbour Wire",
+                "monogram": "HW",
+                "id": "1",
+                "logo": true
+              },
+              "time": "23 Nov",
+              "summary": "Lenders holding most of the EUR 400m loan agreed to the extension.",
+              "tags": [],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [],
+              "market": null
+            },
+            {
+              "id": "5",
+              "kind": "ratings",
+              "kindLabel": "Rating action",
+              "headline": "Northgate Ratings downgrades Halvorsen Marine to B+",
+              "url": "https://northgate-ratings.example/halvorsen",
+              "source": {
+                "name": "Northgate Ratings",
+                "monogram": "NR",
+                "id": "4",
+                "logo": false
+              },
+              "time": "21 Nov",
+              "summary": "The agency cites weaker charter rates and a refinancing due in 2027.",
+              "tags": ["Shipping"],
+              "alsoIn": null,
+              "sharedBy": {
+                "initials": "IK",
+                "label": "Shared to Leveraged credit by Ines K"
+              },
+              "ai": null,
+              "strength": null,
+              "saved": true,
+              "commentCount": null,
+              "threadRef": {
+                "groupId": "1",
+                "threadId": "3"
+              },
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [
+                {
+                  "id": "3",
+                  "name": "Halvorsen Marine"
+                }
+              ],
+              "market": null
+            },
+            {
+              "id": "4",
+              "kind": "regulator",
+              "kindLabel": "Regulatory case",
+              "headline": "Authority opens a review of the Tessaly Telecom tower sale",
+              "url": "https://regulatory-gazette.example/case-17",
+              "source": {
+                "name": "Regulatory Gazette",
+                "monogram": "RG",
+                "id": "3",
+                "logo": false
+              },
+              "time": "15 Nov",
+              "summary": "The authority says the sale could reduce competition for mast access.",
+              "tags": ["Telecoms"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [
+                {
+                  "id": "1",
+                  "name": "Tessaly Telecom"
+                }
+              ],
+              "market": null
+            },
+            {
+              "id": "8",
+              "kind": "filing",
+              "kindLabel": "Filing",
+              "headline": "Tessaly Telecom: 10-Q, quarterly report [Sections 13 or 15(d)]",
+              "url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000041/0001702780-26-000041-index.htm",
+              "source": {
+                "name": "Tessaly Telecom filings (SEC)",
+                "monogram": "TT",
+                "id": "7",
+                "logo": false
+              },
+              "time": "6 Nov",
+              "summary": "Form 10-Q, filed 2026-11-06, accession number 0001702780-26-000041.",
+              "tags": ["10-Q"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [
+                {
+                  "id": "1",
+                  "name": "Tessaly Telecom"
+                }
+              ],
+              "market": null
+            },
+            {
+              "id": "6",
+              "kind": "news",
+              "kindLabel": "News",
+              "headline": "Lenmark Shipping refinances its fleet loan",
+              "url": "https://the-meridian-post.example/lenmark",
+              "source": {
+                "name": "The Meridian Post",
+                "monogram": "MP",
+                "id": "5",
+                "logo": false
+              },
+              "time": "4 Nov",
+              "summary": null,
+              "tags": ["Shipping"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [],
+              "market": null
+            },
+            {
+              "id": "9",
+              "kind": "filing",
+              "kindLabel": "Filing",
+              "headline": "Tessaly Telecom: SC 13G/A, [Amend] Statement of acquisition of beneficial ownership by individuals",
+              "url": "https://www.sec.gov/Archives/edgar/data/1702780/000095012326000777/0000950123-26-000777-index.htm",
+              "source": {
+                "name": "Tessaly Telecom filings (SEC)",
+                "monogram": "TT",
+                "id": "7",
+                "logo": false
+              },
+              "time": "30 Oct",
+              "summary": "Form SC 13G/A, filed 2026-10-30, accession number 0000950123-26-000777.",
+              "tags": ["SC 13G/A"],
+              "alsoIn": null,
+              "sharedBy": null,
+              "ai": null,
+              "strength": null,
+              "saved": false,
+              "commentCount": null,
+              "threadRef": null,
+              "stage": null,
+              "ratingMoves": [],
+              "issuers": [
+                {
+                  "id": "1",
+                  "name": "Tessaly Telecom"
+                }
+              ],
+              "market": null
+            }
+          ],
+          "digests": [
+            {
+              "id": "d2",
+              "digestId": "1",
+              "issueId": "2",
+              "digestName": "Daily shipping",
+              "monogram": "DS",
+              "title": "Daily shipping: 24 November",
+              "date": "Tue 24 Nov",
+              "unread": true,
+              "ai": false,
+              "points": [],
+              "summary": null,
+              "nothing": "Nothing material to report: no story reached what this digest covers from Mon 23 Nov 12:00 to Tue 24 Nov 12:00 UTC."
+            },
+            {
+              "id": "d1",
+              "digestId": "1",
+              "issueId": "1",
+              "digestName": "Daily shipping",
+              "monogram": "DS",
+              "title": "Daily shipping: 23 November",
+              "date": "Mon 23 Nov",
+              "unread": false,
+              "ai": false,
+              "points": [],
+              "summary": null,
+              "nothing": "Nothing material to report: no story reached what this digest covers from Mon 23 Nov 07:00 to Mon 23 Nov 12:00 UTC."
+            }
+          ],
+          "views": {
+            "for-you": {
+              "top": ["1", "10", "7", "d2", "2", "d1", "5", "4", "8", "9"],
+              "latest": ["10", "7", "d2", "2", "1", "d1", "5", "4", "8", "9"],
+              "waiting": null,
+              "older": [],
+              "shown": 30
+            },
+            "latest": {
+              "top": ["1", "10", "7", "2", "3", "5", "4", "8", "6", "9"],
+              "latest": ["10", "7", "2", "1", "3", "5", "4", "8", "6", "9"],
+              "waiting": null,
+              "older": []
+            },
+            "saved": {
+              "top": ["5"],
+              "latest": ["5"],
+              "waiting": null,
+              "older": []
+            }
+          },
+          "topics": {
+            "1": {
+              "top": ["1"],
+              "latest": ["1"],
+              "waiting": null,
+              "older": [],
+              "shown": 30
+            },
+            "2": {
+              "top": ["2", "4"],
+              "latest": ["2", "4"],
+              "waiting": null,
+              "older": [],
+              "shown": 30
+            },
+            "3": {
+              "top": ["5", "6"],
+              "latest": ["5", "6"],
+              "waiting": null,
+              "older": [],
+              "shown": 30
+            }
+          },
+          "issuers": {
+            "2": {
+              "top": ["1"],
+              "latest": ["1"],
+              "waiting": null,
+              "older": [],
+              "shown": 30
+            },
+            "3": {
+              "top": ["5"],
+              "latest": ["5"],
+              "waiting": null,
+              "older": [],
+              "shown": 30
+            },
+            "1": {
+              "top": ["7", "2", "4", "8", "9"],
+              "latest": ["7", "2", "4", "8", "9"],
+              "waiting": null,
+              "older": [],
+              "shown": 30
+            }
+          }
+        },
+        "groups": [
+          {
+            "id": "1",
+            "name": "Leveraged credit",
+            "visibility": "Open to everyone",
+            "memberSummary": "6 members",
+            "members": [
+              {
+                "initials": "TO",
+                "name": "Tobias O"
+              },
+              {
+                "initials": "IK",
+                "name": "Ines K"
+              },
+              {
+                "initials": "ML",
+                "name": "Mara L"
+              },
+              {
+                "initials": "JW",
+                "name": "Jonas W"
+              }
+            ],
+            "moreMembers": "+2",
+            "threads": [
+              {
+                "id": "1",
+                "storyId": "1",
+                "note": null,
+                "sharedBy": {
+                  "initials": "IK",
+                  "label": "Shared by Ines K, 22 h ago"
+                },
+                "commentCount": "4 comments",
+                "archived": false,
+                "unread": false,
+                "lastActivity": "21 h ago"
+              },
+              {
+                "id": "2",
+                "storyId": null,
+                "note": "Has anyone looked at the closures?",
+                "sharedBy": {
+                  "initials": "IK",
+                  "label": "Ines K started a thread"
+                },
+                "commentCount": "2 comments",
+                "archived": false,
+                "unread": true,
+                "lastActivity": "23 h ago"
+              },
+              {
+                "id": "3",
+                "storyId": "5",
+                "note": null,
+                "sharedBy": {
+                  "initials": "IK",
+                  "label": "Shared by Ines K, yesterday"
+                },
+                "commentCount": null,
+                "archived": false,
+                "unread": true,
+                "lastActivity": "Yesterday"
+              }
+            ],
+            "more": null
+          },
+          {
+            "id": "2",
+            "name": "Shipping desk",
+            "visibility": "Invited only",
+            "memberSummary": "3 members",
+            "members": [
+              {
+                "initials": "ML",
+                "name": "Mara L"
+              },
+              {
+                "initials": "TO",
+                "name": "Tobias O"
+              },
+              {
+                "initials": "AS",
+                "name": "Amir S"
+              }
+            ],
+            "moreMembers": null,
+            "threads": [],
+            "more": null
+          }
+        ],
+        "threads": [
+          {
+            "id": "1",
+            "groupId": "1",
+            "storyId": "1",
+            "note": null,
+            "archived": false,
+            "title": "Thread",
+            "subline": "Leveraged credit, 4 comments",
+            "archivedLine": null,
+            "comments": [
+              {
+                "id": "1",
+                "author": {
+                  "initials": "IK",
+                  "name": "Ines K"
+                },
+                "own": false,
+                "time": "Yesterday 11:00 UTC",
+                "text": "Sharing for Thursday.",
+                "edited": false,
+                "removed": false,
+                "reactions": [
+                  {
+                    "word": "Agree",
+                    "count": "2",
+                    "mine": true
+                  },
+                  {
+                    "word": "Seen",
+                    "count": "1",
+                    "mine": true
+                  }
+                ],
+                "replies": [
+                  {
+                    "id": "2",
+                    "author": {
+                      "initials": "ML",
+                      "name": "Mara L"
+                    },
+                    "own": true,
+                    "time": "Yesterday 11:10 UTC",
+                    "text": "Agreed. Check the test date.",
+                    "edited": false,
+                    "removed": false,
+                    "reactions": [],
+                    "replies": [],
+                    "canEdit": false,
+                    "canRemove": true
+                  }
+                ],
+                "canEdit": false,
+                "canRemove": false
+              },
+              {
+                "id": "3",
+                "author": {
+                  "initials": "JW",
+                  "name": "Jonas W"
+                },
+                "own": false,
+                "time": "Yesterday 11:20 UTC",
+                "text": null,
+                "edited": false,
+                "removed": true,
+                "reactions": [],
+                "replies": [],
+                "canEdit": false,
+                "canRemove": false
+              },
+              {
+                "id": "4",
+                "author": {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                "own": true,
+                "time": "Yesterday 11:30 UTC",
+                "text": "I will pull the dates.",
+                "edited": false,
+                "removed": false,
+                "reactions": [],
+                "replies": [],
+                "canEdit": false,
+                "canRemove": true
+              }
+            ]
+          },
+          {
+            "id": "2",
+            "groupId": "1",
+            "storyId": null,
+            "note": "Has anyone looked at the closures?",
+            "archived": false,
+            "title": "Thread",
+            "subline": "Leveraged credit, 2 comments",
+            "archivedLine": null,
+            "comments": [
+              {
+                "id": "5",
+                "author": {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                "own": true,
+                "time": "23 Nov 16:40 UTC",
+                "text": "Closures look manageable.",
+                "edited": false,
+                "removed": false,
+                "reactions": [],
+                "replies": [
+                  {
+                    "id": "6",
+                    "author": {
+                      "initials": "IK",
+                      "name": "Ines K"
+                    },
+                    "own": false,
+                    "time": "Yesterday 10:00 UTC",
+                    "text": "Good. Add it to the list.",
+                    "edited": false,
+                    "removed": false,
+                    "reactions": [],
+                    "replies": [],
+                    "canEdit": false,
+                    "canRemove": false
+                  }
+                ],
+                "canEdit": false,
+                "canRemove": true
+              }
+            ]
+          },
+          {
+            "id": "3",
+            "groupId": "1",
+            "storyId": "5",
+            "note": null,
+            "archived": false,
+            "title": "Thread",
+            "subline": "Leveraged credit, no comments yet",
+            "archivedLine": null,
+            "comments": []
+          }
+        ],
+        "digests": [
+          {
+            "id": "1",
+            "name": "Daily shipping",
+            "monogram": "DS",
+            "paused": "No new digest is written while AI is off or at its cap. Earlier digests stay readable.",
+            "issues": [
+              {
+                "id": "2",
+                "title": "Daily shipping: 24 November",
+                "date": "Tue 24 Nov 2026",
+                "ai": false,
+                "summary": null,
+                "nothing": "No story reached what this digest covers from Mon 23 Nov 12:00 to Tue 24 Nov 12:00 UTC.",
+                "points": []
+              },
+              {
+                "id": "1",
+                "title": "Daily shipping: 23 November",
+                "date": "Mon 23 Nov",
+                "ai": false,
+                "summary": null,
+                "nothing": "No story reached what this digest covers from Mon 23 Nov 07:00 to Mon 23 Nov 12:00 UTC.",
+                "points": []
+              }
+            ],
+            "form": {
+              "name": "Daily shipping",
+              "covers": ["Topic: Shipping"],
+              "schedule": "Daily, 07:00 UTC",
+              "length": "Up to 3 points",
+              "brief": "",
+              "upcoming": "",
+              "lookAhead": 7
+            }
+          },
+          {
+            "id": "2",
+            "name": "Weekly packaging",
+            "monogram": "WP",
+            "paused": "No new digest is written while AI is off or at its cap. Earlier digests stay readable.",
+            "issues": [],
+            "form": {
+              "name": "Weekly packaging",
+              "covers": ["Topic: Packaging"],
+              "schedule": "Weekly, Friday 07:00 UTC",
+              "length": "Up to 5 points",
+              "brief": "Lead with plant closures. Skip price moves.",
+              "upcoming": "",
+              "lookAhead": 7
+            }
+          }
+        ],
+        "settings": {
+          "topics": [
+            {
+              "id": "1",
+              "name": "Packaging",
+              "weekly": "1 story this week",
+              "keywords": ["packaging", "plant closure"],
+              "kinds": ["News", "Regulatory cases", "Rating actions", "Research", "Filings"]
+            },
+            {
+              "id": "2",
+              "name": "Telecoms",
+              "weekly": "1 story this week",
+              "keywords": ["Tessaly", "towers"],
+              "kinds": ["News", "Regulatory cases"]
+            },
+            {
+              "id": "3",
+              "name": "Shipping",
+              "weekly": "1 story this week",
+              "keywords": ["Halvorsen", "Lenmark"],
+              "kinds": ["News", "Regulatory cases", "Rating actions", "Research", "Filings"]
+            }
+          ],
+          "ai": {
+            "state": "off",
+            "notice": {
+              "title": "AI is off",
+              "text": "The AI pass is not set up on this Signal service. Stories arrive with no AI line and no signal strength, and digests are paused. Nothing more is spent while it is off."
+            },
+            "spend": null,
+            "parts": []
+          },
+          "groups": [
+            {
+              "id": "3",
+              "name": "Committee prep",
+              "members": [
+                {
+                  "initials": "IK",
+                  "name": "Ines K"
+                }
+              ],
+              "moreMembers": null,
+              "memberSummary": "1 member",
+              "visibility": "Members only",
+              "visibilityOptions": ["Visible to everyone", "Members only"],
+              "topics": [],
+              "rules": [
+                {
+                  "id": "comments-edited",
+                  "label": "Comments can be edited for 15 minutes",
+                  "hint": "An edited comment is marked \"edited\".",
+                  "on": true
+                },
+                {
+                  "id": "authors-remove",
+                  "label": "Authors can remove their own comments",
+                  "hint": "The thread keeps a line saying a comment was removed.",
+                  "on": true
+                },
+                {
+                  "id": "archive-quiet",
+                  "label": "Archive a thread after 90 days without a comment",
+                  "hint": "An archived thread can be read but not added to.",
+                  "on": false
+                }
+              ]
+            },
+            {
+              "id": "1",
+              "name": "Leveraged credit",
+              "members": [
+                {
+                  "initials": "TO",
+                  "name": "Tobias O"
+                },
+                {
+                  "initials": "IK",
+                  "name": "Ines K"
+                },
+                {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                {
+                  "initials": "JW",
+                  "name": "Jonas W"
+                }
+              ],
+              "moreMembers": "+2",
+              "memberSummary": "6 members",
+              "visibility": "Visible to everyone",
+              "visibilityOptions": ["Visible to everyone", "Members only"],
+              "topics": [],
+              "rules": [
+                {
+                  "id": "comments-edited",
+                  "label": "Comments can be edited for 15 minutes",
+                  "hint": "An edited comment is marked \"edited\".",
+                  "on": true
+                },
+                {
+                  "id": "authors-remove",
+                  "label": "Authors can remove their own comments",
+                  "hint": "The thread keeps a line saying a comment was removed.",
+                  "on": true
+                },
+                {
+                  "id": "archive-quiet",
+                  "label": "Archive a thread after 90 days without a comment",
+                  "hint": "An archived thread can be read but not added to.",
+                  "on": false
+                }
+              ]
+            },
+            {
+              "id": "2",
+              "name": "Shipping desk",
+              "members": [
+                {
+                  "initials": "ML",
+                  "name": "Mara L"
+                },
+                {
+                  "initials": "TO",
+                  "name": "Tobias O"
+                },
+                {
+                  "initials": "AS",
+                  "name": "Amir S"
+                }
+              ],
+              "moreMembers": null,
+              "memberSummary": "3 members",
+              "visibility": "Members only",
+              "visibilityOptions": ["Visible to everyone", "Members only"],
+              "topics": [],
+              "rules": [
+                {
+                  "id": "comments-edited",
+                  "label": "Comments can be edited for 15 minutes",
+                  "hint": "An edited comment is marked \"edited\".",
+                  "on": true
+                },
+                {
+                  "id": "authors-remove",
+                  "label": "Authors can remove their own comments",
+                  "hint": "The thread keeps a line saying a comment was removed.",
+                  "on": true
+                },
+                {
+                  "id": "archive-quiet",
+                  "label": "Archive a thread after 90 days without a comment",
+                  "hint": "An archived thread can be read but not added to.",
+                  "on": false
+                }
+              ]
+            }
+          ],
+          "rules": [],
+          "notifications": {
+            "events": [
+              {
+                "id": "replies",
+                "label": "A reply to one of my comments",
+                "inSignal": true,
+                "onDesktop": false
+              },
+              {
+                "id": "threads",
+                "label": "A new thread in one of my groups",
+                "inSignal": true,
+                "onDesktop": false
+              },
+              {
+                "id": "signal",
+                "label": "A high-signal story in a topic I follow",
+                "inSignal": true,
+                "onDesktop": false
+              },
+              {
+                "id": "digest",
+                "label": "A digest of mine is ready",
+                "inSignal": true,
+                "onDesktop": false
+              }
+            ]
+          },
+          "sources": [
+            {
+              "id": "1",
+              "name": "Harbour Wire",
+              "kind": "News",
+              "state": "Approved",
+              "health": "Healthy",
+              "reason": null,
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "6 min ago",
+              "lastItem": "21 h ago",
+              "weeks": [
+                {
+                  "label": "Week of 14 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 21 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 28 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 4 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 11 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 18 Nov",
+                  "items": "3",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 4,
+                "state": 1,
+                "health": 1
+              },
+              "logo": true
+            },
+            {
+              "id": "2",
+              "name": "Credit Ledger Daily",
+              "kind": "News",
+              "state": "Approved",
+              "health": "Healthy",
+              "reason": null,
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "6 min ago",
+              "lastItem": "23 h ago",
+              "weeks": [
+                {
+                  "label": "Week of 14 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 21 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 28 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 4 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 11 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 18 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 1,
+                "state": 1,
+                "health": 1
+              },
+              "logo": false
+            },
+            {
+              "id": "3",
+              "name": "Regulatory Gazette",
+              "kind": "Regulatory cases",
+              "state": "Approved",
+              "health": "Quiet",
+              "reason": null,
+              "stateNote": null,
+              "healthNote": "No item for 9 days",
+              "lastCheck": "6 min ago",
+              "lastItem": "15 Nov",
+              "weeks": [
+                {
+                  "label": "Week of 14 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 21 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 28 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 4 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 11 Nov",
+                  "items": "1",
+                  "height": 1
+                },
+                {
+                  "label": "Week of 18 Nov",
+                  "items": "0",
+                  "height": 0
+                }
+              ],
+              "sort": {
+                "name": 7,
+                "state": 1,
+                "health": 2
+              },
+              "logo": false
+            },
+            {
+              "id": "4",
+              "name": "Northgate Ratings",
+              "kind": "Rating actions",
+              "state": "Approved",
+              "health": "Failing",
+              "reason": "The last check failed: feed is larger than 2 MB",
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "6 min ago",
+              "lastItem": "21 Nov",
+              "weeks": [
+                {
+                  "label": "Week of 14 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 21 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 28 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 4 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 11 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 18 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 6,
+                "state": 1,
+                "health": 3
+              },
+              "logo": false
+            },
+            {
+              "id": "5",
+              "name": "The Meridian Post",
+              "kind": "News",
+              "state": "Paused",
+              "health": null,
+              "reason": null,
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "21 h ago",
+              "lastItem": "23 h ago",
+              "weeks": [
+                {
+                  "label": "Week of 14 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 21 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 28 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 4 Nov",
+                  "items": "1",
+                  "height": 1
+                },
+                {
+                  "label": "Week of 11 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 18 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 9,
+                "state": 2,
+                "health": 4
+              },
+              "logo": false
+            },
+            {
+              "id": "6",
+              "name": "Freight Monitor",
+              "kind": "News",
+              "state": "Proposed",
+              "health": null,
+              "reason": null,
+              "stateNote": "By Tobias O, 23 Nov",
+              "healthNote": null,
+              "lastCheck": null,
+              "lastItem": null,
+              "weeks": [],
+              "sort": {
+                "name": 2,
+                "state": 3,
+                "health": 4
+              },
+              "logo": false
+            },
+            {
+              "id": "7",
+              "name": "Tessaly Telecom filings (SEC)",
+              "kind": "Filings",
+              "state": "Approved",
+              "health": "Healthy",
+              "reason": null,
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "just now",
+              "lastItem": "11 h ago",
+              "weeks": [
+                {
+                  "label": "Week of 14 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 21 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 28 Oct",
+                  "items": "1",
+                  "height": 1
+                },
+                {
+                  "label": "Week of 4 Nov",
+                  "items": "1",
+                  "height": 1
+                },
+                {
+                  "label": "Week of 11 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 18 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 8,
+                "state": 1,
+                "health": 1
+              },
+              "logo": false
+            },
+            {
+              "id": "8",
+              "name": "Halvorsen Marine filings (SEC)",
+              "kind": "Filings",
+              "state": "Proposed",
+              "health": null,
+              "reason": null,
+              "stateNote": "By Mara L, just now",
+              "healthNote": null,
+              "lastCheck": null,
+              "lastItem": null,
+              "weeks": [],
+              "sort": {
+                "name": 3,
+                "state": 3,
+                "health": 4
+              },
+              "logo": false
+            },
+            {
+              "id": "9",
+              "name": "Market backdrop (FRED)",
+              "kind": "Market data",
+              "state": "Approved",
+              "health": "Failing",
+              "reason": "The last check failed: 2 of 5 series could not be read: US BB (since 25 Nov), UST 2y (since 25 Nov)",
+              "stateNote": null,
+              "healthNote": null,
+              "lastCheck": "just now",
+              "lastItem": "just now",
+              "weeks": [
+                {
+                  "label": "Week of 14 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 21 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 28 Oct",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 4 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 11 Nov",
+                  "items": "0",
+                  "height": 0
+                },
+                {
+                  "label": "Week of 18 Nov",
+                  "items": "1",
+                  "height": 1
+                }
+              ],
+              "sort": {
+                "name": 5,
+                "state": 1,
+                "health": 3
+              },
+              "logo": false
+            }
+          ],
+          "sourceWeeksHeading": "Items per week, 6 weeks",
+          "issuers": [
+            {
+              "id": "2",
+              "name": "Corvane Packaging",
+              "aliases": ["Corvane"],
+              "cik": null,
+              "libraryKey": null,
+              "source": null
+            },
+            {
+              "id": "3",
+              "name": "Halvorsen Marine",
+              "aliases": [],
+              "cik": "0000000042",
+              "libraryKey": "name:Halvorsen Marine",
+              "source": {
+                "id": "8",
+                "state": "Proposed",
+                "note": "Proposed. Nothing is fetched until the owner approves it on the command line."
+              }
+            },
+            {
+              "id": "1",
+              "name": "Tessaly Telecom",
+              "aliases": ["Tessaly"],
+              "cik": "0001702780",
+              "libraryKey": "id:tessaly",
+              "source": {
+                "id": "7",
+                "state": "Approved",
+                "note": "Approved. Checked just now."
+              }
+            }
+          ],
+          "filings": {
+            "contactSet": true,
+            "note": "Filings are fetched from the SEC at most once a second, saying who is asking with the contact the owner set on the command line."
+          },
+          "digestForm": {
+            "name": "New digest",
+            "covers": "All stories",
+            "coversOptions": [
+              "All stories",
+              "Group: Leveraged credit",
+              "Group: Shipping desk",
+              "Topic: Packaging",
+              "Topic: Telecoms",
+              "Topic: Shipping",
+              "Issuer: Corvane Packaging",
+              "Issuer: Halvorsen Marine",
+              "Issuer: Tessaly Telecom"
+            ],
+            "schedule": "Weekly, Friday 07:00 UTC",
+            "scheduleOptions": [
+              "Daily, 07:00 UTC",
+              "Weekly, Monday 07:00 UTC",
+              "Weekly, Tuesday 07:00 UTC",
+              "Weekly, Wednesday 07:00 UTC",
+              "Weekly, Thursday 07:00 UTC",
+              "Weekly, Friday 07:00 UTC",
+              "Weekly, Saturday 07:00 UTC",
+              "Weekly, Sunday 07:00 UTC",
+              "Monthly, day 1, 07:00 UTC",
+              "Monthly, day 2, 07:00 UTC",
+              "Monthly, day 3, 07:00 UTC",
+              "Monthly, day 4, 07:00 UTC",
+              "Monthly, day 5, 07:00 UTC",
+              "Monthly, day 6, 07:00 UTC",
+              "Monthly, day 7, 07:00 UTC",
+              "Monthly, day 8, 07:00 UTC",
+              "Monthly, day 9, 07:00 UTC",
+              "Monthly, day 10, 07:00 UTC",
+              "Monthly, day 11, 07:00 UTC",
+              "Monthly, day 12, 07:00 UTC",
+              "Monthly, day 13, 07:00 UTC",
+              "Monthly, day 14, 07:00 UTC",
+              "Monthly, day 15, 07:00 UTC",
+              "Monthly, day 16, 07:00 UTC",
+              "Monthly, day 17, 07:00 UTC",
+              "Monthly, day 18, 07:00 UTC",
+              "Monthly, day 19, 07:00 UTC",
+              "Monthly, day 20, 07:00 UTC",
+              "Monthly, day 21, 07:00 UTC",
+              "Monthly, day 22, 07:00 UTC",
+              "Monthly, day 23, 07:00 UTC",
+              "Monthly, day 24, 07:00 UTC",
+              "Monthly, day 25, 07:00 UTC",
+              "Monthly, day 26, 07:00 UTC",
+              "Monthly, day 27, 07:00 UTC",
+              "Monthly, day 28, 07:00 UTC",
+              "Monthly, last day, 07:00 UTC"
+            ],
+            "length": "Up to 5 points",
+            "lengthOptions": ["Up to 3 points", "Up to 5 points", "Up to 8 points"],
+            "brief": ""
+          }
+        }
+      }
+    }
+  ]
+}

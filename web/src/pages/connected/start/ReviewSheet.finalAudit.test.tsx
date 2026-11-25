@@ -120,9 +120,16 @@ describe("final audit: review wording", () => {
         },
       ],
     });
-    expect(
-      screen.getByRole("checkbox", { name: "I accept this limit and its 2 consequences" }),
-    ).toBeVisible();
+    const accept = screen.getByRole("checkbox", {
+      name: "I accept this limit and its 2 consequences",
+    });
+    expect(accept).toBeVisible();
+    // The deciding column is capped, so an opened "How to lift it" cannot take the reason's room
+    // (an `auto` column grew to the fix's longest sentence and left the reason no width).
+    const row = accept.closest("li");
+    expect(row).toHaveClass("md:grid-cols-[minmax(0,1fr)_fit-content(22rem)]");
+    expect(row?.className).not.toMatch(/_auto\]/);
+    expect(accept.closest("label")?.parentElement).toHaveClass("min-w-0");
   });
 
   it("J1-007 gives portfolio checks an action to the control's actual step", () => {

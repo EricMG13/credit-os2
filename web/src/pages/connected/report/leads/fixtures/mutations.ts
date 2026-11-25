@@ -165,3 +165,55 @@ export const ltmCp1 = () =>
     "US$m",
     "Test mutation: a last-twelve-months row.",
   ]);
+
+/**
+ * The accepted CP-1 with five periods in its revenue, net debt, leverage and interest cover
+ * tables, written in a scrambled order: two fiscal years, an LTM, a pro forma and a forecast year.
+ * The FY2023 and FY2024 figures are the handoff's; the other rows are test figures. A mutation for
+ * tests of the period order (ruling of 2026-11-25), not a real handoff.
+ */
+export function mixedPeriodsCp1(): OutputEntry {
+  const tables: [string, string[][]][] = [
+    [
+      "Chart data: interest cover",
+      [
+        ["FY2025E", "3.90", "x", "Forecast row."],
+        ["PF FY2024", "3.05", "x", "Pro forma row."],
+        ["FY2024 / 2024-09-30", "3.29", "x", "Reported row."],
+        ["LTM Jun-2025", "3.40", "x", "Twelve-month row."],
+        ["FY2023 / 2023-09-30", "2.71", "x", "Earlier row."],
+      ],
+    ],
+    [
+      "Net debt data",
+      [
+        ["FY2025E", "25100", "2000", "23100", "US$m", "Forecast row."],
+        ["PF FY2024", "24880", "1913", "22967", "US$m", "Pro forma row."],
+        ["LTM Jun-2025", "24950", "2100", "22850", "US$m", "Twelve-month row."],
+        ["FY2024 / 2024-09-30", "24880", "6261", "18619", "US$m", "Reported row."],
+        ["FY2023 / 2023-09-30", "19750", "3472", "16278", "US$m", "Earlier row."],
+      ],
+    ],
+    [
+      "Chart data: revenue and EBITDA",
+      [
+        ["FY2025E", "8800", "4700", "US$m", "Forecast row."],
+        ["LTM Jun-2025", "8500", "4500", "US$m", "Twelve-month row."],
+        ["FY2024", "7940", "4173", "US$m", "Reported row."],
+        ["PF FY2024", "8100", "4250", "US$m", "Pro forma row."],
+        ["FY2023", "6585", "3395", "US$m", "Earlier row."],
+      ],
+    ],
+    [
+      "Chart data: leverage",
+      [
+        ["PF FY2024", "7.10", "6.02", "x", "Pro forma row."],
+        ["FY2025E", "5.90", "4.60", "x", "Forecast row."],
+        ["FY2024 / 2024-09-30", "6.53", "4.88", "x", "Reported row."],
+        ["LTM Jun-2025", "6.40", "4.80", "x", "Twelve-month row."],
+        ["FY2023 / 2023-09-30", "6.27", "5.17", "x", "Earlier row."],
+      ],
+    ],
+  ];
+  return tables.reduce((entry, [heading, rows]) => withRows(entry, heading, rows), cp1Entry());
+}

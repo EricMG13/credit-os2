@@ -32,3 +32,4 @@ private/
 /web/coverage/
 /proof-artifacts/
 /delivery/
+.claude/settings.local.json

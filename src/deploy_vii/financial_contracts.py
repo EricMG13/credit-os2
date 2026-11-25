@@ -133,7 +133,8 @@ class FinancialPeriod(Contract):
     period_id: Identifier
     fiscal_year: Text
     fiscal_quarter: int | None = Field(ge=1, le=4)
-    period_type: Literal["QUARTER", "YTD", "FY", "LTM", "PERIOD_END"]
+    # PF is a pro forma period (ordered after LTM, period_order); the host builds no column from it.
+    period_type: Literal["QUARTER", "YTD", "FY", "LTM", "PF", "PERIOD_END"]
     start_date: date | None
     end_date: date | None
     day_count: int | None = Field(ge=1, le=110000)

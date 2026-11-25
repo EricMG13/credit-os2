@@ -90,3 +90,47 @@ it("says a limit that carries a reference is in Evidence, in words true for what
     screen.getByText("This limit carries a reference; read it in Evidence."),
   ).toBeInTheDocument();
 });
+
+it("draws a reason several lines share once, as written, each line keeping its own trace", () => {
+  const reason = "the forecast inputs do not name the row and period of this line";
+  const lines = ["revenue", "EBITDA", "cash interest"];
+  const source = vi.fn((name: string, selection?: { recordedQualification?: string }) => (
+    <button type="button" data-recorded={selection?.recordedQualification}>
+      {name}
+    </button>
+  ));
+  render(
+    <ScopeTile
+      model={
+        {
+          id: MODEL,
+          cashflow: {
+            notes: [],
+            limits: [
+              "The base period is FY2024.",
+              ...lines.map((line) => `${line}: ${reason}`),
+              "capex: a different reason is recorded for this one line",
+            ],
+          },
+        } as never
+      }
+      register={false}
+      source={source}
+    />,
+  );
+  const tile = within(screen.getByRole("region", { name: "Scope and limits" }));
+  // The reason is on the page once, word for word; no limit is dropped or reworded.
+  expect(tile.getAllByText(reason, { exact: false })).toHaveLength(1);
+  const chips = within(tile.getByRole("list", { name: "Lines this limit is recorded for" }));
+  expect(chips.getAllByRole("listitem").map((item) => item.firstChild?.textContent)).toEqual(lines);
+  for (const line of lines)
+    expect(
+      chips.getByRole("button", { name: `Model scope qualification, ${line}` }),
+    ).toHaveAttribute("data-recorded", `${line}: ${reason}`);
+  // A reason only one line carries stays its own row, whole.
+  expect(
+    tile.getByText("capex: a different reason is recorded for this one line"),
+  ).toBeInTheDocument();
+  expect(tile.getByText("The base period is FY2024.")).toBeInTheDocument();
+  expect(source).toHaveBeenCalledTimes(5);
+});

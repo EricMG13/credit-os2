@@ -42,12 +42,34 @@ function check({ head, rows, endHeading }: Pick<ChartTableProps, "head" | "rows"
   }
 }
 
-/** The one column of sentences: it wraps and reads from the left; every figure column stays as it is. */
-const PROSE_COLUMN = /^Basis and limitation$/i;
+const PROSE_HEADING = /^Basis and limitation$/i;
+/** A sentence: four or more words with letters among them. A figure, a unit or a period is not one. */
+const isSentence = (cell: TableCell) =>
+  typeof cell === "string" && /\p{L}/u.test(cell) && cell.trim().split(/\s+/u).length >= 4;
 
-function headAlign(index: number, heading: string) {
+/** A cell that opens with a number, after any sign, bracket or currency mark: a figure. */
+const isFigure = (cell: TableCell) => typeof cell === "string" && /^[\s(+\-−–$€£¥]*\d/u.test(cell);
+
+/**
+ * The columns of sentences, by position in `head`: the one headed "Basis and limitation", and any
+ * column where a row writes a sentence and none writes a figure. They wrap and read from the left;
+ * a column that holds figures stays right-aligned, whatever words one of its cells carries.
+ */
+function proseColumns(head: readonly string[], rows: readonly TableRowData[]) {
+  return new Set(
+    head.flatMap((heading, index) => {
+      if (index === 0) return [];
+      const cells = rows.map((row) => row.cells[index - 1] ?? null);
+      return PROSE_HEADING.test(heading) || (cells.some(isSentence) && !cells.some(isFigure))
+        ? [index]
+        : [];
+    }),
+  );
+}
+
+function headAlign(index: number, prose: ReadonlySet<number>) {
   if (index === 0) return "sticky left-0 bg-surface-card text-left";
-  return PROSE_COLUMN.test(heading) ? "text-left" : "text-right";
+  return prose.has(index) ? "text-left" : "text-right";
 }
 
 function Cell({ cell }: { cell: TableCell }) {
@@ -74,6 +96,7 @@ function Cell({ cell }: { cell: TableCell }) {
 export function ChartTable({ caption, head, rows, endHeading }: ChartTableProps) {
   check({ head, rows, endHeading });
   const hasEnd = rows.some((r) => r.end !== undefined);
+  const prose = proseColumns(head, rows);
   const wrapper = useRef<HTMLDivElement>(null);
   const [scrollable, setScrollable] = useState(false);
   useEffect(() => {
@@ -107,7 +130,7 @@ export function ChartTable({ caption, head, rows, endHeading }: ChartTableProps)
                 <th
                   key={i}
                   scope="col"
-                  className={`px-3 py-2 font-medium whitespace-nowrap text-text-tertiary ${headAlign(i, h)}`}
+                  className={`px-3 py-2 font-medium whitespace-nowrap text-text-tertiary ${headAlign(i, prose)}`}
                 >
                   {h}
                 </th>
@@ -135,7 +158,7 @@ export function ChartTable({ caption, head, rows, endHeading }: ChartTableProps)
                 {row.cells.map((cell, i) => (
                   <td
                     key={i}
-                    className={`px-3 py-2 ${PROSE_COLUMN.test(head[i + 1] ?? "") ? "text-left whitespace-normal" : "text-right tabular-nums whitespace-nowrap"}`}
+                    className={`px-3 py-2 ${prose.has(i + 1) ? "text-left tabular-nums whitespace-normal" : "text-right tabular-nums whitespace-nowrap"}`}
                   >
                     <Cell cell={cell} />
                   </td>

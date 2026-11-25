@@ -145,7 +145,8 @@ it("shows the paired observed quote with all authored digits and keeps the unquo
   ).toEqual([
     "Instrument",
     "Market level (1 Oct 2026)",
-    "Last-trade price and yield",
+    // The heading, then the key naming the two bars of each row by colour.
+    "Last-trade price and yieldPriceYield",
     "Rank",
     "Relative value",
     "Recommendation",
@@ -373,7 +374,7 @@ it("lists each card's columns as the two-column key-value list", () => {
   if (!view) throw new Error("missing security review");
   render(<Securities data={view} href={(line) => `#evidence/5-${String(line)}`} />);
   const list = within(card("Secured notes")).getByText("Rank").closest("dl");
-  expect(list).toHaveClass("grid-cols-[auto_minmax(0,1fr)]");
+  expect(list).toHaveClass("grid-cols-[fit-content(55%)_minmax(0,1fr)]");
   expect(list).not.toHaveClass("grid-cols-1");
 });
 

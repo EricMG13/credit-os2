@@ -7,7 +7,8 @@ import { Input } from "@/components/base/input/input";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
 
 export type FeedOrder = "top" | "latest";
-export type FeedKind = "all" | "regulator" | "news" | "ratings" | "research";
+/** A market post is one a day and has no tab of its own: it is under All. */
+export type FeedKind = "all" | "regulator" | "news" | "ratings" | "research" | "filing";
 
 const ORDERS: [FeedOrder, string][] = [
   ["top", "Top"],
@@ -19,6 +20,7 @@ const KINDS: [FeedKind, string][] = [
   ["news", "News"],
   ["ratings", "Ratings"],
   ["research", "Research"],
+  ["filing", "Filings"],
 ];
 
 /** A key the kit's controls report must be one of ours; anything else is a wiring fault. */
@@ -103,14 +105,20 @@ export function FeedControls({
       }}
     >
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <TabList aria-label="Kind of story" size="sm" className="w-auto">
+        {/* The six tabs wrap where the page is narrower than their row. */}
+        <TabList
+          aria-label="Kind of story"
+          size="sm"
+          className="w-auto max-w-full flex-wrap gap-y-2"
+        >
           {KINDS.map(([id, label]) => (
-            <Tab key={id} id={id}>
+            <Tab key={id} id={id} className="min-h-8 min-w-8">
               {label}
             </Tab>
           ))}
         </TabList>
-        <div className="ml-auto w-70">
+        {/* Beside the tabs it takes up to 280px and gives way before it drops to its own row. */}
+        <div className="w-full md:ml-auto md:w-auto md:max-w-70 md:min-w-48 md:flex-1">
           <Input
             ref={field}
             icon={SearchLg}

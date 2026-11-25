@@ -456,7 +456,7 @@ describe("final audit: connected intake", () => {
     await filledDocuments();
     await purpose();
     expect(
-      screen.getByText(/synthetic test can complete only a first Full credit assessment/),
+      screen.getByText(/A no-cost test can complete only a first Full credit assessment/),
     ).toBeVisible();
     expect(screen.getByText(/northbridge-filing.txt/)).toHaveTextContent(
       "northbridge-credit-agreement.txt",

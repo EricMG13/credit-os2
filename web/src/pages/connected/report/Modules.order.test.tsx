@@ -114,6 +114,7 @@ function drawn() {
       "Key findings",
       CONTRARY,
       "Limitations of this module",
+      "Liquidity view",
     ].includes(name),
   );
 }
@@ -278,4 +279,20 @@ it("draws no chart card for a chart descriptor and keeps its table under Chart t
   fireEvent.click(kinds.getByRole("button", { name: /^Chart tables/ }));
   expect(records.getByRole("heading", { name: "Leverage" })).toBeInTheDocument();
   expect(records.getByText("4.1x")).toBeInTheDocument();
+});
+
+it("draws Limitations straight after Contrary evidence, before the module's own sections (CP-2D)", () => {
+  renderModule(
+    [
+      passage("Bottom line", 2),
+      passage("Key findings", 4),
+      passage(CONTRARY, 6),
+      passage("Limitations", 8),
+      passage("Liquidity view", 10),
+    ],
+    "CP-2D",
+  );
+  const names = drawn();
+  expect(names.indexOf("Limitations of this module")).toBe(names.indexOf(CONTRARY) + 1);
+  expect(names.indexOf("Liquidity view")).toBe(names.indexOf("Limitations of this module") + 1);
 });

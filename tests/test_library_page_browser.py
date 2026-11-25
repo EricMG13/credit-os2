@@ -7,6 +7,7 @@ it needs but is not allowed. Needs Google Chrome or Chromium; skipped where ther
 import hashlib
 import html
 import importlib.util
+import itertools
 import json
 import os
 import re
@@ -395,7 +396,7 @@ def test_live_run_chips_show_their_state_colours(tmp_path):
     # Each module's step carries its state as a word and a colour (running blue-700, done green,
     # waiting text-tertiary); the card's own mark reads running blue-700 on the quiet surface.
     assert seen["running"] == ["rgb(0, 18, 178)", "Running"]
-    assert seen["done"] == ["rgb(15, 128, 72)", "Done"]
+    assert seen["done"] == ["rgb(29, 78, 216)", "Done"]
     assert seen["waiting"] == ["rgb(71, 74, 79)", "Waiting"]
     assert seen["head"] == ["rgb(250, 250, 251)", "rgb(0, 18, 178)"]
 
@@ -2844,3 +2845,200 @@ def test_the_module_page_of_a_handoff_that_could_not_be_read_draws_no_raw_text(t
     assert "could not be read into sections. Its file is in the run" in html.unescape(dom)
     assert "SYNTHETIC FIXTURE" not in dom and "Covenant test" not in dom
     assert 'class="text-action" href="' in dom and "download" in dom
+
+
+# ---- Chart periods (owner, 2026-11-25): every supplied period, oldest year to forecast, on X.
+PERIOD_CHARTS = """
+### Chart data: net leverage by period
+
+| Period | Net debt / EBITDA | Interest cover | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2026E | 3.10 | 4.00 | x | Synthetic. |
+| Run-rate | 9.90 | 1.10 | x | Synthetic. |
+| LTM Jun 2025 | 4.20 | 3.20 | x | Synthetic. |
+| FY2023 | 6.30 | 2.10 | x | Synthetic. |
+| PF LTM Jun 2025 | 3.90 | 3.40 | x | Synthetic. |
+| YTD Jun 2025 | 4.40 | 3.00 | x | Synthetic. |
+| FY2024 | 5.20 | 2.60 | x | Synthetic. |
+
+### T4.10 Trend measures
+
+| Measure | FY2025E | FY2023 | LTM Jun 2025 | FY2024 | Basis |
+| --- | --- | --- | --- | --- | --- |
+| Trend sales | 9,000 | 6,585 | 8,400 | 7,940 | Reported |
+
+### Conditional paths
+
+| Path | Closing cash |
+| --- | --- |
+| Reference / 2027 | 3,000 |
+| Downside / 2026 | 1,200 |
+| Reference / 2025 | 1,000 |
+| Downside / LTM Jun 2025 | 900 |
+| Reference / 2026 | 2,000 |
+| Downside / 2027 | 1,500 |
+| Reference / LTM Jun 2025 | 800 |
+| Downside / 2025 | 1,100 |
+
+### Quarterly comparison
+
+| Measure | Q1 FY2024 | Q1 FY2023 | Basis |
+| --- | --- | --- | --- |
+| Net sales | 1,789 | 1,592 | Synthetic. |
+| EBITDA | 912 | 780 | Synthetic. |
+"""
+CHART_PERIODS_PROBE = (
+    Path(__file__).with_name("browser_probe_chart_periods.js").read_text(encoding="utf-8")
+)
+# Period, then Net debt / EBITDA and Interest cover, exactly as the table above states them.
+LEVERAGE_DRAWN = [
+    ("FY2023", ["6.30", "2.10"]),
+    ("FY2024", ["5.20", "2.60"]),
+    ("YTD Jun 2025", ["4.40", "3.00"]),
+    ("LTM Jun 2025", ["4.20", "3.20"]),
+    ("PF LTM Jun 2025", ["3.90", "3.40"]),
+    ("FY2026E", ["3.10", "4.00"]),
+    ("Run-rate", ["9.90", "1.10"]),
+]
+UNPLACED_NOTE = (
+    "Drawn last, in the order written, because the period could not be placed in time: Run-rate."
+)
+
+
+def left_to_right(marks: list[dict]) -> bool:
+    return all(b["x"] > a["x"] for a, b in itertools.pairwise(marks))
+
+
+def test_charts_draw_every_period_left_to_right_in_rule_order_cells_as_written(tmp_path):
+    from credit_os import store
+
+    run_dir = make_run(tmp_path, "run-a", as_of="2025-06-30", cp1_extra=PERIOD_CHARTS)
+    update_library.update_library(tmp_path)
+    (handoff,) = run_dir.glob("deliveries/*/CP-1.md")
+    sections = store.sections_of(handoff.read_text(encoding="utf-8"))
+    line = {s["heading"]: b["line"] for s in sections for b in s["blocks"] if b["type"] == "table"}
+    path = {"kind": "paths", "title": "Closing cash", "unit": "USD millions", "column": 1}
+    paired = {"kind": "bars", "title": "Quarterly comparison", "unit": "USD millions"}
+    config = {
+        "run": "run-a",
+        "legend": "Interest cover",
+        "path": store.pinned_visual(sections, {**path, "table": line["Conditional paths"]}, "CP-1"),
+        "paired": store.pinned_visual(
+            sections,
+            {**paired, "columns": [1, 2], "table": line["Quarterly comparison"]},
+            "CP-1",
+        ),
+    }
+    seen = read_probe(
+        tmp_path / "library/index.html",
+        "#CP-1/performance?c=run-a",
+        1440,
+        CHART_PERIODS_PROBE,
+        config,
+    )
+    for place in ("module", "forecast"):
+        drawn = seen[place]
+        assert [(p["label"], p["values"]) for p in drawn["periods"]] == LEVERAGE_DRAWN, place
+        assert left_to_right(drawn["periods"]), place
+        assert drawn["legend"] == ["Net debt / EBITDA", "Interest cover"], place
+        assert UNPLACED_NOTE in drawn["notes"], place
+        # Bars are to one scale: the tallest is 9.90 (Run-rate), the shortest 1.10 beside it.
+        heights = [h for p in drawn["periods"] for h in p["heights"]]
+        assert max(heights) == drawn["periods"][6]["heights"][0], place
+        assert min(heights) == drawn["periods"][6]["heights"][1], place
+        assert drawn["scrolls"] is False, place
+    path_seen = seen["path"]
+    assert [a["label"] for a in path_seen["axis"]] == ["2025", "2026", "2027", "LTM Jun 2025"]
+    assert left_to_right(path_seen["axis"])
+    assert path_seen["grid"] == ["0", "1,000", "2,000", "3,000"]
+    assert path_seen["legend"][:2] == ["Reference", "Downside"]
+    assert [p["said"] for p in path_seen["points"]] == [
+        "Reference / 2025, Closing cash 1,000 USD millions. View source",
+        "Reference / 2026, Closing cash 2,000 USD millions. View source",
+        "Reference / 2027, Closing cash 3,000 USD millions. View source",
+        "Reference / LTM Jun 2025, Closing cash 800 USD millions. View source",
+        "Downside / 2025, Closing cash 1,100 USD millions. View source",
+        "Downside / 2026, Closing cash 1,200 USD millions. View source",
+        "Downside / 2027, Closing cash 1,500 USD millions. View source",
+        "Downside / LTM Jun 2025, Closing cash 900 USD millions. View source",
+    ]
+    axis_x = [a["x"] for a in path_seen["axis"]]
+    for series in (path_seen["points"][:4], path_seen["points"][4:]):
+        assert all(abs(p["x"] - x) <= 1 for p, x in zip(series, axis_x, strict=True))
+    # A larger closing cash is higher on the page (a smaller y): 3,000 is the top, 800 the bottom.
+    ys = [p["y"] for p in path_seen["points"]]
+    assert min(ys) == ys[2] and max(ys) == ys[3]
+    assert path_seen["readout"] == [
+        ["Reference · LTM Jun 2025", "800"],
+        ["Downside · LTM Jun 2025", "900"],
+    ]
+    paired_seen = seen["paired"]
+    assert [(p["label"], p["values"]) for p in paired_seen["periods"]] == [
+        ("Q1 FY2023", ["1,592", "780"]),
+        ("Q1 FY2024", ["1,789", "912"]),
+    ]
+    assert left_to_right(paired_seen["periods"]) and paired_seen["legend"] == [
+        "Net sales",
+        "EBITDA",
+    ]
+    assert (
+        max(h for p in paired_seen["periods"] for h in p["heights"])
+        == (paired_seen["periods"][1]["heights"][0])
+    )
+    assert [(b["label"], b["value"]) for b in seen["trend"]] == [
+        ("FY2023", "6,585"),
+        ("FY2024", "7,940"),
+        ("LTM Jun 2025", "8,400"),
+        ("FY2025E", "9,000"),
+    ]
+    assert left_to_right(seen["trend"])
+    assert [b["height"] for b in seen["trend"]] == sorted(b["height"] for b in seen["trend"])
+
+
+# ---- Chart periods review (2026-11-25): a tile's headline is the latest reported period only.
+PERIOD_TILES = """
+### Tile metrics
+
+| Metric | FY2023 | FY2024 | LTM Jun 2025 | PF LTM Jun 2025 | FY2025E | Definition |
+| --- | --- | --- | --- | --- | --- | --- |
+| Tile sales | 6,585 | 7,940 | 8,400 | 8,650 | 9,000 | Net sales as reported |
+
+### Pro forma tile metrics
+
+| Metric | PF | FY2026E | Definition |
+| --- | --- | --- | --- |
+| Tile cover | 3.4x | 4.0x | EBITDA over cash interest |
+"""
+PERIOD_TILES_PROBE = (
+    Path(__file__).with_name("browser_probe_period_tiles.js").read_text(encoding="utf-8")
+)
+
+
+def with_period_tiles(text: str) -> str:
+    """The synthetic CP-2 handoff with the two metric tables under its Findings part."""
+    marker = "\n## Calculations"
+    assert marker in text
+    return text.replace(marker, PERIOD_TILES + marker, 1)
+
+
+def test_a_tile_headline_is_the_latest_reported_period_never_a_pro_forma_or_forecast(tmp_path):
+    seen = read_probe(
+        synthetic_workspace(tmp_path, with_period_tiles),
+        f"#CP-2/head?c={NEW_FORMAT_RUN}",
+        1440,
+        PERIOD_TILES_PROBE,
+        {"labels": ["Tile sales", "Tile cover"]},
+    )
+    assert seen["width"] == 1440
+    sales, cover = seen["tiles"]["Tile sales"], seen["tiles"]["Tile cover"]
+    # LTM Jun 2025 is the latest reported period: not FY2024, the pro forma or the forecast.
+    assert sales["headline"] == "8,400"
+    assert sales["below"] == ["FY2023 6,585 · FY2024 7,940 · PF LTM Jun 2025 8,650 · FY2025E 9,000"]
+    assert sales["absence"] == []
+    # Only pro forma and forecast columns: no figure is the headline, and each is labelled.
+    assert cover["headline"] == "—"
+    assert cover["below"] == ["PF 3.4x · FY2026E 4.0x"]
+    assert cover["absence"] == ["No reported period: pro forma or forecast only"]
+    for tile in (sales, cover):
+        assert tile["drawn"] is True and tile["clipped"] is False
+        assert tile["headlineSize"] > tile["belowSize"]

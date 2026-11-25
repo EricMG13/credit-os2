@@ -1,7 +1,7 @@
 // The Sources section (mock settings frame 3). Expected wording, order and ranks are the mock's and
 // the fixture's, not the code's.
 import { fireEvent, screen, within } from "@testing-library/react";
-import { show, page } from "./test-helpers";
+import { show, page, withMain } from "./test-helpers";
 
 const table = () => page().getByRole("grid", { name: "Sources" });
 const names = () =>
@@ -161,7 +161,7 @@ describe("Sources (frame 3)", () => {
     expect(header("State").getAttribute("aria-sort")).toBe("none");
   });
 
-  it("fits 1024px by class contract: one column below xl, wrapping tab row, last check moves into the Source cell", () => {
+  it("fits 1024px by class contract: one column below xl, wrapping tab row, last check in the Source cell below 2xl", () => {
     show("/signal/main/settings/sources");
     const list = page().getByRole("tablist", { name: "Settings sections" });
     expect(list.className).toMatch(/(^| )flex-row( |$)/);
@@ -170,13 +170,14 @@ describe("Sources (frame 3)", () => {
     expect(list.parentElement?.className).toContain("xl:grid-cols-[200px_minmax(0,1fr)]");
     // the column and its copy under the kind are never both shown: each hidden by display
     const column = header("Last check and item");
-    expect(column.className).toContain("max-xl:hidden");
+    // Its own column from 2xl only: at xl five columns were wider than the section (709px in 644px).
+    expect(column.className).toContain("max-2xl:hidden");
     const first = rows()[0] as HTMLElement;
     const own = within(first).getAllByRole("rowheader")[0] as HTMLElement;
     const copy = own.querySelector("[data-last-check]");
-    expect(copy?.className).toContain("xl:hidden");
+    expect(copy?.className).toBe("2xl:hidden");
     expect(copy?.textContent).toBe("Last check 6 min agoLast item 2 h ago");
-    expect(within(first).getAllByRole("gridcell")[2]?.className).toContain("max-xl:hidden");
+    expect(within(first).getAllByRole("gridcell")[2]?.className).toContain("max-2xl:hidden");
     // the source name wraps
     expect(within(own).getByText("Harbour Wire").className).not.toContain("nowrap");
     const freight = within(rows()[4] as HTMLElement).getAllByRole("rowheader")[0] as HTMLElement;
@@ -208,5 +209,33 @@ describe("Sources (frame 3)", () => {
     show("/signal/ai-on/settings/sources");
     expect(within(table()).getAllByText("n.a.")).toHaveLength(1);
     expect(screen.queryByRole("img")).toBeNull();
+  });
+});
+
+describe("what Sources says it leaves out", () => {
+  const SENTENCE =
+    "Showing 200 of 1,001 sources: the approved ones first, then the proposed, then the paused.";
+
+  it("draws the delivered sentence once, under the table, as secondary text that wraps", () => {
+    show(
+      "/signal/main/settings/sources",
+      withMain((scene) => Object.assign(scene.snapshot.settings, { sourcesMore: SENTENCE })),
+    );
+    const line = page().getByText(SENTENCE);
+    expect(line.tagName).toBe("P");
+    expect(line).toHaveClass("text-small", "text-text-tertiary");
+    expect(line.className).not.toMatch(/nowrap|truncate/);
+    const region = page().getByRole("region", { name: "Sources table" });
+    expect(region.contains(line)).toBe(false);
+    expect(region.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("draws nothing when it is null, as the design fixture gives", () => {
+    show(
+      "/signal/main/settings/sources",
+      withMain((scene) => Object.assign(scene.snapshot.settings, { sourcesMore: null })),
+    );
+    expect(page().queryByText(/Showing 200/)).toBeNull();
+    expect(page().getByRole("grid", { name: "Sources" })).toBeTruthy();
   });
 });

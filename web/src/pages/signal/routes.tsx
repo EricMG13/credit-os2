@@ -23,6 +23,12 @@ export const signalRoutes: readonly Route[] = [
     render: page("feed"),
   },
   { path: "/signal/:scene/topic/:topic", layout: "bleed", title: "Signal", render: page("topic") },
+  {
+    path: "/signal/:scene/issuer/:issuer",
+    layout: "bleed",
+    title: "Signal",
+    render: page("issuer"),
+  },
   { path: "/signal/:scene/group/:group", layout: "bleed", title: "Signal", render: page("group") },
   {
     path: "/signal/:scene/group/:group/thread/:thread",

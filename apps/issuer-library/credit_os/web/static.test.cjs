@@ -1253,6 +1253,8 @@ const REAL_KEY = [`- **Cover is thin.** Interest cover is 2.1x and free cash flo
 const REAL_CONTRARY = [`The view would soften if a signed refinancing removed the 2027 maturity.\nBasis: ${MEMO}, page 2`];
 const REAL_LIMITS = [`- No holdings file was supplied, so portfolio fit is unscored.\nBasis: ${MEMO}, page 3`, '- The chair left relative value unscored.'];
 const METRIC_HEAD = ['Metric', 'FY2024', 'FY2023', 'Definition / identity', 'Source', 'Calculation ID'];
+// Its period columns as the store annotates them (handoff_fields.py period_columns): FY2023 then FY2024 in rule order, FY2024 the latest reported.
+const METRIC_PERIODS = { order: [2, 1], reported: [2, 1], latest: 1 };
 const metricRows = [
   [12, 'Net leverage', '6.01x', '6.40x', 'Net debt over EBITDA', `${FIG}, page 4`, 'C05'],
   [13, 'Interest cover', '2.1x', '2.5x', 'EBITDA over cash interest', `${FIG}, page 5`, 'C06'],
@@ -1266,7 +1268,7 @@ const realSections = (over = {}) => ({
   'CP-1': [
     sec('Findings', 2, 1, 'view', []),
     sec('Bottom line', 3, 2, 'view', [text(3, `Financial position is in the table below.\nBasis: ${FIG}, page 4`)]),
-    ...(over.metric === false ? [] : [sec('Financials and credit metrics', 3, 10, 'view', [table(11, METRIC_HEAD, metricRows)])]),
+    ...(over.metric === false ? [] : [sec('Financials and credit metrics', 3, 10, 'view', [{ ...table(11, METRIC_HEAD, metricRows), periods: METRIC_PERIODS }])]),
     sec('Gaps', 2, 90, 'audit', [table(91, ['Gap', 'Severity'], [[92, 'No peer set', 'Low']])]),
   ],
   'CP-6': [
@@ -2233,7 +2235,8 @@ test('library: a file is linked only in the one form the build writes, a retaine
 
 // Owner, 2026-11-10: "Charts with periods should be transposed, with period on the x axis". Every reader chart is a
 // "Chart data:" table whose first column is Period (store.py _chart_table), so each one is drawn as columns over periods.
-test('reader charts: periods run along the x axis, one group per period in table order, one column per series', () => {
+// The store supplies the order (`chart.rows`, chart-periods tests below); a chart given none, as here, is drawn in table order.
+test('reader charts: periods run along the x axis, one group per period, one column per series', () => {
   const [fn, id] = chartFn('readerChart', ['Period', 'Total debt / EBITDA', 'Net debt / EBITDA', 'Reporting unit', 'Basis'],
     [[81, 'FY2023 / 2023-09-30', '6.33', '5.22', 'x', 'K'], [82, 'FY2024', '6.57', '4.93', 'x', 'K'], [83, 'FY2025', 'Not supplied: no forecast', '4.10', 'x', 'K']]);
   const html = fn(id, { title: 'Leverage', unit: 'x', table: 80, columns: [1, 2] });
@@ -3810,7 +3813,7 @@ test('timeline (Task 7): an events table with one "Not supplied" row is the empt
 
 // ---- The Forecast page (reader check of 2026-11-12): lines with no figure fold away; the model picker names the run, not a hash.
 const cell = (status, display, reason = null) => ({ exact: status === 'value' ? display : null, display, reason, status });
-const gridColumns = [{ label: 'FY2024', group: 'Fiscal year', start: null, end: null, ytd: false }, { label: 'FY2025E', group: 'Base case', start: null, end: null, ytd: false }];
+const gridColumns = [{ label: 'FY2024', group: 'Fiscal year', start: null, end: null, ytd: false, forecast: false }, { label: 'FY2025E', group: 'Base case', start: null, end: null, ytd: false, forecast: true }];
 const gridRow = (band, label, empty, cells) => ({ band, label, kind: 'money', total: false, empty, cells });
 // Hand-written grid: Revenue has figures; Capex has none in the main table but one in the Upside table; Closing cash and Gross profit have none anywhere.
 const FOLD_GRID = {
@@ -3822,7 +3825,7 @@ const FOLD_GRID = {
     gridRow('Cash and liquidity', 'Closing cash', true, [cell('na', 'n.a.', 'not reported'), cell('na', 'n.a.', 'not reported')]),
   ],
   other: {
-    columns: [{ label: 'FY2025E', group: 'Upside', start: null, end: null, ytd: false }],
+    columns: [{ label: 'FY2025E', group: 'Upside', start: null, end: null, ytd: false, forecast: true }],
     rows: [
       gridRow('Revenue', 'Revenue', false, [cell('value', '1,100')]),
       gridRow('Profitability', 'Gross profit', true, [cell('nm', 'n.m.')]),
@@ -3846,6 +3849,18 @@ test('Forecast: a line with no figure in any column is folded after the main tab
   assert.ok(fold.includes('Fiscal year') && fold.includes('Base case') && fold.includes('aria-label="n.a.: not reported"') && fold.includes('aria-label="n.m.: not modelled in the calculation record"'), 'same columns and cells, reasons reachable');
   assert.ok(html.indexOf('class="cashflow-empty"') < html.indexOf('class="cashflow-other"') && html.indexOf('</table>') < html.indexOf('class="cashflow-empty"'));
   assert.ok(html.includes('Why cells show n.a. (3 lines)'), 'the n.a. list still counts every line');
+});
+
+// Chart periods review: the caption's range read "is this a forecast year" from the label (^FY\d+E$); the store says it on each column (cashflow.py `forecast`).
+test('Forecast: the caption range ends on the last column that is not the no-downside placeholder, told by the store\'s forecast flag and never by a label', () => {
+  const column = (label, group, forecast) => ({ label, group, start: null, end: null, ytd: false, forecast });
+  const grid = columns => ({ ...FOLD_GRID, columns, other: null, rows: [gridRow('Revenue', 'Revenue', false, columns.map((c, i) => cell('value', String(i))))] });
+  const caption = columns => /<p class="forecast-caption">(.*?)<\/p>/.exec(runPage().cashflowSection({ cashflow: grid(columns) }))[1];
+  const history = [column('FY2024', 'Fiscal year', false), column('FY2025E', 'Base case', true)];
+  assert.ok(caption([...history, column('Downside', 'Downside case', false)]).startsWith('USD millions · FY2024 to FY2025E · '), 'the placeholder is not a period of the range');
+  assert.ok(caption([...history, column('2026 forecast', 'Downside case', true)]).startsWith('USD millions · FY2024 to 2026 forecast · '), 'a forecast column is one, whatever its label');
+  assert.ok(caption([...history, column('FY2026E', 'Downside case', false)]).startsWith('USD millions · FY2024 to FY2025E · '), 'and a label that looks like a forecast year does not make one');
+  assert.ok(!read('views.js').includes('FY\\d+E'), 'no forecast-year pattern on the page');
 });
 
 test('Forecast: when every line has a figure there is no fold', () => {
@@ -3909,12 +3924,12 @@ test('brand colours: screen.css declares each brand token with the plan value (R
   const expected = {
     '--navy': '#000533', '--blue': '#001aff', '--ground': '#f4f4f5', '--rule': '#e8e9eb', '--muted': '#474a4f',
     '--quiet': '#fafafb', '--selection': '#e5e8ff', '--blue-50': '#e5e8ff', '--blue-100': '#c2c9ff', '--blue-700': '#0012b2',
-    '--amber': '#806300', '--amber-bg': '#fff4cc', '--amber-border': '#f2dc8c', '--red': '#8e413e', '--green': '#0f8048',
+    '--amber': '#806300', '--amber-bg': '#fff4cc', '--amber-border': '#f2dc8c', '--red': '#8e413e', '--green': '#1d4ed8',
     '--text-primary': '#000533', '--text-secondary': '#383b3f', '--text-tertiary': '#474a4f', '--text-quaternary': '#63676e',
     '--gray-25': '#fcfcfd', '--gray-50': '#fafafb', '--gray-100': '#f4f4f5', '--gray-200': '#e8e9eb', '--gray-300': '#d1d4d8',
     '--ring': '0 0 0 4px rgba(0,26,255,.16)', '--dot-quiet': '#8d939d',
-    '--series-1': '#001aff', '--series-2': '#1eff8f', '--series-3': '#eaff00', '--series-4': '#a29aff',
-    '--series-1-ln': '#001aff', '--series-2-ln': '#0f8048', '--series-3-ln': '#758000', '--series-4-ln': '#514d80',
+    '--series-1': '#001aff', '--series-2': '#341b55', '--series-3': '#eaff00', '--series-4': '#a29aff',
+    '--series-1-ln': '#001aff', '--series-2-ln': '#341b55', '--series-3-ln': '#758000', '--series-4-ln': '#514d80',
   };
   const declared = {};
   for (const block of css.matchAll(/:root\{([^}]*)\}/g)) for (const m of block[1].matchAll(/(--[\w-]+):([^;]+)/g)) declared[m[1]] = m[2].trim();
@@ -5428,4 +5443,122 @@ test('a leverage, net leverage or cover figure on adjusted EBITDA is not screene
   const cash = run('cash', { cash: figure('7', { label: 'Cash and equivalents' }) });
   assert.deepEqual(logic.filterRuns([cash], { runs: 'any', cashMin: '5' }).map(r => r.id), ['cash'], 'a labelled cash metric is still screened');
   assert.equal(logic.coverage([cash], { runs: 'any', cashMin: '5' }).cash.recorded, 1);
+});
+
+// ---- Chart periods (owner, 2026-11-25): every supplied period, in the order the store gives; periods on the x axis. The page orders nothing.
+// views.js and the legacy part of screen.js over one hand-written table (line 80); `sourceFooter` is screen.js's, named here by its key.
+function periodFn(name, headers, rows, out = {}) {
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const id = 'run-a/deliveries/d1/CP-2G.md', reader = require('./reader.js');
+  const block = { ...table(80, headers, rows), ...(out.periods ? { periods: out.periods } : {}) };
+  const data = { [id]: { module: 'CP-2G', run: 'run-a', period: '', basis: { unit: 'USD millions' }, sections: [{ heading: 'T4.10 Measures', line: 1, blocks: [block] }] } };
+  const screen = read('screen.js'), legacy = screen.slice(screen.indexOf('function trendChart('), screen.indexOf('function eventTimeline('));
+  const names = ['data', 'contexts', 'esc', 'rich', 'plain', 'evidence', 'modules', 'moduleNames', 'current', 'icon', 'window', 'store', 'pins', 'lastFile', 'isAnalytical', 'sectionData', 'chartNumber', 'numericColumn', 'cellView', 'sourceFooter', 'findRow', 'tableMarkup', 'narrativeMarkup'];
+  const findRow = (module, prefix, label) => { const row = block.rows.find(r => r.cells[0] === label); return { table: block, row, key: `${module}:${row.line}` }; };
+  const fn = new Function(...names, `${read('views.js')}; ${legacy}; return ${name};`)(data, { 'run-a': { asOf: '2024-09-30' } }, esc, esc, esc, new Map(), { [id]: { first: 's' } }, {}, {}, () => '', { CREDIT_OS_DATA: { chips: {} } }, {}, { 'CP-1': id }, new Map(), () => true, () => [], reader.chartNumber, reader.numericColumn, reader.cellView, key => `[source ${key}]`, findRow, () => '[table]', () => '');
+  return [fn, id];
+}
+const xLabels = html => [...html.matchAll(/<span class="chart-label">([^<]*)/g)].map(m => m[1]);
+
+test('chart periods: a reader chart draws its rows in the order supplied and names a period that could not be placed', () => {
+  const rows = [[81, 'FY2026E', '3.1', 'x', 'K'], [82, 'Run-rate', '9.9', 'x', 'K'], [83, 'LTM Jun 2025', '4.2', 'x', 'K'], [84, 'FY2023', '6.3', 'x', 'K'], [85, 'PF LTM Jun 2025', '3.9', 'x', 'K'], [86, 'YTD Jun 2025', '4.4', 'x', 'K'], [87, 'FY2024', '5.2', 'x', 'K']];
+  const [fn, id] = periodFn('readerChart', ['Period', 'Net debt / EBITDA', 'Reporting unit', 'Basis'], rows);
+  const html = fn(id, { title: 'Leverage', unit: 'x', table: 80, columns: [1], rows: [3, 6, 5, 2, 4, 0, 1], unplaced: [1] });
+  const plot = html.split('<details')[0];
+  assert.deepEqual(xLabels(plot), ['FY2023', 'FY2024', 'YTD Jun 2025', 'LTM Jun 2025', 'PF LTM Jun 2025', 'FY2026E', 'Run-rate']);
+  assert.deepEqual([...plot.matchAll(/<strong style="bottom:[\d.]+%">([^<]+)<\/strong>/g)].map(m => m[1]), ['6.3', '5.2', '4.4', '4.2', '3.9', '3.1', '9.9'], 'each value under its own period, as written');
+  assert.deepEqual([...plot.matchAll(/class="chart-row" data-evidence="[^"]+:(\d+)"/g)].map(m => m[1]), ['84', '87', '86', '83', '85', '81', '82']);
+  assert.ok(plot.includes('--periods:7'));
+  assert.ok(plot.includes('<p class="matrix-note">Drawn last, in the order written, because the period could not be placed in time: Run-rate.</p>'));
+  const placed = fn(id, { title: 'Leverage', unit: 'x', table: 80, columns: [1], rows: [3, 6, 5, 2, 4, 0, 1] });
+  assert.ok(!placed.includes('could not be placed'), 'no note when every period is placed');
+});
+
+test('chart periods: a Forecast card says the same of an unplaced period (it draws no other note)', () => {
+  const [fn, id] = periodFn('readerChart', ['Period', 'Cash', 'Reporting unit', 'Basis'], [[81, 'Opening', '5', 'US$m', 'K'], [82, 'FY2024', '7', 'US$m', 'K']]);
+  const html = fn(id, { title: 'Cash', unit: 'US$m', table: 80, columns: [1], rows: [1, 0], unplaced: [0] }, false, false);
+  assert.deepEqual(xLabels(html.split('<details')[0]), ['FY2024', 'Opening']);
+  assert.ok(html.includes('could not be placed in time: Opening.') && !html.includes('Missing values have no bar'));
+});
+
+test('chart periods: a comparison whose columns are periods puts them on the x axis in the order supplied, the measures in the legend', () => {
+  const headers = ['Measure', 'Q1 FY2024', 'Q1 FY2023', 'Basis'], rows = [[81, 'Net sales', '1,789', '1,592', 'S'], [82, 'EBITDA', '912', 'Not supplied: not stated', 'S']];
+  const [fn, id] = periodFn('comparisonChart', headers, rows);
+  const v = { kind: 'bars', table: 80, columns: [1, 2], title: 'Quarterly comparison', unit: 'USD millions', periods: { axis: 'columns', order: [2, 1] } };
+  const html = fn(id, v);
+  assert.ok(html.includes('class="column-chart" style="--periods:2"') && !html.includes('horizontal-chart'));
+  assert.deepEqual(xLabels(html), ['Q1 FY2023', 'Q1 FY2024']);
+  assert.ok(html.includes('<div class="chart-legend"><span><i class="series-0"></i>Net sales</span><span><i class="series-1"></i>EBITDA</span></div>'));
+  const groups = html.split('<div class="chart-row"').slice(1);
+  assert.deepEqual(groups.map(g => [...g.matchAll(/<strong[^>]*>([^<]+)<\/strong>/g)].map(m => m[1])), [['1,592', 'n.a.'], ['1,789', '912']]);
+  assert.ok(groups[0].includes('title="Not supplied: not stated"'), 'a stated absence keeps its text');
+  assert.ok(groups[1].includes(`data-evidence="${id}:82" aria-label="Q1 FY2024, EBITDA: 912. View source"`));
+  // A paired visual draws the measure chosen, still over every period.
+  const paired = fn(id, { ...v, kind: 'paired', rows: [0, 1] }, 1);
+  assert.deepEqual(xLabels(paired), ['Q1 FY2023', 'Q1 FY2024']);
+  assert.ok(paired.includes('<div class="chart-legend"><span><i class="series-0"></i>EBITDA</span></div>') && paired.includes('<select id="chart-metric">'));
+  assert.ok(!paired.includes('1,789') && paired.includes('>912<'), 'only the chosen measure is drawn');
+});
+
+test('chart periods: a comparison whose rows are periods puts them on the x axis in the order supplied, the columns in the legend', () => {
+  const [fn, id] = periodFn('comparisonChart', ['Period', 'Sources', 'Uses'], [[81, 'FY2025E', '40', '35'], [82, 'LTM Jun 2024', '30', '28'], [83, 'FY2023', '10', '12']]);
+  const html = fn(id, { kind: 'bars', table: 80, columns: [1, 2], title: 'Funding', unit: 'm', periods: { axis: 'rows', order: [2, 1, 0] } });
+  assert.deepEqual(xLabels(html), ['FY2023', 'LTM Jun 2024', 'FY2025E']);
+  assert.ok(html.includes('<span><i class="series-0"></i>Sources</span><span><i class="series-1"></i>Uses</span>'));
+  assert.deepEqual([...html.matchAll(/<strong[^>]*>([^<]+)<\/strong>/g)].map(m => m[1]), ['10', '12', '30', '28', '40', '35']);
+});
+
+test('chart periods: a comparison that is not over periods keeps its rows as bars', () => {
+  const [fn, id] = periodFn('comparisonChart', ['Item', 'Value'], [[81, 'Cash', '1,200'], [82, 'Debt', '600']]);
+  const html = fn(id, { kind: 'bars', table: 80, column: 1, title: 'Liquidity', unit: 'USDm' });
+  assert.ok(html.includes('class="horizontal-chart ') && !html.includes('column-chart'));
+});
+
+const PATHS = [[81, 'Reference / 2027', '3,000'], [82, 'Downside / 2026', '1,200'], [83, 'Reference / 2025', '1,000'], [84, 'Downside / LTM Jun 2025', '900'], [85, 'Reference / 2026', '2,000'], [86, 'Downside / 2027', '1,500'], [87, 'Reference / LTM Jun 2025', '800'], [88, 'Downside / 2025', '1,100']];
+test('chart periods: the path chart draws every period the store names, in its order, one line per path; nothing about the axis is fixed', () => {
+  const [fn, id] = periodFn('pathChart', ['Path', 'Closing cash'], PATHS);
+  const paths = { periods: ['2025', '2026', '2027', 'LTM Jun 2025'], series: [{ name: 'Reference', rows: [2, 4, 0, 6] }, { name: 'Downside', rows: [7, 1, 5, 3] }] };
+  const html = fn(id, { kind: 'paths', table: 80, column: 1, title: 'Closing cash under the stipulated paths', unit: 'USD millions', paths });
+  const axis = [...html.matchAll(/<text class="axis-label" x="([\d.]+)" y="230" text-anchor="middle">([^<]+)<\/text>/g)].map(m => [Number(m[1]), m[2]]);
+  assert.deepEqual(axis.map(a => a[1]), ['2025', '2026', '2027', 'LTM Jun 2025']);
+  assert.ok(axis.every((a, i) => !i || a[0] > axis[i - 1][0]), 'left to right');
+  assert.ok(!/FY2025|FY2027|6,000|Upside/.test(html), 'no axis year, gridline or path the table does not hold');
+  assert.deepEqual([...html.matchAll(/<text class="axis-label" x="55"[^>]*>([^<]+)<\/text>/g)].map(m => m[1]), ['0', '1,000', '2,000', '3,000']);
+  const points = [...html.matchAll(/<a class="plot-point"[^>]*data-evidence="[^"]+:(\d+)" aria-label="([^"]+)"><title>[^<]*<\/title><circle class="point-hit" cx="([\d.]+)"/g)].map(m => [m[1], m[2], Number(m[3])]);
+  assert.deepEqual(points.map(p => p[0]), ['83', '85', '81', '87', '88', '82', '86', '84']);
+  assert.equal(points[2][1], 'Reference / 2027, Closing cash 3,000 USD millions. View source');
+  assert.deepEqual(points.slice(0, 4).map(p => p[2]), axis.map(a => a[0]), 'a point sits over its own period');
+  assert.ok(html.includes('aria-label="Closing cash across 2025 to LTM Jun 2025. Select a point to inspect its exact source."'));
+  assert.ok(html.includes('<span><i class="path-key-0"></i>Reference</span><span><i class="path-key-1"></i>Downside</span>'));
+  // The readout is each path's value at the last period supplied.
+  assert.ok(html.includes(`<div><span>Reference · LTM Jun 2025</span><strong>800</strong>[source ${id}:87]</div><div><span>Downside · LTM Jun 2025</span><strong>900</strong>[source ${id}:84]</div>`));
+});
+
+test('chart periods: the path chart draws one period, and a path without a period has no point there', () => {
+  const [fn, id] = periodFn('pathChart', ['Path', 'Closing cash'], [[81, 'Base / 2026', '200'], [82, 'Low / 2025', '100']]);
+  const html = fn(id, { kind: 'paths', table: 80, column: 1, title: 'T', unit: 'm', paths: { periods: ['2025', '2026'], series: [{ name: 'Base', rows: [null, 0] }, { name: 'Low', rows: [1, null] }] } });
+  assert.equal(countOf(html, /<a class="plot-point"/g), 2);
+  assert.ok(html.includes('<div><span>Base · 2026</span><strong>200</strong>') && !html.includes('Low · 2026'));
+  const one = fn(id, { kind: 'paths', table: 80, column: 1, title: 'T', unit: 'm', paths: { periods: ['2026'], series: [{ name: 'Base', rows: [0] }] } });
+  assert.ok(one.includes('aria-label="Closing cash, 2026. Select a point') && countOf(one, /<a class="plot-point"/g) === 1);
+});
+
+test('chart periods: the trend chart draws every period column of its table in the order supplied', () => {
+  const headers = ['Measure', 'FY2025E', 'FY2023', 'LTM Jun 2025', 'FY2024', 'FY2022', 'Basis'];
+  const [fn, id] = periodFn('trendChart', headers, [[81, 'Net sales', '9,000', '6,585', '8,400', '7,940', '5,429', 'Reported']], { periods: { order: [5, 2, 4, 3, 1], reported: [5, 2, 4, 3] } });
+  const html = fn(id, 'Net sales');
+  assert.deepEqual([...html.matchAll(/<span class="bar-value">([^<]+)<\/span>.*?<span class="bar-period">([^<]+)<\/span>/g)].map(m => [m[2], m[1]]),
+    [['FY2022', '5,429'], ['FY2023', '6,585'], ['FY2024', '7,940'], ['LTM Jun 2025', '8,400'], ['FY2025E', '9,000']]);
+  assert.ok(html.includes('<span>USD millions · Reported</span>'), 'the basis is the column that is not a period');
+  assert.ok(html.includes('style="height:142px"'), 'the largest value fills the plot');
+  const [view] = periodFn('performanceView', headers, [[81, 'Net sales', '9,000', '6,585', '8,400', '7,940', '5,429', 'Reported']], { periods: { order: [5, 2, 4, 3, 1], reported: [5, 2, 4, 3] } });
+  assert.ok(view().includes('<h2>Performance</h2><span>FY2022–FY2025E</span>'));
+  const [bare] = periodFn('trendChart', ['Measure', 'Value'], [[81, 'Net sales', '1']]);
+  assert.throws(() => bare(id, 'Net sales'), /period columns/);
+});
+
+test('chart periods: no chart of the legacy views fixes its columns, its axis years or its gridlines', () => {
+  const views = read('views.js'), screen = read('screen.js');
+  assert.ok(!screen.includes('[3,2,1]') && !/headers\[3\]|headers\[1\]/.test(screen));
+  assert.ok(!views.includes("['2025','2026','2027']") && !views.includes('[0,2000,4000,6000]') && !views.includes("' / 2027'") && !views.includes('FY2025 to FY2027'));
 });

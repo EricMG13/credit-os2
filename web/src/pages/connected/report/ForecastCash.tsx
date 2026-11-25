@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Segmented } from "@/components/kit/Segmented";
+import { historyNotes, periodsInOrder, unplacedNote } from "../visuals/scenarioPeriods";
 import {
   cellsOf,
   fiscalYear,
@@ -27,6 +28,8 @@ const LINE = 14;
 /** The widest gap word ("Not published", "Distributions") at 12px mono, plus breathing room. */
 const LABEL_ROOM = 100;
 const MIN_INSIDE = 16;
+/** The box height of one caption-size text line: outside labels of a bar sit this far apart. */
+const CAPTION_LINE = 16;
 
 type Part = { name: string; cell: MeasureCell | undefined };
 type Slot = { period: string; parts: [Part, Part] };
@@ -141,6 +144,8 @@ function Chart({ slots }: { slots: Slot[] }) {
             (Number(hasBar) + gapParts.length - 1) * 4;
           const x = middle - used / 2;
           let level = 0;
+          // Outside labels of one bar rise with its stack; each sits a text line above the last.
+          let lastOutside = Infinity;
           const stated = slot.parts.flatMap(({ name, cell }, index) => {
             if (cell?.value == null || isNegative(cell)) return [];
             const barHeight = cell.value * scale;
@@ -148,6 +153,9 @@ function Chart({ slots }: { slots: Slot[] }) {
             level += cell.value;
             const inside = barHeight >= MIN_INSIDE;
             const barMiddle = x + barWidth / 2;
+            const natural = y + barHeight / 2 + 4;
+            const textY = inside ? natural : Math.min(natural, lastOutside - CAPTION_LINE);
+            if (!inside) lastOutside = textY;
             return [
               <g key={name}>
                 <rect
@@ -160,7 +168,7 @@ function Chart({ slots }: { slots: Slot[] }) {
                 />
                 <text
                   x={inside ? barMiddle : x + barWidth + 4}
-                  y={y + barHeight / 2 + 4}
+                  y={textY}
                   textAnchor={inside ? "middle" : "start"}
                   className={`font-mono text-caption ${inside ? "fill-surface-card" : "fill-text-secondary"}`}
                 >
@@ -261,7 +269,7 @@ function Legend({ debtTrace, gaps }: { debtTrace: ReactNode; gaps: boolean }) {
 }
 
 /** One slot per fiscal year from the case's first to its last year; a year with no column keeps
- * its slot. A period that is not a fiscal year follows, in order. */
+ * its slot. A forecast period that is not a fiscal year sits among them, in period order. */
 function yearSlots(periods: string[]) {
   const years = periods.flatMap((period) => fiscalYear(period) ?? []);
   const first = Math.min(...years);
@@ -272,7 +280,42 @@ function yearSlots(periods: string[]) {
         return periods.find((period) => fiscalYear(period) === year) ?? `FY${String(year)}E`;
       })
     : [];
-  return [...axis, ...periods.filter((period) => fiscalYear(period) === null)];
+  return periodsInOrder([...axis, ...periods.filter((period) => fiscalYear(period) === null)]);
+}
+
+type Read = { name: string; measure: Measure | null; cells: Map<string, MeasureCell> };
+
+/** A row's cell in each period outside the forecast: its figure, or its published cell with no
+ * figure and the reason it gives. */
+const cellsOutside = (measure: Measure | null) =>
+  new Map(
+    [
+      ...(measure?.history ?? []),
+      ...(measure?.unplaced ?? []),
+      ...(measure?.historyGaps.blank ?? []),
+    ].map((cell) => [cell.period, cell]),
+  );
+
+/**
+ * The periods outside the forecast that either row states a figure for, each part with its own
+ * cell (a part with no figure there keeps its published cell and reason): `before`, the reported
+ * and pro forma periods in period order, and `last`, the periods the rule cannot place, as written.
+ */
+function historySlots(read: Read[]) {
+  const byRow = read.map(({ name, measure }) => ({ name, cells: cellsOutside(measure) }));
+  const slot = (period: string): Slot => ({
+    period,
+    parts: byRow.map(({ name, cells }) => ({ name, cell: cells.get(period) })) as [Part, Part],
+  });
+  const periods = (cells: (measure: Measure) => MeasureCell[]) => [
+    ...new Set(
+      read.flatMap(({ measure }) => (measure ? cells(measure) : []).map(({ period }) => period)),
+    ),
+  ];
+  return {
+    before: periodsInOrder(periods(({ history }) => history)).map(slot),
+    last: periods(({ unplaced }) => unplaced).map(slot),
+  };
 }
 
 /** Distributions and debt repayments by year, stacked from zero on one scale; never summed. */
@@ -308,11 +351,12 @@ export function UsesOfCash({
         <GapNote>The model publishes no distributions or debt repayment rows.</GapNote>
       </Tile>
     );
-  const byName = measures.map(([name, measure]) => ({
+  const byName: Read[] = measures.map(([name, measure]) => ({
     name,
+    measure,
     cells: new Map((measure ? cellsOf(measure, group) : []).map((cell) => [cell.period, cell])),
   }));
-  const periods = [...new Set(byName.flatMap(({ cells }) => [...cells.keys()]))].sort();
+  const periods = [...new Set(byName.flatMap(({ cells }) => [...cells.keys()]))];
   if (!periods.length)
     return (
       <Tile {...tile}>
@@ -322,11 +366,23 @@ export function UsesOfCash({
         </GapNote>
       </Tile>
     );
-  const slots: Slot[] = yearSlots(periods).map((period) => ({
-    period,
-    parts: byName.map(({ name, cells }) => ({ name, cell: cells.get(period) })) as [Part, Part],
-  }));
-  const notes = slots.flatMap(({ period, parts }) =>
+  const { before, last } = historySlots(byName);
+  const slots: Slot[] = [
+    ...before,
+    ...yearSlots(periods).map((period) => ({
+      period,
+      parts: byName.map(({ name, cells }) => ({ name, cell: cells.get(period) })) as [Part, Part],
+    })),
+    ...last,
+  ];
+  // A period outside the forecast that is drawn says its own gap; the others are named per row.
+  const drawnOutside = new Set([...before, ...last].map(({ period }) => period));
+  const undrawn = byName.flatMap(({ name, measure }) =>
+    measure
+      ? historyNotes(measure.historyGaps, drawnOutside).map((note) => `${name}: ${note}`)
+      : [],
+  );
+  const gapNotes = slots.flatMap(({ period, parts }) =>
     parts.every(({ cell }) => cell === undefined)
       ? [`${period}: not published for this case.`]
       : parts.flatMap(({ name, cell }) =>
@@ -341,6 +397,7 @@ export function UsesOfCash({
               : [],
         ),
   );
+  const notes = [...gapNotes, ...undrawn, ...unplacedNote(last)];
   return (
     <Tile {...tile}>
       <div className="flex">
@@ -367,7 +424,7 @@ export function UsesOfCash({
           aria-label="Uses of cash table"
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           tabIndex={0}
-          className="relative min-w-0 overflow-x-auto max-[480px]:p-2"
+          className="relative min-w-0 overflow-x-auto rounded-ds-sm outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:p-2"
         >
           <table className="w-full border-collapse text-small">
             <caption className="sr-only">Distributions and debt repayment by period</caption>

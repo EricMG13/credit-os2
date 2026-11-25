@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { CatalogueRun, LibraryIndex } from "../publishedReport";
+import { EVENT_HEADERS } from "../visuals/EventLane";
 import { groupIssuers } from "./group";
 import { IssuerRow } from "./IssuerRow";
 
@@ -128,12 +129,158 @@ it("says a run without a report has none, and offers no report or Calendar link"
   expect(screen.getByText("Needs a published report")).toBeVisible();
 });
 
-it("says in the opened row why the decision is not shown, and shows none", () => {
+it("says once in the row that the decision is not shown, and leaves the reason to the page", () => {
   draw([run("acme-2026", "2026-03-31")], ["acme-2026"]);
   fireEvent.click(screen.getByRole("button", { name: /Show runs and detail/ }));
-  expect(
-    screen.getByText(/shows a committee decision only with a recorded clearance/),
-  ).toBeVisible();
+  expect(screen.getAllByText("Not shown in the Library")).toHaveLength(1);
+  expect(screen.queryByText(/recorded clearance/)).toBeNull();
+  expect(screen.queryByRole("region", { name: "Decision, Acme" })).toBeNull();
+});
+
+/** A browser that reports every watched row as in view at once. */
+function seeEverything() {
+  class Seen {
+    constructor(private readonly tell: (entries: { isIntersecting: boolean }[]) => void) {}
+    observe() {
+      this.tell([{ isIntersecting: true }]);
+    }
+    disconnect() {
+      return undefined;
+    }
+  }
+  vi.stubGlobal("IntersectionObserver", Seen);
+}
+
+const SHA = "d".repeat(64);
+const dated = (rows: string[][]) => ({
+  catalogue: { real: [] },
+  workspace: {
+    runs: {
+      run: {
+        folder: "acme-2026",
+        asOf: "2026-03-31",
+        modules: { "CP-2D": { outputs: ["acme-2026/liquidity"], default: "acme-2026/liquidity" } },
+      },
+    },
+    outputs: {
+      "acme-2026/liquidity": {
+        id: "acme-2026/liquidity",
+        run: "run",
+        module: "CP-2D",
+        label: "Liquidity",
+        href: "",
+        sha256: SHA,
+        events: [{ table: 20, lane: "Dated events" }],
+      },
+    },
+    handoffs: {
+      [SHA]: [
+        {
+          heading: "Events: Dated events",
+          line: 19,
+          level: 3,
+          blocks: [
+            {
+              type: "table",
+              line: 20,
+              headers: EVENT_HEADERS,
+              rows: rows.map((cells, index) => ({ line: 22 + index, cells })),
+            },
+          ],
+        },
+      ],
+    },
+    models: [],
+  },
+  chips: {},
+});
+const event = (date: string, name: string, status = "Scheduled — Contract") => [
+  date,
+  date.length === 4 ? "year" : "day",
+  "2026-01-01",
+  name,
+  status,
+  "Not a file",
+  "Refinancing",
+];
+
+it("shows the next dated event in the closed row once the row is in view, reading the report once", async () => {
+  seeEverything();
+  const fetch = vi.fn(() =>
+    Promise.resolve(
+      Response.json(
+        dated([event("2028-06-30", "Term loan due"), event("2026-09-15", "Notes call date")]),
+      ),
+    ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  draw([run("acme-2026", "2026-03-31")], ["acme-2026"]);
+  const row = screen.getByRole("listitem");
+  const date = await within(row).findByText("15 September 2026");
+  expect(date).toHaveAttribute("datetime", "2026-09-15");
+  expect(date).toHaveClass("font-mono");
+  expect(within(row).getByText("Notes call date")).toBeVisible();
+  expect(within(row).queryByText("Term loan due")).toBeNull();
+  expect(within(row).getByRole("link", { name: "Open Calendar" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /Show runs and detail/ })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it("draws a year-only event date as the module wrote it, with no machine date", async () => {
+  seeEverything();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.resolve(Response.json(dated([event("2028", "Term loan due")])))),
+  );
+  draw([run("acme-2026", "2026-03-31")], ["acme-2026"]);
+  const date = await screen.findByText("2028");
+  expect(date).not.toHaveAttribute("datetime");
+});
+
+it("says a report with no upcoming event states none, and never a date", async () => {
+  seeEverything();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve(
+        Response.json(dated([event("2025-01-01", "Notes issued", "Historical — Published")])),
+      ),
+    ),
+  );
+  draw([run("acme-2026", "2026-03-31")], ["acme-2026"]);
+  expect(await screen.findByText("No upcoming date stated")).toBeVisible();
+});
+
+it("does not read a report for its dates before the row is in view or opened", () => {
+  const fetch = vi.fn(() => Promise.resolve(Response.json({})));
+  vi.stubGlobal("fetch", fetch);
+  draw([run("acme-2026", "2026-03-31")], ["acme-2026"]);
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it("draws better in the accent and worse in the signal colour, each with its word", () => {
+  draw(
+    [
+      run("acme-2026", "2026-03-31", {
+        metrics: {
+          ...METRICS,
+          coverage: {
+            value: "3.00",
+            unit: "x",
+            period: "FY2025",
+            prior: { value: "4.00", period: "FY2024" },
+            change: "-1.00",
+          },
+        },
+      }),
+    ],
+    ["acme-2026"],
+  );
+  expect(screen.getByText("better").parentElement).toHaveClass("text-success-text");
+  expect(screen.getByText("worse").parentElement).toHaveClass("text-warning-text");
 });
 
 it("opens to the figures the row does not show, as one stats strip with its own trace controls", () => {

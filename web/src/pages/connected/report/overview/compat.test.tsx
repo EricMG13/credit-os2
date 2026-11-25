@@ -2,7 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { OutputEntry, Section } from "../../publishedReport";
 import { FigureNotes } from "./figureParts";
-import { DeltaBar, DotStrip, MiniSlope, Slope, type Mark } from "./marks";
+import { DeltaBar, MiniSlope, Slope, type Mark } from "./marks";
 import { bottomLine, gapReason, lastTwo, passageParagraphs, periodSeries } from "./read";
 
 afterEach(cleanup);
@@ -66,6 +66,18 @@ it("gives the last two rows without an entry, as before, and the stricter rule w
   expect(lastTwo(series, entry([LEVERAGE])).prior).toBeUndefined();
 });
 
+it("chooses no latest period where a fiscal year stands beside a dated period", () => {
+  const mixed = section(
+    "Chart data: leverage",
+    ["Period", "Total debt / EBITDA", "Reporting unit"],
+    ["FY2025", "4.00", "x"],
+    ["2025-06-30", "5.00", "x"],
+  );
+  const series = periodSeries(entry([mixed]), "leverage", /^Total debt/);
+  if (!series) throw new Error("fixture");
+  expect(lastTwo(series, entry([mixed]))).toEqual({ latest: undefined, prior: undefined });
+});
+
 it("reads a passage's paragraphs with the earlier arguments", () => {
   const written = entry([
     { heading: "Findings", level: 2, line: 1, blocks: [] },
@@ -112,9 +124,6 @@ it("draws the series marks from the earlier Mark[] with the same points and labe
   expect(
     screen.getByRole("img", { name: "Slope" }).querySelectorAll("[data-segment]"),
   ).toHaveLength(1);
-  render(<DotStrip marks={marks} tone="better" suffix="x" label="Strip" />);
-  expect(dots("Strip")).toHaveLength(2);
-  expect(texts("Strip").sort()).toEqual(["4.00x", "5.00x", "FY2023", "FY2024"]);
   render(<MiniSlope marks={marks} tone="better" label="Mini slope" />);
   expect(dots("Mini slope")).toHaveLength(2);
   expect(screen.getByRole("img", { name: "Mini slope" }).querySelectorAll("polyline")).toHaveLength(

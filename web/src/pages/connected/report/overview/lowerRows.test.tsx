@@ -84,7 +84,7 @@ it("draws every module as a linked node under its stage, the lead included", () 
   const stages = within(tile).getByRole("list", { name: "Stages" });
   expect(
     within(stages)
-      .getAllByRole("heading", { level: 3 })
+      .getAllByRole("heading", { level: 4 })
       .map((h) => h.textContent),
   ).toEqual(["Sources1", "Credit1", "Structure and market1", "Validation and decision1"]);
   expect(within(stages).getByRole("link", { name: /Legal & covenants/ })).toHaveAttribute(
@@ -320,7 +320,8 @@ it("keeps rows apart when their status, relevance or timing differ, and never me
   ).getAllByRole("listitem");
   expect(items).toHaveLength(4);
   expect(items[1]).toHaveTextContent("Scenario — only if the waiver lapses");
-  expect(items[1]).toHaveTextContent("Legal & covenants · Cost");
+  expect(items[1]).toHaveTextContent("Cost");
+  expect(items[1]).toHaveTextContent("Recorded by Legal & covenants");
   expect(items[0]).not.toHaveTextContent("Legal & covenants");
 });
 
@@ -453,4 +454,43 @@ it("draws event cells through the reader rule: markers removed, a cell carrying 
   const tile = screen.getByRole("region", { name: "Dates to watch" });
   expect(within(within(tile).getByRole("list")).getByText("Covenant test")).toBeVisible();
   expect(tile).not.toHaveTextContent(/\[E3\]|T4\.18/);
+});
+
+it("draws one trace control an event, however many modules recorded it, and sends the rest to the Calendar", () => {
+  const rows = ["Liquidity", "Downside", "Legal & covenants"].map((owner) => ({
+    ...event("2025-03-31", "Synthetic note"),
+    owner,
+  }));
+  mocks.calendar = rows;
+  mocks.upcoming = rows;
+  render(<DatesRow {...props} />);
+  const items = within(
+    within(screen.getByRole("region", { name: "Dates to watch" })).getByRole("list"),
+  ).getAllByRole("listitem");
+  expect(items).toHaveLength(1);
+  const [item] = items as [HTMLElement];
+  // One row, one trace: the first module's. The Calendar lists each module's own row.
+  expect(within(item).getAllByRole("link", { name: /^Source for / })).toHaveLength(1);
+  expect(
+    within(item).getByRole("link", {
+      name: "Source for Synthetic note on 31 March 2025 from Liquidity",
+    }),
+  ).toBeVisible();
+  const recorded = within(item).getByRole("link", { name: /^Recorded by 3 modules/ });
+  expect(recorded).toHaveAttribute("href", "#calendar");
+  // The modules are named to a screen reader, never as a roll-call in the visible line.
+  expect(recorded).toHaveAccessibleName(
+    "Recorded by 3 modules: Liquidity, Downside, Legal & covenants. Open the issuer calendar",
+  );
+});
+
+it("opens the per-module bottom lines where the page is wide, behind one named control", () => {
+  mocks.lines = [line("CP-0", "Source readiness", "Delivered", "Sources are complete.")];
+  render(<PipelineRow {...props} />);
+  const list = screen.getByRole("list", { name: "Bottom lines" });
+  const details = list.closest("details");
+  // Where the width cannot be asked (as here), nothing starts hidden.
+  expect(details).toHaveAttribute("open");
+  expect(details?.querySelector("summary")).toHaveTextContent("Each module’s bottom line1");
+  expect(within(list).getByRole("heading", { level: 4, name: "Source readiness" })).toBeVisible();
 });

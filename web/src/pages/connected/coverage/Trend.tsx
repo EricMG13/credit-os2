@@ -5,6 +5,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { ChevronRight } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
 import {
   factsOf,
@@ -484,8 +485,12 @@ function TableView({
   factsFor: (run: CoverageRun) => Fact[];
 }) {
   return (
-    <details className="min-w-0 rounded-ds-lg border border-border-subtle bg-surface-card p-4">
-      <summary className="flex min-h-8 cursor-pointer items-center text-small font-medium max-[480px]:min-h-11">
+    <details className="group min-w-0 rounded-ds-lg border border-border-subtle bg-surface-card p-4">
+      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 rounded-ds-sm text-small font-medium outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11">
+        <ChevronRight
+          aria-hidden="true"
+          className="size-4 shrink-0 text-text-tertiary group-open:rotate-90"
+        />
         Table view
       </summary>
       <div
@@ -609,19 +614,19 @@ export function TrendView({
           ))}
         </div>
       )}
-      <p className="m-0 text-small text-text-secondary">
+      <p className="reading-copy m-0 max-w-3xl text-small text-text-secondary">
         One panel per issuer, from its newest run, on one scale. Periods are matched as written, so
         issuers with different year ends sit at different points. Each figure is as its module
         wrote it; bases can differ between issuers.
       </p>
       {!ordered && (
-        <p className="m-0 text-small text-gap-text">
+        <p className="reading-copy m-0 max-w-3xl text-small text-gap-text">
           Periods are in the order the modules state them; this page could not put them in time
           order, so no line joins them.
         </p>
       )}
       {scale.low && scale.high && (
-        <p className="m-0 text-small text-text-secondary">
+        <p className="reading-copy m-0 max-w-3xl text-small text-text-secondary">
           {`Same scale in every panel: lowest stated figure ${figure(scale.low)}, highest ${figure(scale.high)}`}
         </p>
       )}

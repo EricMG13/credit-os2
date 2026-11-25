@@ -166,9 +166,14 @@ it("marks only the current run", () => {
 it("shows pathway, finished state, labels, modules run and the two links", () => {
   const items = rows();
   expect(within(row(items, 0)).getByText("full")).toBeTruthy();
-  expect(within(row(items, 0)).getByText(/Finished/)).toBeTruthy();
-  expect(within(row(items, 0)).getByText(/1 module run: /)).toBeTruthy();
-  expect(within(row(items, 1)).getByText(/1 module run: /)).toBeTruthy();
+  // Every listed run is finished: the tile says so once, and no row repeats it.
+  expect(screen.getAllByText(/Finished runs, newest first\./)).toHaveLength(1);
+  expect(within(row(items, 0)).queryByText(/Finished/)).toBeNull();
+  for (const at of [0, 1]) {
+    const modules = within(row(items, at)).getByText("1 module run").closest("details");
+    expect(modules).not.toHaveAttribute("open");
+    expect(modules).toHaveTextContent(/1 module run\S/);
+  }
   expect(within(row(items, 3)).getByText("Earlier format")).toBeTruthy();
   const overview = within(row(items, 2)).getByRole("link", { name: "Open overview" });
   const changes = within(row(items, 2)).getByRole("link", { name: "What changed" });

@@ -28,7 +28,7 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   Snapshot deliverable, with its Model sheet
   (`docs/rulings/2026-11-25-deliverables-and-recommendations.md`). Do not generate any other
   Excel workbook or treat workbook export as a completion requirement. Reuse the
-  existing HTML Model, chart and calculation-JSON outputs as parts of the issuer report.
+  existing HTML Model, chart and calculation-JSON outputs as parts of the issuer report. (checked: tests/test_repo_rules.py)
 - The reader is a portfolio manager or credit committee member who has not read the source
   documents. Voice standard (`docs/rulings/2026-11-11-reader-and-issuer-report.md`): every prose
   module writes bottom line, key findings, contrary evidence and what would change the view, and
@@ -73,7 +73,7 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
 - A live/model success requires actual retained model responses and downstream
   consumption. Synthetic regressions and deterministic retained-data reports must
   be labeled with their actual scope.
-- No credential files. Provider keys may come only from the launching environment.
+- No credential files (checked: tests/test_repo_rules.py). Provider keys may come only from the launching environment.
   Salted hashes of the owner-set registration passcodes in the account store are not
   credential files; no plain-text passcode, client secret or sign-in token is stored
   (`docs/rulings/2026-11-25-registration-passcodes.md`).
@@ -83,7 +83,7 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   `docs/rulings/2026-11-11-run-start-submit.md` and the pathway's cap per run: Lite USD 20,
   Full 30, Deep 50, the five purpose pathways 20 (owner, 2026-11-25;
   `docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md`, amending
-  `docs/rulings/2026-11-15-pathway-tiers-and-caps.md`). The build itself does not run providers.
+  `docs/rulings/2026-11-15-pathway-tiers-and-caps.md`). The build itself does not run providers. (checked: tests/test_repo_rules.py)
 - Run confidence-review after code changes: enumerate doubts, trace their causes,
   test adversarial cases and repair confirmed defects before completion.
 - Run rewrite-tournament in post-edit mode for nontrivial changed functions,
@@ -95,5 +95,5 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
 - While working, run fast targeted tests only (each run within a few minutes; `timeout 300`).
   The full suite, slow tests included, runs weekly (Sunday 01:00 UTC) in GitHub Actions
   (docs/QUALITY-GATE.md); a failure there not in tests/known-failures.txt is new.
-- Keep one concise verification record. VERIFICATION.md stays under 1,000 lines; trim its oldest entries (git history keeps them). No review/brief/lease proliferation.
+- Keep one concise verification record. VERIFICATION.md stays under 1,000 lines (checked: tests/test_repo_rules.py); trim its oldest entries (git history keeps them). No review/brief/lease proliferation.
 - Never mutate predecessor repositories or historical live run directories.

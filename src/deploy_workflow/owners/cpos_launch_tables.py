@@ -13,7 +13,12 @@ from typing import Any, cast
 
 from deploy_workflow import confidence
 from deploy_workflow.changes import same_period
-from deploy_workflow.credit_os_catalogue import chart_row, period_order
+from deploy_workflow.credit_os_catalogue import (
+    carries_date,
+    chart_row,
+    is_reported,
+    period_order,
+)
 from deploy_workflow.handoff_delivery import MarkdownRoute
 from deploy_workflow.markdown_delivery import STRIP_FIGURES
 from deploy_workflow.owners import cpos_cp1_check as cp1_check
@@ -134,10 +139,14 @@ def _decimal(cell: str) -> Decimal | None:
 
 
 def _unorderable_period(lines: list[str], rows: list[list[str]]) -> str | None:
-    """The Period cell that keeps the pack from ordering the net debt table, or None when the
-    table orders. The pack's own reader (`chart_row`) decides; only its ValueError is caught. The
-    cell named is the first the reader's `period_order` rejects, else the first whose form differs
-    from the first row's or that repeats an earlier one; a row of the wrong width is
+    """The Period cell that keeps the pack from reading the net debt table's latest reported row,
+    or None when it can. The pack's own reader (`chart_row`) decides; only its ValueError is
+    caught. The cell named is the first the ordering rule cannot place (`period_order` is None),
+    else the first with the key of an earlier row (`FY2024` twice, or `FY2024` and `FY 2024`),
+    else, when no row is a reported period (each is pro forma or a forecast), the first row,
+    else the first actual row that carries its date where the first actual row does not, or the
+    reverse (`FY2024` then `2025-06-30`: which is later depends on the year end). LTM, pro forma
+    and forecast rows order beside either form and are not refused; a row of the wrong width is
     `chart_issues`'s, not this check's."""
     try:
         chart_row(lines, NET_DEBT_HEADING, prefix="")
@@ -145,16 +154,16 @@ def _unorderable_period(lines: list[str], rows: list[list[str]]) -> str | None:
         pass
     else:
         return None
-    ordered: list[tuple[str, tuple[int, ...]]] = []
+    seen: dict[tuple[int, ...], str] = {}
     for row in (r for r in rows[2:] if len(r) == len(rows[0])):
         key = period_order(row[0])
-        if key is None:
+        if key is None or key in seen:
             return row[0]
-        ordered.append((row[0], key))
-    for number, (period, key) in enumerate(ordered):
-        if key[0] != ordered[0][1][0] or any(key == earlier for _, earlier in ordered[:number]):
-            return period
-    return None
+        seen[key] = row[0]
+    if seen and not any(is_reported(key) for key in seen):
+        return next(iter(seen.values()))
+    dated = [(cell, form) for cell in seen.values() if (form := carries_date(cell)) is not None]
+    return next((cell for cell, form in dated if form != dated[0][1]), None)
 
 
 def _net_debt_issues(text: str) -> tuple[str, ...]:
@@ -172,10 +181,12 @@ def _net_debt_issues(text: str) -> tuple[str, ...]:
     unordered = _unorderable_period(lines, rows)
     if unordered is not None:
         issues.append(
-            f"`{heading}` Period `{unordered}` cannot be ordered: write "
-            "`FY2024 / 2024-09-30` for a fiscal year end or the date alone (`2025-06-30`) for an "
-            "interim balance sheet, one form for the whole table and each period once; put any "
-            "other word in the Basis and limitation cell."
+            f"`{heading}` Period `{unordered}` keeps the latest reported row from being read. A "
+            "Period is refused when no period can be read from it, when it states a period an "
+            "earlier row states, when no row is a reported period (each is pro forma or a "
+            "forecast), or when some reported rows carry their date and others do not (which is "
+            "later then depends on the year end). Write `FY2024 / 2024-09-30` for a fiscal year "
+            "end or the date alone (`2025-06-30`) for an interim balance sheet, each period once."
         )
     for row in rows[2:]:
         if len(row) != len(rows[0]):

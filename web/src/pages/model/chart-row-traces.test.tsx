@@ -60,7 +60,7 @@ it.each([
   renderPage(page);
   for (const title of titles) {
     const figure = screen.getByRole("figure", { name: title });
-    fireEvent.click(within(figure).getByRole("radio", { name: "Table" }));
+    fireEvent.click(within(figure).getByRole("button", { name: "Table" }));
     const rows = within(figure).getAllByRole("row").slice(1);
     for (const row of rows)
       expect(within(row).getByRole("link", { name: /^Show the sources for/ })).toHaveAttribute(
@@ -73,7 +73,7 @@ it.each([
 it("S5-012 states when a table row's source was not supplied", () => {
   renderPage("forecast", false);
   const figure = screen.getByRole("figure", { name: "Interest cover" });
-  fireEvent.click(within(figure).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(figure).getByRole("button", { name: "Table" }));
   for (const row of within(figure).getAllByRole("row").slice(1)) {
     expect(within(row).getByText("Source not recorded")).toBeVisible();
     expect(within(row).queryByRole("link", { name: /^Show the sources for/ })).toBeNull();

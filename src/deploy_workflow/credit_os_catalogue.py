@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal, localcontext
 from pathlib import Path, PurePath
 from typing import Any
 from urllib.parse import quote
 
+from deploy_vii.period_order import PeriodClass, parse_period, period_key
 from deploy_workflow.context import CONTEXT_SOURCE_ID, ContextRefused, RunContext, load_context
 from deploy_workflow.library_index import (
     Library,
@@ -35,9 +36,6 @@ BASIS = "Basis and limitation"
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 _MONEY = re.compile(r"-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?")  # money may group thousands
 _MONEY_KEYS = frozenset({"revenue", "adjusted_ebitda"})  # the only metrics read as money
-_FISCAL_YEAR = re.compile(r"FY(\d{4})")
-_DATED_YEAR = re.compile(r"FY(\d{4}) / (\d{4}-\d{2}-\d{2})")
-_ISO_DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 _PERIOD = re.compile(r"^(q[1-4]|h[12]|fy)-\d{4}$")
 _PERIOD_KINDS = {"f": "Annual", "h": "Half-year", "q": "Quarterly"}  # By first letter.
 _NOT_SUPPLIED = "Not supplied"
@@ -73,30 +71,23 @@ def cells(line: str) -> list[str]:
 
 
 def period_order(cell: str) -> tuple[int, ...] | None:
-    """Sort key of a Period cell: ``FY2024``, ``2024-09-30`` or ``FY2024 / 2024-09-30`` (ordered
-    by its date); None for any other text, an impossible date, or a year that disagrees."""
-    year = _FISCAL_YEAR.fullmatch(cell)
-    if year:
-        return (1, int(year[1]))
-    both = _DATED_YEAR.fullmatch(cell)
-    date = _ISO_DATE.fullmatch(both[2] if both else cell)
-    if date is None or (both and both[1] != date[1]):
-        return None
-    try:
-        day = datetime(int(date[1]), int(date[2]), int(date[3]))
-    except ValueError:
-        return None
-    return (2, day.year, day.month, day.day)
+    """Sort key of a Period cell under the one ordering rule (`deploy_vii.period_order`): (class,
+    year, month, day, span, PYTD-first), so fiscal years, interim dates, YTD, LTM, pro forma and
+    forecast cells all order; None for a cell the rule cannot place (no year, an impossible date).
+    The first element is the period class (`PeriodClass`), not the cell's written form."""
+    return period_key(cell)
 
+
+type RankedRow = tuple[tuple[int, ...], dict[str, str], int]
 
 CHART_PREFIX = "Chart data: "
 
 
-def chart_rows(
-    lines: list[str], chart: str, prefix: str = CHART_PREFIX
-) -> list[tuple[tuple[int, ...], dict[str, str], int]] | None:
-    """Every row of ``### <prefix><chart>`` as (period key, {column: cell}, 1-based line). None
-    when the table is absent; ValueError when its periods cannot be ordered (never a guess)."""
+def chart_rows(lines: list[str], chart: str, prefix: str = CHART_PREFIX) -> list[RankedRow] | None:
+    """Every row of ``### <prefix><chart>`` as (period key, {column: cell}, 1-based line), as
+    written. None when the table is absent; ValueError when a Period cannot be placed by the
+    ordering rule or two rows have one key (never a guess). Rows of different forms and classes
+    (fiscal years, interim dates, LTM, pro forma, forecasts) order together."""
     try:
         start = lines.index(f"### {prefix}{chart}")
     except ValueError:
@@ -110,30 +101,72 @@ def chart_rows(
     if len(table) < 3:  # header, separator, at least one row
         return None
     header = cells(lines[table[0]])
-    ranked: list[tuple[tuple[int, ...], dict[str, str], int]] = []
+    ranked: list[RankedRow] = []
     for number in table[2:]:
         values = cells(lines[number])
         key = period_order(dict(zip(header, values, strict=False)).get("Period", ""))
         if len(values) != len(header) or key is None:
             raise ValueError("a row has no period that can be ordered")
         ranked.append((key, dict(zip(header, values, strict=True)), number + 1))
-    keys = [key for key, _, _ in ranked]
-    if len({key[0] for key in keys}) != 1 or len(set(keys)) != len(keys):
-        raise ValueError("the periods mix forms or repeat")
+    if len({key for key, _, _ in ranked}) != len(ranked):
+        raise ValueError("two rows state one period")
     return ranked
+
+
+def is_reported(key: tuple[int, ...]) -> bool:
+    """Whether a `period_order` key is of the actual, YTD or LTM class: a reported period, not a
+    pro forma one and not a forecast."""
+    return key[0] <= PeriodClass.LTM
+
+
+class MixedPeriodForms(ValueError):
+    """The actual rows mix dated and fiscal-labelled periods: no latest reported row is chosen."""
+
+    def __init__(self) -> None:
+        super().__init__("the reported rows mix dated and fiscal-labelled periods")
+
+
+def carries_date(cell: str) -> bool | None:
+    """Whether an actual-class period carries its own date (`2025-06-30`, `FY2024 / 2024-09-30`)
+    or is fiscal-labelled (`FY2025`, `Q3 2025`, `Jun 2025`); None for a cell of another class or
+    one the rule cannot place."""
+    parsed = parse_period(cell)
+    if parsed is None or parsed.period_class is not PeriodClass.ACTUAL:
+        return None
+    return parsed.span == "date"
+
+
+def mixes_dated_and_fiscal(periods: Iterable[str]) -> bool:
+    """Whether the actual-class periods among these mix dated and fiscal-labelled ones. Which of
+    `FY2025` and `2025-06-30` is later depends on the year end, so no latest reported figure is
+    chosen from such a set; charts still draw both, in rule order."""
+    return {carries_date(cell) for cell in periods} >= {True, False}
+
+
+def latest_reported(ranked: list[RankedRow]) -> RankedRow:
+    """The latest reported row: the last in rule order among the actual, YTD and LTM classes. A
+    pro forma or forecast row is never the latest reported figure; ValueError when every row is
+    one, or when the actual rows mix dated and fiscal-labelled periods (never a guess)."""
+    reported = [item for item in ranked if is_reported(item[0])]
+    if not reported:
+        raise ValueError("no row is a reported period: each is pro forma or a forecast")
+    if mixes_dated_and_fiscal(row.get("Period", "") for _, row, _ in ranked):
+        raise MixedPeriodForms
+    return max(reported, key=lambda item: item[0])
 
 
 def chart_row(
     lines: list[str], chart: str, prefix: str = CHART_PREFIX
 ) -> tuple[dict[str, str], int] | None:
-    """The latest-period row of ``### <prefix><chart>`` (``Chart data: <chart>``) as {column:
-    cell}, with its 1-based line. The latest is chosen by the Period value, whatever the row
-    order. None when the table is absent; ValueError when its periods cannot be ordered (never a
-    guess)."""
+    """The latest reported row of ``### <prefix><chart>`` (``Chart data: <chart>``) as {column:
+    cell}, with its 1-based line: the last in rule order among the actual, YTD and LTM rows,
+    whatever the row order, never a pro forma or forecast row. None when the table is absent;
+    ValueError when its periods cannot be ordered, none is a reported period, or the actual rows
+    mix dated and fiscal-labelled periods (never a guess)."""
     ranked = chart_rows(lines, chart, prefix)
     if ranked is None:
         return None
-    _, row, number = max(ranked, key=lambda item: item[0])
+    _, row, number = latest_reported(ranked)
     return row, number
 
 
@@ -309,14 +342,15 @@ def handoff_metrics(
     for chart, key, column in _METRICS:
         try:
             ranked = chart_rows(lines, chart)
+            latest = None if ranked is None else latest_reported(ranked)
         except ValueError as error:
             if chart not in unordered:
                 unordered.add(chart)
                 issues.append(f"{name}: CP-1 {chart} table has no metric ({error})")
             continue
-        if ranked is None:
+        if ranked is None or latest is None:
             continue
-        _, row, number = max(ranked, key=lambda item: item[0])
+        _, row, number = latest
         held = column if column in row or twin_of(column) not in row else twin_of(column)
         value = row.get(held, "")
         if value.startswith(_NOT_SUPPLIED):

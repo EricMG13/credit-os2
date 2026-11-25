@@ -254,7 +254,7 @@ describe("WaterfallChart chart side", () => {
 describe("WaterfallChart table side", () => {
   it("shows the mock's strings, n.a. for Other cash items", () => {
     renderWalk();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const cells = (name: RegExp) =>
       within(screen.getByRole("row", { name }))
         .getAllByRole("cell")

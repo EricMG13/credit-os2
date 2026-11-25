@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { Button } from "@/components/base/buttons/button";
-import { ArrowRight, Download01 } from "@untitledui/icons";
+import { ArrowRight, ChevronDown, ChevronUp, Download01 } from "@untitledui/icons";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 import { useResource } from "../useResource";
 import { scopeQualifications } from "../visuals/LegacyForecast";
@@ -65,6 +65,68 @@ function CalculationDownload({ folder, model }: { folder: string; model: string 
   );
 }
 
+const ROW = "border-t border-border-hairline pt-3 first:border-t-0 first:pt-0";
+
+type Passage = { text: string | null; recorded: string };
+type Shared = { reason: string; lines: (Passage & { name: string })[] };
+
+/** "<line>: <reason>": a limit stated for one named line; anything else is no such limit. */
+function namedLine(text: string | null) {
+  const at = text?.indexOf(": ") ?? -1;
+  if (!text || at < 1 || at > 60 || /[.;:]/u.test(text.slice(0, at))) return null;
+  return { name: text.slice(0, at), reason: text.slice(at + 2) };
+}
+
+/**
+ * The limits as rows, in the model's order. Limits that state one reason, character for character,
+ * for different named lines become one row at the first of them: the reason once, as written, then
+ * each line's name with its own trace. Nothing else is merged and no limit is dropped.
+ */
+function scopeRows(limits: readonly Passage[]): (Passage | Shared)[] {
+  const shared = new Map<string, Shared>();
+  for (const limit of limits) {
+    const named = namedLine(limit.text);
+    if (!named) continue;
+    const group = shared.get(named.reason) ?? { reason: named.reason, lines: [] };
+    group.lines.push({ ...limit, name: named.name });
+    shared.set(named.reason, group);
+  }
+  const drawn = new Set<Shared>();
+  return limits.flatMap((limit): (Passage | Shared)[] => {
+    const named = namedLine(limit.text);
+    const group = named && shared.get(named.reason);
+    if (!group || group.lines.length < 2) return [limit];
+    if (drawn.has(group)) return [];
+    drawn.add(group);
+    return [group];
+  });
+}
+
+/** One reason the model records for several lines: the reason once, then each line with its trace. */
+function SharedLimit({ row, source }: { row: Shared; source?: ForecastSource }) {
+  return (
+    <li className={`${ROW} grid min-w-0 gap-2`}>
+      <p className="text-small text-text-secondary">
+        <span className="text-text-tertiary">
+          Recorded for {String(row.lines.length)} lines, in the same words:
+        </span>{" "}
+        {row.reason}
+      </p>
+      <ul aria-label="Lines this limit is recorded for" className="flex flex-wrap gap-2">
+        {row.lines.map(({ name, recorded }) => (
+          <li
+            key={recorded}
+            className={`${TRACE_HOST} inline-flex items-center gap-1 rounded-ds-xs border border-border-subtle bg-surface-subtle pl-2 text-caption text-text-primary`}
+          >
+            {name}
+            {source?.(`Model scope qualification, ${name}`, { recordedQualification: recorded })}
+          </li>
+        ))}
+      </ul>
+    </li>
+  );
+}
+
 /** Scope and limits as a visible list, each with its trace. */
 export function ScopeTile({
   model,
@@ -84,9 +146,11 @@ export function ScopeTile({
 }) {
   const { base, limits, lineLevel } = scopeQualifications(model);
   const [allLimits, setAllLimits] = useState(false);
-  // Every limit, in the model's order; beyond eight, the rest one press away.
-  const shownLimits = allLimits ? limits : limits.slice(0, MOST_LIMITS);
-  const passages = [...base, ...shownLimits];
+  // Every limit, in the model's order, a reason several lines share drawn once; beyond eight rows,
+  // the rest one press away.
+  const rows = scopeRows(limits);
+  const shownLimits = allLimits ? rows : rows.slice(0, MOST_LIMITS);
+  const passages: (Passage | Shared)[] = [...base, ...shownLimits];
   return (
     <Tile
       span={8}
@@ -97,17 +161,21 @@ export function ScopeTile({
     >
       {passages.length ? (
         <ul className="grid min-w-0 gap-3 wrap-anywhere">
-          {passages.map(({ text, recorded }) => (
-            <li
-              key={JSON.stringify([recorded, text])}
-              className={`${TRACE_HOST} flex items-start justify-between gap-2 border-t border-border-hairline pt-3 first:border-t-0 first:pt-0`}
-            >
-              <p className="text-small text-text-secondary">
-                {text ?? "This limit carries a reference; read it in Evidence."}
-              </p>
-              {source?.("Model scope qualification", { recordedQualification: recorded })}
-            </li>
-          ))}
+          {passages.map((row) =>
+            "reason" in row ? (
+              <SharedLimit key={JSON.stringify(row.lines)} row={row} source={source} />
+            ) : (
+              <li
+                key={JSON.stringify([row.recorded, row.text])}
+                className={`${TRACE_HOST} ${ROW} flex items-start justify-between gap-2`}
+              >
+                <p className="text-small text-text-secondary">
+                  {row.text ?? "This limit carries a reference; read it in Evidence."}
+                </p>
+                {source?.("Model scope qualification", { recordedQualification: row.recorded })}
+              </li>
+            ),
+          )}
         </ul>
       ) : (
         <GapNote>No qualifications are available in this summary.</GapNote>
@@ -124,10 +192,11 @@ export function ScopeTile({
             : `${String(lineLevel)} line-level entries are in the Evidence record`}
         </Button>
       )}
-      {limits.length > MOST_LIMITS && (
+      {rows.length > MOST_LIMITS && (
         <Button
           color="link-gray"
           size="sm"
+          iconTrailing={allLimits ? ChevronUp : ChevronDown}
           aria-expanded={allLimits}
           onClick={() => {
             setAllLimits(!allLimits);
