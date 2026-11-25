@@ -1,0 +1,573 @@
+## Request
+
+Financial foundation for TransDigm Group Incorporated as of 2024-09-30, on the deep credit assessment pathway. Scope is the audited FY2024 and FY2023 statements, debt at carrying value and principal, issuer EBITDA definitions, credit metrics, subsequent events and the gaps that restrict later credit work.
+
+## Sources
+
+| Source | Document | Document date | sha256 | Use |
+|---|---|---|---|---|
+| TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl | Annual report on Form 10-K for the fiscal year ended 30 September 2024 (text extraction) | 2024-11-07 | d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6 | Audited balance sheet, income statement, equity and cash-flow statements; EBITDA and EBITDA As Defined reconciliation; segment EBITDA As Defined; debt note by instrument, maturity schedule, liquidity table, covenant summary, contractual obligations, dividend and securitization subsequent events |
+
+| Module | sha256 | Use |
+|---|---|---|
+| Source readiness (CP-0) | 262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4 | Source inventory and tiers; the second figure for the October 2024 dividend payment from the December 2024 quarterly report; duplicate status of the PDF annual report |
+
+## Findings
+
+### Bottom line
+
+TransDigm's audited FY2024 accounts reconcile fully and show reported-EBITDA leverage of 6.53x gross and 4.88x net, but year-end cash was pre-committed to the special dividend paid on 2024-10-18, which lifts net leverage to 6.02x; creditors should anchor on that figure.
+
+Year-end net debt was USD 18,619 million, or USD 22,967 million pro forma for the USD 4,348 million payment on 2024-10-18. Debt is USD 24,880 million at carrying value against USD 25,068 million of principal. Reported EBITDA of USD 3,813 million covered cash interest of USD 1,158 million 3.29x. On the issuer's EBITDA As Defined of USD 4,173 million, the measure its springing revolver test uses, pro forma net leverage is 5.50x. Free cash flow was USD 1,880 million, while acquisitions and dividends paid in the year totalled USD 4,385 million, so leverage is set by capital allocation, not by cash generation.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 120–123; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 63; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71; calculation C3; calculation C5; calculation C7; calculation C9; calculation C17; calculation C18; calculation C19; calculation C29; calculation C44; calculation C87
+
+### Period table
+
+| Period | Start | End |
+|---|---|---|
+| FY2024 | 2023-10-01 | 2024-09-30 |
+| FY2023 | 2022-10-01 | 2023-09-30 |
+
+### Leverage: rising gross debt, net leverage flattered by pre-funded cash
+
+Gross leverage on reported EBITDA rose from 6.27x to 6.53x even though reported EBITDA grew 21.12%, because debt at carrying value rose from USD 19,750 million to USD 24,880 million. The step-up came from secured issuance used to fund the CPI Electron Device acquisition, refinancings and, in September 2024, a secured notes issue and a new term loan tranche raised alongside the special dividend declaration. Net leverage fell from 5.17x to 4.88x only because that September money sat in cash at year end. Once the USD 4,348 million October payment is reflected, net leverage is 6.02x, above the FY2023 level, which means the year's operating growth was more than absorbed by distributions. Senior secured debt alone is 5.12x reported EBITDA, so the secured layer, not the subordinated notes, now carries most of the claim.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 144–145; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 53–54; calculation C5; calculation C6; calculation C7; calculation C8; calculation C18; calculation C40; calculation C55
+
+On the issuer-adjusted measure, leverage is 5.96x gross and 4.46x net at year end, and 5.50x net pro forma. The USD 360 million gap between the two EBITDA measures is dominated by non-cash stock and deferred compensation of USD 217 million, which recurs every year. A creditor reading the issuer-adjusted ratios should therefore treat them as a definitional view rather than a cash view.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71; calculation C11; calculation C13; calculation C19; calculation C78
+
+### Coverage: better on the year, set to weaken as new debt carries a full year of interest
+
+Reported EBITDA covered cash interest 3.29x in FY2024 against 2.71x in FY2023, because EBITDA grew while cash interest was flat at USD 1,158 million against USD 1,160 million. That flat cash figure understates the run-rate. Income-statement interest expense was USD 1,286 million, USD 128 million above cash paid, with accrued interest up and issuance-cost amortisation non-cash. The issuer's own schedule puts interest payable in the next year at USD 1,524 million, assuming Term SOFR between 5.6% and 6.5%. On FY2024 reported EBITDA that would be 2.50x cover. Coverage therefore depends on EBITDA growth outrunning a step-up in interest of roughly the size of the September debt-funded distribution.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 121–123; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 64–65; calculation C9; calculation C10; calculation C73; calculation C86
+
+### Cash-flow quality: strong conversion, consumed by acquisitions and dividends
+
+Free cash flow (operating cash flow less capital expenditure) was USD 1,880 million, a 49.31% conversion of reported EBITDA against 39.26% in FY2023, helped by a smaller working-capital outflow of USD 302 million against USD 431 million. Capital expenditure was light at 2.08% of revenue, and cash taxes of USD 539 million exceeded the tax provision of USD 500 million. Funds from operations covered 9.43% of debt. Against that, acquisitions of USD 2,347 million and dividends and equivalents paid of USD 2,038 million used USD 4,385 million, so net new borrowing funded the gap. The credit implication is that free cash flow is real but has not been used for debt reduction; repayment of debt is fourth in the issuer's stated order for excess cash.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 122–123; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 54; calculation C42; calculation C43; calculation C44; calculation C48; calculation C56; calculation C57; calculation C67; calculation C87
+
+### Liquidity: large at year end, much smaller after October
+
+The annual report states cash liquidity of USD 7,267 million at year end, made of USD 6,261 million of cash, USD 843 million of revolver availability and USD 163 million of securitization availability. After the October dividend payment the issuer's own pro forma is USD 2,919 million. The securitization facility matures on 2025-07-11 and was fully drawn at USD 650 million after the October 2024 draw, so it is the only material debt due within FY2025 beyond term loan amortisation of USD 93 million. No term loan or note matures before FY2028, when USD 6,637 million falls due. Liquidity is therefore adequate for FY2025, but the FY2028 wall and a short-dated, receivables-backed facility are the refinancing exposures.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 55–56; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 62–63; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 153; calculation C60; calculation C62
+
+### Strongest contrary evidence
+
+The strongest case against a cautious read is that the measure lenders contract on is EBITDA As Defined, not reported EBITDA. On that basis pro forma net leverage is 5.50x, below the 7.25x incurrence ceiling and the 7.50x springing test the annual report summarises, and FY2024 cover on that measure was 3.60x. This view would win if the agreements' consolidated EBITDA matches the reported EBITDA As Defined and if the 21.12% EBITDA growth persists. It does not change the data foundation, but it means a committee should read reported-EBITDA leverage as the conservative bound and the issuer-adjusted ratio as the contractual one. Covenant headroom itself is not established, because the agreements' definitions are not supplied.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 62; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 70; calculation C15; calculation C19; calculation C55
+
+### Downside path
+
+The initiating condition would be a slowdown in commercial aftermarket or defense demand, the two channels that drove FY2024 organic growth. The first operational break would be slower segment EBITDA As Defined growth while the interest bill steps up toward the scheduled USD 1,524 million. Because about 77% of gross debt is fixed rate, the remaining floating share keeps cash interest sensitive to Term SOFR. Cover on reported EBITDA would then fall from 3.29x toward 2.50x even with flat EBITDA. With cash already reduced to the pro forma level, any shortfall or acquisition would be met by revolver drawings, and revolver usage above USD 364 million triggers the 7.50x net leverage test. The observable triggers are quarterly revolver usage, the July 2025 securitization renewal and any further special dividend declaration.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 45; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 55; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 62–65; calculation C9; calculation C86
+
+### Subsequent events and the two dividend figures
+
+Two events after the balance sheet date are kept out of the FY2024 figures. On 2024-10-16 the issuer drew the remaining USD 162.5 million of the securitization facility, which raises debt and cash equally and leaves net debt unchanged. On 2024-10-18 it paid the USD 75.00 per share special dividend of USD 4,216 million and dividend equivalents of USD 132 million, a total of USD 4,348 million, both accrued at year end. The December 2024 quarterly cash-flow statement reports USD 4,396 million of special dividend and dividend equivalent payments for the quarter, USD 48 million more. The annual report figure is used for the pro forma because it is the amount tied to the September declaration; the quarterly figure covers the whole quarter and may include other dividend equivalents, which is not established.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 62–63; Source readiness (CP-0); calculation C74; calculation C75
+
+No material non-debt funding float was identified. The large current liability besides debt is the dividend payable, which is a committed distribution rather than operating float, and it is captured through the pro forma net debt.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 144
+
+### Data and definition reconciliation
+
+All three statement identities hold in both years: assets equal liabilities plus equity, the activity totals plus the exchange effect equal the change in cash, and opening cash plus the change equals closing cash. Debt by instrument ties to the balance sheet at carrying value, and the maturity ladder plus the securitization, finance leases and financing costs ties to the same total. Segment EBITDA As Defined less corporate ties to the group figure. Two small unreconciled items remain: the cash-flow working-capital lines sum to an outflow USD 30 million different from the working-capital adjustment in the issuer's EBITDA reconciliation, and the October dividend appears at two amounts. Source readiness recorded the incurrence test as 7.50x in its summary and 7.25x in its evidence trace; the annual report text read here states 7.25x for net leverage and 5.00x for secured net debt, and that figure is used.
+Basis: TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 120–123; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 62; Source readiness (CP-0); calculation C20; calculation C22; calculation C24; calculation C28; calculation C30; calculation C72; calculation C80
+
+### Limitations
+
+Covenant capacity is not inferred: the credit agreement and indentures are not supplied, so the contractual definitions of consolidated EBITDA and net debt are not established. Interim quarters were not rebuilt from the quarterly filings, so quarterly trends and a constructed fourth quarter are not available here. Maintenance and growth capital expenditure are not split by the issuer.
+
+### T4.1 Source register
+
+| Source File Name | Document Type | Period Coverage | Currency | Unit | Perimeter | Accounting Basis | Evidence Quality Tier | Analytical Use | Limitations |
+|---|---|---|---|---|---|---|---|---|---|
+| TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl | Annual report on Form 10-K, audited (Ernst & Young, opinion dated 2024-11-07) | FY2024 and FY2023 (income and cash flow also FY2022) | USD | millions | TransDigm Group Incorporated consolidated | US GAAP | Tier 1 audited | All statement, debt, EBITDA and subsequent-event figures in this module | Text extraction flattens tables; exhibits (credit agreement, indentures) incorporated by reference only |
+| TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl | Quarterly report on Form 10-Q (per Source readiness) | Q3 FY2024 and 9M to 2024-06-29 | USD | millions | Consolidated | US GAAP | Tier 2b unaudited | Not read in this module | Quarterly trend not built |
+| TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl | Quarterly report on Form 10-Q (per Source readiness) | Q2 FY2024 and H1 to 2024-03-30 | USD | millions | Consolidated | US GAAP | Tier 2b unaudited | Not read in this module | Quarterly trend not built |
+| TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl | Quarterly report on Form 10-Q after the as-of date (per Source readiness) | Q1 FY2025 to 2024-12-28 | USD | millions | Consolidated | US GAAP | Tier 2b unaudited | Second dividend payment figure taken via Source readiness only | Subsequent period; not blended into FY2024 |
+| TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf | Annual report to shareholders reproducing the 10-K (per Source readiness) | FY2024 | USD | millions | Consolidated | US GAAP | Tier 1 duplicate | Excluded as a contained duplicate | Containment checked by Source readiness on sampled pages only |
+
+### T4.2 Entity period key
+
+| Entity Name | Entity Role | Fiscal Year End | Reporting Currency | Reporting Unit | Consolidation Perimeter | Accounting Basis | Available Periods |
+|---|---|---|---|---|---|---|---|
+| TransDigm Group Incorporated | Reporting issuer and parent guarantor; no significant assets other than 100% of TransDigm Inc. | 30 September | USD | millions | Consolidated with subsidiaries; noncontrolling interests USD 7 million at 2024-09-30 | US GAAP | FY2024, FY2023 (FY2022 flows) |
+| TransDigm Inc. | Borrower under the credit agreement and issuer of the secured and subordinated notes | 30 September | USD | millions | Inside consolidated group; standalone figures not read | US GAAP | Not supplied: standalone statements not read |
+| Guarantor subsidiaries (TD Group, TransDigm UK and domestic restricted subsidiaries) | Note guarantors | 30 September | USD | millions | Guarantor group; combined figures not read | US GAAP | Not supplied: guarantor financial summary not read |
+
+| Subsequent event | Date | Amount | Treatment | Source |
+|---|---|---|---|---|
+| Remaining securitization facility drawn | 2024-10-16 | USD 162.5 million | Excluded from FY2024; net-debt neutral (cash and debt rise equally) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 63 |
+| USD 75.00 special dividend (USD 4,216 million) and dividend equivalents (USD 132 million) paid | 2024-10-18 | USD 4,348 million | Excluded from FY2024; shown in Post-balance-sheet adjustments | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 63 |
+
+### T4.3 Normalization register
+
+| Adjustment Description | Source File | Adjustment Type | Before Value | After Value | Rationale | Affected Periods |
+|---|---|---|---|---|---|---|
+| No currency, unit, perimeter or accounting-basis adjustment; all figures USD millions, consolidated, US GAAP as reported | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl | None | Not applicable: no adjustment | Not applicable: no adjustment | Single audited source on one basis | FY2024, FY2023 |
+| Total debt assembled from current portion of long-term debt, securitization borrowings and long-term debt | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl | Aggregation (calculated, C1 and C2) | Not applicable: three separate lines | 24880 (FY2024); 19750 (FY2023) | Carrying-value total; matches the issuer's stated total debt | FY2024, FY2023 |
+
+### T4.4 Income statement
+
+| Line item | FY2024 | FY2023 | Unit | Basis | Source |
+|---|---|---|---|---|---|
+| Net sales | 7940 | 6585 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Cost of sales | 3268 | 2743 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Gross profit | 4672 | 3842 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Selling and administrative expenses | 980 | 780 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Amortization of intangible assets | 161 | 139 | USD millions | Reported, audited; with selling and administrative expenses this is the full block between gross profit and operating income | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Income from operations | 3531 | 2923 | USD millions | Reported, audited (EBIT) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Interest expense—net | 1286 | 1164 | USD millions | Reported, audited; net of interest income | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Interest expense—net excluding amortization of issuance costs, discount and premium | 1246 | 1123 | USD millions | Reported in the issuer's EBITDA reconciliation | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| Interest income | Not supplied: shown only net within interest expense in pages read | Not supplied: shown only net within interest expense in pages read | USD millions | Gap | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Refinancing costs | 58 | 56 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Other (income) expense | -28 | -13 | USD millions | Reported, audited; negative is income | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Income from continuing operations before income taxes | 2215 | 1716 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Income tax provision | 500 | 417 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Income tax provision—current | 490 | 414 | USD millions | Reported in the issuer's cash-flow EBITDA reconciliation | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| Net income | 1715 | 1299 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Net income attributable to noncontrolling interests | -1 | -1 | USD millions | Reported, audited; deducted | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Net income attributable to TD Group | 1714 | 1298 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| Depreciation and amortization expense | 312 | 268 | USD millions | Reported in the EBITDA reconciliation; equals depreciation plus amortization of intangibles and product certification costs in the cash-flow statement | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| Acquisition transaction and integration-related expenses | 70 | 18 | USD millions | Reported add-back (exceptional), includes inventory step-up amortization | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| Non-cash stock and deferred compensation expense | 217 | 157 | USD millions | Reported add-back (share-based compensation) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| EBITDA (Reported) | 3813 | 3148 | USD millions | Issuer-reported EBITDA (net income plus D&A, interest expense—net and tax); refinancing costs remain deducted; rebuilt in C77 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| EBITDA (Adjusted) | 4173 | 3395 | USD millions | Issuer-adjusted EBITDA As Defined: EBITDA plus acquisition and integration costs, non-cash stock and deferred compensation, refinancing costs and other, net | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+
+| Segment | FY2024 | FY2023 | Unit | Basis | Source |
+|---|---|---|---|---|---|
+| Power & Control EBITDA As Defined | 2236 | 1866 | USD millions | Reported segment measure | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 50 |
+| Airframe EBITDA As Defined | 1962 | 1547 | USD millions | Reported segment measure | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 50 |
+| Non-aviation EBITDA As Defined | 81 | 71 | USD millions | Reported segment measure | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 50 |
+| Unallocated corporate EBITDA As Defined | -106 | -89 | USD millions | Reported, deducted; segments less corporate tie to group (C80, C81) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 50 |
+| Segment net sales | Not supplied: segment sales amounts not read | Not supplied: segment sales amounts not read | USD millions | Gap | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 50 |
+
+### T4.5 Cash flow statement
+
+| Line item | FY2024 | FY2023 | Unit | Basis | Source |
+|---|---|---|---|---|---|
+| Net income | 1715 | 1299 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Depreciation | 149 | 129 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Amortization of intangible assets and product certification costs | 163 | 139 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Amortization of debt issuance costs, original issue discount and premium | 40 | 41 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Amortization of inventory step-up | 21 | 2 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Amortization of loss contract reserves | -35 | -34 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Refinancing costs | 58 | 56 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Gain on sale of businesses, net | -11 | Not supplied: the filing prints a dash | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Non-cash stock and deferred compensation expense | 217 | 157 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Deferred income taxes | 10 | 3 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 122 |
+| Foreign currency exchange losses (gains) | 20 | 14 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| (Gain) loss on settlement of the Esterline Retirement Plan | Not supplied: the filing prints a dash | -9 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Cash refund (contribution) for the Esterline Retirement Plan settlement, net | Not supplied: the filing prints a dash | 9 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Trade accounts receivable | -84 | -212 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Inventories | -104 | -261 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Income taxes (receivable) payable | -62 | 168 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Other assets | -60 | -44 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Accounts payable | -11 | 12 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Accrued interest | 60 | -45 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Accrued and other liabilities | -41 | -49 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Working capital change | -302 | -431 | USD millions | Calculated, sum of the seven changes in assets and liabilities (C42, C43) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Net Cash from Operating Activities | 2045 | 1375 | USD millions | Reported, audited; interest paid sits in operating activities under US GAAP; operating-lease cost sits in operating expenses | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Capital expenditures | -165 | -139 | USD millions | Reported, audited; total only, no maintenance or growth split | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Acquisition of businesses, net of cash acquired | -2347 | -762 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Other investing transactions | 71 | 1 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Net Cash from Investing Activities | -2441 | -900 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Proceeds from exercise of stock options | 245 | 215 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Dividends and dividend equivalent payments | -2038 | -38 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Proceeds from issuance of senior secured notes, net | 7373 | 3504 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Repayments of senior secured notes | -4400 | -1122 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Repayments of senior subordinated notes, net | -550 | -1459 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Proceeds from trade receivable securitization facility, net | 137 | Not supplied: the filing prints a dash | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Proceeds from term loans, net | 6815 | 6238 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Repayment on term loans | -4403 | -7334 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Financing costs and other, net | -8 | -20 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Net Cash from Financing Activities | 3171 | -16 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| FX Effect on Cash | 14 | 12 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Net Cash Change | 2789 | 471 | USD millions | Reported; equals the three activities plus the exchange effect (C22, C23) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Opening Cash | 3472 | 3001 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Closing Cash | 6261 | 3472 | USD millions | Reported; opening plus change (C24, C25) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Cash Interest Paid | 1158 | 1160 | USD millions | Reported supplemental disclosure, interest paid net | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Cash taxes paid, net of refunds | 539 | 260 | USD millions | Reported supplemental disclosure; within operating activities | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Free cash flow | 1880 | 1236 | USD millions | Calculated: operating cash flow less capital expenditures, levered, after working capital (C44, C45) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Funds from operations | 2347 | 1806 | USD millions | Calculated: operating cash flow before working capital change (C46, C47) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+
+### T4.6 Balance sheet
+
+| Line item | FY2024 | FY2023 | Unit | Basis | Source |
+|---|---|---|---|---|---|
+| Cash & Equivalents | 6261 | 3472 | USD millions | Reported, audited, at 30 September | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Trade accounts receivable—net | 1381 | 1230 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Inventories—net | 1876 | 1616 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Prepaid expenses and other | 511 | 420 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Total current assets | 10029 | 6738 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Property, plant and equipment—net | 1488 | 1255 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Goodwill | 10419 | 8988 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Other intangible assets—net | 3446 | 2747 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Other non-current assets | 204 | 242 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Total Assets | 25586 | 19970 | USD millions | Reported; equals liabilities plus equity (C20, C21) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Current portion of long-term debt | 98 | 71 | USD millions | Reported, audited, carrying value | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Short-term borrowings—trade receivable securitization facility | 486 | 349 | USD millions | Reported, audited, carrying value | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Accounts payable | 323 | 305 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Dividends payable | 4216 | Not supplied: the filing prints a dash | USD millions | Reported, audited; paid 2024-10-18 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Accrued and other current liabilities | 1216 | 854 | USD millions | Reported, audited; includes accrued interest 185 and 125 and current dividend equivalents 180 and 19 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 144 |
+| Total current liabilities | 6339 | 1579 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Long-term debt | 24296 | 19330 | USD millions | Reported, audited, carrying value | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Deferred income taxes | 766 | 627 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Other non-current liabilities | 468 | 412 | USD millions | Reported, audited; operating lease and pension liabilities sit within accrued and other lines, not in debt | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Total Liabilities | 31869 | 21948 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Common stock | 1 | 1 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Additional paid-in capital | 2819 | 2440 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Accumulated deficit | -7362 | -2621 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Accumulated other comprehensive loss | -42 | -98 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Treasury stock, at cost | -1706 | -1706 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Total TD Group stockholders' deficit | -6290 | -1984 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Noncontrolling interests | 7 | 6 | USD millions | Reported, audited | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Total Equity | -6283 | -1978 | USD millions | Reported total stockholders' deficit including noncontrolling interests | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Total Debt | 24880 | 19750 | USD millions | Calculated carrying value: current portion plus securitization plus long-term debt (C1, C2); includes finance leases and government refundable advances; matches issuer total debt | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 52, 120 |
+| Senior secured debt (term loans and secured notes) | 19534 | 14063 | USD millions | Calculated from instrument carrying values (C32, C34); excludes the securitization facility | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| Senior subordinated notes | 4581 | 5124 | USD millions | Calculated from instrument carrying values (C33, C35) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| Finance lease obligations (within debt) | 262 | 193 | USD millions | Reported, carried within debt lines | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| Government refundable advances (within debt) | 17 | 21 | USD millions | Reported, carried within debt lines | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| Restricted cash | Not supplied: not separately presented in pages read | Not supplied: not separately presented in pages read | USD millions | Gap | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+
+### T4.18 Debt instruments
+
+| Instrument | Type | Carrying Value | Principal | Drawn | Commitment | Security | Ranking | Currency | Coupon or Margin | Rate Type | Reference Rate | Spread (bps) | Floor (bps) | Maturity | Annual Amortisation | Source |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Trade receivable securitization facility | Receivables securitization | 486 | 487 | 487 | 650 | Secured by substantially all domestic trade receivables | Not supplied: rank against the credit agreement not stated | USD | Term SOFR plus 1.45% | Floating | Term SOFR | 145 | Not supplied: floor not stated | 2025-07-11 | Not supplied: no schedule stated | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 62, 144, 150 |
+| Revolving credit facility | Revolver | Not supplied: no drawn balance stated | Not supplied: no drawn balance stated | Not supplied: availability 843 stated, letters of credit 67 outstanding | 910 | Secured under the credit agreement collateral | Senior secured | USD | Term SOFR plus 2.25% | Floating | Term SOFR | 225 | Not supplied: floor not stated | 2029-02 (day not stated) | Not applicable | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 62, 65, 147, 152 |
+| Term loans Tranche I | Term loan | Not supplied: carrying value disclosed for all tranches together | 1871 | 1871 | 1871 | Secured under the credit agreement collateral | Senior secured | USD | Term SOFR plus 2.75% | Floating | Term SOFR | 275 | Not applicable | 2028-08-24 | 20 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 150, 152–153 |
+| Term loans Tranche J | Term loan | Not supplied: carrying value disclosed for all tranches together | 3632 | 3632 | 3632 | Secured under the credit agreement collateral | Senior secured | USD | Term SOFR plus 2.50% | Floating | Term SOFR | 250 | Not applicable | 2031-02-28 | 36 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 150, 152–153 |
+| Term loans Tranche K | Term loan | Not supplied: carrying value disclosed for all tranches together | 1699 | 1699 | 1699 | Secured under the credit agreement collateral | Senior secured | USD | Term SOFR plus 2.75% | Floating | Term SOFR | 275 | Not applicable | 2030-03-22 | 16 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 148, 152–153 |
+| Term loans Tranche L | Term loan | Not supplied: carrying value disclosed for all tranches together | 1500 | 1500 | 1500 | Secured under the credit agreement collateral | Senior secured | USD | Term SOFR plus 2.50% | Floating | Term SOFR | 250 | Not applicable | 2032-01-19 | Not supplied: tranche schedule not stated; total term loan amortisation 88 a year | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 65, 151–153 |
+| Financing cost adjustment (term loans) | Issuance costs and discount | -60 | Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | USD | Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| 5.50% senior subordinated notes due 2027 | Notes | 2641 | 2650 | 2650 | Not applicable | Unsecured | Senior subordinated | USD | 5.50% | Fixed | Not applicable | Not applicable | Not applicable | 2027 (day not read) | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 153 |
+| 6.75% secured notes due 2028 | Notes | 2077 | 2100 | 2100 | Not applicable | Secured | Senior secured | USD | 6.75% | Fixed | Not applicable | Not applicable | Not applicable | 2028 (day not read) | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 153 |
+| 4.625% senior subordinated notes due 2029 | Notes | 1194 | 1200 | 1200 | Not applicable | Unsecured | Senior subordinated | USD | 4.625% | Fixed | Not applicable | Not applicable | Not applicable | 2029 (day not read) | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 153 |
+| 6.375% secured notes due 2029 | Notes | 2727 | 2750 | 2750 | Not applicable | Secured | Senior secured | USD | 6.375% | Fixed | Not applicable | Not applicable | Not applicable | 2029-03-01 | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 147–149 |
+| 4.875% senior subordinated notes due 2029 | Notes | 746 | 750 | 750 | Not applicable | Unsecured | Senior subordinated | USD | 4.875% | Fixed | Not applicable | Not applicable | Not applicable | 2029 (day not read) | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 153 |
+| 6.875% secured notes due 2030 | Notes | 1438 | 1450 | 1450 | Not applicable | Secured | Senior secured | USD | 6.875% | Fixed | Not applicable | Not applicable | Not applicable | 2030 (day not read) | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 153 |
+| 7.125% secured notes due 2031 | Notes | 984 | 1000 | 1000 | Not applicable | Secured | Senior secured | USD | 7.125% | Fixed | Not applicable | Not applicable | Not applicable | 2031-12-01 | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145–147 |
+| 6.625% secured notes due 2032 | Notes | 2180 | 2200 | 2200 | Not applicable | Secured | Senior secured | USD | 6.625% | Fixed | Not applicable | Not applicable | Not applicable | 2032-03-01 | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 147–148 |
+| 6.00% secured notes due 2033 | Notes | 1486 | 1500 | 1500 | Not applicable | Secured | Senior secured | USD | 6.00% | Fixed | Not applicable | Not applicable | Not applicable | 2033-01-15 | 0 | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 54, 145, 151 |
+| Government refundable advances | Government advance | 17 | 17 | 17 | Not applicable | Not supplied: security not stated | Not supplied: rank not stated | USD | Not supplied: rate not stated | Not stated | Not applicable | Not applicable | Not applicable | Not supplied: repayment depends on revenue growth | Not supplied: contingent repayment | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 152 |
+| Finance lease obligations | Finance leases | 262 | 262 | 262 | Not applicable | Not supplied: security not stated | Not supplied: rank not stated | USD | Not supplied: weighted rate 7.0% stated only in aggregate | Fixed | Not applicable | Not applicable | Not applicable | Not supplied: lease maturity schedule not read | Not supplied: lease schedule not read | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 145, 152 |
+| Total debt | All instruments | 24880 | 25068 | Not applicable | Not applicable | Not applicable | Not applicable | USD | Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | Not applicable | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 144–145 |
+
+### T4.8 Constructed period register
+
+| Metric Name | Derived Period Type | Full-Year Component | Current Stub | Prior-Year Stub | Derived Value | Calculation Status | Source Files | Limitations |
+|---|---|---|---|---|---|---|---|---|
+| Revenue, EBITDA and cash interest for the twelve months to 2024-09-30 | LTM equals reported FY2024 | USD 7,940m revenue; USD 3,813m EBITDA; USD 1,158m cash interest | Not applicable: the as-of date is a fiscal year end | Not applicable: the as-of date is a fiscal year end | Not calculable: no stub exists; the reported fiscal year is used directly and never replaced by a derived figure | Not Available | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 121, 123 | Quarterly figures and a fourth quarter by difference were not constructed |
+
+### T4.9 Calculation register
+
+| Metric Name | Formula | Numerator Value | Numerator Source | Denominator Value | Denominator Source | Period | Currency | Unit | Calculated Value | Calculation Status | Evidence Quality Tier | Limitations |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Total debt / EBITDA | Total Debt / EBITDA (Reported) | 24880 | T4.6 Total Debt; Net debt data gross debt | 3813 | T4.4 EBITDA (Reported) | FY2024 / 2024-09-30 | USD | US$m | 6.53 | Calculated | Tier 1 audited | Carrying value; principal is 25068 |
+| Total debt / EBITDA | Total Debt / EBITDA (Reported) | 19750 | T4.6 Total Debt; Net debt data gross debt | 3148 | T4.4 EBITDA (Reported) | FY2023 / 2023-09-30 | USD | US$m | 6.27 | Calculated | Tier 1 audited | Carrying value |
+| Net debt / EBITDA | Net debt / EBITDA (Reported) | 18619 | Net debt data | 3813 | T4.4 EBITDA (Reported) | FY2024 / 2024-09-30 | USD | US$m | 4.88 | Calculated | Tier 1 audited | Cash pre-funds the 2024-10-18 dividend; pro forma 6.02 |
+| Net debt / EBITDA | Net debt / EBITDA (Reported) | 16278 | Net debt data | 3148 | T4.4 EBITDA (Reported) | FY2023 / 2023-09-30 | USD | US$m | 5.17 | Calculated | Tier 1 audited | None |
+| EBITDA / cash interest | EBITDA (Reported) / Cash Interest Paid | 3813 | T4.4 EBITDA (Reported) | 1158 | T4.5 Cash Interest Paid | FY2024 / 2024-09-30 | USD | US$m | 3.29 | Calculated | Tier 1 audited | Cash interest lags new September 2024 debt |
+| EBITDA / cash interest | EBITDA (Reported) / Cash Interest Paid | 3148 | T4.4 EBITDA (Reported) | 1160 | T4.5 Cash Interest Paid | FY2023 / 2023-09-30 | USD | US$m | 2.71 | Calculated | Tier 1 audited | None |
+| Total debt / adjusted EBITDA | Total Debt / EBITDA (Adjusted) | 24880 | T4.6 Total Debt | 4173 | T4.4 EBITDA (Adjusted) | FY2024 / 2024-09-30 | USD | US$m | 5.96 | Calculated | Tier 1 audited (non-GAAP measure) | Issuer-adjusted EBITDA As Defined |
+| Total debt / adjusted EBITDA | Total Debt / EBITDA (Adjusted) | 19750 | T4.6 Total Debt | 3395 | T4.4 EBITDA (Adjusted) | FY2023 / 2023-09-30 | USD | US$m | 5.82 | Calculated | Tier 1 audited (non-GAAP measure) | Issuer-adjusted EBITDA As Defined |
+| Net debt / adjusted EBITDA | Net debt / EBITDA (Adjusted) | 18619 | Net debt data | 4173 | T4.4 EBITDA (Adjusted) | FY2024 / 2024-09-30 | USD | US$m | 4.46 | Calculated | Tier 1 audited (non-GAAP measure) | Pro forma 5.50 after the dividend payment |
+| Net debt / adjusted EBITDA | Net debt / EBITDA (Adjusted) | 16278 | Net debt data | 3395 | T4.4 EBITDA (Adjusted) | FY2023 / 2023-09-30 | USD | US$m | 4.79 | Calculated | Tier 1 audited (non-GAAP measure) | None |
+| Adjusted EBITDA / cash interest | EBITDA (Adjusted) / Cash Interest Paid | 4173 | T4.4 EBITDA (Adjusted) | 1158 | T4.5 Cash Interest Paid | FY2024 / 2024-09-30 | USD | US$m | 3.60 | Calculated | Tier 1 audited (non-GAAP measure) | Issuer-adjusted EBITDA As Defined |
+| Adjusted EBITDA / cash interest | EBITDA (Adjusted) / Cash Interest Paid | 3395 | T4.4 EBITDA (Adjusted) | 1160 | T4.5 Cash Interest Paid | FY2023 / 2023-09-30 | USD | US$m | 2.93 | Calculated | Tier 1 audited (non-GAAP measure) | Issuer-adjusted EBITDA As Defined |
+| Pro forma net debt / EBITDA | Pro forma net debt / EBITDA (Reported) | 22967 | Post-balance-sheet adjustments | 3813 | T4.4 EBITDA (Reported) | FY2024 / 2024-09-30 | USD | US$m | 6.02 | Calculated | Tier 1 audited | Pro forma for the 2024-10-18 payment only |
+| Senior secured debt / EBITDA | Senior secured debt / EBITDA (Reported) | 19534 | T4.6 Senior secured debt | 3813 | T4.4 EBITDA (Reported) | FY2024 / 2024-09-30 | USD | US$m | 5.12 | Calculated | Tier 1 audited | Excludes securitization borrowings |
+| (EBITDA − capex) / cash interest | (EBITDA (Reported) less capex) / Cash Interest Paid | 3648 | T4.4 and T4.5 (C63) | 1158 | T4.5 Cash Interest Paid | FY2024 / 2024-09-30 | USD | US$m | 3.15 | Calculated | Tier 1 audited | None |
+| (EBITDA − capex) / cash interest | (EBITDA (Reported) less capex) / Cash Interest Paid | 3009 | T4.4 and T4.5 (C65) | 1160 | T4.5 Cash Interest Paid | FY2023 / 2023-09-30 | USD | US$m | 2.59 | Calculated | Tier 1 audited | None |
+| FFO interest cover | (FFO plus cash interest) / Cash Interest Paid | 3505 | T4.5 (C84) | 1158 | T4.5 Cash Interest Paid | FY2024 / 2024-09-30 | USD | US$m | 3.03 | Calculated | Tier 1 audited | FFO is analyst-defined |
+| FFO interest cover | (FFO plus cash interest) / Cash Interest Paid | 2966 | T4.5 (C85) | 1160 | T4.5 Cash Interest Paid | FY2023 / 2023-09-30 | USD | US$m | 2.56 | Calculated | Tier 1 audited | FFO is analyst-defined |
+| EBITDA / next-year scheduled interest | EBITDA (Reported) / scheduled interest due in less than one year | 3813 | T4.4 EBITDA (Reported) | 1524 | Contractual obligations table | FY2024 / 2024-09-30 | USD | US$m | 2.50 | Estimated | Tier 1 audited (issuer projection) | Issuer assumes Term SOFR between 5.6% and 6.5% |
+
+### T4.10 KPI dashboard
+
+| KPI Category | Metric Name | FY2024 | FY2023 | Trend Direction | Analyst Note |
+|---|---|---|---|---|---|
+| Growth | Revenue growth | 20.58% | Not calculable: FY2022 comparison not in scope | Up | C54; organic plus acquisition sales |
+| Growth | Reported EBITDA growth | 21.12% | Not calculable: FY2022 EBITDA not read | Up | C55 |
+| Margin | Gross margin (issuer-reported) | 58.8% | 58.3% | Up | Issuer-reported percentage |
+| Margin | Reported EBITDA margin | 48.02% | 47.81% | Up | C50, C51 |
+| Margin | EBITDA As Defined margin | 52.56% | 51.56% | Up | C52, C53; issuer prints 52.6% and 51.6% |
+| Margin | Operating (EBIT) margin (issuer-reported) | 44.5% | 44.4% | Flat | Issuer-reported percentage |
+| Cash flow | FCF conversion (FCF / reported EBITDA) | 49.31% | 39.26% | Up | C56, C57 |
+| Cash flow | Capex / revenue | 2.08% | 2.11% | Flat | C67, C68; FY2025 guide 2.5% to 3.5% of net sales |
+| Leverage | FFO / total debt | 9.43% | 9.14% | Up | C48, C49 |
+| Leverage | CFO / total debt | 8.22% | 6.96% | Up | C69, C70 |
+| Leverage | FCF / total debt | 7.56% | 6.26% | Up | C58, C59 |
+| Liquidity | Cash liquidity / total debt | 29.21% | Not calculable: FY2023 undrawn securitization not supplied | Not assessed | C71; pro forma liquidity 2919 |
+| Operating | Ratio of earnings to fixed charges (issuer-reported) | 2.7x | 2.5x | Up | Issuer-defined ratio |
+
+### T4.11 Definition conflict register
+
+| Metric Name | Canonical Definition | Issuer-Reported Definition | Source of Conflict | Periods Affected | Materiality | Modules Affected | Resolution / Recommendation |
+|---|---|---|---|---|---|---|---|
+| Total debt | Balance-sheet carrying value, current plus long-term, net of costs and discounts | Total debt 24880 includes issuance costs, discount and premium (carrying); gross amount 25068 | Carrying against principal | FY2024 (FY2023 carrying 19750) | USD 188 million (C31) | Leverage, recovery and priority work | Carrying value used; principal kept in Debt principal to carrying value |
+| EBITDA | Reported EBITDA as primary denominator | EBITDA As Defined adds back acquisition costs 70, stock and deferred compensation 217, refinancing costs 58 and other 15; the springing revolver test uses consolidated EBITDA defined the same way | Issuer non-GAAP definition | FY2024, FY2023 | USD 360 million in FY2024 and USD 247 million in FY2023 (C78, C79) | Leverage, earnings quality, covenant work | Both shown, labelled; reported EBITDA used as primary |
+| Covenant tests | Not inferred | Incurrence: net leverage 7.25x and secured net debt 5.00x; springing test 7.50x net debt to EBITDA As Defined when revolver usage exceeds 40% (USD 364 million) | Agreements not supplied; Source readiness summary cited 7.50x for incurrence | FY2024 | Headroom not established | Covenant and legal work | Annual report text figure 7.25x used; no headroom computed |
+| Interest | Cash interest paid for cover | Interest expense—net 1286; excluding amortization 1246; cash paid 1158; next-year scheduled interest 1524 | Accrual, amortization and timing | FY2024 | USD 128 million between expense and cash (C73) | Coverage and forecast work | Cash paid used for cover; schedule shown separately as estimated; about 77% of gross debt fixed rate |
+| Working capital change | Sum of cash-flow changes in assets and liabilities | Issuer EBITDA reconciliation adds back 272 for changes in assets and liabilities | Cash-flow lines sum to -302 | FY2024 | USD 30 million (C72) | FFO and earnings quality | Cash-flow lines used; difference left unreconciled |
+| October 2024 dividend payment | One event, all figures shown | 4348 in the annual report (4216 dividend plus 132 equivalents); 4396 for the quarter in the December 2024 quarterly report | Different scope of period | Subsequent to FY2024 | USD 48 million (C74) | Liquidity and pro forma leverage | 4348 used for the pro forma; quarterly figure noted |
+| Debt maturity ladder | Contractual principal of all debt | Issuer schedule 24319 excludes finance leases and the securitization borrowing | Scope of ladder | FY2024 | USD 749 million of debt outside the ladder (487 securitization plus 262 finance leases) | Refinancing and liquidity work | Ladder kept as stated; excluded debt in reconciling items |
+| Free cash flow | Levered, after working capital | No issuer FCF stated | Analyst definition | FY2024, FY2023 | Not applicable | Cash-flow work | Operating cash flow less capex used |
+
+### T4.13 Readiness
+
+| Requested Use | Readiness Status | Gaps or Limitations | Recommended Actions |
+|---|---|---|---|
+| Leverage and coverage on reported and issuer-adjusted EBITDA | Ready | None material | Use reported EBITDA as the conservative bound |
+| Net debt and pro forma net debt | Ready with Limitations | Two figures for the October payment | Carry the 2024-10-18 payment beside every year-end figure |
+| Liquidity runway | Ready with Limitations | FY2023 undrawn facilities not supplied; securitization availability depends on receivables | Use the issuer pro forma liquidity |
+| Covenant headroom | Not Ready | Agreement definitions of consolidated EBITDA and net debt not supplied | Obtain the credit agreement and indentures |
+| Quarterly and LTM trend | Not Ready | Interim quarters not built | Extract the quarterly filings |
+| Debt stack and priority | Ready with Limitations | Rank of securitization, finance leases and government advances not stated | Obtain guarantor and collateral documents |
+| Free cash flow and capex analysis | Ready with Limitations | No maintenance or growth capex split | Use total capex |
+
+### Financials and credit metrics
+
+| Metric | FY2024 | FY2023 | Unit | Basis | Source |
+|---|---|---|---|---|---|
+| Revenue | 7940 | 6585 | USD millions | Reported | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| EBITDA (Reported) | 3813 | 3148 | USD millions | Reported | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| EBITDA As Defined | 4173 | 3395 | USD millions | Issuer-adjusted | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| Total debt at period end | 24880 | 19750 | USD millions | Carrying value (C1, C2) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Cash at period end | 6261 | 3472 | USD millions | Reported | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Undrawn committed facilities at period end | 1006 | Not supplied: securitization availability at 2023-09-30 not read | USD millions | Revolver availability 843 plus securitization availability 163 (C61) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 55 |
+| Net debt at period end | 18619 | 16278 | USD millions | Calculated (C3, C4) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| Free cash flow | 1880 | 1236 | USD millions | Calculated (C44, C45) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| Total debt / EBITDA (Reported) | 6.53 | 6.27 | x | Calculated (C5, C6) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 120 |
+| Net debt / EBITDA (Reported) | 4.88 | 5.17 | x | Calculated (C7, C8) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 120 |
+| EBITDA (Reported) / cash interest | 3.29 | 2.71 | x | Calculated (C9, C10) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| Cash liquidity (issuer-defined) | 7267 | Not supplied: not stated for 2023-09-30 in pages read | USD millions | Reported; pro forma 2919 after 2024-10-18 (C60, C62) | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 55–56 |
+
+### Net debt data
+
+| Period | Gross debt | Cash | Net debt | Reporting unit | Basis and limitation |
+|---|---|---|---|---|---|
+| FY2024 / 2024-09-30 | 24880 | 6261 | 18619 | US$m | Reported carrying value: current portion 98, securitization 486, long-term debt 24296; includes finance leases 262 and government advances 17; principal total 25068; cash pre-funds the 2024-10-18 dividend (pro forma net debt 22967) |
+| FY2023 / 2023-09-30 | 19750 | 3472 | 16278 | US$m | Reported carrying value: current portion 71, securitization 349, long-term debt 19330; includes finance leases 193 and government advances 21; principal total 19913 per instrument gross amounts 350 plus 19563 |
+
+### Debt principal to carrying value
+
+| Period | Contractual principal | Reconciling items | Carrying value | Reporting unit | Basis and limitation |
+|---|---|---|---|---|---|
+| FY2024 / 2024-09-30 | 24319 | 561 | 24880 | US$m | Principal is the issuer maturity ladder excluding finance leases and the securitization; reconciling items are securitization principal 487, finance leases 262, issuance costs -137 and original issue discount -51 (C27); carrying value equals Net debt data gross debt |
+
+### Post-balance-sheet adjustments
+
+| Event | Date | Amount | Pro forma net debt | Pro forma net leverage | Reporting unit | Basis and limitation |
+|---|---|---|---|---|---|---|
+| Payment of the USD 75.00 per share special dividend (4216) and dividend equivalents (132) | 2024-10-18 | 4348 | 22967 | 6.02 | US$m | Annual report liquidity section; net leverage on reported FY2024 EBITDA 3813 (5.50 on EBITDA As Defined); the 2024-10-16 securitization draw of 162.5 is net-debt neutral and not shown; the December 2024 quarterly figure of 4396 is not reflected |
+
+### Chart data: leverage
+
+| Period | Total debt / EBITDA | Net debt / EBITDA | Reporting unit | Basis and limitation |
+|---|---|---|---|---|
+| FY2024 / 2024-09-30 | 6.53 | 4.88 | x | Carrying-value debt over reported EBITDA; net figure before the 2024-10-18 dividend payment (pro forma 6.02) |
+| FY2023 / 2023-09-30 | 6.27 | 5.17 | x | Carrying-value debt over reported EBITDA |
+
+Year-end FY2024 net leverage is flattered by cash already committed to the October 2024 dividend.
+
+### Chart data: interest cover
+
+| Period | EBITDA / cash interest | Reporting unit | Basis and limitation |
+|---|---|---|---|
+| FY2024 / 2024-09-30 | 3.29 | x | Reported EBITDA over interest paid net; new September 2024 debt carries little interest in the year |
+| FY2023 / 2023-09-30 | 2.71 | x | Reported EBITDA over interest paid net |
+
+The FY2024 cover predates a full year of interest on the September 2024 issuance.
+
+### Chart data: liquidity
+
+| Period | Cash | Undrawn committed facilities | Reporting unit | Basis and limitation |
+|---|---|---|---|---|
+| FY2024 / 2024-09-30 | 6261 | 1006 | US$m | Revolver availability 843 after letters of credit plus securitization availability 163; pro forma cash liquidity 2919 after 2024-10-18 |
+| FY2023 / 2023-09-30 | 3472 | Not supplied: securitization availability at 2023-09-30 not read | US$m | Revolver availability 755 stated; securitization availability not read |
+
+Cash at 2024-09-30 includes about USD 4,348 million paid out on 2024-10-18.
+
+### Chart data: debt maturities
+
+| Period | Debt maturing | Reporting unit | Basis and limitation |
+|---|---|---|---|
+| FY2025 | 93 | US$m | Issuer schedule of long-term debt principal, excluding finance leases and the securitization facility (487 due 2025-07-11) |
+| FY2026 | 92 | US$m | Issuer schedule, term loan amortisation |
+| FY2027 | 92 | US$m | Issuer schedule, term loan amortisation |
+| FY2028 | 6637 | US$m | Issuer schedule; first note and term loan maturities |
+| FY2029 | 4768 | US$m | Issuer schedule |
+| Thereafter (FY2030 onward) | 12637 | US$m | Issuer schedule |
+
+The ladder omits the securitization borrowing due in July 2025 and finance leases.
+
+### Chart data: revenue and EBITDA
+
+| Period | Revenue | Adjusted EBITDA | Reporting unit | Basis and limitation |
+|---|---|---|---|---|
+| FY2024 | 7940 | 4173 | US$m | Issuer-adjusted EBITDA As Defined, audited-statement reconciliation; reported EBITDA 3813 |
+| FY2023 | 6585 | 3395 | US$m | Issuer-adjusted EBITDA As Defined; reported EBITDA 3148 |
+
+FY2024 includes partial-year contributions from acquisitions completed in the year.
+
+### Chart data: debt stack
+
+| Facility | Ranking | Secured | Amount | Cumulative leverage | Reporting unit | Basis and limitation |
+|---|---|---|---|---|---|---|
+| Senior secured term loans (Tranches I, J, K, L) | 1 | Yes | 8642 | 2.27 | US$m | Carrying value; borrower TransDigm Inc. under the credit agreement; guarantor scope of the credit agreement not read; reported EBITDA 3813 denominator |
+| Senior secured notes due 2028 to 2033 (six series) | 1 | Yes | 10892 | 5.12 | US$m | Carrying value; issuer TransDigm Inc.; guaranteed on a senior secured basis by TD Group and restricted subsidiaries that guarantee the credit facilities; rank equally with senior debt |
+| Senior subordinated notes due 2027 and 2029 (three series) | 2 | No | 4581 | 6.32 | US$m | Carrying value; guaranteed on a senior subordinated basis by TD Group, TransDigm UK and domestic restricted subsidiaries |
+
+Securitization borrowings, finance leases and government advances are left out because no rank is stated.
+
+### Chart data: EBITDA bridge
+
+| Step | Amount | Reporting unit | Basis and limitation |
+|---|---|---|---|
+| EBITDA (Reported) FY2024 | 3813 | US$m | Opening: issuer-reported EBITDA |
+| Acquisition transaction and integration-related expenses | 70 | US$m | Transaction costs; realisation status not stated |
+| Non-cash stock and deferred compensation expense | 217 | US$m | Share-based compensation; realisation status not stated |
+| Refinancing costs | 58 | US$m | Other stated (financing costs); realisation status not stated |
+| Other, net | 15 | US$m | Other stated (FX, withholding taxes, pension and other); realisation status not stated |
+| EBITDA As Defined FY2024 | 4173 | US$m | Closing: issuer-adjusted EBITDA As Defined (C76) |
+
+Every add-back is the issuer's own and none is a run-rate or synergy item.
+
+### Confidence inputs
+
+| Input | Value |
+|---|---|
+| Directly Sourced | 16 |
+| Calculated | 18 |
+| Assumption-Based | 1 |
+| Analyst Inference | 3 |
+| Weak Lineage | 0 |
+| Untraced | 0 |
+| Conflicting | 2 |
+| Insufficient Information | 4 |
+| Fields present | 21 |
+| Fields total | 23 |
+| Source gate | pass |
+| CRITICAL | 0 |
+| MATERIAL | 1 |
+| MINOR | 4 |
+
+## Calculations
+
+| ID | Calculation | Inputs | Result | Period and unit | Source |
+|---|---|---|---|---|---|
+| C1 | Total debt: current portion plus securitization plus long-term debt | 98 + 486 + 24296 | 24880 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| C2 | Total debt FY2023 | 71 + 349 + 19330 | 19750 | 2023-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| C3 | Net debt FY2024 | 24880 − 6261 | 18619 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| C4 | Net debt FY2023 | 19750 − 3472 | 16278 | 2023-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| C5 | Total debt / reported EBITDA FY2024 | 24880 / 3813 | 6.5250 (6.53x) | FY2024, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 120 |
+| C6 | Total debt / reported EBITDA FY2023 | 19750 / 3148 | 6.2738 (6.27x) | FY2023, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 120 |
+| C7 | Net debt / reported EBITDA FY2024 | 18619 / 3813 | 4.8830 (4.88x) | FY2024, x | calculation C3 |
+| C8 | Net debt / reported EBITDA FY2023 | 16278 / 3148 | 5.1709 (5.17x) | FY2023, x | calculation C4 |
+| C9 | Reported EBITDA / cash interest FY2024 | 3813 / 1158 | 3.2927 (3.29x) | FY2024, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| C10 | Reported EBITDA / cash interest FY2023 | 3148 / 1160 | 2.7138 (2.71x) | FY2023, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| C11 | Total debt / EBITDA As Defined FY2024 | 24880 / 4173 | 5.9621 (5.96x) | FY2024, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C12 | Total debt / EBITDA As Defined FY2023 | 19750 / 3395 | 5.8174 (5.82x) | FY2023, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C13 | Net debt / EBITDA As Defined FY2024 | 18619 / 4173 | 4.4618 (4.46x) | FY2024, x | calculation C3 |
+| C14 | Net debt / EBITDA As Defined FY2023 | 16278 / 3395 | 4.7947 (4.79x) | FY2023, x | calculation C4 |
+| C15 | EBITDA As Defined / cash interest FY2024 | 4173 / 1158 | 3.6036 (3.60x) | FY2024, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| C16 | EBITDA As Defined / cash interest FY2023 | 3395 / 1160 | 2.9267 (2.93x) | FY2023, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| C17 | Pro forma net debt after the 2024-10-18 payment | 18619 + 4348 | 22967 | 2024-09-30 pro forma, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 63 |
+| C18 | Pro forma net debt / reported EBITDA | 22967 / 3813 | 6.0233 (6.02x) | FY2024 pro forma, x | calculation C17 |
+| C19 | Pro forma net debt / EBITDA As Defined | 22967 / 4173 | 5.5037 (5.50x) | FY2024 pro forma, x | calculation C17 |
+| C20 | Balance sheet identity FY2024: liabilities plus equity | 31869 + (−6283) | 25586 (equals total assets) | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| C21 | Balance sheet identity FY2023 | 21948 + (−1978) | 19970 (equals total assets) | 2023-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 120 |
+| C22 | Cash-flow identity FY2024 | 2045 − 2441 + 3171 + 14 | 2789 (equals net change) | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C23 | Cash-flow identity FY2023 | 1375 − 900 − 16 + 12 | 471 (equals net change) | FY2023, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C24 | Cash roll-forward FY2024 | 3472 + 2789 | 6261 (equals closing cash) | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C25 | Cash roll-forward FY2023 | 3001 + 471 | 3472 (equals closing cash) | FY2023, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C26 | Maturity ladder total | 93 + 92 + 92 + 6637 + 4768 + 12637 | 24319 (equals issuer total) | 2024-09-30, USD millions principal | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 153 |
+| C27 | Reconciling items, ladder to carrying value | −1 − 136 − 51 + 487 + 262 | 561 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 144–145 |
+| C28 | Ladder plus reconciling items | 24319 + 561 | 24880 (equals total debt) | 2024-09-30, USD millions | calculation C26; calculation C27 |
+| C29 | Gross principal of all debt | 487 + 24581 | 25068 | 2024-09-30, USD millions principal | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 144–145 |
+| C30 | Principal less issuance costs and discount | 25068 − 1 − 136 − 51 | 24880 (equals total debt) | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 144–145 |
+| C31 | Principal less carrying value | 25068 − 24880 | 188 | 2024-09-30, USD millions | calculation C29 |
+| C32 | Senior secured carrying value FY2024 (term loans and six secured notes) | 8642 + 2077 + 2727 + 1438 + 984 + 2180 + 1486 | 19534 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| C33 | Senior subordinated carrying value FY2024 | 2641 + 1194 + 746 | 4581 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| C34 | Senior secured carrying value FY2023 | 6179 + 4377 + 2071 + 1436 | 14063 | 2023-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| C35 | Senior subordinated carrying value FY2023 | 548 + 2638 + 1193 + 745 | 5124 | 2023-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| C36 | Debt by type FY2024 | 19534 + 4581 + 486 + 17 + 262 | 24880 (equals total debt) | 2024-09-30, USD millions | calculation C32; calculation C33 |
+| C37 | Debt by type FY2023 | 14063 + 5124 + 349 + 21 + 193 | 19750 (equals total debt) | 2023-09-30, USD millions | calculation C34; calculation C35 |
+| C38 | Cumulative debt through subordinated notes | 19534 + 4581 | 24115 | 2024-09-30, USD millions | calculation C32; calculation C33 |
+| C39 | Term loans / reported EBITDA | 8642 / 3813 | 2.2665 (2.27x) | FY2024, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| C40 | Senior secured debt / reported EBITDA | 19534 / 3813 | 5.1230 (5.12x) | FY2024, x | calculation C32 |
+| C41 | Cumulative through subordinated / reported EBITDA | 24115 / 3813 | 6.3244 (6.32x) | FY2024, x | calculation C38 |
+| C42 | Working capital change FY2024 | −84 − 104 − 62 − 60 − 11 + 60 − 41 | −302 | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C43 | Working capital change FY2023 | −212 − 261 + 168 − 44 + 12 − 45 − 49 | −431 | FY2023, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C44 | Free cash flow FY2024 | 2045 − 165 | 1880 | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C45 | Free cash flow FY2023 | 1375 − 139 | 1236 | FY2023, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C46 | Funds from operations FY2024 | 2045 − (−302) | 2347 | FY2024, USD millions | calculation C42 |
+| C47 | Funds from operations FY2023 | 1375 − (−431) | 1806 | FY2023, USD millions | calculation C43 |
+| C48 | FFO / total debt FY2024 | 2347 / 24880 | 0.0943 (9.43%) | FY2024, ratio | calculation C46 |
+| C49 | FFO / total debt FY2023 | 1806 / 19750 | 0.0914 (9.14%) | FY2023, ratio | calculation C47 |
+| C50 | Reported EBITDA margin FY2024 | 3813 / 7940 | 0.4802 (48.02%) | FY2024, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 121 |
+| C51 | Reported EBITDA margin FY2023 | 3148 / 6585 | 0.4781 (47.81%) | FY2023, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 121 |
+| C52 | EBITDA As Defined margin FY2024 | 4173 / 7940 | 0.5256 (52.56%) | FY2024, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C53 | EBITDA As Defined margin FY2023 | 3395 / 6585 | 0.5156 (51.56%) | FY2023, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C54 | Revenue growth FY2024 | 7940 / 6585 − 1 | 0.2058 (20.58%) | FY2024, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 121 |
+| C55 | Reported EBITDA growth FY2024 | 3813 / 3148 − 1 | 0.2112 (21.12%) | FY2024, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C56 | FCF conversion FY2024 | 1880 / 3813 | 0.4931 (49.31%) | FY2024, ratio | calculation C44 |
+| C57 | FCF conversion FY2023 | 1236 / 3148 | 0.3926 (39.26%) | FY2023, ratio | calculation C45 |
+| C58 | FCF / total debt FY2024 | 1880 / 24880 | 0.0756 (7.56%) | FY2024, ratio | calculation C44 |
+| C59 | FCF / total debt FY2023 | 1236 / 19750 | 0.0626 (6.26%) | FY2023, ratio | calculation C45 |
+| C60 | Cash liquidity tie-out | 6261 + 843 + 163 | 7267 (equals issuer figure) | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 55 |
+| C61 | Undrawn committed facilities | 843 + 163 | 1006 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 55 |
+| C62 | Pro forma cash liquidity | 7267 − 4348 | 2919 (equals issuer pro forma) | 2024-09-30 pro forma, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 56 |
+| C63 | Reported EBITDA less capex FY2024 | 3813 − 165 | 3648 | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| C64 | (EBITDA − capex) / cash interest FY2024 | 3648 / 1158 | 3.1503 (3.15x) | FY2024, x | calculation C63 |
+| C65 | Reported EBITDA less capex FY2023 | 3148 − 139 | 3009 | FY2023, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| C66 | (EBITDA − capex) / cash interest FY2023 | 3009 / 1160 | 2.5940 (2.59x) | FY2023, x | calculation C65 |
+| C67 | Capex / revenue FY2024 | 165 / 7940 | 0.0208 (2.08%) | FY2024, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 121, 123 |
+| C68 | Capex / revenue FY2023 | 139 / 6585 | 0.0211 (2.11%) | FY2023, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 121, 123 |
+| C69 | CFO / total debt FY2024 | 2045 / 24880 | 0.0822 (8.22%) | FY2024, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C70 | CFO / total debt FY2023 | 1375 / 19750 | 0.0696 (6.96%) | FY2023, ratio | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C71 | Cash liquidity / total debt FY2024 | 7267 / 24880 | 0.2921 (29.21%) | FY2024, ratio | calculation C60 |
+| C72 | Working capital difference against issuer reconciliation | 302 − 272 | 30 | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 71, 123 |
+| C73 | Interest expense less cash interest paid | 1286 − 1158 | 128 | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 121, 123 |
+| C74 | Difference between the two October dividend figures | 4396 − 4348 | 48 | Q1 FY2025 against annual report, USD millions | Source readiness (CP-0) |
+| C75 | October payment components | 4216 + 132 | 4348 | Paid 2024-10-18, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 63 |
+| C76 | EBITDA bridge | 3813 + 70 + 217 + 58 + 15 | 4173 (equals EBITDA As Defined) | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C77 | Reported EBITDA build | 1715 + 312 + 1286 + 500 | 3813 (equals issuer EBITDA) | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C78 | EBITDA As Defined less reported EBITDA FY2024 | 4173 − 3813 | 360 | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C79 | EBITDA As Defined less reported EBITDA FY2023 | 3395 − 3148 | 247 | FY2023, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 71 |
+| C80 | Segment tie-out FY2024 | 2236 + 1962 + 81 − 106 | 4173 (equals group) | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 50 |
+| C81 | Segment tie-out FY2023 | 1866 + 1547 + 71 − 89 | 3395 (equals group) | FY2023, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 50 |
+| C82 | Term loan tranche principal | 1871 + 3632 + 1699 + 1500 | 8702 (equals issuer total) | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 152 |
+| C83 | Term loan financing cost adjustment | −25 − 35 | −60 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+| C84 | FFO interest cover FY2024 | (2347 + 1158) / 1158 | 3505; 3.0268 (3.03x) | FY2024, x | calculation C46 |
+| C85 | FFO interest cover FY2023 | (1806 + 1160) / 1160 | 2966; 2.5569 (2.56x) | FY2023, x | calculation C47 |
+| C86 | Reported EBITDA / next-year scheduled interest | 3813 / 1524 | 2.5020 (2.50x) | FY2024 EBITDA against FY2025 schedule, x | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 64 |
+| C87 | Acquisitions plus dividends paid FY2024 | 2347 + 2038 | 4385 | FY2024, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 123 |
+| C88 | Cash after the October payment | 6261 − 4348 | 1913 | 2024-09-30 pro forma, USD millions | calculation C75 |
+| C89 | Secured notes carrying value | 2077 + 2727 + 1438 + 984 + 2180 + 1486 | 10892 | 2024-09-30, USD millions | TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 145 |
+
+All identities checked here hold exactly at the precision the filing prints. The ratios use reported EBITDA unless labelled as EBITDA As Defined.
+
+## Gaps
+
+- The credit agreement and note indentures are not supplied, so the contractual definitions of consolidated EBITDA and net debt, and therefore covenant headroom, are not established. This restricts any covenant or capacity conclusion. Severity: High. Closing action: obtain the executed agreements.
+- Interim quarters were not rebuilt from the March and June 2024 quarterly reports, and no fourth quarter was constructed by difference. Quarterly trend and intra-year leverage are not available. Severity: Medium. Closing action: extract the quarterly statements.
+- Capital expenditure is not split into maintenance and growth by the issuer, so maintenance free cash flow is not established. Severity: Medium. Closing action: none available from the filing; treat total capex as the base.
+- Legal rank is not stated for the securitization borrowing, finance leases and government refundable advances, so they are left out of the debt stack. The guarantor scope of the credit agreement was not read. Severity: Medium. Closing action: read the guarantor disclosure and obtain collateral documents.
+- Interest income is shown only within net interest expense in the pages read. Severity: Low. Closing action: read the interest expense note.
+- Restricted cash and short-term investments are not separately presented in the pages read. Severity: Low. Closing action: read the cash note.
+- The filing prints dashes, recorded as not supplied, for FY2023 dividends payable, FY2023 gain on sale of businesses, FY2023 securitization proceeds and the FY2024 retirement-plan settlement lines; share repurchases show dashes in both years and are omitted. Severity: Low. Closing action: none needed beyond noting them.
+- Segment net sales amounts were not read, so segment margins are taken from the issuer's percentages only. Severity: Low. Closing action: read the segment note.
+- Undrawn securitization availability and cash liquidity at 2023-09-30 are not supplied, so prior-year liquidity is incomplete. Severity: Low. Closing action: read the FY2023 liquidity disclosure.
+- Carrying value for each term loan tranche is not disclosed; only the aggregate is. Tranche L amortisation, securitization amortisation and the finance lease maturity schedule are not stated in the pages read. Severity: Low. Closing action: read the lease note and term loan terms.
+- The working-capital lines in the cash-flow statement differ by USD 30 million from the working-capital adjustment in the issuer's EBITDA reconciliation, and this is not reconciled. Severity: Low. Closing action: request the issuer's reconciliation detail.
+- The October 2024 dividend payment appears as USD 4,348 million in the annual report and USD 4,396 million in the December 2024 quarterly cash-flow statement; the USD 48 million difference is not reconciled. Severity: Low. Closing action: read the December 2024 quarterly dividend note.
+- Next-year cash interest of USD 1,524 million is the issuer's schedule built on its own Term SOFR assumption and is an estimate, not a reported figure. Severity: Low.
+- These figures support credit analysis of the consolidated group only; they do not establish covenant compliance, standalone borrower or guarantor figures, or any figure for periods after 2024-09-30 other than the two named subsequent events.
+
+## Next module
+
+The orchestrator selects the next module.

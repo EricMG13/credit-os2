@@ -1,0 +1,24 @@
+{
+  "checks": [
+    {
+      "figure": "all",
+      "module": "CP-3D",
+      "reason": "the module stopped at its gate (`module_status: Blocked`): only the gate is owed",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "",
+      "row": "all",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "not checked",
+      "tolerance": null,
+      "unit": null
+    }
+  ],
+  "kind": "method-script-checks/1",
+  "module": "CP-3D",
+  "response_sha256": "2ed704ce4c9b8fca19a5f153d80425a4eeebaa348a6e168c9d1140a51554c1cd",
+  "scripts": {
+    "docs/reuse/selected-methods/scripts/completeness_check.py": "a9841a74e4f851fd565c5f3cabc831835c4bc305ea40c28446790f8165d56056"
+  }
+}

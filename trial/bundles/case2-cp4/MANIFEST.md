@@ -1,0 +1,84 @@
+# Trial bundle case2-cp4
+
+- live/calls.jsonl: `request_id` values replaced with `[stripped]` after copying; the sha256 below is of the stripped file, not the original.
+- Excluded from this copy: `inputs/TDG market quotes 2024-09-30.md` (Bloomberg vendor data, not a public filing). `workflow.json` still pins its sha256 and `context.json` still carries its quote values, so the run cannot be replayed byte-for-byte without it.
+Staged 2026-11-25T18:27:33Z from a read-only copy. Nothing in the original run folder was modified.
+
+- Original run folder: `~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a`
+- Run id: `tdg-2024-09-30-deep_credit_assessment-copilot-sol-medium`
+- Issuer: TransDigm Group Incorporated (tdg)
+- As-of: 2024-09-30
+- Pathway: deep_credit_assessment
+- Method version: deploy-v-r14
+- Configuration: see live/calls.jsonl (config_id/model/effort) and the case note in the report
+- Code revision: not recorded in the run folder
+- Accepted modules (events.jsonl order): CP-0, CP-1, CP-1A, CP-1B, CP-DR, CP-1C, CP-1D, CP-2, CP-4, CP-2A
+
+| bundle path | sha256 | bytes | original path |
+|---|---|---|---|
+| workflow.json | e72a5219cae665d4002dad526a740e5d7b9dab0080f3c683db2a3e28f392d78d | 18580 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/workflow.json |
+| identity.json | 01933c94085d3d88e6fcf5461ce06e8c40a71355b97091c8caae90604a230867 | 887 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/identity.json |
+| events.jsonl | 62151b8262cd7a7bf4ad73431d410fbd2d30b3d9db3be69206ff88342634e125 | 23409 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/events.jsonl |
+| live/calls.jsonl | fcec2e9ce02e3fc57d458c0bc238ab1ffdc6a129097192a672f97d2312f7e9b0 | 209970 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/live/calls.jsonl |
+| instructions/CP-0.md | 84234b9c5d585d75b4d4ee6c7e74d7ed8e4ca2bd95f89afe0f842b65b37e5764 | 75460 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-0.md |
+| instructions/CP-1.md | b7d0ac116576c796975be7cae46415b8417fdb5bbd22f50b1034a8469e3ead6e | 60318 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-1.md |
+| instructions/CP-1A.md | 38592355d454a3157a112b3db052ee37a57ab8c3bea872b31193ca4f8468810e | 105136 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-1A.md |
+| instructions/CP-1B.md | 702e7b0b390062ac96b0a789f79eea8b39297c6cfbebaec1de15848bbc9f73b7 | 67127 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-1B.md |
+| instructions/CP-1C.md | 6013adb1b57688e8a6e4b01665666680cc42213cff774a98d98b3f70e222b593 | 68533 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-1C.md |
+| instructions/CP-1D.md | a425e3d7745127bb2d0fc1f5c26cf0d3cc26779a6ab8db30449a9b3c2f842154 | 45496 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-1D.md |
+| instructions/CP-2.md | 1b640c637cdd196c5dac5ba8d59d61fc419897cdd64eca46122ed260d316bc89 | 73220 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-2.md |
+| instructions/CP-2A.md | d1013c7de191a7a050d73f28cd1676cac8355fdd05bdb47bab51153e93879f89 | 104398 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-2A.md |
+| instructions/CP-2D.md | 83c771fc4f8385496266a82a23f37a07f5a5246479dd0fbd2886c17098f9e3de | 67375 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-2D.md |
+| instructions/CP-2E.md | ff6708bc517c0e6b50259a2ab03bcefc1ea7bb502f3af8e97ebd2432345b00aa | 97774 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-2E.md |
+| instructions/CP-2G.md | ca5372eb412f0a5fd2d57dad48cdd8403c6bea89c0f3c4bc6fed417c8ede95cf | 62550 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-2G.md |
+| instructions/CP-2H.md | ba2e62967ba9564d0ad0db2a0c905d311a146ac792ced85fc9b6c4cb8ae54151 | 53555 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-2H.md |
+| instructions/CP-3.md | 79a00d23d0a6e57eed0319a7905e475b998c165e0ee0c53c7d4ef5edd9ba1a4e | 188887 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-3.md |
+| instructions/CP-3C.md | 28c48ef3fb5525d901d19f953c4ab79c1a442c5483a1347dc024d7c9f4bfeb76 | 79633 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-3C.md |
+| instructions/CP-3D.md | facb9f9c70eaee4a9076e168a98cb947d6bd10b15c1fcf1e62df960f21aa8261 | 47280 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-3D.md |
+| instructions/CP-4.md | b81777e9a180109c56c45101793bd1366ec76cdd46093378c3bfa96377e69a0d | 217985 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-4.md |
+| instructions/CP-4C.md | fd3793717e27e22886f402af4d7189e40d0a407ecb71ea108f1ea91654ff9c51 | 58032 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-4C.md |
+| instructions/CP-5.md | 00970f129011c53e69c8199de224ac47ba529cbf7a29e4956dfa1bef6534438b | 127334 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-5.md |
+| instructions/CP-6.md | 9ba1c30b7a3686553dde3da38e7bfe170b5ffdccc45ab35b15fe094937a3cdf8 | 142386 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-6.md |
+| instructions/CP-DR.md | ea04ca2ca0c0e4dc052be5fff24bba8da4dfc6d87512df6af2fef43e937aff1d | 73648 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/instructions/CP-DR.md |
+| handoffs/CP-0.md | 4c77b7a4349edeb22f76f4c69edbf7002f0fb6fe97327699a08160010dd95bd3 | 35421 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-0/8cba807be8de08ae37c21841d1e1423a442fa0035b93788fa0b0157fad219723/1.response.md |
+| reviews/CP-0.review.json | 39d344a430b71bf6bd465ae3c793201154d6f2830c03abd88ab14f259bcbace0 | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-0/8cba807be8de08ae37c21841d1e1423a442fa0035b93788fa0b0157fad219723/1.review.json |
+| method-checks/CP-0.method-checks.json | 8036696b96ad0b20dc0b68a76062cf3301ed1025da2564da578a9d3dff00a50f | 6881 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-0/8cba807be8de08ae37c21841d1e1423a442fa0035b93788fa0b0157fad219723/1.method-checks.json |
+| handoffs/CP-1.md | 5b9ba172bbe31a89253c6a8fd2420f5d127aac0bcb248979f824d4a858a5a2db | 95787 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1/d8f3a0ba0885bdb60009e006d2b695220a20cc05302d171de7504a49dc55297d/1.response.md |
+| reviews/CP-1.review.json | 7847876e30c7b772f64f654c45f3e9f2ec36b3920f01009710756112e4f5776e | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1/d8f3a0ba0885bdb60009e006d2b695220a20cc05302d171de7504a49dc55297d/1.review.json |
+| method-checks/CP-1.method-checks.json | 56e6d82eed555143a91d50b5dd47dd259e2c88df1fa4c30404fdf3d5065e6937 | 20518 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1/d8f3a0ba0885bdb60009e006d2b695220a20cc05302d171de7504a49dc55297d/1.method-checks.json |
+| handoffs/CP-1A.md | 06c6c293b29f24227d40dd377d947c933c09d099672eaa200e6646a442cf6fb7 | 53198 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1A/f6c9ac372f6374644225ad3748b846687a1311d2e36ff806a2acd7d3ef72e7dd/1.response.md |
+| reviews/CP-1A.review.json | 5d1eb7347cee331a2cea44a5720b1f995799fb67ff173174179822d2c1ea0392 | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1A/f6c9ac372f6374644225ad3748b846687a1311d2e36ff806a2acd7d3ef72e7dd/1.review.json |
+| method-checks/CP-1A.method-checks.json | b61a2f5e4899432d39d1d7bc4610612fa9dc8f014b6aeb12587a4bc2c64676d3 | 10542 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1A/f6c9ac372f6374644225ad3748b846687a1311d2e36ff806a2acd7d3ef72e7dd/1.method-checks.json |
+| handoffs/CP-1B.md | 1af1e57aa799c5d037f3be75ff5096331d4c858997317462b21965138174d55d | 57641 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1B/134c2708bdd0c1c84a9e1fcf9bc8637d8213a5c5c091b1d163ac31cad7d7adea/1.response.md |
+| reviews/CP-1B.review.json | 4b2cd646ad3309600c7ebf1209444fac9d39f6e3fa2ecc5de9fb6808d63f6dd6 | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1B/134c2708bdd0c1c84a9e1fcf9bc8637d8213a5c5c091b1d163ac31cad7d7adea/1.review.json |
+| method-checks/CP-1B.method-checks.json | b8a5175e8f4479950c8aca9050820304f4521122e6fc16094546ae95cbf52485 | 21213 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1B/134c2708bdd0c1c84a9e1fcf9bc8637d8213a5c5c091b1d163ac31cad7d7adea/1.method-checks.json |
+| handoffs/CP-DR.md | 87fe81469df8ed0a18091c6413731ff3086206a857f59c161da7bdd77ada489e | 43178 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-DR/af65c57bad1ce5873cd77adb2bb92acd62a5d8dc10901e816be05e247492622f/1.response.md |
+| reviews/CP-DR.review.json | 792e6244b695522df11acd4655ea89a493579302e7b0b225feb6ca928feeddc1 | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-DR/af65c57bad1ce5873cd77adb2bb92acd62a5d8dc10901e816be05e247492622f/1.review.json |
+| method-checks/CP-DR.method-checks.json | 5c32157b6fe2e97bc11cc4849c85026681ed6945fd684e25049b959c067d5c0f | 3340 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-DR/af65c57bad1ce5873cd77adb2bb92acd62a5d8dc10901e816be05e247492622f/1.method-checks.json |
+| handoffs/CP-1C.md | df452279993bbacd60d9c378405010ce6f2dc010740ca10e8ed312769ca0feb5 | 46726 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1C/c30db410fd0e3aaf7d4757b090d3f3a9b335cc28f7890d38ed43a958ea155c5d/1.response.md |
+| reviews/CP-1C.review.json | 20fe01db3e1461d732d2bf43bfce15467d9b5094c47f366f2dcedfb3b660f1ce | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1C/c30db410fd0e3aaf7d4757b090d3f3a9b335cc28f7890d38ed43a958ea155c5d/1.review.json |
+| method-checks/CP-1C.method-checks.json | b13e2162a5794a012039b9df72dce3545fc12e39727af99689cae75b968d4a2e | 45120 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1C/c30db410fd0e3aaf7d4757b090d3f3a9b335cc28f7890d38ed43a958ea155c5d/1.method-checks.json |
+| handoffs/CP-1D.md | c04f8321af9b599a679a4ac56ff1b428514fb95808dac8cb56997d1a625100fa | 43000 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1D/b563af8fc2645cfcb656701ff5582c5cf7deb19bab2c8afad363fee37f8002f1/1.response.md |
+| reviews/CP-1D.review.json | 13a5f969347c52fc053021c232fa44a9af1c1c8764b1ed0f565de1f13baa3b1c | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1D/b563af8fc2645cfcb656701ff5582c5cf7deb19bab2c8afad363fee37f8002f1/1.review.json |
+| method-checks/CP-1D.method-checks.json | e43f2c4f6af25d796947bd738029b04a52ac9ed006f79e560872358694846672 | 5488 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-1D/b563af8fc2645cfcb656701ff5582c5cf7deb19bab2c8afad363fee37f8002f1/1.method-checks.json |
+| handoffs/CP-2.md | cbd6dddbb4c5df05c187da5cbb0148c60cd108997d4bcd232c4591aef04e1961 | 54827 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-2/d3deaeaec702d96ce80a040adde0c45f48e323f8c0c7a30bb4df90d149c3b7c1/1.response.md |
+| reviews/CP-2.review.json | b89678e4fbfdb0652aed185893dc23d9d57a2fbe11e50d8b1ff54454070f112c | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-2/d3deaeaec702d96ce80a040adde0c45f48e323f8c0c7a30bb4df90d149c3b7c1/1.review.json |
+| method-checks/CP-2.method-checks.json | 6a745dc6cdb78fab567eab46d707a148b577823256177252ec325d6e08e05831 | 2341 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-2/d3deaeaec702d96ce80a040adde0c45f48e323f8c0c7a30bb4df90d149c3b7c1/1.method-checks.json |
+| handoffs/CP-4.md | feba7b0ef4b67bcc168c94fad454c44343472a1d08190e8f1ade0fe67817a696 | 104394 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-4/da079870229290de4e0b135336eab4b688768031c5d906c661e29e2e0598e956/1.response.md |
+| reviews/CP-4.review.json | 7d78fcbefacfc24098f2a8d77188b4ebddd13d36d889015cb369864b246fb104 | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-4/da079870229290de4e0b135336eab4b688768031c5d906c661e29e2e0598e956/1.review.json |
+| method-checks/CP-4.method-checks.json | 225b8937cd4167dbbaa5a1c5102be6741de6ef552b1ae194d3000b677e542943 | 24209 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-4/da079870229290de4e0b135336eab4b688768031c5d906c661e29e2e0598e956/1.method-checks.json |
+| handoffs/CP-2A.md | 4e539b9b7e14e66e2ce23c4aa161c5a8022585fcf847d3a009d97b7c047cb59e | 47085 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-2A/22fb92fd1b41427cc43edbbf2fa154fbdd5bb6a26bec307093836557d97f8617/1.response.md |
+| reviews/CP-2A.review.json | cff2e5c2d63260359279fb66e9e0bac2eb94985497075a488c4279e90c7c7e1f | 107 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-2A/22fb92fd1b41427cc43edbbf2fa154fbdd5bb6a26bec307093836557d97f8617/1.review.json |
+| method-checks/CP-2A.method-checks.json | 396f58cdc553e59841ce4209b773f60cd7dfc495b933025a0fbebb5d9ba31b4d | 6883 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/requests/CP-2A/22fb92fd1b41427cc43edbbf2fa154fbdd5bb6a26bec307093836557d97f8617/1.method-checks.json |
+| inputs/TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl | fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6 | 192510 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6 |
+| inputs/TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl | ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2 | 206214 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2 |
+| inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl | d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6 | 504860 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6 |
+| inputs/TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl | ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f | 150291 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f |
+| inputs/TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf | dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af | 4378190 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af |
+| inputs/d496141dex101.htm.jsonl | f3296f34a0a29871c452cfdcdffa444ed3163ba19b7a2091f8da0081f6a659a3 | 919468 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/f3296f34a0a29871c452cfdcdffa444ed3163ba19b7a2091f8da0081f6a659a3 |
+| inputs/d739389dex101.htm.jsonl | 599f31abf0aa7b187a9bff99122a8cd143af1a7010252ba16ceff665df723547 | 1227123 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/599f31abf0aa7b187a9bff99122a8cd143af1a7010252ba16ceff665df723547 |
+| inputs/d826058dex41.htm.jsonl | 76c7986f4027d668729899c1a0879ca79b6a085e9b123aff9be6889e28e200f4 | 425310 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/76c7986f4027d668729899c1a0879ca79b6a085e9b123aff9be6889e28e200f4 |
+| inputs/d833756dex101.htm.jsonl | 386178c1071694cc794479a33723b3717a84d8f9b50b7c612a0aadbe71646aac | 601513 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/386178c1071694cc794479a33723b3717a84d8f9b50b7c612a0aadbe71646aac |
+| inputs/d887611dex101.htm.jsonl | e7226c6fe4bac0a47357ed88e4c6270362396d4d461427eb6849ac790a75c7b8 | 616644 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/e7226c6fe4bac0a47357ed88e4c6270362396d4d461427eb6849ac790a75c7b8 |
+| inputs/d887611dex41.htm.jsonl | 10cde4db465fad419d6cd9a306ffac035f9cc5b1e7fa7de3e2fbf15e1610929c | 426136 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/10cde4db465fad419d6cd9a306ffac035f9cc5b1e7fa7de3e2fbf15e1610929c |
+| context.json | 45b7ad96d2fdbe3116d07d6f9067eca81c1d3c1355e758e8b06989528728ee1b | 2977 | ~/cos-live/tdg-all-sol-20261125/_engine/runs/test-tdg-deep-sol-a/inputs/45b7ad96d2fdbe3116d07d6f9067eca81c1d3c1355e758e8b06989528728ee1b |

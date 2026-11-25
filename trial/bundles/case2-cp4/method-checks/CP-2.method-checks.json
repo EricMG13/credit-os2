@@ -1,0 +1,80 @@
+{
+  "checks": [
+    {
+      "figure": "columns",
+      "module": "CP-2",
+      "reason": "every declared column is present",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "T2.1",
+      "row": "columns",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "agreed",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "columns",
+      "module": "CP-2",
+      "reason": "every declared column is present",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "T2.10",
+      "row": "columns",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "agreed",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "all",
+      "module": "CP-2",
+      "reason": "not required in this transport (register scope or routing rule)",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "T2.11",
+      "row": "all",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "not checked",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "columns",
+      "module": "CP-2",
+      "reason": "every declared column is present",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "T2.12",
+      "row": "columns",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "agreed",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "all",
+      "module": "CP-2",
+      "reason": "not required in this transport (register scope or routing rule)",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "T2.7",
+      "row": "all",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "not checked",
+      "tolerance": null,
+      "unit": null
+    }
+  ],
+  "kind": "method-script-checks/1",
+  "module": "CP-2",
+  "response_sha256": "cbd6dddbb4c5df05c187da5cbb0148c60cd108997d4bcd232c4591aef04e1961",
+  "scripts": {
+    "docs/reuse/selected-methods/scripts/completeness_check.py": "a9841a74e4f851fd565c5f3cabc831835c4bc305ea40c28446790f8165d56056"
+  }
+}

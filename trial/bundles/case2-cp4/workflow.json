@@ -1,0 +1,610 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "tdg-2024-09-30-deep_credit_assessment-copilot-sol-medium",
+    "issuer_id": "tdg",
+    "issuer_name": "TransDigm Group Incorporated",
+    "as_of": "2024-09-30",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "deep_credit_assessment",
+    "requested_modules": [
+      "CP-0",
+      "CP-1",
+      "CP-1A",
+      "CP-1B",
+      "CP-DR",
+      "CP-1C",
+      "CP-1D",
+      "CP-2",
+      "CP-4",
+      "CP-2A",
+      "CP-2E",
+      "CP-2D",
+      "CP-2G",
+      "CP-2H",
+      "CP-3D",
+      "CP-3C",
+      "CP-4C",
+      "CP-3",
+      "CP-5",
+      "CP-6"
+    ]
+  },
+  "sources": {
+    "TDG market quotes 2024-09-30.md": {
+      "path": "../../../sources/TDG market quotes 2024-09-30.md",
+      "sha256": "6ec364fd720ed5245eb798b4bc52da4253072f52ab73e61f64d45862bf309fcc"
+    },
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": {
+      "path": "source-text/TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl",
+      "sha256": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6"
+    },
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": {
+      "path": "source-text/TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl",
+      "sha256": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2"
+    },
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": {
+      "path": "source-text/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+      "sha256": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6"
+    },
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": {
+      "path": "source-text/TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl",
+      "sha256": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f"
+    },
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": {
+      "path": "../../../sources/TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf",
+      "sha256": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af"
+    },
+    "d496141dex101.htm.jsonl": {
+      "path": "source-text/d496141dex101.htm.jsonl",
+      "sha256": "f3296f34a0a29871c452cfdcdffa444ed3163ba19b7a2091f8da0081f6a659a3"
+    },
+    "d739389dex101.htm.jsonl": {
+      "path": "source-text/d739389dex101.htm.jsonl",
+      "sha256": "599f31abf0aa7b187a9bff99122a8cd143af1a7010252ba16ceff665df723547"
+    },
+    "d826058dex41.htm.jsonl": {
+      "path": "source-text/d826058dex41.htm.jsonl",
+      "sha256": "76c7986f4027d668729899c1a0879ca79b6a085e9b123aff9be6889e28e200f4"
+    },
+    "d833756dex101.htm.jsonl": {
+      "path": "source-text/d833756dex101.htm.jsonl",
+      "sha256": "386178c1071694cc794479a33723b3717a84d8f9b50b7c612a0aadbe71646aac"
+    },
+    "d887611dex101.htm.jsonl": {
+      "path": "source-text/d887611dex101.htm.jsonl",
+      "sha256": "e7226c6fe4bac0a47357ed88e4c6270362396d4d461427eb6849ac790a75c7b8"
+    },
+    "d887611dex41.htm.jsonl": {
+      "path": "source-text/d887611dex41.htm.jsonl",
+      "sha256": "10cde4db465fad419d6cd9a306ffac035f9cc5b1e7fa7de3e2fbf15e1610929c"
+    },
+    "context": {
+      "path": "../../../context.json",
+      "sha256": "45b7ad96d2fdbe3116d07d6f9067eca81c1d3c1355e758e8b06989528728ee1b"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "84234b9c5d585d75b4d4ee6c7e74d7ed8e4ca2bd95f89afe0f842b65b37e5764"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "b7d0ac116576c796975be7cae46415b8417fdb5bbd22f50b1034a8469e3ead6e"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "38592355d454a3157a112b3db052ee37a57ab8c3bea872b31193ca4f8468810e"
+    },
+    "CP-1B": {
+      "path": "instructions/CP-1B.md",
+      "sha256": "702e7b0b390062ac96b0a789f79eea8b39297c6cfbebaec1de15848bbc9f73b7"
+    },
+    "CP-DR": {
+      "path": "instructions/CP-DR.md",
+      "sha256": "ea04ca2ca0c0e4dc052be5fff24bba8da4dfc6d87512df6af2fef43e937aff1d"
+    },
+    "CP-1C": {
+      "path": "instructions/CP-1C.md",
+      "sha256": "6013adb1b57688e8a6e4b01665666680cc42213cff774a98d98b3f70e222b593"
+    },
+    "CP-1D": {
+      "path": "instructions/CP-1D.md",
+      "sha256": "a425e3d7745127bb2d0fc1f5c26cf0d3cc26779a6ab8db30449a9b3c2f842154"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "1b640c637cdd196c5dac5ba8d59d61fc419897cdd64eca46122ed260d316bc89"
+    },
+    "CP-4": {
+      "path": "instructions/CP-4.md",
+      "sha256": "b81777e9a180109c56c45101793bd1366ec76cdd46093378c3bfa96377e69a0d"
+    },
+    "CP-2A": {
+      "path": "instructions/CP-2A.md",
+      "sha256": "d1013c7de191a7a050d73f28cd1676cac8355fdd05bdb47bab51153e93879f89"
+    },
+    "CP-2E": {
+      "path": "instructions/CP-2E.md",
+      "sha256": "ff6708bc517c0e6b50259a2ab03bcefc1ea7bb502f3af8e97ebd2432345b00aa"
+    },
+    "CP-2D": {
+      "path": "instructions/CP-2D.md",
+      "sha256": "83c771fc4f8385496266a82a23f37a07f5a5246479dd0fbd2886c17098f9e3de"
+    },
+    "CP-2G": {
+      "path": "instructions/CP-2G.md",
+      "sha256": "ca5372eb412f0a5fd2d57dad48cdd8403c6bea89c0f3c4bc6fed417c8ede95cf"
+    },
+    "CP-2H": {
+      "path": "instructions/CP-2H.md",
+      "sha256": "ba2e62967ba9564d0ad0db2a0c905d311a146ac792ced85fc9b6c4cb8ae54151"
+    },
+    "CP-3D": {
+      "path": "instructions/CP-3D.md",
+      "sha256": "facb9f9c70eaee4a9076e168a98cb947d6bd10b15c1fcf1e62df960f21aa8261"
+    },
+    "CP-3C": {
+      "path": "instructions/CP-3C.md",
+      "sha256": "28c48ef3fb5525d901d19f953c4ab79c1a442c5483a1347dc024d7c9f4bfeb76"
+    },
+    "CP-4C": {
+      "path": "instructions/CP-4C.md",
+      "sha256": "fd3793717e27e22886f402af4d7189e40d0a407ecb71ea108f1ea91654ff9c51"
+    },
+    "CP-3": {
+      "path": "instructions/CP-3.md",
+      "sha256": "79a00d23d0a6e57eed0319a7905e475b998c165e0ee0c53c7d4ef5edd9ba1a4e"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "00970f129011c53e69c8199de224ac47ba529cbf7a29e4956dfa1bef6534438b"
+    },
+    "CP-6": {
+      "path": "instructions/CP-6.md",
+      "sha256": "9ba1c30b7a3686553dde3da38e7bfe170b5ffdccc45ab35b15fe094937a3cdf8"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "publish_forecast": true,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "capital-structure",
+      "financials-credit-metrics",
+      "headline-results",
+      "earnings-quality",
+      "peer-positioning",
+      "strengths-weaknesses",
+      "downside-stress",
+      "break-points",
+      "liquidity-runway",
+      "forward-credit-path",
+      "rating-triggers",
+      "covenant-tests-headroom",
+      "recovery-by-class",
+      "refinancing-paths",
+      "market-against-fundamentals",
+      "relative-value",
+      "company-profile",
+      "transaction-summary",
+      "portfolio-fit",
+      "committee-challenge"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-4",
+        "heading": "Capital structure",
+        "kind": "table",
+        "block_id": "capital-structure",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1B",
+        "heading": "Headline results",
+        "kind": "table",
+        "block_id": "headline-results",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1D",
+        "heading": "Earnings quality",
+        "kind": "table",
+        "block_id": "earnings-quality",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1C",
+        "heading": "Peer positioning",
+        "kind": "table",
+        "block_id": "peer-positioning",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2A",
+        "heading": "Downside stress",
+        "kind": "table",
+        "block_id": "downside-stress",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2A",
+        "heading": "Break points",
+        "kind": "table",
+        "block_id": "break-points",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2D",
+        "heading": "Liquidity and cash runway",
+        "kind": "table",
+        "block_id": "liquidity-runway",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2G",
+        "heading": "Forward credit path",
+        "kind": "table",
+        "block_id": "forward-credit-path",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2H",
+        "heading": "Rating triggers",
+        "kind": "table",
+        "block_id": "rating-triggers",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-4",
+        "heading": "Covenant tests and headroom",
+        "kind": "table",
+        "block_id": "covenant-tests-headroom",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-4C",
+        "heading": "Recovery by class",
+        "kind": "table",
+        "block_id": "recovery-by-class",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-3C",
+        "heading": "Refinancing paths",
+        "kind": "table",
+        "block_id": "refinancing-paths",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-3D",
+        "heading": "Market against fundamentals",
+        "kind": "table",
+        "block_id": "market-against-fundamentals",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-3",
+        "heading": "Relative value",
+        "kind": "prose",
+        "block_id": "relative-value",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-3",
+        "heading": "Portfolio Fit",
+        "kind": "prose",
+        "block_id": "portfolio-fit",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-6",
+        "heading": "Committee challenge",
+        "kind": "prose",
+        "block_id": "committee-challenge",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "Test run, not a delivery: CP-4C assumed a distress trigger. User-launched Deep credit assessment run for TransDigm Group Incorporated as of 2024-09-30, using copilot-sol-medium on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and issuer-report section selectors; analytical accuracy has not been independently reviewed. The HTML Model is not published by this launcher. A forecast table is published with the issuer report in the library when the CP-2G handoff's inputs block validates; Python computes its figures from the inputs the handoff states, and the inputs are not independently reviewed. Sections not produced: what-changed.",
+    "title": "TransDigm Group Incorporated — Deep credit assessment",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "changes_note": "changes: first run of this pathway",
+  "selection": "preset",
+  "preset_requested_modules": [
+    "CP-0",
+    "CP-1",
+    "CP-1A",
+    "CP-1B",
+    "CP-DR",
+    "CP-1C",
+    "CP-1D",
+    "CP-2",
+    "CP-4",
+    "CP-2A",
+    "CP-2E",
+    "CP-2D",
+    "CP-2G",
+    "CP-2H",
+    "CP-3D",
+    "CP-3C",
+    "CP-4C",
+    "CP-3",
+    "CP-5",
+    "CP-6"
+  ],
+  "test_adaptations": [
+    "test-assume-distress"
+  ],
+  "execution": "live-provider",
+  "max_attempts": 1,
+  "provider_cap_usd": "40"
+}

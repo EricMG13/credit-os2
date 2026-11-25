@@ -1,0 +1,94 @@
+{
+  "checks": [
+    {
+      "figure": "all",
+      "module": "CP-DR",
+      "reason": "not required in this transport (register scope or routing rule)",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "TDR.1",
+      "row": "all",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "not checked",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "columns",
+      "module": "CP-DR",
+      "reason": "every declared column is present",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "TDR.2",
+      "row": "columns",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "agreed",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "all",
+      "module": "CP-DR",
+      "reason": "not required in this transport (register scope or routing rule)",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "TDR.3",
+      "row": "all",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "not checked",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "columns",
+      "module": "CP-DR",
+      "reason": "every declared column is present",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "TDR.4",
+      "row": "columns",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "agreed",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "columns",
+      "module": "CP-DR",
+      "reason": "every declared column is present",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "TDR.5",
+      "row": "columns",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "agreed",
+      "tolerance": null,
+      "unit": null
+    },
+    {
+      "figure": "columns",
+      "module": "CP-DR",
+      "reason": "every declared column is present",
+      "recomputed": null,
+      "recomputed_label": null,
+      "register": "TDR.6",
+      "row": "columns",
+      "script": "docs/reuse/selected-methods/scripts/completeness_check.py",
+      "stated": null,
+      "status": "agreed",
+      "tolerance": null,
+      "unit": null
+    }
+  ],
+  "kind": "method-script-checks/1",
+  "module": "CP-DR",
+  "response_sha256": "f7ebcff4948d7c1303dbe93be2415859b4244722e9b3b4d14d0e2b18c8488d80",
+  "scripts": {
+    "docs/reuse/selected-methods/scripts/completeness_check.py": "a9841a74e4f851fd565c5f3cabc831835c4bc305ea40c28446790f8165d56056"
+  }
+}

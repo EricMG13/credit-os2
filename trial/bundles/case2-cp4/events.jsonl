@@ -1,0 +1,157 @@
+{"at": "2026-11-25T15:11:47Z", "event": "launch_started", "modules_at_once": 1}
+{"at": "2026-11-25T15:11:47Z", "event": "module_started", "module": "CP-0"}
+{"at": "2026-11-25T15:11:47Z", "event": "turn", "module": "CP-0", "turn": 1, "max_turns": 32, "spent_usd": "0", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:11:53Z", "event": "turn", "module": "CP-0", "turn": 2, "max_turns": 32, "spent_usd": "0.04929850000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:11:54Z", "event": "turn", "module": "CP-0", "turn": 3, "max_turns": 32, "spent_usd": "0.05360310000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:12:00Z", "event": "turn", "module": "CP-0", "turn": 4, "max_turns": 32, "spent_usd": "0.06128020000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:12:06Z", "event": "turn", "module": "CP-0", "turn": 5, "max_turns": 32, "spent_usd": "0.08828680000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:12:13Z", "event": "turn", "module": "CP-0", "turn": 6, "max_turns": 32, "spent_usd": "0.10657700000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:12:21Z", "event": "turn", "module": "CP-0", "turn": 7, "max_turns": 32, "spent_usd": "0.13512060000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:12:31Z", "event": "turn", "module": "CP-0", "turn": 8, "max_turns": 32, "spent_usd": "0.17800830000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:12:37Z", "event": "turn", "module": "CP-0", "turn": 9, "max_turns": 32, "spent_usd": "0.19369990000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:15:05Z", "event": "module_accepted", "module": "CP-0"}
+{"at": "2026-11-25T15:15:05Z", "event": "module_started", "module": "CP-1"}
+{"at": "2026-11-25T15:15:05Z", "event": "turn", "module": "CP-1", "turn": 1, "max_turns": 32, "spent_usd": "0.30592510000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:15:10Z", "event": "turn", "module": "CP-1", "turn": 2, "max_turns": 32, "spent_usd": "0.37001110000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:15:15Z", "event": "turn", "module": "CP-1", "turn": 3, "max_turns": 32, "spent_usd": "0.37665720000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:15:21Z", "event": "turn", "module": "CP-1", "turn": 4, "max_turns": 32, "spent_usd": "0.39109330000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:15:34Z", "event": "turn", "module": "CP-1", "turn": 5, "max_turns": 32, "spent_usd": "0.42583110000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:15:42Z", "event": "turn", "module": "CP-1", "turn": 6, "max_turns": 32, "spent_usd": "0.43723960000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:15:51Z", "event": "turn", "module": "CP-1", "turn": 7, "max_turns": 32, "spent_usd": "0.46035910000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:16:06Z", "event": "turn", "module": "CP-1", "turn": 8, "max_turns": 32, "spent_usd": "0.48276550000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:16:09Z", "event": "turn", "module": "CP-1", "turn": 9, "max_turns": 32, "spent_usd": "0.49165580000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:16:28Z", "event": "turn", "module": "CP-1", "turn": 10, "max_turns": 32, "spent_usd": "0.50925200000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:16:38Z", "event": "turn", "module": "CP-1", "turn": 11, "max_turns": 32, "spent_usd": "0.52423350000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:16:58Z", "event": "turn", "module": "CP-1", "turn": 12, "max_turns": 32, "spent_usd": "0.54392820000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:17:16Z", "event": "turn", "module": "CP-1", "turn": 13, "max_turns": 32, "spent_usd": "0.56435470000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:17:28Z", "event": "turn", "module": "CP-1", "turn": 14, "max_turns": 32, "spent_usd": "0.58086190000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:17:35Z", "event": "turn", "module": "CP-1", "turn": 15, "max_turns": 32, "spent_usd": "0.59278830000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:17:53Z", "event": "turn", "module": "CP-1", "turn": 16, "max_turns": 32, "spent_usd": "0.61332120000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:25:30Z", "event": "draft_rejected", "module": "CP-1", "writes_left": 2}
+{"at": "2026-11-25T15:25:30Z", "event": "turn", "module": "CP-1", "turn": 17, "max_turns": 32, "spent_usd": "0.92564550000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:25:44Z", "event": "turn", "module": "CP-1", "turn": 18, "max_turns": 32, "spent_usd": "1.01236420000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:25:51Z", "event": "module_accepted", "module": "CP-1"}
+{"at": "2026-11-25T15:25:51Z", "event": "module_started", "module": "CP-1A"}
+{"at": "2026-11-25T15:25:51Z", "event": "turn", "module": "CP-1A", "turn": 1, "max_turns": 32, "spent_usd": "1.02593480000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:25:55Z", "event": "turn", "module": "CP-1A", "turn": 2, "max_turns": 32, "spent_usd": "1.11801080000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:00Z", "event": "turn", "module": "CP-1A", "turn": 3, "max_turns": 32, "spent_usd": "1.12597650000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:05Z", "event": "turn", "module": "CP-1A", "turn": 4, "max_turns": 32, "spent_usd": "1.13812720000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:11Z", "event": "turn", "module": "CP-1A", "turn": 5, "max_turns": 32, "spent_usd": "1.16047420000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:18Z", "event": "turn", "module": "CP-1A", "turn": 6, "max_turns": 32, "spent_usd": "1.17620420000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:24Z", "event": "turn", "module": "CP-1A", "turn": 7, "max_turns": 32, "spent_usd": "1.19446060000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:37Z", "event": "turn", "module": "CP-1A", "turn": 8, "max_turns": 32, "spent_usd": "1.20910480000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:41Z", "event": "turn", "module": "CP-1A", "turn": 9, "max_turns": 32, "spent_usd": "1.22734730000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:26:47Z", "event": "turn", "module": "CP-1A", "turn": 10, "max_turns": 32, "spent_usd": "1.24123010000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:27:06Z", "event": "turn", "module": "CP-1A", "turn": 11, "max_turns": 32, "spent_usd": "1.26013610000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:30:45Z", "event": "draft_rejected", "module": "CP-1A", "writes_left": 2}
+{"at": "2026-11-25T15:30:45Z", "event": "turn", "module": "CP-1A", "turn": 12, "max_turns": 32, "spent_usd": "1.41685200000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:02Z", "event": "module_accepted", "module": "CP-1A"}
+{"at": "2026-11-25T15:31:02Z", "event": "module_started", "module": "CP-1B"}
+{"at": "2026-11-25T15:31:02Z", "event": "turn", "module": "CP-1B", "turn": 1, "max_turns": 32, "spent_usd": "1.47453040000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:06Z", "event": "turn", "module": "CP-1B", "turn": 2, "max_turns": 32, "spent_usd": "1.62024890000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:08Z", "event": "turn", "module": "CP-1B", "turn": 3, "max_turns": 32, "spent_usd": "1.62880030000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:11Z", "event": "turn", "module": "CP-1B", "turn": 4, "max_turns": 32, "spent_usd": "1.63543920000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:15Z", "event": "turn", "module": "CP-1B", "turn": 5, "max_turns": 32, "spent_usd": "1.64442100000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:22Z", "event": "turn", "module": "CP-1B", "turn": 6, "max_turns": 32, "spent_usd": "1.67345820000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:31Z", "event": "turn", "module": "CP-1B", "turn": 7, "max_turns": 32, "spent_usd": "1.70362250000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:31:48Z", "event": "turn", "module": "CP-1B", "turn": 8, "max_turns": 32, "spent_usd": "1.72302310000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:32:01Z", "event": "turn", "module": "CP-1B", "turn": 9, "max_turns": 32, "spent_usd": "1.74351190000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:32:20Z", "event": "turn", "module": "CP-1B", "turn": 10, "max_turns": 32, "spent_usd": "1.77087860000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:18Z", "event": "module_accepted", "module": "CP-1B"}
+{"at": "2026-11-25T15:36:18Z", "event": "module_started", "module": "CP-DR"}
+{"at": "2026-11-25T15:36:18Z", "event": "turn", "module": "CP-DR", "turn": 1, "max_turns": 32, "spent_usd": "1.94000910000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:23Z", "event": "turn", "module": "CP-DR", "turn": 2, "max_turns": 32, "spent_usd": "2.08803510000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:26Z", "event": "turn", "module": "CP-DR", "turn": 3, "max_turns": 32, "spent_usd": "2.09725880000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:28Z", "event": "turn", "module": "CP-DR", "turn": 4, "max_turns": 32, "spent_usd": "2.10746500000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:31Z", "event": "turn", "module": "CP-DR", "turn": 5, "max_turns": 32, "spent_usd": "2.11720850000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:36Z", "event": "web_fetch", "module": "CP-DR", "host": "www.sec.gov", "source_id": "web-a312b31e2a7d"}
+{"at": "2026-11-25T15:36:36Z", "event": "turn", "module": "CP-DR", "turn": 6, "max_turns": 32, "spent_usd": "2.12973400000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:40Z", "event": "web_fetch", "module": "CP-DR", "host": "data.sec.gov", "source_id": "web-1b4a9f589ada"}
+{"at": "2026-11-25T15:36:40Z", "event": "web_fetch", "module": "CP-DR", "host": "data.sec.gov", "source_id": "web-d133b5de22fa"}
+{"at": "2026-11-25T15:36:40Z", "event": "turn", "module": "CP-DR", "turn": 7, "max_turns": 32, "spent_usd": "2.14112180000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:45Z", "event": "turn", "module": "CP-DR", "turn": 8, "max_turns": 32, "spent_usd": "2.15972110000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:48Z", "event": "turn", "module": "CP-DR", "turn": 9, "max_turns": 32, "spent_usd": "2.17467520000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:36:52Z", "event": "web_fetch", "module": "CP-DR", "host": "data.sec.gov", "source_id": "web-27a48ffcc65a"}
+{"at": "2026-11-25T15:36:52Z", "event": "turn", "module": "CP-DR", "turn": 10, "max_turns": 32, "spent_usd": "2.18452170000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:03Z", "event": "turn", "module": "CP-DR", "turn": 11, "max_turns": 32, "spent_usd": "2.21113700000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:12Z", "event": "web_fetch", "module": "CP-DR", "host": "www.sec.gov", "source_id": "web-912e342c5634"}
+{"at": "2026-11-25T15:37:12Z", "event": "turn", "module": "CP-DR", "turn": 12, "max_turns": 32, "spent_usd": "2.23988320000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:20Z", "event": "turn", "module": "CP-DR", "turn": 13, "max_turns": 32, "spent_usd": "2.25378830000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:29Z", "event": "turn", "module": "CP-DR", "turn": 14, "max_turns": 32, "spent_usd": "2.27206130000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:33Z", "event": "web_fetch", "module": "CP-DR", "host": "data.sec.gov", "source_id": "web-94180bf2d54f"}
+{"at": "2026-11-25T15:37:33Z", "event": "turn", "module": "CP-DR", "turn": 15, "max_turns": 32, "spent_usd": "2.30543880000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:37Z", "event": "turn", "module": "CP-DR", "turn": 16, "max_turns": 32, "spent_usd": "2.33184140000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:41Z", "event": "web_fetch", "module": "CP-DR", "host": "data.sec.gov", "source_id": "web-0ff4105f035c"}
+{"at": "2026-11-25T15:37:41Z", "event": "turn", "module": "CP-DR", "turn": 17, "max_turns": 32, "spent_usd": "2.35982880000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:42Z", "event": "turn", "module": "CP-DR", "turn": 18, "max_turns": 32, "spent_usd": "2.37482830000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:44Z", "event": "turn", "module": "CP-DR", "turn": 19, "max_turns": 32, "spent_usd": "2.38659750000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:46Z", "event": "turn", "module": "CP-DR", "turn": 20, "max_turns": 32, "spent_usd": "2.39907410000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:49Z", "event": "web_fetch", "module": "CP-DR", "host": "www.sec.gov", "source_id": "web-9705b33a6ef9"}
+{"at": "2026-11-25T15:37:49Z", "event": "turn", "module": "CP-DR", "turn": 21, "max_turns": 32, "spent_usd": "2.42252410000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:52Z", "event": "turn", "module": "CP-DR", "turn": 22, "max_turns": 32, "spent_usd": "2.43669110000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:37:58Z", "event": "turn", "module": "CP-DR", "turn": 23, "max_turns": 32, "spent_usd": "2.45257150000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:38:23Z", "event": "turn", "module": "CP-DR", "turn": 24, "max_turns": 32, "spent_usd": "2.50267190000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:38:37Z", "event": "turn", "module": "CP-DR", "turn": 25, "max_turns": 32, "spent_usd": "2.54002660000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:38:48Z", "event": "turn", "module": "CP-DR", "turn": 26, "max_turns": 32, "spent_usd": "2.56024500000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:41:38Z", "event": "module_accepted", "module": "CP-DR"}
+{"at": "2026-11-25T15:41:38Z", "event": "module_started", "module": "CP-1C"}
+{"at": "2026-11-25T15:41:38Z", "event": "turn", "module": "CP-1C", "turn": 1, "max_turns": 32, "spent_usd": "2.68566280000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:41:44Z", "event": "turn", "module": "CP-1C", "turn": 2, "max_turns": 32, "spent_usd": "2.85931130000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:41:50Z", "event": "turn", "module": "CP-1C", "turn": 3, "max_turns": 32, "spent_usd": "2.87053990000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:41:55Z", "event": "turn", "module": "CP-1C", "turn": 4, "max_turns": 32, "spent_usd": "2.88162850000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:42:04Z", "event": "turn", "module": "CP-1C", "turn": 5, "max_turns": 32, "spent_usd": "2.89711110000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:42:08Z", "event": "turn", "module": "CP-1C", "turn": 6, "max_turns": 32, "spent_usd": "2.90754840000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:42:10Z", "event": "turn", "module": "CP-1C", "turn": 7, "max_turns": 32, "spent_usd": "2.91610760000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:45:13Z", "event": "draft_rejected", "module": "CP-1C", "writes_left": 2}
+{"at": "2026-11-25T15:45:13Z", "event": "turn", "module": "CP-1C", "turn": 8, "max_turns": 32, "spent_usd": "3.04494790000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:45:21Z", "event": "module_accepted", "module": "CP-1C"}
+{"at": "2026-11-25T15:45:21Z", "event": "module_started", "module": "CP-1D"}
+{"at": "2026-11-25T15:45:21Z", "event": "turn", "module": "CP-1D", "turn": 1, "max_turns": 32, "spent_usd": "3.08709610000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:45:27Z", "event": "turn", "module": "CP-1D", "turn": 2, "max_turns": 32, "spent_usd": "3.25684210000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:45:32Z", "event": "turn", "module": "CP-1D", "turn": 3, "max_turns": 32, "spent_usd": "3.26797460000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:45:37Z", "event": "turn", "module": "CP-1D", "turn": 4, "max_turns": 32, "spent_usd": "3.28145710000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:45:42Z", "event": "turn", "module": "CP-1D", "turn": 5, "max_turns": 32, "spent_usd": "3.30141490000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:45:52Z", "event": "turn", "module": "CP-1D", "turn": 6, "max_turns": 32, "spent_usd": "3.31898170000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:46:03Z", "event": "turn", "module": "CP-1D", "turn": 7, "max_turns": 32, "spent_usd": "3.34076810000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:46:09Z", "event": "turn", "module": "CP-1D", "turn": 8, "max_turns": 32, "spent_usd": "3.35475110000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:48:59Z", "event": "module_accepted", "module": "CP-1D"}
+{"at": "2026-11-25T15:48:59Z", "event": "module_started", "module": "CP-2"}
+{"at": "2026-11-25T15:49:00Z", "event": "turn", "module": "CP-2", "turn": 1, "max_turns": 32, "spent_usd": "3.47676320000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:49:06Z", "event": "turn", "module": "CP-2", "turn": 2, "max_turns": 32, "spent_usd": "3.78242920000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:49:10Z", "event": "turn", "module": "CP-2", "turn": 3, "max_turns": 32, "spent_usd": "3.79821500000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:49:15Z", "event": "turn", "module": "CP-2", "turn": 4, "max_turns": 32, "spent_usd": "3.81367080000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:49:32Z", "event": "turn", "module": "CP-2", "turn": 5, "max_turns": 32, "spent_usd": "3.84518680000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:52:49Z", "event": "module_accepted", "module": "CP-2"}
+{"at": "2026-11-25T15:52:49Z", "event": "module_started", "module": "CP-4"}
+{"at": "2026-11-25T15:52:49Z", "event": "turn", "module": "CP-4", "turn": 1, "max_turns": 32, "spent_usd": "3.98971310000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:52:55Z", "event": "turn", "module": "CP-4", "turn": 2, "max_turns": 32, "spent_usd": "4.28908660000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:52:59Z", "event": "turn", "module": "CP-4", "turn": 3, "max_turns": 32, "spent_usd": "4.30493420000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:04Z", "event": "turn", "module": "CP-4", "turn": 4, "max_turns": 32, "spent_usd": "4.32759180000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:10Z", "event": "turn", "module": "CP-4", "turn": 5, "max_turns": 32, "spent_usd": "4.35734580000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:15Z", "event": "turn", "module": "CP-4", "turn": 6, "max_turns": 32, "spent_usd": "4.39159100000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:22Z", "event": "turn", "module": "CP-4", "turn": 7, "max_turns": 32, "spent_usd": "4.43311740000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:29Z", "event": "turn", "module": "CP-4", "turn": 8, "max_turns": 32, "spent_usd": "4.47484180000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:38Z", "event": "turn", "module": "CP-4", "turn": 9, "max_turns": 32, "spent_usd": "4.51702790000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:44Z", "event": "turn", "module": "CP-4", "turn": 10, "max_turns": 32, "spent_usd": "4.54856010000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:53:49Z", "event": "turn", "module": "CP-4", "turn": 11, "max_turns": 32, "spent_usd": "4.57140060000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T15:54:02Z", "event": "turn", "module": "CP-4", "turn": 12, "max_turns": 32, "spent_usd": "4.61144280000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:00:22Z", "event": "draft_rejected", "module": "CP-4", "writes_left": 2}
+{"at": "2026-11-25T16:00:22Z", "event": "turn", "module": "CP-4", "turn": 13, "max_turns": 32, "spent_usd": "4.89302840000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:00:44Z", "event": "module_accepted", "module": "CP-4"}
+{"at": "2026-11-25T16:00:44Z", "event": "module_started", "module": "CP-2A"}
+{"at": "2026-11-25T16:00:44Z", "event": "turn", "module": "CP-2A", "turn": 1, "max_turns": 32, "spent_usd": "4.98938940000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:00:50Z", "event": "turn", "module": "CP-2A", "turn": 2, "max_turns": 32, "spent_usd": "5.22700790000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:00:54Z", "event": "turn", "module": "CP-2A", "turn": 3, "max_turns": 32, "spent_usd": "5.24028530000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:00:58Z", "event": "turn", "module": "CP-2A", "turn": 4, "max_turns": 32, "spent_usd": "5.25254770000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:01:03Z", "event": "turn", "module": "CP-2A", "turn": 5, "max_turns": 32, "spent_usd": "5.26798920000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:01:05Z", "event": "turn", "module": "CP-2A", "turn": 6, "max_turns": 32, "spent_usd": "5.27904870000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:01:10Z", "event": "turn", "module": "CP-2A", "turn": 7, "max_turns": 32, "spent_usd": "5.29001580000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:01:19Z", "event": "turn", "module": "CP-2A", "turn": 8, "max_turns": 32, "spent_usd": "5.30566740000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:01:28Z", "event": "turn", "module": "CP-2A", "turn": 9, "max_turns": 32, "spent_usd": "5.32134100000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:01:34Z", "event": "turn", "module": "CP-2A", "turn": 10, "max_turns": 32, "spent_usd": "5.33556160000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:04:39Z", "event": "module_accepted", "module": "CP-2A"}
+{"at": "2026-11-25T16:04:39Z", "event": "module_started", "module": "CP-2E"}
+{"at": "2026-11-25T16:04:39Z", "event": "turn", "module": "CP-2E", "turn": 1, "max_turns": 32, "spent_usd": "5.46883810000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:04:47Z", "event": "turn", "module": "CP-2E", "turn": 2, "max_turns": 32, "spent_usd": "5.70039910000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:04:54Z", "event": "turn", "module": "CP-2E", "turn": 3, "max_turns": 32, "spent_usd": "5.71391420000", "held_usd": "7.170000", "cap_usd": "40"}
+{"at": "2026-11-25T16:04:55Z", "event": "stopped", "reason": "provider"}

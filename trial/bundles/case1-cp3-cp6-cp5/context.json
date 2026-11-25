@@ -1,0 +1,135 @@
+{
+  "schema": "context/1",
+  "run": {
+    "run_type": "research",
+    "pathway": "deep_credit_assessment",
+    "case_kind": "public",
+    "as_of": "2024-09-30",
+    "current_period": "",
+    "prior_period": "",
+    "reporting_currency": "USD",
+    "cutoff": "2024-09-30"
+  },
+  "identity": {
+    "issuer_name": "TransDigm Group Incorporated",
+    "issuer_id": "tdg",
+    "borrower_name": "",
+    "parent_name": "",
+    "guarantors": [],
+    "aliases": [],
+    "listed_equity": false,
+    "ticker": "",
+    "sector": "",
+    "country": "",
+    "sponsor": "",
+    "issue_classification": "high_yield"
+  },
+  "deal_terms": [],
+  "quotes": [
+    {
+      "facility_id": "Term loan J",
+      "kind": "observed",
+      "bid": "100.00",
+      "ask": "100.13",
+      "price": "",
+      "yield_pct": "6.2",
+      "spread_bps": "247",
+      "as_of": "2024-09-30",
+      "provider": "Bloomberg relative value sheet (module-test transcription; figures assigned 2024-09-30)"
+    },
+    {
+      "facility_id": "Term loan K",
+      "kind": "observed",
+      "bid": "99.94",
+      "ask": "100.13",
+      "price": "",
+      "yield_pct": "5.9",
+      "spread_bps": "224",
+      "as_of": "2024-09-30",
+      "provider": "Bloomberg relative value sheet (module-test transcription; figures assigned 2024-09-30)"
+    },
+    {
+      "facility_id": "Term loan L",
+      "kind": "observed",
+      "bid": "99.88",
+      "ask": "100.13",
+      "price": "",
+      "yield_pct": "6.2",
+      "spread_bps": "250",
+      "as_of": "2024-09-30",
+      "provider": "Bloomberg relative value sheet (module-test transcription; figures assigned 2024-09-30)"
+    },
+    {
+      "facility_id": "Term loan M",
+      "kind": "observed",
+      "bid": "99.88",
+      "ask": "100.13",
+      "price": "",
+      "yield_pct": "6.2",
+      "spread_bps": "250",
+      "as_of": "2024-09-30",
+      "provider": "Bloomberg relative value sheet (module-test transcription; figures assigned 2024-09-30)"
+    },
+    {
+      "facility_id": "Term loan N",
+      "kind": "observed",
+      "bid": "99.88",
+      "ask": "100.25",
+      "price": "",
+      "yield_pct": "6.2",
+      "spread_bps": "248",
+      "as_of": "2024-09-30",
+      "provider": "Bloomberg relative value sheet (module-test transcription; figures assigned 2024-09-30)"
+    }
+  ],
+  "ratings": [
+    {
+      "agency": "Moody's",
+      "scope": "facility",
+      "rating": "Ba3",
+      "outlook": "",
+      "as_of": "2024-09-30"
+    },
+    {
+      "agency": "S&P",
+      "scope": "facility",
+      "rating": "BB-",
+      "outlook": "",
+      "as_of": "2024-09-30"
+    }
+  ],
+  "valuation": {
+    "peer_source": "cp_dr_public",
+    "basis": "auto",
+    "issuer_market": {
+      "market_cap_m": "",
+      "net_debt_m": "",
+      "ev_m": "",
+      "ebitda_basis": "LTM",
+      "as_of": "",
+      "source": ""
+    },
+    "peers": [],
+    "precedents": [],
+    "user_multiple": {
+      "value": "",
+      "basis": "LTM",
+      "rationale": ""
+    }
+  },
+  "assumptions": {
+    "cp2a": null,
+    "cp2d": null,
+    "cp2e": null,
+    "cp3c": null,
+    "cp3d": null,
+    "cp4c": null
+  },
+  "attachments": {
+    "legal_documents": "none",
+    "management_bridge": false,
+    "portfolio_workbook": false,
+    "prior_case": false
+  },
+  "research_questions": []
+}

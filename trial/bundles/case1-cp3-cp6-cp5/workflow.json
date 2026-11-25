@@ -1,0 +1,795 @@
+{
+ "run": {
+  "schema_version": "run/2",
+  "run_id": "tdg-2024-09-30-deep_credit_assessment-copilot-sol-medium",
+  "issuer_id": "tdg",
+  "issuer_name": "TransDigm Group Incorporated",
+  "as_of": "2024-09-30",
+  "method_version": "deploy-v-r14",
+  "case_kind": "public",
+  "pathway": "deep_credit_assessment",
+  "requested_modules": [
+   "CP-0",
+   "CP-1",
+   "CP-1A",
+   "CP-1B",
+   "CP-DR",
+   "CP-1C",
+   "CP-1D",
+   "CP-2",
+   "CP-4",
+   "CP-2A",
+   "CP-2E",
+   "CP-2D",
+   "CP-2G",
+   "CP-2H",
+   "CP-3D",
+   "CP-3C",
+   "CP-4C",
+   "CP-3",
+   "CP-5",
+   "CP-6"
+  ]
+ },
+ "sources": {
+  "TDG market quotes 2024-09-30.md": {
+   "path": "../sources/TDG market quotes 2024-09-30.md",
+   "sha256": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea"
+  },
+  "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": {
+   "path": "source-text/TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl",
+   "sha256": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6"
+  },
+  "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": {
+   "path": "source-text/TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl",
+   "sha256": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2"
+  },
+  "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": {
+   "path": "source-text/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+   "sha256": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6"
+  },
+  "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": {
+   "path": "source-text/TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl",
+   "sha256": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f"
+  },
+  "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": {
+   "path": "../sources/TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf",
+   "sha256": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af"
+  },
+  "context": {
+   "path": "../context.json",
+   "sha256": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+  }
+ },
+ "instructions": {
+  "CP-0": {
+   "path": "instructions/CP-0.md",
+   "sha256": "9f70242ecf16a2196979c503634a9b8f7376fd9a13f3914bae58e5ac0f62ecce"
+  },
+  "CP-1": {
+   "path": "instructions/CP-1.md",
+   "sha256": "eca466cc7e3e7c4a3a8b46fc7a6844e640695641aad2869d260e1786e245c774"
+  },
+  "CP-1A": {
+   "path": "instructions/CP-1A.md",
+   "sha256": "f099a73b93e6f72492d350be27a2603f685d9e22dacb5bbb80611ef06a0cef6c"
+  },
+  "CP-1B": {
+   "path": "instructions/CP-1B.md",
+   "sha256": "26bee26fb65f049843c7257b04d99e10031233a857ddd03fe55550fbcdbf6728"
+  },
+  "CP-DR": {
+   "path": "instructions/CP-DR.md",
+   "sha256": "5eac3c3028cbaf72fee67a2d0ffd20abf311a6f3c3e49bbd792514ad8750557b"
+  },
+  "CP-1C": {
+   "path": "instructions/CP-1C.md",
+   "sha256": "2bc823b423e343f6f4edb97bbe4050cb6704e2fdd465609bed1202dafc54a9eb"
+  },
+  "CP-1D": {
+   "path": "instructions/CP-1D.md",
+   "sha256": "97c98beb3097339765a59f3b31dfcdd5ffa9711509e175a290bb1476f2117913"
+  },
+  "CP-2": {
+   "path": "instructions/CP-2.md",
+   "sha256": "f964c056d6b3e10433109296488e20dca6314ed071642529f06fa75c67ea817f"
+  },
+  "CP-4": {
+   "path": "instructions/CP-4.md",
+   "sha256": "64e7ecbef649f55ba17ca06f1e735337a6ab26801e2fdef7ec6c952fed8f3b4b"
+  },
+  "CP-2A": {
+   "path": "instructions/CP-2A.md",
+   "sha256": "797c45d72301e11bd0455e8735d15ad00638c40d577346121b91618e6dcaee18"
+  },
+  "CP-2E": {
+   "path": "instructions/CP-2E.md",
+   "sha256": "8cb37562bfab5cc3332872ed2b1f2755b1d40fdceb711346a977d3b1aee73369"
+  },
+  "CP-2D": {
+   "path": "instructions/CP-2D.md",
+   "sha256": "da54e0843f3df2294d29c9efd4f61495af525d8d7b12c31eeb555122d720912e"
+  },
+  "CP-2G": {
+   "path": "instructions/CP-2G.md",
+   "sha256": "241dbe2324b90922ac718f32af22a707317e6c80931b20f37d7f364908e9d586"
+  },
+  "CP-2H": {
+   "path": "instructions/CP-2H.md",
+   "sha256": "1855d954c6c043a889a90eabc44264c70717ae6a2ffc188ba0df31ed0ee541f7"
+  },
+  "CP-3D": {
+   "path": "instructions/CP-3D.md",
+   "sha256": "0cffdde8a93bbb1b6e90bcb2326da237e8006bd37cddc6422e8f579035210d5b"
+  },
+  "CP-3C": {
+   "path": "instructions/CP-3C.md",
+   "sha256": "ad67b40c02e8140fbabe91938ca6db77f22761b150184e497cfcc7cb92f0b377"
+  },
+  "CP-4C": {
+   "path": "instructions/CP-4C.md",
+   "sha256": "8937076ec229a54dff6fcab505eb069ec5ba651b0904a47a4b00c2406a753570"
+  },
+  "CP-3": {
+   "path": "instructions/CP-3.md",
+   "sha256": "bb7fc7fb631eaae85deecd41b2a212b89f7ad4acb185fe7ff172e210fc36c562"
+  },
+  "CP-5": {
+   "path": "instructions/CP-5.md",
+   "sha256": "5200ab3314d5e0ed96e2b98f65bddfee5458ee3ba1aca4932eca662ef3f53ca4"
+  },
+  "CP-6": {
+   "path": "instructions/CP-6.md",
+   "sha256": "2e667b631af5b4b4f4e38849c64aa2d35c75e05a35a43d9967a04c079509623e"
+  }
+ },
+ "retained_handoffs": {
+  "CP-0": {
+   "path": "retained/CP-0.md",
+   "sha256": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {}
+  },
+  "CP-1": {
+   "path": "retained/CP-1.md",
+   "sha256": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4"
+   }
+  },
+  "CP-1A": {
+   "path": "retained/CP-1A.md",
+   "sha256": "2f3c90f18106b61950e930aa90e2300a5c58add4d206077bca3ca4a743f8f0ae",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4"
+   }
+  },
+  "CP-1B": {
+   "path": "retained/CP-1B.md",
+   "sha256": "e3175edcf65b268e228c0502ff93387b0d5a591e6162923e4ad094828b232f33",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2"
+   }
+  },
+  "CP-DR": {
+   "path": "retained/CP-DR.md",
+   "sha256": "f7ebcff4948d7c1303dbe93be2415859b4244722e9b3b4d14d0e2b18c8488d80",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2"
+   }
+  },
+  "CP-1C": {
+   "path": "retained/CP-1C.md",
+   "sha256": "d73a84ee1c7705d5acae8b7cf0aff748c3c5e1597ebe5f84f541883adc03b025",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-DR": "f7ebcff4948d7c1303dbe93be2415859b4244722e9b3b4d14d0e2b18c8488d80"
+   }
+  },
+  "CP-1D": {
+   "path": "retained/CP-1D.md",
+   "sha256": "78f414859ee0217f72a3ea4473c475ed0d26ca45c90c724f36f58ba7e66c8e9d",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-1B": "e3175edcf65b268e228c0502ff93387b0d5a591e6162923e4ad094828b232f33"
+   }
+  },
+  "CP-2": {
+   "path": "retained/CP-2.md",
+   "sha256": "dc6a0459731eea84ec87f7b8b2d09415c03e11a24bebb7dca2fda0edbe63dccf",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-1A": "2f3c90f18106b61950e930aa90e2300a5c58add4d206077bca3ca4a743f8f0ae",
+    "CP-1B": "e3175edcf65b268e228c0502ff93387b0d5a591e6162923e4ad094828b232f33",
+    "CP-1C": "d73a84ee1c7705d5acae8b7cf0aff748c3c5e1597ebe5f84f541883adc03b025",
+    "CP-1D": "78f414859ee0217f72a3ea4473c475ed0d26ca45c90c724f36f58ba7e66c8e9d",
+    "CP-DR": "f7ebcff4948d7c1303dbe93be2415859b4244722e9b3b4d14d0e2b18c8488d80"
+   }
+  },
+  "CP-4": {
+   "path": "retained/CP-4.md",
+   "sha256": "5b0d7ce182c769f94a96740891ab58a71ac56ecbc2782b8b259b883d84868795",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-1A": "2f3c90f18106b61950e930aa90e2300a5c58add4d206077bca3ca4a743f8f0ae",
+    "CP-1D": "78f414859ee0217f72a3ea4473c475ed0d26ca45c90c724f36f58ba7e66c8e9d"
+   }
+  },
+  "CP-2A": {
+   "path": "retained/CP-2A.md",
+   "sha256": "bfaaee27ecb51c2614443c05eb3fa473177b9a85721d3cd82da81274258c1ff6",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-1B": "e3175edcf65b268e228c0502ff93387b0d5a591e6162923e4ad094828b232f33",
+    "CP-2": "dc6a0459731eea84ec87f7b8b2d09415c03e11a24bebb7dca2fda0edbe63dccf"
+   }
+  },
+  "CP-2E": {
+   "path": "retained/CP-2E.md",
+   "sha256": "07fc638c1461ff2144da31f25ac8824dc06bb001433c5122f5b06f1ba3bc8647",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-1A": "2f3c90f18106b61950e930aa90e2300a5c58add4d206077bca3ca4a743f8f0ae",
+    "CP-2": "dc6a0459731eea84ec87f7b8b2d09415c03e11a24bebb7dca2fda0edbe63dccf"
+   }
+  },
+  "CP-2D": {
+   "path": "retained/CP-2D.md",
+   "sha256": "36b7097ae8d40b105d0c925a48d734ce4879a1198d801ec33c5f422638f21230",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-2": "dc6a0459731eea84ec87f7b8b2d09415c03e11a24bebb7dca2fda0edbe63dccf"
+   }
+  },
+  "CP-2G": {
+   "path": "retained/CP-2G.md",
+   "sha256": "cb978ebb8e85145a4838f0c57d3b3b36c7b65ec77bcde4d94284486e870846d6",
+   "source_hashes": {
+    "TDG market quotes 2024-09-30.md": "fc1e0d6fe55bf91fa3ac3ef6f7791e5c04f8f9089d5cdf079177b9c7f88f7aea",
+    "TDG_2024-03-30_10-Q_0001260221-24-000046_tdg-20240330.htm.jsonl": "fcec3566cfda08c82a8aaed7289c6440cc05d12976f237cd72a32cf9fbfb2ed6",
+    "TDG_2024-06-29_10-Q_0001260221-24-000069_tdg-20240629.htm.jsonl": "ce1b0541d5e8222dc536d748942a3cb51236d7ff62d8613b002460bd8b41dcf2",
+    "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl": "d75c469fdb1966dd895c0f6faa6d5179b380d3ed95aa00aca99aa258059edab6",
+    "TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl": "ec98b47e6ebad9663286dc04b35dade04d11e7d12c3642ddaa6ef549a33d671f",
+    "TDG_FY2024_annual-report_SEC-PDF_0001260221-25-000008_a841225transd-9b8b215f.pdf": "dc6a8ea6249e4e919d190a4bbb459d9bf4eded005b7d5680ae911b32d44d44af",
+    "context": "afa1c047284df61354eac1185cd590baf2a9f2b4fc8386002e57ddbe15927657"
+   },
+   "upstream": {
+    "CP-0": "262ee9b6359f01ad87862a2aaca55dacd91a2a1ecad55ecaacfe906f6aa300b4",
+    "CP-1": "0ddfc6deafdac91bcd221fd126e48b48528caf7259b66a6346b94dc5e5b579d2",
+    "CP-1D": "78f414859ee0217f72a3ea4473c475ed0d26ca45c90c724f36f58ba7e66c8e9d",
+    "CP-2A": "bfaaee27ecb51c2614443c05eb3fa473177b9a85721d3cd82da81274258c1ff6",
+    "CP-2D": "36b7097ae8d40b105d0c925a48d734ce4879a1198d801ec33c5f422638f21230"
+   }
+  }
+ },
+ "model": null,
+ "publish_forecast": true,
+ "layout": {
+  "blocks": [
+   "key-findings",
+   "company-operating-model",
+   "model-chart-strip",
+   "capital-structure",
+   "financials-credit-metrics",
+   "headline-results",
+   "earnings-quality",
+   "peer-positioning",
+   "strengths-weaknesses",
+   "downside-stress",
+   "break-points",
+   "liquidity-runway",
+   "forward-credit-path",
+   "rating-triggers",
+   "covenant-tests-headroom",
+   "recovery-by-class",
+   "refinancing-paths",
+   "market-against-fundamentals",
+   "relative-value",
+   "company-profile",
+   "transaction-summary",
+   "portfolio-fit",
+   "committee-challenge"
+  ],
+  "routes": [
+   {
+    "module_id": "CP-2",
+    "heading": "Key findings",
+    "kind": "prose",
+    "block_id": "key-findings",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1A",
+    "heading": "Company and operating model",
+    "kind": "table",
+    "block_id": "company-operating-model",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1",
+    "heading": "Chart data: leverage",
+    "kind": "chart",
+    "block_id": "model-chart-strip",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": "S.1",
+    "value_columns": [
+     "Total debt / EBITDA",
+     "Net debt / EBITDA"
+    ],
+    "row_labels": [],
+    "orientation": "period-rows",
+    "chart_unit": "x"
+   },
+   {
+    "module_id": "CP-1",
+    "heading": "Chart data: interest cover",
+    "kind": "chart",
+    "block_id": "model-chart-strip",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": "S.2",
+    "value_columns": [
+     "EBITDA / cash interest"
+    ],
+    "row_labels": [],
+    "orientation": "period-rows",
+    "chart_unit": "x"
+   },
+   {
+    "module_id": "CP-1",
+    "heading": "Chart data: liquidity",
+    "kind": "chart",
+    "block_id": "model-chart-strip",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": "S.3",
+    "value_columns": [
+     "Cash",
+     "Undrawn committed facilities"
+    ],
+    "row_labels": [],
+    "orientation": "period-rows",
+    "chart_unit": "US$m"
+   },
+   {
+    "module_id": "CP-1",
+    "heading": "Chart data: debt maturities",
+    "kind": "chart",
+    "block_id": "model-chart-strip",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": "S.4",
+    "value_columns": [
+     "Debt maturing"
+    ],
+    "row_labels": [],
+    "orientation": "period-rows",
+    "chart_unit": "US$m"
+   },
+   {
+    "module_id": "CP-4",
+    "heading": "Capital structure",
+    "kind": "table",
+    "block_id": "capital-structure",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1",
+    "heading": "Financials and credit metrics",
+    "kind": "table",
+    "block_id": "financials-credit-metrics",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1B",
+    "heading": "Headline results",
+    "kind": "table",
+    "block_id": "headline-results",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1D",
+    "heading": "Earnings quality",
+    "kind": "table",
+    "block_id": "earnings-quality",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1C",
+    "heading": "Peer positioning",
+    "kind": "table",
+    "block_id": "peer-positioning",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-2",
+    "heading": "Strengths and weaknesses",
+    "kind": "prose",
+    "block_id": "strengths-weaknesses",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-2A",
+    "heading": "Downside stress",
+    "kind": "table",
+    "block_id": "downside-stress",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-2A",
+    "heading": "Break points",
+    "kind": "table",
+    "block_id": "break-points",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-2D",
+    "heading": "Liquidity and cash runway",
+    "kind": "table",
+    "block_id": "liquidity-runway",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-2G",
+    "heading": "Forward credit path",
+    "kind": "table",
+    "block_id": "forward-credit-path",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-2H",
+    "heading": "Rating triggers",
+    "kind": "table",
+    "block_id": "rating-triggers",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-4",
+    "heading": "Covenant tests and headroom",
+    "kind": "table",
+    "block_id": "covenant-tests-headroom",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-4C",
+    "heading": "Recovery by class",
+    "kind": "table",
+    "block_id": "recovery-by-class",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-3C",
+    "heading": "Refinancing paths",
+    "kind": "table",
+    "block_id": "refinancing-paths",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-3D",
+    "heading": "Market against fundamentals",
+    "kind": "table",
+    "block_id": "market-against-fundamentals",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-3",
+    "heading": "Relative value",
+    "kind": "prose",
+    "block_id": "relative-value",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1A",
+    "heading": "Company profile",
+    "kind": "table",
+    "block_id": "company-profile",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-1A",
+    "heading": "Transaction summary and new debt issues",
+    "kind": "prose",
+    "block_id": "transaction-summary",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-3",
+    "heading": "Portfolio Fit",
+    "kind": "prose",
+    "block_id": "portfolio-fit",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   },
+   {
+    "module_id": "CP-6",
+    "heading": "Committee challenge",
+    "kind": "prose",
+    "block_id": "committee-challenge",
+    "table_header": null,
+    "prefix": null,
+    "label": null,
+    "figure_id": null,
+    "value_columns": [],
+    "row_labels": [],
+    "orientation": "period-columns",
+    "chart_unit": null
+   }
+  ],
+  "scope": "User-launched Deep credit assessment run for TransDigm Group Incorporated as of 2024-09-30, using copilot-sol-medium on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and issuer-report section selectors; analytical accuracy has not been independently reviewed. The HTML Model is not published by this launcher. A forecast table is published with the issuer report in the library when the CP-2G handoff's inputs block validates; Python computes its figures from the inputs the handoff states, and the inputs are not independently reviewed. Sections not produced: what-changed.",
+  "title": "TransDigm Group Incorporated \u2014 Deep credit assessment",
+  "question": null,
+  "issuer_aliases": []
+ },
+ "changes_note": "changes: not compared: the run folder is not inside a runs folder",
+ "selection": "preset",
+ "execution": "live-provider",
+ "max_attempts": 1,
+ "provider_cap_usd": "15"
+}
