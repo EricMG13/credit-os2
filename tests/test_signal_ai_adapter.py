@@ -364,7 +364,7 @@ def test_an_attempt_on_a_background_thread_fails_the_test(tmp_path, name, import
 
 
 def test_a_module_importing_neither_is_left_alone():
-    from conftest import imports_guarded
+    from signal_guard import imports_guarded
 
     assert not imports_guarded(Path(__file__).parent / "test_handoff_loop.py")
     assert imports_guarded(Path(__file__).parent / "test_react_frontend_signal.py")

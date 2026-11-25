@@ -548,7 +548,18 @@ def test_every_spelling_of_every_interface_is_a_wildcard(host):
 
 
 @pytest.mark.parametrize("host", ["127.0.0.1", "::1", "10.1.2.3", "not an address", "a" * 300])
-def test_an_own_address_or_no_address_is_not_a_wildcard(host):
+def test_an_own_address_or_no_address_is_not_a_wildcard(host, monkeypatch):
+    # A name that is not an address goes to a name server, which answers that no such name
+    # exists: stand in for that answer, so the test asks no server (tests/conftest.py's guard).
+    lookup = socket.getaddrinfo
+
+    def resolver(name: str, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return lookup(name, None, flags=socket.AI_NUMERICHOST)
+        except socket.gaierror:
+            raise socket.gaierror(socket.EAI_NONAME, "Name or service not known") from None
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolver)
     assert not http_base.wildcard(host)
 
 

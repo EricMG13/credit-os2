@@ -5,7 +5,7 @@
 ``test_react_frontend.py`` build the adapter on purpose over a stand-in SDK module and are not
 covered). For such a test it wraps ``CopilotAdapter.__init__``: building the live adapter without a
 fake client (``client_factory`` left out, or the SDK's own ``real_client``) is recorded in
-``LIVE_ATTEMPTS`` and fails at once with ``pytest.fail``. That raises ``Failed``, a
+``signal_guard.LIVE_ATTEMPTS`` and fails at once with ``pytest.fail``. That raises ``Failed``, a
 ``BaseException``, so no ``except Exception`` in the service or its loop can swallow it, and the
 adapter is never built, so nothing can start the Copilot runtime or send a request. Because an
 attempt made on another thread (the service's loop, a server's handler) only ends that thread, the
@@ -17,8 +17,8 @@ import neither (the analytical modules' live tests) are not touched.
 ``no_real_network`` (autouse, the same modules) keeps them off the network the same way: the real
 legs of ``fetch.fetch`` (its system lookup ``fetch._resolve`` and the pinned connection's
 ``webfetch.PinnedHTTPSConnection.connect``), any ``socket.getaddrinfo`` of a name that is not the
-loopback or wildcard address, and any socket connection to an address that is not the loopback one
-are each recorded in ``NETWORK_ATTEMPTS`` and fail the test at once with ``pytest.fail`` (a test
+loopback or wildcard address (an address written in numbers, or a name the system cannot encode, asks no name server and is let through), and any socket connection to an address that is not the loopback one
+are each recorded in ``signal_guard.NETWORK_ATTEMPTS`` and fail the test at once with ``pytest.fail`` (a test
 that replaces ``fetch.fetch``'s resolver or connector, or the fetch function itself, never reaches
 them); an attempt on another thread fails the test at its teardown. A test may still replace
 ``fetch._resolve`` with its own answer (``monkeypatch.setattr`` after this fixture).
@@ -26,43 +26,15 @@ them); an attempt on another thread fails the test at its teardown. A test may s
 
 from __future__ import annotations
 
-import ast
+import socket
 import threading
-from functools import cache
 from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_guard import LIVE_ATTEMPTS, NETWORK_ATTEMPTS, imports_guarded
 
-GUARDED = ("deploy_workflow.signal",)
 _LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost", "0.0.0.0", "::", "", None})
-# Every attempt to reach the network from a guarded test: (test id, thread name, what).
-NETWORK_ATTEMPTS: list[tuple[str, str, str]] = []
-# Every attempt to build the live adapter without a fake client: (test id, thread name).
-LIVE_ATTEMPTS: list[tuple[str, str]] = []
-
-
-def _guarded_name(name: str | None) -> bool:
-    return name is not None and any(name == p or name.startswith(p + ".") for p in GUARDED)
-
-
-@cache
-def imports_guarded(path: Path) -> bool:
-    """Whether the test module at `path` imports the Signal package anywhere
-    (at module level or inside a function)."""
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-    except (OSError, SyntaxError, ValueError):
-        return True  # unreadable: guard it rather than not
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import) and any(_guarded_name(a.name) for a in node.names):
-            return True
-        if isinstance(node, ast.ImportFrom) and node.level == 0:
-            if _guarded_name(node.module):
-                return True
-            if node.module == "deploy_workflow" and any(a.name == "signal" for a in node.names):
-                return True
-    return False
 
 
 @pytest.fixture
@@ -72,7 +44,7 @@ def live_adapter_attempts() -> list[tuple[str, str]]:
 
 
 @pytest.fixture(autouse=True)
-def no_live_copilot_adapter(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Any:
+def no_live_copilot_adapter(request: pytest.FixtureRequest) -> Any:
     path = Path(str(request.node.path))
     if not (path.name.startswith("test_signal") or imports_guarded(path)):
         yield
@@ -89,8 +61,9 @@ def no_live_copilot_adapter(request: pytest.FixtureRequest, monkeypatch: pytest.
             pytest.fail("a Signal test built the live Copilot adapter without a fake client")
         built(self, *args, **kwargs)
 
-    monkeypatch.setattr(copilot_adapter.CopilotAdapter, "__init__", guarded)
-    yield
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(copilot_adapter.CopilotAdapter, "__init__", guarded)
+        yield
     attempts, LIVE_ATTEMPTS[:] = list(LIVE_ATTEMPTS), []
     if attempts:
         threads = ", ".join(sorted({name for _, name in attempts}))
@@ -105,13 +78,26 @@ def _guarded_test(request: pytest.FixtureRequest) -> bool:
     return path.name.startswith("test_signal") or imports_guarded(path)
 
 
+def _asks_no_server(real_lookup: Any, host: Any) -> bool:
+    """Whether looking `host` up is answered on this machine: an address written in numbers
+    ("10.1.2.3", "0x0", "::ffff:0.0.0.0") is read without a name server, and a name the system
+    cannot even encode (a label over 63 characters) is refused before any query is sent."""
+    if not isinstance(host, str):
+        return False
+    try:
+        real_lookup(host, None, flags=socket.AI_NUMERICHOST)
+    except UnicodeError:
+        return True
+    except (OSError, ValueError):
+        return False
+    return True
+
+
 @pytest.fixture(autouse=True)
-def no_real_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Any:
+def no_real_network(request: pytest.FixtureRequest) -> Any:
     if not _guarded_test(request):
         yield
         return
-    import socket
-
     from deploy_workflow.research import webfetch
     from deploy_workflow.signal import fetch
 
@@ -123,7 +109,10 @@ def no_real_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPa
         pytest.fail(f"a Signal test reached the network: {what}")
 
     def lookup(host: Any, *args: Any, **kwargs: Any) -> Any:
-        if host not in _LOOPBACK:
+        numeric_only = (
+            int(kwargs.get("flags", args[3] if len(args) > 3 else 0)) & socket.AI_NUMERICHOST
+        )
+        if host not in _LOOPBACK and not numeric_only and not _asks_no_server(real_lookup, host):
             attempt(f"a lookup of {host!r}")
         return real_lookup(host, *args, **kwargs)
 
@@ -132,15 +121,21 @@ def no_real_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPa
             attempt(f"a connection to {address[0]!r}")
         return real_connect(self, address, *args, **kwargs)
 
-    monkeypatch.setattr(fetch, "_resolve", lambda host: attempt(f"fetch's lookup of {host!r}"))
-    monkeypatch.setattr(
-        webfetch.PinnedHTTPSConnection,
-        "connect",
-        lambda self: attempt(f"fetch's pinned connection to {self.host!r}"),
-    )
-    monkeypatch.setattr(socket, "getaddrinfo", lookup)
-    monkeypatch.setattr(socket.socket, "connect", connect)
-    yield
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(fetch, "_resolve", lambda host: attempt(f"fetch's lookup of {host!r}"))
+        patch.setattr(
+            webfetch.PinnedHTTPSConnection,
+            "connect",
+            lambda self: attempt(f"fetch's pinned connection to {self.host!r}"),
+        )
+        patch.setattr(socket, "getaddrinfo", lookup)
+        patch.setattr(socket.socket, "connect", connect)
+        yield
     attempts, NETWORK_ATTEMPTS[:] = list(NETWORK_ATTEMPTS), []
     if attempts:
         pytest.fail(f"a Signal test reached the network {len(attempts)} time(s): {attempts[:3]}")
+
+
+# The autouse fixtures take only ``request`` and patch through their own ``MonkeyPatch`` context: a
+# test's own ``monkeypatch`` then keeps its place in that test's fixture order, so whatever it
+# patches (a failing ``shutil.rmtree``, say) is undone before that test's other fixtures clean up.

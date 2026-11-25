@@ -13,8 +13,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import signal_guard
 
-import conftest
 from deploy_workflow.signal import ingest, market, service, store
 from deploy_workflow.signal.fetch import fetch
 
@@ -22,8 +22,8 @@ Failed = pytest.fail.Exception
 
 
 def _taken() -> list[str]:
-    held = [what for _, _, what in conftest.NETWORK_ATTEMPTS]
-    conftest.NETWORK_ATTEMPTS.clear()
+    held = [what for _, _, what in signal_guard.NETWORK_ATTEMPTS]
+    signal_guard.NETWORK_ATTEMPTS.clear()
     return held
 
 
@@ -52,18 +52,33 @@ def test_an_ingest_pass_or_a_market_job_with_the_default_fetch_fails_the_test(tm
 def test_a_lookup_or_connection_from_a_background_thread_is_recorded():
     def reach() -> None:
         with contextlib.suppress(Failed):  # the guard's Failed would end this thread only
-            socket.create_connection(("192.0.2.1", 443), timeout=1)
+            socket.getaddrinfo("public.example", 443)
         with contextlib.suppress(Failed), socket.socket() as sock:
             sock.connect(("192.0.2.1", 443))
 
     worker = threading.Thread(target=reach, name="worker")
     worker.start()
     worker.join()
-    assert [(thread, what) for _, thread, what in conftest.NETWORK_ATTEMPTS] == [
-        ("worker", "a lookup of '192.0.2.1'"),
+    assert [(thread, what) for _, thread, what in signal_guard.NETWORK_ATTEMPTS] == [
+        ("worker", "a lookup of 'public.example'"),
         ("worker", "a connection to '192.0.2.1'"),
     ]
     _taken()
+
+
+@pytest.mark.parametrize("host", ["192.0.2.1", "0x0", "::ffff:0.0.0.0", "a" * 300])
+def test_a_lookup_no_name_server_answers_is_let_through(host):
+    # An address written in numbers is read on this machine, and a name with a label over 63
+    # characters is refused before any query: neither reaches a name server.
+    with contextlib.suppress(OSError, UnicodeError):
+        socket.getaddrinfo(host, 443)
+    assert signal_guard.NETWORK_ATTEMPTS == []
+
+
+def test_a_lookup_asked_for_numbers_only_is_let_through():
+    with contextlib.suppress(OSError):
+        socket.getaddrinfo("not an address", None, flags=socket.AI_NUMERICHOST)
+    assert signal_guard.NETWORK_ATTEMPTS == []
 
 
 def test_the_loopback_address_stays_open():
@@ -72,4 +87,4 @@ def test_the_loopback_address_stays_open():
         server.listen()
         with socket.create_connection(("127.0.0.1", server.getsockname()[1]), timeout=5):
             pass
-    assert conftest.NETWORK_ATTEMPTS == []
+    assert signal_guard.NETWORK_ATTEMPTS == []
