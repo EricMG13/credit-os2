@@ -1019,29 +1019,55 @@ def test_a_row_that_is_not_a_floor_says_so_and_does_not_cap() -> None:
 
 
 @pytest.mark.parametrize(
-    ("parameter", "bucket", "outcome"),
+    ("category", "parameter", "bucket", "outcome"),
     [
-        ("Max Caa1 and below", "CCC", "breached"),
-        ("Max Caa obligations", "CCC", "breached"),
-        ("Max CCC+ and below", "CCC", "breached"),
-        ("Max Caa1 and below", "B", "does_not_apply"),
-        ("Max B-rated", "B", "breached"),
-        ("Max investment grade", "IG", "breached"),
-        ("Max sub-investment grade", "BB", "not_read"),
-        ("Max sub investment grade", "IG", "not_read"),
-        ("Max non-investment grade", "BB", "not_read"),
-        ("Max non-IG exposure", "IG", "not_read"),
-        ("Max below investment grade", "CCC", "not_read"),
-        ("Max high yield", "BB", "not_read"),
-        ("Max speculative", "B", "not_read"),
-        ("Max rated obligations", "BB", "not_read"),
+        ("Rating", "Max CCC and unrated", "CCC", "breached"),
+        ("Rating", "Max CCC and unrated", "Unrated", "breached"),
+        ("Rating", "Max CCC and unrated", "B", "does_not_apply"),
+        ("Rating", "Max Caa and NR", "CCC", "breached"),
+        ("Rating", "Max B3 and below", "CCC", "breached"),
+        ("Rating", "Max B3 and below", "B", "breached"),
+        ("Rating", "Max B3 and below", "BB", "does_not_apply"),
+        ("Rating", "Max B and CCC", "B", "breached"),
+        ("Rating", "Max Caa1 and below", "CCC", "breached"),
+        ("Rating", "Max CCC+ and below", "CCC", "breached"),
+        ("Rating", "Max CCC+ and below", "B", "does_not_apply"),
+        ("Rating", "Max sub-investment grade", "BB", "breached"),
+        ("Rating", "Max sub-investment grade", "CCC", "breached"),
+        ("Rating", "Max sub-investment grade", "IG", "does_not_apply"),
+        ("Rating", "Max sub-investment grade", "Unrated", "not_read"),
+        ("Rating", "Max non-IG exposure", "IG", "does_not_apply"),
+        ("Rating", "Max non-IG exposure", "B", "breached"),
+        ("Rating", "Min BB or better", "BB", "breached"),
+        ("Rating", "Min BB or better", "IG", "breached"),
+        ("Rating", "Min BB or better", "B", "does_not_apply"),
+        ("Rating", "Rating limit", "B", "not_read"),
+        ("Collateral quality", "Max Caa obligations", "CCC", "breached"),
+        ("Rating", "Max Caa1 and below", "B", "does_not_apply"),
+        ("Rating", "Max B-rated", "B", "breached"),
+        ("Rating", "Max investment grade", "IG", "breached"),
+        ("Rating", "Max sub investment grade", "IG", "does_not_apply"),
+        ("Rating", "Max non-investment grade", "BB", "breached"),
+        ("Rating", "Max below investment grade", "CCC", "breached"),
+        ("Rating", "Max high yield", "BB", "breached"),
+        ("Rating", "Max speculative", "B", "breached"),
+        ("Rating", "Max rated obligations", "BB", "not_read"),
     ],
 )
-def test_a_rating_row_is_tied_by_the_bucket_the_project_reads_from_it(
-    parameter: str, bucket: str, outcome: str
+def test_a_rating_row_covers_every_bucket_it_names_or_implies(
+    category: str, parameter: str, bucket: str, outcome: str
 ) -> None:
-    row = limit_row("Rating", parameter, "≤ 7.5% NAV", "-1.00%", "Breach")
+    row = limit_row(category, parameter, "≤ 7.5% NAV", "-1.00%", "Breach")
     assert _one(row, rating_bucket=bucket) == outcome
+
+
+def test_a_breached_group_row_caps_a_bb_instrument_to_3_and_is_named() -> None:
+    row = limit_row("Rating", "Max sub-investment grade", "≤ 7.5% NAV", "-1.00%", "Breach")
+    result = portfolio_reading(
+        credit(1), [issuer(1, bucket="BB", asset="loan")], reference("clo", row)
+    )
+    assert result.recommendation == 3
+    assert "Max sub-investment grade" in result.reason
 
 
 def test_a_custom_portfolio_with_no_declared_asset_type_still_has_a_bucket() -> None:

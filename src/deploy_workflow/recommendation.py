@@ -282,17 +282,21 @@ BREACH_STATUS = frozenset(
 PASS_STATUS = frozenset(
     {"pass", "passed", "ok", "compliant", "in compliance", "no breach", "within limit"}
 )
-# A rating row naming a group of buckets cannot be tied to the one bucket of an instrument.
+# Rating buckets, strongest to weakest; Unrated is outside the order.
+BUCKET_ORDER = ("IG", "BB", "B", "CCC")
+# Wording that names every sub-investment bucket; the word "investment" or "IG" inside it does not
+# also name IG.
 BUCKET_GROUPS = (
-    "sub-investment",
     "sub investment",
-    "non-investment",
     "non investment",
-    "non-ig",
+    "non ig",
     "below investment",
     "high yield",
     "speculative",
 )
+GROUP_BUCKETS = ("BB", "B", "CCC")
+WEAKER_WORDS = (" and below ", " or below ", " and lower ", " or lower ", " or worse ")
+STRONGER_WORDS = (" and above ", " or above ", " or better ", " or higher ")
 PRICE_FLOOR_WORDS = frozenset({"minimum", "min", "floor"})
 PRICE_AVERAGE_WORDS = frozenset({"average", "weighted"})
 STATE: dict[Outcome, str] = {
@@ -329,6 +333,11 @@ def _words(text: str) -> list[str]:
     return WORD.findall(text.casefold())
 
 
+def _stem(word: str) -> str:
+    """A rating word without its trailing digits (`b3` is `b`, `caa1` is `caa`)."""
+    return word.rstrip("0123456789")
+
+
 def _label(limit: Limit) -> str:
     return f"{limit.parameter} ({limit.limit})" if limit.limit else limit.parameter
 
@@ -344,7 +353,11 @@ def _kind(limit: Limit) -> Literal["sector", "rating", "price", "other"]:
         return "price"
     if {"sector", "sectors", "industry", "industries"} & set(words):
         return "sector"
-    return "rating" if {"rating", "ccc"} & set(words) else "other"
+    in_parameter = {_stem(word) for word in _words(limit.parameter)}
+    named_ccc = bool({"ccc", "caa"} & in_parameter)
+    return (
+        "rating" if {"rating", "rated"} & {_stem(word) for word in words} or named_ccc else "other"
+    )
 
 
 def _signed(headroom: str) -> str:
@@ -383,17 +396,42 @@ def _sector_reading(limit: Limit, sector: str | None) -> tuple[Outcome, str]:
     return "does_not_apply", f"it does not name the issuer's sector, {sector}"
 
 
+def _covered(parameter: str) -> tuple[tuple[str, ...], bool]:
+    """The rating buckets a row covers, in the order IG, BB, B, CCC, Unrated, and whether it
+    covers them by group wording. Named buckets are every one the row names, a group wording covers
+    BB, B and CCC, and "and below" or "and above" adds the weaker or stronger ones in the order."""
+    text = f" {' '.join(_words(parameter))} "
+    covered: set[str] = set()
+    grouped = False
+    for group in BUCKET_GROUPS:
+        if f" {group} " in text:
+            grouped = True
+            covered.update(GROUP_BUCKETS)
+            text = text.replace(f" {group} ", " ")
+    words = (_stem(word) for word in text.split())
+    covered.update(name for word in words if (name := pe.label_bucket(word)) is not None)
+    ranks = [BUCKET_ORDER.index(name) for name in covered if name in BUCKET_ORDER]
+    if ranks and any(phrase in text for phrase in WEAKER_WORDS):
+        covered.update(BUCKET_ORDER[min(ranks) :])
+    if ranks and any(phrase in text for phrase in STRONGER_WORDS):
+        covered.update(BUCKET_ORDER[: max(ranks) + 1])
+    return tuple(name for name in (*BUCKET_ORDER, "Unrated") if name in covered), grouped
+
+
 def _rating_reading(limit: Limit, bucket: str | None) -> tuple[Outcome, str]:
-    if any(group in pe.folded(limit.parameter) for group in BUCKET_GROUPS):
-        return "not_read", "it names a group of rating buckets, which cannot be tied to one"
-    named = pe.label_bucket(limit.parameter)
-    if named is None:
-        return "not_read", "it names no rating bucket, so it cannot be tied to the issuer"
+    covered, grouped = _covered(limit.parameter)
+    if not covered:
+        return (
+            "not_read",
+            "no rating bucket could be read from it, so it cannot be tied to the issuer",
+        )
     if bucket is None:
         return "not_read", "there is no instrument to take a rating bucket from"
-    if bucket != named:
-        return "does_not_apply", f"the instrument is rated {bucket}"
-    return _decided(limit)
+    if bucket in covered:
+        return _decided(limit)
+    if grouped and bucket == "Unrated":
+        return "not_read", "an unrated instrument cannot be placed against a group of rated buckets"
+    return "does_not_apply", f"it covers {', '.join(covered)} and the instrument is rated {bucket}"
 
 
 def _price_reading(limit: Limit, price: Decimal | None) -> tuple[Outcome, str]:
