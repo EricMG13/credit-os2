@@ -446,3 +446,25 @@ def test_runs_sharing_a_date_keep_catalogue_order_and_only_the_newest_sends_fact
         ("old", 0),
     ]
     assert {fact["run"] for fact in page["facts"]} == {"a1"}
+
+
+def test_cp_l10_reads_by_the_runs_pathway_and_other_runs_keep_the_registry_title() -> None:
+    snapshot = _snapshot()
+    workspace = snapshot["workspace"]
+    for key, pathway in (("a1", "credit_screening"), ("b1", "short_snapshot")):
+        output = _output("CP-L10", key, "8" * 64 if key == "a1" else "9" * 64)
+        workspace["outputs"][output["id"]] = output
+        workspace["runs"][key]["pathway"] = pathway
+        workspace["runs"][key]["modules"]["CP-L10"] = {
+            "outputs": [output["id"]],
+            "default": output["id"],
+        }
+    page = coverage.coverage(snapshot)
+    assert page is not None
+    titles = {
+        run["key"]: {o["code"]: o["title"] for o in run["other"]}
+        for issuer in page["issuers"]
+        for run in issuer["runs"]
+    }
+    assert titles["a1"]["CP-L10"] == "Credit screening"
+    assert titles["b1"]["CP-L10"] == "Short credit snapshot"

@@ -686,7 +686,7 @@ def required_registers(module: str, pathway: str | None = None) -> tuple[str, ..
     """The registers a module's handoff must carry: the method's `required_register_ids` (CP-0:
     less what CP0_BLOCK says the launcher did), less the module's scope section and the routing
     registers. Derived from the method text the module is sent in ``pathway``; empty outside the
-    ten modules and the modules a pathway sends its own scoped method (`PATHWAY_SCOPED`)."""
+    ten modules and the modules a pathway sends its own scoped method (`PATHWAY_METHODS`)."""
     if not has_scope(module, pathway):
         return ()
     listed: list[str] = []

@@ -201,10 +201,8 @@ PATHWAY_SELECTED: dict[tuple[str, str], tuple[str, ...]] = {
 }
 # Each pathway method owes its module's register-scope section (`## CP-L10`: nothing cut, the 20
 # registers required).
-PATHWAY_SCOPED = frozenset(PATHWAY_SELECTED)
 PATHWAY_METHODS: dict[tuple[str, str], tuple[str, ...]] = {
-    key: _method_of(key[1], paths, scoped=key in PATHWAY_SCOPED)
-    for key, paths in PATHWAY_SELECTED.items()
+    key: _method_of(key[1], paths, scoped=True) for key, paths in PATHWAY_SELECTED.items()
 }
 
 
@@ -217,7 +215,7 @@ def has_scope(module: str, pathway: str | None = None) -> bool:
     """Whether ``module`` carries a register-scope section in ``pathway``: one of the ten measured
     modules in any pathway, or a module a pathway sends its own scoped method."""
     return module in REGISTER_SCOPE_MODULES or (
-        pathway is not None and (pathway, module) in PATHWAY_SCOPED
+        pathway is not None and (pathway, module) in PATHWAY_METHODS
     )
 
 

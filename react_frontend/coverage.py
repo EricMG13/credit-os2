@@ -14,6 +14,7 @@ from credit_os.handoff_fields import (  # type: ignore[import-untyped, unused-ig
     STATED_GAP,
 )
 
+from deploy_workflow.library_index import module_titles as pathway_module_titles
 from deploy_workflow.owners.cpos_cp1_check import ADJUSTED_TWIN
 from react_frontend.library_cards import _blocked, _bottom_line, _designated_output
 
@@ -276,7 +277,10 @@ def _output_facts(
 def _run_entry(
     workspace: dict[str, Any], key: str, record: dict[str, Any], listed: dict[str, Any]
 ) -> tuple[dict[str, Any], list[tuple[dict[str, Any], dict[str, Any]]]]:
-    _, pathway_titles, module_titles = _method()
+    _, pathway_titles, registry_titles = _method()
+    pathway = record.get("pathway") or None
+    # The reader names a pathway varies (ruling R12); the registry's titles for any other run.
+    module_titles = pathway_module_titles(pathway) if pathway else registry_titles
     fixed = [column["code"] for column in columns()]
     cells, facts, other = {}, [], []
     for code in dict.fromkeys([*fixed, *record.get("modules", {})]):
@@ -288,7 +292,6 @@ def _run_entry(
         if output is not None and cell["state"] == "assessed":
             sections = workspace.get("handoffs", {}).get(output["sha256"], [])
             facts.extend(_output_facts(code, output, sections))
-    pathway = record.get("pathway") or None
     entry = {
         "key": key,
         "folder": record["folder"],
