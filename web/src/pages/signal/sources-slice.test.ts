@@ -126,6 +126,12 @@ describe("the sources of a snapshot", () => {
       6,
       "scenes[0].snapshot.settings.sourceWeeksHeading: expected a string",
     ],
+    [
+      "a cut-list sentence that is a number",
+      ["snapshot", "settings", "sourcesMore"],
+      5,
+      "scenes[0].snapshot.settings.sourcesMore: expected a string or null",
+    ],
   ] satisfies [string, (string | number)[], Json | undefined, string][])(
     "rejects %s with its path",
     (_name, path, value, reason) => {
@@ -166,5 +172,23 @@ describe("the sources of a snapshot", () => {
         "scenes[1].snapshot.feed.freshness.failing: expected null, as settings.sources lists no failing source",
       ),
     );
+  });
+});
+
+describe("the sentence for a cut list of sources", () => {
+  const SENTENCE =
+    "Showing 200 of 1,001 sources: the approved ones first, then the proposed, then the paused.";
+  const KEY = ["snapshot", "settings", "sourcesMore"];
+
+  function more(value: Json | undefined): string | null {
+    const got = readSlice(change(0, KEY, value));
+    if (got.kind !== "ok") throw new Error(got.kind === "invalid" ? got.reason : "no slice");
+    return got.data.scenes[0].snapshot.settings.sourcesMore;
+  }
+
+  it("reads a string, null and an absent member, the fixture's own absent", () => {
+    expect(more(SENTENCE)).toBe(SENTENCE);
+    expect(more(null)).toBeNull();
+    expect(more(undefined)).toBeNull();
   });
 });

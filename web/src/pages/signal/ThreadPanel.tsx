@@ -4,24 +4,28 @@
 // route and moves focus to that thread's "Open thread" link. Everything here is in memory: posting
 // adds the comment to this page's list and a reaction toggle flips its pressed state; no count is
 // recomputed (the delivered string stays) and nothing is written.
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Alert } from "@/components/alert/Alert";
 import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-menu";
 import { Badge } from "@/components/base/badges/badges";
 import { CloseButton } from "@/components/base/buttons/close-button";
-import { cx } from "@/utils/cx";
+import { useSignalActions, useSignalAsOf } from "./actions";
+import { useChoices } from "./choices";
 import { sceneHref } from "./SignalFrame";
-import { isWebLink } from "./StoryCard";
+import { BYLINE, HEADLINE, HEADLINE_LINK, isWebLink } from "./StoryCard";
 import { ArchivedBadge } from "./parts/ArchivedBadge";
+import { PHONE_TARGETS } from "./parts/classes";
 import { MediaObject } from "./parts/MediaObject";
-import { useOnGone, focusAgainIfLost } from "./parts/focus";
+import { useOnGone, useOpener, focusAgainIfLost } from "./parts/focus";
+import { FormDialog } from "./parts/FormDialog";
 import { OpenSourceButton } from "./parts/OpenSourceButton";
 import { Composer, MessageList } from "./parts/Messages";
-import type { ReactionWord } from "./parts/Messages";
+import type { OwnComments, ReactionWord } from "./parts/Messages";
 import type { SignalComment, SignalGroup, SignalScene, SignalStory, SignalThread } from "./slice";
 import { useSignalViewer } from "./viewer";
+import { writes } from "./writes";
 
 const TITLE_ID = "signal-thread-title";
-const FOCUS = "outline-focus-ring focus-visible:outline-2";
 
 /** The thread's own "Open thread" link in the group view; the page container when there is none. */
 function openLinkTarget(threadId: string | null): HTMLElement | null {
@@ -34,28 +38,23 @@ function Quoted({ story }: { story: SignalStory }) {
   const link = story.url !== null && isWebLink(story.url) ? story.url : null;
   return (
     <article>
-      <MediaObject tile={story.source.monogram}>
-        <div className="mb-1.5 flex flex-wrap items-center gap-2 text-sm text-text-tertiary">
+      <MediaObject tile={story.source.monogram} source={story.source}>
+        <div className={BYLINE}>
           <Badge size="sm">{story.kindLabel}</Badge>
           <span>{story.source.name}</span>
-          {story.time === null ? null : <span>{story.time}</span>}
+          {story.time === null ? null : <span className="tabular-nums">{story.time}</span>}
         </div>
-        <h3 className="text-lg font-medium text-text-primary">
+        <h3 className={HEADLINE}>
           {link === null ? (
             story.headline
           ) : (
-            <a
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cx("hover:underline", FOCUS)}
-            >
+            <a href={link} target="_blank" rel="noopener noreferrer" className={HEADLINE_LINK}>
               {story.headline}
             </a>
           )}
         </h3>
         {link === null ? null : (
-          <OpenSourceButton url={link} headline={story.headline} className="mt-2" />
+          <OpenSourceButton url={link} headline={story.headline} className="mt-1" />
         )}
       </MediaObject>
     </article>
@@ -84,7 +83,7 @@ function freshId(thread: SignalThread, added: Added[]): string {
   return `posted-${String(n)}`;
 }
 
-const NOTE = "text-sm text-text-tertiary";
+const NOTE = "text-small text-text-tertiary";
 const pressKey = (comment: SignalComment, word: ReactionWord) => JSON.stringify([comment.id, word]);
 
 function ConversationFooter({
@@ -132,22 +131,27 @@ function ConversationContent({
   comments,
   canWrite,
   named,
-  flipped,
+  isPressed,
   setReplyTo,
   box,
   said,
+  refused,
   onToggle,
+  own,
 }: {
   thread: SignalThread;
   story: SignalStory | null;
   comments: SignalComment[];
   canWrite: boolean;
   named: boolean;
-  flipped: ReadonlySet<string>;
+  isPressed: (comment: SignalComment, word: ReactionWord) => boolean;
   setReplyTo: (comment: SignalComment) => void;
   box: RefObject<HTMLTextAreaElement | null>;
   said: { count: number; text: string };
-  onToggle: (comment: SignalComment, word: ReactionWord) => void;
+  /** What the service last refused here, counted so each refusal draws a fresh alert. */
+  refused: { count: number; text: string };
+  onToggle: ((comment: SignalComment, word: ReactionWord) => void) | null;
+  own: OwnComments | null;
 }) {
   return (
     <SlideoutMenu.Content>
@@ -175,12 +179,21 @@ function ConversationContent({
                 }
               : null
           }
-          isPressed={(comment, word) =>
-            (comment.reactions.find((r) => r.word === word)?.mine ?? false) !==
-            flipped.has(pressKey(comment, word))
-          }
+          isPressed={isPressed}
           onToggle={onToggle}
+          own={own}
         />
+      )}
+      {refused.text === "" ? null : (
+        // It is brought into view: the control that was refused may be far up the thread.
+        <div
+          key={refused.count}
+          ref={(node) => {
+            node?.scrollIntoView({ block: "nearest" });
+          }}
+        >
+          <Alert tone="error" title={refused.text} />
+        </div>
       )}
       <div role="status" className="sr-only">
         {said.count > 0 ? <span key={said.count}>{said.text}</span> : null}
@@ -189,23 +202,132 @@ function ConversationContent({
   );
 }
 
+/** On a service, opening a thread with something unread in it tells the service it was read. */
+function useThreadRead(threadId: string, unread: boolean) {
+  const actions = useSignalActions();
+  const asOf = useSignalAsOf();
+  useEffect(() => {
+    // A refusal changes nothing the reader did, so nothing is said about it.
+    if (actions !== null && unread) void actions.write(writes.readThread(threadId, asOf));
+  }, [actions, threadId, unread, asOf]);
+}
+
+/**
+ * On a service, the viewer's own comments: which one is in the edit box, which removal is being
+ * asked about, and the two writes. The service decides (the time for an edit may run out between
+ * the read and the press): a removal refused is said inside its question, an edit refused in the
+ * panel's alert with its box and what was typed kept.
+ */
+function useOwnComments(
+  refuse: (text: string) => void,
+  say: (text: string) => void,
+  box: RefObject<HTMLTextAreaElement | null>,
+): { own: OwnComments | null; confirm: ReactNode } {
+  const actions = useSignalActions();
+  const [editing, setEditing] = useState<OwnComments["editing"]>(null);
+  const [removing, setRemoving] = useState<SignalComment | null>(null);
+  // A removed comment has no Remove to go back to: the reply box takes focus, or the panel.
+  const panel = () => document.getElementById(TITLE_ID)?.closest<HTMLElement>("[role='dialog']");
+  const opener = useOpener(() => box.current ?? panel(), panel);
+  if (actions === null) return { own: null, confirm: null };
+  const own: OwnComments = {
+    editing,
+    onEdit: (comment) => {
+      setEditing({ id: comment.id, busy: false });
+    },
+    onCancel: () => {
+      setEditing(null);
+    },
+    onSave: (comment, text) => {
+      setEditing({ id: comment.id, busy: true });
+      refuse("");
+      void actions.write(writes.editComment(comment.id, text)).then(({ refusal }) => {
+        if (refusal === null) {
+          setEditing(null);
+          say("Comment changed");
+        } else {
+          setEditing({ id: comment.id, busy: false });
+          refuse(refusal);
+        }
+      });
+    },
+    onRemove: (comment) => {
+      opener.remember();
+      setRemoving(comment);
+    },
+  };
+  const remove = (comment: SignalComment) => {
+    refuse("");
+    return actions.write(writes.dropComment(comment.id)).then(({ refusal }) => {
+      if (refusal === null) {
+        // The comment's Remove goes with it: when the question closes, focus stays in the thread.
+        opener.forget();
+        say("Comment removed");
+      }
+      // A refusal stays in the question, as a group's delete does: the dialog says it, Cancel closes.
+      return refusal;
+    });
+  };
+  const confirm = (
+    <FormDialog
+      open={removing !== null}
+      title="Remove this comment?"
+      intro="Its replies stay."
+      fields={[]}
+      action="Remove"
+      destructive
+      onSend={() => (removing === null ? Promise.resolve(null) : remove(removing))}
+      onClose={() => {
+        setRemoving(null);
+      }}
+      onGone={opener.restore}
+    />
+  );
+  return { own, confirm };
+}
+
 /** The thread's top, comments and footer; its state (what was posted, which reactions flipped) lives here. */
 function Conversation({
   thread,
   story,
   writer,
+  unread,
 }: {
   thread: SignalThread;
   story: SignalStory | null;
   writer: boolean;
+  /** The group lists this thread as unread. */
+  unread: boolean;
 }) {
   const viewer = useSignalViewer();
+  const actions = useSignalActions();
   const box = useRef<HTMLTextAreaElement>(null);
+  // A comment shows at once. On a service it is sent, and once answered the thread read again
+  // holds it (or the service refused it), so the page's own copy goes.
   const [added, setAdded] = useState<Added[]>([]);
   const [replyTo, setReplyTo] = useState<SignalComment | null>(null);
-  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
+  const [refused, setRefused] = useState({ count: 0, text: "" });
+  const refuse = (text: string) => {
+    setRefused((last) => ({ count: last.count + 1, text }));
+  };
+  const reactions = useChoices(
+    actions === null
+      ? null
+      : (key, on) => {
+          const [commentId, word] = JSON.parse(key) as [string, string];
+          return actions.write(writes.react(commentId, word, on)).then((answer) => answer.refusal);
+        },
+    refuse,
+  );
+  const mine = (comment: SignalComment, word: ReactionWord) =>
+    comment.reactions.find((r) => r.word === word)?.mine ?? false;
+  useThreadRead(thread.id, unread);
   // The live region stays and each post puts a fresh node in it (as Share does), so the same sentence twice is announced twice.
   const [said, setSaid] = useState({ count: 0, text: "" });
+  const say = (text: string) => {
+    setSaid((last) => ({ count: last.count + 1, text }));
+  };
+  const { own, confirm } = useOwnComments(refuse, say, box);
   const comments = withAdded(thread.comments, added);
   const named = viewer.name !== null && viewer.initials !== null;
   const canWrite = writer && !thread.archived;
@@ -224,18 +346,22 @@ function Conversation({
       reactions: [],
       replies: [],
     };
-    setAdded([...added, { parentId: replyTo?.id ?? null, comment }]);
+    const entry: Added = { parentId: replyTo?.id ?? null, comment };
+    setAdded((held) => [...held, entry]);
     setReplyTo(null);
-    setSaid({
-      count: said.count + 1,
-      text: replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`,
-    });
+    setRefused((last) => ({ ...last, text: "" }));
+    if (actions !== null) {
+      const request =
+        replyTo === null ? writes.comment(thread.id, text) : writes.reply(replyTo.id, text);
+      void actions.write(request).then(({ refusal }) => {
+        setAdded((held) => held.filter((one) => one !== entry));
+        if (refusal !== null) refuse(refusal);
+      });
+    }
+    say(replyTo === null ? "Comment posted" : `Reply to ${replyTo.author.name} posted`);
   };
   const onToggle = (comment: SignalComment, word: ReactionWord) => {
-    const next = new Set(flipped);
-    const key = pressKey(comment, word);
-    if (!next.delete(key)) next.add(key);
-    setFlipped(next);
+    reactions.toggle(pressKey(comment, word), mine(comment, word));
   };
   return (
     <>
@@ -245,12 +371,16 @@ function Conversation({
         comments={comments}
         canWrite={canWrite}
         named={named}
-        flipped={flipped}
+        isPressed={(comment, word) => reactions.on(pressKey(comment, word), mine(comment, word))}
         setReplyTo={setReplyTo}
         box={box}
         said={said}
-        onToggle={onToggle}
+        refused={refused}
+        // On a service a reader may not react (the service refuses it), so no button is offered.
+        onToggle={actions !== null && !writer ? null : onToggle}
+        own={own}
       />
+      {confirm}
       <ConversationFooter
         thread={thread}
         writer={writer}
@@ -299,17 +429,19 @@ export function ThreadPanel({
       isOpen
       isDismissable
       aria-labelledby={TITLE_ID}
-      // Ruling 20: the feed stays readable, so the kit's overlay token is drawn lighter.
-      className="bg-overlay/30"
+      // Ruling 20: the feed stays readable, so the kit's overlay token is drawn lighter. z-40, as
+      // the channel panel: above the Channels strip (z-30) and under a dialog opened from here (z-50).
+      className="z-40 bg-overlay/30"
+      dialogClassName={`text-body ${PHONE_TARGETS}`}
       onOpenChange={(open) => {
         if (!open) close();
       }}
     >
       <header className="relative w-full px-6 pt-6">
-        <h2 id={TITLE_ID} className="pr-10 text-lg font-semibold text-text-primary">
+        <h2 id={TITLE_ID} className="pr-10 font-display text-h3 text-text-primary">
           {thread === null ? "Thread not found" : thread.title}
         </h2>
-        <p className="text-sm text-text-tertiary">
+        <p className="text-small text-text-tertiary">
           {thread === null ? "This thread does not exist or is not open to you." : thread.subline}
         </p>
         <CloseButton label="Close thread" className="absolute top-3 right-3" />
@@ -320,6 +452,7 @@ export function ThreadPanel({
           thread={thread}
           story={story}
           writer={writer}
+          unread={group.threads.some((one) => one.id === thread.id && one.unread)}
         />
       )}
     </SlideoutMenu>

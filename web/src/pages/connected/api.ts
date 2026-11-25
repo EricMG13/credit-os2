@@ -258,7 +258,11 @@ export class RequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit, allowWarning = false): Promise<T> {
+export async function request<T>(
+  path: string,
+  init?: RequestInit,
+  allowWarning = false,
+): Promise<T> {
   const response = await fetch(path, { cache: "no-store", ...init });
   const body: unknown = await response.json().catch(() => null);
   if (
@@ -280,7 +284,7 @@ async function request<T>(path: string, init?: RequestInit, allowWarning = false
   return body as T;
 }
 
-function postJson(payload: unknown): RequestInit {
+export function postJson(payload: unknown): RequestInit {
   return {
     method: "POST",
     headers: { "Content-Type": "application/json" },

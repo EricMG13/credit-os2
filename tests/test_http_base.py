@@ -1,9 +1,10 @@
 """The shared HTTP base, driven directly through a toy service over real sockets.
 
-Scope: ``deploy_workflow.http_base`` alone. The toy service is started twice, once with each real
-service's parameters (``plain`` as the run start service sets them, ``strict`` as Signal sets
-them), so every shared check is exercised under both; a check that one service's suite alone used
-to cover is here for both. The last tests pin the parameters each real service passes.
+Scope: ``deploy_workflow.http_base`` alone. The toy service is started twice (``plain`` with the
+parameters the run start service sets, ``strict`` with every parameter the base offers set: a
+ceiling per address, a connection deadline, headers on every response, a lost body answered),
+so every shared check is exercised under both. The last test pins the parameters the run start
+service, the one real service on this base, passes.
 """
 
 from __future__ import annotations
@@ -22,7 +23,6 @@ import pytest
 from deploy_workflow import http_base
 from deploy_workflow.http_base import Reply, refuse
 from deploy_workflow.run_start import service as run_start_service
-from deploy_workflow.signal import service as signal_service
 
 log = logging.getLogger("toy")
 LIMIT = 64  # bytes of JSON the toy accepts
@@ -542,28 +542,28 @@ def test_a_link_that_stays_inside_is_followed_and_direct_needs_the_folder_itself
     assert served(base, "top.js", direct=True)[1] == b"t"
 
 
-def test_a_listed_file_is_served_uncached_and_an_unlisted_name_is_404(tmp_path):
-    page = tmp_path / "page.css"
-    page.write_bytes(b"css")
-    reply = http_base.listed_file((page, "text/css; charset=utf-8"))
-    assert (reply.status, reply.body) == (200, b"css")
-    assert reply.headers == {"Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-cache"}
-    with pytest.raises(Reply) as refusal:
-        http_base.listed_file(None)
-    assert (refusal.value.status, refusal.value.body) == (404, {"error": "not found"})
-
-
 @pytest.mark.parametrize("host", ["", "0.0.0.0", "::", "0", "0x0", "::ffff:0.0.0.0"])
 def test_every_spelling_of_every_interface_is_a_wildcard(host):
     assert http_base.wildcard(host)
 
 
 @pytest.mark.parametrize("host", ["127.0.0.1", "::1", "10.1.2.3", "not an address", "a" * 300])
-def test_an_own_address_or_no_address_is_not_a_wildcard(host):
+def test_an_own_address_or_no_address_is_not_a_wildcard(host, monkeypatch):
+    # A name that is not an address goes to a name server, which answers that no such name
+    # exists: stand in for that answer, so the test asks no server (tests/conftest.py's guard).
+    lookup = socket.getaddrinfo
+
+    def resolver(name: str, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return lookup(name, None, flags=socket.AI_NUMERICHOST)
+        except socket.gaierror:
+            raise socket.gaierror(socket.EAI_NONAME, "Name or service not known") from None
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolver)
     assert not http_base.wildcard(host)
 
 
-# -- what each real service passes ------------------------------------------------------------
+# -- what the real service passes --------------------------------------------------------------
 
 
 def test_the_run_start_service_passes_its_own_parameters():
@@ -580,17 +580,3 @@ def test_the_run_start_service_passes_its_own_parameters():
         "do_POST",
         "do_DELETE",
     }
-
-
-def test_signal_passes_its_own_parameters():
-    handler = signal_service.Handler
-    assert dict(handler.response_headers) == {
-        "Content-Security-Policy": signal_service._POLICY,
-        "X-Frame-Options": "DENY",
-    }
-    assert handler.connection_deadline(cast(Any, None)) == 2 * signal_service.SOCKET_TIMEOUT == 120
-    assert handler.read_body is not http_base.Handler.read_body  # a lost body is a 400
-    assert handler.logger is signal_service.log
-    limits = signal_service._Server.connection_limits(cast(Any, None))
-    assert limits == (64, 16)
-    assert signal_service.MAX_JSON == 64 * 1024

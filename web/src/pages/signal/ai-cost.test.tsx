@@ -5,7 +5,9 @@ import fixture from "../../../fixtures/signal.json";
 import { show, page } from "./test-helpers";
 
 const switches = () => page().getAllByRole("switch");
-const REASON = "AI parts stay off until the owner sets a cap.";
+const REASON = "The switches show the state of each part. They cannot be changed here.";
+/** The sentence this section used to draw in every state; it is false once a cap is set. */
+const OLD_CAP_CLAIM = "AI parts stay off until the owner sets a cap.";
 const PARTS = ["AI line on stories", "Signal strength", "Digests"];
 
 /** A copy of the fixture whose scene `id` has spend replaced (null means no reading). */
@@ -85,6 +87,7 @@ describe("the AI parts' switches", () => {
     (scene) => {
       show(`/signal/${scene}/settings/ai`);
       const reason = page().getByText(REASON);
+      expect(page().queryByText(OLD_CAP_CLAIM)).toBeNull();
       expect(switches()).toHaveLength(3);
       for (const [i, one] of switches().entries()) {
         expect(one).toBeDisabled();

@@ -1,8 +1,9 @@
-"""Signal's HTTP service, run for real on a loopback port over a seeded store.
+"""Signal's API, asked for real through the application's server (``signal_app.Live``) on a
+loopback port over a seeded store.
 
-Every request is hostile input: these tests pin the host and origin checks, the static allowlist,
-the body limits, the display-name rule and that the ingest loop survives a failing pass. Tests whose
-fetch is replaced say so in their names; nothing here reaches beyond loopback.
+Every request is hostile input: these tests pin the host and origin checks, the body limits, the
+display-name rule and that the ingest loop survives a failing pass. Tests whose fetch is replaced
+say so in their names; nothing here reaches beyond loopback.
 """
 
 from __future__ import annotations
@@ -18,70 +19,30 @@ import urllib.parse
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_ai_fakes import off_setup
+import signal_app
+from signal_app import Live
 from test_signal_feeds import RSS
 from test_signal_feedview import build_feed_db
 
+from deploy_workflow.run_start import service as run_start_service
 from deploy_workflow.signal import service
-from deploy_workflow.signal.cli import main
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.fetch import Fetched, FetchRefused
-from deploy_workflow.signal.service import Loop, make_server
+from deploy_workflow.signal.service import Loop
 from deploy_workflow.signal.store import add_story, open_db, propose_source, set_source_state
 
 NOW = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)
-SAME = object()  # "the page's own origin", the default for a request that is not a GET
-
-
-class Live:
-    """A server on a thread and the helper that talks to it."""
-
-    def __init__(self, server: ThreadingHTTPServer) -> None:
-        self.server = server
-        self.port = server.server_address[1]
-        self.thread = threading.Thread(
-            target=server.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True
-        )
-        self.thread.start()
-
-    def close(self) -> None:
-        self.server.shutdown()
-        self.server.server_close()
-        self.thread.join(timeout=10)
-
-    def call(self, method: str, path: str, **request: Any) -> tuple[int, Any, Any]:
-        """Keywords: body (JSON object), raw (bytes), origin (default: the page's own; None for
-        none; ``{port}`` is filled in), cookie, host, headers."""
-        sent = {"Host": request.get("host") or f"127.0.0.1:{self.port}"}
-        origin = request.get("origin", SAME)
-        if origin is SAME:
-            origin = f"http://127.0.0.1:{self.port}"
-        if origin is not None and method != "GET":
-            sent["Origin"] = str(origin).replace("{port}", str(self.port))
-        if request.get("cookie"):
-            sent["Cookie"] = request["cookie"]
-        sent.update(request.get("headers") or {})
-        body, raw = request.get("body"), request.get("raw")
-        data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
-        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=20)
-        try:
-            connection.request(method, path, body=data, headers=sent)
-            response = connection.getresponse()
-            text = response.read().decode("utf-8", errors="replace")
-            kind = response.getheader("Content-Type") or ""
-            return response.status, response.headers, json.loads(text) if "json" in kind else text
-        finally:
-            connection.close()
 
 
 @pytest.fixture
 def svc(tmp_path: Path) -> Iterator[Live]:
     build_feed_db(tmp_path).close()
-    live = Live(make_server(tmp_path, "127.0.0.1", 0))
+    live = Live(tmp_path)
     yield live
     live.close()
 
@@ -111,8 +72,8 @@ def svc_with_loop(tmp_path: Path) -> Iterator[tuple[Loop, Any]]:
     )
     add_story(db, 1, Entry("Story one", "https://a.org/1", NOW, "Summary"), NOW)
     db.close()
-    loop = Loop(tmp_path, fetch_fn=_recorded_feed_fn())
-    live = Live(make_server(tmp_path, "127.0.0.1", 0, loop=loop))
+    loop = Loop(tmp_path, fetch_fn=_recorded_feed_fn(), ai=off_setup(tmp_path))
+    live = Live(tmp_path, loop=loop)
     yield loop, live.call
     live.close()
 
@@ -139,72 +100,81 @@ def pass_in_progress(loop: Loop) -> Iterator[None]:
     assert not worker.is_alive()
 
 
-def test_page_and_static_files_with_strict_policy(svc):
-    status, headers, _ = svc.call("GET", "/")
-    assert status == 200 and "script-src 'self'" in headers["Content-Security-Policy"]
-    assert "'unsafe-inline'" not in headers["Content-Security-Policy"]
-    assert (
-        headers["X-Content-Type-Options"] == "nosniff"
-        and headers["Cross-Origin-Resource-Policy"] == "same-origin"
-    )
-    assert svc.call("GET", "/static/signal.js")[0] == 200
-    for path in (
-        "/static/../store.py",
-        "/static/store.py",
-        "/static/%2e%2e/cli.py",
-        "/signal/signal.db",
-        "/static/",
-    ):
-        assert svc.call("GET", path)[0] == 404
+POLICY = "default-src 'none'; frame-ancestors 'none'"
 
 
-def test_page_policy_is_exact_and_on_every_response(svc):
-    policy = (
-        "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; "
-        "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; "
-        "frame-ancestors 'none'"
-    )
-    for path in ("/", "/static/signal.css", "/api/me", "/nowhere"):
-        assert svc.call("GET", path)[1]["Content-Security-Policy"] == policy
-    assert svc.call("GET", "/")[2].lstrip().lower().startswith("<!doctype html>")
+def test_every_response_carries_the_api_policy(svc, cookie):
+    for path in ("/api/me", "/api/snapshot", "/api/nowhere"):
+        headers = svc.call("GET", path, cookie=cookie)[1]
+        assert headers["Content-Security-Policy"] == POLICY, path
+        assert headers["X-Frame-Options"] == "DENY"
+        assert headers["X-Content-Type-Options"] == "nosniff"
+        assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
+    assert svc.call("POST", "/api/me", body={"name": 5})[1]["Content-Security-Policy"] == POLICY
 
 
-def test_brand_files_are_served_with_their_types(svc):
-    for name, kind in (
-        ("brand.css", "text/css"),
-        ("fonts/RedHatText-Regular.woff2", "font/woff2"),
-        ("brand/symbol.svg", "image/svg+xml"),
-    ):
-        status, headers, _ = svc.call("GET", "/static/" + name)
-        assert status == 200 and headers["Content-Type"].startswith(kind)
-        assert headers["Cache-Control"] == "no-cache"
-    assert svc.call("GET", "/static/fonts/OFL.txt")[0] == 404
-    assert svc.call("GET", "/static/fonts/../brand.css")[0] == 404
+def test_the_snapshot_needs_no_name_and_then_holds_no_stories(svc):
+    status, headers, data = svc.call("GET", "/api/snapshot")
+    assert status == 200 and headers["Cache-Control"] == "no-store"
+    (scene,) = data["scenes"]
+    snap = scene["snapshot"]
+    assert scene["id"] == "main"
+    assert snap["viewer"] == {
+        "name": None,
+        "initials": None,
+        "role": "reader",
+        "roleLabel": "Reader",
+    }
+    assert snap["feed"]["stories"] == [] and snap["channels"]["savedCount"] is None
+    assert [t["name"] for t in snap["channels"]["topics"]] == ["Remedy"]
 
 
-def test_a_missing_brand_file_fails_at_start(tmp_path, monkeypatch):
-    monkeypatch.setitem(service.STATIC, "gone.css", (tmp_path / "gone.css", "text/css"))
-    with pytest.raises(service.StartError, match="gone.css"):
-        make_server(tmp_path, "127.0.0.1", 0)
+def test_the_snapshot_of_a_named_reader(svc, cookie):
+    svc.call("POST", "/api/stories/5/save", cookie=cookie)
+    snap = svc.call("GET", "/api/snapshot", cookie=cookie)[2]["scenes"][0]["snapshot"]
+    assert snap["viewer"] == {
+        "name": "Reader",
+        "initials": "R",
+        "role": "reader",
+        "roleLabel": "Reader",
+    }
+    latest = snap["feed"]["views"]["latest"]
+    # 36 stories (build_feed_db): the wire piece (36) is newest, then Story 35 down to Story 01.
+    assert latest["top"] == ["36", *(str(n) for n in range(35, 6, -1))]
+    assert latest["older"] == [str(n) for n in range(6, 0, -1)]
+    assert snap["feed"]["views"]["saved"]["top"] == ["5"] and snap["channels"]["savedCount"] == "1"
+    assert snap["feed"]["topics"] == {
+        "1": {"top": ["36"], "latest": ["36"], "waiting": None, "older": [], "shown": 30}
+    }
+    assert len(snap["feed"]["stories"]) == 36
 
 
-def test_brand_files_come_from_the_installed_credit_os_package():
-    import credit_os
+def test_the_snapshot_route_takes_get_only_and_keeps_the_origin_rules(svc, cookie):
+    for method in ("POST", "DELETE", "PUT"):
+        status, headers, _ = svc.call(method, "/api/snapshot", cookie=cookie)
+        assert (status, headers["Allow"]) == (405, "GET"), method
+    assert svc.call("POST", "/api/snapshot", origin="http://evil.example")[0] == 403
+    foreign = {"Origin": "http://evil.example"}
+    assert svc.call("GET", "/api/snapshot", cookie=cookie, headers=foreign)[0] == 403
+    cross = {"Sec-Fetch-Site": "cross-site"}
+    assert svc.call("GET", "/api/snapshot", cookie=cookie, headers=cross)[0] == 403
+    assert svc.call("GET", "/api/snapshot", host="evil.example")[0] == 403
+    assert svc.call("GET", "/api/snapshot", headers={"Sec-Fetch-Site": "same-origin"})[0] == 200
+    assert svc.call("GET", "/api/snapshot?view=x&view=y")[0] == 200  # parameters are ignored
+    assert svc.call("GET", "/api/snapshot?" + "&".join(f"a{n}=1" for n in range(21)))[0] == 400
 
-    brand = service.find_brand()
-    assert brand == Path(credit_os.__file__).resolve().parent / "web"
-    assert brand == Path(__file__).resolve().parents[1] / "apps/issuer-library/credit_os/web"
-    assert (brand / "brand.css").is_file() and (brand / "brand" / "symbol.svg").is_file()
 
+def test_a_failed_pass_is_in_the_snapshot_freshness_with_recorded_feed(svc_with_loop, monkeypatch):
+    loop, call = svc_with_loop
 
-def test_without_the_credit_os_package_the_brand_folder_is_the_checkout_path(monkeypatch):
-    # Importing the service must not need the library: start-up names the files it lacks.
-    def absent(package):
-        raise ModuleNotFoundError(f"No module named {package!r}", name=package)
+    def boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("secret")
 
-    monkeypatch.setattr("importlib.resources.files", absent)
-    expected = Path(__file__).resolve().parents[1] / "apps/issuer-library/credit_os/web"
-    assert service.find_brand() == expected
+    monkeypatch.setattr(service.ingest, "run_due", boom)
+    loop.run_once(NOW)
+    freshness = call("GET", "/api/snapshot")[2]["scenes"][0]["snapshot"]["feed"]["freshness"]
+    assert freshness["error"] == "last ingest pass failed"
+    assert "secret" not in json.dumps(freshness)
 
 
 def test_name_then_feed(svc):
@@ -226,6 +196,7 @@ def test_name_then_feed(svc):
         "other_sources",
         "saved",
         "topics",
+        "category",  # the feed's own category term: a filing's form type, else null
     }
     assert svc.call("GET", "/api/feed?view=top", cookie=cookie)[0] == 400
     assert svc.call("POST", "/api/me", body={"name": "   "})[0] == 400
@@ -329,7 +300,7 @@ def test_a_write_from_another_origin_changes_nothing(svc, cookie, origin):
 
 
 def test_other_host_names_and_cross_site_reads_are_refused(svc, cookie):
-    assert svc.call("GET", "/", host="evil.example")[0] == 403
+    assert svc.call("GET", "/api/snapshot", host="evil.example")[0] == 403
     assert (
         svc.call(
             "GET", "/api/feed?view=latest", cookie=cookie, headers={"Sec-Fetch-Site": "cross-site"}
@@ -349,7 +320,7 @@ def test_host_rules_and_fetch_metadata(svc, cookie):
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Dest": "document",
     }
-    assert svc.call("GET", "/", headers=navigation)[0] == 200
+    assert svc.call("GET", "/api/snapshot", headers=navigation)[0] == 200
     assert svc.call("GET", "/api/me", headers=navigation)[0] == 200
     assert svc.call("POST", "/api/stories/5/save", cookie=cookie, headers=navigation)[0] == 403
     assert svc.call("GET", "/api/me", headers={"Origin": "http://evil.example"})[0] == 403
@@ -364,7 +335,7 @@ def test_bodies_are_capped_and_must_be_json(svc):
 
 def test_a_json_body_needs_content_length(svc):
     connection = http.client.HTTPConnection("127.0.0.1", svc.port, timeout=20)
-    connection.putrequest("POST", "/api/me", skip_accept_encoding=True)
+    connection.putrequest("POST", f"{signal_app.PREFIX}/api/me", skip_accept_encoding=True)
     connection.putheader("Origin", f"http://127.0.0.1:{svc.port}")
     connection.endheaders()
     assert connection.getresponse().status == 411
@@ -372,7 +343,7 @@ def test_a_json_body_needs_content_length(svc):
 
 
 def test_search_text_cannot_break_the_api(svc, cookie):
-    for q in ['"', "*", "NEAR(", "%00", "a" * 5000]:
+    for q in ['"', "*", "NEAR(", "%00", "a" * 400]:
         assert (
             svc.call("GET", "/api/feed?view=latest&q=" + urllib.parse.quote(q), cookie=cookie)[0]
             == 200
@@ -385,7 +356,7 @@ def test_unknown_paths_and_methods(svc, cookie):
     assert svc.call("DELETE", "/api/me", cookie=cookie)[0] == 405
     assert svc.call("POST", "/api/feed?view=latest", cookie=cookie)[0] == 405
     assert svc.call("PUT", "/api/me", cookie=cookie)[0] == 405
-    assert svc.call("POST", "/")[0] == 405
+    assert svc.call("POST", "/")[0] == 404
     assert svc.call("GET", "/api/stories/5/save", cookie=cookie)[0] == 405
 
 
@@ -397,11 +368,6 @@ def test_an_unexpected_failure_is_a_plain_500(svc, cookie, monkeypatch, caplog):
     status, _, data = svc.call("GET", "/api/feed?view=latest", cookie=cookie)
     assert (status, data) == (500, {"error": "the service failed; see its log"})
     assert "secret-cause" in caplog.text
-
-
-def test_the_service_serves_no_file_from_the_root(svc):
-    for path in ("/signal/signal.db", "/signal.db", "/static/signal.db", "/..%2fsignal/signal.db"):
-        assert svc.call("GET", path)[0] in (403, 404)
 
 
 def test_loop_pass_updates_status_and_recovers_from_a_failing_source_with_recorded_feed(
@@ -456,111 +422,35 @@ def test_status_counts_a_failing_source_with_recorded_feed(svc_with_loop):
     assert call("GET", "/api/status")[2]["loop_error"] is None
 
 
-def test_a_wildcard_host_is_refused_at_start(tmp_path):
-    with pytest.raises(ValueError, match="own address"):
-        make_server(tmp_path, "0.0.0.0", 0)
-    assert not (tmp_path / "signal").exists()
-
-
-def test_wildcard_host_is_refused():
-    assert main(["--root", "x", "serve", "--host", "0.0.0.0"]) == 2
-
-
-def test_a_taken_port_names_the_address_and_exits_2(tmp_path, capsys):
-    with socket.socket() as taken:
-        taken.bind(("127.0.0.1", 0))
-        taken.listen()
-        port = taken.getsockname()[1]
-        assert service.serve(tmp_path, "127.0.0.1", port) == 2
-    message = capsys.readouterr().err.strip()
-    assert message.startswith(f"cannot listen on 127.0.0.1:{port}: ") and "\n" not in message
-
-
 def _raw(svc: Live, data: bytes) -> socket.socket:
     sock = socket.create_connection(("127.0.0.1", svc.port), timeout=10)
     sock.sendall(data)
     return sock
 
 
-def _closed_within(sock: socket.socket, seconds: float) -> bool:
-    """True when the server closed the connection (EOF or reset) within ``seconds``."""
-    sock.settimeout(seconds)
-    try:
-        while sock.recv(4096):
-            pass
-    except (ConnectionResetError, BrokenPipeError):
-        return True
-    except TimeoutError:
-        return False
-    return True
-
-
-def test_a_trickling_connection_is_closed_at_the_deadline(svc, monkeypatch, caplog):
-    caplog.set_level(logging.INFO, logger=service.log.name)
-    monkeypatch.setattr(service, "SOCKET_TIMEOUT", 0.5)
-    monkeypatch.setattr(service.Handler, "timeout", 5)  # per-read timeout longer than the deadline
-    host = f"127.0.0.1:{svc.port}"
-    sock = _raw(svc, f"GET /api/status HTTP/1.1\r\nHost: {host}\r\nX-Pad: ".encode())
-    stop = threading.Event()
-
-    def trickle() -> None:
-        while not stop.is_set():
-            try:
-                sock.sendall(b"a")
-            except OSError:
-                return
-            time.sleep(0.1)
-
-    thread = threading.Thread(target=trickle, daemon=True)
-    thread.start()
-    try:
-        assert _closed_within(sock, 4)
-    finally:
-        stop.set()
-        thread.join(timeout=5)
-        sock.close()
-    assert svc.call("GET", "/api/status")[0] == 200
-    cut = [r for r in caplog.records if "connection deadline reached" in r.getMessage()]
-    assert len(cut) == 1
-    assert cut[0].levelno == logging.INFO and cut[0].getMessage().startswith("127.0.0.1 ")
-    assert cut[0].exc_info is None
-
-
-def test_one_address_has_a_share_of_the_connection_ceiling(svc, monkeypatch):
-    monkeypatch.setattr(service, "MAX_PER_ADDRESS", 3)
-    held = [_raw(svc, b"") for _ in range(3)]
-    try:
-        time.sleep(0.3)
-        extra = _raw(svc, b"")
-        assert _closed_within(extra, 3)
-        extra.close()
-        assert all(not _closed_within(sock, 0.3) for sock in held)
-    finally:
-        for sock in held:
-            sock.close()
-    time.sleep(0.3)
-    assert svc.call("GET", "/api/status")[0] == 200
-
-
-def test_a_short_body_is_a_refusal_not_a_traceback(svc, monkeypatch, caplog):
-    monkeypatch.setattr(service.Handler, "timeout", 1)
+def test_a_short_body_gets_no_reply_and_no_traceback(svc, monkeypatch, caplog):
+    """The application's server reads the body. One that stalls past the socket timeout is a client
+    that left: the connection is closed with one info line and no reply."""
+    monkeypatch.setattr(run_start_service.Handler, "timeout", 1)
     caplog.set_level(logging.INFO)
     host = f"127.0.0.1:{svc.port}"
-    head = f"POST /api/me HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\n"
+    head = f"POST {signal_app.PREFIX}/api/me HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\n"
     sock = _raw(svc, (head + 'Content-Length: 50\r\n\r\n{"na').encode())
     sock.settimeout(10)
-    reply = b""  # the head and the body are separate writes: read to the close, not one packet
+    reply = b""
     while chunk := sock.recv(4096):
         reply += chunk
     sock.close()
     time.sleep(0.2)
-    assert reply.split(b"\r\n")[0].split()[1] == b"400"
-    assert b"the request body did not arrive" in reply
+    assert reply == b""
+    lost = [record for record in caplog.records if "connection lost" in record.getMessage()]
+    assert [record.levelno for record in lost] == [logging.INFO]
     assert not [record for record in caplog.records if record.exc_info]
+    assert svc.call("GET", "/api/status")[0] == 200
 
 
 def test_an_http_09_request_line_gets_no_500(svc, caplog):
-    sock = _raw(svc, b"GET /api/me\r\n")
+    sock = _raw(svc, f"GET {signal_app.PREFIX}/api/me\r\n".encode())
     sock.settimeout(10)
     reply = b""
     while chunk := sock.recv(4096):

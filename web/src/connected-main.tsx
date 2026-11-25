@@ -14,6 +14,9 @@ if (container === null) throw new Error("connected.html has no #root element");
 const mode = document.querySelector<HTMLMetaElement>('meta[name="credit-os-mode"]');
 const path = window.location.pathname;
 const readOnly = mode?.content === "preview";
+// The server writes this meta into the page exactly when it hosts Signal.
+const signal =
+  document.querySelector<HTMLMetaElement>('meta[name="credit-os-signal"]')?.content === "on";
 const root = createRoot(container);
 
 function draw(page: ReactNode) {
@@ -41,11 +44,12 @@ draw(
 const held = new Promise((resolve) => setTimeout(resolve, LOADING_HELD_MS));
 import("./pages/connected/ConnectedApp").then(
   async ({ ConnectedApp, preloadPage }) => {
-    await Promise.race([preloadPage(path, readOnly), held]);
+    await Promise.race([preloadPage(path, readOnly, signal), held]);
     draw(
       <ConnectedApp
         path={path}
         readOnly={readOnly}
+        signal={signal}
         mode={mode?.content === "synthetic" ? "synthetic" : "live"}
       />,
     );

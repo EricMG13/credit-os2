@@ -1,14 +1,18 @@
 // A feed page: its view title row (title, freshness, Top or Latest), the kind tabs and search, the
 // pill for new stories, then the entries on one card with hairlines between them, then Show older.
 // An entry is a story or a digest card. Order, filter, search, the pill and Show older all act on
-// in-memory state over the entries the slice supplied; nothing is fetched or stored.
+// in-memory state over the entries the slice supplied; nothing is fetched or stored. On a service
+// the pill's Show is the one exception: the service's page folds the waiting stories into the list
+// it supplies, so the next ones to arrive wait behind a pill of their own.
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { Star01 } from "@untitledui/icons";
+import { ArrowUpRight, Star01 } from "@untitledui/icons";
 import { Alert } from "@/components/alert/Alert";
 import { Button } from "@/components/base/buttons/button";
+import { useSignalActions } from "./actions";
 import { DigestCard } from "./DigestCard";
 import { FeedControls, OrderToggle, type FeedKind, type FeedOrder } from "./FeedControls";
 import { EmptyNote, FeedAlert, FeedEmpty, FeedSkeleton, type EmptyContext } from "./FeedStates";
+import { LIST_TILE } from "./parts/classes";
 import { FreshnessBadge } from "./parts/FreshnessBadge";
 import { PageTitle } from "./parts/PageTitle";
 import { Pill } from "./parts/Pill";
@@ -20,16 +24,29 @@ export type FeedEntry =
   | { kind: "story"; story: SignalStory }
   | { kind: "digest"; digest: SignalDigestCard; href: string };
 
-/** A view's entries as the slice orders them; `waiting` and `older` are the ones not yet drawn. */
+/**
+ * A view's entries as the slice orders them; `waiting` and `older` are the ones not yet drawn.
+ * With `shown`, each order holds the whole view and the page draws the first `shown` of the chosen
+ * order that pass the filter; Show older then draws the rest of it. Null: the whole order is drawn.
+ */
 export type FeedEntries = {
   top: FeedEntry[];
   latest: FeedEntry[];
   waiting: { label: string; entries: FeedEntry[] } | null;
   older: FeedEntry[];
+  shown?: number | null;
 };
 
-/** A topic view's own header parts: the follow state and the keywords it follows. */
-export type FeedTopic = { on: boolean; onToggle: () => void; keywords: string[] };
+/**
+ * A topic's or an issuer's view's own header parts: the follow state, the keywords a topic follows
+ * and, for an issuer a writer gave a library key, where "Open in Library" goes.
+ */
+export type FeedTopic = {
+  on: boolean;
+  onToggle: () => void;
+  keywords: string[];
+  library?: string | null;
+};
 
 function FeedHeader({
   title,
@@ -62,6 +79,18 @@ function FeedHeader({
             {topic.on ? "Following" : "Follow"}
           </Button>
         )}
+        {topic?.library == null ? null : (
+          <Button
+            color="link-color"
+            size="sm"
+            href={topic.library}
+            iconTrailing={ArrowUpRight}
+            // A text link's own box is 20px tall; a control is 32px.
+            className="min-h-8"
+          >
+            Open in Library
+          </Button>
+        )}
         <FreshnessBadge freshness={freshness} />
         {onOrder === null ? null : (
           <div className="ml-auto">
@@ -78,7 +107,7 @@ function FeedHeader({
   );
 }
 
-/** Stories of the chosen kind whose headline, summary, source name or tag holds the query; a digest card is under All with no query only. */
+/** Stories of the chosen kind whose headline, summary, source name, tag or issuer holds the query; a digest card is under All with no query only. */
 function visible(entries: FeedEntry[], kind: FeedKind, query: string): FeedEntry[] {
   const needle = query.toLowerCase();
   return entries.filter((entry) => {
@@ -86,8 +115,9 @@ function visible(entries: FeedEntry[], kind: FeedKind, query: string): FeedEntry
     const { story } = entry;
     if (kind !== "all" && story.kind !== kind) return false;
     if (needle === "") return true;
-    return [story.headline, story.summary ?? "", story.source.name, ...story.tags].some((text) =>
-      text.toLowerCase().includes(needle),
+    const issuers = story.issuers.map((issuer) => issuer.name);
+    return [story.headline, story.summary ?? "", story.source.name, ...story.tags, ...issuers].some(
+      (text) => text.toLowerCase().includes(needle),
     );
   });
 }
@@ -110,10 +140,7 @@ function EntryList({
 }) {
   if (entries.length === 0) return null;
   return (
-    <div
-      ref={listRef}
-      className="mt-4 divide-y divide-border-hairline rounded-ds-lg border border-border-subtle bg-surface-card px-8 py-2 shadow-1"
-    >
+    <div ref={listRef} className={`mt-4 ${LIST_TILE}`}>
       {entries.map((entry) =>
         entry.kind === "story" ? (
           <StoryCard
@@ -177,18 +204,25 @@ function FeedNotices({
   error: "unreachable" | "request" | "unreadable" | null;
   shared: number;
 }) {
+  const live = useSignalActions() !== null;
   return (
     <>
-      {waiting === null || waitingVisible ? null : (
-        <div className="mt-4 flex justify-center">
-          <Pill label={waiting.label} action="Show" onAction={onReveal} />
-        </div>
-      )}
+      {/* Always on the page, so a pill that arrives with a later read is announced. */}
+      <div aria-live="polite">
+        {waiting === null || waitingVisible ? null : (
+          <div className="mt-4 flex justify-center">
+            <Pill label={waiting.label} action="Show" onAction={onReveal} />
+          </div>
+        )}
+      </div>
       {error === null ? null : <FeedAlert error={error} />}
       <div aria-live="polite">
         {shared === 0 ? null : (
           <div key={shared} className="mt-4">
-            <Alert tone="success" title="Sample data: the story was not shared." />
+            <Alert
+              tone="success"
+              title={live ? "The story was shared." : "Sample data: the story was not shared."}
+            />
           </div>
         )}
       </div>
@@ -198,14 +232,15 @@ function FeedNotices({
 
 function OlderStories({
   loading,
-  older,
+  more,
   onShow,
 }: {
   loading: boolean;
-  older: FeedEntry[];
+  /** Something waits behind the button. */
+  more: boolean;
   onShow: () => void;
 }) {
-  if (loading || older.length === 0) return null;
+  if (loading || !more) return null;
   return (
     <div className="mt-4 flex justify-center">
       <Button color="secondary" size="sm" onPress={onShow}>
@@ -215,17 +250,23 @@ function OlderStories({
   );
 }
 
+/**
+ * What the list draws and what Show older would add. The filter and the search take the whole of
+ * the chosen order; where the view says how many to show, the first that many of what passes are
+ * drawn and the rest of it waits behind Show older, ahead of the view's `older`.
+ */
 function entriesOnScreen(
   entries: FeedEntries,
   order: FeedOrder,
   revealed: boolean,
-  olderShown: boolean,
-): FeedEntry[] {
-  return [
-    ...(revealed && entries.waiting !== null ? entries.waiting.entries : []),
-    ...entries[order],
-    ...(olderShown ? entries.older : []),
-  ];
+  filter: { kind: FeedKind; needle: string },
+): { first: FeedEntry[]; rest: FeedEntry[] } {
+  const pass = (list: FeedEntry[]) => visible(list, filter.kind, filter.needle);
+  const waiting = revealed && entries.waiting !== null ? entries.waiting.entries : [];
+  const listed = pass([...waiting, ...entries[order]]);
+  // Stories shown from the pill are drawn as well as what was: nothing leaves the foot of the list.
+  const count = entries.shown == null ? listed.length : entries.shown + waiting.length;
+  return { first: listed.slice(0, count), rest: [...listed.slice(count), ...pass(entries.older)] };
 }
 
 function focusIndex(
@@ -235,6 +276,14 @@ function focusIndex(
   fallback: number | "title",
 ) {
   return visible(entries, kind, needle).length > 0 ? fallback : "title";
+}
+
+/**
+ * Show older is offered while something waits behind it: more of the chosen order that passes the
+ * filter, or, as before the view said how many to show, any entry in `older` whatever the filter.
+ */
+function moreWaits(entries: FeedEntries, rest: FeedEntry[]): boolean {
+  return (entries.shown ?? null) === null ? entries.older.length > 0 : rest.length > 0;
 }
 
 function restoreFeedFocus(
@@ -267,30 +316,33 @@ function useFeedFocus(revealed: boolean, olderShown: boolean) {
 }
 
 function useFeedView(entries: FeedEntries, startOn: FeedOrder) {
+  const fold = useSignalActions()?.reveal;
   const [order, setOrder] = useState<FeedOrder>(startOn);
   const [kind, setKind] = useState<FeedKind>("all");
   const [query, setQuery] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [olderShown, setOlderShown] = useState(false);
   const { list, title, setFocusAt } = useFeedFocus(revealed, olderShown);
-  const { waiting, older } = entries;
+  const { waiting } = entries;
   const needle = query.trim();
-  const drawn = entriesOnScreen(entries, order, revealed, olderShown);
-  const shown = visible(drawn, kind, needle);
+  const { first, rest } = entriesOnScreen(entries, order, revealed, { kind, needle });
+  const shown = olderShown ? [...first, ...rest] : first;
 
   const reveal = () => {
     setFocusAt(focusIndex(waiting?.entries ?? [], kind, needle, 0));
-    setRevealed(true);
+    if (fold === undefined) setRevealed(true);
+    else fold();
   };
   const showOlder = () => {
-    setFocusAt(focusIndex(older, kind, needle, shown.length));
+    // Focus goes to the first entry the button adds; where none passes the filter, to the title.
+    setFocusAt(rest.length > 0 ? shown.length : "title");
     setOlderShown(true);
   };
 
   return {
     header: { order, setOrder },
     filter: { kind, setKind, query, setQuery, needle },
-    listing: { waiting, shown, older, revealed, olderShown },
+    listing: { waiting, shown, more: moreWaits(entries, rest), revealed, olderShown },
     actions: { reveal, showOlder },
     refs: { list, title },
   };
@@ -324,10 +376,10 @@ export function FeedPage({
   loading: boolean;
   error: "unreachable" | "request" | "unreadable" | null;
   empty: EmptyContext;
-  /** Set on a topic's view only. */
+  /** Set on a topic's or an issuer's view only. */
   topic: FeedTopic | null;
 }) {
-  // Share to group writes nothing: this sentence is the in-memory stand-in for the service's reply.
+  // In the sample Share to group writes nothing and the sentence says so; on a service it says the story was shared.
   // It counts the shares: the live wrapper below stays on the page and each share puts a fresh
   // status node inside it, so each one is announced again.
   const [shared, setShared] = useState(0);
@@ -378,7 +430,7 @@ export function FeedPage({
         {feed.listing.olderShown ? null : (
           <OlderStories
             loading={loading}
-            older={feed.listing.older}
+            more={feed.listing.more}
             onShow={feed.actions.showOlder}
           />
         )}

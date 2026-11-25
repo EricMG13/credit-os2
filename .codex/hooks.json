@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/ericguei/Documents/credit-os-connected/.claude/worktrees/cp-os-run-folders-trial-8f496b/.codex/hooks/lint-edited.sh'",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}

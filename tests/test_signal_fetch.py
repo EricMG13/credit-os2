@@ -408,6 +408,16 @@ def test_a_port_on_the_first_address_is_connected_to_and_named_in_host():
     assert wire.requests[0][1]["Host"] == "feeds-1.example.org:8443"
 
 
+@pytest.mark.parametrize(
+    "url", ["https://feeds-1.example.org:0/x", "https://feeds-1.example.org:00/x"]
+)
+def test_port_zero_is_refused_not_read_as_the_default_port(url):
+    with pytest.raises(FetchRefused, match="default port"):
+        fetch_module.check_form(url)
+    with pytest.raises(FetchRefused, match="default port"):
+        run(Wire(ok()), url)
+
+
 # Status and body
 def test_304_returns_no_body_and_the_validators_sent():  # none came back, so the sent ones stay
     wire = Wire(Reply(304))

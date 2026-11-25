@@ -35,7 +35,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test apps/issuer-library/credit_os/web/reader.test.cjs apps/issuer-library/credit_os/web/static.test.cjs apps/issuer-library/credit_os/web/calendar.test.cjs apps/issuer-library/credit_os/web/changes.test.cjs src/deploy_workflow/signal/web/render.test.cjs
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # Signal's tests check every snapshot with the real React reader (bundled by web's esbuild);
+      # under CI=true they fail, not skip, when it is missing.
+      - run: npm --prefix web ci
+      - run: node --test apps/issuer-library/credit_os/web/reader.test.cjs apps/issuer-library/credit_os/web/static.test.cjs apps/issuer-library/credit_os/web/calendar.test.cjs apps/issuer-library/credit_os/web/changes.test.cjs
       - name: pytest (known failures deselected)
         run: |
           deselect=$(sed -e 's/#.*//' -e '/^\s*$/d' tests/known-failures.txt | awk '{print "--deselect=" $1}')
@@ -66,6 +71,7 @@ jobs:
             tests/test_reference_portfolios.py tests/test_reference_fetch.py \
             tests/test_pathway_tiers.py \
             tests/test_react_*.py proof/test_launcher.py \
+            tests/test_signal_*.py \
             tests/test_publication_reuse.py tests/test_cpos_parallel.py
 
   web:

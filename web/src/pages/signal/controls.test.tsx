@@ -142,9 +142,13 @@ describe("the freshness line", () => {
     },
   );
 
-  it("draws the page title at the mock's heading size", () => {
+  it("draws the page title at the design's h1 size, as the shell's page header does", () => {
     show("/signal/main/feed/for-you");
-    expect(screen.getByRole("heading", { level: 1 }).className).toContain("text-h2");
+    const title = screen.getByRole("heading", { level: 1 });
+    expect(title.className.split(" ")).toEqual(
+      expect.arrayContaining(["font-display", "text-h1", "wrap-anywhere"]),
+    );
+    expect(title.className).not.toContain("text-h2");
   });
 });
 
@@ -206,7 +210,7 @@ describe("Top or Latest", () => {
 });
 
 describe("the kind tabs", () => {
-  it("offers All, Regulators, News, Ratings and Research, All selected", () => {
+  it("offers All, Regulators, News, Ratings, Research and Filings, All selected", () => {
     show("/signal/main/feed/for-you");
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "All",
@@ -214,6 +218,7 @@ describe("the kind tabs", () => {
       "News",
       "Ratings",
       "Research",
+      "Filings",
     ]);
     expect(tab("All")).toHaveAttribute("aria-selected", "true");
   });
