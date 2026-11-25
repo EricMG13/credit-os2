@@ -1145,3 +1145,93 @@ def test_a_borrower_of_only_spaces_with_no_identifier_is_not_given(borrower: str
         credit(3), [issuer(3, asset="loan")], reference("clo"), Issuer(borrower=borrower)
     )
     assert result.weight is None
+
+
+# --- Fix round 3: every word of a limit row is read, or the row is not read -----------------------
+
+_NAV = "≤ 7.5% NAV"
+_CCC_LIST = "Max CCC+ and below (incl. Unrated & Other)"
+_TOBACCO = "Excluded sectors (Tobacco, Weapons)"
+
+
+@pytest.mark.parametrize(
+    ("category", "parameter", "limit", "issuer", "outcome"),
+    [
+        ("Rating", "Max sub-IG", _NAV, (None, "BB", None), "breached"),
+        ("Rating", "Max sub-IG", _NAV, (None, "IG", None), "does_not_apply"),
+        ("Rating", "Max sub-IG", _NAV, (None, "Unrated", None), "not_read"),
+        ("Rating", "Max below IG", _NAV, (None, "B", None), "breached"),
+        ("Rating", "Max obligations rated below B3", _NAV, (None, "CCC", None), "breached"),
+        ("Rating", "Max obligations rated below B3", _NAV, (None, "B", None), "does_not_apply"),
+        ("Rating", "Max not rated", _NAV, (None, "Unrated", None), "breached"),
+        ("Rating", "Max not rated", _NAV, (None, "B", None), "does_not_apply"),
+        ("Rating", "Max HY", _NAV, (None, "BB", None), "breached"),
+        ("Rating", "Min average rating B2", _NAV, (None, "B", None), "not_read"),
+        ("Rating", "Max obligations rated other than CCC", _NAV, (None, "CCC", None), "not_read"),
+        ("Rating", "Max CCC excluding unrated", _NAV, (None, "Unrated", None), "not_read"),
+        ("Rating", "Max 10 CCC", _NAV, (None, "CCC", None), "not_read"),
+        ("Rating", _CCC_LIST, "≤ 12.5% NAV", (None, "CCC", None), "breached"),
+        ("Rating", _CCC_LIST, "≤ 12.5% NAV", (None, "Unrated", None), "breached"),
+        ("Rating", _CCC_LIST, "≤ 12.5% NAV", (None, "B", None), "does_not_apply"),
+        (
+            "Sector",
+            "Max single sector other than Healthcare",
+            _NAV,
+            ("Healthcare", "BB", None),
+            "not_read",
+        ),
+        (
+            "Sector",
+            "Max sector exposure excluding Healthcare",
+            _NAV,
+            ("Healthcare", "BB", None),
+            "not_read",
+        ),
+        (
+            "Sector",
+            "Max single industry (other than Healthcare)",
+            _NAV,
+            ("Healthcare", "BB", None),
+            "not_read",
+        ),
+        ("Exclusions", _TOBACCO, "0% NAV", ("Tobacco", "BB", None), "breached"),
+        ("Exclusions", _TOBACCO, "0% NAV", ("Weapons", "BB", None), "breached"),
+        ("Exclusions", _TOBACCO, "0% NAV", ("Healthcare", "BB", None), "does_not_apply"),
+        ("Concentration", "Max Healthcare exposure", _NAV, ("Healthcare", "BB", None), "breached"),
+        (
+            "Concentration",
+            "Max Healthcare exposure",
+            _NAV,
+            ("Software", "BB", None),
+            "does_not_apply",
+        ),
+        ("Collateral quality", "Max B3 obligations", _NAV, (None, "B", None), "breached"),
+        ("Collateral quality", "Max Ba3 and below", _NAV, (None, "IG", None), "does_not_apply"),
+        (
+            "Concentration",
+            "Aggregate top 10 issuers",
+            _NAV,
+            ("Healthcare", "B", None),
+            "does_not_apply",
+        ),
+        ("Price", "Min price (CCC obligations)", "≥ 80", (None, "BB", Decimal(75)), "not_read"),
+        (
+            "Price",
+            "Minimum price for second lien loans",
+            "≥ 80",
+            (None, "BB", Decimal(75)),
+            "not_read",
+        ),
+        ("Price", "Minimum purchase price", "≥ 80", (None, "BB", Decimal(75)), "breached"),
+    ],
+)
+def test_every_word_of_a_limit_row_is_read_or_the_row_is_not_read(
+    category: str,
+    parameter: str,
+    limit: str,
+    issuer: tuple[str | None, str, Decimal | None],
+    outcome: str,
+) -> None:
+    sector, bucket, price = issuer
+    row = limit_row(category, parameter, limit, "-1.00%", "Breach")
+    assert _one(row, sector=sector, rating_bucket=bucket, price=price) == outcome

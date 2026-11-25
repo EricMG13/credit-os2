@@ -284,21 +284,26 @@ PASS_STATUS = frozenset(
 )
 # Rating buckets, strongest to weakest; Unrated is outside the order.
 BUCKET_ORDER = ("IG", "BB", "B", "CCC")
-# Wording that names every sub-investment bucket; the word "investment" or "IG" inside it does not
-# also name IG.
-BUCKET_GROUPS = (
-    "sub investment",
-    "non investment",
-    "non ig",
-    "below investment",
-    "high yield",
-    "speculative",
-)
 GROUP_BUCKETS = ("BB", "B", "CCC")
-WEAKER_WORDS = (" and below ", " or below ", " and lower ", " or lower ", " or worse ")
-STRONGER_WORDS = (" and above ", " or above ", " or better ", " or higher ")
+# Every word of a parameter must be read: by its kind's words below, or as one of these plain
+# words, which neither name nor narrow what a row covers. Any other word leaves the row not read.
+PLAIN_WORDS = frozenset(
+    {
+        *("max", "maximum", "min", "minimum", "limit", "exposure", "obligations", "and", "or"),
+        *("incl", "other", "rating", "rated", "grade", "single", "largest", "sector", "sectors"),
+        *("industry", "industries", "excluded", "price", "floor", "purchase"),
+    }
+)
+SECTOR_WORDS = frozenset({"sector", "sectors", "industry", "industries"})
+LIST_MARKS = re.compile(r"[,;:()]")
+# "below B3", "sub-IG", "non-IG": every strictly weaker bucket. After "and" or "or": "below",
+# "lower", "worse" add the weaker buckets, "above", "better", "higher" the stronger ones.
+STRICTLY_WEAKER = frozenset({"below", "sub", "non"})
+AND_WEAKER = frozenset({"below", "lower", "worse"})
+AND_STRONGER = frozenset({"above", "better", "higher"})
+GROUP_WORDS = frozenset({"hy", "speculative"})  # BB, B and CCC
+PHRASES = {" high yield ": " hy ", " not rated ": " nr "}
 PRICE_FLOOR_WORDS = frozenset({"minimum", "min", "floor"})
-PRICE_AVERAGE_WORDS = frozenset({"average", "weighted"})
 STATE: dict[Outcome, str] = {
     "breached": "is breached",
     "within": "is within",
@@ -321,8 +326,8 @@ def eligible_types(
 @dataclass(frozen=True)
 class LimitReading:
     """One constraints row read against the issuer, in the file's order. `outcome` is breached,
-    within, not_read (it applies but its status wording or headroom is not recognised, or it
-    cannot be tied to the issuer) or does_not_apply."""
+    within, not_read (it applies but its status wording or headroom is not recognised, it
+    cannot be tied to the issuer, or a word of it is not read) or does_not_apply."""
 
     limit: Limit
     outcome: Outcome
@@ -334,30 +339,45 @@ def _words(text: str) -> list[str]:
 
 
 def _stem(word: str) -> str:
-    """A rating word without its trailing digits (`b3` is `b`, `caa1` is `caa`)."""
-    return word.rstrip("0123456789")
+    """A rating word without its trailing digits (`b3` is `b`); a number stays."""
+    return word.rstrip("0123456789") or word
+
+
+def _unplain(words: Sequence[str]) -> list[str]:
+    """The words not plain and not a figure or ordinal (`10`, `2nd`)."""
+    return [word for word in words if word not in PLAIN_WORDS and not word[0].isdigit()]
+
+
+def _sector_rest(parameter: str, sector: str | None) -> list[str] | None:
+    """The other words of the list item naming `sector` as whole words, with the row's lead-in;
+    None when no item names it."""
+    wanted = _words((sector or "").replace("&", " and "))
+    parts = [_words(part.replace("&", " and ")) for part in LIST_MARKS.split(parameter)]
+    for index, part in enumerate(parts):
+        for i in range(len(part) - len(wanted) + 1):
+            if wanted and part[i : i + len(wanted)] == wanted:
+                return part[:i] + part[i + len(wanted) :] + (parts[0] if index else [])
+    return None
 
 
 def _label(limit: Limit) -> str:
     return f"{limit.parameter} ({limit.limit})" if limit.limit else limit.parameter
 
 
-def _kind(limit: Limit) -> Literal["sector", "rating", "price", "other"]:
-    """What the row limits, from its category and parameter. Information rows, single-name rows
-    and every other category are `other`: no position size is assumed, so none can be breached."""
+def _kind(limit: Limit, sector: str | None) -> Literal["sector", "rating", "price", "other"]:
+    """What the row limits. A row in any category that names the issuer's sector or a rating
+    bucket is read as that kind. Information rows, single-name rows and every other row are
+    `other`: no position size is assumed, so none can be breached."""
     text = pe.folded(f"{limit.category} {limit.parameter}")
-    words = _words(text)
     if pe.folded(limit.limit).startswith("info") or any(name in text for name in SINGLE_NAME):
         return "other"
+    words = set(_words(text))
     if "price" in words:
         return "price"
-    if {"sector", "sectors", "industry", "industries"} & set(words):
+    if words & SECTOR_WORDS or _sector_rest(limit.parameter, sector) is not None:
         return "sector"
-    in_parameter = {_stem(word) for word in _words(limit.parameter)}
-    named_ccc = bool({"ccc", "caa"} & in_parameter)
-    return (
-        "rating" if {"rating", "rated"} & {_stem(word) for word in words} or named_ccc else "other"
-    )
+    named = any(pe.label_bucket(_stem(word)) for word in _words(limit.parameter))
+    return "rating" if words & {"rating", "rated"} or named else "other"
 
 
 def _signed(headroom: str) -> str:
@@ -387,44 +407,56 @@ def _decided(limit: Limit) -> tuple[Outcome, str]:
 
 
 def _sector_reading(limit: Limit, sector: str | None) -> tuple[Outcome, str]:
-    wanted = _words((sector or "").replace("&", " and "))
-    if not wanted:
+    if not _words(sector or ""):
         return "not_read", "the issuer's sector is not known"
-    words = _words(limit.parameter.replace("&", " and "))
-    if any(words[i : i + len(wanted)] == wanted for i in range(len(words))):
-        return _decided(limit)
-    return "does_not_apply", f"it does not name the issuer's sector, {sector}"
+    rest = _sector_rest(limit.parameter, sector)
+    if rest is None:
+        return "does_not_apply", f"it does not name the issuer's sector, {sector}"
+    if _unplain(rest):
+        return "not_read", f"it names {sector} in wording that is not read"
+    return _decided(limit)
 
 
-def _covered(parameter: str) -> tuple[tuple[str, ...], bool]:
-    """The rating buckets a row covers, in the order IG, BB, B, CCC, Unrated, and whether it
-    covers them by group wording. Named buckets are every one the row names, a group wording covers
-    BB, B and CCC, and "and below" or "and above" adds the weaker or stronger ones in the order."""
-    text = f" {' '.join(_words(parameter))} "
+def _covered(parameter: str) -> tuple[tuple[str, ...], bool] | None:
+    """The rating buckets a row covers, in the order IG, BB, B, CCC, Unrated, and whether by group
+    wording; None when it covers none or a word is not read."""
+    text = f" {' '.join(_stem(word) for word in _words(parameter))} "
+    for phrase, short in PHRASES.items():
+        text = text.replace(phrase, short)
     covered: set[str] = set()
-    grouped = False
-    for group in BUCKET_GROUPS:
-        if f" {group} " in text:
-            grouped = True
-            covered.update(GROUP_BUCKETS)
-            text = text.replace(f" {group} ", " ")
-    words = (_stem(word) for word in text.split())
-    covered.update(name for word in words if (name := pe.label_bucket(word)) is not None)
-    ranks = [BUCKET_ORDER.index(name) for name in covered if name in BUCKET_ORDER]
-    if ranks and any(phrase in text for phrase in WEAKER_WORDS):
-        covered.update(BUCKET_ORDER[min(ranks) :])
-    if ranks and any(phrase in text for phrase in STRONGER_WORDS):
-        covered.update(BUCKET_ORDER[: max(ranks) + 1])
+    grouped = pending = False
+    previous = ""
+    for word in text.split():
+        bucket = pe.label_bucket(word)
+        ranks = [BUCKET_ORDER.index(name) for name in covered if name in BUCKET_ORDER]
+        joined = previous in ("and", "or") and bool(ranks)
+        if bucket is not None and (not pending or bucket in BUCKET_ORDER):
+            start = BUCKET_ORDER.index(bucket) + 1 if pending else 0
+            covered.update(BUCKET_ORDER[start:] if pending else (bucket,))
+            pending = False
+        elif joined and word in AND_WEAKER:
+            covered.update(BUCKET_ORDER[min(ranks) :])
+        elif joined and word in AND_STRONGER:
+            covered.update(BUCKET_ORDER[: max(ranks) + 1])
+        elif word in STRICTLY_WEAKER | GROUP_WORDS:
+            pending, grouped = word in STRICTLY_WEAKER, True
+            covered.update(GROUP_BUCKETS if word in GROUP_WORDS else ())
+        elif word not in PLAIN_WORDS:
+            return None
+        previous = word
+    if pending or not covered:
+        return None
     return tuple(name for name in (*BUCKET_ORDER, "Unrated") if name in covered), grouped
 
 
 def _rating_reading(limit: Limit, bucket: str | None) -> tuple[Outcome, str]:
-    covered, grouped = _covered(limit.parameter)
-    if not covered:
+    read = _covered(limit.parameter)
+    if read is None:
         return (
             "not_read",
-            "no rating bucket could be read from it, so it cannot be tied to the issuer",
+            "no rating bucket could be read from it, so it is not tied to the issuer",
         )
+    covered, grouped = read
     if bucket is None:
         return "not_read", "there is no instrument to take a rating bucket from"
     if bucket in covered:
@@ -435,11 +467,11 @@ def _rating_reading(limit: Limit, bucket: str | None) -> tuple[Outcome, str]:
 
 
 def _price_reading(limit: Limit, price: Decimal | None) -> tuple[Outcome, str]:
-    words = set(_words(limit.parameter))
+    words = _words(limit.parameter)
     figure = limit.quantity
     is_floor = (
-        bool(words & PRICE_FLOOR_WORDS)
-        and not words & PRICE_AVERAGE_WORDS
+        bool(PRICE_FLOOR_WORDS.intersection(words))
+        and not _unplain(words)
         and figure is not None
         and figure.operator in (">=", "")
         and not figure.unit.startswith("%")
@@ -462,7 +494,7 @@ def read_limits(
     A row that cannot be tied to the issuer is not read, never guessed."""
     out = []
     for limit in limits(portfolio):
-        kind = _kind(limit)
+        kind = _kind(limit, sector)
         if kind == "other":
             outcome: Outcome = "does_not_apply"
             why = "it is an information row or limits no one issuer's position"
