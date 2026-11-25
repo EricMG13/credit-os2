@@ -3,7 +3,7 @@
 Owner asked the coordinator to rule on the conflicts found while adding the coordinator, `mx-*` agents, `/advisor` and `/ship` setup (PR 88).
 
 1. Subagent model env: `CLAUDE_CODE_SUBAGENT_MODEL=sonnet` does not override `mx-*` models (tested; self-reported by each agent).
-2. Controller model: credit-os controllers run Opus 5.5 `xhigh` (project amendment wins); elsewhere a sub-session uses its coordinator's model.
+2. Controller model: credit-os controllers run Opus 5.5 `xhigh` (project amendment wins); elsewhere a sub-session uses its coordinator's model. (Superseded for this repo by the scope ruling below: the amendment covers `~/Documents/credit-os` only.)
 3. Fix rounds: two Sonnet rounds, then `mx-autonomous` plan plus a fresh `mx-feature`, no fourth; only High or Medium fixes count. Unchanged.
 4. Review: the `mx-architect` pre-merge review is the PR review; `/ship`'s review adds no round.
 5. The 2026-11-15 deadline rulings lapsed on 2026-11-16; merges are on the owner's instruction only.
@@ -27,3 +27,11 @@ The critique ran after PRs 88 and 89 merged, not before dispatch; this record an
 - Low, old sessions run old rules: no change; restart to pick up.
 - Low, `rtk` hook versus auto mode: parked for the owner. It is a global hook that affects every project and needs its own investigation.
 - Low, matrix stale: date updated and Fable 5.2 priced at $8/$40 per MTok (claude-api skill, cached 2026-11-03).
+
+## Fixes from the `mx-feature` review of PR 91 (2026-11-25)
+
+- Medium: docs/config PRs take one `mx-feature` review; `/ship`'s review adds no round (global §8(b) aligned).
+- Medium: item 2 above marked superseded for this repo.
+- Medium: in cloud sessions, a missing skill (`confidence-review`, `rewrite-tournament`, `/sweep`) is skipped and named in the PR's `Not verified:` line.
+- Medium: local sub-sessions get the brief's absolute path in the coordinator's worktree.
+- Low (batched): the `/sweep` discover step, the fallback review's scope, `mx-invariants` and the refused-audit route, and the §1 brief and report rules were added to `CLAUDE.md`.
