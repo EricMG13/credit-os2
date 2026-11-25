@@ -4,6 +4,22 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-25 — Signal's AI pass ruled by the owner; merge with main
+
+- The owner approved the AI pass on 2026-11-25 ("approve AI pass") and chose a monthly cap of
+  USD 25 when asked. `docs/rulings/2026-11-25-signal-ai-pass.md` records both (configuration
+  `copilot-luna-xhigh`, `cap_usd: 25`); the draft is removed. On a fresh store `signal ai status`
+  names the ruling and still reports the pass off: no cap is set and no key is in the
+  environment, and `signal ai cap 30` is refused as above the ruled USD 25. No model was called
+  here; the live proof is still the owner's separate step. 527 AI, command-line, service and
+  digest tests pass with the ruling in place (they use their own rulings folders).
+- Main (`4aaec9d`: frontend redesign, Coverage page) is merged at `236fb83`. After it: 1,469
+  Signal tests, 190 React server tests and the whole web suite (474 files, 8,254 tests) pass.
+  The test guard against a live adapter now covers tests that import the Signal package only;
+  the run start tests build the adapter over a stand-in on purpose. The Signal screens still
+  carry the layout made for the previous shell; bringing them to the redesign is in progress and
+  will be recorded when checked.
+
 ## 2026-11-25 — Signal: React screens on the service, steps 3 to 6, four review rounds
 
 Scope: `src/deploy_workflow/signal/`, `react_frontend/signal_forward.py`, `web/src/pages/signal/`,
@@ -976,14 +992,3 @@ Scope: presentation only: `web/src/pages/connected/visuals/EventLane.tsx` and `E
 - Reviews: task review (`mx-precise`): approved, no High or Medium; nine hand mutants, all killed. One Low (status-only-in-panel is not asserted directly for rows with a quoted status) and one Info (Scenario handled outside the shape lookup), both parked for the end-of-phase batch.
 - Rulings / Known: one existing assertion was removed and one replaced, because fixture rows whose status equals their category word would now match twice; the reviewer confirmed no check weakened. No other open PR or in-flight session edits `EventLane.tsx`.
 - Not verified: the layout at 375px and 44px targets (read from classes only); the look in a browser or grayscale; a screen reader; the full suite; `proof:connected`; the gates and CI ran on the branch head, not re-run on the merged tree.
-
-## 2026-11-16 — Reader: plain module names, CP-1's own lead and labels, confidence score (PR #13, merged to `main` as `7fcff960`)
-
-Scope: the connected issuer report reader only, under `web/src/pages/connected/` (`reportView.ts`, `publishedReport.ts`, `api.ts`, `ReportContent.tsx`, `ReportLibrary.tsx`, `report/{Modules,Calendar,Changes,Confidence,Evidence,calculations}`, `start/{plain,ReviewSheet}`) with their tests, plus the plan `docs/superpowers/plans/2026-11-16-connected-reader-high-gaps.md` (PR 1 of 3). No Python, handoff, provider or model change. Gated code head `550bb2dc`; the merged head `b85899f5` adds only plan text.
-- Changed: `moduleName` returns the plain name and `plainModuleNames` drops " (CP-x)" from handoff text wherever drawn (prose, tables, bottom lines, trace drawers and control names, Evidence Gaps, calculation steps, Changes cards); a stored file name such as `Deck (CP-1) Q3.pdf` is shown as stored. CP-1 leads with its own bottom line (the app-written "Lease-adjusted gross leverage is …" sentence is gone) and its tiles carry the handoff's own row label, column header or calculation text, selected by a typed `MetricKey`. The published `confidence` field is drawn as one tile on the module page (value and band as published, or the publisher's sentence when there is none); its trace opens the Confidence inputs rows, and that table leaves the reading path for Evidence. `moduleTitle` is folded into `moduleName`.
-- Rulings applied: `docs/rulings/2026-11-11-reader-and-issuer-report.md` amendment 2026-11-12 (no module code on screen); `docs/rulings/2026-11-12-module-output-review-changes.md` item 9 (confidence score on the module page); AGENTS.md (delivery adds no analysis).
-- Gates on `550bb2dc`, from `web/`, exit 0: test (159 files, 3,319 tests), lint, format:check, typecheck, unused, duplication. CI's two checks passed on the merged head `b85899f5`. The build, `test:scripts` and `test:file:gates` are not recorded as run.
-- Reviews: task reviews by `mx-precise` (Task 1 one fix round; Tasks 2 and 3 clean); whole-branch `adversarial-reviewer` by `mx-architect`: 0 High, 3 Medium, all fixed in `550bb2dc` and re-reviewed clean. Not run: `/sweep refactoring discover`, `confidence-review`, `rewrite-tournament`.
-- Known, Low, parked for the batch: a " (CP-x)" is kept only when a known file extension follows before the next `;`, `,`, `|` or newline, so an unlisted extension (`Scan (CP-1).png`), a comma inside a file name, and a calculation note whose source part names a file still show the code; forecast model strings are not filtered; four small test gaps; two leftover uses of the literal "Confidence inputs".
-- For the owner: 856 changed lines of code and tests against the 800-line cap (lift unconfirmed past 09:00 GMT 2026-11-16), plus the 650-line plan; the plan's PR 2 and PR 3 were refreshed only for PR 2 (split into 2a and 2b) and PR 3 needs the same before it starts.
-- Not verified: the reader in a browser (no fidelity check of the plain names, CP-1 lead or confidence tile on a retained run); `proof:connected`; a screen reader; Windows; Python gates (no Python changed); a mutation run. No paid execution.

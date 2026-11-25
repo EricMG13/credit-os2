@@ -1,36 +1,14 @@
-# DRAFT for the owner's review: not a ruling until the owner makes it one
-
-To make it standing, the owner saves it as `docs/rulings/YYYY-MM-DD-signal-ai-pass.md` (the date
-of the decision, in that exact form and in lower case; Signal reads the newest file with that
-name pattern and no other ruling), fills in every blank below, and deletes this heading, this
-paragraph and the rule under it. The blanks, each a run of underscores, are four:
-
-1. the `date:` line: the date in the file's name, as `date: 2026-11-25`;
-2. the `cap_usd:` line: the monthly cap as a plain USD amount above zero with at most two
-   decimal places, as `cap_usd: 15` or `cap_usd: 12.50` (no `USD`, `$` or comma);
-3. the owner's answer, quoted after `and said:`, in the owner's own words;
-4. the same cap figure in the sentence that begins `Cap: USD`.
-
-Until then Signal's AI pass stays off: a file still holding any blank is refused. Keep the five
-header lines (`lifts:` to `cap_usd:`) together, with no blank line between them and no space at
-the end of any of them; save the file as UTF-8 text (not "Unicode" or "ANSI"); and keep no other
-file whose name holds `signal-ai-pass` in the folder (a copy saved as `.md.txt` or `.bak`, or a
-note): while one is there Signal reads no ruling and says which file it found. To withdraw the
-ruling, delete the file or move it out of the folder.
-
----
-
 # Standing ruling: Signal's AI pass on GPT-6 Luna through the Copilot CLI
 
 lifts: live-provider-pause
 by: user
-date: ____-__-__
+date: 2026-11-25
 configs: copilot-luna-xhigh
-cap_usd: ____
+cap_usd: 25
 
 The owner was asked: "Signal's AI pass (spec 5.5, 5.8, 5.10) makes one small-model call per batch
 of up to 20 new stories and one per digest issue. Allow it on copilot-luna-xhigh under a monthly
-cap?", and said: "____".
+cap?", and said: "approve AI pass", and to the question of the monthly cap: "USD 25".
 
 Scope: model calls made by the Signal service (`python -m deploy_workflow.signal`): its background
 loop's AI pass over new stories, its digest writer, and the owner's `signal ai pass` command. No
@@ -44,7 +22,7 @@ Copilot CLI, which every live call uses since the 2026-11-18 amendment of
 `2026-11-11-run-start-submit.md`). That ruling also lists this configuration; it does not switch
 Signal on, and this ruling does not widen the run start page.
 
-Cap: USD ____ a month (UTC calendar month) per Signal store, the figure on the `cap_usd:` line above.
+Cap: USD 25 a month (UTC calendar month) per Signal store, the figure on the `cap_usd:` line above.
 Each Signal store (the `signal/signal.db` under one `--root`) keeps its own ledger and its own
 cap: a second root, or a store deleted and made again, starts the month at zero, so the figure
 bounds each store's spend, not the sum over stores. The owner
