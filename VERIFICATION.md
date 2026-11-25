@@ -65,6 +65,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   same test files plus `test_library_index.py` and `test_update_library.py`, 1,562 passed, the
   end-to-end and every-pathway tests left out; 19 more method-block pins recomputed. No live run
   of any module but CP-4 on the trimmed text.
+- Reading notes in the engine (owner: "CP-4 now, probe CP-0 and CP-1", "Copilot, add a cheap
+  model"): `owners/cpos_reader.py`, launcher `--reading-notes`, the library comparison;
+  `tests/test_cpos_reader.py` with the launcher, trial, method, register and library files,
+  1,571 passed (end-to-end and every-pathway tests left out); gate exit 0. Off by default. Not built or run: a reader on the
+  Copilot route (no Copilot login here); no live run through the launcher with notes.
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the

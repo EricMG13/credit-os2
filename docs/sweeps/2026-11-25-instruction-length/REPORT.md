@@ -563,6 +563,28 @@ Owner: "apply recommendations. can these be applied to all modules?"
   rest on the offline check and the owner's instruction. The library marks those twenty modules
   in every earlier run as answered under an earlier method.
 
+## Reading notes in the engine (eighth pass, 2026-11-25)
+
+Owner: "apply the quality gains from D to the largest and core modules", then, asked for scope
+and route, "CP-4 now, probe CP-0 and CP-1 (Recommended)" and "Copilot, add a cheap model
+(Recommended)".
+
+- Built: `owners/cpos_reader.py` and the launcher option `--reading-notes FOLDER`. A notes folder
+  holds `<module>/<source>.notes.md`, each naming its source and sha256. The notes follow the
+  module's instructions under the rule group D used; they are pinned with the instructions;
+  notes for another version of a source are refused before anything is written; the library's
+  method comparison leaves them out. Only CP-4 has a reader defined. Off unless the option is
+  given.
+- Checked offline: with the notes of trial run D-2, CP-4's instructions are group D's text but
+  for two blank lines, and no other module's instructions change.
+- Not built: the reader call on the Copilot route. This environment has no Copilot login, so the
+  call could not be run, and none was written. Notes can be produced by the trial tool's reader
+  (Haiku, Anthropic API), which writes them in the launcher's form. A Copilot reader is also a
+  different configuration from the one tested: GPT Sol's input limit is 272,000 tokens and two of
+  the six agreements are larger, so they would be read in parts.
+- Not started: probes of CP-0 and CP-1. They need a topic list from each method, a fixed reading
+  list each, and a spending limit.
+
 ## Not verified
 
 - Any effect of length on output: the pilot ran each group once, which cannot show one.
