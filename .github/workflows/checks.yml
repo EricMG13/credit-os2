@@ -107,4 +107,6 @@ jobs:
       - run: bash tools/gitleaks_tracked.sh
       - name: gitleaks over the PR's commits (a secret added then removed)
         if: ${{ github.event_name == 'pull_request' }}
-        run: gitleaks git --no-banner --redact -v --ignore-gitleaks-allow -c .gitleaks.toml --log-opts="origin/${{ github.base_ref }}..HEAD" .
+        env:
+          BASE: ${{ github.base_ref }}
+        run: bash tools/gitleaks_pr_history.sh
