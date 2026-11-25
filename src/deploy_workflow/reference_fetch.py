@@ -10,6 +10,8 @@ plain host name resolving only to public addresses, the connection pinned to the
 address, redirects re-checked hop by hop, 10 seconds per socket operation, no content encoding,
 a body no shorter than its declared length. This module sets:
 
+- A redirect stays on the standing address's host (the same name, exactly): one to any other
+  host is refused before that host is looked up or connected to.
 - `TOTAL_SECONDS` (60) for the whole fetch, every hop included. A feed has 10; a workbook of
   megabytes on a slow line needs more, and one fetch per analyst action can afford it.
 - `MAX_BYTES` (8 MB) for the body. A daily holdings workbook of some thousand rows and a dozen
@@ -29,25 +31,39 @@ a body no shorter than its declared length. This module sets:
 
 Then the file is read by `reference_portfolios.read_ssga_holdings`. A file that states no as-of
 date is a failure here, not a set: a fetched set is only ever offered with its date, and an
-undated one could not be told from an older one. A file whose as-of date is older than the
-stored set's does not replace it (outcome `kept`, not a failure). A file with the same or a
-later date replaces it, stored with the fetch time.
+undated one could not be told from an older one. So is a file dated more than a day after the
+fetch, a file that names another fund's ticker, and, against the stored set, a file that lacks a
+field the stored set has (columns lost; columns gained are stored and reported) or holds fewer
+than half its positions: a changed or wrong file does not replace a good set. A file whose as-of
+date is older than the stored set's does not replace it (outcome `kept`, not a failure). A file
+with the same or a later date replaces it, stored with the fetch time; one more than
+`STALE_DAYS` older than the fetch is stored (no newer set being there) with a finding that it is
+stale.
 
 Whatever fails (the address, the connection, the answer, the file), `refresh` records it in the
 store, leaves the stored set as it was and returns the failure with that set's as-of date. It
 raises only for a caller's mistake (a key that is not fetched, a time not in UTC) or a store
-that cannot be written. One fetch per call: no retry, no schedule, no thread, and nothing at
-import.
+that cannot be written. One fetch per call: no retry, no schedule, and nothing at import.
+
+One refresh of a key (in a store) at a time, in this process: from the fetch to the save it holds
+the key's lock, and a second refresh of the key meanwhile is turned away at once (outcome `kept`,
+`busy`), without a fetch and without recording a failure. The stored set is read once the file
+has been fetched and read, under the lock, so a set stored meanwhile by other means is the one the
+file is compared with.
 """
 
 from __future__ import annotations
 
 import io
 import posixpath
+import socket
+import threading
 import time
-from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 from zipfile import BadZipFile, ZipFile
@@ -64,13 +80,11 @@ XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 CONTENT_TYPES = frozenset({XLSX_TYPE, "application/octet-stream"})
 ACCEPT = f"{XLSX_TYPE}, application/octet-stream;q=0.9"
 USER_AGENT = "Mozilla/5.0 (compatible; reference-portfolios/1.0)"
+STALE_DAYS = 31  # a file older than this when fetched is stale
+AHEAD_DAYS = 1  # a file may be dated at most this long after the fetch (time zones)
 _ZIP_MAGIC = b"PK\x03\x04"
 _MESSAGE_LIMIT = 300
 _ECHO_LIMIT = 80
-_MONTHS = (
-    *("January", "February", "March", "April", "May", "June", "July"),
-    *("August", "September", "October", "November", "December"),
-)
 
 Outcome = Literal["stored", "kept", "failed"]
 
@@ -93,15 +107,17 @@ class Wiring:
 
 @dataclass(frozen=True)
 class Refreshed:
-    """What a refresh did. `stored`: the fetched file is now the key's set. `kept`: the file was
-    read and is older than the stored set, which stays. `failed`: nothing was stored and the
-    failure is recorded in the store.
+    """What a refresh did. `stored`: the fetched file is now the key's set. `kept`: the stored
+    set stays, because the file read is older than it or (`busy`) because another refresh of
+    the key was under way and nothing was fetched. `failed`: nothing was stored and the failure
+    is recorded in the store.
 
     `as_of` and `stored_at` are those of the set in the store after the call: on `kept` and
     `failed` the previous set's, None when there is none. `message` is a sentence for a reader on
-    `kept` and `failed`, None on `stored`. `file_as_of` is the date the fetched file states, None
-    on `failed`. `columns_gained` and `columns_lost` are the fields the file's header has and the
-    previous set's had not, and the reverse; both empty with no previous set or an unread file."""
+    `kept` and `failed`, and on `stored` when the file is stale (it says so); else None.
+    `file_as_of` is the date the fetched file states, None when no file was read.
+    `columns_gained` and `columns_lost` are the fields the file's header has and the previous
+    set's had not, and the reverse; both empty with no previous set or no file read."""
 
     key: str
     outcome: Outcome
@@ -111,6 +127,7 @@ class Refreshed:
     file_as_of: date | None = None
     columns_gained: tuple[str, ...] = ()
     columns_lost: tuple[str, ...] = ()
+    busy: bool = False
 
     @property
     def changed_file(self) -> bool:
@@ -147,6 +164,27 @@ def _fetchable(key: str) -> tuple[rp.Reference, str]:
     return reference, reference.url
 
 
+def _system_resolve(host: str) -> Iterable[str]:
+    """The system's addresses for `host`, as Signal's own default resolver gives them."""
+    return [str(info[4][0]) for info in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)]
+
+
+def _on_host(
+    host: str, resolve: Callable[[str], Iterable[str]] | None
+) -> Callable[[str], Iterable[str]]:
+    """`resolve` for `host` alone. Each hop's host is looked up before it is connected to, so a
+    redirect to another host is refused here, before it is looked up or connected to."""
+    looked_up = resolve or _system_resolve
+
+    def only(asked: str) -> Iterable[str]:
+        if asked != host:
+            shown = _printable(asked, _ECHO_LIMIT)
+            raise signal_fetch.FetchRefused(f"a redirect to another host, {shown}, is not followed")
+        return looked_up(asked)
+
+    return only
+
+
 def _document(url: str, wiring: Wiring) -> bytes:
     """The workbook's bytes from `url`, or `_Failed`."""
     rules = signal_fetch.Rules(
@@ -156,11 +194,12 @@ def _document(url: str, wiring: Wiring) -> bytes:
         total_seconds=TOTAL_SECONDS,
         max_bytes=wiring.max_bytes,
     )
+    host = (urlsplit(url).hostname or "").lower()
     try:
         got = signal_fetch.fetch_document(
             url,
             rules,
-            resolve=wiring.resolve,
+            resolve=_on_host(host, wiring.resolve),
             wiring=signal_fetch.Wiring(wiring.connect, wiring.clock),
         )
     except signal_fetch.FetchRefused as error:
@@ -200,7 +239,8 @@ def _read(raw: bytes, reference: rp.Reference, url: str, now: datetime) -> rp.Po
     if not found.positions:
         raise _Failed("the file received has no holdings")
     if found.as_of is None:
-        raise _Failed("the file states no as-of date")
+        why = next((line for line in found.findings if line.startswith("The as-of date ")), None)
+        raise _Failed("the file states no as-of date" if why is None else why[0].lower() + why[1:])
     return found
 
 
@@ -217,41 +257,150 @@ def _fields(portfolio: rp.Portfolio) -> set[str]:
     return {name for name, _ in portfolio.columns_found}
 
 
-def _long_date(when: date) -> str:
-    return f"{when.day} {_MONTHS[when.month - 1]} {when.year}"
+_SAID = {"ytm": "yield", "stated_bucket": "rating bucket", "figi": "FIGI", "cusip": "CUSIP"}
+_SAID |= {"isin": "ISIN", "sedol": "SEDOL"}
+
+
+def _named(fields: Iterable[str]) -> str:
+    """Fields as a reader names them, `a, b and c`."""
+    words = [_SAID.get(name, name.replace("_", " ")) for name in fields]
+    return words[0] if len(words) == 1 else f"{', '.join(words[:-1])} and {words[-1]}"
+
+
+def _older(found: rp.Portfolio, before: rp.Portfolio | None) -> tuple[date, date] | None:
+    """The file's as-of date and the stored set's, when the file's is the earlier."""
+    then = None if before is None else before.as_of
+    if found.as_of is not None and then is not None and found.as_of < then:
+        return found.as_of, then
+    return None
+
+
+def _refused(
+    found: rp.Portfolio, before: rp.Portfolio | None, reference: rp.Reference, now: datetime
+) -> str | None:
+    """Why the file read may not replace the stored set, or None."""
+    when = found.as_of
+    if when is not None and when > (now + timedelta(days=AHEAD_DAYS)).date():
+        return (
+            f"the file fetched is dated {rp.long_date(when)}, more than a day after it was "
+            f"fetched on {rp.long_date(now.date())}; the stored set is kept"
+        )
+    stated, expected = (found.stated_ticker or "").strip(), reference.ticker or ""
+    if stated and expected and stated.upper() != expected.upper():
+        shown = _printable(stated, _ECHO_LIMIT)
+        return f"the file fetched is for {shown}, not {expected}; the stored set is kept"
+    if before is None or _older(found, before) is not None:
+        return None  # nothing to compare with, or an older file, which is kept out anyway
+    if lost := sorted(_fields(before) - _fields(found)):
+        return (
+            f"the file fetched has no column for {_named(lost)}, which the stored set has; the "
+            "stored set is kept"
+        )
+    if 2 * len(found.positions) < len(before.positions):
+        return (
+            f"the file fetched has {len(found.positions)} positions, fewer than half the stored "
+            f"set's {len(before.positions)}; the stored set is kept"
+        )
+    return None
+
+
+def _staleness(found: rp.Portfolio, now: datetime) -> str | None:
+    """`is as of ..., N days before it was fetched on ...: it is stale` when the file is more
+    than `STALE_DAYS` older than its fetch; else None."""
+    if found.as_of is None or (days := (now.date() - found.as_of).days) <= STALE_DAYS:
+        return None
+    return (
+        f"is as of {rp.long_date(found.as_of)}, {days} days before it was fetched on "
+        f"{rp.long_date(now.date())}: it is stale"
+    )
+
+
+_LOCKS: dict[tuple[Path, str], threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+@contextmanager
+def _held(store: rp.Store, key: str) -> Iterator[bool]:
+    """The key's lock for the block when no other refresh holds it (True), else False at once."""
+    with _LOCKS_GUARD:
+        lock = _LOCKS.setdefault((store.root.absolute(), key), threading.Lock())
+    if not lock.acquire(blocking=False):
+        yield False
+        return
+    try:
+        yield True
+    finally:
+        lock.release()
 
 
 def refresh(store: rp.Store, key: str, *, now: datetime, wiring: Wiring | None = None) -> Refreshed:
     """Fetch the standing reference `key`'s holdings workbook once and store it with `now` (UTC,
-    the fetch time) as its stored time. See the module's note for what is refused and what a
-    failure leaves in place. Raises `NotFetchable` for a key with no address and ValueError for a
-    `now` not in UTC, both before anything is fetched or written."""
+    the fetch time) as its stored time. See the module's note for what is refused, what a
+    failure leaves in place and what a second refresh of the key meanwhile gets. Raises
+    `NotFetchable` for a key with no address and ValueError for a `now` not in UTC, both before
+    anything is fetched or written."""
     reference, url = _fetchable(key)
     if now.tzinfo is None or now.utcoffset() != timedelta(0):
         raise ValueError("the fetch time must be a datetime in UTC")
-    wiring = wiring or Wiring()
+    with _held(store, key) as mine:
+        if mine:
+            return _refresh(store, reference, url, now, wiring or Wiring())
     before = _previous(store, key)
-    kept_as_of = None if before is None else before.as_of
-    kept_at = None if before is None else before.stored_at
+    return Refreshed(
+        key,
+        "kept",
+        None if before is None else before.as_of,
+        None if before is None else before.stored_at,
+        f"{reference.name}: the holdings file is already being fetched; the stored set is kept.",
+        busy=True,
+    )
+
+
+def _refresh(
+    store: rp.Store, reference: rp.Reference, url: str, now: datetime, wiring: Wiring
+) -> Refreshed:
+    """`refresh`, holding the key's lock."""
+    key = reference.key
+    found: rp.Portfolio | None = None
+    why: str | None = None
     try:
         raw = _document(url, wiring)
         _check_archive(raw, wiring.max_expanded_bytes)
         found = _read(raw, reference, url, now)
     except _Failed as error:
-        text = _printable(f"{reference.name}: {error}", _MESSAGE_LIMIT).rstrip(".") + "."
+        why = str(error)
+    before = _previous(store, key)  # read now: a set stored meanwhile is the one compared with
+    kept_as_of = None if before is None else before.as_of
+    kept_at = None if before is None else before.stored_at
+    file_as_of, gained, lost = _compared(found, before)
+    if found is None or (why := _refused(found, before, reference, now)) is not None:
+        text = _printable(f"{reference.name}: {why}", _MESSAGE_LIMIT).rstrip(".") + "."
         store.record_failure(key, text, now)
-        return Refreshed(key, "failed", kept_as_of, kept_at, text)
-    gained = () if before is None else tuple(sorted(_fields(found) - _fields(before)))
-    lost = () if before is None else tuple(sorted(_fields(before) - _fields(found)))
-    file_as_of = found.as_of
-    if file_as_of is not None and kept_as_of is not None and file_as_of < kept_as_of:
+        return Refreshed(key, "failed", kept_as_of, kept_at, text, file_as_of, gained, lost)
+    if (older := _older(found, before)) is not None:
         text = (
-            f"{reference.name}: the file fetched is as of {_long_date(file_as_of)}, older than "
-            f"the stored set of {_long_date(kept_as_of)}, which is kept."
+            f"{reference.name}: the file fetched is as of {rp.long_date(older[0])}, older than "
+            f"the stored set of {rp.long_date(older[1])}, which is kept."
         )
         return Refreshed(key, "kept", kept_as_of, kept_at, text, file_as_of, gained, lost)
+    stale = _staleness(found, now)
+    if stale is not None:
+        found = replace(found, findings=(*found.findings, f"The file {stale}."))
     store.save(found)
-    return Refreshed(key, "stored", file_as_of, found.stored_at, None, file_as_of, gained, lost)
+    message = None if stale is None else f"{reference.name}: the file fetched {stale}."
+    return Refreshed(key, "stored", file_as_of, found.stored_at, message, file_as_of, gained, lost)
+
+
+def _compared(
+    found: rp.Portfolio | None, before: rp.Portfolio | None
+) -> tuple[date | None, tuple[str, ...], tuple[str, ...]]:
+    """The file's as-of date and the fields it gained and lost against the stored set."""
+    if found is None:
+        return None, (), ()
+    if before is None:
+        return found.as_of, (), ()
+    gained = tuple(sorted(_fields(found) - _fields(before)))
+    return found.as_of, gained, tuple(sorted(_fields(before) - _fields(found)))
 
 
 def ensure(store: rp.Store, key: str, *, now: datetime, wiring: Wiring | None = None) -> Ensured:

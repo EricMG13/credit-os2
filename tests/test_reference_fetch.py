@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import io
+import threading
 import zipfile
 from collections.abc import Iterable, Mapping
 from dataclasses import replace
@@ -180,13 +181,47 @@ def test_a_content_type_with_a_parameter_and_other_case_is_accepted(store):
     assert rf.refresh(store, "lvln", now=NOW, wiring=wired(Wire(reply))).outcome == "stored"
 
 
-def test_a_redirect_to_another_https_xlsx_address_is_followed(store):
-    wire = Wire(redirect("https://files.example.org/funds/lvln-holdings.XLSX"), workbook())
+@pytest.mark.parametrize("host", ["www.ssga.com", "WWW.SSGA.COM"])  # a host name has no case
+def test_a_redirect_on_the_same_host_is_followed(host, store):
+    wire = Wire(redirect(f"https://{host}/files/lvln-holdings.XLSX"), workbook())
     done = rf.refresh(store, "lvln", now=NOW, wiring=wired(wire))
     assert done.outcome == "stored"
-    assert [target.host for target in wire.targets] == ["www.ssga.com", "files.example.org"]
+    assert [target.host for target in wire.targets] == ["www.ssga.com", "www.ssga.com"]
+    assert [path for path, _ in wire.requests] == [LVLN_PATH, "/files/lvln-holdings.XLSX"]
     # The stored source is named after the standing address, not the redirect's.
     assert [source.name for source in store.load("lvln").sources] == [FILE]
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://files.example.org/funds/lvln-holdings.xlsx",
+        "https://ssga.com/x.xlsx",  # not the same host as www.ssga.com
+        "https://www.ssga.com.example.org/x.xlsx",
+        "https://WWW.SSGA.COM.example.org/x.xlsx",
+    ],
+)
+def test_a_redirect_to_another_host_is_refused_without_looking_it_up_or_connecting(
+    location, stocked
+):
+    looked_up: list[str] = []
+
+    def resolve(host: str) -> Iterable[str]:
+        looked_up.append(host)
+        return public(host)
+
+    wire = Wire(redirect(location), workbook())
+    wiring = rf.Wiring(connect=wire, resolve=resolve, clock=lambda: 1000.0)
+    done = rf.refresh(stocked, "lvln", now=NOW, wiring=wiring)
+    host = location.split("/")[2].lower()
+    message = (
+        f"{NAME}: the holdings file could not be fetched (a redirect to another host, {host}, is "
+        "not followed)."
+    )
+    assert (done.outcome, done.message) == ("failed", message)
+    assert [target.host for target in wire.targets] == ["www.ssga.com"]
+    assert looked_up == ["www.ssga.com"]
+    assert stocked.load("lvln").stored_at == EARLIER
 
 
 # --- Failures: the previous set stays, the failure is recorded -----------------------------------
@@ -352,11 +387,11 @@ REDIRECTS = {
         "the holdings file could not be fetched (only https addresses are fetched)",
         1,
     ),
-    "a non-public host": (
+    "another host, not public": (
         "https://internal.example/holdings.xlsx",
         (
             "the holdings file could not be fetched "
-            "(internal.example resolves to 10.0.0.1, which is not a public address)"
+            "(a redirect to another host, internal.example, is not followed)"
         ),
         1,
     ),
@@ -443,18 +478,45 @@ def test_a_file_of_the_same_or_a_later_date_replaces_the_set_and_clears_a_failur
     assert stocked.failure("lvln") is None
 
 
-def test_a_file_whose_columns_changed_is_stored_and_reported(stocked):
+def test_a_file_that_lost_columns_the_stored_set_has_is_a_failure(stocked, tmp_path):
+    path = tmp_path / "standing" / "lvln.json"
+    before = path.read_bytes()
     fewer = workbook(synth.workbook_bytes(without("Sector", "Coupon")))
     done = rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(fewer)))
-    assert (done.outcome, done.changed_file) == ("stored", True)
-    assert (done.columns_gained, done.columns_lost) == ((), ("coupon", "sector"))
-    assert {"coupon", "sector"} <= set(stocked.load("lvln").columns_missing)
-    # The full file again: the two fields are back.
-    again = rf.refresh(
-        stocked, "lvln", now=NOW + timedelta(hours=1), wiring=wired(Wire(workbook()))
+    message = (
+        f"{NAME}: the file fetched has no column for coupon and sector, which the stored set "
+        "has; the stored set is kept."
     )
-    assert (again.columns_gained, again.columns_lost) == (("coupon", "sector"), ())
+    assert done == rf.Refreshed(
+        "lvln",
+        "failed",
+        as_of=LOANS_AS_OF,
+        stored_at=EARLIER,
+        message=message,
+        file_as_of=LOANS_AS_OF,
+        columns_lost=("coupon", "sector"),
+    )
+    assert done.changed_file
+    assert path.read_bytes() == before
+    assert stocked.failure("lvln") == rp.Failure(message, NOW)
+
+
+def test_a_file_that_gained_columns_is_stored_and_reported(store):
+    first = rf.refresh(
+        store,
+        "lvln",
+        now=EARLIER,
+        wiring=wired(Wire(workbook(synth.workbook_bytes(without("Sector", "Coupon"))))),
+    )
+    assert first.outcome == "stored"
+    again = rf.refresh(store, "lvln", now=NOW, wiring=wired(Wire(workbook())))
+    assert (again.outcome, again.columns_gained, again.columns_lost) == (
+        "stored",
+        ("coupon", "sector"),
+        (),
+    )
     assert again.changed_file
+    assert store.load("lvln").stored_at == NOW
 
 
 def test_columns_in_another_order_under_the_same_fields_are_not_a_changed_file(stocked):
@@ -588,3 +650,167 @@ def test_importing_the_module_and_building_its_defaults_opens_nothing(monkeypatc
     monkeypatch.setattr(socket, "create_connection", refuse)
     importlib.reload(rf)
     assert rf.Wiring().connect is None
+
+
+# --- Dates, the fund, the count: what a fetched file must be to replace the stored set ----------
+
+
+def test_a_file_dated_more_than_a_day_after_the_fetch_is_a_failure(stocked, tmp_path):
+    path = tmp_path / "standing" / "lvln.json"
+    before = path.read_bytes()
+    later = workbook(synth.workbook_bytes(as_of("27-Nov-2026")))  # NOW is 25 November
+    done = rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(later)))
+    message = (
+        f"{NAME}: the file fetched is dated 27 November 2026, more than a day after it was "
+        "fetched on 25 November 2026; the stored set is kept."
+    )
+    assert done == rf.Refreshed(
+        "lvln", "failed", LOANS_AS_OF, EARLIER, message, file_as_of=date(2026, 11, 27)
+    )
+    assert path.read_bytes() == before
+    assert stocked.failure("lvln") == rp.Failure(message, NOW)
+    # The day after the fetch is within a day of it.
+    next_day = workbook(synth.workbook_bytes(as_of("26-Nov-2026")))
+    assert rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(next_day))).outcome == "stored"
+
+
+def test_a_file_more_than_31_days_old_is_stored_only_with_no_newer_set_and_said_stale(store):
+    stale = workbook(synth.workbook_bytes(as_of("24-Oct-2026")))  # 32 days before 25 November
+    done = rf.refresh(store, "lvln", now=NOW, wiring=wired(Wire(stale)))
+    sentence = (
+        f"{NAME}: the file fetched is as of 24 October 2026, 32 days before it was fetched on "
+        "25 November 2026: it is stale."
+    )
+    assert (done.outcome, done.as_of, done.message) == ("stored", date(2026, 10, 24), sentence)
+    assert store.load("lvln").findings[-1] == (
+        "The file is as of 24 October 2026, 32 days before it was fetched on 25 November 2026: "
+        "it is stale."
+    )
+    # 31 days is not stale.
+    fresh = workbook(synth.workbook_bytes(as_of("25-Oct-2026")))
+    again = rf.refresh(store, "lvln", now=NOW, wiring=wired(Wire(fresh)))
+    assert (again.outcome, again.message) == ("stored", None)
+    assert not any("stale" in line for line in store.load("lvln").findings)
+
+
+def test_a_stale_file_does_not_replace_a_newer_set(stocked, tmp_path):
+    before = (tmp_path / "standing" / "lvln.json").read_bytes()
+    stale = workbook(synth.workbook_bytes(as_of("24-Oct-2026")))
+    done = rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(stale)))
+    assert (done.outcome, done.as_of, done.file_as_of) == ("kept", LOANS_AS_OF, date(2026, 10, 24))
+    assert (tmp_path / "standing" / "lvln.json").read_bytes() == before
+
+
+def test_a_file_for_another_fund_is_a_failure(stocked, tmp_path):
+    before = (tmp_path / "standing" / "lvln.json").read_bytes()
+    above = (
+        ["Fund Name:", "SYNTHETIC other fund"],
+        ["Ticker Symbol:", "JNK"],
+        *synth.LOANS.above[2:],
+    )
+    other = synth.workbook_bytes(replace(synth.LOANS, above=above))
+    done = rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(workbook(other))))
+    message = f"{NAME}: the file fetched is for JNK, not LVLN; the stored set is kept."
+    assert (done.outcome, done.message, done.as_of) == ("failed", message, LOANS_AS_OF)
+    assert (tmp_path / "standing" / "lvln.json").read_bytes() == before
+    assert stocked.failure("lvln") == rp.Failure(message, NOW)
+    # With no set stored, it is refused the same way.
+    store = rp.Store(tmp_path / "other")
+    again = rf.refresh(store, "lvln", now=NOW, wiring=wired(Wire(workbook(other))))
+    assert (again.outcome, again.message) == ("failed", message)
+    with pytest.raises(rp.NotStored):
+        store.load("lvln")
+
+
+def test_a_file_with_fewer_than_half_the_stored_positions_is_a_failure(stocked, tmp_path):
+    before = (tmp_path / "standing" / "lvln.json").read_bytes()
+    two = workbook(synth.workbook_bytes(replace(synth.LOANS, rows=synth.LOANS.rows[:2])))
+    done = rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(two)))
+    message = (
+        f"{NAME}: the file fetched has 2 positions, fewer than half the stored set's 5; the "
+        "stored set is kept."
+    )
+    assert (done.outcome, done.message) == ("failed", message)
+    assert (tmp_path / "standing" / "lvln.json").read_bytes() == before
+    # Three of five is half or more.
+    three = workbook(synth.workbook_bytes(replace(synth.LOANS, rows=synth.LOANS.rows[:3])))
+    assert rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(three))).outcome == "stored"
+
+
+# --- One refresh of a key at a time --------------------------------------------------------------
+
+
+class Held(Wire):
+    """A connector that, on its first connection, says so (`entered`) and waits for `release`."""
+
+    def __init__(self, *replies: Reply | Exception) -> None:
+        super().__init__(*replies)
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def __call__(self, target: ConnectionTarget) -> Wire:
+        self.entered.set()
+        assert self.release.wait(10)
+        return super().__call__(target)
+
+
+def test_a_second_refresh_of_a_key_being_fetched_is_turned_away_without_a_fetch(stocked):
+    first = Held(workbook(synth.workbook_bytes(as_of("25-Nov-2026"))))
+    done: list[rf.Refreshed] = []
+    running = threading.Thread(
+        target=lambda: done.append(rf.refresh(stocked, "lvln", now=NOW, wiring=wired(first)))
+    )
+    running.start()
+    try:
+        assert first.entered.wait(10)
+        second = Wire(workbook())
+        busy = rf.refresh(stocked, "lvln", now=NOW, wiring=wired(second))
+        assert busy == rf.Refreshed(
+            "lvln",
+            "kept",
+            LOANS_AS_OF,
+            EARLIER,
+            f"{NAME}: the holdings file is already being fetched; the stored set is kept.",
+            busy=True,
+        )
+        assert second.targets == []
+        assert stocked.failure("lvln") is None  # turned away, not failed
+        # Another key is not held up.
+        other = rf.refresh(
+            stocked, "jnk", now=NOW, wiring=wired(Wire(workbook(synth.workbook_bytes(synth.BONDS))))
+        )
+        assert other.outcome == "stored"
+    finally:
+        first.release.set()
+        running.join(10)
+    assert not running.is_alive()
+    assert (done[0].outcome, done[0].as_of) == ("stored", date(2026, 11, 25))
+    # Once the first has finished the key can be fetched again.
+    assert rf.refresh(stocked, "lvln", now=NOW, wiring=wired(Wire(workbook()))).busy is False
+
+
+def test_the_stored_set_is_read_after_the_fetch_so_a_set_stored_meanwhile_is_not_overwritten(
+    stocked,
+):
+    first = Held(workbook())  # 24 November
+    done: list[rf.Refreshed] = []
+    running = threading.Thread(
+        target=lambda: done.append(rf.refresh(stocked, "lvln", now=NOW, wiring=wired(first)))
+    )
+    running.start()
+    try:
+        assert first.entered.wait(10)
+        # Meanwhile a newer set is stored another way (an analyst's own file).
+        newer = rp.read_ssga_holdings(
+            synth.workbook_bytes(as_of("25-Nov-2026")), rp.LVLN, file_name=FILE, stored_at=NOW
+        )
+        stocked.save(newer)
+    finally:
+        first.release.set()
+        running.join(10)
+    assert (done[0].outcome, done[0].as_of, done[0].file_as_of) == (
+        "kept",
+        date(2026, 11, 25),
+        LOANS_AS_OF,
+    )
+    assert stocked.load("lvln") == newer

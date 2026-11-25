@@ -1445,3 +1445,192 @@ def test_a_percent_cell_of_a_workbook_is_marked_so_its_fraction_is_not_read_as_a
     assert by_number[4][5] == pe.Cell("5000000", numeric=True)
     assert by_number[2][1].date_format
     assert not by_number[2][1].percent_format
+
+
+# --- Reading a workbook: once, narrow rows, its date system, its formulas ------------------------
+
+
+def _counted(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """Each full parse of a workbook (`xlsx_content`) adds one to the list."""
+    calls: list[int] = []
+    parse = pe.xlsx_content
+
+    def counting(raw: bytes) -> object:
+        calls.append(1)
+        return parse(raw)
+
+    monkeypatch.setattr(pe, "xlsx_content", counting)
+    return calls
+
+
+def test_an_export_with_one_workbook_parses_it_once(monkeypatch):
+    calls = _counted(monkeypatch)
+    export = pe.read_export(synth.files(synth.clean()))
+    assert len(export.holdings) == 7
+    assert len(calls) == 1  # the holdings workbook; the other parts are CSV files
+    calls.clear()
+    assert validate_export(synth.files(synth.clean()), run_date=RUN_DATE).ok
+    assert len(calls) == 1
+    calls.clear()
+    pe.recognise(synth.files(synth.clean()))
+    assert len(calls) == 1
+
+
+def test_outside_a_reading_each_call_parses_again_and_inside_one_it_does_not(monkeypatch):
+    raw = synth.files(synth.clean())[BOOK]
+    calls = _counted(monkeypatch)
+    pe.workbook_sheets(raw)
+    pe.sheet_rows(raw, "Holdings")
+    assert len(calls) == 2
+    calls.clear()
+    with pe.reading():
+        pe.workbook_sheets(raw)
+        assert pe.sheet_rows(raw, "Holdings") == pe.sheet_rows(raw, "Holdings")
+        pe.far_cells(raw, "Holdings")
+    assert len(calls) == 1
+
+
+SHEET = "xl/worksheets/sheet1.xml"
+
+
+def _text_cell(ref: str, text: str) -> str:
+    return f'<c r="{ref}" t="inlineStr"><is><t>{text}</t></is></c>'
+
+
+def _far(rows: int) -> bytes:
+    """A header in A1:C1, one more cell in XFD1 (column 16,384) and `rows` rows under it."""
+    lines: list[list[object] | None] = [["Name", "Weight", "Market Value"]]
+    lines += [[f"Name {n}", 1, 10] for n in range(rows)]
+    raw = pack.book_bytes([("holdings", lines)])
+    return pack.edited(
+        raw, SHEET, {'</row><row r="2"': _text_cell("XFD1", "x") + '</row><row r="2"'}
+    )
+
+
+def test_a_cell_far_to_the_right_of_its_row_is_left_out_so_rows_stay_narrow():
+    raw = _far(80)
+    rows = pe.sheet_rows(raw, "holdings")
+    assert rows is not None
+    assert len(rows) == 81
+    # Row 1 is A1:C1; XFD1 is 16,381 empty columns past C1, more than `FAR_COLUMNS` (100).
+    assert max(len(cells) for _, cells in rows) == 3
+    assert [cell.text for cell in rows[0][1]] == ["Name", "Weight", "Market Value"]
+    assert pe.far_cells(raw, "holdings") == 1
+    assert pe.FAR_COLUMNS == 100
+
+
+def test_a_row_is_as_long_as_its_own_last_cell():
+    raw = pack.book_bytes([("s", [["a", "b", "c", "d"], ["e"], None, [None, None, "f"]])])
+    rows = pe.sheet_rows(raw, "s")
+    assert [(number, [cell.text for cell in cells]) for number, cells in rows or []] == [
+        (1, ["a", "b", "c", "d"]),
+        (2, ["e"]),
+        (4, ["", "", "f"]),
+    ]
+    assert pe.far_cells(raw, "s") == 0
+
+
+def test_a_cell_100_empty_columns_past_the_one_before_is_kept_and_101_is_not():
+    # A1, then a cell with 100 empty columns between (column 102, CX), then one with 101 (CY2).
+    raw = pack.book_bytes([("s", [["a"], ["b"]])])
+    raw = pack.edited(
+        raw,
+        SHEET,
+        {
+            '</row><row r="2"': _text_cell("CX1", "near") + '</row><row r="2"',
+            "</row></sheetData>": _text_cell("CY2", "far") + "</row></sheetData>",
+        },
+    )
+    rows = dict(pe.sheet_rows(raw, "s") or [])
+    assert (len(rows[1]), rows[1][101].text) == (102, "near")
+    assert len(rows[2]) == 1
+    assert pe.far_cells(raw, "s") == 1
+
+
+def test_a_1904_workbooks_date_cells_count_from_1904():
+    # openpyxl writes 24 November 2026 as 44,888 days after 1 January 1904 (46,350 after
+    # 30 December 1899 in the 1900 system, 1,462 days more).
+    lines: list[list[object] | None] = [["As of Date", date(2026, 11, 24)]]
+    for date1904, serial in ((True, "44888"), (False, "46350")):
+        raw = pack.book_bytes([("s", lines)], date1904=date1904)
+        [(_, [_, cell])] = pe.sheet_rows(raw, "s") or []
+        assert (cell.text, cell.date_format, cell.date1904) == (serial, True, date1904)
+        assert pe.read_date(cell) == date(2026, 11, 24)
+
+
+# A2 holds `=B2*2` with the stored value 400, A3 `=B3*2` with none, A4 a text formula.
+FORMULAS = {
+    '<c r="A2" t="n"><v>1</v></c>': '<c r="A2"><f>B2*2</f><v>400</v></c>',
+    '<c r="A3" t="n"><v>1</v></c>': '<c r="A3"><f>B3*2</f></c>',
+    '<c r="A4" t="n"><v>1</v></c>': '<c r="A4" t="str"><f>B4&amp;""</f><v>Aster Co</v></c>',
+}
+
+
+def test_a_formula_cell_is_its_stored_value_in_a_reading_that_asks_for_it():
+    lines: list[list[object] | None] = [["Head"], [1, 200], [1, 300], [1, "Aster"]]
+    raw = pack.edited(pack.book_bytes([("s", lines)]), SHEET, FORMULAS)
+    with pe.reading(cached_formulas=True):
+        rows = dict(pe.sheet_rows(raw, "s") or [])
+    assert rows[2][0] == pe.Cell("400", numeric=True, formula=True)
+    assert rows[3][0] == pe.Cell("", formula=True)  # no stored value: blank
+    assert rows[4][0] == pe.Cell("Aster Co", formula=True)
+    # The export's own check reads a formula cell as before: its formula and stored value, which
+    # no figure reads.
+    plain = dict(pe.sheet_rows(raw, "s") or [])
+    assert plain[2][0].text == "Formula: B2*2\nStored cache: 400"
+    assert plain[3][0].text == "Formula: B3*2\nStored cache: [absent]"
+
+
+# --- Holdings columns: the whole header first, then whole words ----------------------------------
+
+
+def _columns(header: list[str]) -> dict[str, int] | None:
+    found = pe.holdings_header([(1, [pe.Cell(text) for text in header])])
+    return None if found is None else found[1]
+
+
+def test_a_rating_bucket_column_before_the_ratings_does_not_take_the_ratings():
+    header = [h for h in pack.PACK_HEADER if h != "Rating Bucket"]
+    header.insert(header.index("Ratings"), "Rating Bucket")
+    columns = _columns(header)
+    assert columns is not None
+    assert (header[columns["ratings"]], columns["ratings"]) == ("Ratings", 8)
+
+
+def test_a_price_per_100_par_or_a_position_id_is_never_the_par():
+    header = ["Ticker", "Borrower Name", "Index Sector", "Mid Price (per 100 par)", "Par", "Bid"]
+    assert _columns(header) == {"ticker": 0, "borrower": 1, "sector": 2, "par": 4, "bid": 5}
+    # With no par column but the price and a position id: no par, so not a holdings table.
+    header = ["Ticker", "Borrower Name", "Index Sector", "Mid Price (per 100 par)", "Position ID"]
+    assert "par" not in (_columns(header) or {})
+    assert not pe.is_holdings([header, ["A", "B", "C", "100", "P-1"]])
+
+
+def test_words_are_matched_whole_so_an_admin_agent_is_not_a_discount_margin():
+    header = ["Borrower Name", "Admin Agent", "Index Sector", "Holdings", "Mid 3Y DM", "Margin"]
+    assert _columns(header) == {"borrower": 0, "sector": 2, "par": 3, "dm": 4, "margin": 5}
+    # Nor is a `Midyield` a yield, a `Bidder` a bid or a `Tasker` an ask.
+    header = ["Borrower Name", "Midyield", "Bidder", "Tasker", "Holdings"]
+    assert _columns(header) == {"borrower": 0, "par": 4}
+
+
+# --- A holdings CSV is part of an export only beside a mandate or constraints file ---------------
+
+
+def test_a_lone_holdings_csv_is_not_a_portfolio_export():
+    files = pack.pack_files()
+    lone = {pack.PACK_HOLDINGS: files[pack.PACK_HOLDINGS]}
+    assert pe.parts(lone) == []
+    assert pe.recognise(lone) == {}
+    report = validate_export(lone, run_date=RUN_DATE)
+    assert (report.files, report.rows) == ((), 0)
+    # Beside the constraints alone, or the mandate alone, it is the export's holdings.
+    for other in (pack.PACK_CONSTRAINTS, pack.PACK_MANDATE):
+        pair = {**lone, other: files[other]}
+        assert pe.recognise(pair)[pack.PACK_HOLDINGS] == "holdings"
+
+
+def test_a_holdings_csv_beside_only_an_exposure_report_is_not_the_holdings():
+    files = synth.csv_files(synth.clean())
+    pair = {name: files[name] for name in (synth.EXPOSURE, synth.HOLDINGS_CSV)}
+    assert pe.recognise(pair) == {synth.EXPOSURE: "exposure"}

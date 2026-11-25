@@ -19,6 +19,7 @@ from decimal import Decimal
 
 import pytest
 
+from deploy_vii.inputs import portfolio_export as pe
 from deploy_vii.inputs.portfolio_export import Quantity
 from deploy_workflow import reference_portfolios as rp
 from tools import synthetic_portfolio_exports as exports
@@ -344,7 +345,8 @@ def test_files_with_no_holdings_table_are_an_error_not_an_empty_portfolio():
 
 
 def test_a_holdings_workbook_is_read_by_its_header_row():
-    found = loans()
+    raw = synth.workbook_bytes(synth.LOANS)
+    found = rp.read_ssga_holdings(raw, rp.LVLN, file_name="loans.xlsx", stored_at=AT)
     assert (found.key, found.kind, found.name) == ("lvln", "loan_index", rp.LVLN.name)
     assert found.as_of == date(2026, 11, 24)  # `As of 24-Nov-2026` beside `Holdings:`
     assert found.stated_name == "SYNTHETIC Example Senior Loan Fund (fictional)"
@@ -369,9 +371,7 @@ def test_a_holdings_workbook_is_read_by_its_header_row():
         maturity=date(2029, 6, 30),
     )
     assert [p.rating_bucket for p in found.positions] == ["B", "B", "BB", "Unrated", "CCC"]
-    assert found.sources == (
-        rp.SourceFile("loans.xlsx", hashlib.sha256(synth.workbook_bytes(synth.LOANS)).hexdigest()),
-    )
+    assert found.sources == (rp.SourceFile("loans.xlsx", hashlib.sha256(raw).hexdigest()),)
 
 
 def test_a_holdings_workbook_keeps_missing_and_zero_apart_and_flags_the_unpriced_row():
@@ -596,10 +596,10 @@ def test_an_issuers_weight_is_the_sum_of_its_stated_weights():
     found = pack()
     # Aster holds two loans stated at 40% and 20%.
     assert rp.issuer_weight(found, borrower="Aster Fictional Co") == rp.Weight(
-        Decimal(60), "stated_weight", matched=2
+        Decimal(60), "stated_weight", matched=2, matched_by=("name",)
     )
     assert rp.issuer_weight(found, borrower="  ASTER fictional, CO. ") == rp.Weight(
-        Decimal(60), "stated_weight", matched=2
+        Decimal(60), "stated_weight", matched=2, matched_by=("name",)
     )
     assert rp.issuer_weight(found, borrower="Fern Placeholder SA").weight == Decimal(0)
 
@@ -615,16 +615,18 @@ def test_a_name_matches_whole_never_as_part_of_another():
 def test_an_issuer_is_matched_by_any_identifier():
     found = pack()
     assert rp.issuer_weight(found, identifier="BBG00SYN0002") == rp.Weight(
-        Decimal(20), "stated_weight", matched=1
+        Decimal(20), "stated_weight", matched=1, matched_by=("identifier",)
     )
     assert rp.issuer_weight(found, identifier="astr").matched == 2  # the ticker, either case
     assert rp.issuer_weight(found, identifier="BBG00SYN9999").matched == 0
     assert rp.issuer_weight(bonds(), identifier="SYN000FF1") == rp.Weight(
-        Decimal("37.5"), "stated_weight", matched=1
+        Decimal("37.5"), "stated_weight", matched=1, matched_by=("identifier",)
     )
     # A name and an identifier together: a position matching either.
     both = rp.issuer_weight(found, borrower="Birch Imaginary Inc", identifier="BBG00SYN0001")
-    assert both == rp.Weight(Decimal(50), "stated_weight", matched=2)  # 10 + 40
+    assert both == rp.Weight(
+        Decimal(50), "stated_weight", matched=2, matched_by=("name", "identifier")
+    )  # 10 + 40
     with pytest.raises(ValueError, match="borrower or an identifier"):
         rp.issuer_weight(found)
 
@@ -632,17 +634,19 @@ def test_an_issuer_is_matched_by_any_identifier():
 def test_a_matched_position_with_no_stated_weight_is_counted_not_added_as_zero():
     found = pack()
     assert rp.issuer_weight(found, borrower="Elm Invented Ltd") == rp.Weight(
-        None, "stated_weight", matched=1, unweighted=1
+        None, "stated_weight", matched=1, unweighted=1, matched_by=("name",)
     )
     both = rp.issuer_weight(found, borrower="Elm Invented Ltd", identifier="DUNE")
-    assert both == rp.Weight(Decimal(10), "stated_weight", matched=2, unweighted=1)
+    assert both == rp.Weight(
+        Decimal(10), "stated_weight", matched=2, unweighted=1, matched_by=("name", "identifier")
+    )
 
 
 def test_without_stated_weights_the_weight_is_market_value_over_priced_market_value():
     found = rp.read_clo_pack(exports.files(exports.clean()), stored_at=AT)
     # At mid: Aster 20,000,000 + 9,800,000 = 29,800,000 of 100,000,000 priced.
     assert rp.issuer_weight(found, borrower="Aster Fictional Co") == rp.Weight(
-        Decimal("29.8"), "market_value", matched=2
+        Decimal("29.8"), "market_value", matched=2, matched_by=("name",)
     )
     assert rp.issuer_weight(found, borrower="Nobody Fictional") == rp.Weight(
         Decimal(0), "market_value", matched=0
@@ -652,7 +656,9 @@ def test_without_stated_weights_the_weight_is_market_value_over_priced_market_va
 def test_with_neither_weights_nor_market_values_no_weight_can_be_given():
     order = list(range(1, len(synth.BONDS.header)))  # the bonds without the weight column
     found = bonds(replace(synth.rearranged(synth.BONDS, order, {}), percent=()))
-    assert rp.issuer_weight(found, borrower="Elm Invented Ltd") == rp.Weight(None, None, matched=1)
+    assert rp.issuer_weight(found, borrower="Elm Invented Ltd") == rp.Weight(
+        None, None, matched=1, matched_by=("name",)
+    )
     assert rp.issuer_weight(found, borrower="Nobody Fictional") == rp.Weight(None, None, matched=0)
 
 
@@ -822,3 +828,634 @@ def test_a_key_that_is_not_a_plain_name_is_refused(tmp_path, key):
         store.record_failure(key, "x", AT)
     with pytest.raises(ValueError, match="key"):
         store.save(replace(pack(), key=key))
+
+
+# --- Review findings, 25 November 2026 ------------------------------------------------------------
+
+SHEET = "xl/worksheets/sheet1.xml"
+
+
+def custom_csv(rows: list[list[object]], name: str = "h.csv") -> rp.Portfolio:
+    return rp.read_portfolio_files({name: synth.csv_bytes(rows)}, name="Analyst", stored_at=AT)
+
+
+def with_above(day: str, layout: synth.Layout = synth.LOANS) -> synth.Layout:
+    """LOANS with its `Holdings:` cell stating `day`."""
+    return replace(layout, above=(*layout.above[:2], ["Holdings:", f"As of {day}"], None))
+
+
+def analysts(layout: synth.Layout) -> rp.Portfolio:
+    """The layout's workbook supplied by an analyst: a custom portfolio, no date order known."""
+    files = {"book.xlsx": synth.workbook_bytes(layout)}
+    return rp.read_portfolio_files(files, name="Analyst", stored_at=AT)
+
+
+def counted(monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    calls: list[int] = []
+    parse = pe.xlsx_content
+
+    def counting(raw: bytes) -> object:
+        calls.append(1)
+        return parse(raw)
+
+    monkeypatch.setattr(pe, "xlsx_content", counting)
+    return calls
+
+
+def pack_book(*extra: tuple[str, list[list[object] | None]]) -> bytes:
+    """The pack as one workbook: its holdings, constraints and mandate as sheets, then `extra`."""
+    holdings = [
+        list(synth.PACK_HEADER),
+        *([r.get(h, "") for h in synth.PACK_HEADER] for r in synth.PACK_ROWS),
+    ]
+    return synth.book_bytes(
+        [
+            ("Holdings", holdings),
+            ("Constraints", [list(row) for row in synth.PACK_CONSTRAINTS_ROWS]),
+            ("Mandate", [list(row) for row in synth.PACK_MANDATE_ROWS]),
+            *extra,
+        ]
+    )
+
+
+# 1. One parse of a workbook per read; rows no wider than their cells; a ceiling on rows.
+
+
+def test_a_workbook_is_parsed_once_whichever_reader_reads_it(monkeypatch):
+    filler: list[list[object] | None] = [[n, n * 2, n * 3] for n in range(20)]
+    raw = pack_book(("Notes", filler), ("More notes", filler))
+    calls = counted(monkeypatch)
+    found = rp.read_portfolio_files({"pack.xlsx": raw}, name="Analyst", stored_at=AT)
+    assert (len(found.positions), len(found.limits), len(calls)) == (7, 3, 1)
+    calls.clear()
+    assert len(rp.read_clo_pack({"pack.xlsx": raw}, stored_at=AT).positions) == 7
+    assert len(calls) == 1
+    calls.clear()
+    rp.read_ssga_holdings(
+        synth.workbook_bytes(synth.LOANS), rp.LVLN, file_name="x.xlsx", stored_at=AT
+    )
+    assert len(calls) == 1
+
+
+def test_a_cell_far_to_the_right_is_not_read_and_said():
+    lines: list[list[object] | None] = [["Name", "Weight", "Market Value"]]
+    lines += [[f"Name {n}", 1, 10] for n in range(3)]
+    far = '<c r="XFD1" t="inlineStr"><is><t>x</t></is></c>'
+    raw = synth.edited(
+        synth.book_bytes([("holdings", lines)]),
+        SHEET,
+        {'</row><row r="2"': far + '</row><row r="2"'},
+    )
+    found = rp.read_portfolio_files({"far.xlsx": raw}, name="Analyst", stored_at=AT)
+    assert [p.row for p in found.positions] == [2, 3, 4]
+    assert (
+        "Cells more than 100 empty columns to the right of the cell before them, not read: 1 cell."
+        in found.findings
+    )
+
+
+def test_a_holdings_table_over_the_row_ceiling_is_refused(monkeypatch):
+    assert rp.MAX_ROWS == 50_000
+    monkeypatch.setattr(rp, "MAX_ROWS", 3)
+    header = ["Name", "Weight", "Market Value"]
+    assert len(custom_csv([header, ["A", 1, 1], ["B", 1, 1], ["C", 1, 1]]).positions) == 3
+    with pytest.raises(rp.PortfolioFileError) as error:
+        custom_csv([header, ["A", 1, 1], ["B", 1, 1], ["C", 1, 1], ["D", 1, 1]])
+    assert str(error.value) == (
+        "h.csv: the holdings table has more than 3 rows; a reference portfolio that large is not "
+        "read."
+    )
+
+
+# 2. Dates: the order of a numeric date, the 1904 date system, long forms, years.
+
+
+def test_the_two_fund_files_read_a_numeric_date_month_first_and_the_others_do_not_say():
+    assert (rp.LVLN.date_order, rp.JNK.date_order) == ("month_first", "month_first")
+    assert (rp.CLO.date_order, rp.custom("x").date_order) == (None, None)
+    assert loans(with_above("03/04/2026")).as_of == date(2026, 3, 4)  # 4 March, month first
+
+
+def test_an_ambiguous_numeric_date_is_no_as_of_date_and_both_readings_are_named():
+    found = analysts(with_above("03/04/2026"))
+    assert found.as_of is None
+    assert found.findings[0] == (
+        "The as-of date 03/04/2026 reads as 3 April 2026 (day first) or 4 March 2026 (month "
+        "first), and the file does not say which: no as-of date is read."
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "custom", "fund"),
+    [
+        ("13/04/2026", date(2026, 4, 13), None),  # only day first; the fund's file is month first
+        ("04/13/2026", date(2026, 4, 13), date(2026, 4, 13)),  # only month first
+        ("12/12/2026", date(2026, 12, 12), date(2026, 12, 12)),  # the same either way
+        ("2026-11-24", date(2026, 11, 24), date(2026, 11, 24)),
+        ("November 24, 2026", date(2026, 11, 24), date(2026, 11, 24)),
+        ("24 November 2026", date(2026, 11, 24), date(2026, 11, 24)),
+        ("Nov 24, 2026", date(2026, 11, 24), date(2026, 11, 24)),
+        ("24 Nov 2026", date(2026, 11, 24), date(2026, 11, 24)),
+    ],
+)
+def test_a_numeric_date_that_reads_one_way_and_the_long_forms_are_read(text, custom, fund):
+    assert analysts(with_above(text)).as_of == custom
+    assert loans(with_above(text)).as_of == fund
+
+
+@pytest.mark.parametrize("text", ["24-Nov-1901", "24-Nov-1999", "24-Nov-2101"])
+def test_an_as_of_year_outside_2000_to_2100_is_not_read(text):
+    found = loans(with_above(text))
+    assert found.as_of is None
+    assert found.findings[0] == (
+        f"The as-of date {text} is outside the years 2000 to 2100: no as-of date is read."
+    )
+
+
+@pytest.mark.parametrize(
+    ("text", "when"), [("1-Jan-2000", date(2000, 1, 1)), ("31-Dec-2100", date(2100, 12, 31))]
+)
+def test_the_first_and_last_years_are_read(text, when):
+    assert loans(with_above(text)).as_of == when
+
+
+def test_an_ambiguous_maturity_is_missing_and_flagged():
+    position = one(Maturity="03/04/2030")
+    assert (position.maturity, position.flags) == (None, ("date_ambiguous:maturity",))
+    assert one(Maturity="13/04/2030").maturity == date(2030, 4, 13)
+    assert (
+        "A date that reads two ways (day or month first), read as missing: 1 position (row 2)."
+        in (pack([{"Borrower Name": "Aster Fictional Co", "Maturity": "03/04/2030"}]).findings)
+    )
+
+
+def test_a_1904_workbooks_dates_are_read_from_1904():
+    found = rp.read_ssga_holdings(
+        synth.workbook_bytes(synth.LOANS, date1904=True), rp.LVLN, file_name="x.xlsx", stored_at=AT
+    )
+    assert [p.maturity for p in found.positions] == [
+        *(date(2029, 6, 30), date(2030, 1, 31), date(2028, 3, 31), None, date(2031, 3, 31))
+    ]
+    raw = synth.workbook_bytes(synth.BONDS, date1904=True)
+    assert rp.read_ssga_holdings(raw, rp.JNK, file_name="x.xlsx", stored_at=AT).as_of == date(
+        2026, 11, 23
+    )
+
+
+# 3(d). Rows inside the table that are not positions; where the table ends.
+
+
+def test_a_section_heading_inside_the_table_is_skipped_and_counted():
+    rows = synth.LOANS.rows
+    found = loans(replace(synth.LOANS, rows=(*rows[:2], ["Senior Secured Loans"], *rows[2:])))
+    # The header is row 5; the heading is row 8 and the last holding row 11.
+    assert [p.row for p in found.positions] == [6, 7, 9, 10, 11]
+    assert (
+        "Rows inside the holdings table that are not positions (such as section headings), not "
+        "read: 1 row (row 8)." in found.findings
+    )
+    assert (
+        "Below the holdings table and not read as positions: 2 rows with text (rows 13, 14)."
+        in found.findings
+    )
+
+
+def test_one_blank_row_does_not_end_the_table_and_two_do():
+    rows = synth.LOANS.rows
+    one_gap = loans(replace(synth.LOANS, rows=(*rows[:2], [None], *rows[2:])))
+    assert [p.row for p in one_gap.positions] == [6, 7, 9, 10, 11]
+    two_gaps = loans(replace(synth.LOANS, rows=(*rows[:2], [None], [None], *rows[2:])))
+    assert [p.row for p in two_gaps.positions] == [6, 7]
+    # Rows 10 to 12 are the other three holdings; 13 is empty; 14 and 15 are the notes.
+    assert (
+        "Below the holdings table and not read as positions: 5 rows with text "
+        "(rows 10, 11, 12, 14, 15)." in two_gaps.findings
+    )
+
+
+def test_a_disclaimer_that_looks_like_a_holding_is_not_a_position():
+    header = ["Name", "ISIN", "Weight", "Par Value", "Market Value"]
+    found = custom_csv(
+        [
+            header,
+            ["Aster Co", "US0000000001", 60, 600, 600],
+            ["Holdings are subject to change without notice.", "", "", "", 2026],
+            ["Birch Co", "US0000000002", 40, 400, 400],
+            ["Holdings are subject to change.", "", "", "", 2026],
+        ]
+    )
+    assert [p.borrower for p in found.positions] == ["Aster Co", "Birch Co"]
+    assert (
+        "Total, subtotal, note and disclaimer rows, not read as positions: 2 rows (rows 3, 5)."
+        in found.findings
+    )
+    # A name of four words or more ending in a full stop is still a name when it is mostly
+    # capitalised, as names are.
+    named = custom_csv([header, ["Bank of America Corp.", "US0000000003", 100, 1, 1]])
+    assert [p.borrower for p in named.positions] == ["Bank of America Corp."]
+
+
+# 5. Total, subtotal and note rows.
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Total",
+        "TOTAL:",
+        "Subtotal",
+        "Sub-total",
+        "Grand Total",
+        "Sum",
+        "Note: unaudited",
+        "Source: trustee",
+        "Disclaimer",
+    ],
+)
+def test_a_total_or_note_row_with_figures_is_not_a_position(label):
+    header = ["Name", "ISIN", "Weight", "Par Value", "Market Value"]
+    found = custom_csv(
+        [
+            header,
+            ["Aster Co", "US0000000001", 60, 600, 600],
+            [label, "", 60, 600, 600],
+            ["Birch Co", "US0000000002", 40, 400, 400],
+        ]
+    )
+    assert [p.borrower for p in found.positions] == ["Aster Co", "Birch Co"]
+    assert "Total, subtotal, note and disclaimer rows, not read as positions: 1 row (row 3)." in (
+        found.findings
+    )
+    assert rp.issuer_weight(found, borrower="Aster Co").weight == Decimal(60)
+
+
+def test_a_borrower_whose_name_begins_with_total_is_a_position():
+    header = ["Name", "ISIN", "Weight", "Par Value", "Market Value"]
+    found = custom_csv([header, ["Total Play Telecomunicaciones", "US0000000001", 100, 1, 1]])
+    assert [p.borrower for p in found.positions] == ["Total Play Telecomunicaciones"]
+
+
+def test_a_packs_total_and_source_rows_are_not_positions_and_the_exports_own_count_is_kept():
+    rows = [
+        *synth.PACK_ROWS,
+        synth.pack_row(Borrower_Name="Total", Holdings="5,984,567.89"),
+        synth.pack_row(Borrower_Name="Source: trustee report, unaudited"),
+    ]
+    found = pack(rows)
+    assert [p.row for p in found.positions] == [2, 3, 4, 5, 6, 7, 8]
+    assert (
+        "Total, subtotal, note and disclaimer rows, not read as positions: 2 rows (rows 9, 10)."
+        in found.findings
+    )
+    # The export's own check still counts every filled row under the header.
+    assert len(pe.read_export(synth.pack_files(rows)).holdings) == 9
+
+
+# 6. A file name with " [" in it; a file that cannot be read is a reader's error.
+
+
+def test_file_names_with_brackets_are_read():
+    files = synth.pack_files()
+    renamed = {
+        synth.PACK_HOLDINGS: files[synth.PACK_HOLDINGS],
+        "constraints [Oct].csv": files[synth.PACK_CONSTRAINTS],
+        "mandate [v2].csv": files[synth.PACK_MANDATE],
+    }
+    found = rp.read_clo_pack(renamed, stored_at=AT)
+    assert (len(found.positions), len(found.limits), found.as_of) == (7, 3, date(2026, 10, 31))
+    assert [source.name for source in found.sources] == [
+        synth.PACK_HOLDINGS,
+        "constraints [Oct].csv",
+        "mandate [v2].csv",
+    ]
+
+
+def test_a_csv_with_a_field_longer_than_the_csv_reader_takes_is_a_readers_error():
+    raw = b"Name,Weight,Market Value\n" + b'"' + b"A" * 140_000 + b'",1,1\nB,2,2\n'
+    with pytest.raises(rp.PortfolioFileError) as error:
+        rp.read_portfolio_files({"h.csv": raw}, name="Analyst", stored_at=AT)
+    assert str(error.value) == (
+        "h.csv cannot be read as a CSV file: a cell is too long or its quotes do not close."
+    )
+
+
+def test_any_other_failure_of_the_reading_is_a_readers_error(monkeypatch):
+    def broken(files: object) -> object:
+        raise KeyError("a part the file lacks")
+
+    monkeypatch.setattr(pe, "read_export", broken)
+    for read in (
+        lambda: rp.read_clo_pack(synth.pack_files(), stored_at=AT),
+        lambda: rp.read_portfolio_files(synth.pack_files(), name="Analyst", stored_at=AT),
+        lambda: loans(),
+    ):
+        with pytest.raises(rp.PortfolioFileError) as error:
+            read()
+        assert str(error.value) == (
+            "The files could not be read: one of them is damaged or is not a holdings file this "
+            "reader knows."
+        )
+
+
+# 4. Column picks on the header path.
+
+
+def test_a_spread_duration_is_not_the_spread_and_a_current_yield_is_not_the_yield():
+    header = [
+        "Name",
+        "ISIN",
+        "Weight",
+        "Spread Duration",
+        "Option Adjusted Spread",
+        "Current Yield",
+        "Yield to Maturity",
+    ]
+    found = custom_csv([header, ["Aster Co", "US0000000001", 100, "3.2", "425", "7.1", "8.4"]])
+    columns = dict(found.columns_found)
+    assert (columns["margin"], columns["ytm"]) == ("Option Adjusted Spread", "Yield to Maturity")
+    assert "maturity" not in columns  # `Yield to Maturity` is the yield, not the maturity
+    position = found.positions[0]
+    assert (position.margin, position.ytm, position.maturity, position.flags) == (
+        Decimal(425),
+        Decimal("8.4"),
+        None,
+        (),
+    )
+
+
+@pytest.mark.parametrize(
+    ("heading", "read"),
+    [
+        ("Yield to Maturity", True),
+        ("YTM", True),
+        ("Mid YTM", True),
+        ("Yield to Worst", True),
+        ("YTW", True),
+        ("Yield", False),  # which yield the file does not say
+        ("Current Yield", False),
+        ("Dividend Yield", False),
+    ],
+)
+def test_only_a_yield_to_maturity_or_to_worst_is_the_yield(heading, read):
+    found = custom_csv([["Name", "ISIN", "Weight", heading], ["Aster Co", "I1", 100, "8.4"]])
+    assert (found.positions[0].ytm == Decimal("8.4")) is read
+    assert ("ytm" in found.columns_missing) is not read
+
+
+def test_a_rating_bucket_before_the_ratings_and_a_par_after_the_price_are_read_right():
+    header = [h for h in synth.PACK_HEADER if h not in ("Rating Bucket", "Holdings")]
+    header.insert(header.index("Ratings"), "Rating Bucket")
+    header.insert(header.index("Mid Price (per 100 par)") + 1, "Par")
+    rows = [
+        {**{k: v for k, v in row.items() if k != "Holdings"}, "Par": row["Holdings"]}
+        for row in synth.PACK_ROWS
+    ]
+    found = pack(rows, tuple(header))
+    columns = dict(found.columns_found)
+    assert (columns["rating"], columns["stated_bucket"], columns["par"]) == (
+        "Ratings",
+        "Rating Bucket",
+        "Par",
+    )
+    assert [p.rating_bucket for p in found.positions] == [p.rating_bucket for p in pack().positions]
+    assert [p.par for p in found.positions] == [p.par for p in pack().positions]
+
+
+# 9. An issuer's weight: a name without its legal form; weights stated as fractions.
+
+
+def test_a_name_that_differs_only_in_its_legal_form_matches_and_says_so():
+    found = pack()
+    for name in ("Aster Fictional Co Inc", "The Aster Fictional Company", "Aster Fictional"):
+        assert rp.issuer_weight(found, borrower=name) == rp.Weight(
+            Decimal(60), "stated_weight", matched=2, matched_by=("name_without_legal_form",)
+        )
+    # The exact name is matched first; a part of a name never is.
+    assert rp.issuer_weight(found, borrower="Aster Fictional Co").matched_by == ("name",)
+    assert rp.issuer_weight(found, borrower="Aster").matched_by == ()
+    assert rp.issuer_weight(found, borrower="Fictional Co").matched == 0
+
+
+def test_weights_stated_as_fractions_are_not_used_and_market_value_is():
+    header = ["Name", "ISIN", "Weight", "Par Value", "Market Value"]
+    found = custom_csv(
+        [header, ["Aster Co", "I1", "0.6", 600, 600], ["Birch Co", "I2", "0.4", 400, 400]]
+    )
+    # 0.6 + 0.4 = 1: fractions of one. Market value: 600 of 1,000 is 60%.
+    assert rp.issuer_weight(found, borrower="Aster Co") == rp.Weight(
+        Decimal(60), "market_value", matched=1, matched_by=("name",)
+    )
+    assert (
+        "The stated weights add to 1, as fractions of one would, not to about 100%: they are not "
+        "used as weights." in found.findings
+    )
+    assert not any("not about 100%" in line for line in found.findings)
+    bare = custom_csv(
+        [["Name", "ISIN", "Weight"], ["Aster Co", "I1", "0.6"], ["Birch Co", "I2", "0.4"]]
+    )
+    assert rp.issuer_weight(bare, borrower="Aster Co") == rp.Weight(
+        None, None, matched=1, matched_by=("name",)
+    )
+
+
+# 10. Only a plain number is a figure.
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "<5",
+        "≤ 5",
+        "5 bps",
+        "3 years",
+        "1.5m",
+        "2.5k",
+        "1,000 EUR",
+        "USD 1,000",
+        "$1,000",
+        "+1,000",
+        "(1,000)",
+        "1.234,56",
+        "1.5E+06",
+        " 1 000",
+        "5%",
+        "~100",
+    ],
+)
+def test_text_that_is_not_a_plain_number_is_missing_and_flagged(text):
+    position = one(Holdings=text)
+    assert (position.par, position.flags) == (None, ("unreadable:par",))
+
+
+@pytest.mark.parametrize(
+    ("text", "par"),
+    [
+        ("1,234,567.89", Decimal("1234567.89")),
+        ("-1,000", Decimal(-1000)),
+        ("0", Decimal(0)),
+        ("0.30000000000000004", Decimal("0.30000000000000004")),
+    ],
+)
+def test_a_plain_number_is_read_with_every_digit(text, par):
+    assert one(Holdings=text).par == par
+
+
+def test_a_percentage_field_may_end_in_a_percent_sign():
+    position = one(**{"Share of Priced MV (%)": "12.5%"})
+    assert (position.weight, position.flags) == (Decimal("12.5"), ())
+
+
+# 11. Formula cells.
+
+
+def test_a_formula_cell_is_its_stored_value_or_missing_and_flagged():
+    header = ["Name", "ISIN", "Weight", "Par Value", "Market Value"]
+    lines: list[list[object] | None] = [
+        ["As of 24-Nov-2026"],
+        header,
+        ["Aster Co", "I1", 60, 600, 1],
+        ["Birch Co", "I2", 40, 400, 1],
+        ["Cedar Co", "I3", 0, 0, 1],
+    ]
+    raw = synth.edited(
+        synth.book_bytes([("holdings", lines)]),
+        SHEET,
+        {
+            '<c r="E3" t="n"><v>1</v></c>': '<c r="E3"><f>D3</f><v>600</v></c>',
+            '<c r="E4" t="n"><v>1</v></c>': '<c r="E4"><f>D4</f></c>',
+            '<c r="E5" t="n"><v>1</v></c>': '<c r="E5" t="str"><f>"n/a"</f><v>n/a</v></c>',
+        },
+    )
+    found = rp.read_portfolio_files({"f.xlsx": raw}, name="Analyst", stored_at=AT)
+    aster, birch, cedar = found.positions
+    assert (aster.market_value, aster.flags) == (Decimal(600), ())
+    assert (birch.market_value, birch.flags) == (
+        None,
+        ("formula_without_value:market_value", "unpriced"),
+    )
+    assert (cedar.market_value, cedar.flags) == (None, ("unpriced",))
+    assert (
+        "A formula cell with no stored value, read as missing: 1 position (row 4)."
+        in found.findings
+    )
+    assert not any("Formula:" in str(value) for p in found.positions for value in vars(p).values())
+
+
+# 12. Sheets of the same workbook; a damaged failure record; a lone holdings file.
+
+
+def test_constraints_and_mandate_sheets_beside_a_header_read_holdings_sheet_are_read():
+    layout = synth.LOANS
+    lines: list[list[object] | None] = [
+        *layout.above,
+        list(layout.header),
+        *(list(r) for r in layout.rows),
+    ]
+    raw = synth.book_bytes(
+        [
+            ("holdings", lines),
+            ("Limits", [list(row) for row in synth.PACK_CONSTRAINTS_ROWS]),
+            ("Mandate", [list(row) for row in synth.PACK_MANDATE_ROWS]),
+        ]
+    )
+    found = rp.read_portfolio_files({"book.xlsx": raw}, reference=rp.LVLN, stored_at=AT)
+    assert (len(found.positions), len(found.limits), len(found.mandate)) == (5, 3, 2)
+    assert found.limits[0].source == "book.xlsx [Limits]"
+    assert found.as_of == date(2026, 10, 31)  # the mandate's `As of Date`
+    assert not any(line.startswith("No constraints") for line in found.findings)
+    assert [source.name for source in found.sources] == ["book.xlsx"]
+
+
+def test_a_damaged_failure_record_does_not_hide_the_stored_set(tmp_path):
+    store = rp.Store(tmp_path)
+    store.save(loans())
+    (tmp_path / "lvln.failure.json").write_text("[]", encoding="utf-8")
+    listed = {item.key: item for item in rp.list_portfolios(store)}
+    assert listed["lvln"] == rp.Summary(
+        key="lvln",
+        name=rp.LVLN.name,
+        kind="loan_index",
+        scope="standing",
+        as_of=date(2026, 11, 24),
+        stored_at=AT,
+        positions=5,
+        error="The record of the last failed refresh of 'lvln' cannot be read.",
+    )
+
+
+def test_a_lone_holdings_csv_is_still_read_as_a_pack():
+    files = {synth.PACK_HOLDINGS: synth.pack_files()[synth.PACK_HOLDINGS]}
+    assert pe.recognise(files) == {}  # not a fund export on its own
+    assert len(rp.read_clo_pack(files, stored_at=AT).positions) == 7
+    assert len(rp.read_portfolio_files(files, name="Analyst", stored_at=AT).positions) == 7
+
+
+# 13. The synthetic workbook is the same bytes whenever it is built.
+
+
+def test_the_synthetic_workbook_does_not_depend_on_when_it_is_built(monkeypatch):
+    import datetime as clock
+    import time as wall
+    import types
+    import zipfile
+
+    from openpyxl.writer import excel
+
+    first = synth.workbook_bytes(synth.LOANS)
+
+    class Later(clock.datetime):
+        @classmethod
+        def now(cls, tz: object = None) -> clock.datetime:  # type: ignore[override]
+            return clock.datetime(2031, 5, 6, 7, 8, 9)
+
+    class LaterModule:
+        datetime = Later
+        timezone = clock.timezone
+
+    monkeypatch.setattr(excel, "datetime", LaterModule)
+    later = wall.mktime((2031, 5, 6, 7, 8, 9, 0, 0, -1))
+    monkeypatch.setattr(
+        zipfile, "time", types.SimpleNamespace(time=lambda: later, localtime=wall.localtime)
+    )
+    assert synth.workbook_bytes(synth.LOANS) == first
+
+
+def test_a_ticker_that_spells_sum_does_not_make_a_named_position_a_total():
+    # The name decides when the row has one; the first filled cell only when it has none.
+    header = ["Ticker", "Name", "ISIN", "Weight", "Market Value"]
+    found = custom_csv(
+        [
+            header,
+            ["SUM", "Summit Example Materials", "US0000000001", 60, 600],
+            ["", "Total", "", 100, 1000],
+            ["ASTR", "Aster Co", "US0000000002", 40, 400],
+        ]
+    )
+    assert [p.borrower for p in found.positions] == ["Summit Example Materials", "Aster Co"]
+    assert "Total, subtotal, note and disclaimer rows, not read as positions: 1 row (row 3)." in (
+        found.findings
+    )
+
+
+def test_a_mandates_ambiguous_as_of_date_is_not_read_and_a_known_order_reads_it():
+    files = synth.pack_files()
+    mandate = [list(row) for row in synth.PACK_MANDATE_ROWS]
+    mandate[2][2] = "03/04/2026"
+    files[synth.PACK_MANDATE] = synth.csv_bytes(mandate)
+    found = rp.read_clo_pack(files, stored_at=AT)
+    assert found.as_of is None
+    assert found.findings[0] == (
+        "The as-of date 03/04/2026 reads as 3 April 2026 (day first) or 4 March 2026 (month "
+        "first), and the file does not say which: no as-of date is read."
+    )
+    day_first = rp.Reference("eu", "Example fund", "custom", date_order="day_first")
+    assert rp.read_portfolio_files(files, reference=day_first, stored_at=AT).as_of == date(
+        2026, 4, 3
+    )
+
+
+def test_blank_rows_right_under_the_header_do_not_end_the_table():
+    rows = synth.LOANS.rows
+    found = loans(replace(synth.LOANS, rows=([None], [None], *rows)))
+    # The header is row 5; rows 6 and 7 are empty; the holdings are rows 8 to 12.
+    assert [p.row for p in found.positions] == [8, 9, 10, 11, 12]

@@ -22,12 +22,15 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from openpyxl import Workbook  # type: ignore[import-untyped]
+from openpyxl.utils.datetime import CALENDAR_MAC_1904  # type: ignore[import-untyped]
 
 Row = list[object]
 
@@ -217,7 +220,7 @@ BONDS = Layout(
     ),
     header=(
         *("Weight (%)", "ISIN", "CUSIP", "Issuer", "Security Description", "Shares Held"),
-        *("Spread", "Maturity Date", "Credit Rating", "Industry", "Currency", "Yield"),
+        *("Spread", "Maturity Date", "Credit Rating", "Industry", "Currency", "Yield to Worst"),
     ),
     rows=(
         [
@@ -246,25 +249,80 @@ def rearranged(
     return replace(layout, header=header, rows=rows, above=above)
 
 
-def workbook_bytes(layout: Layout) -> bytes:
-    book = Workbook()
-    sheet = book.active
-    sheet.title = layout.sheet
+def workbook_bytes(layout: Layout, *, date1904: bool = False) -> bytes:
+    """The layout as a one-sheet workbook; `date1904`: the workbook counts dates from 1904."""
     lines: list[Row | None] = [*layout.above]
     lines += [[*([None] * layout.indent), *row] for row in (layout.header, *layout.rows)]
     lines += layout.below
     first = len(layout.above) + 2  # the first holding's row
-    for number, line in enumerate(lines, 1):
-        for column, value in enumerate(line or [], 1):
-            if value is not None:
-                sheet.cell(row=number, column=column, value=value)
-    for name in layout.percent:
-        column = layout.indent + layout.header.index(name) + 1
-        for number in range(first, first + len(layout.rows)):
-            sheet.cell(row=number, column=column).number_format = "0.00%"
+    formats = {
+        (number, layout.indent + layout.header.index(name) + 1): "0.00%"
+        for name in layout.percent
+        for number in range(first, first + len(layout.rows))
+    }
+    return book_bytes([(layout.sheet, lines)], formats=formats, date1904=date1904)
+
+
+_BUILT = (2026, 1, 1, 0, 0, 0)  # every archive member's time, and the workbook's own dates
+_STAMPS = re.compile(rb"(<dcterms:(?:created|modified)[^>]*>)[^<]*(</dcterms:)")
+
+
+def book_bytes(
+    sheets: Sequence[tuple[str, Sequence[Row | None]]],
+    *,
+    formats: Mapping[tuple[int, int], str] | None = None,
+    date1904: bool = False,
+) -> bytes:
+    """A workbook of `sheets` (name, rows; None is a row left empty and a None value an empty
+    cell), with `formats` (row, column) -> number format on the first sheet. The bytes are the
+    same whenever it is built: openpyxl stamps the time it saves at, so the archive is written
+    again with one fixed time."""
+    book = Workbook()
+    book.remove(book.active)
+    if date1904:
+        book.epoch = CALENDAR_MAC_1904
+    for name, lines in sheets:
+        sheet = book.create_sheet(name)
+        for number, line in enumerate(lines, 1):
+            for column, value in enumerate(line or [], 1):
+                if value is not None:
+                    sheet.cell(row=number, column=column, value=value)
+    for (number, column), code in (formats or {}).items():
+        book.worksheets[0].cell(row=number, column=column).number_format = code
     stream = io.BytesIO()
     book.save(stream)
-    return stream.getvalue()
+    return _fixed_time(stream.getvalue())
+
+
+def edited(raw: bytes, member: str, changes: Mapping[str, str]) -> bytes:
+    """The workbook `raw` with each text in `changes` replaced in the archive member `member`
+    (`xl/worksheets/sheet1.xml`): a cell openpyxl cannot write, such as a formula with a stored
+    value. Each text must be there once."""
+    out = io.BytesIO()
+    with ZipFile(io.BytesIO(raw)) as source, ZipFile(out, "w", ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            data = source.read(item.filename)
+            if item.filename == member:
+                text = data.decode("utf-8")
+                for old, new in changes.items():
+                    if text.count(old) != 1:
+                        raise ValueError(f"{old!r} is not in {member} once")
+                    text = text.replace(old, new)
+                data = text.encode("utf-8")
+            target.writestr(ZipInfo(item.filename, _BUILT), data, ZIP_DEFLATED)
+    return out.getvalue()
+
+
+def _fixed_time(raw: bytes) -> bytes:
+    stamp = b"%04d-%02d-%02dT%02d:%02d:%02dZ" % _BUILT
+    out = io.BytesIO()
+    with ZipFile(io.BytesIO(raw)) as source, ZipFile(out, "w", ZIP_DEFLATED) as target:
+        for item in source.infolist():
+            data = source.read(item.filename)
+            if item.filename == "docProps/core.xml":
+                data = _STAMPS.sub(rb"\g<1>" + stamp + rb"\g<2>", data)
+            target.writestr(ZipInfo(item.filename, _BUILT), data, ZIP_DEFLATED)
+    return out.getvalue()
 
 
 def main(argv: list[str] | None = None) -> int:

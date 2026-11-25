@@ -6,32 +6,58 @@ and any portfolio an analyst supplies for a run. This module reads their files i
 `Portfolio`, keeps one good set per key in a `Store`, and answers the questions later code asks:
 `list_portfolios`, `rows`, `issuer_weight`, `limits`. It fetches nothing and scores nothing.
 
-Reading is the fund export's (`deploy_vii.inputs.portfolio_export`): its files' roles, its cells,
-its figures with units, its dates and its rating scale. A CLO pack is the holdings (a CSV file or
-a workbook sheet) with, when supplied, the constraints and the mandate. A fund's daily holdings
-workbook is read by its header row alone: the row is found by the field words it holds
-(`_FIELD_WORDS`), every field is optional, and `Portfolio.columns_found` and `columns_missing`
-say which were there. The layout of the real fund files was NOT verified when this was written
-(they could not be fetched), so nothing here depends on a row number, a column position or an
-exact header text.
+Reading is the fund export's (`deploy_vii.inputs.portfolio_export`): its files' roles, its cells
+and its rating scale; figures and dates are read here, more strictly (below). A CLO pack is the
+holdings (a CSV file or a workbook sheet) with, when supplied, the constraints and the mandate (as
+files or as sheets of the holdings workbook). A fund's daily holdings workbook is read by its
+header row alone: the row is found by the field words it holds (`_FIELD_WORDS`), every field is
+optional, and `Portfolio.columns_found` and `columns_missing` say which were there. The layout
+of the real fund files was NOT verified when this was written (they could not be fetched), so
+nothing here depends on a row number, a column position or an exact header text.
 
 Nothing is coerced. A blank cell (or a dash or `n/a`) is missing (None) and `0` is zero; a vendor
 error marker (`#N/A N/A`) or a cell that is not a number or a date is missing and flagged on its
 position; a row with no price is kept and flagged; amounts are the digits the file holds, as
-`Decimal`. A figure's unit is the file's (a margin of 300 is what the file wrote, not converted);
-the one reading applied is a workbook cell shown as a percentage, taken as the percentage shown
-(0.625 shown as 62.50% is 62.5). The as-of date is the files' own, or None with a finding; the
-stored time is the caller's.
+`Decimal`. A figure is a plain number (digits, comma thousands separators, a leading minus; a
+trailing % in a weight, coupon or yield): `<5`, `5 bps`, `1.5m` or `1,000 EUR` is not one. A
+figure's unit is the file's (a margin of 300 is what the file wrote, not converted); the one
+reading applied is a workbook cell shown as a percentage, taken as the percentage shown (0.625
+shown as 62.50% is 62.5). A formula cell is the value stored with it; with none stored it is
+missing and flagged. The as-of date is the files' own, or None with a finding; the stored time is
+the caller's.
+
+Dates: a workbook's date cells count from its own epoch (1904 when the workbook says so). Text
+dates are ISO, `24-Nov-2026`, `24 Nov 2026`, `Nov 24, 2026` and the same with the month written
+out, or numeric `03/04/2026`. A numeric date is read in the reference's `date_order`; with none
+known, one whose day and month could be either way round is no date (an as-of date is then None
+with a finding naming both readings; a maturity is missing and flagged). An as-of year outside
+2000 to 2100 is not read.
+
+The table (`_positions`): every row under the header until a run of two or more rows with no
+text after a position; rows after that are below the table. In it, a position is a row with a
+name and one other field (in an export's holdings, any filled row, and its table runs to the end
+of the sheet). A row whose name (or, with no name, first filled cell) is a total, a subtotal, a
+sum, a source, a note or a disclaimer, or is a sentence (four words or more, ending in a full stop
+or the like, most of them in lower case), is not a position however many figures it holds; nor,
+outside an export's holdings, is a row with no other field (a section heading). Each such row is
+counted in a finding, as are rows with text below the last position.
+
+Each file is parsed once per read (`portfolio_export.reading`); a holdings table of more than
+`MAX_ROWS` rows is refused, and a cell far to the right of the rest of its row is not read
+(`portfolio_export.FAR_COLUMNS`). Whatever fails in reading a file's content is a
+`PortfolioFileError` worded for a reader.
 """
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import os
 import re
 import tempfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, fields, is_dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Context, Decimal, InvalidOperation
@@ -45,6 +71,10 @@ AssetType = Literal["loan", "bond"]
 Measure = Literal["discount_margin", "margin", "spread"]
 Basis = Literal["stated_weight", "market_value"]
 Scope = Literal["standing", "run"]
+DateOrder = Literal["month_first", "day_first"]
+MatchedBy = Literal["name", "name_without_legal_form", "identifier"]
+
+MAX_ROWS = 50_000  # rows with text under a holdings header; a larger table is refused
 
 SCHEMA = 1  # the stored file's version; a file of another version is reported, never guessed at
 BUCKET_NAMES: tuple[str, ...] = (*(name for name, _ in pe.BUCKETS), "Unrated")
@@ -57,6 +87,9 @@ FIGI_MALFORMED = "figi_malformed"  # not 12 capital letters and digits: no FIGI
 RATING_UNREAD = "rating_unread"  # a rating on neither agency's scale: bucket Unrated
 BUCKET_DIFFERS = "rating_bucket_differs"  # the file's own bucket is not the rating's bucket
 MARKET_VALUE_AT_MID = "market_value_at_mid"  # no market value column: par x mid price / 100
+# Followed by `:` and the field's name, as `ERROR_MARKER` and `UNREADABLE` are.
+AMBIGUOUS_DATE = "date_ambiguous"  # a numeric date that reads day or month first: missing
+NO_VALUE = "formula_without_value"  # a formula cell with no value stored with it: missing
 
 # A position's fields that a file's column can supply, in the order they are reported.
 FIELDS: tuple[str, ...] = (
@@ -85,7 +118,9 @@ class NotStored(StoreError):
 @dataclass(frozen=True)
 class Reference:
     """What a portfolio is, before any file is read. `asset_type` is what its holdings are when
-    the file does not say; `ticker` and `url` are a fund's (`url` its daily holdings workbook)."""
+    the file does not say; `ticker` and `url` are a fund's (`url` its daily holdings workbook).
+    `date_order` is how its files write a numeric date (`03/04/2026`), None when that is not
+    known: then a date that reads either way round is not read."""
 
     key: str
     name: str
@@ -93,17 +128,22 @@ class Reference:
     asset_type: AssetType | None = None
     ticker: str | None = None
     url: str | None = None
+    date_order: DateOrder | None = None
 
 
 _FUND_FILES = "https://www.ssga.com/library-content/products/fund-data/etfs/us/"
 CLO = Reference("clo", "CLO portfolio", "clo", "loan")
+# The two funds' files are the US-English ones (`holdings-daily-us-en-...`), so a numeric date in
+# them is taken as month first. That is an ASSUMPTION: no real file was read to confirm it.
 LVLN = Reference(
     *("lvln", "Loan index fund (LVLN)", "loan_index", "loan", "LVLN"),
     _FUND_FILES + "holdings-daily-us-en-lvln.xlsx",
+    "month_first",
 )
 JNK = Reference(
     *("jnk", "High-yield bond fund (JNK)", "hy_index", "bond", "JNK"),
     _FUND_FILES + "holdings-daily-us-en-jnk.xlsx",
+    "month_first",
 )
 STANDING: Mapping[str, Reference] = {item.key: item for item in (CLO, LVLN, JNK)}
 
@@ -227,9 +267,10 @@ class Portfolio:
 Grid = Sequence[tuple[int, list[pe.Cell]]]
 
 # Each field's header words, most telling field first: a header cell is given to the first field
-# one of whose phrases it holds as whole words, so `Rating Bucket` is never the rating and
-# `Mid Price (per 100 par)` never the par. These are guesses at how a file may name a column, not
-# a known layout.
+# one of whose phrases it is whole, else holds as whole words, so `Rating Bucket` is never the
+# rating and `Mid Price (per 100 par)` never the par. These are guesses at how a file may name a
+# column, not a known layout. The yield is a yield to maturity or to worst only: a bare `Yield`
+# could be either or a current yield, and is not read.
 _FIELD_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("figi", ("figi",)),
     ("cusip", ("cusip",)),
@@ -249,7 +290,7 @@ _FIELD_WORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("coupon", ("coupon",)),
     ("discount_margin", ("discount margin", "dm")),
     ("margin", ("margin", "spread")),
-    ("ytm", ("yield", "ytm")),
+    ("ytm", ("yield to maturity", "yield to worst", "ytm", "ytw")),
     ("maturity", ("maturity",)),
     ("sector", ("sector", "industry")),
     ("lien", ("lien",)),
@@ -267,6 +308,15 @@ _EXPORT_FIELDS: Mapping[str, str] = {
     "loan": "instrument",
     "ratings": "rating",
     "dm": "discount_margin",
+}
+# A header holding one of these words is never the field's column: a sub-sector is not the
+# sector, a spread duration not the spread, a yield to maturity not the maturity, a price per 100
+# par not the par.
+_NOT_FIELD: Mapping[str, frozenset[str]] = {
+    "sector": frozenset({"sub"}),
+    "margin": frozenset({"duration"}),
+    "maturity": frozenset({"yield"}),
+    "par": frozenset({"price"}),
 }
 _NAMES = ("borrower", "instrument")
 _AMOUNTS = ("weight", "par", "market_value")
@@ -287,6 +337,21 @@ def _holds(words: Sequence[str], phrase: Sequence[str]) -> bool:
     return any(tuple(words[i : i + size]) == tuple(phrase) for i in range(len(words) - size + 1))
 
 
+def _field_column(
+    cells: Sequence[tuple[str, ...]], name: str, phrases: Sequence[str], used: set[int]
+) -> int | None:
+    """The first unused cell that is one of `phrases` whole, else the first holding one."""
+    refused = _NOT_FIELD.get(name, frozenset())
+    free = [i for i, words in enumerate(cells) if i not in used and not refused & set(words)]
+    for whole in (True, False):
+        for phrase in phrases:
+            wanted = tuple(phrase.split())
+            for index in free:
+                if cells[index] == wanted or (not whole and _holds(cells[index], wanted)):
+                    return index
+    return None
+
+
 def _map_columns(header: Sequence[str], known: Mapping[str, int]) -> dict[str, int]:
     """The column of each field `header` names, beside the columns already `known`."""
     cells = [_words(text) for text in header]
@@ -294,17 +359,7 @@ def _map_columns(header: Sequence[str], known: Mapping[str, int]) -> dict[str, i
     for name, phrases in _FIELD_WORDS:
         if name in found:
             continue
-        index = next(
-            (
-                i
-                for phrase in phrases
-                for i, words in enumerate(cells)
-                if i not in used
-                and _holds(words, phrase.split())
-                and not (name == "sector" and "sub" in words)
-            ),
-            None,
-        )
+        index = _field_column(cells, name, phrases, used)
         if index is not None:
             found[name] = index
             used.add(index)
@@ -316,8 +371,9 @@ def _map_columns(header: Sequence[str], known: Mapping[str, int]) -> dict[str, i
 @dataclass(frozen=True)
 class _Table:
     """A holdings table: the file's rows, its header row's number and each field's column.
-    `whole`: every filled row under the header is a holding (the export's rule); otherwise the
-    table ends at the first row that is not one."""
+    `whole`: every filled row under the header is a holding (the export's rule) unless it is a
+    total or a note; otherwise see `_positions`. `far`: cells of the sheet left out for being far
+    to the right of the rest of their row."""
 
     file: str
     rows: Grid
@@ -325,6 +381,7 @@ class _Table:
     columns: Mapping[str, int]
     header: Sequence[str]
     whole: bool = False
+    far: int = 0
 
     @property
     def priced(self) -> bool:
@@ -338,12 +395,23 @@ class _Table:
         return None if found is None else found[1]
 
 
+def _holdings_parts(files: Mapping[str, bytes]) -> list[pe.Part]:
+    """The export's holdings parts among `files`, with a holdings CSV that is not one because no
+    mandate or constraints file is beside it: a pack of holdings alone is still a pack."""
+    known = pe.parts(files)
+    named = {part.file for part in known}
+    found = [part for part in known if part.role == "holdings"]
+    for name in sorted(set(files) - named):
+        if name.lower().endswith(".csv") and pe.is_holdings(rows := pe.csv_rows(files[name])):
+            numbered = tuple((number, tuple(row)) for number, row in enumerate(rows, 1))
+            found.append(pe.Part(name, None, "holdings", numbered))
+    return sorted(found, key=lambda part: part.file)  # stable: a workbook's sheets keep order
+
+
 def _export_table(files: Mapping[str, bytes]) -> _Table | None:
     """The holdings of a pack in the export's shape: the first holdings part whose header has a
     borrower and a par column."""
-    for part in pe.parts(files):
-        if part.role != "holdings":
-            continue
+    for part in _holdings_parts(files):
         rows: Grid = (
             [(number, [pe.Cell(text) for text in row]) for number, row in part.rows]
             if part.sheet is None
@@ -355,7 +423,8 @@ def _export_table(files: Mapping[str, bytes]) -> _Table | None:
         start, columns = found
         header = [cell.text for cell in dict(rows)[start]]
         known = {_EXPORT_FIELDS[k]: i for k, i in columns.items() if k in _EXPORT_FIELDS}
-        return _Table(part.file, rows, start, _map_columns(header, known), header, whole=True)
+        far = 0 if part.sheet is None else pe.far_cells(files[part.file], part.sheet)
+        return _Table(part.file, rows, start, _map_columns(header, known), header, True, far)
     return None
 
 
@@ -390,7 +459,7 @@ def _workbook_table(file: str, raw: bytes) -> _Table:
     for sheet in sheets:
         table = _header_table(file, pe.sheet_rows(raw, sheet) or [])
         if table is not None:
-            return table
+            return replace(table, far=pe.far_cells(raw, sheet))
     raise PortfolioFileError(_NO_HEADER.format(file))
 
 
@@ -418,12 +487,18 @@ def _any_table(files: Mapping[str, bytes]) -> _Table:
 # --- Cells ---------------------------------------------------------------------------------------
 
 
-def _number(cell: pe.Cell) -> Decimal | None:
+# A plain number: digits, comma thousands separators, a decimal part, a leading minus.
+_PLAIN = re.compile(r"^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$")
+_PERCENT_FIELDS = frozenset({"weight", "coupon", "ytm"})  # may end in a percent sign
+
+
+def _number(cell: pe.Cell, *, percent: bool = False) -> Decimal | None:
     """A cell's figure: a workbook number as stored (a percent cell as the percentage shown), or
-    text `portfolio_export.quantity` reads exactly. None when it is neither."""
+    text that is a plain number (`_PLAIN`; with `percent`, it may end in %). None otherwise:
+    `<5`, `5 bps`, `1.5m`, `1,000 EUR` and `(1,000)` are not figures."""
     if not cell.numeric:
-        found = pe.quantity(cell.text)
-        return None if found is None or found.approximate else found.value
+        text = cell.text.removesuffix("%").rstrip() if percent else cell.text
+        return Decimal(text.replace(",", "")) if _PLAIN.match(text) else None
     try:
         value = Decimal(cell.text)
     except InvalidOperation:
@@ -433,45 +508,102 @@ def _number(cell: pe.Cell) -> Decimal | None:
     return pe.EXACT.multiply(value, pe.HUNDRED) if cell.percent_format else value
 
 
+class _Dated(NamedTuple):
+    """A cell read as a date. `both`: a numeric date that reads either way round, day first and
+    month first (then `when` is None)."""
+
+    when: date | None
+    both: tuple[date, date] | None = None
+
+
+_NAMED_DATES = (
+    *("%Y-%m-%d", "%d-%b-%Y", "%d %b %Y", "%b %d, %Y"),
+    *("%d-%B-%Y", "%d %B %Y", "%B %d, %Y"),
+)
+_NUMERIC_DATE = re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})$")
+
+
+def _day(year: int, month: int, day: int) -> date | None:
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def _dated(cell: pe.Cell, order: DateOrder | None) -> _Dated:
+    """A date cell (by its workbook's epoch), or a text date in one of `_NAMED_DATES` or numeric
+    in `order`; with no order, a numeric date valid either way round and different is `both`."""
+    if cell.date_format:
+        return _Dated(pe.read_date(cell))
+    text = " ".join(cell.text.split())
+    for pattern in _NAMED_DATES:
+        try:
+            return _Dated(datetime.strptime(text, pattern).date())
+        except ValueError:
+            continue
+    found = _NUMERIC_DATE.match(text)
+    if found is None:
+        return _Dated(None)
+    first, second, year = (int(part) for part in found.groups())
+    day_first, month_first = _day(year, second, first), _day(year, first, second)
+    if order is not None:
+        return _Dated(month_first if order == "month_first" else day_first)
+    if day_first is not None and month_first is not None and day_first != month_first:
+        return _Dated(None, (day_first, month_first))
+    return _Dated(day_first or month_first)
+
+
 _BLANK = pe.NOT_APPLICABLE | {""}  # an empty cell, or one that says not applicable (a dash, n/a)
 
 
 class _Cells:
-    """One row's cells by field. A blank or not-applicable cell is None; an error marker or a
-    cell that cannot be read is None and adds a flag."""
+    """One row's cells by field. A blank or not-applicable cell is None; an error marker, a
+    formula with no stored value or a cell that cannot be read is None and adds a flag."""
 
-    def __init__(self, cells: Sequence[pe.Cell], columns: Mapping[str, int]) -> None:
+    def __init__(
+        self, cells: Sequence[pe.Cell], columns: Mapping[str, int], order: DateOrder | None
+    ) -> None:
         self._cells = cells
         self._columns = columns
+        self._order = order
         self.flags: list[str] = []
 
     def _cell(self, name: str) -> pe.Cell | None:
         index = self._columns.get(name)
         if index is None or index >= len(self._cells):
             return None
-        if pe.folded(self._cells[index].text) in _BLANK:
+        cell = self._cells[index]
+        if cell.formula and not cell.text:
+            self.flags.append(f"{NO_VALUE}:{name}")
             return None
-        if pe.TOKEN.match(self._cells[index].text):
+        if pe.folded(cell.text) in _BLANK:
+            return None
+        if pe.TOKEN.match(cell.text):
             self.flags.append(f"{ERROR_MARKER}:{name}")
             return None
-        return self._cells[index]
-
-    def _read[T](self, name: str, read: Callable[[pe.Cell], T | None]) -> T | None:
-        cell = self._cell(name)
-        value = None if cell is None else read(cell)
-        if cell is not None and value is None:
-            self.flags.append(f"{UNREADABLE}:{name}")
-        return value
+        return cell
 
     def text(self, name: str) -> str | None:
         cell = self._cell(name)
         return None if cell is None else cell.text
 
     def number(self, name: str) -> Decimal | None:
-        return self._read(name, _number)
+        cell = self._cell(name)
+        value = None if cell is None else _number(cell, percent=name in _PERCENT_FIELDS)
+        if cell is not None and value is None:
+            self.flags.append(f"{UNREADABLE}:{name}")
+        return value
 
     def when(self, name: str) -> date | None:
-        return self._read(name, pe.read_date)
+        cell = self._cell(name)
+        if cell is None:
+            return None
+        found = _dated(cell, self._order)
+        if found.both is not None:
+            self.flags.append(f"{AMBIGUOUS_DATE}:{name}")
+        elif found.when is None:
+            self.flags.append(f"{UNREADABLE}:{name}")
+        return found.when
 
 
 def _figi(read: _Cells) -> str | None:
@@ -542,12 +674,10 @@ def _priced(read: _Cells, table: _Table) -> _Priced:
     return _Priced(par, value, bid, ask, mid)
 
 
-def _position(
-    number: int, cells: Sequence[pe.Cell], table: _Table, asset_type: AssetType | None
-) -> Position:
+def _position(number: int, cells: Sequence[pe.Cell], table: _Table, of: Reference) -> Position:
     """The row as a position. Flags come in the order the cells are read: identifiers, rating,
     par, market value and prices, then weight, margins, coupon, yield and maturity."""
-    read = _Cells(cells, table.columns)
+    read = _Cells(cells, table.columns, of.date_order)
     borrower, instrument, figi = read.text("borrower"), read.text("instrument"), _figi(read)
     ticker, cusip, isin = read.text("ticker"), read.text("cusip"), read.text("isin")
     sedol, identifier, sector = read.text("sedol"), read.text("identifier"), read.text("sector")
@@ -565,7 +695,7 @@ def _position(
         isin=isin,
         sedol=sedol,
         identifier=identifier,
-        asset_type=asset_type,
+        asset_type=of.asset_type,
         sector=sector,
         rating=rating,
         rating_bucket=bucket,
@@ -598,23 +728,81 @@ def _is_holding(cells: Sequence[pe.Cell], table: _Table) -> bool:
     return bool(filled & names) and bool(filled - names)
 
 
-def _positions(
-    table: _Table, asset_type: AssetType | None
-) -> tuple[tuple[Position, ...], list[int]]:
-    """The table's positions, and the filled rows at and after its end that are not read."""
+_TOTALS = frozenset({"total", "totals", "subtotal", "sub-total", "sub total", "grand total", "sum"})
+_NOTES = ("source:", "note:", "notes:", "disclaimer")
+_LETTERS = re.compile(r"[^\W\d_]+")
+_SENTENCE_WORDS = 4  # a sentence has at least this many words
+
+
+def _is_note(text: str) -> bool:
+    """A total, subtotal or sum (the whole cell), a source, note or disclaimer (its start), or a
+    sentence: four words or more ending in `.`, `!` or `?`, more than half of them lower case
+    (a name of that length is capitalised: `Bank of America Corp.`)."""
+    said = pe.folded(text)
+    if said.rstrip(":").strip() in _TOTALS or said.startswith(_NOTES):
+        return True
+    words = _LETTERS.findall(text)
+    lower = sum(1 for word in words if word[0].islower())
+    return (
+        len(words) >= _SENTENCE_WORDS and said.endswith((".", "!", "?")) and 2 * lower > len(words)
+    )
+
+
+class _Rows(NamedTuple):
+    """A table's positions and the rows with text it does not read: total, note and disclaimer
+    rows; other rows between the header and the last position; rows below the table."""
+
+    positions: tuple[Position, ...]
+    notes: list[int]
+    inside: list[int]
+    below: list[int]
+
+
+def _kind(cells: Sequence[pe.Cell], table: _Table) -> Literal["position", "note", "other"]:
+    """A position, a total or note row (`_is_note` of its name, or of its first filled cell
+    when it has no name: a ticker `SUM` beside a name is no sum), or another row."""
+    if not _is_holding(cells, table):
+        return "other"
+    names = [table.columns[name] for name in _NAMES if name in table.columns]
+    label = next((cells[i].text for i in names if i < len(cells) and cells[i].text), None)
+    if label is None:
+        label = next((cell.text for cell in cells if cell.text), "")
+    return "note" if _is_note(label) else "position"
+
+
+def _positions(table: _Table, of: Reference) -> _Rows:
+    """The table's positions (see the module's note): rows under the header until two or more
+    rows with no text after a position (under `table.whole`, every row), less total, note and
+    other rows."""
+    filled = [
+        (n, cells) for n, cells in table.rows if n > table.start and any(c.text for c in cells)
+    ]
+    if len(filled) > MAX_ROWS:
+        raise PortfolioFileError(
+            f"{table.file}: the holdings table has more than {MAX_ROWS:,} rows; a reference "
+            "portfolio that large is not read."
+        )
     found: list[Position] = []
-    for number, cells in table.rows:
-        if number <= table.start:
+    notes: list[int] = []
+    inside: list[int] = []
+    waiting: list[int] = []  # other rows since the last position: inside if one follows
+    below: list[int] = []
+    last = table.start
+    for number, cells in filled:
+        if below or (found and not table.whole and number - last > 2):
+            below.append(number)
             continue
-        if _is_holding(cells, table):
-            found.append(_position(number, cells, table, asset_type))
-        elif not table.whole:
-            break
-    if table.whole:
-        return tuple(found), []
-    last = found[-1].row if found else table.start
-    left = [n for n, cells in table.rows if n > last and any(cell.text for cell in cells)]
-    return tuple(found), left
+        last = number
+        kind = _kind(cells, table)
+        if kind == "position":
+            found.append(_position(number, cells, table, of))
+            inside += waiting
+            waiting = []
+        elif kind == "note":
+            notes.append(number)
+        else:
+            waiting.append(number)
+    return _Rows(tuple(found), notes, inside, waiting + below)
 
 
 # --- What the file says about itself -------------------------------------------------------------
@@ -635,7 +823,44 @@ _AFTER_AS_OF = re.compile(r"as\s+of\b[\s:]*(.+)$", re.IGNORECASE)
 _AFTER_COLON = re.compile(r":\s*(.+)$")
 
 
-def _stated_date(rows: Grid) -> date | None:
+_YEARS = (2000, 2100)  # an as-of date's year is within these, or it is not read
+_ECHO = 40  # characters of a cell's text a finding repeats
+_MONTHS = (
+    *("January", "February", "March", "April", "May", "June", "July"),
+    *("August", "September", "October", "November", "December"),
+)
+
+
+def long_date(when: date) -> str:
+    """A date as a reader writes it: `24 November 2026`."""
+    return f"{when.day} {_MONTHS[when.month - 1]} {when.year}"
+
+
+_AsOf = tuple[date | None, str | None]  # the date, or the finding saying why none is read
+
+
+def _as_of_in(cell: pe.Cell, order: DateOrder | None) -> _AsOf | None:
+    """The as-of date `cell` states, or why it is not read; None when the cell is no date."""
+    found = _dated(cell, order)
+    shown = " ".join(cell.text.split())[:_ECHO]
+    if found.both is not None:
+        day_first, month_first = (long_date(when) for when in found.both)
+        return None, (
+            f"The as-of date {shown} reads as {day_first} (day first) or {month_first} (month "
+            "first), and the file does not say which: no as-of date is read."
+        )
+    if found.when is None:
+        return None
+    if not _YEARS[0] <= found.when.year <= _YEARS[1]:
+        shown = long_date(found.when) if cell.date_format else shown
+        return None, (
+            f"The as-of date {shown} is outside the years {_YEARS[0]} to {_YEARS[1]}: no as-of "
+            "date is read."
+        )
+    return found.when, None
+
+
+def _stated_date(rows: Grid, order: DateOrder | None) -> _AsOf:
     """The as-of date the rows above the header state: in a cell saying `as of`, or beside one;
     failing that, beside a cell naming a date (but not an inception date)."""
     labels: tuple[Callable[[tuple[str, ...]], bool], ...] = (
@@ -646,9 +871,23 @@ def _stated_date(rows: Grid) -> date | None:
         for text, beside in _labelled(rows, wanted):
             inline = _AFTER_AS_OF.search(text) or _AFTER_COLON.search(text)
             for cell in (pe.Cell(inline[1].strip()) if inline else None, beside):
-                if cell is not None and (when := pe.read_date(cell)) is not None:
-                    return when
-    return None
+                if cell is not None and (found := _as_of_in(cell, order)) is not None:
+                    return found
+    return None, None
+
+
+_MANDATE_DATES = ("as of", "as_of", "report date", "valuation date", "reporting date")
+
+
+def _mandate_date(export: pe.Export, order: DateOrder | None) -> _AsOf:
+    """The as-of date of the mandate's first row whose field names one (`As of Date`)."""
+    for _, row in export.mandate[1:]:
+        field, value = (row[i] if i < len(row) else "" for i in (1, 2))
+        if any(word in pe.folded(field) for word in _MANDATE_DATES):
+            found = _as_of_in(pe.Cell(value), order)
+            if found is not None:
+                return found
+    return None, None
 
 
 def _stated_text(rows: Grid, *phrases: tuple[str, ...]) -> str | None:
@@ -713,8 +952,15 @@ _FLAG_WORDS: tuple[tuple[str, str], ...] = (
     (RATING_UNREAD, "A rating on neither Moody's nor S&P's scale, read as unrated"),
     (BUCKET_DIFFERS, "The file's own rating bucket differs from the bucket its rating gives"),
     (MARKET_VALUE_AT_MID, "Market value is not stated, taken as par at the mid price"),
+    (AMBIGUOUS_DATE, "A date that reads two ways (day or month first), read as missing"),
+    (NO_VALUE, "A formula cell with no stored value, read as missing"),
 )
 _ABOUT_100 = (Decimal(90), Decimal(110))
+_ABOUT_ONE = (Decimal("0.9"), Decimal("1.1"))  # stated weights adding to this are fractions
+
+
+def _fractions(total: Decimal) -> bool:
+    return _ABOUT_ONE[0] <= total <= _ABOUT_ONE[1]
 
 
 def _flag_findings(positions: Sequence[Position]) -> list[str]:
@@ -734,7 +980,12 @@ def _figure_findings(positions: Sequence[Position]) -> list[str]:
     out: list[str] = []
     weights = [position.weight for position in positions if position.weight is not None]
     total = sum(weights, Decimal(0))
-    if weights and not _ABOUT_100[0] <= total <= _ABOUT_100[1]:
+    if weights and _fractions(total):
+        out.append(
+            f"The stated weights add to {pe.figure(total)}, as fractions of one would, not to "
+            "about 100%: they are not used as weights."
+        )
+    elif weights and not _ABOUT_100[0] <= total <= _ABOUT_100[1]:
         out.append(f"The stated weights add to {pe.figure(total)}%, not about 100%.")
     currencies = sorted(
         {p.market_value_currency or "not stated" for p in positions if p.market_value is not None}
@@ -747,15 +998,30 @@ def _figure_findings(positions: Sequence[Position]) -> list[str]:
     return out
 
 
-def _table_findings(table: _Table, left: Sequence[int]) -> list[str]:
+def _table_findings(table: _Table, read: _Rows) -> list[str]:
     out: list[str] = []
     par = table.columns.get("par")
     if par is not None and not _PAR_WORDS & set(_words(table.header[par])):
         out.append(f"Par is read from the column '{table.header[par]}'.")
-    if left:
+    if read.notes:
+        out.append(
+            "Total, subtotal, note and disclaimer rows, not read as positions: "
+            f"{pe.count(len(read.notes), 'row')} ({pe.rows_named(read.notes)})."
+        )
+    if read.inside:
+        out.append(
+            "Rows inside the holdings table that are not positions (such as section headings), "
+            f"not read: {pe.count(len(read.inside), 'row')} ({pe.rows_named(read.inside)})."
+        )
+    if read.below:
         out.append(
             "Below the holdings table and not read as positions: "
-            f"{pe.count(len(left), 'row')} with text ({pe.rows_named(left)})."
+            f"{pe.count(len(read.below), 'row')} with text ({pe.rows_named(read.below)})."
+        )
+    if table.far:
+        out.append(
+            f"Cells more than {pe.FAR_COLUMNS} empty columns to the right of the cell before "
+            f"them, not read: {pe.count(table.far, 'cell')}."
         )
     return out
 
@@ -769,47 +1035,53 @@ def _utc(at: datetime) -> datetime:
     return at.astimezone(UTC)
 
 
+def _stated_findings(
+    reference: Reference, export: pe.Export, as_of: _AsOf, ticker: str | None
+) -> list[str]:
+    """What the files say, or fail to say, about the portfolio: its date, limits, mandate and
+    fund."""
+    when, why = as_of
+    out = [] if when is not None else [why or "The files state no as-of date that could be read."]
+    if reference.kind in ("clo", "custom") and not export.constraints:
+        out.append("No constraints file was supplied: the portfolio has no limits.")
+    if reference.kind in ("clo", "custom") and not export.mandate:
+        out.append("No mandate file was supplied.")
+    if reference.ticker and ticker and ticker.upper() != reference.ticker.upper():
+        out.append(f"The file names the fund ticker {ticker}; {reference.ticker} was expected.")
+    return out
+
+
 def _portfolio(
     reference: Reference, files: Mapping[str, bytes], table: _Table, stored_at: datetime
 ) -> Portfolio:
-    """The portfolio whose holdings are `table`, with the limits and mandate among `files`."""
-    # An export's holdings workbook may hold the constraints and the mandate as sheets.
-    beside = {name: raw for name, raw in files.items() if table.whole or name != table.file}
-    export = pe.read_export(beside)
-    positions, left = _positions(table, reference.asset_type)
-    if not positions:
+    """The portfolio whose holdings are `table`, with the limits and mandate among `files` (as
+    files of their own or as sheets of the holdings workbook)."""
+    export = pe.read_export(files)
+    read = _positions(table, reference)
+    if not read.positions:
         raise PortfolioFileError(f"{table.file}: the holdings table has no rows.")
     above = [(number, cells) for number, cells in table.rows if number < table.start]
-    dated = pe.mandate_findings(export, {}, pe.Findings()) if export.mandate else []
-    as_of = dated[0][1] if dated else _stated_date(above)
+    as_of = _mandate_date(export, reference.date_order)
+    if as_of == (None, None):
+        as_of = _stated_date(above, reference.date_order)
     ticker = _stated_text(above, ("ticker",), ("symbol",))
     used = {table.file} | {
-        label.split(" [")[0]
-        for label, role in export.roles.items()
-        if role in ("mandate", "constraints")
+        part.file for part in pe.parts(files) if part.role in ("mandate", "constraints")
     }
-    findings = [] if as_of is not None else ["The files state no as-of date that could be read."]
-    if reference.kind in ("clo", "custom") and not export.constraints:
-        findings.append("No constraints file was supplied: the portfolio has no limits.")
-    if reference.kind in ("clo", "custom") and not export.mandate:
-        findings.append("No mandate file was supplied.")
-    if reference.ticker and ticker and ticker.upper() != reference.ticker.upper():
-        findings.append(
-            f"The file names the fund ticker {ticker}; {reference.ticker} was expected."
-        )
+    findings = _stated_findings(reference, export, as_of, ticker)
     if unused := sorted(set(files) - used):
         findings.append(f"Not part of a reference portfolio and not read: {', '.join(unused)}.")
-    findings += _table_findings(table, left) + _figure_findings(positions)
+    findings += _table_findings(table, read) + _figure_findings(read.positions)
     return Portfolio(
         key=reference.key,
         name=reference.name,
         kind=reference.kind,
-        as_of=as_of,
+        as_of=as_of[0],
         stored_at=_utc(stored_at),
         sources=tuple(
             SourceFile(name, hashlib.sha256(files[name]).hexdigest()) for name in sorted(used)
         ),
-        positions=positions,
+        positions=read.positions,
         limits=_limits(export),
         mandate=_mandate(export),
         stated_name=_stated_text(above, ("fund", "name")),
@@ -818,8 +1090,39 @@ def _portfolio(
             (name, table.header[table.columns[name]]) for name in FIELDS if name in table.columns
         ),
         columns_missing=tuple(name for name in FIELDS if name not in table.columns),
-        findings=(*findings, *_flag_findings(positions)),
+        findings=(*findings, *_flag_findings(read.positions)),
     )
+
+
+_DAMAGED = (
+    "The files could not be read: one of them is damaged or is not a holdings file this reader "
+    "knows."
+)
+
+
+@contextmanager
+def _reading(files: Mapping[str, bytes]) -> Iterator[None]:
+    """One reading of `files` (`portfolio_export.reading`, a formula cell as its stored value):
+    each parsed once, and whatever fails in reading their content a `PortfolioFileError`."""
+    with pe.reading(cached_formulas=True):
+        try:
+            for name in sorted(files):
+                if name.lower().endswith(".csv"):
+                    _csv_readable(name, files[name])
+            yield
+        except PortfolioFileError:
+            raise
+        except Exception as error:  # an untrusted file must not end the caller
+            raise PortfolioFileError(_DAMAGED) from error
+
+
+def _csv_readable(name: str, raw: bytes) -> None:
+    try:
+        pe.csv_rows(raw)
+    except csv.Error as error:
+        raise PortfolioFileError(
+            f"{name} cannot be read as a CSV file: a cell is too long or its quotes do not close."
+        ) from error
 
 
 def read_clo_pack(
@@ -828,14 +1131,15 @@ def read_clo_pack(
     """A CLO pack (file name -> bytes): the holdings as a CSV file or a workbook sheet in the
     export's shape (a borrower and a par column), with the constraints and the mandate when they
     are among the files. The as-of date is the mandate's. Raises `PortfolioFileError` when no
-    file is such a holdings table or the table has no rows."""
+    file is such a holdings table, the table has no rows or a file cannot be read."""
     _utc(stored_at)
-    table = _export_table(files)
-    if table is None:
-        raise PortfolioFileError(
-            "None of the files is a holdings table with a borrower and a par column."
-        )
-    return _portfolio(reference, files, table, stored_at)
+    with _reading(files):
+        table = _export_table(files)
+        if table is None:
+            raise PortfolioFileError(
+                "None of the files is a holdings table with a borrower and a par column."
+            )
+        return _portfolio(reference, files, table, stored_at)
 
 
 def read_ssga_holdings(
@@ -846,7 +1150,9 @@ def read_ssga_holdings(
     above the header. Raises `PortfolioFileError` when the bytes are not a workbook, no row names
     a holding with a weight, par or market value, or the table has no rows."""
     _utc(stored_at)
-    return _portfolio(reference, {file_name: raw}, _workbook_table(file_name, raw), stored_at)
+    files = {file_name: raw}
+    with _reading(files):
+        return _portfolio(reference, files, _workbook_table(file_name, raw), stored_at)
 
 
 def read_portfolio_files(
@@ -857,15 +1163,17 @@ def read_portfolio_files(
     stored_at: datetime,
 ) -> Portfolio:
     """Whatever an analyst supplies (file name -> bytes): a pack in the export's shape, or any
-    workbook or CSV file with a holdings header row, with constraints and mandate files when
-    supplied. Give `name` for a run's own portfolio (`custom(name)`) or the `reference` the files
-    are for. Raises `PortfolioFileError` when no file holds a holdings table."""
+    workbook or CSV file with a holdings header row, with constraints and mandate files (or
+    sheets) when supplied. Give `name` for a run's own portfolio (`custom(name)`) or the
+    `reference` the files are for. Raises `PortfolioFileError` when no file holds a holdings
+    table or a file cannot be read."""
     if (name is None) == (reference is None):
         raise ValueError("give a name or a reference, one of the two")
     _utc(stored_at)
     chosen = reference if reference is not None else custom(name or "")
-    table = _export_table(files) or _any_table(files)
-    return _portfolio(chosen, files, table, stored_at)
+    with _reading(files):
+        table = _export_table(files) or _any_table(files)
+        return _portfolio(chosen, files, table, stored_at)
 
 
 # --- The store -----------------------------------------------------------------------------------
@@ -886,7 +1194,8 @@ class Failure:
 class Summary:
     """One portfolio on offer. `as_of`, `stored_at` and `positions` are the current good set's
     (None when none is stored); `failure` is the last refresh that failed since that set was
-    stored; `error` says why a stored file cannot be read. `scope` is the store it is in."""
+    stored; `error` says why a stored file cannot be read: the set's, the failure record's or
+    both (a damaged failure record does not hide the set). `scope` is the store it is in."""
 
     key: str
     name: str
@@ -1050,23 +1359,32 @@ class Store:
 
 
 def _summary(store: Store, key: str, scope: Scope) -> Summary:
+    """The key's listing: its stored set, its recorded failure, and what of either cannot be read
+    (a damaged failure record does not hide a good set)."""
     known = STANDING.get(key) if scope == "standing" else None
     listed = Summary(key, known.name if known else key, known.kind if known else None, scope)
+    errors: list[str] = []
+    found: Portfolio | None = None
     try:
-        listed = replace(listed, failure=store.failure(key))
         found = store.load(key)
     except NotStored:
-        return listed
+        pass
     except StoreError as error:
-        return replace(listed, error=str(error))
-    return replace(
-        listed,
-        name=found.name,
-        kind=found.kind,
-        as_of=found.as_of,
-        stored_at=found.stored_at,
-        positions=len(found.positions),
-    )
+        errors.append(str(error))
+    try:
+        listed = replace(listed, failure=store.failure(key))
+    except StoreError as error:
+        errors.append(str(error))
+    if found is not None:
+        listed = replace(
+            listed,
+            name=found.name,
+            kind=found.kind,
+            as_of=found.as_of,
+            stored_at=found.stored_at,
+            positions=len(found.positions),
+        )
+    return replace(listed, error=" ".join(errors) or None)
 
 
 # --- Questions -----------------------------------------------------------------------------------
@@ -1130,15 +1448,20 @@ class Weight:
     """An issuer's weight in a portfolio, in percent. `basis`: `stated_weight`, the sum of the
     weights the file states; `market_value`, the issuer's market value over the market value of
     every priced position (to 28 significant digits); None when the file gives neither, or its
-    market values are in more than one currency. `weight` is None when there is no basis, or
-    when positions matched and none has a figure on it; with a basis and no match it is 0.
-    `matched` counts the positions matched and `unweighted` those of them with no figure on the
-    basis, which are left out of the sum, never added as zero."""
+    market values are in more than one currency. Stated weights that add to about 1 are fractions
+    of one, not percentages: they are not used (nor scaled), and market value is the basis when
+    there is one. `weight` is None when there is no basis, or when positions matched and none has
+    a figure on it; with a basis and no match it is 0. `matched` counts the positions matched and
+    `unweighted` those of them with no figure on the basis, which are left out of the sum, never
+    added as zero. `matched_by` says how they matched: `name` (the whole name), else
+    `name_without_legal_form` (the same words once Inc, Co, LLC, The and the like are left out),
+    and `identifier`."""
 
     weight: Decimal | None
     basis: Basis | None
     matched: int
     unweighted: int = 0
+    matched_by: tuple[MatchedBy, ...] = ()
 
 
 _DIVISION = Context(prec=28)
@@ -1151,7 +1474,8 @@ def _name_key(name: str) -> str:
 
 def _basis(portfolio: Portfolio) -> tuple[Basis | None, Decimal]:
     """The basis weights can be given on, and for market value the priced total."""
-    if any(position.weight is not None for position in portfolio.positions):
+    weights = [p.weight for p in portfolio.positions if p.weight is not None]
+    if weights and not _fractions(sum(weights, Decimal(0))):
         return "stated_weight", Decimal(0)
     priced = [p for p in portfolio.positions if p.market_value is not None]
     total = sum((p.market_value for p in priced if p.market_value is not None), Decimal(0))
@@ -1160,35 +1484,51 @@ def _basis(portfolio: Portfolio) -> tuple[Basis | None, Decimal]:
     return None, Decimal(0)
 
 
+def _matches(
+    positions: Sequence[Position], borrower: str, identifier: str
+) -> tuple[list[Position], tuple[MatchedBy, ...]]:
+    """The positions matching the borrower's name (whole, else without legal forms; never a part
+    of a longer name) or carrying the identifier, in portfolio order, and how they matched."""
+    name, code = _name_key(borrower), identifier.strip().upper()
+    by_name = {i for i, p in enumerate(positions) if name and _name_key(p.borrower or "") == name}
+    how: list[MatchedBy] = ["name"] if by_name else []
+    if name and not by_name:
+        words = pe.name_words(borrower)
+        by_name = {
+            i for i, p in enumerate(positions) if p.borrower and pe.name_words(p.borrower) == words
+        }
+        how += ["name_without_legal_form"] if by_name else []
+    by_code = {
+        i
+        for i, p in enumerate(positions)
+        if code and code in {item.upper() for item in p.identifiers}
+    }
+    how += ["identifier"] if by_code else []
+    return [positions[i] for i in sorted(by_name | by_code)], tuple(how)
+
+
 def issuer_weight(
     portfolio: Portfolio, *, borrower: str | None = None, identifier: str | None = None
 ) -> Weight:
     """The weight of the positions whose borrower is `borrower` (the whole name, whatever its
-    case, spacing and punctuation; never part of a longer name) or that carry `identifier` (any
-    of FIGI, ticker, CUSIP, ISIN, SEDOL; case does not matter). With both, a position matching
-    either counts."""
-    name = _name_key(borrower or "")
-    code = (identifier or "").strip().upper()
-    if not name and not code:
+    case, spacing and punctuation, else the same name without its legal form; never part of a
+    longer name) or that carry `identifier` (any of FIGI, ticker, CUSIP, ISIN, SEDOL; case does
+    not matter). With both, a position matching either counts."""
+    if not _name_key(borrower or "") and not (identifier or "").strip():
         raise ValueError("give a borrower or an identifier to match")
-    matched = [
-        position
-        for position in portfolio.positions
-        if (name and _name_key(position.borrower or "") == name)
-        or (code and code in {item.upper() for item in position.identifiers})
-    ]
+    matched, how = _matches(portfolio.positions, borrower or "", identifier or "")
     basis, total = _basis(portfolio)
     if basis is None:
-        return Weight(None, None, len(matched))
+        return Weight(None, None, len(matched), matched_by=how)
     figures = [p.weight if basis == "stated_weight" else p.market_value for p in matched]
     given = [figure for figure in figures if figure is not None]
     missing = len(matched) - len(given)
     if matched and not given:
-        return Weight(None, basis, len(matched), missing)
+        return Weight(None, basis, len(matched), missing, how)
     added = sum(given, Decimal(0))
     if basis == "market_value":
         added = _DIVISION.divide(added * 100, total)
-    return Weight(added, basis, len(matched), missing)
+    return Weight(added, basis, len(matched), missing, how)
 
 
 def limits(portfolio: Portfolio) -> tuple[Limit, ...]:
