@@ -2,7 +2,8 @@
 
     uv run python tools/instruction_trial.py offline --bundle BUNDLE --module CP-3 --out SCRATCH
     uv run python tools/instruction_trial.py live --bundle BUNDLE --module CP-3 --arm B \\
-        --out RUNS/cp3-B-1 --ruling docs/rulings/<file>.md --config copilot-sol-medium --cap 10
+        --out RUNS/cp3-B-1 --ruling docs/rulings/<file>.md --config copilot-opus-high \\
+        --cap 10 --trial-cap 50
 
 A temporary adaptation for docs/sweeps/2026-11-25-instruction-length/REPORT.md, not a launcher.
 BUNDLE is a retained run copy: `context.json`, `inputs/` (the issuer files) and `handoffs/<M>.md`.
@@ -17,6 +18,8 @@ The acceptance check is the launcher's own, built from the canonical method, for
 `offline` calls no provider: it measures each arm, lists the ids the arm no longer names, and
 runs the real executor against a stand-in that submits the bundle's own handoff for the module.
 `live` makes paid calls for one arm, once, into a new folder; it needs a ruling naming the config.
+Keep every run of one trial in the same parent folder: `--trial-cap` is checked against what the
+runs there have settled, and a run is refused once that total is reached.
 """
 
 import argparse
@@ -214,7 +217,7 @@ def _executor(
         cap_usd=Decimal(args.cap),
         check=cpos_launch.checker(case.prepared.layout),
         max_turns=args.max_turns,
-        max_output_tokens=cpos_launch.MAX_OUTPUT_TOKENS,
+        max_output_tokens=cpos_launch.output_limit(adapter.config_id),
         events=folder,
     )
 
@@ -301,10 +304,27 @@ def run_summary(folder: Path) -> dict[str, Any]:
     }
 
 
+def trial_spent(folder: Path) -> Decimal:
+    """What the trial's runs beside ``folder`` have settled so far (their `live/calls.jsonl`).
+    A call whose charge is unknown stops the trial: the total can no longer be known."""
+    spent = Decimal(0)
+    for log in sorted(folder.parent.glob("*/live/calls.jsonl")):
+        for line in log.read_text().splitlines():
+            settled = json.loads(line)["settled_usd"]
+            if settled is None:
+                raise SystemExit(f"{log}: a call has no settled charge; the trial total is unknown")
+            spent += Decimal(settled)
+    return spent
+
+
 def live(args: argparse.Namespace) -> int:
     """One paid run of one arm. The ruling gate is the engine's own (`live_adapter_for`)."""
     if args.out.exists():
         raise SystemExit(f"{args.out} exists: each repeat needs its own new folder")
+    left = Decimal(args.trial_cap) - trial_spent(args.out)
+    if left <= 0:
+        raise SystemExit(f"the trial's runs have settled USD {args.trial_cap} or more: stopped")
+    args.cap = str(min(Decimal(args.cap), left))
     case = load_case(args.bundle, args.out / "case", args.config)
     text = arm_text(args.arm, args.module, case.instructions(args.module))
     task = case.task(args.module, text)
@@ -340,6 +360,9 @@ def main() -> int:
     modes.choices["live"].add_argument("--arm", choices=ARMS, required=True)
     modes.choices["live"].add_argument("--ruling", type=Path, required=True)
     modes.choices["live"].add_argument("--config", choices=tuple(CONFIGS), required=True)
+    modes.choices["live"].add_argument(
+        "--trial-cap", required=True, help="USD all runs in --out's parent folder may settle"
+    )
     args = parser.parse_args()
     return offline(args) if args.mode == "offline" else live(args)
 

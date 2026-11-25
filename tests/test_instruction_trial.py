@@ -1,6 +1,9 @@
 """tools/instruction_trial.py: how each arm's instruction text is made, on a literal text."""
 
+import argparse
+import json
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -67,3 +70,28 @@ def test_arm_c_without_a_text_is_refused(tmp_path, monkeypatch):
 def test_instructions_without_a_method_block_are_refused():
     with pytest.raises(SystemExit, match="no method block"):
         trial.arm_text("B", "CP-X", HEAD)
+
+
+def _run(folder, *charges):
+    (folder / "live").mkdir(parents=True)
+    lines = [json.dumps({"settled_usd": c}) for c in charges]
+    (folder / "live/calls.jsonl").write_text("\n".join(lines) + "\n")
+
+
+def test_the_trial_total_is_what_the_runs_beside_this_one_settled(tmp_path):
+    _run(tmp_path / "cp3-A", "0.50", "0.25")
+    _run(tmp_path / "cp3-B", "1.10")
+    assert trial.trial_spent(tmp_path / "cp3-C") == Decimal("1.85")
+
+
+def test_a_call_with_no_settled_charge_stops_the_trial(tmp_path):
+    _run(tmp_path / "cp3-A", "0.50", None)
+    with pytest.raises(SystemExit, match="no settled charge"):
+        trial.trial_spent(tmp_path / "cp3-B")
+
+
+def test_a_live_run_is_refused_once_the_trial_cap_is_settled(tmp_path):
+    _run(tmp_path / "cp3-A", "30", "20")
+    args = argparse.Namespace(out=tmp_path / "cp3-B", trial_cap="50", cap="10")
+    with pytest.raises(SystemExit, match="settled USD 50 or more"):
+        trial.live(args)
