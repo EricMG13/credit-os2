@@ -1,5 +1,22 @@
 # Methodology across the related projects
 
+**Recommendation methodology, 2026-11-25 (owner; `docs/rulings/2026-11-25-deliverables-and-recommendations.md`):**
+an owner-supplied method, not selected from Deploy V or a later project, so it has no source
+revision. The selected methods already hold related scorecards and views, which stay as they are:
+CP-2's T2.7 financial profile scorecard (not written in this transport), CP-3's anchored 1–5 issuer scorecard (T3.3) and CP-6's
+Overweight / Neutral / Underweight bias. How the new proposal relates to them is open.
+`docs/methodology/portfolio-recommendation.md` holds it: the owner's Risk Rubric (17 factors, five
+levels each, Probability of default dropped), an equal-weight Credit Score with a floor, valuation
+bands against a reference bucket's median, a 5×5 table and per-portfolio limit caps. CP-2 will
+write the factor scores; the roll-up, bands, table and caps are to be deterministic code. The
+proposed recommendation is the one ruled exception to "Delivery adds no analysis" and is labelled
+proposed until the analyst confirms; whether that exception's wording also covers the valuation
+score and limit caps, which no module writes, is open in the ruling. The add-back split behind
+House EBITDA is read from CP-1D, not re-derived. Scope: documentation only; CP-2's instruction is
+unchanged. The owner closed the two rubric gaps on 2026-11-25 ("fix"); the valuation band
+edges stay open in that document.
+Not verified: any of it in code or in a run; the rubric text against the owner's image.
+
 **Presentation selection, 2026-11-11 (owner; `docs/rulings/2026-11-11-reader-and-issuer-report.md`):**
 the reader layer of `docs/reuse/selected-methods/CANON_SHARED.md` (its reader-facing research
 layer and credit-research reading order, in `CP_AB_EXPORT_SPEC.md`) is selected for every module

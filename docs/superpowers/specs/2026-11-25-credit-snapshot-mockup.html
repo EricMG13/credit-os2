@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Credit Snapshot workbook mock-up</title>
+<style>
+  :root{--ink:#0f1b2d;--mute:#5b6b82;--line:#d9e0ea;--bg:#eef2f7;--card:#fff;--blue:#1f5fd6;--blue-s:#e6eefc;
+    --yellow:#fff6c9;--g:#1f9d62;--gs:#dff4e8;--r:#c7392f;--rs:#fbe1de;--a:#c98a00;--as:#fdf0cf}
+  *{box-sizing:border-box}
+  body{margin:0;background:#cfd6e0;font:12px/1.35 "Segoe UI",system-ui,sans-serif;color:var(--ink);min-width:1500px}
+  .xl{margin:14px;background:#fff;border:1px solid #9aa7b8;box-shadow:0 6px 24px #0003}
+  .ribbon{background:#1d6f42;color:#fff;padding:6px 12px;display:flex;gap:18px;font-size:12px}
+  .ribbon b{font-weight:600}
+  .fx{display:flex;border-bottom:1px solid var(--line);font-size:11px;color:var(--mute)}
+  .fx span{padding:3px 10px;border-right:1px solid var(--line)}
+  .cols{display:grid;grid-template-columns:28px repeat(24,1fr);background:#f3f5f8;border-bottom:1px solid var(--line);font-size:10px;color:var(--mute);text-align:center}
+  .cols div{border-right:1px solid var(--line);padding:1px 0}
+  .sheet{display:grid;grid-template-columns:28px 1fr}
+  .rows{background:#f3f5f8;border-right:1px solid var(--line);font-size:10px;color:var(--mute);text-align:center;
+    background-image:repeating-linear-gradient(#f3f5f8 0 19px,var(--line) 19px 20px)}
+  .canvas{background:var(--bg);padding:12px;display:grid;gap:10px}
+  .band{background:var(--ink);color:#fff;border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:16px}
+  .band h1{font-size:19px;margin:0;font-weight:650}
+  .band small{color:#b9c6da}
+  .recs{margin-left:auto;display:flex;gap:8px}
+  .rec{background:#fff;color:var(--ink);border-radius:6px;padding:5px 9px;min-width:150px}
+  .rec label{display:block;font-size:10px;color:var(--mute)}
+  .rec b{font-size:13px}.rec i{font-style:normal;font-size:9px;background:var(--as);color:#7a5400;border-radius:3px;padding:0 4px;margin-left:4px}
+  .rec .dd{float:right;color:var(--mute)}
+  .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .card h2{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);margin:0 0 6px}
+  .kpi b{font-size:20px;display:block}.kpi span{color:var(--mute);font-size:10px}
+  .up{color:var(--g)}.dn{color:var(--r)}.fl{color:var(--mute)}
+  .in{background:var(--yellow);border:1px dashed #d8c46a;border-radius:3px;padding:1px 5px;color:#4d4208}
+  .grid{display:grid;grid-template-columns:1.05fr 1.25fr 1.3fr;gap:10px;align-items:start}
+  .col{display:grid;gap:10px}
+  .thesis{background:var(--yellow);border:1px dashed #d8c46a;border-radius:6px;height:92px;padding:8px;color:#4d4208}
+  p{margin:0}
+  .sw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sw div div{padding:3px 0;border-bottom:1px solid #eef1f5}
+  .sw b{font-weight:600}
+  .heat{display:grid;grid-template-columns:repeat(17,1fr);gap:2px}
+  .heat div{height:26px;border-radius:3px;display:grid;place-items:center;font-weight:600;font-size:11px}
+  .h1{background:#bfe6cf}.h2{background:#dff4e8}.h3{background:var(--as)}.h4{background:#f8cfc9}.h5{background:#ee9d94}
+  .hl{display:grid;grid-template-columns:repeat(17,1fr);gap:2px;font-size:8.5px;color:var(--mute);margin-top:3px}
+  .hl div{writing-mode:vertical-rl;transform:rotate(180deg);height:74px;white-space:nowrap;justify-self:center}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{font-weight:600;color:var(--mute);text-align:right;border-bottom:1px solid var(--line);padding:2px 4px;font-size:10px}
+  td{text-align:right;padding:2px 4px;border-bottom:1px solid #f0f3f7;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  tr.t td{font-weight:650;border-top:1px solid var(--ink)}
+  tr.s td{color:var(--mute);font-style:italic}
+  .bar{display:inline-block;height:8px;background:var(--blue);border-radius:2px;vertical-align:middle;margin-right:4px}
+  .pos{background:var(--gs)}.neg{background:var(--rs)}
+  .chip{border-radius:10px;padding:0 7px;background:var(--blue-s);color:var(--blue);font-weight:600}
+  .ltm{background:var(--blue-s)}
+  .tabs{display:flex;gap:2px;background:#f3f5f8;border-top:1px solid var(--line);padding:0 30px;font-size:11px}
+  .tabs div{padding:4px 14px;color:var(--mute)}.tabs .on{background:#fff;color:#1d6f42;font-weight:600;border-bottom:2px solid #1d6f42}
+  .note{margin:0 14px 14px;color:#33415a;font-size:11.5px}
+  .key span{margin-right:14px}
+</style>
+</head>
+<body>
+<div class="xl">
+  <div class="ribbon"><b>Excel</b><span>Credit Snapshot – Illustrative Payments Co – 2026-11-25.xlsx</span><span style="margin-left:auto">Mock-up: figures are illustrative</span></div>
+  <div class="fx"><span>T3</span><span>fx</span><span>=INDEX(Matrix!$C$4:$G$8, Snapshot!CreditScore, Snapshot!Valuation_CLO)</span></div>
+  <div class="cols"><div></div><div>A</div><div>B</div><div>C</div><div>D</div><div>E</div><div>F</div><div>G</div><div>H</div><div>I</div><div>J</div><div>K</div><div>L</div><div>M</div><div>N</div><div>O</div><div>P</div><div>Q</div><div>R</div><div>S</div><div>T</div><div>U</div><div>V</div><div>W</div><div>X</div></div>
+  <div class="sheet"><div class="rows"></div>
+  <div class="canvas">
+
+    <div class="band">
+      <div><h1>Illustrative Payments Co</h1><small>Technology services · US · Public · Full credit assessment · run 25 Nov 2026</small></div>
+      <div class="recs">
+        <div class="rec"><label>CLO · weight 0.42%</label><b>3 MW</b><i>proposed</i><span class="dd">▾</span></div>
+        <div class="rec"><label>Indexed loans · weight 0.18%</label><b>3 MW</b><i>proposed</i><span class="dd">▾</span></div>
+        <div class="rec"><label>Indexed HY · weight 0.09%</label><b>3 MW</b><i>proposed</i><span class="dd">▾</span></div>
+        <div class="rec"><label>Analyst · confirmed on</label><span class="in">name</span> <span class="in">date</span></div>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="card kpi"><h2>Credit score</h2><b>3 Fair <span class="fl">→</span></b><span>17 factors · direction stable</span></div>
+      <div class="card kpi"><h2>Valuation</h2><b>2</b><span>+62 bp vs B loan bucket</span></div>
+      <div class="card kpi"><h2>Net leverage LTM</h2><b>3.4x <span class="dn">▲</span></b><span>3.1x FY25</span></div>
+      <div class="card kpi"><h2>Interest cover</h2><b>3.3x <span class="up">▲</span></b><span>3.2x FY25</span></div>
+      <div class="card kpi"><h2>Liquidity</h2><b>$1.2bn</b><span>cash + undrawn facilities</span></div>
+      <div class="card kpi"><h2>Ratings M / S / F</h2><b style="font-size:15px">B2 / <span class="in">S&amp;P</span> / <span class="in">Fitch</span></b><span>stable · entered at run start</span></div>
+      <div class="card kpi"><h2>Assessment</h2><span>Management <b style="display:inline;font-size:11px">Neutral</b><br>Sector outlook <b style="display:inline;font-size:11px">Neutral</b><br>Sponsor quality <b style="display:inline;font-size:11px">Positive</b></span></div>
+    </div>
+
+    <div class="grid">
+      <div class="col">
+        <div class="card"><h2>Investment thesis</h2><div class="thesis">Analyst to complete. Left blank by design.</div></div>
+        <div class="card"><h2>Business description</h2><p>Global payment solutions provider operating merchant acquiring and digital wallets. Merchant solutions 54% of revenue, wallets 46%. North America 53%, Europe 36%, rest of world 11%.</p></div>
+        <div class="card"><h2>Transaction summary</h2><p>Amend-and-extend of the term loans by two years with a larger five-year revolver; total debt unchanged, cash lower by $67m for assumed discount.</p>
+          <table style="margin-top:5px"><tr><th>New issue</th><th>Type</th><th>Size $m</th><th>Maturity</th><th>Guidance</th><th>OID</th></tr>
+          <tr><td>TL B1 USD</td><td>1L term loan</td><td>814</td><td>Jun-30</td><td><span class="in">bp</span></td><td><span class="in">px</span></td></tr>
+          <tr><td>TL B2 EUR</td><td>1L term loan</td><td>677</td><td>Jun-30</td><td><span class="in">bp</span></td><td><span class="in">px</span></td></tr></table></div>
+        <div class="card"><h2>Credit summary</h2><div class="sw">
+          <div><div><span class="up">▲</span> <b>Scale</b> $1.7bn LTM revenue supports fixed-cost absorption</div><div><span class="up">▲</span> <b>Financial policy</b> 3.5x net leverage target, no dividends</div><div><span class="up">▲</span> <b>Volume growth</b> processing volumes up each quarter</div></div>
+          <div><div><span class="dn">▼</span> <b>Margins</b> take-rate compression in merchant solutions</div><div><span class="dn">▼</span> <b>Competition</b> larger, better-capitalised leaders</div><div><span class="dn">▼</span> <b>Cash flow</b> large working-capital swings</div></div></div></div>
+        <div class="card"><h2>Catalysts</h2><p>H2-26 cost and credit-loss normalisation · Jun-29 secured notes mature · Jun-30 term loans mature</p></div>
+      </div>
+
+      <div class="col">
+        <div class="card"><h2>Scorecard · 17 rubric factors (1 strongest – 5 weakest)</h2>
+          <div class="heat"><div class="h1">1</div><div class="h2">2</div><div class="h4">4</div><div class="h3">3</div><div class="h3">3</div><div class="h5">5</div><div class="h3">3</div><div class="h2">2</div><div class="h3">3</div><div class="h2">2</div><div class="h3">3</div><div class="h3">3</div><div class="h2">2</div><div class="h2">2</div><div class="h3">3</div><div class="h2">2</div><div class="h2">2</div></div>
+          <div class="hl"><div>Scale</div><div>Market position</div><div>Regulation</div><div>Technology</div><div>Barriers</div><div>Leverage</div><div>Free cash flow</div><div>Liquidity</div><div>Rating trend</div><div>Geography</div><div>Product mix</div><div>Market share</div><div>Customers</div><div>Market access</div><div>Maturities</div><div>Interest cover</div><div>Financial policy</div></div></div>
+        <div class="card"><h2>Financials · US$m · all periods supplied</h2>
+          <table><tr><th></th><th>FY23</th><th>FY24</th><th>FY25</th><th>PYTD</th><th>YTD</th><th class="ltm">LTM</th><th>PF</th></tr>
+          <tr><td>Revenue</td><td>1,601</td><td>1,705</td><td>1,701</td><td>1,263</td><td>1,330</td><td class="ltm">1,768</td><td>1,768</td></tr>
+          <tr class="s"><td>growth</td><td>–</td><td>6%</td><td>0%</td><td>–</td><td>5%</td><td class="ltm">–</td><td>–</td></tr>
+          <tr><td>EBITDA</td><td>459</td><td>452</td><td>429</td><td>320</td><td>308</td><td class="ltm">416</td><td>433</td></tr>
+          <tr class="s"><td>margin</td><td>29%</td><td>27%</td><td>25%</td><td>25%</td><td>23%</td><td class="ltm">24%</td><td>24%</td></tr>
+          <tr><td>Cash interest</td><td>(154)</td><td>(151)</td><td>(132)</td><td>(93)</td><td>(88)</td><td class="ltm">(127)</td><td>(125)</td></tr>
+          <tr><td>CFO</td><td>(395)</td><td>19</td><td>242</td><td>173</td><td>120</td><td class="ltm">190</td><td>–</td></tr>
+          <tr><td>Capex</td><td>(102)</td><td>(112)</td><td>(107)</td><td>(82)</td><td>(89)</td><td class="ltm">(114)</td><td>–</td></tr>
+          <tr class="t"><td>FCF</td><td>(497)</td><td>(93)</td><td>135</td><td>92</td><td>31</td><td class="ltm">76</td><td>–</td></tr>
+          <tr><td>Net debt</td><td>1,047</td><td>1,135</td><td>1,337</td><td>–</td><td>–</td><td class="ltm">1,431</td><td>1,498</td></tr>
+          <tr><td>Net leverage</td><td>2.3x</td><td>2.5x</td><td>3.1x</td><td>–</td><td>–</td><td class="ltm">3.4x</td><td>3.5x</td></tr>
+          <tr><td>Interest cover</td><td>3.0x</td><td>3.0x</td><td>3.2x</td><td>–</td><td>–</td><td class="ltm">3.3x</td><td>3.5x</td></tr></table></div>
+        <div class="card"><h2>Net leverage and interest cover · periods on X</h2>
+          <svg viewBox="0 0 520 120" width="100%" role="img" aria-label="Line chart of net leverage and interest cover by period">
+            <g stroke="#e3e8ef"><line x1="30" y1="20" x2="510" y2="20"/><line x1="30" y1="55" x2="510" y2="55"/><line x1="30" y1="90" x2="510" y2="90"/></g>
+            <polyline fill="none" stroke="#1f5fd6" stroke-width="2.5" points="60,82 170,76 280,58 390,49 480,46"/>
+            <polyline fill="none" stroke="#c98a00" stroke-width="2.5" stroke-dasharray="5 3" points="60,61 170,61 280,55 390,52 480,46"/>
+            <g fill="#1f5fd6"><circle cx="60" cy="82" r="3"/><circle cx="170" cy="76" r="3"/><circle cx="280" cy="58" r="3"/><circle cx="390" cy="49" r="3"/><circle cx="480" cy="46" r="3"/></g>
+            <g font-size="10" fill="#5b6b82" text-anchor="middle"><text x="60" y="108">FY23</text><text x="170" y="108">FY24</text><text x="280" y="108">FY25</text><text x="390" y="108">LTM</text><text x="480" y="108">PF</text></g>
+            <g font-size="10"><text x="34" y="14" fill="#1f5fd6">Net leverage</text><text x="120" y="14" fill="#c98a00">Interest cover (dashed)</text></g>
+          </svg></div>
+      </div>
+
+      <div class="col">
+        <div class="card"><h2>Capital structure · $m</h2>
+          <table><tr><th>Facility</th><th>FIGI</th><th>Spread / cpn</th><th>Maturity</th><th>Bid</th><th>Out.</th><th>% EV</th><th>Recommendation</th></tr>
+          <tr><td>Revolver 1L USD</td><td><span class="in">BBG…</span></td><td>270</td><td>Jul-27</td><td>–</td><td>257</td><td><span class="bar" style="width:8px"></span>8%</td><td>n/a</td></tr>
+          <tr><td>TL B1 1L USD</td><td><span class="in">BBG…</span></td><td>500</td><td>Jun-28</td><td>97.0</td><td>811</td><td><span class="bar" style="width:24px"></span>24%</td><td><span class="chip">3 MW ▾</span></td></tr>
+          <tr><td>TL B2 1L EUR</td><td><span class="in">BBG…</span></td><td>500</td><td>Jun-28</td><td>94.5</td><td>664</td><td><span class="bar" style="width:19px"></span>19%</td><td><span class="chip">3 MW ▾</span></td></tr>
+          <tr><td>Sr secured notes USD</td><td><span class="in">BBG…</span></td><td>4.00%</td><td>Jun-29</td><td>66.3</td><td>337</td><td><span class="bar" style="width:10px"></span>10%</td><td><span class="chip">3 MW ▾</span></td></tr>
+          <tr><td>Sr secured notes EUR</td><td><span class="in">BBG…</span></td><td>3.00%</td><td>Jun-29</td><td>65.9</td><td>478</td><td><span class="bar" style="width:14px"></span>14%</td><td><span class="chip">3 MW ▾</span></td></tr>
+          <tr class="t"><td>Senior secured</td><td></td><td></td><td></td><td></td><td>2,547</td><td>74%</td><td>5.5x · house 5.9x</td></tr>
+          <tr class="t"><td>Total debt</td><td></td><td></td><td></td><td></td><td>2,592</td><td>76%</td><td>5.6x · house 6.0x</td></tr>
+          <tr><td>Cash</td><td></td><td></td><td></td><td></td><td>251</td><td></td><td></td></tr>
+          <tr><td>Equity (implied)</td><td></td><td></td><td></td><td></td><td>1,080</td><td></td><td><span class="in">EV multiple</span></td></tr>
+          <tr class="t"><td>Enterprise value</td><td></td><td></td><td></td><td></td><td>3,421</td><td>100%</td><td>7.4x · house 7.9x</td></tr></table></div>
+        <div class="card"><h2>EBITDA bridge</h2>
+          <table><tr class="t"><td>Reported EBITDA</td><td>337</td></tr><tr class="s"><td>&nbsp;&nbsp;Share-based compensation</td><td>63</td></tr><tr class="s"><td>&nbsp;&nbsp;Restructuring and other costs</td><td>29</td></tr><tr class="s"><td>&nbsp;&nbsp;Disposals and other</td><td>4</td></tr><tr class="s"><td>&nbsp;&nbsp;Run-rate cost savings <span class="chip">unrealised</span></td><td>22</td></tr><tr class="s"><td>&nbsp;&nbsp;Pro forma acquisitions <span class="chip">unrealised</span></td><td>8</td></tr><tr class="t"><td>Structuring EBITDA</td><td>463</td></tr><tr class="s"><td>&nbsp;&nbsp;less unrealised add-backs</td><td>(30)</td></tr><tr class="t"><td>House EBITDA</td><td>433</td></tr></table></div>
+        <div class="card"><h2>Relative value · loans · reference as of 24 Nov 2026</h2>
+          <table><tr><th>Name</th><th>Ratings</th><th>Margin</th><th>Mid</th><th>Δ 1M</th><th>Δ YTD</th><th>3Y DM</th></tr>
+          <tr class="s"><td>Loan index: B bucket</td><td></td><td></td><td>96.9</td><td class="pos">0.94</td><td class="pos">6.38</td><td>457</td></tr>
+          <tr><td><b>This issuer TL B1</b></td><td>B2 / B</td><td>275</td><td>98.0</td><td>0.00</td><td class="pos">2.00</td><td>409</td></tr>
+          <tr><td>Peer A</td><td>B2 / B-</td><td>275</td><td>87.1</td><td class="pos">2.13</td><td class="neg">-13.13</td><td>792</td></tr>
+          <tr><td>Peer B</td><td>B3 / B-</td><td>400</td><td>97.1</td><td class="pos">1.13</td><td class="neg">-1.00</td><td>513</td></tr>
+          <tr><td>Peer C</td><td>Ba2 / BB-</td><td>175</td><td>99.8</td><td class="neg">-0.19</td><td class="neg">-0.44</td><td>184</td></tr></table>
+          <p style="color:var(--mute);margin-top:4px">Loan table shown only when the issuer has loans; high yield table (same shape) only when it has bonds. FIGIs come from the RV book and drive the other fields.</p></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="tabs"><div class="on">Snapshot</div><div>Model</div><div>Inputs</div><div>Matrix</div><div>Sources</div></div>
+</div>
+<p class="note key"><span><span class="in">yellow</span> analyst cell, or identifier taken from the RV book</span><span><i style="font-style:normal;background:#fdf0cf;padding:0 4px;border-radius:3px">proposed</i> derived by the 5×5 table until the analyst confirms</span><span>▾ dropdown</span><span>Everything else is copied from module handoffs; each cell's trace is on the Sources sheet.</span></p>
+<p class="note">Deliverables page in the report: one tile per file (Credit Snapshot .xlsx; five purpose reports via print). No contents shown on the page.</p>
+</body>
+</html>
