@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { cx } from "@/utils/cx";
 import { Figure, Well } from "../../overview/Tile";
-import { UNORDERED_SENTENCE } from "../kit/tables";
+import { latestReported, unplacedNotes } from "../kit/tables";
 import { FigureTile, GapTile } from "../kit/LeadFrame";
 import { GapSlot, LINE, SIZE, useFigureWidth } from "../kit/marks";
 import { Grid, HALO, HALO_CLASS, TickLabels } from "../kit/marks/parts";
@@ -233,13 +233,13 @@ function StripRowMark({ row }: { row: StripRow }) {
 function StripFigure({
   entries,
   width,
-  joined,
+  unplaced,
 }: {
   entries: readonly StripEntry[];
   width: number;
-  joined: boolean;
+  unplaced: readonly string[];
 }) {
-  const layout = stripLayout(entries, width, joined);
+  const layout = stripLayout(entries, width, unplaced);
   return (
     <svg
       data-strip=""
@@ -307,7 +307,7 @@ function Strip({ view }: { view: NetDebtView }) {
         <span className="font-normal text-text-tertiary"> · own scale</span>
       </h4>
       {stripDrawn(entries) ? (
-        <StripFigure entries={entries} width={width} joined={view.ordered} />
+        <StripFigure entries={entries} width={width} unplaced={view.unplaced} />
       ) : (
         <>
           <ul
@@ -467,8 +467,9 @@ function Liquidity({ view }: { view: NetDebtView }) {
 
 function legendOf(view: NetDebtView, proForma: readonly ProForma[]) {
   const labels = view.periods.map((p) => p.label);
-  const earlier = labels.slice(0, -1);
-  const latest = labels.at(-1);
+  // The latest reported period is the primary bar; a pro forma or forecast period never is.
+  const latest = latestReported(labels, (label) => label);
+  const earlier = labels.filter((label) => label !== latest);
   const gap = view.periods.some((p) => [p.net, p.cash, p.gross].some((c) => c.kind !== "number"));
   return [
     ...(earlier.length ? [{ tone: "prior" as const, text: `${earlier.join(", ")} net debt` }] : []),
@@ -501,7 +502,7 @@ export function NetDebtTile({ lead }: { lead: LeadProps }) {
       source="net debt"
       legend={legendOf(view, proForma)}
       table={netDebtTable(view)}
-      notes={view.ordered ? [] : [UNORDERED_SENTENCE]}
+      notes={unplacedNotes(view.unplaced, view.leverageStrip.length)}
     >
       <Bars view={view} proForma={proForma} />
       <Strip view={view} />

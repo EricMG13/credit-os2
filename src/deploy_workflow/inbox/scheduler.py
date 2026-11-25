@@ -38,7 +38,7 @@ from deploy_workflow.inbox.startup import StartupRefused
 from deploy_workflow.inbox.teams import Config as TeamsConfig
 from deploy_workflow.inbox.teams import Notifier
 from deploy_workflow.owners import cpos_launch
-from deploy_workflow.run_start import submissions
+from deploy_workflow.run_start import reference_portfolio, submissions
 from deploy_workflow.run_start.submissions import Answers
 
 __all__ = ["MAX_QUEUED", "Scheduler", "Settings", "StartupRefused"]
@@ -352,7 +352,12 @@ class Scheduler:
         (sealed / "context.json").unlink(missing_ok=True)
         approval = submissions.issued_approval(self.layout, sid)
         current = submissions.bound(submissions.digest(self.layout, sid, answers), approval.prior)
-        if not approved_digest or not (approved_digest == approval.digest == current):
+        # The approval also covers the comparison portfolio, when one was supplied. The record
+        # keeps the documents' digest (``current``), which the launch re-checks against the drop;
+        # the portfolio never goes to the drop.
+        compared = reference_portfolio.held(self.layout, sid)
+        approved = reference_portfolio.folded(current, compared)
+        if not approved_digest or not (approved_digest == approval.digest == approved):
             raise submissions.Refused(
                 "the documents or answers changed after approval; review the summary again"
             )
@@ -390,7 +395,9 @@ class Scheduler:
             approved_summary_limits=approval.limits(),
             newest_document_date=answers.get("newest_document_date", ""),
         )
-        self._put(record)
+        submitted = self.now().astimezone(UTC)
+        with reference_portfolio.kept_for_run(self.layout, record.id, compared, submitted):
+            self._put(record)
         return record
 
     # -- shared helpers ---------------------------------------------------------------------

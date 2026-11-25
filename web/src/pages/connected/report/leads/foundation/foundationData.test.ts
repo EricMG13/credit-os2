@@ -17,6 +17,7 @@ import {
   dropTable,
   edited,
   ltmCp1,
+  mixedPeriodsCp1,
   setCell,
   setLabelled,
   threePeriodCp1,
@@ -1348,10 +1349,11 @@ describe("figureGap: why a figure is not drawn, true of this handoff", () => {
 
 // ------------------------------------------------------------------------------------------------
 
-// Coordinator input T3 (mutations): a "FY2024 pro forma" period beside FY2024, which the kit cannot
-// put in time order. Every reader keeps every stated figure, in the handoff's order, with its period
-// as written, and compares nothing (no change, no tone): never a gap.
-describe("periods the kit cannot put in time order: drawn as stated, never a gap", () => {
+// Coordinator input T3 (mutations): a "FY2024 pro forma" period beside FY2024. Rewritten to the
+// ruling of 2026-11-25 (these cases asserted the old refusal: such a set was "unordered", drawn in
+// the handoff's order with nothing compared). The period order places a pro forma after the
+// reported periods; the comparison stays between the two reported years.
+describe("a pro forma period beside the reported ones: placed after them, never a gap", () => {
   const leverage = addRow(accepted, "Chart data: leverage", [
     "FY2024 pro forma",
     "7.10",
@@ -1367,38 +1369,41 @@ describe("periods the kit cannot put in time order: drawn as stated, never a gap
     "US$m",
     "Test row.",
   ]);
-  it("earnings: leverage 6.27, 6.53, 7.10 with their periods; no comparison, no change", () => {
+  it("earnings: leverage 6.27, 6.53, 7.10 in period order; FY2023 → FY2024 compared, +0.26", () => {
     const view = earningsAgainstDebt(leverage);
-    expect(view?.ordered).toBe(false);
+    expect([view?.ordered, view?.unplaced]).toEqual([true, []]);
     expect(view?.periods.map((p) => p.label)).toEqual(["FY2023", "FY2024", "FY2024 pro forma"]);
-    expect(view?.comparison).toBeNull();
+    expect(view?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
     expect(cells(view?.leverage?.values)).toEqual([
       ["FY2023", "6.27"],
       ["FY2024", "6.53"],
       ["FY2024 pro forma", "7.10"],
     ]);
-    expect([view?.leverage?.change, view?.leverage?.tone]).toEqual([null, "none"]);
-    expect(view?.measures.every((measure) => measure.change === null)).toBe(true);
+    expect([view?.leverage?.change, view?.leverage?.tone]).toEqual(["0.26", "worse"]);
+    // The latest reported period's basis words (FY2024), never the pro forma row's ("Test row.").
+    expect(view?.leverageBasis).toBe(
+      "Carrying debt; reported EBITDA; dividend-only pro forma 6.02x after 2024-10-18.",
+    );
     expect(figureGap(leverage, "earnings")).toBeNull();
   });
-  it("net debt: the strip keeps 5.17, 4.88 and the pro forma 6.02; the net debt rows as stated", () => {
+  it("net debt: the strip keeps 5.17, 4.88 and the pro forma 6.02; the net debt rows in order", () => {
     const view = netDebtView(leverage);
     expect(cells(view?.leverageStrip)).toEqual([
       ["FY2023", "5.17"],
       ["FY2024", "4.88"],
       ["FY2024 pro forma", "6.02"],
     ]);
-    expect([view?.ordered, view?.comparison]).toEqual([false, null]);
+    expect([view?.ordered, view?.comparison]).toEqual([true, { from: "FY2023", to: "FY2024" }]);
     const rows = netDebtView(netDebt);
     expect(rows?.periods.map((p) => [p.label, shown(p.net)])).toEqual([
       ["FY2023", "16278"],
       ["FY2024", "18619"],
       ["FY2024 pro forma", "22967"],
     ]);
-    expect([rows?.ordered, rows?.comparison]).toEqual([false, null]);
+    expect([rows?.ordered, rows?.comparison]).toEqual([true, { from: "FY2023", to: "FY2024" }]);
     expect(figureGap(netDebt, "netDebt")).toBeNull();
   });
-  it("cash ladder and segments: a column or period the kit cannot place is read as stated", () => {
+  it("cash ladder and segments: a pro forma column and a year to date are placed", () => {
     const edit = edited(accepted, (table, heading) =>
       heading === "T4.5 Cash flow statement"
         ? {
@@ -1408,24 +1413,190 @@ describe("periods the kit cannot put in time order: drawn as stated, never a gap
         : table,
     );
     const ladder = cashLadder(edit);
-    // EBITDA's row (income statement, FY2023 and FY2024 in time order) first, then the cash flow
-    // statement's pro forma column: the periods as first stated across the ladder's rows.
     expect(ladder?.periods.map((p) => p.label)).toEqual(["FY2023", "FY2024", "FY2024 pro forma"]);
-    expect([ladder?.ordered, ladder?.comparison]).toEqual([false, null]);
+    expect([ladder?.ordered, ladder?.unplaced]).toEqual([true, []]);
+    expect(ladder?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
     const segments = segmentView(setCell(accepted, "Segment schedule", 0, "Period", "YTD 2024"));
-    expect(segments?.ordered).toBe(false);
-    expect(segments?.comparison).toBeNull();
-    expect(segments?.periods.map((p) => p.label)).toContain("YTD 2024");
+    expect([segments?.ordered, segments?.unplaced]).toEqual([true, []]);
+    expect(segments?.periods.map((p) => p.label)).toEqual(["FY2023", "FY2024", "YTD 2024"]);
+    expect(segments?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
   });
-  it("the stated periods: every label, no gap, not ordered, nothing compared", () => {
+  it("the stated periods: every label in period order, no gap, FY2023 → FY2024 compared", () => {
     const periods = statedPeriods(leverage);
     expect(periods.labels).toEqual(["FY2023", "FY2024", "FY2024 pro forma"]);
-    expect([periods.ordered, periods.comparison, periods.gaps]).toEqual([false, null, []]);
+    expect([periods.ordered, periods.unplaced, periods.comparison, periods.gaps]).toEqual([
+      true,
+      [],
+      { from: "FY2023", to: "FY2024" },
+      [],
+    ]);
     expect(showPeriodsTile(leverage)).toBe(true);
   });
   it("a gap reason ends with one full stop", () => {
     expect(figureGap(withRows(accepted, "Chart data: leverage", []), "earnings")).toBeNull();
     const twice = addRow(accepted, "Net debt data", ["FY2024", "1", "1", "0", "US$m", "-"]);
     expect(figureGap(twice, "netDebt")).not.toMatch(/\.\.$/);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+
+// The ruling of 2026-11-25: every supplied period, ordered oldest fiscal year → latest fiscal year
+// → YTD → LTM → PF → forecast years. Inputs are mutations of the accepted handoff written here in
+// a scrambled order; every expected order and figure is written out by hand.
+describe("every foundation figure draws its periods in the one period order", () => {
+  const RULE = ["FY2023", "FY2024", "LTM Jun-2025", "PF FY2024", "FY2025E"];
+  const mixed = mixedPeriodsCp1();
+
+  it("interest cover: LTM and PF after the fiscal years, before the forecast; each figure its own", () => {
+    const cover = interestCover(mixed);
+    expect(cells(cover?.values)).toEqual([
+      ["FY2023", "2.71"],
+      ["FY2024", "3.29"],
+      ["LTM Jun-2025", "3.40"],
+      ["PF FY2024", "3.05"],
+      ["FY2025E", "3.90"],
+    ]);
+    expect(cover?.bases).toEqual([
+      "Earlier row.",
+      "Reported row.",
+      "Twelve-month row.",
+      "Pro forma row.",
+      "Forecast row.",
+    ]);
+    expect([cover?.ordered, cover?.unplaced]).toEqual([true, []]);
+    // The latest reported period is LTM Jun-2025, never the forecast: the pair is FY2024 → LTM,
+    // not a year apart of one kind, so no change is printed.
+    expect(cover?.comparison).toEqual({ from: "FY2024", to: "LTM Jun-2025" });
+    expect(cover?.change).toBeNull();
+  });
+  it("interest cover: the change is between reported years, never to a forecast year", () => {
+    const cover = interestCover(
+      withRows(accepted, COVER, [
+        ["FY2025E", "3.90", "x", "-"],
+        ["FY2024", "3.29", "x", "-"],
+        ["FY2023", "2.71", "x", "-"],
+      ]),
+    );
+    expect(cells(cover?.values)?.map(([label]) => label)).toEqual(["FY2023", "FY2024", "FY2025E"]);
+    expect(cover?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
+    expect([cover?.change?.text, cover?.tone]).toEqual(["0.58", "better"]);
+  });
+  it("net debt: the rows and the leverage strip in rule order, each figure its own", () => {
+    const view = netDebtView(mixed);
+    expect(view?.periods.map((p) => [p.label, shown(p.net), shown(p.leverage)])).toEqual([
+      ["FY2023", "16278", "5.17"],
+      ["FY2024", "18619", "4.88"],
+      ["LTM Jun-2025", "22850", "4.80"],
+      ["PF FY2024", "22967", "6.02"],
+      ["FY2025E", "23100", "4.60"],
+    ]);
+    expect(view?.leverageStrip.map((cell) => cell.label)).toEqual(RULE);
+    expect([view?.ordered, view?.unplaced]).toEqual([true, []]);
+    expect(view?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
+  });
+  it("earnings against debt: every measure on the rule-ordered periods; FY2023 → FY2024 compared", () => {
+    const view = earningsAgainstDebt(mixed);
+    // The income statement states FY2023 and FY2024 only; the union keeps the rule order.
+    expect(view?.periods.map((p) => p.label)).toEqual(RULE);
+    const sales = view?.measures.find((measure) => measure.key === "sales");
+    expect(cells(sales?.values)).toEqual([
+      ["FY2023", "6585"],
+      ["FY2024", "7940"],
+      ["LTM Jun-2025", "8500"],
+      ["PF FY2024", "8100"],
+      ["FY2025E", "8800"],
+    ]);
+    expect(cells(view?.leverage?.values)).toEqual([
+      ["FY2023", "6.27"],
+      ["FY2024", "6.53"],
+      ["LTM Jun-2025", "6.40"],
+      ["PF FY2024", "7.10"],
+      ["FY2025E", "5.90"],
+    ]);
+    expect(view?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
+    expect([sales?.change, view?.leverage?.change]).toEqual(["1355", "0.26"]);
+    // The basis words under the ratio are the latest reported period's, not the forecast row's.
+    expect(view?.leverageBasis).toBe("Twelve-month row.");
+  });
+  it("cash ladder and segments: statement columns and schedule periods in rule order", () => {
+    const rename = (from: string, to: string) => (entry: OutputEntry, heading: string) =>
+      edited(entry, (table, name) =>
+        name === heading
+          ? { ...table, headers: table.headers.map((h) => (h === from ? to : h)) }
+          : table,
+      );
+    // The cash flow statement's two columns become a forecast (was FY2024) and an LTM (was FY2023).
+    const cash = "T4.5 Cash flow statement";
+    const ladder = cashLadder(
+      rename("FY2023", "LTM Jun-2025")(rename("FY2024", "FY2025E")(accepted, cash), cash),
+    );
+    expect(ladder?.periods.map((p) => p.label)).toEqual([
+      "FY2023",
+      "FY2024",
+      "LTM Jun-2025",
+      "FY2025E",
+    ]);
+    const cfo = ladder?.steps.find((step) => step.key === "cfo");
+    expect(cells(cfo?.values)).toEqual([
+      ["FY2023", null],
+      ["FY2024", null],
+      ["LTM Jun-2025", "1375"],
+      ["FY2025E", "2045"],
+    ]);
+    expect(ladder?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
+    let schedule = accepted;
+    for (const row of [0, 1, 2, 3])
+      schedule = setCell(schedule, "Segment schedule", row, "Period", "FY2025E");
+    for (const row of [4, 5, 6, 7])
+      schedule = setCell(schedule, "Segment schedule", row, "Period", "PF FY2024");
+    const segments = segmentView(schedule);
+    expect(segments?.periods.map((p) => p.label)).toEqual(["PF FY2024", "FY2025E"]);
+    expect(cells(segments?.segments[0]?.sales)).toEqual([
+      ["PF FY2024", "3316"],
+      ["FY2025E", "3941"],
+    ]);
+    // Neither period is reported: nothing is compared.
+    expect(segments?.comparison).toBeNull();
+  });
+  it("the stated periods: the union of every table, in rule order", () => {
+    const periods = statedPeriods(mixed);
+    expect(periods.labels).toEqual(RULE);
+    expect(periods.comparison).toEqual({ from: "FY2023", to: "FY2024" });
+    expect([periods.ordered, periods.unplaced, periods.gaps]).toEqual([true, [], []]);
+  });
+  it("a period the order cannot read is drawn last, named, and the figure is still read", () => {
+    const entry = withRows(accepted, COVER, [
+      ["Current", "3.10", "x", "-"],
+      ["FY2024", "3.29", "x", "-"],
+      ["FY2023", "2.71", "x", "-"],
+    ]);
+    const cover = interestCover(entry);
+    expect(cells(cover?.values)).toEqual([
+      ["FY2023", "2.71"],
+      ["FY2024", "3.29"],
+      ["Current", "3.10"],
+    ]);
+    expect([cover?.ordered, cover?.unplaced]).toEqual([false, ["Current"]]);
+    expect(figureGap(entry, "cover")).toBeNull();
+    // The placed periods are compared all the same: 3.29 − 2.71 = 0.58, never to "Current".
+    expect(cover?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
+    expect([cover?.change?.text, cover?.tone]).toEqual(["0.58", "better"]);
+  });
+  it("only pro forma rows, and a single period: drawn, nothing compared", () => {
+    const onlyPf = interestCover(
+      withRows(accepted, COVER, [
+        ["PF FY2024", "3.05", "x", "-"],
+        ["PF FY2023", "2.60", "x", "-"],
+      ]),
+    );
+    expect(cells(onlyPf?.values)).toEqual([
+      ["PF FY2023", "2.60"],
+      ["PF FY2024", "3.05"],
+    ]);
+    expect([onlyPf?.comparison, onlyPf?.change, onlyPf?.ordered]).toEqual([null, null, true]);
+    const single = interestCover(withRows(accepted, COVER, [["LTM Jun-2025", "3.40", "x", "-"]]));
+    expect(cells(single?.values)).toEqual([["LTM Jun-2025", "3.40"]]);
+    expect([single?.comparison, single?.ordered]).toEqual([null, true]);
   });
 });

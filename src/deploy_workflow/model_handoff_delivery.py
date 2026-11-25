@@ -34,11 +34,14 @@ from deploy_vii.model.frame import Cell, SourceRef
 from deploy_vii.model.metrics import _ratio
 from deploy_vii.model.periods import LTM_DAYS
 from deploy_vii.render import render
+from deploy_vii.period_order import order_periods
 from deploy_vii.report_view import (
     FactCoord,
+    Figure,
     ReportView,
     _ChartPoint,
     _figure_of_points,
+    _figure_with_note,
     build,
     pathways,
 )
@@ -1061,6 +1064,76 @@ def _table_specs(
     return specs + [("derived", present, "company-profile")] * bool(present)
 
 
+# (figure, title, ((series name, history row key), ...)) of the Model's charts.
+MODEL_FIGURES: tuple[tuple[str, str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "M1",
+        "Operating and issuer earnings bases",
+        (
+            ("Operating EBIT plus D&A", "operating_ebitda"),
+            ("Issuer ordinary EBITDA", "issuer_ordinary_ebitda"),
+            ("Issuer As Defined", "issuer_as_defined"),
+        ),
+    ),
+    (
+        "M2",
+        "Reported operating cash and capex proxy",
+        (("Reported CFO", "cfo"), ("CFO less gross cash capex", "cfo_less_capex")),
+    ),
+    ("M3", "OPEX below gross profit", (("S&A plus IS amortization", "opex_magnitude"),)),
+)
+# What M1 to M3 draw. `_AnnualReader.validate` admits only `FY<year>` historical durations that
+# do not overlap, so the layout cannot carry an LTM or pro forma column and none is drawn.
+MODEL_FIGURE_SUMMARY = (
+    "Every selected fiscal year, oldest first. This Model carries annual periods only: no "
+    "year-to-date, LTM or pro forma column. Distinct definitions and missing observations "
+    "retained."
+)
+
+
+def _chart_periods(periods: tuple[str, ...]) -> tuple[str, ...]:
+    """The Model's period columns in the one period order (`deploy_vii.period_order`): fiscal
+    years oldest first, then any LTM and pro forma column. A label the rule cannot place is
+    refused, never drawn out of order."""
+    ordered, unplaced = order_periods(periods, str)
+    if unplaced:
+        raise ValueError("model_period: cannot order for the charts: " + ", ".join(unplaced))
+    return ordered
+
+
+def _model_figures(
+    module: ModuleView, refs: Mapping[tuple[str, str], tuple[str, ...]], periods: tuple[str, ...]
+) -> tuple[Figure, ...]:
+    """M1 to M3: each series' `history` fact of every period column, in period order. Each
+    table twin's note is `MODEL_FIGURE_SUMMARY`: the shell draws that note under the chart, where
+    it draws a figure's summary only for a figure set beside a table."""
+    shown = _chart_periods(periods)
+    return tuple(
+        _figure_with_note(
+            _figure_of_points(
+                "financials-credit-metrics",
+                module,
+                refs,
+                fig_id=figid,
+                title=title,
+                kind="line",
+                unit_class="amount",
+                unit="USDm",
+                series=tuple(name for name, _ in series),
+                points=tuple(
+                    _ChartPoint(name, period, f"history.{key}.{period}")
+                    for name, key in series
+                    for period in shown
+                ),
+                placement="above",
+                summary=MODEL_FIGURE_SUMMARY,
+            ),
+            MODEL_FIGURE_SUMMARY,
+        )
+        for figid, title, series in MODEL_FIGURES
+    )
+
+
 def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 statements at base)
     run: Run,
     inputs: Mapping[str, HandoffInput],
@@ -1256,47 +1329,7 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         for item in report.index.facts
         if item.coord.fact_id is not None
     }
-    figures = []
-    for figid, title, series in (
-        (
-            "M1",
-            "Operating and issuer earnings bases",
-            (
-                ("Operating EBIT plus D&A", "operating_ebitda"),
-                ("Issuer ordinary EBITDA", "issuer_ordinary_ebitda"),
-                ("Issuer As Defined", "issuer_as_defined"),
-            ),
-        ),
-        (
-            "M2",
-            "Reported operating cash and capex proxy",
-            (("Reported CFO", "cfo"), ("CFO less gross cash capex", "cfo_less_capex")),
-        ),
-        ("M3", "OPEX below gross profit", (("S&A plus IS amortization", "opex_magnitude"),)),
-    ):
-        figures.append(
-            _figure_of_points(
-                "financials-credit-metrics",
-                module,
-                refs,
-                fig_id=figid,
-                title=title,
-                kind="line",
-                unit_class="amount",
-                unit="USDm",
-                series=tuple(name for name, _ in series),
-                points=tuple(
-                    _ChartPoint(name, p, f"history.{key}.{p}")
-                    for name, key in series
-                    for p in cells
-                ),
-                placement="above",
-                summary=(
-                    "Selected annual history; distinct definitions and missing observations "
-                    "retained."
-                ),
-            )
-        )
+    figures = _model_figures(module, refs, tuple(cells))
     blocks = tuple(
         b.model_copy(
             update={
@@ -1307,7 +1340,7 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
                 "kind": b.kind if b.block_id == "financials-credit-metrics" else "dense",
                 "full_analysis_route": "CP-MODEL",
                 "width": "full",
-                "figures": tuple(figures) if b.block_id == "financials-credit-metrics" else (),
+                "figures": figures if b.block_id == "financials-credit-metrics" else (),
                 "state": "populated",
             }
         )

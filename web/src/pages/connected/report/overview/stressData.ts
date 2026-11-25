@@ -1,3 +1,4 @@
+import { orderPeriods } from "@/utils/periodOrder";
 import type { OutputEntry } from "../../publishedReport";
 import { gridOf } from "../../visuals/LegacyForecast";
 import {
@@ -247,14 +248,17 @@ export function forwardPath(model: unknown) {
     .sort((a, b) => Number(b === BASE) - Number(a === BASE))
     .map((group) => ({
       group,
-      points: grid.columns.flatMap((column, at): PathPoint[] => {
-        if (column.group !== group || !column.start) return [];
-        const cell = row.cells[at] ?? {};
-        const value = cell.status === "value" ? amount(word(cell.exact)) : null;
-        return [
-          { period: column.label, display: word(cell.display), value, reason: word(cell.reason) },
-        ];
-      }),
+      points: orderPeriods(
+        grid.columns.flatMap((column, at): PathPoint[] => {
+          if (column.group !== group || !column.start) return [];
+          const cell = row.cells[at] ?? {};
+          const value = cell.status === "value" ? amount(word(cell.exact)) : null;
+          return [
+            { period: column.label, display: word(cell.display), value, reason: word(cell.reason) },
+          ];
+        }),
+        ({ period }) => period,
+      ).ordered,
     }))
     .filter((item) => item.points.some((point) => point.value !== null));
   if (!cases.length) return null;
@@ -269,9 +273,15 @@ export function forwardPath(model: unknown) {
 
 export const PATH = { width: 292, height: 170, left: 28, right: 268, top: 24, base: 130 } as const;
 
+/** Every period the cases publish, once, in the one period order: the path's X axis. */
+export function pathPeriods(cases: readonly { points: readonly { period: string }[] }[]) {
+  const periods = [...new Set(cases.flatMap(({ points }) => points.map(({ period }) => period)))];
+  return orderPeriods(periods, (period) => period).ordered;
+}
+
 /** The path's points on a scale from zero; a period the model has no figure for has no y. */
 export function pathGeometry(cases: { points: PathPoint[] }[]) {
-  const periods = [...new Set(cases.flatMap(({ points }) => points.map((point) => point.period)))];
+  const periods = pathPeriods(cases);
   const scale = ticks(cases.flatMap(({ points }) => points.map((point) => point.value)));
   const top = scale.at(-1)?.value ?? 1;
   const step = periods.length > 1 ? (PATH.right - PATH.left - 28) / (periods.length - 1) : 0;

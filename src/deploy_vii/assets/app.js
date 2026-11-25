@@ -366,6 +366,8 @@
     chart.series.forEach((name, index) => { const item = node("span"); item.append(node("i", null, `sw sw${index % 5 + 1}`), document.createTextNode(name)); legend.append(item); });
     if (extra.gaps_note) legend.append(node("span", extra.gaps_note, "gaps-note"));
     if (legend.children.length) figure.append(legend);
+    // A plotted chart's twin note states what it does not show: a series with no value at a period.
+    if (chart.table_twin.note && !chart.reason) figure.append(node("p", chart.table_twin.note, "fig-summary"));
     figure.append(twin);
     const owner = {chart, title};
     const marks = () => Array.from(host.querySelectorAll("g.mark"));

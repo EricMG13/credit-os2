@@ -1499,6 +1499,26 @@ def test_column_period_identity_and_ambiguity():
     assert _column_periods(("Unknown  unsupported", "Period  FY 2025"), iter(periods)) is None
 
 
+def test_a_balance_date_column_is_not_a_trailing_or_pro_forma_period():
+    """A dated balance column is the reported position at that date: the quarter ending then,
+    never the LTM or the pro forma period that shares the end date."""
+    from deploy_workflow.financial_workflow import _column_periods
+
+    def period(period_id: str, period_type: str, quarter: int | None) -> SimpleNamespace:
+        return SimpleNamespace(
+            period_id=period_id,
+            period_type=period_type,
+            fiscal_year="2025",
+            fiscal_quarter=quarter,
+            end_date=date(2025, 6, 30),
+        )
+
+    q2, ltm, pf = period("q2", "QUARTER", 2), period("ltm", "LTM", None), period("pf", "PF", None)
+    header = ("As of  June 30, 2025",)
+    assert _column_periods(header, (q2, ltm, pf)) == (frozenset({"q2"}),)
+    assert _column_periods(header, (ltm, pf)) is None
+
+
 def test_prose_statement_mention_does_not_require_empty_note_extraction(tmp_path):
     workflow, pack = before_financials(tmp_path)
     financial_reads(workflow)

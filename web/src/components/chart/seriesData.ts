@@ -1,3 +1,5 @@
+import { orderPeriods } from "@/utils/periodOrder";
+
 interface SeriesValues {
   name: string;
   values: (number | null)[];
@@ -27,7 +29,37 @@ export function checkLabeledSeriesLength(
   }
 }
 
-/** Preserve caller order and exact values; absent observations stay null, including sparse cells. */
+/**
+ * Where each drawn position reads from, for periods as a caller wrote them: the one period rule
+ * (oldest fiscal year to latest, then year to date, last twelve months, pro forma, forecasts), with
+ * a label the rule cannot place kept last, as authored, and named in `gaps`. A period chart orders
+ * itself with this once, so no caller owes it an order.
+ */
+export function periodPositions(periods: readonly string[]) {
+  const { ordered, gaps } = orderPeriods(
+    periods.map((period, at) => ({ period, at })),
+    ({ period }) => period,
+  );
+  return { order: ordered.map(({ at }) => at), gaps: gaps.map(({ period }) => period) };
+}
+
+/** The items at `order`, each still its own: a value, label or cell moves with its period. */
+export function atPositions<T>(items: readonly T[], order: readonly number[]): T[] {
+  return order.flatMap((at) => (at < items.length ? [items[at] as T] : []));
+}
+
+/** What a period chart says of the labels it could not place, after its own note; the note alone
+ * when it placed them all. `every` is for a chart none of whose labels could be placed. */
+export function periodGapNote(gaps: readonly string[], note?: string, every = false) {
+  if (!gaps.length) return note;
+  const stated = every
+    ? "Shown in the order written: the periods could not be placed in time order."
+    : `Not placed in time order, shown last: ${gaps.join(", ")}.`;
+  return note ? `${note} · ${stated}` : stated;
+}
+
+/** Exact values in the order given (a period chart gives rule order: `periodPositions`); absent
+ * observations stay null, including sparse cells. */
 export function periodSeriesData(periods: string[], series: SeriesValues[]) {
   return periods.map((period, index) => ({
     period,

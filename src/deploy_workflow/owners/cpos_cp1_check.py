@@ -736,6 +736,8 @@ def _statement_cells(found: Statement) -> list[str]:
 
 
 def _orderable(period: str) -> bool:
+    """Whether a register row's Period is one the ordering rule can place (a fiscal year, a date,
+    an interim, LTM, pro forma or forecast label) or a statement period header."""
     return period_order(period) is not None or period_of(period) is not None
 
 

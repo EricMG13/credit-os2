@@ -181,14 +181,26 @@ def test_metrics_take_the_latest_period_not_the_last_row(tmp_path):
 
 
 def test_periods_that_cannot_be_ordered_give_no_metric_and_an_issue(tmp_path):
-    charts = CHARTS.replace("| FY2023 | 6.33", "| Q1 FY2023 | 6.33")
+    charts = CHARTS.replace("| FY2023 | 6.33", "| Run-rate | 6.33")
     make_run(tmp_path, "run-a", cp1_extra=charts)
     result = built(tmp_path)
     metrics = result["real"][0]["metrics"]
     assert "leverage" not in metrics and "net_leverage" not in metrics
     assert {"coverage", "cash", "undrawn"} <= set(metrics)
     (issue,) = [i for i in result["issues"] if "leverage" in i]
-    assert issue.startswith("run-a: CP-1 leverage table has no metric")
+    assert issue == (
+        "run-a: CP-1 leverage table has no metric (a row has no period that can be ordered)"
+    )
+
+
+def test_a_quarter_beside_a_fiscal_year_orders_and_the_latest_period_is_read(tmp_path):
+    # Owner's ruling 2026-11-25: quarters order with fiscal years instead of refusing the table.
+    charts = CHARTS.replace("| FY2023 | 6.33", "| Q1 FY2023 | 6.33")
+    make_run(tmp_path, "run-a", cp1_extra=charts)
+    result = built(tmp_path)
+    leverage = result["real"][0]["metrics"]["leverage"]
+    assert (leverage["value"], leverage["period"]) == ("6.57", "FY2024")
+    assert result["issues"] == []
 
 
 def test_not_supplied_is_absent(tmp_path):
@@ -354,6 +366,20 @@ def test_fiscal_year_with_its_date_is_ordered_by_the_date(tmp_path):
     assert metrics["leverage"]["period"] == "FY2024 / 2024-09-30"
     assert metrics["net_leverage"]["value"] == "4.93"
     assert result["issues"] == []
+
+
+def test_reported_rows_mixing_a_fiscal_year_and_a_date_give_no_latest_metric(tmp_path):
+    """Whether FY2023 or 2023-06-30 is later depends on the year end: no latest row is chosen."""
+    make_run(tmp_path, "run-a", cp1_extra=combined_periods("2023-06-30", "FY2023"))
+    result = built(tmp_path)
+    metrics = result["real"][0]["metrics"]
+    assert "leverage" not in metrics and "net_leverage" not in metrics
+    assert {"coverage", "cash", "undrawn"} <= set(metrics)
+    (issue,) = [i for i in result["issues"] if "leverage" in i]
+    assert issue == (
+        "run-a: CP-1 leverage table has no metric "
+        "(the reported rows mix dated and fiscal-labelled periods)"
+    )
 
 
 def test_fiscal_year_and_date_that_disagree_give_no_metric_and_an_issue(tmp_path):
@@ -563,8 +589,7 @@ def test_an_unchanged_value_has_a_change_of_zero_at_its_written_scale(tmp_path):
 
 
 def test_half_year_prior_is_the_same_half_a_year_earlier():
-    # `chart_row` cannot order an `H1 2025` period (the whole table then gives no metric), so the
-    # prior rule is checked on the rows directly.
+    # The prior rule alone, on the rows directly (no table is read here).
     rows = [
         {"Period": "H1 2024", "Total debt / EBITDA": "4.8", "Reporting unit": "x"},
         {"Period": "H1 2025", "Total debt / EBITDA": "5.1", "Reporting unit": "x"},
@@ -636,13 +661,42 @@ def test_a_prior_in_another_unit_gives_no_prior(tmp_path):
     assert "prior" not in metrics["leverage"] and "change" not in metrics["leverage"]
 
 
-def test_a_current_period_without_a_year_gives_no_prior_in_the_catalogue(tmp_path):
+def test_an_ltm_period_without_a_four_digit_year_is_read_and_has_no_prior(tmp_path):
+    # Owner's ruling 2026-11-25: an LTM period orders instead of being rejected, so the table
+    # gives its metric; `prior_metric` lowers four-digit years only, so there is no comparator.
     charts = one_chart(
-        "liquidity", "Cash ; Undrawn committed facilities", ["LTM Sep-25 | 5 | 6 | US$m"]
+        "liquidity",
+        "Cash ; Undrawn committed facilities",
+        ["LTM Sep-24 | 4 | 7 | US$m", "LTM Sep-25 | 5 | 6 | US$m"],
     )
     make_run(tmp_path, "run-a", cp1_extra=charts)
-    # `LTM Sep-25` cannot be ordered, so the table gives no metric and no comparator either
-    assert "cash" not in built(tmp_path)["real"][0]["metrics"]
+    cash = built(tmp_path)["real"][0]["metrics"]["cash"]
+    assert (cash["value"], cash["period"]) == ("5", "LTM Sep-25")
+    assert "prior" not in cash and "change" not in cash
+
+
+def test_the_catalogue_metric_is_the_latest_reported_row_not_a_pro_forma_or_forecast(tmp_path):
+    metrics = lev_metrics(
+        tmp_path,
+        ["FY2025E | 3.1 | x", "PF FY2024 | 3.6 | x", "FY2024 | 4.4 | x", "FY2023 | 4.2 | x"],
+    )
+    leverage = metrics["leverage"]
+    assert (leverage["value"], leverage["period"]) == ("4.4", "FY2024")
+    assert leverage["prior"] == {"value": "4.2", "period": "FY2023"}
+
+
+def test_a_table_of_only_pro_forma_rows_gives_no_metric_and_says_why(tmp_path):
+    charts = one_chart("leverage", "Total debt / EBITDA", ["PF FY2024 | 3.6 | x"])
+    make_run(tmp_path, "run-a", cp1_extra=charts)
+    found = built(tmp_path)
+    assert "leverage" not in found["real"][0]["metrics"]
+    assert any(
+        issue.endswith(
+            "CP-1 leverage table has no metric "
+            "(no row is a reported period: each is pro forma or a forecast)"
+        )
+        for issue in found["issues"]
+    )
 
 
 def test_the_adjusted_twin_column_supplies_the_prior(tmp_path):

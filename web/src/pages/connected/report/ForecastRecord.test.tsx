@@ -19,8 +19,8 @@ it("lists as forecast cases only the groups whose columns the trend charts read"
   const model = modelOf(
     [
       { label: "FY2027E", group: "Base case" },
-      // Not a dated forecast period: the trend charts ignore this column.
-      { label: "FY27E", group: "Upside" },
+      // Not a forecast period by the period rule: the trend charts ignore this column.
+      { label: "Run-rate", group: "Upside" },
     ],
     [value("10"), value("14")],
   );

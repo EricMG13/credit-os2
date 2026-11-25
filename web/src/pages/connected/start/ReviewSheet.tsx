@@ -15,7 +15,9 @@ import {
 import {
   CASE_KINDS,
   choiceLabel,
+  COMPARISON_PORTFOLIO,
   comparisonCaveat,
+  comparisonLine,
   documentDescription,
   EFFORTS,
   ISSUE_CLASSES,
@@ -696,6 +698,11 @@ function EverythingSubmitSends({
                   ["As-of date", given(run.as_of)],
                   [ISSUE_CLASSIFICATION, chosen(ISSUE_CLASSES, identity.issue_classification)],
                   ["Submitted by", answers.submitted_by],
+                  // Drawn only when the run has one; it is not one of the documents read.
+                  [
+                    COMPARISON_PORTFOLIO,
+                    summary.reference_portfolio && comparisonLine(summary.reference_portfolio),
+                  ],
                 ]}
               />
               <List

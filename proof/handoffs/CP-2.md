@@ -65,6 +65,37 @@ A located finding.
 | Interest cover | Below 3.1x | Lower cash cover | Less headroom | Filing p.1; synthetic threshold |
 | Liquidity | Not supplied: no agreed floor | Liquidity may vary | No quantified impact | Filing p.2; synthetic record |
 
+### T2.13 - Credit scorecard
+
+| Factor | Level | Basis |
+| --- | --- | --- |
+| Scale | 3 | Filing p.1; synthetic record |
+| Market position | 3 | Filing p.2; synthetic record |
+| Regulatory exposure | 2 | Filing p.1; synthetic record |
+| Technology | 3 | Filing p.2; synthetic record |
+| Barriers to entry | 3 | Filing p.1; synthetic record |
+| Leverage | 4 | Filing p.2; synthetic record |
+| Free cash flow | 3 | Filing p.1; synthetic record |
+| Liquidity | 3 | Filing p.2; synthetic record |
+| Rating trend | 3 | Filing p.1; synthetic record |
+| Geographic diversification | 3 | Filing p.2; synthetic record |
+| Product diversification | 3 | Filing p.1; synthetic record |
+| Market share | 3 | Filing p.2; synthetic record |
+| Customer concentration | 3 | Filing p.1; synthetic record |
+| Market access | 3 | Filing p.2; synthetic record |
+| Maturity profile | 4 | Filing p.1; synthetic record |
+| Interest cover | 4 | Filing p.2; synthetic record |
+| Financial policy | 3 | Filing p.1; synthetic record |
+
+### T2.14 - Credit assessment
+
+| Assessment | View | Basis |
+| --- | --- | --- |
+| Management | Neutral | Filing p.1; synthetic record |
+| Sector Outlook | Neutral | Filing p.2; synthetic record |
+| Sponsor Quality | Neutral | Filing p.1; synthetic record |
+| Credit Direction | Stable | Filing p.2; synthetic record |
+
 ## Calculations
 
 | Item | Value |

@@ -1,5 +1,6 @@
 """The portfolio export: a fund's mandate, constraints and exposure report as CSV exports, with a
-holdings workbook (ruling 2026-11-15-full-assessment-portfolio-workbook, "The export shape").
+holdings workbook (ruling 2026-11-15-full-assessment-portfolio-workbook, "The export shape"). The
+holdings may also be a CSV file with the Holdings sheet's header row (`is_holdings`).
 
 This is the shape the owner's portfolio data arrives in, beside the template workbook
 (`deploy_vii.inputs.portfolio`). It is checked, never converted into the template: converting
@@ -25,7 +26,9 @@ from __future__ import annotations
 import csv
 import io
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation
@@ -227,13 +230,111 @@ def rows_named(numbers: Sequence[int]) -> str:
 # --- Reading the files ---------------------------------------------------------------------------
 
 
-def csv_rows(raw: bytes) -> list[list[str]]:
-    """A CSV's rows as stripped text (UTF-8, with or without a byte-order mark; else Latin-1)."""
+@dataclass(frozen=True)
+class Book:
+    """A workbook as parsed (`xlsx_content`): each sheet's cells by (column, row), and whether its
+    dates count from 1 January 1904 (`workbookPr date1904`) rather than 30 December 1899."""
+
+    sheets: Mapping[str, Mapping[tuple[int, int], Span]]
+    date1904: bool = False
+
+    def sheet(self, name: str) -> Mapping[tuple[int, int], Span] | None:
+        """The sheet named `name`, whatever its case and spacing; None when there is none."""
+        wanted = next((sheet for sheet in self.sheets if folded(sheet) == folded(name)), None)
+        return None if wanted is None else self.sheets[wanted]
+
+
+@dataclass
+class _Reading:
+    """What one `reading` has parsed: workbooks and CSV files by their bytes (a parse that
+    failed, its error), each workbook sheet's rows and each workbook's parts."""
+
+    cached_formulas: bool
+    books: dict[bytes, Book | Exception] = field(default_factory=dict)
+    texts: dict[bytes, list[list[str]] | Exception] = field(default_factory=dict)
+    sheets: dict[tuple[bytes, str], tuple[Rows, int] | Exception] = field(default_factory=dict)
+    parts: dict[tuple[str, bytes], list[Part] | Exception] = field(default_factory=dict)
+
+
+_READING: ContextVar[_Reading | None] = ContextVar("portfolio_export_reading", default=None)
+
+
+@contextmanager
+def reading(*, cached_formulas: bool = False) -> Iterator[None]:
+    """Within the block each file's bytes are parsed once, however many parts, sheets and checks
+    read them; outside one, each call parses again. `cached_formulas`: a formula cell reads as
+    the value stored with it, blank when none is stored. The export's own check reads it as its
+    formula and that value (`Formula: ...`), which no figure reads, so a formula is never taken
+    for a frozen value there. Parsed content is shared within the block: it is not to be changed."""
+    current = _READING.get()
+    if current is not None and current.cached_formulas == cached_formulas:
+        yield
+        return
+    token = _READING.set(_Reading(cached_formulas))
+    try:
+        yield
+    finally:
+        _READING.reset(token)
+
+
+@contextmanager
+def _within() -> Iterator[None]:
+    """The reading in force, or the export check's own when none is."""
+    if _READING.get() is not None:
+        yield
+    else:
+        with reading():
+            yield
+
+
+def _once[K, T](cache: dict[K, T | Exception] | None, key: K, make: Callable[[], T]) -> T:
+    """`make()`, kept in `cache` under `key` when there is a cache; an error is kept and raised
+    again."""
+    if cache is None:
+        return make()
+    if key not in cache:
+        try:
+            cache[key] = make()
+        except Exception as error:  # noqa: BLE001 - kept, and raised again for each reader
+            cache[key] = error
+    found = cache[key]
+    if isinstance(found, Exception):
+        raise found
+    return found
+
+
+def _scope() -> _Reading | None:
+    return _READING.get()
+
+
+def _csv_rows(raw: bytes) -> list[list[str]]:
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = raw.decode("latin-1")
     return [[cell.strip() for cell in row] for row in csv.reader(io.StringIO(text))]
+
+
+def csv_rows(raw: bytes) -> list[list[str]]:
+    """A CSV's rows as stripped text (UTF-8, with or without a byte-order mark; else Latin-1).
+    Raises `csv.Error` for a file the CSV reader refuses (a cell longer than its limit)."""
+    scope = _scope()
+    return _once(None if scope is None else scope.texts, raw, lambda: _csv_rows(raw))
+
+
+_DATE1904 = "Workbook date system: 1904;"  # the limitation `xlsx_content` states for such a book
+
+
+def _parse_book(raw: bytes) -> Book:
+    content = xlsx_content(raw)
+    grids, _ = sheet_cells(content.spans, "workbook")
+    return Book(grids, any(note.startswith(_DATE1904) for note in content.limitations))
+
+
+def book(raw: bytes) -> Book:
+    """`raw` parsed as a workbook; within a `reading`, once. Raises what the parse raises."""
+    scope = _scope()
+    return _once(None if scope is None else scope.books, raw, lambda: _parse_book(raw))
 
 
 def _cells(row: Sequence[str]) -> list[str]:
@@ -242,10 +343,19 @@ def _cells(row: Sequence[str]) -> list[str]:
 
 @dataclass(frozen=True)
 class Cell:
+    """`percent_format`: a number shown as a percentage, so the stored value is a fraction.
+    `date1904`: a date cell of a workbook that counts its dates from 1904. `formula`: the cell
+    holds a formula (its text is then as the `reading` reads formulas)."""
+
     text: str
     numeric: bool = False
     date_format: bool = False
+    percent_format: bool = False
+    date1904: bool = False
+    formula: bool = False
 
+
+Rows = list[tuple[int, list[Cell]]]  # (row number, cells)
 
 _DATE_CODE = re.compile(r"[dmy]", re.IGNORECASE)
 _DATE_BUILTINS = frozenset({f"builtin:{n}" for n in (*range(14, 23), 45, 46, 47)})
@@ -261,34 +371,95 @@ def _is_date_format(code: str | None) -> bool:
     return bool(_DATE_CODE.search(bare)) and "0" not in bare
 
 
-def sheet_rows(raw: bytes, name: str) -> list[tuple[int, list[Cell]]] | None:
-    """A workbook sheet's rows as (row number, cells), or None when the sheet is not there."""
-    grids, _ = sheet_cells(xlsx_content(raw).spans, "workbook")
-    wanted = next((sheet for sheet in grids if folded(sheet) == folded(name)), None)
-    if wanted is None:
+def _is_percent_format(code: str | None) -> bool:
+    if code is None:
+        return False
+    if code.startswith("builtin:"):
+        return code in ("builtin:9", "builtin:10")
+    return "%" in _QUOTED.sub("", code)
+
+
+# A cell more than this many empty columns to the right of the last cell read in its row is left
+# out, and so is the rest of that row: no table has such a gap, and a row is then never longer than
+# its cells allow, however far right a stray cell is (XFD is column 16,384).
+FAR_COLUMNS = 100
+_EMPTY = Cell("")
+
+
+def _layout(
+    sheet: Mapping[tuple[int, int], Span], date1904: bool, cached: bool
+) -> tuple[Rows, int]:
+    """The rows, each as long as its last cell read, and the count of cells left out."""
+    by_row: dict[int, list[tuple[int, Span]]] = {}
+    for (column, row), span in sheet.items():
+        by_row.setdefault(row, []).append((column, span))
+    rows: Rows = []
+    far = 0
+    for number in sorted(by_row):
+        cells: list[Cell] = []
+        placed = sorted(by_row[number], key=lambda item: item[0])
+        for index, (column, span) in enumerate(placed):
+            if column - len(cells) - 1 > FAR_COLUMNS:
+                far += len(placed) - index
+                break
+            cells += [_EMPTY] * (column - len(cells) - 1)
+            cells.append(_cell(span, date1904, cached))
+        rows.append((number, cells))
+    return rows, far
+
+
+def _sheet(raw: bytes, name: str) -> tuple[Rows, int] | None:
+    """The sheet's rows and far cells (`_layout`), within a `reading` laid out once."""
+    parsed = book(raw)
+    sheet = parsed.sheet(name)
+    if sheet is None:
         return None
-    grid: Mapping[tuple[int, int], Span] = grids[wanted]
-    width = max((column for column, _ in grid), default=0)
-    numbers = sorted({row for _, row in grid})
-    return [
-        (number, [_cell(grid.get((column, number))) for column in range(1, width + 1)])
-        for number in numbers
-    ]
+    scope = _scope()
+    cached = scope is not None and scope.cached_formulas
+    return _once(
+        None if scope is None else scope.sheets,
+        (raw, folded(name)),
+        lambda: _layout(sheet, parsed.date1904, cached),
+    )
 
 
-def _cell(span: Span | None) -> Cell:
-    if span is None:
-        return Cell("")
+def sheet_rows(raw: bytes, name: str) -> Rows | None:
+    """A workbook sheet's rows as (row number, cells), or None when the sheet is not there. A row
+    runs to its last cell, so rows differ in length; a cell far to the right of the rest of its
+    row is left out (`FAR_COLUMNS`, `far_cells`)."""
+    found = _sheet(raw, name)
+    return None if found is None else found[0]
+
+
+def far_cells(raw: bytes, name: str) -> int:
+    """How many cells of the sheet `sheet_rows` leaves out for being far to the right."""
+    found = _sheet(raw, name)
+    return 0 if found is None else found[1]
+
+
+def _cell(span: Span, date1904: bool, cached: bool) -> Cell:
+    formula = span.formula is not None
     numeric = span.data_type == "n"
-    return Cell(span.text.strip(), numeric, numeric and _is_date_format(span.number_format))
+    text = span.text
+    if formula and cached:
+        text = span.cached_value or ""
+        numeric = numeric and span.cached_value is not None
+    dated = numeric and _is_date_format(span.number_format)
+    return Cell(
+        text.strip(),
+        numeric,
+        dated,
+        numeric and _is_percent_format(span.number_format),
+        dated and date1904,
+        formula,
+    )
 
 
 def workbook_sheets(raw: bytes) -> tuple[str, ...]:
     try:
-        grids, _ = sheet_cells(xlsx_content(raw).spans, "workbook")
+        return tuple(book(raw).sheets)
     except Exception:  # noqa: BLE001 - any reader failure: not a workbook here
         return ()
-    return tuple(grids)
 
 
 _TEXT_DATES = ("%Y-%m-%d", "%d-%b-%Y", "%d %b %Y", "%m/%d/%Y", "%d/%m/%Y", "%b %d, %Y")
@@ -300,8 +471,9 @@ def read_date(cell: Cell) -> date | None:
     from datetime import datetime
 
     if cell.date_format:
+        start = date(1904, 1, 1) if cell.date1904 else date(1899, 12, 30)
         try:
-            return date(1899, 12, 30) + timedelta(days=int(Decimal(cell.text)))
+            return start + timedelta(days=int(Decimal(cell.text)))
         except (InvalidOperation, OverflowError, ValueError):
             return None
     for pattern in _TEXT_DATES:
@@ -392,19 +564,69 @@ def column_index(header: Sequence[str], words: Iterable[str], skip: int = -1) ->
     return None
 
 
+# Never a field's column, whatever else the header says: a sub-sector is not the sector, and a
+# price per 100 par or a position id is not the par.
+_NOT_HOLDING: Mapping[str, frozenset[str]] = {
+    "sector": frozenset({"sub"}),
+    "par": frozenset({"price", "id"}),
+}
+_HEADER_WORD = re.compile(r"[^\W_]+")
+
+
+def _singular(word: str) -> str:
+    return word[:-1] if len(word) > 3 and word.endswith("s") else word
+
+
+def _header_words(text: str) -> tuple[str, ...]:
+    """A header cell's words, lower case and singular (`Ratings` is `rating`)."""
+    return tuple(_singular(word) for word in _HEADER_WORD.findall(folded(text)))
+
+
+_PHRASES: Mapping[str, tuple[tuple[str, ...], ...]] = {
+    key: tuple(_header_words(word) for word in words) for key, words in _HOLDING_COLUMNS.items()
+}
+# A borrower header holds the first word of one of the borrower's phrases (the cheap test).
+_BORROWER_WORDS = tuple({phrase[0] for phrase in _PHRASES["borrower"]})
+
+
+def _holding_column(heads: Sequence[tuple[str, ...]], key: str) -> int | None:
+    """The column of the holdings field `key`: the first header that is one of its words whole,
+    else the first that holds one as whole words, in the order `_HOLDING_COLUMNS` gives."""
+    refused = _NOT_HOLDING.get(key, frozenset())
+    allowed = [i for i, head in enumerate(heads) if not refused & set(head)]
+    for whole in (True, False):
+        for phrase in _PHRASES[key]:
+            size = len(phrase)
+            for index in allowed:
+                head = heads[index]
+                if head == phrase or (
+                    not whole
+                    and any(head[i : i + size] == phrase for i in range(len(head) - size + 1))
+                ):
+                    return index
+    return None
+
+
 def holdings_header(rows: Sequence[tuple[int, list[Cell]]]) -> tuple[int, dict[str, int]] | None:
-    """The header row's number and the column of each known holdings field."""
+    """The header row's number and the column of each known holdings field (`_holding_column`):
+    `Ratings` before `Rating Bucket`, `Holdings` before `Position ID`, words matched whole so an
+    `Admin Agent` is not a DM. The header is the first row of five filled cells or more that
+    names a borrower."""
     for number, cells in rows:
-        texts = [cell.text for cell in cells]
+        texts = [folded(cell.text) for cell in cells]
         if sum(1 for text in texts if text) < 5:
+            continue
+        if not any(word in text for text in texts for word in _BORROWER_WORDS):
+            continue  # cheaply: no borrower column, so not the header
+        heads = [_header_words(text) for text in texts]
+        if _holding_column(heads, "borrower") is None:
             continue
         columns = {
             key: index
-            for key, words in _HOLDING_COLUMNS.items()
-            if (index := column_index(texts, words)) is not None
+            for key in _HOLDING_COLUMNS
+            if (index := _holding_column(heads, key)) is not None
         }
-        if "borrower" in columns:
-            return number, columns
+        return number, columns
     return None
 
 
@@ -469,6 +691,18 @@ def _role(rows: Sequence[Sequence[str]]) -> str | None:
     return "exposure" if is_exposure(rows) else None
 
 
+# The part name a holdings CSV's rows are reported under (a CSV has no sheet).
+CSV_HOLDINGS = "Holdings"
+
+
+def is_holdings(rows: Sequence[Sequence[str]]) -> bool:
+    """A CSV whose first filled row is a holdings header: a borrower and a par column. Only that
+    row is read as the header, so a data row that mentions a borrower cannot make a file the
+    holdings."""
+    header = holdings_header([(1, [Cell(text) for text in _first_row(rows)])])
+    return header is not None and "par" in header[1]
+
+
 def _text(cell: Cell) -> str:
     """A workbook cell as the CSV export would write it: a date cell as its ISO date."""
     if cell.date_format:
@@ -478,6 +712,13 @@ def _text(cell: Cell) -> str:
 
 
 def _workbook_parts(name: str, raw: bytes) -> list[Part]:
+    scope = _scope()
+    return _once(
+        None if scope is None else scope.parts, (name, raw), lambda: _sheets_parts(name, raw)
+    )
+
+
+def _sheets_parts(name: str, raw: bytes) -> list[Part]:
     found: list[Part] = []
     for sheet in workbook_sheets(raw):
         rows = sheet_rows(raw, sheet) or []
@@ -497,18 +738,24 @@ def _workbook_parts(name: str, raw: bytes) -> list[Part]:
 def parts(files: Mapping[str, bytes]) -> list[Part]:
     """Every recognised part, CSV files and workbook sheets alike, in file order. A workbook's
     `Holdings` sheet (or any sheet whose header has a borrower and a par column) is the holdings;
-    its `Market Data` sheet the quote universe."""
+    its `Market Data` sheet the quote universe. A CSV that is not a mandate, constraints or
+    exposure file and whose first row is a holdings header (`is_holdings`) is the holdings too,
+    but only beside a mandate or constraints part: a lone holdings file among other sources is
+    not a fund's export."""
     found: list[Part] = []
-    for name in sorted(files):
-        raw, lower = files[name], name.lower()
-        if lower.endswith(".csv"):
-            rows = csv_rows(raw)
-            if (role := _role(rows)) is not None:
-                numbered = tuple((n, tuple(r)) for n, r in enumerate(rows, 1))
-                found.append(Part(name, None, role, numbered))
-        elif lower.endswith(".xlsx"):
-            found += _workbook_parts(name, raw)
-    return found
+    with _within():
+        for name in sorted(files):
+            raw, lower = files[name], name.lower()
+            if lower.endswith(".csv"):
+                rows = csv_rows(raw)
+                role = _role(rows) or ("holdings" if is_holdings(rows) else None)
+                if role is not None:
+                    numbered = tuple((n, tuple(r)) for n, r in enumerate(rows, 1))
+                    found.append(Part(name, None, role, numbered))
+            elif lower.endswith(".xlsx"):
+                found += _workbook_parts(name, raw)
+    beside = any(part.role in ("mandate", "constraints") for part in found)
+    return [part for part in found if beside or part.sheet is not None or part.role != "holdings"]
 
 
 def recognise(files: Mapping[str, bytes]) -> dict[str, str]:
@@ -547,8 +794,19 @@ def _holding(sheet: str, number: int, cells: list[Cell], columns: Mapping[str, i
 def holding_rows(raw: bytes, sheet: str, export: Export) -> list[Holding]:
     """The rows under the header of `sheet`; rows of empty cells are counted, not read."""
     rows = sheet_rows(raw, sheet)
-    if rows is None:
-        return []
+    return [] if rows is None else rows_under_header(rows, sheet, export)
+
+
+def csv_holding_rows(part: Part, export: Export) -> list[Holding]:
+    """A holdings CSV's rows, as `holding_rows` reads a sheet's: every cell is text."""
+    rows = [(number, [Cell(text) for text in row]) for number, row in part.rows]
+    return rows_under_header(rows, CSV_HOLDINGS, export)
+
+
+def rows_under_header(
+    rows: Sequence[tuple[int, list[Cell]]], sheet: str, export: Export
+) -> list[Holding]:
+    """The rows under the holdings header; rows of empty cells are counted, not read."""
     header = holdings_header(rows)
     if header is None:
         return []
@@ -567,6 +825,11 @@ def holding_rows(raw: bytes, sheet: str, export: Export) -> list[Holding]:
 
 
 def read_export(files: Mapping[str, bytes]) -> Export:
+    with _within():
+        return _read_export(files)
+
+
+def _read_export(files: Mapping[str, bytes]) -> Export:
     export = Export()
     for part in parts(files):
         export.roles[part.label] = part.role
@@ -582,9 +845,12 @@ def read_export(files: Mapping[str, bytes]) -> Export:
             export.constraints.append((part.label, rows, header))
         elif part.role == "exposure":
             export.sections = sections(rows)
+        elif part.sheet is None:
+            export.book = part.file
+            export.holdings = csv_holding_rows(part, export)
         else:
             export.book = part.file
-            export.holdings = holding_rows(files[part.file], part.sheet or "", export)
+            export.holdings = holding_rows(files[part.file], part.sheet, export)
     return export
 
 

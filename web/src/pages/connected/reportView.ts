@@ -1,5 +1,6 @@
 import type { Metric, ModuleState } from "../library/slice";
 import { moduleName } from "./api";
+import { comparePeriodKeys, parsePeriod, periodKey } from "@/utils/periodOrder";
 import { exactDifference } from "./signal";
 import {
   blocked,
@@ -430,43 +431,69 @@ type Figure = CatalogueRun["metrics"][string];
 export const stated = (figure: Figure | undefined): figure is Figure & { value: string | number } =>
   figure?.value != null && figure.value !== "";
 
-/** The sort key of a Period cell, as `period_order` of `credit_os_catalogue.py`: `FY2024`,
- * `2024-09-30` or `FY2024 / 2024-09-30` (ordered by its date). The keys of one form compare as
- * text in date order; nothing for any other text, an impossible date, or a year that disagrees
- * with its date. */
-export function periodOrder(cell: string) {
-  const year = /^FY(\d{4})$/.exec(cell);
-  if (year) return `1-${year[0].slice(2)}`;
-  const dated = /^FY(\d{4}) \/ (\d{4}-\d{2}-\d{2})$/.exec(cell);
-  const date = dated?.[2] ?? cell;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || (dated && dated[1] !== date.slice(0, 4)))
-    return undefined;
-  const [y = 0, m = 0, d = 0] = date.split("-").map(Number);
-  const day = new Date(0);
-  day.setUTCFullYear(y, m - 1, d);
-  return y > 0 && day.toISOString().startsWith(date) ? `2-${date}` : undefined;
+/** Where a Period cell sits in the one period order (`periodKey`, the twin of `period_order` of
+ * `credit_os_catalogue.py`), and whether it is a reported period: an actual, a year to date or a
+ * last twelve months. A pro forma or a forecast is placed too, and is never a latest reported one. */
+export type PeriodPlace = {
+  key: readonly number[];
+  reported: boolean;
+  /** For an actual period, whether the label carries its own date (`2025-06-30`, `FY2024 /
+   * 2024-09-30`) or is fiscal-labelled (`FY2025`, `Q3 2025`, `Jun 2025`); null for another class. */
+  dated: boolean | null;
+};
+
+const REPORTED: ReadonlySet<string> = new Set(["actual", "ytd", "ltm"]);
+
+/** The place of a Period cell; nothing for a label the period rule cannot read. */
+export function periodPlace(cell: string): PeriodPlace | undefined {
+  const parsed = parsePeriod(cell);
+  const key = periodKey(cell);
+  if (!parsed || !key) return undefined;
+  const dated = parsed.periodClass === "actual" ? parsed.span === "date" : null;
+  return { key, reported: REPORTED.has(parsed.periodClass), dated };
 }
 
-/** The row of a chart table with the latest Period, chosen as `chart_rows` of
- * `credit_os_catalogue.py` chooses it (by the period, whatever the order of the rows); nothing
- * where the builder chooses none: a row whose cells do not match the headings or whose period
- * cannot be ordered, periods of mixed forms, or a period that repeats. */
-function latestRow(table: Table, at: number) {
-  const ranked: { row: Row; key: string }[] = [];
-  for (const row of table.rows) {
-    const same = row.cells.length === table.headers.length;
-    const key = same ? periodOrder(row.cells[at] ?? "") : undefined;
-    if (key === undefined) return undefined;
-    ranked.push({ row, key });
+/** Whether the actual periods among these mix dated and fiscal-labelled ones (`FY2025` beside
+ * `2025-06-30`): which is later depends on the year end, so no latest is chosen from them. */
+function mixesDatedAndFiscal(places: readonly PeriodPlace[]) {
+  const forms = new Set(places.map(({ dated }) => dated));
+  return forms.has(true) && forms.has(false);
+}
+
+/**
+ * The items in period order and the latest reported one among them, chosen as `chart_row` of
+ * `credit_os_catalogue.py` chooses it: the last in that order among the actual, year to date and
+ * last twelve months periods, whatever order the items are in, never a pro forma or forecast one.
+ * Nothing where the builder chooses none: an item with no place (a period that cannot be read, a
+ * malformed row), two items with one place, no reported period, or actual periods that mix dated
+ * and fiscal-labelled ones (`mixes_dated_and_fiscal` there). A chart still draws those in order.
+ */
+export function latestReported<T>(
+  items: readonly T[],
+  place: (item: T) => PeriodPlace | undefined,
+): { ordered: T[]; latest: T } | undefined {
+  const placed: { item: T; at: PeriodPlace }[] = [];
+  for (const item of items) {
+    const at = place(item);
+    if (!at) return undefined;
+    placed.push({ item, at });
   }
-  const keys = ranked.map(({ key }) => key);
-  if (
-    ranked.length === 0 ||
-    new Set(keys.map((key) => key[0])).size !== 1 ||
-    new Set(keys).size !== keys.length
-  )
-    return undefined;
-  return ranked.reduce((latest, item) => (item.key > latest.key ? item : latest)).row;
+  placed.sort((a, b) => comparePeriodKeys(a.at.key, b.at.key));
+  const repeats = placed.some(
+    ({ at }, index) =>
+      index > 0 && comparePeriodKeys(placed[index - 1]?.at.key ?? [], at.key) === 0,
+  );
+  const latest = placed.filter(({ at }) => at.reported).at(-1);
+  if (repeats || !latest || mixesDatedAndFiscal(placed.map(({ at }) => at))) return undefined;
+  return { ordered: placed.map(({ item }) => item), latest: latest.item };
+}
+
+/** The row of a chart table with the latest reported Period (`latestReported`); a row whose cells
+ * do not match the headings has no place. */
+function latestRow(table: Table, at: number) {
+  return latestReported(table.rows, (row) =>
+    row.cells.length === table.headers.length ? periodPlace(row.cells[at] ?? "") : undefined,
+  )?.latest;
 }
 
 /** The row of a headline figure's chart table, and that row's cell in the figure's column: the row

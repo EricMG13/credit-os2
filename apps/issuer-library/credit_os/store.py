@@ -222,10 +222,13 @@ from credit_os.handoff_fields import (
     STATED_GAP,
     STEP_HEADERS,
     WORD_GROUPS,
+    path_series,
+    period_columns,
     placements,
     reader_fields,
     report_fields,
     section_words,
+    visual_periods,
 )
 from credit_os.source import (
     CHUNK,
@@ -714,17 +717,38 @@ def pinned_fields(
         fields["basis"] = locate_row(sections, config["basis"], module)
     visual = config.get("visual")
     if visual:
-        if not any(
-            b["type"] == "table" and b["line"] == visual["table"]
+        fields["visual"] = pinned_visual(sections, visual, module)
+    return fields
+
+
+def pinned_visual(
+    sections: list[dict[str, Any]], visual: dict[str, Any], module: str
+) -> dict[str, Any]:
+    """A curated visual with its quote located and, where it is drawn over periods, their order
+    by the one rule (the page draws what it is given and orders nothing)."""
+    table = next(
+        (
+            b
             for s in sections
             for b in s["blocks"]
-        ):
-            raise ValueError(f"{module}: visual table locator no longer matches")
-        quote = visual.get("noteQuote")
-        fields["visual"] = (
-            {**visual, "quote": locate_quote(sections, quote, module)} if quote else visual
-        )
-    return fields
+            if b["type"] == "table" and b["line"] == visual["table"]
+        ),
+        None,
+    )
+    if table is None:
+        raise ValueError(f"{module}: visual table locator no longer matches")
+    drawn = dict(visual)
+    if visual.get("noteQuote"):
+        drawn["quote"] = locate_quote(sections, visual["noteQuote"], module)
+    if visual["kind"] == "paths":
+        try:
+            drawn["paths"] = path_series(table)
+        except ValueError as error:
+            raise ValueError(f"{module}: {error}") from error
+    periods = visual_periods(visual, table)
+    if periods:
+        drawn["periods"] = periods
+    return drawn
 
 
 def linked(folder: Path) -> bool:
@@ -868,6 +892,10 @@ def handoff_parts(
     """Everything read from a handoff's bytes alone: its sections, its parse problem and the
     reader, report and confidence fields of an output holding it."""
     sections, problem = structured(raw, strict)
+    for block in (b for s in sections for b in s["blocks"] if b["type"] == "table"):
+        periods = period_columns(block["headers"])
+        if periods:
+            block["periods"] = periods
     fields = reader_fields(sections)
     fields.update(report_fields(sections, fields["summary"]))
     fields.update(confidence_fields(raw))

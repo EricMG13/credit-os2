@@ -425,6 +425,22 @@ def files(spec: Spec) -> dict[str, bytes]:
     return {**out, **spec.extra}
 
 
+HOLDINGS_CSV = "SYNTHETIC Holdings.csv"
+
+
+def csv_files(spec: Spec) -> dict[str, bytes]:
+    """The same export with the holdings as a CSV file in place of the workbook: the header and
+    the data rows of the Holdings sheet, dates as ISO text. A CSV has no Market Data sheet."""
+    rows = [
+        [cell.isoformat() if isinstance(cell, date) else cell for cell in row]
+        for row in [HOLDING_HEADER, *spec.holdings]
+    ]
+    rows += [[""] * len(HOLDING_HEADER) for _ in range(spec.empty_rows)]
+    out = files(spec)
+    del out[HOLDINGS]
+    return {**out, HOLDINGS_CSV: _csv(rows)}
+
+
 BOOK = "SYNTHETIC Portfolio Export.xlsx"
 SHEETS = (
     ("Mandate File", "mandate"),

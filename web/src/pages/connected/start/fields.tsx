@@ -10,6 +10,7 @@ export type FieldKey =
   | "issuer_id"
   | "as_of"
   | "submitted_by"
+  | "reference_portfolio"
   | "cutoff"
   | "current_period"
   | "prior_period"
@@ -88,12 +89,13 @@ export function refusedField(
   );
 }
 
-/** The step a control is drawn on: the issuer name and analyst name on Documents, the rest on Context. */
+/** The step a control is drawn on: the issuer name, analyst name and comparison portfolio on Documents, the rest on Context. */
 export function stepOfField(field: FieldKey): FormStep {
   return field === "issuer_name" ||
     field === "issuer_id" ||
     field === "as_of" ||
-    field === "submitted_by"
+    field === "submitted_by" ||
+    field === "reference_portfolio"
     ? "documents"
     : "context";
 }
