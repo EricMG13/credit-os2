@@ -20,7 +20,11 @@ from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.fold import MIN_TITLE_WORDS, TITLE_WINDOW, link_key, title_key
 
 ROLES = ("reader", "writer", "owner")
+# The feed kinds: what writers propose and topics filter on.
 KINDS = ("regulator", "news", "ratings", "research")
+FILING = "filing"  # an issuer's SEC filings: proposed by setting the issuer's CIK
+MARKET = "market"  # the daily market backdrop: proposed by `signal market propose`
+SOURCE_KINDS = (*KINDS, FILING, MARKET)
 STATES = ("proposed", "approved", "paused")
 
 
@@ -384,8 +388,75 @@ CREATE INDEX idx_saves_story ON saves(story_id);
 CREATE INDEX idx_digest_runs_issue ON digest_runs(issue_id);
 """
 
+# The issuer watchlist, company filings and the market backdrop
+# (docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md). `issuers.aliases` is a JSON
+# list; `cik` ten digits or NULL; `source_id` the issuer's filing source while it has a CIK (NULL
+# otherwise; the source stays, paused, when the link goes). `issuer_stories` ties a story to an
+# issuer (by text, or by the issuer's filing source). `service_settings`: the owner's contact
+# string for the SEC and the market post's UTC hour. `market_series`: the FRED series the market
+# post reads, in `position` order. `market_posts`: each market story's table, exact decimal text
+# and ISO dates (`as_of` its newest observation date). Ids of issuers are never given again
+# (``fresh_id``/``retire_id``).
+_MIGRATION_7 = """
+CREATE TABLE issuers(
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    aliases TEXT NOT NULL,
+    cik TEXT UNIQUE CHECK (cik IS NULL OR (length(cik) = 10 AND cik NOT GLOB '*[^0-9]*')),
+    library_key TEXT,
+    source_id INTEGER UNIQUE REFERENCES sources(id),
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE issuer_stories(
+    issuer_id INTEGER NOT NULL REFERENCES issuers(id) ON DELETE CASCADE,
+    story_id INTEGER NOT NULL REFERENCES stories(id),
+    UNIQUE(issuer_id, story_id)
+);
+CREATE INDEX idx_issuer_stories_story ON issuer_stories(story_id);
+CREATE TABLE issuer_follows(
+    user_name TEXT NOT NULL,
+    issuer_id INTEGER NOT NULL REFERENCES issuers(id) ON DELETE CASCADE,
+    UNIQUE(user_name, issuer_id)
+);
+CREATE INDEX idx_issuer_follows_issuer ON issuer_follows(issuer_id);
+CREATE TABLE digest_issuers(
+    digest_id INTEGER NOT NULL REFERENCES digests(id),
+    issuer_id INTEGER NOT NULL REFERENCES issuers(id) ON DELETE CASCADE,
+    UNIQUE(digest_id, issuer_id)
+);
+CREATE INDEX idx_digest_issuers_issuer ON digest_issuers(issuer_id);
+CREATE TABLE service_settings(
+    key TEXT PRIMARY KEY CHECK (key IN ('filings_contact', 'market_hour')),
+    value TEXT NOT NULL,
+    set_at TEXT NOT NULL
+);
+CREATE TABLE market_series(
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    short TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    source TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    added_at TEXT NOT NULL
+);
+CREATE TABLE market_posts(
+    story_id INTEGER PRIMARY KEY REFERENCES stories(id),
+    as_of TEXT NOT NULL,
+    rows TEXT NOT NULL
+);
+"""
+
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
-MIGRATIONS = [_MIGRATION_1, _MIGRATION_2, _MIGRATION_3, _MIGRATION_4, _MIGRATION_5, _MIGRATION_6]
+MIGRATIONS = [
+    _MIGRATION_1,
+    _MIGRATION_2,
+    _MIGRATION_3,
+    _MIGRATION_4,
+    _MIGRATION_5,
+    _MIGRATION_6,
+    _MIGRATION_7,
+]
 _BUSY_SECONDS = 30
 RELEASED = 2  # versions a released build made, before stores recorded their scripts' hash
 
@@ -564,6 +635,35 @@ def plain_text(text: str, limit: int, what: str, *, lines: bool = False) -> str:
     return cleaned
 
 
+def fts_phrase(text: str) -> str:
+    """`text` as one quoted FTS5 phrase, so query syntax in it is plain text."""
+    return '"' + text.replace("\x00", " ").replace('"', '""') + '"'
+
+
+SETTING_KEYS = ("filings_contact", "market_hour")
+
+
+def get_setting(db: sqlite3.Connection, key: str) -> str | None:
+    """An owner's service setting (``service_settings``), or None when it was never set."""
+    _require(key, SETTING_KEYS, "setting")
+    row = db.execute("SELECT value FROM service_settings WHERE key=?", (key,)).fetchone()
+    return None if row is None else str(row["value"])
+
+
+def set_setting(db: sqlite3.Connection, key: str, value: str | None, now: datetime) -> None:
+    """Store an owner's service setting; None clears it. One write transaction."""
+    _require(key, SETTING_KEYS, "setting")
+    with _write_transaction(db):
+        if value is None:
+            db.execute("DELETE FROM service_settings WHERE key=?", (key,))
+            return
+        db.execute(
+            "INSERT INTO service_settings(key, value, set_at) VALUES(?, ?, ?)"
+            " ON CONFLICT(key) DO UPDATE SET value=excluded.value, set_at=excluded.set_at",
+            (key, value, _utc_text(now)),
+        )
+
+
 def add_user(db: sqlite3.Connection, name: str, role: str) -> int:
     _require_name(name)
     _require(role, ROLES, "role")
@@ -680,6 +780,25 @@ def _propose(
     return cur.lastrowid
 
 
+def insert_source(
+    db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str
+) -> int:
+    """A source of a kind no one proposes by hand (``FILING``, ``MARKET``), stored as proposed,
+    inside the caller's write transaction; Conflict when its address is stored already. The
+    caller has checked the name and the address."""
+    _require(kind, (FILING, MARKET), "kind")
+    url = canonical_url(url)
+    if _spelled_otherwise(db, url):
+        raise Conflict(f"source url {url!r} already exists")
+    cur = db.execute(
+        "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+        " VALUES(?, ?, ?, 'proposed', ?, ?)",
+        (name, kind, url, proposed_by, _utc_text(datetime.now(UTC))),
+    )
+    assert cur.lastrowid is not None
+    return cur.lastrowid
+
+
 def _spelled_otherwise(db: sqlite3.Connection, url: str) -> bool:
     """Whether a stored source is this address in another spelling: one stored before its
     canonical form was (or a later rule of it), compared by its canonical form now. Sources are
@@ -705,7 +824,15 @@ def set_source_state(db: sqlite3.Connection, source_id: int, state: str) -> None
 
 
 STORY_BATCH = 200  # stories one transaction of a source's removal deletes
-_STORY_DEPENDENTS = ("story_duplicates", "topic_stories", "saves", "story_ai", "threads")
+_STORY_DEPENDENTS = (
+    "story_duplicates",
+    "topic_stories",
+    "saves",
+    "story_ai",
+    "threads",
+    "issuer_stories",
+    "market_posts",
+)
 
 
 def fresh_id(db: sqlite3.Connection, table: str) -> int:
@@ -739,6 +866,12 @@ def remove_source(db: sqlite3.Connection, source_id: int, *, with_stories: bool)
             row = db.execute("SELECT 1 FROM sources WHERE id=?", (source_id,)).fetchone()
             if row is None:
                 raise Missing(f"no source with id {source_id}")
+            user = db.execute("SELECT name FROM issuers WHERE source_id=?", (source_id,)).fetchone()
+            if user is not None:
+                raise Conflict(
+                    f"the issuer {user['name']!r} uses source {source_id} for its filings;"
+                    " take the issuer's CIK off first"
+                )
             held = db.execute("SELECT COUNT(*) FROM stories WHERE source_id=?", (source_id,))
             count = int(held.fetchone()[0])
             if count and not with_stories:

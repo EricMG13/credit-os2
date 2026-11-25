@@ -9,8 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import NotRequired, TypedDict, Unpack
 
-from deploy_workflow.signal.store import KINDS, _utc_text, _write_transaction
-from deploy_workflow.signal.topics import fts_phrase
+from deploy_workflow.signal.store import KINDS, _utc_text, _write_transaction, fts_phrase
 
 PAGE = 30
 MAX_QUERY = 100

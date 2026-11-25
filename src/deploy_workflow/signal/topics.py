@@ -17,6 +17,7 @@ from deploy_workflow.signal.store import (
     _utc_text,
     _write_transaction,
     fresh_id,
+    fts_phrase,
     retire_id,
 )
 
@@ -24,11 +25,6 @@ MAX_KEYWORD = 60
 MAX_KEYWORDS = 12  # a topic's rule costs one index query per keyword for every story that arrives
 MAX_NAME = 80
 MAX_TOPICS = 50
-
-
-def fts_phrase(text: str) -> str:
-    """`text` as one quoted FTS5 phrase, so query syntax in it is plain text."""
-    return '"' + text.replace("\x00", " ").replace('"', '""') + '"'
 
 
 def _clean_name(name: str) -> str:
