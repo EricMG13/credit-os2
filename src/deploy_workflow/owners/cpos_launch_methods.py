@@ -177,11 +177,12 @@ METHODS: dict[str, tuple[str, ...]] = {
 }
 NOT_ANALYTICAL = frozenset({"CP-MODEL", "CP-8"})  # In the presets; each has its own route.
 
-# Modules whose method block is sent without its repeats (owner, 2026-11-25: "apply
-# recommendations"; docs/sweeps/2026-11-25-instruction-length/REPORT.md, full trial of CP-4). The
-# method files are unchanged: the block is trimmed as it is sent. One module at a time: a module
-# joins this set after its own runs have been compared, as CP-4's were.
-TRIMMED_METHODS = frozenset({"CP-4"})
+# Every module's method block is sent without its repeats (owner, 2026-11-25: "apply
+# recommendations", then "add now apply to all modules";
+# docs/sweeps/2026-11-25-instruction-length/REPORT.md). The method files are unchanged: the block
+# is trimmed as it is sent. CP-4 alone had runs compared before it joined; the others joined on
+# the owner's instruction, checked offline (no register or table id lost).
+TRIMMED_METHODS = frozenset(METHODS)
 # A paragraph body shorter than this is a heading, a table rule or a one-line note.
 _REPEAT_FLOOR = 200
 # Paragraphs that only tell the model to run a helper script or to copy what one prints, which

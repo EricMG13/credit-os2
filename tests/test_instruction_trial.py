@@ -136,17 +136,17 @@ def test_the_trial_total_counts_the_reader_calls_too(tmp_path):
     assert trial.trial_spent(tmp_path / "cp4-E") == Decimal("1.75")
 
 
-def test_the_engine_sends_cp4_and_only_cp4_without_its_repeats():
+def test_the_engine_sends_every_module_its_method_without_repeats_and_names_every_file():
     from deploy_workflow.owners import cpos_launch
-    from deploy_workflow.owners.cpos_launch_methods import TRIMMED_METHODS, trim_method
+    from deploy_workflow.owners.cpos_launch_methods import METHODS, TRIMMED_METHODS, trim_method
 
-    assert frozenset({"CP-4"}) == TRIMMED_METHODS
-    block = cpos_launch.method_text("CP-4")
-    assert trim_method(block) == block  # trimming what was trimmed changes nothing
-    assert "## Automated QA validation" not in block
+    assert frozenset(METHODS) == TRIMMED_METHODS
+    for module in METHODS:
+        block = cpos_launch.method_text(module)
+        assert trim_method(block) == block  # trimming what was trimmed changes nothing
+        assert "## Automated QA validation" not in block
+        for name, text in cpos_launch.method_sections(module):
+            assert cpos_launch.method_heading(name, text) in block, (module, name)
+        assert all(i in block for i in cpos_launch.required_registers(module)), module
     sent_whole = sum(len(text) for _, text in cpos_launch.method_sections("CP-4"))
-    assert sent_whole - len(block) > 20_000  # the repeats: 22,736 characters on 2026-11-25
-    for name, text in cpos_launch.method_sections("CP-4"):
-        assert cpos_launch.method_heading(name, text) in block  # every file is still named
-    whole = cpos_launch.method_sections("CP-3")
-    assert all(text in cpos_launch.method_text("CP-3") for _, text in whole)
+    assert sent_whole - len(cpos_launch.method_text("CP-4")) > 20_000  # 22,736 on 2026-11-25
