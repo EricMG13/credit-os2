@@ -12,7 +12,8 @@ cap is what bounds the digests, their runs and the due pass whatever names are t
 A run gathers the stories in scope for the period, highest signal first (the AI pass's 1 to 3; a
 story with none comes after those with one), then newest first, at most ``SCOPE_CAP``: the stories
 of the covered topics and issuers published in the period, and the stories shared in the covered
-groups (a thread started from a story) in the period. A market post is an ordinary story here.
+groups (a thread started from a story) in the period. Only stories of the four feed kinds are in
+scope, whatever the digest covers: no filing and no market post (``SCOPE_CONDITION``).
 With none in scope it stores an issue saying nothing material happened and makes no model call.
 With some in scope it needs a ``Writer`` (the AI pass's, ``ai_digest``, given only while the pass
 is on); without one no issue is written and the run is recorded as skipped, with the reason.
@@ -68,12 +69,14 @@ from typing import Any, Literal, Protocol
 from deploy_workflow.signal import groups, schedule
 from deploy_workflow.signal.texts import day, utc
 from deploy_workflow.signal.store import (
+    KINDS,
     Conflict,
     Missing,
     StoreError,
     _require,
     _utc_text,
     _write_transaction,
+    kind_condition,
     plain_text,
 )
 
@@ -112,6 +115,9 @@ WRITTEN = "written"  # the kind of an issue the AI pass wrote, with its points
 CHANGED = "the digest changed while its issue was being written; run it again"
 NOT_WRITTEN = "no issue was written: "  # a writer's failure; the run leaves the period as it was
 ISSUE_KINDS = (NOTHING, WRITTEN)
+# A digest's scope, whatever it covers, holds stories of the four feed kinds only: no filing and
+# no market post reaches a run, its model call or an issue drawn from it.
+SCOPE_CONDITION = kind_condition(KINDS) or "1"
 
 Outcome = Literal["nothing", "skipped", "written"]
 Trigger = Literal["schedule", "manual"]
@@ -631,7 +637,7 @@ def _scope_stories(
     db: sqlite3.Connection, digest: Digest, start: datetime, end: datetime
 ) -> tuple[ScopedStory, ...]:
     """The stories in scope for (start, end], highest signal then newest first, at most
-    `SCOPE_CAP`."""
+    `SCOPE_CAP`; stories of the four feed kinds only (``SCOPE_CONDITION``)."""
     span = [_utc_text(start), _utc_text(end)]
     spec = digest.spec
     parts: list[str] = []
@@ -666,7 +672,7 @@ def _scope_stories(
         "SELECT s.id, s.title, s.summary, s.link, s.published_at, src.name AS source,"
         " a.why, a.signal FROM stories s JOIN sources src ON src.id = s.source_id"
         " LEFT JOIN story_ai a ON a.story_id = s.id AND a.outcome = 'written'"
-        f" WHERE s.id IN ({' UNION '.join(parts)})"
+        f" WHERE s.id IN ({' UNION '.join(parts)}) AND {SCOPE_CONDITION}"
         " ORDER BY COALESCE(a.signal, 0) DESC, s.published_at DESC, s.id DESC LIMIT ?",
         [*params, SCOPE_CAP],
     ).fetchall()
