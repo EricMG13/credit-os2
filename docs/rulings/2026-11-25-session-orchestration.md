@@ -25,7 +25,7 @@ The critique ran after PRs 88 and 89 merged, not before dispatch; this record an
 - Low, Mac-only agent lines: noted in `CLAUDE.md` as local-only.
 - Low, controller model not enforced: no change; the model is chosen at launch.
 - Low, old sessions run old rules: no change; restart to pick up.
-- Low, `rtk` hook versus auto mode: parked for the owner. It is a global hook that affects every project and needs its own investigation.
+- Low, `rtk` hook versus auto mode: resolved 2026-11-25 (owner approved). Cause: the hook rewrites `ls`/`grep`/`cat` and the rest after auto mode has reviewed the call, so auto mode gives no verdict and voids every call in a parallel batch. Fix: `~/.claude/hooks/rtk-scoped.sh` skips the rewrite when `permission_mode` is `auto`; other modes still compress. Verified by piped probes and a live parallel `ls` plus `grep` in an auto-mode session.
 - Low, matrix stale: date updated and Fable 5.2 priced at $8/$40 per MTok (claude-api skill, cached 2026-11-03).
 
 ## Fixes from the `mx-feature` review of PR 91 (2026-11-25)
