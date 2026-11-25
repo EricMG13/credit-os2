@@ -61,3 +61,12 @@ beyond a read-only search.
 - PR 81 (CP-2 scorecard) and PR 82 (chart periods, +8,321/−1,602) conflict with main after 79
   merged; their cloud sessions were asked to merge main in. Neither is reviewed.
 - PR 3 (reference portfolios) had no PR yet.
+
+## Merged after the note above
+
+- PR 80 merged by the owner as `9e6c5867` (rulings, `AGENTS.md` amendments, methodology, rubric fix,
+  `PRODUCT.md`, and the K5/K6 test split that fixed the CI timeout).
+- PR 81 (CP-2 scorecard) merged by the owner as `0b18fdbe` after a task review passed (no High or
+  Medium). Still for the owner to confirm: the Scale-in-reporting-currency rule quoting the owner,
+  and the unruled fourth value "Not assessed" on the four assessment cells (lets Credit Direction go
+  without a value with no repair asked).
