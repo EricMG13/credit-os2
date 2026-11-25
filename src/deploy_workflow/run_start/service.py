@@ -228,8 +228,8 @@ class _Server(http_base.Server):
     scheduler: Scheduler
     standing: standing_portfolios.Desk  # the standing portfolios' locks and fetch wiring
 
-    def connection_limits(self) -> tuple[int, int | None]:
-        return MAX_CONNECTIONS, None  # no ceiling per remote address
+    def connection_limits(self) -> int:
+        return MAX_CONNECTIONS
 
 
 class Handler(http_base.Handler):
