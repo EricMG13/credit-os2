@@ -1,5 +1,5 @@
 // One Signal address: picks the scene, then what the frame holds.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Alert } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { useSource } from "../source";
@@ -10,6 +10,7 @@ import {
   type SignalWrite,
 } from "./actions";
 import { useChoices } from "./choices";
+import { heldLogos, SignalLogosContext } from "./logos";
 import {
   SignalFrame,
   sceneHref,
@@ -489,21 +490,28 @@ function SceneView({
     },
   };
   const { current, body } = pageFor({ scene, kind, params, follows, save, live: actions !== null });
+  // On a service the logos are the live page's own, asked of the service. With none, a scene may
+  // carry sample logos of its own, and nothing is asked of anyone.
+  const asked = useContext(SignalLogosContext);
+  const held = scene.snapshot.logos;
+  const sample = useMemo(() => (held === null ? null : heldLogos(held)), [held]);
   return (
-    <SignalPageWriteContext value={page}>
-      <SignalFrame scene={scene} current={current} follows={follows}>
-        {notice.said === null ? null : (
-          // It stays in view, 8px under the Channels strip where there is one (the frame's
-          // `--strip`): the control pressed may be far down the page.
-          <div
-            key={notice.said.count}
-            className="sticky top-[calc(var(--strip,0px)+0.5rem)] z-10 mb-4"
-          >
-            <Alert tone={notice.said.refusal ? "error" : "info"} title={notice.said.text} />
-          </div>
-        )}
-        {body}
-      </SignalFrame>
-    </SignalPageWriteContext>
+    <SignalLogosContext value={actions === null ? sample : asked}>
+      <SignalPageWriteContext value={page}>
+        <SignalFrame scene={scene} current={current} follows={follows}>
+          {notice.said === null ? null : (
+            // It stays in view, 8px under the Channels strip where there is one (the frame's
+            // `--strip`): the control pressed may be far down the page.
+            <div
+              key={notice.said.count}
+              className="sticky top-[calc(var(--strip,0px)+0.5rem)] z-10 mb-4"
+            >
+              <Alert tone={notice.said.refusal ? "error" : "info"} title={notice.said.text} />
+            </div>
+          )}
+          {body}
+        </SignalFrame>
+      </SignalPageWriteContext>
+    </SignalLogosContext>
   );
 }

@@ -10,11 +10,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from deploy_workflow.signal import issuers, store, topics
 from deploy_workflow.signal.feeds import Entry
 from deploy_workflow.signal.issuers import Form
-from deploy_workflow.signal.store import Conflict, Missing, StoreError, open_db
+from deploy_workflow.signal.store import Conflict, Missing, StoreError, fts_phrase, open_db
 
 NOW = datetime(2026, 11, 25, 9, 0, tzinfo=UTC)
 EDGAR = (
@@ -101,9 +103,13 @@ def test_an_issuers_id_is_never_given_again(db):
         (Form("Acme", cik="０" * 10), "a CIK is 10 digits, such as 0000320193"),
         (Form("Acme", cik=" 0000320193"), "a CIK is 10 digits, such as 0000320193"),
         (Form("Acme", library_key="k" * 121), "a library key is at most 120 characters"),
-        (Form("GE"), "'GE' needs at least 3 letters or digits"),
-        (Form("Acme", ("A.B",)), "'A.B' needs at least 3 letters or digits"),
-        (Form("Acme", ("&&&",)), "'&&&' needs at least 3 letters or digits"),
+        (Form("GE"), "'GE' cannot be matched: each of its words is shorter than 3 letters"),
+        (Form("Acme", ("A.B",)), "'A.B' cannot be matched: each of its words is shorter"),
+        (Form("Acme", ("&&&",)), "'&&&' cannot be matched: each of its words is shorter"),
+        # Review finding 4: "AT&T" is the words "at" and "t", which "at T-Mobile" holds.
+        (Form("AT&T"), "'AT&T' cannot be matched: each of its words is shorter"),
+        (Form("Acme", ("3M",)), "'3M' cannot be matched"),
+        (Form("Acme", ("S & P",)), "'S & P' cannot be matched"),
     ],
 )
 def test_an_issuer_that_is_not_accepted_says_why_and_stores_nothing(db, form, words):
@@ -115,9 +121,13 @@ def test_an_issuer_that_is_not_accepted_says_why_and_stores_nothing(db, form, wo
 
 
 def test_short_but_long_enough_names_and_an_empty_cik_or_key_are_taken(db):
-    made = _add(db, "TDG Holdings", "TDG", "AT&T", cik="", library_key="")
+    made = _add(db, "TDG Holdings", "TDG", "AT&T Inc", "S&P 500", cik="", library_key="")
     found = issuers.get(db, made)
-    assert (found.cik, found.library_key, found.aliases) == (None, None, ("TDG", "AT&T"))
+    assert (found.cik, found.library_key, found.aliases) == (
+        None,
+        None,
+        ("TDG", "AT&T Inc", "S&P 500"),
+    )
 
 
 def test_an_alias_repeating_the_name_or_another_alias_is_kept_once(db):
@@ -139,6 +149,13 @@ def test_there_are_at_most_a_hundred_issuers(db):
         (Form("Next plc"), Form("Other plc", ("next PLC",))),  # an alias that is another's name
         (Form("Acme", ("Roadrunner",)), Form("Coyote", ("roadrunner",))),  # a shared alias
         (Form("Acme"), Form("ACME")),  # the same name in other letters
+        # Review finding 13: the same words to the index, however spelled.
+        (Form("Altice USA"), Form("Altice  USA")),  # two spaces
+        (Form("Altice USA"), Form("Altice-USA")),
+        (Form("Altice USA"), Form("Altice, USA.")),
+        (Form("Altice USA"), Form("\u00c1ltic\u00e9 USA")),  # accents
+        (Form("Altice USA"), Form("Altice\u00a0USA")),  # a no-break space
+        (Form("Acme", ("Road Runner",)), Form("Coyote", ("road-runner",))),
     ],
 )
 def test_a_phrase_belongs_to_one_issuer(db, first, second):
@@ -159,6 +176,17 @@ def test_hostile_text_is_stored_as_plain_data(db):
 
 
 # The matching rule
+
+
+def test_no_phrase_matches_on_words_shorter_than_three_letters(db):
+    """Review finding 4: "AT&T" was accepted and matched "at T-Mobile"; now an issuer spelled
+    so needs a longer alias, whose words the story must hold in order."""
+    made = _add(db, "AT&T Inc")
+    wire = _source(db)
+    _arrive(db, wire, "Verizon gains at T-Mobile's expense")
+    _arrive(db, wire, "Staff at T. Rowe Price cut")
+    held = _arrive(db, wire, "AT&T Inc. prices bonds")
+    assert _linked(db, made) == [held]
 
 
 def test_a_name_matches_whole_tokens_only(db):
@@ -297,6 +325,7 @@ def test_removing_the_cik_pauses_the_source_and_setting_it_again_proposes_the_sa
 def test_a_changed_cik_pauses_the_old_source_and_proposes_the_new(db):
     made = _add(db, "Altice USA", cik="0001702780")
     store.set_source_state(db, 1, "approved")
+    store.record_check(db, 1, store.Check(NOW, True, "0 new", None, None, 0))
     issuers.edit_issuer(db, made, Form("Altice USA", cik="0000320193"))
     assert [(row[0], row[4]) for row in _sources(db)] == [(1, "paused"), (2, "proposed")]
     assert _sources(db)[1][3] == EDGAR.format("0000320193")
@@ -314,6 +343,70 @@ def test_renaming_renames_the_source_and_removing_the_issuer_pauses_it(db):
     )
     issuers.remove_issuer(db, made)
     assert _sources(db)[0][4] == "paused"
+
+
+def test_cycling_a_cik_keeps_one_row_and_a_never_fetched_proposal_is_deleted(db):
+    """Review finding 5: one writer cycling a CIK made a new source row each edit."""
+    made = _add(db, "Altice USA", cik="0001702780")
+    for number in range(50):
+        issuers.edit_issuer(db, made, Form("Altice USA", cik=f"{number:010d}"))
+    # Each proposal was never approved or fetched, so each was deleted as the CIK moved on.
+    assert db.execute("SELECT COUNT(*) FROM sources").fetchone()[0] == 1
+    issuers.edit_issuer(db, made, Form("Altice USA"))
+    assert _sources(db) == []
+    issuers.edit_issuer(db, made, Form("Altice USA", cik="0001702780"))
+    issuers.remove_issuer(db, made)
+    assert _sources(db) == []
+
+
+def test_a_once_fetched_source_is_paused_not_deleted_and_the_same_cik_reuses_its_row(db):
+    made = _add(db, "Altice USA", cik="0001702780")
+    store.set_source_state(db, 1, "approved")
+    store.record_check(db, 1, store.Check(NOW, True, "0 new", None, None, 0))
+    store.set_source_state(db, 1, "proposed")  # an approved source re-linked waits again
+    issuers.edit_issuer(db, made, Form("Altice USA"))
+    assert [(row[0], row[4]) for row in _sources(db)] == [(1, "paused")]  # it was fetched once
+    issuers.edit_issuer(db, made, Form("Altice USA", cik="0001702780"))
+    assert [(row[0], row[4]) for row in _sources(db)] == [(1, "proposed")]  # the same row
+
+
+def test_filing_proposals_have_their_own_service_wide_cap_not_the_writers(db):
+    for number in range(issuers.FILING_PROPOSALS - 1):
+        _add(db, f"Issuer number {number:03d}", cik=f"{number + 1:010d}")
+    # A hundred filing proposals by one writer leave that writer's own hand proposals free.
+    store.propose_source_limited(db, "Wire", "news", "https://wire.example/rss", "Mara L")
+    with store._write_transaction(db):  # a hundredth, made by hand (no issuer links it)
+        store.insert_source(db, "Stray filings (SEC)", "filing", EDGAR.format("0000009999"), "x")
+    with pytest.raises(Conflict, match="100 filing sources are waiting for the owner"):
+        _add(db, "One more", cik="0000008888")
+    assert db.execute("SELECT COUNT(*) FROM issuers").fetchone()[0] == 99
+    store.set_source_state(db, 1, "approved")
+    _add(db, "One more", cik="0000008888")  # the owner reviewed one: room again
+
+
+def test_a_long_issuer_name_gives_a_source_name_within_its_limit(db):
+    name = "N" * issuers.MAX_NAME
+    _add(db, name, cik="0001702780")
+    (source,) = _sources(db)
+    assert source[1] == "N" * 65 + "\u2026 filings (SEC)" and len(source[1]) == 80
+
+
+def test_every_link_to_a_filing_source_waits_for_the_owner(db):
+    """Review finding 6: an approved, unlinked filing source was re-linked by any writer under any
+    name and fetched with no fresh approval."""
+    made = _add(db, "Altice USA", cik="0001702780")
+    store.set_source_state(db, 1, "approved")
+    store.record_check(db, 1, store.Check(NOW, True, "0 new", None, None, 0))
+    issuers.edit_issuer(db, made, Form("Altice USA"))
+    store.set_source_state(db, 1, "approved")  # the owner approves it while it is unlinked
+    other = _add(db, "Any Name At All", cik="0001702780")
+    assert issuers.get(db, other).source_id == 1
+    assert _sources(db)[0][1:] == (
+        "Any Name At All filings (SEC)",
+        "filing",
+        EDGAR.format("0001702780"),
+        "proposed",
+    )
 
 
 def test_a_cik_belongs_to_one_issuer_and_an_address_taken_by_a_feed_is_refused(db):
@@ -387,3 +480,62 @@ def test_a_story_carries_at_most_six_issuers_by_name(db):
     built = snapshot.build(db, User("Tobias O", "reader"), NOW, fmt=2)
     (card,) = built["scenes"][0]["snapshot"]["feed"]["stories"]
     assert [one["name"] for one in card["issuers"]] == [f"Bank number {n}" for n in range(6)]
+
+
+_ALPHABET = "aAbBcZ09éÁüßı -.,&' ’_/́中"
+
+
+@settings(max_examples=300, deadline=None)
+@given(doc=st.text(_ALPHABET, max_size=30), phrase=st.text(_ALPHABET, min_size=1, max_size=12))
+def test_the_words_this_module_makes_are_the_words_the_index_matches(doc, phrase):
+    """``issuers.tokens`` (what the one-phrase-one-issuer rule compares) against FTS5 itself: a
+    phrase matches a text exactly when its words are a run of the text's words."""
+    words = issuers.tokens(phrase)
+    if not words:
+        return
+    held = sqlite3.connect(":memory:")
+    held.execute("CREATE VIRTUAL TABLE t USING fts5(title)")
+    held.execute("INSERT INTO t(rowid, title) VALUES(1, ?)", (doc,))
+    found = held.execute("SELECT 1 FROM t WHERE t MATCH ?", (fts_phrase(phrase),)).fetchone()
+    held.close()
+    text = issuers.tokens(doc)
+    run = any(text[i : i + len(words)] == words for i in range(len(text) - len(words) + 1))
+    assert (found is not None) == run
+
+
+_WORDS = ["Altice", "USA", "Next", "plc", "bonds", "fall", "Álticé", "usa", "TDG", "next"]
+
+
+def test_matching_through_the_one_story_index_equals_querying_the_store(tmp_path):
+    """Review finding 9: a story is matched against a one-story copy of the index. Against the
+    store's own index, queried the way the matcher did before (one phrase query per issuer on the
+    story's row): the same issuers, over random stories and issuers."""
+    import random
+
+    rng = random.Random(5)
+    db = open_db(tmp_path)
+    wire = _source(db)
+    made = []
+    for number in range(12):
+        phrase = " ".join(rng.sample(_WORDS, rng.randint(1, 2))) + f" n{number}"
+        alias = rng.choice(_WORDS) + rng.choice(["", " -", ".", "-USA"])
+        try:
+            made.append(_add(db, phrase, alias))
+        except StoreError:  # an alias the rule refuses or another issuer holds: none then
+            made.append(_add(db, phrase))
+    for number in range(300):
+        title = " ".join(rng.choices(_WORDS + [f"n{rng.randint(0, 11)}"], k=rng.randint(1, 8)))
+        summary = " ".join(rng.choices(_WORDS, k=rng.randint(0, 6)))
+        story = _arrive(db, wire, f"{title} #{number}", summary)
+        before = [
+            one.id
+            for one in issuers.every(db)
+            if db.execute(
+                "SELECT 1 FROM stories_fts WHERE stories_fts MATCH ? AND rowid=?",
+                (" OR ".join(fts_phrase(p) for p in one.phrases), story),
+            ).fetchone()
+        ]
+        held = db.execute("SELECT issuer_id FROM issuer_stories WHERE story_id=?", (story,))
+        assert sorted(int(row[0]) for row in held) == sorted(before), (title, summary)
+    assert db.execute("SELECT COUNT(*) FROM issuer_stories").fetchone()[0] > 50
+    db.close()

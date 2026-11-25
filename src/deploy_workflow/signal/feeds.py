@@ -1,12 +1,14 @@
 """Parse RSS 2.0 and Atom feed bytes into entries. Standard library only.
 
 Feed bytes are untrusted: a DTD or entity declaration is refused before parsing, and
-no article body is fetched; only the feed's own title, link, date and summary are read, and of an
-Atom entry its first category's term (the form type of an SEC EDGAR filing entry). A line break or
+no article body is fetched; only the feed's own title, link, date and summary are read, of an
+Atom entry its first category's term (the form type of an SEC EDGAR filing entry), and the image
+address the feed declares for itself (``parse``: the source's logo, ``logos``). A line break or
 block element in a summary's HTML separates the words on either side of it.
 """
 
 import re
+import unicodedata
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -150,10 +152,12 @@ def _atom_link(entry: ET.Element) -> str:
 
 
 def _atom_category(entry: ET.Element) -> str | None:
-    """The entry's first category's term, whitespace collapsed; None when empty or too long."""
+    """The entry's first category's term, whitespace collapsed; None when empty, too long, or
+    holding a control or format character (a bidi override)."""
     found = entry.find(f"{_ATOM}category")
     term = " ".join((found.get("term") or "").split()) if found is not None else ""
-    return term if term and len(term) <= CATEGORY_LIMIT else None
+    plain = not any(unicodedata.category(ch)[0] == "C" for ch in term)
+    return term if term and len(term) <= CATEGORY_LIMIT and plain else None
 
 
 def _atom_entry(entry: ET.Element) -> Entry | None:
@@ -168,8 +172,34 @@ def _atom_entry(entry: ET.Element) -> Entry | None:
     )
 
 
-def parse_feed(body: bytes) -> list[Entry]:
-    """Return the readable entries of an RSS 2.0 or Atom feed, in feed order."""
+@dataclass(frozen=True)
+class Parsed:
+    """A feed's readable entries, in feed order, and the image address it declares (RSS
+    ``<channel><image><url>``, else Atom ``<logo>``, else ``<icon>``; None when none is plain
+    printable text of at most IMAGE_LIMIT characters). The address may be relative to the feed."""
+
+    entries: list[Entry]
+    image: str | None
+
+
+IMAGE_LIMIT = 512
+_IMAGE_TEXT = re.compile(r"[\x21-\x7e]{1,512}")
+
+
+def _image(root: ET.Element) -> str | None:
+    if root.tag == "rss":
+        candidates = [root.findtext("channel/image/url")]
+    else:
+        candidates = [root.findtext(f"{_ATOM}logo"), root.findtext(f"{_ATOM}icon")]
+    for text in candidates:
+        held = (text or "").strip()
+        if _IMAGE_TEXT.fullmatch(held):
+            return held
+    return None
+
+
+def parse(body: bytes) -> Parsed:
+    """The readable entries of an RSS 2.0 or Atom feed, in feed order, and its declared image."""
     if _DTD.search(body):
         raise FeedError(_DTD_MESSAGE)
     try:
@@ -188,4 +218,9 @@ def parse_feed(body: bytes) -> list[Entry]:
         found = (_atom_entry(entry) for entry in root.findall(f"{_ATOM}entry"))
     else:
         raise FeedError("document is neither an RSS 2.0 nor an Atom feed")
-    return [entry for entry in found if entry is not None]
+    return Parsed([entry for entry in found if entry is not None], _image(root))
+
+
+def parse_feed(body: bytes) -> list[Entry]:
+    """Return the readable entries of an RSS 2.0 or Atom feed, in feed order."""
+    return parse(body).entries

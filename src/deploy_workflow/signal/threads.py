@@ -45,7 +45,7 @@ from datetime import UTC, datetime, timedelta
 from deploy_workflow.signal import groups
 from deploy_workflow.signal.groups import Conflict, Forbidden, GroupError, NotFound
 from deploy_workflow.signal.identity import User
-from deploy_workflow.signal.store import _utc_text, _write_transaction
+from deploy_workflow.signal.store import KINDS, _utc_text, _write_transaction, kind_condition
 
 MAX_TEXT = 4000
 MAX_COMMENTS = 500
@@ -456,8 +456,14 @@ def post_topic_story(db: sqlite3.Connection, story_id: int, topic_ids: Sequence[
     thread per story per group, at the story's fetch time. A group already holding
     ``groups.MAX_THREADS`` threads makes room by dropping its oldest topic-posted thread that has
     no comment; one with no such thread is skipped (``topics_blocked``). Runs inside the caller's
-    write transaction (where the topic matches are recorded)."""
-    if not topic_ids:
+    write transaction (where the topic matches are recorded). A filing or a market post is never
+    posted so: it reaches a group only when a person shares it."""
+    if (
+        not topic_ids
+        or not db.execute(
+            f"SELECT 1 FROM stories s WHERE s.id = ? AND {kind_condition(KINDS)}", (story_id,)
+        ).fetchone()
+    ):
         return
     marks = ", ".join("?" * len(topic_ids))
     rows = db.execute(

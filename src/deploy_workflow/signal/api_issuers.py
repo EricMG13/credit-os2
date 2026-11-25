@@ -8,13 +8,15 @@ alias or CIK another issuer has, or the limit reached. The reader reads the snap
 (``?format=2``) to see the change.
 
     POST   /api/issuers               {name, aliases?, cik?, libraryKey?}  -> {"id": "<id>"}
-    POST   /api/issuers/<id>/edit     the same body, replacing all four    -> {"id": "<id>"}
+    POST   /api/issuers/<id>/edit     {name, aliases?, cik?, libraryKey?}  -> {"id": "<id>"}
     DELETE /api/issuers/<id>                                               -> {"deleted": true}
     POST   /api/issuers/<id>/follow                                        -> {"following": true}
     DELETE /api/issuers/<id>/follow                                        -> {"following": false}
 
-`aliases` is a list of text (absent: none); `cik` and `libraryKey` are text or null (absent, null
-or "": none). An edit replaces every field, so a field left out of an edit is taken off.
+`aliases` is a list of text; `cik` and `libraryKey` are text or null. On create, an absent key, null
+or "" is none. On edit, `name` is required and an ABSENT key keeps the stored value (a page that
+never sent `cik` cannot take it off, so it cannot pause an approved filing source by accident); an
+explicit null (or "", or `[]` for `aliases`) takes it off.
 """
 
 from __future__ import annotations
@@ -36,12 +38,19 @@ def _maybe_text(body: dict[str, Any], key: str) -> str | None:
     return None if value is None else _encodable(value, key)
 
 
-def _form(req: Req) -> issuers.Form:
-    body = req.body()
-    aliases = _texts(body, "aliases") if "aliases" in body else []
+_KEYS = {"aliases": "aliases", "cik": "cik", "libraryKey": "library_key"}  # body key: field
+
+
+def _form(body: dict[str, Any]) -> issuers.Form:
+    aliases = _texts(body, "aliases") if body.get("aliases") is not None else []
     return issuers.Form(
         _text(body, "name"), aliases, _maybe_text(body, "cik"), _maybe_text(body, "libraryKey")
     )
+
+
+def _kept(body: dict[str, Any]) -> frozenset[str]:
+    """The fields an edit leaves as stored: those whose key the body does not hold."""
+    return frozenset(field for key, field in _KEYS.items() if key not in body)
 
 
 def _number(req: Req) -> int:
@@ -51,7 +60,7 @@ def _number(req: Req) -> int:
 def _new(req: Req) -> Reply:
     by = _writer(req, "add an issuer")
     try:
-        made = issuers.add_issuer(req.db, _form(req), by)
+        made = issuers.add_issuer(req.db, _form(req.body()), by)
     except store.StoreError as error:
         raise _fail(error) from None
     return Reply(200, {"id": str(made)})
@@ -59,9 +68,10 @@ def _new(req: Req) -> Reply:
 
 def _edit(req: Req) -> Reply:
     by = _writer(req, "change an issuer")
-    form = _form(req)
+    body = req.body()
+    form = _form(body)
     try:
-        issuers.edit_issuer(req.db, _number(req), form, by)
+        issuers.edit_issuer(req.db, _number(req), form, by, keep=_kept(body))
     except store.StoreError as error:
         raise _fail(error) from None
     return Reply(200, {"id": str(_number(req))})

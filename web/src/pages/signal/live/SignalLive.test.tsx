@@ -800,7 +800,7 @@ describe("hostile text in a snapshot", () => {
         const [first, second] = s.feed.stories;
         if (first === undefined || second === undefined) throw new Error("two stories");
         Object.assign(first, { headline: MARKUP, summary: MARKUP, url: "javascript:alert(1)" });
-        first.source = { name: MARKUP, monogram: "<b>" };
+        first.source = { name: MARKUP, monogram: "<b>", id: null, logo: false };
         second.url = "data:text/html,<script>alert(1)</script>";
         s.viewer.name = MARKUP;
       }),

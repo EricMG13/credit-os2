@@ -120,7 +120,8 @@ def test_a_writer_and_the_owner_keep_issuers_and_a_reader_follows(svc, root):
     assert rows(root, "SELECT name, aliases, cik, library_key FROM issuers") == [
         ("Acme Holdings", "[]", None, None)
     ]
-    assert rows(root, "SELECT state FROM sources") == [("paused",)]
+    # The proposal was never approved or fetched: it is deleted, not kept paused (review finding 5).
+    assert rows(root, "SELECT state FROM sources") == []
     follow = svc.call("POST", "/api/issuers/1/follow", cookie=cookie(READER))
     assert follow[0] == 200 and follow[2] == {"following": True}
     assert rows(root, "SELECT user_name, issuer_id FROM issuer_follows") == [(READER, 1)]
@@ -147,7 +148,7 @@ BAD = [
     ({"name": "Acme", "cik": 320193}, 400, "the request needs cik as text or null"),
     ({"name": "Acme", "libraryKey": []}, 400, "the request needs libraryKey as text or null"),
     ({"name": "Acme", "cik": "320193"}, 400, "a CIK is 10 digits, such as 0000320193"),
-    ({"name": "GE"}, 400, "'GE' needs at least 3 letters or digits to be matched"),
+    ({"name": "GE"}, 400, "'GE' cannot be matched: each of its words is shorter than 3 letters"),
     ({"name": "x" * 81}, 400, "an issuer's name is at most 80 characters of plain text"),
     ({"name": "Acme", "aliases": ["\ud800ab"]}, 400, "aliases holds a character that is not"),
 ]
@@ -215,3 +216,32 @@ def test_a_format_or_issuer_focus_that_is_not_accepted_is_400(svc):
         status, _, reply = svc.call("GET", "/api/snapshot" + query, cookie=cookie(READER))
         assert status == 400, query
         assert reply["error"] in ("format must be 1 or 2", "issuer must be an id: digits only")
+
+
+def test_an_edit_keeps_every_field_its_body_leaves_out_and_null_takes_one_off(svc, root):
+    """Review finding 7: an edit from a page that never sent `cik` paused an approved feed."""
+    assert svc.call("POST", "/api/issuers", body=ACME, cookie=cookie(WRITER))[0] == 200
+    db = store.open_db(root)
+    store.set_source_state(db, 1, "approved")
+    db.close()
+    status, _, reply = svc.call(
+        "POST", "/api/issuers/1/edit", body={"name": "Acme Holdings"}, cookie=cookie(WRITER)
+    )
+    assert (status, reply) == (200, {"id": "1"})
+    assert rows(root, "SELECT name, aliases, cik, library_key, source_id FROM issuers") == [
+        ("Acme Holdings", '["ACME"]', "0000320193", "id:acme", 1)
+    ]
+    assert rows(root, "SELECT name, state FROM sources") == [
+        ("Acme Holdings filings (SEC)", "approved")
+    ]
+    off = {"name": "Acme Holdings", "aliases": [], "libraryKey": None}
+    assert svc.call("POST", "/api/issuers/1/edit", body=off, cookie=cookie(WRITER))[0] == 200
+    assert rows(root, "SELECT aliases, cik, library_key FROM issuers") == [
+        ("[]", "0000320193", None)
+    ]
+    cik_off = {"name": "Acme Holdings", "cik": None}
+    assert svc.call("POST", "/api/issuers/1/edit", body=cik_off, cookie=cookie(WRITER))[0] == 200
+    assert rows(root, "SELECT cik, source_id FROM issuers") == [(None, None)]
+    assert rows(root, "SELECT state FROM sources") == [("paused",)]  # it was approved
+    no_name = svc.call("POST", "/api/issuers/1/edit", body={"cik": None}, cookie=cookie(WRITER))
+    assert no_name[0] == 400

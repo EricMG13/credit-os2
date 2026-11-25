@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from test_signal_market import BODIES, Fred
 
 from deploy_workflow.signal import cli_issuers, store
 from deploy_workflow.signal.cli import main
+from deploy_workflow.signal.fetch import Fetched
 
 CONTACT = "Acme Credit research@acme.example"
 
@@ -57,7 +59,7 @@ def test_issuers_add_list_edit_and_remove(tmp_path):
 @pytest.mark.parametrize(
     ("args", "sentence"),
     [
-        (("issuers", "add", "GE", "--by", "x"), "'GE' needs at least 3 letters or digits"),
+        (("issuers", "add", "GE", "--by", "x"), "'GE' cannot be matched: each of its words"),
         (("issuers", "add", "Acme", "--cik", "12", "--by", "x"), "a CIK is 10 digits"),
         (("issuers", "edit", "9", "--name", "Acme"), "no issuer with id 9"),
         (("issuers", "remove", "9"), "no issuer with id 9"),
@@ -71,6 +73,13 @@ def test_issuers_add_list_edit_and_remove(tmp_path):
         ),
         (("market", "hour", "24"), "the hour is a whole number from 0 to 23"),
         (("market", "series", "remove", "DGS5"), "no series DGS5 in the market post"),
+        # Review finding 15: both at once was a silent clear; an empty --by was accepted.
+        (
+            ("filings", "contact", "Acme research@acme.example", "--clear"),
+            "give a contact or --clear, not both",
+        ),
+        (("issuers", "add", "Acme Corp", "--by", ""), "who adds the issuer must not be empty"),
+        (("issuers", "add", "Acme Corp", "--by", "  "), "who adds the issuer must not be empty"),
     ],
 )
 def test_an_error_is_one_sentence_and_exit_2(tmp_path, args, sentence):
@@ -132,8 +141,41 @@ def test_market_propose_series_hour_and_post(tmp_path, monkeypatch):
     fred = Fred(BODIES)
     monkeypatch.setattr(cli_issuers, "FETCH", fred)
     code, out, _ = run(tmp_path, "market", "post")
-    assert code == 0 and out.startswith("posted story 1: Market backdrop: 24 November 2026\n")
+    today = datetime.now(UTC).date()  # the post is titled with the UTC day it is written
+    title = f"Market backdrop: {today.day} {today:%B} {today.year}"
+    assert code == 0 and out.startswith(f"posted story 1: {title}\n")
     assert out.endswith("series not read: US BB, UST 2y\n")
     code, out, err = run(tmp_path, "market", "post")
     assert code == 2 and err.startswith("error: today's market post is written already: story 1")
     assert len(fred.calls) == 5
+
+
+def _approved_market(tmp_path: Path) -> None:
+    assert run(tmp_path, "market", "propose")[0] == 0
+    db = store.open_db(tmp_path)
+    store.set_source_state(db, 1, "approved")
+    db.close()
+
+
+def test_market_post_that_reads_no_series_exits_2_with_one_sentence(tmp_path, monkeypatch):
+    """Review findings 2 and 10: never a traceback; exit 2 when no series was read."""
+    _approved_market(tmp_path)
+    # SYNTHETIC: every default series answers a body the csv module refuses (lone CR endings).
+    monkeypatch.setattr(cli_issuers, "FETCH", lambda url, e, m: Fetched(b"a\rb\r", None, None))
+    code, out, err = run(tmp_path, "market", "post")
+    assert (code, out) == (2, "")
+    assert err == "error: no post: no series could be read\n"
+
+
+def test_market_post_with_one_unreadable_series_posts_the_others(tmp_path, monkeypatch):
+    _approved_market(tmp_path)
+
+    def fred(url: str, etag: object, modified: object) -> Fetched:
+        series_id = url.rsplit("=", 1)[1]
+        if series_id == "SOFR":
+            return Fetched(b"observation_date,SOFR\n2026-11-24," + b"9" * 200_000, None, None)
+        return Fetched(f"observation_date,{series_id}\n2026-11-24,1.00\n".encode(), None, None)
+
+    monkeypatch.setattr(cli_issuers, "FETCH", fred)
+    code, out, err = run(tmp_path, "market", "post")
+    assert (code, err) == (0, "") and out.endswith("series not read: SOFR\n")

@@ -1,14 +1,16 @@
 // Signal in the connected app: the Signal screens on the service's snapshot. The page sits at the
 // path /signal, edge to edge in the shell, and moves between its screens on the URL hash. Only the
 // connected app mounts it; the design-reference app has no service and never asks for one.
-import { useLayoutEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { useHashRoute } from "../../../route";
 import { PageHeader } from "../../../shell/PageHeader";
 import { SourceContext } from "../../source";
 import { SignalActionsContext, SignalAsOfContext } from "../actions";
 import { FeedSkeleton } from "../FeedStates";
+import { SignalLogosContext } from "../logos";
 import { TARGET } from "../parts/classes";
+import { LiveLogos } from "./logos";
 import { HOME_HREF, placeOf } from "./place";
 import type { Failure } from "./service";
 import { useLiveSignal } from "./useLiveSignal";
@@ -75,9 +77,22 @@ function useTopOnRoute(route: string) {
   }, [route]);
 }
 
+/** The page's logos, asked of the service while the page is drawn and given up when it goes. */
+function useLogos(): LiveLogos {
+  const [logos] = useState(() => new LiveLogos());
+  useEffect(() => {
+    logos.open();
+    return () => {
+      logos.close();
+    };
+  }, [logos]);
+  return logos;
+}
+
 export function SignalLive() {
   const route = useHashRoute();
   useTopOnRoute(route);
+  const logos = useLogos();
   const place = useMemo(() => placeOf(route), [route]);
   const { source, failure, actions, asOf } = useLiveSignal(place.at, route);
   if (place.matched === null) return <NotFound />;
@@ -87,9 +102,11 @@ export function SignalLive() {
   return (
     <SignalActionsContext value={actions}>
       <SignalAsOfContext value={asOf}>
-        <SourceContext value={source}>
-          {place.matched.route.render(place.matched.params)}
-        </SourceContext>
+        <SignalLogosContext value={logos}>
+          <SourceContext value={source}>
+            {place.matched.route.render(place.matched.params)}
+          </SourceContext>
+        </SignalLogosContext>
       </SignalAsOfContext>
     </SignalActionsContext>
   );

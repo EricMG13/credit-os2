@@ -282,10 +282,15 @@ def test_a_job_whose_factory_builds_the_live_adapter_cannot_be_swallowed_by_the_
     tmp_path, monkeypatch, live_adapter_attempts
 ):
     from deploy_workflow.signal import ai_run
+    from deploy_workflow.signal.fetch import FetchRefused
     from deploy_workflow.signal.service import Loop
 
+    def offline(url: str, etag: object, modified: object) -> object:
+        raise FetchRefused("no network in tests")  # the ingest job never reaches the network
+
     world = World(tmp_path, monkeypatch)
-    loop = Loop(tmp_path / "root", ai=ai_run.Setup(world.env, world.rulings, ai_run.live_model))
+    setup = ai_run.Setup(world.env, world.rulings, ai_run.live_model)
+    loop = Loop(tmp_path / "root", fetch_fn=offline, ai=setup)  # type: ignore[arg-type]
     with pytest.raises(pytest.fail.Exception):
         loop.run_once(NOW)  # the loop's except Exception does not catch the guard
 

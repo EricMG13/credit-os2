@@ -10,11 +10,11 @@ import logging
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 
-from deploy_workflow.signal import fetch, filings, issuers
-from deploy_workflow.signal.feeds import Entry, FeedError, parse_feed
+from deploy_workflow.signal import fetch, filings, issuers, logos, market
+from deploy_workflow.signal.feeds import Entry, FeedError, parse
 from deploy_workflow.signal.fetch import Declared, Fetched, FetchRefused
 from deploy_workflow.signal.fold import link_key
 from deploy_workflow.signal.store import (
@@ -41,6 +41,10 @@ _WEEK = timedelta(days=7)
 # last check always stays); a store that never pruned catches up over a few hundred passes.
 KEEP_CHECKS = HEALTH_WEEKS * _WEEK
 PRUNE_PER_PASS = 10_000
+# Entries one fetch stores at most (new or folded; those the source holds already are passed over),
+# newest first: the rest wait for later passes, so one large feed never holds the loop for minutes.
+ENTRIES_PER_FETCH = 500
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
 class FetchFn(Protocol):
@@ -85,15 +89,32 @@ def _check_source(db: sqlite3.Connection, source: sqlite3.Row, now: datetime, pl
         fetched = plan.fetch(source["url"], etag, modified)
         if fetched.body is None:
             return Check(now, True, "not modified", etag, modified, 0)
-        entries = [plan.shape(entry) for entry in parse_feed(fetched.body)]
+        parsed = parse(fetched.body)
+        entries = [plan.shape(entry) for entry in parsed.entries]
     except (FetchRefused, FeedError) as error:
         return Check(now, False, str(error), etag, modified, 0)
-    new = 0
-    for entry in entries:
-        if add_story(db, source["id"], entry, now) == "new":
+    logos.note_declared(db, source["id"], parsed.image)  # where its logo is fetched from
+    new, stored, rest = 0, 0, 0
+    for position, entry in enumerate(_newest_first(entries)):
+        if stored >= ENTRIES_PER_FETCH:
+            rest = len(entries) - position
+            break
+        outcome = add_story(db, source["id"], entry, now)
+        stored += outcome != "seen"
+        if outcome == "new":
             new += 1
             _match_new(db, source["id"], entry.link)
+    if rest:  # no validators kept: the next pass reads the whole feed again and takes the rest
+        reason = f"{new} new; up to {rest} older entries wait for the next pass"
+        return Check(now, True, reason, None, None, new)
     return Check(now, True, f"{new} new", fetched.etag, fetched.modified, new)
+
+
+def _newest_first(entries: list[Entry]) -> list[Entry]:
+    """The entries newest first, undated ones last, in feed order otherwise."""
+    return sorted(
+        entries, key=lambda one: (one.published is None, -(one.published or _EPOCH).timestamp())
+    )
 
 
 def _filing_plan(
@@ -107,6 +128,9 @@ def _filing_plan(
         return None
 
     def paced(url: str, etag: str | None, modified: str | None) -> Fetched:
+        fetch.check_form(
+            url
+        )  # a hand-edited row at another port is refused, never sent the contact
         filings.claim_slot(db, pace)
         return fetch_fn(url, etag, modified, declared=asking)
 
@@ -220,10 +244,13 @@ def health(db: sqlite3.Connection, source_id: int, now: datetime) -> Health:
         return Health("never checked", None, last_item, weeks, "")
     checked = datetime.fromisoformat(previous["at"])
     state: Literal["healthy", "quiet", "failing"]
-    if not previous["ok"]:
-        state = "failing"
+    reason = str(previous["reason"])
+    partly = None if not previous["ok"] else market.failing_note(db, source_id)
+    if not previous["ok"] or partly is not None:
+        state = "failing"  # a market attempt that read some series names those it could not
+        reason = reason if partly is None else partly
     elif last_item is None or last_item < now - QUIET_AFTER:
         state = "quiet"
     else:
         state = "healthy"
-    return Health(state, checked, last_item, weeks, previous["reason"])
+    return Health(state, checked, last_item, weeks, reason)

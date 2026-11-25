@@ -90,7 +90,7 @@
           "freshness": {
             "state": "checked",
             "checked": "just now",
-            "failing": "1 source failing",
+            "failing": "2 sources failing",
             "error": null
           },
           "stories": [
@@ -98,14 +98,16 @@
               "id": "10",
               "kind": "market",
               "kindLabel": "Market",
-              "headline": "Market backdrop: 24 November 2026",
+              "headline": "Market backdrop: 25 November 2026",
               "url": "https://fred.stlouisfed.org/",
               "source": {
                 "name": "Market backdrop (FRED)",
-                "monogram": "MB"
+                "monogram": "MB",
+                "id": "9",
+                "logo": false
               },
               "time": "Just now",
-              "summary": "US HY 3.12% (+4 bp); US BB not available; UST 2y not available; UST 10y 4.30% (-3.5 bp); SOFR 4.57%",
+              "summary": "As of 24 Nov, change from the previous observation: US HY 3.12% (+4 bp); US BB not available; UST 2y not available; UST 10y 4.30% (23 Nov, -3.5 bp); SOFR 4.57%",
               "tags": ["Market"],
               "alsoIn": null,
               "sharedBy": null,
@@ -234,7 +236,9 @@
               "url": "https://www.sec.gov/Archives/edgar/data/1702780/000119312526123456/0001193125-26-123456-index.htm",
               "source": {
                 "name": "Tessaly Telecom filings (SEC)",
-                "monogram": "TT"
+                "monogram": "TT",
+                "id": "7",
+                "logo": false
               },
               "time": "11 h ago",
               "summary": "Form 8-K, filed 2026-11-24, accession number 0001193125-26-123456. Item 2.02: Results of Operations and Financial Condition Item 9.01: Financial Statements and Exhibits",
@@ -264,7 +268,9 @@
               "url": "https://harbour-wire.example/tessaly",
               "source": {
                 "name": "Harbour Wire",
-                "monogram": "HW"
+                "monogram": "HW",
+                "id": "1",
+                "logo": false
               },
               "time": "21 h ago",
               "summary": "The buyer takes 4,100 masts; the sale needs clearance.",
@@ -294,7 +300,9 @@
               "url": "https://harbour-wire.example/corvane",
               "source": {
                 "name": "Harbour Wire",
-                "monogram": "HW"
+                "monogram": "HW",
+                "id": "1",
+                "logo": false
               },
               "time": "23 h ago",
               "summary": "Corvane will shut two of its nine plants by March and take a one-off charge.",
@@ -302,7 +310,19 @@
               "alsoIn": {
                 "label": "Also in 2 other sources",
                 "monograms": ["CL", "MP"],
-                "more": null
+                "more": null,
+                "sources": [
+                  {
+                    "id": "2",
+                    "name": "Credit Ledger Daily",
+                    "logo": false
+                  },
+                  {
+                    "id": "5",
+                    "name": "The Meridian Post",
+                    "logo": false
+                  }
+                ]
               },
               "sharedBy": {
                 "initials": "IK",
@@ -334,7 +354,9 @@
               "url": "https://harbour-wire.example/brightwell",
               "source": {
                 "name": "Harbour Wire",
-                "monogram": "HW"
+                "monogram": "HW",
+                "id": "1",
+                "logo": false
               },
               "time": "23 Nov",
               "summary": "Lenders holding most of the EUR 400m loan agreed to the extension.",
@@ -359,7 +381,9 @@
               "url": "https://northgate-ratings.example/halvorsen",
               "source": {
                 "name": "Northgate Ratings",
-                "monogram": "NR"
+                "monogram": "NR",
+                "id": "4",
+                "logo": false
               },
               "time": "21 Nov",
               "summary": "The agency cites weaker charter rates and a refinancing due in 2027.",
@@ -395,7 +419,9 @@
               "url": "https://regulatory-gazette.example/case-17",
               "source": {
                 "name": "Regulatory Gazette",
-                "monogram": "RG"
+                "monogram": "RG",
+                "id": "3",
+                "logo": false
               },
               "time": "15 Nov",
               "summary": "The authority says the sale could reduce competition for mast access.",
@@ -425,7 +451,9 @@
               "url": "https://www.sec.gov/Archives/edgar/data/1702780/000170278026000041/0001702780-26-000041-index.htm",
               "source": {
                 "name": "Tessaly Telecom filings (SEC)",
-                "monogram": "TT"
+                "monogram": "TT",
+                "id": "7",
+                "logo": false
               },
               "time": "6 Nov",
               "summary": "Form 10-Q, filed 2026-11-06, accession number 0001702780-26-000041.",
@@ -455,7 +483,9 @@
               "url": "https://the-meridian-post.example/lenmark",
               "source": {
                 "name": "The Meridian Post",
-                "monogram": "MP"
+                "monogram": "MP",
+                "id": "5",
+                "logo": false
               },
               "time": "4 Nov",
               "summary": null,
@@ -480,7 +510,9 @@
               "url": "https://www.sec.gov/Archives/edgar/data/1702780/000095012326000777/0000950123-26-000777-index.htm",
               "source": {
                 "name": "Tessaly Telecom filings (SEC)",
-                "monogram": "TT"
+                "monogram": "TT",
+                "id": "7",
+                "logo": false
               },
               "time": "30 Oct",
               "summary": "Form SC 13G/A, filed 2026-10-30, accession number 0000950123-26-000777.",
@@ -1129,7 +1161,8 @@
                 "name": 4,
                 "state": 1,
                 "health": 1
-              }
+              },
+              "logo": false
             },
             {
               "id": "2",
@@ -1178,7 +1211,8 @@
                 "name": 1,
                 "state": 1,
                 "health": 1
-              }
+              },
+              "logo": false
             },
             {
               "id": "3",
@@ -1227,7 +1261,8 @@
                 "name": 7,
                 "state": 1,
                 "health": 2
-              }
+              },
+              "logo": false
             },
             {
               "id": "4",
@@ -1276,7 +1311,8 @@
                 "name": 6,
                 "state": 1,
                 "health": 3
-              }
+              },
+              "logo": false
             },
             {
               "id": "5",
@@ -1325,7 +1361,8 @@
                 "name": 9,
                 "state": 2,
                 "health": 4
-              }
+              },
+              "logo": false
             },
             {
               "id": "6",
@@ -1343,7 +1380,8 @@
                 "name": 2,
                 "state": 3,
                 "health": 4
-              }
+              },
+              "logo": false
             },
             {
               "id": "7",
@@ -1392,7 +1430,8 @@
                 "name": 8,
                 "state": 1,
                 "health": 1
-              }
+              },
+              "logo": false
             },
             {
               "id": "8",
@@ -1410,15 +1449,16 @@
                 "name": 3,
                 "state": 3,
                 "health": 4
-              }
+              },
+              "logo": false
             },
             {
               "id": "9",
               "name": "Market backdrop (FRED)",
               "kind": "Market data",
               "state": "Approved",
-              "health": "Healthy",
-              "reason": null,
+              "health": "Failing",
+              "reason": "The last check failed: 2 of 5 series could not be read: US BB (since 25 Nov), UST 2y (since 25 Nov)",
               "stateNote": null,
               "healthNote": null,
               "lastCheck": "just now",
@@ -1458,8 +1498,9 @@
               "sort": {
                 "name": 5,
                 "state": 1,
-                "health": 1
-              }
+                "health": 3
+              },
+              "logo": false
             }
           ],
           "sourceWeeksHeading": "Items per week, 6 weeks",

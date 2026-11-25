@@ -50,7 +50,9 @@ issuer data, no filing or market source in Settings or the freshness line, and e
 those stories only (``feedview.FORMAT_1``). ``fmt`` 2 (``?format=2``) delivers every kind
 (``filing`` "Filing", ``market`` "Market") and the format-2 keys: a story's ``issuers`` and
 ``market`` (``market.delivered``), ``channels.issuers``, ``feed.issuers``, ``settings.issuers``
-and ``settings.filings`` (``issuer_view``), and the issuers among the digest form's covers.
+and ``settings.filings`` (``issuer_view``), the issuers among the digest form's covers, and the
+source logos' keys (``logos``): a story's ``source.id`` and ``source.logo``, ``alsoIn.sources``
+and each Settings source's ``logo``. A format-1 "Also in" line names no filing or market source.
 
 Tags (the rule of docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md, section 6):
 a market post carries "Market" only; a filing its form type first; then the AI pass's tags (feed
@@ -76,6 +78,7 @@ from deploy_workflow.signal import (
     ingest,
     issuer_view,
     issuers,
+    logos,
     market,
     notif,
     store,
@@ -289,6 +292,9 @@ def _lists(
             db, {row["id"]: (row, h) for row, h in checked}, now
         )
         settings["filings"] = issuer_view.filings_line(db)
+        held = logos.logo_ids(db)
+        for row in settings["sources"]:
+            row["logo"] = int(row["id"]) in held
     return channels, settings
 
 
@@ -415,14 +421,18 @@ def _story(cards: _Cards, card: feedview.Card, threaded: Json) -> Json:
     """`threaded` holds the story's sharedBy, commentCount and threadRef (group_view); what the AI
     pass wrote for it is delivered only while the pass is on, and never on a filing or a market
     post."""
-    others = feedview.other_sources(cards.db, card.id)
-    also = None
+    others = feedview.other_sources(cards.db, card.id, cards.read.reading)
+    also: Json | None = None
     if others:
         also = {
             "label": "Also in " + _plural(len(others), "other source", "other sources"),
-            "monograms": [monogram(name) for name in others[:3]],
+            "monograms": [monogram(name) for _, name in others[:3]],
             "more": f"+{len(others) - 3}" if len(others) > 3 else None,
         }
+        if cards.read.fmt == 2:  # beside the monograms, the same three with their logos
+            also["sources"] = [
+                {"id": str(n), "name": name, "logo": n in cards.logos} for n, name in others[:3]
+            ]
     web = card.link.lower().startswith(("http://", "https://")) and len(card.link) <= MAX_LINK
     story: Json = {
         "id": str(card.id),
@@ -449,6 +459,7 @@ def _story(cards: _Cards, card: feedview.Card, threaded: Json) -> Json:
         topic_tags = _distinct(list(card.topics))
         story.update(ai_view.story_fields(found, card.kind, _KIND[card.kind], topic_tags))
     if cards.read.fmt == 2:
+        story["source"].update(id=str(card.source_id), logo=card.source_id in cards.logos)
         named = cards.issuers.get(card.id, [])[:MAX_STORY_ISSUERS]
         story["issuers"] = [{"id": str(n), "name": name} for n, name in named]
         table = cards.tables.get(card.id) if card.kind == MARKET else None
@@ -477,6 +488,7 @@ class _Cards:
         self.issuers: dict[int, list[tuple[int, str]]] = {}
         self.tables: dict[int, tuple[date, list[market.Row]]] = {}
         self.rank: group_view.Ranker | None = None  # the Top order, once the stories are chosen
+        self.logos = logos.logo_ids(db) if fmt == 2 else frozenset()  # sources with a logo
 
     def load(self, ids: list[int]) -> None:
         missing = sorted(set(ids) - set(self.found))
@@ -496,7 +508,13 @@ class _Cards:
         return _story(self, card, threaded)
 
     def strengths(self) -> dict[int, int]:
-        return {story_id: found.signal for story_id, found in self.ai.items()}
+        """The AI pass's strength of each card it may carry one on: never a filing or a market
+        post, whatever stray row the store holds for one."""
+        return {
+            story_id: found.signal
+            for story_id, found in self.ai.items()
+            if (card := self.found.get(story_id)) is not None and card.kind in KINDS
+        }
 
     def cost(self, story_id: int) -> int:
         """The card's bytes, with room for the fields a delivered thread adds to it."""

@@ -191,7 +191,12 @@ def test_format_two_delivers_every_kind_with_its_label_tags_and_issuers(db):
     altice = [{"id": "1", "name": "Altice USA"}]
     assert [stories[n]["issuers"] for n in ("1", "2", "3", "6")] == [altice, altice, altice, []]
     assert stories["3"]["headline"] == "Altice USA: 8-K, current report"
-    assert stories["3"]["source"] == {"name": "Altice USA filings (SEC)", "monogram": "AU"}
+    assert stories["3"]["source"] == {
+        "name": "Altice USA filings (SEC)",
+        "monogram": "AU",
+        "id": "3",
+        "logo": False,  # source logos: format 2 says whether one is stored
+    }
     assert all(stories[n]["market"] is None for n in ("1", "2", "3", "4", "5"))
     assert all(s["ai"] is None for s in stories.values())
 
@@ -199,7 +204,7 @@ def test_format_two_delivers_every_kind_with_its_label_tags_and_issuers(db):
 def test_format_two_delivers_the_market_table(db):
     snap = _snap(_build(db, TOBIAS, fmt=2))
     post = snap["feed"]["stories"][0]
-    assert post["headline"] == "Market backdrop: 24 November 2026"
+    assert post["headline"] == "Market backdrop: 25 November 2026"  # the UTC day it was written
     assert post["url"] == "https://fred.stlouisfed.org/"
     table = post["market"]
     assert table["asOf"] == "24 November 2026"
@@ -355,8 +360,9 @@ def test_a_digest_may_cover_an_issuer(db):
     made = digests.create(db, "Tobias O", spec, NOW - timedelta(days=1))
     run = digests.run_now(db, "Tobias O", made, NOW)
     # The first period runs from 23 Nov 07:00 to now: stories 1, 2 and 3 (24 Nov 21:05); the
-    # 10-Q and the SC 13G/A are older. AI is off, so nothing is written.
-    assert (run.outcome, run.stories) == ("skipped", 3)
+    # 10-Q and the SC 13G/A are older. Story 3 is a filing, which no digest takes (review finding
+    # 1): two in scope. AI is off, so nothing is written.
+    assert (run.outcome, run.stories) == ("skipped", 2)
     digest = digests.owned(db, "Tobias O", made)
     assert digests.cover_texts(db, digest) == ["Issuer: Altice USA"]
     assert digests.covers_phrase(db, digest) == "Altice USA"

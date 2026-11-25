@@ -76,11 +76,13 @@ from deploy_workflow.signal import (
     ai_run,
     api_groups,
     api_issuers,
+    api_logos,
     api_settings,
     feedview,
     fetch,
     identity,
     ingest,
+    logos,
     market,
     snapshot,
     store,
@@ -109,19 +111,33 @@ MAX_PARAMS = 20
 _POLICY = "default-src 'none'; frame-ancestors 'none'"
 
 
+def _fetch_logo(url: str) -> fetch.Fetched:
+    """A logo fetch: every rule of ``fetch.fetch``, the icon cap, the ordinary client."""
+    return fetch.fetch(url, None, None, limit=logos.MAX_BYTES, accept=logos.ACCEPT)
+
+
 class Loop:
     """The background loop: one pass per tick, the ingest of the approved sources that are due,
-    then the AI pass over the new stories, then the digests that are due, then the day's market
-    post when it is due (``market.run_due``). The four jobs fail alone: each has its own
-    connection and its own recorded error. The AI pass and the digests'
+    then the approved sources' logos that are due (``logos.run_due``), then the AI pass over the
+    new stories, then the digests that are due, then the day's market post when it is due
+    (``market.run_due``). The jobs fail alone: each has its own connection and its own recorded
+    error. Logos are fetched with `logo_fetch`; left out, with the real fetcher when no `fetch_fn`
+    is given either (the service), and not at all when a `fetch_fn` stands in for the network (a
+    test's fake world fetches no logo unless it gives one). The AI pass and the digests'
     writer get a model only while ``ai_gate`` says the pass is on (``ai_run``); `ai` holds the
     launching environment and the rulings folder it reads (the process's own by default)."""
 
     def __init__(
-        self, root: Path, fetch_fn: FetchFn | None = None, ai: ai_run.Setup | None = None
+        self,
+        root: Path,
+        fetch_fn: FetchFn | None = None,
+        ai: ai_run.Setup | None = None,
+        logo_fetch: logos.LogoFetch | None = None,
     ) -> None:
         self.root = root
         self.fetch_fn = fetch_fn
+        self.logo_fetch = logo_fetch or (_fetch_logo if fetch_fn is None else None)
+        self.logo_error: str | None = None
         self.ai = ai_run.Setup() if ai is None else ai
         self.last_error: str | None = None  # the ingest job's
         self.ai_error: str | None = None
@@ -131,6 +147,7 @@ class Loop:
     def run_once(self, now: datetime) -> None:
         """One pass: each job on its own connection; a failing job is logged and recorded."""
         self.last_error = self._job("ingest", lambda db: ingest.run_due(db, now, self.fetch_fn))
+        self.logo_error = self._job("logos", lambda db: logos.run_due(db, now, self.logo_fetch))
         self.ai_error = self._job("AI", lambda db: ai_run.story_pass(db, now, self.ai))
         self.digest_error = self._job("digest", lambda db: ai_run.digest_pass(db, now, self.ai))
         self.market_error = self._job("market", lambda db: market.run_due(db, now, self._fetch))
@@ -202,7 +219,10 @@ def _feed(req: _Req) -> _Reply:
         page = feedview.feed(req.db, req.person.name, req.param("view"), **filters)
     except feedview.ViewError as error:
         raise _refuse(400, str(error)) from None
-    cards = [dataclasses.asdict(card) for card in page.cards]
+    cards = [
+        {key: value for key, value in dataclasses.asdict(card).items() if key != "source_id"}
+        for card in page.cards
+    ]  # the route's card keys as they were (the source id is the snapshot's, format 2)
     return _Reply(200, {"cards": cards, "next_before": page.next_before, "newest": page.newest})
 
 
@@ -341,6 +361,7 @@ _ROUTES: tuple[_Route, ...] = (
     *api_groups.ROUTES,
     *api_settings.ROUTES,
     *api_issuers.ROUTES,
+    *api_logos.ROUTES,
 )
 
 

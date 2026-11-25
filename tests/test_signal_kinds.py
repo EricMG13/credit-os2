@@ -95,7 +95,8 @@ def every_kind(db: sqlite3.Connection) -> dict[str, str]:
     market_source = _source(db, "market")
     with db:
         db.execute(
-            "INSERT INTO market_series VALUES('SOFR', 'Secured Overnight Financing Rate', 'SOFR',"
+            "INSERT INTO market_series(id, title, short, unit, source, position, added_at)"
+            " VALUES('SOFR', 'Secured Overnight Financing Rate', 'SOFR',"
             " 'Percent', 'FRBNY via FRED', 1, 'x')"
         )
     body = b"observation_date,SOFR\n2026-11-24,4.57\n"  # SYNTHETIC
@@ -295,3 +296,54 @@ def test_market_series_unit_and_kind_labels_say_nothing_of_direction(db):
         "Filings",
         "Market data",
     }
+
+
+# Review round 5: the spelling of a repeated tag, alsoIn and Top in format 1
+
+
+def test_a_tag_spelled_twice_takes_the_lower_topic_ids_spelling_for_every_viewer(db):
+    """Doubt settled: "telecoms" (topic 1) and "TELECOMS" (topic 2) show as "telecoms" to every
+    viewer; a viewer following either sees it among the followed topics, first."""
+    for name in ("telecoms", "TELECOMS", "Desk"):
+        topics.add_topic(db, name, ["Telecom"], [], "Mara L")
+    story = str(_arrive(db, _source(db, "news"), "Telecom results", 1))
+    assert _stories(db)[story]["tags"] == ["telecoms", "Desk"]
+    topics.follow(db, VIEWER.name, 3)
+    assert _stories(db)[story]["tags"] == ["Desk", "telecoms"]
+    topics.follow(db, VIEWER.name, 2)  # the later spelling: the earlier one is still shown
+    assert _stories(db)[story]["tags"] == ["telecoms", "Desk"]
+
+
+def _format_one(db: sqlite3.Connection, **options: Any) -> dict[str, Any]:
+    built = snapshot.build(db, VIEWER, NOW, **options)
+    assert react_refusal(built) is None
+    return dict(built["scenes"][0]["snapshot"])
+
+
+def test_format_one_also_in_names_no_filing_or_market_source(db):
+    """Review finding 12: a news story whose link a filing source also carried said "Also in 1
+    other source" with the filing source's monogram in format 1."""
+    news = _source(db, "news")
+    filing = _source(db, "filing")
+    story = _arrive(db, news, "Apple files its current report", 1)
+    link = f"https://s{news}.example/1"
+    assert store.add_story(db, filing, Entry("Apple: 8-K", link, NOW, ""), NOW) == "duplicate"
+    (card,) = _format_one(db)["feed"]["stories"]
+    assert card["id"] == str(story) and card["alsoIn"] is None
+    two = _stories(db)[str(story)]
+    assert two["alsoIn"]["label"] == "Also in 1 other source"  # format 2 names it
+
+
+def test_a_stray_ai_row_on_a_filing_never_moves_it_in_top(db):
+    """Review finding 16: AI rows put on a filing by hand fed the Top order."""
+    news = _source(db, "news")
+    filing = _source(db, "filing")
+    stray = _arrive(db, filing, "Apple: 8-K", 3)
+    story = _arrive(db, news, "Newer story", 1)
+    _ai(db, story, "news", [])  # strength 2
+    _ai(db, stray, "news", [])
+    with db:
+        db.execute("UPDATE story_ai SET signal=3 WHERE story_id=?", (stray,))  # never ranked
+    built = snapshot.build(db, VIEWER, NOW, fmt=2, service=snapshot.Service(ai=status_on()))
+    top = built["scenes"][0]["snapshot"]["feed"]["views"]["latest"]["top"]
+    assert top == [str(story), str(stray)]

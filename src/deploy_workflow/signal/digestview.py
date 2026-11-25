@@ -282,7 +282,8 @@ def _written(
         for row in db.execute(
             "SELECT s.id, s.title, s.link, s.published_at, src.name AS source FROM stories s"
             " JOIN sources src ON src.id = s.source_id"
-            " WHERE s.id IN (SELECT value FROM json_each(?))",
+            " WHERE s.id IN (SELECT value FROM json_each(?))"
+            f" AND {digests.SCOPE_CONDITION}",  # an issue an earlier build wrote never shows one
             (json.dumps(named),),
         ).fetchall()
     }

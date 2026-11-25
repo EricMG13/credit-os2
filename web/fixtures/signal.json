@@ -3373,14 +3373,19 @@
             },
             "stories": [
               {
-                "id": "market-24-nov",
+                "id": "market-25-nov",
                 "kind": "market",
                 "kindLabel": "Market",
-                "headline": "Market backdrop: 24 November 2026",
-                "url": "https://example.com/market-24-nov",
-                "source": { "name": "Market backdrop (sample)", "monogram": "MB" },
+                "headline": "Market backdrop: 25 November 2026",
+                "url": "https://example.com/market-25-nov",
+                "source": {
+                  "name": "Market backdrop (sample)",
+                  "monogram": "MB",
+                  "id": "market-sample",
+                  "logo": false
+                },
                 "time": "Just now",
-                "summary": "Sample HY 1.11% (+1 bp); Sample BB 2.22% (0 bp); Sample 10y not available; Sample index 100.00 Index (+1.5 Index); Sample rate 3.33%",
+                "summary": "As of 24 Nov, change from the previous observation: Sample HY 1.11% (+1 bp); Sample BB 2.22% (0 bp); Sample 10y not available; Sample index 100.00 Index (21 Nov, +1.5 Index); Sample rate 3.33%",
                 "tags": ["Market"],
                 "alsoIn": null,
                 "sharedBy": null,
@@ -3475,7 +3480,12 @@
                 "kindLabel": "Filing",
                 "headline": "Tessaly Telecom: 8-K, current report",
                 "url": "https://example.com/tessaly-8k",
-                "source": { "name": "Tessaly Telecom filings (SEC)", "monogram": "TT" },
+                "source": {
+                  "name": "Tessaly Telecom filings (SEC)",
+                  "monogram": "TT",
+                  "id": "tessaly-filings",
+                  "logo": true
+                },
                 "time": "11 h ago",
                 "summary": "Form 8-K, filed 2026-11-24, accession number 0000000000-26-000001. Item 2.02: Results of Operations and Financial Condition",
                 "tags": ["8-K", "Telecoms"],
@@ -3497,11 +3507,24 @@
                 "kindLabel": "News",
                 "headline": "Tessaly Telecom agrees the sale of its towers",
                 "url": "https://example.com/tessaly-towers",
-                "source": { "name": "Harbour Wire", "monogram": "HW" },
+                "source": {
+                  "name": "Harbour Wire",
+                  "monogram": "HW",
+                  "id": "harbour-wire",
+                  "logo": true
+                },
                 "time": "21 h ago",
                 "summary": "The buyer takes 4,100 masts; the sale needs clearance.",
                 "tags": ["Telecoms"],
-                "alsoIn": null,
+                "alsoIn": {
+                  "label": "Also in 2 other sources",
+                  "monograms": ["CL", "RG"],
+                  "more": null,
+                  "sources": [
+                    { "id": "credit-ledger", "name": "Credit Ledger Daily", "logo": true },
+                    { "id": "regulatory-gazette", "name": "Regulatory Gazette", "logo": true }
+                  ]
+                },
                 "sharedBy": null,
                 "ai": null,
                 "strength": null,
@@ -3519,7 +3542,12 @@
                 "kindLabel": "News",
                 "headline": "Corvane Packaging signs a five-year freight contract with Halvorsen Marine",
                 "url": "https://example.com/corvane-freight",
-                "source": { "name": "Harbour Wire", "monogram": "HW" },
+                "source": {
+                  "name": "Harbour Wire",
+                  "monogram": "HW",
+                  "id": "harbour-wire",
+                  "logo": true
+                },
                 "time": "Yesterday",
                 "summary": "The contract covers Corvane's exports from its two northern plants.",
                 "tags": ["Packaging", "Shipping"],
@@ -3544,7 +3572,12 @@
                 "kindLabel": "Regulatory case",
                 "headline": "Authority opens a review of the Tessaly Telecom tower sale",
                 "url": "https://example.com/tessaly-review",
-                "source": { "name": "Regulatory Gazette", "monogram": "RG" },
+                "source": {
+                  "name": "Regulatory Gazette",
+                  "monogram": "RG",
+                  "id": "regulatory-gazette",
+                  "logo": true
+                },
                 "time": "15 Nov",
                 "summary": "The authority says the sale could reduce competition for mast access.",
                 "tags": ["Telecoms"],
@@ -3564,21 +3597,21 @@
             "digests": [],
             "views": {
               "for-you": {
-                "top": ["market-24-nov", "tessaly-8k", "tessaly-towers", "tessaly-review"],
-                "latest": ["market-24-nov", "tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "top": ["market-25-nov", "tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "latest": ["market-25-nov", "tessaly-8k", "tessaly-towers", "tessaly-review"],
                 "waiting": null,
                 "older": []
               },
               "latest": {
                 "top": [
-                  "market-24-nov",
+                  "market-25-nov",
                   "tessaly-8k",
                   "tessaly-towers",
                   "corvane-freight",
                   "tessaly-review"
                 ],
                 "latest": [
-                  "market-24-nov",
+                  "market-25-nov",
                   "tessaly-8k",
                   "tessaly-towers",
                   "corvane-freight",
@@ -3748,7 +3781,8 @@
                 "lastCheck": "6 min ago",
                 "lastItem": "11 h ago",
                 "weeks": [],
-                "sort": { "name": 2, "state": 1, "health": 1 }
+                "sort": { "name": 2, "state": 1, "health": 1 },
+                "logo": true
               },
               {
                 "id": "regulatory-gazette",
@@ -3762,7 +3796,8 @@
                 "lastCheck": "6 min ago",
                 "lastItem": "11 h ago",
                 "weeks": [],
-                "sort": { "name": 4, "state": 1, "health": 1 }
+                "sort": { "name": 4, "state": 1, "health": 1 },
+                "logo": true
               },
               {
                 "id": "tessaly-filings",
@@ -3776,7 +3811,8 @@
                 "lastCheck": "6 min ago",
                 "lastItem": "11 h ago",
                 "weeks": [],
-                "sort": { "name": 5, "state": 1, "health": 1 }
+                "sort": { "name": 5, "state": 1, "health": 1 },
+                "logo": true
               },
               {
                 "id": "halvorsen-filings",
@@ -3790,7 +3826,8 @@
                 "lastCheck": null,
                 "lastItem": null,
                 "weeks": [],
-                "sort": { "name": 1, "state": 3, "health": 4 }
+                "sort": { "name": 1, "state": 3, "health": 4 },
+                "logo": false
               },
               {
                 "id": "market-sample",
@@ -3804,7 +3841,8 @@
                 "lastCheck": "6 min ago",
                 "lastItem": "11 h ago",
                 "weeks": [],
-                "sort": { "name": 3, "state": 1, "health": 1 }
+                "sort": { "name": 3, "state": 1, "health": 1 },
+                "logo": false
               }
             ],
             "sourceWeeksHeading": "Items per week"

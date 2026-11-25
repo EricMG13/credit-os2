@@ -91,3 +91,21 @@ export async function sendWrite(request: SignalWrite, stop: AbortSignal): Promis
     return { refusal: sentence(failure), reply: null };
   }
 }
+
+/**
+ * A source's logo as the service holds it: its media type and its bytes in base64, as sent (the
+ * caller decides whether that is a logo). Null when the service holds none, or did not answer.
+ */
+export async function readLogo(
+  source: string,
+  stop: AbortSignal,
+): Promise<{ type: unknown; data: unknown } | null> {
+  try {
+    const reply = await ask(`/logos/${encodeURIComponent(source)}`, {}, stop);
+    if (typeof reply !== "object" || reply === null) return null;
+    const { type, data } = reply as { type?: unknown; data?: unknown };
+    return { type, data };
+  } catch {
+    return null;
+  }
+}

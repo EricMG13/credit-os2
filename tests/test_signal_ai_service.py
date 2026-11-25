@@ -18,7 +18,7 @@ from test_signal_service import Live
 
 from deploy_workflow.model.turn import TurnRequest
 from deploy_workflow.signal import ai_ledger, ai_run, digests, store, topics
-from deploy_workflow.signal.fetch import Fetched
+from deploy_workflow.signal.fetch import Fetched, FetchRefused
 from deploy_workflow.signal.service import Loop, make_server
 
 NOW = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)  # the recorded feed's stories are from this day
@@ -146,6 +146,10 @@ def test_with_no_ruling_the_service_makes_no_model_call_and_runs_as_before(tmp_p
 # Fourth review, D5: a hand-edited AI setting turns the pass off on the pages, never a 500
 
 
+def _offline(url: str, etag: str | None, modified: str | None) -> Fetched:
+    raise FetchRefused("no network in tests")
+
+
 def test_a_hand_edited_ai_setting_shows_the_pass_off_and_every_page_still_reads(tmp_path):
     root = tmp_path / "root"
     seed(root)
@@ -157,7 +161,9 @@ def test_a_hand_edited_ai_setting_shows_the_pass_off_and_every_page_still_reads(
         db.execute("UPDATE settings SET value='abc' WHERE key='ai_cap_usd'")
     db.close()
     model = FakeModel(answer=answer)
-    loop = Loop(root, ai=ai_run.Setup(environ(tmp_path), rulings, lambda c, p: model))
+    loop = Loop(  # the ingest job's fetch is a stand-in: no test reaches the network
+        root, fetch_fn=_offline, ai=ai_run.Setup(environ(tmp_path), rulings, lambda c, p: model)
+    )
     live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
     try:
         code, _, built = live.call("GET", "/api/snapshot", cookie="signal_name=Olga")

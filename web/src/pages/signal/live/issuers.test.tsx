@@ -21,7 +21,7 @@ const REVIEW = "Authority opens a review of the Tessaly Telecom tower sale";
 const QUARTERLY = "Tessaly Telecom: 10-Q, quarterly report [Sections 13 or 15(d)]";
 const HOLDINGS =
   "Tessaly Telecom: SC 13G/A, [Amend] Statement of acquisition of beneficial ownership by individuals";
-const MARKET = "Market backdrop: 24 November 2026";
+const MARKET = "Market backdrop: 25 November 2026";
 
 const title = (name: string) => screen.findByRole("heading", { level: 1, name });
 const headlines = () =>

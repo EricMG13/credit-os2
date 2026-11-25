@@ -22,8 +22,8 @@ Rules:
 
 One header may differ per request: a fetch made for an SEC filing source declares who is asking
 (``Declared``: the owner's contact string, which the SEC requires of automated clients). It is sent
-as the User-Agent of a hop to the declared host only; any other hop, a redirect to another host
-included, sends the ordinary ``USER_AGENT``. No other rule changes with it.
+as the User-Agent of a hop to the declared host on the default port only; any other hop, a
+redirect to another host included, sends the ordinary ``USER_AGENT``. No other rule changes with it.
 
 Known ceiling: the one system DNS lookup per hop cannot be interrupted by the standard library.
 A lookup that hangs ends only at the resolver's own timeout, after which the deadline is checked
@@ -116,11 +116,20 @@ class _Budget:
     clock: Clock
     deadline: float
     declared: Declared | None = None
+    limit: int = MAX_BYTES  # the body cap: MAX_BYTES for a feed, smaller for an icon
+    accept: str = ACCEPT
 
-    def agent(self, host: str) -> str:
-        """The User-Agent for a hop to `host`: the declared one for its own host only."""
-        if self.declared is not None and host == self.declared.host:
-            return self.declared.agent
+    def too_large(self) -> FetchRefused:
+        if self.limit == MAX_BYTES:
+            return FetchRefused("feed is larger than 2 MB")
+        return FetchRefused(f"the file is larger than {self.limit // 1024} KiB")
+
+    def agent(self, place: _Place) -> str:
+        """The User-Agent for a hop to `place`: the declared one for its own host on the default
+        port only."""
+        declared = self.declared
+        if declared is not None and (place.host, place.port) == (declared.host, _DEFAULT_PORT):
+            return declared.agent
         return USER_AGENT
 
     def check(self) -> None:
@@ -236,19 +245,19 @@ def _declared_length(response: ResponseLike) -> int | None:
 
 def _read_body(response: ResponseLike, budget: _Budget) -> bytes:
     declared = _declared_length(response)
-    if declared is not None and declared > MAX_BYTES:
-        raise FetchRefused("feed is larger than 2 MB")
+    if declared is not None and declared > budget.limit:
+        raise budget.too_large()
     chunks: list[bytes] = []
     got = 0
-    while got <= MAX_BYTES:
-        chunk = response.read(min(_CHUNK_BYTES, MAX_BYTES + 1 - got))
+    while got <= budget.limit:
+        chunk = response.read(min(_CHUNK_BYTES, budget.limit + 1 - got))
         budget.check()
         if not chunk:
             break
         chunks.append(chunk)
         got += len(chunk)
-    if got > MAX_BYTES:
-        raise FetchRefused("feed is larger than 2 MB")
+    if got > budget.limit:
+        raise budget.too_large()
     if declared is not None and got < declared:
         raise FetchRefused(f"the response ended early ({got} of {declared} bytes)")
     return b"".join(chunks)
@@ -303,7 +312,7 @@ def _stored(value: str | None) -> str | None:
     return value if value is not None and _VALIDATOR.fullmatch(value) else None
 
 
-def fetch(  # noqa: PLR0913 -- the address, its two validators, and three keyword-only wirings
+def fetch(  # noqa: PLR0913 -- the address, its two validators, and keyword-only wirings
     url: str,
     etag: str | None,
     modified: str | None,
@@ -311,9 +320,14 @@ def fetch(  # noqa: PLR0913 -- the address, its two validators, and three keywor
     resolve: Resolver | None = None,
     wiring: Wiring | None = None,
     declared: Declared | None = None,
+    limit: int = MAX_BYTES,
+    accept: str = ACCEPT,
 ) -> Fetched:
     """Fetch url conditionally; raise FetchRefused for any broken rule, error or bad status.
-    `declared` names who is asking, for its host only (``Declared``)."""
+    `declared` names who is asking, for its host only (``Declared``); `limit` is the body cap (at
+    most MAX_BYTES: a larger body is refused, never cut) and `accept` the Accept header."""
+    if not 0 < limit <= MAX_BYTES:
+        raise FetchRefused(f"the body cap is 1 to {MAX_BYTES} bytes")
     wiring = wiring or Wiring()
     etag = _stored(etag)  # a stored value is held to what a server may send
     modified = _stored(modified)
@@ -325,6 +339,8 @@ def fetch(  # noqa: PLR0913 -- the address, its two validators, and three keywor
         wiring.clock,
         wiring.clock() + TOTAL_SECONDS,
         declared,
+        limit,
+        accept,
     )
     try:
         return _follow(url, etag, modified, budget)
@@ -347,8 +363,8 @@ def _follow(url: str, etag: str | None, modified: str | None, budget: _Budget) -
         budget.check()  # the lookup may have ended after the deadline
         headers = {
             "Host": place.host if place.port == _DEFAULT_PORT else f"{place.host}:{place.port}",
-            "User-Agent": budget.agent(place.host),
-            "Accept": ACCEPT,
+            "User-Agent": budget.agent(place),
+            "Accept": budget.accept,
             "Accept-Encoding": "identity",
             "Connection": "close",
         }

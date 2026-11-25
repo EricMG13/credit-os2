@@ -1,6 +1,7 @@
 // Signal's slice: what the service will later serve, read by hand. Each reader takes a value and
 // its path and returns the value or the first failing path; one malformed record fails the slice.
 import type { SliceResult } from "../route-table";
+import { readLogoUrl } from "./logo-data";
 
 type SignalViewer = {
   name: string | null;
@@ -57,11 +58,21 @@ export type SignalStory = {
   kindLabel: string;
   headline: string;
   url: string | null;
-  source: { name: string; monogram: string };
+  /**
+   * The source's name and its letters; `id` and `logo` say which source it is and whether the
+   * service holds a logo to draw in the letters' place. Optional as delivered: absent, no logo.
+   */
+  source: { name: string; monogram: string; id: string | null; logo: boolean };
   time: string | null;
   summary: string | null;
   tags: string[];
-  alsoIn: { label: string; monograms: string[]; more: string | null } | null;
+  /** `sources` names the other sources, one per monogram in order, where their logos may be drawn. Optional as delivered: null. */
+  alsoIn: {
+    label: string;
+    monograms: string[];
+    more: string | null;
+    sources: { id: string; name: string; logo: boolean }[] | null;
+  } | null;
   sharedBy: { initials: string; label: string } | null;
   /**
    * What the AI pass wrote: the line; `kind` when the kind label came from the pass; `tags` the part of
@@ -294,6 +305,8 @@ export type SignalSource = {
   lastItem: string | null;
   weeks: SignalSourceWeek[];
   sort: { name: number; state: number; health: number };
+  /** Whether the service holds a logo for the source (its id names it). Optional as delivered: absent, none. */
+  logo: boolean;
 };
 /**
  * A topic as Settings lists it: the delivered "N stories this week" line, its keywords (none means
@@ -371,6 +384,12 @@ type SignalSnapshot = {
   threads: SignalThread[];
   digests: SignalDigest[];
   settings: SignalSettings;
+  /**
+   * Sample logos by source id, each a `data:` URL of an image: the design fixture's way to show
+   * logos with no service to ask. A service delivers none here (the page asks it for each logo);
+   * absent reads as null.
+   */
+  logos: Record<string, string> | null;
 };
 export type SignalScene = { id: string; snapshot: SignalSnapshot };
 export type SignalSlice = { scenes: [SignalScene, ...SignalScene[]] };
@@ -560,11 +579,23 @@ const storyShape = shape<SignalStory>({
   kindLabel: str,
   headline: str,
   url: strOrNull,
-  source: shape({ name: str, monogram: str }),
+  source: shape({
+    name: str,
+    monogram: str,
+    id: optional(id, null),
+    logo: optional(bool, false),
+  }),
   time: strOrNull,
   summary: strOrNull,
   tags: list(str),
-  alsoIn: orNull(shape({ label: str, monograms: list(str), more: strOrNull })),
+  alsoIn: orNull(
+    shape({
+      label: str,
+      monograms: list(str),
+      more: strOrNull,
+      sources: optional(list(shape({ id, name: str, logo: bool })), null),
+    }),
+  ),
   sharedBy: orNull(shape({ initials: str, label: str })),
   ai: orNull(shape({ line: str, kind: optional(bool, false), tags: optional(list(str), []) })),
   strength: orNull(shape({ marks, word: str })),
@@ -1154,6 +1185,7 @@ const sourceBase = shape<SignalSource>({
   lastItem: strOrNull,
   weeks: list(sourceWeek),
   sort: shape({ name: rank, state: rank, health: rank }),
+  logo: optional(bool, false),
 });
 /** A reason goes with Failing and only with it; a proposed source is not checked, so has no health. */
 const source: Reader<SignalSource> = (v, path) => {
@@ -1259,6 +1291,11 @@ const settings = shape<SignalSettings>({
   ),
   filings: optional(orNull(shape({ contactSet: bool, note: str })), null),
 });
+/** A sample logo is an image the page may draw as it is: a `data:` URL of one of the logo types, of a logo's size. */
+const sampleLogo: Reader<string> = (v, path) =>
+  readLogoUrl(v) === null
+    ? bad(path, "a data: URL of a PNG, JPEG, GIF, WebP or ICO image of at most 32 KiB")
+    : good(v as string);
 const snapshotBase = shape<SignalSnapshot>({
   viewer,
   channels,
@@ -1267,6 +1304,7 @@ const snapshotBase = shape<SignalSnapshot>({
   threads: list(threadRecord),
   digests: list(digestRecord),
   settings,
+  logos: optional(record(sampleLogo), null),
 });
 
 /** A thread is named by (group, id); the key is a pair so no id can run into another's. */

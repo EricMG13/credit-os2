@@ -3,6 +3,8 @@
 import type { FC, ReactNode } from "react";
 import { User01 } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
+import type { LogoOf } from "../logos";
+import { SourceLogo } from "./SourceLogo";
 
 const SIZES = {
   xs: { box: "size-6", initials: "text-caption", icon: "size-3" },
@@ -18,24 +20,28 @@ type AvatarProps = {
   own?: boolean;
   /** The icon drawn when there are no initials (default: one person). */
   icon?: FC<{ className?: string }>;
+  /** A source's avatar: its logo is drawn in the letters' place where the page has one. */
+  source?: LogoOf;
 };
 
 /** Decoration: the name beside it carries the meaning, so it is hidden from the accessibility tree. */
-export function Avatar({ size, initials, own = false, icon: Icon = User01 }: AvatarProps) {
+export function Avatar({ size, initials, own = false, icon: Icon = User01, source }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
       className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-ds-full font-semibold ring-1 ring-border-subtle ring-inset",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-ds-full font-semibold ring-1 ring-border-subtle ring-inset",
         SIZES[size].box,
         own ? "bg-surface-selected text-text-link" : "bg-surface-subtle text-text-tertiary",
       )}
     >
-      {initials === null ? (
-        <Icon className={SIZES[size].icon} />
-      ) : (
-        <span className={SIZES[size].initials}>{initials}</span>
-      )}
+      <SourceLogo source={source} inset="p-0.5">
+        {initials === null ? (
+          <Icon className={SIZES[size].icon} />
+        ) : (
+          <span className={SIZES[size].initials}>{initials}</span>
+        )}
+      </SourceLogo>
     </span>
   );
 }

@@ -4,10 +4,11 @@
 // with its reason in view; on a service it opens a form, and the owner approves from the command line.
 import { useState } from "react";
 import type { SortDescriptor } from "react-aria-components";
-import { Plus } from "@untitledui/icons";
+import { Globe01, Plus } from "@untitledui/icons";
 import { Table } from "@/components/application/table/table";
 import { Button } from "@/components/base/buttons/button";
 import { StatusBadge } from "@/components/status/StatusBadge";
+import { SourceLogo } from "../parts/SourceLogo";
 import { WeekBars } from "../parts/WeekBars";
 import type { SignalSource } from "../slice";
 import { useSignalActions } from "../actions";
@@ -51,6 +52,25 @@ function health(source: SignalSource) {
       <StatusBadge set="Signal source states" state={source.health} />
       {notes.map(([slot, text]) => (text === null ? null : <Small key={slot}>{text}</Small>))}
     </>
+  );
+}
+
+/**
+ * A source's tile beside its name, drawn in every row once the service says any listed source has
+ * a logo (so the names stay in line): the logo where the page has it, else a plain mark. The list
+ * carries no letters for a source, so the mark is an icon. Decoration: the name is beside it.
+ */
+function SourceTile({ source }: { source: SignalSource }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-source-tile
+      className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-ds-xs bg-surface-subtle text-text-tertiary"
+    >
+      <SourceLogo source={source} inset="p-0.5">
+        <Globe01 className="size-3.5" />
+      </SourceLogo>
+    </span>
   );
 }
 
@@ -122,6 +142,7 @@ export function SourcesSection({
   more: string | null;
 }) {
   const [sort, setSort] = useState<SortDescriptor | undefined>();
+  const tiles = sources.some((source) => source.logo);
   return (
     <Section
       wide
@@ -173,7 +194,10 @@ export function SourcesSection({
                 {(source) => (
                   <Table.Row id={source.id}>
                     <Table.Cell>
-                      <b className="block font-medium text-text-primary">{source.name}</b>
+                      <span className="flex items-center gap-2">
+                        {tiles ? <SourceTile source={source} /> : null}
+                        <b className="block font-medium text-text-primary">{source.name}</b>
+                      </span>
                       <Small>{source.kind}</Small>
                       <div data-last-check className="2xl:hidden">
                         <Small>{`Last check ${source.lastCheck ?? "n.a."}`}</Small>

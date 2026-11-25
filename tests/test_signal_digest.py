@@ -542,6 +542,71 @@ def test_all_stories_takes_every_story_of_the_period(db):
     assert scoped(db, ident, "2026-11-10 08:00", "2026-11-10 12:00") == ["Two", "One"]
 
 
+def _new_kind_source(db: sqlite3.Connection, name: str, kind: str) -> int:
+    with store._write_transaction(db):
+        made = store.insert_source(db, name, kind, f"https://{kind}.example/{name[:4]}", "x")
+    store.set_source_state(db, made, "approved")
+    return made
+
+
+def test_no_digest_cover_takes_a_filing_or_a_market_post(db):
+    """Review finding 1 (decision): a digest's scope holds the four feed kinds only, for every
+    cover; so no run counts them, no model call is sent them and no issue cites them."""
+    from deploy_workflow.signal import issuers
+
+    wire = source(db)
+    issuers.add_issuer(db, issuers.Form("Altice USA", (), "0001702780"), "Mara L")  # source 2
+    store.set_source_state(db, 2, "approved")
+    fred = _new_kind_source(db, "Market backdrop (FRED)", "market")
+    topics.add_topic(db, "Everything Altice", ["Altice"], [], "Mara L")  # no kinds: takes filings
+    news = story(db, wire, "Altice USA bonds fall", at("2026-11-23 09:00"))
+    filing = story(db, 2, "Altice USA: 8-K, current report", at("2026-11-23 09:10"))
+    post = story(db, fred, "Market backdrop: 10 November 2026", at("2026-11-23 09:20"))
+    for one in (news, filing, post):
+        topics.match_story(db, one)
+    group = groups.create_group(db, WRITER, "Desk", "everyone")
+    for one in (news, filing, post):
+        share(db, group, one, at("2026-11-23 09:30"))
+    covers = (
+        ["All stories"],
+        ["Topic: Everything Altice"],
+        ["Issuer: Altice USA"],
+        ["Group: Desk"],
+    )
+    for number, cover in enumerate(covers):
+        ident = make(db, name=f"D{number}", covers=cover)
+        assert scoped(db, ident, "2026-11-23 08:00", "2026-11-23 12:00") == [
+            "Altice USA bonds fall"
+        ], cover
+    writer = RecordingWriter()
+    run = digests.run_now(db, "Mara L", make(db, name="Run", covers=["All stories"]), NOW, writer)
+    assert run.stories == 1 and [one.id for one in writer.scopes[0].stories] == [news]
+
+
+def test_an_issue_an_earlier_build_wrote_never_shows_a_filing_or_a_market_post(db):
+    from deploy_workflow.signal import digestview
+
+    wire = source(db)
+    fred = _new_kind_source(db, "Market backdrop (FRED)", "market")
+    news = story(db, wire, "Altice USA bonds fall", at("2026-11-10 09:00"))
+    post = story(db, fred, "Market backdrop: 10 November 2026", at("2026-11-10 09:20"))
+    ident = make(db)
+    issue = db.execute(
+        "INSERT INTO digest_issues(digest_id, kind, period_start, period_end, created_at)"
+        " VALUES(?, 'written', ?, ?, ?)",
+        (ident, NOW.isoformat(), NOW.isoformat(), NOW.isoformat()),
+    ).lastrowid
+    db.execute("INSERT INTO digest_issue_ai VALUES(?, 2, 'c', 'All stories')", (issue,))
+    db.execute(
+        "INSERT INTO digest_points VALUES(?, 1, 'Lead', 'Body', ?)", (issue, f"[{news}, {post}]")
+    )
+    db.commit()
+    digest = digests.owned(db, "Mara L", ident)
+    (written,) = digestview._written(db, digest, digests.recent_issues(db, ident, 5), NOW).values()
+    ((_, _, _, shown, behind),) = written.points
+    assert [one["headline"] for one in shown] == ["Altice USA bonds fall"] and behind == 1
+
+
 # Reading and keeping
 
 

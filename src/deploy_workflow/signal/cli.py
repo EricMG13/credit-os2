@@ -1,7 +1,7 @@
 """Command line for Signal users, sources, ingest passes and stories, the owner's moderation and
 clean-up of groups, threads and comments (which have no browser route), of sources and digests
-(``cli_clean``), the owner's AI commands (``cli_ai``), and the issuers, filings and market post
-(``cli_issuers``)."""
+(``cli_clean``), the owner's AI commands (``cli_ai``), the issuers, filings and market post
+(``cli_issuers``) and the sources' logos (``cli_logos``)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,15 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from deploy_workflow.signal import ai_run, cli_ai, cli_clean, cli_issuers, groups, threads
+from deploy_workflow.signal import (
+    ai_run,
+    cli_ai,
+    cli_clean,
+    cli_issuers,
+    cli_logos,
+    groups,
+    threads,
+)
 from deploy_workflow.signal.fetch import FetchRefused, check_address
 from deploy_workflow.signal.groups import GroupError
 from deploy_workflow.signal.identity import IdentityError, clean_name
@@ -87,6 +95,7 @@ def _parser() -> argparse.ArgumentParser:
     cli_clean.add_digests(commands)
     cli_ai.add_parser(commands)
     cli_issuers.add_parsers(commands)
+    cli_logos.add_parsers(commands)
     return parser
 
 
@@ -213,6 +222,7 @@ _HANDLERS: dict[str, Handler] = {
     "issuers": cli_issuers.run,
     "filings": cli_issuers.run,
     "market": cli_issuers.run,
+    "logos": cli_logos.run,
     "stories": _stories_command,
 }
 

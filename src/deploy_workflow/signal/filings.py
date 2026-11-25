@@ -15,7 +15,9 @@ fetches; the others are due at the next pass. The SEC publishes 10 requests a se
 A filing story (``story_entry``): the title "<Issuer>: <form>, <form name>" (the form name's first
 letter lowered when its first word is an ordinary capitalised word), the stored summary "Form
 <form>, filed <date>, accession number <number>." followed by the rest of the feed's summary, cut
-as any summary is. The form is the entry's category term, else its title's part before " - ".
+as any summary is. The form is the entry's category term, else its title's part before " - ", each
+only when usable (``MAX_FORM`` characters of plain text at most); an entry with neither has none:
+its title is "<Issuer>: <entry title>" and its summary starts at the filing date.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from __future__ import annotations
 import re
 import sqlite3
 import time
+import unicodedata
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -40,6 +43,7 @@ SPACING = 1.0  # seconds between two filing fetches, whichever process makes the
 PER_PASS = 30  # filing fetches one ingest pass makes at most
 REWOUND = 300.0  # seconds: a stored slot further ahead than this is a clock set back
 MAX_CONTACT = 200
+MAX_FORM = 20  # characters of a form type ("SC 13G/A", "10-K405"); a longer one is none
 CONTACT_KEY = "filings_contact"
 _SLOT_KEY = "filing_slot"  # meta: the time (seconds since the epoch) of the last claimed slot
 _PRINTABLE = re.compile(r"[\x20-\x7e]{1,200}")
@@ -112,9 +116,18 @@ def claim_slot(db: sqlite3.Connection, pace: Pace) -> None:
     pace.sleep(max(0.0, slot - now))
 
 
-def form_of(entry: Entry) -> str:
-    """The filing's form type: the entry's category, else its title's part before " - "."""
-    return (entry.category or entry.title.partition(" - ")[0]).strip()
+def _usable_form(text: str | None) -> str | None:
+    """`text` as a form type: whitespace collapsed, at most MAX_FORM characters, no control or
+    format character (a bidi override included); None otherwise."""
+    held = " ".join((text or "").split())
+    plain = not any(unicodedata.category(ch)[0] == "C" for ch in held)
+    return held if held and len(held) <= MAX_FORM and plain else None
+
+
+def form_of(entry: Entry) -> str | None:
+    """The filing's form type: the entry's category, else its title's part before " - ", when
+    usable (``_usable_form``); None when neither is."""
+    return _usable_form(entry.category) or _usable_form(entry.title.partition(" - ")[0])
 
 
 def _lowered(name: str) -> str:
@@ -126,14 +139,14 @@ def _lowered(name: str) -> str:
     return name
 
 
-def _form_name(entry: Entry, form: str) -> str:
+def _form_name(entry: Entry, form: str | None) -> str:
     head, dash, tail = entry.title.partition(" - ")
     if dash:
         return tail.strip()
     return "" if head.strip() == form else head.strip()
 
 
-def _summary(entry: Entry, form: str) -> str:
+def _summary(entry: Entry, form: str | None) -> str:
     filed = _FILED.search(entry.summary)
     if filed is not None:
         date = filed.group(1)
@@ -142,15 +155,21 @@ def _summary(entry: Entry, form: str) -> str:
     else:
         date = None
     accession = _ACCESSION.search(entry.summary)
-    head = f"Form {form}" + (f", filed {date}" if date else "")
-    head += f", accession number {accession.group(1)}." if accession else "."
+    said = ([f"Form {form}"] if form else []) + ([f"filed {date}"] if date else [])
+    if accession:
+        said.append(f"accession number {accession.group(1)}")
+    head = ", ".join(said) + "." if said else ""
+    head = head[:1].upper() + head[1:]  # "Filed 2026-11-24, ..." when there is no form
     rest = _HEADER.sub("", entry.summary) if filed is not None else entry.summary
-    return shorten(f"{head} {rest}")
+    return shorten(f"{head} {rest}".strip())
 
 
 def story_entry(issuer_name: str, entry: Entry) -> Entry:
     """The feed entry as a filing story: its title and summary (see the module docstring)."""
     form = form_of(entry)
     name = _form_name(entry, form)
-    title = f"{issuer_name}: {form}" + (f", {_lowered(name)}" if name else "")
+    if form is None:
+        title = f"{issuer_name}: {name}" if name else issuer_name
+    else:
+        title = f"{issuer_name}: {form}" + (f", {_lowered(name)}" if name else "")
     return replace(entry, title=title, summary=_summary(entry, form), category=form)

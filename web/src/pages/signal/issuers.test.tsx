@@ -6,7 +6,7 @@ import fixture from "../../../fixtures/signal.json";
 import { change, page, show } from "./test-helpers";
 
 const SCENE = 11;
-const MARKET = "Market backdrop: 24 November 2026";
+const MARKET = "Market backdrop: 25 November 2026";
 const FILING = "Tessaly Telecom: 8-K, current report";
 const TOWERS = "Tessaly Telecom agrees the sale of its towers";
 const FREIGHT = "Corvane Packaging signs a five-year freight contract with Halvorsen Marine";
@@ -295,7 +295,7 @@ describe("the market post", () => {
     expect(post.getByRole("button", { name: `Share to group: ${MARKET}` })).toBeInTheDocument();
     expect(post.getByRole("link", { name: /^Open source: / })).toHaveAttribute(
       "href",
-      "https://example.com/market-24-nov",
+      "https://example.com/market-25-nov",
     );
   });
 
@@ -306,8 +306,12 @@ describe("the market post", () => {
     expect(region.className).toContain("overflow-x-auto");
     expect(within(region).getByRole("table")).toBe(table());
     expect(card(MARKET).queryByText(/Sample HY 1\.11% \(\+1 bp\); Sample BB/)).toBeNull();
+    // The post is titled the day it was written; the table says what day its figures are as of.
+    expect(region.previousElementSibling?.previousElementSibling).toHaveTextContent(
+      "As of 24 November 2026",
+    );
     expect(table().querySelector("caption")).toHaveTextContent(
-      "Market series as of 24 November 2026: each value with its own date, each change with the date it is measured from.",
+      "Market series: each value with its own date, each change with the date it is measured from.",
     );
   });
 
@@ -584,7 +588,7 @@ describe("what else Settings shows of issuers and the new kinds", () => {
     show("/signal/issuers/settings/sources");
     const table = within(page().getByRole("region", { name: "Sources table" }));
     const kind = (name: string) =>
-      table.getByText(name, { selector: "b" }).parentElement?.querySelector("small")?.textContent;
+      table.getByText(name, { selector: "b" }).closest("tr")?.querySelector("small")?.textContent;
     expect(kind("Tessaly Telecom filings (SEC)")).toBe("Filings");
     expect(kind("Market backdrop (sample)")).toBe("Market data");
     expect(kind("Harbour Wire")).toBe("News");

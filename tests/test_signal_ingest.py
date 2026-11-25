@@ -357,3 +357,33 @@ def test_the_ingest_pass_prunes_old_checks_but_keeps_each_sources_last(db_a, mon
         (1, _utc_text(NOW)),
         (1, _utc_text(NOW + timedelta(hours=1))),
     ]
+
+
+def _big_rss(count):
+    """SYNTHETIC: an RSS feed of `count` items, item n published n minutes before NOW."""
+    items = "".join(
+        f"<item><title>Item {n}</title><link>https://a.org/{n}</link>"
+        f"<pubDate>{(NOW - timedelta(minutes=n)).strftime('%a, %d %b %Y %H:%M:%S +0000')}</pubDate>"
+        "</item>"
+        for n in range(count)
+    )
+    return f'<?xml version="1.0"?><rss version="2.0"><channel>{items}</channel></rss>'.encode()
+
+
+def test_one_fetch_stores_at_most_500_entries_the_newest_and_the_rest_come_later(db_a):
+    """Review finding 9: a first fetch of a large feed held the loop for minutes. The pass stores
+    the newest 500 entries; the next passes, which read the whole feed again (no validators are
+    kept meanwhile), take the next 500, then the last 200."""
+    fn = recorded(_big_rss(1200))
+    assert run_due(db_a, NOW, fn) == [
+        (1, True, "500 new; up to 700 older entries wait for the next pass")
+    ]
+    newest = [row[0] for row in db_a.execute("SELECT title FROM stories ORDER BY id LIMIT 2")]
+    assert newest == ["Item 0", "Item 1"]
+    second = run_due(db_a, NOW + timedelta(minutes=10), fn)
+    assert second == [(1, True, "500 new; up to 200 older entries wait for the next pass")]
+    assert fn.calls[1][1] is None  # no validator: the whole feed is read again
+    assert run_due(db_a, NOW + timedelta(minutes=20), fn) == [(1, True, "200 new")]
+    assert db_a.execute("SELECT COUNT(*) FROM stories").fetchone()[0] == 1200
+    run_due(db_a, NOW + timedelta(minutes=30), fn)
+    assert fn.calls[3][1] == '"v1"'  # the whole feed is stored: validators again

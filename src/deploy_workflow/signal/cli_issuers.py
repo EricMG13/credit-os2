@@ -27,7 +27,7 @@ import sqlite3
 from datetime import UTC, datetime
 
 from deploy_workflow.signal import cli_clean, fetch, filings, ingest, issuers, market
-from deploy_workflow.signal.store import FILING, sources
+from deploy_workflow.signal.store import FILING, StoreError, sources
 
 FETCH: market.Fetch = fetch.fetch  # the market post's fetch function (tests replace it)
 
@@ -108,14 +108,15 @@ def _add(db: sqlite3.Connection, args: argparse.Namespace) -> None:
 
 def _edit(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     old = issuers.get(db, args.id)
-    aliases = _split(args.aliases)
+    given = {"aliases": args.aliases, "cik": args.cik, "library_key": args.library_key}
+    keep = frozenset(field for field, value in given.items() if value is None)
     form = issuers.Form(
         old.name if args.name is None else args.name,
-        old.aliases if aliases is None else aliases,
-        old.cik if args.cik is None else args.cik,
-        old.library_key if args.library_key is None else args.library_key,
+        _split(args.aliases) or (),
+        args.cik,
+        args.library_key,
     )
-    issuers.edit_issuer(db, args.id, form, "owner (command line)")
+    issuers.edit_issuer(db, args.id, form, "owner (command line)", keep=keep)
     new = issuers.get(db, args.id)
     said = f"issuer {new.id} changed: {new.name}"
     if old.source_id is not None and old.source_id != new.source_id:
@@ -168,6 +169,8 @@ def _filings(db: sqlite3.Connection, args: argparse.Namespace) -> None:
     if args.action == "status":
         _status(db)
         return
+    if args.clear and args.contact is not None:
+        raise StoreError("give a contact or --clear, not both")
     if args.clear:
         filings.set_contact(db, None, datetime.now(UTC))
         print("contact cleared; no filing source is fetched until one is set")
@@ -196,12 +199,16 @@ def _series(db: sqlite3.Connection, args: argparse.Namespace) -> None:
 
 def _post(db: sqlite3.Connection) -> None:
     outcome = market.post_now(db, datetime.now(UTC), FETCH)
+    if not outcome.ok:  # no series read, or the attempt failed: exit 2 with one sentence
+        raise StoreError(f"no post: {outcome.reason}")
     if outcome.story_id is None:
         print(f"no post: {outcome.reason}")
         return
     title = db.execute("SELECT title FROM stories WHERE id=?", (outcome.story_id,)).fetchone()
     print(f"posted story {outcome.story_id}: {title['title']}")
-    missing = [row.series.short for row in market.post_rows(db, outcome.story_id) if row.problem]
+    missing = [
+        row.series.short for row in market.post_rows(db, outcome.story_id) if row.latest is None
+    ]
     if missing:
         print("series not read: " + ", ".join(missing))
 

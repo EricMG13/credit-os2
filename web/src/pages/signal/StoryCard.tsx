@@ -155,7 +155,11 @@ function SignalRows({ story }: { story: SignalStory }) {
   const also =
     story.alsoIn === null ? null : (
       <div className={ROW}>
-        <AvatarGroup monograms={story.alsoIn.monograms} more={story.alsoIn.more} />
+        <AvatarGroup
+          monograms={story.alsoIn.monograms}
+          more={story.alsoIn.more}
+          sources={story.alsoIn.sources}
+        />
         <span>{story.alsoIn.label}</span>
       </div>
     );
@@ -350,7 +354,7 @@ export function StoryCard(props: Props) {
   };
   return (
     <article ref={card} className="py-6">
-      <MediaObject tile={story.source.monogram}>
+      <MediaObject tile={story.source.monogram} source={story.source}>
         <Byline story={story} />
         <HeadlineBlock story={story} link={link} />
         <SignalRows story={story} />

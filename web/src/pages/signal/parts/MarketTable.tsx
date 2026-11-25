@@ -1,4 +1,4 @@
-// A market post's table: one row per series with its short name, its value and the value's own
+// A market post's table, under the date its figures are as of: one row per series with its short name, its value and the value's own
 // date, then each change with the date it is measured from. Every text is delivered; the page adds
 // the unit to a value and nothing else. A series that could not be read shows its note in place of
 // figures, and a change with no earlier observation shows a dash. A move is a sign and a number:
@@ -7,7 +7,7 @@
 // The series' short name is a control: it shows the full name and where the series comes from on
 // a row beneath, and names both for a screen reader. In a card narrower than the table (a phone)
 // the table scrolls sideways inside a named region the keyboard can reach, as the Sources table
-// does, with the series names kept in view.
+// does, with the series names kept in view. On a phone the table takes the card's whole width.
 import { useId, useState } from "react";
 import { ChevronDown } from "@untitledui/icons";
 import { Button as AriaButton } from "react-aria-components";
@@ -131,7 +131,13 @@ export function MarketTable({ market, headline }: { market: SignalMarket; headli
     setOpen(next);
   };
   return (
-    <div className="@container mt-3">
+    // No wider than its figures read well at; below 768px it takes the card's full width, under
+    // the source's 48px tile and the 12px beside it, so a phone shows as many columns as it can.
+    <div className="@container mt-3 max-w-160 max-md:-ml-15">
+      {/* The post is dated the day it was written; its figures are as of the newest observation. */}
+      <p className="mb-2 text-small text-text-secondary">
+        As of <span className={FIGURE}>{market.asOf}</span>
+      </p>
       <p className="mb-2 text-small text-text-tertiary @min-[352px]:hidden">
         Scroll horizontally to see every column.
       </p>
@@ -144,7 +150,8 @@ export function MarketTable({ market, headline }: { market: SignalMarket; headli
       >
         <table className="w-full min-w-88 border-collapse text-small">
           <caption className="sr-only">
-            {`Market series as of ${market.asOf}: each value with its own date, each change with the date it is measured from.`}
+            Market series: each value with its own date, each change with the date it is measured
+            from.
           </caption>
           <thead>
             <tr>

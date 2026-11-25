@@ -38,7 +38,7 @@ function Quoted({ story }: { story: SignalStory }) {
   const link = story.url !== null && isWebLink(story.url) ? story.url : null;
   return (
     <article>
-      <MediaObject tile={story.source.monogram}>
+      <MediaObject tile={story.source.monogram} source={story.source}>
         <div className={BYLINE}>
           <Badge size="sm">{story.kindLabel}</Badge>
           <span>{story.source.name}</span>

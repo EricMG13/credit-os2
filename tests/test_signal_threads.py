@@ -301,6 +301,27 @@ def test_a_groups_topics_post_each_new_story_once_per_group(db):
     assert rows(db, "SELECT COUNT(*) FROM threads WHERE story_id IN (1, 2)") == [(0,)]
 
 
+def test_a_groups_topic_never_posts_a_filing_or_a_market_post(db):
+    """Doubt settled (round 5): a topic of no kinds takes filings, but a group following it is
+    not posted them; a filing reaches a group only when a person shares it."""
+    from deploy_workflow.signal import store
+
+    everything = add_topic(db, "Lenmark", ["Lenmark"], [], "Mara L")  # no kinds
+    groups.set_topics(db, MARA, 1, [everything])
+    made = []
+    for kind in ("filing", "market"):
+        with store._write_transaction(db):
+            made.append(store.insert_source(db, kind, kind, f"https://{kind}.example/x", "x"))
+    fetched = NOW + timedelta(minutes=10)
+    for number, source in enumerate(made):
+        entry = Entry(f"Lenmark: 8-K {number}", f"https://sec.example/{number}", fetched, "")
+        assert add_story(db, source, entry, fetched) == "new"
+    assert match_story(db, 3) == [everything]  # the filing is in the topic
+    match_story(db, 4)
+    assert rows(db, "SELECT COUNT(*) FROM threads") == [(0,)]
+    assert threads.share(db, MARA, 1, threads.Item(3, "Worth a look."), fetched) == (1, False)
+
+
 def read_at(db: sqlite3.Connection, user: str, thread: int) -> object:
     found = rows(
         db, "SELECT read_at FROM read_marks WHERE user_name=? AND thread_id=?", user, thread

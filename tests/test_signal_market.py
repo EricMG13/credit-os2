@@ -155,13 +155,15 @@ def test_a_csv_that_cannot_be_read_says_why(body, words):
 def test_the_table_by_hand(db):
     _approved(db)
     outcome = market.attempt(db, NOW, Fred(BODIES))
-    assert outcome.story_id == 1 and outcome.reason == "posted story 1"
+    assert outcome.story_id == 1 and outcome.reason == (
+        "posted story 1; 2 of 5 series could not be read: US BB, UST 2y"
+    )
     story = db.execute("SELECT title, summary, link, published_at FROM stories").fetchone()
     assert tuple(story) == (
-        "Market backdrop: 24 November 2026",
+        "Market backdrop: 25 November 2026",  # the UTC day it was written (review finding 3)
         (
-            "US HY 3.12% (+4 bp); US BB not available; UST 2y not available; UST 10y 4.30%"
-            " (-3.5 bp); SOFR 4.57%"
+            "As of 24 Nov, change from the previous observation: US HY 3.12% (+4 bp); US BB not"
+            " available; UST 2y not available; UST 10y 4.30% (23 Nov, -3.5 bp); SOFR 4.57%"
         ),
         "https://fred.stlouisfed.org/",
         "2026-11-25T07:00:00+00:00",
@@ -259,10 +261,18 @@ def test_every_comparison_is_the_latest_observation_on_or_before_its_day(days):
         held = [one for one in observed if one[0] <= limit]
         return held[-1] if held else None
 
+    def a_month_earlier(day: date) -> date:
+        """Written here, not taken from the code under test: step back one day at a time to the
+        month before, then on to the same day number, or that month's last day."""
+        back = day.replace(day=1) - timedelta(days=1)  # the last day of the month before
+        while back.day > day.day:
+            back -= timedelta(days=1)
+        return back
+
     expected = [
         on_or_before(latest_day - timedelta(days=1)),
         on_or_before(latest_day - timedelta(days=7)),
-        on_or_before(market.month_before(latest_day)),
+        on_or_before(a_month_earlier(latest_day)),
     ]
     for change, want in zip(row.changes, expected, strict=True):
         if want is None:
@@ -310,13 +320,16 @@ def test_no_new_observation_means_no_post_and_one_new_one_means_a_post(db):
     _approved(db)
     market.attempt(db, NOW, Fred(BODIES))
     again = market.attempt(db, NOW + timedelta(days=1), Fred(BODIES))
-    assert (again.story_id, again.reason) == (None, "no new observation since the last post")
+    assert (again.story_id, again.reason) == (
+        None,
+        "no new observation since the last post; 2 of 5 series could not be read: US BB, UST 2y",
+    )
     assert db.execute("SELECT COUNT(*) FROM stories").fetchone()[0] == 1
     newer = dict(BODIES, SOFR=SOFR_ONE + b"2026-11-25,4.58\n")
     third = market.attempt(db, NOW + timedelta(days=2), Fred(newer))
     assert third.story_id == 2
     assert db.execute("SELECT title FROM stories WHERE id=2").fetchone()[0] == (
-        "Market backdrop: 25 November 2026"
+        "Market backdrop: 27 November 2026"
     )
 
 
@@ -406,10 +419,12 @@ def test_a_post_with_many_series_keeps_its_summary_within_300_characters(db):
     }
     market.attempt(db, NOW, Fred(bodies))
     summary = db.execute("SELECT summary FROM stories").fetchone()[0]
-    assert len(summary) <= 300 and summary.startswith("Series number 0 1.25%; Series number 1")
-    # Twelve entries fit with the ending: 10 of 21 characters and 2 of 22, 11 separators of 2 and
-    # "; and 8 more series" (19): 295. A thirteenth would make 319.
-    assert summary.endswith("Series number 11 1.25%; and 8 more series")
+    head = "As of 24 Nov, change from the previous observation: "  # 52 characters
+    assert len(summary) <= 300 and summary.startswith(head + "Series number 0 1.25%; Series")
+    # Ten entries fit with the ending: the head (52), 10 of 21 characters, 9 separators of 2 and
+    # "; and 10 more series" (20): 300. An eleventh (22, its separator 2, and an ending one
+    # shorter) would make 323.
+    assert summary.endswith("Series number 9 1.25%; and 10 more series") and len(summary) == 300
 
 
 def test_the_hour_is_a_whole_number_from_0_to_23(db):
@@ -430,3 +445,134 @@ def test_a_post_with_no_series_says_so_and_fetches_nothing(db):
         "the market post reads no series; add one with: signal market series add",
     )
     assert fred.calls == [] and db.execute("SELECT ok FROM source_checks").fetchone()[0] == 0
+
+
+# Review findings 2, 3 and 10 (round 5): failures stay in one row, the title's day, the edges
+
+
+def _many_rows_failing(db: sqlite3.Connection) -> dict[str, bytes | Exception]:
+    # SYNTHETIC: one cell longer than the csv module's field limit (131,072 characters), and one
+    # body whose lines end in a lone carriage return: both made the csv module raise csv.Error.
+    long_field = b"observation_date,BAMLH0A1HYBB\n2026-11-24," + b"9" * 200_000 + b"\n"
+    lone_cr = b"observation_date,SOFR\r2026-11-24,4.57\r"
+    return dict(BODIES, BAMLH0A1HYBB=long_field, SOFR=lone_cr, DGS2=RuntimeError("a bug"))
+
+
+def test_a_csv_the_csv_module_refuses_is_that_series_row_and_the_others_still_post(db):
+    _approved(db)
+    fred = Fred(_many_rows_failing(db))
+    outcome = market.attempt(db, NOW, fred)
+    assert (outcome.story_id, outcome.ok) == (1, True)
+    rows = {row.series.id: row for row in market.post_rows(db, 1)}
+    assert rows["BAMLH0A1HYBB"].problem == "Could not be read: the CSV could not be parsed (Error)"
+    assert rows["SOFR"].problem == "Could not be read: the CSV could not be parsed (Error)"
+    assert rows["DGS2"].problem == "Could not be read: unexpected error (RuntimeError)"
+    assert rows["BAMLH0A0HYM2"].latest is not None and rows["DGS10"].latest is not None
+    assert tuple(db.execute("SELECT ok, new_stories FROM source_checks").fetchone()) == (1, 1)
+
+
+def test_whatever_an_attempt_raises_records_a_failed_check_and_the_next_waits_an_hour(
+    db, monkeypatch
+):
+    _approved(db)
+
+    def broken(*args: object) -> int:
+        raise RuntimeError("store fault")
+
+    monkeypatch.setattr(market, "_write", broken)
+    fred = Fred(BODIES)
+    for minute in range(0, 60, 6):  # ten ticks of the loop inside the hour
+        market.run_due(db, NOW + timedelta(minutes=minute), fred)
+    assert len(fred.calls) == 5  # one attempt, not one a tick
+    assert [tuple(r) for r in db.execute("SELECT ok, reason FROM source_checks")] == [
+        (0, "unexpected error (RuntimeError); see the log")
+    ]
+    assert market.due(db, NOW + timedelta(hours=1))
+
+
+def test_a_value_of_another_day_carries_its_own_date_in_the_summary(db):
+    _approved(db)
+    # SYNTHETIC: DGS10 last observed on 2 September 2025, more than a year before the others.
+    stale = b"observation_date,DGS10\n2025-09-01,4.20\n2025-09-02,4.11\n"
+    market.attempt(db, NOW, Fred(dict(BODIES, DGS10=stale)))
+    summary = db.execute("SELECT summary FROM stories").fetchone()[0]
+    # 4.11 - 4.20 = -0.09: -9 bp, against its previous observation of 1 September 2025.
+    assert "UST 10y 4.11% (2 Sep 2025, -9 bp)" in summary
+    assert summary.startswith("As of 24 Nov, change from the previous observation: US HY 3.12%")
+
+
+def test_a_series_back_unchanged_after_failing_writes_no_second_post(db):
+    _approved(db)
+    market.attempt(db, NOW, Fred(BODIES))  # day 0: SOFR posted with 24 Nov
+    newer_hy = HY + b"2026-11-25,3.15\n"
+    down = dict(BODIES, BAMLH0A0HYM2=newer_hy, SOFR=FetchRefused("server answered HTTP 503"))
+    assert market.attempt(db, NOW + timedelta(days=1), Fred(down)).story_id == 2  # HY is new
+    back = dict(BODIES, BAMLH0A0HYM2=newer_hy)  # SOFR back, still 24 Nov; HY still 25 Nov
+    again = market.attempt(db, NOW + timedelta(days=2), Fred(back))
+    assert again.story_id is None and again.reason.startswith("no new observation")
+
+
+def test_an_observation_dated_after_today_is_left_out_with_a_note(db):
+    _approved(db)
+    future = SOFR_ONE + b"2099-01-04,7.00\n"  # SYNTHETIC
+    market.attempt(db, NOW, Fred(dict(BODIES, SOFR=future)))
+    sofr = market.post_rows(db, 1)[-1]
+    assert sofr.latest is not None and sofr.latest.day == date(2026, 11, 24)
+    assert sofr.note == "An observation dated 2099-01-04, after today (UTC), was left out"
+    shown = market.delivered(date(2026, 11, 24), [sofr], NOW)["rows"][0]
+    assert (shown["value"], shown["note"]) == ("4.57", sofr.note)
+
+
+def test_two_processes_writing_the_days_post_at_once_write_one_and_the_other_returns_quietly(
+    db, tmp_path, monkeypatch
+):
+    _approved(db)
+    other = open_db(tmp_path)
+    raced: list[market.Outcome] = []
+    started: list[bool] = []
+    news = market._news
+
+    def window(rows: object, posted: dict[str, str]) -> bool:
+        """Between this attempt's "is there news" and its write, the other process posts."""
+        found = news(rows, posted)  # type: ignore[arg-type]
+        if not started:
+            started.append(True)
+            raced.append(market.attempt(other, NOW, Fred(BODIES)))
+        return found
+
+    monkeypatch.setattr(market, "_news", window)
+    mine = market.attempt(db, NOW, Fred(BODIES))
+    other.close()
+    assert raced[0].story_id == 1
+    assert (mine.story_id, mine.ok) == (None, True)
+    assert mine.reason.startswith("today's market post is written already: story 1")
+    assert db.execute("SELECT COUNT(*) FROM stories").fetchone()[0] == 1
+
+
+def test_a_series_failing_shows_the_source_failing_with_how_many_could_not_be_read(db):
+    from deploy_workflow.signal import ingest
+
+    source = _approved(db)
+    market.attempt(db, NOW, Fred(BODIES))
+    later = NOW + timedelta(days=1)
+    market.attempt(db, later, Fred(dict(BODIES, SOFR=SOFR_ONE + b"2026-11-25,4.58\n")))
+    health = ingest.health(db, source, later)
+    # BB and the 2-year have failed since the first attempt, 25 Nov; SOFR was read both days.
+    assert (health.state, health.reason) == (
+        "failing",
+        "2 of 5 series could not be read: US BB (since 25 Nov), UST 2y (since 25 Nov)",
+    )
+    fixed = dict(BODIES, BAMLH0A1HYBB=b"observation_date,BAMLH0A1HYBB\n2026-11-24,2.01\n")
+    fixed["DGS2"] = b"observation_date,DGS2\n2026-11-24,3.90\n"
+    market.attempt(db, later + timedelta(days=1), Fred(fixed))
+    assert ingest.health(db, source, later + timedelta(days=1)).state != "failing"
+
+
+def test_a_stored_hour_outside_0_to_23_is_taken_as_the_default_with_a_warning(db, caplog):
+    _approved(db)
+    with db:
+        db.execute("INSERT INTO service_settings VALUES('market_hour', '25', 'x')")
+    with caplog.at_level("WARNING"):
+        assert market.hour(db) == 7
+        assert market.due(db, NOW) and not market.due(db, NOW - timedelta(minutes=1))
+    assert "the stored market hour '25' is not 0 to 23; 7 is used" in caplog.text

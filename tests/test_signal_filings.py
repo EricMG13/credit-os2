@@ -188,6 +188,30 @@ def test_the_form_type_is_the_filing_storys_first_tag():
     assert filings.form_of(_entry("10-K - Annual report")) == "10-K"
 
 
+def test_an_unusable_form_type_is_none_and_never_a_tag():
+    """Review finding 11: a title with no " - " and no category made the whole title the form
+    (105,000 characters, delivered as a tag); a bidi override in a term was kept."""
+    long = _entry("Q" * 105_000, "Filed: 2026-11-24 AccNo: 0001193125-26-123456 Size: 1 KB")
+    shaped = filings.story_entry("Altice USA", long)
+    assert shaped.category is None
+    assert shaped.summary == "Filed 2026-11-24, accession number 0001193125-26-123456."
+    assert filings.form_of(_entry("8-K - Current report", category="8-K\u202e")) == "8-K"
+    assert filings.form_of(_entry("x", category="\u202e8-K")) == "x"  # the title's part is usable
+    assert filings.form_of(_entry("x" * 21, category="F" * 21)) is None
+    assert filings.form_of(_entry("10-K405 - Annual report", category="F" * 21)) == "10-K405"
+    no_form = filings.story_entry("Altice USA", _entry("Notice of effectiveness, long"))
+    assert (no_form.title, no_form.category) == ("Altice USA: Notice of effectiveness, long", None)
+
+
+def test_an_atom_category_with_a_control_or_format_character_is_not_kept():
+    body = (
+        b'<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><entry><title>T</title>'
+        b'<link href="https://example.org/a"/><updated>2026-11-24T10:00:00Z</updated>'
+        b'<category term="8-K\xe2\x80\xae"/></entry></feed>'
+    )  # SYNTHETIC: a term ending in U+202E RIGHT-TO-LEFT OVERRIDE
+    assert parse_feed(body)[0].category is None
+
+
 # The contact string
 
 
@@ -250,6 +274,26 @@ def test_another_host_never_gets_the_contact_even_when_one_is_declared():
     plain = Wire(Reply(200, EDGAR_ATOM))
     _fetch(plain, ALTICE_URL, None)
     assert plain.requests[0][1]["User-Agent"] == USER_AGENT
+
+
+def test_www_sec_gov_on_another_port_never_gets_the_contact():
+    """Review finding 14: the first hop to www.sec.gov:8443 (a hand-edited row) got it."""
+    wire = Wire(Reply(200, EDGAR_ATOM))
+    _fetch(wire, ALTICE_URL.replace("www.sec.gov/", "www.sec.gov:8443/"), SEC)
+    assert wire.requests[0][1]["User-Agent"] == USER_AGENT
+
+
+def test_a_filing_source_row_at_another_port_is_refused_before_any_request(db):
+    filings.set_contact(db, CONTACT, NOW)
+    source = _issuer(db, "Altice USA", "0001702780")
+    with db:  # a hand edit of the stored row
+        db.execute(
+            "UPDATE sources SET url=? WHERE id=?",
+            (ALTICE_URL.replace("www.sec.gov/", "www.sec.gov:8443/"), source),
+        )
+    recorder = Recorder()
+    assert _pass(db, recorder) == [(source, False, "feed address must use the default port")]
+    assert recorder.calls == []
 
 
 def test_a_declared_contact_with_a_line_break_is_refused_before_any_request():

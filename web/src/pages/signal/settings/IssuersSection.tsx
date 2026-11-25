@@ -199,7 +199,7 @@ export function IssuersSection({
   return (
     <Section
       title="Issuers"
-      hint="A story that names an issuer, or one of its aliases, is gathered on the issuer's page. Anyone can follow an issuer."
+      hint="A story that names an issuer, or one of its aliases, joins the issuer's page."
       action={
         <Button
           ref={first}

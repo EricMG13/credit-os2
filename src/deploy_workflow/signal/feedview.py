@@ -44,8 +44,9 @@ class Card:
     published_at: str
     other_sources: int
     saved: bool
-    topics: tuple[str, ...]  # the names of its topics: those the reader follows first, by id
+    topics: tuple[str, ...]  # its topics' names, one per spelling: followed first (_topic_names)
     category: str | None = None  # the feed's own category term (a filing's form type)
+    source_id: int = 0
 
 
 @dataclass(frozen=True)
@@ -198,20 +199,32 @@ def _search_match(query: str) -> str | None:
 
 
 def _topic_names(db: sqlite3.Connection, story_id: int, user_name: str) -> tuple[str, ...]:
-    """The names of the story's topics: those `user_name` follows first, then the others, each
-    by topic id."""
+    """The names of the story's topics, one per spelling case-folded: the lowest topic id's
+    spelling for every viewer ("telecoms" over a later "TELECOMS"); those `user_name` follows
+    (any topic of that spelling) first, then the others, each by its first topic id."""
     rows = db.execute(
-        "SELECT t.name FROM topic_stories ts JOIN topics t ON t.id = ts.topic_id"
+        "SELECT t.id, t.name, f.user_name IS NOT NULL AS followed FROM topic_stories ts"
+        " JOIN topics t ON t.id = ts.topic_id"
         " LEFT JOIN topic_follows f ON f.topic_id = t.id AND f.user_name = ?"
-        " WHERE ts.story_id=? ORDER BY f.user_name IS NULL, t.id",
+        " WHERE ts.story_id=? ORDER BY t.id",
         (user_name, story_id),
     ).fetchall()
-    return tuple(row["name"] for row in rows)
+    held: dict[str, tuple[bool, int, str]] = {}
+    for row in rows:
+        key = str(row["name"]).casefold()
+        first = held.get(key)
+        if first is None:
+            held[key] = (bool(row["followed"]), int(row["id"]), str(row["name"]))
+        elif row["followed"] and not first[0]:
+            held[key] = (True, first[1], first[2])
+    ordered = sorted(held.values(), key=lambda one: (not one[0], one[1]))
+    return tuple(name for _, _, name in ordered)
 
 
 # A card's columns; the one parameter is the user whose saves are read.
 _CARD_SELECT = (
-    "SELECT s.id, s.title, s.link, s.summary, s.published_at, s.category, src.name AS source,"
+    "SELECT s.id, s.title, s.link, s.summary, s.published_at, s.category, s.source_id,"
+    " src.name AS source,"
     " src.kind AS kind,"
     " (SELECT COUNT(DISTINCT d.duplicate_source_id) FROM story_duplicates d"
     "  WHERE d.story_id = s.id) AS other_sources,"
@@ -234,6 +247,7 @@ def _card(db: sqlite3.Connection, row: sqlite3.Row, user_name: str) -> Card:
         saved=bool(row["saved"]),
         topics=_topic_names(db, row["id"], user_name),
         category=row["category"],
+        source_id=int(row["source_id"]),
     )
 
 
@@ -490,15 +504,22 @@ def cards(db: sqlite3.Connection, user_name: str, ids: list[int]) -> dict[int, C
     return found
 
 
-def other_sources(db: sqlite3.Connection, story_id: int) -> tuple[str, ...]:
-    """The names of the other sources a story was folded from, in the order they were first seen."""
+def other_sources(
+    db: sqlite3.Connection, story_id: int, reading: Reading = EVERY
+) -> tuple[tuple[int, str], ...]:
+    """The other sources a story was folded from, as (id, name), in the order they were first
+    seen; only sources of the kinds `reading` delivers (format 1 names no filing or market
+    source)."""
+    kept = kind_condition(reading.kinds, "d.duplicate_source_id")
     rows = db.execute(
-        "SELECT src.name FROM story_duplicates d JOIN sources src ON src.id = d.duplicate_source_id"
-        " WHERE d.story_id = ? GROUP BY d.duplicate_source_id"
+        "SELECT src.id, src.name FROM story_duplicates d"
+        " JOIN sources src ON src.id = d.duplicate_source_id"
+        f" WHERE d.story_id = ?{'' if kept is None else ' AND ' + kept}"
+        " GROUP BY d.duplicate_source_id"
         " ORDER BY MIN(d.seen_at), d.duplicate_source_id",
         (story_id,),
     ).fetchall()
-    return tuple(str(row["name"]) for row in rows)
+    return tuple((int(row["id"]), str(row["name"])) for row in rows)
 
 
 def new_count(

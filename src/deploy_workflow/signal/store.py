@@ -391,13 +391,19 @@ CREATE INDEX idx_digest_runs_issue ON digest_runs(issue_id);
 # The issuer watchlist, company filings and the market backdrop
 # (docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md). `issuers.aliases` is a JSON
 # list; `cik` ten digits or NULL; `source_id` the issuer's filing source while it has a CIK (NULL
-# otherwise; the source stays, paused, when the link goes). `issuer_stories` ties a story to an
-# issuer (by text, or by the issuer's filing source). `service_settings`: the owner's contact
+# otherwise; unlinked, it is paused, or deleted if never fetched). `issuer_stories` ties a story to
+# an issuer (by text, or by the issuer's filing source). `service_settings`: the owner's contact
 # string for the SEC and the market post's UTC hour. `market_series`: the FRED series the market
-# post reads, in `position` order. `market_posts`: each market story's table, exact decimal text
-# and ISO dates (`as_of` its newest observation date). `stories.category`: an Atom entry's first
-# category term as the feed gave it (a filing's form type); NULL for every other story. Ids of
-# issuers are never given again (``fresh_id``/``retire_id``).
+# post reads, in `position` order, each with the date of its newest observation a post carried
+# (`posted`, ISO) and the last attempt's outcome (`problem`: why it could not be read, NULL when it
+# was; `failing_since`: when it first failed in the current run of failures). `market_posts`: each
+# market story's table, exact decimal text and ISO dates (`as_of` its newest observation date).
+# `stories.category`: an Atom entry's first category term as the feed gave it (a filing's form
+# type); NULL for every other story. `source_logos`: at most one icon per source (``logos``): the
+# bytes as fetched (32 KiB at most) and their media type (both NULL until one is stored, or after
+# the owner cleared it), the address they came from, the last attempt's time and failure note, the
+# image address the source's feed declared, and `cleared` (the owner's: not fetched until
+# refreshed). Ids of issuers are never given again (``fresh_id``/``retire_id``).
 _MIGRATION_7 = """
 CREATE TABLE issuers(
     id INTEGER PRIMARY KEY,
@@ -428,7 +434,7 @@ CREATE TABLE digest_issuers(
 );
 CREATE INDEX idx_digest_issuers_issuer ON digest_issuers(issuer_id);
 CREATE TABLE service_settings(
-    key TEXT PRIMARY KEY CHECK (key IN ('filings_contact', 'market_hour')),
+    key TEXT PRIMARY KEY CHECK (key IN ('filings_contact', 'market_hour', 'logos')),
     value TEXT NOT NULL,
     set_at TEXT NOT NULL
 );
@@ -439,12 +445,27 @@ CREATE TABLE market_series(
     unit TEXT NOT NULL,
     source TEXT NOT NULL,
     position INTEGER NOT NULL,
-    added_at TEXT NOT NULL
+    added_at TEXT NOT NULL,
+    posted TEXT,
+    problem TEXT,
+    failing_since TEXT
 );
 CREATE TABLE market_posts(
     story_id INTEGER PRIMARY KEY REFERENCES stories(id),
     as_of TEXT NOT NULL,
     rows TEXT NOT NULL
+);
+CREATE TABLE source_logos(
+    source_id INTEGER PRIMARY KEY REFERENCES sources(id),
+    data BLOB CHECK (data IS NULL OR length(data) <= 32768),
+    media_type TEXT CHECK (media_type IS NULL OR media_type IN
+        ('image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/x-icon')),
+    url TEXT,
+    fetched_at TEXT,
+    note TEXT,
+    declared TEXT,
+    cleared INTEGER NOT NULL DEFAULT 0 CHECK (cleared IN (0, 1)),
+    CHECK ((data IS NULL) = (media_type IS NULL))
 );
 ALTER TABLE stories ADD COLUMN category TEXT;
 """
@@ -654,7 +675,7 @@ def kind_condition(kinds: tuple[str, ...], column: str = "s.source_id") -> str |
     return f"{column} IN (SELECT id FROM sources WHERE kind IN ({listed}))"
 
 
-SETTING_KEYS = ("filings_contact", "market_hour")
+SETTING_KEYS = ("filings_contact", "market_hour", "logos")
 
 
 def get_setting(db: sqlite3.Connection, key: str) -> str | None:
@@ -819,10 +840,12 @@ def _spelled_otherwise(db: sqlite3.Connection, url: str) -> bool:
 
 
 def _pending(db: sqlite3.Connection, user_name: str | None) -> int:
-    """Proposals waiting for the owner: `user_name`'s, or everyone's (None)."""
+    """Hand proposals (the four feed kinds) waiting for the owner: `user_name`'s, or everyone's
+    (None). Filing sources an issuer's CIK proposes have their own cap (``issuers``)."""
     row = db.execute(
-        "SELECT COUNT(*) FROM sources WHERE state='proposed' AND (? IS NULL OR proposed_by=?)",
-        (user_name, user_name),
+        "SELECT COUNT(*) FROM sources WHERE state='proposed' AND (? IS NULL OR proposed_by=?)"
+        f" AND kind IN ({', '.join('?' * len(KINDS))})",
+        (user_name, user_name, *KINDS),
     ).fetchone()
     return int(row[0])
 
@@ -898,6 +921,7 @@ def remove_source(db: sqlite3.Connection, source_id: int, *, with_stories: bool)
             for table, column in (
                 ("story_duplicates", "duplicate_source_id"),
                 ("source_checks", "source_id"),
+                ("source_logos", "source_id"),
             ):
                 db.execute(f"DELETE FROM {table} WHERE {column}=?", (source_id,))
             db.execute("DELETE FROM sources WHERE id=?", (source_id,))
