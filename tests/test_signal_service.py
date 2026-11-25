@@ -252,6 +252,7 @@ def test_name_then_feed(svc):
         "other_sources",
         "saved",
         "topics",
+        "category",  # the feed's own category term: a filing's form type, else null
     }
     assert svc.call("GET", "/api/feed?view=top", cookie=cookie)[0] == 400
     assert svc.call("POST", "/api/me", body={"name": "   "})[0] == 400

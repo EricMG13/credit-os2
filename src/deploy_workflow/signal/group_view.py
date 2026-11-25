@@ -43,6 +43,10 @@ text in it included), whatever the writers posted:
 * Counts (comment counts) are over everything stored; the unread badge counts delivered threads
   only, so opening every thread the viewer is shown clears it.
 
+Kinds. `stories` (an SQL condition over a story row ``s``, ``store.kind_condition``) names the
+stories this snapshot delivers; a thread that names a story outside it is left out of the group,
+its counts and the focus, as if it were not stored. None: every story.
+
 Unread: a thread is unread for a viewer while someone else's activity (the thread itself, or a
 comment that is not removed) is newer than the viewer's read mark; an archived thread is never
 unread. The channel badge counts the unread threads that a switched-on "In Signal" event covers:
@@ -131,6 +135,17 @@ class _Viewer:
     now: datetime
     members_of: frozenset[int]
     switches: dict[str, tuple[bool, bool]]
+    stories: str | None = None  # the delivered stories (an SQL condition over `s`); None: all
+
+    @property
+    def delivered(self) -> str:
+        """The SQL condition a thread row of `threads` meets when this snapshot delivers it."""
+        if self.stories is None:
+            return "1"
+        return (
+            "(threads.story_id IS NULL OR EXISTS(SELECT 1 FROM stories s"
+            f" WHERE s.id = threads.story_id AND {self.stories}))"
+        )
 
 
 @dataclass
@@ -183,16 +198,18 @@ class _Picking:
         self.spent += cost
 
 
-def build(
+def build(  # noqa: PLR0913 -- the store, viewer and time; keyword-only focus, card cost, stories
     db: sqlite3.Connection,
     user: User | None,
     now: datetime,
     *,
     focus: int | None = None,
     story_cost: Callable[[int], int] = _free,
+    stories: str | None = None,
 ) -> Parts:
     """The group parts for `user` as of `now`; `focus` names a thread to deliver whole (ignored
-    when the viewer cannot see it); `story_cost` gives the bytes of a story's card."""
+    when the viewer cannot see it); `story_cost` gives the bytes of a story's card; `stories` the
+    delivered stories (see the module docstring)."""
     if user is None:
         return Parts()
     viewer = _Viewer(
@@ -200,6 +217,7 @@ def build(
         now,
         frozenset(groups.member_group_ids(db, user.name)),
         notif.switches(db, user.name),
+        stories,
     )
     parts = Parts()
     managed = (
@@ -285,14 +303,16 @@ def _page_cost(page: Json) -> int:
 Candidate = tuple[str, sqlite3.Row]  # a thread and its group's name
 
 
-def _newest(db: sqlite3.Connection, seen: list[sqlite3.Row]) -> dict[int, list[Candidate]]:
-    """Each group's THREADS_SHOWN threads with the latest activity, newest first."""
+def _newest(
+    db: sqlite3.Connection, seen: list[sqlite3.Row], viewer: _Viewer
+) -> dict[int, list[Candidate]]:
+    """Each group's THREADS_SHOWN delivered threads with the latest activity, newest first."""
     return {
         int(group["id"]): [
             (str(group["name"]), row)
             for row in db.execute(
-                "SELECT * FROM threads WHERE group_id=? ORDER BY last_activity_at DESC, id DESC"
-                " LIMIT ?",
+                f"SELECT * FROM threads WHERE group_id=? AND {viewer.delivered}"
+                " ORDER BY last_activity_at DESC, id DESC LIMIT ?",
                 (group["id"], THREADS_SHOWN),
             ).fetchall()
         ]
@@ -322,12 +342,15 @@ def _candidates(
 
 
 def _focused(
-    db: sqlite3.Connection, seen: list[sqlite3.Row], focus: int | None
+    db: sqlite3.Connection, seen: list[sqlite3.Row], focus: int | None, viewer: _Viewer
 ) -> Candidate | None:
-    """The focused thread with its group's name, if it is in a group the viewer sees."""
+    """The focused thread with its group's name, if it is in a group the viewer sees and this
+    snapshot delivers it."""
     if focus is None:
         return None
-    row = db.execute("SELECT * FROM threads WHERE id=?", (focus,)).fetchone()
+    row = db.execute(
+        f"SELECT * FROM threads WHERE id=? AND {viewer.delivered}", (focus,)
+    ).fetchone()
     names = {int(group["id"]): str(group["name"]) for group in seen}
     if row is None or int(row["group_id"]) not in names:
         return None
@@ -344,7 +367,7 @@ def _pick(
     """The delivered threads, each with its item and thread record (see the module docstring):
     the focused one, then the floor as summaries, then every candidate offered its comments."""
     shown = []
-    focused = _focused(db, seen, focus)
+    focused = _focused(db, seen, focus, viewer)
     if focused is not None:
         one = _held(db, focused, viewer)
         one.thread, _ = _thread(db, one, viewer, FOCUS_BUDGET)
@@ -352,7 +375,7 @@ def _pick(
             one, encoded_size(one.item) + encoded_size(one.thread) + picking.story(one.row)
         )
         shown.append(one)
-    newest = _newest(db, seen)
+    newest = _newest(db, seen, viewer)
     if focused is not None:
         picking.focused = int(focused[1]["id"])
     _pay_floor(db, (newest, _viewers_first(seen, viewer.members_of)), viewer, picking)
@@ -533,7 +556,7 @@ def _add_group(
         reverse=True,
     )
     page["threads"] = [one.item for one in mine]
-    page["more"] = _more(db, gid, len(mine))
+    page["more"] = _more(db, gid, len(mine), viewer)
     parts.threads += [one.thread for one in mine]
     parts.groups.append(page)
     cut = _archive_before(db, gid, viewer.now)
@@ -543,11 +566,13 @@ def _add_group(
     )
 
 
-def _more(db: sqlite3.Connection, group_id: int, delivered: int) -> str | None:
-    """What the page says of the group's threads it does not show, if any; and that the group is
-    too full for its topics to post into it."""
+def _more(db: sqlite3.Connection, group_id: int, delivered: int, viewer: _Viewer) -> str | None:
+    """What the page says of the group's delivered threads it does not show, if any; and that the
+    group is too full for its topics to post into it."""
     held = int(
-        db.execute("SELECT COUNT(*) FROM threads WHERE group_id=?", (group_id,)).fetchone()[0]
+        db.execute(
+            f"SELECT COUNT(*) FROM threads WHERE group_id=? AND {viewer.delivered}", (group_id,)
+        ).fetchone()[0]
     )
     said = []
     if delivered < held:

@@ -41,8 +41,21 @@ then the paused; each by name) and, when it leaves some out, says so in ``settin
 (absent otherwise; the owner removes sources on the command line).
 
 Focus: ``GET /api/snapshot?topic=<id>&thread=<id>`` (``Focus``) asks for a topic's older stories
-and a thread's comments. An id that names nothing the viewer can see is ignored: the reply is the
-same as without it.
+and a thread's comments (with ``format=2`` also ``issuer=<id>``, an issuer's older stories). An id
+that names nothing the viewer can see is ignored: the reply is the same as without it.
+
+Formats. ``fmt`` 1 (the default; ``GET /api/snapshot`` or ``?format=1``) is exactly what the
+current React reader accepts: stories of the four feed kinds only, no thread naming any other, no
+issuer data, no filing or market source in Settings or the freshness line, and every count over
+those stories only (``feedview.FORMAT_1``). ``fmt`` 2 (``?format=2``) delivers every kind
+(``filing`` "Filing", ``market`` "Market") and the format-2 keys: a story's ``issuers`` and
+``market`` (``market.delivered``), ``channels.issuers``, ``feed.issuers``, ``settings.issuers``
+and ``settings.filings`` (``issuer_view``), and the issuers among the digest form's covers.
+
+Tags (the rule of docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md, section 6):
+a market post carries "Market" only; a filing its form type first; then the AI pass's tags (feed
+kinds only, while it is on), then the names of the story's topics, those the viewer follows first;
+a tag that repeats an earlier one case-folded is dropped; at most ``ai_view.MAX_STORY_TAGS``.
 """
 
 from __future__ import annotations
@@ -51,7 +64,7 @@ import json
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from deploy_workflow.signal import (
@@ -61,10 +74,14 @@ from deploy_workflow.signal import (
     feedview,
     group_view,
     ingest,
+    issuer_view,
+    issuers,
+    market,
     notif,
     store,
     topics,
 )
+from deploy_workflow.signal.store import FILING, KINDS, MARKET
 from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.texts import ago, day, initials, monogram, shortened
 from deploy_workflow.signal.texts import capital as _capital
@@ -103,10 +120,11 @@ _STRONG_FOR = timedelta(hours=24)  # the "signal" event counts a topic's strong 
 
 @dataclass(frozen=True)
 class Focus:
-    """What ``GET /api/snapshot?topic=<id>&thread=<id>`` asks to deliver in full."""
+    """What ``GET /api/snapshot?topic=<id>&thread=<id>&issuer=<id>`` asks to deliver in full."""
 
     topic: int | None = None
     thread: int | None = None
+    issuer: int | None = None  # format 2 only
 
 
 NO_FOCUS = Focus()
@@ -127,13 +145,20 @@ _KIND = {
     "news": "News",
     "ratings": "Rating action",
     "research": "Research",
+    FILING: "Filing",
+    MARKET: "Market",
 }
 _KINDS = {
     "news": "News",
     "regulator": "Regulatory cases",
     "ratings": "Rating actions",
     "research": "Research",
+    FILING: "Filings",
+    MARKET: "Market data",
 }  # in the order a list of kinds is drawn
+MARKET_TAG = "Market"
+MAX_STORY_ISSUERS = 6  # issuers a story carries, by name: a card's size stays bounded
+_ISSUER = "issuer:"  # the key of an issuer's view among the views a snapshot reads
 _STATE = {"approved": "Approved", "paused": "Paused", "proposed": "Proposed"}
 _STATE_RANK = {"Approved": 1, "Paused": 2, "Proposed": 3}
 _HEALTH = {"healthy": "Healthy", "quiet": "Quiet", "failing": "Failing"}
@@ -141,51 +166,63 @@ _HEALTH_RANK = {"Healthy": 1, "Quiet": 2, "Failing": 3, None: 4}
 _LISTED_FIRST = ("approved", "proposed", "paused")  # the order Settings keeps sources in
 
 
-def build(
+FORMATS = (1, 2)
+
+
+@dataclass(frozen=True)
+class _Read:
+    """One snapshot's store, viewer, time and format."""
+
+    db: sqlite3.Connection
+    user: User | None
+    now: datetime
+    fmt: int
+
+    @property
+    def reading(self) -> feedview.Reading:
+        return feedview.FORMAT_1 if self.fmt == 1 else feedview.EVERY
+
+
+def build(  # noqa: PLR0913 -- the store, viewer and time; keyword-only focus, service and format
     db: sqlite3.Connection,
     user: User | None,
     at: datetime | Callable[[], datetime],
     *,
     focus: Focus = NO_FOCUS,
     service: Service = NO_SERVICE,
+    fmt: int = 1,
 ) -> Json:
     """The slice for `user` (None: no display name yet) as of `at`, read in one transaction.
 
     `at` is a time, or a clock: the clock is read once, inside the read transaction after its first
     read, so everything the snapshot holds (a comment committed before that read) is stamped no
     later than the time it is then delivered as (`asOf`, beside `scenes`); a time given is the
-    caller's and no `asOf` is added. `focus` names a topic and a thread to deliver in full (see the
-    module docstring). `service` says whether the ingest loop's last pass failed (the freshness
-    line then says so) and gives the AI pass's status."""
+    caller's and no `asOf` is added. `focus` names a topic, a thread and (format 2) an issuer to
+    deliver in full (see the module docstring). `service` says whether the ingest loop's last pass
+    failed (the freshness line then says so) and gives the AI pass's status. `fmt` is the
+    delivered format, 1 or 2 (see the module docstring); ValueError for any other."""
+    if fmt not in FORMATS:
+        raise ValueError(f"no snapshot format {fmt!r}")
     ai = service.ai
     on = ai is not None and ai.state == "on"
+    reading = feedview.FORMAT_1 if fmt == 1 else feedview.EVERY
     with feedview.read_transaction(db):
-        listed = topics.list_topics(db, user.name if user is not None else "")
+        listed = topics.list_topics(db, user.name if user is not None else "", reading.condition)
         now = at() if callable(at) else at
-        checked = [(row, ingest.health(db, row["id"], now)) for row in store.sources(db)]
-        sources = _sources(checked, now, named=user is not None)
-        held = _Cards(db, user, now, ai_on=on)
-        parts = group_view.build(db, user, now, focus=focus.thread, story_cost=held.cost)
-        channels = _channels(db, user, listed)
+        read = _Read(db, user, now, fmt)
+        checked = _checked(read)
+        held = _Cards(db, user, now, ai_on=on, fmt=fmt)
+        parts = group_view.build(
+            db, user, now, focus=focus.thread, story_cost=held.cost, stories=reading.condition
+        )
+        channels, settings = _lists(read, listed, checked, ai)
         if on and user is not None:
             _strong_counts(db, user, now, channels)
-        settings = _settings(db, listed, sources, now)
-        if (more := _sources_more(len(checked))) is not None:
-            settings["sourcesMore"] = more  # optional: only while sources are left out
-        settings["ai"] = ai_view.settings_ai(ai, user, now)
-        drawn = digestview.build(db, user, now, ai_on=on)
+        drawn = digestview.build(db, user, now, ai_on=on, issuers=fmt == 2)
         rest = group_view.encoded_size([channels, settings]) + drawn.size
-        stories, views = _stories_and_views(held, listed, parts, (focus.topic, rest))
-        feed = {
-            "status": "ready",
-            "error": None,
-            "sources": {"approved": any(row["state"] == "approved" for row, _ in checked)},
-            "freshness": _freshness(checked, now, pass_failed=service.pass_failed),
-            "stories": stories,
-            "digests": [],
-            "views": {key: views.pop(key) for key in ("for-you", "latest", "saved")},
-            "topics": views,
-        }
+        rest += view_reserve(len(channels.get("issuers", [])))
+        stories, views = _stories_and_views(held, listed, parts, (_focused(focus, fmt), rest))
+        feed = _feed(read, checked, service, stories, views)
         _blank_counts(channels, feed)
         channels["groups"] = parts.channels
         settings["groups"] = parts.settings_groups
@@ -206,6 +243,75 @@ def build(
     if callable(at):
         built["asOf"] = store._utc_text(now)
     return built
+
+
+def view_reserve(views: int) -> int:
+    """The most bytes `views` issuer views' id lists can take (a ranked view holds its ids twice,
+    in `top` and `latest`: SHOWN of them, and OLDER more for the one a request may focus; each id
+    of at most 19 digits with its quotes and comma): reserved before the stories are paid."""
+    if views == 0:
+        return 0
+    return 2 * (views * SHOWN + OLDER) * (len(str(feedview.MAX_ID)) + 3)
+
+
+def _checked(read: _Read) -> Checked:
+    """Every source this format lists, with its health: format 1 leaves out filing and market
+    sources (Settings, the freshness line and `sources.approved` alike)."""
+    return [
+        (row, ingest.health(read.db, row["id"], read.now))
+        for row in store.sources(read.db)
+        if read.fmt == 2 or row["kind"] in KINDS
+    ]
+
+
+def _focused(focus: Focus, fmt: int) -> tuple[str, ...]:
+    """The keys of the views the request asks to deliver whole: a topic's, and (format 2) an
+    issuer's."""
+    keys = [] if focus.topic is None else [str(focus.topic)]
+    if fmt == 2 and focus.issuer is not None:
+        keys.append(f"{_ISSUER}{focus.issuer}")
+    return tuple(keys)
+
+
+def _lists(
+    read: _Read, listed: list[sqlite3.Row], checked: Checked, ai: ai_gate.Status | None
+) -> tuple[Json, Json]:
+    """The channels and Settings (their group parts are filled in later)."""
+    db, user, now = read.db, read.user, read.now
+    channels = _channels(read, listed)
+    settings = _settings(read, listed, _sources(checked, now, named=user is not None))
+    if (more := _sources_more(len(checked))) is not None:
+        settings["sourcesMore"] = more  # optional: only while sources are left out
+    settings["ai"] = ai_view.settings_ai(ai, user, now)
+    if read.fmt == 2:
+        channels["issuers"] = issuer_view.channels(db, user)
+        settings["issuers"] = issuer_view.settings(
+            db, {row["id"]: (row, h) for row, h in checked}, now
+        )
+        settings["filings"] = issuer_view.filings_line(db)
+    return channels, settings
+
+
+def _feed(
+    read: _Read, checked: Checked, service: Service, stories: list[Json], views: dict[str, Json]
+) -> Json:
+    main = {key: views.pop(key) for key in ("for-you", "latest", "saved")}
+    held = {
+        key.removeprefix(_ISSUER): views.pop(key) for key in list(views) if key.startswith(_ISSUER)
+    }
+    feed = {
+        "status": "ready",
+        "error": None,
+        "sources": {"approved": any(row["state"] == "approved" for row, _ in checked)},
+        "freshness": _freshness(checked, read.now, pass_failed=service.pass_failed),
+        "stories": stories,
+        "digests": [],
+        "views": main,
+        "topics": views,
+    }
+    if read.fmt == 2:
+        feed["issuers"] = held
+    return feed
 
 
 # Delivered text
@@ -231,9 +337,14 @@ def _viewer(user: User | None) -> Json:
     }
 
 
-def _channels(db: sqlite3.Connection, user: User | None, listed: list[sqlite3.Row]) -> Json:
+def _channels(read: _Read, listed: list[sqlite3.Row]) -> Json:
+    user = read.user
     named = user is not None
-    saved = feedview.new_count(db, user.name, "saved", 0) if user is not None else None
+    saved = (
+        feedview.new_count(read.db, user.name, "saved", 0, read.reading)
+        if user is not None
+        else None
+    )
     return {
         "topics": [
             {
@@ -280,16 +391,31 @@ def _headline(title: str) -> str:
     return shortened(title, HEADLINE_LIMIT)
 
 
-def _story(
-    db: sqlite3.Connection,
-    card: feedview.Card,
-    now: datetime,
-    threaded: Json,
-    found: ai_view.StoryAi | None = None,
-) -> Json:
-    """`threaded` holds the story's sharedBy, commentCount and threadRef (group_view); `found` what
-    the AI pass wrote for it, delivered only while the pass is on."""
-    others = feedview.other_sources(db, card.id)
+def _distinct(names: list[str]) -> list[str]:
+    """`names` with any that repeats an earlier one case-folded dropped (the earlier kept)."""
+    seen: set[str] = set()
+    kept = []
+    for name in names:
+        if name.casefold() not in seen:
+            seen.add(name.casefold())
+            kept.append(name)
+    return kept
+
+
+def _tags(card: feedview.Card) -> list[str]:
+    """A story's tags with no AI fields (see the module docstring): "Market" alone on a market
+    post; a filing's form type, then the topic names; else the topic names."""
+    if card.kind == MARKET:
+        return [MARKET_TAG]
+    first = [card.category] if card.kind == FILING and card.category else []
+    return _distinct([*first, *card.topics])[: ai_view.MAX_STORY_TAGS]
+
+
+def _story(cards: _Cards, card: feedview.Card, threaded: Json) -> Json:
+    """`threaded` holds the story's sharedBy, commentCount and threadRef (group_view); what the AI
+    pass wrote for it is delivered only while the pass is on, and never on a filing or a market
+    post."""
+    others = feedview.other_sources(cards.db, card.id)
     also = None
     if others:
         also = {
@@ -305,9 +431,9 @@ def _story(
         "headline": _headline(card.title),
         "url": card.link if web else None,
         "source": {"name": card.source, "monogram": monogram(card.source)},
-        "time": _capital(ago(datetime.fromisoformat(card.published_at), now)),
+        "time": _capital(ago(datetime.fromisoformat(card.published_at), cards.now)),
         "summary": card.summary if card.summary.strip() else None,
-        "tags": list(card.topics[: ai_view.MAX_STORY_TAGS]),
+        "tags": _tags(card),
         "alsoIn": also,
         "sharedBy": threaded.get("sharedBy"),
         "ai": None,
@@ -318,35 +444,56 @@ def _story(
         "stage": None,
         "ratingMoves": [],
     }
+    found = cards.ai.get(card.id) if card.kind in KINDS else None
     if found is not None:
-        story.update(ai_view.story_fields(found, card.kind, _KIND[card.kind], card.topics))
+        topic_tags = _distinct(list(card.topics))
+        story.update(ai_view.story_fields(found, card.kind, _KIND[card.kind], topic_tags))
+    if cards.read.fmt == 2:
+        named = cards.issuers.get(card.id, [])[:MAX_STORY_ISSUERS]
+        story["issuers"] = [{"id": str(n), "name": name} for n, name in named]
+        table = cards.tables.get(card.id) if card.kind == MARKET else None
+        story["market"] = None if table is None else market.delivered(*table, cards.now)
     return story
 
 
 class _Cards:
     """The viewer's story cards, read once each; `cost` is a card's bytes for the group part.
-    While the AI pass is on (`ai_on`) each card carries what the pass wrote for its story."""
+    While the AI pass is on (`ai_on`) each card carries what the pass wrote for its story; in
+    format 2 each carries its issuers, and a market post its table."""
 
     def __init__(
-        self, db: sqlite3.Connection, user: User | None, now: datetime, *, ai_on: bool = False
+        self,
+        db: sqlite3.Connection,
+        user: User | None,
+        now: datetime,
+        *,
+        ai_on: bool = False,
+        fmt: int = 1,
     ) -> None:
-        self.db, self.user, self.now, self.ai_on = db, user, now, ai_on
+        self.read, self.ai_on = _Read(db, user, now, fmt), ai_on
+        self.db, self.user, self.now = db, user, now
         self.found: dict[int, feedview.Card] = {}
         self.ai: dict[int, ai_view.StoryAi] = {}
+        self.issuers: dict[int, list[tuple[int, str]]] = {}
+        self.tables: dict[int, tuple[date, list[market.Row]]] = {}
         self.rank: group_view.Ranker | None = None  # the Top order, once the stories are chosen
 
     def load(self, ids: list[int]) -> None:
         missing = sorted(set(ids) - set(self.found))
-        if missing and self.user is not None:
-            self.found.update(feedview.cards(self.db, self.user.name, missing))
-            if self.ai_on:
-                self.ai.update(ai_view.load(self.db, missing))
+        if not missing or self.user is None:
+            return
+        self.found.update(feedview.cards(self.db, self.user.name, missing))
+        if self.ai_on:
+            self.ai.update(ai_view.load(self.db, missing))
+        if self.read.fmt == 2:
+            self.issuers.update(issuers.of_stories(self.db, missing))
+            self.tables.update(market.tables(self.db, missing))
 
     def story(self, story_id: int, threaded: Json) -> Json | None:
         card = self.found.get(story_id)
         if card is None:
             return None
-        return _story(self.db, card, self.now, threaded, self.ai.get(story_id))
+        return _story(self, card, threaded)
 
     def strengths(self) -> dict[int, int]:
         return {story_id: found.signal for story_id, found in self.ai.items()}
@@ -358,27 +505,31 @@ class _Cards:
         return 0 if built is None else group_view.encoded_size(built) + _THREAD_FIELDS
 
 
-def _priority(held: dict[str, list[int]], focused: str | None) -> list[int]:
-    """The order stories are paid in: the newest of Saved, For you and Latest; the focused topic's
-    whole list; the newest of every other topic; the rest of the three main views' SHOWN; the
-    other topics' SHOWN, one of each in turn; then the main views' older stories, likewise."""
+def _priority(held: dict[str, list[int]], focused: tuple[str, ...]) -> list[int]:
+    """The order stories are paid in: the newest of Saved, For you and Latest; the focused views'
+    whole lists; the newest of every other topic and issuer view; the rest of the three main views'
+    SHOWN; the other views' SHOWN, one of each in turn; then the main views' older stories,
+    likewise."""
     main = [held[key] for key in _MAIN]
-    topics_ = [ids for key, ids in held.items() if key not in _MAIN and key != focused]
+    others = [ids for key, ids in held.items() if key not in _MAIN and key not in focused]
     order = [ids[0] for ids in main if ids]
-    order += held[focused] if focused is not None else []
-    order += [ids[0] for ids in topics_ if ids]
+    for key in focused:
+        order += held[key]
+    order += [ids[0] for ids in others if ids]
     order += [n for ids in main for n in ids[1:SHOWN]]
-    order += [ids[i] for i in range(1, SHOWN) for ids in topics_ if i < len(ids)]
+    order += [ids[i] for i in range(1, SHOWN) for ids in others if i < len(ids)]
     order += [ids[i] for i in range(SHOWN, SHOWN + OLDER) for ids in main if i < len(ids)]
     return order
 
 
 def _blank_counts(channels: Json, feed: Json) -> None:
     """A count beside a view that the size bound left empty is not delivered (the reader never
-    shows a count beside an empty list): a topic's, and the Saved badge."""
-    for topic in channels["topics"]:
-        if topic["count"] != "0" and not feed["topics"][topic["id"]]["latest"]:
-            topic["count"] = None
+    shows a count beside an empty list): a topic's, an issuer's, and the Saved badge."""
+    for name in ("topics", "issuers"):
+        views = feed.get(name, {})
+        for channel in channels.get(name, []):
+            if channel["count"] != "0" and not views[channel["id"]]["latest"]:
+                channel["count"] = None
     if channels["savedCount"] != "0" and not feed["views"]["saved"]["latest"]:
         channels["savedCount"] = None
 
@@ -400,22 +551,29 @@ def _stories_and_views(
     held_cards: _Cards,
     listed: list[sqlite3.Row],
     parts: group_view.Parts,
-    asked: tuple[int | None, int],
+    asked: tuple[tuple[str, ...], int],
 ) -> tuple[list[Json], dict[str, Json]]:
     """Every story a view or a delivered thread names, newest first, and each view's ids: the
-    three fixed views by name and one per topic by its id. A viewer with no name has no stories
-    and empty views. `asked` is the focused topic and the bytes the rest of the snapshot takes.
-    The stories share STORY_AND_GROUP_BUDGET with the group part, which spent its part first;
-    with the rest they stay within SNAPSHOT_BUDGET."""
-    db, user, now = held_cards.db, held_cards.user, held_cards.now
-    topic, rest = asked
+    three fixed views by name, one per topic by its id and (format 2) one per issuer by
+    "issuer:<id>". A viewer with no name has no stories and empty views. `asked` is the focused
+    views' keys and the bytes the rest of the snapshot takes. The stories share
+    STORY_AND_GROUP_BUDGET with the group part, which spent its part first; with the rest they
+    stay within SNAPSHOT_BUDGET."""
+    read = held_cards.read
+    db, user, now = read.db, read.user, read.now
+    keys, rest = asked
     names = {"for-you": "foryou", "latest": "latest", "saved": "saved"}
     names.update({str(row["id"]): f"topic:{row['id']}" for row in listed})
+    if read.fmt == 2:
+        names.update({f"{_ISSUER}{one.id}": f"issuer:{one.id}" for one in issuers.every(db)})
     if user is None:
         return [], {key: _view([], ranked=key not in _UNRANKED) for key in names}
-    focused = str(topic) if topic is not None and str(topic) in names else None
-    depth = {key: SHOWN + OLDER if key in _MAIN or key == focused else SHOWN for key in names}
-    held = {key: feedview.view_ids(db, user.name, view, depth[key]) for key, view in names.items()}
+    focused = tuple(key for key in keys if key in names)
+    depth = {key: SHOWN + OLDER if key in _MAIN or key in focused else SHOWN for key in names}
+    held = {
+        key: feedview.view_ids(db, user.name, view, depth[key], read.reading)
+        for key, view in names.items()
+    }
     free = set(group_view.story_ids(parts))
     held_cards.load([n for ids in held.values() for n in ids] + sorted(free))
     built = {
@@ -456,13 +614,11 @@ def _freshness(checked: Checked, now: datetime, *, pass_failed: bool) -> Json:
 # Settings
 
 
-def _settings(
-    db: sqlite3.Connection, listed: list[sqlite3.Row], sources: list[Json], now: datetime
-) -> Json:
-    recent = topics.counts_since(db, now - _WEEK)
+def _settings(read: _Read, listed: list[sqlite3.Row], sources: list[Json]) -> Json:
+    recent = topics.counts_since(read.db, read.now - _WEEK, read.reading.condition)
     return {
-        "topics": [_settings_topic(row, recent.get(row["id"], 0)) for row in listed],
-        "ai": ai_view.settings_ai(None, None, now),
+        "topics": [_settings_topic(row, recent.get(row["id"], 0), read.fmt) for row in listed],
+        "ai": ai_view.settings_ai(None, None, read.now),
         "groups": [],
         "rules": [],
         "notifications": {"events": []},
@@ -494,8 +650,11 @@ def _strong_counts(db: sqlite3.Connection, user: User, now: datetime, channels: 
             topic["count"] = f"{strong[topic['id']]} strong"
 
 
-def _settings_topic(row: sqlite3.Row, recent: int) -> Json:
-    kinds = set(json.loads(row["kinds"])) or set(_KINDS)  # none listed: it takes every kind
+def _settings_topic(row: sqlite3.Row, recent: int, fmt: int) -> Json:
+    """A topic as Settings lists it. A topic of no kinds takes every feed kind, and filings (said
+    in format 2 only, where filings are delivered); never market posts."""
+    every = [*KINDS, FILING] if fmt == 2 else list(KINDS)
+    kinds = set(json.loads(row["kinds"]) or every)
     weekly = (
         f"{_plural(recent, 'story', 'stories')} this week" if recent else "No stories this week"
     )

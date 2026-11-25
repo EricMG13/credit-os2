@@ -1,7 +1,8 @@
 """Digests: a user's saved brief plus a schedule, and the runs that follow it (spec 5.8).
 
-A digest has one owner, who alone sees it. It covers "All stories", or topics and groups (a group
-only while the owner can see it). Its schedule is a ``schedule.Schedule`` (UTC). Its brief has five
+A digest has one owner, who alone sees it. It covers "All stories", or topics, groups and issuers
+(a group only while the owner can see it; an issuer as "Issuer: <name>", its stories as
+``issuers`` ties them). Its schedule is a ``schedule.Schedule`` (UTC). Its brief has five
 parts: the subject (the form's brief text), the period (the schedule's own day, week or month), the
 number of points, what to list as upcoming and the look-ahead days. Its length is short or standard.
 A user has at most ``MAX_DIGESTS`` digests, and Signal at most ``MAX_ALL_DIGESTS``. Any named
@@ -10,11 +11,11 @@ cap is what bounds the digests, their runs and the due pass whatever names are t
 
 A run gathers the stories in scope for the period, highest signal first (the AI pass's 1 to 3; a
 story with none comes after those with one), then newest first, at most ``SCOPE_CAP``: the stories
-of the covered topics published in the period, and the stories shared in the covered groups (a
-thread started from a story) in the period. With none in scope it stores an issue saying nothing
-material happened and makes no model call. With some in scope it needs a ``Writer`` (the AI pass's,
-``ai_digest``, given only while the pass is on); without one no issue is written and the run is
-recorded as skipped, with the reason.
+of the covered topics and issuers published in the period, and the stories shared in the covered
+groups (a thread started from a story) in the period. A market post is an ordinary story here.
+With none in scope it stores an issue saying nothing material happened and makes no model call.
+With some in scope it needs a ``Writer`` (the AI pass's, ``ai_digest``, given only while the pass
+is on); without one no issue is written and the run is recorded as skipped, with the reason.
 
 A run with a writer makes its model call outside every transaction: a first write transaction reads
 the scope (a scheduled run also claims its slot there, by moving ``next_run_at`` on, so no other
@@ -95,6 +96,7 @@ RUN_AGAIN_AFTER = timedelta(minutes=30)  # "Run once now" waits this long after 
 COVER_ALL = "All stories"
 TOPIC_PREFIX = "Topic: "
 GROUP_PREFIX = "Group: "
+ISSUER_PREFIX = "Issuer: "
 # What the form offers for length, and what each choice stores: (length, number of points).
 LENGTHS = {
     "Up to 3 points": ("short", 3),
@@ -129,6 +131,7 @@ class Spec:
     points: int
     upcoming: str = ""
     look_ahead_days: int = DEFAULT_LOOK_AHEAD
+    issuer_ids: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -267,24 +270,34 @@ def _lookup(db: sqlite3.Connection, sql: str, name: str, what: str) -> int:
     return int(row["id"])
 
 
-def _resolve_covers(
-    db: sqlite3.Connection, owner: str, covers: Sequence[str]
-) -> tuple[bool, tuple[int, ...], tuple[int, ...]]:
-    """(covers all stories, topic ids, group ids) for the cover choices of the form."""
+@dataclass(frozen=True)
+class _Covers:
+    every: bool = False
+    topics: tuple[int, ...] = ()
+    groups: tuple[int, ...] = ()
+    issuers: tuple[int, ...] = ()
+
+
+def _resolve_covers(db: sqlite3.Connection, owner: str, covers: Sequence[str]) -> _Covers:
+    """What the cover choices of the form name: all stories, or topic, group and issuer ids."""
     chosen = list(dict.fromkeys(covers))
     if not chosen or len(chosen) > MAX_COVERS:
         raise StoreError(f"choose from 1 to {MAX_COVERS} things to cover")
     if COVER_ALL in chosen:
         if len(chosen) > 1:
             raise StoreError(f"{COVER_ALL!r} covers every story; choose it alone")
-        return True, (), ()
+        return _Covers(every=True)
     visible = set(groups.visible_group_ids(db, owner))
     topic_ids: list[int] = []
     group_ids: list[int] = []
+    issuer_ids: list[int] = []
     for text in chosen:
         if text.startswith(TOPIC_PREFIX):
             sql = "SELECT id FROM topics WHERE name=?"
             topic_ids.append(_lookup(db, sql, text[len(TOPIC_PREFIX) :], "topic"))
+        elif text.startswith(ISSUER_PREFIX):
+            sql = "SELECT id FROM issuers WHERE name=?"
+            issuer_ids.append(_lookup(db, sql, text[len(ISSUER_PREFIX) :], "issuer"))
         elif text.startswith(GROUP_PREFIX):
             found = _lookup(
                 db, "SELECT id FROM groups WHERE name=?", text[len(GROUP_PREFIX) :], "group"
@@ -294,7 +307,7 @@ def _resolve_covers(
             group_ids.append(found)
         else:
             raise StoreError(f"{text[:60]!r} is not one of the things a digest can cover")
-    return False, tuple(topic_ids), tuple(group_ids)
+    return _Covers(False, tuple(topic_ids), tuple(group_ids), tuple(issuer_ids))
 
 
 def spec_from_form(db: sqlite3.Connection, owner: str, form: Form) -> Spec:
@@ -307,14 +320,15 @@ def spec_from_form(db: sqlite3.Connection, owner: str, form: Form) -> Spec:
         when = schedule.parse(form.schedule)
     except schedule.ScheduleError as error:
         raise StoreError(str(error)) from None
-    covers_all, topic_ids, group_ids = _resolve_covers(db, owner, form.covers)
+    covers = _resolve_covers(db, owner, form.covers)
     length, points = LENGTHS[form.length]
     return Spec(
         name=plain_text(form.name, MAX_NAME, "the name"),
         schedule=when,
-        covers_all=covers_all,
-        topic_ids=topic_ids,
-        group_ids=group_ids,
+        covers_all=covers.every,
+        topic_ids=covers.topics,
+        group_ids=covers.groups,
+        issuer_ids=covers.issuers,
         subject=plain_text(form.brief, MAX_SUBJECT, "the brief", lines=True),
         length=length,
         points=points,
@@ -362,6 +376,7 @@ def _digest(db: sqlite3.Connection, row: sqlite3.Row) -> Digest:
         points=row["points"],
         upcoming=row["upcoming"],
         look_ahead_days=row["look_ahead_days"],
+        issuer_ids=_ids(db, "digest_issuers", "issuer_id", row["id"]),
     )
     asked = row["run_requested_at"]
     return Digest(
@@ -390,8 +405,8 @@ def list_digests(db: sqlite3.Connection, owner: str) -> list[Digest]:
 def _store_covers(db: sqlite3.Connection, digest_id: int, spec: Spec) -> None:
     """Replace the digest's covers; Conflict when a topic or group was removed since the form was
     checked (the whole write then rolls back)."""
-    db.execute("DELETE FROM digest_topics WHERE digest_id=?", (digest_id,))
-    db.execute("DELETE FROM digest_groups WHERE digest_id=?", (digest_id,))
+    for table in ("digest_topics", "digest_groups", "digest_issuers"):
+        db.execute(f"DELETE FROM {table} WHERE digest_id=?", (digest_id,))
     try:
         db.executemany(
             "INSERT INTO digest_topics(digest_id, topic_id) VALUES(?, ?)",
@@ -401,8 +416,14 @@ def _store_covers(db: sqlite3.Connection, digest_id: int, spec: Spec) -> None:
             "INSERT INTO digest_groups(digest_id, group_id) VALUES(?, ?)",
             [(digest_id, group_id) for group_id in spec.group_ids],
         )
+        db.executemany(
+            "INSERT INTO digest_issuers(digest_id, issuer_id) VALUES(?, ?)",
+            [(digest_id, issuer_id) for issuer_id in spec.issuer_ids],
+        )
     except sqlite3.IntegrityError as exc:
-        raise Conflict("a topic or group you chose was removed just now; choose again") from exc
+        raise Conflict(
+            "a topic, group or issuer you chose was removed just now; choose again"
+        ) from exc
 
 
 def _fields(spec: Spec) -> tuple[Any, ...]:
@@ -477,7 +498,14 @@ def delete(db: sqlite3.Connection, owner: str, digest_id: int) -> None:
     """Delete a digest with its covers, issues and runs."""
     with _write_transaction(db):
         owned(db, owner, digest_id)
-        for table in ("digest_runs", "digest_issues", "digest_topics", "digest_groups"):
+        tables = (
+            "digest_runs",
+            "digest_issues",
+            "digest_topics",
+            "digest_groups",
+            "digest_issuers",
+        )
+        for table in tables:
             db.execute(f"DELETE FROM {table} WHERE digest_id=?", (digest_id,))
         db.execute("DELETE FROM digests WHERE id=?", (digest_id,))
 
@@ -495,6 +523,9 @@ def cover_texts(db: sqlite3.Connection, digest: Digest) -> list[str]:
         row = db.execute("SELECT name FROM groups WHERE id=?", (group_id,)).fetchone()
         if group_id in visible:
             texts.append(GROUP_PREFIX + row["name"])
+    for issuer_id in digest.spec.issuer_ids:
+        row = db.execute("SELECT name FROM issuers WHERE id=?", (issuer_id,)).fetchone()
+        texts.append(ISSUER_PREFIX + row["name"])
     return texts
 
 
@@ -504,7 +535,7 @@ def covers_phrase(db: sqlite3.Connection, digest: Digest) -> str:
     if digest.spec.covers_all:
         return ""
     names = [
-        text.removeprefix(TOPIC_PREFIX).removeprefix(GROUP_PREFIX)
+        text.removeprefix(TOPIC_PREFIX).removeprefix(GROUP_PREFIX).removeprefix(ISSUER_PREFIX)
         for text in cover_texts(db, digest)
     ]
     if len(names) < 2:
@@ -512,9 +543,10 @@ def covers_phrase(db: sqlite3.Connection, digest: Digest) -> str:
     return ", ".join(names[:-1]) + " and " + names[-1]
 
 
-def cover_options(db: sqlite3.Connection, owner: str | None) -> list[str]:
-    """Every cover the owner may choose: all stories, the groups they can see, the topics.
-    With no owner (a viewer with no name) the groups are left out."""
+def cover_options(db: sqlite3.Connection, owner: str | None, *, issuers: bool = False) -> list[str]:
+    """Every cover the owner may choose: all stories, the groups they can see, the topics, and
+    with `issuers` the issuers (by name, A to Z). With no owner (a viewer with no name) the
+    groups are left out."""
     options = [COVER_ALL]
     if owner is not None:
         for group_id in groups.visible_group_ids(db, owner):
@@ -523,6 +555,9 @@ def cover_options(db: sqlite3.Connection, owner: str | None) -> list[str]:
     options += [
         TOPIC_PREFIX + row["name"] for row in db.execute("SELECT name FROM topics ORDER BY id")
     ]
+    if issuers:
+        names = [str(row["name"]) for row in db.execute("SELECT name FROM issuers")]
+        options += [ISSUER_PREFIX + name for name in sorted(names, key=str.casefold)]
     return options
 
 
@@ -531,7 +566,7 @@ def covers_nothing(db: sqlite3.Connection, digest: Digest) -> bool:
     see. A digest is left so when its topics or groups are deleted or its owner leaves the groups;
     editing it to choose a cover starts it again."""
     spec = digest.spec
-    if spec.covers_all or spec.topic_ids:
+    if spec.covers_all or spec.topic_ids or spec.issuer_ids:
         return False
     return not set(spec.group_ids) & set(groups.visible_group_ids(db, digest.owner))
 
@@ -611,6 +646,13 @@ def _scope_stories(
             " AND s.published_at > ? AND s.published_at <= ?"
         )
         params += [*spec.topic_ids, *span]
+    if spec.issuer_ids:
+        parts.append(
+            "SELECT s.id FROM stories s JOIN issuer_stories l ON l.story_id = s.id"
+            f" WHERE l.issuer_id IN ({_marks(len(spec.issuer_ids))})"
+            " AND s.published_at > ? AND s.published_at <= ?"
+        )
+        params += [*spec.issuer_ids, *span]
     seen = _seen_groups(db, digest)
     if seen:
         parts.append(

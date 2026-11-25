@@ -1,7 +1,9 @@
 """Parse RSS 2.0 and Atom feed bytes into entries. Standard library only.
 
 Feed bytes are untrusted: a DTD or entity declaration is refused before parsing, and
-no article body is fetched; only the feed's own title, link, date and summary are read.
+no article body is fetched; only the feed's own title, link, date and summary are read, and of an
+Atom entry its first category's term (the form type of an SEC EDGAR filing entry). A line break or
+block element in a summary's HTML separates the words on either side of it.
 """
 
 import re
@@ -37,6 +39,11 @@ class Entry:
     link: str
     published: datetime | None
     summary: str
+    category: str | None = None  # an Atom entry's first <category term>, whitespace collapsed
+
+
+_BREAKS = frozenset({"br", "p", "div", "li", "tr", "td", "th", "h1", "h2", "h3", "h4", "hr"})
+CATEGORY_LIMIT = 60
 
 
 class _TextOnly(HTMLParser):
@@ -48,6 +55,8 @@ class _TextOnly(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in ("script", "style"):
             self._skip += 1
+        elif tag in _BREAKS:
+            self.parts.append(" ")
 
     def handle_endtag(self, tag: str) -> None:
         if tag in ("script", "style") and self._skip:
@@ -62,7 +71,13 @@ def _summary(raw: str) -> str:
     parser = _TextOnly()
     parser.feed(raw)
     parser.close()
-    text = " ".join("".join(parser.parts).split())
+    return shorten("".join(parser.parts))
+
+
+def shorten(plain: str) -> str:
+    """Plain text with its whitespace collapsed, cut at a space to SUMMARY_LIMIT characters (at
+    the limit when the first SUMMARY_LIMIT + 1 hold no space): the stored summary's rule."""
+    text = " ".join(plain.split())
     if len(text) <= SUMMARY_LIMIT:
         return text
     head = text[: SUMMARY_LIMIT + 1]
@@ -108,10 +123,12 @@ def _usable_link(link: str) -> bool:
         return False
 
 
-def _make(title: str, link: str, date: datetime | None, summary: str) -> Entry | None:
+def _make(
+    title: str, link: str, date: datetime | None, summary: str, category: str | None = None
+) -> Entry | None:
     if not title or not _usable_link(link):
         return None
-    return Entry(title, link, date, _summary(summary))
+    return Entry(title, link, date, _summary(summary), category)
 
 
 def _rss_entry(item: ET.Element) -> Entry | None:
@@ -132,6 +149,13 @@ def _atom_link(entry: ET.Element) -> str:
     return ""
 
 
+def _atom_category(entry: ET.Element) -> str | None:
+    """The entry's first category's term, whitespace collapsed; None when empty or too long."""
+    found = entry.find(f"{_ATOM}category")
+    term = " ".join((found.get("term") or "").split()) if found is not None else ""
+    return term if term and len(term) <= CATEGORY_LIMIT else None
+
+
 def _atom_entry(entry: ET.Element) -> Entry | None:
     stamp = _text(entry, f"{_ATOM}published") or _text(entry, f"{_ATOM}updated")
     date = _iso_date(stamp) if stamp else None
@@ -140,6 +164,7 @@ def _atom_entry(entry: ET.Element) -> Entry | None:
         _atom_link(entry),
         date,
         _text(entry, f"{_ATOM}summary"),
+        _atom_category(entry),
     )
 
 

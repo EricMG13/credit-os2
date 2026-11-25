@@ -34,8 +34,13 @@ def _source(db: sqlite3.Connection, kind: str = "news", name: str = "Wire") -> i
     with db:
         cur = db.execute(
             "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
-            " VALUES(?, ?, ?, 'approved', 'x', 'x')",
-            (name, kind, f"https://{name.lower().replace(' ', '')}.example/{kind}"),
+            " VALUES(?, ?, ?, 'approved', 'x', ?)",
+            (
+                name,
+                kind,
+                f"https://{name.lower().replace(' ', '')}.example/{kind}",
+                NOW.isoformat(),
+            ),
         )
     assert cur.lastrowid is not None
     return cur.lastrowid
@@ -86,7 +91,7 @@ def test_an_issuers_id_is_never_given_again(db):
         (Form("x" * 81), "an issuer's name is at most 80 characters of plain text"),
         (Form("  "), "an issuer's name must not be empty"),
         (Form("Bell\x07 Corp"), "an issuer's name is at most 80 characters of plain text"),
-        (Form("Flip‮Corp"), "an issuer's name is at most 80 characters of plain text"),
+        (Form("Flip\u202eCorp"), "an issuer's name is at most 80 characters of plain text"),
         (Form("Acme", ("a" * 61,)), "an alias is at most 60 characters of plain text"),
         (Form("Acme", tuple(f"Alias {n}" for n in range(9))), "at most 8 aliases"),
         (Form("Acme", ("two\nlines",)), "an alias is at most 60 characters of plain text"),
@@ -313,7 +318,9 @@ def test_renaming_renames_the_source_and_removing_the_issuer_pauses_it(db):
 
 def test_a_cik_belongs_to_one_issuer_and_an_address_taken_by_a_feed_is_refused(db):
     _add(db, "Altice USA", cik="0001702780")
-    with pytest.raises(Conflict, match="the CIK 0001702780 is already that of the issuer 'Altice USA'"):
+    with pytest.raises(
+        Conflict, match="the CIK 0001702780 is already that of the issuer 'Altice USA'"
+    ):
         _add(db, "Optimum", cik="0001702780")
     store.propose_source(db, "Apple feed", "news", EDGAR.format("0000320193"), "Mara L")
     with pytest.raises(Conflict, match="already a source of kind news"):
@@ -345,3 +352,38 @@ def test_removing_a_source_with_stories_takes_their_issuer_links(db):
     _arrive(db, wire, "Caesars Entertainment wins")
     assert store.remove_source(db, wire, with_stories=True) == 1
     assert _linked(db, made) == []
+
+
+# Review doubts (confidence review): each found by an adversarial case, then repaired.
+
+
+def test_a_filing_never_folds_into_another_sources_story_by_title(db):
+    """Doubt: two filing sources of one issuer (a CIK corrected) carry identical generic titles
+    ("Altice USA: 8-K, current report") within 48 hours; folding them by title would hide one
+    filing inside another company's. A filing folds by its link only, in both directions."""
+    old, new = _source(db, "filing", "Old Edgar"), _source(db, "filing", "New Edgar")
+    wire = _source(db, "news", "Wire")
+    when = NOW - timedelta(hours=1)
+    title = "Altice USA: 8-K, current report"
+    assert store.add_story(db, old, Entry(title, "https://www.sec.gov/a-index.htm", when, ""), when)
+    got = store.add_story(db, new, Entry(title, "https://www.sec.gov/b-index.htm", when, ""), when)
+    assert got == "new"
+    news = store.add_story(db, wire, Entry(title, "https://wire.example/8k", when, ""), when)
+    assert news == "new"
+    assert db.execute("SELECT COUNT(*) FROM story_duplicates").fetchone()[0] == 0
+
+
+def test_a_story_carries_at_most_six_issuers_by_name(db):
+    """Doubt: a story naming many issuers would carry every one (100 names of 320 bytes each)."""
+    from deploy_workflow.signal import snapshot
+    from deploy_workflow.signal.identity import User
+
+    wire = _source(db)
+    for n in range(8):
+        _add(db, f"Bank number {n}")
+    title = " ".join(f"Bank number {n}." for n in reversed(range(8)))
+    story = _arrive(db, wire, title)
+    assert len(_linked(db, 1)) == 1 and story == 1
+    built = snapshot.build(db, User("Tobias O", "reader"), NOW, fmt=2)
+    (card,) = built["scenes"][0]["snapshot"]["feed"]["stories"]
+    assert [one["name"] for one in card["issuers"]] == [f"Bank number {n}" for n in range(6)]

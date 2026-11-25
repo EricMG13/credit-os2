@@ -3,16 +3,16 @@
 ``no_live_copilot_adapter`` (autouse) keeps every test module that imports the Signal package
 (``deploy_workflow.signal``) from reaching a provider (the run start tests in
 ``test_react_frontend.py`` build the adapter on purpose over a stand-in SDK module and are not
-covered). For such a test it wraps ``CopilotAdapter.__init__``: building the live adapter without a fake client
-(``client_factory`` left out, or the SDK's own ``real_client``) is recorded in ``LIVE_ATTEMPTS``
-and fails at once with ``pytest.fail``. That raises ``Failed``, a ``BaseException``, so no
-``except Exception`` in the service or its loop can swallow it, and the adapter is never built, so
-nothing can start the Copilot runtime or send a request. Because an attempt made on another thread
-(the service's loop, a server's handler) only ends that thread, the fixture also fails the test at
-its teardown whenever ``LIVE_ATTEMPTS`` is not empty, whichever thread made the attempt. A test
-that drives the real adapter class passes the adapter test rig's ``FakeClient`` through
-``client_factory`` (``tests/test_signal_ai_adapter.py``). Test modules that import neither (the
-analytical modules' live tests) are not touched.
+covered). For such a test it wraps ``CopilotAdapter.__init__``: building the live adapter without a
+fake client (``client_factory`` left out, or the SDK's own ``real_client``) is recorded in
+``LIVE_ATTEMPTS`` and fails at once with ``pytest.fail``. That raises ``Failed``, a
+``BaseException``, so no ``except Exception`` in the service or its loop can swallow it, and the
+adapter is never built, so nothing can start the Copilot runtime or send a request. Because an
+attempt made on another thread (the service's loop, a server's handler) only ends that thread, the
+fixture also fails the test at its teardown whenever ``LIVE_ATTEMPTS`` is not empty, whichever
+thread made the attempt. A test that drives the real adapter class passes the adapter test rig's
+``FakeClient`` through ``client_factory`` (``tests/test_signal_ai_adapter.py``). Test modules that
+import neither (the analytical modules' live tests) are not touched.
 """
 
 from __future__ import annotations

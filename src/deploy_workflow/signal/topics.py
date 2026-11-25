@@ -1,4 +1,8 @@
-"""Topics: a named keyword rule over stories, matched through the full-text index, and follows."""
+"""Topics: a named keyword rule over stories, matched through the full-text index, and follows.
+
+A topic's kinds are source kinds (the fixed fact the owner approved), never the AI pass's kind: a
+story's membership is decided as it arrives and does not move when the pass is switched on or off.
+A topic of no kinds takes every feed kind and filings; no topic takes a market post."""
 
 from __future__ import annotations
 
@@ -8,9 +12,10 @@ import unicodedata
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from deploy_workflow.signal import threads
+from deploy_workflow.signal import issuers, threads
 from deploy_workflow.signal.store import (
     KINDS,
+    MARKET,
     Conflict,
     Missing,
     StoreError,
@@ -62,13 +67,12 @@ def _clean_kinds(kinds: Sequence[str]) -> list[str]:
 def _matches(db: sqlite3.Connection, story_id: int, topic: sqlite3.Row) -> bool:
     """Whether the story meets the topic's rule; one phrase query per keyword."""
     kinds = json.loads(topic["kinds"])
-    if kinds:
-        kind = db.execute(
-            "SELECT src.kind FROM stories s JOIN sources src ON src.id = s.source_id WHERE s.id=?",
-            (story_id,),
-        ).fetchone()
-        if kind is None or kind["kind"] not in kinds:
-            return False
+    kind = db.execute(
+        "SELECT src.kind FROM stories s JOIN sources src ON src.id = s.source_id WHERE s.id=?",
+        (story_id,),
+    ).fetchone()
+    if kind is None or kind["kind"] == MARKET or (kinds and kind["kind"] not in kinds):
+        return False
     return any(
         db.execute(
             "SELECT 1 FROM stories_fts WHERE stories_fts MATCH ? AND rowid=?",
@@ -86,7 +90,8 @@ def _link(db: sqlite3.Connection, topic_id: int, story_id: int) -> None:
 
 
 def match_story(db: sqlite3.Connection, story_id: int) -> list[int]:
-    """Topic ids whose rule the story meets; records them. Safe to repeat."""
+    """Topic ids whose rule the story meets; records them, and the issuers the story belongs to
+    (``issuers.link_story``), in one write transaction. Safe to repeat."""
     with _write_transaction(db):
         found = [
             topic["id"]
@@ -96,6 +101,7 @@ def match_story(db: sqlite3.Connection, story_id: int) -> list[int]:
         for topic_id in found:
             _link(db, topic_id, story_id)
         threads.post_topic_story(db, story_id, found)  # a group topic's new story posts there
+        issuers.link_story(db, story_id)
     return found
 
 
@@ -109,8 +115,8 @@ def _link_existing(
             "INSERT OR IGNORE INTO topic_stories(topic_id, story_id)"
             " SELECT ?, s.id FROM stories_fts JOIN stories s ON s.id = stories_fts.rowid"
             " JOIN sources src ON src.id = s.source_id"
-            " WHERE stories_fts MATCH ?" + kind_filter,
-            [topic_id, fts_phrase(keyword), *kinds],
+            " WHERE stories_fts MATCH ? AND src.kind != ?" + kind_filter,
+            [topic_id, fts_phrase(keyword), MARKET, *kinds],
         )
 
 
@@ -217,26 +223,42 @@ def unfollow(db: sqlite3.Connection, user_name: str, topic_id: int) -> None:
         )
 
 
-def list_topics(db: sqlite3.Connection, user_name: str) -> list[sqlite3.Row]:
+def _kept(condition: str | None, story: str) -> str:
+    """`condition` (over a story row `s`) for the story whose id is the column `story`, as an SQL
+    test to add with AND; empty when every story counts."""
+    if condition is None:
+        return ""
+    return f" AND EXISTS(SELECT 1 FROM stories s WHERE s.id = {story} AND {condition})"
+
+
+def list_topics(
+    db: sqlite3.Connection, user_name: str, condition: str | None = None
+) -> list[sqlite3.Row]:
     """Every topic with its rule (keywords and kinds, JSON lists), whether `user_name` follows it
-    and how many stories it holds."""
+    and how many stories it holds (those meeting `condition`, an SQL condition over a story row
+    `s`, when one is given: the stories a snapshot delivers)."""
     return db.execute(
         "SELECT t.id, t.name, t.keywords, t.kinds,"
         " EXISTS(SELECT 1 FROM topic_follows f WHERE f.topic_id = t.id AND f.user_name = ?)"
         "  AS following,"
-        " (SELECT COUNT(*) FROM topic_stories ts WHERE ts.topic_id = t.id) AS stories"
+        " (SELECT COUNT(*) FROM topic_stories ts WHERE ts.topic_id = t.id"
+        f"{_kept(condition, 'ts.story_id')}) AS stories"
         " FROM topics t ORDER BY t.id",
         (user_name,),
     ).fetchall()
 
 
-def counts_since(db: sqlite3.Connection, since: datetime) -> dict[int, int]:
-    """Stories published after `since`, per topic id; a topic with none is left out. The recent
-    stories are read first (their published-time index), then their topics."""
+def counts_since(
+    db: sqlite3.Connection, since: datetime, condition: str | None = None
+) -> dict[int, int]:
+    """Stories published after `since` (and meeting `condition` over a story row `s`, when one is
+    given), per topic id; a topic with none is left out. The recent stories are read first (their
+    published-time index), then their topics."""
+    also = "" if condition is None else f" AND {condition}"
     rows = db.execute(
         "SELECT ts.topic_id, COUNT(*) AS n FROM stories s"
         " CROSS JOIN topic_stories ts ON ts.story_id = s.id"
-        " WHERE s.published_at > ? GROUP BY ts.topic_id",
+        f" WHERE s.published_at > ?{also} GROUP BY ts.topic_id",
         (_utc_text(since),),
     ).fetchall()
     return {int(row["topic_id"]): int(row["n"]) for row in rows}

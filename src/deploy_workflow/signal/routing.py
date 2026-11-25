@@ -23,6 +23,7 @@ class LoopState(Protocol):
     last_error: str | None
     ai_error: str | None
     digest_error: str | None
+    market_error: str | None
 
     def ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status: ...
 

@@ -1,6 +1,7 @@
 """Command line for Signal users, sources, ingest passes and stories, the owner's moderation and
 clean-up of groups, threads and comments (which have no browser route), of sources and digests
-(``cli_clean``), and the owner's AI commands (``cli_ai``)."""
+(``cli_clean``), the owner's AI commands (``cli_ai``), and the issuers, filings and market post
+(``cli_issuers``)."""
 
 from __future__ import annotations
 
@@ -8,11 +9,11 @@ import argparse
 import sqlite3
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from deploy_workflow.signal import ai_run, cli_ai, cli_clean, groups, threads
+from deploy_workflow.signal import ai_run, cli_ai, cli_clean, cli_issuers, groups, threads
 from deploy_workflow.signal.fetch import FetchRefused, check_address
 from deploy_workflow.signal.groups import GroupError
 from deploy_workflow.signal.identity import IdentityError, clean_name
@@ -85,6 +86,7 @@ def _parser() -> argparse.ArgumentParser:
     _moderation(commands)
     cli_clean.add_digests(commands)
     cli_ai.add_parser(commands)
+    cli_issuers.add_parsers(commands)
     return parser
 
 
@@ -173,32 +175,52 @@ def _topics(db: sqlite3.Connection, args: argparse.Namespace) -> None:
             print(f"{row['id']}  {row['stories']}  {row['name']}")
 
 
+def _sources(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    if args.action == "propose":
+        check_address(args.url)
+        propose_source(db, args.name, args.kind, args.url, args.by)
+    elif args.action == "list":
+        _list_sources(db)
+    elif args.action == "remove":
+        cli_clean.run_source_remove(db, args)
+    else:
+        state = "approved" if args.action == "approve" else "paused"
+        set_source_state(db, args.id, state)
+
+
+def _users(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    add_user(db, clean_name(args.name), args.role)
+
+
+def _ingest_command(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    _ingest(db, args.loop)
+
+
+def _stories_command(db: sqlite3.Connection, args: argparse.Namespace) -> None:
+    _stories(db, args.limit)
+
+
+Handler = Callable[[sqlite3.Connection, argparse.Namespace], None]
+_HANDLERS: dict[str, Handler] = {
+    "users": _users,
+    "sources": _sources,
+    "topics": _topics,
+    "ingest": _ingest_command,
+    "digests": cli_clean.run_digests,
+    "threads": _moderate,
+    "comments": _moderate,
+    "groups": _moderate,
+    "issuers": cli_issuers.run,
+    "filings": cli_issuers.run,
+    "market": cli_issuers.run,
+    "stories": _stories_command,
+}
+
+
 def _dispatch(args: argparse.Namespace) -> None:
     db = open_db(args.root)
     try:
-        if args.command == "users":
-            add_user(db, clean_name(args.name), args.role)
-        elif args.command == "sources":
-            if args.action == "propose":
-                check_address(args.url)
-                propose_source(db, args.name, args.kind, args.url, args.by)
-            elif args.action == "list":
-                _list_sources(db)
-            elif args.action == "remove":
-                cli_clean.run_source_remove(db, args)
-            else:
-                state = "approved" if args.action == "approve" else "paused"
-                set_source_state(db, args.id, state)
-        elif args.command == "topics":
-            _topics(db, args)
-        elif args.command == "ingest":
-            _ingest(db, args.loop)
-        elif args.command == "digests":
-            cli_clean.run_digests(db, args)
-        elif args.command in ("threads", "comments", "groups"):
-            _moderate(db, args)
-        else:
-            _stories(db, args.limit)
+        _HANDLERS[args.command](db, args)
     finally:
         db.close()
 

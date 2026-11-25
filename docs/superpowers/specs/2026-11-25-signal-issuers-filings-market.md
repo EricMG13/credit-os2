@@ -44,6 +44,8 @@ Non-goals
 - `market_series(id PRIMARY KEY (the FRED id), title, short, unit, source, position, added_at)`.
 - `market_posts(story_id PRIMARY KEY -> stories, as_of DATE, rows JSON)`: the table of each
   post, exact decimal text and ISO dates; the delivered words are made when the snapshot is read.
+- `stories.category` (new column): an Atom entry's first category term as the feed gave it (a
+  filing's form type, its first tag); NULL for every other story.
 - Every foreign key's child column leads an index. `remove_source --with-stories` also deletes a
   story's issuer links and market table. A filing source an issuer still uses cannot be removed
   (Conflict: take the issuer's CIK off first).
@@ -202,7 +204,11 @@ week") counted over the delivered kinds only. A digest's own saved covers keep a
 both formats, so an edit posted back from the current page never drops it. `format=2` adds:
 
 - kinds `filing` ("Filing") and `market` ("Market");
-- story `issuers: [{id, name}]` (every story; empty when none) and `market: {asOf, rows} | null`;
+- story `issuers: [{id, name}]` (every story; empty when none; at most 6, by name **(call)**) and
+  `market: {asOf, rows: [{id, name, short, unit, value, date, changes: [{label, since, value}],
+  source, note}]} | null` (null on every story but a market post; `changes` holds "Previous",
+  "Week" and "Month" in that order, each with its comparison date, or is empty for a series that
+  could not be read);
 - `channels.issuers: [{id, name, count, followed}]`, `feed.issuers: {<id>: view}`;
 - `settings.issuers: [{id, name, aliases, cik, libraryKey, source: {id, state, note} | null}]`,
   `settings.filings: {contactSet, note}`;
@@ -226,4 +232,19 @@ an error.
 
 ## 10. Decisions added while building
 
-Recorded in the build report and in the module docstrings as they arise.
+- A filing story folds with another story by its link only, never by its title (two filing
+  sources of one issuer, after a CIK is corrected, share generic titles) **(call)**.
+- A story carries at most 6 issuers (by name) so a card's size stays bounded **(call)**.
+- The issuer views' id lists are reserved out of the snapshot's byte budget before the stories
+  are paid (`snapshot.view_reserve`).
+- The one-second filing slot is wall time shared through the store; a stored slot more than five
+  minutes ahead (a clock set back) is passed over, so no fetch waits past its spacing.
+- An attempt with no series configured says so ("the market post reads no series; ...") and
+  counts as a failed check.
+- `signal market hour <0-23>` sets the post's UTC hour (the spec's stored hour needed a command).
+- A market post appears in For you for every named viewer in format 2 (section 5).
+- `GET /api/feed` (the JSON page route, not read by the React page) delivers every kind, takes
+  `kind=filing|market` and `view=issuer:<id>`, and each card gains `category` (the feed's own
+  category term: a filing's form type, else null).
+- Format 1's group pages leave out a thread whose story is a filing or a market post, with its
+  counts ("Showing the latest N of M threads" counts the delivered threads only).

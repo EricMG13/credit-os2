@@ -20,6 +20,11 @@ Rules:
   fetch, every hop, headers and body included; a 2 MB body cap; a body shorter than its
   declared Content-Length, and any Content-Encoding other than identity, are refused.
 
+One header may differ per request: a fetch made for an SEC filing source declares who is asking
+(``Declared``: the owner's contact string, which the SEC requires of automated clients). It is sent
+as the User-Agent of a hop to the declared host only; any other hop, a redirect to another host
+included, sends the ordinary ``USER_AGENT``. No other rule changes with it.
+
 Known ceiling: the one system DNS lookup per hop cannot be interrupted by the standard library.
 A lookup that hangs ends only at the resolver's own timeout, after which the deadline is checked
 and no connection is opened once it has passed.
@@ -59,6 +64,7 @@ _NETLOC = re.compile(rf"({_LABEL}(?:\.{_LABEL})+)(?::[0-9]{{1,5}})?")
 _DIGITS = re.compile(r"[0-9]{1,18}")
 _PRINTABLE = re.compile(r"[\x21-\x7e]+")
 _VALIDATOR = re.compile(r"[\x20-\x7e]{1,256}")
+_AGENT = re.compile(r"[\x20-\x7e]{1,200}")
 _EMBEDDING_V4 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("::/96"))
 
 
@@ -76,6 +82,14 @@ class Fetched:
     body: bytes | None
     etag: str | None
     modified: str | None
+
+
+@dataclass(frozen=True)
+class Declared:
+    """Who is asking, for one host: `agent` is sent as the User-Agent of requests to `host` only."""
+
+    host: str
+    agent: str
 
 
 @dataclass(frozen=True)
@@ -101,6 +115,13 @@ class _Budget:
     connect: Connector
     clock: Clock
     deadline: float
+    declared: Declared | None = None
+
+    def agent(self, host: str) -> str:
+        """The User-Agent for a hop to `host`: the declared one for its own host only."""
+        if self.declared is not None and host == self.declared.host:
+            return self.declared.agent
+        return USER_AGENT
 
     def check(self) -> None:
         if self.clock() > self.deadline:
@@ -282,23 +303,28 @@ def _stored(value: str | None) -> str | None:
     return value if value is not None and _VALIDATOR.fullmatch(value) else None
 
 
-def fetch(
+def fetch(  # noqa: PLR0913 -- the address, its two validators, and three keyword-only wirings
     url: str,
     etag: str | None,
     modified: str | None,
     *,
     resolve: Resolver | None = None,
     wiring: Wiring | None = None,
+    declared: Declared | None = None,
 ) -> Fetched:
-    """Fetch url conditionally; raise FetchRefused for any broken rule, error or bad status."""
+    """Fetch url conditionally; raise FetchRefused for any broken rule, error or bad status.
+    `declared` names who is asking, for its host only (``Declared``)."""
     wiring = wiring or Wiring()
     etag = _stored(etag)  # a stored value is held to what a server may send
     modified = _stored(modified)
+    if declared is not None and not _AGENT.fullmatch(declared.agent):
+        raise FetchRefused("the declared contact is not plain text")
     budget = _Budget(
         _resolve if resolve is None else resolve,  # looked up now, so tests can replace it
         webfetch.pinned_connection if wiring.connect is None else wiring.connect,
         wiring.clock,
         wiring.clock() + TOTAL_SECONDS,
+        declared,
     )
     try:
         return _follow(url, etag, modified, budget)
@@ -321,7 +347,7 @@ def _follow(url: str, etag: str | None, modified: str | None, budget: _Budget) -
         budget.check()  # the lookup may have ended after the deadline
         headers = {
             "Host": place.host if place.port == _DEFAULT_PORT else f"{place.host}:{place.port}",
-            "User-Agent": USER_AGENT,
+            "User-Agent": budget.agent(place.host),
             "Accept": ACCEPT,
             "Accept-Encoding": "identity",
             "Connection": "close",

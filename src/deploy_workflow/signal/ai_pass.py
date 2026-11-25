@@ -5,7 +5,9 @@ It runs only in the background loop, after the ingest job (``service.Loop``), an
 only while ``ai_gate`` says the pass is on.
 
 A story is new when it was fetched in the last ``NEW_FOR``, the pass has not answered for it (no
-``story_ai`` row) and no call in flight holds it (``ai_tries.claim``). A pass takes ``PASS_LIMIT``
+``story_ai`` row) and no call in flight holds it (``ai_tries.claim``). A filing story and a market
+post are never new to it: they are written by code and keep their kind and tags (no AI line, no
+strength, no AI tag, no AI kind). A pass takes ``PASS_LIMIT``
 of them: those never sent first, then those sent before with fewer paid attempts, each group newest
 first, so a story whose replies keep failing never holds up the others. Each call sends the stories'
 stored title (cut to ``TITLE_LIMIT`` characters) and summary only, as JSON lines between two marker
@@ -39,7 +41,7 @@ from datetime import datetime, timedelta
 
 from deploy_workflow.signal import ai_call, ai_labels, ai_ledger, ai_tries
 from deploy_workflow.signal.ai_tags import MAX_TAGS, SECTORS, THEMES
-from deploy_workflow.signal.store import _utc_text, _write_transaction
+from deploy_workflow.signal.store import FILING, MARKET, _utc_text, _write_transaction
 
 log = logging.getLogger(__name__)
 
@@ -104,13 +106,13 @@ def pending(
     live = (now if at is None else at) - ai_ledger.CALL_BOUND
     rows = db.execute(
         "SELECT s.id, s.title, s.summary, coalesce(t.attempts, 0) AS attempts,"
-        " coalesce(t.batch, ?) AS lim FROM stories s"
+        " coalesce(t.batch, ?) AS lim FROM stories s JOIN sources src ON src.id = s.source_id"
         " LEFT JOIN story_ai a ON a.story_id = s.id"
         " LEFT JOIN story_ai_tries t ON t.story_id = s.id"
-        " WHERE a.story_id IS NULL AND s.fetched_at > ?"
+        " WHERE a.story_id IS NULL AND s.fetched_at > ? AND src.kind NOT IN (?, ?)"
         " AND (t.claimed_at IS NULL OR t.claimed_at < ?)"
         " ORDER BY coalesce(t.attempts, 0), s.published_at DESC, s.id DESC LIMIT ?",
-        (BATCH, _utc_text(now - NEW_FOR), _utc_text(live), limit),
+        (BATCH, _utc_text(now - NEW_FOR), FILING, MARKET, _utc_text(live), limit),
     ).fetchall()
     return [
         Story(int(r["id"]), str(r["title"]), str(r["summary"]), int(r["attempts"]), int(r["lim"]))

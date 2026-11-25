@@ -287,6 +287,44 @@ $S "ECB blog" --kind research --url https://www.ecb.europa.eu/rss/blog.html --by
 The approve step is deliberately not scripted: the owner reads `sources list`, then runs
 `sources approve <id>` once per chosen source.
 
+## 3a. The two new kinds: company filings and the market backdrop
+
+Added 2026-11-25 (`docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md`). Neither
+kind is proposed with `sources propose`: each comes from its own command, and the owner approves
+it like any source. Nothing below has been run against a real store or a real SEC or FRED host;
+the formats were checked on synthetic documents only.
+
+**Company filings (kind `filing`).** One source per issuer, at the SEC's per-company Atom feed
+(`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=<cik>&type=&dateb=&owner=include&count=40&output=atom`).
+The SEC refuses automated clients that do not say who is asking (a generic client got HTTP 403,
+"Your Request Originates from an Undeclared Automated Tool"), so nothing is fetched until the
+owner sets a contact. It is sent as the User-Agent to `www.sec.gov` only, at most one filing
+request a second.
+
+```bash
+R="--root /path/to/workflow-folder"
+S="uv run python -m deploy_workflow.signal $R"
+$S filings contact "Acme Credit Research research@acme.example"   # your organisation and email
+$S issuers add "Altice USA" --aliases "Optimum, ATUS" --cik 0001702780 --by owner
+$S issuers list            # shows "filings: source <id>, proposed"
+$S sources approve <id>    # the id from the line above
+$S filings status          # the contact, the spacing, each filing source and its issuer
+```
+
+**Market backdrop (kind `market`).** One source; one post a day from 07:00 UTC (change it with
+`market hour`), from FRED's public CSV (`https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SERIES>`,
+no key), one request per series. Default series: the ICE BofA US high-yield, BB, single-B and CCC
+and lower option-adjusted spreads, the ICE BofA Euro high-yield spread, the 2-year and 10-year
+Treasury yields and SOFR. The ICE BofA series are published on FRED under ICE's terms: confirm
+internal display is within them before approving. The Treasury and SOFR series are public.
+
+```bash
+$S market propose          # prints the source id and the approve command
+$S sources approve <id>
+$S market series list      # add or remove with: market series add|remove <FRED id>
+$S market post             # today's post now, instead of waiting for the hour
+```
+
 ## 4. Suggested starter topics
 
 Topics match a keyword phrase in a story's title or the feed's own summary (an exact-phrase

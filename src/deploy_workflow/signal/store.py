@@ -395,8 +395,9 @@ CREATE INDEX idx_digest_runs_issue ON digest_runs(issue_id);
 # issuer (by text, or by the issuer's filing source). `service_settings`: the owner's contact
 # string for the SEC and the market post's UTC hour. `market_series`: the FRED series the market
 # post reads, in `position` order. `market_posts`: each market story's table, exact decimal text
-# and ISO dates (`as_of` its newest observation date). Ids of issuers are never given again
-# (``fresh_id``/``retire_id``).
+# and ISO dates (`as_of` its newest observation date). `stories.category`: an Atom entry's first
+# category term as the feed gave it (a filing's form type); NULL for every other story. Ids of
+# issuers are never given again (``fresh_id``/``retire_id``).
 _MIGRATION_7 = """
 CREATE TABLE issuers(
     id INTEGER PRIMARY KEY,
@@ -445,6 +446,7 @@ CREATE TABLE market_posts(
     as_of TEXT NOT NULL,
     rows TEXT NOT NULL
 );
+ALTER TABLE stories ADD COLUMN category TEXT;
 """
 
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
@@ -640,6 +642,18 @@ def fts_phrase(text: str) -> str:
     return '"' + text.replace("\x00", " ").replace('"', '""') + '"'
 
 
+def kind_condition(kinds: tuple[str, ...], column: str = "s.source_id") -> str | None:
+    """An SQL condition true for a story row whose source is of one of `kinds` (`column` names
+    its source id), or None when `kinds` is every kind. The kinds are this module's own names,
+    checked here, so the condition holds no outside text."""
+    for kind in kinds:
+        _require(kind, SOURCE_KINDS, "kind")
+    if set(kinds) == set(SOURCE_KINDS):
+        return None
+    listed = ", ".join(f"'{kind}'" for kind in kinds)
+    return f"{column} IN (SELECT id FROM sources WHERE kind IN ({listed}))"
+
+
 SETTING_KEYS = ("filings_contact", "market_hour")
 
 
@@ -780,9 +794,7 @@ def _propose(
     return cur.lastrowid
 
 
-def insert_source(
-    db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str
-) -> int:
+def insert_source(db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str) -> int:
     """A source of a kind no one proposes by hand (``FILING``, ``MARKET``), stored as proposed,
     inside the caller's write transaction; Conflict when its address is stored already. The
     caller has checked the name and the address."""
@@ -980,16 +992,21 @@ def _earliest_match(
     db: sqlite3.Connection, source_id: int, lkey: str, tkey: str, published: datetime
 ) -> int | None:
     """Id of the earliest story with this link key (as a story or a folded duplicate), or, from
-    another source, this title key within the window. A source never folds into itself by title."""
+    another source, this title key within the window. A source never folds into itself by title,
+    and a filing folds by its link only, in both directions: filings of one issuer from two filing
+    sources share generic titles ("<issuer>: 8-K, current report") and are distinct filings."""
+    filing = f"(SELECT id FROM sources WHERE kind = '{FILING}')"
     rows = db.execute(
         "SELECT id, published_at, link_key = ? AS same_link FROM stories"
-        " WHERE link_key = ? OR (title_key = ? AND source_id != ?)"
+        f" WHERE link_key = ? OR (title_key = ? AND source_id != ? AND source_id NOT IN {filing})"
         " UNION ALL"
         " SELECT s.id, s.published_at, 1 AS same_link FROM story_duplicates d"
         " JOIN stories s ON s.id = d.story_id WHERE d.link_key = ? AND s.source_id != ?",
         (lkey, lkey, tkey, source_id, lkey, source_id),
     ).fetchall()
-    long_title = len(tkey.split()) >= MIN_TITLE_WORDS
+    incoming = db.execute("SELECT kind FROM sources WHERE id=?", (source_id,)).fetchone()
+    is_filing = incoming is not None and incoming["kind"] == FILING
+    long_title = len(tkey.split()) >= MIN_TITLE_WORDS and not is_filing
     found: list[tuple[datetime, int]] = []
     for row in rows:
         at = datetime.fromisoformat(row["published_at"])
@@ -1025,7 +1042,7 @@ def _fold_or_insert(
         return "duplicate"
     db.execute(
         "INSERT INTO stories(id, source_id, title, link, link_key, title_key, published_at,"
-        " fetched_at, summary) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " fetched_at, summary, category) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             fresh_id(db, "stories"),
             source_id,
@@ -1036,6 +1053,7 @@ def _fold_or_insert(
             stamp,
             _utc_text(fetched_at),
             entry.summary,
+            entry.category,
         ),
     )
     return "new"

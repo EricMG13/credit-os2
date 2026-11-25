@@ -301,9 +301,10 @@ def _written(
 # The form
 
 
-def _form(db: sqlite3.Connection, owner: str | None) -> Json:
-    """A blank form whose options are the choices the create route accepts."""
-    covers = digests.cover_options(db, owner)
+def _form(db: sqlite3.Connection, owner: str | None, *, issuers: bool) -> Json:
+    """A blank form whose options are the choices the create route accepts (the issuers among
+    them only when the snapshot delivers issuers)."""
+    covers = digests.cover_options(db, owner, issuers=issuers)
     return {
         "name": "New digest",
         "covers": covers[0],
@@ -460,11 +461,21 @@ def _drawable(issues: list[digests.Issue], written: dict[int, Written]) -> list[
     ]
 
 
-def build(db: sqlite3.Connection, user: User | None, now: datetime, *, ai_on: bool) -> Built:
-    """The digest parts for `user`; `ai_on` says whether ``settings.ai.state`` is "on". An issue
-    of a kind this build does not draw (a later build wrote it) is left out, logged once."""
+def build(
+    db: sqlite3.Connection,
+    user: User | None,
+    now: datetime,
+    *,
+    ai_on: bool,
+    issuers: bool = False,
+) -> Built:
+    """The digest parts for `user`; `ai_on` says whether ``settings.ai.state`` is "on", `issuers`
+    whether the form offers issuers. An issue of a kind this build does not draw (a later build
+    wrote it) is left out, logged once. A digest's own saved covers keep an issuer cover either
+    way, so an edit posted back from a page that does not show issuers never drops it."""
     paused = not ai_on
-    built = Built(_form(db, user.name if user is not None else None), named=user is not None)
+    owner = user.name if user is not None else None
+    built = Built(_form(db, owner, issuers=issuers), named=user is not None)
     if user is None:
         return built
     left_out = 0

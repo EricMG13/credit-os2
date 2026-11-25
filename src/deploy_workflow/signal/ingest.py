@@ -1,17 +1,25 @@
-"""One ingest pass over the approved sources that are due, and a health summary per source."""
+"""One ingest pass over the approved sources that are due, and a health summary per source.
+
+The market source is not fetched here: its daily post is the background loop's market job
+(``market``). A filing source is fetched only while the owner's contact is set and its issuer
+links it (``filings``), each fetch in its one-second slot, at most ``filings.PER_PASS`` a pass; a
+filing source skipped so records no check (it stays due). Its entries are stored as filing stories
+(``filings.story_entry``) and belong to its issuer."""
 
 import logging
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, Protocol
 
-from deploy_workflow.signal import fetch
-from deploy_workflow.signal.feeds import FeedError, parse_feed
-from deploy_workflow.signal.fetch import Fetched, FetchRefused
+from deploy_workflow.signal import fetch, filings, issuers
+from deploy_workflow.signal.feeds import Entry, FeedError, parse_feed
+from deploy_workflow.signal.fetch import Declared, Fetched, FetchRefused
 from deploy_workflow.signal.fold import link_key
 from deploy_workflow.signal.store import (
+    FILING,
+    MARKET,
     Check,
     _utc_text,
     add_story,
@@ -34,7 +42,27 @@ _WEEK = timedelta(days=7)
 KEEP_CHECKS = HEALTH_WEEKS * _WEEK
 PRUNE_PER_PASS = 10_000
 
-FetchFn = Callable[[str, str | None, str | None], Fetched]
+
+class FetchFn(Protocol):
+    """``fetch.fetch``'s shape as the pass calls it (`declared`: for a filing source only)."""
+
+    def __call__(
+        self,
+        url: str,
+        etag: str | None,
+        modified: str | None,
+        /,
+        *,
+        declared: Declared | None = None,
+    ) -> Fetched: ...
+
+
+@dataclass(frozen=True)
+class _Plan:
+    """How one source is fetched and how its entries are stored."""
+
+    fetch: Callable[[str, str | None, str | None], Fetched]
+    shape: Callable[[Entry], Entry] = lambda entry: entry
 
 
 def _is_due(db: sqlite3.Connection, source_id: int, now: datetime) -> bool:
@@ -49,17 +77,15 @@ def _match_new(db: sqlite3.Connection, source_id: int, link: str) -> None:
     match_story(db, story["id"])
 
 
-def _check_source(
-    db: sqlite3.Connection, source: sqlite3.Row, now: datetime, fetch_fn: FetchFn
-) -> Check:
+def _check_source(db: sqlite3.Connection, source: sqlite3.Row, now: datetime, plan: _Plan) -> Check:
     previous = last_check(db, source["id"])
     etag = previous["etag"] if previous else None
     modified = previous["modified"] if previous else None
     try:
-        fetched = fetch_fn(source["url"], etag, modified)
+        fetched = plan.fetch(source["url"], etag, modified)
         if fetched.body is None:
             return Check(now, True, "not modified", etag, modified, 0)
-        entries = parse_feed(fetched.body)
+        entries = [plan.shape(entry) for entry in parse_feed(fetched.body)]
     except (FetchRefused, FeedError) as error:
         return Check(now, False, str(error), etag, modified, 0)
     new = 0
@@ -70,10 +96,52 @@ def _check_source(
     return Check(now, True, f"{new} new", fetched.etag, fetched.modified, new)
 
 
+def _filing_plan(
+    db: sqlite3.Connection, source: sqlite3.Row, fetch_fn: FetchFn, pace: filings.Pace
+) -> _Plan | None:
+    """How a filing source is fetched: with the owner's contact, in its one-second slot, its
+    entries shaped with its issuer's name; None while no contact is set or no issuer links it."""
+    asking = filings.declared(db)
+    owner = issuers.of_source(db, source["id"])
+    if asking is None or owner is None:
+        return None
+
+    def paced(url: str, etag: str | None, modified: str | None) -> Fetched:
+        filings.claim_slot(db, pace)
+        return fetch_fn(url, etag, modified, declared=asking)
+
+    return _Plan(paced, lambda entry: filings.story_entry(owner.name, entry))
+
+
+def _plans(
+    db: sqlite3.Connection, now: datetime, fetch_fn: FetchFn, pace: filings.Pace
+) -> list[tuple[sqlite3.Row, _Plan]]:
+    """The approved sources due now with how each is fetched: the market source never (its own
+    job), a filing source as `_filing_plan` says and at most filings.PER_PASS of them."""
+    planned: list[tuple[sqlite3.Row, _Plan]] = []
+    filing = 0
+    for source in sources(db, "approved"):
+        if source["kind"] == MARKET or not _is_due(db, source["id"], now):
+            continue
+        if source["kind"] != FILING:
+            planned.append((source, _Plan(fetch_fn)))
+            continue
+        plan = _filing_plan(db, source, fetch_fn, pace) if filing < filings.PER_PASS else None
+        if plan is not None:
+            filing += 1
+            planned.append((source, plan))
+    return planned
+
+
 def run_due(
-    db: sqlite3.Connection, now: datetime, fetch_fn: FetchFn | None = None
+    db: sqlite3.Connection,
+    now: datetime,
+    fetch_fn: FetchFn | None = None,
+    *,
+    pace: filings.Pace | None = None,
 ) -> list[tuple[int, bool, str]]:
-    """Check every approved source with no check in the last MIN_INTERVAL.
+    """Check every approved source with no check in the last MIN_INTERVAL (the market source and
+    filing sources as the module docstring says; `pace` is the filing spacing's clock).
 
     A refused fetch or an unreadable feed is recorded as a failed check with its own reason.
     Any other Exception is logged with its traceback and recorded as a failed check whose
@@ -82,13 +150,10 @@ def run_due(
     logged fail-open so one bad source cannot starve the rest. BaseException is not caught.
     The pass ends by pruning checks older than KEEP_CHECKS (at most PRUNE_PER_PASS)."""
     results: list[tuple[int, bool, str]] = []
-    for source in sources(db, "approved"):
-        if not _is_due(db, source["id"], now):
-            continue
+    chosen = fetch.fetch if fetch_fn is None else fetch_fn
+    for source, plan in _plans(db, now, chosen, filings.Pace() if pace is None else pace):
         try:
-            check = _check_source(
-                db, source, now, fetch_fn if fetch_fn is not None else fetch.fetch
-            )
+            check = _check_source(db, source, now, plan)
         except Exception as error:
             log.exception("unexpected error checking source %s", source["id"])
             previous = last_check(db, source["id"])

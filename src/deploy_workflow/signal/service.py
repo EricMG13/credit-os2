@@ -5,10 +5,12 @@ with ``--signal-url``), which forwards its ``/signal/api/*`` requests here serve
 ``GET /api/snapshot`` is the whole reader-facing state for the asking user
 (``deploy_workflow.signal.snapshot``); ``?topic=<id>`` and ``?thread=<id>`` ask it to carry that
 topic's older stories and that thread's comments (decimal ids, else 400; an id naming nothing the
-asker can see is ignored). Beside ``scenes`` the reply carries ``asOf``, the time it was built
-(UTC, ISO 8601), which the page sends back as ``seen`` when it marks a thread read
-(``POST /api/threads/<id>/read``), so nothing that arrived after the page was drawn is marked
-read. The other routes read pages of the feed and save or follow.
+asker can see is ignored). ``?format=2`` asks for the format with filing and market stories and
+the issuer keys (``?issuer=<id>``: that issuer's older stories); without it (or ``format=1``) the
+reply is what the current React reader accepts; any other format is 400. Beside ``scenes`` the
+reply carries ``asOf``, the time it was built (UTC, ISO 8601), which the page sends back as
+``seen`` when it marks a thread read (``POST /api/threads/<id>/read``), so nothing that arrived
+after the page was drawn is marked read. The other routes read pages of the feed and save or follow.
 
 Plain ``http.server``; no framework. The service has no login and may be reachable from other
 machines, so every request is hostile input. The rules are those of the run start page's service,
@@ -73,16 +75,20 @@ from deploy_workflow.signal import (
     ai_gate,
     ai_run,
     api_groups,
+    api_issuers,
     api_settings,
     feedview,
+    fetch,
     identity,
     ingest,
+    market,
     snapshot,
     store,
     topics,
 )
 from deploy_workflow.signal.ingest import FetchFn
 from deploy_workflow.signal.routing import ID as _ID
+from deploy_workflow.signal.routing import LoopState
 from deploy_workflow.signal.routing import NEEDS_NAME as _NEEDS_NAME
 from deploy_workflow.signal.routing import Req as _Req
 from deploy_workflow.signal.routing import Route as _Route
@@ -105,8 +111,9 @@ _POLICY = "default-src 'none'; frame-ancestors 'none'"
 
 class Loop:
     """The background loop: one pass per tick, the ingest of the approved sources that are due,
-    then the AI pass over the new stories, then the digests that are due. The three jobs fail
-    alone: each has its own connection and its own recorded error. The AI pass and the digests'
+    then the AI pass over the new stories, then the digests that are due, then the day's market
+    post when it is due (``market.run_due``). The four jobs fail alone: each has its own
+    connection and its own recorded error. The AI pass and the digests'
     writer get a model only while ``ai_gate`` says the pass is on (``ai_run``); `ai` holds the
     launching environment and the rulings folder it reads (the process's own by default)."""
 
@@ -119,12 +126,18 @@ class Loop:
         self.last_error: str | None = None  # the ingest job's
         self.ai_error: str | None = None
         self.digest_error: str | None = None
+        self.market_error: str | None = None
 
     def run_once(self, now: datetime) -> None:
         """One pass: each job on its own connection; a failing job is logged and recorded."""
         self.last_error = self._job("ingest", lambda db: ingest.run_due(db, now, self.fetch_fn))
         self.ai_error = self._job("AI", lambda db: ai_run.story_pass(db, now, self.ai))
         self.digest_error = self._job("digest", lambda db: ai_run.digest_pass(db, now, self.ai))
+        self.market_error = self._job("market", lambda db: market.run_due(db, now, self._fetch))
+
+    def _fetch(self, url: str, etag: str | None, modified: str | None) -> fetch.Fetched:
+        chosen = fetch.fetch if self.fetch_fn is None else self.fetch_fn
+        return chosen(url, etag, modified)
 
     def ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status:
         """The AI pass's status now (no model is built and no call made)."""
@@ -256,12 +269,17 @@ def _status(req: _Req) -> _Reply:
         {
             "last_pass_at": store.get_meta(req.db, "last_pass_at"),
             "sources": {"approved": len(approved), "failing": failing},
-            "loop_error": (req.loop.last_error or req.loop.ai_error or req.loop.digest_error)
-            if req.loop
-            else None,
+            "loop_error": _loop_error(req.loop),
             **_ai_status(req, now),
         },
     )
+
+
+def _loop_error(loop: LoopState | None) -> str | None:
+    """The first job of the loop whose last pass failed, as /api/status shows it."""
+    if loop is None:
+        return None
+    return loop.last_error or loop.ai_error or loop.digest_error or loop.market_error
 
 
 def _ai_status(req: _Req, now: datetime) -> dict[str, str | None]:
@@ -284,14 +302,27 @@ def _focus_id(req: _Req, name: str) -> int | None:
     return int(value)
 
 
+def _format(req: _Req) -> int:
+    """The delivered format: 1 when absent (what the current React reader accepts), 1 or 2."""
+    value = req.params.get("format", "1")
+    if value not in ("1", "2"):
+        raise _refuse(400, "format must be 1 or 2")
+    return int(value)
+
+
 def _snapshot(req: _Req) -> _Reply:
     failed = req.loop is not None and req.loop.last_error is not None
-    focus = snapshot.Focus(_focus_id(req, "topic"), _focus_id(req, "thread"))
+    fmt = _format(req)
+    focus = snapshot.Focus(
+        _focus_id(req, "topic"), _focus_id(req, "thread"), _focus_id(req, "issuer")
+    )
     ai = None if req.loop is None else req.loop.shown_ai_status(req.db, datetime.now(UTC))
     state = snapshot.Service(pass_failed=failed, ai=ai)
     # The clock is read inside the snapshot's read transaction: its `asOf` is never earlier than
     # a comment the snapshot holds.
-    built = snapshot.build(req.db, req.user, lambda: datetime.now(UTC), focus=focus, service=state)
+    built = snapshot.build(
+        req.db, req.user, lambda: datetime.now(UTC), focus=focus, service=state, fmt=fmt
+    )
     return _Reply(200, built)
 
 
@@ -309,6 +340,7 @@ _ROUTES: tuple[_Route, ...] = (
     _Route("DELETE", re.compile(f"/api/topics/{_ID}/follow"), _unfollow),
     *api_groups.ROUTES,
     *api_settings.ROUTES,
+    *api_issuers.ROUTES,
 )
 
 
