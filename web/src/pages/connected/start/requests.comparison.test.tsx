@@ -89,7 +89,7 @@ function service() {
       });
     if (input === "/api/submissions/sub-1/summary")
       return reply({
-        ...summaryFor("25", MODULES),
+        ...summaryFor(TEMPLATE.submission_caps_usd.credit_snapshot, MODULES),
         ...(readable ? { reference_portfolio: { ...READ, name: named } } : {}),
       });
     if (input === "/api/submissions/sub-1/submit")
