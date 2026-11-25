@@ -10,7 +10,8 @@ Owner decisions, 2026-11-25:
 - The app is managed on a single machine. Other users only interact with offline pages.
 - Signal, the library and run start are one app in one process. Done: ericmg13/credit-os2#83,
   merged 2026-11-25.
-- Sign-in uses Microsoft Entra ID (OpenID Connect, authorization-code flow with PKCE).
+- Sign-in uses Microsoft Entra ID with OpenID Connect. The authorization-code flow with PKCE is
+  the one described in the note the owner attached.
 - Token checking uses Microsoft's `msal` library, a new pinned dependency.
 - Entra proves who the user is. A passcode the owner sets chooses the profile type at
   registration: Reader, Analyst (Signal's writer) or Admin (Signal's owner). Passcodes are
@@ -32,6 +33,28 @@ Owner decisions, 2026-11-25:
 Until item 7 is done on the work PC, sign-in is proved only against a stand-in identity
 provider and must be labelled with that scope in VERIFICATION.md.
 
+## Signal, after the one-process change
+
+Left by ericmg13/credit-os2#83 (merged 2026-11-25). Rulings recorded the same day:
+`docs/rulings/2026-11-25-signal-fetches-in-app-process.md` and the amendment to
+`docs/rulings/2026-11-25-signal-ai-pass.md`.
+
+| # | Item | Where it can be done | Status |
+|---|---|---|---|
+| 9 | Logging: in the application Signal's log lines have no file and no timestamp. Errors reach only the terminal and information lines are dropped, while its status and refusals say "see the log". Write them to a log a reader can find | This repository | Not started |
+| 10 | Drive hosted Signal in a real browser: feed, groups, threads, digests, settings, issuer pages, the Filings tab, the market card and logos | This repository | Not started |
+| 11 | `tests/test_reporting_currency_proof.py` failed 2 of 5 on main at `51687ad` (reported by the PR 83 session; a browser-marked test CI's fast job does not run). Confirm on current main and fix | This repository | Not checked since |
+| 12 | Independent review of the parts PR 83 listed as unreviewed: the logo service and the React wiring for issuers, filings, the market post and logos | This repository | Not started |
+| 13 | First live fetch by the hosted loop, and the first paid AI pass, each watched | Work PC, owner present | Not started |
+
+Owner actions before Signal's sources and AI are switched on (none is taken by the build):
+
+- Approve feeds from `docs/design/2026-11-25-signal-source-list-draft.md`.
+- Filings: set the SEC contact with `signal filings contact`, then approve each filing source.
+- Market post: confirm ICE's terms for the ICE BofA spread series, then propose and approve it.
+- AI pass: set the cap with `signal ai cap` (at most USD 25 a month) and start the application
+  with `CREDIT_OS_SIGNAL_AI=1`.
+
 ## Open decisions
 
-- Passcode rotation and the limit on wrong attempts (left open by the ruling above).
+- Passcode rotation and the limit on wrong attempts (left open by the passcode ruling).

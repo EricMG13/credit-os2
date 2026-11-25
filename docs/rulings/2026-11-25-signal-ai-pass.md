@@ -64,3 +64,19 @@ Estimate for the owner (not a limit): at the table's rates a batch of 20 stories
 USD 0.005 and a digest issue about USD 0.006, so 100 new stories and 10 digest runs a day come to
 about USD 2.50 a month. These are estimates from list rates; the runtime's reported cost is what
 is counted.
+
+## Amendment, 2026-11-25: Signal is hosted by the application
+
+Since ericmg13/credit-os2#83 there is no separate Signal service: the application's process
+(`python -m react_frontend`) runs Signal's background loop. Where this ruling says "the Signal
+service" or "the service's launching environment", read the application's process and its
+launching environment. The scope, configuration, cap and limits above are unchanged.
+
+One precondition is added. The application's environment already holds the provider key for
+analysis runs, so the hosted loop is given that environment only when it also sets
+`CREDIT_OS_SIGNAL_AI=1`; without it the loop makes no model call, whatever the cap. The owner's
+`signal ai pass` command is unchanged. The switch is the builder's design, recorded here at the
+owner's word: "your recommendation on 2", where item 2 of the list put to the owner included
+that this ruling's wording was out of date. It narrows what may spend and widens nothing. Lines
+written by `signal ai pass` are shown on the page only while the application was started with
+the switch.
