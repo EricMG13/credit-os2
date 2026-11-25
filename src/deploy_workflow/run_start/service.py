@@ -167,8 +167,8 @@ SHOWN_CAP_HEADER = "X-Shown-Cap"  # the cap the page displays, sent with summary
 class _Server(http_base.Server):
     scheduler: Scheduler
 
-    def connection_limits(self) -> tuple[int, int | None]:
-        return MAX_CONNECTIONS, None  # no ceiling per remote address
+    def connection_limits(self) -> int:
+        return MAX_CONNECTIONS
 
 
 class Handler(http_base.Handler):

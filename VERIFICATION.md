@@ -4,6 +4,15 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-25 — HTTP base: parameters no service sets are deleted (branch `claude/zealous-wright-h66pam`, on PR 83's head `5f2927a`)
+
+Scope: `src/deploy_workflow/http_base.py`, the one override in `run_start/service.py`, `tests/test_http_base.py`. Deletion only; no provider, handoff, module or page change; no model call.
+- Checked first: a search of every `.py` outside `.venv` found no user of the per-address limit, the connection deadline, `response_headers` or a `read_body` override outside the base and its toy `strict` test service. On `main` Signal's standalone server still sets all four, so this change is valid only on top of PR 83.
+- Deleted: the per-address half of `connection_limits` (now an `int`) and its bookkeeping; the deadline timer with `setup`, `_expire` and `finish`; `response_headers` and its loop; `read_body`, folded into `sized_body`. With them the toy `strict` service, its three tests, and the comparisons and pins that named these parameters. Every other assertion is as it was.
+- Tests (loopback sockets only): `tests/test_http_base.py`, `test_run_start_service.py`, `test_react_frontend_signal.py`, `test_react_frontend.py`: 340 passed. Quality gate with `--base 5f2927a`: 0 findings; `lint-imports`: 3 contracts kept; strict mypy on the two source files: clean. Commands ran as `uv run --no-config` (the container's uv is not the pinned version).
+- Review: plan critique before the work and one independent review of the diff, by models other than the implementer.
+- Not verified: the full and slow suites; Windows; `confidence-review` was done by hand (the skill, `rewrite-tournament`, `/sweep` and `adversarial-reviewer` are not installed in this cloud session).
+
 ## 2026-11-25 — Signal: issuers, filings, daily market post, source logos; screens to the redesign
 
 Scope: `src/deploy_workflow/signal/` (issuers, filings, market, logos, migration 7) and
