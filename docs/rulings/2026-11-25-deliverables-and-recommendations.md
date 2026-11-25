@@ -107,6 +107,26 @@ description of each item are the coordinating session's.
    a limit breach leaves a 4 or 5 unchanged): "fine". Confirmed.
 6. `PRODUCT.md`: "update it". Its Excel line now matches `AGENTS.md`.
 
+## Four rulings before PR 2 (2026-11-25)
+
+The owner chose each from options the PR 2 coordinating session put; the wording is that
+session's. They close three items of "Left open" below (the band edge, the per-instrument rule,
+and, with the coordinator's ruling that follows, the exception's wording).
+
+1. Band edge: a difference of exactly +40 bp or −40 bp from the bucket median is a 3.
+2. Per-instrument proposal: the 5×5 table on the issuer's Credit Score and that instrument's own
+   Valuation against the index for its type (loan index for a loan, high-yield index for a bond);
+   no limit cap; blank with no Valuation.
+3. Eligibility: by asset type alone. Loans for the CLO and loan index, bonds for the high-yield
+   index; a custom portfolio takes its declared asset type, or both when none is declared.
+4. Limit breach: a limit that applies to the issuer (its sector, its rating bucket, CCC if it is
+   rated CCC) is breached when the file shows zero or negative headroom or a breached status; the
+   price floor when the instrument's price is below it. No position size is assumed.
+
+Coordinator's ruling (not the owner's): the `AGENTS.md` exception is read to cover the Valuation
+score and the limit caps, which are ruled arithmetic of the approved spec (4.4, 4.5) on supplied
+prices and reference files; its wording is left as it is.
+
 ## Amends
 
 - `AGENTS.md`, the Excel bullet: Excel stays an input format for analysis; exactly one generated
