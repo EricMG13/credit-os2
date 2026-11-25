@@ -57,7 +57,7 @@ class Rule:
 EDIT_MINUTES = 15
 QUIET_DAYS = 90
 # Spec 5.7: editing for 15 minutes (marked edited), a removed comment leaves a line, and archiving
-# after 90 quiet days, off by default. The ids are the delivered settings.rules ids.
+# after 90 quiet days, off by default. The ids are those of each delivered settings.groups[].rules.
 RULES: dict[str, Rule] = {
     "comments-edited": Rule(
         f"Comments can be edited for {EDIT_MINUTES} minutes",

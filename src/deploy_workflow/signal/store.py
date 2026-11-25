@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
 import sqlite3
+import string
 import time
 import unicodedata
 from collections.abc import Iterator
@@ -133,7 +136,8 @@ CREATE INDEX IF NOT EXISTS idx_stories_title_key ON stories(title_key);
 # A thread's story_id is NULL for a note thread; topic_id is set when a group topic posted it
 # (created_by is then NULL) and goes back to NULL when that topic is deleted.
 # A group's thread rules: a row per rule the group has set; a rule with no row has its default.
-# A deleted group's id is never given again (AUTOINCREMENT): a page that still names it gets 404.
+# A deleted group's, thread's or comment's id is never given again (AUTOINCREMENT): a page that
+# still names one gets 404, and a stale write never lands on someone else's new thread or comment.
 _MIGRATION_3 = """
 CREATE TABLE groups(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -153,7 +157,7 @@ CREATE TABLE group_topics(
     UNIQUE(group_id, topic_id)
 );
 CREATE TABLE threads(
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     story_id INTEGER REFERENCES stories(id),
     created_at TEXT NOT NULL,
@@ -166,7 +170,7 @@ CREATE TABLE threads(
     UNIQUE(group_id, story_id)
 );
 CREATE TABLE comments(
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     thread_id INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
     parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
     author TEXT NOT NULL,
@@ -338,9 +342,29 @@ CREATE TABLE digest_points(
 ALTER TABLE digests ADD COLUMN run_requested_at TEXT;
 """
 
+# Indexes the reads of a long-running service need on the tables of migrations 1 and 2: a
+# source's last check (``last_check``, the loop's due check every tick), the checks the ingest pass
+# prunes, and a source's recent stories and folded duplicates (``ingest.health``).
+_MIGRATION_6 = """
+CREATE INDEX idx_source_checks_source_at ON source_checks(source_id, at, id);
+CREATE INDEX idx_stories_source_published ON stories(source_id, published_at);
+CREATE INDEX idx_story_duplicates_source_published
+    ON story_duplicates(duplicate_source_id, published_at);
+"""
+
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
-MIGRATIONS = [_MIGRATION_1, _MIGRATION_2, _MIGRATION_3, _MIGRATION_4, _MIGRATION_5]
+MIGRATIONS = [_MIGRATION_1, _MIGRATION_2, _MIGRATION_3, _MIGRATION_4, _MIGRATION_5, _MIGRATION_6]
 _BUSY_SECONDS = 30
+RELEASED = 2  # versions a released build made, before stores recorded their scripts' hash
+
+
+def scripts_hash(version: int) -> str:
+    """The sha256 of the migration scripts that bring a store to `version`, as `meta` records it
+    (``schema_hash``), so a store made by a build whose scripts differ is told from this one's."""
+    digest = hashlib.sha256()
+    for script in MIGRATIONS[:version]:
+        digest.update(hashlib.sha256(script.encode("utf-8")).digest())
+    return digest.hexdigest()
 
 
 def _schema_version(db: sqlite3.Connection) -> int:
@@ -377,6 +401,49 @@ def _apply_migration(db: sqlite3.Connection, version: int) -> None:
             "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)",
             (str(version),),
         )
+        db.execute(
+            "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_hash', ?)",
+            (scripts_hash(version),),
+        )
+
+
+def _made_by(db: sqlite3.Connection) -> tuple[int, str | None]:
+    """The store's schema version and its recorded scripts' hash, read in one statement (another
+    opener may be migrating it meanwhile; each migration records both in one transaction)."""
+    if (
+        db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='meta'").fetchone()
+        is None
+    ):
+        return 0, None
+    rows = db.execute(
+        "SELECT key, value FROM meta WHERE key IN ('schema_version', 'schema_hash')"
+    ).fetchall()
+    held = {str(row["key"]): str(row["value"]) for row in rows}
+    return int(held.get("schema_version", 0)), held.get("schema_hash")
+
+
+def _check_made_here(db: sqlite3.Connection, folder: Path) -> None:
+    """Refuse a store this build's migrations did not make: one of a later version, or one whose
+    recorded scripts' hash is not this build's for its version (an earlier commit of a branch whose
+    unreleased migrations were since amended). A store of a released version records no hash and
+    is accepted: its scripts are unchanged."""
+    version, recorded = _made_by(db)
+    remedy = (
+        f"delete the development store {folder / 'signal.db'} (with its -wal and -shm files)"
+        " or open it with the build that made it"
+    )
+    if version > len(MIGRATIONS):
+        raise StoreError(
+            f"the store is at schema version {version}, later than this build's"
+            f" {len(MIGRATIONS)}: {remedy}"
+        )
+    if recorded is None and version <= RELEASED:
+        return
+    if recorded != scripts_hash(version):
+        raise StoreError(
+            f"the store at schema version {version} was made by another build of Signal whose"
+            f" migrations differ from this one's: {remedy}"
+        )
 
 
 def _migrate(db: sqlite3.Connection) -> None:
@@ -407,7 +474,8 @@ def _enable_wal(db: sqlite3.Connection) -> None:
 
 
 def open_db(root: Path) -> sqlite3.Connection:
-    """Open (creating if needed) `<root>/signal/signal.db` and apply migrations."""
+    """Open (creating if needed) `<root>/signal/signal.db` and apply migrations; StoreError for a
+    store this build's migrations did not make (``_check_made_here``)."""
     folder = root / "signal"
     folder.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(folder / "signal.db", timeout=_BUSY_SECONDS)
@@ -415,6 +483,7 @@ def open_db(root: Path) -> sqlite3.Connection:
         db.row_factory = sqlite3.Row
         _enable_wal(db)
         db.execute("PRAGMA foreign_keys=ON")
+        _check_made_here(db, folder)
         _migrate(db)
     except BaseException:
         db.close()
@@ -482,14 +551,34 @@ def role_of(db: sqlite3.Connection, name: str) -> str:
 MAX_SOURCE_NAME = 80
 MAX_URL = 512
 MAX_PENDING = 5  # proposals one user may have waiting for the owner at a time
+MAX_ALL_PENDING = 200  # proposals waiting for the owner in all, whoever made them
 _DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+_ESCAPE = re.compile(r"%([0-9A-Fa-f]{2})")
+_UNRESERVED = frozenset(string.ascii_letters + string.digits + "-._~")
+
+
+def _escapes(text: str) -> str:
+    """Percent-escapes in one spelling (RFC 3986 6.2.2): an unreserved character's decoded
+    ("%7E" is "~"), any other's hex in upper case ("%2f" is "%2F"). Text with a "%" that starts no
+    escape is left as it is: decoding next to it could make a new escape of other characters."""
+    if "%" in _ESCAPE.sub("", text):
+        return text
+
+    def one(found: re.Match[str]) -> str:
+        char = chr(int(found.group(1), 16))
+        return char if char in _UNRESERVED else "%" + found.group(1).upper()
+
+    return _ESCAPE.sub(one, text)
 
 
 def canonical_url(url: str) -> str:
     """A feed address in one spelling, so two spellings of one address are one source: the scheme
     and host in lower case, the scheme's default port and the fragment dropped, an empty path "/"
-    and an empty query dropped. Text that is not an http or https address with a host is returned
-    trimmed and otherwise as it is (the feed rules refuse it elsewhere)."""
+    and an empty query dropped, and the percent-escapes of the path and query in one spelling
+    (``_escapes``). Text that is not an http or https address with a host is returned trimmed and
+    otherwise as it is (the feed rules refuse it elsewhere)."""
     text = url.strip()
     if any(ch.isspace() for ch in text):  # never an address; left alone so the form is stable
         return text
@@ -504,7 +593,7 @@ def canonical_url(url: str) -> str:
     scheme = parts.scheme.lower()
     shown = f"[{host}]" if ":" in host else host
     netloc = shown if port in (None, _DEFAULT_PORTS[scheme]) else f"{shown}:{port}"
-    return urlunsplit((scheme, netloc, parts.path or "/", parts.query, ""))
+    return urlunsplit((scheme, netloc, _escapes(parts.path) or "/", _escapes(parts.query), ""))
 
 
 def propose_source(db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str) -> int:
@@ -515,8 +604,8 @@ def propose_source_limited(
     db: sqlite3.Connection, name: str, kind: str, url: str, proposed_by: str
 ) -> int:
     """`propose_source` for a user of the service: Conflict when `proposed_by` already has
-    `MAX_PENDING` proposals waiting for the owner. The count and the insert share one write
-    transaction."""
+    `MAX_PENDING` proposals waiting for the owner, or `MAX_ALL_PENDING` wait in all. The counts and
+    the insert share one write transaction."""
     return _propose(db, (name, kind, url, proposed_by), MAX_PENDING)
 
 
@@ -535,6 +624,13 @@ def _propose(
     with _write_transaction(db):
         if max_pending is not None and _pending(db, proposed_by) >= max_pending:
             raise Conflict(f"you already have {max_pending} proposals waiting for the owner")
+        if max_pending is not None and _pending(db, None) >= MAX_ALL_PENDING:
+            raise Conflict(
+                f"{MAX_ALL_PENDING} proposed sources are waiting for the owner, the most Signal"
+                " holds; propose this one once the owner has reviewed them"
+            )
+        if _spelled_otherwise(db, url):
+            raise Conflict(f"source url {url!r} already exists")
         try:
             cur = db.execute(
                 "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
@@ -547,9 +643,18 @@ def _propose(
     return cur.lastrowid
 
 
-def _pending(db: sqlite3.Connection, user_name: str) -> int:
+def _spelled_otherwise(db: sqlite3.Connection, url: str) -> bool:
+    """Whether a stored source is this address in another spelling: one stored before its
+    canonical form was (or a later rule of it), compared by its canonical form now. Sources are
+    few (the owner approves each), so every stored address is read."""
+    return any(canonical_url(row["url"]) == url for row in db.execute("SELECT url FROM sources"))
+
+
+def _pending(db: sqlite3.Connection, user_name: str | None) -> int:
+    """Proposals waiting for the owner: `user_name`'s, or everyone's (None)."""
     row = db.execute(
-        "SELECT COUNT(*) FROM sources WHERE state='proposed' AND proposed_by=?", (user_name,)
+        "SELECT COUNT(*) FROM sources WHERE state='proposed' AND (? IS NULL OR proposed_by=?)",
+        (user_name, user_name),
     ).fetchone()
     return int(row[0])
 
@@ -608,6 +713,25 @@ def last_check(db: sqlite3.Connection, source_id: int) -> sqlite3.Row | None:
         (source_id,),
     ).fetchone()
     return row
+
+
+def prune_checks(db: sqlite3.Connection, before: datetime, limit: int) -> int:
+    """Delete at most `limit` checks made before `before`, never a source's last check; returns
+    how many went. One write transaction; each source is read through its own index range."""
+    stamp = _utc_text(before)
+    gone = 0
+    with _write_transaction(db):
+        for row in db.execute("SELECT id FROM sources ORDER BY id").fetchall():
+            last = last_check(db, row["id"])
+            if last is None or gone >= limit:
+                continue
+            cur = db.execute(
+                "DELETE FROM source_checks WHERE id IN (SELECT id FROM source_checks"
+                " WHERE source_id = ? AND at < ? AND id != ? ORDER BY at, id LIMIT ?)",
+                (row["id"], stamp, last["id"], limit - gone),
+            )
+            gone += cur.rowcount
+    return gone
 
 
 def _earliest_match(

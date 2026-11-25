@@ -194,3 +194,68 @@ def test_ids_of_thousands_of_digits_raise_view_error(db_feed):
         feed(db_feed, "ak", "topic:" + "9" * 5000)
     with pytest.raises(ViewError):
         feed(db_feed, "ak", "latest", before="2026-11-13T09:00:00+00:00|" + "9" * 5000)
+
+
+def _stale_store(root: Path, stories: int, members: list[int]) -> object:
+    """`stories` stories, story n published n minutes after the first; topic 1 holds `members`;
+    "ak" saves the same stories and follows topic 1."""
+    db = open_db(root)
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('W', 'news', 'https://w.example/f', 'approved', 'x', 'x')"
+        )
+        db.executemany(
+            "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(1, 'S', ?, ?, 't', ?, 'x', '')",
+            [
+                (f"https://w.example/{n}", f"k{n}", (base + timedelta(minutes=n)).isoformat())
+                for n in range(1, stories + 1)
+            ],
+        )
+        db.execute("INSERT INTO topics VALUES(1, 'Old news', '[]', '[]', 'x', 'x')")
+        db.executemany("INSERT INTO topic_stories VALUES(1, ?)", [(n,) for n in members])
+        db.executemany("INSERT INTO saves VALUES('ak', ?, 'x')", [(n,) for n in members])
+        db.execute("INSERT INTO topic_follows VALUES('ak', 1)")
+    return db
+
+
+def test_a_view_of_many_old_members_does_not_walk_the_whole_store(tmp_path):
+    """Review finding N12: 4,000 members, all older than the newest 16,000 stories. The walk is
+    cut off after a bounded number of steps and the members are read instead."""
+    from deploy_workflow.signal import feedview
+
+    db = _stale_store(tmp_path, 20000, list(range(1, 4001)))
+    seen: list[str] = []
+    db.set_trace_callback(seen.append)
+    for view in ("topic:1", "saved", "foryou"):
+        assert feedview.view_ids(db, "ak", view, 30) == list(range(4000, 3970, -1))
+    db.set_trace_callback(None)
+    walks = [sql for sql in seen if "FROM (SELECT * FROM stories ORDER BY" in sql]
+    # Each walk stops after 4 * 30 * 20,000 / 4,000 + 30 = 630 steps, not 16,030.
+    assert len(walks) == 3 and all("LIMIT 630)" in sql for sql in walks)
+    assert sum("CROSS JOIN stories" in sql for sql in seen) == 3
+
+
+@settings(
+    max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
+)
+@given(
+    st.integers(1, 120),
+    st.sets(st.integers(1, 120), max_size=120),
+    st.integers(1, 12),
+)
+def test_every_plan_gives_the_ids_and_order_of_reading_every_story(tmp_path, stories, held, limit):
+    from deploy_workflow.signal import feedview
+
+    members = sorted(n for n in held if n <= stories)
+    root = Path(tempfile.mkdtemp(dir=tmp_path))
+    db = _stale_store(root, stories, members)
+    expected = sorted(members, reverse=True)[:limit]  # story n is the n-th oldest
+    for view in ("topic:1", "saved", "foryou"):
+        assert feedview.view_ids(db, "ak", view, limit) == expected
+    assert feedview.view_ids(db, "ak", "latest", limit) == list(range(stories, 0, -1))[:limit]
+    assert new_count(db, "ak", "saved", 0) == len(members)
+    assert new_count(db, "ak", "topic:1", 10) == len([n for n in members if n > 10])
+    db.close()

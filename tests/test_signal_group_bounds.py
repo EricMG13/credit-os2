@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-from signal_reader_check import react_refusal
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 
 from deploy_workflow.signal import groups, snapshot, threads
 from deploy_workflow.signal.groups import Conflict
@@ -41,9 +41,22 @@ def _bytes(built: dict[str, Any]) -> int:
     return len(json.dumps(built, ensure_ascii=False).encode("utf-8"))
 
 
-def _read(db: sqlite3.Connection, user: User | None, **focus: int) -> dict[str, Any]:
-    """The snapshot, checked under the cap and against the React reader."""
-    built = snapshot.build(db, user, NOW, focus=snapshot.Focus(**focus))
+def _read(
+    db: sqlite3.Connection,
+    user: User | None,
+    *,
+    ai: Any = None,
+    seconds: list[float] | None = None,
+    **focus: int,
+) -> dict[str, Any]:
+    """The snapshot (the AI pass's status `ai`; None: off), checked under the cap and against the
+    React reader. The time the build alone took is appended to `seconds`."""
+    started = time.perf_counter()
+    built = snapshot.build(
+        db, user, NOW, focus=snapshot.Focus(**focus), service=snapshot.Service(ai=ai)
+    )
+    if seconds is not None:
+        seconds.append(time.perf_counter() - started)
     assert _bytes(built) < CAP
     assert react_refusal(built) is None
     snap: dict[str, Any] = built["scenes"][0]["snapshot"]
@@ -237,7 +250,7 @@ def test_the_viewers_own_group_always_delivers_its_newest_five(tmp_path_factory,
                 (desk, stamp, f"Desk note {n + 1}", stamp),
             )
     for g, (count, note, comments, member) in enumerate(others):
-        other = groups.create_group(db, INES, f"Other {g}", "everyone")
+        other = groups.create_group(db, INES, f"A other {g}", "everyone")  # listed first
         if member:
             groups.add_member(db, INES, other, "Tobias O")
         with db:
@@ -303,6 +316,8 @@ def test_a_group_holds_at_most_a_thousand_threads(db):
     with pytest.raises(Conflict) as refused:
         threads.share(db, INES, desk, threads.Item(None, "one more"), NOW)
     assert str(refused.value) == "this group holds 1,000 threads, the most it can hold"
+    page = _read(db, STRANGER)["groups"][0]
+    assert page["more"] == "Showing the latest 30 of 1,000 threads."  # it follows no topic
 
 
 # The worst reachable store
@@ -404,12 +419,27 @@ def worst(tmp_path_factory: pytest.TempPathFactory) -> Any:
     held.close()
 
 
+def _ai_everywhere(db: sqlite3.Connection) -> None:
+    """What the AI pass writes for every story, every field at its longest: a 240-character
+    line of four-byte letters, the three longest tags, a case stage and two rating moves."""
+    from deploy_workflow.signal.ai_tags import TAGS
+
+    tags = json.dumps(sorted(TAGS, key=len)[-3:])
+    moves = json.dumps([{"from": "Developing", "to": "Negative"}, {"from": "CCC+", "to": "CCC-"}])
+    with db:
+        db.execute(
+            "INSERT INTO story_ai(story_id, outcome, why, signal, tags, kind, stage, moves,"
+            " config_id, written_at, month) SELECT id, 'written', ?, 3, ?, 'regulatory case',"
+            " 'in-depth review', ?, 'copilot-luna-xhigh', ?, '2026-11' FROM stories",
+            (LETTER * 240, tags, moves, NOW.isoformat()),
+        )
+
+
 def test_the_worst_reachable_store_stays_under_the_cap_for_every_viewer(worst):
     db, (newest, full) = worst
-    started = time.perf_counter()
-    snap = _read(db, MARA)
-    elapsed = time.perf_counter() - started
-    assert elapsed < 2
+    seconds: list[float] = []
+    snap = _read(db, MARA, seconds=seconds)
+    assert seconds[0] < 2  # the build alone
     views = snap["feed"]["views"]
     assert len(views["saved"]["latest"]) > 0
     first = snap["threads"][0]
@@ -422,6 +452,29 @@ def test_the_worst_reachable_store_stays_under_the_cap_for_every_viewer(worst):
     (whole,) = [t for t in opened["threads"] if t["id"] == str(full)]
     assert whole["subline"].endswith(", 500 comments, the latest shown")
     assert whole["comments"]
+    # Every group shows at least its newest thread, however full the others are.
+    assert all(page["threads"] for page in snap["groups"])
+    assert all(page["more"] for page in snap["groups"])  # 30 delivered at most of 30 held
+
+
+def test_the_worst_store_stays_under_the_cap_with_the_ai_pass_on(tmp_path):
+    from signal_ai_fakes import status_on
+
+    db = open_db(tmp_path)
+    with db:
+        spare = _seed_stories(db)
+        _seed_groups(db, spare)
+    _ai_everywhere(db)
+    on = status_on()
+    seconds: list[float] = []
+    snap = _read(db, MARA, ai=on, seconds=seconds)
+    assert seconds[0] < 2
+    assert snap["feed"]["stories"][0]["ai"] == {"line": LETTER * 240}
+    assert all(page["threads"] for page in snap["groups"])
+    for viewer in (STRANGER, INES, None):
+        _read(db, viewer, ai=on)
+    _read(db, MARA, ai=on, topic=7, thread=3000)
+    db.close()
 
 
 # Time
@@ -451,9 +504,9 @@ def _busy_store(db: sqlite3.Connection) -> None:
 def test_a_store_of_thirty_thousand_comments_builds_fast(db):
     _busy_store(db)
     for viewer, focus in ((MARA, {}), (STRANGER, {}), (MARA, {"thread": 60})):
-        started = time.perf_counter()
-        _read(db, viewer, **focus)
-        assert time.perf_counter() - started < 2
+        seconds: list[float] = []
+        _read(db, viewer, seconds=seconds, **focus)
+        assert seconds[0] < 2  # the build alone
 
 
 def test_no_snapshot_read_scans_the_comments_or_their_reactions(db):
@@ -548,3 +601,226 @@ def test_a_sparse_view_reads_its_members_and_a_dense_one_walks_the_stories(db):
     db.set_trace_callback(None)
     assert any("CROSS JOIN stories" in sql for sql in sparse)
     assert not any("CROSS JOIN stories" in sql for sql in dense)
+
+
+def test_the_group_part_counts_every_byte_it_delivers_its_story_cards_included(db):
+    """What the group part says it spent is at least what it delivers: its records and the story
+    card of every story its threads name (the stories that are then left for the feed)."""
+    from deploy_workflow.signal import group_view
+
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('Wire', 'news', 'https://w.example/f', 'approved', 'Mara L', ?)",
+            (_stamp(days=1),),
+        )
+        db.executemany(
+            "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(1, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    _long(f"{n}", 1000),
+                    f"https://w.example/{n}",
+                    f"k{n}",
+                    f"t{n}",
+                    _stamp(minutes=n),
+                    _stamp(minutes=n),
+                    _long("", 300),
+                )
+                for n in range(4)
+            ],
+        )
+    desk = groups.create_group(db, MARA, "Desk", "everyone")
+    for story in (1, 2, 3):
+        threads.share(db, INES, desk, threads.Item(story), NOW)
+    cards = snapshot._Cards(db, STRANGER, NOW)
+    parts = group_view.build(db, STRANGER, NOW, story_cost=cards.cost)
+    named = group_view.story_ids(parts)
+    assert named == [1, 2, 3]
+    delivered = sum(
+        group_view.encoded_size(part)
+        for part in (parts.groups, parts.threads, parts.channels, parts.settings_groups)
+    )
+    story_bytes = sum(group_view.encoded_size(cards.story(n, {})) for n in named)
+    assert story_bytes > 3 * 3000  # each card: a headline of 500 letters, a summary of 300
+    assert parts.spent >= delivered + story_bytes
+    # The focused thread's bytes count too.
+    with db:
+        db.executemany(
+            "INSERT INTO comments(thread_id, author, body, created_at) VALUES(1, 'Ines K', ?, ?)",
+            [(LONGEST, _stamp())] * 10,
+        )
+    focused = group_view.build(db, STRANGER, NOW, focus=1, story_cost=cards.cost)
+    (one,) = [t for t in focused.threads if t["id"] == "1"]
+    assert len(one["comments"]) == 10
+    assert focused.spent >= group_view.encoded_size(one) > 10 * 16000
+
+
+def test_a_group_whose_next_thread_does_not_fit_shows_no_later_one(db, monkeypatch):
+    """A group page shows its latest threads: when one does not fit, none after it is shown in
+    its place (the page says how many it shows)."""
+    from deploy_workflow.signal import group_view
+
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('Wire', 'news', 'https://w.example/f', 'approved', 'Mara L', ?)",
+            (_stamp(days=1),),
+        )
+        db.execute(
+            "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(1, ?, 'https://w.example/1', 'k', 't', ?, ?, ?)",
+            (_long("T", 1000), _stamp(days=1), _stamp(days=1), _long("", 300)),
+        )
+    desk = groups.create_group(db, MARA, "Desk", "everyone")
+    threads.share(db, INES, desk, threads.Item(None, "Oldest, small"), NOW - timedelta(hours=3))
+    threads.share(db, INES, desk, threads.Item(1), NOW - timedelta(hours=2))  # a big story card
+    threads.share(db, INES, desk, threads.Item(None, "Newest, small"), NOW - timedelta(hours=1))
+    pages = group_view.build(db, STRANGER, NOW).settings_groups
+    (row,) = group_view._ordered(db, [desk])
+    fixed = group_view.encoded_size(pages) + group_view._page_cost(group_view._page(db, row))
+    monkeypatch.setattr(group_view, "GROUP_BUDGET", fixed + 2000)  # two small notes, no card
+    monkeypatch.setattr(group_view, "SUMMARY_BUDGET", 0)
+    page = _read(db, STRANGER)["groups"][0]
+    assert [t["note"] for t in page["threads"]] == ["Newest, small"]
+    assert page["more"] == "Showing the latest 1 of 3 threads."
+
+
+def _notes(db: sqlite3.Connection, group: int, count: int, *, comments: int = 0) -> None:
+    """`count` note threads at the note limit in `group`, newest last inserted, each with
+    `comments` comments at their limit."""
+    with db:
+        for n in range(count):
+            stamp = _stamp(minutes=count - n)
+            made = db.execute(
+                "INSERT INTO threads(group_id, created_at, created_by, note, last_activity_at)"
+                " VALUES(?, ?, 'Ines K', ?, ?)",
+                (group, stamp, LONGEST, stamp),
+            ).lastrowid
+            db.executemany(
+                "INSERT INTO comments(thread_id, author, body, created_at)"
+                " VALUES(?, 'Ines K', ?, ?)",
+                [(made, LONGEST, stamp)] * comments,
+            )
+
+
+def test_comments_go_round_the_groups_so_each_gets_its_share(db):
+    """Two open groups of equal threads, more than the budget holds with their comments: the
+    threads delivered whole alternate between them (round-robin), so neither takes the other's."""
+    for name in ("Alpha", "Beta"):
+        _notes(db, groups.create_group(db, MARA, name, "everyone"), 30)
+    snap = _read(db, STRANGER)
+    whole = {
+        page["name"]: sum(t["note"] == LONGEST for t in page["threads"]) for page in snap["groups"]
+    }
+    assert 5 < whole["Alpha"] < 30 and abs(whole["Alpha"] - whole["Beta"]) <= 1
+
+
+def test_a_members_heavy_threads_cannot_starve_another_groups_floor(db, monkeypatch):
+    """The floor (each group's newest five, as summaries) is paid before anything else: a group
+    the viewer belongs to, full of heavy threads, cannot take another group's floor."""
+    from deploy_workflow.signal import group_view
+
+    mine = groups.create_group(db, MARA, "Mine", "invited")
+    groups.add_member(db, MARA, mine, "Somebody Else")
+    _notes(db, mine, 30)
+    _notes(db, groups.create_group(db, MARA, "Theirs", "everyone"), 10)
+    pages = group_view.build(db, STRANGER, NOW).settings_groups
+    fixed = group_view.encoded_size(pages) + sum(
+        group_view._page_cost(group_view._page(db, row)) for row in group_view._ordered(db, [1, 2])
+    )
+    monkeypatch.setattr(group_view, "GROUP_BUDGET", fixed + 40_000)  # the floor and a little more
+    monkeypatch.setattr(group_view, "SUMMARY_BUDGET", 0)
+    snap = _read(db, STRANGER)
+    assert [len(_page(snap, name)["threads"]) for name in ("Mine", "Theirs")][1] == 5
+
+
+def test_a_members_desk_gets_its_comments_before_heavier_groups_that_sort_first(db):
+    desk = _desk(db)
+    for g in range(2):  # 70 requests: open groups named to sort before the desk, heavy threads
+        _notes(db, groups.create_group(db, INES, f"A junk {g}", "everyone"), 5, comments=6)
+    held = _desk_threads(_read(db, TOBIAS), desk)
+    assert [len(t["comments"]) for t in held] == [1, 1, 1, 1, 1]
+
+
+def test_past_the_group_budget_summaries_are_paid_from_their_own_128_kib(db, monkeypatch):
+    from deploy_workflow.signal import group_view
+
+    monkeypatch.setattr(group_view, "GROUP_BUDGET", 0)  # nothing left once the pages are paid
+    for g in range(20):
+        _notes(db, groups.create_group(db, MARA, f"Group {g:02d}", "everyone"), 30)
+    snap = _read(db, STRANGER)
+    spent = sum(
+        group_view.encoded_size(item) for page in snap["groups"] for item in page["threads"]
+    ) + group_view.encoded_size(snap["threads"])
+    assert 120 << 10 < spent <= 128 << 10
+
+
+def test_the_stories_take_only_what_the_rest_of_the_snapshot_leaves(sample_like, monkeypatch):
+    """With room for everything but the stories' share of SNAPSHOT_BUDGET, the stories delivered
+    take at most what the rest of the snapshot (channels, settings, digests, groups) leaves."""
+    db = sample_like
+    rest_built = snapshot.build(db, MARA, NOW)["scenes"][0]["snapshot"]
+    rest = sum(
+        group_view_size(part)
+        for part in (rest_built["channels"], rest_built["settings"], rest_built["digests"])
+    )
+    monkeypatch.setattr(snapshot, "STORY_AND_GROUP_BUDGET", 64 << 20)
+    monkeypatch.setattr(snapshot, "SNAPSHOT_BUDGET", rest + 3000)
+    got = _read(db, MARA)
+    stories = sum(group_view_size(story) + 1 for story in got["feed"]["stories"])
+    every = sum(group_view_size(story) + 1 for story in rest_built["feed"]["stories"])
+    # 3,000 bytes, give or take how the rest is counted (its groups are counted with them).
+    assert every > 12_000 and 0 < stories < 6_000
+
+
+def group_view_size(value: object) -> int:
+    return len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+
+
+@pytest.fixture
+def sample_like(db: sqlite3.Connection) -> Any:
+    """One source with 40 stories of ordinary length, a topic Mara L follows over them."""
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('Wire', 'news', 'https://w.example/f', 'approved', 'Mara L', ?)",
+            (_stamp(days=1),),
+        )
+        db.executemany(
+            "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(1, ?, ?, ?, ?, ?, ?, 'A summary of the story.')",
+            [
+                (
+                    f"Story {n} about a bank",
+                    f"https://w.example/{n}",
+                    f"k{n}",
+                    f"t{n}",
+                    _stamp(minutes=n),
+                    _stamp(minutes=n),
+                )
+                for n in range(40)
+            ],
+        )
+        db.execute("INSERT INTO topics VALUES(1, 'Banks', '[\"bank\"]', '[]', 'Mara L', 'x')")
+        db.execute("INSERT INTO topic_stories SELECT 1, id FROM stories")
+        db.execute("INSERT INTO topic_follows VALUES('Mara L', 1)")
+    return db
+
+
+def test_a_thread_whose_comments_cannot_fit_is_not_drawn_to_find_out(db):
+    """Drawing a thread's comments is the costly part of a snapshot: one whose stored comments
+    alone are more than the budget left is offered its summary without reading them."""
+    desk = groups.create_group(db, MARA, "Desk", "everyone")
+    fat, _ = threads.share(db, INES, desk, threads.Item(None, "x"), NOW)
+    with db:
+        db.executemany(
+            "INSERT INTO comments(thread_id, author, body, created_at) VALUES(?, 'Ines K', ?, ?)",
+            [(fat, LONGEST, _stamp())] * 80,  # 1.3 MB of text
+        )
+    statements: list[str] = []
+    db.set_trace_callback(statements.append)
+    snapshot.build(db, STRANGER, NOW)
+    db.set_trace_callback(None)
+    tops = f"SELECT * FROM comments WHERE thread_id={fat} AND parent_id IS NULL"
+    assert not [sql for sql in statements if sql.startswith(tops)]

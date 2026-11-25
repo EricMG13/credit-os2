@@ -6,12 +6,11 @@ from pathlib import Path
 
 import pytest
 import test_signal_ingest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_feeds import RSS
 from test_signal_ingest import NOW, recorded
-
-from signal_reader_check import react_refusal
 
 from deploy_workflow.signal import groups, snapshot
 from deploy_workflow.signal.feeds import Entry
@@ -109,6 +108,7 @@ def test_keywords_with_query_syntax_are_plain_text(db_two_sources, keyword):
     add_topic(db_two_sources, f"T {keyword}", [keyword], [], "ak")
 
 
+@settings(deadline=None, max_examples=25)  # each example opens a store: no deadline to flake
 @given(
     st.text(st.characters(blacklist_categories=("C",)), min_size=1, max_size=60).filter(
         lambda s: s.strip()

@@ -76,6 +76,10 @@ def test_the_pass_is_on_exactly_when_all_four_preconditions_hold(tmp_path, db, h
     assert all(KEY_VALUE not in sentence for sentence in gate.missing)
 
 
+ABOVE = (
+    "The owner's monthly cap of USD 15.01 is above the ruled cap of USD 15; the owner sets one"
+    " no higher (signal ai cap)."
+)
 NO_RULED_CAP = (
     "The ruling 2026-11-25-signal-ai-pass.md is not accepted: it needs exactly one cap_usd: line"
     " holding the ruled monthly cap in USD, such as cap_usd: 15."
@@ -87,10 +91,7 @@ NO_RULED_CAP = (
     [
         ("15", "15", ()),  # equal
         ("15.00", "12.50", ()),  # below
-        ("15", "15.01", (
-            "The owner's monthly cap of USD 15.01 is above the ruled cap of USD 15; the owner"
-            " sets one no higher (signal ai cap).",
-        )),  # above
+        ("15", "15.01", (ABOVE,)),  # above
         (None, "15", (NO_RULED_CAP,)),  # missing
         ("", "15", (NO_RULED_CAP,)),  # blank, as the draft leaves it
         ("____", "15", (NO_RULED_CAP,)),

@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 from signal_ai_fakes import CONFIG, FakeModel, ok, status_on
-from signal_reader_check import react_refusal
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 
 from deploy_workflow.signal import (
     ai_digest,

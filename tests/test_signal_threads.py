@@ -331,7 +331,8 @@ def test_a_writes_clock_is_read_once_it_holds_the_write_lock(db):
     )
     threads.remove(db, MARA, 3, clock(NOW + timedelta(seconds=15)))
     threads.share(db, INES, 1, threads.Item(None, "Note"), clock(NOW + timedelta(seconds=16)))
-    assert seen == [True] * 7
+    threads.share(db, INES, 1, threads.Item(2, "A story"), clock(NOW + timedelta(seconds=17)))
+    assert seen == [True] * 8
     assert rows(db, "SELECT created_at FROM comments WHERE id=?", made) == [
         ("2026-11-24T12:00:11+00:00",)
     ]
@@ -395,6 +396,28 @@ def test_the_owner_removes_a_thread_or_any_comment(db):
         threads.remove_thread(db, thread)
 
 
+def test_a_read_mark_is_never_later_than_now_whatever_seen_says(db):
+    from deploy_workflow.signal import group_view
+
+    thread, _ = threads.share(db, MARA, 1, threads.Item(None, "Note"), NOW)
+    threads.mark_read(db, TOBIAS, thread, NOW, seen=NOW + timedelta(days=1))
+    assert rows(db, "SELECT read_at FROM read_marks WHERE user_name='Tobias O'") == [
+        ("2026-11-24T12:00:00+00:00",)
+    ]
+    threads.comment(db, MARA, thread, "Later", NOW + timedelta(hours=1))
+    assert group_view._unread(db, thread, "Tobias O")
+
+
+def test_moderating_a_comment_its_author_removed_keeps_when_it_was_removed(db):
+    thread, _ = threads.share(db, MARA, 1, threads.Item(None, "Mine."), NOW)
+    line = threads.comment(db, MARA, thread, "Oops", NOW)
+    threads.remove(db, MARA, line, NOW + timedelta(minutes=1))
+    threads.moderate_comment(db, line, NOW + timedelta(hours=3))
+    assert rows(db, "SELECT body, removed_at FROM comments WHERE id=?", line) == [
+        ("", "2026-11-24T12:01:00+00:00")
+    ]
+
+
 def test_a_topic_story_is_not_posted_into_a_group_at_its_thread_bound(db, monkeypatch):
     monkeypatch.setattr(groups, "MAX_THREADS", 1)
     topic = add_topic(db, "Plants", ["plants"], [], "Mara L")
@@ -405,6 +428,23 @@ def test_a_topic_story_is_not_posted_into_a_group_at_its_thread_bound(db, monkey
     add_story(db, source, Entry("Corvane plants again", "https://w.example/3", NOW, ""), NOW)
     match_story(db, 3)
     assert rows(db, "SELECT group_id, story_id FROM threads ORDER BY id") == [(2, None), (1, 3)]
+
+
+def test_a_removed_threads_and_comments_ids_are_never_given_again(db):
+    """Review finding N3: after the owner removes the newest thread, a new thread in an invited
+    group got the removed thread's id, and a stale comment or reaction from a page that still
+    showed the removed one landed on it."""
+    spam, _ = threads.share(db, INES, 1, threads.Item(None, "Spam the owner will remove."), NOW)
+    line = threads.comment(db, INES, spam, "spam comment", NOW)
+    assert threads.remove_thread(db, spam) == 1
+    secret, _ = threads.share(db, INES, 2, threads.Item(None, "Confidential."), NOW)
+    mine = threads.comment(db, INES, secret, "Board only.", NOW)
+    assert (secret, mine) == (spam + 1, line + 1)
+    with pytest.raises(NotFound, match=f"no thread with id {spam}"):
+        threads.comment(db, INES, spam, "a stale draft", NOW)
+    with pytest.raises(NotFound, match=f"no comment with id {line}"):
+        threads.react(db, INES, threads.Reaction(line, "Disagree", True), NOW)
+    assert comments(db) == [(mine, secret, None, "Ines K", "Board only.")]
 
 
 def _topic_stories(db: sqlite3.Connection, count: int) -> list[int]:
@@ -477,8 +517,10 @@ def test_a_full_group_with_no_quiet_topic_post_takes_no_story_and_says_so(db, mo
 def test_the_owner_prunes_a_groups_old_topic_posts_that_hold_no_comment(db):
     groups.set_topics(db, MARA, 1, [add_topic(db, "Plants", ["plants"], [], "Mara L")])
     old, kept, recent = _topic_stories(db, 3)
-    db.execute("UPDATE threads SET last_activity_at=? WHERE story_id IN (?, ?)", (
-        (NOW - timedelta(days=40)).isoformat(), old, kept))
+    db.execute(
+        "UPDATE threads SET last_activity_at=? WHERE story_id IN (?, ?)",
+        ((NOW - timedelta(days=40)).isoformat(), old, kept),
+    )
     db.commit()
     talked = int(rows(db, "SELECT id FROM threads WHERE story_id=?", kept)[0][0])
     threads.comment(db, MARA, talked, "Still relevant.", NOW)

@@ -294,6 +294,8 @@ def test_name_round_trip_and_writes_reach_the_real_service(
             "last_pass_at": None,
             "sources": {"approved": 1, "failing": 0},
             "loop_error": None,
+            "ai_state": "off",  # no background loop: the AI pass is off
+            "ai_last_problem": None,
         }
 
 

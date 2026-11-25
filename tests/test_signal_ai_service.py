@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from signal_ai_fakes import FakeModel, environ, label, labels_reply, ok, setup, write_ruling
-from signal_reader_check import react_refusal
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_feeds import RSS
 from test_signal_service import Live
 

@@ -36,7 +36,7 @@ import sqlite3
 import unicodedata
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from deploy_workflow.signal import groups
 from deploy_workflow.signal.groups import Conflict, Forbidden, GroupError, NotFound
@@ -400,12 +400,36 @@ def react(db: sqlite3.Connection, actor: User, reaction: Reaction, at: Moment) -
             db.execute("DELETE FROM reactions WHERE comment_id=? AND user_name=? AND word=?", key)
 
 
-def mark_read(db: sqlite3.Connection, user: User, thread_id: int, at: Moment) -> None:
-    """Anyone who sees the thread, readers included, marks it read up to `at`."""
+def mark_read(
+    db: sqlite3.Connection,
+    user: User,
+    thread_id: int,
+    at: Moment,
+    *,
+    seen: datetime | None = None,
+) -> None:
+    """Anyone who sees the thread, readers included, marks it read up to `at`, or up to `seen`
+    (the time of the snapshot the page showed) when that is earlier: a comment that arrived after
+    the page was drawn stays unread. A mark never moves back."""
     with _write_transaction(db):
         when = _when(at)
+        if seen is not None:
+            when = min(when, seen)
         thread_row(db, user.name, thread_id)
         _mark_read(db, user.name, thread_id, when)
+
+
+def seen_time(raw: object) -> datetime | None:
+    """The `seen` of a read mark: absent, or the snapshot's `asOf` (a zoned ISO 8601 time)."""
+    if raw is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw) if isinstance(raw, str) and len(raw) <= 64 else None
+        if parsed is not None and parsed.utcoffset() is not None:
+            return parsed.astimezone(UTC)
+    except (ValueError, OverflowError):  # not a time, or one outside the UTC range
+        pass
+    raise GroupError("seen must be the asOf time of the snapshot the page showed")
 
 
 def post_topic_story(db: sqlite3.Connection, story_id: int, topic_ids: Sequence[int]) -> None:

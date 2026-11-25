@@ -114,6 +114,19 @@ def _title(digest: digests.Digest, issue: digests.Issue) -> str:
     return f"{digest.spec.name}: {phrase}"
 
 
+def _titles(digest: digests.Digest, issues: list[digests.Issue]) -> dict[int, str]:
+    """Each issue's title (``_title``), by id. An issue whose title an earlier issue of the
+    digest already has (two runs on one day) adds the UTC time its period ends: "Credit desk:
+    20 November, 14:05 UTC"."""
+    titles: dict[int, str] = {}
+    for issue in sorted(issues, key=lambda one: (one.created_at, one.id)):
+        title = _title(digest, issue)
+        if title in titles.values():
+            title = f"{title}, {utc(issue.period_end):%H:%M} UTC"
+        titles[issue.id] = title
+    return titles
+
+
 def _days(start: datetime, end: datetime) -> str:
     """The UTC days from `start` to `end`: "24 November", "9 to 13 November", "30 November to
     2 December", or with the years when they differ."""
@@ -158,6 +171,7 @@ class Drawing:
     now: datetime
     full: bool = False
     written: dict[int, Written] = field(default_factory=dict)
+    titles: dict[int, str] = field(default_factory=dict)  # by issue id (``_titles``)
 
 
 def _nothing_issue(issue: digests.Issue, drawing: Drawing) -> Json:
@@ -330,7 +344,7 @@ def _digest_form(db: sqlite3.Connection, digest: digests.Digest) -> Json:
 def _issue(digest: digests.Digest, issue: digests.Issue, drawing: Drawing, *, newest: bool) -> Json:
     return {
         "id": str(issue.id),
-        "title": _title(digest, issue),
+        "title": drawing.titles[issue.id],
         "date": _short_day(issue.created_at, drawing.now, year=newest),
         **_drawn(issue, 0, drawing),
     }
@@ -343,7 +357,7 @@ def _card(digest: digests.Digest, issue: digests.Issue, drawing: Drawing) -> Jso
         "issueId": str(issue.id),
         "digestName": digest.spec.name,
         "monogram": monogram(digest.spec.name),
-        "title": _title(digest, issue),
+        "title": drawing.titles[issue.id],
         "date": _short_day(issue.created_at, drawing.now),
         "unread": not issue.read,
         **_drawn(issue, 1, drawing),
@@ -362,7 +376,7 @@ def _record(
         _issue(
             digest,
             one,
-            Drawing(drawing.now, index == 0 and not paused, drawing.written),
+            Drawing(drawing.now, index == 0 and not paused, drawing.written, drawing.titles),
             newest=index == 0,
         )
         for index, one in enumerate(issues)
@@ -467,7 +481,8 @@ def build(db: sqlite3.Connection, user: User | None, now: datetime, *, ai_on: bo
         written = _written(db, digest, stored, now)
         issues = _drawable(stored, written)
         left_out += len(stored) - len(issues)
-        drawing = Drawing(now, False, written)
+        kept = digests.recent_issues(db, digest.id, digests.KEEP_ISSUES)
+        drawing = Drawing(now, False, written, _titles(digest, kept))
         built.records.append(_record(db, digest, issues, drawing, paused))
         unread = any(not one.read for one in issues)
         built.channel.append(

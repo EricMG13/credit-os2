@@ -225,10 +225,12 @@ def list_topics(db: sqlite3.Connection, user_name: str) -> list[sqlite3.Row]:
 
 
 def counts_since(db: sqlite3.Connection, since: datetime) -> dict[int, int]:
-    """Stories published after `since`, per topic id; a topic with none is left out."""
+    """Stories published after `since`, per topic id; a topic with none is left out. The recent
+    stories are read first (their published-time index), then their topics."""
     rows = db.execute(
-        "SELECT ts.topic_id, COUNT(*) AS n FROM topic_stories ts"
-        " JOIN stories s ON s.id = ts.story_id WHERE s.published_at > ? GROUP BY ts.topic_id",
+        "SELECT ts.topic_id, COUNT(*) AS n FROM stories s"
+        " CROSS JOIN topic_stories ts ON ts.story_id = s.id"
+        " WHERE s.published_at > ? GROUP BY ts.topic_id",
         (_utc_text(since),),
     ).fetchall()
     return {int(row["topic_id"]): int(row["n"]) for row in rows}

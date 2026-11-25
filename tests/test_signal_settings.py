@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from signal_reader_check import react_refusal
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_service import Live
 
 from deploy_workflow.signal import digests, groups, ingest, store, topics
@@ -441,6 +441,28 @@ def test_a_user_has_at_most_five_proposals_waiting_and_an_approval_frees_a_place
     assert rows(root, "SELECT COUNT(*) FROM sources WHERE state='proposed'") == [(6,)]
 
 
+def test_at_most_two_hundred_proposals_wait_in_all(svc, root, monkeypatch):
+    monkeypatch.setattr(store, "MAX_ALL_PENDING", 2)
+    for number, name in enumerate((WRITER, OWNER)):
+        body = {"name": f"S{number}", "kind": "news", "url": f"https://s{number}.example/feed"}
+        assert svc.call("POST", "/api/sources", body=body, cookie=cookie(name))[0] == 200
+    status, _, reply = svc.call(
+        "POST", "/api/sources", body={**SOURCE, "url": "https://x.example/f"}, cookie=cookie(OWNER)
+    )
+    assert (status, reply) == (
+        409,
+        {
+            "error": "2 proposed sources are waiting for the owner, the most Signal holds;"
+            " propose this one once the owner has reviewed them"
+        },
+    )
+    db = store.open_db(root)
+    store.set_source_state(db, 1, "approved")
+    db.close()
+    body = {**SOURCE, "url": "https://x.example/f"}
+    assert svc.call("POST", "/api/sources", body=body, cookie=cookie(OWNER))[0] == 200
+
+
 def test_hostile_text_in_a_proposal_is_stored_and_returned_as_plain_data(svc):
     body = {**SOURCE, "name": "<script>alert(1)</script>"}
     assert svc.call("POST", "/api/sources", body=body, cookie=cookie(WRITER))[0] == 200
@@ -830,6 +852,54 @@ def test_another_spelling_of_a_proposed_address_is_the_same_source(svc, root, sp
     )
     assert status == 409 and "already exists" in reply["error"]
     assert rows(root, "SELECT url FROM sources") == [(SOURCE["url"],)]
+
+
+@pytest.mark.parametrize(
+    ("stored", "proposed"),
+    [
+        ("https://w.example/%7Euser/feed", "https://w.example/~user/feed"),
+        ("https://w.example/%7euser/feed", "https://w.example/%7Euser/feed"),
+        ("https://w.example/a%2fb?q=%3d", "https://w.example/a%2Fb?q=%3D"),
+        ("https://w.example/%41%42c", "https://w.example/ABc"),
+        ("https://W.example:443/feed#old", "https://w.example/feed"),
+    ],
+)
+def test_a_stored_address_in_an_older_spelling_is_still_the_same_source(
+    svc, root, stored, proposed
+):
+    """Review finding N11: rows stored before a canonical form existed are compared by their
+    canonical form when a new address is proposed (they are not rewritten)."""
+    db = store.open_db(root)
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('Old', 'news', ?, 'approved', 'x', 'x')",
+            (stored,),
+        )
+    db.close()
+    status, _, reply = svc.call(
+        "POST", "/api/sources", body={**SOURCE, "url": proposed}, cookie=cookie(WRITER)
+    )
+    assert status == 409 and "already exists" in reply["error"]
+    assert rows(root, "SELECT url FROM sources") == [(stored,)]
+
+
+@pytest.mark.parametrize(
+    ("spelled", "canonical"),
+    [
+        ("https://w.example/%7euser/%7Efeed", "https://w.example/~user/~feed"),
+        (
+            "https://w.example/a%2fb%2F?x=%e2%82%ac&y=%2d",
+            "https://w.example/a%2Fb%2F?x=%E2%82%AC&y=-",
+        ),
+        ("https://w.example/%25%41", "https://w.example/%25A"),  # an escaped "%" stays escaped
+        ("https://w.example/%zz%4", "https://w.example/%zz%4"),  # not escapes: kept as they are
+        ("https://w.example/%c%41?%2f", "https://w.example/%c%41?%2F"),  # a stray "%": kept
+    ],
+)
+def test_percent_escapes_are_spelled_one_way(spelled, canonical):
+    assert store.canonical_url(spelled) == canonical
+    assert store.canonical_url(canonical) == canonical
 
 
 def test_a_proposed_address_is_stored_in_its_canonical_spelling(svc, root):

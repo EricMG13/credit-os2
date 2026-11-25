@@ -144,7 +144,10 @@ def _unreact(req: Req) -> Any:
 
 
 def _read(req: Req) -> Any:
-    threads.mark_read(req.db, req.person, _path_id(req), _now)
+    """Body optional: ``{"seen": <the snapshot's asOf>}`` marks the thread read up to the time of
+    the snapshot the page showed, never later."""
+    seen = req.optional_body().get("seen")
+    threads.mark_read(req.db, req.person, _path_id(req), _now, seen=threads.seen_time(seen))
     return {"thread": req.groups[0]}
 
 

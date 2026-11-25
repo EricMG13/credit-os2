@@ -369,7 +369,8 @@
                 "unread": true,
                 "lastActivity": "3 h ago"
               }
-            ]
+            ],
+            "more": null
           },
           {
             "id": "2",
@@ -391,7 +392,8 @@
               }
             ],
             "moreMembers": null,
-            "threads": []
+            "threads": [],
+            "more": null
           }
         ],
         "threads": [

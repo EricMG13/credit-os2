@@ -145,6 +145,7 @@ class _Picking:
     paid: set[int] = field(default_factory=set)
     spent: int = 0
     stopped: set[int] = field(default_factory=set)
+    held: dict[int, _Shown] = field(default_factory=dict)  # the delivered, by thread id
 
     def story(self, row: sqlite3.Row) -> int:
         story = row["story_id"]
@@ -315,26 +316,20 @@ def _pick(
         for offered in _candidates(db, seen, viewer.members_of)
         if focused is None or offered[0][1]["id"] != focused[1]["id"]
     ]
-    held: dict[int, _Shown] = {}
     for candidate, floor in order:
         if floor:
-            _offer(db, candidate, viewer, picking, held, whole=False)
+            _offer(db, candidate, viewer, picking, whole=False)
     for candidate, _ in order:
-        _offer(db, candidate, viewer, picking, held, whole=True)
-    return shown + list(held.values())
+        _offer(db, candidate, viewer, picking, whole=True)
+    return shown + list(picking.held.values())
 
 
 def _offer(
-    db: sqlite3.Connection,
-    candidate: Candidate,
-    viewer: _Viewer,
-    picking: _Picking,
-    held: dict[int, _Shown],
-    *,
-    whole: bool,
+    db: sqlite3.Connection, candidate: Candidate, viewer: _Viewer, picking: _Picking, *, whole: bool
 ) -> None:
     """Offer the thread its comments (`whole`), else its summary; a group whose thread gets
     neither is offered nothing more."""
+    held = picking.held
     thread_id, group_id = int(candidate[1]["id"]), int(candidate[1]["group_id"])
     one = held.get(thread_id)
     if one is None and group_id in picking.stopped:
@@ -350,7 +345,9 @@ def _offer(
             picking.stopped.add(group_id)
 
 
-def _pay(picking: _Picking, one: _Shown, records: tuple[Json, Json], budgets: list[_Budget]) -> bool:
+def _pay(
+    picking: _Picking, one: _Shown, records: tuple[Json, Json], budgets: list[_Budget]
+) -> bool:
     """Deliver the thread as `records` (its item and thread record) if what they add to what it
     already holds, its story card included, fits in one of `budgets`."""
     item, thread = records
@@ -374,10 +371,13 @@ def _with_comments(db: sqlite3.Connection, one: _Shown, viewer: _Viewer, picking
 
 
 def _as_summary(one: _Shown, viewer: _Viewer, picking: _Picking) -> bool:
-    """Deliver the thread as its summary, its note cut short, from GROUP_BUDGET or SUMMARY_BUDGET."""
+    """Deliver the thread as its summary, its note cut short, from GROUP_BUDGET (else from
+    SUMMARY_BUDGET)."""
     note = None if one.row["note"] is None else shortened(one.row["note"], NOTE_EXCERPT)
     item = {**one.item, "note": note}
-    return _pay(picking, one, (item, _summary_thread(one, viewer, note)), [picking.main, picking.spare])
+    return _pay(
+        picking, one, (item, _summary_thread(one, viewer, note)), [picking.main, picking.spare]
+    )
 
 
 # The bytes of a comment record with every text empty (``_comment_records``), plus its comma and
@@ -466,7 +466,7 @@ def _more(db: sqlite3.Connection, group_id: int, delivered: int) -> str | None:
     )
     said = []
     if delivered < held:
-        said.append(f"Showing the latest {delivered:,} of {plural(held, 'thread', 'threads')}.")
+        said.append(f"Showing the latest {delivered:,} of {held:,} thread{'s' * (held != 1)}.")
     if threads.topics_blocked(db, group_id):
         said.append(_FULL)
     return " ".join(said) or None

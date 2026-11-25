@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 import signal_ai_fakes
 import signal_reader_check
-from signal_reader_check import react_refusal
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 
 from deploy_workflow.signal import digests, groups, snapshot, store, topics
 from deploy_workflow.signal.digests import Form
@@ -325,6 +325,7 @@ def test_the_digest_parts_follow_the_ai_state_when_ai_is_on(db):
 
 
 def test_the_react_reader_check_does_refuse_a_wrong_digest_snapshot(db):
+    signal_reader_check.bundle()  # this test needs the reader itself: without it, it skips whole
     ident = make(db, "Mara L")
     digests.run_now(db, "Mara L", ident, NOW)
     built = snapshot.build(db, WRITER, NOW)
@@ -339,12 +340,34 @@ def test_the_committed_sample_is_read_by_the_react_reader():
     assert react_refusal(json.loads(sample.read_text(encoding="utf-8"))) is None
 
 
-def test_without_the_react_reader_a_check_skips_here_and_fails_under_ci(monkeypatch, tmp_path):
-    monkeypatch.setattr(signal_reader_check, "ESBUILD", tmp_path / "no-esbuild")
+def test_without_the_react_reader_only_its_check_skips_and_under_ci_it_fails(monkeypatch, tmp_path):
+    monkeypatch.setattr(signal_reader_check, "NODE_MODULES", tmp_path / "no-node-modules")
+    monkeypatch.setattr(signal_reader_check, "ESBUILD", tmp_path / "no-node-modules/esbuild")
     monkeypatch.setattr(signal_reader_check, "_built", [])
     monkeypatch.delenv("CI", raising=False)
+    assert react_refusal({}) is None  # the test goes on; its reader part is reported skipped
+    assert signal_reader_check.unchecked() == [signal_reader_check.NO_READER]
+    signal_reader_check._unchecked.clear()  # this test checks it by hand: it is not skipped
     with pytest.raises(pytest.skip.Exception, match="npm --prefix web ci"):
-        react_refusal({})
+        signal_reader_check.bundle()  # a test that needs the reader itself skips whole
     monkeypatch.setenv("CI", "true")
     with pytest.raises(pytest.fail.Exception, match="npm --prefix web ci"):
         react_refusal({})
+    (tmp_path / "no-node-modules").mkdir()  # web dependencies installed, but no esbuild
+    monkeypatch.delenv("CI")
+    with pytest.raises(pytest.fail.Exception) as failed:
+        react_refusal({})
+    assert str(failed.value) == signal_reader_check.NO_ESBUILD
+
+
+def test_a_second_issue_of_the_same_day_carries_its_time_in_its_title(db):
+    """Two runs of a daily digest on one day were both titled "Daily: 24 November"; the later one
+    now says when its period ended (UTC)."""
+    ident = make(db, "Mara L", name="Daily", schedule="Daily, 07:00 UTC")
+    first, second = NOW.replace(hour=14, minute=5), NOW.replace(hour=14, minute=10)
+    digests.run_now(db, "Mara L", ident, first)
+    digests.run_now(db, "Mara L", ident, second)
+    got = snap(db, WRITER, second)
+    titles = ["Daily: 24 November, 14:10 UTC", "Daily: 24 November"]
+    assert [issue["title"] for issue in got["digests"][0]["issues"]] == titles
+    assert [card["title"] for card in got["feed"]["digests"]] == titles

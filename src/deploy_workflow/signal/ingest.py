@@ -16,6 +16,7 @@ from deploy_workflow.signal.store import (
     _utc_text,
     add_story,
     last_check,
+    prune_checks,
     record_check,
     set_meta,
     sources,
@@ -28,6 +29,10 @@ MIN_INTERVAL = timedelta(seconds=600)
 QUIET_AFTER = timedelta(days=7)
 HEALTH_WEEKS = 6
 _WEEK = timedelta(days=7)
+# Checks older than the weeks the service reads are pruned, at most this many per pass (a source's
+# last check always stays); a store that never pruned catches up over a few hundred passes.
+KEEP_CHECKS = HEALTH_WEEKS * _WEEK
+PRUNE_PER_PASS = 10_000
 
 FetchFn = Callable[[str, str | None, str | None], Fetched]
 
@@ -74,7 +79,8 @@ def run_due(
     Any other Exception is logged with its traceback and recorded as a failed check whose
     reason names only the exception type (the text may hold internal detail), keeping the
     previous etag and modified; the pass goes on to the later sources. This is a documented,
-    logged fail-open so one bad source cannot starve the rest. BaseException is not caught."""
+    logged fail-open so one bad source cannot starve the rest. BaseException is not caught.
+    The pass ends by pruning checks older than KEEP_CHECKS (at most PRUNE_PER_PASS)."""
     results: list[tuple[int, bool, str]] = []
     for source in sources(db, "approved"):
         if not _is_due(db, source["id"], now):
@@ -96,6 +102,7 @@ def run_due(
             )
         record_check(db, source["id"], check)
         results.append((source["id"], check.ok, check.reason))
+    prune_checks(db, now - KEEP_CHECKS, PRUNE_PER_PASS)
     set_meta(db, "last_pass_at", _utc_text(now))
     return results
 
@@ -109,27 +116,43 @@ class Health:
     reason: str
 
 
-def _per_week(published: list[datetime], now: datetime) -> tuple[int, ...]:
-    """Counts per 7-day window ending at `now`, oldest first; a window is (start, end]."""
-    counts = [0] * HEALTH_WEEKS
-    for at in published:
-        age = now - at
-        if timedelta(0) <= age < HEALTH_WEEKS * _WEEK:
-            counts[HEALTH_WEEKS - 1 - age // _WEEK] += 1
-    return tuple(counts)
+# A source's items (its stories and the duplicates folded from it) published in (:start, :end].
+_ITEMS = (
+    "SELECT published_at FROM stories WHERE source_id = :source"
+    " AND published_at > :start AND published_at <= :end"
+    " UNION ALL SELECT published_at FROM story_duplicates WHERE duplicate_source_id = :source"
+    " AND published_at > :start AND published_at <= :end"
+)
+_NEWEST = (
+    "SELECT MAX(at) FROM (SELECT MAX(published_at) AS at FROM stories WHERE source_id = :source"
+    " UNION ALL SELECT MAX(published_at) FROM story_duplicates"
+    " WHERE duplicate_source_id = :source)"
+)
+
+
+def _per_week(db: sqlite3.Connection, source_id: int, now: datetime) -> tuple[int, ...]:
+    """Items per 7-day window ending at `now`, oldest first; a window is (start, end]. Counted in
+    SQL over the source's index range of the HEALTH_WEEKS weeks (stored times are UTC text, whose
+    order is their time order)."""
+    edges = {f"e{k}": _utc_text(now - (HEALTH_WEEKS - k) * _WEEK) for k in range(HEALTH_WEEKS + 1)}
+    counts = ", ".join(
+        f"COALESCE(SUM(published_at > :e{k} AND published_at <= :e{k + 1}), 0)"
+        for k in range(HEALTH_WEEKS)
+    )
+    row = db.execute(
+        f"SELECT {counts} FROM ({_ITEMS})",
+        {"source": source_id, "start": edges["e0"], "end": edges[f"e{HEALTH_WEEKS}"], **edges},
+    ).fetchone()
+    return tuple(int(n) for n in row)
 
 
 def health(db: sqlite3.Connection, source_id: int, now: datetime) -> Health:
-    rows = db.execute(
-        "SELECT published_at FROM stories WHERE source_id=?"
-        " UNION ALL SELECT published_at FROM story_duplicates WHERE duplicate_source_id=?",
-        (source_id, source_id),
-    ).fetchall()
-    published = [datetime.fromisoformat(row["published_at"]) for row in rows]
-    last_item = max(published, default=None)
+    newest = db.execute(_NEWEST, {"source": source_id}).fetchone()[0]
+    last_item = None if newest is None else datetime.fromisoformat(newest)
+    weeks = _per_week(db, source_id, now)
     previous = last_check(db, source_id)
     if previous is None:
-        return Health("never checked", None, last_item, _per_week(published, now), "")
+        return Health("never checked", None, last_item, weeks, "")
     checked = datetime.fromisoformat(previous["at"])
     state: Literal["healthy", "quiet", "failing"]
     if not previous["ok"]:
@@ -138,4 +161,4 @@ def health(db: sqlite3.Connection, source_id: int, now: datetime) -> Health:
         state = "quiet"
     else:
         state = "healthy"
-    return Health(state, checked, last_item, _per_week(published, now), previous["reason"])
+    return Health(state, checked, last_item, weeks, previous["reason"])

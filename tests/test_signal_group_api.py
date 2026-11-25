@@ -21,6 +21,7 @@ from typing import Any
 
 import pytest
 import test_signal_group_snapshot as group_snapshot
+from signal_reader_check import reader_part  # noqa: F401 (autouse)
 from test_signal_service import Live
 
 from deploy_workflow.signal import api_groups, groups, threads
@@ -39,7 +40,6 @@ from deploy_workflow.signal.topics import add_topic
 MARA = "signal_name=Mara%20L"
 INES = "signal_name=Ines%20K"
 TOBIAS = "signal_name=Tobias%20O"
-reader_dir = group_snapshot.reader_dir  # the React reader, a session fixture
 reader_says = group_snapshot.reader_says
 FORWARDED = re.compile("/api/[a-z0-9]+(/[a-z0-9]+)*")
 
@@ -84,12 +84,12 @@ def snap(svc: Live, cookie: str = MARA) -> dict[str, Any]:
 
 
 @pytest.fixture
-def checked(svc: Live, reader_dir: Path) -> Any:
+def checked(svc: Live) -> Any:
     """The next snapshot, after the React reader accepted it."""
 
     def read(cookie: str = MARA) -> dict[str, Any]:
         status, _, body = svc.call("GET", "/api/snapshot", cookie=cookie)
-        assert status == 200 and reader_says(reader_dir, body) == "ok"
+        assert status == 200 and reader_says(body) == "ok"
         return body["scenes"][0]["snapshot"]
 
     return read
@@ -152,6 +152,33 @@ def test_every_route_works_for_a_writer(svc, method, path, body, checked):
     status, _, reply = svc.call(method, path, body=body, cookie=MARA)
     assert status == 200, reply
     checked()
+
+
+def test_a_read_mark_never_passes_the_time_of_the_snapshot_the_page_showed(svc, checked):
+    """The page sends back the snapshot's asOf: a comment posted after that snapshot was read
+    stays unread for the reader, though their read mark is made later."""
+    status, _, shown = svc.call("GET", "/api/snapshot", cookie=TOBIAS)
+    seen = shown["asOf"]
+    assert status == 200 and re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{6})?\+00:00", seen)
+    assert (
+        svc.call("POST", "/api/threads/1/comments", body={"text": "Later."}, cookie=MARA)[0] == 200
+    )
+    assert svc.call("POST", "/api/threads/1/read", body={"seen": seen}, cookie=TOBIAS)[0] == 200
+    assert checked(TOBIAS)["groups"][0]["threads"][0]["unread"] is True
+    assert svc.call("POST", "/api/threads/1/read", cookie=TOBIAS)[0] == 200  # no body: up to now
+    assert checked(TOBIAS)["groups"][0]["threads"][0]["unread"] is False
+
+
+@pytest.mark.parametrize(
+    "seen",
+    ["yesterday", "2026-11-24T12:00:00", 1764000000, "0001-01-01T00:00:00+01:00", "x" * 65],
+)
+def test_a_seen_that_is_not_a_snapshot_time_is_400(svc, seen):
+    status, _, reply = svc.call("POST", "/api/threads/1/read", body={"seen": seen}, cookie=TOBIAS)
+    assert (status, reply) == (
+        400,
+        {"error": "seen must be the asOf time of the snapshot the page showed"},
+    )
 
 
 def test_readers_mark_read_and_set_their_own_switches(svc, checked):
@@ -380,7 +407,7 @@ def test_an_unseen_or_unknown_focus_is_ignored_silently(svc, checked):
         assert body["scenes"][0]["snapshot"] == plain, query
 
 
-def test_a_focused_thread_is_delivered_with_its_comments(svc, checked, monkeypatch, reader_dir):
+def test_a_focused_thread_is_delivered_with_its_comments(svc, checked, monkeypatch):
     from deploy_workflow.signal import group_view
 
     monkeypatch.setattr(group_view, "GROUP_BUDGET", 0)  # nothing fits: every thread a summary
@@ -391,7 +418,7 @@ def test_a_focused_thread_is_delivered_with_its_comments(svc, checked, monkeypat
         "Desk, 1 comment, shown when the thread is opened",
     )
     status, _, body = svc.call("GET", "/api/snapshot?thread=1", cookie=MARA)
-    assert status == 200 and reader_says(reader_dir, body) == "ok"
+    assert status == 200 and reader_says(body) == "ok"
     (one,) = [t for t in body["scenes"][0]["snapshot"]["threads"] if t["id"] == "1"]
     assert one["subline"] == "Desk, 1 comment"
     assert [c["text"] for c in one["comments"]] == ["Mine."]

@@ -37,6 +37,8 @@ class Req:
     params: dict[str, str]
     body: Callable[[], dict[str, Any]]
     loop: LoopState | None
+    # The body when the request carries one, else {} (a route whose body is optional).
+    optional_body: Callable[[], dict[str, Any]] = dict
 
     @property
     def person(self) -> identity.User:

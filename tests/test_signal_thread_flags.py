@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from signal_reader_check import react_refusal
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 
 from deploy_workflow.signal import groups, snapshot, threads
 from deploy_workflow.signal.groups import GroupError

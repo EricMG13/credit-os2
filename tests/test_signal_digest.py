@@ -131,6 +131,40 @@ def test_a_user_has_at_most_five_digests_and_deleting_one_frees_a_place(db):
     assert len(digests.list_digests(db, "Mara L")) == 5
 
 
+def test_signal_holds_at_most_five_hundred_digests_whoever_types_a_name(db, monkeypatch):
+    """Review finding N5: any typed name may build digests (a reader keeps the screens), so a
+    global cap bounds them; the store refuses the one past it with a plain sentence."""
+    monkeypatch.setattr(digests, "MAX_ALL_DIGESTS", 3)
+    for owner in ("Visitor 1", "Visitor 2", "Visitor 3"):
+        make(db, owner=owner)
+    with pytest.raises(Conflict) as refused:
+        make(db, owner="Visitor 4")
+    assert str(refused.value) == "Signal holds 3 digests, the most it can hold"
+    assert count(db, "digests") == 3
+
+
+def test_one_due_pass_runs_at_most_two_hundred_digests_the_longest_due_first(db, monkeypatch):
+    monkeypatch.setattr(digests, "DUE_PER_PASS", 2)
+    ids = [make(db, owner=f"Visitor {n}") for n in range(4)]
+    # Due at 08:00, 06:00 and 07:00; the fourth is not due but its owner asked at 05:00.
+    stamps = [
+        "2026-11-24T08:00:00+00:00",
+        "2026-11-24T06:00:00+00:00",
+        "2026-11-24T07:00:00+00:00",
+        "2026-11-30T07:00:00+00:00",
+    ]
+    with db:
+        for ident, stamp in zip(ids, stamps, strict=True):
+            db.execute("UPDATE digests SET next_run_at=? WHERE id=?", (stamp, ident))
+        db.execute(
+            "UPDATE digests SET run_requested_at='2026-11-24T05:00:00+00:00' WHERE id=?", (ids[3],)
+        )
+    later = datetime(2026, 11, 24, 9, tzinfo=UTC)
+    assert [found for found, _ in digests.run_due(db, later)] == [ids[3], ids[1]]
+    assert [found for found, _ in digests.run_due(db, later)] == [ids[2], ids[0]]
+    assert list(digests.run_due(db, later)) == []
+
+
 def test_a_name_is_taken_once_per_user(db):
     make(db)
     with pytest.raises(Conflict, match="already have a digest called"):

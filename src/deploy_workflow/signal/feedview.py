@@ -241,26 +241,58 @@ _MEMBERS = {
 def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> list[int]:
     """The ids of the newest `limit` stories in the view, newest first (the feed's own order).
 
-    Two ways to read them, the cheaper for the view: walk the stories newest first until `limit`
-    are in the view (about limit * stories / members steps), or read the view's members and sort
-    them (about members steps). A sparse view in a large store would otherwise walk every story.
-    It opens no transaction: a caller reading several views holds one (`read_transaction`)."""
+    Two ways to read them: walk the stories newest first until `limit` are in the view, or read
+    the view's members and sort them (about members steps). A view with few members against the
+    store is read from its members. Any other view is walked, but at most WALK_FACTOR times the
+    steps an evenly spread view would take (`limit` * stories / members); a walk that finds fewer
+    than `limit` in that many (the members are old: a topic whose keyword left the news) reads the
+    members instead. Either way the ids and their order are those of the full walk, and the work is
+    at most a few times the members. It opens no transaction: a caller reading several views holds
+    one (`read_transaction`)."""
     clause, params = _view_clause(db, user_name, view)
     members = _MEMBERS.get(view.partition(":")[0])
-    if members is not None:
-        held = db.execute(f"SELECT COUNT(*) FROM ({members})", params).fetchone()[0]
-        total = db.execute("SELECT COUNT(*) FROM stories").fetchone()[0]
-        if held * held <= limit * total or held <= limit:
-            rows = db.execute(
-                f"SELECT s.id FROM ({members}) d CROSS JOIN stories s ON s.id = d.story_id"
-                " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
-                [*params, limit],
-            ).fetchall()
-            return [int(row["id"]) for row in rows]
+    if members is None:  # Latest: every story is in it
+        return _walk(db, None, [], limit, None)
+    held = db.execute(f"SELECT COUNT(*) FROM ({members})", params).fetchone()[0]
+    total = db.execute("SELECT COALESCE(MAX(id), 0) FROM stories").fetchone()[0]
+    if held <= limit or held * held <= limit * total:
+        return _from_members(db, members, params, limit)
+    steps = WALK_FACTOR * limit * total // held + limit
+    found = _walk(db, clause, params, limit, steps)
+    return found if len(found) == limit else _from_members(db, members, params, limit)
+
+
+WALK_FACTOR = 4
+
+
+def _from_members(
+    db: sqlite3.Connection, members: str, params: list[object], limit: int
+) -> list[int]:
+    rows = db.execute(
+        f"SELECT s.id FROM ({members}) d CROSS JOIN stories s ON s.id = d.story_id"
+        " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
+        [*params, limit],
+    ).fetchall()
+    return [int(row["id"]) for row in rows]
+
+
+def _walk(
+    db: sqlite3.Connection,
+    clause: str | None,
+    params: list[object],
+    limit: int,
+    steps: int | None,
+) -> list[int]:
+    """The newest `limit` stories meeting `clause` among the newest `steps` stories (all: None)."""
+    source = (
+        "stories"
+        if steps is None
+        else ("(SELECT * FROM stories ORDER BY published_at DESC, id DESC LIMIT ?)")
+    )
     where = " WHERE " + clause if clause is not None else ""
     rows = db.execute(
-        "SELECT s.id FROM stories s" + where + " ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
-        [*params, limit],
+        f"SELECT s.id FROM {source} s{where} ORDER BY s.published_at DESC, s.id DESC LIMIT ?",
+        [*([] if steps is None else [steps]), *params, limit],
     ).fetchall()
     return [int(row["id"]) for row in rows]
 
@@ -290,9 +322,15 @@ def other_sources(db: sqlite3.Connection, story_id: int) -> tuple[str, ...]:
 
 
 def new_count(db: sqlite3.Connection, user_name: str, view: str, after: int) -> int:
-    """Stories in the view with an id above `after`, the `newest` of an earlier page."""
+    """Stories in the view with an id above `after`, the `newest` of an earlier page; counted over
+    the view's members where it has them (each names a stored story once), so the count never
+    walks the whole store."""
     floor = _after(after)
     clause, params = _view_clause(db, user_name, view)
+    members = _MEMBERS.get(view.partition(":")[0])
+    if members is not None:
+        sql = f"SELECT COUNT(*) FROM ({members}) d WHERE d.story_id > ?"
+        return int(db.execute(sql, [*params, floor]).fetchone()[0])
     where = " AND " + clause if clause is not None else ""
     row = db.execute(
         "SELECT COUNT(*) FROM stories s WHERE s.id > ?" + where, [floor, *params]

@@ -5,7 +5,10 @@ with ``--signal-url``), which forwards its ``/signal/api/*`` requests here serve
 ``GET /api/snapshot`` is the whole reader-facing state for the asking user
 (``deploy_workflow.signal.snapshot``); ``?topic=<id>`` and ``?thread=<id>`` ask it to carry that
 topic's older stories and that thread's comments (decimal ids, else 400; an id naming nothing the
-asker can see is ignored). The other routes read pages of the feed and save or follow.
+asker can see is ignored). Beside ``scenes`` the reply carries ``asOf``, the time it was built
+(UTC, ISO 8601), which the page sends back as ``seen`` when it marks a thread read
+(``POST /api/threads/<id>/read``), so nothing that arrived after the page was drawn is marked
+read. The other routes read pages of the feed and save or follow.
 
 Plain ``http.server``; no framework. The service has no login and may be reachable from other
 machines, so every request is hostile input. The rules are those of the run start page's service,
@@ -284,7 +287,7 @@ def _snapshot(req: _Req) -> _Reply:
     ai = None if req.loop is None else req.loop.ai_status(req.db, now)
     state = snapshot.Service(pass_failed=failed, ai=ai)
     built = snapshot.build(req.db, req.user, now, focus=focus, service=state)
-    return _Reply(200, built)
+    return _Reply(200, {**built, "asOf": store._utc_text(now)})
 
 
 _ROUTES: tuple[_Route, ...] = (
@@ -355,6 +358,13 @@ class Handler(http_base.Handler):
             raise _refuse(400, "the request body must be a JSON object")
         return body
 
+    def _optional_body(self) -> dict[str, Any]:
+        """The JSON object body, or {} when the request carries none (no length, or 0)."""
+        length = self.headers.get("Content-Length")
+        if self.headers.get("Transfer-Encoding") is None and length in (None, "0"):
+            return {}
+        return self._json_body()
+
     def _dispatch(self, url: urllib.parse.SplitResult) -> _Reply:
         path = url.path
         allowed: list[str] = []
@@ -376,7 +386,9 @@ class Handler(http_base.Handler):
             user = identity.current_user(db, self.headers.get("Cookie"))
             if user is None and not route.open_to_all:
                 raise _refuse(401, _NEEDS_NAME)
-            request = _Req(db, user, groups, params, self._json_body, self._service.loop)
+            request = _Req(
+                db, user, groups, params, self._json_body, self._service.loop, self._optional_body
+            )
             return route.handler(request)
         finally:
             db.close()

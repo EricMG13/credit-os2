@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 from test_signal_feeds import RSS
 
 from deploy_workflow.signal.fetch import Fetched, FetchRefused
@@ -175,7 +177,183 @@ def test_source_whose_items_all_fold_is_healthy_with_its_items(db):
     assert second.per_week == first.per_week == (0, 0, 0, 0, 0, 1)
 
 
-def test_story_exactly_seven_days_old_is_in_the_previous_week():
-    from deploy_workflow.signal.ingest import _per_week
+def test_the_weeks_are_counted_at_their_edges_and_only_within_six_weeks(db_a):
+    """A window is (start, end]: an item exactly 7 days old is in the previous week, one exactly
+    six weeks old is in none, one a second younger is in the oldest, one at `now` in the newest;
+    an item later than `now` and a duplicate folded from the source count as theirs would."""
+    from deploy_workflow.signal.feeds import Entry
+    from deploy_workflow.signal.store import _utc_text, add_story
 
-    assert _per_week([NOW - timedelta(days=7)], NOW) == (0, 0, 0, 0, 1, 0)
+    week = timedelta(days=7)
+    times = [
+        NOW - week,
+        NOW - 6 * week,
+        NOW - 6 * week + timedelta(seconds=1),
+        NOW,
+        NOW - week + timedelta(microseconds=1),
+    ]
+    for n, at in enumerate(times):
+        add_story(db_a, 1, Entry(f"Story {n}", f"https://a.org/{n}", at, ""), NOW)
+    with db_a:
+        db_a.execute(
+            "INSERT INTO story_duplicates(story_id, duplicate_source_id, link, link_key,"
+            " published_at, seen_at) VALUES(1, 1, 'https://a.org/d', 'd', ?, ?)",
+            (_utc_text(NOW - 2 * week), _utc_text(NOW)),
+        )
+    got = health(db_a, 1, NOW)
+    assert got.per_week == (1, 0, 0, 1, 1, 2)
+    assert got.last_item == NOW
+    assert health(db_a, 1, NOW - 3 * week).per_week == (0, 0, 1, 1, 0, 0)  # the rest is later
+
+
+@settings(max_examples=40, deadline=None)
+@given(
+    st.lists(st.integers(-3 * 86400, 50 * 86400), max_size=30),
+    st.integers(0, 999_999),
+)
+def test_the_weekly_counts_are_those_of_counting_by_hand(tmp_path_factory, ages, micro):
+    """Items `ages` seconds before `now` (some later than it); `now` with any microseconds."""
+    from deploy_workflow.signal.feeds import Entry
+    from deploy_workflow.signal.store import add_story
+
+    db = open_db(tmp_path_factory.mktemp("weeks"))
+    source = propose_source(db, "A", "news", "https://a.org/f", "x")
+    now = NOW + timedelta(microseconds=micro)
+    for n, age in enumerate(ages):
+        at = now - timedelta(seconds=age)
+        add_story(db, source, Entry(f"S{n}", f"https://a.org/{n}", at, ""), now + timedelta(days=9))
+    expected = [0] * 6
+    for age in ages:  # the window (now - (6 - k) weeks, now - (5 - k) weeks] is week k
+        for k in range(6):
+            if (5 - k) * 7 * 86400 <= age < (6 - k) * 7 * 86400:
+                expected[k] += 1
+    assert health(db, source, now).per_week == tuple(expected)
+    db.close()
+
+
+def _long_running(db, sources: int, days: int, per_day: int) -> None:
+    """The store a service left running reaches by itself: `sources` approved sources, one check
+    each every 10 minutes for `days` days, `per_day` stories a day each, a topic over them."""
+    from deploy_workflow.signal.store import _utc_text
+
+    with db:
+        for s in range(1, sources + 1):
+            db.execute(
+                "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+                " VALUES(?, 'news', ?, 'approved', 'x', ?)",
+                (f"Source {s}", f"https://s{s}.example/feed", _utc_text(NOW)),
+            )
+            db.executemany(
+                "INSERT INTO source_checks(source_id, at, ok, reason, etag, modified,"
+                " new_stories) VALUES(?, ?, 1, 'not modified', 'W/\"a\"', NULL, 0)",
+                ((s, _utc_text(NOW - timedelta(minutes=10 * k))) for k in range(days * 144)),
+            )
+            gap = 1440 // per_day
+            db.executemany(
+                "INSERT INTO stories(source_id, title, link, link_key, title_key, published_at,"
+                " fetched_at, summary) VALUES(?, ?, ?, ?, ?, ?, ?, 'A summary.')",
+                (
+                    (
+                        s,
+                        f"Bank story {s}-{k}",
+                        f"https://s{s}.example/{k}",
+                        f"k{s}-{k}",
+                        f"t{s}-{k}",
+                        _utc_text(NOW - timedelta(minutes=gap * k)),
+                        _utc_text(NOW),
+                    )
+                    for k in range(days * per_day)
+                ),
+            )
+        db.execute("INSERT INTO topics VALUES(1, 'Banks', '[\"bank\"]', '[]', 'x', 'x')")
+        db.execute("INSERT INTO topic_stories SELECT 1, id FROM stories WHERE id % 3 = 0")
+        db.execute("INSERT INTO users(name, role) VALUES('Tobias O', 'reader')")
+        db.execute("INSERT INTO topic_follows VALUES('Tobias O', 1)")
+
+
+def _reads(db):
+    """Every statement of a snapshot (named and unnamed), /api/status and the loop's due check."""
+    from deploy_workflow.signal import ingest, snapshot, store
+    from deploy_workflow.signal.identity import User
+
+    def run():
+        for who in (User("Tobias O", "reader"), None):
+            snapshot.build(db, who, NOW)
+        for row in store.sources(db, "approved"):
+            ingest.health(db, row["id"], NOW)
+            ingest._is_due(db, row["id"], NOW)
+
+    return run
+
+
+def test_no_snapshot_status_or_due_check_scans_the_checks_or_the_stories(db):
+    _long_running(db, 3, 2, 25)
+    statements: list[str] = []
+    db.set_trace_callback(statements.append)
+    _reads(db)()
+    db.set_trace_callback(None)
+    scans = set()
+    for sql in statements:
+        if not sql.lstrip().upper().startswith(("SELECT", "WITH")):
+            continue
+        for row in db.execute("EXPLAIN QUERY PLAN " + sql):
+            words = str(row[3]).split() + [""]
+            aliases = {"s": "stories", "d": "story_duplicates", "ts": "topic_stories"}
+            table = aliases.get(words[1], words[1])
+            if words[1] in aliases and f"{table} {words[1]} " not in sql + " ":
+                continue  # an alias of a subquery (a view's members), not of the table
+            scanned = ("source_checks", "stories", "story_duplicates", "topic_stories")
+            if words[0] != "SCAN" or table not in scanned:
+                continue
+            # The newest stories walked through their time index, a bounded number of them.
+            walked = "idx_stories_published_at_id" in str(row[3]) and " LIMIT " in sql
+            if not walked:
+                scans.add((str(row[3]), " ".join(sql.split())[:90]))
+    assert scans == set()
+    # The Saved badge counts the saves, not every story newer than 0.
+    assert not [sql for sql in statements if "FROM stories s WHERE s.id >" in sql]
+
+
+def test_the_snapshot_status_and_due_check_stay_fast_however_long_the_service_ran(db):
+    """Review finding N2 (5.9 s at 50 sources after a year): 50 sources, 60 days of checks
+    (432,000) and 25 stories a day each; the reads must not grow with the checks."""
+    import time
+
+    _long_running(db, 50, 60, 25)
+    run = _reads(db)
+    run()  # warm the page cache
+    started = time.perf_counter()
+    run()
+    assert time.perf_counter() - started < 1.0
+
+
+def test_the_ingest_pass_prunes_old_checks_but_keeps_each_sources_last(db_a, monkeypatch):
+    from deploy_workflow.signal import ingest
+    from deploy_workflow.signal.store import _utc_text
+
+    b = propose_source(db_a, "B", "news", "https://b.org/f", "x")  # proposed: never checked now
+    old = [NOW - timedelta(days=60), NOW - timedelta(days=50), NOW - timedelta(days=41)]
+    with db_a:
+        db_a.executemany(
+            "INSERT INTO source_checks(source_id, at, ok, reason, new_stories)"
+            " VALUES(?, ?, 1, 'x', 0)",
+            [(1, _utc_text(at)) for at in old] + [(b, _utc_text(NOW - timedelta(days=90)))],
+        )
+    monkeypatch.setattr(ingest, "PRUNE_PER_PASS", 1)
+    run_due(db_a, NOW, recorded(RSS))
+    left = [tuple(r) for r in db_a.execute("SELECT source_id, at FROM source_checks ORDER BY id")]
+    assert left == [
+        (1, _utc_text(old[1])),
+        (1, _utc_text(old[2])),
+        (b, _utc_text(NOW - timedelta(days=90))),  # B's last check, however old
+        (1, _utc_text(NOW)),
+    ]
+    monkeypatch.setattr(ingest, "PRUNE_PER_PASS", 10)
+    run_due(db_a, NOW + timedelta(hours=1), recorded(RSS))
+    left = [tuple(r) for r in db_a.execute("SELECT source_id, at FROM source_checks ORDER BY id")]
+    assert left == [
+        (1, _utc_text(old[2])),  # 41 days before the pass's NOW + 1 h: within the six weeks
+        (b, _utc_text(NOW - timedelta(days=90))),
+        (1, _utc_text(NOW)),
+        (1, _utc_text(NOW + timedelta(hours=1))),
+    ]

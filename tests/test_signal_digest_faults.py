@@ -16,7 +16,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from signal_ai_fakes import FakeModel, ok
-from signal_reader_check import react_refusal
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_digest import NOW, WRITER, at, count, make, source, story
 
 from deploy_workflow.model.adapter import AdapterReply

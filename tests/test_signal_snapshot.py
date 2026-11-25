@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from signal_reader_check import reader_part  # noqa: F401 (autouse)
 
 from deploy_workflow.signal import digests, snapshot
 from deploy_workflow.signal.feeds import Entry
@@ -939,3 +940,17 @@ def test_a_publication_tile(name, tile):
 )
 def test_viewer_initials_follow_the_name_dialog(name, letters):
     assert snapshot.initials(name) == letters
+
+
+def test_a_count_beside_a_view_the_size_bound_left_empty_is_not_delivered(sample, monkeypatch):
+    """With no room for any story, the topic counts and the Saved badge are not delivered (the
+    reader refuses a count beside an empty list)."""
+    monkeypatch.setattr(snapshot, "STORY_AND_GROUP_BUDGET", 0)
+    built = snapshot.build(sample, WRITER, NOW)
+    from signal_reader_check import react_refusal
+
+    assert react_refusal(built) is None
+    got = built["scenes"][0]["snapshot"]
+    assert got["feed"]["stories"] == []
+    assert [topic["count"] for topic in got["channels"]["topics"]] == [None, None, None]
+    assert got["channels"]["savedCount"] is None

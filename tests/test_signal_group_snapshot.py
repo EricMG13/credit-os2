@@ -19,6 +19,7 @@ import pytest
 import signal_reader_check
 from hypothesis import given, settings
 from hypothesis import strategies as st
+from signal_reader_check import reader_part  # noqa: F401 (autouse)
 from test_signal_snapshot import NOW, READER, WRITER, seed_sample
 
 from deploy_workflow.signal import group_view, groups, notif, snapshot, threads
@@ -31,23 +32,24 @@ JONAS = User("Jonas W", "writer")
 
 @pytest.fixture(scope="session")
 def reader_dir() -> Path:
-    """The React slice reader, bundled once by ``signal_reader_check`` (skips or, under CI, fails
-    when node or esbuild is missing)."""
+    """The React slice reader, for a test that needs it itself (one that asserts a refusal):
+    bundled once by ``signal_reader_check`` (skips or, under CI, fails when it is missing)."""
     return signal_reader_check.bundle()
 
 
-def reader_says(folder: Path, built: dict[str, Any]) -> str:
+def reader_says(built: dict[str, Any]) -> str:
     refusal = signal_reader_check.react_refusal(built)
     return "ok" if refusal is None else f"refused: {refusal}"
 
 
 @pytest.fixture
-def read_by_react(reader_dir: Path) -> Any:
-    """Build the snapshot for a viewer, check the React reader accepts it, return the snapshot."""
+def read_by_react() -> Any:
+    """Build the snapshot for a viewer, check the React reader accepts it, return the snapshot
+    (without the reader only that check is skipped: ``signal_reader_check.reader_part``)."""
 
     def build(db: sqlite3.Connection, user: User | None, now: datetime = NOW) -> dict[str, Any]:
         built = snapshot.build(db, user, now)
-        assert reader_says(reader_dir, built) == "ok"
+        assert reader_says(built) == "ok"
         return built["scenes"][0]["snapshot"]
 
     return build
@@ -526,7 +528,7 @@ def test_the_reader_check_does_refuse_a_broken_snapshot(grouped, reader_dir):
     for view in [*snap["feed"]["views"].values(), *snap["feed"]["topics"].values()]:
         for key in ("top", "latest", "older"):
             view[key] = [n for n in view[key] if n != "5"]
-    assert reader_says(reader_dir, built) == (
+    assert reader_dir.is_dir() and reader_says(built) == (
         "refused: scenes[0].snapshot.groups[0].threads[2].storyId:"
         " expected the id of a story in the feed"
     )
@@ -725,13 +727,29 @@ def test_a_discussed_story_past_the_newest_thirty_rises_to_the_top(tmp_path, rea
     assert latest["older"] == [str(n) for n in range(31, 41)]
 
 
+def test_top_puts_the_discussed_stories_first_in_a_hand_worked_case(tmp_path):
+    """Scores (1 + shares + comments / 4) halved every 24 h: story 30 with 4 comments, 3.0 at
+    30 minutes; story 10 with none, 2.0; story 20 with 2, 2.5; every quiet story about 1. So 30,
+    20 and 10 lead, then the quiet ones newest first."""
+    db = _forty(tmp_path)
+    for story, comments in ((10, 0), (20, 2), (30, 4)):
+        thread, _ = threads.share(db, WRITER, 1, threads.Item(story), NOW)
+        for n in range(comments):
+            threads.comment(db, INES, thread, f"c{n}", NOW)
+    built = snapshot.build(db, READER, NOW)
+    from signal_reader_check import react_refusal
+
+    assert react_refusal(built) is None
+    top = built["scenes"][0]["snapshot"]["feed"]["views"]["for-you"]["top"]
+    quiet = [str(n) for n in range(1, 41) if n not in (10, 20, 30)]
+    assert top == ["30", "20", "10", *quiet]
+
+
 @settings(max_examples=15, deadline=None)
 @given(
     st.lists(st.tuples(st.integers(1, 40), st.integers(0, 6)), max_size=8, unique_by=lambda x: x[0])
 )
 def test_top_is_the_rank_of_every_delivered_story(tmp_path_factory, shared):
-    from deploy_workflow.signal import threadrank
-
     db = _forty(tmp_path_factory.mktemp("top"))
     for story, comments in shared:
         thread, _ = threads.share(db, WRITER, 1, threads.Item(story), NOW)
@@ -743,9 +761,10 @@ def test_top_is_the_rank_of_every_delivered_story(tmp_path_factory, shared):
     assert react_refusal(built) is None
     view = built["scenes"][0]["snapshot"]["feed"]["views"]["for-you"]
     engaged = {story: comments for story, comments in shared}
-    standings = [
-        threadrank.Standing(n, NOW - timedelta(minutes=n), int(n in engaged), engaged.get(n, 0))
-        for n in range(1, 41)
-    ]
-    assert view["top"] == [str(n) for n in threadrank.top_order(standings, NOW)]
+
+    def by_hand(n: int) -> float:  # story n is n minutes old; no two scores tie (see above)
+        raised = 1 + (n in engaged) + engaged.get(n, 0) / 4
+        return raised * 0.5 ** (n / 1440)
+
+    assert view["top"] == [str(n) for n in sorted(range(1, 41), key=by_hand, reverse=True)]
     assert sorted(view["top"], key=int) == sorted(view["latest"], key=int)

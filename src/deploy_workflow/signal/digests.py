@@ -4,7 +4,9 @@ A digest has one owner, who alone sees it. It covers "All stories", or topics an
 only while the owner can see it). Its schedule is a ``schedule.Schedule`` (UTC). Its brief has five
 parts: the subject (the form's brief text), the period (the schedule's own day, week or month), the
 number of points, what to list as upcoming and the look-ahead days. Its length is short or standard.
-A user has at most ``MAX_DIGESTS`` digests.
+A user has at most ``MAX_DIGESTS`` digests, and Signal at most ``MAX_ALL_DIGESTS``. Any named
+visitor may build one (spec 5.8, "each user builds": a reader keeps the screens), so the global
+cap is what bounds the digests, their runs and the due pass whatever names are typed.
 
 A run gathers the stories in scope for the period, highest signal first (the AI pass's 1 to 3; a
 story with none comes after those with one), then newest first, at most ``SCOPE_CAP``: the stories
@@ -62,6 +64,8 @@ from deploy_workflow.signal.store import (
 log = logging.getLogger(__name__)
 
 MAX_DIGESTS = 5
+MAX_ALL_DIGESTS = 500  # in all, whoever owns them
+DUE_PER_PASS = 200  # digests one due pass runs at most, the longest due first
 MAX_NAME = 60
 MAX_SUBJECT = 500
 MAX_UPCOMING = 200
@@ -383,6 +387,8 @@ def create(db: sqlite3.Connection, owner: str, spec: Spec, now: datetime) -> int
         count = db.execute("SELECT COUNT(*) FROM digests WHERE owner=?", (owner,)).fetchone()[0]
         if count >= MAX_DIGESTS:
             raise Conflict(f"you already have {MAX_DIGESTS} digests; delete one first")
+        if db.execute("SELECT COUNT(*) FROM digests").fetchone()[0] >= MAX_ALL_DIGESTS:
+            raise Conflict(f"Signal holds {MAX_ALL_DIGESTS} digests, the most it can hold")
         try:
             cur = db.execute(
                 "INSERT INTO digests(owner, name, cadence, minute, weekday, month_day, covers_all,"
@@ -812,7 +818,9 @@ def _passing(error: sqlite3.OperationalError) -> bool:
 
 def run_due(db: sqlite3.Connection, now: datetime, writer: Writer | None = None) -> Ran:
     """Run every digest whose time has come, once each, however many periods it missed, and every
-    digest whose owner asked for a run (``request_run``).
+    digest whose owner asked for a run (``request_run``): at most DUE_PER_PASS of them, the one
+    due longest first (by its scheduled time, or the time its run was asked for if earlier); the
+    others stay due for the next pass.
 
     A digest whose run raises is logged and recorded as skipped, its digest moved to its next
     slot, unless the fault may pass (the database was busy or locked, or the writer's failure is
@@ -820,8 +828,8 @@ def run_due(db: sqlite3.Connection, now: datetime, writer: Writer | None = None)
     pass goes on to the others, even when recording a failure fails too."""
     due = db.execute(
         "SELECT id FROM digests WHERE next_run_at <= ? OR run_requested_at IS NOT NULL"
-        " ORDER BY next_run_at, id",
-        (_utc_text(now),),
+        " ORDER BY min(next_run_at, coalesce(run_requested_at, next_run_at)), id LIMIT ?",
+        (_utc_text(now), DUE_PER_PASS),
     ).fetchall()
     results = Ran()
     for row in due:
