@@ -28,8 +28,7 @@ export const isWebLink = (url: string) => /^https?:\/\//i.test(url);
 const ROW = "mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-small text-text-tertiary";
 
 /** The kind, source and time line above a headline. */
-export const BYLINE =
-  "mb-0.5 flex flex-wrap items-center gap-2 text-small text-text-tertiary";
+export const BYLINE = "mb-0.5 flex flex-wrap items-center gap-2 text-small text-text-tertiary";
 /** A story's or an issue's headline, and the link it is when there is a page to open. */
 export const HEADLINE = "text-h4 font-medium text-text-primary";
 export const HEADLINE_LINK = `inline-flex items-center rounded-ds-xs text-text-primary hover:underline ${TARGET} ${FOCUS}`;

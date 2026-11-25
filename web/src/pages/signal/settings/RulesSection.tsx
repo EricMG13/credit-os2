@@ -21,7 +21,7 @@ function RuleList({
   onChange,
 }: { rules: SignalSettingsRule[]; group: Owner } & Switches) {
   return (
-    <ul className="flex flex-col gap-5">
+    <ul className="flex flex-col gap-3">
       {rules.map((rule) => (
         <li key={rule.id}>
           <Toggle

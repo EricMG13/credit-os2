@@ -65,7 +65,7 @@ Reading the pages overturned assumptions carried from the predecessor's map:
 
 | ID | Kind of information | Component | Source (read) | Why it fits the reader |
 | :--- | :--- | :--- | :--- | :--- |
-| N1 | Which application area | Sidebar navigation: slim icon rail; dual-tier where an area has channels (Signal) | UUI [Sidebar navigations](https://www.untitledui.com/react/components/sidebar-navigations) | Four areas need four icons, not a menu bar; counts sit on the item |
+| N1 | Which application area | Sidebar navigation: slim icon rail; dual-tier where an area has channels (Signal). Since the 2026-11-24 redesign the areas are one top bar (`DESIGN.md` § Shell) and Signal's channels are a tile beside its page, not a second tier (section 3.4) | UUI [Sidebar navigations](https://www.untitledui.com/react/components/sidebar-navigations) | Four areas need four icons, not a menu bar; counts sit on the item |
 | N2 | Which page of a run, of the Model, of Evidence, or of settings | Tabs with a count badge where a tab holds a list: underline when horizontal; side line when vertical (settings sections) | UUI [Tabs](https://www.untitledui.com/react/components/tabs) | The reader always sees the five places a run has and how much is in each |
 | N3 | Where in a long module page | Vertical menu with icons and an active left border | HUI [Vertical Menu](https://www.hyperui.dev/components/application/vertical-menu) | A module is long; the index shows the judgement sections first |
 | N4 | Which issuer and run this is | Page header: issuer name large, then as-of date, pathway and state as badges | UUI [Page headers](https://www.untitledui.com/react/components/page-headers) with [Badges](https://www.untitledui.com/react/components/badges) | The run code is an audit key and stays in Evidence; the reader needs issuer and date |
@@ -287,12 +287,30 @@ numeral is animated (ruling 6).
 
 ### 3.4 Signal
 
-Signal is drawn in the connected application from its service (since 2026-11-24), outside the open-from-disk rule and its gate (ruling 9).
+Signal is a page of the connected application: it is drawn at `/signal`, under the same top bar
+as every other area, from its service (since 2026-11-24), where the server is started with
+`--signal-url`. It is not a separate page. The open-from-disk rule and its gate (ruling 9) cover
+the design-reference app, which draws the same screens on `web/fixtures/signal.json`.
 Parts that need paid model calls are marked "needs ruling".
+
+The look is `DESIGN.md`'s, as on every redesigned screen (2026-11-25); the kit ids below still
+say which kind of information each part presents. What the redesign changed on these screens:
+
+| Part | Under the redesign |
+| :--- | :--- |
+| Shell | One top bar; no area rail and no bottom bar. The Signal frame fills the page region under it |
+| Channel list | A tile (20px radius, hairline edge, no shadow) inside the page gutter, 256px wide, from 960px: 32 gutter + 256 list + 16 gap + 624 page + 32 gutter, where 624px holds the feed's tabs and search on one row and the 600px sources table. Below 960px a "Channels" button on a strip stuck to the top of the page opens it from the left |
+| Current channel, current settings section | Accent tint and accent edge on a 12px-radius row, as the report's module list |
+| Page title | The h1 size (32/38), as the shell's page header |
+| Lists of stories, threads and issues | One tile with hairlines between rows |
+| Settings sections | One tile each, with the heading inside; the sources table is its own tile at full width |
+| Counts, dates, clock times | Geist Mono with tabular numerals; a time in words ("2 h ago") stays in the text face |
+| Controls | At least 32px; 44px below 480px (one rule on the frame and on each panel and dialog) |
+| New-stories pill, unread | The accent (teal) dot with its words; the info colour is not used for "new" |
 
 | Screen | Section | Kit |
 | :--- | :--- | :--- |
-| Feed | Area rail and channel list (views, topics, groups, digests) with unread counts | N1 (dual-tier) |
+| Feed | Channel list (views, topics, groups, digests) with unread counts: a tile beside the page from 960px, behind the Channels button below it | N1 (the channel tier only; the areas are the top bar) |
 | Feed | A topic's follow star | Icon toggle button (atom) on the channel item |
 | Feed | Name chip with role | R19 |
 | Feed | Kind filter and search | N5 |
@@ -400,7 +418,7 @@ the last column says where the decision records each.
 | Q6 | Evidence has seven tabs | Five: Summary, Trace with calculations, Sources, Gaps, Record with run internals; module-written tables and registers in the inspector, Trace or Record, unchanged and exact; nothing removed | Ruling 8 |
 | Q7 | The Model's own Evidence and Limitations pages | The Model links to the run's Evidence instead of its own | Ruling 8 |
 | Q8 | Limitations open or collapsed | Open by default | "Also accepted" |
-| Q9 | Signal cannot open from `file://` | A separate served page outside the open-from-disk rule and its gate | Ruling 9 |
+| Q9 | Signal cannot open from `file://` | Its data comes from a service, so the live page is served: since 2026-11-24 it is a page of the connected app at `/signal`, under the same top bar, not a separate page. The design-reference app still opens the same screens from disk on fixture data | Ruling 9 |
 | Q10 | Which Signal screens to mock | Every designed screen; parts needing paid model calls are marked as needing a ruling | Ruling 9 |
 | Q11 | Two primitive libraries | React Aria only. Shadcnblocks pieces are built on it; Radix and Base UI are not added | Ruling 3 |
 | Q12 | Unused sources | Flowbite React, Ant Design, Preline and Uiverse are unused. React Bits is also unused: its licence forbids redistribution and this repository is public; animations are CSS written here | "Also accepted"; ruling 4 |

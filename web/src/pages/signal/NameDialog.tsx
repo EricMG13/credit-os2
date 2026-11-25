@@ -53,7 +53,11 @@ function NameForm({ current, refused = null, onSubmit, onCancel, onGone }: Props
     onSubmit(name);
   };
   return (
-    <form noValidate onSubmit={submit} className={`flex flex-col gap-5 p-5 sm:p-6 ${PHONE_TARGETS}`}>
+    <form
+      noValidate
+      onSubmit={submit}
+      className={`flex flex-col gap-5 p-5 sm:p-6 ${PHONE_TARGETS}`}
+    >
       <div className="flex flex-col gap-1">
         <h2 id={TITLE_ID} className="font-display text-h3 text-text-primary">
           Your name

@@ -142,9 +142,13 @@ describe("the freshness line", () => {
     },
   );
 
-  it("draws the page title at the mock's heading size", () => {
+  it("draws the page title at the design's h1 size, as the shell's page header does", () => {
     show("/signal/main/feed/for-you");
-    expect(screen.getByRole("heading", { level: 1 }).className).toContain("text-h2");
+    const title = screen.getByRole("heading", { level: 1 });
+    expect(title.className.split(" ")).toEqual(
+      expect.arrayContaining(["font-display", "text-h1", "wrap-anywhere"]),
+    );
+    expect(title.className).not.toContain("text-h2");
   });
 });
 

@@ -86,7 +86,7 @@ function FieldInput({
   if (field.kind === "switches") {
     const on = values.chosen[field.key] ?? [];
     return (
-      <fieldset className="flex flex-col gap-3">
+      <fieldset className="flex flex-col gap-1">
         <legend className="mb-2 text-small font-medium text-text-secondary">{field.label}</legend>
         {field.options.map((option) => (
           <Toggle
@@ -155,7 +155,11 @@ function Form({
     if (empty === undefined) run(() => onSend(values));
   };
   return (
-    <form noValidate onSubmit={submit} className={`flex flex-col gap-5 p-5 sm:p-6 ${PHONE_TARGETS}`}>
+    <form
+      noValidate
+      onSubmit={submit}
+      className={`flex flex-col gap-5 p-5 sm:p-6 ${PHONE_TARGETS}`}
+    >
       <div className="flex flex-col gap-1">
         <h2 id={TITLE_ID} className="font-display text-h3 text-text-primary">
           {title}

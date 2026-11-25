@@ -4,9 +4,9 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import fixture from "../../../fixtures/signal.json";
 import { page, settled, show, withMain } from "./test-helpers";
-import { serve, showLive } from "./live/test-helpers";
+import { refusal, serve, showLive } from "./live/test-helpers";
 
-const WIDE_QUERY = "(min-width: 1024px)";
+const WIDE_QUERY = "(min-width: 960px)";
 
 /** A window whose width answers the frame's question with `wide`; `set` changes it, as a resize does. */
 function windowIs(wide: boolean) {
@@ -53,7 +53,7 @@ describe("the Signal frame in a narrow window", () => {
     vi.unstubAllGlobals();
   });
 
-  it("asks whether the window is 1024px wide and draws the column where it is", () => {
+  it("asks whether the window is 960px wide and draws the column where it is", () => {
     const width = windowIs(true);
     show("/signal/main/feed/for-you");
     expect(new Set(width.asked)).toEqual(new Set([WIDE_QUERY]));
@@ -91,14 +91,64 @@ describe("the Signal frame in a narrow window", () => {
     expect(content.firstElementChild).toBe(strip);
     expect(strip.className).toContain("bg-surface-canvas");
     expect(strip.className).toContain("z-30");
-    expect(content.className).toContain("scroll-pt-16");
-    expect(content.className).toContain("min-[1024px]:scroll-pt-0");
+    // The region names the strip's height once: 52px, and 60px on a phone, where the button is
+    // a 44px target. The strip takes it at the region's top edge, and the region's scroll
+    // padding is the same length. No offset is written as a number of its own.
+    const classes = content.className.split(" ");
+    expect(classes).toEqual(
+      expect.arrayContaining([
+        "[--strip:3.25rem]",
+        "max-[480px]:[--strip:3.75rem]",
+        "scroll-pt-(--strip)",
+      ]),
+    );
+    expect(strip.className.split(" ")).toEqual(
+      expect.arrayContaining(["top-0", "h-(--strip)", "px-4", "sm:px-8"]),
+    );
+    expect(`${strip.className} ${content.className}`).not.toMatch(
+      /(^| )-(top|mx|mt)-|scroll-pt-\d/,
+    );
   });
 
   it("draws no sticky strip and no scroll padding where the list is a column", () => {
     windowIs(true);
     show("/signal/main/feed/for-you");
     expect(document.querySelector("#signal-content .sticky")).toBeNull();
+    const content = document.getElementById("signal-content") as HTMLElement;
+    expect(content.className.split(" ")).toContain("[--strip:0px]");
+    expect(content.className).not.toContain("3.25rem");
+  });
+
+  it("keeps a refusal in view 8px under the strip, by the strip's own height", async () => {
+    windowIs(false);
+    const service = serve();
+    service.replies.set(
+      "POST /signal/api/stories/1/save",
+      refusal(401, "set a display name before saving"),
+    );
+    showLive("#/signal/main/feed/for-you");
+    await screen.findByRole("heading", { level: 1, name: "For you" });
+    fireEvent.click(
+      page().getByRole("button", {
+        name: "Save: Corvane Packaging to close two plants as volumes fall",
+      }),
+    );
+    const holder = (await page().findByRole("alert")).closest(".sticky") as HTMLElement;
+    expect(holder.className.split(" ")).toEqual(
+      expect.arrayContaining(["sticky", "top-[calc(var(--strip,0px)+0.5rem)]", "z-10"]),
+    );
+    // It is inside the region that sets `--strip`, after the strip.
+    const content = document.getElementById("signal-content") as HTMLElement;
+    expect(content.contains(holder)).toBe(true);
+    expect(holder.className).not.toMatch(/top-\d|min-\[/);
+  });
+
+  it("draws the Channels button at the kit's small size, not a bar of its own height", () => {
+    windowIs(false);
+    show("/signal/main/feed/for-you");
+    // The kit's small button: 8px above and below a 20px line, 36px tall.
+    expect(button().className.split(" ")).toEqual(expect.arrayContaining(["py-2", "text-sm"]));
+    expect(button().className).not.toContain("py-2.5");
   });
 
   it("opens the channel panel from the left edge", () => {
@@ -305,13 +355,14 @@ describe("the Signal frame in a narrow window", () => {
     expect(screen.queryByRole("navigation", { name: "Signal" })).toBeNull();
   });
 
-  it("pads the page region 16px, and 32px from 768px", () => {
+  it("pads the page 16px, and 32px from 640px, as the shell pads every page", () => {
     windowIs(false);
     show("/signal/main/feed/for-you");
     const content = document.getElementById("signal-content") as HTMLElement;
-    expect(content.className.split(" ")).toEqual(
-      expect.arrayContaining(["p-4", "min-[768px]:p-8"]),
-    );
+    const padded = content.lastElementChild as HTMLElement;
+    expect(padded.className.split(" ")).toEqual(["p-4", "sm:p-8"]);
+    expect(padded.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
+    expect(content.className).not.toMatch(/(^| )(sm:|min-\[768px\]:)?p-\d/);
     expect(page().getByRole("heading", { level: 1, name: "For you" })).toBeInTheDocument();
   });
 

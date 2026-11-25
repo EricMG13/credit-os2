@@ -33,7 +33,9 @@ function order(sources: SignalSource[], sort: SortDescriptor | undefined): Signa
 }
 
 function Small({ children }: { children: string }) {
-  return <small className="mt-1 block text-caption font-normal text-text-tertiary">{children}</small>;
+  return (
+    <small className="mt-1 block text-caption font-normal text-text-tertiary">{children}</small>
+  );
 }
 
 /** Called, not drawn as an element: a null result is the cell's missing health (n.a.). */
@@ -144,7 +146,7 @@ export function SourcesSection({
             aria-label="Sources table"
             // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
             tabIndex={0}
-            className="overflow-x-auto rounded-ds-md ring-1 ring-border-hairline outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 [&>div]:overflow-x-visible"
+            className="overflow-x-auto rounded-ds-lg bg-surface-card ring-1 ring-border-subtle outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2 [&>div]:overflow-x-visible"
           >
             <Table
               aria-label="Sources"

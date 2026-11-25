@@ -21,7 +21,6 @@ import type { SignalDigest, SignalDigestIssue, SignalScene } from "./slice";
 import { BYLINE, HEADLINE, isWebLink } from "./StoryCard";
 import { writes } from "./writes";
 
-
 type Point = SignalDigestIssue["points"][number];
 
 function Stories({ point }: { point: Point }) {
@@ -191,10 +190,7 @@ function PausedNotice({
         title={digest.paused}
         action={
           writer ? (
-            <a
-              href={sceneHref(scene, "settings/ai")}
-              className={`text-small ${LINK}`}
-            >
+            <a href={sceneHref(scene, "settings/ai")} className={`text-small ${LINK}`}>
               Open AI and cost
             </a>
           ) : undefined

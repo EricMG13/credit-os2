@@ -68,18 +68,24 @@ Credit OS
 ├─ Coverage                     Decider, Analyst   across the book: who has what, who ranks where
 ├─ Run activity                 Analyst            what is running, what failed
 │   └─ Run progress             Analyst            where this run is
-└─ Start run                    Analyst            what will this run do, not do, and cost
-    └─ Documents → Purpose → More context → Review and start
+├─ Start run                    Analyst            what will this run do, not do, and cost
+│   └─ Documents → Purpose → More context → Review and start
+└─ Signal                       Analyst, Decider   what happened outside that touches my names
+    ├─ Feed                     For you, Latest, Saved, one topic
+    ├─ Group → Thread           what colleagues shared and said
+    ├─ Digest                   the scheduled brief
+    └─ Settings                 Groups, Thread rules, Sources, Topics, Digests, Notifications, AI and cost
 ```
 
-The static build's Model and Signal areas are design references, not reader screens, and are
-outside this map.
+Signal is in the app where the server is started with `--signal-url`. The static build's Model
+area is a design reference, not a reader screen, and is outside this map; the static build also
+draws the Signal screens on sample data, as a reference.
 
 ## On every screen
 
 | Element | What | How | Where |
 |---|---|---|---|
-| Top bar | Symbol, "Credit OS", areas (Library, Coverage, Run activity; Start run as the primary action) | One bar; current area tinted and underlined | Top |
+| Top bar | Symbol, "Credit OS", areas (Library, Coverage, Run activity, and Signal where the server has it; Start run as the primary action) | One bar; current area tinted and underlined | Top |
 | Report header | Breadcrumb, issuer name, sector line, pathway, as-of date and period, currency and unit | Name large; facts as quiet chips | Under the top bar on every report page |
 | Section control | Overview, Changes, Modules (count), Forecast, Evidence, Calendar | One segmented control; current section tinted with a dot | Right of the report header |
 | Basis label | Reported, as defined, or pro forma; fiscal year end; unit | One quiet line per tile or table, stated once | Under the tile title |
@@ -252,6 +258,31 @@ For the Analyst. Goal: show progress. Insight wanted: is it working, where is it
 | Progress | P2 | What just happened | Feed, newest first | Under the pipeline | Code |
 | Progress | P1 (done) | Open report | One primary button | Top right | Code |
 | Progress | P1 (failed) | What failed, why, and what to do | Notice with retry or resume | Top | Code |
+
+### Signal
+
+For the Analyst following outside sources and the Decider reading what was shared. Goal: one
+feed of stories from approved sources, and group threads about them. Insight wanted: what
+happened outside that touches my names, and what colleagues make of it. It is a news feed, not
+analysis: it is tied to no issuer or run, and nothing on it is a finding
+(`docs/superpowers/specs/2026-11-13-signal-design.md`; look and widths:
+`docs/design/component-map.md` § 3.4).
+
+| Screen | Rank | What to show | How | Where | Needs |
+|---|---|---|---|---|---|
+| All | P2 | Where I am among views, topics, groups and digests, with what is unread | Channel list: a tile beside the page from 960px, behind a "Channels" button below it; current item tinted with an accent edge; counts in mono | Left | Code |
+| Feed | P1 | The stories, newest or most relevant first: kind, source, time, headline, one-line summary | One tile, a row per story with hairlines between; headline at the h4 size, linked to the source | Main | Code |
+| Feed | P1 | Whether the sources were checked, and whether one is failing | One badge beside the title: the state's shape and words; orange with an icon when a source fails | Beside the title | Code |
+| Feed | P2 | Kind filter, search, Top or Latest | Tabs, a search field, a two-way toggle | Above the tile | Code |
+| Feed | P2 | New stories waiting | A pill with the accent dot and "Show" | Above the tile | Code |
+| Feed | P2 | Rating move, case stage, signal strength, the AI line, who shared it | Marks on the story row, each with its word; AI text under an "AI" label | In the row | Code; a paid-call ruling for the AI parts |
+| Feed | P3 | Save, Comment, Share to group, Open source | Text buttons under the story; Share opens a dialog | In the row | Code |
+| Group | P1 | What was shared in the group, with its note, comment count and last activity | The feed's tile and rows, each with "Open thread" | Main | Code |
+| Thread | P1 | The story or note, the comments and replies, the reply box | Side panel over the group, from the right; comment times in mono | Right | Code |
+| Digest | P1 | The newest issue: its numbered points, each with the stories behind it | Numbered panel; the issue title as the page title; earlier issues on a tile under it | Main | Code; a paid-call ruling |
+| Settings | P2 | One section at a time: groups, thread rules, sources, topics, digests, notifications, AI and cost | Section tabs (beside from 1280px, a row above below it); each section on one tile; sources as a sortable table | Main | Code |
+| All | P1 (empty, failed) | Nothing followed, nothing saved, no approved source, no match; the service cannot be reached; a write was refused | Empty state with one sentence and one action; error notice with Retry; a refusal as a red notice that stays in view | In place | Code |
+| All | E | Source feed addresses and ids | Not on a reading screen | Settings, Sources; the service's own records | — |
 
 ### States every screen draws
 

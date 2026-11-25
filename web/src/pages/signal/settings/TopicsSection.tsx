@@ -109,7 +109,9 @@ function Row({
       </div>
       <div className="grid min-w-48 flex-1 gap-2">
         {topic.keywords.length === 0 ? (
-          <span className="text-small text-text-tertiary">No keywords: every story of this kind</span>
+          <span className="text-small text-text-tertiary">
+            No keywords: every story of this kind
+          </span>
         ) : (
           <Tags tags={topic.keywords} label={`Keywords: ${topic.name}`} />
         )}

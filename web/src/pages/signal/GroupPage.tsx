@@ -222,7 +222,9 @@ function Item({
             {thread.commentCount}
           </span>
         )}
-        {thread.lastActivity === null ? null : <time className="tabular-nums">{thread.lastActivity}</time>}
+        {thread.lastActivity === null ? null : (
+          <time className="tabular-nums">{thread.lastActivity}</time>
+        )}
         <a
           href={sceneHref(
             scene,
@@ -269,10 +271,7 @@ export function GroupPage({
           </EmptyState.Content>
         </EmptyState>
       ) : (
-        <ul
-          aria-label="Shared in this group"
-          className={`mt-4 ${LIST_TILE}`}
-        >
+        <ul aria-label="Shared in this group" className={`mt-4 ${LIST_TILE}`}>
           {group.threads.map((thread) => {
             const story = thread.storyId === null ? null : (stories.get(thread.storyId) ?? null);
             if (thread.storyId !== null && story === null) {
@@ -292,7 +291,9 @@ export function GroupPage({
           })}
         </ul>
       )}
-      {group.more === null ? null : <p className="mt-3 text-small text-text-tertiary">{group.more}</p>}
+      {group.more === null ? null : (
+        <p className="mt-3 text-small text-text-tertiary">{group.more}</p>
+      )}
     </>
   );
 }

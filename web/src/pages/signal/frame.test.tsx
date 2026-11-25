@@ -232,7 +232,7 @@ describe("the Signal frame", () => {
     expect(screen.getAllByRole("article")).toHaveLength(4);
   });
 
-  it("gives the frame its own scrolling columns and the content its padding", () => {
+  it("gives the frame its own scrolling columns and the content the shell's padding", () => {
     show("/signal/main/feed/for-you");
     expect(channels().className).toContain("overflow-y-auto");
     expect(channels().className).toContain("w-64");
@@ -240,7 +240,58 @@ describe("the Signal frame", () => {
       .getByRole("heading", { level: 1, name: "For you" })
       .parentElement?.closest("[tabindex='-1']");
     expect(content?.className).toContain("overflow-y-auto");
-    expect(content?.className).toContain("p-8");
+    // The region scrolls; the page inside it is padded as the shell pads a page, with the 16px
+    // gap between tiles on the side the list is on.
+    const padded = content?.lastElementChild;
+    expect(padded?.className.split(" ")).toEqual(["p-4", "sm:p-8", "sm:pl-4"]);
+  });
+
+  it("draws the list as a tile inside the page gutter, with no rule or shadow of its own", () => {
+    show("/signal/main/feed/for-you");
+    expect(channels().className.split(" ")).toEqual(
+      expect.arrayContaining([
+        "my-8",
+        "ml-8",
+        "rounded-ds-lg",
+        "border",
+        "border-border-subtle",
+        "bg-surface-card",
+      ]),
+    );
+    expect(channels().className).not.toMatch(/border-r|shadow/);
+  });
+
+  it("marks the current item with the accent tint and edge, and no other", () => {
+    show("/signal/main/feed/for-you");
+    const row = (name: string) =>
+      within(channels()).getByRole("link", { name }).closest("li") as HTMLElement;
+    expect(row("For you").className.split(" ")).toEqual(
+      expect.arrayContaining(["border-action", "bg-surface-selected", "text-text-link"]),
+    );
+    expect(row("Latest").className).toContain("border-transparent");
+    expect(row("Latest").className).not.toContain("bg-surface-selected");
+  });
+
+  it("draws a count in the mono face with tabular numerals", () => {
+    show("/signal/main/feed/for-you");
+    const count = within(channels()).getByText("12");
+    expect(count.className.split(" ")).toEqual(
+      expect.arrayContaining(["font-mono", "tabular-nums", "text-caption"]),
+    );
+  });
+
+  it("makes every control in the frame a 44px target on a phone", () => {
+    show("/signal/main/feed/for-you");
+    const frame = channels().parentElement as HTMLElement;
+    for (const rule of [
+      "max-[480px]:[&_button]:min-h-11",
+      "max-[480px]:[&_button]:min-w-11",
+      "max-[480px]:[&_a[data-rac]]:min-h-11",
+      "max-[480px]:[&_[role=tab]]:min-h-11",
+      "max-[480px]:[&_input:not([type=checkbox])]:min-h-11",
+    ]) {
+      expect(frame.className.split(" ")).toContain(rule);
+    }
   });
 
   it.each([

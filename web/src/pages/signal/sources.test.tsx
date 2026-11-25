@@ -223,7 +223,7 @@ describe("what Sources says it leaves out", () => {
     );
     const line = page().getByText(SENTENCE);
     expect(line.tagName).toBe("P");
-    expect(line).toHaveClass("text-sm", "text-text-tertiary");
+    expect(line).toHaveClass("text-small", "text-text-tertiary");
     expect(line.className).not.toMatch(/nowrap|truncate/);
     const region = page().getByRole("region", { name: "Sources table" });
     expect(region.contains(line)).toBe(false);

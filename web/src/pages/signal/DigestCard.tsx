@@ -11,7 +11,6 @@ import { NumberedPanel } from "./parts/NumberedPanel";
 import type { SignalDigestCard } from "./slice";
 import { BYLINE, HEADLINE, HEADLINE_LINK } from "./StoryCard";
 
-
 export function DigestCard({ digest, href }: { digest: SignalDigestCard; href: string }) {
   const { title } = digest;
   return (

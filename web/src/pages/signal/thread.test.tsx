@@ -46,6 +46,23 @@ describe("the thread panel", () => {
     expect(overlay?.className).not.toContain("bg-overlay/70");
   });
 
+  it("draws the panel above the Channels strip and under a dialog", () => {
+    show(CORVANE_PATH);
+    const overlay = panel().closest("[class*='bg-overlay']");
+    // The strip is z-30 and a dialog's overlay z-50.
+    expect(overlay?.className.split(" ")).toContain("z-40");
+  });
+
+  it("makes every control in the panel a 44px target on a phone", () => {
+    show(CORVANE_PATH);
+    expect(panel().className.split(" ")).toEqual(
+      expect.arrayContaining([
+        "max-[480px]:[&_button]:min-h-11",
+        "max-[480px]:[&_a[data-rac]]:min-h-11",
+      ]),
+    );
+  });
+
   it("quotes the story with its kind, source and time, and links to the source", () => {
     show(CORVANE_PATH);
     const top = within(panel());

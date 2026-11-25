@@ -44,7 +44,7 @@ export function AiSection({ ai }: { ai: SignalAi }) {
             <p id={REASON_ID} className="-mb-2 text-small text-text-tertiary">
               The switches show the state of each part. They cannot be changed here.
             </p>
-            <ul className="flex flex-col gap-5">
+            <ul className="flex flex-col gap-3">
               {parts.map((part) => (
                 <li key={part.id}>
                   <Toggle

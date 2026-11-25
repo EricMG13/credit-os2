@@ -119,10 +119,7 @@ function EntryList({
 }) {
   if (entries.length === 0) return null;
   return (
-    <div
-      ref={listRef}
-      className={`mt-4 ${LIST_TILE}`}
-    >
+    <div ref={listRef} className={`mt-4 ${LIST_TILE}`}>
       {entries.map((entry) =>
         entry.kind === "story" ? (
           <StoryCard

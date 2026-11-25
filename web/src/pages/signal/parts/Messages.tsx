@@ -18,7 +18,11 @@ const REACTION_WORDS = ["Agree", "Disagree", "Seen"] as const;
 export type ReactionWord = (typeof REACTION_WORDS)[number];
 
 /** A text action under a comment: a 32px target. */
-const ACTION = cx("cursor-pointer rounded-ds-xs text-small font-semibold text-text-link", TARGET, FOCUS);
+const ACTION = cx(
+  "cursor-pointer rounded-ds-xs text-small font-semibold text-text-link",
+  TARGET,
+  FOCUS,
+);
 const TIME = "font-mono text-caption font-normal text-text-tertiary tabular-nums";
 const EMPTY = "Write something first.";
 

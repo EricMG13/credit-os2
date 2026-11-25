@@ -12,11 +12,7 @@ import { LIST_TILE } from "./parts/classes";
 /** The three stories' skeleton: a tile and lines each, static, in the card's own frame. */
 export function FeedSkeleton() {
   return (
-    <section
-      aria-label="Stories"
-      aria-busy="true"
-      className={`mt-4 ${LIST_TILE}`}
-    >
+    <section aria-label="Stories" aria-busy="true" className={`mt-4 ${LIST_TILE}`}>
       <span className="sr-only">Loading stories</span>
       {[4, 4, 3].map((lines, index) => (
         <div key={index} data-skeleton-story className="flex gap-3 py-6 md:gap-4">

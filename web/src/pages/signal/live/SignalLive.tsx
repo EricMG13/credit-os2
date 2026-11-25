@@ -8,6 +8,7 @@ import { PageHeader } from "../../../shell/PageHeader";
 import { SourceContext } from "../../source";
 import { SignalActionsContext, SignalAsOfContext } from "../actions";
 import { FeedSkeleton } from "../FeedStates";
+import { TARGET } from "../parts/classes";
 import { HOME_HREF, placeOf } from "./place";
 import type { Failure } from "./service";
 import { useLiveSignal } from "./useLiveSignal";
@@ -20,9 +21,13 @@ function NotFound() {
     <div className={PADDED}>
       <PageHeader
         title="Page not found"
-        actions={<Button href={HOME_HREF}>Back to For you</Button>}
+        actions={
+          <Button href={HOME_HREF} className={TARGET}>
+            Back to For you
+          </Button>
+        }
       />
-      <p className="mt-6 text-text-secondary">No Signal page has this address.</p>
+      <p className="mt-6 text-body text-text-secondary">No Signal page has this address.</p>
     </div>
   );
 }
@@ -44,16 +49,16 @@ function Unread({ failure, onRetry }: { failure: Failure; onRetry: () => void })
       <PageHeader
         title="Signal"
         actions={
-          <Button color="secondary" onPress={onRetry}>
+          <Button color="secondary" className={TARGET} onPress={onRetry}>
             Retry
           </Button>
         }
       />
-      <p role="alert" className="mt-6 text-text-secondary">
+      <p role="alert" className="mt-6 text-body text-text-secondary">
         {failure.text}
       </p>
       {failure.reason === null ? null : (
-        <p className="mt-2 wrap-anywhere text-text-secondary">{failure.reason}</p>
+        <p className="mt-2 text-body wrap-anywhere text-text-secondary">{failure.reason}</p>
       )}
     </div>
   );
