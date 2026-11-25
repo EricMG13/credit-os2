@@ -1235,3 +1235,247 @@ def test_every_word_of_a_limit_row_is_read_or_the_row_is_not_read(
     sector, bucket, price = issuer
     row = limit_row(category, parameter, limit, "-1.00%", "Breach")
     assert _one(row, sector=sector, rating_bucket=bucket, price=price) == outcome
+
+
+# --- Mutation audit: mutmut 3.8.1 survivors killed by literal expectations -----------------------
+
+
+@pytest.mark.parametrize("level", [1, 2, 3, 4, 5])
+def test_a_whole_mean_is_shown_with_two_decimals(level: int) -> None:
+    # Methodology section 4: the mean of twelve equal levels is that level, shown as 3.00 etc.
+    result = credit_score(card([level] * 12))
+    assert result.reason == f"Credit Score {level}: mean {level}.00 of 12 scored factors."
+
+
+def test_the_floor_reason_names_one_or_both_floor_factors_with_the_right_verb() -> None:
+    one: dict[str, int | None] = dict.fromkeys(FACTORS, 3)
+    one["Liquidity"] = 5  # sum 53 of 17: mean 3.12, rounds to 3, held to 4
+    assert credit_score(card(one)).reason == (
+        "Credit Score 4: mean 3.12 of 17 scored factors gives 3, held to no better than 4 "
+        "because Liquidity is scored 5."
+    )
+    both = dict(one, **{"Maturity profile": 5})  # sum 55 of 17: mean 3.24, rounds to 3, held to 4
+    assert credit_score(card(both)).reason == (
+        "Credit Score 4: mean 3.24 of 17 scored factors gives 3, held to no better than 4 "
+        "because Liquidity and Maturity profile are scored 5."
+    )
+
+
+@pytest.mark.parametrize(
+    ("credit_", "valuation_", "message"),
+    [
+        (6, 3, "Credit Score must be 1 to 5, not 6."),
+        (0, None, "Credit Score must be 1 to 5, not 0."),
+        (3, 6, "Valuation must be 1 to 5, not 6."),
+        (None, 0, "Valuation must be 1 to 5, not 0."),
+    ],
+)
+def test_proposal_names_the_input_that_is_out_of_range(
+    credit_: int | None, valuation_: int | None, message: str
+) -> None:
+    with pytest.raises(ValueError) as caught:
+        proposal(credit_, valuation_)
+    assert str(caught.value) == message
+
+
+def test_band_names_the_non_finite_difference() -> None:
+    with pytest.raises(ValueError) as caught:
+        band(Decimal("NaN"))
+    assert str(caught.value) == "The difference must be a finite number, not NaN."
+
+
+def test_a_non_finite_level_price_or_reference_level_is_named() -> None:
+    reference_ = book(*bonds("1", "2", "3", "4", "5"))
+    with pytest.raises(ValueError) as level:
+        valuation(bond("Infinity"), reference_)
+    assert str(level.value) == "The level of Issuer 2030 must be a finite number, not Infinity."
+    with pytest.raises(ValueError) as price:
+        valuation(bond(price="NaN"), reference_)
+    assert str(price.value) == "The price of Issuer 2030 must be a finite number, not NaN."
+    with pytest.raises(ValueError) as spread:
+        valuation(bond(), book(*bonds("1", "2", "3", "4", "-Infinity")))
+    assert str(spread.value) == "A reference level must be a finite number, not -Infinity."
+
+
+def test_the_valuation_reasons_read_in_full() -> None:
+    five = book(*bonds("300", "200", "400", "250", "350"))
+    assert valuation(bond("350"), five).reason == (
+        "Valuation 2: Issuer 2030 is 50 bp from the BB median of 300 bp (5 names, 5 positions)."
+    )
+    one_name = book(*[pos("Acme Corp.", level) for level in ("300", "310", "320", "330", "340")])
+    assert valuation(bond(), one_name).reason == (
+        "No Valuation: the BB bucket holds 1 name and 5 are needed."
+    )
+    assert valuation(bond(), book()).reason == (
+        "No Valuation: the BB bucket holds 0 names and 5 are needed."
+    )
+    both = valuation(bond(level=None, price=None), five)
+    assert both.reason == "No Valuation: Issuer 2030 has no level; Issuer 2030 has no price."
+
+
+def test_a_mixed_measure_bucket_adds_its_sentence_to_the_valuation_reason() -> None:
+    loans = [
+        pos("A", "500", asset="loan", measure="discount_margin"),
+        pos("B", "510", asset="loan", measure="discount_margin"),
+        pos("C", "520", asset="loan", measure="discount_margin"),
+        pos("D", "530", asset="loan", measure="margin"),
+        pos("E", "540", asset="loan", measure="margin"),
+    ]
+    loan = Instrument("Term loan", "loan", "BB", Decimal(600), Decimal(98))
+    assert valuation(loan, book(*loans)).reason == (
+        "Valuation 2: Term loan is 80 bp from the BB median of 520 bp (5 names, 5 positions). "
+        "The BB bucket mixes discount margin and margin."
+    )
+    blank = valuation(Instrument("Term loan", "loan", "BB", None, Decimal(98)), book(*loans))
+    assert blank.reason == (
+        "No Valuation: Term loan has no level. The BB bucket mixes discount margin and margin."
+    )
+
+
+@pytest.mark.parametrize(
+    ("headroom", "status", "outcome"),
+    [
+        ("(5)", "", "breached"),  # a figure wholly in parentheses is negative
+        ("(0.40%)", "", "breached"),
+        ("(12.5%", "Pass", "within"),  # a parenthesis that is not closed changes nothing
+        ("(12.5%", "", "not_read"),
+    ],
+)
+def test_only_a_figure_wholly_in_parentheses_is_negative(
+    headroom: str, status: str, outcome: str
+) -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "≤ 7.5% NAV", headroom, status)
+    assert _one(row, rating_bucket="CCC") == outcome
+
+
+def test_a_row_with_no_stated_limit_is_labelled_by_its_parameter_alone() -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "", "-1.00%", "Breach")
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket="CCC", price=None)
+    assert reading.reason.startswith("Max CCC+ and below is breached: ")
+
+
+@pytest.mark.parametrize(
+    ("category", "parameter", "sector", "bucket", "outcome"),
+    [
+        # A row with no sector known never reads a word of its own as the sector.
+        ("Concentration", "Max XXXX exposure", None, "BB", "does_not_apply"),
+        # Every word of the row is read, the lead-in before a list included.
+        ("Sector", "Prohibited: Software", "Software", "BB", "not_read"),
+        # A row that says it limits rated obligations, naming no bucket, cannot be tied.
+        ("Collateral quality", "Max rated obligations", None, "CCC", "not_read"),
+        # "lower", "worse" and "below" extend a bucket only after "and" or "or".
+        ("Rating", "Max B3 lower", None, "B", "not_read"),
+        ("Rating", "Max B3 worse", None, "CCC", "not_read"),
+        ("Rating", "Max B3 below", None, "CCC", "not_read"),
+        ("Rating", "Max B3 and lower", None, "CCC", "breached"),
+        ("Rating", "Max B3 or worse", None, "CCC", "breached"),
+        # After "and" or "or" a word that is not read leaves the row not read.
+        ("Rating", "Max B3 and foo", None, "B", "not_read"),
+        ("Rating", "Max B3 or foo", None, "B", "not_read"),
+    ],
+)
+def test_limit_row_wording_that_is_not_read_leaves_the_row_not_read(
+    category: str, parameter: str, sector: str | None, bucket: str, outcome: str
+) -> None:
+    row = limit_row(category, parameter, "≤ 7.5% NAV", "-1.00%", "Breach")
+    assert _one(row, sector=sector, rating_bucket=bucket) == outcome
+
+
+def test_an_information_row_gives_a_full_sentence() -> None:
+    row = limit_row("Rating", "Max CCC+ and below", "Info", "", "")
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket="CCC", price=None)
+    assert reading.outcome == "does_not_apply"
+    assert reading.reason.startswith("Max CCC+ and below (Info) does not apply: it ")
+    assert "None" not in reading.reason
+
+
+def test_a_capped_reading_names_the_cell_it_was_held_from_and_each_breached_limit() -> None:
+    held = reference(
+        "clo",
+        limit_row(*CCC_ROW),
+        limit_row("Rating", "Max B3 and below", "≤ 7.5% NAV", "-1.00%", "Breach"),
+        bucket="CCC",
+    )
+    result = portfolio_reading(credit(1), [issuer(1, bucket="CCC", asset="loan")], held)
+    assert (result.portfolio, result.name) == ("p", "Portfolio")
+    assert result.reason == (
+        "MW, held from Strong OW by a breached limit: "
+        "Max CCC+ and below (≤ 7.5% NAV) is breached: headroom is -12.50%; "
+        "Max B3 and below (≤ 7.5% NAV) is breached: headroom is -1.00%. "
+        "Strong OW: Credit Score 1 and Valuation 1 "
+        "(Issuer 2030 is 100 bp from the CCC median of 300 bp (5 names, 5 positions).)"
+    )
+
+
+def test_an_uncapped_reading_gives_the_cell_name_and_the_valuation_sentence() -> None:
+    result = portfolio_reading(credit(2), [issuer(2)], reference("hy_index"))
+    assert (result.status, result.recommendation, result.capped_by) == ("proposed", 2, ())
+    assert result.reason == (
+        "Modest OW: Credit Score 2 and Valuation 2 "
+        "(Issuer 2030 is 50 bp from the BB median of 300 bp (5 names, 5 positions).)"
+    )
+
+
+def test_a_custom_portfolio_reads_the_declared_asset_type_and_names_both_when_undeclared() -> None:
+    custom = reference("custom")
+    declared = portfolio_reading(credit(3), [issuer(3)], custom, Issuer(declared="loan"))
+    assert declared.status == "n/a"
+    assert declared.reason == "Portfolio holds loans and the issuer has none."
+    undeclared = portfolio_reading(credit(3), [], custom)
+    assert undeclared.reason == "Portfolio holds loans and bonds and the issuer has none."
+
+
+def test_a_blank_reading_joins_the_credit_reason_and_every_valuation_reason() -> None:
+    no_credit = credit_score(card([3] * 11))
+    thin = reference("hy_index", names=4)
+    both = portfolio_reading(no_credit, [issuer(3)], thin)
+    assert both.status == "blank"
+    assert both.reason == (
+        "No Credit Score: 11 of 17 factors are scored and 12 are needed. "
+        "No Valuation: the BB bucket holds 4 names and 5 are needed."
+    )
+    only_valuation = portfolio_reading(credit(3), [issuer(3), issuer(2)], thin)
+    assert only_valuation.reason == (
+        "No Valuation: the BB bucket holds 4 names and 5 are needed. "
+        "No Valuation: the BB bucket holds 4 names and 5 are needed."
+    )
+
+
+def test_the_per_instrument_proposal_carries_its_instrument_valuation_and_reasons() -> None:
+    loans = reference("loan_index", bucket="CCC")
+    loan = issuer(1, bucket="CCC", asset="loan")
+    proposed = instrument_proposal(credit(1), loan, loan_index=loans, hy_index=None)
+    assert (proposed.instrument, proposed.status, proposed.recommendation) == (
+        "Issuer 2030",
+        "proposed",
+        1,
+    )
+    assert proposed.valuation is not None and proposed.valuation.score == 1
+    assert proposed.reason == (
+        "Strong OW: Credit Score 1, Valuation 1: Issuer 2030 is 100 bp from the CCC median "
+        "of 300 bp (5 names, 5 positions)."
+    )
+    no_credit = instrument_proposal(
+        credit_score(card([3] * 11)), loan, loan_index=loans, hy_index=None
+    )
+    assert (no_credit.instrument, no_credit.status, no_credit.valuation) == (
+        "Issuer 2030",
+        "blank",
+        None,
+    )
+    missing_loans = instrument_proposal(credit(3), loan, loan_index=None, hy_index=loans)
+    assert (missing_loans.instrument, missing_loans.status, missing_loans.valuation) == (
+        "Issuer 2030",
+        "blank",
+        None,
+    )
+    assert missing_loans.reason == "No recommendation for Issuer 2030: no loan index was supplied."
+    missing_bonds = instrument_proposal(credit(3), issuer(3), loan_index=loans, hy_index=None)
+    assert missing_bonds.reason == (
+        "No recommendation for Issuer 2030: no high-yield index was supplied."
+    )
+    thin = reference("hy_index", names=4)
+    no_valuation = instrument_proposal(credit(3), issuer(3), loan_index=None, hy_index=thin)
+    assert no_valuation.instrument == "Issuer 2030" and no_valuation.status == "blank"
+    assert no_valuation.valuation is not None and no_valuation.valuation.score is None
+    assert no_valuation.reason == "No Valuation: the BB bucket holds 4 names and 5 are needed."
