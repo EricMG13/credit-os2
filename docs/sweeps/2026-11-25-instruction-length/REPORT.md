@@ -537,6 +537,28 @@ What follows, each to be probed the same way before it is adopted:
 4. The recurring error in every group is the revolver's maturity given without its springing
    condition. That is a candidate for one exact sentence backed by a check, as with Direction.
 
+## Applied after the trial (seventh pass, 2026-11-25)
+
+Owner: "apply recommendations. can these be applied to all modules?"
+
+- Applied: CP-4 is sent its method without the block's repeats (`TRIMMED_METHODS` and
+  `trim_method` in `owners/cpos_launch_methods.py`). The text CP-4 is sent is byte for byte what
+  group B tested. The method files, their hashes and the registers the check requires are
+  unchanged; each file's heading in the block still names the file's sha256.
+- Consequences: CP-4 is no longer sent its method word for word (two launcher tests said so and
+  now say which block it carries); the library marks CP-4 in every earlier run as answered under
+  an earlier method, since its block changed.
+- Not applied: group D's reader notes (USD 2.62 dearer a run and no less reading; a cheaper form
+  has to be probed first); the restructured texts (C); a sentence on springing maturities (no
+  check can back it, and it would go in unprobed). The five further group B runs were not made:
+  the trial's limit is spent.
+- All modules: the same trimming drops no register or table id in any of the 20 modules of the
+  deep pathway and leaves every required register named. It removes 22,736 characters from CP-4
+  (10.5%), 11,257 from CP-5 (8.9%), 12,085 from CP-6 (8.5%), 12,927 from CP-3 (6.9%) and 382 to
+  2,448 from each of the other sixteen (0.6% to 3.8%, almost all of it the paragraphs that tell
+  the model to run a helper script). Only CP-4 has runs behind it, so only CP-4 is in the set:
+  one module at a time, each after its own comparison.
+
 ## Not verified
 
 - Any effect of length on output: the pilot ran each group once, which cannot show one.

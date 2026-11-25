@@ -143,7 +143,9 @@ def test_the_engine_sends_cp4_and_only_cp4_without_its_repeats():
     assert frozenset({"CP-4"}) == TRIMMED_METHODS
     block = cpos_launch.method_text("CP-4")
     assert trim_method(block) == block  # trimming what was trimmed changes nothing
-    assert "relocated from ACTIVE_PROMPT" not in block and "## Automated QA validation" not in block
+    assert "## Automated QA validation" not in block
+    sent_whole = sum(len(text) for _, text in cpos_launch.method_sections("CP-4"))
+    assert sent_whole - len(block) > 20_000  # the repeats: 22,736 characters on 2026-11-25
     for name, text in cpos_launch.method_sections("CP-4"):
         assert cpos_launch.method_heading(name, text) in block  # every file is still named
     whole = cpos_launch.method_sections("CP-3")
