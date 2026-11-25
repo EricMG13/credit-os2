@@ -1,5 +1,6 @@
-# Default gitleaks rules plus two path allowlists. Paths, not fingerprints,
-# because work-pc-pack.yml adds files under docs/work-pc/ outside PR CI.
+# Default gitleaks rules plus two path allowlists. These directories hold generated
+# digest maps (43 hex-digest findings, none a credential). The path form is kept for
+# simplicity, at the cost of not scanning anything else placed under them.
 [extend]
 useDefault = true
 
