@@ -824,6 +824,42 @@ rows describe the Python screen owner, which CP-OS does not run and which is unc
 aliases are not produced. Selected source revision: this project's cpl10.md at the commit that records this
 note. Detail: `docs/rulings/2026-11-11-module-presets-and-changes.md`, amendment 2026-11-12 (M6).
 
+**CP-L10 in the Credit screening pathway, 2026-11-25 (owner, ruling R12).** A new pathway `credit_screening`,
+"Credit screening", has the preset CP-0, CP-1, CP-DR, CP-L10 and a cap of USD 10 per run. In this pathway only,
+CP-OS sends CP-L10 the archived combined five-screen method, the "Actual Lite-loop amendment" selection
+(financial change, credit, liquidity and forward risk, security opportunity, creditor documents), sent whole and
+not rewritten or summarised. `short_snapshot` is unchanged: it stays deactivated and keeps `cpl10.md`, which
+remains the CP-L10 method for the short snapshot and for past runs, so no other pathway's request, check or
+"Earlier methods" marker changes. See the CP-L10 rows above for the Python screen owner, which CP-OS still does
+not run.
+
+- Files sent, all under `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/`: `SKILL.md`; the five
+  `references/REF_CP-L10_`, `L20_`, `L23_`, `L30_` and `L40_ADAPTIVE_METHOD.md`; `references/CP-L10_CP_LITE_ANALYSIS_POLICY_v1.md`;
+  the five `references/CP-L10_`, `L20_`, `L23_`, `L30_` and `L40_SCHEMA_REFERENCE.md`. The launcher adds the
+  confidence score section, the three reader-layer sections and the register-scope section: 17 sections.
+- Not sent: the five `*payload.schema.txt` files and the base schema they refer to
+  (`CP_DEPLOY_V_LITE_MODULE_PAYLOAD_BASE_v1.schema.txt`, which is not in this repository). The reason is transport:
+  they describe the JSON payload that the Markdown transport overrides, what they constrain is restated in `SKILL.md`
+  and the schema references, and no selected module is sent a payload schema. Size is not the reason.
+- Registers: the 20 registers TL10.1-4, TL20.1-4, TL23.1-4, TL30.1-4 and TL40.1-4 are required and checked for this
+  pathway only, with none cut (`CPOS_REGISTER_SCOPE.md § CP-L10` cuts nothing). Too few rows in a register is
+  recorded as `noted`, not refused.
+- Reader output: five tables, one per screen, each with the header `Topic | Finding | Materiality | Evidence | Next
+  step` and six topic rows in reader words; the launcher refuses a table with another header. CP-DR's handoff is an
+  optional input of CP-L10. In this pathway CP-L10 reads "Credit screening" to the reader.
+- Source revision: cp-os `b57a344` (HEAD; the twelve files last changed in `a31f3f5`). Each archived file's sha256 equals
+  the cp-os file, checked read-only on 2026-11-25.
+- Measured offline (built requests, no provider call, 2026-11-25): CP-L10's method text is 17 sections, 104,782
+  characters (`SKILL.md` 66,108 bytes). Built instructions: CP-0 75,257; CP-1 59,045; CP-DR 72,504; CP-L10 120,540;
+  total 327,346 characters.
+- Cost holds at the USD 10 cap, from the price table: `copilot-sol-*` USD 7.17, so a new call can start only while
+  spend is at most USD 2.83; `copilot-luna-xhigh` USD 0.3585; `copilot-opus-*` (request bytes + 4,096) x USD 8 per million
+  + 2.56, which reaches USD 10 at 925,904 request bytes; `sol-*` (offline configurations only) USD 5.73. Every
+  configuration admits the preset, since one call fits. The method is not trimmed to fit.
+- Not established: no paid run was made. A real model's five-screen handoff is not shown (the proof is a synthetic
+  fixture). Whether a four-module run completes within USD 10 is not known. The payload schemas' constraints
+  beyond what `SKILL.md` and the schema references restate are not checked.
+
 **Full and lite credit assessments, 2026-11-13 (owner: "create full credit snapshot (full credit
 assessment) and a shorter version (lite credit assessment) to replace L10"; "L10 - keep it wired but
 deactivated"; "add cp-2a to lite").** `credit_snapshot` is retitled "Full credit assessment" (id, modules
