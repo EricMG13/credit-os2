@@ -29,7 +29,7 @@ function read(source: unknown): SignalSlice {
 
 function mainView(slice: SignalSlice, at: ViewAt): SignalFeedView | undefined {
   const feed = slice.scenes[0].snapshot.feed;
-  const views: Record<string, SignalFeedView> = feed[at.list];
+  const views: Record<string, SignalFeedView> = feed[at.list] ?? {};
   return views[at.id];
 }
 

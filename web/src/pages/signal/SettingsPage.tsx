@@ -4,6 +4,7 @@
 // service a switch and a group's visibility show at once and are written; a refusal puts them back.
 // A reader's list holds Topics and Notifications; on a service it also holds Digests, which any
 // named user builds (spec section 2); the design-reference app's reader list stays as it was.
+// Issuers is a writer's section, listed where the snapshot delivers the watchlist.
 import { useState, type ReactNode } from "react";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
 import { cx } from "@/utils/cx";
@@ -13,6 +14,7 @@ import { sceneHref } from "./SignalFrame";
 import { PageTitle } from "./parts/PageTitle";
 import type { SignalScene } from "./slice";
 import { GroupsSection } from "./settings/GroupsSection";
+import { IssuersSection } from "./settings/IssuersSection";
 import { NotificationsSection } from "./settings/NotificationsSection";
 import { AiSection } from "./settings/AiSection";
 import { DigestsSection } from "./settings/DigestsSection";
@@ -33,7 +35,7 @@ const flagWrite = (key: string, on: boolean) => {
 };
 
 type SectionId =
-  "groups" | "thread-rules" | "sources" | "topics" | "digests" | "notifications" | "ai";
+  "groups" | "thread-rules" | "sources" | "topics" | "issuers" | "digests" | "notifications" | "ai";
 
 /**
  * A section's tab: a 32px row with the 12px radius and an edge all round in place of the kit's
@@ -46,6 +48,7 @@ const SECTIONS: { id: SectionId; name: string; reader: boolean }[] = [
   { id: "thread-rules", name: "Thread rules", reader: false },
   { id: "sources", name: "Sources", reader: false },
   { id: "topics", name: "Topics", reader: true },
+  { id: "issuers", name: "Issuers", reader: false },
   { id: "digests", name: "Digests", reader: false },
   { id: "notifications", name: "Notifications", reader: true },
   { id: "ai", name: "AI and cost", reader: false },
@@ -96,8 +99,10 @@ export function SettingsPage({
   const live = page !== null;
   const allowed = (s: (typeof SECTIONS)[number]) =>
     writer || s.reader || (live && s.id === "digests");
-  const listed = SECTIONS.filter(allowed);
-  const current = SECTIONS.find((s) => s.id === section);
+  // A snapshot that says nothing of issuers has no Issuers section, for anyone.
+  const held = SECTIONS.filter((s) => s.id !== "issuers" || settings.issuers !== null);
+  const listed = held.filter(allowed);
+  const current = held.find((s) => s.id === section);
 
   function content(): ReactNode {
     if (current === undefined) return state("No such settings section");
@@ -148,6 +153,13 @@ export function SettingsPage({
         );
       case "topics":
         return <TopicsSection topics={settings.topics} writer={writer} />;
+      case "issuers":
+        return (
+          <IssuersSection
+            issuers={settings.issuers ?? []}
+            filings={settings.filings?.note ?? null}
+          />
+        );
       case "digests": {
         const form = settings.digestForm;
         const field = (key: string, delivered: string) => typed.get(key) ?? delivered;

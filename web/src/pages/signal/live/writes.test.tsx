@@ -4,7 +4,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { currentWith, lookAgain, refusal, serve, showLive, type Snapshot } from "./test-helpers";
 
-const READ = "GET /signal/api/snapshot";
+const READ = "GET /signal/api/snapshot?format=2";
 const REFUSED = "that is not allowed just now";
 
 const press = (name: string | RegExp) => {
@@ -401,7 +401,7 @@ const CASES: Case[] = [
 ];
 
 /** A thread's panel asks for its thread in full, which may still be on its way when the steps begin. */
-const READ_AGAIN = /^GET \/signal\/api\/snapshot(\?thread=\d+)?$/;
+const READ_AGAIN = /^GET \/signal\/api\/snapshot\?format=2(&thread=\d+)?$/;
 const sinceFirstWrite = (calls: string[]) =>
   calls.slice(
     Math.max(
@@ -552,11 +552,11 @@ describe("a thread's panel", () => {
     showLive("#/signal/main/group/1/thread/1");
     await drawn("Thread");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, `${READ}?thread=1`]);
+      expect(service.calls).toEqual([READ, `${READ}&thread=1`]);
     });
     window.location.hash = "#/signal/main/group/1/thread/3";
     await waitFor(() => {
-      expect(service.calls.filter((call) => call.startsWith(READ)).at(-1)).toBe(`${READ}?thread=3`);
+      expect(service.calls.filter((call) => call.startsWith(READ)).at(-1)).toBe(`${READ}&thread=3`);
     });
     // Back on the group's page nothing more is asked: the snapshot in hand holds it.
     const reads = service.reads();
@@ -572,12 +572,12 @@ describe("a thread's panel", () => {
         if (first !== undefined) first.comments = [];
       }),
     );
-    service.replies.set(`${READ}?thread=1`, () => Response.json(currentWith()));
+    service.replies.set(`${READ}&thread=1`, () => Response.json(currentWith()));
     showLive("#/signal/main/group/1/thread/1");
     const panel = within(await screen.findByRole("dialog"));
     // The comment itself, and the reply that quotes it.
     expect(await panel.findAllByText("Sharing for Thursday.")).toHaveLength(2);
-    expect(service.calls).toEqual([READ, `${READ}?thread=1`]);
+    expect(service.calls).toEqual([READ, `${READ}&thread=1`]);
   });
 });
 

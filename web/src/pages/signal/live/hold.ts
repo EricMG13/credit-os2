@@ -1,4 +1,5 @@
-// Reading the service again must not move the list under the reader. The feed view on screen keeps
+// Reading the service again must not move the list under the reader. The feed view on screen (one
+// of the named views, a topic's or an issuer's) keeps
 // the stories it holds, in the orders it holds them; a story the service now lists and the view
 // does not hold waits behind the new-stories pill; a story the service no longer lists is dropped.
 // Every other view, and everything else in the snapshot, is the service's newest answer as delivered.
@@ -16,8 +17,8 @@ import { readSlice, type SignalFeedView, type SignalScene, type SignalSlice } fr
 /** The live service delivers one scene, and the home route names it. */
 export const LIVE_SCENE = "main";
 
-/** A feed view of the live scene: one of the named views, or a topic's. */
-export type ViewAt = { list: "views" | "topics"; id: string };
+/** A feed view of the live scene: one of the named views, a topic's or an issuer's. */
+export type ViewAt = { list: "views" | "topics" | "issuers"; id: string };
 /** A view as the reader has it on screen, kept across reads. */
 export type Held = { at: ViewAt; view: SignalFeedView };
 type Feed = SignalScene["snapshot"]["feed"];
@@ -27,6 +28,7 @@ export type FeedError = NonNullable<Feed["error"]>;
 export function viewAtOf(params: Record<string, string>): ViewAt | null {
   if (params["view"] !== undefined) return { list: "views", id: params["view"] };
   if (params["topic"] !== undefined) return { list: "topics", id: params["topic"] };
+  if (params["issuer"] !== undefined) return { list: "issuers", id: params["issuer"] };
   return null;
 }
 
@@ -87,20 +89,17 @@ function withFeed(slice: SignalSlice, change: (feed: Feed) => Feed): SignalSlice
   return { scenes: [edit(first), ...rest.map(edit)] };
 }
 
-/** The view the slice holds at `at`; an address may name a view or topic the slice does not hold. */
+/** The view the slice holds at `at`; an address may name a view, topic or issuer the slice does not hold. */
 function viewAt(slice: SignalSlice, at: ViewAt): SignalFeedView | undefined {
   const feed = slice.scenes.find((scene) => scene.id === LIVE_SCENE)?.snapshot.feed;
   if (feed === undefined) return undefined;
-  const views: Record<string, SignalFeedView> = feed[at.list];
+  const views: Record<string, SignalFeedView> = feed[at.list] ?? {};
   return Object.hasOwn(views, at.id) ? views[at.id] : undefined;
 }
 
+/** Only a view the feed holds is replaced (`shownSlice` and the two holds look first), so its list is there. */
 function withView(slice: SignalSlice, at: ViewAt, view: SignalFeedView): SignalSlice {
-  return withFeed(slice, (feed) =>
-    at.list === "views"
-      ? { ...feed, views: { ...feed.views, [at.id]: view } }
-      : { ...feed, topics: { ...feed.topics, [at.id]: view } },
-  );
+  return withFeed(slice, (feed) => ({ ...feed, [at.list]: { ...feed[at.list], [at.id]: view } }));
 }
 
 /** The slice saying its last read failed: the feed pages draw the alert, with the stories still there. */

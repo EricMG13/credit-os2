@@ -17,6 +17,16 @@ import { SampleReason, useSampleOff } from "./SampleReason";
 
 const REASON_ID = "signal-topics-write-reason";
 
+/**
+ * The kinds switched on in a topic's form. A topic of no kinds is delivered with every kind it
+ * takes, and those hold one a writer cannot choose (filings): its form starts with none switched
+ * on, so saving it keeps it a topic of every kind.
+ */
+function chosenKinds(topic: SignalSettingsTopic | null): readonly string[] {
+  const kinds = topic?.kinds ?? [];
+  return kinds.every((kind) => KINDS.some((k) => k.label === kind)) ? kinds : [];
+}
+
 function fieldsFor(topic: SignalSettingsTopic | null): FormField[] {
   return [
     {
@@ -37,9 +47,9 @@ function fieldsFor(topic: SignalSettingsTopic | null): FormField[] {
       key: "kinds",
       kind: "switches",
       label: "Kinds of story",
-      hint: "With none switched on, the topic takes every kind.",
+      hint: "With none switched on, the topic takes every kind, filings included.",
       options: KINDS.map((k) => k.label),
-      value: topic?.kinds ?? [],
+      value: chosenKinds(topic),
     },
   ];
 }

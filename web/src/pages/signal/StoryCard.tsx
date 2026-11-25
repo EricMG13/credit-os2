@@ -9,8 +9,9 @@ import { cx } from "@/utils/cx";
 import { AiMark, Announcement } from "./parts/Announcement";
 import { Avatar } from "./parts/Avatar";
 import { AvatarGroup } from "./parts/AvatarGroup";
-import { FOCUS, TARGET } from "./parts/classes";
+import { FOCUS, LINK, TARGET } from "./parts/classes";
 import { focusAgainIfLost } from "./parts/focus";
+import { MarketTable } from "./parts/MarketTable";
 import { MediaObject } from "./parts/MediaObject";
 import { OpenSourceButton } from "./parts/OpenSourceButton";
 import { BadgeGroup } from "./parts/BadgeGroup";
@@ -78,7 +79,10 @@ function Byline({ story }: { story: SignalStory }) {
   );
 }
 
-/** The headline, a link when the story has a web link, and the summary. */
+/**
+ * The headline, a link when the story has a web link, and the summary. A market post's summary is
+ * its table written on one line, so the table stands in its place.
+ */
 function HeadlineBlock({ story, link }: { story: SignalStory; link: string | null }) {
   const { headline } = story;
   return (
@@ -92,10 +96,38 @@ function HeadlineBlock({ story, link }: { story: SignalStory; link: string | nul
           </a>
         )}
       </h2>
-      {story.summary === null ? null : (
+      {story.market !== null ? (
+        <MarketTable market={story.market} headline={headline} />
+      ) : story.summary === null ? null : (
         <p className="max-w-[72ch] text-text-secondary">{story.summary}</p>
       )}
     </>
+  );
+}
+
+/**
+ * The watchlist issuers the story belongs to, each a link to the issuer's page: a row of its own,
+ * apart from the tags (an issuer is not a tag).
+ */
+function AboutRow({ story, scene }: { story: SignalStory; scene: SignalScene }) {
+  if (story.issuers.length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-2 text-small text-text-tertiary">
+      <span aria-hidden="true">About:</span>
+      <ul aria-label="About" className="flex flex-wrap items-center gap-x-2">
+        {story.issuers.map((issuer, index) => (
+          <li key={issuer.id}>
+            <a
+              href={sceneHref(scene, `issuer/${encodeURIComponent(issuer.id)}`)}
+              className={`rounded-ds-xs hover:underline ${LINK}`}
+            >
+              {issuer.name}
+            </a>
+            {index < story.issuers.length - 1 ? <span aria-hidden="true">,</span> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -322,6 +354,7 @@ export function StoryCard(props: Props) {
         <Byline story={story} />
         <HeadlineBlock story={story} link={link} />
         <SignalRows story={story} />
+        <AboutRow story={story} scene={scene} />
         <ShareRows story={story} />
         <Actions
           story={story}

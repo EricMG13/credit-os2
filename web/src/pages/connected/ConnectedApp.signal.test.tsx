@@ -9,7 +9,7 @@ function serve() {
   const fetch = vi.fn<(address: string, init?: RequestInit) => Promise<Response>>((address) =>
     Promise.resolve(
       Response.json(
-        address === "/signal/api/snapshot" ? sample : { catalogue: { real: [] }, workspace: {} },
+        address === "/signal/api/snapshot?format=2" ? sample : { catalogue: { real: [] }, workspace: {} },
       ),
     ),
   );
@@ -48,7 +48,7 @@ describe("with a Signal service", () => {
     expect(rail().getByRole("link", { name: "Library" })).not.toHaveAttribute("aria-current");
     // The frame fills the page region: the shell leaves its padding out, as in the design reference.
     expect(screen.getByRole("main").className).not.toMatch(/\bp-\d/);
-    expect(fetch.mock.calls.map(([address]) => address)).toEqual(["/signal/api/snapshot"]);
+    expect(fetch.mock.calls.map(([address]) => address)).toEqual(["/signal/api/snapshot?format=2"]);
   });
 
   it("lists Signal on the other pages, where it is not the current area", async () => {

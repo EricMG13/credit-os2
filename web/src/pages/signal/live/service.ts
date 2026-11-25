@@ -59,12 +59,20 @@ function asOfOf(reply: unknown): string | null {
 }
 
 /**
- * `query` is what the address on screen asks the snapshot to carry in full (`topic=<id>`: that
- * topic's older stories; `thread=<id>`: that thread's comments), or "" for the plain snapshot.
+ * The snapshot format this page reads: the service then delivers filings, market posts and the
+ * issuer watchlist, which it keeps from a page that does not ask (an older reader refuses them).
+ */
+const FORMAT = "format=2";
+
+/**
+ * `query` is what the address on screen asks the snapshot to carry in full (`topic=<id>` or
+ * `issuer=<id>`: its older stories; `thread=<id>`: that thread's comments), or "" for the plain
+ * snapshot.
  */
 export async function readSnapshot(stop: AbortSignal, query: string): Promise<Read> {
   try {
-    const reply = await ask(query === "" ? "/snapshot" : `/snapshot?${query}`, {}, stop);
+    const focus = query === "" ? "" : `&${query}`;
+    const reply = await ask(`/snapshot?${FORMAT}${focus}`, {}, stop);
     const got = readSlice(reply);
     if (got.kind === "ok") return { ok: true, slice: got.data, asOf: asOfOf(reply) };
     const reason = got.kind === "invalid" ? got.reason : null;

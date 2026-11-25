@@ -28,23 +28,26 @@ export function viewNow(): ViewAt | null {
 }
 
 /**
- * What the snapshot for this address must carry in full, as the query of its request: on a topic's
- * page that topic's older stories, in a thread's panel that thread's comments (the service leaves
- * both out of the plain snapshot to keep it small). Never both, and "" on any other page. The id is
- * sent only when the snapshot in hand lists it, so nothing typed into an address reaches the query.
+ * What the snapshot for this address must carry in full, as the focus of its request: on a topic's
+ * or an issuer's page its older stories, in a thread's panel that thread's comments (the service
+ * leaves them out of the plain snapshot to keep it small). Never two, and "" on any other page.
+ * The id is sent only when the snapshot in hand lists it, so nothing typed into an address reaches
+ * the query.
  */
 export function snapshotQuery(hash: string, slice: SignalSlice | null): string {
   const params = placeOf(hash).matched?.params;
   const snapshot = slice?.scenes.find((scene) => scene.id === LIVE_SCENE)?.snapshot;
   const search = new URLSearchParams();
   if (params === undefined || snapshot === undefined) return "";
-  const { thread, topic, group } = params;
+  const { thread, topic, issuer, group } = params;
   if (thread !== undefined) {
     if (snapshot.threads.some((one) => one.id === thread && one.groupId === group)) {
       search.set("thread", thread);
     }
-  } else if (topic !== undefined && snapshot.channels.topics.some((one) => one.id === topic)) {
-    search.set("topic", topic);
+  } else if (topic !== undefined) {
+    if (snapshot.channels.topics.some((one) => one.id === topic)) search.set("topic", topic);
+  } else if (issuer !== undefined && snapshot.channels.issuers?.some((one) => one.id === issuer)) {
+    search.set("issuer", issuer);
   }
   return search.toString();
 }

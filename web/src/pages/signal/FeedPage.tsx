@@ -5,7 +5,7 @@
 // the pill's Show is the one exception: the service's page folds the waiting stories into the list
 // it supplies, so the next ones to arrive wait behind a pill of their own.
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { Star01 } from "@untitledui/icons";
+import { ArrowUpRight, Star01 } from "@untitledui/icons";
 import { Alert } from "@/components/alert/Alert";
 import { Button } from "@/components/base/buttons/button";
 import { useSignalActions } from "./actions";
@@ -37,8 +37,16 @@ export type FeedEntries = {
   shown?: number | null;
 };
 
-/** A topic view's own header parts: the follow state and the keywords it follows. */
-export type FeedTopic = { on: boolean; onToggle: () => void; keywords: string[] };
+/**
+ * A topic's or an issuer's view's own header parts: the follow state, the keywords a topic follows
+ * and, for an issuer a writer gave a library key, where "Open in Library" goes.
+ */
+export type FeedTopic = {
+  on: boolean;
+  onToggle: () => void;
+  keywords: string[];
+  library?: string | null;
+};
 
 function FeedHeader({
   title,
@@ -71,6 +79,18 @@ function FeedHeader({
             {topic.on ? "Following" : "Follow"}
           </Button>
         )}
+        {topic?.library == null ? null : (
+          <Button
+            color="link-color"
+            size="sm"
+            href={topic.library}
+            iconTrailing={ArrowUpRight}
+            // A text link's own box is 20px tall; a control is 32px.
+            className="min-h-8"
+          >
+            Open in Library
+          </Button>
+        )}
         <FreshnessBadge freshness={freshness} />
         {onOrder === null ? null : (
           <div className="ml-auto">
@@ -87,7 +107,7 @@ function FeedHeader({
   );
 }
 
-/** Stories of the chosen kind whose headline, summary, source name or tag holds the query; a digest card is under All with no query only. */
+/** Stories of the chosen kind whose headline, summary, source name, tag or issuer holds the query; a digest card is under All with no query only. */
 function visible(entries: FeedEntry[], kind: FeedKind, query: string): FeedEntry[] {
   const needle = query.toLowerCase();
   return entries.filter((entry) => {
@@ -95,8 +115,9 @@ function visible(entries: FeedEntry[], kind: FeedKind, query: string): FeedEntry
     const { story } = entry;
     if (kind !== "all" && story.kind !== kind) return false;
     if (needle === "") return true;
-    return [story.headline, story.summary ?? "", story.source.name, ...story.tags].some((text) =>
-      text.toLowerCase().includes(needle),
+    const issuers = story.issuers.map((issuer) => issuer.name);
+    return [story.headline, story.summary ?? "", story.source.name, ...story.tags, ...issuers].some(
+      (text) => text.toLowerCase().includes(needle),
     );
   });
 }
@@ -355,7 +376,7 @@ export function FeedPage({
   loading: boolean;
   error: "unreachable" | "request" | "unreadable" | null;
   empty: EmptyContext;
-  /** Set on a topic's view only. */
+  /** Set on a topic's or an issuer's view only. */
   topic: FeedTopic | null;
 }) {
   // In the sample Share to group writes nothing and the sentence says so; on a service it says the story was shared.

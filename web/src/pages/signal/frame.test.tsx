@@ -344,7 +344,7 @@ describe("the Signal frame", () => {
 
   it("renders every declared path with every fixture parameter set", { timeout: 30000 }, () => {
     const declared = declaredPaths(import.meta.dirname);
-    expect(declared).toHaveLength(6);
+    expect(declared).toHaveLength(7);
     const params = fixture.params as Record<string, Record<string, string>[]>;
     let visits = 0;
     for (const pattern of declared) {

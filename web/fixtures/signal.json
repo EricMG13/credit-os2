@@ -3307,6 +3307,509 @@
             }
           ]
         }
+      },
+      {
+        "id": "issuers",
+        "snapshot": {
+          "viewer": { "name": "Mara L", "initials": "ML", "role": "writer", "roleLabel": "Writer" },
+          "channels": {
+            "topics": [
+              {
+                "id": "telecoms",
+                "name": "Telecoms",
+                "count": "3",
+                "followed": false,
+                "keywords": ["towers", "Tessaly"]
+              },
+              {
+                "id": "packaging",
+                "name": "Packaging",
+                "count": "1",
+                "followed": false,
+                "keywords": ["packaging", "Corvane"]
+              },
+              {
+                "id": "shipping",
+                "name": "Shipping",
+                "count": "1",
+                "followed": false,
+                "keywords": ["freight", "Halvorsen Marine"]
+              }
+            ],
+            "issuers": [
+              {
+                "id": "brightwell-foods",
+                "name": "Brightwell Foods",
+                "count": "0",
+                "followed": false
+              },
+              {
+                "id": "corvane-packaging",
+                "name": "Corvane Packaging",
+                "count": "1",
+                "followed": false
+              },
+              {
+                "id": "halvorsen-marine",
+                "name": "Halvorsen Marine",
+                "count": "1",
+                "followed": false
+              },
+              { "id": "tessaly-telecom", "name": "Tessaly Telecom", "count": "3", "followed": true }
+            ],
+            "groups": [],
+            "digests": [],
+            "savedCount": "0"
+          },
+          "feed": {
+            "status": "ready",
+            "error": null,
+            "sources": { "approved": true },
+            "freshness": {
+              "state": "checked",
+              "checked": "6 min ago",
+              "failing": null,
+              "error": null
+            },
+            "stories": [
+              {
+                "id": "market-24-nov",
+                "kind": "market",
+                "kindLabel": "Market",
+                "headline": "Market backdrop: 24 November 2026",
+                "url": "https://example.com/market-24-nov",
+                "source": { "name": "Market backdrop (sample)", "monogram": "MB" },
+                "time": "Just now",
+                "summary": "Sample HY 1.11% (+1 bp); Sample BB 2.22% (0 bp); Sample 10y not available; Sample index 100.00 Index (+1.5 Index); Sample rate 3.33%",
+                "tags": ["Market"],
+                "alsoIn": null,
+                "sharedBy": null,
+                "ai": null,
+                "strength": null,
+                "saved": false,
+                "commentCount": null,
+                "threadRef": null,
+                "stage": null,
+                "ratingMoves": [],
+                "issuers": [],
+                "market": {
+                  "asOf": "24 November 2026",
+                  "rows": [
+                    {
+                      "id": "SAMPLE-HY",
+                      "name": "Sample high-yield spread (a made-up series)",
+                      "short": "Sample HY",
+                      "unit": "Percent",
+                      "value": "1.11",
+                      "date": "24 Nov",
+                      "changes": [
+                        { "label": "Previous", "since": "21 Nov", "value": "+1 bp" },
+                        { "label": "Week", "since": "17 Nov", "value": "-2 bp" },
+                        { "label": "Month", "since": "23 Oct", "value": "+3 bp" }
+                      ],
+                      "source": "Sample figures, not market data",
+                      "note": null
+                    },
+                    {
+                      "id": "SAMPLE-BB",
+                      "name": "Sample BB spread (a made-up series)",
+                      "short": "Sample BB",
+                      "unit": "Percent",
+                      "value": "2.22",
+                      "date": "24 Nov",
+                      "changes": [
+                        { "label": "Previous", "since": "21 Nov", "value": "0 bp" },
+                        { "label": "Week", "since": "17 Nov", "value": "-4.5 bp" },
+                        { "label": "Month", "since": "23 Oct", "value": "+12 bp" }
+                      ],
+                      "source": "Sample figures, not market data",
+                      "note": null
+                    },
+                    {
+                      "id": "SAMPLE-10Y",
+                      "name": "Sample 10-year yield (a made-up series)",
+                      "short": "Sample 10y",
+                      "unit": "Percent",
+                      "value": null,
+                      "date": null,
+                      "changes": [],
+                      "source": "Sample figures, not market data",
+                      "note": "Could not be read: a sample of a series with no reading"
+                    },
+                    {
+                      "id": "SAMPLE-INDEX",
+                      "name": "Sample index level (a made-up series)",
+                      "short": "Sample index",
+                      "unit": "Index",
+                      "value": "100.00",
+                      "date": "21 Nov",
+                      "changes": [
+                        { "label": "Previous", "since": "20 Nov", "value": "+1.5 Index" },
+                        { "label": "Week", "since": "14 Nov", "value": "-0.25 Index" },
+                        { "label": "Month", "since": "21 Oct", "value": "+2 Index" }
+                      ],
+                      "source": "Sample figures, not market data",
+                      "note": null
+                    },
+                    {
+                      "id": "SAMPLE-RATE",
+                      "name": "Sample overnight rate (a made-up series)",
+                      "short": "Sample rate",
+                      "unit": "Percent",
+                      "value": "3.33",
+                      "date": "24 Nov",
+                      "changes": [
+                        { "label": "Previous", "since": null, "value": null },
+                        { "label": "Week", "since": null, "value": null },
+                        { "label": "Month", "since": null, "value": null }
+                      ],
+                      "source": "Sample figures, not market data",
+                      "note": null
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "tessaly-8k",
+                "kind": "filing",
+                "kindLabel": "Filing",
+                "headline": "Tessaly Telecom: 8-K, current report",
+                "url": "https://example.com/tessaly-8k",
+                "source": { "name": "Tessaly Telecom filings (SEC)", "monogram": "TT" },
+                "time": "11 h ago",
+                "summary": "Form 8-K, filed 2026-11-24, accession number 0000000000-26-000001. Item 2.02: Results of Operations and Financial Condition",
+                "tags": ["8-K", "Telecoms"],
+                "alsoIn": null,
+                "sharedBy": null,
+                "ai": null,
+                "strength": null,
+                "saved": false,
+                "commentCount": null,
+                "threadRef": null,
+                "stage": null,
+                "ratingMoves": [],
+                "issuers": [{ "id": "tessaly-telecom", "name": "Tessaly Telecom" }],
+                "market": null
+              },
+              {
+                "id": "tessaly-towers",
+                "kind": "news",
+                "kindLabel": "News",
+                "headline": "Tessaly Telecom agrees the sale of its towers",
+                "url": "https://example.com/tessaly-towers",
+                "source": { "name": "Harbour Wire", "monogram": "HW" },
+                "time": "21 h ago",
+                "summary": "The buyer takes 4,100 masts; the sale needs clearance.",
+                "tags": ["Telecoms"],
+                "alsoIn": null,
+                "sharedBy": null,
+                "ai": null,
+                "strength": null,
+                "saved": false,
+                "commentCount": null,
+                "threadRef": null,
+                "stage": null,
+                "ratingMoves": [],
+                "issuers": [{ "id": "tessaly-telecom", "name": "Tessaly Telecom" }],
+                "market": null
+              },
+              {
+                "id": "corvane-freight",
+                "kind": "news",
+                "kindLabel": "News",
+                "headline": "Corvane Packaging signs a five-year freight contract with Halvorsen Marine",
+                "url": "https://example.com/corvane-freight",
+                "source": { "name": "Harbour Wire", "monogram": "HW" },
+                "time": "Yesterday",
+                "summary": "The contract covers Corvane's exports from its two northern plants.",
+                "tags": ["Packaging", "Shipping"],
+                "alsoIn": null,
+                "sharedBy": null,
+                "ai": null,
+                "strength": null,
+                "saved": false,
+                "commentCount": null,
+                "threadRef": null,
+                "stage": null,
+                "ratingMoves": [],
+                "issuers": [
+                  { "id": "corvane-packaging", "name": "Corvane Packaging" },
+                  { "id": "halvorsen-marine", "name": "Halvorsen Marine" }
+                ],
+                "market": null
+              },
+              {
+                "id": "tessaly-review",
+                "kind": "regulator",
+                "kindLabel": "Regulatory case",
+                "headline": "Authority opens a review of the Tessaly Telecom tower sale",
+                "url": "https://example.com/tessaly-review",
+                "source": { "name": "Regulatory Gazette", "monogram": "RG" },
+                "time": "15 Nov",
+                "summary": "The authority says the sale could reduce competition for mast access.",
+                "tags": ["Telecoms"],
+                "alsoIn": null,
+                "sharedBy": null,
+                "ai": null,
+                "strength": null,
+                "saved": false,
+                "commentCount": null,
+                "threadRef": null,
+                "stage": null,
+                "ratingMoves": [],
+                "issuers": [{ "id": "tessaly-telecom", "name": "Tessaly Telecom" }],
+                "market": null
+              }
+            ],
+            "digests": [],
+            "views": {
+              "for-you": {
+                "top": ["market-24-nov", "tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "latest": ["market-24-nov", "tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "waiting": null,
+                "older": []
+              },
+              "latest": {
+                "top": [
+                  "market-24-nov",
+                  "tessaly-8k",
+                  "tessaly-towers",
+                  "corvane-freight",
+                  "tessaly-review"
+                ],
+                "latest": [
+                  "market-24-nov",
+                  "tessaly-8k",
+                  "tessaly-towers",
+                  "corvane-freight",
+                  "tessaly-review"
+                ],
+                "waiting": null,
+                "older": []
+              },
+              "saved": { "top": [], "latest": [], "waiting": null, "older": [] }
+            },
+            "topics": {
+              "telecoms": {
+                "top": ["tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "latest": ["tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "waiting": null,
+                "older": []
+              },
+              "packaging": {
+                "top": ["corvane-freight"],
+                "latest": ["corvane-freight"],
+                "waiting": null,
+                "older": []
+              },
+              "shipping": {
+                "top": ["corvane-freight"],
+                "latest": ["corvane-freight"],
+                "waiting": null,
+                "older": []
+              }
+            },
+            "issuers": {
+              "brightwell-foods": { "top": [], "latest": [], "waiting": null, "older": [] },
+              "corvane-packaging": {
+                "top": ["corvane-freight"],
+                "latest": ["corvane-freight"],
+                "waiting": null,
+                "older": []
+              },
+              "halvorsen-marine": {
+                "top": ["corvane-freight"],
+                "latest": ["corvane-freight"],
+                "waiting": null,
+                "older": []
+              },
+              "tessaly-telecom": {
+                "top": ["tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "latest": ["tessaly-8k", "tessaly-towers", "tessaly-review"],
+                "waiting": null,
+                "older": []
+              }
+            }
+          },
+          "groups": [],
+          "threads": [],
+          "digests": [],
+          "settings": {
+            "topics": [
+              {
+                "id": "telecoms",
+                "name": "Telecoms",
+                "weekly": "3 stories this week",
+                "keywords": ["towers", "Tessaly"],
+                "kinds": ["News", "Regulatory cases"]
+              },
+              {
+                "id": "packaging",
+                "name": "Packaging",
+                "weekly": "1 story this week",
+                "keywords": ["packaging", "Corvane"],
+                "kinds": ["News", "Regulatory cases", "Rating actions", "Research", "Filings"]
+              },
+              {
+                "id": "shipping",
+                "name": "Shipping",
+                "weekly": "1 story this week",
+                "keywords": ["freight", "Halvorsen Marine"],
+                "kinds": ["News", "Rating actions"]
+              }
+            ],
+            "issuers": [
+              {
+                "id": "brightwell-foods",
+                "name": "Brightwell Foods",
+                "aliases": ["Brightwell"],
+                "cik": null,
+                "libraryKey": null,
+                "source": null
+              },
+              {
+                "id": "corvane-packaging",
+                "name": "Corvane Packaging",
+                "aliases": ["Corvane"],
+                "cik": null,
+                "libraryKey": null,
+                "source": null
+              },
+              {
+                "id": "halvorsen-marine",
+                "name": "Halvorsen Marine",
+                "aliases": [],
+                "cik": "0000000042",
+                "libraryKey": null,
+                "source": {
+                  "id": "halvorsen-filings",
+                  "state": "Proposed",
+                  "note": "Proposed. Nothing is fetched until the owner approves it on the command line."
+                }
+              },
+              {
+                "id": "tessaly-telecom",
+                "name": "Tessaly Telecom",
+                "aliases": ["Tessaly", "TSLY"],
+                "cik": "0000000017",
+                "libraryKey": "id:tessaly",
+                "source": {
+                  "id": "tessaly-filings",
+                  "state": "Approved",
+                  "note": "Approved. Checked 6 min ago."
+                }
+              }
+            ],
+            "filings": {
+              "contactSet": true,
+              "note": "Filings are fetched from the SEC at most once a second, saying who is asking with the contact the owner set on the command line."
+            },
+            "digestForm": {
+              "name": "Weekly brief",
+              "covers": "All stories",
+              "coversOptions": [
+                "All stories",
+                "Topic: Telecoms",
+                "Topic: Packaging",
+                "Topic: Shipping",
+                "Issuer: Brightwell Foods",
+                "Issuer: Corvane Packaging",
+                "Issuer: Halvorsen Marine",
+                "Issuer: Tessaly Telecom"
+              ],
+              "schedule": "Weekly, Friday 07:00",
+              "scheduleOptions": ["Weekly, Friday 07:00"],
+              "length": "Up to 5 points",
+              "lengthOptions": ["Up to 5 points"],
+              "brief": ""
+            },
+            "ai": {
+              "state": "off",
+              "notice": {
+                "title": "AI is off",
+                "text": "Stories arrive with no AI line and no signal strength, and digests are paused. Nothing more is spent while it is off."
+              },
+              "spend": null,
+              "parts": []
+            },
+            "groups": [],
+            "rules": [],
+            "notifications": { "events": [] },
+            "sources": [
+              {
+                "id": "harbour-wire",
+                "name": "Harbour Wire",
+                "kind": "News",
+                "state": "Approved",
+                "health": "Healthy",
+                "reason": null,
+                "stateNote": null,
+                "healthNote": null,
+                "lastCheck": "6 min ago",
+                "lastItem": "11 h ago",
+                "weeks": [],
+                "sort": { "name": 2, "state": 1, "health": 1 }
+              },
+              {
+                "id": "regulatory-gazette",
+                "name": "Regulatory Gazette",
+                "kind": "Regulatory cases",
+                "state": "Approved",
+                "health": "Healthy",
+                "reason": null,
+                "stateNote": null,
+                "healthNote": null,
+                "lastCheck": "6 min ago",
+                "lastItem": "11 h ago",
+                "weeks": [],
+                "sort": { "name": 4, "state": 1, "health": 1 }
+              },
+              {
+                "id": "tessaly-filings",
+                "name": "Tessaly Telecom filings (SEC)",
+                "kind": "Filings",
+                "state": "Approved",
+                "health": "Healthy",
+                "reason": null,
+                "stateNote": null,
+                "healthNote": null,
+                "lastCheck": "6 min ago",
+                "lastItem": "11 h ago",
+                "weeks": [],
+                "sort": { "name": 5, "state": 1, "health": 1 }
+              },
+              {
+                "id": "halvorsen-filings",
+                "name": "Halvorsen Marine filings (SEC)",
+                "kind": "Filings",
+                "state": "Proposed",
+                "health": null,
+                "reason": null,
+                "stateNote": "By Mara L, 2 h ago",
+                "healthNote": null,
+                "lastCheck": null,
+                "lastItem": null,
+                "weeks": [],
+                "sort": { "name": 1, "state": 3, "health": 4 }
+              },
+              {
+                "id": "market-sample",
+                "name": "Market backdrop (sample)",
+                "kind": "Market data",
+                "state": "Approved",
+                "health": "Healthy",
+                "reason": null,
+                "stateNote": null,
+                "healthNote": null,
+                "lastCheck": "6 min ago",
+                "lastItem": "11 h ago",
+                "weeks": [],
+                "sort": { "name": 3, "state": 1, "health": 1 }
+              }
+            ],
+            "sourceWeeksHeading": "Items per week"
+          }
+        }
       }
     ]
   },
@@ -3327,11 +3830,19 @@
       { "scene": "nothing-followed", "view": "for-you" },
       { "scene": "no-sources", "view": "latest" },
       { "scene": "nothing-followed", "view": "saved" },
-      { "scene": "not-checked", "view": "latest" }
+      { "scene": "not-checked", "view": "latest" },
+      { "scene": "issuers", "view": "for-you" },
+      { "scene": "issuers", "view": "latest" }
     ],
     "/signal/:scene/topic/:topic": [
       { "scene": "main", "topic": "shipping" },
-      { "scene": "main", "topic": "telecoms" }
+      { "scene": "main", "topic": "telecoms" },
+      { "scene": "issuers", "topic": "telecoms" }
+    ],
+    "/signal/:scene/issuer/:issuer": [
+      { "scene": "issuers", "issuer": "tessaly-telecom" },
+      { "scene": "issuers", "issuer": "corvane-packaging" },
+      { "scene": "issuers", "issuer": "brightwell-foods" }
     ],
     "/signal/:scene/group/:group": [
       { "scene": "main", "group": "leveraged-credit" },
@@ -3362,7 +3873,11 @@
       { "scene": "ai-capped", "section": "ai" },
       { "scene": "reader", "section": "topics" },
       { "scene": "reader", "section": "notifications" },
-      { "scene": "reader", "section": "groups" }
+      { "scene": "reader", "section": "groups" },
+      { "scene": "issuers", "section": "issuers" },
+      { "scene": "issuers", "section": "sources" },
+      { "scene": "issuers", "section": "topics" },
+      { "scene": "issuers", "section": "digests" }
     ]
   }
 }

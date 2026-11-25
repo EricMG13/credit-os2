@@ -14,7 +14,18 @@ const held = (on: boolean, path: string): SignalWrite => (on ? post(path) : remo
 /** A topic's rule: the kinds are the service's keys, not the labels the page draws. */
 export type TopicRule = { name: string; keywords: string[]; kinds: string[] };
 
-/** The kinds of story and source: the label the page draws and the key the service takes. */
+/**
+ * An issuer of the watchlist as a writer gives it. An edit replaces all four, so each is always
+ * sent: no aliases is an empty list, and no SEC number or library key is null.
+ */
+export type IssuerForm = {
+  name: string;
+  aliases: string[];
+  cik: string | null;
+  libraryKey: string | null;
+};
+
+/** The kinds of story and source a writer chooses among: the label the page draws and the key the service takes. */
 export const KINDS = [
   { key: "news", label: "News" },
   { key: "regulator", label: "Regulatory cases" },
@@ -68,6 +79,11 @@ export const writes = {
   topic: (id: string | null, rule: TopicRule) =>
     post(id === null ? "/topics" : `/topics/${part(id)}/edit`, rule),
   dropTopic: (id: string) => remove(`/topics/${part(id)}`),
+  followIssuer: (issuer: string, on: boolean) => held(on, `/issuers/${part(issuer)}/follow`),
+  /** `id` null adds an issuer; otherwise every field of the issuer is replaced. */
+  issuer: (id: string | null, form: IssuerForm) =>
+    post(id === null ? "/issuers" : `/issuers/${part(id)}/edit`, form),
+  dropIssuer: (id: string) => remove(`/issuers/${part(id)}`),
   source: (name: string, kind: string, url: string) => post("/sources", { name, kind, url }),
   /** `id` null adds a digest; `form` holds the strings the service delivered, as chosen. */
   digest: (id: string | null, form: Record<string, unknown>) =>

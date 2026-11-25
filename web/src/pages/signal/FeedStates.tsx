@@ -71,11 +71,11 @@ export function FeedAlert({ error }: { error: FeedError }) {
 
 /** What the empty state of a view needs: which view, the source state and the follow state. */
 export type EmptyContext = {
-  view: "for-you" | "latest" | "saved" | "topic";
+  view: "for-you" | "latest" | "saved" | "topic" | "issuer";
   approved: boolean;
   /** Where a writer proposes a source; a reader has none. */
   propose: string | null;
-  /** True when the slice holds no followed topic (the For you wording). */
+  /** True when the slice holds no followed topic and no followed issuer (the For you wording). */
   noneFollowed: boolean;
   topics: { id: string; name: string; on: boolean }[];
   onFollow: (id: string) => void;
@@ -83,7 +83,7 @@ export type EmptyContext = {
 
 type Words = { title: string; hint: string | null };
 
-/** First match wins: no approved source, For you with nothing followed, Saved, a topic, otherwise. */
+/** First match wins: no approved source, For you with nothing followed, Saved, a topic, an issuer, otherwise. */
 function wordsFor(context: EmptyContext): Words {
   if (!context.approved)
     return { title: "No approved sources yet", hint: "Stories appear once a source is approved." };
@@ -95,6 +95,11 @@ function wordsFor(context: EmptyContext): Words {
   if (context.view === "saved")
     return { title: "Stories you save appear here", hint: "Use Save on a story to keep it." };
   if (context.view === "topic") return { title: "No stories in this topic yet", hint: null };
+  if (context.view === "issuer")
+    return {
+      title: "No stories about this issuer yet",
+      hint: "A story appears here when its headline or summary names the issuer.",
+    };
   return { title: "No stories yet", hint: "New stories appear here as sources are checked." };
 }
 

@@ -24,7 +24,7 @@ const HALVORSEN = "Northgate Ratings downgrades Halvorsen Marine to B+";
 const REVIEW = "Authority opens a review of the Tessaly Telecom tower sale";
 const LENMARK = "Lenmark Shipping refinances its fleet loan";
 const CHIEF = "Tessaly Telecom names a new finance chief";
-const READ = "GET /signal/api/snapshot";
+const READ = "GET /signal/api/snapshot?format=2";
 
 const title = (name: string) => screen.findByRole("heading", { level: 1, name });
 const headlines = () =>
@@ -58,7 +58,7 @@ describe("arriving", () => {
     expect(headlines()).toEqual([CORVANE]);
     expect(service.calls).toEqual([READ]);
     const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-    expect(path).toBe("/signal/api/snapshot");
+    expect(path).toBe("/signal/api/snapshot?format=2");
     expect(init).toMatchObject({ cache: "no-store" });
     expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
@@ -158,11 +158,11 @@ describe("what the snapshot is asked to carry", () => {
     showLive("#/signal/main/topic/2");
     await title("Telecoms");
     await waitFor(() => {
-      expect(service.calls).toEqual([READ, `${READ}?topic=2`]);
+      expect(service.calls).toEqual([READ, `${READ}&topic=2`]);
     });
     // Later reads on that page ask the same; the page was kept while the fuller one loaded.
     await lookAgain();
-    expect(service.calls).toEqual([READ, `${READ}?topic=2`, `${READ}?topic=2`]);
+    expect(service.calls).toEqual([READ, `${READ}&topic=2`, `${READ}&topic=2`]);
     expect(headlines()).toEqual([TESSALY, REVIEW]);
   });
 
@@ -173,12 +173,12 @@ describe("what the snapshot is asked to carry", () => {
     await waitFor(() => {
       expect(service.reads()).toBe(2);
     });
-    service.replies.set(`${READ}?topic=3`, never);
+    service.replies.set(`${READ}&topic=3`, never);
     await go("#/signal/main/topic/3");
     // The snapshot in hand draws the topic while the fuller one is on its way.
     expect(await title("Shipping")).toBeInTheDocument();
     expect(headlines()).toEqual([HALVORSEN, LENMARK]);
-    expect(service.calls.at(-1)).toBe(`${READ}?topic=3`);
+    expect(service.calls.at(-1)).toBe(`${READ}&topic=3`);
     expect(service.reads()).toBe(3);
   });
 
@@ -198,7 +198,7 @@ describe("what the snapshot is asked to carry", () => {
 
   it("shows a topic's older stories behind Show older, not as new stories", async () => {
     const service = serve();
-    service.replies.set(`${READ}?topic=2`, () =>
+    service.replies.set(`${READ}&topic=2`, () =>
       Response.json(
         sampleWith((s) => {
           const telecoms = s.feed.topics["2"];
@@ -495,9 +495,9 @@ describe("saving and following", () => {
     await waitFor(() => {
       expect(service.calls).toEqual([
         READ,
-        `${READ}?topic=2`,
+        `${READ}&topic=2`,
         "POST /signal/api/topics/2/follow",
-        `${READ}?topic=2`,
+        `${READ}&topic=2`,
       ]);
     });
     expect(star("Telecoms")).toHaveAttribute("aria-pressed", "true");

@@ -10,7 +10,13 @@ import {
   type SignalWrite,
 } from "./actions";
 import { useChoices } from "./choices";
-import { SignalFrame, sceneHref, type SignalCurrent, type SignalFollow } from "./SignalFrame";
+import {
+  SignalFrame,
+  sceneHref,
+  type SignalCurrent,
+  type SignalFollow,
+  type SignalFollows,
+} from "./SignalFrame";
 import { DigestPage } from "./DigestPage";
 import { GroupPage } from "./GroupPage";
 import { SettingsPage } from "./SettingsPage";
@@ -23,7 +29,15 @@ import { PageTitle } from "./parts/PageTitle";
 import { readSlice, type SignalFeedView, type SignalScene } from "./slice";
 import { writes } from "./writes";
 
-export type SignalPageKind = "feed" | "topic" | "group" | "thread" | "digest" | "settings";
+export type SignalPageKind =
+  "feed" | "topic" | "issuer" | "group" | "thread" | "digest" | "settings";
+
+/**
+ * Where "Open in Library" goes. The Library has no address for one issuer by its key, so the link
+ * opens the Library itself: the connected app's at its root, the design-reference app's at its
+ * own home. A library key is text a writer typed and is never put in an address.
+ */
+const LIBRARY = { live: "/", sample: "#/" } as const;
 
 const VIEWS = { "for-you": "For you", latest: "Latest", saved: "Saved" } as const;
 
@@ -86,12 +100,14 @@ function entriesOf(scene: SignalScene, view: SignalFeedView): FeedEntries {
   };
 }
 
-/** The reader gives every channel topic an order; a missing one is a wiring fault, so it is loud. */
-function topicView(scene: SignalScene, id: string): SignalFeedView {
-  const { topics } = scene.snapshot.feed;
-  const order = Object.hasOwn(topics, id) ? topics[id] : undefined;
-  if (order === undefined)
-    throw new Error(`the slice reader let through topic "${id}" with no order`);
+/** The reader gives every channel topic and issuer an order; a missing one is a wiring fault, so it is loud. */
+function orderOf(
+  views: Record<string, SignalFeedView> | null,
+  id: string,
+  word: "topic" | "issuer",
+): SignalFeedView {
+  const order = views !== null && Object.hasOwn(views, id) ? views[id] : undefined;
+  if (order === undefined) throw new Error(`the slice reader let through ${word} "${id}" with no order`);
   return order;
 }
 
@@ -114,7 +130,7 @@ function emptyContext(
     view,
     approved: feed.sources.approved,
     propose: writer ? sceneHref(scene, "settings/sources") : null,
-    noneFollowed: !channels.topics.some((t) => t.followed),
+    noneFollowed: ![...channels.topics, ...(channels.issuers ?? [])].some((one) => one.followed),
     topics: channels.topics.map((t) => ({ id: t.id, name: t.name, on: follow.on(t) })),
     onFollow: (id) => {
       const topic = channels.topics.find((t) => t.id === id);
@@ -128,10 +144,19 @@ type PageFor = {
   scene: SignalScene;
   kind: SignalPageKind;
   params: Record<string, string>;
-  follow: SignalFollow;
+  follows: SignalFollows;
   save: SignalSave;
   /** Drawn on the service: no control is drawn for what the service cannot yet store. */
   live: boolean;
+};
+
+/** What the feed pages share: the scene, the follow state of the list they draw, the saves and the role. */
+type FeedFor = {
+  scene: SignalScene;
+  params: Record<string, string>;
+  follow: SignalFollow;
+  save: SignalSave;
+  writer: boolean;
 };
 
 type PageContent = { current: SignalCurrent; body: ReactNode };
@@ -196,7 +221,7 @@ function topicFor(
         key={`${scene.id}/topic/${topic.id}`}
         title={topic.name}
         freshness={scene.snapshot.feed.freshness}
-        entries={entriesOf(scene, topicView(scene, topic.id))}
+        entries={entriesOf(scene, orderOf(scene.snapshot.feed.topics, topic.id, "topic"))}
         startOn="top"
         switchable
         writer={writer}
@@ -210,6 +235,41 @@ function topicFor(
             follow.toggle(topic);
           },
           keywords: topic.keywords,
+        }}
+      />
+    ),
+  };
+}
+
+/** An issuer's page: the feed page over the issuer's stories, with Follow and, where a writer gave the issuer a library key, the way to the Library. */
+function issuerFor({ scene, params, follow, save, writer }: FeedFor, live: boolean): PageContent {
+  const { channels, feed, settings } = scene.snapshot;
+  const issuer = channels.issuers?.find((one) => one.id === params["issuer"]);
+  if (issuer === undefined) return missing("No such issuer", <BackToFeed scene={scene} />);
+  const held = settings.issuers?.find((one) => one.id === issuer.id);
+  return {
+    current: { kind: "issuer", id: issuer.id },
+    body: (
+      <FeedPage
+        scene={scene}
+        key={`${scene.id}/issuer/${issuer.id}`}
+        title={issuer.name}
+        freshness={feed.freshness}
+        entries={entriesOf(scene, orderOf(feed.issuers, issuer.id, "issuer"))}
+        startOn="top"
+        switchable
+        writer={writer}
+        save={save}
+        loading={feed.status === "loading"}
+        error={feed.error}
+        empty={emptyContext(scene, "issuer", follow, writer)}
+        topic={{
+          on: follow.on(issuer),
+          onToggle: () => {
+            follow.toggle(issuer);
+          },
+          keywords: [],
+          library: held?.libraryKey == null ? null : LIBRARY[live ? "live" : "sample"],
         }}
       />
     ),
@@ -285,13 +345,15 @@ function digestFor(
   };
 }
 
-function pageFor({ scene, kind, params, follow, save, live }: PageFor): PageContent {
+function pageFor({ scene, kind, params, follows, save, live }: PageFor): PageContent {
   const writer = scene.snapshot.viewer.role === "writer";
   switch (kind) {
     case "feed":
-      return feedFor(scene, params, follow, save, writer);
+      return feedFor(scene, params, follows.topics, save, writer);
     case "topic":
-      return topicFor(scene, params, follow, save, writer);
+      return topicFor(scene, params, follows.topics, save, writer);
+    case "issuer":
+      return issuerFor({ scene, params, follow: follows.issuers, save, writer }, live);
     case "group":
     case "thread":
       return groupFor(scene, params, kind, save, writer);
@@ -407,15 +469,17 @@ function SceneView({
       ? null
       : (id: string, on: boolean) =>
           actions.write(request(id, on)).then((answer) => answer.refusal);
-  const follows = useChoices(sent(writes.follow), notice.refuse);
+  const topics = useChoices(sent(writes.follow), notice.refuse);
+  const issuers = useChoices(sent(writes.followIssuer), notice.refuse);
   const saves = useChoices(sent(writes.save), notice.refuse);
-  const follow: SignalFollow = {
-    on: (topic) => follows.on(topic.id, topic.followed),
-    toggle: (topic) => {
+  const followOf = (choices: typeof topics): SignalFollow => ({
+    on: (one) => choices.on(one.id, one.followed),
+    toggle: (one) => {
       notice.clear();
-      follows.toggle(topic.id, topic.followed);
+      choices.toggle(one.id, one.followed);
     },
-  };
+  });
+  const follows: SignalFollows = { topics: followOf(topics), issuers: followOf(issuers) };
   const save: SignalSave = {
     on: (story) => saves.on(story.id, story.saved),
     toggle: (story) => {
@@ -423,10 +487,10 @@ function SceneView({
       saves.toggle(story.id, story.saved);
     },
   };
-  const { current, body } = pageFor({ scene, kind, params, follow, save, live: actions !== null });
+  const { current, body } = pageFor({ scene, kind, params, follows, save, live: actions !== null });
   return (
     <SignalPageWriteContext value={page}>
-      <SignalFrame scene={scene} current={current} follow={follow}>
+      <SignalFrame scene={scene} current={current} follows={follows}>
         {notice.said === null ? null : (
           // It stays in view, 8px under the Channels strip where there is one (the frame's
           // `--strip`): the control pressed may be far down the page.

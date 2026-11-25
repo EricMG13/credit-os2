@@ -210,7 +210,7 @@ describe("Top or Latest", () => {
 });
 
 describe("the kind tabs", () => {
-  it("offers All, Regulators, News, Ratings and Research, All selected", () => {
+  it("offers All, Regulators, News, Ratings, Research and Filings, All selected", () => {
     show("/signal/main/feed/for-you");
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "All",
@@ -218,6 +218,7 @@ describe("the kind tabs", () => {
       "News",
       "Ratings",
       "Research",
+      "Filings",
     ]);
     expect(tab("All")).toHaveAttribute("aria-selected", "true");
   });

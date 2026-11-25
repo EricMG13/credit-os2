@@ -7,7 +7,8 @@ import { Input } from "@/components/base/input/input";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/application/tabs/tabs";
 
 export type FeedOrder = "top" | "latest";
-export type FeedKind = "all" | "regulator" | "news" | "ratings" | "research";
+/** A market post is one a day and has no tab of its own: it is under All. */
+export type FeedKind = "all" | "regulator" | "news" | "ratings" | "research" | "filing";
 
 const ORDERS: [FeedOrder, string][] = [
   ["top", "Top"],
@@ -19,6 +20,7 @@ const KINDS: [FeedKind, string][] = [
   ["news", "News"],
   ["ratings", "Ratings"],
   ["research", "Research"],
+  ["filing", "Filings"],
 ];
 
 /** A key the kit's controls report must be one of ours; anything else is a wiring fault. */
@@ -103,7 +105,7 @@ export function FeedControls({
       }}
     >
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        {/* The five tabs wrap where the page is narrower than their row (under about 360px). */}
+        {/* The six tabs wrap where the page is narrower than their row. */}
         <TabList
           aria-label="Kind of story"
           size="sm"

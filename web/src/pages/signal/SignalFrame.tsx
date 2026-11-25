@@ -15,6 +15,7 @@ import {
 } from "react";
 import {
   Bookmark,
+  Building07,
   Clock,
   File05,
   Hash02,
@@ -35,22 +36,24 @@ import { useSignalActions } from "./actions";
 import { ChannelPanel } from "./ChannelPanel";
 import { NameDialog, initialsOf } from "./NameDialog";
 import { SignalViewerContext } from "./viewer";
-import type { SignalScene } from "./slice";
+import type { SignalIssuerChannel, SignalScene } from "./slice";
 import { writes } from "./writes";
 
 /** Which channel the page is on; the item with the same key is marked current. */
 export type SignalCurrent =
   | { kind: "view"; id: "for-you" | "latest" | "saved" }
-  | { kind: "topic" | "group" | "digest"; id: string }
+  | { kind: "topic" | "issuer" | "group" | "digest"; id: string }
   | { kind: "settings" }
   /** The address names no channel item (an unknown view or topic): nothing is marked current. */
   | { kind: "none" };
 
-/** Follow state kept above the frame so the channel list and the page agree; in memory unless the page is drawn on a service. */
+/** Follow state (of topics, or of issuers) kept above the frame so the channel list and the page agree; in memory unless the page is drawn on a service. */
 export type SignalFollow = {
   on: (topic: { id: string; followed: boolean }) => boolean;
   toggle: (topic: { id: string; followed: boolean }) => void;
 };
+/** The two things a reader follows; a topic and an issuer may share an id, so each has its own state. */
+export type SignalFollows = { topics: SignalFollow; issuers: SignalFollow };
 
 export function sceneHref(scene: SignalScene, path: string): string {
   return `#/signal/${encodeURIComponent(scene.id)}/${path}`;
@@ -125,15 +128,82 @@ function Heading({ children }: { children: string }) {
   return <h2 className="px-2 pt-4 pb-1 text-caption font-medium text-text-tertiary">{children}</h2>;
 }
 
+/** A topic's or an issuer's row: its page, its delivered count and the star that follows it. */
+function FollowRow({
+  href,
+  icon,
+  on,
+  item,
+  follow,
+}: Omit<RowProps, "children"> & {
+  item: { id: string; name: string; count: string | null; followed: boolean };
+  follow: SignalFollow;
+}) {
+  const followed = follow.on(item);
+  return (
+    <Row
+      href={href}
+      icon={icon}
+      on={on}
+      mark={<Count>{item.count ?? "n.a."}</Count>}
+      after={
+        <ButtonUtility
+          tooltip={`${followed ? "Unfollow" : "Follow"} ${item.name}`}
+          aria-pressed={followed}
+          className={cx("size-8", followed && "text-action hover:text-action-hover")}
+          icon={<Star01 data-icon className={followed ? "fill-current" : undefined} />}
+          onPress={() => {
+            follow.toggle(item);
+          }}
+        />
+      }
+    >
+      {item.name}
+    </Row>
+  );
+}
+
+/** The watchlist's issuers, between Topics and Groups; no heading where there is none to list. */
+function IssuerRows({
+  scene,
+  issuers,
+  current,
+  follow,
+}: {
+  scene: SignalScene;
+  issuers: SignalIssuerChannel[];
+  current: SignalCurrent;
+  follow: SignalFollow;
+}) {
+  if (issuers.length === 0) return null;
+  return (
+    <>
+      <Heading>Issuers</Heading>
+      <ul className="flex flex-col gap-px">
+        {issuers.map((issuer) => (
+          <FollowRow
+            key={issuer.id}
+            href={sceneHref(scene, `issuer/${encodeURIComponent(issuer.id)}`)}
+            icon={Building07}
+            on={isCurrent(current, "issuer", issuer.id)}
+            item={issuer}
+            follow={follow}
+          />
+        ))}
+      </ul>
+    </>
+  );
+}
+
 function ChannelList({
   scene,
   current,
-  follow,
+  follows,
   chip,
 }: {
   scene: SignalScene;
   current: SignalCurrent;
-  follow: SignalFollow;
+  follows: SignalFollows;
   chip: ReactNode;
 }) {
   const { channels } = scene.snapshot;
@@ -183,33 +253,24 @@ function ChannelList({
         <p className="px-2 py-2 text-small text-text-tertiary">No topics yet</p>
       ) : (
         <ul className="flex flex-col gap-px">
-          {channels.topics.map((topic) => {
-            const on = follow.on(topic);
-            return (
-              <Row
-                key={topic.id}
-                href={sceneHref(scene, `topic/${encodeURIComponent(topic.id)}`)}
-                icon={Hash02}
-                on={isCurrent(current, "topic", topic.id)}
-                mark={<Count>{topic.count ?? "n.a."}</Count>}
-                after={
-                  <ButtonUtility
-                    tooltip={`${on ? "Unfollow" : "Follow"} ${topic.name}`}
-                    aria-pressed={on}
-                    className={cx("size-8", on && "text-action hover:text-action-hover")}
-                    icon={<Star01 data-icon className={on ? "fill-current" : undefined} />}
-                    onPress={() => {
-                      follow.toggle(topic);
-                    }}
-                  />
-                }
-              >
-                {topic.name}
-              </Row>
-            );
-          })}
+          {channels.topics.map((topic) => (
+            <FollowRow
+              key={topic.id}
+              href={sceneHref(scene, `topic/${encodeURIComponent(topic.id)}`)}
+              icon={Hash02}
+              on={isCurrent(current, "topic", topic.id)}
+              item={topic}
+              follow={follows.topics}
+            />
+          ))}
         </ul>
       )}
+      <IssuerRows
+        scene={scene}
+        issuers={channels.issuers ?? []}
+        current={current}
+        follow={follows.issuers}
+      />
       <Heading>Groups</Heading>
       {channels.groups.length === 0 ? (
         <p className="px-2 py-2 text-small text-text-tertiary">No groups yet</p>
@@ -321,6 +382,8 @@ function placeOf(scene: SignalScene, current: SignalCurrent): string | null {
     case "group":
     case "digest":
       return channels[`${current.kind}s`].find((item) => item.id === current.id)?.name ?? null;
+    case "issuer":
+      return channels.issuers?.find((item) => item.id === current.id)?.name ?? null;
     case "settings":
       return "Settings";
     case "none":
@@ -396,12 +459,12 @@ const SKIP =
 export function SignalFrame({
   scene,
   current,
-  follow,
+  follows,
   children,
 }: {
   scene: SignalScene;
   current: SignalCurrent;
-  follow: SignalFollow;
+  follows: SignalFollows;
   children: ReactNode;
 }) {
   const content = useRef<HTMLDivElement>(null);
@@ -418,7 +481,7 @@ export function SignalFrame({
     <ChannelList
       scene={scene}
       current={current}
-      follow={follow}
+      follows={follows}
       chip={
         <NameChip
           name={name}
