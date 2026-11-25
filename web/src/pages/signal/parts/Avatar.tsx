@@ -3,11 +3,13 @@
 import type { FC, ReactNode } from "react";
 import { User01 } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
+import type { LogoOf } from "../logos";
+import { SourceLogo } from "./SourceLogo";
 
 const SIZES = {
-  xs: { box: "size-6", initials: "text-xs", icon: "size-3" },
-  sm: { box: "size-8", initials: "text-sm", icon: "size-4" },
-  md: { box: "size-10", initials: "text-md", icon: "size-5" },
+  xs: { box: "size-6", initials: "text-caption", icon: "size-3" },
+  sm: { box: "size-8", initials: "text-small", icon: "size-4" },
+  md: { box: "size-10", initials: "text-body", icon: "size-5" },
 } as const;
 
 type AvatarProps = {
@@ -18,24 +20,28 @@ type AvatarProps = {
   own?: boolean;
   /** The icon drawn when there are no initials (default: one person). */
   icon?: FC<{ className?: string }>;
+  /** A source's avatar: its logo is drawn in the letters' place where the page has one. */
+  source?: LogoOf;
 };
 
 /** Decoration: the name beside it carries the meaning, so it is hidden from the accessibility tree. */
-export function Avatar({ size, initials, own = false, icon: Icon = User01 }: AvatarProps) {
+export function Avatar({ size, initials, own = false, icon: Icon = User01, source }: AvatarProps) {
   return (
     <span
       aria-hidden="true"
       className={cx(
-        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold ring-[0.5px] ring-border-subtle ring-inset",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-ds-full font-semibold ring-1 ring-border-subtle ring-inset",
         SIZES[size].box,
         own ? "bg-surface-selected text-text-link" : "bg-surface-subtle text-text-tertiary",
       )}
     >
-      {initials === null ? (
-        <Icon className={SIZES[size].icon} />
-      ) : (
-        <span className={SIZES[size].initials}>{initials}</span>
-      )}
+      <SourceLogo source={source} inset="p-0.5">
+        {initials === null ? (
+          <Icon className={SIZES[size].icon} />
+        ) : (
+          <span className={SIZES[size].initials}>{initials}</span>
+        )}
+      </SourceLogo>
     </span>
   );
 }
@@ -47,8 +53,8 @@ export function AvatarLabelGroup({ title, subtitle, ...avatar }: AvatarLabelGrou
     <div className="flex min-w-0 items-center gap-2">
       <Avatar {...avatar} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-text-primary">{title}</p>
-        <p className="text-xs text-text-tertiary">{subtitle}</p>
+        <p className="text-small font-medium text-text-primary">{title}</p>
+        <p className="text-caption font-normal text-text-tertiary">{subtitle}</p>
       </div>
     </div>
   );

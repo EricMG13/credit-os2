@@ -14,7 +14,7 @@ export function PageTitle({
     <h1
       ref={titleRef}
       tabIndex={titleRef === undefined ? undefined : -1}
-      className="text-h2 text-text-primary outline-focus-ring focus-visible:outline-2"
+      className="font-display text-h1 text-balance wrap-anywhere text-text-primary outline-focus-ring focus-visible:outline-2"
     >
       {children}
     </h1>

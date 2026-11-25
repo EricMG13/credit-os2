@@ -45,7 +45,7 @@ def root() -> Iterator[Path]:
 
 @pytest.fixture
 def hosted(root: Path, web: Path) -> Iterator[_Server]:
-    with make_server(root, web=web, signal_url="http://localhost:8766") as server:
+    with make_server(root, web=web, environ={}) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
         try:
@@ -77,7 +77,7 @@ def test_react_page_routes_serve_the_build(hosted: _Server, web: Path) -> None:
     assert status == 200
     assert b'credit-os-backend" content="legacy"' in page
     assert b'credit-os-mode" content="live"' in page
-    assert b'credit-os-signal-url" content="http://localhost:8766/"' in page
+    assert b'<meta name="credit-os-signal" content="on">' in page  # live mode hosts Signal
     assert b"connect-src 'self'" in page
     assert b"connect-src 'none'" in (web / "index.html").read_bytes()
     assert headers["X-Frame-Options"] == "DENY"
@@ -607,7 +607,7 @@ def test_synthetic_mode_uses_the_explicit_launcher(root: Path, web: Path) -> Non
         try:
             page = request(server, "/")[1]
             assert b'credit-os-mode" content="synthetic"' in page
-            assert b'credit-os-signal-url"' not in page
+            assert b"credit-os-signal" not in page  # a proof run hosts no Signal
             expected = _form_template()
             expected["run"]["case_kind"] = "synthetic"
             expected["copilot_models"] = {

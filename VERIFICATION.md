@@ -89,6 +89,131 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   from search extracts where the report says so. `confidence-review` was a self-check of the
   measures against the prepared instructions; `rewrite-tournament` was not run (one small tool).
 
+## 2026-11-25 — HTTP base: parameters no service sets are deleted (branch `claude/zealous-wright-h66pam`; written on PR 83's head, re-checked on `main` after PR 83 merged)
+
+Scope: `src/deploy_workflow/http_base.py`, the one override in `run_start/service.py`, `tests/test_http_base.py`. Deletion only; no provider, handoff, module or page change; no model call.
+- Checked first: a search of every `.py` outside `.venv` found no user of the per-address limit, the connection deadline, `response_headers` or a `read_body` override outside the base and its toy `strict` test service. On `main` Signal's standalone server still sets all four, so this change is valid only on top of PR 83.
+- Deleted: the per-address half of `connection_limits` (now an `int`) and its bookkeeping; the deadline timer with `setup`, `_expire` and `finish`; `response_headers` and its loop; `read_body`, folded into `sized_body`. With them the toy `strict` service, its three tests, and the comparisons and pins that named these parameters. Every other assertion is as it was.
+- Tests (loopback sockets only): `tests/test_http_base.py`, `test_run_start_service.py`, `test_react_frontend_signal.py`, `test_react_frontend.py`: 340 passed. Quality gate with `--base 5f2927a`: 0 findings; `lint-imports`: 3 contracts kept; strict mypy on the two source files: clean. Commands ran as `uv run --no-config` (the container's uv is not the pinned version).
+- Review: plan critique before the work and one independent review of the diff, by models other than the implementer.
+- Not verified: the full and slow suites; Windows; `confidence-review` was done by hand (the skill, `rewrite-tournament`, `/sweep` and `adversarial-reviewer` are not installed in this cloud session).
+## 2026-11-25 — Signal runs inside the one application process (PR #83, branch `claude/lucid-feynman-bvglyi`)
+
+- Scope: local and synthetic only. Spec `docs/superpowers/specs/2026-11-25-signal-one-process.md`, plan beside it. `python -m react_frontend` in live mode answers `/signal/api/*` itself through `signal.service.answer` (`react_frontend/signal_host.py`) and runs Signal's loop in one thread started by `serve`; not in the read-only preview or synthetic mode. Removed: `react_frontend/signal_forward.py`, `--signal-url` (both commands), `run_start.service.signal_link`, the `signal serve` command and its server, `Start signal.cmd` (purged from an existing package folder), the `credit-os-signal-url` meta (now `credit-os-signal` = `on`).
+- Money (spec 4.4): the hosted loop is given the process environment only when `CREDIT_OS_SIGNAL_AI` is exactly `1`, read once when the host is built; otherwise an empty read-only mapping. Tests with a fake key, a recording model factory and a fetch that raises: keys present and no switch gives an empty environment, gate off for want of a key, no model built by `run_once`, by "run once now" or by start-up recovery, `ai_usage` 0 rows; `1` passes the mapping; twelve other values stay off. Reviewer mutations (switch ignored, truthy, read from the process) failed 3 to 18 tests each.
+- Method: seven tasks, one implementer subagent each, then a spec-compliance and a code-quality review by other subagents, findings fixed before the next task; a whole-change review ran the plan's adversarial cases. It found one defect, repaired test-first: `//signal/api/me` was answered by Signal without its two response headers.
+- Gates on the tree merged with `main` at `bc0a025` (two merges; conflicts in this file, both sides kept, and in `signal/fetch.py`, where main's `Rules`/`fetch_document` and this branch's declared contact, body cap and `check_form` were combined; 565 tests of both sides pass on it): `tools/quality_gate.py` 0 findings, `lint-imports` 3 kept, strict mypy clean on the changed modules (three known `import-untyped` errors elsewhere). Targeted pytest, CI's markers: `tests/test_signal_*.py` 1,754 passed; `tests/test_react_*.py` and `proof/test_launcher.py` 420; run start, HTTP base, packaging, repo rules, reference portfolios 574. Web: 8,766 tests in 493 files, lint, format, typecheck, knip, duplication, build, 78 script tests, file gates, audit, all exit 0.
+- Test changes: the forwarder's upstream tests, the `--signal-url`/`signal_link` tests, three start tests of the removed server and its per-address and deadline tests went with their subjects. One expected value changed: a POST body that stalls gets no reply and one log line (the 400 "the request body did not arrive" was only ever sent on Signal's own port). Three inputs changed to the application's rules, which the forwarder already applied: no body on DELETE (two tests), a 400-character search text (the 5,000-character one is now sent through `service.answer`).
+- Differences from the spec: section 7's search still finds the removed names in tests that assert they are absent or refused, in the packaging purge list and in dated records; comments and two test titles in `web/src` beyond `connected-main.tsx` were reworded; the 502 branch of the web client is kept for a proxy on the way.
+- Not verified: no real browser was driven for this change; no live feed, SEC, FRED, publisher or model request was made, so the hosted loop's first live fetch and first paid pass are unproven; `python -m react_frontend` was not left running for hours. `tests/test_reporting_currency_proof.py` fails 2 of 5 (Forecast rows, GBP and CHF) on this tree and identically on `main` `51687ad` alone; it passed before the merge. Open for the owner: whether audit ruling R8 (the application works offline) needs a recorded exception now that approved sources are fetched in the application's process (spec 4.5); `python -m react_frontend` configures no logging, so Signal's INFO lines and timestamps that `signal serve` printed are gone while `/signal/api/status` still says "see the log"; the unused per-address and deadline hooks left in `http_base.py`; the ruling `2026-11-25-signal-ai-pass.md` still says "the Signal service".
+
+## 2026-11-25 — Signal: issuers, filings, daily market post, source logos; screens to the redesign
+
+Scope: `src/deploy_workflow/signal/` (issuers, filings, market, logos, migration 7) and
+`web/src/pages/signal/` at the merge with main `f6cebbd`. Spec:
+`docs/superpowers/specs/2026-11-25-signal-issuers-filings-market.md`.
+
+- No SEC, FRED or publisher request and no model call was made by the build or its tests; a
+  test guard fails any Signal test that reaches the real network. EDGAR and FRED documents in
+  tests are synthetic, written in the published formats.
+- Lead's runs on the merged state: 1,745 tests in `tests/test_signal_*.py` pass; 357 server,
+  run start, pathway and packaging tests pass; quality gate 0 findings in 105 changed files;
+  `lint-imports` 3 contracts kept; strict mypy clean on 47 files. Web: 67 files, 1,639 tests in
+  the Signal, shell, app, connected-app and style suites pass; lint, typecheck, format, knip,
+  duplication, build, script tests and file gates exit 0.
+- Real browser (Chromium, seeded service, `react_frontend --signal-url`, 1280 and 375 px): the
+  98 functional checks of every earlier control pass on the merged build. The new issuer pages,
+  Filings tab, market card and logos were NOT driven in a browser; they are covered by unit and
+  rendering tests only.
+- Review: one adversarial round on the backend (format gating, the SEC contact string, approval,
+  market arithmetic against an independent oracle on 30,000 generated files, issuer matching
+  against an oracle) found one top finding (filings and market posts reaching digests and the
+  digest model call) and others; all were fixed test first and the oracle probes rerun with 0
+  mismatches. The fix pass, the logo service and the React wiring for these features have had
+  no independent review.
+- Presentation (fidelity scope: the Signal screens only). Brought to `DESIGN.md`: channel list
+  as a tile beside the page from 960 px, Channels button and left panel below; type ramp, radii,
+  no card shadows, 32 px controls and 44 px on a phone; mono numerals for counts, times and
+  dates. New: Issuers in the channel list, an issuer page, a Filings tab, the market post as a
+  dated table in its card, Settings → Issuers, source logos in the letter tiles (from `data:`
+  URLs built from the service's JSON, never another site's address). Today's page asks for
+  snapshot format 2; format 1 is unchanged for any other caller.
+- Known limits: the top bar wraps to two rows between 480 and 589 px with four areas (shell);
+  reader words "n.a." and service refusals naming ids; "AT&T", "3M", "GE" need a longer alias;
+  stores opened by earlier commits of this branch are refused; the first live SEC, FRED and icon
+  fetches are unproven; the ICE BofA series' terms are for the owner to confirm.
+
+## 2026-11-25 — Signal's AI pass ruled by the owner; merge with main
+
+- The owner approved the AI pass on 2026-11-25 ("approve AI pass") and chose a monthly cap of
+  USD 25 when asked. `docs/rulings/2026-11-25-signal-ai-pass.md` records both (configuration
+  `copilot-luna-xhigh`, `cap_usd: 25`); the draft is removed. On a fresh store `signal ai status`
+  names the ruling and still reports the pass off: no cap is set and no key is in the
+  environment, and `signal ai cap 30` is refused as above the ruled USD 25. No model was called
+  here; the live proof is still the owner's separate step. 527 AI, command-line, service and
+  digest tests pass with the ruling in place (they use their own rulings folders).
+- Main (`4aaec9d`: frontend redesign, Coverage page) is merged at `236fb83`. After it: 1,469
+  Signal tests, 190 React server tests and the whole web suite (474 files, 8,254 tests) pass.
+  The test guard against a live adapter now covers tests that import the Signal package only;
+  the run start tests build the adapter over a stand-in on purpose. The Signal screens still
+  carry the layout made for the previous shell; bringing them to the redesign is in progress and
+  will be recorded when checked.
+
+## 2026-11-25 — Signal: React screens on the service, steps 3 to 6, four review rounds
+
+Scope: `src/deploy_workflow/signal/`, `react_frontend/signal_forward.py`, `web/src/pages/signal/`,
+the connected app's rail and `/signal` route, at `8986ebe`. Owner instructions of 2026-11-24:
+wire the React screens to the service and remove the plain page; build backend steps 3, 4, 6,
+then 5; the narrow layout and the controls listed below.
+
+- No model or provider was called and no ruling was added. Every AI test is SYNTHETIC: a fake
+  model, or the real `CopilotAdapter` class driven by its test rig's fake client. A live proof is
+  a separate paid step. `docs/rulings/` holds no Signal ruling, so the pass is off; the draft
+  for the owner is `docs/superpowers/specs/2026-11-25-signal-ai-ruling-draft.md`, outside the
+  rulings folder, with its date, cap and answer left blank (`signal ai status` on a fresh store:
+  state off, ruling missing).
+- Lead's own runs on the final state: 1,469 tests in `tests/test_signal_*.py` pass (none
+  skipped, React reader present); quality gate 0 findings in 86 changed files; `lint-imports` 3
+  contracts kept; strict mypy clean on 38 files. Web: 327 files, 5,704 tests pass; lint,
+  typecheck, format, knip, duplication and build exit 0 (run at `7f23e62`, before the last
+  backend-only pass). Forwarder, packaging and HTTP base: 300 tests pass (at `1e89eed`).
+- Contract between the two sides: every snapshot the Python tests build is read by the real
+  `readSlice` from `web/src/pages/signal/slice.ts`; `snapshot.sample.json` is generated by the
+  service and read by the web tests.
+- Real browser (Chromium, a seeded service and `react_frontend --signal-url`, 1280 and 375 px),
+  lead's run on the final build: 98 checks pass — name, save, follow, share with a note, comment,
+  reply, react, edit and remove a comment, group create, rename, delete, members, topics and
+  rules, Top order with a discussed older story first, a thread delivered without comments
+  filling when opened, real refusals shown as the service's sentences. Every request went to the
+  app's own origin.
+- Reviews: four adversarial rounds on models other than each builder's, each followed by a fix
+  pass, test first, with the reviewers' scripts rerun. Round 1 found a snapshot one writer could
+  push past the forwarder's 4 MiB cap (reproduced: 260 posts blanked every screen); the worst
+  reachable store now builds to 2.86 MB in 0.39 s. Round 3 found the ruling read once per job (39
+  digest calls after the ruling was deleted; now 1) and a month's cap drainable through digest
+  runs (now 5 paid digest calls a name and 50 a service a UTC day, 10 a pass). Round 4 found
+  nothing that spends without the four preconditions, past the cap or past the day ceiling; its
+  findings are fixed and three of its scripts rerun by the lead (store id, digest bypasses, a
+  full day blocking other digests). The fourth fix pass itself has had no independent review.
+- Presentation changes (fidelity scope: the Signal screens only; issuer library and report pages
+  untouched). Design-reference app: story cards group strength, stage, rating moves and the AI
+  line under one AI mark, "also in" on its own row; below 1024 px the channel list opens from a
+  sticky Channels button as a panel from the left; group actions in an even grid; the Sources
+  table shows four columns until 1536 px and scrolls in a labelled region when narrow; the AI
+  section's line reads "The switches show the state of each part. They cannot be changed here."
+  (owner approved, 2026-11-25); an empty Digests list says "No digests yet". Live page only:
+  writer controls enabled and wired; per-group thread rules; one In Signal switch per
+  notification event; Digests in a reader's Settings; sentences when threads or sources are left
+  out. Checked by measurement at 320, 375, 414, 768, 1024, 1280 px (no element past the right
+  edge, page region 320 to 956 px) and by looking at the screenshots.
+- Known limits, not fixed: identity is a typed name, so writer actions are open to whoever types
+  a writer's name (spec 5.2; owner powers stay on the command line); a provider rate limit counts
+  as an unknown cost and switches the pass off until `signal ai clear` (spec 5.10); whether USD
+  0.3585 bounds one exchange's bill needs a live run; marking a thread read can miss one comment
+  committed within milliseconds of the snapshot; a store made by an earlier commit of this branch
+  is refused; digests at the cap skip their period's stories; SQLite waits 30 s for a lock while
+  the forwarder gives up at 5 s; the GitHub workflow changes could not be run here.
+
 ## 2026-11-25 — Recommendation calculation: roll-up, 5×5 table, valuation bands, limit caps (PR #96, branch `claude/pr-2-recommendation-80b887`)
 
 - Scope: synthetic and deterministic only. One pure module, `src/deploy_workflow/recommendation.py`; no file read, no provider call, no real run, no real constraints or holdings file. Nothing calls it yet (the workbook, plan PR 4, will).
@@ -835,162 +960,3 @@ Scope: `proof:connected` on main 4f8a375a. Synthetic fixtures and the proof scri
 - `guess_kind` reads the file as `credit_agreement`, executed True, so `cp4-declared-executed-none-recognised` cannot fire (checked on the fixture, not on the run's forecast page).
 - Results: `npm --prefix web run proof:connected` exit 0, pass 2 fail 0 (Chrome 157, Edge 157). `proof/test_launcher.py` 4 passed (one added). `tests/test_cpos_launch.py -m "not live and not browser"` 938 passed. Quality gate (tools/quality_gate.py) exit 0.
 - Not verified: the forecast page of the proof run (limits shown) was not read; the before-fix failure was not re-run in this worktree.
-
-## 2026-11-16 — Module test and repair routine: offline, one live Deep run on Claude Opus medium, then the market-data modules on GitHub Copilot GPT Sol (repairs ported onto `main` `4f8a375a` by branch `claude/module-routine-repairs`, from `e6028846`)
-
-Scope: offline gates and the canned browser proof on `main` `a438cb9f` plus the routine's repairs;
-one **live** launch from the React launcher (`python -m react_frontend`, Submit on an approved
-summary, standing ruling `2026-11-11-run-start-submit.md`), Deep credit assessment, Claude Opus at
-Fast (all medium, `opus-medium`), cap USD 40, the retained TDG FY2024 public files (as of
-2024-09-30, legal documents `none`), run `20261116-185348-01` in `~/cos-live/tdg-deep-20261116b`
-(outside the repo). Owner: "run the module test and repair routine offline then live", "Use opus
-medium anthropic key", "Deep, cap USD 40". One case and route; outputs are candidates until
-reviewed.
-
-- Offline, `main`: CP-OS tests 1,696 passed; React 129; library 245 (1 skipped, screenshot);
-  `web` gates exit 0 (171 files, 3,663 tests); `tools/quality_gate.py` 0 findings. The connected
-  browser proof **failed** in Chrome and Edge: PR #40 made the analyst's name required and the proof
-  never types it (`main` types it since `951bcda0`). CLI dry launch of the same Deep run: 20
-  modules, cap USD 40, exit 0, no provider.
-- Repaired, ported onto `main` `4f8a375a` by branch `claude/module-routine-repairs` (tests first:
-  5 of its 9 new tests failed on `main`; the other 4 are guards that pass before and after):
-  1. Uploaded names over 80 characters lost their extension (`safe_name` cut), so the TDG annual
-     report PDF (84 characters) was stored without `.pdf` and silently ignored by the launcher; two
-     long names agreeing for 80 characters overwrote each other. Now the last part keeps its suffix
-     and gains 8 hex of its SHA-256 (`run_start/submissions.py`); in the routine the launcher then
-     read all five files. 2. Issuer ID `pattern` was invalid under the `v` flag (console error,
-     native check skipped); now `[a-z0-9][a-z0-9\-]{0,39}` on the start page #42 rebuilt
-     (`StartRun.tsx`). 3. CP-DR's web page text ran table cells together (`Sep 30, 20241,398.32`);
-     cells are now separated by ` | `. The routine's other two repairs are not in this branch: the
-     proof's name line is on `main` since `951bcda0`; `finance.yahoo.com` is a separate PR. Gates
-     on the branch: 550 targeted tests (submissions, service, React frontend, web lookup) and 486
-     in the related start-page and lookup files passed, quality gate 0 findings, `web` typecheck,
-     lint, prettier and vitest (3,917) exit 0 on Node 22; one independent review: pass with Lows,
-     none High or Medium. Browser-marked tests and the connected proof run after the PR opens.
-- Live run: 18 of 20 modules accepted, then **stopped at the cap** before CP-5 (USD 35.62 settled;
-  the next call's hold would pass USD 40). No module failed; 11 drafts were sent back once and
-  corrected on the next write (page locators in prose, figures not backed by tables, unit-less
-  figures, chart-data wording). Handoff chain: every request's upstream hash equals that module's
-  accepted response (0 mismatches). Method-script checks: none sent back on any accepted handoff
-  (for example CP-4 46 agreed, CP-1B 32, CP-1D 12, CP-1 7). Run activity drew the run as Capped,
-  18 of 20, Evidence validation Interrupted, Committee decision and Report Not run; no report was
-  published, so the library and report views were not checked on live output.
-- Market test data: the owner's Bloomberg aerospace loan sheet transcribed (five TransDigm tranches,
-  nine peers, four index rows; 147 figures, each found in the OCR text) and **re-dated from
-  2026-06-27 to 2024-09-30 at the owner's instruction** ("This is a test just updated the figures to
-  make it run"); typed quotes for term loans J–N, ratings Moody's Ba3, S&P BB- (facility).
-- Module-output run (ruling `2026-11-16-tdg-subset-copilot-sol.md`, temp folder
-  `~/cos-live/tdg-subset-sol`, scratch driver): 13 Opus answers reused, CP-2H, CP-3D,
-  CP-3C, CP-4C, CP-3, CP-5, CP-6 on `copilot-sol-medium`: **7 of 7 accepted, USD 4.51**, 104 handoff
-  pins 0 mismatches, answer key 13 of 15 (the two misses are sound choices: CP-3 used the Ba and
-  Ba/B indices, −4 and −169 bp, correct; CP-3C declined the quotes after CP-3D's block). GPT Sol on
-  OpenAI was refused (no credits, USD 0).
-- Fixes, ranked (owner, 2026-11-16: modules that need the RV Book will have it at deployment):
-  1. High. **CP-4 acceptance must enforce its source gate.** CP-4 concluded covenant capacity and
-     compliance (5.50x against 7.25x) from the 10-K's summary with no executed agreement, though its
-     method says "Blocked: No executed governing document. STOP" and the launcher forecast "Will
-     refuse"; CP-OS accepted it. **Done: #45, merged `d64bdf81`** (refused unless Blocked when no
-     agreement is declared; CP-3 then writes Capital structure; CP-4 told its gate; review pass after
-     one fix round). Open: rerun CP-4 with the agreements in `~/cos-live/tdg-agreements`.
-  2. High, owner's call. **Opus medium does not finish Full or Deep under its cap** (Full's twelve
-     modules before CP-5 cost USD 25.91 against 25; Deep needs about 43 against 40), so an ordinary
-     run stops with no report. **Owner: "Default Full and Deep to GPT Sol"**: the start page already
-     does (2026-11-12 amendment); OpenAI has no credits, so the default cannot run until topped up.
-  3. Medium. **A wrong prose figure passed every check**: CP-1D says compensation lifts leverage
-     "about 0.39x"; its own formula gives 22,967/3,871 − 22,967/4,088 = 0.315x (CP-5 caught it as
-     minor). **Done: #47, merged `4f8a375a`**: a note in a table cell backed it; such a note now
-     holds only a restatement of its cell's value (review pass).
-  4. Medium. **Late requests are too large for Copilot**: first prompts CP-5 about 252,000 tokens
-     (plus 32,000 output, over the 272,000 limit), CP-6 224,000, CP-3 209,000; Copilot summarised all
-     three. No figure was lost this time (every CP-5 and CP-6 figure traces upstream). Smaller inputs
-     to CP-3, CP-5, CP-6 also remove fix 5's cause and cut Opus cost (fix 2).
-  5. Medium. **Summaries Copilot does not bill are invisible to the cap** (CP-3, CP-6): hold an
-     allowance per summary, or stop it happening (fix 4).
-  6. Medium, deployment setting. **Set `DEPLOY_WORKFLOW_SEC_USER_AGENT`**: without it CP-1C found no
-     peers and CP-DR's SEC lookups were refused; the launcher readiness could say so.
-  7. Check at deployment. Only CP-3's instructions say the Sector RV Book is current; CP-3D requires
-     dated quotes and blocked on the re-dated sheet. If RV Book rows carry no quote date, CP-3D,
-     CP-3C and CP-2H may block while CP-3 proceeds; then give them CP-3's policy.
-  8. Low, one batch after the final phase: GPT Sol writes calculator results at 37 decimals in tables
-     (34 lines in CP-3C, CP-5, CP-6; Opus none); a `.pdf.` name loses its suffix; `# Market quotes
-     as of` is not read as a quotes file; `_row_has_cell` is not reset at `table`; the review sheet
-     shows codes and "Will refuse wording open until A-live."; favicon 404.
-- No fix needed: CP-3D and CP-3C market inference, CP-3's comparisons and CP-2H's facility ratings
-  get the RV Book at deployment (CP-3 already worked fully on the test sheet). Leverage 6.02x and
-  5.50x are two labelled bases, not a conflict: CP-1 states both (reported EBITDA, and EBITDA As
-  Defined, the revolver test's measure) and the gap; this corrects the earlier note. CP-4C Not
-  Applicable is right (no distress trigger). The library leaves out runs with reused answers by design.
-- Not verified: library and report views on live output; CP-3D on dated RV Book quotes; the cell
-  separator on a live page; Copilot's billing of summaries; other issuers; Windows; the full suite;
-  on this branch, the browser-marked tests, the connected proof and the web gates on Node 24.
-
-## 2026-11-17 — PR 2: a run in the currency its source files report in (branch `claude/reporting-currency`)
-
-Scope: the whole branch against `main` 0bca1822. That covers the two entries below (PRs 44 and 46, merged into this branch) and the work listed here. Ruling: `docs/rulings/2026-11-16-reporting-currency-from-sources.md`. No provider was called and no paid run was made. The proof is synthetic: retained, canned module answers, labelled as such.
-- Owner, 2026-11-16: "it has to run run on any reported currency provided by the source files"; "modules should be currency agnostic, the source files dictate reporting currency"; on a facility with no reporting-currency amount: "the sources materials will contain a selected FX rate for the reporting. and that can be used to calculate it."
-- Money tables: CP-2D's liquidity bridge, CP-3C's refinancing need and CP-4C's value allocation take CP-1's money unit (`US$m` for USD, otherwise ISO code + `m`). They are told what it is, and told that a foreign instrument enters at T4.18's `Reporting Currency Amount`, otherwise `Not supplied`, never at a rate of their own. The issuer library accepts one money unit per table.
-- The currency is not asked: neither start page asks for or sends `run.reporting_currency`, which is optional in the context. The `cp2d-non-usd` rule and the US-dollar warnings are removed. The library's run currency comes from CP-1.
-- Forecast: the run's currency is CP-1's money unit. A CP-2G block stating another currency is refused. A facility whose T4.18 `Currency` is not the run's is refused, and its debt stays in the remainder at the interest-rate driver. CP-1's statement readers moved to `owners/cpos_cp1_statements.py` (a pure move; `.importlinter` gains membership only).
-- Reviews:
-  - Task reviews (mx-precise) on every task, PR 44 and PR 46.
-  - Money-path review (mx-adversary): one High, fixed. The forecast took its currency from CP-2G's block, defaulting to USD, so a USD 125 balance was scheduled as GBP.
-  - Whole-branch adversarial review (Opus 5.5; Fable unavailable): one Medium, fixed (CP-3C and CP-4C had no foreign-facility rule), and one Low on an ordinary USD input, fixed.
-  - Re-review: all fixed. Each reviewer's probe exits 1 on 2cf77df7 and 0 on 981cad96.
-  - Sweep (discover only): no High or Medium finding.
-- Fidelity check (`tests/test_reporting_currency_proof.py`, deep pathway, hand-written expected amounts):
-  - GBP and CHF runs go through the launcher's checks, delivery and the library with their own amounts (`£…m`, `CHF …m`).
-  - A facility with no stated amount and no stated rate shows a `Not supplied` total, never 0. The total is a fixture cell, since no code sums T4.18.
-  - The FX rate's locator appears only on Evidence.
-  - A USD run's delivered files and pages are byte-identical to `main`'s, after normalising timestamps, temp paths and hashes; the instruction files differ on purpose.
-- Correction to the PR 44 entry below: 14 of its 17 new cases failed before the change, not 9; three were added with the change.
-- Commands, exit 0 on 981cad96: all 9 browser-marked files exit 0 (changes 1, cpos_launch 12, library full assessment 3, library changes 8, library page 104 + 1 skipped, model shell 7, reporting-currency proof 5, run start page 152, signal page 13);
-  - `tools/quality_gate.py` (0 findings) and `lint-imports`;
-  - `tests/test_cpos_launch.py` (930 passed, 1 skipped);
-  - the facilities, scale, proof and CP-1 check tests (476 passed);
-  - on 943280ee (web unchanged since): `npm --prefix web run` lint, format:check, typecheck, test (3,909), unused, duplication, build and `proof:connected` (Chrome and Edge).
-- Not verified:
-  - no live or paid run, and no real non-USD issuer, so whether models follow the new text is unknown;
-  - CP-1 computing a total from T4.18;
-  - the full weekly suite.
-
-## 2026-11-16 — What the models are sent works in any currency (branch `claude/reporting-currency-method-text`, into `claude/reporting-currency`)
-
-Scope: method text and the launcher and repair text sent to models, under ruling `docs/rulings/2026-11-16-reporting-currency-from-sources.md`; the forecast's unit reader (`cpos_forecast._CURRENCY`) and facility check (`_check_facilities`). No rule id, selector or money-table unit changed; the one new check behaviour is the facility refusal below; the frozen non-CP-1 selector digest is unchanged. No provider was called.
-- Changed method text (new under the ruling, not copied from an earlier package; manifest named edits, METHODOLOGY-REVIEW rows): CP-1's step file (step 3: the presentation currency, a functional currency recorded in T4.2, conversion only at a rate the sources state; T4.18 gains `Reporting Currency Amount` and `FX Rate` (the rate only; its locator in `Source`) with their rules, the never-invent rule, amortisation in the instrument's currency, those cells plus the financing-cost row reconcile to `Total Debt`); CP-2D's SKILL Canon Core rule 11 (a foreign facility's debt balance at `Reporting Currency Amount`; its undrawn, commitment, amortisation or maturity amount only where CP-1 states it in the statements' currency, else `Not supplied`, never a partial total); CP-2A's stress copy and CP-8's method lose a USD default and three USD-only examples.
-- Changed launcher and repair text: `VOICE_RULES`, `PERIOD_TABLE_BLOCK`, `UNIT_EXAMPLE` (CP-1 check block and its unit refusal), the CP-1, CP-2E and CP-2G script notes and `prose_checks.FIGURE_ADVICE` show a GBP (and euro) example beside each USD one. `_CURRENCY` reads any ISO 4217 code in capitals, so `CHFk` is thousands; a scan of every table cell of the 408 tracked Markdown files (45,746 cells) found none whose reading changed.
-- PR 46 review (PR 2 controller; 1 High, 1 Medium, 2 Low), each fixed with its test red first: F1 `_check_facilities` refuses a facility whose T4.18 `Currency` is not the block's, naming it and its currency, and `FORECAST_BLOCK` tells CP-2G to leave it out (answer key: a GBP run, base debt 600, GBP term loan 250 at 6.00% and EUR notes EUR 400 = GBP 350; both rows refused, the GBP row alone accepted with year-1 interest 15.00 and unallocated debt 350); F2 rule 11 as above; F3 CP-1's check block: a figure in another currency is `Not supplied` "unless converted at a rate the sources state, as step 3 allows" (`CP1_CHECK_DIGEST` re-pinned); F4 `FX Rate and Source` renamed `FX Rate` so no locator is drawn outside Evidence.
-- PR 46 review round 2 (M1, Medium): the F1 check failed open (a facility named `EUR notes due 2030`, an `Instrument` `EUR notes (2030)`, a `Currency` cell `Euro`). Now T4.18's `Currency` is an ISO 4217 code, `FORECAST_BLOCK` asks for names copied exactly, and where any T4.18 row's currency does not read as the block's, every facility must match a block-currency row exactly (trimmed, emphasis removed, ignoring case) or is refused, named. Answer key (c)-(f) refused, (g)-(h) accepted, round 1's (a)-(b) unchanged; two round-1 cases (a `Currency` cell blank or `Not supplied`) now refuse their facility, as the ruling requires. Every retained live CP-1 handoff with a T4.18 (4 files) reads USD on every row, so none is affected.
-- Instruction sizes, each pathway's ceiling raised by its measured increase on the tree merged with base 943280e (+1,203 short_snapshot to +2,559 deep); method-text pins of CP-1, CP-2A, CP-2D and CP-8 recomputed. 9c685dd pins `CP1_CHECK_BLOCK`'s digest to show its money-unit sentence left CP-1's block alone; the widened unit example changes that block, so the test puts the example back before checking the pin, and F3 (below) re-pinned that digest for its added clause.
-- Tests, red on the base source and green here: `test_cp1_is_sent_each_instruments_reporting_currency_amount_and_never_invents_a_rate`, `test_cp2d_is_sent_one_currency_rule_for_its_liquidity_tables`, `test_no_text_sent_to_a_model_gives_usd_as_its_only_example` (one kept exemption: CP-4's illustrative covenant quote `$200m`), `test_cpos_scale.py` CHF cases.
-- Commands, exit 0 on the tree merged with base 943280e: `tools/quality_gate.py` (0 findings) and `--base origin/claude/reporting-currency` (CI's base; 0 findings); `pytest tests/test_cpos_launch.py tests/test_methodology_selection.py tests/test_method_scripts.py` (1,182 passed, 1 skipped); forecast tests `test_cpos_scale`, `test_cpos_periods`, `test_cpos_facilities`, `test_start_forecast_pathways`, `test_negative_cash_not_calculable`, `test_downside_follows_forward_model` (472 passed); `test_cpos_cp1_check`, `test_prose_checks`, `test_changes`, `test_context_form`, `test_context_module_options`, `test_credit_os_catalogue`, `test_run_expectations_words`, `test_run_start_service`, `test_inbox_activity` (1,521 passed, 1 skipped).
-- Not verified: no real model has read this text; no non-USD run (live or paid); the full weekly suite. Oldest entry trimmed.
-
-## 2026-11-16 — Report pages show a run's figures in its own currency (branch `claude/reporting-currency-report-pages`, into `claude/reporting-currency`, PR 2)
-
-Scope: the connected React report only (`web/src/pages/connected/reportView.ts`, `report/Forecast.tsx`, `report/Securities.tsx`, `report/Modules.tsx` and their tests); ruling `docs/rulings/2026-11-16-reporting-currency-from-sources.md`. No Python, method, launcher or library change; `withUnit` and `unitLabel` unchanged. No provider was called.
-- Owner, 2026-11-16: "it has to run run on any reported currency provided by the source files"; "the source files dictate reporting currency".
-- Changed: the Overview credit-metric tiles (liquidity, free cash flow, net debt, contractual principal, maturities) take the run's money unit, the one the catalogue records with the run's cash figure (CP-1's), else the one money unit (`US$m|[A-Z]{3}m`) the table states, and carry the row's unit into the value and year change; a row or schedule in another unit draws no tile. The Forecast basis note accepts `<ISO code> millions` and labels the difference with it. On a non-USD run the Instrument decisions card notes that market levels are US market quotes in US dollars.
-- Fidelity check: hand-written expected strings for GBP (`£1,250m`, `+£150m vs H1 2025`, `£5.00m`), CHF (`CHF 1,250m`, `CHF 5.00m`), EUR (`€5.00m`), mixed-unit tables and USD (`$1,250m`, `$5.00m`, the whole tile object); 9 new cases failed before the change, every USD case passed before and after. Two existing assertions pinned the superseded USD-only rule and change citing the ruling: the GBP maturity-schedule refusal now has its catalogue state the run's unit (`US$m`); the Forecast "unsupported unit" case uses `EUR thousands` for `EUR millions`.
-- Commands, exit 0: `npm --prefix web ci`; `npm --prefix web run` lint, format:check, typecheck, test (172 files, 3,906 tests), unused, duplication, build; `tools/quality_gate.py` (0 changed Python files).
-- Not verified: `proof:connected` (exit 1: it needs branded Google Chrome and Microsoft Edge, and this container has Chromium only; it stops at the brand check before any report page); a real non-USD run's pages. Oldest entry trimmed.
-- Follow-up (owner, 2026-11-16: "fix price chart"; branch `claude/reporting-currency-report-pages` restarted from `claude/reporting-currency` after #44 merged): the Instrument decisions price and yield chart accepts CP-3's last-trade basis line with its amounts in any `<ISO code> millions`, not only `USD millions`; the trades stay US market quotes. Tests: the chart drawn for GBP, CHF and EUR (prices `$99.00`, `$89.00`, yields `7.005000%`, `9.12%`), red before the change; withheld for `GBP thousands`, `£ millions`, `GBPm`, `gbp millions` and a line naming two currencies. `npm --prefix web ci` and `run` lint, format:check, typecheck, test (173 files, 3,917 tests), unused, duplication, build: exit 0. Not verified: a CP-3 handoff from a real non-USD run; `proof:connected` (Chromium only, as above).
-
-## 2026-11-16 — Earnings Update runs CP-1A (branch `claude/earnings-update-cp1a`)
-
-Scope: the `earnings_update` preset and its copies (`src/deploy_vii/contracts.py`, `web/src/pages/connected/api.ts`, `docs/templates/context-form.html` `PATHWAYS` and `RUN_ORDER`) and the tests that pin them; ruling `docs/rulings/2026-11-16-earnings-update-cp1a.md`. Caps, launcher, registry, method files and delivery code unchanged. No provider was called.
-- Owner, 2026-11-16: "Cp-1a should run most of the time. It describes the issuer."; asked about Earnings Update, "Add it to Earnings Update".
-- Changed: the preset gains CP-1A after CP-MODEL; run order from `registry.plan` CP-0, CP-1, CP-1A, CP-1B, CP-DR, CP-2E, CP-1D, CP-5; `company-profile` is routed to CP-1A instead of omitted. The owner's `PRESET_ANSWER_KEY` changes for `earnings_update` only. Instructions 546,723 → 651,532 characters (+104,809); the prompt-size ceiling rises by that, to 651,538.
-- Cap: USD 20 unchanged; estimate USD 4.18 to 5.64 from the last live Earnings Update run (USD 3.51) and CP-1A's recorded cost (USD 1.0643); not measured.
-- Commands, exit 0: `tools/quality_gate.py` (0 findings); `tests/test_cpos_launch.py` whole (906 passed, 1 skipped paid); the brief's pytest set (1,082 passed, incl. `test_start_forecast_pathways`, `test_context_form`, `test_pathway_tiers`, `test_changes`, `test_run_expectations*`, `test_run_start_*`); `pytest -m browser tests/test_run_start_page.py` (152 passed); `npm --prefix web run` lint, format:check, typecheck, test (3,889), unused, duplication, build, proof:connected (Chrome and Edge).
-- Not verified: an Earnings Update run with CP-1A (live or paid); the Company profile section's text in a delivered Earnings Update report; the Changes page against an earlier run without CP-1A (read from `changes.py`, not run).
-
-## 2026-11-16 — Start a run: Leave out, fields in place of JSON, no raw data shown (branch `claude/module-removal-pathways-1d072a`, PR 1)
-
-Scope: the connected React start page (`web/src/pages/connected/StartRun.tsx`, `api.ts`, `layout.tsx`, `start/*`), the summary answer's new `omitted_titles` (`owners/cpos_launch.py`, `run_start/submissions.py`, `run_start/service.py`) and the wording of 14 forecast rules (`run_expectations.py`). The launcher's rules, the digest, cap and acceptance code, the older start page and currency behaviour (PR 2) are unchanged. No provider was called and no paid run was made.
-- Owner, 2026-11-16: remove modules likely to fail "as a means of reducing costs, so modules do not run"; "Users should never be putting data into JSON entries"; "fix, no raw data should be visible", then "Yes, rewrite them" for the forecast sentences.
-- Changed: Leave out / Put back on each Will refuse card (the refusing modules and those refusing because they read them; the analyst presses Review run again); Valuation and peers, Module options and Scenario assumptions as fields with example input, the JSON text areas removed; a service refusal in the screen's labels, sent to its control through the field-error path where the control is drawn (the note's refusal to the note box), the rest in the notice; option labels for case kind, model and effort; omitted report sections by title; the Source lookup line in sentences; 14 rules' reason and fix reworded.
-- Pre-existing defect fixed here (owner ruling 2026-11-16, relayed): the React page's pathway lists differed from the service presets — no `CP-MODEL` on any forecast pathway, and CP-1A on Relative Value and Portfolio Decision — so any explicit module list it sent (an Advanced choice, a carried choice, now a Leave out) published no forecast on Earnings Update, Relative Value and Portfolio Decision while the summary looked the same. `PATHWAYS` in `web/src/pages/connected/api.ts` now equals `deploy_vii.contracts.PATHWAY_MODULES` for every listed pathway (`tests/test_start_forecast_pathways.py` reads the expected lists from the service); `CP-MODEL` is sent but never drawn or counted as a module; a carried list gains it only on a pathway whose preset holds it. Presets and launcher unchanged. A module choice made at Advanced is cleared when the level leaves Advanced, so a Basic run sends `modules: []` again.
-- Fidelity check: what is sent — N8 (Basic, nothing left out) compares the summary body with a literal written in the test, and the same test copied unchanged onto `main` a438cb9f passes there; N9 (Distressed, Legal & covenants left out) and R2a-c (one module left out on each forecast pathway, the preset list with `CP-MODEL`) pin the module lists; R1 pins `[]` at Basic after an Advanced choice. What is shown — refusal lines swept against every `_Rules` message template with no path, row index, snake-case token or quoted identifier left (D10); the review sheet's facts and module list, Leave out names, "Left out", the picker, the pathway cards and the focus choices never show a code or "Cash flow model" (R10, S3, S4, Task S fix round 1). Rule wording — a script loading `RULES` from `main` and from the branch compared all 21 rules field by field: only `reason`/`fix` differ (23 cells in 14 rules).
-- Commands, exit 0, on the final tree: `npm --prefix web run` build, lint, format:check, typecheck, unused, duplication, test (172 files, 3,889 tests) and proof:connected (Chrome and Edge, 2 pass); `uv run python tools/quality_gate.py` (0 findings, 430 lines in scope); `pytest tests/test_start_forecast_pathways.py tests/test_run_expectations_words.py tests/test_run_start_submissions.py tests/test_run_start_service.py tests/test_context_form.py` (352 passed); `pytest -m browser tests/test_run_start_page.py` 152 passed (before the fix round, which changed only `web/src`).
-- Review: one adversarial whole-branch review on Opus (High 0, Medium 2: a Basic run sending an Advanced module choice; the note's refusal on a question row that does not exist) and two scoped re-reviews (round 1 left a Medium: Leave out named "Cash flow model"; round 2 pass); the pathway-list change had its own task review (a Medium: the review sheet's Modules list showed and counted "Cash flow model"; fixed, re-review pass). Clean, with probes: Submit sends only the reviewed body; Leave out bypasses no acceptance, cap or digest; left-out modules do not run; the fields send loaded values back exactly ("0", "-50", "8.50", null, ""). A register-only refactoring sweep found no defect introduced and 13 Low structural costs, left for the next phase sweep; 7 Low and 2 Info review findings wait for the end batch.
-- Not verified: a live or paid run from the page; focus, scroll and section opening for a routed refusal in a real browser by hand (jsdom tests and the browser proof only); Windows; the full Python suite.

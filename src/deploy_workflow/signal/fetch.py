@@ -24,6 +24,12 @@ Known ceiling: the one system DNS lookup per hop cannot be interrupted by the st
 A lookup that hangs ends only at the resolver's own timeout, after which the deadline is checked
 and no connection is opened once it has passed.
 
+One header may differ per request: a fetch made for an SEC filing source declares who is asking
+(``Declared``: the owner's contact string, which the SEC requires of automated clients). It is sent
+as the User-Agent of a hop to the declared host on the default port only; any other hop, a
+redirect to another host included, sends the rules' ordinary User-Agent. No other rule changes
+with it.
+
 `fetch_document` is the same fetch for a file that is not a feed (a reference portfolio's
 holdings workbook): no conditional request, and its own `Rules` for the total deadline, the body
 cap, the headers sent and the word its refusals use. `fetch` keeps the feed's values.
@@ -61,7 +67,9 @@ Clock = Callable[[], float]
 _LABEL = r"(?:[a-z0-9]|[a-z0-9][a-z0-9-]{0,61}[a-z0-9])"
 _NETLOC = re.compile(rf"({_LABEL}(?:\.{_LABEL})+)(?::[0-9]{{1,5}})?")
 _DIGITS = re.compile(r"[0-9]{1,18}")
+_PRINTABLE = re.compile(r"[\x21-\x7e]+")
 _VALIDATOR = re.compile(r"[\x20-\x7e]{1,256}")
+_AGENT = re.compile(r"[\x20-\x7e]{1,200}")
 _EMBEDDING_V4 = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("::/96"))
 
 
@@ -82,6 +90,14 @@ class Fetched:
 
 
 @dataclass(frozen=True)
+class Declared:
+    """Who is asking, for one host: `agent` is sent as the User-Agent of requests to `host` only."""
+
+    host: str
+    agent: str
+
+
+@dataclass(frozen=True)
 class Rules:
     """What one kind of fetch is held to; the defaults are a feed's."""
 
@@ -90,6 +106,7 @@ class Rules:
     user_agent: str = USER_AGENT
     total_seconds: int = TOTAL_SECONDS
     max_bytes: int = MAX_BYTES
+    over: str | None = None  # the refusal of a body over the cap, where the default does not fit
 
 
 @dataclass(frozen=True)
@@ -126,6 +143,15 @@ class _Budget:
     clock: Clock
     deadline: float
     rules: Rules = Rules()
+    declared: Declared | None = None
+
+    def agent(self, place: _Place) -> str:
+        """The User-Agent for a hop to `place`: the declared one for its own host on the default
+        port only."""
+        declared = self.declared
+        if declared is not None and (place.host, place.port) == (declared.host, _DEFAULT_PORT):
+            return declared.agent
+        return self.rules.user_agent
 
     def check(self) -> None:
         if self.clock() > self.deadline:
@@ -133,7 +159,8 @@ class _Budget:
             raise FetchRefused(f"{rules.what} took longer than {rules.total_seconds} seconds")
 
     def too_large(self) -> FetchRefused:
-        return FetchRefused(f"{self.rules.what} is larger than {_size(self.rules.max_bytes)}")
+        rules = self.rules
+        return FetchRefused(rules.over or f"{rules.what} is larger than {_size(rules.max_bytes)}")
 
 
 def _short(error: object) -> str:
@@ -175,6 +202,8 @@ def _locate(url: str, *, redirect: bool, what: str = "feed") -> _Place:
         raise FetchRefused(f"{what} address is not valid: {_short(error)}") from error
     if parts.scheme != "https":
         raise FetchRefused("only https addresses are fetched")
+    if port == 0:
+        raise FetchRefused("feed address must use the default port")
     if not parts.netloc:
         raise FetchRefused("address has no host")
     host = _plain_host(parts.netloc, what)
@@ -212,6 +241,18 @@ def check_address(url: str, resolve: Resolver | None = None) -> None:
     """Raise FetchRefused unless url is https, a plain host name, resolving only to public IPs."""
     # The resolver is looked up now, so tests can replace it.
     _checked(_locate(url, redirect=False).host, _resolve if resolve is None else resolve)
+
+
+def check_form(url: str) -> None:
+    """Raise FetchRefused unless `url` has the form of an address that may be fetched: printable
+    ASCII, https, a plain host name (no IP literal), the default port. It makes no lookup, so a
+    host that does not exist or resolves to a private address is refused only when it is fetched
+    (`check_address`)."""
+    if not _PRINTABLE.fullmatch(url):
+        raise FetchRefused("feed address must be plain printable text with no spaces")
+    place = _locate(url, redirect=False)
+    if place.port != _DEFAULT_PORT:
+        raise FetchRefused("feed address must use the default port")
 
 
 def _declared_length(response: ResponseLike) -> int | None:
@@ -309,7 +350,11 @@ def _stored(value: str | None) -> str | None:
 
 
 def _run[T](
-    rules: Rules, resolve: Resolver | None, wiring: Wiring | None, work: Callable[[_Budget], T]
+    rules: Rules,
+    resolve: Resolver | None,
+    wiring: Wiring | None,
+    work: Callable[[_Budget], T],
+    declared: Declared | None = None,
 ) -> T:
     """`work` on a new budget, with every error of the fetch raised as FetchRefused."""
     wiring = wiring or Wiring()
@@ -319,6 +364,7 @@ def _run[T](
         wiring.clock,
         wiring.clock() + rules.total_seconds,
         rules,
+        declared,
     )
     try:
         return work(budget)
@@ -331,15 +377,26 @@ def _run[T](
         raise FetchRefused(f"fetch failed: {_short(error) or type(error).__name__}") from error
 
 
-def fetch(
+def fetch(  # noqa: PLR0913 -- the address, its two validators, and keyword-only wirings
     url: str,
     etag: str | None,
     modified: str | None,
     *,
     resolve: Resolver | None = None,
     wiring: Wiring | None = None,
+    declared: Declared | None = None,
+    limit: int = MAX_BYTES,
+    accept: str = ACCEPT,
 ) -> Fetched:
-    """Fetch url conditionally; raise FetchRefused for any broken rule, error or bad status."""
+    """Fetch url conditionally; raise FetchRefused for any broken rule, error or bad status.
+    `declared` names who is asking, for its host only (``Declared``); `limit` is the body cap (at
+    most MAX_BYTES: a larger body is refused, never cut) and `accept` the Accept header."""
+    if not 0 < limit <= MAX_BYTES:
+        raise FetchRefused(f"the body cap is 1 to {MAX_BYTES} bytes")
+    if declared is not None and not _AGENT.fullmatch(declared.agent):
+        raise FetchRefused("the declared contact is not plain text")
+    over = None if limit == MAX_BYTES else f"the file is larger than {limit // 1024} KiB"
+    rules = Rules(accept=accept, max_bytes=limit, over=over)
     etag = _stored(etag)  # a stored value is held to what a server may send
     modified = _stored(modified)
     validators = {"If-None-Match": etag, "If-Modified-Since": modified}
@@ -354,7 +411,7 @@ def fetch(
             ),
         )
 
-    return _run(Rules(), resolve, wiring, work)
+    return _run(rules, resolve, wiring, work, declared)
 
 
 def fetch_document(
@@ -398,7 +455,7 @@ def _follow[T](
         budget.check()  # the lookup may have ended after the deadline
         headers = {
             "Host": place.host if place.port == _DEFAULT_PORT else f"{place.host}:{place.port}",
-            "User-Agent": budget.rules.user_agent,
+            "User-Agent": budget.agent(place),
             "Accept": budget.rules.accept,
             "Accept-Encoding": "identity",
             "Connection": "close",

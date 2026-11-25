@@ -30,6 +30,7 @@ describe("readSlice", () => {
         "no-sources",
         "nothing-followed",
         "ai-capped",
+        "issuers",
       ]);
       expect(result.data.scenes[0].snapshot.viewer.name).toBe("Mara L");
       expect(result.data.scenes[3]?.snapshot.viewer.name).toBeNull();
@@ -268,10 +269,10 @@ describe("readSlice", () => {
       "scenes[2].snapshot.feed.stories[0].strength.marks: expected 1, 2 or 3",
     ],
     [
-      "a story kind outside the four",
+      "a story kind outside the six",
       ["snapshot", "feed", "stories", 0, "kind"],
       "regulatory",
-      "scenes[2].snapshot.feed.stories[0].kind: expected regulator, news, ratings or research",
+      "scenes[2].snapshot.feed.stories[0].kind: expected regulator, news, ratings, research, filing or market",
     ],
     [
       "a story whose time is missing",
