@@ -67,3 +67,15 @@ and output tokens, cost and elapsed time.
 One run per group, as in the pilot, shows whether the procedure works and what one observation
 looks like. It does not show a difference between groups: that needs the repeats of the full
 trial, and group A's own spread first.
+
+## Version 2 (full trial of CP-4, 2026-11-25)
+
+- Lists: `v2/<module>.md`, the first lists with every bundled item split into one item a value.
+  The pilot was scored on version 1 with a rule for bundled items that produced most of its
+  Absent scores; that rule is gone, and pilot scores are not comparable with version 2 scores.
+- Each handoff is scored by two readers independently. Each reader is given a random mix of
+  the coded handoffs. Where the two disagree on an item, both scores are kept and the item is
+  counted as disagreed; nothing is averaged or settled by a third reading.
+- Ruling and command: `docs/rulings/2026-11-25-instruction-length-trial-cp4.md`; as the pilot's
+  command with `--max-turns 64 --cap 15 --trial-cap 101` and run folders `CP-4-<group>-<n>`.
+

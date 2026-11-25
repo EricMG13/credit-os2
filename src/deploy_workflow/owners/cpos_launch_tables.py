@@ -362,7 +362,9 @@ OWNER_TABLES: dict[str, tuple[OwnerTable, ...]] = {
             rules=(
                 "One row per covenant test the handoff settles. Preserve the quantity and the "
                 "strictness of each test: Direction says which side passes, as the covenant "
-                "defines it. Threshold and Current are the same quantity in the Reporting unit. "
+                f"defines it, in exactly one of these words: {', '.join(DIRECTIONS)}; anything "
+                "more about the test goes in Basis and limitation. "
+                "Threshold and Current are the same quantity in the Reporting unit. "
                 "Headroom is the stated headroom with its unit, as the method states it, never "
                 "worked out here. The chart is not a legal compliance opinion."
             ),

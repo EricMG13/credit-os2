@@ -2192,8 +2192,11 @@ def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider,
 # gate leaves them byte-identical. #49 (merged as 39f1803f) changed CP-4's text on purpose (the
 # money-unit rule), so the value pinned at 0bca182 (a37cd27b...) was recomputed. Recompute only
 # when CP-4's instructions change on purpose, as for METHOD_TEXT_SHA256_AT_1B41E65.
+# 2026-11-25 (owner: "do the six fixes"): the covenant headroom rule names the four Direction
+# words, a change on purpose; the value pinned at 39f1803f (284d83b0...) was recomputed. The
+# constant keeps its name.
 CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
-    "284d83b0600b7022eeff7be8d3a9adebc115bb55c0d382129b845467b7507bab"
+    "c41bfada98a9861cd3d35e4bebca733bfff84f52e87f51c59acb84acea998af8"
 )
 
 
@@ -9389,7 +9392,12 @@ def test_the_three_money_tables_say_the_money_unit_and_no_other_non_cp1_selector
         for t in cpos_launch.OWNER_TABLES[module]
         if t.heading not in money
     )
-    digest = "e6bfd348c1203b10264690575bc35bcaf8238b92c4d05c3c633b7f28d174785d"
+    # 2026-11-25 (owner: "do the six fixes"; docs/sweeps/2026-11-25-instruction-length/REPORT.md,
+    # pilot): CP-4's covenant headroom rule now names the four Direction words the check accepts.
+    # Every first write of CP-4 in the pilot (8, 6 and 10 rows in groups A, B and C) was refused
+    # for a Direction cell written as a sentence. The digest before that sentence was added was
+    # e6bfd348c1203b10264690575bc35bcaf8238b92c4d05c3c633b7f28d174785d.
+    digest = "a1a72e49a5c219376701ecec6380aeb64fe84c7166110932964714110932ac41"
     assert hashlib.sha256(text.encode()).hexdigest() == digest
     assert "the money unit" not in text
     for module, headings in MONEY_TABLES.items():
