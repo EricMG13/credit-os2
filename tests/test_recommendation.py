@@ -656,8 +656,8 @@ def test_a_ccc_limit_does_not_apply_to_an_instrument_rated_b() -> None:
     [
         ("Max Software exposure", "Software", "breached"),
         ("Max software exposure", "Software", "breached"),
-        ("Max Healthcare exposure", "Software", "does_not_apply"),
-        ("Max single industry", "Software", "does_not_apply"),
+        ("Max Healthcare exposure", "Software", "not_read"),
+        ("Max single industry", "Software", "not_read"),
         ("Max Software exposure", None, "not_read"),
     ],
 )
@@ -685,7 +685,7 @@ def test_a_breached_sector_limit_caps_and_an_unreadable_one_does_not() -> None:
         reference("clo", vague),
         issuer=Issuer(sector="Software"),
     )
-    assert (free.recommendation, free.limits[0].outcome) == (1, "does_not_apply")
+    assert (free.recommendation, free.limits[0].outcome) == (1, "not_read")
 
 
 @pytest.mark.parametrize(
@@ -724,14 +724,21 @@ def test_a_breached_price_floor_caps_on_the_best_instrument_price() -> None:
         limit_row("Single Name", "Max single issuer exposure", "≤ 2.5% NAV", "-1.00%", "Breach"),
         limit_row("Spread", "Weighted average spread", "Info only", "-1.00%", "Breach"),
         limit_row("Rating", "Max CCC+ and below", "Info only", "-1.00%", "Breach"),
-        limit_row("Liquidity", "Min cash", "≥ 1% NAV", "-1.00%", "Breach"),
     ],
 )
-def test_single_name_info_and_other_rows_do_not_apply(row: Limit) -> None:
+def test_single_name_and_info_rows_do_not_apply(row: Limit) -> None:
     [reading] = read_limits(
         reference("clo", row), sector="Software", rating_bucket="CCC", price=Decimal(1)
     )
     assert reading.outcome == "does_not_apply"
+
+
+def test_a_breached_row_of_another_kind_is_not_read() -> None:
+    row = limit_row("Liquidity", "Min cash", "≥ 1% NAV", "-1.00%", "Breach")
+    [reading] = read_limits(
+        reference("clo", row), sector="Software", rating_bucket="CCC", price=Decimal(1)
+    )
+    assert reading.outcome == "not_read"
 
 
 @pytest.mark.parametrize(
@@ -901,13 +908,13 @@ def _one(
     [
         ("2nd largest sector: Healthcare", "Healthcare", "breached"),
         ("3rd largest sector: Chemicals", "Chemicals", "breached"),
-        ("3rd largest sector: Chemicals", "Healthcare", "does_not_apply"),
+        ("3rd largest sector: Chemicals", "Healthcare", "not_read"),
         ("Max Software & Services exposure", "Software and Services", "breached"),
         ("Max Software and Services exposure", "Software & Services", "breached"),
         ("Max HEALTHCARE, exposure.", "healthcare", "breached"),
-        ("Max single sector (largest: Software)", "Healthcare", "does_not_apply"),
-        ("Max Healthcare exposure", "Health", "does_not_apply"),
-        ("Excluded sectors (Tobacco, Weapons)", "Healthcare", "does_not_apply"),
+        ("Max single sector (largest: Software)", "Healthcare", "not_read"),
+        ("Max Healthcare exposure", "Health", "not_read"),
+        ("Excluded sectors (Tobacco, Weapons)", "Healthcare", "not_read"),
     ],
 )
 def test_a_sector_row_applies_when_it_names_the_issuers_sector_as_whole_words(
@@ -1038,9 +1045,9 @@ def test_a_row_that_is_not_a_floor_says_so_and_does_not_cap() -> None:
         ("Rating", "Max sub-investment grade", "Unrated", "not_read"),
         ("Rating", "Max non-IG exposure", "IG", "does_not_apply"),
         ("Rating", "Max non-IG exposure", "B", "breached"),
-        ("Rating", "Min BB or better", "BB", "breached"),
-        ("Rating", "Min BB or better", "IG", "breached"),
-        ("Rating", "Min BB or better", "B", "does_not_apply"),
+        ("Rating", "Min BB or better", "BB", "not_read"),
+        ("Rating", "Min BB or better", "IG", "not_read"),
+        ("Rating", "Min BB or better", "B", "not_read"),
         ("Rating", "Rating limit", "B", "not_read"),
         ("Collateral quality", "Max Caa obligations", "CCC", "breached"),
         ("Rating", "Max Caa1 and below", "B", "does_not_apply"),
@@ -1202,14 +1209,14 @@ _TOBACCO = "Excluded sectors (Tobacco, Weapons)"
         ),
         ("Exclusions", _TOBACCO, "0% NAV", ("Tobacco", "BB", None), "breached"),
         ("Exclusions", _TOBACCO, "0% NAV", ("Weapons", "BB", None), "breached"),
-        ("Exclusions", _TOBACCO, "0% NAV", ("Healthcare", "BB", None), "does_not_apply"),
+        ("Exclusions", _TOBACCO, "0% NAV", ("Healthcare", "BB", None), "not_read"),
         ("Concentration", "Max Healthcare exposure", _NAV, ("Healthcare", "BB", None), "breached"),
         (
             "Concentration",
             "Max Healthcare exposure",
             _NAV,
             ("Software", "BB", None),
-            "does_not_apply",
+            "not_read",
         ),
         ("Collateral quality", "Max B3 obligations", _NAV, (None, "B", None), "breached"),
         ("Collateral quality", "Max Ba3 and below", _NAV, (None, "IG", None), "does_not_apply"),
@@ -1218,7 +1225,7 @@ _TOBACCO = "Excluded sectors (Tobacco, Weapons)"
             "Aggregate top 10 issuers",
             _NAV,
             ("Healthcare", "B", None),
-            "does_not_apply",
+            "not_read",
         ),
         ("Price", "Min price (CCC obligations)", "≥ 80", (None, "BB", Decimal(75)), "not_read"),
         (
@@ -1310,10 +1317,10 @@ def test_the_valuation_reasons_read_in_full() -> None:
     )
     one_name = book(*[pos("Acme Corp.", level) for level in ("300", "310", "320", "330", "340")])
     assert valuation(bond(), one_name).reason == (
-        "No Valuation: the BB bucket holds 1 name and 5 are needed."
+        "No Valuation: the BB bucket holds 1 name with a level and 5 are needed."
     )
     assert valuation(bond(), book()).reason == (
-        "No Valuation: the BB bucket holds 0 names and 5 are needed."
+        "No Valuation: the BB bucket holds 0 names with a level and 5 are needed."
     )
     both = valuation(bond(level=None, price=None), five)
     assert both.reason == "No Valuation: Issuer 2030 has no level; Issuer 2030 has no price."
@@ -1364,7 +1371,7 @@ def test_a_row_with_no_stated_limit_is_labelled_by_its_parameter_alone() -> None
     ("category", "parameter", "sector", "bucket", "outcome"),
     [
         # A row with no sector known never reads a word of its own as the sector.
-        ("Concentration", "Max XXXX exposure", None, "BB", "does_not_apply"),
+        ("Concentration", "Max XXXX exposure", None, "BB", "not_read"),
         # Every word of the row is read, the lead-in before a list included.
         ("Sector", "Prohibited: Software", "Software", "BB", "not_read"),
         # A row that says it limits rated obligations, naming no bucket, cannot be tied.
@@ -1438,12 +1445,12 @@ def test_a_blank_reading_joins_the_credit_reason_and_every_valuation_reason() ->
     assert both.status == "blank"
     assert both.reason == (
         "No Credit Score: 11 of 17 factors are scored and 12 are needed. "
-        "No Valuation: the BB bucket holds 4 names and 5 are needed."
+        "No Valuation: the BB bucket holds 4 names with a level and 5 are needed."
     )
     only_valuation = portfolio_reading(credit(3), [issuer(3), issuer(2)], thin)
     assert only_valuation.reason == (
-        "No Valuation: the BB bucket holds 4 names and 5 are needed. "
-        "No Valuation: the BB bucket holds 4 names and 5 are needed."
+        "No Valuation: the BB bucket holds 4 names with a level and 5 are needed. "
+        "No Valuation: the BB bucket holds 4 names with a level and 5 are needed."
     )
 
 
@@ -1484,4 +1491,311 @@ def test_the_per_instrument_proposal_carries_its_instrument_valuation_and_reason
     no_valuation = instrument_proposal(credit(3), issuer(3), loan_index=None, hy_index=thin)
     assert no_valuation.instrument == "Issuer 2030" and no_valuation.status == "blank"
     assert no_valuation.valuation is not None and no_valuation.valuation.score is None
-    assert no_valuation.reason == "No Valuation: the BB bucket holds 4 names and 5 are needed."
+    assert (
+        no_valuation.reason
+        == "No Valuation: the BB bucket holds 4 names with a level and 5 are needed."
+    )
+
+
+# --- Whole-branch fix wave: H1, M1, M2, L1, L4 ----------------------------------------------------
+
+HOTEL = "Hotel, Gaming & Leisure"
+MEDIA = "Media: Broadcasting & Subscription"
+BEVERAGE = "Beverage, Food & Tobacco"
+
+
+@pytest.mark.parametrize(
+    ("parameter", "sector"),
+    [
+        (f"Max single sector (largest: {HOTEL})", HOTEL),
+        (f"Max sector: {MEDIA}", MEDIA),
+        (f"Max {BEVERAGE}", BEVERAGE),
+        (f"Max {BEVERAGE}", "beverage, food and tobacco"),
+    ],
+)
+def test_a_sector_name_holding_list_marks_is_found_before_the_parameter_is_split(
+    parameter: str, sector: str
+) -> None:
+    row = limit_row("Sector", parameter, "≤ 15% NAV", "-1.00%", "Breach")
+    assert _one(row, sector=sector) == "breached"
+
+
+@pytest.mark.parametrize("parameter", [f"Max single sector (largest: {HOTEL})", f"Max {MEDIA}"])
+def test_a_row_naming_another_sector_with_list_marks_is_not_tied_and_is_not_read(
+    parameter: str,
+) -> None:
+    row = limit_row("Sector", parameter, "≤ 15% NAV", "-1.00%", "Breach")
+    assert _one(row, sector="Healthcare") == "not_read"
+
+
+def test_a_breached_limit_on_a_sector_with_a_comma_caps_the_recommendation() -> None:
+    row = limit_row(
+        "Sector",
+        f"Max single sector (largest: {HOTEL})",
+        "≤ 15% NAV",
+        "-1.00%",
+        "Breach",
+    )
+    result = portfolio_reading(
+        credit(1),
+        [issuer(1, asset="loan")],
+        reference("clo", row),
+        issuer=Issuer(sector=HOTEL),
+    )
+    assert (result.uncapped, result.recommendation) == (1, 3)
+    assert len(result.capped_by) == 1
+    assert "Max single sector" in result.reason
+
+
+@pytest.mark.parametrize(
+    ("category", "parameter", "sector", "bucket"),
+    [
+        ("Sector", "Max Health Care exposure", "Healthcare", "BB"),
+        ("Sector", "Max single industry", "Healthcare", "BB"),
+        ("Concentration", "Max Health Care exposure", "Healthcare", "BB"),
+        ("Concentration", "Max Healthcare exposure", None, "BB"),
+        ("Collateral quality", "Max triple-C obligations", "Healthcare", "CCC"),
+        ("Concentration", "Max high yield", "Healthcare", "BB"),
+    ],
+)
+def test_a_breached_row_that_cannot_be_tied_to_the_issuer_is_not_read(
+    category: str, parameter: str, sector: str | None, bucket: str
+) -> None:
+    row = limit_row(category, parameter, "≤ 15% NAV", "-1.00%", "Breach")
+    [reading] = read_limits(reference("clo", row), sector=sector, rating_bucket=bucket, price=None)
+    assert reading.outcome == "not_read"
+    assert "the file shows it breached and it could not be tied to the issuer" in reading.reason
+
+
+def test_an_untied_row_with_nothing_readable_on_it_is_not_read() -> None:
+    row = limit_row("Concentration", "Max Health Care exposure", "≤ 15% NAV")
+    [reading] = read_limits(
+        reference("clo", row), sector="Healthcare", rating_bucket="BB", price=None
+    )
+    assert reading.outcome == "not_read"
+    assert "the file shows nothing that could be read on it" in reading.reason
+
+
+def test_a_breached_status_on_an_untied_row_with_no_headroom_is_not_read() -> None:
+    row = limit_row("Concentration", "Max Health Care exposure", "≤ 15% NAV", "", "Breach")
+    assert _one(row, sector="Healthcare") == "not_read"
+
+
+@pytest.mark.parametrize(
+    ("row", "sector", "bucket"),
+    [
+        (
+            limit_row(
+                "Single Name", "Max single issuer exposure", "≤ 2.5% NAV", "-1.00%", "Breach"
+            ),
+            "Healthcare",
+            "BB",
+        ),
+        (limit_row("Rating", "Max CCC+ and below", "≤ 7.5% NAV", "-1.00%", "Breach"), None, "B"),
+        (
+            limit_row("Sector", "Max Software exposure", "≤ 15% NAV", "0.40%", "Pass"),
+            "Healthcare",
+            "BB",
+        ),
+        (
+            limit_row("Concentration", "Aggregate top 10 issuers", "≤ 30% NAV", "0.00%", "Pass"),
+            "Healthcare",
+            "BB",
+        ),
+    ],
+)
+def test_a_row_that_is_ruled_out_or_shows_no_excess_still_does_not_apply(
+    row: Limit, sector: str | None, bucket: str
+) -> None:
+    [reading] = read_limits(reference("clo", row), sector=sector, rating_bucket=bucket, price=None)
+    assert reading.outcome == "does_not_apply"
+
+
+def test_an_information_row_keeps_its_reason_and_a_single_name_row_too() -> None:
+    info = limit_row("Spread", "Weighted average spread", "Info only", "-1.00%", "Breach")
+    single = limit_row(
+        "Single Name", "Max single issuer exposure", "≤ 2.5% NAV", "-1.00%", "Breach"
+    )
+    readings = read_limits(
+        reference("clo", info, single), sector="Software", rating_bucket="B", price=None
+    )
+    assert [item.outcome for item in readings] == ["does_not_apply", "does_not_apply"]
+    assert all(
+        "it is an information row or limits no one issuer's position" in r.reason for r in readings
+    )
+
+
+def test_an_unread_breached_row_is_named_in_the_reading_and_does_not_cap() -> None:
+    row = limit_row("Rating", "Max CCC basket", "≤ 7.5% NAV", "-12.50%", "Breach")
+    result = portfolio_reading(
+        credit(1),
+        [issuer(1, bucket="CCC", asset="loan")],
+        reference("clo", row, bucket="CCC"),
+    )
+    assert (result.status, result.recommendation, result.capped_by) == ("proposed", 1, ())
+    assert result.not_read == result.limits and len(result.not_read) == 1
+    assert result.not_read[0].limit is row
+    assert result.reason.endswith(
+        "1 limit row could not be read and the recommendation does not reflect it: Max CCC basket."
+    )
+
+
+def test_two_unread_rows_are_counted_and_named_in_file_order() -> None:
+    first = limit_row("Rating", "Max CCC basket", "≤ 7.5% NAV", "-12.50%", "Breach")
+    second = limit_row("Concentration", "Max high yield", "≤ 5% NAV", "-1.00%", "Breach")
+    result = portfolio_reading(
+        credit(1),
+        [issuer(1, bucket="CCC", asset="loan")],
+        reference("clo", first, second, bucket="CCC"),
+    )
+    assert [item.limit for item in result.not_read] == [first, second]
+    assert result.reason.endswith(
+        "2 limit rows could not be read and the recommendation does not reflect them: "
+        "Max CCC basket; Max high yield."
+    )
+
+
+def test_a_portfolio_with_no_limits_has_nothing_not_read() -> None:
+    result = portfolio_reading(
+        credit(1), [issuer(1, bucket="CCC", asset="loan")], reference("clo", bucket="CCC")
+    )
+    assert result.not_read == ()
+    assert "could not be read" not in result.reason
+
+
+def test_a_capped_reading_also_names_the_rows_not_read() -> None:
+    held = limit_row(*CCC_ROW)
+    unread = limit_row("Concentration", "Max high yield", "≤ 5% NAV", "-1.00%", "Breach")
+    result = portfolio_reading(
+        credit(1),
+        [issuer(1, bucket="CCC", asset="loan")],
+        reference("clo", held, unread, bucket="CCC"),
+    )
+    assert (result.recommendation, len(result.capped_by), len(result.not_read)) == (3, 1, 1)
+    assert result.reason.endswith(
+        "1 limit row could not be read and the recommendation does not reflect it: Max high yield."
+    )
+
+
+def test_a_blank_reading_still_lists_the_rows_not_read_but_adds_no_sentence() -> None:
+    unread = limit_row("Concentration", "Max high yield", "≤ 5% NAV", "-1.00%", "Breach")
+    result = portfolio_reading(
+        credit(1), [issuer(1, asset="loan")], reference("clo", unread, names=4)
+    )
+    assert result.status == "blank"
+    assert len(result.not_read) == 1
+    assert "could not be read" not in result.reason
+
+
+@pytest.mark.parametrize("bucket", ["IG", "BB", "B"])
+def test_a_minimum_on_a_rating_is_not_read_as_a_limit_on_adding_the_name(bucket: str) -> None:
+    row = limit_row("Rating", "Min BB or better", "≥ 60% NAV", "-5.00%", "Breach")
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket=bucket, price=None)
+    assert reading.outcome == "not_read"
+    assert "a minimum cannot be read as a limit on adding the name" in reading.reason
+
+
+def test_a_minimum_on_a_sector_is_not_read_and_the_price_floor_still_is() -> None:
+    sector = limit_row("Sector", "Min Software exposure", "≥ 5% NAV", "-1.00%", "Breach")
+    assert _one(sector, sector="Software") == "not_read"
+    floor = limit_row("Price", "Minimum price", "≥ 90")
+    assert _one(floor, price=Decimal(80)) == "breached"
+
+
+def test_a_bucket_whose_borrowers_have_no_level_says_names_with_a_level() -> None:
+    no_levels = book(
+        *[Position(i, borrower=f"B{i}", rating_bucket="BB", asset_type="bond") for i in range(6)]
+    )
+    assert valuation(bond(), no_levels).reason == (
+        "No Valuation: the BB bucket holds 0 names with a level and 5 are needed."
+    )
+
+
+# --- Fix wave: mutation survivors killed by literal expectations ---------------------------------
+
+
+@pytest.mark.parametrize(
+    ("sector", "parameter"),
+    [
+        (HOTEL, f"Max sector (foo {HOTEL})"),
+        (HOTEL, f"Max sector ({HOTEL} foo)"),
+        ("Chemicals, Plastics", "Max Chemicals, Plastics foo"),
+        (HOTEL, f"Max max max max max max {HOTEL} foo"),
+    ],
+)
+def test_every_word_of_the_item_holding_a_sector_with_list_marks_is_read(
+    sector: str, parameter: str
+) -> None:
+    row = limit_row("Sector", parameter, "≤ 15% NAV", "-1.00%", "Breach")
+    [reading] = read_limits(reference("clo", row), sector=sector, rating_bucket="B", price=None)
+    assert reading.outcome == "not_read"
+    assert reading.reason.endswith(f"is not read: it names {sector} in wording that is not read.")
+
+
+def test_an_unknown_sector_never_reads_a_word_of_the_row_as_the_sector() -> None:
+    row = limit_row("Concentration", "Max XXXX exposure", "≤ 7.5% NAV", "-1.00%", "Breach")
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket="BB", price=None)
+    assert reading.reason == (
+        "Max XXXX exposure (≤ 7.5% NAV) is not read: the file shows it breached and it could "
+        "not be tied to the issuer."
+    )
+
+
+def test_a_rated_obligations_row_with_no_bucket_is_read_as_a_rating_row() -> None:
+    row = limit_row("Collateral quality", "Max rated obligations", "≤ 7.5% NAV", "-1.00%", "Breach")
+    [reading] = read_limits(reference("clo", row), sector=None, rating_bucket="CCC", price=None)
+    assert reading.reason == (
+        "Max rated obligations (≤ 7.5% NAV) is not read: no rating bucket could be read from it, "
+        "so it is not tied to the issuer."
+    )
+
+
+@pytest.mark.parametrize(
+    ("bucket", "outcome"),
+    [("IG", "breached"), ("BB", "breached"), ("B", "does_not_apply"), ("CCC", "does_not_apply")],
+)
+def test_a_maximum_on_a_bucket_or_better_covers_the_stronger_buckets(
+    bucket: str, outcome: str
+) -> None:
+    row = limit_row("Rating", "Max BB or better", "≤ 60% NAV", "-1.00%", "Breach")
+    assert _one(row, rating_bucket=bucket) == outcome
+
+
+def test_the_reasons_of_an_untied_row_are_read_in_full() -> None:
+    sector = limit_row("Sector", "Max Healthcare exposure", "≤ 15% NAV", "0.40%", "Pass")
+    other = limit_row("Concentration", "Aggregate top 10 issuers", "≤ 30% NAV", "0.00%", "Pass")
+    unreadable = limit_row("Concentration", "Max high yield", "≤ 5% NAV")
+    readings = read_limits(
+        reference("clo", sector, other, unreadable),
+        sector="Software",
+        rating_bucket="BB",
+        price=None,
+    )
+    assert [item.reason for item in readings] == [
+        (
+            "Max Healthcare exposure (≤ 15% NAV) does not apply: it does not name the issuer's "
+            "sector, Software."
+        ),
+        (
+            "Aggregate top 10 issuers (≤ 30% NAV) does not apply: it names neither the issuer's "
+            "sector nor a rating bucket."
+        ),
+        (
+            "Max high yield (≤ 5% NAV) is not read: the file shows nothing that could be read on "
+            "it and it could not be tied to the issuer."
+        ),
+    ]
+
+
+def test_an_unread_row_adds_one_sentence_after_the_cell_reason() -> None:
+    row = limit_row("Rating", "Max CCC basket", "≤ 7.5% NAV", "-12.50%", "Breach")
+    result = portfolio_reading(
+        credit(1),
+        [issuer(1, bucket="CCC", asset="loan")],
+        reference("clo", row, bucket="CCC"),
+    )
+    assert result.reason == (
+        "Strong OW: Credit Score 1 and Valuation 1 (Issuer 2030 is 100 bp from the CCC median "
+        "of 300 bp (5 names, 5 positions).) 1 limit row could not be read and the "
+        "recommendation does not reflect it: Max CCC basket."
+    )

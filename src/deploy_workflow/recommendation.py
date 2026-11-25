@@ -221,7 +221,7 @@ def valuation(instrument: Instrument, portfolio: Portfolio) -> Valuation:
     if len(names) < MIN_NAMES:
         causes.append(
             f"the {instrument.rating_bucket} bucket holds {_count(len(names), 'name')} "
-            f"and {MIN_NAMES} are needed"
+            f"with a level and {MIN_NAMES} are needed"
         )
     score = difference = None
     if not causes and median is not None and instrument.level_bp is not None:
@@ -295,6 +295,11 @@ PLAIN_WORDS = frozenset(
     }
 )
 SECTOR_WORDS = frozenset({"sector", "sectors", "industry", "industries"})
+MINIMUM_WORDS = frozenset({"min", "minimum"})
+MINIMUM_NOT_READ: tuple[Outcome, str] = (
+    "not_read",
+    "a minimum cannot be read as a limit on adding the name",
+)
 LIST_MARKS = re.compile(r"[,;:()]")
 # "below B3", "sub-IG", "non-IG": every strictly weaker bucket. After "and" or "or": "below",
 # "lower", "worse" add the weaker buckets, "above", "better", "higher" the stronger ones.
@@ -350,13 +355,18 @@ def _unplain(words: Sequence[str]) -> list[str]:
 
 def _sector_rest(parameter: str, sector: str | None) -> list[str] | None:
     """The other words of the list item naming `sector` as whole words, with the row's lead-in;
-    None when no item names it."""
+    None when no item names it. The sector is looked for in the whole parameter, list marks
+    ignored, so a sector name holding a comma or colon is found; when it spans items, the item
+    is those it spans."""
     wanted = _words((sector or "").replace("&", " and "))
-    parts = [_words(part.replace("&", " and ")) for part in LIST_MARKS.split(parameter)]
-    for index, part in enumerate(parts):
-        for i in range(len(part) - len(wanted) + 1):
-            if wanted and part[i : i + len(wanted)] == wanted:
-                return part[:i] + part[i + len(wanted) :] + (parts[0] if index else [])
+    items = [_words(part.replace("&", " and ")) for part in LIST_MARKS.split(parameter)]
+    flat = [(word, index) for index, item in enumerate(items) for word in item]
+    for i in range(len(flat) - len(wanted) + 1 if wanted else 0):
+        if [word for word, _ in flat[i : i + len(wanted)]] == wanted:
+            first, last = flat[i][1], flat[i + len(wanted) - 1][1]
+            others = flat[:i] + flat[i + len(wanted) :]
+            rest = [word for word, index in others if first <= index <= last]
+            return rest + (items[0] if first else [])
     return None
 
 
@@ -364,13 +374,15 @@ def _label(limit: Limit) -> str:
     return f"{limit.parameter} ({limit.limit})" if limit.limit else limit.parameter
 
 
-def _kind(limit: Limit, sector: str | None) -> Literal["sector", "rating", "price", "other"]:
+def _kind(
+    limit: Limit, sector: str | None
+) -> Literal["sector", "rating", "price", "ruled_out", "other"]:
     """What the row limits. A row in any category that names the issuer's sector or a rating
-    bucket is read as that kind. Information rows, single-name rows and every other row are
-    `other`: no position size is assumed, so none can be breached."""
+    bucket is read as that kind. Information rows and single-name rows are `ruled_out`: no
+    position size is assumed, so none can be breached. Every other row is `other`."""
     text = pe.folded(f"{limit.category} {limit.parameter}")
     if pe.folded(limit.limit).startswith("info") or any(name in text for name in SINGLE_NAME):
-        return "other"
+        return "ruled_out"
     words = set(_words(text))
     if "price" in words:
         return "price"
@@ -407,6 +419,8 @@ def _decided(limit: Limit) -> tuple[Outcome, str]:
 
 
 def _sector_reading(limit: Limit, sector: str | None) -> tuple[Outcome, str]:
+    if MINIMUM_WORDS.intersection(_words(limit.parameter)):
+        return MINIMUM_NOT_READ
     if not _words(sector or ""):
         return "not_read", "the issuer's sector is not known"
     rest = _sector_rest(limit.parameter, sector)
@@ -450,6 +464,8 @@ def _covered(parameter: str) -> tuple[tuple[str, ...], bool] | None:
 
 
 def _rating_reading(limit: Limit, bucket: str | None) -> tuple[Outcome, str]:
+    if MINIMUM_WORDS.intersection(_words(limit.parameter)):
+        return MINIMUM_NOT_READ
     read = _covered(limit.parameter)
     if read is None:
         return (
@@ -485,21 +501,45 @@ def _price_reading(limit: Limit, price: Decimal | None) -> tuple[Outcome, str]:
     return "within", f"the price {price} is at or above the floor"
 
 
+def _untied(limit: Limit, why: str) -> tuple[Outcome, str]:
+    """A row that reached does_not_apply without being ruled out: it stays so when the file shows
+    it within or at zero with Pass; it is not read when the file shows an excess on it, or shows
+    nothing that can be read, because it could not be tied to the issuer."""
+    headroom = pe.quantity(_signed(limit.headroom))
+    excess = (headroom is not None and headroom.value < 0) or (
+        pe.folded(limit.observed_status) in BREACH_STATUS
+    )
+    if excess:
+        return "not_read", "the file shows it breached and it could not be tied to the issuer"
+    if _decided(limit)[0] == "not_read":
+        return "not_read", (
+            "the file shows nothing that could be read on it and it could not be tied to the issuer"
+        )
+    return "does_not_apply", why
+
+
 def read_limits(
     portfolio: Portfolio, *, sector: str | None, rating_bucket: str | None, price: Decimal | None
 ) -> tuple[LimitReading, ...]:
     """One reading for every constraints row of the portfolio, in order, none dropped. A sector
     row applies when it names the issuer's `sector`, a rating row (a CCC limit among them) when it
     names the instrument's `rating_bucket`, and a price floor is breached by a `price` below it.
-    A row that cannot be tied to the issuer is not read, never guessed."""
+    A row that cannot be tied to the issuer is not read, never guessed: one the file shows
+    breached, or shows nothing readable on, is `not_read`, not `does_not_apply`."""
     out = []
     for limit in limits(portfolio):
         kind = _kind(limit, sector)
-        if kind == "other":
+        if kind == "ruled_out":
             outcome: Outcome = "does_not_apply"
             why = "it is an information row or limits no one issuer's position"
+        elif kind == "other":
+            outcome, why = _untied(
+                limit, "it names neither the issuer's sector nor a rating bucket"
+            )
         elif kind == "sector":
             outcome, why = _sector_reading(limit, sector)
+            if outcome == "does_not_apply":
+                outcome, why = _untied(limit, why)
         elif kind == "rating":
             outcome, why = _rating_reading(limit, rating_bucket)
         else:
@@ -525,8 +565,10 @@ class PortfolioReading:
     """An issuer read against one portfolio. `status` is proposed, blank (no Credit Score or no
     Valuation) or n/a (the portfolio holds no asset type the issuer has). `recommendation` is the
     table's cell `uncapped`, held to 3 when a limit is breached and the cell is 1 or 2, in which
-    case `capped_by` names the breached limits. `instrument` and `valuation` are the best eligible
-    instrument's, which is also what `limits` (every row, as read) rests on."""
+    case `capped_by` names the breached limits. `not_read` holds the rows that could not be read,
+    in file order; they never cap, and a proposed `reason` says how many. `instrument` and
+    `valuation` are the best eligible instrument's, which is also what `limits` (every row, as
+    read) rests on."""
 
     portfolio: str
     name: str
@@ -534,6 +576,7 @@ class PortfolioReading:
     recommendation: int | None
     uncapped: int | None
     capped_by: tuple[LimitReading, ...]
+    not_read: tuple[LimitReading, ...]
     valuation: Valuation | None
     instrument: Instrument | None
     limits: tuple[LimitReading, ...]
@@ -542,13 +585,25 @@ class PortfolioReading:
 
 
 def _proposed(
-    credit: CreditScore, valuation_: Valuation, cell: int, held: tuple[LimitReading, ...]
+    credit: CreditScore,
+    valuation_: Valuation,
+    cell: int,
+    held: tuple[LimitReading, ...],
+    unread: tuple[LimitReading, ...],
 ) -> tuple[int, str]:
     name = RECOMMENDATION_NAMES[cell - 1]
     reason = (
         f"{name}: Credit Score {credit.score} and Valuation {valuation_.score} "
         f"({valuation_.reason.removeprefix(f'Valuation {valuation_.score}: ')})"
     )
+    if unread:
+        count = _count(len(unread), "limit row")
+        pronoun = "it" if len(unread) == 1 else "them"
+        parameters = "; ".join(reading.limit.parameter for reading in unread)
+        reason += (
+            f" {count} could not be read and the recommendation does not reflect {pronoun}: "
+            f"{parameters}."
+        )
     if cell < CAP_AT and held:
         names = "; ".join(reading.reason.removesuffix(".") for reading in held)
         return CAP_AT, (
@@ -581,6 +636,7 @@ def portfolio_reading(
         rating_bucket=None if instrument is None else instrument.rating_bucket,
         price=None if instrument is None else instrument.price,
     )
+    unread = tuple(item for item in read if item.outcome == "not_read")
     weight = None
     if _name_key(issuer.borrower or "") or (issuer.identifier or "").strip():
         weight = issuer_weight(portfolio, borrower=issuer.borrower, identifier=issuer.identifier)
@@ -599,6 +655,7 @@ def portfolio_reading(
             recommendation=recommendation,
             uncapped=uncapped,
             capped_by=capped_by,
+            not_read=unread,
             valuation=best_valuation,
             instrument=instrument,
             limits=read,
@@ -618,7 +675,7 @@ def portfolio_reading(
     if cell is None or best_valuation is None:
         return result("blank", " ".join(causes))
     breached = tuple(item for item in read if item.outcome == "breached")
-    final, reason = _proposed(credit, best_valuation, cell, breached)
+    final, reason = _proposed(credit, best_valuation, cell, breached, unread)
     return result("proposed", reason, final, cell, breached if final != cell else ())
 
 
