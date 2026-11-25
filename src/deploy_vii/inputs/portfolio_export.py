@@ -1,5 +1,6 @@
 """The portfolio export: a fund's mandate, constraints and exposure report as CSV exports, with a
-holdings workbook (ruling 2026-11-15-full-assessment-portfolio-workbook, "The export shape").
+holdings workbook (ruling 2026-11-15-full-assessment-portfolio-workbook, "The export shape"). The
+holdings may also be a CSV file with the Holdings sheet's header row (`is_holdings`).
 
 This is the shape the owner's portfolio data arrives in, beside the template workbook
 (`deploy_vii.inputs.portfolio`). It is checked, never converted into the template: converting
@@ -242,9 +243,12 @@ def _cells(row: Sequence[str]) -> list[str]:
 
 @dataclass(frozen=True)
 class Cell:
+    """`percent_format`: a number shown as a percentage, so the stored value is a fraction."""
+
     text: str
     numeric: bool = False
     date_format: bool = False
+    percent_format: bool = False
 
 
 _DATE_CODE = re.compile(r"[dmy]", re.IGNORECASE)
@@ -259,6 +263,14 @@ def _is_date_format(code: str | None) -> bool:
         return code in _DATE_BUILTINS
     bare = _QUOTED.sub("", code)
     return bool(_DATE_CODE.search(bare)) and "0" not in bare
+
+
+def _is_percent_format(code: str | None) -> bool:
+    if code is None:
+        return False
+    if code.startswith("builtin:"):
+        return code in ("builtin:9", "builtin:10")
+    return "%" in _QUOTED.sub("", code)
 
 
 def sheet_rows(raw: bytes, name: str) -> list[tuple[int, list[Cell]]] | None:
@@ -280,7 +292,12 @@ def _cell(span: Span | None) -> Cell:
     if span is None:
         return Cell("")
     numeric = span.data_type == "n"
-    return Cell(span.text.strip(), numeric, numeric and _is_date_format(span.number_format))
+    return Cell(
+        span.text.strip(),
+        numeric,
+        numeric and _is_date_format(span.number_format),
+        numeric and _is_percent_format(span.number_format),
+    )
 
 
 def workbook_sheets(raw: bytes) -> tuple[str, ...]:
@@ -469,6 +486,18 @@ def _role(rows: Sequence[Sequence[str]]) -> str | None:
     return "exposure" if is_exposure(rows) else None
 
 
+# The part name a holdings CSV's rows are reported under (a CSV has no sheet).
+CSV_HOLDINGS = "Holdings"
+
+
+def is_holdings(rows: Sequence[Sequence[str]]) -> bool:
+    """A CSV whose first filled row is a holdings header: a borrower and a par column. Only that
+    row is read as the header, so a data row that mentions a borrower cannot make a file the
+    holdings."""
+    header = holdings_header([(1, [Cell(text) for text in _first_row(rows)])])
+    return header is not None and "par" in header[1]
+
+
 def _text(cell: Cell) -> str:
     """A workbook cell as the CSV export would write it: a date cell as its ISO date."""
     if cell.date_format:
@@ -497,13 +526,15 @@ def _workbook_parts(name: str, raw: bytes) -> list[Part]:
 def parts(files: Mapping[str, bytes]) -> list[Part]:
     """Every recognised part, CSV files and workbook sheets alike, in file order. A workbook's
     `Holdings` sheet (or any sheet whose header has a borrower and a par column) is the holdings;
-    its `Market Data` sheet the quote universe."""
+    its `Market Data` sheet the quote universe. A CSV that is not a mandate, constraints or
+    exposure file and whose first row is a holdings header (`is_holdings`) is the holdings too."""
     found: list[Part] = []
     for name in sorted(files):
         raw, lower = files[name], name.lower()
         if lower.endswith(".csv"):
             rows = csv_rows(raw)
-            if (role := _role(rows)) is not None:
+            role = _role(rows) or ("holdings" if is_holdings(rows) else None)
+            if role is not None:
                 numbered = tuple((n, tuple(r)) for n, r in enumerate(rows, 1))
                 found.append(Part(name, None, role, numbered))
         elif lower.endswith(".xlsx"):
@@ -547,8 +578,19 @@ def _holding(sheet: str, number: int, cells: list[Cell], columns: Mapping[str, i
 def holding_rows(raw: bytes, sheet: str, export: Export) -> list[Holding]:
     """The rows under the header of `sheet`; rows of empty cells are counted, not read."""
     rows = sheet_rows(raw, sheet)
-    if rows is None:
-        return []
+    return [] if rows is None else rows_under_header(rows, sheet, export)
+
+
+def csv_holding_rows(part: Part, export: Export) -> list[Holding]:
+    """A holdings CSV's rows, as `holding_rows` reads a sheet's: every cell is text."""
+    rows = [(number, [Cell(text) for text in row]) for number, row in part.rows]
+    return rows_under_header(rows, CSV_HOLDINGS, export)
+
+
+def rows_under_header(
+    rows: Sequence[tuple[int, list[Cell]]], sheet: str, export: Export
+) -> list[Holding]:
+    """The rows under the holdings header; rows of empty cells are counted, not read."""
     header = holdings_header(rows)
     if header is None:
         return []
@@ -582,9 +624,12 @@ def read_export(files: Mapping[str, bytes]) -> Export:
             export.constraints.append((part.label, rows, header))
         elif part.role == "exposure":
             export.sections = sections(rows)
+        elif part.sheet is None:
+            export.book = part.file
+            export.holdings = csv_holding_rows(part, export)
         else:
             export.book = part.file
-            export.holdings = holding_rows(files[part.file], part.sheet or "", export)
+            export.holdings = holding_rows(files[part.file], part.sheet, export)
     return export
 
 

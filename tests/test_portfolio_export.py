@@ -21,6 +21,7 @@ from deploy_vii.inputs.__main__ import main as self_check
 from deploy_vii.inputs.portfolio_export import Quantity, quantity, validate_export
 from deploy_workflow.owners.cpos_launch import _readiness, prepare
 from tools import synthetic_portfolio_exports as synth
+from tools import synthetic_reference_portfolios as pack
 
 RUN_DATE = date(2025, 3, 31)
 REPORT = synth.EXPOSURE
@@ -1294,3 +1295,153 @@ def test_not_applicable_cells_and_info_rows_are_not_defects():
     report = validate_export(synth.files(synth.clean()), run_date=RUN_DATE)
     # C-13 has headroom "—" and C-14 is Info only with breach type and headroom "—".
     assert report.ok
+
+
+# --- The holdings as a CSV file ------------------------------------------------------------------
+
+
+def test_the_owners_pack_header_gives_each_field_its_own_column():
+    # Columns counted from 0: Ticker 0, Borrower Name 1, Index Sector 2, Sub Sector 3, Loan Name
+    # 4, FIGI 5, Ranking 6, Ratings 7, Size 8, Margin 9, Maturity 10, Bid 11, Ask 12, Δ 1M 13,
+    # Δ YTD 14, Mid YTM 15, Mid 3Y DM 16, Holdings 17, Position ID 18, Currency 19, Mid Price
+    # (per 100 par) 20, Mid Market Value 21, Share of Priced MV 22, Rating Bucket 23, Lien 24.
+    header = [pe.Cell(text) for text in pack.PACK_HEADER]
+    assert pe.holdings_header([(1, header)]) == (
+        1,
+        {
+            "ticker": 0,
+            "borrower": 1,
+            "sector": 2,  # Index Sector, not Sub Sector
+            "loan": 4,
+            "figi": 5,
+            "ranking": 6,  # not Lien
+            "ratings": 7,  # not Rating Bucket
+            "margin": 9,
+            "maturity": 10,
+            "bid": 11,
+            "ask": 12,
+            "ytm": 15,
+            "dm": 16,  # Mid 3Y DM
+            "size": 8,
+            "change_1m": 13,
+            "change_ytd": 14,
+            "par": 17,  # Holdings, not Position ID or Mid Price (per 100 par)
+        },
+    )
+
+
+def test_a_pack_of_three_csv_files_is_recognised_with_its_holdings():
+    files = pack.pack_files()
+    assert pe.recognise(files) == {
+        pack.PACK_CONSTRAINTS: "constraints",
+        pack.PACK_HOLDINGS: "holdings",
+        pack.PACK_MANDATE: "mandate",
+    }
+    assert [(part.file, part.sheet, part.role) for part in pe.parts(files)] == [
+        (pack.PACK_CONSTRAINTS, None, "constraints"),
+        (pack.PACK_HOLDINGS, None, "holdings"),
+        (pack.PACK_MANDATE, None, "mandate"),
+    ]
+
+
+def test_a_holdings_csv_is_read_as_the_holdings_sheet_is():
+    export = pe.read_export(pack.pack_files())
+    assert export.book == pack.PACK_HOLDINGS
+    assert [holding.row for holding in export.holdings] == [2, 3, 4, 5, 6, 7, 8]
+    assert {holding.sheet for holding in export.holdings} == {"Holdings"}
+    pe.type_rows(export.holdings)
+    second, elm, fern = export.holdings[1], export.holdings[5], export.holdings[6]
+    assert second.text["ratings"] == "B2 / B"
+    assert second.text["sector"] == "Software"
+    assert second.numbers["par"] == Decimal("1234567.89")
+    assert export.holdings[0].numbers["par"] == Decimal("2000000.00")  # written 2,000,000.00
+    assert second.numbers["dm"] == Decimal(400)
+    assert second.maturity == date(2030, 1, 31)
+    assert "bid" not in elm.numbers  # #N/A N/A: missing
+    assert elm.numbers["par"] == Decimal(750000)
+    assert fern.numbers["par"] == Decimal(0)  # 0 is zero
+    assert fern.numbers["bid"] == Decimal(0)
+
+
+def test_the_clean_export_with_its_holdings_as_a_csv_file_passes_with_the_same_figures():
+    report = validate_export(synth.csv_files(synth.clean()), run_date=RUN_DATE)
+    # Mandate, two constraints files, exposure report and the holdings CSV; a CSV has no Market
+    # Data sheet. The holdings' figures are those of the workbook (the first test of this file).
+    assert report.lines() == ("OK: 5 parts, 7 holdings",)
+    assert [role for _, role in report.files] == [
+        *("mandate", "constraints", "constraints", "exposure", "holdings")
+    ]
+    assert report.recomputed[:4] == (
+        "positions with a par: 7; par 100,000,000",
+        "market value at mid of the 7 priced positions: 100,000,000",
+        "borrowers: 6; tickers: 6; sectors: 3",
+        "largest borrower: Aster Fictional Co, 29.80% of market value",
+    )
+
+
+def test_a_holdings_csv_has_the_holdings_sheets_findings_under_its_own_file_name():
+    spec = synth.broken("identifiers")
+    found = [
+        (i.file, i.sheet, i.cell, i.problem)
+        for i in validate_export(synth.csv_files(spec), run_date=RUN_DATE).issues
+    ]
+    assert (
+        synth.HOLDINGS_CSV,
+        "Holdings",
+        "rows",
+        "rows below the header with only empty cells: 3 (rows 9, 10, 11)",
+    ) in found
+    assert {file for file, *_ in found} == {synth.HOLDINGS_CSV}
+
+
+def test_the_self_check_no_longer_calls_a_holdings_csv_unrecognised(tmp_path):
+    for name, raw in pack.pack_files().items():
+        (tmp_path / name).write_bytes(raw)
+    report = pe.validate_export_paths(sorted(tmp_path.iterdir()), run_date=date(2026, 11, 1))
+    assert not [i for i in report.issues if i.problem.startswith("not recognised")]
+    # Par 2,000,000 + 1,234,567.89 + 500,000 + 1,000,000 + 500,000 + 750,000 + 0; at mid the
+    # second loan is 1,234,567.89 x 0.98 = 1,209,876.53 and the unpriced 750,000 is left out.
+    assert report.recomputed[:2] == (
+        "positions with a par: 7; par 5,984,567.89",
+        "market value at mid of the 6 priced positions: 5,209,876.53",
+    )
+    assert report.rows == 7
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # A borrower and a par only in a data row: the first row is the header.
+        [["Note", "Value", "a", "b", "c"], ["Borrower Name", "Holdings", "x", "y", "z"]],
+        # A header with a borrower but no par column.
+        [["Ticker", "Borrower Name", "Index Sector", "Bid", "Ask"], ["A", "B", "C", "1", "2"]],
+        # Fewer than five header cells.
+        [["Borrower Name", "Holdings"], ["Aster Fictional Co", "1"]],
+    ],
+)
+def test_a_csv_is_the_holdings_only_by_its_first_rows_borrower_and_par_columns(rows):
+    assert not pe.is_holdings(rows)
+    assert pe.recognise({"other.csv": pack.csv_bytes(rows)}) == {}
+
+
+def test_a_mandate_constraints_or_exposure_csv_keeps_its_role():
+    # The exposure report's holdings section has an Issuer and a `# Positions` column; it stays
+    # the exposure report.
+    roles = pe.recognise(synth.csv_files(synth.clean()))
+    assert roles == {
+        synth.MANDATE: "mandate",
+        synth.CONSTRAINTS: "constraints",
+        synth.FIT_CONSTRAINTS: "constraints",
+        synth.EXPOSURE: "exposure",
+        synth.HOLDINGS_CSV: "holdings",
+    }
+
+
+def test_a_percent_cell_of_a_workbook_is_marked_so_its_fraction_is_not_read_as_a_percentage():
+    rows = pe.sheet_rows(pack.workbook_bytes(pack.BONDS), "Portfolio Holdings")
+    assert rows is not None
+    by_number = dict(rows)
+    assert by_number[4][0] == pe.Cell("0.625", numeric=True, percent_format=True)
+    assert by_number[4][5] == pe.Cell("5000000", numeric=True)
+    assert by_number[2][1].date_format
+    assert not by_number[2][1].percent_format
