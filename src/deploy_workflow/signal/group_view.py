@@ -5,8 +5,8 @@ Only groups the viewer can see are delivered (Settings also lists every group to
 manages them, with names and members only); nothing about another group reaches a count, a story
 field or a thread reference. A viewer with no display name gets no groups.
 
-Size. The browser reaches the service through a forwarder that refuses a reply over 4 MiB, so what
-the group part delivers is bounded in bytes (each record counted as its UTF-8 JSON encoding, the
+Size. A reply must stay under 4 MiB, so this module's own budget bounds what
+the group part delivers in bytes (each record counted as its UTF-8 JSON encoding, the
 text in it included), whatever the writers posted:
 
 * Every visible group's page record, channel and Settings row are always delivered; their bytes

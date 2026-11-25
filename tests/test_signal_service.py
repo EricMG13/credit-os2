@@ -24,6 +24,7 @@ from typing import Any
 
 import pytest
 from signal_ai_fakes import off_setup
+import signal_app
 from signal_app import Live
 from test_signal_feeds import RSS
 from test_signal_feedview import build_feed_db
@@ -334,7 +335,7 @@ def test_bodies_are_capped_and_must_be_json(svc):
 
 def test_a_json_body_needs_content_length(svc):
     connection = http.client.HTTPConnection("127.0.0.1", svc.port, timeout=20)
-    connection.putrequest("POST", "/signal/api/me", skip_accept_encoding=True)
+    connection.putrequest("POST", f"{signal_app.PREFIX}/api/me", skip_accept_encoding=True)
     connection.putheader("Origin", f"http://127.0.0.1:{svc.port}")
     connection.endheaders()
     assert connection.getresponse().status == 411
@@ -433,7 +434,7 @@ def test_a_short_body_gets_no_reply_and_no_traceback(svc, monkeypatch, caplog):
     monkeypatch.setattr(run_start_service.Handler, "timeout", 1)
     caplog.set_level(logging.INFO)
     host = f"127.0.0.1:{svc.port}"
-    head = f"POST /signal/api/me HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\n"
+    head = f"POST {signal_app.PREFIX}/api/me HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\n"
     sock = _raw(svc, (head + 'Content-Length: 50\r\n\r\n{"na').encode())
     sock.settimeout(10)
     reply = b""
@@ -449,7 +450,7 @@ def test_a_short_body_gets_no_reply_and_no_traceback(svc, monkeypatch, caplog):
 
 
 def test_an_http_09_request_line_gets_no_500(svc, caplog):
-    sock = _raw(svc, b"GET /signal/api/me\r\n")
+    sock = _raw(svc, f"GET {signal_app.PREFIX}/api/me\r\n".encode())
     sock.settimeout(10)
     reply = b""
     while chunk := sock.recv(4096):

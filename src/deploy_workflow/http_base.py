@@ -14,7 +14,7 @@ them), the ``Content-Length`` and JSON body rules, the headers every response ca
 
 What a service may set differently is a named parameter, never a branch on which service it is.
 The run start service sets the first without a ceiling per address, and its logger; the others
-keep the defaults given here (Signal's own server, which set them, is gone):
+keep the defaults given here:
 
 ``Server.connection_limits``
     ``(most connections, most per remote address or None)``, read for every connection.

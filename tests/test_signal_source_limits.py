@@ -1,5 +1,5 @@
 """The Sources section's bound and the owner's clean-up of sources and digests (review finding F4:
-nothing could remove a source, and 1,500 of them took the snapshot past the forwarder's 4 MiB).
+nothing could remove a source, and 1,500 of them took the snapshot past its 4 MiB reply bound).
 Expected values are written by hand. Every snapshot built here is read by the real React reader."""
 
 from __future__ import annotations

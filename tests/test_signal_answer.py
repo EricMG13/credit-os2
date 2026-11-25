@@ -9,6 +9,7 @@ written by hand.
 from __future__ import annotations
 
 import sqlite3
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
@@ -202,3 +203,10 @@ def test_query_that_cannot_be_read_is_400_before_a_connection_is_opened(
     reply = ask(root, "GET", "/api/me?" + "&".join(f"p{n}=1" for n in range(21)))
     assert (reply.status, reply.body) == (400, {"error": "the query string is not valid"})
     assert opened == []
+
+
+def test_a_5000_character_search_text_reaches_the_handler_and_is_answered(root: Path) -> None:
+    # The application caps a query at 512 bytes, so only a direct call carries this far.
+    for q in ['"', "*", "NEAR(", "%00", "a" * 5000]:
+        target = "/api/feed?view=latest&q=" + urllib.parse.quote(q)
+        assert ask(root, "GET", target, cookie=READER).status == 200

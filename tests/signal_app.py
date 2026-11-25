@@ -15,10 +15,11 @@ import threading
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, Self
 
+from deploy_workflow.signal import ai_run
 from deploy_workflow.signal.service import Loop
-from react_frontend import make_server, signal_host
+from react_frontend import Server, make_server
 
 PREFIX = "/signal"  # where the application serves Signal's own paths (/api/...)
 SAME = object()  # "the page's own origin", the default for a request that is not a GET
@@ -36,26 +37,32 @@ class Live:
 
     def __init__(self, root: Path, *, loop: Loop | None = None) -> None:
         with ExitStack() as opening:
-            folder = Path(opening.enter_context(_short_folder()))
+            folder = Path(opening.enter_context(short_folder()))
             (folder / "web").mkdir()
             (folder / "web" / "index.html").write_text(PAGE, encoding="utf-8")
             self.server = opening.enter_context(
                 make_server(folder / "app", web=folder / "web", environ={})
             )
-            self._open = opening.pop_all()  # held until close(); undone here if a step failed
-        host = self.server.signal
-        assert host is not None  # live mode hosts Signal
-        host.loop = loop or signal_host.SignalHost(root, environ={}).loop
-        self.port = self.server.server_address[1]
-        self.thread = threading.Thread(
-            target=self.server.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True
-        )
-        self.thread.start()
+            host = self.server.signal
+            assert host is not None  # live mode hosts Signal
+            # The swap relies on SignalHost reading its root from `loop.root`.
+            host.loop = loop or Loop(root, ai=ai_run.Setup(environ={}))
+            self.port = self.server.server_address[1]
+            self.thread = start_serving(self.server, daemon=True)
+            self._open = opening.pop_all()  # held until close(); undone above if a step failed
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     def close(self) -> None:
-        self.server.shutdown()
-        self.thread.join(timeout=10)
-        self._open.close()
+        try:
+            self.server.shutdown()
+            self.thread.join(timeout=10)
+        finally:
+            self._open.close()
 
     def call(self, method: str, path: str, **request: Any) -> tuple[int, Any, Any]:
         """`path` is Signal's own (``/api/...``), asked for under ``/signal``. Keywords: body
@@ -83,6 +90,15 @@ class Live:
             connection.close()
 
 
-def _short_folder() -> TemporaryDirectory[str]:
+def short_folder() -> TemporaryDirectory[str]:
     """A temporary folder whose path the run store accepts (it refuses a long root)."""
     return TemporaryDirectory(dir=None if os.name == "nt" else "/tmp")
+
+
+def start_serving(server: Server, *, daemon: bool) -> threading.Thread:
+    """Run `server` on a thread, polling fast so a shutdown is quick; the thread is started."""
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={"poll_interval": 0.02}, daemon=daemon
+    )
+    thread.start()
+    return thread

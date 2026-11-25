@@ -3,7 +3,7 @@ screens read, and the background loop.
 
 There is one caller, ``react_frontend`` (``react_frontend.signal_host``). The application's server
 answers ``/signal/api/*`` in its own process by calling ``answer`` with the ``/signal`` prefix
-dropped, and runs ``Loop`` on one thread. This module opens no socket and serves no page and no
+dropped, and runs ``Loop`` on one thread. This module listens on no socket and serves no page and no
 file. What belongs to a transport is decided there, not here: the ``Host``, ``Origin`` and
 ``Sec-Fetch-Site`` checks, the body's rules (a body on a POST only, ``Content-Length``, 64 KiB, a
 JSON object), the headers every reply carries, the connection limits, the fixed 500 and the
@@ -372,8 +372,8 @@ def answer(root: Path, loop: LoopState | None, request: _Incoming) -> _Reply:
     that it is a JSON object) are the transport's too, applied when a handler calls
     ``request.body`` or ``request.optional_body``, whose refusal passes through here. The
     request gets its own connection to the store under `root`, closed before this returns or
-    raises. `loop` is the background loop whose state ``/api/status`` and the snapshot show, or
-    None where none runs."""
+    raises. `loop` is the background loop whose state ``/api/status`` and the snapshot show: the
+    application always passes its loop; None is for a direct call with no loop."""
     route, groups = _match(request.method, request.path)
     params = _params(request.query)
     db = store.open_db(root)  # this request's own connection
