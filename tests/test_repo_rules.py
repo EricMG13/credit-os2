@@ -50,8 +50,9 @@ def within_cap(text: str, cap: int) -> bool:
 
 
 def is_credential_file(path: str) -> bool:
-    """Paths .gitignore keeps out: .env and .env.* (not .env.example), *.pem,
-    *.key, *.p12, id_rsa, credentials*.json, private/ and .copilot-home/."""
+    """Credential paths: `.gitignore:13-20` (`private/`, `.env`, `.env.*` except
+    `.env.example`, `*.pem`, `*.key`, `.copilot-home/`) plus `*.p12`, `id_rsa*`
+    and `credentials*.json` from the plan."""
     parts = PurePosixPath(path).parts
     name = parts[-1]
     if _CREDENTIAL_DIRS & set(parts[:-1]):
@@ -83,9 +84,14 @@ def _zip_write_mode(call: ast.Call) -> bool:
     )
 
 
+def _is_openpyxl(module: str) -> bool:
+    return module == "openpyxl" or module.startswith("openpyxl.")
+
+
 def _imports(tree: ast.AST) -> tuple[set[str], set[str], bool, set[int]]:
-    """Local names bound to `Workbook` and `ZipFile`, whether `load_workbook` is
-    used, and the lines importing xlsxwriter."""
+    """Local names bound to `Workbook` (including `import openpyxl as x` roots,
+    stored as "x."), names bound to `ZipFile`, whether `load_workbook` is used,
+    and the lines importing xlsxwriter."""
     workbook_names: set[str] = set()
     zip_names: set[str] = set()
     loads_workbook = False
@@ -95,9 +101,9 @@ def _imports(tree: ast.AST) -> tuple[set[str], set[str], bool, set[int]]:
             module = node.module or ""
             for alias in node.names:
                 bound = alias.asname or alias.name
-                if module == "openpyxl" and alias.name == "Workbook":
+                if _is_openpyxl(module) and alias.name == "Workbook":
                     workbook_names.add(bound)
-                elif module == "openpyxl" and alias.name == "load_workbook":
+                elif _is_openpyxl(module) and alias.name == "load_workbook":
                     loads_workbook = True
                 elif module == "zipfile" and alias.name == "ZipFile":
                     zip_names.add(bound)
@@ -106,6 +112,9 @@ def _imports(tree: ast.AST) -> tuple[set[str], set[str], bool, set[int]]:
         elif isinstance(node, ast.Import):
             if any(a.name.split(".")[0] == "xlsxwriter" for a in node.names):
                 xlsxwriter_lines.add(node.lineno)
+            for alias in node.names:
+                if _is_openpyxl(alias.name):
+                    workbook_names.add(f"{alias.asname or alias.name.split('.')[0]}.")
         elif isinstance(node, ast.Attribute) and node.attr == "load_workbook":
             loads_workbook = True
     return workbook_names, zip_names, loads_workbook, xlsxwriter_lines
@@ -123,7 +132,9 @@ def workbook_writers(source: str) -> list[int]:
         if not isinstance(node, ast.Call):
             continue
         name = _dotted(node.func)
-        creates = name in workbook_names or name == "openpyxl.Workbook"
+        creates = name in workbook_names or (
+            name.endswith(".Workbook") and f"{name.split('.')[0]}." in workbook_names
+        )
         exports = name.endswith(".to_excel") or (loads_workbook and name.endswith(".save"))
         zips = zip_ok and (name in zip_names or name == "zipfile.ZipFile")
         if creates or exports or (zips and _zip_write_mode(node)):
@@ -193,6 +204,18 @@ def test_workbook_writer_detection():
         workbook_writers('import zipfile\nz = zipfile.ZipFile(p)\nz.read("xl/workbook.xml")\n')
         == []
     )
+
+
+def test_workbook_writer_import_forms():
+    assert workbook_writers("import openpyxl as xl\nb = xl.Workbook()\n") == [2]
+    assert workbook_writers("from openpyxl.workbook import Workbook\nb = Workbook()\n") == [2]
+    assert workbook_writers(
+        "from openpyxl.workbook.workbook import Workbook\nb = Workbook()\n"
+    ) == [2]
+    assert workbook_writers("import openpyxl\nb = openpyxl.workbook.Workbook()\n") == [2]
+    assert workbook_writers(
+        "from openpyxl.reader.excel import load_workbook\nb = load_workbook(p)\nb.save(q)\n"
+    ) == [3]
 
 
 def test_only_allowed_modules_write_workbooks():
