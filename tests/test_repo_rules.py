@@ -6,6 +6,7 @@ Answer keys are literal. Every check reads what git tracks, never a disk walk.
 from __future__ import annotations
 
 import ast
+import re
 import shutil
 import subprocess  # nosec B404
 from pathlib import Path, PurePosixPath
@@ -59,9 +60,18 @@ def is_credential_file(path: str) -> bool:
         return True
     if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
         return True
-    if name.endswith(_CREDENTIAL_SUFFIXES) or name.startswith("id_rsa"):
+    if name.endswith(_CREDENTIAL_SUFFIXES) or name == "id_rsa" or name.startswith("id_rsa."):
         return True
-    return name.startswith("credentials") and name.endswith(".json")
+    return name == "credentials.json" or (
+        name.startswith("credentials.") and name.endswith(".json")
+    )
+
+
+def provider_secret_refs(text: str) -> list[str]:
+    """Provider-secret references in workflow text: `secrets.<NAME>` other than
+    `GITHUB_TOKEN` (not preceded by `.`, so `needs.secrets.x` is skipped), and `API_KEY`."""
+    refs = [m.group(0) for m in re.finditer(r"(?<![\w.])secrets\.(?!GITHUB_TOKEN\b)\w+", text)]
+    return refs + ["API_KEY"] * ("API_KEY" in text)
 
 
 def _dotted(node: ast.expr) -> str:
@@ -164,6 +174,10 @@ def test_credential_patterns():
         assert is_credential_file(bad), bad
     for ok in (".env.example", "docs/env.md", "src/keyboard.py"):
         assert not is_credential_file(ok), ok
+    for ok in ("tests/fixtures/credentials_schema.json", "src/x/id_rsa_test.py"):
+        assert not is_credential_file(ok), ok
+    for bad in ("id_rsa", "id_rsa.pub", "credentials.json"):
+        assert is_credential_file(bad), bad
 
 
 def test_no_tracked_credential_files():
@@ -174,10 +188,16 @@ def test_superpowers_never_tracked():
     assert tracked(".superpowers") == []
 
 
+def test_provider_secret_ref_rules():
+    assert provider_secret_refs("${{ secrets.ANTHROPIC_KEY }}") == ["secrets.ANTHROPIC_KEY"]
+    assert provider_secret_refs("${{ secrets.GITHUB_TOKEN }}") == []
+    assert provider_secret_refs("needs.secrets.result") == []
+    assert provider_secret_refs("OPENAI_API_KEY: x") == ["API_KEY"]
+
+
 def test_workflows_hold_no_provider_secrets():  # AGENTS.md: the build runs no providers
     for p in tracked(".github/workflows"):
-        text = (REPO / p).read_text()
-        assert "secrets." not in text and "API_KEY" not in text, p
+        assert provider_secret_refs((REPO / p).read_text()) == [], p
 
 
 def test_tracked_workbooks_are_the_two_inputs():
