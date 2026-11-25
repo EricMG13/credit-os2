@@ -1,0 +1,38 @@
+{
+ "module": "CP-4",
+ "arm": "B",
+ "config": "opus-high",
+ "outcome": "not accepted: cpos_live_not_accepted: CP-4 not accepted within bounds",
+ "chars": 194240,
+ "tokens_estimate": 50677,
+ "lines": 2453,
+ "head_chars": 20318,
+ "method_chars": 173922,
+ "method_files": 11,
+ "directive_sentences": 240,
+ "emphasis_words": 5,
+ "repeated_chars": 0,
+ "overridden_chars": 3786,
+ "unsent_references": 0,
+ "calls": 32,
+ "input_tokens": 66,
+ "cached_read_tokens": 6531955,
+ "output_tokens": 64669,
+ "reasoning_tokens": 23278,
+ "first_call_input_tokens": 4,
+ "settled_usd": "3.82203000",
+ "started_at": "2026-11-25T19:11:10.848223Z",
+ "finished_at": "2026-11-25T19:20:30.033937Z",
+ "writes": 1,
+ "issues_per_write": [
+  6
+ ],
+ "first_write_issues": [
+  "`### Chart data: covenant headroom` Revolver usage springing trigger: Direction `At or below threshold passes: maintenance test is not tested` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Maintenance consolidated net leverage: Direction `At or below threshold passes` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Pari secured incurrence, secured net debt ratio: Direction `At or below threshold passes` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Junior and unsecured incurrence, net leverage: Direction `At or below threshold passes` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Unlimited restricted payments, net leverage: Direction `At or below threshold passes` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Secured notes restricted payments, fixed-charge cover: Direction `Above threshold passes` must be one of Passes below, Passes at or below, Passes above, Passes at or above."
+ ]
+}

@@ -66,3 +66,15 @@ the first run, by a reader who is not told the group (`trial/reading/README.md`)
 After the pilot: its purpose is to prove the live path and the reading procedure and to see one
 observation per combination. One run per group cannot show a difference between groups. The full
 trial (repeats of each group) needs its own ruling.
+
+Amendments by the owner on 2026-11-25, while the pilot ran:
+
+- "run all offline and live test concurrently": the runs were started together, 40 seconds apart,
+  not module by module. The total is then held by a watcher that sums what the runs have settled
+  each minute and stops those still in flight at USD 54; calls in flight at that moment are still
+  charged.
+- "raise the turn limit if a run hits 32": a run that ends at 32 model turns without an accepted
+  handoff is run once more, in a new folder, with 64 turns (the engine's maximum). This replaces
+  "no run is repeated" for that case only. The first attempt's cost counts toward the total.
+- "run the blind reading when the runs finish".
+

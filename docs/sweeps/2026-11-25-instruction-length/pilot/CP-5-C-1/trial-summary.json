@@ -1,0 +1,34 @@
+{
+ "module": "CP-5",
+ "arm": "C",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 84750,
+ "tokens_estimate": 22071,
+ "lines": 823,
+ "head_chars": 18466,
+ "method_chars": 66284,
+ "method_files": 6,
+ "directive_sentences": 149,
+ "emphasis_words": 14,
+ "repeated_chars": 0,
+ "overridden_chars": 4216,
+ "unsent_references": 0,
+ "calls": 19,
+ "input_tokens": 40,
+ "cached_read_tokens": 7248429,
+ "output_tokens": 42900,
+ "reasoning_tokens": 22999,
+ "first_call_input_tokens": 4,
+ "settled_usd": "4.50825080",
+ "started_at": "2026-11-25T19:17:51.059491Z",
+ "finished_at": "2026-11-25T19:24:22.512558Z",
+ "writes": 2,
+ "issues_per_write": [
+  1,
+  0
+ ],
+ "first_write_issues": [
+  "Prose check 10 (no pipeline wording), line 182: \"issuer_id\" in section \"Analytical appendix \u2014 complete canonical registers\" \u2014 write for the reader, not for the pipeline: name the document (for example the 2024 annual report), the module by its plain name or the analysis instead."
+ ]
+}

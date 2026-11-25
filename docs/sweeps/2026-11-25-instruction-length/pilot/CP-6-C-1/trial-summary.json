@@ -1,0 +1,34 @@
+{
+ "module": "CP-6",
+ "arm": "C",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 90491,
+ "tokens_estimate": 23554,
+ "lines": 932,
+ "head_chars": 19904,
+ "method_chars": 70587,
+ "method_files": 6,
+ "directive_sentences": 170,
+ "emphasis_words": 5,
+ "repeated_chars": 0,
+ "overridden_chars": 1856,
+ "unsent_references": 0,
+ "calls": 6,
+ "input_tokens": 14,
+ "cached_read_tokens": 1724758,
+ "output_tokens": 43347,
+ "reasoning_tokens": 18117,
+ "first_call_input_tokens": 4,
+ "settled_usd": "3.12939260",
+ "started_at": "2026-11-25T19:15:50.739088Z",
+ "finished_at": "2026-11-25T19:22:50.709108Z",
+ "writes": 2,
+ "issues_per_write": [
+  1,
+  0
+ ],
+ "first_write_issues": [
+  "Prose check 10 (no pipeline wording), line 99: \"canonical\" in section \"Portfolio posture\" \u2014 write for the reader, not for the pipeline: name the document (for example the 2024 annual report), the module by its plain name or the analysis instead."
+ ]
+}
