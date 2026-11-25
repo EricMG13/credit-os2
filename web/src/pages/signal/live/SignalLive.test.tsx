@@ -734,7 +734,7 @@ describe("no first snapshot", () => {
     expect(service.calls).toEqual([READ, READ]);
   });
 
-  it("shows the local server's sentence when Signal did not answer it", async () => {
+  it("shows a 502 from a proxy on the way as Signal not reached, in its sentence", async () => {
     const service = serve();
     service.replies.set(READ, refusal(502, "Signal is not reachable"));
     showLive();

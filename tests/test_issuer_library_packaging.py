@@ -209,9 +209,7 @@ def test_the_package_ships_the_signal_code_and_no_signal_page(
     assert not (target / "engine/credit_os/web/index.html").exists()
 
 
-def test_the_package_omits_the_retired_form_and_start_page_files(
-    tmp_path: Path, offline: list[str]
-) -> None:
+def test_the_package_purges_its_retired_files(tmp_path: Path, offline: list[str]) -> None:
     target = tmp_path / "windows-amd64"
     engine = target / "engine"
     (engine / "docs/templates").mkdir(parents=True)
@@ -226,6 +224,7 @@ def test_the_package_omits_the_retired_form_and_start_page_files(
     ):
         (target / name).write_text("legacy", encoding="utf-8")
     runtime.bundle(target, None)
+    assert not (target / "Update library.cmd").exists()
     assert not (target / "Start run page.cmd").exists()
     assert not (target / "Start signal.cmd").exists()  # It started the removed `signal serve`.
     assert not (engine / "docs/templates/context-form.html").exists()

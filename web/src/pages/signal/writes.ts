@@ -1,7 +1,7 @@
 // Every write the Signal service takes from the screens, as the request to make. Paths are the
-// service's own under its API; the live page puts them under /signal/api, which the local server
-// forwards. A path segment holds lowercase letters and digits only (the forwarder passes no other),
-// which the service's decimal ids and the three reaction words are.
+// service's own under its API; the live page puts them under /signal/api, which the application's
+// server answers. A path segment holds lowercase letters and digits only, as the service's route
+// table requires, which its decimal ids and the three reaction words are.
 import type { SignalWrite } from "./actions";
 
 const part = encodeURIComponent;
