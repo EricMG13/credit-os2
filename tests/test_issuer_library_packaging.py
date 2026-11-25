@@ -164,7 +164,7 @@ def test_a_mac_build_has_no_runtime_to_clear(tmp_path: Path, offline: list[str])
     assert offline == []
 
 
-def test_the_package_ships_the_static_library_and_its_two_windows_wrappers(
+def test_the_package_ships_the_static_library_and_its_windows_wrapper(
     tmp_path: Path, offline: list[str]
 ) -> None:
     target = tmp_path / "windows-amd64"
@@ -184,39 +184,24 @@ def test_the_package_ships_the_static_library_and_its_two_windows_wrappers(
     assert not (engine / "bridge.py").exists()  # The lean package has no server bridge.
     assert (engine / "src/deploy_workflow/inbox/scheduler.py").read_text() == "SCHEDULER = 1"
     assert (engine / "src").is_dir()
-    for name in ["Run workflow.cmd", "Start signal.cmd"]:
-        raw = (target / name).read_bytes()
-        assert raw.startswith(b"@echo off\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
+    raw = (target / "Run workflow.cmd").read_bytes()
+    assert raw.startswith(b"@echo off\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
     run = (target / "Run workflow.cmd").read_text()
     python = '"%~dp0engine\\runtime\\python.exe" -I -B -X utf8'
     assert f'{python} "%~dp0engine\\run_workflow.py" %*' in run
     assert not (target / "Update library.cmd").exists()
     assert not (target / "Start run page.cmd").exists()
     assert not (target / "Start watcher.cmd").exists()
+    assert not (target / "Start signal.cmd").exists()  # Signal starts with the application.
 
 
-def test_the_package_ships_the_signal_starter_and_no_signal_page(
+def test_the_package_ships_the_signal_code_and_no_signal_page(
     tmp_path: Path, offline: list[str]
 ) -> None:
     target = tmp_path / "windows-amd64"
     target.mkdir()
     runtime.bundle(target, None)
-    raw = (target / "Start signal.cmd").read_bytes()
-    assert raw.startswith(b"@echo off\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
-    page = raw.decode("ascii")
-    python = '"%~dp0engine\\runtime\\python.exe" -I -B -X utf8'
-    line = (
-        f'{python} -m deploy_workflow.signal --root "%ROOT%" serve --host "%HOSTADDR%" --port 8766'
-    )
-    assert line in page and "exit /b %errorlevel%" in page
-    assert 'set "ROOT=%~1"' in page and "%FINAL_WORKFLOW_WORKSPACE%" in page
-    assert 'set "HOSTADDR=%~2"' in page
-    assert 'if not defined HOSTADDR set "HOSTADDR=127.0.0.1"' in page
-    assert "echo Usage: Start signal.cmd ^<shared folder^> [address]" in page
-    assert "exit /b 1" in page and "0.0.0.0 is refused" in page
-    assert "no model call and needs" in page and "API_KEY" not in page and "TOKEN" not in page
-    assert "serves no page" in page and "--signal-url" in page
-    # The service is API-only: the engine ships its code and no page files.
+    # Signal is hosted by the application: the engine ships its code and no page files.
     signal = target / "engine/src/deploy_workflow/signal"
     assert (signal / "service.py").read_text() == "SERVICE = 1"
     assert not (signal / "web").exists()
@@ -232,7 +217,7 @@ def test_the_package_omits_the_retired_form_and_start_page_files(
     (engine / "docs/templates").mkdir(parents=True)
     (engine / "docs/rulings").mkdir(parents=True)
     (engine / "credit_os/web").mkdir(parents=True)
-    for name in ("Update library.cmd", "Start run page.cmd"):
+    for name in ("Update library.cmd", "Start run page.cmd", "Start signal.cmd"):
         (target / name).write_text("legacy", encoding="utf-8")
     for name in (
         "engine/docs/templates/context-form.html",
@@ -242,6 +227,7 @@ def test_the_package_omits_the_retired_form_and_start_page_files(
         (target / name).write_text("legacy", encoding="utf-8")
     runtime.bundle(target, None)
     assert not (target / "Start run page.cmd").exists()
+    assert not (target / "Start signal.cmd").exists()  # It started the removed `signal serve`.
     assert not (engine / "docs/templates/context-form.html").exists()
     assert not (engine / "docs/rulings/2026-11-11-run-start-submit.md").exists()
 

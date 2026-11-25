@@ -1,5 +1,5 @@
 // The Signal service as the connected app reaches it: same-origin paths under /signal/api, which
-// the local server forwards. The browser never calls the Signal service itself.
+// the application's own server answers, in its own process.
 import { postJson, request, RequestError } from "../../connected/api";
 import { errorText, isUnreachable } from "../../connected/useResource";
 import type { SignalAnswer, SignalWrite } from "../actions";
@@ -7,7 +7,7 @@ import { readSlice, type SignalSlice } from "../slice";
 import type { FeedError } from "./hold";
 
 const API = "/signal/api";
-/** The local server gives Signal ten seconds; an answer later than this is not coming. */
+/** How long the page waits for an answer; an answer later than this is not coming. */
 export const TIMEOUT_MS = 20_000;
 
 class TimedOut extends Error {}
@@ -38,7 +38,11 @@ function sentence(failure: unknown): string {
     : errorText(failure);
 }
 
-/** 502 is the local server saying Signal did not answer it; a reply that is not an error yet holds no slice is unreadable. */
+/**
+ * The application's server answers Signal in its own process and sends no 502; a 502 from
+ * anything else on the way is read as Signal not reached. A reply that is not an error yet holds
+ * no slice is unreadable.
+ */
 function kindOf(failure: unknown): FeedError {
   if (failure instanceof TimedOut || isUnreachable(failure)) return "unreachable";
   if (!(failure instanceof RequestError)) return "request";

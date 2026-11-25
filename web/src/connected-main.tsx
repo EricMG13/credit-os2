@@ -14,10 +14,10 @@ if (container === null) throw new Error("connected.html has no #root element");
 const mode = document.querySelector<HTMLMetaElement>('meta[name="credit-os-mode"]');
 const path = window.location.pathname;
 const readOnly = mode?.content === "preview";
-// The server writes this address into the page only when it was started with a Signal service.
-const signal = Boolean(
-  document.querySelector<HTMLMetaElement>('meta[name="credit-os-signal-url"]')?.content,
-);
+// The server writes this meta into the page exactly when it hosts Signal.
+const signal = Array.from(
+  document.querySelectorAll<HTMLMetaElement>('meta[name="credit-os-signal"]'),
+).some((meta) => meta.content === "on");
 const root = createRoot(container);
 
 function draw(page: ReactNode) {
