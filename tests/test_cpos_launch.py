@@ -83,13 +83,18 @@ COVENANT_ROUTES = {
 }
 # Run order for each pathway (registry.plan over the preset, CP-MODEL and CP-8 removed; required
 # producers such as CP-1A are added). Owner, 2026-11-11: CP-DR and CP-2E are in every preset except
-# the lite credit assessment (listed here) and the deactivated short snapshot (SHORT_SNAPSHOT).
+# the deactivated short snapshot (SHORT_SNAPSHOT); the lite credit assessment has CP-DR (owner,
+# 2026-11-25) and no CP-2E.
 PATHWAY_MODULES = {
     # Owner, 2026-11-15: CP-3C joins the full assessment; it requires CP-2D (after CP-2, which
     # it requires), CP-2G consumes CP-2D and CP-3 consumes CP-3C when they are in the run.
+    # Owner, 2026-11-25 (docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md): CP-1B,
+    # CP-1C and CP-1D join. By hand from methodology.json's inputs: CP-1B and CP-DR after CP-1;
+    # CP-1C after CP-DR; CP-1D after CP-1B; CP-2 and CP-4 after CP-1D (CP-2 before CP-4 in the
+    # file's order); CP-2A, CP-2E and CP-2D after CP-2; CP-2G and CP-3C after CP-2A and CP-2D.
     "credit_snapshot": (
-        *("CP-0", "CP-1", "CP-1A", "CP-DR", "CP-4", "CP-2", "CP-2A", "CP-2E", "CP-2D", "CP-2G"),
-        *("CP-3C", "CP-3", "CP-5", "CP-6"),
+        *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-4", "CP-2A"),
+        *("CP-2E", "CP-2D", "CP-2G", "CP-3C", "CP-3", "CP-5", "CP-6"),
     ),
     "earnings_update": ("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-2E", "CP-1D", "CP-5"),
     "relative_value": (
@@ -104,7 +109,11 @@ PATHWAY_MODULES = {
     "portfolio_decision": (
         *("CP-0", "CP-1", "CP-1A", "CP-DR", "CP-2", "CP-2E", "CP-3", "CP-5", "CP-6"),
     ),
-    "lite_credit_assessment": ("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A"),
+    # Owner, 2026-11-25: every layer 1 module, and "lite runs cp-dr too". CP-1B and CP-DR after
+    # CP-1; CP-1C after CP-DR; CP-1D after CP-1B; CP-2 after all of them; CP-2A after CP-2.
+    "lite_credit_assessment": (
+        *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A"),
+    ),
     # Owner, 2026-11-15: "Deep = all". Worked out by hand from methodology.json's inputs: CP-1C
     # after CP-DR, CP-1D after CP-1B, CP-2 after the CP-1 family, CP-2H after CP-2G, CP-3D after
     # CP-2H, CP-3C after CP-2D, CP-4C after CP-4 and CP-3C, CP-3 after every specialist it reads.
@@ -116,8 +125,11 @@ PATHWAY_MODULES = {
 # The owner's preset answer key (2026-11-11), hand-written as sets: what each pathway requests.
 PRESET_ANSWER_KEY = {
     # Owner, 2026-11-15 ("cp-3c ... part of full credit assessment"), with its required CP-2D.
+    # Owner, 2026-11-25 ("all credit assessment pathways (lite, full and deep) should include all
+    # layer 1 modules"): CP-1B, CP-1C and CP-1D join the full and lite assessments.
     "credit_snapshot": (
-        "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6"
+        "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6 "
+        "CP-1B CP-1C CP-1D"
     ),
     # Owner, 2026-11-16 ("Add it to Earnings Update"): CP-1A joins
     # (docs/rulings/2026-11-16-earnings-update-cp1a.md).
@@ -135,10 +147,11 @@ PRESET_ANSWER_KEY = {
     "short_snapshot": "CP-0 CP-1 CP-L10",
     # The lite credit assessment (owner): the credit snapshot's CP-1, CP-1A and CP-2 sections plus
     # CP-2A's two downside blocks. No CP-MODEL (ruling 2026-11-13): the chart strip and credit
-    # metrics are routed to CP-1 and no forecast is published.
-    "lite_credit_assessment": "CP-0 CP-1 CP-1A CP-2 CP-2A",
-    # The deep credit assessment (owner, 2026-11-15, "Deep = all"): the full one plus CP-1B, CP-1C,
-    # CP-1D, CP-2H, CP-3D and CP-4C.
+    # metrics are routed to CP-1 and no forecast is published. 2026-11-25: plus CP-1B, CP-1C, CP-1D
+    # and CP-DR ("lite runs cp-dr too, user only provides comps if they want to at launcher").
+    "lite_credit_assessment": "CP-0 CP-1 CP-1A CP-2 CP-2A CP-1B CP-1C CP-1D CP-DR",
+    # The deep credit assessment (owner, 2026-11-15, "Deep = all"): the full one plus CP-2H, CP-3D
+    # and CP-4C (and, until Full gained them on 2026-11-25, CP-1B, CP-1C and CP-1D).
     "deep_credit_assessment": (
         "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6 "
         "CP-1B CP-1C CP-1D CP-2H CP-3D CP-4C"
@@ -147,12 +160,18 @@ PRESET_ANSWER_KEY = {
 SHORT_SNAPSHOT = ("CP-0", "CP-1", "CP-L10")
 # Run order of the lite pathway and its report blocks, written by hand from the Front Page: the
 # credit snapshot's blocks that CP-1, CP-1A and CP-2 write, then CP-2A's two downside blocks.
-LITE_MODULES = ("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A")
+# Owner, 2026-11-25: CP-1B, CP-1C and CP-1D join, each with its lead section where Deep shows it
+# (after the credit metrics): headline results, earnings quality, peer positioning. CP-DR joins
+# too and keeps no section, as in Full.
+LITE_MODULES = ("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A")
 LITE_BLOCKS = (
     "key-findings",
     "company-operating-model",
     "model-chart-strip",
     "financials-credit-metrics",
+    "headline-results",
+    "earnings-quality",
+    "peer-positioning",
     "strengths-weaknesses",
     "company-profile",
     "transaction-summary",
@@ -160,10 +179,12 @@ LITE_BLOCKS = (
     "break-points",
 )
 # The credit snapshot's own blocks and modules, unchanged by the lite pathway (hand-written).
+# Owner, 2026-11-25: the three layer 1 lead sections join, placed as in Deep.
 FULL_BLOCKS = (
     *("key-findings", "company-operating-model", "model-chart-strip", "capital-structure"),
-    *("financials-credit-metrics", "strengths-weaknesses", "relative-value", "company-profile"),
-    *("transaction-summary", "portfolio-fit", "committee-challenge", "what-changed"),
+    *("financials-credit-metrics", "headline-results", "earnings-quality", "peer-positioning"),
+    *("strengths-weaknesses", "relative-value", "company-profile", "transaction-summary"),
+    *("portfolio-fit", "committee-challenge", "what-changed"),
 )
 DEACTIVATED = "The short credit snapshot is deactivated. Use the lite credit assessment."
 
@@ -1500,16 +1521,17 @@ def test_the_checker_refuses_a_short_snapshot_that_breaks_the_reader_checks(
 # --- The lite and full credit assessments; the deactivated short snapshot ---------------
 
 
-def test_the_lite_preset_is_cp0_cp1_cp1a_cp2_cp2a_with_no_cp_model():
+def test_the_lite_preset_is_cp0_layer_1_cpdr_cp2_cp2a_with_no_cp_model():
     from deploy_vii.contracts import PATHWAY_MODULES as PRESETS
 
     assert PRESETS["lite_credit_assessment"] == LITE_MODULES
     assert "CP-MODEL" not in PRESETS["lite_credit_assessment"]
-    # Owner, 2026-11-13: lite has neither CP-DR nor CP-2E.
-    assert not {"CP-DR", "CP-2E"} & set(PRESETS["lite_credit_assessment"])
+    # Owner, 2026-11-13: lite has no CP-2E. Owner, 2026-11-25: it runs CP-DR.
+    assert "CP-2E" not in PRESETS["lite_credit_assessment"]
+    assert "CP-DR" in PRESETS["lite_credit_assessment"]
 
 
-def test_the_lite_pathway_plans_exactly_cp0_cp1_cp1a_cp2_cp2a_in_order(tmp_path):
+def test_the_lite_pathway_plans_exactly_cp0_layer_1_cpdr_cp2_cp2a_in_order(tmp_path):
     prepared, _ = all_instructions(tmp_path, "lite_credit_assessment")
     assert tuple(prepared.plan.instructions) == LITE_MODULES
     assert prepared.ordered == LITE_MODULES
@@ -1531,6 +1553,10 @@ def test_every_lite_block_is_routed_to_a_module_in_the_run(tmp_path):
     assert by_block["key-findings"] == "CP-2"
     assert by_block["company-operating-model"] == "CP-1A"
     assert by_block["downside-stress"] == by_block["break-points"] == "CP-2A"
+    # Owner, 2026-11-25: one lead section per added layer 1 module, owned as in Deep.
+    assert by_block["headline-results"] == "CP-1B"
+    assert by_block["earnings-quality"] == "CP-1D"
+    assert by_block["peer-positioning"] == "CP-1C"
     # No CP-MODEL: the chart strip and credit metrics are CP-1's, and its instruction asks for
     # neither the period table nor the layer-1 forecast block (ruling 2026-11-13).
     assert by_block["model-chart-strip"] == by_block["financials-credit-metrics"] == "CP-1"
@@ -1547,10 +1573,11 @@ def test_the_credit_snapshot_is_the_full_credit_assessment_with_its_modules_and_
     full = next(p for p in pathways() if p.id == "credit_snapshot")
     assert full.title == "Full credit assessment"
     assert full.blocks == FULL_BLOCKS
-    # Owner, 2026-11-15: CP-3C and its required CP-2D added; the report blocks are unchanged.
+    # Owner, 2026-11-15: CP-3C and its required CP-2D added. Owner, 2026-11-25: CP-1B, CP-1C and
+    # CP-1D added, each with its lead section.
     assert tuple(PRESETS["credit_snapshot"]) == (
-        *("CP-0", "CP-1", "CP-MODEL", "CP-1A", "CP-DR", "CP-2", "CP-2A", "CP-2D", "CP-2E"),
-        *("CP-2G", "CP-4", "CP-3C", "CP-3", "CP-5", "CP-6"),
+        *("CP-0", "CP-1", "CP-MODEL", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2"),
+        *("CP-2A", "CP-2D", "CP-2E", "CP-2G", "CP-4", "CP-3C", "CP-3", "CP-5", "CP-6"),
     )
 
 
@@ -1641,10 +1668,20 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 # 651,532 to 652,944 (+1,412); lite_credit_assessment 414,801 to 416,093 (+1,292);
 # portfolio_decision 942,102 to 943,549 (+1,447); relative_value 1,061,779 to 1,063,824 (+2,045);
 # short_snapshot 156,212 to 157,415 (+1,203).
+# 2026-11-25 (owner: "all credit assessment pathways (lite, full and deep) should include all layer
+# 1 modules" and "lite runs cp-dr too, user only provides comps if they want to at launcher";
+# docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md): CP-1B, CP-1C and CP-1D join the
+# lite and full credit assessments and CP-DR joins the lite one. Measured on this file's input
+# before (base 4aaec9d) and after, each ceiling rises by its pathway's increase, as for the modules
+# added on 2026-11-15 and 2026-11-16. lite_credit_assessment 416,093 to 669,952 (+253,859: CP-1B
+# 66,907, CP-DR 73,449, CP-1C 68,192, CP-1D 45,311), ceiling 421,292 to 675,151. credit_snapshot
+# 1,468,993 to 1,650,316 (+181,323: CP-1B 66,900, CP-1C 68,185, CP-1D 45,304, CP-DR 934 more for
+# the peer pack CP-1C now consumes), ceiling 1,485,996 to 1,667,319. The other seven pathways'
+# instructions are byte-identical and no other ceiling moved.
 INSTRUCTION_BUDGET = {
     "deep_credit_assessment": 1_903_059,
-    "lite_credit_assessment": 421_292,
-    "credit_snapshot": 1_485_996,
+    "lite_credit_assessment": 675_151,
+    "credit_snapshot": 1_667_319,
     "covenant_refinancing": 1_157_279,
     "distressed_restructuring": 1_188_321,
     "earnings_update": 652_950,  # owner, 2026-11-16: CP-1A joins; then reporting currency
@@ -3666,22 +3703,45 @@ def test_the_presets_are_the_owners_answer_key():
     assert all(len(m) == len(set(m)) for m in PRESETS.values())
 
 
-@pytest.mark.parametrize("pathway", sorted(set(PATHWAY_MODULES) - {"lite_credit_assessment"}))
+@pytest.mark.parametrize("pathway", sorted(PATHWAY_MODULES))
 @pytest.mark.parametrize("peer_source", ["cp_dr_public", "user_list", "user_comps", "none"])
 def test_cpdr_and_cp2e_are_in_every_pathway_and_run_in_order(tmp_path, pathway, peer_source):
     """Owner, 2026-11-11: "cp-dr should be on every run or cp-1c wont work. so should cp-2e."
-    The peer source no longer adds or drops CP-DR; the preset carries it."""
+    The peer source no longer adds or drops CP-DR; the preset carries it. Owner, 2026-11-25:
+    "lite runs cp-dr too"; the lite credit assessment alone has no CP-2E (owner, 2026-11-13)."""
     prepared, _ = all_instructions(tmp_path, pathway, peer_source=peer_source)
     order = list(prepared.plan.instructions)
     assert order == list(PATHWAY_MODULES[pathway])
-    assert {"CP-DR", "CP-2E"} <= set(order)
+    assert "CP-DR" in order
+    assert ("CP-2E" in order) is (pathway != "lite_credit_assessment")
     assert "CP-DR" in prepared.plan.run.requested_modules
     if "CP-1C" in order:
         assert order.index("CP-DR") < order.index("CP-1C")
-    if "CP-2" in order:
+    if "CP-2" in order and "CP-2E" in order:
         assert order.index("CP-2E") > order.index("CP-2")
     if "CP-2G" in order:
         assert order.index("CP-2A") < order.index("CP-2G")
+
+
+@pytest.mark.parametrize("pathway", ["lite_credit_assessment", "credit_snapshot"])
+@pytest.mark.parametrize("peer_source", ["cp_dr_public", "user_comps", "none"])
+def test_cp1c_in_lite_and_full_reads_the_peer_pack_and_comparables_are_optional(
+    tmp_path, pathway, peer_source
+):
+    """Owner, 2026-11-25: every layer 1 module in Lite and Full, and "lite runs cp-dr too, user
+    only provides comps if they want to at launcher". With the run start page's default peer
+    source CP-DR is asked for the peer pack and CP-1C reads it, as in Deep; any other peer source
+    launches the same modules and asks for no pack."""
+    prepared, texts = all_instructions(tmp_path, pathway, peer_source=peer_source)
+    assert prepared.ordered == PATHWAY_MODULES[pathway]
+    research = texts["CP-DR"].partition(cpos_launch.METHOD_MARK)[0]
+    benchmark = texts["CP-1C"].partition(cpos_launch.METHOD_MARK)[0]
+    asked = peer_source == "cp_dr_public"
+    assert ("this run requests the peer pack" in research) is asked
+    assert ("the peer set and its figures from the CP-DR handoff's TDR.4" in benchmark) is asked
+    gaps = [i["id"] for i in prepared.expectations if i["id"].startswith("CP-1C:")]
+    # The offline forecast names a run with no peer set.
+    assert ("CP-1C:cp1c-no-peer-source" in gaps) is (peer_source == "none")
 
 
 def test_explicit_modules_are_run_as_given(tmp_path):

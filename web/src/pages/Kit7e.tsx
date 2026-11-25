@@ -74,7 +74,7 @@ export function KitOverlays() {
                         </h3>
                         <p className="text-small text-text-secondary">
                           This run costs money and cannot be undone. It stops at the Full cap of USD
-                          25.
+                          30.
                         </p>
                       </div>
                       <div className="flex gap-3">

@@ -503,6 +503,9 @@ class Pathway(Contract):
 # block ids follow each Front Page's outline (``rbot-fp-0N-*.dc.html``), "The call" excluded
 # because the call band is ``ReportView.call``. Ids that existing bindings name
 # (``financials-credit-metrics``, ``capital-structure``) keep those spellings.
+# Ruling 2026-11-25-layer-1-in-all-assessment-pathways: Lite and Full hold one lead section for each
+# layer 1 module they gained (CP-1B ``headline-results``, CP-1D ``earnings-quality``, CP-1C
+# ``peer-positioning``), owned and placed as in Deep.
 _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
     (
         "lite_credit_assessment",
@@ -513,6 +516,9 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
             "company-operating-model",
             "model-chart-strip",
             "financials-credit-metrics",
+            "headline-results",
+            "earnings-quality",
+            "peer-positioning",
             "strengths-weaknesses",
             "company-profile",
             "transaction-summary",
@@ -530,6 +536,9 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
             "model-chart-strip",
             "capital-structure",
             "financials-credit-metrics",
+            "headline-results",
+            "earnings-quality",
+            "peer-positioning",
             "strengths-weaknesses",
             "relative-value",
             "company-profile",
@@ -539,9 +548,9 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
             "what-changed",
         ),
     ),
-    # Ruling 2026-11-15-pathway-tiers-and-caps: the full assessment's twelve sections, the lite
-    # one's two downside sections and one lead section for each module Full does not run or show
-    # (CP-1B, CP-1D, CP-1C, CP-2D, CP-2G, CP-2H, CP-4, CP-4C, CP-3C, CP-3D), each owned as in its
+    # Ruling 2026-11-15-pathway-tiers-and-caps: the full assessment's sections (fifteen since
+    # 2026-11-25), the lite one's two downside sections and one lead section for each module Full
+    # does not run or show (CP-2D, CP-2G, CP-2H, CP-4, CP-4C, CP-3C, CP-3D), each owned as in its
     # purpose pathway. CP-DR and CP-2E keep no section, as in Full.
     (
         "deep_credit_assessment",
@@ -3001,10 +3010,15 @@ def _cr1_figures(
 
 # -- group b (RV.3, CR.1) --
 # Deep shows the same blocks, owned by the same modules (ruling 2026-11-15-pathway-tiers-and-caps).
+# Lite and Full show ``peer-positioning`` too (ruling
+# 2026-11-25-layer-1-in-all-assessment-pathways); RV.3 reads CP-1C's own facts only, and draws
+# nothing when no peer is included.
 register_figure_producer(
     "peer-positioning",
     _rv3_figures,
-    pathways=frozenset({"relative_value", "deep_credit_assessment"}),
+    pathways=frozenset(
+        {"relative_value", "lite_credit_assessment", "credit_snapshot", "deep_credit_assessment"}
+    ),
 )
 register_figure_producer(
     "covenant-tests-headroom",

@@ -367,12 +367,81 @@ def test_a_lite_run_with_an_earlier_lite_run_plans_cp8_last(tmp_path):
     assert first.ordered == LITE_MODULES
 
 
+# The modules a Lite and a Full run delivered before CP-1B, CP-1C and CP-1D joined both presets and
+# CP-DR joined Lite (owner, 2026-11-25; docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways
+# .md). Written by hand from the presets as they stood; CP-MODEL delivers no handoff.
+ADDED_SINCE = {
+    "lite_credit_assessment": ["CP-1B", "CP-1C", "CP-1D", "CP-DR"],
+    "credit_snapshot": ["CP-1B", "CP-1C", "CP-1D"],
+}
+EARLIER_PRESET_RUNS = {
+    "lite_credit_assessment": ("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A"),
+    "credit_snapshot": (
+        *("CP-0", "CP-1", "CP-1A", "CP-DR", "CP-4", "CP-2", "CP-2A", "CP-2E", "CP-2D", "CP-2G"),
+        *("CP-3C", "CP-3", "CP-5", "CP-6"),
+    ),
+}
+
+
+@pytest.mark.parametrize("pathway", sorted(EARLIER_PRESET_RUNS))
+def test_a_run_made_before_layer_1_joined_is_the_base_and_the_added_modules_are_new(
+    tmp_path, monkeypatch, pathway
+):
+    """An earlier preset run with the smaller module set is still compared with: CP-8 is planned,
+    the pack states the added modules as run now and not before, nothing as dropped, and the
+    checker takes `New` with the cause `Method change` for each (both runs are preset runs)."""
+    import library_fixtures
+
+    from deploy_workflow.changes_check import _analysis_issues
+
+    earlier = EARLIER_PRESET_RUNS[pathway]
+    for module in set(earlier) - set(library_fixtures.METHOD):  # the fixture's stand-in methods
+        stand_in = f"=== methods/{module}.md sha256 {{h}} ===\n# {module} method\nAssess."
+        monkeypatch.setitem(library_fixtures.METHOD, module, stand_in)
+    workspace = tmp_path / "ws"
+    held = {"pathway": pathway, "modules": earlier, "selection": "preset"}
+    make_run(workspace, PRIOR_ID, as_of="2024-12-31", **held)
+    context, folder = snapshot_context(tmp_path, pathway)
+    prepared = prepare(context, folder, workspace / "runs/cur", config="sol-medium", cap="15")
+    assert prepared.prior is not None
+    assert (prepared.prior.folder, prepared.prior.selection) == (PRIOR_ID, "preset")
+    assert prepared.prior.modules == earlier
+    assert prepared.ordered == (*PATHWAY_MODULES[pathway], "CP-8")
+    assert prepared.plan.selection == "preset"
+    pack = build_pack(
+        prepared.prior,
+        {m: handoff(m, f"{m} earlier view.") for m in earlier},
+        {m: handoff(m, f"{m} current view.") for m in PATHWAY_MODULES[pathway]},
+        as_of=AS_OF,
+        pathway=pathway,
+        selection=prepared.plan.selection,
+    )
+    assert (pack["prior"]["selection"], pack["current"]["selection"]) == ("preset", "preset")
+    ran = {m["module"]: (m["ran_prior"], m["ran_current"]) for m in pack["modules"]}
+    assert sorted(m for m, state in ran.items() if state == (False, True)) == ADDED_SINCE[pathway]
+    assert all(state == (True, True) for m, state in ran.items() if m in earlier)
+    assert set(ran) == set(PATHWAY_MODULES[pathway])
+    new = set(ADDED_SINCE[pathway])
+
+    def rows(cause: str) -> list[list[str]]:
+        return [
+            [f"Module ({m})", "New", cause, "The pathway's module set changed between the runs."]
+            if m in new
+            else [f"Module ({m})", "Unchanged", "None", "No material change."]
+            for m in ran
+        ]
+
+    assert _analysis_issues(rows("Method change"), pack) == []
+    refused = _analysis_issues(rows("New source"), pack)
+    assert len(refused) == len(new) and all("write the Cause `Method change`" in i for i in refused)
+
+
 @pytest.mark.browser
 def test_a_second_lite_run_runs_cp8_last_and_the_changes_page_shows_the_comparison(
     tmp_path, provider, capsys
 ):
     """Synthetic: the real launcher, checker, delivery and library over a prior lite run. It
-    proves the wiring of CP-8 after the five lite modules, not analytical quality."""
+    proves the wiring of CP-8 after the lite modules, not analytical quality."""
     from test_library_page_browser import visit
 
     workspace = tmp_path / "ws"

@@ -49,7 +49,8 @@ def test_activity_uses_recorded_selected_or_legacy_pathway_cap(tmp_path):
     layout.state.mkdir(parents=True)
     cases = (
         ("legacy-full", "credit_snapshot", "", "20"),
-        ("legacy-lite", "lite_credit_assessment", "", "15"),
+        # Lite's cap is USD 20 since 2026-11-25, so a legacy record's USD 20 is no longer lowered.
+        ("legacy-lite", "lite_credit_assessment", "", "20"),
         ("selected-full", "credit_snapshot", "23", "23"),
     )
     for run_id, pathway, cap, expected in cases:

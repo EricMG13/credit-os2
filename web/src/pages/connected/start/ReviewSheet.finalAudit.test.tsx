@@ -20,7 +20,7 @@ const summary: Summary = {
   documents: [],
   ignored: [],
   digest: "approved",
-  cap: "25",
+  cap: "30",
   modules: ["CP-0"],
   items: [],
   omitted: [],

@@ -13,8 +13,10 @@ from proof import DUMMY_KEY, launcher, launcher_command
 from proof.launcher import AGREEMENT, FILING, HANDOFFS, canned_handoff, verify_upload
 
 PROJECT = Path(__file__).resolve().parents[1]
+# The full credit assessment's modules. Owner, 2026-11-25: with CP-1B, CP-1C and CP-1D
+# (docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md).
 MODULES = (
-    *("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A", "CP-2D", "CP-2E"),
+    *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-1C", "CP-1D", "CP-2", "CP-2A", "CP-2D", "CP-2E"),
     *("CP-2G", "CP-3", "CP-3C", "CP-4", "CP-5", "CP-6", "CP-DR"),
 )
 
@@ -104,11 +106,11 @@ def test_real_scheduler_exports_the_submitted_run(monkeypatch, legal, model, eff
                 time.sleep(0.05)
             log = (layout.logs / f"{submitted.id}.log").read_text()
             assert record.status == "finished", (record.reason, log)
-            assert record.cap == "25"
+            assert record.cap == "30"  # Full's cap (owner, 2026-11-25)
             assert (record.config, record.effort) == (config, effort)
             loop_record = layout.runs / record.id / "live" / "loop.json"
             assert json.loads(loop_record.read_text())["config"] == config
-            assert cap_of(record) == Decimal(25)
+            assert cap_of(record) == Decimal(30)
             assert "Charged:  USD 0" in log
             assert_exported_report(layout, submitted.id, legal)
         finally:
@@ -154,7 +156,7 @@ def assert_legal_handoffs(layout, reader, legal):
         row["module"]: (layout.engine / "library" / row["href"]).read_text()
         for row in reader["evidence"]["handoffs"]
     }
-    assert len(delivered) == 14
+    assert len(delivered) == len(MODULES) == 17
     gated = legal == "none"
     assert ("module_status: Blocked" in delivered["CP-4"]) == gated
     assert ("Not assessable: no executed governing document was supplied" in delivered["CP-4"]) == (

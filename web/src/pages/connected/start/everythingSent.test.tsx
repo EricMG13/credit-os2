@@ -112,7 +112,7 @@ function disclosed(answers: Answers) {
         answers,
         // The service's summary echoes the model and effort it was sent; the sheet shows those.
         summary: {
-          ...summaryFor("25", modules),
+          ...summaryFor("30", modules),
           model: answers.model,
           effort: answers.effort,
         } as unknown as Summary,

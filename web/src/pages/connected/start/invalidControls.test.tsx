@@ -16,7 +16,7 @@ function stubFetch() {
     "/connected/context": {
       run: { as_of: "", pathway: "credit_snapshot", case_kind: "synthetic" },
       identity: { issuer_name: "", issuer_id: "" },
-      submission_caps_usd: { credit_snapshot: "25" },
+      submission_caps_usd: { credit_snapshot: "30" },
     },
     "/api/submissions": { id: "sub-1" },
     "/api/submissions/sub-1/files?name=filing.txt": { name: file.name },

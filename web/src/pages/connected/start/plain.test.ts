@@ -470,7 +470,7 @@ describe("refusalProblems: each problem with the control that sets its path", ()
   });
 
   it("gives no control to a problem whose control the pathway does not draw", () => {
-    const lite = ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A"];
+    const lite = ["CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A"];
     expect(
       refusalProblems("module_options.cp3_mode: is required.", lite)[0]?.field,
     ).toBeUndefined();

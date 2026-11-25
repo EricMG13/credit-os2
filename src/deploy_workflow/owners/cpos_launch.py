@@ -814,9 +814,10 @@ def _instructions(
 
 def pathway_modules(settings: RunContext) -> tuple[str, ...]:
     """A pathway's analytical modules: its preset less the modules that have their own route.
-    Owner, 2026-11-11: CP-DR and CP-2E are in every preset except ``short_snapshot`` and
-    ``lite_credit_assessment``, which have neither (CP-1C needs CP-DR's peers), so the
-    context's peer source no longer adds a module. Explicit --modules are run as given."""
+    Owner, 2026-11-11: CP-DR and CP-2E are in every preset except ``short_snapshot``, which has
+    neither, and ``lite_credit_assessment``, which has CP-DR (owner, 2026-11-25: "lite runs cp-dr
+    too") and no CP-2E, so the context's peer source no longer adds a module. Explicit --modules
+    are run as given."""
     return tuple(m for m in PATHWAY_MODULES[settings.run.pathway] if m not in NOT_ANALYTICAL)
 
 
@@ -1584,7 +1585,8 @@ def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal:
     if asked > ceiling:
         raise LaunchRefused(
             f"--cap {asked}: above the {pathway} cap of USD {ceiling} "
-            "(docs/rulings/2026-11-15-pathway-tiers-and-caps.md); a lower cap is allowed"
+            "(docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md); "
+            "a lower cap is allowed"
         )
     return asked
 
