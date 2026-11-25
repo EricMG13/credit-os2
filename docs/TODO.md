@@ -30,6 +30,8 @@ Owner decisions, 2026-11-25:
 | 7 | **Full Entra deployment: app registration limited to the organisation's own tenant, tenant and client ids, redirect address, and a sign-in with real work accounts** | **Work PC only** | Not started |
 | 8 | Security audit of the sign-in code with `cloudflare/security-audit-skill` once items 2 to 5 exist | This repository | Not started |
 
+Items 2 to 5: draft spec `docs/superpowers/specs/2026-11-26-sign-in-and-accounts.md`.
+
 Until item 7 is done on the work PC, sign-in is proved only against a stand-in identity
 provider and must be labelled with that scope in VERIFICATION.md.
 
