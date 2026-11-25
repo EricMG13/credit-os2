@@ -62,6 +62,7 @@ jobs:
             tests/test_method_scripts_rest.py tests/test_cpos_register_scope.py \
             tests/test_http_base.py tests/test_methodology_selection.py \
             tests/test_portfolio_workbook.py tests/test_portfolio_export.py \
+            tests/test_reference_portfolios.py tests/test_reference_fetch.py \
             tests/test_pathway_tiers.py \
             tests/test_react_*.py proof/test_launcher.py \
             tests/test_publication_reuse.py tests/test_cpos_parallel.py
