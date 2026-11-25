@@ -14,7 +14,9 @@ then 5; the narrow layout and the controls listed below.
 - No model or provider was called and no ruling was added. Every AI test is SYNTHETIC: a fake
   model, or the real `CopilotAdapter` class driven by its test rig's fake client. A live proof is
   a separate paid step. `docs/rulings/` holds no Signal ruling, so the pass is off; the draft
-  ruling is outside the repository for the owner.
+  for the owner is `docs/superpowers/specs/2026-11-25-signal-ai-ruling-draft.md`, outside the
+  rulings folder, with its date, cap and answer left blank (`signal ai status` on a fresh store:
+  state off, ruling missing).
 - Lead's own runs on the final state: 1,469 tests in `tests/test_signal_*.py` pass (none
   skipped, React reader present); quality gate 0 findings in 86 changed files; `lint-imports` 3
   contracts kept; strict mypy clean on 38 files. Web: 327 files, 5,704 tests pass; lint,
