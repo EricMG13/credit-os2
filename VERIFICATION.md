@@ -13,9 +13,12 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   (outside the repo; inputs are copies, originals' hashes unchanged).
 - Done: `test-tdg-lite-sol-b1` Lite, 5 of 5 accepted, USD 2.23; `test-tdg-lite-sol-b2` Lite plus
   CP-L10 compared with b1, 7 of 7 accepted (CP-8 included), USD 2.55.
-- Running when this was written: `test-tdg-deep-sol-a`, Deep preset, 20 modules, cap USD 40,
-  `--test-assume-distress`; 3 of 20 accepted (CP-0, CP-1, CP-1A). If it was interrupted, relaunch
-  with the same command and cap (it resumes; nothing is sent or charged twice):
+- `test-tdg-deep-sol-a`, Deep preset, 20 modules, cap USD 40, `--test-assume-distress`: **stopped
+  at CP-2E turn 3, 10 of 20 accepted** (CP-0, 1, 1A, 1B, DR, 1C, 1D, 2, 4, 2A), USD 5.71 settled.
+  Cause: the gh account's GitHub Copilot **monthly quota is exhausted** (`quota: You have exceeded
+  your monthly quota`), recorded as `sent_unknown`, so one call hold (USD 7.17) stays counted
+  against the cap (`model/loop.py`). Relaunch only once a gh account with Copilot quota is signed
+  in (`gh auth status`), with the same command and cap; accepted modules are not re-sent:
   `COPILOT_USE_GH_LOGIN=1 COPILOT_CLI_PATH=~/Library/Caches/github-copilot-sdk/cli/1.0.105/prebuilds/darwin-arm64/copilot-runtime
   uv run python -m deploy_workflow.owners.cpos_launch --context ~/cos-live/tdg-all-sol-20261125/context.json
   --sources ~/cos-live/tdg-all-sol-20261125/sources --config copilot-sol-medium --cap 40 --prior none
@@ -31,7 +34,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   handoffs and fixed; web tests 8,021 pass; rendered check 43 of 45 at 1440/1280/1024 (open: on
   `#modules/CP-1` an axis "0" touches a period label at 1440 and 1024; a fix was in progress and
   may be half-applied in `report/leads/foundation/`).
-- To do: finish the Deep run; validate its 13 further module pages, Forecast and Overview; scoped
+- To do: finish the Deep run (CP-2E, 2D, 2G, 2H, 3D, 3C, 4C, 3, 5, 6); validate its 13 further module pages, Forecast and Overview; scoped
   re-review of the narrowed print citation rule (`export/printTable.ts`); final gates; replace this
   entry with the result.
 - Found on real output, outside the frontend (not fixed): "Nine months ended …" periods match no
