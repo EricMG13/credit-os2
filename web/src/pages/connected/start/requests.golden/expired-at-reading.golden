@@ -1,0 +1,66 @@
+[
+ {
+  "method": "GET",
+  "path": "/connected/context"
+ },
+ {
+  "method": "GET",
+  "path": "/api/issuers/northbridge-synthetic-group"
+ },
+ {
+  "method": "POST",
+  "path": "/api/submissions"
+ },
+ {
+  "method": "POST",
+  "path": "/api/submissions/sub-1/files?name=northbridge-filing.txt",
+  "body": {
+   "file": "northbridge-filing.txt"
+  }
+ },
+ {
+  "method": "GET",
+  "path": "/api/submissions/sub-1/reading"
+ },
+ {
+  "method": "POST",
+  "path": "/api/submissions"
+ },
+ {
+  "method": "POST",
+  "path": "/api/submissions/sub-2/files?name=northbridge-filing.txt",
+  "body": {
+   "file": "northbridge-filing.txt"
+  }
+ },
+ {
+  "method": "GET",
+  "path": "/api/submissions/sub-2/reading"
+ },
+ {
+  "method": "GET",
+  "path": "/api/submissions/sub-2/reading"
+ },
+ {
+  "method": "GET",
+  "path": "/api/issuers/northbridge-synthetic-group"
+ },
+ {
+  "method": "POST",
+  "path": "/api/submissions/sub-2/summary",
+  "headers": {
+   "Content-Type": "application/json",
+   "X-Shown-Cap": "25"
+  },
+  "body": "{\"context\":{\"schema\":\"context/1\",\"run\":{\"run_type\":\"research\",\"pathway\":\"credit_snapshot\",\"case_kind\":\"synthetic\",\"as_of\":\"2025-03-31\",\"current_period\":\"\",\"prior_period\":\"\",\"cutoff\":\"2025-03-31\"},\"identity\":{\"issuer_name\":\"Northbridge Synthetic Group\",\"issuer_id\":\"northbridge-synthetic-group\",\"borrower_name\":\"\",\"parent_name\":\"\",\"guarantors\":[],\"aliases\":[],\"listed_equity\":false,\"ticker\":\"\",\"sector\":\"\",\"country\":\"\",\"sponsor\":\"\"},\"deal_terms\":[],\"quotes\":[],\"ratings\":[],\"valuation\":{\"peer_source\":\"cp_dr_public\",\"basis\":\"auto\",\"issuer_market\":{\"market_cap_m\":\"\",\"net_debt_m\":\"\",\"ev_m\":\"\",\"ebitda_basis\":\"LTM\",\"as_of\":\"\",\"source\":\"\"},\"peers\":[],\"precedents\":[],\"user_multiple\":{\"value\":\"\",\"basis\":\"LTM\",\"rationale\":\"\"}},\"assumptions\":{\"cp2a\":null,\"cp2d\":null,\"cp2e\":null,\"cp3c\":null,\"cp3d\":null,\"cp4c\":null},\"attachments\":{\"legal_documents\":\"none\",\"management_bridge\":false,\"portfolio_workbook\":false,\"prior_case\":false},\"research_questions\":[]},\"modules\":[],\"max_turns\":32,\"level\":\"basic\",\"model\":\"gpt\",\"effort\":\"balanced\",\"submitted_by\":\"Ana L\"}"
+ },
+ {
+  "method": "POST",
+  "path": "/api/submissions/sub-2/submit",
+  "headers": {
+   "Content-Type": "application/json",
+   "X-Shown-Cap": "25"
+  },
+  "body": "{\"answers\":{\"context\":{\"schema\":\"context/1\",\"run\":{\"run_type\":\"research\",\"pathway\":\"credit_snapshot\",\"case_kind\":\"synthetic\",\"as_of\":\"2025-03-31\",\"current_period\":\"\",\"prior_period\":\"\",\"cutoff\":\"2025-03-31\"},\"identity\":{\"issuer_name\":\"Northbridge Synthetic Group\",\"issuer_id\":\"northbridge-synthetic-group\",\"borrower_name\":\"\",\"parent_name\":\"\",\"guarantors\":[],\"aliases\":[],\"listed_equity\":false,\"ticker\":\"\",\"sector\":\"\",\"country\":\"\",\"sponsor\":\"\"},\"deal_terms\":[],\"quotes\":[],\"ratings\":[],\"valuation\":{\"peer_source\":\"cp_dr_public\",\"basis\":\"auto\",\"issuer_market\":{\"market_cap_m\":\"\",\"net_debt_m\":\"\",\"ev_m\":\"\",\"ebitda_basis\":\"LTM\",\"as_of\":\"\",\"source\":\"\"},\"peers\":[],\"precedents\":[],\"user_multiple\":{\"value\":\"\",\"basis\":\"LTM\",\"rationale\":\"\"}},\"assumptions\":{\"cp2a\":null,\"cp2d\":null,\"cp2e\":null,\"cp3c\":null,\"cp3d\":null,\"cp4c\":null},\"attachments\":{\"legal_documents\":\"none\",\"management_bridge\":false,\"portfolio_workbook\":false,\"prior_case\":false},\"research_questions\":[]},\"modules\":[],\"max_turns\":32,\"level\":\"basic\",\"model\":\"gpt\",\"effort\":\"balanced\",\"submitted_by\":\"Ana L\"},\"digest\":\"digest-25\"}"
+ }
+]

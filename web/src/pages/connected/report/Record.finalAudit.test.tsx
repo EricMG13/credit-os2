@@ -69,7 +69,7 @@ it("uses the run's own execution rather than the service mode and names empty ca
   module.open = true;
   expect(within(module).getByRole("heading", { name: "Model calls" })).toBeVisible();
   expect(within(module).getAllByLabelText("Not recorded for this call")).toHaveLength(2);
-  expect(within(module).queryByLabelText("Empty in the handoff")).toBeNull();
+  expect(within(module).queryByLabelText("Left blank")).toBeNull();
 });
 
 it.each([null, undefined])(

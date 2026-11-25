@@ -33,6 +33,8 @@ const references = [
   "See p.12 for the covenant.",
   "See pp. 12–14 for the covenant.",
   "See page 12 for the covenant.",
+  "Q page:47 from the annual report.",
+  "A page: 172 sets the threshold.",
   "See pages 12 to 14 for the covenant.",
   "The accounts at 31 December 2025 p. 12 contain the covenant.",
   "The annual report 2025 page 83 contains the covenant.",
@@ -97,4 +99,75 @@ it("keeps ordinary values in an ambiguous Code column and excludes real citation
     0,
   ]);
   expect(displayColumns(["Code"], false, [{ line: 1, cells: ["See p. 12."] }])).toEqual([]);
+});
+
+it.each(["net debt /EBITDA", "Leverage (/share) is flat.", "cash and /or debt", "ratio / EBITDA"])(
+  "does not read a slash after a space as a path: %s",
+  (text) => {
+    expect(containsReference(text)).toBe(false);
+  },
+);
+
+it.each([
+  "See /Users/x/report for detail.",
+  "Output in ./out/a",
+  "Output in ../out/a",
+  "Output in ~/a",
+  "Saved to C:\\a",
+  "Saved to \\\\server\\share",
+  "Read https://x",
+  "Read www.example.com",
+])("still reads an address as a reference: %s", (text) => {
+  expect(containsReference(text)).toBe(true);
+});
+
+it.each([
+  "Copied to s3://bucket/run",
+  "Copied to gs://b/a",
+  "Fetched from sftp://h/d",
+  "Fetched from smb://s/x",
+  "Read git+ssh://host/repo",
+  "Read S3://Bucket/Run",
+])("reads an address with any URI scheme as a reference: %s", (text) => {
+  expect(containsReference(text)).toBe(true);
+});
+
+it.each(["Leverage rose to 3:1 by year end.", "Ratio 2:1 // compared with prior"])(
+  "does not read a ratio or a bare double slash as an address: %s",
+  (text) => {
+    expect(containsReference(text)).toBe(false);
+  },
+);
+
+it.each([
+  "Saved to //server/share/file",
+  "Saved to (//a/b)",
+  "Saved to C:/Users/x",
+  "Saved to C:/x",
+  "Read file:/x",
+  "Read onedrive:/x",
+])(
+  "reads a forward-slash share, drive or single-slash scheme address as a reference: %s",
+  (text) => {
+    expect(containsReference(text)).toBe(true);
+  },
+);
+
+it.each([
+  "Leverage is 3:1 at year end.",
+  "Ratio 2.5x:1",
+  "The call is at 10:30 on Tuesday.",
+  "Total: //",
+  "See note: /a",
+  "Either // or neither",
+  "S&P: B/Stable",
+  "Moody's: B2 / S&P: B",
+  "USD/JPY: /spot/ 150",
+  "EBITDA/interest: /cash/ 3.2x",
+  "debt/EBITDA of 4.5x/3.2x",
+  "on 12/31/2025",
+  "net debt /EBITDA",
+  "(/share)",
+])("does not read a ratio, a time or a spaced slash as an address: %s", (text) => {
+  expect(containsReference(text)).toBe(false);
 });

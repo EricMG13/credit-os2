@@ -144,7 +144,7 @@ function sourceFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return sourceFiles(full);
-    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [full] : [];
+    return /\.tsx?$/.test(entry.name) && !/\.(test|fixture)\.tsx?$/.test(entry.name) ? [full] : [];
   });
 }
 

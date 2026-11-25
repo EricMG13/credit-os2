@@ -84,6 +84,16 @@ test("test files are not scanned", () => {
   assert.deepEqual(classProblems(root, "", []), []);
 });
 
+test("fixture files, imported only by tests, are not scanned", () => {
+  const root = src({ "a.fixture.ts": 'export const c = "text-anchor";' });
+  assert.deepEqual(classProblems(root, "", []), []);
+});
+
+test("a source file whose name only contains fixture is scanned", () => {
+  const root = src({ "fixtures.ts": 'export const c = "text-nope";' });
+  assert.equal(classProblems(root, "", []).length, 1);
+});
+
 test("an allowlisted token is skipped", () => {
   const root = src({ "a.ts": 'export const c = "to-do";' });
   assert.deepEqual(classProblems(root, "", ["to-do"]), []);

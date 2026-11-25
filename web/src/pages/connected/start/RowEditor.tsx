@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ChevronDown } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { moduleName } from "../api";
 import { field, label } from "../layout";
@@ -117,7 +118,7 @@ export function RowEditor({
   return (
     <div className="grid gap-2">
       {required && rows.length === 0 && !error && (
-        <p className="text-sm text-text-secondary">
+        <p className="text-small text-text-secondary">
           At least one {spec.title.toLowerCase()} is required for a new issue.
         </p>
       )}
@@ -143,6 +144,7 @@ export function RowEditor({
           <Button
             size="sm"
             color="secondary"
+            className="min-h-8 max-[480px]:min-h-11"
             ref={addButtonRef}
             data-field={kind}
             isDisabled={full}
@@ -155,15 +157,15 @@ export function RowEditor({
           </Button>
         </div>
         {full && (
-          <p id={maxId} className="text-sm text-text-secondary">
+          <p id={maxId} className="text-small text-text-secondary">
             At most {spec.max} {spec.plural}.
           </p>
         )}
-        <p role="status" className="text-sm text-text-secondary empty:hidden">
+        <p role="status" className="text-small text-text-secondary empty:hidden">
           {removed.text ? <span key={removed.count}>{removed.text}</span> : null}
         </p>
         {error && (
-          <p id={errorId} role="alert" className="text-sm text-error-primary">
+          <p id={errorId} role="alert" className="text-small text-error-primary">
             {error}
           </p>
         )}
@@ -197,15 +199,19 @@ function RowItem({
   const [open] = useState(startOpen);
   const groups = [...new Set(fields.map((item) => item.group ?? ""))];
   return (
-    <details open={open || undefined} className="min-w-0">
-      <summary className="cursor-pointer pr-24 text-sm">
-        <span className="font-semibold">{title}</span>
-        <span className="ml-2 text-text-secondary">{summary}</span>
+    <details open={open || undefined} className="group/row min-w-0">
+      <summary className="flex min-h-8 cursor-pointer list-none flex-wrap items-center gap-x-2 pr-24 text-small max-[480px]:min-h-11 [&::-webkit-details-marker]:hidden">
+        <ChevronDown
+          aria-hidden="true"
+          className="size-4 shrink-0 text-text-tertiary transition-transform group-open/row:rotate-180"
+        />
+        <span className="font-medium">{title}</span>
+        <span className="text-text-secondary">{summary}</span>
       </summary>
       <div className="mt-3 grid gap-4">
         {groups.map((group) => (
           <div key={group} className="grid gap-2">
-            {group && <h5 className="text-sm font-semibold text-text-secondary">{group}</h5>}
+            {group && <h5 className="text-small font-medium text-text-secondary">{group}</h5>}
             <div className="grid gap-3 sm:grid-cols-2">
               {fields
                 .filter((item) => (item.group ?? "") === group)
@@ -278,7 +284,7 @@ function EditableRow({
       <Button
         size="sm"
         color="secondary"
-        className="absolute right-3 top-2"
+        className="absolute top-2 right-3 min-h-8 max-[480px]:min-h-11"
         aria-label={`Remove ${title}`}
         ref={removeRef}
         onPress={onRemove}

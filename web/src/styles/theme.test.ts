@@ -8,7 +8,7 @@ const docs = path.resolve(webRoot, "..", "docs", "design");
 // A checkout on Windows may carry CRLF line endings; the parsers below expect LF.
 const lf = (text: string): string => text.replace(/\r\n/g, "\n");
 const designSystem = lf(readFileSync(path.join(docs, "design-system.md"), "utf8"));
-const brandTokens = lf(readFileSync(path.join(docs, "brand-tokens.md"), "utf8"));
+const design = lf(readFileSync(path.resolve(webRoot, "..", "DESIGN.md"), "utf8"));
 const themePath = path.join(here, "theme.css");
 const theme = existsSync(themePath) ? lf(readFileSync(themePath, "utf8")) : "";
 
@@ -202,13 +202,15 @@ describe("theme.css", () => {
   });
 
   it("names the three font families from the Type table", () => {
-    expect(declared("font-display")).toContain('"Schibsted Grotesk"');
+    expect(declared("font-display")).toContain('"Geist"');
     expect(declared("font-body")).toContain('"Geist"');
     expect(declared("font-mono")).toContain('"Geist Mono"');
   });
 
-  it("uses only hexes that appear in brand-tokens.md", () => {
-    const allowed = new Set((brandTokens.match(HEX) ?? []).map((h) => h.toUpperCase()));
+  it("uses only hexes that appear in DESIGN.md or the token register", () => {
+    const allowed = new Set(
+      (`${design}\n${designSystem}`.match(HEX) ?? []).map((h) => h.toUpperCase()),
+    );
     const used = (theme.match(HEX) ?? []).map((h) => h.toUpperCase());
     expect(used.length).toBeGreaterThan(0);
     expect(used.filter((h) => !allowed.has(h))).toEqual([]);
@@ -218,7 +220,7 @@ describe("theme.css", () => {
     const urls = [...theme.matchAll(/@font-face\s*{[^}]*?url\(\s*["']?([^"')]+)["']?\s*\)/g)].map(
       (m) => need(m[1], "url"),
     );
-    expect(urls).toHaveLength(7);
+    expect(urls).toHaveLength(5);
     for (const url of urls) {
       expect(existsSync(path.join(webRoot, "public", url.replace(/^\.?\//, ""))), url).toBe(true);
     }

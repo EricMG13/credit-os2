@@ -14,7 +14,7 @@ import { buildReportView } from "./reportView";
 import { findingBlocks, traceForLine } from "./ReportContent";
 import { calculationNodes } from "./report/calculations";
 import { MetricGrid } from "./report/MetricGrid";
-import { cashProxyCases, type Grid } from "./visuals/LegacyForecast";
+import { cashProxyCases, forecastCaseNames, type Grid } from "./visuals/LegacyForecast";
 
 function table(heading: string, headers: string[], cells: string[][], line: number): Section {
   return {
@@ -312,20 +312,24 @@ describe("reader data fidelity", () => {
           label: "Cash proxy (not issuer free cash flow)",
           total: true,
           band: "",
-          cells: [{ exact: "0", status: "value" }, { reason: "No model driver" }],
+          cells: [
+            { exact: "0", status: "value", display: "0" },
+            { reason: "No model driver", display: "n.a." },
+          ],
         },
       ],
     };
-    expect(cashProxyCases(grid, null).rows).toEqual([
+    // The case names are the model's: made from its whole cash flow record, notes included.
+    expect(cashProxyCases(grid, null, forecastCaseNames(grid)).rows).toEqual([
       { label: "Downside case", cells: ["0.00", "No model driver"] },
     ]);
-    expect(
-      cashProxyCases(
-        grid,
-        null,
-        "Downside case is the stress case: a shock applied to the base-case drivers.",
-      ).rows[0]?.label,
-    ).toBe("Downside shock");
+    const stressed = {
+      ...grid,
+      notes: ["Downside case is the stress case: a shock applied to the base-case drivers."],
+    };
+    expect(cashProxyCases(grid, null, forecastCaseNames(stressed)).rows[0]?.label).toBe(
+      "Downside shock",
+    );
   });
 });
 
@@ -721,15 +725,28 @@ describe("what the overview carries for every module", () => {
           summary: "Leverage is high [CP-1 p. 4].",
           summaryLimit: "Unaudited. 【12†L5-L9】",
         },
-        "CP-3": { summary: "Bonds are cheap 【12†L5-L9】." },
+        "CP-4": { summary: "Covenants are loose 【12†L5-L9】." },
       },
       null,
     );
     expect(moduleBottomLines(view, run).map((row) => row.text)).toEqual([
       "Leverage is high.",
-      "Bonds are cheap.",
+      "Covenants are loose.",
     ]);
     expect(runLimitations(view, run).map((row) => row.text)).toEqual(["Unaudited."]);
+  });
+
+  it("withholds the bottom line of a module that can state the decision, and says it is withheld", () => {
+    const { run, view } = overviewFixture(
+      { "CP-1": { summary: "Leverage is high." }, "CP-3": { summary: "Prefer the 2030 notes." } },
+      null,
+    );
+    expect(
+      moduleBottomLines(view, run).map(({ id, text, withheld }) => ({ id, text, withheld })),
+    ).toEqual([
+      { id: "CP-1", text: "Leverage is high.", withheld: false },
+      { id: "CP-3", text: null, withheld: true },
+    ]);
   });
 
   it("takes the summary's limitation only from a module with no Limitations passage, once, and not from a blocked one", () => {

@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConnectedRun as Run } from "../api";
 import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
@@ -59,7 +59,7 @@ function showRecord(run: Partial<PublishedRun>, entries: OutputEntry[] = [], tar
     workspace: { runs: {}, outputs: {}, handoffs: {}, models: [] },
     chips: {},
   } as unknown as Snapshot;
-  return render(
+  const view = render(
     <ReportEvidence
       snapshot={snapshot}
       run={{ folder: "case", evidence, ...run } as unknown as PublishedRun}
@@ -68,6 +68,13 @@ function showRecord(run: Partial<PublishedRun>, entries: OutputEntry[] = [], tar
       mode="synthetic"
     />,
   );
+  // The run record is closed by default (screen map, Evidence · Record): open it to read it.
+  const record = screen.getByText("Show the run record", { selector: "summary" });
+  if (!run.changes?.problem) {
+    expect(record.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(record);
+  }
+  return view;
 }
 
 afterEach(() => {
@@ -115,7 +122,12 @@ describe("a module's record", () => {
     serve(null);
     showRecord(recorded);
     expect(screen.queryByRole("region", { name: "Table" })).toBeNull();
-    expect(screen.getAllByRole("region").map((node) => node.getAttribute("aria-label"))).toEqual([
+    const record = within(
+      screen
+        .getByText("Show the run record", { selector: "summary" })
+        .closest("details") as HTMLElement,
+    );
+    expect(record.getAllByRole("region").map((node) => node.getAttribute("aria-label"))).toEqual([
       "Response provenance",
       "Financial foundation: Synthetic adapter responses",
       "Fundamental credit: Synthetic adapter responses",

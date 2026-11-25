@@ -1,3 +1,4 @@
+import { ChevronDown } from "@untitledui/icons";
 import { ChartTable } from "@/components/chart/ChartTable";
 import { LimitsChart, type LimitColumn } from "@/components/chart/LimitsChart";
 import type { PortfolioBasis } from "../report/PortfolioBasis";
@@ -41,9 +42,13 @@ export function portfolioLimits(table: SourceTable, basis: PortfolioBasis, frame
           })),
         }}
       />
-      <details className="min-w-0">
-        <summary className="cursor-pointer font-semibold">
+      <details className="group min-w-0">
+        <summary className="flex min-h-8 w-fit cursor-pointer items-center gap-1.5 font-semibold max-[480px]:min-h-11">
           Published exposures and proposals
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 shrink-0 text-text-tertiary group-open:rotate-180"
+          />
         </summary>
         <ChartTable caption="Published exposures and proposals" {...chartTable(table)} />
       </details>

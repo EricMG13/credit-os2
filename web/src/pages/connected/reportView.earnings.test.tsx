@@ -1,8 +1,14 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ReportReader } from "./ReportLibrary";
 import { buildReportView } from "./reportView";
 import type { PublishedRun, Snapshot } from "./publishedReport";
+
+const hash = (module: string) =>
+  module
+    .toLowerCase()
+    .padStart(64, "a")
+    .replaceAll(/[^a-f0-9]/g, "b");
 
 function fixture(pathway = "earnings_update", modules = ["CP-1B"]) {
   const run = {
@@ -22,12 +28,12 @@ function fixture(pathway = "earnings_update", modules = ["CP-1B"]) {
       outputs: Object.fromEntries(
         modules.map((module) => [
           module,
-          { id: module, run: "originalKey", module, sha256: module, label: module, href: "" },
+          { id: module, run: "originalKey", module, sha256: hash(module), label: module, href: "" },
         ]),
       ),
       handoffs: Object.fromEntries(
         modules.map((module) => [
-          module,
+          hash(module),
           [
             { heading: "Findings", level: 2, line: 0, blocks: [] },
             {
@@ -65,7 +71,7 @@ it("admits CP-1B as the final earnings fallback only, preserving higher-priority
 
 it("does not promote a blocked, unselected or missing-bottom-line earnings handoff", () => {
   const { snapshot, run } = fixture();
-  const section = snapshot.workspace.handoffs["CP-1B"]?.[1];
+  const section = snapshot.workspace.handoffs[hash("CP-1B")]?.[1];
   const module = run.modules["CP-1B"];
   if (!section || !module) throw new Error("Missing earnings fixture");
   section.blocks = [{ type: "text", line: 2, end: 2, text: "Not assessable: missing evidence." }];
@@ -79,9 +85,27 @@ it("does not promote a blocked, unselected or missing-bottom-line earnings hando
 });
 
 it("labels the published earnings lead and renders its conclusion once", async () => {
-  const { snapshot } = fixture();
+  const { run, snapshot } = fixture();
+  run.publicationVerified = true;
+  run.lead = {
+    output: "CP-1B",
+    module: "CP-1B",
+    sha256: hash("CP-1B"),
+    line: 2,
+    text: "Published earnings conclusion.",
+  };
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(snapshot)));
   render(<ReportReader id="earnings" mode="synthetic" />);
-  expect(await screen.findByText("Earnings view")).toBeVisible();
+  const call = await screen.findByRole("region", { name: "The call" });
+  expect(
+    within(call).getByRole("heading", { level: 3, name: "The call · Earnings changes" }),
+  ).toBeVisible();
+  // Attributed by the tile's heading; the module is reached through its pipeline node.
+  expect(
+    screen
+      .getAllByRole("link", { name: /^Earnings changes/ })
+      .map((link) => link.getAttribute("href")),
+  ).toContain("#modules/CP-1B");
   expect(screen.getAllByText("Published earnings conclusion.")).toHaveLength(1);
+  expect(within(call).getByText("Published earnings conclusion.")).toBeVisible();
 });

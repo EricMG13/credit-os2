@@ -99,6 +99,8 @@ interface LegacyVisualsProps {
   evidenceHref?: (line: number) => string;
   primary?: string;
   cards?: boolean;
+  /** Keep the reader's evidence filtering, and suppress trace controls in print. */
+  print?: boolean;
   /** The figure titles' heading level; h4 unless the figures sit directly under an h2. */
   headingLevel?: "h3" | "h4";
 }
@@ -109,6 +111,7 @@ export function LegacyVisuals({
   evidenceHref,
   primary,
   cards,
+  print = false,
   headingLevel: Heading = "h4",
 }: LegacyVisualsProps) {
   const published = record(output);
@@ -133,11 +136,12 @@ export function LegacyVisuals({
     const line = descriptor.table;
     if (!title || typeof line !== "number" || !Number.isSafeInteger(line) || line <= 0) return [];
     const link = evidenceHref?.(line);
-    const actions = link ? (
-      <PublishedSource href={link} name={title}>
-        Source table
-      </PublishedSource>
-    ) : undefined;
+    const actions =
+      link && !print ? (
+        <PublishedSource href={link} name={title}>
+          Source table
+        </PublishedSource>
+      ) : undefined;
     const gap = word(descriptor.gap);
     const first = cards === true && primary !== undefined && title === primary;
     const key = `${category}-${title}-${String(line)}`;
@@ -149,7 +153,7 @@ export function LegacyVisuals({
             <GapPanel
               role="note"
               reason={
-                link && containsReference(gap)
+                (link || print) && containsReference(gap)
                   ? `${/^(Not supplied|Not calculated|Not assessable|Not established|Withheld)\b/i.exec(gap)?.[1] ?? "Not established"}. See Evidence.`
                   : readerText(gap)
               }
@@ -163,18 +167,19 @@ export function LegacyVisuals({
     if (!publishedTable) return [];
     const table = {
       ...publishedTable,
-      evidenceInDrawer: Boolean(link),
+      evidenceInDrawer: Boolean(link) || print,
       rowSource:
-        evidenceHref &&
-        ((at: number, label: string) => (
-          <PublishedSource
-            href={evidenceHref(at)}
-            name={label}
-            linkLabel={`Show sources for ${label}`}
-          >
-            Source row
-          </PublishedSource>
-        )),
+        !print && evidenceHref
+          ? (at: number, label: string) => (
+              <PublishedSource
+                href={evidenceHref(at)}
+                name={label}
+                linkLabel={`Show sources for ${label}`}
+              >
+                Source row
+              </PublishedSource>
+            )
+          : undefined,
     };
     const note = descriptor.unit === "x" ? "x (times)" : word(descriptor.unit) || undefined;
     const frame = { title, note, actions, as: Heading };
@@ -204,12 +209,12 @@ export function LegacyVisuals({
                         : "The chart is not drawn because its figures are not on one comparable scale."
                     }
                   />
-                  <ChartTable caption={title} {...chartTable(table)} />
+                  {!print && <ChartTable caption={title} {...chartTable(table)} />}
                 </>
               )}
             </>
           )}
-          {qualified.has(descriptor) && (
+          {!print && qualified.has(descriptor) && (
             <ChartQualifications
               category={category}
               sections={sourceSections}

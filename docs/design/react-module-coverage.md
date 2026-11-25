@@ -170,7 +170,7 @@ It is a separate regression fixture for number, missing-value and unit fidelity.
 
 | React source | Used for |
 | --- | --- |
-| [Design system](design-system.md), [brand tokens](brand-tokens.md), [component sources](component-sources.md) | Tokens, density, judgement hierarchy, charts, motion, source look and accessible state rules. React owner rulings in original Credit OS decision 0003 resolve open mock choices. |
+| [DESIGN.md](../../DESIGN.md) (authority), [screen map](screen-map.md), [design system](design-system.md) token register, [component sources](component-sources.md) | Tokens, density, judgement hierarchy, charts, motion, source look and accessible state rules. React owner rulings in original Credit OS decision 0003 resolve open mock choices. |
 | [Component map](component-map.md), [screen inventory](screen-inventory.md), [predecessor behaviour](predecessor-behaviour.md) | Kit vocabulary, navigation responsibilities and inherited data semantics. The old screen inventory is a coverage checklist. |
 | [Library](mocks/library.md), [Model](mocks/model.md), [Run](mocks/run.md), [Signal](mocks/signal.md), [States](mocks/states-2.md) | React screen structure and component placement. Later owner rulings take precedence over differences recorded in the mock notes. |
 | [States 2](states-2.md) | Confidence, run ends and module states. Proposals remain identified as proposals when the design system has no settled equivalent. |

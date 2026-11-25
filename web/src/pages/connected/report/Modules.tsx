@@ -1,241 +1,43 @@
-import { useEffect, useRef, useState } from "react";
+import { createElement, useState } from "react";
 import { Button } from "@/components/base/buttons/button";
-import { StatusBadge } from "@/components/status/StatusBadge";
-import { ModuleNav, type NavSection } from "@/pages/library/parts/ModuleNav";
-import { card, field, heading } from "../layout";
+import { StageNav } from "@/pages/library/parts/ModuleNav";
+import { RunContext } from "@/pages/library/parts/RunContext";
+import { TraceDrawer } from "@/pages/library/parts/TraceDrawer";
+import type { Trace } from "@/pages/library/slice";
+import { sectionTraces, traceForConfidence, traceForLine } from "../ReportContent";
 import {
-  RECORDS_ID,
-  ReportFindings,
-  drawingTitle,
-  findingBlocks,
-  recordSections,
-} from "../ReportContent";
-import {
+  evidenceHref,
   evidencePath,
   type OutputEntry,
   type PublishedRun,
   type Snapshot,
 } from "../publishedReport";
-import {
-  foundationMetrics,
-  moduleState,
-  runMoneyUnit,
-  type MetricKey,
-  type buildReportView,
-} from "../reportView";
-
-const TILE_KEYS: readonly MetricKey[] = ["netDebt", "principal", "interestCover"];
-import { LegacyVisuals } from "../visuals";
+import { moduleState, traceKey, type ReportView } from "../reportView";
+import { CompanyProfile } from "./CompanyProfile";
 import { ModuleConfidence } from "./Confidence";
-import { MetricGrid } from "./MetricGrid";
-import { monitoringLabel } from "./ModuleTable";
-import { Downside, downsideView } from "./Downside";
-import { BreakPoints, breakPointView } from "./BreakPoints";
-import { MacroSensitivity, macroView } from "./MacroSensitivity";
-import { Securities, securityView } from "./Securities";
+import { leadFor } from "./leads";
+import { framed, ModuleFigures, moduleFigures } from "./ModuleFigures";
+import { CONTRARY, KEY_FINDINGS, moduleFrame } from "./moduleFrame";
+import {
+  ANCHOR,
+  ModuleFindings,
+  ModuleHeader,
+  ModuleLimitations,
+  NextModule,
+  chartGaps,
+  type FrameModule,
+} from "./ModuleFrame";
+import { ProseTiles } from "./ModuleProse";
+import { ModuleRecords } from "./ModuleRecords";
+import { ModuleStats } from "./ModuleStats";
+import { moduleRecords } from "./moduleRecords";
+import { Bento, GapNote, Tile } from "./overview/Tile";
+import { byStage } from "./stages";
 
-function sectionIcon(heading: string): NavSection["icon"] {
-  if (heading === "Bottom line") return "bottom-line";
-  if (heading === "Key findings") return "findings";
-  if (heading.startsWith("Contrary evidence")) return "contrary";
-  return heading === "Limitations" ? "limitations" : "records";
-}
-
-function hasPublishedFigures(output: OutputEntry["output"]) {
-  return [output.charts, output.chartGaps, output.events, output.maps].some(
-    (records) => records?.length,
-  );
-}
-
-function navigatorSections(
-  entry: OutputEntry | undefined,
-  current: string,
-  hasLocalFigures: boolean,
-  figureTableLines: readonly number[],
-) {
-  if (!entry) return [];
-  const allSections = findingBlocks(entry.sections, entry, figureTableLines, true);
-  // A module that wrote no Key findings has its first table section listed under its own title.
-  const firstFinding =
-    allSections.find(({ heading }) => heading === "Key findings") ??
-    allSections.find(({ heading }) => sectionIcon(heading) === "records");
-  const sections = allSections.flatMap((item) => {
-    const { heading, line } = item;
-    const icon = sectionIcon(heading);
-    const watch = item.blocks.flatMap((block) =>
-      block.type === "table" ? (monitoringLabel(current, heading, block) ?? []) : [],
-    )[0];
-    const extra =
-      watch ??
-      (current === "CP-0" && heading === "Source-readiness summary" ? "Readiness by area" : null);
-    if (icon === "records" && item !== firstFinding && !extra) return [];
-    return [{ label: extra ?? drawingTitle(heading), key: `finding-${String(line)}`, icon }];
-  });
-  if (hasLocalFigures || hasPublishedFigures(entry.output)) {
-    // The page draws the figures after its prose passages, before Limitations.
-    const prose = new Set<NavSection["icon"]>(["bottom-line", "findings", "contrary"]);
-    const at = sections.map(({ icon }) => prose.has(icon)).lastIndexOf(true) + 1;
-    sections.splice(at, 0, {
-      label: "Charts and figures",
-      key: "module-figures",
-      icon: "records",
-    });
-  }
-  if (recordSections(entry.sections, entry).length)
-    sections.push({ label: "Statements and records", key: RECORDS_ID, icon: "records" });
-  return sections;
-}
-
-function Navigator({
-  view,
-  run,
-  current,
-  entry,
-  hasLocalFigures,
-  figureTableLines,
-}: {
-  view: ReturnType<typeof buildReportView>;
-  run: PublishedRun;
-  current: string;
-  entry?: OutputEntry;
-  hasLocalFigures: boolean;
-  figureTableLines: readonly number[];
-}) {
-  const sections = navigatorSections(entry, current, hasLocalFigures, figureTableLines);
-  const [active, setActive] = useState(sections[0]?.key ?? null);
-  const aside = useRef<HTMLElement>(null);
-  // A clicked entry stays until the reader's own scroll input, so the scroll it causes cannot undo it.
-  const pinned = useRef(false);
-  const sectionKeys = sections.map(({ key }) => key).join("\n");
-  useEffect(() => {
-    // Without IntersectionObserver the entry follows clicks only.
-    if (typeof IntersectionObserver === "undefined") return;
-    const keys = sectionKeys.split("\n");
-    const targets = keys.flatMap((key) => document.getElementById(key) ?? []);
-    if (!targets.length) return;
-    const inView = new Set<string>();
-    const root = aside.current?.closest("main") ?? null;
-    // One decision for the scroll listener and the observer, so they cannot disagree. A short last
-    // section never reaches the top band, so the bottom of a scrolling page selects it.
-    const choose = () => {
-      if (pinned.current) return;
-      const scrolls = root !== null && root.scrollHeight > root.clientHeight;
-      const atBottom = scrolls && root.scrollTop + root.clientHeight >= root.scrollHeight - 2;
-      // An entry that holds another entry in view is not the one being read: the deepest wins.
-      const live = targets.filter((target) => inView.has(target.id));
-      const deepest = live.find((a) => !live.some((b) => b !== a && a.contains(b)));
-      const next = atBottom ? keys.at(-1) : deepest?.id;
-      if (next) setActive(next);
-    };
-    // The scrolling region is the shell's `main`, so the top third is measured against it.
-    const spy = new IntersectionObserver(
-      (changes) => {
-        for (const { target, isIntersecting } of changes) {
-          if (isIntersecting) inView.add(target.id);
-          else inView.delete(target.id);
-        }
-        choose();
-      },
-      { root, rootMargin: "0px 0px -66% 0px" },
-    );
-    for (const target of targets) spy.observe(target);
-    const release = (event: Event) => {
-      const from = event.target as Node;
-      // Enter and Space on the navigator's own buttons press them; every other key may scroll.
-      if (event instanceof KeyboardEvent && (event.key === "Enter" || event.key === " ")) {
-        if (aside.current?.contains(from)) return;
-      }
-      // A press on the container itself is its scrollbar; one on a descendant is not.
-      if (event.type === "pointerdown" && from !== root) return;
-      pinned.current = false;
-    };
-    const inputs = ["wheel", "touchmove", "keydown", "pointerdown"];
-    for (const name of inputs) root?.addEventListener(name, release);
-    root?.addEventListener("scroll", choose);
-    return () => {
-      spy.disconnect();
-      for (const name of inputs) root?.removeEventListener(name, release);
-      root?.removeEventListener("scroll", choose);
-    };
-  }, [sectionKeys]);
-  const [mobileSection, setMobileSection] = useState("");
-  const moduleHref = (id: string) => `#modules/${encodeURIComponent(id)}`;
-  const sectionNavigate = (id: string) => {
-    const target = document.getElementById(id);
-    target?.focus();
-    target?.scrollIntoView({ block: "start" });
-    pinned.current = true;
-    setActive(id);
-  };
-  return (
-    <aside
-      ref={aside}
-      className="self-start rounded-xl border border-border-hairline bg-surface-card py-2 min-[1001px]:sticky min-[1001px]:top-4"
-    >
-      <div className="grid gap-2 px-3 pb-2 min-[1001px]:hidden">
-        <label className="grid gap-1 text-sm text-text-secondary">
-          Module
-          <select
-            aria-label="Module"
-            className={field}
-            value={current}
-            onChange={(event) => {
-              const href = moduleHref(event.currentTarget.value);
-              window.location.href = href;
-            }}
-          >
-            {view.modules.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name} · {item.state}
-              </option>
-            ))}
-          </select>
-        </label>
-        {sections.length > 0 && (
-          <details>
-            <summary className="cursor-pointer py-2 text-sm font-medium text-action">
-              On this page
-            </summary>
-            <label className="grid gap-1 pt-1 text-sm text-text-secondary">
-              Jump to section
-              <select
-                aria-label="Jump to section"
-                className={field}
-                value={mobileSection}
-                onChange={(event) => {
-                  const id = event.currentTarget.value;
-                  setMobileSection("");
-                  if (id) sectionNavigate(id);
-                }}
-              >
-                <option value="">Choose a section</option>
-                {sections.map((section) => (
-                  <option key={section.key} value={section.key}>
-                    {section.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </details>
-        )}
-      </div>
-      <ModuleNav
-        issuer={run.issuer}
-        run={run.folder}
-        current={current}
-        modules={view.modules}
-        sections={sections}
-        active={active}
-        hrefFor={moduleHref}
-        className="max-[1001px]:hidden"
-        onSection={sectionNavigate}
-      />
-    </aside>
-  );
-}
-
-type ReportView = ReturnType<typeof buildReportView>;
 type ModuleItem = ReportView["modules"][number];
+
+const CONFIDENCE_TRACE = "module-confidence";
+const moduleHref = (id: string) => `#modules/${encodeURIComponent(id)}`;
 
 function defaultOutput(outputs: OutputEntry[]) {
   return (
@@ -248,22 +50,202 @@ function moduleOutput(current: ModuleItem, output: string | undefined) {
   return /^(?:0|[1-9]\d*)$/.test(output) ? current.outputs[Number(output)] : undefined;
 }
 
-function moduleFigures(entry: OutputEntry, run: PublishedRun) {
-  const downside = downsideView(entry);
-  const breaks = breakPointView(entry);
-  const macro = macroView(entry);
-  const securities = securityView(entry, run.asOf);
-  const figureTableLines = [securities?.summaryLine, securities?.outcomes?.line].filter(
-    (line) => line !== undefined,
+function pageTraces(snapshot: Snapshot, entry: OutputEntry, index: number) {
+  const traces: Record<string, Trace> = sectionTraces(snapshot, entry, entry.sections);
+  const extra = [entry.output.summary?.line, ...chartGaps(entry).map(({ line }) => line)];
+  for (const line of extra) {
+    if (line === undefined) continue;
+    const trace = traceForLine(snapshot, entry, index, line);
+    if (trace) traces[traceKey(entry, line)] = trace;
+  }
+  const confidence = traceForConfidence(snapshot, entry);
+  if (confidence) traces[CONFIDENCE_TRACE] = confidence;
+  return traces;
+}
+
+function nextModule(view: ReportView, id: string): FrameModule | undefined {
+  const order = byStage(view.modules).flatMap(({ rows }) => rows);
+  return order[order.findIndex((item) => item.id === id) + 1];
+}
+
+/** Everything the page draws for one module output, read once per render. */
+function pageOf(run: PublishedRun, entry: OutputEntry) {
+  const figures = moduleFigures(entry, run);
+  const Lead = leadFor(entry.output.module);
+  const kinds = framed(Lead);
+  const frame = moduleFrame(entry, {
+    figureTableLines: figures.tableLines,
+    typedTables: kinds.has("figures"),
+  });
+  const gaps = chartGaps(entry);
+  const limitations = Boolean(
+    frame.limitations ||
+    frame.hollow.Limitations ||
+    frame.missing.includes("Limitations") ||
+    gaps.length,
   );
-  return {
-    downside,
-    breaks,
-    macro,
-    securities,
-    tableLines: figureTableLines,
-    hasLocalFigures: Boolean(downside || breaks || macro || securities),
-  };
+  const records = moduleRecords(entry);
+  const hasRecords = records.tables.length > 0 || records.evidence.length > 0;
+  return { figures, Lead, kinds, frame, gaps, limitations, hasRecords };
+}
+
+type Page = ReturnType<typeof pageOf>;
+
+/** The page's sections the navigator lists under this module, in page order. */
+function pageSections({ frame, limitations, hasRecords }: Page) {
+  const has = (passage: string, section: unknown) =>
+    Boolean(section) || frame.missing.includes(passage);
+  return [
+    ...(frame.bottomLine || frame.hollow["Bottom line"]
+      ? [{ id: ANCHOR.bottomLine, label: "Bottom line" }]
+      : []),
+    ...(has(KEY_FINDINGS, frame.keyFindings ?? frame.hollow[KEY_FINDINGS])
+      ? [{ id: ANCHOR.findings, label: KEY_FINDINGS }]
+      : []),
+    ...(has(CONTRARY, frame.contrary ?? frame.hollow[CONTRARY])
+      ? [{ id: ANCHOR.contrary, label: "Contrary evidence" }]
+      : []),
+    ...frame.prose.map(({ section, title }) => ({
+      id: ANCHOR.section(section.line),
+      label: title,
+    })),
+    ...(hasRecords ? [{ id: ANCHOR.records, label: "Statements and records" }] : []),
+    ...(limitations ? [{ id: ANCHOR.limitations, label: "Limitations" }] : []),
+  ];
+}
+
+function EmptyHandoff({ run, entry }: { run: PublishedRun; entry: OutputEntry }) {
+  return (
+    <Tile span={12} label="Module output">
+      <p className="text-text-secondary">
+        This module wrote no findings in this report format.{" "}
+        <Button href={evidencePath(run.folder, entry)} color="link-gray" size="sm">
+          Open Evidence
+        </Button>
+      </p>
+    </Tile>
+  );
+}
+
+function isEmpty({ frame }: Page) {
+  return (
+    !frame.parseError &&
+    !Object.keys(frame.hollow).length &&
+    !frame.bottomLine &&
+    !frame.keyFindings &&
+    !frame.contrary &&
+    !frame.limitations &&
+    !frame.prose.length &&
+    !frame.missing.length
+  );
+}
+
+function ModulePage({
+  snapshot,
+  run,
+  view,
+  current,
+  entry,
+  page,
+  records,
+  table,
+}: {
+  snapshot: Snapshot;
+  run: PublishedRun;
+  view: ReportView;
+  current: ModuleItem;
+  entry: OutputEntry;
+  page: Page;
+  records: boolean;
+  table?: string;
+}) {
+  const [open, setOpen] = useState<string | null>(null);
+  const { figures, Lead, kinds, frame, gaps, limitations } = page;
+  const index = view.entries.indexOf(entry);
+  const traces = pageTraces(snapshot, entry, index);
+  const module = { ...current, state: moduleState(entry) };
+  const next = nextModule(view, current.id);
+  const active = open === null ? undefined : traces[open];
+  return (
+    <RunContext.Provider value={{ traces, open: setOpen }}>
+      <Bento>
+        <ModuleHeader
+          module={module}
+          entry={entry}
+          bottomLine={frame.bottomLine}
+          owed={frame.missing.includes("Bottom line")}
+          hollow={frame.hollow["Bottom line"]}
+          folder={run.folder}
+          basis={frame.basis}
+          about={
+            current.id === "CP-1A" ? (
+              <CompanyProfile entry={entry} folder={run.folder} />
+            ) : undefined
+          }
+          confidence={
+            <ModuleConfidence
+              confidence={entry.output.confidence}
+              trace={traces[CONFIDENCE_TRACE] ? CONFIDENCE_TRACE : null}
+            />
+          }
+        />
+        {isEmpty(page) && <EmptyHandoff run={run} entry={entry} />}
+        <ModuleStats entry={entry} catalogue={view.catalogue} folder={run.folder} />
+        {Lead && (
+          <div className="min-w-0 lg:col-span-12">
+            {/* leadFor returns a component defined once at module scope, never one made here. */}
+            {createElement(Lead, { snapshot, run, view, entry, entryIndex: index })}
+          </div>
+        )}
+        <ModuleFigures
+          entry={entry}
+          run={run}
+          view={view}
+          figures={figures}
+          kinds={kinds}
+          gaps={frame.drawingGaps}
+        />
+        <ModuleFindings
+          keyFindings={frame.keyFindings}
+          contrary={frame.contrary}
+          hollow={{ findings: frame.hollow["Key findings"], contrary: frame.hollow[CONTRARY] }}
+          missing={frame.missing}
+          entry={entry}
+          folder={run.folder}
+        />
+        <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} />
+        <ModuleRecords
+          // A new address that names the records opens them on its table, as a first draw does.
+          key={records ? `records:${table ?? ""}` : "page"}
+          run={run}
+          entry={entry}
+          anchorId={ANCHOR.records}
+          initiallyOpen={records}
+          initialTable={table}
+        />
+        <ModuleLimitations
+          section={frame.limitations}
+          hollow={frame.hollow.Limitations}
+          owed={frame.missing.includes("Limitations")}
+          gaps={gaps}
+          entry={entry}
+          folder={run.folder}
+          span={next ? 8 : 12}
+        />
+        <NextModule next={next} href={moduleHref} wide={!limitations} />
+      </Bento>
+      {active && (
+        <TraceDrawer
+          trace={active}
+          evidenceHref={evidenceHref(run.folder, active.evidenceItem)}
+          isOpen
+          onClose={() => {
+            setOpen(null);
+          }}
+        />
+      )}
+    </RunContext.Provider>
+  );
 }
 
 function SavedOutputs({ current, entry }: { current: ModuleItem; entry?: OutputEntry }) {
@@ -286,134 +268,26 @@ function SavedOutputs({ current, entry }: { current: ModuleItem; entry?: OutputE
   );
 }
 
-function ModuleFindings({
-  snapshot,
-  run,
-  view,
-  entry,
-  figures,
-}: {
-  snapshot: Snapshot;
-  run: PublishedRun;
-  view: ReportView;
-  entry: OutputEntry;
-  figures: ReturnType<typeof moduleFigures>;
-}) {
-  const index = view.entries.indexOf(entry);
-  const { downside, breaks, macro, securities, tableLines: figureTableLines } = figures;
-  const evidenceHref = (line: number) => evidencePath(run.folder, entry, line);
-  const allMetrics = foundationMetrics(entry, view.catalogue);
-  const metrics = allMetrics.filter(({ key }) => TILE_KEYS.includes(key));
+function UnavailableHandoff({ current, next }: { current: ModuleItem; next?: FrameModule }) {
+  const count = current.outputs.length;
   return (
-    <ReportFindings
-      key={entry.output.id}
-      snapshot={snapshot}
-      run={run}
-      entry={entry}
-      entryIndex={index}
-      figureTableLines={figureTableLines}
-      chartsDrawn
-      moduleConfidence={
-        <ModuleConfidence snapshot={snapshot} run={run} entry={entry} entryIndex={index} />
-      }
-      afterBottomLine={
-        <MetricGrid
-          records={metrics}
-          entry={entry}
-          entryIndex={index}
-          snapshot={snapshot}
-          folder={run.folder}
-        />
-      }
-      beforeLimitations={
-        <div id="module-figures" tabIndex={-1} className="grid min-w-0 gap-4">
-          {downside && <Downside data={downside} href={evidenceHref} />}
-          {breaks && <BreakPoints data={breaks} href={evidenceHref} />}
-          {macro && <MacroSensitivity data={macro} href={evidenceHref} />}
-          {securities && (
-            <Securities
-              data={securities}
-              href={evidenceHref}
-              runUnit={runMoneyUnit(view.catalogue)}
-            />
-          )}
-          <LegacyVisuals
-            output={entry.output}
-            sections={entry.sections}
-            primary={entry.output.module === "CP-1" ? "Debt maturities" : undefined}
-            cards
-            headingLevel="h3"
-            evidenceHref={evidenceHref}
-          />
-        </div>
-      }
-    />
-  );
-}
-
-function UnavailableHandoff({ outputCount }: { outputCount: number }) {
-  return (
-    <section className={card}>
-      <h3 className={heading}>Handoff unavailable</h3>
-      <p>
-        {outputCount > 1
-          ? "Choose a saved output above."
-          : outputCount === 1
-            ? "Choose this module again under Modules in this run."
-            : "No output was saved for this module."}
-      </p>
-    </section>
-  );
-}
-
-function SelectedModule({
-  snapshot,
-  run,
-  view,
-  current,
-  entry,
-}: {
-  snapshot: Snapshot;
-  run: PublishedRun;
-  view: ReturnType<typeof buildReportView>;
-  current: ReportView["modules"][number];
-  entry?: OutputEntry;
-}) {
-  const figures = entry ? moduleFigures(entry, run) : null;
-  const figureTableLines = figures?.tableLines ?? [];
-  return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="min-w-0 font-display text-h2 text-balance wrap-anywhere">{current.name}</h2>
-        <StatusBadge set="Module state" state={entry ? moduleState(entry) : current.state} />
-      </div>
-      <div className="grid min-w-0 gap-5 min-[1001px]:module-reader-columns">
-        <Navigator
-          key={entry?.output.id ?? current.id}
-          view={view}
-          run={run}
-          current={current.id}
-          entry={entry}
-          hasLocalFigures={Boolean(figures?.hasLocalFigures)}
-          figureTableLines={figureTableLines}
-        />
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-          <SavedOutputs current={current} entry={entry} />
-          {entry && figures ? (
-            <ModuleFindings
-              key={entry.output.id}
-              snapshot={snapshot}
-              run={run}
-              view={view}
-              entry={entry}
-              figures={figures}
-            />
-          ) : (
-            <UnavailableHandoff outputCount={current.outputs.length} />
-          )}
-        </div>
-      </div>
-    </>
+    <Bento>
+      <ModuleHeader module={current} bottomLine={null} owed={false} folder="" />
+      <Tile
+        span={next ? 8 : 12}
+        label="Module output unavailable"
+        title="Module output unavailable"
+      >
+        <GapNote>
+          {count > 1
+            ? "Choose a saved output above."
+            : count === 1
+              ? "Choose this module again under Modules in this run."
+              : "No output was saved for this module."}
+        </GapNote>
+      </Tile>
+      <NextModule next={next} href={moduleHref} wide={false} />
+    </Bento>
   );
 }
 
@@ -423,25 +297,61 @@ export function Modules({
   view,
   module,
   output,
+  records = false,
+  table,
 }: {
   snapshot: Snapshot;
   run: PublishedRun;
   view: ReportView;
   module?: string;
   output?: string;
+  /** The address asks for the module's records open (`#modules/<module>/records`). */
+  records?: boolean;
+  /** The records table the address names (`#modules/<module>/records/<table>`). */
+  table?: string;
 }) {
   const current =
     module === undefined
       ? (view.modules.find(({ id }) => id === "CP-1") ?? view.modules[0])
       : view.modules.find(({ id }) => id === module);
-  if (!current) return <p className={card}>This module is unavailable in the published run.</p>;
+  if (!current)
+    return (
+      <Bento>
+        <Tile span={12} label="Module unavailable">
+          <GapNote>This module is unavailable in the published run.</GapNote>
+        </Tile>
+      </Bento>
+    );
+  const entry = moduleOutput(current, output);
+  const page = entry && pageOf(run, entry);
   return (
-    <SelectedModule
-      snapshot={snapshot}
-      run={run}
-      view={view}
-      current={current}
-      entry={moduleOutput(current, output)}
-    />
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[232px_minmax(0,1fr)]">
+      <StageNav
+        key={current.id}
+        modules={view.modules}
+        current={current.id}
+        hrefFor={moduleHref}
+        sections={page ? pageSections(page) : []}
+        className="self-start"
+      />
+      <div className="flex min-w-0 flex-col gap-4">
+        <SavedOutputs current={current} entry={entry} />
+        {entry && page ? (
+          <ModulePage
+            key={entry.output.id}
+            snapshot={snapshot}
+            run={run}
+            view={view}
+            current={current}
+            entry={entry}
+            page={page}
+            records={records}
+            table={table}
+          />
+        ) : (
+          <UnavailableHandoff current={current} next={nextModule(view, current.id)} />
+        )}
+      </div>
+    </div>
   );
 }

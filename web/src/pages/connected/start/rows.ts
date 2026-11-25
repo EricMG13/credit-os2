@@ -8,7 +8,11 @@ export type RowKind =
   | "peers"
   | "precedents"
   | "scenarios";
-/** The row editors the More context step draws under Context details, in order. */
+/**
+ * The row sections the review lists under Context details, in order. The More context step draws
+ * research questions under For the research and the other three under Ratings, quotes and
+ * facilities.
+ */
 export const CONTEXT_ROW_KINDS = ["deal_terms", "quotes", "ratings", "research_questions"] as const;
 export type RowField = {
   key: string;

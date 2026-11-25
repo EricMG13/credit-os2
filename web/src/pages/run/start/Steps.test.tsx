@@ -159,10 +159,10 @@ describe("More context (frame 05)", () => {
 });
 
 describe("Task 4 carry-overs (class names are all jsdom can read)", () => {
-  it("draws the Purpose card header as a strip with its own hairline", () => {
+  it("draws an unselected Purpose card as a hairline-bordered surface", () => {
     show("/run/start/purpose", fixture.slice);
-    const strip = screen.getByText("Full credit review").parentElement as HTMLElement;
-    expect(strip).toHaveClass("border-b", "border-border-hairline");
+    const card = screen.getByRole("radio", { name: "Earnings update" }).closest("label");
+    expect(card).toHaveClass("border", "border-border-hairline", "rounded-ds-md");
   });
 
   it("S6-024 omits the repeated decorative Purpose icon", () => {

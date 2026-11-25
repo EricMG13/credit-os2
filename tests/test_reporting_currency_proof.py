@@ -215,6 +215,10 @@ def _react_pages(workspace: Path, service: Path, trace: str) -> dict[str, str]:
         "Evidence": "#evidence",
         "Trace": f"#evidence/{trace}",
         **{code: f"#modules/{code}" for code in ("CP-1", "CP-2D", "CP-3C", "CP-4C", "CP-2G")},
+        # The module's statements and registers sit behind its records disclosure; the address
+        # opens it, so the debt-principal table is read where a reader finds it.
+        "CP-1 records": "#modules/CP-1/records",
+        "CP-1 principal": "#modules/CP-1/records/Debt%20principal%20to%20carrying%20value",
     }
     with make_server(service, web=dist, read_only=True) as server:
         worker = threading.Thread(target=server.serve_forever)
@@ -310,37 +314,52 @@ def gbp_no_rate(provider, tmp_path_factory, capsys) -> Built:
     return build("GBP", False, provider, tmp_path_factory, capsys)
 
 
-# What the pages must show, each worked by hand from the synthetic text above through the
-# formatter's forms (`£1,250m`, `CHF 1,250m`; PR 44's tests pin the same forms).
+# What the pages must show, each worked by hand from the synthetic text above. The redesigned pages
+# write money with the ISO code (`GBP 2,250m`, `CHF 2,250m`) or state the unit once beside a table
+# (`Unit: GBPm`); none may show a dollar sign.
 SHOWN = {
     "GBP": {
-        "liquidity": "Total liquidity at period end £1,250m +£150m vs FY2023",
-        "cash flow": "Free cash flow (operating cash flow less capex), twelve months £95.5m "
-        "+£15.5m vs FY2023",
-        "net debt": "Net debt at period end £1,125m -£75m vs FY2023",
-        "principal": "Contractual principal £1,400m FY2024",
+        "overview": (
+            "Revenue GBP 2,250m Better FY2024 Synthetic. from GBP 2,100m in FY2023 (+GBP 150m)",
+            "Cash GBP 275m FY2024 Synthetic. from GBP 300m in FY2023 (-GBP 25m)",
+        ),
+        "net debt": "Earnings against debt and leverage · GBPm",
+        "records": "Unit: GBPm Metric FY2023 FY2024 Sources "
+        "Total liquidity at period end 1100 1250 "
+        "Free cash flow (operating cash flow less capex), twelve months 80 95.5 "
+        "Net debt at period end 1200 1125",
+        "principal": "Reporting unit: GBPm Period Contractual principal Reconciling items "
+        "Carrying value Basis and limitation Sources FY2024 1400 0 1400",
         "unit": "GBP millions",
+        "forecast unit": "GBPm",
     },
     "CHF": {
-        "liquidity": "Total liquidity at period end CHF 1,250m +CHF 150m vs FY2023",
-        "cash flow": "Free cash flow (operating cash flow less capex), twelve months CHF 95.5m "
-        "+CHF 15.5m vs FY2023",
-        "net debt": "Net debt at period end CHF 1,125m -CHF 75m vs FY2023",
-        "principal": "Contractual principal CHF 1,400m FY2024",
+        "overview": (
+            "Revenue CHF 2,250m Better FY2024 Synthetic. from CHF 2,100m in FY2023 (+CHF 150m)",
+            "Cash CHF 275m FY2024 Synthetic. from CHF 300m in FY2023 (-CHF 25m)",
+        ),
+        "net debt": "Earnings against debt and leverage · CHFm",
+        "records": "Unit: CHFm Metric FY2023 FY2024 Sources "
+        "Total liquidity at period end 1100 1250 "
+        "Free cash flow (operating cash flow less capex), twelve months 80 95.5 "
+        "Net debt at period end 1200 1125",
+        "principal": "Reporting unit: CHFm Period Contractual principal Reconciling items "
+        "Carrying value Basis and limitation Sources FY2024 1400 0 1400",
         "unit": "CHF millions",
+        "forecast unit": "CHFm",
     },
 }
+# The Financial foundation figure that carries net debt, in every currency: net, cash, gross debt.
+NET_DEBT = "FY2024 Net 1,125 · cash 275 · gross debt 1,400"
 # The forecast the model's inputs state, worked by hand (revenue 1,000 growing 5%, 4%, 3%; margin
 # 30%, 31%, 32%; interest 700 x 6% on the term loan plus 700 x 6% on the remainder = 84 a year;
 # taxes and working capital 10% and capex 4% of revenue; distributions 20; no scheduled repayment).
-FORECAST_ROWS = (
-    "Interest 84 84 84",
+FORECAST_ROWS = (  # the grid opens on totals and the rows charted above; interest is under All rows
     "Model cash from operations 126 145 163",
     "Cash proxy (not issuer free cash flow) 84 102 118",
     "Closing cash 164 246 344",
     "Closing debt 1,400 1,400 1,400",
     "Accessible liquidity 214 296 394",
-    "Base case 84.00 101.64 118.46 Downside shock 12.60 25.54 38.07",
 )
 OWNER_ROWS = {  # each module's money tables, as the canned answers write them
     "CP-2D.md": (
@@ -356,11 +375,13 @@ OWNER_ROWS = {  # each module's money tables, as the canned answers write them
         "| Value not distributed | 700 | {unit} |",
     ),
 }
-OWNER_PAGES = {
-    "CP-2D": "Liquidity bridge Chart Table Liquidity bridge 900 120 -450 570",
-    "CP-3C": "Refinancing need Chart Table Refinancing need n.a. 500 1,250 300",
-    "CP-4C": "Value allocation — scenario 1 Chart Table Value allocation — scenario 1 "
-    "2,000 -100 -1,080 -120 700",
+OWNER_PAGES = {  # each lead's figure, as written; the unit is checked beside it
+    "CP-2D": "Opening accessible liquidity 900 Free cash flow 120 Debt repayment -450 "
+    "Closing accessible liquidity 570",
+    "CP-3C": "FY2026 500 300 FY2027 1,250 Committed resources, FY2027 Not supplied "
+    "No commitment is stated",
+    "CP-4C": "Enterprise value 2,000 Restructuring costs -100 Senior secured distribution -1,080 "
+    "Unsecured distribution -120 Value not distributed 700",
 }
 
 
@@ -387,16 +408,31 @@ def run_in(code: str, built: Built) -> None:
     assert loan["name"] == f"{code} term loan"
     assert Decimal(loan["years"][0]["interest"]) == Decimal(42)
     assert Decimal(exact["unallocated_debt"]["amount"]) == Decimal(700)
+    years = {case: exact["outputs"][case]["years"] for case in ("REFERENCE", "DOWNSIDE")}
+    assert [Decimal(y["interest"]["amount"]) for y in years["REFERENCE"]] == [Decimal(84)] * 3
+    # The downside case is EBITDA x 0.8 and interest x 1.1 on the same paths: cash proxy
+    # 252 - 92.4 - 105 - 42 = 12.6 in FY2025E, then 25.536 and 38.07216.
+    assert [Decimal(y["fcf"]["amount"]) for y in years["DOWNSIDE"]] == [
+        Decimal("12.6"),
+        Decimal("25.536"),
+        Decimal("38.07216"),
+    ]
     pages = built.pages
-    assert shown["liquidity"] in pages["Overview"] and shown["cash flow"] in pages["Overview"]
-    assert shown["net debt"] in pages["Modules"] and shown["principal"] in pages["Modules"]
-    assert shown["net debt"] in pages["CP-1"]
+    assert all(figure in pages["Overview"] for figure in shown["overview"])
+    for name in ("Modules", "CP-1"):
+        assert shown["net debt"] in pages[name] and NET_DEBT in pages[name], name
+    assert shown["records"] in pages["CP-1 records"]
+    assert shown["principal"] in pages["CP-1 principal"]
     for module, text in OWNER_PAGES.items():
         assert text in pages[module] and unit in pages[module], module
     assert shown["unit"] in pages["Forecast"]
     assert all(row in pages["Forecast"] for row in FORECAST_ROWS)
-    assert f"Base case 118.46 Cash proxy · FY2027E · {shown['unit']}" in pages["Forecast"]
-    for name in ("Overview", "Modules", "Forecast", "CP-1", "CP-2D", "CP-3C", "CP-4C"):
+    assert f"Cash proxy, Base case · {shown['forecast unit']} 118 FY2027E" in pages["Forecast"]
+    # Net leverage at FY2027E as drawn: base (1,400 - 344) / 359.92 = 2.93x; downside, closing
+    # cash 116.21 after three years of 20 distributions, (1,400 - 116.21) / 287.94 = 4.46x.
+    assert "2.93x A" in pages["Forecast"] and "4.46x B" in pages["Forecast"]
+    names = ("Overview", "Modules", "Forecast", "CP-1", "CP-1 records", "CP-1 principal")
+    for name in (*names, "CP-2D", "CP-3C", "CP-4C"):
         assert "US$" not in pages[name] and "$" not in pages[name].replace("US$", ""), name
     assert unit in built.static["CP-1"] and unit in built.static["CP-2D"], "static library"
 
@@ -426,14 +462,19 @@ def test_p3_delivery_and_the_library_carry_and_draw_the_not_calculable_total_the
     )
     delivered = gbp_no_rate.delivered("CP-1.md")
     assert cells in delivered and row in delivered
-    page = gbp_no_rate.pages["CP-1"]
-    assert f"FY2024 {reason} Not supplied: synthetic 1400 GBPm" in page
-    assert "Contractual principal £" not in page and "Contractual principal" in page
+    page = gbp_no_rate.pages["CP-1 principal"]
+    assert (
+        f"Reporting unit: GBPm Period Contractual principal Reconciling items Carrying value "
+        f"Basis and limitation Sources FY2024 {reason} Not supplied: synthetic 1400" in page
+    )
     # Neither a zero nor a partial total (700 + 600 = 1,300, or 700 or 600 alone) stands in.
     files = [p.read_text(encoding="utf-8") for p in gbp_no_rate.delivery.glob("*") if p.is_file()]
     assert not any(re.search(r"\b1,?300\b", text) for text in files)
-    assert not any(re.search(r"£\s?(?:0|1,300|700|600)m", t) for t in gbp_no_rate.pages.values())
-    assert "Contractual principal £1,400m FY2024" in gbp.pages["CP-1"]  # with the rate: calculated
+    partial = r"(?:£\s?|GBP )(?:0|1,300|700|600)m\b"
+    assert not any(re.search(partial, t) for t in gbp_no_rate.pages.values())
+    # The pages print bare figures too; a bare 1,300 is the partial total whatever its unit.
+    assert not any(re.search(r"\b1,?300\b", t) for t in gbp_no_rate.pages.values())
+    assert SHOWN["GBP"]["principal"] in gbp.pages["CP-1 principal"]  # with the rate: calculated
 
 
 @pytest.mark.browser
@@ -454,6 +495,10 @@ ALLOWED = (
     (r'(?<=")USD(?=", "100", )', "its `Currency` cell (library data)"),
     (r"(?<=Senior )USD(?= 100 )", "the Dollar notes' `Currency` cell (page text)"),
     (r"(?<=Currency )USD(?= Reporting Currency Amount 100)", "its `Currency` cell (static page)"),
+    (
+        r"(?<=Currency — )USD(?= Reporting Currency Amount — 100)",
+        "its `Currency` cell (the Evidence trace's field list)",
+    ),
     (r'(?<="field": "c7",\n {10}"amount": null,\n {10}"text": ")USD', "its `Currency` cell (view)"),
     # `chart_unit` is the money class's tag in the delivery request (`HandoffRoute.chart_unit`,
     # "x" | "US$m" | "%"), the same for every run whatever its currency. It is a scale and

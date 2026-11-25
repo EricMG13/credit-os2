@@ -178,8 +178,29 @@ export type ScriptCheckRecord = {
   outcomes: ScriptCheckOutcome[];
 };
 
+export type PublishedLead = {
+  module: string;
+  output: string;
+  sha256: string;
+  line: number;
+  text: string;
+};
+type AssessmentScope = "standard" | "partial" | "unverified";
+type ActionTreatment = {
+  output: string;
+  sha256: string;
+  state: "withheld";
+  scope: "committee" | "instrument";
+  reason: string;
+};
+
 export type PublishedRun = {
   history?: { modules: string[]; earlierFormat: boolean; earlierMethods: boolean };
+  publicationVerified?: boolean;
+  lead?: PublishedLead | null;
+  assessmentScope?: AssessmentScope;
+  publishedAt?: string | null;
+  actionTreatment?: Partial<Record<"CP-6" | "CP-3", ActionTreatment>>;
   folder: string;
   issuer: string;
   issuerKey?: string | null;
@@ -240,6 +261,7 @@ export type CatalogueRun = {
   id: string;
   name: string;
   issuer: string;
+  ticker?: string | null;
   title: string;
   date: string;
   sector: string;
@@ -249,6 +271,7 @@ export type CatalogueRun = {
   ratings?: CatalogueRating[];
 };
 export type Snapshot = {
+  reportFolder?: string;
   catalogue: { real: CatalogueRun[] };
   workspace: {
     runs: Record<string, PublishedRun>;
@@ -263,16 +286,29 @@ export type Snapshot = {
 export type LibraryIndex = {
   catalogue: Snapshot["catalogue"];
   workspace: {
-    runs: Record<
-      string,
-      Pick<PublishedRun, "folder" | "issuerKey" | "pathway"> & {
-        /** Exact selected credit-view paragraph; its Basis line and original source identity remain intact. */
-        lead?: { module: string; output: string; sha256: string; line: number; text: string };
-      }
-    >;
+    runs: Record<string, LibraryRun>;
   };
   preview?: Snapshot["preview"];
 };
+
+export type LibraryRun = Pick<
+  PublishedRun,
+  | "folder"
+  | "issuerKey"
+  | "pathway"
+  | "publicationVerified"
+  | "lead"
+  | "assessmentScope"
+  | "publishedAt"
+>;
+
+export function publishedRunForFolder<Run extends { folder: string }>(
+  runs: Record<string, Run>,
+  folder: string,
+) {
+  const exact = Object.entries(runs).filter(([, run]) => run.folder === folder);
+  return exact.length === 1 ? exact[0] : undefined;
+}
 
 export async function getLibraryIndex(signal: AbortSignal): Promise<LibraryIndex | null> {
   const response = await request(LIBRARY_ADDRESS, signal);
@@ -579,6 +615,10 @@ const FILE_REFERENCE = new RegExp(
   "i",
 );
 const LONG_HASH = /\b(?=[0-9a-f]*[a-f])[0-9a-f]{32,}\b/i;
+// A drive, `file:` or other scheme written with one slash (`C:/x`, `file:/x`) is an address: a
+// letter, a colon and a slash with no space. A share written with forward slashes is `//host/path`.
+const ADDRESS_REFERENCE =
+  /(?:\b[a-z][a-z0-9+.-]*:\/\/|[a-z]:\/\S|\bwww\.|(?:^|[\s(`"':])(?:(?:~|\.{1,2})\/\S|\/{1,2}[^\s/]+\/\S|[a-z]:\\\S|\\\\\S))/i;
 const REGISTER_ID = /\bCP-[A-Z0-9]+-(?:GAP|MON|FACT|CALC|EVID|SRC|ASSUMPTION)-[A-Z0-9-]+\b/i;
 
 // A gap id as the modules spell a gap, the report-wide id after the empty-set mark ("∅ G12",
@@ -623,10 +663,10 @@ function parenthesizedGap(text: string) {
 function pageCitation(text: string) {
   return contextualMatch(
     text,
-    /(?<![\w&.-])(p|pg|pp|pages?)\.?\s*(\d+)\b/gi,
+    /(?<![\w&.-])(p|pg|pp|pages?)\.?\s*(:\s*)?(\d+)\b/gi,
     (match, before, after) => {
       const marker = match[1]?.toLowerCase();
-      if (/\b(?:see|at|on|as)\s*$/i.test(before)) return true;
+      if (match[2] || /\b(?:see|at|on|as)\s*$/i.test(before)) return true;
       if (marker === "pp") {
         if (/\d\s*$/.test(before)) return false;
         if (
@@ -643,6 +683,7 @@ function pageCitation(text: string) {
 export function containsReference(text: string) {
   return (
     FILE_REFERENCE.test(text) ||
+    ADDRESS_REFERENCE.test(text) ||
     LONG_HASH.test(text) ||
     REGISTER_ID.test(text) ||
     GAP_ID.test(text) ||
@@ -655,7 +696,7 @@ export function containsReference(text: string) {
 const INTERMODULE =
   /^(?:supplied handoff|use in this module|effect on this module|consumer|downstream module|receiving module|responsible module|command|required consumer action|escalation consequence|next commands?|next modules?|downstream consumers?|downstream modules? affected|downstream handoff impact|downstream owners|affected consumers|affected modules|downstream_use|consumer_module_id)$|^consequence for cp-/;
 const SOURCE_COLUMN =
-  /\bid$|^linked pathway row$|^(?:(?:sources?|evidence)(?:\s*\/\s*(?:clause|limitation)|\s+(?:trace|locator|register|document|file|sha|hash|page|reference|ref|link)s?)?|sha256|source document name|source and basis|source\(s\)|source row\/section\/quote|sha256 hash|where found)$|\b(?:hash(?:es)?|sha|sha256|locators?|citations?|file ?names?)\b/;
+  /\bid$|^linked pathway row$|^(?:(?:sources?|evidence)(?:\s*\/\s*(?:clause|limitation)|\s+(?:trace|locator|register|document|file|sha|hash|page|reference|ref|link)s?)?|sha256|source document name|source and basis|basis and source|source\(s\)|source row\/section\/quote|sha256 hash|where found)$|\b(?:hash(?:es)?|sha|sha256|locators?|citations?|file ?names?)\b/;
 
 export function displayColumns(headers: string[], evidence: boolean, rows: Row[] = []) {
   return headers.flatMap((text, index) => {
@@ -689,7 +730,7 @@ export function publishedHref(href: string | null | undefined, folder: string) {
   }
 }
 
-export function evidenceToken(entry: OutputEntry, line?: number) {
+export function evidenceToken(entry: { output: Pick<Output, "id" | "sha256"> }, line?: number) {
   const { id, sha256 } = entry.output;
   return `${encodeURIComponent(id)}~${sha256}${line === undefined ? "" : `-${String(line)}`}`;
 }

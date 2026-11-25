@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { PageHeader } from "./PageHeader";
 import { Shell, type Area } from "./Shell";
 
-// The four rail areas and their hashes; the kit is a page of the shell, not a rail item (Shell.kitRail.test.tsx).
+// The four bar areas and their hashes; the kit is a page of the shell, not a bar item (Shell.kitRail.test.tsx).
 const AREAS: [Area, string, string][] = [
   ["library", "Library", "#/"],
   ["model", "Model", "#/model"],
@@ -21,11 +21,11 @@ describe("Shell", () => {
     expect(main).toHaveAttribute("tabindex", "-1");
   });
 
-  it("names every area in the rail, in order, each linking to its hash", () => {
+  it("names every area in the bar, in order, each linking to its hash", () => {
     render(<Shell current="library">content</Shell>);
     const rail = screen.getByRole("navigation", { name: "Areas" });
     const links = within(rail).getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual(AREAS.map(([, name]) => name));
+    expect(links.map((a) => a.textContent)).toEqual(AREAS.map(([, name]) => name));
     expect(links.map((a) => a.getAttribute("href"))).toEqual(AREAS.map(([, , href]) => href));
   });
 
@@ -39,7 +39,7 @@ describe("Shell", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("keeps each rail link at least 44px tall on a phone", () => {
+  it("keeps each bar link at least 44px tall on a phone", () => {
     render(<Shell current="library">content</Shell>);
     const rail = screen.getByRole("navigation", { name: "Areas" });
     for (const link of within(rail).getAllByRole("link"))
@@ -51,7 +51,7 @@ describe("Shell", () => {
     const selected = screen
       .getAllByRole("link")
       .filter((a) => a.className.includes("bg-surface-selected"));
-    expect(selected.map((a) => a.getAttribute("aria-label"))).toEqual(["Run"]);
+    expect(selected.map((a) => a.textContent)).toEqual(["Run"]);
   });
 
   it.each(AREAS)("marks only %s as the current page", (area, name) => {
@@ -59,7 +59,7 @@ describe("Shell", () => {
     const marked = screen
       .getAllByRole("link")
       .filter((a) => a.getAttribute("aria-current") === "page");
-    expect(marked.map((a) => a.getAttribute("aria-label"))).toEqual([name]);
+    expect(marked.map((a) => a.textContent)).toEqual([name]);
   });
 
   it("draws a decorative symbol with no text", () => {
@@ -94,11 +94,12 @@ describe("Shell bleed", () => {
     expect(screen.getByRole("main").className).toContain("sm:p-8");
   });
 
-  it("keeps the desktop rail while giving narrow screens a labelled horizontal navigation", () => {
+  it("stacks one top bar over the page and names the product beside the symbol", () => {
     const { container } = render(<Shell current="library">x</Shell>);
-    expect(container.firstElementChild?.className).toContain("min-[768px]:flex-row");
-    expect(screen.getByRole("navigation", { name: "Areas" })).toBeInTheDocument();
-    expect(screen.getByText("Library", { selector: "span" })).toHaveClass("min-[768px]:hidden");
+    expect(container.firstElementChild?.className).toContain("flex-col");
+    const bar = screen.getByRole("banner");
+    expect(within(bar).getByRole("navigation", { name: "Areas" })).toBeInTheDocument();
+    expect(within(bar).getByText("Credit OS")).toBeInTheDocument();
   });
 });
 
@@ -120,13 +121,12 @@ describe("Shell scroll container", () => {
     expect(screen.getByRole("main")).toHaveClass("relative");
   });
 
-  it("sizes the rail list from the space left under its margin, not from the full rail height", () => {
+  it("lets the area list shrink and wrap inside the bar instead of scrolling or widening the page", () => {
     render(<Shell current="library">content</Shell>);
     const rail = screen.getByRole("navigation", { name: "Areas" });
     const list = within(rail).getByRole("list");
-    // A full-height list plus its top margin overflowed the document by the margin.
-    expect(list).not.toHaveClass("h-full");
-    expect(rail).toHaveClass("flex", "flex-col");
-    expect(list).toHaveClass("flex-1", "min-h-0");
+    expect(rail).toHaveClass("flex", "min-w-0");
+    expect(list).toHaveClass("flex-1", "min-w-0", "flex-wrap");
+    expect(list).not.toHaveClass("overflow-x-auto");
   });
 });

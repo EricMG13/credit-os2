@@ -61,7 +61,7 @@ it("allows the sole retained output without a designation but withholds ambiguou
   const { rerender } = render(<Modules {...fixture([output("a")])} />);
   expect(screen.getByRole("link", { name: "Open Evidence" })).toBeInTheDocument();
   rerender(<Modules {...fixture([output("a"), output("b")])} />);
-  expect(screen.getByRole("heading", { name: "Handoff unavailable" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Module output unavailable" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Open Evidence" })).toBeNull();
 });
 
@@ -69,7 +69,7 @@ it.each(["", "00", "01", "-1", "+1", "1e0", "1.0", " 1", "2", "99999999999999999
   "does not substitute the default for an invalid or absent output address: %j",
   (address) => {
     render(<Modules {...fixture([output("a"), output("b", true)])} output={address} />);
-    expect(screen.getByRole("heading", { name: "Handoff unavailable" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Module output unavailable" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open Evidence" })).toBeNull();
   },
 );
@@ -78,7 +78,7 @@ it("respects explicit modules and does not substitute for an unknown module", ()
   const props = fixture([output("a", true)]);
   const { rerender } = render(<Modules {...props} module="CP-2" />);
   expect(screen.getByRole("heading", { name: "Credit analysis" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Handoff unavailable" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Module output unavailable" })).toBeInTheDocument();
   rerender(<Modules {...props} module="missing" />);
   expect(screen.getByText("This module is unavailable in the published run.")).toBeInTheDocument();
   expect(screen.queryByLabelText("Module")).toBeNull();
@@ -182,39 +182,42 @@ function renderModule(extra: Partial<OutputEntry["output"]>, withBottomLine = fa
   return render(<Modules {...props} module="CP-2" />);
 }
 
-it("places a published zero and its confidence band beside the Bottom line with a separate trace", async () => {
+it("places a published zero and its confidence band in the module header with a separate trace", async () => {
   renderModule({ confidence: { value: 0, band: "Insufficient Information" } }, true);
-  const bottomLine = within(screen.getByRole("region", { name: /^Bottom line$/ }));
-  const score = within(bottomLine.getByRole("group", { name: "Confidence score" }));
-  expect(bottomLine.getByRole("group", { name: "Confidence score" })).toHaveTextContent("0 / 100");
+  const header = within(screen.getByRole("region", { name: "Credit analysis" }));
+  const score = within(header.getByRole("group", { name: "Confidence score" }));
+  expect(header.getByRole("group", { name: "Confidence score" })).toHaveTextContent("0 / 100");
   expect(score.getByText("Insufficient Information")).toBeVisible();
   expect(screen.queryByText("Confidence score")).toBeNull();
-  expect(
-    bottomLine.getByRole("button", { name: "Show sources for the bottom line" }),
-  ).toBeVisible();
+  expect(header.getByText("Reported liquidity covers the next payment.")).toBeVisible();
+  expect(header.getByRole("button", { name: "Show sources for the bottom line" })).toBeVisible();
   fireEvent.click(score.getByRole("button", { name: "Show sources for the confidence score" }));
   expect(await screen.findByRole("dialog")).toHaveTextContent("Coverage");
 });
 
 it("shows the published confidence score with its band", () => {
   renderModule({ confidence: { value: 72, band: "Medium" } });
-  const tile = screen.getByText("Confidence score").closest("li");
-  expect(tile).toHaveTextContent("72");
-  expect(tile).toHaveTextContent("Medium");
+  const score = screen.getByRole("group", { name: "Confidence score" });
+  expect(score).toHaveTextContent("72");
+  expect(score).toHaveTextContent("/ 100");
+  expect(score).toHaveTextContent("Medium");
   expect(
-    within(tile as HTMLElement).getByRole("button", { name: "Show sources for this figure" }),
+    within(score).getByRole("button", { name: "Show sources for the confidence score" }),
   ).toBeVisible();
   expect(screen.queryByRole("heading", { name: "Confidence inputs" })).toBeNull();
 });
 
 it("shows why there is no score", () => {
   renderModule({ confidence: { missing: "The confidence inputs could not be read." } });
-  expect(screen.getByText("The confidence inputs could not be read.")).toBeVisible();
+  expect(screen.getByRole("group", { name: "Confidence score" })).toHaveTextContent(
+    "Not scored: The confidence inputs could not be read.",
+  );
 });
 
 it("draws nothing for a run that predates the score", () => {
   renderModule({});
   expect(screen.queryByText("Confidence score")).toBeNull();
+  expect(screen.queryByRole("group", { name: "Confidence score" })).toBeNull();
 });
 
 it("skips no heading level on a module page that draws a relationship map", () => {
@@ -298,6 +301,7 @@ it("drops the code of a named module from a row's trace drawer statement", async
     },
   ]);
   expect(document.body.textContent).not.toMatch(CODE);
+  fireEvent.click(screen.getByRole("button", { name: "Show records" }));
   fireEvent.click(screen.getByRole("button", { name: "Show sources for Cash runway" }));
   const drawer = await screen.findByRole("dialog");
   expect(drawer.textContent).toContain("Financial foundation");
@@ -395,6 +399,7 @@ it("names a row's trace control without the code in the Module cell", () => {
       ],
     },
   ]);
+  fireEvent.click(screen.getByRole("button", { name: "Show records" }));
   expect(screen.getByRole("button", { name: "Show sources for Liquidity" })).toBeInTheDocument();
   const coded = screen
     .getAllByRole("button")
@@ -403,11 +408,12 @@ it("names a row's trace control without the code in the Module cell", () => {
   expect(coded).toEqual([]);
 });
 
-it("opens the confidence tile's trace on the inputs the score was computed from", async () => {
+it("opens the confidence score's trace on the inputs the score was computed from", async () => {
   renderModule({ confidence: { value: 72, band: "Medium" } });
-  const tile = screen.getByText("Confidence score").closest("li");
   fireEvent.click(
-    within(tile as HTMLElement).getByRole("button", { name: "Show sources for this figure" }),
+    within(screen.getByRole("group", { name: "Confidence score" })).getByRole("button", {
+      name: "Show sources for the confidence score",
+    }),
   );
   const drawer = await screen.findByRole("dialog");
   expect(drawer.textContent).not.toContain("Basis was not recorded for this item");
@@ -429,17 +435,18 @@ it("draws the reader passages in order and a gap for the missing one", () => {
     text("Bottom line", 4),
     text("Key findings", 6),
   ]);
-  // The bottom line band names itself by its label; its heading is the judgement.
-  const headings = [...document.querySelectorAll("h1, h2, h3, h4, section[aria-label]")].map(
-    (node) => node.getAttribute("aria-label") ?? node.textContent,
+  // The header carries the bottom line under the module's name; the passages follow in the owed order.
+  const header = screen.getByRole("region", { name: "Credit analysis" });
+  expect(within(header).getByText("Bottom line says so.")).toBeVisible();
+  const regions = ["Key findings", CONTRARY, "Limitations of this module"].map((name) =>
+    screen.getByRole("region", { name }),
   );
-  const at = ["Bottom line", "Key findings", CONTRARY, "Limitations"].map((name) =>
-    headings.indexOf(name),
-  );
-  expect(at.every((index) => index >= 0)).toBe(true);
-  expect(at).toEqual([...at].sort((a, b) => a - b));
-  const gap = screen.getByRole("heading", { name: CONTRARY }).closest("section");
-  expect(gap).toHaveTextContent("Not established for this run");
+  [header, ...regions].slice(1).forEach((region, at) => {
+    const before = [header, ...regions][at] as HTMLElement;
+    expect(before.compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+  expect(regions[1]).toHaveTextContent("Not established for this run");
+  expect(within(regions[2] as HTMLElement).getByText("Limitations says so.")).toBeVisible();
 });
 
 it("draws no bottom-line gap beside the module's own summary", () => {
@@ -453,11 +460,32 @@ it("draws no bottom-line gap beside the module's own summary", () => {
         blocks: [{ type: "text", line: 3, end: 3, text: "Margins held." }],
       },
     ],
+    { summary: { bottomLine: "Leverage is stable.", confidence: "", limitation: "", line: 3 } },
+  );
+  const header = within(screen.getByRole("region", { name: "Credit analysis" }));
+  expect(header.getByText("Leverage is stable.")).toBeInTheDocument();
+  expect(header.queryByText(/Not established for this run/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "Bottom line" })).not.toBeInTheDocument();
+  const limitations = screen.getByRole("region", { name: "Limitations of this module" });
+  expect(limitations).toHaveTextContent("Not established for this run");
+});
+
+// A summary whose line the handoff does not hold has no trace; the header's control must not
+// throw for it (the page before the frame drew the missing-trace marker instead).
+it("draws a summary bottom line whose handoff line is not held, without a crash", () => {
+  renderSections(
+    [
+      FINDINGS,
+      {
+        heading: "Key findings",
+        level: 3,
+        line: 2,
+        blocks: [{ type: "text", line: 3, end: 3, text: "Margins held." }],
+      },
+    ],
     { summary: { bottomLine: "Leverage is stable.", confidence: "", limitation: "", line: 9 } },
   );
   expect(screen.getByText("Leverage is stable.")).toBeInTheDocument();
-  expect(screen.queryByRole("heading", { name: "Bottom line" })).not.toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Limitations" })).toBeInTheDocument();
 });
 
 const CONTRARY_HEADING = "Contrary evidence and what would change the view";
@@ -508,7 +536,9 @@ it("shows the bottom-line gap when the summary band is dropped for a reference",
     },
   });
   expect(screen.getByText("Key findings says so.")).toBeInTheDocument();
-  expect(gapOf("Bottom line")).toHaveTextContent("Not established for this run");
+  expect(screen.getByRole("region", { name: "Credit analysis" })).toHaveTextContent(
+    "Not established for this run",
+  );
 });
 
 it("draws a nested section named like a passage and keeps the real passage", () => {
@@ -556,14 +586,20 @@ it("picks the passage slot by role and line when a nested section of the same na
     },
     passage("Limitations", 12),
   ]);
+  // The real passage fills the limitations tile; the nested section stays a section of its own.
+  const slot = within(screen.getByRole("region", { name: "Limitations of this module" }));
+  expect(slot.getByText("Limitations says so.")).toBeVisible();
+  expect(slot.queryByText("Cash is ample.")).toBeNull();
+  expect(slot.queryByText("Nested caveat on cash.")).toBeNull();
+  const nested = within(screen.getByRole("region", { name: "Limitations" }));
+  expect(nested.getByText("Nested caveat on cash.")).toBeVisible();
   const before = (first: string, second: string) =>
     Boolean(
       screen.getByText(first).compareDocumentPosition(screen.getByText(second)) &
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-  expect(before("Limitations says so.", "Cash is ample.")).toBe(true);
-  expect(before("Limitations says so.", "Nested caveat on cash.")).toBe(true);
   expect(before("Cash is ample.", "Nested caveat on cash.")).toBe(true);
+  expect(before("Nested caveat on cash.", "Limitations says so.")).toBe(true);
 });
 
 it("counts a passage drawn as a chart as present", () => {
@@ -590,7 +626,7 @@ it("counts a passage drawn as a chart as present", () => {
     { chartGaps: [{ title: "Chart", table: 7, unit: "x", columns: [1], gap: "no data" }] },
   );
   expect(screen.getByText("Limitations says so.")).toBeInTheDocument();
-  expect(screen.queryByText(/The module's handoff has no such passage/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/The module wrote no such passage/)).not.toBeInTheDocument();
 });
 
 // docs/rulings/2026-11-16-reporting-currency-from-sources.md: the run's currency is CP-1's money

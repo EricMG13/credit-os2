@@ -67,44 +67,57 @@ describe("Library batch findings", () => {
     reply(library);
     render(<ReportLibrary />);
     await screen.findByRole("heading", { name: "Northbridge" });
-    expect(screen.getByText("Delivered")).toBeVisible();
-    expect(screen.getByText("Industrials", { selector: "p" })).toBeVisible();
+    const row = within(screen.getByRole("list", { name: "Issuers" }));
+    expect(row.getByText("Delivered")).toBeVisible();
+    expect(row.getByText("Industrials", { selector: "p" })).toBeVisible();
     expect(document.body).not.toHaveTextContent("raw-north-key");
   });
 
-  it("C1-019 restores every filter and layout from its copied address after returning", async () => {
+  it("C1-019 restores every filter from its copied address after returning", async () => {
     reply(library);
     render(<ReportLibrary />);
     fireEvent.change(await screen.findByRole("searchbox"), { target: { value: "North" } });
-    fireEvent.change(screen.getByLabelText("Sector"), { target: { value: "Industrials" } });
-    fireEvent.change(screen.getByLabelText("Pathway"), {
-      target: { value: "Full credit assessment" },
-    });
-    fireEvent.click(screen.getByRole("radio", { name: "List" }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Sector" })).getByRole("button", {
+        name: "Industrials",
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Pathway" })).getByRole("button", {
+        name: "Full credit assessment",
+      }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "State" })).getByRole("button", {
+        name: "Delivered",
+      }),
+    );
     const query = new URLSearchParams(window.location.search);
     expect(query.get("q")).toBe("North");
     expect(query.get("sector")).toBe("Industrials");
     expect(query.get("pathway")).toBe("Full credit assessment");
-    expect(query.get("layout")).toBe("list");
+    expect(query.get("state")).toBe("Delivered");
     cleanup();
     render(<ReportLibrary />);
     expect(await screen.findByRole("searchbox")).toHaveValue("North");
-    expect(screen.getByLabelText("Sector")).toHaveValue("Industrials");
-    expect(screen.getByLabelText("Pathway")).toHaveValue("Full credit assessment");
-    expect(screen.getByRole("radio", { name: "List" })).toBeChecked();
+    for (const [group, name] of [
+      ["Sector", "Industrials"],
+      ["Pathway", "Full credit assessment"],
+      ["State", "Delivered"],
+    ] as const)
+      expect(
+        within(screen.getByRole("group", { name: group })).getByRole("button", { name }),
+      ).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("C1-022 uses the same label style for the three related filters", async () => {
+  it("C1-022 draws the three filters as labelled chip groups under one search field", async () => {
     reply(library);
     render(<ReportLibrary />);
-    await screen.findByRole("searchbox");
-    for (const name of ["Search issuers", "Sector", "Pathway"])
-      expect(screen.getByLabelText(name).closest("label")).toHaveClass(
-        "font-medium",
-        "text-sm",
-        "text-text-primary",
-        "gap-1.5",
-      );
+    await screen.findByRole("searchbox", { name: "Search issuers" });
+    for (const name of ["Sector", "Pathway", "State"]) {
+      const group = screen.getByRole("group", { name });
+      expect(within(group).getAllByRole("button").length).toBeGreaterThan(1);
+    }
   });
 
   it("C1-023 and C1-014 use the long case date and identify the Library browser tab", async () => {
@@ -127,10 +140,10 @@ describe("Library batch findings", () => {
 });
 
 describe("Run activity batch findings", () => {
-  it("C1-018 draws the module name beside a visible state word", async () => {
+  it("C1-018 draws the module a run is on, in words, beside a visible state word", async () => {
     reply({ updated: "2026-11-17T08:00:00Z", held: "", runs: [running], ended: [] });
     render(<RunActivity />);
-    const item = (await screen.findByText("Financial foundation")).closest("li");
+    const item = (await screen.findByText("Now: Financial foundation")).closest("li");
     expect(item).not.toBeNull();
     expect(within(item as HTMLElement).getByText("Running")).not.toHaveClass("sr-only");
   });
@@ -175,9 +188,15 @@ describe("Run progress batch findings", () => {
   it("S6-037 names the delivery step alongside analytical modules and formats the case date", async () => {
     reply(run);
     render(<RunProgress id={run.id} mode="synthetic" />);
+    const pipeline = await screen.findByRole("list", { name: "Modules in this run" });
+    // The delivery step is its own last stage, named beside the analytical stages.
     expect(
-      await screen.findByRole("heading", { name: "Modules and report delivery" }),
-    ).toBeVisible();
+      within(pipeline)
+        .getAllByRole("heading", { level: 3 })
+        .map((heading) => heading.textContent)
+        .at(-1),
+    ).toBe("Report delivery1");
+    expect(within(pipeline).getByText("Report", { selector: "span" })).toBeVisible();
     expect(screen.getByText("31 March 2026")).toBeVisible();
     await waitFor(() => {
       expect(document.title).toBe("Northbridge run — Credit OS");
@@ -203,9 +222,14 @@ describe("C1-008 original card credit view", () => {
   it("draws the original finding with one source control to its exact published line", async () => {
     reply({
       ...library,
-      workspace: { runs: { north: { ...library.workspace.runs.north, lead } } },
+      workspace: {
+        runs: { north: { ...library.workspace.runs.north, publicationVerified: true, lead } },
+      },
     });
     render(<ReportLibrary />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Show runs and detail for Northbridge/ }),
+    );
     expect(await screen.findByText("Cover is 2.67x and debt is USD 3,105m.")).toBeVisible();
     expect(screen.getByRole("link", { name: "Sources for this credit view" })).toHaveAttribute(
       "href",
@@ -222,12 +246,16 @@ describe("C1-008 original card credit view", () => {
         runs: {
           north: {
             ...library.workspace.runs.north,
+            publicationVerified: true,
             lead: { ...lead, text: "The finding is in filing.txt." },
           },
         },
       },
     });
     render(<ReportLibrary />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Show runs and detail for Northbridge/ }),
+    );
     expect(
       await screen.findByRole("link", { name: "Read this credit view in Evidence" }),
     ).toHaveAttribute(
@@ -235,6 +263,35 @@ describe("C1-008 original card credit view", () => {
       `/report/north-2026#evidence/north-2026%2FCP-2.md~${"a".repeat(64)}-12`,
     );
     expect(document.body).not.toHaveTextContent("The finding is in filing.txt.");
+  });
+
+  it("refuses a specialist finding when the scoped response belongs to another report", async () => {
+    window.history.replaceState(null, "", "/?pathway=Relative+Value");
+    const selected = {
+      ...library.workspace.runs.north,
+      pathway: "relative_value",
+      publicationVerified: true,
+    };
+    const fetch = vi.fn((path: string) =>
+      Promise.resolve(
+        Response.json(
+          path === "/connected/library"
+            ? { ...library, workspace: { runs: { north: selected } } }
+            : { reportFolder: "other-report" },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    render(<ReportLibrary />);
+    // The credit view is in the opened row.
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Show runs and detail for Northbridge/ }),
+    );
+    expect(
+      await screen.findByText("A verified finding is unavailable for this report."),
+    ).toBeVisible();
+    expect(fetch).toHaveBeenCalledWith("/connected/snapshot?run=north-2026", expect.anything());
+    expect(screen.queryByRole("link", { name: "Sources for this credit view" })).toBeNull();
   });
 });
 
@@ -260,9 +317,14 @@ describe("C1-028 published blocked modules", () => {
       ),
     );
     render(<RunProgress id={run.id} mode="synthetic" />);
-    const state = await screen.findByText("Not assessable");
+    const pipeline = await screen.findByRole("list", { name: "Modules in this run" });
+    const state = within(pipeline).getByText("Not assessable");
     expect(state.closest("li")).toHaveTextContent("Financial foundation");
-    expect(screen.getByRole("progressbar", { name: "1 of 1 modules" })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Modules finished" })).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Modules finished" })).toHaveAttribute(
+      "aria-valuetext",
+      "1 of 1 modules",
+    );
     expect(screen.getByText("Report", { selector: "span" }).closest("li")).toHaveTextContent(
       "Finished",
     );

@@ -1,5 +1,10 @@
 # Design system
 
+> **Token register only.** The owner replaced this design on 2026-11-24 and the rebuilt screens
+> merged on 2026-11-25; `DESIGN.md` at the repo root is the authority. The token tables below carry
+> the current values because tests parse them. Where any remaining prose disagrees with
+> `DESIGN.md`, `DESIGN.md` wins.
+
 Version 0.8, 2026-11-13, with the owner's rulings at reviews 1 and 2, the source-look
 instruction and the rules from the owner's own prompts applied (step D0 of the
 [design track plan](../superpowers/plans/2026-11-13-design-track.md);
@@ -13,79 +18,41 @@ look, and motion. Which component presents which kind of information is owned by
 Standalone Claude Design has announced that its tools stop working by 2026-12-14, so this page
 holds every value the build needs.
 
-## The idea in four lines
-
-- **Judgement first, on a calm page.** White rounded cards on a faint violet canvas, large
-  type, generous space.
-- **One accent.** Navy carries text; Ultramarine is the only action colour.
-- **Colour never works alone.** Every state carries a shape and a word, and within any set of
-  states shown together each state has its own shape, so it survives grayscale and colour
-  blindness.
-- **Motion means a run is live.** Only live run state loops; everything else is a single
-  short transition or none.
-
-Every colour below is a hex from the [brand tokens](brand-tokens.md); none is invented. Token
-names are the names step D2a gives the Tailwind `@theme` variables.
-
-## What this system supplies, and what a source supplies
-
-[Decision 0003](../decisions/0003-design-track.md) ("Source look"): where a component is taken
-from an approved source, its source page's visual design is reproduced closely rather than
-restyled. The owner confirmed the split below at review 2 and refined it (decision 0003,
-"Rulings at review 2"):
-review 2:
-
-- **This system supplies, everywhere:** the colour values, the typefaces, the status shapes,
-  the gap, withheld and blocked states, motion, and the focus colour.
-- **The source supplies, for its own component:** layout, sizes (including text and icon
-  sizes), radius, border widths, shadow and density, as its live page shows them.
-- **Every size, radius, border width, shadow, icon size and density value in this file applies
-  only to pieces written here** (card, tile, gap panel, gap badge, withheld bar, status shapes,
-  skeleton, trace control) **and to page layout and page text.** It never
-  overrides a source component.
-- **A card is page layout.** A card written here may hold a group of source components or a
-  chart. A single source component is still not restyled.
-- **Page titles and judgement prose use this system's sizes:** the page title is `h1` (36px)
-  and key findings, contrary evidence and what would change the view are `body` (16px). Every
-  other source component keeps its source's size.
-- **Charts and metric tiles follow the source:** faint horizontal gridlines, the source's bar
-  corners, and each metric on its own card.
-
 ## Colour roles
 
 ### Surface
 
 | Token | Hex | Brand step | Use |
 | :--- | :--- | :--- | :--- |
-| `surface-canvas` | `#F6F5FF` | Violet L9 | Page background |
+| `surface-canvas` | `#FAFAFA` | Violet L9 | Page background |
 | `surface-card` | `#FFFFFF` | White | Cards, tiles, inputs, drawers |
 | `surface-subtle` | `#F4F4F5` | Neutral L9 | Row and item hover, disabled field, switch track |
-| `surface-selected` | `#E5E8FF` | Ultramarine L9 | Selected navigation item, subtle action fill |
-| `surface-inverse` | `#000533` | Navy | Tooltip; the bottom line band, with white text (review 2, ruling 6) |
+| `surface-selected` | `#F0FDFA` | Ultramarine L9 | Selected navigation item, subtle action fill |
+| `surface-inverse` | `#0A0A0A` | Navy | Tooltip; the bottom line band, with white text (review 2, ruling 6) |
 
 ### Text
 
 | Token | Hex | Brand step | Use |
 | :--- | :--- | :--- | :--- |
-| `text-primary` | `#000533` | Navy | Headings, body, figures |
-| `text-secondary` | `#474A4F` | Neutral D5 | Supporting prose, neutral badge text |
-| `text-tertiary` | `#63676E` | Neutral D3 | Captions, column headers, hints, "n.a." |
-| `text-disabled` | `#A4A9B1` | Neutral L2 | Disabled controls only |
+| `text-primary` | `#0A0A0A` | Navy | Headings, body, figures |
+| `text-secondary` | `#52525B` | Neutral D5 | Supporting prose, neutral badge text |
+| `text-tertiary` | `#6B6B74` | Neutral D3 | Captions, column headers, hints, "n.a." |
+| `text-disabled` | `#A1A1AA` | Neutral L2 | Disabled controls only |
 | `text-on-action` | `#FFFFFF` | White | Label on a filled button |
-| `text-link` | `#001AFF` | Ultramarine | Links, tertiary buttons, selected tab |
+| `text-link` | `#0F766E` | Ultramarine | Links, tertiary buttons, selected tab |
 
 ### Action, hover and focus
 
 | Token | Hex | Brand step | Use |
 | :--- | :--- | :--- | :--- |
-| `action` | `#001AFF` | Ultramarine | Primary button, selected state, progress fill |
-| `action-hover` | `#0015CC` | Ultramarine D2 | Primary button hover |
-| `action-pressed` | `#001099` | Ultramarine D4 | Primary button pressed |
-| `action-subtle` | `#E5E8FF` | Ultramarine L9 | Tertiary button hover, running badge fill |
-| `action-subtle-hover` | `#CCD1FF` | Ultramarine L8 | Running badge edge |
-| `action-disabled` | `#E8E9EB` | Neutral L8 | Disabled button fill |
-| `focus` | `#001AFF` | Ultramarine | Focus ring colour on light surfaces. Pieces written here draw it 2px wide with a 2px offset; a source component keeps its own ring width |
-| `focus-inverse` | `#4AD4FF` | Cyan | Focus ring colour on Navy |
+| `action` | `#0F766E` | Ultramarine | Primary button, selected state, progress fill |
+| `action-hover` | `#115E59` | Ultramarine D2 | Primary button hover |
+| `action-pressed` | `#134E4A` | Ultramarine D4 | Primary button pressed |
+| `action-subtle` | `#F0FDFA` | Ultramarine L9 | Tertiary button hover, running badge fill |
+| `action-subtle-hover` | `#CCFBF1` | Ultramarine L8 | Running badge edge |
+| `action-disabled` | `#E4E4E7` | Neutral L8 | Disabled button fill |
+| `focus` | `#0F766E` | Ultramarine | Focus ring colour on light surfaces. Pieces written here draw it 2px wide with a 2px offset; a source component keeps its own ring width |
+| `focus-inverse` | `#5EEAD4` | Cyan | Focus ring colour on Navy |
 
 Hover on a neutral surface (table row, navigation item, secondary button) is `surface-subtle`.
 
@@ -93,13 +60,13 @@ Hover on a neutral surface (table row, navigation item, secondary button) is `su
 
 | Token | Hex | Brand step | Use |
 | :--- | :--- | :--- | :--- |
-| `border-subtle` | `#E3E1FF` | Violet L7 | Card and tile edge (decorative) |
-| `border-hairline` | `#E8E9EB` | Neutral L8 | Row dividers (decorative) |
-| `border-control` | `#7F848D` | Neutral D1 | Edge colour of inputs and the secondary button; chart baseline |
-| `border-container` | `#D1D4D8` | Neutral L6 | A source's stronger container border: alert, featured icon, file icon (decorative) |
-| `connector` | `#BBBEC4` | Neutral L4 | Connector dots and lines between entries of an activity feed or timeline (decorative) |
-| `border-gap` | `#827BCC` | Violet D2 | Dashed edge of a gap state (3.71:1 on white) |
-| `border-strong` | `#000533` | Navy | Rare emphasis |
+| `border-subtle` | `#E4E4E7` | Violet L7 | Card and tile edge (decorative) |
+| `border-hairline` | `#E4E4E7` | Neutral L8 | Row dividers (decorative) |
+| `border-control` | `#71717A` | Neutral D1 | Edge colour of inputs and the secondary button; chart baseline |
+| `border-container` | `#D4D4D8` | Neutral L6 | A source's stronger container border: alert, featured icon, file icon (decorative) |
+| `connector` | `#A1A1AA` | Neutral L4 | Connector dots and lines between entries of an activity feed or timeline (decorative) |
+| `border-gap` | `#8E8E96` | Violet D2 | Dashed edge of a gap state (3.71:1 on white) |
+| `border-strong` | `#0A0A0A` | Navy | Rare emphasis |
 
 ### Status
 
@@ -107,10 +74,10 @@ Each status is a text colour on its own tinted fill, with a fixed shape.
 
 | Status | Shape | Text | Fill | Edge | Mark |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| Success | Filled circle | `#0C6639` Green D6 | `#E8FFF4` Green L9 | `#A5FFD2` Green L6 | `#0F8048` Green D5 |
-| Warning | Triangle | `#664F00` Orange D6 | `#FFF9E5` Orange L9 | `#FFE899` Orange L6 | `#997700` Orange D4 |
-| Error | Diamond | `#8E413E` Melon D4 | `#FDF0F0` Melon L9 | `#F7C5C2` Melon L6 | `#A54C48` Melon D3 |
-| Info | Ring | `#1E5566` Cyan D6 | `#EDFBFF` Cyan L9 | `#B7EEFF` Cyan L6 | `#2C7F99` Cyan D4 |
+| Success | Filled circle | `#115E59` Green D6 | `#F0FDFA` Green L9 | `#99F6E4` Green L6 | `#0F766E` Green D5 |
+| Warning | Triangle | `#9A3412` Orange D6 | `#FFF7ED` Orange L9 | `#FED7AA` Orange L6 | `#EA580C` Orange D4 |
+| Error | Diamond | `#991B1B` Melon D4 | `#FEF2F2` Melon L9 | `#FECACA` Melon L6 | `#DC2626` Melon D3 |
+| Info | Ring | `#1E3A5F` Cyan D6 | `#EFF4FA` Cyan L9 | `#C7D6E8` Cyan L6 | `#3B6591` Cyan D4 |
 
 The destructive button is white on Error text colour `#8E413E`.
 
@@ -122,7 +89,7 @@ it rates how much the gap matters, and the gap itself keeps its own form.
 
 | State | Wording | Drawn as |
 | :--- | :--- | :--- |
-| Gap | "Not established for this run" | A hatched dashed panel: diagonal white and `#F6F5FF` hatch, 1px dashed `#827BCC` edge, violet text `#514D80` (Violet D5), dashed ring. The inline badge form (same text, edge and ring) appears only in a table cell or on a chart |
+| Gap | "Not established for this run" | A hatched dashed panel: diagonal white and `#F6F5FF` hatch, 1px dashed `#827BCC` edge, violet text `#52525B` (Violet D5), dashed ring. The inline badge form (same text, edge and ring) appears only in a table cell or on a chart |
 | Blocked module | "Not assessable" | Neutral badge (`#474A4F` on `#F4F4F5`) with a slashed circle, always with one sentence saying why |
 | Missing figure | "n.a." | The text itself in `text-tertiary`, right-aligned like a number. Never 0, never a badge |
 | Missing value in a chart | "n.a." | No mark is drawn. A bar slot stays empty with "n.a." in `text-tertiary` on the baseline; a line breaks and is not joined across the gap. Never drawn at zero |
@@ -230,16 +197,16 @@ Fallback stack: `system-ui, sans-serif`; `ui-monospace, monospace` for mono.
 
 | Token | Size / line | Weight | Family | Tracking | Use |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `display` | 48 / 52 | 700 | Schibsted Grotesk | -0.02em | Issuer name on a library cover |
-| `h1` | 36 / 42 | 700 | Schibsted Grotesk | -0.02em | Page title |
-| `h2` | 28 / 34 | 600 | Schibsted Grotesk | -0.015em | Section title |
-| `h3` | 22 / 30 | 600 | Schibsted Grotesk | -0.01em | Bottom line, card title |
+| `display` | 44 / 48 | 600 | Geist | -0.02em | Issuer name on a library cover |
+| `h1` | 32 / 38 | 600 | Geist | -0.02em | Page title |
+| `h2` | 24 / 30 | 600 | Geist | -0.015em | Section title |
+| `h3` | 20 / 28 | 600 | Geist | -0.01em | Bottom line, card title |
 | `h4` | 18 / 26 | 600 | Geist | 0 | Sub-section, tile title |
-| `lead` | 20 / 32 | 400 | Geist | 0 | Verdict and opening paragraph |
-| `body` | 16 / 26 | 400 | Geist | 0 | Prose |
+| `lead` | 18 / 28 | 400 | Geist | 0 | Verdict and opening paragraph |
+| `body` | 15 / 24 | 400 | Geist | 0 | Prose |
 | `small` | 14 / 22 | 400 | Geist | 0 | Supporting notes; text in pieces written here |
-| `caption` | 13 / 18 | 500 | Geist | 0 | Labels above a figure; the gap badge |
-| `metric` | 40 / 44 | 600 | Geist, tabular | -0.02em | Headline figure on a metric tile |
+| `caption` | 12 / 16 | 500 | Geist | 0 | Labels above a figure; the gap badge |
+| `metric` | 36 / 40 | 500 | Geist, tabular | -0.02em | Headline figure on a metric tile |
 | `mono` | 13 / 20 | 400 | Geist Mono | 0 | Evidence identifiers |
 
 The scale sets page text and the pieces written here. A page title is `h1` even inside a
@@ -261,15 +228,15 @@ page layout only (see "What this system supplies").
 | Radius token | Value | Use |
 | :--- | :--- | :--- |
 | `radius-xs` | 6px | Skeleton block |
-| `radius-sm` | 12px | Small pieces written here (trace control hit area, chart tooltip) |
-| `radius-md` | 20px | Tiles, gap panels |
-| `radius-lg` | 28px | Cards |
+| `radius-sm` | 8px | Small pieces written here (trace control hit area, chart tooltip) |
+| `radius-md` | 12px | Tiles, gap panels |
+| `radius-lg` | 20px | Cards |
 | `radius-full` | 999px | Status shapes, gap badge, withheld bar |
 
 | Elevation token | Value | Use |
 | :--- | :--- | :--- |
-| `shadow-1` | `0 1px 2px rgba(0,5,51,.06)` | Card at rest |
-| `shadow-2` | `0 6px 16px rgba(0,5,51,.08), 0 1px 2px rgba(0,5,51,.04)` | Chart tooltip |
+| `shadow-1` | `0 0 0 0 rgba(10, 10, 10, 0)` | Card at rest |
+| `shadow-2` | `0 8px 24px rgba(10, 10, 10, 0.08), 0 1px 2px rgba(10, 10, 10, 0.04)` | Chart tooltip |
 
 Shadows are Navy at low alpha. Depth separates layers and never decorates. A source drawer,
 modal or menu keeps its source's own shadow.
@@ -455,13 +422,13 @@ out; a seventh series folds into Other.
 
 | Slot | Colour | Hex | Contrast on white | Gray value (0 to 255) | Line style |
 | :--- | :--- | :--- | ---: | ---: | :--- |
-| 1 | Ultramarine | `#001AFF` | 8.10 | 44 | Solid, circle marker |
-| 2 | Violet D2 | `#827BCC` | 3.71 | 134 | Dashed, square marker |
-| 3 | Reef D8 | `#331911` | 16.31 | 32 | Solid, triangle marker |
-| 4 | Orange D3 | `#B28B00` | 3.19 | 135 | Dotted, diamond marker |
-| 5 | Green D5 | `#0F8048` | 5.00 | 88 | Solid, ring marker |
-| 6 | Yellow D4 | `#8C9900` | 3.15 | 132 | Dash-dot, cross marker |
-| Other | Neutral D1 | `#7F848D` | 3.76 | 132 | Solid, no marker |
+| 1 | Ultramarine | `#115E59` | 8.10 | 44 | Solid, circle marker |
+| 2 | Violet D2 | `#0F2440` | 3.71 | 134 | Dashed, square marker |
+| 3 | Reef D8 | `#8E8E96` | 16.31 | 32 | Solid, triangle marker |
+| 4 | Orange D3 | `#EA580C` | 3.19 | 135 | Dotted, diamond marker |
+| 5 | Green D5 | `#3B6591` | 5.00 | 88 | Solid, ring marker |
+| 6 | Yellow D4 | `#5EA8A1` | 3.15 | 132 | Dash-dot, cross marker |
+| Other | Neutral D1 | `#71717A` | 3.76 | 132 | Solid, no marker |
 
 Gray value is Rec. 601 luma on the 8-bit sRGB values: 0.299 R + 0.587 G + 0.114 B, rounded.
 
@@ -506,9 +473,9 @@ OQ-09), so no colour in the chart is a local constant:
 
 | Token | Colour | Hex | Column |
 | :--- | :--- | :--- | :--- |
-| `waterfall-total` | Ultramarine (slot 1) | `#001AFF` | A total, drawn from the baseline |
-| `waterfall-up` | Ultramarine L3 (`brand-400`) | `#4D5FFF` | A step up |
-| `waterfall-down` | Reef D8 (slot 3) | `#331911` | A step down |
+| `waterfall-total` | Ultramarine (slot 1) | `#0F2440` | A total, drawn from the baseline |
+| `waterfall-up` | Ultramarine L3 (`brand-400`) | `#115E59` | A step up |
+| `waterfall-down` | Reef D8 (slot 3) | `#EA580C` | A step down |
 
 Marks follow the source chart (review 2, ruling 5), read on the Untitled UI line and bar
 charts page on 2026-11-13: horizontal gridlines only, solid, in `border-hairline`; bars up to
@@ -541,23 +508,6 @@ animation is CSS in the stylesheet; none needs script or a library.
 Loading anywhere else is the static skeleton, never a spinner: a list that is still loading
 is not live run state. Spend, elapsed time and every other figure change to the new value with no animation. Hover
 and focus change state at once.
-
-## Where this departs from the brand guide
-
-| Brand guide | This system | Why |
-| :--- | :--- | :--- |
-| White page with light grey panels | Faint violet canvas (`#F6F5FF`) with white cards | A tinted ground lets white cards carry the content without heavy borders; it reads calmer than grey |
-| Sharp Grotesk Bold headlines, Inter text | Schibsted Grotesk headings, Geist text, Geist Mono for evidence | The headline font is commercial and cannot be committed; Geist has tabular numerals and a matching mono |
-| Headline leading 95 percent, small body sizes | Leading 108 to 117 percent on headings; body 16 / 26 | Long analytical titles wrap to two lines; the reader reads prose, so the type is larger |
-| No shadows stated | Two soft Navy shadows | A card and a chart tooltip need to sit above the page |
-| Rounded tiles, radius undefined | Radii 6, 12, 20, 28 and full | The owner's "rounded" |
-| Secondary colours paired with Navy as accents | Secondaries appear only as tints (L steps) and dark steps (D steps), never at full strength in the interface | At full strength none passes 3:1 on white |
-| Tertiary used sparingly | Tertiary steps supply all secondary text, borders, status and chart colours | They are the only brand values that pass contrast |
-| Chart series seen as Ultramarine, Green, Yellow, Violet, dark teal, Reef | Ultramarine, Violet D2, Reef D8, Orange D3, Green D5, Yellow D4 | Neon Green and Yellow fail 3:1; every dark Cyan step falls below the chroma floor and reads as grey; the order was searched for colour-blind separation |
-| Flat fills, no gridlines | Flat fills kept; faint horizontal gridlines and the source chart's bar corners | Charts follow their source (review 2, ruling 5) |
-
-Kept from the guide: the 4-unit grid, sentence case, Navy as the anchor, Ultramarine for
-action, content before ornament.
 
 ## Rulings
 
@@ -595,36 +545,6 @@ After review 2 (owner, 2026-11-13, in the design system session; not yet in deci
 
 - **Bars compared within a period stay side by side,** each with the source's 6px top
   corners, rather than the source's stack: "Keep side by side".
-
-## Rules from the owner's prompts
-
-Rules the owner typed, found by reading the owner's prompts in this project's and the
-predecessor's sessions on 2026-11-13. "Held in" names where the rule is written down; "nowhere
-yet" means no file on `main` states it and the coordinator is told.
-
-| Rule | Owner's words | Date | Held in |
-| :--- | :--- | :--- | :--- |
-| Findings show outcomes and links; backend and audit material is always findable but never sits among the analysis | "focused on presenting outcome and links ... anything that looks backend & audit relevant" | 2026-11-13 | Screen inventory; this file (Geist Mono and identifiers on Evidence and in the trace drawer only) |
-| A handoff is a database: not everything in it is shown | "the handoff are to be used similarly to a database, not everything needs to be shown" | 2026-11-13 | `CLAUDE.md` (delivery selects) |
-| One design is not repeated for a grouping of different information | "do not overuse a design for same grouping" | 2026-11-13 | Component map |
-| No flat tables | "do not use flat boring tables" | 2026-11-13 | Component map; screen inventory (known defect) |
-| No table identifiers on screen | "no table IDs" | 2026-11-13 | Nowhere yet |
-| Nothing written for another module is displayed | "do not display anything also considered intermodule communication" | 2026-11-13 | Screen inventory |
-| Presentation is chosen for the reader: what, how and why | "Always consider user persona regarding what, how and why" | 2026-11-13 | `CLAUDE.md` (Reader); design track plan |
-| No module codes or method step identifiers on screen; the module's name instead, in the model's file navigator too | "Remove all cp-IDs and methodology step IDs from user facing screens" | 2026-11-10, 2026-11-12 | Screen inventory (module codes); step identifiers nowhere yet |
-| A chart over periods has the periods on the x-axis | "Charts with periods should be transposed, with period on the x axis" | 2026-11-10 | This file (Chart palette, marks) |
-| A chart is drawn as a chart, not inside a table | "why charts in tables when they should be charts" | 2026-11-12 | Decision 0003, review 2, ruling 4: the statement table has no Trend sparkline column; the Bars view stays |
-| A sentence leads to its sources by a control or highlighted text, never by a citation in the prose | "clickable chips or highlighted text"; "citations within the credit narrative" named as a defect | 2026-11-12, 2026-11-11 | `CLAUDE.md` (Reader); ruling 7 (trace control) |
-| The prose reads as a credit analyst's judgement, not restated data | "very robotic and more focused on data collection and restatement" | 2026-11-11 | `CLAUDE.md` (Reader) |
-| Nothing on screen that does not help the reader | "remove anything not complimentary to UX" | 2026-11-10 | Component map |
-| The look is modern product design, not enterprise business software; only colours and logo are fixed | "modern ux/ui and not enterprise business solutions style"; "The brand guide is not a rule" | 2026-11-13 | Decision 0003; this file |
-| A source component copies its source's design | "even if you use them copy the design" | 2026-11-13 | Decision 0003; this file |
-| A component's live page is read before it is used | "always check live" | 2026-11-12 | `CLAUDE.md` |
-| The library's sections: Overview (key findings, no module navigator), Changes ("what has changed since the last time I looked"), Modules (all findings, one design language, navigator always visible and listing only modules that ran), Forecast, Evidence (handoffs to download, source files used), and the issuer's report history | Prompts of 2026-11-11 | 2026-11-11 | `CLAUDE.md`; screen inventory; "only modules that ran" and handoff download nowhere yet |
-| A new run on an issuer starts from its report page; the run start page opens from the library by its icon | "starting a new run on an issuer from their report page" | 2026-11-11, 2026-11-12 | Nowhere yet |
-
-"Stick to current font" (2026-11-12) was replaced by the typefaces the owner accepted at
-review 1.
 
 ## Not verified
 

@@ -36,7 +36,7 @@ export function ModuleOptionsFields({
       )}
       {runs.cp6 && (
         <div className="grid gap-1">
-          <label className="flex items-center gap-2 text-sm font-semibold">
+          <label className="flex items-center gap-2 text-small font-medium">
             <input
               type="checkbox"
               {...(runs.cp3 ? undefined : marker)}

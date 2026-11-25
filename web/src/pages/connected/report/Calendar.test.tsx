@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import type { OutputEntry } from "../publishedReport";
 import { EVENT_HEADERS } from "../visuals/EventLane";
@@ -60,12 +60,12 @@ it("keeps same-date contributions distinct with their original row traces and se
   render(
     <Calendar calendar={buildCalendar([first, alternative, second, scenario], "retained case")} />,
   );
-  const figure = within(screen.getByRole("figure", { name: "Published events" }));
-  const events = within(figure.getByRole("group", { name: "Events in date order" }));
-  const markers = within(figure.getByRole("group", { name: "Events by year" }));
-  const dates = events.getAllByText("2027-Q2 · quarter");
-  expect(dates).toHaveLength(2);
-  expect(events.getByText("2027-04-15 · day")).toBeInTheDocument();
+  const figure = within(document.body);
+  const markers = within(figure.getByRole("group", { name: /^Events on a time axis/ }));
+  const table = within(figure.getByRole("table", { name: "Published events" }));
+  expect(table.getAllByText("2027-Q2")).toHaveLength(2);
+  expect(table.getAllByText("quarter")).toHaveLength(2);
+  expect(table.getByText("2027-04-15")).toBeInTheDocument();
   const notes = markers.getAllByRole("button", { name: /Notes due, 2027-Q2, quarter/ });
   expect(notes).toHaveLength(2);
   notes.forEach((note) => {
@@ -75,22 +75,16 @@ it("keeps same-date contributions distinct with their original row traces and se
     "data-event-category",
     "Scenario",
   );
-  expect(events.getByRole("link", { name: "Source for Notes due · Liquidity" })).toHaveAttribute(
+  expect(table.getByRole("link", { name: "Source for Notes due · Liquidity" })).toHaveAttribute(
     "href",
     `/report/retained%20case#evidence/CP-2D-1~${"2".repeat(64)}-22`,
   );
   expect(
-    events.getByRole("link", { name: "Source for Notes due · Refinancing & LME" }),
+    table.getByRole("link", { name: "Source for Notes due · Refinancing & LME" }),
   ).toHaveAttribute("href", `/report/retained%20case#evidence/CP-3C-2~${"3".repeat(64)}-22`);
   expect(figure.queryByText(/approval\.pdf|agreement\.pdf|Earlier revision/)).toBeNull();
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
-  expect(figure.getAllByRole("cell", { name: "2026-09-30" })).toHaveLength(2);
-  expect(
-    figure.getByRole("cell", { name: "Not supplied: publication date was absent" }),
-  ).toBeInTheDocument();
-  expect(
-    figure.getByRole("link", { name: "Source for Notes due · Refinancing & LME" }),
-  ).toHaveAttribute("href", `/report/retained%20case#evidence/CP-3C-2~${"3".repeat(64)}-22`);
+  expect(table.getAllByText("2026-09-30")).toHaveLength(2);
+  expect(table.getByText("Not supplied: publication date was absent")).toBeInTheDocument();
 });
 
 it("keeps recorded gaps as reasons and leaves a mismatched precision unplotted", () => {

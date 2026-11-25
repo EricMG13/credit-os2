@@ -5,6 +5,8 @@ import { PageHeader } from "../../shell/PageHeader";
 import { Shell, type Area } from "../../shell/Shell";
 import { askAhead, LIBRARY_ADDRESS, snapshotAddress } from "./ahead";
 import type { Mode } from "./api";
+import { COVERAGE_ADDRESS } from "./coverageData";
+import { RunReadOnly } from "./RunReadOnly";
 
 type PageFile<P> = { default: ComponentType<P> };
 
@@ -46,6 +48,7 @@ function page<P extends object>(load: () => Promise<ComponentType<P>>) {
 }
 
 const ReportLibrary = page(() => import("./LibraryIndex").then((file) => file.ReportLibrary));
+const Coverage = page(() => import("./Coverage").then((file) => file.Coverage));
 const ReportReader = page(() => import("./ReportLibrary").then((file) => file.ReportReader));
 const RunActivity = page(() => import("./RunActivity").then((file) => file.RunActivity));
 const RunProgress = page(() => import("./RunProgress").then((file) => file.RunProgress));
@@ -75,13 +78,14 @@ function LoadingPage({ bleed = false }: { bleed?: boolean }) {
 type Section = { area: Area; href: string; label?: string };
 
 const LIBRARY: Section = { area: "library", href: "/" };
+const COVERAGE: Section = { area: "coverage", href: "/coverage" };
 const RUNS: Section = { area: "run", href: "/runs", label: "Run activity" };
 const SIGNAL: Section = { area: "signal", href: "/signal" };
 
-/** A read-only preview shows the library only; Signal is listed where a Signal service is set. */
+/** A read-only preview shows the library and coverage; Signal is listed where a Signal service is set. */
 function sectionsFor(readOnly: boolean, signal: boolean): Section[] {
-  if (readOnly) return [LIBRARY];
-  return signal ? [LIBRARY, RUNS, SIGNAL] : [LIBRARY, RUNS];
+  if (readOnly) return [LIBRARY, COVERAGE];
+  return signal ? [LIBRARY, COVERAGE, RUNS, SIGNAL] : [LIBRARY, COVERAGE, RUNS];
 }
 
 function assign(path: string) {
@@ -105,6 +109,7 @@ const RUN = /^\/run\/([a-zA-Z0-9][a-zA-Z0-9_.-]{0,79})\/?$/;
 
 type Route =
   | { kind: "library" }
+  | { kind: "coverage" }
   | { kind: "run-list" }
   | { kind: "run"; id: string }
   | { kind: "report"; id: string }
@@ -115,6 +120,7 @@ type Route =
 /** `signal`: a Signal service is set and this is not a read-only preview; without it /signal is no page. */
 function routeOf(path: string, signal: boolean): Route {
   if (path === "/" || path === "/index.html") return { kind: "library" };
+  if (path === "/coverage" || path === "/coverage/") return { kind: "coverage" };
   if (path === "/runs" || path === "/runs/") return { kind: "run-list" };
   if (path === "/start" || path === "/start/") return { kind: "start" };
   if (signal && (path === "/signal" || path === "/signal/")) return { kind: "signal" };
@@ -137,6 +143,7 @@ export function preloadPage(path: string, readOnly: boolean, signal = false): Pr
   if (route.kind === "library") return ReportLibrary.ask().then(reads(LIBRARY_ADDRESS), unloaded);
   if (route.kind === "report")
     return ReportReader.ask().then(reads(snapshotAddress(route.id)), unloaded);
+  if (route.kind === "coverage") return Coverage.ask().then(reads(COVERAGE_ADDRESS), unloaded);
   if (readOnly) return Promise.resolve();
   if (route.kind === "start") return StartRun.ask().catch(unloaded);
   if (route.kind === "run-list") return RunActivity.ask().catch(unloaded);
@@ -147,6 +154,7 @@ export function preloadPage(path: string, readOnly: boolean, signal = false): Pr
 
 function areaOf(route: Route): Area {
   if (route.kind === "signal") return "signal";
+  if (route.kind === "coverage") return "coverage";
   return route.kind === "start" || route.kind === "run-list" || route.kind === "run"
     ? "run"
     : "library";
@@ -158,6 +166,7 @@ function routeTitle(route: Route) {
   if (route.kind === "run") return "Run progress";
   if (route.kind === "report") return "Credit report";
   if (route.kind === "signal") return "Signal";
+  if (route.kind === "coverage") return "Coverage";
   return "Library";
 }
 
@@ -175,14 +184,13 @@ function CurrentPage({
   navigate: (path: string) => void;
 }) {
   if (route.kind === "library") return <ReportLibrary readOnly={readOnly} />;
-  if (readOnly && ["start", "run-list", "run"].includes(route.kind)) {
-    return (
-      <PageHeader title="Read-only preview" actions={<Button href="/">Back to Library</Button>} />
-    );
-  }
+  if (route.kind === "coverage") return <Coverage />;
+  if (readOnly && route.kind === "run-list") return <RunReadOnly title="Run activity" />;
+  if (readOnly && route.kind === "run") return <RunReadOnly title="Run progress" />;
+  if (readOnly && route.kind === "start") return <RunReadOnly title="Start run" />;
   if (route.kind === "start")
     return <StartRun key={prior} mode={mode} navigate={navigate} from={prior ?? undefined} />;
-  if (route.kind === "run-list") return <RunActivity />;
+  if (route.kind === "run-list") return <RunActivity mode={mode} />;
   if (route.kind === "run") return <RunProgress key={route.id} id={route.id} mode={mode} />;
   if (route.kind === "report") return <ReportReader key={route.id} id={route.id} mode={mode} />;
   if (route.kind === "signal") return <SignalLive />;

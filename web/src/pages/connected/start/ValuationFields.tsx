@@ -59,7 +59,7 @@ function PartFields({
 }) {
   return (
     <section aria-label={title} className="grid gap-3 sm:grid-cols-2">
-      <h4 className="text-sm font-semibold sm:col-span-2">{title}</h4>
+      <h4 className="text-small font-medium sm:col-span-2">{title}</h4>
       {fields.map((item) => (
         <Box
           key={item.key}
@@ -115,7 +115,7 @@ export function ValuationFields({
       </div>
       {showsPeers(form.peer_source) && (
         <section aria-label="Peers" className="grid gap-2">
-          <h4 className="text-sm font-semibold">Peers</h4>
+          <h4 className="text-small font-medium">Peers</h4>
           <RowEditor
             kind={peerKind(form.peer_source)}
             rows={form.peers}
@@ -126,7 +126,7 @@ export function ValuationFields({
       )}
       {showsPrecedents(form.basis) && (
         <section aria-label="Precedents" className="grid gap-2">
-          <h4 className="text-sm font-semibold">Precedents</h4>
+          <h4 className="text-small font-medium">Precedents</h4>
           <RowEditor
             kind="precedents"
             rows={form.precedents}

@@ -155,8 +155,25 @@ const partGroup = (title: string, fields: readonly RowField[], raw: unknown): In
 });
 
 /**
+ * The parts of the valuation the chosen basis does not use, with only the values they still
+ * carry (the form sends their defaults, such as an EBITDA basis of LTM, whatever the basis).
+ */
+function unusedParts(sent: Row, basis: string): InputGroup[] {
+  const parts = [
+    basis !== "issuer_trading" &&
+      partGroup(PART_TITLES.issuer_market, MARKET_FIELDS, sent.issuer_market),
+    basis !== "user_multiple" &&
+      partGroup(PART_TITLES.user_multiple, MULTIPLE_FIELDS, sent.user_multiple),
+  ].filter((group) => group !== false);
+  return parts
+    .map((group) => ({ ...group, facts: group.facts.filter(([, value]) => value !== NOT_GIVEN) }))
+    .filter((group) => group.facts.length > 0);
+}
+
+/**
  * Valuation and peers as sent: its two choices, then each part they use (the service refuses a
- * filled part they do not use). Not sent, it reads as not given where the page offers it.
+ * filled part they do not use), then what the parts it does not use still carry, so every value
+ * sent is drawn. Not sent, it reads as not given where the page offers it.
  */
 export function valuationInputs({ valuation }: Context, offered: boolean): InputGroup | undefined {
   const sent = record(valuation);
@@ -171,6 +188,9 @@ export function valuationInputs({ valuation }: Context, offered: boolean): Input
     basis === "user_multiple" &&
       partGroup(PART_TITLES.user_multiple, MULTIPLE_FIELDS, sent.user_multiple),
   ].filter((group) => group !== false);
+  const unused = unusedParts(sent, basis);
+  if (unused.length)
+    groups.push({ title: "Also sent, not used by this basis", facts: [], groups: unused });
   return { title: VALUATION_TITLE, facts: factsOf([PEER_SOURCE_FIELD, BASIS_FIELD], sent), groups };
 }
 

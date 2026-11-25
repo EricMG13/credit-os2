@@ -34,7 +34,12 @@ it("asks for nothing a read-only preview does not draw, nor at an address with n
   await preloadPage("/report/..%2Fx", false);
   expect(fetch).not.toHaveBeenCalled();
   render(<ConnectedApp path="/start" mode="synthetic" readOnly />);
-  expect(screen.getByRole("heading", { level: 1, name: "Read-only preview" })).toBeVisible();
+  expect(screen.getByRole("heading", { level: 1, name: "Start run" })).toBeVisible();
+  expect(
+    screen.getByText(
+      "This preview has no Credit OS service behind it, so it cannot start or follow a run. Library and Coverage show the saved reports.",
+    ),
+  ).toBeVisible();
 });
 
 it("draws a page loaded ahead in the first drawing, with no loading state, and reads its index once", async () => {

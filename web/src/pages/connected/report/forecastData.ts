@@ -1,0 +1,548 @@
+import { moduleName } from "../api";
+import { forecastCaseNames, gridOf, type Grid } from "../visuals/LegacyForecast";
+import {
+  analyzeScenarioPeriods,
+  isDatedForecastPeriod,
+  scenarioComparisonNotice,
+} from "../visuals/scenarioPeriods";
+import { amount, record, word } from "../visuals/visualData";
+import {
+  blocked,
+  containsReference,
+  methodNote,
+  passages,
+  readerText,
+  type OutputEntry,
+} from "../publishedReport";
+import type { ReportView } from "../reportView";
+import { figureSource, moduleSource, unitOf, type Cell } from "./overview/figureData";
+import { readerReason } from "./overview/reason";
+import { headroomTests, type HeadroomTest } from "./overview/stressData";
+import { wallSlots } from "./overview/structureData";
+
+/** One published cell of a forecast measure, as the model wrote it. */
+export type MeasureCell = {
+  period: string;
+  start: string;
+  end: string;
+  /** The cell's display text, word for word. */
+  display: string;
+  /** The cell's exact value when its status is a value; null otherwise (never zero). */
+  value: number | null;
+  reason: string;
+};
+
+/**
+ * One case of a measure. `cells` are the periods the case keeps in the comparison of cases (what
+ * the lead chart draws); `own` are every period the case itself publishes once, compared or not
+ * (what the page states about the selected case).
+ */
+export type MeasureCase = {
+  group: string;
+  name: string;
+  cells: Map<string, MeasureCell>;
+  own: Map<string, MeasureCell>;
+};
+
+const FISCAL = /^FY(\d{4})E?$/u;
+
+/** The fiscal year of an actual (`FY2024`) or forecast (`FY2025E`) column label. */
+export function fiscalYear(label: string) {
+  const year = FISCAL.exec(label)?.[1];
+  return year ? Number(year) : null;
+}
+
+function measureCell(
+  column: Grid["columns"][number],
+  raw: Record<string, unknown> | undefined,
+): MeasureCell {
+  const status = word(raw?.status);
+  return {
+    period: column.label,
+    start: column.start,
+    end: column.end,
+    display: word(raw?.display),
+    value: status === "value" ? amount(word(raw?.exact)) : null,
+    reason: word(raw?.reason),
+  };
+}
+
+function grids(model: unknown) {
+  const cashflow = record(record(model).cashflow);
+  return [gridOf(cashflow), gridOf(cashflow.other)].flatMap((grid) => (grid ? [grid] : []));
+}
+
+/** Every row label of the model matching `pattern`, once each. */
+export function measureRows(model: unknown, pattern: RegExp) {
+  return [
+    ...new Set(
+      grids(model).flatMap((grid) =>
+        grid.rows.filter((row) => pattern.test(row.label)).map(({ label }) => label),
+      ),
+    ),
+  ];
+}
+
+/** The grid's one row for the measure: the only match, or the only match of `prefer`. */
+function measureRow(grid: Grid, pattern: RegExp, prefer?: RegExp) {
+  const rows = grid.rows.filter((row) => pattern.test(row.label));
+  if (rows.length === 1) return rows[0];
+  const preferred = prefer ? rows.filter((row) => prefer.test(row.label)) : [];
+  return preferred.length === 1 ? preferred[0] : undefined;
+}
+
+const BASE = "Base case";
+const byBaseFirst = (a: string, b: string) => Number(b === BASE) - Number(a === BASE);
+const toEntry = ({ period, start, end, display, value, reason }: MeasureCell) =>
+  [period, { period, start, end, display, value, reason }] as const;
+
+/**
+ * One measure of the published model, by case: the cells of the grid's row for it in each
+ * forecast column of the main grid and the `other` grid. Where a grid has several matching rows,
+ * the one `prefer` names is read; none is chosen otherwise. Periods go through the same
+ * eligibility as the cash proxy comparison (`analyzeScenarioPeriods`): a period a case does not
+ * publish is absent from that case, never filled. Null when no grid has one such row.
+ */
+export function forecastMeasure(model: unknown, pattern: RegExp, prefer?: RegExp) {
+  const names = forecastCaseNames(record(record(model).cashflow));
+  const read = grids(model).flatMap((grid) => {
+    const row = measureRow(grid, pattern, prefer);
+    return row ? [{ grid, row }] : [];
+  });
+  const [first] = read;
+  if (!first) return null;
+  const observations = read.flatMap(({ grid, row }) =>
+    grid.columns.flatMap((column, at) =>
+      isDatedForecastPeriod(column.label)
+        ? [{ ...measureCell(column, row.cells[at]), group: column.group }]
+        : [],
+    ),
+  );
+  const analysis = analyzeScenarioPeriods(observations);
+  const groups = [...new Set(observations.map(({ group }) => group))].sort(byBaseFirst);
+  // With several cases, only a period kept for the comparison is compared, for the cases that
+  // keep it: a period left out (dates that do not match, a duplicate) is in no case's `cells`.
+  const kept = new Set(
+    analysis.periods.flatMap(({ period, groups: keeping }) =>
+      keeping.map((group) => `${period}\0${group}`),
+    ),
+  );
+  const several = groups.length > 1;
+  const cases: MeasureCase[] = groups.map((group) => {
+    const own = analysis.uniqueObservations.filter((item) => item.group === group);
+    return {
+      group,
+      name: names.get(group) ?? group,
+      own: new Map(own.map(toEntry)),
+      cells: new Map(
+        own.filter((item) => !several || kept.has(`${item.period}\0${group}`)).map(toEntry),
+      ),
+    };
+  });
+  const single = cases.length === 1 ? cases[0] : undefined;
+  const periods = single
+    ? [...single.cells.keys()].sort()
+    : analysis.periods.map(({ period }) => period);
+  // The latest actual fiscal year with a value: an actual, never mixed into a forecast selection.
+  const actual =
+    first.grid.columns
+      .flatMap((column, at) =>
+        /^FY\d{4}$/u.test(column.label) ? [measureCell(column, first.row.cells[at])] : [],
+      )
+      .filter(({ value }) => value !== null)
+      .sort((a, b) => a.period.localeCompare(b.period))
+      .at(-1) ?? null;
+  return {
+    label: first.row.label,
+    /** Other rows the model publishes for this measure, not read here. */
+    others: measureRows(model, pattern).filter((label) => label !== first.row.label),
+    cases,
+    periods,
+    actual,
+    compared: !analysis.noSharedPeriod,
+    notice: scenarioComparisonNotice(analysis),
+  };
+}
+
+export type Measure = NonNullable<ReturnType<typeof forecastMeasure>>;
+
+/** One reading of which row the page draws for a measure, shared by every tile that uses it. */
+export type MeasureRead = {
+  measure: Measure | null;
+  /** Every row the model publishes for the measure. */
+  rows: string[];
+  /** The measure in reader words: "net leverage". */
+  what: string;
+  /** The basis the page names when several rows match: "net debt over Adj EBITDA". */
+  basis?: string;
+};
+
+export function readMeasure(
+  model: unknown,
+  what: string,
+  pattern: RegExp,
+  prefer?: { pattern: RegExp; basis: string },
+): MeasureRead {
+  return {
+    measure: forecastMeasure(model, pattern, prefer?.pattern),
+    rows: measureRows(model, pattern),
+    what,
+    basis: prefer?.basis,
+  };
+}
+
+/** Why a measure has no figure for a case, in the same words in every tile. */
+export function absentText({ measure, rows, what, basis }: MeasureRead, caseName?: string) {
+  if (!measure && rows.length > 1)
+    return basis
+      ? `The model publishes ${String(rows.length)} ${what} rows: ${periodList(rows)}. None is on ${basis}, so none is drawn.`
+      : // The page names no basis for this measure, so it does not choose a row.
+        `The model publishes ${String(rows.length)} ${what} rows; this page does not choose between them: ${periodList(rows)}.`;
+  if (!measure) return `The model publishes no ${what} figure.`;
+  if (measure.cases.length === 0) return `The model's ${what} row has no dated forecast year.`;
+  return `No ${what} figure for ${caseName ?? "the selected case"}.`;
+}
+
+/** The forecast years a case's columns cover, whatever rows the model publishes. */
+export function caseYears(model: unknown, group: string | undefined) {
+  const columns = grids(model).flatMap((grid) =>
+    grid.columns.filter(
+      (column) =>
+        isDatedForecastPeriod(column.label) && (group === undefined || column.group === group),
+    ),
+  );
+  const sorted = [...new Map(columns.map((column) => [column.label, column])).values()].sort(
+    (a, b) => a.label.localeCompare(b.label),
+  );
+  return { first: sorted[0], last: sorted.at(-1) };
+}
+
+/** The model's cases from its forecast columns, named once, base first. */
+export function modelCases(model: unknown) {
+  const names = forecastCaseNames(record(record(model).cashflow));
+  const groups = [
+    ...new Set(
+      grids(model).flatMap((grid) =>
+        grid.columns
+          .filter((column) => isDatedForecastPeriod(column.label))
+          .map(({ group }) => group),
+      ),
+    ),
+  ].sort(byBaseFirst);
+  return groups.map((group) => ({ group, name: names.get(group) ?? group }));
+}
+
+/**
+ * The case's own published cells in period order, compared or not; none for a case the measure
+ * has no row for. Without a selected case, the measure's first case.
+ */
+export function cellsOf(measure: Measure, group: string | undefined) {
+  const found =
+    group === undefined ? measure.cases[0] : measure.cases.find((item) => item.group === group);
+  return found ? [...found.own.values()].sort((a, b) => a.period.localeCompare(b.period)) : [];
+}
+
+/** Forecast years inside a case's span that it publishes no column for. */
+function unpublishedYears(cells: MeasureCell[]) {
+  const years = cells.flatMap((cell) => fiscalYear(cell.period) ?? []);
+  if (!years.length) return [];
+  const first = Math.min(...years);
+  const last = Math.max(...years);
+  return Array.from({ length: last - first + 1 }, (_, at) => first + at)
+    .filter((year) => !years.includes(year))
+    .map((year) => `FY${String(year)}E`);
+}
+
+/**
+ * The highest or lowest value among a case's published forecast years, as a selection the page
+ * makes and says it makes: every year tied at that value, and every year of the case with no
+ * figure. Null for fewer than two published values: one figure is not a highest year.
+ */
+export function extremeOf(cells: MeasureCell[], kind: "highest" | "lowest") {
+  const values = cells.filter((cell) => cell.value !== null);
+  if (values.length < 2) return null;
+  const pick = kind === "highest" ? Math.max : Math.min;
+  const extreme = pick(...values.map((cell) => cell.value ?? 0));
+  // A tie is a tie as the reader sees it: every year whose published figure reads the same.
+  const shown = values.find((cell) => cell.value === extreme)?.display;
+  return {
+    kind,
+    cells: values.filter((cell) => cell.display === shown),
+    notCalculated: cells.filter((cell) => cell.value === null).map((cell) => cell.period),
+    notPublished: unpublishedYears(cells),
+  };
+}
+
+/** The last period's cell, whatever its state. */
+export const endOf = (cells: MeasureCell[]) =>
+  [...cells].sort((a, b) => a.period.localeCompare(b.period)).at(-1) ?? null;
+
+/** Periods joined in reader words: "FY2025E", "FY2025E and FY2027E", "A, B and C". */
+export function periodList(periods: readonly string[]) {
+  if (periods.length < 2) return periods.join("");
+  return `${periods.slice(0, -1).join(", ")} and ${periods.at(-1) ?? ""}`;
+}
+
+/** The model's earnings basis as its grid names it: the Adj EBITDA row label. */
+export function earningsBasis(model: unknown) {
+  return grids(model)[0]?.rows.find((row) => /^Adj EBITDA\b/u.test(row.label))?.label ?? null;
+}
+
+export type Limitation = { line: number; text: string | null };
+
+/**
+ * The forward model's Limitations passage, every item once, as written: one item per bullet of
+ * each paragraph, in the module's order. An item that cites a source by name has no text: the page
+ * links to it in Evidence instead of drawing it. Nothing is selected from it.
+ */
+export function modelLimitations(entry: OutputEntry | undefined): Limitation[] {
+  if (!entry) return [];
+  return passages(entry.sections)
+    .filter((section) => section.heading === "Limitations")
+    .flatMap(({ blocks }) => blocks)
+    .flatMap((block) => {
+      if (block.type !== "text" || methodNote(block.text)) return [];
+      const lines = block.text.split("\n");
+      const items: { line: number; parts: string[] }[] = [];
+      lines.forEach((line, at) => {
+        // A paragraph's Basis line belongs to its trace, never to its words.
+        if (/^\s*Basis:/u.test(line)) return;
+        const bullet = /^\s*[-*]\s+(.*)$/u.exec(line);
+        const last = items.at(-1);
+        if (bullet || !last) items.push({ line: block.line + at, parts: [bullet?.[1] ?? line] });
+        else last.parts.push(line.trim());
+      });
+      // The words through the reader rule the Overview uses: null where they carry a reference.
+      return items.map(({ line, parts }) => ({ line, text: readerReason(parts.join(" ")) }));
+    })
+    .filter(({ text }) => text !== "");
+}
+
+/** The covenant tests as Legal & covenants writes them: level, current figure, direction. */
+export function covenantTests(view: ReportView) {
+  const name = moduleName("CP-4");
+  const source = figureSource(view, "CP-4", "Covenant headroom", name);
+  if (source.state === "gap") return { tests: [] as HeadroomTest[], reason: source.reason, source };
+  const tests = headroomTests(source.table, source.descriptor) ?? [];
+  return {
+    tests,
+    reason: tests.length ? null : `${name} states no covenant test.`,
+    source,
+  };
+}
+
+export type ScheduleYear = {
+  year: number;
+  label: string;
+  cell: Cell | null;
+  /** The row's handoff line, for its own trace. */
+  line?: number;
+  /** A key unique within the schedule: a year can have more than one row. */
+  key: string;
+};
+
+/** The handoff line of a table row by its first cell, where the table records row lines. */
+function rowLine(table: { rows: string[][]; rowLines?: (number | undefined)[] }, label: string) {
+  const at = table.rows.findIndex((row) => readerText(row[0] ?? "") === readerText(label));
+  return at >= 0 ? table.rowLines?.[at] : undefined;
+}
+
+/**
+ * The maturity schedule as Financial foundation publishes it, every row as written, by fiscal year
+ * where its label is one. A year the schedule has no row for is not a row: it is neither drawn nor
+ * listed. A year may have more than one row; each is kept.
+ */
+export function maturitySchedule(view: ReportView) {
+  const name = moduleName("CP-1");
+  const source = figureSource(view, "CP-1", "Debt maturities", name);
+  if (source.state === "gap")
+    return {
+      years: [] as ScheduleYear[],
+      offAxis: [] as ScheduleYear[],
+      reason: source.reason,
+      source,
+    };
+  const unit = unitOf(source.descriptor);
+  const slots = wallSlots(source.table, source.descriptor, unit);
+  if (!slots)
+    return {
+      years: [] as ScheduleYear[],
+      offAxis: [] as ScheduleYear[],
+      unit,
+      reason: "The maturity schedule states no amount for any period.",
+      source,
+    };
+  const table = source.table;
+  const dated = (label: string) => (/^FY\d{4}$/u.test(label) ? fiscalYear(label) : null);
+  const rows = [...slots.dated, ...slots.undated].filter(
+    (slot): slot is typeof slot & { cell: Cell } => slot.cell != null,
+  );
+  const read = rows.map((slot, at) => ({
+    year: dated(slot.label) ?? 0,
+    label: slot.label,
+    cell: slot.cell,
+    line: slot.line ?? rowLine(table, slot.label),
+    key: `${slot.label}-${String(at)}`,
+  }));
+  const years = read.filter((row) => row.year !== 0);
+  // Rows not labelled by fiscal year are kept as written, beside the axis.
+  const offAxis = read.filter((row) => row.year === 0);
+  return {
+    years,
+    offAxis,
+    unit,
+    reason: years.length || offAxis.length ? null : "The maturity schedule is not by fiscal year.",
+    source,
+  };
+}
+
+/** One stated figure of a funding-gap row: its column's header and its cell as written; `value`
+ * is null where the cell is not one plain figure (it is then drawn as written, never as a gap). */
+type GapFigure = { header: string; text: string; value: number | null };
+
+export type FundingGap = {
+  module: string;
+  name: string;
+  entry: OutputEntry;
+  line: number;
+  /** The row's own label, in reader words. */
+  label: string;
+  figures: GapFigure[];
+  /** The unit as the value header or a unit column states it; null when neither does. */
+  unit: string | null;
+  /** True where a figure states its own unit ("USD 120m"), so no unit is missing. */
+  unitInFigure: boolean;
+  /** The row's notes, limitations and status cells, through the reader rule. */
+  notes: string[];
+  horizon: string | null;
+};
+
+const FUNDING_GAP = /^(?:CP-2D\s+)?funding gap\b/iu;
+const HORIZON = /^(?:CP-2D\s+)?horizon\b/iu;
+const UNIT_COLUMN = /^(?:Reporting unit|Units?)$/iu;
+const CURRENCY_COLUMN = /^Currency$/iu;
+const SCALE_COLUMN = /^Scale$/iu;
+/** Columns that hold the row's source: they go to its trace, never to the page. */
+const SOURCE_COLUMN = /^(?:Source|Evidence|References?|Ref|Register|Id)$/iu;
+/** Columns that hold words about the row: drawn as its notes, under the figures. */
+const NOTE_COLUMN = /^(?:Basis|Basis and limitation|Notes?|Limitations?|Status|Category)$/iu;
+/** A register id in brackets, such as "(T2E.3.r03)": machinery, never page text. */
+const REGISTER_ID = /\s*\((?:[A-Z]\d[\w]*(?:\.\w+)*)\)/gu;
+/** A cell that states a unit of its own: letters or a currency sign beside its figure. */
+const OWN_UNIT = /[A-Za-z$€£¥]/u;
+
+const plain = (text: string) => readerText(text.replace(REGISTER_ID, "").trim());
+
+function gapUnit(headers: string[], cells: string[], values: number[]) {
+  for (const at of values) {
+    const header = /\(([^()]+)\)\s*$/u.exec(headers[at] ?? "")?.[1];
+    if (header) return header;
+  }
+  const at = (pattern: RegExp) => headers.findIndex((name) => pattern.test(name.trim()));
+  const unit = cells[at(UNIT_COLUMN)]?.trim();
+  if (unit) return unit;
+  const currency = cells[at(CURRENCY_COLUMN)]?.trim() ?? "";
+  const scale = cells[at(SCALE_COLUMN)]?.trim() ?? "";
+  return [currency, scale].filter(Boolean).join(" ") || null;
+}
+
+/** The table's value columns: every column but the label, unit, source and note columns. */
+function valueColumns(headers: string[]) {
+  return headers.flatMap((header, at) => {
+    const name = header.trim();
+    return at === 0 ||
+      [UNIT_COLUMN, CURRENCY_COLUMN, SCALE_COLUMN, SOURCE_COLUMN, NOTE_COLUMN].some((pattern) =>
+        pattern.test(name),
+      )
+      ? []
+      : [at];
+  });
+}
+
+/** What a row with no stated figure says in place of one. */
+export const NOT_STATED_IN_ROW = "Not stated in the row";
+
+/** The funding gap's line of context, as every tile draws it: module and row, horizon, unit. */
+export function gapContext(gap: FundingGap) {
+  return [
+    `${gap.name}: ${gap.label}`,
+    gap.horizon ?? "horizon not stated",
+    gap.unit ?? (gap.unitInFigure ? null : "unit not stated"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function gapIn(entry: OutputEntry, module: string): FundingGap | null {
+  const tables = entry.sections.flatMap(({ blocks }) =>
+    blocks.flatMap((block) => (block.type === "table" ? [block] : [])),
+  );
+  for (const table of tables) {
+    const row = table.rows.find(({ cells }) => FUNDING_GAP.test(cells[0] ?? ""));
+    if (!row) continue;
+    const values = valueColumns(table.headers);
+    // A written dash is a figure as written; only an empty cell states nothing.
+    const stated = values.filter((at) => (row.cells[at] ?? "").trim() !== "");
+    const figures = stated.map((at) => {
+      const text = (row.cells[at] ?? "").trim();
+      return {
+        header: plain(table.headers[at] ?? ""),
+        text: containsReference(text)
+          ? "Stated with a source reference; see Evidence."
+          : plain(text),
+        value: amount(text.replaceAll("−", "-")),
+      };
+    });
+    const notes = table.headers.flatMap((header, at) => {
+      if (!NOTE_COLUMN.test(header.trim())) return [];
+      const words = readerReason(row.cells[at] ?? "");
+      return words ? [words] : [];
+    });
+    // The horizon is read from the value columns only; an empty value cell states none.
+    const horizon = table.rows.find(({ cells }) => HORIZON.test(cells[0] ?? ""));
+    const horizonText = values
+      .map((at) => (horizon?.cells[at] ?? "").trim())
+      .find((cell) => cell !== "");
+    return {
+      module,
+      name: moduleName(module),
+      entry,
+      line: row.line,
+      label: plain(row.cells[0] ?? ""),
+      figures: figures.length ? figures : [{ header: "", text: NOT_STATED_IN_ROW, value: null }],
+      unit: gapUnit(table.headers, row.cells, values),
+      unitInFigure: figures.some(({ text, value }) => value === null && OWN_UNIT.test(text)),
+      notes,
+      horizon: horizonText && !containsReference(horizonText) ? plain(horizonText) : null,
+    };
+  }
+  return null;
+}
+
+/**
+ * The funding gap as the liquidity module states it and as the refinancing module repeats it:
+ * each module's row, owned by that module, every stated column with its header. With neither, why
+ * each module gave none: it did not run, it is not assessable, or the page found no row named
+ * Funding gap in its handoff.
+ */
+export function fundingGap(view: ReportView) {
+  const gaps: FundingGap[] = [];
+  const looked: string[] = [];
+  for (const module of ["CP-2D", "CP-3C"]) {
+    const name = moduleName(module);
+    const { entry, reason } = moduleSource(view, module, name);
+    if (!entry || reason) {
+      looked.push(
+        // The module's own sentence, once: "Not assessable: …" is not said twice.
+        entry && blocked(entry)
+          ? `${name} is not assessable: ${(reason ?? "").replace(/^not assessable:\s*/iu, "")}`
+          : (reason ?? ""),
+      );
+      continue;
+    }
+    const found = gapIn(entry, module);
+    if (found) gaps.push(found);
+    else looked.push(`This page found no row named Funding gap in ${name}'s output.`);
+  }
+  return { gaps, looked };
+}

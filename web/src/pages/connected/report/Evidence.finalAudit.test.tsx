@@ -123,11 +123,14 @@ it("states singular handoff counts, recorded gaps, performed checks and unlocate
       ],
     },
   );
-  expect(screen.getByText("1 designated handoff · 0 source files")).toBeVisible();
-  expect(screen.getByText("1 recorded gap")).toBeVisible();
-  expect(screen.getByText("1 of 2 script checks ran")).toBeVisible();
+  const holds = within(screen.getByLabelText("What this run holds"));
+  const figure = (label: string) => holds.getByText(label).closest("div");
+  expect(figure("designated handoff")).toHaveTextContent("1");
+  expect(figure("source files")).toHaveTextContent("0");
+  expect(figure("recorded gap")).toHaveTextContent("1");
+  expect(figure("script checks ran")).toHaveTextContent("1 of 2");
   expect(screen.getByRole("link", { name: /Script checks.*1 of 2/ })).toBeVisible();
-  expect(screen.getByText("1 handoff with an unlocated Basis")).toBeVisible();
+  expect(figure("handoff with an unlocated Basis")).toHaveTextContent("1");
 });
 
 it("marks every handoff evidence link with an underline and a chevron", () => {
@@ -198,13 +201,13 @@ it("uses the ruled source groups and states missing dates, types and all-module 
     unrecorded: [{ ...source, name: "unrecorded.txt", readBy: [] }],
   });
   for (const name of ["Used by a module", "Supplied, not used", "Not recorded as used"])
-    expect(screen.getByRole("heading", { name })).toBeVisible();
+    expect(screen.getByRole("heading", { name: `${name} 1` })).toBeVisible();
   expect(screen.getAllByText("Document date n.a.")).toHaveLength(3);
   expect(screen.getAllByText("Document type n.a.")).toHaveLength(3);
   expect(screen.getByText("Read by all 2 modules")).toBeVisible();
 });
 
-it("keeps download buttons at content width in a wrapping row", async () => {
+it("lists each file in a wrapping row, the link at content width, with its hash stated as absent", async () => {
   vi.stubGlobal("fetch", () =>
     Promise.resolve(
       new Response(
@@ -219,7 +222,10 @@ it("keeps download buttons at content width in a wrapping row", async () => {
   );
   render(<ArtifactDownloads folder="case" />);
   const link = await screen.findByRole("link", { name: "Calculation JSON" });
-  expect(link.parentElement).toHaveClass("flex", "flex-wrap", "gap-3");
+  const row = link.closest("li");
+  expect(row).toHaveClass("flex", "flex-wrap", "gap-3");
+  expect(link).not.toHaveClass("w-full");
+  expect(within(row as HTMLElement).getByText("No hash published")).toBeVisible();
 });
 
 it("explains not-checked outcomes and gives an empty checks selection the designed state", () => {
@@ -317,9 +323,9 @@ it("separates a handoff's citation details with hairlines rather than nested bor
       ],
     },
   );
-  const article = document.querySelector("article");
-  expect(article?.querySelector("section.rounded-ds-md.border")).toBeNull();
-  expect(article?.querySelector("li.rounded-ds-sm.border")).toBeNull();
+  const article = screen.getByRole("region", { name: "Financial foundation handoff" });
+  expect(article.querySelector("section.rounded-ds-md.border")).toBeNull();
+  expect(article.querySelector("li.rounded-ds-sm.border")).toBeNull();
   const sourceRecords = screen.getByRole("heading", { name: "Source records" }).closest("section");
   if (!sourceRecords) throw new Error("Missing source records");
   expect(within(sourceRecords).getByText("Document date n.a.")).toBeVisible();

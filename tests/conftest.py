@@ -1,8 +1,9 @@
 """Shared setup for the tests under tests/.
 
 ``no_live_copilot_adapter`` (autouse) keeps every test module that imports the Signal package
-(``deploy_workflow.signal``) or ``react_frontend`` from reaching a provider. For such a test it
-wraps ``CopilotAdapter.__init__``: building the live adapter without a fake client
+(``deploy_workflow.signal``) from reaching a provider (the run start tests in
+``test_react_frontend.py`` build the adapter on purpose over a stand-in SDK module and are not
+covered). For such a test it wraps ``CopilotAdapter.__init__``: building the live adapter without a fake client
 (``client_factory`` left out, or the SDK's own ``real_client``) is recorded in ``LIVE_ATTEMPTS``
 and fails at once with ``pytest.fail``. That raises ``Failed``, a ``BaseException``, so no
 ``except Exception`` in the service or its loop can swallow it, and the adapter is never built, so
@@ -24,7 +25,7 @@ from typing import Any
 
 import pytest
 
-GUARDED = ("deploy_workflow.signal", "react_frontend")
+GUARDED = ("deploy_workflow.signal",)
 # Every attempt to build the live adapter without a fake client: (test id, thread name).
 LIVE_ATTEMPTS: list[tuple[str, str]] = []
 
@@ -35,7 +36,7 @@ def _guarded_name(name: str | None) -> bool:
 
 @cache
 def imports_guarded(path: Path) -> bool:
-    """Whether the test module at `path` imports the Signal package or react_frontend anywhere
+    """Whether the test module at `path` imports the Signal package anywhere
     (at module level or inside a function)."""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))

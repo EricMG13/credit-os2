@@ -356,6 +356,93 @@ export function traceForConfidence(snapshot: Snapshot, entry: OutputEntry): Trac
   };
 }
 
+type Amounts = {
+  columns: ReadonlySet<number>;
+  /** `line` is the row's line in the handoff, for a row that draws no bar. */
+  draw: (column: number, cell: string, line: number) => ReactNode | undefined;
+};
+
+/** Opt-in drawing of a records table; a caller that passes none of it gets the table as before. */
+type TableForm = {
+  /** The columns drawn, in order; every displayed column when not given. */
+  columns?: readonly number[];
+  /** Columns of numerals: mono, tabular and right-aligned, their header too. */
+  numeric?: ReadonlySet<number>;
+  /** A named, focusable scroll region at any column count, not only at five or more. */
+  region?: boolean;
+  /** Room for a bar column's bar beside its figure. */
+  wideBars?: boolean;
+  /** A cell's own drawing (a stated gap as a chip); undefined falls back to the text. */
+  drawCell?: (column: number, cell: string) => ReactNode | undefined;
+  /** The records form: tighter rows in the small size; a text cell wraps between 12 and 28
+   * characters; a figure or a date stays on one line; the first column keeps its minimum at every
+   * width; a bar column's header sits over its figures. */
+  records?: boolean;
+};
+
+const NUMERALS = " text-right font-mono tabular-nums";
+/** A figure is set in mono numerals; a stated gap in the same column keeps the reading face. */
+const FIGURE = /^[(+-]?\d[\d,]*(?:\.\d+)?\)?(?:%|x|bps)?$/;
+
+/** A figure, a date or a period label; alone or paired ("FY2023 / 2023-09-30") it is one line. */
+const ONE_LINE_PART =
+  /(?:[(+\-−]?\$?\d[\d,]*(?:\.\d+)?\)?\s?(?:%|x|bps)?|\d{4}-\d{2}-\d{2}|(?:FY|CY|Q[1-4]|H[12]|LTM)\s?\d{2,4}|[A-Z][a-z]{2,8}\.? \d{4})/
+    .source;
+const ONE_LINE = new RegExp(`^${ONE_LINE_PART}(?:\\s?[/;–]\\s?${ONE_LINE_PART})*$`);
+/** Whether a records cell is a figure, a date or a period label, which is never wrapped. */
+export const isOneLine = (cell: string) => ONE_LINE.test(cell.trim());
+const WRAP_AT = 28;
+
+/** The records form's hold on a cell's text: a figure or a date on one line (its cell does not
+ * wrap); other text wraps at 28 characters, never squeezed below 12, and text that runs past 28
+ * never below 20, so a narrow screen scrolls the table rather than setting a word a line. */
+function heldText(cell: string) {
+  if (isOneLine(cell)) return null;
+  return cell.trim().length > WRAP_AT
+    ? "block min-w-[20ch] max-w-[28ch]"
+    : "block min-w-[12ch] max-w-[28ch]";
+}
+
+const amountCell = (amounts: Amounts | undefined, column: number, cell: string, line: number) =>
+  amounts?.columns.has(column) ? amounts.draw(column, cell, line) : undefined;
+
+/** A cell as the reader sees it: a reference as an Evidence link, an amount, the text, or blank. */
+function cellContent({
+  cell,
+  column,
+  line,
+  evidence,
+  sourceHref,
+  amounts,
+  form,
+  shown,
+  emptyLabel,
+}: {
+  cell: string;
+  column: number;
+  line: number;
+  evidence: boolean;
+  sourceHref: string | undefined;
+  amounts: Amounts | undefined;
+  form: TableForm;
+  shown: (text: string) => string;
+  emptyLabel: string;
+}) {
+  if (!evidence && containsReference(cell))
+    return sourceHref ? (
+      <Button href={sourceHref} color="link-gray" size="sm">
+        In Evidence
+      </Button>
+    ) : (
+      "Source reference unavailable"
+    );
+  if (!cell.trim()) return <span aria-label={emptyLabel}>—</span>;
+  const drawn = amountCell(amounts, column, cell, line) ?? form.drawCell?.(column, cell);
+  if (drawn !== undefined && drawn !== null) return drawn;
+  const held = form.records ? heldText(cell) : null;
+  return held ? <span className={held}>{richParts(cell, shown)}</span> : richParts(cell, shown);
+}
+
 export function PublishedTable({
   table,
   evidence = false,
@@ -364,9 +451,13 @@ export function PublishedTable({
   rowHref,
   href,
   heading: tableHeading,
-  emptyLabel = "Empty in the handoff",
+  emptyLabel = "Left blank",
+  amounts,
+  ...form
 }: {
   table: Table;
+  /** Amount columns: each figure is drawn by `draw` (a bar behind the text as written); a gap falls back. */
+  amounts?: Amounts;
   /** The section heading that names the table's scroll region; "Table" when not given. */
   heading?: string;
   /** The recorded source of an empty field; run-record callers do not read a handoff. */
@@ -376,15 +467,33 @@ export function PublishedTable({
   rowSource?: (line: number, label: string) => ReactNode;
   rowHref?: (line: number) => string | undefined;
   href?: string;
-}) {
+} & TableForm) {
   // The Evidence page draws text as stored; findings pages name the module.
   const shown = evidence ? plainModuleNames : readerText;
-  const columns = displayColumns(table.headers, evidence, table.rows);
+  const columns = form.columns ?? displayColumns(table.headers, evidence, table.rows);
   if (!columns.length || !table.rows.length) return null;
   const pinned = (column: number, background: string) =>
     columns.length >= 5 && column === columns[0]
       ? ` sm:sticky sm:left-0 sm:min-w-56 ${background}`
       : "";
+  const numerals = (column: number, cell: string) =>
+    form.numeric?.has(column) ? (FIGURE.test(cell.trim()) ? NUMERALS : " text-right") : "";
+  const barWidth = form.wideBars ? " min-w-64" : " min-w-40";
+  const { records } = form;
+  const pad = records ? "py-1.5" : "py-2.5";
+  // The records form holds the first column to a minimum at every width, not only where it pins.
+  const first = (column: number) => (records && column === columns[0] ? " min-w-[12ch]" : "");
+  const oneLine = (cell: string) => (records && isOneLine(cell) ? " whitespace-nowrap" : "");
+  // A bar column's header sits over its figures, right-aligned in their slot (BarCell's w-20),
+  // wrapping there when longer.
+  const header = (column: number) => {
+    const text = richParts(table.headers[column] ?? "", shown);
+    return records && amounts?.columns.has(column) ? (
+      <span className="block w-20 text-right">{text}</span>
+    ) : (
+      text
+    );
+  };
   const sources =
     rowSource ??
     (traceAt &&
@@ -392,71 +501,76 @@ export function PublishedTable({
         <TraceControl trace={traceAt(line)} label={`Show sources for ${shown(name)}`} />
       )));
   // A wide table scrolls sideways: it is a named, focusable region so the keyboard can reach it.
-  const scrolls =
-    columns.length >= 5 ? { role: "region", "aria-label": tableHeading || "Table" } : {};
-  return (
-    <div
-      {...scrolls}
-      tabIndex={columns.length >= 5 ? 0 : undefined}
-      className="relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"
-    >
-      <table className="w-full border-collapse text-sm">
-        <thead className="bg-surface-subtle text-text-secondary">
-          <tr>
+  // Bars need room, so a table that draws them scrolls inside its own region at any width.
+  const wide = form.region || columns.length >= 5 || Boolean(amounts?.columns.size);
+  // A row is named by the first column the reader sees, never by a hidden source column.
+  const rowName = (row: Table["rows"][number]) => row.cells[columns[0] ?? 0] ?? "";
+  const name = tableHeading || "Table";
+  const drawn = (
+    <table className={`w-full border-collapse ${records ? "text-small" : "text-sm"}`}>
+      {amounts?.columns.size ? (
+        <caption className="sr-only">{`${name} · bars on one scale per column`}</caption>
+      ) : null}
+      <thead className="bg-surface-subtle text-text-secondary">
+        <tr>
+          {columns.map((column) => (
+            <th
+              key={column}
+              scope="col"
+              className={`px-3 ${pad} ${form.numeric?.has(column) ? "text-right" : "text-left"} font-semibold${first(column)}${pinned(column, "bg-surface-subtle")}`}
+            >
+              {header(column)}
+            </th>
+          ))}
+          {sources && (
+            <th scope="col" className={`px-2 ${pad} text-left font-semibold`}>
+              <span className="sr-only">Sources</span>
+            </th>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {table.rows.map((row) => (
+          <tr key={row.line} className={`${TRACE_HOST} border-t border-border-hairline align-top`}>
             {columns.map((column) => (
-              <th
+              <td
                 key={column}
-                scope="col"
-                className={`px-3 py-2.5 text-left font-semibold${pinned(column, "bg-surface-subtle")}`}
+                className={`px-3 ${pad} text-text-secondary${amounts?.columns.has(column) ? barWidth : ""}${numerals(column, row.cells[column] ?? "")}${first(column)}${oneLine(row.cells[column] ?? "")}${pinned(column, "bg-surface-card")}`}
               >
-                {richParts(table.headers[column] ?? "", shown)}
-              </th>
+                {cellContent({
+                  cell: row.cells[column] ?? "",
+                  column,
+                  line: row.line,
+                  evidence,
+                  sourceHref: rowHref?.(row.line) ?? href,
+                  amounts,
+                  form,
+                  shown,
+                  emptyLabel,
+                })}
+              </td>
             ))}
             {sources && (
-              <th scope="col" className="px-2 py-2.5 text-left font-semibold">
-                <span className="sr-only">Sources</span>
-              </th>
+              <td className={`px-2 ${records ? "py-0.5" : "py-1.5"}`}>
+                {sources(row.line, rowName(row) || "this row")}
+              </td>
             )}
           </tr>
-        </thead>
-        <tbody>
-          {table.rows.map((row) => (
-            <tr
-              key={row.line}
-              className={`${TRACE_HOST} border-t border-border-hairline align-top`}
-            >
-              {columns.map((column) => {
-                const cell = row.cells[column] ?? "";
-                const sourceHref = rowHref?.(row.line) ?? href;
-                return (
-                  <td
-                    key={column}
-                    className={`px-3 py-2.5 text-text-secondary${pinned(column, "bg-surface-card")}`}
-                  >
-                    {!evidence && containsReference(cell) ? (
-                      sourceHref ? (
-                        <Button href={sourceHref} color="link-gray" size="sm">
-                          In Evidence
-                        </Button>
-                      ) : (
-                        "Source reference unavailable"
-                      )
-                    ) : cell.trim() ? (
-                      richParts(cell, shown)
-                    ) : (
-                      <span aria-label={emptyLabel}>—</span>
-                    )}
-                  </td>
-                );
-              })}
-              {sources && (
-                <td className="px-2 py-1.5">{sources(row.line, row.cells[0] || "this row")}</td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        ))}
+      </tbody>
+    </table>
+  );
+  // On a phone the inner room keeps a trace control's touch area inside the scroll box's clip.
+  const frame =
+    "relative min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline max-[480px]:p-2";
+  return wide ? (
+    // A table that scrolls sideways is a named region the keyboard can focus to scroll it.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+    <div role="region" aria-label={name} tabIndex={0} className={frame}>
+      {drawn}
     </div>
+  ) : (
+    <div className={frame}>{drawn}</div>
   );
 }
 
@@ -464,13 +578,20 @@ function readerBlock(block: Block): boolean {
   return block.type === "table" || (block.type === "text" && !methodNote(block.text));
 }
 
-export const RECORDS_ID = "statements-and-records";
+const RECORDS_ID = "statements-and-records";
 // One register code (T4.4, P3, T2F.2); the prefix also takes the dash that follows it.
 const CODE = String.raw`[TP]\d+[A-Z]?(?:\.\d+)?`;
-const RECORD_PREFIX = new RegExp(String.raw`^${CODE}\s+(?:[-\u2013\u2014]\s*)?`);
+// A heading's register code is stripped only where it is plainly one: a dotted number (T4.18,
+// TDR.3, P2.1) or a code set off by a dash or colon ("T1 - Register"); "T2 Heathrow" keeps its word.
+const DOTTED_CODE = String.raw`(?:TL|T|P)[A-Z0-9]{0,5}\.\d+(?:\.\d+)?`;
+const SET_OFF_CODE = String.raw`(?:TL|T|P)[A-Z0-9]{0,5}`;
+const RECORD_PREFIX = new RegExp(
+  String.raw`^(?:${DOTTED_CODE}(?:\s*[-\u2013\u2014:]\s*|\s+)|${SET_OFF_CODE}\s*[-\u2013\u2014:]\s+)`,
+);
 const RECORD_CODE = new RegExp(String.raw`^${CODE}\s`);
 
-function registerBlocks(section: Section, entry: OutputEntry) {
+/** The register tables a working page draws; every other register table is held in Evidence. */
+export function registerBlocks(section: Section, entry: OutputEntry) {
   if (entry.output.module === "CP-6" && /^T6E\.(?:4|6|7)\b/.test(section.heading))
     return section.blocks.filter(readerBlock);
   if (entry.output.module === "CP-8" && section.heading === "Limitations ledger")
@@ -515,7 +636,7 @@ export const drawingTitle = (heading: string) =>
   heading.replace(DRAWING_PREFIX, "").replace(RECORD_PREFIX, "");
 
 // `chartsDrawn` is true on a page that draws this module's charts with their qualifications.
-function drawingLines(entry: OutputEntry, figureTableLines: readonly number[] = []) {
+export function drawingLines(entry: OutputEntry, figureTableLines: readonly number[] = []) {
   return new Set(
     [
       ...(entry.output.charts ?? []),
@@ -635,7 +756,8 @@ function findingLabel(section: Section, overviewLabel?: string) {
   return section.heading === "Bottom line" ? (overviewLabel ?? section.heading) : section.heading;
 }
 
-function findingsTraces(snapshot: Snapshot, entry: OutputEntry, sections: Section[]) {
+/** One trace per paragraph and table row of `sections`, keyed by `traceKey`. */
+export function sectionTraces(snapshot: Snapshot, entry: OutputEntry, sections: Section[]) {
   const traces: Record<string, Trace> = {};
   const key = (line: number) => traceKey(entry, line);
   for (const section of sections) {
@@ -656,10 +778,10 @@ function findingsTraces(snapshot: Snapshot, entry: OutputEntry, sections: Sectio
 }
 
 const CONFIDENCE_MARK_TONES = new Map([
-  ["High", "bg-brand-500 text-white"],
+  ["High", "bg-brand-700 text-white"],
   ["Medium", "bg-brand-200 text-text-primary"],
   ["Low", "bg-brand-50 text-text-primary"],
-  ["Insufficient Information", "bg-white/10 text-white"],
+  ["Insufficient Information", "bg-surface-subtle text-text-secondary"],
 ]);
 const CONFIDENCE_MARK_TRACE = "module-confidence";
 
@@ -671,7 +793,7 @@ function ConfidenceMark({ value, band, trace }: { value: number; band: string; t
       aria-label="Confidence score"
     >
       <div
-        className={`grid w-full justify-items-center gap-0.5 rounded-ds-sm px-2 py-2 text-center ${CONFIDENCE_MARK_TONES.get(band) ?? "bg-white/10 text-white"}`}
+        className={`grid w-full justify-items-center gap-0.5 rounded-ds-sm px-2 py-2 text-center ${CONFIDENCE_MARK_TONES.get(band) ?? "bg-surface-subtle text-text-secondary"}`}
       >
         <span className="text-xs font-medium">Confidence</span>
         <span className="font-display text-h4 tabular-nums">
@@ -680,7 +802,7 @@ function ConfidenceMark({ value, band, trace }: { value: number; band: string; t
         </span>
         <span className="text-xs leading-tight">{band}</span>
       </div>
-      <TraceControl trace={trace} label="Show sources for the confidence score" onDark />
+      <TraceControl trace={trace} label="Show sources for the confidence score" />
     </div>
   );
 }
@@ -711,7 +833,7 @@ function FindingsSummary({
   );
 }
 
-const MISSING_PASSAGE = "Not established for this run. The module's handoff has no such passage.";
+const MISSING_PASSAGE = "Not established for this run. The module wrote no such passage.";
 
 type FindingGroup = string | [Section, Section?];
 
@@ -808,8 +930,8 @@ function EmptyFindings({
     <>
       <p className="text-text-secondary">
         {entry.output.parseError
-          ? "This handoff could not be read into sections."
-          : "This handoff has no findings in this report format."}{" "}
+          ? "This module's output could not be read into sections."
+          : "This module wrote no findings in this report format."}{" "}
         <Button href={evidencePath(run.folder, entry)} color="link-gray" size="sm">
           Open Evidence
         </Button>
@@ -887,9 +1009,11 @@ function renderFindingGroups(
     const [section, contrary] = group;
     if (!contrary) return drawSection(section);
     return (
-      <div key={section.line} className="grid min-w-0 gap-4 lg:grid-cols-2">
-        {drawSection(section)}
-        {drawSection(contrary)}
+      <div key={section.line} className="grid min-w-0 gap-4 lg:grid-cols-12">
+        <div className="grid min-w-0 lg:col-span-7">{drawSection(section)}</div>
+        <div className="grid min-w-0 lg:col-span-5 [&>*]:border-info-edge [&>*]:bg-info-fill">
+          {drawSection(contrary)}
+        </div>
       </div>
     );
   });
@@ -911,6 +1035,7 @@ type FindingSectionProps = {
   marker?: ReactNode;
   judgement?: string;
   trailingFigures?: ReactNode;
+  beside?: ReactNode;
 };
 
 function BottomLinePassage({
@@ -922,6 +1047,7 @@ function BottomLinePassage({
   marker,
   judgement,
   trailingFigures,
+  beside,
   first,
 }: FindingSectionProps & { first: Extract<Block, { type: "text" }> }) {
   const body = readParagraph(first.text).body;
@@ -934,29 +1060,33 @@ function BottomLinePassage({
       id={`finding-${String(section.line)}`}
       tabIndex={-1}
     >
-      <BottomLine
-        level="h2"
-        marker={marker}
-        lead={
-          referenced ? (
-            <Button
-              href={evidencePath(run.folder, entry, first.line)}
-              color="link-gray"
-              size="sm"
-              iconTrailing={ArrowRight}
-              className="text-white hover:text-white"
-            >
-              Read this passage in Evidence
-            </Button>
-          ) : undefined
-        }
-        text={{
-          label: findingLabel(section, overviewLabel),
-          lead: referenced ? "" : (judgement ?? prose),
-          rest: judgement ? prose : "",
-          trace: traceKey(entry, first.line),
-        }}
-      />
+      <div className={beside ? "grid min-w-0 gap-4 lg:grid-cols-12" : "grid min-w-0"}>
+        <div className={beside ? "min-w-0 lg:col-span-8" : "min-w-0"}>
+          <BottomLine
+            level="h2"
+            marker={marker}
+            lead={
+              referenced ? (
+                <Button
+                  href={evidencePath(run.folder, entry, first.line)}
+                  color="link-gray"
+                  size="sm"
+                  iconTrailing={ArrowRight}
+                >
+                  Read this passage in Evidence
+                </Button>
+              ) : undefined
+            }
+            text={{
+              label: findingLabel(section, overviewLabel),
+              lead: referenced ? "" : (judgement ?? prose),
+              rest: judgement ? prose : "",
+              trace: traceKey(entry, first.line),
+            }}
+          />
+        </div>
+        {beside ? <div className="min-w-0 lg:col-span-4">{beside}</div> : null}
+      </div>
       {trailingFigures}
       <BottomLineContinuation
         section={section}
@@ -1089,7 +1219,7 @@ function findingsEvidence(
   drawnBottomLine: boolean,
 ) {
   const key = (line: number) => traceKey(entry, line);
-  const traces = findingsTraces(snapshot, entry, sections);
+  const traces = sectionTraces(snapshot, entry, sections);
   const summary = !drawnBottomLine && entry.output.summary;
   const summaryTrace = summary && traceForLine(snapshot, entry, entryIndex, summary.line);
   if (summaryTrace) traces[key(summary.line)] = summaryTrace;
@@ -1124,6 +1254,7 @@ export function ReportFindings({
   overview = false,
   overviewLabel,
   afterBottomLine,
+  besideBottomLine,
   moduleConfidence,
   beforeLimitations,
   judgement,
@@ -1137,6 +1268,8 @@ export function ReportFindings({
   overview?: boolean;
   overviewLabel?: string;
   afterBottomLine?: ReactNode;
+  /** Overview draws this tile beside the bottom line on a wide screen. */
+  besideBottomLine?: ReactNode;
   /** Modules supplies its confidence tile as a fallback for an unscored or absent Bottom line. */
   moduleConfidence?: ReactNode;
   /** Drawn after the prose passages and before Limitations (after the last passage without one). */
@@ -1191,6 +1324,7 @@ export function ReportFindings({
       marker={marker}
       judgement={judgement}
       trailingFigures={trailingFigures}
+      beside={besideBottomLine}
     />
   );
   const drawn = renderFindingGroups(groups, drawSection, summary, beforeLimitations, figuresAt);

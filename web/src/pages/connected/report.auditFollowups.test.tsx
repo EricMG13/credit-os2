@@ -14,6 +14,7 @@ import {
   type Snapshot,
 } from "./publishedReport";
 import { buildReportView } from "./reportView";
+import { RunContext } from "@/pages/library/parts/RunContext";
 import { ModuleConfidence } from "./report/Confidence";
 import { ReportChanges } from "./report/Changes";
 
@@ -92,7 +93,7 @@ function fixture(): { run: PublishedRun; snapshot: Snapshot } {
           [
             section("Findings", 1, []),
             section("Bottom line", 3, [
-              module === "CP-6" ? "The credit view is stable." : `${module} view retained.`,
+              module === "CP-6" ? "The credit view is stable." : "Cash covers interest.",
               "The second paragraph remains qualified.",
             ]),
             section("Key findings", 8, ["Cash covers the next maturity."]),
@@ -151,18 +152,20 @@ it("C1-014 C5-005 names the Evidence page and hides its ineffective source switc
   expect(screen.queryByRole("switch")).toBeNull();
 });
 
-it("J3-017 uses History for the history tab and names the issuer in its breadcrumb", async () => {
+it("J3-017 reaches Runs from the issuer crumb, names the page Runs and the issuer in its breadcrumb", async () => {
   const { snapshot } = fixture();
   reader(snapshot, "#history");
-  await screen.findByRole("heading", { name: "Report history" });
+  await screen.findByRole("region", { name: "Runs of Acme" });
+  const sections = screen.getByRole("navigation", { name: "Report sections" });
+  expect(within(sections).queryByRole("link", { name: "History" })).toBeNull();
+  const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
   expect(
-    within(screen.getByRole("navigation", { name: "Report sections" })).getByRole("link", {
-      name: "History",
-    }),
-  ).toHaveAttribute("href", "#history");
-  expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent(
-    "Library / Acme",
-  );
+    within(crumbs)
+      .getAllByRole("listitem")
+      .map((item) => item.textContent),
+  ).toEqual(["Library", "Acme", "Runs"]);
+  expect(within(crumbs).getByRole("link", { name: "Acme" })).toHaveAttribute("href", "#history");
+  expect(document.title).toBe("Runs — Acme — Credit OS");
   expect(screen.getByRole("link", { name: "Run progress" })).toHaveAttribute(
     "href",
     "/run/current",
@@ -195,16 +198,38 @@ it("T17 residual identifies an unpublished report's known issuer in its page tit
   expect(document.title).toBe("Credit report — Known issuer — Credit OS");
 });
 
-it("C3-015 C3-027 J1-009 names and attributes the lead view and its continuation", async () => {
-  const { snapshot } = fixture();
+it("C3-015 C3-027 J1-009 attributes the verified credit view to its exact Evidence line", async () => {
+  const { run, snapshot } = fixture();
+  run.publicationVerified = true;
+  run.lead = {
+    output: "current/CP-2",
+    module: "CP-2",
+    sha256: hashes[0],
+    line: 4,
+    text: "Cash covers interest.",
+  };
   reader(snapshot, "#overview");
-  const band = await screen.findByRole("region", { name: "Credit view" });
-  expect(band).toHaveTextContent("The credit view is stable.");
-  expect(screen.getByRole("link", { name: "Credit view from Committee decision" })).toHaveAttribute(
+  const call = await screen.findByRole("region", { name: "The call" });
+  expect(
+    within(call).getByRole("heading", { level: 3, name: "The call · Fundamental credit" }),
+  ).toBeInTheDocument();
+  // The call is the published line of the fundamental module, at display size, traced to it.
+  expect(within(call).getByText("Cash covers interest.")).toHaveClass("lg:text-display");
+  // Checked before the trace drawer opens over the page.
+  const nodes = screen.getAllByRole("link", { name: /^Committee decision/ });
+  expect(nodes.map((node) => node.getAttribute("href"))).toContain("#modules/CP-6");
+  fireEvent.click(within(call).getByRole("button", { name: "Show sources for the bottom line" }));
+  expect(await screen.findByRole("link", { name: "Open in Evidence" })).toHaveAttribute(
     "href",
-    "#modules/CP-6",
+    `/report/current#evidence/current%2FCP-2~${hashes[0]}-4`,
   );
-  expect(screen.getByText("Credit view, continued")).toBeInTheDocument();
+  // The committee's bottom line is on its own page only.
+  expect(screen.queryByText("The credit view is stable.")).toBeNull();
+  // Both modules write the same second paragraph: only the call's copies are drawn (in full, and
+  // behind Read on).
+  const second = screen.getAllByText("The second paragraph remains qualified.");
+  expect(second).toHaveLength(2);
+  for (const copy of second) expect(call).toContainElement(copy);
   expect(screen.queryByText("Decision rationale")).toBeNull();
 });
 
@@ -216,7 +241,7 @@ it("J3-019 labels the source toggle by the highlight it actually controls", asyn
   expect(document.querySelector('[data-sources="on"]')).not.toBeNull();
 });
 
-it("C3-016 C3-021 keeps a referenced lead in its band with figures outside it", () => {
+it("C3-016 C3-021 keeps a referenced lead in its tile with figures outside it", () => {
   const { run, snapshot } = fixture();
   const entry = outputEntries(snapshot, run, "current").find(
     ({ output }) => output.module === "CP-6",
@@ -242,7 +267,7 @@ it("C3-016 C3-021 keeps a referenced lead in its band with figures outside it", 
     />,
   );
   const band = screen.getByRole("region", { name: "Credit view" });
-  expect(band).toHaveClass("bg-surface-inverse");
+  expect(band).toHaveClass("bg-surface-card", "rounded-ds-lg");
   expect(within(band).getByRole("link", { name: "Read this passage in Evidence" })).toHaveAttribute(
     "href",
     `/report/current#evidence/current%2FCP-6~${hashes[1]}-4`,
@@ -303,9 +328,15 @@ it("J3-015 states the confidence score denominator without changing its value", 
   const entry = outputEntries(snapshot, run, "current")[0];
   if (!entry) throw new Error("Missing confidence fixture");
   entry.output.confidence = { value: 73.25, band: "Medium" };
-  render(<ModuleConfidence snapshot={snapshot} run={run} entry={entry} entryIndex={0} />);
-  expect(screen.getByText("73.25")).toBeInTheDocument();
-  expect(screen.getByText("Medium · out of 100")).toBeInTheDocument();
+  render(
+    <RunContext.Provider value={{ traces: {}, open: () => undefined }}>
+      <ModuleConfidence confidence={entry.output.confidence} trace={null} />
+    </RunContext.Provider>,
+  );
+  const score = screen.getByRole("group", { name: "Confidence score" });
+  expect(within(score).getByText("73.25")).toBeInTheDocument();
+  expect(within(score).getByText("/ 100")).toBeInTheDocument();
+  expect(within(score).getByText("Medium")).toBeInTheDocument();
 });
 
 it("C5-025 ties each real table citation to its exact row", () => {

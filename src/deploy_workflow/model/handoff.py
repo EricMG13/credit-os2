@@ -1198,6 +1198,13 @@ class _PerModule[T]:
         executor._module.__dict__[self._name] = value
 
 
+def _noted[E: BaseException](error: E, notes: tuple[str, ...]) -> E:
+    """``error`` with ``notes`` added to it."""
+    for note in notes:
+        error.add_note(note)
+    return error
+
+
 def _handoff_transport(directory: Path, copilot: bool) -> str | None:
     path = directory / "loop.json"
     if not path.exists():
@@ -1911,14 +1918,64 @@ class HandoffExecutor:
                 )
 
     def _last_look(self, task: HandoffTask, call_id: str) -> None:
-        """Recheck the module and the shared ledger after reserving and just before dispatch.
-        A refused call releases its hold. A call already authorized settles when it returns."""
+        """Recheck the shared ledger, then the module, after reserving and just before dispatch.
+        The ledger's check takes its lock, which another module may hold across a marker write
+        and its fsyncs; the module's (``HandoffTask.proceed``) takes none, so it comes last and a
+        halt CP-OS takes while the ledger check waits still refuses the call.
+        A refused call releases its hold. A call already authorized settles when it returns.
+        A release that fails is noted on the refusal and never replaces it: the hold stays open,
+        left as a crash leaves one when the module ends (``_run``)."""
         try:
-            task.proceed()
             self.budget.check_running()
-        except BaseException:
-            self.budget.release(call_id)
+            task.proceed()
+        except BaseException as refusal:
+            try:
+                self.budget.release(call_id)
+            except Exception as failed:  # noqa: BLE001 -- the refusal is what the module raises
+                refusal.add_note(f"its hold was not released: {type(failed).__name__}: {failed}")
             raise
+
+    def _dispatch_look(self, task: HandoffTask, call_id: str, turn: int) -> None:
+        """The last look, after the ``turn`` event (whose write may take time) and immediately
+        before the call is handed to the adapter. A call it refuses was logged as a turn, so a
+        ``turn_not_sent`` event follows (``_not_sent``), and the refusal is what the module
+        raises."""
+        try:
+            self._last_look(task, call_id)
+        except BaseException as refusal:
+            _noted(refusal, self._not_sent(task, turn))
+            raise
+
+    def _not_sent(self, task: HandoffTask, turn: int) -> tuple[str, ...]:
+        """Follow the ``turn`` event of a call that was not sent with ``turn_not_sent``; return
+        what to note on the error the module raises. ``append_event`` is fail-open: a write the
+        disk refuses (an OSError) is skipped with a RuntimeWarning, the event is missing and
+        nothing is noted. It raises only when a warnings filter makes that warning an error
+        (``-W error``); that failure is returned as a note, never raised in the error's place."""
+        if self.events is None:
+            return ()
+        try:
+            append_event(self.events, "turn_not_sent", module=task.module_id, turn=turn)
+        except Exception as failed:  # noqa: BLE001 -- the module's own error is raised
+            return (f"its turn_not_sent event was not written: {type(failed).__name__}: {failed}",)
+        return ()
+
+    def _close_hold(
+        self,
+        task: HandoffTask,
+        call_id: str,
+        turn: int,
+        reply: AdapterReply,
+        actual: Decimal | None,
+    ) -> tuple[str, ...]:
+        """Settle the exchange's hold at ``actual``; ``OverrunStop`` when that passes it. A reply
+        the adapter did not send releases the hold instead, and its ``turn`` event is followed by
+        ``turn_not_sent``; returns what to note on the error ``_turn`` then raises."""
+        if reply.kind != "not_sent":
+            self.budget.settle(call_id, actual)
+            return ()
+        self.budget.release(call_id)
+        return self._not_sent(task, turn)
 
     @staticmethod
     def _known_failed(task: HandoffTask, known: bool, what: str) -> None:
@@ -1953,7 +2010,8 @@ class HandoffExecutor:
                 held_usd=str(reserved),
                 cap_usd=str(self.budget.cap_usd),
             )
-        self._last_look(task, call_id)
+        # the module's lock-free check is the last step before the adapter has the call
+        self._dispatch_look(task, call_id, index + 1)
         started = time.time()
         self._last_call = index
         try:
@@ -1991,11 +2049,9 @@ class HandoffExecutor:
         # an ``ok`` reply that cannot be used ends the run too
         self._known_failed(task, turn is None or actual is None, f"{reply.kind}; charge={actual}")
         overrun = False
+        noted: tuple[str, ...] = ()  # on the error raised below
         try:
-            if reply.kind == "not_sent":
-                self.budget.release(call_id)
-            else:
-                self.budget.settle(call_id, actual)
+            noted = self._close_hold(task, call_id, index + 1, reply, actual)
         except OverrunStop:
             overrun = True
             self._known_failed(task, overrun, f"{reply.kind}; overrun=True")
@@ -2089,8 +2145,11 @@ class HandoffExecutor:
         if turn is not None and self._query_check is not None:
             self._record_flagged_queries(task, folder, index, turn)
         if reply.kind != "ok" or turn is None or actual is None or overrun:
-            raise RuntimeError(
-                f"cpos_live_stopped: {reply.kind}; charge={actual}; overrun={overrun}"
-                + ("" if fault is None else f"; unusable reply: {fault}")
+            raise _noted(
+                RuntimeError(
+                    f"cpos_live_stopped: {reply.kind}; charge={actual}; overrun={overrun}"
+                    + ("" if fault is None else f"; unusable reply: {fault}")
+                ),
+                noted,
             )
         return turn

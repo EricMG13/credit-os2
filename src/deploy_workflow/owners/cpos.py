@@ -23,7 +23,7 @@ import warnings
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, wait
 from dataclasses import dataclass, field, replace
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from functools import partial
 from pathlib import Path
@@ -111,6 +111,10 @@ class HandoffPlan(Contract):
     # Only a preset run is a comparison base (`deploy_workflow.changes.find_prior`); an older
     # manifest records neither and is left unchanged.
     selection: Literal["preset", "explicit"] | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
+    # The launcher records the relevant revision of the default analytical scope at submission.
+    preset_requested_modules: tuple[str, ...] | None = Field(
         default=None, exclude_if=lambda v: v is None
     )
     execution: Literal["host-session", "retained-response-replay", "synthetic", "live-provider"]
@@ -436,7 +440,8 @@ class _Board:
         self._index = {module_id: place for place, module_id in enumerate(ordered)}
         self._ordered, self._handoffs = tuple(ordered), handoffs
         self._changed = threading.Condition()  # re-entrant
-        self._stopped = len(ordered)  # the place of the earliest module that was not accepted
+        self._stopped = len(ordered)  # no module after this place is accepted in this launch
+        self._refused = len(ordered)  # the place of the earliest module failed or not accepted
         self._held = len(ordered)  # the place of the module an observer stopped the run at
         self.failed: dict[str, Exception] = {}  # reported by a module's thread as it fails
 
@@ -458,14 +463,18 @@ class _Board:
         start, starts nothing."""
         with self._changed:
             self.failed.setdefault(module_id, error)
-            self._stopped = min(self._stopped, self._index[module_id])
+            self._refused = min(self._refused, self._index[module_id])
+            self._stopped = min(self._stopped, self._refused)
             self._changed.notify_all()
 
     def stop_after(self, module_id: str | None) -> None:
         """No module after ``module_id`` in the plan (after none: no module at all) can be
-        accepted in this launch."""
+        accepted in this launch. ``module_id`` itself failed or was not accepted; with none
+        the whole launch is stopped (an interrupt, or its end), which is no module's failure."""
         with self._changed:
             place = -1 if module_id is None else self._index[module_id]
+            if module_id is not None:
+                self._refused = min(self._refused, place)
             self._stopped = min(self._stopped, place)
             self._changed.notify_all()
 
@@ -477,9 +486,13 @@ class _Board:
 
     def proceed(self, module_id: str) -> None:
         place = self._index[module_id]
-        if self._stopped < place:
+        if self._refused < place:
             raise ModuleHalted(
                 f"cpos_halted: {module_id}: a module before it in the plan was not accepted"
+            )
+        if self._stopped < place:
+            raise ModuleHalted(
+                f"cpos_halted: {module_id}: the launch was stopped before its next call"
             )
         if self._held < place:
             raise ModuleHalted(
@@ -774,7 +787,18 @@ class _ModuleLoop:
         for module_id in failed:
             if module_id != causes[0]:
                 cause.add_note(f"{module_id} also stopped: {with_notes(self.failures[module_id])}")
+        for module_id, halt in self._noted_halts():
+            cause.add_note(f"{module_id} halted: {with_notes(halt)}")
         return cause
+
+    def _noted_halts(self) -> Iterator[tuple[str, ModuleHalted]]:
+        """Each module that ended halted with a note on its halt (a hold whose release failed,
+        ``HandoffExecutor._last_look``). A halt is not a failure and is never the cause, but its
+        notes are part of the run's record: the cause carries them."""
+        for module_id, (_, future) in self.flights.items():
+            raised = future.exception() if future.done() else None
+            if isinstance(raised, ModuleHalted) and getattr(raised, "__notes__", None):
+                yield module_id, raised
 
     def _take_off(self, board: _Board, pool: _Threads, width: int) -> None:
         """Start the modules not yet started, in plan order, while a slot is free and the next
@@ -965,7 +989,8 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
     """
     if not 1 <= width <= MAX_MODULE_WIDTH:
         raise ValueError(f"cpos_width: between 1 and {MAX_MODULE_WIDTH} modules at once")
-    request = HandoffPlan.model_validate_json(manifest.read_bytes())
+    workflow_raw = manifest.read_bytes()
+    request = HandoffPlan.model_validate_json(workflow_raw)
     from deploy_workflow.model.adapter import LiveAdapter
     from deploy_workflow.model.copilot_adapter import CopilotAdapter
     from deploy_workflow.model.handoff import HandoffExecutor
@@ -1205,6 +1230,8 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
             **({} if changes_note is None else {"changes": changes_note}),
             "delivery_manifest_sha256": manifest_id,
             "delivery_sha256": _sha(receipt.read_bytes()),
+            "workflow_sha256": _sha(workflow_raw),
+            **({"published_at": datetime.now(UTC).isoformat()} if live else {}),
         }
         completion_raw = json.dumps(completion, indent=2).encode()
         _put(directory / f"completed-{_sha(completion_raw)}.json", completion_raw)

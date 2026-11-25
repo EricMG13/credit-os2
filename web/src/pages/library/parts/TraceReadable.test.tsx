@@ -20,7 +20,7 @@ it("draws the trace control visible at rest, without a ring glyph", () => {
   );
   const button = screen.getByRole("button", { name: "Show sources for this passage" });
   expect(button.className).not.toContain("opacity-0");
-  expect(button.className).toContain("size-7");
+  expect(button.className).toContain("size-8");
   expect(button.className).not.toContain("max-[480px]:size-11");
   expect(button.getAttribute("aria-label")).toBe("Show sources for this passage");
   expect(container.querySelectorAll("svg")).toHaveLength(1);

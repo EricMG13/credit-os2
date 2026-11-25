@@ -20,7 +20,14 @@ function stateOf(line: ActivityLine) {
 }
 
 /** The activity feed, newest first. */
-export function Feed({ lines }: { lines: ActivityLine[] }) {
+export function Feed({
+  lines,
+  columns = false,
+}: {
+  lines: ActivityLine[];
+  /** Compact rows in two columns from lg (Run progress), without the connecting rule. */
+  columns?: boolean;
+}) {
   // Count identical records oldest first so a new entry does not remount older rows.
   const occurrences = new Map<string, number>();
   const entries = [...lines]
@@ -33,38 +40,49 @@ export function Feed({ lines }: { lines: ActivityLine[] }) {
     })
     .reverse();
   return (
-    <ul>
+    <ul className={columns ? "gap-x-6 lg:columns-2 xl:columns-3" : undefined}>
       {entries.map(({ line, key }, i) => {
         const { shape, tone } = stateOf(line);
         const last = i === lines.length - 1;
         return (
-          <li key={key}>
-            <article className="flex gap-3">
+          <li key={key} className={columns ? "break-inside-avoid" : undefined}>
+            <article className={cx("flex", columns ? "items-center gap-2 py-1" : "gap-3")}>
               <div className="flex flex-none flex-col items-center">
                 <span
                   className={cx(
-                    "flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-subtle",
+                    "flex shrink-0 items-center justify-center rounded-ds-full bg-surface-subtle",
+                    columns ? "size-6" : "size-7",
                     MARK[tone],
                   )}
                 >
                   <StatusShape shape={shape} />
                   <span className="sr-only">{line.state}</span>
                 </span>
-                {last ? null : (
+                {last || columns ? null : (
                   <span
                     aria-hidden="true"
-                    className="my-1 min-h-3 flex-1 border-s-[3px] border-dotted border-connector"
+                    className="my-1 min-h-3 flex-1 border-s border-border-container"
                   />
                 )}
               </div>
-              <div className={cx("flex min-w-0 flex-1 flex-col", last ? "pb-0" : "pb-8")}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-0 text-sm font-medium wrap-anywhere text-text-secondary">
+              <div
+                className={cx(
+                  "flex min-w-0 flex-1",
+                  columns ? "flex-row flex-wrap items-baseline gap-x-3" : "flex-col",
+                  last || columns ? "pb-0" : "pb-4",
+                )}
+              >
+                <div className="flex flex-none flex-wrap items-center gap-2">
+                  <span className="min-w-0 text-small font-medium wrap-anywhere text-text-secondary">
                     {line.who}
                   </span>
-                  <time className="text-caption text-text-tertiary tabular-nums">{line.time}</time>
+                  <time className="font-mono text-caption text-text-tertiary tabular-nums">
+                    {line.time}
+                  </time>
                 </div>
-                <p className="text-sm text-pretty wrap-anywhere text-text-tertiary">{line.text}</p>
+                <p className="text-small text-pretty wrap-anywhere text-text-secondary">
+                  {line.text}
+                </p>
               </div>
             </article>
           </li>

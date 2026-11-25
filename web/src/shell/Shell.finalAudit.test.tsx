@@ -13,7 +13,7 @@ it("S1-019 gives the current area a distinct line marker", () => {
   render(<Shell current="library">Library page</Shell>);
   const markers = document.querySelectorAll("[data-current-area]");
   expect(markers).toHaveLength(1);
-  expect(markers[0]).toHaveClass("border-l-2");
+  expect(markers[0]).toHaveClass("border-b-2");
   expect(markers[0]?.closest("li")).toContainElement(screen.getByRole("link", { name: "Library" }));
 });
 

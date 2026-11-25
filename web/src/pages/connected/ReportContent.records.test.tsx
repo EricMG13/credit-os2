@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { OutputEntry, PublishedRun, Section, Snapshot, Table } from "./publishedReport";
 import { FORECAST_INPUTS, evidencePath } from "./publishedReport";
@@ -32,6 +32,9 @@ const tableSection = (heading: string, line: number): Section => ({
     },
   ],
 });
+const openRecords = () => {
+  fireEvent.click(screen.getByRole("button", { name: "Show records" }));
+};
 const FINDINGS: Section = { heading: "Findings", level: 2, line: 1, blocks: [] };
 const CP1 = [
   ["Bottom line", "text"],
@@ -105,23 +108,43 @@ describe("coded registers leave the module page", () => {
     ]);
   });
 
-  it("draws Statements and records with links into Evidence and no register code", () => {
+  it("draws Statements and records closed, then its tables by name and links into Evidence, with no register code", () => {
     const entry = cp1();
     const { container } = page(entry);
     expect(screen.getByRole("heading", { name: "Statements and records" })).toBeInTheDocument();
-    const labels: [string, string][] = [
+    const toggle = screen.getByRole("button", { name: "Show records" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("heading", { name: "Income statement" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Confidence inputs" })).toBeNull();
+    openRecords();
+    expect(screen.getByRole("button", { name: "Hide records" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    // Every statement is a table of its own, chosen by name under its record kind: one row of
+    // tabs, however many tables the kind holds.
+    expect(screen.queryByRole("option")).toBeNull();
+    const tables = within(screen.getByRole("group", { name: "Table" }));
+    for (const label of [
+      "Income statement",
+      "Cash flow statement",
+      "Balance sheet",
+      "Debt instruments",
+      "KPI dashboard",
+      "Readiness",
+    ]) {
+      fireEvent.click(tables.getByRole("button", { name: label }));
+      expect(tables.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("heading", { name: label, level: 4 })).toBeInTheDocument();
+    }
+    // The registers kept in Evidence are listed by name and link to their place there.
+    const held = within(screen.getByRole("list", { name: "Held in Evidence" }));
+    for (const [label, heading] of [
       ["Entity period key", "T4.2 Entity period key"],
-      ["Income statement", "T4.4 Income statement"],
-      ["Cash flow statement", "T4.5 Cash flow statement"],
-      ["Balance sheet", "T4.6 Balance sheet"],
-      ["Debt instruments", "T4.18 Debt instruments"],
-      ["KPI dashboard", "T4.10 KPI dashboard"],
-      ["Readiness", "T4.13 Readiness"],
       ["Confidence inputs", "Confidence inputs"],
-    ];
-    for (const [label, heading] of labels) {
+    ] as const) {
       const line = entry.sections.find((s) => s.heading === heading)?.line ?? -1;
-      expect(screen.getByRole("link", { name: label })).toHaveAttribute(
+      expect(held.getByRole("link", { name: label })).toHaveAttribute(
         "href",
         evidencePath("retained case", entry, line),
       );
@@ -131,7 +154,7 @@ describe("coded registers leave the module page", () => {
       evidencePath("retained case", entry),
     );
     expect(container.textContent).not.toContain("T4.4");
-    expect(screen.getByRole("button", { name: "Statements and records" })).toBeInTheDocument();
+    expect(container.textContent).not.toContain("T4.2");
   });
 
   it("draws no Statements and records heading in the overview", () => {
@@ -148,21 +171,29 @@ describe("coded registers leave the module page", () => {
     expect(screen.queryByRole("heading", { name: "Statements and records" })).toBeNull();
   });
 
-  it("draws the card, and so the navigator entry, when every section is a record", () => {
+  it("draws the records region when every section is a record, and lists it on the page", () => {
     const entry = entryOf("CP-1", [
       tableSection("T4.4 Income statement", 20),
       tableSection("Confidence inputs", 30),
     ]);
     page(entry);
     expect(screen.getByRole("heading", { name: "Statements and records" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Income statement" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Statements and records" })).toBeInTheDocument();
-    expect(document.getElementById("statements-and-records")).not.toBeNull();
+    const sections = within(screen.getByRole("list", { name: "On this page" }));
+    expect(sections.getByRole("button", { name: "Statements and records" })).toBeInTheDocument();
+    openRecords();
+    expect(screen.getByRole("heading", { name: "Income statement", level: 4 })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Confidence inputs" })).toHaveAttribute(
+      "href",
+      evidencePath("retained case", entry, 30),
+    );
   });
 
-  it("draws no card for a module without coded sections", () => {
+  it("lists nothing as held in Evidence for a module without coded registers", () => {
     page(entryOf("CP-1", [text("Bottom line", 10), tableSection("Segment schedule", 20)]));
-    expect(screen.queryByRole("heading", { name: "Statements and records" })).toBeNull();
+    openRecords();
+    expect(screen.getByRole("heading", { name: "Segment schedule", level: 4 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Held in Evidence" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open this module in Evidence" })).toBeNull();
   });
 
   it("still promotes a monitoring register in CP-2A", () => {
@@ -221,7 +252,7 @@ const monitoringTable = (line: number): Section["blocks"][number] => ({
   rows: [{ line: line + 1, cells: ["Cover", "Leading", "Below 3x", "Indicative"] }],
 });
 
-describe("prose in a coded section stays on the module page", () => {
+describe("prose in a coded section goes with its table", () => {
   const coded = () =>
     entryOf("CP-2E", [
       text("Bottom line", 10),
@@ -237,25 +268,36 @@ describe("prose in a coded section stays on the module page", () => {
       ]),
     ]);
 
-  it("draws each sentence exactly once under the title without the code and its dash", () => {
+  it("draws a table's note with its table, once, under the title without the code and its dash", () => {
     page(coded());
+    // Closed, the page draws neither the tables nor their notes: a note belongs to its table.
+    expect(screen.queryByText(DEBT_SENTENCE)).toBeNull();
+    expect(screen.queryByRole("region", { name: "Debt and rate exposure" })).toBeNull();
+    openRecords();
     expect(screen.getAllByText(DEBT_SENTENCE)).toHaveLength(1);
-    expect(screen.getAllByText(MACRO_SENTENCE)).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "debt and rate exposure" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "macro sensitivity summary" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Debt and rate exposure" })).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("T2F.2");
-    expect(screen.queryByRole("columnheader", { name: "Amount" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "Amount" })).toBeInTheDocument();
   });
 
-  it("lists a section whose table is not drawn, under a label without the code or dash", () => {
+  it("keeps the table of a coded section in the closed records, named without the code or dash", () => {
     page(coded());
-    const card = document.getElementById("statements-and-records");
-    expect(card?.textContent).toContain("debt and rate exposure");
-    expect(card?.textContent).not.toContain("\u2014");
-    expect(card?.textContent).not.toContain(DEBT_SENTENCE);
+    expect(screen.queryByRole("columnheader", { name: "Amount" })).toBeNull();
+    openRecords();
+    const tables = within(screen.getByRole("group", { name: "Table" }));
+    expect(tables.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Debt and rate exposure",
+      "Macro sensitivity summary",
+    ]);
+    expect(screen.getByRole("columnheader", { name: "Amount" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Statements and records" }).textContent).not.toMatch(
+      /T2F|\u2014/,
+    );
+    // The note is drawn once, with its table.
+    expect(screen.getAllByText(DEBT_SENTENCE)).toHaveLength(1);
   });
 
-  it("draws prose and the promoted table of a partly promoted section and lists nothing", () => {
+  it("keeps a promoted section whole in the records when the module's lead draws its figures", () => {
     const section: Section = {
       heading: "T2B.7 Monitoring sensitivity flags",
       level: 3,
@@ -267,6 +309,10 @@ describe("prose in a coded section stays on the module page", () => {
     };
     const entry = entryOf("CP-2A", [section]);
     page(entry);
+    // Downside's lead draws the module's figures, so the frame promotes no table into the flow: the
+    // section, its words and its table, waits in the records, drawn once when they are opened.
+    expect(screen.queryByText("Thresholds are indicative only.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show records" }));
     expect(screen.getAllByText("Thresholds are indicative only.")).toHaveLength(1);
     expect(recordSections(entry.sections, entry)).toEqual([]);
   });
@@ -319,8 +365,10 @@ describe("prose in a coded section stays on the module page", () => {
         tableSection("T3.6 \u2014 Fundamental value matrix", 30),
       ]),
     );
-    expect(screen.getByRole("link", { name: "Hedge schedule" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Fundamental value matrix" })).toBeInTheDocument();
+    openRecords();
+    const tables = within(screen.getByRole("group", { name: "Table" }));
+    expect(tables.getByRole("button", { name: "Hedge schedule" })).toBeInTheDocument();
+    expect(tables.getByRole("button", { name: "Fundamental value matrix" })).toBeInTheDocument();
   });
 });
 

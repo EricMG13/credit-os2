@@ -11,14 +11,8 @@ function inRun(node: React.ReactNode, open: (key: string) => void = () => {}) {
   return render(<RunContext.Provider value={{ traces: {}, open }}>{node}</RunContext.Provider>);
 }
 
-it("draws the focus ring on the navy band in focus-inverse, and keeps focus on light surfaces", () => {
-  const { rerender } = render(<TraceButton label="On navy" open={() => {}} onDark />);
-  const onNavy = screen.getByRole("button", { name: "On navy" }).className;
-  expect(onNavy).toContain("focus-visible:ring-focus-inverse");
-  expect(onNavy).not.toMatch(/focus-visible:ring-focus(?!-inverse)/);
-  expect(onNavy).toContain("focus-visible:ring-offset-surface-inverse");
-
-  rerender(<TraceButton label="On light" open={() => {}} />);
+it("draws the focus ring in the one focus colour: no surface is dark", () => {
+  render(<TraceButton label="On light" open={() => {}} />);
   const onLight = screen.getByRole("button", { name: "On light" }).className;
   expect(onLight).toMatch(/focus-visible:ring-focus(?!-inverse)/);
   expect(onLight).not.toContain("ring-focus-inverse");
@@ -28,7 +22,7 @@ it("draws a marker, not nothing, for a null trace, with the same footprint as a 
   const open = vi.fn();
   inRun(<TraceControl trace={null} label={LABEL} />, open);
   const marker = screen.getByRole("button", { name: MARKER });
-  expect(marker.className).toContain("size-7");
+  expect(marker.className).toContain("size-8");
   expect(marker.className).toContain("flex-none");
   expect(marker.className).toContain("border-dashed");
   expect(marker.querySelectorAll("svg")).toHaveLength(1);
@@ -87,7 +81,7 @@ it("throws outside a RunFrame, with or without a trace", () => {
   );
 });
 
-it("draws the marker on the navy band in the white outline treatment, with the inverse ring", () => {
+it("draws the marker on the bottom-line tile in the gap treatment, as anywhere else", () => {
   inRun(
     <BottomLine
       level="h2"
@@ -99,7 +93,6 @@ it("draws the marker on the navy band in the white outline treatment, with the i
     name: "Show sources for the bottom line: no source recorded",
   });
   expect(marker.className).toContain("border-dashed");
-  expect(marker.className).toContain("border-white/50");
-  expect(marker.className).toContain("focus-visible:ring-focus-inverse");
-  expect(marker.className).not.toContain("border-border-gap");
+  expect(marker.className).toContain("border-border-gap");
+  expect(marker.className).toContain("focus-visible:ring-focus");
 });

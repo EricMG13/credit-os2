@@ -21,7 +21,7 @@ const rail = () => within(screen.getByRole("navigation", { name: "Areas" }));
 const areas = () =>
   rail()
     .getAllByRole("link")
-    .map((link) => [link.getAttribute("aria-label"), link.getAttribute("href")]);
+    .map((link) => [link.textContent, link.getAttribute("href")]);
 
 afterEach(() => {
   cleanup();
@@ -40,6 +40,7 @@ describe("with a Signal service", () => {
     expect(document.title).toBe("Signal — Credit OS");
     expect(areas()).toEqual([
       ["Library", "/"],
+      ["Coverage", "/coverage"],
       ["Run activity", "/runs"],
       ["Signal", "/signal"],
     ]);

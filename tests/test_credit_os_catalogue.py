@@ -222,6 +222,7 @@ def test_identity_from_context(tmp_path):
         "United States",
     )
     assert (run["currency"], run["date"]) == ("USD", "2025-03-31")
+    assert run["ticker"] == "NBG"
     assert (run["period"], run["period_kind"], run["title"]) == (
         "FY-2024",
         "Annual",
@@ -256,6 +257,7 @@ def test_context_not_matching_its_pin_is_an_issue_with_empty_fields(tmp_path):
     result = built(tmp_path)
     run = result["real"][0]
     assert run["issuer"] == "NBG"  # issuer_id upper, not the unpinned ticker
+    assert run["ticker"] is None
     assert (run["sector"], run["country"], run["currency"], run["period"]) == ("", "", "", "")
     assert any(i.startswith("run-a: context not used") for i in result["issues"])
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moduleWord, spendFigure } from "./runFigures";
+import { moduleSteps, moduleWord, spendFigure } from "./runFigures";
 import type { ConnectedRun as Run } from "./api";
 
 const run: Run = {
@@ -66,5 +66,71 @@ describe("spendFigure", () => {
       bar: null,
       note: "Configured cap is USD 0.00; USD 1.00 settled, USD 0.00 reserved or unknown",
     });
+  });
+});
+
+describe("the module the checks stopped at", () => {
+  const stopped: Run = {
+    ...run,
+    status: "failed",
+    stopped_by: "checker",
+    modules: [
+      ["CP-0", "done"],
+      ["CP-1", "stopped"],
+      ["CP-1A", "stopped"],
+      ["Report", "waiting"],
+    ],
+  };
+  const states = (events: Run["events"]) =>
+    moduleSteps({ ...stopped, events }, false).map(({ state }) => state);
+
+  it("is the earliest open module in plan order when starts interleave", () => {
+    expect(
+      states([
+        { kind: "module_started", at: "2026-11-16T12:00:00Z", module: "CP-0" },
+        { kind: "module_accepted", at: "2026-11-16T12:01:00Z", module: "CP-0" },
+        { kind: "module_started", at: "2026-11-16T12:01:01Z", module: "CP-1" },
+        { kind: "module_started", at: "2026-11-16T12:01:02Z", module: "CP-1A" },
+        { kind: "draft_rejected", at: "2026-11-16T12:02:00Z", module: "CP-1" },
+        { kind: "stopped", at: "2026-11-16T12:02:01Z" },
+      ]),
+    ).toEqual(["Finished", "Not assessable", "Interrupted", "Not run"]);
+  });
+
+  it("is the module the record says the checks rejected, even when an earlier one in plan order is still open", () => {
+    // CP-1 and CP-1A are both open; only CP-1A's drafts were rejected, so the run stopped at CP-1A.
+    expect(
+      states([
+        { kind: "module_started", at: "2026-11-16T12:01:01Z", module: "CP-1" },
+        { kind: "module_started", at: "2026-11-16T12:01:02Z", module: "CP-1A" },
+        { kind: "draft_rejected", at: "2026-11-16T12:01:40Z", module: "CP-1A" },
+        { kind: "draft_rejected", at: "2026-11-16T12:01:50Z", module: "CP-1A" },
+        { kind: "stopped", at: "2026-11-16T12:02:01Z" },
+      ]),
+    ).toEqual(["Finished", "Interrupted", "Not assessable", "Not run"]);
+  });
+
+  it("does not blame an earlier module that was accepted after its last start", () => {
+    expect(
+      states([
+        { kind: "module_started", at: "2026-11-16T12:01:01Z", module: "CP-1" },
+        { kind: "module_started", at: "2026-11-16T12:01:02Z", module: "CP-1A" },
+        { kind: "module_accepted", at: "2026-11-16T12:01:30Z", module: "CP-1" },
+        { kind: "stopped", at: "2026-11-16T12:02:01Z" },
+      ]),
+    ).toEqual(["Finished", "Interrupted", "Not assessable", "Not run"]);
+  });
+
+  it("gives the last started module when modules run one at a time", () => {
+    expect(
+      states([
+        { kind: "module_started", at: "2026-11-16T12:00:00Z", module: "CP-0" },
+        { kind: "module_accepted", at: "2026-11-16T12:01:00Z", module: "CP-0" },
+        { kind: "module_started", at: "2026-11-16T12:01:01Z", module: "CP-1" },
+        { kind: "module_accepted", at: "2026-11-16T12:01:30Z", module: "CP-1" },
+        { kind: "module_started", at: "2026-11-16T12:01:31Z", module: "CP-1A" },
+        { kind: "stopped", at: "2026-11-16T12:02:01Z" },
+      ]),
+    ).toEqual(["Finished", "Interrupted", "Not assessable", "Not run"]);
   });
 });

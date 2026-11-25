@@ -1,4 +1,3 @@
-import { ArrowRight } from "@untitledui/icons";
 import {
   memo,
   useCallback,
@@ -7,73 +6,68 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { Alert } from "@/components/alert/Alert";
-import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
-import { StatusBadge } from "@/components/status/StatusBadge";
-import { RunTabLink } from "@/pages/library/parts/RunFrame";
+import { Segmented } from "@/components/kit/Segmented";
 import { SourcesSwitch, useSourcesOn } from "@/pages/library/parts/SourcesSwitch";
-import { PageHeader } from "../../shell/PageHeader";
-import { TextLink } from "../run/TextLink";
+import { cx } from "@/utils/cx";
 import { Callout } from "@/components/alert/Alert";
-import { Breadcrumb, card, heading } from "./layout";
+import { card, heading } from "./layout";
 import {
   comparisonForRun,
   comparisonRows,
-  evidencePath,
   getSnapshot,
   outputEntries,
-  reportPath,
+  publishedRunForFolder,
   runLabels,
   runPathway,
   runTiming,
+  unitLabel,
   type CatalogueRun,
   type OutputEntry,
   type PublishedRun,
   type Snapshot,
 } from "./publishedReport";
-import { ReportFindings } from "./ReportContent";
 import { ReportEvidence } from "./report/Evidence";
 import { getRun, moduleName, RequestError, type Mode, type ConnectedRun } from "./api";
-import { LegacyVisuals } from "./visuals";
-import {
-  actionBias,
-  buildReportView,
-  foundationMetrics,
-  headlineSources,
-  moduleBottomLines,
-  moduleOrder,
-  overviewCharts,
-  runLimitations,
-  type MetricKey,
-  type ReportView,
-} from "./reportView";
-
-const TILE_KEYS: readonly MetricKey[] = ["liquidity", "freeCashFlow", "leverage", "maturities"];
-import { Calendar, buildCalendar, upcomingCalendarRows } from "./report/Calendar";
+import { buildReportView, runMoneyUnit, type ReportView } from "./reportView";
+import { Calendar, buildCalendar } from "./report/Calendar";
 import { ReportChanges, ComparisonTable } from "./report/Changes";
 import { Forecast } from "./report/Forecast";
-import { IdentityBand } from "./report/IdentityBand";
-import { MetricGrid } from "./report/MetricGrid";
+import { RunHistory } from "./report/History";
+import { DifferingRating, RatingChip, reportIdentity } from "./report/IdentityBand";
+import { ANCHOR } from "./report/ModuleFrame";
 import { Modules } from "./report/Modules";
-import { ModuleBottomLines, RunLimitations } from "./report/OverviewModules";
 import { PublishedTraceProvider } from "./report/PublishedTrace";
 import { PortfolioBasisProvider } from "./report/PortfolioBasis";
+import { CallRow } from "./report/overview/CallRow";
+import { DatesRow } from "./report/overview/DatesRow";
+import { FigureRow } from "./report/overview/FigureRow";
+import { JudgementRow } from "./report/overview/JudgementRow";
+import { LimitsRow } from "./report/overview/LimitsRow";
+import { PipelineRow } from "./report/overview/PipelineRow";
+import { StressRow } from "./report/overview/StressRow";
+import { StructureRow } from "./report/overview/StructureRow";
+import { Bento } from "./report/overview/Tile";
+import { overviewView } from "./report/overview/decision";
 import { useResource } from "./useResource";
-import { HeadlineFigures } from "./HeadlineFigures";
+import { ExportMenu, ReportExportPreview } from "./export/ReportExportPreview";
+import { exportRoute, reportExports } from "./export/reportExport";
 
+/** The report's sections in the section control's order. History is reached from the issuer crumb. */
 const tabs = [
-  ["history", "History"],
   ["overview", "Overview"],
   ["changes", "Changes"],
   ["modules", "Modules"],
   ["forecast", "Forecast"],
   ["evidence", "Evidence"],
+  ["calendar", "Calendar"],
 ] as const;
 type ReportTab = (typeof tabs)[number][0];
-type Tab = ReportTab | "calendar";
+type Tab = ReportTab | "history";
 
 function listenHash(fn: () => void) {
   window.addEventListener("hashchange", fn);
@@ -87,6 +81,7 @@ const tabHref = (tab: ReportTab) => `#${tab}`;
 
 function readerPageName(tab: Tab, parts: string[]) {
   if (tab === "calendar") return "Issuer calendar";
+  if (tab === "history") return "Runs";
   if (tab === "modules" && parts[0] && parts[0] !== "CP-8") return moduleName(parts[0]);
   if (tab === "evidence" && parts[0]) {
     const names: Record<string, string> = {
@@ -110,7 +105,10 @@ function historyEntry() {
   if (named && typeof state.reportEntry === "string") return state.reportEntry;
   entryCount += 1;
   const id = `${String(Date.now())}-${String(entryCount)}`;
-  window.history.replaceState({ ...(named ? state : null), reportEntry: id }, "");
+  window.history.replaceState(
+    { ...(typeof state === "object" && state !== null ? state : null), reportEntry: id },
+    "",
+  );
   return id;
 }
 
@@ -142,13 +140,13 @@ function useReportPlace(root: RefObject<HTMLElement | null>, hash: string, ready
     if (previous !== null) left.current.set(previous, offset.current);
     const main = root.current?.closest("main");
     const back = left.current.get(id);
-    const section = {
-      "#overview/limitations": "overview-limitations",
-      "#overview/key-charts": "overview-key-charts",
-      "#overview/dates": "overview-dates",
-      "#forecast": "forecast-report-nav",
-      "#forecast/run-charts": "forecast-run-charts",
-    }[hash];
+    const section =
+      {
+        "#overview/limitations": "overview-limitations",
+        "#overview/dates": "overview-dates",
+        "#forecast": "forecast-report-nav",
+        "#forecast/run-charts": "forecast-run-charts",
+      }[hash] ?? (namesRecords(hash) ? ANCHOR.records : undefined);
     const target = section && document.getElementById(section);
     if (target && back === undefined) {
       target.focus({ preventScroll: true });
@@ -160,285 +158,67 @@ function useReportPlace(root: RefObject<HTMLElement | null>, hash: string, ready
   }, [hash, ready, root]);
 }
 
+/** The report's sections as one segmented control; the current section carries the accent tint and a dot. */
 function ReportNav({ tab, modules }: { tab: Tab; modules: number }) {
-  return (
-    <nav
-      id={tab === "forecast" ? "forecast-report-nav" : undefined}
-      // This landmark receives focus when opening Forecast.
-      tabIndex={tab === "forecast" ? -1 : undefined}
-      aria-label="Report sections"
-      className="flex scroll-mt-3 flex-wrap gap-3 border-b border-border-hairline"
-    >
-      {tabs.map(([key, title]) => (
-        <RunTabLink
-          key={key}
-          href={tabHref(key)}
-          label={title}
-          current={tab === key || (tab === "calendar" && key === "overview")}
-          count={key === "modules" ? String(modules) : undefined}
-          accessibleLabel={key === "modules" ? `Modules ${String(modules)}` : undefined}
-        />
-      ))}
-    </nav>
-  );
-}
-
-/** Use compact history metadata when the scoped snapshot only retains the row's summary. */
-function runDetails(snapshot: Snapshot, key: string, run: PublishedRun) {
-  if (run.history)
-    return {
-      modules: run.history.modules.map(moduleName),
-      labels: [
-        ...(run.history.earlierFormat ? ["Earlier format"] : []),
-        ...(run.history.earlierMethods ? ["Earlier methods"] : []),
-      ],
-    };
-  if (!Object.hasOwn(run, "modules")) return null;
-  const modules = moduleOrder(run).filter((id) => run.modules[id]?.outputs.length);
-  return {
-    modules: modules.map(moduleName),
-    labels: runLabels(outputEntries(snapshot, run, key), run),
-  };
-}
-
-function modulesRun(details: ReturnType<typeof runDetails>) {
-  if (details) {
-    const count = details.modules.length;
-    if (count === 0) return "0 modules run";
-    return `${String(count)} ${count === 1 ? "module" : "modules"} run: ${details.modules.join(", ")}`;
-  }
-  return "The module list is unavailable for this run.";
-}
-
-function HistoryRow({
-  record,
-  catalogue,
-  details,
-}: {
-  record: PublishedRun;
-  catalogue: CatalogueRun | undefined;
-  details: ReturnType<typeof runDetails>;
-}) {
-  return (
-    <li className="flex flex-wrap items-center justify-between gap-4 border-t border-border-hairline pt-3">
-      <div className="grid min-w-0 gap-1">
-        <p className="font-semibold wrap-anywhere">
-          {runPathway(record, catalogue) || "Credit report"}
-        </p>
-        <p className="text-small text-text-tertiary tabular-nums">{runTiming(record)}</p>
-        <p className="reading-copy text-small text-text-secondary">{modulesRun(details)}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <StatusBadge set="Run states" state="Finished" />
-        {details?.labels.map((label) => (
-          <Badge key={label}>{label}</Badge>
-        ))}
-        <TextLink href={`${reportPath(record.folder)}#overview`}>Open overview</TextLink>
-        <TextLink href={`${reportPath(record.folder)}#changes`}>What changed</TextLink>
-      </div>
-    </li>
-  );
-}
-
-/** One row per published run of the issuer, newest first; every run listed here is finished. */
-function RunHistory({ snapshot, run }: { snapshot: Snapshot; run: PublishedRun }) {
-  const records = Object.entries(snapshot.workspace.runs).filter(
-    ([, record]) => record === run || Boolean(run.issuerKey && record.issuerKey === run.issuerKey),
-  );
-  const byFolder = new Map(snapshot.catalogue.real.map((item) => [item.id, item]));
-  return (
-    <section className={card}>
-      <h2 className={heading}>Report history</h2>
-      <ul className="grid gap-3">
-        {records
-          .sort(([, a], [, b]) => (b.asOf ?? "").localeCompare(a.asOf ?? ""))
-          .map(([key, record]) => (
-            <HistoryRow
-              key={key}
-              record={record}
-              catalogue={byFolder.get(record.folder)}
-              details={runDetails(snapshot, key, record)}
-            />
-          ))}
-      </ul>
-    </section>
-  );
-}
-
-/** The key charts, repeated from the modules that own them, and the way to every chart of the run. */
-function KeyCharts({
-  run,
-  charts,
-}: {
-  run: PublishedRun;
-  charts: ReturnType<typeof overviewCharts>;
-}) {
-  return (
-    <section className="grid min-w-0 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id="overview-key-charts" tabIndex={-1} className={heading}>
-          Key charts
-        </h2>
-        <Button href="#forecast/run-charts" color="link-gray" size="sm" iconTrailing={ArrowRight}>
-          Chart index
-        </Button>
-      </div>
-      {charts.length ? (
-        charts.map(({ id, name, entry, output }) => (
-          <div key={id} className="grid min-w-0 gap-2">
-            <Button
-              className="w-fit"
-              href={`#modules/${encodeURIComponent(id)}`}
-              color="link-gray"
-              size="sm"
-              iconTrailing={ArrowRight}
-            >
-              {name}
-            </Button>
-            <LegacyVisuals
-              output={output}
-              sections={entry.sections}
-              evidenceHref={(line) => evidencePath(run.folder, entry, line)}
-              cards
-              headingLevel="h3"
-            />
-          </div>
-        ))
+  const segments = tabs.map(([key, title]) => ({
+    key,
+    href: tabHref(key),
+    accessibleLabel: key === "modules" ? `Modules ${String(modules)}` : undefined,
+    label:
+      key === "modules" ? (
+        <>
+          {title}
+          <span className="font-mono text-caption font-normal tabular-nums">{modules}</span>
+        </>
       ) : (
-        <p className={card}>No key charts are available for this run.</p>
-      )}
-    </section>
+        title
+      ),
+  }));
+  return (
+    // Opening Forecast moves focus to the section control, so the wrapper takes the target id.
+    <div
+      id={tab === "forecast" ? "forecast-report-nav" : undefined}
+      tabIndex={tab === "forecast" ? -1 : undefined}
+      className="max-w-full scroll-mt-3 outline-none"
+    >
+      <Segmented label="Report sections" segments={segments} current={tab} />
+    </div>
   );
 }
 
+/**
+ * The decision page: the tile rows on one 12-column bento in the mockup's order, rank as area.
+ * Row 1 the call; 2 the headline figures; 3 the judgement; 4 structure; 5 stress; 6 what the run
+ * could not do; 7 the pipeline and each module's bottom line; 8 dates to watch.
+ */
 function Overview({
   snapshot,
   run,
   view,
-  hasCalendar,
 }: {
   snapshot: Snapshot;
   run: PublishedRun;
   view: ReportView;
-  hasCalendar: boolean;
 }) {
-  const calendar = buildCalendar(view.entries, run.folder);
-  const watchRows = upcomingCalendarRows(calendar.rows, run.asOf);
-  const foundation = view.entries.find((entry) => entry.selected && entry.output.module === "CP-1");
-  const metrics = foundation
-    ? foundationMetrics(foundation, view.catalogue).filter(({ key }) => TILE_KEYS.includes(key))
-    : [];
-  const figures = metrics.length ? (
-    <MetricGrid
-      records={metrics}
-      snapshot={snapshot}
-      folder={run.folder}
-      entry={foundation}
-      entryIndex={foundation ? view.entries.indexOf(foundation) : -1}
-    />
-  ) : (
-    <HeadlineFigures
-      catalogue={view.catalogue}
-      sources={headlineSources(foundation, view.catalogue, run.folder)}
-    />
-  );
+  // The Overview's lead is the run's published credit view, never a decision module's passage.
+  const reading = useMemo(() => overviewView(view, run), [view, run]);
+  const props = { snapshot, run, view: reading };
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-h2 text-balance">Overview</h2>
-        {hasCalendar && (
-          <Button color="tertiary" size="sm" href="#calendar">
-            Issuer calendar
-          </Button>
-        )}
-      </div>
-      <nav aria-label="Overview sections" className="flex flex-wrap items-center gap-4 text-sm">
-        <TextLink href="#overview/limitations">Limitations</TextLink>
-        <TextLink href="#overview/key-charts">Key charts</TextLink>
-        {calendar.rows.length > 0 && <TextLink href="#overview/dates">Dates to watch</TextLink>}
-      </nav>
-      {view.lead ? (
-        <>
-          <p className="text-sm text-text-secondary">
-            <Button href={`#modules/${view.lead.output.module}`} color="link-gray" size="sm">
-              {view.lead.output.module === "CP-1B" ? "Earnings view" : "Credit view"} from{" "}
-              {moduleName(view.lead.output.module)}
-            </Button>
-          </p>
-          <ReportFindings
-            key={view.lead.output.id}
-            snapshot={snapshot}
-            run={run}
-            entry={view.lead}
-            entryIndex={view.entries.indexOf(view.lead)}
-            overview
-            overviewLabel={view.lead.output.module === "CP-1B" ? "Earnings view" : "Credit view"}
-            judgement={actionBias(view.lead)}
-            afterBottomLine={figures}
-          />
-        </>
-      ) : (
-        <>
-          {figures}
-          <p className={card}>No credit view is available for this run.</p>
-        </>
-      )}
-      <ModuleBottomLines run={run} rows={moduleBottomLines(view, run)} />
-      <RunLimitations run={run} rows={runLimitations(view, run)} />
-      <KeyCharts run={run} charts={overviewCharts(view, run)} />
-      {calendar.rows.length > 0 && (
-        <section className={`${card} grid gap-3`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="overview-dates" tabIndex={-1} className={heading}>
-              Dates to watch
-            </h2>
-            <Button href="#calendar" color="link-gray" size="sm" iconTrailing={ArrowRight}>
-              Open issuer calendar
-            </Button>
-          </div>
-          {watchRows === null ? (
-            <p className="text-sm text-text-secondary" role="status">
-              This run needs a valid as-of date to identify upcoming events.
-            </p>
-          ) : watchRows.length === 0 ? (
-            <p className="text-sm text-text-secondary" role="status">
-              No recorded event dates fall on or after this run’s as-of date.
-            </p>
-          ) : (
-            <ul className="grid gap-2">
-              {watchRows.slice(0, 5).map((event, index) => (
-                <li
-                  key={`${event.href}-${String(index)}`}
-                  className="flex flex-wrap items-baseline justify-between gap-2 border-t border-border-hairline pt-2"
-                >
-                  <div>
-                    <p className="font-semibold">{event.cells[3] || "Dated event"}</p>
-                    <p className="text-sm text-text-secondary">
-                      {event.owner}
-                      {event.cells[6] ? ` · ${event.cells[6]}` : ""}
-                    </p>
-                    {event.cells[4] && (
-                      <p className="text-sm text-text-secondary">{event.cells[4]}</p>
-                    )}
-                    {event.timingWithinRecordedPeriod && (
-                      <p className="text-sm text-text-secondary">
-                        Timing falls within the recorded period; the exact date is unresolved.
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 text-sm">
-                    <span>{event.cells[0]}</span>
-                    <Button href={event.href} color="link-gray" size="sm">
-                      Evidence
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-    </>
+    <section aria-labelledby="overview-title" className="min-w-0">
+      <h2 id="overview-title" className="sr-only">
+        Overview
+      </h2>
+      <Bento>
+        <CallRow {...props} />
+        <FigureRow {...props} />
+        <JudgementRow {...props} />
+        <StructureRow {...props} />
+        <StressRow {...props} />
+        <LimitsRow {...props} />
+        <PipelineRow {...props} />
+        <DatesRow {...props} />
+      </Bento>
+    </section>
   );
 }
 
@@ -473,6 +253,8 @@ const ReportPage = memo(function ReportPage({
   tab,
   mode,
   catalogue,
+  issuer,
+  exports,
 }: {
   snapshot: Snapshot;
   run: PublishedRun;
@@ -481,13 +263,15 @@ const ReportPage = memo(function ReportPage({
   catalogue: CatalogueRun | undefined;
   tab: Tab;
   mode: Mode;
+  issuer: string;
+  exports: ReportExports;
 }) {
   const view = useMemo(() => buildReportView(snapshot, routeKey, run), [snapshot, routeKey, run]);
-  const calendar =
-    tab === "overview" || tab === "calendar" ? buildCalendar(view.entries, run.folder) : null;
+  const labels = runLabels(outputEntries(snapshot, run, routeKey), run);
+  const calendar = tab === "calendar" ? buildCalendar(view.entries, run.folder) : null;
   const change = comparisonForRun(run, snapshot.workspace.runs);
   return (
-    <div className="mt-4 grid min-w-0 gap-5">
+    <div className="grid min-w-0 gap-6">
       <PortfolioBasisProvider
         folder={run.folder}
         enabled={(tab === "forecast" || tab === "modules") && hasPortfolioCharts(view.entries)}
@@ -498,18 +282,25 @@ const ReportPage = memo(function ReportPage({
           folder={run.folder}
           entries={view.entries}
         >
-          <IdentityBand catalogue={catalogue} entries={view.entries} folder={run.folder} />
-          <ReportNav tab={tab} modules={view.modules.length} />
-          {tab === "history" && <RunHistory snapshot={snapshot} run={run} />}
-          {tab === "overview" && (
-            <Overview
-              snapshot={snapshot}
-              run={run}
-              view={view}
-              hasCalendar={Boolean(calendar?.rows.length || calendar?.gaps.length)}
-            />
-          )}
-          {tab === "calendar" && calendar && <Calendar calendar={calendar} />}
+          <ReportHeader
+            issuer={issuer}
+            run={run}
+            catalogue={catalogue}
+            view={view}
+            tab={tab}
+            facts={{ mode, preview: Boolean(snapshot.preview), labels }}
+            utilities={
+              <ReportUtilities
+                id={run.folder}
+                preview={Boolean(snapshot.preview)}
+                evidence={tab === "evidence"}
+                exports={exports}
+              />
+            }
+          />
+          {tab === "history" && <RunHistory snapshot={snapshot} run={run} issuer={issuer} />}
+          {tab === "overview" && <Overview snapshot={snapshot} run={run} view={view} />}
+          {tab === "calendar" && calendar && <Calendar calendar={calendar} asOf={run.asOf} />}
           {tab === "changes" && (
             <ReportChanges snapshot={snapshot} run={run} entries={view.entries} change={change} />
           )}
@@ -519,7 +310,7 @@ const ReportPage = memo(function ReportPage({
               run={run}
               view={view}
               module={parts[0]}
-              output={parts[1]}
+              {...moduleAddress(parts.slice(1))}
             />
           )}
           {tab === "forecast" && (
@@ -547,91 +338,196 @@ const ReportPage = memo(function ReportPage({
   );
 });
 
-function ReaderBadges({
-  run,
-  catalogue,
-  preview,
-  mode,
-  labels,
-}: {
-  run: PublishedRun;
-  catalogue?: CatalogueRun;
-  preview?: Snapshot["preview"];
-  mode: Mode;
-  labels: string[];
-}) {
+/** A quiet fact chip; a long fact wraps inside it rather than widening the page. */
+const CHIP =
+  "flex min-h-6 max-w-full flex-wrap items-center gap-x-1 rounded-ds-full border px-2.5 py-0.5 text-caption wrap-anywhere";
+const QUIET = "border-border-hairline bg-surface-card text-text-secondary";
+const TEST = "border-action-subtle-hover bg-surface-selected font-medium text-text-link";
+const CRUMB =
+  "inline-flex min-h-8 items-center rounded-ds-xs outline-focus-ring hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11";
+
+/** Library / issuer (its runs) / the page; the last crumb is the page itself. */
+function Crumbs({ issuer, current }: { issuer: string | null; current: string }) {
+  const after = "before:mr-2 before:text-text-disabled before:content-['/']";
   return (
-    <>
-      <Badge>{runTiming(run)}</Badge>
-      <Badge>{runPathway(run, catalogue)}</Badge>
-      {preview ? (
-        <Badge color="brand">Test preview</Badge>
-      ) : (
-        <>
-          <StatusBadge set="Run states" state="Finished" />
-          {mode === "synthetic" && <Badge color="brand">Synthetic test</Badge>}
-        </>
-      )}
-      {labels.map((label) => (
-        <Badge key={label}>{label}</Badge>
-      ))}
-    </>
+    <nav aria-label="Breadcrumb" className="min-w-0">
+      <ol className="flex min-w-0 flex-wrap items-center gap-x-2 text-small text-text-tertiary">
+        <li>
+          <a href="/" className={CRUMB}>
+            Library
+          </a>
+        </li>
+        {issuer && (
+          <li className={cx("flex min-w-0 items-center", after)}>
+            <a href="#history" className={cx(CRUMB, "min-w-0 wrap-anywhere")}>
+              {issuer}
+            </a>
+          </li>
+        )}
+        <li
+          aria-current="page"
+          className={cx("flex min-w-0 items-center text-text-primary", after)}
+        >
+          {current}
+        </li>
+      </ol>
+    </nav>
   );
 }
 
-function ReaderHeader({
+/**
+ * Quiet links beside the breadcrumb: the run's progress record and the source-icon highlight. The
+ * highlight is the page's shared state, so switching it redraws this part only, not the open tab.
+ */
+function ReportUtilities({
+  id,
+  preview,
+  evidence,
+  exports,
+}: {
+  id: string;
+  preview: boolean;
+  evidence: boolean;
+  exports: ReportExports;
+}) {
+  const [sources, setSources] = useSourcesOn();
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <ExportMenu options={exports.options} reason={exports.reason} />
+      {!evidence && (
+        <SourcesSwitch isSelected={sources} onChange={setSources} label="Highlight source icons" />
+      )}
+      {!preview && (
+        <Button
+          className="min-h-8 max-[480px]:min-h-11"
+          color="link-gray"
+          size="sm"
+          href={`/run/${encodeURIComponent(id)}`}
+        >
+          Run progress
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** The run's facts as quiet chips: pathway, as-of date and period, unit, ratings, test state, labels. */
+function FactChips({
   run,
   catalogue,
-  preview,
-  mode,
-  id,
-  labels,
-  sources,
-  setSources,
-  evidence,
-  issuer,
+  ratings,
+  facts,
 }: {
-  run: PublishedRun | null;
-  catalogue?: CatalogueRun;
-  preview?: Snapshot["preview"];
-  mode: Mode;
-  id: string;
-  labels: string[];
-  sources: boolean;
-  setSources: (selected: boolean) => void;
-  evidence: boolean;
-  issuer: string | null;
+  run: PublishedRun;
+  catalogue: CatalogueRun | undefined;
+  ratings: ReturnType<typeof reportIdentity>["ratings"];
+  facts: { mode: Mode; preview: boolean; labels: string[] };
 }) {
-  if (!run) return <PageHeader title={issuer ? `${issuer} report` : "Credit report"} />;
+  const unit = runMoneyUnit(catalogue);
+  // A verified publication also names the ticker, and the financial period where it is not the
+  // run's own period or as-of date.
+  const verified = run.publicationVerified === true;
+  const period = catalogue?.period;
+  const plain = [
+    runPathway(run, catalogue),
+    runTiming(run),
+    verified && catalogue?.ticker ? catalogue.ticker : "",
+    verified && period && period !== run.period && period !== run.asOf
+      ? `Financial period ${period}`
+      : "",
+    unit ? unitLabel(unit) : "",
+  ];
+  const test = facts.preview ? "Test preview" : facts.mode === "synthetic" ? "Synthetic test" : "";
   return (
-    <PageHeader
-      title={catalogue?.name || run.issuerHeading || run.issuer}
-      badges={
-        <ReaderBadges
-          run={run}
-          catalogue={catalogue}
-          preview={preview}
-          mode={mode}
-          labels={labels}
+    <ul aria-label="Run facts" className="flex flex-wrap items-center gap-2">
+      {plain.filter(Boolean).map((fact, index) => (
+        <li key={`fact-${String(index)}`} className={cx(CHIP, QUIET)}>
+          {fact}
+        </li>
+      ))}
+      {ratings.map((rating, index) => (
+        <RatingChip key={`rating-${String(index)}`} rating={rating} className={cx(CHIP, QUIET)} />
+      ))}
+      {ratings.length > 0 ? (
+        <li className="basis-full text-caption text-text-tertiary">Ratings entered at run start</li>
+      ) : (
+        <li className={cx(CHIP, QUIET)}>Ratings not entered</li>
+      )}
+      {test && <li className={cx(CHIP, TEST)}>{test}</li>}
+      {facts.labels.map((label, index) => (
+        <li key={`label-${String(index)}`} className={cx(CHIP, QUIET)}>
+          {label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * The report header on every report page: breadcrumb, the issuer's name large with its sector
+ * line, the run's facts as quiet chips, and the section control to the right.
+ */
+function ReportHeader({
+  issuer,
+  run,
+  catalogue,
+  view,
+  tab,
+  facts,
+  utilities,
+}: {
+  issuer: string;
+  run: PublishedRun;
+  catalogue: CatalogueRun | undefined;
+  view: ReportView;
+  tab: Tab;
+  facts: { mode: Mode; preview: boolean; labels: string[] };
+  utilities: ReactNode;
+}) {
+  const { sector, ratings, differing } = reportIdentity(catalogue, view.entries);
+  return (
+    // Reading order is breadcrumb, name, facts, sections, then the quiet utilities; at desktop
+    // the grid lifts the utilities to the breadcrumb's row and the sections beside the name.
+    <section
+      aria-labelledby="report-title"
+      className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-2.5 lg:grid-cols-[minmax(0,1fr)_auto]"
+    >
+      <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+        <Crumbs
+          issuer={issuer}
+          current={tab === "history" ? "Runs" : runPathway(run, catalogue) || "Credit report"}
         />
-      }
-      actions={
-        <div className="flex flex-wrap items-center gap-2">
-          {!evidence && (
-            <SourcesSwitch
-              isSelected={sources}
-              onChange={setSources}
-              label="Highlight source icons"
-            />
-          )}
-          {!preview && (
-            <Button color="tertiary" href={`/run/${encodeURIComponent(id)}`}>
-              Run progress
-            </Button>
-          )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-2.5 lg:col-start-1 lg:row-start-2">
+        <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
+          <h1
+            id="report-title"
+            className="font-display text-h1 font-semibold tracking-tight text-balance wrap-anywhere text-text-primary"
+          >
+            {issuer}
+          </h1>
+          {sector && <p className="text-small text-text-secondary">{sector}</p>}
         </div>
-      }
-    />
+        <FactChips run={run} catalogue={catalogue} ratings={ratings} facts={facts} />
+        <DifferingRating differing={differing} />
+      </div>
+      <div className="mt-2.5 min-w-0 lg:col-start-2 lg:row-start-2 lg:mt-0 lg:self-end">
+        <ReportNav tab={tab} modules={view.modules.length} />
+      </div>
+      <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:justify-self-end">{utilities}</div>
+    </section>
+  );
+}
+
+/** The header of an address with no published run: the way back and what was asked for. */
+function PlainHeader({ issuer }: { issuer: string | null }) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      <Crumbs issuer={null} current={issuer || "Report"} />
+      <h1 className="font-display text-h1 font-semibold tracking-tight text-balance wrap-anywhere text-text-primary">
+        {issuer ? `${issuer} report` : "Credit report"}
+      </h1>
+    </div>
   );
 }
 
@@ -799,21 +695,45 @@ export function ReportReader({ id, mode }: { id: string; mode: Mode }) {
   return <ReportReaderPage key={attempt} id={id} mode={mode} retry={retry} />;
 }
 
+/** A module address after its code: an output index, then `records` and a table title, each optional. */
+function moduleAddress(rest: string[]) {
+  const at = rest.indexOf("records");
+  const output = at === 0 ? undefined : rest[0];
+  if (at === -1) return { output, records: false };
+  return { output, records: true, table: tableTitle(rest[at + 1]) };
+}
+
+/** True when the address is a module's and names its records. */
+function namesRecords(hash: string) {
+  const { tab, parts } = reportRoute(hash);
+  return tab === "modules" && moduleAddress(parts.slice(1)).records;
+}
+
+/** A table title from the address; an escape that is not UTF-8 names no table. */
+function tableTitle(named: string | undefined) {
+  if (!named) return undefined;
+  try {
+    return decodeURIComponent(named);
+  } catch (error) {
+    if (!(error instanceof URIError)) throw error;
+    return undefined;
+  }
+}
+
 function reportRoute(hash: string): { tab: Tab; parts: string[] } {
   const [route, ...parts] = hash.slice(1).split("/");
-  if (route === "calendar") return { tab: route, parts };
+  if (route === "history") return { tab: route, parts };
   if (route === "modules" && parts[0] === "CP-8") return { tab: "changes", parts };
   return { tab: tabs.find(([name]) => name === route)?.[0] ?? "overview", parts };
 }
 
 function reportPublication(loaded: Loaded | undefined, id: string) {
   const value = loaded && "snapshot" in loaded ? loaded.snapshot : undefined;
-  const found = value && Object.entries(value.workspace.runs).find(([, run]) => run.folder === id);
-  const catalogue = value?.catalogue.real.find((entry) => entry.id === id);
+  const found = value && publishedRunForFolder(value.workspace.runs, id);
+  const matches = value?.catalogue.real.filter((entry) => entry.id === id);
+  const catalogue = matches?.length === 1 ? matches[0] : undefined;
   const run = found?.[1] ?? null;
-  const labels =
-    value && found ? runLabels(outputEntries(value, found[1], found[0]), found[1]) : [];
-  return { value, found, run, catalogue, issuer: reportIssuer(run, catalogue, loaded), labels };
+  return { value, found, run, catalogue, issuer: reportIssuer(run, catalogue, loaded) };
 }
 
 function reportIssuer(
@@ -833,12 +753,25 @@ function unpublishedIssuer(loaded: Loaded | undefined) {
 
 function useReportTitle(issuer: string | null, page: string) {
   useEffect(() => {
-    if (!issuer || !page) return;
-    document.title = `${page} — ${issuer} — Credit OS`;
+    document.title = [page, issuer, "Credit OS"].filter(Boolean).join(" — ");
     return () => {
       document.title = "Credit OS";
     };
   }, [issuer, page]);
+}
+
+type ReportExports = ReturnType<typeof reportExports>;
+
+function useReportExport(value: Snapshot | null | undefined, id: string, mode: Mode, hash: string) {
+  const exportId = exportRoute(hash);
+  const exports = useMemo(() => reportExports(value, id, mode), [value, id, mode]);
+  const preview =
+    exportId === null
+      ? ({ state: "unavailable", reason: "This PDF format is unavailable." } as const)
+      : exportId && value !== undefined
+        ? exports.resolve(exportId)
+        : undefined;
+  return { exportId, exports, preview };
 }
 
 function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: () => void }) {
@@ -846,29 +779,32 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
   const resource = useResource(load);
   const loaded: Loaded | undefined =
     resource.value ?? (resource.error ? { failure: "failed" } : undefined);
-  const [sources, setSources] = useSourcesOn();
+  const [sources] = useSourcesOn();
   const hash = useSyncExternalStore(listenHash, readHash);
   const { tab, parts } = useMemo(() => reportRoute(hash), [hash]);
-  const { value, found, run, catalogue, issuer, labels } = reportPublication(loaded, id);
+  const { value, found, run, catalogue, issuer } = reportPublication(loaded, id);
   const root = useRef<HTMLDivElement>(null);
   useReportPlace(root, hash, Boolean(run));
-  const page = run ? readerPageName(tab, parts) : "Credit report";
-  useReportTitle(issuer, page);
+  const { exportId, exports, preview } = useReportExport(value, id, mode, hash);
+  const readyPreview = preview?.state === "ready" ? preview : null;
+  const reportPage = run ? readerPageName(tab, parts) : "Credit report";
+  const page = exportId === undefined ? reportPage : (readyPreview?.name ?? "PDF preview");
+  useReportTitle(exportId === undefined ? issuer : (readyPreview?.document.issuer ?? null), page);
+  if (exportId !== undefined)
+    return (
+      <div ref={root}>
+        <ReportExportPreview key={exportId ?? "unsupported"} report={preview}>
+          <ReaderStatus loaded={loaded} found={Boolean(found)} id={id} retry={retry} />
+        </ReportExportPreview>
+      </div>
+    );
   return (
-    <div ref={root} className="mx-auto w-full max-w-[96rem]" data-sources={sources ? "on" : "off"}>
-      <Breadcrumb>{issuer || "Report"}</Breadcrumb>
-      <ReaderHeader
-        run={run}
-        catalogue={catalogue}
-        preview={value?.preview}
-        mode={mode}
-        id={id}
-        labels={labels}
-        sources={sources}
-        setSources={setSources}
-        evidence={tab === "evidence"}
-        issuer={issuer}
-      />
+    <div
+      ref={root}
+      className="mx-auto grid w-full max-w-[96rem] min-w-0 gap-6"
+      data-sources={sources ? "on" : "off"}
+    >
+      {!run && <PlainHeader issuer={issuer} />}
       <ReaderStatus loaded={loaded} found={Boolean(found)} id={id} retry={retry} />
       {value && found && (
         <ReportPage
@@ -879,6 +815,8 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
           tab={tab}
           mode={mode}
           catalogue={catalogue}
+          issuer={issuer ?? found[1].issuer}
+          exports={exports}
         />
       )}
     </div>

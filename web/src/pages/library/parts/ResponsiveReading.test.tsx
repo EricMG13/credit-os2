@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { BottomLine } from "./BottomLine";
 import { TraceButton } from "./TraceControl";
 
-it("gives the bottom-line band a compact width treatment for phones", () => {
+it("gives the bottom-line tile a compact padding for phones", () => {
   render(
     <RunContext.Provider value={{ traces: {}, open: () => {} }}>
       <BottomLine
@@ -14,14 +14,14 @@ it("gives the bottom-line band a compact width treatment for phones", () => {
     </RunContext.Provider>,
   );
   const band = screen.getByRole("region", { name: "Bottom line" });
-  expect(band.className).toContain("px-4");
-  expect(band.className).toContain("sm:px-8");
+  expect(band.className).toContain("p-5");
+  expect(band.className).toContain("sm:p-8");
 });
 
-it("keeps source controls easy to tap on narrow screens and unchanged on desktop", () => {
+it("keeps source controls 32 px on desktop and 44 px to the touch on narrow screens", () => {
   render(<TraceButton label="Show sources for this chart" open={() => {}} />);
   const button = screen.getByRole("button", { name: "Show sources for this chart" });
-  expect(button.className).toContain("size-7");
-  expect(button.className).toContain("max-[480px]:after:-inset-[9px]");
+  expect(button.className).toContain("size-8");
+  expect(button.className).toContain("max-[480px]:after:-inset-[7px]");
   expect(button.className).not.toContain("max-[480px]:size-11");
 });

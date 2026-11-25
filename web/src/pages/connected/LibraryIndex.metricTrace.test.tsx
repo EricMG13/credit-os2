@@ -111,7 +111,7 @@ function serve(snapshot: Snapshot, source: () => Response | Promise<Response>) {
   return fetch;
 }
 
-it("qualifies retained coverage and keeps the preview reason visible in both layouts", async () => {
+it("qualifies retained coverage and keeps the preview reason visible with the row open", async () => {
   const snapshot = fixture();
   const entry = snapshot.catalogue.real[0];
   if (!entry) throw new Error("Missing catalogue fixture");
@@ -123,25 +123,35 @@ it("qualifies retained coverage and keeps the preview reason visible in both lay
   snapshot.preview = { reason: "Retained test record." };
   vi.stubGlobal("fetch", () => Promise.resolve(Response.json(snapshot)));
   render(<ReportLibrary readOnly />);
-  await screen.findByText("Reported EBITDA / cash interest on debt");
-  expect(screen.queryByText("Delivered")).toBeNull();
+  // Every row that states the figure shares the qualified label, so the column header carries it.
+  expect(
+    (await screen.findAllByText("Reported EBITDA / cash interest on debt")).length,
+  ).toBeGreaterThan(0);
+  expect(screen.getAllByText("Liquidity (cash)").length).toBeGreaterThan(1);
+  const issuers = within(screen.getByRole("list", { name: "Issuers" }));
+  expect(issuers.queryByText("Delivered")).toBeNull();
+  expect(issuers.getByText("Test preview")).toBeVisible();
   expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
-  expect(screen.getByText("Retained test record.")).toBeVisible();
-  fireEvent.click(screen.getByText("List", { exact: true }));
-  expect(await screen.findByRole("table")).toBeVisible();
   expect(screen.getByText("Retained test record.")).toBeVisible();
 });
 
-it("J4-001 loads a scoped snapshot only when a card figure is traced and opens its exact row", async () => {
+it("J4-001 loads a scoped snapshot only when a row is opened or a figure is traced, reads it once, and opens its exact row", async () => {
   const snapshot = fixture();
   const fetch = serve(snapshot, () => Response.json(snapshot));
   render(<ReportLibrary />);
   await screen.findByRole("heading", { name: "Acme" });
   expect(fetch.mock.calls.map(([url]) => url)).toEqual(["/connected/library"]);
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for Revenue" }));
+  fireEvent.click(screen.getByRole("button", { name: /Show runs and detail for Acme/ }));
+  await screen.findByText(/The report states no upcoming dated event\./);
+  expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+    "/connected/library",
+    "/connected/snapshot?run=current",
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for Revenue, Acme" }));
   const drawer = await screen.findByRole("dialog", {
     name: "Sources for Chart data: revenue and EBITDA",
   });
+  // One scoped request served the dates and the trace.
   expect(fetch.mock.calls.map(([url]) => url)).toEqual([
     "/connected/library",
     "/connected/snapshot?run=current",
@@ -163,7 +173,8 @@ it("J4-001 states a missing source instead of linking a same-valued figure in an
   });
   render(<ReportLibrary />);
   await screen.findByRole("heading", { name: "Acme" });
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for Revenue" }));
+  fireEvent.click(screen.getByRole("button", { name: /Show runs and detail for Acme/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for Revenue, Acme" }));
   expect(
     await screen.findByText(
       "The original source row for this figure is not available in this run’s published record.",
@@ -178,7 +189,8 @@ it("J4-001 offers an honest source-load failure without drawing a trace", async 
   serve(snapshot, () => Promise.reject(new TypeError("Failed to fetch")));
   render(<ReportLibrary />);
   await screen.findByRole("heading", { name: "Acme" });
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for Revenue" }));
+  fireEvent.click(screen.getByRole("button", { name: /Show runs and detail for Acme/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for Revenue, Acme" }));
   expect(
     await screen.findByText(
       "Sources for this figure could not be loaded. Try its source control again.",

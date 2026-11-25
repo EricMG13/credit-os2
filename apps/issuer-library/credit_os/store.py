@@ -1010,6 +1010,7 @@ def collect_runs(
             "sector": sector,
             "period": period,
             "pathway": recorded.get("pathway") or None,
+            "requested": requested_modules(run_dir),
             "asOf": recorded.get("as_of") or None,
             "first": first or (with_outputs[0] if with_outputs else "W-Overview"),
             "modules": modules,
@@ -1430,6 +1431,19 @@ def recorded_run(run_dir: Path, issues: list[str] | None = None) -> dict[str, st
         return {}
 
 
+def requested_modules(run_dir: Path) -> list[str] | None:
+    """The modules the launcher's manifest says the run asked for; None when it records none or
+    cannot be read (`recorded_run` names an unreadable manifest in the issues)."""
+    try:
+        raw = b"".join(regular_chunks(run_dir / "workflow.json", follow=False))
+        asked = json.loads(raw.decode("utf-8"))["run"]["requested_modules"]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError, MemoryError):
+        return None
+    if isinstance(asked, list) and all(isinstance(module, str) for module in asked):
+        return asked
+    return None
+
+
 def delivery_identity(folder: str, manifest: dict[str, Any]) -> dict[str, Any] | str:
     """A deliverable's recorded run and issuer, or the reason its view.json states none."""
     try:
@@ -1665,7 +1679,39 @@ def shown_runs(
     return shown, recorded
 
 
-def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, Any]:
+def designate_published_outputs(
+    runs: dict[str, Any], outputs: dict[str, Any], published: dict[str, dict[str, str]]
+) -> None:
+    """Select the exact verified handoff; keep every collected output in the Evidence inventory."""
+    for key, run in runs.items():
+        if (digests := published.get(run["folder"])) is None:
+            continue
+        resolved = set()
+        for code, module in run["modules"].items():
+            digest = digests.get(code)
+            matches = [
+                oid
+                for oid in module["outputs"]
+                if (
+                    outputs[oid]["id"],
+                    outputs[oid]["run"],
+                    outputs[oid]["module"],
+                    outputs[oid]["sha256"],
+                )
+                == (oid, key, code, digest)
+            ]
+            module["default"] = matches[0] if len(matches) == 1 else None
+            if module["default"] is not None:
+                resolved.add(code)
+        run["publicationVerified"] = bool(digests) and resolved == digests.keys()
+
+
+def workspace_store(
+    root: str | Path,
+    catalogue: dict[str, Any],
+    *,
+    published: dict[str, dict[str, str]] | None = None,
+) -> dict[str, Any]:
     """Everything the app reads. A curated pin that stopped matching is dropped, not fatal."""
     root = Path(root)
     catalog = json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))
@@ -1694,6 +1740,8 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
         inputs |= part[2]
         pins |= part[3]
         found += part[4]
+    if published is not None:
+        designate_published_outputs(runs, outputs, published)
     # A recorded earlier run is linked only when the library holds a run with that id.
     by_id = {run["runId"]: key for key, run in runs.items() if run["runId"]}
     for run in runs.values():

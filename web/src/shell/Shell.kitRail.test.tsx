@@ -8,12 +8,7 @@ describe("Shell rail without the kit", () => {
     render(<Shell current="library">content</Shell>);
     const rail = screen.getByRole("navigation", { name: "Areas" });
     const links = within(rail).getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual([
-      "Library",
-      "Model",
-      "Run",
-      "Signal",
-    ]);
+    expect(links.map((a) => a.textContent)).toEqual(["Library", "Model", "Run", "Signal"]);
     expect(links.map((a) => a.getAttribute("href"))).not.toContain("#/kit");
   });
 

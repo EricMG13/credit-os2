@@ -1,0 +1,93 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { DeltaBar, DotStrip, Ruler, Slope, SplitBar, type Mark, type Slot } from "./marks";
+import { measuredAt } from "./resize.fixture";
+import { outside, overprinted, struck, tooSmall } from "./svgText.fixture";
+
+let restore = () => {};
+afterEach(() => {
+  restore();
+  cleanup();
+});
+
+const at = (width: number) => {
+  restore = measuredAt(width);
+};
+
+const slots = (unit: string, ...rows: [string, number][]): Slot[] =>
+  rows.map(([label, value]) => ({ label, value, text: `${value.toFixed(2)}${unit}` }));
+const mark = (label: string, value: number, text: string): Mark => ({ label, value, text });
+
+/** Every text of the one figure on screen: big enough, inside, clear of lines and of each other. */
+function readable(width: number, lines = "[data-segment]") {
+  const figure = screen.getByRole("img");
+  expect(figure.querySelectorAll("text").length).toBeGreaterThan(0);
+  expect(tooSmall(figure, width)).toEqual([]);
+  expect(outside(figure)).toEqual([]);
+  expect(struck(figure, lines)).toEqual([]);
+  expect(overprinted(figure)).toEqual([]);
+  return figure;
+}
+
+/** Each figure's own value label is drawn, whatever had to be thinned. */
+const values = (figure: Element, texts: string[]) => {
+  const drawn = [...figure.querySelectorAll("text")].map((text) => text.textContent);
+  for (const text of texts) expect(drawn).toContain(text);
+};
+
+describe("large marks drawn smaller than their viewBox", () => {
+  it.each([300, 345])("keep the slope's text at least 12 px at %i px", (width) => {
+    at(width);
+    const marks = slots("x", ["FY2021", 3.1], ["FY2022", 3.75], ["FY2023", 3.0], ["FY2024", 2.8]);
+    render(<Slope marks={marks} tone="better" suffix="x" label="Slope" />);
+    values(readable(width, "line"), ["3.10x", "3.75x", "3.00x", "2.80x"]);
+  });
+
+  it.each([300, 345])("keep the dot strip's text at least 12 px at %i px", (width) => {
+    at(width);
+    const marks = slots("x", ["FY2023 / 2023-09-30", 3.0], ["FY2024 / 2024-09-30", 2.25]);
+    render(<DotStrip marks={marks} tone="better" suffix="x" label="Strip" />);
+    values(readable(width), ["3.00x", "2.25x"]);
+  });
+});
+
+describe("small marks drawn smaller than their viewBox", () => {
+  it.each([120, 141])("keep the ruler's text at least 12 px at %i px", (width) => {
+    at(width);
+    render(
+      <Ruler
+        from={mark("FY2023", 3.2, "3.20x")}
+        to={mark("FY2024", 4, "4.00x")}
+        tone="better"
+        suffix="x"
+        label="Ruler"
+      />,
+    );
+    readable(width);
+  });
+
+  it.each([120, 141])("keep the delta bar's figures whole and at least 12 px at %i px", (width) => {
+    at(width);
+    render(
+      <DeltaBar
+        from={mark("FY2023", 2100, "US$2,100m")}
+        to={mark("FY2024", 2250, "US$2,250m")}
+        tone="better"
+        label="Delta"
+      />,
+    );
+    values(readable(width), ["US$2,100m", "US$2,250m"]);
+  });
+
+  it.each([120, 141])("keep the split bar's figures whole and at least 12 px at %i px", (width) => {
+    at(width);
+    render(
+      <SplitBar
+        first={mark("FY2024", 275, "US$275m")}
+        second={mark("FY2024", 400, "US$400m")}
+        label="Split"
+      />,
+    );
+    values(readable(width), ["US$275m", "US$400m"]);
+  });
+});

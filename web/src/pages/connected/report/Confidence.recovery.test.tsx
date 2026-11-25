@@ -1,7 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { OutputEntry, Snapshot } from "../publishedReport";
-import { traceForLine } from "../ReportContent";
+import { useState } from "react";
+import { RunContext } from "@/pages/library/parts/RunContext";
+import { TraceDrawer } from "@/pages/library/parts/TraceDrawer";
+import { evidenceHref } from "../publishedReport";
+import { traceForConfidence, traceForLine } from "../ReportContent";
 import { ModuleConfidence } from "./Confidence";
 
 const inputs = [
@@ -87,12 +91,41 @@ function fixture(asText = false) {
 }
 afterEach(cleanup);
 
+/** The meter as the module page draws it: one trace for the score, opened in the drawer. */
+function renderScore(entry: OutputEntry, snapshot: Snapshot) {
+  function Page() {
+    const [open, setOpen] = useState(false);
+    const trace = traceForConfidence(snapshot, entry);
+    return (
+      <RunContext.Provider
+        value={{
+          traces: trace ? { score: trace } : {},
+          open: () => {
+            setOpen(true);
+          },
+        }}
+      >
+        <ModuleConfidence confidence={entry.output.confidence} trace={trace ? "score" : null} />
+        {open && trace && (
+          <TraceDrawer
+            trace={trace}
+            evidenceHref={evidenceHref("run-a", trace.evidenceItem)}
+            isOpen
+            onClose={() => {
+              setOpen(false);
+            }}
+          />
+        )}
+      </RunContext.Provider>
+    );
+  }
+  return render(<Page />);
+}
+
 it("replaces synthetic no-page placeholders with the exact scored inputs and existing method", async () => {
   const { entry, snapshot } = fixture();
-  render(
-    <ModuleConfidence entry={entry} snapshot={snapshot} run={{ folder: "run-a" }} entryIndex={0} />,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for this figure" }));
+  renderScore(entry, snapshot);
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for the confidence score" }));
   const drawer = await screen.findByRole("dialog");
   for (const { label, value } of inputs) {
     const row = within(drawer).getByText(label, { exact: true }).parentElement;
@@ -109,10 +142,8 @@ it("replaces synthetic no-page placeholders with the exact scored inputs and exi
 
 it("opens authoritative accepted inputs when the generic Markdown parser found no table", async () => {
   const { entry, snapshot } = fixture(true);
-  render(
-    <ModuleConfidence entry={entry} snapshot={snapshot} run={{ folder: "run-a" }} entryIndex={0} />,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for this figure" }));
+  renderScore(entry, snapshot);
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for the confidence score" }));
   const drawer = await screen.findByRole("dialog");
   expect(drawer).toHaveTextContent("Fields present 95");
   expect(drawer).toHaveTextContent("MINOR 1");
@@ -151,10 +182,8 @@ it("keeps real source identity, excerpt and qualification while dropping only pl
 it("shows a published zero unchanged and never substitutes missing inputs for zero", async () => {
   const { entry, snapshot } = fixture();
   entry.output.confidence = { value: 0, band: "Insufficient Information" };
-  render(
-    <ModuleConfidence entry={entry} snapshot={snapshot} run={{ folder: "run-a" }} entryIndex={0} />,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for this figure" }));
+  renderScore(entry, snapshot);
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for the confidence score" }));
   expect(await screen.findByRole("dialog")).toHaveTextContent(
     "0 out of 100 · Insufficient Information",
   );
@@ -182,10 +211,8 @@ it("keeps qualifications and citations from later blocks of a split accepted inp
       reason: "Later input qualification.",
     },
   ];
-  render(
-    <ModuleConfidence entry={entry} snapshot={snapshot} run={{ folder: "run-a" }} entryIndex={0} />,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for this figure" }));
+  renderScore(entry, snapshot);
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for the confidence score" }));
   const drawer = await screen.findByRole("dialog");
   expect(drawer).toHaveTextContent("Counts cover FY2025 audited evidence only.");
   expect(drawer).toHaveTextContent("audit.pdf p.9");
@@ -235,10 +262,8 @@ it("retains source qualification and exact citations when another table makes th
       reason: "Recorded qualification for FY2025.",
     },
   ];
-  render(
-    <ModuleConfidence entry={entry} snapshot={snapshot} run={{ folder: "run-a" }} entryIndex={0} />,
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Show sources for this figure" }));
+  renderScore(entry, snapshot);
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for the confidence score" }));
   const drawer = await screen.findByRole("dialog");
   expect(drawer).toHaveTextContent(qualification);
   expect(drawer).toHaveTextContent("annual.pdf, cited page 7");

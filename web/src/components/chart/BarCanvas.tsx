@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useChartPlotHeight } from "./ChartPrintContext";
 import {
   BarChart,
   CartesianGrid,
@@ -47,9 +48,10 @@ export function BarCanvas({
   children,
 }: BarCanvasProps) {
   const axis = useWrappedAxis(categories, yTicks);
+  const height = useChartPlotHeight(HEIGHT);
   return (
     <div className="flex flex-col gap-3 [&_.recharts-surface:focus-visible]:outline-2 [&_.recharts-surface:focus-visible]:outline-solid [&_.recharts-surface:focus-visible]:outline-offset-2 [&_.recharts-surface:focus-visible]:outline-focus">
-      <ResponsiveContainer width="100%" height={HEIGHT} onResize={axis.onResize}>
+      <ResponsiveContainer width="100%" height={height} onResize={axis.onResize}>
         <BarChart
           title={title}
           data={data}

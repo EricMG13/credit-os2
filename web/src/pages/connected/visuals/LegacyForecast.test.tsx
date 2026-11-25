@@ -1,10 +1,19 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { EMPHASIS_CLASS } from "../../../components/chart/SeriesLine";
-import { CashProxy, forecastCaseOptions, ForecastScope, LegacyForecast } from "./LegacyForecast";
+import {
+  CashProxy,
+  cashProxyCases,
+  forecastCaseNames,
+  forecastCaseOptions,
+  ForecastScope,
+  gridOf,
+  LegacyForecast,
+} from "./LegacyForecast";
 
 import { Forecast } from "../report/Forecast";
 import type { PublishedRun } from "../publishedReport";
+import { ForecastStatement } from "./ForecastStatement";
 
 const model = {
   cashflow: {
@@ -152,7 +161,7 @@ it("explains incompatible standalone case dates without drawing a comparison", (
   };
   render(<CashProxy model={{ cashflow }} />);
   expect(screen.getByRole("note")).toHaveTextContent(
-    "The published cases do not share a unique, compatible period basis.",
+    "Periods left out of the scenario comparison: FY2027E, FY2028E (recorded start and end dates do not match between cases, or are incomplete or invalid). No other period is published by more than one case, so no scenario comparison is drawn.",
   );
   expect(screen.queryByRole("table", { name: "Scenario comparison" })).toBeNull();
 });
@@ -335,27 +344,32 @@ it("places all four recorded cases between the conditional base qualification an
       run={{ folder: "run" } as PublishedRun}
     />,
   );
-  const choices = screen.getByRole("radiogroup", { name: "Forecast case" });
-  expect(within(choices).getAllByRole("radio")).toHaveLength(4);
-  expect(screen.getByRole("heading", { name: "Forecast cases" })).toBeInTheDocument();
+  // Every case is in the header's switch; the selected one's figure, description and reason
+  // are drawn under it.
+  const buttons = within(screen.getByRole("group", { name: "Case" })).getAllByRole("button");
+  expect(buttons).toHaveLength(4);
   expect(screen.queryByText("Two cases")).toBeNull();
-  expect(within(choices).getAllByText("Case description not recorded.")).toHaveLength(2);
-  const scope = screen.getByRole("region", { name: "Model scope and basis" });
-  const lead = screen.getAllByText("Base case is a conditional illustration.")[0];
-  expect(lead?.parentElement?.nextElementSibling).toContainElement(choices);
-  expect(within(choices).queryByText("Base case is a conditional illustration.")).toBeNull();
-  expect(choices.compareDocumentPosition(scope) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(scope.querySelector("details")).not.toHaveAttribute("open");
+  const cards = buttons.map((button) => {
+    fireEvent.click(button);
+    const card = screen.getByLabelText("Selected case cash proxy").parentElement as HTMLElement;
+    expect(card).toHaveTextContent(`Cash proxy, ${button.textContent} · `);
+    return card.textContent;
+  });
+  expect(cards.filter((text) => text.includes("Case description not recorded."))).toHaveLength(2);
+  // The conditional base qualification stands in the scope tile, ahead of the full scope list.
+  const tile = screen.getByRole("region", { name: "Scope and limits" });
+  const limit = within(tile).getByText("Base interest and forecast interest are not comparable.");
+  expect(within(tile).getByText("Base case is a conditional illustration.")).toBeInTheDocument();
   expect(
-    within(scope).getByText("Base interest and forecast interest are not comparable."),
-  ).toBeInTheDocument();
-  fireEvent.click(
-    within(screen.getByRole("figure", { name: "Cash proxy by scenario" })).getByRole("radio", {
-      name: "Table",
-    }),
-  );
-  const comparison = within(screen.getByRole("table", { name: "Scenario comparison" }));
-  expect(comparison.getAllByRole("rowheader").map((node) => node.textContent)).toEqual([
+    within(tile)
+      .getByText("Base case is a conditional illustration.")
+      .compareDocumentPosition(limit) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  // No case's figure repeats it.
+  for (const card of cards) expect(card).not.toContain("Base case is a conditional illustration.");
+  // The full scope is a visible list, not behind a closed disclosure.
+  expect(limit.closest("details")).toBeNull();
+  expect(buttons.map((node) => node.textContent)).toEqual([
     "Base case",
     "Downside shock",
     "Upside case",
@@ -451,4 +465,348 @@ it("labels only the emphasised scenario's end value and keeps every scenario's n
   const [value] = labels;
   expect(value?.anchor).toBe("end");
   for (const name of names) expect(value?.x ?? Infinity).toBeLessThan(name.x);
+});
+
+function casesModel(
+  columns: { label: string; group: string }[],
+  cells: Record<string, unknown>[],
+  notes: string[] = [],
+) {
+  return {
+    cashflow: {
+      units: "USD millions",
+      notes,
+      columns,
+      rows: [
+        {
+          label: "Cash proxy (not issuer free cash flow)",
+          band: "Cash",
+          total: true,
+          cells,
+        },
+        {
+          label: "Revenue",
+          band: "Operating",
+          total: false,
+          cells: cells.map((_, index) => ({
+            status: "value",
+            exact: String(100 + index),
+            display: String(100 + index),
+          })),
+        },
+      ],
+    },
+  };
+}
+const valueCell = (value: string) => ({ status: "value", exact: value, display: value });
+
+it("keeps the periods only the longer case publishes, the shorter case not published there", () => {
+  const base = ["FY2026E", "FY2027E", "FY2028E", "FY2029E", "FY2030E"];
+  const downside = ["FY2026E", "FY2027E", "FY2028E"];
+  const { cashflow } = casesModel(
+    [
+      ...base.map((label) => ({ label, group: "Base case" })),
+      ...downside.map((label) => ({ label, group: "Downside case" })),
+    ],
+    ["10", "11", "12", "13", "14", "5", "6", "7"].map(valueCell),
+  );
+  const grid = gridOf(cashflow);
+  if (!grid) throw new Error("Unreadable fixture");
+  const cases = cashProxyCases(grid, null, forecastCaseNames(cashflow));
+  expect(cases.periods).toEqual(["FY2026E", "FY2027E", "FY2028E", "FY2029E", "FY2030E"]);
+  expect(cases.series.map(({ name, values }) => [name, values])).toEqual([
+    ["Base case", [10, 11, 12, 13, 14]],
+    ["Downside case", [5, 6, 7, null, null]],
+  ]);
+  expect(cases.rows[1]?.cells).toEqual(["5.00", "6.00", "7.00", "Not published", "Not published"]);
+  // Nothing was excluded and three periods are shared: the comparison is drawn with no notice.
+  expect(cases.compared).toBe(true);
+  expect(cases.notice).toBeNull();
+});
+
+function sameLabelModel() {
+  return casesModel(
+    ["Base case", "Upside", "Upside case"].flatMap((group) => [
+      { label: "FY2027E", group },
+      { label: "FY2028E", group },
+    ]),
+    ["10", "12", "21", "22", "31", "32"].map(valueCell),
+  );
+}
+
+it("gives two raw groups with one label different names and keeps each raw group", () => {
+  const options = forecastCaseOptions(sameLabelModel());
+  expect(Object.fromEntries(options.map(({ rawGroup, value }) => [rawGroup, value]))).toEqual({
+    "Base case": 12,
+    Upside: 22,
+    "Upside case": 32,
+  });
+  expect(new Set(options.map(({ name }) => name)).size).toBe(3);
+});
+
+it.each([
+  ["Upside", "22.00", "32.00"],
+  ["Upside case", "32.00", "22.00"],
+])("marks the cash proxy row of the selected raw group %s current", (rawGroup, own, peer) => {
+  render(
+    <CashProxy model={sameLabelModel()} selectedCase="Upside case" selectedRawGroup={rawGroup} />,
+  );
+  const table = within(screen.getByRole("table", { name: "Scenario comparison" }));
+  const current = table.getAllByRole("row").filter((row) => row.hasAttribute("aria-current"));
+  expect(current).toHaveLength(1);
+  expect(current[0]).toHaveTextContent(own);
+  expect(current[0]).not.toHaveTextContent(peer);
+});
+
+it.each([
+  ["Upside", ["102", "103"], ["104", "105"]],
+  ["Upside case", ["104", "105"], ["102", "103"]],
+])("draws the selected raw group %s alone in the trends and model table", (rawGroup, own, peer) => {
+  render(
+    <LegacyForecast
+      model={sameLabelModel()}
+      selectedCase="Upside case"
+      selectedRawGroup={rawGroup}
+    />,
+  );
+  const chart = within(screen.getByRole("figure", { name: "Revenue" }));
+  fireEvent.click(chart.getByRole("radio", { name: "Table" }));
+  const table = within(screen.getByRole("region", { name: "Cash flow model" }));
+  for (const part of [chart, table]) {
+    for (const value of own) expect(part.getByRole("cell", { name: value })).toBeInTheDocument();
+    for (const value of [...peer, "100", "101"])
+      expect(part.queryByRole("cell", { name: value })).toBeNull();
+  }
+});
+
+const placeholderReason = "no downside case was computed in this run";
+function placeholderModel() {
+  return casesModel(
+    [
+      { label: "FY2027E", group: "Base case" },
+      { label: "FY2028E", group: "Base case" },
+      { label: "Downside", group: "Downside case" },
+    ],
+    [
+      valueCell("10"),
+      valueCell("12"),
+      { status: "na", exact: null, display: "n.a.", reason: placeholderReason },
+    ],
+  );
+}
+
+it("records no period for a case that has only its placeholder column", () => {
+  const downside = forecastCaseOptions(placeholderModel())[1];
+  expect(downside).toMatchObject({
+    name: "Downside case",
+    rawGroup: "Downside case",
+    value: null,
+    reason: placeholderReason,
+  });
+  expect(downside?.period).toBeUndefined();
+  expect(downside).not.toHaveProperty("periodStart");
+  expect(downside).not.toHaveProperty("periodEnd");
+});
+
+it("gives a reason only where the case has no figure", () => {
+  const valued = casesModel(
+    [
+      { label: "FY2027E", group: "Base case" },
+      { label: "FY2027E", group: "Downside case" },
+    ],
+    [
+      { ...valueCell("12"), reason: "Estimated from a partial year" },
+      { status: "na", exact: null, display: "n.a.", reason: "Not calculable" },
+    ],
+  );
+  const [base, downside] = forecastCaseOptions(valued);
+  expect(base?.value).toBe(12);
+  expect(base).not.toHaveProperty("reason");
+  expect(downside?.value).toBeNull();
+  expect(downside?.reason).toBe("Not calculable");
+
+  const duplicated = casesModel(
+    [
+      { label: "FY2027E", group: "Base case" },
+      { label: "FY2027E", group: "Base case" },
+      { label: "FY2027E", group: "Downside case" },
+    ],
+    [valueCell("12"), valueCell("13"), valueCell("5")],
+  );
+  const [twice] = forecastCaseOptions(duplicated);
+  expect(twice?.value).toBeNull();
+  expect(twice?.reason).toBe(
+    "More than one published observation uses FY2027E; no single value is shown.",
+  );
+});
+
+it("names colliding cases in reader text, without a module code", () => {
+  const options = forecastCaseOptions(
+    casesModel(
+      ["Base case", "Downside (CP-2G drivers)", "Downside drivers"].map((group) => ({
+        label: "FY2027E",
+        group,
+      })),
+      ["10", "7", "8"].map(valueCell),
+    ),
+  );
+  const names = options.map(({ name }) => name).sort();
+  expect(names).toEqual([
+    "Base case",
+    "Downside drivers · Downside (Forward credit model drivers)",
+    // The raw group "Downside drivers" would only repeat the label, so it takes its place.
+    "Downside drivers · second case",
+  ]);
+  expect(options.map(({ rawGroup }) => rawGroup)).toContain("Downside (CP-2G drivers)");
+});
+
+const NO_COMMON_PERIOD =
+  "The cases publish no period in common, so no scenario comparison is drawn.";
+
+function disjointModel() {
+  return casesModel(
+    [
+      { label: "FY2026E", group: "Base case" },
+      { label: "FY2027E", group: "Downside case" },
+    ],
+    ["10", "5"].map(valueCell),
+  );
+}
+
+/** The real Forecast page for one model's cash flow record. */
+function forecastPage(cashflow: ReturnType<typeof casesModel>["cashflow"]) {
+  const published = {
+    id: "model",
+    issuerKey: "issuer",
+    runId: "run",
+    runFolder: "run",
+    href: "",
+    download: "",
+    sources: [],
+    cashflow: { limits: [], ...cashflow },
+  };
+  return render(
+    <Forecast
+      view={{
+        catalogue: undefined,
+        lead: undefined,
+        entries: [],
+        modules: [],
+        models: [published],
+      }}
+      run={{ folder: "run" } as PublishedRun}
+    />,
+  );
+}
+
+it("tells the reader when the cases share no period, instead of drawing blank columns", () => {
+  const { container, unmount } = forecastPage(disjointModel().cashflow);
+  const grid = within(screen.getByRole("region", { name: "Forecast grid" }));
+  expect(grid.getByRole("status")).toHaveTextContent(NO_COMMON_PERIOD);
+  const figure = () => screen.getByLabelText("Selected case cash proxy");
+  expect(within(figure().parentElement as HTMLElement).getByRole("status")).toHaveTextContent(
+    NO_COMMON_PERIOD,
+  );
+  // No comparison is offered in the grid.
+  expect(screen.queryByRole("button", { name: "Compare one year" })).toBeNull();
+  expect(container.textContent).not.toMatch(/omitted|left out|cannot be compared|Not published/i);
+  // Each case keeps its own figure, selected in the header's switch.
+  const caseItem = (name: string) => {
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Case" })).getByRole("button", {
+        name: name,
+      }),
+    );
+    expect(figure()).toHaveTextContent(`Cash proxy, ${name} · `);
+    return figure();
+  };
+  expect(within(caseItem("Base case")).getByText("10")).toBeInTheDocument();
+  expect(within(caseItem("Downside case")).getByText("5")).toBeInTheDocument();
+  unmount();
+
+  // The standalone comparison draws none either.
+  render(<CashProxy model={disjointModel()} />);
+  expect(screen.getByRole("note")).toHaveTextContent(NO_COMMON_PERIOD);
+  expect(screen.queryByRole("figure")).toBeNull();
+  expect(screen.queryByRole("table")).toBeNull();
+});
+
+it("draws no line-item comparison and names no omitted period when the cases share no period", () => {
+  // Without a cash proxy row the page has no case cards, so no case is selected.
+  const { cashflow } = disjointModel();
+  const lineItems = { ...cashflow, rows: cashflow.rows.filter(({ label }) => label === "Revenue") };
+  const { container, unmount } = forecastPage(lineItems);
+  expect(screen.queryByRole("radiogroup", { name: "Forecast case" })).toBeNull();
+  expect(
+    within(screen.getByRole("region", { name: "Forecast grid" })).getByRole("status"),
+  ).toHaveTextContent(NO_COMMON_PERIOD);
+  expect(screen.queryByRole("button", { name: "Compare one year" })).toBeNull();
+  expect(screen.queryByRole("figure", { name: "Revenue" })).toBeNull();
+  expect(container.textContent).not.toMatch(/omitted|left out|cannot be compared/i);
+  unmount();
+
+  render(<LegacyForecast model={disjointModel()} />);
+  expect(screen.getByRole("status")).toHaveTextContent(NO_COMMON_PERIOD);
+  expect(screen.queryByRole("figure", { name: "Revenue" })).toBeNull();
+});
+
+it("names a module-coded raw group the same in every caller, with no module code", () => {
+  const coded = "Downside (CP-2G drivers)";
+  const main = casesModel(
+    ["Base case", coded].flatMap((group) => [
+      { label: "FY2027E", group },
+      { label: "FY2028E", group },
+    ]),
+    ["10", "12", "7", "8"].map(valueCell),
+  );
+  // A second raw group with the same label, in a grid the statement draws on its own.
+  const model = {
+    cashflow: {
+      ...main.cashflow,
+      other: {
+        columns: [
+          { label: "FY2027E", group: "Downside drivers" },
+          { label: "FY2028E", group: "Downside drivers" },
+        ],
+        rows: main.cashflow.rows.slice(0, 1).map((row) => ({
+          ...row,
+          cells: ["5", "6"].map(valueCell),
+        })),
+      },
+    },
+  };
+  const name = forecastCaseOptions(model).find(({ rawGroup }) => rawGroup === coded)?.name;
+  expect(name).toBe("Downside drivers · Downside (Forward credit model drivers)");
+  if (!name) throw new Error("The module-coded case has no card");
+
+  // The statement, which draws the main grid without the other group.
+  const statement = render(<ForecastStatement model={model} />);
+  expect(
+    within(screen.getByRole("table", { name: "Forecast grid" })).getByRole("columnheader", {
+      name: `Forecast · ${name}`,
+    }),
+  ).toBeInTheDocument();
+  expect(statement.container.textContent).not.toContain("CP-");
+  statement.unmount();
+
+  // The comparison, over both grids.
+  const comparison = render(<CashProxy model={model} />);
+  expect(
+    within(screen.getByRole("table", { name: "Scenario comparison" })).getByRole("rowheader", {
+      name,
+    }),
+  ).toBeInTheDocument();
+  expect(comparison.container.textContent).not.toContain("CP-");
+  comparison.unmount();
+
+  // The line-item trends and the model table, over the main grid.
+  render(<LegacyForecast model={model} />);
+  const chart = within(screen.getByRole("figure", { name: "Revenue" }));
+  fireEvent.click(chart.getByRole("radio", { name: "Table" }));
+  expect(chart.getByRole("rowheader", { name })).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("region", { name: "Cash flow model" })).getByRole("columnheader", {
+      name,
+    }),
+  ).toBeInTheDocument();
 });

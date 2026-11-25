@@ -1,0 +1,442 @@
+{
+  "module": "CP-6",
+  "source": "proof/handoffs/CP-6.md",
+  "charts": [
+    {
+      "title": "Portfolio limits",
+      "table": 26,
+      "kind": "limits",
+      "label": 0,
+      "current": 1,
+      "proposed": 2,
+      "limit": 3,
+      "unit": "% NAV",
+      "columns": [1, 2, 3]
+    }
+  ],
+  "sections": [
+    {
+      "heading": "Findings",
+      "level": 2,
+      "line": 1,
+      "blocks": []
+    },
+    {
+      "heading": "Bottom line",
+      "level": 3,
+      "line": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 5,
+          "end": 5,
+          "text": "The synthetic issuer shows one observed item."
+        }
+      ]
+    },
+    {
+      "heading": "Key findings",
+      "level": 3,
+      "line": 7,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 9,
+          "end": 10,
+          "text": "The synthetic issuer's cover is thin at 3.1x.\nBasis: annual.txt, page 2"
+        }
+      ]
+    },
+    {
+      "heading": "Contrary evidence and what would change the view",
+      "level": 3,
+      "line": 12,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 14,
+          "end": 14,
+          "text": "Nothing supplied contradicts the view; a USD 1,250 million refinancing would."
+        }
+      ]
+    },
+    {
+      "heading": "Limitations",
+      "level": 3,
+      "line": 16,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 18,
+          "end": 18,
+          "text": "- Synthetic data only in the cp six case, so no conclusion carries weight."
+        }
+      ]
+    },
+    {
+      "heading": "Committee challenge",
+      "level": 3,
+      "line": 20,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 22,
+          "end": 22,
+          "text": "A located finding."
+        }
+      ]
+    },
+    {
+      "heading": "Chart data: portfolio limits",
+      "level": 3,
+      "line": 24,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 26,
+          "headers": [
+            "Limit",
+            "Current exposure",
+            "Proposed exposure",
+            "Limit value",
+            "Reporting unit",
+            "Basis and limitation"
+          ],
+          "rows": [
+            {
+              "line": 28,
+              "cells": [
+                "Max single issuer exposure",
+                "2.37",
+                "2.40",
+                "2.50",
+                "% NAV",
+                "Synthetic Compliance_Monitor snapshot as of 2025-03-31. Proposal is illustrative."
+              ]
+            },
+            {
+              "line": 29,
+              "cells": [
+                "Max unrated exposure",
+                "3.73",
+                "Not supplied: no proposal",
+                "5.00",
+                "% NAV",
+                "Synthetic Compliance_Monitor snapshot as of 2025-03-31."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Events: Decision and watch",
+      "level": 3,
+      "line": 31,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 33,
+          "headers": [
+            "Event date",
+            "Date precision",
+            "Published",
+            "Event",
+            "Status",
+            "Source",
+            "Credit relevance"
+          ],
+          "rows": [
+            {
+              "line": 35,
+              "cells": [
+                "2025-03-31",
+                "day",
+                "2024-11-07",
+                "Synthetic note",
+                "Scheduled — matures",
+                "Filing p.1",
+                "Wall"
+              ]
+            },
+            {
+              "line": 36,
+              "cells": [
+                "2025-06",
+                "month",
+                "2025-05-01",
+                "Synthetic call",
+                "Historical — noted",
+                "Memo",
+                "Cost"
+              ]
+            },
+            {
+              "line": 37,
+              "cells": [
+                "2025-Q3",
+                "quarter",
+                "2024-11-07",
+                "Synthetic review",
+                "Scenario — modelled",
+                "Memo",
+                "Rating"
+              ]
+            },
+            {
+              "line": 38,
+              "cells": [
+                "2026",
+                "year",
+                "2024-11-07",
+                "Synthetic maturity",
+                "Scheduled — maturity",
+                "Filing p.2",
+                "Wall"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Confidence inputs",
+      "level": 3,
+      "line": 40,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 42,
+          "headers": ["Input", "Value"],
+          "rows": [
+            {
+              "line": 44,
+              "cells": ["Directly Sourced", "8"]
+            },
+            {
+              "line": 45,
+              "cells": ["Calculated", "2"]
+            },
+            {
+              "line": 46,
+              "cells": ["Assumption-Based", "2"]
+            },
+            {
+              "line": 47,
+              "cells": ["Analyst Inference", "0"]
+            },
+            {
+              "line": 48,
+              "cells": ["Weak Lineage", "0"]
+            },
+            {
+              "line": 49,
+              "cells": ["Untraced", "0"]
+            },
+            {
+              "line": 50,
+              "cells": ["Conflicting", "0"]
+            },
+            {
+              "line": 51,
+              "cells": ["Insufficient Information", "0"]
+            },
+            {
+              "line": 52,
+              "cells": ["Fields present", "95"]
+            },
+            {
+              "line": 53,
+              "cells": ["Fields total", "100"]
+            },
+            {
+              "line": 54,
+              "cells": ["Source gate", "pass"]
+            },
+            {
+              "line": 55,
+              "cells": ["CRITICAL", "0"]
+            },
+            {
+              "line": 56,
+              "cells": ["MATERIAL", "0"]
+            },
+            {
+              "line": 57,
+              "cells": ["MINOR", "1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Portfolio posture",
+      "level": 3,
+      "line": 59,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 61,
+          "end": 62,
+          "text": "Final Sizing Posture: Requires More Work. The decision is driven by the absence of a supported proposal because eligibility and risk budget were not established, which implies that the size is not established. The limits table is synthetic.\nBasis: annual.txt, page 2"
+        }
+      ]
+    },
+    {
+      "heading": "T6A.4 - Register",
+      "level": 3,
+      "line": 64,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 66,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 68,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T6A.7 - Register",
+      "level": 3,
+      "line": 70,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 72,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 74,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T6E.4 - Register",
+      "level": 3,
+      "line": 76,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 78,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 80,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T6E.6 - Register",
+      "level": 3,
+      "line": 82,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 84,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 86,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T6E.7 - Register",
+      "level": 3,
+      "line": 88,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 90,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 92,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T6E.11 - Register",
+      "level": 3,
+      "line": 94,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 96,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 98,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Calculations",
+      "level": 2,
+      "line": 100,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 102,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 104,
+              "cells": ["Cover", "3.1x"]
+            },
+            {
+              "line": 105,
+              "cells": ["Refinancing", "USD 1,250 million"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Gaps",
+      "level": 2,
+      "line": 107,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 109,
+          "end": 109,
+          "text": "None."
+        }
+      ]
+    },
+    {
+      "heading": "Next module",
+      "level": 2,
+      "line": 111,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 113,
+          "end": 113,
+          "text": "None."
+        }
+      ]
+    }
+  ]
+}

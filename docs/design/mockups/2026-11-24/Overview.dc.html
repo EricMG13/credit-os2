@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Overview — TransDigm Group</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FAFAFA;color:#0A0A0A;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#52525B;text-decoration:none}a:hover{color:#0A0A0A}
+button{font-family:inherit}
+button:not([aria-label="Show sources"]):hover{background:#F4F4F5 !important;color:#0A0A0A !important}
+button[aria-label="Show sources"]:hover > span{background:#F4F4F5 !important;color:#0A0A0A}
+a:focus-visible,button:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+@keyframes flow{to{stroke-dashoffset:-48}}
+@media (prefers-reduced-motion: reduce){[data-flow]{animation:none !important}}
+</style>
+</helmet>
+<!--
+  Overview, settled. Signal's shell, bento composition, tile shapes and chart geometry, re-themed LIGHT with Desk's palette.
+  Grid: 12 tracks, gap 16. At 1440 frame: content 1376 = 12 x 100 + 11 x 16, so span N = 116N - 16 px.
+  Radius ladder (concentric): tile R20 -> well inset 12 -> R8 -> chip R4-6. Segmented control R12 -> item R8; search R10 -> key R6.
+  Trace control everywhere: a 28 px chip (hairline, R6, aria-label "Show sources") centred in a 32 px target.
+  Surfaces: page #FAFAFA, tile #FFFFFF, well #F4F4F5, hairline #E4E4E7, divider #D4D4D8. No shadows.
+  Text: ink #0A0A0A; secondary #52525B (7.7:1 on #FFFFFF, 7.0:1 on #F4F4F5, 7.3:1 on #FFF7ED); small labels #71717A only on #FFFFFF / #FAFAFA (4.8 / 4.6:1).
+  Teal #0F766E: accent and primary data (5.5:1 on #FFFFFF, 5.0:1 on #F4F4F5, 5.3:1 on #F0FDFA). Navy #1E3A5F: secondary data and the contrary-evidence surface (#EFF4FA / #C7D6E8).
+  Zinc #A1A1AA: prior-period marks only, always drawn 2 px or filled so they hold on white.
+  Signal family: marks #EA580C, text #C2410C (5.2:1 on #FFFFFF, 4.9:1 on #FFF7ED, 4.7:1 on #F4F4F5), tint #FFF7ED / #FED7AA.
+  Caution = solid tint + triangle, question or eye icon + word. Blocked / not tested = same family + circle-slash + word + DASHED #EA580C outline.
+  Better = teal + word. Worse = orange + word. Gap = #D4D4D8 hatch on #FAFAFA, dashed #A1A1AA outline, #52525B label (5.3:1 against a hatch line).
+-->
+<div style="box-sizing: border-box; background: #FAFAFA; color: #0A0A0A; display: flex; flex-direction: column; align-items: center; min-width: 0">
+
+  <!-- ============ Top bar ============ -->
+  <header style="width: 100%; box-sizing: border-box; border-bottom: 1px solid #E4E4E7; display: flex; justify-content: center; background: #FFFFFF">
+    <div style="width: 100%; max-width: 1440px; box-sizing: border-box; padding: 0 clamp(16px, 2.3vw, 32px); height: 60px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px) minmax(0, 1fr); align-items: center; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 20px; min-width: 0">
+        <a href="#" aria-label="Credit OS home" style="display: flex; align-items: center; gap: 10px; min-height: 32px; color: #0A0A0A">
+          <svg viewBox="0 0 1521 1515" width="22" height="22" aria-hidden="true" style="color: #0A0A0A; flex: none"><path fill="currentColor" d="m724.8 173c238.6-82.4 489.9-172.7 795.3-172.7v211c-267.1 0-488 78.5-726.5 160.9-235.7 82.4-488 172.7-793.3 172.7v-211c267 0 487.9-78.5 724.5-160.9zm-724.5 477.8h1519.8v213h-111-1408.8zm0 652.5c267 0 487.9-78.5 724.5-161 238.6-82.4 489.9-172.6 795.3-172.6v210.9c-267.1 0-488 78.5-726.5 160.9-236.6 82.5-488 172.7-793.3 172.7z"/></svg>
+          <span style="font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap">Credit OS</span>
+        </a>
+        <nav aria-label="Global" style="display: flex; align-items: center; gap: 4px; min-width: 0">
+          <a href="#" aria-current="page" style="height: 32px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #0A0A0A; background: #F4F4F5; white-space: nowrap">Library</a>
+          <a href="#" style="height: 32px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500; white-space: nowrap">Run activity</a>
+        </nav>
+      </div>
+      <button type="button" aria-label="Search issuers, runs, figures" style="height: 36px; box-sizing: border-box; width: 100%; padding: 0 4px 0 12px; border-radius: 10px; border: 1px solid #E4E4E7; background: #FAFAFA; color: #52525B; display: flex; align-items: center; gap: 10px; cursor: pointer">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span style="flex: 1 1 auto; min-width: 0; text-align: left; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Search issuers, runs, figures</span>
+        <kbd style="flex: none; height: 26px; padding: 0 8px; border-radius: 6px; background: #FFFFFF; border: 1px solid #E4E4E7; box-sizing: border-box; display: flex; align-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #52525B">⌘K</kbd>
+      </button>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0">
+        <a href="#" style="height: 32px; padding: 0 12px 0 10px; border-radius: 8px; border: 1px solid #D4D4D8; box-sizing: border-box; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #0A0A0A; white-space: nowrap">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Start run
+        </a>
+        <button type="button" aria-label="Account" style="width: 32px; height: 32px; border-radius: 16px; border: 1px solid #D4D4D8; background: #F4F4F5; color: #52525B; display: grid; place-items: center; padding: 0; cursor: pointer">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main style="width: 100%; max-width: 1440px; box-sizing: border-box; padding: 28px clamp(16px, 2.3vw, 32px) 56px; display: flex; flex-direction: column; gap: 24px; min-width: 0">
+
+    <!-- ============ Report header ============ -->
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 32px">
+      <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+        <nav aria-label="Breadcrumb">
+          <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #71717A">
+            <li><a href="#" style="display: inline-flex; align-items: center; min-height: 32px">Library</a></li>
+            <li aria-hidden="true">/</li>
+            <li><a href="#" style="display: inline-flex; align-items: center; min-height: 32px">TransDigm Group</a></li>
+            <li aria-hidden="true">/</li>
+            <li aria-current="page" style="color: #0A0A0A">Full assessment</li>
+          </ol>
+        </nav>
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px">
+          <h1 style="margin: 0; font-size: 32px; line-height: 38px; font-weight: 600; letter-spacing: -0.02em; color: #0A0A0A">TransDigm Group</h1>
+          <span style="font-size: 14px; line-height: 20px; color: #52525B">Aerospace components</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: #52525B">
+          <span style="height: 24px; padding: 0 10px; border-radius: 12px; border: 1px solid #E4E4E7; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center">Full credit assessment</span>
+          <span style="height: 24px; padding: 0 10px; border-radius: 12px; border: 1px solid #E4E4E7; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center">As of 30 Sep 2024 · FY2024</span>
+          <span style="height: 24px; padding: 0 10px; border-radius: 12px; border: 1px solid #E4E4E7; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center">USD millions</span>
+        </div>
+      </div>
+      <nav aria-label="Report sections" style="display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-radius: 12px; background: #F4F4F5; border: 1px solid #E4E4E7">
+        <a href="#" aria-current="page" style="height: 32px; box-sizing: border-box; padding: 0 14px 0 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: {{accent}}; background: {{accentTint}}; border: 1px solid {{accentLine}}">
+          <span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 3px; background: {{accent}}"></span>Overview
+        </a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500">Changes</a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500">Modules</a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500">Forecast</a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500">Evidence</a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500">Calendar</a>
+      </nav>
+    </div>
+
+    <!-- ============ Bento ============ -->
+    <div style="display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px">
+
+      <!-- ===== Row 1: the call (span 8) + stacked column (span 4) ===== -->
+      <section aria-labelledby="t-call" style="grid-column: span 8; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 24px 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 28px">
+        <div style="display: flex; flex-direction: column; gap: 28px">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px">
+              <h2 id="t-call" style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">The call · committee stance</h2>
+              <span style="height: 40px; padding: 0 16px 0 12px; border-radius: 10px; box-sizing: border-box; background: #FFF7ED; border: 1px solid #FED7AA; color: #C2410C; display: flex; align-items: center; gap: 10px; font-size: 20px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                Watchlist
+              </span>
+            </div>
+            <div style="font-size: 13px; line-height: 18px; color: #52525B">Security selection <span style="color: #0A0A0A; font-weight: 500">Requires More Work</span> · relative value <span style="color: #0A0A0A; font-weight: 500">Unclear</span></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+              <span style="font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Bottom line</span>
+              <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+            </div>
+            <p style="margin: 0; max-width: 840px; font-size: 36px; line-height: 46px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A; text-wrap: pretty">Gross leverage rose to 6.53x despite stronger earnings, and October’s declared-dividend payment reverses the apparent year-end net-deleveraging benefit; creditors should anchor debt service on reported EBITDA and cash interest, not management-adjusted earnings.</p>
+          </div>
+        </div>
+        <dl style="margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); gap: 16px 24px; padding-top: 20px; border-top: 1px solid #E4E4E7">
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <dt style="font-size: 12px; line-height: 16px; color: #71717A">Pathway</dt>
+            <dd style="margin: 0; font-size: 14px; line-height: 20px; color: #0A0A0A">Full credit assessment</dd>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <dt style="font-size: 12px; line-height: 16px; color: #71717A">Financials as of</dt>
+            <dd style="margin: 0; font-size: 14px; line-height: 20px; color: #0A0A0A">30 Sep 2024 · FY2024</dd>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <dt style="font-size: 12px; line-height: 16px; color: #71717A">Currency</dt>
+            <dd style="margin: 0; font-size: 14px; line-height: 20px; color: #0A0A0A">USD millions</dd>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+            <dt style="font-size: 12px; line-height: 16px; color: #71717A">Modules</dt>
+            <dd style="margin: 0; font-size: 14px; line-height: 20px; color: #0A0A0A">15 · all delivered except <span style="color: #C2410C; font-weight: 500">CP-4</span></dd>
+          </div>
+        </dl>
+      </section>
+
+      <div style="grid-column: span 4; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+        <!-- Confidence: compact meter. Scale 0..100 -> x 0..408 (4.08 px per point). 53 -> 216.24; 56 -> 228.48. Track #E4E4E7 so the empty range still reads on white. -->
+        <section aria-labelledby="t-conf" style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+            <h2 id="t-conf" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #52525B">Confidence</h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 12px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 44px; line-height: 44px; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: #0A0A0A">53</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 15px; line-height: 20px; font-weight: 500; color: #C2410C">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>Low
+            </span>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">committee decision</span>
+          </div>
+          <svg viewBox="0 0 408 36" width="100%" role="img" aria-label="Confidence 53 of 100, band Low. Security selection scored 56, also Low." style="display: block; overflow: visible">
+            <rect x="0" y="6" width="408" height="6" rx="3" fill="#E4E4E7"></rect>
+            <rect x="0" y="6" width="216.24" height="6" rx="3" fill="#EA580C"></rect>
+            <line x1="228.48" y1="2" x2="228.48" y2="16" stroke="#0A0A0A" stroke-width="1.5"></line>
+            <text x="0" y="32" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">0</text>
+            <text x="212" y="32" text-anchor="end" font-family="Geist, sans-serif" font-size="11" fill="#52525B">Committee 53</text>
+            <text x="234" y="32" font-family="Geist, sans-serif" font-size="11" fill="#52525B">Security selection 56</text>
+            <text x="408" y="32" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">100</text>
+          </svg>
+        </section>
+
+        <!-- Evidence clearance: counts drawn as pips (one pip per issue). Wells #F4F4F5, so their labels use #52525B. -->
+        <section aria-labelledby="t-clear" style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 16px 12px 12px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px">
+            <h2 id="t-clear" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #52525B">Evidence clearance</h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 0 8px">
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 16px; line-height: 22px; font-weight: 500; color: #0A0A0A">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#52525B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 20 6v6c0 4.6-3.4 7.9-8 9-4.6-1.1-8-4.4-8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+              Pass with Remediation
+            </span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; font-weight: 500; color: #C2410C">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+              Committee use: Restricted
+            </span>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+            <div style="background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 22px; line-height: 26px; font-weight: 500; color: #0A0A0A">0</span>
+              <span style="font-size: 12px; line-height: 16px; color: #52525B">Critical</span>
+              <span aria-hidden="true" style="height: 6px; border-radius: 3px; border: 1px dashed #A1A1AA; box-sizing: border-box"></span>
+            </div>
+            <div style="background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 22px; line-height: 26px; font-weight: 500; color: #C2410C">4</span>
+              <span style="font-size: 12px; line-height: 16px; color: #52525B">Material</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px"><span style="width: 14px; border-radius: 2px; background: #EA580C"></span><span style="width: 14px; border-radius: 2px; background: #EA580C"></span><span style="width: 14px; border-radius: 2px; background: #EA580C"></span><span style="width: 14px; border-radius: 2px; background: #EA580C"></span></span>
+            </div>
+            <div style="background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 22px; line-height: 26px; font-weight: 500; color: #0A0A0A">3</span>
+              <span style="font-size: 12px; line-height: 16px; color: #52525B">Minor</span>
+              <span aria-hidden="true" style="display: flex; gap: 3px; height: 6px"><span style="width: 14px; border-radius: 2px; background: #71717A"></span><span style="width: 14px; border-radius: 2px; background: #71717A"></span><span style="width: 14px; border-radius: 2px; background: #71717A"></span></span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Changes since the earlier run (CP-8 handoff). The earlier label is a plain hairline chip: a dashed grey outline now means "gap". -->
+        <section aria-labelledby="t-chg" style="flex: 1 1 auto; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+            <h2 id="t-chg" style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 500; color: #52525B">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5"/><path d="M12 7.5V12l3 2"/></svg>
+              Since the earlier run
+            </h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px">
+            <span style="font-size: 20px; line-height: 26px; font-weight: 500; letter-spacing: -0.01em; color: #0A0A0A">About the same</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px">
+              <span style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid #D4D4D8; box-sizing: border-box; display: flex; align-items: center; color: #52525B">requires more work</span>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#52525B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15M14 7l5 5-5 5"/></svg>
+              <span style="height: 24px; padding: 0 8px; border-radius: 6px; background: #FFF7ED; border: 1px solid #FED7AA; box-sizing: border-box; display: flex; align-items: center; font-weight: 500; color: #C2410C">Watchlist</span>
+            </span>
+          </div>
+          <p style="margin: 0; font-size: 13px; line-height: 20px; color: #52525B">About the same: the credit picture for TransDigm has not changed. The committee’s stance is now labelled Watchlist where the earlier run said requires more work.</p>
+        </section>
+      </div>
+
+      <!-- ===== Row 2: headline figures, FY2023 -> FY2024. Two large tiles carry the call; four small tiles support it. ===== -->
+      <section aria-labelledby="t-gross" style="grid-column: span 4; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 id="t-gross" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Total debt / EBITDA</h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">Reported EBITDA basis</span>
+          </div>
+          <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px">
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 44px; line-height: 48px; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: #0A0A0A">6.53x</span>
+          <span style="font-size: 13px; line-height: 18px; color: #52525B">from 6.27x in FY2023</span>
+          <span style="height: 24px; padding: 0 8px 0 6px; border-radius: 6px; box-sizing: border-box; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: #C2410C; background: #FFF7ED; border: 1px solid #FED7AA">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Worse
+          </span>
+        </div>
+        <!-- Slope. y: 6.0x..6.6x -> 150..24 (210 px per 1.0x). 6.27 -> 93.3; 6.53 -> 38.7. x: FY2023 72, FY2024 336. FY2023 ring zinc at 2 px; worse segment orange. -->
+        <svg viewBox="0 0 408 180" width="100%" role="img" aria-label="Total debt to reported EBITDA rose from 6.27x in FY2023 to 6.53x in FY2024." style="display: block">
+          <line x1="36" y1="24" x2="408" y2="24" stroke="#E4E4E7"></line>
+          <line x1="36" y1="66" x2="408" y2="66" stroke="#E4E4E7"></line>
+          <line x1="36" y1="108" x2="408" y2="108" stroke="#E4E4E7"></line>
+          <line x1="36" y1="150" x2="408" y2="150" stroke="#D4D4D8"></line>
+          <text x="0" y="28" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6.6x</text>
+          <text x="0" y="70" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6.4x</text>
+          <text x="0" y="112" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6.2x</text>
+          <text x="0" y="154" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6.0x</text>
+          <line x1="72" y1="93.3" x2="336" y2="38.7" stroke="#EA580C" stroke-width="2"></line>
+          <circle cx="72" cy="93.3" r="5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"></circle>
+          <circle cx="336" cy="38.7" r="6" fill="#EA580C"></circle>
+          <text x="72" y="79" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#52525B">6.27x</text>
+          <text x="350" y="43" font-family="Geist Mono, monospace" font-size="13" font-weight="500" fill="#0A0A0A">6.53x</text>
+          <text x="72" y="174" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#71717A">FY2023</text>
+          <text x="336" y="174" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#71717A">FY2024</text>
+        </svg>
+      </section>
+
+      <section aria-labelledby="t-net" style="grid-column: span 4; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 id="t-net" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Net debt / EBITDA</h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">Reported EBITDA basis</span>
+          </div>
+          <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px">
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 44px; line-height: 48px; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: #0A0A0A">6.02x</span>
+          <span style="font-size: 13px; line-height: 18px; color: #52525B">pro forma for the dividend paid 18 Oct 2024</span>
+        </div>
+        <!-- Dot strip on one axis. x: 4.5x..6.5x -> 100..396 (148 px per 1.0x). 5.17 -> 199.16; 4.88 -> 156.24; 6.02 -> 324.96. Rows y 36 / 82 / 128. FY2023 zinc ring, FY2024 teal, pro forma orange. -->
+        <svg viewBox="0 0 408 180" width="100%" role="img" aria-label="Net debt to reported EBITDA: 5.17x in FY2023, 4.88x in FY2024, and 6.02x pro forma for the dividend paid 18 October 2024." style="display: block">
+          <line x1="100" y1="14" x2="100" y2="150" stroke="#E4E4E7"></line>
+          <line x1="174" y1="14" x2="174" y2="150" stroke="#E4E4E7"></line>
+          <line x1="248" y1="14" x2="248" y2="150" stroke="#E4E4E7"></line>
+          <line x1="322" y1="14" x2="322" y2="150" stroke="#E4E4E7"></line>
+          <line x1="396" y1="14" x2="396" y2="150" stroke="#E4E4E7"></line>
+          <text x="100" y="172" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">4.5x</text>
+          <text x="174" y="172" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">5.0x</text>
+          <text x="248" y="172" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">5.5x</text>
+          <text x="322" y="172" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6.0x</text>
+          <text x="396" y="172" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6.5x</text>
+          <text x="0" y="40" font-family="Geist, sans-serif" font-size="12" fill="#52525B">FY2023</text>
+          <text x="0" y="86" font-family="Geist, sans-serif" font-size="12" fill="#52525B">FY2024</text>
+          <text x="0" y="132" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#0A0A0A">Pro forma</text>
+          <line x1="199.16" y1="36" x2="156.24" y2="82" stroke="#A1A1AA" stroke-width="1.5" stroke-dasharray="3 3"></line>
+          <line x1="162.99" y1="83.84" x2="310.49" y2="124.06" stroke="#EA580C" stroke-width="1.5"></line>
+          <polygon points="318.21,126.16 309.44,127.92 311.54,120.2" fill="#EA580C"></polygon>
+          <circle cx="199.16" cy="36" r="5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"></circle>
+          <circle cx="156.24" cy="82" r="6" fill="{{accent}}"></circle>
+          <circle cx="324.96" cy="128" r="6" fill="#EA580C"></circle>
+          <text x="211" y="40" font-family="Geist Mono, monospace" font-size="12" fill="#52525B">5.17x</text>
+          <text x="144" y="86" text-anchor="end" font-family="Geist Mono, monospace" font-size="12" fill="#0A0A0A">4.88x</text>
+          <text x="337" y="132" font-family="Geist Mono, monospace" font-size="12" font-weight="500" fill="#0A0A0A">6.02x</text>
+        </svg>
+      </section>
+
+      <div style="grid-column: span 4; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 16px">
+
+        <section aria-labelledby="t-sales" style="min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 12px 16px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+            <h2 id="t-sales" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #52525B">Net sales</h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 24px; line-height: 28px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">7,940</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #52525B">+20.58%</span></div>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">from 6,585 in FY2023</span>
+          </div>
+          <!-- Mini slope. y: 6,000..8,000 -> 34..6 (0.014 px per unit). 6,585 -> 25.81; 7,940 -> 6.84. x 8 -> 176. -->
+          <svg viewBox="0 0 184 40" width="100%" role="img" aria-label="Net sales rose from 6,585 to 7,940, up 20.58%." style="display: block">
+            <line x1="0" y1="38" x2="184" y2="38" stroke="#E4E4E7"></line>
+            <line x1="8" y1="25.81" x2="176" y2="6.84" stroke="{{accent}}" stroke-width="2"></line>
+            <circle cx="8" cy="25.81" r="3.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"></circle>
+            <circle cx="176" cy="6.84" r="4" fill="{{accent}}"></circle>
+          </svg>
+        </section>
+
+        <section aria-labelledby="t-cover" style="min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 12px 16px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+            <h2 id="t-cover" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #52525B">Interest cover</h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 24px; line-height: 28px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">3.29x</span><span style="display: flex; align-items: center; gap: 3px; font-size: 12px; line-height: 16px; font-weight: 500; color: {{accent}}"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Better</span></div>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">EBITDA / cash interest, from 2.71x</span>
+          </div>
+          <!-- Ruler. x: 2.5x..3.5x -> 8..176 (168 px per 1.0x). 2.71 -> 43.28; 3.29 -> 140.72. -->
+          <svg viewBox="0 0 184 40" width="100%" role="img" aria-label="Reported EBITDA to cash interest improved from 2.71x to 3.29x." style="display: block">
+            <line x1="8" y1="14" x2="176" y2="14" stroke="#E4E4E7" stroke-width="2"></line>
+            <line x1="8" y1="9" x2="8" y2="19" stroke="#A1A1AA"></line>
+            <line x1="92" y1="9" x2="92" y2="19" stroke="#A1A1AA"></line>
+            <line x1="176" y1="9" x2="176" y2="19" stroke="#A1A1AA"></line>
+            <line x1="47.28" y1="14" x2="130.72" y2="14" stroke="{{accent}}" stroke-width="2"></line>
+            <polygon points="136.72,14 130.72,10.5 130.72,17.5" fill="{{accent}}"></polygon>
+            <circle cx="43.28" cy="14" r="4" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"></circle>
+            <circle cx="140.72" cy="14" r="4.5" fill="{{accent}}"></circle>
+            <text x="8" y="36" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">2.5x</text>
+            <text x="92" y="36" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">3.0x</text>
+            <text x="176" y="36" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">3.5x</text>
+          </svg>
+        </section>
+
+        <section aria-labelledby="t-ebitda" style="min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 12px 16px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+            <h2 id="t-ebitda" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #52525B">Reported EBITDA</h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 24px; line-height: 28px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">3,813</span>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">from 3,148 in FY2023</span>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">As Defined 3,395 → 4,173</span>
+          </div>
+          <!-- Delta bar. x: 0..4,000 -> 0..184 (0.046 px per unit). 3,148 -> 144.81 (zinc, FY2023); 3,813 -> 175.40, gain segment 30.59 wide in teal. -->
+          <svg viewBox="0 0 184 40" width="100%" role="img" aria-label="Reported EBITDA rose from 3,148 in FY2023 to 3,813 in FY2024; the gain is drawn as the highlighted end of the bar." style="display: block">
+            <rect x="0" y="6" width="144.81" height="14" rx="2" fill="#A1A1AA"></rect>
+            <rect x="144.81" y="6" width="30.59" height="14" rx="2" fill="{{accent}}"></rect>
+            <line x1="144.81" y1="2" x2="144.81" y2="24" stroke="#0A0A0A" stroke-width="1"></line>
+            <text x="141" y="36" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">3,148</text>
+            <text x="184" y="36" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A">3,813</text>
+          </svg>
+        </section>
+
+        <!-- Liquidity on the finding's own basis (company-defined cash liquidity), so the tile and finding 02 agree. -->
+        <section aria-labelledby="t-liq" style="min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 12px 16px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+            <h2 id="t-liq" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #52525B">Liquidity</h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 24px; line-height: 28px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">2,919</span><span style="display: flex; align-items: center; gap: 3px; font-size: 12px; line-height: 16px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>pro forma</span></div>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">from <span style="font-family: 'Geist Mono', ui-monospace, monospace">7,267</span> reported</span>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">Company-defined cash liquidity</span>
+          </div>
+          <!-- Drop bar. x: 0..7,500 -> 0..184 (0.0245333 px per unit). 2,919 -> 71.61 (teal, what remains); 7,267 -> 178.28. The span the dividend removes, 71.61..178.28, is an orange hatch with a solid orange edge (dashed is reserved for blocked). -->
+          <svg viewBox="0 0 184 40" width="100%" role="img" aria-label="Company-defined cash liquidity: 7,267 reported, falling to 2,919 pro forma for the dividend." style="display: block">
+            <defs>
+              <pattern id="hatch-liq" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#FFF7ED"></rect><line x1="0" y1="0" x2="0" y2="5" stroke="#EA580C" stroke-width="1.25"></line></pattern>
+            </defs>
+            <rect x="0" y="6" width="71.61" height="14" rx="2" fill="{{accent}}"></rect>
+            <rect x="72.11" y="6.5" width="105.67" height="13" rx="2" fill="url(#hatch-liq)" stroke="#EA580C" stroke-width="1"></rect>
+            <text x="0" y="36" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A">2,919</text>
+            <text x="178.28" y="36" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">7,267</text>
+          </svg>
+        </section>
+      </div>
+
+      <!-- ===== Row 3: judgement. Findings (span 7) beside the counter-argument and what would change the view (span 5). Tightened: 14/22 findings, inline basis chip, outcomes side by side. ===== -->
+      <section aria-labelledby="t-find" style="grid-column: span 7; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 14px 20px 4px; display: flex; flex-direction: column; gap: 6px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px">
+          <h2 id="t-find" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Key findings</h2>
+          <span style="font-size: 12px; line-height: 16px; color: #71717A">In the modules’ own words</span>
+        </div>
+        <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+          <li style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 32px; gap: 12px; align-items: start; padding: 8px 0; border-top: 1px solid #E4E4E7">
+            <span style="padding-top: 3px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 22px; color: #71717A">01</span>
+            <p style="margin: 0; padding-top: 3px; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">Paid shareholder distributions already exceed free cash flow before acquisitions.</p>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </li>
+          <li style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 32px; gap: 12px; align-items: start; padding: 8px 0; border-top: 1px solid #E4E4E7">
+            <span style="padding-top: 3px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 22px; color: #71717A">02</span>
+            <p style="margin: 0; padding-top: 3px; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">Pro forma cash liquidity falls to USD 2,919 million from the reported USD 7,267 million.</p>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </li>
+          <li style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 32px; gap: 12px; align-items: start; padding: 8px 0; border-top: 1px solid #E4E4E7">
+            <span style="padding-top: 3px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 22px; color: #71717A">03</span>
+            <p style="margin: 0; padding-top: 3px; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">Pro forma net leverage of 5.55x sits 1.70x below the 7.25x incurrence level. EBITDA As Defined would have to fall 23.47%. <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; border: 1px solid #E4E4E7; background: #FAFAFA; box-sizing: border-box; vertical-align: 1px; font-size: 11px; line-height: 14px; color: #52525B; white-space: nowrap">EBITDA As Defined basis</span></p>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </li>
+          <li style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 32px; gap: 12px; align-items: start; padding: 8px 0; border-top: 1px solid #E4E4E7">
+            <span style="padding-top: 3px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 22px; color: #71717A">04</span>
+            <p style="margin: 0; padding-top: 3px; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">Secured debt of USD 19,702 million ranks ahead of USD 4,600 million of subordinated notes.</p>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </li>
+          <li style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 32px; gap: 12px; align-items: start; padding: 8px 0; border-top: 1px solid #E4E4E7">
+            <span style="padding-top: 3px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 22px; color: #71717A">05</span>
+            <p style="margin: 0; padding-top: 3px; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">The September dividend was 69.00% covered by the concurrent USD 3,000 million of new senior secured debt.</p>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </li>
+          <li style="display: grid; grid-template-columns: 24px minmax(0, 1fr) 32px; gap: 12px; align-items: start; padding: 8px 0; border-top: 1px solid #E4E4E7">
+            <span style="padding-top: 3px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 22px; color: #71717A">06</span>
+            <p style="margin: 0; padding-top: 3px; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">Organic sales grew USD 1,067 million, or 16.2%, with defense up USD 486 million (18.9%), commercial OEM up USD 294 million (20.4%) and commercial aftermarket up USD 253 million (12.0%).</p>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </li>
+        </ol>
+      </section>
+
+      <div style="grid-column: span 5; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+
+        <!-- Contrary evidence: its own counter-surface, the navy tint (#EFF4FA / #C7D6E8), so the counter-argument reads as one and never as "current/selected". -->
+        <section aria-labelledby="t-contra" style="flex: 1 1 auto; box-sizing: border-box; background: #EFF4FA; border: 1px solid #C7D6E8; border-radius: 20px; padding: 16px 20px 18px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+            <h2 id="t-contra" style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E3A5F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 21h10M4 7h16"/><path d="M7 7 4 14a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/></svg>
+              Contrary evidence
+            </h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #C7D6E8; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: start">
+            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" style="display: block"><path fill="#1E3A5F" d="M4 18v-5.5C4 8.4 6.2 5.7 10 5l.8 1.7C8.6 7.4 7.5 9 7.4 11H10v7zm10 0v-5.5c0-4.1 2.2-6.8 6-7.5l.8 1.7c-2.2.7-3.3 2.3-3.4 4.3H20v7z"/></svg>
+            <blockquote style="margin: 0; font-size: 18px; line-height: 28px; font-weight: 500; letter-spacing: -0.01em; color: #0A0A0A; text-wrap: pretty">The strongest contrary evidence is improved operating cash generation and interest coverage alongside a largely deferred contractual maturity profile.</blockquote>
+          </div>
+        </section>
+
+        <!-- What would change the view: the two outcomes as side-by-side wells (tile R20, inset 12, well R8, icon chip R4). -->
+        <section aria-labelledby="t-wwc" style="box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 8px 0">
+            <h2 id="t-wwc" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">What would change the view</h2>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+            <div style="min-width: 0; background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span aria-hidden="true" style="width: 24px; height: 24px; flex: none; box-sizing: border-box; border-radius: 4px; background: {{accentTint}}; border: 1px solid {{accentLine}}; display: grid; place-items: center; color: {{accent}}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+                <span style="font-size: 12px; line-height: 16px; font-weight: 500; color: {{accent}}">If resolved favourably</span>
+              </div>
+              <p style="margin: 0; font-size: 14px; line-height: 21px; color: #0A0A0A">Resolved favourably … the bias moves to Starter Position in the secured layer;</p>
+            </div>
+            <div style="min-width: 0; background: #F4F4F5; border: 1px solid #E4E4E7; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span aria-hidden="true" style="width: 24px; height: 24px; flex: none; box-sizing: border-box; border-radius: 4px; background: #FFF7ED; border: 1px solid #FED7AA; display: grid; place-items: center; color: #C2410C"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7l10 10M17 9v8H9"/></svg></span>
+                <span style="font-size: 12px; line-height: 16px; font-weight: 500; color: #C2410C">If resolved adversely</span>
+              </div>
+              <p style="margin: 0; font-size: 14px; line-height: 21px; color: #0A0A0A">resolved adversely … the subordinated notes move to Avoid and the secured layer stays at Watchlist.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== Row 4: structure. Maturity wall (span 8) + capital structure by rank (span 4). ===== -->
+      <section aria-labelledby="t-mat" style="grid-column: span 8; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 16px">
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 24px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 id="t-mat" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Maturity wall</h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">Principal by fiscal year; years end 30 Sep</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 16px">
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: #52525B"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 2px; background: {{accent}}"></span>Dated year</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: #52525B"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><rect x="0.75" y="0.75" width="8.5" height="8.5" rx="2" fill="{{accentTint}}" stroke="{{accent}}" stroke-width="1.5"></rect><path d="M0 10 10 0M-2 4 4-2M6 12 12 6" stroke="{{accent}}" stroke-width="1.5"></path></svg>Thereafter, undated</span>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+        </div>
+        <!--
+          Wall on a uniform fiscal-year axis. y: 0..14,000 -> 250..30 (0.0157143 px per unit). Baseline y 250.
+          580 -> h 9.11 (y 240.89); 92 -> h 1.45, drawn at the 2px minimum so it stays visible (y 248);
+          6,637 -> h 104.30 (y 145.70); 4,768 -> h 74.93 (y 175.07); 12,637 -> h 198.58 (y 51.42).
+          Slots 136 wide from x 16: FY2025 c84, FY2026 c220, FY2027 c356, FY2028 c492, FY2029 c628; axis break 696..736; Thereafter c804. Bars 88 wide.
+          Thereafter on light: teal stripes on the teal tint with a 1.5 px teal edge (inset 0.75 so the edge sits inside the 198.58 height).
+        -->
+        <svg viewBox="0 0 872 300" width="100%" role="img" aria-label="Debt maturities by fiscal year: FY2025 580, FY2026 92, FY2027 92, FY2028 6,637, FY2029 4,768, and 12,637 thereafter." style="display: block">
+          <defs>
+            <pattern id="hatch-mat" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="{{accentTint}}"></rect><line x1="0" y1="0" x2="0" y2="6" stroke="{{accent}}" stroke-width="2"></line></pattern>
+          </defs>
+          <rect x="40" y="240.89" width="88" height="9.11" rx="1.5" fill="{{accent}}"></rect>
+          <rect x="176" y="248" width="88" height="2" rx="1" fill="{{accent}}"></rect>
+          <rect x="312" y="248" width="88" height="2" rx="1" fill="{{accent}}"></rect>
+          <rect x="448" y="145.7" width="88" height="104.3" rx="3" fill="{{accent}}"></rect>
+          <rect x="584" y="175.07" width="88" height="74.93" rx="3" fill="{{accent}}"></rect>
+          <rect x="760.75" y="52.17" width="86.5" height="197.08" rx="2.5" fill="url(#hatch-mat)" stroke="{{accent}}" stroke-width="1.5"></rect>
+          <line x1="0" y1="250" x2="710" y2="250" stroke="#A1A1AA" stroke-width="1"></line>
+          <line x1="722" y1="250" x2="872" y2="250" stroke="#A1A1AA" stroke-width="1"></line>
+          <path d="M703 258 711 242M719 258 727 242" stroke="#71717A" stroke-width="1.25" fill="none"></path>
+          <line x1="16" y1="250" x2="16" y2="256" stroke="#A1A1AA"></line>
+          <line x1="152" y1="250" x2="152" y2="256" stroke="#A1A1AA"></line>
+          <line x1="288" y1="250" x2="288" y2="256" stroke="#A1A1AA"></line>
+          <line x1="424" y1="250" x2="424" y2="256" stroke="#A1A1AA"></line>
+          <line x1="560" y1="250" x2="560" y2="256" stroke="#A1A1AA"></line>
+          <line x1="696" y1="250" x2="696" y2="256" stroke="#A1A1AA"></line>
+          <text x="84" y="230.9" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#0A0A0A">580</text>
+          <text x="220" y="238" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#0A0A0A">92</text>
+          <text x="356" y="238" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#0A0A0A">92</text>
+          <text x="492" y="135.7" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" font-weight="500" fill="#0A0A0A">6,637</text>
+          <text x="628" y="165.07" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" font-weight="500" fill="#0A0A0A">4,768</text>
+          <text x="804" y="41.42" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" font-weight="500" fill="#0A0A0A">12,637</text>
+          <text x="84" y="274" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#52525B">FY2025</text>
+          <text x="220" y="274" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#52525B">FY2026</text>
+          <text x="356" y="274" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#52525B">FY2027</text>
+          <text x="492" y="274" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#52525B">FY2028</text>
+          <text x="628" y="274" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#52525B">FY2029</text>
+          <text x="804" y="274" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" fill="#52525B">Thereafter</text>
+          <text x="16" y="294" font-family="Geist, sans-serif" font-size="11" fill="#71717A">from 30 Sep 2024</text>
+        </svg>
+      </section>
+
+      <section aria-labelledby="t-cap" style="grid-column: span 4; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 id="t-cap" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Capital structure by rank</h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">Principal; first claim at the top</span>
+          </div>
+          <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+        </div>
+        <!--
+          Proportional stack. 19,702 + 4,600 = 24,302 -> 252 px (0.0103695 px per unit); 6 px rank gap; each segment drawn 1 px short so the white tile shows as the separator.
+          Secured (top, y 8..212.30): TL I 1,871 (19.40), TL K 1,699 (17.62), TL J 3,632 (37.66), TL L 1,500 (15.55),
+          notes 2028 2,100 (21.78), 2029 2,750 (28.52), 2030 1,450 (15.04), 2031 1,000 (10.37), 2032 2,200 (22.81), 2033 1,500 (15.55) = 204.30.
+          Subordinated (y 218.30..266): 2027 2,650 (27.48), Jan 2029 1,200 (12.44), May 2029 750 (7.78) = 47.70.
+          Colours: term loans teal, secured notes navy, subordinated zinc; all three differ in lightness.
+        -->
+        <svg viewBox="0 0 408 276" width="100%" role="img" aria-label="Capital structure by rank. Secured debt 19,702: term loans I 1,871, K 1,699, J 3,632 and L 1,500, and secured notes 2028 2,100, 2029 2,750, 2030 1,450, 2031 1,000, 2032 2,200 and 2033 1,500. Behind it, subordinated notes 4,600: 2027 2,650, January 2029 1,200 and May 2029 750." style="display: block">
+          <rect x="0" y="8" width="56" height="18.4" rx="2" fill="{{accent}}"></rect>
+          <rect x="0" y="27.4" width="56" height="16.62" fill="{{accent}}"></rect>
+          <rect x="0" y="45.02" width="56" height="36.66" fill="{{accent}}"></rect>
+          <rect x="0" y="82.68" width="56" height="14.55" fill="{{accent}}"></rect>
+          <rect x="0" y="98.23" width="56" height="20.78" fill="#1E3A5F"></rect>
+          <rect x="0" y="120.01" width="56" height="27.52" fill="#1E3A5F"></rect>
+          <rect x="0" y="148.53" width="56" height="14.04" fill="#1E3A5F"></rect>
+          <rect x="0" y="163.57" width="56" height="9.37" fill="#1E3A5F"></rect>
+          <rect x="0" y="173.94" width="56" height="21.81" fill="#1E3A5F"></rect>
+          <rect x="0" y="196.75" width="56" height="15.55" rx="2" fill="#1E3A5F"></rect>
+          <rect x="0" y="218.3" width="56" height="26.48" rx="2" fill="#A1A1AA"></rect>
+          <rect x="0" y="245.78" width="56" height="11.44" fill="#A1A1AA"></rect>
+          <rect x="0" y="258.22" width="56" height="7.78" rx="2" fill="#A1A1AA"></rect>
+          <path d="M64 8.5H68V211.8H64M64 218.8H68V265.5H64" stroke="#A1A1AA" stroke-width="1" fill="none"></path>
+          <text x="80" y="20" font-family="Geist, sans-serif" font-size="13" font-weight="500" fill="#0A0A0A">Secured</text>
+          <text x="408" y="20" text-anchor="end" font-family="Geist Mono, monospace" font-size="13" font-weight="500" fill="#0A0A0A">19,702</text>
+          <rect x="80" y="31" width="8" height="8" rx="2" fill="{{accent}}"></rect>
+          <text x="94" y="39" font-family="Geist, sans-serif" font-size="11" fill="#52525B">Term loans</text>
+          <text x="80" y="56" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">I · 1,871 · Aug 2028</text>
+          <text x="240" y="56" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">K · 1,699 · Mar 2030</text>
+          <text x="80" y="72" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">J · 3,632 · Feb 2031</text>
+          <text x="240" y="72" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">L · 1,500 · Jan 2032</text>
+          <rect x="80" y="108" width="8" height="8" rx="2" fill="#1E3A5F"></rect>
+          <text x="94" y="116" font-family="Geist, sans-serif" font-size="11" fill="#52525B">Secured notes</text>
+          <text x="80" y="134" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">2028 · 2,100 · 6.75%</text>
+          <text x="240" y="134" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">2031 · 1,000 · 7.125%</text>
+          <text x="80" y="150" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">2029 · 2,750 · 6.375%</text>
+          <text x="240" y="150" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">2032 · 2,200 · 6.625%</text>
+          <text x="80" y="166" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">2030 · 1,450 · 6.875%</text>
+          <text x="240" y="166" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">2033 · 1,500 · 6.00%</text>
+          <text x="80" y="234" font-family="Geist, sans-serif" font-size="13" font-weight="500" fill="#0A0A0A">Subordinated</text>
+          <text x="408" y="234" text-anchor="end" font-family="Geist Mono, monospace" font-size="13" font-weight="500" fill="#0A0A0A">4,600</text>
+          <text x="80" y="252" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">2027 · 2,650 · 5.50%</text>
+          <text x="240" y="252" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">Jan 2029 · 1,200 · 4.625%</text>
+          <text x="80" y="268" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">May 2029 · 750 · 4.875%</text>
+        </svg>
+        <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 12px; border-top: 1px solid #E4E4E7">
+          <p style="margin: 0; font-size: 12px; line-height: 18px; color: #52525B">Shown outside the stack: revolver 910 commitment (843 available), receivables securitization 487.</p>
+          <p style="margin: 0; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; font-size: 12px; line-height: 18px; color: #52525B">
+            <svg viewBox="0 0 14 14" width="14" height="14" aria-hidden="true" style="display: block; position: relative; top: 2px"><rect x="0.75" y="0.75" width="12.5" height="12.5" rx="3" fill="#FAFAFA" stroke="#A1A1AA" stroke-width="1.25" stroke-dasharray="2.5 2"></rect><path d="M3.5 10.5 10.5 3.5M1.5 7.5 7.5 1.5M6.5 12.5 12.5 6.5" stroke="#A1A1AA" stroke-width="1"></path></svg>
+            <span>The partial debt-stack chart cannot establish intercreditor control, collateral ranking or recovery outcomes.</span>
+          </p>
+        </div>
+      </section>
+
+      <!-- ===== Row 5: stress. Headroom (span 4), downside (span 5), forward path (span 3). EBITDA As Defined basis for headroom and downside. ===== -->
+      <section aria-labelledby="t-head" style="grid-column: span 4; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 id="t-head" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Headroom to incurrence</h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">EBITDA As Defined basis</span>
+          </div>
+          <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 44px; line-height: 48px; font-weight: 500; letter-spacing: -0.03em; color: #0A0A0A">1.70x</span>
+            <span style="font-size: 13px; line-height: 18px; color: #52525B">below the 7.25x incurrence level</span>
+          </div>
+          <span style="font-size: 13px; line-height: 18px; color: #0A0A0A">EBITDA As Defined falls <span style="font-family: 'Geist Mono', ui-monospace, monospace">23.47%</span> to reach it</span>
+        </div>
+        <!-- Bullet from zero. x: 0x..8x -> 8..400 (49 px per 1.0x). 5.55 -> 279.95; 7.25 -> 363.25; headroom span 83.30 (= 1.70x). The level is dashed orange: not tested. -->
+        <svg viewBox="0 0 408 100" width="100%" role="img" aria-label="Pro forma net leverage of 5.55x against the 7.25x incurrence level, 1.70x of headroom. The level is drawn dashed because it was not tested." style="display: block">
+          <text x="321.6" y="16" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#52525B">1.70x headroom</text>
+          <path d="M279.95 30V23H363.25V30" stroke="#71717A" stroke-width="1" fill="none"></path>
+          <rect x="8" y="34" width="392" height="20" rx="4" fill="#E4E4E7"></rect>
+          <rect x="8" y="34" width="271.95" height="20" rx="4" fill="{{accent}}"></rect>
+          <line x1="363.25" y1="28" x2="363.25" y2="60" stroke="#EA580C" stroke-width="2" stroke-dasharray="4 3"></line>
+          <text x="279.95" y="73" text-anchor="middle" font-family="Geist Mono, monospace" font-size="12" font-weight="500" fill="#0A0A0A">5.55x</text>
+          <text x="363.25" y="73" text-anchor="middle" font-family="Geist Mono, monospace" font-size="12" font-weight="500" fill="#C2410C">7.25x</text>
+          <text x="8" y="94" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">0x</text>
+          <text x="106" y="94" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">2x</text>
+          <text x="204" y="94" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">4x</text>
+          <text x="302" y="94" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6x</text>
+          <text x="400" y="94" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">8x</text>
+        </svg>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; line-height: 16px; color: #52525B">
+          <span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 2px; background: {{accent}}"></span>Pro forma net leverage</span>
+          <span style="display: flex; align-items: center; gap: 6px"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><line x1="5" y1="0" x2="5" y2="10" stroke="#EA580C" stroke-width="2" stroke-dasharray="3 2"></line></svg>Incurrence level, filing summary</span>
+        </div>
+        <div style="border-radius: 8px; border: 1px dashed #EA580C; background: #FFF7ED; padding: 10px 12px; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 4px 10px; align-items: center">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#C2410C" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></svg>
+          <span style="font-size: 13px; line-height: 18px; font-weight: 500; color: #C2410C">Not tested — legal module blocked</span>
+          <span></span>
+          <span style="font-size: 12px; line-height: 18px; color: #52525B">Covenant headroom figures: Not supplied. Also in the filing summary: 5.00x secured net incurrence; springing revolver test at 7.50x once revolver usage exceeds USD 364 million.</span>
+        </div>
+      </section>
+
+      <section aria-labelledby="t-down" style="grid-column: span 5; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 id="t-down" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Downside scenarios</h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">EBITDA As Defined basis</span>
+          </div>
+          <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; line-height: 16px; color: #52525B">
+          <span style="display: flex; align-items: center; gap: 6px"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="{{accent}}"></circle></svg>Total leverage</span>
+          <span style="display: flex; align-items: center; gap: 6px"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="3.5" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle></svg>Pro forma net leverage</span>
+          <span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 8px; border-radius: 2px; background: #1E3A5F"></span>Cash interest cover</span>
+        </div>
+        <!--
+          Small comparison, three rows (y 52 / 96 / 140).
+          Leverage panel x: 5x..9x -> 96..356 (65 px per 1.0x): 6.01 -> 161.65, 5.55 -> 131.75, 7.07 -> 230.55, 6.53 -> 195.45, 8.71 -> 337.15, 8.04 -> 293.6, incurrence 7.25 -> 242.25.
+          Cover panel x: 0x..4x -> 380..488 (27 px per 1.0x), bars from zero: 3.60 -> 97.2, 2.99 -> 80.73, 2.36 -> 63.72. Cover is the secondary series, so navy.
+        -->
+        <svg viewBox="0 0 524 184" width="100%" role="img" aria-label="Downside scenarios. Control: total leverage 6.01x, pro forma net 5.55x, cover 3.60x. Scenario 1: gross 7.07x, net 6.53x, cover 2.99x. Severe: total 8.71x, net 8.04x, cover 2.36x. Severe net leverage passes the 7.25x incurrence level." style="display: block">
+          <text x="96" y="12" font-family="Geist, sans-serif" font-size="11" fill="#71717A">Leverage</text>
+          <text x="380" y="12" font-family="Geist, sans-serif" font-size="11" fill="#71717A">Cash interest cover</text>
+          <line x1="0" y1="74" x2="524" y2="74" stroke="#E4E4E7"></line>
+          <line x1="0" y1="118" x2="524" y2="118" stroke="#E4E4E7"></line>
+          <line x1="96" y1="26" x2="96" y2="160" stroke="#E4E4E7"></line>
+          <line x1="161" y1="26" x2="161" y2="160" stroke="#E4E4E7"></line>
+          <line x1="226" y1="26" x2="226" y2="160" stroke="#E4E4E7"></line>
+          <line x1="291" y1="26" x2="291" y2="160" stroke="#E4E4E7"></line>
+          <line x1="356" y1="26" x2="356" y2="160" stroke="#E4E4E7"></line>
+          <line x1="242.25" y1="20" x2="242.25" y2="160" stroke="#EA580C" stroke-width="1.5" stroke-dasharray="4 3"></line>
+          <text x="242.25" y="12" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" font-weight="500" fill="#C2410C">7.25x</text>
+          <text x="0" y="56" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Control</text>
+          <text x="0" y="100" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Scenario 1</text>
+          <text x="0" y="144" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Severe</text>
+          <line x1="131.75" y1="52" x2="161.65" y2="52" stroke="#A1A1AA" stroke-width="2"></line>
+          <line x1="195.45" y1="96" x2="230.55" y2="96" stroke="#A1A1AA" stroke-width="2"></line>
+          <line x1="293.6" y1="140" x2="337.15" y2="140" stroke="#A1A1AA" stroke-width="2"></line>
+          <circle cx="131.75" cy="52" r="4.5" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+          <circle cx="161.65" cy="52" r="5" fill="{{accent}}"></circle>
+          <circle cx="195.45" cy="96" r="4.5" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+          <circle cx="230.55" cy="96" r="5" fill="{{accent}}"></circle>
+          <circle cx="293.6" cy="140" r="4.5" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+          <circle cx="337.15" cy="140" r="5" fill="{{accent}}"></circle>
+          <text x="122.75" y="56" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">5.55x</text>
+          <text x="170.65" y="56" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A">6.01x</text>
+          <text x="186.45" y="100" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">6.53x</text>
+          <text x="239.55" y="100" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="4" paint-order="stroke">7.07x</text>
+          <text x="284.6" y="144" text-anchor="end" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">8.04x</text>
+          <text x="346.15" y="144" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A">8.71x</text>
+          <line x1="380" y1="26" x2="380" y2="160" stroke="#A1A1AA"></line>
+          <line x1="488" y1="26" x2="488" y2="160" stroke="#E4E4E7"></line>
+          <rect x="380" y="46" width="97.2" height="12" rx="2" fill="#1E3A5F"></rect>
+          <rect x="380" y="90" width="80.73" height="12" rx="2" fill="#1E3A5F"></rect>
+          <rect x="380" y="134" width="63.72" height="12" rx="2" fill="#1E3A5F"></rect>
+          <text x="483.2" y="56" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A">3.60x</text>
+          <text x="466.73" y="100" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A">2.99x</text>
+          <text x="449.72" y="144" font-family="Geist Mono, monospace" font-size="11" fill="#0A0A0A">2.36x</text>
+          <text x="96" y="178" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">5x</text>
+          <text x="161" y="178" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6x</text>
+          <text x="226" y="178" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">7x</text>
+          <text x="291" y="178" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">8x</text>
+          <text x="356" y="178" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">9x</text>
+          <text x="380" y="178" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">0x</text>
+          <text x="488" y="178" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">4x</text>
+        </svg>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid #E4E4E7; font-size: 12px; line-height: 18px; color: #52525B">
+          <span>Scenario 1: EBITDA −15%, interest +2.59%. FCF 1,224.06 in scenario 1; 526.39 in the severe case.</span>
+          <span>Break point: a 23.47% fall in EBITDA As Defined reaches the 7.25x incurrence level.</span>
+        </div>
+      </section>
+
+      <section aria-labelledby="t-fwd" style="grid-column: span 3; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <h2 id="t-fwd" style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Forward path</h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">Net leverage, base case</span>
+          </div>
+          <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px">
+          <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 32px; line-height: 36px; font-weight: 500; letter-spacing: -0.03em; color: #0A0A0A">3.05x</span>
+          <span style="font-size: 13px; line-height: 18px; color: #52525B">by FY2027</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <!--
+            y: 2.5x..6.0x -> 130..20 (31.4286 px per 1.0x). 5.50 -> 35.71; 5.65 -> 31.00; 3.05 -> 112.71.
+            Gridlines 6x y20, 5x y51.43, 4x y82.86, 3x y114.29. Slots x: FY2024 PF 56, FY2025 128 (gap band 110..146), FY2026 200, FY2027 272.
+            No line is drawn across FY2025: the handoff has no figure for it. The band uses the gap tokens.
+            The start is the forward model's own 5.50x; the caption under the chart owns the 5.55x difference.
+          -->
+          <svg viewBox="0 0 292 170" width="100%" role="img" aria-label="Base-case net leverage: 5.50x pro forma at the start on the forward model's basis, no FY2025 figure in the handoff, a peak of 5.65x in FY2026 and 3.05x by FY2027." style="display: block">
+            <defs>
+              <pattern id="hatch-fwd" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#FAFAFA"></rect><line x1="0" y1="0" x2="0" y2="6" stroke="#D4D4D8" stroke-width="1.5"></line></pattern>
+            </defs>
+            <line x1="20" y1="20" x2="292" y2="20" stroke="#E4E4E7"></line>
+            <line x1="20" y1="51.43" x2="292" y2="51.43" stroke="#E4E4E7"></line>
+            <line x1="20" y1="82.86" x2="292" y2="82.86" stroke="#E4E4E7"></line>
+            <line x1="20" y1="114.29" x2="292" y2="114.29" stroke="#E4E4E7"></line>
+            <text x="0" y="24" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">6x</text>
+            <text x="0" y="55.43" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">5x</text>
+            <text x="0" y="86.86" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">4x</text>
+            <text x="0" y="118.29" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">3x</text>
+            <rect x="110.5" y="14.5" width="35" height="123" rx="4" fill="url(#hatch-fwd)" stroke="#A1A1AA" stroke-width="1" stroke-dasharray="3 3"></rect>
+            <text transform="translate(132 76) rotate(-90)" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#52525B">Not in handoff</text>
+            <line x1="200" y1="31" x2="272" y2="112.71" stroke="{{accent}}" stroke-width="2"></line>
+            <circle cx="56" cy="35.71" r="5" fill="#FFFFFF" stroke="#71717A" stroke-width="2"></circle>
+            <circle cx="200" cy="31" r="5" fill="{{accent}}"></circle>
+            <circle cx="272" cy="112.71" r="5" fill="{{accent}}"></circle>
+            <text x="56" y="23" text-anchor="middle" font-family="Geist Mono, monospace" font-size="12" fill="#52525B">5.50x</text>
+            <text x="200" y="18" text-anchor="middle" font-family="Geist Mono, monospace" font-size="12" fill="#0A0A0A">5.65x peak</text>
+            <text x="272" y="132" text-anchor="middle" font-family="Geist Mono, monospace" font-size="12" font-weight="500" fill="#0A0A0A">3.05x</text>
+            <text x="56" y="158" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#71717A">FY2024 PF</text>
+            <text x="128" y="158" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#71717A">FY2025</text>
+            <text x="200" y="158" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#71717A">FY2026</text>
+            <text x="272" y="158" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#71717A">FY2027</text>
+          </svg>
+          <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Forward model basis; the credit module states <span style="font-family: 'Geist Mono', ui-monospace, monospace">5.55x</span>.</p>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid #E4E4E7; font-size: 12px; line-height: 18px; color: #52525B">
+          <span>Interest cover never below <span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #0A0A0A">3.01x</span>.</span>
+          <span>Sales growth 12%, margin 52.56%. FY2027 revenue 9,998.68; EBITDA 5,255.31.</span>
+        </div>
+      </section>
+
+      <!-- ===== Row 6: what this run could not do. First-class tile; each gap is a hatched, dashed well (tile R20, inset 12, well R8). Status words sit on solid chips so orange text never lies on a hatch line. ===== -->
+      <section aria-labelledby="t-gaps" style="grid-column: span 12; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 12px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 6px 8px 0; min-height: 32px">
+          <h2 id="t-gaps" style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="3" fill="#FAFAFA" stroke="#A1A1AA" stroke-width="1.5" stroke-dasharray="3 2.4"></rect><path d="M4 12 12 4M1.8 8.2 8.2 1.8M7.8 14.2 14.2 7.8" stroke="#A1A1AA" stroke-width="1"></path></svg>
+            What this run could not do
+          </h2>
+          <span style="font-size: 12px; line-height: 16px; color: #71717A">Gaps are drawn as gaps, never as zero</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 12px">
+
+          <!-- Blocked: orange-family gap (tint hatch) with the dashed orange outline that only blocked items carry. -->
+          <div style="min-width: 0; box-sizing: border-box; border-radius: 8px; border: 1px dashed #EA580C; background-color: #FFF7ED; background-image: repeating-linear-gradient(135deg, #FED7AA 0 1px, transparent 1px 9px); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #52525B">CP-4</span>
+              <span style="height: 22px; padding: 0 8px 0 6px; border-radius: 5px; border: 1px dashed #EA580C; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center; gap: 5px; font-size: 12px; line-height: 16px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></svg>Blocked</span>
+            </div>
+            <h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: #0A0A0A">Legal &amp; covenants</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">Not assessable: no executed governing document available.</p>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 12px; line-height: 16px; color: #52525B">Covenant headroom figures <span style="height: 22px; padding: 0 8px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center; color: #52525B">Not supplied</span></div>
+          </div>
+
+          <div style="min-width: 0; box-sizing: border-box; border-radius: 8px; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 9px); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #52525B">CP-3</span>
+              <span style="height: 22px; padding: 0 8px 0 6px; border-radius: 5px; border: 1px solid #FED7AA; background: #FFF7ED; box-sizing: border-box; display: flex; align-items: center; gap: 5px; font-size: 12px; line-height: 16px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4v.3M12 16.6v.1"/></svg>Unclear</span>
+            </div>
+            <h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: #0A0A0A">Relative value</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“…the pack holds no yields, spreads, peer levels or loan-market data”</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px">
+              <span style="height: 22px; padding: 0 8px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center; font-size: 11px; color: #52525B">Yields</span>
+              <span style="height: 22px; padding: 0 8px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center; font-size: 11px; color: #52525B">Spreads</span>
+              <span style="height: 22px; padding: 0 8px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center; font-size: 11px; color: #52525B">Peer levels</span>
+              <span style="height: 22px; padding: 0 8px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center; font-size: 11px; color: #52525B">Loan-market data</span>
+            </div>
+          </div>
+
+          <div style="min-width: 0; box-sizing: border-box; border-radius: 8px; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 9px); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #52525B">Debt stack</span>
+              <span style="height: 22px; padding: 0 8px 0 6px; border-radius: 5px; border: 1px solid #FED7AA; background: #FFF7ED; box-sizing: border-box; display: flex; align-items: center; gap: 5px; font-size: 12px; line-height: 16px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>Partial</span>
+            </div>
+            <h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: #0A0A0A">Ranking and recovery</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">The partial debt-stack chart cannot establish intercreditor control, collateral ranking or recovery outcomes.</p>
+          </div>
+
+          <div style="min-width: 0; box-sizing: border-box; border-radius: 8px; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 9px); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #52525B">CP-DR</span>
+              <span style="height: 22px; padding: 0 8px 0 6px; border-radius: 5px; border: 1px solid #FED7AA; background: #FFF7ED; box-sizing: border-box; display: flex; align-items: center; gap: 5px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>33.33%</span>
+            </div>
+            <h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: #0A0A0A">Deep research coverage</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">Coverage is 33.33% of the locked questions (two of six answered).</p>
+            <div role="img" aria-label="Two of six locked questions answered" style="display: flex; gap: 6px">
+              <span style="width: 22px; height: 22px; border-radius: 4px; background: {{accent}}"></span>
+              <span style="width: 22px; height: 22px; border-radius: 4px; background: {{accent}}"></span>
+              <span style="width: 22px; height: 22px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box"></span>
+              <span style="width: 22px; height: 22px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box"></span>
+              <span style="width: 22px; height: 22px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box"></span>
+              <span style="width: 22px; height: 22px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box"></span>
+            </div>
+          </div>
+
+          <div style="min-width: 0; box-sizing: border-box; border-radius: 8px; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 9px); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+              <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #52525B">Periods</span>
+              <span style="height: 22px; padding: 0 8px 0 6px; border-radius: 5px; border: 1px solid #FED7AA; background: #FFF7ED; box-sizing: border-box; display: flex; align-items: center; gap: 5px; font-size: 12px; line-height: 16px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/></svg>Two periods</span>
+            </div>
+            <h3 style="margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: #0A0A0A">Annual history</h3>
+            <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">Only two annual periods supplied (FY2023, FY2024); FY2022 not supplied.</p>
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+              <span style="height: 40px; border-radius: 4px; border: 1px dashed #A1A1AA; background: #FFFFFF; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; line-height: 14px; color: #52525B"><span style="font-family: 'Geist Mono', ui-monospace, monospace">FY2022</span><span>Not supplied</span></span>
+              <span style="height: 40px; border-radius: 4px; background: #F4F4F5; border: 1px solid #D4D4D8; box-sizing: border-box; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #0A0A0A">FY2023</span>
+              <span style="height: 40px; border-radius: 4px; background: #F4F4F5; border: 1px solid #D4D4D8; box-sizing: border-box; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #0A0A0A">FY2024</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Row 7: the machine. 15 modules as a staged node graph, then the seven module bottom lines in three balanced columns. ===== -->
+      <section aria-labelledby="t-pipe" style="grid-column: span 12; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 12px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding: 6px 8px 0; min-height: 32px">
+          <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px">
+            <h2 id="t-pipe" style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#52525B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="align-self: center"><rect x="3" y="4" width="6" height="6" rx="1.5"/><rect x="15" y="14" width="6" height="6" rx="1.5"/><path d="M9 7h3a2 2 0 0 1 2 2v6a2 2 0 0 0 2 2h-1"/></svg>
+              Module pipeline
+            </h2>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">15 modules in five stages · all delivered except CP-4</span>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; font-size: 12px; line-height: 16px; color: #52525B">
+            <span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 4px; background: {{accent}}"></span>Delivered</span>
+            <span style="display: flex; align-items: center; gap: 6px"><svg viewBox="0 0 18 8" width="18" height="8" aria-hidden="true"><path d="M0 4h5M9 4h9" stroke="#EA580C" stroke-width="1.5" stroke-dasharray="3 2"></path></svg>Blocked, nothing passed on</span>
+            <a href="#" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #D4D4D8; box-sizing: border-box; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #0A0A0A">Open Modules<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </div>
+        </div>
+
+        <div style="border-radius: 8px; background: #F4F4F5; border: 1px solid #E4E4E7; overflow-x: auto">
+          <!--
+            Graph, viewBox 1352 x 230. Node 180 x 40 (R8), pitch 50 (gap 10). Stage gap 52; buses at gap midpoints x 230 / 462 / 890 / 1122.
+            Columns x: Sources 24; Financials 256; Credit 488 and 684 (two sub-columns, inner gap 16); Structure & market 916; Validation & decision 1148 (right edge 1328).
+            Credit sub-column A (CP-1A, CP-DR, CP-2, CP-2A): tops 28/78/128/178, centres 48/98/148/198.
+            Credit sub-column B (CP-2D, CP-2E, CP-2G) is offset half a pitch: tops 53/103/153, centres 73/123/173.
+            The stagger lets every stub run through a 10 px gap between nodes (5 px clear each side), so no edge crosses a node and no A -> B dependency is implied.
+            Other stages centre on y 123: CP-0 top 103; CP-1 78, CP-MODEL 128; CP-4 53, CP-3C 103, CP-3 153; CP-5 78, CP-6 128.
+            Node text: code baseline top+15, name baseline top+31, status dot at (x+166, top+11).
+            Edges #A1A1AA so they hold on the #F4F4F5 well; one animated layer only, a slow teal dash along delivered edges (off under reduced motion).
+            CP-4's input and output stubs are dashed orange with an X: nothing passed on.
+          -->
+          <svg viewBox="0 0 1352 230" width="100%" role="group" aria-label="Module pipeline in five stages. Sources: CP-0 Source readiness. Financials: CP-1 Financial foundation, CP-MODEL Model. Credit: CP-1A Business and governance, CP-DR Deep research, CP-2 Fundamental credit, CP-2A Downside, CP-2D Liquidity, CP-2E Rates, FX and hedging, CP-2G Forward model. Structure and market: CP-4 Legal and covenants, blocked; CP-3C Refinancing; CP-3 Security selection. Validation and decision: CP-5 Evidence validation, CP-6 Committee decision. All delivered except CP-4." style="display: block; min-width: 960px">
+            <text x="24" y="18" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">01</text><text x="46" y="18" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#52525B">Sources</text>
+            <text x="256" y="18" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">02</text><text x="278" y="18" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#52525B">Financials</text>
+            <text x="488" y="18" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">03</text><text x="510" y="18" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#52525B">Credit</text>
+            <text x="916" y="18" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">04</text><text x="938" y="18" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#52525B">Structure &amp; market</text>
+            <text x="1148" y="18" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">05</text><text x="1170" y="18" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#52525B">Validation &amp; decision</text>
+
+            <path d="M204 123H230M230 98V148M230 98H256M230 148H256M436 98H462M436 148H462M462 48V198M462 48H488M462 98H488M462 148H488M462 198H488M462 73H684M462 123H684M462 173H684M668 48H890M668 98H890M668 148H890M668 198H890M864 73H890M864 123H890M864 173H890M890 48V198M890 123H916M890 173H916M1096 123H1122M1096 173H1122M1122 98V173M1122 98H1148M1122 148H1148" fill="none" stroke="#A1A1AA" stroke-width="1.25"></path>
+            <path data-flow="1" d="M204 123H230M230 98V148M230 98H256M230 148H256M436 98H462M436 148H462M462 48V198M462 48H488M462 98H488M462 148H488M462 198H488M462 73H684M462 123H684M462 173H684M668 48H890M668 98H890M668 148H890M668 198H890M864 73H890M864 123H890M864 173H890M890 48V198M890 123H916M890 173H916M1096 123H1122M1096 173H1122M1122 98V173M1122 98H1148M1122 148H1148" fill="none" stroke="{{accent}}" stroke-width="1.5" stroke-dasharray="2 14" style="animation: flow 2.8s linear infinite"></path>
+            <path d="M890 73H898M908 73H916M1096 73H1104M1114 73H1122V98" fill="none" stroke="#EA580C" stroke-width="1.25" stroke-dasharray="3 3"></path>
+            <path d="M900 70 906 76M906 70 900 76M1106 70 1112 76M1112 70 1106 76" fill="none" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"></path>
+
+            <a href="#" aria-label="CP-0 Source readiness, delivered"><rect x="24" y="103" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="38" y="118" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-0</text><text x="38" y="134" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Source readiness</text><circle cx="190" cy="114" r="3.5" fill="{{accent}}"></circle></a>
+
+            <a href="#" aria-label="CP-1 Financial foundation, delivered"><rect x="256" y="78" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="270" y="93" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-1</text><text x="270" y="109" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Financial foundation</text><circle cx="422" cy="89" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-MODEL Model, delivered"><rect x="256" y="128" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="270" y="143" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-MODEL</text><text x="270" y="159" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Model</text><circle cx="422" cy="139" r="3.5" fill="{{accent}}"></circle></a>
+
+            <a href="#" aria-label="CP-1A Business and governance, delivered"><rect x="488" y="28" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="502" y="43" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-1A</text><text x="502" y="59" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Business &amp; governance</text><circle cx="654" cy="39" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-DR Deep research, delivered"><rect x="488" y="78" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="502" y="93" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-DR</text><text x="502" y="109" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Deep research</text><circle cx="654" cy="89" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-2 Fundamental credit, delivered"><rect x="488" y="128" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="502" y="143" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-2</text><text x="502" y="159" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Fundamental credit</text><circle cx="654" cy="139" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-2A Downside, delivered"><rect x="488" y="178" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="502" y="193" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-2A</text><text x="502" y="209" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Downside</text><circle cx="654" cy="189" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-2D Liquidity, delivered"><rect x="684" y="53" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="698" y="68" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-2D</text><text x="698" y="84" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Liquidity</text><circle cx="850" cy="64" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-2E Rates, FX and hedging, delivered"><rect x="684" y="103" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="698" y="118" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-2E</text><text x="698" y="134" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Rates, FX &amp; hedging</text><circle cx="850" cy="114" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-2G Forward model, delivered"><rect x="684" y="153" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="698" y="168" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-2G</text><text x="698" y="184" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Forward model</text><circle cx="850" cy="164" r="3.5" fill="{{accent}}"></circle></a>
+
+            <a href="#" aria-label="CP-4 Legal and covenants, blocked: not assessable, no executed governing document available"><rect x="916.5" y="53.5" width="179" height="39" rx="8" fill="#FFF7ED" stroke="#EA580C" stroke-width="1" stroke-dasharray="4 3"></rect><text x="930" y="68" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-4</text><circle cx="1030" cy="64.5" r="4.25" fill="none" stroke="#C2410C" stroke-width="1.25"></circle><path d="M1027 61.5 1033 67.5" stroke="#C2410C" stroke-width="1.25" stroke-linecap="round"></path><text x="1082" y="68" text-anchor="end" font-family="Geist, sans-serif" font-size="11" font-weight="500" fill="#C2410C">Blocked</text><text x="930" y="84" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Legal &amp; covenants</text></a>
+            <a href="#" aria-label="CP-3C Refinancing, delivered"><rect x="916" y="103" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="930" y="118" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-3C</text><text x="930" y="134" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Refinancing</text><circle cx="1082" cy="114" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-3 Security selection, delivered"><rect x="916" y="153" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="930" y="168" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-3</text><text x="930" y="184" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Security selection</text><circle cx="1082" cy="164" r="3.5" fill="{{accent}}"></circle></a>
+
+            <a href="#" aria-label="CP-5 Evidence validation, delivered"><rect x="1148" y="78" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="1162" y="93" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-5</text><text x="1162" y="109" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Evidence validation</text><circle cx="1314" cy="89" r="3.5" fill="{{accent}}"></circle></a>
+            <a href="#" aria-label="CP-6 Committee decision, delivered"><rect x="1148" y="128" width="180" height="40" rx="8" fill="#FFFFFF" stroke="#D4D4D8"></rect><text x="1162" y="143" font-family="Geist Mono, monospace" font-size="11" fill="#52525B">CP-6</text><text x="1162" y="159" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Committee decision</text><circle cx="1314" cy="139" r="3.5" fill="{{accent}}"></circle></a>
+          </svg>
+        </div>
+
+        <!-- Module bottom lines: three columns at 1440 (each ~429 px), filled in pipeline order and balanced by height: [CP-2, CP-2A] [CP-2E, CP-2G, CP-4] [CP-3, CP-5]. -->
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 0 8px 4px">
+          <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #71717A">Module bottom lines · others report status only: Delivered</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); column-gap: 24px; align-items: start">
+
+            <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0">
+              <li style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0 12px; border-top: 1px solid #E4E4E7; min-width: 0">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #0A0A0A">CP-2</span><span style="font-size: 12px; line-height: 16px; color: #71717A">Fundamental credit</span></span>
+                  <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+                </div>
+                <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“Total debt is 6.01x FY2024 EBITDA As Defined. Net debt pro forma for the special dividend paid on 2024-10-18 is 5.55x.”</p>
+              </li>
+              <li style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0 12px; border-top: 1px solid #E4E4E7; min-width: 0">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #0A0A0A">CP-2A</span><span style="font-size: 12px; line-height: 16px; color: #71717A">Downside</span></span>
+                  <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+                </div>
+                <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“In the severe case total leverage reaches 8.71x and pro forma net leverage 8.04x … FCF USD 526.39 million … covers cash interest 2.36x.”</p>
+              </li>
+            </ul>
+
+            <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0">
+              <li style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0 12px; border-top: 1px solid #E4E4E7; min-width: 0">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #0A0A0A">CP-2E</span><span style="font-size: 12px; line-height: 16px; color: #71717A">Rates, FX &amp; hedging</span><span style="height: 22px; padding: 0 8px; border-radius: 5px; border: 1px solid #E4E4E7; box-sizing: border-box; display: flex; align-items: center; gap: 6px; font-size: 11px; line-height: 14px; color: #52525B">Unhedged debt <span style="font-family: 'Geist Mono', ui-monospace, monospace; color: #0A0A0A">23.09%</span></span></span>
+                  <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+                </div>
+                <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“A 100 bp rise costs USD 30 million to USD 57.89 million a year.”</p>
+              </li>
+              <li style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0 12px; border-top: 1px solid #E4E4E7; min-width: 0">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #0A0A0A">CP-2G</span><span style="font-size: 12px; line-height: 16px; color: #71717A">Forward model</span></span>
+                  <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+                </div>
+                <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“Net leverage … from 5.50x pro forma … to 3.05x by FY2027 … peaks at 5.65x in FY2026, with interest cover never below 3.01x.”</p>
+              </li>
+              <li style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0 12px; border-top: 1px solid #E4E4E7; min-width: 0">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #0A0A0A">CP-4</span><span style="font-size: 12px; line-height: 16px; color: #71717A">Legal &amp; covenants</span><span style="height: 22px; padding: 0 7px 0 5px; border-radius: 5px; border: 1px dashed #EA580C; background: #FFF7ED; box-sizing: border-box; display: flex; align-items: center; gap: 4px; font-size: 11px; line-height: 14px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></svg>Blocked</span></span>
+                  <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+                </div>
+                <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“Not assessable: no executed governing document available.”</p>
+              </li>
+            </ul>
+
+            <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0">
+              <li style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0 12px; border-top: 1px solid #E4E4E7; min-width: 0">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #0A0A0A">CP-3</span><span style="font-size: 12px; line-height: 16px; color: #71717A">Security selection</span></span>
+                  <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+                </div>
+                <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“TransDigm’s debt earns Requires More Work with relative value Unclear: the fundamentals can carry the structure, but the pack holds no yields, spreads, peer levels or loan-market data.”</p>
+              </li>
+              <li style="display: flex; flex-direction: column; gap: 2px; padding: 8px 0 12px; border-top: 1px solid #E4E4E7; min-width: 0">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px">
+                  <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; line-height: 16px; color: #0A0A0A">CP-5</span><span style="font-size: 12px; line-height: 16px; color: #71717A">Evidence validation</span></span>
+                  <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+                </div>
+                <p style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">“Pass with Remediation. Critical Issues: 0. Material Issues: 4. Minor Issues: 3. Committee Use: Restricted.”</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Row 8: dates to watch on a true time axis. ===== -->
+      <section aria-labelledby="t-dates" style="grid-column: span 12; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
+          <h2 id="t-dates" style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#52525B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+            Dates to watch
+          </h2>
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: #52525B"><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><polygon points="6,0 12,6 6,12 0,6" fill="#EA580C"></polygon></svg>Cash paid out</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: #52525B"><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle></svg>Maturity</span>
+            <a href="#" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #D4D4D8; box-sizing: border-box; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #0A0A0A">Open Calendar<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+            <button type="button" aria-label="Show sources" style="width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><span style="width: 28px; height: 28px; box-sizing: border-box; border: 1px solid #E4E4E7; border-radius: 6px; background: transparent; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></span></button>
+          </div>
+        </div>
+        <div style="overflow-x: auto">
+          <!--
+            Time axis 1 Oct 2024 .. 1 Oct 2028 -> x 24..1312 (48 months, 26.833 px per month; position within a month by day).
+            18 Oct 2024 -> 38.71; 11 Jul 2025 -> 274.15; 15 Nov 2027 -> 1029.35; 15 Aug 2028 -> 1270.45; 24 Aug 2028 -> 1278.24.
+            Calendar-year starts: Jan 2025 104.5, Jan 2026 426.5, Jan 2027 748.5, Jan 2028 1070.5.
+          -->
+          <svg viewBox="0 0 1334 150" width="100%" role="img" aria-label="Dates to watch: 18 October 2024 special dividend paid, 4,348; 11 July 2025 receivables securitization matures, 487; 15 November 2027 subordinated notes mature, 2,650; 15 August 2028 secured notes mature, 2,100; 24 August 2028 term loan I matures, 1,871." style="display: block; min-width: 960px">
+            <line x1="24" y1="76" x2="1312" y2="76" stroke="#A1A1AA" stroke-width="1"></line>
+            <line x1="104.5" y1="72" x2="104.5" y2="80" stroke="#A1A1AA"></line>
+            <line x1="426.5" y1="72" x2="426.5" y2="80" stroke="#A1A1AA"></line>
+            <line x1="748.5" y1="72" x2="748.5" y2="80" stroke="#A1A1AA"></line>
+            <line x1="1070.5" y1="72" x2="1070.5" y2="80" stroke="#A1A1AA"></line>
+            <line x1="1312" y1="72" x2="1312" y2="80" stroke="#A1A1AA"></line>
+            <text x="24" y="98" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">Oct 2024</text>
+            <text x="104.5" y="98" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">2025</text>
+            <text x="426.5" y="98" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">2026</text>
+            <text x="748.5" y="98" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">2027</text>
+            <text x="1070.5" y="98" text-anchor="middle" font-family="Geist Mono, monospace" font-size="11" fill="#71717A">2028</text>
+
+            <line x1="38.71" y1="56" x2="38.71" y2="69" stroke="#A1A1AA"></line>
+            <line x1="274.15" y1="56" x2="274.15" y2="70" stroke="#A1A1AA"></line>
+            <line x1="1029.35" y1="56" x2="1029.35" y2="70" stroke="#A1A1AA"></line>
+            <line x1="1278.24" y1="56" x2="1278.24" y2="70" stroke="#A1A1AA"></line>
+            <line x1="1270.45" y1="82" x2="1270.45" y2="104" stroke="#A1A1AA"></line>
+
+            <polygon points="38.71,70 44.71,76 38.71,82 32.71,76" fill="#EA580C"></polygon>
+            <circle cx="274.15" cy="76" r="4" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+            <circle cx="1029.35" cy="76" r="4" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+            <circle cx="1270.45" cy="76" r="4" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+            <circle cx="1278.24" cy="76" r="4" fill="#FFFFFF" stroke="{{accent}}" stroke-width="2"></circle>
+
+            <text x="38.71" y="30" font-family="Geist Mono, monospace" font-size="12" fill="#52525B">18 Oct 2024</text>
+            <text x="38.71" y="48" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Special dividend paid <tspan font-family="Geist Mono, monospace" fill="#52525B">4,348</tspan></text>
+            <text x="274.15" y="30" font-family="Geist Mono, monospace" font-size="12" fill="#52525B">11 Jul 2025</text>
+            <text x="274.15" y="48" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Receivables securitization matures <tspan font-family="Geist Mono, monospace" fill="#52525B">487</tspan></text>
+            <text x="1029.35" y="30" text-anchor="end" font-family="Geist Mono, monospace" font-size="12" fill="#52525B">15 Nov 2027</text>
+            <text x="1029.35" y="48" text-anchor="end" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Subordinated notes mature <tspan font-family="Geist Mono, monospace" fill="#52525B">2,650</tspan></text>
+            <text x="1278.24" y="30" text-anchor="end" font-family="Geist Mono, monospace" font-size="12" fill="#52525B">24 Aug 2028</text>
+            <text x="1278.24" y="48" text-anchor="end" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">Term loan I matures <tspan font-family="Geist Mono, monospace" fill="#52525B">1,871</tspan></text>
+            <text x="1270.45" y="120" text-anchor="end" font-family="Geist Mono, monospace" font-size="12" fill="#52525B">15 Aug 2028</text>
+            <text x="1270.45" y="138" text-anchor="end" font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">2028 secured notes mature <tspan font-family="Geist Mono, monospace" fill="#52525B">2,100</tspan></text>
+          </svg>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#0F766E"},"$preview":{"width":1440,"height":3880}}'>
+class Component extends DCLogic {
+rgb(hex) {
+  var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  var n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+mix(hex, toward, t) {
+  var a = this.rgb(hex), b = this.rgb(toward);
+  if (!a || !b) return hex;
+  return '#' + [0, 1, 2].map(function (i) {
+    var v = Math.round(a[i] + (b[i] - a[i]) * t);
+    return ('0' + v.toString(16)).slice(-2);
+  }).join('');
+}
+renderVals() {
+  var raw = this.props.accent ?? '#0F766E';
+  var accent = this.rgb(raw) ? (raw.charAt(0) === '#' ? raw : '#' + raw) : '#0F766E';
+  var isDefault = accent.toUpperCase() === '#0F766E';
+  return {
+    accent: accent,
+    accentTint: isDefault ? '#F0FDFA' : this.mix(accent, '#FFFFFF', 0.94),
+    accentLine: isDefault ? '#99F6E4' : this.mix(accent, '#FFFFFF', 0.6)
+  };
+}
+}
+</script>
+</body>
+</html>

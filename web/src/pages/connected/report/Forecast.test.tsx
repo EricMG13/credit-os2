@@ -50,6 +50,15 @@ function entry(
   };
 }
 
+/** A chart's list row in the run-chart tables, found by its title. */
+function chartRow(title: string) {
+  const row = screen
+    .getAllByRole("listitem")
+    .find((item) => item.querySelector(":scope > div > span")?.textContent === title);
+  if (!row) throw new Error(`No chart row for ${title}`);
+  return row;
+}
+
 it("draws the designated run figure with a same-output trace even when no model was published", () => {
   const alternative = entry("CP-1", "Retained maturity schedule", { selected: false, value: "75" });
   const selected = entry("CP-1", "Debt maturities");
@@ -71,25 +80,31 @@ it("draws the designated run figure with a same-output trace even when no model 
   };
   render(<Forecast view={view} run={run} />);
   expect(screen.getByText(/No forecast model was published/)).toBeInTheDocument();
-  const figure = within(screen.getByRole("figure", { name: "Debt maturities" }));
-  expect(figure.getByRole("link", { name: "Source table" })).toHaveAttribute(
+  const row = within(chartRow("Debt maturities"));
+  expect(row.getByRole("link", { name: "Source table" })).toHaveAttribute(
     "href",
     `/report/current#evidence/Debt%20maturities~${"d".repeat(64)}-21`,
   );
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
-  expect(figure.getByRole("cell", { name: "0.00" })).toBeInTheDocument();
-  expect(figure.getByRole("cell", { name: "Not supplied: schedule ends" })).toBeInTheDocument();
+  fireEvent.click(row.getByRole("button", { name: "Table for Debt maturities" }));
+  const table = within(row.getByRole("region", { name: "Debt maturities table" }));
+  expect(table.getByRole("cell", { name: "0.00" })).toBeInTheDocument();
+  expect(table.getByRole("cell", { name: "Not supplied: schedule ends" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Financial foundation" })).toHaveAttribute(
     "href",
     "#modules/CP-1",
   );
   expect(screen.getAllByText("No dated proposal was evaluated").length).toBeGreaterThanOrEqual(2);
-  expect(screen.getByText("Module not assessable.")).toBeInTheDocument();
-  expect(screen.queryByRole("figure", { name: "Liquidity bridge" })).toBeNull();
+  expect(screen.getAllByText("Module not assessable.").length).toBeGreaterThanOrEqual(1);
+  // The withheld module's chart is listed with its reason and offers no table.
+  expect(
+    within(chartRow("Liquidity bridge")).getByText("Module not assessable."),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Table for Liquidity bridge" })).toBeNull();
   expect(screen.queryByText("237")).toBeNull();
   expect(screen.queryByText("Retained maturity schedule")).toBeNull();
-  expect(screen.queryByText("Issuer dates")).toBeNull();
-  expect(screen.queryByText("Operating model")).toBeNull();
+  // The selected module's events and maps are listed beside its charts.
+  expect(chartRow("Issuer dates")).toBeInTheDocument();
+  expect(chartRow("Operating model")).toBeInTheDocument();
 });
 
 it("spells out a ratio chart caption while retaining its stored x unit", () => {
@@ -108,9 +123,7 @@ it("spells out a ratio chart caption while retaining its stored x unit", () => {
     modules: [{ id: "CP-2G", name: "Forward credit model", state: "Delivered", outputs: [ratio] }],
   };
   render(<Forecast view={view} run={run} />);
-  expect(
-    within(screen.getByRole("figure", { name: "Interest cover" })).getByText("x (times)"),
-  ).toBeInTheDocument();
+  expect(within(chartRow("Interest cover")).getByText("x (times)")).toBeInTheDocument();
   expect(descriptor.unit).toBe("x");
   expect(table.rows[0]?.cells[2]).toBe("x");
 });
@@ -119,6 +132,8 @@ it("shows the recorded build rejection and keeps its raw table in Evidence", () 
   const returned = entry("CP-4", "Covenants", { value: "725" });
   returned.output.charts = [];
   returned.output.chartGaps = [];
+  returned.output.events = [];
+  returned.output.maps = [];
   returned.output.issue =
     "Events: legal is not in its fixed table; Chart data: figures is not in its fixed table";
   const view: ReturnType<typeof buildReportView> = {
@@ -129,7 +144,7 @@ it("shows the recorded build rejection and keeps its raw table in Evidence", () 
     modules: [{ id: "CP-4", name: "Legal terms", state: "Delivered", outputs: [returned] }],
   };
   render(<Forecast view={view} run={run} />);
-  expect(screen.getByRole("heading", { name: "Figures" })).toBeInTheDocument();
+  expect(within(chartRow("Figures")).getByText("Not established for this run")).toBeInTheDocument();
   expect(
     screen.getByText("The chart data did not fit the required table form, so no chart is drawn."),
   ).toBeInTheDocument();
@@ -137,11 +152,11 @@ it("shows the recorded build rejection and keeps its raw table in Evidence", () 
     "href",
     `/report/current#evidence/Covenants~${"d".repeat(64)}-21`,
   );
-  expect(screen.queryByRole("figure")).toBeNull();
+  expect(screen.queryByRole("table")).toBeNull();
   expect(screen.queryByText("725")).toBeNull();
 });
 
-it("provides local section jumps only for visible Forecast content", () => {
+it("draws the Forecast tiles for a published model in place of section jumps", () => {
   const model = {
     id: "model",
     issuerKey: "issuer",
@@ -187,35 +202,30 @@ it("provides local section jumps only for visible Forecast content", () => {
     models: [model as unknown as View["models"][number]],
   };
   render(<Forecast view={view} run={run} />);
-  const options = within(screen.getByLabelText("Jump to section"));
-  expect(options.getByRole("option", { name: "Cases" })).toHaveValue("forecast-cases");
-  expect(options.getByRole("option", { name: "Cash flow model" })).toHaveValue("forecast-model");
-  expect(options.getByRole("option", { name: "Assumptions" })).toHaveValue("forecast-assumptions");
-  expect(options.getByRole("option", { name: "Run charts" })).toHaveValue("forecast-run-charts");
-
-  const targets = new Map<string, ReturnType<typeof vi.fn>>();
-  for (const id of [
-    "forecast-cases",
-    "forecast-model",
-    "forecast-assumptions",
-    "forecast-run-charts",
-  ]) {
-    const target = document.getElementById(id);
-    if (!target) throw new Error(`Missing Forecast section target: ${id}`);
-    const scrollIntoView = vi.fn();
-    target.scrollIntoView = scrollIntoView;
-    targets.set(id, scrollIntoView);
-  }
-  fireEvent.change(screen.getByLabelText("Jump to section"), {
-    target: { value: "forecast-model" },
-  });
-  expect(document.activeElement).toBe(document.getElementById("forecast-model"));
-  expect(targets.get("forecast-model")).toHaveBeenCalledWith({ block: "start" });
-  expect(screen.getByLabelText("Jump to section")).toHaveValue("");
+  // Tiles replace the section jumps: each part of the page is a named region.
+  expect(screen.queryByRole("navigation", { name: "Forecast sections" })).toBeNull();
+  expect(screen.queryByLabelText("Jump to section")).toBeNull();
+  for (const name of [
+    "Forecast",
+    "Net leverage path",
+    "Forecast grid",
+    "Assumptions by case",
+    "Scope and limits",
+  ])
+    expect(screen.getByRole("region", { name })).toBeInTheDocument();
+  expect(document.getElementById("forecast-run-charts")).not.toBeNull();
+  // The cases' figures and the model are drawn with their values: each case in the header's
+  // switch, the selected case's cash proxy under it.
+  const items = within(screen.getByRole("group", { name: "Case" })).getAllByRole("button");
+  expect(items.map((item) => item.textContent)).toEqual(["Base case", "Downside case"]);
+  expect(screen.getByLabelText("Selected case cash proxy")).toHaveTextContent("12");
+  fireEvent.click(items[1] as HTMLElement);
+  expect(screen.getByLabelText("Selected case cash proxy")).toHaveTextContent("6");
+  expect(document.getElementById("forecast-model")).not.toBeNull();
   expect(window.location.hash).toBe("");
 });
 
-it("omits section jumps when those Forecast sections are not present", () => {
+it("draws only the header and the run charts when no model was published", () => {
   const view: View = {
     catalogue: undefined,
     lead: undefined,
@@ -223,11 +233,28 @@ it("omits section jumps when those Forecast sections are not present", () => {
     modules: [],
     models: [],
   };
-  render(<Forecast view={view} run={run} />);
+  const { rerender } = render(<Forecast view={view} run={run} />);
+  const header = screen.getByRole("region", { name: "Forecast" });
+  expect(
+    within(header).getByText("No forecast model was published for this run."),
+  ).toBeInTheDocument();
+  for (const name of [
+    "Net leverage path",
+    "Forecast grid",
+    "Assumptions by case",
+    "Scope and limits",
+  ])
+    expect(screen.queryByRole("region", { name })).toBeNull();
   expect(screen.queryByRole("navigation", { name: "Forecast sections" })).toBeNull();
   expect(screen.queryByLabelText("Jump to section")).toBeNull();
+  expect(screen.queryByRole("list", { name: "Forecast cases" })).toBeNull();
   expect(document.getElementById("forecast-cases")).toBeNull();
   expect(document.getElementById("forecast-model")).toBeNull();
   expect(document.getElementById("forecast-assumptions")).toBeNull();
   expect(document.getElementById("forecast-run-charts")).not.toBeNull();
+  // The run's chart tables are drawn open, deep-linked or not.
+  const charts = () => screen.getByRole("region", { name: "Chart tables from this run" });
+  expect(charts()).toHaveTextContent("No charts were published for this run.");
+  rerender(<Forecast view={view} run={run} section="run-charts" />);
+  expect(charts()).toHaveTextContent("No charts were published for this run.");
 });

@@ -1,14 +1,21 @@
-import { useState, type ReactNode } from "react";
-import { ComparisonChart, type ChartComparisonPanel } from "@/components/chart/ComparisonChart";
+import type { ReactNode } from "react";
+import { BarCell } from "@/components/kit/BarCell";
 import { STATUS_SETS } from "@/components/status/sets";
 import { StatusBadge } from "@/components/status/StatusBadge";
-import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
-import { card, field, heading, label } from "../layout";
-import { PublishedTable } from "../ReportContent";
-import { blocked, containsReference, type OutputEntry, unitLabel } from "../publishedReport";
+import { cx } from "@/utils/cx";
+import {
+  blocked,
+  containsReference,
+  type OutputEntry,
+  type Table,
+  unitLabel,
+} from "../publishedReport";
 import { namedTable } from "../reportView";
 import { amount, distinct } from "../visuals/visualData";
-import { PublishedSource } from "./PublishedTrace";
+import { GapCell, KeyValues, LeadFigure, statedGap, TableOrCards, Trace } from "./leads/parts";
+import { readerCell, rowName } from "./leads/read";
+import { sourceOf, writtenTable } from "./leads/written";
+import { Bento, Tile } from "./overview/Tile";
 
 const TITLE = "Security decision summary";
 const MATRIX = [
@@ -80,6 +87,8 @@ function securityRow(line: number, cells: string[]) {
     value,
     recommendation,
     quote: located ? securityQuote(market) : null,
+    /** The yield the market level states in the quote form, located or not; text only. */
+    yieldText: securityQuote(market)?.yieldText ?? null,
   };
 }
 
@@ -123,116 +132,350 @@ export function securityView(entry: OutputEntry, asOf: string | null) {
   };
 }
 
+/** A cell as written for the reader; one naming a source stays in Evidence. */
 function reader(text: string) {
-  return text && containsReference(text) ? "In Evidence" : text || "Not stated";
+  return text.trim() ? readerCell(text) : "Not stated";
+}
+
+/** "Relative value" → "the relative value"; a heading that opens on an acronym keeps it. */
+const theColumn = (name: string) =>
+  `the ${/^[A-Z][a-z]/.test(name) ? name.charAt(0).toLowerCase() + name.slice(1) : name}`;
+
+/** A cell as written, or its stated gap as the word and the module's reason; `column` its heading. */
+function Written({ text, column }: { text: string; column: string }) {
+  const gap = statedGap(text);
+  if (gap) return <GapCell word={gap.word} reason={gap.reason} />;
+  if (!text.trim())
+    return (
+      <GapCell
+        word="Not stated"
+        reason={`This page could not read ${theColumn(reader(column))}.`}
+      />
+    );
+  return <>{reader(text)}</>;
 }
 
 function Recommendation({ state }: { state: string }) {
   const states = STATUS_SETS["Security recommendation"];
   return Object.hasOwn(states, state) ? (
-    <StatusBadge set="Security recommendation" state={state as keyof typeof states} />
+    <span className="inline-flex whitespace-nowrap">
+      <StatusBadge set="Security recommendation" state={state as keyof typeof states} />
+    </span>
   ) : (
     <span className="text-small font-medium">{reader(state)}</span>
   );
 }
 
-type Security = ReturnType<typeof securityRow>;
 type EvidenceHref = (line: number) => string;
+type SecurityData = NonNullable<ReturnType<typeof securityView>>;
 
-function SecurityCard({ item, date, href }: { item: Security; date?: string; href: EvidenceHref }) {
+/** One instrument as the module wrote it; the shares place its bars where a comparable trade reads. */
+type Instrument = {
+  line: number;
+  name: string;
+  /** The module's cells for the table's `columns`, as written. */
+  cells: string[];
+  recommendation: string;
+  /** The stated last-trade yield, where the market level states one in the quote form. */
+  yieldText: string | null;
+  /** The yield over the largest comparable stated yield; null where no bar is drawn. */
+  share: number | null;
+  /** The stated last-trade price and its share of the largest comparable price, where drawn. */
+  price: { text: string; share: number } | null;
+};
+
+export type Instruments = {
+  /** The heading of the column that names the instrument, as written. */
+  name: string;
+  /** Every other column the module wrote, in its order, except the recommendation and sources. */
+  columns: string[];
+  /** The column after which the last-trade column goes (the market level); -1 for none. */
+  market: number;
+  /** The recommendation column's heading as written. */
+  recommendation: string;
+  /** Whether a market level states a last-trade yield, so the last-trade column is drawn. */
+  yields: boolean;
+  /** Whether the module's table has a spread column. */
+  spread: boolean;
+  rows: Instrument[];
+  line: number;
+  notes: ReactNode[];
+};
+
+const NO_PAIR = "No pair of comparable last trades is supplied for this run.";
+const NO_SPREAD = "This page could not read a spread.";
+const NO_TRADE = "This page could not read a last trade.";
+
+/**
+ * The decision summary's instruments: a yield bar and a price bar only where the trade is
+ * comparable (`chartable`, two or more), each against the largest of them; other yields as text.
+ */
+export function quotedInstruments(data: SecurityData, runUnit?: string): Instruments | null {
+  const { records, chartable, date, summaryLine } = data;
+  if (!records.length || summaryLine === undefined) return null;
+  const drawn = chartable.length >= 2 ? chartable : [];
+  const top = Math.max(0, ...drawn.map(({ yieldValue }) => yieldValue));
+  const highest = Math.max(0, ...drawn.map(({ price }) => price));
+  const rows = records.map((item): Instrument => {
+    const quote = drawn.find(({ name }) => name === item.name);
+    return {
+      line: item.line,
+      name: item.name,
+      cells: [item.market, item.rank, item.value],
+      recommendation: item.recommendation,
+      yieldText: item.yieldText,
+      share: quote && top > 0 ? quote.yieldValue / top : null,
+      price: quote && highest > 0 ? { text: quote.priceText, share: quote.price / highest } : null,
+    };
+  });
+  const notes = [
+    runUnit && runUnit !== "US$m" && (
+      <p key="unit" role="note">
+        {`Market levels are US market quotes in US dollars; this run reports in ${unitLabel(runUnit)}.`}
+      </p>
+    ),
+    !drawn.length && (
+      <p key="pair" role="note">
+        {NO_PAIR}
+      </p>
+    ),
+  ].filter(Boolean);
+  return {
+    name: "Instrument",
+    columns: [date ? `Market level (${date})` : "Market level", "Rank", "Relative value"],
+    market: 0,
+    recommendation: "Recommendation",
+    yields: rows.some((row) => row.yieldText !== null),
+    spread: false,
+    rows,
+    line: summaryLine,
+    notes,
+  };
+}
+
+const INSTRUMENT = /\b(?:instrument|security|securities|tranche|group)\b/i;
+const SOURCE_COLUMN = /^(?:sources?|evidence|evidence id|source trace)$/i;
+
+/**
+ * The real run's recommendation table: under "Recommendation", the first column names the
+ * instrument and the last is "Recommendation"; every other column is drawn as written. Its market
+ * levels are prices or ranges, so no bar.
+ */
+export function recommendationInstruments(entry: OutputEntry): Instruments | null {
+  const table = entry.sections
+    .filter((section) => section.heading === "Recommendation")
+    .flatMap(({ blocks }) => blocks)
+    .find(
+      (block) =>
+        block.type === "table" &&
+        block.rows.length > 0 &&
+        block.headers.at(-1)?.trim() === "Recommendation" &&
+        INSTRUMENT.test(block.headers[0] ?? ""),
+    );
+  if (table?.type !== "table") return null;
+  const last = table.headers.length - 1;
+  const shown = table.headers.flatMap((header, at) =>
+    at === 0 || at === last || SOURCE_COLUMN.test(header.trim()) ? [] : [at],
+  );
+  const columns = shown.map((at) => table.headers[at] ?? "");
+  return {
+    name: table.headers[0] ?? "Instrument",
+    columns,
+    market: columns.findIndex((header) => /^Market level\b/i.test(header.trim())),
+    recommendation: table.headers[last] ?? "Recommendation",
+    yields: false,
+    spread: columns.some((header) => /\bspread\b/i.test(header)),
+    rows: table.rows.map(({ line, cells }) => ({
+      line,
+      name: cells[0] ?? "",
+      cells: shown.map((at) => cells[at] ?? ""),
+      recommendation: cells[last] ?? "",
+      yieldText: null,
+      share: null,
+      price: null,
+    })),
+    line: table.line,
+    notes: [],
+  };
+}
+
+/**
+ * The last trade: price and yield bars where the trade is comparable, the stated yield as text
+ * otherwise, or the gap. `marks` tags the bars for the table's checks.
+ */
+function LastTrade({
+  item,
+  market,
+  marks = false,
+}: {
+  item: Instrument;
+  /** The market level's place in the row's cells. */
+  market: number;
+  marks?: boolean;
+}) {
+  if (item.yieldText !== null && item.share !== null)
+    return (
+      <span className="flex min-w-0 flex-col gap-1.5">
+        {item.price && (
+          <span {...(marks && { "data-price": item.price.text })} className="block min-w-0">
+            <BarCell text={item.price.text} share={item.price.share} tone="secondary" />
+          </span>
+        )}
+        <span {...(marks && { "data-bar": "" })} className="block min-w-0">
+          <BarCell text={item.yieldText} share={item.share} />
+        </span>
+      </span>
+    );
+  if (item.yieldText !== null)
+    return <span className="font-mono text-text-primary tabular-nums">{item.yieldText}</span>;
+  const stated = statedGap(item.cells[market] ?? "");
   return (
-    <article
-      className={`${TRACE_HOST} min-w-0 rounded-xl border border-border-subtle bg-surface-card p-4`}
-    >
-      <header className="flex flex-wrap items-start justify-between gap-2">
-        <h4 className="min-w-0 flex-1 font-semibold wrap-anywhere">{reader(item.name)}</h4>
-        <Recommendation state={item.recommendation} />
-        <PublishedSource href={href(item.line)} name={reader(item.name)}>
-          Security source
-        </PublishedSource>
-      </header>
-      <dl className="mt-3 grid gap-2.5 text-sm">
-        {[
-          ["Rank", item.rank],
-          ["Relative value", item.value],
-          [date ? `Market level · ${date}` : "Market level", item.market],
-        ].map(([term, detail]) => (
-          <div
-            key={term}
-            className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 border-t border-border-hairline pt-2"
-          >
-            <dt className="font-medium wrap-anywhere">{term}</dt>
-            <dd className="wrap-anywhere text-text-secondary">{reader(detail ?? "")}</dd>
-          </div>
-        ))}
-      </dl>
-    </article>
+    <GapCell word={stated ? "Not supplied" : "Not stated"} reason={stated?.reason || NO_TRADE} />
   );
 }
 
-type Comparison = NonNullable<ReturnType<typeof securityView>>["chartable"];
+const tradeHeading = (data: Instruments) =>
+  data.rows.some((row) => row.price) ? "Last-trade price and yield" : "Yield";
 
-function PriceAndYield({
-  quotes,
-  date,
-  action,
-}: {
-  quotes: Comparison;
-  date: string;
-  action: ReactNode;
-}) {
-  const [chosen, choose] = useState(1);
-  const first = quotes[0];
-  const second = quotes[chosen] ?? quotes[1];
-  if (!first || !second) return null;
-  const cases: [string, string] = [first.name, second.name];
-  const panels: ChartComparisonPanel[] = [
-    {
-      measure: "Last-trade price ($)",
-      max: Math.max(first.price, second.price, 1),
-      values: [first.price, second.price],
-      texts: [first.priceText, second.priceText],
-    },
-    {
-      measure: "Last-trade yield (%)",
-      max: Math.max(first.yieldValue, second.yieldValue, 1),
-      values: [first.yieldValue, second.yieldValue],
-      texts: [first.yieldText, second.yieldText],
-    },
-  ];
+// The shared table look (ChartTable): hairline rules, tertiary headings, medium row headings.
+const HEAD = "px-3 py-2 text-left align-bottom font-medium text-text-tertiary";
+const BODY = "px-3 py-2 align-top wrap-anywhere";
+
+/** The instrument table on a wide screen: fixed columns that fit the tile, never scrolled. */
+function InstrumentGrid({ data, href }: { data: Instruments; href: EvidenceHref }) {
+  const trade = data.yields ? tradeHeading(data) : null;
+  const before = data.columns.slice(0, data.market + 1);
+  const after = data.columns.slice(data.market + 1);
+  const columns = [...before, ...(trade ? [trade] : []), ...after];
   return (
-    <div className={`${TRACE_HOST} grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4`}>
-      {quotes.length > 2 && (
-        <label className={`${label} max-w-sm`}>
-          Compare against {first.name}
-          <select
-            className={field}
-            value={chosen}
-            onChange={(event) => {
-              choose(Number(event.target.value));
-            }}
-          >
-            {quotes.slice(1).map(({ name }, index) => (
-              <option key={name} value={index + 1}>
-                {name}
-              </option>
+    <div className="relative hidden min-w-0 lg:block">
+      <table className="w-full table-fixed border-collapse text-body">
+        <caption className="sr-only">Instrument decisions</caption>
+        <colgroup>
+          <col />
+          {columns.map((name, at) => (
+            <col key={at} className={name === trade ? "w-44" : undefined} />
+          ))}
+          <col className="w-48" />
+          <col className="w-11" />
+        </colgroup>
+        <thead>
+          <tr className="border-b-2 border-border-hairline">
+            {[data.name, ...columns, data.recommendation].map((name, at) => (
+              <th key={at} scope="col" className={HEAD}>
+                {reader(name)}
+              </th>
             ))}
-          </select>
-        </label>
-      )}
-      <ComparisonChart
-        title="Last-trade prices and yields"
-        subtitle={date}
-        cases={cases}
-        panels={panels}
-        rowLabels={["First", "Second"]}
-        table={{
-          head: ["Measure", ...cases],
-          rows: panels.map(({ measure, texts }) => ({ label: measure, cells: texts })),
-        }}
-        actions={action}
-      />
+            <th scope="col" className={HEAD}>
+              <span className="sr-only">Source</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.rows.map((item, index) => {
+            const name = rowName(reader(item.name), index);
+            const cell = (text: string, at: number) => (
+              <td key={at} className={BODY}>
+                <Written text={text} column={data.columns[at] ?? ""} />
+              </td>
+            );
+            return (
+              <tr key={item.line} className="border-b border-border-hairline last:border-b-0">
+                <th scope="row" className={cx(BODY, "text-left font-medium text-text-primary")}>
+                  {name}
+                </th>
+                {item.cells.slice(0, data.market + 1).map(cell)}
+                {trade && (
+                  <td className={BODY}>
+                    <LastTrade item={item} market={Math.max(0, data.market)} marks />
+                  </td>
+                )}
+                {item.cells
+                  .slice(data.market + 1)
+                  .map((text, at) => cell(text, at + data.market + 1))}
+                <td className={BODY}>
+                  <Recommendation state={item.recommendation} />
+                </td>
+                <td className="py-2 pl-2 align-top">
+                  <Trace href={href(item.line)} name={name} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
+  );
+}
+
+/** The instruments on a phone or tablet: one card each, every column the module wrote. */
+function InstrumentCards({ data, href }: { data: Instruments; href: EvidenceHref }) {
+  return (
+    <ul aria-label="Instruments" className="grid min-w-0 gap-3 sm:grid-cols-2 lg:hidden">
+      {data.rows.map((item, index) => {
+        const name = rowName(reader(item.name), index);
+        return (
+          <li
+            key={item.line}
+            className="flex min-w-0 flex-col gap-2.5 rounded-ds-sm border border-border-hairline p-3"
+          >
+            <span className="flex items-start justify-between gap-2">
+              <h4 className="min-w-0 text-small font-medium wrap-anywhere text-text-primary">
+                {name}
+              </h4>
+              <Trace href={href(item.line)} name={name} />
+            </span>
+            <Recommendation state={item.recommendation} />
+            {data.yields && <LastTrade item={item} market={Math.max(0, data.market)} />}
+            <KeyValues
+              items={data.columns.map((column, at) => ({
+                key: reader(column),
+                value: <Written text={item.cells[at] ?? ""} column={column} />,
+              }))}
+            />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** CP-3's instruments: every column the module wrote, the last trade drawn where comparable. */
+export function InstrumentTable({ data, href }: { data: Instruments; href: EvidenceHref }) {
+  return (
+    <LeadFigure
+      span={12}
+      label="Instrument decisions"
+      title="Recommendation by instrument"
+      trace={<Trace href={href(data.line)} name="Instrument decisions" />}
+      figure={
+        <div className="flex min-w-0 flex-col gap-4">
+          {data.notes.length > 0 && (
+            <div className="flex flex-col gap-1.5 text-small text-text-secondary">{data.notes}</div>
+          )}
+          <InstrumentGrid data={data} href={href} />
+          <InstrumentCards data={data} href={href} />
+        </div>
+      }
+      notes={data.spread ? undefined : [NO_SPREAD]}
+    />
+  );
+}
+
+/** The T3.6 fundamental value matrix, as written in the shared table, one trace per row. */
+export function ValueMatrix({ table, href }: { table: Table; href: EvidenceHref }) {
+  const label = "Credit and recovery rationale";
+  const written = writtenTable(sourceOf(table), href);
+  return (
+    <Tile
+      span={12}
+      label={label}
+      title={label}
+      trace={<Trace href={href(table.line)} name={label} />}
+      className="w-full self-start"
+    >
+      {written && <TableOrCards label={label} table={written} />}
+    </Tile>
   );
 }
 
@@ -242,53 +485,15 @@ export function Securities({
   href,
   runUnit,
 }: {
-  data: NonNullable<ReturnType<typeof securityView>>;
+  data: SecurityData;
   href: EvidenceHref;
   runUnit?: string;
 }) {
-  const { chartable, date, records, outcomes, summaryLine } = data;
+  const instruments = quotedInstruments(data, runUnit);
   return (
-    <section aria-label="Instrument decisions" className={`${card} min-w-0`}>
-      <h3 className={heading}>Instrument decisions</h3>
-      {records.length > 0 && runUnit && runUnit !== "US$m" && (
-        <p role="note">{`Market levels are US market quotes in US dollars; this run reports in ${unitLabel(runUnit)}.`}</p>
-      )}
-      {records.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-3">
-          {records.map((item) => (
-            <SecurityCard key={item.line} item={item} date={date} href={href} />
-          ))}
-        </div>
-      )}
-      {chartable.length >= 2 && date && summaryLine !== undefined ? (
-        <PriceAndYield
-          quotes={chartable}
-          date={date}
-          action={
-            <PublishedSource href={href(summaryLine)} name="Last-trade prices and yields">
-              Source table
-            </PublishedSource>
-          }
-        />
-      ) : records.length ? (
-        <p role="note">No pair of comparable last trades is supplied for this run.</p>
-      ) : null}
-      {outcomes && (
-        <details className="min-w-0">
-          <summary className="cursor-pointer font-semibold">Credit and recovery rationale</summary>
-          <div className="mt-3">
-            <PublishedTable
-              table={outcomes}
-              href={href(outcomes.line)}
-              rowSource={(line, name) => (
-                <PublishedSource href={href(line)} name={name}>
-                  Rationale source
-                </PublishedSource>
-              )}
-            />
-          </div>
-        </details>
-      )}
-    </section>
+    <Bento>
+      {instruments && <InstrumentTable data={instruments} href={href} />}
+      {data.outcomes && <ValueMatrix table={data.outcomes} href={href} />}
+    </Bento>
   );
 }

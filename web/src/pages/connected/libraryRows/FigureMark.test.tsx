@@ -1,0 +1,132 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, expect, it } from "vitest";
+import { FigureMark } from "./FigureMark";
+
+afterEach(cleanup);
+
+const lev = {
+  value: "2.25",
+  unit: "x",
+  period: "FY2024",
+  prior: { value: "3.00", period: "FY2023" },
+  change: "-0.75",
+};
+
+it("draws the value in mono with its period, and the change from the prior value with its direction word", () => {
+  const { container } = render(
+    <FigureMark name="Net leverage" metricKey="net_leverage" figure={lev} />,
+  );
+  expect(screen.getAllByText("2.25x")[0]).toHaveClass("font-mono", "tabular-nums");
+  expect(screen.getByText("FY2024")).toBeVisible();
+  expect(screen.getByText(/-0\.75x/)).toBeVisible();
+  expect(screen.getByText("better")).toBeVisible();
+  expect(screen.getByText("from 3.00x in FY2023")).toBeVisible();
+  // No bar: a bar on each row's own scale would look comparable across rows.
+  expect(container.querySelector("svg:not([aria-hidden])")).toBeNull();
+  expect(screen.queryByRole("img")).toBeNull();
+});
+
+it("states a missing prior period and draws no mark", () => {
+  render(
+    <FigureMark
+      name="Interest cover"
+      metricKey="coverage"
+      figure={{ value: "4.19", unit: "x", period: "FY2025" }}
+    />,
+  );
+  expect(screen.getByText("4.19x")).toBeVisible();
+  expect(screen.getByText("No prior period stated")).toBeVisible();
+  expect(screen.queryByRole("img")).toBeNull();
+});
+
+it("writes an empty prior as the empty text it is, never as zero", () => {
+  render(
+    <FigureMark
+      name="Net leverage"
+      metricKey="net_leverage"
+      figure={{ value: "2", unit: "x", prior: { value: "", period: "FY2023" }, change: "2" }}
+    />,
+  );
+  expect(screen.getByText("No prior period stated")).toBeVisible();
+  expect(screen.queryByText(/from /)).toBeNull();
+});
+
+it("names worse in words, not by colour alone", () => {
+  render(
+    <FigureMark
+      name="Net leverage"
+      metricKey="net_leverage"
+      figure={{ value: "4.0", unit: "x", prior: { value: "3.0", period: "FY2023" }, change: "1.0" }}
+    />,
+  );
+  expect(screen.getByText("worse")).toBeVisible();
+  expect(screen.getByText(/\+1\.0x/)).toBeVisible();
+});
+
+it("draws a direction for a measure the owner's table gives none, without better or worse", () => {
+  render(
+    <FigureMark
+      name="Cash"
+      metricKey="cash"
+      figure={{
+        value: "100",
+        unit: "US$m",
+        prior: { value: "80", period: "FY2023" },
+        change: "20",
+      }}
+    />,
+  );
+  expect(screen.queryByText("better")).toBeNull();
+  expect(screen.queryByText("worse")).toBeNull();
+  expect(screen.getByText(/\+US\$20m/)).toBeVisible();
+});
+
+it("says a figure the catalogue does not quote is not shown here, never zero or 'not supplied'", () => {
+  render(<FigureMark name="Interest cover" metricKey="coverage" figure={undefined} />);
+  expect(screen.getByText("n.a.")).toBeInTheDocument();
+  expect(screen.getByText("Not shown here")).toBeVisible();
+  expect(screen.queryByText("0")).toBeNull();
+  expect(screen.queryByText("Not supplied")).toBeNull();
+});
+
+it("qualifies interest cover read as reported EBITDA over cash interest on debt", () => {
+  render(
+    <FigureMark
+      name="Interest cover"
+      metricKey="coverage"
+      figure={{
+        value: "4.19",
+        unit: "x",
+        basis: "LTM reported EBITDA over LTM cash interest for debt 776; calculation C34",
+      }}
+    />,
+  );
+  expect(screen.getByText("Reported EBITDA / cash interest on debt")).toBeInTheDocument();
+});
+
+it("places the figure's single trace control beside it", () => {
+  render(
+    <FigureMark
+      name="Net leverage"
+      metricKey="net_leverage"
+      figure={lev}
+      trace={<button>trace</button>}
+    />,
+  );
+  expect(screen.getByRole("button", { name: "trace" })).toBeVisible();
+});
+
+it("shows the qualified label in the cell on a wide screen when the header does not carry it", () => {
+  const figure = {
+    value: "4.19",
+    unit: "x",
+    basis: "LTM reported EBITDA over LTM cash interest for debt 776; calculation C34",
+  };
+  const { container, rerender } = render(
+    <FigureMark name="Interest cover" metricKey="coverage" figure={figure} />,
+  );
+  expect(screen.getByText("Reported EBITDA / cash interest on debt")).toHaveClass("xl:sr-only");
+  rerender(<FigureMark name="Interest cover" metricKey="coverage" figure={figure} showLabel />);
+  expect(screen.getByText("Reported EBITDA / cash interest on debt")).not.toHaveClass("xl:sr-only");
+  expect(container.textContent).toContain("4.19x");
+});

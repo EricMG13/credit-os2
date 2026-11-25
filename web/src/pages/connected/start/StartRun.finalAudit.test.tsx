@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { webcrypto } from "node:crypto";
 import { StartRun } from "../StartRun";
 import type { Context, PriorInputs, Summary } from "../api";
+import { chooseControl, controlValue, controlChoices } from "./testControls";
 
 Element.prototype.scrollIntoView = vi.fn();
 beforeEach(() => {
@@ -290,12 +291,7 @@ describe("final audit: connected intake", () => {
     setup();
     await filledDocuments();
     await purpose();
-    const level = screen.getByLabelText("Run form level");
-    expect(
-      within(level)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
-    ).toEqual(["Basic", "Advanced"]);
+    expect(controlChoices("Run form level")).toEqual(["Basic", "Advanced"]);
   });
 
   it.each([{ efforts: [] }, { efforts: ["high"] }, { efforts: ["xhigh"] }])(
@@ -310,9 +306,11 @@ describe("final audit: connected intake", () => {
       });
       await filledDocuments();
       await purpose();
-      fireEvent.change(screen.getByLabelText("Run form level"), { target: { value: "advanced" } });
+      chooseControl("Run form level", "advanced");
       fireEvent.click(screen.getByRole("button", { name: "Continue to context" }));
       const picker = await screen.findByLabelText("Model");
+      // The model picker is in the closed "Model and modules" section of More context.
+      fireEvent.click(screen.getByRole("heading", { level: 3, name: "Model and modules" }));
       const luna = within(picker).queryByRole("option", { name: "GPT-6 Luna" });
       if (!efforts.includes("xhigh")) {
         expect(luna).toBeNull();
@@ -357,7 +355,7 @@ describe("final audit: connected intake", () => {
     fireEvent.change(screen.getByLabelText("As-of date"), { target: { value: "2026-10-31" } });
     fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Ana L" } });
     await purpose();
-    expect(screen.getByLabelText("Run form level")).toHaveValue("basic");
+    expect(controlValue("Run form level")).toBe("basic");
     fireEvent.click(screen.getByRole("button", { name: "Continue to context" }));
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
     await screen.findByRole("button", { name: "Submit run" });
@@ -375,7 +373,7 @@ describe("final audit: connected intake", () => {
     setup();
     await filledDocuments();
     await purpose();
-    fireEvent.change(screen.getByLabelText("Run form level"), { target: { value: "advanced" } });
+    chooseControl("Run form level", "advanced");
     fireEvent.click(screen.getByRole("button", { name: "Continue to context" }));
     const requested = screen.getByText("Requested modules", { exact: true }).closest("fieldset");
     if (!requested) throw new Error("Missing requested modules");
@@ -397,7 +395,7 @@ describe("final audit: connected intake", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review run" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: /Approve: I have read/ }));
     fireEvent.click(screen.getByRole("button", { name: "Edit purpose and modules" }));
-    fireEvent.change(screen.getByLabelText("Market view"), { target: { value: "secondary" } });
+    chooseControl("Market view", "secondary");
     expect(
       screen.getByText(
         "You changed the market view, so the approval and your decisions were cleared. Decide again.",

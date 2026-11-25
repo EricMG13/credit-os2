@@ -1,3 +1,4 @@
+import { useChartPlotHeight } from "./ChartPrintContext";
 import { checkDistinctSeries, seriesKey as keyOf, periodSeriesData } from "./seriesData";
 import {
   CartesianGrid,
@@ -146,11 +147,12 @@ function check({ periods, series, table }: Pick<TrendChartProps, "periods" | "se
 }
 
 function Chart({ title, periods, series, table, yTicks }: Omit<TrendChartProps, "note" | "as">) {
+  const height = useChartPlotHeight(HEIGHT);
   const styles = assignSeries(series.map((s) => s.name));
   const data = periodSeriesData(periods, series);
   return (
     <div className="flex flex-col gap-3 [&_.recharts-surface:focus-visible]:outline-2 [&_.recharts-surface:focus-visible]:outline-solid [&_.recharts-surface:focus-visible]:outline-offset-2 [&_.recharts-surface:focus-visible]:outline-focus">
-      <ResponsiveContainer width="100%" height={HEIGHT}>
+      <ResponsiveContainer width="100%" height={height}>
         <LineChart title={title} data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--color-border-hairline)" />
           <XAxis dataKey="period" tickLine={false} axisLine={BASELINE} tick={TICK} tickMargin={8} />

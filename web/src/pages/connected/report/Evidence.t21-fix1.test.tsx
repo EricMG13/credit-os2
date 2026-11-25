@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { Trace } from "@/pages/library/slice";
 import { TraceDrawer } from "@/pages/library/parts/TraceDrawer";
@@ -44,7 +44,7 @@ it("keeps a nested handoff list's indentation while removing only the marker", (
     workspace: { runs: {}, outputs: {}, handoffs: {}, models: [] },
     chips: {},
   } as unknown as Snapshot;
-  const { container } = render(
+  render(
     <ReportEvidence
       snapshot={snapshot}
       run={run}
@@ -53,7 +53,12 @@ it("keeps a nested handoff list's indentation while removing only the marker", (
       mode="synthetic"
     />,
   );
-  const texts = [...container.querySelectorAll("article p")].map((node) => node.textContent);
+  const texts = [
+    ...within(screen.getByRole("region", { name: "Committee decision handoff" })).getAllByText(
+      /./,
+      { selector: "p" },
+    ),
+  ].map((node) => node.textContent);
   expect(texts).toContain("Parent point\n  Nested point\n    Deeper point");
 });
 

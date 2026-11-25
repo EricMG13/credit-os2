@@ -11,9 +11,9 @@ afterEach(cleanup);
 it("names an empty run-record field without describing it as handoff text", () => {
   render(<PublishedTable table={table} evidence emptyLabel="Not recorded for this call" />);
   expect(screen.getByLabelText("Not recorded for this call")).toHaveTextContent("—");
-  expect(screen.queryByLabelText("Empty in the handoff")).toBeNull();
+  expect(screen.queryByLabelText("Left blank")).toBeNull();
 });
 it("preserves the existing handoff empty-field label by default", () => {
   render(<PublishedTable table={table} evidence />);
-  expect(screen.getByLabelText("Empty in the handoff")).toHaveTextContent("—");
+  expect(screen.getByLabelText("Left blank")).toHaveTextContent("—");
 });

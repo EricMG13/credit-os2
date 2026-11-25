@@ -1,0 +1,327 @@
+{
+  "module": "CP-0",
+  "source": "proof/handoffs/CP-0.md",
+  "charts": [],
+  "sections": [
+    {
+      "heading": "Findings",
+      "level": 2,
+      "line": 1,
+      "blocks": []
+    },
+    {
+      "heading": "Bottom line",
+      "level": 3,
+      "line": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 5,
+          "end": 5,
+          "text": "The synthetic issuer shows one observed item."
+        }
+      ]
+    },
+    {
+      "heading": "Source-readiness summary",
+      "level": 3,
+      "line": 7,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 9,
+          "headers": ["Area", "Readiness", "Key limitation", "Source"],
+          "rows": [
+            {
+              "line": 11,
+              "cells": [
+                "Financial statements",
+                "READY_WITH_LIMITATIONS",
+                "Only the synthetic filing is available",
+                "Filing p.1"
+              ]
+            },
+            {
+              "line": 12,
+              "cells": [
+                "Acquisition financing",
+                "CONDITIONAL",
+                "Financing terms are absent",
+                "Filing p.2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Events: Sources",
+      "level": 3,
+      "line": 14,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 16,
+          "headers": [
+            "Event date",
+            "Date precision",
+            "Published",
+            "Event",
+            "Status",
+            "Source",
+            "Credit relevance"
+          ],
+          "rows": [
+            {
+              "line": 18,
+              "cells": [
+                "2025-03-31",
+                "day",
+                "2024-11-07",
+                "Synthetic note",
+                "Scheduled — matures",
+                "Filing p.1",
+                "Wall"
+              ]
+            },
+            {
+              "line": 19,
+              "cells": [
+                "2025-06",
+                "month",
+                "2025-05-01",
+                "Synthetic call",
+                "Historical — noted",
+                "Memo",
+                "Cost"
+              ]
+            },
+            {
+              "line": 20,
+              "cells": [
+                "2025-Q3",
+                "quarter",
+                "2024-11-07",
+                "Synthetic review",
+                "Scenario — modelled",
+                "Memo",
+                "Rating"
+              ]
+            },
+            {
+              "line": 21,
+              "cells": [
+                "2026",
+                "year",
+                "2024-11-07",
+                "Synthetic maturity",
+                "Scheduled — maturity",
+                "Filing p.2",
+                "Wall"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Confidence inputs",
+      "level": 3,
+      "line": 23,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 25,
+          "headers": ["Input", "Value"],
+          "rows": [
+            {
+              "line": 27,
+              "cells": ["Directly Sourced", "8"]
+            },
+            {
+              "line": 28,
+              "cells": ["Calculated", "2"]
+            },
+            {
+              "line": 29,
+              "cells": ["Assumption-Based", "2"]
+            },
+            {
+              "line": 30,
+              "cells": ["Analyst Inference", "0"]
+            },
+            {
+              "line": 31,
+              "cells": ["Weak Lineage", "0"]
+            },
+            {
+              "line": 32,
+              "cells": ["Untraced", "0"]
+            },
+            {
+              "line": 33,
+              "cells": ["Conflicting", "0"]
+            },
+            {
+              "line": 34,
+              "cells": ["Insufficient Information", "0"]
+            },
+            {
+              "line": 35,
+              "cells": ["Fields present", "95"]
+            },
+            {
+              "line": 36,
+              "cells": ["Fields total", "100"]
+            },
+            {
+              "line": 37,
+              "cells": ["Source gate", "pass"]
+            },
+            {
+              "line": 38,
+              "cells": ["CRITICAL", "0"]
+            },
+            {
+              "line": 39,
+              "cells": ["MATERIAL", "0"]
+            },
+            {
+              "line": 40,
+              "cells": ["MINOR", "1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T1 - Register",
+      "level": 3,
+      "line": 42,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 44,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 46,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T2 - Register",
+      "level": 3,
+      "line": 48,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 50,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 52,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T4 - Register",
+      "level": 3,
+      "line": 54,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 56,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 58,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T6 - Register",
+      "level": 3,
+      "line": 60,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 62,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 64,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "P3 - Register",
+      "level": 3,
+      "line": 66,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 68,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 70,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Calculations",
+      "level": 2,
+      "line": 72,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 74,
+          "end": 74,
+          "text": "None."
+        }
+      ]
+    },
+    {
+      "heading": "Gaps",
+      "level": 2,
+      "line": 76,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 78,
+          "end": 78,
+          "text": "None."
+        }
+      ]
+    },
+    {
+      "heading": "Next module",
+      "level": 2,
+      "line": 80,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 82,
+          "end": 82,
+          "text": "None."
+        }
+      ]
+    }
+  ]
+}

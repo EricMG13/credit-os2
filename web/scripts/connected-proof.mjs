@@ -109,10 +109,10 @@ async function checkRunDocuments(page, channel, paidPreview) {
   await page.locator("main footer").getByRole("link", { name: "Start a run", exact: true }).click();
   const stepper = page.getByRole("list", { name: "Steps in this run" });
   await checkDesktopIntake(page, stepper);
-  await stepper.getByText(paidPreview ? "Paid step" : "No-cost test", { exact: true }).waitFor();
+  await stepper.getByText(paidPreview ? "Paid run" : "No-cost test", { exact: true }).waitFor();
   await page
     .getByRole("complementary", { name: "Readiness", exact: true })
-    .getByText("USD 0.00 of USD 25.00", { exact: true })
+    .getByText("USD 25.00", { exact: true })
     .waitFor();
   if (!paidPreview)
     await page.screenshot({ path: path.join(artifacts, `${channel}-run-documents.png`) });
@@ -266,18 +266,24 @@ async function approveRunInputs(page, paidPreview) {
   await page.getByRole("radio", { name: "Full credit assessment", exact: true }).waitFor();
   await page.getByRole("button", { name: "Continue to context", exact: true }).click();
   assert.match(await current.innerText(), /More context/u);
+  // More context is an accordion of closed sections, one open at a time: open each before its fields.
+  const openSection = (name) => page.getByRole("heading", { level: 3, name, exact: true }).click();
+  await openSection("For the research");
   await page
     .getByLabel(/Anything the analysis should know/u)
     .fill("Check the 2028 maturities.\nInclude refinancing risk.");
+  await openSection("Files with a role");
   await page
     .getByRole("combobox", { name: "Portfolio workbook", exact: true })
     .selectOption({ label: "northbridge-portfolio.xlsx" });
+  await openSection("Legal documents");
   await page
     .getByRole("combobox", { name: "Legal documents", exact: true })
     .selectOption("executed");
   await page
     .getByRole("combobox", { name: "The agreement", exact: true })
     .selectOption({ label: "northbridge-credit-agreement.txt" });
+  await openSection("Ratings, quotes and facilities");
   const ratings = page.getByRole("region", { name: "Ratings", exact: true });
   await ratings.getByRole("button", { name: "Add rating", exact: true }).click();
   await ratings.getByLabel("Agency", { exact: true }).selectOption("Moody's");

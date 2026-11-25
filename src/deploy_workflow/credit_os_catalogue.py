@@ -476,6 +476,7 @@ def run_record(
     return {
         "id": name,
         "issuer": context.get("ticker") or run["issuer_id"].upper(),
+        "ticker": context.get("ticker"),
         "name": run["issuer_name"],
         "title": title,
         "workflow": title,

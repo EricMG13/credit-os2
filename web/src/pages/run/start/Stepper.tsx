@@ -40,7 +40,7 @@ export function Stepper({
             <span
               aria-hidden="true"
               className={cx(
-                "flex size-6 shrink-0 items-center justify-center rounded-full border-2 text-sm font-medium @[620px]:size-7",
+                "flex size-7 shrink-0 items-center justify-center rounded-ds-full border font-mono text-small tabular-nums",
                 i <= current
                   ? "border-action bg-action text-text-on-action"
                   : "border-border-hairline bg-surface-card text-text-tertiary",
@@ -50,8 +50,20 @@ export function Stepper({
             </span>
           );
           const label = (
-            <span className="sr-only @[620px]:not-sr-only @[620px]:flex @[620px]:flex-col @[620px]:whitespace-nowrap">
-              <span className="text-sm font-medium text-text-primary">{s.title}</span>
+            <span
+              className={cx(
+                "sr-only @[620px]:not-sr-only @[620px]:flex @[620px]:flex-col @[620px]:whitespace-nowrap",
+                i === current && "@[620px]:border-b-2 @[620px]:border-action @[620px]:pb-1",
+              )}
+            >
+              <span
+                className={cx(
+                  "text-small font-medium",
+                  i > current ? "text-text-tertiary" : "text-text-primary",
+                )}
+              >
+                {s.title}
+              </span>
               <span className="text-caption text-text-tertiary">{s.note}</span>
               <span className="sr-only">
                 {done ? "Complete" : i === current ? "Current step" : "Not started"}
@@ -71,7 +83,7 @@ export function Stepper({
                   onClick={() => {
                     onSelect(s.key);
                   }}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                  className="inline-flex min-h-8 cursor-pointer items-center justify-center gap-2 rounded-ds-sm max-sm:min-h-11 max-sm:min-w-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   {marker}
                   {label}

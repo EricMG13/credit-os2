@@ -46,6 +46,30 @@ const chart = (title: string, line: number, headers: string[], rows: [number, ..
   ],
 });
 
+/** The handoff's period table: when each period starts and ends (calendar years, or to its date). */
+function periodTable(periods: [string, string]) {
+  const ends = periods.map((period) => {
+    const date = /(\d{4}-\d{2}-\d{2})$/.exec(period)?.[1];
+    const year = /^FY(\d{4})/.exec(period)?.[1] ?? "";
+    if (!date) return [period, `${year}-01-01`, `${year}-12-31`];
+    const start = `${String(Number(date.slice(0, 4)) - 1)}-${date.slice(5, 7) === "09" ? "10-01" : "01-01"}`;
+    return [`FY${year}`, start, date];
+  });
+  return {
+    heading: "Period table",
+    level: 3,
+    line: 10,
+    blocks: [
+      {
+        type: "table",
+        line: 12,
+        headers: ["Period", "Start", "End"],
+        rows: ends.map((cells, at) => ({ line: 14 + at, cells })),
+      },
+    ],
+  };
+}
+
 type Variant = {
   /** The Adjusted EBITDA FY2024 cell of the revenue chart. */
   adjusted?: string;
@@ -115,6 +139,7 @@ function snapshot({
       },
       handoffs: {
         [SHA]: [
+          periodTable(periods),
           chart(
             "leverage",
             20,
@@ -168,11 +193,20 @@ function openOverview(variant?: Variant) {
   render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
 }
 
-const tile = (name: string) => {
+/** One figure tile of the Overview, by the figure's name as the module's chart table heads it. */
+const tile = (name: string) => screen.getByRole("region", { name });
+
+/** One tile of the catalogue's headline figures (the Library's), by its term. */
+const catalogueTile = (name: string) => {
   const term = screen.getByText(name, { selector: "dt" });
   if (!term.parentElement) throw new Error(`${name} has no tile`);
   return term.parentElement;
 };
+
+async function opened(variant?: Variant) {
+  openOverview(variant);
+  await screen.findByRole("region", { name: "Overview" }, READER);
+}
 
 afterEach(() => {
   cleanup();
@@ -185,12 +219,11 @@ describe("the headline figures on Overview", () => {
     "give each figure one trace control that opens the handoff row it is read from",
     READER,
     async () => {
-      openOverview();
-      await screen.findByRole("heading", { name: "Overview", level: 2 });
+      await opened();
       const rows = {
-        "Net leverage": 25,
-        "Gross leverage": 25,
-        "Interest coverage": 35,
+        "Net debt / EBITDA": 25,
+        "Total debt / EBITDA": 25,
+        "EBITDA / cash interest": 35,
         Revenue: 55,
         Cash: 45,
       };
@@ -213,12 +246,11 @@ describe("the headline figures on Overview", () => {
     "state a figure the module did not supply, with its reason and its source row",
     READER,
     async () => {
-      openOverview();
-      await screen.findByRole("heading", { name: "Overview", level: 2 });
+      await opened();
       const gap = tile("Adjusted EBITDA");
-      expect(gap).toHaveTextContent("n.a.");
-      expect(gap).toHaveTextContent(NOT_STATED);
-      expect(gap).toHaveTextContent("FY2024");
+      expect(within(gap).getByText("Not supplied", { selector: "span" })).toBeVisible();
+      expect(gap).not.toHaveTextContent("n.a.");
+      expect(gap).toHaveTextContent("FY2024: the measure is not stated");
       expect(gap).not.toHaveTextContent(/\$0m|\b0\b/);
       const control = within(gap).getByRole("button", { name: "Show sources for Adjusted EBITDA" });
       fireEvent.click(control);
@@ -230,37 +262,20 @@ describe("the headline figures on Overview", () => {
     "find the gap on the real period forms, a dated period beside a fiscal year",
     READER,
     async () => {
-      openOverview({ periods: ["FY2023 / 2023-09-30", "FY2024 / 2024-09-30"] });
-      await screen.findByRole("heading", { name: "Overview", level: 2 });
-      const gap = tile("Adjusted EBITDA");
-      expect(gap).toHaveTextContent(NOT_STATED);
-      expect(gap).toHaveTextContent("FY2024");
+      await opened({ periods: ["FY2023 / 2023-09-30", "FY2024 / 2024-09-30"] });
+      const net = tile("Net debt / EBITDA");
+      expect(net).toHaveTextContent("FY2024 / 2024-09-30");
+      expect(net).toHaveTextContent("from 3.00x in FY2023 / 2023-09-30");
       fireEvent.click(
-        within(gap).getByRole("button", { name: "Show sources for Adjusted EBITDA" }),
+        within(net).getByRole("button", { name: "Show sources for Net debt / EBITDA" }),
       );
-      expect(await screen.findByRole("dialog")).toHaveTextContent("Handoff line 55");
+      expect(await screen.findByRole("dialog")).toHaveTextContent("Handoff line 25");
       fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0] as HTMLElement);
       await waitFor(() => {
         expect(screen.queryByRole("dialog")).toBeNull();
       });
-      fireEvent.click(
-        within(tile("Net leverage")).getByRole("button", { name: "Show sources for Net leverage" }),
-      );
-      expect(await screen.findByRole("dialog")).toHaveTextContent("Handoff line 25");
-    },
-  );
-
-  it(
-    "do not say the module did not supply a figure it supplied but the catalogue could not quote",
-    READER,
-    async () => {
-      openOverview({ adjusted: "approximately 410", omit: ["adjusted_ebitda"] });
-      await screen.findByRole("heading", { name: "Overview", level: 2 });
       const gap = tile("Adjusted EBITDA");
-      expect(gap).toHaveTextContent("n.a.");
-      expect(gap).toHaveTextContent(NOT_SHOWN);
-      expect(gap).toHaveTextContent("FY2024");
-      expect(gap).not.toHaveTextContent("Not supplied");
+      expect(gap).toHaveTextContent("FY2024: the measure is not stated");
       fireEvent.click(
         within(gap).getByRole("button", { name: "Show sources for Adjusted EBITDA" }),
       );
@@ -268,18 +283,51 @@ describe("the headline figures on Overview", () => {
     },
   );
 
+  it("do not say the module did not supply a figure it wrote in words", READER, async () => {
+    await opened({ adjusted: "approximately 410", omit: ["adjusted_ebitda"] });
+    const gap = tile("Adjusted EBITDA");
+    expect(within(gap).getByText("No figure", { selector: "span" })).toBeVisible();
+    expect(gap).not.toHaveTextContent("n.a.");
+    expect(gap).toHaveTextContent("FY2024: not shown here, the cell is not one figure");
+    expect(gap).not.toHaveTextContent(/not supplied/i);
+    fireEvent.click(within(gap).getByRole("button", { name: "Show sources for Adjusted EBITDA" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Handoff line 55");
+  });
+
   it(
-    "draw a neutral gap, with no control, where the chart cannot give a latest row",
+    "draw each stated figure as written, with its period and its trace, where the chart cannot give a latest row",
     READER,
     async () => {
-      openOverview({ periods: ["Q3 FY2023", "Q3 FY2024"], omit: ["net_leverage", "leverage"] });
-      await screen.findByRole("heading", { name: "Overview", level: 2 });
-      for (const name of ["Net leverage", "Gross leverage"]) {
-        const gap = tile(name);
-        expect(gap).toHaveTextContent("n.a.");
-        expect(gap).toHaveTextContent(NOT_SHOWN);
-        expect(gap).not.toHaveTextContent("Not supplied");
-        expect(within(gap).queryByRole("button")).toBeNull();
+      await opened({ periods: ["Q3 FY2023", "Q3 FY2024"], omit: ["net_leverage", "leverage"] });
+      for (const [name, earlier, latest] of [
+        ["Net debt / EBITDA", "3.00x in Q3 FY2023", "2.25x in Q3 FY2024"],
+        ["Total debt / EBITDA", "3.75x in Q3 FY2023", "2.80x in Q3 FY2024"],
+      ] as const) {
+        const shown = tile(name);
+        expect(within(shown).getByText(earlier)).toBeVisible();
+        expect(within(shown).getByText(latest)).toBeVisible();
+        expect(shown).not.toHaveTextContent(/n\.a\.|Not supplied|Better|Worse/);
+        const control = within(shown).getByRole("button", { name: `Show sources for ${name}` });
+        expect(control).toHaveAccessibleName(`Show sources for ${name}`);
+      }
+    },
+  );
+
+  it(
+    "read the figures from the module's own chart table, whatever the catalogue could quote",
+    READER,
+    async () => {
+      await opened({ omit: ["net_leverage", "leverage"] });
+      for (const [name, figure] of [
+        ["Net debt / EBITDA", "2.25x"],
+        ["Total debt / EBITDA", "2.80x"],
+      ] as const) {
+        const shown = tile(name);
+        expect(within(shown).getByText(figure, { selector: "span" })).toBeVisible();
+        expect(shown).toHaveTextContent("FY2024");
+        expect(
+          within(shown).getByRole("button", { name: `Show sources for ${name}` }),
+        ).toBeVisible();
       }
     },
   );
@@ -291,11 +339,9 @@ describe("the headline figures on Overview", () => {
       const reference =
         "Not supplied: not stated in northbridge-filing.txt page 4 [E3] CP-1-GAP-12 " +
         "0123456789abcdef0123456789abcdef01234567";
-      openOverview({ adjusted: reference });
-      await screen.findByRole("heading", { name: "Overview", level: 2 });
+      await opened({ adjusted: reference });
       const gap = tile("Adjusted EBITDA");
-      expect(gap).toHaveTextContent("Not supplied");
-      expect(gap).toHaveTextContent("FY2024");
+      expect(gap).toHaveTextContent("FY2024: not supplied");
       expect(gap).not.toHaveTextContent(/northbridge-filing|CP-1|GAP-12|0123456789abcdef/);
       fireEvent.click(
         within(gap).getByRole("button", { name: "Show sources for Adjusted EBITDA" }),
@@ -328,7 +374,7 @@ describe("a headline figure the catalogue does not carry", () => {
       "Adjusted EBITDA",
       "Cash",
     ]);
-    const gap = tile("Adjusted EBITDA");
+    const gap = catalogueTile("Adjusted EBITDA");
     expect(gap).toHaveTextContent("n.a.");
     expect(gap).toHaveTextContent(NOT_SHOWN);
     expect(gap).not.toHaveTextContent("Not supplied");
@@ -347,11 +393,11 @@ describe("a headline figure the catalogue does not carry", () => {
         })}
       />,
     );
-    const revenue = tile("Revenue");
+    const revenue = catalogueTile("Revenue");
     expect(revenue).toHaveTextContent("n.a.");
     expect(revenue).toHaveTextContent(NOT_SHOWN);
     expect(revenue).not.toHaveTextContent("$m");
-    const cash = tile("Cash");
+    const cash = catalogueTile("Cash");
     expect(cash).toHaveTextContent("$0m");
     expect(cash).not.toHaveTextContent(NOT_SHOWN);
   });

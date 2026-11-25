@@ -1,0 +1,273 @@
+{
+  "module": "CP-5",
+  "source": "proof/handoffs/CP-5.md",
+  "charts": [],
+  "sections": [
+    {
+      "heading": "Findings",
+      "level": 2,
+      "line": 1,
+      "blocks": []
+    },
+    {
+      "heading": "Bottom line",
+      "level": 3,
+      "line": 3,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 5,
+          "end": 5,
+          "text": "The synthetic issuer shows one observed item."
+        }
+      ]
+    },
+    {
+      "heading": "Key findings",
+      "level": 3,
+      "line": 7,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 9,
+          "end": 10,
+          "text": "The synthetic issuer's cover is thin at 3.1x.\nBasis: annual.txt, page 2"
+        }
+      ]
+    },
+    {
+      "heading": "Contrary evidence and what would change the view",
+      "level": 3,
+      "line": 12,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 14,
+          "end": 14,
+          "text": "Nothing supplied contradicts the view; a USD 1,250 million refinancing would."
+        }
+      ]
+    },
+    {
+      "heading": "Limitations",
+      "level": 3,
+      "line": 16,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 18,
+          "end": 18,
+          "text": "- Synthetic data only in the cp five case, so no conclusion carries weight."
+        }
+      ]
+    },
+    {
+      "heading": "Map: support and contradiction",
+      "level": 3,
+      "line": 20,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 22,
+          "headers": ["From", "Relationship", "Edge type", "To", "Evidence"],
+          "rows": [
+            {
+              "line": 24,
+              "cells": ["Synthetic A", "Synthetic link", "Supports", "Synthetic B", "Synthetic p.1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Confidence inputs",
+      "level": 3,
+      "line": 26,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 28,
+          "headers": ["Input", "Value"],
+          "rows": [
+            {
+              "line": 30,
+              "cells": ["Directly Sourced", "8"]
+            },
+            {
+              "line": 31,
+              "cells": ["Calculated", "2"]
+            },
+            {
+              "line": 32,
+              "cells": ["Assumption-Based", "2"]
+            },
+            {
+              "line": 33,
+              "cells": ["Analyst Inference", "0"]
+            },
+            {
+              "line": 34,
+              "cells": ["Weak Lineage", "0"]
+            },
+            {
+              "line": 35,
+              "cells": ["Untraced", "0"]
+            },
+            {
+              "line": 36,
+              "cells": ["Conflicting", "0"]
+            },
+            {
+              "line": 37,
+              "cells": ["Insufficient Information", "0"]
+            },
+            {
+              "line": 38,
+              "cells": ["Fields present", "95"]
+            },
+            {
+              "line": 39,
+              "cells": ["Fields total", "100"]
+            },
+            {
+              "line": 40,
+              "cells": ["Source gate", "pass"]
+            },
+            {
+              "line": 41,
+              "cells": ["CRITICAL", "0"]
+            },
+            {
+              "line": 42,
+              "cells": ["MATERIAL", "0"]
+            },
+            {
+              "line": 43,
+              "cells": ["MINOR", "1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T5B.1 - Register",
+      "level": 3,
+      "line": 45,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 47,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 49,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T5B.2 - Register",
+      "level": 3,
+      "line": 51,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 53,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 55,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T5B.3 - Register",
+      "level": 3,
+      "line": 57,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 59,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 61,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "T5.3 - Register",
+      "level": 3,
+      "line": 63,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 65,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 67,
+              "cells": ["Observed", "Not supplied: nothing to report"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Calculations",
+      "level": 2,
+      "line": 69,
+      "blocks": [
+        {
+          "type": "table",
+          "line": 71,
+          "headers": ["Item", "Value"],
+          "rows": [
+            {
+              "line": 73,
+              "cells": ["Cover", "3.1x"]
+            },
+            {
+              "line": 74,
+              "cells": ["Refinancing", "USD 1,250 million"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Gaps",
+      "level": 2,
+      "line": 76,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 78,
+          "end": 78,
+          "text": "None."
+        }
+      ]
+    },
+    {
+      "heading": "Next module",
+      "level": 2,
+      "line": 80,
+      "blocks": [
+        {
+          "type": "text",
+          "line": 82,
+          "end": 82,
+          "text": "None."
+        }
+      ]
+    }
+  ]
+}

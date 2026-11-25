@@ -168,7 +168,9 @@ it("keeps the lane of a plotted status and draws no reference from it", () => {
   ]);
   render(<Calendar calendar={calendar} />);
   expect(document.body.textContent).not.toMatch(/annual-report-2024\.pdf|CP-2D-GAP-007/);
-  expect(screen.getAllByText("Historical — See Evidence").length).toBeGreaterThan(0);
+  const table = within(screen.getByRole("table", { name: "Published events" }));
+  expect(table.getAllByText("Historical — See Evidence")).toHaveLength(1);
+  expect(table.getAllByText("Scheduled — See Evidence")).toHaveLength(1);
 });
 
 it("says events are listed only when a listed row is a readable event", () => {

@@ -330,14 +330,16 @@ it("draws the same shape in each legend toggle", () => {
 });
 
 // D-41 (WCAG 2.5.8): a pointer target is at least 24 by 24 CSS px; Tailwind's size-6 is 1.5rem.
-it("draws every year marker as a 24 px target that is wide enough for four in a row", () => {
+it("draws every year marker as a 24 px mark, 32 px to a pointer, four to a row", () => {
   draw();
   const markers = Array.from(strip().querySelectorAll<HTMLElement>("button[aria-controls]"));
   expect(markers.length).toBeGreaterThan(0);
   for (const marker of markers) {
     expect(marker).toHaveClass("size-6");
     expect(marker).not.toHaveClass("size-3.5");
-    // Four 24 px markers and three 2 px gaps are 102 px, so the row's cap is 104 px (6.5rem).
-    expect(marker.parentElement).toHaveClass("max-w-[6.5rem]");
+    // Each mark's pointer area reaches 4 px past it, so 8 px gaps keep neighbours' areas apart;
+    // four 24 px markers and three 8 px gaps are 120 px, the row's cap (7.5rem).
+    expect(marker).toHaveClass("after:-inset-1");
+    expect(marker.parentElement).toHaveClass("gap-2", "max-w-[7.5rem]");
   }
 });

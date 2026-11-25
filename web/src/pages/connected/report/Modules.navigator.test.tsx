@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
 import type { buildReportView } from "../reportView";
@@ -53,24 +53,52 @@ function renderModules(sections: Sections) {
   );
 }
 
-const onThisPage = () =>
-  within(screen.getByRole("list", { name: "On this page" })).getAllByRole("button");
+const records = () => within(screen.getByRole("region", { name: "Statements and records" }));
+const openRecords = () => {
+  fireEvent.click(records().getByRole("button", { name: "Show records" }));
+};
 
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");
 });
 
-it("names the first table section by its own title when the module wrote no Key findings", () => {
+it("groups the modules by stage and marks the current one", () => {
   renderModules([text("Bottom line", 4), FINANCIALS]);
-  const labels = onThisPage().map((button) => button.textContent);
-  expect(labels).toContain("Financials and credit metrics");
-  expect(labels).not.toContain("Key findings");
+  const nav = within(screen.getByRole("navigation", { name: "Modules in this run" }));
+  expect(nav.getAllByRole("heading", { level: 3 }).map((node) => node.textContent)).toEqual([
+    "Financials",
+    "Credit",
+  ]);
+  expect(nav.getByRole("link", { name: "Financial foundation, Delivered" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  const other = nav.getByRole("link", { name: "Credit analysis, Delivered" });
+  expect(other).not.toHaveAttribute("aria-current");
+  expect(other).toHaveAttribute("href", "#modules/CP-2");
+  // The current module lists its own sections under its link; no other module does.
+  const sections = nav.getByRole("list", { name: "On this page" });
+  expect(within(sections).getByRole("button", { name: "Bottom line" })).toBeInTheDocument();
+  expect(other.parentElement?.querySelector("[aria-label='On this page']")).toBeNull();
 });
 
-it("keeps the Key findings entry on a module that wrote them", () => {
+it("names the first table section by its own title when the module wrote no Key findings", () => {
+  renderModules([text("Bottom line", 4), FINANCIALS]);
+  expect(screen.queryByRole("region", { name: "Key findings" })).toBeNull();
+  openRecords();
+  expect(
+    records().getByRole("heading", { name: "Financials and credit metrics", level: 4 }),
+  ).toBeInTheDocument();
+});
+
+it("keeps the Key findings region on a module that wrote them, with the table in the records", () => {
   renderModules([text("Bottom line", 4), text("Key findings", 6), FINANCIALS]);
-  const labels = onThisPage().map((button) => button.textContent);
-  expect(labels).toContain("Key findings");
-  expect(labels).not.toContain("Financials and credit metrics");
+  expect(screen.getByRole("region", { name: "Key findings" })).toHaveTextContent(
+    "Key findings says so.",
+  );
+  openRecords();
+  expect(
+    records().getByRole("heading", { name: "Financials and credit metrics", level: 4 }),
+  ).toBeInTheDocument();
 });

@@ -58,6 +58,226 @@ then 5; the narrow layout and the controls listed below.
   committed within milliseconds of the snapshot; a store made by an earlier commit of this branch
   is refused; digests at the cap skip their period's stories; SQLite waits 30 s for a lock while
   the forwarder gives up at 5 s; the GitHub workflow changes could not be run here.
+## 2026-11-25 — Export PDF control and preview restyled to the redesign
+
+- Scope: presentation only, `ReportExportPreview.tsx` and the screen rules of `reportExport.css`.
+  Export PDF is a quiet header utility beside Run progress with the redesign's menu; the preview
+  has one toolbar tile (format and issuer, state, Close preview, Print / Save PDF, the headers
+  note) above the paper. No wording, option, route or print rule changed; follow-on item 21 done.
+- Fidelity: looked at in the browser at 1440 and 390 on the synthetic run's Credit Snapshot.
+  Under print media the toolbar is not displayed and the paper has no border or radius, as
+  before. `check-render.cjs` passes the Overview at four widths; on the preview it reports only
+  findings inside the paper's own content, unchanged by this work: axis labels of the small
+  Debt maturities chart overlap, and one table scroll box in the paper is not named.
+- Tests: export tests (79), reader tests, lint, format, types, knip and the file gates pass. A
+  regex in the file now writes its quote as `\u0022`: the class check's string reader lost its
+  place there and misread every class after it.
+
+## 2026-11-25 — Redesign merged with main (issuer front page, PDF exports, complexity splits)
+
+- Scope: `origin/main` at `59e476b` (PRs #73, #77, #78) merged into
+  `claude/exciting-albattani-v1zoug`; 13 conflicts. Owner's rulings (2026-11-25): the redesigned
+  Overview stays on screen and main's front page composes the Credit Snapshot PDF only; main's
+  decision rule applies to the redesigned pages.
+- Kept from main as written: Export PDF and the `#export/<format>` preview, the print layout, the
+  publication contract (one admitted run per folder, verified scope, the published lead), the
+  Python side. Ported into the redesigned pages: ticker and financial-period facts, scope labels
+  on History and the Library, the Library's choice of the run a row stands for under each pathway
+  filter, its verified credit view and lazy specialist finding (now sharing the row's one
+  request), related reports. Kept from the redesign: RunActivity, RunProgress and Coverage (main's
+  changes there were splits with no change a reader sees; its two tests of the old Coverage
+  controls and four of the old Key charts section were dropped with those controls).
+- Decision rule on the redesign (content change): the call is the run's published credit view,
+  matched by output, hash and line for a verified publication only, never a committee or relative
+  value passage; a relative value or portfolio run leads with its purpose findings. No stance
+  chip and no was → now move. Each decision says why it is not shown, or its recorded hold with
+  the hold's source. Security selection, market-implied risk, evidence validation and the
+  committee write no bottom line on the Overview; an unheld module's limitations stay listed, a
+  held one's are noted as elsewhere only when something is missing, as main computes it. History
+  shows Not shown, Withheld or Unavailable per decision; the Library cell reads "Not shown".
+- Tests: full `npm run gates` passes on `4d5e937` (461 files, 7,898 tests with coverage, audit,
+  knip, duplication, build, 78 script tests, file gates). Python: 1,883 passed, 2 skipped (need
+  retained data or a screenshot path), including every test that reads the built pages and the
+  currency proof; main's targeted publication tests (246) pass.
+- Fidelity (presentation change): `check-render.cjs` on the merged build over the synthetic run,
+  25 pages at 1440, 1024, 480, 479 and 390: 83 of 125 passed; all 42 failures were the Export PDF
+  button at 36 px on a phone, fixed and rechecked on five pages at three widths with no failures.
+  The merged Overview was looked at at 1440.
+- Final review before merge (Fable, independent): do not merge until one item was fixed; all
+  seven findings repaired in `4d5e937`. Blocking: the Overview drew the changes module's bottom
+  line, which can restate the stance and which main kept off the Overview; the tile now points
+  to Changes. Also: the lead's pointer to the gaps ledger, passage names in the call, a Library
+  decision note false for runs with no committee module, run counts and same-date runs, and
+  main's two Coverage tests restored against the redesigned controls (not dropped, as first
+  recorded above).
+- Judged changes: the PDF's masthead and rules take the redesigned theme's brand tones (teal,
+  where main's spec named navy and ultramarine; spec updated). The Export PDF control and preview
+  keep main's markup, not yet restyled. Follow-on items 20 to 22 record what the merge left open.
+- Trimmed the oldest entries to keep this record under 1,000 lines.
+
+## 2026-11-25 — Frontend redesign: every screen rebuilt and merged
+
+- Scope: the ten redesign branches (Run activity and progress with the module pipeline; Evidence
+  and the trace drawer; Changes and Calendar; report header, Overview and History; Library and
+  Coverage; Forecast; the module page frame; the module leads for all 22 modules; Start run)
+  merged into `claude/exciting-albattani-v1zoug`, plus the coordinator's integration commits.
+  Design authority `DESIGN.md`; the map of what each screen shows is `docs/design/screen-map.md`.
+  Delivery still adds no analysis: every branch was reviewed adversarially for derived numbers,
+  page-made judgements, false gap reasons, hidden content and machinery in reader text, by
+  independent reviewers on each round and a final review before each merge, on retained TransDigm
+  FY2024 handoffs (outdated evidence, used for shape only), the proof handoffs and the synthetic
+  Northbridge run. No paid run, no provider call.
+- What the page sends at Start run is unchanged: 19 recorded request transcripts from 18 drives
+  match byte for byte in CI mode, and independent drives (every pathway, re-pressed options,
+  edits after review, failures and retries) are byte-identical to the old page's captures.
+  Consent gating, caps (Lite 15, Full 25, Deep 40, purpose pathways 20) and `X-Shown-Cap` are as
+  before.
+- Integration review (independent, of the coordinator's own commits): six defects, all repaired
+  in `3759f22` and `f708842` with tests that fail without the repair. A prose-only chart section
+  was drawn twice on four Financials leads, once denying it ("could not read"); a records address
+  (`#modules/<code>/records/<table>`) threw on a malformed escape and did nothing on a change
+  within the module; phone styles start below 480 px, not at it; several phone targets were
+  narrow or short; the limits disclosure had lost its chevron. The render check itself was
+  lenient (a hit on a parent counted, width unmeasured) and is now strict.
+- Fidelity check (presentation change): `docs/design/preview/check-render.cjs` on the final
+  build over the synthetic run, every page (14 module pages, a module's records, Overview,
+  Changes, Forecast, Evidence, Calendar, History, Library, Coverage, Run activity, Start run) at
+  1440, 1024, 480, 479 and 390: 113 of 125 passed on `f708842`; the 12 failures were all 24 px
+  event-lane marks sitting 2 px apart, fixed in `b40da32` and rechecked on every page with a lane
+  (30 page widths) with no failures (no sideways scroll, no unnamed scroll box, no cut
+  text, no target under 32 px or under 44 px below 480 px in either dimension, no text under
+  12 px, no overlapping chart label). Screenshots were looked at for the pages each review names.
+- Tests: full `npm run gates` on `b40da32` passes every step (lint, format, types, 454 files and
+  7,737 tests with coverage, audit, knip, duplication, build, 78 script tests, file gates). Python
+  front-end tests (15 files, 295 tests) passed on `c632e84`; the currency proof (5 tests, pound
+  and franc, reading the built pages) passes on `f708842`, and its new checks fail on a wrong
+  value. Quality gate 0 findings. Known timing-sensitive tests (pass alone,
+  fail only under load): the connected app's "reads the published handoff…" (wait raised to
+  10 s), `report.auditFollowups` T17, and `ReportLibrary.design` under parallel runs.
+- Not run: the confidence-review and rewrite-tournament skills are not in this session; the
+  independent review above stood in for the first, and a comparison of the changed parsers kept
+  one address parser (the scroll to the records reuses the router's).
+- Judged changes to record:
+  - Forecast prints the model's published display ("118"); exact values are in the calculation
+    download, which the currency proof now checks for the downside path and base interest.
+  - The Overview figure row is the financial foundation's own figures (revenue, EBITDA, cover,
+    leverage, cash with undrawn facilities), as the screen map asks; the catalogue's total
+    liquidity and free cash flow are in that module's records.
+  - "Will refuse" at Start run keeps the error red (`DESIGN.md` now allows red for a refusal).
+  - `DESIGN.md` reader words: machinery (handoff, registers, ids, file names) stays on Evidence;
+    "module" is the reader's word outside a lead, so gaps such as "The module wrote no such
+    passage" stay. Leads keep the stricter rule (no "the module"), enforced by test.
+- For the owner's local validation (rendering only; content findings were all fixed):
+  - Overview: with a three-sentence bottom line the first headline figure starts near y=900 at
+    1440×900; about 160 px empty under the call tile.
+  - Module pages: tiles take their content height, which leaves holes beside a taller neighbour
+    on several leads (about 500 px under Downside's break points and Rates' added interest);
+    Ratings and Covenants, and Liquidity and Restructuring, still look alike; a one-edge map on
+    Business & governance leaves space beside its side column; the paragraph trace sits beside
+    the text, not at the tile edge.
+  - Financial foundation: "1,158"/"1,160" labels collide at 390 on cash interest; three pro forma
+    marks at 4.88x overlap the dashed rule. Earnings delta, Ratings migration, Market-implied risk
+    and Restructuring are not in the synthetic run, so their leads were seen only in test renders;
+    nor is the portfolio limits disclosure (its chevron is checked in tests only).
+  - Forecast: 4,617 px at 1440 (target 4,500); at 390 it is longer than the old page (chart-table
+    list); headline figures are 20 px where the mockup has 36 (kit `StatsStrip` has no size
+    option yet).
+  - Top bar: between 480 and about 510 px the areas wrap to a second row (no sideways scroll).
+  - Coverage: the matrix has one tab stop per cell (no roving focus); seven issuers and part of an
+    eighth show at 1440×900.
+  - Start run: Submit sits just below the first screen at 1280×800 and 1024×768 for three limits,
+    and near 1,090 px with five at 1440; the dialog still says "Start a synthetic test?" (pinned
+    by the recorded transcripts and scripts; your call); the Documents step is restyled rather
+    than restructured.
+  - Run progress: with a stopped run the feed heading is below the fold at 1280×800.
+- Follow-on work the frontend cannot do alone: `docs/superpowers/plans/2026-11-25-redesign-follow-on.md`.
+- Trimmed the two oldest entries (2026-11-16) to keep this record under 1,000 lines.
+
+## 2026-11-24 — Frontend redesign: theme tokens and shell
+
+- Scope: `web/src/styles/theme.css` re-valued under the existing token names and
+  `web/src/shell/Shell.tsx` rebuilt as a top bar. No report, module, forecast or run page was
+  rebuilt; their layouts are unchanged and only take the new colours, type and radii. No handoff,
+  delivery or figure code changed, so no value, period, unit or source reference is affected.
+- Fidelity check: static build opened from disk in Chromium at 1440 and 390 px (`#/` and `#/kit`):
+  top bar, current-area tint and underline, buttons, badges, status marks, cards, metric tiles and
+  timeline draw in the new palette with no page errors. No report page was viewed with real run
+  data; the static build holds no report.
+- Web tests in four targeted runs: 320 files, 5,459 tests pass. One ConnectedApp run-start test
+  (leave-page prompt) failed once under load and passes alone, with and without this change.
+  Typecheck, knip, build and the 76 script tests pass. Full `npm run gates` and the Python suite
+  were not run.
+- `chart-lightness.test.ts` is unchanged; chart series 1 and 2 are a shade deeper than the
+  approved mockups to keep it.
+
+## 2026-11-24 — Review fixes on the issuer front page and report exports
+
+- Scope: eleven of the thirteen findings of the review of this branch, then the medium and high findings of two spec reviews and one adversarial review of those fixes. All under `web/src/pages/connected/`. Synthetic fixtures only; no provider was called, no retained handoff was read and no browser was used.
+- A report sentence the delivery writes now says only what the document shows, and is tied to the same lookup as the exhibit it names. Module passages print whole: the cuts of amounts and qualifications, and a prefix capture that could stop inside a figure, are removed. A passage left out by the reference check is counted in its section. An unshown decision reads "not shown in this report" in the PDF and "not shown on this page" on Overview, which names the module page. A held decision's limitations are left out of the Overview list with a pointer to the module.
+- References: a slash after a space is no longer a path; any `scheme://`, `//server/share`, drive and `file:/` forms are. The print check reads each block on its own, so neighbouring cells no longer block a PDF, and a content block has its own message.
+- Also: specialist Overviews keep Key charts; unparsed debt terms show as written; cash and undrawn facilities stay when their basis cannot be shown; the differing-rating notice stays on Overview; a specialist card's finding is cached per publication.
+- Checks on the final tree: 1,977 connected-page tests, TypeScript, lint and format on the changed files. The Python gate was not run; no Python changed.
+- Not changed: the selectors written for one retained case, which need a module-side contract. Known limitations left as low: single-segment and bare relative paths are not caught as references; "P50" and similar read as page citations; some PDF text still says "available in Evidence"; a readable action output with no decision in it is still described as "this decision".
+
+## 2026-11-24 — Issuer front page and report exports
+
+- On the branch based on main `96bd0ef3`, the connected reader and chart suite passed 2,178 tests, and 371 targeted offline Python checks passed across the scheduler, publication and service runs. TypeScript, changed-file lint and formatting, the production build, the unused and duplication checks, and the changed-code Python gate passed. Chrome rechecked the retained TransDigm Overview, exact CP-1 row trace and 390 px layout. The saved A4 PDF preserved all four tranche terms and gross funded debt on page one, with zero link annotations.
+- Integration confidence review checked older-run admissions, direct PDF routes, existing source traces and receipt stability across scheduler widths. A fixed publication clock preserves the scheduler test's byte comparison. The rewrite tournament kept the same-run export resolver beside the reader and kept exact metric identity for on-demand Evidence. No provider was called.
+
+
+- Chrome verified TransDigm's retained 28 December 2024 debt stack with tranches I–L on A4 page one and the same desktop and 390 px Overview. Principal, floating margin, maturity and the CP-1 row trace matched the handoff. Tranches replace the USD 8,702 million aggregate only when the owning section, unit, count, individual fields and principal reconcile. Total funded debt of USD 25,228 million, liquidity restrictions and the leverage chart stayed on page one. Astra and the rewrite tournament kept the validated replacement, and the production build, scoped lint and 90 focused tests passed. The broader Python gate still reports findings outside this TypeScript and CSS change.
+
+- The compact revision was verified using the earlier retained TransDigm 4 February 2025 and Caesars 5 November 2026 publications. In macOS Chrome, TransDigm page one shows the issuer profile, dated entered rating, USD 25,228 million of gross principal, the fully drawn USD 650 million July facility, USD 849 million of undrawn commitments, issuer EBITDA and cash-paid ratio labels, and the leverage chart. Caesars shows gross contractual principal and carrying value separately. Both saved landscape PDFs had zero link annotations, and the TransDigm tranche schedule remains in the exhibits.
+- Native Overview was checked at 1,440 and 390 px after layout settled, including the exact TransDigm profile trace and the Caesars profile. The production build, scoped format and lint, and 388 web tests passed. Astra cleared the revision. Confidence review and the rewrite tournament kept the exact gross reconciliation and existing chart renderers with a smaller print plot. The broader Python gate reported 3,004 findings outside this TypeScript and CSS revision.
+
+- Publication contract verified independently of presentation. Seven native historical reports and three explicitly qualified historical previews retained their receipt-pinned issuer, run, owner and handoff digests in isolated copies. Current-tier scope and publication time remain unverified for older completions. Candidate Markdown did not establish affirmative action or sizing clearance.
+- Astra's adversarial recheck cleared publication after fixes for unpinned workflow scope, superseded output selection and pre-upgrade data. The follow-up admission and reader group passed 152 tests, and the final publication group passed 29. The isolated task gate found zero findings. Confidence review and the rewrite tournament kept explicit scope validation and simplified the optional comparison bound.
+- Native Chrome Overview matched retained TransDigm on 4 February 2025 and 30 September 2024 and Caesars on 5 November 2026. The check covered selected-run identity, exact figures and qualifiers, three chart slots, source locator suppression, keyboard trace, an absent leverage denominator and 390 px layout without page overflow. The retained cases used earlier or partial scope, with no confirmed owned Model.
+- Astra cleared the front-page review after repairs to unverified action display, visible section selection, retained limitations and amount units. The final focused groups passed 143 reader and 31 identity tests. TypeScript, scoped lint, production build, the isolated 13-file Python gate and 84 catalogue and publication checks passed. The rewrite tournament retained explicit ordering and chart ownership checks.
+- Credit Snapshot PDF passed final saved-file checks on macOS Chromium. Retained TransDigm and Caesars print the decision, main qualification and figure strip on page one of four and three A4 landscape pages, respectively. Continuations carry full exhibits and repeated scope. Text, chart paths, annotations, unclipped bounds, exact missingness and the maturity, revolver, FCF and coverage qualifiers were checked against the selected handoffs with browser headers off. Synthetic long-table stress checked pagination separately.
+- Astra cleared the Snapshot after fixes to mixed source locators and qualifications, exact verification of holds, private identifiers and financial table basis. The web check passed 412 focused tests, scoped formatting/lint and a production build. The browser action preserved the selected run and return tab and waited for printable geometry. Windows and packaged desktop proof remain open.
+- All five specialist PDFs passed Chrome 158 A4 landscape checks with zero link annotations. The retained cases were TransDigm earnings, Ares Capital relative value, Life Time refinancing, iHeartMedia distress and LQD's Ares Capital holdings. Earnings, Ares and LQD used qualified historical previews. The checks covered exact unequal fiscal periods, clean and dirty yield differences, reported zero versus missing repayment, bounded downside cash flows, same-date held exposure and the relevant decision restrictions. B&G and Sotera remained unavailable from both menu and direct route.
+- The final integration repaired unsafe held-action prose and holds without substantive Portfolio evidence. The retained Ares and LQD findings open the exact owner lines in Evidence. A synthetic dated yield chart prints its full maturity ticks and percent axis. The TransDigm Snapshot keeps its authored confidence and removes the reference to the gaps ledger. Native Chrome kept Overview, Changes, Modules, Forecast and Evidence on the selected run.
+- The focused Python group passed 1,121 checks with one paid case skipped. The task-isolated quality gate found zero findings in 13 Python files. The prescribed worktree gate reported 3,000 findings against the broader dirty comparison. No provider was called.
+- Final Connected reader and shared chart tests passed 2,158 checks in 138 files. Scoped lint and formatting, TypeScript, the production build and the open-from-disk check passed. The final Chrome Library cards for Ares and LQD matched the same first passage and exact Evidence owner and line opened by Overview. Both previews showed the held actions and returned to the originating run and tab. The card guards rejected a mismatched scoped response. Confidence review and the rewrite tournament retained the shared purpose selection and independently traced restrictions.
+- Astra cleared the final integration after independently inspecting the saved PDFs, exact held-action and exposure treatment, same-run card and Overview proofs, and final test and quality-gate results.
+## 2026-11-24 — Review fixes for PRs #72 and #71
+
+- Scope: the thirteen findings of the review of PRs #72 and #71, on `claude/gracious-hamilton-ciefz4`. Presentation under `web/src/pages/connected/` and the parallel CP-OS path in `handoff.py`, `cpos.py` and `cpos_launch.py`. Synthetic fixtures and fake providers only. No provider was called and no retained run was read.
+- Forecast page. The statement's source trace covers the columns shown. A period only one case publishes stays in the comparison and reads "Not published" for the others. Cases with no common period draw no comparison and say so. An excluded period is named with its reason. Case names are computed once per model; a label no other case shares is shown as published, and a collision gets the group's reader text or a worded ordinal. The selected case is matched by its raw group. Changes draws nothing for an empty module comparison. Run progress names the earliest unaccepted module at a checker stop.
+- Parallel CP-OS. The last look is the final step before dispatch and checks the ledger before the module. A call it refuses, and a call the adapter did not send, is logged as `turn_not_sent`. A failed hold release never replaces the refusal, and a halted module's unreleased hold is named on the launch's failure. The launcher states one module at a time when retained handoffs force it. A launch-wide stop is worded as one.
+- Checks run on the final tree: 1,874 connected-page tests, TypeScript, lint and format on the changed files; 247 targeted Python tests across the parallel, budget, handoff-loop and web-search files, 14 selected launcher tests with one historical case skipped, and the changed-code gate with zero findings. One connected-page test failed once in five runs while the Python tests ran alongside; it was not identified and did not repeat. The full suites were not run.
+- Review. Two spec reviews and two adversarial reviews, each followed by repairs. The first fix to the turn event let a stop arriving during the event write through to dispatch; the look was restored to last and the test that covered it was restored. The adversarial reviews mutated the source in scratch copies: 18 of 19 web and 5 of 6 Python mutations were caught. The confidence-review and rewrite-tournament skills were not available in this session; the adversarial passes stood in for them. No browser was used; pages were rendered in jsdom.
+- Known limitations, left as low. An `other` grid drawn as its own statement can show the no-common-period sentence beside a drawn comparison. One case that publishes a period twice gets a left-out sentence at the statement although both columns are drawn, and the trends section drops that period without a notice when no cash proxy row exists. A third case disjoint from two that share periods is drawn as "Not published" with no notice. The statement header applies reader text to a name where the cards do not. A `not_sent` reply whose release then fails leaves a `turn` with no `turn_not_sent`. A halt and a ledger stop met together now raise the ledger stop. At a width of three or more the run page may still name a bystander at a checker stop; not confirmed.
+## 2026-11-24 — Coverage page (`/coverage`), first build
+
+- New top-level page of the connected app and one read-only reply, `/connected/coverage`, under
+  `docs/rulings/2026-11-24-coverage-page.md`. It reads the admitted publication only: fourteen
+  fixed module columns, five cell states by the Library's existing rules, and fields from the
+  Reader summary and typed `Chart data:` tables. It adds no parser, score, average or difference.
+- Retained evidence, module level only: three TransDigm CP-1 handoffs of the 2026-11-15 live runs
+  (as of 2024-09-30), each as its own publication. Leverage, net leverage and debt maturities kept
+  the text, period, unit and Basis read by hand from each Markdown file, and each figure's line is
+  its own table row. One issuer and one module: not a TDG pathway and not a cross-issuer case.
+- Everything across issuers is synthetic: figures keep text, period, unit and Basis; a stated gap
+  is listed apart, never ranked or shown as zero; a rank reads one reader-chosen period and keeps
+  reporting units apart; the page draws no module code, hash, file name or run folder.
+- Presentation fidelity, Chromium at 1500 px on a five-issuer synthetic publication: Modules, Rank,
+  Find and Trend drew with no console error. Edge, mobile widths and keyboard use were not checked.
+  The Evidence link's address follows `resolveEvidenceLocation` by reading; it was not clicked
+  through to a published report.
+- Review fixes, same day: text now comes from the current Findings sections (the synthetic
+  current-format CP-2 gives its bottom line, three findings and three limitations); module text
+  and Basis pass the reader's reference rule; adjusted headings join their reported measure;
+  gaps count `## Gaps` entries and `Not supplied:` cells (the retained TDG CP-1 is no longer plain
+  "Delivered"); absent modules are read against the run's recorded `requested_modules`, a new
+  field of the published run; period order reuses the reader's `periodOrder`.
+- Browser check repeated after the review fixes, Chromium at 1500 px, same five-issuer synthetic
+  publication with recorded plans: Modules (gaps and "Not asked for in this run" drawn), Rank,
+  Find by issuer name, Trend and an unavailable sector from the link drew with no console error.
+- Not done: confidence-review and rewrite-tournament (their definitions are not in this
+  repository or session), the full web and Python suites, and a check against the design system's component rules; the page uses native selects,
+  checkboxes and tables as the Library list does.
 
 ## 2026-11-24 — Parallel CP-OS review fixes for PR #71
 
@@ -767,208 +987,3 @@ Scope: the connected issuer report reader only, under `web/src/pages/connected/`
 - Known, Low, parked for the batch: a " (CP-x)" is kept only when a known file extension follows before the next `;`, `,`, `|` or newline, so an unlisted extension (`Scan (CP-1).png`), a comma inside a file name, and a calculation note whose source part names a file still show the code; forecast model strings are not filtered; four small test gaps; two leftover uses of the literal "Confidence inputs".
 - For the owner: 856 changed lines of code and tests against the 800-line cap (lift unconfirmed past 09:00 GMT 2026-11-16), plus the 650-line plan; the plan's PR 2 and PR 3 were refreshed only for PR 2 (split into 2a and 2b) and PR 3 needs the same before it starts.
 - Not verified: the reader in a browser (no fidelity check of the plain names, CP-1 lead or confidence tile on a retained run); `proof:connected`; a screen reader; Windows; Python gates (no Python changed); a mutation run. No paid execution.
-
-## 2026-11-16 — Start a run: limits as grouped decisions (PRs #11 and #12, merged to `main` as `8868f96d` and `915b0f79`)
-
-Scope: the connected Start a run review only, under `web/` (`start/limits.ts`, `start/ReviewSheet.tsx`, `StartRun.tsx`, `components/status/sets.ts`, `scripts/connected-proof.mjs`) plus the design-system and plan docs. The Python service, the submit request and the Submit gate (`checksComplete`, `capForPathway`, `requireSummaryCap`, `invalidateReview`, `makeReview`, `submitReviewed`) are byte-identical to `main`. No provider called.
-- Changed: "Readiness checks" becomes "Limits to decide": one card per decision (status badge Will refuse / Gap / Limited / Check, cause and fix in plain words, `Will also refuse:` and `Also affects:` lines, one acceptance per group); items needing no decision fold under "No action needed (n)"; no module code is drawn. A line above the approval says how many decisions remain. An acceptance carries across a stepper or Edit return only for the same limit id and reason, issuer ID and pathway; the approval is never carried; "Carry over from latest run" and "This is a different issuer" drop it.
-- Answer key: the 180 cases built from the service's own readiness rows in the whole-branch review, and the reviewer's 13-case probe with 400 generated summaries (#11): no item needing a decision falls outside a group, no code is drawn, and ticking every card hands over exactly the required ids.
-- Gates at `fb1fb3ba` (branch cut from `8c4abeb7`), exit 0: `npm --prefix web run gates`, Chrome 157 `connected-proof.mjs`, `uv run python tools/quality_gate.py`. CI's `changed code passes…` and `fast tests and page logic` passed on #11 and on #12 at its final head (`aaa33fbe` plus three later commits) before each merge; #12 was retargeted to `main` after #11 merged and CI was not re-run on the merged tree.
-- Reviews: task review (one Low, fixed); paid-submit path by `mx-adversary` (one Medium, an acceptance carried to a different typed issuer, fixed test-first in `2056ece7`, re-review approved); sweep `refactoring discover changed-update` (no defect, one Info); whole-branch `adversarial-reviewer` (one Medium, a following module that will refuse listed only under "Also affects", fixed test-first in `6805f268`, re-review approved); `confidence-review`, `ponytail-review`, `rewrite-tournament` (no defect).
-- Rulings: the issuer ID is the carry identity (renaming under the same ID still carries); changing pathway and back before the next review carries; limit acceptance is enforced by the page only, as on `main`. Parked for the plan's last PR: a following module whose refusal has a different root cause can sit in a card whose cause is only "limited".
-- Not verified: the gates and Chrome proof on the merged tree and on the last two fixes (`2056ece7`, `6805f268`); the review in Chrome after those two fixes (viewed at desktop and mobile widths before them); Edge and Windows; keyboard and screen-reader behaviour in a real browser (jsdom only); paid mode against the live service (mock fetch); behaviour against the live service for #11's grouping. No paid execution.
-
-## 2026-11-16 — Browser proof script brought up to the merged reader (branch `claude/proof-forecast-every-scenario`, from `main` at `8bbb74ab`)
-
-- Scope: `web/scripts/connected-proof.mjs` only; no product code. On `main` the proof failed 0 of 2 (Chrome 157.0.8103.78 and Edge, macOS) at two assertions that predate deliberate, unit-tested product changes. (1) Cash proxy table with "Downside shock" selected: the script expected no "Base case" row; since `cc836f5f` every case is drawn and the selected one emphasised (`LegacyForecast.test.tsx`), so it now expects exactly one "Base case" and one "Downside shock" row. (2) Phone trace control: the script measured the button box as at least 44px; since `8d2089bc` the box is 28px with a 9px outset hit area (`ResponsiveReading.test.tsx`), which computes to exactly 44px by 44px, so it now requires the corner pixels of that square (22px before the centre to 21px after it, both ways) to hit the button.
-- Result: `npm run proof:connected` exits 0, 2 of 2, all synthetic upload-to-finished-report checks in both browsers; evidence `proof-artifacts/run-4T32BF/proof.json`. This is the first execution of the calendar check written for the year strip (Scenario marker and category toggle, Table view, trace drawer): it passes in both browsers. `lint`, `format:check` and `test:scripts` exit 0. Synthetic data, no provider.
-- Seen while measuring, not fixed (predates): at 390px wide the trace controls in the last column of the Forecast "Scenario comparison" table have their hit area cut off on the right by the table's edge.
-- Review: one scoped review, pass, three Low (probe the full 44px, applied; no browser assertion that the selected case is emphasised, the unit test holds it; clearance near a viewport edge, not seen).
-- Not verified: that the hit-area check fails on a build without the outset (reasoned from the 28px box, not run); Windows; the full suite on this branch (script-only change).
-
-## 2026-11-16 — Issuer calendar: year strip over a grouped list (PR #10, branch `claude/calendar-compact-strip`, base `main` at `a9aec10a`)
-
-Scope: presentation only: `web/src/pages/connected/visuals/EventLane.tsx`, its tests and answer key, the old-drawing assertions in `report/Calendar.test.tsx` and `visuals/LegacyVisuals.test.tsx`, and the calendar check in `web/scripts/connected-proof.mjs`. No backend, handoff, provider or model change. Gated code head `84e41de3`.
-- Changed: the per-event rows with a position track are replaced by (1) a strip with one column per year that has events and one marker per event, the years with no event in the input named ("No events 1974 to 2013"), and (2) one list in date order grouped by year. A row shows date and precision, category mark, title, credit relevance, module and trace control; status, published date and (where the host does not send it to the drawer) source are in a per-row detail panel, closed at first, with "Show all details". The legend entries are toggles that show or hide a category (owner request). A marker moves focus to its row; row and marker highlight each other on hover and focus. Layout switches on the drawing's own width (container query), so a half-width module card gets the stacked layout. No heading elements in the drawing (the old `h5` skipped a level).
-- Rulings by this session: a linear date axis was rejected (60 of 69 Caesars events fall in 2020–2032, 18 in 2026, so positions overplot); every detail line visible at 14px/22px cannot reach half height (about 200 characters per event), so status and published date moved to the detail panel; markers are outside the tab order (`tabIndex=-1`) and the rows' own controls are the keyboard path; collapsing one row after "Show all details" returns the button to "Show all details". The brief's figure target of 3,300px was missed by 46px (3,346px); the page target (half of 8,480px) is met.
-- Prior art: nothing reusable in the owner's repositories (`gh search code`, owner `EricMG13`: timeline, strip, calendar); patterns taken from Preline Timeline (date-group label beside rows) and Preline Accordion (button `aria-expanded`/`aria-controls`, hidden panel), read on the live pages; no approved library has a unit dot strip; Flowbite's pages returned HTTP 429 and were not read. No dependency added.
-- Answer key: `EventLane.fixture.ts`, 14 hand-written events (four categories, four precisions, a same-date pair, a "Not supplied" published text) with stated year, order and gaps, committed with the implementation; `EventLane.test.tsx` asserts each event's title, date, precision, relevance, status, published and source text once per row, its marker, category, year group, order and original row index against it.
-- Gates on `84e41de3` from `web/`, all exit 0: lint, format:check, typecheck, test (159 files, 3,311 tests, statements 93.49%), unused, duplication, build, test:scripts, test:file:gates.
-- Reviews: one task review (no High or Medium; five Low, applied). Sweep `refactoring discover changed-update` on the PR diff: one confirmed defect (with "Show all details" on, a row's own button did nothing and the row stayed open after "Hide all details"), fixed with its probe failing first and its first test passing after; the probe's second test looks for a "Hide all details" button the ruling above removes, and an added test covers that cause; one measured cost deferred to the phase sweep (the hover and focus handlers repeat in `Marker` and `EventRow`, 15 lines). Browser check found the half-width card defect (466px card, text columns about 100px), fixed. Whole-branch adversarial review on `b8c47da1`: no High; one Medium, this record describing the first commit, corrected here; four Low, applied in `84e41de3` (its stale-highlight probe exit 1 before, 0 after). Not run: `confidence-review` and `rewrite-tournament` as named steps.
-- Fidelity check on `84e41de3`, retained Caesars run `20261115-114658-01`, read-only preview of the built branch, 69 events. At 1440x900: calendar page 4,138px (8,480px before in the same browser pane, recorded earlier as 8,568px), figure 3,346px (7,688px); 69 markers and 69 rows, each marker's `aria-controls` resolving to a distinct row; 138 row controls in tab order; no duplicate id; headings h1, h2, h3, h3; no horizontal overflow; Historical off leaves 23 rows (1,992px), Scheduled off 46 rows (3,139px), the five gap texts unchanged in both; "Show all details" opens all 69 panels (7,588px) and closes them; a marker click puts a visible focus ring on its row and Tab moves on to that row's trace control, Enter opens the drawer. At 375x812: 12,854px (27,904px before), no horizontal overflow, 141 row and toggle targets all at least 44x44 with none overlapping, markers not touch targets. Module pages: the drawing appears on six (CP-0, CP-1A, CP-2E, CP-3, CP-4, CP-DR) with no overflow; the 466px card for CP-1A is 2,546px for 20 events with the title at the card's width. The accessibility tree names each year group, gap and marker.
-- For the owner: the PR is 1,061 changed lines against the 800-line cap, whose lift was not confirmed past 09:00 GMT today; the entry trimmed to keep this file under 1,000 lines (2026-11-13, negative cash) is in git history; status text reaches the marker name and detail panel as written, unscreened for source references, as on `main`.
-- Not verified: a real screen reader; real touch devices; Windows; `proof:connected` (run here, 0 of 2: Chrome timed out waiting for the synthetic run to finish using the main checkout's Python environment, Edge is not installed, so the edited calendar check never executed; not tried on `main`); Scenario and User reminder events in a browser (answer key only); a mutation run beyond the reviewer's 12 hand mutants. No paid execution.
-
-## 2026-11-16 — Report reader design critique: five priorities, review fixes, main merged (branch `claude/fable-reviewers-critique-b4de59`)
-
-Scope: presentation only, all under `web/`; no backend, handoff, provider or model change. Source: an Impeccable critique of the connected issuer report reader (21/40; snapshot under `.impeccable/critique/`). Gated code head `8d2089bc`; the branch holds `origin/main` at `8c4abeb7` (three merges, the last docs only; the first resolved conflicts in `ReportContent.tsx`, `ReportLibrary.tsx` and `ReportLibrary.design.test.tsx`, resolution reviewed from git objects: nothing dropped from either side). Nothing pushed.
-- Changed: numbered record tables (`T4.4 …`, `P3 …`, `Confidence inputs`) leave module pages for a "Statements and records" card linking to Evidence, while every module-written sentence in such a section stays on the page; trace controls visible at rest, drawer values wrap; "Chart data:" headings and tables a chart already draws removed; qualifications moved from forecast table headers to a note list under the table; axis ticks from zero on round steps, every scenario drawn with one emphasised and one end value label; scroll-spy navigator; skip link, per-page title, heading order, 44px phone targets, a disclosure for empty forecast columns. Calendar: the shared-lane drawing was built, measured taller (17,038px against 11,168px) and withdrawn; rows kept with a wider label column.
-- Gates on `8d2089bc`, from `web/`, all exit 0: lint, format:check, typecheck, test (159 files, 3,287 tests, statements 93.51%), unused, duplication, build, test:scripts, test:file:gates.
-- Reviews: per-task review of each change; whole-branch adversarial review (1 High, 2 Medium), confidence review (2 Medium) and a rewrite tournament on the pre-merge head; one fix wave; its re-review found all four fixed and nothing above Low. The High was a qualification sentence inside a coded section no longer drawn (fixture `tests/fixtures/esg/CP-2E-h4.md` lines 134 and 232); it is drawn once again.
-- Fidelity check, retained Caesars run `20261115-114658-01` in a read-only preview of the built head at 1440x900: CP-1 module page 10,716px (28,702px before) with no register-code heading and no "Chart data:" heading; records card lists 8 tables and the Evidence link; 63 trace controls, none hidden; no heading-level skip; navigator marks "Figures and records" while its block is in view, the last entry at the bottom and "Bottom line" at the top; Forecast headers at most 77px (273px before) with the interest-basis qualification once per note list and in no header; no overlapping chart text in 10 charts; calendar 8,568px with no horizontal overflow; Overview shows the labelled "Test preview" note. At 375x812: no horizontal overflow, trace hit area 44x44, no pinned column.
-- Open, not fixed: a table's scroll-region label can differ from its heading on the Overview; `ticks` keeps an unused parameter; a heading that only looks like a code ("P50 …") is treated as one; promoted monitoring tables keep their code in the heading (`T2.12`, predates); a non-finite chart value falls back to an empty axis without a log (unreachable today); a scenario ending early could put its name near the emphasised value label (not measured).
-- For the owner: the calendar's planned lane layout is not delivered and needs a different design; five uncoded CP-1 summary tables stay on the module page; module-written prose defects, the repeated run charts on Forecast and the History list reading "Finished" for a test-preview run predate this work.
-- Not verified: a screen reader; real touch devices; Windows and CI; the browser proof script (`proof:connected`); the CP-2E coded-section fix in a browser (its handoffs are fixtures, not a retained run); the Changes page beyond its shared code path; a mutation run. No paid execution.
-
-## 2026-11-16 — Start a run: four steps and one plain review (PR #6, main `76ed9dde`)
-
-- Scope: the connected Start a run flow only. Five steps became four (Documents, Purpose, More context, Review and start; completed stepper steps are buttons) and the review became one sheet, "What will run", with an Edit button per block and no module code, run id or launcher flag below the Advanced level. Service text is rewritten on the page only (`web/src/pages/connected/start/plain.ts`); the Python service, the summary data and the submit request are unchanged. Brief: `.impeccable/surfaces/web-src-pages-connected-startrun-tsx.md`.
-- Merged main twice on the way (`ed26598a` per-pathway caps; `c88773d8` intake hooks and panels, where main's file was taken whole and the four-step changes re-applied). Paid-submit path reviewed after each merge by a read-only reviewer: main's cap, review and submit functions are byte-identical; 33 cases in paid and synthetic mode (jsdom, mock fetch) found no submit against a cap, pathway, digest, acceptance or approval other than the review on screen; 11 of 12 hand mutants killed (the survivor: the pathway cards' `invalidateReview` is redundant while no pathway control shares the screen with the review).
-- Defects found by review and fixed test-first: the review footer read "Step 5 of 5"; a run id reached the Changes line when a skipped run's reason quoted an issuer name with brackets; the `SEC:` label stayed on a lookup line; the comparison caveat ("earlier format", "earlier methods") was dropped and is now shown without the run folder; focus fell to the page body after a stepper return (the step heading's `key`, dropped on main in `89e4e2be`, is restored, which also returns focus after Continue and Previous).
-- Gates at `57eadd8e`, the merged tree: `npm --prefix web run gates` exit 0; Chrome 157.0.8103.78 run `20261116-100900-01` passes the synthetic upload-to-finished-report proof on macOS (`proof-artifacts/run-xBeXl3`); Python quality gate zero findings (no Python changed); 800 changed lines. Merged on the owner's instruction while CI's "fast tests and page logic" was still running; its result was not seen before the merge.
-- Presentation fidelity scope: the Purpose step and the review viewed in Chrome at 1440 px and 390 px at `08144b4b`, before both merges; afterwards the adopted shorter `ReviewSheet` was compared by rendered markup against the version it replaced on seven summary fixtures (identical), and the page was not viewed again. Not verified: Edge and Windows; keyboard focus in a real browser (jsdom only); paid mode against the live service (no provider called); widths of about 640–815 px and 1041–1159 px, where neither the step line nor the stepper labels name the step. Known, with the owner: lookup lines, one environment-variable name and omitted-section ids are drawn as the service sends them.
-
-## 2026-11-16 — Six-fix PR integration with current main
-
-- Main advanced to `ed26598a` (Run activity). Merged it into the six-fix branch, retaining both verification entries and resolving the API conflict with upstream LiveRun/Activity/getActivity plus the private ReportEntry type. Astra confirms all six-fix production changes and upstream activity routes/components are preserved exactly; no new feature or design change. Native backend and pins remain unchanged.
-- Combined-source verification: 196 connected tests pass (86.90% line coverage), 30 bridge tests pass, full web ESLint/Prettier and TypeScript pass, Python quality gate zero findings. Clean offline install/dual build from tree `510a7c0f05f61356fbd1de95f3fb49162c9a0bde`; Chrome 157.0.8103.78 `20261116-092647-01` and Edge 157.0.4341.60 `20261116-092716-01` each pass all 38 synthetic upload-to-finished-report checks on macOS. Evidence: `proof-artifacts/run-wxeUO5/proof.json`. Final Fallow audit against current main: PASS, zero introduced and zero inherited findings.
-- No paid execution, tournaments or ZIP. ZIP remains held pending actual Windows work-PC proof in both browsers. Historical verification entries retained in git history when trimmed below 1,000 lines.
-
-## 2026-11-16 — Six remaining frontend Fallow findings
-
-- Verified each reported item before editing using its `fallow inspect`, `dead-code --trace` or `dupes --trace` command. Removed only ReportEntry's unused export; extracted the repeated following paragraphs and empty findings notice; isolated citation rendering; split Run intake into stable step/panel components, state hooks and bounded derived-data helpers. No suppression, dependency, native backend or Credit OS design changes.
-- Confidence review, ranked: (1) form extraction could alter approval/submission or hidden data — Astra found Listed equity uncheck retained an old ticker; restored the original atomic clear and verified the actual review payload. Frozen cap, pending locks, retries and single submission retain their guards; (2) hooks/components could reset state, focus or uploaded/prior files — stable top-level definitions and hook order reviewed; UI regressions exercise carry-latest success/no-history, file copying, exact reviewed context and zero premature submit; (3) report extraction could move qualifications/trace identity — literal paragraph order, bold qualification, exact block line/hash/source link and both empty notices tested; (4) citation extraction could change missing/empty/file/source precedence — exact original file/page URLs, SHA-256, excerpt, missing identity and mismatch warning verified. Astra independently approves final Run, report and citation changes. No remaining confirmed defect in scope; no tournaments.
-- Final combined connected suite: 194 tests across 25 files passed, 86.64% line coverage. A separate cold-import reader test exceeded its one-second heading wait; allowed three seconds for the lazy chunk and reran the entire ConnectedApp file: 24/24 passed. This test-only change does not alter the frozen runtime. TypeScript, changed-file ESLint/Prettier, clean offline install and dual build pass. Python quality gate: zero findings (no Python changes). Final Fallow against `24531dae`: PASS, zero introduced and zero inherited findings.
-- Frozen runtime/build source tree `9e4bdadb490826c28acc70c9003df3b832eba3f2`; Chrome 157.0.8103.78 run `20261116-091915-01` and Edge 157.0.4341.60 run `20261116-091944-01` each pass all 38 synthetic upload-to-finished-report checks on macOS. Evidence: `proof-artifacts/run-ozVMtZ/proof.json`. Read-only Caesars preview moved to `http://127.0.0.1:58346/report/20261115-114658-01#overview`. Its run records, outputs, handoffs, models and chips equal the preceding preview exactly; visible Overview keeps its Test preview/withheld-method qualification. This is retained data, not a new live analytical run.
-- Fidelity scope: Astra compares rendered structures/classes/copy and source identities against merged `24531dae`; focused tests and branded browser checks cover the five-step Run and report pages, including selected narrow layouts. Native backend and pins remain RBOT-HTML `be953752`; React manifest/lock unchanged. No paid providers, Signal changes, historical-run mutation, ZIP, push or publication. Windows work-PC Chrome and Edge proof remains outstanding; ZIP stays held. Trimmed oldest whole entries below 1,000 lines; git history retains them.
-
-## 2026-11-16 — Run activity section in the connected interface (branch `claude/run-activity-section-81a806`)
-
-- Added `/runs`: the runs that are running and waiting, after the Claude Design brand-application mock "E · Run activity" and today's HTML Run activity view. Counts, the service's hold note, a card per running run (pathway, state, a stalled mark, module progress and one chip per module, source-file count, the name warning) and a Waiting table with each run's reason. Each issuer links to its run page. The rail's Run item opens it; Start a run stays a button there and on Library; a run page's breadcrumb returns to it.
-- New `GET /connected/activity` reads the live records fresh through `deploy_workflow.inbox.activity.snapshot` and sends a fixed set of fields: no spend, folder, process ID, digest or file names (a count only). The hold note is read from the `_engine/activity.js` the scheduler writes. RBOT-HTML's scheduler and `inbox` modules are unchanged. Departures from the mock, following the later HTML view's rule: no run code and no file list; the page re-reads every 5 seconds.
-- Confidence review, ranked: (1) audit fields reaching the page — the endpoint test compares a running run's whole entry with a hand-written one; (2) the list and the run page disagreeing on progress — both now use `finishedFigure` and the prepared plan's modules (seen as 3 of 15 against 3 of 14 in the browser, repaired); (3) a failed read shown as "no run" — a failed or malformed read shows "Run activity could not be read", tested. Rewrite review of `listing`, `useActivity` and `RunningCard` done inline, no sub-agents: kept. Reading the whole list from `activity.js` was rejected, since it is absent until the first poll.
-- Gates: `tests/test_react_frontend.py` 9 pass with 118 scheduler and activity tests; 186 frontend tests across 24 files; TypeScript, ESLint and Prettier on the changed folders, knip, duplication and build pass; Python quality gate zero findings. Not run: the full suites, the Chrome and Edge connected proof, the a11y gate.
-- Presentation fidelity scope: seeded local preview (two running, one stalled, three waiting, a hold note; no scheduler loop, no provider) viewed at 1440 px, 800 px and 375 px, and one run page for the breadcrumb. The empty and unreadable states are covered by tests only. `StatusBadge` gains an optional `label`; no other design-system component changed.
-- After merging main at RBOT-HTML `be953752` (per-pathway caps): the run list takes no cap, as main's snapshot and single-run reply no longer do. Inherited findings fixed on the owner's instruction: the ESLint error at `web/src/ConnectedLoadBoundary.tsx:22` (braces only) and Prettier on `web/.fallowrc.json` and `web/knip.json`; ESLint and Prettier now pass on all of `web`. The browser preview was not repeated after the merge. Merged without an independent review, changed-update sweep or whole-branch adversarial review (owner: no sub-agents).
-
-## 2026-11-16 — RBOT-HTML main update to be953752
-
-- Merged RBOT-HTML `be953752e5e6b981e24082d452637c5120d63825` (remote main verified again before completion). Native `src/`, `apps/issuer-library`, Python manifest/lock/version exactly match that revision; React manifest/lock unchanged. Imported methodology, PDF Form-XObject extraction, pathway tiers and retained script-check evidence without replacing the Credit OS frontend or performance fixes.
-- Adapted the bridge and React intake to native per-pathway caps (Lite USD 15, Full 25, Deep 40, purpose pathways 20), exact `X-Shown-Cap` summary/submit acknowledgements, and native historical-cap display. Deep shows 20 analytical modules; native delivery adds CP-MODEL. Changing pathway invalidates review; pending review locks navigation; absent/malformed/mismatched caps block submission.
-- Evidence conditionally shows native retained script checks with exact outcomes, counts, reasons, script hashes and accepted-response attribution. Earnings-update Overview can use CP-1B only after higher-priority leads; it is labelled Earnings view and cannot supply a committee action. Source serving reuses the new PDF extractor while preserving original bytes.
-- Confidence review, ranked: (1) changed scheduler/summary contracts could break startup or acknowledge the wrong cap — traced bridge callers, repaired removed global-cap arguments, checked frozen approval, mismatch, missing-cap, concurrent navigation and retry cases; (2) historical caps or optional-module selection could drift — native tier regressions and independent Astra review pass; (3) retained script checks could imply a different attempt or alter null/zero — adapter uses native accepted records and exact values, reader tests and browser/native comparisons pass; (4) earnings fallback/helper extraction could change qualifications or trace identity — scoped fallback tests, explicit action/maturity boundary cases and final Astra comparison pass; (5) PDF extraction could change original downloads — form-body/page and exact-byte regression passes; (6) performance/offline/data fidelity could regress — lazy/scoped-fetch browser assertions, dual build and exact retained-Caesars data equality pass. Initial browser attempts exposed test-helper argument/navigation omissions; repaired the script and reran both from upload. No confirmed defect remains in this scope.
-- Astra backend, intake and report reviewers approve; final helper recheck confirms exact paragraph order, qualifications, section references and trace identities. No tournaments. Presentation fidelity scope: existing Credit OS Run/report assertions in both branded browsers (desktop and selected mobile views); inspected the new Evidence Script checks desktop screenshot. Caesars remains a retained qualified Test preview, not new live analysis; no script checks invented for its historical snapshot.
-- Tests: 3,067 focused native Python passes (known failures/irrelevant live cases deselected), 565 native JavaScript passes, 72 bridge passes, 186 connected React passes across 24 files with 84.9% line coverage; final test-fixture type correction followed by TypeScript and 10 reader tests passing. Changed-file ESLint/Prettier, TypeScript, fresh offline install, dual build and existing Chrome file:// gates pass. Python quality gate: zero findings. Fallow against `63d7edd`: PASS, zero introduced and six inherited findings; no suppression changes.
-- Frozen runtime/build tree `3d727f069ea7dccb4a8635f11b553930ca5de0e0`; passing browser-proof tree `9d545b0fbb89099bd8be3a3daa4161592748be3b` differs in test scripts only (subsequent test-only Paragraph end fields typechecked). Chrome 157.0.8103.78 run `20261116-085154-01` and Edge 157.0.4341.60 run `20261116-085227-01` each pass all 38 synthetic upload-to-finished-report checks on macOS. Artifacts: `proof-artifacts/run-JGyo4g/proof.json`; synthetic responses retained, no real provider invoked.
-- Updated Caesars preview: `http://127.0.0.1:58345/report/20261115-114658-01#overview`, isolated read-only copy. Run records, outputs, handoffs, models and chips exactly equal the preceding preview. Native merge verification records remain in the upstream parent history; oldest local entries trimmed to stay under 1,000 lines. No predecessor/historical-run mutation, Signal work, paid execution or ZIP creation/publication. Actual Windows work-PC Chrome and Edge proof remains outstanding; ZIP stays held.
-
-## 2026-11-16 — Three connected-interface performance fixes
-
-- Removed whole-publication enrichment from original-source requests: each request verifies the requested file's publication/workflow identity and current bytes; raw file downloads skip page extraction. Library uses a compact index; a report fetch scopes heavy content to its run and a valid Changes dependency while retaining history/ambiguity metadata. Added negotiated gzip and immutable caching for hashed connected assets.
-- Separate connected build lazily loads Run, activity, library and report routes; the offline classic-script build still works from file://. Credit OS components/styles, native analytical code and dependency versions remain unchanged. The 628.4 KB report-reader chunk is deferred on Run; 227.4 KB is the bootstrap file alone, not total initial JavaScript.
-- Local retained-Caesars measurements (three requests, medians; not Web Vitals): library 2,933,438 to 18,654 decoded bytes (2,318 gzip), 357.5 to 12.9 ms; unchanged 12,160-byte source page 353.8 to 13.7 ms. Final frozen preview confirms compact sizes and exact equality of retained run records, outputs, handoffs, models and chips against the previous preview. Measurements: `proof-artifacts/run-HAyUPU/performance-measurements.json`.
-- Confidence review, ranked: (1) scoped data could alter financial history/CP-8 admission — Astra reproduced duplicate-folder ambiguity loss and null-current crashes; repaired and independently rechecked, with wrong-issuer/unfinished/missing-prior cases; (2) direct source access could weaken identity checks — request-time hash/tamper, admission, traversal and page tests pass; (3) split builds could break offline use or error recovery — dual build/file gates pass; real reload button unit-tested (real failed-chunk injection not tested); (4) extraction could change reader data/design — retained-data equality, component and browser checks pass; (5) search after filter changes — reproduced stale event.currentTarget crash, capture value synchronously, component and both browser regressions pass; (6) gzip/cache/query boundaries — quality-value, malformed/duplicate query, gzip round-trip/Vary/cache tests pass. No remaining confirmed defect in this scope.
-- Astra backend final recheck approves admission, source verification, scoped snapshots and CP-8 guards; Astra UI final review approves repeated search, Overview design and exact trace excerpt/warning/page identity/focus. Forecast/Evidence/Run desktop/mobile fidelity sampled on the preceding implementation build; both final branded proofs cover the synthetic equivalents. Actual Caesars remains a retained, qualified Test preview, not a new analytical run.
-- Gates: 51 focused Python tests; 63 frontend tests across seven files; TypeScript/build, changed-file ESLint and Chrome file:// gates pass. Python quality gate: zero findings. Fallow against `c519093`: PASS, zero introduced/inherited findings. No tournaments.
-- Fresh offline install and dual build, runtime tree `7662375c19bd55eb4082ba72bdd0ef79f81f0d50`; final proof tree `db9b41075f6849450fa7e918e389ca895fefbf8e` differs only in the browser script. Corrected test-only URL serialization, the paired fixture's scoped-route interception and additional-page creation after initial proof failures. Final Chrome 157.0.8103.78 run `20261116-044325-01` and Edge 157.0.4341.60 run `20261116-044350-01` each pass all 37 upload-to-finished-report checks on macOS, including source bytes/pages, repeated searches, scoped fetches and deferred route bundles. Evidence: `proof-artifacts/run-HAyUPU/proof.json`.
-- Caesars opened at `http://127.0.0.1:58344/report/20261115-114658-01#overview` from the frozen runtime/build, in an isolated read-only copy. Native backend/Python pins match RBOT-HTML `256101a`; React dependencies unchanged. No paid providers, Signal work, historical-run mutation or ZIP creation/publication. Actual Windows work-PC Chrome and Edge proof remains outstanding; ZIP stays held. Trimmed oldest entries to keep this record under 1,000 lines; git history retains them.
-
-## 2026-11-16 — Caesars original source files and citation links
-
-- Root causes: the retained preview copied deliveries/library but omitted workflow pins and inputs; native inventory parsing assumed key/file columns while Caesars CP-0 uses Original/sha256; raw TXT input pages were unavailable to the JSONL-only citation reader. Added a React-side bridge using verified workflow identities, original input bytes and RBOT's native page extraction, without changing native code or saved handoffs.
-- Evidence Sources, cited rows and the trace drawer now open the verified original file and available cited page/range. Actual extracted text alone is labelled as a source excerpt. Native unmatched-quote/value findings remain explicit; page labels state that supplied-source pagination can differ from printed filings. Existing Credit OS layout/components remain.
-- Retained Caesars `20261115-114658-01`: 18 original files match recorded SHA-256 across retained inputs/source pack; all 18 HTTP file responses and first pages checked exactly. 1,049 page references now link; 819 missing-text and 230 missing-inventory warnings resolved. Remaining recorded limitations: 706 rows without a page/register citation, 106 Not Supplied, 29 pages without a source key, and 156 unmatched quote/value checks. This proves connectivity to retained inputs (some extracts), not new source authentication or analytical correctness.
-- Confidence review, ranked: (1) wrong source or hidden tampering — require published filename/hash plus workflow identity, rehash bytes on access, reject traversal/symlinks and unavailable/withheld runs; (2) lost genuine warnings/legacy evidence — reproduced and fixed missing-file identity loss and no-workflow chip replacement, retaining native reasons; (3) misleading excerpts/page identity — fixed claim-as-excerpt fallback, URL punctuation encoding and ambiguous page labels, using native page extraction unchanged; (4) historical mutation — reproduced copied data.js symlink overwrite in temporary fixtures, replaced directory entry before exclusive creation, regression verifies original target untouched; (5) preview startup — shortened temporary prefix after native 80-character root limit refused startup, then successfully served an isolated read-only copy. No outstanding defect in this scope.
-- Astra source reviewer independently confirms hash/identity/failure behaviour and symlink preservation; Astra UI reviewer confirms actual source text, pages 1–2, mismatch warning, drawer focus/Escape and readable links at 390px. No remaining blockers in either review. No tournaments.
-- Targeted verification: 36 Python tests pass; 62 frontend tests across five files pass; TypeScript, changed-file ESLint and build pass. Python quality gate: zero findings. Fallow against `fbcc5ac`: PASS, zero introduced findings, two inherited ReportContent findings (unchanged ReportFindings complexity and duplication).
-- Fresh offline source build from tree `585f57dcf86dfaf5f8ce2bc67629dcf2c5394061`: Chrome 157.0.8103.78 `20261116-041031-01` and Edge 157.0.4341.60 `20261116-041049-01` each pass 34 synthetic upload-to-finished-report checks on macOS, including actual source file/page opening. Evidence: `proof-artifacts/run-YDopBV/proof.json` and `caesars-sources.json`. Subsequent runtime change only shortens the standalone retained-preview temporary-directory prefix, verified by successful startup and HTTP read-only checks.
-- Presentation fidelity scope: actual Caesars Sources, CP-1 cited excerpts and trace drawer sampled in browser, including 390px; Credit OS styling preserved. User preview open at `http://127.0.0.1:58342/report/20261115-114658-01#evidence/sources`, using tested web assets. Test-preview/admission qualification retained; original report untouched. POST/DELETE blocked by read-only mode.
-- RBOT-HTML backend/Python pins match `256101a`; React dependencies unchanged. No paid providers, Signal work, ZIP creation, push or publication. Real Windows work-PC Chrome and Edge proof is still outstanding; ZIP remains held.
-
-## 2026-11-16 — Five remaining Fallow findings
-
-- Verified all four clone IDs with their `fallow dupes --trace` commands and Evidence with `fallow inspect` before edits. Shared chart name/shape validation, positional keys and period data preparation; shared exact evidence section-line membership; split Evidence routing, navigation, summary, sources and handoffs into bounded components. No suppressions.
-- Audit then exposed the pre-existing comparison-row complexity; verified its inspect command and extracted unchanged comparability, period and difference predicates. Final audit against `fbcc5ac`: PASS, zero introduced and zero inherited findings.
-- Confidence review, ranked: (1) financial semantics — Astra independently checked 19,440 before/after cases plus literal missing/zero/currency/precision/revision expectations; implementer checked another 10,000; (2) chart data/key/validation fidelity — independent Astra frozen-input assertions cover sparse cells, zero/null, signed values, hostile/duplicate names, order and exact errors; (3) evidence identity/routing/admission — retained exact match predicate, module/source filters, alternate links and stale-address rejection, covered by regression tests and parent diff review. No outstanding defect in this scope.
-- Targeted tests pass: chart subset 96; Evidence/publishedReport/design subset 32; connected app/design/Changes/legacy visuals/Forecast subset 58 (overlapping design tests); final Evidence rerun 11/11. TypeScript, changed-file ESLint/Prettier and Python quality gate pass (zero findings).
-- Fresh offline install/build from source tree `34510a2dd75d3ce8154534329c3f49525a0d7b02`; Chrome 157.0.8103.78 `20261116-035824-01` and Edge 157.0.4341.60 `20261116-035841-01` each pass all 33 synthetic upload-to-finished-report checks on macOS. Evidence: `proof-artifacts/run-vuQ8ku/proof.json`. Final commit additionally tightens one test-only excluded-module matcher; runtime source matches this tested tree.
-- Presentation fidelity scope: unchanged classes/markup/labels and chart data checked by component tests and branded browser proof. Opened retained Caesars in the app at `http://127.0.0.1:58341/report/20261115-114658-01#evidence/summary`; 12 handoffs/18 sources; Financial foundation opens the exact saved CP-1 revision. Observed Credit OS layout and Evidence controls preserved. This retained preview still reports missing source text/inventory entries; opening its handoff does not establish complete underlying source availability.
-- RBOT-HTML backend and pins remain identical to `256101a`; React dependencies unchanged. No providers, Signal, tournaments, ZIP build or publication. Actual Windows work-PC Chrome and Edge proof remains outstanding; ZIP stays held.
-
-## 2026-11-16 — Evidence gap complexity repair
-
-- Verified the app finding before editing with `fallow inspect --file src/pages/connected/report/Evidence.tsx --format json`: `gapRecords` cyclomatic 15 / cognitive 24. Extracted table title selection and row conversion; retained block filters and per-row appending. No suppressions or design changes.
-- The subsequent audit exposed `checkReadingLayout` CRAP 42 (cyclomatic 6, estimated coverage absent). Verified with its `fallow inspect` command before separating null/dimension assertions; preserved exact `===` semantics. This browser check executes in both branded proofs.
-- Confidence review, ranked: (1) lost gap/source identity — Astra compared 3,600 adversarial inputs with the original, exact equality; (2) title fallback, no-gap and ledger exclusions, sparse/zero details and order — nine Evidence tests pass, including two independent boundary regressions; (3) large-table append — reproduced spread argument-limit failure, replaced with individual appends, Astra verified actual helpers with 200,000 rows; (4) assertion semantics — restored original handling of negative zero. No outstanding Astra finding.
-- 38 targeted tests pass; final Evidence subset 9/9 passes. TypeScript, changed-file ESLint/Prettier and Python quality gate pass (zero findings). Final Fallow audit against `fbcc5ac`: PASS, zero introduced findings, five inherited findings remain.
-- Final source tree `e26d7fe86f3bf6d9a480aa4907c7b1dae1a5cc10`; fresh build passes all 33 upload-to-finished-report checks in each browser on macOS: Chrome 157.0.8103.78 (`20261116-035417-01`) and Edge 157.0.4341.60 (`20261116-035435-01`). Evidence: `proof-artifacts/run-9vzN45/proof.json`. This is synthetic source-snapshot proof, not a Windows or ZIP proof.
-- Fidelity scope: behavior-preserving Evidence parser and test assertions only; no layout, component, chart, number, qualification or backend edits. Native backend and pins match RBOT-HTML `256101a`; React dependencies unchanged. No providers, tournaments, Signal changes or ZIP build/publication. Windows work-PC Chrome and Edge proof remains required.
-- Trimmed the oldest verification entry to keep this record below 1,000 lines; git history retains it.
-
-## 2026-11-16 — Financial qualifications and five reading-design fixes
-
-- Forecast preserves all recorded labels, dates, units and values while placing
-  exact base-period qualifications beside uniquely matched period headers and
-  exact interest-basis qualifications in the Interest row. Ambiguous/unrecognised
-  period tokens keep a visible table-level note; no analytical relabelling.
-- Historical chart qualifications now follow their owning chart, with paragraph
-  traces distinct from table traces. Ownership requires one matching section and
-  one table; source-bearing passages point to Evidence instead of leaking references.
-- Compact model tables hide only wholly unavailable/unmodelled rows without exact
-  operands, retain zeros/unknown states, and expand every missing-data reason.
-  Entirely unavailable tables remain visible. Forecast section jumps precede scope
-  and preserve keyboard focus; Evidence's duplicate preview notice is removed.
-- Under 768px the incumbent rail becomes bottom navigation and reading width grows;
-  narrow source controls are 44px, with matching text clearance. Cash charts use a
-  keyboard-scrollable minimum plot width under 480px to separate period labels.
-  Shared line rendering was extracted without changing points/labels/styles.
-- Two Astra confidence reviews ranked (1) qualification ownership/financial fidelity,
-  (2) missing versus zero, (3) source identity, (4) responsive width/trace overlap,
-  (5) navigation/focus/admission. Repaired partial-token association, all-missing
-  empty tables and mobile case/qualification text clearance; targeted regressions
-  cover them. Reviewers report no outstanding issue in the inspected scope.
-- 177 focused tests across 15 files pass; final Forecast/table subset 10/10 passes.
-  TypeScript, changed-file ESLint/Prettier and Python quality gate pass. Fallow
-  retains five inherited findings and labels `gapRecords` as introduced; its exact
-  function is unchanged from `fbcc5ac` (SHA-256
-  `554ac0b77d38e6a36775e67ed4d9b749f1965bdc38194b16f2a1cc21baf83753`).
-  No suppressions. Newly introduced chart duplication and changed-function
-  complexity were resolved; unchanged gap parsing was not refactored for this task.
-- Fresh offline install/build; source tree
-  `01e1525e6735cf738bf1eb2591ac546b1f270894`. Chrome 157.0.8103.78 run
-  `20261116-033501-01` and Edge 157.0.4341.60 run `20261116-033518-01` each pass
-  all 33 synthetic upload-to-report checks on macOS. Added browser checks cover
-  Forecast jumps, 390px main width, 44px source targets and nonoverlapping period
-  labels. Evidence: `proof-artifacts/run-ySH02V/proof.json` (source snapshot, no ZIP).
-- Fidelity check: Astra inspected actual retained Caesars at 1728x996 and 390x844;
-  Credit OS palette/type/icon language preserved, qualifications visible locally,
-  one Evidence notice, working keyboard jumps/trace dismissal/focus restoration,
-  mobile chart scroll and separated labels. Judgement card height about 334px
-  versus the reviewed ~650px. Viewport restored and reviewer tab closed.
-- User preview opened at port 58340, actual run `20261115-114658-01`; its assets
-  exactly match the tested build. CP-1 and CP-2G downloads retain their original
-  SHA-256 identities. Preview remains read-only and retains its admission notice.
-- Backend/Python pins match RBOT-HTML `256101a`; React dependencies unchanged.
-  No providers, Signal work or tournaments. ZIP not built/published; both browsers
-  still require acceptance on the actual Windows work PC.
-
-## 2026-11-16 — Remaining Modules and ReportReader findings resolved
-
-- Verified both findings using `fallow inspect --file ... --format json` before
-  editing. Modules now separates output selection, figures, findings and saved
-  outputs. ReportReader separates its header, badges and status messages while
-  retaining its hooks, admission lookup and route handling. No suppressions.
-- Two Astra reviewers used confidence-review. Ranked doubts: (1) unpublished-run
-  admission and preview truthfulness, (2) retained-output selection/source identity,
-  (3) null/loading/error boundaries, (4) metrics and transformed figure table lines,
-  (5) navigation remounts, original workspace keys and title fallbacks. Compared
-  source and consumers with `71d55d4`; no defects found. Added adversarial tests for
-  catalogue-only rejection, preview with empty reason, null/error/title states,
-  default/selected/singleton/ambiguous outputs, invalid output addresses and exact
-  alternate evidence links. Calendar fixture now checks a distinct workspace key.
-- 72 focused tests across ten files pass. TypeScript, changed-file ESLint/Prettier
-  and Python quality gate pass. Fallow audit against `dd765b5`: PASS, zero introduced
-  and zero inherited findings. Backend/Python pins match RBOT-HTML `256101a`;
-  React dependency files unchanged. No providers, Signal work or tournaments.
-- Clean offline install/build, source tree
-  `9be6488b01f37c6b859ad39db4c02ab527d9c334`. Chrome 157.0.8103.78 run
-  `20261116-031733-01` and Edge 157.0.4341.60 run `20261116-031749-01` each pass
-  all 32 synthetic upload-to-report checks on macOS, including module charts,
-  mobile navigation, report history and evidence traces. Artifacts:
-  `proof-artifacts/run-cxcHo3/proof.json`. Source-snapshot proof, not ZIP proof.
-- Fidelity scope: compiled CSS byte-identical to the prior build; Astra confirmed
-  unchanged markup/order, and browser checks cover chart values and source links.
-  Actual retained Caesars Forecast opened at port 58339 with its original Test
-  preview/admission qualification; CP-2G download SHA-256 unchanged.
-- ZIP not built or published. Chrome and Edge acceptance on the Windows work PC
-  remains pending; macOS passes do not satisfy that gate.

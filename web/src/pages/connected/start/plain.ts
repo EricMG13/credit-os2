@@ -410,6 +410,8 @@ export function refusalLines(error: string): string[] {
 type ControlKey =
   | "issuer_name"
   | "cutoff"
+  | "current_period"
+  | "prior_period"
   | "legal_documents"
   | "deal_terms"
   | "quotes"
@@ -426,6 +428,8 @@ const CONTROL_ROOTS =
 const CONTROL_PATHS: Readonly<Record<string, ControlKey>> = {
   "identity.issuer_name": "issuer_name",
   "run.cutoff": "cutoff",
+  "run.current_period": "current_period",
+  "run.prior_period": "prior_period",
   "attachments.legal_documents": "legal_documents",
 };
 

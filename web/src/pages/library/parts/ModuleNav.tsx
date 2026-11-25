@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
   Flag01,
   InfoCircle,
   LayersThree01,
@@ -9,6 +10,8 @@ import {
   SearchLg,
 } from "@untitledui/icons";
 import { Button, Link } from "react-aria-components";
+import { stageLabel } from "@/pages/connected/report/stageNumber";
+import { byStage } from "@/pages/connected/report/stages";
 import { Input } from "@/components/base/input/input";
 import { Select } from "@/components/base/select/select";
 import { STATUS_SETS } from "@/components/status/sets";
@@ -326,6 +329,272 @@ export function ModuleNav({
         <p className="px-4 py-2 text-small text-text-tertiary">No module matches</p>
       ) : null}
       <DesktopNavigation {...props} results={results} />
+    </nav>
+  );
+}
+
+const STAGE_LINK =
+  "flex min-h-8 w-full items-center gap-2 rounded-ds-md border border-transparent px-2 py-1 text-caption text-text-secondary outline-hidden hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand max-[480px]:min-h-11";
+const STAGE_LINK_CURRENT =
+  "border-action bg-surface-selected text-text-link hover:bg-surface-selected";
+const DESKTOP = "(min-width: 1024px)";
+
+function SlashCircle({ className }: { className?: string }) {
+  return (
+    <span className={cx("flex flex-none text-warning-mark", className)}>
+      <StatusShape shape={STATUS_SETS["Module state"]["Not assessable"].shape} />
+    </span>
+  );
+}
+
+function StateMark({ state }: { state: ModuleState }) {
+  if (state === "Not assessable") return <SlashCircle />;
+  return (
+    <span className={cx("flex flex-none", MARK[state])}>
+      <StatusShape shape={STATUS_SETS["Module state"][state].shape} />
+    </span>
+  );
+}
+
+function StageLink({
+  module,
+  current,
+  href,
+}: {
+  module: NavModule;
+  current: boolean;
+  href: string;
+}) {
+  const word = module.state === "Delivered" ? null : module.state;
+  return (
+    <a
+      href={href}
+      aria-label={`${module.name}, ${module.state}`}
+      aria-current={current ? "page" : undefined}
+      className={cx(STAGE_LINK, current && STAGE_LINK_CURRENT)}
+    >
+      <StateMark state={module.state} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="font-medium">{module.name}</span>
+        {word === null ? null : (
+          <small
+            className={cx(
+              "text-caption font-normal",
+              module.state === "Not assessable" ? "text-warning-text" : "text-text-tertiary",
+            )}
+          >
+            {word}
+          </small>
+        )}
+      </span>
+      <span className="font-mono text-caption text-text-tertiary">{module.id}</span>
+    </a>
+  );
+}
+
+type PageSection = { id: string; label: string };
+
+function goToSection(id: string): void {
+  const target = document.getElementById(id);
+  target?.focus({ preventScroll: true });
+  if (target && typeof target.scrollIntoView === "function")
+    target.scrollIntoView({ block: "start" });
+}
+
+function SectionList({
+  sections,
+  onPressed,
+}: {
+  sections: readonly PageSection[];
+  onPressed: () => void;
+}) {
+  const [active, setActive] = useState<string | null>(null);
+  return (
+    <ul aria-label="On this page" className="mt-0.5 mb-1 ml-5 flex flex-col">
+      {sections.map((section) => (
+        <li key={section.id}>
+          <button
+            type="button"
+            aria-current={section.id === active ? "location" : undefined}
+            onClick={() => {
+              setActive(section.id);
+              goToSection(section.id);
+              onPressed();
+            }}
+            className={cx(
+              "flex min-h-8 w-full cursor-pointer items-center rounded-ds-md px-2 text-left text-caption text-text-secondary outline-hidden hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-brand max-[480px]:min-h-11",
+              section.id === active && "font-medium text-text-link",
+            )}
+          >
+            {section.label}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function StageGroups({
+  modules,
+  current,
+  hrefFor,
+  sections,
+  onSection,
+}: {
+  modules: readonly NavModule[];
+  current: string;
+  hrefFor: (id: string) => string;
+  sections: readonly PageSection[];
+  onSection: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {byStage(modules).map((group) => (
+        <div key={group.name} className="flex flex-col gap-1">
+          <div className="flex items-baseline gap-2 px-2">
+            <span
+              aria-hidden="true"
+              className="font-mono text-caption text-text-tertiary tabular-nums"
+            >
+              {stageLabel(group.name)}
+            </span>
+            <h3 className="text-caption font-medium text-text-secondary">{group.name}</h3>
+          </div>
+          <ul>
+            {group.rows.map((module) => (
+              <li key={module.id}>
+                <StageLink
+                  module={module}
+                  current={module.id === current}
+                  href={hrefFor(module.id)}
+                />
+                {module.id === current && sections.length > 0 ? (
+                  <SectionList sections={sections} onPressed={onSection} />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Legend() {
+  const item = "inline-flex items-center gap-1.5";
+  return (
+    <ul
+      aria-label="Legend"
+      className="mx-2 flex flex-wrap gap-x-3 gap-y-1.5 border-t border-border-subtle pt-2.5 text-caption text-text-secondary"
+    >
+      <li className={item}>
+        <span aria-hidden="true" className={cx("flex", MARK.Delivered)}>
+          <StatusShape shape={STATUS_SETS["Module state"].Delivered.shape} />
+        </span>
+        Delivered
+      </li>
+      <li className={item}>
+        <span aria-hidden="true" className="flex">
+          <SlashCircle />
+        </span>
+        Not assessable
+      </li>
+      <li className={item}>
+        <span
+          aria-hidden="true"
+          className="h-2.5 w-3 rounded-ds-xs border border-action bg-surface-selected"
+        />
+        This page
+      </li>
+    </ul>
+  );
+}
+
+function useDesktop(): boolean {
+  const query = (): MediaQueryList | undefined =>
+    typeof window.matchMedia === "function" ? window.matchMedia(DESKTOP) : undefined;
+  const [desktop, setDesktop] = useState(() => query()?.matches ?? true);
+  useEffect(() => {
+    const list = query();
+    if (!list) return;
+    const sync = () => {
+      setDesktop(list.matches);
+    };
+    list.addEventListener("change", sync);
+    return () => {
+      list.removeEventListener("change", sync);
+    };
+  }, []);
+  return desktop;
+}
+
+/**
+ * The connected module page's navigator: the run's modules grouped by stage, each link carrying
+ * its state. Open at 1024px and wider; a closed disclosure below that.
+ */
+export function StageNav({
+  modules,
+  current,
+  hrefFor,
+  sections = [],
+  className,
+}: {
+  modules: readonly NavModule[];
+  current: string;
+  hrefFor: (id: string) => string;
+  sections?: readonly PageSection[];
+  className?: string;
+}) {
+  const desktop = useDesktop();
+  const [open, setOpen] = useState<boolean | null>(null);
+  if (modules.length === 0) return null;
+  const delivered = modules.filter((m) => m.state.startsWith("Delivered")).length;
+  const blocked = modules.filter((m) => m.state === "Not assessable").length;
+  const count = `${String(delivered)} of ${String(modules.length)} delivered`;
+  return (
+    <nav
+      aria-label="Modules in this run"
+      className={cx("rounded-ds-lg border border-border-subtle bg-surface-card p-3", className)}
+    >
+      <details
+        open={desktop || (open ?? false)}
+        onToggle={(event) => {
+          if (!desktop) setOpen(event.currentTarget.open);
+        }}
+        className="group/nav"
+      >
+        <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 rounded-ds-sm px-2 text-small font-medium text-text-primary outline-focus-ring focus-visible:outline-2 max-[480px]:min-h-11 lg:hidden [&::-webkit-details-marker]:hidden">
+          <span>Modules in this run · {count}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 flex-none text-text-tertiary transition-transform group-open/nav:rotate-180 motion-reduce:transition-none"
+          />
+        </summary>
+        <div className="mt-3 flex flex-col gap-3 lg:mt-0">
+          <header className="flex flex-col gap-0.5 px-2">
+            <h2 className="text-small font-medium text-text-primary max-lg:hidden">Modules</h2>
+            <p className="text-caption text-text-tertiary max-lg:hidden">{count}</p>
+            {blocked > 0 ? (
+              <p>
+                <span className="inline-flex h-5 items-center gap-1 rounded-ds-xs border border-warning-edge bg-warning-fill px-1.5 text-caption font-medium text-warning-text">
+                  <SlashCircle />
+                  {String(blocked)} not assessable
+                </span>
+              </p>
+            ) : null}
+          </header>
+          <StageGroups
+            modules={modules}
+            current={current}
+            hrefFor={hrefFor}
+            sections={sections}
+            onSection={() => {
+              if (!desktop) setOpen(false);
+            }}
+          />
+          <Legend />
+        </div>
+      </details>
     </nav>
   );
 }

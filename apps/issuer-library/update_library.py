@@ -132,6 +132,103 @@ def method_changes(store: dict[str, Any], library: Library) -> None:
         run["methodChanges"] = list(changed[run["folder"]])
 
 
+_COMMITTEE_HOLD = {
+    "blocked": "The committee decision was withheld because its assessment was blocked.",
+    "outside_pathway": "The committee decision is outside the published pathway.",
+    "not_requested": "The committee decision was outside the requested assessment scope.",
+}
+_OWNER_HOLD = {
+    "blocked": "The owner marked this output blocked.",
+    "draft only": "The owner limited this output to draft use.",
+    "insufficient information": "The owner reported insufficient information for a decision.",
+    "prohibited": "The owner prohibited decision use of this output.",
+    "requires more work": "The owner recorded that more work is required for a decision.",
+    "restricted": "The owner restricted this output and field-specific clearance is unavailable.",
+}
+
+
+def committee_hold(directory: Path, delivered: dict[str, Any]) -> str | None:
+    """Read the explicit committee hold from the receipt-bound ReportView."""
+    if not delivered["delivery_sha256"]:
+        return None
+    try:
+        raw = read_pinned(
+            directory,
+            f"{delivered['folder']}/report-view.json",
+            delivered["files"].get("report-view.json"),
+        )
+        report = json.loads(raw)
+    except (OSError, ValueError, RecursionError):
+        return None
+    if not isinstance(report, dict) or report.get("schema_version") != "report-view/1":
+        return None
+    withheld = report.get("call_withheld")
+    if not isinstance(withheld, str) or withheld not in _COMMITTEE_HOLD:
+        return None
+    return _COMMITTEE_HOLD[withheld]
+
+
+def _designated_action(
+    store: dict[str, Any], key: str, run: dict[str, Any], code: str, digest: str
+) -> dict[str, Any] | None:
+    module = run["modules"].get(code, {})
+    selected = module.get("default")
+    if selected not in module.get("outputs", []):
+        return None
+    output = store["outputs"].get(selected)
+    if output and (output["id"], output["run"], output["module"], output["sha256"]) == (
+        selected,
+        key,
+        code,
+        digest,
+    ):
+        return dict(output)
+    return None
+
+
+def action_treatment(
+    directory: Path, store: dict[str, Any], key: str, delivered: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    """Bind published whole-output holds to the corresponding designated handoff."""
+    result = {}
+    for code, scope in (("CP-6", "committee"), ("CP-3", "instrument")):
+        pin = delivered["handoffs"].get(code)
+        if pin is None:
+            continue
+        output = _designated_action(store, key, store["runs"][key], code, pin["sha256"])
+        if output is None:
+            continue
+        declared = output.get("state", {}).get("declared")
+        reason = committee_hold(directory, delivered) if code == "CP-6" else None
+        if reason is None and isinstance(declared, str):
+            reason = _OWNER_HOLD.get(declared.strip().casefold())
+        if reason is not None:
+            result[code] = {
+                "output": output["id"],
+                "sha256": output["sha256"],
+                "state": "withheld",
+                "scope": scope,
+                "reason": reason,
+            }
+    return result
+
+
+def publication_fields(workspace: Path, store: dict[str, Any], library: Library) -> None:
+    """Put verified publication facts on the existing run record used by both React endpoints."""
+    records = {record["id"]: record for record in library.runs}
+    for key, run in store["runs"].items():
+        folder = run["folder"]
+        record = records[folder]
+        run.update(
+            assessmentScope=record.get("assessmentScope"), publishedAt=record.get("publishedAt")
+        )
+        delivered = library.deliveries.get(folder)
+        if delivered is not None and (
+            holds := action_treatment(workspace / "runs" / folder, store, key, delivered)
+        ):
+            run["actionTreatment"] = holds
+
+
 def pack_of(workspace: Path, run: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     """CP-8's comparison pack as the delivery publishes it, or why it cannot be read. A pack that
     is listed and unreadable is a problem the run states, never a first run."""
@@ -257,9 +354,14 @@ def handoff_zips(folder: Path, workspace: Path, store: dict[str, Any]) -> None:
 
 def build_into(folder: Path, workspace: Path, library: Library) -> None:
     cat = catalogue(workspace, library)
-    store = workspace_store(workspace, cat)
+    published = {
+        run: {module: pin["sha256"] for module, pin in delivery["handoffs"].items()}
+        for run, delivery in library.deliveries.items()
+    }
+    store = workspace_store(workspace, cat, published=published)
     run_records(workspace, store)
     method_changes(store, library)
+    publication_fields(workspace, store, library)
     changes_data(workspace, store, library)
     handoff_zips(folder, workspace, store)
     # Run activity, as data: the folders left out and why, and every issue the build recorded

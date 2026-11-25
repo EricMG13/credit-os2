@@ -6,8 +6,9 @@ import { TRACE_HOST, TraceControl } from "./TraceControl";
 type Level = "h2" | "h3" | "h4";
 
 /**
- * The navy bottom-line band (P1): label, the lead in the h3 size, the rest and one trace control.
- * `level` is the heading level of the lead, so module pages can reuse the band under their own.
+ * The bottom-line tile (P1): label, the lead as the largest text on the page, the rest and one
+ * trace control. `level` is the heading level of the lead, so module pages can reuse the tile
+ * under their own heading.
  */
 export function BottomLine({
   text,
@@ -27,30 +28,30 @@ export function BottomLine({
       aria-label={text.label}
       className={cx(
         TRACE_HOST,
-        "flex items-start gap-3 rounded-[10px] bg-surface-inverse px-4 py-4 text-white sm:gap-4 sm:px-8 sm:py-6",
+        "flex h-full items-start gap-3 rounded-ds-lg border border-border-subtle bg-surface-card p-5 sm:gap-4 sm:p-8",
       )}
     >
       {marker === undefined ? (
         <span
           aria-hidden="true"
-          className="mt-0.5 flex size-6.5 flex-none items-center justify-center rounded-ds-full border border-white/20 bg-white/10 shadow-sm"
+          className="mt-1 flex size-5 flex-none items-center justify-center rounded-ds-full bg-surface-selected"
         >
-          <span className="size-2 rounded-ds-full bg-white" />
+          <span className="size-2 rounded-ds-full bg-action" />
         </span>
       ) : (
         marker
       )}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className="text-sm font-medium text-brand-100">{text.label}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <span className="text-caption text-text-tertiary">{text.label}</span>
         <Lead
           tabIndex={-1}
-          className="max-w-bottom-line rounded-ds-xs font-display text-h3 text-balance wrap-anywhere outline-hidden focus-visible:ring-2 focus-visible:ring-white"
+          className="max-w-bottom-line rounded-ds-xs font-display text-h2 font-medium text-balance wrap-anywhere text-text-primary outline-hidden focus-visible:ring-2 focus-visible:ring-focus sm:text-h1 sm:font-medium"
         >
           {lead ?? text.lead}
         </Lead>
-        <p className="reading-copy text-body text-brand-100">{text.rest}</p>
+        <p className="reading-copy text-body text-text-secondary">{text.rest}</p>
       </div>
-      <TraceControl trace={text.trace} label="Show sources for the bottom line" onDark />
+      <TraceControl trace={text.trace} label="Show sources for the bottom line" />
     </section>
   );
 }

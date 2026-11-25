@@ -47,7 +47,12 @@ def test_keeps_runtime_and_compiled_assets_at_the_archive_root(tmp_path):
 def test_selected_sources_include_the_react_design_specs() -> None:
     payload = git(PROJECT, "archive", "--format=zip", "HEAD", "--", *SOURCE_PATHS)
     with ZipFile(BytesIO(payload)) as archive:
-        for name in ("docs/design/design-system.md", "docs/design/brand-tokens.md"):
+        for name in (
+            "DESIGN.md",
+            "PRODUCT.md",
+            "docs/design/design-system.md",
+            "docs/design/screen-map.md",
+        ):
             assert archive.read(name) == (PROJECT / name).read_bytes()
         # The design-reference file remains in source history; write_bundle filters it.
         assert "apps/issuer-library/credit_os/web/index.html" in archive.namelist()

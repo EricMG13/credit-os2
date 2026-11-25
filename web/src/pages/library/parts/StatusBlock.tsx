@@ -61,7 +61,7 @@ function TestGroup({ group }: { group: StatusGroup }) {
 }
 
 /** Tests met or not met (R6): a list for each state, in the order delivered, the state never by colour alone. */
-export function StatusGroups({ title, groups }: { title: string; groups: StatusGroup[] }) {
+function StatusGroups({ title, groups }: { title: string; groups: StatusGroup[] }) {
   return (
     <Section title={title} level={SUBSECTION_HEADING}>
       <div className="flex flex-col gap-3">

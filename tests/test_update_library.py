@@ -182,7 +182,7 @@ def test_a_failed_build_keeps_the_previous_library(tmp_path, monkeypatch):
     update_library.update_library(tmp_path)
     before = tree(tmp_path / "library")
 
-    def broken(*args):
+    def broken(*args, **kwargs):
         raise RuntimeError("cannot build")
 
     monkeypatch.setattr(update_library, "workspace_store", broken)
@@ -202,7 +202,7 @@ def test_a_failed_build_recovers_the_previous_library_after_an_interrupted_swap(
     previous = tmp_path / ".library-old"
     published.rename(previous)
 
-    def broken(*args):
+    def broken(*args, **kwargs):
         raise RuntimeError("cannot build")
 
     monkeypatch.setattr(update_library, "workspace_store", broken)

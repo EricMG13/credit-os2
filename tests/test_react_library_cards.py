@@ -50,6 +50,7 @@ def publication(
         "folder": "case",
         "issuerKey": "issuer",
         "pathway": pathway,
+        "publicationVerified": True,
         "modules": modules,
     }
     snapshot = {"catalogue": {"real": []}, "workspace": workspace, "chips": {}, "activity": {}}
@@ -78,17 +79,17 @@ def test_card_lead_keeps_exact_paragraph_basis_and_source_identity(tmp_path: Any
 @pytest.mark.parametrize(
     ("candidates", "pathway", "expected"),
     [
-        ([("CP-2", "Fundamental view."), ("CP-6", "Committee view.")], "credit_snapshot", "CP-6"),
+        ([("CP-2", "Fundamental view."), ("CP-6", "Committee view.")], "credit_snapshot", "CP-2"),
         (
             [("CP-6", "Not assessable: no inputs."), ("CP-2", "Credit view.")],
             "credit_snapshot",
             "CP-2",
         ),
-        ([("CP-L10", "Snapshot view."), ("CP-2", "Credit view.")], "short_snapshot", "CP-2"),
+        ([("CP-L10", "Snapshot view."), ("CP-2", "Credit view.")], "short_snapshot", "CP-L10"),
         ([("CP-1B", "Earnings view.")], "earnings_update", "CP-1B"),
     ],
 )
-def test_card_lead_uses_the_existing_overview_priority(
+def test_card_lead_uses_the_pathways_verified_analytical_owner(
     tmp_path: Any,
     candidates: list[tuple[str, str]],
     pathway: str,
@@ -122,15 +123,17 @@ def test_report_metadata_marks_declared_not_assessable_without_changing_delivery
 
 
 def test_card_never_uses_another_runs_or_unselected_output(tmp_path: Any) -> None:
-    layout = publication(tmp_path, [("CP-6", "Wrong run."), ("CP-2", "Current credit view.")])
+    layout = publication(tmp_path, [("CP-6", "Committee view."), ("CP-2", "Current credit view.")])
     path = layout.engine / "library" / "data.js"
     snapshot = json.loads(path.read_text().removeprefix("window.CREDIT_OS_DATA=").removesuffix(";"))
-    snapshot["workspace"]["outputs"]["case/CP-6.md"]["run"] = "other-key"
+    output = snapshot["workspace"]["outputs"]["case/CP-2.md"]
+    output["run"] = "other-key"
     path.write_text(f"window.CREDIT_OS_DATA={json.dumps(snapshot)};", encoding="utf-8")
-    assert _library_index(layout).body["workspace"]["runs"]["case-key"]["lead"]["module"] == "CP-2"
+    assert _library_index(layout).body["workspace"]["runs"]["case-key"]["lead"] is None
+    output["run"] = "case-key"
     snapshot["workspace"]["runs"]["case-key"]["modules"]["CP-2"]["default"] = None
     path.write_text(f"window.CREDIT_OS_DATA={json.dumps(snapshot)};", encoding="utf-8")
-    assert _library_index(layout).body["workspace"]["runs"]["case-key"].get("lead") is None
+    assert _library_index(layout).body["workspace"]["runs"]["case-key"]["lead"] is None
 
 
 def test_card_does_not_draw_a_bottom_line_from_an_audit_section(tmp_path: Any) -> None:

@@ -44,6 +44,14 @@ function show(next: Partial<Summary> = {}, synthetic = false) {
   );
   return onEdit;
 }
+/** Opens the one disclosure that holds every input Submit sends. */
+const everything = () => {
+  fireEvent.click(screen.getByText("Everything Submit sends"));
+};
+/** Opens a limit's "How to lift it" disclosure. */
+const howToLift = () => {
+  fireEvent.click(screen.getByText("How to lift it"));
+};
 afterEach(cleanup);
 
 describe("final audit: review wording", () => {
@@ -66,6 +74,7 @@ describe("final audit: review wording", () => {
   });
   it("J1-006 identifies unrecognised sample files as synthetic documents without claiming a real document kind", () => {
     show({ documents: [{ source: "northbridge-portfolio.xlsx", kind: "unrecognised" }] }, true);
+    everything();
     expect(
       screen.getByText(
         "These are synthetic test documents; an unrecognised document type can still be a supplied sample file.",
@@ -80,6 +89,7 @@ describe("final audit: review wording", () => {
       effort: "xhigh",
       copilot_search: "Copilot web search is unavailable for this run.",
     });
+    everything();
     expect(screen.getByText("GPT-6 Luna · Extra high")).toBeVisible();
     expect(screen.getByText("Copilot web search is unavailable for this run.")).toBeVisible();
   });
@@ -133,17 +143,20 @@ describe("final audit: review wording", () => {
 
   it("J1-017 states where model settings can be changed", () => {
     show();
+    everything();
     expect(screen.getByText("Model and effort are set at the Advanced form level.")).toBeVisible();
   });
 
   it("J1-016 gives the market-view purpose one unambiguous label", () => {
     show();
+    everything();
     expect(screen.getByText("Market view", { exact: true })).toBeVisible();
     expect(screen.queryByText("Purpose", { exact: true })).toBeNull();
   });
 
   it("C2-023 and J1-017 explain an omitted comparison as first-run status", () => {
     show({ omitted: ["what-changed"], omitted_titles: ["What changed since the last Report"] });
+    everything();
     expect(screen.getByText("Changes: not compared (first run of this pathway).")).toBeVisible();
     expect(screen.queryByText(/Report sections omitted/)).toBeNull();
   });
@@ -160,6 +173,7 @@ describe("final audit: review wording", () => {
         },
       ],
     });
+    howToLift();
     const leave = screen.getByRole("button", { name: /Leave out Legal/ });
     expect(
       within(leave.parentElement as HTMLElement).getByText(

@@ -1,0 +1,392 @@
+.report-export-preview {
+  display: grid;
+  gap: 1rem;
+  margin-inline: auto;
+  max-width: 1100px;
+  min-width: 0;
+}
+
+/* The unavailable Export PDF control draws its own icon, not the disclosure marker. */
+.report-export-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The preview's toolbar: one tile of the redesign, above the paper. */
+.report-export-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-ds-lg);
+  background: var(--color-surface-card);
+}
+
+.report-export-controls > p:last-child {
+  flex-basis: 100%;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border-hairline);
+  font-size: var(--text-caption, 0.75rem);
+  color: var(--color-text-tertiary);
+}
+
+.report-export-paper {
+  --color-text-primary: var(--color-brand-950);
+  --color-text-secondary: var(--color-brand-950);
+  --color-text-tertiary: var(--color-brand-950);
+  --color-surface-card: var(--color-white);
+  --color-surface-subtle: color-mix(in srgb, var(--color-brand-600) 4%, var(--color-white));
+  --color-border-hairline: color-mix(in srgb, var(--color-brand-950) 20%, var(--color-white));
+  color-scheme: light;
+  background: white;
+  color: var(--color-brand-950);
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-ds-lg);
+  padding: clamp(0.75rem, 3vw, 2rem);
+  min-width: 0;
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.report-export-masthead {
+  display: grid;
+  gap: 0.25rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 2px solid var(--color-brand-950);
+}
+
+.report-export-masthead h1 {
+  font: 700 clamp(1.5rem, 3vw, 2rem) / 1.15 var(--font-display);
+  overflow-wrap: anywhere;
+}
+
+.report-export-brand {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font: 700 0.9rem / 1.25 var(--font-display);
+}
+
+.report-export-brand span {
+  border-left: 1px solid var(--color-brand-950);
+  padding-left: 0.5rem;
+  color: var(--color-brand-600);
+}
+
+.report-export-paper .issuer-front-page-charts {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+
+.report-export-paper .issuer-front-page-charts figure {
+  max-width: 326px;
+}
+
+.report-export-paper .issuer-brief-columns {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+}
+
+.report-export-paper .issuer-brief-company-fields {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+@media screen and (max-width: 850px) {
+  .report-export-paper .issuer-brief-columns,
+  .report-export-paper .issuer-brief-company-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@page credit-os-export {
+  size: A4 landscape;
+  margin: 9mm 11mm 17mm;
+
+  @bottom-left {
+    content: var(--report-export-identity) " · " var(--report-export-scope);
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+    font:
+      9pt / 1.2 Geist,
+      sans-serif;
+    color: var(--color-brand-950);
+  }
+}
+
+@media print {
+  /* Collapse only the ancestors of this subview and hide their other children. */
+  body:has([data-report-export])
+    :not([data-report-export], [data-report-export] *, :has([data-report-export])) {
+    display: none !important;
+  }
+
+  body:has([data-report-export]),
+  body:has([data-report-export]) :has([data-report-export]) {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+    background: white !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  [data-report-export] {
+    max-width: none;
+  }
+
+  [data-report-export] > :not(.report-export-paper[data-print-ready]) {
+    display: none !important;
+  }
+
+  .report-export-paper {
+    page: credit-os-export;
+    print-color-adjust: exact;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    font-size: 10pt;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .report-export-masthead,
+  .report-export-paper figure {
+    break-inside: avoid;
+  }
+
+  .report-export-paper figure {
+    gap: 3pt;
+  }
+
+  .report-export-paper figure div:has(> .recharts-responsive-container) {
+    gap: 3pt;
+  }
+
+  .report-export-paper figure [aria-label="Legend"] {
+    gap: 2pt 5pt;
+  }
+
+  .report-export-paper figure [aria-label="Legend"] li {
+    gap: 3pt;
+    font-size: 9pt;
+    line-height: 1.2;
+  }
+
+  .report-export-paper figure > div > div {
+    min-width: 0;
+  }
+
+  .report-export-paper .recharts-tooltip-wrapper {
+    display: none !important;
+  }
+
+  .report-export-masthead h1 {
+    font-size: 19pt;
+  }
+
+  .report-export-masthead {
+    margin-bottom: 5pt;
+    padding-bottom: 4pt;
+  }
+
+  .report-export-paper h2,
+  .report-export-paper h3,
+  .report-export-paper h4 {
+    font: 600 12pt / 1.2 var(--font-display);
+    break-after: avoid;
+  }
+
+  .report-export-paper .issuer-front-page {
+    display: block;
+  }
+
+  .report-export-paper .issuer-front-page > * + * {
+    margin-top: 7pt;
+  }
+
+  .report-export-paper .issuer-brief {
+    gap: 7pt;
+  }
+
+  .report-export-paper .issuer-brief-company {
+    gap: 2pt;
+    padding-bottom: 5pt;
+  }
+
+  .report-export-paper .issuer-brief-columns {
+    gap: 13pt;
+  }
+
+  .report-export-paper .issuer-brief-credit,
+  .report-export-paper .issuer-brief-capital {
+    gap: 5pt;
+  }
+
+  .report-export-paper .issuer-brief-credit {
+    gap: 3pt;
+  }
+
+  .report-export-paper .issuer-brief-actions {
+    gap: 1pt 8pt;
+  }
+
+  .report-export-paper .issuer-brief-capital th,
+  .report-export-paper .issuer-brief-capital td {
+    padding: 1.4pt 3.5pt;
+    line-height: 1.13;
+  }
+
+  .report-export-paper .issuer-brief-metrics th,
+  .report-export-paper .issuer-brief-metrics td {
+    padding: 2pt 4pt;
+  }
+
+  .report-export-paper .issuer-brief-capital :is(th, td):first-child {
+    width: 27%;
+  }
+
+  .report-export-paper .issuer-brief-capital :is(th, td):nth-child(2) {
+    width: 20%;
+  }
+
+  .report-export-paper .issuer-brief-capital :is(th, td):nth-child(3) {
+    width: 11%;
+    text-align: right;
+  }
+
+  .report-export-paper .issuer-brief-capital :is(th, td):nth-child(4):not(:last-child) {
+    width: 23%;
+  }
+
+  .report-export-paper .issuer-brief-capital :is(th, td):last-child {
+    width: 19%;
+  }
+
+  .report-export-paper .issuer-brief-metrics table {
+    table-layout: auto;
+  }
+
+  .report-export-paper .issuer-brief-continuation {
+    break-before: page;
+  }
+
+  .report-export-paper .issuer-front-page-decision {
+    gap: 4pt;
+    padding-bottom: 4pt;
+  }
+
+  .report-export-paper .issuer-front-page-passages {
+    display: block;
+  }
+
+  .report-export-paper .issuer-front-page-passages > * + * {
+    margin-top: 3pt;
+  }
+
+  .report-export-paper .issuer-front-page-limitations {
+    break-inside: avoid;
+  }
+
+  .report-export-paper .issuer-front-page dl {
+    gap: 4pt;
+  }
+
+  .report-export-paper .issuer-front-page [aria-label="Headline figures"] > div {
+    gap: 2pt;
+    padding: 4pt 5pt;
+  }
+
+  .report-export-paper .issuer-front-page p,
+  .report-export-paper .issuer-front-page dt,
+  .report-export-paper .issuer-front-page dd,
+  .report-export-paper .issuer-front-page figcaption {
+    max-width: none;
+    font-size: 10pt;
+    line-height: 1.3;
+  }
+
+  .report-export-paper .issuer-front-page dd.font-display {
+    font: 600 12pt / 1.2 var(--font-display);
+  }
+
+  .report-export-paper section:has(.issuer-front-page-charts),
+  .report-export-paper section:has(> div > table) {
+    display: block;
+  }
+
+  .report-export-paper section:has(> div > table) > h3 {
+    margin-bottom: 4pt;
+  }
+
+  .report-export-paper .issuer-front-page-charts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7pt;
+    margin-top: 4pt;
+    break-inside: avoid;
+  }
+
+  .report-export-paper .issuer-front-page-charts > * {
+    min-width: 0;
+    align-self: start;
+  }
+
+  .report-export-paper div:has(> table) {
+    display: block;
+    overflow: visible !important;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .report-export-paper table {
+    width: 100%;
+    table-layout: fixed;
+    font-size: 9pt;
+    line-height: 1.2;
+  }
+
+  .report-export-paper thead {
+    display: table-header-group;
+  }
+
+  .report-export-paper tr {
+    break-inside: avoid;
+  }
+
+  .report-export-paper th,
+  .report-export-paper td {
+    position: static;
+    min-width: 0;
+    padding: 3pt 4pt;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: var(--color-brand-950);
+  }
+
+  .report-export-paper .issuer-front-page-observations :is(th, td):last-child {
+    width: 37%;
+  }
+
+  .report-export-paper .issuer-front-page-observations :is(th, td):nth-last-child(2) {
+    width: 10%;
+  }
+
+  .report-export-paper .issuer-front-page-observations :is(th, td):nth-child(4):last-child {
+    width: 49%;
+  }
+
+  .report-export-paper .issuer-front-page-financials :is(th, td):nth-child(7):last-child {
+    width: 27%;
+  }
+
+  .report-export-paper svg text {
+    font-size: 12px;
+  }
+}

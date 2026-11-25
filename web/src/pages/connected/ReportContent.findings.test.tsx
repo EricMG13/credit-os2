@@ -122,8 +122,8 @@ it.each([undefined, "Unreadable handoff"])(
     expect(
       screen.getByText(
         parseError
-          ? /This handoff could not be read into sections/
-          : /This handoff has no findings in this report format/,
+          ? /This module's output could not be read into sections/
+          : /This module wrote no findings in this report format/,
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open Evidence" })).toHaveAttribute(

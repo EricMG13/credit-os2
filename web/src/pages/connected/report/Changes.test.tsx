@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   PublishedChanges,
   OutputEntry,
@@ -53,6 +53,34 @@ function cp8(ledger: string[][], module = "CP-8", heading = "Limitations ledger"
   };
 }
 
+function issuerEntry(rows: string[][]): OutputEntry {
+  return {
+    selected: true,
+    output: { id: "a", module: "CP-8", label: "a", href: "", sha256: "a".repeat(64) },
+    sections: [
+      {
+        heading: "What changed: the issuer",
+        level: 3,
+        line: 10,
+        blocks: [
+          {
+            type: "table",
+            headers: [
+              "Measure or fact",
+              "Earlier",
+              "Current",
+              "Cause",
+              "Effect on the credit view",
+            ],
+            line: 11,
+            rows: rows.map((cells, index) => ({ line: 12 + index, cells })),
+          },
+        ],
+      },
+    ],
+  };
+}
+
 describe("connected report Changes", () => {
   it("compares published maturities without turning a missing earlier value into zero", () => {
     renderChanges({
@@ -62,18 +90,30 @@ describe("connected report Changes", () => {
           rows: [
             { period: "FY2026", prior: "0", current: "100" },
             { period: "FY2027", prior: null, current: "1250" },
+            {
+              period: "2030 and thereafter",
+              prior: "1,250m",
+              current: "Not supplied: schedule absent",
+            },
           ],
         },
       },
     });
-    const chart = screen.getByRole("figure", { name: "Debt maturity schedules" });
-    fireEvent.click(within(chart).getByRole("radio", { name: "Table" }));
-    const values = within(chart).getByRole("table");
-    const zero = within(values).getByRole("row", { name: /FY2026/ });
+    const tile = screen.getByRole("region", { name: "Maturities then and now" });
+    const walls = within(within(tile).getByRole("region", { name: "Maturity walls" }));
+    expect(walls.getAllByText("Not stated")).toHaveLength(1);
+    expect(walls.getByText("1,250m")).toBeInTheDocument();
+    expect(walls.getByText("Not supplied: schedule absent")).toBeInTheDocument();
+    expect(walls.getByText("2030 and thereafter")).toBeInTheDocument();
+    expect(walls.getByText("0", { exact: true })).toBeVisible();
+    fireEvent.click(within(tile).getByRole("button", { name: "Table" }));
+    const values = within(tile).getByRole("table");
     const missing = within(values).getByRole("row", { name: /FY2027/ });
-    expect(within(zero).getByText("0", { exact: true })).toBeInTheDocument();
     expect(within(missing).queryByText("0", { exact: true })).toBeNull();
     expect(within(missing).getByText("1250", { exact: true })).toBeInTheDocument();
+    expect(
+      within(within(values).getByRole("row", { name: /FY2026/ })).getByText("0", { exact: true }),
+    ).toBeVisible();
   });
 
   it("keeps a missing or unreadable comparison distinct from a first run", () => {
@@ -116,28 +156,204 @@ describe("connected report Changes", () => {
     expect(screen.queryByRole("link", { name: "Review comparison evidence" })).toBeNull();
   });
 
-  it("lets the change cards stand on the page, not inside the section's card", () => {
-    const measures = [
+  it("draws each moved measure in the pack's order with earlier, current and the stated cause", () => {
+    const measure = (key: string, prior: string, current: string, difference: number) => ({
+      key,
+      label: `Measure ${key}`,
+      prior: { value: prior, unit: "x", period: "FY2025" },
+      current: { value: current, unit: "x", period: "FY2026" },
+      difference,
+      unit: "x",
+    });
+    renderChanges(
       {
-        key: "net_leverage",
-        label: "Net leverage",
-        prior: { value: "3", unit: "x", period: "FY2025" },
-        current: { value: "2", unit: "x", period: "FY2026" },
-        difference: -1,
-        unit: "x",
+        pack: { measures: [measure("small", "10", "11", 1), measure("big", "2", "4", 2)] },
+        verdicts: {
+          measures: {
+            small: { kind: "comparable", label: "L", reason: "Why" },
+            big: { kind: "comparable", label: "L", reason: "Why" },
+          },
+        },
       },
-    ];
-    renderChanges({ pack: { measures } });
-    const heading = screen.getByRole("heading", { name: "Changes since the last run" });
-    expect(screen.getByText("Net leverage").closest("li")).not.toBeNull();
-    expect(heading.closest("section")?.className).not.toMatch(/shadow-1|rounded-ds-lg/);
-    expect(screen.queryByRole("link", { name: "Open the Overview" })).toBeNull();
+      [
+        issuerEntry([
+          ["Measure big", "2x", "4x", "Unresolved", "Cover is thinner"],
+          ["Measure small", "10x", "11x", "New period", "—"],
+        ]),
+      ],
+    );
+    const list = screen.getByRole("list", { name: "Measures that moved" });
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows.map((row) => within(row).getByRole("heading").textContent)).toEqual([
+      "Measure small",
+      "Measure big",
+    ]);
+    const [small, big] = rows as [HTMLElement, HTMLElement];
+    expect(within(big).getByText("Cause: Unresolved")).toBeVisible();
+    expect(within(big).getByText("Cover is thinner")).toBeVisible();
+    expect(within(small).getByText("Cause: New period")).toBeVisible();
+    expect(within(big).getByText("2x (FY2025)")).toBeVisible();
+    expect(within(big).getByText("4x (FY2026)")).toBeVisible();
+    expect(big.querySelector('[data-mark="dumbbell"]')).not.toBeNull();
   });
 
-  it("keeps a sentence-only state in its card", () => {
-    renderChanges(null);
-    const heading = screen.getByRole("heading", { name: "Changes since the last run" });
-    expect(heading.closest("section")?.className).toMatch(/shadow-1/);
+  const one = (cause: string | null, label = "Net leverage"): [PublishedChanges, OutputEntry[]] => [
+    {
+      pack: {
+        measures: [
+          {
+            key: "net_leverage",
+            label: "Net leverage",
+            prior: { value: "3", unit: "x", period: "FY2025" },
+            current: { value: "2", unit: "x", period: "FY2026" },
+            difference: -1,
+            unit: "x",
+          },
+        ],
+      },
+      verdicts: { measures: { net_leverage: { kind: "comparable", label: "L" } } },
+    },
+    cause === null ? [] : [issuerEntry([[label, "3x", "2x", cause, ""]])],
+  ];
+
+  it("says a cause is not stated only when its cell is empty", () => {
+    renderChanges(...one("—"));
+    expect(screen.getByText("Cause not stated")).toBeVisible();
+  });
+
+  it("links to Evidence for a cause that cites a source or whose row it cannot match", () => {
+    const { unmount } = renderChanges(...one("Per filing.pdf p. 3"));
+    expect(screen.queryByText("Cause not stated")).toBeNull();
+    expect(screen.getByRole("link", { name: "Read this cause in Evidence" })).toBeVisible();
+    unmount();
+    renderChanges(...one("New period", "Another name"));
+    expect(screen.queryByText("Cause not stated")).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "The cause is in the comparison, in Evidence" }),
+    ).toBeVisible();
+  });
+
+  it("sets a long cause as plain text, not a chip", () => {
+    const long = "The refinancing closed after the period end and added a term loan. ".repeat(3);
+    renderChanges(...one(long.trim()));
+    const line = screen.getByText(/^Cause: The refinancing closed/);
+    expect(line.tagName).toBe("P");
+    expect(line.className).not.toMatch(/rounded|border/);
+  });
+
+  it("points to the comparison evidence where a verdict's reason cites a source", () => {
+    renderChanges({
+      pack: {
+        measures: [
+          {
+            key: "net_leverage",
+            label: "Net leverage",
+            prior: { value: "3", unit: "x", period: "FY2025" },
+            current: { value: "2", unit: "x", period: "FY2026" },
+            difference: -1,
+            unit: "x",
+          },
+        ],
+      },
+      verdicts: {
+        measures: {
+          net_leverage: { kind: "comparable", label: "L", reason: "Per filing.pdf p. 3" },
+        },
+      },
+    });
+    expect(screen.getByText("See comparison evidence.")).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/filing\.pdf/);
+  });
+
+  it("collapses the measures that did not move behind a headed count", () => {
+    renderChanges({
+      pack: {
+        measures: [
+          {
+            key: "flat",
+            label: "Measure flat",
+            prior: { value: "5", unit: "x", period: "FY2025" },
+            current: { value: "5", unit: "x", period: "FY2026" },
+            difference: 0,
+            unit: "x",
+          },
+        ],
+      },
+      verdicts: { measures: { flat: { kind: "comparable", label: "L" } } },
+    });
+    expect(screen.getByRole("heading", { name: "Measures that did not move" })).toBeVisible();
+    expect(screen.getByText("Show the 1 measure").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("No comparable measure moved between the two runs.")).toBeVisible();
+  });
+
+  it("draws the first Bottom-line paragraph whole as the verdict, later paragraphs as body", () => {
+    const entry = cp8([]);
+    entry.sections.splice(1, 0, {
+      heading: "Bottom line",
+      level: 3,
+      line: 2,
+      blocks: [
+        {
+          type: "text",
+          line: 3,
+          end: 3,
+          text: "About the same: net leverage is approx. 7x. Cover is steady.",
+        },
+        { type: "text", line: 5, end: 5, text: "A second paragraph follows." },
+      ],
+    });
+    renderChanges(
+      {
+        pack: {
+          prior: { run: "r", as_of: "2025-03-31", pathway: "full" },
+          current: { as_of: "2025-06-30", pathway: "full" },
+          measures: [],
+        },
+      },
+      [entry],
+    );
+    const verdict = screen.getByRole("region", { name: "Verdict" });
+    expect(
+      within(verdict).getByText("About the same: net leverage is approx. 7x. Cover is steady.")
+        .className,
+    ).toMatch(/text-h2/);
+    expect(within(verdict).getByText("A second paragraph follows.")).toBeVisible();
+    expect(within(verdict).getByText("Earlier run, as of 2025-03-31")).toBeVisible();
+    expect(within(verdict).getByText(/Stance, earlier → current/)).toBeVisible();
+  });
+
+  it("draws the stance gap even when an as-of date is missing", () => {
+    renderChanges({ pack: { measures: [] } });
+    expect(screen.getByText(/Stance, earlier → current/)).toBeVisible();
+  });
+
+  it("links to Evidence when the Bottom line cites a source, instead of claiming no verdict", () => {
+    const entry = cp8([]);
+    entry.sections.splice(1, 0, {
+      heading: "Bottom line",
+      level: 3,
+      line: 2,
+      blocks: [{ type: "text", line: 3, end: 3, text: "See filing.pdf p. 3 for the position." }],
+    });
+    renderChanges({ pack: { measures: [] } }, [entry]);
+    expect(screen.getByRole("link", { name: "Read the verdict in Evidence" })).toBeVisible();
+    expect(screen.queryByText("The comparison does not state a verdict in a sentence.")).toBeNull();
+  });
+
+  it("keeps the evidence link with a pack and offers no Overview action", () => {
+    renderChanges({ pack: { measures: [] } }, [cp8([])]);
+    expect(screen.queryByRole("link", { name: "Open the Overview" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Review comparison evidence" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/report\/current#evidence\//),
+    );
+  });
+
+  it("draws the designed gap in place of the measures when the pack carries none", () => {
+    renderChanges({ pack: { measures: [], modules: [] } });
+    expect(
+      screen.getByText("The comparison carries no measures for these two runs."),
+    ).toBeVisible();
   });
 
   it("draws an h2 and skips no heading level, charts included", () => {
@@ -193,49 +409,62 @@ describe("connected report Changes", () => {
     expect(document.body.textContent).not.toMatch(/\(CP-[A-Za-z0-9]+\)/);
   });
 
-  it("groups CP-8's limitations ledger by status without its reference columns", () => {
-    renderChanges({ first_run: false }, [cp8(LEDGER)]);
-    const ledger = screen.getByRole("region", { name: "Limitations" });
-    const groups = within(ledger)
-      .getAllByRole("heading", { level: 3 })
+  it("draws nothing, not a stray 0, for a pack that compared no modules", () => {
+    const { container } = renderChanges({ pack: { measures: [], modules: [] } });
+    expect(screen.queryByText("0")).toBeNull();
+    expect(container.textContent).not.toMatch(/(?<![\d.,])0(?![\d.,])/);
+    expect(screen.queryByRole("heading", { name: "What changed in the analysis" })).toBeNull();
+  });
+
+  const withPack: PublishedChanges = { pack: { measures: [] } };
+  const ledger = () => within(screen.getByRole("region", { name: "Limitations ledger" }));
+  const groupNames = () =>
+    ledger()
+      .getAllByRole("heading", { level: 4 })
       .map((h) => h.textContent);
-    expect(groups).toEqual(["Closed (1)", "Remaining (1)", "New (1)", "Parked (1)"]);
-    expect(within(ledger).getByText("Revolver terms were unavailable")).toBeVisible();
-    expect(within(ledger).getByText("Amended credit agreement supplied")).toBeVisible();
-    expect(within(ledger).getByText("Lease schedule not reconciled")).toBeVisible();
-    expect(within(ledger).queryByText(/^(E1|E2|E3|C1|C2)$/)).toBeNull();
-    expect(within(ledger).getAllByRole("button", { name: /^Show sources for/ })).toHaveLength(4);
-    expect(screen.queryByRole("link", { name: "Limitations ledger" })).toBeNull();
+
+  it("groups CP-8's limitations ledger by every status without its reference columns", () => {
+    renderChanges(withPack, [cp8(LEDGER)]);
+    expect(groupNames()).toEqual(["Added (1)", "Removed (1)", "Remaining (1)", "Parked (1)"]);
+    expect(ledger().getByText("Revolver terms were unavailable")).toBeVisible();
+    expect(ledger().getByText("Closed by: Amended credit agreement supplied")).toBeVisible();
+    expect(ledger().getByText("Lease schedule not reconciled")).toBeVisible();
+    expect(ledger().queryByText(/^(E1|E2|E3|C1|C2)$/)).toBeNull();
+    expect(ledger().getAllByRole("link", { name: /^Source for / })).toHaveLength(4);
+    expect(
+      ledger().getByRole("link", { name: "Source for Revolver terms were unavailable" }),
+    ).toBeVisible();
   });
 
   it("names the module in a ledger cell instead of drawing its code", () => {
-    renderChanges({ first_run: false }, [
+    renderChanges(withPack, [
       cp8([["—", "—", "Covenant headroom", "Closed", "CP-2A: covenant headroom restated"]]),
     ]);
-    const ledger = screen.getByRole("region", { name: "Limitations" });
-    expect(within(ledger).getByText("Downside: covenant headroom restated")).toBeVisible();
-    expect(ledger.textContent).not.toMatch(/CP-2A/);
+    expect(ledger().getByText("Closed by: Downside: covenant headroom restated")).toBeVisible();
+    expect(ledger().getByRole("region", { name: "Removed" }).textContent).not.toMatch(/CP-2A/);
   });
 
-  it("leaves a Gap ledger of another module and non-CP-8 ledgers out of the typed group", () => {
-    renderChanges({ first_run: false }, [cp8(LEDGER, "CP-2", "Gap ledger")]);
-    expect(screen.queryByRole("region", { name: "Limitations" })).toBeNull();
+  it("leaves a Gap ledger of another module out", () => {
+    renderChanges(withPack, [cp8(LEDGER, "CP-2", "Gap ledger")]);
+    expect(screen.queryByRole("region", { name: "Limitations ledger" })).toBeNull();
   });
 
   it("orders other statuses after the named ones and draws no placeholder as a closing note", () => {
-    renderChanges({ first_run: false }, [
+    renderChanges(withPack, [
       cp8([
         ["E1", "\u2014", "Hedge book is thin", "Watching", "\u2014"],
         ["E2", "\u2014", "Pension terms are old", "No longer stated", "\u2014"],
         ["E3", "\u2014", "Leases are open", "Remaining", "\u2014"],
       ]),
     ]);
-    const ledger = screen.getByRole("region", { name: "Limitations" });
-    const groups = within(ledger)
-      .getAllByRole("heading", { level: 3 })
-      .map((h) => h.textContent);
-    expect(groups).toEqual(["Remaining (1)", "No longer stated (1)", "Watching (1)"]);
-    expect(within(ledger).queryByText("\u2014")).toBeNull();
+    expect(groupNames()).toEqual([
+      "Added (none)",
+      "Removed (none)",
+      "Remaining (1)",
+      "No longer stated (1)",
+      "Watching (1)",
+    ]);
+    expect(ledger().queryByText("\u2014")).toBeNull();
   });
 
   const HEADERS = ["Earlier ref", "Current ref", "Limitation", "Status", "What closed it"];
@@ -248,22 +477,18 @@ describe("connected report Changes", () => {
     return entry;
   }
 
-  it("draws a status cell without its marks and sorts it as the plain status", () => {
-    renderChanges({ first_run: false }, [
+  it("draws a status cell without its marks and groups it as the plain status", () => {
+    renderChanges(withPack, [
       ledgerOf(HEADERS, [
         ["E1", "\u2014", "Margins", "**Remaining**", "\u2014"],
         ["E2", "\u2014", "Revolver", "**Closed**", "Filing"],
       ]),
     ]);
-    const ledger = screen.getByRole("region", { name: "Limitations" });
-    const groups = within(ledger)
-      .getAllByRole("heading", { level: 3 })
-      .map((h) => h.textContent);
-    expect(groups).toEqual(["Closed (1)", "Remaining (1)"]);
+    expect(groupNames()).toEqual(["Added (none)", "Removed (1)", "Remaining (1)"]);
   });
 
-  it("shows a module named as Name (CP-x) without its code, in the status, text, note and trace name", () => {
-    renderChanges({ first_run: false }, [
+  it("shows a module named as Name (CP-x) without its code, in the status, text and note", () => {
+    renderChanges(withPack, [
       ledgerOf(HEADERS, [
         [
           "E1",
@@ -274,13 +499,188 @@ describe("connected report Changes", () => {
         ],
       ]),
     ]);
-    const ledger = screen.getByRole("region", { name: "Limitations" });
-    expect(ledger.textContent).not.toMatch(/\(CP-/);
-    expect(within(ledger).getByText("Updated in Liquidity and", { exact: false })).toBeVisible();
-    expect(within(ledger).getByText("Financial foundation", { selector: "strong" })).toBeVisible();
-    expect(within(ledger).getByRole("button").getAttribute("aria-label")).toBe(
-      "Show sources for Covenant view from Financial foundation is stale",
+    expect(
+      ledger().getByRole("heading", { level: 4, name: "Closed by Financial foundation (1)" }),
+    ).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/\(CP-/);
+    expect(ledger().getByText("Covenant view from Financial foundation is stale")).toBeVisible();
+    // Emphasis marks are flattened on purpose: the page draws the module's words, not its markdown.
+    expect(
+      ledger().getByText("What closed it: Updated in Liquidity and Credit (Fundamental credit)"),
+    ).toBeVisible();
+    expect(
+      ledger().getByRole("link", {
+        name: "Source for Covenant view from Financial foundation is stale",
+      }),
+    ).toBeVisible();
+    expect(ledger().queryByText(/\*\*/)).toBeNull();
+  });
+
+  it("titles the ledger and falls back to the table when a column is missing", () => {
+    const { unmount } = renderChanges(withPack, [ledgerOf(HEADERS, LEDGER)]);
+    expect(screen.getByRole("heading", { level: 3, name: "Limitations ledger" })).toBeVisible();
+    unmount();
+    renderChanges(withPack, [ledgerOf(HEADERS.slice(0, 3), [["E1", "C1", "Margins"]])]);
+    expect(screen.getByText("Margins")).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 4 })).toBeNull();
+  });
+
+  it("links a limitation that cites a source to Evidence instead of dropping it", () => {
+    renderChanges(withPack, [
+      ledgerOf(HEADERS, [["—", "C1", "Per filing.pdf p. 3 the swap is unclear", "New", "—"]]),
+    ]);
+    expect(
+      ledger().getByRole("link", { name: "Read this limitation in Evidence" }),
+    ).toHaveAttribute("href", expect.stringMatching(/^\/report\/current#evidence\//));
+    expect(document.body.textContent).not.toMatch(/filing\.pdf/);
+  });
+
+  it("draws the ledger, the issuer facts and the analysis rows with no pack, as at base", () => {
+    const entry = cp8(LEDGER);
+    entry.sections.push(
+      {
+        heading: "What changed: the issuer",
+        level: 3,
+        line: 30,
+        blocks: [
+          {
+            type: "table",
+            headers: [
+              "Measure or fact",
+              "Earlier",
+              "Current",
+              "Cause",
+              "Effect on the credit view",
+            ],
+            line: 31,
+            rows: [
+              {
+                line: 32,
+                cells: [
+                  "New term loan B of US$600m signed",
+                  "—",
+                  "Signed",
+                  "New source",
+                  "More debt",
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        heading: "What changed: the analysis",
+        level: 3,
+        line: 40,
+        blocks: [
+          {
+            type: "table",
+            headers: ["Module", "Status", "Cause", "Why"],
+            line: 41,
+            rows: [
+              {
+                line: 42,
+                cells: ["Fundamental credit (CP-2)", "Weakened", "New period", "Cover fell"],
+              },
+            ],
+          },
+        ],
+      },
     );
+    renderChanges({ note: "changes: not compared: x" }, [entry]);
+    expect(screen.getByText("Segment margins are not disclosed")).toBeVisible();
+    expect(screen.getByText("New term loan B of US$600m signed")).toBeVisible();
+    expect(screen.getByText("Fundamental credit")).toBeVisible();
+    expect(screen.getByText("This run was not compared with an earlier run.")).toBeVisible();
+  });
+
+  it("draws the issuer facts that are not pack measures once, with a source each", () => {
+    const entry = cp8([]);
+    entry.sections.push({
+      heading: "What changed: the issuer",
+      level: 3,
+      line: 30,
+      blocks: [
+        {
+          type: "table",
+          headers: ["Measure or fact", "Earlier", "Current", "Cause", "Effect on the credit view"],
+          line: 31,
+          rows: [
+            { line: 32, cells: ["Measure net_leverage", "3x", "2x", "New period", ""] },
+            { line: 33, cells: ["Moody's outlook", "Stable", "Negative", "New source", "Weaker"] },
+          ],
+        },
+      ],
+    });
+    renderChanges(
+      {
+        pack: {
+          measures: [
+            {
+              key: "net_leverage",
+              label: "Measure net_leverage",
+              prior: { value: "3", unit: "x", period: "FY2025" },
+              current: { value: "2", unit: "x", period: "FY2026" },
+              difference: -1,
+              unit: "x",
+            },
+          ],
+        },
+        verdicts: { measures: { net_leverage: { kind: "comparable", label: "L" } } },
+      },
+      [entry],
+    );
+    const facts = within(screen.getByRole("region", { name: "Also changed at the issuer" }));
+    expect(facts.getByText("Moody's outlook")).toBeVisible();
+    expect(facts.queryByText("Measure net_leverage")).toBeNull();
+    expect(screen.getAllByText("Measure net_leverage")).toHaveLength(1);
+  });
+
+  it("draws a table inside a passage within that passage", () => {
+    const entry = cp8([]);
+    entry.sections.splice(1, 0, {
+      heading: "Key findings",
+      level: 3,
+      line: 2,
+      blocks: [
+        { type: "text", line: 3, end: 3, text: "Two facilities moved." },
+        {
+          type: "table",
+          headers: ["Facility", "Change"],
+          line: 5,
+          rows: [{ line: 6, cells: ["Term loan B", "Repriced"] }],
+        },
+      ],
+    });
+    renderChanges(withPack, [entry]);
+    const tile = within(screen.getByRole("region", { name: "Key findings" }));
+    expect(tile.getByText("Two facilities moved.")).toBeVisible();
+    expect(tile.getByText("Repriced")).toBeVisible();
+  });
+
+  it("says once that the comparison module did not run, not under every measure", () => {
+    renderChanges(...one(null));
+    expect(screen.getAllByText(/did not run for this report/)).toHaveLength(1);
+    expect(screen.queryByText(/The cause is in the comparison/)).toBeNull();
+  });
+
+  it("says what is true when no measure could be assessed or only revisions differ", () => {
+    renderChanges({
+      pack: {
+        measures: [
+          {
+            key: "net_leverage",
+            label: "Net leverage",
+            prior: { value: "3", unit: "x", period: "FY2025" },
+            current: { value: "2", unit: "US$m", period: "FY2026" },
+            difference: -1,
+          },
+        ],
+      },
+      verdicts: { measures: { net_leverage: { kind: "comparable", label: "L" } } },
+    });
+    expect(screen.getByText("No measure could be assessed between the two runs.")).toBeVisible();
+    expect(screen.queryByText(/No comparable measure moved/)).toBeNull();
   });
 
   it.each([
@@ -308,28 +708,572 @@ describe("connected report Changes", () => {
     expect(container.textContent).not.toMatch(/changes:|CP-|cpos_|\d{8}-\d{6}/);
   });
 
-  it("titles the ledger and falls back to the generic table when a column is missing", () => {
-    const { unmount } = renderChanges({ first_run: false }, [ledgerOf(HEADERS, LEDGER)]);
-    expect(screen.getByRole("heading", { level: 2, name: "Limitations ledger" })).toBeVisible();
-    unmount();
-    renderChanges({ first_run: false }, [
-      ledgerOf(HEADERS.slice(0, 4), [["E1", "C1", "Margins", "Remaining"]]),
-    ]);
-    expect(screen.queryByRole("region", { name: "Limitations" })).toBeNull();
-    expect(screen.getByText("Margins")).toBeVisible();
-  });
-
-  it("draws a gap card for a passage the CP-8 handoff lacks", () => {
+  it("draws a gap tile for a passage the CP-8 handoff lacks", () => {
     const entry = cp8(LEDGER);
-    entry.sections.splice(1, 0, {
-      heading: "Bottom line",
-      level: 3,
-      line: 2,
-      blocks: [{ type: "text", line: 3, end: 3, text: "Little changed." }],
-    });
-    renderChanges(null, [entry]);
-    expect(screen.getByText("Segment margins are not disclosed")).toBeInTheDocument();
+    renderChanges(withPack, [entry]);
     const gap = screen.getByRole("heading", { name: "Key findings" }).closest("section");
     expect(gap).toHaveTextContent("Not established for this run");
+    expect(screen.queryByRole("heading", { name: "Bottom line" })).toBeNull();
+  });
+
+  it("draws the Key findings, contrary evidence and limitations a handoff writes, once each", () => {
+    const entry = cp8(LEDGER);
+    const passage = (heading: string, text: string, line: number) => ({
+      heading,
+      level: 3,
+      line,
+      blocks: [{ type: "text" as const, line: line + 1, end: line + 1, text }],
+    });
+    entry.sections.splice(
+      1,
+      0,
+      passage("Key findings", "Leverage rose half a turn.", 2),
+      passage(
+        "Contrary evidence and what would change the view",
+        "A refinancing would reverse it.",
+        4,
+      ),
+      passage("Limitations", "The earlier run is compared in substance only.", 6),
+    );
+    renderChanges(withPack, [entry]);
+    expect(screen.getAllByText("Leverage rose half a turn.")).toHaveLength(1);
+    expect(screen.getAllByText("A refinancing would reverse it.")).toHaveLength(1);
+    expect(screen.getAllByText("The earlier run is compared in substance only.")).toHaveLength(1);
+    expect(screen.queryByRole("heading", { name: "What changed: the issuer" })).toBeNull();
+  });
+
+  it("draws the contract's no-change row as the module's statement, not as a changed fact", () => {
+    const entry = cp8([]);
+    entry.sections.push({
+      heading: "What changed: the issuer",
+      level: 3,
+      line: 30,
+      blocks: [
+        {
+          type: "table",
+          headers: ["Measure or fact", "Earlier", "Current", "Cause", "Effect on the credit view"],
+          line: 31,
+          rows: [
+            {
+              line: 32,
+              cells: ["No material change", "—", "—", "None", "No fact at the issuer moved."],
+            },
+          ],
+        },
+      ],
+    });
+    renderChanges(withPack, [entry]);
+    const tile = within(screen.getByRole("region", { name: "At the issuer" }));
+    expect(tile.getByText(/No material change at the issuer\./)).toHaveTextContent(
+      "No fact at the issuer moved.",
+    );
+    expect(screen.queryByRole("region", { name: "Also changed at the issuer" })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Not stated → Not stated/);
+  });
+
+  it("draws what a handoff carries off-contract: prose under a register, an extra section, a bare table", () => {
+    const entry = cp8([]);
+    entry.sections.push(
+      {
+        heading: "What changed: the issuer",
+        level: 3,
+        line: 30,
+        blocks: [
+          {
+            type: "table",
+            headers: ["Measure or fact", "Earlier"],
+            line: 31,
+            rows: [{ line: 32, cells: ["Rating", "B1"] }],
+          },
+          { type: "text", line: 34, end: 34, text: "Ratings are as at the earlier date." },
+        ],
+      },
+      {
+        heading: "Unresolved differences",
+        level: 3,
+        line: 40,
+        blocks: [{ type: "text", line: 41, end: 41, text: "Two segment figures still differ." }],
+      },
+    );
+    renderChanges(withPack, [entry]);
+    const rest = within(screen.getByRole("region", { name: "More from the comparison" }));
+    expect(rest.getByText("Ratings are as at the earlier date.")).toBeVisible();
+    expect(rest.getByText("Two segment figures still differ.")).toBeVisible();
+    expect(rest.getByText("B1")).toBeVisible();
+  });
+
+  it("lists analysis rows for a module the pack does not compare", () => {
+    const entry = cp8([]);
+    entry.sections.push({
+      heading: "What changed: the analysis",
+      level: 3,
+      line: 40,
+      blocks: [
+        {
+          type: "table",
+          headers: ["Module", "Status", "Cause", "Why"],
+          line: 41,
+          rows: [{ line: 42, cells: ["Liquidity (CP-2D)", "New", "New source", "Newly run"] }],
+        },
+      ],
+    });
+    renderChanges(withPack, [entry]);
+    expect(
+      within(screen.getByRole("region", { name: "Also compared in the analysis" })).getByText(
+        "Liquidity",
+      ),
+    ).toBeVisible();
+  });
+
+  it("sets a long verdict smaller on a phone than a short one, whole in both", () => {
+    const verdictClass = (text: string) => {
+      const entry = cp8([]);
+      entry.sections.splice(1, 0, {
+        heading: "Bottom line",
+        level: 3,
+        line: 2,
+        blocks: [{ type: "text", line: 3, end: 3, text }],
+      });
+      const { unmount } = renderChanges(withPack, [entry]);
+      const cls = within(screen.getByRole("region", { name: "Verdict" })).getByText(text).className;
+      unmount();
+      return cls;
+    };
+    expect(verdictClass("Credit is steady.")).toMatch(/\btext-h3\b/);
+    expect(verdictClass("Credit is steady and cover is wide. ".repeat(8).trim())).toMatch(
+      /\btext-h4\b/,
+    );
+  });
+
+  it("hints that the maturity chart scrolls when it has more than two periods", () => {
+    renderChanges({
+      pack: {
+        maturity_profile: {
+          unit: "US$m",
+          rows: ["FY2026", "FY2027", "FY2028"].map((period) => ({
+            period,
+            prior: "1",
+            current: "2",
+          })),
+        },
+      },
+    });
+    expect(screen.getByText("Scroll the chart sideways to see every period.")).toBeInTheDocument();
+  });
+
+  const issuerSection = (rows: string[][]) => ({
+    heading: "What changed: the issuer",
+    level: 3,
+    line: 30,
+    blocks: [
+      {
+        type: "table" as const,
+        headers: ["Measure or fact", "Earlier", "Current", "Cause", "Effect on the credit view"],
+        line: 31,
+        rows: rows.map((cells, i) => ({ line: 32 + i, cells })),
+      },
+    ],
+  });
+
+  it("gives two like-named measures their own cause and trace, and no fact repeats them", () => {
+    const entry = cp8([]);
+    entry.sections.push(
+      issuerSection([
+        ["EBITDA (reported)", "100", "110", "New period", "Reported up"],
+        ["EBITDA (adjusted)", "120", "125", "Unresolved", "Adjusted up"],
+      ]),
+    );
+    const side = (v: string, p: string) => ({ value: v, unit: "US$m", period: p });
+    renderChanges(
+      {
+        pack: {
+          measures: [
+            {
+              key: "ebitda_reported",
+              label: "EBITDA (reported)",
+              prior: side("100", "FY2025"),
+              current: side("110", "FY2026"),
+              difference: 10,
+              unit: "US$m",
+            },
+            {
+              key: "ebitda_adjusted",
+              label: "EBITDA (adjusted)",
+              prior: side("120", "FY2025"),
+              current: side("125", "FY2026"),
+              difference: 5,
+              unit: "US$m",
+            },
+          ],
+        },
+        verdicts: {
+          measures: {
+            ebitda_reported: { kind: "comparable", label: "L" },
+            ebitda_adjusted: { kind: "comparable", label: "L" },
+          },
+        },
+      },
+      [entry],
+    );
+    const list = within(screen.getByRole("list", { name: "Measures that moved" }));
+    const [reported, adjusted] = list.getAllByRole("listitem");
+    expect(within(reported as HTMLElement).getByText("Cause: New period")).toBeVisible();
+    expect(within(adjusted as HTMLElement).getByText("Cause: Unresolved")).toBeVisible();
+    expect(
+      within(reported as HTMLElement).getByRole("link", { name: "Comparison row" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Also changed at the issuer" })).toBeNull();
+  });
+
+  it("draws the no-change row beside facts, and says a dash or empty cause and effect is not stated", () => {
+    const entry = cp8([]);
+    entry.sections.push(
+      issuerSection([
+        ["No material change", "—", "—", "None", "Nothing else moved."],
+        ["New term loan", "", "Signed", "—", ""],
+      ]),
+    );
+    renderChanges(withPack, [entry]);
+    const tile = within(screen.getByRole("region", { name: "Also changed at the issuer" }));
+    expect(tile.getByText(/No material change at the issuer\./)).toHaveTextContent(
+      "Nothing else moved.",
+    );
+    expect(tile.getByText("Cause not stated")).toBeVisible();
+    expect(tile.getByText("Effect not stated")).toBeVisible();
+    expect(tile.getByText("Not stated")).toBeVisible();
+  });
+
+  it("says the status is not stated, not the explanation, when only the status is empty", () => {
+    renderChanges({
+      pack: {
+        measures: [],
+        modules: [
+          {
+            module: "CP-2A",
+            title: "Downside",
+            ran_prior: true,
+            ran_current: true,
+            prior_bottom_line: "a",
+            current_bottom_line: "b",
+          },
+        ],
+      },
+      verdicts: {
+        modules: {
+          "CP-2A": { status: "", cause: "New period", why: "Per filing.pdf p. 3 the case changed" },
+        },
+      },
+    });
+    expect(screen.getByText("Status not stated")).toBeVisible();
+    expect(screen.queryByText("Explanation not stated")).toBeNull();
+    expect(screen.getByText("New period")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Read the explanation in Evidence", hidden: true }),
+    ).toBeInTheDocument();
+  });
+
+  it("draws off-contract handoff content: a register-like Findings section, a level-2 section and a dash-limitation row", () => {
+    const entry = cp8([["E1", "—", "—", "Closed", "Superseded by the new agreement"]]);
+    entry.sections.push(
+      {
+        heading: "Period table",
+        level: 3,
+        line: 50,
+        blocks: [{ type: "text", line: 51, end: 51, text: "x" }],
+      },
+      {
+        heading: "Comparison notes",
+        level: 2,
+        line: 60,
+        blocks: [{ type: "text", line: 61, end: 61, text: "How the runs were matched." }],
+      },
+    );
+    renderChanges(withPack, [entry]);
+    expect(screen.getByText("Limitation not stated")).toBeVisible();
+    expect(screen.getByText("Closed by: Superseded by the new agreement")).toBeVisible();
+    const link = within(screen.getByRole("region", { name: "More from the comparison" })).getByRole(
+      "link",
+      {
+        name: "Read Period table in Evidence",
+      },
+    );
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/report\/current#evidence\/.*-50$/),
+    );
+    expect(screen.getByText("How the runs were matched.")).toBeVisible();
+  });
+
+  it("names a module and drops a bracketed code it does not know, in the analysis rows", () => {
+    const entry = cp8([]);
+    entry.sections.push({
+      heading: "What changed: the analysis",
+      level: 3,
+      line: 40,
+      blocks: [
+        {
+          type: "table",
+          headers: ["Module", "Status", "Cause", "Why"],
+          line: 41,
+          rows: [
+            { line: 42, cells: ["Short credit memo (CP-MEMO)", "New", "New source", "Newly run"] },
+          ],
+        },
+      ],
+    });
+    renderChanges(withPack, [entry]);
+    expect(screen.getByText("Short credit memo")).toBeVisible();
+    expect(document.body.textContent).not.toMatch(/CP-MEMO/);
+  });
+
+  it("labels a New row's closing note with the column's own header", () => {
+    renderChanges(withPack, [
+      cp8([["—", "C1", "Hedge book missing", "New", "Arrived with the new facility"]]),
+    ]);
+    expect(screen.getByText("What closed it: Arrived with the new facility")).toBeVisible();
+  });
+
+  it("steps the verdict size by length at every width", () => {
+    const cls = (text: string) => {
+      const entry = cp8([]);
+      entry.sections.splice(1, 0, {
+        heading: "Bottom line",
+        level: 3,
+        line: 2,
+        blocks: [{ type: "text", line: 3, end: 3, text }],
+      });
+      const { unmount } = renderChanges(withPack, [entry]);
+      const value = within(screen.getByRole("region", { name: "Verdict" })).getByText(
+        text,
+      ).className;
+      unmount();
+      return value;
+    };
+    expect(cls("Credit is steady.")).toMatch(/\btext-h3\b.*\bsm:text-h2\b/);
+    expect(cls("Credit is steady and cover is wide. ".repeat(8).trim())).toMatch(
+      /\btext-h4\b.*\bsm:text-h3\b/,
+    );
+  });
+
+  it("does not number a finding twice when the module already numbered it", () => {
+    const entry = cp8([]);
+    entry.sections.splice(1, 0, {
+      heading: "Key findings",
+      level: 3,
+      line: 2,
+      blocks: [
+        { type: "text", line: 3, end: 3, text: "1. Net leverage rose." },
+        { type: "text", line: 5, end: 5, text: "Cover fell." },
+      ],
+    });
+    renderChanges(withPack, [entry]);
+    const items = within(screen.getByRole("region", { name: "Key findings" })).getAllByRole(
+      "listitem",
+    );
+    expect(items[0]?.className).toMatch(/list-none/);
+    expect(items[1]?.className).not.toMatch(/list-none/);
+  });
+
+  it("opens each measure's own issuer row in both the list and the table view, and the table for an unmatched one", () => {
+    const entry = cp8([]);
+    entry.sections.push(
+      issuerSection([
+        ["Interest cover", "2.1x", "1.7x", "New period", "Thinner"],
+        ["Revenue", "1x", "2x", "Unresolved", ""],
+        ["Net leverage", "6x", "7x", "New period", ""],
+        ["net leverage", "6x", "7x", "Unresolved", ""],
+      ]),
+    );
+    const side = (v: string, p: string, u = "x") => ({ value: v, unit: u, period: p });
+    const m = (key: string, label: string, a: string, b: string, d: number) => ({
+      key,
+      label,
+      prior: side(a, "FY2025"),
+      current: side(b, "FY2026"),
+      difference: d,
+      unit: "x",
+    });
+    renderChanges(
+      {
+        pack: {
+          measures: [
+            m("coverage", "Interest Cover (x)", "2.1", "1.7", -0.4),
+            m("revenue", "Revenue", "1", "2", 1),
+            m("net_leverage", "Net leverage", "6", "7", 1),
+          ],
+        },
+        verdicts: {
+          measures: Object.fromEntries(
+            ["coverage", "revenue", "net_leverage"].map((k) => [
+              k,
+              { kind: "comparable", label: "L" },
+            ]),
+          ),
+        },
+      },
+      [entry],
+    );
+    const lineOf = (el: HTMLElement) => /-(\d+)$/.exec(el.getAttribute("href") ?? "")?.[1];
+    const rows = within(screen.getByRole("list", { name: "Measures that moved" })).getAllByRole(
+      "listitem",
+    );
+    expect(
+      rows.map((row) => lineOf(within(row).getByRole("link", { name: "Comparison row" }))),
+    ).toEqual(["32", "33", "31"]);
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
+    const table = within(screen.getByRole("region", { name: "Earlier against current" }));
+    expect(table.getAllByRole("link", { name: "Comparison row" }).map(lineOf)).toEqual([
+      "32",
+      "33",
+      "31",
+    ]);
+  });
+
+  it("says a measure's effect is not stated or links to Evidence, as a fact's does", () => {
+    const entry = cp8([]);
+    entry.sections.push(
+      issuerSection([
+        ["A", "1x", "2x", "New period", ""],
+        ["B", "1x", "2x", "New period", "Per filing.pdf p. 3 the effect is large"],
+      ]),
+    );
+    const side = (v: string, p: string) => ({ value: v, unit: "x", period: p });
+    renderChanges(
+      {
+        pack: {
+          measures: ["A", "B"].map((label) => ({
+            key: label.toLowerCase(),
+            label,
+            prior: side("1", "FY2025"),
+            current: side("2", "FY2026"),
+            difference: 1,
+            unit: "x",
+          })),
+        },
+        verdicts: {
+          measures: {
+            a: { kind: "comparable", label: "L" },
+            b: { kind: "comparable", label: "L" },
+          },
+        },
+      },
+      [entry],
+    );
+    expect(screen.getByText("Effect not stated")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Read the effect in Evidence" })).toBeVisible();
+  });
+
+  it("draws every No material change row, each with its own source", () => {
+    const entry = cp8([]);
+    entry.sections.push(
+      issuerSection([
+        ["No material change", "—", "—", "Nothing moved at the issuer.", "—"],
+        ["No material change", "—", "—", "None", "Still nothing."],
+      ]),
+    );
+    renderChanges(withPack, [entry]);
+    const tile = within(screen.getByRole("region", { name: "At the issuer" }));
+    expect(tile.getByText(/Nothing moved at the issuer\./)).toBeVisible();
+    expect(tile.getByText(/Still nothing\./)).toBeVisible();
+    expect(tile.getAllByRole("link", { name: "Source for this statement" })).toHaveLength(2);
+  });
+
+  it("hides the reference columns in the ledger fallback and says a table with no rows has none", () => {
+    const entry = ledgerOf(
+      ["Earlier ref", "Current ref", "Limitation", "State"],
+      [["E1", "C2", "Margins", "Open"]],
+    );
+    entry.sections.push({
+      heading: "Notes table",
+      level: 3,
+      line: 70,
+      blocks: [{ type: "table", headers: ["A", "B"], line: 71, rows: [] }],
+    });
+    renderChanges(withPack, [entry]);
+    const tile = within(screen.getByRole("region", { name: "Limitations ledger" }));
+    expect(tile.getByText("Margins")).toBeVisible();
+    expect(tile.queryByText("E1")).toBeNull();
+    expect(tile.queryByText("C2")).toBeNull();
+    expect(screen.getByText("This table has no rows.")).toBeVisible();
+  });
+
+  it("draws two leftover sections that share a heading without a key clash", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const entry = cp8([]);
+    const same = (line: number, text: string) => ({
+      heading: "Unresolved differences",
+      level: 3,
+      line,
+      blocks: [{ type: "text" as const, line: line + 1, end: line + 1, text }],
+    });
+    entry.sections.push(same(80, "First difference."), same(90, "Second difference."));
+    renderChanges(withPack, [entry]);
+    expect(screen.getByText("First difference.")).toBeVisible();
+    expect(screen.getByText("Second difference.")).toBeVisible();
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("opens the right issuer row in the Table view for two measures that share a label, in either pack order", () => {
+    const side = (v: string, unit: string, p: string) => ({ value: v, unit, period: p });
+    const mk = (key: string, unit: string) => ({
+      key,
+      label: "Net leverage",
+      prior: side("6", unit, "FY2025"),
+      current: side("7", unit, "FY2026"),
+      difference: 1,
+      unit,
+    });
+    const lineOf = (el: HTMLElement) => /-(\d+)$/.exec(el.getAttribute("href") ?? "")?.[1];
+    for (const order of [
+      [mk("a", "US$m"), mk("b", "x")],
+      [mk("b", "x"), mk("a", "US$m")],
+    ]) {
+      const entry = cp8([]);
+      entry.sections.push(issuerSection([["Net leverage (x)", "6x", "7x", "New period", ""]]));
+      const { unmount } = renderChanges(
+        {
+          pack: { measures: order },
+          verdicts: {
+            measures: {
+              a: { kind: "comparable", label: "L" },
+              b: { kind: "comparable", label: "L" },
+            },
+          },
+        },
+        [entry],
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Table" }));
+      const table = within(screen.getByRole("region", { name: "Earlier against current" }));
+      const lines = table.getAllByRole("link", { name: "Comparison row" }).map(lineOf);
+      expect(lines).toEqual(order.map((m) => (m.unit === "x" ? "32" : "31")));
+      unmount();
+    }
+  });
+
+  it("draws a written dash effect on a measure as a dash, not as not stated", () => {
+    const entry = cp8([]);
+    entry.sections.push(issuerSection([["A", "1x", "2x", "New period", "—"]]));
+    const side = (v: string, p: string) => ({ value: v, unit: "x", period: p });
+    renderChanges(
+      {
+        pack: {
+          measures: [
+            {
+              key: "a",
+              label: "A",
+              prior: side("1", "FY2025"),
+              current: side("2", "FY2026"),
+              difference: 1,
+              unit: "x",
+            },
+          ],
+        },
+        verdicts: { measures: { a: { kind: "comparable", label: "L" } } },
+      },
+      [entry],
+    );
+    expect(screen.queryByText("Effect not stated")).toBeNull();
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });

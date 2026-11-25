@@ -19,7 +19,9 @@ export function Breadcrumb({
 }) {
   return (
     <nav aria-label="Breadcrumb" className="mb-5 text-sm wrap-anywhere text-text-tertiary">
-      <TextLink href={href}>{root}</TextLink>
+      <TextLink href={href} className="min-h-8 items-center max-[480px]:min-h-11">
+        {root}
+      </TextLink>
       {" / "}
       {children}
     </nav>

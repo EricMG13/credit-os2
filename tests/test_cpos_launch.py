@@ -5517,6 +5517,8 @@ def test_a_deep_run_is_delivered_and_listed_by_the_library_with_every_module(
     assert_called(provider, deep)
     run = data["workspace"]["runs"][RUN_ID]
     assert run["pathway"] == "deep_credit_assessment"
+    assert run["assessmentScope"] == "standard"
+    assert run["publishedAt"].endswith("+00:00")
     held = {code for code, entry in run["modules"].items() if entry.get("outputs")}
     assert held == set(deep)  # all twenty handoffs reach the Modules pages
     (model,) = data["workspace"]["models"]  # the forecast is published: CP-1 and CP-2G ran

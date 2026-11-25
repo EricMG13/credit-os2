@@ -1,9 +1,12 @@
 import { useId, useState } from "react";
 import { RadioButton, RadioField, RadioGroup, Text } from "react-aria-components";
 import { cx } from "@/utils/cx";
+import { Figure } from "../../connected/report/overview/Tile";
 import type { StartDraft } from "../slice";
 
 type Step = Extract<StartDraft, { step: "purpose" }>;
+/** A card: the static page passes no cap; the connected page passes the service cap text. */
+type CardItem = Step["purposes"][number] & { cap?: string };
 
 // Kit candidate: radio cards (header strip with icon, title and a check control; body with the
 // description and a small label).
@@ -42,7 +45,7 @@ export function PurposeCards({
   label: string;
   value: string | null;
   onChange: (value: string) => void;
-  purposes: Step["purposes"];
+  purposes: readonly CardItem[];
   className?: string;
 }) {
   return (
@@ -57,21 +60,23 @@ export function PurposeCards({
           <RadioButton
             className={({ isSelected, isFocusVisible }) =>
               cx(
-                "block h-full cursor-pointer rounded-xl bg-primary ring-1 ring-secondary ring-inset outline-none",
-                isSelected && "ring-2 ring-brand",
-                isFocusVisible && "outline-2 outline-solid outline-offset-2 outline-brand",
+                "flex h-full min-h-8 cursor-pointer flex-col gap-3 rounded-ds-md border bg-surface-card p-4 outline-none",
+                isSelected
+                  ? "border-action bg-surface-selected"
+                  : "border-border-hairline hover:border-border-container",
+                isFocusVisible && "outline-2 outline-solid outline-offset-2 outline-focus",
               )
             }
           >
             {({ isSelected }) => (
               <>
-                <div className="flex items-center gap-3 rounded-t-xl border-b border-border-hairline py-3 pr-5 pl-3">
-                  <span className="text-md font-semibold text-secondary">{p.title}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-h4 font-medium text-text-primary">{p.title}</span>
                   <span
                     aria-hidden="true"
                     className={cx(
-                      "ml-auto flex size-4 flex-none items-center justify-center rounded-full ring-1 ring-primary ring-inset",
-                      isSelected && "ring-2 ring-brand",
+                      "ml-auto flex size-4 flex-none items-center justify-center rounded-full border",
+                      isSelected ? "border-action" : "border-border-container",
                     )}
                   >
                     {isSelected ? (
@@ -84,11 +89,14 @@ export function PurposeCards({
                 <Text
                   slot="description"
                   elementType="div"
-                  className="flex items-start justify-between gap-4 p-4"
+                  className="flex min-w-0 flex-1 flex-col justify-between gap-3"
                 >
-                  <p className="min-w-0 text-sm text-tertiary">{p.description}</p>
-                  <span className="max-w-1/3 shrink-0 rounded-md bg-primary px-1.5 py-0.5 text-caption font-medium text-secondary ring-1 ring-primary ring-inset">
-                    {p.modules}
+                  <p className="text-small text-text-secondary">{p.description}</p>
+                  <span className="flex flex-wrap items-center justify-between gap-2 border-t border-border-hairline pt-3">
+                    <span className="rounded-ds-xs border border-border-hairline px-1.5 py-0.5 font-mono text-caption text-text-secondary">
+                      {p.modules}
+                    </span>
+                    {p.cap ? <Figure className="text-caption">{p.cap}</Figure> : null}
                   </span>
                 </Text>
               </>

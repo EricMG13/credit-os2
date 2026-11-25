@@ -10,8 +10,12 @@ import {
 } from "../publishedReport";
 import type { buildReportView } from "../reportView";
 import { forecastCaseLabel, forecastCaseNames, gridOf, type Grid } from "../visuals/LegacyForecast";
+import { isDatedForecastPeriod } from "../visuals/scenarioPeriods";
 import { items, record, stringsIn, word } from "../visuals/visualData";
 import type { PublishedTraceContext } from "./PublishedTrace";
+
+/** Room above and below a trace control, so it is the only target in reach. */
+const TARGET_ROOM = "flex min-h-8 items-center max-[480px]:min-h-11";
 
 export type ForecastModel = ReturnType<typeof buildReportView>["models"][number];
 
@@ -141,23 +145,24 @@ function includesPeriod(selection: ForecastSelection, column: Grid["columns"][nu
 function selectedValues(model: ForecastModel, rowName: string, selection: ForecastSelection) {
   const cashflow = record(model.cashflow);
   const downside = stringsIn(cashflow.notes).find((note) => note.startsWith("Downside case is"));
-  const grids = rawGroups(model);
-  const rawNames = grids.flatMap((grid) => grid.columns.map(({ group }) => group));
-  const names = forecastCaseNames([...new Set(rawNames)], downside);
-  return grids.flatMap((grid) => {
+  const names = forecastCaseNames(cashflow);
+  return rawGroups(model).flatMap((grid) => {
     const rows = grid.rows.filter((row) => row.label === rowName);
     if (rows.length !== 1) return [];
     const row = rows[0];
     if (!row) return [];
     return grid.columns.flatMap((column, index) => {
-      const name = names.get(column.group) ?? forecastCaseLabel(column.group, downside);
+      const label = forecastCaseLabel(column.group, downside);
+      const name = names.get(column.group) ?? label;
       if (!includesCase(selection, column.group, name) || !includesPeriod(selection, column))
         return [];
+      // The drawer identifies a column whose label another case shares by its recorded raw group.
+      const identity = name === label ? label : `${label} · ${column.group}`;
       const cell = row.cells[index];
       const value = word(cell?.exact) || word(cell?.display) || "n.a.";
       const reason = word(cell?.reason);
       const span = column.start && column.end ? ` (${column.start} to ${column.end})` : "";
-      return [`${name} · ${column.label}${span}: ${value}${reason ? ` (${reason})` : ""}`];
+      return [`${identity} · ${column.label}${span}: ${value}${reason ? ` (${reason})` : ""}`];
     });
   });
 }
@@ -246,9 +251,11 @@ function addCaseDrivers(
 
 function forecastCases(model: ForecastModel, downsideNote: string, selection: ForecastSelection) {
   const available = rawGroups(model).flatMap((grid) =>
-    grid.columns.filter((column) => /^FY\d+E$/.test(column.label)).map((column) => column.group),
+    grid.columns
+      .filter((column) => isDatedForecastPeriod(column.label))
+      .map((column) => column.group),
   );
-  const names = forecastCaseNames([...new Set(available)], downsideNote);
+  const names = forecastCaseNames(model.cashflow);
   const chosen = selection.rawGroups ?? (selection.rawGroup ? [selection.rawGroup] : undefined);
   const selected = chosen
     ? chosen
@@ -378,8 +385,11 @@ export function RecordedForecastAssumptions({
   const amountUnits = recordedAmountUnits(document);
   return (
     <div className="grid min-w-0 gap-5 wrap-anywhere">
-      <section aria-label="Recorded forecast drivers" className={`${card} min-w-0`}>
-        <h3 className={heading}>Recorded forecast drivers</h3>
+      <section
+        aria-label="Recorded forecast drivers"
+        className="flex min-w-0 flex-col gap-3 border-t border-border-hairline pt-3"
+      >
+        <h4 className="text-small font-medium text-text-primary">Recorded forecast drivers</h4>
         <p className="text-small text-text-secondary">
           Driver values below are the module's recorded fractions or amounts, in their stated
           planning years.
@@ -396,7 +406,7 @@ export function RecordedForecastAssumptions({
             tabIndex={0}
             className="min-w-0 overflow-x-auto"
           >
-            <table className="w-full border-collapse text-small [&_th:first-child]:sticky [&_th:first-child]:left-0 [&_th:first-child]:bg-surface-card">
+            <table className="w-full min-w-[64rem] border-collapse text-small [&_th:first-child]:sticky [&_th:first-child]:left-0 [&_th:first-child]:bg-surface-card">
               <caption className="sr-only">Recorded forecast drivers</caption>
               <thead>
                 <tr>
@@ -411,7 +421,15 @@ export function RecordedForecastAssumptions({
                     "Limitation",
                     "Source",
                   ].map((name, index) => (
-                    <th key={index} scope="col" className="px-3 py-2 text-left">
+                    <th
+                      key={index}
+                      scope="col"
+                      className={`px-3 py-2 text-left text-caption font-medium text-text-secondary ${
+                        name === "Rationale" || name === "Limitation"
+                          ? "min-w-56"
+                          : "whitespace-nowrap"
+                      }`}
+                    >
                       {name}
                     </th>
                   ))}
@@ -420,18 +438,21 @@ export function RecordedForecastAssumptions({
               <tbody>
                 {drivers.map(({ group, name, key, driver }) => (
                   <tr key={`${group}-${key}`} className="border-t border-border-hairline">
-                    <th scope="row" className="min-w-40 px-3 py-2 text-left">
+                    <th
+                      scope="row"
+                      className="min-w-40 px-3 py-2 text-left font-medium text-text-primary"
+                    >
                       {DRIVER_NAMES[key] ?? key}
                     </th>
-                    <td className="min-w-24 px-3 py-2">{name}</td>
+                    <td className="min-w-24 whitespace-nowrap px-3 py-2">{name}</td>
                     {years.map((_, index) => (
-                      <td className="min-w-28 px-3 py-2 tabular-nums" key={index}>
+                      <td className="min-w-28 whitespace-nowrap px-3 py-2 tabular-nums" key={index}>
                         {visible(Array.isArray(driver.values) ? driver.values[index] : null)}
                       </td>
                     ))}
                     <td className="min-w-56 max-w-sm px-3 py-2">{visible(driver.rationale)}</td>
                     <td className="min-w-56 max-w-sm px-3 py-2">{visible(driver.limitation)}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       {source?.(`${DRIVER_NAMES[key] ?? key} assumptions`, {
                         case: name,
                         inputPath: [group, key],
@@ -447,33 +468,43 @@ export function RecordedForecastAssumptions({
           <p>No forecast drivers were recorded in the matched inputs.</p>
         )}
       </section>
-      <section aria-label="Recorded downside shock" className={`${card} min-w-0`}>
-        <h3 className={heading}>Recorded downside shock</h3>
+      <section
+        aria-label="Recorded downside shock"
+        className="flex min-w-0 flex-col gap-3 border-t border-border-hairline pt-3"
+      >
+        <h4 className="text-small font-medium text-text-primary">Recorded downside shock</h4>
         {Object.keys(shock).length ? (
           <dl className="grid gap-3 sm:grid-cols-2">
             <div className={TRACE_HOST}>
               <dt>EBITDA decline</dt>
               <dd>{percent(shock.ebitda_decline)}</dd>
-              {source?.("Downside EBITDA decline", {
-                case: "Downside shock",
-                inputPath: ["downside_shock", "ebitda_decline"],
-              })}
+              <div className={TARGET_ROOM}>
+                {source?.("Downside EBITDA decline", {
+                  case: "Downside shock",
+                  inputPath: ["downside_shock", "ebitda_decline"],
+                })}
+              </div>
             </div>
             <div className={TRACE_HOST}>
               <dt>Cash-interest increase</dt>
               <dd>{percent(shock.rate_increase)}</dd>
-              {source?.("Downside cash-interest increase", {
-                case: "Downside shock",
-                inputPath: ["downside_shock", "rate_increase"],
-              })}
+              <div className={TARGET_ROOM}>
+                {source?.("Downside cash-interest increase", {
+                  case: "Downside shock",
+                  inputPath: ["downside_shock", "rate_increase"],
+                })}
+              </div>
             </div>
           </dl>
         ) : (
           <p>No downside shock was recorded.</p>
         )}
       </section>
-      <section aria-label="Recorded facilities" className={`${card} min-w-0`}>
-        <h3 className={heading}>Recorded facilities</h3>
+      <section
+        aria-label="Recorded facilities"
+        className="flex min-w-0 flex-col gap-3 border-t border-border-hairline pt-3"
+      >
+        <h4 className="text-small font-medium text-text-primary">Recorded facilities</h4>
         <p className="text-small text-text-secondary">
           {amountUnits} Other fields are shown as recorded.
         </p>
@@ -489,9 +520,11 @@ export function RecordedForecastAssumptions({
                     </div>
                   ))}
                 </dl>
-                {source?.(`Facility ${String(index + 1)}`, {
-                  inputPath: ["facilities", String(index)],
-                })}
+                <div className={TARGET_ROOM}>
+                  {source?.(`Facility ${String(index + 1)}`, {
+                    inputPath: ["facilities", String(index)],
+                  })}
+                </div>
               </li>
             ))}
           </ul>

@@ -1172,6 +1172,9 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         prior=prior,
         changes_note=note,
         selection=selection,
+        preset_requested_modules=pathway_modules(settings)
+        if held is None
+        else held.preset_requested_modules,
         execution="live-provider",
         max_attempts=1,
         provider_cap_usd=Decimal(cap),
@@ -1877,6 +1880,21 @@ def module_width(asked: int | None, environ: Mapping[str, str]) -> int:
     return int(text)
 
 
+def parallel_line(width: int, retained: bool) -> str:
+    """What the launcher says of a width above one: the width the run uses. A plan with retained
+    handoffs is run one module at a time whatever is asked (``cpos.run_handoffs``)."""
+    asked = f"--parallel-modules or {PARALLEL_VARIABLE}"
+    if retained:
+        return (
+            f"Parallel: one module at a time, not the {width} asked ({asked}): "
+            "the plan has retained handoffs"
+        )
+    return (
+        f"Parallel: up to {width} independent modules at once, as asked ({asked}); "
+        "the default is one at a time"
+    )
+
+
 def update_library_at(workspace: Path) -> Any:
     """Rebuild ``workspace/library`` with the library app's ``update_library`` module: a checkout
     installs it (the issuer-library package), the Windows package lists its folder in the bundled
@@ -2008,11 +2026,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
         print("No provider was called. Add --live --ruling <file> to start the paid run.")
         return 0
     if width > 1:
-        print(
-            f"Parallel: up to {width} independent modules at once, as asked "
-            f"(--parallel-modules or {PARALLEL_VARIABLE}); the default is one at a time",
-            flush=True,
-        )
+        print(parallel_line(width, bool(prepared.plan.retained_handoffs)), flush=True)
     try:
         receipt = run_live_handoffs(
             prepared.manifest,

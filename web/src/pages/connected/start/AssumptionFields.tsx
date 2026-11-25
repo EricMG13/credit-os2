@@ -33,9 +33,9 @@ export function AssumptionFields({
             aria-label={title}
             className="grid gap-3 rounded-lg border border-border-hairline p-3"
           >
-            <h4 className="text-sm font-semibold">{title}</h4>
+            <h4 className="text-small font-medium">{title}</h4>
             <div className="grid gap-1">
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-small">
                 <input
                   type="checkbox"
                   {...(position === 0 ? marker : undefined)}

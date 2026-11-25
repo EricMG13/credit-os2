@@ -27,7 +27,7 @@ describe("Purpose cards, keyboard focus", () => {
     tabTo("Full credit review");
     const card = cardOf("Full credit review");
     expect(card).toHaveAttribute("data-focus-visible", "true");
-    expect(card).toHaveClass("outline-2", "outline-solid", "outline-offset-2", "outline-brand");
+    expect(card).toHaveClass("outline-2", "outline-solid", "outline-offset-2", "outline-focus");
     expect(card).not.toHaveClass("outline-none");
   });
 

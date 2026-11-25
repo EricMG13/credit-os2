@@ -33,6 +33,7 @@ import re
 import stat
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -458,6 +459,51 @@ def changes_record(delivered: Mapping[str, Any], completion: Mapping[str, Any]) 
     }
 
 
+def _module_set(value: object) -> set[str] | None:
+    if not isinstance(value, list) or not value:
+        return None
+    if any(not isinstance(code, str) or not code.strip() for code in value):
+        return None
+    selected = set(value)
+    return selected if len(selected) == len(value) else None
+
+
+def assessment_scope(workflow: Mapping[str, Any], delivered: Mapping[str, Any]) -> str:
+    """Compare the frozen submission plan and the receipts' verified handoff pins."""
+    requested = _module_set(workflow["run"].get("requested_modules"))
+    published = _module_set(delivered["manifest"]["run"].get("requested_modules"))
+    if requested is None or requested != published or delivered["delivery_sha256"] is None:
+        return "unverified"
+    comparison = {"CP-8"}
+    modules = set(delivered["handoffs"])
+    if requested == comparison or modules == comparison:
+        return "partial"
+    instructions = workflow.get("instructions")
+    if not isinstance(instructions, dict) or not requested <= instructions.keys():
+        return "unverified"
+    selection = workflow.get("selection")
+    planned = set(instructions)
+    required = planned - comparison
+    if selection == "explicit" or not (required <= modules <= planned):
+        return "partial"
+    preset = _module_set(workflow.get("preset_requested_modules"))
+    if selection != "preset" or preset is None:
+        return "unverified"
+    return "standard" if requested - comparison == preset else "partial"
+
+
+def publication_time(completion: Mapping[str, Any]) -> str | None:
+    """The time CP-OS recorded in the digest-addressed completion, when available."""
+    value = completion.get("published_at")
+    if not isinstance(value, str) or "T" not in value:
+        return None
+    try:
+        published = datetime.fromisoformat(value)
+        return published.astimezone(UTC).isoformat() if published.tzinfo is not None else None
+    except (ValueError, OverflowError):
+        return None
+
+
 def admit_run(
     folder: Path,
     page_dir: Path,
@@ -469,12 +515,14 @@ def admit_run(
     When ``deliveries`` is given, the verified delivery of an admitted run is kept in it."""
     if not os.path.lexists(folder / "workflow.json"):
         raise Refused("not a CP-OS launcher run (no workflow.json)")
-    workflow = json_object(read_inside(folder, "workflow.json"), "workflow.json")
+    workflow_raw = read_inside(folder, "workflow.json")
+    workflow = json_object(workflow_raw, "workflow.json")
     run = workflow.get("run")
     if not isinstance(run, dict):
         raise Refused("workflow.json names no run")
     identity = run_identity(run)
     completion = report_completion(folder)
+    workflow_pin = completion.get("workflow_sha256")
     delivered = verified_delivery(folder, completion)
     same_identity(delivered["manifest"].get("run"), identity, "the delivery manifest")
     same_identity(delivered["view"].get("run"), identity, "the delivered report")
@@ -500,6 +548,10 @@ def admit_run(
         if delivered["report_sha256"] is not None
         else None,
         "delivery_sha256": delivered["delivery_sha256"],
+        "assessmentScope": assessment_scope(workflow, delivered)
+        if workflow_pin == sha256(workflow_raw)
+        else "unverified",
+        "publishedAt": publication_time(completion) if delivered["delivery_sha256"] else None,
         "execution": execution_record(folder),
         "method_changes": method_changes,
         "changes": changes_record(delivered, completion),

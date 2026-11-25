@@ -1,5 +1,6 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useContext, useEffect, useId, useState, type ReactNode } from "react";
 import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
+import { ChartPrintContext } from "./ChartPrintContext";
 
 type ChartView = "chart" | "table";
 
@@ -27,6 +28,7 @@ export function ChartFrame({
   children,
 }: ChartFrameProps) {
   const [view, setView] = useState<ChartView>("chart");
+  const print = useContext(ChartPrintContext);
   const hasSubtitle = subtitle !== undefined && subtitle !== "";
   const titleId = useId();
   const subtitleId = useId();
@@ -62,23 +64,29 @@ export function ChartFrame({
         ) : (
           heading
         )}
-        <div className="ml-auto flex items-center gap-3">
-          {actions}
-          <ButtonGroup
-            size="sm"
-            aria-label={`${title}: Chart or Table`}
-            disallowEmptySelection
-            selectedKeys={[view]}
-            onSelectionChange={(keys) => {
-              setView(keys.has("table") ? "table" : "chart");
-            }}
-          >
-            <ButtonGroupItem id="chart">Chart</ButtonGroupItem>
-            <ButtonGroupItem id="table">Table</ButtonGroupItem>
-          </ButtonGroup>
-        </div>
+        {!print && (
+          <div className="ml-auto flex items-center gap-3">
+            {actions}
+            <ButtonGroup
+              size="sm"
+              aria-label={`${title}: Chart or Table`}
+              disallowEmptySelection
+              selectedKeys={[view]}
+              onSelectionChange={(keys) => {
+                setView(keys.has("table") ? "table" : "chart");
+              }}
+            >
+              <ButtonGroupItem id="chart" className="max-[480px]:min-h-11">
+                Chart
+              </ButtonGroupItem>
+              <ButtonGroupItem id="table" className="max-[480px]:min-h-11">
+                Table
+              </ButtonGroupItem>
+            </ButtonGroup>
+          </div>
+        )}
       </div>
-      {children(view)}
+      {children(print ? "chart" : view)}
       {note === undefined ? null : (
         <figcaption className="text-small text-text-secondary">{note}</figcaption>
       )}

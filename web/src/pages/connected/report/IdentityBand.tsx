@@ -1,12 +1,7 @@
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Building07 } from "@untitledui/icons";
-import type { FC } from "react";
-import type { IconProps } from "@/utils/is-react-component";
 import { Button } from "@/components/base/buttons/button";
-import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 import {
   blocked,
   containsReference,
-  evidencePath,
   readerText,
   type CatalogueRating,
   type CatalogueRun,
@@ -15,24 +10,8 @@ import {
 } from "../publishedReport";
 import { moduleName } from "../api";
 import { namedRow, namedTable } from "../reportView";
-import { PublishedSource } from "./PublishedTrace";
 
-const NO_DESCRIPTION = "Business description not in this run";
-const NO_RATINGS = "Ratings not entered for this run";
-const ENTERED = "Entered at run start";
 const DESCRIPTION = "Business description";
-const IN_EVIDENCE = "Business description in Evidence";
-
-const outlookIcons: Record<string, FC<IconProps>> = {
-  positive: ArrowUpRight,
-  negative: ArrowDownRight,
-  stable: ArrowRight,
-};
-
-const outlookColour: Record<string, string> = {
-  positive: "text-success-text",
-  negative: "text-error-text",
-};
 
 const filled = (text: string | undefined) => (text?.trim() ? text : undefined);
 
@@ -53,17 +32,6 @@ function registerRow(entry: OutputEntry) {
 function profileCell(entry: OutputEntry, field: string) {
   const row = namedRow(namedTable(entry, "Company profile", []), ({ cells }) => cells[0] === field);
   return row && { line: row.line, text: filled(row.cells[1]) };
-}
-
-/** First hit wins: the register, then the Company profile `Business` row. */
-function describeCompany(entry: OutputEntry | undefined) {
-  if (!entry) return undefined;
-  const register = registerRow(entry);
-  const registered =
-    register && filled(register.row.cells[register.table.headers.indexOf(DESCRIPTION)]);
-  if (register && registered) return { text: registered, line: register.row.line };
-  const business = profileCell(entry, "Business");
-  return business?.text ? { text: business.text, line: business.line } : undefined;
 }
 
 /** Sector has its own chain: the register's Sector cell, then the profile's `Sector and segments`. */
@@ -103,7 +71,10 @@ const ISSUER_LEVEL = /\b(?:issuer|corporate family|cfr|icr|idr)\b/i;
 const firstToken = (text: string | undefined) => text?.trim().split(/\s+/)[0]?.toLowerCase();
 
 /** Entered issuer-scope agencies whose issuer-level register rows all carry another rating; each once. */
-function differingAgencies(entry: OutputEntry | undefined, ratings: CatalogueRating[]) {
+export function differingAgencies(entries: OutputEntry[], ratings: CatalogueRating[]) {
+  const entry = entries.find(
+    (item) => item.selected && item.output.module === "CP-2H" && !blocked(item),
+  );
   const register = entry && ratingRegister(entry);
   if (!register || register.level < 0) return [];
   const differing = ratings
@@ -122,60 +93,31 @@ function differingAgencies(entry: OutputEntry | undefined, ratings: CatalogueRat
   return [...new Set(differing)];
 }
 
-function RatingTile({ rating }: { rating: CatalogueRating }) {
-  const word = rating.outlook.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
-  const Icon = outlookIcons[word];
+/**
+ * An entered rating as one header chip: agency, rating and outlook in the analyst's words, all
+ * neutral; whether an outlook is good or bad is not the page's to say.
+ */
+export function RatingChip({ rating, className }: { rating: CatalogueRating; className: string }) {
+  const facility = rating.scope === "facility" ? " facility" : "";
   return (
     <li
-      title={rating.date.trim() ? `as of ${rating.date}` : undefined}
-      className="grid min-w-28 gap-0.5 rounded-lg border border-border-hairline bg-surface-card px-3 py-2"
+      title={
+        rating.date.trim() ? `Entered at run start, as of ${rating.date}` : "Entered at run start"
+      }
+      className={className}
     >
-      <span className="text-caption text-text-tertiary">
-        {rating.agency}
-        {rating.scope === "facility" && <span className="ml-1">Facility</span>}
-      </span>
-      <span className="font-mono text-lg font-medium text-text-primary">{rating.label}</span>
-      <span
-        className={`flex items-center gap-1 text-sm ${outlookColour[word] ?? "text-text-secondary"}`}
-      >
-        {Icon && <Icon aria-hidden="true" className="size-4 shrink-0" />}
-        {rating.outlook}
-      </span>
+      {`${rating.agency}${facility} `}
+      <span className="font-mono font-medium text-text-primary">{rating.label}</span>
+      {rating.outlook.trim() && <span>{` · ${rating.outlook}`}</span>}
     </li>
   );
 }
 
-export function IdentityBand({
-  catalogue,
-  entries,
-  folder,
-}: {
-  catalogue: CatalogueRun | undefined;
-  entries: OutputEntry[];
-  folder: string;
-}) {
-  const identity = identityDetails(catalogue, entries);
-  return (
-    <section
-      aria-label="Company"
-      className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4 border-b border-border-hairline pb-4"
-    >
-      <div className="flex min-w-0 flex-1 basis-80 items-start gap-3">
-        <Building07 aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-text-tertiary" />
-        <CompanyDescription {...identity} folder={folder} />
-      </div>
-      <CompanyRatings ratings={identity.ratings} differing={identity.differing} />
-    </section>
-  );
-}
-
-function identityDetails(catalogue: CatalogueRun | undefined, entries: OutputEntry[]) {
+/** The header's identity facts: the sector line, the entered ratings and any agency the ratings module rates differently. */
+export function reportIdentity(catalogue: CatalogueRun | undefined, entries: OutputEntry[]) {
   const entry = entries.find(
     (item) => item.selected && item.output.module === "CP-1A" && !blocked(item),
   );
-  const described = describeCompany(entry);
-  const referenced = described !== undefined && containsReference(described.text);
-  const found = described && { ...described, text: readerText(described.text) };
   const handoffSector = sectorOf(entry);
   const sector =
     filled(catalogue?.sector) ??
@@ -183,67 +125,20 @@ function identityDetails(catalogue: CatalogueRun | undefined, entries: OutputEnt
       ? undefined
       : readerText(handoffSector));
   const ratings = catalogue?.ratings ?? [];
-  const registered = entries.find(
-    (item) => item.selected && item.output.module === "CP-2H" && !blocked(item),
-  );
-  const differing = differingAgencies(registered, ratings);
-  return { entry, found, referenced, sector, ratings, differing };
+  return { sector, ratings, differing: differingAgencies(entries, ratings) };
 }
 
-type IdentityDetails = ReturnType<typeof identityDetails>;
-
-function CompanyDescription({
-  entry,
-  found,
-  referenced,
-  sector,
-  folder,
-}: Pick<IdentityDetails, "entry" | "found" | "referenced" | "sector"> & { folder: string }) {
+/** The way to the ratings module when it shows another rating than the one entered. */
+export function DifferingRating({ differing }: { differing: string[] }) {
+  if (!differing.length) return null;
   return (
-    <div className="grid min-w-0 gap-1">
-      {sector && <p className="text-caption text-text-tertiary">{sector}</p>}
-      <DescriptionText entry={entry} found={found} referenced={referenced} folder={folder} />
-    </div>
-  );
-}
-
-function DescriptionText({
-  entry,
-  found,
-  referenced,
-  folder,
-}: Pick<IdentityDetails, "entry" | "found" | "referenced"> & { folder: string }) {
-  if (!found || !entry) return <p className="text-text-tertiary">{NO_DESCRIPTION}</p>;
-  return (
-    <p className={`${TRACE_HOST} flex items-start gap-2 text-text-primary`}>
-      <span
-        title={referenced ? undefined : found.text}
-        className={referenced ? "min-w-0 text-text-tertiary" : "line-clamp-2 min-w-0"}
-      >
-        {referenced ? IN_EVIDENCE : found.text}
-      </span>
-      <PublishedSource href={evidencePath(folder, entry, found.line)} name={DESCRIPTION}>
-        {DESCRIPTION}
-      </PublishedSource>
-    </p>
-  );
-}
-
-function CompanyRatings({ ratings, differing }: Pick<IdentityDetails, "ratings" | "differing">) {
-  if (!ratings.length) return <p className="text-text-tertiary">{NO_RATINGS}</p>;
-  return (
-    <div className="grid gap-1">
-      <ul className="flex flex-wrap gap-3">
-        {ratings.map((rating, index) => (
-          <RatingTile key={index} rating={rating} />
-        ))}
-      </ul>
-      <p className="text-caption text-text-secondary">{ENTERED}</p>
-      {differing.length > 0 && (
-        <Button href="#modules/CP-2H" color="link-gray" size="sm">
-          {`${moduleName("CP-2H")} shows a different rating for ${differing.join(", ")}`}
-        </Button>
-      )}
-    </div>
+    <Button
+      href="#modules/CP-2H"
+      color="link-gray"
+      size="sm"
+      className="min-h-8 text-left whitespace-normal max-[480px]:min-h-11"
+    >
+      {`${moduleName("CP-2H")} shows a different rating for ${differing.join(", ")}`}
+    </Button>
   );
 }

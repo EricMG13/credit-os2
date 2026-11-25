@@ -16,14 +16,76 @@ export function isDatedForecastPeriod(period: string) {
   return /^FY\d{4}E$/u.test(period);
 }
 
-export function scenarioGroupLabels(groups: string[], label: (group: string) => string) {
-  const labels = new Map(groups.map((group) => [group, label(group)]));
-  const counts = new Map<string, number>();
-  for (const value of labels.values()) counts.set(value, (counts.get(value) ?? 0) + 1);
-  for (const [group, value] of labels) {
-    if (counts.get(value) && (counts.get(value) ?? 0) > 1) labels.set(group, `${value} · ${group}`);
+const MODULE_CODE = /\bCP-[A-Z0-9]+/iu;
+const ORDINALS = [
+  "",
+  ...["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"],
+  ...["tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth"],
+  ...["seventeenth", "eighteenth", "nineteenth"],
+];
+const CARDINALS = [
+  "",
+  ...["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven"],
+  ...["twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"],
+];
+const TENS = ["", "", "twent", "thirt", "fort", "fift", "sixt", "sevent", "eight", "ninet"];
+
+/** A whole number from 1 in words, as a count ("twenty-one") or a position ("twenty-first"). */
+function numberWord(value: number, position: boolean): string {
+  const [units, hundreds] = [value % 100, Math.floor(value / 100)];
+  if (hundreds > 0) {
+    const rest = units ? ` and ${numberWord(units, position)}` : position ? "th" : "";
+    return `${numberWord(hundreds, false)} hundred${rest}`;
   }
-  return labels;
+  const words = position ? ORDINALS : CARDINALS;
+  if (units < 20) return words[units] ?? "";
+  const stem = TENS[Math.floor(units / 10)] ?? "";
+  if (units % 10 === 0) return position ? `${stem}ieth` : `${stem}y`;
+  return `${stem}y-${words[units % 10] ?? ""}`;
+}
+
+const byText = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
+
+/** One distinct reader name per group. A group whose label no other group shares is shown as
+ * that label, unchanged. Groups that share a label are told apart by `suffix(group)` (reader text
+ * the caller supplies; the raw group when none is given). Where that suffix is empty, repeats the
+ * label, holds a module code or is another group's suffix too, the group takes a worded ordinal
+ * instead ("second case"): its place among the groups sharing the label, ordered by raw group.
+ * Nothing else is added to a name, so no digit or module code is. The names depend on the whole
+ * set of groups: name a model's groups once, together. */
+export function scenarioGroupLabels(
+  groups: string[],
+  label: (group: string) => string,
+  suffix: (group: string) => string = (group) => group,
+) {
+  const names = new Map(groups.map((group) => [group, label(group)]));
+  const sharing = new Map<string, string[]>();
+  for (const [group, shared] of names) sharing.set(shared, [...(sharing.get(shared) ?? []), group]);
+  const taken = new Set(
+    [...sharing].flatMap(([shared, members]) => (members.length === 1 ? [shared] : [])),
+  );
+  for (const [shared, members] of [...sharing].sort(([left], [right]) => byText(left, right))) {
+    if (members.length === 1) continue;
+    members.sort(byText);
+    const suffixes = members.map((group) => suffix(group).trim());
+    const ordinal = (place: number) => `${shared} · ${numberWord(place, true)} case`;
+    members.forEach((group, index) => {
+      const detail = suffixes[index] ?? "";
+      const suffixed = `${shared} · ${detail}`;
+      const distinct =
+        detail !== "" &&
+        detail !== shared &&
+        !MODULE_CODE.test(detail) &&
+        suffixes.indexOf(detail) === suffixes.lastIndexOf(detail) &&
+        !taken.has(suffixed);
+      let name = distinct ? suffixed : ordinal(index + 1);
+      // A name another group already has is never reused: the next free place is taken instead.
+      for (let place = members.length + 1; taken.has(name); place += 1) name = ordinal(place);
+      taken.add(name);
+      names.set(group, name);
+    });
+  }
+  return names;
 }
 
 function byDatedPeriod<T extends ScenarioPeriodObservation>(observations: T[]) {
@@ -55,7 +117,6 @@ function comparablePeriod(
   candidates: ScenarioPeriodObservation[],
   groups: Set<string>,
 ): ComparableScenarioPeriod | null {
-  if (groups.size < 2) return null;
   const legacyBasis = candidates.every(({ start, end }) => !start && !end);
   const datedBasis = candidates.every(({ start, end }) =>
     Boolean(start && end && validSpan(start, end)),
@@ -71,17 +132,23 @@ function comparablePeriod(
   };
 }
 
-/** Shared source identity and eligibility for columns used as scenario observations. */
+/** Shared source identity and eligibility for columns used as scenario observations. With more
+ * than one scenario, a period only one of them publishes is kept when its own basis is valid (its
+ * `groups` names that one scenario); with a single scenario there is no comparison period.
+ * Two separate facts are reported for notices: which periods were excluded and why
+ * (`ambiguousPeriods`: a scenario publishes the period more than once; `incompatiblePeriods`: its
+ * recorded dates do not match between scenarios, or are incomplete or invalid), and `noSharedPeriod`:
+ * several scenarios publish periods and no kept period belongs to two of them. */
 export function analyzeScenarioPeriods<T extends ScenarioPeriodObservation>(observations: T[]) {
   const byPeriod = byDatedPeriod(observations);
+  const severalScenarios = scenarioCount(byPeriod) > 1;
   const periods: ComparableScenarioPeriod[] = [];
   const uniqueObservations: T[] = [];
   const ambiguousPeriods: string[] = [];
-  let basisGap = false;
+  const incompatiblePeriods: string[] = [];
   for (const [period, candidates] of byPeriod) {
     const groups = new Set(candidates.map(({ group }) => group));
     if (groups.size !== candidates.length) {
-      basisGap = true;
       ambiguousPeriods.push(period);
       const counts = new Map<string, number>();
       for (const { group } of candidates) counts.set(group, (counts.get(group) ?? 0) + 1);
@@ -89,13 +156,44 @@ export function analyzeScenarioPeriods<T extends ScenarioPeriodObservation>(obse
       continue;
     }
     uniqueObservations.push(...candidates);
+    if (!severalScenarios) continue;
     const comparison = comparablePeriod(period, candidates, groups);
     if (comparison) periods.push(comparison);
-    else if (groups.size > 1) basisGap = true;
+    else incompatiblePeriods.push(period);
   }
-  if (scenarioCount(byPeriod) > 1 && periods.length === 0) basisGap = true;
   periods.sort((left, right) => left.period.localeCompare(right.period));
-  return { periods, uniqueObservations, ambiguousPeriods, basisGap };
+  const noSharedPeriod = severalScenarios && !periods.some(({ groups }) => groups.length > 1);
+  return { periods, uniqueObservations, ambiguousPeriods, incompatiblePeriods, noSharedPeriod };
+}
+
+type ScenarioPeriodFacts = Pick<
+  ReturnType<typeof analyzeScenarioPeriods>,
+  "ambiguousPeriods" | "incompatiblePeriods" | "noSharedPeriod"
+>;
+
+/** What the reader is told about a scenario comparison of these observations, each sentence from
+ * its own fact: the periods left out and why, then that no period is shared. Null when every
+ * period is compared. */
+export function scenarioComparisonNotice(facts: ScenarioPeriodFacts) {
+  const leftOut: string[] = [];
+  const leaveOut = (periods: string[], reason: string) => {
+    if (periods.length) leftOut.push(`${[...periods].sort().join(", ")} (${reason})`);
+  };
+  leaveOut(facts.ambiguousPeriods, "published more than once by a case");
+  leaveOut(
+    facts.incompatiblePeriods,
+    "recorded start and end dates do not match between cases, or are incomplete or invalid",
+  );
+  const sentences = leftOut.length
+    ? [`Periods left out of the scenario comparison: ${leftOut.join("; ")}.`]
+    : [];
+  if (facts.noSharedPeriod)
+    sentences.push(
+      leftOut.length
+        ? "No other period is published by more than one case, so no scenario comparison is drawn."
+        : "The cases publish no period in common, so no scenario comparison is drawn.",
+    );
+  return sentences.length ? sentences.join(" ") : null;
 }
 
 function scenarioCount(byPeriod: Map<string, ScenarioPeriodObservation[]>) {

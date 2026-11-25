@@ -241,7 +241,16 @@ def test_compact_library_index_omits_report_content_and_activity(
     ]
     assert len(encoded) < 2000
     assert set(reply.body["workspace"]) == {"runs"}
-    assert set(reply.body["workspace"]["runs"]["current-key"]) == {"folder", "issuerKey", "pathway"}
+    # The index carries each run's identity and its verified-publication facts, and nothing else.
+    assert set(reply.body["workspace"]["runs"]["current-key"]) == {
+        "folder",
+        "issuerKey",
+        "pathway",
+        "publicationVerified",
+        "lead",
+        "assessmentScope",
+        "publishedAt",
+    }
 
 
 def _publish(layout: Layout, snapshot: dict[str, Any]) -> None:

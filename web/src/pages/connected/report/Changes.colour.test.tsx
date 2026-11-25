@@ -37,8 +37,8 @@ function draw(cases: Case[]) {
   };
   render(<ReportChanges snapshot={snapshot} run={run} entries={[]} change={change} />);
   return (key: string) => {
-    const card = screen.getByText(`Measure ${key}`).closest("li");
-    return card?.querySelector<HTMLElement>("span.rounded-ds-xs") ?? null;
+    const row = screen.getByText(`Measure ${key}`).closest("li");
+    return row?.querySelector<HTMLElement>("[data-change]") ?? null;
   };
 }
 
@@ -47,7 +47,7 @@ function need(el: HTMLElement | null) {
   return el;
 }
 const status = (el: HTMLElement) =>
-  ["text-success-text", "text-error-text"].filter((name) => el.classList.contains(name));
+  ["text-success-text", "text-warning-text"].filter((name) => el.classList.contains(name));
 const WORDS = /better|worse|unchanged/g;
 /** The tone word drawn in the figure, once and never sr-only; null when no tone word is drawn. */
 const word = (el: HTMLElement) => {
@@ -59,7 +59,7 @@ const word = (el: HTMLElement) => {
 const shape = (el: HTMLElement) =>
   [...el.querySelectorAll("[data-shape]")].map((s) => s.getAttribute("data-shape"));
 
-describe("Changes cards colour a comparable change by the owner's table", () => {
+describe("Changes rows colour a comparable change by the owner's table", () => {
   it("worse, better and unchanged carry colour, a visible word and a shape", () => {
     const figure = draw([
       { key: "net_leverage", difference: 0.3 },
@@ -67,7 +67,7 @@ describe("Changes cards colour a comparable change by the owner's table", () => 
       { key: "undrawn", difference: 0 },
     ]);
     const worse = need(figure("net_leverage"));
-    expect(status(worse)).toEqual(["text-error-text"]);
+    expect(status(worse)).toEqual(["text-warning-text"]);
     expect(word(worse)).toBe("worse");
     expect(shape(worse)).toEqual(["diamond"]);
     const better = need(figure("coverage"));
@@ -98,9 +98,9 @@ describe("Changes cards colour a comparable change by the owner's table", () => 
       { key: "net_debt", difference: "-12.5" },
       { key: "free_cash_flow", difference: "-30" },
     ]);
-    expect(status(need(figure("gross_debt")))).toEqual(["text-error-text"]);
+    expect(status(need(figure("gross_debt")))).toEqual(["text-warning-text"]);
     expect(status(need(figure("net_debt")))).toEqual(["text-success-text"]);
-    expect(status(need(figure("free_cash_flow")))).toEqual(["text-error-text"]);
+    expect(status(need(figure("free_cash_flow")))).toEqual(["text-warning-text"]);
   });
 
   it("a Not assessable measure, a same-period revision and an unknown key stay neutral", () => {

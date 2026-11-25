@@ -149,20 +149,19 @@ describe("a poll that fails", () => {
     await wait(5000);
     await wait(32);
     expect(screen.queryByRole("alert")).toBeNull();
-    const table = screen.getByRole("grid", { name: "Runs that ended without a report" });
-    const row = within(table).getByRole("row", { name: /Alpha/ });
-    expect(row.contains(document.activeElement)).toBe(true);
+    const ended = screen.getByRole("region", { name: "Ended without a report" });
+    expect(within(ended).getByRole("link", { name: "Alpha" })).toHaveFocus();
   });
 });
 
-describe("the tables of waiting and ended runs", () => {
+describe("the lists of waiting and ended runs", () => {
   it("follows a focused waiting row to the same run in Running", async () => {
     const queued = live({ status: "queued" });
     const other = live({ id: "20261117-000000-02", issuer_name: "Beta", status: "queued" });
     serve(ok(list([queued, other])), ok(list([live(), other])));
     await open();
-    const table = screen.getByRole("grid", { name: "Waiting runs" });
-    const row = within(table).getByRole("row", { name: /Alpha/ });
+    const waiting = screen.getByRole("region", { name: "Waiting" });
+    const row = within(waiting).getByRole("link", { name: "Alpha" });
     act(() => {
       row.focus();
     });
@@ -175,7 +174,7 @@ describe("the tables of waiting and ended runs", () => {
         name: "Alpha",
       }),
     ).toHaveFocus();
-    expect(within(table).getByRole("link", { name: "Beta" })).toBeVisible();
+    expect(within(waiting).getByRole("link", { name: "Beta" })).toBeVisible();
   });
 
   it("preserves a reader's focus outside the lists across a poll", async () => {
@@ -193,7 +192,9 @@ describe("the tables of waiting and ended runs", () => {
   it("leaves focus on another control if the reader moved there during the refresh", async () => {
     serve(ok(list([live({ status: "queued" })])), ok(list([live()])));
     await open();
-    const row = screen.getByRole("row", { name: /Alpha/ });
+    const row = within(screen.getByRole("region", { name: "Waiting" })).getByRole("link", {
+      name: "Alpha",
+    });
     act(() => {
       row.focus();
     });
@@ -227,10 +228,13 @@ describe("the tables of waiting and ended runs", () => {
       ),
     );
     await open();
-    for (const name of ["Waiting runs", "Runs that ended without a report"]) {
-      const group = screen.getByRole("grid", { name }).closest("section");
+    for (const [name, issuer] of [
+      ["Waiting", "Beta"],
+      ["Ended without a report", "Gamma"],
+    ] as const) {
+      const group = screen.getByRole("region", { name }).closest("[data-run-group]");
       for (
-        let node = screen.getByRole("grid", { name }).parentElement;
+        let node = screen.getByRole("link", { name: issuer }).parentElement;
         node && node !== group;
         node = node.parentElement
       )

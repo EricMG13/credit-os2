@@ -56,6 +56,11 @@ function isLead(entry: OutputEntry, module: string) {
   );
 }
 
+function catalogueFor(snapshot: Snapshot, folder: string) {
+  const matches = snapshot.catalogue.real.filter((entry) => entry.id === folder);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 export function buildReportView(snapshot: Snapshot, routeKey: string, run: PublishedRun) {
   const order = moduleOrder(run).filter((id) => Object.hasOwn(run.modules, id));
   const published = outputEntries(snapshot, run, routeKey);
@@ -67,14 +72,16 @@ export function buildReportView(snapshot: Snapshot, routeKey: string, run: Publi
       const selected = outputs.find((entry) => entry.selected);
       return { id, name: moduleName(id), state: moduleState(selected ?? outputs[0]), outputs };
     });
+  const scope: { folder?: string } = { folder: run.folder };
   return {
+    ...scope,
     entries,
     modules,
     lead: ["CP-6", "CP-2", "CP-L10", ...(run.pathway === "earnings_update" ? ["CP-1B"] : [])]
       .map((id) => entries.find((entry) => isLead(entry, id)))
       .find((entry) => entry !== undefined),
     models: runModels(snapshot, routeKey, run),
-    catalogue: snapshot.catalogue.real.find((entry) => entry.id === run.folder),
+    catalogue: catalogueFor(snapshot, run.folder),
   };
 }
 
@@ -96,44 +103,6 @@ const overviewModules = (run: PublishedRun) => moduleOrder(run).filter((id) => i
 const designated = (view: ReportView, id: string) =>
   view.entries.find((entry) => entry.selected && entry.output.module === id);
 
-/**
- * The key charts (ruling H5.4): the rows of `docs/visualisations/catalogue.csv` whose placement
- * names Overview and that are drawn as a chart, each by the module that owns it and the heading
- * it publishes the drawing under (`owners/cpos_launch_tables.py`). The catalogue's other Overview
- * rows are not drawings here: "Table/content only" rows (CP-2-V03, CP-2D-V02, CP-5-V01) and
- * CP-0-V02 are tables on their module pages, the chart index (CP-MODEL-V02) is a link to Forecast
- * and the cross-module calendar (DELIVERY-V02) is Dates to watch.
- */
-const OVERVIEW_DRAWINGS = [
-  ["CP-1A", "events", "Events: Issuer history"], // CP-1A-V01
-  ["CP-DR", "events", "Events: Research catalysts"], // CP-DR-V03
-  ["CP-2", "maps", "Map: credit-risk transmission"], // CP-2-V02
-] as const;
-
-/** The key charts the run has data for, in run order: each module's published drawings, gaps left out. */
-export function overviewCharts(view: ReportView, run: PublishedRun) {
-  return overviewModules(run).flatMap((id) => {
-    const entry = designated(view, id);
-    const wanted = OVERVIEW_DRAWINGS.filter(([module]) => module === id);
-    if (!entry || !wanted.length || entry.output.parseError || blocked(entry)) return [];
-    const headingOf = (line: unknown) =>
-      entry.sections.find(({ blocks }) =>
-        blocks.some((block) => block.type === "table" && block.line === line),
-      )?.heading;
-    const pick = (kind: "events" | "maps") =>
-      (entry.output[kind] ?? []).filter(
-        (figure) =>
-          typeof figure.gap !== "string" &&
-          wanted.some(([, of, heading]) => of === kind && headingOf(figure.table) === heading),
-      );
-    const events = pick("events");
-    const maps = pick("maps");
-    if (!events.length && !maps.length) return [];
-    const { id: output, sha256 } = entry.output;
-    return [{ id, name: moduleName(id), entry, output: { id: output, sha256, events, maps } }];
-  });
-}
-
 function passageTexts(entry: OutputEntry, heading: string) {
   return passages(entry.sections)
     .filter((section) => section.heading === heading)
@@ -141,11 +110,35 @@ function passageTexts(entry: OutputEntry, heading: string) {
     .filter((block) => block.type === "text");
 }
 
-/** One bottom line per module that ran, other than the lead; text is null where there is none to show; `referenced` marks one written but citing a source. */
+/**
+ * The modules whose bottom line can state or restate the decision: security selection,
+ * market-implied risk, evidence validation and the committee. No run records a clearance for that
+ * decision, so a summary page shows none of their bottom lines; their own pages do.
+ */
+export const DECISION_MODULES: readonly string[] = ["CP-3", "CP-3D", "CP-5", "CP-6"];
+
+/**
+ * One bottom line per module that ran, other than the lead; text is null where there is none to
+ * show; `referenced` marks one written but citing a source; `withheld` marks a decision module's,
+ * which a summary page does not show.
+ */
 export function moduleBottomLines(view: ReportView, run: PublishedRun) {
   return overviewModules(run).flatMap((id) => {
     const entry = designated(view, id);
     if (!entry || entry === view.lead) return [];
+    if (DECISION_MODULES.includes(id))
+      return [
+        {
+          id,
+          name: moduleName(id),
+          state: moduleState(entry),
+          entry,
+          text: null,
+          referenced: false,
+          withheld: true,
+          line: null,
+        },
+      ];
     const block = passageTexts(entry, "Bottom line").find((item) => !methodNote(item.text));
     const written = block
       ? { line: block.line, body: readParagraph(block.text).body }
@@ -165,6 +158,7 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
         entry,
         text: body && !referenced ? readerText(body) : null,
         referenced,
+        withheld: false,
         line: written?.line ?? null,
       },
     ];
@@ -178,12 +172,15 @@ const sameLimitation = (text: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Each limitation of the run once, in module order; a module that could not assess writes none. */
-export function runLimitations(view: ReportView, run: PublishedRun) {
+/**
+ * Each limitation of the run once, in module order; a module that could not assess writes none.
+ * A module in `omit` is not read, so a limitation it shares with another module stays with that one.
+ */
+export function runLimitations(view: ReportView, run: PublishedRun, omit: readonly string[] = []) {
   const seen = new Set<string>();
   return overviewModules(run).flatMap((id) => {
     const entry = designated(view, id);
-    if (!entry || blocked(entry)) return [];
+    if (!entry || blocked(entry) || omit.includes(id)) return [];
     const written = passageTexts(entry, "Limitations");
     // An earlier-format handoff has no Limitations passage; its summary carries the limitation.
     const items = passages(entry.sections).some((section) => section.heading === "Limitations")
@@ -437,7 +434,7 @@ export const stated = (figure: Figure | undefined): figure is Figure & { value: 
  * `2024-09-30` or `FY2024 / 2024-09-30` (ordered by its date). The keys of one form compare as
  * text in date order; nothing for any other text, an impossible date, or a year that disagrees
  * with its date. */
-function periodOrder(cell: string) {
+export function periodOrder(cell: string) {
   const year = /^FY(\d{4})$/.exec(cell);
   if (year) return `1-${year[0].slice(2)}`;
   const dated = /^FY(\d{4}) \/ (\d{4}-\d{2}-\d{2})$/.exec(cell);
@@ -463,7 +460,11 @@ function latestRow(table: Table, at: number) {
     ranked.push({ row, key });
   }
   const keys = ranked.map(({ key }) => key);
-  if (new Set(keys.map((key) => key[0])).size !== 1 || new Set(keys).size !== keys.length)
+  if (
+    ranked.length === 0 ||
+    new Set(keys.map((key) => key[0])).size !== 1 ||
+    new Set(keys).size !== keys.length
+  )
     return undefined;
   return ranked.reduce((latest, item) => (item.key > latest.key ? item : latest)).row;
 }

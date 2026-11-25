@@ -1,49 +1,37 @@
 import { Button } from "@/components/base/buttons/button";
 import { SlideoutMenu } from "@/components/application/slideout-menus/slideout-menu";
-import { citedSourceNames } from "@/pages/connected/sourceFiles";
-import type { Trace } from "../slice";
 import { DerivationTree } from "./DerivationTree";
+import { useSourcedTrace } from "./TraceCitations";
+import {
+  CAPTION,
+  CitedSources,
+  TraceBasis,
+  TraceClaim,
+  TraceSourcePassage,
+  withoutBasis,
+  type SourcedTrace,
+} from "./TraceParts";
 
-const CAPTION = "text-caption font-medium text-text-tertiary";
-
-/** The supplied files a trace cites, named with their cited pages as plain text: never a link (decision 9). */
-function CitedSources({ links }: { links: readonly { href: string }[] }) {
-  const names = citedSourceNames(links);
-  if (names.length === 0) return null;
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className={CAPTION}>Cited sources</span>
-      <ul className="grid gap-1 text-small text-text-secondary">
-        {names.map(({ path, text }) => (
-          <li key={path} className="wrap-anywhere">
-            {text}
-          </li>
-        ))}
-      </ul>
-      {links.some(({ href }) => href.includes("?page=")) && (
-        <p className="text-caption text-text-tertiary">
-          Pages follow the source supplied to this run and may differ from the filing’s printed
-          pages.
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** The sources of one figure: its statement and how it was derived. The one place audit material shows on a run page. */
+/**
+ * The sources of one figure, in the reviewer's order: the claim, the passage it rests on with its
+ * location, the basis line, how it was derived, and one link into Evidence. The one place audit
+ * material shows on a run page.
+ */
 export function TraceDrawer({
-  trace,
+  trace: given,
   evidenceHref,
   isOpen,
   onClose,
 }: {
-  trace: Trace;
+  trace: SourcedTrace;
   evidenceHref: string;
   isOpen: boolean;
   onClose: () => void;
 }) {
+  const trace = useSourcedTrace(given);
   return (
     <SlideoutMenu
+      className="max-[480px]:pl-0"
       isOpen={isOpen}
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -52,44 +40,26 @@ export function TraceDrawer({
       aria-label={trace.title}
     >
       <SlideoutMenu.Header>
+        <p className="pr-10 text-caption text-text-tertiary">{trace.subtitle}</p>
         <h2 className="pr-10 text-h4 text-balance wrap-anywhere text-text-primary">
           {trace.heading}
         </h2>
-        <p className="reading-copy text-small text-text-tertiary">{trace.subtitle}</p>
       </SlideoutMenu.Header>
       <SlideoutMenu.Content>
-        <div className="flex flex-col gap-1.5">
-          <span className={CAPTION}>The statement</span>
-          <p className="reading-copy text-body text-text-primary">{trace.statement}</p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className={CAPTION}>How it was derived</span>
-          <DerivationTree node={trace.derivation} />
-        </div>
-        {trace.excerpt === null ? null : (
-          <div className="flex flex-col gap-1.5">
-            <span className={CAPTION}>Source excerpt</span>
-            <blockquote className="reading-copy rounded-ds-sm bg-surface-subtle px-4 py-3 text-small text-text-secondary">
-              {trace.excerpt.quote}
-            </blockquote>
-            <span className="font-mono text-mono wrap-anywhere text-text-tertiary">
-              {trace.excerpt.source}
-            </span>
-          </div>
-        )}
-        {trace.qualification === null ? null : (
-          <div className="flex flex-col gap-1.5">
-            <span className={CAPTION}>Qualification</span>
-            <p className="reading-copy text-small text-text-secondary">{trace.qualification}</p>
-          </div>
-        )}
+        <TraceClaim trace={trace} />
+        <TraceSourcePassage trace={trace} />
         <CitedSources links={trace.sourceLinks ?? []} />
+        <TraceBasis trace={trace} />
+        <div className="flex flex-col gap-1.5 border-t border-border-hairline pt-4">
+          <span className={CAPTION}>How it was derived</span>
+          <DerivationTree node={withoutBasis(trace.derivation)} />
+        </div>
       </SlideoutMenu.Content>
       <SlideoutMenu.Footer className="flex justify-end gap-3">
-        <Button color="secondary" slot="close">
+        <Button color="secondary" slot="close" className="max-[480px]:min-h-11">
           Close
         </Button>
-        <Button href={evidenceHref} onPress={onClose}>
+        <Button href={evidenceHref} onPress={onClose} className="max-[480px]:min-h-11">
           Open in Evidence
         </Button>
       </SlideoutMenu.Footer>

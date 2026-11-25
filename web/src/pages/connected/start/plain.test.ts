@@ -446,6 +446,8 @@ describe("refusalProblems: each problem with the control that sets its path", ()
   it.each([
     ["identity.issuer_name: is required.", "issuer_name"],
     ["run.cutoff: must not be after the as-of date.", "cutoff"],
+    ["run.current_period: is required.", "current_period"],
+    ["run.prior_period: must be before the current period.", "prior_period"],
     ["attachments.legal_documents: is required.", "legal_documents"],
     ["deal_terms[0].size_m: is required.", "deal_terms"],
     ["quotes[1].price: must be a number.", "quotes"],

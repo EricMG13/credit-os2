@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { OutputEntry, Section } from "../publishedReport";
 import { MacroSensitivity, macroView } from "./MacroSensitivity";
 
@@ -136,8 +136,15 @@ it("retains the checked reporting currency, shock tenor, money and cover values"
   });
   if (!data) throw new Error("retained scenario was rejected");
   render(<MacroSensitivity data={data} href={(line) => `#evidence/${String(line)}`} />);
-  expect(screen.getByRole("figure", { name: "All-in cover" })).toBeInTheDocument();
-  expect(screen.getByText("USD 5.00 million")).toBeInTheDocument();
+  const tile = screen.getByRole("region", { name: "All-in cover" });
+  expect(within(tile).getByRole("img")).toHaveAccessibleName(
+    /Before the shock 3\.0x.*\+100 bp 2\.5x/,
+  );
+  expect(within(tile).getByText("USD 5.00 million")).toBeInTheDocument();
+  expect(within(tile).getByRole("link", { name: "Source for All-in cover" })).toHaveAttribute(
+    "href",
+    "#evidence/4",
+  );
   expect(screen.getByText("No separate after-hedges result was established.")).toBeInTheDocument();
 });
 

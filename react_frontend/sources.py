@@ -211,7 +211,16 @@ def scoped(snapshot: dict[str, Any], folder: str) -> dict[str, Any] | None:
     def summary(run_key: str, run: dict[str, Any]) -> dict[str, Any]:
         metadata: dict[str, Any] = {
             field: run[field]
-            for field in ("folder", "issuerKey", "pathway", "asOf", "period")
+            for field in (
+                "folder",
+                "issuerKey",
+                "pathway",
+                "asOf",
+                "period",
+                "publicationVerified",
+                "assessmentScope",
+                "publishedAt",
+            )
             if field in run
         }
         if issuer and run.get("issuerKey") == issuer:

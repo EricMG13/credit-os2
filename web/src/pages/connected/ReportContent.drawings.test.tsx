@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { OutputEntry, PublishedRun, Section, Snapshot } from "./publishedReport";
 import type { buildReportView } from "./reportView";
@@ -56,6 +56,11 @@ function page(entry: OutputEntry) {
   );
 }
 
+/** The chart descriptors' tables, with their qualification text, are in the closed records region. */
+function openChartTables() {
+  fireEvent.click(screen.getByRole("button", { name: "Show records" }));
+}
+
 describe("drawing sections leave no handoff scaffolding", () => {
   it("drops a chart section holding only the table and No qualification.", () => {
     const entry = entryOf(
@@ -70,12 +75,15 @@ describe("drawing sections leave no handoff scaffolding", () => {
     );
   });
 
-  it("draws a chart qualification once, with its chart, and no Chart data heading", () => {
+  it("draws a chart qualification once, with its table in the records, and no Chart data heading", () => {
     const entry = entryOf("CP-1", [drawing("Chart data: leverage", 20, ["Q-TEXT"])], {
       charts: [{ title: "Leverage", table: 21, unit: "x", columns: [1] }],
     });
     page(entry);
+    expect(screen.queryByText("Q-TEXT")).toBeNull();
+    openChartTables();
     expect(screen.getAllByText("Q-TEXT")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "Leverage", level: 4 })).toBeInTheDocument();
     expect(screen.queryByText(/Chart data:/)).toBeNull();
   });
 
@@ -84,8 +92,9 @@ describe("drawing sections leave no handoff scaffolding", () => {
       events: [{ title: "Calendar", table: 31 }],
     });
     page(entry);
+    openChartTables();
     expect(screen.getAllByText("ORPHAN-TEXT")).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "calendar" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Calendar", level: 4 })).toBeInTheDocument();
     expect(screen.queryByText(/Events:/)).toBeNull();
   });
 
@@ -109,6 +118,7 @@ describe("drawing sections leave no handoff scaffolding", () => {
       { charts: [{ title: "Pair", table: 41, unit: "x", columns: [1] }] },
     );
     page(entry);
+    openChartTables();
     expect(screen.getAllByText("AMBIGUOUS-TEXT")).toHaveLength(1);
   });
 
@@ -117,6 +127,7 @@ describe("drawing sections leave no handoff scaffolding", () => {
       chartGaps: [{ title: "Gapped", table: 61, gap: "no data" }],
     });
     page(entry);
+    openChartTables();
     expect(screen.getAllByText("GAP-SIDE-TEXT")).toHaveLength(1);
   });
 
@@ -125,6 +136,7 @@ describe("drawing sections leave no handoff scaffolding", () => {
       chartGaps: [{ title: "No reason", table: 81, unit: "x", columns: [1], gap: "" }],
     });
     page(entry);
+    openChartTables();
     expect(screen.getAllByText("EMPTY-GAP-TEXT")).toHaveLength(1);
   });
 
@@ -138,6 +150,7 @@ describe("drawing sections leave no handoff scaffolding", () => {
       },
     );
     page(entry);
+    openChartTables();
     expect(screen.getAllByText(text)).toHaveLength(1);
   });
 });

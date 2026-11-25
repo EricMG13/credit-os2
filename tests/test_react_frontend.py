@@ -485,6 +485,9 @@ def test_reports_admission_and_reader_snapshot(hosted: _Server, root: Path) -> N
         assert request(hosted, "/connected/report/demo")[0] == 404
     record.status = "finished"
     runs.save(scheduler.layout, record)
+    export["workspace"]["runs"]["run-key"].update(
+        publicationVerified=False, lead=None, assessmentScope="unverified", publishedAt=None
+    )
     assert json.loads(request(hosted, "/connected/snapshot")[1]) == export
     status, result, _ = request(hosted, "/connected/report/demo")
     assert status == 200
@@ -509,6 +512,7 @@ def test_snapshot_sends_no_server_path_even_from_an_older_publication(
     library = root / "_engine" / "library"
     library.mkdir(exist_ok=True)
     export = {
+        "reportFolder": "forged-stored-scope",
         "catalogue": {
             "real": [{"id": "demo", "name": "Émetteur", "date": "2026-10-31"}],
             "workspace": str(root / "_engine"),
@@ -530,13 +534,22 @@ def test_snapshot_sends_no_server_path_even_from_an_older_publication(
     status, body, _ = request(hosted, f"/connected/snapshot{query}")
     assert status == 200
     sent = json.loads(body)
+    assert sent.get("reportFolder") == ("demo" if query else None)
     assert "workspace" not in sent["catalogue"]
     assert sent["catalogue"] == {
         "real": export["catalogue"]["real"],
         "built_at": export["catalogue"]["built_at"],
     }
     assert str(root) not in body.decode("utf-8")
-    assert sent["workspace"]["runs"] == export["workspace"]["runs"]
+    assert sent["workspace"]["runs"] == {
+        "run-key": {
+            **export["workspace"]["runs"]["run-key"],
+            "publicationVerified": False,
+            "lead": None,
+            "assessmentScope": "unverified",
+            "publishedAt": None,
+        }
+    }
 
 
 @pytest.mark.parametrize(

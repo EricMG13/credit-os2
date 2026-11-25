@@ -169,8 +169,10 @@ it("draws recorded forecast inputs without the Markdown code fence, values exact
     },
   ]);
   const { container } = renderEvidence([entry], `out~${"a".repeat(64)}-93`);
-  const pre = container.querySelector("article pre");
-  expect(pre?.textContent).toBe(json);
+  const pre = within(screen.getByRole("region", { name: /handoff$/ })).getByText(json, {
+    selector: "pre",
+  });
+  expect(pre.textContent).toBe(json);
   expect(container.textContent).not.toContain("```");
 });
 
@@ -212,7 +214,7 @@ it("groups gaps by severity, High then Medium then Low then unstated, with count
   const groups = [...table.querySelectorAll('th[scope="rowgroup"]')].map(
     (cell) => cell.textContent,
   );
-  expect(groups).toEqual(["High2", "Medium1", "Low2", "Not recorded1"]);
+  expect(groups).toEqual(["High2", "Medium1", "Low2", "No severity stated1"]);
 });
 
 // J3-007 (with C5-036): Trace with nothing chosen says how to choose something to trace.

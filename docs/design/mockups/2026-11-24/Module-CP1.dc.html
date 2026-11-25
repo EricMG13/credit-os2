@@ -1,0 +1,1091 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Module — Financial foundation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FAFAFA;color:#0A0A0A;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#52525B;text-decoration:none}a:hover{color:#0A0A0A}
+button{font-family:inherit}
+button[aria-label="Show sources"]:hover,button[aria-pressed]:hover{background:#F4F4F5 !important;color:#0A0A0A !important}
+a:focus-visible,button:focus-visible{outline:2px solid #0F766E;outline-offset:2px}
+</style>
+</helmet>
+<!--
+  Module page: CP-1 Financial foundation. Settled direction = B shell, tile shape and bento, in light; C palette and working patterns.
+  Frame 1440: main 1376 (padding 32). Row = module navigator (flex 1 1 232px -> 232.6) + gap 16 + content (flex 999 1 560px -> 1127.4).
+  Content grid: 12 tracks, gap 16 -> track 79.29; span N = 95.29N - 16 (span 5 = 460.4, span 6 = 555.7, span 7 = 651.0, span 8 = 746.3, span 12 = 1127.4).
+  Tile inner widths drive the viewBoxes: span 12 with padding 24 -> 1077 (viewBox 1080); span 7 with padding 20 -> 609 (610); span 6 -> 514 (516); span 5 -> 418 (420).
+  Radius ladder: tile 20 -> well 8 -> chip 4..6; controls 8; trace control 28px, radius 6, hairline, aria-label "Show sources".
+  Colour (C, light): ground #FAFAFA, tile #FFFFFF, well #F4F4F5, hairline #E4E4E7, divider #D4D4D8.
+  Ink #0A0A0A; secondary #52525B (7.6:1 on white, 6.9:1 on #F4F4F5); small labels #71717A (4.8:1 on white, 4.6:1 on #FAFAFA; never on wells or tints).
+  Teal #0F766E primary data and FY2024 (5.5:1; white on teal 5.5:1). Navy #1E3A5F secondary data. Zinc #A1A1AA FY2023 marks.
+  Orange #EA580C marks only, #C2410C text (5.2:1 on white, 4.9:1 on #FFF7ED), always with a word or icon. "Better" is teal plus the word.
+  Gap state: hatch #D4D4D8 on #FAFAFA, dashed #A1A1AA outline, label #52525B.
+-->
+<div style="box-sizing: border-box; background: #FAFAFA; color: #0A0A0A; display: flex; flex-direction: column; align-items: center; min-width: 0">
+
+  <!-- ============ Top bar (B shell, light) ============ -->
+  <header style="width: 100%; box-sizing: border-box; background: #FFFFFF; border-bottom: 1px solid #E4E4E7; display: flex; justify-content: center">
+    <div style="width: 100%; max-width: 1440px; box-sizing: border-box; padding: 0 clamp(16px, 2.3vw, 32px); height: 60px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px) minmax(0, 1fr); align-items: center; gap: 16px">
+      <div style="display: flex; align-items: center; gap: 20px; min-width: 0">
+        <a href="#" aria-label="Credit OS home" style="display: flex; align-items: center; gap: 10px; min-height: 32px; color: #0A0A0A">
+          <svg viewBox="0 0 1521 1515" width="22" height="22" aria-hidden="true" style="color: #0A0A0A; flex: none"><path fill="currentColor" d="m724.8 173c238.6-82.4 489.9-172.7 795.3-172.7v211c-267.1 0-488 78.5-726.5 160.9-235.7 82.4-488 172.7-793.3 172.7v-211c267 0 487.9-78.5 724.5-160.9zm-724.5 477.8h1519.8v213h-111-1408.8zm0 652.5c267 0 487.9-78.5 724.5-161 238.6-82.4 489.9-172.6 795.3-172.6v210.9c-267.1 0-488 78.5-726.5 160.9-236.6 82.5-488 172.7-793.3 172.7z"/></svg>
+          <span style="font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap">Credit OS</span>
+        </a>
+        <nav aria-label="Global" style="display: flex; align-items: center; gap: 4px; min-width: 0">
+          <a href="#" aria-current="page" style="height: 32px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #0A0A0A; background: #F4F4F5; white-space: nowrap">Library</a>
+          <a href="#" style="height: 32px; padding: 0 12px; border-radius: 8px; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #52525B; white-space: nowrap">Run activity</a>
+        </nav>
+      </div>
+      <button type="button" aria-label="Search issuers, runs, figures" style="height: 36px; box-sizing: border-box; width: 100%; padding: 0 4px 0 12px; border-radius: 10px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #71717A; display: flex; align-items: center; gap: 10px; cursor: pointer">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span style="flex: 1 1 auto; min-width: 0; text-align: left; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Search issuers, runs, figures</span>
+        <kbd style="flex: none; height: 26px; padding: 0 8px; border-radius: 6px; background: #F4F4F5; border: 1px solid #E4E4E7; box-sizing: border-box; display: flex; align-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #52525B">⌘K</kbd>
+      </button>
+      <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0">
+        <a href="#" style="height: 32px; padding: 0 12px 0 10px; border-radius: 8px; border: 1px solid #D4D4D8; box-sizing: border-box; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #0A0A0A; white-space: nowrap">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Start run
+        </a>
+        <button type="button" aria-label="Account" style="width: 32px; height: 32px; border-radius: 16px; border: 1px solid #E4E4E7; background: #F4F4F5; color: #52525B; display: grid; place-items: center; padding: 0; cursor: pointer">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main style="width: 100%; max-width: 1440px; box-sizing: border-box; padding: 28px clamp(16px, 2.3vw, 32px) 56px; display: flex; flex-direction: column; gap: 24px; min-width: 0">
+
+    <!-- ============ Report header (B), Modules current ============ -->
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 32px">
+      <div style="display: flex; flex-direction: column; gap: 10px; min-width: 0">
+        <nav aria-label="Breadcrumb">
+          <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #52525B">
+            <li><a href="#" style="display: inline-flex; align-items: center; min-height: 32px">Library</a></li>
+            <li aria-hidden="true" style="color: #71717A">/</li>
+            <li><a href="#" style="display: inline-flex; align-items: center; min-height: 32px">TransDigm Group</a></li>
+            <li aria-hidden="true" style="color: #71717A">/</li>
+            <li><a href="#" style="display: inline-flex; align-items: center; min-height: 32px">Full assessment</a></li>
+            <li aria-hidden="true" style="color: #71717A">/</li>
+            <li aria-current="page" style="color: #0A0A0A">Financial foundation</li>
+          </ol>
+        </nav>
+        <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px">
+          <h1 style="margin: 0; font-size: 32px; line-height: 38px; font-weight: 600; letter-spacing: -0.02em; color: #0A0A0A">TransDigm Group</h1>
+          <span style="font-size: 14px; line-height: 20px; color: #52525B">Aerospace components</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; line-height: 16px; color: #52525B">
+          <span style="height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center">Full credit assessment</span>
+          <span style="height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center">As of 30 Sep 2024 · FY2024</span>
+          <span style="height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; box-sizing: border-box; display: flex; align-items: center">USD millions</span>
+        </div>
+      </div>
+      <nav aria-label="Report sections" style="display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-radius: 12px; background: #F4F4F5; border: 1px solid #E4E4E7">
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; box-sizing: border-box; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #52525B">Overview</a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; box-sizing: border-box; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #52525B">Changes</a>
+        <a href="#" aria-current="page" style="height: 32px; padding: 0 14px 0 12px; border-radius: 8px; border: 1px solid #E4E4E7; box-sizing: border-box; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: #0A0A0A; background: #FFFFFF">
+          <span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 3px; background: {{accent}}"></span>Modules
+        </a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; box-sizing: border-box; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #52525B">Forecast</a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; box-sizing: border-box; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #52525B">Evidence</a>
+        <a href="#" style="height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; box-sizing: border-box; display: flex; align-items: center; font-size: 13px; font-weight: 500; color: #52525B">Calendar</a>
+      </nav>
+    </div>
+
+    <!-- ============ Navigator + module content ============ -->
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; min-width: 0">
+
+      <!-- Module navigator: shared by every module page. Grouped by stage; dot = delivered, circle-slash = blocked, teal tint = this page. Not sticky. -->
+      <nav aria-label="Modules in this run" style="flex: 1 1 232px; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 14px 6px 12px; display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; flex-direction: column; gap: 6px; padding: 0 10px">
+          <h2 style="margin: 0; font-size: 13px; line-height: 18px; font-weight: 600; color: #0A0A0A">Modules</h2>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 12px; line-height: 16px; color: #52525B">
+            <span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">14</span> of <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">15</span> delivered</span>
+            <span style="height: 20px; padding: 0 6px; border-radius: 4px; border: 1px solid #FED7AA; background: #FFF7ED; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; color: #C2410C"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>1 blocked</span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 10px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">01</span>
+            <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Sources</h3>
+          </div>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px">
+            <li><a href="#" aria-label="CP-0 Source readiness, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Source readiness</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-0</span></a></li>
+          </ul>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 10px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">02</span>
+            <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Financials</h3>
+          </div>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px">
+            <li><a href="#" aria-current="page" aria-label="CP-1 Financial foundation, delivered, this page" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid #99F6E4; background: #F0FDFA; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Financial foundation</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #0F766E">CP-1</span></a></li>
+            <li><a href="#" aria-label="CP-MODEL Model, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Model</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-MODEL</span></a></li>
+          </ul>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 10px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">03</span>
+            <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Credit</h3>
+          </div>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px">
+            <li><a href="#" aria-label="CP-1A Business and governance, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Business &amp; governance</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-1A</span></a></li>
+            <li><a href="#" aria-label="CP-DR Deep research, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Deep research</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-DR</span></a></li>
+            <li><a href="#" aria-label="CP-2 Fundamental credit, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Fundamental credit</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-2</span></a></li>
+            <li><a href="#" aria-label="CP-2A Downside, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Downside</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-2A</span></a></li>
+            <li><a href="#" aria-label="CP-2D Liquidity, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Liquidity</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-2D</span></a></li>
+            <li><a href="#" aria-label="CP-2E Rates, FX and hedging, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Rates, FX &amp; hedging</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-2E</span></a></li>
+            <li><a href="#" aria-label="CP-2G Forward model, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Forward model</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-2G</span></a></li>
+          </ul>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 10px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">04</span>
+            <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Structure &amp; market</h3>
+          </div>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px">
+            <li><a href="#" aria-label="CP-4 Legal and covenants, blocked: not assessable" style="box-sizing: border-box; min-height: 34px; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#EA580C" stroke-width="2.25" stroke-linecap="round" aria-hidden="true" style="flex: none; position: relative; top: 2px"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span>Legal &amp; covenants</span><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #C2410C">Blocked</span></span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 18px; color: #71717A">CP-4</span></a></li>
+            <li><a href="#" aria-label="CP-3C Refinancing, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Refinancing</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-3C</span></a></li>
+            <li><a href="#" aria-label="CP-3 Security selection, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Security selection</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-3</span></a></li>
+          </ul>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 2px">
+          <div style="display: flex; align-items: center; gap: 8px; height: 22px; padding: 0 10px">
+            <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">05</span>
+            <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Validation &amp; decision</h3>
+          </div>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px">
+            <li><a href="#" aria-label="CP-5 Evidence validation, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Evidence validation</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-5</span></a></li>
+            <li><a href="#" aria-label="CP-6 Committee decision, delivered" style="box-sizing: border-box; min-height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid transparent; display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 14px; height: 14px; display: grid; place-items: center"><span style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span></span><span style="flex: 1 1 auto; min-width: 0">Committee decision</span><span style="flex: none; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; line-height: 16px; color: #71717A">CP-6</span></a></li>
+          </ul>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0 10px; padding-top: 10px; border-top: 1px solid #E4E4E7; font-size: 11px; line-height: 16px; color: #52525B">
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: {{accent}}"></span>Delivered</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#EA580C" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>Blocked</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 3px; box-sizing: border-box; background: #F0FDFA; border: 1px solid #99F6E4"></span>This page</span>
+        </div>
+      </nav>
+
+      <!-- ============ Module content: 12-track grid ============ -->
+      <div style="flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px">
+
+        <!-- Module header tile: data module, so it owes the bottom line. -->
+        <section aria-labelledby="m-title" style="grid-column: span 12; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 22px 28px 26px; display: flex; flex-direction: column; gap: 20px">
+          <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px 32px">
+            <div style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px">
+                <span style="height: 24px; padding: 0 8px; border-radius: 6px; background: #F4F4F5; box-sizing: border-box; display: inline-flex; align-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; font-weight: 500; color: #52525B">CP-1</span>
+                <h2 id="m-title" style="margin: 0; font-size: 24px; line-height: 30px; font-weight: 600; letter-spacing: -0.02em; color: #0A0A0A">Financial foundation</h2>
+                <span style="height: 24px; padding: 0 8px 0 6px; border-radius: 6px; border: 1px solid #99F6E4; background: #F0FDFA; box-sizing: border-box; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: #0F766E"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>Delivered</span>
+              </div>
+              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #52525B">Fiscal years ending 30 September · USD millions · two annual periods supplied</p>
+            </div>
+            <dl style="margin: 0; display: flex; flex-wrap: wrap; gap: 8px 28px">
+              <div style="display: flex; flex-direction: column; gap: 2px">
+                <dt style="font-size: 12px; line-height: 16px; color: #71717A">Stage</dt>
+                <dd style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">Financials · <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">2</span> of <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">5</span></dd>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 2px">
+                <dt style="font-size: 12px; line-height: 16px; color: #71717A">Purpose</dt>
+                <dd style="margin: 0; font-size: 13px; line-height: 20px; color: #0A0A0A">Collects the canonical financials</dd>
+              </div>
+            </dl>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 18px; border-top: 1px solid #E4E4E7">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+              <span style="font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Bottom line</span>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </div>
+            <p style="margin: 0; max-width: 1040px; font-size: 24px; line-height: 34px; font-weight: 500; letter-spacing: -0.015em; color: #0A0A0A; text-wrap: pretty">Gross leverage rose to 6.53x despite stronger earnings, and October's declared-dividend payment reverses the apparent year-end net-deleveraging benefit; creditors should anchor debt service on reported EBITDA and cash interest, not management-adjusted earnings.</p>
+          </div>
+        </section>
+
+        <!-- ============ Stats strip (C pattern): one tile, six cells divided by hairlines ============
+             Each two-point mark: viewBox 56 x 32, zero baseline y 28, y = 28 - 24 * v / max(FY2023, FY2024); FY2023 x 6, FY2024 x 50. -->
+        <section aria-label="Headline figures, FY2024 against FY2023" style="grid-column: span 12; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; display: flex; flex-direction: column">
+          <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr))">
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 10px 14px 18px; min-width: 0">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px">
+                <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Net sales</h3>
+                <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+              </div>
+              <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 8px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 24px; line-height: 30px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">7,940</span>
+                <!-- 6,585 / 7,940 = 0.8293 -> y 8.10; 7,940 -> y 4 -->
+                <svg viewBox="0 0 56 32" width="56" height="32" role="img" aria-label="Net sales 6,585 in FY2023 and 7,940 in FY2024" style="display: block; flex: none">
+                  <line x1="2" y1="28" x2="54" y2="28" stroke="#E4E4E7"/><line x1="6" y1="8.1" x2="6" y2="28" stroke="#E4E4E7"/><line x1="50" y1="4" x2="50" y2="28" stroke="#E4E4E7"/>
+                  <line x1="6" y1="8.1" x2="50" y2="4" stroke="#A1A1AA" stroke-width="1.5"/>
+                  <circle cx="6" cy="8.1" r="2.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="1.5"/><circle cx="50" cy="4" r="3" fill="{{accent}}"/>
+                </svg>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 6px">
+                <span style="font-size: 12px; line-height: 16px; color: #52525B">from <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">6,585</span></span>
+                <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; background: #F4F4F5; color: #0A0A0A; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 500; white-space: nowrap">+20.58%</span>
+              </div>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Growth as reported</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 10px 14px 16px; min-width: 0; border-left: 1px solid #E4E4E7">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px">
+                <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">EBITDA As Defined</h3>
+                <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+              </div>
+              <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 8px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 24px; line-height: 30px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">4,173</span>
+                <!-- 3,395 / 4,173 = 0.8136 -> y 8.47; 4,173 -> y 4 -->
+                <svg viewBox="0 0 56 32" width="56" height="32" role="img" aria-label="EBITDA As Defined 3,395 in FY2023 and 4,173 in FY2024" style="display: block; flex: none">
+                  <line x1="2" y1="28" x2="54" y2="28" stroke="#E4E4E7"/><line x1="6" y1="8.47" x2="6" y2="28" stroke="#E4E4E7"/><line x1="50" y1="4" x2="50" y2="28" stroke="#E4E4E7"/>
+                  <line x1="6" y1="8.47" x2="50" y2="4" stroke="#A1A1AA" stroke-width="1.5"/>
+                  <circle cx="6" cy="8.47" r="2.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="1.5"/><circle cx="50" cy="4" r="3" fill="{{accent}}"/>
+                </svg>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 6px">
+                <span style="font-size: 12px; line-height: 16px; color: #52525B">from <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">3,395</span></span>
+                <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; background: #F4F4F5; color: #0A0A0A; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 500; white-space: nowrap">+778</span>
+              </div>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Margin <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">51.56% → 52.56%</span></p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 10px 14px 16px; min-width: 0; border-left: 1px solid #E4E4E7">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px">
+                <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Cash from operations</h3>
+                <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+              </div>
+              <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 8px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 24px; line-height: 30px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">2,045</span>
+                <!-- 1,375 / 2,045 = 0.6724 -> y 11.86; 2,045 -> y 4 -->
+                <svg viewBox="0 0 56 32" width="56" height="32" role="img" aria-label="Cash from operations 1,375 in FY2023 and 2,045 in FY2024" style="display: block; flex: none">
+                  <line x1="2" y1="28" x2="54" y2="28" stroke="#E4E4E7"/><line x1="6" y1="11.86" x2="6" y2="28" stroke="#E4E4E7"/><line x1="50" y1="4" x2="50" y2="28" stroke="#E4E4E7"/>
+                  <line x1="6" y1="11.86" x2="50" y2="4" stroke="#A1A1AA" stroke-width="1.5"/>
+                  <circle cx="6" cy="11.86" r="2.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="1.5"/><circle cx="50" cy="4" r="3" fill="{{accent}}"/>
+                </svg>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 6px">
+                <span style="font-size: 12px; line-height: 16px; color: #52525B">from <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">1,375</span></span>
+                <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; background: #F4F4F5; color: #0A0A0A; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 500; white-space: nowrap">+48.73%</span>
+              </div>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Cash taxes <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">260 → 539</span></p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 10px 14px 16px; min-width: 0; border-left: 1px solid #E4E4E7">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px">
+                <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">FCF after capex</h3>
+                <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+              </div>
+              <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 8px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 24px; line-height: 30px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">1,880</span>
+                <!-- 1,236 / 1,880 = 0.6574 -> y 12.22; 1,880 -> y 4 -->
+                <svg viewBox="0 0 56 32" width="56" height="32" role="img" aria-label="Free cash flow after capex 1,236 in FY2023 and 1,880 in FY2024" style="display: block; flex: none">
+                  <line x1="2" y1="28" x2="54" y2="28" stroke="#E4E4E7"/><line x1="6" y1="12.22" x2="6" y2="28" stroke="#E4E4E7"/><line x1="50" y1="4" x2="50" y2="28" stroke="#E4E4E7"/>
+                  <line x1="6" y1="12.22" x2="50" y2="4" stroke="#A1A1AA" stroke-width="1.5"/>
+                  <circle cx="6" cy="12.22" r="2.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="1.5"/><circle cx="50" cy="4" r="3" fill="{{accent}}"/>
+                </svg>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 6px">
+                <span style="font-size: 12px; line-height: 16px; color: #52525B">from <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">1,236</span></span>
+                <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 5px; background: #F4F4F5; color: #0A0A0A; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 500; white-space: nowrap">+644</span>
+              </div>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Capex <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">139 → 165</span></p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 10px 14px 16px; min-width: 0; border-left: 1px solid #E4E4E7">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px">
+                <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Total debt / EBITDA</h3>
+                <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+              </div>
+              <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 8px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 24px; line-height: 30px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">6.53x</span>
+                <!-- 6.27 / 6.53 = 0.9602 -> y 4.96; 6.53 -> y 4 (from zero, so the rise is honestly small) -->
+                <svg viewBox="0 0 56 32" width="56" height="32" role="img" aria-label="Total debt to EBITDA 6.27x in FY2023 and 6.53x in FY2024, worse" style="display: block; flex: none">
+                  <line x1="2" y1="28" x2="54" y2="28" stroke="#E4E4E7"/><line x1="6" y1="4.96" x2="6" y2="28" stroke="#E4E4E7"/><line x1="50" y1="4" x2="50" y2="28" stroke="#E4E4E7"/>
+                  <line x1="6" y1="4.96" x2="50" y2="4" stroke="#A1A1AA" stroke-width="1.5"/>
+                  <circle cx="6" cy="4.96" r="2.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="1.5"/><circle cx="50" cy="4" r="3" fill="#EA580C"/>
+                </svg>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 6px">
+                <span style="font-size: 12px; line-height: 16px; color: #52525B">from <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">6.27x</span></span>
+                <span style="display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: 5px; border: 1px solid #FED7AA; background: #FFF7ED; box-sizing: border-box; color: #C2410C; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 500; white-space: nowrap">+0.26x<span style="font-family: 'Geist', sans-serif">worse</span></span>
+              </div>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Reported EBITDA basis</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px 16px; min-width: 0; border-left: 1px solid #E4E4E7">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px">
+                <h3 style="margin: 0; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">EBITDA / cash interest</h3>
+                <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+              </div>
+              <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 8px">
+                <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 24px; line-height: 30px; font-weight: 500; letter-spacing: -0.02em; color: #0A0A0A">3.29x</span>
+                <!-- 2.71 / 3.29 = 0.8237 -> y 8.23; 3.29 -> y 4 -->
+                <svg viewBox="0 0 56 32" width="56" height="32" role="img" aria-label="EBITDA to cash interest 2.71x in FY2023 and 3.29x in FY2024, better" style="display: block; flex: none">
+                  <line x1="2" y1="28" x2="54" y2="28" stroke="#E4E4E7"/><line x1="6" y1="8.23" x2="6" y2="28" stroke="#E4E4E7"/><line x1="50" y1="4" x2="50" y2="28" stroke="#E4E4E7"/>
+                  <line x1="6" y1="8.23" x2="50" y2="4" stroke="#A1A1AA" stroke-width="1.5"/>
+                  <circle cx="6" cy="8.23" r="2.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="1.5"/><circle cx="50" cy="4" r="3" fill="{{accent}}"/>
+                </svg>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 6px">
+                <span style="font-size: 12px; line-height: 16px; color: #52525B">from <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: #0A0A0A">2.71x</span></span>
+                <span style="display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: 5px; border: 1px solid #99F6E4; background: #F0FDFA; box-sizing: border-box; color: #0F766E; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 500; white-space: nowrap">+0.58x<span style="font-family: 'Geist', sans-serif">better</span></span>
+              </div>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Cash interest <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,160 → 1,158</span></p>
+            </div>
+          </div>
+          <p style="margin: 0; padding: 10px 20px 12px 18px; border-top: 1px solid #E4E4E7; font-size: 12px; line-height: 16px; color: #52525B">Large figure FY2024, small FY2023. Chips are FY2024 less FY2023 (derived); percentages are as reported. Ratios on reported EBITDA. Each mark starts from zero.</p>
+        </section>
+
+        <!-- ============ Lead analysis: bento of distinct forms ============ -->
+
+        <!-- 1. Composed before -> after figure (span 12). -->
+        <section aria-labelledby="t-lead" style="grid-column: span 12; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px">
+          <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 24px">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <h3 id="t-lead" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Earnings grew; leverage still rose</h3>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #71717A">FY2023 → FY2024 · USD millions · leverage on reported EBITDA</p>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px">
+              <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12px; line-height: 16px; color: #52525B">
+                <span style="display: inline-flex; align-items: center; gap: 6px"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="3.75" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="1.5"/></svg>FY2023</span>
+                <span style="display: inline-flex; align-items: center; gap: 6px"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" fill="{{accent}}"/></svg>FY2024 earnings</span>
+                <span style="display: inline-flex; align-items: center; gap: 6px"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" fill="#1E3A5F"/></svg>FY2024 debt</span>
+                <span style="display: inline-flex; align-items: center; gap: 6px"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" fill="#EA580C"/></svg>Leverage, worse</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px">
+                <button type="button" aria-pressed="false" aria-label="Show as table: earnings and leverage" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></svg>Table</button>
+                <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+              </div>
+            </div>
+          </div>
+          <!--
+            Composed figure, viewBox 1080 x 252.
+            Left panel, one USD scale from zero: x = 152 + v * 0.0168 (0..25,000 over 152..572).
+              Net sales 6,585 -> 262.63, 7,940 -> 285.39. Reported EBITDA 3,148 -> 204.89, 3,813 -> 216.06.
+              EBITDA As Defined 3,395 -> 209.04, 4,173 -> 222.11. Gross debt 19,750 -> 483.80, 24,880 -> 569.98.
+              Grid 5,000 / 10,000 / 15,000 / 20,000 / 25,000 at 236 / 320 / 404 / 488 / 572. Rows y 52 / 94 / 136 / 192.
+            Growth column (derived; net sales as reported): bars from x 628, 3.2 px per 1% (0..30% over 628..724).
+              20.58% -> 65.86 (ends 693.86); 21.12% -> 67.58 (695.58); 22.92% -> 73.34 (701.34); 25.97% -> 83.10 (711.10).
+              3,813 / 3,148 = 1.2112; 4,173 / 3,395 = 1.2292; 24,880 / 19,750 = 1.2597.
+            Right panel, own scale: y = 214 - (v - 6.0) * 200 (6.0x..6.8x over 214..54). 6.27 -> 160; 6.53 -> 108. FY2023 x 892, FY2024 x 1028.
+          -->
+          <svg viewBox="0 0 1080 252" width="100%" role="img" aria-label="FY2023 to FY2024 on one USD scale from zero: net sales 6,585 to 7,940, up 20.58%; reported EBITDA 3,148 to 3,813, up 21.12%; EBITDA As Defined 3,395 to 4,173, up 22.92%; gross debt 19,750 to 24,880, up 25.97%. Total debt to reported EBITDA rose from 6.27x to 6.53x, worse." style="display: block">
+            <text x="152" y="16" font-family="Geist, sans-serif" font-size="11" fill="#71717A">USD millions · one scale from zero</text>
+            <text x="628" y="16" font-family="Geist, sans-serif" font-size="11" fill="#71717A">Growth, derived</text>
+            <g stroke="#E4E4E7" stroke-width="1">
+              <line x1="236" y1="30" x2="236" y2="212"/><line x1="320" y1="30" x2="320" y2="212"/><line x1="404" y1="30" x2="404" y2="212"/><line x1="488" y1="30" x2="488" y2="212"/><line x1="572" y1="30" x2="572" y2="212"/>
+              <line x1="660" y1="30" x2="660" y2="212"/><line x1="692" y1="30" x2="692" y2="212"/><line x1="724" y1="30" x2="724" y2="212"/>
+            </g>
+            <line x1="152" y1="30" x2="152" y2="212" stroke="#D4D4D8"/>
+            <line x1="628" y1="30" x2="628" y2="212" stroke="#D4D4D8"/>
+            <line x1="0" y1="164" x2="760" y2="164" stroke="#E4E4E7"/>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A" text-anchor="middle">
+              <text x="152" y="232">0</text><text x="236" y="232">5,000</text><text x="320" y="232">10,000</text><text x="404" y="232">15,000</text><text x="488" y="232">20,000</text><text x="572" y="232">25,000</text>
+              <text x="628" y="232">0%</text><text x="660" y="232">10%</text><text x="692" y="232">20%</text><text x="724" y="232">30%</text>
+            </g>
+            <g font-family="Geist, sans-serif" font-size="13" fill="#0A0A0A">
+              <text x="0" y="56">Net sales</text>
+              <text x="0" y="98">Reported EBITDA</text>
+              <text x="0" y="140">EBITDA As Defined</text>
+              <text x="0" y="196">Gross debt</text>
+            </g>
+
+            <line x1="262.63" y1="52" x2="285.39" y2="52" stroke="{{accent}}" stroke-width="2"/>
+            <circle cx="262.63" cy="52" r="4.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"/>
+            <circle cx="285.39" cy="52" r="5" fill="{{accent}}"/>
+            <line x1="204.89" y1="94" x2="216.06" y2="94" stroke="{{accent}}" stroke-width="2"/>
+            <circle cx="204.89" cy="94" r="4.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"/>
+            <circle cx="216.06" cy="94" r="5" fill="{{accent}}"/>
+            <line x1="209.04" y1="136" x2="222.11" y2="136" stroke="{{accent}}" stroke-width="2"/>
+            <circle cx="209.04" cy="136" r="4.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"/>
+            <circle cx="222.11" cy="136" r="5" fill="{{accent}}"/>
+            <line x1="483.8" y1="192" x2="569.98" y2="192" stroke="#1E3A5F" stroke-width="2"/>
+            <circle cx="483.8" cy="192" r="4.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"/>
+            <circle cx="569.98" cy="192" r="5" fill="#1E3A5F"/>
+            <g font-family="Geist Mono, monospace" font-size="12" fill="#52525B" text-anchor="end">
+              <text x="252" y="56">6,585</text><text x="194" y="98">3,148</text><text x="198.5" y="140">3,395</text><text x="473" y="196">19,750</text>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="12" font-weight="500" fill="#0A0A0A">
+              <text x="296" y="56">7,940</text><text x="227" y="98">3,813</text><text x="233" y="140">4,173</text><text x="581" y="196">24,880</text>
+            </g>
+
+            <rect x="628" y="47" width="65.86" height="10" rx="2" fill="{{accent}}"/>
+            <rect x="628" y="89" width="67.58" height="10" rx="2" fill="{{accent}}"/>
+            <rect x="628" y="131" width="73.34" height="10" rx="2" fill="{{accent}}"/>
+            <rect x="628" y="187" width="83.1" height="10" rx="2" fill="#1E3A5F"/>
+            <g font-family="Geist Mono, monospace" font-size="12" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="3" paint-order="stroke">
+              <text x="699.86" y="56">+20.58%</text><text x="701.58" y="98">+21.12%</text><text x="707.34" y="140">+22.92%</text><text x="717.1" y="196" font-weight="500">+25.97%</text>
+            </g>
+
+            <line x1="784" y1="6" x2="784" y2="244" stroke="#E4E4E7"/>
+            <text x="808" y="16" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#0A0A0A">Total debt / EBITDA</text>
+            <text x="808" y="32" font-family="Geist, sans-serif" font-size="11" fill="#71717A">Reported EBITDA · own scale from 6.0x</text>
+            <g stroke="#E4E4E7" stroke-width="1">
+              <line x1="848" y1="54" x2="1072" y2="54"/><line x1="848" y1="94" x2="1072" y2="94"/><line x1="848" y1="134" x2="1072" y2="134"/><line x1="848" y1="174" x2="1072" y2="174"/>
+            </g>
+            <line x1="848" y1="214" x2="1072" y2="214" stroke="#D4D4D8"/>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A">
+              <text x="808" y="58">6.8x</text><text x="808" y="98">6.6x</text><text x="808" y="138">6.4x</text><text x="808" y="178">6.2x</text><text x="808" y="218">6.0x</text>
+            </g>
+            <line x1="892" y1="160" x2="1028" y2="108" stroke="#EA580C" stroke-width="2"/>
+            <circle cx="892" cy="160" r="5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"/>
+            <circle cx="1028" cy="108" r="6" fill="#EA580C"/>
+            <text x="892" y="146" text-anchor="middle" font-family="Geist Mono, monospace" font-size="13" fill="#52525B" stroke="#FFFFFF" stroke-width="3" paint-order="stroke">6.27x</text>
+            <text x="1028" y="93" text-anchor="middle" font-family="Geist Mono, monospace" font-size="15" font-weight="500" fill="#0A0A0A" stroke="#FFFFFF" stroke-width="3" paint-order="stroke">6.53x</text>
+            <text x="1028" y="74" text-anchor="middle" font-family="Geist, sans-serif" font-size="12" font-weight="500" fill="#C2410C"><tspan font-family="Geist Mono, monospace">+0.26x</tspan> worse</text>
+            <g font-family="Geist, sans-serif" font-size="12" fill="#52525B" text-anchor="middle">
+              <text x="892" y="238">FY2023</text><text x="1028" y="238">FY2024</text>
+            </g>
+          </svg>
+          <p style="margin: 0; font-size: 12px; line-height: 18px; color: #52525B">Dumbbells share one scale from zero: gross debt added <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">5,130</span> while reported EBITDA added <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">665</span> (derived). Growth is FY2024 against FY2023, derived except net sales, which is as reported. Total debt / EBITDA is drawn on its own scale from 6.0x.</p>
+        </section>
+
+        <!-- 2. Cash conversion ladder (span 7). -->
+        <section aria-labelledby="t-ladder" style="grid-column: span 7; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <h3 id="t-ladder" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Free cash flow turns negative after acquisitions and distributions</h3>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #71717A">FY2024 cash conversion from EBITDA As Defined · FY2023 beneath each level</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex: none">
+              <button type="button" aria-pressed="false" aria-label="Show as table: cash conversion" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></svg>Table</button>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; line-height: 16px; color: #52525B">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 8px; border-radius: 2px; background: {{accent}}"></span>FY2024 level</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 5px; border-radius: 1px; background: #A1A1AA"></span>FY2023 level</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 8px; border-radius: 2px; background: #1E3A5F"></span>Deduction</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 4px)"></span>Not itemised here</span>
+          </div>
+          <!--
+            Horizontal ladder, one scale: x = 308 + v * 0.036 (-3,000..4,500 over 200..470; zero at 308).
+            FY2024: 4,173 -> 458.23; less cash interest 1,158 (41.69) -> 416.54; less cash taxes 539 (19.40) -> 397.14;
+              less other items 431 (15.52) -> 381.62 = CFO 2,045; less capex 165 (5.94) -> 375.68 = FCF 1,880;
+              less acquisitions and distributions 4,385 (157.86) -> 217.82 = -2,505.
+            FY2023 levels, 5 px bars beneath: 3,395 -> 430.22; 1,375 -> 357.50; 1,236 -> 352.50; 436 -> 323.70.
+            Derived: other items 4,173 - 2,045 - 1,158 - 539 = 431 (FY2023: 3,395 - 1,375 - 1,160 - 260 = 600);
+              acquisitions and distributions 1,880 - (-2,505) = 4,385 (FY2023: 1,236 - 436 = 800).
+            Rows y 42 / 74 / 106 / 138 / 170 / 202 / 234 / 266 / 298; FY2024 bars 12 tall from row y - 8. Grid at -2,000 / 2,000 / 4,000 = 236 / 380 / 452.
+          -->
+          <svg viewBox="0 0 610 344" width="100%" role="img" aria-label="FY2024 cash conversion: EBITDA As Defined 4,173, less cash interest paid 1,158, cash taxes 539 and other items 431 not itemised here, gives cash from operations 2,045; less capex 165 gives free cash flow after capex 1,880; less acquisitions and distributions of 4,385, derived, gives free cash flow after acquisitions and distributions of minus 2,505. FY2023 levels: 3,395, 1,375, 1,236 and 436." style="display: block">
+            <defs>
+              <pattern id="hatch-ladder" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#FAFAFA"/><line x1="0" y1="0" x2="0" y2="5" stroke="#D4D4D8" stroke-width="1.5"/></pattern>
+            </defs>
+            <text x="540" y="16" text-anchor="end" font-family="Geist, sans-serif" font-size="11" font-weight="500" fill="#0A0A0A">FY2024</text>
+            <text x="606" y="16" text-anchor="end" font-family="Geist, sans-serif" font-size="11" fill="#71717A">FY2023</text>
+            <g stroke="#E4E4E7" stroke-width="1">
+              <line x1="236" y1="24" x2="236" y2="314"/><line x1="380" y1="24" x2="380" y2="314"/><line x1="452" y1="24" x2="452" y2="314"/>
+            </g>
+            <line x1="308" y1="24" x2="308" y2="314" stroke="#D4D4D8"/>
+            <g font-family="Geist, sans-serif" font-size="12">
+              <text x="0" y="44" font-weight="500" fill="#0A0A0A">EBITDA As Defined</text>
+              <text x="12" y="76" fill="#52525B">− Cash interest paid</text>
+              <text x="12" y="108" fill="#52525B">− Cash taxes</text>
+              <text x="12" y="140" fill="#52525B">− Other items, not itemised here</text>
+              <text x="0" y="172" font-weight="500" fill="#0A0A0A">Cash from operations</text>
+              <text x="12" y="204" fill="#52525B">− Capex</text>
+              <text x="0" y="236" font-weight="500" fill="#0A0A0A">FCF after capex</text>
+              <text x="12" y="268" fill="#52525B">− Acquisitions and distributions</text>
+              <text x="0" y="294" font-weight="500" fill="#0A0A0A">FCF after acquisitions</text>
+              <text x="0" y="308" font-weight="500" fill="#0A0A0A">and distributions</text>
+            </g>
+            <rect x="308" y="34" width="150.23" height="12" rx="2" fill="{{accent}}"/>
+            <rect x="308" y="48" width="122.22" height="5" rx="1" fill="#A1A1AA"/>
+            <rect x="416.54" y="66" width="41.69" height="12" rx="2" fill="#1E3A5F"/>
+            <rect x="397.14" y="98" width="19.4" height="12" rx="2" fill="#1E3A5F"/>
+            <rect x="382.12" y="130.5" width="14.52" height="11" rx="2" fill="url(#hatch-ladder)" stroke="#A1A1AA" stroke-width="1" stroke-dasharray="2 2"/>
+            <rect x="308" y="162" width="73.62" height="12" rx="2" fill="{{accent}}"/>
+            <rect x="308" y="176" width="49.5" height="5" rx="1" fill="#A1A1AA"/>
+            <rect x="375.68" y="194" width="5.94" height="12" rx="1" fill="#1E3A5F"/>
+            <rect x="308" y="226" width="67.68" height="12" rx="2" fill="{{accent}}"/>
+            <rect x="308" y="240" width="44.5" height="5" rx="1" fill="#A1A1AA"/>
+            <rect x="217.82" y="258" width="157.86" height="12" rx="2" fill="#1E3A5F"/>
+            <rect x="217.82" y="290" width="90.18" height="12" rx="2" fill="{{accent}}"/>
+            <rect x="308" y="304" width="15.7" height="5" rx="1" fill="#A1A1AA"/>
+            <path d="M458.23 46V66M416.54 78V98M397.14 110V130M381.62 142V162M381.62 174V194M375.68 206V226M375.68 238V258M217.82 270V290" fill="none" stroke="#A1A1AA" stroke-width="1" stroke-dasharray="2 2"/>
+            <g font-family="Geist Mono, monospace" font-size="12" fill="#0A0A0A" text-anchor="end">
+              <text x="540" y="44" font-weight="500">4,173</text>
+              <text x="540" y="76">−1,158</text>
+              <text x="540" y="108">−539</text>
+              <text x="540" y="140">−431</text>
+              <text x="540" y="172" font-weight="500">2,045</text>
+              <text x="540" y="204">−165</text>
+              <text x="540" y="236" font-weight="500">1,880</text>
+              <text x="540" y="268">−4,385</text>
+              <text x="540" y="300" font-weight="500">−2,505</text>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="12" fill="#52525B" text-anchor="end">
+              <text x="606" y="44">3,395</text>
+              <text x="606" y="76">−1,160</text>
+              <text x="606" y="108">−260</text>
+              <text x="606" y="140">−600</text>
+              <text x="606" y="172">1,375</text>
+              <text x="606" y="204">−139</text>
+              <text x="606" y="236">1,236</text>
+              <text x="606" y="268">−800</text>
+              <text x="606" y="300">436</text>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A" text-anchor="middle">
+              <text x="236" y="332">−2,000</text><text x="308" y="332">0</text><text x="380" y="332">2,000</text><text x="452" y="332">4,000</text>
+            </g>
+          </svg>
+          <p style="margin: 0; font-size: 12px; line-height: 18px; color: #52525B">One scale from −3,000 to 4,500. Cash interest paid, cash taxes and capex are as reported. Other items and acquisitions and distributions are differences between reported lines (derived); this module does not split them.</p>
+        </section>
+
+        <!-- 3. Net debt and liquidity (span 5). -->
+        <section aria-labelledby="t-net" style="grid-column: span 5; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <h3 id="t-net" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Net leverage fell at year end; the dividend reverses it</h3>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #71717A">Pro forma for the 4,348 dividend paid 18 Oct 2024</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex: none">
+              <button type="button" aria-pressed="false" aria-label="Show as table: net debt and liquidity" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></svg>Table</button>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; line-height: 16px; color: #52525B">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="display: flex; gap: 2px"><span style="width: 6px; height: 10px; border-radius: 1px; background: #A1A1AA"></span><span style="width: 6px; height: 10px; border-radius: 1px; background: {{accent}}"></span></span>Net debt</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid {{accent}}; background: #F0FDFA"></span>Cash, to gross debt</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; background: #EA580C"></span>Pro forma net debt</span>
+          </div>
+          <!--
+            Bars on one scale from zero: x = 84 + v * 0.012 (0..25,000 over 84..384).
+            FY2023 net 16,278 -> 195.34 (ends 279.34); cash 3,472 -> 41.66 (ends 321.00 = gross debt 19,750).
+            FY2024 net 18,619 -> 223.43 (ends 307.43); cash 6,261 -> 75.13 (ends 382.56 = gross debt 24,880).
+            Pro forma net 22,967 -> 275.60 (ends 359.60); the 4,348 dividend is 307.43..359.60 (52.18), split by a white rule.
+            Gross debt pro forma is not stated, so no cash segment is drawn for it. Bars 16 tall at y 22 / 74 / 126; reading lines y 56 / 108 / 160.
+          -->
+          <svg viewBox="0 0 420 188" width="100%" role="img" aria-label="Net debt: FY2023 16,278 with cash 3,472 against gross debt 19,750; FY2024 18,619 with cash 6,261 against gross debt 24,880; pro forma 22,967, which is 18,619 plus the 4,348 dividend." style="display: block">
+            <g font-family="Geist, sans-serif" font-size="12" font-weight="500">
+              <text x="0" y="34" fill="#0A0A0A">FY2023</text>
+              <text x="0" y="86" fill="#0A0A0A">FY2024</text>
+              <text x="0" y="138" fill="#C2410C">Pro forma</text>
+            </g>
+            <rect x="84" y="22" width="195.34" height="16" rx="2" fill="#A1A1AA"/>
+            <rect x="279.84" y="22.5" width="40.66" height="15" rx="2" fill="#FFFFFF" stroke="#A1A1AA"/>
+            <rect x="84" y="74" width="223.43" height="16" rx="2" fill="{{accent}}"/>
+            <rect x="307.93" y="74.5" width="74.13" height="15" rx="2" fill="#F0FDFA" stroke="{{accent}}"/>
+            <rect x="84" y="126" width="275.6" height="16" rx="2" fill="#EA580C"/>
+            <line x1="307.43" y1="126" x2="307.43" y2="142" stroke="#FFFFFF" stroke-width="2"/>
+            <g font-family="Geist, sans-serif" font-size="12" fill="#52525B">
+              <text x="84" y="56">Net <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">16,278</tspan> · cash <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">3,472</tspan> · gross debt <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">19,750</tspan></text>
+              <text x="84" y="108">Net <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">18,619</tspan> · cash <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">6,261</tspan> · gross debt <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">24,880</tspan></text>
+              <text x="84" y="160">Net <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">22,967</tspan> = <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">18,619</tspan> + dividend <tspan font-family="Geist Mono, monospace" fill="#0A0A0A">4,348</tspan></text>
+            </g>
+            <line x1="84" y1="170" x2="384" y2="170" stroke="#D4D4D8"/>
+            <path d="M84 170v4M144 170v4M204 170v4M264 170v4M324 170v4M384 170v4" stroke="#D4D4D8"/>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A" text-anchor="middle">
+              <text x="84" y="186">0</text><text x="144" y="186">5,000</text><text x="204" y="186">10,000</text><text x="264" y="186">15,000</text><text x="324" y="186">20,000</text><text x="384" y="186" text-anchor="end">25,000</text>
+            </g>
+          </svg>
+          <h4 style="margin: 0; padding-top: 4px; font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Net debt / EBITDA · reported basis</h4>
+          <!--
+            Dot strip on one axis: x = 84 + (v - 4.5) * 150 (4.5x..6.5x over 84..384). 5.17 -> 184.5; 4.88 -> 141; 6.02 -> 312. Rows y 14 / 38 / 62.
+          -->
+          <svg viewBox="0 0 420 92" width="100%" role="img" aria-label="Net debt to reported EBITDA: 5.17x in FY2023, 4.88x in FY2024 and 6.02x pro forma for the dividend paid 18 October 2024." style="display: block">
+            <g stroke="#E4E4E7" stroke-width="1">
+              <line x1="84" y1="4" x2="84" y2="72"/><line x1="159" y1="4" x2="159" y2="72"/><line x1="234" y1="4" x2="234" y2="72"/><line x1="309" y1="4" x2="309" y2="72"/><line x1="384" y1="4" x2="384" y2="72"/>
+            </g>
+            <g font-family="Geist, sans-serif" font-size="12">
+              <text x="0" y="18" fill="#52525B">FY2023</text>
+              <text x="0" y="42" fill="#0A0A0A">FY2024</text>
+              <text x="0" y="66" font-weight="500" fill="#C2410C">Pro forma</text>
+            </g>
+            <line x1="184.5" y1="14" x2="141" y2="38" stroke="#A1A1AA" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <line x1="141" y1="38" x2="312" y2="62" stroke="#EA580C" stroke-width="1.5"/>
+            <circle cx="184.5" cy="14" r="4.5" fill="#FFFFFF" stroke="#A1A1AA" stroke-width="2"/>
+            <circle cx="141" cy="38" r="5" fill="{{accent}}"/>
+            <circle cx="312" cy="62" r="5" fill="#EA580C"/>
+            <g font-family="Geist Mono, monospace" font-size="12">
+              <text x="195" y="18" fill="#52525B">5.17x</text>
+              <text x="131" y="42" text-anchor="end" fill="#0A0A0A">4.88x</text>
+              <text x="322" y="66" font-weight="500" fill="#0A0A0A">6.02x</text>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A" text-anchor="middle">
+              <text x="84" y="88">4.5x</text><text x="159" y="88">5.0x</text><text x="234" y="88">5.5x</text><text x="309" y="88">6.0x</text><text x="384" y="88" text-anchor="end">6.5x</text>
+            </g>
+          </svg>
+          <div style="flex: 1 1 auto"></div>
+          <div role="group" aria-label="Liquidity, cash plus available revolver" style="border-radius: 8px; background: #F4F4F5; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, 1fr)); gap: 8px 12px; align-items: start">
+            <span style="font-size: 12px; line-height: 16px; font-weight: 500; color: #0A0A0A">Liquidity<span style="display: block; font-weight: 400; color: #52525B">cash plus available revolver</span></span>
+            <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; line-height: 14px; color: #52525B">FY2023</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 15px; line-height: 20px; font-weight: 500; color: #0A0A0A">4,227</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; line-height: 14px; color: #52525B">3,472 + 755</span></span>
+            <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; line-height: 14px; color: #52525B">FY2024</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 15px; line-height: 20px; font-weight: 500; color: #0A0A0A">7,104</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 11px; line-height: 14px; color: #52525B">6,261 + 843</span></span>
+            <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-size: 11px; line-height: 14px; font-weight: 500; color: #C2410C">Pro forma</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: 15px; line-height: 20px; font-weight: 500; color: #0A0A0A">2,919</span><span style="font-size: 11px; line-height: 14px; color: #52525B">after the dividend</span></span>
+          </div>
+        </section>
+
+        <!-- 4. EBITDA bridge waterfall (span 6). -->
+        <section aria-labelledby="t-bridge" style="grid-column: span 6; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <h3 id="t-bridge" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Management add-backs lift EBITDA by 360</h3>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #71717A">FY2024 · reported EBITDA to EBITDA As Defined</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex: none">
+              <button type="button" aria-pressed="false" aria-label="Show as table: EBITDA bridge" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></svg>Table</button>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; line-height: 16px; color: #52525B">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; background: {{accent}}"></span>Reported EBITDA</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1.5px solid #1E3A5F; background: #FFFFFF"></span>Add-back</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; background: #1E3A5F"></span>EBITDA As Defined</span>
+          </div>
+          <!--
+            Horizontal waterfall, axis broken at 3,600: x = 180 + (v - 3,600) * 0.433333 (3,600..4,200 over 180..440).
+            3,813 -> 272.30; +70 (30.33) -> 302.63; +217 (94.03) -> 396.67; +58 (25.13) -> 421.80; +15 (6.50) -> 428.30 = 4,173.
+            Rows y 20 / 50 / 80 / 110 / 140 / 170, bars 16 tall. Ticks 3,600 / 3,800 / 4,000 / 4,200 at 180 / 266.67 / 353.33 / 440.
+            Bracket at x 470 spans the four add-backs: 70 + 217 + 58 + 15 = 360 = 4,173 - 3,813 (derived).
+          -->
+          <svg viewBox="0 0 516 202" width="100%" role="img" aria-label="EBITDA bridge FY2024: reported EBITDA 3,813, plus acquisition and integration 70, plus stock compensation 217, plus refinancing costs 58, plus other 15, equals EBITDA As Defined 4,173. Add-backs total 360. Axis starts at 3,600." style="display: block">
+            <g stroke="#E4E4E7" stroke-width="1">
+              <line x1="266.67" y1="4" x2="266.67" y2="182"/><line x1="353.33" y1="4" x2="353.33" y2="182"/><line x1="440" y1="4" x2="440" y2="182"/>
+            </g>
+            <line x1="180" y1="4" x2="180" y2="182" stroke="#D4D4D8"/>
+            <g font-family="Geist, sans-serif" font-size="12">
+              <text x="0" y="24" font-weight="500" fill="#0A0A0A">Reported EBITDA</text>
+              <text x="0" y="54" fill="#52525B">Acquisition and integration</text>
+              <text x="0" y="84" fill="#52525B">Stock compensation</text>
+              <text x="0" y="114" fill="#52525B">Refinancing costs</text>
+              <text x="0" y="144" fill="#52525B">Other</text>
+              <text x="0" y="174" font-weight="500" fill="#0A0A0A">EBITDA As Defined</text>
+            </g>
+            <rect x="180" y="12" width="92.3" height="16" rx="2" fill="{{accent}}"/>
+            <rect x="273.05" y="42.75" width="28.83" height="14.5" rx="2" fill="#FFFFFF" stroke="#1E3A5F" stroke-width="1.5"/>
+            <rect x="303.38" y="72.75" width="92.54" height="14.5" rx="2" fill="#FFFFFF" stroke="#1E3A5F" stroke-width="1.5"/>
+            <rect x="397.42" y="102.75" width="23.63" height="14.5" rx="2" fill="#FFFFFF" stroke="#1E3A5F" stroke-width="1.5"/>
+            <rect x="422.55" y="132.75" width="5" height="14.5" rx="1" fill="#FFFFFF" stroke="#1E3A5F" stroke-width="1.5"/>
+            <rect x="180" y="162" width="248.3" height="16" rx="2" fill="#1E3A5F"/>
+            <path d="M272.3 28V42M302.63 58V72M396.67 88V102M421.8 118V132M428.3 148V162" fill="none" stroke="#A1A1AA" stroke-width="1" stroke-dasharray="2 2"/>
+            <path d="M186 28 190 12M191 28 195 12M186 178 190 162M191 178 195 162" stroke="#FFFFFF" stroke-width="1.5" fill="none"/>
+            <g font-family="Geist Mono, monospace" font-size="12" fill="#0A0A0A">
+              <text x="278.3" y="24" font-weight="500">3,813</text>
+              <text x="308.63" y="54">+70</text>
+              <text x="402.67" y="84">+217</text>
+              <text x="427.8" y="114">+58</text>
+              <text x="434.3" y="144">+15</text>
+              <text x="434.3" y="174" font-weight="500">4,173</text>
+            </g>
+            <path d="M464 42H470V148H464" fill="none" stroke="#71717A" stroke-width="1"/>
+            <text x="478" y="96" font-family="Geist Mono, monospace" font-size="12" font-weight="500" fill="#0A0A0A">+360</text>
+            <text x="478" y="110" font-family="Geist, sans-serif" font-size="11" fill="#71717A">derived</text>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A" text-anchor="middle">
+              <text x="180" y="198">3,600</text><text x="266.67" y="198">3,800</text><text x="353.33" y="198">4,000</text><text x="440" y="198">4,200</text>
+            </g>
+          </svg>
+          <div style="flex: 1 1 auto"></div>
+          <p style="margin: 0; font-size: 12px; line-height: 18px; color: #52525B">Axis starts at 3,600, marked on the two total bars. Stock compensation is the largest add-back. Leverage and cover on this page use reported EBITDA, as the bottom line advises.</p>
+        </section>
+
+        <!-- 5. Segments, paired bars (span 6). -->
+        <section aria-labelledby="t-seg" style="grid-column: span 6; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <h3 id="t-seg" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Power &amp; Control and Airframe carry the earnings</h3>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #71717A">FY2024 · segment net sales and EBITDA As Defined</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex: none">
+              <button type="button" aria-pressed="false" aria-label="Show as table: segments" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></svg>Table</button>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; line-height: 16px; color: #52525B">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; background: #1E3A5F"></span>Net sales</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 12px; height: 10px; border-radius: 2px; background: {{accent}}"></span>EBITDA As Defined</span>
+          </div>
+          <!--
+            Paired bars on one scale from zero: x = 140 + v * 0.065 (0..4,000 over 140..400).
+            Power & Control 3,941 -> 256.17 (ends 396.17) / 2,236 -> 145.34 (285.34); Airframe 3,809 -> 247.59 (387.59) / 1,962 -> 127.53 (267.53);
+            Non-aviation 190 -> 12.35 (152.35) / 81 -> 5.27 (145.27). Blocks top y 30 / 88 / 146: sales bar at top, EBITDA bar 16 below.
+            EBITDA / sales (derived): 2,236 / 3,941 = 56.7%; 1,962 / 3,809 = 51.5%; 81 / 190 = 42.6%.
+          -->
+          <svg viewBox="0 0 516 206" width="100%" role="img" aria-label="Segments FY2024, net sales and EBITDA As Defined: Power and Control 3,941 and 2,236, ratio 56.7%; Airframe 3,809 and 1,962, ratio 51.5%; Non-aviation 190 and 81, ratio 42.6%. Ratios derived." style="display: block">
+            <text x="140" y="14" font-family="Geist, sans-serif" font-size="11" fill="#71717A">One scale, 0 to 4,000</text>
+            <text x="516" y="14" text-anchor="end" font-family="Geist, sans-serif" font-size="11" fill="#71717A">EBITDA ÷ sales, derived</text>
+            <g stroke="#E4E4E7" stroke-width="1">
+              <line x1="205" y1="24" x2="205" y2="186"/><line x1="270" y1="24" x2="270" y2="186"/><line x1="335" y1="24" x2="335" y2="186"/><line x1="400" y1="24" x2="400" y2="186"/>
+              <line x1="0" y1="78" x2="516" y2="78"/><line x1="0" y1="136" x2="516" y2="136"/>
+            </g>
+            <line x1="140" y1="24" x2="140" y2="186" stroke="#D4D4D8"/>
+            <g font-family="Geist, sans-serif" font-size="13" font-weight="500" fill="#0A0A0A">
+              <text x="0" y="48">Power &amp; Control</text>
+              <text x="0" y="106">Airframe</text>
+              <text x="0" y="164">Non-aviation</text>
+            </g>
+            <rect x="140" y="30" width="256.17" height="12" rx="2" fill="#1E3A5F"/>
+            <rect x="140" y="46" width="145.34" height="12" rx="2" fill="{{accent}}"/>
+            <rect x="140" y="88" width="247.59" height="12" rx="2" fill="#1E3A5F"/>
+            <rect x="140" y="104" width="127.53" height="12" rx="2" fill="{{accent}}"/>
+            <rect x="140" y="146" width="12.35" height="12" rx="2" fill="#1E3A5F"/>
+            <rect x="140" y="162" width="5.27" height="12" rx="1" fill="{{accent}}"/>
+            <g font-family="Geist Mono, monospace" font-size="12" fill="#0A0A0A">
+              <text x="402.17" y="40">3,941</text><text x="291.34" y="56">2,236</text>
+              <text x="393.59" y="98">3,809</text><text x="273.53" y="114">1,962</text>
+              <text x="158.35" y="156">190</text><text x="151.27" y="172">81</text>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="13" font-weight="500" fill="#0A0A0A" text-anchor="end">
+              <text x="516" y="50">56.7%</text><text x="516" y="108">51.5%</text><text x="516" y="166">42.6%</text>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A" text-anchor="middle">
+              <text x="140" y="202">0</text><text x="205" y="202">1,000</text><text x="270" y="202">2,000</text><text x="335" y="202">3,000</text><text x="400" y="202">4,000</text>
+            </g>
+          </svg>
+          <div style="flex: 1 1 auto"></div>
+          <p style="margin: 0; font-size: 12px; line-height: 18px; color: #52525B">Segment sales sum to net sales of <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">7,940</span>. Segment EBITDA As Defined sums to <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">4,279</span> against <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">4,173</span> for the group (derived); the difference is not itemised here. EBITDA ÷ sales is the ratio of the two bars, not a reported margin.</p>
+        </section>
+
+        <!-- 6. Debt maturities, compact wall on a fiscal-year axis (span 5). Overview carries the large one. -->
+        <section aria-labelledby="t-mat" style="grid-column: span 5; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <h3 id="t-mat" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Only 764 falls due before FY2028</h3>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #71717A">Principal by fiscal year, from 30 Sep 2024</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex: none">
+              <button type="button" aria-pressed="false" aria-label="Show as table: debt maturities" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; font-weight: 500; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></svg>Table</button>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; line-height: 16px; color: #52525B">
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 2px; background: {{accent}}"></span>Dated fiscal year</span>
+            <span style="display: inline-flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 10px; height: 10px; border-radius: 2px; box-sizing: border-box; border: 1px solid {{accent}}; background-color: #F0FDFA; background-image: repeating-linear-gradient(135deg, {{accent}} 0 1px, transparent 1px 4px)"></span>Thereafter, undated</span>
+          </div>
+          <!--
+            Wall on a uniform fiscal-year axis: baseline y 150, y = 150 - v * 0.0092857 (0..14,000 over 150..20).
+            580 -> h 5.39 (y 144.61); 92 -> h 0.85, drawn at a 2 px minimum (y 148); 6,637 -> h 61.63 (y 88.37);
+            4,768 -> h 44.27 (y 105.73); 12,637 -> h 117.34 (y 32.66; hatched rect inset 0.5 for its stroke).
+            Gridlines 5,000 -> y 103.57; 10,000 -> y 57.14. Slots 56 wide from x 48: centres 76 / 132 / 188 / 244 / 300; axis break 328..352; Thereafter centre 380. Bars 34 wide.
+            Bracket over FY2025..FY2027: 580 + 92 + 92 = 764 (derived).
+          -->
+          <svg viewBox="0 0 420 176" width="100%" role="img" aria-label="Debt maturities by fiscal year: FY2025 580, FY2026 92, FY2027 92, FY2028 6,637, FY2029 4,768, and 12,637 thereafter. 764 falls due before FY2028." style="display: block">
+            <defs>
+              <pattern id="hatch-mat" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#F0FDFA"/><line x1="0" y1="0" x2="0" y2="6" stroke="{{accent}}" stroke-width="1.5"/></pattern>
+            </defs>
+            <g stroke="#E4E4E7" stroke-width="1">
+              <line x1="48" y1="103.57" x2="408" y2="103.57"/><line x1="48" y1="57.14" x2="408" y2="57.14"/>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#71717A" text-anchor="end">
+              <text x="40" y="154">0</text><text x="40" y="107.57">5,000</text><text x="40" y="61.14">10,000</text>
+            </g>
+            <rect x="59" y="144.61" width="34" height="5.39" rx="1" fill="{{accent}}"/>
+            <rect x="115" y="148" width="34" height="2" rx="1" fill="{{accent}}"/>
+            <rect x="171" y="148" width="34" height="2" rx="1" fill="{{accent}}"/>
+            <rect x="227" y="88.37" width="34" height="61.63" rx="2" fill="{{accent}}"/>
+            <rect x="283" y="105.73" width="34" height="44.27" rx="2" fill="{{accent}}"/>
+            <rect x="363.5" y="33.16" width="33" height="116.84" rx="2" fill="url(#hatch-mat)" stroke="{{accent}}" stroke-width="1"/>
+            <line x1="48" y1="150" x2="330" y2="150" stroke="#D4D4D8"/>
+            <line x1="350" y1="150" x2="408" y2="150" stroke="#D4D4D8"/>
+            <path d="M333 157 339 143M341 157 347 143" stroke="#71717A" stroke-width="1.25" fill="none"/>
+            <path d="M59 128V124H205V128" stroke="#71717A" stroke-width="1" fill="none"/>
+            <text x="132" y="118" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#52525B"><tspan font-family="Geist Mono, monospace" fill="#0A0A0A">764</tspan> before FY2028, derived</text>
+            <g font-family="Geist Mono, monospace" font-size="12" fill="#0A0A0A" text-anchor="middle">
+              <text x="76" y="139.61">580</text><text x="132" y="143">92</text><text x="188" y="143">92</text>
+              <text x="244" y="82.37" font-weight="500">6,637</text><text x="300" y="99.73" font-weight="500">4,768</text><text x="380" y="26.66" font-weight="500">12,637</text>
+            </g>
+            <g font-family="Geist Mono, monospace" font-size="11" fill="#52525B" text-anchor="middle">
+              <text x="76" y="168">FY2025</text><text x="132" y="168">FY2026</text><text x="188" y="168">FY2027</text><text x="244" y="168">FY2028</text><text x="300" y="168">FY2029</text>
+            </g>
+            <text x="380" y="168" text-anchor="middle" font-family="Geist, sans-serif" font-size="11" fill="#52525B">Thereafter</text>
+          </svg>
+          <div style="flex: 1 1 auto"></div>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px">
+            <p style="margin: 0; font-size: 12px; line-height: 18px; color: #52525B">FY2026 and FY2027 drawn at a 2 px minimum.</p>
+            <a href="#" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #E4E4E7; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #0A0A0A">Full wall on Overview<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          </div>
+        </section>
+
+        <!-- 7. Designed gap: what this module's method does not produce (span 7). Hatch = gap token; labels sit on solid #FAFAFA so the hatch never cuts text. -->
+        <section aria-labelledby="t-gap" style="grid-column: span 7; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 16px">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0">
+              <span aria-hidden="true" style="flex: none; width: 20px; height: 20px; border-radius: 5px; box-sizing: border-box; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 5px)"></span>
+              <h3 id="t-gap" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Trend beyond two periods</h3>
+              <span style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px dashed #A1A1AA; background: #FAFAFA; box-sizing: border-box; display: inline-flex; align-items: center; font-size: 12px; font-weight: 500; color: #52525B">Not supplied</span>
+            </div>
+            <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+          </div>
+          <p style="margin: 0; max-width: 560px; font-size: 14px; line-height: 22px; color: #0A0A0A">FY2022 was not in the source set; quarterly and last-twelve-month figures are not produced by this module.</p>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <div aria-hidden="true" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; font-size: 11px; line-height: 16px; color: #71717A">
+              <span style="grid-column: span 3">Annual periods</span>
+              <span style="grid-column: span 2">Interim views</span>
+            </div>
+            <ul aria-label="Periods this module covers" style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+              <li style="min-width: 0; min-height: 84px; box-sizing: border-box; border-radius: 8px; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 8px); padding: 10px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 8px">
+                <span style="padding: 1px 4px; border-radius: 4px; background: #FAFAFA; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">FY2022</span>
+                <span style="padding: 1px 4px; border-radius: 4px; background: #FAFAFA; font-size: 12px; line-height: 16px; color: #52525B">Not supplied</span>
+              </li>
+              <li style="min-width: 0; min-height: 84px; box-sizing: border-box; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 8px">
+                <span style="display: flex; flex-direction: column; gap: 6px"><span aria-hidden="true" style="width: 24px; height: 4px; border-radius: 2px; background: #A1A1AA"></span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">FY2023</span></span>
+                <span style="font-size: 12px; line-height: 16px; color: #52525B">Supplied</span>
+              </li>
+              <li style="min-width: 0; min-height: 84px; box-sizing: border-box; border-radius: 8px; border: 1px solid #99F6E4; background: #F0FDFA; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 8px">
+                <span style="display: flex; flex-direction: column; gap: 6px"><span aria-hidden="true" style="width: 24px; height: 4px; border-radius: 2px; background: {{accent}}"></span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">FY2024</span></span>
+                <span style="font-size: 12px; line-height: 16px; color: #0F766E">Supplied · current</span>
+              </li>
+              <li style="min-width: 0; min-height: 84px; box-sizing: border-box; border-radius: 8px; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 8px); padding: 10px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 8px">
+                <span style="padding: 1px 4px; border-radius: 4px; background: #FAFAFA; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Quarterly</span>
+                <span style="padding: 1px 4px; border-radius: 4px; background: #FAFAFA; font-size: 12px; line-height: 16px; color: #52525B">Not produced</span>
+              </li>
+              <li style="min-width: 0; min-height: 84px; box-sizing: border-box; border-radius: 8px; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 8px); padding: 10px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: 8px">
+                <span style="padding: 1px 4px; border-radius: 4px; background: #FAFAFA; font-size: 13px; line-height: 18px; font-weight: 500; color: #0A0A0A">Last twelve months</span>
+                <span style="padding: 1px 4px; border-radius: 4px; background: #FAFAFA; font-size: 12px; line-height: 16px; color: #52525B">Not produced</span>
+              </li>
+            </ul>
+          </div>
+          <div style="flex: 1 1 auto"></div>
+          <p style="margin: 0; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; align-items: start; padding-top: 12px; border-top: 1px solid #E4E4E7; font-size: 12px; line-height: 18px; color: #52525B">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#52525B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: relative; top: 1px"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></svg>
+            <span>Closing this needs a methodology change to the source set and to this module, not a page change. Until then every comparison above is one FY2023 → FY2024 step.</span>
+          </p>
+        </section>
+
+        <!-- ============ Statements and records: ONE disclosure region, expanded, Debt instruments tab open ============ -->
+        <section aria-labelledby="t-stmt" style="grid-column: span 12; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; display: flex; flex-direction: column">
+          <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 24px; padding: 18px 20px 14px 24px">
+            <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+              <h3 id="t-stmt" style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A">Statements and records</h3>
+              <p style="margin: 0; font-size: 12px; line-height: 16px; color: #71717A">The canonical financials behind the analysis above · USD millions · fiscal years ending 30 September</p>
+            </div>
+            <button type="button" aria-expanded="true" aria-controls="stmt-body" style="height: 32px; padding: 0 10px 0 12px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #0A0A0A; display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; font-weight: 500; cursor: pointer; flex: none">Hide records<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+          </div>
+          <div id="stmt-body" style="display: flex; flex-direction: column">
+            <div style="padding: 0 20px 14px 24px; overflow-x: auto">
+              <div role="tablist" aria-label="Statements and records" style="display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: #F4F4F5; border: 1px solid #E4E4E7">
+                <button type="button" role="tab" id="tab-is" aria-selected="false" tabindex="-1" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #52525B; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap">Income statement</button>
+                <button type="button" role="tab" id="tab-cf" aria-selected="false" tabindex="-1" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #52525B; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap">Cash flow</button>
+                <button type="button" role="tab" id="tab-bs" aria-selected="false" tabindex="-1" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #52525B; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap">Balance sheet</button>
+                <button type="button" role="tab" id="tab-debt" aria-selected="true" aria-controls="panel-debt" tabindex="0" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #0A0A0A; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap">Debt instruments</button>
+                <button type="button" role="tab" id="tab-calc" aria-selected="false" tabindex="-1" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #52525B; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap">Calculations</button>
+                <button type="button" role="tab" id="tab-def" aria-selected="false" tabindex="-1" style="height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: #52525B; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap">Definitions</button>
+              </div>
+            </div>
+            <div role="tabpanel" id="panel-debt" aria-labelledby="tab-debt" style="display: flex; flex-direction: column; border-top: 1px solid #E4E4E7">
+              <!-- Instrument table with inline proportional bars: one scale, 0..4,000 -> 240 px (px = v * 0.06).
+                   1,871 -> 112.26; 1,699 -> 101.94; 3,632 -> 217.92; 1,500 -> 90; 2,100 -> 126; 2,750 -> 165; 1,450 -> 87; 1,000 -> 60; 2,200 -> 132;
+                   910 commitment -> 54.6 (outline only); 487 -> 29.22; 2,650 -> 159; 1,200 -> 72; 750 -> 45. -->
+              <div style="overflow-x: auto">
+                <table style="width: 100%; min-width: 960px; border-collapse: collapse; table-layout: fixed; font-size: 13px; line-height: 18px">
+                  <caption style="caption-side: top; text-align: left; padding: 12px 24px; font-size: 12px; line-height: 16px; color: #52525B">Debt instruments · principal bars on one scale, 0 to 4,000 · ordered by maturity within rank · year only where the maturity month is not supplied</caption>
+                  <colgroup><col style="width: 260px"><col style="width: 130px"><col><col style="width: 150px"><col style="width: 130px"><col style="width: 72px"></colgroup>
+                  <thead>
+                    <tr>
+                      <th scope="col" style="height: 34px; padding: 0 12px 0 24px; text-align: left; font-size: 12px; font-weight: 500; color: #52525B; background: #FAFAFA; border-top: 1px solid #E4E4E7; border-bottom: 1px solid #E4E4E7">Instrument</th>
+                      <th scope="col" style="padding: 0 12px; text-align: left; font-size: 12px; font-weight: 500; color: #52525B; background: #FAFAFA; border-top: 1px solid #E4E4E7; border-bottom: 1px solid #E4E4E7">Rank</th>
+                      <th scope="col" style="padding: 0 12px; text-align: left; font-size: 12px; font-weight: 500; color: #52525B; background: #FAFAFA; border-top: 1px solid #E4E4E7; border-bottom: 1px solid #E4E4E7">Principal</th>
+                      <th scope="col" style="padding: 0 12px; text-align: left; font-size: 12px; font-weight: 500; color: #52525B; background: #FAFAFA; border-top: 1px solid #E4E4E7; border-bottom: 1px solid #E4E4E7">Coupon / margin</th>
+                      <th scope="col" style="padding: 0 12px; text-align: left; font-size: 12px; font-weight: 500; color: #52525B; background: #FAFAFA; border-top: 1px solid #E4E4E7; border-bottom: 1px solid #E4E4E7">Maturity</th>
+                      <th scope="col" style="padding: 0 20px 0 0; text-align: right; font-size: 12px; font-weight: 500; color: #52525B; background: #FAFAFA; border-top: 1px solid #E4E4E7; border-bottom: 1px solid #E4E4E7">Sources</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="rowgroup" colspan="2" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-size: 12px; font-weight: 600; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Secured term loans and notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 500">19,702</span><span style="font-size: 12px; color: #52525B">total, as given</span></div></td>
+                      <td colspan="3" style="border-bottom: 1px solid #E4E4E7"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Term loan I</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,871</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 112.26px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">SOFR+2.75%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Aug 2028</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Term loan K</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,699</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 101.94px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">SOFR+2.75%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Mar 2030</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Term loan J</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">3,632</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 217.92px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">SOFR+2.50%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Feb 2031</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Term loan L</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,500</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 90px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">SOFR+2.50%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Jan 2032</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">2028 secured notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">2,100</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 126px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">6.75%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Aug 2028</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">2029 secured notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">2,750</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 165px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">6.375%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace; color: #52525B">2029</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">2030 secured notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,450</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 87px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">6.875%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace; color: #52525B">2030</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">2031 secured notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,000</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 60px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">7.125%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace; color: #52525B">2031</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">2032 secured notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">2,200</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 132px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">6.625%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace; color: #52525B">2032</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">2033 secured notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,500</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 90px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">6.00%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace; color: #52525B">2033</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                  </tbody>
+                  <tbody>
+                    <tr>
+                      <th scope="rowgroup" colspan="6" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-size: 12px; font-weight: 600; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Secured facilities</th>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Revolver <span style="font-size: 12px; font-weight: 400; color: #52525B">commitment, <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">843</span> available</span></th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">910</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="box-sizing: border-box; width: 54.6px; height: 8px; border-radius: 2px; border: 1px solid {{accent}}; background: #FFFFFF"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">SOFR+2.25%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Feb 2029</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Receivables securitization</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: {{accent}}"></span>Secured</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">487</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 29.22px; height: 8px; border-radius: 2px; background: {{accent}}"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">SOFR+1.45%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Jul 2025</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                  </tbody>
+                  <tbody>
+                    <tr>
+                      <th scope="rowgroup" colspan="2" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-size: 12px; font-weight: 600; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Subordinated notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 500">4,600</span><span style="font-size: 12px; color: #52525B">total, as given</span></div></td>
+                      <td colspan="3" style="border-bottom: 1px solid #E4E4E7"></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">2027 notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: #1E3A5F"></span>Subordinated</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">2,650</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 159px; height: 8px; border-radius: 2px; background: #1E3A5F"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">5.50%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Nov 2027</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A; border-bottom: 1px solid #E4E4E7">Jan 2029 notes</th>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: #1E3A5F"></span>Subordinated</span></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">1,200</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 72px; height: 8px; border-radius: 2px; background: #1E3A5F"></span></span></div></td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">4.625%</td>
+                      <td style="padding: 0 12px; border-bottom: 1px solid #E4E4E7; font-family: 'Geist Mono', ui-monospace, monospace">Jan 2029</td>
+                      <td style="padding: 0 20px 0 0; text-align: right; border-bottom: 1px solid #E4E4E7"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                    <tr>
+                      <th scope="row" style="height: 32px; padding: 0 12px 0 24px; text-align: left; font-weight: 500; color: #0A0A0A">May 2029 notes</th>
+                      <td style="padding: 0 12px"><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #52525B"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 2px; background: #1E3A5F"></span>Subordinated</span></td>
+                      <td style="padding: 0 12px"><div style="display: flex; align-items: center; gap: 12px"><span style="width: 52px; text-align: right; font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">750</span><span aria-hidden="true" style="display: flex; width: 240px; height: 8px; border-radius: 2px; background: #F4F4F5"><span style="width: 45px; height: 8px; border-radius: 2px; background: #1E3A5F"></span></span></div></td>
+                      <td style="padding: 0 12px; font-family: 'Geist Mono', ui-monospace, monospace">4.875%</td>
+                      <td style="padding: 0 12px; font-family: 'Geist Mono', ui-monospace, monospace">May 2029</td>
+                      <td style="padding: 0 20px 0 0; text-align: right"><button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: inline-grid; place-items: center; cursor: pointer; vertical-align: middle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p style="margin: 0; padding: 12px 24px 16px; border-top: 1px solid #E4E4E7; font-size: 12px; line-height: 18px; color: #52525B">Secured total <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">19,702</span> and subordinated total <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">4,600</span> are as given; the term loans and secured notes above sum to the secured total, so the revolver and the receivables securitization sit outside it (derived). The revolver bar is the commitment outline only.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ Limitations for this module + forward link ============ -->
+        <section aria-labelledby="t-lim" style="grid-column: span 8; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 18px 20px 6px; display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 28px">
+            <h3 id="t-lim" style="margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; line-height: 20px; font-weight: 600; letter-spacing: -0.01em; color: #0A0A0A"><span aria-hidden="true" style="flex: none; width: 16px; height: 16px; border-radius: 4px; box-sizing: border-box; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 4px)"></span>Limitations of this module</h3>
+            <span style="font-size: 12px; line-height: 16px; color: #71717A">As the module reports them</span>
+          </div>
+          <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column">
+            <li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; gap: 14px; align-items: start; padding: 14px 0; border-top: 1px solid #E4E4E7">
+              <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 6px; box-sizing: border-box; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 6px)"></span>
+              <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+                <p style="margin: 0; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">The partial debt-stack chart cannot establish intercreditor control, collateral ranking or recovery outcomes.</p>
+                <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Applies to the debt instruments record above.</p>
+              </div>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </li>
+            <li style="display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; gap: 14px; align-items: start; padding: 14px 0; border-top: 1px solid #E4E4E7">
+              <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 6px; box-sizing: border-box; border: 1px dashed #A1A1AA; background-color: #FAFAFA; background-image: repeating-linear-gradient(135deg, #D4D4D8 0 1px, transparent 1px 6px)"></span>
+              <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+                <p style="margin: 0; font-size: 14px; line-height: 22px; color: #0A0A0A; text-wrap: pretty">Only two annual periods supplied (FY2023, FY2024); FY2022 not supplied.</p>
+                <p style="margin: 0; font-size: 12px; line-height: 16px; color: #52525B">Every chart on this page is a single before-and-after step.</p>
+              </div>
+              <button type="button" aria-label="Show sources" style="width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #52525B; display: grid; place-items: center; cursor: pointer; flex: none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><path d="M8 12h8"/></svg></button>
+            </li>
+          </ul>
+        </section>
+
+        <a href="#" aria-label="Next module: CP-MODEL Model" style="grid-column: span 4; min-width: 0; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 20px; padding: 20px 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; color: #0A0A0A">
+          <span style="font-size: 12px; line-height: 16px; font-weight: 500; color: #52525B">Next module</span>
+          <span style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+            <span style="display: flex; flex-direction: column; gap: 8px; min-width: 0">
+              <span style="align-self: flex-start; height: 24px; padding: 0 8px; border-radius: 6px; background: #F4F4F5; box-sizing: border-box; display: inline-flex; align-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12px; font-weight: 500; color: #52525B">CP-MODEL</span>
+              <span style="font-size: 24px; line-height: 30px; font-weight: 600; letter-spacing: -0.02em; color: #0A0A0A">Model</span>
+              <span style="font-size: 12px; line-height: 16px; color: #52525B">Financials · stage <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">2</span> of <span style="font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums">5</span> · Delivered</span>
+            </span>
+            <span aria-hidden="true" style="flex: none; width: 40px; height: 40px; border-radius: 8px; border: 1px solid #99F6E4; background: #F0FDFA; color: #0F766E; display: grid; place-items: center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </span>
+        </a>
+
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#0F766E"},"$preview":{"width":1440,"height":3840}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#0F766E' };
+}
+}
+</script>
+</body>
+</html>
