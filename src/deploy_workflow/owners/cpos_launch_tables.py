@@ -342,7 +342,8 @@ OWNER_TABLES: dict[str, tuple[OwnerTable, ...]] = {
             rules=(
                 "Agency names the agency and Trigger the trigger as the agency states it; "
                 "Threshold and Current are the same metric on the same basis, in the Reporting "
-                "unit; Direction says which side passes (the trigger is not reached). No rating "
+                "unit; Direction says which side passes (the trigger is not reached), in exactly "
+                f"one of these words: {', '.join(DIRECTIONS)}. No rating "
                 "probability is stated or implied. Where only a synthetic-source frame exists, "
                 "write `Not supplied: <reason>` in Threshold and Current and state the "
                 "synthetic-source limitation in Basis and limitation; name the agency basis of "

@@ -9396,8 +9396,11 @@ def test_the_three_money_tables_say_the_money_unit_and_no_other_non_cp1_selector
     # pilot): CP-4's covenant headroom rule now names the four Direction words the check accepts.
     # Every first write of CP-4 in the pilot (8, 6 and 10 rows in groups A, B and C) was refused
     # for a Direction cell written as a sentence. The digest before that sentence was added was
-    # e6bfd348c1203b10264690575bc35bcaf8238b92c4d05c3c633b7f28d174785d.
-    digest = "a1a72e49a5c219376701ecec6380aeb64fe84c7166110932964714110932ac41"
+    # e6bfd348c1203b10264690575bc35bcaf8238b92c4d05c3c633b7f28d174785d. The same day (owner: "fix
+    # the CP-2H chart wording too") CP-2H's rating-trigger rule names the same four words: it had
+    # the same gap, though no run had shown it. The digest between the two changes was
+    # a1a72e49a5c219376701ecec6380aeb64fe84c7166110932964714110932ac41.
+    digest = "5c11cd61d3a4126c151daa3bdbb6a6c24cdac126b7c9caa44a5ee1e30410c123"
     assert hashlib.sha256(text.encode()).hexdigest() == digest
     assert "the money unit" not in text
     for module, headings in MONEY_TABLES.items():

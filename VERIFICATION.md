@@ -42,9 +42,9 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   headroom rule now names the four Direction words (`cpos_launch_tables.py`); two pins in
   `tests/test_cpos_launch.py` recomputed with the reason; that file 1,001 passed with the
   end-to-end and every-pathway tests left out; gate exit 0. Reading lists version 2 (bundled
-  items split; 312 quoted passages matched by script). Ruling
-  `2026-11-25-instruction-length-trial-cp4.md`. CP-2H's rating-trigger rule has the same gap and
-  was not changed: no run showed it.
+  items split; 332 quoted passages matched by script). Ruling
+  `2026-11-25-instruction-length-trial-cp4.md`. CP-2H's rating-trigger rule had the same gap and
+  was given the same words afterwards (owner: "fix the CP-2H chart wording too"); no run showed it.
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the
