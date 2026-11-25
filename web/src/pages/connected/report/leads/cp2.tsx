@@ -297,11 +297,14 @@ function SeriesStat({
   name,
   chart,
   heading,
+  alongside,
 }: {
   props: LeadProps;
   name: string;
   chart: string;
   heading: RegExp;
+  /** A second column of the same row, drawn beside the figure: the row's note may speak of it. */
+  alongside?: { name: string; heading: RegExp };
 }) {
   const { entry, reason } = sourceEntry(props.view, "CP-1", "The financial foundation", FINANCIALS);
   const series = entry && !reason ? periodSeries(entry, chart, heading) : null;
@@ -328,6 +331,8 @@ function SeriesStat({
     );
   const shown = (point: Point) => figureShown(point, series.unit) ?? point.cell;
   const basis = basisAt(entry, chart, latest.line);
+  const other = alongside ? periodSeries(entry, chart, alongside.heading) : null;
+  const beside = other?.points.find((point) => point.line === latest.line);
   const gap = latest.value === null ? statedGap(readerCell(latest.cell)) : null;
   const before =
     prior &&
@@ -348,6 +353,9 @@ function SeriesStat({
         <GapCell word={gap.word} reason={gap.reason} />
       ) : (
         <GapCell word={readerCell(latest.cell) || "Not stated"} />
+      )}
+      {alongside && beside && (
+        <Caption>{`${alongside.name} ${figureShown(beside, other?.unit ?? "") ?? beside.cell}`}</Caption>
       )}
       {basis && <Caption>{basis}</Caption>}
       {before && (
@@ -402,7 +410,8 @@ function HeadroomStat({ props }: { props: LeadProps }) {
     >
       <Caption>{COVENANTS}</Caption>
       <Bullets label={name} tests={[first]} />
-      {basis && <Caption>{basis}</Caption>}
+      {/* The bullet already prints the first test's own condition; the caption is for a shared basis. */}
+      {basis && basis !== first.condition && <Caption>{basis}</Caption>}
     </Stat>
   );
 }
@@ -429,6 +438,7 @@ export const CreditLead = withDraws(
             name="Total debt / EBITDA"
             chart="leverage"
             heading={/^Total debt \/ EBITDA$/}
+            alongside={{ name: "Net debt / EBITDA", heading: /^Net debt \/ EBITDA$/ }}
           />
           <SeriesStat
             props={props}

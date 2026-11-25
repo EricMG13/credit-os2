@@ -106,11 +106,11 @@ function pageSections({ frame, limitations, hasRecords }: Page) {
     ...(has(CONTRARY, frame.contrary ?? frame.hollow[CONTRARY])
       ? [{ id: ANCHOR.contrary, label: "Contrary evidence" }]
       : []),
+    ...(limitations ? [{ id: ANCHOR.limitations, label: "Limitations" }] : []),
     ...frame.prose.map(({ section, title }) => ({
       id: ANCHOR.section(section.line),
       label: title,
     })),
-    ...(limitations ? [{ id: ANCHOR.limitations, label: "Limitations" }] : []),
     ...(hasRecords ? [{ id: ANCHOR.records, label: "Statements and records" }] : []),
   ];
 }
@@ -205,7 +205,8 @@ function ModulePage({
             </LeadEvidence.Provider>
           </div>
         )}
-        {/* Screen map: the findings follow the lead (P2), the limitations follow the findings;
+        {/* Screen map: the findings follow the lead (P2), the limitations follow the contrary evidence, then the module's
+            own other sections;
             the module's other drawings (dates, maps, limits: P3) and its records come after. */}
         <ModuleFindings
           keyFindings={frame.keyFindings}
@@ -215,7 +216,6 @@ function ModulePage({
           entry={entry}
           folder={run.folder}
         />
-        <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} />
         <ModuleLimitations
           section={frame.limitations}
           hollow={frame.hollow.Limitations}
@@ -225,6 +225,7 @@ function ModulePage({
           folder={run.folder}
           span={12}
         />
+        <ProseTiles prose={frame.prose} entry={entry} folder={run.folder} />
         <ModuleFigures
           entry={entry}
           run={run}

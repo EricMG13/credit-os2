@@ -600,8 +600,9 @@ it("picks the passage slot by role and line when a nested section of the same na
       screen.getByText(first).compareDocumentPosition(screen.getByText(second)) &
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+  // Ruling H1: Limitations follow Contrary evidence; the module's own sections come after.
+  expect(before("Limitations says so.", "Cash is ample.")).toBe(true);
   expect(before("Cash is ample.", "Nested caveat on cash.")).toBe(true);
-  expect(before("Nested caveat on cash.", "Limitations says so.")).toBe(true);
 });
 
 it("counts a passage drawn as a chart as present", () => {

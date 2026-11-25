@@ -71,7 +71,7 @@ export function ReadinessRail({
   stagesInReview = false,
 }: {
   rows: readonly ReadinessRow[];
-  /** The selected pathway's cap as the page shows it, "USD 25.00"; null when unavailable. */
+  /** The selected pathway's cap as the page shows it, "USD 30.00"; null when unavailable. */
   cap: string | null;
   capTitle: string;
   /** The pathway's name, as the cards show it. */

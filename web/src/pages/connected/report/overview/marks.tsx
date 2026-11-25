@@ -1,6 +1,7 @@
 import { cx } from "@/utils/cx";
 import {
   across,
+  latestAt,
   around,
   axis,
   clearSpot,
@@ -184,7 +185,7 @@ export function Slope({
   const { ref, width } = useFrame(SLOPE.view);
   const layout = slopeLayout(marks, suffix, width, span);
   const { x, y } = layout;
-  const last = marks.length - 1;
+  const last = latestAt(marks);
   return (
     <svg
       ref={ref}
@@ -298,7 +299,7 @@ export function MiniSlope({
   const max = Math.max(...values);
   const x = across(marks, 8, width - 8);
   const y = (value: number) => (max === min ? 20 : 34 - ((value - min) / (max - min)) * 28);
-  const last = marks.length - 1;
+  const last = latestAt(marks);
   return (
     <svg
       ref={ref}

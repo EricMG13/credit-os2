@@ -90,7 +90,13 @@ def _scope_issues(
     if (opening := opening_day(period.start_date)) is not None:
         days.append(opening)
     for day in days:
-        ids = {p.period_id for p in book.periods if p.end_date == day}
+        # A pro forma period's balance sheet is not the reported one at its date: only the
+        # bridge's own period is read where that period is pro forma.
+        ids = {
+            p.period_id
+            for p in book.periods
+            if p.end_date == day and (p.period_type != "PF" or p.period_id == bridge.period_id)
+        }
         for item in scope.items:
             # The row the check reads: a conflict first, else the first stated amount.
             rows = [

@@ -2,9 +2,10 @@ import { Fragment, useId, useLayoutEffect, useRef, useState } from "react";
 import type { TableCell } from "@/components/chart/ChartTable";
 import { amount, items, record, ticks, word } from "../../visuals/visualData";
 import { scenarioShareLabel } from "../Downside";
+import { forecastMeasure } from "../forecastData";
 import { forecastInput } from "../ForecastRecord";
 import { GapPattern } from "../overview/figureParts";
-import { forwardPath } from "../overview/stressData";
+import { forwardPath, pathPeriods } from "../overview/stressData";
 import { Bento, Figure, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
 import { GapCell, KeyValues, LeadFigure, LeadGap, Notes, TableRegion, Trace } from "./parts";
@@ -219,7 +220,7 @@ const COLUMNS = ["", "@xl:grid-cols-2", "@xl:grid-cols-2 @4xl:grid-cols-3"] as c
 
 /** Net leverage by case as small multiples on one shared scale: each case's points as the model displays them. */
 function PathPanels({ path }: { path: Path }) {
-  const periods = [...new Set(path.cases.flatMap(({ points }) => points.map((p) => p.period)))];
+  const periods = pathPeriods(path.cases);
   const { scale, y } = scaleOf(path);
   const reading = path.cases
     .map(
@@ -257,9 +258,34 @@ function PathPanels({ path }: { path: Path }) {
 
 const FOCUS = "outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2";
 
+const NET_LEVERAGE = /^Net leverage\b/i;
+
+/**
+ * The path with every case the model publishes: `forwardPath` reads only the main grid (base and
+ * one downside), and the model holds its other cases (the upside) in the `other` grid, which
+ * `forecastMeasure` reads. A case the path already draws is kept as it is; the others follow it.
+ */
+function withOtherCases(path: Path, model: unknown): Path {
+  const drawn = new Set(path.cases.map(({ group }) => group));
+  const extra = (forecastMeasure(model, NET_LEVERAGE)?.cases ?? [])
+    .filter(({ group }) => !drawn.has(group))
+    .map(({ group, cells }) => ({
+      group,
+      points: [...cells.values()].map(({ period, display, value, reason }) => ({
+        period,
+        display,
+        value,
+        reason,
+      })),
+    }))
+    .filter(({ points }) => points.some((point) => point.value !== null));
+  return extra.length ? { ...path, cases: [...path.cases, ...extra] } : path;
+}
+
 function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string }) {
   const model = view.models[0];
-  const path = model ? forwardPath(model) : null;
+  const base = model ? forwardPath(model) : null;
+  const path = base && model ? withOtherCases(base, model) : null;
   if (!path)
     return (
       <LeadGap
@@ -273,7 +299,7 @@ function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string
         }
       />
     );
-  const periods = [...new Set(path.cases.flatMap(({ points }) => points.map((p) => p.period)))];
+  const periods = pathPeriods(path.cases);
   const highest = path.cases.flatMap(({ group, points }) => highestYear(group, points) ?? []);
   const gaps = path.cases.flatMap(({ group, points }) =>
     points

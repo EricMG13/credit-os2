@@ -19,3 +19,27 @@ it("leaves out a period label that would print over a neighbour, keeping the fir
   const wide = pathLayout({ ticks: [], periods, lines: [] }, 600);
   expect(wide.periods.every((period) => period.label !== null)).toBe(true);
 });
+
+it("leaves out a base-case value that would print over a neighbour's, keeping the latest", () => {
+  const display = ["5.12x", "4.41x", "3.76x", "3.30x", "2.95x", "2.60x"];
+  const points = display.map((text, at) => ({
+    period: `FY${String(2025 + at)}E`,
+    display: text,
+    value: 5 - at,
+    reason: "",
+    x: PATH.left + 28 + ((PATH.right - PATH.left - 28) * at) / 5,
+    y: 40 + at * 10,
+  }));
+  const narrow = pathLayout({ ticks: [], periods: [], lines: [points] }, 242);
+  const shown = (narrow.lines[0] ?? []).filter((point) => point.label !== null);
+  expect(shown.length).toBeLessThan(6);
+  expect(shown.map(({ display }) => display)).toContain("2.60x");
+  expect(shown.map(({ display }) => display)).toContain("5.12x");
+  // "5.12x" is 5 characters at 7.4 px = 37 px wide: neighbours' centres sit at least 40 px apart.
+  for (const [a, b] of shown.slice(1).map((item, at) => [shown[at], item] as const)) {
+    expect((b.label ?? 0) - (a?.label ?? 0)).toBeGreaterThanOrEqual(40);
+  }
+  expect(narrow.lines[0]?.length).toBe(6);
+  const wide = pathLayout({ ticks: [], periods: [], lines: [points] }, 900);
+  expect((wide.lines[0] ?? []).every((point) => point.label !== null)).toBe(true);
+});

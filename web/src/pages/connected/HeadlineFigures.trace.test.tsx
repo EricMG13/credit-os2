@@ -298,10 +298,11 @@ describe("the headline figures on Overview", () => {
     "draw each stated figure as written, with its period and its trace, where the chart cannot give a latest row",
     READER,
     async () => {
-      await opened({ periods: ["Q3 FY2023", "Q3 FY2024"], omit: ["net_leverage", "leverage"] });
+      // Periods with no year: the period rule cannot place them, so no latest row is chosen.
+      await opened({ periods: ["First half", "Second half"], omit: ["net_leverage", "leverage"] });
       for (const [name, earlier, latest] of [
-        ["Net debt / EBITDA", "3.00x in Q3 FY2023", "2.25x in Q3 FY2024"],
-        ["Total debt / EBITDA", "3.75x in Q3 FY2023", "2.80x in Q3 FY2024"],
+        ["Net debt / EBITDA", "3.00x in First half", "2.25x in Second half"],
+        ["Total debt / EBITDA", "3.75x in First half", "2.80x in Second half"],
       ] as const) {
         const shown = tile(name);
         expect(within(shown).getByText(earlier)).toBeVisible();

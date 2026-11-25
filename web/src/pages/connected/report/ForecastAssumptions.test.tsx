@@ -250,3 +250,35 @@ it("makes the table's scroll box a tab stop only while it overflows, with the to
   expect(region()).not.toHaveAttribute("tabindex");
   expect(region()).toHaveClass("outline-focus-ring", "focus-visible:outline-2");
 });
+
+// The replayed TDG forecast inputs (forecast_exact.json): the upside states two drivers and the
+// forward model inherits every other driver from base (cpos_launch_prompts.py).
+const replayed = {
+  currency: "USD",
+  scale: 1,
+  years: [{ year: 2025 }, { year: 2026 }, { year: 2027 }],
+  base_drivers: {
+    revenue_growth: { values: ["0.10", "0.07", "0.06"] },
+    ebitda_margin: { values: ["0.4802", "0.4802", "0.4802"] },
+    capex_pct_revenue: { values: ["0.03", "0.03", "0.03"] },
+    dividends: { values: ["4348", "0", "0"] },
+  },
+  upside_drivers: {
+    revenue_growth: { values: ["0.14", "0.10", "0.08"] },
+    ebitda_margin: { values: ["0.4850", "0.4900", "0.4950"] },
+  },
+  downside_shock: { ebitda_decline: "0.2000", rate_increase: "0.3420" },
+};
+
+it("says an upside driver the model does not restate is as base, not that nothing is assumed", () => {
+  render(<AssumptionsByCase document={replayed} />);
+  const capex = texts(rowOf("Capital expenditure"));
+  expect(capex[0]).toBe("0.03 each year");
+  expect(capex[1]).toBe("As base");
+  const dividends = texts(rowOf("Dividends"));
+  expect(dividends[1]).toBe("As base");
+  expect(texts(rowOf("Revenue growth"))[1]).toContain("0.14 · 0.10 · 0.08");
+  expect(region().textContent).not.toContain("nothing is assumed");
+  // The shock column still states nothing for a base driver.
+  expect(texts(rowOf("Dividends"))[2]).toBe("Not stated");
+});

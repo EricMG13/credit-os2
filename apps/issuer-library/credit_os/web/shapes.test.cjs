@@ -7,7 +7,13 @@ const path = require('node:path');
 const KEY = require(path.join(__dirname, '..', '..', 'fixtures', 'shape-key.json'));
 const Shapes = require('./shapes.js');
 
-const block = (headers, rows) => ({headers, rows: rows.map(cells => ({cells}))});
+const block = (headers, rows, periods) => ({headers, rows: rows.map(cells => ({cells})), ...(periods ? {periods} : {})});
+// The period columns of the key's tables as the store annotates them (handoff_fields.py period_columns), written here by hand from the key's headers and the
+// period rule: by the table's place in KEY.tables. FY2024 | FY2023 are columns 1 and 2, FY2023 first in rule order and FY2024 the latest reported.
+// "2024-09-30 or pro forma" (table 11) is not a period under the strict rule, so only "2023-09-30" is one there; "At 2024-09-30" (table 23) is one.
+const TWO_YEARS = {order: [2, 1], reported: [2, 1], latest: 1};
+const KEY_PERIODS = {1: TWO_YEARS, 2: TWO_YEARS, 3: TWO_YEARS, 4: TWO_YEARS, 5: TWO_YEARS, 10: TWO_YEARS, 11: {order: [2], reported: [2], latest: 2}, 23: {order: [1], reported: [1], latest: 1}};
+const annotated = (t, headers = t.headers, rows = t.rows) => block(headers, rows, KEY_PERIODS[KEY.tables.indexOf(t)]);
 
 test('sectionRole reproduces all section roles of the key', () => {
   assert.equal(KEY.sections.length, 321);
@@ -16,11 +22,32 @@ test('sectionRole reproduces all section roles of the key', () => {
   assert.deepEqual(wrong, []);
 });
 
-test('tableShape reproduces all table shapes of the key from headers and cells alone', () => {
+test('tableShape reproduces all table shapes of the key from headers, cells and the store\'s period columns', () => {
   assert.equal(KEY.tables.length, 41);
-  const wrong = KEY.tables.filter(t => Shapes.tableShape(block(t.headers, t.rows)) !== t.shape)
-    .map(t => `${t.module} ${t.heading}: ${Shapes.tableShape(block(t.headers, t.rows))} != ${t.shape}`);
+  assert.deepEqual(Object.keys(KEY_PERIODS).map(at => KEY.tables[at].headers.filter((h, c) => KEY_PERIODS[at].order.includes(c))),
+    [['FY2024', 'FY2023'], ['FY2024', 'FY2023'], ['FY2024', 'FY2023'], ['FY2024', 'FY2023'], ['FY2024', 'FY2023'], ['FY2024', 'FY2023'], ['2023-09-30'], ['At 2024-09-30']]);
+  const wrong = KEY.tables.filter(t => Shapes.tableShape(annotated(t)) !== t.shape)
+    .map(t => `${t.module} ${t.heading}: ${Shapes.tableShape(annotated(t))} != ${t.shape}`);
   assert.deepEqual(wrong, []);
+});
+
+// Review M3: the page had its own period pattern, which did not know LTM Jun 2025, YTD Sep 2025, 9M 2025, Pro forma FY2024, Q3'24 or FY2025F, so a tile's
+// headline could differ from the store's latest reported period. A column is a period column when the store says so, and only then.
+test('a column is a period column when the store names it one, whatever its header; no header is read as a period here', () => {
+  const headers = ['Metric', 'FY2024', 'LTM Jun 2025', 'YTD Sep 2025', '9M 2025', 'Pro forma FY2024', "Q3'24", 'FY2025F', 'Senior Notes 2031', 'Definition'];
+  const periods = {order: [6, 1, 3, 4, 2, 5, 7], reported: [6, 1, 3, 4, 2], latest: 2};
+  const rows = [['Revenue', '1', '2', '3', '4', '5', '6', '7', '8', 'Net sales']];
+  assert.deepEqual(Shapes.columnKinds(block(headers, rows, periods)), ['label', 'period', 'period', 'period', 'period', 'period', 'period', 'period', 'text', 'text']);
+  assert.equal(Shapes.tableShape(block(headers, rows, periods)), 'metric');
+  // Without the store's word no column is a period: 2024 Notes and FY2024 are then ordinary columns, and the table is not a statement.
+  assert.deepEqual(Shapes.columnKinds(block(['Line', 'FY2024', '2031 Notes', 'LTM'], [['a', '1', '2', '3']])), ['label', 'text', 'text', 'text']);
+  assert.equal(Shapes.tableShape(block(['Line', 'FY2024', 'FY2023'], [['a', '1', '2']])), 'records');
+  assert.equal(Shapes.tableShape(block(['Line', 'FY2024', 'LTM Jun 2025'], [['a', '1', '2']], {order: [1, 2], reported: [1, 2], latest: 2})), 'statement');
+  // A period the store names comes before the label words ("To 2025" begins with one).
+  assert.deepEqual(Shapes.columnKinds(block(['Item', 'Source', 'To 2025'], [['a', 's', '1']], {order: [2], reported: [2], latest: 2})), ['label', 'source', 'period']);
+  for (const h of ['FY2024', 'LTM Jun 2025', '2024', 'FY24E']) assert.equal(Shapes.columnKind(h), 'text', h);
+  const source = require('node:fs').readFileSync(path.join(__dirname, 'shapes.js'), 'utf8');
+  assert.ok(!source.includes("['period', /"), 'no period pattern among the column rules');
 });
 
 test('hiddenColumns reproduces all hidden column indices of the key', () => {
@@ -49,7 +76,7 @@ test('a zero-row table and an unrecognised header set are records, never dropped
 test('headers differing only in case or outer spaces classify the same', () => {
   for (const t of KEY.tables) {
     const messy = t.headers.map((h, i) => (i % 2 ? ` ${h.toUpperCase()} ` : `  ${h.toLowerCase()}`));
-    assert.equal(Shapes.tableShape(block(messy, t.rows)), t.shape, `${t.module} ${t.heading}`);
+    assert.equal(Shapes.tableShape(annotated(t, messy)), t.shape, `${t.module} ${t.heading}`);
     assert.deepEqual(Shapes.hiddenColumns(messy, t.shape), t.hidden, `${t.module} ${t.heading}`);
   }
 });
@@ -57,14 +84,14 @@ test('headers differing only in case or outer spaces classify the same', () => {
 test('a statement whose second period cell is "Not calculated" is still a statement', () => {
   const t = KEY.tables.find(x => x.shape === 'statement');
   const rows = t.rows.map(r => r.map((c, i) => (i === 2 ? 'Not calculated' : c)));
-  assert.equal(Shapes.tableShape(block(t.headers, rows)), 'statement');
+  assert.equal(Shapes.tableShape(annotated(t, t.headers, rows)), 'statement');
 });
 
 test('columnKind and promoted', () => {
   assert.equal(Shapes.columnKind('Source'), 'source');
   assert.equal(Shapes.columnKind('Scenario ID'), 'id');
   assert.equal(Shapes.columnKind('Use in this module'), 'intermodule');
-  assert.equal(Shapes.columnKind('FY2024'), 'period');
+  assert.equal(Shapes.columnKind('FY2024', [], true), 'period');
   assert.equal(Shapes.columnKind('Hedge limitation'), 'limitation');
   assert.equal(Shapes.columnKind('Creditor consequence'), 'consequence');
   assert.equal(Shapes.columnKind('Moderate scenario'), 'case');
@@ -92,11 +119,10 @@ test('an unknown level-2 heading and its children are registers; only the explic
   assert.equal(Shapes.sectionRole(['Appendix', 'Cross-Module Handoff Register'], 'audit'), 'hidden');
 });
 
-test('period labels with actual/estimate suffixes or two-digit years are periods', () => {
-  for (const h of ['FY2024A', 'FY2025E', 'FY24', 'FY23', 'FY2024']) assert.equal(Shapes.columnKind(h), 'period', h);
-  assert.equal(Shapes.tableShape(block(['Line', 'FY2024A', 'FY2025E', 'Source'], [['a', '1', '2', 's']])), 'statement');
-  assert.equal(Shapes.tableShape(block(['Line', 'FY24', 'FY23', 'Source'], [['a', '1', '2', 's']])), 'statement');
-  assert.equal(Shapes.tableShape(block(['Metric', 'FY24', 'FY23', 'Definition', 'Source'], [['a', '1', '2', 'd', 's']])), 'metric');
+test('period columns the store names (actual/estimate suffixes, two-digit years) make a statement or a metric table', () => {
+  assert.equal(Shapes.tableShape(block(['Line', 'FY2024A', 'FY2025E', 'Source'], [['a', '1', '2', 's']], {order: [1, 2], reported: [1], latest: 1})), 'statement');
+  assert.equal(Shapes.tableShape(block(['Line', 'FY24', 'FY23', 'Source'], [['a', '1', '2', 's']], {order: [2, 1], reported: [2, 1], latest: 1})), 'statement');
+  assert.equal(Shapes.tableShape(block(['Metric', 'FY24', 'FY23', 'Definition', 'Source'], [['a', '1', '2', 'd', 's']], {order: [2, 1], reported: [2, 1], latest: 1})), 'metric');
 });
 
 test('notes: SKILL is case-sensitive, helper scripts alone is prose, "Confidence is" needs a number', () => {

@@ -1,3 +1,4 @@
+import path from "node:path";
 // Synthetic, built from the module contract (src/deploy_vii/cp5_integrity.py registers and
 // methods/cp5.md); not a real handoff. No real CP-5 handoff is retained. The empty/thin case uses
 // the retained synthetic CP-5 fixture. Every expected value below is written out by hand.
@@ -6,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { OutputEntry, Section } from "../../publishedReport";
 import { entry as buildEntry, table } from "../overview/rows.fixture";
 import { cp5Entry, leadProps } from "./fixtures/load";
+import { fixtureEntry } from "./markdown.fixture";
 import { ClearanceLead } from "./validation";
 import { clearance, issues, moduleIntegrity, remediation } from "./validationData";
 
@@ -609,4 +611,95 @@ describe("round 4 status text", () => {
     for (const hidden of container.querySelectorAll(".sr-only"))
       expect(hidden.textContent).not.toMatch(/circle/);
   });
+});
+
+// Verbatim from the replayed TDG handoff: the clearance is one sentence, the gaps register has
+// its own headings and a severity written "CRITICAL; Open".
+const REAL_CLEARANCE =
+  "CLEARANCE DECISION: Fail. Critical Issues: 1. Material Issues: 1. Minor Issues: 1. Committee Use: Blocked.";
+const REAL_GAPS = tbl(
+  "Gaps",
+  [
+    "ID",
+    "Severity or disposition",
+    "Affected conclusion or decision",
+    "What remains unresolved and why it matters",
+    "Required correction or evidence",
+    "Responsible discipline",
+    "Use before correction",
+    "Source",
+  ],
+  [
+    "CP5-001",
+    "CRITICAL; Open",
+    "Binding legal capacity and independently established compliance",
+    "Summary-based arithmetic is presented with contractual force. Applicable definitions, conditions and other baskets can change the binding constraint, affecting creditor rights and refinancing/extraction conclusions",
+    "Withdraw binding/compliant labels for the illustrations, or substantiate through executed agreements, definitions, usage and legal review; distinguish issuer-reported historical compliance",
+    "Legal analysis and legal counsel",
+    "No reliance on affirmative capacity conclusions; overall committee clearance withheld pending correction and re-review",
+    "Legal & covenants (CP-4); TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 61\u201362",
+  ],
+  [
+    "CP5-002",
+    "MATERIAL; Open",
+    "Verified absence of a controlling shareholder",
+    "Holder counts and absence of ownership detail do not establish dispersed control. The affirmative characterization in Business & governance and Fundamental credit exceeds the supplied evidence; no separate support or sponsor benefit is assumed",
+    "Replace the fact characterization with an explicitly unestablished control conclusion or provide dated beneficial-ownership and voting-control evidence",
+    "Governance analysis",
+    "No reliance on the no-controller statement; observed distribution behavior remains separately supported",
+    "Business & governance (CP-1A); Fundamental credit (CP-2); TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 39; TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, page 79",
+  ],
+  [
+    "CP5-003",
+    "MINOR; Open",
+    "Isolated compensation-only sensitivity explanation",
+    "Approximately 0.39x does not match the specified formula. The main normalization remains unchanged and Security selection excludes this isolated sensitivity, so no investment consequence is attributed to the mismatch",
+    "Align the prose and calculation; do not silently substitute a different denominator",
+    "Earnings analysis",
+    "Principal normalization may remain descriptive; do not reuse the isolated explanatory value",
+    "Earnings quality (CP-1D); Security selection (CP-3); calculation A09",
+  ],
+);
+
+describe("the replayed handoff's shapes", () => {
+  it("reads the clearance sentence the module wrote, not a verdict table", () => {
+    render5(cp5(text("Clearance decision", REAL_CLEARANCE), REAL_GAPS));
+    const tile = screen.getByRole("region", { name: "Clearance" });
+    expect(within(tile).getAllByText("Fail").length).toBeGreaterThan(0);
+    expect(tile.textContent).toContain(
+      "Critical Issues: 1. Material Issues: 1. Minor Issues: 1. Committee Use: Blocked.",
+    );
+    expect(tile.textContent).not.toContain("could not read a clearance status");
+  });
+  it("reads the gaps register under the module's own headings, severity as written", () => {
+    render5(cp5(text("Clearance decision", REAL_CLEARANCE), REAL_GAPS));
+    const tile = screen.getByRole("region", { name: "Clearance" });
+    expect(tile.textContent).not.toContain("could not read a list of gaps");
+    const groups = [...tile.querySelectorAll("[data-group]")].map((g) =>
+      g.getAttribute("data-group"),
+    );
+    expect(groups).toEqual(["CRITICAL; Open", "MATERIAL; Open", "MINOR; Open"]);
+    expect(tile.textContent).toContain(
+      "Binding legal capacity and independently established compliance",
+    );
+    expect(tile.textContent).toContain("Verified absence of a controlling shareholder");
+    const remediation = screen.getByRole("region", { name: "Remediation" });
+    expect(remediation.textContent).toContain(
+      "Withdraw binding/compliant labels for the illustrations",
+    );
+    expect(remediation.textContent).not.toContain("could not read the actions");
+  });
+});
+
+it("reads the whole replayed handoff: its clearance sentence and its three gaps", () => {
+  render5(fixtureEntry("CP-5", path.resolve(import.meta.dirname, "fixtures", "cp5_tdg_replay.md")));
+  const tile = screen.getByRole("region", { name: "Clearance" });
+  expect(tile.textContent).toContain("Committee Use: Blocked.");
+  const groups = [...tile.querySelectorAll("[data-group]")].map((g) =>
+    g.getAttribute("data-group"),
+  );
+  // The register's other four rows keep their own dispositions, as written (7 rows in all).
+  expect(groups.slice(0, 3)).toEqual(["CRITICAL; Open", "MATERIAL; Open", "MINOR; Open"]);
+  expect(groups).toHaveLength(7);
+  expect(groups).toContain("Review boundary; no additional exception assigned");
 });

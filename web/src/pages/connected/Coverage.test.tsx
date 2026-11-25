@@ -658,15 +658,15 @@ test("the bound's unit is read from the issuers the other filters keep", async (
 test("periods no rule can order open on the first stated and say so", async () => {
   answer(
     figures([
-      { key: "a", at: 4, unit: "x", period: "LTM Jun 2026" },
-      { key: "a", at: 4.5, unit: "x", period: "LTM Dec 2025" },
+      { key: "a", at: 4, unit: "x", period: "Second half" },
+      { key: "a", at: 4.5, unit: "x", period: "First half" },
     ]),
   );
   window.history.replaceState(null, "", "/coverage?view=rank");
   render(<Coverage />);
   expect(
     within(await screen.findByRole("group", { name: "Period" })).getByRole("button", {
-      name: "LTM Jun 2026",
+      name: "Second half",
     }),
   ).toHaveAttribute("aria-pressed", "true");
   expect(

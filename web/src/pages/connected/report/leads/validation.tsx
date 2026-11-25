@@ -96,7 +96,7 @@ function inkOf(severity: Severity) {
   if (!severity.stated) return "gap";
   if (!severity.known) return "neutral";
   return ({ Critical: "critical", Material: "material", Minor: "minor" } as const)[
-    severity.word as "Critical"
+    severity.level ?? "Critical"
   ];
 }
 

@@ -1,3 +1,4 @@
+import { orderPeriods } from "@/utils/periodOrder";
 import { Button } from "@/components/base/buttons/button";
 import { ArrowRight } from "@untitledui/icons";
 import { useState, type ReactNode } from "react";
@@ -103,9 +104,10 @@ function BasisNote({
   if (!limitation) return null;
   const grid = gridOf(raw);
   const cases = grid && cashProxyCases(grid, null, forecastCaseNames(raw));
-  const baseObservation = cases?.observations
-    .filter(({ group }) => group === "Base case")
-    .sort((a, b) => a.period.localeCompare(b.period))[0];
+  const [baseObservation] = orderPeriods(
+    (cases?.observations ?? []).filter(({ group }) => group === "Base case"),
+    ({ period }) => period,
+  ).ordered;
   const period = baseObservation?.period;
   const value =
     baseObservation?.cell?.status === "value" ? amount(word(baseObservation.cell.exact)) : null;

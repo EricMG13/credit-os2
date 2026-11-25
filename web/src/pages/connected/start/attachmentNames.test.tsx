@@ -33,7 +33,7 @@ function service() {
           error: "",
         });
       if (input === "/api/submissions/sub-1/summary")
-        return reply(summaryFor("25", ["CP-0", "CP-1", "CP-4", "CP-6"]));
+        return reply(summaryFor("30", ["CP-0", "CP-1", "CP-4", "CP-6"]));
       if (url.pathname.startsWith("/api/issuers/"))
         return reply({ latest_run: "", runs: 0, latest_as_of: "" });
       return Promise.resolve(Response.json({ error: `unknown path ${input}` }, { status: 404 }));

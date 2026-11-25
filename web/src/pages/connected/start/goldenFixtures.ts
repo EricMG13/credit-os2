@@ -61,9 +61,9 @@ export const TEMPLATE = {
   },
   research_questions: [],
   submission_caps_usd: {
-    lite_credit_assessment: "15",
-    credit_snapshot: "25",
-    deep_credit_assessment: "40",
+    lite_credit_assessment: "20",
+    credit_snapshot: "30",
+    deep_credit_assessment: "50",
     earnings_update: "20",
     relative_value: "20",
     covenant_refinancing: "20",

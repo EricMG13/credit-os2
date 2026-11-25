@@ -307,7 +307,9 @@ export function issuerSlug(name: string) {
 export const PATHWAYS: Readonly<Record<string, { label: string; modules: string[] }>> = {
   lite_credit_assessment: {
     label: "Lite credit assessment",
-    modules: ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A"],
+    // Owner, 2026-11-25: every credit assessment runs all of layer 1 (CP-1, 1A, 1B, 1C, 1D), and
+    // Lite runs CP-DR too, so CP-1C has its public peers.
+    modules: ["CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A"],
   },
   credit_snapshot: {
     label: "Full credit assessment",
@@ -316,7 +318,10 @@ export const PATHWAYS: Readonly<Record<string, { label: string; modules: string[
       "CP-1",
       "CP-MODEL",
       "CP-1A",
+      "CP-1B",
       "CP-DR",
+      "CP-1C",
+      "CP-1D",
       "CP-2",
       "CP-2A",
       "CP-2D",

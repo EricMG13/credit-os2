@@ -32,6 +32,7 @@ import {
   drawsNothing,
   withStatedUnit,
   statedInProse,
+  type Chart,
 } from "./read";
 import type { LeadProps } from "./types";
 import { ChartGap, writtenTable } from "./written";
@@ -50,8 +51,45 @@ function scenarioName(title: string) {
   return rest ? rest.charAt(0).toUpperCase() + rest.slice(1) : title;
 }
 
+/** A chart with nothing for a figure to place: the module states it as one gap, or every amount of
+ * its step table as a gap. */
+function figureless(chart: Chart) {
+  if (chart.state === "gap") return true;
+  const read = bridgeOf(chart);
+  return Boolean(read?.steps.length) && read?.steps.every((step) => step.cell.value === null);
+}
+
+/** The fulcrum as the module's register states it (a figure or its own stated gap), else null. */
+function Fulcrum({ entry }: { entry: Entry }) {
+  const table = registerTable(entry, "T4E.6", ["fulcrum class/range"]);
+  const at = table ? columnOf(table, "fulcrum class/range") : -1;
+  const stated = (table?.rows ?? [])
+    .map(({ cells }) => readerCell(cells[at] ?? ""))
+    .filter((text) => text);
+  if (!stated.length) return <CompactGap>{FULCRUM}</CompactGap>;
+  return (
+    <div className="flex flex-col gap-1">
+      {stated.map((text) => {
+        const gap = statedGap(text);
+        return (
+          <span key={text} className="flex flex-wrap items-baseline gap-x-2 text-small">
+            <span className="text-text-secondary">Fulcrum</span>
+            {gap ? (
+              <GapCell word={gap.word} reason={gap.reason} />
+            ) : (
+              <span className="text-text-primary">{text}</span>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ValueAllocation({ entry, href }: { entry: Entry; href: Href }) {
-  const scenarios = chartsStartingWith(entry, TITLE);
+  const all = chartsStartingWith(entry, TITLE);
+  // When no scenario carries a figure, the module's later scenarios restate one gap: draw the first.
+  const scenarios = all.some(({ chart }) => !figureless(chart)) ? all : all.slice(0, 1);
   const [chosen, choose] = useState(scenarios[0]?.title ?? "");
   const current = scenarios.find((item) => item.title === chosen) ?? scenarios[0];
   // An allocation the module wrote as prose only is the frame's, in the module's words.
@@ -90,6 +128,15 @@ function ValueAllocation({ entry, href }: { entry: Entry; href: Href }) {
         <div className="flex min-w-0 flex-col gap-3">
           {!read ? (
             <CompactGap>{chart.state === "gap" ? chart.reason : NO_ALLOCATION}</CompactGap>
+          ) : figureless(chart) ? (
+            <div className="flex flex-col gap-1.5">
+              {read.steps.map((step) => (
+                <span key={step.line} className="flex flex-wrap items-baseline gap-x-2 text-small">
+                  <span className="text-text-secondary">{step.label}</span>
+                  <Stated cell={step.cell} />
+                </span>
+              ))}
+            </div>
           ) : read.why ? (
             <>
               <p role="note" className="text-small text-text-secondary">
@@ -104,7 +151,7 @@ function ValueAllocation({ entry, href }: { entry: Entry; href: Href }) {
               label={`${current.title} in ${unitLabel(read.unit)}: ${read.steps.map((step) => `${step.label} ${step.cell.text}`).join(", ")}.`}
             />
           )}
-          <CompactGap>{FULCRUM}</CompactGap>
+          <Fulcrum entry={entry} />
         </div>
       }
       table={table}

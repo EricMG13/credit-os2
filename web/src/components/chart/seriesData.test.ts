@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkDistinctSeries, checkLabeledSeriesLength, periodSeriesData } from "./seriesData";
 
 describe("shared series data", () => {
-  it("preserves period and series order, zeros and missing values without using names as keys", () => {
+  it("keeps the order it is given, zeros and missing values without using names as keys", () => {
     const periods = ["FY2026", "FY2025", "FY2026"];
     const series = [
       { name: "__proto__", values: [0, null, -12.25] },

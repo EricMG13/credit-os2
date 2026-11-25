@@ -443,3 +443,36 @@ it("names the table, not a row, where the matrix records no row line", () => {
     stress.getByRole("link", { name: "Source table for stress, All-in cover (x)" }),
   ).toHaveAttribute("href", expect.stringMatching(/106$/u) as string);
 });
+
+it("labels a figure with its leading multiple and keeps the module's qualification as a note", () => {
+  const QUALIFIED = "4.88x; separate 2024-10-18 dividend-only pro forma 6.02x";
+  const entry = downside();
+  const metrics = entry.sections.find(
+    (item) => item.heading === "T2DS.4 Stressed flows and metrics",
+  );
+  const block = metrics?.blocks[0];
+  if (block?.type !== "table") throw new Error("metrics table missing");
+  block.rows = [{ line: 108, cells: ["Net leverage", QUALIFIED, "6.10x", "Filing p.1"] }];
+  render(
+    <WhatBreaks
+      view={view([entry])}
+      folder="current"
+      liquidity={readMeasure(
+        model([value("212"), value("295"), value("397")]),
+        "accessible liquidity",
+        /^Accessible liquidity\b/,
+      )}
+      group="Base case"
+      caseName="Base case"
+      schedule={schedule}
+      source={(name) => <button type="button">{`Show sources for ${name}`}</button>}
+    />,
+  );
+  const stress = within(screen.getByRole("group", { name: "Point-in-time stress" }));
+  const labels = [...stress.getByRole("img").querySelectorAll("text")].map(
+    (item) => item.textContent,
+  );
+  expect(labels).toContain("4.88x");
+  expect(labels).not.toContain(QUALIFIED);
+  expect(stress.getByText(new RegExp(`Net leverage: ${QUALIFIED}`))).toBeInTheDocument();
+});

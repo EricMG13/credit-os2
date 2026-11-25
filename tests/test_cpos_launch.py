@@ -83,13 +83,18 @@ COVENANT_ROUTES = {
 }
 # Run order for each pathway (registry.plan over the preset, CP-MODEL and CP-8 removed; required
 # producers such as CP-1A are added). Owner, 2026-11-11: CP-DR and CP-2E are in every preset except
-# the lite credit assessment (listed here) and the deactivated short snapshot (SHORT_SNAPSHOT).
+# the deactivated short snapshot (SHORT_SNAPSHOT); the lite credit assessment has CP-DR (owner,
+# 2026-11-25) and no CP-2E.
 PATHWAY_MODULES = {
     # Owner, 2026-11-15: CP-3C joins the full assessment; it requires CP-2D (after CP-2, which
     # it requires), CP-2G consumes CP-2D and CP-3 consumes CP-3C when they are in the run.
+    # Owner, 2026-11-25 (docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md): CP-1B,
+    # CP-1C and CP-1D join. By hand from methodology.json's inputs: CP-1B and CP-DR after CP-1;
+    # CP-1C after CP-DR; CP-1D after CP-1B; CP-2 and CP-4 after CP-1D (CP-2 before CP-4 in the
+    # file's order); CP-2A, CP-2E and CP-2D after CP-2; CP-2G and CP-3C after CP-2A and CP-2D.
     "credit_snapshot": (
-        *("CP-0", "CP-1", "CP-1A", "CP-DR", "CP-4", "CP-2", "CP-2A", "CP-2E", "CP-2D", "CP-2G"),
-        *("CP-3C", "CP-3", "CP-5", "CP-6"),
+        *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-4", "CP-2A"),
+        *("CP-2E", "CP-2D", "CP-2G", "CP-3C", "CP-3", "CP-5", "CP-6"),
     ),
     "earnings_update": ("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-2E", "CP-1D", "CP-5"),
     "relative_value": (
@@ -104,7 +109,11 @@ PATHWAY_MODULES = {
     "portfolio_decision": (
         *("CP-0", "CP-1", "CP-1A", "CP-DR", "CP-2", "CP-2E", "CP-3", "CP-5", "CP-6"),
     ),
-    "lite_credit_assessment": ("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A"),
+    # Owner, 2026-11-25: every layer 1 module, and "lite runs cp-dr too". CP-1B and CP-DR after
+    # CP-1; CP-1C after CP-DR; CP-1D after CP-1B; CP-2 after all of them; CP-2A after CP-2.
+    "lite_credit_assessment": (
+        *("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A"),
+    ),
     # Owner, 2026-11-15: "Deep = all". Worked out by hand from methodology.json's inputs: CP-1C
     # after CP-DR, CP-1D after CP-1B, CP-2 after the CP-1 family, CP-2H after CP-2G, CP-3D after
     # CP-2H, CP-3C after CP-2D, CP-4C after CP-4 and CP-3C, CP-3 after every specialist it reads.
@@ -116,8 +125,11 @@ PATHWAY_MODULES = {
 # The owner's preset answer key (2026-11-11), hand-written as sets: what each pathway requests.
 PRESET_ANSWER_KEY = {
     # Owner, 2026-11-15 ("cp-3c ... part of full credit assessment"), with its required CP-2D.
+    # Owner, 2026-11-25 ("all credit assessment pathways (lite, full and deep) should include all
+    # layer 1 modules"): CP-1B, CP-1C and CP-1D join the full and lite assessments.
     "credit_snapshot": (
-        "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6"
+        "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6 "
+        "CP-1B CP-1C CP-1D"
     ),
     # Owner, 2026-11-16 ("Add it to Earnings Update"): CP-1A joins
     # (docs/rulings/2026-11-16-earnings-update-cp1a.md).
@@ -135,10 +147,11 @@ PRESET_ANSWER_KEY = {
     "short_snapshot": "CP-0 CP-1 CP-L10",
     # The lite credit assessment (owner): the credit snapshot's CP-1, CP-1A and CP-2 sections plus
     # CP-2A's two downside blocks. No CP-MODEL (ruling 2026-11-13): the chart strip and credit
-    # metrics are routed to CP-1 and no forecast is published.
-    "lite_credit_assessment": "CP-0 CP-1 CP-1A CP-2 CP-2A",
-    # The deep credit assessment (owner, 2026-11-15, "Deep = all"): the full one plus CP-1B, CP-1C,
-    # CP-1D, CP-2H, CP-3D and CP-4C.
+    # metrics are routed to CP-1 and no forecast is published. 2026-11-25: plus CP-1B, CP-1C, CP-1D
+    # and CP-DR ("lite runs cp-dr too, user only provides comps if they want to at launcher").
+    "lite_credit_assessment": "CP-0 CP-1 CP-1A CP-2 CP-2A CP-1B CP-1C CP-1D CP-DR",
+    # The deep credit assessment (owner, 2026-11-15, "Deep = all"): the full one plus CP-2H, CP-3D
+    # and CP-4C (and, until Full gained them on 2026-11-25, CP-1B, CP-1C and CP-1D).
     "deep_credit_assessment": (
         "CP-0 CP-1 CP-MODEL CP-1A CP-DR CP-2 CP-2A CP-2D CP-2E CP-2G CP-4 CP-3C CP-3 CP-5 CP-6 "
         "CP-1B CP-1C CP-1D CP-2H CP-3D CP-4C"
@@ -147,12 +160,18 @@ PRESET_ANSWER_KEY = {
 SHORT_SNAPSHOT = ("CP-0", "CP-1", "CP-L10")
 # Run order of the lite pathway and its report blocks, written by hand from the Front Page: the
 # credit snapshot's blocks that CP-1, CP-1A and CP-2 write, then CP-2A's two downside blocks.
-LITE_MODULES = ("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2A")
+# Owner, 2026-11-25: CP-1B, CP-1C and CP-1D join, each with its lead section where Deep shows it
+# (after the credit metrics): headline results, earnings quality, peer positioning. CP-DR joins
+# too and keeps no section, as in Full.
+LITE_MODULES = ("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2", "CP-2A")
 LITE_BLOCKS = (
     "key-findings",
     "company-operating-model",
     "model-chart-strip",
     "financials-credit-metrics",
+    "headline-results",
+    "earnings-quality",
+    "peer-positioning",
     "strengths-weaknesses",
     "company-profile",
     "transaction-summary",
@@ -160,10 +179,12 @@ LITE_BLOCKS = (
     "break-points",
 )
 # The credit snapshot's own blocks and modules, unchanged by the lite pathway (hand-written).
+# Owner, 2026-11-25: the three layer 1 lead sections join, placed as in Deep.
 FULL_BLOCKS = (
     *("key-findings", "company-operating-model", "model-chart-strip", "capital-structure"),
-    *("financials-credit-metrics", "strengths-weaknesses", "relative-value", "company-profile"),
-    *("transaction-summary", "portfolio-fit", "committee-challenge", "what-changed"),
+    *("financials-credit-metrics", "headline-results", "earnings-quality", "peer-positioning"),
+    *("strengths-weaknesses", "relative-value", "company-profile", "transaction-summary"),
+    *("portfolio-fit", "committee-challenge", "what-changed"),
 )
 DEACTIVATED = "The short credit snapshot is deactivated. Use the lite credit assessment."
 
@@ -627,9 +648,44 @@ CP3_WATERFALL = [
     f"| Enterprise value | — | {NO_EV} | {NO_EV} | {NO_EV} | USD | m |",
     "",
 ]
+# CP-2's credit scorecard registers (owner ruling R9, 2026-11-25), synthetic. The 17 factors and
+# the four assessments are typed by hand from the ruling, not read from the code under test.
+CP2_FACTORS = (
+    *("Scale", "Market position", "Regulatory exposure", "Technology", "Barriers to entry"),
+    *("Leverage", "Free cash flow", "Liquidity", "Rating trend", "Geographic diversification"),
+    *("Product diversification", "Market share", "Customer concentration", "Market access"),
+    *("Maturity profile", "Interest cover", "Financial policy"),
+)
+CP2_SCORECARD = [
+    "### T2.13 - Credit scorecard",
+    "",
+    "| Factor | Level | Basis |",
+    "| --- | --- | --- |",
+    *(f"| {factor} | 3 | annual.txt, page 2 |" for factor in CP2_FACTORS[:-1]),
+    "| Financial policy | Not scored | No stated policy in the synthetic evidence |",
+    "",
+    "### T2.14 - Credit assessment",
+    "",
+    "| Assessment | View | Basis |",
+    "| --- | --- | --- |",
+    "| Management | Neutral | annual.txt, page 2 |",
+    "| Sector Outlook | Positive | annual.txt, page 2 |",
+    "| Sponsor Quality | Not assessed | No sponsor in the synthetic evidence |",
+    "| Credit Direction | Stable | annual.txt, page 2 |",
+    "",
+]
+# The Risk Rubric's Scale row, typed by hand from § 3 of
+# docs/methodology/portfolio-recommendation.md.
+RUBRIC_SCALE_ROW = (
+    "| 1 | Scale | EBITDA > $1bn — large, diversified issuer with global reach | $500m–$1bn — "
+    "strong mid-cap with solid market presence | $200m–$500m — medium-sized, regionally "
+    "focused | $100m–$200m — small-scale, limited diversification | < $100m — niche or "
+    "subscale, vulnerable to shocks |"
+)
 OWNED_SECTIONS = {
     "CP-6": ["### Portfolio posture", "", CP6A_POSTURE, ""],
     "CP-3": CP3_WATERFALL,
+    "CP-2": CP2_SCORECARD,
 }
 
 
@@ -1500,16 +1556,17 @@ def test_the_checker_refuses_a_short_snapshot_that_breaks_the_reader_checks(
 # --- The lite and full credit assessments; the deactivated short snapshot ---------------
 
 
-def test_the_lite_preset_is_cp0_cp1_cp1a_cp2_cp2a_with_no_cp_model():
+def test_the_lite_preset_is_cp0_layer_1_cpdr_cp2_cp2a_with_no_cp_model():
     from deploy_vii.contracts import PATHWAY_MODULES as PRESETS
 
     assert PRESETS["lite_credit_assessment"] == LITE_MODULES
     assert "CP-MODEL" not in PRESETS["lite_credit_assessment"]
-    # Owner, 2026-11-13: lite has neither CP-DR nor CP-2E.
-    assert not {"CP-DR", "CP-2E"} & set(PRESETS["lite_credit_assessment"])
+    # Owner, 2026-11-13: lite has no CP-2E. Owner, 2026-11-25: it runs CP-DR.
+    assert "CP-2E" not in PRESETS["lite_credit_assessment"]
+    assert "CP-DR" in PRESETS["lite_credit_assessment"]
 
 
-def test_the_lite_pathway_plans_exactly_cp0_cp1_cp1a_cp2_cp2a_in_order(tmp_path):
+def test_the_lite_pathway_plans_exactly_cp0_layer_1_cpdr_cp2_cp2a_in_order(tmp_path):
     prepared, _ = all_instructions(tmp_path, "lite_credit_assessment")
     assert tuple(prepared.plan.instructions) == LITE_MODULES
     assert prepared.ordered == LITE_MODULES
@@ -1531,6 +1588,10 @@ def test_every_lite_block_is_routed_to_a_module_in_the_run(tmp_path):
     assert by_block["key-findings"] == "CP-2"
     assert by_block["company-operating-model"] == "CP-1A"
     assert by_block["downside-stress"] == by_block["break-points"] == "CP-2A"
+    # Owner, 2026-11-25: one lead section per added layer 1 module, owned as in Deep.
+    assert by_block["headline-results"] == "CP-1B"
+    assert by_block["earnings-quality"] == "CP-1D"
+    assert by_block["peer-positioning"] == "CP-1C"
     # No CP-MODEL: the chart strip and credit metrics are CP-1's, and its instruction asks for
     # neither the period table nor the layer-1 forecast block (ruling 2026-11-13).
     assert by_block["model-chart-strip"] == by_block["financials-credit-metrics"] == "CP-1"
@@ -1547,10 +1608,11 @@ def test_the_credit_snapshot_is_the_full_credit_assessment_with_its_modules_and_
     full = next(p for p in pathways() if p.id == "credit_snapshot")
     assert full.title == "Full credit assessment"
     assert full.blocks == FULL_BLOCKS
-    # Owner, 2026-11-15: CP-3C and its required CP-2D added; the report blocks are unchanged.
+    # Owner, 2026-11-15: CP-3C and its required CP-2D added. Owner, 2026-11-25: CP-1B, CP-1C and
+    # CP-1D added, each with its lead section.
     assert tuple(PRESETS["credit_snapshot"]) == (
-        *("CP-0", "CP-1", "CP-MODEL", "CP-1A", "CP-DR", "CP-2", "CP-2A", "CP-2D", "CP-2E"),
-        *("CP-2G", "CP-4", "CP-3C", "CP-3", "CP-5", "CP-6"),
+        *("CP-0", "CP-1", "CP-MODEL", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2"),
+        *("CP-2A", "CP-2D", "CP-2E", "CP-2G", "CP-4", "CP-3C", "CP-3", "CP-5", "CP-6"),
     )
 
 
@@ -1641,10 +1703,27 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 # 651,532 to 652,944 (+1,412); lite_credit_assessment 414,801 to 416,093 (+1,292);
 # portfolio_decision 942,102 to 943,549 (+1,447); relative_value 1,061,779 to 1,063,824 (+2,045);
 # short_snapshot 156,212 to 157,415 (+1,203).
+# 2026-11-25 (owner: "all credit assessment pathways (lite, full and deep) should include all layer
+# 1 modules" and "lite runs cp-dr too, user only provides comps if they want to at launcher";
+# docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md): CP-1B, CP-1C and CP-1D join the
+# lite and full credit assessments and CP-DR joins the lite one. Measured on this file's input
+# before (base 4aaec9d) and after, each ceiling rises by its pathway's increase, as for the modules
+# added on 2026-11-15 and 2026-11-16. lite_credit_assessment 416,093 to 669,952 (+253,859: CP-1B
+# 66,907, CP-DR 73,449, CP-1C 68,192, CP-1D 45,311), ceiling 421,292 to 675,151. credit_snapshot
+# 1,468,993 to 1,650,316 (+181,323: CP-1B 66,900, CP-1C 68,185, CP-1D 45,304, CP-DR 934 more for
+# the peer pack CP-1C now consumes), ceiling 1,485,996 to 1,667,319. The other seven pathways'
+# instructions are byte-identical and no other ceiling moved.
+# 2026-11-25 (owner ruling R9, "CP-2 writes a scorecard table using the owner's Risk Rubric";
+# docs/methodology/portfolio-recommendation.md § 3; and owner, 2026-11-25, Scale "must be in any
+# currency reported by the issuer"): CP-2's credit scorecard block with the rubric's 17 rows and the
+# Scale currency rule adds 7,242 characters to CP-2's instructions in every pathway that runs it.
+# Measured on this file's input before (base 9e6c586) and after: only lite_credit_assessment
+# passes its ceiling, 669,952 to 677,194 (+7,242), so its ceiling rises by that growth, 675,151 to
+# 682,393. The other ceilings hold and are unchanged.
 INSTRUCTION_BUDGET = {
     "deep_credit_assessment": 1_903_059,
-    "lite_credit_assessment": 421_292,
-    "credit_snapshot": 1_485_996,
+    "lite_credit_assessment": 682_393,
+    "credit_snapshot": 1_667_319,
     "covenant_refinancing": 1_157_279,
     "distressed_restructuring": 1_188_321,
     "earnings_update": 652_950,  # owner, 2026-11-16: CP-1A joins; then reporting currency
@@ -3295,6 +3374,11 @@ def test_no_text_sent_to_a_model_gives_usd_as_its_only_example(tmp_path):
     found = {name: usd_only_examples(text) for name, text in sent.items()}
     quoted = {name for name, f in found.items() if f and set(f) == {CP4_QUOTED_PROVISION}}
     assert quoted == {"instructions CP-4", "method CP-4"}, "the known quote moved or went"
+    # Known and kept: the Risk Rubric's Scale row is the owner's own text, sent byte for byte
+    # (ruling R9, 2026-11-25), with its EBITDA thresholds in dollars. The sentence after the table
+    # has them converted into the issuer's reporting currency (owner, 2026-11-25: "must be in any
+    # currency reported by the issuer"), and that sentence is not flagged: only the row is.
+    assert found.pop("instructions CP-2") == [RUBRIC_SCALE_ROW]
     assert {name: f for name, f in found.items() if f and name not in quoted} == {}
 
 
@@ -3666,22 +3750,45 @@ def test_the_presets_are_the_owners_answer_key():
     assert all(len(m) == len(set(m)) for m in PRESETS.values())
 
 
-@pytest.mark.parametrize("pathway", sorted(set(PATHWAY_MODULES) - {"lite_credit_assessment"}))
+@pytest.mark.parametrize("pathway", sorted(PATHWAY_MODULES))
 @pytest.mark.parametrize("peer_source", ["cp_dr_public", "user_list", "user_comps", "none"])
 def test_cpdr_and_cp2e_are_in_every_pathway_and_run_in_order(tmp_path, pathway, peer_source):
     """Owner, 2026-11-11: "cp-dr should be on every run or cp-1c wont work. so should cp-2e."
-    The peer source no longer adds or drops CP-DR; the preset carries it."""
+    The peer source no longer adds or drops CP-DR; the preset carries it. Owner, 2026-11-25:
+    "lite runs cp-dr too"; the lite credit assessment alone has no CP-2E (owner, 2026-11-13)."""
     prepared, _ = all_instructions(tmp_path, pathway, peer_source=peer_source)
     order = list(prepared.plan.instructions)
     assert order == list(PATHWAY_MODULES[pathway])
-    assert {"CP-DR", "CP-2E"} <= set(order)
+    assert "CP-DR" in order
+    assert ("CP-2E" in order) is (pathway != "lite_credit_assessment")
     assert "CP-DR" in prepared.plan.run.requested_modules
     if "CP-1C" in order:
         assert order.index("CP-DR") < order.index("CP-1C")
-    if "CP-2" in order:
+    if "CP-2" in order and "CP-2E" in order:
         assert order.index("CP-2E") > order.index("CP-2")
     if "CP-2G" in order:
         assert order.index("CP-2A") < order.index("CP-2G")
+
+
+@pytest.mark.parametrize("pathway", ["lite_credit_assessment", "credit_snapshot"])
+@pytest.mark.parametrize("peer_source", ["cp_dr_public", "user_comps", "none"])
+def test_cp1c_in_lite_and_full_reads_the_peer_pack_and_comparables_are_optional(
+    tmp_path, pathway, peer_source
+):
+    """Owner, 2026-11-25: every layer 1 module in Lite and Full, and "lite runs cp-dr too, user
+    only provides comps if they want to at launcher". With the run start page's default peer
+    source CP-DR is asked for the peer pack and CP-1C reads it, as in Deep; any other peer source
+    launches the same modules and asks for no pack."""
+    prepared, texts = all_instructions(tmp_path, pathway, peer_source=peer_source)
+    assert prepared.ordered == PATHWAY_MODULES[pathway]
+    research = texts["CP-DR"].partition(cpos_launch.METHOD_MARK)[0]
+    benchmark = texts["CP-1C"].partition(cpos_launch.METHOD_MARK)[0]
+    asked = peer_source == "cp_dr_public"
+    assert ("this run requests the peer pack" in research) is asked
+    assert ("the peer set and its figures from the CP-DR handoff's TDR.4" in benchmark) is asked
+    gaps = [i["id"] for i in prepared.expectations if i["id"].startswith("CP-1C:")]
+    # The offline forecast names a run with no peer set.
+    assert ("CP-1C:cp1c-no-peer-source" in gaps) is (peer_source == "none")
 
 
 def test_explicit_modules_are_run_as_given(tmp_path):
@@ -3770,6 +3877,47 @@ def test_cp1_chart_tables_become_the_report_chart_strip(tmp_path):
     ]
     assert [m.value for m in figures[3].chart.marks] == [Decimal(500), None, Decimal(1250)]
     assert figures[3].chart.marks[1].ref_id.startswith("G")
+
+
+def test_the_strip_draws_every_period_in_the_one_order_and_states_the_unplaced(tmp_path):
+    """Owner's ruling 2026-11-25, on the Markdown chart path: fiscal years oldest first, then LTM,
+    then pro forma, then forecasts; a label with no period is drawn last and stated. Synthetic."""
+    prepared, _, context = good_task(tmp_path, "CP-1", "credit_snapshot")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    written = "| FY2023 | 3.75 | 3.00 | x | Synthetic. |\n| FY2024 | 2.80 | 2.25 | x | Synthetic. |"
+    mixed = "\n".join(
+        f"| {period} | {total} | {net} | x | Synthetic. |"
+        for period, total, net in (
+            ("FY2025E", "2.10", "1.60"),
+            ("PF FY2024", "2.60", "2.05"),
+            ("Run-rate", "2.50", "2.00"),
+            ("LTM Jun 2025", "2.70", "2.15"),
+            ("FY2024", "2.80", "2.25"),
+            ("FY2023", "3.75", "3.00"),
+        )
+    )
+    assert raw.count(written) == 1
+    figures = strip_of(prepared, raw.replace(written, mixed), tmp_path, "model-chart-strip").figures
+    leverage, cover = figures[0], figures[1]
+    total = [m for m in leverage.chart.marks if m.series == "Total debt / EBITDA"]
+    assert [(m.label, m.value) for m in total] == [
+        ("FY2023", Decimal("3.75")),
+        ("FY2024", Decimal("2.80")),
+        ("LTM Jun 2025", Decimal("2.70")),
+        ("PF FY2024", Decimal("2.60")),
+        ("FY2025E", Decimal("2.10")),
+        ("Run-rate", Decimal("2.50")),
+    ]
+    net = [m.value for m in leverage.chart.marks if m.series == "Net debt / EBITDA"]
+    assert net == [Decimal(v) for v in ("3.00", "2.25", "2.15", "2.05", "1.60", "2.00")]
+    # The shell draws a plotted chart's twin note under it; the summary of a figure placed above
+    # is not drawn (tests/test_model_shell_browser.py reads both in Chrome).
+    assert (leverage.placement, leverage.chart.reason) == ("above", None)
+    assert leverage.chart.table_twin.note == (
+        "Drawn last, in the order written, because no period could be read from the label: "
+        "Run-rate."
+    )
+    assert cover.chart.table_twin.note is None  # every period placed: nothing more is said
 
 
 def test_an_all_gaps_non_usd_issuer_passes_with_no_chart_values(tmp_path, monkeypatch):
@@ -8089,22 +8237,44 @@ def test_each_stated_form_of_the_net_debt_period_is_accepted(period):
 
 
 @pytest.mark.parametrize(
+    "periods",
+    [
+        ("FY2024 / 2024-09-30", "2025-06-30"),  # each carries its date
+        ("FY2023", "FY2024", "LTM Jun 2025"),
+        ("2024-09-30 reported",),  # the date is read; the extra word no longer stops the order
+        ("PF FY2024", "FY2024 / 2024-09-30"),  # the reported row is the latest, not the pro forma
+        ("Q3 2025", "FY2024", "FY2025E"),
+    ],
+)
+def test_net_debt_periods_the_one_rule_orders_are_accepted_whatever_their_forms(periods):
+    """Owner's ruling 2026-11-25: every supplied period orders (LTM, PF, quarters, forecasts)."""
+    assert cpos_launch._net_debt_issues(_net_debt_text(*periods)) == ()
+
+
+@pytest.mark.parametrize(
     ("periods", "cell"),
     [
-        (("2024-09-30 reported",), "2024-09-30 reported"),
-        (("FY2024 (2024-09-30)",), "FY2024 (2024-09-30)"),
+        (("latest reported",), "latest reported"),
+        (("FY2024", "Run-rate", "FY2023"), "Run-rate"),
         (("2024-02-31",), "2024-02-31"),
-        (("FY2024", "2025-06-30"), "2025-06-30"),
         (("FY2024", "FY2024"), "FY2024"),
+        (("FY2024", "2025-06-30", "FY 2024"), "FY 2024"),  # a second spelling of one period
+        (("PF FY2024", "FY2025E"), "PF FY2024"),  # no reported row: neither is the latest
+        # Which of a fiscal year and a date is later depends on the year end (refused on main too).
+        (("FY2024", "2025-06-30"), "2025-06-30"),
+        (("FY2023 / 2023-09-30", "PF FY2024", "FY2024", "LTM Jun 2025"), "FY2024"),
+        (("Q1 2025", "FY2024", "2024-12-31"), "2024-12-31"),
     ],
 )
 def test_a_net_debt_period_the_pack_cannot_order_is_refused_with_the_form_to_write(periods, cell):
     (issue,) = cpos_launch._net_debt_issues(_net_debt_text(*periods))
     assert issue == (
-        f"`### Net debt data` Period `{cell}` cannot be ordered: write "
-        "`FY2024 / 2024-09-30` for a fiscal year end or the date alone (`2025-06-30`) for an "
-        "interim balance sheet, one form for the whole table and each period once; put any "
-        "other word in the Basis and limitation cell."
+        f"`### Net debt data` Period `{cell}` keeps the latest reported row from being read. A "
+        "Period is refused when no period can be read from it, when it states a period an "
+        "earlier row states, when no row is a reported period (each is pro forma or a "
+        "forecast), or when some reported rows carry their date and others do not (which is "
+        "later then depends on the year end). Write `FY2024 / 2024-09-30` for a fiscal year end "
+        "or the date alone (`2025-06-30`) for an interim balance sheet, each period once."
     )
 
 
@@ -10294,3 +10464,186 @@ def test_the_flag_is_refused_by_a_launcher_that_cannot_go_live(tmp_path, monkeyp
     ruling = distress_ruling(tmp_path, monkeypatch)
     assert main(distress_argv(tmp_path, "--ruling", str(ruling)), allow_live=False) == 2
     assert not (tmp_path / "out").exists()
+
+
+# --- CP-2's credit scorecard (owner ruling R9, 2026-11-25) ---------------------------------------
+# Scope: synthetic handoffs and the instructions as built offline; no model wrote or read them.
+
+
+@pytest.mark.parametrize("pathway", sorted(PATHWAY_MODULES))
+def test_cp2_is_asked_for_the_credit_scorecard_in_every_pathway_that_runs_it(tmp_path, pathway):
+    _, texts = all_instructions(tmp_path, pathway)
+    opening = "Credit scorecard: also write the registers T2.13 and T2.14."
+    for module, text in texts.items():
+        if module != "CP-2":
+            assert opening not in text, module
+    assert ("CP-2" in texts) == ("CP-2" in PATHWAY_MODULES[pathway])
+    if "CP-2" not in texts:
+        return
+    head, _, method = texts["CP-2"].partition(cpos_launch.METHOD_MARK)
+    assert head.count(opening) == 1 and opening not in method
+    block = cpos_launch.cp2_scorecard_block()
+    assert block.startswith(opening) and head.count(block) == 1
+    # Everything but the rubric table stays short.
+    rubric = block[block.index("| # | Factor |") : block.index("Scale's thresholds are")]
+    # 2,761 with the Scale currency rule (owner, 2026-11-25), 2,204 before it.
+    assert len(block) - len(rubric) < 2_800
+    assert_rubric(rubric)
+    assert "`### T2.13 - Credit scorecard` (columns `Factor | Level | Basis`" in block
+    assert "`### T2.14 - Credit assessment` (columns `Assessment | View | Basis`" in block
+    assert "each a `###` heading in `## Findings`, after `### Limitations`, never nested as a" in (
+        block
+    )
+    assert "`####` heading under the Analytical appendix heading or any other heading" in block
+    assert "headed by that heading alone (no `table-id` tag)" in block
+    # VOICE_RULES gives a table that cites sources a `Source` column; these two have none.
+    assert "A table that cites sources has a column headed `Source`" in head
+    assert "These two tables have no `Source` column: Basis carries the reference." in block
+    assert f"exactly these 17 rows, named exactly: {', '.join(CP2_FACTORS)}." in block
+    assert "1 (strongest) to 5 (weakest)" in block
+    assert "1 Excellent, 2 Strong, 3 Satisfactory, 4 Weak, 5 Poor" in block
+    assert "write `Not scored` as its Level, list the factor in `## Gaps` and never guess" in block
+    assert "Write `Not assessed` as a View only when the sources and supplied handoffs hold no" in (
+        block
+    )
+    assert "evidence for it, and list it in `## Gaps`." in block
+    assert (
+        "Every row has a Basis: one line of the evidence the Level or View rests on or, for "
+        "`Not scored` and `Not assessed`, of what evidence is missing."
+    ) in block
+    assert "Management, Sector Outlook and Sponsor Quality, each Positive, Neutral or Negative" in (
+        block
+    )
+    assert "Credit Direction, Improving, Stable or Deteriorating" in block
+    assert "Basis is the only cell of these tables that may hold a source reference." in block
+    assert "Do not write an overall credit score, a total or an average." in block
+    assert "not the method's T2.7 Financial Profile Scorecard, which stays unwritten" in block
+    assert "is refused unless the module is blocked" in block
+    assert "Choose it by the house Risk Rubric, given in full below, which describes" in block
+    # Owner, 2026-11-25: Scale "must be in any currency reported by the issuer". Typed by hand:
+    # the rubric's USD thresholds are converted into the reporting currency at the sources' stated
+    # rate (as ruling 2026-11-16-reporting-currency-from-sources.md does for a facility).
+    scale_rule = (
+        "Scale's thresholds are USD amounts, and Scale is scored in the currency CP-1's "
+        "statements report in: for another currency, convert each threshold into it with "
+        "calculate at the FX rate the source materials state for the reporting (for example "
+        "$1bn at 0.92 EUR per USD is EUR 920m), never a rate looked up or derived, and compare "
+        "the latest LTM reported EBITDA in the CP-1 handoff (the latest fiscal year where it "
+        "gives no LTM); Basis gives the EBITDA, the converted threshold and the rate. With no "
+        "stated rate, Scale is `Not scored` and listed in `## Gaps`."
+    )
+    assert scale_rule in block
+    assert block.index(scale_rule) > block.index("| 17 | Financial policy |")
+    # No file is named for the rubric: the table is the whole of it, and a named file that is not
+    # supplied reads as a missing companion file.
+    assert "portfolio-recommendation" not in texts["CP-2"]
+    assert "docs/methodology" not in texts["CP-2"] and "docs/superpowers" not in texts["CP-2"]
+    # The scope section CP-2 is sent still cuts T2.7, and names neither new register.
+    scope = method.rpartition("Register scope in this transport:")[2]
+    assert "T2.7 Financial Profile Scorecard" in scope
+    assert "T2.13" not in method and "T2.14" not in method
+
+
+def assert_rubric(rubric: str) -> None:
+    """The Risk Rubric table as CP-2 is sent it. Cells typed by hand from the table in § 3 of
+    docs/methodology/portfolio-recommendation.md (the owner's three amended cells included), never
+    read through the loader; the paragraph under that table is not sent."""
+    lines = rubric.rstrip("\n").split("\n")
+    assert lines[0] == "| # | Factor | 1 Excellent | 2 Strong | 3 Satisfactory | 4 Weak | 5 Poor |"
+    assert [line.split(" | ")[:2] for line in lines[1:]] == [
+        [f"| {n}", f] for n, f in enumerate(CP2_FACTORS, 1)
+    ]
+    assert all(line.count(" | ") == 6 and line.endswith(" |") for line in lines[1:])
+    assert lines[1] == RUBRIC_SCALE_ROW
+    assert lines[6] == (
+        "| 6 | Leverage | Low leverage (<3x), conservative structure | Moderate leverage (3–4x), "
+        "ample headroom | Elevated leverage (4–5x), stable but stretched | High leverage (5–6x), "
+        "limited covenant cushion | Very high leverage (>6x), fragile structure or covenant "
+        "breach risk |"
+    )
+    assert lines[12] == (
+        "| 12 | Market share | Dominant market leader (>30%) | Top 3 competitor, or 10–30% share | "
+        "Mid-tier, 5–10% share | Small player, <5% share | Marginal presence or niche operator |"
+    )
+    assert lines[16] == (
+        "| 16 | Interest cover | EBITDA/Interest >4.0x | 3.0–4.0x | 2.0–3.0x | 1.0–2.0x | <1.0x "
+        "(interest not covered) |"
+    )
+    assert lines[17].split(" | ")[4] == (
+        "Neutral or balanced policy. Leverage 3.5–4.5x; some shareholder bias."
+    )
+    unsent = ("amended", "High leverage (>5x)", "Mid-tier, <10%", "Probability of", "image")
+    for words in unsent:
+        assert words not in rubric, words
+
+
+def test_the_rubrics_gaps_paragraph_is_in_no_modules_instructions(tmp_path):
+    _, texts = all_instructions(tmp_path, "deep_credit_assessment")
+    for module, text in texts.items():
+        for unsent in ("Gaps in the rubric as written", "read here as 4 for 5–6x", 'was "High'):
+            assert unsent not in text, (module, unsent)
+    assert "Very high leverage (>6x)" in texts["CP-2"]
+    assert "High leverage (>5x)" not in texts["CP-2"]  # the cell the owner amended
+
+
+def test_sponsor_quality_names_registers_cp1a_writes_in_this_transport():
+    """Hand-read from REF_CP-2C_STEPS.md (T2D.4 Behavior Flag Register, T2D.5 Capital Allocation
+    Risk Table, T2D.9 Sponsor Risk Assessment Table) and CP-1A's SKILL.md (`ownership_register`).
+    T2D.2 and T2D.8 are cut by CP-1A's scope section, so the block must not send CP-2 to them."""
+    block = cpos_launch.cp2_scorecard_block()
+    written = cpos_launch.required_registers("CP-1A")
+    for ident in ("ownership_register", "T2D.4", "T2D.5", "T2D.9"):
+        assert ident in block and ident in written, ident
+    for cut in ("T2D.2", "T2D.8"):
+        assert cut not in block and cut not in written, cut
+    assert "T2D.4 Behavior Flag Register" in block
+    assert "T2D.5 Capital Allocation Risk Table" in block
+    assert "T2D.9 Sponsor Risk Assessment Table" in block
+
+
+def cp2_checked(tmp_path: Path, edit=lambda raw: raw) -> tuple[str, ...]:
+    prepared, task, context = good_task(tmp_path, "CP-2")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    assert "### T2.13 - Credit scorecard" in raw and "### T2.12 - Register" in raw
+    return _checked_handoff(task, edit(raw).encode(), checker(prepared.layout))
+
+
+def test_a_complete_cp2_handoff_with_the_scorecard_passes_every_check(tmp_path):
+    """Every check a handoff meets, the method's own included, accepts the two registers the
+    method does not list; unscored and unassessed rows are accepted as written."""
+    assert cp2_checked(tmp_path) == ()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "complaint"),
+    [
+        # Written to the old contract: neither register.
+        ("### T2.13 - Credit scorecard", "### Scorecard", "The handoff has no T2.13 register."),
+        ("### T2.14 - Credit assessment", "### Views", "The handoff has no T2.14 register."),
+        # A level with its name, a missing factor, a view from the other vocabulary.
+        ("| Leverage | 3 |", "| Leverage | 3 (Satisfactory) |", "T2.13 row `Leverage`: Level"),
+        ("| Liquidity | 3 | annual.txt, page 2 |\n", "", "T2.13 is missing the row Liquidity"),
+        ("| Management | Neutral |", "| Management | Stable |", "T2.14 row `Management`: View"),
+        ("| Credit Direction | Stable |", "| Credit Direction | Positive |", "`Credit Direction`"),
+        # A scored row with no evidence.
+        ("| Scale | 3 | annual.txt, page 2 |", "| Scale | 3 | n/a |", "`Scale`: Basis states no"),
+    ],
+)
+def test_a_cp2_handoff_with_a_faulty_scorecard_gets_a_targeted_repair(
+    tmp_path, old, new, complaint
+):
+    issues = cp2_checked(tmp_path, lambda raw: raw.replace(old, new, 1))
+    mine = [i for i in issues if i.startswith("Credit scorecard registers: ")]
+    assert len(mine) == 1, issues
+    assert complaint in mine[0]
+    assert "Head them exactly `### T2.13 - Credit scorecard`" in mine[0]
+    assert "`### T2.14 - Credit assessment`" in mine[0]
+
+
+def test_a_blocked_cp2_and_other_modules_owe_no_scorecard():
+    blocked = "---\nmodule_status: Blocked\n---\n# CP-2\n\n## Findings\n\n### Bottom line\n"
+    assert cpos_launch.scorecard_issues("CP-2", blocked) == ()
+    assert cpos_launch.scorecard_issues("CP-2", blocked.replace("Blocked", "Complete")) != ()
+    for module in METHODS:
+        if module != "CP-2":
+            assert cpos_launch.scorecard_issues(module, "## Findings\n") == (), module

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Segmented } from "@/components/kit/Segmented";
 import { cx } from "@/utils/cx";
+import { parsePeriod } from "@/utils/periodOrder";
 import { GapNote, Tile } from "../report/overview/Tile";
 import {
   absentText,
@@ -12,9 +13,11 @@ import {
   type MeasureCell,
   type ScheduleYear,
 } from "../report/forecastData";
+import { historyNotes, periodsInOrder, unplacedNote } from "./scenarioPeriods";
 import { ticks } from "./visualData";
+import { thinTicks } from "../report/overview/chartText";
 
-/** The maturity schedule as its module publishes it, drawn on the same fiscal-year axis. */
+/** The maturity schedule as its module publishes it, drawn under the fiscal years of the same axis. */
 export type PathSchedule = {
   years: ScheduleYear[];
   offAxis: ScheduleYear[];
@@ -63,7 +66,19 @@ function useMeasuredWidth(fallback: number) {
   return { ref, width };
 }
 
-type Slot = { year: number; label: string; forecast: boolean };
+/**
+ * One period on the X axis. `history` is a reported or pro forma period before the forecast,
+ * `forecast` a period of the drawn cases, `reach` a later fiscal year a scheduled maturity falls in,
+ * `unplaced` a figure under a label the period rule cannot place, drawn last.
+ * `year` is the fiscal year the slot stands for; null for a period that is not one whole year.
+ */
+type Slot = {
+  label: string;
+  year: number | null;
+  kind: "history" | "forecast" | "reach" | "unplaced";
+};
+const slotKey = (slot: Slot) => `${slot.kind}-${slot.label}`;
+const isForecast = (slot: Slot) => slot.kind === "forecast";
 
 /** The cases drawn: all of them when they share a period, else the selected case alone. */
 function drawnCases(measure: Measure, group: string | undefined) {
@@ -76,50 +91,96 @@ function drawnCases(measure: Measure, group: string | undefined) {
 }
 
 /**
- * One slot per fiscal year, from the actual year (when earlier) through the drawn cases' periods,
- * reaching scheduled maturities up to `REACH` years past the last forecast year. Only the drawn
- * cases' periods are forecast slots: with no comparison, the selected case's own periods alone.
+ * The periods on X, in the one period order: every reported and pro forma period the measure
+ * states a figure for, then the drawn cases' forecast periods (one slot per fiscal year from the
+ * first to the last, published or not), then the fiscal years after them that a scheduled maturity
+ * falls in, up to `REACH` years on, then the figures whose labels the rule cannot place, as
+ * written. Only the drawn cases' periods are forecast slots: with no comparison, the selected
+ * case's own periods alone.
  */
-function axisSlots(measure: Measure, drawn: MeasureCase[], schedule: PathSchedule) {
+function axisSlots(measure: Measure, drawn: MeasureCase[], schedule: PathSchedule): Slot[] {
+  const periods = [...new Set(drawn.flatMap((item) => [...item.cells.keys()]))];
+  if (!periods.length) return [];
   const labels = new Map<number, string>();
-  for (const period of drawn.flatMap((item) => [...item.cells.keys()])) {
+  for (const period of periods) {
     const year = fiscalYear(period);
     if (year !== null) labels.set(year, period);
   }
   const years = [...labels.keys()];
-  if (!years.length) return [];
   const first = Math.min(...years);
   const last = Math.max(...years);
-  const actual = measure.actual ? fiscalYear(measure.actual.period) : null;
-  const start = actual !== null && actual < first ? actual : first;
-  const scheduled = schedule.years
-    .map(({ year }) => year)
-    .filter((year) => year > last && year - last <= REACH);
-  const end = Math.max(last, ...scheduled);
-  return Array.from({ length: end - start + 1 }, (_, at): Slot => {
-    const year = start + at;
-    const forecast = year >= first && year <= last;
-    const label =
-      labels.get(year) ??
-      (year === actual
-        ? (measure.actual?.period ?? "")
-        : `FY${String(year)}${forecast ? "E" : ""}`);
-    return { year, label, forecast };
-  });
+  const everyYear = years.length
+    ? Array.from({ length: last - first + 1 }, (_, at) => first + at)
+    : [];
+  const forecast = periodsInOrder([
+    ...everyYear.map((year) => labels.get(year) ?? `FY${String(year)}E`),
+    ...periods.filter((period) => fiscalYear(period) === null),
+  ]);
+  const end = Math.max(
+    last,
+    ...schedule.years.map(({ year }) => year).filter((year) => year > last && year - last <= REACH),
+  );
+  const reach = years.length ? Array.from({ length: end - last }, (_, at) => last + 1 + at) : [];
+  return [
+    ...measure.history.map(({ period }): Slot => ({
+      label: period,
+      year: fiscalYear(period),
+      kind: "history",
+    })),
+    ...forecast.map((label): Slot => ({ label, year: fiscalYear(label), kind: "forecast" })),
+    ...reach.map((year): Slot => ({ label: `FY${String(year)}`, year, kind: "reach" })),
+    ...measure.unplaced.map(({ period }): Slot => ({
+      label: period,
+      year: null,
+      kind: "unplaced",
+    })),
+  ];
 }
 
+/** The case's cell in a forecast slot: by fiscal year, or by label for a period that is not one. */
 function cellAt(item: MeasureCase, slot: Slot): MeasureCell | undefined {
+  if (!isForecast(slot)) return undefined;
+  if (slot.year === null) return item.cells.get(slot.label);
   return [...item.cells.values()].find((cell) => fiscalYear(cell.period) === slot.year);
 }
 
-/** Line segments between consecutive years where both cells are values; never across a gap. */
+/** The figure in a slot outside the forecast: reported or pro forma before it, or unplaced. */
+function historyAt(measure: Measure, slot: Slot): MeasureCell | undefined {
+  if (slot.kind === "history") return measure.history.find((cell) => cell.period === slot.label);
+  if (slot.kind === "unplaced") return measure.unplaced.find((cell) => cell.period === slot.label);
+  return undefined;
+}
+
+/** Where a fiscal year is drawn: its forecast or later slot, else its reported one; -1 for none. */
+function yearAt(slots: Slot[], year: number) {
+  const later = slots.findIndex((slot) => slot.year === year && slot.kind !== "history");
+  return later >= 0 ? later : slots.findIndex((slot) => slot.year === year);
+}
+
+type Segment = { from: MeasureCell; to: MeasureCell; at: number };
+
+/** Line segments between neighbouring slots where both cells are values; never across a gap. */
 function segments(item: MeasureCase, slots: Slot[]) {
-  const out: { from: MeasureCell; to: MeasureCell }[] = [];
+  const out: Segment[] = [];
   slots.forEach((slot, at) => {
     const next = slots[at + 1];
     const from = cellAt(item, slot);
     const to = next && cellAt(item, next);
-    if (from?.value != null && to?.value != null) out.push({ from, to });
+    if (from?.value != null && to?.value != null) out.push({ from, to, at });
+  });
+  return out;
+}
+
+/** Reported fiscal years joined to the next fiscal year only: a year to date, last twelve months
+ * or pro forma figure overlaps the years beside it, so no line runs to or from it. */
+function historySegments(measure: Measure, slots: Slot[]) {
+  const out: Segment[] = [];
+  slots.forEach((slot, at) => {
+    const next = slots[at + 1];
+    const from = historyAt(measure, slot);
+    const to = next && historyAt(measure, next);
+    if (from?.value == null || to?.value == null) return;
+    if (slot.year !== null && next?.year === slot.year + 1) out.push({ from, to, at });
   });
   return out;
 }
@@ -127,8 +188,8 @@ function segments(item: MeasureCase, slots: Slot[]) {
 function geometry(width: number, slots: Slot[], values: number[], lane: boolean, room: number) {
   const right = width - room;
   const step = (right - LEFT) / Math.max(1, slots.length);
-  const first = slots[0]?.year ?? 0;
-  const x = (year: number) => LEFT + (year - first + 0.5) * step;
+  /** The centre of the slot at this place on the axis. */
+  const x = (at: number) => LEFT + (at + 0.5) * step;
   const scale = ticks(values);
   const low = scale[0]?.value ?? 0;
   const high = scale.at(-1)?.value ?? 1;
@@ -246,28 +307,31 @@ function marksOf(drawn: MeasureCase[], slots: Slot[], g: Geometry, measure: Meas
     weight,
   });
   const boxes: Box[] = [];
+  const line = ({ from, to, at }: Segment) => {
+    const [x1, y1] = [g.x(at), g.y(from.value ?? 0)];
+    const [x2, y2] = [g.x(at + 1), g.y(to.value ?? 0)];
+    const steps = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 5));
+    for (let step = 0; step <= steps; step += 1)
+      boxes.push(dot(x1 + ((x2 - x1) * step) / steps, y1 + ((y2 - y1) * step) / steps, 2.5, 4));
+  };
   for (const item of drawn) {
-    for (const slot of slots) {
+    slots.forEach((slot, at) => {
       const cell = cellAt(item, slot);
-      if (cell?.value == null) continue;
-      boxes.push(dot(g.x(slot.year), g.y(cell.value), 7));
+      if (cell?.value == null) return;
+      boxes.push(dot(g.x(at), g.y(cell.value), 7));
       // A little room around every point, so no label sits against a point it does not name.
       boxes.push({
-        ...dot(g.x(slot.year), g.y(cell.value), 18, 2),
-        around: { x: g.x(slot.year), y: g.y(cell.value) },
+        ...dot(g.x(at), g.y(cell.value), 18, 2),
+        around: { x: g.x(at), y: g.y(cell.value) },
       });
-    }
-    for (const { from, to } of segments(item, slots)) {
-      const [x1, y1] = [g.x(fiscalYear(from.period) ?? 0), g.y(from.value ?? 0)];
-      const [x2, y2] = [g.x(fiscalYear(to.period) ?? 0), g.y(to.value ?? 0)];
-      const steps = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 5));
-      for (let at = 0; at <= steps; at += 1)
-        boxes.push(dot(x1 + ((x2 - x1) * at) / steps, y1 + ((y2 - y1) * at) / steps, 2.5, 4));
-    }
+    });
+    segments(item, slots).forEach(line);
   }
-  const actual = measure.actual;
-  const year = actual ? fiscalYear(actual.period) : null;
-  if (actual?.value != null && year !== null) boxes.push(dot(g.x(year), g.y(actual.value), 7));
+  slots.forEach((slot, at) => {
+    const cell = historyAt(measure, slot);
+    if (cell?.value != null) boxes.push(dot(g.x(at), g.y(cell.value), 7));
+  });
+  historySegments(measure, slots).forEach(line);
   return boxes;
 }
 
@@ -311,26 +375,29 @@ function pointLabels(
 ) {
   const wanted: Wanted[] = [];
   for (const item of drawn) {
-    const cells = slots.flatMap((slot) => cellAt(item, slot) ?? []);
-    const last = [...cells].reverse().find((cell) => cell.value !== null);
+    const points = slots.flatMap((slot, at) => {
+      const cell = cellAt(item, slot);
+      return cell ? [{ cell, at }] : [];
+    });
+    const last = [...points].reverse().find(({ cell }) => cell.value !== null);
     if (last) {
-      const x = g.x(fiscalYear(last.period) ?? 0);
-      const y = g.y(last.value ?? 0);
       wanted.push({
         key: `${item.group}-end`,
-        text: endText(item, last, drawn, keyed),
+        text: endText(item, last.cell, drawn, keyed),
         kind: "figure",
-        own: { x, y },
-        spots: ringed(around(x, y)),
+        own: { x: g.x(last.at), y: g.y(last.cell.value ?? 0) },
+        spots: ringed(around(g.x(last.at), g.y(last.cell.value ?? 0))),
       });
     }
     if (item !== selected) continue;
     // The selected case's highest published year, by value and year: a selection, labelled so.
-    const highest = extremeOf(cells, "highest");
-    for (const cell of highest?.cells ?? [])
-      if (cell !== last) {
-        const x = g.x(fiscalYear(cell.period) ?? 0);
-        const y = g.y(cell.value ?? 0);
+    const highest = extremeOf(
+      points.map(({ cell }) => cell),
+      "highest",
+    );
+    for (const { cell, at } of points)
+      if (highest?.cells.includes(cell) && cell !== last?.cell) {
+        const [x, y] = [g.x(at), g.y(cell.value ?? 0)];
         const spots = around(x, y);
         wanted.push({
           key: `${item.group}-${cell.period}`,
@@ -353,15 +420,21 @@ function pointLabels(
         });
       }
   }
-  // The actual year's figure is labelled with its own period, so it is never read as a forecast.
-  const actual = measure.actual;
-  const actualYear = actual ? fiscalYear(actual.period) : null;
-  if (actual && actual.value !== null && actualYear !== null) {
-    const spots = around(g.x(actualYear), g.y(actual.value));
+  // Each figure outside the forecast is labelled at its own period, so it is never read as a
+  // forecast: the latest reported one and each unplaced one always, an earlier one where there is
+  // clear room (the table has them all).
+  const reported = slots.flatMap((slot, at) => {
+    const cell = historyAt(measure, slot);
+    return cell?.value == null ? [] : [{ cell, at, value: cell.value }];
+  });
+  const always = new Set([measure.history.at(-1), ...measure.unplaced]);
+  for (const { cell, at, value } of [...reported].reverse()) {
+    const spots = around(g.x(at), g.y(value));
     wanted.push({
-      key: "actual",
-      text: `${actual.display} ${actual.period}`,
+      key: `history-${cell.period}`,
+      text: cell.display,
       kind: "figure",
+      optional: !always.has(cell),
       spots: ringed(
         [spots[5], spots[3], spots[4], spots[0]].filter((spot): spot is Spot => spot !== undefined),
       ),
@@ -369,7 +442,7 @@ function pointLabels(
   }
   // The selected case's gap words, inside its hatched column, clear of every other case's marks.
   for (const slot of gapSlots(selected, slots)) {
-    const x = g.x(slot.year);
+    const x = g.x(slots.indexOf(slot));
     const rows = Math.max(1, Math.floor((BOTTOM - TOP - 24) / 18));
     wanted.push({
       key: `gap-${slot.label}`,
@@ -388,7 +461,7 @@ function pointLabels(
 
 /** The forecast years the selected case gives no figure for. */
 function gapSlots(selected: MeasureCase, slots: Slot[]) {
-  return slots.filter((slot) => slot.forecast && cellAt(selected, slot)?.value == null);
+  return slots.filter((slot) => isForecast(slot) && cellAt(selected, slot)?.value == null);
 }
 
 function Hatch() {
@@ -439,11 +512,11 @@ function GapColumns({ selected, slots, g }: { selected: MeasureCase; slots: Slot
     <g>
       {gapSlots(selected, slots).map((slot) => {
         const cell = cellAt(selected, slot);
-        const centre = g.x(slot.year);
+        const centre = g.x(slots.indexOf(slot));
         const half = Math.min(46, g.step * 0.32);
         return (
           <rect
-            key={slot.year}
+            key={slotKey(slot)}
             data-gap={cell?.period ?? slot.label}
             x={centre - half}
             y={TOP}
@@ -477,12 +550,12 @@ function OtherGaps({
     <g>
       {others.flatMap((item, at) =>
         slots
-          .filter((slot) => slot.forecast && cellAt(item, slot)?.value == null)
+          .filter((slot) => isForecast(slot) && cellAt(item, slot)?.value == null)
           .map((slot) => (
             <rect
-              key={`${item.group}-${String(slot.year)}`}
+              key={`${item.group}-${slotKey(slot)}`}
               data-case-gap={`${item.group} ${cellAt(item, slot)?.period ?? slot.label}`}
-              x={g.x(slot.year) - 5 + at * 12}
+              x={g.x(slots.indexOf(slot)) - 5 + at * 12}
               y={BOTTOM - 14}
               width="10"
               height="10"
@@ -517,13 +590,13 @@ function Lines({
         const on = item === selected;
         return (
           <g key={item.group}>
-            {segments(item, slots).map(({ from, to }) => (
+            {segments(item, slots).map(({ from, to, at }) => (
               <line
                 key={from.period}
                 data-segment={item.group}
-                x1={g.x(fiscalYear(from.period) ?? 0)}
+                x1={g.x(at)}
                 y1={g.y(from.value ?? 0)}
-                x2={g.x(fiscalYear(to.period) ?? 0)}
+                x2={g.x(at + 1)}
                 y2={g.y(to.value ?? 0)}
                 strokeWidth={on ? 2.5 : 1.75}
                 strokeDasharray={style.dash}
@@ -531,13 +604,13 @@ function Lines({
                 className={style.stroke}
               />
             ))}
-            {slots.map((slot) => {
+            {slots.map((slot, at) => {
               const cell = cellAt(item, slot);
               return cell?.value == null ? null : (
                 <circle
-                  key={slot.year}
+                  key={slotKey(slot)}
                   data-point={`${item.group} ${cell.period}`}
-                  cx={g.x(slot.year)}
+                  cx={g.x(at)}
                   cy={g.y(cell.value)}
                   r={on ? 5.5 : 4}
                   strokeWidth="2"
@@ -590,50 +663,79 @@ function Labels({ labels }: { labels: Label[] }) {
   );
 }
 
-function Actual({ measure, g }: { measure: Measure; g: Geometry }) {
-  const actual = measure.actual;
-  const year = actual ? fiscalYear(actual.period) : null;
-  if (!actual || actual.value === null || year === null) return null;
+/** The reported and pro forma figures before the forecast: a ring at each period, in their own
+ * colour, the fiscal years joined. */
+function History({ measure, slots, g }: { measure: Measure; slots: Slot[]; g: Geometry }) {
   return (
     <g>
-      <circle
-        cx={g.x(year)}
-        cy={g.y(actual.value)}
-        r="5"
-        strokeWidth="2"
-        className="fill-surface-card stroke-chart-3"
-      />
+      {historySegments(measure, slots).map(({ from, to, at }) => (
+        <line
+          key={from.period}
+          data-segment="history"
+          x1={g.x(at)}
+          y1={g.y(from.value ?? 0)}
+          x2={g.x(at + 1)}
+          y2={g.y(to.value ?? 0)}
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          className="stroke-chart-3"
+        />
+      ))}
+      {slots.map((slot, at) => {
+        const cell = historyAt(measure, slot);
+        return cell?.value == null ? null : (
+          <circle
+            key={slotKey(slot)}
+            data-point={`${slot.kind} ${cell.period}`}
+            cx={g.x(at)}
+            cy={g.y(cell.value)}
+            r="5"
+            strokeWidth="2"
+            strokeDasharray={slot.kind === "unplaced" ? "2 2" : undefined}
+            className="fill-surface-card stroke-chart-3"
+          />
+        );
+      })}
     </g>
   );
 }
 
 function Axis({ slots, g }: { slots: Slot[]; g: Geometry }) {
   const narrow = g.step < 64;
+  const words = slots.map((slot) => (narrow ? slot.label.replace(/^FY\d{2}/u, "FY") : slot.label));
+  // A label that would print over a neighbour is left out (the first and the latest are kept
+  // first), as axis ticks are; its point keeps its place and the figure's reading names every period.
+  const kept = new Set(
+    thinTicks(
+      words.map((label, at) => ({ label, x: g.x(at), at })),
+      g.width,
+    ).map(({ x }) => x),
+  );
   return (
     <g>
-      {slots.map((slot) => (
+      {slots.map((slot, at) => (
         <text
-          key={slot.year}
-          x={g.x(slot.year)}
+          key={slotKey(slot)}
+          data-axis-period={slot.label}
+          x={g.x(at)}
           y={AXIS}
           textAnchor="middle"
           className="fill-text-secondary font-mono text-caption"
         >
-          {narrow ? slot.label.replace(/^FY\d{2}/u, "FY") : slot.label}
+          {kept.has(g.x(at)) ? words[at] : ""}
         </text>
       ))}
     </g>
   );
 }
 
-/** The maturity schedule as written, by fiscal year, under the path on the same axis. */
 /** A cell's own words for why it has no amount, short enough for the lane: "Not supplied". */
 const gapWords = (text: string) => /^(Not \w+)/u.exec(text.trim())?.[1] ?? "No amount";
 
 /** The maturity schedule as written, by fiscal year, under the path on the same axis. A year with
  * several rows draws each, side by side; a year with no row draws nothing. */
 function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g: Geometry }) {
-  const placed = schedule.years.filter((item) => slots.some((slot) => slot.year === item.year));
+  const placed = schedule.years.filter((item) => yearAt(slots, item.year) >= 0);
   const most = Math.max(0, ...placed.map((item) => item.cell?.value ?? 0));
   return (
     <g>
@@ -648,7 +750,8 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
         const same = placed.filter((other) => other.year === item.year);
         const room = Math.min(56, g.step * 0.6) / same.length;
         const width = Math.max(8, room - 4);
-        const x = g.x(item.year) - (same.length * room) / 2 + same.indexOf(item) * room + room / 2;
+        const centre = g.x(yearAt(slots, item.year));
+        const x = centre - (same.length * room) / 2 + same.indexOf(item) * room + room / 2;
         if (!item.cell) return null;
         const amount = item.cell.value;
         if (amount === null) {
@@ -711,29 +814,48 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
   );
 }
 
-function reading(drawn: MeasureCase[], slots: Slot[], schedule: PathSchedule) {
+/** What the chart calls the figures whose labels the period rule cannot place. */
+const UNPLACED = "Not placed in time order, shown last";
+
+/** The reported and pro forma figures before the forecast, named for what they hold. */
+function historyName(measure: Measure) {
+  const proForma = measure.history.some(({ period }) => parsePeriod(period)?.periodClass === "pf");
+  return proForma ? "Reported and pro forma" : "Reported";
+}
+
+function reading(measure: Measure, drawn: MeasureCase[], slots: Slot[], schedule: PathSchedule) {
+  const before = measure.history.length
+    ? [
+        `${historyName(measure)}: ${measure.history.map((cell) => `${cell.period} ${cell.display}`).join(", ")}`,
+      ]
+    : [];
   const cases = drawn.map(
     (item) =>
       `${item.name}: ${slots
-        .filter((slot) => slot.forecast)
+        .filter(isForecast)
         .map((slot) => {
           const cell = cellAt(item, slot);
           return `${slot.label} ${!cell ? "not published" : cell.value === null ? "not calculated" : cell.display}`;
         })
         .join(", ")}`,
   );
-  const placed = schedule.years.filter((item) => slots.some((slot) => slot.year === item.year));
+  const placed = schedule.years.filter((item) => yearAt(slots, item.year) >= 0);
   const lane = placed.length
     ? ` Debt maturing: ${placed.map((item) => `${item.label} ${item.cell?.text ?? ""}`).join(", ")}.`
     : "";
-  return `Net leverage by case. ${cases.join("; ")}.${lane}`;
+  const last = measure.unplaced.length
+    ? [
+        `${UNPLACED}: ${measure.unplaced.map((cell) => `${cell.period} ${cell.display}`).join(", ")}`,
+      ]
+    : [];
+  return `Net leverage by period. ${[...before, ...cases, ...last].join("; ")}.${lane}`;
 }
 
 function missingNotes(drawn: MeasureCase[], slots: Slot[]) {
   return drawn.flatMap((item) => {
-    const absent = slots.filter((slot) => slot.forecast && !cellAt(item, slot));
+    const absent = slots.filter((slot) => isForecast(slot) && !cellAt(item, slot));
     const blank = slots.flatMap((slot) => {
-      const cell = slot.forecast ? cellAt(item, slot) : undefined;
+      const cell = cellAt(item, slot);
       return cell && cell.value === null ? [cell] : [];
     });
     return [
@@ -756,16 +878,21 @@ function notes(measure: Measure, drawn: MeasureCase[], slots: Slot[], schedule: 
     out.push(
       `The model also publishes ${periodList(measure.others)}; this chart reads ${measure.label}.`,
     );
-  out.push(...missingNotes(drawn, slots));
-  for (const item of schedule.years)
-    if (item.cell?.value === null && slots.some((slot) => slot.year === item.year))
-      out.push(`Debt maturing, ${item.label}: ${item.cell.text}.`);
-  const beyond = schedule.years.filter(
-    (item) => item.cell && !slots.some((slot) => slot.year === item.year),
+  out.push(
+    // Said only of what the axis holds: with no forecast period nothing is drawn, last or not.
+    ...unplacedNote(
+      measure.unplaced.filter(({ period }) => slots.some((slot) => slot.label === period)),
+    ),
+    ...historyNotes(measure.historyGaps),
+    ...missingNotes(drawn, slots),
   );
+  for (const item of schedule.years)
+    if (item.cell?.value === null && yearAt(slots, item.year) >= 0)
+      out.push(`Debt maturing, ${item.label}: ${item.cell.text}.`);
+  const beyond = schedule.years.filter((item) => item.cell && yearAt(slots, item.year) < 0);
   if (beyond.length)
     out.push(
-      `Debt maturing beyond this axis: ${beyond.map((item) => `${item.label} ${item.cell?.text ?? ""}`).join(", ")}.`,
+      `Debt maturing in years not on this axis: ${beyond.map((item) => `${item.label} ${item.cell?.text ?? ""}`).join(", ")}.`,
     );
   if (schedule.offAxis.length)
     out.push(
@@ -816,9 +943,9 @@ function Legend({
   schedule: PathSchedule;
   keyed: boolean;
 }) {
-  const lane = schedule.years.some((item) => slots.some((slot) => slot.year === item.year));
+  const lane = schedule.years.some((item) => yearAt(slots, item.year) >= 0);
   const gapped = (item: MeasureCase) =>
-    slots.some((slot) => slot.forecast && cellAt(item, slot)?.value == null);
+    slots.some((slot) => isForecast(slot) && cellAt(item, slot)?.value == null);
   return (
     <ul
       aria-label="Chart key"
@@ -838,10 +965,19 @@ function Legend({
           </li>
         );
       })}
-      {measure.actual?.value != null && (
+      {measure.history.length > 0 && (
         <li className="flex items-center gap-1.5">
           <span aria-hidden="true" className="size-2.5 rounded-ds-full border-2 border-chart-3" />
-          Actual, {measure.actual.period}
+          {historyName(measure)}, before the forecast
+        </li>
+      )}
+      {measure.unplaced.length > 0 && (
+        <li className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="size-2.5 rounded-ds-full border-2 border-dashed border-chart-3"
+          />
+          {UNPLACED}
         </li>
       )}
       {lane && (
@@ -882,52 +1018,13 @@ function Legend({
   );
 }
 
-type TableRow = {
-  key: string;
-  label: string;
-  year: number;
-  forecast: Slot | null;
-  actual: boolean;
-};
-
-/** One row per period label as published: an actual year and a forecast year are different
- * columns of the model, so FY2025 and FY2025E are different rows, and an actual is never put in a
- * case's column. */
-function tableRows(slots: Slot[], measure: Measure, schedule: PathSchedule): TableRow[] {
-  const actual = measure.actual?.value != null ? measure.actual : null;
-  const rows: TableRow[] = [];
-  if (actual) {
-    const year = fiscalYear(actual.period) ?? 0;
-    rows.push({
-      key: `actual-${actual.period}`,
-      label: actual.period,
-      year,
-      forecast: null,
-      actual: true,
-    });
-  }
-  for (const slot of slots) {
-    if (slot.forecast)
-      rows.push({
-        key: `forecast-${slot.label}`,
-        label: slot.label,
-        year: slot.year,
-        forecast: slot,
-        actual: false,
-      });
-    else if (
-      !rows.some((row) => row.year === slot.year) &&
-      schedule.years.some((item) => item.year === slot.year)
-    )
-      rows.push({
-        key: `debt-${slot.label}`,
-        label: slot.label,
-        year: slot.year,
-        forecast: null,
-        actual: false,
-      });
-  }
-  return rows.sort((a, b) => a.year - b.year || Number(b.actual) - Number(a.actual));
+/** One row per period on the axis, as published: a reported year and a forecast year are
+ * different columns of the model, so FY2025 and FY2025E are different rows, and a reported figure
+ * is never put in a case's column. A later year is a row only where a maturity falls in it. */
+function tableRows(slots: Slot[], schedule: PathSchedule) {
+  return slots.filter(
+    (slot) => slot.kind !== "reach" || schedule.years.some((item) => item.year === slot.year),
+  );
 }
 
 function PathTable({
@@ -941,12 +1038,10 @@ function PathTable({
   measure: Measure;
   schedule: PathSchedule;
 }) {
-  const actual = measure.actual?.value != null ? measure.actual : null;
-  const lane = schedule.years.some((item) => slots.some((slot) => slot.year === item.year));
-  const rows = tableRows(slots, measure, schedule);
-  // A year's maturities sit once, on the forecast row of that year where there is one.
-  const debtRow = (year: number) =>
-    rows.find((row) => row.year === year && row.forecast) ?? rows.find((row) => row.year === year);
+  const reported = measure.history.length > 0;
+  const unplaced = measure.unplaced.length > 0;
+  const lane = schedule.years.some((item) => yearAt(slots, item.year) >= 0);
+  const rows = tableRows(slots, schedule);
   return (
     <div
       role="region"
@@ -963,9 +1058,14 @@ function PathTable({
             <th scope="col" className="py-2 pr-4 font-medium">
               Period
             </th>
-            {actual && (
+            {reported && (
               <th scope="col" className="py-2 pr-4 font-medium">
-                Actual
+                {historyName(measure)}
+              </th>
+            )}
+            {unplaced && (
+              <th scope="col" className="py-2 pr-4 font-medium">
+                Not placed in time order
               </th>
             )}
             {drawn.map((item) => (
@@ -982,24 +1082,26 @@ function PathTable({
         </thead>
         <tbody>
           {rows.map((row) => {
-            const owed =
-              debtRow(row.year) === row
-                ? schedule.years.filter((item) => item.year === row.year)
-                : [];
+            // A year's maturities sit once: on its forecast row where there is one.
+            const owed = schedule.years.filter((item) => slots[yearAt(slots, item.year)] === row);
             return (
-              <tr key={row.key} className="border-b border-border-hairline">
+              <tr key={slotKey(row)} className="border-b border-border-hairline">
                 <th scope="row" className="py-2 pr-4 text-left font-mono font-normal">
                   {row.label}
                 </th>
-                {actual && (
+                {reported && (
                   <td className="py-2 pr-4 font-mono tabular-nums">
-                    {row.actual ? actual.display : ""}
+                    {row.kind === "history" ? (historyAt(measure, row)?.display ?? "") : ""}
+                  </td>
+                )}
+                {unplaced && (
+                  <td className="py-2 pr-4 font-mono tabular-nums">
+                    {row.kind === "unplaced" ? (historyAt(measure, row)?.display ?? "") : ""}
                   </td>
                 )}
                 {drawn.map((item) => {
-                  const slot = row.forecast;
-                  if (!slot) return <td key={item.group} className="py-2 pr-4" />;
-                  const cell = cellAt(item, slot);
+                  if (!isForecast(row)) return <td key={item.group} className="py-2 pr-4" />;
+                  const cell = cellAt(item, row);
                   const text = !cell
                     ? "Not published"
                     : cell.value === null
@@ -1101,9 +1203,9 @@ function Chart({
   const { probe, widthOf } = useTextWidth();
   const values = [
     ...drawn.flatMap((item) => [...item.cells.values()].map((cell) => cell.value)),
-    measure.actual?.value ?? null,
+    ...[...measure.history, ...measure.unplaced].map((cell) => cell.value),
   ].filter((value): value is number => value !== null);
-  const lane = schedule.years.some((item) => slots.some((slot) => slot.year === item.year));
+  const lane = schedule.years.some((item) => yearAt(slots, item.year) >= 0);
   const { keyed, room } = labelRoom(drawn, slots, width, widthOf);
   const g = geometry(width, slots, values, lane, room);
   return (
@@ -1120,7 +1222,7 @@ function Chart({
         <div ref={ref} className="min-w-0">
           <svg
             role="img"
-            aria-label={reading(drawn, slots, schedule)}
+            aria-label={reading(measure, drawn, slots, schedule)}
             width={width}
             height={g.height}
             viewBox={`0 0 ${String(width)} ${String(g.height)}`}
@@ -1133,7 +1235,7 @@ function Chart({
             <Grid g={g} />
             <GapColumns selected={selected} slots={slots} g={g} />
             <OtherGaps drawn={drawn} selected={selected} slots={slots} g={g} />
-            <Actual measure={measure} g={g} />
+            <History measure={measure} slots={slots} g={g} />
             <Lines drawn={drawn} selected={selected} slots={slots} g={g} />
             <Axis slots={slots} g={g} />
             {lane && <Lane schedule={schedule} slots={slots} g={g} />}
@@ -1152,7 +1254,8 @@ function Chart({
 }
 
 /**
- * The lead: net leverage by case on a fiscal-year axis with the maturity schedule under it. A
+ * The lead: net leverage by period, the reported and pro forma periods then each case's forecast
+ * years, with the maturity schedule under the fiscal years. A
  * year the selected case does not publish, or publishes without a value, is a hatched column; no
  * line is joined across it. Covenant levels are not drawn on the model's path: the model's
  * figures are not covenant tests.
@@ -1178,9 +1281,10 @@ export function LeveragePath({
     ? drawnCases(measure, group)
     : { selected: undefined, drawn: [] };
   const slots = measure && selected ? axisSlots(measure, drawn, schedule) : [];
-  const forecast = slots.filter((slot) => slot.forecast);
+  const forecast = slots.filter(isForecast);
+  // The axis runs from the first period drawn, reported or forecast, to the last forecast period.
   const span = forecast.length
-    ? `, ${forecast[0]?.label ?? ""} to ${forecast.at(-1)?.label ?? ""}`
+    ? `, ${slots[0]?.label ?? ""} to ${forecast.at(-1)?.label ?? ""}`
     : "";
   return (
     <Tile

@@ -17,7 +17,8 @@ import {
 } from "./forecastData";
 import { GapChip, ModuleGap } from "./ForecastGaps";
 import { moduleSource } from "./overview/figureData";
-import { downsidePanels, type DownsidePanel } from "./overview/stressData";
+import { gapReading, gapText, gapWord } from "./overview/notes";
+import { downsidePanels, stressLabel, type DownsidePanel } from "./overview/stressData";
 import { Figure, Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
 import type { ForecastSource } from "./ForecastRecord";
@@ -348,7 +349,15 @@ const NAMES = 104;
 const LABEL = 56;
 const GUTTER = 12;
 const LINE = 14;
-const lead = (text: string) => text.split(" (")[0] ?? text;
+const lead = (text: string) => stressLabel(text).split(" (")[0] ?? text;
+
+/** A cell as the reading says it: its own words, a stated gap as its gap word. */
+function cellReading(cell: DownsidePanel["cells"][number] | undefined) {
+  if (!cell) return "";
+  return cell.value === null && (cell.reason !== null || !cell.text.trim())
+    ? gapReading(cell.text)
+    : cell.text;
+}
 
 /** A name broken into lines of at most `chars` characters, at spaces; a longer word is broken. */
 function wrapName(text: string, chars: number): string[] {
@@ -391,7 +400,7 @@ function StressMultiple({
   const reading = cases
     .map(
       (item, at) =>
-        `${item.name}: ${panels.map((panel) => `${panel.measure} ${panel.cells[at]?.value === null ? "not calculated" : (panel.cells[at]?.text ?? "")}`).join(", ")}`,
+        `${item.name}: ${panels.map((panel) => `${panel.measure} ${cellReading(panel.cells[at])}`).join(", ")}`,
     )
     .join(". ");
   return (
@@ -456,7 +465,7 @@ function StressMultiple({
                 if (cell.value === null)
                   return (
                     <text key={row} x={left} y={y + 13} className="fill-gap-text text-caption">
-                      Not calculated
+                      {gapWord(cell.text)}
                     </text>
                   );
                 // Zero is a tick on the zero line; any other figure is a bar of at least 3px on its
@@ -554,8 +563,11 @@ function StressPart({ view, folder }: { view: ReportView; folder: string }) {
     ...data.panels.flatMap((panel) =>
       panel.cells.flatMap((cell, at) => {
         const scenario = data.cases[at]?.name ?? "";
-        if (cell.value === null)
-          return [`${scenario}, ${panel.measure}: ${cell.reason ?? "not stated"}.`];
+        if (cell.value === null) {
+          // The cell's own words: the module's stated reason, or the text it wrote in full.
+          const words = gapText(cell);
+          return words === null ? [] : [`${scenario}, ${panel.measure}: ${words}.`];
+        }
         return lead(cell.text) !== cell.text
           ? [`${scenario}, ${panel.measure}: ${cell.text}.`]
           : [];

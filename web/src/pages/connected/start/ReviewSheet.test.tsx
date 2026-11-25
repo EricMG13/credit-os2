@@ -24,7 +24,7 @@ const answers: Answers = {
 const summary: Summary = {
   error: "",
   digest: "server-approved",
-  cap: "25",
+  cap: "30",
   documents: [{ source: LONG_FILE, kind: "annual_report" }],
   ignored: [],
   modules: ["CP-0"],

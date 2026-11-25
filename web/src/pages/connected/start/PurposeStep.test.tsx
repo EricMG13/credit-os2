@@ -17,7 +17,7 @@ describe("Purpose cards", () => {
             title: "Alpha",
             description: "Q?",
             modules: "3 base modules",
-            cap: "Cap USD 25.00",
+            cap: "Cap USD 30.00",
           },
           { id: "b", title: "Beta", description: "R?", modules: "4 base modules" },
         ]}
@@ -26,7 +26,7 @@ describe("Purpose cards", () => {
     const group = screen.getByRole("radiogroup", { name: "Pathway" });
     expect(within(group).getByRole("radio", { name: "Alpha" })).toBeChecked();
     expect(within(group).getByRole("radio", { name: "Beta" })).not.toBeChecked();
-    expect(screen.getByText("Cap USD 25.00")).toBeInTheDocument();
+    expect(screen.getByText("Cap USD 30.00")).toBeInTheDocument();
     expect(screen.getByText("4 base modules")).toBeInTheDocument();
   });
 });

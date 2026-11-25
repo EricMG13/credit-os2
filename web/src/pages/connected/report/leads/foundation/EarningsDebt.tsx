@@ -14,7 +14,7 @@ import {
 } from "../kit/marks";
 import { Grid, HALO, HALO_CLASS, TickLabels } from "../kit/marks/parts";
 import type { LeadProps } from "../types";
-import { UNORDERED_SENTENCE } from "../kit/tables";
+import { unplacedNotes } from "../kit/tables";
 import { periodsCaption } from "./periodsData";
 import {
   barLayout,
@@ -439,7 +439,7 @@ function Leverage({
   comparison: EarningsAgainstDebt["comparison"];
   /** The compared pair, named where more than two periods are drawn. */
   pair: string | null;
-  /** False for periods that cannot be put in time order: the figures are written, never a slope. */
+  /** False when the period order could not place a period: the figures are written, never a slope. */
   ordered: boolean;
 }) {
   const marks = leverageMarks(leverage);
@@ -577,7 +577,7 @@ export function EarningsDebtTile({ lead }: { lead: LeadProps }) {
       source="the earnings and debt figures"
       legend={legendOf(data)}
       caption={periodsCaption(lead.entry)}
-      notes={data.ordered ? [] : [UNORDERED_SENTENCE]}
+      notes={unplacedNotes(data.unplaced, data.periods.length)}
       table={earningsTable(data)}
     >
       <div

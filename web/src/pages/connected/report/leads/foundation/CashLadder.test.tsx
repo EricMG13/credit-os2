@@ -305,12 +305,18 @@ describe("cash ladder: other real handoffs and mutations", () => {
     expectNoPlug(tile);
   });
 
-  it("three periods: every stated period is drawn, latest first; an all-gap period is its gap line", () => {
+  // Rewritten to the ruling of 2026-11-25 (was "…drawn, latest first…": FY2024, FY2023, FY2022):
+  // the ladders follow the one period order, oldest fiscal year first.
+  it("three periods: every stated period is drawn, oldest first; an all-gap period is its gap line", () => {
     const { tile } = draw(threePeriodCp1());
     expect(tile.textContent).not.toContain("table view");
-    expect(tile.textContent).toContain("Cash conversion · US$m, FY2024, FY2023, FY2022");
-    const ladders = [...tile.querySelectorAll("[data-ladder]")];
-    expect(ladders.map((node) => node.getAttribute("data-ladder"))).toEqual(["FY2024", "FY2023"]);
+    expect(tile.textContent).toContain("Cash conversion · US$m, FY2022, FY2023, FY2024");
+    const ladders = [...tile.querySelectorAll("[data-ladder], [data-ladder-gap]")];
+    expect(
+      ladders.map(
+        (node) => node.getAttribute("data-ladder") ?? node.getAttribute("data-ladder-gap"),
+      ),
+    ).toEqual(["FY2022", "FY2023", "FY2024"]);
     const first = (period: string) =>
       tile.querySelector(`[data-ladder="${period}"] rect[data-bar]`) ?? undefined;
     expect(num(first("FY2024"), "data-to")).toBe(4173);
@@ -328,6 +334,42 @@ describe("cash ladder: other real handoffs and mutations", () => {
       "Not supplied: outside the comparison scope",
       "3,395",
       "4,173",
+      "Level",
+    ]);
+  });
+
+  it("an LTM and a forecast column: a ladder per period, fiscal years, then the LTM, then the forecast", () => {
+    // The cash flow statement's FY2024 column is renamed FY2025E and its FY2023 column
+    // LTM Jun-2025; EBITDA (Adjusted) still comes from the income statement's FY2023 and FY2024.
+    const renamed = edited(cp1Entry(), (table, heading) =>
+      heading === "T4.5 Cash flow statement"
+        ? {
+            ...table,
+            headers: table.headers.map((header) =>
+              header === "FY2024" ? "FY2025E" : header === "FY2023" ? "LTM Jun-2025" : header,
+            ),
+          }
+        : table,
+    );
+    const { tile } = draw(renamed);
+    expect(tile.textContent).toContain(
+      "Cash conversion · US$m, FY2023, FY2024, LTM Jun-2025, FY2025E",
+    );
+    const ladders = [...tile.querySelectorAll("[data-ladder], [data-ladder-gap]")];
+    expect(
+      ladders.map(
+        (node) => node.getAttribute("data-ladder") ?? node.getAttribute("data-ladder-gap"),
+      ),
+    ).toEqual(["FY2023", "FY2024", "LTM Jun-2025", "FY2025E"]);
+    expect(tile.querySelectorAll("[data-prior]")).toHaveLength(0);
+    const rows = openTable(tile);
+    expect(rows[0]).toEqual(["Step", "FY2023", "FY2024", "LTM Jun-2025", "FY2025E", "Kind"]);
+    expect(rows.find(([step]) => step === "Net Cash from Operating Activities")).toEqual([
+      "Net Cash from Operating Activities",
+      "Not stated",
+      "Not stated",
+      "1,375",
+      "2,045",
       "Level",
     ]);
   });

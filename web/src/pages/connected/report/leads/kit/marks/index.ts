@@ -166,10 +166,12 @@
  * ── Kit data (../changes, ../tables, ../numbers, ../reader) ──────────────────────────────
  *   changeBetween({ period, cell, unit? }, { period, cell, unit? }, stated?): Change | null — the
  *   one change a page prints: the stated change as written, else the exact difference only for
- *   one kind of period exactly a year apart on one unit. periodKey(label), yearApart(a, b).
- *   orderByPeriod / periodRows / statementColumns: time order inside a year (Q1 < Q2, H1 < H2,
- *   LTM by end month), two-digit years; `isUnordered(read)` → draw `read.stated` in handoff order
- *   with no connecting line and `UNORDERED_SENTENCE`; comparisonOf(read) is then null.
+ *   one kind of period exactly a year apart on one unit. changePeriod(label), yearApart(a, b):
+ *   the change rule's reading of a label, never an order.
+ *   orderByPeriod / periodRows / statementColumns: the one period order (`@/utils/periodOrder`:
+ *   fiscal years, then YTD, LTM, pro forma, forecasts); a label it cannot read is drawn last and
+ *   named (`unplacedNotes(read.unplaced, n)`). "Latest" is `latestReported(...)`: never a pro
+ *   forma or forecast period. comparisonOf(periods) compares reported periods only.
  *   readCell: "(12.3)" is −12.3 (`written` keeps the brackets); "n.m." stays words.
  *   safeText strips `[E3]`-style markers; reasonText(reason): "—" for "source dash".
  */

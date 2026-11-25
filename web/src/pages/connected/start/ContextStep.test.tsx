@@ -7,9 +7,9 @@ import { chooseControl } from "./testControls";
 setUpConnectedPage();
 
 const caps = {
-  credit_snapshot: "25",
-  lite_credit_assessment: "15",
-  deep_credit_assessment: "40",
+  credit_snapshot: "30",
+  lite_credit_assessment: "20",
+  deep_credit_assessment: "50",
   earnings_update: "20",
   relative_value: "20",
   covenant_refinancing: "20",

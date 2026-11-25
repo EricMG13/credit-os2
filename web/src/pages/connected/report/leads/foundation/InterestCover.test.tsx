@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it } from "vitest";
 import { containsReference, type OutputEntry } from "../../../publishedReport";
 import { cp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
-import { addRow, dropTable, setCell, withRows } from "../fixtures/mutations";
+import { addRow, dropTable, mixedPeriodsCp1, setCell, withRows } from "../fixtures/mutations";
 import { coverLayout } from "./coverGeometry";
 import { interestCover } from "./foundationData";
 import { InterestCoverTile } from "./InterestCover";
@@ -191,18 +191,93 @@ describe("interest cover: other handoffs and mutations", () => {
     expect(parts(tile, "change")).toEqual([]);
   });
 
-  it("periods it cannot put in time order: drawn as stated, not joined, and said so", () => {
+  // Rewritten to the ruling of 2026-11-25 (was "periods it cannot put in time order: drawn as
+  // stated, not joined, and said so", on FY2024 beside YTD 2024): a year to date is placed after
+  // the fiscal year; only a label the period order cannot read is drawn last and named.
+  it("a year to date is placed after the fiscal year and joined; nothing is said of the order", () => {
     const entry = withRows(cp1Entry(), COVER, [
-      ["FY2024", "3.29", "x", "-"],
       ["YTD 2024", "3.10", "x", "-"],
+      ["FY2024", "3.29", "x", "-"],
     ]);
     const { tile } = draw(entry);
-    expect(marks(tile).map(([period]) => period)).toEqual(["FY2024", "YTD 2024"]);
-    expect(tile.querySelectorAll('[data-part="link"]')).toHaveLength(0);
+    expect(marks(tile)).toEqual([
+      ["FY2024", "prior", 3.29],
+      ["YTD 2024", "current", 3.1],
+    ]);
+    expect(tile.querySelectorAll('[data-part="link"]')).toHaveLength(1);
     expect(parts(tile, "change")).toEqual([]);
-    expect(tile.textContent).toContain(
-      "Periods are in the order stated; this page could not put them in time order.",
+    expect(tile.textContent).not.toMatch(/time order/);
+  });
+
+  it("a period it cannot place is drawn last, not joined to the others, and named once", () => {
+    const entry = withRows(cp1Entry(), COVER, [
+      ["Current", "3.10", "x", "-"],
+      ["FY2024", "3.29", "x", "-"],
+      ["FY2023", "2.71", "x", "-"],
+    ]);
+    const { tile, svg } = draw(entry);
+    // The dot is the latest reported period, FY2024: never the label that cannot be placed.
+    expect(marks(tile)).toEqual([
+      ["FY2023", "prior", 2.71],
+      ["FY2024", "current", 3.29],
+      ["Current", "prior", 3.1],
+    ]);
+    // One line, FY2023 to FY2024: none runs to the period that is not placed.
+    expect(tile.querySelectorAll('[data-part="link"]')).toHaveLength(1);
+    expect(parts(tile, "change")).toEqual(["FY2023 to FY2024: +0.58x, up, better"]);
+    expect(tile.textContent.split("Not placed in time order, shown last: Current.")).toHaveLength(
+      2,
     );
+    expect(svg?.getAttribute("aria-label")).toBe(
+      "EBITDA / cash interest, x, by period, those not placed in time order last: " +
+        "FY2023 2.71x, FY2024 3.29x, Current 3.10x. FY2023 to FY2024: +0.58x, up, better. " +
+        "Axis from 0.",
+    );
+  });
+
+  it("five scrambled periods: fiscal years, then LTM, PF and the forecast; the dot is the LTM", () => {
+    const { tile, svg } = draw(mixedPeriodsCp1());
+    expect(marks(tile)).toEqual([
+      ["FY2023", "prior", 2.71],
+      ["FY2024", "prior", 3.29],
+      ["LTM Jun-2025", "current", 3.4],
+      ["PF FY2024", "prior", 3.05],
+      ["FY2025E", "prior", 3.9],
+    ]);
+    expect(parts(tile, "value")).toEqual(["2.71x", "3.29x", "3.40x", "3.05x", "3.90x"]);
+    expect(legend(tile)).toEqual([
+      ["ring", "FY2023, FY2024, PF FY2024, FY2025E"],
+      ["dot", "LTM Jun-2025"],
+    ]);
+    // FY2024 → LTM Jun-2025 is not one kind a year apart: no change is printed, none to FY2025E.
+    expect(parts(tile, "change")).toEqual([]);
+    expect(svg?.getAttribute("aria-label")).toBe(
+      "EBITDA / cash interest, x, by period: FY2023 2.71x, FY2024 3.29x, LTM Jun-2025 3.40x, " +
+        "PF FY2024 3.05x, FY2025E 3.90x. Axis from 0.",
+    );
+    expect(openTable(tile).map((row) => row.slice(0, 2))).toEqual([
+      ["Period", "EBITDA / cash interest, x"],
+      ["FY2023", "2.71"],
+      ["FY2024", "3.29"],
+      ["LTM Jun-2025", "3.40"],
+      ["PF FY2024", "3.05"],
+      ["FY2025E", "3.90"],
+    ]);
+  });
+
+  it("a forecast year after two fiscal years: the change stays FY2023 to FY2024, the dot FY2024", () => {
+    const entry = withRows(cp1Entry(), COVER, [
+      ["FY2025E", "3.90", "x", "-"],
+      ["FY2024", "3.29", "x", "-"],
+      ["FY2023", "2.71", "x", "-"],
+    ]);
+    const { tile } = draw(entry);
+    expect(marks(tile)).toEqual([
+      ["FY2023", "prior", 2.71],
+      ["FY2024", "current", 3.29],
+      ["FY2025E", "prior", 3.9],
+    ]);
+    expect(parts(tile, "change")).toEqual(["FY2023 to FY2024: +0.58x, up, better"]);
   });
 
   it("without the table, or all gaps: the one gap tile, the module's own reason when it states one", () => {

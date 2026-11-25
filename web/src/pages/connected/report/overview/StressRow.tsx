@@ -30,6 +30,7 @@ import {
   PATH,
   bulletGeometry,
   downsidePanels,
+  stressLabel,
   forwardPath,
   headroomTests,
   pathGeometry,
@@ -340,7 +341,22 @@ function downsideNotes(data: Downside): Note[] {
           ];
     }),
   );
-  return [...plainNotes(data.assumptions), ...gaps];
+  // A cell the module qualifies in words is labelled with its multiple; the whole cell is the note.
+  const qualified = data.panels.flatMap((panel) =>
+    panel.cells.flatMap((cell, at) =>
+      cell.value !== null && stressLabel(cell.text) !== cell.text
+        ? [
+            {
+              lead: `${data.cases[at]?.name ?? ""}, ${panel.measure}: `,
+              text: cell.text,
+              line: panel.line,
+              end: ".",
+            },
+          ]
+        : [],
+    ),
+  );
+  return [...plainNotes(data.assumptions), ...gaps, ...qualified];
 }
 
 /** Lines of 12 px text from a first baseline, one line apart, each at `x`. */
@@ -671,15 +687,17 @@ function PathChart({ path }: { path: Path }) {
                     r="5"
                     className="fill-chart-1"
                   />
-                  <text
-                    x={point.label}
-                    y={point.y + 20}
-                    textAnchor="middle"
-                    fontSize={TEXT}
-                    className="fill-text-primary font-mono"
-                  >
-                    {point.display}
-                  </text>
+                  {point.label === null ? null : (
+                    <text
+                      x={point.label}
+                      y={point.y + 20}
+                      textAnchor="middle"
+                      fontSize={TEXT}
+                      className="fill-text-primary font-mono"
+                    >
+                      {point.display}
+                    </text>
+                  )}
                 </Fragment>,
               ],
         )}

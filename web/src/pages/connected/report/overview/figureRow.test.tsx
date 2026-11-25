@@ -125,12 +125,10 @@ describe("the latest figure is the latest period, never the last row", () => {
   });
 
   it.each([
-    ["a period with words after it", "FY2023 (restated)", "FY2024"],
-    ["bare years", "2023", "2024"],
-    ["two-digit years", "FY23", "FY24"],
-    ["an estimate", "FY2024", "FY2025E"],
-    ["a quarter", "FY2024", "Q1 2025"],
-    ["periods of mixed forms", "FY2023", "FY2024 / 2024-09-30"],
+    ["a period with no year", "First half", "FY2024"],
+    ["one year written two ways", "2024", "FY2024"],
+    ["a restated year beside the same year", "FY2024 (restated)", "FY2024"],
+    ["only a pro forma and a forecast", "PF FY2024", "FY2025E"],
     ["a period that repeats", "FY2024", "FY2024"],
   ])(
     "draws each stated figure with its period as written, and its trace, for %s",
@@ -150,7 +148,7 @@ describe("the latest figure is the latest period, never the last row", () => {
       expect(within(tile).getByText(`4.00x in ${second}`)).toBeVisible();
       expect(
         within(tile).getByText(
-          "The periods cannot be put in order, so no latest figure or change is drawn.",
+          "These periods give no single latest reported period, so no latest figure or change is drawn.",
         ),
       ).toBeVisible();
       expect(tile).not.toHaveTextContent(/n\.a\.|Not supplied|Better|Worse|from |-1\.00x/);
@@ -160,6 +158,32 @@ describe("the latest figure is the latest period, never the last row", () => {
       expect(within(tile).queryByRole("img")).toBeNull();
     },
   );
+
+  // Owner's ruling, 2026-11-25: every supplied period is drawn in the one period order, and the
+  // latest reported figure is never a pro forma or forecast one. Expected values are literals.
+  it("draws every period in period order and reads the last twelve months as the latest", () => {
+    draw(
+      foundation(
+        chart(
+          "leverage",
+          LEVERAGE,
+          ["FY2025E", "3.00", "2.50", "x", "Stated."],
+          ["PF LTM Jun 2025", "3.50", "3.00", "x", "Stated."],
+          ["FY2023", "5.00", "4.50", "x", "Stated."],
+          ["LTM Jun 2025", "4.20", "3.70", "x", "Stated."],
+          ["FY2024", "4.60", "4.10", "x", "Stated."],
+        ),
+      ),
+    );
+    const tile = gross();
+    expect(within(tile).getByText("4.20x", { selector: "span" })).toBeVisible();
+    expect(tile).not.toHaveTextContent("cannot be put in order");
+    expect(
+      within(tile).getByRole("img", {
+        name: "Total debt / EBITDA: 5.00x in FY2023, 4.60x in FY2024, 4.20x in LTM Jun 2025, 3.50x in PF LTM Jun 2025, 3.00x in FY2025E.",
+      }),
+    ).toBeVisible();
+  });
 
   it("reads a figure with its unit, a Unicode minus and a padded period", () => {
     draw(

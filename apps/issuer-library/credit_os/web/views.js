@@ -200,14 +200,27 @@ function chartIntro(id,v) {
   return `<div class="section-heading"><h2>${esc(v.title)}</h2>${label?`<span>${esc(label)}</span>`:''}${chartTrace(id,v)}</div>${v.quote?`<p class="chart-reading">${rich(v.quote.text.replace(/\n/g,' '))}</p>${sourceFooter(`${id}:${v.quote.line}`)}`:''}`;
 }
 const evidenceHref=(id,line)=>routeHref(data[id].module,current?.output===id?current.section:modules[id].first,`${id}:${line}`,data[id].run);
+// A comparison over periods (store.py visual_periods says which axis of the table they lie on, and their order): the periods run along the x axis in that order,
+// one column per series from a zero baseline, the series (the measures, or the value columns) named once in the legend. Each column opens its own row.
+function periodColumns(module,v,table,rows) {
+  const columns=v.columns||[v.column],across=v.periods.axis==='columns';
+  const series=across?rows.map(row=>plain(row.cells[0])):columns.map(c=>table.headers[c]);
+  const groups=v.periods.order.map(at=>across?{label:table.headers[at],cells:rows.map(row=>({row,value:row.cells[at]}))}:{label:plain(table.rows[at].cells[0]),cells:columns.map(c=>({row:table.rows[at],value:table.rows[at].cells[c]}))});
+  const numbers=groups.flatMap(g=>g.cells.map(c=>chartNumber(c.value)??0)),top=Math.max(0,...numbers),low=Math.min(0,...numbers),span=top-low||1,pct=n=>Math.round(n/span*10000)/100,zero=pct(-low);
+  const legend=`<div class="chart-legend">${series.map((name,i)=>`<span><i class="series-${i%3}"></i>${esc(name)}</span>`).join('')}</div>`;
+  const periods=groups.map(g=>`<div class="chart-row" role="group" aria-label="${esc(g.label)}"><span class="plot"><span class="zero-rule" style="bottom:${zero}%"></span>${g.cells.map((c,i)=>columnOf(c.value,i%3,zero,pct,'a',` href="${evidenceHref(module,c.row.line)}" data-evidence="${esc(`${module}:${c.row.line}`)}" aria-label="${esc(`${g.label}, ${series[i]}: ${chartNumber(c.value)===null?'n.a.':c.value}. View source`)}"`)).join('')}</span><span class="chart-label">${esc(g.label)}</span></div>`).join('');
+  return `<div class="column-chart" style="--periods:${groups.length}">${legend}<div class="periods">${periods}</div></div>`;
+}
 function comparisonChart(module,v,selection=0,chips=false,note=true) {
   const table=fixtureTable(module,v.table),selected=table.rows[v.rows?.[selection]??0];
   const selectable=['paired','peers'].includes(v.kind)&&!['CP-4C','CP-2A'].includes(data[module].module);
   const rows=selectable?[selected]:(v.rows||table.rows.map((_,i)=>i)).map(i=>table.rows[i]);
+  const control=selectable&&!v.fixed&&v.periods?.axis!=='rows'?`<label class="metric-control">Measure <select id="chart-metric">${v.rows.map((idx,i)=>`<option value="${i}" ${i===selection?'selected':''}>${esc(plain(table.rows[idx].cells[0]))}</option>`).join('')}</select></label>`:'';
+  if(v.periods)return `${chartIntro(module,v)}${control}${periodColumns(module,v,table,rows)}${note?'<p class="matrix-note">Missing values have no bar.</p>':''}`;
   const points=v.kind==='peers'?v.columns.map(c=>({label:table.headers[c],value:selected.cells[c],row:selected,series:0})):rows.flatMap(row=>(v.columns||[v.column]).map((c,i)=>({label:plain(row.cells[0]),series:i,value:row.cells[c],row,column:c})));
   const max=Math.max(1,...points.map(p=>Math.abs(chartNumber(p.value)??0)));
   const hasNegative=points.some(p=>(chartNumber(p.value)??0)<0);
-  return `${chartIntro(module,v)}${selectable&&!v.fixed?`<label class="metric-control">Measure <select id="chart-metric">${v.rows.map((idx,i)=>`<option value="${i}" ${i===selection?'selected':''}>${esc(plain(table.rows[idx].cells[0]))}</option>`).join('')}</select></label>`:''}<div class="horizontal-chart ${hasNegative?'diverging':''}">${points.map((p,i)=>{
+  return `${chartIntro(module,v)}${control}<div class="horizontal-chart ${hasNegative?'diverging':''}">${points.map((p,i)=>{
     const n=chartNumber(p.value),width=n===null?0:Math.abs(n)/max*100;
     const key=`${module}:${p.row.line}`,cells=`<span class="chart-label">${i&&points[i-1].label===p.label?`<span class="sr-only">${esc(p.label)}</span>`:esc(p.label)}${v.columns&&v.kind!=='peers'?`<small>${esc(table.headers[p.column])}</small>`:''}</span><span class="track ${n===null?'missing':''}">${hasNegative?`<span class="zero-rule"></span>${n===null?'':`<i class="series-${p.series} ${n<0?'negative':''}" style="left:${n<0?50-width/2:50}%;width:${width/2}%"></i>`}`:n===null?'':`<i class="series-${p.series}" style="width:${width}%"></i>`}</span>${n===null?(v.plain?`<strong>${statedReason(module,String(p.value??''))}</strong>`:`<strong${/[\p{L}\p{N}]/u.test(String(p.value??''))?` title="${esc(p.value)}"`:''}>n.a.</strong>`):`<strong>${esc(p.value)}</strong>`}`;
     // With chips the row is a group: the button opens the row, each chip opens its own source (a chip cannot sit inside a button).
@@ -258,15 +271,20 @@ function bridgeChart(module,v) {
   const axis=(p,i)=>v.plain?[String(i+1)]:axisLines(name(p),step);
   return `${chartIntro(module,v)}<div class="vector-chart${wide?' bridge-wide':''}"${wide?` role="region" tabindex="0" aria-label="${esc(v.title)}; scroll horizontally for every step"`:''}><svg${wide?` style="min-width:${Math.round((width+20)*WIDE_SCALE)}px"`:v.headless?` style="min-width:${points.length*56}px"`:''} viewBox="-5 -12 ${width+20} ${BRIDGE_HEIGHT}" role="group" aria-label="${esc(v.title)}.${v.plain?'':' Select a movement to inspect its source.'}"><line x1="0" y1="${y(0)}" x2="${width}" y2="${y(0)}" class="axis"/>${points.map((p,i)=>mark(p,`<rect class="${p.total?'total':p.amount<0?'outflow':'movement'}" x="${i*step+10}" y="${y(Math.max(p.start,p.end))}" width="${step-20}" height="${Math.max(1,Math.abs(y(p.end)-y(p.start)))}"/><text x="${i*step+step/2}" y="${y(Math.max(p.start,p.end))-8}" text-anchor="middle">${esc(p.display??p.row.cells[v.amount])}</text><text class="axis-label" x="${i*step+step/2}" y="${AXIS_Y}" text-anchor="middle">${axis(p,i).map((line,at)=>`<tspan x="${i*step+step/2}" dy="${at?'1.2em':0}">${esc(line)}</tspan>`).join('')}</text>${i<points.length-1?`<line class="connector" x1="${i*step+step-10}" y1="${y(p.end)}" x2="${(i+1)*step+10}" y2="${y(p.end)}"/>`:''}`)).join('')}</svg></div>${v.plain?`<ol class="bridge-key bridge-numbered">${points.map((p,i)=>name(p)===''?'':`<li><span class="bridge-n">${i+1}</span><span>${esc(name(p))}</span></li>`).join('')}</ol>`:`<div class="bridge-key">${points.map((p,i)=>`<span>${v.plain?esc(name(p)):`${sourceLink(`${module}:${p.row.line}`,p.label||plain(p.row.cells[0]))}${classTag(evidence.get(`${module}:${p.row.line}`),'row-classification')}`}</span>`).join('')}</div>`}`;
 }
+// The path chart draws what the store gives it (handoff_fields.py path_series): the periods along the x axis in the order given, one line per path, each
+// point the path's own row for that period. The scale and its gridlines come from the values drawn; the readout is each path's value at the last period given.
 function pathChart(module,v) {
-  const table=fixtureTable(module,v.table),series=['Reference','Downside','Upside'];
-  const values=table.rows.map(r=>chartNumber(r.cells[v.column]));
-  if(values.some(n=>n===null))throw new Error('Missing conditional path value');
-  const max=Math.max(...values)*1.13, y=n=>200-n/max*175;
-  return `${chartIntro(module,v)}<div class="chart-legend path-legend">${series.map((s,i)=>`<span><i class="path-key-${i}"></i>${s}</span>`).join('')}<span>Dashed paths · conditional scenarios</span></div><div class="vector-chart"><svg viewBox="0 0 670 250" role="group" aria-label="Closing cash across FY2025 to FY2027. Select a point to inspect its exact source.">${[0,2000,4000,6000].map(n=>`<line class="gridline" x1="65" x2="600" y1="${y(n)}" y2="${y(n)}"/><text class="axis-label" x="55" y="${y(n)+4}" text-anchor="end">${n.toLocaleString('en-US')}</text>`).join('')}${series.map((name,i)=>{
-    const rows=table.rows.filter(r=>r.cells[0].startsWith(name+' / '));
-    return `<polyline class="path-${i}" fill="none" stroke-dasharray="${['5 4','2 4','9 4'][i]}" points="${rows.map((r,j)=>`${90+j*235},${y(chartNumber(r.cells[v.column]))}`).join(' ')}"/>${rows.map((r,j)=>`<a class="plot-point" href="${evidenceHref(module,r.line)}" data-evidence="${esc(`${module}:${r.line}`)}" aria-label="${esc(r.cells[0])}, closing cash ${esc(r.cells[v.column])} ${esc(v.unit)}. View source"><title>${esc(r.cells[0])}: ${esc(r.cells[v.column])} ${esc(v.unit)}</title><circle class="point-hit" cx="${90+j*235}" cy="${y(chartNumber(r.cells[v.column]))}" r="12"/><circle class="point-${i}" cx="${90+j*235}" cy="${y(chartNumber(r.cells[v.column]))}" r="4"/></a>`).join('')}`;
-  }).join('')}${['2025','2026','2027'].map((year,i)=>`<text class="axis-label" x="${90+i*235}" y="230" text-anchor="middle">FY${year}</text>`).join('')}</svg></div><div class="path-readout">${series.map(name=>{const r=table.rows.find(r=>r.cells[0]===name+' / 2027');return `<div><span>${name} · FY2027</span><strong>${esc(r.cells[v.column])}</strong>${sourceFooter(`${module}:${r.line}`)}</div>`;}).join('')}</div>`;
+  const table=fixtureTable(module,v.table),{periods,series}=v.paths,measure=plain(table.headers[v.column]),cell=row=>row.cells[v.column];
+  const lines=series.map(s=>s.rows.map((at,j)=>at===null?null:{row:table.rows[at],j}).filter(Boolean));
+  const values=lines.flat().map(p=>chartNumber(cell(p.row)));
+  if(!values.length||values.some(n=>n===null))throw new Error('Missing conditional path value');
+  const max=Math.max(...values)*1.13||1,y=n=>200-n/max*175,x=j=>periods.length>1?90+j*470/(periods.length-1):325;
+  const unit=10**Math.floor(Math.log10(max)),step=[1,2,5,10].map(m=>m*unit).find(size=>max/size<=4),grid=Array.from({length:Math.floor(max/step)+1},(_,i)=>i*step);
+  const span=periods.length>1?`${measure} across ${periods[0]} to ${periods.at(-1)}`:`${measure}, ${periods[0]}`;
+  return `${chartIntro(module,v)}<div class="chart-legend path-legend">${series.map((s,i)=>`<span><i class="path-key-${i%3}"></i>${esc(s.name)}</span>`).join('')}<span>Dashed paths · conditional scenarios</span></div><div class="vector-chart"><svg viewBox="0 0 670 250" role="group" aria-label="${esc(span)}. Select a point to inspect its exact source.">${grid.map(n=>`<line class="gridline" x1="65" x2="600" y1="${y(n)}" y2="${y(n)}"/><text class="axis-label" x="55" y="${y(n)+4}" text-anchor="end">${n.toLocaleString('en-US')}</text>`).join('')}${lines.map((points,i)=>{
+    const at=p=>`${x(p.j)},${y(chartNumber(cell(p.row)))}`;
+    return `<polyline class="path-${i%3}" fill="none" stroke-dasharray="${['5 4','2 4','9 4'][i%3]}" points="${points.map(at).join(' ')}"/>${points.map(p=>`<a class="plot-point" href="${evidenceHref(module,p.row.line)}" data-evidence="${esc(`${module}:${p.row.line}`)}" aria-label="${esc(p.row.cells[0])}, ${esc(measure)} ${esc(cell(p.row))} ${esc(v.unit)}. View source"><title>${esc(p.row.cells[0])}: ${esc(cell(p.row))} ${esc(v.unit)}</title><circle class="point-hit" cx="${x(p.j)}" cy="${y(chartNumber(cell(p.row)))}" r="12"/><circle class="point-${i%3}" cx="${x(p.j)}" cy="${y(chartNumber(cell(p.row)))}" r="4"/></a>`).join('')}`;
+  }).join('')}${periods.map((period,j)=>`<text class="axis-label" x="${x(j)}" y="230" text-anchor="middle">${esc(period)}</text>`).join('')}</svg></div><div class="path-readout">${series.map(s=>{const last=s.rows.at(-1);if(last===null)return '';const r=table.rows[last];return `<div><span>${esc(s.name)} · ${esc(periods.at(-1))}</span><strong>${esc(cell(r))}</strong>${sourceFooter(`${module}:${r.line}`)}</div>`;}).join('')}</div>`;
 }
 // The axis runs from the earliest date in the table (or 18 months before the run's as-of, if earlier) to the latest (or 36 months after, if later); the base rule is the as-of. Only YYYY-MM-DD strings already in the table's date columns are read (every column if none is headed as a date).
 function hedgeChart(module,v) {
@@ -445,10 +463,16 @@ function recoveryChart(id,v,chips=false,note=true) {
   return `${chartIntro(id,v)}<div class="column-chart" style="--periods:${classes.length}">${legend}<div class="periods">${groups}</div></div>${note?'<p class="matrix-note">Missing values have no bar.</p>':''}`;
 }
 const READER_FIGURES={recovery:recoveryChart,waterfall:bridgeChart,stack:stackChart,bullet:bulletChart,limits:limitsChart,dumbbell:dumbbellChart,range:rangeChart,scatter:scatterChart};
-// A reader chart is a "Chart data:" table whose first column is Period, so it is drawn over time: periods along the x axis in table order,
+// A reader chart is a "Chart data:" table whose first column is Period, so it is drawn over time: periods along the x axis in the order the store supplies (`chart.rows`: every row, by the one period rule),
 // one column per series from a zero baseline (owner, 2026-11-10). Each period is one button (its handoff row) with its chips under it.
 // A step table (store.py: kind "waterfall") is a bridge: opening, stated changes and closing, drawn by bridgeChart; the row tables (kinds stack, bullet, limits) are below.
 // `onPlainPage` is a new-format page's chart: the cells as the handoff wrote them, one trace control, no source chips and no Table form (the table as written is Evidence's).
+// The store orders a chart's periods (handoff_fields.py _period_rows) and names in `unplaced` the rows whose period it could not read: they are drawn last, as written, and the chart says so.
+function unplacedNote(id,chart,table) {
+  if(!chart.unplaced?.length)return '';
+  const named=chart.unplaced.map(i=>cardPlain(id,chart,table.rows[i].cells[0])).filter(Boolean).map(esc).join('; ');
+  return `<p class="matrix-note">Drawn last, in the order written, because the period could not be placed in time${named?`: ${named}`:''}.</p>`;
+}
 function readerChart(id,chart,chips=false,note=true,onPlainPage=false,card=false) {
   const form=onPlainPage?'':chartTableForm(id,chart);
   if(onPlainPage){chart={...chart,plain:true,...(card?{headless:true}:{})};chips=false;}
@@ -475,7 +499,7 @@ function readerChart(id,chart,chips=false,note=true,onPlainPage=false,card=false
     return chips?`<div class="chart-row" role="group" aria-label="${esc(period)}"><button class="chart-open" data-evidence="${esc(key)}" ${label}>${inner}</button>${chipsMarkup(key)}</div>`:`<button class="chart-row" data-evidence="${esc(key)}" ${label}>${inner}</button>`;
   }).join('');
   const absences=absent.length?`<ul class="fc-absent">${absent.map(a=>`<li><span class="absent-mark" aria-hidden="true">\u2020</span><b>${esc(a.period)}</b> ${a.series}: ${a.text}</li>`).join('')}</ul>`:'';
-  return `${chartIntro(id,chart)}<div class="column-chart" style="--periods:${rows.length}">${legend}<div class="periods">${periods}</div></div>${absences}${note?'<p class="matrix-note">Missing values have no bar.</p>':''}${form}`;
+  return `${chartIntro(id,chart)}<div class="column-chart" style="--periods:${rows.length}">${legend}<div class="periods">${periods}</div></div>${absences}${unplacedNote(id,chart,table)}${note?'<p class="matrix-note">Missing values have no bar.</p>':''}${form}`;
 }
 function readerCharts(id,section) {
   const lines=new Set(sectionData(id,section).flatMap(s=>s.blocks).map(b=>b.line));
@@ -1202,8 +1226,8 @@ function cashflowTable(c,rows=c.rows) {
 function cashflowSection(model) {
   const c=model.cashflow;
   if(!c)return '<section class="forecast-cashflow"><h2>Cash flow model</h2><p>This model has no readable calculation record.</p></section>';
-  // The store's placeholder when no downside was computed is the one Downside-case column that is not a forecast year.
-  const periods=c.columns.filter(col=>!(col.group==='Downside case'&&!/^FY\d+E$/.test(col.label)));
+  // The store's placeholder when no downside was computed is the one Downside-case column that is not a forecast year (cashflow.py: `forecast` on each column).
+  const periods=c.columns.filter(col=>!(col.group==='Downside case'&&!col.forecast));
   const na=notAvailableLines(c),first=periods[0],last=periods[periods.length-1];
   const caption=[c.units==null?'Units not recorded':c.units,...first?[`${first.label} to ${last.label}`]:[],'history as retained in the handoffs; forecasts are conditional illustrations from the calculation record'].join(' · ');
   // A line with no figure in any column (the store's `empty`) is folded; its cells stay reachable, and a heading goes with the lines under it.
@@ -1238,8 +1262,8 @@ const CARD={headless:true};
 // A card's context: strict, so every text it draws is read as a findings page reads it and then some (components.js findingCell).
 const cardContext=(id,title)=>({...readCtx(id,CARD),id,module:data[id].module,evidenceHref:window.Evidence.href('registers',data[id].module,data[id].run),key:row=>`${id}:${row.line}`,caption:plain(title)});
 const isPairContract=(chart,table)=>(!chart.kind||chart.kind==='grouped')&&(chart.columns||[chart.column]).length===1&&(chart.rows||table.rows).length>=1&&(chart.rows||table.rows).length<=2;
-// Two periods (or one) of a single measure: each period with its own label at the same weight, in the table's order. The contract does not mark which period is
-// later, and the page does not infer it, so nothing is emphasised.
+// Two periods (or one) of a single measure: each period with its own label at the same weight, in the order the store supplies (`chart.rows`, by the one period rule).
+// The page infers nothing about which is later, so nothing is emphasised.
 function pairTile(id,chart) {
   const table=fixtureTable(id,chart.table),col=(chart.columns||[chart.column])[0],rows=(chart.rows||table.rows.map((_,i)=>i)).map(i=>table.rows[i]);
   const text=cell=>chartNumber(cell)===null?statedReason(id,cell,CARD):esc(cell);

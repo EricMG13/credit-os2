@@ -57,7 +57,7 @@ positions) are listed with the handoff field that would let each be drawn honest
 | # | Change | Why |
 |---|---|---|
 | 20 | The on-screen issuer front page of PR #73 (profile, credit view, debt stack, metrics grid, one decision chart first in Overview) | The owner chose the redesigned Overview on screen; the front page composes the Credit Snapshot PDF only. Its spec's "compact brief first in Overview" is not met on screen |
-| 21 | Restyle the PDF preview chrome and the Export PDF control to the redesign | They keep main's markup; the print colours already follow the theme (teal since the redesign) |
+| 21 | Done 2026-11-25: the Export PDF control and the preview toolbar are restyled to the redesign | The paper itself keeps main's print layout |
 | 22 | Evidence validation's clearance on the Overview | Its bottom line is withheld with the other decision modules; the tile only links its page until item 2 gives typed fields that state no decision |
 
 ## 6. Shared reader rules (Code, small)

@@ -1,3 +1,4 @@
+import { fiscalYear } from "../../../visuals/scenarioPeriods";
 import { items } from "../../../visuals/visualData";
 import {
   basisNotes,
@@ -25,8 +26,6 @@ import {
 const LABEL = "Debt maturities";
 /** The figure's width before the first measure (and in jsdom): the span-5 tile at 1128 px. */
 const FALLBACK = 412;
-/** A dated period label, as the wall reads it (`structureData`). */
-const YEAR = /^\D*(\d{4})\D?$/;
 
 type Ready = Extract<FigureSource, { state: "ready" }>;
 
@@ -366,7 +365,7 @@ function MaturityFigure({ lead, source, span }: { lead: LeadProps; source: Ready
   const kicker = unit ? `${LABEL} · ${unit}` : LABEL;
   const labels = source.table.rows.map((row) => row[0] ?? "");
   // The wall places a dated row by its year, so "FY2026" and "2026" are the same period.
-  const periods = labels.map((label) => YEAR.exec(label)?.[1] ?? label);
+  const periods = labels.map((label) => String(fiscalYear(label) ?? label));
   const twice = labels.find((_, at) => periods.indexOf(periods[at] ?? "") !== at);
   const raw = wallSlots(source.table, source.descriptor, unitOf(source.descriptor));
   const common = {

@@ -12,8 +12,16 @@ import {
 } from "../publishedReport";
 import { namedTable } from "../reportView";
 import { amount, distinct } from "../visuals/visualData";
-import { GapCell, KeyValues, LeadFigure, statedGap, TableOrCards, Trace } from "./leads/parts";
-import { readerCell, rowName } from "./leads/read";
+import {
+  GapCell,
+  KeyValues,
+  LeadFigure,
+  Notes,
+  statedGap,
+  TableOrCards,
+  Trace,
+} from "./leads/parts";
+import { readerCell, registerTable, rowName, sectionParagraphs } from "./leads/read";
 import { sourceOf, writtenTable } from "./leads/written";
 import { Key } from "./overview/figureParts";
 import { Bento, Tile } from "./overview/Tile";
@@ -108,7 +116,8 @@ export function securityView(entry: OutputEntry, asOf: string | null) {
     "Recommendation",
     "Source",
   ]);
-  const matrix = namedTable(entry, "T3.6 — Fundamental value matrix", MATRIX);
+  // The register id heads the section; the module writes its dash or none ("T3.6 Fundamental value matrix").
+  const matrix = registerTable(entry, "T3.6", MATRIX);
   const outcomes =
     matrix?.headers.join("|") === MATRIX.join("|") && matrix.rows.length ? matrix : null;
   const date = /^Market level \(([^)]+)\)$/.exec(summary?.headers[1] ?? "")?.[1];
@@ -520,5 +529,40 @@ export function Securities({
       {instruments && <InstrumentTable data={instruments} href={href} />}
       {data.outcomes && <ValueMatrix table={data.outcomes} href={href} />}
     </Bento>
+  );
+}
+
+const PEERS = "Descriptive peer and benchmark evidence";
+
+/** The module's own peer and benchmark levels, as it wrote them; null when it wrote no such table. */
+export function peerLevels(entry: OutputEntry) {
+  const table = entry.sections
+    .filter((section) => section.heading.trim() === PEERS)
+    .flatMap(({ blocks }) => blocks)
+    .find((block): block is Table => block.type === "table" && block.rows.length > 0);
+  return table ? { table, notes: sectionParagraphs(entry, PEERS) } : null;
+}
+
+/** Peer and benchmark levels against the instrument, the module's passage and table as written. */
+export function PeerLevels({
+  peers,
+  href,
+}: {
+  peers: NonNullable<ReturnType<typeof peerLevels>>;
+  href: EvidenceHref;
+}) {
+  const label = "Relative value against peers";
+  const written = writtenTable(sourceOf(peers.table), href);
+  return (
+    <Tile
+      span={12}
+      label={label}
+      title={label}
+      trace={<Trace href={href(peers.table.line)} name={label} />}
+      className="w-full self-start"
+    >
+      {written && <TableOrCards label={label} table={written} />}
+      <Notes notes={peers.notes.flatMap(({ text }) => (text ? [<p key={text}>{text}</p>] : []))} />
+    </Tile>
   );
 }

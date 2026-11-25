@@ -228,7 +228,14 @@ test('sectionRail: a labelled nav of links with optional counts; the current ite
 // ---- Numeric shape components (library redesign, task 5): the answer key's real tables are the inputs.
 const Shapes = require('./shapes.js');
 const KEY = require(path.join(__dirname, '..', '..', 'fixtures', 'shape-key.json'));
-const keyBlock = t => ({ headers: t.headers, rows: t.rows.map((cells, i) => ({ line: i + 1, cells })) });
+// The period columns of the key's tables as the store annotates them (handoff_fields.py period_columns), written by hand from the key's headers and the period rule,
+// by the table's place in KEY.tables: FY2024 | FY2023 are columns 1 and 2 (FY2023 first in rule order, FY2024 the latest reported). In table 11 only "2023-09-30" is a
+// period ("2024-09-30 or pro forma" is not one under the strict rule); in table 23 "At 2024-09-30" is one.
+const TWO_YEARS = { order: [2, 1], reported: [2, 1], latest: 1 };
+// The same for the small tables written in this file: FY2023 | FY2024 as columns 1 and 2, and one FY2024 column.
+const YEARS_ASCENDING = { order: [1, 2], reported: [1, 2], latest: 2 }, ONE_YEAR = { order: [1], reported: [1], latest: 1 };
+const KEY_PERIODS = { 1: TWO_YEARS, 2: TWO_YEARS, 3: TWO_YEARS, 4: TWO_YEARS, 5: TWO_YEARS, 10: TWO_YEARS, 11: { order: [2], reported: [2], latest: 2 }, 23: { order: [1], reported: [1], latest: 1 } };
+const keyBlock = t => ({ headers: t.headers, rows: t.rows.map((cells, i) => ({ line: i + 1, cells })), ...(KEY_PERIODS[KEY.tables.indexOf(t)] ? { periods: KEY_PERIODS[KEY.tables.indexOf(t)] } : {}) });
 const keyTables = (module, shape) => KEY.tables.filter(t => t.module === module && (!shape || t.shape === shape));
 // What the module page gives a component: the module's id tokens and case pairing, one trace control per call, the Evidence link.
 function pageCtx(module, over = {}) {
@@ -360,12 +367,12 @@ test('Review Focus 2: a cell that does not parse is shown as its text with no ma
   assert.equal((html.match(/<div class="rtrack-row">/g) || []).length, 1, 'only the row whose cells all parse has a track');
   for (const text of ['n/a', 'Not calculable: FY2022 comparatives not used']) assert.ok(textOf(html).includes(text), text);
   assert.ok(!/class="mk[^"]*"[^>]*>(?:(?!<\/button>).)*n\/a/.test(html), 'no mark for n/a');
-  const metric = { headers: ['Metric', 'FY2024', 'FY2023', 'Definition / identity'], rows: [{ line: 1, cells: ['Revenue growth', '20.58%', 'Not calculable: FY2022 comparatives not used', 'Reported'] }, { line: 2, cells: ['Margin', 'n/a', 'n/a', 'Reported'] }] };
+  const metric = { periods: TWO_YEARS, headers: ['Metric', 'FY2024', 'FY2023', 'Definition / identity'], rows: [{ line: 1, cells: ['Revenue growth', '20.58%', 'Not calculable: FY2022 comparatives not used', 'Reported'] }, { line: 2, cells: ['Margin', 'n/a', 'n/a', 'Reported'] }] };
   const tiles = C.metricTiles(metric, { key: r => `k:${r.line}` });
   assert.ok(tiles.length > 100);
   for (const text of ['20.58%', 'Not calculable: FY2022 comparatives not used', 'n/a', 'Margin']) assert.ok(textOf(tiles).includes(text), text);
   assert.ok(!/class="mk |class="st-bar /.test(tiles), 'no mark in the metric tiles');
-  const statement = { headers: ['Line', 'FY2024', 'FY2023'], rows: [{ line: 1, cells: ['Sales', '100', '90'] }, { line: 2, cells: ['Note', 'n/a', 'Not calculable: FY2022 comparatives not used'] }] };
+  const statement = { periods: TWO_YEARS, headers: ['Line', 'FY2024', 'FY2023'], rows: [{ line: 1, cells: ['Sales', '100', '90'] }, { line: 2, cells: ['Note', 'n/a', 'Not calculable: FY2022 comparatives not used'] }] };
   const card = C.statementCard(statement, { key: r => `k:${r.line}` });
   for (const text of ['n/a', 'Not calculable: FY2022 comparatives not used']) assert.ok(textOf(card).includes(text), text);
   assert.equal((card.match(/<span class="st-bar /g) || []).length, 2, 'bars only for the row that parses');
@@ -437,7 +444,7 @@ test('statementCard: one row per line, paired bars from a zero baseline, the ver
   assert.ok(html.includes('(165)') && html.includes('(139)') && html.includes('2,045'));
   const income = C.statementCard(keyBlock(keyTables('CP-1', 'statement')[0]), ctx);
   assert.ok(income.includes('<p class="st-cap">Revenue, positive</p>') && income.includes('class="st-zero"'), 'one line prints (28), so there is a zero baseline');
-  const positive = C.statementCard({ headers: ['Line', 'FY2024', 'FY2023'], rows: [{ line: 1, cells: ['Sales', '200', '100'] }] }, { key: r => `k:${r.line}` });
+  const positive = C.statementCard({ periods: TWO_YEARS, headers: ['Line', 'FY2024', 'FY2023'], rows: [{ line: 1, cells: ['Sales', '200', '100'] }] }, { key: r => `k:${r.line}` });
   assert.ok(!positive.includes('class="st-zero"') && !positive.includes(' neg"'), 'no negative value, no baseline');
   assert.ok(positive.includes('style="left:0%;width:100%"') && positive.includes('style="left:0%;width:50%"'), 'bars are scaled to the card\'s largest value');
   assert.ok(/<th scope="col" class="num">FY2024<\/th>/.test(income), 'Figures: a designed table');
@@ -931,9 +938,9 @@ test('a row with more cells than headers keeps the extra cells in every numeric 
     caseRows: tb(['Scenario', 'Decline', 'Anchor'], [['Base', '0', 'Control', extra]]),
     caseRowsNumeric: tb(['Scenario', 'EBITDA', 'Cover'], [['Base', '4,173', '3.60x', extra]]),
     ranked: tb(['Rank', 'Break', 'Decline at break', 'Base case'], [['1', 'Leverage watch', '23.47%', 'Not reached', extra]]),
-    statement: tb(['Line', 'FY2024', 'FY2023'], [['Sales', '100', '90', extra]]),
-    metric: tb(['Metric', 'FY2024', 'FY2023', 'Definition'], [['Cover', '3.60x', '4.1x', 'EBITDA / interest', extra]]),
-    measure: tb(['Operating measure', 'FY2024', 'FY2023', 'Change', 'Creditor consequence'], [['Net sales', '100', '90', '+10', 'Growth', extra]]),
+    statement: { ...tb(['Line', 'FY2024', 'FY2023'], [['Sales', '100', '90', extra]]), periods: TWO_YEARS },
+    metric: { ...tb(['Metric', 'FY2024', 'FY2023', 'Definition'], [['Cover', '3.60x', '4.1x', 'EBITDA / interest', extra]]), periods: TWO_YEARS },
+    measure: { ...tb(['Operating measure', 'FY2024', 'FY2023', 'Change', 'Creditor consequence'], [['Net sales', '100', '90', '+10', 'Growth', extra]]), periods: TWO_YEARS },
     change: tb(['Measure', 'Earlier', 'Current', 'Cause'], [['Leverage', '6.01x', '7.1x', 'Debt', extra]]),
   };
   const shapeOf = { cases: 'cases', caseRows: 'caseRows', caseRowsNumeric: 'caseRows', ranked: 'ranked', statement: 'statement', metric: 'metric', measure: 'measure', change: 'change' };
@@ -1115,6 +1122,7 @@ test('fix C: support and supports, contradict and contradicts, are one pair; the
 
 // ---- Overview components (library redesign, task 8). Expected text is written by hand in each test.
 const STRIP_BLOCK = {
+  periods: TWO_YEARS,
   headers: ['Metric', 'FY2024', 'FY2023', 'Source'],
   rows: [
     { line: 10, cells: ['Net leverage', '6.01x', '6.40x', 'Annual report, page 4'] },
@@ -1148,7 +1156,7 @@ test('metricStrip: each cell is the label as a link to its module, the latest pe
 });
 
 test('metricStrip: cells with markup characters are escaped; a label held back for an identifier draws no cell', () => {
-  const block = { headers: ['Metric', 'FY2024'], rows: [{ line: 1, cells: ['<b>Cover</b> & "more"', '<i>2x</i> & "y"'] }, { line: 2, cells: ['EV-9', '3x'] }] };
+  const block = { periods: ONE_YEAR, headers: ['Metric', 'FY2024'], rows: [{ line: 1, cells: ['<b>Cover</b> & "more"', '<i>2x</i> & "y"'] }, { line: 2, cells: ['EV-9', '3x'] }] };
   const html = C.metricStrip(block, { key: r => `k:${r.line}`, tokens: ['EV-9'] }, 'The <b>Cover</b> & "more" and EV-9 are cited.', stripLink);
   assert.ok(!html.includes('<b>') && !html.includes('<i>'), html);
   assert.ok(html.includes('&lt;b&gt;Cover&lt;/b&gt;') && html.includes('&amp;'), html);
@@ -1199,7 +1207,7 @@ test('hasDatedEvent: a date cell that states a date counts; an absence statement
 });
 
 test('metricStrip: a label found only inside a longer cited label is dropped; one that also stands alone elsewhere stays', () => {
-  const block = { headers: ['Metric', 'FY2024'], rows: [['EBITDA', '1'], ['EBITDA margin', '2'], ['Leverage', '3'], ['Net leverage', '4']].map((cells, i) => ({ line: i + 1, cells })) };
+  const block = { periods: ONE_YEAR, headers: ['Metric', 'FY2024'], rows: [['EBITDA', '1'], ['EBITDA margin', '2'], ['Leverage', '3'], ['Net leverage', '4']].map((cells, i) => ({ line: i + 1, cells })) };
   const draw = text => stripLabels(C.metricStrip(block, stripCtx, text, stripLink));
   assert.deepEqual(draw('Net leverage of 6.01x and an EBITDA margin of 30.0% decide it.'), ['EBITDA margin', 'Net leverage']);
   assert.deepEqual(draw('Net leverage is 6.01x. Leverage on a gross basis is 7.2x.'), ['Leverage', 'Net leverage'], 'Leverage is also cited on its own');
@@ -1238,7 +1246,7 @@ test('verdictPanel and callout take the heading level the page needs, h4 when no
 });
 
 test('metricStrip: a latest cell longer than a figure is text, set at body size (the wide class), not as a headline figure', () => {
-  const block = { headers: ['Metric', 'FY2024'], rows: [{ line: 1, cells: ['Revolver test', '7.50x net (8.00x after material acquisition) if usage above 40%'] }, { line: 2, cells: ['Cover', '2.1x'] }] };
+  const block = { periods: ONE_YEAR, headers: ['Metric', 'FY2024'], rows: [{ line: 1, cells: ['Revolver test', '7.50x net (8.00x after material acquisition) if usage above 40%'] }, { line: 2, cells: ['Cover', '2.1x'] }] };
   const html = C.metricStrip(block, { key: r => `k:${r.line}` }, 'Revolver test and cover.', stripLink);
   assert.ok(html.includes('<p class="strip-v wide">7.50x net') && html.includes('<p class="strip-v">2.1x</p>'), html);
 });
@@ -1526,7 +1534,7 @@ test('M1(b): a table whose audit columns are headed Reference, Where found, Hash
 });
 
 test('L2: an empty cell of a figure table is an em dash with an aria-label and the title, and the page writes no word of its own; a module\'s own n/a stays as written', () => {
-  const block = {type: 'table', line: 1, headers: ['Line', 'FY2023', 'FY2024'], rows: [{line: 2, cells: ['Net debt', '0', '']}, {line: 3, cells: ['EBITDA', 'n/a', '331']}]};
+  const block = {type: 'table', line: 1, periods: YEARS_ASCENDING, headers: ['Line', 'FY2023', 'FY2024'], rows: [{line: 2, cells: ['Net debt', '0', '']}, {line: 3, cells: ['EBITDA', 'n/a', '331']}]};
   const html = C.render('statement', block, {key: r => `k${r.line}`});
   assert.equal((html.match(/<span class="na" role="img" title="Empty in the handoff" aria-label="Empty in the handoff">—<\/span>/g) || []).length, 1, 'one empty cell, one dash');
   assert.ok(!html.includes('n.a.') && html.includes('n/a'), 'the module\'s own n/a is the only such word');
@@ -1534,7 +1542,7 @@ test('L2: an empty cell of a figure table is an em dash with an aria-label and t
 
 test('L5: a statement card scales bars within the rows that share a unit; a row whose unit no other row shares has its figures and no bar; one unit throughout keeps one scale', () => {
   const rows = [['Net debt', '1,000', '2,000', 'USD m'], ['Cash', '500', '1,000', 'USD m'], ['Margin', '12.5', '25', '%'], ['Cover', '3.1', '3.4', 'x'], ['Ratio', '4', '8', 'x']];
-  const block = {type: 'table', line: 1, headers: ['Line', 'FY2023', 'FY2024', 'Unit'], rows: rows.map((cells, i) => ({line: i + 2, cells}))};
+  const block = {type: 'table', line: 1, periods: YEARS_ASCENDING, headers: ['Line', 'FY2023', 'FY2024', 'Unit'], rows: rows.map((cells, i) => ({line: i + 2, cells}))};
   const html = C.render('statement', block, {key: r => `k${r.line}`});
   assert.equal(require('./shapes.js').tableShape(block), 'statement');
   const rowsHtml = html.split('<div class="st-row">').slice(1);
@@ -1547,7 +1555,7 @@ test('L5: a statement card scales bars within the rows that share a unit; a row 
   assert.deepEqual(widths(rowsHtml[4]), [50, 100]);
   const single = {...block, rows: block.rows.slice(0, 2)};
   assert.deepEqual(widths(C.render('statement', single, {key: r => `k${r.line}`}).split('<div class="st-row">')[1]), [50, 100], 'one unit: bars as before');
-  const noUnit = {type: 'table', line: 1, headers: ['Line', 'FY2023', 'FY2024'], rows: [{line: 2, cells: ['A', '10', '20']}, {line: 3, cells: ['B', '1', '2']}]};
+  const noUnit = {type: 'table', line: 1, periods: YEARS_ASCENDING, headers: ['Line', 'FY2023', 'FY2024'], rows: [{line: 2, cells: ['A', '10', '20']}, {line: 3, cells: ['B', '1', '2']}]};
   assert.deepEqual(widths(C.render('statement', noUnit, {key: r => `k${r.line}`}).split('<div class="st-row">')[2]), [5, 10], 'no Unit column: the table\'s one scale');
 });
 
@@ -1569,4 +1577,57 @@ test('Sided cards: the trace control is in the head row beside the figure, with 
   assert.ok(/^<div class="sd-top">[^]*?weakly[^]*?<\/div><div class="sd-head"><p class="sd-fig">1\.1x<\/p><button/.test(qualified), 'a qualifier is its own row above the head row');
   const noFigure = cards.find(card => card.includes('Other note'));
   assert.ok(/<div class="sd-head"><p class="sd-name">Other note<\/p><button/.test(noFigure), 'with no figure the control sits beside the name');
+});
+
+// ---- Chart periods (owner, 2026-11-25): the period columns of a tile, and its latest reported one, are the ones the store says (handoff_fields.py period_columns);
+// the page classes, orders and picks nothing.
+const tileOf = (html, label) => html.split('<div class="tile').find(part => part.includes(`<p class="tile-k">${label}</p>`));
+const NO_FIGURE = '<p class="tile-v"><span class="na" aria-hidden="true">—</span></p>';
+test('metricTiles: the latest period is the latest reported one the store names, never a pro forma or forecast column', () => {
+  const headers = ['Metric', 'FY2025E', 'FY2023', 'LTM Jun 2025', 'PF 2025', 'FY2024', 'Definition'];
+  const block = { headers, rows: [{ line: 1, cells: ['Revenue', '130', '100', '120', '125', '110', 'Net sales'] }], periods: { order: [2, 5, 3, 4, 1], reported: [2, 5, 3], latest: 3 } };
+  const html = C.metricTiles(block, { key: r => `k:${r.line}` });
+  // Review M3: the page read FY2025E, FY2023, PF 2025 and FY2024 as periods by its own pattern and did not know LTM Jun 2025, so the headline was FY2024 (110).
+  assert.deepEqual(require('./shapes.js').columnKinds(block).map((k, at) => (k === 'period' ? at : null)).filter(at => at !== null), [1, 2, 3, 4, 5]);
+  assert.ok(html.includes('<p class="tile-v">120</p>'), html);
+  assert.ok(!html.includes('<p class="tile-v">110</p>') && !html.includes('<p class="tile-v">125</p>') && !html.includes('<p class="tile-v">130</p>'), 'not the fiscal year before it, the pro forma column or the forecast year');
+  assert.ok(html.includes('<p class="tile-b">FY2025E 130 · FY2023 100 · PF 2025 125 · FY2024 110</p>'), 'the other periods are beneath as written, each with its label');
+  assert.ok(!html.includes('tile-a'), 'a headline that is there states no absence');
+  const source = require('fs').readFileSync(require('path').join(__dirname, 'components.js'), 'utf8').split('function periodParts(')[1].split('function earlierParts(')[0];
+  assert.ok(!/\\d|FY|LTM|findLast|\.sort\(/.test(source), 'no header is read and nothing is ordered or picked here');
+});
+
+// Review M2: with only pro forma or forecast period columns the tile drew the forecast cell as its unlabelled headline.
+test('metricTiles and measureTiles: with no reported period the headline is the dash, its reason is said, and each pro forma or forecast figure is listed with its period', () => {
+  const metric = { headers: ['Metric', 'PF', 'FY2026E', 'Definition'], rows: [{ line: 1, cells: ['Revenue', '140', '150', 'Net sales'] }], periods: { order: [1, 2], reported: [], latest: null } };
+  const tile = tileOf(C.metricTiles(metric, { key: r => `k:${r.line}` }), 'Revenue');
+  assert.ok(tile.includes(NO_FIGURE), tile);
+  assert.ok(!tile.includes('<p class="tile-v">150</p>') && !tile.includes('<p class="tile-v">140</p>'), 'neither the forecast nor the pro forma cell is the headline');
+  assert.ok(tile.includes('<p class="tile-b">PF 140 · FY2026E 150</p>'), tile);
+  assert.ok(tile.includes('<p class="tile-a">No reported period: pro forma or forecast only</p>'), tile);
+  const measure = { headers: ['Operating measure', 'PF', 'FY2026E', 'Change', 'Creditor consequence'], rows: [{ line: 1, cells: ['Net sales', '140', '150', '+10', 'Growth'] }], periods: { order: [1, 2], reported: [], latest: null } };
+  const drawn = tileOf(C.measureTiles(measure, { key: r => `k:${r.line}` }), 'Net sales');
+  assert.ok(drawn.includes(NO_FIGURE) && drawn.includes('<p class="tile-b">PF 140 · FY2026E 150</p>'), drawn);
+  assert.ok(drawn.includes('<p class="tile-a">No reported period: pro forma or forecast only</p>') && drawn.includes('<p class="tile-c">Growth</p>'), drawn);
+  assert.ok(drawn.includes('<span class="tag-k">Change</span>+10'), 'the other columns stay tags');
+});
+
+test('metricTiles: a latest period the store refuses (dated beside fiscal-year periods) is not picked here; every period is listed with its label', () => {
+  const block = { headers: ['Metric', '2025-06-30', 'FY2025', 'Definition'], rows: [{ line: 1, cells: ['Net debt', '900', '950', 'Debt less cash'] }], periods: { order: [1, 2], reported: [1, 2], latest: null } };
+  const tile = tileOf(C.metricTiles(block, { key: r => `k:${r.line}` }), 'Net debt');
+  assert.ok(tile.includes(NO_FIGURE) && tile.includes('<p class="tile-b">2025-06-30 900 · FY2025 950</p>'), tile);
+  assert.ok(tile.includes('<p class="tile-a">Latest reported period not determined</p>'), tile);
+});
+
+test('metricTiles: a table the store named no period column of is drawn as records, never with a column picked here', () => {
+  const bare = { headers: ['Metric', 'FY2023', 'FY2024', 'Definition'], rows: [{ line: 1, cells: ['Revenue', '100', '110', 'Net sales'] }] };
+  const html = C.metricTiles(bare, { key: r => `k:${r.line}` });
+  assert.ok(!html.includes('class="tile') && html.includes('100') && html.includes('110'), html);
+});
+
+test('metricStrip: with no reported period a cell is the dash and its reason, the figures beneath with their periods, and the strip names no period', () => {
+  const block = { headers: ['Metric', 'PF', 'FY2026E'], rows: [{ line: 1, cells: ['Cover', '2.1x', '2.4x'] }], periods: { order: [1, 2], reported: [], latest: null } };
+  const html = C.metricStrip(block, { key: r => `k:${r.line}` }, 'Cover is thin.', stripLink);
+  assert.ok(html.startsWith('<div class="strip" role="group" aria-label="Figures the bottom line cites">'), html);
+  assert.ok(html.includes('<p class="strip-v"><span class="na" aria-hidden="true">—</span></p><p class="strip-b">No reported period: pro forma or forecast only</p><p class="strip-b">PF 2.1x · FY2026E 2.4x</p>'), html);
 });

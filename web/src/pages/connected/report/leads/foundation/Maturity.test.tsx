@@ -219,6 +219,17 @@ describe("MaturityTile states (synthetic, from the module contract)", () => {
       "Debt maturities · US$mThis page could not read the maturity wall because 2026 appears more than once.",
     );
     cleanup();
+    // One year written two ways the period rule reads as the same year.
+    tile = draw(
+      wall([
+        ["FY2026/27", "100"],
+        ["FY27", "200"],
+      ]),
+    );
+    expect(tile.textContent).toBe(
+      "Debt maturities · US$mThis page could not read the maturity wall because FY27 appears more than once.",
+    );
+    cleanup();
     // No amount and no reason stated: the page's own words.
     tile = draw(wall([["FY2026", "n/a"]]));
     expect(tile.textContent).toBe(

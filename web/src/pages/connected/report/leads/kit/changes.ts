@@ -8,25 +8,21 @@ import { difference, readCell, type Reading } from "./numbers";
 type PeriodKind = "annual" | "other";
 
 /**
- * One period a label names. `label` is as written; `year` is its four-digit year (a two-digit
- * year `yy` is 20yy below 70, 19yy otherwise); `form` is the label without its year, letters and
- * digits only, upper case, with `1Q`/`2H` written `Q1`/`H2` and months cut to three letters ("FY",
- * "Q1", "LTMMAR", "" for a bare year): two periods are of one kind only within one form. `kind` is
- * "annual" for a fiscal or calendar year (`FY2024`, `CY24`, `2024`), "other" for anything else.
- * `quarter`, `half` and `end` (the month a label names, 1–12: `LTM Mar-2025`, `2025-06-30`) are
- * set only where the label states them.
+ * One period a label names, as the change rule reads it: this is not the period order (that is
+ * `@/utils/periodOrder`), only what tells two periods of one kind a year apart. `label` is as
+ * written; `year` is its four-digit year (a two-digit year `yy` is 20yy below 70, 19yy
+ * otherwise); `form` is the label without its year, letters and digits only, upper case, with
+ * `1Q`/`2H` written `Q1`/`H2` and months cut to three letters ("FY", "Q1", "LTMMAR", "" for a
+ * bare year): two periods are of one kind only within one form. `kind` is "annual" for a fiscal
+ * or calendar year (`FY2024`, `CY24`, `2024`), "other" for anything else.
  */
 export type Period = {
   label: string;
   kind: PeriodKind;
   form: string;
   year: number;
-  quarter?: number;
-  half?: number;
-  end?: number;
 };
 
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const MONTH = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\b/i;
 const YEAR4 = /(?<!\d)(\d{4})(?!\d)/;
 /** A two-digit year closes the label, after FY/CY or a separator: `FY24`, `Q1 25`, `Q1-25`, `Mar-25`. */
@@ -35,7 +31,6 @@ const YEAR2 = /(?<=\b(?:FY|CY|[1-4]Q|[12]H)|[\s'\-/–]|^)(\d{2})(?=[A-Z]?$)/i;
 const PERIOD_WORD =
   /\b(?:FY|CY|LTM|TTM|NTM|Q[1-4]|[1-4]Q|H[12]|[12]H)|\b(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/i;
 const ANNUAL_FORMS = new Set(["FY", "CY", ""]);
-const DATE = /\d{4}-(\d{2})-\d{2}/;
 
 function yearIn(label: string): { year: number; rest: string } | null {
   const four = YEAR4.exec(label);
@@ -62,30 +57,20 @@ const formOf = (rest: string) =>
     .replace(MONTH, (_, month: string) => month.toUpperCase())
     .replace(/[^A-Z0-9]/g, "");
 
-/** The period a label names (no " / date" part: `periodLabel` cuts it), or null when it names no year. */
-export function periodKey(written: string): Period | null {
+/**
+ * The period a label names for the change rule (no " / date" part: `periodLabel` cuts it), or null
+ * when it names no year.
+ */
+export function changePeriod(written: string): Period | null {
   const label = written.trim();
   const found = label ? yearIn(label) : null;
   if (!found) return null;
   const form = formOf(found.rest);
-  const quarter = /Q([1-4])/.exec(form)?.[1];
-  const half = /H([12])/.exec(form)?.[1];
-  const month = MONTH.exec(found.rest)?.[1] ?? null;
-  const dated = DATE.exec(label)?.[1];
-  const end = month ? MONTHS.indexOf(month.toUpperCase()) + 1 : dated ? Number(dated) : null;
-  return {
-    label,
-    year: found.year,
-    form,
-    kind: ANNUAL_FORMS.has(form) ? "annual" : "other",
-    ...(quarter ? { quarter: Number(quarter) } : {}),
-    ...(half ? { half: Number(half) } : {}),
-    ...(end ? { end } : {}),
-  };
+  return { label, year: found.year, form, kind: ANNUAL_FORMS.has(form) ? "annual" : "other" };
 }
 
 const asPeriod = (period: Period | string) =>
-  typeof period === "string" ? periodKey(period) : period;
+  typeof period === "string" ? changePeriod(period) : period;
 
 /**
  * True when `current` is the period of the same kind exactly one year after `prior`: FY2024 →

@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { forecastMeasure } from "../report/forecastData";
 import { LeveragePath, type PathSchedule } from "./ForecastPath";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const NET = "Net leverage (net debt / Adj EBITDA)";
 const value = (exact: string, display = `${exact}x`) => ({ status: "value", exact, display });
@@ -260,7 +264,9 @@ it("draws the published maturity schedule as written on the axis, naming no sing
   expect(
     screen.getByText("Debt maturing, FY2027: Not supplied: the schedule stops here."),
   ).toBeInTheDocument();
-  expect(screen.getByText("Debt maturing beyond this axis: FY2034 900.")).toBeInTheDocument();
+  expect(
+    screen.getByText("Debt maturing in years not on this axis: FY2034 900."),
+  ).toBeInTheDocument();
   expect(
     screen.getByText("Debt maturing, not by fiscal year: Thereafter 4,768."),
   ).toBeInTheDocument();
@@ -349,7 +355,7 @@ it("keeps an actual year and a forecast year of the same fiscal year apart, by t
     within(table.getByRole("rowheader", { name: label }).closest("tr") as HTMLElement)
       .getAllByRole("cell")
       .map((cell) => cell.textContent);
-  // Columns: Actual, Base case. The actual is never put in the case's column.
+  // Columns: Reported, Base case. The reported figure is never put in the case's column.
   expect(row("FY2025")).toEqual(["2.50x", ""]);
   expect(row("FY2025E")).toEqual(["", "2.20x"]);
   expect(row("FY2026E")).toEqual(["", "2.00x"]);
@@ -410,4 +416,256 @@ it("words a narrow year's missing amount as one label on two lines, never two th
   expect(gap?.querySelectorAll("text")).toHaveLength(1);
   expect(gap?.querySelector("text")).toHaveTextContent("Not supplied");
   expect(gap?.querySelectorAll("tspan")).toHaveLength(2);
+});
+
+// Owner's ruling, 2026-11-25: every reported and pro forma column is drawn before the forecast
+// years, oldest fiscal year first, then year to date, last twelve months and pro forma. The grid
+// below is authored scrambled; every expected order and figure is written by hand from it.
+const MIXED: Column[] = [
+  { label: "FY2024", group: "Fiscal year" },
+  { label: "PF LTM Jun 2025", group: "Pro forma" },
+  { label: "FY2022", group: "Fiscal year" },
+  { label: "LTM Jun 2025", group: "Last twelve months" },
+  { label: "FY2023", group: "Fiscal year" },
+  { label: "YTD Jun 2025", group: "Year to date" },
+  ...cols("Base case", ["FY2026E", "FY2025E"]),
+  ...cols("Downside case", ["FY2025E", "FY2026E"]),
+];
+const MIXED_CELLS = [
+  value("5.50"),
+  value("4.90"),
+  notCalculated("EBITDA is not positive"),
+  value("5.20"),
+  value("6.10"),
+  value("5.40"),
+  value("4.10"),
+  value("4.60"),
+  value("5.00"),
+  value("5.30"),
+];
+
+it("puts LTM and PF after the fiscal years and before the forecast years on the X axis", () => {
+  const { container } = draw(measureOf(MIXED, MIXED_CELLS));
+  const axis = [...container.querySelectorAll("[data-axis-period]")];
+  expect(axis.map((label) => label.getAttribute("data-axis-period"))).toEqual([
+    "FY2023",
+    "FY2024",
+    "YTD Jun 2025",
+    "LTM Jun 2025",
+    "PF LTM Jun 2025",
+    "FY2025E",
+    "FY2026E",
+  ]);
+  // The labels run left to right in that order, and each reported point sits over its own label.
+  const xs = axis.map((label) => Number(label.getAttribute("x")));
+  expect([...xs].sort((a, b) => a - b)).toEqual(xs);
+  const pointX = (name: string) =>
+    Number(container.querySelector(`[data-point="${name}"]`)?.getAttribute("cx"));
+  expect([
+    pointX("history FY2023"),
+    pointX("history FY2024"),
+    pointX("history YTD Jun 2025"),
+    pointX("history LTM Jun 2025"),
+    pointX("history PF LTM Jun 2025"),
+    pointX("Base case FY2025E"),
+    pointX("Base case FY2026E"),
+  ]).toEqual(xs);
+  expect(pointX("Downside case FY2026E")).toBe(xs[6]);
+  // Fiscal years are joined to the next fiscal year only; no line runs to YTD, LTM or PF.
+  expect(container.querySelectorAll('[data-segment="history"]')).toHaveLength(1);
+  expect(
+    within(screen.getByRole("region", { name: "Net leverage path" })).getByText(
+      "FY2023 to FY2026E",
+    ),
+  ).toBeVisible();
+  expect(screen.getByRole("img").getAttribute("aria-label")).toBe(
+    "Net leverage by period. Reported and pro forma: FY2023 6.10x, FY2024 5.50x, YTD Jun 2025 5.40x, LTM Jun 2025 5.20x, PF LTM Jun 2025 4.90x; Base case: FY2025E 4.60x, FY2026E 4.10x; Downside case: FY2025E 5.00x, FY2026E 5.30x.",
+  );
+  expect(screen.getByText("Before the forecast, FY2022: EBITDA is not positive.")).toBeVisible();
+  expect(
+    within(screen.getByRole("list", { name: "Chart key" })).getByText(
+      "Reported and pro forma, before the forecast",
+    ),
+  ).toBeVisible();
+});
+
+it("draws a figure the period rule cannot place last, after the forecast years, and says so", () => {
+  const { container } = draw(
+    measureOf(
+      [
+        { label: "Run rate", group: "Run rate" },
+        { label: "FY2024", group: "Fiscal year" },
+        ...cols("Base case", ["FY2025E", "FY2026E"]),
+      ],
+      [value("6.60"), value("5.50"), value("4.60"), value("4.10")],
+    ),
+  );
+  const axis = [...container.querySelectorAll("[data-axis-period]")];
+  expect(axis.map((label) => label.getAttribute("data-axis-period"))).toEqual([
+    "FY2024",
+    "FY2025E",
+    "FY2026E",
+    "Run rate",
+  ]);
+  const xs = axis.map((label) => Number(label.getAttribute("x")));
+  expect([...xs].sort((a, b) => a - b)).toEqual(xs);
+  const point = container.querySelector('[data-point="unplaced Run rate"]');
+  expect(Number(point?.getAttribute("cx"))).toBe(xs[3]);
+  // Its place in time is not known: no line runs to it, from the reported years or from a case.
+  expect(container.querySelectorAll('[data-segment="history"]')).toHaveLength(0);
+  expect(container.querySelectorAll('[data-segment="Base case"]')).toHaveLength(1);
+  expect(within(screen.getByRole("figure")).getByText("6.60x")).toBeInTheDocument();
+  expect(screen.getByRole("img").getAttribute("aria-label")).toBe(
+    "Net leverage by period. Reported: FY2024 5.50x; Base case: FY2025E 4.60x, FY2026E 4.10x; Not placed in time order, shown last: Run rate 6.60x.",
+  );
+  expect(screen.getByText("Not placed in time order, shown last: Run rate.")).toBeVisible();
+  expect(
+    within(screen.getByRole("list", { name: "Chart key" })).getByText(
+      "Not placed in time order, shown last",
+    ),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
+  const table = within(screen.getByRole("table", { name: /Net leverage by case/ }));
+  expect(table.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+    "Period",
+    "Reported",
+    "Not placed in time order",
+    "Base case",
+  ]);
+  expect(
+    table
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => [...row.children].map((cell) => cell.textContent)),
+  ).toEqual([
+    ["FY2024", "5.50x", "", ""],
+    ["FY2025E", "", "", "4.60x"],
+    ["FY2026E", "", "", "4.10x"],
+    ["Run rate", "", "6.60x", ""],
+  ]);
+});
+
+it("states every period's figure in its own row of the table, reported apart from each case", () => {
+  draw(measureOf(MIXED, MIXED_CELLS));
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
+  const table = within(screen.getByRole("table", { name: /Net leverage by case/ }));
+  expect(table.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+    "Period",
+    "Reported and pro forma",
+    "Base case",
+    "Downside case",
+  ]);
+  const rows = table
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => [...row.children].map((cell) => cell.textContent));
+  expect(rows).toEqual([
+    ["FY2023", "6.10x", "", ""],
+    ["FY2024", "5.50x", "", ""],
+    ["YTD Jun 2025", "5.40x", "", ""],
+    ["LTM Jun 2025", "5.20x", "", ""],
+    ["PF LTM Jun 2025", "4.90x", "", ""],
+    ["FY2025E", "", "4.60x", "5.00x"],
+    ["FY2026E", "", "4.10x", "5.30x"],
+  ]);
+});
+
+it("draws a maturity under its reported fiscal year, and under the forecast year where both exist", () => {
+  const cell = (text: string, amount: number) => ({ text, value: amount, reason: null });
+  draw(
+    measureOf(
+      [{ label: "FY2024", group: "Fiscal year" }, ...cols("Base case", ["FY2025E", "FY2026E"])],
+      [value("2.50"), value("2.20"), value("2.00")],
+    ),
+    {
+      schedule: {
+        years: [
+          { year: 2024, label: "FY2024", key: "FY2024", cell: cell("120", 120) },
+          { year: 2026, label: "FY2026", key: "FY2026", cell: cell("500", 500) },
+          { year: 2023, label: "FY2023", key: "FY2023", cell: cell("75", 75) },
+        ],
+        offAxis: [],
+        unit: "US$m",
+      },
+    },
+  );
+  expect(screen.getByText("Debt maturing in years not on this axis: FY2023 75.")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
+  const table = within(screen.getByRole("table", { name: /Net leverage by case/ }));
+  const rows = table
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => [...row.children].map((cell) => cell.textContent));
+  expect(rows).toEqual([
+    ["FY2024", "2.50x", "", "120"],
+    ["FY2025E", "", "2.20x", ""],
+    ["FY2026E", "", "2.00x", "500"],
+  ]);
+});
+
+it("draws a forecast-only grid as before, and a single period as one point", () => {
+  const { container } = draw(measureOf(cols("Base case", ["FY2025E"]), [value("4.20")]));
+  expect(
+    [...container.querySelectorAll("[data-axis-period]")].map((label) => label.textContent),
+  ).toEqual(["FY2025E"]);
+  expect(container.querySelectorAll("[data-point]")).toHaveLength(1);
+  expect(screen.getByRole("list", { name: "Chart key" })).not.toHaveTextContent("Reported");
+});
+
+it("says a row with reported figures and no forecast period has no forecast period", () => {
+  draw(measureOf([{ label: "FY2024", group: "Fiscal year" }], [value("2.50")]));
+  expect(screen.getByText("The model's net leverage row has no forecast period.")).toBeVisible();
+});
+
+it("leaves out an axis period label that would print over a neighbour, keeping the first and the latest", () => {
+  // The real replay run's axis: reported years, two last-twelve-months periods, then the forecast.
+  const labels = [
+    "FY2023",
+    "FY2024",
+    "LTM FY2024",
+    "Prior LTM",
+    "FY2025E",
+    "FY2026E",
+    "FY2027E",
+    "FY2028E",
+    "FY2029E",
+  ];
+  // The chart's frame is narrow: nine periods sit under 40 px apart, as on the replay run at 1024 px.
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(private readonly callback: (entries: unknown[]) => void) {}
+      observe() {
+        this.callback([{ contentRect: { width: 480 } }]);
+      }
+      disconnect() {}
+    },
+  );
+  const { container } = draw(
+    measureOf(
+      [
+        ...cols("Fiscal year", ["FY2023", "FY2024"]),
+        ...cols("Last twelve months", ["LTM FY2024", "Prior LTM"]),
+        ...cols("Base case", ["FY2025E", "FY2026E", "FY2027E", "FY2028E", "FY2029E"]),
+      ],
+      ["6.1", "5.9", "5.8", "5.7", "5.12", "4.41", "3.76", "3.2", "2.9"].map((n) => value(n)),
+    ),
+  );
+  const shown = [...container.querySelectorAll("[data-axis-period]")].filter(
+    (node) => node.textContent !== "",
+  );
+  const names = shown.map((node) => node.getAttribute("data-axis-period"));
+  // The axis ends on the unplaced "Prior LTM"; the first period and that last one are kept.
+  expect(names).toContain("FY2023");
+  expect(names).toContain("Prior LTM");
+  expect(names.length).toBeLessThan(labels.length);
+  shown.slice(1).forEach((b, at) => {
+    const a = shown[at];
+    if (!a) throw new Error("no neighbour");
+    const half = (a.textContent.length + b.textContent.length) / 2;
+    // 12 px mono text advances 7 px a character (hand-written, below the real 7.2).
+    expect(Number(b.getAttribute("x")) - Number(a.getAttribute("x"))).toBeGreaterThanOrEqual(
+      half * 7,
+    );
+  });
 });

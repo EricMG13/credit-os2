@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifySections,
+  containsReference,
   comparisonRows,
   comparisonForRun,
   type PublishedRun,
@@ -71,6 +72,186 @@ describe("published handoff boundaries", () => {
       { heading: "Confidence inputs", level: 3, line: 1, blocks: [] },
     ];
     expect(classifySections(sections).map(({ role }) => role)).toEqual(["finding", "registers"]);
+  });
+
+  it("files every sibling after the real appendix heading as registers (CP-2A shape)", () => {
+    const headings: [string, number][] = [
+      ["Findings", 2],
+      ["Catalyst view", 3],
+      ["Analytical appendix — complete canonical registers", 3],
+      ["T2B.1 Source gate and baseline", 3],
+      ["T2B.9 Downside gaps ledger", 3],
+      ["T5.7 Event gaps and coverage", 3],
+      ["Material claim lineage", 3],
+      ["Evidence references", 3],
+      ["Calculations", 2],
+    ];
+    const sections = headings.map(([heading, level], line) => ({
+      heading,
+      level,
+      line,
+      blocks: [],
+    }));
+    expect(classifySections(sections).map(({ role }) => role)).toEqual([
+      "finding",
+      "finding",
+      "registers",
+      "registers",
+      "registers",
+      "registers",
+      "registers",
+      "registers",
+      "calculations",
+    ]);
+  });
+
+  it("keeps module-written conclusions after the appendix heading on the module page (CP-2, CP-3C, CP-5)", () => {
+    const text = (line: number, value: string) => ({
+      type: "text" as const,
+      line,
+      end: line,
+      text: value,
+    });
+    const tab = (line: number) => ({
+      type: "table" as const,
+      line,
+      headers: ["A", "B"],
+      rows: [{ line: line + 2, cells: ["1", "2"] }],
+    });
+    const basis = (line: number) => text(line, "Basis: Financial foundation");
+    const make = (
+      list: [string, number, ReturnType<typeof tab> | ReturnType<typeof text> | null][],
+    ) =>
+      classifySections(
+        list.map(([heading, level, block], line) => ({
+          heading,
+          level,
+          line: line * 10,
+          blocks: block ? [block] : [],
+        })),
+      ).map(({ section, role }) => `${section.heading}=${role}`);
+    const appendix = "Analytical appendix — complete canonical registers";
+    expect(
+      make([
+        ["Findings", 2, null],
+        ["Bottom line", 3, text(1, "Strong business.")],
+        [appendix, 3, null],
+        ["T2.1 Source gate and analytical source register", 3, tab(2)],
+        ["Credit-translated strategic synthesis", 3, tab(3)],
+        ["Material claim lineage", 3, tab(4)],
+        ["Confidence inputs", 3, tab(5)],
+        ["Map: credit-risk transmission", 3, tab(6)],
+        ["Overall credit conclusion", 3, text(7, "Overall, TransDigm presents a strong profile.")],
+        ["Calculations", 2, null],
+      ]),
+    ).toEqual([
+      "Findings=finding",
+      "Bottom line=passage",
+      `${appendix}=registers`,
+      "T2.1 Source gate and analytical source register=registers",
+      "Credit-translated strategic synthesis=registers",
+      "Material claim lineage=registers",
+      "Confidence inputs=registers",
+      "Map: credit-risk transmission=drawing",
+      "Overall credit conclusion=finding",
+      "Calculations=calculations",
+    ]);
+    expect(
+      make([
+        ["Findings", 2, null],
+        [appendix, 3, null],
+        ["T3D.2 Maturity wall and refinancing register", 4, tab(2)],
+        ["T3D.10 Scenario map", 4, tab(3)],
+        [
+          "Overall refinancing and liability-management view",
+          3,
+          text(4, "Completed with limitations."),
+        ],
+        ["Calculations", 2, null],
+      ]),
+    ).toEqual([
+      "Findings=finding",
+      `${appendix}=registers`,
+      "T3D.2 Maturity wall and refinancing register=registers",
+      "T3D.10 Scenario map=registers",
+      "Overall refinancing and liability-management view=finding",
+      "Calculations=calculations",
+    ]);
+    expect(
+      make([
+        ["Findings", 2, null],
+        [appendix, 3, null],
+        ["T5B.1 Source register", 4, tab(2)],
+        ["T5.3 Math, logic and definition audit", 4, tab(3)],
+        ["Remediation priorities", 3, text(4, "Must-fix before committee: withdraw.")],
+        ["Clearance decision", 3, text(5, "CLEARANCE DECISION: Fail.")],
+        ["Confidence inputs", 3, tab(6)],
+        ["Gaps", 2, null],
+      ]),
+    ).toEqual([
+      "Findings=finding",
+      `${appendix}=registers`,
+      "T5B.1 Source register=registers",
+      "T5.3 Math, logic and definition audit=registers",
+      "Remediation priorities=finding",
+      "Clearance decision=finding",
+      "Confidence inputs=registers",
+      "Gaps=gaps",
+    ]);
+    // A text-only section whose only paragraph is a Basis line is still a register.
+    expect(
+      make([
+        ["Findings", 2, null],
+        [appendix, 3, null],
+        ["Evidence references", 3, basis(3)],
+      ]).at(-1),
+    ).toBe("Evidence references=registers");
+  });
+
+  it("hides inter-module downstream_use and consumer_module_id columns in both modes (CP-2A)", () => {
+    const headers = ["scenario", "limitation", "downstream_use", "Source"];
+    expect(displayColumns(headers, false)).toEqual([0, 1]);
+    expect(displayColumns(headers, true)).toEqual([0, 1, 3]);
+    expect(displayColumns(["a", "consumer_module_id"], false)).toEqual([0]);
+    expect(displayColumns(["a", "consumer_module_id"], true)).toEqual([0]);
+  });
+
+  it("keeps real Evidence and Source / Limitation columns that carry qualifications (CP-2)", () => {
+    const headers = ["Trigger", "Evidence", "Source / Limitation", "Source"];
+    const rows = [
+      {
+        line: 1,
+        cells: [
+          "Revenue decline",
+          "September recap uses USD 3,000 million new secured financing; October payment USD 4,348 million",
+          "Directional observation, not a numerical covenant or default threshold",
+          "TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl, pages 9-12",
+        ],
+      },
+    ];
+    expect(displayColumns(headers, false, rows)).toEqual([0, 1, 2]);
+    const refs = [
+      { line: 1, cells: ["x", "tdg-20240930.htm.jsonl, pages 9", "report.pdf, page 7", "s"] },
+    ];
+    expect(displayColumns(headers, false, refs)).toEqual([0]);
+  });
+
+  it("treats register, calculation and scenario ids inside real sentences as references", () => {
+    expect(containsReference("Counted as fixed in the issuer's 77% share (calculation R9)")).toBe(
+      true,
+    );
+    expect(containsReference("Copied from the Downside scenario S02 (moderate downturn)")).toBe(
+      true,
+    );
+    expect(
+      containsReference("FY2024 reported EBITDA; CP-1C T4.10 EV/EBITDA supplies no Low implied EV"),
+    ).toBe(true);
+    expect(containsReference("Debt of T2.5 billion and a 3.29x cover")).toBe(false);
+  });
+
+  it("hides raw snake_case reference columns of real registers", () => {
+    const headers = ["question_id", "research_sha256", "evidence_ids", "disposition"];
+    expect(displayColumns(headers, false)).toEqual([3]);
   });
 
   it("keeps the exact basis in trace and preserves identifiers in evidence tables only", () => {

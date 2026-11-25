@@ -24,8 +24,10 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   analytical breadth; later projects supply corrections and additions, as well as
   documented scope reductions. Neither the oldest package nor the newest project
   is an automatic authority for every module. Record the selected source revision.
-- Excel is an input format for analysis only. Do not generate Excel workbooks
-  or treat workbook export as a deliverable/completion requirement. Reuse the
+- Excel is an input format for analysis. Exactly one generated workbook is permitted: the Credit
+  Snapshot deliverable, with its Model sheet
+  (`docs/rulings/2026-11-25-deliverables-and-recommendations.md`). Do not generate any other
+  Excel workbook or treat workbook export as a completion requirement. Reuse the
   existing HTML Model, chart and calculation-JSON outputs as parts of the issuer report.
 - The reader is a portfolio manager or credit committee member who has not read the source
   documents. Voice standard (`docs/rulings/2026-11-11-reader-and-issuer-report.md`): every prose
@@ -35,7 +37,8 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   narrative sentences. The issuer library draws them only on its Evidence page and trace drawer
   (source references, file names, hashes, ids, registers, gap ledgers, run codes); every other page shows
   findings and one trace control per paragraph, row or figure, and text written for another module is
-  drawn nowhere.
+  drawn nowhere. The exception is the Deliverables page, which is tiles only (a file download, or
+  a purpose report opened in the print dialog) and shows no contents of the files.
 - Analytical modules own analysis and inter-module Markdown communication.
   Markdown handoffs are intermediate artifacts, not completion of the user task.
 - CP-8 runs last in a run with an earlier listed run of the same issuer and pathway and compares
@@ -52,10 +55,14 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
 - Preserve values, periods, units, source references, limitations and analytical
   conclusions across that boundary. Delivery adds no analysis: it only selects and
   orders module-written passages, every number and qualification exact. Missing
-  handoff content remains an explicit gap or a targeted repair request.
+  handoff content remains an explicit gap or a targeted repair request. One exception
+  (`docs/rulings/2026-11-25-deliverables-and-recommendations.md`): a proposed recommendation
+  derived by ruled arithmetic from module-written scores through the owner-approved table,
+  always labelled proposed until the analyst confirms.
 - Completion requires the issuer library's Overview, Changes, Modules, Forecast and Evidence
   pages for the run populated from its actual module handoffs and checked against
-  them, not just successful handoff generation. The HTML Model, charts and calculation
+  them, not just successful handoff generation. Once the Deliverables page is built,
+  completion also requires that page (tiles only, no contents shown), not any workbook export. The HTML Model, charts and calculation
   JSON are parts of that issuer report; the separately delivered HTML report is retired.
   CP-OS owns this end-to-end completion condition, including delivery.
 - A presentation change needs a fidelity check, recorded in VERIFICATION.md with its scope.
@@ -70,8 +77,9 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   Paid execution is a separate, explicit action after offline readiness. For the run
   start page (`deploy_workflow.run_start`) the explicit action is an analyst choosing Submit
   on a summary they approved, under the standing ruling
-  `docs/rulings/2026-11-11-run-start-submit.md` and the pathway's cap per run: Lite USD 15,
-  Full 25, Deep 40, the five purpose pathways 20 (owner, 2026-11-15;
+  `docs/rulings/2026-11-11-run-start-submit.md` and the pathway's cap per run: Lite USD 20,
+  Full 30, Deep 50, the five purpose pathways 20 (owner, 2026-11-25;
+  `docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md`, amending
   `docs/rulings/2026-11-15-pathway-tiers-and-caps.md`). The build itself does not run providers.
 - Run confidence-review after code changes: enumerate doubts, trace their causes,
   test adversarial cases and repair confirmed defects before completion.

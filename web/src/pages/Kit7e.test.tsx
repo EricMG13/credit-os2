@@ -121,7 +121,7 @@ describe("Modal on the kit page", () => {
     render(<Kit />);
     const dialog = await open("Start run");
     expect(dialog).toHaveAccessibleName("Start a paid run");
-    expect(within(dialog).getByText(/Full cap of USD 25/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Full cap of USD 30\./)).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Start the run" })).toBeInTheDocument();
     expect(dialog.querySelector("[data-featured-icon]")).toHaveClass("bg-warning-secondary");

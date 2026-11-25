@@ -37,7 +37,7 @@ import { chooseControl } from "./testControls";
  * Submit in turn; a path the service would not know is answered 404, as it would be.
  */
 function service({
-  cap = "25",
+  cap = "30",
   modules = [
     "CP-0",
     "CP-1",
@@ -184,7 +184,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
   });
 
   it("a paid Deep run at the Advanced level: a module left out, another model, effort and turns", async () => {
-    const log = service({ cap: "40" });
+    const log = service({ cap: "50" });
     const navigate = vi.fn();
     render(<ConnectedApp path="/start" mode="live" navigate={navigate} />);
     await identify(log);
@@ -202,7 +202,7 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
     choose("Legal documents", "draft");
     choose("The agreement", "northbridge-credit-agreement.txt");
     await reviewAndDecide();
-    await submitWith("Submit, spend up to USD 40.00", "Start run, up to USD 40.00");
+    await submitWith("Submit, spend up to USD 50.00", "Start run, up to USD 50.00");
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
     });

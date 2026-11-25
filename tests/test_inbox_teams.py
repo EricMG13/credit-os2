@@ -367,14 +367,15 @@ def test_progress_total_leaves_the_forecast_code_out_of_a_leave_out_list(lay):
     module row and no accepted event), so a finished run read one short of its total."""
     modules = tuple(m for m in PATHWAY_MODULES["credit_snapshot"] if m != "CP-4")
     assert "CP-MODEL" in modules
-    assert len(modules) == 14  # 13 analytical modules and the forecast code
+    # Owner, 2026-11-25: CP-1B, CP-1C and CP-1D joined the full credit assessment (18 entries).
+    assert len(modules) == 17  # 16 analytical modules and the forecast code
     run = record(modules=modules)
     folder = lay.runs / run.id
     folder.mkdir(parents=True)
     for module in modules:
         if module != "CP-MODEL":
             append_event(folder, "module_accepted", module=module)
-    assert teams.progress(lay, run) == (13, 13)
+    assert teams.progress(lay, run) == (16, 16)
 
 
 def accepted_run(lay: Layout, accepted: tuple[str, ...], **change: Any) -> Record:
@@ -433,29 +434,30 @@ def test_progress_total_counts_a_repeated_module_once(lay):
 def test_progress_total_falls_back_to_the_plan_rows_for_an_unknown_module(lay):
     """A hand-edited record names a module the plan refuses; the card still gets a count."""
     run = accepted_run(lay, ("CP-0",), modules=("CP-0", "CP-NOPE"))
-    assert teams.progress(lay, run) == (1, 14)  # the 14 rows of credit_snapshot
+    assert teams.progress(lay, run) == (1, 17)  # the 17 rows of credit_snapshot
 
 
 def test_progress_total_falls_back_to_the_plan_rows_when_the_plan_cannot_read_the_list(lay):
     """`plan` raises TypeError, not ValueError, for a list that is not one; still a count."""
     run = accepted_run(lay, ("CP-0",))
-    assert teams.progress(lay, replace(run, modules=cast(Any, 5))) == (1, 14)
+    assert teams.progress(lay, replace(run, modules=cast(Any, 5))) == (1, 17)
 
 
-# credit_snapshot less CP-4: the 13 modules its plan runs (the forecast code has no row).
-_SNAPSHOT_LESS_CP4 = ("CP-0", "CP-1", "CP-1A", "CP-DR", "CP-2", "CP-2A", "CP-2D", "CP-2E")
-_SNAPSHOT_LESS_CP4 += ("CP-2G", "CP-3C", "CP-3", "CP-5", "CP-6")
+# credit_snapshot less CP-4: the 16 modules its plan runs (the forecast code has no row). Owner,
+# 2026-11-25: with CP-1B, CP-1C and CP-1D.
+_SNAPSHOT_LESS_CP4 = ("CP-0", "CP-1", "CP-1A", "CP-1B", "CP-DR", "CP-1C", "CP-1D", "CP-2")
+_SNAPSHOT_LESS_CP4 += ("CP-2A", "CP-2D", "CP-2E", "CP-2G", "CP-3C", "CP-3", "CP-5", "CP-6")
 
 
 @pytest.mark.parametrize(
     ("cp8", "expected"),
     [
         # cpos_launch.prepare appends CP-8 when an earlier run of the issuer and pathway is
-        # listed: 14 modules run, CP-8 last.
-        ("module_started", (13, 14)),
-        ("module_accepted", (14, 14)),
-        # Its first call does not fit the cap: planned without CP-8, so the plan's 13 stand.
-        (None, (13, 13)),
+        # listed: 17 modules run, CP-8 last.
+        ("module_started", (16, 17)),
+        ("module_accepted", (17, 17)),
+        # Its first call does not fit the cap: planned without CP-8, so the plan's 16 stand.
+        (None, (16, 16)),
     ],
 )
 def test_progress_total_counts_cp8_when_the_run_starts_it(lay, cp8, expected):
@@ -513,7 +515,7 @@ def test_the_summary_counts_the_day_and_lists_five_finished_runs(lay):
     rows = [shown[i : i + 3] for i in range(7, len(shown) - 1, 3)]
     assert rows[:3] == [
         ["Northbridge Holdings Deep", "Priya R", "12:07"],
-        ["Harrowgate Industrials Full", "Tom O", "0/14"],
+        ["Harrowgate Industrials Full", "Tom O", "0/17"],
         ["Sable Energy Full", "Priya R", "Queued"],
     ]
     assert [row[2] for row in rows[3:]] == ["16:18", "15:17", "14:16", "13:15", "12:14"]
@@ -753,7 +755,7 @@ def test_a_bad_day_s_summary_stays_under_the_teams_limit(lay):
     assert shown[3:7] == ["30 Stopped", "3 Running", "30 Queued", "30 Finished"]
     rows = [texts(row)[-1] for row in card["body"][3]["items"]]
     queued = rows.count("Queued")
-    assert rows[:9] == ["12:30"] * 5 + ["0/14"] * 3 + ["Queued"]  # stopped first, five of them
+    assert rows[:9] == ["12:30"] * 5 + ["0/17"] * 3 + ["Queued"]  # stopped first, five of them
     assert queued >= 1 and len(rows) == 5 + 3 + queued
     assert (
         shown[-1] == f"+25 more stopped \u00b7 +{30 - queued} more queued \u00b7 +30 more finished"

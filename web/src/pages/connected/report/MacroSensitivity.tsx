@@ -173,17 +173,7 @@ export function macroView(entry: OutputEntry) {
     "Limitation",
     "Source",
   ]);
-  const fxGap = namedRow(
-    namedTable(entry, "Gaps", [
-      "Gap",
-      "Severity",
-      "Affected analysis",
-      "Effect",
-      "Remediation",
-      "Source",
-    ]),
-    ({ cells }) => cells[2] === "FX register" && Boolean(cells[3]),
-  );
+  const fxGap = foreignGap(entry);
   const retained = rate?.rows.length ? null : retainedRate(entry);
   if (
     !retained &&
@@ -194,6 +184,33 @@ export function macroView(entry: OutputEntry) {
   )
     return null;
   return { currency, rate, fx, hedges, fxExposure, fxGap, retained };
+}
+
+/** The module's stated limitation on foreign-currency exposure: its words and the row's line. */
+type ForeignGap = { line: number; text: string };
+
+const FOREIGN_WORDS = /\b(?:currenc(?:y|ies)|foreign|FX)\b/i;
+
+/**
+ * The Gaps register's FX row. The contract's register labels it ("FX register" under Affected
+ * analysis, the limitation under Effect); a run's register writes "Gap | Why it matters |
+ * Conclusion affected | Severity", where the one gap that names currency or foreign sales is it.
+ */
+export function foreignGap(entry: OutputEntry): ForeignGap | undefined {
+  const labelled = namedTable(entry, "Gaps", [
+    "Gap",
+    "Severity",
+    "Affected analysis",
+    "Effect",
+    "Remediation",
+    "Source",
+  ]);
+  const row = namedRow(labelled, ({ cells }) => cells[2] === "FX register" && Boolean(cells[3]));
+  if (row?.cells[3]) return { line: row.line, text: row.cells[3] };
+  const stated = namedTable(entry, "Gaps", ["Gap", "Why it matters", "Conclusion affected"]);
+  const gap = stated?.headers.indexOf("Gap") ?? -1;
+  const named = namedRow(stated, ({ cells }) => FOREIGN_WORDS.test(cells[gap] ?? ""));
+  return named?.cells[gap] ? { line: named.line, text: named.cells[gap] } : undefined;
 }
 
 function moneyPosition(text: string, currency: string) {
@@ -623,8 +640,8 @@ export function ForeignShareTile({
   href: Href;
   span: Span;
 }) {
-  const reason = fxGap?.cells[3]
-    ? readerCell(fxGap.cells[3])
+  const reason = fxGap?.text
+    ? readerCell(fxGap.text)
     : "This page could not read a foreign-currency share.";
   return (
     <LeadGap

@@ -8,8 +8,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { OutputEntry } from "../../../publishedReport";
 import { containsReference } from "../../../publishedReport";
 import { cp1Entry, distressedCp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
-import { dropTable, setCell, threePeriodCp1, withRows } from "../fixtures/mutations";
-import { NO_ADJUSTMENT } from "./foundationData";
+import {
+  dropTable,
+  mixedPeriodsCp1,
+  setCell,
+  threePeriodCp1,
+  withRows,
+} from "../fixtures/mutations";
+import { NO_ADJUSTMENT, netDebtView } from "./foundationData";
+import { barsLayout, stripEntries, stripLayout } from "./netDebtGeometry";
 import { NetDebtTile } from "./NetDebt";
 
 afterEach(cleanup);
@@ -478,5 +485,68 @@ describe("Net debt: other real handoffs and gap states", () => {
     expect(within(tile).queryByRole("img")).toBeNull();
     expect(within(tile).queryByRole("link")).toBeNull();
     expect(tile.textContent).toContain("This page could not read net debt data.");
+  });
+});
+
+// The ruling of 2026-11-25: every supplied period, oldest fiscal year → latest fiscal year → YTD →
+// LTM → PF → forecast years; "latest" is the latest reported period. The fixture writes its rows
+// scrambled; expected orders and figures are written by hand from the fixture's cells.
+describe("Net debt: five scrambled periods in the one period order", () => {
+  const ORDER = ["FY2023", "FY2024", "LTM Jun-2025", "PF FY2024", "FY2025E"];
+
+  it("draws the bars and the leverage marks in rule order, each figure its own", () => {
+    const tile = draw(mixedPeriodsCp1());
+    expect(tile.textContent).toContain(
+      "Net debt, US$m · FY2023 → FY2024 → LTM Jun-2025 → PF FY2024 → FY2025E",
+    );
+    const bars = [...tile.querySelectorAll("svg:not([data-strip]) rect[data-bar]")];
+    expect(bars.map((node) => node.getAttribute("data-bar"))).toEqual(ORDER);
+    expect(bars.map((node) => attr(node, "data-value"))).toEqual([
+      16278, 18619, 22850, 22967, 23100,
+    ]);
+    const ratios = marks(tile).slice(0, 5);
+    expect(ratios.map((mark) => mark.getAttribute("data-mark"))).toEqual(ORDER);
+    expect(ratios.map((mark) => attr(mark, "data-value"))).toEqual([5.17, 4.88, 4.8, 6.02, 4.6]);
+    expect(tile.textContent).not.toMatch(/time order/);
+  });
+
+  it("the current bar and mark are the latest reported period, never the pro forma or forecast", () => {
+    const view = netDebtView(mixedPeriodsCp1());
+    if (!view) throw new Error("expected a view");
+    expect(barsLayout(view, [], 600).bars.map((bar) => [bar.label, bar.kind])).toEqual([
+      ["FY2023", "prior"],
+      ["FY2024", "prior"],
+      ["LTM Jun-2025", "current"],
+      ["PF FY2024", "prior"],
+      ["FY2025E", "prior"],
+    ]);
+    const strip = stripLayout(stripEntries(view), 600);
+    expect(strip.rows.slice(0, 5).map((row) => [row.entry.label, row.tone])).toEqual([
+      ["FY2023", "prior"],
+      ["FY2024", "prior"],
+      ["LTM Jun-2025", "current"],
+      ["PF FY2024", "prior"],
+      ["FY2025E", "prior"],
+    ]);
+    // The hairline down the adjustment rows stands at the latest reported ratio, 4.80x.
+    expect(strip.reference?.x).toBe(strip.x(4.8));
+    const tile = draw(mixedPeriodsCp1());
+    expect(tile.textContent).toContain(
+      "FY2023, FY2024, PF FY2024, FY2025E net debtLTM Jun-2025 net debt",
+    );
+  });
+
+  it("only pro forma and forecast rows: every row drawn, none marked as the current period", () => {
+    const entry = withRows(cp1Entry(), "Net debt data", [
+      ["FY2025E", "25100", "2000", "23100", "US$m", "-"],
+      ["PF FY2024", "24880", "1913", "22967", "US$m", "-"],
+    ]);
+    const view = netDebtView(entry);
+    if (!view) throw new Error("expected a view");
+    expect(barsLayout(view, [], 600).bars.map((bar) => [bar.label, bar.kind])).toEqual([
+      ["PF FY2024", "prior"],
+      ["FY2025E", "prior"],
+    ]);
+    expect(view.comparison).toBeNull();
   });
 });

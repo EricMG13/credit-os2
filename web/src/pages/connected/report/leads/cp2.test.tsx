@@ -438,7 +438,7 @@ it("draws each stated leverage figure with its period and no latest when periods
   const made = cp1();
   const leverage = leverageOf(made);
   leverage.rows = [
-    { line: 61, cells: ["LTM June 2024", "2.80", "2.10", "x", "Synthetic."] },
+    { line: 61, cells: ["Run-rate", "2.80", "2.10", "x", "Synthetic."] },
     { line: 62, cells: ["FY2023", "3.75", "3.20", "x", "Synthetic."] },
   ];
   render(<CreditLead {...leadProps(credit([]), [made, cp4()])} />);
@@ -450,7 +450,7 @@ it("draws each stated leverage figure with its period and no latest when periods
     within(figures)
       .getAllByRole("listitem")
       .map((item) => item.textContent),
-  ).toEqual(["LTM June 20242.80x", "FY20233.75x"]);
+  ).toEqual(["Run-rate2.80x", "FY20233.75x"]);
   expect(within(stat).queryByText(/^from /)).toBeNull();
   expect(within(stat).queryByText(/, Financial foundation$/)).toBeNull();
 });

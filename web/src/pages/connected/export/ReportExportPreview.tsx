@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Menu, MenuItem, MenuTrigger, Popover } from "react-aria-components";
+import { Download01, Printer } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { ChartPrintContext } from "@/components/chart/ChartPrintContext";
 import { containsReference } from "../publishedReport";
@@ -53,6 +54,14 @@ function useFocusAfterPreview() {
   return holder;
 }
 
+/** The header's quiet utility look, as Run progress beside it. */
+const QUIET =
+  "flex min-h-8 cursor-pointer items-center gap-1.5 rounded-ds-sm text-small font-semibold text-text-secondary outline-focus-ring hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11";
+/** A state of the preview as a quiet chip. */
+const CHIP =
+  "flex min-h-6 items-center rounded-ds-xs border border-border-hairline bg-surface-card px-2 text-caption text-text-secondary";
+const TOOL = "max-[480px]:min-h-11";
+
 export function ExportMenu({ options, reason }: { options: ExportOption[]; reason: string }) {
   const holder = useFocusAfterPreview();
   return (
@@ -65,22 +74,28 @@ export function ExportMenu({ options, reason }: { options: ExportOption[]; reaso
 function ExportControl({ options, reason }: { options: ExportOption[]; reason: string }) {
   if (options.length === 0)
     return (
-      <details className="relative">
-        <summary className="flex min-h-8 cursor-pointer items-center rounded-ds-sm px-3 text-small font-semibold max-[480px]:min-h-11">
+      <details className="report-export-menu relative">
+        <summary className={`${QUIET} list-none`}>
+          <Download01 aria-hidden="true" className="size-4" />
           Export PDF
         </summary>
-        <p className="absolute top-full right-0 z-10 w-64 rounded-ds-sm border border-border-hairline bg-surface-card p-3 text-small shadow-2">
+        <p className="absolute top-full right-0 z-10 mt-1 w-64 rounded-ds-md border border-border-subtle bg-surface-card p-3 text-small text-text-secondary shadow-2">
           {reason}
         </p>
       </details>
     );
   return (
     <MenuTrigger>
-      <Button color="secondary" size="sm" className="max-[480px]:min-h-11">
+      <Button
+        color="link-gray"
+        size="sm"
+        iconLeading={Download01}
+        className="min-h-8 max-[480px]:min-h-11"
+      >
         Export PDF
       </Button>
       <Popover
-        className="rounded-ds-sm border border-border-hairline bg-surface-card p-1 shadow-2"
+        className="min-w-48 rounded-ds-md border border-border-subtle bg-surface-card p-1 shadow-2"
         placement="bottom end"
       >
         <Menu aria-label="PDF formats">
@@ -90,7 +105,7 @@ function ExportControl({ options, reason }: { options: ExportOption[]; reason: s
               onAction={() => {
                 openPreview(id);
               }}
-              className="cursor-pointer rounded-ds-xs px-3 py-2 text-small outline-hidden data-focused:bg-surface-subtle"
+              className="flex min-h-8 cursor-pointer items-center rounded-ds-sm px-3 text-small text-text-primary outline-hidden data-focused:bg-surface-selected data-focused:text-text-link max-[480px]:min-h-11"
             >
               {name}
             </MenuItem>
@@ -130,8 +145,9 @@ function blockTexts(root: HTMLElement) {
   return [...blocks.values()];
 }
 
+// The quote is written as \u0022 so the class check's string reader keeps its place in this file.
 function cssText(text: string) {
-  return `"${text.replace(/\s+/g, " ").replace(/["\\]/g, "\\$&")}"`;
+  return `"${text.replace(/\s+/g, " ").replace(/[\u0022\\]/g, "\\$&")}"`;
 }
 
 function PrintPaper({ report }: { report: Extract<ReportExport, { state: "ready" }> }) {
@@ -209,23 +225,33 @@ function PrintPaper({ report }: { report: Extract<ReportExport, { state: "ready"
   return (
     <>
       <div className="report-export-controls">
-        <Button color="secondary" size="sm" onPress={closePreview}>
-          Close preview
-        </Button>
+        <div className="grid min-w-0 gap-0.5">
+          <p className="text-caption text-text-tertiary">PDF preview</p>
+          <p className="font-display text-h4 font-semibold wrap-anywhere text-text-primary">
+            {name} · {paper.issuer}
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
-          {layout === "waiting" && <p role="status">Preparing print layout…</p>}
+          {layout === "waiting" && (
+            <p role="status" className={CHIP}>
+              Preparing print layout…
+            </p>
+          )}
           {layout === "blocked" && (
-            <p role="alert">
+            <p role="alert" className="text-small text-error-text">
               This PDF cannot be printed because its text contains a link, a reference or a run
               identifier.
             </p>
           )}
           {layout === "failed" && (
             <>
-              <p role="alert">The print layout could not be prepared.</p>
+              <p role="alert" className="text-small text-error-text">
+                The print layout could not be prepared.
+              </p>
               <Button
                 color="secondary"
                 size="sm"
+                className={TOOL}
                 onPress={() => {
                   setLayout("waiting");
                   setAttempt((count) => count + 1);
@@ -235,8 +261,13 @@ function PrintPaper({ report }: { report: Extract<ReportExport, { state: "ready"
               </Button>
             </>
           )}
+          <Button color="secondary" size="sm" className={TOOL} onPress={closePreview}>
+            Close preview
+          </Button>
           <Button
             size="sm"
+            iconLeading={Printer}
+            className={TOOL}
             isDisabled={layout !== "ready"}
             onPress={() => {
               if (
@@ -297,12 +328,19 @@ export function ReportExportPreview({
       {report?.state === "ready" ? (
         <PrintPaper report={report} />
       ) : (
-        <>
-          <Button color="secondary" size="sm" onPress={closePreview}>
+        <div className="report-export-controls">
+          <p className="text-caption text-text-tertiary">PDF preview</p>
+          <Button color="secondary" size="sm" className={TOOL} onPress={closePreview}>
             Close preview
           </Button>
-          {report?.state === "unavailable" ? <p role="status">{report.reason}</p> : children}
-        </>
+          {report?.state === "unavailable" ? (
+            <p role="status" className="basis-full text-small text-text-secondary">
+              {report.reason}
+            </p>
+          ) : (
+            <div className="basis-full">{children}</div>
+          )}
+        </div>
       )}
     </section>
   );

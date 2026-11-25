@@ -81,7 +81,13 @@ export function AssumptionsByCase({
         <GapNote>The forecast inputs state no driver for any case.</GapNote>
       </Tile>
     );
-  const drawn = rows.flatMap(({ cells }) => cells);
+  // The forward model gives an upside or downside-driver case every driver it does not restate
+  // from base (the module's contract), so a blank there is "As base", not a driver left out.
+  const inherits = (row: (typeof rows)[number], at: number) =>
+    at > 0 && !cases[at]?.shock && !row.shock && row.cells[0]?.stated === true;
+  const drawn = rows.flatMap((row) =>
+    row.cells.filter((cell, at) => !(!cell.stated && inherits(row, at))),
+  );
   const uses = {
     differs: drawn.some((cell) => cell.stated && cell.differs),
     only: drawn.some((cell) => cell.stated && cell.only),
@@ -209,6 +215,10 @@ export function AssumptionsByCase({
                             </span>
                           )}
                         </>
+                      ) : inherits(row, at) ? (
+                        <span title="The model takes this driver from the base case for this case">
+                          As base
+                        </span>
                       ) : (
                         <NotStated />
                       )}

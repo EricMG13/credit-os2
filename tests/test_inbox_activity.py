@@ -182,7 +182,7 @@ def test_snapshot_orders_runs_and_reads_each_run_folder(layout):
     assert [r["id"] for r in data["runs"]] == ["4", "3", "2", "1", "5"]
     by_id = {r["id"]: r for r in data["runs"]}
     assert data["held"] == "paused" and data["updated"].endswith("Z") and "cap" not in data
-    # Each run shows its own cap; these records predate per-pathway caps: min(USD 20, Full's 25).
+    # Each run shows its own cap; these records predate per-pathway caps: min(USD 20, Full's 30).
     assert {r["cap"] for r in data["runs"]} == {"20"}
     assert dict(by_id["4"]["modules"])["CP-0"] == "running" and by_id["4"]["spent"] == "0"
     assert "modules" not in by_id["5"] and "modules" not in by_id["3"]

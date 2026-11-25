@@ -5,6 +5,7 @@ import { Ladder } from "../BreakPoints";
 import { share } from "../Downside";
 import {
   ForeignShareTile,
+  foreignGap,
   FxShocksTile,
   HedgeTermsTile,
   macroView,
@@ -328,9 +329,10 @@ export const MacroLead = withDraws(
     // The foreign share comes from a currency register or the module's FX limitation; with
     // neither written there is no tile, and a gap only where one is written and not read.
     const currency = entry.sections.some(({ heading }) => /\bFX\b.*\bregister\b/i.test(heading));
-    const foreign = (data?.fxGap || currency) && (
-      <ForeignShareTile fxGap={data?.fxGap} href={href} span={12} />
-    );
+    // The module's gap is read from the entry itself: a handoff whose registers the page does not
+    // recognise (no `data`) still states it.
+    const fxGap = data?.fxGap ?? foreignGap(entry);
+    const foreign = (fxGap || currency) && <ForeignShareTile fxGap={fxGap} href={href} span={12} />;
     const terms = <HedgeTermsTile hedges={hedges} exposures={data?.fxExposure} href={href} />;
     const others = <OtherCharts entry={entry} module="CP-2E" href={evidence} drawn={[]} />;
     const short = onlyGaps(entry, []);

@@ -28,6 +28,7 @@ const data = {
   unit: "US$m",
   periods: PERIODS.map((label) => ({ label })),
   ordered: false,
+  unplaced: [],
   comparison: null,
   measures: [
     measure("sales", "Revenue", ["4733", "5754", null, null]),
