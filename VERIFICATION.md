@@ -22,6 +22,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   the real executor and check with a stand-in provider: no id dropped in any group; the retained
   CP-3 handoff fails today's check in every group. No provider called; `live` mode never run;
   the C texts were not read against their sources by a person; `rewrite-tournament` not run.
+- Fourth pass: reading lists for CP-3, CP-4, CP-5 and CP-6 under `trial/reading/` (75 items; 239
+  quoted source passages, each matched exactly to its page or handoff by script; expected values
+  not checked by a person), the pilot ruling `docs/rulings/2026-11-25-instruction-length-trial-pilot.md`
+  (`check_ruling` accepts it for `copilot-opus-high` only) and a trial-wide cap in the script
+  (`tests/test_instruction_trial.py` 8 passed; gate exit 0). Nothing was run live.
 - Not verified (second pass adds the parts of one request and a trial review; nothing built):
   any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
   from search extracts where the report says so. `confidence-review` was a self-check of the

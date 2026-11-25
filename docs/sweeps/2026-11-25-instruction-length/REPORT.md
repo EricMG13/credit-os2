@@ -339,9 +339,43 @@ Before a live run:
 
 1. A person should read at least one C text against its source; the id check cannot see a
    dropped rule that has no id.
-2. The fixed list of facts and conclusions for the blind reading is not written.
-3. A new ruling file naming the configuration; `live` mode is written and has not been run.
+2. The fixed lists for the blind reading (written in the fourth pass) should be read by a person.
+3. `live` mode is written and has not been run; the ruling is in the fourth pass.
 4. Each run reserves about USD 7.17 per call against its cap before settling at well under USD 1.
+
+## Reading lists and the pilot ruling (fourth pass, 2026-11-25)
+
+- `trial/reading/`: one fixed list per module and the procedure (`README.md`). Each list was
+  written by a separate agent from the issuer files and the module's fixed inputs only; the
+  module's own retained handoff, later handoffs, the method and the group texts were not opened.
+
+  | Module | Items | Facts | Conclusions | Discipline | Source passages, all matched exactly |
+  | --- | ---: | ---: | ---: | ---: | ---: |
+  | CP-3 | 18 | 10 | 4 | 4 | 51 |
+  | CP-4 | 18 | 11 | 4 | 3 | 62 |
+  | CP-5 | 20 | 13 | 4 | 3 | 64 |
+  | CP-6 | 19 | 10 | 5 | 4 | 62 |
+
+- Checked: every quoted passage is on the stated page or in the stated handoff (exact match
+  after collapsing whitespace), and no evidence comes from a barred file. Not checked: that each
+  expected value is the right reading of its passage, and that the items are the ones that
+  matter. A person should read the lists before the first run; they are frozen after it.
+- CP-5's list is an audit done in advance: seven defects confirmed in the fixed upstream handoffs
+  that a correct audit must flag, four sound claims it must not flag, two module states. CP-6's
+  holds four real disagreements between upstream handoffs.
+- Thin: recovery, pricing and sizing for CP-3 and headroom in dollars for CP-4 have no figure in
+  the evidence, so those items test how the gap is handled.
+- Correction: in case 1 the legal module was not blocked; it ran on the 10-K's summaries because
+  no executed agreement was supplied.
+- Found in the fixed inputs, the same for every group: the context quotes term loans M and N
+  while the 10-K lists tranches I to L at 2024-09-30; three upstream handoffs cite the quote
+  sheet that is not in the bundle; the source-readiness handoff says no ratings or prices were
+  supplied while the context carries both.
+- `docs/rulings/2026-11-25-instruction-length-trial-pilot.md`: twelve runs, one per module and
+  group, on `copilot-opus-high`, USD 10 a run and USD 50 in total (owner, 2026-11-25: "Pilot: 1 of
+  each first", "anthropic opus high", "Estimate plus 50% (Recommended)"). The engine's gate accepts
+  the file for that configuration. `tools/instruction_trial.py live` now takes `--trial-cap` and
+  refuses a run once the runs beside it have settled that total. Nothing was run.
 
 ## Not verified
 
