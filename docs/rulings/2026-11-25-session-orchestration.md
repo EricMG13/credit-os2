@@ -9,3 +9,21 @@ Owner asked the coordinator to rule on the conflicts found while adding the coor
 5. The 2026-11-15 deadline rulings lapsed on 2026-11-16; merges are on the owner's instruction only.
 6. Repo copies of `mx-*` are checked for drift with `diff -rq` (see `CLAUDE.md`).
 7. Cloud sessions load `.claude/agents/` (confirmed 2026-11-25; the owner relayed the cloud test session's result). Not verified: cloud loading of `.claude/commands/` and `CLAUDE.md`, and cloud agent models.
+
+## Rulings on the `/advisor` critique (2026-11-25, owner asked the coordinator to rule and fix)
+
+The critique ran after PRs 88 and 89 merged, not before dispatch; this record and its PR are the remedy. Rulings follow the inverse-pyramid principle the owner shared (checks over prose; keep prose to judgment calls).
+
+- High, AGENTS.md may stop auto-loading once CLAUDE.md exists: `CLAUDE.md` now imports it with `@AGENTS.md`.
+- High, amendment scope: the credit-os amendment in the global file covers `~/Documents/credit-os` only, not this repo. Its one-phase rule, Opus `xhigh` controllers and deadline rulings are removed from this repo's `CLAUDE.md`; a sub-session here runs on its coordinator's model. `~/Documents/credit-os` gets no copies (the owner asked for this project).
+- Medium, `mx-adversary` scope: money, ordering/concurrency and security (the lapsed ruling's narrower scope is dropped).
+- Medium, unowned reviews: the coordinator runs `confidence-review` and `rewrite-tournament` on the branch diff before the pre-merge review; fixes go to `mx-feature`.
+- Medium, brief files: briefs and critiques live in the gitignored `.superpowers/sdd/<plan>/`, so none are committed; cloud sub-sessions get theirs in the start prompt.
+- Medium, drift check: replaced with a command whose exit code is 0 only when in sync and which covers `advisor.md`; whoever edits an original refreshes the copies (global §8).
+- Medium, cloud gets a partial setup: `CLAUDE.md` now carries the shared-records rule and defines the pre-merge review with a fallback where `adversarial-reviewer` is absent. Skills are not copied; that falls under the YAGNI rule until a cloud run needs them.
+- Low, Deploy VII: excluded from global §8.
+- Low, Mac-only agent lines: noted in `CLAUDE.md` as local-only.
+- Low, controller model not enforced: no change; the model is chosen at launch.
+- Low, old sessions run old rules: no change; restart to pick up.
+- Low, `rtk` hook versus auto mode: parked for the owner. It is a global hook that affects every project and needs its own investigation.
+- Low, matrix stale: date updated and Fable 5.2 priced at $8/$40 per MTok (claude-api skill, cached 2026-11-03).
