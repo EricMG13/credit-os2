@@ -136,7 +136,9 @@ def arm_text(arm: str, module: str, prepared_text: str, notes: str = "") -> str:
 # ---------------------------------------------------------------- arm D: the first-pass reader
 READER_MODEL = "claude-haiku-5-5"
 READER_URL = "https://api.anthropic.com/v1/messages"
-READER_MAX_TOKENS = 12000
+# Thinking is spent from the same limit: at 12,000 the first run's reader ended on the limit for
+# five of six documents and wrote nothing for two.
+READER_MAX_TOKENS = 32000
 # USD per million tokens (input, output): up to 100,000 prompt tokens, and beyond.
 READER_PRICES = ((Decimal("0.10"), Decimal("0.50")), (Decimal("0.50"), Decimal("2.50")))
 READER_TIER = 100_000
@@ -211,6 +213,7 @@ def read_legal_documents(case: "Case", inputs: Path, out: Path, cap: Decimal) ->
             "model": READER_MODEL,
             "max_tokens": READER_MAX_TOKENS,
             "system": READER_BRIEF,
+            "output_config": {"effort": "low"},
             "messages": [{"role": "user", "content": f"Document: {name}\n\n{document}"}],
         }
         headers = {
@@ -231,6 +234,8 @@ def read_legal_documents(case: "Case", inputs: Path, out: Path, cap: Decimal) ->
         with (out / "reader-calls.jsonl").open("a") as log:
             log.write(json.dumps(record) + "\n")
         (out / "reader" / f"{name}.notes.md").write_text(text)
+        if not text.strip():
+            raise SystemExit(f"first-pass reader wrote nothing for {name}: {answer['stop_reason']}")
         notes.append(f"### Notes on {name}\n\n{text.strip()}")
         if spent >= cap:
             raise SystemExit(f"first-pass reader settled USD {spent}, the run's cap: stopped")

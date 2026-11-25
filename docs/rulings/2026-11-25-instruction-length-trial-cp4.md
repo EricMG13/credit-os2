@@ -67,3 +67,10 @@ output; about USD 1 a run estimated) counts toward the run's USD 15 and the tria
 The reader is a second model beside `opus-high` and is called from `tools/instruction_trial.py`
 alone. No run is repeated.
 
+Note on group D's first run (2026-11-25): it was run alone to prove the reader step. The reader's
+output limit (12,000 tokens, which its thinking also draws on) was reached for five of the six
+documents, and two documents got no notes. The run was accepted and is kept as D-1, marked as
+run with a defective reader and left out of group D's comparison, decided before it was read.
+The limit is now 32,000 at low effort, a document with no notes stops the run, and group D is
+five further runs (D-2 to D-6).
+
