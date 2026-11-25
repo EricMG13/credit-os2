@@ -420,7 +420,7 @@ def _sector_reading(limit: Limit, sector: str | None) -> tuple[Outcome, str]:
 def _covered(parameter: str) -> tuple[tuple[str, ...], bool] | None:
     """The rating buckets a row covers, in the order IG, BB, B, CCC, Unrated, and whether by group
     wording; None when it covers none or a word is not read."""
-    text = f" {' '.join(_stem(word) for word in _words(parameter))} "
+    text = f" {' '.join(_stem(word) for word in _words(parameter.replace('&', ' and ')))} "
     for phrase, short in PHRASES.items():
         text = text.replace(phrase, short)
     covered: set[str] = set()

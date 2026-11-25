@@ -1052,6 +1052,12 @@ def test_a_row_that_is_not_a_floor_says_so_and_does_not_cap() -> None:
         ("Rating", "Max high yield", "BB", "breached"),
         ("Rating", "Max speculative", "B", "breached"),
         ("Rating", "Max rated obligations", "BB", "not_read"),
+        ("Rating", "Max CCC & below", "CCC", "breached"),
+        ("Rating", "Max CCC & below", "B", "does_not_apply"),
+        ("Rating", "Max B3 & below", "CCC", "breached"),
+        ("Rating", "Max B3 & below", "B", "breached"),
+        ("Rating", "Max B3 & below", "BB", "does_not_apply"),
+        ("Rating", "Max CCC+ & lower", "CCC", "breached"),
     ],
 )
 def test_a_rating_row_covers_every_bucket_it_names_or_implies(
