@@ -176,7 +176,7 @@ def remove_homes(guard: Guard) -> None:
     are the store's own, so it never collides with a later call)."""
     for home in guard.homes:
         parent = home.parent
-        if not home.exists():
+        if parent.parent.name != HOMES or home.is_symlink() or not home.is_dir():
             continue
         if not home.resolve().is_relative_to(parent.parent.resolve()):
             continue
@@ -199,8 +199,9 @@ def call(
     (nothing is held then). A call that raises is settled as unknown (it may have been sent),
     which switches the pass off; the error is logged by type only."""
     usd = reservation_usd(model.config_id, prompt)
+    store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
     call_id = _reserve(db, guard, purpose, model.config_id, usd)
-    tag = f"{ai_ledger.store_id(db)}-{call_id}"  # never the same in another store
+    tag = f"{store_id}-{call_id}"  # never the same in another store
     digest, reservation = f"signal-{purpose}-{tag}", f"signal-{tag}"
     guard.homes.append(_home(digest, reservation))
     request = TurnRequest(

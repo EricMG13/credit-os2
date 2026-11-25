@@ -377,3 +377,53 @@ def test_an_absurd_reported_cost_leaves_the_owners_settings_readable(db, tmp_pat
     spend = ai_view.settings_ai(held, User("Olga", "owner"), NOW)["spend"]
     assert spend["label"] == "more than USD 999999999999.99 of USD 15.00"
     assert spend["position"] == 1.0
+
+
+# Property: the cap and the day's digest calls hold together, over any sequence
+
+
+DAY_STEP = st.tuples(
+    st.sampled_from(["stories", "digest", "settle", "unknown", "clear", "per-day"]),
+    st.integers(min_value=0, max_value=240),  # minutes the clock moves on
+    st.integers(min_value=0, max_value=9),  # which open call a settle picks; or the day's calls
+)
+
+
+def _step(db: sqlite3.Connection, action: str, pick: int, now: datetime, held: list[int]) -> None:
+    """One step; a digest call is made only while the day has made fewer than its limit."""
+    if action in ("stories", "digest"):
+        before, limit = ai_ledger.digest_calls_on(db, now), ai_ledger.digests_per_day(db)
+        try:
+            held.append(
+                ai_ledger.reserve(db, action, CONFIG, Decimal("0.3585"), now, ruled_cap=RULED)
+            )
+        except Refused:
+            return
+        assert action == "stories" or before < limit
+    elif action in ("settle", "unknown") and held:
+        call = held.pop(pick % len(held))
+        ai_ledger.settle(db, call, None if action == "unknown" else Decimal("0.01"), "ok", now)
+    elif action == "clear":
+        ai_ledger.clear(db)
+    elif action == "per-day":
+        ai_ledger.set_digests_per_day(db, pick, now)
+
+
+@settings(
+    max_examples=60, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
+)
+@given(steps=st.lists(DAY_STEP, max_size=50), cap=st.decimals(min_value=1, max_value=4, places=2))
+def test_no_day_has_more_digest_calls_than_its_limit_and_no_month_passes_its_cap(
+    tmp_path_factory, steps, cap
+):
+    db = open_db(tmp_path_factory.mktemp("days"))
+    try:
+        ai_ledger.set_cap(db, cap, NOW)
+        now = datetime(2026, 11, 30, 20, 0, tzinfo=UTC)  # the steps cross a day and a month
+        held: list[int] = []
+        for action, minutes, pick in steps:
+            now += timedelta(minutes=minutes)
+            _step(db, action, pick, now, held)
+            assert ai_ledger.totals(db, ai_ledger.month_of(now)).total <= cap
+    finally:
+        db.close()
