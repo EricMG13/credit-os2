@@ -9,7 +9,9 @@ function serve() {
   const fetch = vi.fn<(address: string, init?: RequestInit) => Promise<Response>>((address) =>
     Promise.resolve(
       Response.json(
-        address === "/signal/api/snapshot?format=2" ? sample : { catalogue: { real: [] }, workspace: {} },
+        address === "/signal/api/snapshot?format=2"
+          ? sample
+          : { catalogue: { real: [] }, workspace: {} },
       ),
     ),
   );

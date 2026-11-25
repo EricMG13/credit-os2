@@ -40,6 +40,13 @@ const DIGEST_TITLES: Record<string, string> = {
 /** A topic page's h1 is the topic's name as the channel list gives it. */
 const TOPIC_TITLES: Record<string, string> = { shipping: "Shipping", telecoms: "Telecoms" };
 
+/** An issuer page's h1 is the issuer's name as the channel list gives it. */
+const ISSUER_TITLES: Record<string, string> = {
+  "tessaly-telecom": "Tessaly Telecom",
+  "corvane-packaging": "Corvane Packaging",
+  "brightwell-foods": "Brightwell Foods",
+};
+
 const VIEW_TITLES: Record<string, string> = {
   "for-you": "For you",
   latest: "Latest",
@@ -59,6 +66,7 @@ function skippedLevels(): string[] {
 function expectedTitle(pattern: string, params: Record<string, string>): string | undefined {
   if (pattern.includes("/feed/")) return VIEW_TITLES[params["view"] ?? ""];
   if (pattern.includes("/topic/")) return TOPIC_TITLES[params["topic"] ?? ""];
+  if (pattern.includes("/issuer/")) return ISSUER_TITLES[params["issuer"] ?? ""];
   if (pattern.includes("/group/")) return GROUP_TITLES[params["group"] ?? ""];
   if (pattern.includes("/digest/")) {
     return DIGEST_TITLES[`${params["scene"] ?? ""}/${params["digest"] ?? ""}`];
@@ -353,6 +361,6 @@ describe("the Signal frame", () => {
         visits += 1;
       }
     }
-    expect(visits).toBe(41);
+    expect(visits).toBe(51);
   });
 });

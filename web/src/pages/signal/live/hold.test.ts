@@ -10,7 +10,14 @@ import {
   withFeedError,
   type ViewAt,
 } from "./hold";
-import { arrival, sampleWith, storyLike, unsaved } from "./test-helpers";
+import {
+  arrival,
+  format2With,
+  sampleWith,
+  storyLike,
+  unsaved,
+  type Snapshot,
+} from "./test-helpers";
 
 function view(
   top: string[],
@@ -331,9 +338,130 @@ describe("the feed's own error", () => {
 });
 
 describe("viewAtOf", () => {
-  it("names the view a feed or topic address draws, and nothing on any other page", () => {
+  it("names the view a feed, topic or issuer address draws, and nothing on any other page", () => {
     expect(viewAtOf({ scene: "main", view: "saved" })).toEqual(SAVED);
     expect(viewAtOf({ scene: "main", topic: "2" })).toEqual(TELECOMS);
+    expect(viewAtOf({ scene: "main", issuer: "1" })).toEqual(TESSALY);
     expect(viewAtOf({ scene: "main", section: "topics" })).toBeNull();
+  });
+});
+
+// The format-2 sample: Tessaly Telecom is issuer 1 (stories 7, 2, 4, 8, 9, newest first, drawn 30
+// at a time) and also topic 2's subject; Corvane Packaging is issuer 2 (story 1).
+const TESSALY: ViewAt = { list: "issuers", id: "1" };
+const CORVANE: ViewAt = { list: "issuers", id: "2" };
+
+/** One more story about Tessaly Telecom, newest: in Latest and in the issuer's view, whose count follows. */
+function tessalyArrival(snapshot: Snapshot) {
+  const like = snapshot.feed.stories.find((story) => story.id === "2");
+  if (like === undefined) throw new Error("the sample holds story 2");
+  snapshot.feed.stories.unshift({ ...like, id: "11", headline: "Tessaly Telecom names a chief" });
+  for (const held of [snapshot.feed.views.latest, snapshot.feed.issuers?.["1"]]) {
+    held?.top.unshift("11");
+    held?.latest.unshift("11");
+  }
+  const channel = snapshot.channels.issuers?.find((issuer) => issuer.id === "1");
+  if (channel !== undefined) channel.count = "6";
+}
+
+describe("an issuer's view on screen", () => {
+  it("is held as a topic's is: the story that arrives waits behind the pill, and the reader accepts it", () => {
+    const before = read(format2With());
+    const fresh = read(format2With(tessalyArrival));
+    expect(mainView(fresh, TESSALY)?.latest).toEqual(["11", "7", "2", "4", "8", "9"]);
+    const held = holdAfterRead(before, null, fresh, TESSALY);
+    expect(held).toEqual({
+      at: TESSALY,
+      view: {
+        top: ["7", "2", "4", "8", "9"],
+        latest: ["7", "2", "4", "8", "9"],
+        waiting: { label: "1 new story", ids: ["11"] },
+        older: [],
+        shown: 30,
+      },
+    });
+    const shown = shownSlice(fresh, held, TESSALY);
+    expect(readSlice(shown).kind).toBe("ok");
+    expect(mainView(shown, TESSALY)?.top).toEqual(["7", "2", "4", "8", "9"]);
+    // Every other view is the service's: Latest lists the new story, and so does the count.
+    expect(mainView(shown, LATEST)?.latest[0]).toBe("11");
+    expect(shown.scenes[0].snapshot.channels.issuers?.[2]?.count).toBe("6");
+    // Topic 2 has the same subject and its own view: nothing of the issuer's is held against it.
+    expect(shownSlice(fresh, held, TELECOMS)).toBe(fresh);
+    expect(shownSlice(fresh, held, CORVANE)).toBe(fresh);
+  });
+
+  it("joins the list once the pill is shown, drawn as well as what was", () => {
+    const fresh = read(format2With(tessalyArrival));
+    const held = holdAfterRead(read(format2With()), null, fresh, TESSALY);
+    const revealed = holdAfterReveal(fresh, held, TESSALY);
+    expect(revealed?.view).toEqual({
+      top: ["11", "7", "2", "4", "8", "9"],
+      latest: ["11", "7", "2", "4", "8", "9"],
+      waiting: null,
+      older: [],
+      shown: 31,
+    });
+    expect(readSlice(shownSlice(fresh, revealed, TESSALY)).kind).toBe("ok");
+  });
+
+  it("drops a story the service no longer lists for the issuer", () => {
+    const fresh = read(
+      format2With((snapshot) => {
+        const view = snapshot.feed.issuers?.["1"];
+        if (view === undefined) throw new Error("the sample holds issuer 1's view");
+        view.top = view.top.filter((id) => id !== "4");
+        view.latest = view.latest.filter((id) => id !== "4");
+      }),
+    );
+    const held = holdAfterRead(read(format2With()), null, fresh, TESSALY);
+    expect(held?.view.top).toEqual(["7", "2", "8", "9"]);
+    expect(held?.view.waiting).toBeNull();
+  });
+
+  it("holds nothing when the held list would sit beside a delivered count it contradicts", () => {
+    // The service now lists the issuer's story as an older one only, and counts none.
+    const fresh = read(
+      format2With((snapshot) => {
+        const channel = snapshot.channels.issuers?.find((issuer) => issuer.id === "2");
+        if (channel !== undefined) channel.count = "0";
+        if (snapshot.feed.issuers !== null) snapshot.feed.issuers["2"] = view([], ["1"]);
+      }),
+    );
+    expect(holdAfterRead(read(format2With()), null, fresh, CORVANE)).toBeNull();
+  });
+
+  it("holds nothing at an issuer the service does not list, or where it delivers no issuers", () => {
+    const before = read(format2With());
+    const gone: ViewAt = { list: "issuers", id: "99" };
+    expect(holdAfterRead(before, null, before, gone)).toBeNull();
+    expect(shownSlice(before, { at: gone, view: view(["2"]) }, gone)).toBe(before);
+    // The earlier sample says nothing of issuers: an issuer's address there draws no view.
+    const plain = read(sampleWith());
+    expect(holdAfterRead(plain, null, plain, TESSALY)).toBeNull();
+    expect(shownSlice(plain, { at: TESSALY, view: view(["2"]) }, TESSALY)).toBe(plain);
+    expect(holdAfterReveal(plain, null, TESSALY)).toBeNull();
+  });
+
+  it("holds an issuer whose id is a prototype's name as an ordinary entry", () => {
+    const named = (snapshot: Snapshot) => {
+      const { channels, feed, settings } = snapshot;
+      for (const list of [channels.issuers, settings.issuers]) {
+        const corvane = list?.find((issuer) => issuer.id === "2");
+        if (corvane !== undefined) corvane.id = "constructor";
+      }
+      if (feed.issuers === null) throw new Error("the sample holds issuer views");
+      feed.issuers["constructor"] = feed.issuers["2"] ?? view([]);
+      Reflect.deleteProperty(feed.issuers, "2");
+      for (const story of feed.stories) {
+        for (const issuer of story.issuers) if (issuer.id === "2") issuer.id = "constructor";
+      }
+    };
+    const at: ViewAt = { list: "issuers", id: "constructor" };
+    const before = read(format2With(named));
+    expect(mainView(before, at)?.top).toEqual(["1"]);
+    const held = holdAfterRead(before, null, before, at);
+    expect(held?.view.top).toEqual(["1"]);
+    expect(readSlice(shownSlice(before, held, at)).kind).toBe("ok");
   });
 });

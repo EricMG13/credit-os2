@@ -10,6 +10,7 @@ import { act, render, within } from "@testing-library/react";
 import type { SignalScene, SignalSlice, SignalStory } from "../slice";
 import sample from "../../../../fixtures/signal-live.json";
 import current from "./snapshot.sample.json";
+import format2 from "./snapshot.format2.sample.json";
 import { SignalLive } from "./SignalLive";
 
 export type Snapshot = SignalScene["snapshot"];
@@ -27,6 +28,16 @@ export function sampleWith(edit: (snapshot: Snapshot) => void = () => undefined)
 /** A copy of the service's current sample (groups, threads, digests, rules and events), changed by `edit`. */
 export function currentWith(edit: (snapshot: Snapshot) => void = () => undefined): SignalSlice {
   const copy = structuredClone(current) as unknown as SignalSlice;
+  edit(copy.scenes[0].snapshot);
+  return copy;
+}
+
+/**
+ * A copy of the service's format-2 sample (the current sample's store with three issuers, the
+ * filings of one and a market post, as `?format=2` delivers it to the writer), changed by `edit`.
+ */
+export function format2With(edit: (snapshot: Snapshot) => void = () => undefined): SignalSlice {
+  const copy = structuredClone(format2) as unknown as SignalSlice;
   edit(copy.scenes[0].snapshot);
   return copy;
 }

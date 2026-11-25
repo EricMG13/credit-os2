@@ -1,9 +1,9 @@
 """The snapshot's two delivered formats, each read by the real React reader as it is today.
 
-Format 1 (no ``format``) must be exactly what the reader accepts: no filing or market story, no
-thread naming one, no issuer data, and every count over the stories it delivers. Format 2 adds the
-new kinds and keys; the reader refuses it only for the new kinds, which this file checks by
-reading a copy with those two kinds renamed to "news" (so nothing else in it drifted).
+Format 1 (no ``format``) is what the reader accepted before it knew the new kinds, and still
+accepts: no filing or market story, no thread naming one, no issuer data, and every count over the
+stories it delivers. Format 2 adds the new kinds and keys, and the reader now accepts it whole
+(it is what the page asks for).
 
 The store holds every kind: news and regulator stories, filing stories from a SYNTHETIC EDGAR Atom
 document (``test_signal_filings.EDGAR_ATOM``, written by hand in the SEC's format, not a recorded
@@ -12,7 +12,6 @@ network. Expected values are written by hand."""
 
 from __future__ import annotations
 
-import copy
 import json
 import sqlite3
 import time
@@ -22,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from signal_reader_check import bundle, react_refusal, reader_part  # noqa: F401 (autouse)
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_filings import EDGAR_ATOM, FakePace
 from test_signal_group_bounds import LETTER, _long, _seed_groups, _seed_sources, _seed_stories
 from test_signal_market import BODIES, SERIES, Fred
@@ -50,7 +49,6 @@ NOW = datetime(2026, 11, 25, 9, 0, tzinfo=UTC)
 MARA = User("Mara L", "writer")
 TOBIAS = User("Tobias O", "reader")
 CAP = 3 * 1024 * 1024
-NEW_KIND = "kind: expected regulator, news, ratings or research"
 
 
 def _sec_only(url: str, etag: str | None, modified: str | None, *, declared: Any = None) -> Fetched:
@@ -116,15 +114,6 @@ def _snap(built: dict[str, Any]) -> dict[str, Any]:
     return dict(built["scenes"][0]["snapshot"])
 
 
-def _renamed(built: dict[str, Any]) -> dict[str, Any]:
-    """A copy with the two new kinds renamed "news": what the reader should then accept."""
-    held = copy.deepcopy(built)
-    for story in _snap(held)["feed"]["stories"]:
-        if story["kind"] in ("filing", "market"):
-            story["kind"] = "news"
-    return held
-
-
 # Format 1
 
 
@@ -178,12 +167,10 @@ def test_a_viewer_with_no_name_gets_format_one_and_two_accepted(db):
 # Format 2
 
 
-def test_format_two_is_refused_only_for_the_new_kinds(db):
-    bundle()  # this test needs the reader itself
+def test_format_two_is_what_the_reader_accepts_with_the_new_kinds_and_keys(db):
     built = _build(db, TOBIAS, fmt=2)
-    refusal = react_refusal(built)
-    assert refusal is not None and refusal.endswith(NEW_KIND)
-    assert react_refusal(_renamed(built)) is None
+    assert react_refusal(built) is None
+    assert {s["kind"] for s in _snap(built)["feed"]["stories"]} >= {"filing", "market"}
 
 
 def test_format_two_delivers_every_kind_with_its_label_tags_and_issuers(db):
@@ -357,7 +344,7 @@ def test_the_ai_pass_never_marks_a_filing_or_a_market_post(db):
         assert (stories[n]["ai"], stories[n]["strength"]) == (None, None)
         assert stories[n]["kind"] in ("filing", "market")
     assert stories["1"]["kind"] == "ratings" and stories["1"]["tags"][0] == "Telecoms"
-    assert react_refusal(_renamed(built)) is None
+    assert react_refusal(built) is None
 
 
 def test_a_digest_may_cover_an_issuer(db):

@@ -107,7 +107,8 @@ function orderOf(
   word: "topic" | "issuer",
 ): SignalFeedView {
   const order = views !== null && Object.hasOwn(views, id) ? views[id] : undefined;
-  if (order === undefined) throw new Error(`the slice reader let through ${word} "${id}" with no order`);
+  if (order === undefined)
+    throw new Error(`the slice reader let through ${word} "${id}" with no order`);
   return order;
 }
 

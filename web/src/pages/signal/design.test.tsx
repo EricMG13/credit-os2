@@ -157,6 +157,37 @@ describe("the Signal screens in the redesign's shape", () => {
     );
   });
 
+  it("makes a story's issuer links and a market series' name targets, with the focus ring", () => {
+    show("/signal/issuers/feed/latest");
+    const link = page().getAllByRole("link", { name: "Tessaly Telecom" })[0];
+    const series = page().getByRole("button", { name: /^Sample HY: / });
+    for (const control of [link, series]) {
+      expect(classesOf(control)).toEqual(
+        expect.arrayContaining([
+          "inline-flex",
+          "min-h-8",
+          "max-[480px]:min-h-11",
+          "focus-visible:outline-2",
+          "focus-visible:outline-offset-2",
+        ]),
+      );
+    }
+  });
+
+  it("draws the market table in a well: 8px radius, a hairline edge, no shadow, the caption size for its heads", () => {
+    show("/signal/issuers/feed/latest");
+    const region = page().getByRole("region", { name: /^Table: Market backdrop/ });
+    expect(classesOf(region)).toEqual(
+      expect.arrayContaining(["rounded-ds-sm", "border", "border-border-hairline"]),
+    );
+    expect(region.className).not.toContain("shadow");
+    for (const head of within(region).getAllByRole("columnheader")) {
+      expect(classesOf(head)).toEqual(
+        expect.arrayContaining(["text-caption", "font-medium", "text-text-tertiary"]),
+      );
+    }
+  });
+
   it("makes a switch a 32px target, 44px on a phone, by its label's padding", () => {
     show("/signal/main/settings/notifications");
     const label = page().getAllByRole("switch")[0]?.closest("label");
