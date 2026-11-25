@@ -11,8 +11,9 @@ source and its sha256, so notes written for another version of a document are re
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 # The topics a reader is given: the step titles of the module's own method, word for word, so the
 # reader is told what the module looks for and nothing else.
@@ -30,6 +31,21 @@ READER_TOPICS: Mapping[str, tuple[str, ...]] = {
         "Turnover, Release & Purchase Options",
     ),
 }
+# The document kinds (the launcher's own reading of each source, `read_documents`) a module's
+# reader is not given. CP-4's reader takes the agreements, indentures and amendments.
+NOT_READ: Mapping[str, frozenset[str]] = {"CP-4": frozenset({"financial_report"})}
+
+
+def reader_documents(module: str, documents: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The page-text sources ``module``'s reader is given, in name order."""
+    skipped = NOT_READ[module]
+    return sorted(
+        d["source"]
+        for d in documents
+        if d["source"].endswith(".jsonl") and d["kind"] not in skipped
+    )
+
+
 NOTES_RULE = (
     "First-pass reading notes. A separate reader went through each legal document once and "
     "noted, page by page, where its terms are. The notes are a finding aid, not a source: "

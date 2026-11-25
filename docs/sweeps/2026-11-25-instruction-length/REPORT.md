@@ -577,13 +577,15 @@ and route, "CP-4 now, probe CP-0 and CP-1 (Recommended)" and "Copilot, add a che
   given.
 - Checked offline: with the notes of trial run D-2, CP-4's instructions are group D's text but
   for two blank lines, and no other module's instructions change.
-- Not built: the reader call on the Copilot route. This environment has no Copilot login, so the
-  call could not be run, and none was written. Notes can be produced by the trial tool's reader
-  (Haiku, Anthropic API), which writes them in the launcher's form. A Copilot reader is also a
-  different configuration from the one tested: GPT Sol's input limit is 272,000 tokens and two of
-  the six agreements are larger, so they would be read in parts.
-- Not started: probes of CP-0 and CP-1. They need a topic list from each method, a fixed reading
-  list each, and a spending limit.
+- The reader on the Copilot route (owner: "gpt luna xhigh", or "haiku xhigh"; "probes no live
+  re-run"): `owners/cpos_reader_run.py`, a command that reads each document on
+  `copilot-luna-xhigh` and writes the notes folder. Luna is used because it is the cheap model
+  already configured for Copilot; there is no Haiku configuration on that route. Its input ceiling
+  (1,050,000 tokens) takes each agreement whole. A call is not sent when its hold would pass the
+  cap; a failed, unpriced or empty reading stops and leaves no notes file. Tested with a stand-in
+  for the adapter only: the command has never been run on a provider, and Luna is not the
+  reader the trial tested (Haiku on the Anthropic API).
+- CP-0 and CP-1: no reader is defined for them and none was probed (owner: no live re-run).
 
 ## Not verified
 

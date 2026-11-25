@@ -97,3 +97,16 @@ def test_a_launch_refuses_notes_written_for_another_version_and_writes_nothing(t
             reading_notes=folder,
         )
     assert not (tmp_path / "out" / "workflow.json").exists()
+
+
+def test_cp4s_reader_is_given_the_page_text_documents_that_are_not_financial_reports():
+    documents = [
+        {"source": "b-indenture.htm.jsonl", "kind": "indenture"},
+        {"source": "10-K.htm.jsonl", "kind": "financial_report"},
+        {"source": "a-agreement.htm.jsonl", "kind": "unrecognised"},
+        {"source": "annual.pdf", "kind": "unrecognised"},
+    ]
+    assert cpos_reader.reader_documents("CP-4", documents) == [
+        "a-agreement.htm.jsonl",
+        "b-indenture.htm.jsonl",
+    ]
