@@ -133,7 +133,11 @@ export function SettingsPage({
         );
       case "sources":
         return (
-          <SourcesSection sources={settings.sources} weeksHeading={settings.sourceWeeksHeading} />
+          <SourcesSection
+            sources={settings.sources}
+            weeksHeading={settings.sourceWeeksHeading}
+            more={settings.sourcesMore}
+          />
         );
       case "topics":
         return <TopicsSection topics={settings.topics} writer={writer} />;

@@ -112,9 +112,12 @@ function Propose() {
 export function SourcesSection({
   sources,
   weeksHeading,
+  more,
 }: {
   sources: SignalSource[];
   weeksHeading: string;
+  /** The service's sentence for a cut list, drawn under the table; null when the list is whole. */
+  more: string | null;
 }) {
   const [sort, setSort] = useState<SortDescriptor | undefined>();
   return (
@@ -198,6 +201,7 @@ export function SourcesSection({
               </Table.Body>
             </Table>
           </div>
+          {more === null ? null : <p className="mt-3 text-sm text-text-tertiary">{more}</p>}
         </div>
       )}
     </Section>

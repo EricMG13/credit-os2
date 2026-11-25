@@ -306,6 +306,8 @@ type SignalSettings = {
   sources: SignalSource[];
   /** The Items per week column's heading, with its delivered week count ("Items per week, 6 weeks"). */
   sourceWeeksHeading: string;
+  /** The sentence under the sources table when the service cut the list ("Showing 200 of 1,001 sources: ..."), else null. */
+  sourcesMore: string | null;
 };
 type SignalSnapshot = {
   viewer: SignalViewer;
@@ -1072,6 +1074,7 @@ const settings = shape<SignalSettings>({
   }),
   sources: list(source),
   sourceWeeksHeading: str,
+  sourcesMore: optional(strOrNull, null),
 });
 const snapshotBase = shape<SignalSnapshot>({
   viewer,
