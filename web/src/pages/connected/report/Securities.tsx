@@ -12,9 +12,18 @@ import {
 } from "../publishedReport";
 import { namedTable } from "../reportView";
 import { amount, distinct } from "../visuals/visualData";
-import { GapCell, KeyValues, LeadFigure, statedGap, TableOrCards, Trace } from "./leads/parts";
-import { readerCell, rowName } from "./leads/read";
+import {
+  GapCell,
+  KeyValues,
+  LeadFigure,
+  Notes,
+  statedGap,
+  TableOrCards,
+  Trace,
+} from "./leads/parts";
+import { readerCell, registerTable, rowName, sectionParagraphs } from "./leads/read";
 import { sourceOf, writtenTable } from "./leads/written";
+import { Key } from "./overview/figureParts";
 import { Bento, Tile } from "./overview/Tile";
 
 const TITLE = "Security decision summary";
@@ -107,7 +116,8 @@ export function securityView(entry: OutputEntry, asOf: string | null) {
     "Recommendation",
     "Source",
   ]);
-  const matrix = namedTable(entry, "T3.6 — Fundamental value matrix", MATRIX);
+  // The register id heads the section; the module writes its dash or none ("T3.6 Fundamental value matrix").
+  const matrix = registerTable(entry, "T3.6", MATRIX);
   const outcomes =
     matrix?.headers.join("|") === MATRIX.join("|") && matrix.rows.length ? matrix : null;
   const date = /^Market level \(([^)]+)\)$/.exec(summary?.headers[1] ?? "")?.[1];
@@ -334,6 +344,15 @@ function LastTrade({
   );
 }
 
+/** How the page draws the T3.6 matrix's headings; a heading it does not know is drawn as written. */
+const MATRIX_HEADINGS: Readonly<Record<string, string>> = {
+  "Security / Issuer": "Security / issuer",
+  "Fundamental View": "Fundamental view",
+  "Relative-Value View": "Relative-value view",
+  "Structural / Recovery View": "Structural / recovery view",
+  "Final Matrix Bucket": "Final matrix bucket",
+};
+
 const tradeHeading = (data: Instruments) =>
   data.rows.some((row) => row.price) ? "Last-trade price and yield" : "Yield";
 
@@ -341,14 +360,14 @@ const tradeHeading = (data: Instruments) =>
 const HEAD = "px-3 py-2 text-left align-bottom font-medium text-text-tertiary";
 const BODY = "px-3 py-2 align-top wrap-anywhere";
 
-/** The instrument table on a wide screen: fixed columns that fit the tile, never scrolled. */
+/** The instrument table from 1280 px, where its fixed columns fit the tile; below it the cards. */
 function InstrumentGrid({ data, href }: { data: Instruments; href: EvidenceHref }) {
   const trade = data.yields ? tradeHeading(data) : null;
   const before = data.columns.slice(0, data.market + 1);
   const after = data.columns.slice(data.market + 1);
   const columns = [...before, ...(trade ? [trade] : []), ...after];
   return (
-    <div className="relative hidden min-w-0 lg:block">
+    <div className="relative hidden min-w-0 xl:block">
       <table className="w-full table-fixed border-collapse text-body">
         <caption className="sr-only">Instrument decisions</caption>
         <colgroup>
@@ -364,6 +383,13 @@ function InstrumentGrid({ data, href }: { data: Instruments; href: EvidenceHref 
             {[data.name, ...columns, data.recommendation].map((name, at) => (
               <th key={at} scope="col" className={HEAD}>
                 {reader(name)}
+                {/* Two bars a row: each is named by its colour's key, never by position alone. */}
+                {name === trade && data.rows.some((row) => row.price) && (
+                  <span data-bar-key className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                    <Key tone="secondary">Price</Key>
+                    <Key tone="primary">Yield</Key>
+                  </span>
+                )}
               </th>
             ))}
             <th scope="col" className={HEAD}>
@@ -411,7 +437,7 @@ function InstrumentGrid({ data, href }: { data: Instruments; href: EvidenceHref 
 /** The instruments on a phone or tablet: one card each, every column the module wrote. */
 function InstrumentCards({ data, href }: { data: Instruments; href: EvidenceHref }) {
   return (
-    <ul aria-label="Instruments" className="grid min-w-0 gap-3 sm:grid-cols-2 lg:hidden">
+    <ul aria-label="Instruments" className="grid min-w-0 gap-3 sm:grid-cols-2 xl:hidden">
       {data.rows.map((item, index) => {
         const name = rowName(reader(item.name), index);
         return (
@@ -465,7 +491,15 @@ export function InstrumentTable({ data, href }: { data: Instruments; href: Evide
 /** The T3.6 fundamental value matrix, as written in the shared table, one trace per row. */
 export function ValueMatrix({ table, href }: { table: Table; href: EvidenceHref }) {
   const label = "Credit and recovery rationale";
-  const written = writtenTable(sourceOf(table), href);
+  const read = writtenTable(sourceOf(table), href);
+  // The matrix's own column headings in sentence case, as every other heading on the page; the
+  // cells stay as written.
+  const written = read && {
+    ...read,
+    head: read.head.map((name) =>
+      Object.hasOwn(MATRIX_HEADINGS, name) ? (MATRIX_HEADINGS[name] ?? name) : name,
+    ),
+  };
   return (
     <Tile
       span={12}
@@ -495,5 +529,40 @@ export function Securities({
       {instruments && <InstrumentTable data={instruments} href={href} />}
       {data.outcomes && <ValueMatrix table={data.outcomes} href={href} />}
     </Bento>
+  );
+}
+
+const PEERS = "Descriptive peer and benchmark evidence";
+
+/** The module's own peer and benchmark levels, as it wrote them; null when it wrote no such table. */
+export function peerLevels(entry: OutputEntry) {
+  const table = entry.sections
+    .filter((section) => section.heading.trim() === PEERS)
+    .flatMap(({ blocks }) => blocks)
+    .find((block): block is Table => block.type === "table" && block.rows.length > 0);
+  return table ? { table, notes: sectionParagraphs(entry, PEERS) } : null;
+}
+
+/** Peer and benchmark levels against the instrument, the module's passage and table as written. */
+export function PeerLevels({
+  peers,
+  href,
+}: {
+  peers: NonNullable<ReturnType<typeof peerLevels>>;
+  href: EvidenceHref;
+}) {
+  const label = "Relative value against peers";
+  const written = writtenTable(sourceOf(peers.table), href);
+  return (
+    <Tile
+      span={12}
+      label={label}
+      title={label}
+      trace={<Trace href={href(peers.table.line)} name={label} />}
+      className="w-full self-start"
+    >
+      {written && <TableOrCards label={label} table={written} />}
+      <Notes notes={peers.notes.flatMap(({ text }) => (text ? [<p key={text}>{text}</p>] : []))} />
+    </Tile>
   );
 }

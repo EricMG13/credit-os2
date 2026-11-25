@@ -4,7 +4,7 @@ import { PublishedSource } from "../PublishedTrace";
 import { ToneMark } from "../ToneMark";
 import { Figure, GapNote } from "../overview/Tile";
 import { Dumbbell } from "./Dumbbell";
-import type { Cause, MeasureChange } from "./model";
+import { UNRESOLVED, type Cause, type MeasureChange } from "./model";
 
 const TONE = {
   better: "text-success-text",
@@ -19,7 +19,7 @@ const LINK =
 function CauseLine({ cause, href }: { cause: Cause; href: string | undefined }) {
   switch (cause.kind) {
     case "written":
-      return cause.text === "Unresolved" ? (
+      return cause.text === UNRESOLVED ? (
         <span className="justify-self-start rounded-ds-xs border border-warning-edge bg-warning-fill px-1.5 py-0.5 text-caption font-medium text-warning-text">
           Cause: Unresolved
         </span>
@@ -44,17 +44,30 @@ function CauseLine({ cause, href }: { cause: Cause; href: string | undefined }) 
   }
 }
 
+/**
+ * The service's plain verdict for a measure it could compare. A row is in the moved or unmoved list
+ * only because it is comparable, so the word alone says nothing there; any other verdict is drawn.
+ */
+const PLAIN_VERDICT = "Comparable";
+
+/** Whether the written effect already opens with the verdict's words ("Same definition: …"). */
+function opensWith(effect: MeasureChange["effect"], reason: string) {
+  return effect?.kind === "written" && effect.text.toLowerCase().startsWith(reason.toLowerCase());
+}
+
 /** One measure: name, earlier → current as figures and as a dumbbell, the stated cause and effect. */
 function MeasureRow({
   item,
   ranked,
   level,
   evidence,
+  quiet,
 }: {
   item: MeasureChange;
   ranked: boolean;
   level: "h4" | "h5";
   evidence: string | undefined;
+  quiet: boolean;
 }) {
   const {
     label,
@@ -97,21 +110,28 @@ function MeasureRow({
           )}
         </div>
       </div>
-      <div className="grid items-center gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1fr)_9rem]">
-        <Figure className="flex min-w-0 flex-wrap items-center gap-x-2 text-small">
-          <span className="text-text-secondary">{before}</span>
-          <ArrowRight aria-hidden="true" className="size-4 flex-none text-text-tertiary" />
-          <span className="font-medium">{after}</span>
-        </Figure>
-        {mark && (
-          <span className="flex w-36">
-            <Dumbbell before={beforeValue} after={afterValue} tone={tone} />
-          </span>
-        )}
-      </div>
+      <Figure className="flex min-w-0 flex-wrap items-center gap-x-2 text-small">
+        <span className="text-text-secondary">{before}</span>
+        <ArrowRight aria-hidden="true" className="size-4 flex-none text-text-tertiary" />
+        <span className="font-medium">{after}</span>
+      </Figure>
+      {mark && (
+        <span className="flex max-w-xl">
+          <Dumbbell
+            before={beforeValue}
+            after={afterValue}
+            tone={tone}
+            reading={`${label}, ${before} to ${after}`}
+          />
+        </span>
+      )}
       <div className="grid gap-1">
-        <CauseLine cause={cause} href={href ?? evidence} />
-        {reason && <span className="text-caption text-text-secondary">{reason}</span>}
+        {!(quiet && cause.kind !== "written") && (
+          <CauseLine cause={cause} href={href ?? evidence} />
+        )}
+        {reason && reason !== PLAIN_VERDICT && !opensWith(effect, reason) && (
+          <span className="text-caption text-text-secondary">{reason}</span>
+        )}
       </div>
       {effect && (
         <p className="reading-copy text-small text-text-secondary">
@@ -122,7 +142,8 @@ function MeasureRow({
               Read the effect in Evidence
             </a>
           ) : effect.kind === "dash" ? (
-            <span className="text-text-tertiary">—</span>
+            // The module's own dash, as written, beside the column it was written in.
+            <span className="text-caption text-text-tertiary">Effect on the credit view: —</span>
           ) : (
             <span className="text-gap-text">Effect not stated</span>
           )}
@@ -138,18 +159,28 @@ export function MeasureList({
   label,
   level = "h4",
   evidence,
+  quiet = false,
 }: {
   items: readonly MeasureChange[];
   ranked?: boolean;
   label: string;
   level?: "h4" | "h5";
   evidence?: string;
+  /** A list of measures that did not move: a cause is drawn only where one is written. */
+  quiet?: boolean;
 }) {
   if (items.length === 0) return <GapNote>None recorded</GapNote>;
   return (
     <ul aria-label={label} className="grid">
       {items.map((item) => (
-        <MeasureRow key={item.key} item={item} ranked={ranked} level={level} evidence={evidence} />
+        <MeasureRow
+          key={item.key}
+          item={item}
+          ranked={ranked}
+          level={level}
+          evidence={evidence}
+          quiet={quiet}
+        />
       ))}
     </ul>
   );

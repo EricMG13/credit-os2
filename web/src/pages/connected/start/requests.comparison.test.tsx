@@ -137,7 +137,7 @@ async function submit(navigate: ReturnType<typeof vi.fn>) {
   for (const box of within(limits).getAllByRole("checkbox")) fireEvent.click(box);
   fireEvent.click(screen.getByRole("checkbox", { name: /^Approve: I have read this summary/ }));
   fireEvent.click(screen.getByRole("button", { name: "Submit run" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Start synthetic run" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Start no-cost test" }));
   await waitFor(() => {
     expect(navigate).toHaveBeenCalledWith("/run/20261125-093000-01");
   });

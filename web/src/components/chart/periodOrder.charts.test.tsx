@@ -64,7 +64,7 @@ it("draws a trend chart's LTM and PF after the fiscal years and before the forec
   expect(xTicks(container)).toEqual(ORDERED);
   const figure = within(screen.getByRole("figure", { name: "Net leverage" }));
   expect(figure.getByText(GAP)).toBeVisible();
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   const grid = within(figure.getByRole("table", { name: "Net leverage" }));
   expect(grid.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
     "Net leverage",
@@ -127,7 +127,7 @@ it("draws a path chart in the same order, each label, value and table cell with 
       (label) => label.textContent,
     ),
   ).toEqual(ORDERED_CELLS);
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   const grid = within(figure.getByRole("table"));
   expect(grid.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
     "EBITDA",

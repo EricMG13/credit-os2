@@ -101,7 +101,10 @@ export function ReadinessRail({
           <p className="text-caption text-text-tertiary">{capTitle}</p>
           {cap ? (
             <>
-              <Figure className="text-metric font-medium">{cap}</Figure>
+              {/* On the review the sheet's own cost figure is the page's one metric. */}
+              <Figure className={cx(stagesInReview ? "text-h4" : "text-metric", "font-medium")}>
+                {cap}
+              </Figure>
               <p className="text-small text-text-secondary">{`Cap · ${pathway}`}</p>
             </>
           ) : (

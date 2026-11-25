@@ -269,7 +269,7 @@ function EditableRow({
   removeRef: (node: HTMLButtonElement | null) => void;
 }) {
   return (
-    <div className="relative min-w-0 rounded-lg border border-border-hairline p-3">
+    <div className="relative min-w-0 rounded-ds-sm border border-border-hairline p-3">
       <RowItem
         id={id}
         title={title}
@@ -396,7 +396,7 @@ function RowControl({
     return (
       <select
         id={id}
-        className={field}
+        className={`${field} text-body`}
         {...marker}
         aria-describedby={described}
         aria-required={item.required ? "true" : undefined}
@@ -418,7 +418,7 @@ function RowControl({
   return (
     <input
       id={id}
-      className={field}
+      className={`${field} text-body`}
       type={item.kind === "date" ? "date" : "text"}
       inputMode={item.kind === "number" ? "decimal" : undefined}
       placeholder={item.placeholder}

@@ -1,6 +1,7 @@
 import { orderPeriods } from "@/utils/periodOrder";
 import type { OutputEntry } from "../../publishedReport";
 import { gridOf } from "../../visuals/LegacyForecast";
+import { isForecastPeriod } from "../../visuals/scenarioPeriods";
 import {
   amount,
   items,
@@ -97,10 +98,23 @@ const STATED_GAP = /^Not (?:supplied|calculated):\s*(\S.*)$/;
  * module's reason; a cell with words of its own is never called empty. */
 function stressCell(text: string, unit: string): Cell {
   const plain = text.replaceAll("−", "-").trim();
-  const value = amount(plain, unit) ?? amount(LEAD_NUMBER.exec(plain)?.[1] ?? "");
+  // A measure that states no unit is drawn only for a cell that states its own: a multiple
+  // ("6.53x", "4.88x; pro forma 6.02x"). A bare number there has no scale and is not drawn.
+  const multiple = /^(-?\d+(?:\.\d+)?)x(?:;|$)/.exec(plain)?.[1];
+  const value = unit
+    ? (amount(plain, unit) ?? amount(LEAD_NUMBER.exec(plain)?.[1] ?? ""))
+    : multiple === undefined
+      ? null
+      : Number(multiple);
   const reason = STATED_GAP.exec(text.trim())?.[1] ?? (plain ? null : "No value stated");
   return { text, value, reason: value === null ? reason : null };
 }
+
+/** A multiple the module qualifies in the same cell ("4.88x; separate … pro forma 6.02x"): "4.88x". */
+const QUALIFIED_MULTIPLE = /^(-?\d+(?:\.\d+)?x);/;
+
+/** The figure a chart labels for a cell: its leading multiple when the cell goes on in words, else the cell. */
+export const stressLabel = (text: string) => QUALIFIED_MULTIPLE.exec(text.trim())?.[1] ?? text;
 
 const SCENARIOS = "T2DS.1 Scenarios";
 const SHOCKS = ["EBITDA decline s", "Cash-interest increase k"] as const;
@@ -137,13 +151,41 @@ function register(entry: OutputEntry) {
 
 type Scenario = ReturnType<typeof register> extends Map<string, infer V> ? V : never;
 
+type WrittenCase = {
+  id: string;
+  name: string;
+  decline: string;
+  interest: string;
+  category: string;
+  confidence: string;
+};
+
+/** The module's own classification of a case ("Control, not a forecast", "Analyst Interpretation; Medium"). */
+const classification = (item: WrittenCase) =>
+  [item.category, item.confidence]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("; ");
+
+/** The cases as `downsideView` read them from the module's own register, when the module wrote the
+ * "Case | ..." shape rather than a "Scenario ID" table. */
+const fromView = (written: readonly WrittenCase[]) =>
+  new Map<string, Scenario>(
+    written.map((item) => [
+      item.id,
+      { name: readableWords(item.name), decline: item.decline, interest: item.interest },
+    ]),
+  );
+
 const unshocked = (item: Scenario | undefined) =>
   item !== undefined && sharePosition(item.decline) === 0 && sharePosition(item.interest) === 0;
 
 /** The cases in the matrix's order: the module's names, numbered where it gives none, and the
  * one case with no shock applied, only when exactly one states zero shocks. */
-function downsideCaseList(entry: OutputEntry, ids: string[]) {
-  const scenarios = register(entry);
+function downsideCaseList(entry: OutputEntry, ids: string[], written: readonly WrittenCase[]) {
+  const table = register(entry);
+  const scenarios = table.size ? table : fromView(written);
+  const kinds = new Map(written.map((item) => [item.id, classification(item)]));
   const quiet = ids.filter((id) => unshocked(scenarios.get(id)));
   const cases = ids.map((id, at) => ({
     id,
@@ -161,9 +203,12 @@ function downsideCaseList(entry: OutputEntry, ids: string[]) {
         : [];
   const assumptions = cases.flatMap(({ id, name, control }) => {
     const item = scenarios.get(id);
-    if (control) return [`${name}: the case with no shock applied.`];
-    if (!item) return [];
+    // The module's own classification of the case, so a control is never read as a stress.
+    const kind = kinds.get(id) ? [`${name}: ${kinds.get(id) ?? ""}.`] : [];
+    if (control) return kind.length ? kind : [`${name}: the case with no shock applied.`];
+    if (!item) return kind;
     return [
+      ...kind,
       `${name}: EBITDA decline ${scenarioShareLabel(item.decline)}, cash interest increase ${scenarioShareLabel(item.interest)}.`,
     ];
   });
@@ -181,7 +226,7 @@ export function downsidePanels(entry: OutputEntry) {
   const view = downsideView(entry);
   if (!view) return null;
   const ids = view.matrix.headers.slice(1, -1);
-  const { cases, assumptions } = downsideCaseList(entry, ids);
+  const { cases, assumptions } = downsideCaseList(entry, ids, view.cases);
   const panels = view.matrix.rows.map(({ cells, line }): DownsidePanel => {
     const label = cells[0] ?? "";
     const read = ids.map((_, at) => stressCell(cells[at + 1] ?? "", unitOfMeasure(label)));
@@ -243,14 +288,18 @@ export function forwardPath(model: unknown) {
   const grid = gridOf(raw);
   const row = grid?.rows.find((item) => NET_LEVERAGE.test(item.label));
   if (!grid || !row) return null;
-  const groups = [...new Set(grid.columns.filter((column) => column.start).map((c) => c.group))];
+  // A case is a group of forecast periods; the reported columns (a fiscal year, a last twelve
+  // months) carry dates too but are no case, and the Forecast page draws them.
+  const forecast = (column: { label: string; start: string }) =>
+    Boolean(column.start) && isForecastPeriod(column.label);
+  const groups = [...new Set(grid.columns.filter(forecast).map((c) => c.group))];
   const cases = groups
     .sort((a, b) => Number(b === BASE) - Number(a === BASE))
     .map((group) => ({
       group,
       points: orderPeriods(
         grid.columns.flatMap((column, at): PathPoint[] => {
-          if (column.group !== group || !column.start) return [];
+          if (column.group !== group || !forecast(column)) return [];
           const cell = row.cells[at] ?? {};
           const value = cell.status === "value" ? amount(word(cell.exact)) : null;
           return [

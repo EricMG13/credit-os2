@@ -1,5 +1,5 @@
 import { useContext, useEffect, useId, useState, type ReactNode } from "react";
-import { ButtonGroup, ButtonGroupItem } from "@/components/base/button-group/button-group";
+import { Segmented } from "@/components/kit/Segmented";
 import { ChartPrintContext } from "./ChartPrintContext";
 
 type ChartView = "chart" | "table";
@@ -12,13 +12,13 @@ interface ChartFrameProps {
   note?: string;
   /** A line under the title, saying what the chart shows; the figure is described by it. */
   subtitle?: string;
-  /** Drawn in the header row before the Chart or Table toggle, for example a trace control. */
+  /** Drawn last in the header row, after the Figure or Table switch: the trace control. */
   actions?: ReactNode;
   /** Draws the chart or the table form of the same data. */
   children: (view: ChartView) => ReactNode;
 }
 
-/** A titled frame with the Chart or Table toggle. It owns which side is shown. */
+/** A titled frame with the Figure or Table switch. It owns which side is shown. */
 export function ChartFrame({
   title,
   as: Heading = "h4",
@@ -65,24 +65,20 @@ export function ChartFrame({
           heading
         )}
         {!print && (
-          <div className="ml-auto flex items-center gap-3">
-            {actions}
-            <ButtonGroup
-              size="sm"
-              aria-label={`${title}: Chart or Table`}
-              disallowEmptySelection
-              selectedKeys={[view]}
-              onSelectionChange={(keys) => {
-                setView(keys.has("table") ? "table" : "chart");
+          // The one head of every figure: the Figure / Table switch, then the trace control last.
+          <div className="ml-auto flex items-center gap-2">
+            <Segmented
+              label={`${title}: figure or table`}
+              segments={[
+                { key: "chart", label: "Figure" },
+                { key: "table", label: "Table" },
+              ]}
+              current={view}
+              onSelect={(key) => {
+                setView(key === "table" ? "table" : "chart");
               }}
-            >
-              <ButtonGroupItem id="chart" className="max-[480px]:min-h-11">
-                Chart
-              </ButtonGroupItem>
-              <ButtonGroupItem id="table" className="max-[480px]:min-h-11">
-                Table
-              </ButtonGroupItem>
-            </ButtonGroup>
+            />
+            {actions}
           </div>
         )}
       </div>

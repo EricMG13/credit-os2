@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
 import { ReportEvidence } from "./Evidence";
@@ -98,12 +98,12 @@ it("lists matches grouped by kind with counts, each opening its trace address or
   expect(screen.queryByRole("heading", { name: "Run evidence" })).toBeNull();
 });
 
-it("finds a source by hash prefix and opens the Sources tab", () => {
+it("finds a source by hash prefix and opens that file's row on Sources", () => {
   type(show(), "C0FFEE");
   expect(screen.getByRole("heading", { name: "Sources (1)" })).toBeVisible();
   expect(screen.getByRole("link", { name: "annual.pdf" })).toHaveAttribute(
     "href",
-    "#evidence/sources",
+    "#evidence/sources/-/file-0",
   );
 });
 
@@ -184,4 +184,88 @@ it("drops the query and shows the address when the address changes, as after a c
   view.rerender(<ReportEvidence {...props} target="sources" />);
   expect(screen.getByRole("searchbox", { name: "Search evidence" })).toHaveValue("");
   expect(screen.getByRole("heading", { name: /^Used by a module/ })).toBeVisible();
+});
+
+it("says in the empty field what can be typed, and before the matches what was searched", () => {
+  const box = show();
+  expect(box).toHaveAttribute("placeholder", "A figure, a phrase, a file name or a hash");
+  type(box, "zzz");
+  expect(screen.getByText(/^Searched: the lines of the delivered handoffs/)).toBeVisible();
+});
+
+it("steps the tabs and the module filter aside while a query is typed, and marks the typed words", () => {
+  const box = show();
+  const tabs = screen.getByRole("navigation", { name: "Evidence sections" });
+  expect(tabs).toBeVisible();
+  type(box, "leverage rose");
+  // The matches replace the page whatever the tab or module: neither control applies to them.
+  expect(tabs).not.toBeVisible();
+  expect(screen.getByRole("combobox", { name: "Module", hidden: true })).not.toBeVisible();
+  const first = within(screen.getByRole("region", { name: "Handoff lines" })).getAllByRole(
+    "listitem",
+  )[0];
+  expect([...(first?.querySelectorAll("mark") ?? [])].map((mark) => mark.textContent)).toEqual([
+    "Leverage",
+    "rose",
+  ]);
+  type(box, "");
+  expect(tabs).toBeVisible();
+});
+
+it("lands on the file's row when a source result is followed", async () => {
+  show("sources/-/file-0");
+  const row = screen.getByRole("row", { name: /annual\.pdf/ });
+  expect(row).toHaveAttribute("id", "evidence-source-0");
+  expect(row).toHaveAttribute("aria-current", "true");
+  await waitFor(() => {
+    expect(row).toHaveFocus();
+  });
+  // No module is chosen by that address.
+  expect(screen.getByRole("combobox", { name: "Module" })).toHaveValue("");
+});
+
+it("lands on the trace when a result or a trace control opens a handoff line", async () => {
+  show(`case%2FCP-2.md~${sha}-4`);
+  // The trace is still headed for a screen reader; focus goes to the claim tile itself.
+  expect(
+    screen.getByRole("heading", { name: "Trace: Fundamental credit, handoff line 4" }),
+  ).toBeInTheDocument();
+  const landing = screen.getByRole("region", { name: "The claim" });
+  await waitFor(() => {
+    expect(landing).toHaveFocus();
+  });
+});
+
+it("draws a handoff's own words on Evidence with modules named, not coded", () => {
+  const coded: OutputEntry = {
+    ...entry,
+    sections: [
+      {
+        heading: "Limitations (CP-2)",
+        level: 2,
+        line: 3,
+        blocks: [
+          { type: "text", line: 4, end: 4, text: "CP-1 prints two annual periods; see CP-1.md." },
+        ],
+      },
+    ],
+  };
+  vi.stubGlobal("fetch", () => new Promise(() => {}));
+  render(
+    <ReportEvidence
+      snapshot={snapshot}
+      run={run}
+      entries={[coded]}
+      target={`case%2FCP-2.md~${sha}`}
+      mode="synthetic"
+    />,
+  );
+  const handoff = screen.getByRole("region", { name: "Fundamental credit handoff" });
+  // A code inside a stored file name is a file name, and stays.
+  expect(
+    within(handoff).getByText("Financial foundation prints two annual periods; see CP-1.md."),
+  ).toBeVisible();
+  expect(within(handoff).getByRole("heading", { name: /^Limitations/ })).not.toHaveTextContent(
+    "CP-2",
+  );
 });

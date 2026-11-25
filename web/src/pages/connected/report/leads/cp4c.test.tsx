@@ -308,3 +308,61 @@ it("makes a value allocation that is only a gap one full row, recovery and plan 
   expect(screen.getByRole("region", { name: "Value allocation" })).toHaveClass("lg:col-span-12");
   expect(screen.getByRole("region", { name: "Plan treatment" })).toHaveClass("lg:col-span-6");
 });
+
+// A verbatim excerpt of the replayed TDG handoff: no restructuring is activated, so every amount is
+// a stated gap, scenarios 2 and 3 say they do not exist, and the fulcrum register states its gap.
+const REAL = `## Findings
+
+### Chart data: recovery by class
+
+| Class | Scenario | Claim | Recovery | Recovery % | Reporting unit | Basis and limitation |
+|---|---|---|---|---|---|---|
+| Not supplied: distress gate not met | Not supplied: distress gate not met | Not supplied: distress gate not met | Not supplied: distress gate not met | Not supplied: distress gate not met | US$m; recovery percentage in % | The analysis states no recovery scenario. |
+
+### Chart data: value allocation — scenario 1
+
+| Step | Amount | Reporting unit | Basis and limitation |
+|---|---|---|---|
+| Opening enterprise value | Not supplied: distress gate not met | US$m | No source valuation row or scenario identity exists. |
+| Closing undistributed value | Not supplied: distress gate not met | US$m | Costs, priority deductions and class distributions are not stated. |
+
+### Chart data: value allocation — scenario 2
+
+| Step | Amount | Reporting unit | Basis and limitation |
+|---|---|---|---|
+| Opening enterprise value | Not supplied: no second scenario | US$m | Distress gate not met; no second valuation case is supplied. |
+| Closing undistributed value | Not supplied: no second scenario | US$m | No costs or class distributions are assigned. |
+
+### Chart data: value allocation — scenario 3
+
+| Step | Amount | Reporting unit | Basis and limitation |
+|---|---|---|---|
+| Opening enterprise value | Not supplied: no third scenario | US$m | Distress gate not met; no third valuation case is supplied. |
+| Closing undistributed value | Not supplied: no third scenario | US$m | No costs or class distributions are assigned. |
+
+#### T4E.6 Fulcrum range
+
+| scenario/EV range | last covered class | first impaired class | fulcrum class/range | uncertainty | Source |
+|---|---|---|---|---|---|
+| Not activated: no restructuring EV range | Not supplied: no waterfall | Not supplied: no waterfall | Not supplied: no marginal value allocation | Directional subordinated exposure cannot identify the fulcrum | Refinancing & LME (CP-3C); T4E.1 |
+`;
+
+it("states the module's own gap for the fulcrum and draws one allocation when no scenario exists", () => {
+  const charts = [1, 2, 3].map((n) => ({
+    title: `Value allocation — scenario ${String(n)}`,
+    table: lineOf(REAL, `Chart data: value allocation — scenario ${String(n)}`),
+    unit: "US$m",
+    columns: [1],
+    kind: "waterfall",
+    amount: 1,
+  }));
+  render(<RestructuringLead {...leadProps(handoff(REAL, { charts }))} />);
+  const tile = screen.getByRole("region", { name: "Value allocation" });
+  expect(within(tile).getByText("No marginal value allocation")).toBeVisible();
+  expect(within(tile).getAllByText("Not supplied").length).toBeGreaterThan(0);
+  expect(within(tile).getAllByText("Distress gate not met")).toHaveLength(2);
+  expect(tile.textContent).not.toMatch(/could not read the fulcrum/);
+  // The handoff says scenarios 2 and 3 do not exist: no switch, no notice for them.
+  expect(within(tile).queryByRole("group", { name: "Scenario" })).toBeNull();
+  expect(screen.queryByText(/second scenario|third scenario/i)).toBeNull();
+});

@@ -1,6 +1,10 @@
 import { ChevronDown } from "@untitledui/icons";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { cx } from "@/utils/cx";
+import { Tile } from "../overview/Tile";
+import { TableOrCards } from "./parts";
+import { leadHref, registerTable } from "./read";
+import { sourceOf, writtenTable } from "./written";
 import { FigureTile, GapTile, LeadFrame } from "./kit/LeadFrame";
 import { GapChip } from "./kit/marks";
 import { ledger, ledgerCells, stance, type Conditions, type LedgerRow } from "./committeeData";
@@ -171,7 +175,13 @@ function StanceTile(props: LeadProps) {
               <span data-confidence-word>{`Confidence ${stated.confidence}`}</span>
             </p>
           ) : (
-            <GapChip reason="This page could not read a confidence." />
+            <GapChip
+              reason={
+                stated.source === "sentence"
+                  ? "The module states no confidence."
+                  : "This page could not read a confidence."
+              }
+            />
           )}
         </div>
         <ConditionList conditions={stated.conditions} />
@@ -220,6 +230,18 @@ function LedgerTile(props: LeadProps) {
       : found.state === "duplicate"
         ? "This page could not read the cross-examination because it appears more than once."
         : "This page could not read the cross-examination of the credit case.";
+  // The module's own cross-examination register under its own headings, as written.
+  const bear =
+    found.state === "absent"
+      ? registerTable(props.entry, "T6A.4", ["Bull Claim Attacked", "Bear Counter-Evidence"])
+      : undefined;
+  const written = bear && writtenTable(sourceOf(bear), leadHref(props));
+  if (written)
+    return (
+      <Tile span={7} label="Challenged points" title="Challenged points" className="self-start">
+        <TableOrCards label="Challenged points" table={written} />
+      </Tile>
+    );
   if (found.state !== "rows")
     return (
       <GapTile span={7} label="Challenged points" kicker="Challenged points">

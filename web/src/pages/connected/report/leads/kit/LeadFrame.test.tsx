@@ -35,42 +35,48 @@ function tile() {
 }
 
 describe("FigureTile", () => {
-  it("puts the table button in the tile head beside the one trace control", () => {
+  it("puts the Figure / Table switch in the tile head beside the one trace control", () => {
     const region = tile();
     const button = within(region).getByRole("button", { name: "Table view: EBITDA bridge, USD m" });
     const source = within(region).getByRole("link", { name: /Source for the EBITDA bridge/ });
-    // Both sit in the head, before the heading's figure: one container holds them.
-    expect(button.parentElement).toBe(source.parentElement);
+    // One container holds the switch and the trace control, after the heading.
+    expect(button.closest("[role=group]")?.parentElement).toBe(source.parentElement);
     expect(region.querySelector("h3")?.compareDocumentPosition(button)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    // The basis sits under the title, not over it.
+    const basis = within(region).getByText("FY2024 · USD m");
+    expect(region.querySelector("h3")?.compareDocumentPosition(basis)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
     expect(region.querySelectorAll("details")).toHaveLength(0);
     for (const name of TARGET) expect(button.className).toContain(name);
-    expect(button.querySelector("[data-marker]")).not.toBeNull();
+    expect(within(region).getByRole("button", { name: "Figure" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
-  it("opens the real table in a panel under the figure; closed by default", () => {
+  it("swaps the figure for the real table; the figure by default", () => {
     const region = tile();
     const button = within(region).getByRole("button", { name: /Table view/ });
-    expect(button.getAttribute("aria-expanded")).toBe("false");
-    const panel = document.getElementById(button.getAttribute("aria-controls") ?? "");
-    expect(panel?.hidden).toBe(true);
+    expect(button.getAttribute("aria-pressed")).toBe("false");
     expect(within(region).queryByRole("table")).toBeNull();
-    // The panel comes after the figure.
-    const figure = within(region).getByRole("img", { name: "Bridge" });
-    expect(figure.compareDocumentPosition(panel as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(within(region).getByRole("img", { name: "Bridge" })).toBeInTheDocument();
 
     fireEvent.click(button);
-    expect(button.getAttribute("aria-expanded")).toBe("true");
-    expect(panel?.hidden).toBe(false);
+    expect(button.getAttribute("aria-pressed")).toBe("true");
     const table = within(region).getByRole("table", { name: "EBITDA bridge, USD m" });
     expect(within(table).getAllByRole("row")).toHaveLength(3);
+    // The table takes the figure's place: the figure is hidden, not drawn above it.
+    expect(within(region).queryByRole("img", { name: "Bridge" })).toBeNull();
     const scroll = within(region).getByRole("group", { name: "EBITDA bridge, USD m, table" });
     // jsdom cannot measure: a box that may not overflow is no tab stop.
     expect(scroll.hasAttribute("tabindex")).toBe(false);
 
-    fireEvent.click(button);
-    expect(panel?.hidden).toBe(true);
+    fireEvent.click(within(region).getByRole("button", { name: "Figure" }));
+    expect(within(region).queryByRole("table")).toBeNull();
+    expect(within(region).getByRole("img", { name: "Bridge" })).toBeInTheDocument();
   });
 
   it("draws no table button without a table", () => {

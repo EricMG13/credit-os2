@@ -1,4 +1,10 @@
-import { readerText, type OutputEntry, type Row, type Table } from "../../publishedReport";
+import {
+  readParagraph,
+  readerText,
+  type OutputEntry,
+  type Row,
+  type Table,
+} from "../../publishedReport";
 import { bottomLine } from "../overview/read";
 import { readCell } from "./kit/numbers";
 import { IN_EVIDENCE, namesSource, reasonText, safeText as readerSafe } from "./kit/reader";
@@ -55,8 +61,10 @@ export const cellAt = (table: Table, row: Row, header: string) =>
 export type Severity = {
   /** The word as the handoff wrote it (Critical, Material and Minor in their one spelling). */
   word: string;
-  /** Exactly Critical, Material or Minor; any other word is drawn as written with a neutral mark. */
+  /** Critical, Material or Minor (or in capitals), before a ";"; any other word is drawn as written with a neutral mark. */
   known: boolean;
+  /** Which of the three, for the mark. */
+  level: (typeof KNOWN_SEVERITY)[number] | null;
   stated: boolean;
 };
 
@@ -64,9 +72,13 @@ const KNOWN_SEVERITY = ["Critical", "Material", "Minor"] as const;
 
 function severityOf(cell: string | undefined): Severity {
   const value = said(cell);
-  if (value.kind !== "text") return { word: "Severity not stated", known: false, stated: false };
-  const known = KNOWN_SEVERITY.find((word) => word === value.text);
-  return { word: value.text, known: known !== undefined, stated: true };
+  if (value.kind !== "text")
+    return { word: "Severity not stated", known: false, level: null, stated: false };
+  // The word as written ("CRITICAL; Open"); only its first part picks the mark, as the module
+  // spells it: Critical, or CRITICAL in capitals; any other spelling stays neutral.
+  const first = value.text.split(";")[0]?.trim();
+  const known = KNOWN_SEVERITY.find((word) => word === first || word.toUpperCase() === first);
+  return { word: value.text, known: known !== undefined, level: known ?? null, stated: true };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -90,8 +102,48 @@ type Register =
   | { state: "none"; reason: string | null; line: number }
   | { state: "absent" | "duplicate" };
 
-const GAP_HEADERS = ["Gap", "Why it matters", "Affected modules", "Severity", "Action"];
-const CONTRADICTION_HEADERS = ["Contradiction", "Claims", "Nature", "Severity", "Rationale"];
+/** The headings a register is written under, and the column each part of an issue is read from. */
+type Spec = {
+  headers: string[];
+  text: string;
+  why: string;
+  severity: string;
+  action?: string;
+  affected?: string;
+};
+
+/** The gaps register as the method's contract names it, then as the module writes it in a run. */
+const GAP_SPECS: Spec[] = [
+  {
+    headers: ["Gap", "Why it matters", "Affected modules", "Severity", "Action"],
+    text: "Gap",
+    why: "Why it matters",
+    severity: "Severity",
+    action: "Action",
+    affected: "Affected modules",
+  },
+  {
+    headers: [
+      "ID",
+      "Severity or disposition",
+      "Affected conclusion or decision",
+      "What remains unresolved and why it matters",
+      "Required correction or evidence",
+    ],
+    text: "Affected conclusion or decision",
+    why: "What remains unresolved and why it matters",
+    severity: "Severity or disposition",
+    action: "Required correction or evidence",
+  },
+];
+const CONTRADICTION_SPECS: Spec[] = [
+  {
+    headers: ["Contradiction", "Claims", "Nature", "Severity", "Rationale"],
+    text: "Contradiction",
+    why: "Rationale",
+    severity: "Severity",
+  },
+];
 
 const NOTHING = /^(?:none|—|-|–)$/i;
 
@@ -120,8 +172,12 @@ function affectedOf(cell: string | undefined): Issue["affected"] {
     .map(readerText);
 }
 
-function readRegister(entry: OutputEntry, headers: string[], kind: Issue["kind"]): Register {
-  const found = locate(entry, headers);
+function readRegister(entry: OutputEntry, specs: Spec[], kind: Issue["kind"]): Register {
+  const located = specs.map((item) => ({ item, found: locate(entry, item.headers) }));
+  const hit = located.find(({ found }) => found.state !== "absent") ?? located[0];
+  const found = hit?.found;
+  const spec = hit?.item;
+  if (!found || !spec) return { state: "absent" };
   if (found.state !== "found") return found;
   const { table } = found;
   const rows = table.rows.filter((row) => !noneRow(row));
@@ -133,12 +189,12 @@ function readRegister(entry: OutputEntry, headers: string[], kind: Issue["kind"]
     line: table.line,
     issues: rows.map((row) => ({
       kind,
-      severity: severityOf(cellAt(table, row, "Severity")),
+      severity: severityOf(cellAt(table, row, spec.severity)),
       line: row.line,
-      text: said(cellAt(table, row, kind === "gap" ? "Gap" : "Contradiction")),
-      why: said(cellAt(table, row, kind === "gap" ? "Why it matters" : "Rationale")),
-      action: kind === "gap" ? said(cellAt(table, row, "Action")) : null,
-      affected: kind === "gap" ? affectedOf(cellAt(table, row, "Affected modules")) : null,
+      text: said(cellAt(table, row, spec.text)),
+      why: said(cellAt(table, row, spec.why)),
+      action: spec.action ? said(cellAt(table, row, spec.action)) : null,
+      affected: spec.affected ? affectedOf(cellAt(table, row, spec.affected)) : null,
     })),
   };
 }
@@ -178,8 +234,8 @@ function placeholderReasons(entry: OutputEntry) {
 const lineOf = (register: Register) => ("line" in register ? register.line : Infinity);
 
 export function issues(entry: OutputEntry): Issues {
-  const gaps = readRegister(entry, GAP_HEADERS, "gap");
-  const contradictions = readRegister(entry, CONTRADICTION_HEADERS, "contradiction");
+  const gaps = readRegister(entry, GAP_SPECS, "gap");
+  const contradictions = readRegister(entry, CONTRADICTION_SPECS, "contradiction");
   // The handoff's own order: the register written first comes first, then each severity word where
   // it first appears. No ranking of our own.
   const listed = [gaps, contradictions]
@@ -230,7 +286,7 @@ function shapeOf(status: string): Shape {
   const word = status.trim().toLowerCase();
   if (word === "accepted" || word === "cleared") return "filled";
   if (word === "restricted") return "half";
-  if (["blocked", "rejected", "refused"].includes(word)) return "slash";
+  if (["blocked", "rejected", "refused", "fail", "failed"].includes(word)) return "slash";
   return "ring";
 }
 
@@ -249,6 +305,30 @@ function verdictRows(entry: OutputEntry) {
 
 const row = (table: Table, label: string) =>
   table.rows.find((candidate) => (candidate.cells[0] ?? "").trim() === label);
+
+const DECISION = /^CLEARANCE DECISION:\s*([^.]+)\.\s*(.*)$/is;
+
+/** The module's one-sentence verdict ("CLEARANCE DECISION: Fail. Critical Issues: 1. …"), as written. */
+function clearanceSentence(entry: OutputEntry): Clearance | null {
+  for (const { blocks } of entry.sections)
+    for (const block of blocks) {
+      if (block.type !== "text") continue;
+      const match = DECISION.exec(readParagraph(block.text).body.trim());
+      const status = match?.[1] ? safeText(match[1].trim()) : null;
+      if (!match || !status) continue;
+      const rest = (match[2] ?? "").trim();
+      return {
+        status,
+        scope: null,
+        notEvaluated: null,
+        limit: rest ? safeText(rest) : null,
+        shape: shapeOf(status),
+        source: "verdict",
+        line: block.line,
+      };
+    }
+  return null;
+}
 
 /** The clearance as the verdict states it; else the module's first bottom-line sentence; else null. */
 export function clearance(entry: OutputEntry): Clearance | null {
@@ -272,6 +352,8 @@ export function clearance(entry: OutputEntry): Clearance | null {
       line: status.line,
     };
   }
+  const sentence = clearanceSentence(entry);
+  if (sentence) return sentence;
   const [first] = bottomLine(entry);
   const opening = first?.text ? safeText(first.text) : null;
   if (first && opening) {

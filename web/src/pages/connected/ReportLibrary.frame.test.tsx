@@ -288,18 +288,14 @@ it("gives every Report history row its modules run, its status and its labels", 
   ).getAllByRole("listitem");
   expect(rows).toHaveLength(2);
   const [current, earlier] = rows as [HTMLElement, HTMLElement];
-  expect(
-    await within(current).findByText(
-      "2 modules run: Fundamental credit, Changes since the last run",
-    ),
-  ).toBeInTheDocument();
-  expect(within(current).getByText("Finished")).toBeInTheDocument();
+  const modulesRun = "2 modules runFundamental credit, Changes since the last run";
+  expect((await within(current).findByText("2 modules run")).closest("details")).toHaveTextContent(
+    modulesRun,
+  );
+  expect(within(section).getAllByText(/Finished runs, newest first\./)).toHaveLength(1);
   expect(current).not.toHaveTextContent("Earlier");
   expect(await within(earlier).findByText("Earlier format")).toBeInTheDocument();
-  expect(earlier).toHaveTextContent(
-    "2 modules run: Fundamental credit, Changes since the last run",
-  );
-  expect(within(earlier).getByText("Finished")).toBeInTheDocument();
+  expect(earlier).toHaveTextContent(modulesRun);
   expect(within(earlier).getByText("Earlier methods")).toBeInTheDocument();
   expect(within(current).getByRole("link", { name: "Open overview" })).toHaveAttribute(
     "href",

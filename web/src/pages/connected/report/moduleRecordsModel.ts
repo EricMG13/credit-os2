@@ -41,6 +41,10 @@ export interface HeldRecord {
 /** Machinery the screen map keeps off the module page (row E), whatever role its section has. */
 const EVIDENCE_ONLY =
   /source register|\bentit(?:y|ies)[ -](?:period )?keys?\b|definition conflict/i;
+/** A heading that is a module's machine key (cp2.cp_model_strengths_weaknesses, cpdr.adoptions,
+ * cp1_references): the module's own register name, never reader prose. */
+const MACHINE_KEY = /^(?:cp(?:\d[a-z0-9]*|dr)?[._])+[a-z0-9_.]+$/;
+const MACHINE_PREFIX = /^(?:cp(?:\d[a-z0-9]*|dr)?[._])+/;
 const NO_QUALIFICATION = "No qualification.";
 
 function descriptorTitles(entry: OutputEntry) {
@@ -244,7 +248,11 @@ function withoutReference(title: string) {
 /** A heading as the reader sees it: no drawing prefix or register code, module names for codes,
  * and the title's own words without the source it cites, which belongs in Evidence. */
 export function readableTitle(heading: string, untitled = "Untitled table") {
-  const stripped = plainText(drawingTitle(heading)).replace(REGISTER_CODE, "");
+  const bare = MACHINE_KEY.test(heading.trim())
+    ? heading.trim().replace(MACHINE_PREFIX, "").replace(/[_.]+/g, " ")
+    : null;
+  const key = bare === null ? null : bare.charAt(0).toUpperCase() + bare.slice(1);
+  const stripped = key ?? plainText(drawingTitle(heading)).replace(REGISTER_CODE, "");
   // A title left after its code begins with a capital ("TDR.3 limitations" → "Limitations") where
   // its first word is all lower-case ("iPhone revenue" stays);
   // drawingTitle takes the code too, so the test reads the heading without its drawing prefix.
@@ -269,7 +277,10 @@ const LEADING_NAME = /^[A-Z]{1,3}\d+[A-Z]?\s+(?=\S)/;
 /** Whether a section of this heading and role is listed under "Held in Evidence" by its heading:
  * a source register, entity keys or definition conflicts never reach the module page. */
 export function heldInEvidence(heading: string, role: string) {
-  return ["finding", "passage", "registers"].includes(role) && EVIDENCE_ONLY.test(heading);
+  return (
+    ["finding", "passage", "registers"].includes(role) &&
+    (EVIDENCE_ONLY.test(heading) || MACHINE_KEY.test(heading.trim()))
+  );
 }
 
 /** Tables that share a title, anywhere in the handoff, are told apart by their place among them. */

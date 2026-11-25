@@ -702,7 +702,7 @@ it.each(["Basis is in issuer.pdf, section 4.", "page:12"])(
 const NOT_SHOWN =
   "This decision is not shown in this report because no clearance for it is recorded.";
 const NOT_SHOWN_ON_SCREEN =
-  "This page does not show a bottom line for the Committee decision module, because no clearance for it is recorded. Other passages of that module, such as its limitations, may be shown on this page. The Committee decision page under Modules shows that module's findings.";
+  "This page does not show a bottom line for the Committee decision module, because no clearance for it is recorded. Its other passages, such as its limitations, may be shown here; the Committee decision page shows its findings.";
 const UNAVAILABLE = "A published decision is unavailable for this run.";
 
 it("calls a readable decision with no recorded hold not shown in the report when printed and not shown on the page on screen, and keeps unavailable otherwise", () => {

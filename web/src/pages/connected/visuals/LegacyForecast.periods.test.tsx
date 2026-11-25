@@ -75,7 +75,7 @@ it("draws LTM and PF after the fiscal years and before the forecast years of eac
 
 it("keeps every figure with its own period in the Table form", () => {
   const figure = within(draw());
-  fireEvent.click(figure.getByRole("radio", { name: "Table" }));
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
   const table = within(figure.getByRole("table", { name: "Revenue" }));
   expect(table.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
     "Revenue",
@@ -116,7 +116,7 @@ it("draws a figure the period rule cannot place last, after the forecast years, 
   const caption = figure.querySelector("figcaption")?.textContent ?? "";
   expect(caption).toContain("Not placed in time order, shown last: Run rate.");
   expect(caption).not.toContain("not drawn");
-  fireEvent.click(within(figure).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(figure).getByRole("button", { name: "Table" }));
   const rows = within(within(figure).getByRole("table", { name: "Revenue" }))
     .getAllByRole("row")
     .map((row) => [...row.children].map((cell) => cell.textContent));

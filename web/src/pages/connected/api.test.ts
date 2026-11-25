@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { changesSentence, getContext, moduleName, PATHWAYS } from "./api";
+import {
+  changesSentence,
+  getContext,
+  moduleName,
+  PATHWAYS,
+  serviceText,
+  UNNAMED_MODULE,
+} from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -68,7 +75,18 @@ describe("connected module names", () => {
   it("names a module without its code", () => {
     expect(moduleName("CP-2D")).toBe("Liquidity");
     expect(moduleName("CP-1")).toBe("Financial foundation");
-    expect(moduleName("CP-99")).toBe("CP-99");
+    // A module field holding a code the page cannot name is a stated gap, never the code.
+    expect(moduleName("CP-99")).toBe(UNNAMED_MODULE);
+    expect(moduleName("CP-OS")).toBe(UNNAMED_MODULE);
+    expect(moduleName("")).toBe(UNNAMED_MODULE);
+    // An id that is no code stays as written.
+    expect(moduleName("Report")).toBe("Report");
+  });
+  it("renames only exact module codes and leaves every other CP- word as written", () => {
+    expect(
+      serviceText("CP-backed commercial paper funds the CP-10 case; CP-2D reads CP-BACKSTOP."),
+    ).toBe("CP-backed commercial paper funds the CP-10 case; Liquidity reads CP-BACKSTOP.");
+    expect(serviceText("CP-99 and CP-OS")).toBe(`CP-99 and ${UNNAMED_MODULE}`);
   });
   it("runs every layer 1 module in the lite, full and deep assessments (owner, 2026-11-25)", () => {
     const layer1 = ["CP-1", "CP-1A", "CP-1B", "CP-1C", "CP-1D"];

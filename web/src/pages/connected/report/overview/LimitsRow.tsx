@@ -65,11 +65,20 @@ function BlockedWell({ id, name, text }: { id: string; name: string; text: strin
   );
 }
 
-function LimitationLine({ run, row }: { run: PublishedRun; row: Limitation }) {
+/** One limitation in the module's words with its trace; `small` inside a well's narrow column. */
+function LimitationLine({
+  run,
+  row,
+  small = false,
+}: {
+  run: PublishedRun;
+  row: Limitation;
+  small?: boolean;
+}) {
   const href = evidencePath(run.folder, row.entry, row.line);
   return (
     <li className="flex items-start justify-between gap-2">
-      <p className="reading-copy rounded-ds-xs bg-surface-card px-1.5 py-0.5 text-small text-text-primary">
+      <p className={cx("reading-copy text-text-primary", small ? "text-small" : "text-body")}>
         {containsReference(row.text) ? (
           <Button color="link-gray" size="sm" href={href}>
             Read this limitation in Evidence
@@ -90,10 +99,11 @@ function LimitationLine({ run, row }: { run: PublishedRun; row: Limitation }) {
 }
 
 function LimitationWell({ run, rows }: { run: PublishedRun; rows: Limitation[] }) {
-  const first = rows[0];
+  const [first, ...rest] = rows;
   if (!first) return null;
   return (
-    <li className={cx(WELL, "gap-hatch border-border-gap")}>
+    // A dashed edge and the tile's hatched mark say "gap"; the sentences read on a plain surface.
+    <li className={cx(WELL, "border-border-gap")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="text-small font-medium text-text-primary">
           <a href={`#modules/${first.id}`} className={MODULE_LINK}>
@@ -105,10 +115,26 @@ function LimitationWell({ run, rows }: { run: PublishedRun; rows: Limitation[] }
         </span>
       </div>
       <ul className="grid gap-2">
-        {rows.map((row) => (
-          <LimitationLine key={`${row.entry.output.id}:${String(row.line)}`} run={run} row={row} />
-        ))}
+        <LimitationLine run={run} row={first} small />
       </ul>
+      {rest.length > 0 && (
+        // The first limitation stands for the module; the others are one press away, counted.
+        <details>
+          <summary className="flex min-h-8 w-fit cursor-pointer items-center rounded-ds-xs text-small font-medium text-text-secondary outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2">
+            {`${String(rest.length)} more from ${first.name}`}
+          </summary>
+          <ul className="mt-1 grid gap-2">
+            {rest.map((row) => (
+              <LimitationLine
+                key={`${row.entry.output.id}:${String(row.line)}`}
+                run={run}
+                row={row}
+                small
+              />
+            ))}
+          </ul>
+        </details>
+      )}
     </li>
   );
 }
@@ -178,7 +204,6 @@ export function LimitsRow({ run, view }: RowProps) {
           />
           What this run could not do
         </h3>
-        <p className="text-caption text-text-tertiary">Gaps are drawn as gaps, never as zero</p>
       </div>
       {blocked.length + groups.length === 0 ? (
         <p className="text-body text-text-secondary">

@@ -16,7 +16,7 @@ import {
   type Summary,
 } from "../api";
 import type { ComparisonView } from "./referencePortfolio";
-import type { StandingView } from "./standingPortfolios";
+import type { StandingView } from "./standingPortfoliosModel";
 import { readAssumptions, type AssumptionsForm } from "./assumptions";
 import { CONTEXT_ROW_KINDS, type Row, type RowKind } from "./rows";
 import {
@@ -71,7 +71,7 @@ export const SOURCE_TYPES = /\.(?:pdf|htm|html|docx|txt|md|xlsx|csv|json|jsonl)$
 export const SOURCE_TYPE_HINT = "PDF, HTML, DOCX, TXT, Markdown, XLSX, CSV, JSON and JSONL";
 
 export const SYNTHETIC_LIMITS =
-  "The synthetic test can complete only a first Full credit assessment, with no earlier run to compare. Use northbridge-filing.txt and, optionally, northbridge-portfolio.xlsx and northbridge-credit-agreement.txt; no other files are accepted.";
+  "A no-cost test can complete only a first Full credit assessment, with no earlier run to compare. Use northbridge-filing.txt and, optionally, northbridge-portfolio.xlsx and northbridge-credit-agreement.txt; no other files are accepted.";
 
 export type Review = {
   id: string;

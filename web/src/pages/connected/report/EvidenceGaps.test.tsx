@@ -212,3 +212,58 @@ it("names the order it draws", () => {
     /then High, Medium, Low, then those with none stated/,
   );
 });
+
+// Shaped like TransDigm's Source readiness and Business & governance gap tables (test run): the
+// "Gap" column holds an id, the words are in the column beside it, and a paragraph leads the section.
+const real: OutputEntry = {
+  selected: true,
+  output: { id: "CP-0/h.md", module: "CP-0", label: "Saved", href: "h.md", sha256: "b".repeat(64) },
+  sections: [
+    {
+      heading: "Gaps",
+      level: 2,
+      line: 178,
+      blocks: [
+        {
+          type: "text",
+          line: 180,
+          end: 180,
+          text: "No legal permission is inferred from payments.",
+        },
+        {
+          type: "table",
+          line: 183,
+          headers: ["Gap", "Severity", "What is not established", "Consequence and minimum remedy"],
+          rows: [
+            {
+              line: 185,
+              cells: [
+                "G2",
+                "MATERIAL",
+                "Changes against a prior analytical assessment",
+                "Prior dated assessment is not supplied.",
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+it("titles a gap whose Gap cell is only an id with the words beside it, and keeps the id", () => {
+  const [, tabled] = collectGaps([real]);
+  expect(tabled?.gap.title).toBe("G2 · Changes against a prior analytical assessment");
+  expect(tabled?.gap.details).toBe(
+    "Consequence and minimum remedy: Prior dated assessment is not supplied.",
+  );
+  expect(tabled?.gap.severity).toBe("MATERIAL");
+});
+
+it("shows a gap written as text by its own words on the Summary, where no detail column is drawn", () => {
+  render(<GapSummary run={run} entries={[real]} />);
+  expect(
+    screen.getByRole("rowheader", { name: "No legal permission is inferred from payments." }),
+  ).toBeVisible();
+  expect(screen.queryByText("Gap recorded as text")).toBeNull();
+});

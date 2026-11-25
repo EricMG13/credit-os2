@@ -6,8 +6,8 @@ import { BAR, SLIM } from "./text";
 export type LegendKind = "ring" | "dot" | "line" | "bar" | "slim" | "square" | "hatch";
 
 /**
- * The colour of a legend entry, as the marks use it: `primary` teal (current), `secondary` navy,
- * `prior` grey, `worse` the signal colour, `increase` a teal outline on a teal tint, `decrease`
+ * The colour of a legend entry, as the marks use it: `primary` blue (current), `secondary` plum,
+ * `prior` grey, `worse` the signal colour, `increase` a blue outline on a blue tint, `decrease`
  * the signal outline on its tint, `neutral` the tertiary text colour.
  */
 export type LegendColour =

@@ -576,3 +576,16 @@ def test_command_refuses_a_record_with_an_unknown_model_or_effort(layout, change
 )
 def test_name_key_ignores_case_and_unicode_form_only(one, two, same):
     assert (name_key(one) == name_key(two)) is same
+
+
+def test_the_run_start_service_never_builds_the_test_flag(layout):
+    """`--test-assume-distress` is for a hand-run screen test only (owner, 2026-11-25)."""
+    shapes = [
+        Record("id1", "credit_snapshot", "acme", "queued", "t"),
+        Record("id2", "distressed_restructuring", "acme", "queued", "t", modules=("CP-4C",)),
+        Record("id3", "deep_credit_assessment", "acme", "queued", "t", prior="p1", max_turns=9),
+    ]
+    for record in shapes:
+        for ruling in (None, Path("r.md")):
+            argv = command(layout, record, Path("c.json"), launcher=["py"], ruling=ruling)
+            assert not [a for a in argv if "test-assume" in a or "test_adapt" in a]

@@ -1,5 +1,5 @@
 import type { Cell } from "../../overview/figureData";
-import { fittingTicks, niceAxis, SIZE, textWidth } from "../kit/marks";
+import { fittingTicks, LINE, niceAxis, SIZE, textWidth, wrap } from "../kit/marks";
 import { group } from "../kit/numbers";
 
 // The compact maturity wall drawn at its measured width, so its text is its real size (11 px ticks
@@ -26,6 +26,12 @@ export type WallMark = {
   /** Drawn at the 2 px minimum: a stated amount too small to see. */
   least: boolean;
   centre: number;
+  /**
+   * Rows whose labels are too long to sit beside the bars: the label's lines, drawn above the bar
+   * from `labelTop`. Absent where the label sits at the left of its row.
+   */
+  labelLines?: string[];
+  labelTop?: number;
 };
 
 export type WallLayout = {
@@ -139,7 +145,11 @@ function columnLayout(
 
 function rowLayout(dated: WallSlot[], undated: WallSlot[], width: number, axis: Axis): WallLayout {
   const slots = [...dated, ...undated];
-  const labelWidth = Math.max(...slots.map((slot) => textWidth(slot.label, SIZE.label))) + 10;
+  const widest = Math.max(...slots.map((slot) => textWidth(slot.label, SIZE.label))) + 10;
+  // Labels that would take more than about two fifths of the row leave the bars no room: each
+  // then stands whole above its bar, and the bars run the full width.
+  const stacked = widest > width * 0.42;
+  const labelWidth = stacked ? 4 : widest;
   // A gap row's slot and words start at zero, so only the amounts need room past the bars.
   const valueWidth =
     Math.max(0, ...slots.map((slot) => textWidth(textOf(slot) ?? "", SIZE.value))) + 8;
@@ -148,9 +158,12 @@ function rowLayout(dated: WallSlot[], undated: WallSlot[], width: number, axis: 
   const x = (value: number) => axis.place(value, from, to);
   const zero = x(0);
   const split = dated.length > 0 && undated.length > 0;
+  const lines = slots.map((slot) => (stacked ? wrap(slot.label, width, SIZE.label) : []));
   const marks = slots.map((slot, at): WallMark => {
     const isUndated = at >= dated.length;
-    const top = 4 + at * ROW + (split && isUndated ? BREAK / 2 : 0);
+    const above = lines.slice(0, at).reduce((sum, own) => sum + own.length * LINE, 0);
+    const labelTop = 4 + at * ROW + above + (split && isUndated ? BREAK / 2 : 0);
+    const top = labelTop + (lines[at]?.length ?? 0) * LINE;
     const kind = kindOf(slot);
     const value = valueOf(slot);
     const span = value === null ? 40 : Math.abs(x(value) - zero);
@@ -168,6 +181,7 @@ function rowLayout(dated: WallSlot[], undated: WallSlot[], width: number, axis: 
       height: BAR_ROW,
       least,
       centre: top + ROW / 2,
+      ...(stacked ? { labelLines: lines[at] ?? [], labelTop } : {}),
     };
   });
   const last = marks.at(-1);
@@ -179,7 +193,12 @@ function rowLayout(dated: WallSlot[], undated: WallSlot[], width: number, axis: 
     height: bottom + 20,
     marks,
     base: zero,
-    breakAt: split ? 4 + dated.length * ROW + BREAK / 4 : null,
+    breakAt: split
+      ? 4 +
+        dated.length * ROW +
+        lines.slice(0, dated.length).reduce((sum, own) => sum + own.length * LINE, 0) +
+        BREAK / 4
+      : null,
     ticks: ticks.map((tick) => ({ label: tick.label, at: x(tick.value) })),
     from: 4,
     to: bottom,

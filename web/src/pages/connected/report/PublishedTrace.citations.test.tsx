@@ -1,9 +1,9 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { TraceDrawer } from "@/pages/library/parts/TraceDrawer";
 import type { Trace } from "@/pages/library/slice";
 import type { OutputEntry, Snapshot } from "../publishedReport";
-import { evidenceToken } from "../publishedReport";
+import { evidenceHref, evidenceToken } from "../publishedReport";
 import { PublishedSource, PublishedTraceProvider } from "./PublishedTrace";
 
 afterEach(cleanup);
@@ -25,6 +25,7 @@ const entry: OutputEntry = {
       blocks: [
         { type: "text", line: 4, end: 4, text: "Cover is thin." },
         { type: "text", line: 5, end: 5, text: "No chip here." },
+        { type: "text", line: 6, end: 6, text: "CP-1 prints two annual periods only." },
       ],
     },
   ],
@@ -87,4 +88,18 @@ it("draws the source control of an address it cannot resolve as the same trace c
   const link = screen.getByRole("link", { name: "Open cover in Evidence" });
   expect(link).toHaveAttribute("href", "/report/case#evidence/missing~1");
   expect(link).toHaveClass("size-8", "max-[480px]:size-11");
+});
+
+it("names a module in the drawer and never shows its code", () => {
+  render(
+    <PublishedTraceProvider snapshot={snapshot} folder="case" entries={[entry]} route="overview">
+      <PublishedSource href={evidenceHref("case", evidenceToken(entry, 6))} name="the limitation">
+        Limitation
+      </PublishedSource>
+    </PublishedTraceProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Show sources for the limitation" }));
+  const drawn = within(screen.getByRole("dialog"));
+  expect(drawn.getByText("Financial foundation prints two annual periods only.")).toBeVisible();
+  expect(screen.getByRole("dialog")).not.toHaveTextContent(/\bCP-\d/);
 });

@@ -1,3 +1,4 @@
+import path from "node:path";
 // Synthetic, built from the module contract (src/deploy_vii/cp6_committee.py: the Final-bias
 // register, T6A.4 "Bear cross-examination" and the portfolio-limits chart); not a real handoff.
 // No real CP-6 handoff is retained. The thin case uses the retained synthetic CP-6 fixture.
@@ -9,6 +10,7 @@ import { entry as buildEntry, table } from "../overview/rows.fixture";
 import { CommitteeLead } from "./committee";
 import { ledger, stance } from "./committeeData";
 import { cp6Entry, leadProps } from "./fixtures/load";
+import { fixtureEntry } from "./markdown.fixture";
 
 afterEach(cleanup);
 
@@ -405,4 +407,44 @@ describe("disclosures", () => {
       expect(summary.querySelector("svg")).not.toBeNull();
     }
   });
+});
+
+// Verbatim from the replayed TDG handoff: the stance is one sentence, "Final Action Bias: X.",
+// with no confidence.
+const REAL_DECISION =
+  "Final Action Bias: Requires More Work. The decision is driven by documented cash generation alongside unresolved creditor protection and compensation, because payment capacity alone does not establish acceptable loss-adjusted return, which implies no investment approval. The main factor preventing a higher-conviction recommendation is whether an exactly identified claim offers sufficient compensation for continuing extraction and uncertain loss protection. Neither wins overall: Bull Sustained on narrow cash service, Bear Sustained on demonstrated financial policy, and unresolved on investability.\nBasis: Financial foundation (CP-1); Business & governance (CP-1A); Security selection (CP-3); Evidence validation (CP-5)";
+
+it("reads the stance from the module's own 'Final Action Bias' sentence, no confidence invented", () => {
+  const entry = cp6(text("Decision and greatest uncertainty", REAL_DECISION));
+  expect(stance(entry)).toMatchObject({
+    state: "stated",
+    word: "Requires More Work",
+    confidence: null,
+    source: "sentence",
+  });
+  render(<CommitteeLead {...leadProps(entry)} />);
+  const tile = screen.getByRole("region", { name: "Committee stance" });
+  expect(within(tile).getAllByText("Requires More Work").length).toBeGreaterThan(0);
+  expect(tile.textContent).not.toContain("could not read");
+});
+
+// The whole replayed TDG CP-6 handoff, verbatim (fixtures/cp6_tdg_replay.md): the cross-examination
+// is its "T6A.4 Bear cross-examination" register under the module's own headings.
+it("draws the replayed handoff's bear cross-examination as written, not a page failure", () => {
+  const whole = fixtureEntry(
+    "CP-6",
+    path.resolve(import.meta.dirname, "fixtures", "cp6_tdg_replay.md"),
+  );
+  render(<CommitteeLead {...leadProps(whole)} />);
+  const tile = screen.getByRole("region", { name: "Challenged points" });
+  expect(tile.textContent).not.toContain("could not read");
+  expect(within(tile).getAllByText("B1 Cash conversion").length).toBeGreaterThan(0);
+  expect(
+    within(tile).getAllByText(
+      /scheduled interest USD 1,524 million exceeds historical paid USD 1,158 million/,
+    ).length,
+  ).toBeGreaterThan(0);
+  expect(
+    within(tile).getAllByRole("columnheader", { name: /what would prove bear wrong/i }).length,
+  ).toBeGreaterThan(0);
 });

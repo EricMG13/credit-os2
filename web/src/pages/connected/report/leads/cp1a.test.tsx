@@ -248,8 +248,8 @@ it("draws the proof handoff's revenue mix cell by cell as written, a stated gap 
   ).toBeVisible();
 });
 
-// Review 4, Q5: beside the tall operating-model map, the shorter tiles stack in one column.
-it("stacks the revenue mix and the history beside the operating-model map", () => {
+// Beside the tall operating-model map sits the revenue mix; the dated history takes its own row.
+it("puts the revenue mix beside the operating-model map and the history across the last row", () => {
   render(<BusinessLead {...leadProps(business({ op: OP, own: OWN, prose: true }))} />);
   const map = screen.getByRole("region", { name: "Operating model to credit" });
   expect(map.className).toMatch(/lg:col-span-8/);
@@ -257,12 +257,13 @@ it("stacks the revenue mix and the history beside the operating-model map", () =
   expect(column).toHaveClass("lg:col-span-4", "flex-col");
   expect([...column.children].map((item) => item.getAttribute("aria-label"))).toEqual([
     "Revenue mix",
-    "Issuer history",
   ]);
-  // A lone map after them takes the full row.
-  expect(screen.getByRole("region", { name: "Ownership and control" }).className).toMatch(
-    /lg:col-span-12/,
-  );
+  const history = screen.getByRole("region", { name: "Issuer history" });
+  expect(history.className).toMatch(/lg:col-span-12/);
+  // A lone map after them takes the full row, and the history follows every map.
+  const own = screen.getByRole("region", { name: "Ownership and control" });
+  expect(own.className).toMatch(/lg:col-span-12/);
+  expect(own.compareDocumentPosition(history)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 });
 
 it("makes a first map that is only a gap one full row, the ownership map then heads the column", () => {

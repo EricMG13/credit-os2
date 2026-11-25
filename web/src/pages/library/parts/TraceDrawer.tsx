@@ -55,10 +55,8 @@ export function TraceDrawer({
           <DerivationTree node={withoutBasis(trace.derivation)} />
         </div>
       </SlideoutMenu.Content>
+      {/* One forward action: the header's close control and Escape close the drawer. */}
       <SlideoutMenu.Footer className="flex justify-end gap-3">
-        <Button color="secondary" slot="close" className="max-[480px]:min-h-11">
-          Close
-        </Button>
         <Button href={evidenceHref} onPress={onClose} className="max-[480px]:min-h-11">
           Open in Evidence
         </Button>

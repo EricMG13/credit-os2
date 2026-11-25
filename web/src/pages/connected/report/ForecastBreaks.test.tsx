@@ -293,6 +293,23 @@ it("shows each covenant test as the legal module writes it, with the model's cav
   expect(part.getByRole("link", { name: "Source for the Net leverage test" })).toBeInTheDocument();
 });
 
+it("draws a covenant test as its current figure against its level, on the test's own scale", () => {
+  const { container } = breaks([legal, forward]);
+  const test = screen
+    .getByRole("region", { name: "Covenant tests" })
+    .querySelector("li") as HTMLElement;
+  expect(within(test).getByText("Net leverage")).toBeInTheDocument();
+  // 4.2 against 5.0 on a scale of 5.0 x 1.15: position only, no figure of its own.
+  const bar = test.querySelector("[data-limit-bar]") as HTMLElement;
+  expect(bar).toHaveAttribute("aria-hidden", "true");
+  expect(bar).toHaveTextContent("");
+  expect(bar.querySelector("[data-current]")).toHaveAttribute("data-current", "73%");
+  expect(bar.querySelector("[data-level]")).toHaveAttribute("data-level", "87%");
+  // A test whose current figure is not given draws its level alone, never a bar at zero.
+  for (const drawn of container.querySelectorAll("[data-limit-bar]"))
+    expect(drawn.querySelector("[data-level]")).not.toBeNull();
+});
+
 it("draws the legal module blocked in the designed blocked state with its reason", () => {
   const blockedLegal = entryOf("CP-4", [
     findings,
@@ -425,4 +442,37 @@ it("names the table, not a row, where the matrix records no row line", () => {
   expect(
     stress.getByRole("link", { name: "Source table for stress, All-in cover (x)" }),
   ).toHaveAttribute("href", expect.stringMatching(/106$/u) as string);
+});
+
+it("labels a figure with its leading multiple and keeps the module's qualification as a note", () => {
+  const QUALIFIED = "4.88x; separate 2024-10-18 dividend-only pro forma 6.02x";
+  const entry = downside();
+  const metrics = entry.sections.find(
+    (item) => item.heading === "T2DS.4 Stressed flows and metrics",
+  );
+  const block = metrics?.blocks[0];
+  if (block?.type !== "table") throw new Error("metrics table missing");
+  block.rows = [{ line: 108, cells: ["Net leverage", QUALIFIED, "6.10x", "Filing p.1"] }];
+  render(
+    <WhatBreaks
+      view={view([entry])}
+      folder="current"
+      liquidity={readMeasure(
+        model([value("212"), value("295"), value("397")]),
+        "accessible liquidity",
+        /^Accessible liquidity\b/,
+      )}
+      group="Base case"
+      caseName="Base case"
+      schedule={schedule}
+      source={(name) => <button type="button">{`Show sources for ${name}`}</button>}
+    />,
+  );
+  const stress = within(screen.getByRole("group", { name: "Point-in-time stress" }));
+  const labels = [...stress.getByRole("img").querySelectorAll("text")].map(
+    (item) => item.textContent,
+  );
+  expect(labels).toContain("4.88x");
+  expect(labels).not.toContain(QUALIFIED);
+  expect(stress.getByText(new RegExp(`Net leverage: ${QUALIFIED}`))).toBeInTheDocument();
 });

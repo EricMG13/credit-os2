@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import type { PublishedRun } from "../publishedReport";
 import type { buildReportView } from "../reportView";
@@ -101,8 +101,10 @@ it("lays the tiles in the screen map's order, the lead first after the figures",
   const figures = screen.getByLabelText("Forecast figures");
   const lead = screen.getByRole("region", { name: "Net leverage path" });
   expect(figures.compareDocumentPosition(lead) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  // The chart labels the selected case's highest published year as that selection.
-  expect(screen.getByText("1.23x · FY2025E")).toBeInTheDocument();
+  // The chart labels the selected case's highest published year with its figure, at its point.
+  expect(
+    within(lead).getByRole("img").querySelector('[data-label="Base case-FY2025E"]'),
+  ).toHaveTextContent(/^1\.23x$/);
 });
 
 const handoff = (module: string, sha: string, sections: unknown[]) => ({

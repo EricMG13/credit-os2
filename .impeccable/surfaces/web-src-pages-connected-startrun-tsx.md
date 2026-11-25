@@ -67,4 +67,5 @@ A credit analyst prepares a run that can spend up to its pathway's cap (USD 15 t
 1. "Reviewed inputs" JSON: removed from the page. Checked 2026-11-16: the run record keeps the inputs (`GET /api/runs/<id>/inputs`).
 2. Service-written lines that carry codes or flags are cleaned on the page, not in Python. The rule sentence "Will refuse wording open until A-live." is tied to a frozen answer key and stays until the owner rules on it.
 3. Acceptance persistence is keyed by item id plus reason text.
-4. Implementation plan: `docs/superpowers/plans/2026-11-16-start-run-review-and-rows.md`.
+4. The confirmation dialog's title, text and action are untouched; its facts list now restates as-of date, documents read, modules, limits accepted, refusing modules and submitter from the review summary (owner, 2026-11-25: apply all fixes).
+5. Implementation plan: `docs/superpowers/plans/2026-11-16-start-run-review-and-rows.md`.

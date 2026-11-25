@@ -167,7 +167,7 @@ describe("ComparisonChart chart side", () => {
     ).toEqual(["Base case", "Downside case"]);
   });
 
-  it("adds no focus stop beyond the frame's own Chart or Table toggle", () => {
+  it("adds no focus stop beyond the frame's own Figure or Table switch", () => {
     const { container } = renderCmp();
     const panels = [...container.querySelectorAll("[data-panel]")];
     expect(panels).toHaveLength(6);
@@ -225,7 +225,7 @@ describe("ComparisonChart chart side", () => {
 describe("ComparisonChart table side", () => {
   it("shows the mock's strings, n.a. for the missing value", () => {
     renderCmp();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const row = screen.getByRole("row", { name: /Lowest cash balance/ });
     expect(
       within(row)

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { ChevronDown } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { Badge } from "@/components/base/badges/badges";
 import { ProgressBar } from "@/components/base/progress-indicators/progress-indicators";
@@ -12,7 +13,7 @@ import {
 } from "../api";
 import { card, heading } from "../layout";
 import { PublishedTable } from "../ReportContent";
-import { publishedHref, type OutputEntry, type PublishedRun } from "../publishedReport";
+import { publishedHref, readerText, type OutputEntry, type PublishedRun } from "../publishedReport";
 import { elapsedFigure, spendFigure, stamp } from "../runFigures";
 import { useResource } from "../useResource";
 
@@ -273,9 +274,9 @@ function ModuleRecord({
       {group.issues.map(({ output }) => (
         <div key={output.id} className="grid gap-1 text-sm text-text-secondary wrap-anywhere">
           <h4 className="font-semibold">{moduleName(output.module)} · Handoff issues</h4>
-          {output.parseError && <p>{output.parseError}</p>}
+          {output.parseError && <p>{readerText(output.parseError)}</p>}
           {output.issue?.split("; ").map((issue, i) => (
-            <p key={i}>{issue}</p>
+            <p key={i}>{readerText(issue)}</p>
           ))}
         </div>
       ))}
@@ -404,6 +405,10 @@ function ApprovedSummaryLimits({
   );
 }
 
+/** A record's summary row: the control floor's 32 px, a chevron in place of the native marker, and its own focus ring. */
+const SUMMARY =
+  "flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-ds-xs py-1 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus [&::-webkit-details-marker]:hidden";
+
 function ModuleRecords({
   groups,
   run,
@@ -432,15 +437,19 @@ function ModuleRecords({
         <details
           key={id}
           open={module ? true : undefined}
-          className="min-w-0 border-t border-border-hairline py-4"
+          className="group/record min-w-0 border-t border-border-hairline py-2"
         >
-          <summary className="cursor-pointer font-semibold">
+          <summary className={SUMMARY}>
             {id ? moduleName(id) : "Unassigned calls"}
             {group.calls.length > 0 && (
-              <span className="ml-2 text-sm font-normal text-text-tertiary">
+              <span className="text-small font-normal text-text-tertiary">
                 {group.calls.length} {group.calls.length === 1 ? "response" : "responses"}
               </span>
             )}
+            <ChevronDown
+              aria-hidden="true"
+              className="ml-auto size-4 shrink-0 text-text-tertiary group-open/record:rotate-180"
+            />
           </summary>
           <ModuleRecord
             group={group}
@@ -457,8 +466,14 @@ function ModuleRecords({
 function RecordedHashes({ run }: { run: PublishedRun }) {
   return (
     <section className={card}>
-      <details>
-        <summary className="cursor-pointer font-semibold">Recorded file hashes</summary>
+      <details className="group/record">
+        <summary className={SUMMARY}>
+          Recorded file hashes
+          <ChevronDown
+            aria-hidden="true"
+            className="ml-auto size-4 shrink-0 text-text-tertiary group-open/record:rotate-180"
+          />
+        </summary>
         {run.evidence.record.hashes.length === 0 && (
           <p className="mt-2">No file hashes were recorded.</p>
         )}

@@ -318,7 +318,11 @@ function StackLabels({
           style={{ top: row.labelTop }}
         >
           <span className="flex items-baseline justify-between gap-3">
-            <span className="text-small text-text-primary">{row.label}</span>
+            {/* One line: each label has one fixed slot beside its segment, so a wrapped name would
+                run into the next. The full name is the title and the stack's reading. */}
+            <span className="min-w-0 truncate text-small text-text-primary" title={row.label}>
+              {row.label}
+            </span>
             {row.amount.value !== null && (
               <Figure className="text-small font-medium">{figureText(row.amount.text)}</Figure>
             )}

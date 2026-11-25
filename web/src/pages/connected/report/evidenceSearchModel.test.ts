@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import type { OutputEntry, PublishedRun } from "../publishedReport";
-import { searchEvidence } from "./evidenceSearch";
+import { searchEvidence } from "./evidenceSearchModel";
 
 const sha = "a".repeat(64);
 const entry = (module: string, id: string, selected = true): OutputEntry => ({
@@ -83,14 +83,20 @@ it("does not search alternate handoffs, and does not match a word split across c
   ).toBe(true);
 });
 
-it("finds sources by file name, type or hash prefix and opens the Sources tab", () => {
+it("finds sources by file name, type or hash prefix and opens that file's row on Sources", () => {
   expect(searchEvidence("spare deck", entries, run).sources.map(({ title }) => title)).toEqual([
     "Spare Deck.pdf",
   ]);
   expect(searchEvidence("c0ffee", entries, run).sources.map(({ title }) => title)).toEqual([
     "annual.pdf",
   ]);
-  expect(searchEvidence("c0ffee", entries, run).sources[0]?.href).toBe("#evidence/sources");
+  expect(searchEvidence("c0ffee", entries, run).sources[0]?.href).toBe(
+    "#evidence/sources/-/file-0",
+  );
+  // The row's place counts across the three groups in the order Sources draws them.
+  expect(searchEvidence("spare deck", entries, run).sources[0]?.href).toBe(
+    "#evidence/sources/-/file-1",
+  );
 });
 
 it("finds gaps by title or module and opens the gap's handoff line", () => {
@@ -125,4 +131,30 @@ it("matches no fuzzy spelling", () => {
 
 it("does not let a bar match every table row, because cells are joined by a space", () => {
   expect(searchEvidence("|", entries, run).lines).toEqual([]);
+});
+
+it("shows and matches a module by its name, never by its code", () => {
+  const coded: OutputEntry = {
+    ...entry("CP-2", "case/CP-2.md"),
+    sections: [
+      { heading: "CP-2", level: 1, line: 1, blocks: [] },
+      {
+        heading: "Limitations",
+        level: 2,
+        line: 3,
+        blocks: [{ type: "text", line: 4, end: 4, text: "CP-1 prints two annual periods only." }],
+      },
+    ],
+  };
+  const byName = searchEvidence("financial foundation prints", [coded], run).lines;
+  expect(byName.map(({ title, detail }) => [title, detail])).toEqual([
+    ["Limitations", "Fundamental credit · Financial foundation prints two annual periods only."],
+  ]);
+  const byCode = searchEvidence("cp-2", [coded], run);
+  expect(byCode.lines).toEqual([]);
+  expect(byCode.gaps).toEqual([]);
+  // The handoff's own title line is the bare code: it is found, and shown, as the module's name.
+  expect(searchEvidence("fundamental credit", [coded], run).lines[0]?.title).toBe(
+    "Fundamental credit",
+  );
 });

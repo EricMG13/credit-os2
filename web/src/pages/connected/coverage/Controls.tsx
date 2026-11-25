@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { moduleName } from "../api";
 import type { Field } from "../coverageData";
 import { field as control, label } from "../layout";
+import { moduleTitle } from "./shared";
 
 /** A labelled select, for the long lists a row of chips would turn into a wall. */
 export function Choice({
@@ -32,7 +32,7 @@ export function Choice({
 }
 
 function fieldName(field: Field, titles: ReadonlyMap<string, string>) {
-  return `${titles.get(field.module) ?? moduleName(field.module)}: ${field.group}, ${field.label}`;
+  return `${moduleTitle(field.module, titles)}: ${field.group}, ${field.label}`;
 }
 
 export function FieldOptions({

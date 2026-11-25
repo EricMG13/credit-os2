@@ -40,7 +40,7 @@ const SHAPES = {
 };
 // Tone -> [text, fill, edge, mark], the app's status colours (web/src/styles/theme.css).
 const TONES = {
-  success: ["#0c6639", "#e8fff4", "#a5ffd2", "#0f8048"],
+  success: ["#1e40af", "#eff6ff", "#bfdbfe", "#1d4ed8"],
   warning: ["#664f00", "#fff9e5", "#ffe899", "#997700"],
   error: ["#8e413e", "#fdf0f0", "#f7c5c2", "#a54c48"],
   action: ["#0015cc", "#e5e8ff", "#b2baff", "#001aff"],

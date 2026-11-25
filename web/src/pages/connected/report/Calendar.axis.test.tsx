@@ -94,7 +94,7 @@ it("positions events in proportion to their dates", () => {
 
 it("draws the as-of rule only for a valid date", () => {
   draw("2027-01-15");
-  expect(screen.getByText("As of 2027-01-15")).toBeInTheDocument();
+  expect(screen.getByText("As of 15 January 2027")).toBeInTheDocument();
   expect(document.querySelector("[data-as-of-rule='2027-01-15']")).not.toBeNull();
 });
 
@@ -245,7 +245,7 @@ it("draws the calendar the same way with and without an as-of date", () => {
   render(<Calendar calendar={buildCalendar([handoff(oneYear)], "current")} asOf="2026-08-01" />);
   expect(screen.getByRole("table", { name: "Published events" })).toBeInTheDocument();
   expect(document.querySelector("[data-as-of-rule='2026-08-01']")).not.toBeNull();
-  expect(screen.getByText("As of 2026-08-01")).toBeInTheDocument();
+  expect(screen.getByText("As of 1 August 2026")).toBeInTheDocument();
   expect(document.querySelector("[data-axis-end='start']")).toHaveTextContent("2026-01-15");
 });
 
@@ -257,7 +257,7 @@ it("outside the events, the axis prints no range ends but a line of the events' 
   expect(document.body.textContent).not.toContain("Axis range");
   expect(document.querySelector("[data-axis-end]")).toBeNull();
   expect(screen.getByText("Events from 2026-01-15 to 2026-10-01")).toBeInTheDocument();
-  expect(screen.getByText("As of 2027-03-01")).toBeInTheDocument();
+  expect(screen.getByText("As of 1 March 2027")).toBeInTheDocument();
 });
 
 it("an as-of date before the events gets the same caption and no range ends", () => {
@@ -301,5 +301,22 @@ it("lays the page out as a header, the axis tile above the table tile and gaps a
   const tiles = screen.getAllByRole("region");
   const names = tiles.map((tile) => tile.getAttribute("aria-label"));
   expect(names.indexOf("Dated events")).toBeLessThan(names.indexOf("Event list"));
-  expect(screen.getByRole("heading", { level: 3, name: /3 dated events/ })).toBeInTheDocument();
+  expect(screen.getByText(/^3 dated events/)).toBeInTheDocument();
+});
+
+it("is one Tab stop: the arrow keys, Home and End move between the events", () => {
+  const axis = draw();
+  const stops = axis.getAllByRole("button").filter((button) => button.dataset.eventStop === "");
+  expect(stops.length).toBeGreaterThan(1);
+  expect(stops.filter((button) => button.tabIndex === 0)).toEqual([stops[0]]);
+  stops[0]?.focus();
+  fireEvent.keyDown(stops[0] as HTMLElement, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(stops[1]);
+  expect(stops.filter((button) => button.tabIndex === 0)).toEqual([stops[1]]);
+  fireEvent.keyDown(stops[1] as HTMLElement, { key: "End" });
+  expect(document.activeElement).toBe(stops.at(-1));
+  fireEvent.keyDown(stops.at(-1) as HTMLElement, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(stops.at(-1));
+  fireEvent.keyDown(stops.at(-1) as HTMLElement, { key: "Home" });
+  expect(document.activeElement).toBe(stops[0]);
 });

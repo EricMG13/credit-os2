@@ -2,10 +2,12 @@ import { ChevronDown } from "@untitledui/icons";
 import { Fragment, useState } from "react";
 import { StatusShape, type Shape } from "@/components/status/shapes";
 import { cx } from "@/utils/cx";
+import { moduleName, UNNAMED_MODULE } from "../../api";
 import { containsReference, readParagraph } from "../../publishedReport";
 import { words } from "./model";
 import type { PublishedChanges } from "../../publishedReport";
 import { PublishedSource } from "../PublishedTrace";
+import type { Tone } from "../ToneMark";
 import { statusColumn, type StatusColumn } from "./model";
 
 const COLUMNS: { key: StatusColumn; label: string; shape: Shape; tint: string }[] = [
@@ -14,6 +16,30 @@ const COLUMNS: { key: StatusColumn; label: string; shape: Shape; tint: string }[
   { key: "new", label: "New", shape: "filled circle", tint: "text-action" },
   { key: "missing", label: "Missing", shape: "dashed ring", tint: "text-gap-text" },
 ];
+
+/**
+ * The direction the comparison itself states for a revised conclusion. "Reversed" names no
+ * direction, so it takes none.
+ */
+const DIRECTION: Record<string, Exclude<Tone, "flat">> = {
+  Strengthened: "better",
+  Weakened: "worse",
+};
+/** The same shapes and inks the measure list gives better and worse; the status word is the word. */
+const DIRECTION_MARK = {
+  better: { shape: "filled circle", ink: "text-success-text" },
+  worse: { shape: "diamond", ink: "text-warning-text" },
+} as const satisfies Record<string, { shape: Shape; ink: string }>;
+
+/**
+ * The module's name as the rest of the report writes it. The pack's own title is used only for a
+ * module the page has no name for, and never when that title is itself a module code.
+ */
+function nameOf(module: string, title: string) {
+  const name = moduleName(module);
+  if (name !== UNNAMED_MODULE) return name;
+  return title.trim() && !/^CP-[A-Z0-9]+$/i.test(title.trim()) ? title : UNNAMED_MODULE;
+}
 
 function side(ran: boolean, bottomLine: string | null) {
   if (bottomLine == null) return ran ? "Not stated" : "Did not run";
@@ -66,14 +92,20 @@ export function ModuleMatrix({
           const column = statusColumn(status);
           const shown = COLUMNS.find((col) => col.key === column);
           const href = source(item.module);
-          const stated = [verdict?.cause, verdict?.why].filter((value): value is string =>
-            Boolean(value && value.trim()),
+          const said: [string, string | undefined][] = [
+            ["Cause", verdict?.cause],
+            ["Why", verdict?.why],
+          ];
+          const stated = said.flatMap(([name, value]) =>
+            value && value.trim() ? [{ name, value }] : [],
           );
-          const explanation = stated.filter((value) => !containsReference(value));
+          const explanation = stated.filter(({ value }) => !containsReference(value));
           const cited = stated.length > explanation.length;
           const statusText =
             status || (stated.length > 0 ? "Status not stated" : "Explanation not stated");
+          const direction = Object.hasOwn(DIRECTION, status) ? DIRECTION[status] : undefined;
           const panel = `matrix-${item.module}`;
+          const title = nameOf(item.module, item.title);
           return (
             <Fragment key={item.module}>
               <tr className="border-t border-border-hairline">
@@ -95,14 +127,27 @@ export function ModuleMatrix({
                       )}
                     />
                     <span className="min-w-0">
-                      <span className="block text-text-primary">{item.title}</span>
+                      <span className="block text-text-primary">{title}</span>
                       <span className="flex items-center gap-1.5 text-caption text-text-secondary">
                         {shown && (
                           <span className={cx("inline-flex sm:hidden", shown.tint)}>
                             <StatusShape shape={shown.shape} />
                           </span>
                         )}
-                        {statusText}
+                        {direction ? (
+                          <span
+                            data-direction={direction}
+                            className={cx(
+                              "inline-flex items-center gap-1 font-medium",
+                              DIRECTION_MARK[direction].ink,
+                            )}
+                          >
+                            <StatusShape shape={DIRECTION_MARK[direction].shape} />
+                            {statusText}
+                          </span>
+                        ) : (
+                          statusText
+                        )}
                       </span>
                     </span>
                   </button>
@@ -135,7 +180,9 @@ export function ModuleMatrix({
                     </div>
                     {explanation.length > 0 && (
                       <p className="reading-copy text-small text-text-secondary">
-                        {words(explanation.join(" · "))}
+                        {explanation
+                          .map(({ name, value }) => `${name}: ${words(value)}`)
+                          .join(" · ")}
                       </p>
                     )}
                     {cited && (
@@ -147,7 +194,7 @@ export function ModuleMatrix({
                       </a>
                     )}
                     {href && (
-                      <PublishedSource href={href} name={item.title}>
+                      <PublishedSource href={href} name={title}>
                         Analysis comparison row
                       </PublishedSource>
                     )}

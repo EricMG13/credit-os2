@@ -226,9 +226,11 @@ it("draws no markdown marks in a register or a reason", () => {
   ]);
   openAll();
   const card = cardOf("Recovery waterfall");
+  // The module is named; its code is not drawn, here or anywhere on the page.
   expect(
-    within(card).getByText("CP-3 states no value for Low: Not supplied: not stated"),
+    within(card).getByText("Security selection states no value for Low: Not supplied: not stated"),
   ).toBeVisible();
+  expect(document.body.textContent).not.toMatch(/CP-\d/);
   expect(document.body.textContent).not.toMatch(/[`#]/);
 });
 
@@ -350,7 +352,8 @@ it("tabulates outcomes by module with exact counts, a true zero, and links to ea
   expect(countCell("Fundamental credit", "disagreed")).toHaveTextContent(/^0$/);
   const link = screen.getByRole("link", { name: /Fundamental credit/ });
   expect(link).toHaveAttribute("href", "#evidence/checks/CP-2");
-  expect(within(link).getByText("CP-2")).toHaveClass("font-mono");
+  // The module is named; its code is the link's address only.
+  expect(link).toHaveTextContent(/^Fundamental credit$/);
   const scroller = screen.getByRole("region", { name: "Outcomes by module" });
   expect(scroller).toHaveClass("relative", "overflow-x-auto");
   expect(scroller).toHaveAttribute("tabindex", "0");
@@ -395,7 +398,8 @@ it("draws the checking record with full hashes in code and unrecorded hashes in 
   expect(row.closest("tr")).toHaveTextContent("2");
   const response = within(checking).getByText("a".repeat(64));
   expect(response.tagName).toBe("CODE");
-  expect(response).toHaveClass("wrap-anywhere");
+  // 64 characters as two even lines of 32, the hash whole in one node.
+  expect(response).toHaveClass("w-[32ch]", "break-all", "font-mono");
   expect(within(checking).getByText("b".repeat(64)).tagName).toBe("CODE");
   expect(within(checking).getByText("other.py")).toBeVisible();
   expect(within(checking).getByText("Not recorded")).toBeVisible();

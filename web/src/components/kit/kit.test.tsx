@@ -30,6 +30,17 @@ it("draws a stat's value as written, its change with the direction word, and a g
   expect(within(strip).queryByText("0")).toBeNull();
 });
 
+it("lays four figures two by two, then four across: never three with one alone on a row", () => {
+  const stat = (label: string) => ({ label, value: "1.0x" });
+  const { rerender } = render(<StatsStrip label="Four" stats={["A", "B", "C", "D"].map(stat)} />);
+  expect(screen.getByLabelText("Four")).toHaveClass("md:grid-cols-2", "lg:grid-cols-4");
+  expect(screen.getByLabelText("Four")).not.toHaveClass("md:grid-cols-3");
+  // Any other count keeps the strip's three-across row.
+  rerender(<StatsStrip label="Three" stats={["A", "B", "C"].map(stat)} />);
+  expect(screen.getByLabelText("Three")).toHaveClass("md:grid-cols-3");
+  expect(screen.getByLabelText("Three")).not.toHaveClass("lg:grid-cols-4");
+});
+
 it("marks the current link segment as the current page and draws a navigation landmark", () => {
   render(
     <Segmented

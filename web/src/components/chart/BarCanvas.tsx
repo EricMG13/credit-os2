@@ -69,7 +69,7 @@ export function BarCanvas({
             height={axis.height}
             tickMargin={8}
           />
-          <YAxisLabels yTicks={yTicks} />
+          <YAxisLabels yTicks={yTicks} room={height - 24 - extraTop - axis.height} />
           <Tooltip isAnimationActive={false} cursor={false} content={tooltip} />
           {children}
         </BarChart>

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
 import { ReportEvidence } from "./Evidence";
@@ -76,18 +76,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it.each(["summary", "trace", "record"])(
-  "keeps the same handoff offers on %s, including Record",
+it("keeps the handoff downloads on Record", () => {
+  show("record");
+  expect(screen.getByRole("link", { name: "Download all handoffs" })).toHaveAttribute(
+    "href",
+    "/library/downloads/case/handoffs.zip",
+  );
+  expect(screen.getByRole("link", { name: "Download Financial foundation" })).toHaveAttribute(
+    "href",
+    "/library/downloads/case/CP-1.md",
+  );
+});
+
+it.each(["summary", "trace"])(
+  "lists the handoffs on %s as links to read, and sends hashes and downloads to Record",
   (target) => {
     show(target);
-    expect(screen.getByRole("link", { name: "Download all handoffs" })).toHaveAttribute(
+    const handoffs = within(screen.getByRole("region", { name: "Handoffs" }));
+    expect(handoffs.getByRole("link", { name: "Financial foundation" })).toHaveAttribute(
       "href",
-      "/library/downloads/case/handoffs.zip",
+      expect.stringMatching(/^\/report\/case#evidence\//) as string,
     );
-    expect(screen.getByRole("link", { name: "Download Financial foundation" })).toHaveAttribute(
-      "href",
-      "/library/downloads/case/CP-1.md",
-    );
+    expect(
+      handoffs.getByRole("link", { name: "Hashes and downloads are on Record" }),
+    ).toHaveAttribute("href", "#evidence/record/files");
+    // Machinery of the Record tab: no hash table and no download offer on these two.
+    expect(handoffs.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Download all handoffs" })).toBeNull();
   },
 );
 

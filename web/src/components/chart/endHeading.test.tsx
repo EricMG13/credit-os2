@@ -206,7 +206,7 @@ const KINDS: [string, (heading: string) => ReactElement][] = [
 describe("every table kind passes the table's endHeading to the shared table", () => {
   it.each(KINDS)("%s", (_name, make) => {
     render(make("Open trace"));
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     expect(screen.getByRole("columnheader", { name: "Open trace" })).toBeInTheDocument();
   });
 });

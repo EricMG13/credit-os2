@@ -1,9 +1,11 @@
+import { PlayCircle } from "@untitledui/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Badge } from "@/components/base/badges/badges";
 import { Button } from "@/components/base/buttons/button";
 import { Skeleton } from "@/components/gap/Skeleton";
+import { StatusShape } from "@/components/status/shapes";
 import { PageHeader } from "../../shell/PageHeader";
 import { TextLink } from "../run/TextLink";
 import { getActivity, serviceText, type Activity, type Mode } from "./api";
@@ -45,24 +47,34 @@ function useActivity(beforeUpdate: (next: Activity) => void) {
   return { read, failed };
 }
 
+/** Nothing in flight: one sentence and the one action that changes that. */
 function Empty({ title, children }: { title: string; children: string }) {
   return (
     <EmptyState>
       <EmptyState.Header>
-        <EmptyState.FeaturedIcon />
+        <EmptyState.FeaturedIcon icon={PlayCircle} />
       </EmptyState.Header>
       <EmptyState.Content>
         <EmptyState.Title>{title}</EmptyState.Title>
         <EmptyState.Description>{children}</EmptyState.Description>
       </EmptyState.Content>
-      <EmptyState.Footer>
-        <Button href="/" color="secondary" className="max-md:min-h-11">
-          Open the library
+      <EmptyState.Footer className="flex-wrap items-center justify-center">
+        {/* Secondary, and in the top bar's own words: that bar holds the page's one primary action. */}
+        <Button href="/start" color="secondary" className="max-md:min-h-11">
+          Start run
         </Button>
+        <TextLink href="/" className="min-h-8 items-center">
+          Open the library
+        </TextLink>
       </EmptyState.Footer>
     </EmptyState>
   );
 }
+
+const unreadableText = (count: number) =>
+  count === 1
+    ? "1 run record could not be read and is not listed."
+    : `${String(count)} run records could not be read and are not listed.`;
 
 function groupForRunPath(activity: Activity, path: string) {
   const sameRun = (run: { id: string }) => runPath(run) === path;
@@ -137,11 +149,6 @@ export function RunActivity({ mode }: { mode?: Mode }) {
             )}
           </>
         }
-        actions={
-          <Button href="/start" className="max-md:min-h-11">
-            Start a run
-          </Button>
-        }
       />
       <div
         ref={content}
@@ -150,7 +157,7 @@ export function RunActivity({ mode }: { mode?: Mode }) {
         tabIndex={-1}
         className="mt-6 grid min-w-0 gap-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
-        {read && (
+        {read && !none && (
           <dl className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
             {(
               [
@@ -197,17 +204,25 @@ export function RunActivity({ mode }: { mode?: Mode }) {
             <GapNote>Which runs are in flight, waiting or stopped is not known.</GapNote>
           </Tile>
         )}
-        {read?.held && (
+        {/* Why waiting runs wait is said with them; it is a notice only when none is listed. */}
+        {read?.held && waiting.length === 0 && (
           <Alert tone="warning" title="Held by the service">
             <span className="wrap-anywhere">{serviceText(read.held)}</span>
           </Alert>
         )}
         {read?.unreadable ? (
-          <Alert tone="warning" title="Some run records could not be read">
-            {read.unreadable === 1
-              ? "1 run record could not be read and is not listed."
-              : `${String(read.unreadable)} run records could not be read and are not listed.`}
-          </Alert>
+          none ? (
+            <Alert tone="warning" title="Some run records could not be read">
+              {unreadableText(read.unreadable)}
+            </Alert>
+          ) : (
+            <p role="status" className="flex items-center gap-2 text-small text-warning-text">
+              <span className="flex text-warning-mark">
+                <StatusShape shape="triangle" />
+              </span>
+              {unreadableText(read.unreadable)}
+            </p>
+          )
         ) : null}
         {read && none && (
           <Empty title={read.unreadable ? "No active runs listed" : "No run in progress"}>
@@ -231,7 +246,8 @@ export function RunActivity({ mode }: { mode?: Mode }) {
             intro={
               endedTotal > ended.length && (
                 <p className="text-small text-text-secondary">
-                  {`Showing the latest ${String(ended.length)} of ${String(endedTotal)}.`}
+                  {`Showing the latest ${String(ended.length)} of ${String(endedTotal)}.`}{" "}
+                  <span>Earlier ones are not listed on this page.</span>
                 </p>
               )
             }
@@ -242,7 +258,19 @@ export function RunActivity({ mode }: { mode?: Mode }) {
           </RunGroup>
         )}
         {waiting.length > 0 && (
-          <RunGroup title="Waiting" group="queued" count={waiting.length}>
+          <RunGroup
+            title="Waiting"
+            group="queued"
+            count={waiting.length}
+            intro={
+              read?.held && (
+                <p className="text-small text-text-secondary wrap-anywhere">
+                  <span className="font-medium text-text-primary">Held by the service.</span>{" "}
+                  {serviceText(read.held)}
+                </p>
+              )
+            }
+          >
             {waiting.map((run) => (
               <WaitingRow key={run.id} run={run} held={read?.held ?? ""} />
             ))}

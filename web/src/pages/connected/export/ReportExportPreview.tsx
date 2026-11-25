@@ -26,10 +26,32 @@ function openPreview(id: ExportId) {
   showHash(exportHref(id), window.location.hash);
 }
 
+/** Set when a preview closes: the Export PDF control takes focus back once the report is drawn again. */
+let returnFocus = false;
+
 function closePreview() {
+  returnFocus = true;
   const state: unknown = window.history.state;
   if (state && typeof state === "object" && "reportExportFrom" in state) window.history.back();
   else showHash("#overview");
+}
+
+/** Returns focus to the Export PDF control after a preview closes, whether it was mounted throughout or is drawn anew. */
+function useFocusAfterPreview() {
+  const holder = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const land = () => {
+      if (!returnFocus || exportRoute(window.location.hash) !== undefined) return;
+      returnFocus = false;
+      holder.current?.querySelector<HTMLElement>("button, summary")?.focus();
+    };
+    land();
+    window.addEventListener("hashchange", land);
+    return () => {
+      window.removeEventListener("hashchange", land);
+    };
+  }, []);
+  return holder;
 }
 
 /** The header's quiet utility look, as Run progress beside it. */
@@ -41,6 +63,15 @@ const CHIP =
 const TOOL = "max-[480px]:min-h-11";
 
 export function ExportMenu({ options, reason }: { options: ExportOption[]; reason: string }) {
+  const holder = useFocusAfterPreview();
+  return (
+    <span ref={holder} className="inline-flex">
+      <ExportControl options={options} reason={reason} />
+    </span>
+  );
+}
+
+function ExportControl({ options, reason }: { options: ExportOption[]; reason: string }) {
   if (options.length === 0)
     return (
       <details className="report-export-menu relative">

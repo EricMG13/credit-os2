@@ -75,3 +75,19 @@ it("knows the module codes the methodology defines, and no others", () => {
   const codes = modules.flatMap(({ module_id, aliases = [] }) => [module_id, ...aliases]);
   expect([...METHODOLOGY_CODES].sort()).toEqual([...new Set(codes)].sort());
 });
+
+it("sends a register id that is a clause's subject, and a calculation id, to Evidence (real CP-1 basis cells)", () => {
+  // TransDigm lite runs, CP-1 "Chart data: leverage" and "Chart data: interest cover".
+  for (const cited of [
+    "June carrying debt and cash are established, but no complete eligible annual-plus-stubs denominator is available; T4.9 retains the missing ratios",
+    "Calculated C05 from carrying debt 24880, cash-netted debt 18619 and reported unadjusted EBITDA 3813. Not covenant leverage; retrospective.",
+    "C05 uses unadjusted reported EBITDA 3813 and cash interest paid net 1158, not accrued net interest expense 1286.",
+  ])
+    expect(readerReason(cited)).toBeNull();
+  for (const kept of [
+    "Class C2 notes rank behind the term loan.",
+    "A 20% decline leaves C$120 million of headroom.",
+    "Rated CCC1 by the agency.",
+  ])
+    expect(readerReason(kept)).toBe(kept);
+});

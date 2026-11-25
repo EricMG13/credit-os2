@@ -49,7 +49,7 @@ export type WaterfallRow =
       prior?: WaterfallPrior;
       split?: readonly WaterfallSplit[];
       /**
-       * A step's tone, by default from its sign: `increase` (a teal outline on a teal tint) for a
+       * A step's tone, by default from its sign: `increase` (a blue outline on a blue tint) for a
        * rise, `decrease` (the signal outline on its tint) for a fall; a zero step has none. The
        * sign and the legend's word carry the direction; the tone is secondary.
        */

@@ -27,7 +27,7 @@ holds every value the build needs.
 | `surface-canvas` | `#FAFAFA` | Violet L9 | Page background |
 | `surface-card` | `#FFFFFF` | White | Cards, tiles, inputs, drawers |
 | `surface-subtle` | `#F4F4F5` | Neutral L9 | Row and item hover, disabled field, switch track |
-| `surface-selected` | `#F0FDFA` | Ultramarine L9 | Selected navigation item, subtle action fill |
+| `surface-selected` | `#EFF6FF` | Blue 50 | Selected navigation item, subtle action fill |
 | `surface-inverse` | `#0A0A0A` | Navy | Tooltip; the bottom line band, with white text (review 2, ruling 6) |
 
 ### Text
@@ -39,20 +39,20 @@ holds every value the build needs.
 | `text-tertiary` | `#6B6B74` | Neutral D3 | Captions, column headers, hints, "n.a." |
 | `text-disabled` | `#A1A1AA` | Neutral L2 | Disabled controls only |
 | `text-on-action` | `#FFFFFF` | White | Label on a filled button |
-| `text-link` | `#0F766E` | Ultramarine | Links, tertiary buttons, selected tab |
+| `text-link` | `#1D4ED8` | Blue 700 | Links, tertiary buttons, selected tab |
 
 ### Action, hover and focus
 
 | Token | Hex | Brand step | Use |
 | :--- | :--- | :--- | :--- |
-| `action` | `#0F766E` | Ultramarine | Primary button, selected state, progress fill |
-| `action-hover` | `#115E59` | Ultramarine D2 | Primary button hover |
-| `action-pressed` | `#134E4A` | Ultramarine D4 | Primary button pressed |
-| `action-subtle` | `#F0FDFA` | Ultramarine L9 | Tertiary button hover, running badge fill |
-| `action-subtle-hover` | `#CCFBF1` | Ultramarine L8 | Running badge edge |
+| `action` | `#1D4ED8` | Blue 700 | Primary button, selected state, progress fill |
+| `action-hover` | `#1E40AF` | Blue 800 | Primary button hover |
+| `action-pressed` | `#1E3A8A` | Blue 900 | Primary button pressed |
+| `action-subtle` | `#EFF6FF` | Blue 50 | Tertiary button hover, running badge fill |
+| `action-subtle-hover` | `#DBEAFE` | Blue 100 | Running badge edge |
 | `action-disabled` | `#E4E4E7` | Neutral L8 | Disabled button fill |
-| `focus` | `#0F766E` | Ultramarine | Focus ring colour on light surfaces. Pieces written here draw it 2px wide with a 2px offset; a source component keeps its own ring width |
-| `focus-inverse` | `#5EEAD4` | Cyan | Focus ring colour on Navy |
+| `focus` | `#1D4ED8` | Blue 700 | Focus ring colour on light surfaces. Pieces written here draw it 2px wide with a 2px offset; a source component keeps its own ring width |
+| `focus-inverse` | `#93C5FD` | Blue 300 | Focus ring colour on Navy |
 
 Hover on a neutral surface (table row, navigation item, secondary button) is `surface-subtle`.
 
@@ -74,10 +74,10 @@ Each status is a text colour on its own tinted fill, with a fixed shape.
 
 | Status | Shape | Text | Fill | Edge | Mark |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| Success | Filled circle | `#115E59` Green D6 | `#F0FDFA` Green L9 | `#99F6E4` Green L6 | `#0F766E` Green D5 |
+| Success | Filled circle | `#1E40AF` Blue 800 | `#EFF6FF` Blue 50 | `#BFDBFE` Blue 200 | `#1D4ED8` Blue 700 |
 | Warning | Triangle | `#9A3412` Orange D6 | `#FFF7ED` Orange L9 | `#FED7AA` Orange L6 | `#EA580C` Orange D4 |
 | Error | Diamond | `#991B1B` Melon D4 | `#FEF2F2` Melon L9 | `#FECACA` Melon L6 | `#DC2626` Melon D3 |
-| Info | Ring | `#1E3A5F` Cyan D6 | `#EFF4FA` Cyan L9 | `#C7D6E8` Cyan L6 | `#3B6591` Cyan D4 |
+| Info | Ring | `#334155` Slate 700 | `#E9EEF4` Slate tint | `#CBD5E1` Slate 300 | `#475569` Slate 600 |
 
 The destructive button is white on Error text colour `#8E413E`.
 
@@ -422,15 +422,20 @@ out; a seventh series folds into Other.
 
 | Slot | Colour | Hex | Contrast on white | Gray value (0 to 255) | Line style |
 | :--- | :--- | :--- | ---: | ---: | :--- |
-| 1 | Ultramarine | `#115E59` | 8.10 | 44 | Solid, circle marker |
-| 2 | Violet D2 | `#0F2440` | 3.71 | 134 | Dashed, square marker |
-| 3 | Reef D8 | `#8E8E96` | 16.31 | 32 | Solid, triangle marker |
-| 4 | Orange D3 | `#EA580C` | 3.19 | 135 | Dotted, diamond marker |
-| 5 | Green D5 | `#3B6591` | 5.00 | 88 | Solid, ring marker |
-| 6 | Yellow D4 | `#5EA8A1` | 3.15 | 132 | Dash-dot, cross marker |
-| Other | Neutral D1 | `#71717A` | 3.76 | 132 | Solid, no marker |
+| 1 | Blue 700 | `#1D4ED8` | 6.70 | 79 | Solid, circle marker |
+| 2 | Plum | `#341B55` | 14.64 | 41 | Dashed, square marker |
+| 3 | Reef D8 | `#8E8E96` | 3.25 | 143 | Solid, triangle marker |
+| 4 | Orange D3 | `#EA580C` | 3.56 | 123 | Dotted, diamond marker |
+| 5 | Violet | `#6D4BB5` | 6.32 | 97 | Long-dashed, ring marker |
+| 6 | Light blue | `#4F93F7` | 3.07 | 138 | Dash-dot, cross marker |
+| Other | Neutral D1 | `#71717A` | 4.83 | 114 | Solid, no marker |
 
 Gray value is Rec. 601 luma on the 8-bit sRGB values: 0.299 R + 0.587 G + 0.114 B, rounded.
+
+Owner, 2026-11-25: accent changed from teal to blue. Slots 1, 2, 5 and 6 were re-chosen (the
+decisions are in `DESIGN.md` § Tokens); slots 3, 4 and Other are unchanged. The first three slots
+have relative luminances 0.1067, 0.0217 and 0.2730; their pairwise contrast ratios are 2.19 (1
+and 2), 2.06 (1 and 3) and 4.51 (2 and 3). The paragraphs below predate this palette.
 
 The final audit's X1-020 repair darkens slot 3 within the existing Reef family. This is the
 implementer's choice under OQ-09's accepted lightness recommendation, not an owner-selected hex.
@@ -473,8 +478,8 @@ OQ-09), so no colour in the chart is a local constant:
 
 | Token | Colour | Hex | Column |
 | :--- | :--- | :--- | :--- |
-| `waterfall-total` | Ultramarine (slot 1) | `#0F2440` | A total, drawn from the baseline |
-| `waterfall-up` | Ultramarine L3 (`brand-400`) | `#115E59` | A step up |
+| `waterfall-total` | Plum (slot 2) | `#341B55` | A total, drawn from the baseline |
+| `waterfall-up` | Blue 700 (slot 1) | `#1D4ED8` | A step up |
 | `waterfall-down` | Reef D8 (slot 3) | `#EA580C` | A step down |
 
 Marks follow the source chart (review 2, ruling 5), read on the Untitled UI line and bar
