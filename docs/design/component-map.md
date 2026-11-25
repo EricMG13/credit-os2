@@ -288,9 +288,10 @@ numeral is animated (ruling 6).
 ### 3.4 Signal
 
 Signal is a page of the connected application: it is drawn at `/signal`, under the same top bar
-as every other area, from Signal's routes (since 2026-11-24), where the server hosts Signal (live mode; not the
-read-only preview or synthetic mode). It is not a separate page. The open-from-disk rule and its gate (ruling 9) cover
-the design-reference app, which draws the same screens on `web/fixtures/signal.json`.
+as every other area (since 2026-11-24). The application hosts Signal in live mode only, not in the
+read-only preview or synthetic mode (since 2026-11-25). It is not a separate page. The
+open-from-disk rule and its gate (ruling 9) cover the design-reference app, which draws the same
+screens on `web/fixtures/signal.json`.
 Parts that need paid model calls are marked "needs ruling".
 
 The look is `DESIGN.md`'s, as on every redesigned screen (2026-11-25); the kit ids below still
