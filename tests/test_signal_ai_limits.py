@@ -233,7 +233,13 @@ def test_the_day_allows_its_digest_calls_and_the_others_wait_for_the_next_day(tm
     assert len(model.requests) == 3
     with pytest.raises(ai_ledger.Refused) as refused:
         ai_ledger.reserve(
-            db, "digest", "copilot-luna-xhigh", Decimal("0.3585"), NOW, ruled_cap=Decimal(15)
+            db,
+            "digest",
+            "copilot-luna-xhigh",
+            Decimal("0.3585"),
+            NOW,
+            ruled_cap=Decimal(15),
+            owner="Visitor 9",
         )
     assert str(refused.value) == (
         "the digests have made today's 3 model calls, the most a day allows; the others wait"
@@ -294,7 +300,13 @@ def test_settings_and_the_queued_reply_say_the_day_is_full(tmp_path):
     db = _store(tmp_path)
     ai_ledger.set_digests_per_day(db, 1, NOW)
     call = ai_ledger.reserve(
-        db, "digest", "copilot-luna-xhigh", Decimal("0.3585"), NOW, ruled_cap=Decimal(15)
+        db,
+        "digest",
+        "copilot-luna-xhigh",
+        Decimal("0.3585"),
+        NOW,
+        ruled_cap=Decimal(15),
+        owner="Visitor 9",
     )
     ai_ledger.settle(db, call, Decimal("0.006"), "ok", NOW)
     check = guard(tmp_path / "gate", NOW)

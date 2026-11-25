@@ -263,7 +263,9 @@ def test_a_home_that_is_not_the_directory_signal_named_is_left_alone(tmp_path, s
 # Finding 17: the conftest guard (tests/conftest.py, no_live_copilot_adapter)
 
 
-def test_building_the_live_adapter_without_a_fake_client_fails_the_test(tmp_path, monkeypatch):
+def test_building_the_live_adapter_without_a_fake_client_fails_the_test(
+    tmp_path, monkeypatch, live_adapter_attempts
+):
     from deploy_workflow.signal import ai_run
 
     world = World(tmp_path, monkeypatch)
@@ -272,10 +274,12 @@ def test_building_the_live_adapter_without_a_fake_client_fails_the_test(tmp_path
     with pytest.raises(pytest.fail.Exception, match="without a fake client"):
         CopilotAdapter(SPEC, world.ruling, environ=world.env, rulings_root=world.rulings)
     assert not (tmp_path / ".copilot-home").exists()
+    assert [thread for _, thread in live_adapter_attempts] == ["MainThread"] * 2
+    live_adapter_attempts.clear()  # provoked on purpose: the guard's teardown check passes
 
 
 def test_a_job_whose_factory_builds_the_live_adapter_cannot_be_swallowed_by_the_loop(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, live_adapter_attempts
 ):
     from deploy_workflow.signal import ai_run
     from deploy_workflow.signal.service import Loop
@@ -284,3 +288,78 @@ def test_a_job_whose_factory_builds_the_live_adapter_cannot_be_swallowed_by_the_
     loop = Loop(tmp_path / "root", ai=ai_run.Setup(world.env, world.rulings, ai_run.live_model))
     with pytest.raises(pytest.fail.Exception):
         loop.run_once(NOW)  # the loop's except Exception does not catch the guard
+
+    assert len(live_adapter_attempts) == 1
+    live_adapter_attempts.clear()  # provoked on purpose
+
+
+# Fourth review, N13: the guard fails the test whichever thread builds the adapter, and covers
+# every test module that imports the Signal package or react_frontend
+
+_PROBE = """
+import threading
+from pathlib import Path
+
+from signal_ai_fakes import write_ruling
+
+{imports}
+
+
+def test_built_on_a_background_thread(tmp_path):
+    ruling = write_ruling(Path(tmp_path) / "rulings")
+    from deploy_workflow.signal import ai_run
+
+    thread = threading.Thread(target=ai_run.live_model, args=("copilot-luna-xhigh", ruling))
+    thread.start()
+    thread.join()  # the thread dies with Failed; the test body itself goes on and passes
+"""
+
+
+def _probe(tmp_path: Path, name: str, imports: str) -> tuple[int, str]:
+    """Run one probe test module in its own pytest, beside a copy of this conftest (SYNTHETIC:
+    the adapter is never built: the guard stops it)."""
+    import os
+    import shutil
+    import subprocess
+    import sys
+
+    here = Path(__file__).parent
+    folder = tmp_path / "probe"
+    folder.mkdir()
+    shutil.copy(here / "conftest.py", folder / "conftest.py")
+    (folder / name).write_text(_PROBE.format(imports=imports), encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("COPILOT_", "GH_"))}
+    env["PYTHONPATH"] = os.pathsep.join([str(here), *sys.path])
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(folder / name)],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=120,
+        cwd=folder,
+        check=False,
+    )
+    return done.returncode, done.stdout + done.stderr
+
+
+@pytest.mark.parametrize(
+    ("name", "imports"),
+    [
+        ("test_signal_probe.py", ""),
+        ("test_other_probe.py", "from deploy_workflow.signal import store"),
+        ("test_more_probe.py", "import deploy_workflow.signal.ai_run"),
+        ("test_web_probe.py", "import react_frontend"),
+    ],
+)
+def test_an_attempt_on_a_background_thread_fails_the_test(tmp_path, name, imports):
+    code, out = _probe(tmp_path, name, imports)
+    assert code == 1, out
+    assert "the live Copilot adapter was built without a fake client 1 time(s)" in out
+    assert "Thread-" in out
+
+
+def test_a_module_importing_neither_is_left_alone():
+    from conftest import imports_guarded
+
+    assert not imports_guarded(Path(__file__).parent / "test_handoff_loop.py")
+    assert imports_guarded(Path(__file__).parent / "test_react_frontend_signal.py")

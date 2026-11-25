@@ -11,7 +11,8 @@ may be sent in next.
   AI field, counted in Settings) and never sent again. A call whose cost or outcome is not known
   counts as a paid attempt but halves nothing (the story is not to blame). A call refused or not
   sent costs nothing and counts nothing: its claim is released.
-* A story answered (written or invalid) leaves the table.
+* A story answered (written or invalid) leaves the table. A story deleted meanwhile (its source
+  removed with its stories) is left out of a claim and of what is stored; its row goes with it.
 """
 
 from __future__ import annotations
@@ -37,7 +38,10 @@ def claim(db: sqlite3.Connection, ids: Sequence[int], at: datetime) -> list[int]
     live = _utc_text(at - ai_ledger.CALL_BOUND)
     kept: list[int] = []
     with _write_transaction(db):
+        present = existing(db, ids)  # a story deleted since the pass listed it is left out
         for story_id in ids:
+            if story_id not in present:
+                continue
             answered = db.execute("SELECT 1 FROM story_ai WHERE story_id=?", (story_id,))
             held = db.execute(
                 "SELECT 1 FROM story_ai_tries WHERE story_id=? AND claimed_at >= ?",
@@ -100,6 +104,14 @@ def failed(
             )
         done(db, spent)
     return spent
+
+
+def existing(db: sqlite3.Connection, ids: Sequence[int]) -> set[int]:
+    """Which of `ids` are stories still in the store (read in the caller's transaction)."""
+    if not ids:
+        return set()
+    rows = db.execute(f"SELECT id FROM stories WHERE id IN ({_marks(ids)})", list(ids))
+    return {int(row[0]) for row in rows}
 
 
 def done(db: sqlite3.Connection, ids: Sequence[int]) -> None:

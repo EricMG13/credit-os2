@@ -89,6 +89,7 @@ def test_status_names_each_missing_precondition_and_never_a_key(tmp_path):
         month,
         "stories whose output failed its check this month: 0",
         "digest calls today (UTC): 0 of 50",
+        "digest calls a name may make a day (UTC): 5",
         "last failed call: none this month",
     ]
     assert ENV["COPILOT_GITHUB_TOKEN"] not in out

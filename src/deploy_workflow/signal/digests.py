@@ -29,9 +29,12 @@ call (``WriterFailed.again``: the call was refused, or the adapter established i
 leaves the run due exactly as it was, and the pass ends there (``Writer.stopped``).
 
 "Run once now" (``run_now``, ``request_run``) is refused within ``RUN_AGAIN_AFTER`` (30 minutes) of
-the digest's last run of any outcome. With the writer's own limits (``ai_digest.CALLS_PER_PASS``
-calls a pass, ``ai_ledger.digests_per_day`` a UTC day for the whole service) these bound what
-typed names can spend through digests.
+the digest's last run of any outcome. That rule and "one paid attempt per period" are courtesy
+limits: a digest deleted and made again, or given a new schedule, is held by neither. What bounds
+what typed names can spend through digests is the ledger's, checked as each call is reserved:
+``ai_ledger.digests_per_name`` paid calls a UTC day for one name's digests,
+``ai_ledger.digests_per_day`` for the whole service, ``ai_digest.CALLS_PER_PASS`` a pass, and the
+monthly cap.
 
 Every run, whatever its outcome, ends its period and the next period starts there, so a period is
 as long as the time since the last run: one schedule period, plus the downtime a late run catches
@@ -46,7 +49,10 @@ now. A run that fails because the database is busy or locked (SQLITE_BUSY, SQLIT
 whose model call the adapter did not send, is left due, so the next tick retries it, and the pass
 says how many it left (``Ran.left_due``); a run left for the writer's limits or a refusal is
 ``Ran.waiting``; any other failure, a lasting database fault included, is recorded as skipped and
-the digest moves to its next slot. Every write is one write transaction.
+the digest moves to its next slot. A run that needs a call the writer cannot make now (it has
+stopped, or the owner's name has made its calls for the day) is left exactly as it was, and the
+pass goes on: runs with nothing in scope, and other names' runs, are never held up behind it.
+Every write is one write transaction.
 """
 
 from __future__ import annotations
@@ -190,11 +196,11 @@ class WriterFailed(Exception):
 
 
 class _RetryLater(Exception):
-    """A run left due: its writer made no paid call."""
+    """A run left due: its writer made no paid call (or could make none for it in this pass)."""
 
-    def __init__(self, reason: str, *, fault: bool) -> None:
+    def __init__(self, reason: str, *, fault: bool, stories: int) -> None:
         super().__init__(reason)
-        self.fault = fault
+        self.fault, self.stories = fault, stories
 
 
 class Ran(list[tuple[int, "Run"]]):
@@ -211,9 +217,19 @@ class Ran(list[tuple[int, "Run"]]):
 class Writer(Protocol):
     """The AI pass's digest writer (``ai_digest``). None in its place: AI is off or at its cap.
     `stopped` is why it makes no more calls in this pass (None while it may): the due pass then
-    ends, and the digests not yet run wait for the next one."""
+    runs only the digests that need no call, and the others wait for the next one."""
 
     stopped: str | None
+
+    def blocked(self, owner: str) -> WriterFailed | None:
+        """Why no call can be made for a digest of `owner` in this pass (its run waits, as it
+        was), or None. Asked before a run that needs a call is planned."""
+        ...
+
+    def clock(self) -> datetime:
+        """The time now by the writer's own clock: a run's claim is stamped with it as its call
+        starts (a pass may begin long before), so a process starting meanwhile sees it live."""
+        ...
 
     def draft(self, scope: Scope) -> object:
         """Make the one model call for `scope` and return the validated result; WriterFailed
@@ -688,6 +704,9 @@ def _plan(
     start = min(digest.period_from, now)
     bare = covers_nothing(db, digest)
     stories = () if bare else _scope_stories(db, digest, start, now)
+    wait = None if writer is None or not stories else writer.blocked(digest.owner)
+    if wait is not None:  # raised inside the caller's transaction: nothing is changed
+        raise _RetryLater(str(wait), fault=wait.fault, stories=len(stories))
     scope = Scope(digest, start, now, stories, _seen_groups(db, digest))
     db.execute("UPDATE digests SET run_requested_at=NULL WHERE id=?", (digest.id,))
     if trigger == "schedule":
@@ -696,7 +715,7 @@ def _plan(
     if stories and writer is not None and not bare:
         db.execute(
             "UPDATE digests SET claimed_by=?, claimed_at=? WHERE id=?",
-            (trigger, _utc_text(now), digest.id),
+            (trigger, _utc_text(writer.clock()), digest.id),
         )
         return scope
     if bare:
@@ -750,7 +769,7 @@ def _write(
     except WriterFailed as failed:
         if failed.again:
             _due_again(db, scope)
-            raise _RetryLater(str(failed), fault=failed.fault) from None
+            raise _RetryLater(str(failed), fault=failed.fault, stories=count) from None
         run = Run("skipped", None, count, f"{NOT_WRITTEN}{failed}")
         with _write_transaction(db):
             if not _unchanged(db, scope):
@@ -830,16 +849,16 @@ def run_now(
     changed while its issue was being written. Conflict too, with the sentence saying when it can
     run, when ``_run_refusal`` refuses it. A writer that made no paid call leaves the run as it
     was."""
-    with _write_transaction(db):
-        digest = _may_run_now(db, owned(db, owner, digest_id), now)
-        planned = _plan(db, digest, now, "manual", writer)
-    if isinstance(planned, Run):
-        return planned
-    assert writer is not None
     try:
+        with _write_transaction(db):
+            digest = _may_run_now(db, owned(db, owner, digest_id), now)
+            planned = _plan(db, digest, now, "manual", writer)
+        if isinstance(planned, Run):
+            return planned
+        assert writer is not None
         run = _write(db, planned, "manual", writer, now)
     except _RetryLater as later:
-        return Run("skipped", None, len(planned.stories), f"{NOT_WRITTEN}{later}")
+        return Run("skipped", None, later.stories, f"{NOT_WRITTEN}{later}")
     if run is None:
         raise Conflict(CHANGED)
     return run
@@ -943,8 +962,9 @@ def _run_one(
     """Run one due digest into `results`; a fault is logged and recorded, or left due."""
     try:
         run = _run_scheduled(db, digest_id, now, writer)
-    except _RetryLater as later:
-        log.warning("digest %s: no paid call was made (%s); it stays due", digest_id, later)
+    except _RetryLater as later:  # a fault is a warning; a limit doing its work is not
+        level = logging.WARNING if later.fault else logging.INFO
+        log.log(level, "digest %s: no paid call was made (%s); it stays due", digest_id, later)
         (results.left_due if later.fault else results.waiting).append(digest_id)
         return
     except sqlite3.OperationalError as error:
@@ -967,28 +987,29 @@ def _run_one(
 
 def run_due(db: sqlite3.Connection, now: datetime, writer: Writer | None = None) -> Ran:
     """Run every digest whose time has come, once each, however many periods it missed, and every
-    digest whose owner asked for a run (``request_run``): at most DUE_PER_PASS of them, the one
-    due longest first (by its scheduled time, or the time its run was asked for if earlier); the
+    digest whose owner asked for a run (``request_run``): the one due longest first (by its
+    scheduled time, or the time its run was asked for if earlier), at most DUE_PER_PASS runs; the
     others stay due for the next pass.
 
     A digest whose run raises is logged and recorded as skipped, its digest moved to its next
     slot, unless the fault may pass (the database was busy or locked, or the writer's call was not
     sent): that one is left due for the next tick and listed in ``left_due``. Either way the pass
-    goes on to the others, even when recording a failure fails too. Once the writer has stopped
-    (``Writer.stopped``: a refused call, a call not sent, or its limits for this pass) the pass
-    ends, and every digest not yet run waits for the next one (``waiting``)."""
+    goes on to the others, even when recording a failure fails too. A run that needs a call the
+    writer cannot make now (``Writer.blocked``: the writer stopped, at a refused call, a call not
+    sent or its limits for this pass, or the owner's name has made its calls for the day) is left
+    due exactly as it was, changing nothing, and listed in ``waiting`` (in ``left_due`` when the
+    stop was a call not sent); it does not count among the pass's runs, and the pass goes on, so
+    the runs that need no call (nothing in scope) and other names' runs are never held up."""
     due = db.execute(
         "SELECT id FROM digests WHERE next_run_at <= ? OR run_requested_at IS NOT NULL"
         " ORDER BY min(next_run_at, coalesce(run_requested_at, next_run_at)), id LIMIT ?",
-        (_utc_text(now), DUE_PER_PASS),
+        (_utc_text(now), MAX_ALL_DIGESTS),
     ).fetchall()
     results = Ran()
-    ids = [int(row["id"]) for row in due]
-    for index, digest_id in enumerate(ids):
-        if writer is not None and writer.stopped is not None:
-            results.waiting += ids[index:]
+    for row in due:
+        if len(results) >= DUE_PER_PASS:
             break
-        _run_one(db, digest_id, now, writer, results)
+        _run_one(db, int(row["id"]), now, writer, results)
     return results
 
 

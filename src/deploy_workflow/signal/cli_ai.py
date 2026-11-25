@@ -2,6 +2,8 @@
 
     signal ai cap <amount>         the monthly cap in USD, no higher than the ruling's cap_usd:
     signal ai digests-per-day <n>  the digest writer's model calls a UTC day (default 50)
+    signal ai digests-per-name <n> the digest writer's model calls a UTC day for one name's
+                                   digests (default 5)
     signal ai status               the state, each precondition, the month's spend and holds
     signal ai clear                clear the switch-off a call of unknown cost caused
     signal ai pass                 one pass over the new stories now, only while the pass is on
@@ -30,6 +32,9 @@ def add_parser(commands: argparse._SubParsersAction[argparse.ArgumentParser]) ->
     verbs.add_parser("cap", help=f"set the monthly cap in {CURRENCY}").add_argument("amount")
     verbs.add_parser(
         "digests-per-day", help="set the digest writer's model calls a UTC day, service-wide"
+    ).add_argument("count")
+    verbs.add_parser(
+        "digests-per-name", help="set the digest writer's model calls a UTC day for one name"
     ).add_argument("count")
     verbs.add_parser("status")
     verbs.add_parser("clear", help="clear the switch-off after a call of unknown cost")
@@ -65,6 +70,7 @@ def _status(db: sqlite3.Connection, now: datetime, setup: ai_run.Setup) -> None:
     )
     print(f"stories whose output failed its check this month: {held.invalid}")
     print(f"digest calls today (UTC): {held.digests_today} of {held.digests_per_day}")
+    print(f"digest calls a name may make a day (UTC): {ai_ledger.digests_per_name(db)}")
     if held.last_problem is None:
         print("last failed call: none this month")
     else:
@@ -111,6 +117,10 @@ def run(db: sqlite3.Connection, args: argparse.Namespace, setup: ai_run.Setup) -
         count = ai_ledger.parse_per_day(args.count)
         ai_ledger.set_digests_per_day(db, count, now)
         print(f"digest calls a day set to {count}")
+    elif args.action == "digests-per-name":
+        count = ai_ledger.parse_per_name(args.count)
+        ai_ledger.set_digests_per_name(db, count, now)
+        print(f"digest calls a name a day set to {count}")
     elif args.action == "status":
         _status(db, now, setup)
     elif args.action == "clear":

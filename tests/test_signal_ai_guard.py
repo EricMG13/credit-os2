@@ -323,7 +323,9 @@ def test_a_call_in_flight_leaves_the_state_on_the_ai_fields_shown_and_run_once_n
         live.close()
 
 
-def test_at_its_cap_run_once_now_is_still_queued_for_the_loop(tmp_path):
+def test_at_its_cap_run_once_now_is_answered_with_the_cap_and_changes_nothing(tmp_path):
+    """Fourth review, N8: at the cap the route used to queue the run and answer "writing this
+    issue now"; the loop then recorded it skipped and moved its period, dropping its stories."""
     from test_signal_service import Live
 
     from deploy_workflow.signal import ai_gate
@@ -334,6 +336,7 @@ def test_at_its_cap_run_once_now_is_still_queued_for_the_loop(tmp_path):
     store.add_user(db, "Rita Reader", "reader")
     form = digests.Form("D", ["All stories"], "Daily, 07:00 UTC", "Up to 3 points", "")
     ident = digests.create(db, "Rita Reader", digests.spec_from_form(db, "Rita Reader", form), NOW)
+    before = digests.owned(db, "Rita Reader", ident)
     ai_ledger.set_cap(db, Decimal("0.70"), NOW)
     now = datetime.now(UTC)
     call = ai_ledger.reserve(db, "stories", CONFIG, Decimal("0.40"), now, ruled_cap=Decimal(15))
@@ -342,10 +345,38 @@ def test_at_its_cap_run_once_now_is_still_queued_for_the_loop(tmp_path):
     db.close()
     loop = Loop(root, ai=ai_run.Setup(env, rulings, lambda c, p: FakeModel(), clock_at(now)))
     live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    months = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ]
+    this, following = months[now.month - 1], months[now.month % 12]
     try:
         status, _, body = live.call(
             "POST", f"/api/digests/{ident}/run", cookie="signal_name=Rita%20Reader", body={}
         )
-        assert (status, body["outcome"]) == (200, "queued")
+        assert status == 409
+        assert body["error"] == (
+            f"AI has reached its cap for {this}, so no issue is written until 1 {following}."
+            " Only the owner can raise the cap."
+        )
+        missing, _, _ = live.call(
+            "POST", "/api/digests/999/run", cookie="signal_name=Rita%20Reader", body={}
+        )
+        assert missing == 404
     finally:
         live.close()
+    db = store.open_db(root)
+    after = digests.owned(db, "Rita Reader", ident)
+    assert after == before  # not asked for, same period, same next run
+    assert db.execute("SELECT COUNT(*) FROM digest_runs").fetchone()[0] == 0
+    db.close()

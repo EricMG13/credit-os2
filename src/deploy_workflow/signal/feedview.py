@@ -239,9 +239,11 @@ _MEMBERS = {
     ),
 }
 # A view with more members than this is never read from them (it would sort them all); it is read
-# from the newest WINDOW stories instead, so its work does not grow with the store. A view of more
-# members whose newest ones are older than that window delivers fewer stories (or none) than it
-# holds: the page shows what its topic found lately.
+# from the newest WINDOW stories instead, so its work does not grow with the store. When the window
+# holds fewer of its members than asked for, the rest are read from its own member rows, the
+# highest story ids first (from the rows' index, a few times the limit), and shown in the feed's
+# order after the window's: exact when story ids follow publication order among those members, as
+# a feed's ingest gives them; otherwise the older part is the newest the store added.
 MEMBERS_READ = 10_000
 WINDOW = 20_000
 WALK_FACTOR = 4
@@ -256,9 +258,11 @@ def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> l
     steps an evenly spread view would take (`limit` * stories / members); a walk that finds fewer
     than `limit` in that many (the members are old: a topic whose keyword left the news) reads the
     members instead, as long as they are at most MEMBERS_READ. A view of more members is walked
-    over the newest WINDOW stories only. Either way, up to those bounds, the ids and their order
-    are those of the full walk, and the work is at most a few times MEMBERS_READ or WINDOW. It
-    opens no transaction: a caller reading several views holds one (`read_transaction`)."""
+    over the newest WINDOW stories; when that finds fewer than `limit`, the others are the newest
+    of its member rows by story id (`_with_older`). Up to those bounds the ids and their order are
+    those of the full walk (the older part of a big view: when ids follow publication order), and
+    the work is at most a few times MEMBERS_READ or WINDOW. It opens no transaction: a caller
+    reading several views holds one (`read_transaction`)."""
     clause, params = _view_clause(db, user_name, view)
     kind = view.partition(":")[0]
     members = _MEMBERS.get(kind)
@@ -268,13 +272,27 @@ def view_ids(db: sqlite3.Connection, user_name: str, view: str, limit: int) -> l
         return _for_you(db, user_name, limit)
     held = _held(db, members, params)
     if held > MEMBERS_READ:
-        return _walk(db, clause, params, limit, WINDOW)
+        found = _walk(db, clause, params, limit, WINDOW)
+        return found if len(found) == limit else _with_older(db, members, params, found, limit)
     total = db.execute("SELECT COALESCE(MAX(id), 0) FROM stories").fetchone()[0]
     if held <= limit or held * held <= limit * total:
         return _from_members(db, members, params, limit)
     steps = WALK_FACTOR * limit * total // held + limit
     found = _walk(db, clause, params, limit, steps)
     return found if len(found) == limit else _from_members(db, members, params, limit)
+
+
+def _with_older(
+    db: sqlite3.Connection, members: str, params: list[object], found: list[int], limit: int
+) -> list[int]:
+    """A big view whose window held only `found` (every member in it, newest first): those, then
+    the newest of its other member rows by story id, in the feed's order, up to `limit` in all.
+    The rows are read from their index, at most WALK_FACTOR * limit + len(found) of them."""
+    rows = db.execute(
+        f"{members} ORDER BY story_id DESC LIMIT ?", [*params, WALK_FACTOR * limit + len(found)]
+    ).fetchall()
+    older = {int(row[0]) for row in rows} - set(found)
+    return found + _newest_of(db, older, limit - len(found))
 
 
 def _held(db: sqlite3.Connection, members: str, params: list[object]) -> int:

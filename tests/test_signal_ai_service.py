@@ -141,3 +141,38 @@ def test_with_no_ruling_the_service_makes_no_model_call_and_runs_as_before(tmp_p
     finally:
         live.close()
     assert built == []
+
+
+# Fourth review, D5: a hand-edited AI setting turns the pass off on the pages, never a 500
+
+
+def test_a_hand_edited_ai_setting_shows_the_pass_off_and_every_page_still_reads(tmp_path):
+    root = tmp_path / "root"
+    seed(root)
+    rulings = tmp_path / "rulings"
+    write_ruling(rulings)
+    db = store.open_db(root)
+    store.add_user(db, "Olga", "owner")
+    with db:
+        db.execute("UPDATE settings SET value='abc' WHERE key='ai_cap_usd'")
+    db.close()
+    model = FakeModel(answer=answer)
+    loop = Loop(root, ai=ai_run.Setup(environ(tmp_path), rulings, lambda c, p: model))
+    live = Live(make_server(root, "127.0.0.1", 0, loop=loop))
+    try:
+        code, _, built = live.call("GET", "/api/snapshot", cookie="signal_name=Olga")
+        assert code == 200 and react_refusal(built) is None
+        ai = built["scenes"][0]["snapshot"]["settings"]["ai"]
+        assert ai["state"] == "off"
+        assert ai["notice"]["text"].startswith(
+            "The store's AI settings cannot be read, so the AI pass is off until the owner sets"
+            " them again on the command line (signal ai cap, signal ai clear)."
+        )
+        code, _, reader = live.call("GET", "/api/snapshot", cookie=COOKIE)
+        assert code == 200 and reader["scenes"][0]["snapshot"]["settings"]["ai"]["state"] == "off"
+        code, _, status = live.call("GET", "/api/status")
+        assert (code, status["ai_state"]) == (200, "off")
+    finally:
+        live.close()
+    loop.run_once(NOW)  # the loop's AI jobs fail alone and make no call
+    assert model.requests == [] and loop.ai_error is not None

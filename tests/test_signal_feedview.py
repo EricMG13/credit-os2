@@ -293,10 +293,13 @@ def test_a_view_of_more_members_than_it_reads_is_walked_over_the_newest_window(
     seen: list[str] = []
     db.set_trace_callback(seen.append)
     assert feedview.view_ids(db, "ak", "topic:1", 3) == [195, 194, 193]
-    assert feedview.view_ids(db, "ak", "topic:1", 8) == [195, 194, 193, 192, 191]  # no older ones
+    # Fewer than asked in the window: the rest are the newest of its own member rows (by id, read
+    # from the index, no more than the limit allows), in the feed's order (fourth review, N7).
+    assert feedview.view_ids(db, "ak", "topic:1", 8) == [195, 194, 193, 192, 191, 40, 39, 38]
     db.set_trace_callback(None)
-    assert not any("CROSS JOIN stories" in sql for sql in seen)  # never read from the members
+    assert not any("CROSS JOIN stories" in sql for sql in seen)  # never sorts all its members
     assert sum("LIMIT 31)" in sql for sql in seen) == 2  # counted no further than MEMBERS_READ + 1
+    assert any("ORDER BY story_id DESC LIMIT" in sql for sql in seen)
     # With the bound a view of 45 members is not one: raised to 50, it is read from its members.
     monkeypatch.setattr(feedview, "MEMBERS_READ", 50)
     assert feedview.view_ids(db, "ak", "topic:1", 8) == [195, 194, 193, 192, 191, 40, 39, 38]
@@ -351,3 +354,102 @@ def test_the_work_of_a_big_topic_view_and_of_for_you_does_not_grow_with_its_memb
     (topic_small, for_you_small), (topic_big, for_you_big) = work
     assert topic_big <= topic_small * 1.1 + 2
     assert for_you_big <= for_you_small * 1.1 + 2
+
+
+# Fourth review, N7: a view of more members than it reads, with few or none in the window
+
+
+def test_a_big_topic_with_only_old_members_still_delivers_its_newest(tmp_path, monkeypatch):
+    """review4/a8_window.py: a 12,001-old-member topic delivered 0 ids; Saved with 10,503 saves
+    delivered 3. Here the bounds are scaled down: 31 members past a MEMBERS_READ of 30, none in
+    the newest 50 of 200 stories."""
+    from deploy_workflow.signal import feedview
+
+    monkeypatch.setattr(feedview, "MEMBERS_READ", 30)
+    monkeypatch.setattr(feedview, "WINDOW", 50)
+    db = _stale_store(tmp_path, 200, list(range(10, 41)))
+    for view in ("topic:1", "saved", "foryou"):
+        assert feedview.view_ids(db, "ak", view, 5) == [40, 39, 38, 37, 36]
+        assert feedview.view_ids(db, "ak", view, 40) == list(range(40, 9, -1))
+
+
+def test_a_big_saved_view_with_three_recent_saves_delivers_the_older_ones_after(
+    tmp_path, monkeypatch
+):
+    from deploy_workflow.signal import feedview
+
+    monkeypatch.setattr(feedview, "MEMBERS_READ", 30)
+    monkeypatch.setattr(feedview, "WINDOW", 50)
+    db = _stale_store(tmp_path, 200, [*range(1, 41), 190, 195, 199])
+    assert feedview.view_ids(db, "ak", "saved", 6) == [199, 195, 190, 40, 39, 38]
+
+
+def test_the_snapshot_delivers_a_big_old_topic_and_keeps_its_count(tmp_path, monkeypatch):
+    from deploy_workflow.signal import feedview, snapshot
+    from deploy_workflow.signal.identity import User
+
+    monkeypatch.setattr(feedview, "MEMBERS_READ", 30)
+    monkeypatch.setattr(feedview, "WINDOW", 50)
+    db = _stale_store(tmp_path, 200, list(range(10, 41)))
+    with db:  # the times the snapshot reads, written as the store writes them
+        stamp = "2026-01-01T00:00:00+00:00"
+        db.execute("UPDATE saves SET saved_at=?", (stamp,))
+        db.execute("UPDATE sources SET created_at=?", (stamp,))
+        db.execute("UPDATE stories SET fetched_at=published_at")
+        db.execute("UPDATE topics SET created_at=?", (stamp,))
+    built = snapshot.build(db, User("ak", "reader"), datetime(2026, 1, 2, tzinfo=UTC))
+    state = built["scenes"][0]["snapshot"]
+    (topic,) = state["channels"]["topics"]
+    assert topic["count"] == "31"
+    assert state["feed"]["topics"]["1"]["latest"][:3] == ["40", "39", "38"]
+    assert state["channels"]["savedCount"] == "31"
+    assert state["feed"]["views"]["saved"]["latest"][:3] == ["40", "39", "38"]
+
+
+@settings(
+    max_examples=40, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
+)
+@given(data=st.data(), stories=st.integers(min_value=60, max_value=160))
+def test_a_windowed_view_agrees_with_the_full_walk_for_the_ids_it_delivers(
+    tmp_path_factory, monkeypatch, data, stories
+):
+    """Against a brute-force oracle written here: every delivered id is a member, the delivered
+    ids keep the full walk's order, the ones in the window are exactly the walk's first ones, the
+    view delivers min(limit, members) ids, and when story ids follow publication order (a feed's
+    normal ingest) the ids are exactly the full walk's first ones."""
+    from deploy_workflow.signal import feedview
+
+    shuffled, limit = data.draw(st.booleans()), data.draw(st.sampled_from([3, 8, 30]))
+    monkeypatch.setattr(feedview, "MEMBERS_READ", 20)
+    monkeypatch.setattr(feedview, "WINDOW", 40)
+    ids = list(range(1, stories + 1))
+    minutes = data.draw(st.permutations(ids)) if shuffled else ids
+    members = data.draw(st.sets(st.sampled_from(ids), min_size=21, max_size=stories))
+    db = open_db(tmp_path_factory.mktemp("window"))
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    with db:
+        db.execute(
+            "INSERT INTO sources(name, kind, url, state, proposed_by, created_at)"
+            " VALUES('W', 'news', 'https://w.example/f', 'approved', 'x', 'x')"
+        )
+        db.executemany(
+            "INSERT INTO stories(id, source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(?, 1, 'S', ?, ?, 't', ?, 'x', '')",
+            [
+                (n, f"https://w.example/{n}", f"k{n}", (base + timedelta(minutes=m)).isoformat())
+                for n, m in zip(ids, minutes, strict=True)
+            ],
+        )
+        db.execute("INSERT INTO topics VALUES(1, 'T', '[]', '[]', 'x', 'x')")
+        db.executemany("INSERT INTO topic_stories VALUES(1, ?)", [(n,) for n in members])
+    published = dict(zip(ids, minutes, strict=True))
+    walk = sorted(members, key=lambda n: (published[n], n), reverse=True)
+    window = set(sorted(ids, key=lambda n: (published[n], n), reverse=True)[:40])
+    got = feedview.view_ids(db, "ak", "topic:1", limit)
+    db.close()
+    assert len(got) == min(limit, len(members)) and set(got) <= members
+    assert got == sorted(got, key=walk.index)
+    inside = [n for n in walk if n in window][:limit]
+    assert got[: len(inside)] == inside
+    if not shuffled:
+        assert got == walk[:limit]

@@ -7,6 +7,7 @@ from __future__ import annotations
 import multiprocessing as mp
 import sqlite3
 import threading
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -81,7 +82,9 @@ def test_reserve_then_settle_records_exact_decimal_amounts(db):
     )
     ai_ledger.settle(db, first, Decimal("0.000123456789"), "ok", NOW)
     assert _row(db, first) == ("0.3585", "0.000123456789", "settled")
-    second = ai_ledger.reserve(db, "digest", CONFIG, Decimal("0.3585"), NOW, ruled_cap=RULED)
+    second = ai_ledger.reserve(
+        db, "digest", CONFIG, Decimal("0.3585"), NOW, ruled_cap=RULED, owner="Mara L"
+    )
     ai_ledger.settle(db, second, Decimal("0.1"), "ok", NOW)
     month = ai_ledger.totals(db, "2026-11")
     assert month.spent == Decimal("0.100123456789") and month.held == 0
@@ -383,30 +386,63 @@ def test_an_absurd_reported_cost_leaves_the_owners_settings_readable(db, tmp_pat
 
 
 DAY_STEP = st.tuples(
-    st.sampled_from(["stories", "digest", "settle", "unknown", "clear", "per-day"]),
+    st.sampled_from(
+        ["stories", "digest", "settle", "unknown", "not-sent", "clear", "per-day", "per-name"]
+    ),
     st.integers(min_value=0, max_value=240),  # minutes the clock moves on
-    st.integers(min_value=0, max_value=9),  # which open call a settle picks; or the day's calls
+    st.integers(min_value=0, max_value=9),  # which open call a settle picks; a limit; a name
 )
+NAMES = ("Mara L", "Ines K")
 
 
-def _step(db: sqlite3.Connection, action: str, pick: int, now: datetime, held: list[int]) -> None:
-    """One step; a digest call is made only while the day has made fewer than its limit."""
+@dataclass
+class _Days:
+    """What the test itself counts, independently of the ledger: per UTC day, the digest calls
+    reserved that were not settled as not sent, service-wide and per name; and the open calls."""
+
+    held: list[tuple[int, str, str | None]] = field(default_factory=list)  # (id, day, name)
+    paid: dict[tuple[str, str | None], int] = field(default_factory=dict)  # (day, name|None)
+
+    def count(self, day: str, name: str | None) -> int:
+        return self.paid.get((day, name), 0)
+
+    def add(self, day: str, name: str, step: int = 1) -> None:
+        for key in ((day, None), (day, name)):
+            self.paid[key] = self.paid.get(key, 0) + step
+
+
+def _step(db: sqlite3.Connection, action: str, pick: int, now: datetime, seen: _Days) -> None:
+    """One step; a digest call is made only while the day, and the name, have made fewer than
+    their limits (calls settled as not sent count toward neither)."""
+    day = f"{now:%Y-%m-%d}"
     if action in ("stories", "digest"):
-        before, limit = ai_ledger.digest_calls_on(db, now), ai_ledger.digests_per_day(db)
+        name = NAMES[pick % 2] if action == "digest" else None
+        limits = (ai_ledger.digests_per_day(db), ai_ledger.digests_per_name(db))
         try:
-            held.append(
-                ai_ledger.reserve(db, action, CONFIG, Decimal("0.3585"), now, ruled_cap=RULED)
+            call = ai_ledger.reserve(
+                db, action, CONFIG, Decimal("0.3585"), now, ruled_cap=RULED, owner=name
             )
         except Refused:
             return
-        assert action == "stories" or before < limit
-    elif action in ("settle", "unknown") and held:
-        call = held.pop(pick % len(held))
+        if name is not None:
+            assert seen.count(day, None) < limits[0] and seen.count(day, name) < limits[1]
+            seen.add(day, name)
+        seen.held.append((call, day, name))
+    elif action in ("settle", "unknown", "not-sent") and seen.held:
+        call, made_on, name = seen.held.pop(pick % len(seen.held))
+        if action == "not-sent":
+            still_open = _row(db, call)[2] == "open"  # not yet taken as unknown (stale)
+            ai_ledger.settle(db, call, Decimal(0), "not_sent: KeyMissing", now)
+            if name is not None and still_open:  # a call not sent no longer counts
+                seen.add(made_on, name, -1)
+            return
         ai_ledger.settle(db, call, None if action == "unknown" else Decimal("0.01"), "ok", now)
     elif action == "clear":
         ai_ledger.clear(db)
     elif action == "per-day":
         ai_ledger.set_digests_per_day(db, pick, now)
+    elif action == "per-name":
+        ai_ledger.set_digests_per_name(db, pick % 4, now)
 
 
 @settings(
@@ -420,10 +456,10 @@ def test_no_day_has_more_digest_calls_than_its_limit_and_no_month_passes_its_cap
     try:
         ai_ledger.set_cap(db, cap, NOW)
         now = datetime(2026, 11, 30, 20, 0, tzinfo=UTC)  # the steps cross a day and a month
-        held: list[int] = []
+        seen = _Days()
         for action, minutes, pick in steps:
             now += timedelta(minutes=minutes)
-            _step(db, action, pick, now, held)
+            _step(db, action, pick, now, seen)
             assert ai_ledger.totals(db, ai_ledger.month_of(now)).total <= cap
     finally:
         db.close()

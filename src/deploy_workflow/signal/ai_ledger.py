@@ -18,9 +18,14 @@ processes are serialised by the database lock and cannot both fit under the cap:
   unless ``spent + held + reservation <= cap``, where the cap is the lower of the owner's stored
   cap and the ruled cap its caller checked just before; it refuses every call while no cap is set
   or while the pass is switched off.
-* The digest writer makes at most ``digests_per_day`` calls (reservations, whatever became of them)
-  in one UTC day for the whole service (``DIGESTS_PER_DAY`` until the owner sets it with
-  ``signal ai digests-per-day <n>``); ``reserve`` refuses the next one (``day_full``).
+* The digest writer makes at most ``digests_per_day`` calls in one UTC day for the whole service
+  (``DIGESTS_PER_DAY`` until the owner sets it with ``signal ai digests-per-day <n>``), and at most
+  ``digests_per_name`` for the digests of any one name (``DIGESTS_PER_NAME`` until the owner sets it
+  with ``signal ai digests-per-name <n>``; a digest call's row carries its digest's owner);
+  ``reserve`` refuses the next one (``day_full``; ``NameFull``). Every call reserved counts,
+  whatever became of it, except one the adapter established was not sent (it cost nothing). So
+  deleting and re-creating digests, or editing their schedules, cannot pass either limit. The rows
+  of calls not sent are pruned once older than ``NOT_SENT_KEPT``, in the reserve transaction.
 * ``settle`` records the actual cost. A cost that cannot be established (``None``) leaves the call
   counted at its full reservation (status ``unknown``) and switches the pass off until the owner
   clears it (``clear``); it is never counted as zero. A cost above the reservation is recorded in
@@ -57,10 +62,15 @@ STALE_AFTER = timedelta(hours=1)
 CALL_BOUND = timedelta(seconds=OVERALL_S) + timedelta(minutes=1)
 MAX_CAP = Decimal(100000)
 DIGESTS_PER_DAY = 50  # the digest writer's calls a UTC day for the whole service, until set
-MAX_DIGESTS_PER_DAY = 1000
+DIGESTS_PER_NAME = 5  # the digest writer's calls a UTC day for one name's digests, until set
+MAX_DIGESTS_PER_DAY = 1000  # the most either limit may be set to
+NOT_SENT_KEPT = timedelta(days=1)
+PRUNE_SPAN = timedelta(days=30)
 _CAP = "ai_cap_usd"
 _OFF = "ai_switched_off"
 _PER_DAY = "ai_digests_per_day"
+_PER_NAME = "ai_digests_per_name"
+_NOT_SENT = "not_sent:%"  # the outcome of a call the adapter established was not sent
 
 _STORE_ID = re.compile(r"[0-9a-f]{16}", re.ASCII)
 
@@ -69,6 +79,10 @@ Purpose = Literal["stories", "digest"]
 
 class Refused(Exception):
     """No call is made: no cap is set, the pass is switched off, or the call would pass the cap."""
+
+
+class NameFull(Refused):
+    """No call is made: the digests of this name have made the day's calls a name may make."""
 
 
 @dataclass(frozen=True)
@@ -153,42 +167,82 @@ def store_id(db: sqlite3.Connection) -> str:
     return value
 
 
-def parse_per_day(text: str) -> int:
-    """The digest writer's calls a day as the owner types them: a whole number from 0 to
-    `MAX_DIGESTS_PER_DAY` in plain digits; StoreError otherwise."""
+def _parse_count(text: str, what: str, example: int) -> int:
+    """A whole number from 0 to `MAX_DIGESTS_PER_DAY` in plain digits; StoreError otherwise."""
     cleaned = text.strip()
     if not (cleaned.isascii() and cleaned.isdecimal()) or len(cleaned) > 4:
-        raise StoreError("the digest calls a day are a whole number, such as 50")
+        raise StoreError(f"the {what} are a whole number, such as {example}")
     count = int(cleaned)
     if count > MAX_DIGESTS_PER_DAY:
-        raise StoreError(f"the digest calls a day are at most {MAX_DIGESTS_PER_DAY}")
+        raise StoreError(f"the {what} are at most {MAX_DIGESTS_PER_DAY}")
     return count
+
+
+def parse_per_day(text: str) -> int:
+    """The digest writer's calls a day as the owner types them (0 to 1000)."""
+    return _parse_count(text, "digest calls a day", DIGESTS_PER_DAY)
+
+
+def parse_per_name(text: str) -> int:
+    """The digest writer's calls a day for one name's digests as the owner types them (0 to
+    1000)."""
+    return _parse_count(text, "digest calls a name a day", DIGESTS_PER_NAME)
+
+
+def _stored_count(db: sqlite3.Connection, key: str, default: int) -> int:
+    row = _setting(db, key)
+    return default if row is None else int(row["value"])
+
+
+def _set_count(db: sqlite3.Connection, key: str, count: int, now: datetime) -> None:
+    with _write_transaction(db):
+        db.execute(
+            "INSERT OR REPLACE INTO settings(key, value, set_at) VALUES(?, ?, ?)",
+            (key, str(count), _utc_text(now)),
+        )
 
 
 def digests_per_day(db: sqlite3.Connection) -> int:
     """The most digest-writer calls the whole service makes in one UTC day."""
-    row = _setting(db, _PER_DAY)
-    return DIGESTS_PER_DAY if row is None else int(row["value"])
+    return _stored_count(db, _PER_DAY, DIGESTS_PER_DAY)
 
 
 def set_digests_per_day(db: sqlite3.Connection, count: int, now: datetime) -> None:
-    checked = parse_per_day(str(count))
-    with _write_transaction(db):
-        db.execute(
-            "INSERT OR REPLACE INTO settings(key, value, set_at) VALUES(?, ?, ?)",
-            (_PER_DAY, str(checked), _utc_text(now)),
-        )
+    _set_count(db, _PER_DAY, parse_per_day(str(count)), now)
 
 
-def digest_calls_on(db: sqlite3.Connection, at: datetime) -> int:
-    """The digest-writer calls reserved in `at`'s UTC day, whatever became of them."""
-    day = f"{at.astimezone(UTC):%Y-%m-%d}"
-    found = db.execute(
-        "SELECT COUNT(*) FROM ai_usage WHERE purpose='digest' AND month=?"
-        " AND substr(reserved_at, 1, 10)=?",
-        (day[:7], day),
-    ).fetchone()[0]
-    return int(found)
+def digests_per_name(db: sqlite3.Connection) -> int:
+    """The most digest-writer calls one name's digests make in one UTC day."""
+    return _stored_count(db, _PER_NAME, DIGESTS_PER_NAME)
+
+
+def set_digests_per_name(db: sqlite3.Connection, count: int, now: datetime) -> None:
+    _set_count(db, _PER_NAME, parse_per_name(str(count)), now)
+
+
+def _day_span(at: datetime) -> tuple[str, str]:
+    """`at`'s UTC day as the text bounds its stored times sort between."""
+    day = at.astimezone(UTC).date()
+    return f"{day:%Y-%m-%d}", f"{day + timedelta(days=1):%Y-%m-%d}"
+
+
+def digest_calls_on(db: sqlite3.Connection, at: datetime, owner: str | None = None) -> int:
+    """The digest-writer calls reserved in `at`'s UTC day (for `owner`'s digests, when given),
+    whatever became of them, except calls the adapter established were not sent."""
+    start, end = _day_span(at)
+    sql = (
+        "SELECT COUNT(*) FROM ai_usage WHERE purpose='digest' AND reserved_at >= ?"
+        " AND reserved_at < ? AND outcome NOT LIKE ?"
+    )
+    params: tuple[str, ...] = (start, end, _NOT_SENT)
+    if owner is not None:
+        sql, params = sql + " AND owner=?", (*params, owner)
+    return int(db.execute(sql, params).fetchone()[0])
+
+
+def name_calls_on(db: sqlite3.Connection, owner: str, at: datetime) -> int:
+    """The digest-writer calls reserved in `at`'s UTC day for `owner`'s digests."""
+    return digest_calls_on(db, at, owner)
 
 
 def day_full(count: int) -> str:
@@ -196,6 +250,14 @@ def day_full(count: int) -> str:
     return (
         f"the digests have made today's {count} model calls, the most a day allows;"
         " the others wait until 00:00 UTC"
+    )
+
+
+def name_full(count: int) -> str:
+    """Why a digest call is refused once a name's digests have made the day's calls."""
+    return (
+        f"this name's digests have made today's {count} model calls, the most a name may make"
+        " a day; they wait until 00:00 UTC"
     )
 
 
@@ -269,6 +331,20 @@ def expire(db: sqlite3.Connection, now: datetime, bound: timedelta = STALE_AFTER
         return _expire(db, now, bound)
 
 
+def _prune(db: sqlite3.Connection, now: datetime) -> None:
+    """Inside the caller's write transaction: drop the rows of calls not sent (they cost nothing
+    and count toward nothing) once older than NOT_SENT_KEPT, so a call refused before sending on
+    every tick does not grow the ledger without bound. Only the PRUNE_SPAN before that is looked
+    at (an index range, not the whole ledger): every reservation prunes, so nothing older is
+    left while the service runs."""
+    cut = now - NOT_SENT_KEPT
+    db.execute(
+        "DELETE FROM ai_usage WHERE purpose IN ('stories', 'digest') AND reserved_at >= ?"
+        " AND reserved_at < ? AND status='settled' AND outcome LIKE ?",
+        (_utc_text(cut - PRUNE_SPAN), _utc_text(cut), _NOT_SENT),
+    )
+
+
 def reserve(  # noqa: PLR0913 -- one call's record (purpose, configuration, hold, time) and its cap
     db: sqlite3.Connection,
     purpose: Purpose,
@@ -277,47 +353,61 @@ def reserve(  # noqa: PLR0913 -- one call's record (purpose, configuration, hold
     now: datetime,
     *,
     ruled_cap: Decimal,
+    owner: str | None = None,
 ) -> int:
     """Hold `usd` for one call and return the call's id; Refused when no call may be made.
 
     The limit is the lower of the owner's stored cap and `ruled_cap`, the cap of the ruling the
     caller checked just before (``ai_call.call``), so a ruling lowered below the stored cap bounds
-    the very next call. The cap check and the hold are one write transaction."""
+    the very next call. A digest call names `owner`, its digest's owner, for the per-name limit
+    (StoreError without one); a story call names none. The checks and the hold are one write
+    transaction."""
     if not isinstance(usd, Decimal) or not usd.is_finite() or usd <= 0:
         raise StoreError("a reservation is a positive Decimal amount")
     if not isinstance(ruled_cap, Decimal) or not ruled_cap.is_finite() or ruled_cap <= 0:
         raise StoreError("the ruled cap is a positive Decimal amount")
+    if (purpose == "digest") != isinstance(owner, str):
+        raise StoreError("a digest call names its digest's owner, and only a digest call does")
     month = month_of(now)
     with _write_transaction(db):
         _expire(db, now)  # committed whether or not the call is refused
-        refusal = _refusal(db, purpose, usd, now, ruled_cap)
+        _prune(db, now)
+        refusal = _refusal(db, purpose, usd, now, ruled_cap, owner)
         if refusal is None:
             cur = db.execute(
-                "INSERT INTO ai_usage(purpose, config_id, month, reserved_usd, status, outcome,"
-                " reserved_at) VALUES(?, ?, ?, ?, 'open', 'in progress', ?)",
-                (purpose, config_id, month, money_text(usd), _utc_text(now)),
+                "INSERT INTO ai_usage(purpose, owner, config_id, month, reserved_usd, status,"
+                " outcome, reserved_at) VALUES(?, ?, ?, ?, ?, 'open', 'in progress', ?)",
+                (purpose, owner, config_id, month, money_text(usd), _utc_text(now)),
             )
     if refusal is not None:
-        raise Refused(refusal)
+        raise refusal
     assert cur.lastrowid is not None
     return cur.lastrowid
 
 
-def _refusal(
-    db: sqlite3.Connection, purpose: Purpose, usd: Decimal, now: datetime, ruled_cap: Decimal
-) -> str | None:
+def _refusal(  # noqa: PLR0913 -- the call's purpose, hold, time, ruled cap and owner
+    db: sqlite3.Connection,
+    purpose: Purpose,
+    usd: Decimal,
+    now: datetime,
+    ruled_cap: Decimal,
+    owner: str | None,
+) -> Refused | None:
     """Inside the caller's write transaction: why the call may not be reserved, or None."""
     if switched_off(db) is not None:
-        return "the AI pass is switched off until the owner clears it"
+        return Refused("the AI pass is switched off until the owner clears it")
     stored = cap(db)
     if stored is None:
-        return "no monthly cap is set"
+        return Refused("no monthly cap is set")
     limit = min(stored, ruled_cap)
-    per_day = digests_per_day(db)
-    if purpose == "digest" and digest_calls_on(db, now) >= per_day:
-        return day_full(per_day)
+    if purpose == "digest":
+        per_day, per_name = digests_per_day(db), digests_per_name(db)
+        if digest_calls_on(db, now) >= per_day:
+            return Refused(day_full(per_day))
+        if owner is not None and digest_calls_on(db, now, owner) >= per_name:
+            return NameFull(name_full(per_name))
     if exact_sum((totals(db, month_of(now)).total, usd)) > limit:
-        return f"the call would pass the monthly cap of {CURRENCY} {money_text(limit)}"
+        return Refused(f"the call would pass the monthly cap of {CURRENCY} {money_text(limit)}")
     return None
 
 
@@ -364,22 +454,29 @@ __all__ = [
     "CALL_BOUND",
     "CURRENCY",
     "DIGESTS_PER_DAY",
+    "DIGESTS_PER_NAME",
     "STALE_AFTER",
     "Month",
+    "NameFull",
     "Refused",
     "cap",
     "clear",
     "day_full",
     "digest_calls_on",
     "digests_per_day",
+    "digests_per_name",
     "expire",
     "month_of",
+    "name_calls_on",
+    "name_full",
     "parse_cap",
     "parse_per_day",
+    "parse_per_name",
     "relabel",
     "reserve",
     "set_cap",
     "set_digests_per_day",
+    "set_digests_per_name",
     "settle",
     "store_id",
     "switched_off",

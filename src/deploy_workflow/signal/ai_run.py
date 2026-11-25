@@ -57,6 +57,11 @@ def status(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_gate.Statu
     return ai_gate.status(db, now, setup.environ, setup.rulings_root)
 
 
+def shown_status(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_gate.Status:
+    """The status pages show (``ai_gate.shown_status``): off when a setting cannot be read."""
+    return ai_gate.shown_status(db, now, setup.environ, setup.rulings_root)
+
+
 @dataclass(frozen=True)
 class Job:
     """One job's model and the guard every one of its calls is checked against."""

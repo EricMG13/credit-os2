@@ -309,3 +309,29 @@ def test_a_call_refused_before_anything_was_made_leaves_nothing_to_remove(
     assert g.homes == []
     ai_call.remove_homes(g)
     assert "could not remove" not in caplog.text
+
+
+@pytest.mark.parametrize("last", ["..", "."])
+def test_a_home_named_dot_or_dot_dot_is_never_removed(tmp_path, work, last):
+    """A Guard holding <cwd>/.copilot-home/<d>/.. has the right grandparent by its real path, but
+    its last part names the folder above (or the digest folder itself): nothing is removed."""
+    digest = work / ".copilot-home" / "signal-stories-x-1"
+    kept = _precious(digest / "another-exchange")
+    other = _precious(work / ".copilot-home" / "other-module")
+    ai_call.remove_homes(ai_call.Guard({}, tmp_path, lambda: NOW, [digest / last]))
+    assert kept.exists() and other.exists()
+
+
+@pytest.mark.parametrize("shape", ["file", "link"])
+def test_a_home_that_is_not_a_folder_is_left_without_a_warning(tmp_path, work, db, caplog, shape):
+    g = guard(tmp_path, NOW)
+    _call(db, g)
+    (home,) = g.homes
+    shutil.rmtree(home)
+    if shape == "file":
+        home.write_text("a file", encoding="utf-8")
+    else:
+        home.symlink_to(_precious(tmp_path / "victim").parent, target_is_directory=True)
+    ai_call.remove_homes(g)
+    assert home.is_symlink() or home.read_text(encoding="utf-8") == "a file"
+    assert "could not remove" not in caplog.text

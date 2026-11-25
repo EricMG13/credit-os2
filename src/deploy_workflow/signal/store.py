@@ -288,12 +288,15 @@ CREATE INDEX idx_digest_runs_digest ON digest_runs(digest_id, id);
 # pass has sent: its paid attempts, the largest batch it may go in next (halved after a reply that
 # could not be read) and the time a pass claimed it for its call in flight. `ai_usage`: one row per
 # model call, in USD as exact decimal text; `month` (UTC, YYYY-MM) is the month of its reservation,
-# where it counts. A call is 'open' while it holds its reservation, 'settled' at its actual cost, or
-# 'unknown' (its cost could not be established: it counts at its full reservation, never as zero).
-# `settings`: the owner's monthly cap, the switched-off state and the digest writer's calls a UTC
-# day. `digest_points`: a written issue's numbered points, each with the ids of the stories behind
-# it; `digest_issue_ai` the issue's model, story count and what it covered when it was written, in
-# words (an old issue never depends on the digest's covers now).
+# where it counts; `owner` the name whose digest a digest-writer call was for (the per-name limit);
+# ids are never given again (AUTOINCREMENT: an exchange id carries the call's id, and rows of calls
+# not sent are pruned after a day). A call is 'open' while it holds its reservation, 'settled' at
+# its actual cost, or 'unknown' (its cost could not be established: it counts at its full
+# reservation, never as zero). `settings`: the owner's monthly cap, the switched-off state and the
+# digest writer's calls a UTC day, service-wide and per name. `digest_points`: a written issue's
+# numbered points, each with the ids of the stories behind it; `digest_issue_ai` the issue's model,
+# story count and what it covered when it was written, in words (an old issue never depends on the
+# digest's covers now).
 # `digests.run_requested_at`: "Run once now" asked while AI is on; the background loop runs it.
 # `digests.claimed_by`/`claimed_at`: a run whose model call is in flight (its trigger, its time), so
 # a run a crash cut short is found and recorded at the next start.
@@ -324,8 +327,9 @@ CREATE TABLE story_ai_tries(
     claimed_at TEXT
 );
 CREATE TABLE ai_usage(
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     purpose TEXT NOT NULL CHECK (purpose IN ('stories','digest')),
+    owner TEXT,
     config_id TEXT NOT NULL,
     month TEXT NOT NULL,
     reserved_usd TEXT NOT NULL,
@@ -334,11 +338,14 @@ CREATE TABLE ai_usage(
     outcome TEXT NOT NULL,
     reserved_at TEXT NOT NULL,
     settled_at TEXT,
-    CHECK ((status = 'settled') = (settled_usd IS NOT NULL))
+    CHECK ((status = 'settled') = (settled_usd IS NOT NULL)),
+    CHECK ((purpose = 'digest') = (owner IS NOT NULL))
 );
 CREATE INDEX idx_ai_usage_month ON ai_usage(month, status);
+CREATE INDEX idx_ai_usage_day ON ai_usage(purpose, reserved_at);
 CREATE TABLE settings(
-    key TEXT PRIMARY KEY CHECK (key IN ('ai_cap_usd','ai_switched_off','ai_digests_per_day')),
+    key TEXT PRIMARY KEY CHECK (key IN ('ai_cap_usd','ai_switched_off','ai_digests_per_day',
+        'ai_digests_per_name')),
     value TEXT NOT NULL,
     set_at TEXT NOT NULL
 );

@@ -130,6 +130,10 @@ class Loop:
         """The AI pass's status now (no model is built and no call made)."""
         return ai_run.status(db, now, self.ai)
 
+    def shown_ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status:
+        """The status a page shows: off, saying so, when a stored AI setting cannot be read."""
+        return ai_run.shown_status(db, now, self.ai)
+
     def _job(self, name: str, job: Callable[[sqlite3.Connection], object]) -> str | None:
         """Run `job`; None when it finished, else the text /api/status shows for its failure."""
         try:
@@ -264,7 +268,7 @@ def _ai_status(req: _Req, now: datetime) -> dict[str, str | None]:
     """The AI pass's state and the month's last failed call ("<UTC time> UTC: <outcome>")."""
     if req.loop is None:
         return {"ai_state": "off", "ai_last_problem": None}
-    held = req.loop.ai_status(req.db, now)
+    held = req.loop.shown_ai_status(req.db, now)
     last = held.last_problem
     problem = None if last is None else f"{last[0]} UTC: {last[1]}"
     return {"ai_state": held.state, "ai_last_problem": problem}
@@ -283,7 +287,7 @@ def _focus_id(req: _Req, name: str) -> int | None:
 def _snapshot(req: _Req) -> _Reply:
     failed = req.loop is not None and req.loop.last_error is not None
     focus = snapshot.Focus(_focus_id(req, "topic"), _focus_id(req, "thread"))
-    ai = None if req.loop is None else req.loop.ai_status(req.db, datetime.now(UTC))
+    ai = None if req.loop is None else req.loop.shown_ai_status(req.db, datetime.now(UTC))
     state = snapshot.Service(pass_failed=failed, ai=ai)
     # The clock is read inside the snapshot's read transaction: its `asOf` is never earlier than
     # a comment the snapshot holds.

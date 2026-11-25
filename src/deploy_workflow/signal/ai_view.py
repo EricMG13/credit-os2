@@ -153,6 +153,15 @@ def _next_month(now: datetime) -> str:
     return _MONTHS[at.month % 12]
 
 
+def capped_run(now: datetime) -> str:
+    """What "Run once now" is answered at the cap (it changes nothing then)."""
+    month = _MONTHS[now.astimezone(UTC).month - 1]
+    return (
+        f"AI has reached its cap for {month}, so no issue is written until 1 {_next_month(now)}."
+        " Only the owner can raise the cap."
+    )
+
+
 def _notice(status: ai_gate.Status | None, now: datetime, managing: bool) -> Json | None:
     """Why AI is not on. A writer or the owner is told each reason; anyone else (a reader, a
     viewer with no name) the title and one fixed sentence: no cap, ruling or file name."""

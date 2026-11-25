@@ -159,15 +159,16 @@ def test_each_call_is_reserved_at_its_worst_case_and_settled_at_the_reported_cos
 def test_a_reply_that_cannot_be_read_costs_what_it_cost_and_marks_nothing(db, guard):
     stories(db, 3)
     report = ai_pass.run(db, FakeModel([ok("I could not do that.", usd="0.002")]), guard, NOW)
-    assert report.stopped == "the model's reply could not be read" and report.calls == 1
+    assert report.stopped is None and report.calls == 1  # nothing else was waiting
     assert db.execute("SELECT COUNT(*) FROM story_ai").fetchone()[0] == 0
     row = db.execute("SELECT settled_usd, outcome FROM ai_usage").fetchone()
     assert (row["settled_usd"], row["outcome"]) == ("0.002", "reply not readable")
-    later = ai_pass.run(db, FakeModel(answer=answer_all), guard, NOW + timedelta(minutes=29))
-    assert later.calls == 0 and later.stopped == "the last call failed less than 30 minutes ago"
+    # an unreadable reply is no failed call: the next pass goes on at once, one story a call now
+    later = ai_pass.run(db, FakeModel(answer=answer_all), guard, NOW + timedelta(minutes=1))
+    assert (later.calls, later.written) == (3, 3)
     assert (
         ai_pass.run(db, FakeModel(answer=answer_all), guard, NOW + timedelta(minutes=31)).written
-        == 3
+        == 0
     )
 
 

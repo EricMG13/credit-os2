@@ -380,6 +380,13 @@ class RecordingWriter:
 
     def __init__(self) -> None:
         self.scopes: list[digests.Scope] = []
+        self.stopped: str | None = None
+
+    def blocked(self, owner: str) -> digests.WriterFailed | None:
+        return None
+
+    def clock(self) -> datetime:
+        return NOW
 
     def draft(self, scope: digests.Scope) -> object:
         self.scopes.append(scope)

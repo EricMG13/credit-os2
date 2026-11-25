@@ -26,6 +26,8 @@ class LoopState(Protocol):
 
     def ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status: ...
 
+    def shown_ai_status(self, db: sqlite3.Connection, now: datetime) -> ai_gate.Status: ...
+
 
 @dataclass
 class Req:

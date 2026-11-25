@@ -69,10 +69,10 @@ def test_a_poison_story_is_isolated_in_three_paid_attempts_and_the_others_go_on(
         seen.append((_sizes(model, before), report.written, report.invalid))
         at += timedelta(minutes=31)
     assert seen == [
-        ([20], 0, 0),  # the poison's batch: unreadable, the pass stops
-        ([5, 10], 5, 0),  # the five never sent first, then the poison's half
-        ([10, 5], 10, 5),  # the other half, then the poison's quarter: third attempt, invalid
-        ([5], 5, 0),
+        ([20, 5], 5, 0),  # the poison's batch is unreadable; the pass goes on to the other five
+        ([10, 10], 10, 0),  # the poison's half (unreadable), then the other half
+        ([5, 5], 5, 5),  # the poison's quarter: its third attempt, invalid; then the rest
+        ([], 0, 0),
         ([], 0, 0),
     ]
     outcomes = dict(db.execute("SELECT outcome, COUNT(*) FROM story_ai GROUP BY outcome"))
@@ -199,3 +199,159 @@ def test_the_bound_is_the_adapters_overall_bound_and_a_minute():
     assert OVERALL_S == 1800.0
     assert ai_ledger.CALL_BOUND == timedelta(minutes=31)
     assert ai_call.HOMES == ".copilot-home"
+
+
+# Fourth review, N5: a reply-breaking story added every pass never stops the labelling
+
+
+def test_a_poison_story_added_every_30_minutes_never_stops_the_clean_ones(tmp_path):
+    """review4/a6_tries.py part 2: before the fix 0 of 40 clean stories were labelled in 8 h."""
+    db = _world(tmp_path, 40)
+    source = int(db.execute("SELECT id FROM sources").fetchone()[0])
+    poison: set[int] = set()
+
+    def answer(request: TurnRequest) -> Any:
+        sent = _ids(request)
+        if poison & set(sent):
+            return ok("I will not answer in JSON.", usd="0.002")
+        return ok(labels_reply([label(n) for n in sent]), usd="0.004")
+
+    model = FakeModel(answer=answer)
+    labelled = []
+    for k in range(17):  # every 30 minutes for 8 hours
+        at = NOW + timedelta(minutes=30 * k)
+        entry = Entry(f"Poison {k}", f"https://wire.example/p{k}", at, "S.")
+        store.add_story(db, source, entry, at)
+        poison.add(int(db.execute("SELECT MAX(id) FROM stories").fetchone()[0]))
+        ai_pass.run(db, model, guard(tmp_path / "gate", at), at)
+        labelled.append(
+            db.execute("SELECT COUNT(*) FROM story_ai WHERE outcome='written'").fetchone()[0]
+        )
+    # By hand: pass 1 sends the first poison with the 19 newest clean stories (unreadable) and
+    # the other 21 clean ones in batches of 20 and 1, which are answered. Each later poison is
+    # newest and alone in its attempt group, so alone in its call: invalid at once. The first
+    # poison is isolated in its three paid attempts (batches 20, 10, 5): the four clean stories
+    # in its last batch of 5 are stored invalid with it, as the isolation rule allows.
+    assert labelled[0] == 21
+    assert labelled[-1] == 36
+    outcomes = dict(
+        db.execute("SELECT outcome, COUNT(*) FROM story_ai WHERE story_id <= 40 GROUP BY 1")
+    )
+    assert outcomes == {"written": 36, "invalid": 4}
+    db.close()
+
+
+def test_an_unreadable_reply_does_not_cool_the_next_pass(tmp_path):
+    db = _world(tmp_path, 1)
+    calls = {"n": 0}
+
+    def answer(request: TurnRequest) -> Any:
+        calls["n"] += 1
+        return ok("not JSON", usd="0.002")
+
+    ai_pass.run(db, FakeModel(answer=answer), guard(tmp_path / "gate", NOW), NOW)
+    source = int(db.execute("SELECT id FROM sources").fetchone()[0])
+    later = NOW + timedelta(minutes=1)
+    store.add_story(db, source, Entry("Fresh", "https://wire.example/fresh", later, "S."), later)
+    report = ai_pass.run(db, FakeModel(answer=answer), guard(tmp_path / "gate", later), later)
+    assert report.calls == 1 and report.stopped is None
+
+
+def test_a_failed_call_still_stops_the_pass_and_cools_it_for_30_minutes(tmp_path):
+    from signal_ai_fakes import sent_unknown
+
+    db = _world(tmp_path, 25)
+    ai_ledger.set_cap(db, Decimal(15), NOW)
+    report = ai_pass.run(db, FakeModel([sent_unknown()]), guard(tmp_path / "gate", NOW), NOW)
+    assert report.calls == 1 and report.stopped == (
+        "the model call failed (sent_unknown: OverallTimeout)"
+    )
+    ai_ledger.clear(db)  # the owner clears the switch-off the unknown cost caused
+    later = NOW + timedelta(minutes=29)
+    held = ai_pass.run(db, FakeModel(), guard(tmp_path / "gate", later), later)
+    assert held.calls == 0 and held.stopped == "the last call failed less than 30 minutes ago"
+
+
+def test_a_pass_makes_at_most_ten_story_calls(tmp_path):
+    db = _world(tmp_path, 30)
+    with db:  # every story may go only alone (as after unreadable replies), one paid attempt each
+        db.executemany(
+            "INSERT INTO story_ai_tries(story_id, attempts, batch, claimed_at)"
+            " VALUES(?, 1, 1, NULL)",
+            [(n,) for n in range(1, 31)],
+        )
+    model = FakeModel(answer=lambda request: ok("not JSON", usd="0.002"))
+    report = ai_pass.run(db, model, guard(tmp_path / "gate", NOW), NOW)
+    assert report.calls == 10 and len(model.requests) == 10
+    assert report.stopped == "this pass made its 10 calls; the others wait"
+    assert report.invalid == 10  # alone in an unreadable reply: invalid at once
+    db.close()
+
+
+# Fourth review, N12: a story deleted while its batch's call is in flight
+
+
+def _two_sources(tmp: Path) -> tuple[sqlite3.Connection, int]:
+    """Stories 1 to 3 from source 1, stories 4 and 5 from source 2 (which the test removes)."""
+    db = _world(tmp, 3)
+    other = store.propose_source(db, "Other", "news", "https://other.example/f", "x")
+    store.set_source_state(db, other, "approved")
+    for n in range(2):
+        when = NOW - timedelta(minutes=30 + n)
+        store.add_story(
+            db, other, Entry(f"Other {n}", f"https://other.example/{n}", when, "S."), when
+        )
+    return db, other
+
+
+@pytest.mark.parametrize("reply", ["labels", "unreadable"])
+def test_a_story_removed_during_its_call_loses_nothing_of_the_others(tmp_path, reply):
+    """review4/a6_tries.py part 4: the paid reply was dropped whole (IntegrityError) and its
+    claims held for 31 minutes."""
+    db, other = _two_sources(tmp_path)
+    second = store.open_db(tmp_path / "root")
+
+    def answer(request: TurnRequest) -> Any:
+        sent = _ids(request)
+        store.remove_source(second, other, with_stories=True)  # the owner, meanwhile
+        if reply == "unreadable":
+            return ok("not JSON", usd="0.002")
+        return ok(labels_reply([label(n) for n in sent]), usd="0.004")
+
+    report = ai_pass.run(db, FakeModel(answer=answer), guard(tmp_path / "gate", NOW), NOW)
+    left = {int(r[0]) for r in db.execute("SELECT id FROM stories")}
+    assert left == {1, 2, 3}
+    tries = [tuple(r) for r in db.execute("SELECT story_id, claimed_at FROM story_ai_tries")]
+    answered = dict(db.execute("SELECT story_id, outcome FROM story_ai"))
+    if reply == "labels":
+        assert (report.calls, report.written, report.stopped) == (1, 3, None)
+        assert answered == {1: "written", 2: "written", 3: "written"} and tries == []
+    else:  # one paid attempt each, claims released for the next pass
+        assert answered == {} and sorted(tries) == [(1, None), (2, None), (3, None)]
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+    second.close()
+    db.close()
+
+
+def test_a_story_removed_before_its_claim_is_left_out_of_the_call(tmp_path):
+    db, other = _two_sources(tmp_path)
+    planned = ai_pass.pending(db, NOW)
+    store.remove_source(db, other, with_stories=True)
+    assert ai_tries.claim(db, [s.id for s in planned], NOW) == [1, 2, 3]
+    db.close()
+
+
+def test_stories_never_sent_come_before_newer_ones_sent_before(tmp_path):
+    """A pass takes PASS_LIMIT stories: those never sent first, so a crowd of retried stories,
+    newer than one never sent, never keeps it out of the pass."""
+    db = _world(tmp_path, ai_pass.PASS_LIMIT + 1)
+    retried = range(1, ai_pass.PASS_LIMIT + 1)  # story 1 the newest; the oldest is never sent
+    with db:
+        db.executemany(
+            "INSERT INTO story_ai_tries(story_id, attempts, batch, claimed_at)"
+            " VALUES(?, 1, 20, NULL)",
+            [(n,) for n in retried],
+        )
+    listed = [s.id for s in ai_pass.pending(db, NOW)]
+    assert listed[0] == ai_pass.PASS_LIMIT + 1 and len(listed) == ai_pass.PASS_LIMIT
+    db.close()

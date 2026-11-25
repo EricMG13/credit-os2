@@ -95,9 +95,11 @@ def test_a_ruling_dated_after_today_turns_the_pass_off(world):
 
 
 def test_a_name_in_other_digits_is_not_a_ruling(world):
-    write(world, "２０２６-11-25-signal-ai-pass.md", text("2026-11-25", "500"))
-    assert gate(world).missing[0].startswith("No standing ruling for Signal's model calls")
+    stray = write(world, "２０２６-11-25-signal-ai-pass.md", text("2026-11-25", "500"))
+    assert gate(world).missing[0].startswith("The rulings folder holds '２０２６-11-25-signal-ai")
     write(world, "2026-11-20-signal-ai-pass.md", text())
+    assert not gate(world).on  # never read beside a near-miss name (fourth review, N4)
+    stray.unlink()
     assert gate(world).on and gate(world).ruled_cap == Decimal(5)
 
 
@@ -152,11 +154,7 @@ def test_a_cap_only_in_the_body_is_no_cap(world):
         "configs: copilot-luna-xhigh\n\nThe cap is:\ncap_usd: 15\n"
     )
     write(world, "2026-11-20-signal-ai-pass.md", body)
-    assert gate(world).missing == refused(
-        "2026-11-20-signal-ai-pass.md",
-        "it needs exactly one cap_usd: line among its header lines, holding the ruled monthly cap"
-        " in USD, such as cap_usd: 15.",
-    )
+    assert gate(world).missing == refused("2026-11-20-signal-ai-pass.md", MISPLACED_CAP)
 
 
 def test_a_ruling_with_windows_line_ends_is_read(world):
@@ -191,3 +189,80 @@ def test_the_header_block_is_the_run_of_lines_holding_the_lifts_line():
     assert lines == ["by: user", "lifts: x", "b: 2"]
     assert ai_gate.header_lines("lifts: x\r\ncap_usd: 1\r\n\r\nc: 3") == ["lifts: x", "cap_usd: 1"]
     assert ai_gate.header_lines("no headers\n") == []
+
+
+# Fourth review, N4: a newer file with a near-miss name never leaves an older ruling in force
+
+OLD = "2026-11-01-signal-ai-pass.md"
+
+
+@pytest.mark.parametrize(
+    "stray",
+    [
+        "2026-11-20-Signal-ai-pass.md",
+        "2026-11-20-signal-ai-pass.md.txt",
+        "2026-11-20-signal-ai-pass.md ",
+        "2026-11-20-signal-ai-pass-withdrawn.md",
+        "2026-11-20-SIGNAL-AI-PASS.MD",
+        "signal-ai-pass.md",
+        "2026-11-5-signal-ai-pass.md",
+        "2026-11-01-signal-ai-pass.md.bak",
+    ],
+)
+def test_a_near_miss_name_turns_the_pass_off_and_names_the_entry(world, stray):
+    write(world, OLD, text("2026-11-01", "15"))
+    assert gate(world).on  # the valid ruling alone is in force
+    write(world, stray, text("2026-11-20", "5"))
+    found = gate(world)
+    assert not found.on and found.ruled_cap is None and found.ruling is None
+    sentence = (
+        f"The rulings folder holds {stray!r}, which is not named YYYY-MM-DD-signal-ai-pass.md;"
+        " Signal reads no ruling while it is there (rename it or move it out of the folder)."
+    )
+    assert found.missing == (sentence,)
+
+
+def test_a_near_miss_folder_or_link_turns_the_pass_off_too(world, tmp_path):
+    write(world, OLD, text("2026-11-01", "15"))
+    (world[1] / "2026-11-20-signal-ai-pass").mkdir()
+    assert not gate(world).on and "'2026-11-20-signal-ai-pass'" in gate(world).missing[0]
+
+
+def test_other_files_in_the_folder_change_nothing(world):
+    write(world, OLD, text("2026-11-01", "15"))
+    write(world, "2026-11-11-run-start-submit.md", text("2026-11-11", "500"))
+    write(world, "README.md", "rulings\n")
+    assert gate(world).on and gate(world).ruled_cap == Decimal(15)
+
+
+# Fourth review, N10: honest files refused with the sentence that says what is wrong
+
+NOT_UTF8 = "it is not UTF-8 text (save it as UTF-8)."
+MISPLACED_CAP = (
+    "its cap_usd: line is not among its header lines: it goes directly below the configs: line,"
+    " with no blank line between them."
+)
+
+
+@pytest.mark.parametrize("codec", ["utf-16", "cp1252"])
+def test_a_ruling_in_another_encoding_is_refused_as_not_utf8(world, codec):
+    body = text(body='The owner said: "Yes \u2013 cap it at 5".\n').encode(codec)
+    (world[1] / "2026-11-20-signal-ai-pass.md").write_bytes(body)
+    assert gate(world).missing == refused("2026-11-20-signal-ai-pass.md", NOT_UTF8)
+
+
+def test_a_blank_line_before_the_cap_line_says_where_the_line_must_be(world):
+    write(
+        world, "2026-11-20-signal-ai-pass.md", text().replace("xhigh\ncap_usd", "xhigh\n\ncap_usd")
+    )
+    assert gate(world).missing == refused("2026-11-20-signal-ai-pass.md", MISPLACED_CAP)
+
+
+def test_a_link_is_still_refused_as_a_link(world, tmp_path):
+    outside = tmp_path / "outside.md"
+    outside.write_bytes(text().encode("utf-16"))
+    (world[1] / "2026-11-20-signal-ai-pass.md").symlink_to(outside)
+    assert gate(world).missing == refused(
+        "2026-11-20-signal-ai-pass.md",
+        "it is not a regular file of text (a link or folder is never read).",
+    )

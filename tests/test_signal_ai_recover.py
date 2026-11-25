@@ -146,3 +146,36 @@ def test_the_service_recovers_as_it_starts(tmp_path, monkeypatch):
     db = store.open_db(root)
     assert db.execute("SELECT status FROM ai_usage").fetchone()[0] == "unknown"
     db.close()
+
+
+# Fourth review, N11: a digest's claim carries the writer's clock when its call starts
+
+
+def test_a_second_process_starting_late_in_a_long_tick_leaves_a_live_digest_run_alone(tmp_path):
+    """review4/a15_recover.py: the tick began at 12:00, its digest call started at 12:40 and a
+    second process started at 12:41. The claim carried 12:00, so the second process recorded the
+    live run as interrupted (and the issue was written as well)."""
+    tick, started = NOW, NOW + timedelta(minutes=40)
+    root = tmp_path / "root"
+    db = _world(root)
+    form = digests.Form("D", ["All stories"], "Daily, 11:59 UTC", "Up to 3 points", "")
+    spec = digests.spec_from_form(db, "Rita", form)
+    digests.create(db, "Rita", spec, tick - timedelta(days=1))
+    second = store.open_db(root)
+    seen: dict[str, Any] = {}
+
+    def during(request: TurnRequest) -> Any:
+        claimed = second.execute("SELECT claimed_at FROM digests").fetchone()[0]
+        seen["claimed_at"] = datetime.fromisoformat(claimed)
+        later = started + timedelta(minutes=1)
+        seen["recover"] = ai_run.recover(second, setup(tmp_path, FakeModel(), clock=later))
+        return ok(json.dumps({"points": [{"lead": "L", "body": "B.", "stories": ["1"]}]}), "0.006")
+
+    ran = ai_run.digest_pass(db, tick, setup(tmp_path, FakeModel(answer=during), clock=started))
+    assert seen["claimed_at"] == started
+    assert seen["recover"] == (0, 0)  # nothing settled, no run recorded by the second process
+    runs = db.execute("SELECT outcome, reason FROM digest_runs").fetchall()
+    assert [tuple(r) for r in runs] == [("written", "written by the AI pass")]
+    assert [r.outcome for _, r in ran] == ["written"]
+    second.close()
+    db.close()

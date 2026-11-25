@@ -145,8 +145,10 @@ def prompt(scope: digests.Scope, nonce: str) -> ai_call.Prompt:
 class Writer:
     """``digests.Writer`` for one job of the background loop (one model, one `now`). Every call
     goes through ``ai_call.call`` and its `guard`. The writer stops (``stopped``) at a refused
-    call (the gate, the cap, the day's digest calls), at a call not sent, and after `per_pass`
-    calls, so the due pass ends there and the other digests wait for the next pass."""
+    call (the gate, the cap, the day's digest calls), at a call not sent (a fault), and after
+    `per_pass` calls; the due pass then runs only the digests that need no call, and the others
+    wait for the next pass. A name whose digests have made the day's calls a name may make
+    (``ai_ledger.NameFull``) stops nothing: only that name's runs wait (``blocked``)."""
 
     def __init__(
         self,
@@ -159,16 +161,36 @@ class Writer:
         self.db, self.model, self.guard, self.now, self.nonce = db, model, guard, now, nonce
         self.per_pass, self.calls = CALLS_PER_PASS, 0  # the calls this pass may make, and made
         self.stopped: str | None = None
+        self.fault = False  # whether the stop is a fault the loop shows (a call not sent)
+        self.full: set[str] = set()  # names refused for their day's calls in this pass
+        self.per_name = ai_ledger.digests_per_name(db)  # read once: the ledger checks each call
 
     def _stop(self, reason: str, *, fault: bool) -> digests.WriterFailed:
-        self.stopped = reason
+        self.stopped, self.fault = reason, fault
         return digests.WriterFailed(reason, again=True, fault=fault)
 
+    def clock(self) -> datetime:
+        return self.guard.clock()
+
+    def blocked(self, owner: str) -> digests.WriterFailed | None:
+        """Why no call can be made for `owner`'s digest in this pass (the run waits), or None."""
+        if self.stopped is not None:
+            return digests.WriterFailed(self.stopped, again=True, fault=self.fault)
+        full = owner in self.full  # refused in this pass already: not asked again
+        if not full and ai_ledger.name_calls_on(self.db, owner, self.clock()) < self.per_name:
+            return None
+        self.full.add(owner)
+        return digests.WriterFailed(ai_ledger.name_full(self.per_name), again=True)
+
     def draft(self, scope: digests.Scope) -> object:
+        owner = scope.digest.owner
         try:
             answer = ai_call.call(
-                self.db, self.model, self.guard, "digest", prompt(scope, self.nonce())
+                self.db, self.model, self.guard, "digest", prompt(scope, self.nonce()), owner=owner
             )
+        except ai_ledger.NameFull as refused:
+            self.full.add(owner)
+            raise digests.WriterFailed(str(refused), again=True) from None
         except ai_ledger.Refused as refused:
             raise self._stop(str(refused), fault=False) from None
         self.calls += 1

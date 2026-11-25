@@ -25,8 +25,9 @@ order among those) and the next up to ``OLDER`` in ``older``, with no ``shown``.
 join For you by time (``digestview``). ``waiting`` is null (the React app composes it when it
 reads again). A viewer with no display name sees no stories and no counts. The whole snapshot is
 read in one read transaction. A view of more than ``feedview.MEMBERS_READ`` members is read from
-the newest ``feedview.WINDOW`` stories (``feedview.view_ids``), so a very large topic whose newest
-stories are older than that window delivers fewer stories than it holds.
+the newest ``feedview.WINDOW`` stories (``feedview.view_ids``) and, when those hold fewer of its
+stories than it shows, from its own newest member rows, so a very large topic whose stories are
+older than that window still delivers its newest and keeps its count.
 
 Size: the forwarder in front of the service refuses a reply over 4 MiB, so the snapshot is kept
 under 3 MiB in every store state. The group part keeps its own budgets (``group_view``); the

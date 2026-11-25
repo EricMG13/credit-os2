@@ -153,18 +153,25 @@ def _release(model: Model, digest: str) -> None:
             log.warning("could not release a Signal model session: %s", type(error).__name__)
 
 
-def _reserve(
-    db: sqlite3.Connection, guard: Guard, purpose: ai_ledger.Purpose, config_id: str, usd: Decimal
+def _reserve(  # noqa: PLR0913 -- the call's store, guard, purpose, configuration, hold and owner
+    db: sqlite3.Connection,
+    guard: Guard,
+    purpose: ai_ledger.Purpose,
+    config_id: str,
+    usd: Decimal,
+    owner: str | None,
 ) -> int:
     """The gate checked again, then the hold; ai_ledger.Refused (nothing held) when it is off or
-    no longer names `config_id`."""
+    no longer names `config_id`, or a limit refuses it."""
     now = guard.clock()
     gate = ai_gate.check(db, guard.environ, guard.rulings_root, now)
     if not gate.on or gate.ruled_cap is None:
         raise ai_ledger.Refused(f"the AI pass is off: {gate.missing[0] if gate.missing else ''}")
     if gate.config_id != config_id:
         raise ai_ledger.Refused(f"the ruling no longer allows {config_id}")
-    return ai_ledger.reserve(db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap)
+    return ai_ledger.reserve(
+        db, purpose, config_id, usd, now, ruled_cap=gate.ruled_cap, owner=owner
+    )
 
 
 _NAME = re.compile(r"[A-Za-z0-9_-]{1,128}", re.ASCII)  # the adapter's own rule for both names
@@ -236,20 +243,23 @@ def remove_homes(guard: Guard) -> None:
         os.close(base_fd)
 
 
-def call(
+def call(  # noqa: PLR0913 -- one call: its store, model, guard, purpose, prompt and digest owner
     db: sqlite3.Connection,
     model: Model,
     guard: Guard,
     purpose: ai_ledger.Purpose,
     prompt: Prompt,
+    *,
+    owner: str | None = None,
 ) -> Answer:
     """Check the gate, reserve, make one call, settle. ai_ledger.Refused when no call may be made
-    (nothing is held then). A call that raises is settled as unknown (it may have been sent),
-    which switches the pass off; the error is logged by type only."""
+    (nothing is held then); a digest call names its digest's `owner` (the per-name limit). A
+    call that raises is settled as unknown (it may have been sent), which switches the pass off;
+    the error is logged by type only."""
     usd = reservation_usd(model.config_id, prompt)
     store_id = ai_ledger.store_id(db)  # read first: nothing may fail between hold and call
     homes = Path.cwd() / HOMES  # where the adapter makes this exchange's home
-    call_id = _reserve(db, guard, purpose, model.config_id, usd)
+    call_id = _reserve(db, guard, purpose, model.config_id, usd, owner)
     tag = f"{store_id}-{call_id}"  # never the same in another store
     digest, reservation = f"signal-{purpose}-{tag}", f"signal-{tag}"
     home = homes / digest / reservation

@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from deploy_workflow.http_base import Reply, refuse
-from deploy_workflow.signal import digests, fetch, store, topics
+from deploy_workflow.signal import ai_view, digests, fetch, store, topics
 from deploy_workflow.signal.routing import ID, Req, Route
 
 WRITERS = ("writer", "owner")
@@ -211,15 +211,19 @@ QUEUED_TOMORROW = (
 
 
 def _run_digest(req: Req) -> Reply:
-    """ "Run once now". While the AI gate is on (at its cap included) the background loop runs it
-    (``digests.request_run``), so no model call is made in a request handler; otherwise it runs
-    here, with no writer. Within
-    30 minutes of the digest's last run, or after a run whose paid call wrote no issue and before
-    its next scheduled time, it is refused (409, the sentence saying when it can run)."""
+    """ "Run once now". While the AI pass is on the background loop runs it
+    (``digests.request_run``), so no model call is made in a request handler; at its cap it is
+    refused (409, the cap sentence) and nothing changes, so no period is ended with its stories
+    unwritten; otherwise (off) it runs here, with no writer. Within 30 minutes of the digest's
+    last run, or after a run whose paid call wrote no issue and before its next scheduled time,
+    it is refused (409, the sentence saying when it can run)."""
     now = _now()
     try:
         held = None if req.loop is None else req.loop.ai_status(req.db, now)
-        if held is not None and held.gate.on:  # on or at its cap: the loop decides when it runs
+        if held is not None and held.state == "capped":
+            digests.owned(req.db, req.person.name, _number(req))  # an unknown digest is a 404
+            raise store.Conflict(ai_view.capped_run(now))
+        if held is not None and held.state == "on":  # the loop decides when it runs
             digests.request_run(req.db, req.person.name, _number(req), now)
             message = QUEUED_TOMORROW if held.day_full else QUEUED
             queued = {"outcome": "queued", "issueId": None, "stories": None, "message": message}

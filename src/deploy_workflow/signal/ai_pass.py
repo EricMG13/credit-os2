@@ -17,10 +17,14 @@ reply that cannot be read at all costs what it cost, and its stories go in batch
 next time; a story alone in such a reply, or after ``ai_tries.MAX_ATTEMPTS`` paid attempts, is
 stored as invalid (``ai_tries``).
 
-The pass stops at the first call that is refused (cap, switch-off), fails or comes back unreadable,
-and after such a failure it makes no call for ``RETRY_AFTER``, so a model that keeps failing is
-not paid every minute; a call the adapter established was not sent (``not_sent``, which cost
-nothing) is tried again at the next tick.
+A reply that came back but cannot be read stops nothing: its stories are dealt with as above and
+the pass goes on to the next batch, so one story that breaks every reply (a feed may add one each
+pass) never holds up the others, which are answered in the same pass. The pass stops at the first
+call that is refused (cap, switch-off) or fails (its outcome or cost unknown), and after such a
+failure it makes no call for ``RETRY_AFTER``, so a model that keeps failing is not paid every
+minute; a call the adapter established was not sent (``not_sent``, which cost nothing) is tried
+again at the next tick. A pass makes at most ``CALLS_PER_PASS`` calls; the stories left wait for
+the next pass.
 """
 
 from __future__ import annotations
@@ -43,6 +47,8 @@ BATCH = 20
 PASS_LIMIT = 100
 NEW_FOR = timedelta(days=7)
 RETRY_AFTER = timedelta(minutes=30)
+CALLS_PER_PASS = 10  # story calls one pass makes at most; the stories left wait for the next
+UNREADABLE = "reply not readable"  # the outcome of a paid call whose reply could not be read
 TITLE_LIMIT = 500
 MAX_OUTPUT = 6000  # tokens: 20 entries of about 120 tokens, with room
 
@@ -163,11 +169,15 @@ def store(
     now: datetime,
 ) -> tuple[int, int]:
     """Store every answer in one write transaction; (written, invalid). A story another pass
-    answered meanwhile keeps that answer."""
+    answered meanwhile keeps that answer; one deleted meanwhile (its source removed) is passed
+    over, so the others keep the reply that was paid for."""
     written = invalid = 0
     with _write_transaction(db):
         ai_tries.done(db, list(labels))
+        kept = ai_tries.existing(db, list(labels))
         for story_id, label in labels.items():
+            if story_id not in kept:
+                continue
             cur = db.execute(
                 "INSERT OR IGNORE INTO story_ai(story_id, outcome, why, signal, tags, kind, stage,"
                 " moves, config_id, written_at, month) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -181,9 +191,12 @@ def store(
 
 
 def _cooling(db: sqlite3.Connection, now: datetime) -> bool:
-    """Whether the pass's last call failed less than RETRY_AFTER ago."""
+    """Whether the pass's last call failed less than RETRY_AFTER ago (a reply that came back
+    unreadable is not a failed call: it is passed over)."""
     row = db.execute(
-        "SELECT outcome, reserved_at FROM ai_usage WHERE purpose='stories' ORDER BY id DESC LIMIT 1"
+        "SELECT outcome, reserved_at FROM ai_usage WHERE purpose='stories' AND outcome != ?"
+        " ORDER BY id DESC LIMIT 1",
+        (UNREADABLE,),
     ).fetchone()
     if row is None or row["outcome"] in ("ok", "in progress"):
         return False
@@ -220,7 +233,7 @@ def _batch(
         return True, _Failed(f"the model call failed ({answer.outcome})", not answer.not_sent)
     labels = ai_labels.read_labels(answer.text, [s.id for s in batch])
     if labels is None:
-        ai_ledger.relabel(db, answer.call_id, "reply not readable")
+        ai_ledger.relabel(db, answer.call_id, UNREADABLE)
         log.warning("Signal story call %s: the reply could not be read", answer.call_id)
         return True, _Failed("the model's reply could not be read", True, unreadable=True)
     return True, labels
@@ -253,6 +266,9 @@ def run(
         report.stopped = "the last call failed less than 30 minutes ago"
         return report
     for planned in batches(pending(db, now, at=guard.clock())):
+        if report.calls >= CALLS_PER_PASS:
+            report.stopped = f"this pass made its {CALLS_PER_PASS} calls; the others wait"
+            break
         claimed = set(ai_tries.claim(db, [s.id for s in planned], guard.clock()))
         batch = [story for story in planned if story.id in claimed]
         if not batch:
@@ -262,6 +278,8 @@ def run(
         if isinstance(got, _Failed):
             ids = [story.id for story in batch]
             report.invalid += _settle_tries(db, ids, got, model.config_id, now)
+            if got.unreadable:
+                continue  # answered but unreadable: the next batch goes on
             report.stopped = got.reason
             break
         written, invalid = store(db, got, model.config_id, now)

@@ -6,15 +6,18 @@ The pass is on only when all four hold at the time of the check:
    ``YYYY-MM-DD-signal-ai-pass.md`` in ASCII digits (``RULING_PATTERN``) are rulings for Signal;
    the newest by the date in its name is read, and if any such name holds an impossible date or
    one after today (UTC), or the newest is not accepted, the pass is off: an older ruling is never
-   read in its place. The newest is accepted only when it is a regular file (never a link or a
-   folder), holds none of the draft's blanks (``____``) anywhere, passes the project's
-   ``check_ruling`` (``lifts: live-provider-pause``, ``by: user``, ``date:``, ``configs:``) naming
-   a configuration Signal may use (``CONFIGS``), its ``date:`` line is the date in its name, and
-   its header block (``header_lines``: the run of lines holding its ``lifts:`` line, between blank
-   lines) carries the ruled monthly cap as exactly one line ``cap_usd: <amount>`` (USD, a plain
-   amount above zero with at most two decimal places, read as an exact Decimal: ``cap_usd: 15``
-   or ``cap_usd: 12.50``; ``ruled_cap``). A ``cap_usd:`` line in the body is never read. Another
-   ruling that names the same configuration (the run start page's does) never switches Signal on.
+   read in its place. Nor is any ruling read while the folder holds an entry whose name holds
+   ``signal-ai-pass`` in any case but is not such a name (a newer ruling saved as ``.md.txt``,
+   capitalised, or a ``-withdrawn`` note): the sentence names the entry. The newest is accepted only
+   when it is a regular file (never a link or a folder), holds none of the draft's blanks (``____``)
+   anywhere, passes the project's ``check_ruling`` (``lifts: live-provider-pause``, ``by: user``,
+   ``date:``, ``configs:``) naming a configuration Signal may use (``CONFIGS``), its ``date:`` line
+   is the date in its name, and its header block (``header_lines``: the run of lines holding its
+   ``lifts:`` line, between blank lines) carries the ruled monthly cap as exactly one line
+   ``cap_usd: <amount>`` (USD, a plain amount above zero with at most two decimal places, read as an
+   exact Decimal: ``cap_usd: 15`` or ``cap_usd: 12.50``; ``ruled_cap``). A ``cap_usd:`` line in the
+   body is never read. Another ruling that names the same configuration (the run start page's does)
+   never switches Signal on.
 2. The owner has set a monthly cap on the command line (``signal ai cap <amount>``) no higher
    than the ruled one. The command refuses a higher amount; a stored cap above the newest
    ruling's figure (the ruling changed since) counts as no valid cap.
@@ -129,12 +132,30 @@ def _named_date(name: str) -> date | None:
         return None
 
 
-def _candidates(rulings_root: Path) -> list[str]:
-    """The names in `rulings_root` that are Signal ruling names (ASCII digits only)."""
+def _entries(rulings_root: Path) -> list[str]:
+    """Every name in `rulings_root` (none when it cannot be read)."""
     try:
-        return sorted(p.name for p in rulings_root.iterdir() if RULING_PATTERN.fullmatch(p.name))
+        return sorted(p.name for p in rulings_root.iterdir())
     except OSError:
         return []
+
+
+def _stray(names: list[str]) -> str | None:
+    """The first entry that looks meant for Signal (its name holds ``signal-ai-pass`` in any case)
+    but is not a ruling name: while one is there no ruling is read, so a newer file saved under a
+    near-miss name never leaves an older ruling in force."""
+    for name in names:
+        if "signal-ai-pass" in name.casefold() and RULING_PATTERN.fullmatch(name) is None:
+            return name
+    return None
+
+
+def stray_sentence(name: str) -> str:
+    shown = repr(name[:120])
+    return (
+        f"The rulings folder holds {shown}, which is not named YYYY-MM-DD-signal-ai-pass.md;"
+        " Signal reads no ruling while it is there (rename it or move it out of the folder)."
+    )
 
 
 def header_lines(text: str) -> list[str]:
@@ -182,7 +203,11 @@ def _refused(name: str, why: str) -> _Ruled:
 def _newest(rulings_root: Path, today: date) -> tuple[str, date] | _Ruled:
     """The newest ruling name and its date, or why the pass is off: no ruling, or a name whose
     date is not a real one or is after `today` (such a file is never passed over for an older)."""
-    names = _candidates(rulings_root)
+    entries = _entries(rulings_root)
+    stray = _stray(entries)
+    if stray is not None:
+        return _Ruled(problem=stray_sentence(stray))
+    names = [name for name in entries if RULING_PATTERN.fullmatch(name)]
     if not names:
         return _Ruled(problem=NO_RULING)
     dated: list[tuple[date, str]] = []
@@ -197,17 +222,31 @@ def _newest(rulings_root: Path, today: date) -> tuple[str, date] | _Ruled:
     return name, day
 
 
-def _text(path: Path) -> str | None:
-    """The ruling's text when it is a regular file of UTF-8 (never followed through a link)."""
+def _text(path: Path) -> str:
+    """The ruling's text when it is a regular file of UTF-8 (never followed through a link);
+    else _NotRead with the sentence saying which it is not."""
     try:
         if not stat.S_ISREG(path.lstat().st_mode):
-            return None
-        return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None
+            raise _NotRead(NOT_A_FILE)
+        data = path.read_bytes()
+    except OSError:
+        raise _NotRead(NOT_A_FILE) from None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise _NotRead(NOT_UTF8) from None
+
+
+class _NotRead(Exception):
+    """The newest ruling's file could not be read as text; the sentence says why."""
 
 
 NOT_A_FILE = "it is not a regular file of text (a link or folder is never read)."
+NOT_UTF8 = "it is not UTF-8 text (save it as UTF-8)."
+MISPLACED_CAP = (
+    "its cap_usd: line is not among its header lines: it goes directly below the configs: line,"
+    " with no blank line between them."
+)
 BLANKS = "it still holds a blank of the draft (____)."
 NO_RULED_CAP = (
     f"it needs exactly one cap_usd: line among its header lines, holding the ruled monthly cap in"
@@ -220,10 +259,23 @@ def _ruling(rulings_root: Path, today: date) -> _Ruled:
     if isinstance(newest, _Ruled):
         return newest
     name, day = newest
-    text = _text(rulings_root / name)
-    if text is None or "____" in text:
-        return _refused(name, NOT_A_FILE if text is None else BLANKS)
+    try:
+        text = _text(rulings_root / name)
+    except _NotRead as error:
+        return _refused(name, str(error))
+    if "____" in text:
+        return _refused(name, BLANKS)
     return _accepted(rulings_root, name, day, text)
+
+
+def _cap_problem(text: str) -> str:
+    """Why the header block holds no ruled cap: a cap_usd: line elsewhere is in the wrong place
+    (a blank line before it, most often); otherwise the block needs exactly one good line."""
+    header = {line for line in header_lines(text) if CAP_LINE.fullmatch(line)}
+    lines = (line.rstrip("\r") for line in text.split("\n"))
+    if not header and any(CAP_LINE.fullmatch(line) for line in lines):
+        return MISPLACED_CAP
+    return NO_RULED_CAP
 
 
 def _accepted(rulings_root: Path, name: str, day: date, text: str) -> _Ruled:
@@ -239,7 +291,7 @@ def _accepted(rulings_root: Path, name: str, day: date, text: str) -> _Ruled:
         cap = ruled_cap(text)
         if checked.date != day or cap is None:
             why = "its date: line is not the date in its name." if checked.date != day else None
-            return _refused(name, why or NO_RULED_CAP)
+            return _refused(name, why or _cap_problem(text))
         return _Ruled(found, config_id, cap)
     return _refused(name, f"{problem}.")
 
@@ -336,6 +388,26 @@ def _capped(gate: Gate, month: ai_ledger.Month) -> bool:
     if gate.config_id is None or gate.cap is None:
         return False
     return exact_sum((month.spent, smallest_hold(gate.config_id))) > gate.cap
+
+
+UNREADABLE = (
+    "The store's AI settings cannot be read, so the AI pass is off until the owner sets them"
+    " again on the command line (signal ai cap, signal ai clear)."
+)
+
+
+def shown_status(
+    db: sqlite3.Connection, now: datetime, environ: Mapping[str, str], rulings_root: Path
+) -> Status:
+    """``status`` for what pages show: a stored setting that cannot be read (changed by hand) is
+    the pass off, with UNREADABLE, rather than a failed page. It never decides a call: ``check``
+    and the ledger raise on such a setting, so no call is reserved while it stays."""
+    try:
+        return status(db, now, environ, rulings_root)
+    except (ArithmeticError, ValueError, TypeError):
+        gate = Gate(None, None, None, (UNREADABLE,))
+        month = ai_ledger.Month(ai_ledger.month_of(now), Decimal(0), Decimal(0), 0, 0)
+        return Status(gate, month, 0, None, "off")
 
 
 def status(
