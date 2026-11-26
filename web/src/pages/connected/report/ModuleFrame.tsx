@@ -31,7 +31,7 @@ import {
   type BottomLineSource,
   type TextBlock,
 } from "./moduleFrameModel";
-import { holdsCode, proseWithoutMachinery, readableTitle } from "./moduleRecordsModel";
+import { holdsCode, proseWithoutMachinery, readableTitle, unitCells } from "./moduleRecordsModel";
 
 const MISSING_PASSAGE = "Not established for this run. The module wrote no such passage.";
 
@@ -411,6 +411,7 @@ function PassageTable({
     <PublishedTable
       table={table}
       heading={title}
+      drawCell={unitCells(table)}
       traceAt={(line) => traceKey(entry, line)}
       rowHref={(line) => evidencePath(folder, entry, line)}
     />

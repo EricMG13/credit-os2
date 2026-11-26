@@ -5,6 +5,7 @@ import { printableBasis, printableTable, redactArchivedLocator } from "../export
 import { moduleName } from "../api";
 import { heading } from "../layout";
 import { PublishedTable } from "../ReportContent";
+import { unitCells } from "./moduleRecordsModel";
 import {
   containsReference,
   evidenceHref,
@@ -126,6 +127,7 @@ function FrontTable({
       <PublishedTable
         table={displayed}
         heading={title}
+        drawCell={unitCells(displayed)}
         rowSource={
           context.print
             ? undefined

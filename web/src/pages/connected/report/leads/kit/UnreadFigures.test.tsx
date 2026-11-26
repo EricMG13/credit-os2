@@ -77,7 +77,7 @@ describe("UnreadFigures", () => {
     expect(column("Ranking")).toEqual(["1", "1", "1", "1", "1", "1"]);
     expect(column("Secured")).toEqual(["Yes", "Yes", "Yes", "Yes", "Yes", "Yes"]);
     expect(tile.textContent).not.toContain("guaranteed");
-    expect(tile.textContent).toContain("US$m");
+    expect(tile.textContent).toContain("$m");
   });
 
   it("draws a stated gap as the hatched chip with its reason, a zero as a value, no sum", () => {

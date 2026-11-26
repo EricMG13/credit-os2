@@ -272,7 +272,7 @@ it("draws the published maturity schedule as written on the axis, naming no sing
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Table" }));
   const table = within(screen.getByRole("table", { name: /Net leverage by case/ }));
-  expect(table.getByRole("columnheader", { name: "Debt maturing, US$m" })).toBeInTheDocument();
+  expect(table.getByRole("columnheader", { name: "Debt maturing, $m" })).toBeInTheDocument();
   expect(table.getByRole("cell", { name: "1,250" })).toBeInTheDocument();
 });
 

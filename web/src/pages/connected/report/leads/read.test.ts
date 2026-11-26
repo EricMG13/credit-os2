@@ -15,6 +15,7 @@ import {
   registerTable,
   sectionParagraphs,
   statedInProse,
+  withStatedUnit,
 } from "./read";
 
 const H3 = retained("esg", "CP-2E-h3.md");
@@ -428,4 +429,8 @@ The module could not map this transmission.
   expect(statedInProse(made, "Chart data: Interest cover")).toBe(false);
   // A prose-only chart is not one the page lists among the module's charts.
   expect(chartsStartingWith(made, "").map(({ title }) => title)).toEqual(["Leverage"]);
+});
+
+it("keeps the written minus sign and draws the money unit as a symbol", () => {
+  expect(withStatedUnit("−25", "US$m")).toBe("−$25m");
 });

@@ -587,13 +587,13 @@ it("uses the report date and explicit row units for a fiscal-period financial ma
   );
   const page = buildIssuerFrontPage(view, { ...run, asOf: "2025-12-31" });
   expect(page?.headline.map(({ value, period }) => [value, period])).toEqual([
-    ["US$7,940m", "FY2025 / 2025-12-31"],
-    ["US$4,173m", "FY2025 / 2025-12-31"],
+    ["$7,940m", "FY2025 / 2025-12-31"],
+    ["$4,173m", "FY2025 / 2025-12-31"],
     ["4.93x", "FY2025 / 2025-12-31"],
   ]);
   expect(page?.headline.map(({ prior }) => prior)).toEqual([
-    { value: "US$6,585m", period: "FY2024 / 2024-12-31" },
-    { value: "US$3,395m", period: "FY2024 / 2024-12-31" },
+    { value: "$6,585m", period: "FY2024 / 2024-12-31" },
+    { value: "$3,395m", period: "FY2024 / 2024-12-31" },
     { value: "5.22x", period: "FY2024 / 2024-12-31" },
   ]);
   const unbound = buildIssuerFrontPage(view, { ...run, asOf: "2026-12-31" });
@@ -637,7 +637,7 @@ it("requires the published unit for naked figures and for each instrument amount
     ]),
   );
   const page = buildIssuerFrontPage(view, run);
-  expect(page?.headline.map(({ value }) => value)).toEqual(["US$0m"]);
+  expect(page?.headline.map(({ value }) => value)).toEqual(["$0m"]);
   expect(page?.instruments?.table.rows.map(({ cells }) => cells[2])).toEqual([
     "Reporting unit unavailable",
     "Reporting unit unavailable",

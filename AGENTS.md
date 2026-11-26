@@ -58,7 +58,9 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   handoff content remains an explicit gap or a targeted repair request. One exception
   (`docs/rulings/2026-11-25-deliverables-and-recommendations.md`): a proposed recommendation
   derived by ruled arithmetic from module-written scores through the owner-approved table,
-  always labelled proposed until the analyst confirms.
+  always labelled proposed until the analyst confirms. Drawing a money unit as its currency
+  symbol (`$m` for `USD millions`, `docs/rulings/2026-11-26-money-unit-symbols.md`) changes its
+  notation, not the unit.
 - Completion requires the issuer library's Overview, Changes, Modules, Forecast and Evidence
   pages for the run populated from its actual module handoffs and checked against
   them, not just successful handoff generation. Once the Deliverables page is built,

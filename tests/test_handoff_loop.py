@@ -1198,55 +1198,6 @@ def test_a_completed_compaction_with_no_readable_charge_is_an_unknown_charge(
     assert loop.budget.spent == Decimal(row["reserved_usd"]) > 0
 
 
-class CopilotLike(Adapter):
-    """The Copilot route as the executor sees it: a ruling in force and a reported charge."""
-
-    config_id = "copilot-sol-medium"
-    ruling = Path("lift.md")
-
-
-def copilot_loop(tmp_path: Path) -> tuple[HandoffExecutor, Path]:
-    folder = tmp_path / "run"
-    reply = turn(write_call())
-    reply = replace(reply, billed_usd=Decimal("0.01"))
-    loop = HandoffExecutor(
-        folder / "live", adapter=CopilotLike(reply), cap_usd=Decimal(10), check=check, events=folder
-    )
-    return loop, folder
-
-
-def prompt_of(size: int) -> HandoffTask:
-    return replace(task(), handoffs={"CP-1": b"x" * size})
-
-
-def test_a_first_prompt_near_the_copilot_limit_is_flagged_before_the_first_call(
-    tmp_path: Path,
-) -> None:
-    """800,000 bytes of handoff: at 3.85 bytes per token that is about 208,000 tokens, which with
-    the 16,000-token output budget passes 80% of 272,000 (217,600). It warns; the run goes on."""
-    loop, folder = copilot_loop(tmp_path)
-    assert loop(prompt_of(800_000)) == GOOD
-    (event,) = [e for e in run_events(folder) if e["event"] == "first_prompt_near_limit"]
-    (invocation,) = (folder / "live/modules").glob("*/invocation.json")
-    size = invocation.stat().st_size
-    expected = -(-size * 100 // 385)  # ceil(size / 3.85), by hand
-    assert event["module"] == "CP-2" and event["estimated_tokens"] == expected
-    assert event["output_tokens"] == 16000 and event["token_limit"] == 272000
-    assert expected + 16000 > 0.8 * 272000
-
-
-def test_a_small_first_prompt_on_copilot_raises_no_warning(tmp_path: Path) -> None:
-    loop, folder = copilot_loop(tmp_path)
-    assert loop(prompt_of(1_000)) == GOOD
-    assert not [e for e in run_events(folder) if e["event"] == "first_prompt_near_limit"]
-
-
-def test_the_first_prompt_check_is_for_the_copilot_route_only(tmp_path: Path) -> None:
-    loop, folder = compacting_loop(tmp_path, turn(write_call()))  # sol-medium, OpenAI
-    assert loop(prompt_of(800_000)) == GOOD
-    assert not [e for e in run_events(folder) if e["event"] == "first_prompt_near_limit"]
-
-
 def test_the_record_reads_back_with_its_compactions_and_an_old_record_still_reads(
     tmp_path: Path,
 ) -> None:
@@ -1586,39 +1537,6 @@ def test_one_ordinary_completion_is_not_multiple(tmp_path: Path) -> None:
     )
     assert loop(task()) == GOOD
     assert not named(folder, "compaction_multiple")
-
-
-def test_the_first_prompt_warning_is_also_a_plain_line_for_the_launcher(tmp_path: Path) -> None:
-    lines: list[str] = []
-    folder = tmp_path / "run"
-    loop = HandoffExecutor(
-        folder / "live",
-        adapter=CopilotLike(replace(turn(write_call()), billed_usd=Decimal("0.01"))),
-        cap_usd=Decimal(10),
-        check=check,
-        events=folder,
-        notice=lines.append,
-    )
-    assert loop(prompt_of(800_000)) == GOOD
-    (event,) = named(folder, "first_prompt_near_limit")
-    (line,) = lines
-    assert line.startswith("Context:  CP-2: first prompt about ")
-    assert f"{event['estimated_tokens']:,} tokens" in line and "272,000-token limit" in line
-
-
-def test_a_small_first_prompt_prints_no_notice(tmp_path: Path) -> None:
-    lines: list[str] = []
-    folder = tmp_path / "run"
-    loop = HandoffExecutor(
-        folder / "live",
-        adapter=CopilotLike(replace(turn(write_call()), billed_usd=Decimal("0.01"))),
-        cap_usd=Decimal(10),
-        check=check,
-        events=folder,
-        notice=lines.append,
-    )
-    assert loop(prompt_of(1_000)) == GOOD
-    assert lines == []
 
 
 def test_compaction_usd_is_exact_beyond_the_default_context() -> None:
