@@ -104,9 +104,9 @@ it("leaves the EBITDA bridge's Add-Back ID column to the drawer, as the library 
   const { head, rows: shown } = chartTable(bridge);
   expect(head).toEqual(["Step", "Amount", "Reporting unit", "Basis and limitation"]);
   expect(shown.map((row) => [row.label, ...row.cells])).toEqual([
-    ["Opening EBITDA", "100", "US$m", null],
-    ["Add-back", "5", "US$m", "Run-rate."],
-    ["Closing EBITDA", "105", "US$m", null],
+    ["Opening EBITDA", "100", "$m", null],
+    ["Add-back", "5", "$m", "Run-rate."],
+    ["Closing EBITDA", "105", "$m", null],
   ]);
 });
 
