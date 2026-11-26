@@ -72,10 +72,10 @@ All money columns below are in the instrument's own currency.
 
 ### Net debt data
 
-| Period | Gross debt | Cash | Net debt | Reporting unit | Basis and limitation |
-|---|---|---|---|---|---|
-| FY2025 / 2025-12-31 | 1,450.0 | 174.3 | 1,275.7 | GBP millions | Carrying value of all debt lines; net debt is gross debt less cash. |
-| FY2024 / 2024-12-31 | 1,380.0 | 150.0 | 1,230.0 | GBP millions | Carrying value of all debt lines; net debt is gross debt less cash. |
+| Period | Gross debt | Cash | Net debt | Basis and limitation |
+|---|---|---|---|---|
+| FY2025 / 2025-12-31 | 1,450.0 | 174.3 | 1,275.7 | Carrying value of all debt lines; net debt is gross debt less cash. |
+| FY2024 / 2024-12-31 | 1,380.0 | 150.0 | 1,230.0 | Carrying value of all debt lines; net debt is gross debt less cash. |
 
 ### Chart data: EBITDA bridge
 

@@ -1812,6 +1812,16 @@
   },
   {
    "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "6.53",
+   "module": "CP-1",
+   "line": 253
+  },
+  {
+   "sheet": "Snapshot",
    "block": "Capital structure totals",
    "row": "Total debt / EBITDA",
    "column": "FY2024 / 2024-09-30",
@@ -1824,11 +1834,51 @@
    "sheet": "Snapshot",
    "block": "Financials",
    "row": "Total debt / EBITDA",
-   "column": "FY2024 / 2024-09-30",
+   "column": "Unit",
    "kind": "copied",
-   "value": "6.53",
+   "value": "US$m",
    "module": "CP-1",
    "line": 253
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / EBITDA",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 253
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 253
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 253
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "4.88",
+   "module": "CP-1",
+   "line": 254
   },
   {
    "sheet": "Snapshot",
@@ -1844,15 +1894,55 @@
    "sheet": "Snapshot",
    "block": "Financials",
    "row": "Net debt / EBITDA",
-   "column": "FY2024 / 2024-09-30",
+   "column": "Unit",
    "kind": "copied",
-   "value": "4.88",
+   "value": "US$m",
    "module": "CP-1",
    "line": 254
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
+   "row": "Net debt / EBITDA",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 254
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 254
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 254
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA / cash interest",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "3.29",
+   "module": "CP-1",
+   "line": 255
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
    "row": "EBITDA / cash interest",
    "column": "FY2024 / 2024-09-30",
    "kind": "copied",
@@ -1864,11 +1954,51 @@
    "sheet": "Snapshot",
    "block": "Financials",
    "row": "EBITDA / cash interest",
-   "column": "FY2024 / 2024-09-30",
+   "column": "Unit",
    "kind": "copied",
-   "value": "3.29",
+   "value": "US$m",
    "module": "CP-1",
    "line": 255
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "EBITDA / cash interest",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 255
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA / cash interest",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 255
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "EBITDA / cash interest",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 255
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "5.96",
+   "module": "CP-1",
+   "line": 256
   },
   {
    "sheet": "Snapshot",
@@ -1884,15 +2014,55 @@
    "sheet": "Snapshot",
    "block": "Financials",
    "row": "Total debt / adjusted EBITDA",
-   "column": "FY2024 / 2024-09-30",
+   "column": "Unit",
    "kind": "copied",
-   "value": "5.96",
+   "value": "US$m",
    "module": "CP-1",
    "line": 256
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 256
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 256
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Total debt / adjusted EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 256
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "4.46",
+   "module": "CP-1",
+   "line": 257
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
    "row": "Net debt / adjusted EBITDA",
    "column": "FY2024 / 2024-09-30",
    "kind": "copied",
@@ -1904,11 +2074,51 @@
    "sheet": "Snapshot",
    "block": "Financials",
    "row": "Net debt / adjusted EBITDA",
-   "column": "FY2024 / 2024-09-30",
+   "column": "Unit",
    "kind": "copied",
-   "value": "4.46",
+   "value": "US$m",
    "module": "CP-1",
    "line": 257
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 257
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 257
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 257
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "FY2024 / 2024-09-30",
+   "kind": "copied",
+   "value": "3.60",
+   "module": "CP-1",
+   "line": 258
   },
   {
    "sheet": "Snapshot",
@@ -1924,21 +2134,41 @@
    "sheet": "Snapshot",
    "block": "Financials",
    "row": "Adjusted EBITDA / cash interest",
-   "column": "FY2024 / 2024-09-30",
+   "column": "Unit",
    "kind": "copied",
-   "value": "3.60",
+   "value": "US$m",
    "module": "CP-1",
    "line": 258
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
-   "row": "Total debt / EBITDA",
-   "column": "FY2023 / 2023-09-30",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "Unit",
    "kind": "copied",
-   "value": "6.27",
+   "value": "US$m",
    "module": "CP-1",
-   "line": 259
+   "line": 258
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 258
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Adjusted EBITDA / cash interest",
+   "column": "Currency",
+   "kind": "copied",
+   "value": "USD",
+   "module": "CP-1",
+   "line": 258
   },
   {
    "sheet": "Snapshot",
@@ -1953,12 +2183,12 @@
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
-   "row": "Net debt / EBITDA",
+   "row": "Total debt / EBITDA",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
-   "value": "5.17",
+   "value": "6.27",
    "module": "CP-1",
-   "line": 260
+   "line": 259
   },
   {
    "sheet": "Snapshot",
@@ -1973,12 +2203,12 @@
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
-   "row": "EBITDA / cash interest",
+   "row": "Net debt / EBITDA",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
-   "value": "2.71",
+   "value": "5.17",
    "module": "CP-1",
-   "line": 261
+   "line": 260
   },
   {
    "sheet": "Snapshot",
@@ -1993,12 +2223,12 @@
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
-   "row": "Total debt / adjusted EBITDA",
+   "row": "EBITDA / cash interest",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
-   "value": "5.82",
+   "value": "2.71",
    "module": "CP-1",
-   "line": 262
+   "line": 261
   },
   {
    "sheet": "Snapshot",
@@ -2013,12 +2243,12 @@
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
-   "row": "Net debt / adjusted EBITDA",
+   "row": "Total debt / adjusted EBITDA",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
-   "value": "4.79",
+   "value": "5.82",
    "module": "CP-1",
-   "line": 263
+   "line": 262
   },
   {
    "sheet": "Snapshot",
@@ -2033,6 +2263,16 @@
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
+   "row": "Net debt / adjusted EBITDA",
+   "column": "FY2023 / 2023-09-30",
+   "kind": "copied",
+   "value": "4.79",
+   "module": "CP-1",
+   "line": 263
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
    "row": "Adjusted EBITDA / cash interest",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
@@ -2042,7 +2282,7 @@
   },
   {
    "sheet": "Snapshot",
-   "block": "Financials",
+   "block": "Capital structure totals",
    "row": "Adjusted EBITDA / cash interest",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
@@ -2073,6 +2313,26 @@
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
+   "row": "Gross debt",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Gross debt",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
    "row": "Cash",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
@@ -2093,6 +2353,26 @@
   {
    "sheet": "Snapshot",
    "block": "Capital structure totals",
+   "row": "Cash",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
    "row": "Net debt",
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
@@ -2107,6 +2387,26 @@
    "column": "FY2023 / 2023-09-30",
    "kind": "copied",
    "value": "16278",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Net debt",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 377
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net debt",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "US$m",
    "module": "CP-1",
    "line": 377
   },
@@ -2169,6 +2469,526 @@
    "value": "18619",
    "module": "CP-1",
    "line": 378
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "GROSS PROFIT",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "4672",
+   "module": "CP-1",
+   "line": 73
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "GROSS PROFIT",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3842",
+   "module": "CP-1",
+   "line": 73
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "GROSS PROFIT",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 73
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Reported)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3813",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Reported)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3148",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Reported)",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Reported)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3813",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Reported)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3148",
+   "module": "CP-1",
+   "line": 89
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "4173",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3395",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "EBITDA (Adjusted)",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "4173",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA measures",
+   "row": "EBITDA (Adjusted)",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3395",
+   "module": "CP-1",
+   "line": 90
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Operating Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "2045",
+   "module": "CP-1",
+   "line": 143
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Operating Activities",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "1375",
+   "module": "CP-1",
+   "line": 143
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Operating Activities",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 143
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Investing Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "-2441",
+   "module": "CP-1",
+   "line": 151
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Investing Activities",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "-900",
+   "module": "CP-1",
+   "line": 151
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Investing Activities",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 151
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Financing Activities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3171",
+   "module": "CP-1",
+   "line": 163
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Financing Activities",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "-16",
+   "module": "CP-1",
+   "line": 163
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash from Financing Activities",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 163
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "FX Effect on Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "14",
+   "module": "CP-1",
+   "line": 164
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "FX Effect on Cash",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "12",
+   "module": "CP-1",
+   "line": 164
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "FX Effect on Cash",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 164
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash Change",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "2789",
+   "module": "CP-1",
+   "line": 165
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash Change",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "471",
+   "module": "CP-1",
+   "line": 165
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Net Cash Change",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 165
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Opening Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 166
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Opening Cash",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3001",
+   "module": "CP-1",
+   "line": 166
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Opening Cash",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 166
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Closing Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "6261",
+   "module": "CP-1",
+   "line": 167
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Closing Cash",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 167
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Closing Cash",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 167
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash Interest Paid",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "1158",
+   "module": "CP-1",
+   "line": 168
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash Interest Paid",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "1160",
+   "module": "CP-1",
+   "line": 168
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash Interest Paid",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 168
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash & Equivalents",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "6261",
+   "module": "CP-1",
+   "line": 178
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash & Equivalents",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "3472",
+   "module": "CP-1",
+   "line": 178
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Cash & Equivalents",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 178
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Assets",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "25586",
+   "module": "CP-1",
+   "line": 187
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Assets",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "19970",
+   "module": "CP-1",
+   "line": 187
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Assets",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 187
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Liabilities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "31869",
+   "module": "CP-1",
+   "line": 197
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Liabilities",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "21948",
+   "module": "CP-1",
+   "line": 197
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Liabilities",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 197
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Equity",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "-6283",
+   "module": "CP-1",
+   "line": 205
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Equity",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "-1978",
+   "module": "CP-1",
+   "line": 205
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Equity",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 205
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Debt",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "24880",
+   "module": "CP-1",
+   "line": 206
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Debt",
+   "column": "FY2023",
+   "kind": "copied",
+   "value": "19750",
+   "module": "CP-1",
+   "line": 206
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Debt",
+   "column": "Unit",
+   "kind": "copied",
+   "value": "USD millions",
+   "module": "CP-1",
+   "line": 206
   },
   {
    "sheet": "Snapshot",
@@ -2217,366 +3037,6 @@
    "column": "Value",
    "kind": "gap",
    "value": "not in handoff"
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "GROSS PROFIT",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "4672",
-   "module": "CP-1",
-   "line": 73
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "GROSS PROFIT",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3842",
-   "module": "CP-1",
-   "line": 73
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "EBITDA (Reported)",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "3813",
-   "module": "CP-1",
-   "line": 89
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "EBITDA (Reported)",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3148",
-   "module": "CP-1",
-   "line": 89
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "EBITDA measures",
-   "row": "EBITDA (Reported)",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "3813",
-   "module": "CP-1",
-   "line": 89
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "EBITDA measures",
-   "row": "EBITDA (Reported)",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3148",
-   "module": "CP-1",
-   "line": 89
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "EBITDA (Adjusted)",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "4173",
-   "module": "CP-1",
-   "line": 90
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "EBITDA (Adjusted)",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3395",
-   "module": "CP-1",
-   "line": 90
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "EBITDA measures",
-   "row": "EBITDA (Adjusted)",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "4173",
-   "module": "CP-1",
-   "line": 90
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "EBITDA measures",
-   "row": "EBITDA (Adjusted)",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3395",
-   "module": "CP-1",
-   "line": 90
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash from Operating Activities",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "2045",
-   "module": "CP-1",
-   "line": 143
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash from Operating Activities",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "1375",
-   "module": "CP-1",
-   "line": 143
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash from Investing Activities",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "-2441",
-   "module": "CP-1",
-   "line": 151
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash from Investing Activities",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "-900",
-   "module": "CP-1",
-   "line": 151
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash from Financing Activities",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "3171",
-   "module": "CP-1",
-   "line": 163
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash from Financing Activities",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "-16",
-   "module": "CP-1",
-   "line": 163
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "FX Effect on Cash",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "14",
-   "module": "CP-1",
-   "line": 164
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "FX Effect on Cash",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "12",
-   "module": "CP-1",
-   "line": 164
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash Change",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "2789",
-   "module": "CP-1",
-   "line": 165
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Net Cash Change",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "471",
-   "module": "CP-1",
-   "line": 165
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Opening Cash",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "3472",
-   "module": "CP-1",
-   "line": 166
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Opening Cash",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3001",
-   "module": "CP-1",
-   "line": 166
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Closing Cash",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "6261",
-   "module": "CP-1",
-   "line": 167
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Closing Cash",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3472",
-   "module": "CP-1",
-   "line": 167
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Cash Interest Paid",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "1158",
-   "module": "CP-1",
-   "line": 168
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Cash Interest Paid",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "1160",
-   "module": "CP-1",
-   "line": 168
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Cash & Equivalents",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "6261",
-   "module": "CP-1",
-   "line": 178
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Cash & Equivalents",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "3472",
-   "module": "CP-1",
-   "line": 178
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Assets",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "25586",
-   "module": "CP-1",
-   "line": 187
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Assets",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "19970",
-   "module": "CP-1",
-   "line": 187
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Liabilities",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "31869",
-   "module": "CP-1",
-   "line": 197
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Liabilities",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "21948",
-   "module": "CP-1",
-   "line": 197
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Equity",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "-6283",
-   "module": "CP-1",
-   "line": 205
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Equity",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "-1978",
-   "module": "CP-1",
-   "line": 205
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Debt",
-   "column": "FY2024",
-   "kind": "copied",
-   "value": "24880",
-   "module": "CP-1",
-   "line": 206
-  },
-  {
-   "sheet": "Snapshot",
-   "block": "Financials",
-   "row": "Total Debt",
-   "column": "FY2023",
-   "kind": "copied",
-   "value": "19750",
-   "module": "CP-1",
-   "line": 206
   },
   {
    "sheet": "Snapshot",
