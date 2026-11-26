@@ -6162,11 +6162,35 @@ def test_every_bad_id_of_a_bridge_is_listed_in_one_review():
 
 
 def test_a_stated_bridge_refuses_not_applicable_on_a_middle_row_but_an_all_gap_one_allows_it():
-    assert add_back_issues(("10", NA), ("5", NA), ("15", NA))
+    (issue,) = add_back_issues(("10", NA), ("5", NA), ("15", NA))
+    assert "Step 1" in issue and "must be `AB-1`" in issue
     gap = "Not supplied: not stated"
     assert add_back_issues((gap, NA), (gap, NA), (gap, NA)) == ()
     assert add_back_issues((gap, NA), (gap, "AB-1"), (gap, NA)) == ()
     assert add_back_issues((gap, NA), (gap, "AB-2"), (gap, NA))
+
+
+@pytest.mark.parametrize("short_at", [1, 3])
+def test_a_short_bridge_row_gives_only_the_row_length_issue(short_at):
+    table = next(t for t in cpos_launch.OWNER_TABLES["CP-1"] if t.heading.endswith("EBITDA bridge"))
+    rows = [
+        "| Step 0 | 10 | Not applicable | US$m | Synthetic. |",
+        "| Step 1 | 5 | AB-1 | US$m | Synthetic. |",
+        "| Step 2 | -2 | AB-2 | US$m | Synthetic. |",
+        "| Step 3 | 13 | Not applicable | US$m | Synthetic. |",
+    ]
+    rows[short_at] = f"| Step {short_at} | 1 | US$m | Synthetic. |"
+    text = "\n".join(
+        [
+            f"### {table.heading}",
+            "",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| --- | --- | --- | --- | --- |",
+            *rows,
+        ]
+    )
+    (issue,) = cpos_launch.chart_issues(text, table, money="US$m")
+    assert "row needs 5 cells" in issue and f"Step {short_at}" in issue
 
 
 def test_the_id_check_leaves_the_bridge_arithmetic_alone():
@@ -6174,7 +6198,7 @@ def test_the_id_check_leaves_the_bridge_arithmetic_alone():
     assert len(issues) == 1 and "does not equal the closing" in issues[0]
 
 
-def test_only_the_cp1_bridge_asks_for_an_add_back_id(tmp_path):
+def test_only_the_cp1_bridge_asks_for_an_add_back_id():
     ids = {
         m: [t.heading for t in tables if t.id_column]
         for m, tables in cpos_launch.OWNER_TABLES.items()

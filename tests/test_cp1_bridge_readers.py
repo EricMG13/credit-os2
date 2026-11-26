@@ -56,3 +56,5 @@ def test_another_step_table_with_an_add_back_id_column_is_not_drawn(heading):
 def test_the_bridge_with_a_wrong_unit_is_still_refused_under_the_new_header():
     rows = [[*r[:3], "EUR", *r[4:]] for r in ROWS]
     assert _fields("Chart data: EBITDA bridge", NEW, rows)["charts"] == []
+    ok = [[*r[:3], "US$m", *r[4:]] for r in ROWS]
+    assert len(_fields("Chart data: EBITDA bridge", NEW, ok)["charts"]) == 1

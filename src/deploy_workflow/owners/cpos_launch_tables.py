@@ -1354,8 +1354,10 @@ def chart_issues(
         return tuple(_row_table_issues(spec, heading, header, rows[2:]))
     stated: list[list[str]] = []
     body, issues = _first_table(heading, rows[2:])
+    skipped = False
     for row in body:
         if len(row) != len(header):
+            skipped = True
             issues.append(f"`{heading}` row needs {len(header)} cells: {' | '.join(row)}")
             continue
         period, *cells, unit, basis = row
@@ -1373,6 +1375,6 @@ def chart_issues(
                 )
             elif problem := _unit_issue(spec, unit):
                 issues.append(f"`{heading}` {period}: {problem}")
-    if spec.steps:
+    if spec.steps and not skipped:  # a skipped row moves first and last; its length is the repair
         issues += _step_issues(spec, heading, stated, reconcile=not issues)
     return tuple(issues)
