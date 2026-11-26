@@ -69,6 +69,20 @@ def test_a_row_of_dashes_is_content_and_kept() -> None:
     }
 
 
+def test_a_delimiter_row_of_lone_dashes_under_the_header_is_the_delimiter() -> None:
+    for rule in ("|-|-|-|", "| - | - | - |"):
+        text = summary(
+            "| Bottom line | Confidence | Main limitation |\n"
+            f"{rule}\n| Cover holds. | High | None. |",
+            FINDING + "| Net debt 7. | Limits. | Low |",
+        )
+        assert reader_tables(text)[0] == [
+            ["Bottom line", "Confidence", "Main limitation"],
+            ["Cover holds.", "High", "None."],
+        ]
+        assert reader_summary(text) is not None
+
+
 def test_alignment_and_blank_rows_inside_a_table_are_still_dropped() -> None:
     text = summary(
         "| Bottom line | Confidence | Main limitation |\n| :--- | :---: | ---: |\n| | | |\n"
@@ -177,9 +191,38 @@ def test_a_date_in_a_fact_row_is_no_figure() -> None:
 
 
 def test_a_date_after_by_is_no_difference() -> None:
-    assert _direction_issues("Cash rose by September 15, 2026", {Decimal(5)}, "A passage") == []
+    assert (
+        _direction_issues("Cash fell on Sept. 15, 2026 by 150", {Decimal(-150)}, "A passage") == []
+    )
     issues = _direction_issues("Cash rose by 150", {Decimal(5)}, "A passage")
     assert len(issues) == 1
+
+
+def test_a_leading_dot_difference_is_flagged_like_its_zero_form() -> None:
+    zero = _direction_issues("Leverage rose by 0.99x", {Decimal(5)}, "A passage")
+    assert len(zero) == 1
+    assert _direction_issues("Leverage rose by .99x", {Decimal(5)}, "A passage") == [
+        zero[0].replace("0.99", "0.99")
+    ]
+
+
+def test_an_amount_with_a_decimal_or_spaced_prefix_is_a_figure() -> None:
+    assert sizes("net debt rose to US$7.5M") == ["7.5"]
+    assert sizes("raised US$ 7M") == ["7"]
+    assert sizes("raised $ 7M") == ["7"]
+    assert [str(f.size) for f in _figures("raised USD -7M", counts=False)] == ["7"]
+    assert [str(f.size) for f in _figures("raised USD (7M)", counts=False)] == ["7"]
+    assert sizes("12M LTM") == []
+    assert sizes("9M to Sep 2024") == []
+    assert sizes("over 7M of the period") == []
+
+
+def test_indian_grouping_is_one_figure() -> None:
+    assert sizes("INR 1,00,000 raised") == ["100000"]
+    assert sizes("INR 12,34,56,789 raised") == ["123456789"]
+    assert [str(f.signed) for f in _figures("1,2,3")] == ["1", "2", "3"]
+    assert [str(f.signed) for f in _figures("1,2345")] == ["1", "2345"]
+    assert [str(f.signed) for f in _figures("1,234,56")] == ["1234", "56"]
 
 
 # --- maturities ---------------------------------------------------------------------------------
