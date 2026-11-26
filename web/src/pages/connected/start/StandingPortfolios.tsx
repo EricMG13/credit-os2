@@ -107,9 +107,7 @@ export function StandingPortfolios({ view }: { view: StandingView }) {
         )
       )}
       {view.problem && (
-        <p className="text-small wrap-anywhere text-text-secondary">
-          {`The standing portfolios could not be listed. ${view.problem}`}
-        </p>
+        <p className="text-small wrap-anywhere text-text-secondary">{view.problem}</p>
       )}
     </section>
   );
