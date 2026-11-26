@@ -377,14 +377,15 @@ def _stored(root: Path, *, strict: bool = False, any_error: bool = False) -> dic
     found: dict[str, int] = {}
 
     def unreadable(error: OSError) -> None:
-        # Only a folder that exists but cannot be read is refused; one that vanished (a seal
-        # renamed it) is left to the callers' own retry, as before.
-        if not any_error and not isinstance(error, PermissionError):
+        # Only a folder that vanished (a seal renamed it) is forgiven, left to the callers' own
+        # retry; any other error (EIO, ESTALE, ELOOP, not a directory, no permission) is refused.
+        if not any_error and isinstance(error, FileNotFoundError):
             return
         try:
             shown = Path(error.filename).relative_to(root).as_posix() if error.filename else ""
         except ValueError:
             shown = ""
+        shown = "" if shown == "." else shown
         shown = shown or "a folder"
         raise Refused(f"{shown!r} cannot be read")
 
