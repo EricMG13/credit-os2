@@ -323,6 +323,7 @@ class SnapshotCell:
     line: int | None = None
     basis: str | None = None
     written: str | None = None
+    number_format: str | None = None
 
     @property
     def figure(self) -> Figure | None:
@@ -407,6 +408,7 @@ class SnapshotRun:
     references: Sequence[tuple[rp.Reference, rp.Portfolio | StoreGap | None]]
     market: tuple[MarketSheet, ...] | MarketGap = ()
     execution: Mapping[str, str] = field(default_factory=dict)  # module -> how it was answered
+    model_files: Mapping[str, bytes] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -467,6 +469,8 @@ class Snapshot:
     credit_score: rec.CreditScore | None
     references: tuple[ReferenceView, ...]
     source_sha256: Mapping[str, str] = field(default_factory=dict)
+    model_files: Mapping[str, bytes] = field(default_factory=dict)
+    model_handoffs: Mapping[str, bytes] = field(default_factory=dict)
 
     def cells(self) -> Sequence[SnapshotCell]:
         return tuple(cell for block in self.blocks for cell in block.cells)
@@ -1975,10 +1979,15 @@ def gather(run: SnapshotRun) -> Snapshot:
         credit_score=_credit(state),
         references=state.views(),
         source_sha256=(
-            {}
-            if isinstance(run.market, MarketGap)
-            else {sheet.file: sheet.sha256 for sheet in run.market}
+            (
+                {sheet.file: sheet.sha256 for sheet in run.market}
+                if not isinstance(run.market, MarketGap)
+                else {}
+            )
+            | {f"model:{name}": li.sha256(raw) for name, raw in run.model_files.items()}
         ),
+        model_files=run.model_files,
+        model_handoffs={"CP-1": run.handoffs["CP-1"]} if "CP-1" in run.handoffs else {},
     )
 
 
@@ -2014,6 +2023,18 @@ def load_run(folder: Path, stores: Sequence[rp.Store]) -> SnapshotRun:
         references=_references(stores),
         market=_market_sheets(folder, sources),
         execution=_execution(completion),
+        model_files={
+            name: li.read_pinned(folder, f"{delivered['folder']}/{name}", delivered["files"][name])
+            for name in (
+                "calculation.json",
+                "forecast_exact.json",
+                "annual.md",
+                "current_synthesis.md",
+                "quarter.md",
+                "forecast.md",
+            )
+            if name in delivered["files"]
+        },
     )
 
 
