@@ -486,13 +486,14 @@ def _body_name(sha256: str, content_type: str | None) -> str:
 
 def _fetch_key(url: str) -> str:
     """The address as one fetch: ``webfetch.check_url``'s host (lower case) and path with query,
-    without the fragment, a trailing host dot or the default port. An address the check refuses is
-    its own key."""
+    without the fragment, a trailing host dot or the default port (443). A non-default port stays
+    (``host:8443``): it is another server. An address the check refuses is its own key."""
     try:
         split = webfetch.check_url(url)
     except webfetch.UrlRefused:
         return url
-    return f"https://{split.host.rstrip('.')}{split.path_query}"
+    port = "" if split.port == webfetch.DEFAULT_PORT else f":{split.port}"
+    return f"https://{split.host.rstrip('.')}{port}{split.path_query}"
 
 
 def _address_key(url: str) -> str:

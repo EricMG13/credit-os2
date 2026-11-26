@@ -291,6 +291,27 @@ def test_r3_a_different_page_is_still_not_fetched(tmp_path: Path) -> None:
     assert any("was not fetched in this run" in issue for issue in issues)
 
 
+def test_c9t2_a_non_default_port_is_another_address_not_fetched(tmp_path: Path) -> None:
+    issues = _cited(tmp_path, f"https://{HOST}/a", f"https://{HOST}:8443/a")
+    assert issues == [
+        (
+            'Sources row "web-4f280b078610" cites https://www.fca.org.uk:8443/a, '
+            "which was not fetched in this run: fetch it with fetch_page or remove the row."
+        )
+    ]
+
+
+def test_c9t2_the_default_port_is_the_fetched_page(tmp_path: Path) -> None:
+    assert _cited(tmp_path, f"https://{HOST}/a", f"https://{HOST}:443/a") == []
+    assert _cited(tmp_path, f"https://{HOST}/a", f"https://{HOST}/a") == []
+
+
+def test_c9t2_the_fetch_key_keeps_only_a_non_default_port() -> None:
+    plain = weblookup._fetch_key(f"https://{HOST}/a")
+    assert weblookup._fetch_key(f"https://{HOST}:8443/a") != plain
+    assert weblookup._fetch_key(f"https://{HOST}:443/a") == plain
+
+
 # C9-R4: every retained source id stays known, only the status is the latest per address --------
 
 
