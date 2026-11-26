@@ -2010,3 +2010,208 @@ def test_a_table_with_only_an_adjusted_row_gives_not_in_handoff():
     for label in ("Pro forma interest", "Pro forma interest cover"):
         cells = where(snapshot, "Capital structure totals", label)
         assert [(c.column, c.kind, c.text) for c in cells] == [("Value", "gap", "not in handoff")]
+
+
+# --- Source references in text (M-R1, ruling PM-k) ------------------------------------------------
+# Literal cases copied from the web tests of `containsReference` (publishedReport.reference*.test.ts*,
+# publishedReport.test.ts): reference-bearing and ordinary text.
+
+REFERENCES = [
+    "Lease detail not disclosed ∅ G12.",
+    "Basis as run 20261117-094923-01.",
+    "∅ G3 n.m.",
+    "Net leverage ∅ G4 at FY2025; see ∅ [G31].",
+    "pp. 3",
+    "p. 3",
+    "pages 3",
+    "p1000",
+    "pp. 3 quarters after the summary give the covenant.",
+    "Annual report, pp. 3 fiscal quarters after the summary give the covenant.",
+    "The report (pp. 3 fiscal quarters after the summary) gives the covenant.",
+    "pp. 3 consecutive fiscal quarters after the summary give the covenant.",
+    "Annual report, pp. 3 consecutive fiscal quarters after the summary give the covenant.",
+    "The report (pp. 3 consecutive fiscal quarters after the summary) gives the covenant.",
+    "See pp. 3 consecutive fiscal quarters after the summary for the covenant.",
+    "The covenant is at pp. 3 consecutive fiscal quarters after the summary.",
+    "The covenant is on pp. 3 consecutive fiscal quarters after the summary.",
+    "The trigger is cited as pp. 3 consecutive fiscal quarters after the summary.",
+    "The report cites pp. 3; consecutive fiscal quarters remain unavailable.",
+    "The report cites pp. 3: consecutive fiscal quarters remain unavailable.",
+    "The margin rose eleven pp. 3 consecutive fiscal quarters running; see p. 1000.",
+    "The margin rose eleven pp. 3 consecutive fiscal quarters running; annual-report.pdf.",
+    "The margin rose eleven pp. 3 consecutive fiscal quarters running; threshold unknown (G12).",
+    "The margin rose eleven pp. 3 consecutive fiscal quarters running; (G12).",
+    "The margin rose eleven pp. 3 consecutive fiscal quarters running; run 20261117-094923-01.",
+    "Lease detail not available (G12).",
+    "Threshold unknown (G12).",
+    "Threshold absent (G12).",
+    "Lease detail pending (G12).",
+    "(G12).",
+    "(G12);",
+    "See p. 1000 for the covenant.",
+    "See pages 1024–1026 for the covenant.",
+    "See page 2025 for the covenant.",
+    "The covenant is on p. 1000.",
+    "The trigger is on pp. 1024–1026.",
+    "A gap remains between the Group of Seven (G7); threshold unknown (G12).",
+    "Group of Seven demand is unknown (G12).",
+    "Missing threshold at leverage 3.20x (G12).",
+    "The trigger is on p. 10000.",
+    "See pp. 3 quarters after the summary for the covenant.",
+    "Threshold missing (G12)",
+    "Lease detail not disclosed (G12).",
+    "See (G3) and (G31)",
+    "Gap (G12) remains open.",
+    "Lease detail not disclosed (including finance leases) (G12).",
+    "(G12)",
+    "∅ G12 n.m.",
+    "See ∅ [G31].",
+    "CP-2A-GAP-12 remains open.",
+    "See p.12 for the covenant.",
+    "See pp. 12–14 for the covenant.",
+    "See page 12 for the covenant.",
+    "Q page:47 from the annual report.",
+    "A page: 172 sets the threshold.",
+    "See pages 12 to 14 for the covenant.",
+    "The accounts at 31 December 2025 p. 12 contain the covenant.",
+    "The annual report 2025 page 83 contains the covenant.",
+    "See p 12 for the covenant.",
+    "See pp 12 for the covenant.",
+    "See pg. 12 for the covenant.",
+    "The covenant appears only in the summary (p12).",
+    "Page 7 of the Filing gives the trigger text.",
+    "See annual-report.pdf for the covenant.",
+    "See CP-4.md for the covenant.",
+    "The source hash is abcdef0123456789abcdef0123456789.",
+    "Coverage fell 2 pp. 3 quarters running; see p. 12.",
+    "Group of Seven (G7) demand is weak; threshold missing (G12).",
+    "See /Users/x/report for detail.",
+    "Output in ./out/a",
+    "Output in ../out/a",
+    "Output in ~/a",
+    "Saved to C:\\a",
+    "Saved to \\\\server\\share",
+    "Read https://x",
+    "Read www.example.com",
+    "Copied to s3://bucket/run",
+    "Copied to gs://b/a",
+    "Fetched from sftp://h/d",
+    "Fetched from smb://s/x",
+    "Read git+ssh://host/repo",
+    "Read S3://Bucket/Run",
+    "Saved to //server/share/file",
+    "Saved to (//a/b)",
+    "Saved to C:/Users/x",
+    "Saved to C:/x",
+    "Read file:/x",
+    "Read onedrive:/x",
+    "Counted as fixed in the issuer's 77% share (calculation R9)",
+    "Copied from the Downside scenario S02 (moderate downturn)",
+    "FY2024 reported EBITDA; CP-1C T4.10 EV/EBITDA supplies no Low implied EV",
+]
+ORDINARY = [
+    "Gross debt at 2024 year end includes finance leases.",
+    "Covenant headroom of 12.5x on a net basis.",
+    "Run-rate EBITDA, cash-flow-based, pre-IFRS 16.",
+    "Rated A (stable) at 31 December 2024; 20241231 balance.",
+    "Tier-2 capital, 2026-12-31 maturity, USD 1,250 million.",
+    "Group G7 comparison, 12-34-56 reference-free.",
+    "Group of Seven (G7) demand is weak.",
+    "The G20 economies (G20) slowed.",
+    "Eurozone and G10 currencies (G10) moved.",
+    "Series G preferred (G1) ranks last.",
+    "Class A-2 notes (G2) rank pari passu.",
+    "Gen 3 (G3) vehicles, Tranche F2 (G2) maturity, 1.5x (G1).",
+    "Exposure to advanced economies (G7) is limited; net leverage is 3.2x at FY2025.",
+    "Gap G12 is open; the (G12, G13) pair and [G12] stay as written.",
+    "The margin rose eleven pp. 3 consecutive fiscal quarters running.",
+    "The margin rose twenty-one pp. 3 consecutive fiscal quarters running.",
+    "The margin rose one hundred pp. 3 consecutive full fiscal quarters running.",
+    "Coverage fell three pp. 4 consecutive year-end reporting quarters in a row.",
+    "The margin rose seventy-three pp. 12 consecutive full fiscal months after refinancing.",
+    "The margin rose 1.5 pp. 3 consecutive fiscal quarters running.",
+    "A gap remains between the Group of Seven (G7) economies.",
+    "No series is available for the Group of Seven (G7) economies.",
+    "The margin rose eleven pp. 3 quarters running.",
+    "The margin rose twenty-one pp. 3 quarters running.",
+    "The margin rose one hundred pp. 3 quarters running.",
+    "A gap remains between the Group of Seven (G7).",
+    "Thresholds are not comparable across the Group of Seven (G7).",
+    "Leverage is 1.5x (G1).",
+    "Let leverage (G1) equal 3.2x.",
+    "A gap remains between the G20 economies (G20).",
+    "A gap remains between the Group of Eight (G8) economies.",
+    "A gap remains between the Group of Twenty-One (G21).",
+    "Leverage (G1) = 3.2x.",
+    "The margin rose seventy-three pp. 12 fiscal quarters running.",
+    "Coverage fell 2 pp. 3 quarters in a row, so no trend is drawn.",
+    "Margin rose 150bp, 1.5 pp. 2 years running; leverage of 3.2x at FY2025 is the only point.",
+    "Coverage fell 2 p.p. 3 quarters in a row; two pp. 3 quarters before that.",
+    "Rated by S&P. 2025 outlook stable; cut by S&P. 3 notches since.",
+    "The front page 2025 headline and the one-page 2026 outlook give no series.",
+    "Coverage rose 0.5 pp. 12 months after the refinancing.",
+    "Coverage rose three pp. 4 quarters running.",
+    "The one-page 12 month outlook remains stable.",
+    "Let leverage (G1) equal 3.2x and cover (G2) equal 4.1x.",
+    "A gap remains. Group of Seven (G7) demand is weak.",
+    "net debt /EBITDA",
+    "Leverage (/share) is flat.",
+    "cash and /or debt",
+    "ratio / EBITDA",
+    "Leverage rose to 3:1 by year end.",
+    "Ratio 2:1 // compared with prior",
+    "Leverage is 3:1 at year end.",
+    "Ratio 2.5x:1",
+    "The call is at 10:30 on Tuesday.",
+    "Total: //",
+    "See note: /a",
+    "Either // or neither",
+    "S&P: B/Stable",
+    "Moody's: B2 / S&P: B",
+    "USD/JPY: /spot/ 150",
+    "EBITDA/interest: /cash/ 3.2x",
+    "debt/EBITDA of 4.5x/3.2x",
+    "on 12/31/2025",
+    "(/share)",
+    "Debt of T2.5 billion and a 3.29x cover",
+    "Restated by CP-2A for FY2024.",
+]
+
+
+@pytest.mark.parametrize("text", REFERENCES)
+def test_contains_reference_matches_the_web_ports_reference_cases(text):
+    assert snap.contains_reference(text) is True
+
+
+@pytest.mark.parametrize("text", ORDINARY)
+def test_contains_reference_leaves_ordinary_text_alone(text):
+    assert snap.contains_reference(text) is False
+
+
+@pytest.mark.parametrize(
+    ("text", "words"),
+    [
+        ("Signals a step up (NBG_annual_2025.pdf, page 60).", ""),
+        ("Leverage is capped. See annual-report.pdf, page 7.", "Leverage is capped."),
+        (
+            "Limited to 2026. Threshold unknown (G12). Reviewed by the board.",
+            "Limited to 2026. Reviewed by the board.",
+        ),
+        ("Coverage fell 2 pp. 3 quarters in a row.", "Coverage fell 2 pp. 3 quarters in a row."),
+    ],
+)
+def test_without_references_keeps_the_sentences_that_cite_nothing(text, words):
+    assert snap.without_references(text) == words
+
+
+def test_a_cell_with_a_reference_shows_its_words_and_a_cell_of_only_a_reference_says_so():
+    names = chips.module_names(None)
+    assert snap.drawn_text("Leverage is capped. See annual-report.pdf, page 7.", names) == (
+        "Leverage is capped."
+    )
+    assert snap.drawn_text("annual-report.pdf, page 7", names) == "Source reference: see Sources"
+    assert (
+        snap.drawn_text("Net debt rose (CP-1). See report.pdf.", names)
+        == "Net debt rose (Financial foundation)."
+    )
+    assert snap.drawn_text("Plain words.", names) == "Plain words."

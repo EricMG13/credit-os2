@@ -446,7 +446,11 @@ def _names_itself(row: Aligned) -> bool:
     first = cells[0] if cells else None
     if first is not None and first.kind == FORMULA and first.column == "Instrument":
         return True  # a relative-value row names itself by formula, and only when it applies
-    return first is not None and first.text == label and first.kind != snap.ANALYST
+    return (
+        first is not None
+        and label in (first.text, first.written)  # drawn text may differ from the raw label
+        and first.kind != snap.ANALYST
+    )
 
 
 # --- Rendering a block ----------------------------------------------------------------------------

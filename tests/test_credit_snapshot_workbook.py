@@ -630,10 +630,7 @@ CODE_EDITS = {
     ),
     "CP-2": (
         "| Signals a debt-funded step up in borrowing. |",
-        (
-            "| Signals a debt-funded step up in borrowing (NBG_annual_2025.pdf, page 60); CP-2A "
-            "restates it. |"
-        ),
+        ("| Signals a debt-funded step up in borrowing; CP-2A restates it. |"),
     ),
 }
 
@@ -663,10 +660,7 @@ def test_a_module_code_in_copied_text_reads_as_the_modules_name_and_sources_keep
     event = CODE_EDITS["CP-1A"][1].split("|")[3].strip()
     driver = CODE_EDITS["CP-2"][1].strip(" |")
     assert event.replace(" (CP-1)", "") in values
-    assert (
-        "Signals a debt-funded step up in borrowing (NBG_annual_2025.pdf, page 60); "
-        "Downside restates it." in values
-    )
+    assert "Signals a debt-funded step up in borrowing; Downside restates it." in values
     assert not [v for v in values if "CP-" in v]
     written = {r["Handoff text"] for r in sources(shown) if r["Column"] == "As written"}
     assert {event, driver} <= written
@@ -695,3 +689,63 @@ def test_an_unreadable_table_is_a_reader_sentence_on_the_sheet_and_its_reason_is
         if isinstance(c.value, str)
     ]
     assert not [v for v in shown if "CP-" in v or "`" in v]
+
+
+def test_a_file_name_or_page_locator_in_copied_text_is_not_drawn_and_sources_keeps_the_text(
+    tmp_path,
+):
+    """Ruling PM-k: the reader sheets show a cell's own words without its source reference, and
+    `Source reference: see Sources` when none remain; the exact text is an `As written` row."""
+    old = "| Signals a debt-funded step up in borrowing. |"
+    only = "| Signals a debt-funded step up in borrowing (NBG_annual_2025.pdf, page 60). |"
+    mixed = "| Leverage is high. See NBG_annual_2025.pdf, page 60. |"
+    seen = {}
+    for name, new in (("only", only), ("mixed", mixed)):
+        handoffs = dict(cs.CASES["full"].handoffs)
+        text = handoffs["CP-2"].read_text(encoding="utf-8")
+        assert old in text
+        handoffs["CP-2"] = tmp_path / f"{name}.md"
+        handoffs["CP-2"].write_text(text.replace(old, new, 1), encoding="utf-8")
+        built = cs.build_case(tmp_path / name, replace(cs.CASES["full"], handoffs=handoffs))
+        shot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+        opened = load_workbook(io.BytesIO(writer.workbook_bytes(shot)))
+        shown = {
+            c.value
+            for sheet in THREE
+            for row in opened[sheet].iter_rows()
+            for c in row
+            if isinstance(c.value, str)
+        }
+        assert not [v for v in shown if ".pdf" in v or "page 60" in v]
+        written = {r["Handoff text"] for r in sources(opened) if r["Column"] == "As written"}
+        seen[name] = (shown, written)
+    assert "Source reference: see Sources" in seen["only"][0]
+    assert only.strip("| ") in seen["only"][1]
+    assert "Leverage is high." in seen["mixed"][0]
+    assert mixed.strip("| ") in seen["mixed"][1]
+
+
+def test_a_module_code_in_a_first_column_cell_adds_no_row_label_column(tmp_path):
+    """M-R2: the first cell of a row that is drawn with a reader name still names itself, so the
+    card gains no row-label column showing the raw text."""
+    old = "| Net leverage above 5.0x | Two consecutive quarters |"
+    new = "| Net leverage above 5.0x, as Financial foundation (CP-1) measures it | Two consecutive quarters |"
+    counts = []
+    for name, edit in (("before", old), ("after", new)):
+        handoffs = dict(cs.CASES["full"].handoffs)
+        text = handoffs["CP-2"].read_text(encoding="utf-8")
+        assert old in text
+        handoffs["CP-2"] = tmp_path / f"{name}.md"
+        handoffs["CP-2"].write_text(text.replace(old, edit, 1), encoding="utf-8")
+        built = cs.build_case(tmp_path / name, replace(cs.CASES["full"], handoffs=handoffs))
+        shot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+        opened = load_workbook(io.BytesIO(writer.workbook_bytes(shot)))
+        counts.append(len(listed(opened, "Monitoring triggers", column="Row label")))
+        assert not [
+            c.value
+            for sheet in THREE
+            for row in opened[sheet].iter_rows()
+            for c in row
+            if isinstance(c.value, str) and "CP-" in c.value
+        ]
+    assert counts[1] == counts[0]

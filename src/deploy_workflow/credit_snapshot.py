@@ -189,6 +189,110 @@ def reader_text(text: str, names: Mapping[str, str]) -> str:
     return _STANDALONE_CODES.sub(standalone, first)
 
 
+# --- Source references in text (ruling PM-k) ---------------------------------------------------
+
+# A port of `containsReference` and `withoutReferences` (web/src/pages/connected/publishedReport.ts):
+# the findings pages draw a cell's own words and move its source reference to Evidence. The cases
+# of the web tests are held, as literals, in tests/test_credit_snapshot.py.
+SOURCE_REFERENCE = "Source reference: see Sources"
+_FILE_REFERENCE = re.compile(
+    rf"(?<![\w.-])[\w-]+(?:\.[\w-]+)*\.(?:{_FILE_EXTENSIONS})\b", re.IGNORECASE | re.ASCII
+)
+_LONG_HASH = re.compile(r"\b(?=[0-9a-f]*[a-f])[0-9a-f]{32,}\b", _FLAGS)
+_ADDRESS_REFERENCE = re.compile(
+    r"(?:\b[a-z][a-z0-9+.-]*://|[a-z]:/\S|\bwww\.|"
+    r"(?:^|[\s(`\"':])(?:(?:~|\.{1,2})/\S|/{1,2}[^\s/]+/\S|[a-z]:\\\S|\\\\\S))",
+    _FLAGS,
+)
+_REGISTER_ID = re.compile(
+    r"\bCP-[A-Z0-9]+-(?:GAP|MON|FACT|CALC|EVID|SRC|ASSUMPTION)-[A-Z0-9-]+\b", _FLAGS
+)
+_GAP_ID = re.compile(r"∅\s*\[?G\d+\b", re.ASCII)
+_RUN_CODE = re.compile(r"\b\d{8}-\d{6}-\d{2}\b", re.ASCII)
+_REGISTER_CODE_IN_TEXT = re.compile(
+    r"\bCP-[A-Z0-9]+ T[A-Z0-9]{0,4}\.\d+(?:\.\d+)?\b|\bcalculations? R\d+\b|\bscenario S\d{2}\b",
+    re.ASCII,
+)
+_LETTER = r"[^\W\d_]"  # JavaScript's \p{L}
+_PAREN_GAP = re.compile(r"\(G\d+\)", _FLAGS)
+_NAMED_LABEL = re.compile(
+    rf"(?:\bgroup of {_LETTER}+(?:-{_LETTER}+)?|\b(?:economies|currencies)"
+    r"|\b(?:series|class|gen|tranche)\s+[\w-]+(?:\s+[\w-]+)?)\s*$",
+    re.IGNORECASE,
+)
+_DEFINED_AFTER = re.compile(r"\s*(?:=|equals?\b)", _FLAGS)
+_DEFINED_BEFORE = re.compile(r"(?:^|[,;:=]|\b(?:is|equals?))\s*\d+(?:\.\d+)?x\s*$", _FLAGS)
+_PAGE = re.compile(r"(?<![\w&.-])(p|pg|pp|pages?)\.?\s*(:\s*)?(\d+)\b", _FLAGS)
+_PAGE_CUE = re.compile(r"\b(?:see|at|on|as)\s*$", _FLAGS)
+_PP_QUANTITY_AFTER = re.compile(
+    rf"\s+(?:{_LETTER}+(?:-{_LETTER}+)*\s+)*(?:days?|weeks?|months?|quarters?|years?)\b",
+    re.IGNORECASE,
+)
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])(?<!\bp\.)(?<!\bpp\.)\s+(?=[A-Z])")
+
+
+def _parenthesized_gap(text: str) -> bool:
+    for found in _PAREN_GAP.finditer(text):
+        before, after = text[: found.start()], text[found.end() :]
+        defined = _DEFINED_AFTER.match(after) or _DEFINED_BEFORE.search(before)
+        if not _NAMED_LABEL.search(before) and not defined:
+            return True
+    return False
+
+
+def _page_citation(text: str) -> bool:
+    for found in _PAGE.finditer(text):
+        before, after = text[: found.start()], text[found.end() :]
+        marker = found[1].lower()
+        if found[2] or _PAGE_CUE.search(before):
+            return True
+        if marker == "pp":
+            if re.search(r"\d\s*$", before):
+                continue
+            if re.search(rf"{_LETTER}\s*$", before) and _PP_QUANTITY_AFTER.match(after):
+                continue
+        if not (marker == "page" and re.search(r"\bfront\s+$", before, re.IGNORECASE)):
+            return True
+    return False
+
+
+def contains_reference(text: str) -> bool:
+    """Whether `text` holds a source reference: a file name, an address, a long hash, a register or
+    gap id, a register code in a sentence, a page locator or a run code."""
+    return (
+        any(
+            p.search(text)
+            for p in (
+                _FILE_REFERENCE,
+                _ADDRESS_REFERENCE,
+                _LONG_HASH,
+                _REGISTER_ID,
+                _GAP_ID,
+            )
+        )
+        or _parenthesized_gap(text)
+        or bool(_REGISTER_CODE_IN_TEXT.search(text))
+        or _page_citation(text)
+        or bool(_RUN_CODE.search(text))
+    )
+
+
+def without_references(text: str) -> str:
+    """What a cell says besides its sources: its sentences that cite none, in order. Empty when
+    every sentence cites."""
+    parts = _SENTENCE_BREAK.split(text)
+    return " ".join(part for part in parts if not contains_reference(part)).strip()
+
+
+def drawn_text(text: str, names: Mapping[str, str]) -> str:
+    """Copied module text as the reader sheets draw it: the cell's own words without any source
+    reference, module codes as module names; `SOURCE_REFERENCE` when no words are left."""
+    if not contains_reference(text):
+        return reader_text(text, names)
+    words = without_references(text)
+    return reader_text(words, names) if words else SOURCE_REFERENCE
+
+
 # --- The data model -----------------------------------------------------------------------------
 
 
@@ -545,7 +649,7 @@ class _Maker:
         computed and `written` keeps the exact text for Sources."""
         if not text.strip():
             return self._cell(row, column, GAP, NOT_IN_HANDOFF, at)
-        shown = reader_text(text, self.names)
+        shown = drawn_text(text, self.names)
         if shown != text:
             cell = self._cell(row, column, COMPUTED, shown, at)
             return replace(cell, basis=basis, written=text if cell.kind == COMPUTED else None)
