@@ -142,6 +142,170 @@ def test_synthetic_add_back_amount_is_shown_with_a_linkage_gap(full):
     assert status.font.italic and status.data_type == "s"
 
 
+def test_synthetic_add_back_ids_drive_snapshot_and_model_classification_and_totals():
+    cp1 = b"""### Chart data: EBITDA bridge
+
+| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |
+|---|---:|---|---|---|
+| Reported EBITDA | 100 | Not applicable | USD millions | Opening EBITDA. |
+| Other label one | 20 | AB-1 | USD millions | Signed adjustment. |
+| Different description | 30 | AB-2 | USD millions | Signed adjustment. |
+| Negative adjustment | -5 | AB-3 | USD millions | Signed adjustment. |
+| EBITDA As Defined | 145 | Not applicable | USD millions | Closing EBITDA. |
+"""
+    cp1d = b"""### T1D.1 Add-Back Register
+
+| Add-Back ID | Description | Amount | Reporting unit |
+|---|---|---:|---|
+| AB-1 | Description does not match bridge | 20 | USD millions |
+| AB-2 | Another CP-1D description | 30 | USD millions |
+| AB-3 | Negative claimed adjustment | -5 | USD millions |
+
+### T1D.2 Achievability Assessment
+
+| Add-Back ID | Run-Rate Claimed | Realized To Date | Assessment | Reporting unit |
+|---|---:|---:|---|---|
+| AB-1 | 20 | 20 | Supported | USD millions |
+| AB-2 | 30 | 10 | Challenged | USD millions |
+| AB-3 | -5 | -2 | Challenged | USD millions |
+"""
+    snapshot = snap.gather(
+        snap.SnapshotRun(
+            issuer="Northbridge Holdings plc",
+            as_of="2026-03-31",
+            pathway="credit_snapshot",
+            run_id="northbridge-2026-03-31-credit_snapshot",
+            handoffs={"CP-1": cp1, "CP-1D": cp1d},
+            context=None,
+            references=(),
+        )
+    )
+    book = load_workbook(io.BytesIO(writer.workbook_bytes(snapshot)))
+    for sheet, column in (("Snapshot", "Classification"), ("Model", "Add-back status")):
+        assert (
+            cell_of(
+                book, block="EBITDA bridge", row="Different description", column=column, sheet=sheet
+            ).value
+            == "unrealised"
+        )
+        assert (
+            cell_of(
+                book, block="EBITDA bridge", row="Negative adjustment", column=column, sheet=sheet
+            ).value
+            == "realised"
+        )
+        assert (
+            cell_of(
+                book, block="EBITDA bridge", row="Reported EBITDA", column=column, sheet=sheet
+            ).value
+            == "not applicable"
+        )
+        assert (
+            cell_of(
+                book,
+                block="EBITDA bridge",
+                row="Structuring EBITDA",
+                column="Value" if sheet == "Snapshot" else "Bridge",
+                sheet=sheet,
+            ).value
+            == 145
+        )
+        assert (
+            cell_of(
+                book,
+                block="EBITDA bridge",
+                row="House EBITDA",
+                column="Value" if sheet == "Snapshot" else "Bridge",
+                sheet=sheet,
+            ).value
+            == 115
+        )
+        assert (
+            cell_of(
+                book,
+                block="EBITDA bridge",
+                row="Less unrealised add-backs",
+                column="Value" if sheet == "Snapshot" else "Bridge",
+                sheet=sheet,
+            ).value
+            == -30
+        )
+        assert (
+            cell_of(
+                book,
+                block="EBITDA bridge",
+                row="Negative adjustment",
+                column=column,
+                sheet=sheet,
+            ).value
+            == "realised"
+        )
+    source = listed(
+        book,
+        "EBITDA bridge",
+        sheet="Snapshot",
+        row="Different description",
+        column="Classification",
+    )[0]
+    assert source["Module"] == "CP-1D"
+
+
+def test_tagged_period_addback_uses_cached_cp1d_id_map_without_chart_table():
+    cp1 = b"""### T4.14 Period Register
+
+| Period ID | Fiscal Year | Period Type | Start Date | End Date | Unit |
+|---|---:|---|---|---|---|
+| fy26 | 2026 | FY | 2026-01-01 | 2026-12-31 | USD millions |
+
+### EBITDA Adjustments
+<!-- table-id: T4.17 -->
+
+| Add-back label | Add-Back ID | Period ID | Value | Basis |
+|---|---|---|---:|---|
+| Special item | AB-7 | fy26 | 12 | filed |
+"""
+    cp1d = b"""### T1D.1 Add-Back Register
+
+| Add-Back ID | Description | Amount | Reporting unit |
+|---|---|---:|---|
+| **AB-7** | Different description | 12 | USD millions |
+
+### T1D.2 Achievability Assessment
+
+| Add-Back ID | Run-Rate Claimed | Realized To Date | Assessment | Reporting unit |
+|---|---:|---:|---|---|
+| `AB-7` | 12 | 12 | Supported | USD millions |
+"""
+    snapshot = snap.gather(
+        snap.SnapshotRun(
+            issuer="Northbridge Holdings plc",
+            as_of="2026-03-31",
+            pathway="credit_snapshot",
+            run_id="northbridge-2026-03-31-credit_snapshot",
+            handoffs={"CP-1": cp1, "CP-1D": cp1d},
+            context=None,
+            references=(),
+        )
+    )
+    book = load_workbook(io.BytesIO(writer.workbook_bytes(snapshot)))
+    status = cell_of(
+        book,
+        block="EBITDA adjustments",
+        row="Special item",
+        column="FY2026 linked realization",
+        sheet="Model",
+    )
+    assert status.value == "realised"
+    source = listed(
+        book,
+        "EBITDA adjustments",
+        sheet="Model",
+        row="Special item",
+        column="FY2026 linked realization",
+    )[0]
+    assert (source["Module"], source["Section"]) == ("CP-1D", "T1D.2 Achievability Assessment")
+
+
 def test_synthetic_pinned_model_json_is_copied_as_history_and_forecast_values(full):
     _, snapshot = full
     forecast = {
@@ -834,7 +998,7 @@ def test_synthetic_t416_t417_period_ids_use_t414_and_keep_status_gaps(full):
         sheet="Model",
     )
     assert (segment.value, adjustment.value) == (3941, 20)
-    assert realized.value == snap.NEEDS_ADD_BACK_IDS
+    assert realized.value == snap.UNCLASSIFIED
 
 
 def test_retained_tdg_bridge_endpoints_keep_their_reported_status(tmp_path):

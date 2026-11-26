@@ -994,6 +994,117 @@ def test_sources_rows_are_of_known_kinds_and_one_per_cell(built, tmp_path):
     assert max(Counter((r["Sheet"], r["Cell"]) for r in opened.on_sheets()).values()) == 1
 
 
+@pytest.mark.parametrize(
+    "conflict", ["row", "column", "currency", "relative_unit", "unitless_assessment"]
+)
+def test_tagged_adjustments_keep_written_amount_when_linkage_is_unresolved(conflict):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, one period and no chart bridge."""
+    from deploy_workflow import credit_snapshot as snapshot
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    cp1 = """# Northbridge Holdings plc
+## Findings
+### T4.14 Model Period Register
+
+| period_id | fiscal_year | period_type | start_date | end_date | currency | unit |
+| --- | --- | --- | --- | --- | --- | --- |
+| annual | 2025 | FY | 2025-01-01 | 2025-12-31 | USD | millions |
+
+### T4.17 Adjusted EBITDA Bridge
+
+"""
+    if conflict == "row":
+        tag = """| Add-Back ID | addback_label | period_id | value |
+| --- | --- | --- | --- |
+| AB-1 | Savings A | annual | 20 |
+| **AB-1** | Savings B | annual | 30 |
+| `AB-2` | Control | annual | 15 |
+| AB-3 | Evidence gap | annual | 8 |
+"""
+        expected = {
+            "Savings A": (20, "unclassified", "CP-1"),
+            "Savings B": (30, "unclassified", "CP-1"),
+            "Control": (15, "realised", "CP-1D"),
+            "Evidence gap": (8, "unclassified", "CP-1D"),
+        }
+    elif conflict == "column":
+        tag = """| Add-Back ID | **Add-Back ID** | addback_label | period_id | value |
+| --- | --- | --- | --- | --- |
+| AB-1 | AB-2 | Savings A | annual | 20 |
+"""
+        expected = {"Savings A": (20, "unclassified", "CP-1")}
+    else:
+        tag = """| Add-Back ID | addback_label | period_id | value |
+| --- | --- | --- | --- |
+| AB-1 | Savings A | annual | 20 |
+"""
+        expected = {"Savings A": (20, "unclassified", "CP-1D")}
+    cp1d = b"""# Northbridge Holdings plc
+## Findings
+### T1D.1 Add-Back Register
+
+| Add-Back ID | Description |
+| --- | --- |
+| AB-1 | A different source label |
+| AB-2 | Another source label |
+| AB-3 | Evidence gap |
+
+### T1D.2 Achievability Assessment
+
+| Add-Back ID | Run-Rate Claimed | Realized To Date | Assessment |
+| --- | --- | --- | --- |
+| AB-1 | 20 | 20 | Supported |
+| AB-2 | 15 | 15 | Supported |
+| AB-3 | 8 | 8 | Insufficient Information |
+"""
+    if conflict in {"currency", "relative_unit"}:
+        cp1d = (
+            cp1d.split(b"### T1D.2")[0]
+            + b"""### T1D.2 Achievability Assessment
+
+| Add-Back ID | Run-Rate Claimed | Realized To Date | Assessment | Reporting unit |
+| --- | --- | --- | --- | --- |
+| AB-1 | 20 | 20 | Supported | GBP millions |
+"""
+        )
+    if conflict in {"relative_unit", "unitless_assessment"}:
+        cp1 = cp1.replace("| USD | millions |", "| USD | millions per share |")
+    if conflict == "relative_unit":
+        cp1d = cp1d.replace(b"GBP millions", b"USD millions")
+    run = snapshot.SnapshotRun(
+        issuer="Northbridge Holdings plc",
+        as_of="2026-03-31",
+        pathway="credit_snapshot",
+        run_id="synthetic-tagged-duplicate",
+        handoffs={"CP-1": (cp1 + tag).encode(), "CP-1D": cp1d},
+        context=None,
+        references=(),
+    )
+    book = load_workbook(BytesIO(writer.workbook_bytes(snapshot.gather(run))))
+    model = book["Model"]
+    entries = iter(book["Sources"].values)
+    fields = next(entries)
+    source_rows = tuple(entries)
+    assert not any(
+        (raw[0], raw[3], raw[5]) == ("Sources", "EBITDA adjustments", "As written")
+        for raw in source_rows
+    )
+    got = {
+        (raw[4], raw[5]): dict(zip(fields, raw, strict=True))
+        for raw in source_rows
+        if (raw[0], raw[3]) == ("Model", "EBITDA adjustments")
+    }
+    for label, (value, status, module) in expected.items():
+        written = got[label, "FY2025"]
+        linked = got[label, "FY2025 linked realization"]
+        assert model[written["Cell"]].value == value
+        assert model[linked["Cell"]].value == status
+        assert linked["Module"] == module
+        if module == "CP-1D":
+            assert linked["Section"] == "T1D.2 Achievability Assessment"
+            assert linked["Handoff sha256"] == cs.sha256(cp1d)
+
+
 def check_rv_row(opened, row: dict) -> None:
     """A cell copied from a supplied RV worksheet: Section is the file, Line the 1-based row of the
     sheet, Column the header; the text is that cell read with the stdlib `csv` module."""

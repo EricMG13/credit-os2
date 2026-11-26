@@ -38,7 +38,7 @@ import logging
 import math
 import re
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal, localcontext
 from typing import Any
@@ -803,9 +803,7 @@ def _blocks(snapshot: snap.Snapshot) -> dict[tuple[str, str], snap.Block]:
     additions = _model_output_cells(snapshot)
     bridge = found.get((SNAPSHOT, "EBITDA bridge"))
     if bridge is not None:
-        found[MODEL, BRIDGE] = snap.Block(
-            MODEL, BRIDGE, tuple(_model_bridge_cells(snapshot, bridge))
-        )
+        found[MODEL, BRIDGE] = snap.Block(MODEL, BRIDGE, tuple(_model_bridge_cells(bridge)))
     financials = found.get((MODEL, FINANCIALS))
     if additions or financials is not None:
         found[MODEL, FINANCIALS] = snap.Block(
@@ -960,7 +958,9 @@ def _model_handoff_blocks(snapshot: snap.Snapshot) -> dict[tuple[str, str], snap
             blocks[MODEL, name] = _model_table_gap(name, str(error))
             continue
         cells = (
-            _model_period_register_cells(doc, table, ident, name)
+            _model_period_register_cells(doc, table, ident, name, snapshot.bridge_classifications)
+            if ident == "T4.17" and "periodid" in {_clean_label(header) for header in table.headers}
+            else _model_period_register_cells(doc, table, ident, name)
             if "periodid" in {_clean_label(header) for header in table.headers}
             else _period_table_cells(table, name)
         )
@@ -1309,11 +1309,17 @@ def _period_table_cells(table: Any, name: str) -> list[snap.SnapshotCell]:
 
 
 def _model_period_register_cells(
-    doc: Any, table: Any, ident: str, name: str
+    doc: snap._Doc,
+    table: snap._Table,
+    ident: str,
+    name: str,
+    classifications: Mapping[str, snap._BridgeClassification] | None = None,
 ) -> list[snap.SnapshotCell]:
     if len(table.headers) > 200 or len(table.rows) > 500:
         return []
-    indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
+    headers = [_clean_label(header) for header in table.headers]
+    header_counts = Counter(headers)
+    indexes = {column: index for index, column in enumerate(headers) if header_counts[column] == 1}
     if ident == "T4.16":
         label_field, value_field = "segmentname", "revenue"
     else:
@@ -1321,15 +1327,22 @@ def _model_period_register_cells(
     if any(field not in indexes for field in (label_field, "periodid", value_field)):
         return []
     periods = _period_register(doc)
+    context = _RegisterContext(
+        table,
+        indexes,
+        ident,
+        name,
+        classifications or {},
+        _tagged_id_counts(table, indexes, periods) if ident == "T4.17" else Counter(),
+        header_counts["addbackid"] > 1,
+    )
     cells: list[snap.SnapshotCell] = []
     dates_seen: set[str] = set()
     units_seen: set[str] = set()
     for row in table.rows:
-        if max(indexes[label_field], indexes["periodid"], indexes[value_field]) >= len(row.cells):
-            continue
-        label = row.cells[indexes[label_field]].strip()
-        period_id = row.cells[indexes["periodid"]].strip()
-        value = row.cells[indexes[value_field]].strip()
+        label, period_id, value = (
+            _period_field(row, indexes, key) for key in (label_field, "periodid", value_field)
+        )
         if not label or not period_id:
             continue
         registered = periods.get(period_id)
@@ -1367,6 +1380,8 @@ def _model_period_register_cells(
                     row.line,
                 )
             )
+        if ident == "T4.17":
+            cells.append(_tagged_bridge_status(row, label, registered, context))
         if period not in dates_seen:
             cells.extend(_registered_dates(registered, name))
             dates_seen.add(period)
@@ -1383,9 +1398,7 @@ def _model_period_register_cells(
                 )
             )
             units_seen.add(label)
-        _append_register_context(
-            cells, row, label, period, _RegisterContext(table, indexes, ident, name)
-        )
+        _append_register_context(cells, row, label, period, context)
     return cells
 
 
@@ -1492,10 +1505,59 @@ def _period_label(period_id: str, year: str, quarter: str, kind: str, end: str) 
 
 @dataclass(frozen=True)
 class _RegisterContext:
-    table: Any
+    table: snap._Table
     indexes: dict[str, int]
     ident: str
     block: str
+    classifications: Mapping[str, snap._BridgeClassification]
+    id_counts: Counter[tuple[str, str]]
+    ambiguous_id_columns: bool
+
+
+def _tagged_id_counts(
+    table: snap._Table, indexes: dict[str, int], periods: dict[str, _RegisteredPeriod]
+) -> Counter[tuple[str, str]]:
+    counts: Counter[tuple[str, str]] = Counter()
+    if "addbackid" not in indexes:
+        return counts
+    for row in table.rows:
+        period = periods.get(_period_field(row, indexes, "periodid"))
+        key = snap._add_back_id_text(_period_field(row, indexes, "addbackid"))
+        if period is not None and key:
+            counts[period.label, key] += 1
+    return counts
+
+
+def _tagged_bridge_status(
+    row: snap._Row, label: str, period: _RegisteredPeriod, context: _RegisterContext
+) -> snap.SnapshotCell:
+    raw_key = _period_field(row, context.indexes, "addbackid")
+    key = snap._add_back_id_text(raw_key)
+    classification = (
+        context.classifications.get(key) if context.id_counts[period.label, key] == 1 else None
+    )
+    at = context.table.at(row.line)
+    text = snap.UNCLASSIFIED if key or context.ambiguous_id_columns else snap.NEEDS_ADD_BACK_IDS
+    reason = "Conflicting Add-Back ID columns" if context.ambiguous_id_columns else None
+    if classification is not None:
+        at = classification.at or at
+        if snap._comparable_bridge_unit(period.unit, classification.unit):
+            text = classification.value
+        else:
+            reason = "The bridge and assessment reporting units cannot be compared."
+    kind = snap.COMPUTED if text in {"realised", "unrealised"} else snap.GAP
+    return snap.SnapshotCell(
+        MODEL,
+        context.block,
+        label,
+        f"{period.label} linked realization",
+        kind,
+        text,
+        at.module,
+        at.section,
+        at.line,
+        written=reason,
+    )
 
 
 def _append_register_context(
@@ -1546,20 +1608,6 @@ def _append_register_context(
                     row.line,
                 )
             )
-        cells.append(
-            snap.SnapshotCell(
-                MODEL,
-                context.block,
-                label,
-                f"{period} linked realization",
-                snap.GAP,
-                snap.NEEDS_ADD_BACK_IDS,
-                table.module,
-                table.section,
-                row.line,
-                written="CP-1D Add-Back ID linkage is reserved for PR 4c.",
-            )
-        )
 
 
 def _clean_label(text: str) -> str:
@@ -1717,69 +1765,22 @@ def _dated_debt_terms(
     return cells
 
 
-def _model_bridge_cells(snapshot: snap.Snapshot, bridge: snap.Block) -> list[snap.SnapshotCell]:
-    """Show bridge amounts, while withholding classifications until the Add-Back ID join exists."""
-    preserved = _same_source_bridge_endpoints(snapshot)
+def _model_bridge_cells(bridge: snap.Block) -> list[snap.SnapshotCell]:
+    """Reuse the gathered Snapshot bridge facts on the Model sheet."""
     result = []
     for cell in bridge.cells:
-        if cell.column == "Amount":
-            result.append(replace(cell, sheet=MODEL, block=BRIDGE, column="Bridge"))
-        elif cell.column == "Reporting unit":
-            result.append(replace(cell, sheet=MODEL, block=BRIDGE, column="Unit"))
-        elif (
-            cell.column == "Classification"
-            and cell.row not in preserved
-            and not _bridge_endpoint(cell.row)
+        if cell.column in {"Amount", "Reporting unit"}:
+            column = "Bridge" if cell.column == "Amount" else "Unit"
+            result.append(replace(cell, sheet=MODEL, block=BRIDGE, column=column))
+        elif cell.column == "Classification" or (
+            cell.column == "Value"
+            and cell.row in {"Structuring EBITDA", "Less unrealised add-backs", "House EBITDA"}
         ):
-            result.append(
-                replace(
-                    cell,
-                    sheet=MODEL,
-                    block=BRIDGE,
-                    column="Add-back status",
-                    kind=snap.GAP,
-                    text=snap.NEEDS_ADD_BACK_IDS,
-                    written="CP-1D Add-Back ID linkage is reserved for PR 4c.",
-                )
-            )
+            column = "Add-back status" if cell.column == "Classification" else "Bridge"
+            result.append(replace(cell, sheet=MODEL, block=BRIDGE, column=column))
         elif cell.kind == snap.GAP:
             result.append(replace(cell, sheet=MODEL, block=BRIDGE, column="Bridge"))
     return result
-
-
-def _bridge_endpoint(label: str) -> bool:
-    return _clean_label(label) in {
-        "reportedebitda",
-        "ebitdareported",
-        "adjustedebitda",
-        "ebitdaadjusted",
-        "issueradjustedebitda",
-        "ebitdaasdefined",
-    }
-
-
-def _same_source_bridge_endpoints(snapshot: snap.Snapshot) -> set[str]:
-    raw = snapshot.model_handoffs.get("CP-1")
-    if raw is None:
-        return set()
-    doc = snap._doc("CP-1", raw)
-    try:
-        table = doc.heading_table("Chart data: EBITDA bridge")
-    except (snap._Absent, ValueError):
-        return set()
-    indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
-    step_index = indexes.get("step")
-    basis_index = indexes.get("basisandlimitation")
-    if step_index is None or basis_index is None:
-        return set()
-    endpoints = set()
-    for row in table.rows:
-        if max(step_index, basis_index) >= len(row.cells):
-            continue
-        step, basis = row.cells[step_index].strip(), row.cells[basis_index].strip().casefold()
-        if step and basis.startswith(("opening:", "closing:")):
-            endpoints.add(step)
-    return endpoints
 
 
 def _metric_name(key: str) -> str:

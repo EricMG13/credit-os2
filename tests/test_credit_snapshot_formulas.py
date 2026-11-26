@@ -988,11 +988,11 @@ def test_with_no_readable_instrument_every_portfolio_result_is_blank_never_n_a(t
     is. The result is `=""`, so the gap on Inputs stays the visible fact."""
     handoffs = dict(cs.CASES["full"].handoffs)
     text = handoffs["CP-1"].read_text(encoding="utf-8")
-    old = "| Instrument | Type | Carrying Value |"
+    old = "| Instrument | Type | Asset type | Carrying Value |"
     assert old in text
     handoffs["CP-1"] = tmp_path / "CP-1.md"
     handoffs["CP-1"].write_text(
-        text.replace(old, "| Facility | Type | Carrying Value |", 1), "utf-8"
+        text.replace(old, "| Facility | Type | Asset type | Carrying Value |", 1), "utf-8"
     )
     built = cs.build_case(tmp_path / "ws", replace(cs.CASES["full"], handoffs=handoffs))
     shot = snap.gather(snap.load_run(built.folder, built.stores.both()))
