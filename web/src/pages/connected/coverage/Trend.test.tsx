@@ -456,7 +456,7 @@ describe("TrendView scale and labels", () => {
  * jsdom cannot measure text, so the component lays out with its estimate of 0.6em a character;
  * where labels fall is tested on the pure layout (trendLayout.test.ts) and in a real browser.
  */
-function unread(el: Element): string[] {
+function unread(el: Element, kind: "money" | "x" = "x"): string[] {
   const shown = [...el.querySelectorAll("text[data-period-label]")].map((t) => t.textContent);
   const drawn = [...el.querySelectorAll("text[data-label]")].map((t) => t.textContent);
   const written = el.querySelector("[data-written]")?.textContent ?? "";
@@ -465,12 +465,13 @@ function unread(el: Element): string[] {
   return ends.flatMap((dot) => {
     const period = dot?.getAttribute("data-period") ?? "";
     const value = dot?.getAttribute("data-value") ?? "";
-    // A money figure is drawn with its symbol before it and no regrouping: "$1,250.00m", "-$1,010.00m".
-    const money = value.startsWith("-") ? `-$${value.slice(1)}m` : `$${value}m`;
-    const forms = [value, money];
-    const label = drawn.find((text) => forms.some((form) => text.startsWith(form)));
+    // A US$m figure is drawn with its symbol before it and no regrouping: "$1,250.00m", "-$1,010.00m";
+    // an x figure is drawn bare. Only the ruled form of the case's own kind counts as read.
+    const form =
+      kind === "x" ? value : value.startsWith("-") ? `-$${value.slice(1)}m` : `$${value}m`;
+    const label = drawn.find((text) => text.startsWith(form));
     const onPlot = label !== undefined && (shown.includes(period) || label.includes(period));
-    const inWritten = forms.some((form) => written.includes(`${period} ${form}`));
+    const inWritten = written.includes(`${period} ${form}`);
     return onPlot || inWritten ? [] : [`${period} ${value}`];
   });
 }
@@ -514,9 +515,13 @@ describe("TrendView period ticks and the written line", () => {
   });
 
   it("writes under the panel every end figure not drawn on the plot", () => {
-    const cases: [Fact[], string][] = [
-      [[money("a", "FY2024", "900.00"), money("a", "FY2025", "1,250.00")], "two long figures"],
-      [[money("a", "FY2025", "1,250,000.00")], "one long figure"],
+    const cases: [Fact[], string, "money" | "x"][] = [
+      [
+        [money("a", "FY2024", "900.00"), money("a", "FY2025", "1,250.00")],
+        "two long figures",
+        "money",
+      ],
+      [[money("a", "FY2025", "1,250,000.00")], "one long figure", "money"],
       [
         [
           money("a", "FY2023", "-1,010.00"),
@@ -525,12 +530,13 @@ describe("TrendView period ticks and the written line", () => {
           money("a", "FY2026", "110.00"),
         ],
         "a negative line",
+        "money",
       ],
-      [LTM.map((p, i) => stated("a", p, i === 3 ? "1,500,000.00" : "-0.40", "x")), "a spike"],
+      [LTM.map((p, i) => stated("a", p, i === 3 ? "1,500,000.00" : "-0.40", "x")), "a spike", "x"],
     ];
-    for (const [facts, what] of cases) {
+    for (const [facts, what, kind] of cases) {
       const shown = view(facts, one("a", "Alpha plc"));
-      expect({ what, unread: unread(panel("Alpha plc")) }).toEqual({ what, unread: [] });
+      expect({ what, unread: unread(panel("Alpha plc"), kind) }).toEqual({ what, unread: [] });
       shown.unmount();
     }
   });

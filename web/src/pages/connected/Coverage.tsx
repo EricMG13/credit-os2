@@ -28,7 +28,7 @@ import { card, field as control, label } from "./layout";
 import { useCanStart } from "./startAction";
 import { Chip, ChipGroup, RemovableChip } from "@/components/kit/Chip";
 import { boundUnit, unitName } from "./coverage/boundUnit";
-import { unitLabel } from "./moneyUnits";
+import { unitLabel, writtenUnit } from "./moneyUnits";
 import { Choice, FieldOptions } from "./coverage/Controls";
 import { FindView } from "./coverage/Find";
 import { IssuerDetail } from "./coverage/IssuerDetail";
@@ -269,11 +269,15 @@ function Dashboard({ data: served }: { data: Data }) {
     </Choice>
   );
   // A bound reads one figure at one period in one unit, shown as a chip on every view that applies it.
-  const unitMark = (unit: string) =>
-    unit === "x" || unit === "%" ? unit : unit === "" ? " (no unit stated)" : ` ${unitLabel(unit)}`;
+  const boundMark = (text: string) =>
+    bound.unit === null
+      ? text
+      : bound.unit === ""
+        ? `${text} (no unit stated)`
+        : writtenUnit(text, bound.unit);
   const boundText =
     field && period !== null && applied
-      ? `${field.label} ${[low.value !== null && `≥ ${filters.min.trim()}${bound.unit === null ? "" : unitMark(bound.unit)}`, high.value !== null && `≤ ${filters.max.trim()}${bound.unit === null ? "" : unitMark(bound.unit)}`].filter(Boolean).join(", ")} · ${period}`
+      ? `${field.label} ${[low.value !== null && `≥ ${boundMark(filters.min.trim())}`, high.value !== null && `≤ ${boundMark(filters.max.trim())}`].filter(Boolean).join(", ")} · ${period}`
       : null;
   const badBounds = (["min", "max"] as const).filter((side) => readBound(filters[side]).invalid);
   const heading =

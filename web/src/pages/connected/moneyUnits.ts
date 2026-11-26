@@ -1,4 +1,22 @@
-const moneyUnit = /^(USD|US\$|[A-Z]{3})(?: millions|m)$/;
+const moneyUnitSource = "(USD|US\\$|[A-Z]{3})(?: millions|m)";
+const moneyUnit = new RegExp(`^${moneyUnitSource}$`);
+const endsInMoneyUnit = new RegExp(`^(.+) (${moneyUnitSource})$`);
+
+/** Splits a text ending in a money unit ("200 US$m") into its amount and that unit. */
+export function splitMoneyUnit(text: string) {
+  const match = endsInMoneyUnit.exec(text);
+  return match ? { amount: match[1] ?? "", unit: match[2] ?? "" } : null;
+}
+
+/** The symbol before the figure, a space between only when the symbol ends in a letter ("CHF 5m"). */
+const symbolFigure = (sign: string, code: string, figure: string) => {
+  const symbol = currencySymbol(code);
+  return `${sign}${symbol}${/\p{L}$/u.test(symbol) ? " " : ""}${figure}m`;
+};
+
+/** A figure with a unit that is not money: "x" and "%" stay attached, any other unit follows a space. */
+const plainUnit = (value: string, unit?: string | null) =>
+  unit ? `${value}${/^[x%]$/.test(unit) ? "" : " "}${unit}` : value;
 const currencySymbol = (code: string) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -21,11 +39,9 @@ export function withUnit(value: string | number, unit?: string | null) {
     const integer = plain.replace(/,/g, "");
     const grouped = integer.replace(/\B(?=(\d{3})+$)/g, ",");
     const sign = text.startsWith("-") ? "-" : "";
-    const symbol = currencySymbol(code);
-    const gap = /\p{L}$/u.test(symbol) ? " " : "";
-    return `${sign}${symbol}${gap}${grouped}${fraction === undefined ? "" : `.${fraction}`}m`;
+    return symbolFigure(sign, code, `${grouped}${fraction === undefined ? "" : `.${fraction}`}`);
   }
-  return unit ? `${String(value)}${/^[x%]$/.test(unit) ? "" : " "}${unit}` : String(value);
+  return plainUnit(String(value), unit);
 }
 
 /**
@@ -35,11 +51,9 @@ export function withUnit(value: string | number, unit?: string | null) {
  */
 export function writtenUnit(text: string, unit?: string | null) {
   const code = unit ? moneyUnit.exec(unit)?.[1] : undefined;
-  if (!code) return unit ? `${text}${/^[x%]$/.test(unit) ? "" : " "}${unit}` : text;
+  if (!code) return plainUnit(text, unit);
   const bare = /^([-−]?)(\d+|\d{1,3}(?:,\d{3})+)(\.\d+)?$/.exec(text);
   if (!bare) return `${text} ${unitLabel(unit ?? "")}`;
   const [, sign = "", digits = "", fraction = ""] = bare;
-  const symbol = currencySymbol(code);
-  const gap = /\p{L}$/u.test(symbol) ? " " : "";
-  return `${sign}${symbol}${gap}${digits}${fraction}m`;
+  return symbolFigure(sign, code, `${digits}${fraction}`);
 }

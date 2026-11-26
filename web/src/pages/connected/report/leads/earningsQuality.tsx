@@ -15,6 +15,7 @@ import {
   type WaterfallRow,
 } from "./kit/marks";
 import { group } from "./kit/numbers";
+import { splitMoneyUnit } from "../../moneyUnits";
 import { unitLabel, writtenUnit } from "../../publishedReport";
 import { UnreadFigures } from "./kit/UnreadFigures";
 import type { Lead, LeadProps } from "./types";
@@ -108,10 +109,10 @@ function splitLegend(bridge: Bridge): LegendEntry[] {
 }
 
 /** A stated step's amount with the money unit it ends in drawn as the currency's symbol ("$200m"). */
-const statedUnit = (text: string) =>
-  text.replace(/^(.+) ((?:USD|US\$|[A-Z]{3})(?: millions|m))$/, (_, amount: string, unit: string) =>
-    writtenUnit(amount, unit),
-  );
+const statedUnit = (text: string) => {
+  const split = splitMoneyUnit(text);
+  return split ? writtenUnit(split.amount, split.unit) : text;
+};
 
 function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
   const unit = unitLabel(bridge.unit);

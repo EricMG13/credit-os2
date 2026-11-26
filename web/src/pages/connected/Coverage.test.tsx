@@ -422,7 +422,7 @@ test("a bound never removes an issuer stated in another unit: it stays, listed a
     screen.getByText("8 of 9 issuers shown · 7 compared, 1 not compared (another unit)"),
   ).toBeInTheDocument();
   expect(screen.getByText(/Not compared, stated in another unit: I \(€m\)\./)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Remove filter .*≥ 1 \$m · FY2025/ })).toBeVisible();
+  expect(screen.getByRole("button", { name: /Remove filter .*≥ \$1m · FY2025/ })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Rank" }));
   expect(screen.getByRole("list", { name: /reporting unit €m/ })).toBeVisible();
   expect(
