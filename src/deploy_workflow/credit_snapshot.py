@@ -149,7 +149,8 @@ _FLAGS = re.IGNORECASE | re.ASCII
 _FILE_EXTENSIONS = "jsonl?|x?html?|xml|pdf|docx?|xlsx?|xlsm|csv|tsv|pptx?|txt|md|zip"
 # A file name ahead before the next ";", ",", "|" or line end: the code belongs to a stored name.
 _FILE_AHEAD = re.compile(rf"[^;,|\n]*\.(?:{_FILE_EXTENSIONS})\b", _FLAGS)
-# A standalone run of module codes ("CP-1" or "CP-1/CP-2"): nothing path-like or word-like touches it.
+# A standalone run of module codes ("CP-1" or "CP-1/CP-2"): nothing path-like or word-like
+# touches it.
 _STANDALONE_CODES = re.compile(
     r"(?<![\w\-\\/.])CP-[A-Z0-9]+(?:/CP-[A-Z0-9]+)*(?![\w\-\\/])(?!\.[A-Za-z])", _FLAGS
 )

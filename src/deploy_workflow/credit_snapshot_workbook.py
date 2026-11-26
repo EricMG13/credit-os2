@@ -915,8 +915,8 @@ class _Book:
         self, number: int, item: snap.SnapshotCell, column: str, text: str | None
     ) -> list[Any]:
         """A scorecard or assessment row's own Basis cell, its value as the handoff wrote it
-        (`**5**`), or the reason a gap could not be read, exactly (the comment, when it is clean, repeats the Basis): on Sources only,
-        traced to its row's handoff line."""
+        (`**5**`), or the reason a gap could not be read, exactly (the comment, when it is clean,
+        repeats the Basis): on Sources only, traced to its row's handoff line."""
         module = item.module
         return [
             *(SOURCES, f"{_utils.get_column_letter(TEXT_COLUMN)}{number}", snap.COPIED),

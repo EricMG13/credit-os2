@@ -1890,8 +1890,15 @@ def with_pro_forma(*rows):
     return full(**{"CP-1": FIXTURE["CP-1"] + "\n".join([*table, *rows, ""])})
 
 
-REPORTED = "| 2026-03-31 | 70.0 | cash interest | 351.2 | 5.02 | GBP millions | Reported EBITDA; the press release. |"
-ADJUSTED = "| 2026-03-31 | 70.0 | cash interest | 380.0 | 5.43 | GBP millions | Adjusted EBITDA; the press release. |"
+REPORTED = (
+    "| 2026-03-31 | 70.0 | cash interest | 351.2 | 5.02 | GBP millions "
+    "| Reported EBITDA; the press release. |"
+)
+ADJUSTED = (
+    "| 2026-03-31 | 70.0 | cash interest | 380.0 | 5.43 | GBP millions "
+    "| Adjusted EBITDA; the press release. |"
+)
+NOT_SUPPLIED = "Not supplied: no source states it"
 
 
 def pro_forma_cells(snapshot, label):
@@ -1918,8 +1925,11 @@ def test_the_reported_row_is_read_even_when_the_adjusted_row_comes_first():
 @pytest.mark.parametrize(
     "row",
     [
-        "| 2026-03-31 | Not supplied: no source states it | cash interest | 351.2 | Not supplied: no source states it | GBP millions | Reported EBITDA; none. |",
-        "| Not stated | Not stated | Not stated | Not stated | Not stated | Not stated | Reported EBITDA; none. |",
+        (
+            f"| 2026-03-31 | {NOT_SUPPLIED} | cash interest | 351.2 | {NOT_SUPPLIED} "
+            "| GBP millions | Reported EBITDA; none. |"
+        ),
+        "| " + " | ".join(["Not stated"] * 6) + " | Reported EBITDA; none. |",
     ],
 )
 def test_a_pro_forma_cell_that_states_no_figure_is_not_in_handoff(row):
@@ -1971,7 +1981,7 @@ def test_an_unreadable_dr_peer_table_names_research_questions():
 def test_a_repeated_label_is_numbered_until_it_is_a_label_the_block_does_not_hold():
     first = next(line for line in FIXTURE["CP-1"].split("\n") if line.startswith("| Term Loan B |"))
     renamed = first.replace("| Term Loan B |", "| Term Loan B (2) |", 1)
-    cp1 = FIXTURE["CP-1"].replace(first, "\n".join([first, renamed, first]), 1)
+    cp1 = FIXTURE["CP-1"].replace(first, f"{first}\n{renamed}\n{first}", 1)
     snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
     rows = list(dict.fromkeys(c.row for c in where(snapshot, "Capital structure")))
     assert rows[:4] == [
