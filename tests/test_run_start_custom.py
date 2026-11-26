@@ -366,6 +366,23 @@ def test_a_tampered_issued_cap_is_a_refusal(root):
         w.submit(sid, answers, str(got["digest"]))
 
 
+@pytest.mark.parametrize("entry", ["CP-8", "CP-L10"])
+def test_a_direct_submit_of_a_refused_list_gets_the_launchers_completion_text(root, entry):
+    lay = layout(root)
+    w = Scheduler(settings(root))
+    sid = submissions.new(lay)
+    (submissions.files_folder(lay, sid) / "a.txt").write_bytes(b"Net sales were 100.")
+    answers = submissions.validated(_http_answers(modules=[entry]))
+    shown = submissions.summary(lay, sid, answers)["error"]
+    with pytest.raises(Refused) as refused:
+        w.submit(sid, answers, "0" * 64)
+    assert shown.removeprefix("--modules: ") == str(refused.value)
+    assert "changed after approval" not in str(refused.value)
+    assert w.record_of_submission(sid) is None
+    assert not list(layout(root).drops.iterdir())
+    assert submissions.issued(lay, sid) == ""
+
+
 def test_a_preset_record_is_checked_against_the_table_as_before(root):
     w = Scheduler(settings(root))
     lay = layout(root)

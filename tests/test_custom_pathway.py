@@ -214,3 +214,4 @@ def test_a_custom_layout_meets_the_layout_conditions_the_delivery_sites_check(
     assert set(layout.blocks) <= set(preset.blocks)
     assert {r.module_id for r in layout.routes} <= set(custom.ordered)
     assert {r.block_id for r in layout.routes} == set(layout.blocks)
+    assert {r.module_id for r in layout.front} <= set(custom.ordered)

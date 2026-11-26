@@ -21,7 +21,7 @@ import re
 import sys
 import tempfile
 import textwrap
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -1070,6 +1070,34 @@ def _cap_differs(held: HandoffPlan | None, request: HandoffPlan) -> str:
     )
 
 
+def _custom_resume_advice(
+    held: HandoffPlan | None,
+    request: HandoffPlan,
+    cap_for: Callable[[frozenset[str]], int],
+    config: str,
+    ordered: Sequence[str],
+) -> str:
+    """Why a custom run folder's request differs when its cap is the cause: the effort flags it
+    was started with. A custom run's cap follows from them and never from ``--cap``, so the advice
+    names the flags: none, ``--balanced``, or the ``--high-modules`` it was given. ``cap_for`` is
+    the cap the estimate gives for the modules sent at high effort."""
+    if held is None or held.provider_cap_usd == request.provider_cap_usd:
+        return ""
+    options = (
+        (sent_at_high(config, (), ordered), "without --balanced or --high-modules"),
+        (sent_at_high(config, BALANCED_HIGH_MODULES, ordered), "with --balanced"),
+    )
+    advice = "with the --high-modules it was started with"
+    for high, words in options:
+        if Decimal(cap_for(high)) == held.provider_cap_usd:
+            advice = words
+            break
+    return (
+        f" (the folder was started at a cap of USD {held.provider_cap_usd}, which the effort "
+        f"flags it was started with give, not USD {request.provider_cap_usd}; resume it {advice})"
+    )
+
+
 class _Cp8DoesNotFit(Exception):
     """CP-8's first request would hold more than the cap; ``prepare`` plans the run without it."""
 
@@ -1406,6 +1434,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     )
     if request.provider_cap_usd < hold:
         raise LaunchRefused(f"--cap {cap}: one {config} call holds up to USD {hold:.2f}")
+    estimate_hold = hold
     if prior is not None:
         hold = max(
             hold,
@@ -1414,9 +1443,23 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     raw = request.model_dump_json(indent=2).encode()
     manifest = directory / "workflow.json"
     if manifest.exists() and manifest.read_bytes() != raw:
+        cap_advice = (
+            _custom_resume_advice(
+                held,
+                request,
+                lambda high: (
+                    cpos_custom.estimate(
+                        completion, compared=prior is not None, high=high, hold=estimate_hold
+                    ).cap
+                ),
+                config,
+                ordered,
+            )
+            if completion is not None
+            else _cap_differs(held, request)
+        )
         raise LaunchRefused(
-            f"--out {directory}: holds a different request{_cap_differs(held, request)}; "
-            "choose a new --out"
+            f"--out {directory}: holds a different request{cap_advice}; choose a new --out"
         )
     for relative, content in (*converted.items(), *earlier.items()):
         _put(directory / relative, content)

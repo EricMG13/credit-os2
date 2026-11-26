@@ -441,6 +441,66 @@ def test_prepare_launches_a_custom_run_at_the_answer_keys_cap(tmp_path, key):
     assert Decimal(json.loads(prepared.manifest.read_text())["provider_cap_usd"]) == Decimal(cap)
 
 
+def test_the_estimates_hold_is_quantized_to_the_cent_like_the_other_figures(tmp_path):
+    prepared = _prepared(tmp_path, ["CP-1A", "CP-2E"])
+    assert prepared.estimate is not None
+    assert str(prepared.estimate.hold) == "7.17"
+    done = cpos_custom.complete(["CP-4"], owned=_owned())
+    raw = cpos_custom.estimate(done, compared=False, high=frozenset(), hold=Decimal("7.170000"))
+    assert str(raw.hold) == "7.17"
+    assert raw.cap == cpos_custom.estimate(done, compared=False, high=frozenset(), hold=HOLD).cap
+
+
+def test_a_custom_folder_resumed_with_other_effort_flags_is_told_the_flags_not_a_cap(tmp_path):
+    kw = {"config": MEDIUM, "modules": ["CP-6"]}
+    context, sources, out = (
+        context_file(tmp_path, "custom"),
+        issuer_folder(tmp_path),
+        tmp_path / "o",
+    )
+    prepare(context, sources, out, cap=None, **kw)  # started with no effort flag: cap 12
+    with pytest.raises(LaunchRefused) as plain:
+        prepare(context, sources, out, cap=None, high_modules=tuple(BALANCED), **kw)
+    assert "started at a cap of USD 12" in str(plain.value)
+    assert "resume it without --balanced or --high-modules" in str(plain.value)
+    assert "--cap" not in str(plain.value)
+    out2 = tmp_path / "o2"
+    prepare(context, sources, out2, cap=None, high_modules=tuple(BALANCED), **kw)
+    with pytest.raises(LaunchRefused) as balanced:
+        prepare(context, sources, out2, cap=None, **kw)
+    assert "started at a cap of USD 13" in str(balanced.value)
+    assert "resume it with --balanced" in str(balanced.value)
+    assert "--cap" not in str(balanced.value)
+    out3 = tmp_path / "o3"
+    whole = {"config": MEDIUM, "modules": CHOSEN["full"]}  # every module at high: USD 23
+    prepare(context, sources, out3, cap=None, high_modules=tuple(CHOSEN["full"]), **whole)
+    with pytest.raises(LaunchRefused) as named:
+        prepare(context, sources, out3, cap=None, **whole)
+    assert "started at a cap of USD 23" in str(named.value)
+    assert "resume it with the --high-modules it was started with" in str(named.value)
+    assert "--cap" not in str(named.value)
+
+
+@pytest.mark.parametrize(
+    "entry", [*cpos_custom.NOT_CHOOSABLE, "CP-L20", "CP-L23", "CP-L30", "CP-L40"]
+)
+def test_a_refusal_is_in_reader_words_and_never_advises_a_refused_module(entry):
+    with pytest.raises(cpos_custom.CustomRefused) as raised:
+        cpos_custom.complete(["CP-4", entry], owned=_owned())
+    assert "CP-" not in str(raised.value)
+    assert "choose Short credit snapshot" not in str(raised.value)
+
+
+def test_the_phases_of_the_short_credit_snapshot_say_why_it_is_not_offered():
+    for alias in ("CP-L20", "CP-L23", "CP-L30", "CP-L40"):
+        with pytest.raises(cpos_custom.CustomRefused) as raised:
+            cpos_custom.complete([alias], owned=_owned())
+        assert str(raised.value) == (
+            "Short credit snapshot belongs to the credit screening and cannot be chosen here, "
+            "so neither can its phases."
+        )
+
+
 @pytest.mark.parametrize("config", [MEDIUM, HIGH])
 @pytest.mark.parametrize("research", [False, True])
 @pytest.mark.parametrize("earlier", [False, True])
@@ -513,8 +573,8 @@ def test_cp8_is_added_only_by_the_estimate_with_its_fixed_reason():
         ("CP-4A", "a phase of Legal & covenants"),
         ("CP-8", "planned automatically"),
         ("CP-L10", "credit screening"),
-        ("CP-MEMO", "CP-MEMO"),
-        ("CP-OS", "CP-OS"),
+        ("CP-MEMO", "The memo is replaced by the deliverables"),
+        ("CP-OS", "The run's orchestrator is not a module"),
         ("CP-NOPE", "CP-NOPE"),
     ],
 )
@@ -663,5 +723,7 @@ def test_the_readiness_print_has_a_line_per_module_and_the_sum_hold_and_cap(tmp_
         ("CP-2E", "0.66"),
     ):
         assert re.search(rf"^\s+{module}\s+.*{figure}", out, re.MULTILINE), module
-    assert re.search(r"^Estimate:\s+USD 1\.92 .*hold USD 7\.17.*cap USD 10", out, re.MULTILINE)
+    assert re.search(
+        r"^Estimate:\s+USD 1\.92 for \d+ modules, hold USD 7\.17, cap USD 10$", out, re.MULTILINE
+    )
     assert "Cap:      USD 10 " in out

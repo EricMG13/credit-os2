@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 import test_changes as seam
 from library_fixtures import (
+    FINDING_ROW,
     make_custom_run,
     make_run,
     method,
@@ -613,6 +614,49 @@ def test_the_changes_lead_of_a_custom_run_is_the_first_usable_module_as_overview
     tmp_path, modules, blocked, lead
 ):
     run = make_custom_run(tmp_path, "c", modules, answers={blocked: _not_assessable(blocked)})
+    without_report(run)
+    update_library.update_library(tmp_path)
+    assert changes_of(tmp_path, "c")["lead"] == lead
+
+
+def test_a_cp8_given_to_make_custom_run_reaches_the_run(tmp_path):
+    cp8 = new_format_handoff("CP-8", "The earlier run's view is unchanged.")
+    run = make_custom_run(tmp_path, "c", ("CP-0", "CP-1", "CP-8"), cp8=cp8)
+    written = [p.read_text() for p in run.glob("requests/CP-8/*/1.response.md")]
+    assert written == [cp8]
+
+
+def _bottom_line_second(module: str, summary_confidence: str | None = None) -> str:
+    """A handoff whose Bottom line is not the first ### under Findings: `pickLead` still reads it
+    (`readerPassages` takes any Bottom line under Findings); `blocked` then goes by the store's
+    state, which an earlier-format Reader summary's Confidence sets."""
+    table = (
+        "### Reader summary\n\n| Bottom line | Confidence | Main limitation |\n"
+        "| --- | --- | --- |\n"
+        f"| x | {summary_confidence} | y |\n\n"
+        "| Finding | Creditor impact | Confidence |\n| --- | --- | --- |\n"
+        f"{FINDING_ROW}\n\n"
+        if summary_confidence
+        else ""
+    )
+    return (
+        f"# {module} handoff\n\n## Request\nNorthbridge Synthetic Group, as of 2025-03-31.\n\n"
+        f"## Findings\n\n{table}### Key findings\n\nA finding.\n\n### Bottom line\n\n"
+        f"{module} view holds.\n\n### Limitations\n\nSynthetic.\n\n## Sources\n- fixture\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("confidence", "lead"),
+    [(None, "CP-2"), ("Medium", "CP-2"), ("Not assessable", "CP-1A")],
+)
+def test_a_bottom_line_that_is_not_the_first_h3_leads_as_the_overview_reads_it(
+    tmp_path, confidence, lead
+):
+    modules = ("CP-0", "CP-1", "CP-1A", "CP-2")
+    run = make_custom_run(
+        tmp_path, "c", modules, answers={"CP-2": _bottom_line_second("CP-2", confidence)}
+    )
     without_report(run)
     update_library.update_library(tmp_path)
     assert changes_of(tmp_path, "c")["lead"] == lead

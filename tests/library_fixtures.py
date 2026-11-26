@@ -443,6 +443,7 @@ def make_custom_run(workspace: Path, folder: str, modules: tuple[str, ...], **ch
     answers = {
         m: new_format_handoff(m, name=changes.get("issuer_name", "Northbridge Synthetic Group"))
         for m in modules
+        if not (m == "CP-8" and changes.get("cp8") is not None)  # `make_run` takes the given one
     }
     answers.update(changes.pop("answers", {}))
     return make_run(

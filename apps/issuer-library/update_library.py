@@ -274,22 +274,28 @@ def cp8_verdicts(
 
 def _usable(store: dict[str, Any], run: dict[str, Any], code: str) -> bool:
     """Whether the module's designated output can lead, as the Overview's `pickLead` and `blocked`
-    judge it (reader.js): a new-format handoff (its first `###` under Findings is the Bottom line)
-    whose Bottom line does not begin `Not assessable:`. Nothing else leads: a handoff in the
-    earlier format has no Bottom line passage, and no custom run can have been written in it."""
+    judge it (reader.js): it has a `### Bottom line` under `## Findings` (`readerPassages` takes
+    any, not only the first) and is not blocked. `blocked` reads a new-format handoff (its first
+    `###` under Findings is the Bottom line) by whether the Bottom line begins `Not assessable:`,
+    and any other by the store's own `state.established === false`."""
     output = store["outputs"].get(run["modules"].get(code, {}).get("default"))
     if output is None:
         return False
-    parent, first = "", None
+    h3: list[dict[str, Any]] = []
+    in_findings = False
     for section in store["handoffs"].get(output["sha256"], []):
-        if section["level"] <= 2:
-            parent = section["heading"] if section["level"] == 2 else ""
-        elif section["level"] == 3 and parent == "Findings":
-            first = section
-            break
-    if first is None or first["heading"] != "Bottom line":
+        if section["level"] == 2:
+            if in_findings:
+                break
+            in_findings = section["heading"] == "Findings"
+        elif section["level"] == 3 and in_findings:
+            h3.append(section)
+    bottom = next((s for s in h3 if s["heading"] == "Bottom line"), None)
+    if bottom is None:
         return False
-    text = next((b for b in first["blocks"] if b["type"] == "text"), None)
+    if h3[0] is not bottom:
+        return output.get("state", {}).get("established") is not False
+    text = next((b for b in bottom["blocks"] if b["type"] == "text"), None)
     return text is None or not text["text"].startswith("Not assessable:")
 
 

@@ -4788,3 +4788,21 @@ def test_two_runs_on_the_adjusted_names_compare_as_one_measure():
         "yes",
         "-0.54",
     )
+
+
+def test_the_custom_lead_exclusion_list_is_the_same_in_python_the_reader_and_the_report_view():
+    """The list is written in `changes.py`, `reader.js` and `reportView.ts` (ruling C16); each
+    comment names the others. `react_frontend/library_cards.py` `DECISION_MODULES` is another
+    list (the decision modules the card never leads with), so it is not bound here."""
+    from deploy_workflow.changes import NOT_A_CUSTOM_LEAD
+
+    def listed(path: str, name: str) -> frozenset[str]:
+        text = (ROOT / path).read_text(encoding="utf-8")
+        found = re.search(rf"const {name}\s*=\s*\[([^\]]*)\]", text)
+        assert found, f"{name} not found in {path}"
+        return frozenset(re.findall(r"CP-[0-9A-Z]+", found.group(1)))
+
+    reader = listed("apps/issuer-library/credit_os/web/reader.js", "NOT_A_CUSTOM_LEAD")
+    view = listed("web/src/pages/connected/reportView.ts", "NO_CUSTOM_LEAD")
+    assert NOT_A_CUSTOM_LEAD
+    assert reader == view == NOT_A_CUSTOM_LEAD

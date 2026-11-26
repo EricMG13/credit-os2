@@ -32,8 +32,10 @@ NOT_CHOOSABLE = {
     "chosen",
     "CP-L10": "belongs to the credit screening and cannot be chosen here",
     "CP-MEMO": "is replaced by the deliverables and cannot be chosen",
-    "CP-OS": "is the run's orchestrator, not a module, and cannot be chosen",
+    "CP-OS": "is not a module and cannot be chosen",
 }
+# What a refusal calls an entry that has no module name (reader text carries no module id).
+REFUSED_SUBJECT = {"CP-MEMO": "The memo", "CP-OS": "The run's orchestrator"}
 CENT = Decimal("0.01")
 # The handoffs CP-5 and CP-8 read in the measured runs, which their figures are for.
 CP5_MEASURED_HANDOFFS = 10
@@ -81,10 +83,15 @@ def _name(entry: str) -> str:
 def _refusal(entry: str) -> CustomRefused | None:
     """Why ``entry`` cannot be chosen, or None when it can."""
     if entry in NOT_CHOOSABLE:
-        return CustomRefused(f"{_name(entry)} {NOT_CHOOSABLE[entry]}.")
+        return CustomRefused(f"{REFUSED_SUBJECT.get(entry, _name(entry))} {NOT_CHOOSABLE[entry]}.")
     for module in modules():
         if entry == module.module_id:
             return None
+        if entry in module.aliases and module.module_id in NOT_CHOOSABLE:
+            return CustomRefused(
+                f"{_name(module.module_id)} {NOT_CHOOSABLE[module.module_id]}, so neither can "
+                "its phases."
+            )
         if entry in module.aliases:
             return CustomRefused(
                 f"{_name(entry)} is a phase of {_name(module.module_id)}, not a whole module; "
@@ -160,4 +167,4 @@ def estimate(
         )
     total = sum((row.figure for row in rows), Decimal(0))
     cap = min(int(PATHWAY_CAP_USD["custom"]), int((total + hold).to_integral_value(ROUND_CEILING)))
-    return Estimate(tuple(rows), total, hold, cap)
+    return Estimate(tuple(rows), total, _round(hold), cap)

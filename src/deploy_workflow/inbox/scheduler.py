@@ -37,7 +37,7 @@ from deploy_workflow.inbox.runs import Record
 from deploy_workflow.inbox.startup import StartupRefused
 from deploy_workflow.inbox.teams import Config as TeamsConfig
 from deploy_workflow.inbox.teams import Notifier
-from deploy_workflow.owners import cpos_launch
+from deploy_workflow.owners import cpos_custom, cpos_launch
 from deploy_workflow.run_start import reference_portfolio, submissions
 from deploy_workflow.run_start.submissions import Answers
 
@@ -349,6 +349,15 @@ class Scheduler:
             for name in answers["modules"]:
                 if not runs.known_module(name):
                     raise submissions.Refused(f"unknown module {name}")
+            if run.pathway == submissions.CUSTOM:
+                # The launcher's own completion text, as the summary showed it: a list it refuses
+                # was never issued a digest, so the approval check below would only say "changed".
+                try:
+                    cpos_custom.complete(
+                        answers["modules"], owned=cpos_launch.custom_owned_modules()
+                    )
+                except cpos_custom.CustomRefused as refused:
+                    raise submissions.Refused(str(refused)) from refused
             if len(self._with_status("queued")) >= MAX_QUEUED:
                 raise submissions.Refused("too many runs are waiting; try again later")
             sealed = submissions.seal(self.layout, sid)
