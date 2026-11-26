@@ -297,7 +297,7 @@ describe("CP-1D real handoff shape", () => {
     expect(cells.slice(0, 4)).toEqual([
       "Remove acquisition/integration add-back",
       "−70",
-      "USD millions",
+      "$m",
       "Rejected for recurring-credit earnings",
     ]);
     expect(document.body.textContent).not.toContain("could not read a support word");

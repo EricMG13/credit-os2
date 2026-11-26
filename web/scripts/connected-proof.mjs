@@ -166,6 +166,37 @@ async function checkMobileDocuments(page, channel, paidPreview) {
   await page.setViewportSize(desktop);
 }
 
+// The synthetic Desk refuses every fetch and stores the failure in the shared root, so both
+// browsers show it: the ensure POST answered 200 and the Desk is the synthetic one.
+async function checkStandingRefusal(page) {
+  // The answer key is src/deploy_workflow/reference_portfolios.py: the two funds have a holdings
+  // address; the CLO portfolio has none, so it has no fetch button.
+  const fetchable = ["High-yield bond fund (JNK)", "Loan index fund (LVLN)"];
+  const panel = page.getByRole("region", { name: "Standing portfolios", exact: true });
+  const fetchers = panel.getByRole("button", { name: /^Fetch latest holdings: /u });
+  // Wait on a named fund's button, not on whichever comes first.
+  await panel
+    .getByRole("button", { name: `Fetch latest holdings: ${fetchable[0]}`, exact: true })
+    .waitFor();
+  const labels = await Promise.all(
+    (await fetchers.all()).map((one) => one.getAttribute("aria-label")),
+  );
+  assert.deepEqual(
+    labels.toSorted(),
+    fetchable.map((name) => `Fetch latest holdings: ${name}`),
+  );
+  for (const name of fetchable) {
+    await panel
+      .getByRole("listitem")
+      .filter({ hasText: name })
+      .getByText(/The last fetch failed: .*\(a synthetic run fetches nothing\)/u)
+      .waitFor();
+  }
+  const clo = panel.getByRole("listitem").filter({ hasText: "CLO portfolio" });
+  await clo.waitFor();
+  assert.equal(await clo.getByRole("button", { name: /^Fetch latest holdings/u }).count(), 0);
+}
+
 async function uploadRunDocuments(page) {
   await page.getByLabel("Issuer name", { exact: true }).fill("Northbridge Synthetic Group");
   await page.getByLabel("As-of date", { exact: true }).fill("2025-03-31");
@@ -216,15 +247,16 @@ async function goBackWithKeyboard(page) {
   );
 }
 
+// 0bda8bca moved the entered ratings from the Company band to chips in the header's run facts;
+// 76ae3468 changed the outlook colour from text-error-text to text-warning-text, and d0ab4e20
+// (IdentityBand RatingChip) made the chip neutral, so no signal colour is asserted.
 async function checkCompanyBand(report, channel) {
-  const band = report.getByRole("region", { name: "Company", exact: true });
-  await band.getByText("Moody's", { exact: true }).waitFor();
-  await band.getByText("B1", { exact: true }).waitFor();
-  await band.getByText("Entered at run start", { exact: true }).waitFor({ state: "visible" });
-  const outlook = band.getByText("Negative", { exact: true });
-  await outlook.waitFor();
-  assert.match(await outlook.getAttribute("class"), /\btext-error-text\b/u);
-  await band.screenshot({ path: path.join(artifacts, `${channel}-company-band.png`) });
+  const facts = report.getByRole("list", { name: "Run facts", exact: true });
+  const chip = facts.getByRole("listitem").filter({ hasText: /^Moody's B1 · Negative$/u });
+  await chip.waitFor();
+  assert.equal(await chip.getAttribute("title"), "Entered at run start, as of 2025-02-28");
+  await facts.getByText("Ratings entered at run start", { exact: true }).waitFor();
+  await facts.screenshot({ path: path.join(artifacts, `${channel}-company-band.png`) });
 }
 
 async function checkOverviewMobile(report, page, channel) {
@@ -340,6 +372,8 @@ async function submit(page, channel, paidPreview = false) {
       shownCaps.push(request.headers()["x-shown-cap"]);
   });
   await checkRunDocuments(page, channel, paidPreview);
+  // The paid-dialog page presents the synthetic service as live, so it is not the panel under test.
+  if (!paidPreview) await checkStandingRefusal(page);
   await uploadRunDocuments(page);
   const submitButton = await approveRunInputs(page, paidPreview);
   const consent = page.getByRole("checkbox", {
@@ -370,8 +404,9 @@ async function submit(page, channel, paidPreview = false) {
   return new URL(page.url()).pathname.split("/").at(-1);
 }
 
-async function checkPaidConfirmation(context, endpoint, channel) {
+async function checkPaidConfirmation(context, endpoint, channel, standingResponses) {
   const page = await context.newPage();
+  recordStandingResponses(page, standingResponses);
   try {
     // Exercise the production paid dialog with the offline service and no eligible submit URL.
     await page.route(/\/api\/submissions\/[^/]+\/submit$/u, (route) => route.abort());
@@ -396,21 +431,33 @@ async function checkPaidConfirmation(context, endpoint, channel) {
 }
 
 async function checkActivity(page, channel) {
-  const activity = page.getByRole("region", { name: "Run activity", exact: true });
-  await activity.getByText("USD 0.00", { exact: true }).waitFor();
-  await activity
-    .getByRole("progressbar", {
-      name: "USD 0.00 of USD 30.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown",
-    })
-    .waitFor();
-  await activity.getByRole("progressbar", { name: "17 of 17 modules" }).waitFor();
-  await activity.getByText(/^(?:\d+ min )?\d+ s$/u).waitFor();
-  // S6-037: the card includes the separately delivered report.
-  const modules = activity.getByRole("group", { name: "Modules and report delivery", exact: true });
-  const feed = activity.getByRole("group", { name: "Activity", exact: true });
-  await feed.getByText("Report delivered.", { exact: true }).waitFor();
-  const [left, right] = await Promise.all([modules.boundingBox(), feed.boundingBox()]);
-  assert.ok(left && right && right.x >= left.x + left.width, "Activity sits beside Modules");
+  const pipeline = page.getByRole("region", { name: "Pipeline", exact: true });
+  const activity = page.getByRole("region", { name: "Activity", exact: true });
+  const spend = pipeline.getByRole("region", { name: "Spend", exact: true });
+  await spend.getByText("USD 30.00", { exact: true }).waitFor();
+  const spendMeter = spend.getByRole("progressbar", { name: "Spend against cap", exact: true });
+  await spendMeter.waitFor();
+  assert.equal(
+    await spendMeter.getAttribute("aria-valuetext"),
+    "USD 0.00 of USD 30.00 cap usage; USD 0.00 settled, USD 0.00 reserved or unknown",
+  );
+  // Settled and Reserved or unknown are the region's two term/definition pairs; the total is the
+  // one further "USD 0.00" (the markup gives the total no role, so it is counted, not addressed).
+  assert.deepEqual(await spend.getByRole("term").allInnerTexts(), [
+    "Settled",
+    "Reserved or unknown",
+  ]);
+  assert.deepEqual(await spend.getByRole("definition").allInnerTexts(), ["USD 0.00", "USD 0.00"]);
+  assert.equal(await spend.getByText("USD 0.00", { exact: true }).count(), 3);
+  const modulesMeter = pipeline.getByRole("progressbar", { name: "Modules finished", exact: true });
+  await modulesMeter.waitFor();
+  assert.equal(await modulesMeter.getAttribute("aria-valuetext"), "17 of 17 modules");
+  await pipeline.getByText("17 of 17", { exact: false }).waitFor();
+  await pipeline.getByText(/^(?:\d+ min )?\d+ s$/u).waitFor();
+  // S6-037: the pipeline includes the separately delivered report.
+  await activity.getByText("Report delivered.", { exact: true }).waitFor();
+  const [upper, lower] = await Promise.all([pipeline.boundingBox(), activity.boundingBox()]);
+  assert.ok(upper && lower && lower.y >= upper.y + upper.height, "Activity sits below Pipeline");
   await page.screenshot({ path: path.join(artifacts, `${channel}-run-activity.png`) });
 }
 
@@ -440,13 +487,11 @@ async function openExactTrace(page, source) {
   return href;
 }
 
+// 0bda8bca rebuilt the Overview from tiles: the key finding's trace now sits in the Key findings tile.
 async function checkOverviewTrace(report, page) {
   const source = report
-    .getByRole("button", { name: "Show sources for this passage" })
-    .filter({
-      visible: true,
-    })
-    .first();
+    .getByRole("region", { name: "Key findings", exact: true })
+    .getByRole("button", { name: "Show sources for finding 1", exact: true });
   await checkTraceFocus(page, source, /annual\.txt, page 2/u);
   await openExactTrace(page, source);
   await report
@@ -464,6 +509,8 @@ async function checkRecord(report, page, channel) {
   const recordResponse = await loaded;
   assert.equal(recordResponse.status(), 200);
   assert.equal((await recordResponse.json()).execution, "synthetic");
+  // The run record sits in a closed disclosure of the Record page.
+  await report.getByText(/^Show the run record/u).click();
   await report.getByRole("heading", { name: "Run record" }).waitFor();
   await report
     .getByRole("definition")
@@ -638,9 +685,17 @@ async function checkChangesTrace(context, endpoint, id) {
     await page.reload();
     await report.getByRole("cell", { name: "550 US$m", exact: true }).waitFor();
     await page.goto(new URL(`/report/${id}#changes`, endpoint).href);
-    const chart = report.getByRole("figure", { name: "Debt maturity schedules", exact: true });
-    await chart.getByRole("radio", { name: "Table", exact: true }).check();
-    const year = chart.getByRole("row").filter({ hasText: "FY2026" });
+    // The comparison chart is a region with a Chart / Table button pair; its table carries the
+    // per-period source links.
+    const region = report.getByRole("region", { name: "Maturities then and now", exact: true });
+    await region
+      .getByRole("group", { name: "Maturities view", exact: true })
+      .getByRole("button", { name: "Table", exact: true })
+      .click();
+    const year = region
+      .getByRole("table", { name: "Debt maturity schedules", exact: true })
+      .getByRole("row")
+      .filter({ hasText: "FY2026" });
     const priorSource = year.getByRole("link", {
       name: "Earlier run source for FY2026",
       exact: true,
@@ -673,26 +728,27 @@ async function checkChangesTrace(context, endpoint, id) {
 }
 
 async function checkCalendar(report, artifacts, channel, page) {
-  await report.getByRole("link", { name: "Issuer calendar", exact: true }).click();
+  // The section control names the page "Calendar"; "Issuer calendar" is the page's own heading.
+  await report.getByRole("link", { name: "Calendar", exact: true }).click();
   await page.waitForURL((url) => url.hash === "#calendar");
   await page.reload();
   const events = report.getByRole("figure", { name: "Published events", exact: true });
-  const marker = events
-    .getByRole("group", { name: "Events by year", exact: true })
+  // The calendar rebuild (27cdb9f7, d0a162cb, c56b338f) draws one lane per category in place of
+  // the year grouping and category toggles, and shows the events table in its own tile.
+  const scenario = events.getByRole("group", { name: "Scenario lane", exact: true });
+  const marker = scenario
     .getByRole("button", { name: /Synthetic review, 2025-Q3, quarter/u })
     .first();
   await marker.waitFor();
   assert.equal(await marker.getAttribute("data-event-category"), "Scenario");
-  await events
-    .getByRole("group", { name: "Show categories", exact: true })
-    .getByRole("button", { name: /^Scenario, /u, pressed: true })
-    .waitFor();
-  await events.getByRole("radio", { name: "Table", exact: true }).check();
-  const table = events.getByRole("table", { name: "Published events", exact: true });
-  assert.equal(await table.getByRole("row").count(), 37);
+  const list = report.getByRole("region", { name: "Event list", exact: true });
+  const table = list.getByRole("table", { name: "Published events", exact: true });
+  // dc033f20 added the CP-1B handoff, one more four-event table: 10 handoffs x 4 events plus the
+  // header row is 41 rows, and each handoff has one "Synthetic note" row.
+  assert.equal(await table.getByRole("row").count(), 41);
   assert.equal(
     await table.getByRole("rowheader", { name: "Synthetic note", exact: true }).count(),
-    9,
+    10,
   );
   await events.screenshot({ path: path.join(artifacts, `${channel}-calendar.png`) });
   const source = table.getByRole("button", { name: /^Show sources for Synthetic note ·/u }).first();
@@ -708,11 +764,15 @@ async function checkCalendar(report, artifacts, channel, page) {
 async function checkModuleRecords(report, page, modules) {
   await modules.getByRole("link", { name: /^Source readiness, Delivered/u }).click();
   const readiness = report.getByRole("region", { name: "Readiness by area", exact: true });
-  await readiness.getByRole("group", { name: "Ready with limitations", exact: true }).waitFor();
-  await readiness.getByRole("group", { name: "Conditional", exact: true }).waitFor();
+  // 44ed8a0e draws readiness as one row per area, naming its state, in place of state columns,
+  // and gives the table one source control.
+  const area = (name) =>
+    readiness.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
+  await area("Financial statements").getByText("Ready with limitations", { exact: true }).waitFor();
+  await area("Acquisition financing").getByText("Conditional", { exact: true }).waitFor();
   await checkTraceFocus(
     page,
-    readiness.getByRole("button", { name: "Show sources for Financial statements", exact: true }),
+    readiness.getByRole("button", { name: "Show sources for the readiness table", exact: true }),
     /Filing p\.1/u,
   );
   await modules.getByRole("link", { name: /^Fundamental credit, Delivered/u }).click();
@@ -727,26 +787,45 @@ async function checkModuleRecords(report, page, modules) {
   );
 }
 
+// 44ed8a0e and 55fa2d6e rebuilt the lead figures: the Figure / Table radio is a two-button group
+// named "<title>: figure or table", and a figure is one image whose label carries its values.
+async function showTable(region, title) {
+  await region
+    .getByRole("group", { name: `${title}: figure or table`, exact: true })
+    .getByRole("button", { name: /^Table/u })
+    .click();
+}
+
 async function checkDownside(report, modules, artifacts, channel, page) {
   await modules.getByRole("link", { name: /^Downside, Delivered/u }).click();
   const scenarios = report.getByRole("region", { name: "Downside scenarios", exact: true });
-  const chart = scenarios.getByRole("figure", { name: "Stressed flows and credit metrics" });
-  await chart.locator('[data-case="Cost shock"][data-zero]').waitFor();
+  const chart = scenarios.getByRole("img", { name: /^Stressed flows and credit metrics\./u });
+  const reading = await chart.getAttribute("aria-label");
+  assert.match(
+    reading,
+    /Stressed FCF \(US\$m\): Control \(unstressed\) \(control\) 10\.00, Cost shock 0\.00, /u,
+  );
+  assert.match(reading, /Cost and rate shock -5\.1250 \(−USD 5\.13 million\)\./u);
+  await chart.locator('[data-bar="0.00"]').waitFor({ state: "attached" });
   // J3-016 identifies the selected stress case rather than the fixed control.
-  const select = scenarios.getByRole("combobox", {
+  const cases = scenarios.getByRole("group", {
     name: "Stress case to compare with the unstressed control",
     exact: true,
   });
-  await select.selectOption({ label: "Cost and rate shock" });
-  await chart.getByText("-5.1250 (−USD 5.13 million)", { exact: true }).waitFor();
-  const negative = chart.locator('[data-case="Cost and rate shock"][data-left="0"]').first();
-  assert.ok(Number(await negative.getAttribute("data-width")) > 0);
-  await chart.screenshot({ path: path.join(artifacts, `${channel}-downside.png`) });
-  await chart.getByRole("radio", { name: "Table", exact: true }).check();
-  await chart.getByRole("cell", { name: "-5.1250 (−USD 5.13 million)", exact: true }).waitFor();
-  const trace = chart.getByRole("button", { name: "Show sources for Stressed FCF (US$m)" });
+  await cases.getByRole("button", { name: "Cost and rate shock", exact: true }).click();
+  await cases
+    .getByRole("button", { name: "Cost and rate shock", exact: true, pressed: true })
+    .waitFor();
+  await scenarios
+    .getByRole("group", { name: "Cost and rate shock scenario", exact: true })
+    .waitFor();
+  await scenarios.screenshot({ path: path.join(artifacts, `${channel}-downside.png`) });
+  await showTable(scenarios, "Downside scenarios");
+  await scenarios.getByRole("cell", { name: "-5.1250 (−USD 5.13 million)", exact: true }).waitFor();
+  const trace = scenarios.getByRole("button", {
+    name: "Show sources for Stressed FCF (USD millions)",
+  });
   await checkTraceFocus(page, trace, /Filing p\.2/u);
-  await scenarios.getByText("Full scenario results", { exact: true }).click();
   await scenarios
     .getByRole("cell", { name: "Not calculated: net debt is missing", exact: true })
     .waitFor();
@@ -755,45 +834,43 @@ async function checkDownside(report, modules, artifacts, channel, page) {
 
 async function checkDownsideThresholds(report, page) {
   const panel = report.getByRole("region", { name: "EBITDA break points", exact: true });
-  const chart = panel.getByRole("figure", { name: "EBITDA break points", exact: true });
+  const chart = panel.getByRole("img", { name: /^EBITDA break points, /u });
   // J3-016 uses percentages; C4-036 preserves this unranked T2DS.6 table's written order.
-  await chart.getByText("10%", { exact: true }).waitFor();
-  assert.equal(await chart.getByRole("list").evaluate((list) => list.tagName), "UL");
-  const writtenOrder = [
-    "FCF reaches zero",
-    "Cover reaches watch level",
-    "Net leverage watch level",
-  ];
-  assert.deepEqual(
-    (await chart.getByRole("listitem").allInnerTexts()).map((text) => text.split("\n")[0]),
-    writtenOrder,
+  assert.equal(
+    await chart.getAttribute("aria-label"),
+    "EBITDA break points, interest held: FCF reaches zero 10%, Cover reaches watch level 15%, Net leverage watch level 32%.",
   );
-  for (const [index, value] of ["10%", "15%", "32%"].entries())
-    await chart.getByRole("listitem").nth(index).getByText(value, { exact: true }).waitFor();
-  await panel.getByRole("combobox", { name: "Cash-interest basis" }).selectOption("1");
-  await chart.getByText("12%", { exact: true }).waitFor();
-  assert.deepEqual(
-    (await chart.getByRole("listitem").allInnerTexts()).map((text) => text.split("\n")[0]),
-    writtenOrder,
+  assert.equal(await chart.locator("[data-decline]").count(), 3);
+  await panel
+    .getByRole("group", { name: "Cash-interest basis", exact: true })
+    .getByRole("button", { name: "Cash-interest increase 5%", exact: true })
+    .click();
+  assert.equal(
+    await chart.getAttribute("aria-label"),
+    "EBITDA break points, cash-interest increase 5%: FCF reaches zero 20%, Cover reaches watch level 12%, Net leverage watch level Not calculated: net debt is missing.",
   );
-  await chart.getByRole("listitem").nth(0).getByText("20%", { exact: true }).waitFor();
-  await chart.getByRole("listitem").nth(1).getByText("12%", { exact: true }).waitFor();
-  await chart
-    .getByRole("listitem")
-    .nth(2)
-    .getByText("Not calculated: net debt is missing", { exact: true })
-    .waitFor();
   assert.equal(await chart.locator("[data-decline]").count(), 2);
-  await chart.getByRole("radio", { name: "Table", exact: true }).check();
-  await chart.getByRole("cell", { name: "Analyst watch level, not a covenant" }).waitFor();
+  await showTable(panel, "EBITDA break points");
+  await panel.getByRole("cell", { name: "Analyst watch level, not a covenant" }).waitFor();
   await checkTraceFocus(
     page,
-    chart.getByRole("button", { name: "Show sources for Cover reaches watch level" }),
+    panel.getByRole("button", { name: "Show sources for Cover reaches watch level" }),
     /Filing p\.1/u,
   );
-  const watches = report.getByRole("region", { name: "Monitoring sensitivities", exact: true });
-  await watches.getByRole("img", { name: "Leading", exact: true }).waitFor();
-  await watches.getByRole("img", { name: "Lagging", exact: true }).waitFor();
+  await report
+    .getByRole("region", { name: "Statements and records", exact: true })
+    .getByRole("button", { name: "Show records", exact: true })
+    .click();
+  // 44ed8a0e draws the flags as a table in the module's records, the timing as its own cell in
+  // place of the leading / lagging icon.
+  const watches = report.getByRole("region", { name: "Monitoring sensitivity flags", exact: true });
+  const flag = (indicator, timing) =>
+    watches
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: indicator, exact: true }) })
+      .getByRole("cell", { name: timing, exact: true });
+  await flag("Financing costs", "Leading").waitFor();
+  await flag("Cash generation", "Lagging").waitFor();
   if (desktopOnly) return;
   const viewport = page.viewportSize();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -801,34 +878,62 @@ async function checkDownsideThresholds(report, page) {
   await page.setViewportSize(viewport);
 }
 
+// 44ed8a0e and 55fa2d6e redrew the rate and currency pages: one region per figure, the rate shocks
+// as a list of before/after-hedge figures, and the currency moves as a table.
 async function checkMacro(report, modules, artifacts, channel, page) {
   await modules.getByRole("link", { name: /^Rates, FX & hedging, Delivered/u }).click();
-  const rates = report.getByRole("region", { name: "Interest rate shocks", exact: true });
-  const chart = rates.getByRole("figure", { name: "Added annual interest", exact: true });
-  await chart.getByText("8.00", { exact: true }).waitFor();
-  await chart.getByText("5.00", { exact: true }).waitFor();
-  await chart.locator("[data-missing]").waitFor();
-  await chart.screenshot({ path: path.join(artifacts, `${channel}-rate-shocks.png`) });
-  await chart.getByRole("radio", { name: "Table", exact: true }).check();
-  await chart.getByRole("cell", { name: "5.00", exact: true }).waitFor();
+  const rates = report.getByRole("region", { name: "Added annual interest", exact: true });
+  const shocks = rates.getByRole("list", {
+    name: "Added annual interest by rate shock",
+    exact: true,
+  });
+  const shock = (name) => shocks.getByRole("listitem").filter({ hasText: name });
+  const first = shock("+100 bp");
+  await first
+    .getByRole("term")
+    .filter({ hasText: /^Before hedges$/u })
+    .waitFor();
+  await first
+    .getByRole("definition")
+    .filter({ hasText: /^8\.00$/u })
+    .waitFor();
+  await first
+    .getByRole("definition")
+    .filter({ hasText: /^5\.00$/u })
+    .waitFor();
+  const second = shock("+200 bp");
+  await second
+    .getByRole("definition")
+    .filter({ hasText: /^16\.00$/u })
+    .waitFor();
+  await second
+    .getByRole("definition")
+    .filter({ hasText: /^Not supplied\s*No hedge sensitivity retained$/u })
+    .waitFor();
+  await rates.screenshot({ path: path.join(artifacts, `${channel}-rate-shocks.png`) });
+  await showTable(rates, "Added annual interest");
+  await rates.getByRole("cell", { name: "5.00", exact: true }).waitFor();
   await checkTraceFocus(
     page,
-    chart.getByRole("button", { name: "Show sources for Added annual interest" }),
+    rates.getByRole("button", { name: "Show sources for Added annual interest", exact: true }),
     /Filing p\.1/u,
   );
-  await rates.getByText("All rate-shock results and limitations", { exact: true }).click();
-  await rates
-    .getByRole("cell", { name: "Not supplied: no hedge sensitivity retained", exact: true })
-    .waitFor();
-  const currency = report.getByRole("figure", {
+  const currency = report.getByRole("region", {
     name: "Foreign-currency strengthening",
     exact: true,
   });
-  await currency.locator("[data-bar][data-zero]").first().waitFor();
-  await currency.getByRole("radio", { name: "Table", exact: true }).check();
-  const change = currency.getByRole("row", { name: /Change in EBITDA/u });
-  await change.getByRole("cell", { name: "2.00", exact: true }).waitFor();
-  await change.getByRole("cell", { name: "4.00", exact: true }).waitFor();
+  const moves = currency.getByRole("table", {
+    name: "Foreign-currency strengthening, by currency move",
+    exact: true,
+  });
+  const measure = (name) =>
+    moves
+      .getByRole("rowgroup")
+      .filter({ has: page.getByRole("columnheader", { name, exact: true }) });
+  const debt = measure("Change in debt (USD)").getByRole("cell");
+  assert.deepEqual(await debt.allInnerTexts(), ["0.00", "0.00"]);
+  const ebitda = measure("Change in EBITDA (USD)").getByRole("cell");
+  assert.deepEqual(await ebitda.allInnerTexts(), ["2.00", "4.00"]);
 }
 
 async function checkRateMethod(workspace, run) {
@@ -863,26 +968,40 @@ async function checkRateMethod(workspace, run) {
   }
 }
 
+// 36b7ac7a replaced the instrument cards and the quotes chart with one decision table, and
+// 44ed8a0e names the cells in the reader's words. The four quote values stay in the table.
 async function checkSecurities(report, modules, artifacts, channel, page) {
   await modules.getByRole("link", { name: /^Security selection, Delivered/u }).click();
   const section = report.getByRole("region", { name: "Instrument decisions", exact: true });
-  const loan = section.getByRole("article").filter({ hasText: "Synthetic term loan" });
-  await loan.getByText("Not supplied: no loan observation", { exact: true }).waitFor();
-  await loan.getByText("Requires More Work", { exact: true }).waitFor();
+  const table = section.getByRole("table", { name: "Instrument decisions", exact: true });
+  const row = (name) =>
+    table.getByRole("row").filter({ has: page.getByRole("rowheader", { name, exact: true }) });
+  const loan = row("Synthetic term loan");
+  await loan.waitFor();
+  // Each expected cell by its column header; the fixture states the loan's missing quote once
+  // (proof/handoffs/CP-3.md), and the page repeats it in the two market columns.
+  const squash = (texts) => texts.map((text) => text.replace(/\s+/gu, " ").trim());
+  const headers = squash(await table.getByRole("columnheader").allInnerTexts());
+  const cells = squash(await loan.getByRole("cell").allInnerTexts());
+  const at = (header) => cells[headers.indexOf(header) - 1];
+  assert.match(at("Market level (31 Mar 2025)"), /^Not supplied No loan observation$/u);
+  assert.match(at("Last-trade price and yield Price Yield"), /^Not supplied No loan observation$/u);
+  assert.equal(at("Recommendation"), "Requires More Work");
   await checkTraceFocus(
     page,
-    loan.getByRole("button", { name: "Show sources for Synthetic term loan" }),
+    loan.getByRole("button", { name: "Show sources for Synthetic term loan", exact: true }),
     /Filing p\.3/u,
   );
-  const figure = section.getByRole("figure", { name: "Last-trade prices and yields", exact: true });
-  await figure.getByText("7.0100%", { exact: true }).waitFor();
-  await figure.getByText("$88.12", { exact: true }).waitFor();
-  assert.equal(await figure.locator("[data-bar]").count(), 4);
-  await figure.screenshot({ path: path.join(artifacts, `${channel}-instrument-quotes.png`) });
-  await figure.getByRole("radio", { name: "Table", exact: true }).check();
-  await figure.getByRole("cell", { name: "8.9000%", exact: true }).waitFor();
-  await section.getByText("Credit and recovery rationale", { exact: true }).click();
-  await section.getByRole("cell", { name: "Recovery basis unavailable", exact: true }).waitFor();
+  const secured = row("Synthetic secured notes");
+  await secured.getByRole("cell", { name: "$93.80 7.0100%", exact: true }).waitFor();
+  const unsecured = row("Synthetic unsecured notes");
+  await unsecured.getByRole("cell", { name: "$88.12 8.9000%", exact: true }).waitFor();
+  await section.screenshot({ path: path.join(artifacts, `${channel}-instrument-quotes.png`) });
+  const rationale = report.getByRole("region", {
+    name: "Credit and recovery rationale",
+    exact: true,
+  });
+  await rationale.getByRole("cell", { name: "Recovery basis unavailable", exact: true }).waitFor();
 }
 
 async function checkCharts(report, artifacts, channel, page, run) {
@@ -891,13 +1010,18 @@ async function checkCharts(report, artifacts, channel, page, run) {
       .getByRole("navigation", { name: "Report sections" })
       .getByRole("link", { name: name === "Modules" ? /^Modules(?: \d+)?$/u : name, exact: true });
   await section("Overview").click();
-  await report.getByRole("link", { name: "Chart index", exact: true }).click();
+  // 0bda8bca removed the Overview's "Chart index" link; the address it pointed at still lands
+  // focus on the run charts, so the proof goes there by its address.
+  await page.evaluate(() => {
+    window.location.hash = "#forecast/run-charts";
+  });
   await page.waitForFunction(() => document.activeElement?.id === "forecast-run-charts");
   await section("Changes").click();
   await report.getByText("No earlier run to compare.", { exact: true }).waitFor();
   await section("Modules").click();
   if (!desktopOnly) await checkCompactModules(report, page, channel);
-  const modules = report.getByRole("navigation", { name: "Modules and sections" });
+  // 891e6141 renamed the module navigator "Modules in this run".
+  const modules = report.getByRole("navigation", { name: "Modules in this run", exact: true });
   await modules.getByRole("link", { name: /^Liquidity, Delivered/u }).waitFor();
   await modules.getByRole("link", { name: /^Refinancing & LME, Delivered/u }).waitFor();
   await checkModuleRecords(report, page, modules);
@@ -941,36 +1065,45 @@ async function checkCompactModules(report, page, channel) {
   await page.setViewportSize(desktop);
 }
 
+// 5de0e9dc and 562d5125 rebuilt the Forecast page: parts (Path, What breaks, Assumptions, Scope,
+// Grid) in place of the old chart cards, the cases as a "Case" button group, the scope as a list,
+// and the cash-flow model as the "Forecast grid" table.
 async function checkForecastPresentation(report, page, channel) {
-  const scope = report.getByRole("region", { name: "Model scope and basis" });
-  const cases = report.locator("#forecast-cases");
-  const qualification = cases
-    .locator("xpath=preceding-sibling::*[1]")
-    .getByText(/conditional illustration/u);
-  await qualification.waitFor();
-  assert.equal(await scope.locator("details").getAttribute("open"), null);
-  await scope.locator("summary").click();
+  const scope = report.getByRole("region", { name: "Scope and limits", exact: true });
+  await scope.getByText(/conditional illustration/u).waitFor();
   await scope.getByText("Synthetic; not analytical review.", { exact: true }).waitFor();
   await scope.getByRole("link", { name: "Full model notes and limitations" }).waitFor();
-  await scope.locator("summary").click();
-  await report.getByRole("heading", { name: "Forecast cases", exact: true }).waitFor();
-  const chart = report.getByRole("figure", { name: "Cash proxy by scenario" });
-  await chart.getByRole("radio", { name: "Table", exact: true }).check();
-  const comparison = report.getByRole("table", { name: "Scenario comparison" });
-  await comparison.getByRole("rowheader", { name: "Base case", exact: true }).waitFor();
-  await comparison.getByRole("rowheader", { name: "Downside shock", exact: true }).waitFor();
-  assert.equal(await comparison.getByRole("rowheader").count(), 2);
-  await chart.getByRole("radio", { name: "Chart", exact: true }).check();
-  await report.getByRole("table", { name: "Cash flow model", exact: true }).waitFor();
-  await qualification.evaluate((element) => element.scrollIntoView({ block: "start" }));
+  const cases = report.getByRole("group", { name: "Case", exact: true });
+  await cases.getByRole("button", { name: "Base case", exact: true, pressed: true }).waitFor();
+  await cases.getByRole("button", { name: "Downside shock", exact: true }).waitFor();
+  const leverage = report.getByRole("region", { name: "Net leverage path", exact: true });
+  await leverage
+    .getByRole("group", { name: "Net leverage view", exact: true })
+    .getByRole("button", { name: "Table", exact: true })
+    .click();
+  // From proof/handoffs/CP-2G.md: base 388 / 315 = 1.23x; downside 454.6 / 252 = 1.80x.
+  const byCase = leverage.getByRole("table", { name: "Net leverage by case", exact: true });
+  assert.deepEqual(
+    await byCase
+      .getByRole("row")
+      .filter({ has: page.getByRole("rowheader", { name: "FY2025E", exact: true }) })
+      .getByRole("cell")
+      .allInnerTexts(),
+    ["1.23x", "1.80x", ""],
+  );
+  await report.getByRole("table", { name: "Forecast grid", exact: true }).waitFor();
+  await scope.evaluate((element) => element.scrollIntoView({ block: "start" }));
   await page.screenshot({ path: path.join(artifacts, `${channel}-forecast.png`) });
 }
 
 async function checkReadingLayout(report, page, channel) {
   const desktop = page.viewportSize();
-  const navigation = report.getByRole("navigation", { name: "Forecast sections", exact: true });
-  await navigation.getByRole("button", { name: "Cash flow model", exact: true }).click();
-  await page.waitForFunction(() => document.activeElement?.id === "forecast-model");
+  const navigation = report.getByRole("list", { name: "Parts of this page", exact: true });
+  await navigation.getByRole("button", { name: "Grid", exact: true }).click();
+  // 5de0e9dc: the index button puts the keyboard on the first control inside the grid tile.
+  await page.waitForFunction(
+    () => document.activeElement?.closest('section[aria-label="Forecast grid"]') != null,
+  );
   if (desktopOnly) return;
   await page.setViewportSize({ width: 390, height: 844 });
   await report
@@ -1023,29 +1156,31 @@ async function checkReadingLayout(report, page, channel) {
   await page.setViewportSize(desktop);
 }
 
+// 55fa2d6e redrew the maturity wall as a region with one image whose label carries its values,
+// a Figure / Table button pair, and a source control named for the wall.
 async function checkDebtEvidence(report, modules, artifacts, channel, page) {
   await modules.getByRole("link", { name: /^Financial foundation, Delivered/u }).click();
-  const debt = report.getByRole("figure", { name: "Debt maturities", exact: true });
-  await debt.getByRole("radio", { name: "Chart", exact: true }).waitFor();
-  await debt.locator("svg.recharts-surface").first().waitFor();
+  const debt = report.getByRole("region", { name: "Debt maturities", exact: true });
+  assert.equal(
+    await debt.getByRole("img", { name: /^Debt maturities, US\$m: / }).getAttribute("aria-label"),
+    "Debt maturities, US$m: FY2026 500, FY2027 not supplied, FY2028 1,250.",
+  );
   await debt.screenshot({ path: path.join(artifacts, `${channel}-debt-maturities.png`) });
-  await debt.getByRole("radio", { name: "Table", exact: true }).check();
+  await showTable(debt, "Debt maturities");
   for (const value of ["500", "1,250", "Not supplied: the schedule stops here"]) {
-    await debt.getByText(value, { exact: true }).first().waitFor();
+    await debt.getByRole("cell", { name: value, exact: true }).waitFor();
   }
-  const debtRow = debt
-    .getByRole("row")
-    .filter({ has: page.getByRole("cell", { name: "1,250", exact: true }) });
-  const debtRowSource = debtRow.getByRole("button", { name: /^Show sources for /u });
-  const debtRowHref = await checkTraceFocus(page, debtRowSource, "Basis");
   const source = debt.getByRole("button", {
-    name: "Show sources for Debt maturities",
+    name: "Show sources for the maturity wall",
     exact: true,
   });
   const sourceHref = await checkTraceFocus(page, source, "Basis");
   assert.match(sourceHref, /#evidence\/.+~[0-9a-f]{64}-\d+$/u);
-  assert.notEqual(sourceHref, debtRowHref);
-  assert.ok(await debt.getByRole("radio", { name: "Table", exact: true }).isChecked());
+  // The module table no longer carries a source per row; the run-charts table does (checked there).
+  assert.equal(
+    await debt.getByRole("button", { name: /^Table/u }).getAttribute("aria-pressed"),
+    "true",
+  );
   await source.press("Enter");
   await page.getByRole("dialog").getByRole("link", { name: "Open in Evidence" }).click();
   await page.waitForURL(new URL(sourceHref, page.url()).href);
@@ -1058,19 +1193,37 @@ async function checkDebtEvidence(report, modules, artifacts, channel, page) {
   return sourceHref;
 }
 
+// The limits figure is now a list of exposure/limit images; each carries its two values in its
+// label and in the `data-exposure` and `data-limit` attributes the component renders.
 async function checkPortfolioEvidence(report, modules, artifacts, channel, page) {
   await modules.getByRole("link", { name: /^Committee decision, Delivered/u }).click();
-  const limits = report.getByRole("figure", { name: "Portfolio limits", exact: true });
-  await limits.getByText("2.37%", { exact: true }).waitFor();
-  assert.equal(await limits.locator("[data-bar]").count(), 2);
-  assert.equal(await limits.locator("[data-tick]").count(), 2);
+  const region = report.getByRole("region", { name: "Portfolio limits", exact: true });
+  const limits = region.getByRole("figure", { name: "Portfolio limits", exact: true });
+  await limits
+    .getByRole("img", {
+      name: "Max single issuer exposure: current exposure 2.37% against a limit of 2.50%.",
+      exact: true,
+    })
+    .waitFor();
+  await limits
+    .getByRole("img", {
+      name: "Max unrated exposure: current exposure 3.73% against a limit of 5.00%.",
+      exact: true,
+    })
+    .waitFor();
+  const attributes = (name) =>
+    limits
+      .locator(`[${name}]`)
+      .evaluateAll((nodes, key) => nodes.map((node) => node.getAttribute(key)), name);
+  assert.deepEqual(await attributes("data-exposure"), ["2.37%", "3.73%"]);
+  assert.deepEqual(await attributes("data-limit"), ["2.50%", "5.00%"]);
   await limits.screenshot({ path: path.join(artifacts, `${channel}-portfolio-limits.png`) });
   await checkTraceFocus(
     page,
     limits.getByRole("button", { name: "Show sources for Portfolio limits", exact: true }),
     /Compliance_Monitor snapshot/u,
   );
-  await limits.getByRole("radio", { name: "Table", exact: true }).check();
+  await showTable(limits, "Portfolio limits");
   for (const value of ["2.37%", "2.50%", "3.73%", "5.00%"]) {
     await limits.getByRole("cell", { name: value, exact: true }).waitFor();
   }
@@ -1091,29 +1244,17 @@ async function checkPortfolioEvidence(report, modules, artifacts, channel, page)
 
 async function checkForecastEvidence(report, artifacts, channel, page) {
   await checkForecastPresentation(report, page, channel);
-  await report.getByText("Cash flow trends by line item", { exact: true }).click();
-  const revenue = report.getByRole("figure", { name: "Revenue", exact: true });
-  await revenue.locator("svg.recharts-surface").first().waitFor();
-  const sourceSwitch = report.getByRole("switch");
-  // J3-019 names the existing highlight behavior accurately.
-  if (await sourceSwitch.isChecked())
-    await report.getByText("Highlight source icons", { exact: true }).click();
-  await revenue.hover();
-  const revenueSource = revenue.getByRole("button", {
+  const grid = report.getByRole("table", { name: "Forecast grid", exact: true });
+  const gridRow = (name) =>
+    grid.getByRole("row").filter({ has: page.getByRole("rowheader", { name, exact: true }) });
+  const revenueRow = gridRow("Revenue");
+  await revenueRow.getByRole("cell", { name: "1,050", exact: true }).waitFor();
+  await grid.screenshot({ path: path.join(artifacts, `${channel}-revenue.png`) });
+  const revenueSource = revenueRow.getByRole("button", {
     name: "Show sources for Revenue",
     exact: true,
   });
-  await page.waitForFunction(
-    (control) => control !== null && getComputedStyle(control).opacity === "1",
-    await revenueSource.elementHandle(),
-  );
-  await revenue.screenshot({ path: path.join(artifacts, `${channel}-revenue.png`) });
-  await revenue.getByRole("radio", { name: "Table", exact: true }).check();
-  await revenue.getByText("1,050", { exact: true }).first().waitFor();
-  await openExactTrace(
-    page,
-    revenue.getByRole("button", { name: "Show sources for Revenue", exact: true }),
-  );
+  await openExactTrace(page, revenueSource);
   await report.locator("pre").filter({ hasText: "cpos-forecast-inputs/1" }).waitFor();
   await page.reload();
   await report.locator("pre").filter({ hasText: "cpos-forecast-inputs/1" }).waitFor();
@@ -1121,79 +1262,86 @@ async function checkForecastEvidence(report, artifacts, channel, page) {
     .getByRole("navigation", { name: "Report sections" })
     .getByRole("link", { name: "Forecast", exact: true })
     .click();
-  const model = report.getByRole("table", { name: "Cash flow model", exact: true });
-  // T18 C4-003/C5-004 adds a separately named source button to each row header.
-  const revenueRow = model.getByRole("row").filter({
-    has: page.getByRole("rowheader").filter({ hasText: /^Revenue$/u }),
-  });
-  await revenueRow.getByRole("button", { name: "Show sources for Revenue", exact: true }).waitFor();
-  await revenueRow.getByRole("cell", { name: "1,050", exact: true }).first().waitFor();
   // Independent fixture arithmetic: 1,000 × 1.05 × 0.30 = 315; a 20% shock gives 252.
-  const ebitdaRow = model.getByRole("row").filter({
-    has: page.getByRole("rowheader").filter({
-      hasText: /^Adj EBITDA \(as named in Financial foundation\)$/u,
-    }),
-  });
+  // f68456d6: the inputs name no adjustment basis, so the grid row is "EBITDA", not "Adj EBITDA".
+  const ebitdaRow = gridRow("EBITDA (as named in Financial foundation)");
   await ebitdaRow.getByRole("cell", { name: "315", exact: true }).waitFor();
-  const downsideCase = report.getByRole("radio", { name: /^Downside shock/u });
-  await downsideCase.focus();
-  await downsideCase.press("Space");
-  assert.ok(await downsideCase.isChecked());
-  const cashProxy = report.getByRole("figure", { name: "Cash proxy by scenario", exact: true });
-  await cashProxy.getByRole("radio", { name: "Table", exact: true }).check();
-  const comparison = cashProxy.getByRole("table", { name: "Scenario comparison" });
-  assert.equal(await comparison.getByRole("rowheader").count(), 2);
-  assert.equal(
-    await comparison.getByRole("row", { name: /Downside shock/u }).getAttribute("aria-current"),
-    "true",
-  );
+  const cases = report.getByRole("group", { name: "Case", exact: true });
+  await cases.getByRole("button", { name: "Downside shock", exact: true }).click();
+  await cases.getByRole("button", { name: "Downside shock", exact: true, pressed: true }).waitFor();
   await ebitdaRow.getByRole("cell", { name: "252", exact: true }).waitFor();
   assert.equal(await ebitdaRow.getByRole("cell", { name: "315", exact: true }).count(), 0);
-  const baseCase = report.getByRole("radio", { name: /^Base case/u });
-  await baseCase.focus();
-  await baseCase.press("Space");
+  await cases.getByRole("button", { name: "Base case", exact: true }).click();
   await ebitdaRow.getByRole("cell", { name: "315", exact: true }).waitFor();
-  await comparison.getByRole("row", { name: /Base case/u }).waitFor();
-  await report.getByLabel("Statement columns").selectOption("compare");
-  await report.getByLabel("Comparison period").selectOption({ index: 0 });
+  await report
+    .getByRole("group", { name: "Grid columns", exact: true })
+    .getByRole("button", { name: "Compare one year", exact: true })
+    .click();
+  await report
+    .getByRole("group", { name: "Year", exact: true })
+    .getByRole("button", { name: "FY2025E", exact: true })
+    .click();
   await ebitdaRow.getByRole("cell", { name: "315", exact: true }).waitFor();
   await ebitdaRow.getByRole("cell", { name: "252", exact: true }).waitFor();
 }
 
+// 5de0e9dc replaced the run-charts figures with an index of chart tables: each chart is a row of
+// its module's group, with its own source control and a "Table for <chart>" button that opens
+// the published table.
 async function checkForecastRunCharts(report, page, sourceHref) {
-  const runCharts = report.getByRole("region", { name: "Run charts", exact: true });
-  const forecastLimits = runCharts.getByRole("figure", { name: "Portfolio limits", exact: true });
-  await forecastLimits.getByText("3.73%", { exact: true }).waitFor();
-  await forecastLimits.getByRole("radio", { name: "Table", exact: true }).check();
-  await forecastLimits.getByRole("cell", { name: "2.37%", exact: true }).waitFor();
-  const forecastDebt = runCharts.getByRole("figure", { name: "Debt maturities", exact: true });
-  await forecastDebt.getByRole("radio", { name: "Table", exact: true }).check();
+  const runCharts = report.getByRole("region", { name: "Chart tables from this run", exact: true });
+  const openTable = async (title) => {
+    const row = runCharts
+      .getByRole("listitem")
+      .filter({ has: page.getByRole("button", { name: `Table for ${title}`, exact: true }) });
+    await row.getByRole("button", { name: `Table for ${title}`, exact: true }).click();
+    return row;
+  };
+  const forecastLimits = await openTable("Portfolio limits");
+  // The table's cells are the bare numbers; the unit is its own "Reporting unit" column (main
+  // asserted "3.73%"), so each value's own row must carry "% NAV".
+  for (const value of ["3.73", "2.37"])
+    await forecastLimits
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: value, exact: true }) })
+      .getByRole("cell", { name: "% NAV", exact: true })
+      .waitFor();
+  const forecastDebt = await openTable("Debt maturities");
   await forecastDebt.getByRole("cell", { name: "1,250", exact: true }).waitFor();
-  assert.equal(
-    await checkTraceFocus(
-      page,
-      forecastDebt.getByRole("button", { name: "Show sources for Debt maturities", exact: true }),
-      "Basis",
-    ),
-    sourceHref,
+  const wall = await checkTraceFocus(
+    page,
+    forecastDebt.getByRole("button", { name: "Show sources for Debt maturities", exact: true }),
+    "Basis",
   );
-  const bridge = runCharts.getByRole("figure", { name: "Liquidity bridge", exact: true });
-  await bridge.locator('[data-step="Debt repayment"][data-kind="down"]').waitFor();
-  await bridge.getByRole("radio", { name: "Table", exact: true }).check();
-  for (const value of ["-450", "570"]) {
-    await bridge.getByRole("cell", { name: value, exact: true }).waitFor();
-  }
-  const refinancing = runCharts.getByRole("figure", { name: "Refinancing need", exact: true });
-  // C4-020 uses period lines: two maturity points, one committed-resource point,
-  // and no invented zero for the second period's missing commitment.
-  const plotted = refinancing.locator(".recharts-wrapper");
-  await plotted.locator('[data-marker][data-series="Committed resources"]').waitFor();
-  assert.equal(await plotted.locator('[data-marker][data-series="Debt maturing"]').count(), 2);
-  assert.equal(
-    await plotted.locator('[data-marker][data-series="Committed resources"]').count(),
-    1,
+  assert.equal(wall, sourceHref);
+  const wallRow = forecastDebt
+    .getByRole("row")
+    .filter({ has: page.getByRole("cell", { name: "1,250", exact: true }) });
+  const rowHref = await checkTraceFocus(
+    page,
+    wallRow.getByRole("button", { name: /^Show sources for /u }),
+    "Basis",
   );
-  await refinancing.getByRole("radio", { name: "Table", exact: true }).check();
+  assert.notEqual(rowHref, sourceHref);
+  const bridge = await openTable("Liquidity bridge");
+  await bridge.getByRole("cell", { name: "570", exact: true }).waitFor();
+  // The sign belongs to its step: -450 is the Debt repayment row's amount (CP-2D.md).
+  await bridge
+    .getByRole("row")
+    .filter({ has: page.getByRole("rowheader", { name: "Debt repayment", exact: true }) })
+    .getByRole("cell", { name: "-450", exact: true })
+    .waitFor();
+  const refinancing = await openTable("Refinancing need");
+  // Two Debt maturing points (FY2026 500, FY2027 1,250; CP-3C.md), one committed-resource point
+  // (FY2026 300), and no invented zero for the second period's missing commitment.
+  for (const [period, maturing] of [
+    ["FY2026", "500"],
+    ["FY2027", "1,250"],
+  ])
+    await refinancing
+      .getByRole("row", { name: new RegExp(period, "u") })
+      .getByRole("cell", { name: maturing, exact: true })
+      .waitFor();
   await refinancing
     .getByRole("row", { name: /FY2026/u })
     .getByRole("cell", { name: "300", exact: true })
@@ -1212,7 +1360,12 @@ async function checkListedSourceFiles(report, page) {
     "northbridge-portfolio.xlsx",
     "northbridge-credit-agreement.txt",
   ]) {
-    const row = report.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
+    // The sources page lists the supplied files as a table, one row per file (the "Used by a
+    // module" table), with the digest in a `code` cell.
+    const row = report
+      .getByRole("table", { name: "Used by a module", exact: true })
+      .getByRole("row")
+      .filter({ has: page.getByRole("rowheader", { name, exact: true }) });
     await row.waitFor();
     const expectedHash = digest(await readFile(path.join(project, "proof", name)));
     await row.locator("code").getByText(expectedHash, { exact: true }).waitFor();
@@ -1223,12 +1376,13 @@ async function checkListedSourceFiles(report, page) {
 }
 
 async function checkReportEvidence(report, page, channel, run) {
-  // J3-017 renames the existing report-history destination.
+  // 0bda8bca moved the report-history destination out of the section control into the header's
+  // "Earlier runs" link.
+  await report.getByRole("link", { name: "Earlier runs", exact: true }).click();
+  await page.waitForURL((url) => url.hash === "#history");
   await report
-    .getByRole("navigation", { name: "Report sections" })
-    .getByRole("link", { name: "History", exact: true })
-    .click();
-  await report.getByRole("heading", { name: "Report history", exact: true }).waitFor();
+    .getByRole("heading", { name: "Runs of Northbridge Synthetic Group", exact: true })
+    .waitFor();
   await report
     .getByRole("navigation", { name: "Report sections" })
     .getByRole("link", { name: "Evidence", exact: true })
@@ -1302,8 +1456,12 @@ async function checkOutcomeValues(rate, rateCheck) {
 }
 
 async function checkCheckMetadata(report, record) {
+  // The outcome totals are a term (the status) and its definition (the count).
+  const totals = report.getByRole("region", { name: "Script checks", exact: true });
+  const terms = await totals.getByRole("term").allInnerTexts();
+  const counts = await totals.getByRole("definition").allInnerTexts();
   for (const { status, n } of record.counts) {
-    await report.getByText(`${String(n)} ${status}`, { exact: true }).waitFor();
+    assert.equal(counts[terms.indexOf(status)], String(n), `${status} count`);
   }
   const storedScript = record.scripts.find((script) => script.sha256);
   if (storedScript?.sha256) {
@@ -1321,8 +1479,18 @@ async function checkCompactLibrary(page, endpoint, run) {
   assert.deepEqual(Object.keys(index.workspace), ["runs"]);
   const found = Object.values(index.workspace.runs).find((item) => item.folder === run);
   assert.ok(found);
-  // C1-025/C3-001 adds only the designated card paragraph and its exact provenance.
-  assert.deepEqual(Object.keys(found).sort(), ["folder", "issuerKey", "lead", "pathway"]);
+  // C1-025/C3-001 adds only the designated card paragraph and its exact provenance. a72326f7 added
+  // the run's verified-publication facts; tests/test_react_performance.py (40571751) expects the
+  // same key set.
+  assert.deepEqual(Object.keys(found).sort(), [
+    "assessmentScope",
+    "folder",
+    "issuerKey",
+    "lead",
+    "pathway",
+    "publicationVerified",
+    "publishedAt",
+  ]);
   const snapshot = await page.request.get(
     new URL(`/connected/snapshot?run=${encodeURIComponent(run)}`, endpoint).href,
     { maxRedirects: 0 },
@@ -1334,18 +1502,20 @@ async function checkCompactLibrary(page, endpoint, run) {
   const [key, published] = matched;
   assert.equal(found.issuerKey, published.issuerKey);
   assert.equal(found.pathway, published.pathway);
-  const output = workspace.outputs[published.modules["CP-6"].default];
+  // a72326f7: the card of a full assessment leads with CP-2's Bottom line (react_frontend/
+  // library_cards.py `lead_summary`), not CP-6's.
+  const output = workspace.outputs[published.modules["CP-2"].default];
   assert.ok(output);
-  assert.equal(output.id, published.modules["CP-6"].default);
+  assert.equal(output.id, published.modules["CP-2"].default);
   assert.equal(output.run, key);
-  assert.equal(output.module, "CP-6");
+  assert.equal(output.module, "CP-2");
   assert.match(output.sha256, /^[0-9a-f]{64}$/u);
   const paragraph = workspace.handoffs[output.sha256]
     .find((section) => section.heading === "Bottom line" && section.level === 3)
     ?.blocks.find((block) => block.type === "text");
   assert.ok(paragraph);
   assert.deepEqual(found.lead, {
-    module: "CP-6",
+    module: "CP-2",
     output: output.id,
     sha256: output.sha256,
     line: paragraph.line,
@@ -1379,17 +1549,32 @@ async function checkLibrarySearch(context, endpoint) {
   }
 }
 
+// The standing-portfolios statuses a page received. The GET listing is "/api/reference-portfolios"
+// (no trailing slash); the POSTs are under it.
+function recordStandingResponses(page, statuses) {
+  page.on("response", (result) => {
+    const { pathname } = new URL(result.url());
+    if (
+      pathname === "/api/reference-portfolios" ||
+      pathname.startsWith("/api/reference-portfolios/")
+    )
+      statuses.push(result.status());
+  });
+}
+
 function recordBrowserRequests(page) {
   const errors = [];
   const publicationRequests = [];
   const scriptRequests = [];
+  const standingResponses = [];
+  recordStandingResponses(page, standingResponses);
   page.on("request", (request) => {
     const url = new URL(request.url());
     if (url.pathname.endsWith(".js")) scriptRequests.push(url.pathname);
     if (url.pathname.startsWith("/connected/")) publicationRequests.push(url.pathname + url.search);
   });
   page.on("pageerror", (error) => errors.push(error.message));
-  return { errors, publicationRequests, scriptRequests };
+  return { errors, publicationRequests, scriptRequests, standingResponses };
 }
 
 async function checkStartRoute(page, endpoint, scriptRequests, brand) {
@@ -1454,7 +1639,11 @@ async function checkFinishedReport(page, open, scriptRequests, channel, run) {
   await checkCompanyBand(report, channel);
   if (!desktopOnly) await checkOverviewMobile(report, page, channel);
   await checkOverviewTrace(report, page);
-  await report.getByRole("link", { name: "Chart index", exact: true }).click();
+  // 0bda8bca removed the Overview's "Chart index" link; the address it pointed at still lands
+  // focus on the run charts, so the proof goes there by its address.
+  await page.evaluate(() => {
+    window.location.hash = "#forecast/run-charts";
+  });
   await page.waitForURL((url) => url.hash === "#forecast/run-charts");
   await page.waitForFunction(() => document.activeElement?.id === "forecast-run-charts");
   await report.getByRole("link", { name: "Overview", exact: true }).click();
@@ -1464,10 +1653,15 @@ async function checkFinishedReport(page, open, scriptRequests, channel, run) {
 }
 
 async function checkPublishedRun({ context, page, report, endpoint, run, publicationRequests }) {
-  const download = report.getByRole("link", {
-    name: "Download Fundamental credit",
-    exact: true,
-  });
+  // The Evidence summary now says "Hashes and downloads are on Record": the download link is in
+  // the Record page's Handoffs table.
+  await report
+    .getByRole("navigation", { name: "Evidence sections" })
+    .getByRole("link", { name: "Record", exact: true })
+    .click();
+  const download = report
+    .getByRole("region", { name: "Handoffs", exact: true })
+    .getByRole("link", { name: "Download Fundamental credit", exact: true });
   await download.waitFor();
   const [file] = await Promise.all([page.waitForEvent("download"), download.click()]);
   assert.equal(file.suggestedFilename(), "CP-2.md");
@@ -1595,9 +1789,10 @@ function browserProofRecord({ channel, brand, browserVersion, run }) {
 async function checkBrowserRun(context, service, workspace, channel, brand) {
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
-  const { errors, publicationRequests, scriptRequests } = recordBrowserRequests(page);
+  const { errors, publicationRequests, scriptRequests, standingResponses } =
+    recordBrowserRequests(page);
   await checkStartRoute(page, service.endpoint, scriptRequests, brand);
-  await checkPaidConfirmation(context, service.endpoint, channel);
+  await checkPaidConfirmation(context, service.endpoint, channel, standingResponses);
   const run = await submit(page, channel);
   const open = await waitForFinishedRun(page, service.endpoint, workspace, channel, run);
   const report = await checkFinishedReport(page, open, scriptRequests, channel, run);
@@ -1610,6 +1805,11 @@ async function checkBrowserRun(context, service, workspace, channel, brand) {
     publicationRequests,
   });
   assert.deepEqual(errors, []);
+  assert.deepEqual(
+    standingResponses.filter((status) => status >= 500),
+    [],
+    "the standing portfolios service answered with a server error",
+  );
   await page.screenshot({
     path: path.join(artifacts, `${channel}-evidence.png`),
     fullPage: true,

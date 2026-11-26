@@ -13,6 +13,7 @@ import {
   type Table,
 } from "../publishedReport";
 import { PublishedTable } from "../ReportContent";
+import { unitCells } from "../report/moduleRecordsModel";
 import {
   decisionTreatment,
   scopedLead,
@@ -31,6 +32,7 @@ import { LegacyVisuals } from "../visuals";
 import { qualificationBlocks } from "../visuals/drawnQualifications";
 import { portfolioLimits } from "../visuals/PortfolioLimits";
 import { amount, distinct, rangeTicks } from "../visuals/visualData";
+import { unitLabel } from "../moneyUnits";
 import { printableTable } from "./printTable";
 
 type SafeText = (text: string) => string;
@@ -127,7 +129,7 @@ function PurposeReport({ purpose }: { purpose: Purpose }) {
             // A table's section can hold the same paragraph twice; each is printed.
             <p key={at}>{richParts(note, readerText)}</p>
           ))}
-          <PublishedTable table={table} heading={title} />
+          <PublishedTable table={table} heading={title} drawCell={unitCells(table)} />
         </section>
       ))}
       {passages?.map(
@@ -432,7 +434,7 @@ function legacyEarnings(entry: OutputEntry, safe: SafeText): Purpose | null {
   const challenge = variance.find((body) => body.startsWith("The cash buffer nevertheless fell:"));
   if (!table || !basis?.[1] || !basis[2] || !definitions || !lead || !challenge) return null;
   const note =
-    `USD millions except reported percentages. Prior ${basis[2]}. Current ${basis[1]}. Both are labelled thirteen weeks by the issuer.`.replace(
+    `${unitLabel("USD millions")} except reported percentages. Prior ${basis[2]}. Current ${basis[1]}. Both are labelled thirteen weeks by the issuer.`.replace(
       /\s+/g,
       " ",
     );

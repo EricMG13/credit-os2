@@ -27,6 +27,6 @@ it("uses the same canonical money unit on the model header and every forecast ch
       }}
     />,
   );
-  expect(screen.getAllByText("US$m").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("$m").length).toBeGreaterThan(0);
   expect(document.body.textContent).not.toContain("USD millions");
 });

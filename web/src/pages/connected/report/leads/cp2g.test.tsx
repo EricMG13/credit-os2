@@ -299,7 +299,7 @@ it("lists the retained drivers by case and year as stated, inheritance as words"
   expect(
     within(tile).getByText("Downside shock: EBITDA decline 20%, cash-interest increase 1.84%."),
   ).toBeVisible();
-  expect(within(tile).getByText(/USD millions/)).toBeVisible();
+  expect(within(tile).getByText(/Amounts: \$m, as recorded/)).toBeVisible();
 });
 
 // Review 4, Q6: below sm the drivers table becomes one card per driver, case × year as a list.

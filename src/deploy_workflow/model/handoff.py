@@ -48,11 +48,14 @@ from deploy_vii.registry import modules, purpose
 from deploy_workflow.model.adapter import AdapterReply, ModelAdapter
 from deploy_workflow.model.budget import Budget, BudgetError, OverrunStop, exact_multiply, exact_sum
 from deploy_workflow.model.configs import CONFIGS
-from deploy_workflow.model.copilot import COMPACTION_SHARE, near_limit, prompt_tokens_estimate
+from deploy_workflow.model.copilot import prompt_bytes_within, prompt_tokens_estimate
 from deploy_workflow.model.handoff_transport import compact_index, read_handoff
 from deploy_workflow.model.loop_helpers import _caught, redacted_request, redacted_turn
 from deploy_workflow.model.pricing import (
     Priced,
+    covers_long_context,
+    handoff_input_bound,
+    handoff_largest_request_bytes,
     handoff_reservation_usd,
     price_of,
     price_usage,
@@ -116,9 +119,20 @@ FAILED_NO_USAGE = (
     "failed, no usage reported"  # the reason written when a failed call reports no usage
 )
 # Reads stop once the request reaches this many bytes: 268,000 tokens at the lowest 4.11 bytes per
-# token measured, under the 272,000-token long-context price, with the 1,050,000-token context
-# left for drafts and repairs. At 700,000, run tdg-all-001 refused every read CP-3 and CP-5 made.
+# token measured, under the 272,000-token long-context price, with the rest of the default tier's
+# context left for drafts and repairs. At 700,000, run tdg-all-001 refused every read CP-3 and CP-5
+# made. It is the cap unless the module's session is confirmed on the long tier (``_read_cap``).
 MAX_CONTEXT_FOR_READS = 1_100_000
+# On a confirmed long-tier session reads go up to the smaller of the hold's largest accepted
+# request (`handoff_largest_request_bytes`) and the largest the session's long prompt budget admits
+# at the adapter's 3.85 bytes per token (`prompt_bytes_within`), less this headroom for drafts and
+# repairs, and never below `MAX_CONTEXT_FOR_READS` (owner, 2026-11-26: "read up to the hold"; calls
+# above 272,000 tokens may bill at long rates). The headroom comes from today's default-tier
+# design: the 2-bytes hold of sol-medium accepts 2 x (1,050,000 - 4,096) = 2,091,808 bytes and
+# reads stop at 1,100,000, leaving 991,808. For copilot-sol/luna on a budget of 814,991 tokens or
+# more the hold binds: 3,137,712 - 991,808 = 2,145,904 bytes, about 2.1 MB; on 700,000 the budget
+# binds: 2,695,000 - 991,808 = 1,703,192.
+READ_HEADROOM_BYTES = 2 * (1_050_000 - 4096) - MAX_CONTEXT_FOR_READS
 # Web search (owner, 2026-11-10: "Cp-dr supplies the peers"). Only the research module is offered
 # it, only when the run's ruling lists ``web-search`` and only on OpenAI. Each response may make
 # 16 built-in calls (``max_tool_calls``), so a call holds 16 searches' fees beyond its tokens.
@@ -132,9 +146,11 @@ WEB_SEARCH_CALLS_PER_TURN = 16
 WEB_SEARCH_CASE_KINDS = ("public", "private")
 COMPACT_HANDOFF_MODULES = frozenset({"CP-3", "CP-5", "CP-6"})
 COMPACT_HANDOFF_VERSION = "compact-v1"
-# Serialized-byte token estimates use Copilot's retained-request calibration; the input cap also
-# keeps the historical TDG initial requests below 100k estimated tokens. The combined cap leaves
-# headroom for output while staying below the known Sol route's summarisation share.
+# Serialized-byte token estimates use Copilot's retained-request calibration. These two caps apply
+# to every seed and to every later turn not on a confirmed long tier: the input cap keeps the
+# historical TDG initial requests below 100k estimated tokens, and the combined cap leaves headroom
+# for output under the default tier's context. A later turn of a covered configuration whose adapter
+# confirms a long tier is stopped where its hold would be (``handoff_input_bound``).
 COMPACT_INPUT_LIMIT = 100_000
 COMPACT_COMBINED_LIMIT = 160_000
 
@@ -1261,7 +1277,6 @@ class HandoffExecutor:
         events: Path | None = None,
         web_search: bool = False,
         effort_by_module: Mapping[str, str] | None = None,
-        notice: Callable[[str], None] | None = None,
         web_lookup: str = "off",
         web_hosts: Sequence[str] = (),
         lookup_cutoff: date | None = None,
@@ -1308,9 +1323,6 @@ class HandoffExecutor:
         self._writer: AbstractContextManager[None] | None = None  # the folder lock they share
         self.directory, self.adapter, self.check = directory, adapter, check
         self.events = events
-        self.notice = (
-            notice  # a plain line for the person watching the run (the launcher prints it)
-        )
         self.redactor = redactor or Redactor()
         self.max_turns, self.max_output_tokens = max_turns, max_output_tokens
         self.budget = Budget(cap_usd, directory)
@@ -1405,16 +1417,71 @@ class HandoffExecutor:
             for producer, raw in task.handoffs.items()
         }
 
+    def _long_budget(self, digest: str) -> int | None:
+        """The long prompt budget the adapter confirms for this module's session, else None. The
+        adapter's ``long_tier_budget`` is an optional capability looked up by name, like
+        ``release`` and ``drain_compactions``: ``handoff`` does not import ``copilot_adapter``,
+        and only a positive int counts."""
+        query = getattr(self.adapter, "long_tier_budget", None)
+        budget = query(digest) if callable(query) else None
+        return budget if type(budget) is int and budget > 0 else None
+
+    def _read_cap(self, digest: str) -> int:
+        """Bytes at which this module's reads stop. A session the adapter confirms on the long
+        tier reads up to the smaller of the hold's largest accepted request and the largest request
+        the session's long budget admits, less ``READ_HEADROOM_BYTES``, never below
+        ``MAX_CONTEXT_FOR_READS``. Any other session reads up to about half of what the adapter
+        says its next call admits (``prompt_admits``, an optional capability looked up like
+        ``long_tier_budget``), at most ``MAX_CONTEXT_FOR_READS``: the same share as the default
+        design, where 1,100,000 of the 2,091,808 bytes the 2-bytes hold accepts are read. With no
+        such answer (another adapter, Opus's no-bound hold) it stops at
+        ``MAX_CONTEXT_FOR_READS``."""
+        budget = self._long_budget(digest)
+        if budget is not None:
+            largest = handoff_largest_request_bytes(self.adapter.config_id)
+            if largest is not None:
+                fits = min(largest, prompt_bytes_within(budget))
+                return max(MAX_CONTEXT_FOR_READS, fits - READ_HEADROOM_BYTES)
+            return MAX_CONTEXT_FOR_READS
+        admits_query = getattr(self.adapter, "prompt_admits", None)
+        admits = admits_query(digest) if callable(admits_query) else None
+        if type(admits) is int and admits > 0:
+            return min(MAX_CONTEXT_FOR_READS, prompt_bytes_within(admits) // 2)
+        return MAX_CONTEXT_FOR_READS
+
     def _guard_compact_request(
-        self, task: HandoffTask, request: TurnRequest, *, initial: bool = False
+        self,
+        task: HandoffTask,
+        request: TurnRequest,
+        *,
+        initial: bool = False,
+        digest: str | None = None,
     ) -> None:
         if not self._compact_handoffs(task):
             return
-        estimate = prompt_tokens_estimate(len(dump_json(asdict(request)).encode()))
+        size = len(dump_json(asdict(request)).encode())
+        config = self.adapter.config_id
+        # The seed has no session yet, so its tier is unknown: today's limits, for every config.
+        # A later turn is bound by the hold only where the adapter confirms a long tier.
+        budget = None if initial or digest is None else self._long_budget(digest)
+        if budget is not None and covers_long_context(config):
+            # stop where the hold would refuse: the same bound, so nothing is reserved or sent
+            estimate = handoff_input_bound(config, size)
+            held = price_of(config).reservation_context_tokens
+            assert held is not None  # covers_long_context holds only where it is set
+            input_limit = held
+            basis = "hold bound"
+            if (tokens := prompt_tokens_estimate(size)) > budget:
+                estimate, input_limit, basis = tokens, budget, "long budget"
+            combined_limit = input_limit + request.max_output_tokens
+        else:
+            estimate = prompt_tokens_estimate(size)
+            combined_limit = COMPACT_COMBINED_LIMIT
+            basis = "serialized-byte estimate"
+            input_limit = combined_limit - request.max_output_tokens
+            if initial:
+                input_limit = min(input_limit, COMPACT_INPUT_LIMIT)
         combined = estimate + request.max_output_tokens
-        input_limit = COMPACT_COMBINED_LIMIT - request.max_output_tokens
-        if initial:
-            input_limit = min(input_limit, COMPACT_INPUT_LIMIT)
         if estimate > input_limit:
             self._event(
                 "compact_prompt_stopped",
@@ -1423,12 +1490,12 @@ class HandoffExecutor:
                 output_tokens=request.max_output_tokens,
                 combined_tokens=combined,
                 input_limit=input_limit,
-                combined_limit=COMPACT_COMBINED_LIMIT,
+                combined_limit=combined_limit,
             )
             raise ValueError(
                 f"{task.module_id} compact prompt exceeds estimated input/combined limits "
                 f"({estimate:,}/{combined:,}; limits {input_limit:,}/"
-                f"{COMPACT_COMBINED_LIMIT:,}; serialized-byte estimate)"
+                f"{combined_limit:,}; {basis})"
             )
 
     def _seed_request(
@@ -1643,7 +1710,7 @@ class HandoffExecutor:
                 self.redactor,
                 TurnRequest(tuple(history), tools, self.max_output_tokens, effort),
             )
-            self._guard_compact_request(task, request)
+            self._guard_compact_request(task, request, digest=digest)
             returned = self._turn(task, folder, digest, index, request)
             history.append(
                 Message(
@@ -1655,6 +1722,7 @@ class HandoffExecutor:
             )
             results = []
             size = len(dump_json(asdict(request)))
+            read_cap = self._read_cap(digest)
             for call in returned.tool_calls:
                 result = (
                     "ERROR: malformed tool arguments"
@@ -1663,7 +1731,7 @@ class HandoffExecutor:
                 )
                 result = self._tool_result(call.name, result)
                 if call.name == "read_pages":
-                    if size + len(dump_json(result)) > MAX_CONTEXT_FOR_READS:
+                    if size + len(dump_json(result)) > read_cap:
                         result = READS_FULL
                     size += len(dump_json(result))
                 history.append(Message("tool", result, tool_call_id=call.call_id))
@@ -1698,7 +1766,7 @@ class HandoffExecutor:
         return self._lookup
 
     def _record_first_prompt(self, task: HandoffTask, prompt_bytes: int) -> None:
-        """Record compact prompt sizing and warn near the known context limit before sending."""
+        """Record compact prompt sizing before sending."""
         if self.config.provider != "copilot":
             return
         tokens = prompt_tokens_estimate(prompt_bytes)
@@ -1710,25 +1778,6 @@ class HandoffExecutor:
                 request_bytes=prompt_bytes,
                 estimated_input_tokens=tokens,
                 output_tokens=self.max_output_tokens,
-            )
-        limit = near_limit(self.config.model, tokens, self.max_output_tokens)
-        if limit is None:
-            return
-        if self.events is not None:
-            append_event(
-                self.events,
-                "first_prompt_near_limit",
-                module=task.module_id,
-                estimated_tokens=tokens,
-                output_tokens=self.max_output_tokens,
-                token_limit=limit,
-            )
-        if self.notice is not None:
-            self.notice(
-                f"Context:  {task.module_id}: first prompt about {tokens:,} tokens plus "
-                f"{self.max_output_tokens:,} output is over "
-                f"{int(COMPACTION_SHARE * 100)}% of the {limit:,}-token limit. "
-                "The adapter checks the seat's limit before sending."
             )
 
     def _event(self, name: str, task: HandoffTask, **fields: str | int) -> None:

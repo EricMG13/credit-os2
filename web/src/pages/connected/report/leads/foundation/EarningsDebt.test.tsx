@@ -70,9 +70,7 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
   it("titles the tile plainly and names the unit and periods in the kicker", () => {
     const tile = draw();
     expect(within(tile).getByRole("heading", { level: 3 }).textContent).toBe("Earnings and debt");
-    expect(tile.textContent).toContain(
-      "Earnings against debt and leverage · US$m, FY2023 → FY2024",
-    );
+    expect(tile.textContent).toContain("Earnings against debt and leverage · $m, FY2023 → FY2024");
   });
 
   it("draws each measure as a ring and a dot on one scale from zero, positions proportional", () => {
@@ -166,7 +164,7 @@ describe("Earnings and debt: the accepted handoff, FY2023 and FY2024", () => {
 describe("Earnings and debt: other real handoffs", () => {
   it("draws the relative value handoff's one period as one bar per measure, no comparison", () => {
     const tile = draw(relativeValueCp1Entry());
-    expect(tile.textContent).toContain("US$m, FY2024");
+    expect(tile.textContent).toContain("$m, FY2024");
     expect(tile.querySelectorAll("[data-prior], [data-current]")).toHaveLength(0);
     const bars = [...tile.querySelectorAll("rect[data-bar]")].map((bar) => ({
       label: bar.getAttribute("data-bar"),
@@ -210,7 +208,7 @@ describe("Earnings and debt: other real handoffs", () => {
 describe("Earnings and debt: three or more periods, gaps and absences", () => {
   it("draws a line per measure across all three periods, the FY2022 gap hatched in place with its reason", () => {
     const tile = draw(threePeriodCp1());
-    expect(tile.textContent).toContain("US$m, FY2022 → FY2024");
+    expect(tile.textContent).toContain("$m, FY2022 → FY2024");
     const panels = [...tile.querySelectorAll("[data-panel]")].map((p) =>
       p.getAttribute("data-panel"),
     );
@@ -537,7 +535,7 @@ describe("Earnings and debt: five scrambled periods on X in the one period order
 
   it("draws LTM and PF after the fiscal years and before the forecast year, each value its own", () => {
     const tile = draw(mixedPeriodsCp1());
-    expect(tile.textContent).toContain("US$m, FY2023 → FY2025E");
+    expect(tile.textContent).toContain("$m, FY2023 → FY2025E");
     const revenue = points(tile, "Revenue");
     expect(revenue.map((point) => point.at)).toEqual(ORDER.map((label) => `Revenue ${label}`));
     expect(revenue.map((point) => point.value)).toEqual([6585, 7940, 8500, 8100, 8800]);

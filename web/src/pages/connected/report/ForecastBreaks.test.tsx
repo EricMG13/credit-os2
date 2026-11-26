@@ -226,7 +226,7 @@ it("states the liquidity module's funding gap as that module's figure, with hori
   const part = within(screen.getByRole("region", { name: "Funding gap" }));
   expect(part.getByText("120.5")).toBeInTheDocument();
   // Named by the module and the row's own label, never the page's own wording.
-  expect(part.getByText("Liquidity: Funding gap · 2026-03-31 · USD millions")).toBeInTheDocument();
+  expect(part.getByText("Liquidity: Funding gap · 2026-03-31 · $m")).toBeInTheDocument();
   expect(part.queryByText(/horizon end/)).toBeNull();
   expect(part.getByRole("link", { name: "Source for Liquidity's Funding gap" })).toHaveAttribute(
     "href",
@@ -503,9 +503,7 @@ it("draws the refinancing module's stated zero as 0 and no bare dash as its hori
   breaks([refinancing]);
   const part = within(screen.getByRole("region", { name: "Funding gap" }));
   // The horizon is the one year the Horizon row states under Years, not the dash under Amount.
-  expect(
-    part.getByText("Refinancing & LME: Funding gap · Years: 1 · USD million"),
-  ).toBeInTheDocument();
+  expect(part.getByText("Refinancing & LME: Funding gap · Years: 1 · $m")).toBeInTheDocument();
   expect(part.queryByText(/ · — · /)).toBeNull();
   const amount = part.getByText("Amount").closest("div");
   expect(amount).toHaveTextContent("Amount0");

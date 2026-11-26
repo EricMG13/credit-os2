@@ -27,7 +27,8 @@ import { serviceText } from "./api";
 import { card, field as control, label } from "./layout";
 import { useCanStart } from "./startAction";
 import { Chip, ChipGroup, RemovableChip } from "@/components/kit/Chip";
-import { boundUnit, unitName } from "./coverage/boundUnit";
+import { boundUnit, unitNamer } from "./coverage/boundUnit";
+import { writtenUnit } from "./moneyUnits";
 import { Choice, FieldOptions } from "./coverage/Controls";
 import { FindView } from "./coverage/Find";
 import { IssuerDetail } from "./coverage/IssuerDetail";
@@ -271,11 +272,15 @@ function Dashboard({ data: served }: { data: Data }) {
     </Choice>
   );
   // A bound reads one figure at one period in one unit, shown as a chip on every view that applies it.
-  const unitMark = (unit: string) =>
-    unit === "x" || unit === "%" ? unit : unit === "" ? " (no unit stated)" : ` ${unit}`;
+  const boundMark = (text: string) =>
+    bound.unit === null
+      ? text
+      : bound.unit === ""
+        ? `${text} (no unit stated)`
+        : writtenUnit(text, bound.unit);
   const boundText =
     field && period !== null && applied
-      ? `${field.label} ${[low.value !== null && `≥ ${filters.min.trim()}${bound.unit === null ? "" : unitMark(bound.unit)}`, high.value !== null && `≤ ${filters.max.trim()}${bound.unit === null ? "" : unitMark(bound.unit)}`].filter(Boolean).join(", ")} · ${period}`
+      ? `${field.label} ${[low.value !== null && `≥ ${boundMark(filters.min.trim())}`, high.value !== null && `≤ ${boundMark(filters.max.trim())}`].filter(Boolean).join(", ")} · ${period}`
       : null;
   const badBounds = (["min", "max"] as const).filter((side) => readBound(filters[side]).invalid);
   const heading =
@@ -404,7 +409,7 @@ function Dashboard({ data: served }: { data: Data }) {
               className="gap-hatch inline-flex max-w-full rounded-ds-xs border border-dashed border-border-gap"
             >
               <span className="m-px rounded-ds-xs bg-surface-card px-3 py-1 text-small text-gap-text">
-                Choose a unit for the bound: {bound.tied.map(unitName).join(" or ")}
+                Choose a unit for the bound: {bound.tied.map(unitNamer(bound.units)).join(" or ")}
               </span>
             </span>
           )}
@@ -551,7 +556,7 @@ function Dashboard({ data: served }: { data: Data }) {
                           setUnitPick(unit);
                         }}
                       >
-                        {unit || "No unit stated"}
+                        {unit === "" ? "No unit stated" : unitNamer(bound.units)(unit)}
                       </Chip>
                     ))}
                   </div>
@@ -636,7 +641,10 @@ function Dashboard({ data: served }: { data: Data }) {
       {otherUnit.length > 0 && (
         <p className="text-small text-gap-text">
           Not compared, stated in another unit:{" "}
-          {otherUnit.map(({ issuer, unit }) => `${issuer.name} (${unitName(unit)})`).join("; ")}.
+          {otherUnit
+            .map(({ issuer, unit }) => `${issuer.name} (${unitNamer(bound.units)(unit)})`)
+            .join("; ")}
+          .
         </p>
       )}
       {noFigure.length > 0 && (

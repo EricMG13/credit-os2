@@ -61,7 +61,7 @@ describe("EBITDA bridge: the accepted CP-1", () => {
     expect(within(tile).getByRole("heading", { level: 3 }).textContent).toBe(
       "Reported to adjusted EBITDA",
     );
-    expect(tile.textContent).toContain("EBITDA bridge · US$m");
+    expect(tile.textContent).toContain("EBITDA bridge · $m");
     expect(
       within(tile).getAllByRole("link", { name: /Source for the EBITDA bridge/ }),
     ).toHaveLength(1);
@@ -106,14 +106,14 @@ describe("EBITDA bridge: the accepted CP-1", () => {
   it("reads every step in the aria-label, no total of the changes", () => {
     const { svg } = draw(cp1Entry());
     expect(svg?.getAttribute("aria-label")).toBe(
-      "EBITDA bridge, US$m: EBITDA (Reported) 3,813, plus Acquisition transaction and integration-related expenses 70, plus Non-cash stock and deferred compensation expense 217, plus Refinancing costs 58, plus Other, net 15, equals EBITDA (Adjusted) 4,173. Axis starts at 3,600, cut.",
+      "EBITDA bridge, $m: EBITDA (Reported) 3,813, plus Acquisition transaction and integration-related expenses 70, plus Non-cash stock and deferred compensation expense 217, plus Refinancing costs 58, plus Other, net 15, equals EBITDA (Adjusted) 4,173. Axis starts at 3,600, cut.",
     );
   });
 
   it("opens the table view from the button: step, signed amount, kind", () => {
     const { tile } = draw(cp1Entry());
     expect(openTable(tile)).toEqual([
-      ["Step", "Amount, US$m", "Kind"],
+      ["Step", "Amount, $m", "Kind"],
       ["EBITDA (Reported)", "3,813", "Opening"],
       ["Acquisition transaction and integration-related expenses", "+70", "Increase"],
       ["Non-cash stock and deferred compensation expense", "+217", "Increase"],

@@ -115,6 +115,10 @@ node --test apps/issuer-library/credit_os/web/reader.test.cjs apps/issuer-librar
   application's gates from `web/package.json`: lint, format, types, unused code, duplication,
   the component tests, the build and the script tests. `npm audit` and the browser file check
   stay local (`npm --prefix web run gates`).
+- Recommended local skips: once the `web` job has passed on your latest commit, do not repeat its
+  steps locally. Run only `npm --prefix web run gates:local` (audit, then the browser file
+  check, which builds first). While working, run only the affected test files. A local pass never
+  replaces the CI job.
 - `weekly-tests.yml`, every Sunday at 01:00 UTC and by hand: the whole suite, slow files
   included, with the same markers and deselections and the web dependencies installed (as in the
   fast tests, for the Signal reader check). A failure there that is not in

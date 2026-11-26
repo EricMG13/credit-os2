@@ -56,7 +56,7 @@ class World:
         self.root = tmp / "root"
         self.db = store.open_db(self.root)
         self.source = store.propose_source(self.db, "Wire", "news", "https://w.example/f", "x")
-        for n in range(5):
+        for n in reversed(range(5)):  # oldest first, as ingest stores them: ids rise with time
             when = start - timedelta(hours=2 + n)
             entry = Entry(f"Bond story {n}", f"https://w.example/{n}", when, "S.")
             store.add_story(self.db, self.source, entry, when)

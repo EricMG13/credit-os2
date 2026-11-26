@@ -1383,7 +1383,7 @@ describe("connected report Changes", () => {
       expect(unresolved.querySelector('[data-mark="dumbbell"] [data-current]')?.className).toMatch(
         /bg-text-secondary/,
       );
-      expect(unresolved.querySelector("[data-change]")).toHaveTextContent("-US$4m");
+      expect(unresolved.querySelector("[data-change]")).toHaveTextContent("-$4m");
       expect(rowOf("Revenue").querySelector("[data-change]")).toHaveTextContent("better");
     });
 

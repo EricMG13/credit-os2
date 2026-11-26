@@ -9,11 +9,14 @@ findings are written by hand, with the arithmetic in the comment beside each. Of
 
 from __future__ import annotations
 
+import io
 import json
+import zipfile
 from datetime import date
 from decimal import Decimal
 
 import pytest
+from openpyxl import load_workbook
 from test_cpos_launch import context_file, issuer_folder
 
 from deploy_vii.inputs import portfolio_export as pe
@@ -1442,10 +1445,7 @@ def test_a_percent_cell_of_a_workbook_is_marked_so_its_fraction_is_not_read_as_a
     rows = pe.sheet_rows(pack.workbook_bytes(pack.BONDS), "Portfolio Holdings")
     assert rows is not None
     by_number = dict(rows)
-    assert by_number[4][0].percent_places is not None
-    assert by_number[4][0] == pe.Cell(
-        "0.625", numeric=True, percent_format=True, percent_places=by_number[4][0].percent_places
-    )
+    assert by_number[4][0] == pe.Cell("0.625", numeric=True, percent_format=True)
     assert by_number[4][5] == pe.Cell("5000000", numeric=True)
     assert by_number[2][1].date_format
     assert not by_number[2][1].percent_format
@@ -1643,19 +1643,6 @@ def test_a_holdings_csv_beside_only_an_exposure_report_is_not_the_holdings():
 # --- Percent cells, unnamed sectors, strict limits (S10-1-1, S10-1-5, S10-1-4) -------------------
 
 
-def test_a_percent_cell_is_read_as_the_percentage_it_shows_and_text_is_unchanged():
-    shown = {"numeric": True, "percent_format": True}
-    assert pe._text(pe.Cell("0.25", **shown, percent_places=2)) == "25.00%"
-    assert pe._text(pe.Cell("0.2980123456", **shown, percent_places=2)) == "29.80%"
-    assert pe._text(pe.Cell("0.12345", **shown, percent_places=2)) == "12.35%"  # half up
-    assert pe._text(pe.Cell("0.298", **shown, percent_places=1)) == "29.8%"
-    assert pe._text(pe.Cell("0.25", **shown, percent_places=0)) == "25%"
-    assert pe._text(pe.Cell("0.0861", **shown)) == "8.61%"  # format not readable: exact shift
-    assert pe._text(pe.Cell("25.00%")) == "25.00%"
-    assert pe._text(pe.Cell("0.25", numeric=True)) == "0.25"
-    assert pe._text(pe.Cell("n/a", numeric=True, percent_format=True)) == "n/a"
-
-
 @pytest.mark.parametrize("sector", ["", "#N/A N/A"])
 def test_a_holding_without_a_sector_is_no_sector_and_keeps_its_value(sector):
     def recomputed(spec):
@@ -1677,12 +1664,118 @@ def test_a_holding_without_a_sector_is_no_sector_and_keeps_its_value(sector):
     assert len(named) == 1 and "Index Sector on row" in named[0]
 
 
+# --- A cell keeps its percent format, unit and operator -------------------------------------------
+
+YIELD_LINE = "par-weighted yield to maturity, values outside -10% to 100% left out: 8.61%"
+
+
+def _percent_yields(files: dict[str, bytes], code: str) -> dict[str, bytes]:
+    book = load_workbook(io.BytesIO(files[synth.HOLDINGS]))
+    column = synth.HOLDING_HEADER.index("Mid YTM") + 1
+    for (cell,) in book["Holdings"].iter_rows(min_row=2, min_col=column, max_col=column):
+        cell.value = cell.value / 100
+        cell.number_format = code
+    out = io.BytesIO()
+    book.save(out)
+    return {**files, synth.HOLDINGS: out.getvalue()}
+
+
+@pytest.mark.parametrize("code", ["0.00%", "#,##0.00%;[Red]-#,##0.00%"])
+def test_a_percent_formatted_yield_is_read_as_percent(code):
+    files = _percent_yields(synth.files(synth.clean()), code)
+    report = validate_export(files, run_date=RUN_DATE)
+    assert YIELD_LINE in report.recomputed
+    assert report.ok
+
+
+def test_percent_formatted_sector_shares_and_limits_reconcile():
+    files = synth.workbook_files(synth.clean())
+    book = load_workbook(io.BytesIO(files[synth.BOOK]))
+    changed = 0
+    for row in book["Exposure Report"].iter_rows():
+        if row[0].value in ("Software", "Healthcare") and str(row[1].value).endswith("%"):
+            row[1].value = float(str(row[1].value).rstrip("%")) / 100
+            row[1].number_format = "0.00%"
+            row[3].value = 0.40
+            row[3].number_format = "0.0%"
+            changed += 1
+    assert changed == 2
+    out = io.BytesIO()
+    book.save(out)
+    report = validate_export({synth.BOOK: out.getvalue()}, run_date=synth.AS_OF)
+    assert not any("a breach" in issue.problem for issue in report.issues)
+    assert [pe.render(issue) for issue in report.issues] == []
+    assert report.ok
+
+
+def test_margins_written_with_a_percent_sign_are_converted_to_bps():
+    spec = synth.clean()
+    at = synth.HOLDING_HEADER.index("Margin")
+    for row in spec.holdings:
+        row[at] = f"{row[at] / 100:.2f}%"
+    report = validate_export(synth.csv_files(spec), run_date=RUN_DATE)
+    assert "par-weighted margin: 361.25 bps" in report.recomputed
+    assert report.ok
+
+
+def test_a_bid_written_as_a_bound_is_unreadable_and_not_used():
+    spec = synth.clean()
+    bid = synth.HOLDING_HEADER.index("Bid")
+    spec.holdings[0][bid] = "<99.5"
+    report = validate_export(synth.csv_files(spec), run_date=RUN_DATE)
+    assert not report.ok
+    assert any(
+        "Bid cannot be read as a number or date with its unit on row 2" in issue.problem
+        for issue in report.issues
+    )
+    assert "positions with no price: 1, par 20,000,000" in report.recomputed
+    export = pe.read_export(synth.csv_files(spec))
+    pe.type_rows(export.holdings)
+    assert "bid" not in export.holdings[0].numbers
+
+
+@pytest.mark.parametrize(("column", "text"), [("Mid YTM", "8 x"), ("Bid", "99.5%")])
+def test_a_cell_in_a_unit_the_column_does_not_take_is_unreadable(column, text):
+    spec = synth.clean()
+    spec.holdings[0][synth.HOLDING_HEADER.index(column)] = text
+    export = pe.read_export(synth.csv_files(spec))
+    tallies = pe.type_rows(export.holdings)
+    key = {"Mid YTM": "ytm", "Bid": "bid"}[column]
+    assert tallies["Holdings"].unreadable[key] == [2]
+    assert key not in export.holdings[0].numbers
+
+
+def test_a_yield_in_bps_is_converted_to_percent():
+    spec = synth.clean()
+    spec.holdings[0][synth.HOLDING_HEADER.index("Mid YTM")] = "800 bps"
+    export = pe.read_export(synth.csv_files(spec))
+    pe.type_rows(export.holdings)
+    assert export.holdings[0].numbers["ytm"] == Decimal(8)
+
+
 @pytest.mark.parametrize(
-    ("code", "places"),
-    [("0.00%", 2), ("0.0%", 1), ("0%", 0), ("#,##0.000%", 3), ("builtin:9", 0), ("builtin:10", 2)],
+    ("stored", "code", "shown"),
+    [
+        ("0.397", "0.00%", "39.70%"),
+        ("0.4", "0.0%", "40.0%"),
+        ("0.08615", "0.00%", "8.615%"),
+        ("0.35100000000000003", "0.00%", "35.10%"),
+        ("1", "0%", "100%"),
+        ("0.0861", "builtin:10", "8.61%"),
+        ("0.5", "builtin:9", "50%"),
+        ("Formula: =A1\nStored cache: x", "0.00%", "Formula: =A1\nStored cache: x"),
+        ("NaN", "0.00%", "NaN"),
+        ("0", "0.00%", "0.00%"),
+        ("8.61E-2", "0.00%", "8.61%"),
+        ("1E+2000", "0.00%", "1E+2000"),
+        ("1E+9998", "0.00%", "1E+9998"),
+        ("1E-20000", "0.00%", "1E-20000"),
+        ("1_000", "0.00%", "1_000"),
+        (" 0.5", "0.00%", " 0.5"),
+    ],
 )
-def test_the_decimals_of_a_percent_format_are_read_from_its_code(code, places):
-    assert pe._percent_places(code) == places
+def test_percent_text_scales_exactly_and_shows_the_formats_places(stored, code, shown):
+    assert pe.percent_text(stored, code) == shown
 
 
 def test_a_strict_limit_is_breached_at_its_own_value():
@@ -1728,7 +1821,7 @@ def test_a_percent_cell_on_the_holdings_sheet_is_read_as_the_percentage_it_shows
 
 
 def test_a_holdings_percent_cell_keeps_its_stored_fraction_in_cells():
-    ytm = pe.Cell("0.08612", numeric=True, percent_format=True, percent_places=2)
+    ytm = pe.Cell("0.08612", numeric=True, percent_format=True)
     when = pe.Cell("45747", numeric=True, date_format=True)
     holding = pe._holding("Holdings", 2, [ytm, when], {"ytm": 0, "maturity": 1})
     assert holding.text["ytm"] == "8.612%"
@@ -1840,17 +1933,6 @@ def test_a_rating_cell_of_one_sp_rating_is_read_on_sps_scale():
             row[7] = "BB-"
     report = validate_export(synth.files(spec), run_date=date(2025, 3, 31))
     assert report.ok, [i.problem for i in report.issues]
-
-
-def test_a_percent_cell_rounds_from_the_value_it_displays_not_the_doubles_expansion():
-    # 0.89849999999999997 is the 17-digit spelling of the double 0.8985: Excel shows 15 digits,
-    # 0.898500000000000, so `0.0%` shows 89.9 % (89.85 half up), as the short spelling does.
-    shown = {"numeric": True, "percent_format": True, "percent_places": 1}
-    assert pe._text(pe.Cell("0.89849999999999997", **shown)) == "89.9%"
-    assert pe._text(pe.Cell("0.8985", **shown)) == "89.9%"
-    assert pe._text(pe.Cell("0.29849999999999999", **shown)) == "29.9%"
-    # The holdings keep the stored digits exactly (no display rounding).
-    assert pe._percent_text(pe.Cell("0.89849999999999997", **shown), None) == "89.849999999999997%"
 
 
 # --- Fifth round: plain not-available markers in Ratings, Sector and Borrower (S10-4-*) --------
@@ -2269,3 +2351,50 @@ def test_a_numeric_date_that_reads_two_ways_is_unread():
     assert pe.text_date("03/31/2025") == date(2025, 3, 31)  # only month first
     assert pe.text_date("31/03/2025") == date(2025, 3, 31)  # only day first
     assert pe.text_date("12/12/2025") == date(2025, 12, 12)  # the same either way
+
+
+@pytest.mark.parametrize(
+    ("code", "places"),
+    [
+        ("0.00%", 2),
+        ("0.0%", 1),
+        ("0%", 0),
+        ("#,##0.00%", 2),
+        ("0.00%;[Red]-0.00%", 2),
+        ('"x"0.00%', 2),
+        ("[Red]0.0%", 1),
+        ("0.0_)%", 1),
+        ("0.0_0%", 1),
+        ("0.00E+00%", 2),
+        ("0.0 0%", 2),
+        ("builtin:9", 0),
+        ("builtin:10", 2),
+    ],
+)
+def test_format_places_counts_every_digit_placeholder_after_the_point(code, places):
+    assert pe._format_places(code) == places
+
+
+def test_a_percent_cell_stored_beyond_a_double_does_not_break_the_check():
+    files = synth.workbook_files(synth.clean())
+    book = load_workbook(io.BytesIO(files[synth.BOOK]))
+    done = 0
+    for row in book["Exposure Report"].iter_rows():
+        if row[0].value == "Software" and str(row[1].value).endswith("%"):
+            row[1].value = 0.123456
+            row[1].number_format = "0.00%"
+            done += 1
+    assert done == 1
+    raw = io.BytesIO()
+    book.save(raw)
+    out = io.BytesIO()
+    with zipfile.ZipFile(raw) as src, zipfile.ZipFile(out, "w") as dst:
+        for item in src.infolist():
+            data = src.read(item.filename)
+            if item.filename.startswith("xl/worksheets/") and b"<v>0.123456</v>" in data:
+                data = data.replace(b"<v>0.123456</v>", b"<v>1E+2000</v>", 1)
+                done += 1
+            dst.writestr(item, data)
+    assert done == 2
+    report = validate_export({synth.BOOK: out.getvalue()}, run_date=synth.AS_OF)
+    assert report.files

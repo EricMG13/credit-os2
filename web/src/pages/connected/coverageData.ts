@@ -1,5 +1,6 @@
 import { request } from "./ahead";
 import { comparePeriodKeys, periodKey } from "@/utils/periodOrder";
+import { writtenUnit } from "./moneyUnits";
 import { DECISION_MODULES, periodPlace } from "./reportView";
 
 /**
@@ -380,9 +381,7 @@ export function trend(
 /** A figure as written, with its unit when the unit is not already part of the text. */
 export function figure(fact: Fact): string {
   if (fact.at === null || !fact.unit) return fact.text;
-  return fact.unit === "x" || fact.unit === "%"
-    ? `${fact.text}${fact.unit}`
-    : `${fact.text} ${fact.unit}`;
+  return writtenUnit(fact.text, fact.unit);
 }
 
 /** Where a fact is read: its run's Evidence page, at the module's own line. */

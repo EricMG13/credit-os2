@@ -44,16 +44,13 @@ SESSION_ERROR = "session.error"
 COMPACTION_START = "session.compaction_start"
 COMPACTION_COMPLETE = "session.compaction_complete"
 
-# The runtime's context limit per model, in tokens: the ``tokenLimit`` its own events report,
-# 272000 for gpt-6.1-sol. Read from the raw bodies of the four retained runs
+# The default tier's context limit per model, in tokens: the ``tokenLimit`` the runtime's own
+# events report, 272000 for gpt-6.1-sol. Read from the raw bodies of the four retained runs
 # (tdg-full-copilot-sol-001, -sol-001-resume, -sol-high-001, -sol-high-001-resume, live/raw/*.json,
 # e.g. c6f6170f864287194550faf5980d1383667cd20cdb6fbb97092ed689dc36e1e2-1.json): all 521 files
-# carry "tokenLimit":272000 and no other value. Only a model whose limit has been read from the
-# runtime is listed: for any other the first-prompt check is silent.
+# carry "tokenLimit":272000 and no other value, in sessions opened before the long tier was
+# requested. The adapter falls back to this limit when a session is not on the long tier.
 TOKEN_LIMITS: Mapping[str, int] = MappingProxyType({"gpt-6.1-sol": 272_000})
-# The SDK's default for background compaction (copilot/session.py ``InfiniteSessionConfig``,
-# github_copilot_sdk 1.0.28): the runtime starts summarising at this share of the limit.
-COMPACTION_SHARE = Decimal("0.80")
 # An ESTIMATE of request bytes per token, from the retained high-effort run's first requests
 # (tdg-full-copilot-sol-high-001-resume: ``modules/<digest>/0.request.json`` bytes over the call's
 # ``input_tokens``): 3.73 to 4.50 over 15 modules, 3.85 to 3.93 for the four largest (CP-3, CP-5,
@@ -230,14 +227,10 @@ def prompt_tokens_estimate(prompt_bytes: int) -> int:
     return math.ceil(Decimal(prompt_bytes) / BYTES_PER_TOKEN_ESTIMATE)
 
 
-def near_limit(model: str, prompt_tokens: int, output_tokens: int) -> int | None:
-    """The model's token limit when ``prompt_tokens`` plus the ``output_tokens`` budget passes the
-    share of it at which the runtime starts to summarise; None when it does not, or when the
-    model's limit is not known."""
-    limit = TOKEN_LIMITS.get(model)
-    if limit is None or prompt_tokens + output_tokens <= limit * COMPACTION_SHARE:
-        return None
-    return limit
+def prompt_bytes_within(tokens: int) -> int:
+    """The largest request bytes whose estimate is at most ``tokens``: floor(tokens x 3.85),
+    the inverse of ``prompt_tokens_estimate`` (what the adapter's guard admits)."""
+    return math.floor(Decimal(tokens) * BYTES_PER_TOKEN_ESTIMATE)
 
 
 def _opt_int(data: Mapping[str, Any], key: str) -> int | None:

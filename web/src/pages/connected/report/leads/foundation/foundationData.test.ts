@@ -120,7 +120,7 @@ describe("statedPeriods: the periods the figures cover", () => {
 describe("earningsAgainstDebt", () => {
   it("reads the four measures of both accepted periods on US$m, with each exact change", () => {
     const data = earningsAgainstDebt(accepted);
-    expect(data?.unit).toBe("US$m");
+    expect(data?.unit).toBe("$m");
     expect(data?.periods.map((p) => p.label)).toEqual(["FY2023", "FY2024"]);
     expect(data?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
     expect(
@@ -413,7 +413,7 @@ const ladderRows = (ladder: Ladder | null) =>
 describe("cashLadder: the handoff's own levels and deductions, as written", () => {
   it("walks the accepted handoff's stated rows for FY2023 and FY2024, no plug and no end level", () => {
     const ladder = cashLadder(accepted);
-    expect(ladder?.unit).toBe("US$m");
+    expect(ladder?.unit).toBe("$m");
     expect(ladder?.periods.map((p) => p.label)).toEqual(["FY2023", "FY2024"]);
     expect(ladder?.comparison).toEqual({ from: "FY2023", to: "FY2024" });
     expect(ladderRows(ladder)).toEqual([
@@ -633,7 +633,7 @@ describe("cashLadder: the handoff's own levels and deductions, as written", () =
 describe("netDebtView", () => {
   it("reads gross debt, cash, net debt and net leverage for every accepted period", () => {
     const view = netDebtView(accepted);
-    expect(view?.unit).toBe("US$m");
+    expect(view?.unit).toBe("$m");
     expect(
       view?.periods.map((p) => [p.label, p.gross.text, p.cash.text, p.net.text, p.leverage?.text]),
     ).toEqual([
@@ -654,14 +654,14 @@ describe("netDebtView", () => {
         a.unit,
       ]),
     ).toEqual([
-      ["Remaining securitization draw", "text: 2024-10-16", "0", "18619", "4.88", "US$m"],
+      ["Remaining securitization draw", "text: 2024-10-16", "0", "18619", "4.88", "$m"],
       [
         "Special dividend and dividend equivalent settlement",
         "text: 2024-10-18",
         "4348",
         "22967",
         "6.02",
-        "US$m",
+        "$m",
       ],
       [
         "Common-stock repurchases",
@@ -669,7 +669,7 @@ describe("netDebtView", () => {
         "316",
         "18935",
         "4.97",
-        "US$m",
+        "$m",
       ],
       [
         "Raptor acquisition working-capital settlement received",
@@ -677,7 +677,7 @@ describe("netDebtView", () => {
         "-1",
         "18618",
         "4.88",
-        "US$m",
+        "$m",
       ],
       [
         "CPI acquisition working-capital settlement paid",
@@ -685,7 +685,7 @@ describe("netDebtView", () => {
         "1",
         "18620",
         "4.88",
-        "US$m",
+        "$m",
       ],
     ]);
     expect(view?.adjustments[0]?.amount).toEqual({ kind: "number", text: "0", value: 0 });
@@ -1101,7 +1101,7 @@ const facilities = (entry: OutputEntry) =>
 
 describe("debtStack: the facilities in the module's ranking order, as written", () => {
   it("reads the six secured notes of the accepted handoff with cumulative leverage as written", () => {
-    expect(debtStack(accepted)?.unit).toBe("US$m");
+    expect(debtStack(accepted)?.unit).toBe("$m");
     expect(facilities(accepted)).toEqual([
       ["2028 secured notes", 1, "Yes", "2100", "0.55"],
       ["2029 secured notes", 1, "Yes", "2750", "1.27"],
@@ -1217,7 +1217,7 @@ const segmentRows = (view: View | null, part: "segments" | "apart" = "segments")
 describe("segmentView: net sales and EBITDA per segment as written, no sum, no ratio", () => {
   it("reads the accepted schedule's two periods by year, corporate apart", () => {
     const view = segmentView(accepted);
-    expect(view?.unit).toBe("US$m");
+    expect(view?.unit).toBe("$m");
     expect(view?.periods.map((p) => p.label)).toEqual(["FY2023", "FY2024"]);
     expect([view?.salesLabel, view?.ebitdaLabel]).toEqual(["Net sales", "EBITDA As Defined"]);
     expect(segmentRows(view)).toEqual([

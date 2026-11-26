@@ -298,12 +298,12 @@ it("draws the headline figures from the foundation's chart tables, each with its
   const net = screen.getByRole("region", { name: "Net debt / EBITDA" });
   expect(within(net).getByText("2.25x", { selector: "span" })).toBeVisible();
   expect(
-    within(screen.getByRole("region", { name: "Revenue" })).getByText("US$2,250m"),
+    within(screen.getByRole("region", { name: "Revenue" })).getByText("$2,250m"),
   ).toBeVisible();
   const cash = screen.getByRole("region", { name: "Cash" });
   expect(
     within(cash).getByRole("img", {
-      name: "Cash US$275m beside Undrawn committed facilities US$400m in FY2024.",
+      name: "Cash $275m beside Undrawn committed facilities $400m in FY2024.",
     }),
   ).toBeVisible();
   const marks = screen.getAllByRole("img").map((mark) => mark.getAttribute("viewBox"));
@@ -316,10 +316,10 @@ it("draws a figure the module did not supply as a gap in its own words, never as
   expect(within(ebitda).getByText("Not supplied", { selector: "span" })).toBeVisible();
   expect(within(ebitda).queryByText("n.a.")).toBeNull();
   expect(within(ebitda).getByText("FY2024: the measure is not stated")).toBeVisible();
-  expect(within(ebitda).getByText("US$410m in FY2023")).toBeVisible();
+  expect(within(ebitda).getByText("$410m in FY2023")).toBeVisible();
   expect(within(ebitda).queryByRole("img")).toBeNull();
   expect(within(ebitda).queryByText(/Better|Worse/)).toBeNull();
-  expect(within(ebitda).queryByText(/US\$0m|NaN/)).toBeNull();
+  expect(within(ebitda).queryByText(/US\$0m|\$0m|NaN/)).toBeNull();
 });
 
 it("draws one gap for the whole row when the foundation did not run", () => {

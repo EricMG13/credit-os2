@@ -3,7 +3,7 @@ import { moduleCodeName, pathwayName, RequestError } from "./api";
 import { asOfDate } from "./runFigures";
 import { changeText } from "./signal";
 import { withUnit } from "./moneyUnits";
-export { unitLabel, withUnit } from "./moneyUnits";
+export { unitLabel, withUnit, writtenUnit } from "./moneyUnits";
 
 export type Row = { line: number; cells: string[] };
 export type Table = { type: "table"; line: number; headers: string[]; rows: Row[] };

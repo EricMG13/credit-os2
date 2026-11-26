@@ -15,6 +15,8 @@ import {
   type WaterfallRow,
 } from "./kit/marks";
 import { group } from "./kit/numbers";
+import { splitMoneyUnit } from "../../moneyUnits";
+import { unitLabel, writtenUnit } from "../../publishedReport";
 import { UnreadFigures } from "./kit/UnreadFigures";
 import type { Lead, LeadProps } from "./types";
 
@@ -106,8 +108,14 @@ function splitLegend(bridge: Bridge): LegendEntry[] {
   ];
 }
 
+/** A stated step's amount with the money unit it ends in drawn as the currency's symbol ("$200m"). */
+const statedUnit = (text: string) => {
+  const split = splitMoneyUnit(text);
+  return split ? writtenUnit(split.amount, split.unit) : text;
+};
+
 function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
-  const unit = bridge.unit;
+  const unit = unitLabel(bridge.unit);
   const rows = rowsOf(bridge);
   const withBasis = bridge.changes.some((step) => step.basis !== "");
   return (
@@ -281,7 +289,7 @@ function Content(props: LeadProps) {
         <GapTile span={7} label="Earnings quality" kicker="Earnings quality">
           {bridge.reason}
           {bridge.stated.length > 0 &&
-            ` Stated steps: ${bridge.stated.map((step) => `${step.label} ${step.text}`).join("; ")}`.replace(
+            ` Stated steps: ${bridge.stated.map((step) => `${step.label} ${statedUnit(step.text)}`).join("; ")}`.replace(
               /\.*$/,
               ".",
             )}

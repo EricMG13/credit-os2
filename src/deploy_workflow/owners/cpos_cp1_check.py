@@ -433,6 +433,25 @@ def _register(
     return regs, issues
 
 
+def register_numerator(text: str, name: str) -> tuple[str, Decimal] | None:
+    """The (Period, Numerator Value) of the register row `name` for the latest Period (the one
+    ordering rule, `period_order`), or None where the register states no row of that name, no row
+    whose Period can be placed, or a numerator that is not a plain number. The reading of the
+    register itself (absent, misheaded or malformed) is reported by `cp1_issues`, not here."""
+    lines = _findings(text)
+    regs, _ = _register(lines, [], _periods(lines))
+    ranked = [
+        (order, r)
+        for r in regs or []
+        if r.metric.name == name and (order := period_order(r.period))
+    ]
+    if not ranked:
+        return None
+    latest = max(ranked, key=lambda pair: pair[0])[1]
+    value = _stated(latest.cells["Numerator Value"])
+    return None if value is None else (latest.period, value)
+
+
 def _find(regs: list[Reg], name: str, period: str, periods: Periods) -> Reg | None:
     key = periods.key(period)
     return next((r for r in regs if r.metric.name == name and periods.key(r.period) == key), None)

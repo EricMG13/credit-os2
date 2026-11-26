@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -171,7 +171,7 @@ def test_new_copilot_loops_pin_transport_and_unversioned_loops_stay_legacy(tmp_p
 
 def test_compact_prompt_guard_stops_accumulated_requests_with_headroom(tmp_path) -> None:
     class OfflineCopilot:
-        config_id = "copilot-sol-medium"
+        config_id = "copilot-opus-medium"
         ruling = Path("test-ruling")
 
     loop = HandoffExecutor(
@@ -192,7 +192,7 @@ def test_compact_prompt_guard_stops_accumulated_requests_with_headroom(tmp_path)
 
 def test_oversized_compact_repair_stops_before_reserving_or_sending(tmp_path) -> None:
     adapter = Adapter()
-    adapter.config_id = "copilot-sol-medium"
+    adapter.config_id = "copilot-opus-medium"
     repair = replace(task(), module_id="CP-5", attempt=2, draft=b"x" * 400_000)
     loop = HandoffExecutor(
         tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check, events=tmp_path
@@ -203,6 +203,122 @@ def test_oversized_compact_repair_stops_before_reserving_or_sending(tmp_path) ->
     (stop,) = read_events(tmp_path / EVENTS)
     assert stop["event"] == "compact_prompt_stopped" and stop["module"] == "CP-5"
     assert stop["estimated_input_tokens"] > stop["input_limit"] == 100_000
+
+
+# A configuration the price covers at the long tier is stopped where its hold would be: the
+# input bound ceil(bytes / 3) + 4096 over 1,050,000 tokens, so 3 * (1,050,000 - 4096) bytes pass
+# and one more does not. The sizes are worked by hand; the request's own JSON is measured with
+# the standard library.
+_HOLD_BYTES = 3 * (1_050_000 - 4096)
+
+
+def _request_of_bytes(total: int) -> TurnRequest:
+    def size(pad: int) -> int:
+        req = TurnRequest((Message("user", "x" * pad),), (), 16_000, "medium")
+        return len(json.dumps(asdict(req), separators=(",", ":")).encode())
+
+    pad = total - size(0)
+    assert pad > 0 and size(pad) == total
+    return TurnRequest((Message("user", "x" * pad),), (), 16_000, "medium")
+
+
+def _sol_loop(tmp_path: Path, budget: int | None = None) -> HandoffExecutor:
+    """A copilot-sol-medium executor whose adapter answers ``long_tier_budget`` with ``budget``
+    (None: no confirmed long tier)."""
+
+    class OfflineCopilot:
+        config_id = "copilot-sol-medium"
+        ruling = Path("test-ruling")
+
+        def long_tier_budget(self, invocation_digest: str) -> int | None:
+            return budget
+
+    return HandoffExecutor(
+        tmp_path, adapter=OfflineCopilot(), cap_usd=Decimal(1), check=lambda *_: (), events=tmp_path
+    )
+
+
+_CP3 = SimpleNamespace(module_id="CP-3")
+
+
+def test_x1_a_covered_seed_of_150k_tokens_is_stopped_on_every_tier(tmp_path) -> None:
+    # 150,000 estimated tokens at 3.85 bytes each: the seed has no tier yet, so the old limits hold
+    request = _request_of_bytes(150_000 * 385 // 100)
+    for name, budget in (("none", None), ("long", 922_000)):
+        loop = _sol_loop(tmp_path / name, budget)
+        with pytest.raises(ValueError, match="CP-3 compact prompt exceeds"):
+            loop._seed_request(_CP3, list(request.messages), request.tools, "medium")
+        assert not (tmp_path / name / "modules").exists()
+        (stop,) = read_events(tmp_path / name / EVENTS)
+        assert stop["event"] == "compact_prompt_stopped" and stop["input_limit"] == 100_000
+
+
+def test_x1_a_later_turn_on_a_confirmed_long_tier_passes_150k_tokens(tmp_path) -> None:
+    request = _request_of_bytes(150_000 * 385 // 100)
+    loop = _sol_loop(tmp_path, 922_000)
+    loop._guard_compact_request(_CP3, request, digest="d" * 64)
+    assert not (tmp_path / EVENTS).exists()
+
+
+def test_x1_a_later_turn_not_confirmed_is_stopped_at_150k_tokens(tmp_path) -> None:
+    request = _request_of_bytes(150_000 * 385 // 100)
+    loop = _sol_loop(tmp_path)
+    with pytest.raises(ValueError, match="CP-3 compact prompt exceeds"):
+        loop._guard_compact_request(_CP3, request, digest="d" * 64)
+    (stop,) = read_events(tmp_path / EVENTS)
+    # 160,000 combined less the 16,000 output
+    assert stop["input_limit"] == 144_000 and stop["combined_limit"] == 160_000
+
+
+def test_x2_opus_keeps_the_compact_limits(tmp_path) -> None:
+    class OfflineOpus:
+        config_id = "copilot-opus-medium"
+        ruling = Path("test-ruling")
+
+    loop = HandoffExecutor(
+        tmp_path, adapter=OfflineOpus(), cap_usd=Decimal(1), check=lambda *_: (), events=tmp_path
+    )
+    request = _request_of_bytes(165_000 * 385 // 100)  # over 160,000 less the 16,000 output
+    with pytest.raises(ValueError, match="CP-3 compact prompt exceeds"):
+        loop._guard_compact_request(SimpleNamespace(module_id="CP-3"), request)
+    (stop,) = read_events(tmp_path / EVENTS)
+    assert stop["event"] == "compact_prompt_stopped" and stop["combined_limit"] == 160_000
+
+
+def test_x3_a_confirmed_long_turn_over_the_hold_bound_is_stopped(tmp_path) -> None:
+    loop = _sol_loop(tmp_path, 1_050_000)
+    request = _request_of_bytes(_HOLD_BYTES + 1)
+    with pytest.raises(ValueError, match="CP-3 compact prompt exceeds"):
+        loop._guard_compact_request(_CP3, request, digest="d" * 64)
+    (stop,) = read_events(tmp_path / EVENTS)
+    assert stop["event"] == "compact_prompt_stopped" and stop["module"] == "CP-3"
+    assert stop["input_limit"] == 1_050_000
+    # F3: the combined limit is the hold bound plus the output, not the bound alone
+    assert stop["combined_limit"] == 1_050_000 + 16_000
+
+
+def test_x4_a_confirmed_long_turn_exactly_at_the_hold_bound_is_not_stopped(tmp_path) -> None:
+    loop = _sol_loop(tmp_path, 1_050_000)
+    loop._guard_compact_request(_CP3, _request_of_bytes(_HOLD_BYTES), digest="d" * 64)
+    assert not (tmp_path / EVENTS).exists()
+
+
+def test_h1_a_confirmed_long_turn_over_the_long_budget_is_stopped(tmp_path) -> None:
+    # B = 500,000 tokens: 1,925,000 bytes pass the estimate, one more does not
+    loop = _sol_loop(tmp_path, 500_000)
+    loop._guard_compact_request(_CP3, _request_of_bytes(1_925_000), digest="d" * 64)
+    with pytest.raises(ValueError, match="CP-3 compact prompt exceeds"):
+        loop._guard_compact_request(_CP3, _request_of_bytes(1_925_001), digest="d" * 64)
+    (stop,) = read_events(tmp_path / EVENTS)
+    assert stop["input_limit"] == 500_000
+
+
+def test_f3_the_stop_text_names_the_hold_bound(tmp_path) -> None:
+    loop = _sol_loop(tmp_path, 1_050_000)
+    request = _request_of_bytes(_HOLD_BYTES + 1)
+    with pytest.raises(ValueError, match="hold bound") as raised:
+        loop._guard_compact_request(_CP3, request, digest="d" * 64)
+    assert "1,066,000" in str(raised.value) and "serialized-byte estimate" not in str(raised.value)
 
 
 def test_read_result_is_exact_or_withheld_as_a_whole(tmp_path) -> None:

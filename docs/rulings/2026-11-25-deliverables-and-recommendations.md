@@ -171,6 +171,33 @@ Owner's words are quoted; the rest is the coordinating session's or the PR's con
 - The cap sentence of `AGENTS.md` lists Credit Screening 10 (owner, 2026-11-26: "add it"), after
   PR 6 merged.
 
+## CP-1 instruction PR (PR 120, 2026-11-26)
+
+Owner's words are quoted; the rest is the coordinating session's or the PR's controller's.
+
+- Run as a cloud session (owner: "launch as cloud session"). CP-1 only; CP-1D copying the id is
+  the next PR (coordinator).
+- T4.18 `Asset type` follows the governing document a source states: `loan` for a facility under a
+  credit agreement (term loan, revolver, ABL), `bond` for a security under an indenture (notes,
+  bonds), `other` for a securitisation, receivables facility, finance lease or other debt; never
+  inferred from the instrument's name (owner: "By governing document").
+- The new-issue table is not written by CP-1; the workbook fills it from the run context's
+  `deal_terms`, and CP-1A's transaction summary owns the transaction's facts (owner: "Leave it
+  out"). The spec's input map is amended to match.
+- The bridge's join key is `Add-Back ID`, `AB-1`, `AB-2`, ... in bridge order, `Not applicable`
+  on the first and last rows (coordinator); the launcher checks them, readers do not, and the id
+  is shown only on Evidence and in the trace drawer (controller).
+- Pro forma interest and cover is a required table outside the chart tables, with a `Reporting
+  unit` column; interest only as a source states it, as cash interest or interest expense, never
+  mixed; cover = EBITDA / interest, its EBITDA tied to T4.9's for the latest period (coordinator;
+  the tie and the unit column, controller).
+- Plan critique and pre-merge review on Opus while Fable is rate-limited until 2026-12-02 07:00
+  Europe/London (owner: "Use Opus meanwhile").
+- Follow-ups (controller): a launcher check of `Asset type` values before anything reads the
+  column; the React app holding back `AB-<n>` ids written in prose; an adjusted pro forma row
+  where T4.9 states no adjusted row is not refused; CP-1B, whose method validates CP-1's add-back
+  ids, may change its output with no edit of its own.
+
 ## Amends
 
 - `AGENTS.md`, the Excel bullet: Excel stays an input format for analysis; exactly one generated

@@ -272,3 +272,18 @@ test('isEsgHeading: a heading that leads with a T2G.<digits> code is an ESG head
   for (const heading of ['T2G.1 — Environmental/social disclosure inventory', 'T2G.8 — environmental, social and transition gaps', 'T2G.5 Sustainability-linked mechanics', 'T2G.3']) assert.equal(Shapes.isEsgHeading(heading), true, heading);
   for (const heading of ['T2F.9 — Macro gaps ledger', 'T2G — overview', 'T2G.x — a', 'T12G.1 — a', 'XT2G.1 — a', 'Credit implication', 'Note on T2G.1 — inventory', 'T2G.12b — a', '']) assert.equal(Shapes.isEsgHeading(heading), false, heading);
 });
+
+test('CP-1 bridge: the Add-Back ID column is an id column hidden wherever an id column is hidden; the old header hides nothing; the section keeps its place', () => {
+  const rows = [['Opening EBITDA', '100', 'Not applicable', 'US$m', 'Basis'], ['Add-back', '5', 'AB-1', 'US$m', 'Basis'], ['Closing EBITDA', '105', 'Not applicable', 'US$m', 'Basis']];
+  const oldRows = rows.map(cells => cells.filter((c, at) => at !== 2));
+  const withId = ['Step', 'Amount', 'Add-Back ID', 'Reporting unit', 'Basis and limitation'];
+  const oldHeaders = ['Step', 'Amount', 'Reporting unit', 'Basis and limitation'];
+  assert.equal(Shapes.columnKinds(block(withId, rows))[2], 'id');
+  assert.deepEqual(Shapes.hiddenColumns(withId, 'records', rows.map(cells => ({cells}))), [2]);
+  assert.deepEqual(Shapes.hiddenColumns(oldHeaders, 'records', oldRows.map(cells => ({cells}))), []);
+  assert.equal(Shapes.tableShape(block(withId, rows)), Shapes.tableShape(block(oldHeaders, oldRows)));
+  const placed = KEY.sections.find(s => s.module === 'CP-1' && s.chain.at(-1) === 'Chart data: EBITDA bridge');
+  assert.equal(Shapes.sectionRole(placed.chain, placed.placement), placed.role);
+  // The id's values are identifiers of the module: a Findings paragraph naming one is a method note (registers), as for any id column.
+  assert.deepEqual(Shapes.idTokens([{blocks: [{type: 'table', headers: withId, rows: rows.map(cells => ({cells}))}]}]), ['AB-1']);
+});

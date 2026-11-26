@@ -216,7 +216,8 @@ it("lays the chart out at the measured width with token styling and no scroll wr
 
 it("shows units once in the kicker, and nothing when none are recorded", () => {
   const { unmount } = render(view(full, { units: "USD millions" }));
-  expect(screen.getAllByText(/USD millions/u)).toHaveLength(1);
+  expect(screen.getAllByText(/\$m/u)).toHaveLength(1);
+  expect(document.body.textContent).not.toContain("USD millions");
   unmount();
   render(view(full, { units: "" }));
   expect(screen.getAllByText(/Units not recorded/u)).toHaveLength(1);
