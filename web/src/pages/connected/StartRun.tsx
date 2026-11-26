@@ -24,6 +24,7 @@ import {
 } from "./api";
 import { fileRoles } from "./start/contextSummary";
 import { sendableAssumptions } from "./start/assumptions";
+import { checkQuestionFocus } from "./start/focus";
 import { CONTEXT_ROW_KINDS, sendableRows, type Row, type RowKind } from "./start/rows";
 import { sendableModuleOptions, sendableValuation } from "./start/valuation";
 import { Breadcrumb } from "./layout";
@@ -923,6 +924,11 @@ function IntakeForm({
       const listed: unknown[] = Array.isArray(questions) ? questions : [];
       details.research_questions = [...listed, { text: note, focus_module: "" }];
     }
+    checkQuestionFocus(
+      details.research_questions ?? context.research_questions,
+      requested,
+      run.pathway,
+    );
     return details;
   }
 

@@ -340,7 +340,7 @@ export const ROW_SPECS: Record<RowKind, RowSpec> = {
         "Focus module",
         "select",
         undefined,
-        "Peer benchmark or Fundamental credit receive the answer; any other choice, or none, sends it to both.",
+        "Peer benchmark sends the question to Peer benchmark only, Fundamental credit to Fundamental credit only; Any, or Research questions, sends it to every module that answers questions.",
       ],
     ),
     summary: (row) => text(row, "text") || "New question",

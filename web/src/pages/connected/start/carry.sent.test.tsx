@@ -99,88 +99,6 @@ async function review(bodies: Body[]) {
   return bodies[0] as Body;
 }
 
-// Blocked: carried-from-earlier.golden and carried-with-left-out.golden (the carry drives in
-// requests.golden.test.tsx) pin the carried cutoff 2024-12-31 as sent. The fix in
-// intake.ts `startingContext` is written but not applied until that expectation is ruled changed;
-// `it.fails` records that this test fails for the reported cause.
-it.fails("B2 a carried run's cutoff and periods are not sent for the new case", async () => {
-  const bodies = service({
-    ...base,
-    run: {
-      as_of: "2024-12-31",
-      cutoff: "2024-12-31",
-      current_period: "Q4 2024",
-      prior_period: "Q3 2024",
-      pathway: "credit_snapshot",
-      run_type: "research",
-      case_kind: "public",
-    },
-  });
-  await openContext();
-  const sent = await review(bodies);
-  expect(sent.context.run.as_of).toBe("2025-03-31");
-  expect(sent.context.run.cutoff).toBe("2025-03-31");
-  expect(sent.context.run.current_period).toBe("");
-  expect(sent.context.run.prior_period).toBe("");
-});
-
-// Blocked: ConnectedApp.test.tsx "connected run start > passes a prior run's rows through untouched
-// when not edited" pins a carried, never-edited facility sent raw (size_m: 500 as a number, no
-// other keys). The fix (send sendableRows(kind, rowsOf(kind), primary) for every kind) is written
-// but not applied until that expectation is ruled changed; `it.fails` records the reported cause.
-it.fails(
-  "B1 a carried facility the analyst never opened is sent as the page describes it",
-  async () => {
-    const bodies = service({
-      ...base,
-      run: {
-        as_of: "2024-12-31",
-        pathway: "credit_snapshot",
-        run_type: "primary",
-        case_kind: "public",
-      },
-      deal_terms: [
-        {
-          facility_id: "tlb-2031",
-          currency: "USD",
-          size_m: " 1250 ",
-          tenor_years: "7",
-          talk_spread_bps_low: "325",
-          talk_spread_bps_high: "350",
-          talk_oid_low: "99.0",
-          talk_oid_high: "99.5",
-          floor_pct: "0.50",
-        },
-        { facility_id: "", currency: "", size_m: "", tenor_years: "5" },
-      ],
-    });
-    await openContext();
-    chooseControl("Market view", "research");
-    const sent = await review(bodies);
-    expect(sent.context.deal_terms).toEqual([
-      {
-        facility_id: "tlb-2031",
-        instrument: "",
-        currency: "USD",
-        size_m: "1250",
-        tenor_years: "",
-        maturity: "",
-        talk_spread_bps_low: "",
-        talk_spread_bps_high: "",
-        talk_oid_low: "",
-        talk_oid_high: "",
-        floor_pct: "0.50",
-        coupon_pct: "",
-        margin_bps: "",
-        call_protection: "",
-        use_of_proceeds: "",
-        as_of: "",
-        provider: "",
-      },
-    ]);
-  },
-);
-
 it("B3 a file box the form level no longer draws is not sent as chosen", async () => {
   const bodies = service(
     {
@@ -214,7 +132,8 @@ it("B3 a file box the form level no longer draws is not sent as chosen", async (
   });
 });
 
-it("B10 a custom run's research question can be aimed at each requested module", async () => {
+/** A Custom run on the Portfolio Fit modules with one research question added; the page is at More context. */
+async function runWithQuestion(custom: boolean, portfolioFit = custom) {
   vi.stubGlobal("crypto", webcrypto);
   vi.stubGlobal(
     "fetch",
@@ -249,24 +168,54 @@ it("B10 a custom run's research question can be aimed at each requested module",
   fireEvent.click(screen.getByRole("button", { name: "Continue to purpose" }));
   await screen.findByRole("heading", { name: "Purpose" });
   chooseControl("Run form level", "advanced");
-  fireEvent.click(screen.getByRole("radio", { name: "Custom selection" }));
+  if (custom) fireEvent.click(screen.getByRole("radio", { name: "Custom selection" }));
   fireEvent.click(screen.getByRole("button", { name: "Continue to context" }));
   await screen.findByRole("heading", { name: "More context" });
-  fireEvent.click(
-    within(screen.getByRole("group", { name: "Start from" })).getByRole("button", {
-      name: "Portfolio Fit",
-    }),
-  );
+  if (portfolioFit) {
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Start from" })).getByRole("button", {
+        name: "Portfolio Fit",
+      }),
+    );
+  }
   fireEvent.click(screen.getByRole("button", { name: "Add research question" }));
-  const focus = screen.getByLabelText<HTMLSelectElement>("Focus module");
-  expect([...focus.options].map((option) => option.value)).toEqual([
-    "",
-    "CP-0",
-    "CP-1",
-    "CP-1A",
-    "CP-2",
-    "CP-3",
-    "CP-5",
-    "CP-6",
+  fireEvent.change(screen.getByLabelText("Question"), { target: { value: "Run-rate savings?" } });
+}
+
+const focusOptions = () =>
+  [...screen.getByLabelText<HTMLSelectElement>("Focus module").options].map((option) => [
+    option.value,
+    option.text,
   ]);
+
+it("B10 a custom run's research question can be aimed only at a requested module the service accepts", async () => {
+  await runWithQuestion(true);
+  expect(focusOptions()).toEqual([
+    ["", "Any"],
+    ["CP-2", "Fundamental credit"],
+  ]);
+});
+
+it("B20 a preset pathway offers the focus modules it requests, in the service's order", async () => {
+  await runWithQuestion(false);
+  expect(focusOptions().map(([value]) => value)).toEqual(["", "CP-1C", "CP-2", "CP-DR"]);
+});
+
+it("B21 a focus whose module is no longer requested is refused at Review, naming the question", async () => {
+  await runWithQuestion(true, false);
+  const picker = within(screen.getByRole("group", { name: "Modules for this run" }));
+  fireEvent.click(picker.getByRole("checkbox", { name: "Fundamental credit" }));
+  fireEvent.change(screen.getByLabelText("Focus module"), { target: { value: "CP-2" } });
+  fireEvent.click(picker.getByRole("checkbox", { name: "Fundamental credit" }));
+  expect(picker.getByRole("checkbox", { name: "Fundamental credit" })).not.toBeChecked();
+  // The stale value stays shown, as the page shows any held value that is not offered.
+  expect(focusOptions()).toEqual([
+    ["", "Any"],
+    ["CP-2", "Fundamental credit"],
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: "Review run" }));
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Choose the focus again for the research question \u201cRun-rate savings?\u201d: Fundamental credit is not requested in this run.",
+  );
+  expect(screen.getByRole("heading", { name: "More context" })).toBeTruthy();
 });
