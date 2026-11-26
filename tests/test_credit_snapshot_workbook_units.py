@@ -263,3 +263,114 @@ def test_retained_model_percent_level_is_not_rescaled_or_called_points(full):
     assert [(c.kind, c.text, c.number_format) for c in amount] == [(snap.COPIED, "25", None)]
     assert "percent" in unit[0].text
     assert "points" not in unit[0].text
+
+
+def gap_cells(cells):
+    return [c for c in cells if c.kind == snap.GAP]
+
+
+def test_oversize_debt_facility_table_is_logged_and_becomes_a_gap(full, caplog):
+    _, snapshot = full
+    raw = snapshot.model_handoffs["CP-1"].replace(b"T4.18", b"T4.99")
+    rows = b"".join(b"| Loan %d | 1 |\n" % n for n in range(501))
+    table = b"\n### T4.18 Debt Facilities\n\n| Instrument | Amount |\n| --- | --- |\n" + rows
+    changed = with_cp1_addition(replace(snapshot, model_handoffs={"CP-1": raw}), table)
+    with caplog.at_level("WARNING"):
+        block = writer._model_handoff_blocks(changed)[writer.MODEL, writer.DEBT_FACILITIES]
+    assert [(c.kind, c.row) for c in block.cells] == [(snap.GAP, "Gap")]
+    assert "safe row or column limit" in (block.cells[0].written or "")
+    assert "Debt facilities" in caplog.text or writer.DEBT_FACILITIES in caplog.text
+
+
+def test_dated_debt_table_without_a_name_column_is_a_gap_naming_the_reason(full, caplog):
+    _, snapshot = full
+    raw = snapshot.model_handoffs["CP-1"].replace(b"T4.18", b"T4.99")
+    table = (
+        b"\n### T4.18 Debt Facilities\n\n| period_id | carrying_value |\n| --- | --- |\n"
+        b"| fy24 | 100 |\n"
+    )
+    changed = with_cp1_addition(replace(snapshot, model_handoffs={"CP-1": raw}), PERIOD_REGISTER)
+    changed = with_cp1_addition(changed, table)
+    with caplog.at_level("WARNING"):
+        block = writer._model_handoff_blocks(changed)[writer.MODEL, writer.DEBT_FACILITIES]
+    assert [(c.kind, c.row) for c in block.cells] == [(snap.GAP, "Gap")]
+    assert "name" in (block.cells[0].written or "")
+    assert caplog.text
+
+
+def test_segment_schedule_without_a_period_column_is_a_logged_gap(full, caplog):
+    _, snapshot = full
+    section = b"\n## Segment schedule\n\n| Business Unit | Notes |\n| --- | --- |\n| A | x |\n"
+    with caplog.at_level("WARNING"):
+        blocks = writer._model_handoff_blocks(with_cp1_addition(snapshot, section))
+    cells = blocks[writer.MODEL, writer.SEGMENTS].cells
+    gaps = [c for c in cells if c.kind == snap.GAP and "no explicit period" in (c.written or "")]
+    assert len(gaps) == 1
+    assert "no explicit period" in caplog.text
+
+
+def test_oversize_segment_schedule_is_a_logged_gap(full, caplog):
+    _, snapshot = full
+    rows = b"".join(b"| S%d | 1 |\n" % n for n in range(501))
+    section = b"\n## Segment schedule\n\n| Business Unit | Period |\n| --- | --- |\n" + rows
+    with caplog.at_level("WARNING"):
+        blocks = writer._model_handoff_blocks(with_cp1_addition(snapshot, section))
+    cells = blocks[writer.MODEL, writer.SEGMENTS].cells
+    assert any("safe row or column limit" in (c.written or "") for c in gap_cells(cells))
+    assert "safe row or column limit" in caplog.text
+
+
+def test_unreadable_source_financial_table_is_logged_and_a_gap_and_absent_one_is_silent(
+    full, caplog
+):
+    _, snapshot = full
+    raw = snapshot.model_handoffs["CP-1"]
+    assert b"T4.4" in raw
+    duplicated = with_cp1_addition(snapshot, b"\n### T4.4 Again\n\n| a |\n| --- |\n| 1 |\n")
+    with caplog.at_level("WARNING"):
+        cells = writer._model_source_financials(duplicated)
+    gaps = gap_cells(cells)
+    assert any("T4.4" in (c.row + (c.written or "")) for c in gaps)
+    assert "T4.4" in caplog.text
+    caplog.clear()
+    absent = replace(
+        snapshot,
+        model_handoffs={"CP-1": raw.replace(b"T4.4", b"T4.94").replace(b"T4.9", b"T4.98")},
+    )
+    with caplog.at_level("WARNING"):
+        writer._model_source_financials(absent)
+    assert "T4.4" not in caplog.text
+
+
+def test_unreadable_calculation_register_is_a_gap(full, caplog):
+    _, snapshot = full
+    raw = snapshot.model_handoffs["CP-1"].replace(b"T4.9", b"T4.98")
+    table = b"\n### T4.9 Calculations\n\n| Metric Name | Notes |\n| --- | --- |\n| x | y |\n"
+    changed = with_cp1_addition(replace(snapshot, model_handoffs={"CP-1": raw}), table)
+    with caplog.at_level("WARNING"):
+        cells = writer._model_source_financials(changed)
+    assert any("T4.9" in (c.row + (c.written or "")) for c in gap_cells(cells))
+    assert "T4.9" in caplog.text
+
+
+def no_unit_snapshot(snapshot):
+    text = snapshot.model_handoffs["CP-1"].decode()
+    request = text.replace("USD millions", "millions")
+    changed = replace(
+        snapshot,
+        model_handoffs={"CP-1": request.encode()},
+        handoff_sha256={**snapshot.handoff_sha256, "CP-1": cs.sha256(request.encode())},
+    )
+    return forecast_snapshot(changed, 5)
+
+
+def test_forecast_money_with_no_stated_unit_is_a_logged_gap_and_not_a_bare_figure(full, caplog):
+    _, snapshot = full
+    snapshot = no_unit_snapshot(snapshot)
+    with caplog.at_level("WARNING"):
+        cells = writer._model_output_cells(snapshot)
+    ebitda = [c for c in cells if c.row == "Adjusted EBITDA" and c.column == "Base FY2026"]
+    assert [(c.kind, c.text) for c in ebitda] == [(snap.GAP, "n.a.")]
+    assert "unit" in (ebitda[0].written or "")
+    assert "400" not in {c.text for c in cells}
+    assert "states no unit" in caplog.text

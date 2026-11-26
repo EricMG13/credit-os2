@@ -1033,15 +1033,20 @@ def _model_source_financials(snapshot: snap.Snapshot) -> list[snap.SnapshotCell]
     for ident in ("T4.4", "T4.5", "T4.6"):
         try:
             table = doc.register(ident)
-        except (snap._Absent, ValueError):
+        except snap._Absent:
             continue
-        cells.extend(_period_table_cells(table, SOURCE_FINANCIALS))
+        except ValueError as error:
+            cells.extend(_source_financial_gap(doc, ident, error))
+            continue
+        cells.extend(_named_gaps(_period_table_cells(table, SOURCE_FINANCIALS), ident))
     try:
         calculations = doc.register("T4.9")
-    except (snap._Absent, ValueError):
+    except snap._Absent:
         pass
+    except ValueError as error:
+        cells.extend(_source_financial_gap(doc, "T4.9", error))
     else:
-        cells.extend(_calculation_register_cells(calculations))
+        cells.extend(_named_gaps(_calculation_register_cells(calculations), "T4.9"))
     unique: dict[tuple[str, str], snap.SnapshotCell] = {}
     for cell in cells:
         identity = (cell.row, cell.column)
@@ -1055,13 +1060,40 @@ def _model_source_financials(snapshot: snap.Snapshot) -> list[snap.SnapshotCell]
     return list(unique.values())
 
 
+def _source_financial_gap(doc: snap._Doc, ident: str, error: ValueError) -> list[snap.SnapshotCell]:
+    """A gap for a present source-financials table the reader refused; nothing when absent."""
+    present = any(_register_start(ident).match(line) for line in doc.lines)
+    gap = _unreadable_table_gap(SOURCE_FINANCIALS, present, error)
+    return _named_gaps(list(gap.cells), ident) if gap is not None else []
+
+
+def _named_gaps(cells: list[snap.SnapshotCell], ident: str) -> list[snap.SnapshotCell]:
+    """Each table's gap on its own row so the one-row-per-identity merge keeps every gap."""
+    return [
+        replace(
+            cell,
+            row=f"Gap ({ident})",
+            written=cell.written
+            if str(cell.written).startswith(ident)
+            else f"{ident}: {cell.written}",
+        )
+        if cell.kind == snap.GAP and cell.row == "Gap"
+        else cell
+        for cell in cells
+    ]
+
+
 def _calculation_register_cells(table: Any) -> list[snap.SnapshotCell]:
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
-        return []
+        return [_register_gap(SOURCE_FINANCIALS, "T4.9 exceeds its safe row or column limit")]
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
     required = ("metricname", "period", "calculatedvalue")
     if any(field not in indexes for field in required):
-        return []
+        return [
+            _register_gap(
+                SOURCE_FINANCIALS, "T4.9 lacks a metric name, period or calculated value column"
+            )
+        ]
     metric_index, period_index, value_index = (indexes[field] for field in required)
     cells = []
     for row in table.rows:
@@ -1167,7 +1199,7 @@ def _segment_name_index(table: Any, indexes: dict[str, int], period_index: int) 
 
 def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
-        return []
+        return [_register_gap(SEGMENTS, "the table exceeds its safe row or column limit")]
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
     period_index = indexes.get("period")
     if period_index is None:
@@ -1222,14 +1254,14 @@ def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
 
 def _wide_segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
-        return []
+        return [_register_gap(SEGMENTS, "the table exceeds its safe row or column limit")]
     period_columns = [
         (header, index)
         for index, header in enumerate(table.headers)
         if period_order(header) is not None
     ]
     if not period_columns:
-        return []
+        return [_register_gap(SEGMENTS, "the table has no explicit period column")]
     label_index = 0
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
     unit_index = indexes.get("unit")
@@ -1742,13 +1774,13 @@ def _clean_label(text: str) -> str:
 
 def _debt_facility_cells(doc: snap._Doc, table: snap._Table) -> list[snap.SnapshotCell]:
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
-        return []
+        return [_register_gap(DEBT_FACILITIES, "the table exceeds its safe row or column limit")]
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
     if "periodid" not in indexes:
         return _unperioded_debt_cells(table)
     name = next((field for field in ("facilityname", "instrument") if field in indexes), None)
     if name is None:
-        return []
+        return [_register_gap(DEBT_FACILITIES, "the dated table has no facility name column")]
     return _dated_debt_cells(table, _period_register(doc), indexes, name)
 
 
@@ -2735,6 +2767,23 @@ class _ModelAmount:
 def _append_model_amount(
     cells: list[snap.SnapshotCell], seen: set[tuple[str, str]], output: _ModelAmount
 ) -> None:
+    if output.unit is None:
+        _LOG.warning(
+            "credit snapshot: model amount %s for %s states no unit; written as a gap",
+            output.key,
+            output.period,
+        )
+        _append_model_gap(
+            cells,
+            seen,
+            _ModelGap(
+                output.key,
+                output.period,
+                "The model output states no unit for this amount.",
+                output.source,
+            ),
+        )
+        return
     label = _model_row_label(output.source, output.key)
     row = (
         f"{label} ({output.unit})"
