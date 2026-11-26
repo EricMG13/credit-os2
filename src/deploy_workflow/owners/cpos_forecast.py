@@ -594,6 +594,21 @@ def _reads_as_year_or_ltm(header: str) -> bool:
     )
 
 
+_BARE_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
+
+
+def _undated_bare_date(header: str, year_ends: frozenset[date]) -> bool:
+    """A header that is only a date, and not the end of a period CP-1's own period tables date as
+    twelve months: it may be an interim column, so it is no flow base."""
+    text = header.strip()
+    if _BARE_DATE.fullmatch(text) is None:
+        return False
+    try:
+        return date.fromisoformat(text) not in year_ends
+    except ValueError:
+        return True
+
+
 def _flow_base(header: str) -> tuple[str, int, int] | None:
     """The fiscal year a flow header names, or None for an LTM/TTM header (no year rule).
     `period_of` reads the usual headers; any other year column (`FY2024A`, `FY24`) is read by
@@ -622,8 +637,15 @@ def _check_flow_period(inputs: ForecastInputs, cp1_text: str, source: str) -> No
     )
 
     headers = _flow_headers(inputs)
+    year_ends = frozenset(
+        end
+        for start, end in period_dates(period_tables(cp1_text))[0].values()
+        if (end - start).days + 1 in _TWELVE_MONTHS
+    )
     for key, header in headers.items():
-        if period_of(header) is None and not _reads_as_year_or_ltm(header):
+        if period_of(header) is None and (
+            not _reads_as_year_or_ltm(header) or _undated_bare_date(header, year_ends)
+        ):
             raise ValueError(
                 f"{source}: base {key} is named under `{_cut(header, 40)}`, which is not a period "
                 "the Forecast page can read; name the fiscal-year or LTM column"
