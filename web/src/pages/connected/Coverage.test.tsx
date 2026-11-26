@@ -1,6 +1,19 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  configure,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { Coverage } from "./Coverage";
 import type { Coverage as Data } from "./coverageData";
+
+// Each test finds its first element right after render. A role query costs ~90 ms here (156 nodes,
+// measured) and far more on a loaded CI runner, so the 1000 ms default let one find time out
+// (run 45738808247). Still inside vitest's 5000 ms test timeout, so a real hang fails the same.
+configure({ asyncUtilTimeout: 4000 });
 
 const SHA = "b".repeat(64);
 const data: Data = {
