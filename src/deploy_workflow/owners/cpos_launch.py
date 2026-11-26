@@ -107,7 +107,7 @@ from deploy_workflow.model.pricing import (
     web_search_usd,
 )
 from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
-from deploy_workflow.owners import cpos_forecast
+from deploy_workflow.owners import cpos_forecast, cpos_reader
 from deploy_workflow.owners.cpos import (
     MAX_MODULE_WIDTH,
     MODULE_WIDTH,
@@ -132,9 +132,11 @@ from deploy_workflow.owners.cpos_launch_methods import (
     REGISTER_SCOPE,
     REGISTER_SCOPE_MODULES,
     SCREENING,
+    TRIMMED_METHODS,
     has_scope,
     methods_for,
     pathway_method,
+    trim_method,
 )
 from deploy_workflow.owners.cpos_launch_prompts import (
     APPENDIX_HEADING_NOTE,
@@ -200,6 +202,7 @@ from deploy_workflow.owners.cpos_launch_tables import (
     _owner_tables,
     chart_issues,
 )
+from deploy_workflow.owners.cpos_reader import without_notes
 from deploy_workflow.portfolio_workbook import NOT_COLLECTED, PortfolioCheck
 from deploy_workflow.portfolio_workbook import check as portfolio_check
 from deploy_workflow.portfolio_workbook import instructions as portfolio_instructions
@@ -296,6 +299,7 @@ __all__ = [
     "has_scope",
     "methods_for",
     "pathway_method",
+    "without_notes",
 ]
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -624,10 +628,13 @@ def method_heading(name: str, text: str) -> str:
 
 
 def method_text(module: str, pathway: str | None = None) -> str:
-    """The method block exactly as a module's instructions carry it."""
-    return "\n\n".join(
+    """The method block exactly as a module's instructions carry it: each selected section under
+    a heading that names it and the sha256 of its whole text, and, for a module in
+    `TRIMMED_METHODS`, without the block's repeats (`trim_method`)."""
+    block = "\n\n".join(
         f"{method_heading(name, text)}\n{text}" for name, text in _sections(module, pathway)
     )
+    return trim_method(block) if module in TRIMMED_METHODS else block
 
 
 def _sections(module: str, pathway: str | None) -> list[tuple[str, str]]:
@@ -1050,6 +1057,7 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
     workspace: Path | None = None,
     prior: str | None = None,
     test_adaptations: Sequence[str] = (),
+    reading_notes: Path | None = None,
 ) -> Prepared:
     """Check everything and write the manifest and instructions; a refusal writes nothing.
 
@@ -1087,12 +1095,43 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
             choice=prior,
             left_out=left_out,
             test_adaptations=tuple(test_adaptations),
+            reading_notes=reading_notes,
         )
 
     try:
         return attempt(None)
     except _Cp8DoesNotFit as unfit:
         return attempt(unfit.note)
+
+
+def _add_reading_notes(
+    texts: dict[str, bytes],
+    folder: Path | None,
+    pinned: Mapping[str, HandoffInput],
+    documents: Sequence[Mapping[str, Any]],
+) -> None:
+    """Put each module's first-pass reading notes after its instructions, where group D of the
+    instruction-length trial placed them (`cpos_reader`). Nothing when no folder is named; a
+    named folder that is missing, or gives no module notes, refuses (it would be off unseen)."""
+    if folder is None:
+        return
+    if not folder.is_dir():
+        raise LaunchRefused(f"--reading-notes: {folder} is not a folder")
+    shas = {name: spec.sha256 for name, spec in pinned.items()}
+    given = False
+    for module in texts:
+        if module not in cpos_reader.READERS:
+            continue
+        try:
+            block = cpos_reader.notes_block(
+                module, folder, shas, cpos_reader.reader_documents(module, documents)
+            )
+        except cpos_reader.NotesRefused as refused:
+            raise LaunchRefused(f"--reading-notes: {refused}") from None
+        texts[module] += block.encode()
+        given = given or bool(block)
+    if not given:
+        raise LaunchRefused(f"--reading-notes: {folder} holds no notes for any module of this run")
 
 
 def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per setting
@@ -1108,6 +1147,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     choice: str | None,
     left_out: str | None,
     test_adaptations: tuple[str, ...],
+    reading_notes: Path | None = None,
 ) -> Prepared:
     """`prepare`; ``left_out`` is the note of a run planned without CP-8 because its call did not
     fit the cap."""
@@ -1226,6 +1266,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
             head, mark, method = texts[module].partition(METHOD_MARK.encode())
             texts[module] = head + block.encode() + mark + method
     guesses, documents = _documents(covers)
+    _add_reading_notes(texts, reading_notes, pinned, documents)
     items = expectations(
         ordered,
         tuple(guesses.values()),
@@ -1905,6 +1946,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-turns", type=int, default=32, help="model turns per module")
     parser.add_argument("--out", type=Path, help="run folder; default runs/<run id>")
     parser.add_argument("--live", action="store_true", help="make paid provider calls")
+    parser.add_argument(
+        "--reading-notes",
+        type=Path,
+        help="folder of first-pass reading notes (<module>/<source>.notes.md); off when absent",
+    )
     parser.add_argument("--ruling", type=Path, help="docs/rulings/<file>.md naming this config")
     parser.add_argument(
         "--test-assume-distress",
@@ -2112,6 +2158,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
             web_search=web_search_run(args.config, args.ruling),
             prior=args.prior,
             test_adaptations=adaptations,
+            reading_notes=args.reading_notes,
         )
         efforts = (
             _high_efforts(

@@ -1115,7 +1115,10 @@ def test_selected_method_and_report_selectors_reach_the_instructions(tmp_path):
     )
     text = (tmp_path / "out" / prepared.plan.instructions["CP-4"].path).read_text()
     method = ROOT / "docs/reuse/selected-methods/skills/cp-4-legal-covenant-interpreter/SKILL.md"
-    assert method.read_text() in text
+    # Every module is sent its method without the block's repeats since 2026-11-25
+    # (`TRIMMED_METHODS`):
+    # the block it carries is `method_text`, and each file's heading still names the file's sha.
+    assert cpos_launch.method_text("CP-4") in text
     assert hashlib.sha256(method.read_bytes()).hexdigest() in text
     assert "### Covenant tests and headroom" in text
     assert "search_source" in text  # runs/cpos-launch-live-001 read whole filings unprompted.
@@ -1134,9 +1137,13 @@ def test_instructions_ask_for_the_reader_passages_and_keep_the_method_verbatim(t
     assert "### Reader summary" not in text and "Reader summary" not in text
     assert "open `## Findings` with these four sections" in text
     method = ROOT / "docs/reuse/selected-methods/skills/cp-4-legal-covenant-interpreter/SKILL.md"
-    assert method.read_text() in text
+    block = cpos_launch.method_text("CP-4")  # CP-4's method less its repeats (`TRIMMED_METHODS`)
+    assert block in text
     assert hashlib.sha256(method.read_bytes()).hexdigest() in text
-    assert text.index("`### Bottom line`") < text.index(method.read_text())
+    assert text.index("`### Bottom line`") < text.index(block)
+    # Every module is in `TRIMMED_METHODS`; each file sent is still named with its own sha256.
+    for name, section in cpos_launch.method_sections("CP-4"):
+        assert cpos_launch.method_heading(name, section) in text, name
 
 
 def test_explicit_modules_narrow_the_run_and_keep_dependencies(tmp_path):
@@ -2237,8 +2244,12 @@ def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider,
 # gate leaves them byte-identical. #49 (merged as 39f1803f) changed CP-4's text on purpose (the
 # money-unit rule), so the value pinned at 0bca182 (a37cd27b...) was recomputed. Recompute only
 # when CP-4's instructions change on purpose, as for METHOD_TEXT_SHA256_AT_1B41E65.
+# 2026-11-25 (owner: "do the six fixes"): the covenant headroom rule names the four Direction
+# words, a change on purpose; the value pinned at 39f1803f (284d83b0...) was recomputed
+# (c41bfada...). The same day (owner: "apply recommendations") CP-4's method block is sent
+# without its repeats, and the value was recomputed again. The constant keeps its name.
 CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
-    "284d83b0600b7022eeff7be8d3a9adebc115bb55c0d382129b845467b7507bab"
+    "d3c2d13b8612b80519353aaee84b74504e29de1206190710e6f30fffe925306a"
 )
 
 
@@ -3620,33 +3631,39 @@ def test_every_module_is_told_what_stands_for_acceptance_scripts_and_questions(t
 # states it in the statements' currency, and T4.18's `FX Rate and Source` is `FX Rate`.
 # CP-1 recomputed once more the same day (PR 46 review M1): T4.18's `Currency` is the ISO 4217
 # code of the instrument's denomination.
+# 2026-11-25 (owner: "apply recommendations", then "add now apply to all modules";
+# docs/sweeps/2026-11-25-instruction-length/REPORT.md): every module's block is sent without its
+# repeats (`TRIMMED_METHODS`). The method files are byte-identical; the blocks of every module
+# but CP-8 and CP-L10 are not, so the library marks those modules in every earlier run as
+# answered under an earlier method. The values before are in this file's history at 941ff81.
 METHOD_TEXT_SHA256_AT_1B41E65 = {
-    "CP-0": "307017934f4e8e75fc432e8b7ef100bba82ce84f1bb6910f37c7e715fe701e72",
-    "CP-1": "cd35253a4729b5ad8c3e31087e190c30437c9ec7d3af165dae3109685536d0d0",
-    "CP-1A": "9de9426a829625461dee6cf850965590c923f661ceaa57208ad9028da8796b03",
-    "CP-1B": "38d9fa7b075d1ce5d0cd21bcc216f57f37369cd4db395b3f1fb65498697a509f",
-    "CP-1C": "9353afdbce820f59c2dcabc951fc1ff3813174b3c84e79b47bc22bea97f3bbe8",
-    "CP-1D": "d4d1ee4507d743cdb9d98bffd865ca3d012a4b4fb79a92a275cfc6a796bff453",
-    "CP-2": "5cbdd1f22217b8bffcf9a276b2645a96f5eb40c05c6262d47473715eeee6cdcc",
-    "CP-2A": "d403599f316b985bdf9649b58cbb16bf096c20ec9210292675739afc7b86f848",
-    "CP-2D": "9cde90ae064089498cd0b2fa2476f7cba7b4cc24af4e3c45326d0ee8cdd9291e",
-    "CP-2E": "ecf16c44a9a8e982af71150f83938011185e163128ed1ddbf09aba0c5740db63",
-    "CP-2G": "30f8bb12685ec883e4c824ea03a53fac4c4c3afc9bd2801a2019db77740523aa",
-    "CP-2H": "f500af91511584f3dda4d0dd10180766dabe19d81de7df12a99b6da2d92e89b4",
-    "CP-3": "94d14d6c62f6c682744c9f94cb227f58af36883a73c0c16fa68dd674c524a34f",
-    "CP-3C": "d1038d5097955d6bf47ccae01fee07bdc1db0b2e49eb7b77d0153c07b48768ac",
-    "CP-3D": "a35a8a1d6f1b7aaecf7e98613e80a04c4c158f9163f315edbd004647463aa698",
-    "CP-4": "a769b7456e5661d70cb25388fc4acb444cfd0aecd8f778554f98369ebadc7f7e",
-    "CP-4C": "1d96547563190f89b909c37ea47969ecb04a2c794c5971b6db8f7c94c836b1f8",
-    "CP-5": "d9298b83eba40be26a7cc6ddf5d5c12558e5c5cd471e7ce39e9c3942dc27f733",
-    "CP-6": "31de155b03d7632332e3f3e6f887767477b362cd1c963436afa6469b91c94b4a",
+    "CP-0": "b194264a0faa2d8fba237a77d1cf0511b9199c7d3079fd9b9f25127945d20cf1",
+    "CP-1": "8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a",
+    "CP-1A": "9f33c163d624dff50ff322be98c7d554f834f57ad23d415a9b293d8b595df20e",
+    "CP-1B": "4f8197dbb3b3d9d2aef98ca81f4b27e31a7250b366b86508868e97d2c85927af",
+    "CP-1C": "e9592fe6f9b5b566bfb148ed40e4d7f507f6413a322118f0134ee6389ffef57b",
+    "CP-1D": "8ce60b11694b103b4bbc66a85041821dbe3ef0a649dc1257b8b950991dcd3d42",
+    "CP-2": "a48a963cb84e36d4e245960913fff8ff6ca773ca982a359cd37c032158447021",
+    "CP-2A": "fbaa659fd131de59ac253eae4a8f01d6a86128fae3c578f5fb1a4bf96455824b",
+    "CP-2D": "5e7749c6121a1e420aeaae7f726c15d982564e4a63c911e597de32e568785f40",
+    "CP-2E": "0cd8639f0ba8b1547fb4b065f9320e2ca819502e0668748dab4367c147465847",
+    "CP-2G": "77e5dc8f2e53f9a97cd082211483dbc6f2418f32b0ab1ae0abaf24829a92fd2f",
+    "CP-2H": "1ec782d2341bef80fec32d88708f9c17f3bafff6704f9e08cc938bc882e5c176",
+    "CP-3": "be50c0e17fa199f12aab266b71b5edf5e775463188af87a7425998399c6098c9",
+    "CP-3C": "2a1d27fe09d0d1959a5425bf32a29a24ea5a9ba6ed310f59954fa919a14aecbc",
+    "CP-3D": "c818a4237fcf30c38c54bebba751cfb0be438451cc5b346d997f8dd503524a4f",
+    "CP-4": "2b18bf3a399e1a73c624ba12541caf3071e9695bbcb571c3d35ecf1369d9cfbe",
+    "CP-4C": "28c02bf5af3be8ea20403f8ffe52d2584622448a7bc3e08f906cb3a7b362c08e",
+    # CP-5 recomputed after the Automated QA validation match was narrowed (review, 2026-11-25)
+    "CP-5": "d96d31c11e2d134c220c3fd3a352aed5eeb8bbc227df73188163e54c4e58d389",
+    "CP-6": "9a00e24fbf90d75df4dddf5afb23ceac62a6d32697c0ac5953b77e2be5b68ebb",
     "CP-8": "46f8c05ff744c2c2bb9eee94f1aceefd57588d265f7289389c189a12fc2ff41d",
-    "CP-DR": "476b3e75a7b1f5d0d3349512bb220fde603988caa9cd4af5f8f62996dae0cd81",
+    "CP-DR": "92d1f6c3445864670f9d685d8e8133e8f4f7fb1bb1aec9244a2a5f2a08535ece",
     "CP-L10": "5b0e904dd62e1d1b341ec3d7d1717500d68ce1aee734b347e0dbbdfbe696b006",
 }
 
 
-def test_the_method_block_is_byte_identical_so_no_past_run_is_marked_earlier_methods():
+def test_the_method_block_is_pinned_so_a_past_run_is_marked_earlier_methods_only_on_purpose():
     now = {m: hashlib.sha256(cpos_launch.method_text(m).encode()).hexdigest() for m in METHODS}
     assert now == METHOD_TEXT_SHA256_AT_1B41E65
 
@@ -9435,7 +9452,15 @@ def test_the_three_money_tables_say_the_money_unit_and_no_other_non_cp1_selector
         for t in cpos_launch.OWNER_TABLES[module]
         if t.heading not in money
     )
-    digest = "e6bfd348c1203b10264690575bc35bcaf8238b92c4d05c3c633b7f28d174785d"
+    # 2026-11-25 (owner: "do the six fixes"; docs/sweeps/2026-11-25-instruction-length/REPORT.md,
+    # pilot): CP-4's covenant headroom rule now names the four Direction words the check accepts.
+    # Every first write of CP-4 in the pilot (8, 6 and 10 rows in groups A, B and C) was refused
+    # for a Direction cell written as a sentence. The digest before that sentence was added was
+    # e6bfd348c1203b10264690575bc35bcaf8238b92c4d05c3c633b7f28d174785d. The same day (owner: "fix
+    # the CP-2H chart wording too") CP-2H's rating-trigger rule names the same four words: it had
+    # the same gap, though no run had shown it. The digest between the two changes was
+    # a1a72e49a5c219376701ecec6380aeb64fe84c7166110932964714110932ac41.
+    digest = "5c11cd61d3a4126c151daa3bdbb6a6c24cdac126b7c9caa44a5ee1e30410c123"
     assert hashlib.sha256(text.encode()).hexdigest() == digest
     assert "the money unit" not in text
     for module, headings in MONEY_TABLES.items():

@@ -330,7 +330,7 @@ def check_methodology(
 ) -> list[str]:
     """Refuse unless every module was answered here and has a current method. Returns what changed
     in the method block of a module since it was sent ("<module>: <detail>"); empty when none."""
-    from deploy_workflow.owners.cpos_launch import METHOD_MARK
+    from deploy_workflow.owners.cpos_launch import METHOD_MARK, without_notes
 
     method_text, method_headings = method
     changes: list[str] = []
@@ -345,6 +345,7 @@ def check_methodology(
             raise Refused(f"{module}: no current method is selected for this module")
         text = sent_instructions(folder, module, pin["path"], identity).replace("\r\n", "\n")
         _, mark, block = text.partition(METHOD_MARK)
+        block = without_notes(block)  # first-pass reading notes follow the method, not part of it
         if not mark or block != current + "\n":
             detail = method_difference(block, module, method_headings, identity["pathway"])
             changes.append(f"{module}: {detail}")

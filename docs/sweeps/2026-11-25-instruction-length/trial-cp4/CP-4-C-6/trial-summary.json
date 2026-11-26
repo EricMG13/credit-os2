@@ -1,0 +1,35 @@
+{
+ "module": "CP-4",
+ "arm": "C",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 118190,
+ "tokens_estimate": 30805,
+ "lines": 1001,
+ "head_chars": 20476,
+ "method_chars": 97714,
+ "method_files": 5,
+ "directive_sentences": 174,
+ "emphasis_words": 5,
+ "repeated_chars": 0,
+ "overridden_chars": 770,
+ "unsent_references": 0,
+ "calls": 26,
+ "input_tokens": 54,
+ "cached_read_tokens": 4376692,
+ "output_tokens": 77314,
+ "reasoning_tokens": 29901,
+ "first_call_input_tokens": 4,
+ "settled_usd": "4.85947440",
+ "started_at": "2026-11-25T20:14:54.469141Z",
+ "finished_at": "2026-11-25T20:25:56.386830Z",
+ "writes": 2,
+ "issues_per_write": [
+  2,
+  0
+ ],
+ "first_write_issues": [
+  "Fidelity check, line 51: \"(79.27%)\" does not match the handoff, which writes it as 79.27%: keep the sign and unit as written.",
+  "The report adapter refused this handoff: markdown_selector: expected one CP-4/Capital structure/None"
+ ]
+}

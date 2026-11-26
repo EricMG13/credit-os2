@@ -1,0 +1,31 @@
+{
+ "module": "CP-4",
+ "arm": "A",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 217134,
+ "tokens_estimate": 56661,
+ "lines": 2760,
+ "head_chars": 20476,
+ "method_chars": 196658,
+ "method_files": 11,
+ "directive_sentences": 257,
+ "emphasis_words": 5,
+ "repeated_chars": 18592,
+ "overridden_chars": 5240,
+ "unsent_references": 0,
+ "calls": 33,
+ "input_tokens": 68,
+ "cached_read_tokens": 7997912,
+ "output_tokens": 73888,
+ "reasoning_tokens": 31787,
+ "first_call_input_tokens": 4,
+ "settled_usd": "3.54980940",
+ "started_at": "2026-11-25T19:43:55.231078Z",
+ "finished_at": "2026-11-25T19:54:25.249099Z",
+ "writes": 1,
+ "issues_per_write": [
+  0
+ ],
+ "first_write_issues": []
+}

@@ -1,0 +1,34 @@
+{
+ "module": "CP-3",
+ "arm": "C",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 112196,
+ "tokens_estimate": 29211,
+ "lines": 742,
+ "head_chars": 18526,
+ "method_chars": 93670,
+ "method_files": 6,
+ "directive_sentences": 192,
+ "emphasis_words": 5,
+ "repeated_chars": 0,
+ "overridden_chars": 770,
+ "unsent_references": 0,
+ "calls": 16,
+ "input_tokens": 34,
+ "cached_read_tokens": 4702482,
+ "output_tokens": 61525,
+ "reasoning_tokens": 27294,
+ "first_call_input_tokens": 4,
+ "settled_usd": "4.02018240",
+ "started_at": "2026-11-25T19:13:50.755701Z",
+ "finished_at": "2026-11-25T19:22:45.833466Z",
+ "writes": 2,
+ "issues_per_write": [
+  1,
+  0
+ ],
+ "first_write_issues": [
+  "Fidelity check, line 72: \"550 million\" does not appear elsewhere in the handoff (tables, calculations or other findings), with the same sign, unit and scale: add it there or remove it from the passage."
+ ]
+}

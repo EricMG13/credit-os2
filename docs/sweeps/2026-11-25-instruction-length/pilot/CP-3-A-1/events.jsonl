@@ -1,0 +1,4 @@
+{"at": "2026-11-25T19:12:30Z", "event": "turn", "module": "CP-3", "turn": 1, "max_turns": 32, "spent_usd": "0", "held_usd": "4.535496", "cap_usd": "10"}
+{"at": "2026-11-25T19:13:52Z", "event": "turn", "module": "CP-3", "turn": 2, "max_turns": 32, "spent_usd": "1.83759600", "held_usd": "4.677296", "cap_usd": "10"}
+{"at": "2026-11-25T19:14:30Z", "event": "turn", "module": "CP-3", "turn": 3, "max_turns": 32, "spent_usd": "2.03583100", "held_usd": "4.753088", "cap_usd": "10"}
+{"at": "2026-11-25T19:14:51Z", "event": "turn", "module": "CP-3", "turn": 4, "max_turns": 32, "spent_usd": "2.18783460", "held_usd": "4.800128", "cap_usd": "10"}

@@ -1,0 +1,192 @@
+{
+ "00f47f": {
+  "items": {
+   "CP-4-F1": {
+    "score": "Right",
+    "quote": "Credit agreement as amended | TransDigm Inc., Holdings, subsidiaries, lenders, Goldman Sachs Bank USA as agent | Base 2014-06-04; amended 2024-09-19",
+    "note": "Amendment No. 17 dated 2024-09-19 treated as operative, TransDigm Inc. as borrower, TransDigm Group Incorporated as Holdings (both Delaware), Goldman Sachs Bank USA as agent; the agent's two capacities are not spelled out."
+   },
+   "CP-4-F2": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: 7.50x, 8.00x for four quarters after a material acquisition, the 40% usage condition and the 103% cash-collateral exclusion are present and correct; the Material Acquisition definition (consideration above $300,000,000) is not stated."
+   },
+   "CP-4-F3": {
+    "score": "Wrong",
+    "quote": "2029-02-27 | day | 2024-11-07 | Revolving credit facility maturity; financial covenant ends with revolving commitments | Scheduled — maturity date of the revolving credit facility",
+    "note": "February 27, 2029 is given as the maturity with no mention anywhere of the earlier Reference Date maturity ($100,000,000 / 91 days), which the item scores wrong."
+   },
+   "CP-4-F4": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: only the range 2028-08-24 to 2032-01-19 and Tranche L at USD 1,500 million under Amendment No. 17 are given; the Tranche J (February 28, 2031) and Tranche K (March 22, 2030) dates are not stated and no date is tied to a named tranche."
+   },
+   "CP-4-F5": {
+    "score": "Right",
+    "quote": "Any restricted payment if no default and net leverage at or below 6.75x pro forma; general basket greater of USD 75 million and 3% of EBITDA",
+    "note": "Leverage-based permission at 6.75x with the no-default condition and the general basket both stated as expected."
+   },
+   "CP-4-F6": {
+    "score": "Right",
+    "quote": "Senior secured debt pari or junior permitted if secured net leverage at or below 5.00x, maturity after latest term loan, no non-loan-party obligors, collateral only",
+    "note": "5.00x secured and 7.25x junior/unsecured are correctly assigned, and the 2033 indenture test is given as fixed-charge cover above 2.00x with the USD 400 million non-guarantor cap (evidence index E14)."
+   },
+   "CP-4-F7": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: only 'cross-default; judgments above USD 50 million' is stated; the Material Indebtedness threshold, the enables-or-permits limb, the 60-day period, both interest grace periods and the indenture thresholds are not stated."
+   },
+   "CP-4-F8": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Change of control appears only as a word in a list of credit agreement events of default; no ownership percentages, no indenture test and no 101% offer are stated."
+   },
+   "CP-4-F9": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: Required Lenders above 50%, the each-lender list (economics, sharing, voting, material guarantors, substantially all collateral), Required Revolving Lenders alone for the financial covenant, indenture majority and two-thirds for collateral or intercreditor change are present and correct; missing are the indenture's each-affected-Holder consent for payment terms (the handoff gives it for ranking changes instead) and the more-than-50% definition of Required Revolving Lenders."
+   },
+   "CP-4-F10": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: USD 2,650 million, 2027-11-15, senior debt paid in full in cash first and the 179-day blockage in any 360 days are present and correct; missing are the bar on payment while Designated Senior Debt is in payment default, the $25.0 million designation threshold and the delayed acceleration (earlier of credit facility acceleration and five Business Days)."
+   },
+   "CP-4-F11": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: Holdings and Domestic Restricted Subsidiaries as guarantors, the exclusion of immaterial, unrestricted and securitization entities, the 65% voting foreign equity pledge, structural subordination to non-guarantor liabilities and TransDigm UK as note guarantor are present and correct; the 7.5% of Total Assets / Consolidated EBITDA limit on Immaterial Subsidiaries is not stated."
+   },
+   "CP-4-C1": {
+    "score": "Right",
+    "quote": "Usage of USD 67 million in letters of credit sits well below the USD 364 million trigger; on the post-dividend proxy, EBITDA could fall 26.62% before 7.50x is reached.",
+    "note": "Test stated as not triggered (7.36% against 40%, USD 910 million commitments, USD 843 million undrawn), issuer compliance statement reported, headroom figures labelled proxies and the certified covenant ratio shown as insufficient information."
+   },
+   "CP-4-C2": {
+    "score": "Right",
+    "quote": "tested only when revolving usage exceeds 40% of commitments, amendable by the required revolving lenders alone, and a breach becomes a term-loan default only if revolving lenders terminate or accelerate",
+    "note": "Says the only maintenance test serves revolving lenders and that term loans and notes have no maintenance test; conclusion of almost no early-warning protection is within the accepted range."
+   },
+   "CP-4-C3": {
+    "score": "Right",
+    "quote": "Dividend capacity is set by a ratio rather than a dollar cap, and the September recapitalisation shows it is used.",
+    "note": "Leverage-governed permission at 6.75x, Tranche L under Amendment No. 17 tied to funding the dividend subject to 7.25x and 5.00x pro forma tests, payment dated October 2024 as a subsequent event, and room figures labelled proxies with usage history and certificate recorded as not supplied. The handoff gives the payment only as USD 4,348 million (no USD 4,216 million figure, no day of the month, no statement that it was declared and accrued at year-end)."
+   },
+   "CP-4-C4": {
+    "score": "Right",
+    "quote": "The legal ranking shows a large pari first-lien block sharing one collateral pool, with subordinated notes behind it and receivables funding outside it.",
+    "note": "First-lien classes pari on shared collateral, subordinated notes unsecured, contractually subordinated and subject to blockage and turnover, structural subordination to non-guarantor liabilities, enforcement control marked as not established, no numerical recoveries; the express Designated Senior Debt designation of the 2033 notes is not quoted but secured notes are placed within Senior Debt."
+   },
+   "CP-4-D1": {
+    "score": "Right",
+    "quote": "The controlling package is the second amended and restated credit agreement as amended through the September 2024 amendment, the 2033 secured notes indenture and the 2027 subordinated notes indenture, all executed.",
+    "note": "No value from the 2013 restatement, the 2014 restatement or Amendment No. 16 is given as a current term; all current terms are those of the agreement as amended by Amendment No. 17."
+   },
+   "CP-4-D2": {
+    "score": "Right",
+    "quote": "The First Lien Intercreditor Agreement was not supplied, so the conclusion on who controls enforcement between term lenders and secured noteholders, and any standstill or turnover between them, is not established rather than benign.",
+    "note": "Also states that the guarantee and collateral agreement and the 2028 to 2032 secured and 2029 subordinated indentures are not supplied, that note conclusions are confirmed only for the 2033 and 2027 series, and that noteholders act subject to the intercreditor agreement."
+   },
+   "CP-4-D3": {
+    "score": "Right",
+    "quote": "All current values are analyst proxies from consolidated reported figures, not covenant calculations or a legal compliance opinion.",
+    "note": "4.46x and 5.50x are shown beside 7.50x but labelled as proxies on a different definition, and the certified covenant ratio is reported as insufficient information, not zero."
+   }
+  },
+  "other_errors": []
+ },
+ "7c9986": {
+  "items": {
+   "CP-4-F1": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: Amendment No. 17 dated 2024-09-19 with the annexed Second Amended and Restated Credit Agreement, TransDigm Inc. as borrower and TransDigm Group Incorporated as holdings, both Delaware, are present and correct; the agent is never named (only 'agent')."
+   },
+   "CP-4-F2": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: 7.50x, 8.00x for four quarters after a Material Acquisition, the 40% usage condition and the 103% cash-collateral exclusion are present and correct; the Material Acquisition definition (consideration above $300,000,000) is not stated."
+   },
+   "CP-4-F3": {
+    "score": "Wrong",
+    "quote": "Senior secured first lien; matures 2029-02-27",
+    "note": "February 27, 2029 is given as the maturity with no mention anywhere of the earlier Reference Date maturity ($100,000,000 / 91 days), which the item scores wrong."
+   },
+   "CP-4-F4": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Term loans I, J, K and L are named with USD 8,702 million principal, but no tranche maturity date and no Tranche L commitment amount is stated."
+   },
+   "CP-4-F5": {
+    "score": "Right",
+    "quote": "general basket greater of USD 75 million and 3% of EBITDA; unlimited at pro forma net leverage at or below 6.75x and no default",
+    "note": "Leverage-based permission at 6.75x with the no-default condition and the general basket both stated as expected."
+   },
+   "CP-4-F6": {
+    "score": "Right",
+    "quote": "ratio senior secured at 5.00x and junior or unsecured at 7.25x with maturity and life conditions",
+    "note": "5.00x secured and 7.25x junior/unsecured are correctly assigned, and the 2033 indenture test is given as fixed-charge cover above 2.0x with non-guarantor ratio debt at most USD 400 million."
+   },
+   "CP-4-F7": {
+    "score": "Wrong",
+    "quote": "Article VII(e): cross-payment default and cross-acceleration to Material Indebtedness",
+    "note": "The credit agreement default is described as payment default at maturity or acceleration only, i.e. as cross-acceleration; the evidence also covers any event that enables or permits holders to accelerate. No threshold, judgment default or grace period is stated."
+   },
+   "CP-4-F8": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Change of control is not addressed."
+   },
+   "CP-4-F9": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: Required Lenders more than 50%, the every-lender list (economics, pro rata sharing, voting thresholds, material guarantor and collateral release), Required Revolving Lenders alone for the financial covenant, indenture majority and two-thirds for collateral release or adverse intercreditor change are present and correct; missing are the indenture's each-affected-Holder consent for payment terms and the more-than-50% definition of Required Revolving Lenders."
+   },
+   "CP-4-F10": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: USD 2,650 million (in calculation K23), unsecured and subordinated to senior debt, and blockage of up to 179 days in any 360 days are present and correct; missing are the November 15, 2027 maturity, payment in full in cash of Senior Debt first (the turnover text is said not to have been read), the payment-default bar, the $25.0 million threshold and the delayed acceleration."
+   },
+   "CP-4-F11": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Bundle incomplete: Holdings and Domestic Restricted Subsidiaries as guarantors, the exclusion of immaterial, unrestricted and securitization entities, foreign subsidiaries as non-guarantors, the 65% voting foreign equity pledge, structural subordination to non-guarantor liabilities and TransDigm UK as note guarantor are present and correct; the 7.5% of Total Assets / Consolidated EBITDA limit on Immaterial Subsidiaries is not stated."
+   },
+   "CP-4-C1": {
+    "score": "Right",
+    "quote": "The only maintenance test is a springing 7.50x revolver covenant, inactive at year-end because revolver exposure was at most 7.36% against a 40% trigger.",
+    "note": "Not tested at year-end (USD 67 million letters of credit, USD 843 million available, USD 910 million commitments, USD 364 million trigger), issuer compliance statement reported, and the covenant-defined ratio and headroom shown as not supplied."
+   },
+   "CP-4-C2": {
+    "score": "Right",
+    "quote": "the revolver test applies only above 40% usage, leaving USD 297 million of further drawings before it bites, and a breach becomes a term-loan default only after revolving lenders terminate commitments or accelerate.",
+    "note": "Preceded by \"Term loans and notes carry no maintenance test\"; also says only revolving lenders can amend the covenant; conclusion of no early warning is within the accepted range."
+   },
+   "CP-4-C3": {
+    "score": "Right",
+    "quote": "Special dividend USD 4,216 million and equivalents USD 132 million paid (USD 4,348 million)",
+    "note": "Dated 2024-10-18 as a subsequent event, declared 2024-09-19 with the USD 4,216 million dividend payable at year-end; distributions described as uncapped in amount and governed by the 6.75x ratio; September 2024 new secured debt said to have funded the distribution with the 7.25x and 5.00x incremental conditions; remaining capacity stated as not calculable without the covenant ratio. The 7.25x/5.00x levels are given as general incremental conditions, not expressly as Amendment No. 17 closing conditions, and Tranche L is not named."
+   },
+   "CP-4-C4": {
+    "score": "Right",
+    "quote": "By class, bank and secured-note claims share guarantor collateral, subordinated notes rank behind them and are subject to blockage, and all notes are structurally subordinated to foreign subsidiary and securitization creditors.",
+    "note": "First-lien classes pari on shared collateral, subordinated notes unsecured and contractually subordinated, structural subordination stated, first-lien enforcement control marked insufficient information, no numerical recoveries; the express Designated Senior Debt designation of the 2033 notes is not quoted."
+   },
+   "CP-4-D1": {
+    "score": "Right",
+    "quote": "Second Amended and Restated Credit Agreement as annexed to Amendment No. 17 | Credit agreement (conformed annex) | Amendment No. 17, 2024-09-19",
+    "note": "No value from the 2013 restatement, the 2014 restatement or Amendment No. 16 is given as a current term; Amendment No. 16 text is recorded as not reviewed."
+   },
+   "CP-4-D2": {
+    "score": "Right",
+    "quote": "The first-lien intercreditor agreement is referenced but not supplied, so who controls enforcement and collateral release between bank lenders and secured noteholders is not established",
+    "note": "Also states that the guarantee and collateral agreement and seven of the nine note indentures are not supplied and that conclusions on the other notes rest only on the annual report's statement of substantial similarity."
+   },
+   "CP-4-D3": {
+    "score": "Right",
+    "quote": "the covenant figure, which nets only unrestricted cash and uses the wider covenant EBITDA, is not established",
+    "note": "4.88x and 6.02x are labelled as the financial-foundation measure, and every covenant ratio's current value is shown as not supplied, not zero; no headroom to 7.50x is computed from them."
+   }
+  },
+  "other_errors": []
+ }
+}

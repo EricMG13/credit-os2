@@ -1,0 +1,41 @@
+{
+ "module": "CP-4",
+ "arm": "A",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 216976,
+ "tokens_estimate": 56620,
+ "lines": 2760,
+ "head_chars": 20318,
+ "method_chars": 196658,
+ "method_files": 11,
+ "directive_sentences": 257,
+ "emphasis_words": 5,
+ "repeated_chars": 18592,
+ "overridden_chars": 5240,
+ "unsent_references": 0,
+ "calls": 46,
+ "input_tokens": 94,
+ "cached_read_tokens": 11573609,
+ "output_tokens": 78046,
+ "reasoning_tokens": 28798,
+ "first_call_input_tokens": 4,
+ "settled_usd": "6.35203780",
+ "started_at": "2026-11-25T19:14:56.630428Z",
+ "finished_at": "2026-11-25T19:26:15.210527Z",
+ "writes": 2,
+ "issues_per_write": [
+  8,
+  0
+ ],
+ "first_write_issues": [
+  "`### Chart data: covenant headroom` Revolver usage trigger for maintenance test: Direction `Passes at or below threshold; test springs only above it` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Maintenance net leverage, pro forma October 2024 dividend: Direction `Passes at or below threshold` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Maintenance net leverage, year-end proxy: Direction `Passes at or below threshold` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Ratio dividend test, credit agreement: Direction `Passes at or below threshold` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Junior or unsecured incurrence test, credit agreement: Direction `Passes at or below threshold` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Pari secured incurrence test, credit agreement: Direction `Passes at or below threshold` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Secured ratio-debt lien test, 2033 notes: Direction `Passes at or below threshold` must be one of Passes below, Passes at or below, Passes above, Passes at or above.",
+  "`### Chart data: covenant headroom` Ratio debt and ratio dividend cover, 2033 notes: Direction `Passes strictly above threshold` must be one of Passes below, Passes at or below, Passes above, Passes at or above."
+ ]
+}

@@ -152,13 +152,14 @@ PATHWAY = "credit_screening"
 OTHER_PATHWAYS = sorted(set(PATHWAY_MODULES) - {PATHWAY})
 HEADER = ["Topic", "Finding", "Materiality", "Evidence", "Next step"]
 # sha256 of the instructions the lite credit assessment's CP-0 and CP-1 are built with, from a clean
-# `git archive afb03e89` copy of this repository (the commit before this pathway), read through
+# `git archive bf06af10` copy of this repository (main's tip when this pathway was merged; main's
+# own method trimming moved them from the afb03e89 values, 75,268 and 59,142 bytes), read through
 # `tests/test_cpos_launch.all_instructions(tmp, "lite_credit_assessment")`. No golden or pin of an
 # instruction's bytes existed, so these two are recorded here; the comparison of every module of
 # every other pathway was also made once, base against head, with a scratch script (see the report).
 LITE_INSTRUCTIONS_AT_BASE = {
-    "CP-0": (75268, "be10d16967417c5098cfb9e0b849daa1ae4d621c0781db7d6a64111cefac9ac2"),
-    "CP-1": (59142, "fe017f0a889345502b460fe2e77e1d421e0dcded3e0eda0a91b61e5577353ec0"),
+    "CP-0": (73557, "3e7ccd5649b0d2bc2af1e009aaa95a70b1298c40bf9bc89da83dd67aa28978ee"),
+    "CP-1": (58760, "c4c686b59e5f34423eebd7e74299bfee339b53543f3c2626ae53b69639f0d0b4"),
 }
 
 

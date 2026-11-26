@@ -1,0 +1,20 @@
+{"at": "2026-11-25T19:17:51Z", "event": "turn", "module": "CP-5", "turn": 1, "max_turns": 32, "spent_usd": "0", "held_usd": "5.019448", "cap_usd": "10"}
+{"at": "2026-11-25T19:18:58Z", "event": "turn", "module": "CP-5", "turn": 2, "max_turns": 32, "spent_usd": "2.08112600", "held_usd": "5.120336", "cap_usd": "10"}
+{"at": "2026-11-25T19:18:59Z", "event": "turn", "module": "CP-5", "turn": 3, "max_turns": 32, "spent_usd": "2.19870280", "held_usd": "5.126728", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:01Z", "event": "turn", "module": "CP-5", "turn": 4, "max_turns": 32, "spent_usd": "2.28040100", "held_usd": "5.143680", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:11Z", "event": "turn", "module": "CP-5", "turn": 5, "max_turns": 32, "spent_usd": "2.39034040", "held_usd": "5.163336", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:14Z", "event": "turn", "module": "CP-5", "turn": 6, "max_turns": 32, "spent_usd": "2.48293420", "held_usd": "5.180376", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:18Z", "event": "turn", "module": "CP-5", "turn": 7, "max_turns": 32, "spent_usd": "2.57497200", "held_usd": "5.214152", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:22Z", "event": "turn", "module": "CP-5", "turn": 8, "max_turns": 32, "spent_usd": "2.67652500", "held_usd": "5.224936", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:23Z", "event": "turn", "module": "CP-5", "turn": 9, "max_turns": 32, "spent_usd": "2.76227360", "held_usd": "5.226592", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:25Z", "event": "turn", "module": "CP-5", "turn": 10, "max_turns": 32, "spent_usd": "2.84576440", "held_usd": "5.229744", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:27Z", "event": "turn", "module": "CP-5", "turn": 11, "max_turns": 32, "spent_usd": "2.93276480", "held_usd": "5.239152", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:29Z", "event": "turn", "module": "CP-5", "turn": 12, "max_turns": 32, "spent_usd": "3.01925820", "held_usd": "5.246896", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:31Z", "event": "turn", "module": "CP-5", "turn": 13, "max_turns": 32, "spent_usd": "3.10483780", "held_usd": "5.264888", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:35Z", "event": "turn", "module": "CP-5", "turn": 14, "max_turns": 32, "spent_usd": "3.19964180", "held_usd": "5.287632", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:46Z", "event": "turn", "module": "CP-5", "turn": 15, "max_turns": 32, "spent_usd": "3.31671800", "held_usd": "5.314896", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:49Z", "event": "turn", "module": "CP-5", "turn": 16, "max_turns": 32, "spent_usd": "3.41559600", "held_usd": "5.321544", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:51Z", "event": "turn", "module": "CP-5", "turn": 17, "max_turns": 32, "spent_usd": "3.50414440", "held_usd": "5.329384", "cap_usd": "10"}
+{"at": "2026-11-25T19:19:56Z", "event": "turn", "module": "CP-5", "turn": 18, "max_turns": 32, "spent_usd": "3.59368100", "held_usd": "5.339072", "cap_usd": "10"}
+{"at": "2026-11-25T19:24:20Z", "event": "draft_rejected", "module": "CP-5", "writes_left": 2}
+{"at": "2026-11-25T19:24:20Z", "event": "turn", "module": "CP-5", "turn": 19, "max_turns": 32, "spent_usd": "4.27368180", "held_usd": "5.692496", "cap_usd": "10"}
