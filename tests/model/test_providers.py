@@ -1605,6 +1605,7 @@ def test_every_sent_unknown_class_the_writers_produce_is_in_the_shared_vocabular
             "BYOK_ROUTED",
             "AUTO_ROUTED",
             "TOOL_CALL_MISMATCH",
+            "SECOND_MODEL_REQUEST",  # status 200, a sent_usage reply
         }
     }
     assert (transport | copilot) <= reply_classes.SENT_UNKNOWN

@@ -156,6 +156,7 @@ const signOfAbs = (abs: string, negative: boolean): -1 | 0 | 1 =>
   Number(abs) === 0 ? 0 : negative ? -1 : 1;
 
 const AMOUNT = /^([+−-]?)\s*(\d[\d,]*(?:\.\d+)?)(?:\s+([A-Za-z][A-Za-z ,]*))?$/;
+const BASIS_POINTS = /^(?:bps?|basis points)$/i;
 const POINTS = /^([+−-]?)(\d+(?:\.\d+)?)\s*(?:percentage points?|pp)\b(.*)$/i;
 
 /**
@@ -191,8 +192,13 @@ function statedChange(cell: string, unit: string): Change {
     const sign = signOfAbs(digits.replaceAll(",", ""), found[1] === "-" || found[1] === MINUS);
     const words = found[3] ?? "";
     const tail = words && !namesSource(words) ? ` ${readerText(words.trim())}` : "";
+    // A change stated in basis points is drawn as written: the row's own unit would call it points.
+    const stated = BASIS_POINTS.test(words.trim());
+    const body = stated
+      ? signed(sign, `${group(digits.replaceAll(",", ""))}${tail}`)
+      : `${changeText(sign, digits.replaceAll(",", ""), unit)}${tail}`;
     return {
-      text: `${changeText(sign, digits.replaceAll(",", ""), unit)}${tail}`,
+      text: body,
       basis: "stated",
       sign,
       magnitude: Number(digits.replaceAll(",", "")),

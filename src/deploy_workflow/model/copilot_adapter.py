@@ -16,6 +16,7 @@ import threading
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Protocol, cast
@@ -31,17 +32,21 @@ from deploy_workflow.model.adapter import (
     _reply_from_error,
     check_live_gate,
 )
+from deploy_workflow.model.budget import exact_sum
 from deploy_workflow.model.copilot import (
+    MESSAGE,
     SESSION_ERROR,
     TOKEN_LIMITS,
     TOOL_START,
     USAGE,
     _billed_usd,
+    _request_id,
     _usage,
     compactions,
     event_record,
     prompt_tokens_estimate,
 )
+from deploy_workflow.model.pricing import covers_long_context, price_of, reservation_rates
 from deploy_workflow.model.providers import (
     MAX_OUTPUT_TOKENS,
     ProviderConfigError,
@@ -61,6 +66,7 @@ from deploy_workflow.model.reply_classes import (
     MODEL_MISMATCH,
     OVERALL_TIMEOUT,
     PRE_SEND_FAILURE,
+    SECOND_MODEL_REQUEST,
     TOOL_CALL_LOST,
     TOOL_CALL_MISMATCH,
 )
@@ -109,6 +115,8 @@ _ABORT_S = 5.0  # on the reply's path (timeouts only)
 _DISCONNECT_S = 5.0
 _STOP_S = 30.0
 _FORCE_S = 5.0
+_TIER_READ_S = 10.0  # the read of a session's context tier, after its creation
+LONG_CONTEXT = "long_context"  # the SDK's ContextTier value for the long-context tier
 _JOIN_S = 5.0
 _OUTER_SLACK_S = 5.0  # the synchronous wait outlasts the coroutine's own overall bound
 _CLOSE_SLACK_S = 2.0
@@ -189,6 +197,7 @@ class ClientLike(Protocol):
     async def start(self) -> None: ...
     async def list_models(self) -> list[dict[str, Any]]: ...
     async def create_session(self, **options: Any) -> SessionLike: ...
+    async def context_tier(self, session: SessionLike, /) -> str | None: ...
     async def stop(self) -> None: ...
     async def force_stop(self) -> None: ...
 
@@ -228,6 +237,13 @@ class _SdkClient:
         options["on_permission_request"] = permission
         session: SessionLike = await self._client.create_session(**options)
         return session
+
+    async def context_tier(self, session: Any, /) -> str | None:
+        """The context tier the runtime reports for ``session`` ("default", "long_context") or
+        None. ``session.rpc.model.get_current`` is experimental in SDK 1.0.28."""
+        current = await session.rpc.model.get_current()
+        tier = current.context_tier
+        return None if tier is None else str(tier.value)
 
     def _sdk_tool(self, definition: ToolDef) -> Any:
         async def run(invocation: Any) -> Any:
@@ -284,6 +300,9 @@ class _State:
     tool_names: frozenset[str] = frozenset()
     max_prompt_tokens: int | None = None
     context_window_tokens: int | None = None
+    max_output_tokens: int | None = None  # of the last request ``_guard_context`` checked
+    long_confirmed: bool = False  # the runtime confirmed the session on the long tier
+    tier_note: str | None = None  # why a requested long tier was not in force; first reply only
     history: tuple[Message, ...] = ()
     pending: dict[str, asyncio.Future[str]] = field(default_factory=dict)
     # (tool_call_id -> (tool_name, arguments)) of the handler invocations of the current call
@@ -401,7 +420,118 @@ def _positive_limit(limits: dict[str, Any], key: str) -> int | None:
     return value if type(value) is int and value > 0 else None
 
 
+def _token_prices(models: list[dict[str, Any]], model: str) -> dict[str, Any] | None:
+    """The seat's ``billing.tokenPrices`` for ``model``; None where it lists none."""
+    row = next((item for item in models if item.get("id") == model), {})
+    billing = row.get("billing")
+    prices = billing.get("tokenPrices") if isinstance(billing, dict) else None
+    return prices if isinstance(prices, dict) else None
+
+
+def _long_listing(
+    models: list[dict[str, Any]], model: str
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    """The seat's ``billing.tokenPrices`` and its ``longContext`` tier for ``model``; None where
+    the seat lists no long tier."""
+    prices = _token_prices(models, model)
+    tier = prices.get("longContext") if prices is not None else None
+    if prices is None or not isinstance(tier, dict):
+        return None
+    return prices, tier
+
+
+def _long_budget(models: list[dict[str, Any]], model: str) -> int | None:
+    """The long tier's prompt budget the seat lists for ``model``: ``maxPromptTokens``, else its
+    deprecated alias ``contextMax``, at ``billing.tokenPrices.longContext``; None where the seat
+    lists no long tier or the value is not a positive int."""
+    listing = _long_listing(models, model)
+    if listing is None:
+        return None
+    tier = listing[1]
+    return _positive_limit(tier, "maxPromptTokens") or _positive_limit(tier, "contextMax")
+
+
+_USD_PER_AI_CREDIT = Decimal("0.01")
+# "cachePrice" is the SDK's deprecated alias of "cacheReadPrice"
+_INPUT_PRICES = (
+    "inputPrice",
+    "cacheReadPrice",
+    "cachePrice",
+    "cacheWritePrice",
+    "cacheWrite1hPrice",
+)
+
+
+def _usd_per_batch_million(value: object) -> Decimal | None:
+    """A listed price in AI credits per batch, as USD per batch of one million-token units
+    (``credits x USD 0.01 x 1,000,000``): divide by the batch size for USD per million tokens.
+    Exact; None where it is not a finite non-negative number (a bool is not one)."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    credits = Decimal(str(value))
+    if not credits.is_finite() or credits < 0:
+        return None
+    return credits * _USD_PER_AI_CREDIT * 1_000_000
+
+
+def _price_over_rates(
+    listed: dict[str, Any], label: str, batch: int, top: tuple[Decimal, Decimal]
+) -> str | None:
+    """Why a listed price of ``listed`` (the ``label`` tier's prices) is no bound for the hold,
+    else None: an input-side price over ``top[0]`` or the output price over ``top[1]`` (USD per
+    million tokens), or one that is not a usable price. Only listed prices are checked."""
+    for name in (*_INPUT_PRICES, "outputPrice"):
+        if name not in listed:
+            continue
+        scaled = _usd_per_batch_million(listed[name])
+        if scaled is None:
+            return f"the {label} {name} is not a usable price"
+        limit = top[1] if name == "outputPrice" else top[0]
+        if scaled > limit * batch:  # exact: no division by the batch size
+            return (
+                f"the {label} {name} is USD {scaled / batch} per million tokens, "
+                f"over the hold's {limit}"
+            )
+    return None
+
+
+def _long_price_problem(
+    models: list[dict[str, Any]], model: str, top: tuple[Decimal, Decimal]
+) -> str | None:
+    """Why the seat's listed prices do not bound a call by the hold, else None. The long tier's
+    and the default tier's input-side prices must be no dearer than ``top[0]`` and the output
+    prices than ``top[1]`` (the rates the hold is priced at, USD per million tokens); the batch
+    size and the long tier's ``inputPrice`` and ``outputPrice`` must be listed (the default
+    tier's prices only where listed). ``billing.multiplier`` is not read."""
+    listing = _long_listing(models, model)
+    if listing is None:
+        return "the seat lists no long-tier prices"
+    prices, tier = listing
+    batch = prices.get("batchSize")
+    if type(batch) is not int or batch <= 0:
+        return "the seat's price batchSize is not a positive integer"
+    for name in ("inputPrice", "outputPrice"):
+        if name not in tier:
+            return f"the seat lists no long-tier {name}"
+    return _price_over_rates(tier, "long-tier", batch, top) or _price_over_rates(
+        prices, "default-tier", batch, top
+    )
+
+
+def _default_price_problem(
+    models: list[dict[str, Any]], model: str, top: tuple[Decimal, Decimal]
+) -> str | None:
+    """Why the seat's listed default-tier prices are over the hold's rates, else None (also where
+    the seat lists none or no usable batch size)."""
+    prices = _token_prices(models, model)
+    batch = None if prices is None else prices.get("batchSize")
+    if prices is None or type(batch) is not int or batch <= 0:
+        return None
+    return _price_over_rates(prices, "default-tier", batch, top)
+
+
 def _guard_context(request: TurnRequest, state: _State) -> None:
+    state.max_output_tokens = request.max_output_tokens  # read by ``prompt_admits``
     estimate = prompt_tokens_estimate(len(dump_json(dataclasses.asdict(request)).encode()))
     if state.max_prompt_tokens is not None and estimate > state.max_prompt_tokens:
         raise _Refuse(
@@ -492,7 +622,7 @@ class CopilotAdapter:
     """Every construction runs the R2 gate; the environment is read when ``auth`` is first read
     (executor init) or at the first ``complete``, whichever comes first."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - one more keyword (long_context) on an existing signature
         self,
         model: ModelSpec,
         ruling: Path,
@@ -503,7 +633,10 @@ class CopilotAdapter:
         client_factory: ClientFactory = real_client,
         idle_s: float = IDLE_S,
         overall_s: float = OVERALL_S,
+        long_context: bool = False,
     ) -> None:
+        """``long_context`` opens the session on the seat's long-context tier where the price
+        covers it and the seat lists it (``_long_tier``); only a run asks for it."""
         self._gate = check_live_gate(model, ruling, rulings_root=rulings_root)  # first
         self.config_id = model.config_id
         self._ruling = Path(ruling)
@@ -512,6 +645,7 @@ class CopilotAdapter:
         self._clock = clock
         self._factory = client_factory
         self._idle_s, self._overall_s = idle_s, overall_s
+        self._long_context = long_context
         self._cached: _Creds | None = None
         self._states: dict[str, _State] = {}
         self._teardowns: set[asyncio.Task[None]] = set()
@@ -711,9 +845,11 @@ class CopilotAdapter:
     def release(self, invocation_digest: str) -> None:
         """The module under this digest has ended for good: stop its runtime now, not at
         ``close()``. Callable from any thread (it only schedules ``_release`` on the loop thread,
-        where every ``_states`` access happens), idempotent, and a no-op for an unknown digest or
-        after ``close()``. It does not wait for the teardown: that runs in the background under the
-        usual bounds, and a failure goes to ``self._notes``, which ``close()`` raises. A later
+        where every ``_states`` write happens; ``long_tier_in_force`` and
+        ``long_tier_budget`` read it from other threads), idempotent, and a no-op for an unknown
+        digest or after ``close()``. It does not wait for the teardown: that runs in the
+        background under the usual bounds, and a failure goes to ``self._notes``, which
+        ``close()`` raises. A later
         ``complete`` under the digest is refused with ``ExchangeExists`` while the teardown runs and
         ``SessionMissing`` after it (call_index > 0); a call_index 0 after it opens a fresh
         exchange, as a first call does. Drain the compactions first: a released session gives
@@ -727,6 +863,38 @@ class CopilotAdapter:
             loop.call_soon_threadsafe(self._release, invocation_digest)
         except RuntimeError:  # the loop closed between the check and here: close() released it
             log.debug("release of an exchange after the loop closed: close() already did it")
+
+    def long_tier_in_force(self, invocation_digest: str) -> bool:
+        """True only while this digest's exchange holds a session the runtime confirmed on the long
+        tier (``_confirm_tier``): false before its first call, after a fallback to the default tier,
+        for an unpinned session and after ``release``. Read-only and callable from any thread: it
+        is one dict lookup and one attribute read, and the loop thread only ever sets the flag
+        True once, before the first send. ``long_tier_budget`` builds on it to size a
+        module's source reads."""
+        state = self._states.get(invocation_digest)
+        return state is not None and state.long_confirmed and state.releasing is None
+
+    def long_tier_budget(self, invocation_digest: str) -> int | None:
+        """The long prompt budget (tokens) this digest's later calls are guarded with
+        (``_guard_context``), while ``long_tier_in_force``; else None."""
+        if not self.long_tier_in_force(invocation_digest):
+            return None
+        state = self._states.get(invocation_digest)
+        return None if state is None else state.max_prompt_tokens
+
+    def prompt_admits(self, invocation_digest: str) -> int | None:
+        """The most input tokens this digest's next call's ``_guard_context`` admits: the smaller
+        of the prompt limit and the window less the output of the last request checked (the window
+        term needs one); None where no limit is set, nothing was checked yet, or the exchange is
+        unknown or released. Read-only and callable from any thread, like ``long_tier_budget``."""
+        state = self._states.get(invocation_digest)
+        if state is None or state.releasing is not None:
+            return None
+        limits = [] if state.max_prompt_tokens is None else [state.max_prompt_tokens]
+        window, output = state.context_window_tokens, state.max_output_tokens
+        if window is not None and output is not None:
+            limits.append(window - output)
+        return min(limits) if limits else None
 
     async def _drain(self, digest: str) -> tuple[Compaction, ...]:
         state = self._states.get(digest)
@@ -876,11 +1044,16 @@ class CopilotAdapter:
             async with asyncio.timeout_at(deadline):
                 await client.start()
                 model = self._model.model
-                limits = _check_model(await client.list_models(), model, call.effort)
-                state.max_prompt_tokens = _positive_limit(limits, "max_prompt_tokens")
-                state.context_window_tokens = _positive_limit(
-                    limits, "max_context_window_tokens"
-                ) or TOKEN_LIMITS.get(model)
+                models = await client.list_models()
+                limits = _check_model(models, model, call.effort)
+                default = (
+                    _positive_limit(limits, "max_prompt_tokens"),
+                    _positive_limit(limits, "max_context_window_tokens") or TOKEN_LIMITS.get(model),
+                )
+                state.max_prompt_tokens, state.context_window_tokens = default
+                tier = self._long_tier(state, models)
+                if not tier:
+                    self._warn_default_prices(models)
                 _guard_context(call.request, state)
                 tools = [self._tool_def(spec, state) for spec in call.request.tools]
                 state.tool_names = frozenset(t.name for t in tools)
@@ -896,12 +1069,87 @@ class CopilotAdapter:
                     infinite_sessions={"enabled": False},
                     autopilot={"continuation_enabled": False},
                     session_id=call.digest,
+                    **tier,
                 )
-            state.unsubscribe = state.session.on(lambda event: self._on_event(state, event))
+                # subscribed before the tier read: nothing the runtime emits in between is lost
+                state.unsubscribe = state.session.on(lambda event: self._on_event(state, event))
+                if tier:
+                    await self._confirm_tier(call, state, default)
         except BaseException:
             self._release(call.digest)
             raise
         return state
+
+    def _long_tier(self, state: _State, models: list[dict[str, Any]]) -> dict[str, str]:
+        """The ``create_session`` option that pins the long tier, and the state's limits for it:
+        the seat's long prompt budget alone (the window is that plus the output, which the seat
+        has already counted). Only where this adapter was asked for it, the price covers the
+        long tier, the seat lists a budget the whole-context hold bounds and its listed long-tier
+        prices are no dearer than the hold's rates; else nothing and the default limits stand."""
+        config = self._model.config_id
+        if not (self._long_context and covers_long_context(config)):
+            return {}
+        budget = _long_budget(models, self._model.model)
+        held = price_of(config).reservation_context_tokens
+        if budget is None or held is None:
+            return {}
+        if budget > held:
+            log.warning(
+                "not pinning the long context tier (%s): the seat's long budget %s tokens is "
+                "over the hold's %s",
+                config,
+                f"{budget:,}",
+                f"{held:,}",
+            )
+            return {}
+        problem = _long_price_problem(models, self._model.model, reservation_rates(config))
+        if problem is not None:
+            log.warning("not pinning the long context tier (%s): %s", config, problem)
+            return {}
+        state.max_prompt_tokens, state.context_window_tokens = budget, None
+        return {"context_tier": LONG_CONTEXT}
+
+    def _warn_default_prices(self, models: list[dict[str, Any]]) -> None:
+        """A session on the default tier is held at the table's rates; where the seat lists dearer
+        default prices, say so once for the session (documented fail-open: the session opens and
+        the hold's bound is what is enforced)."""
+        config = self._model.config_id
+        problem = _default_price_problem(models, self._model.model, reservation_rates(config))
+        if problem is not None:
+            log.warning(
+                "the hold assumes the table's rates (%s) but %s; the session opens on the "
+                "default tier",
+                config,
+                problem,
+            )
+
+    async def _confirm_tier(
+        self, call: _Call, state: _State, default: tuple[int | None, int | None]
+    ) -> None:
+        """Read the tier the runtime put the new session on, before anything is sent. If it is not
+        the long tier, or the read fails or times out, fall back to the default tier's limits and
+        guard the request again: an over-limit request is refused ``not_sent``. Documented
+        fail-open of the read (it only ever tightens the limits): the reason is logged, put in the
+        refusal's message or on the first reply (``tier_note``). It is not kept in ``self._notes``,
+        which ``close()`` raises."""
+        assert state.session is not None
+        try:
+            seen = await asyncio.wait_for(state.client.context_tier(state.session), _TIER_READ_S)
+        except Exception as error:  # noqa: BLE001 - recorded below, see the docstring
+            reason = f"the session's context tier could not be read ({type(error).__name__})"
+        else:
+            if seen == LONG_CONTEXT:
+                state.long_confirmed = True
+                return
+            reason = f"the session is on the {seen!r} context tier, not {LONG_CONTEXT!r}"
+        note = f"{reason}; the default tier's limits apply"
+        log.warning("%s (%s)", note, self._model.config_id)
+        state.max_prompt_tokens, state.context_window_tokens = default
+        state.tier_note = note
+        try:
+            _guard_context(call.request, state)
+        except _Refuse as refusal:
+            raise _Refuse(refusal.error_class, f"{refusal.message}; {note}") from None
 
     def _on_event(self, state: _State, event: Any) -> None:
         if not getattr(event, "agent_id", None):  # a sub-agent's events are not this call's
@@ -932,6 +1180,8 @@ class CopilotAdapter:
             await self._deliver(state, answers, nudge, call.deadline)
             records, timeout = await self._collect(state, call.deadline)
             reply = await self._settle(call, state, records, timeout, redactor)
+            if call.index == 0:
+                reply = self._with_note(reply, state.tier_note)
             # read back as the parser reads a body: the runtime's charge is a JSON float on the wire
             reported = compactions(dump_json(records))
             return dataclasses.replace(reply, compactions=reported) if reported else reply
@@ -1012,11 +1262,33 @@ class CopilotAdapter:
         if timeout is not None:
             assert state.session is not None
             failure = await _attempt("abort", state.session.abort(), _ABORT_S)
-            reply = self._timeout_reply(call, body, raw, timeout)
+            reply = self._timeout_reply(call, body, raw, timeout, redactor)
             self._release(call.digest)
             return self._with_note(reply, failure)
-        outcome = parse("copilot", 200, body, {}, redactor)
+        return self._settle_sent(call, state, records, body, redactor)
+
+    def _settle_sent(
+        self,
+        call: _Call,
+        state: _State,
+        records: list[dict[str, Any]],
+        body: bytes,
+        redactor: Redactor,
+    ) -> AdapterReply:
+        raw = redactor.bytes_(body)
         finished = self._clock()
+        loaded = cast(list[dict[str, Any]], load_json(body.decode("utf-8")))
+        summed = _summed_usages(loaded)
+        if summed is not None:  # more than one model request: settled at the sum of their charges
+            self._release(call.digest)
+            if _joined_message_changed(loaded, redactor):  # as parse_events checks the joined text
+                raw = _REFLECTED_RAW
+            return AdapterReply(
+                "sent_usage", None, _REFLECTED_RAW if raw != body else raw, 200,
+                _summed_class(loaded, self._model.model), None, call.started, finished, *summed,
+                message="the call held more than one model request; their charges are summed",
+            )  # fmt: skip
+        outcome = parse("copilot", 200, body, {}, redactor)
         if isinstance(outcome, ProviderError):
             if outcome.error_class == "KeyReflected":
                 raw = _REFLECTED_RAW
@@ -1062,7 +1334,14 @@ class CopilotAdapter:
             "ok", turn, raw, 200, None, None, call.started, finished, turn.usage, turn.billed_usd
         )  # fmt: skip
 
-    def _timeout_reply(self, call: _Call, body: bytes, raw: bytes, timeout: str) -> AdapterReply:
+    def _timeout_reply(
+        self,
+        call: _Call,
+        body: bytes,
+        raw: bytes,
+        timeout: str,
+        redactor: Redactor,
+    ) -> AdapterReply:
         if raw != body:  # a key is in the events so far: none of them is kept
             raw = _REFLECTED_RAW
         # read back as the parser reads a body: a charge written 100.0 is the integer 100
@@ -1076,7 +1355,16 @@ class CopilotAdapter:
                 counts = None
         finished = self._clock()
         text = f"no further event within the {timeout} bound"
-        # more than one usage event is more than one model call: which one was paid is unknown
+        # more than one usage event is more than one model call: all charges readable, they are
+        # summed; any unreadable, which one was paid is unknown
+        summed = _summed_usages(records)
+        if summed is not None:
+            if _joined_message_changed(records, redactor):
+                raw = _REFLECTED_RAW  # a key split across messages: none of them is kept
+            return AdapterReply(
+                "sent_usage", None, raw, None, timeout, None, call.started, finished,
+                *summed, message=text,
+            )  # fmt: skip
         two_calls = sum(1 for r in records if r["type"] == USAGE) > 1
         if data is None or counts is None or counts == Usage() or two_calls:
             return AdapterReply(
@@ -1087,6 +1375,58 @@ class CopilotAdapter:
             "sent_usage", None, raw, None, timeout, None, call.started, finished,
             counts, _billed_usd(data), message=text,
         )  # fmt: skip
+
+
+def _summed_usages(records: list[dict[str, Any]]) -> tuple[Usage, Decimal] | None:
+    """The counts and the charge of a call that held more than one ``assistant.usage`` event
+    (more than one model request): each count summed (None where any event lacks it) and the
+    charges added exactly. None when there is at most one event or any charge is unreadable
+    (``_billed_usd`` None), is marked by ``aiCreditsStatus`` as not complete (as
+    ``copilot._compaction_usd`` reads it), two events share a request id (one request delivered
+    twice) or the last asks for tool calls (a further request may have been charged): which
+    requests were paid is then unknown."""
+    events = [r["data"] for r in records if r["type"] == USAGE]
+    if len(events) < 2:
+        return None
+    if any(d.get("aiCreditsStatus", "complete") != "complete" for d in events):
+        return None
+    ids = [rid for rid in map(_request_id, events) if rid is not None]
+    if len(ids) != len(set(ids)) or events[-1].get("finishReason") in _TOOL_FINISH:
+        return None
+    charges = [_billed_usd(data) for data in events]
+    if any(charge is None for charge in charges):
+        return None
+    try:
+        counts = [dataclasses.asdict(_usage(data)) for data in events]
+    except _BadReply:
+        return None
+    fields = {
+        name: None if any(c[name] is None for c in counts) else sum(c[name] for c in counts)
+        for name in counts[0]
+    }
+    return Usage(**fields), exact_sum(c for c in charges if c is not None)
+
+
+def _joined_message_changed(records: list[dict[str, Any]], redactor: Redactor) -> bool:
+    """Whether the redactor's text check changes the ``assistant.message`` contents joined, as
+    ``parse_events`` checks them: a key split across messages is whole only when joined."""
+    joined = "".join(
+        r["data"]["content"]
+        for r in records
+        if r["type"] == MESSAGE and isinstance(r["data"].get("content"), str)
+    )
+    return redactor.text(joined) != joined
+
+
+def _summed_class(records: list[dict[str, Any]], model: str) -> str:
+    """The error class of a summed call: the routing class of any of its usage events (as
+    ``_routing_error`` names it for one), else ``SECOND_MODEL_REQUEST``."""
+    events = [r["data"] for r in records if r["type"] == USAGE]
+    if any(d.get("model") != model for d in events):
+        return MODEL_MISMATCH
+    if any(d.get("isByok") is True for d in events):
+        return BYOK_ROUTED
+    return AUTO_ROUTED if any(d.get("isAuto") is True for d in events) else SECOND_MODEL_REQUEST
 
 
 async def _attempt(name: str, step: Awaitable[None] | None, bound: float) -> str | None:

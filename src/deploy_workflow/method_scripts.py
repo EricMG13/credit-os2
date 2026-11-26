@@ -934,6 +934,15 @@ def _cp3c(text: str, loaded: Loaded, _upstream: Upstream) -> list[Outcome]:
     return [_funding_line(line, funding, view, loaded.tables) for line in FUNDING_RESULTS]
 
 
+def _foreign_due_currencies(funding: _Funding, view: dict[str, Any]) -> list[str]:
+    """The currencies, as read or as written, of the instruments due inside the horizon that
+    differ from the funding table's own."""
+    own = funding.payload["currency"]
+    due = view["maturity_wall"].get("due_within_horizon", [])
+    foreign = {r.get("currency") for r in due if r.get("currency") != own}
+    return [c or "no stated currency" for c in sorted({str(c).strip() for c in foreign})]
+
+
 def _funding_line(
     line: str, funding: _Funding, view: dict[str, Any], tables: types.ModuleType
 ) -> Outcome:
@@ -945,6 +954,15 @@ def _funding_line(
     recomputed = view[part].get(key)
     if recomputed is None:
         return where("not checked", stated=stated, reason=str(view[part].get("reason")))
+    if line == "Maturities due":
+        foreign = _foreign_due_currencies(funding, view)
+        if foreign:  # a total in another currency is never set against the stated figure
+            reason = (
+                f"maturities inside the horizon are in {', '.join(foreign)}, the "
+                f"`### {FUNDING_HEADING}` table in {funding.payload['currency']}; "
+                "convert at a disclosed rate before totalling"
+            )
+            return where("not checked", stated=stated, reason=reason)
     claim = _Claim(where, stated, recomputed, AMOUNT_STEP, funding.unit, formula)
     return _judged(replace(claim, slack=_funding_slack(line, funding, view)), tables)
 
