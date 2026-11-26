@@ -38,8 +38,6 @@ NO_COVER = (
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database = store.open_db(tmp_path)
-    store.add_user(database, WRITER.name, "writer")
-    store.add_user(database, READER.name, "reader")
     yield database
     database.close()
 

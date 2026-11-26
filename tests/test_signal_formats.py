@@ -71,7 +71,6 @@ def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     Tobias O follows topic 2 and issuer 1, saves stories 1 and 3, and is in the group Desk, where
     stories 1 and 3 are shared."""
     held = open_db(tmp_path)
-    store.add_user(held, "Mara L", "writer")
     wire = store.propose_source(held, "Wire", "news", "https://wire.example/rss", "Mara L")
     authority = store.propose_source(
         held, "Competition Authority", "regulator", "https://authority.example/rss", "Mara L"

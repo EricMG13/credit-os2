@@ -23,15 +23,14 @@ Only the routes in ``_ROUTES`` exist; any other path is 404 and a listed path wi
 is 405 with ``Allow``. A query string holds at most ``MAX_PARAMS`` parameters (else 400). No
 request path is ever joined to a directory, so no file under the data root is reachable.
 
-Identity is a display name in a cookie, not authentication, and anyone who can reach the
-application can type any name. A name the store lists as a writer or the owner therefore carries
-that role's writer powers for whoever types it: proposing sources and writing topics, groups,
-threads and comments in that person's name. That is the accepted interim design of spec 5.2, until
-real sign-in exists. Owner powers are not exposed on any route and stay on the command line:
+Identity is the account already checked by the application's one request gate. The Signal request
+receives that account directly; it never parses the cookie or opens the account store. An Analyst
+maps to a writer and an Admin maps to an owner for Signal's existing permissions. Owner powers are
+not exposed on any route and stay on the command line:
 approving or pausing a source, the AI cap, and removing threads, comments or groups. Every API
-route except ``/api/me``, ``/api/status`` and ``/api/snapshot`` needs a name (401 otherwise); the
-snapshot of a viewer with no name holds no stories, no groups and no person's name. Each request
-opens its own database connection and closes it; the loop has its own.
+route except ``/api/me``, ``/api/status`` and ``/api/snapshot`` needs an account (401 otherwise);
+the snapshot of a viewer with no account holds no stories, no groups and no person's name. Each
+request opens its own database connection and closes it; the loop has its own.
 
 A refusal is ``{"error": "<plain sentence>"}``, returned or raised as ``http_base.Reply``. Whatever
 else a handler raises passes through ``answer`` to the caller, whose server answers 500
@@ -71,9 +70,9 @@ from deploy_workflow.signal import (
 )
 from deploy_workflow.signal.ingest import FetchFn
 from deploy_workflow.signal.routing import ID as _ID
+from deploy_workflow.signal.routing import NEEDS_NAME as _NEEDS_NAME
 from deploy_workflow.signal.routing import Incoming as _Incoming
 from deploy_workflow.signal.routing import LoopState
-from deploy_workflow.signal.routing import NEEDS_NAME as _NEEDS_NAME
 from deploy_workflow.signal.routing import Req as _Req
 from deploy_workflow.signal.routing import Route as _Route
 
@@ -165,19 +164,6 @@ def _me(req: _Req) -> _Reply:
     if req.user is None:
         return _Reply(200, {"name": None})
     return _Reply(200, {"name": req.user.name, "role": req.user.role})
-
-
-def _set_me(req: _Req) -> _Reply:
-    name = req.body().get("name")
-    if not isinstance(name, str):
-        raise _refuse(400, "the request needs a name")
-    try:
-        cleaned, cookie = identity.clean_name(name), identity.cookie_for(name)
-    except identity.IdentityError as error:
-        raise _refuse(400, str(error)) from None
-    return _Reply(
-        200, {"name": cleaned, "role": store.role_of(req.db, cleaned)}, {"Set-Cookie": cookie}
-    )
 
 
 def _feed(req: _Req) -> _Reply:
@@ -321,7 +307,6 @@ def _snapshot(req: _Req) -> _Reply:
 
 _ROUTES: tuple[_Route, ...] = (
     _Route("GET", re.compile("/api/me"), _me, open_to_all=True),
-    _Route("POST", re.compile("/api/me"), _set_me, open_to_all=True),
     _Route("GET", re.compile("/api/status"), _status, open_to_all=True),
     _Route("GET", re.compile("/api/snapshot"), _snapshot, open_to_all=True),
     _Route("GET", re.compile("/api/feed"), _feed),
@@ -378,7 +363,7 @@ def answer(root: Path, loop: LoopState | None, request: _Incoming) -> _Reply:
     params = _params(request.query)
     db = store.open_db(root)  # this request's own connection
     try:
-        user = identity.current_user(db, request.cookie)
+        user = identity.current_user(request.account)
         if user is None and not route.open_to_all:
             raise _refuse(401, _NEEDS_NAME)
         return route.handler(

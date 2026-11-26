@@ -23,8 +23,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from signal_ai_fakes import off_setup
 import signal_app
+from signal_ai_fakes import off_setup
 from signal_app import Live
 from test_signal_feeds import RSS
 from test_signal_feedview import build_feed_db
@@ -42,14 +42,15 @@ NOW = datetime(2026, 11, 13, 10, 0, tzinfo=UTC)
 @pytest.fixture
 def svc(tmp_path: Path) -> Iterator[Live]:
     build_feed_db(tmp_path).close()
-    live = Live(tmp_path)
+    live = Live(tmp_path, signed_in=True)
+    live._reader_cookie = f"credit_os_session={live.create_account_session('Reader', 'reader')[1]}"
     yield live
     live.close()
 
 
 @pytest.fixture
-def cookie() -> str:
-    return "signal_name=Reader"
+def cookie(svc: Live) -> str:
+    return svc._reader_cookie
 
 
 def _recorded_feed_fn() -> Any:
@@ -73,8 +74,9 @@ def svc_with_loop(tmp_path: Path) -> Iterator[tuple[Loop, Any]]:
     add_story(db, 1, Entry("Story one", "https://a.org/1", NOW, "Summary"), NOW)
     db.close()
     loop = Loop(tmp_path, fetch_fn=_recorded_feed_fn(), ai=off_setup(tmp_path))
-    live = Live(tmp_path, loop=loop)
-    yield loop, live.call
+    live = Live(tmp_path, loop=loop, signed_in=True)
+    _, token = live.create_account_session("Reader", "reader")
+    yield loop, live.call, f"credit_os_session={token}"
     live.close()
 
 
@@ -110,11 +112,19 @@ def test_every_response_carries_the_api_policy(svc, cookie):
         assert headers["X-Frame-Options"] == "DENY"
         assert headers["X-Content-Type-Options"] == "nosniff"
         assert headers["Cross-Origin-Resource-Policy"] == "same-origin"
-    assert svc.call("POST", "/api/me", body={"name": 5})[1]["Content-Security-Policy"] == POLICY
+    assert (
+        svc.call("POST", "/api/me", body={"name": 5}, cookie=cookie)[1]["Content-Security-Policy"]
+        == POLICY
+    )
 
 
-def test_the_snapshot_needs_no_name_and_then_holds_no_stories(svc):
-    status, headers, data = svc.call("GET", "/api/snapshot")
+def test_the_snapshot_needs_no_name_and_then_holds_no_stories(tmp_path):
+    build_feed_db(tmp_path).close()
+    unsigned = Live(tmp_path)
+    try:
+        status, headers, data = unsigned.call("GET", "/api/snapshot")
+    finally:
+        unsigned.close()
     assert status == 200 and headers["Cache-Control"] == "no-store"
     (scene,) = data["scenes"]
     snap = scene["snapshot"]
@@ -159,30 +169,41 @@ def test_the_snapshot_route_takes_get_only_and_keeps_the_origin_rules(svc, cooki
     cross = {"Sec-Fetch-Site": "cross-site"}
     assert svc.call("GET", "/api/snapshot", cookie=cookie, headers=cross)[0] == 403
     assert svc.call("GET", "/api/snapshot", host="evil.example")[0] == 403
-    assert svc.call("GET", "/api/snapshot", headers={"Sec-Fetch-Site": "same-origin"})[0] == 200
-    assert svc.call("GET", "/api/snapshot?view=x&view=y")[0] == 200  # parameters are ignored
-    assert svc.call("GET", "/api/snapshot?" + "&".join(f"a{n}=1" for n in range(21)))[0] == 400
+    assert (
+        svc.call("GET", "/api/snapshot", cookie=cookie, headers={"Sec-Fetch-Site": "same-origin"})[
+            0
+        ]
+        == 200
+    )
+    assert (
+        svc.call("GET", "/api/snapshot?view=x&view=y", cookie=cookie)[0] == 200
+    )  # parameters are ignored
+    assert (
+        svc.call("GET", "/api/snapshot?" + "&".join(f"a{n}=1" for n in range(21)), cookie=cookie)[0]
+        == 400
+    )
 
 
 def test_a_failed_pass_is_in_the_snapshot_freshness_with_recorded_feed(svc_with_loop, monkeypatch):
-    loop, call = svc_with_loop
+    loop, call, cookie = svc_with_loop
 
     def boom(*args: object, **kwargs: object) -> None:
         raise RuntimeError("secret")
 
     monkeypatch.setattr(service.ingest, "run_due", boom)
     loop.run_once(NOW)
-    freshness = call("GET", "/api/snapshot")[2]["scenes"][0]["snapshot"]["feed"]["freshness"]
+    freshness = call("GET", "/api/snapshot", cookie=cookie)[2]["scenes"][0]["snapshot"]["feed"][
+        "freshness"
+    ]
     assert freshness["error"] == "last ingest pass failed"
     assert "secret" not in json.dumps(freshness)
 
 
-def test_name_then_feed(svc):
+def test_name_then_feed(svc, cookie):
     assert svc.call("GET", "/api/feed?view=latest")[0] == 401
-    status, headers, _ = svc.call("POST", "/api/me", body={"name": "  A.  Kovac "})
-    assert status == 200 and headers["Set-Cookie"].startswith("signal_name=A.%20Kovac;")
-    cookie = headers["Set-Cookie"].split(";")[0]
-    assert svc.call("GET", "/api/me", cookie=cookie)[2] == {"name": "A. Kovac", "role": "reader"}
+    status, headers, _ = svc.call("POST", "/api/me", body={"name": "  A.  Kovac "}, cookie=cookie)
+    assert status == 405 and headers["Allow"] == "GET" and "Set-Cookie" not in headers
+    assert svc.call("GET", "/api/me", cookie=cookie)[2] == {"name": "Reader", "role": "reader"}
     status, _, data = svc.call("GET", "/api/feed?view=latest", cookie=cookie)
     assert status == 200 and len(data["cards"]) == 30 and data["next_before"]
     assert set(data["cards"][0]) == {
@@ -199,12 +220,15 @@ def test_name_then_feed(svc):
         "category",  # the feed's own category term: a filing's form type, else null
     }
     assert svc.call("GET", "/api/feed?view=top", cookie=cookie)[0] == 400
-    assert svc.call("POST", "/api/me", body={"name": "   "})[0] == 400
 
 
-def test_me_without_a_name_and_status_need_no_name(svc):
-    assert svc.call("GET", "/api/me")[2] == {"name": None}
-    assert svc.call("GET", "/api/status")[0] == 200
+def test_me_without_a_name_and_status_need_no_name(tmp_path):
+    unsigned = Live(tmp_path)
+    try:
+        assert unsigned.call("GET", "/api/me", cookie="signal_name=Legacy")[2] == {"name": None}
+        assert unsigned.call("GET", "/api/status")[0] == 200
+    finally:
+        unsigned.close()
 
 
 def test_every_other_api_route_needs_a_name(svc):
@@ -218,7 +242,7 @@ def test_every_other_api_route_needs_a_name(svc):
         ("DELETE", "/api/topics/1/follow"),
     ):
         status, _, data = svc.call(method, path)
-        assert (status, data) == (401, {"error": "choose a display name first"}), path
+        assert (status, data) == (401, {"error": "sign in first"}), path
 
 
 def test_paging_follows_the_cursor(svc, cookie):
@@ -310,33 +334,37 @@ def test_other_host_names_and_cross_site_reads_are_refused(svc, cookie):
 
 
 def test_host_rules_and_fetch_metadata(svc, cookie):
-    assert svc.call("GET", "/api/me", host=f"localhost:{svc.port}")[0] == 200
+    assert svc.call("GET", "/api/me", cookie=cookie, host=f"localhost:{svc.port}")[0] == 200
     assert svc.call("GET", "/api/me", host="127.0.0.1")[0] == 403
     assert svc.call("GET", "/api/me", host=f"evil.example:{svc.port}")[0] == 403
     for site in ("same-origin", "none"):
-        assert svc.call("GET", "/api/me", headers={"Sec-Fetch-Site": site})[0] == 200
+        assert svc.call("GET", "/api/me", cookie=cookie, headers={"Sec-Fetch-Site": site})[0] == 200
     navigation = {
         "Sec-Fetch-Site": "cross-site",
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Dest": "document",
     }
-    assert svc.call("GET", "/api/snapshot", headers=navigation)[0] == 200
-    assert svc.call("GET", "/api/me", headers=navigation)[0] == 200
+    assert svc.call("GET", "/api/snapshot", cookie=cookie, headers=navigation)[0] == 200
+    assert svc.call("GET", "/api/me", cookie=cookie, headers=navigation)[0] == 200
     assert svc.call("POST", "/api/stories/5/save", cookie=cookie, headers=navigation)[0] == 403
     assert svc.call("GET", "/api/me", headers={"Origin": "http://evil.example"})[0] == 403
 
 
 def test_bodies_are_capped_and_must_be_json(svc):
-    assert svc.call("POST", "/api/me", raw=b"x" * (64 * 1024 + 1))[0] == 413
-    assert svc.call("POST", "/api/me", raw=b"{not json")[0] == 400
-    assert svc.call("POST", "/api/me", raw=b"[]")[0] == 400
-    assert svc.call("POST", "/api/me", body={"name": 5})[0] == 400
+    writer = f"credit_os_session={svc.create_account_session('Writer', 'analyst')[1]}"
+    path = "/api/topics"
+    assert svc.call("POST", path, raw=b"x" * (64 * 1024 + 1), cookie=writer)[0] == 413
+    assert svc.call("POST", path, raw=b"{not json", cookie=writer)[0] == 400
+    assert svc.call("POST", path, raw=b"[]", cookie=writer)[0] == 400
+    assert svc.call("POST", path, body={"name": 5}, cookie=writer)[0] == 400
 
 
 def test_a_json_body_needs_content_length(svc):
+    writer = f"credit_os_session={svc.create_account_session('Writer', 'analyst')[1]}"
     connection = http.client.HTTPConnection("127.0.0.1", svc.port, timeout=20)
-    connection.putrequest("POST", f"{signal_app.PREFIX}/api/me", skip_accept_encoding=True)
+    connection.putrequest("POST", f"{signal_app.PREFIX}/api/topics", skip_accept_encoding=True)
     connection.putheader("Origin", f"http://127.0.0.1:{svc.port}")
+    connection.putheader("Cookie", writer)
     connection.endheaders()
     assert connection.getresponse().status == 411
     connection.close()
@@ -352,11 +380,11 @@ def test_search_text_cannot_break_the_api(svc, cookie):
 
 def test_unknown_paths_and_methods(svc, cookie):
     assert svc.call("GET", "/api/nothing", cookie=cookie)[0] == 404
-    assert svc.call("GET", "/nothing")[0] == 404
+    assert svc.call("GET", "/nothing", cookie=cookie)[0] == 404
     assert svc.call("DELETE", "/api/me", cookie=cookie)[0] == 405
     assert svc.call("POST", "/api/feed?view=latest", cookie=cookie)[0] == 405
     assert svc.call("PUT", "/api/me", cookie=cookie)[0] == 405
-    assert svc.call("POST", "/")[0] == 404
+    assert svc.call("POST", "/", cookie=cookie)[0] == 404
     assert svc.call("GET", "/api/stories/5/save", cookie=cookie)[0] == 405
 
 
@@ -374,14 +402,16 @@ def test_loop_pass_updates_status_and_recovers_from_a_failing_source_with_record
     svc_with_loop,
 ):
     # one approved source; fetch replaced: first call raises RuntimeError, later calls RSS
-    loop, call = svc_with_loop
+    loop, call, cookie = svc_with_loop
     loop.run_once(NOW)
-    status = call("GET", "/api/status")[2]  # the source is recorded failing; the pass completes
+    status = call("GET", "/api/status", cookie=cookie)[
+        2
+    ]  # the source is recorded failing; the pass completes
     assert status["loop_error"] is None and status["sources"] == {"approved": 1, "failing": 1}
     assert status["last_pass_at"] == NOW.isoformat()
     later = NOW + timedelta(seconds=601)
     loop.run_once(later)
-    status = call("GET", "/api/status")[2]
+    status = call("GET", "/api/status", cookie=cookie)[2]
     assert status["loop_error"] is None and status["sources"] == {"approved": 1, "failing": 0}
     assert status["last_pass_at"] == later.isoformat()
 
@@ -389,7 +419,7 @@ def test_loop_pass_updates_status_and_recovers_from_a_failing_source_with_record
 def test_a_pass_that_raises_at_loop_level_is_shown_by_type_only_with_recorded_feed(
     svc_with_loop, monkeypatch
 ):
-    loop, call = svc_with_loop
+    loop, call, cookie = svc_with_loop
     good_run_due = service.ingest.run_due
 
     def boom(*args: object, **kwargs: object) -> None:
@@ -397,29 +427,29 @@ def test_a_pass_that_raises_at_loop_level_is_shown_by_type_only_with_recorded_fe
 
     monkeypatch.setattr(service.ingest, "run_due", boom)
     loop.run_once(NOW)  # must not raise
-    shown = call("GET", "/api/status")[2]["loop_error"]
+    shown = call("GET", "/api/status", cookie=cookie)[2]["loop_error"]
     assert shown and "RuntimeError" in shown and "secret" not in shown
     monkeypatch.setattr(service.ingest, "run_due", good_run_due)
     loop.run_once(NOW + timedelta(seconds=601))
-    assert call("GET", "/api/status")[2]["loop_error"] is None
+    assert call("GET", "/api/status", cookie=cookie)[2]["loop_error"] is None
 
 
-def test_a_save_during_a_pass_succeeds(svc_with_loop, cookie):
-    loop, call = svc_with_loop  # fetch replaced by one that blocks on an Event mid-pass
+def test_a_save_during_a_pass_succeeds(svc_with_loop):
+    loop, call, cookie = svc_with_loop  # fetch replaced by one that blocks on an Event mid-pass
     with pass_in_progress(loop):
         assert call("POST", "/api/stories/1/save", cookie=cookie)[0] == 200
 
 
 def test_status_counts_a_failing_source_with_recorded_feed(svc_with_loop):
-    loop, call = svc_with_loop
+    loop, call, cookie = svc_with_loop
 
     def refused(url: str, etag: str | None, modified: str | None) -> Fetched:
         raise FetchRefused("not a feed")
 
     loop.fetch_fn = refused
     loop.run_once(NOW)
-    assert call("GET", "/api/status")[2]["sources"] == {"approved": 1, "failing": 1}
-    assert call("GET", "/api/status")[2]["loop_error"] is None
+    assert call("GET", "/api/status", cookie=cookie)[2]["sources"] == {"approved": 1, "failing": 1}
+    assert call("GET", "/api/status", cookie=cookie)[2]["loop_error"] is None
 
 
 def _raw(svc: Live, data: bytes) -> socket.socket:
@@ -428,13 +458,16 @@ def _raw(svc: Live, data: bytes) -> socket.socket:
     return sock
 
 
-def test_a_short_body_gets_no_reply_and_no_traceback(svc, monkeypatch, caplog):
+def test_a_short_body_gets_no_reply_and_no_traceback(svc, cookie, monkeypatch, caplog):
     """The application's server reads the body. One that stalls past the socket timeout is a client
     that left: the connection is closed with one info line and no reply."""
     monkeypatch.setattr(run_start_service.Handler, "timeout", 1)
     caplog.set_level(logging.INFO)
     host = f"127.0.0.1:{svc.port}"
-    head = f"POST {signal_app.PREFIX}/api/me HTTP/1.1\r\nHost: {host}\r\nOrigin: http://{host}\r\n"
+    head = (
+        f"POST {signal_app.PREFIX}/api/topics HTTP/1.1\r\nHost: {host}\r\n"
+        f"Origin: http://{host}\r\nCookie: {cookie}\r\n"
+    )
     sock = _raw(svc, (head + 'Content-Length: 50\r\n\r\n{"na').encode())
     sock.settimeout(10)
     reply = b""
@@ -446,7 +479,7 @@ def test_a_short_body_gets_no_reply_and_no_traceback(svc, monkeypatch, caplog):
     lost = [record for record in caplog.records if "connection lost" in record.getMessage()]
     assert [record.levelno for record in lost] == [logging.INFO]
     assert not [record for record in caplog.records if record.exc_info]
-    assert svc.call("GET", "/api/status")[0] == 200
+    assert svc.call("GET", "/api/status", cookie=cookie)[0] == 200
 
 
 def test_an_http_09_request_line_gets_no_500(svc, caplog):
@@ -461,8 +494,8 @@ def test_an_http_09_request_line_gets_no_500(svc, caplog):
     assert not [record for record in caplog.records if record.exc_info]
 
 
-def test_a_save_waits_for_a_held_write_lock(svc_with_loop, cookie, tmp_path):
-    _, call = svc_with_loop
+def test_a_save_waits_for_a_held_write_lock(svc_with_loop, tmp_path):
+    _, call, cookie = svc_with_loop
     other = sqlite3.connect(
         tmp_path / "signal" / "signal.db", isolation_level=None, check_same_thread=False
     )

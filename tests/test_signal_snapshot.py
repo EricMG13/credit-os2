@@ -29,7 +29,6 @@ from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.store import (
     Check,
     add_story,
-    add_user,
     open_db,
     propose_source,
     record_check,
@@ -70,8 +69,6 @@ def seed_sample(root: Path) -> sqlite3.Connection:
     """Six sources (healthy, healthy, quiet, failing, paused, proposed), six stories, one of them
     folded from two other sources, three topics, the writer following one and saving one story."""
     db = open_db(root)
-    add_user(db, "Mara L", "writer")
-    add_user(db, "Tobias O", "reader")
     wire = _source(db, "Harbour Wire", "news", "approved")
     ledger = _source(db, "Credit Ledger Daily", "news", "approved")
     gazette = _source(db, "Regulatory Gazette", "regulator", "approved")

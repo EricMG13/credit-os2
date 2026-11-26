@@ -13,10 +13,15 @@ import json
 import os
 import threading
 from contextlib import ExitStack
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Self
+from uuid import uuid4
 
+from deploy_workflow.accounts import sessions
+from deploy_workflow.accounts import store as accounts_store
+from deploy_workflow.accounts.store import Account
 from deploy_workflow.signal import ai_run
 from deploy_workflow.signal.service import Loop
 from react_frontend import Server, make_server
@@ -35,13 +40,29 @@ class Live:
     application builds for it. The application's own folders (its run store, a one-page build)
     are in a short temporary folder: the store's folder holds Signal's files only."""
 
-    def __init__(self, root: Path, *, loop: Loop | None = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        *,
+        loop: Loop | None = None,
+        signed_in: bool = False,
+        accounts_dir: Path | None = None,
+    ) -> None:
         with ExitStack() as opening:
             folder = Path(opening.enter_context(short_folder()))
             (folder / "web").mkdir()
+            (folder / "app").mkdir()
+            if signed_in and accounts_dir is None:
+                accounts_dir = folder / "accounts"
             (folder / "web" / "index.html").write_text(PAGE, encoding="utf-8")
             self.server = opening.enter_context(
-                make_server(folder / "app", web=folder / "web", environ={})
+                make_server(
+                    folder / "app",
+                    web=folder / "web",
+                    environ={},
+                    sign_in=accounts_dir is not None,
+                    accounts_dir=accounts_dir,
+                )
             )
             host = self.server.signal
             assert host is not None  # live mode hosts Signal
@@ -49,6 +70,7 @@ class Live:
             host.loop = loop or Loop(root, ai=ai_run.Setup(environ={}))
             self.port = self.server.server_address[1]
             self.thread = start_serving(self.server, daemon=True)
+            self.accounts_dir = accounts_dir
             self._open = opening.pop_all()  # held until close(); undone above if a step failed
 
     def __enter__(self) -> Self:
@@ -88,6 +110,33 @@ class Live:
             return response.status, response.headers, json.loads(text) if "json" in kind else text
         finally:
             connection.close()
+
+    def create_account_session(self, display_name: str, profile_type: str) -> tuple[Account, str]:
+        """Create a real local account and session for an authenticated HTTP test."""
+        if self.accounts_dir is None:
+            raise RuntimeError("this live application has sign-in disabled")
+        now = datetime.now(UTC)
+        object_id = str(uuid4())
+        db = accounts_store.open_db(self.accounts_dir)
+        try:
+            account = accounts_store.register_reader(
+                db,
+                tenant_id="00000000-0000-4000-8000-000000000001",
+                object_id=object_id,
+                name=display_name,
+                email=f"{object_id}@example.org",
+                given_name=None,
+                family_name=None,
+                now=now,
+            )
+            if profile_type != "reader":
+                accounts_store.set_profile_type(db, account.id, profile_type)
+                account = accounts_store.account_by_id(db, account.id)
+                assert account is not None
+            token = sessions.mint_session(db, account.id, now=now)
+            return account, token
+        finally:
+            db.close()
 
 
 def short_folder() -> TemporaryDirectory[str]:

@@ -272,6 +272,8 @@ def test_callback_registers_reader_and_returns_only_opaque_host_scoped_cookies(
 ) -> None:
     browser, provider, accounts_dir, transport, factory_calls, network_attempts = app
     caplog.set_level(logging.DEBUG)
+    status, body, _ = browser.request("GET", "/signal/api/topics")
+    assert (status, json.loads(body)) == (401, {"error": "sign in first"})
     flow_key, callback_url, _ = _begin_flow(browser, provider)
     callback_cookie = f"credit_os_signin_flow={flow_key}"
     refused_status, refused_page, refused_headers = browser.request(
@@ -643,6 +645,20 @@ def test_unauthenticated_passcode_does_not_count_then_admin_promotion_and_signou
     assert status == 303
     session_token = SimpleCookie(headers["Set-Cookie"])["credit_os_session"].value
     session_cookie = f"credit_os_session={session_token}"
+    status, body, _ = browser.request("GET", "/signal/api/me", cookie=session_cookie)
+    assert (status, json.loads(body)) == (200, {"name": "A. Kovac", "role": "reader"})
+    status, body, _ = browser.request(
+        "POST",
+        "/signal/api/sources",
+        cookie=session_cookie,
+        body=json.dumps(
+            {"name": "Reader proposal", "kind": "news", "url": "https://example.org/feed"}
+        ).encode(),
+    )
+    assert (status, json.loads(body)) == (
+        403,
+        {"error": "only a writer can propose a source"},
+    )
     for passcode in (ADMIN_PASSCODE, ANALYST_PASSCODE):
         status, body, _ = browser.request(
             "POST",
@@ -652,6 +668,8 @@ def test_unauthenticated_passcode_does_not_count_then_admin_promotion_and_signou
         )
         assert status == 200
         assert json.loads(body)["account"]["profile_type"] == "admin"
+    status, body, _ = browser.request("GET", "/signal/api/me", cookie=session_cookie)
+    assert (status, json.loads(body)) == (200, {"name": "A. Kovac", "role": "owner"})
 
     wrong_passcode = "definitely-wrong-route-passcode"
     for expected in (403, 403, 403, 403, 403, 429):

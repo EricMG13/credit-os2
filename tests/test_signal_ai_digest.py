@@ -33,7 +33,6 @@ def guard(tmp_path: Path) -> ai_call.Guard:
 @pytest.fixture
 def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database = store.open_db(tmp_path)
-    store.add_user(database, "Mara L", "writer")
     ai_ledger.set_cap(database, Decimal(15), NOW)
     yield database
     database.close()
