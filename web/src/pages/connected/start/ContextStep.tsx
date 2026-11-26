@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "@untitledui/icons";
 import { cx } from "@/utils/cx";
-import { pathwayModules, moduleName, drawnModules } from "../api";
+import { moduleName, drawnModules } from "../api";
 import { field, label } from "../layout";
 import { AssumptionFields } from "./AssumptionFields";
 import {
@@ -337,9 +337,7 @@ function IssuerDetailsFields({ view }: { view: IntakeView }) {
 function RowEditors({ view, kinds }: { view: IntakeView; kinds: readonly RowKind[] }) {
   const focusChoices = [
     ["", ANY_FOCUS] as const,
-    ...drawnModules(pathwayModules(view.run.pathway)).map(
-      (id) => [id, moduleName(id, view.run.pathway)] as const,
-    ),
+    ...drawnModules(view.requested).map((id) => [id, moduleName(id, view.run.pathway)] as const),
   ];
   return (
     <div className="grid gap-4 lg:col-span-2">

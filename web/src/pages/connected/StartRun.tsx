@@ -22,6 +22,7 @@ import {
   type Reading,
   type Mode,
 } from "./api";
+import { fileRoles } from "./start/contextSummary";
 import { sendableAssumptions } from "./start/assumptions";
 import { CONTEXT_ROW_KINDS, sendableRows, type Row, type RowKind } from "./start/rows";
 import { sendableModuleOptions, sendableValuation } from "./start/valuation";
@@ -844,7 +845,11 @@ function IntakeForm({
   function makeAnswers(result: Reading, details: Record<string, unknown>, id: string): Answers {
     checkResearchCutoff();
     const available = new Set(result.documents.map(storedName));
-    const chosen = (key: Attachment) => available.has(attachments[key] ?? "");
+    const held = (key: Attachment) => available.has(attachments[key] ?? "");
+    // The three file boxes count only where the page draws them for this pathway and level; the
+    // agreement is drawn with the Legal documents choice, which is on every pathway.
+    const drawn = new Set<Attachment>(fileRoles({ earnings, level, run }));
+    const chosen = (key: Attachment) => (key === "agreement" || drawn.has(key)) && held(key);
     if (legal !== "none" && !chosen("agreement"))
       throw new FieldProblem("agreement", "Choose the uploaded file that is the agreement.");
     checkEarningsPeriods();
