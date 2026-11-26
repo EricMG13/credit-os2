@@ -1524,7 +1524,7 @@ def test_an_instrument_table_without_a_type_or_maturity_column_joins_nothing(tmp
     assert {c.kind for c in where(snapshot, "Instruments", column="Bloomberg ID")} == {"analyst"}
 
 
-# --- The CP-1 shape main introduced (EBITDA bridge Add-Back ID, T4.18 Asset type, pro forma table) --
+# --- The newer CP-1 shape (bridge Add-Back ID, T4.18 Asset type, pro forma table) -----------------
 
 
 def new_shape_cp1(text: str) -> str:
@@ -1562,8 +1562,8 @@ def new_shape_cp1(text: str) -> str:
         "",
         "| Measure | FY2025 | Reporting unit | Basis and limitation |",
         "|---|---|---|---|",
-        "| Pro forma cash interest | 99999.9 | GBP millions | Invented figure the workbook must not show. |",
-        "| Pro forma cover | 8.8888 | times | Invented figure the workbook must not show. |",
+        "| Pro forma cash interest | 99999.9 | GBP millions | Invented; not shown. |",
+        "| Pro forma cover | 8.8888 | times | Invented; not shown. |",
     ]
     return "\n".join(out) + "\n"
 
@@ -1588,7 +1588,7 @@ def test_a_cp1_handoff_in_the_new_shape_reads_the_same_and_the_new_table_adds_no
 
 @pytest.mark.parametrize("shape", ["old", "new"])
 def test_the_join_type_rule_is_the_same_for_the_new_cp1_shape(tmp_path, shape):
-    """With a Type column the instruments join; without one (Asset type does not stand in) none do."""
+    """A Type column lets the instruments join; without one (Asset type is no stand-in) none do."""
     base = FIXTURE["CP-1"] if shape == "old" else new_shape_cp1(FIXTURE["CP-1"])
     for name, text, kind in (
         ("typed", base, "copied"),
