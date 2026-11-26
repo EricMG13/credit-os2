@@ -668,8 +668,13 @@ export function registerBlocks(section: Section, entry: OutputEntry) {
 
 // A finding section whose heading starts with a register code: its prose stays on the page,
 // its tables go to Evidence unless they are promoted.
+// Only a code with a digit counts: a dotted one, or one set off by a dash or colon ("T1 - Leverage").
+// "PD: Base case" and "TLB - Terms" are words, and "T2 Heathrow" keeps its word.
+const CODED_HEADING = new RegExp(
+  String.raw`^(?:${DOTTED_CODE}(?:\s*[-\u2013\u2014:]\s*|\s+)|(?:TL|T|P)(?=[A-Z0-9]{0,5}\d)[A-Z0-9]{0,5}\s*[-\u2013\u2014:]\s+)`,
+);
 const isCoded = (section: Section, role: string) =>
-  role === "finding" && RECORD_PREFIX.test(section.heading);
+  role === "finding" && CODED_HEADING.test(section.heading);
 
 // Coded sections with a table that the page does not draw; Evidence holds those tables.
 export function recordSections(sections: Section[], entry: OutputEntry) {

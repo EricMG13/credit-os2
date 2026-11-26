@@ -629,14 +629,20 @@ export function methodNote(text: string) {
   );
 }
 
-// A bracket that is only evidence markers or register ids. The markers the handoffs write are
-// E (evidence), S (source), G (gap) and C (calculation) with 1-3 digits ([E3], [S12], [G4], [C07]),
-// and dotted register ids ([T4.18], [T2E.3.r03]). A bare Q3, H1, T4 or FY24 is a period or
-// scenario the reader needs, so it is not a marker.
-const MARKER_ITEM = String.raw`(?:[ESGC]\d{1,3}|[TP][A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*)`;
+// A bracket that is only evidence ids, as reader.ts's ID grammar (`[A-Z]{1,3}\d+[A-Za-z]?(.\d+)?`),
+// widened to dotted and lettered ids ([E3.2], [E3a], [T4.4a], [T2E.3.r03], [E1234]). Items may be
+// joined by , ; / dashes, "and" or "or", and led by "see". Periods and scenarios share that shape
+// and stay in prose: Q3, H1, FY24/FY2024, P50 percentiles and an undotted T4; an item followed by a
+// year ("[S1 2025]", "[H2 2025]") is not an id list at all. A scenario id [S02] cannot be told from
+// a source id [S12], so it moves to the basis with them.
+const MARKER_ITEM = String.raw`(?!(?:[QH]\d|FY\d{2,4}|P\d{2}|T\d+)(?![\w.]))(?:[A-Z]{1,3}\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|T[A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?)`;
+const MARKER_JOIN = String.raw`(?:\s*[,;/–-]\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)`;
 const MARKER_BRACKET = new RegExp(
-  String.raw`^\[\s*${MARKER_ITEM}(?:\s*(?:[,;]|[–-])\s*${MARKER_ITEM})*\s*\]$`,
+  String.raw`^\[\s*(?:see\s+)?${MARKER_ITEM}(?:${MARKER_JOIN}${MARKER_ITEM})*\s*\]$`,
 );
+// "[see T2DS.6]" stays in the sentence: the overview reason reader rejects a "see"-cited register id
+// (report/overview/reason.test.tsx), so it is not moved to the basis here.
+const SEE_REGISTER = /^\[\s*see\s+[^\]]*\bT[A-Z0-9]{0,5}\.\d/;
 
 export function readParagraph(text: string) {
   const lines = text.split("\n");
@@ -661,7 +667,7 @@ export function readParagraph(text: string) {
       return cluster.replace(/ ?(\[[^\]]*\]|【[^】]*】)/g, (item: string, citation: string) => {
         if (
           !/CP-[A-Z0-9]+|\bpp?\.|\bpages?\b|†|^【/.test(citation) &&
-          !MARKER_BRACKET.test(citation) &&
+          !(MARKER_BRACKET.test(citation) && !SEE_REGISTER.test(citation)) &&
           !containsReference(citation)
         )
           return item;
@@ -734,8 +740,8 @@ function pageCitation(text: string) {
     /(?<![\w&.-])(p|pg|pp|pages?)\.?\s*(:\s*)?(\d+)\b/gi,
     (match, before, after) => {
       const marker = match[1]?.toLowerCase();
-      if (/^[a-z]+\d/i.test(match[0]) && match[1] !== marker) return false;
       if (match[2] || /\b(?:see|at|on|as)\s*$/i.test(before)) return true;
+      if (/^[a-z]+\d/i.test(match[0]) && match[1] !== marker) return false;
       if (marker === "pp") {
         if (/\d\s*$/.test(before)) return false;
         if (

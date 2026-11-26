@@ -52,3 +52,48 @@ describe("a bare letter and digits is not a page locator", () => {
     },
   );
 });
+
+describe("evidence ids in any written shape move to the basis", () => {
+  it.each([
+    "[E3 and E4]",
+    "[S1, S2, and S3]",
+    "[E3.2]",
+    "[E3a]",
+    "[E3/E4]",
+    "[see E3]",
+    "[E1234]",
+    "[D14]",
+    "[R9]",
+    "[T4.4a]",
+    "[S02]",
+  ])("%s", (marker) => {
+    expect(readParagraph(`Debt is stable ${marker}.`)).toEqual({
+      body: "Debt is stable.",
+      basis: marker,
+    });
+  });
+
+  it.each(["[Q3 2025 vs Q3 2024]", "[H1]", "[H2 2025]", "[FY2024]", "[Q4]", "[P50]", "[S1 2025]"])(
+    "keeps %s in the body",
+    (marker) => {
+      expect(readParagraph(`Revenue rose 5% ${marker}.`)).toEqual({
+        body: `Revenue rose 5% ${marker}.`,
+        basis: null,
+      });
+    },
+  );
+
+  it.each(["Covenant definition at P12.", "see P12", "Defined on P12 of the filing", "P: 12"])(
+    "an explicit cue makes %s a page reference",
+    (text) => {
+      expect(containsReference(text)).toBe(true);
+    },
+  );
+});
+
+it("leaves a see-cited register id in the sentence for the reason reader to reject", () => {
+  expect(readParagraph("Cover is thin [see T2DS.6].")).toEqual({
+    body: "Cover is thin [see T2DS.6].",
+    basis: null,
+  });
+});

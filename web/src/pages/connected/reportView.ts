@@ -192,12 +192,18 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
 
 // Punctuation and case do not tell two limitations apart; a figure's decimal point, sign and
 // percent do ("3.5x" and "35x", "-5" and "5", "10.5%" and "105%" are different figures).
+// A figure's marks are kept: a decimal point or comma, a fraction or range bar, a sign, a bracket
+// or currency symbol before it, a percent after it ("3.5x" and "3,5x" and "35x", "-$5m" and "$5m",
+// "−5" and "5", "(5)" and "5", "5-10" and "510", "10.5%" and "105%" are different figures).
+// Dash variants are one sign. A mark closing a clause ("5.", "5,") is punctuation.
 const FIGURE_MARK =
-  /(?<keep>(?<=\d)\.(?=\d)|(?<=\d)%|(?<![\p{L}\p{N}])[+-](?=\d))|[^\p{L}\p{N}\s]/gu;
+  /(?<keep>(?<=\d)[.,/](?=\d)|(?<=\d)%|(?<=\d)[-–−](?=[$£€¥]?\d)|(?<![\p{L}\p{N}])[+\-–−(](?=[$£€¥]?\d)|[$£€¥](?=\d))|[^\p{L}\p{N}\s]/gu;
 const sameLimitation = (text: string) =>
   text
     .toLowerCase()
-    .replace(FIGURE_MARK, (mark, keep: string | undefined) => (keep ? mark : ""))
+    .replace(FIGURE_MARK, (mark, keep: string | undefined) =>
+      keep ? mark.replace(/[–−]/, "-") : "",
+    )
     .replace(/\s+/g, " ")
     .trim();
 
@@ -366,9 +372,13 @@ function maturityTotal(entry: OutputEntry, date: string, run?: string): MetricBi
     "Source",
   ]);
   const through = Number(date.slice(0, 4)) + 1;
+  const start = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(start.getTime())) return [];
+  start.setUTCDate(start.getUTCDate() + 1);
+  const from = start.toISOString().slice(0, 10);
   const row = namedRow(table, ({ cells }) => {
     const match = /^Maturities from (\d{4}-\d{2}-\d{2}) to end-(\d{4})$/.exec(cells[1] ?? "");
-    return !!match && Number(match[2]) === through && (match[1] ?? "") > date;
+    return !!match && Number(match[2]) === through && match[1] === from;
   });
   const value = row?.cells[3];
   return value && numeric.test(value)

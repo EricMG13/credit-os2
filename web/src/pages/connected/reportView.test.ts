@@ -740,6 +740,85 @@ describe("what the overview carries for every module", () => {
     ]);
   });
 
+  it("keeps limitations whose figures differ in a currency, sign, bracket, range or decimal comma", () => {
+    const { run, view } = overviewFixture(
+      {
+        "CP-1": {
+          limits: [
+            "Loss of -$5m is untested.",
+            "Margin of \u22125 is untested.",
+            "Cost of (5) is untested.",
+            "Range of 5-10 is untested.",
+            "Leverage of 3,5x excludes leases.",
+            "Leverage of 3.5x excludes leases.",
+          ],
+        },
+        "CP-3": {
+          limits: [
+            "Loss of $5m is untested.",
+            "Margin of 5 is untested.",
+            "Cost of 5 is untested.",
+            "Range of 510 is untested.",
+            "Leverage of 35x excludes leases.",
+            "leverage of 3.5x excludes leases",
+          ],
+        },
+      },
+      ["CP-1", "CP-3"],
+    );
+    expect(runLimitations(view, run).map((row) => [row.id, row.text])).toEqual([
+      ["CP-1", "Loss of -$5m is untested."],
+      ["CP-1", "Margin of \u22125 is untested."],
+      ["CP-1", "Cost of (5) is untested."],
+      ["CP-1", "Range of 5-10 is untested."],
+      ["CP-1", "Leverage of 3,5x excludes leases."],
+      ["CP-1", "Leverage of 3.5x excludes leases."],
+      ["CP-3", "Loss of $5m is untested."],
+      ["CP-3", "Margin of 5 is untested."],
+      ["CP-3", "Cost of 5 is untested."],
+      ["CP-3", "Range of 510 is untested."],
+      ["CP-3", "Leverage of 35x excludes leases."],
+    ]);
+  });
+
+  it("matches only the window that starts the day after the period end", () => {
+    const schedule = table(
+      "Chart data: debt maturities",
+      ["Period", "Debt maturing", "Reporting unit"],
+      [["2027", "640", "US$m"]],
+      30,
+    );
+    const both = table(
+      "Calculations",
+      ["ID", "Calculation", "Inputs", "Result", "Source"],
+      [
+        ["C1", "Maturities from 2027-01-01 to end-2027", "", "500", ""],
+        ["C2", "Maturities from 2026-07-01 to end-2027", "", "640", ""],
+      ],
+      40,
+    );
+    const only = table(
+      "Calculations",
+      ["ID", "Calculation", "Inputs", "Result", "Source"],
+      [["C1", "Maturities from 2027-01-01 to end-2027", "", "500", ""]],
+      40,
+    );
+    const mid = {
+      id: "first",
+      issuer: "A",
+      name: "A",
+      title: "",
+      date: "2026-07-01",
+      period: "",
+      sector: "",
+      metrics: { cash: { value: 0, unit: "US$m", period: "2026-06-30" } },
+    } satisfies CatalogueRun;
+    expect(foundationMetrics(foundation([schedule, both]), mid)).toMatchObject([
+      { key: "maturities", metric: { value: { text: "$640m" } } },
+    ]);
+    expect(foundationMetrics(foundation([schedule, only]), mid)).toEqual([]);
+  });
+
   it("draws the maturities tile for a 31 December period end", () => {
     const schedule = table(
       "Chart data: debt maturities",
