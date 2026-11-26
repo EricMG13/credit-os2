@@ -6,16 +6,19 @@ No passcode, hash, salt or token is ever put in a message here.
 
 from __future__ import annotations
 
+import errno
 import hashlib
+import ntpath
 import os
 import sqlite3
+import sys
 import time
 import unicodedata
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePath, PureWindowsPath
 
 PROFILE_TYPES = ("reader", "analyst", "admin")
 _BUSY_SECONDS = 30
@@ -25,6 +28,12 @@ _REMEDY = (
     " (chmod 700 for the folder, 600 for the file)"
 )
 _UNPRINTABLE = ("Cc", "Cf", "Cs")
+_IS_WINDOWS = os.name == "nt"  # one switch, so tests can reach the Windows branch on any system
+_ACL_ATTRIBUTES = ("system.posix_acl_access", "system.posix_acl_default")
+MAX_DISPLAY_NAME = 60
+_MAX_TAG = 40
+# The placeholder slice 4 shows for comments made before accounts: never given to a person.
+RESERVED_DISPLAY_NAMES = frozenset({"before accounts"})
 
 
 class StoreError(ValueError):
@@ -221,19 +230,75 @@ def _create_folder(folder: Path) -> None:
         folder.mkdir(mode=0o700)
     except FileExistsError:
         return  # another opener made it first; the mode check below judges it
-    if os.name == "posix":
+    if not _IS_WINDOWS:
         folder.chmod(0o700)  # the umask may have cleared bits from the mkdir mode, never added
+
+
+def _has_acl(target: Path) -> bool:
+    """On Linux, whether `target` carries a POSIX ACL (an extended attribute)."""
+    if not sys.platform.startswith("linux"):  # also lets mypy see listxattr, a Linux-only call
+        return False
+    try:
+        names = os.listxattr(target)
+    except OSError as exc:
+        if exc.errno in (errno.ENOTSUP, errno.EOPNOTSUPP):
+            # The filesystem has no extended attributes, so it cannot carry a POSIX ACL: this is
+            # the answer "no ACL", not a hidden failure. Any other OSError propagates.
+            return False
+        raise
+    return any(name in _ACL_ATTRIBUTES for name in names)
+
+
+def _inside_local_appdata(folder: PurePath, local_appdata: str | None) -> bool:
+    """Whether `folder` is `local_appdata` or inside it, by Windows rules (case-folded, `..`
+    resolved); False for an unset, relative, drive-relative or UNC path on either side."""
+    if not local_appdata:
+        return False
+    paths = (PureWindowsPath(local_appdata), PureWindowsPath(str(folder)))
+    for path in paths:
+        if not path.is_absolute() or path.drive.startswith("\\\\"):
+            return False
+    base, target = (
+        [part.casefold() for part in PureWindowsPath(ntpath.normpath(str(path))).parts]
+        for path in paths
+    )
+    return target[: len(base)] == base
+
+
+def _check_windows_folder(folder: Path) -> None:
+    local = os.environ.get("LOCALAPPDATA") or None
+    real_local = os.path.realpath(local) if local else None
+    if not _inside_local_appdata(PurePath(os.path.realpath(folder)), real_local):
+        raise StoreError(
+            "on Windows the account store's folder must be inside your own %LOCALAPPDATA%,"
+            " which only you can open"
+        )
+
+
+def _check_no_acl(target: Path, label: str) -> None:
+    if target.exists() and _has_acl(target):
+        raise StoreError(f"{label} {target} carries an access-control list; {_REMEDY}")
 
 
 def open_db(folder: Path) -> sqlite3.Connection:
     """Open (creating if needed) `<folder>/accounts.db` and apply migrations; StoreError for a
-    store others can open or that another user owns, or one this build's migrations did not make."""
+    relative folder, a store others can open or that another user owns, or one this build's
+    migrations did not make. On Windows the folder must be inside the user's %LOCALAPPDATA%; on
+    Linux a POSIX ACL on the folder or file is refused. macOS ACLs are not checked."""
+    if not folder.is_absolute():
+        raise StoreError("the account store's folder must be an absolute path")
+    if _IS_WINDOWS:
+        _check_windows_folder(folder)
     _create_folder(folder)
     path = folder / "accounts.db"
-    if os.name == "posix":
+    if not _IS_WINDOWS:
         _check_private(folder, "the account store's folder")
+        if sys.platform.startswith("linux"):
+            _check_no_acl(folder, "the account store's folder")
         _create_file(path)
         _check_private(path, "the account store")
+        if sys.platform.startswith("linux"):
+            _check_no_acl(path, "the account store")
     db = sqlite3.connect(path, timeout=_BUSY_SECONDS)
     try:
         db.row_factory = sqlite3.Row
@@ -294,15 +359,33 @@ def _name_taken(db: sqlite3.Connection, name: str) -> bool:
     return db.execute("SELECT 1 FROM accounts WHERE display_name=?", (name,)).fetchone() is not None
 
 
+def _tag_for_name(tag: str, *, keep_end: bool) -> str:
+    if len(tag) <= _MAX_TAG:
+        return tag
+    return "…" + tag[-(_MAX_TAG - 1) :] if keep_end else tag[: _MAX_TAG - 1] + "…"
+
+
+def _fitted(cleaned: str, tag: str | None) -> str:
+    if tag is None:
+        return cleaned[:MAX_DISPLAY_NAME].rstrip()
+    suffix = f" ({tag})"
+    return cleaned[: MAX_DISPLAY_NAME - len(suffix)].rstrip() + suffix
+
+
 def _display_name(db: sqlite3.Connection, cleaned: str, email: str) -> str:
-    if not _name_taken(db, cleaned):
-        return cleaned
-    stripped = email.strip()
-    local = stripped.rpartition("@")[0] if "@" in stripped else stripped
-    bracketed = f"{cleaned} ({_clean(local) or _clean(stripped)})"
-    if _name_taken(db, bracketed):
-        raise Conflict(f"the display name {cleaned!r} is taken and so is {bracketed!r}")
-    return bracketed
+    """The first free of: the name; `name (local)`; `name (whole email)`, each fitted to 60."""
+    stripped = _clean(email.strip())
+    local = email.strip().rpartition("@")[0] if "@" in email.strip() else email.strip()
+    tags = (
+        None,
+        _tag_for_name(_clean(local) or stripped, keep_end=False),
+        _tag_for_name(stripped, keep_end=True),
+    )
+    for tag in tags:
+        candidate = _fitted(cleaned, tag)
+        if candidate not in RESERVED_DISPLAY_NAMES and not _name_taken(db, candidate):
+            return candidate
+    raise Conflict(f"the display name {cleaned!r} and its two bracketed forms are taken")
 
 
 def register_reader(  # noqa: PLR0913 - the interface is fixed: one keyword per account field

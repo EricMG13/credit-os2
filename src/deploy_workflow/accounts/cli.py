@@ -31,7 +31,6 @@ _NOT_UNDERSTOOD = (
     "error: the command was not understood; see python -m deploy_workflow.accounts --help"
 )
 _NOT_TEXT = "error: the passcode could not be read as text; nothing was set"
-_RELATIVE = "error: the account store's folder must be an absolute path"
 _DIFFER = "error: the two entries differ; nothing was set"
 
 
@@ -144,9 +143,6 @@ def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = 
     folder = _folder(args.accounts_dir, env)
     if folder is None:
         print(_NO_FOLDER, file=sys.stderr)
-        return 2
-    if not folder.is_absolute():
-        print(_RELATIVE, file=sys.stderr)
         return 2
     try:
         db = store.open_db(folder)
