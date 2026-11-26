@@ -33,6 +33,18 @@ export type Context = {
     prior_case: boolean;
   };
 };
+export type RunAccess = { can_prepare: boolean; analyst_name: string | null };
+const PRIVATE_RUN_CONTEXT_FIELDS = new Set([
+  "account",
+  "account_id",
+  "accountId",
+  "copilot_models",
+  "profile_id",
+  "profile_type",
+  "profileType",
+  "role",
+  "run_access",
+]);
 
 export type DocumentRecord = {
   source: string;
@@ -114,6 +126,8 @@ export type Summary = Reading & {
   prior?: { id: string; as_of: string; pathway: string } | null;
   model: string;
   effort: string;
+  /** Server-authoritative analyst name for a signed-in summary; absent in off mode. */
+  submitted_by?: string;
   /** The comparison portfolio this summary covers; absent when the run has none. */
   reference_portfolio?: ReferencePortfolio;
 };
@@ -316,17 +330,43 @@ export function postJson(payload: unknown): RequestInit {
 
 const submission = (id: string) => `/api/submissions/${encodeURIComponent(id)}`;
 
-export async function getContext(signal: AbortSignal) {
+function readRunAccess(value: unknown): RunAccess {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new RequestError("Run access could not be read.", 502);
+  const access = value as Record<string, unknown>;
+  if (
+    typeof access.can_prepare !== "boolean" ||
+    !(access.analyst_name === null || typeof access.analyst_name === "string") ||
+    (typeof access.analyst_name === "string" && access.analyst_name.trim() === "")
+  ) {
+    throw new RequestError("Run access could not be read.", 502);
+  }
+  return { can_prepare: access.can_prepare, analyst_name: access.analyst_name };
+}
+
+/** Keeps auth and run-option projections out of the issuer context submitted for analysis. */
+export function issuerContext(value: Context): Context {
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => !PRIVATE_RUN_CONTEXT_FIELDS.has(key)),
+  ) as Context;
+}
+
+export async function getContext(signal: AbortSignal, signIn = false) {
   const {
     submission_caps_usd: amounts,
     copilot_models: copilotModels,
-    ...template
+    run_access: access,
+    ...receivedTemplate
   } = await request<
     Context & {
       submission_caps_usd?: Record<string, string>;
       copilot_models?: Record<string, string[]>;
+      run_access?: unknown;
     }
   >("/connected/context", { signal });
+  const template = Object.fromEntries(
+    Object.entries(receivedTemplate).filter(([key]) => !PRIVATE_RUN_CONTEXT_FIELDS.has(key)),
+  ) as Context;
   const caps = Object.fromEntries(
     Object.entries(amounts ?? {}).filter(
       ([pathway, amount]) =>
@@ -337,7 +377,12 @@ export async function getContext(signal: AbortSignal) {
         Number(amount) > 0,
     ),
   );
-  return { template, copilotModels, caps };
+  return {
+    template,
+    copilotModels,
+    caps,
+    ...(signIn ? { runAccess: readRunAccess(access) } : {}),
+  };
 }
 export const createSubmission = () =>
   request<{ id: string }>("/api/submissions", { method: "POST" });

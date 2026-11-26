@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePath, PureWindowsPath
 
+from deploy_workflow.accounts import analyst_names
+
 PROFILE_TYPES = ("reader", "analyst", "admin")
 _BUSY_SECONDS = 30
 _OTHERS_ANY = 0o077
@@ -62,6 +64,10 @@ class LastAdmin(StoreError):
     """A mutation would leave no enabled Admin."""
 
 
+class InvalidAnalystName(StoreError):
+    """An analyst-name override does not use the shared manual-name grammar."""
+
+
 _MIGRATION_1 = """
 CREATE TABLE accounts(
     id INTEGER PRIMARY KEY,
@@ -97,8 +103,10 @@ CREATE TABLE registration_attempts(
 );
 """
 
+_MIGRATION_2 = "ALTER TABLE accounts ADD COLUMN analyst_name_override TEXT;"
+
 # Ordered; later slices append. Index i holds the script that brings the schema to version i + 1.
-MIGRATIONS = [_MIGRATION_1]
+MIGRATIONS = [_MIGRATION_1, _MIGRATION_2]
 
 
 @dataclass(frozen=True)
@@ -113,6 +121,7 @@ class Account:
     profile_type: str
     created_at: datetime
     disabled: bool
+    analyst_name_override: str | None = None
 
 
 def scripts_hash(version: int) -> str:
@@ -350,7 +359,20 @@ def _account(row: sqlite3.Row) -> Account:
         profile_type=str(row["profile_type"]),
         created_at=datetime.fromisoformat(str(row["created_at"])),
         disabled=bool(row["disabled"]),
+        analyst_name_override=row["analyst_name_override"],
     )
+
+
+def effective_analyst_name(account: Account) -> str | None:
+    """Use a valid explicit override, otherwise derive only from the registered name claims."""
+    override = account.analyst_name_override
+    if override is not None:
+        if len(override) <= analyst_names.SUBMITTER_AT_MOST and analyst_names.is_analyst_name(
+            override
+        ):
+            return override
+        return None
+    return analyst_names.derive_analyst_name(account.given_name, account.family_name)
 
 
 def account_by_identity(db: sqlite3.Connection, tenant_id: str, object_id: str) -> Account | None:
@@ -555,3 +577,38 @@ def set_profile_type_as_admin(
         if summary is None:
             raise Missing(f"no account {account_id}")
         return summary
+
+
+def _validate_analyst_name(value: object) -> str:
+    if (
+        not isinstance(value, str)
+        or len(value) > analyst_names.SUBMITTER_AT_MOST
+        or not analyst_names.is_analyst_name(value)
+    ):
+        raise InvalidAnalystName(analyst_names.ANALYST_NAME_RULE)
+    return value
+
+
+def _set_analyst_name_locked(db: sqlite3.Connection, account_id: int, analyst_name: str) -> None:
+    cursor = db.execute(
+        "UPDATE accounts SET analyst_name_override=? WHERE id=?", (analyst_name, account_id)
+    )
+    if cursor.rowcount == 0:
+        raise Missing(f"no account {account_id}")
+
+
+def set_analyst_name_override(db: sqlite3.Connection, account_id: int, analyst_name: str) -> None:
+    """Set an operator-approved override using the shared manual-name rule."""
+    value = _validate_analyst_name(analyst_name)
+    with write_transaction(db):
+        _set_analyst_name_locked(db, account_id, value)
+
+
+def set_analyst_name_override_as_admin(
+    db: sqlite3.Connection, actor_id: int, account_id: int, analyst_name: str
+) -> None:
+    """Set an override after checking the actor's enabled Admin role under the write lock."""
+    with write_transaction(db):
+        _require_enabled_admin(db, actor_id)
+        value = _validate_analyst_name(analyst_name)
+        _set_analyst_name_locked(db, account_id, value)

@@ -73,6 +73,7 @@ class Record:
     model: str = "gpt"
     effort: str = "fast"
     submitted_by: str = ""
+    account_id: int | None = None  # authenticated submitter; absent for earlier/off-mode records
     digest: str = ""  # the approved digest of the submitted files; the move is checked against it
     prior: str = ""  # the earlier run the approval named (a run folder name or `none`); "": search
     cap: str = ""  # USD the approved summary showed (`cap_of`); "": written before per-pathway caps
@@ -157,7 +158,16 @@ def save(layout: Layout, record: Record) -> None:
     if not record.id or Path(record.id).name != record.id or record.id.startswith("."):
         raise ValueError(f"run ID {record.id!r} is not a plain file name")
     target = layout.state / f"{record.id}.json"
-    platform_io.write_atomic(target, json.dumps(asdict(record), indent=2), sync=True)
+    data = asdict(record)
+    if record.account_id is None:
+        data.pop("account_id")
+    elif (
+        isinstance(record.account_id, bool)
+        or not isinstance(record.account_id, int)
+        or record.account_id < 1
+    ):
+        raise ValueError("account_id must be a positive integer")
+    platform_io.write_atomic(target, json.dumps(data, indent=2), sync=True)
 
 
 def _load(path: Path) -> Record:
@@ -169,6 +179,12 @@ def _load(path: Path) -> Record:
             data.get("approved_summary_limits")
         )
         record = Record(**data)
+        if record.account_id is not None and (
+            isinstance(record.account_id, bool)
+            or not isinstance(record.account_id, int)
+            or record.account_id < 1
+        ):
+            raise ValueError("account_id must be a positive integer")
         if record.status not in get_args(Status):
             raise ValueError(f"unknown status {record.status!r}")
         return record

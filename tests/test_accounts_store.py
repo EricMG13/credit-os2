@@ -75,7 +75,7 @@ def test_open_creates_folder_and_file(tmp_path: Path) -> None:
 def test_tables_and_meta(tmp_path: Path) -> None:
     db = open_db(tmp_path)
     assert _tables(db) == ["accounts", "meta", "passcodes", "registration_attempts", "sessions"]
-    assert _meta(db, "schema_version") == "1"
+    assert _meta(db, "schema_version") == "2"
     h = _meta(db, "schema_hash")
     assert len(h) == 64 and h == h.lower() and all(c in "0123456789abcdef" for c in h)
     db.close()
@@ -84,20 +84,20 @@ def test_tables_and_meta(tmp_path: Path) -> None:
 def test_reopen(tmp_path: Path) -> None:
     open_db(tmp_path).close()
     db = open_db(tmp_path)
-    assert _meta(db, "schema_version") == "1"
+    assert _meta(db, "schema_version") == "2"
     assert _tables(db) == ["accounts", "meta", "passcodes", "registration_attempts", "sessions"]
     db.close()
 
 
 def test_later_version_refused(tmp_path: Path) -> None:
     db = open_db(tmp_path)
-    db.execute("UPDATE meta SET value='2' WHERE key='schema_version'")
+    db.execute("UPDATE meta SET value='3' WHERE key='schema_version'")
     db.commit()
     db.close()
     with pytest.raises(StoreError) as err:
         open_db(tmp_path)
     assert "accounts.db" in str(err.value)
-    assert "later than this build's 1" in str(err.value)
+    assert "later than this build's 2" in str(err.value)
 
 
 def test_other_build_refused(tmp_path: Path) -> None:
@@ -233,7 +233,7 @@ def test_concurrent_first_open(tmp_path: Path) -> None:
         for t in threads:
             t.join()
         assert errors == []
-        assert results == ["1"] * 4
+        assert results == ["2"] * 4
 
 
 # ---- accounts ----

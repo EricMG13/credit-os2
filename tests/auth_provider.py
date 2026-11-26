@@ -22,6 +22,16 @@ OBJECT_ID = "00000000-0000-4000-8000-000000000102"
 CLIENT_ID = "00000000-0000-4000-8000-000000000103"
 DISPLAY_NAME = "A. Kovac"
 EMAIL = "a.kovac@example.org"
+_IDENTITY_NAME_FIELDS = ("given_name", "family_name")
+
+
+def _name_claims(parts: tuple[str | None, str | None]) -> dict[str, str]:
+    """Optional identity names, omitted from the default token fixture."""
+    return {
+        name: value
+        for name, value in zip(_IDENTITY_NAME_FIELDS, parts, strict=True)
+        if value is not None
+    }
 
 
 class ProviderRejected(Exception):
@@ -110,6 +120,7 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
         self._expected_state = expected_state
         self._expected_redirect_uri: str | None = None
         self._include_session_state = False
+        self._next_identity_names: tuple[str | None, str | None] = (None, None)
         self._next_identity_mode = "valid"
         self._issued_at = int(clock())
         self._private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -159,6 +170,7 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
         redirect_uri: str,
         identity_mode: str = "valid",
         include_session_state: bool = False,
+        name_parts: tuple[str | None, str | None] = (None, None),
     ) -> None:
         """Declare the route's concrete browser state and listener URI for one test flow."""
         parsed = urlsplit(redirect_uri)
@@ -181,10 +193,17 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             "wrong_nonce",
         }:
             raise ValueError("declare one supported identity-claim response")
+        if not isinstance(name_parts, tuple) or len(name_parts) != 2:
+            raise ValueError("declare given_name and family_name as a pair")
+        given_name, family_name = name_parts
+        for label, value in (("given name", given_name), ("family name", family_name)):
+            if value is not None and (not isinstance(value, str) or not value):
+                raise ValueError(f"declare a nonempty {label} or omit it")
         self._expected_state = state
         self._expected_redirect_uri = redirect_uri
         self._next_identity_mode = identity_mode
         self._include_session_state = include_session_state
+        self._next_identity_names = (given_name, family_name)
 
     def declare_signature(self, mode: str) -> None:
         """Permit one additional, explicitly declared signature response in a test flow."""
@@ -298,7 +317,7 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             "code_challenge_methods_supported": ["S256"],
         }
 
-    def authorize(self, query: dict[str, str]) -> str:
+    def _validate_authorization(self, query: dict[str, str]) -> None:
         expected = {
             "client_id",
             "response_type",
@@ -337,11 +356,16 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             raise ProviderRejected("S256 PKCE is required")
         if re.fullmatch(r"[0-9a-f]{64}", query["nonce"]) is None:
             raise ProviderRejected("nonce does not match the declared digest form")
+
+    def authorize(self, query: dict[str, str]) -> str:
+        self._validate_authorization(query)
         signature_mode = self._signature_modes.pop(0) if self._signature_modes else None
         if signature_mode is None:
             raise ProviderRejected("this authorization was not declared")
         identity_mode = self._next_identity_mode
         self._next_identity_mode = "valid"
+        given_name, family_name = self._next_identity_names
+        self._next_identity_names = (None, None)
         self.authorize_requests.append(dict(query))
         self._code_number += 1
         code = f"test-code-{self._code_number}-7dba"
@@ -353,6 +377,10 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             "signature_mode": signature_mode,
             "identity_mode": identity_mode,
         }
+        if given_name is not None:
+            self._codes[code]["given_name"] = given_name
+        if family_name is not None:
+            self._codes[code]["family_name"] = family_name
         response = {"code": code, "state": query["state"]}
         if self._include_session_state:
             response["session_state"] = f"opaque-session-{self._code_number}"
@@ -395,7 +423,12 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
         self.used_codes.append(code)
         self.last_token_request = dict(form)
         self.token_requests.append(dict(form))
-        id_token = self._id_token(details["nonce"], details["identity_mode"])
+        id_token = self._id_token(
+            details["nonce"],
+            details["identity_mode"],
+            given_name=details.get("given_name"),
+            family_name=details.get("family_name"),
+        )
         if details["signature_mode"] == "altered":
             id_token = self._alter_signature(id_token)
         self.issued_tokens.append(id_token)
@@ -412,7 +445,14 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             "id_token": id_token,
         }
 
-    def _id_token(self, nonce: str, identity_mode: str = "valid") -> str:
+    def _id_token(
+        self,
+        nonce: str,
+        identity_mode: str = "valid",
+        *,
+        given_name: str | None = None,
+        family_name: str | None = None,
+    ) -> str:
         now = self._issued_at
         claims = {
             "iss": f"{self.authority_url}/{TENANT_ID}/v2.0",
@@ -429,6 +469,7 @@ class LoopbackIdentityProvider(AbstractContextManager["LoopbackIdentityProvider"
             "exp": now + 3600,
             "ver": "2.0",
         }
+        claims.update(_name_claims((given_name, family_name)))
         if identity_mode == "wrong_issuer":
             claims["iss"] = f"{claims['iss']}/unexpected"
         elif identity_mode == "wrong_tenant":

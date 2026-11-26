@@ -12,7 +12,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from functools import partialmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import SplitResult, parse_qs, unquote, urlsplit
 
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
@@ -30,6 +30,7 @@ from deploy_workflow.inbox import teams
 from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.run_start import service, standing_portfolios
+from deploy_workflow.run_start.submissions import RunActor
 from deploy_workflow.signal import fetch as signal_fetch
 
 from . import (
@@ -331,11 +332,18 @@ def _require_writable(read_only: bool) -> None:
 
 
 def _connected_reply(
-    layout: Layout, url: SplitResult, context: dict[str, Any], caps: Mapping[PathwayId, str]
+    layout: Layout,
+    url: SplitResult,
+    context: dict[str, Any],
+    caps: Mapping[PathwayId, str],
+    run_access: dict[str, Any] | None = None,
 ) -> http_base.Reply | None:
     path = url.path
     if path == "/connected/context":
-        return http_base.Reply(200, {"copilot_models": {}, **context, "submission_caps_usd": caps})
+        answer = {"copilot_models": {}, **context, "submission_caps_usd": caps}
+        if run_access is not None:
+            answer["run_access"] = run_access
+        return http_base.Reply(200, answer)
     if match := RUN_ACTIVITY.fullmatch(path):  # one run by its ID, or the runs in progress
         return run_activity.reply(layout, match[1]) if match[1] else run_activity.listing(layout)
     if path == "/connected/library":
@@ -457,6 +465,77 @@ def _only_get(accounts: Path | None, path: str) -> None:
         raise http_base.Reply(405, {"error": "method not allowed"}, {"Allow": "GET"})
 
 
+def _run_access(
+    accounts: Path | None, account: account_store.Account | None
+) -> dict[str, Any] | None:
+    """The per-request runner role and display name, only when account sign-in is enabled."""
+    if accounts is None:
+        return None
+    can_prepare = account is not None and account.profile_type in {"analyst", "admin"}
+    name = account_store.effective_analyst_name(account) if can_prepare and account else None
+    return {"can_prepare": can_prepare, "analyst_name": name}
+
+
+def _run_actor(accounts: Path | None, account: account_store.Account | None) -> RunActor | None:
+    """Build the trusted actor only for an enabled Analyst/Admin with a canonical name."""
+    access = _run_access(accounts, account)
+    if access is None:
+        return None
+    if account is None or not access["can_prepare"]:
+        raise http_base.refuse(403, service._PREPARATION_DENIAL)
+    if access["analyst_name"] is None:
+        raise http_base.refuse(400, "an Admin must set your analyst name")
+    return RunActor(account.id, access["analyst_name"])
+
+
+def _require_run_preparer(handler: _SignalReplies, method: str, path: str) -> None:
+    """Refuse a signed-in Reader before the run-start handler reads a body or touches a draft."""
+    if handler.accounts is None or not service.requires_preparer(method, path):
+        return
+    if handler.account is None or handler.account.profile_type not in {"analyst", "admin"}:
+        raise http_base.refuse(403, service._PREPARATION_DENIAL)
+
+
+class _AppRoutes(NamedTuple):
+    dist: Path
+    page: bytes
+    context: dict[str, Any]
+    caps: Mapping[PathwayId, str]
+    signal: signal_host.SignalHost | None
+
+
+def _app_get(handler: _SignalReplies, url: SplitResult, routes: _AppRoutes) -> None:
+    path = url.path
+    handler._auth_get(url)
+    if path in auth_gate.LIBRARY_PATHS:
+        raise http_base.Reply(308, b"", {"Location": "/"})
+    if _app_page(path, signal=routes.signal is not None):
+        raise http_base.Reply(
+            200,
+            routes.page,
+            {
+                "Content-Type": "text/html; charset=utf-8",
+                "Content-Security-Policy": "frame-ancestors 'none'",
+                "X-Frame-Options": "DENY",
+                "Cache-Control": "no-store",
+            },
+        )
+    signal_host.divert(routes.signal, handler, url)
+    _auth_me(handler.accounts, path, handler.account)
+    run_access = _run_access(handler.accounts, handler.account)
+    reply = _connected_reply(handler._layout, url, routes.context, routes.caps, run_access)
+    if reply is not None:
+        raise reply
+    if asset := _asset_path(routes.dist, path):
+        base, relative, direct = asset
+        response = handler._file(base, relative, direct=direct)
+        if cache := _static_cache(path, relative):
+            response.headers["Cache-Control"] = cache
+        raise response
+    _require_run_preparer(handler, "GET", path)
+    service.Handler._get(handler, url)
+
+
 def _handler(
     dist: Path,
     page: bytes,
@@ -466,9 +545,13 @@ def _handler(
     signal: signal_host.SignalHost | None = None,
 ) -> type[_SignalReplies]:
     caps = {pathway: str(amount) for pathway, amount in PATHWAY_CAP_USD.items()}
+    routes = _AppRoutes(dist, page, context, caps, signal)
 
     class Handler(_SignalReplies):
         hosted = signal
+
+        def run_actor(self) -> RunActor | None:
+            return _run_actor(self.accounts, self.account)
 
         def send_reply(self, reply: http_base.Reply) -> None:
             if isinstance(reply.body, bytes):
@@ -498,12 +581,14 @@ def _handler(
         def _post(self, url: SplitResult) -> None:
             self._auth_post(url)
             _only_get(self.accounts, url.path)
+            _require_run_preparer(self, "POST", url.path)
             signal_host.divert(signal, self, url)
             _require_writable(read_only)
             super()._post(url)
 
         def _delete(self, url: SplitResult) -> None:
             _only_get(self.accounts, url.path)
+            _require_run_preparer(self, "DELETE", url.path)
             signal_host.divert(signal, self, url)
             _require_writable(read_only)
             super()._delete(url)
@@ -511,33 +596,7 @@ def _handler(
         do_PUT = do_PATCH = do_HEAD = do_OPTIONS = partialmethod(signal_host.other_method, signal)
 
         def _get(self, url: SplitResult) -> None:
-            path = url.path
-            self._auth_get(url)
-            if path in auth_gate.LIBRARY_PATHS:
-                raise http_base.Reply(308, b"", {"Location": "/"})
-            if _app_page(path, signal=signal is not None):
-                raise http_base.Reply(
-                    200,
-                    page,
-                    {
-                        "Content-Type": "text/html; charset=utf-8",
-                        "Content-Security-Policy": "frame-ancestors 'none'",
-                        "X-Frame-Options": "DENY",
-                        "Cache-Control": "no-store",
-                    },
-                )
-            signal_host.divert(signal, self, url)
-            _auth_me(self.accounts, path, self.account)
-            reply = _connected_reply(self._layout, url, context, caps)
-            if reply is not None:
-                raise reply
-            if asset := _asset_path(dist, path):
-                base, relative, direct = asset
-                response = self._file(base, relative, direct=direct)
-                if cache := _static_cache(path, relative):
-                    response.headers["Cache-Control"] = cache
-                raise response
-            super()._get(url)
+            _app_get(self, url, routes)
 
         def _publication(self, folder: str | None = None) -> tuple[bytes, dict[str, Any] | None]:
             return _visible_scope(self._layout, folder)
