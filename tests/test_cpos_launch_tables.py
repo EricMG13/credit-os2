@@ -36,3 +36,12 @@ def test_net_debt_check_ignores_a_one_cell_liquidity_header():
     )
     assert NET_DEBT.heading == "Net debt data"
     assert _net_debt_issues(text) == ()
+
+
+def test_plain_number_is_ungrouped_or_grouped_in_threes():
+    from deploy_workflow.owners.cpos_launch_tables import PLAIN_NUMBER
+
+    for good in ("7", "-7", "1,234", "12,345,678", "-1,234.5", "0.25"):
+        assert PLAIN_NUMBER.fullmatch(good), good
+    for bad in ("1,5", "12,34,5", "1,2345", ",123", "1,234,56"):
+        assert PLAIN_NUMBER.fullmatch(bad) is None, bad

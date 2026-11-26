@@ -45,7 +45,7 @@ CHART_TABLES: dict[str, tuple[str, tuple[str, ...], str]] = {
 }
 CHART_BLOCKS = frozenset(STRIP_FIGURES) - {"yield-against-maturity"}
 NOT_SUPPLIED = "Not supplied:"
-PLAIN_NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+PLAIN_NUMBER = re.compile(r"-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?")
 
 
 def _chart_route(block_id: str, figure: str) -> MarkdownRoute:

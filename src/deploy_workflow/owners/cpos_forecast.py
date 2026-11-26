@@ -25,6 +25,7 @@ from deploy_vii.period_order import PeriodClass, parse_period
 from deploy_vii.readiness import shape_issues
 from deploy_workflow.method_scripts import currency_of
 from deploy_workflow.owners import cp2g
+from deploy_workflow.owners.cpos_cp1_statements import _cells as _row_cells
 from deploy_workflow.owners.cpos_cp1_statements import money_unit
 from deploy_workflow.owners.cpos_facilities import Facility, Schedule, schedule
 from deploy_workflow.prose_checks import FORECAST_HEADING, ISO_4217, reader_passages
@@ -241,11 +242,7 @@ def _tables(text: str) -> list[list[list[str]]]:
             block = stripped == HEADING
             if len(heading[1]) <= 2:
                 sources = len(heading[1]) == 2 and heading[2] == "Sources"
-        cells = (
-            [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", stripped[1:-1])]
-            if stripped.startswith("|") and stripped.endswith("|") and len(stripped) > 1
-            else None
-        )
+        cells = _row_cells(stripped) if stripped.startswith("|") and len(stripped) > 1 else None
         if cells is None or fenced or block or sources or number in skipped:
             if len(run) > 1:
                 tables.append(run)
