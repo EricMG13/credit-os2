@@ -70,6 +70,24 @@ def parts(pages: Sequence[Mapping[str, Any]], limit: int = PART_BYTES) -> list[s
     return [*out, "\n\n".join(current)] if current else out
 
 
+def _source_pages(name: str, raw: bytes) -> list[dict[str, Any]]:
+    """The pages of one source: JSON lines split on newline only, blank lines skipped. A line
+    that cannot be read raises `ReadingStopped` naming the source and the line."""
+    try:
+        text = raw.decode()
+    except UnicodeDecodeError as error:
+        raise ReadingStopped(f"{name}: not UTF-8 text ({error})") from error
+    pages: list[dict[str, Any]] = []
+    for number, line in enumerate(text.split("\n"), 1):
+        if not line.strip():
+            continue
+        try:
+            pages.append(json.loads(line))
+        except json.JSONDecodeError as error:
+            raise ReadingStopped(f"{name}: line {number} is not JSON ({error})") from error
+    return pages
+
+
 def read_documents(  # noqa: PLR0913 - one keyword per setting of the reading
     adapter: ModelAdapter,
     module: str,
@@ -88,10 +106,11 @@ def read_documents(  # noqa: PLR0913 - one keyword per setting of the reading
     config = CONFIGS[adapter.config_id]
     folder = out / module
     folder.mkdir(parents=True, exist_ok=True)
+    # every source is read before the first paid call, so none can fail to parse after one
+    all_pages = {name: _source_pages(name, sources[name]) for name in names}
     spent = Decimal(0)
     for name in names:
-        pages = [json.loads(line) for line in sources[name].decode().splitlines()]
-        pieces = parts(pages, part_bytes)
+        pieces = parts(all_pages[name], part_bytes)
         notes_path = folder / f"{name}{cpos_reader.SUFFIX}"
         # a source named by a path (`filings/a.htm.jsonl`) needs its folder; made before the first
         # call, so a path problem cannot follow a paid one
