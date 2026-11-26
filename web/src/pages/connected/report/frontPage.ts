@@ -117,7 +117,7 @@ export function decisionTreatment(
     return { status: "unavailable", reason: UNAVAILABLE_DECISION, held, entry };
   // Overview lists no bottom line for this module, but an unheld module's limitations stay in its
   // list and can state the decision: the screen sentence names only the passage the page leaves out.
-  const name = moduleName(code);
+  const name = moduleName(code, run.pathway);
   return {
     status: "not shown",
     reason: NOT_SHOWN_DECISION,

@@ -60,21 +60,22 @@ export function chosen(choices: Readonly<Record<string, string>>, value: string 
 }
 
 /** A box's value: an option by its label, a focus module by its name, anything else as given. */
-function boxValue(item: RowField, row: Row): string {
+function boxValue(item: RowField, row: Row, pathway?: string | null): string {
   const value = row[item.key];
   if (item.key === "focus_module")
-    return typeof value === "string" && value ? moduleName(value) : ANY_FOCUS;
+    return typeof value === "string" && value ? moduleName(value, pathway) : ANY_FOCUS;
   return item.options?.find(([option]) => option === value)?.[1] ?? given(value);
 }
 
-const factsOf = (fields: readonly RowField[], row: Row): Fact[] =>
-  fields.map((item) => [item.label, boxValue(item, row)]);
+const factsOf = (fields: readonly RowField[], row: Row, pathway?: string | null): Fact[] =>
+  fields.map((item) => [item.label, boxValue(item, row, pathway)]);
 
 /** A row section: each row by its title and number, with each box `drawn` keeps. */
 function rowSection(
   kind: RowKind,
   raw: unknown,
   drawn: (item: RowField, row: Row) => boolean = () => true,
+  pathway?: string | null,
 ): InputGroup {
   const spec = ROW_SPECS[kind];
   const rows = Array.isArray(raw) ? raw.map((row) => record(row) ?? {}) : [];
@@ -86,6 +87,7 @@ function rowSection(
       facts: factsOf(
         spec.fields.filter((item) => drawn(item, row)),
         row,
+        pathway,
       ),
       groups: [],
     })),
@@ -143,6 +145,7 @@ export function contextDetails(context: Context): InputGroup {
         kind,
         context[kind],
         (item, row) => primary || !item.primaryOnly || !isBlank(row[item.key]),
+        context.run.pathway,
       ),
     ),
   };

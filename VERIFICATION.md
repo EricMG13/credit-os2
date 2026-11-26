@@ -17,6 +17,18 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Open: five modules' bottom-line paragraphs carry no Basis of their own (handoff content; not invented here); 191 chips cite a page without a source key and the peer module's web key is not in the inventory (55 chips, labelled); `ForecastRecord.tsx` still keys only "Adj EBITDA"; the model's block is named "Downside shock" where the reader says "Downside case"; the committee challenge ledger's presentation; four review Lows.
 - Not verified: the replay copy's published library was not regenerated, so the chip fixes, the "EBITDA" label and the reworded quarter-column message are proved by tests on the real handoffs, not seen on the replay pages; that a module follows the new downside instruction (needs a paid run); no confidence-review or rewrite-tournament of the diff; trace drawers beyond the cases above; widths below 1024; any run but this replay.
 
+## 2026-11-26 — Credit screening pathway: CP-0, CP-1, CP-DR and the five-screen CP-L10, cap USD 10 (PR #102)
+
+- Scope: offline only. No provider call and no paid run; the five screens' handoff is a hand-written synthetic one (`tests/fixtures/credit-screening/CP-L10.md`), checked column by column against the method. No real Credit Screening run exists.
+- Built: pathway `credit_screening` ("Credit screening") with its cap in `PATHWAY_CAP_USD` and `RULED_CAPS_USD`; a method and register lookup by pathway, with each module's present method as the default; in this pathway only, CP-L10 is sent the archived five-screen method (cp-os `b57a344`) and its 20 registers TL10.1 to TL40.4 are required and checked; CP-DR's handoff is an optional input of CP-L10; the module reads "Credit screening" in such a run. `short_snapshot` stays deactivated and unchanged.
+- Presentation change and its fidelity check: the run start page offers the pathway; in the issuer library CP-L10 leads Overview, Changes and Modules, the Modules lead shows the five screens, registers are held in Evidence, and Forecast says no model was published. Checked against the synthetic handoff by the PR's tests (`tests/test_credit_screening_pathway.py`, `tests/test_credit_screening_method.py` and the web tests beside the changed pages); no rendered browser page was checked.
+- Other pathways: reviewers' probes compared instructions, roles, request messages, module names, plans, caps and manifests with the base byte for byte, and the existing golden requests and method pins pass unedited.
+- Coordinator's own check on the PR head `8d7d64e0`: the preset, both cap entries and the `api.test.ts:92` change read as ruled; `tests/test_credit_screening_method.py`, `tests/test_pathway_tiers.py` and `tests/test_credit_screening_pathway.py`: 149 passed.
+- Gates at `8d7d64e0`, reported by the PR's controller: `tools/quality_gate.py`, `lint-imports`, 18 affected Python test files and the web lint, format, type, unused and duplication checks: exit 0. The whole web suite exited 1 locally: `ConnectedApp.test.tsx` timed out under a load average of 52 and passes alone (228 tests); CI is its gate.
+- Reviews: task reviews approved (the web task after fix rounds), cap audit no High or Medium, confidence review 2 Medium fixed, pre-merge review 3 Medium fixed then pass, review of the two merges with `main` pass.
+- Owner, 2026-11-26: the method trimming of `main` ("apply to all modules") applies to the five-screen method too ("Yes, trim it"): 104,782 characters become 101,334; three sections that cannot apply in this transport and eight exact repeats are cut, no register lost.
+- Not verified: what a real model writes for the five screens; whether a run completes within USD 10 (on `copilot-sol` each call reserves USD 7.17, so a call can start only while spend is at most USD 2.83); the Changes page with a real earlier run; accessibility and end-to-end browser tests; the full Python suite. Known and left: the Coverage filter and matrix headers name the module "Short credit snapshot" for every pathway.
+
 ## 2026-11-26 — Recommendation calculation: best result across instruments; Unrated against "and below" (PR #100, merged as `bf06af10`)
 
 - Scope: synthetic and deterministic only; `src/deploy_workflow/recommendation.py` and its tests. No caller exists yet, no real constraints or holdings file, no real run.
@@ -980,14 +992,3 @@ then 5; the narrow layout and the controls listed below.
   Actual Windows setup, live or paid runs, real Submit and Teams remain unverified.
 - [Final gates](docs/audit/2026-11-16-final/output/7-send-off/gates.md) ·
   [Audit summary](docs/audit/2026-11-16-final/output/SUMMARY.md)
-
-## 2026-11-17 — Stage 6 sweep
-
-- Scope: six reviewed refactors on the repaired app, with the same tests, public routes,
-  handoffs and protected inputs. Nine production files add 21 and remove 66 lines.
-- Passed: 5,259 frontend tests including 630 Signal tests, native 97.69% lines,
-  6,285 Python tests plus one existing skip, 573 Node checks, both quality gates,
-  73 script checks, 138 native file checks, and synthetic Chrome and Edge proof.
-- Measured: 20 fewer duplicated frontend lines. Paired History row data 2,168 to
-  109 bytes with the same requests and markup.
-- Source pins, retry outcomes and limits: [sweep report](docs/audit/2026-11-16-final/output/6-sweep/report.md).

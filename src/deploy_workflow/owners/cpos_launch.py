@@ -131,7 +131,11 @@ from deploy_workflow.owners.cpos_launch_methods import (
     NOT_ANALYTICAL,
     REGISTER_SCOPE,
     REGISTER_SCOPE_MODULES,
+    SCREENING,
     TRIMMED_METHODS,
+    has_scope,
+    methods_for,
+    pathway_method,
     trim_method,
 )
 from deploy_workflow.owners.cpos_launch_prompts import (
@@ -172,6 +176,7 @@ from deploy_workflow.owners.cpos_launch_prompts import (
     _none_rule,
     _selector,
     cp2_scorecard_block,
+    voice_rules,
 )
 from deploy_workflow.owners.cpos_launch_review import _charge_notes, _print_review, _review_lines
 from deploy_workflow.owners.cpos_launch_tables import (
@@ -209,6 +214,7 @@ from deploy_workflow.prose_checks import (
     findings_sentences,
     key_figures_issues,
     prose_issues,
+    screen_table_issues,
 )
 from deploy_workflow.research.intake import effective_cutoff
 from deploy_workflow.research.weblookup import USER_AGENT_ENV, bare_host_problem, usable_user_agent
@@ -290,10 +296,15 @@ __all__ = [
     "_selector",
     "chart_issues",
     "cp2_scorecard_block",
+    "has_scope",
+    "methods_for",
+    "pathway_method",
     "without_notes",
 ]
 
 ROOT = Path(__file__).resolve().parents[3]
+LAYER_1_RULING = "docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md"
+CREDIT_SCREENING_CAP_RULING = "docs/rulings/2026-11-25-deliverables-and-recommendations.md"
 HTML_SUFFIXES = frozenset({".htm", ".html"})
 # Converted to text pages, pinned as ``<name>.jsonl``: HTML filings and Word documents.
 CONVERTED_SUFFIXES = HTML_SUFFIXES | {".docx"}
@@ -585,13 +596,15 @@ def _layout(
     return layout, tuple(omitted)
 
 
-def method_sections(module: str) -> list[tuple[str, str]]:
-    """The selected method a module is sent, as (name, text) sections in instruction order.
+def method_sections(module: str, pathway: str | None = None) -> list[tuple[str, str]]:
+    """The selected method a module is sent, as (name, text) sections in instruction order. In a
+    pathway that has its own method for the module (`PATHWAY_METHODS`) that is the method;
+    otherwise it is `METHODS[module]`.
 
     Each section is written into the instructions under a ``=== name sha256 hex ===`` heading, so
     a run's retained instructions record exactly which method it ran.
     """
-    return [(name, _method_file(name)) for name in METHODS[module]]
+    return [(name, _method_file(name)) for name in methods_for(module, pathway)]
 
 
 def _method_file(name: str) -> str:
@@ -614,20 +627,28 @@ def method_heading(name: str, text: str) -> str:
     return f"=== {name} sha256 {_sha(text.encode())} ==="
 
 
-def method_text(module: str) -> str:
+def method_text(module: str, pathway: str | None = None) -> str:
     """The method block exactly as a module's instructions carry it: each selected section under
     a heading that names it and the sha256 of its whole text, and, for a module in
     `TRIMMED_METHODS`, without the block's repeats (`trim_method`)."""
     block = "\n\n".join(
-        f"{method_heading(name, text)}\n{text}" for name, text in method_sections(module)
+        f"{method_heading(name, text)}\n{text}" for name, text in _sections(module, pathway)
     )
     return trim_method(block) if module in TRIMMED_METHODS else block
 
 
-def register_scope(module: str) -> str:
+def _sections(module: str, pathway: str | None) -> list[tuple[str, str]]:
+    """`method_sections` in its one-argument form unless a pathway is named, so a caller (or a test
+    stand-in) that knows only the module is called as before."""
+    if pathway_method(module, pathway) is None:
+        return method_sections(module)
+    return method_sections(module, pathway)
+
+
+def register_scope(module: str, pathway: str | None = None) -> str:
     """The registers a module's scope section says not to write, as the section names them
-    (`<id> <title>; <id> <title>`)."""
-    section = dict(method_sections(module))[f"{REGISTER_SCOPE} § {module}"]
+    (`<id> <title>; <id> <title>`); empty when the section cuts none."""
+    section = dict(_sections(module, pathway))[f"{REGISTER_SCOPE} § {module}"]
     return section.partition("do not write ")[2].partition(". Any figure")[0]
 
 
@@ -672,17 +693,18 @@ def _listed_ids(lines: list[str]) -> list[str]:
 
 
 @functools.cache
-def required_registers(module: str) -> tuple[str, ...]:
+def required_registers(module: str, pathway: str | None = None) -> tuple[str, ...]:
     """The registers a module's handoff must carry: the method's `required_register_ids` (CP-0:
     less what CP0_BLOCK says the launcher did), less the module's scope section and the routing
-    registers. Derived from the method text the module is sent; empty outside the ten modules."""
-    if module not in REGISTER_SCOPE_MODULES:
+    registers. Derived from the method text the module is sent in ``pathway``; empty outside the
+    ten modules and the modules a pathway sends its own scoped method (`PATHWAY_METHODS`)."""
+    if not has_scope(module, pathway):
         return ()
     listed: list[str] = []
-    for name, text in method_sections(module):
+    for name, text in _sections(module, pathway):
         if not name.startswith(REGISTER_SCOPE):
             listed += _listed_ids(text.split("\n"))
-    out = {part.strip().split(" ")[0] for part in register_scope(module).split(";")}
+    out = {part.strip().split(" ")[0] for part in register_scope(module, pathway).split(";")}
     if module == "CP-0":
         launcher = re.search(r"Do not write the registers ([^.]*)\.", CP0_BLOCK)
         if launcher is None:
@@ -715,10 +737,11 @@ def _has_register(text: str, ident: str) -> bool:
     return any(re.search(p, text, re.MULTILINE) for p in (tag, heading))
 
 
-def register_issues(module: str, text: str) -> tuple[str, ...]:
+def register_issues(module: str, text: str, pathway: str | None = None) -> tuple[str, ...]:
     """One issue naming every in-scope required register the handoff lacks; none for a module
-    outside the ten or one blocked at its gate. A register's body is not judged."""
-    required = required_registers(module)
+    outside the ten (and a pathway's own scoped method) or one blocked at its gate. A register's
+    body is not judged."""
+    required = required_registers(module, pathway)
     if not required or _blocked_at_gate(text):
         return ()
     missing = [i for i in required if not _has_register(text, i)]
@@ -751,6 +774,14 @@ def posture_issues(module: str, text: str) -> tuple[str, ...]:
         )
         return (unstated,)
     return ()
+
+
+def screen_issues(module: str, text: str, pathway: str | None) -> tuple[str, ...]:
+    """CP-L10's five reader tables in a credit screening (`SCREEN_TITLES`, header `SCREEN_HEADER`);
+    none for any other module or pathway, or a module blocked at its gate."""
+    if (pathway, module) != SCREENING or _blocked_at_gate(text):
+        return ()
+    return screen_table_issues(text)
 
 
 def scorecard_issues(module: str, text: str) -> tuple[str, ...]:
@@ -789,7 +820,8 @@ def _instructions(
     # is written once, as the passage, or the section would repeat and delivery would refuse it.
     named = [r.heading for r in asked if r.heading in READER_HEADINGS]
     asked = [r for r in asked if r.heading not in named]
-    selectors = "\n".join(_selector(r) for r in (*asked, *_owner_tables(module, routes)))
+    owed = _owner_tables(module, routes, run.pathway)
+    selectors = "\n".join(_selector(r) for r in (*asked, *owed))
     if named:
         selectors += (
             f"\n- {', '.join(f'`### {h}`' for h in named)}: the reader passage of that name is "
@@ -798,7 +830,8 @@ def _instructions(
         )
     first, shared, rest = selectors.partition(EDGE_RULES)
     selectors = first + shared + rest.replace(EDGE_RULES, "")
-    method = method_text(module)
+    methods = methods_for(module, run.pathway)
+    method = method_text(module, run.pathway)
     return (
         f"# {module} for {run.issuer_name} ({run.issuer_id}), as of {run.as_of}\n\n"
         f"Pathway: {run.pathway}. Run the complete selected method below on this issuer's supplied "
@@ -814,7 +847,7 @@ def _instructions(
         "source locators and limitations. Absent evidence stays an explicit gap.\n\n"
         + TRANSPORT_RULES
         + ROUTING_RULES
-        + (PRESENCE_RULE if module in REGISTER_SCOPE_MODULES else "")
+        + (PRESENCE_RULE if has_scope(module, run.pathway) else "")
         + "A handoff is rejected unless it does all of this:\n"
         f"- name {run.issuer_name} in `## Request`, and state the as-of date {run.as_of} there;\n"
         "- list each issuer source it relied on in `## Sources`, naming the exact file and its "
@@ -823,11 +856,11 @@ def _instructions(
         + SOURCES_RULES
         + READER_PERSONA
         + (DATA_PASSAGE if module in DATA_MODULES else PROSE_PASSAGES)
-        + (APPENDIX_HEADING_NOTE if _APPENDIX in METHODS[module] else "")
-        + VOICE_RULES
+        + (APPENDIX_HEADING_NOTE if _APPENDIX in methods else "")
+        + voice_rules(run.pathway)
         + (CHART_NOTE_RULE if "### Chart data:" in selectors else "")
         + (MAP_TEXT_RULE if "### Map:" in selectors else "")
-        + (CONFIDENCE_RULE if _SCORE in METHODS[module] else "")
+        + (CONFIDENCE_RULE if _SCORE in methods else "")
         + (
             "Report selectors, each exactly once inside `## Findings`, using these exact "
             f"headings. They place content in the report and are not analytical completion:\n"
@@ -843,8 +876,8 @@ def pathway_modules(settings: RunContext) -> tuple[str, ...]:
     """A pathway's analytical modules: its preset less the modules that have their own route.
     Owner, 2026-11-11: CP-DR and CP-2E are in every preset except ``short_snapshot``, which has
     neither, and ``lite_credit_assessment``, which has CP-DR (owner, 2026-11-25: "lite runs cp-dr
-    too") and no CP-2E, so the context's peer source no longer adds a module. Explicit --modules
-    are run as given."""
+    too") and no CP-2E, so the context's peer source no longer adds a module. Owner, 2026-11-25
+    (R12): ``credit_screening`` has CP-DR and no CP-2E. Explicit --modules are run as given."""
     return tuple(m for m in PATHWAY_MODULES[settings.run.pathway] if m not in NOT_ANALYTICAL)
 
 
@@ -1340,7 +1373,11 @@ def without_for(ordered: Sequence[str], items: Sequence[Item]) -> dict[str, list
 
 
 def _owned_issues(
-    module: str, routes: Sequence[MarkdownRoute], text: str, cp1: bytes | None = None
+    module: str,
+    routes: Sequence[MarkdownRoute],
+    text: str,
+    cp1: bytes | None = None,
+    pathway: str | None = None,
 ) -> list[str]:
     """The tables a module is asked for beside its report routes, checked; for CP-1 also the net
     debt table's arithmetic. A money table states CP-1's money unit: CP-1's own handoff is `text`,
@@ -1348,7 +1385,9 @@ def _owned_issues(
     source = text if module == "CP-1" else cp1.decode("utf-8") if cp1 is not None else None
     money = money_unit(source) if source is not None else None
     issues = [
-        i for owned in _owner_tables(module, routes) for i in chart_issues(text, owned, money=money)
+        i
+        for owned in _owner_tables(module, routes, pathway)
+        for i in chart_issues(text, owned, money=money)
     ]
     return [*issues, *_net_debt_issues(text), *_cp1_issues(text)] if module == "CP-1" else issues
 
@@ -1453,13 +1492,16 @@ def checker(layout: MarkdownLayout) -> Check:
         for route in routes:
             if route.kind == "chart":
                 issues += chart_issues(text, route, money=money_unit(text))
-        issues += _owned_issues(task.module_id, routes, text, task.handoffs.get("CP-1"))
-        issues += register_issues(task.module_id, text)
+        issues += _owned_issues(
+            task.module_id, routes, text, task.handoffs.get("CP-1"), task.run.pathway
+        )
+        issues += register_issues(task.module_id, text, task.run.pathway)
         issues += posture_issues(task.module_id, text)
+        issues += screen_issues(task.module_id, text, task.run.pathway)
         issues += scorecard_issues(task.module_id, text)
         upstream = method_scripts.upstream_texts(task.handoffs)  # a copied figure is compared
         issues += method_scripts.issues(task.module_id, text, upstream)
-        issues += method_scripts.shared_issues(task.module_id, text)  # `completeness_check.py`
+        issues += method_scripts.shared_issues(task.module_id, text, task.run.pathway)
         return (*issues, *_forecast_issues(task, text))
 
     return check
@@ -1772,9 +1814,9 @@ def run_cap(pathway: PathwayId, asked: Decimal | None) -> Decimal:
     if asked is None:
         return ceiling
     if asked > ceiling:
+        ruling = CREDIT_SCREENING_CAP_RULING if pathway == "credit_screening" else LAYER_1_RULING
         raise LaunchRefused(
-            f"--cap {asked}: above the {pathway} cap of USD {ceiling} "
-            "(docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md); "
+            f"--cap {asked}: above the {pathway} cap of USD {ceiling} ({ruling}); "
             "a lower cap is allowed"
         )
     return asked

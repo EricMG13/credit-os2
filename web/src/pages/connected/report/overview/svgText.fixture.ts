@@ -1,5 +1,5 @@
 /** Measures a rendered SVG figure's text the way a browser draws it, for the marks' tests. */
-export type Box = { left: number; right: number; top: number; bottom: number };
+type Box = { left: number; right: number; top: number; bottom: number };
 
 const num = (element: Element, name: string) => Number(element.getAttribute(name));
 

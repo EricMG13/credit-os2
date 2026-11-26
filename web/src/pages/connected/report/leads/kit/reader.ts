@@ -34,9 +34,9 @@ export const namesSource = (text: string) => {
  * (`[E3]`) stripped, or "Detail is in Evidence." when it names a source. Every handoff sentence a
  * lead draws goes through this.
  */
-export function safeText(text: string) {
+export function safeText(text: string, pathway?: string | null) {
   const bare = withoutMarkers(text);
-  return namesSource(bare) ? IN_EVIDENCE : readerText(bare);
+  return namesSource(bare) ? IN_EVIDENCE : readerText(bare, pathway);
 }
 
 /** A stated gap's reason as drawn: "—" for a cell the source left as a dash ("source dash"), else `safeText`. */

@@ -22,7 +22,7 @@ from deploy_workflow.credit_os_catalogue import (
 from deploy_workflow.handoff_delivery import MarkdownRoute
 from deploy_workflow.markdown_delivery import STRIP_FIGURES
 from deploy_workflow.owners import cpos_cp1_check as cp1_check
-from deploy_workflow.owners.cpos_launch_methods import _SCORE, METHODS
+from deploy_workflow.owners.cpos_launch_methods import _SCORE, METHODS, pathway_method
 from deploy_workflow.prose_checks import ISO_4217
 
 # Fixed so any run's charts can be read without issuer-specific row selectors.
@@ -259,12 +259,19 @@ POST_BS = OwnerTable(
 )
 
 
-def _owner_tables(module: str, routes: Sequence[MarkdownRoute]) -> tuple[OwnerTable, ...]:
-    """The tables a module is asked for beside its report routes. CP-1 is on every pathway asked
+def _owner_tables(
+    module: str, routes: Sequence[MarkdownRoute], pathway: str | None = None
+) -> tuple[OwnerTable, ...]:
+    """The tables a module is asked for beside its report routes. A module sent the Confidence
+    Score rules only in ``pathway``'s own method (CP-L10 in credit screening) is asked for the
+    Confidence inputs table there and nowhere else. CP-1 is on every pathway asked
     for all four chart tables CP-8's pack reads (owner, 2026-11-12, "Yes, all pathways"): those
     its report's chart blocks do not already route are asked as owner tables, with no new
     report section. It is also asked for the net debt table (owner, 2026-11-12, "Yes, add it")."""
     tables = OWNER_TABLES.get(module, ())
+    own = pathway_method(module, pathway)
+    if own is not None and _SCORE in own and CONFIDENCE not in tables:
+        tables = (*tables, CONFIDENCE)
     if module != "CP-1":
         return tables
     routed = {r.heading for r in routes}

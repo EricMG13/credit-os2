@@ -120,22 +120,22 @@ function IntakeDocumentRow({
   );
 }
 
-function MissingRow({ group }: { group: LimitGroup }) {
+function MissingRow({ group, pathway }: { group: LimitGroup; pathway: string }) {
   const fixes = [
-    ...new Set(group.causes.map((cause) => serviceText(cause.fix ?? "")).filter(Boolean)),
+    ...new Set(group.causes.map((cause) => serviceText(cause.fix ?? "", pathway)).filter(Boolean)),
   ];
-  const also = moduleNames(group.consequences);
+  const also = moduleNames(group.consequences, pathway);
   return (
     <li className="grid gap-1 py-3 text-small">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge set="Run limits" state={OUTCOME_STATE[group.outcome]} />
         <span className="font-medium text-text-primary">
-          {moduleNames(group.causes).join(", ")}
+          {moduleNames(group.causes, pathway).join(", ")}
         </span>
       </div>
       {group.causes.map((cause) => (
         <p key={cause.id} className="wrap-anywhere text-text-secondary">
-          {serviceText(cause.reason)}
+          {serviceText(cause.reason, pathway)}
         </p>
       ))}
       {fixes.map((fix) => (
@@ -150,18 +150,32 @@ function MissingRow({ group }: { group: LimitGroup }) {
   );
 }
 
-function MissingList({ groups, name }: { groups: readonly LimitGroup[]; name: string }) {
+function MissingList({
+  groups,
+  name,
+  pathway,
+}: {
+  groups: readonly LimitGroup[];
+  name: string;
+  pathway: string;
+}) {
   return (
     <ul aria-label={name} className="divide-y divide-border-hairline">
       {groups.map((group) => (
-        <MissingRow key={group.key} group={group} />
+        <MissingRow key={group.key} group={group} pathway={pathway} />
       ))}
     </ul>
   );
 }
 
 /** What a review found: what is missing or limiting first, then what only needs checking. */
-function MissingForModules({ missing }: { missing: NonNullable<IntakeView["missing"]> }) {
+function MissingForModules({
+  missing,
+  pathway,
+}: {
+  missing: NonNullable<IntakeView["missing"]>;
+  pathway: string;
+}) {
   const lacking = missing.filter((group) => group.outcome !== "check");
   const toCheck = missing.filter((group) => group.outcome === "check");
   return (
@@ -174,11 +188,13 @@ function MissingForModules({ missing }: { missing: NonNullable<IntakeView["missi
           <p className="text-small text-text-secondary">
             At your last review. Review the run again after adding files.
           </p>
-          {lacking.length > 0 && <MissingList groups={lacking} name="Missing for the modules" />}
+          {lacking.length > 0 && (
+            <MissingList groups={lacking} name="Missing for the modules" pathway={pathway} />
+          )}
           {toCheck.length > 0 && (
             <>
               <h4 className="text-body font-medium">To check</h4>
-              <MissingList groups={toCheck} name="To check" />
+              <MissingList groups={toCheck} name="To check" pathway={pathway} />
             </>
           )}
         </>
@@ -332,7 +348,9 @@ export function DocumentFields({
           </p>
         )}
       </FileUpload.Root>
-      {view.missing !== undefined && <MissingForModules missing={view.missing} />}
+      {view.missing !== undefined && (
+        <MissingForModules missing={view.missing} pathway={view.run.pathway} />
+      )}
       <StandingPortfolios view={view.standing} />
       <ComparisonPortfolio
         view={view.comparison}

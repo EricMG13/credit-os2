@@ -89,7 +89,7 @@ export function EvidenceHandoffs({
                       className="min-h-8 underline max-[480px]:min-h-11"
                       iconTrailing={ArrowRight}
                     >
-                      {handoffName(item)}
+                      {handoffName(item, run.pathway)}
                     </Button>
                   </th>
                   <td

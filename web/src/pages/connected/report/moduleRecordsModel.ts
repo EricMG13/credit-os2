@@ -113,6 +113,8 @@ export function moduleRecords(entry: OutputEntry) {
   const tables: RecordTable[] = [];
   const evidence: HeldRecord[] = [];
   for (const { section, role } of classifySections(entry.sections)) {
+    // The credit screening lead draws the five screens with their table view; the region holds no copy.
+    if (section.screen) continue;
     const own = section.blocks.filter((block): block is Table => block.type === "table");
     const drawn = registerBlocks(section, entry);
     const title = readableTitle(section.heading);
@@ -160,6 +162,9 @@ function wordsOfIds(title: string) {
 const DOTTED = String.raw`\b(?:TL|T|P)[A-Z0-9]{0,5}\.\d+(?:\.\d+)?\b(?!\s*(?:(?:billion|million|bn|m|turns|x)\b|%))`;
 const CODES = String.raw`${DOTTED}(?:\s*(?:,|and|&|/|or)\s*${DOTTED})*`;
 const ANY_CODE = new RegExp(DOTTED);
+/** The register heading prefix the launcher accepts: an optional "1." or "1)", then one code or a
+ * list of them, with the dash that follows. */
+const REGISTER_LEAD = new RegExp(String.raw`^(?:\d+[.)]\s+)?(?:${CODES})\s*(?:[-–—:]\s*)?`);
 /** A code that names the rows it qualifies ("drawn from T4.18 rows only") goes alone. */
 const LABEL_CODE = new RegExp(
   String.raw`\s?${DOTTED}(?=\s+(?:rows?|lines?|entries|table|register|schedule)\b)`,
@@ -249,6 +254,7 @@ function withoutReference(title: string) {
 /** A heading as the reader sees it: no drawing prefix or register code, module names for codes,
  * and the title's own words without the source it cites, which belongs in Evidence. */
 export function readableTitle(heading: string, untitled = "Untitled table") {
+  const plain = plainText(heading);
   const bare = MACHINE_KEY.test(heading.trim())
     ? heading.trim().replace(MACHINE_PREFIX, "").replace(/[_.]+/g, " ")
     : null;
@@ -261,12 +267,17 @@ export function readableTitle(heading: string, untitled = "Untitled table") {
       : owner
         ? `${owner} ${bare}`
         : bare.charAt(0).toUpperCase() + bare.slice(1);
-  const stripped = key ?? plainText(drawingTitle(heading)).replace(REGISTER_CODE, "");
+  const lead = key === null && REGISTER_LEAD.test(plain);
+  const stripped =
+    key ??
+    (lead
+      ? plain.replace(REGISTER_LEAD, "").replace(REGISTER_CODE, "") // a range "T4.4-T4.6" has two
+      : plainText(drawingTitle(heading)).replace(REGISTER_CODE, ""));
   // A title left after its code begins with a capital ("TDR.3 limitations" → "Limitations") where
   // its first word is all lower-case ("iPhone revenue" stays);
   // drawingTitle takes the code too, so the test reads the heading without its drawing prefix.
   const coded = wordsOfIds(
-    REGISTER_CODE.test(plainText(heading).replace(DRAWING_PREFIX, "")) &&
+    (lead || REGISTER_CODE.test(plainText(heading).replace(DRAWING_PREFIX, ""))) &&
       /^[a-z]+(?=\s|$)/.test(stripped)
       ? stripped.charAt(0).toUpperCase() + stripped.slice(1)
       : stripped,

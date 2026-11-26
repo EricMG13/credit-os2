@@ -81,10 +81,10 @@ function listenHash(fn: () => void) {
 const readHash = () => window.location.hash;
 const tabHref = (tab: ReportTab) => `#${tab}`;
 
-function readerPageName(tab: Tab, parts: string[]) {
+function readerPageName(tab: Tab, parts: string[], pathway?: string | null) {
   if (tab === "calendar") return "Issuer calendar";
   if (tab === "history") return "Runs";
-  if (tab === "modules" && parts[0] && parts[0] !== "CP-8") return moduleName(parts[0]);
+  if (tab === "modules" && parts[0] && parts[0] !== "CP-8") return moduleName(parts[0], pathway);
   if (tab === "evidence" && parts[0]) {
     const names: Record<string, string> = {
       summary: "Summary",
@@ -270,7 +270,7 @@ const ReportPage = memo(function ReportPage({
 }) {
   const view = useMemo(() => buildReportView(snapshot, routeKey, run), [snapshot, routeKey, run]);
   const labels = runLabels(outputEntries(snapshot, run, routeKey), run);
-  const calendar = tab === "calendar" ? buildCalendar(view.entries, run.folder) : null;
+  const calendar = tab === "calendar" ? buildCalendar(view.entries, run.folder, run.pathway) : null;
   const change = comparisonForRun(run, snapshot.workspace.runs);
   return (
     <div className="grid min-w-0 gap-6">
@@ -282,6 +282,7 @@ const ReportPage = memo(function ReportPage({
           route={JSON.stringify([routeKey, tab, parts])}
           snapshot={snapshot}
           folder={run.folder}
+          pathway={run.pathway}
           entries={view.entries}
         >
           <ReportHeader
@@ -814,7 +815,7 @@ function ReportReaderPage({ id, mode, retry }: { id: string; mode: Mode; retry: 
   useReportPlace(root, hash, Boolean(run));
   const { exportId, exports, preview } = useReportExport(value, id, mode, hash);
   const readyPreview = preview?.state === "ready" ? preview : null;
-  const reportPage = run ? readerPageName(tab, parts) : "Credit report";
+  const reportPage = run ? readerPageName(tab, parts, run.pathway) : "Credit report";
   const page = exportId === undefined ? reportPage : (readyPreview?.name ?? "PDF preview");
   useReportTitle(exportId === undefined ? issuer : (readyPreview?.document.issuer ?? null), page);
   if (exportId !== undefined)

@@ -216,6 +216,7 @@ def lead_summary(
         "distressed_restructuring": (("CP-2A", "Distress gate"), ("CP-2A", "Bottom line")),
         "portfolio_decision": (),
         "short_snapshot": (("CP-L10", "Bottom line"),),
+        "credit_screening": (("CP-L10", "Bottom line"),),
     }.get(record.get("pathway", ""), (("CP-2", "Bottom line"), ("CP-2", "Credit view")))
     return next(
         (

@@ -174,7 +174,7 @@ function affectedOf(cell: string | undefined, whole = false): Issue["affected"] 
     .split(/[,;]/)
     .map((part) => part.trim())
     .filter((part) => part !== "")
-    .map(readerText);
+    .map((text) => readerText(text));
 }
 
 function readRegister(entry: OutputEntry, specs: Spec[], kind: Issue["kind"]): Register {

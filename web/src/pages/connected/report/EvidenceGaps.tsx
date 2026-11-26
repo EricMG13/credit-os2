@@ -20,7 +20,7 @@ import { Tile } from "./overview/Tile";
 import { STACK } from "./evidenceKit";
 import { handoffName } from "./evidenceLabels";
 
-export type GapRecord = { line: number; title: string; severity: string | null; details: string };
+type GapRecord = { line: number; title: string; severity: string | null; details: string };
 type GapItem = { entry: OutputEntry; section: Section; gap: GapRecord };
 
 function noGap(value: string | undefined) {
@@ -188,9 +188,17 @@ export function GapCounts({ items }: { items: GapItem[] }) {
   );
 }
 
-function NoGaps({ module, compact = false }: { module?: string; compact?: boolean }) {
+function NoGaps({
+  module,
+  compact = false,
+  pathway,
+}: {
+  module?: string;
+  compact?: boolean;
+  pathway?: string | null;
+}) {
   const words = module
-    ? `No module-written gaps for ${moduleName(module)}.`
+    ? `No module-written gaps for ${moduleName(module, pathway)}.`
     : "The module handoffs list no gaps.";
   if (compact)
     return (
@@ -277,10 +285,10 @@ function GapLedger({
                     // only: its words are the row.
                     !detail && gap.title === TEXT_GAP ? (
                       <span className="font-normal whitespace-pre-wrap text-text-secondary">
-                        {richParts(readerText(gap.details))}
+                        {richParts(readerText(gap.details, run.pathway))}
                       </span>
                     ) : (
-                      readerText(gap.title || section.heading)
+                      readerText(gap.title || section.heading, run.pathway)
                     )
                   }
                 </th>
@@ -290,11 +298,13 @@ function GapLedger({
                     data-label="Recorded detail"
                     className={`${STACK.cell} min-w-56 whitespace-pre-wrap text-text-secondary`}
                   >
-                    {richParts(readerText(gap.details || "No additional detail recorded."))}
+                    {richParts(
+                      readerText(gap.details || "No additional detail recorded.", run.pathway),
+                    )}
                   </td>
                 )}
                 <td role="cell" data-label="Module" className={`${STACK.cell} text-text-secondary`}>
-                  {handoffName(entry)}
+                  {handoffName(entry, run.pathway)}
                   {gap.severity && gap.severity.trim() !== label && (
                     <span className="mt-1 block text-text-tertiary">
                       Severity as written: {gap.severity.trim()}
@@ -351,7 +361,7 @@ export function GapSummary({
       kicker={items.length === 0 ? undefined : gapsNote("What this run could not establish.", true)}
     >
       {items.length === 0 ? (
-        <NoGaps module={module} compact />
+        <NoGaps module={module} compact pathway={run.pathway} />
       ) : (
         <>
           <GapCounts items={items} />
@@ -389,7 +399,7 @@ export function EvidenceGaps({
       )}
     >
       {items.length === 0 ? (
-        <NoGaps module={module} />
+        <NoGaps module={module} pathway={run.pathway} />
       ) : (
         <>
           <GapCounts items={items} />

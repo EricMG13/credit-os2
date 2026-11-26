@@ -11,12 +11,12 @@ import {
 import { moduleName } from "../api";
 import { namedRow, namedTable } from "../reportView";
 
-const DESCRIPTION = "Business description";
+export const DESCRIPTION = "Business description";
 
-const filled = (text: string | undefined) => (text?.trim() ? text : undefined);
+export const filled = (text: string | undefined) => (text?.trim() ? text : undefined);
 
 /** The register's own description row, when exactly one table under a `company_description` heading has exactly one row. */
-function registerRow(entry: OutputEntry) {
+export function registerRow(entry: OutputEntry) {
   const tables = entry.sections
     .filter((section) => section.heading.includes("company_description"))
     .flatMap(({ blocks }) => blocks)
@@ -29,7 +29,7 @@ function registerRow(entry: OutputEntry) {
   return { table: only, row };
 }
 
-function profileCell(entry: OutputEntry, field: string) {
+export function profileCell(entry: OutputEntry, field: string) {
   const row = namedRow(namedTable(entry, "Company profile", []), ({ cells }) => cells[0] === field);
   return row && { line: row.line, text: filled(row.cells[1]) };
 }

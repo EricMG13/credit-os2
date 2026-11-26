@@ -61,7 +61,7 @@ export function HandoffDownload({ run, entry }: { run: PublishedRun; entry: Outp
       download
       color="link-gray"
       size="sm"
-      aria-label={`Download ${moduleName(entry.output.module)}`}
+      aria-label={`Download ${moduleName(entry.output.module, run.pathway)}`}
     >
       Download
     </Button>
@@ -295,6 +295,7 @@ function buildTrace(
   block: Block,
   line: number,
   target: string,
+  pathway?: string | null,
 ): Trace {
   const details = traceDetails(snapshot, entry, section, block, line);
   const { statement } = details;
@@ -307,7 +308,7 @@ function buildTrace(
   return {
     title: `Sources for ${section.heading}`,
     heading: section.heading,
-    subtitle: `${moduleName(entry.output.module)} · Handoff line ${String(line)}`,
+    subtitle: `${moduleName(entry.output.module, pathway)} · Handoff line ${String(line)}`,
     statement: confidence
       ? confidenceStatement(entry)
       : section.heading === FORECAST_INPUTS
@@ -343,10 +344,17 @@ export function handoffBlockAt(entry: OutputEntry, line: number) {
   return null;
 }
 
-export function traceForLine(snapshot: Snapshot, entry: OutputEntry, _index: number, line: number) {
+export function traceForLine(
+  snapshot: Snapshot,
+  entry: OutputEntry,
+  _index: number,
+  line: number,
+  pathway?: string | null,
+) {
   const found = handoffBlockAt(entry, line);
   return (
-    found && buildTrace(snapshot, entry, found.section, found.block, line, traceTarget(entry, line))
+    found &&
+    buildTrace(snapshot, entry, found.section, found.block, line, traceTarget(entry, line), pathway)
   );
 }
 
@@ -354,25 +362,37 @@ export function traceForLine(snapshot: Snapshot, entry: OutputEntry, _index: num
  * A module output as a reader names it: the module's name, then the output's own label where it
  * says more than the module's code. A code is never drawn.
  */
-function outputSubtitle({ output }: OutputEntry) {
-  const name = moduleName(output.module);
-  const label = serviceText(output.label).trim();
+function outputSubtitle({ output }: OutputEntry, pathway?: string | null) {
+  const name = moduleName(output.module, pathway);
+  const label = serviceText(output.label, pathway).trim();
   return !label || label === name || /^CP-[A-Z0-9]+$/.test(label) ? name : `${name} · ${label}`;
 }
 
 /** A scored handoff may be accepted even when its input rows are not a Markdown table. */
-export function traceForConfidence(snapshot: Snapshot, entry: OutputEntry): Trace | undefined {
+export function traceForConfidence(
+  snapshot: Snapshot,
+  entry: OutputEntry,
+  pathway?: string | null,
+): Trace | undefined {
   const section =
     entry.sections.find((item) => item.heading === CONFIDENCE_INPUTS) ??
     entry.output.confidenceTrace?.section;
   const block = section?.blocks[0];
   if (section && block)
-    return buildTrace(snapshot, entry, section, block, block.line, traceTarget(entry, block.line));
+    return buildTrace(
+      snapshot,
+      entry,
+      section,
+      block,
+      block.line,
+      traceTarget(entry, block.line),
+      pathway,
+    );
   if (!entry.output.confidenceTrace) return undefined;
   return {
     title: "Sources for Confidence inputs",
     heading: CONFIDENCE_INPUTS,
-    subtitle: outputSubtitle(entry),
+    subtitle: outputSubtitle(entry, pathway),
     statement: confidenceStatement(entry),
     derivation: {
       label: "Evidence retained with this item",
@@ -797,7 +817,12 @@ function findingLabel(section: Section, overviewLabel?: string) {
 }
 
 /** One trace per paragraph and table row of `sections`, keyed by `traceKey`. */
-export function sectionTraces(snapshot: Snapshot, entry: OutputEntry, sections: Section[]) {
+export function sectionTraces(
+  snapshot: Snapshot,
+  entry: OutputEntry,
+  sections: Section[],
+  pathway?: string | null,
+) {
   const traces: Record<string, Trace> = {};
   const key = (line: number) => traceKey(entry, line);
   for (const section of sections) {
@@ -811,6 +836,7 @@ export function sectionTraces(snapshot: Snapshot, entry: OutputEntry, sections: 
           block,
           line,
           traceTarget(entry, line),
+          pathway,
         );
     }
   }
@@ -993,12 +1019,14 @@ function confidencePresentation({
   traces,
   moduleConfidence,
   afterBottomLine,
+  pathway,
 }: {
   snapshot: Snapshot;
   entry: OutputEntry;
   sections: Section[];
   summary: Summary;
   traces: Record<string, Trace>;
+  pathway?: string | null;
   moduleConfidence?: ReactNode;
   afterBottomLine?: ReactNode;
 }) {
@@ -1015,7 +1043,7 @@ function confidencePresentation({
         </>
       ),
     };
-  const scoreTrace = traceForConfidence(snapshot, entry);
+  const scoreTrace = traceForConfidence(snapshot, entry, pathway);
   if (scoreTrace) traces[CONFIDENCE_MARK_TRACE] = scoreTrace;
   return {
     marker: <ConfidenceMark {...score} trace={scoreTrace ? CONFIDENCE_MARK_TRACE : undefined} />,
@@ -1257,11 +1285,12 @@ function findingsEvidence(
   entryIndex: number,
   sections: Section[],
   drawnBottomLine: boolean,
+  pathway?: string | null,
 ) {
   const key = (line: number) => traceKey(entry, line);
-  const traces = sectionTraces(snapshot, entry, sections);
+  const traces = sectionTraces(snapshot, entry, sections, pathway);
   const summary = !drawnBottomLine && entry.output.summary;
-  const summaryTrace = summary && traceForLine(snapshot, entry, entryIndex, summary.line);
+  const summaryTrace = summary && traceForLine(snapshot, entry, entryIndex, summary.line, pathway);
   if (summaryTrace) traces[key(summary.line)] = summaryTrace;
   return { traces, summary, summaryTrace };
 }
@@ -1331,6 +1360,7 @@ export function ReportFindings({
     entryIndex,
     sections,
     drawnBottomLine,
+    run.pathway,
   );
   const { marker, trailingFigures } = confidencePresentation({
     snapshot,
@@ -1340,6 +1370,7 @@ export function ReportFindings({
     traces,
     moduleConfidence,
     afterBottomLine,
+    pathway: run.pathway,
   });
   const active = activeTrace === null ? null : traces[activeTrace];
   const records = overview ? [] : recordSections(entry.sections, entry);

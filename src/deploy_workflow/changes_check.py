@@ -71,7 +71,7 @@ from deploy_workflow.changes import decimal, number
 from deploy_workflow.credit_os_chips import (
     BASIS_COMPARISON,
     BASIS_EARLIER_RUN,
-    MODULE_NAMES,
+    module_names,
 )
 
 ISSUER = "What changed: the issuer"
@@ -1039,9 +1039,10 @@ def _passage_issues(
     return issues
 
 
-# ponytail: the name `MODULE_NAMES` lists for the code (the list the launcher sends the model) is
-# accepted outright. Any other wording is the model's own (handoffs written before the list was
-# sent), so only what cannot be a name is refused (a path, a comma list, a run or page word).
+# ponytail: the name `module_names(pathway)` lists for the code (the list the launcher sends the
+# model) is accepted outright. Any other wording is the model's own (handoffs written before the
+# list was sent), so only what cannot be a name is refused (a path, a comma list, a run or page
+# word).
 # Another module's name for the code (`Deep research (CP-2A)`) is accepted: a known limit.
 _NOT_A_NAME = re.compile(r"[/,]|\b(?:earlier run|run comparison|page)\b", re.IGNORECASE)
 
@@ -1055,11 +1056,11 @@ def _three_forms(item: str) -> str:
     )
 
 
-def _name_issue(item: str, code: str, name: str, earlier: bool) -> str | None:
+def _name_issue(item: str, code: str, name: str, earlier: bool, pathway: str) -> str | None:
     """Why the name before `(<code>)` is refused, or None: the listed name for the code is accepted
     outright; any other wording only when it cannot be something else (see `_NOT_A_NAME`). A refusal
     names the item to write when the code has a listed name."""
-    listed = MODULE_NAMES.get(code)
+    listed = module_names(pathway).get(code)
     if _plain(name) == listed or not _NOT_A_NAME.search(name):
         return None
     issue = _three_forms(item)
@@ -1068,7 +1069,9 @@ def _name_issue(item: str, code: str, name: str, earlier: bool) -> str | None:
     return f"{issue} For `{code}` write `{listed} ({code}){', earlier run' if earlier else ''}`."
 
 
-def _basis_item_issue(item: str, ran: Mapping[str, tuple[bool, bool]]) -> str | None:
+def _basis_item_issue(
+    item: str, ran: Mapping[str, tuple[bool, bool]], pathway: str = ""
+) -> str | None:
     """Why a Basis item is refused, or None: `Run comparison`, `<plain module name> (<code>)` for a
     handoff of this run, or the same with `, earlier run` for a handoff of the earlier run."""
     if item == BASIS_COMPARISON:
@@ -1079,7 +1082,7 @@ def _basis_item_issue(item: str, ran: Mapping[str, tuple[bool, bool]]) -> str | 
         return _three_forms(item)
     code = found["code"]
     name = found.string.removesuffix(", earlier run").removesuffix(f" ({code})")
-    if issue := _name_issue(item, code, name, earlier is not None):
+    if issue := _name_issue(item, code, name, earlier is not None, pathway):
         return issue
     both = ran.get(code, (False, False))
     if both[0 if earlier else 1]:
@@ -1103,7 +1106,8 @@ def _basis_issues(lines: Sequence[str], pack: Mapping[str, Any]) -> list[str]:
         if line.strip().startswith("Basis: ")
         for item in line.strip().removeprefix("Basis: ").removesuffix(".").split("; ")
     )
-    return [issue for item in items if (issue := _basis_item_issue(item, ran))]
+    pathway = str(pack.get("current", {}).get("pathway", ""))
+    return [issue for item in items if (issue := _basis_item_issue(item, ran, pathway))]
 
 
 def _held_sizes(texts: Sequence[str]) -> frozenset[Decimal]:

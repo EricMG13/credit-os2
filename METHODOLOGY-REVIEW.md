@@ -824,6 +824,52 @@ rows describe the Python screen owner, which CP-OS does not run and which is unc
 aliases are not produced. Selected source revision: this project's cpl10.md at the commit that records this
 note. Detail: `docs/rulings/2026-11-11-module-presets-and-changes.md`, amendment 2026-11-12 (M6).
 
+**CP-L10 in the Credit screening pathway, 2026-11-25 (owner, ruling R12).** A new pathway `credit_screening`,
+"Credit screening", has the preset CP-0, CP-1, CP-DR, CP-L10 and a cap of USD 10 per run. In this pathway only,
+CP-OS sends CP-L10 the archived combined five-screen method, the "Actual Lite-loop amendment" selection
+(financial change, credit, liquidity and forward risk, security opportunity, creditor documents), not rewritten or
+summarised. Like every module's method, the block is sent trimmed (see "Trimmed as sent" below). `short_snapshot` is unchanged: it stays deactivated and keeps `cpl10.md`, which
+remains the CP-L10 method for the short snapshot and for past runs, so no other pathway's request, check or
+"Earlier methods" marker changes. See the CP-L10 rows above for the Python screen owner, which CP-OS still does
+not run.
+
+- Files sent, all under `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/`: `SKILL.md`; the five
+  `references/REF_CP-L10_`, `L20_`, `L23_`, `L30_` and `L40_ADAPTIVE_METHOD.md`; `references/CP-L10_CP_LITE_ANALYSIS_POLICY_v1.md`;
+  the five `references/CP-L10_`, `L20_`, `L23_`, `L30_` and `L40_SCHEMA_REFERENCE.md`. The launcher adds the
+  confidence score section, the three reader-layer sections and the register-scope section: 17 sections.
+- Not sent: the five `*payload.schema.txt` files and the base schema they refer to
+  (`CP_DEPLOY_V_LITE_MODULE_PAYLOAD_BASE_v1.schema.txt`, which is not in this repository). The reason is transport:
+  they describe the JSON payload that the Markdown transport overrides, what they constrain is restated in `SKILL.md`
+  and the schema references, and no selected module is sent a payload schema. Size is not the reason.
+- Registers: the 20 registers TL10.1-4, TL20.1-4, TL23.1-4, TL30.1-4 and TL40.1-4 are required and checked for this
+  pathway only, with none cut (`CPOS_REGISTER_SCOPE.md § CP-L10` cuts nothing). Too few rows in a register is
+  recorded as `noted`, not refused.
+- Reader output: five tables, one per screen, each with the header `Topic | Finding | Materiality | Evidence | Next
+  step` and six topic rows in reader words; the launcher refuses a table with another header. CP-DR's handoff is an
+  optional input of CP-L10. In this pathway CP-L10 reads "Credit screening" to the reader.
+- Source revision: cp-os `b57a344` (HEAD; the twelve files last changed in `a31f3f5`). Each archived file's sha256 equals
+  the cp-os file, checked read-only on 2026-11-25.
+- Trimmed as sent (owner, 2026-11-25: "apply recommendations", then "add now apply to all modules"; the instruction-length
+  sweep). CP-L10's block here is trimmed by `trim_method` as every module's is; the pathway is not exempt. The 17
+  sections total 104,782 characters untrimmed and 101,334 are sent (3,448 cut). Eleven pieces are cut and nothing is
+  reworded. Three paragraphs cannot apply in this transport: `SKILL.md` "## Invocation fields" and "## Automated QA
+  validation", and "#### Worked example" in the Confidence Score section of `CANON_SHARED.md`. Eight are exact repeats of
+  a paragraph already sent: "Shared presentation rules:" four times in `SKILL.md`, and "Required common fields" in
+  four of the five schema references. The archived files are unchanged, and no register or table id is lost: all
+  20 registers TL10.1 to TL40.4 are still required and each screen's `topic_ids` line is still sent.
+  `tests/test_credit_screening_method.py` pins this.
+- Measured offline (built requests, no provider call, 2026-11-26, after main's trim was merged): CP-L10's method text is
+  17 sections, 104,782 characters untrimmed and 101,334 sent (`SKILL.md` 66,108 bytes). Built instructions: CP-0 73,546;
+  CP-1 58,663; CP-DR 71,386; CP-L10 117,092; total 320,687 characters (before the merge: CP-0 75,257; CP-1 59,045;
+  CP-DR 72,504; CP-L10 120,540; total 327,346).
+- Cost holds at the USD 10 cap, from the price table: `copilot-sol-*` USD 7.17, so a new call can start only while
+  spend is at most USD 2.83; `copilot-luna-xhigh` USD 0.3585; `copilot-opus-*` (request bytes + 4,096) x USD 8 per million
+  + 2.56, which reaches USD 10 at 925,904 request bytes; `sol-*` (offline configurations only) USD 5.73. Every
+  configuration admits the preset, since one call fits. Nothing is cut to fit the cap; the only cut is the trim above.
+- Not established: no paid run was made. A real model's five-screen handoff is not shown (the proof is a synthetic
+  fixture). Whether a four-module run completes within USD 10 is not known. The payload schemas' constraints
+  beyond what `SKILL.md` and the schema references restate are not checked.
+
 **Full and lite credit assessments, 2026-11-13 (owner: "create full credit snapshot (full credit
 assessment) and a shorter version (lite credit assessment) to replace L10"; "L10 - keep it wired but
 deactivated"; "add cp-2a to lite").** `credit_snapshot` is retitled "Full credit assessment" (id, modules
@@ -1013,7 +1059,8 @@ provides comps if they want to at launcher."; "raise cap to 20/30/50"; ruling
 `docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md`).** No method text is newly selected
 and no method file changed. Layer 1 is CP-1, CP-1A, CP-1B, CP-1C and CP-1D, by the layer marks in
 `docs/reuse/selected-methods/skills/` (`Layer L1` in the CP-1A, CP-1B, CP-1C and CP-1D skill files;
-`layer`, `L1` in CP-1's system reference). CP-L10 carries the mark and stays deactivated; CP-MODEL
+`layer`, `L1` in CP-1's system reference). CP-L10 carries the mark; the `short_snapshot` pathway stays deactivated, and CP-L10 runs in
+`credit_screening` (see "CP-L10 in the Credit screening pathway, 2026-11-25" above); CP-MODEL
 is not a module. Lite (`lite_credit_assessment`) and Full (`credit_snapshot`) gain CP-1B, CP-1C and
 CP-1D, each on its own selected method as in Deep and the purpose pathways, and Lite gains CP-DR;
 Deep is unchanged and now differs from Full by CP-2H, CP-3D and CP-4C. Order is the registry's
@@ -1047,9 +1094,17 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
   12 hex digits of the file as sent.
 - `shared` rows are sent by section: `CANON_SHARED.md § CP_CONFIDENCE_SCORE.md` to every module
   sent a skill, its reader-layer sections to every prose module, and `CPOS_REGISTER_SCOPE.md
-  § <module>` to the ten modules it names.
-- Registered, not sent: `manifest.json` registers 98 further files that CP-OS does not send (schema
-  and system references, unsent companions, the CP-L10 change-screen skill and others), kept on purpose (owner,
+  § <module>` to the ten modules it names, and `§ CP-L10` to CP-L10 in `credit_screening`.
+- CP-L10 is sent the one page `cpl10.md` in `short_snapshot` (deactivated) and, in `credit_screening` only (owner, 2026-11-25, ruling R12), twelve archived
+  files of the cp-os `cp-l10-financial-change-screen` skill: `SKILL.md`, the five adaptive methods,
+  the lite analysis policy and the five schema references; the files are unedited and the block is trimmed as
+  it is sent, like every module's (see "Trimmed as sent" in the CP-L10 entry). The five `*payload.schema.txt`
+  files are not sent: they are JSON Schema for the JSON payload the Markdown transport overrides, each
+  refers to a base schema that is not in this repository, and what they constrain is restated in the sent
+  `SKILL.md` and schema references. Revision `b57a344` is cp-os HEAD; the files last changed in `a31f3f5`,
+  and each sha256 equals the cp-os file (checked 2026-11-25).
+- Registered, not sent: `manifest.json` registers 86 further files that CP-OS does not send (schema
+  and system references, unsent companions, the five CP-L10 payload schemas and others), kept on purpose (owner,
   2026-11-10: keep a copy of the methodology in the repo). Its `project_files` list registers the three
   sent method files that live outside the archive (`prompts/CP-1.md`, `cpl10.md`, `cp8.md`).
 - Not registered: none. The three unregistered top-level duplicates (`CP-3B_RUNBOOK.md`,
@@ -1073,6 +1128,18 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-1C | `docs/reuse/selected-methods/skills/cp-1c-peer-benchmark/references/REF_CP-1C_STEPS.md` | cp-os | no | not recorded | `fbbed9bac006` |
 | CP-1D | `docs/reuse/selected-methods/skills/cp-1d-earnings-quality/SKILL.md` | cp-os | yes | e67bf0c, 99069f83 | `56b74b7274a9` |
 | CP-L10 | `src/deploy_vii/methods/cpl10.md` | this repo | no | this repo | `8c1eac8940dd` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/SKILL.md` | cp-os | no | b57a344 | `8ebb7d70cd46` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L10_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `0481a8aa4d7a` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L20_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `0d9a308aaa6e` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L23_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `51e2d1bfc4f6` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L30_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `852059fa62c4` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L40_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `f80e3cb4f91c` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L10_CP_LITE_ANALYSIS_POLICY_v1.md` | cp-os | no | b57a344 | `d0db9ea2476d` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L10_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `046bf01ddf46` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L20_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `1252e3a06b18` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L23_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `9a25fee9bd06` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L30_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `5a63b25907de` |
+| CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/CP-L40_SCHEMA_REFERENCE.md` | cp-os | no | b57a344 | `8f36b959e62c` |
 | CP-2 | `docs/reuse/selected-methods/skills/cp-2-fundamental-credit-synthesizer/SKILL.md` | cp-os | yes | b57a344, 99069f83 | `0b419cb292a5` |
 | CP-2 | `docs/reuse/selected-methods/skills/cp-2-fundamental-credit-synthesizer/references/REF_CP-2_STEPS.md` | cp-os | yes | b57a344, 99069f83 | `9200f6b0ab97` |
 | CP-2A | `docs/reuse/selected-methods/skills/cp-2a-downside-pathway/SKILL.md` | cp-os | no | not recorded | `4c23c05eb697` |
@@ -1121,4 +1188,4 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-DR | `docs/reuse/selected-methods/skills/cp-dr-deep-research/references/REF_CP-DR_STEPS.md` | cp-os | yes | b57a344, c746ad67 | `cab435618c7f` |
 | CP-DR | `docs/reuse/selected-methods/skills/cp-os-credit-os/references/CP_DR_RESEARCH_BRIEF_V1.md` | cp-os | no | b57a344 | `5028a6476cdf` |
 | shared | `docs/reuse/selected-methods/CANON_SHARED.md` | cp-os | no | b57a344 | `1ab484c5072a` |
-| shared | `docs/reuse/selected-methods/CPOS_REGISTER_SCOPE.md` | this repo | no | this repo | `0f97542230b3` |
+| shared | `docs/reuse/selected-methods/CPOS_REGISTER_SCOPE.md` | this repo | no | this repo | `207cf04c681d` |

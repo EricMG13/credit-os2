@@ -677,6 +677,21 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
         ),
     ),
     (
+        "credit_screening",
+        "Credit screening",
+        (
+            "Which financial, credit, liquidity, market and legal points matter most, and where "
+            "is a full assessment needed?"
+        ),
+        (
+            "financial-change-screen",
+            "credit-screen",
+            "liquidity-forward-risk-screen",
+            "security-opportunity-screen",
+            "creditor-document-screen",
+        ),
+    ),
+    (
         "short_snapshot",
         "Short Credit Snapshot",
         "What is the credit view on one page, and what would change it?",
@@ -687,7 +702,7 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
 
 def pathways() -> tuple[Pathway, ...]:
     """The Pathway presets: Lite, Full and Deep credit assessments (the run start page offers them
-    in this order), FP 02 to FP 06, then the Short one."""
+    in this order), FP 02 to FP 06, the Credit screening, then the Short one."""
     return tuple(
         Pathway(
             id=pathway_id,
@@ -1462,6 +1477,24 @@ def _strip_note(block_id: str) -> str:
 _SHORT_SNAPSHOT: Mapping[str, _Spec] = MappingProxyType(
     {"key-figures": _Spec("Key figures", "CP-L10", "dense", ("CP-L10",))}
 )
+# The Credit screening's five blocks (owner, 2026-11-25, ruling R12; plan ruling C4): CP-L10's five
+# reader tables, titled with the method's own front-table names. Each is a table of
+# ``Topic | Finding | Materiality | Evidence | Next step`` (the launcher refuses another header).
+_CREDIT_SCREENING: Mapping[str, _Spec] = MappingProxyType(
+    {
+        "financial-change-screen": _Spec("Financial change screen", "CP-L10", "dense", ("CP-L10",)),
+        "credit-screen": _Spec("Credit screen", "CP-L10", "dense", ("CP-L10",)),
+        "liquidity-forward-risk-screen": _Spec(
+            "Liquidity and forward-risk screen", "CP-L10", "dense", ("CP-L10",)
+        ),
+        "security-opportunity-screen": _Spec(
+            "Security opportunity screen", "CP-L10", "dense", ("CP-L10",)
+        ),
+        "creditor-document-screen": _Spec(
+            "Creditor-document screen", "CP-L10", "dense", ("CP-L10",)
+        ),
+    }
+)
 _COMPOSITIONS: tuple[Mapping[str, _Spec], ...] = (
     _CREDIT_SNAPSHOT,
     _EARNINGS_UPDATE,
@@ -1470,6 +1503,7 @@ _COMPOSITIONS: tuple[Mapping[str, _Spec], ...] = (
     _DISTRESSED,
     _EARNINGS_QUALITY,
     _SHORT_SNAPSHOT,
+    _CREDIT_SCREENING,
 )
 
 

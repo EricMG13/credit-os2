@@ -61,7 +61,7 @@ function withoutMarkdown(text: string) {
 }
 
 /** One text block of a handoff: a "name hash" source line as a name with its hash in mono. */
-function HandoffText({ text }: { text: string }) {
+function HandoffText({ text, pathway }: { text: string; pathway?: string | null }) {
   const plain = withoutMarkdown(text);
   const named = LIST_MARKER.test(text) ? NAMED_HASH.exec(plain) : null;
   if (named)
@@ -73,7 +73,7 @@ function HandoffText({ text }: { text: string }) {
     );
   return (
     <p className="whitespace-pre-wrap wrap-anywhere text-text-secondary">
-      {richParts(readerText(plain))}
+      {richParts(readerText(plain, pathway))}
     </p>
   );
 }
@@ -87,10 +87,12 @@ function EvidenceLocation({
   snapshot,
   entry,
   line,
+  pathway,
 }: {
   snapshot: Snapshot;
   entry: OutputEntry;
   line?: number;
+  pathway?: string | null;
 }) {
   if (entry.output.parseError)
     return (
@@ -119,8 +121,8 @@ function EvidenceLocation({
       <section key={section.line} className="grid gap-3 border-t border-border-hairline pt-3">
         <h3 className="font-semibold text-text-primary">
           {section.line === title
-            ? moduleName(entry.output.module)
-            : richParts(readerText(section.heading))}
+            ? moduleName(entry.output.module, pathway)
+            : richParts(readerText(section.heading, pathway))}
         </h3>
         {section.blocks.map((block) => {
           if (block.type === "equity")
@@ -157,7 +159,8 @@ function EvidenceLocation({
                 ]
                   .map((row) => ({
                     line: row.line,
-                    label: readerText(row.cells[0] ?? "") || `Handoff line ${String(row.line)}`,
+                    label:
+                      readerText(row.cells[0] ?? "", pathway) || `Handoff line ${String(row.line)}`,
                     chips: (snapshot.chips[`${entry.output.id}:${String(row.line)}`] ?? []).filter(
                       (chip) =>
                         block.headers.some((header) =>
@@ -189,17 +192,17 @@ function EvidenceLocation({
                   {withoutMarkdown(block.text).trim()}
                 </pre>
               ) : (
-                <HandoffText text={block.text} />
+                <HandoffText text={block.text} pathway={pathway} />
               )}
               {block.type === "table" && basis && (
-                <p className="text-small text-text-secondary">{readerText(basis)}</p>
+                <p className="text-small text-text-secondary">{readerText(basis, pathway)}</p>
               )}
               {block.type === "table" && rowCitations.length > 0 && (
                 <ul className="grid gap-3">
                   {rowCitations.map((row) => (
                     <li key={row.line}>
                       <h4 className="font-medium text-text-primary">
-                        {richParts(row.label, readerText)}
+                        {richParts(row.label, (text) => readerText(text, pathway))}
                       </h4>
                       <ul className="grid gap-2">
                         {row.chips.map((chip, chipIndex) => (
@@ -207,6 +210,7 @@ function EvidenceLocation({
                             key={chipIndex}
                             chip={chip}
                             outputId={entry.output.id}
+                            pathway={pathway}
                           />
                         ))}
                       </ul>
@@ -217,7 +221,12 @@ function EvidenceLocation({
               {block.type !== "table" && chips.length > 0 && (
                 <ul className="grid gap-2">
                   {chips.map((chip, chipIndex) => (
-                    <EvidenceCitation key={chipIndex} chip={chip} outputId={entry.output.id} />
+                    <EvidenceCitation
+                      key={chipIndex}
+                      chip={chip}
+                      outputId={entry.output.id}
+                      pathway={pathway}
+                    />
                   ))}
                 </ul>
               )}
@@ -234,23 +243,25 @@ function EvidenceLocation({
 function EvidenceCitation({
   chip,
   outputId,
+  pathway,
 }: {
   chip: Snapshot["chips"][string][number];
   outputId: string;
+  pathway?: string | null;
 }) {
   const note = sourceCitationNote(chip);
   const pages = citedSourcePages(outputId.split("/")[0] ?? "", chip);
   return (
     <li className="border-t border-border-hairline py-3 text-small text-text-secondary">
       <p className="font-medium wrap-anywhere text-text-primary">
-        {chip.label && readerText(chip.label)}
+        {chip.label && readerText(chip.label, pathway)}
       </p>
       {(chip.file || chip.source) && <p className="wrap-anywhere">{chip.file ?? chip.source}</p>}
       {note && <p>{note}</p>}
       {chip.excerpt && (
         <blockquote
           role="region"
-          aria-label={`Passage from ${chip.label ? readerText(chip.label) : "the cited source"}`}
+          aria-label={`Passage from ${chip.label ? readerText(chip.label, pathway) : "the cited source"}`}
           // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
           tabIndex={0}
           className="mt-1 max-h-60 overflow-y-auto border-l-2 border-border-hairline pl-3 wrap-anywhere"
@@ -406,6 +417,7 @@ function EvidenceNavigation({
   selectedModule,
   checks,
   search,
+  pathway,
   searching,
 }: {
   entries: OutputEntry[];
@@ -413,6 +425,7 @@ function EvidenceNavigation({
   selectedModule?: string;
   checks: ScriptCheckRecord[];
   search: ReactNode;
+  pathway?: string | null;
   /** While a query is typed the matches replace the page, so the tabs and the module filter step aside. */
   searching: boolean;
 }) {
@@ -468,7 +481,7 @@ function EvidenceNavigation({
               ]),
             ].map((id) => (
               <option value={id} key={id}>
-                {moduleName(id)}
+                {moduleName(id, pathway)}
               </option>
             ))}
           </select>
@@ -492,14 +505,14 @@ function EvidenceHandoff({
   return (
     <Tile
       span={12}
-      label={`${moduleName(entry.output.module)} handoff`}
-      title={`${moduleName(entry.output.module)} · ${
+      label={`${moduleName(entry.output.module, run.pathway)} handoff`}
+      title={`${moduleName(entry.output.module, run.pathway)} · ${
         line === undefined ? "Handoff evidence" : `Line ${String(line)}`
       }`}
       kicker={line === undefined ? undefined : "Where the line sits in its handoff."}
       trace={<HandoffDownload run={run} entry={entry} />}
     >
-      <EvidenceLocation snapshot={snapshot} entry={entry} line={line} />
+      <EvidenceLocation snapshot={snapshot} entry={entry} line={line} pathway={run.pathway} />
     </Tile>
   );
 }
@@ -769,6 +782,7 @@ export function ReportEvidence({
         tab={tab}
         selectedModule={selectedModule}
         checks={checks}
+        pathway={run.pathway}
         searching={Boolean(query.trim())}
         search={
           <div className="grid min-w-0 gap-2">
@@ -795,7 +809,7 @@ export function ReportEvidence({
           )}
           {entry && (
             <h3 id="evidence-trace" tabIndex={-1} className="sr-only">
-              {`Trace: ${moduleName(entry.output.module)}${
+              {`Trace: ${moduleName(entry.output.module, run.pathway)}${
                 line === undefined ? ", whole handoff" : `, handoff line ${String(line)}`
               }`}
             </h3>
@@ -831,6 +845,7 @@ export function ReportEvidence({
               entries={entries}
               snapshot={snapshot}
               folder={run.folder}
+              pathway={run.pathway}
               rowTarget={sourceRow}
             />
           )}
@@ -893,7 +908,9 @@ export function ReportEvidence({
             <div className="min-w-0 lg:col-span-12">{comparison}</div>
           )}
           {tab === "Gaps" && <EvidenceGaps run={run} entries={entries} module={module} />}
-          {tab === "Script checks" && <ScriptChecks records={checks} module={module} />}
+          {tab === "Script checks" && (
+            <ScriptChecks records={checks} module={module} pathway={run.pathway} />
+          )}
         </Bento>
       )}
     </div>
