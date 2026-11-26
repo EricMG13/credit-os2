@@ -1840,16 +1840,18 @@ it("counts only the candidates the check left out: no method note, printed passa
   expect(container.textContent).not.toMatch(/Module status|p\. 14|liquidity\.xlsx/);
 });
 
-it("counts a passage the check left out where an earlier-format report chooses one passage", () => {
+it("counts a passage the check left out and a passage shown only in part where an earlier-format report chooses one passage", () => {
   const market = archivedRelativeValuePublication([
     text("Security-selection view", "The price basis is reconciled in marks.xlsx.", 17),
   ]);
   open(market.snapshot, "relative-value");
-  expect(sectionText("Market-implied view")).toContain(oneWithheld);
+  expect(sectionText("Market-implied view")).toContain(
+    "2 passages in this section are not shown in this report.",
+  );
   cleanup();
   const clean = archivedRelativeValuePublication();
-  expect(open(clean.snapshot, "relative-value").container.textContent).not.toMatch(
-    /passages? in this section/,
+  expect(open(clean.snapshot, "relative-value").container.textContent).toContain(
+    "1 passage in this section is not shown in this report.",
   );
   cleanup();
 
