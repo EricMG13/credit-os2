@@ -156,7 +156,7 @@ def test_concurrent_first_open_all_succeed(tmp_path: Path) -> None:
         got = [results.get(timeout=60) for _ in procs]
         for p in procs:
             p.join(30)
-        assert got == ["ok 7"] * 4  # every migration, 1 to 7
+        assert got == ["ok 8"] * 4  # every migration, 1 to 8
 
 
 def test_fts_follows_title_update_and_delete(tmp_path: Path) -> None:
@@ -345,8 +345,8 @@ def test_a_released_version_two_store_is_upgraded_and_records_its_hash(tmp_path)
     db.close()
     open_db(tmp_path).close()
     held = _meta(tmp_path)
-    assert held["schema_version"] == "7"
-    assert held["schema_hash"] == store.scripts_hash(7)
+    assert held["schema_version"] == "8"
+    assert held["schema_hash"] == store.scripts_hash(8)
     reopened = open_db(tmp_path)  # and it opens again as this build's own
     assert reopened.execute("SELECT name FROM users").fetchall()[0][0] == "Mara L"
     reopened.close()
@@ -361,7 +361,7 @@ _OTHER = "was made by another build of Signal whose migrations differ from this 
         ("4", None, f"the store at schema version 4 {_OTHER}"),  # an earlier commit, no hash
         ("5", "0" * 64, f"the store at schema version 5 {_OTHER}"),
         ("3", "made-elsewhere", f"the store at schema version 3 {_OTHER}"),
-        ("8", None, "the store is at schema version 8, later than this build's 7"),
+        ("9", None, "the store is at schema version 9, later than this build's 8"),
     ],
 )
 def test_a_store_another_build_made_is_refused_with_its_remedy(tmp_path, version, recorded, says):

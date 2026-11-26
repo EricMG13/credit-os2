@@ -43,7 +43,7 @@ Left by ericmg13/credit-os2#83 (merged 2026-11-25). Rulings recorded the same da
 |---|---|---|---|
 | 9 | Logging: in the application Signal's log lines have no file and no timestamp. Errors reach only the terminal and information lines are dropped, while its status and refusals say "see the log". Write them to a log a reader can find | This repository | Not started |
 | 10 | Drive hosted Signal in a real browser: feed, groups, threads, digests, settings, issuer pages, the Filings tab, the market card and logos | This repository | Not started |
-| 11 | `tests/test_reporting_currency_proof.py` failed 2 of 5 on main at `51687ad` (reported by the PR 83 session; a browser-marked test CI's fast job does not run). Confirm on current main and fix | This repository | Not checked since |
+| 11 | `tests/test_reporting_currency_proof.py` failed 2 of 5 on main at `51687ad` (reported by the PR 83 session; a browser-marked test CI's fast job does not run). Confirm on current main and fix | This repository | Still failing at `ef005f64` (2026-11-26): the GBP and CHF Forecast-row tests; not in `tests/known-failures.txt` |
 | 12 | Independent review of the parts PR 83 listed as unreviewed: the logo service and the React wiring for issuers, filings, the market post and logos | This repository | Not started |
 | 13 | First live fetch by the hosted loop, and the first paid AI pass, each watched | Work PC, owner present | Not started |
 
@@ -55,6 +55,31 @@ Owner actions before Signal's sources and AI are switched on (none is taken by t
 - AI pass: set the cap with `signal ai cap` (at most USD 25 a month) and start the application
   with `CREDIT_OS_SIGNAL_AI=1`.
 
+## Credit Snapshot workbook
+
+Owner, 2026-11-26: Bloomberg is not installed on this Mac, so cells fed by Bloomberg formulas
+cannot be populated here, and formulas other than arithmetic stay unfilled. The spec
+(`docs/superpowers/specs/2026-11-25-deliverables-credit-snapshot.md`, R4 and R9b) keys the
+Bloomberg-fed cells on each instrument's FIGI, extracted from the RV book; that extraction, of
+the FIGI and the Bloomberg ID, is being built in the Credit Snapshot workbook PR, not yet merged.
+The same formula works with either identifier, so one is enough.
+
+| # | Item | Where it can be done | Status |
+|---|---|---|---|
+| 14 | **Bloomberg formulas in the Credit Snapshot workbook: the Bloomberg-fed cells (R4) filled by formulas keyed on each instrument's FIGI or Bloomberg ID cell** | **Work PC only** | Not started |
+
+## Left by the 2026-11-26 High fixes
+
+Left by ericmg13/credit-os2#114 (H3 CP-3C currency, H6 stated basis points; merged 2026-11-26).
+
+| # | Item | Where it can be done | Status |
+|---|---|---|---|
+| 15 | Write the two `VERIFICATION.md` entries proposed in ericmg13/credit-os2#114's body (H3, and the H6 fidelity check) | This repository, by the coordinator | Not started |
+| 16 | `tests/test_cp2_scorecard.py::test_a_heading_and_a_tag_for_one_register_count_as_two` fails on main at `ef005f64` ("expected a fault") and is not in `tests/known-failures.txt`. Find the cause and fix | This repository | Not started |
+| 17 | Earnings-delta lead (`earningsDeltaData.ts`): a stated change outside the ruled `bp`/`bps`/`basis points` words, such as `+1 basis point`, `+50 bps YoY`, `+50 bps, reported` or `+50 basis pts`, is still drawn in percentage points, 100 times the change. Widening the words needs an owner ruling | Owner decision, then this repository | Decision needed |
+| 18 | CP-3C: a currency code in lower or mixed case on a due T3D.2 row (`eur`) is unread by `currency_of`, so it counts as foreign and `Maturities due` is not checked while `Funding gap` agrees. Decide whether `currency_of` should read such codes | Owner decision, then this repository | Decision needed |
+| 19 | Small test and code tidy-ups from PR 114: the earnings-delta render test asserts with `toContain` rather than exact text; `digits.replaceAll(",", "")` is repeated four times in the `AMOUNT` branch | This repository | Not started |
+
 ## Copilot context, after the 1M change
 
 Left by the reviews of branch `claude/copilot-1m-context-795226` (2026-11-26). All predate that
@@ -62,8 +87,8 @@ change or fall outside it.
 
 | # | Item | Where it can be done | Status |
 |---|---|---|---|
-| 14 | Opus prompt estimate: the adapter's 3.85 bytes per token is calibrated on GPT Sol; the pilot measured Opus at 2.39–2.55 (`cases/pilot-fixes/limits.json`), so Opus prompts are understated by about 1.6x and the guard can pass one the runtime then refuses after sending | This repository | Not started |
-| 16 | Reader run: it adds each charge but never compares it with the call's hold (`owners/cpos_reader_run.py:136`), so an overrun is not stopped there | This repository | Not started |
+| 20 | Opus prompt estimate: the adapter's 3.85 bytes per token is calibrated on GPT Sol; the pilot measured Opus at 2.39–2.55 (`cases/pilot-fixes/limits.json`), so Opus prompts are understated by about 1.6x and the guard can pass one the runtime then refuses after sending | This repository | Not started |
+| 21 | Reader run: it adds each charge but never compares it with the call's hold (`owners/cpos_reader_run.py:136`), so an overrun is not stopped there | This repository | Not started |
 
 ## Open decisions
 
