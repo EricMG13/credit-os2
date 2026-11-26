@@ -469,7 +469,7 @@ def _handler(
 
         def _get(self, url: SplitResult) -> None:
             path = url.path
-            if path in {"/library", "/library/", "/library/index.html", "/library.html"}:
+            if path in auth_gate.LIBRARY_PATHS:
                 raise http_base.Reply(308, b"", {"Location": "/"})
             if _app_page(path, signal=signal is not None):
                 raise http_base.Reply(
@@ -520,6 +520,8 @@ def _accounts_folder(
         raise ValueError("sign-in is for the live application only")
     if accounts_dir is None:
         raise ValueError("sign-in needs the account store's folder")
+    if not accounts_dir.is_absolute():  # before resolving: the store's own refusal, first
+        raise account_store.StoreError(account_store.RELATIVE_FOLDER)
     folder = accounts_dir.resolve()
     if folder.is_relative_to(root.resolve()):
         raise ValueError("the account store's folder must not be inside the shared folder")

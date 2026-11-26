@@ -35,6 +35,8 @@ _MAX_TAG = 40
 # The placeholder slice 4 shows for comments made before accounts: never given to a person.
 RESERVED_DISPLAY_NAMES = frozenset({"before accounts"})
 
+RELATIVE_FOLDER = "the account store's folder must be an absolute path"
+
 
 class StoreError(ValueError):
     """The store or a request to it is not usable."""
@@ -286,7 +288,7 @@ def open_db(folder: Path) -> sqlite3.Connection:
     migrations did not make. On Windows the folder must be inside the user's %LOCALAPPDATA%; on
     Linux a POSIX ACL on the folder or file is refused. macOS ACLs are not checked."""
     if not folder.is_absolute():
-        raise StoreError("the account store's folder must be an absolute path")
+        raise StoreError(RELATIVE_FOLDER)
     if _IS_WINDOWS:
         _check_windows_folder(folder)
     _create_folder(folder)

@@ -344,3 +344,56 @@ def test_serve_passes_the_switch_through(
         react_frontend.serve(root, web=web, sign_in=True, accounts_dir=accounts_dir)
     assert seen["sign_in"] is True
     assert seen["accounts_dir"] == accounts_dir
+
+
+# fix round 1 -----------------------------------------------------------------------------------
+
+
+def _two_tokens(accounts_dir: Path) -> tuple[str, str]:
+    first = mint(accounts_dir)
+    db = store.open_db(accounts_dir)
+    try:
+        return first, sessions.mint_session(db, 1, now=datetime.now(UTC))
+    finally:
+        db.close()
+
+
+def test_every_repeat_of_the_cookie_name_is_no_session(
+    root: Path, web: Path, accounts_dir: Path
+) -> None:
+    with serving(root, web, sign_in=True, accounts_dir=accounts_dir) as server:
+        a, b = _two_tokens(accounts_dir)
+        assert a != b
+        for header in (
+            f"credit_os_session={a} credit_os_session={b}",
+            f"credit_os_session={a}\tcredit_os_session={b}",
+            f"x=1 credit_os_session={a}; credit_os_session={b}",
+            f"foo=credit_os_session; credit_os_session={a}",  # fails closed by design
+        ):
+            _assert_signed_out(server, [header])
+        status, body, _ = send(server, "/auth/me", cookies=[f"a=1; credit_os_session={a}"])
+        assert (status, json.loads(body)) == (200, ME)
+
+
+def test_a_relative_folder_is_refused_first(
+    root: Path, web: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, no_scheduler: None
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _refused(
+        root,
+        web,
+        store.StoreError,
+        "the account store's folder must be an absolute path",
+        sign_in=True,
+        accounts_dir=Path("rel-accounts"),
+    )
+    assert not (tmp_path / "rel-accounts").exists()
+
+
+def test_the_sign_in_meta_follows_the_mode_meta(root: Path, web: Path, accounts_dir: Path) -> None:
+    with serving(root, web, sign_in=True, accounts_dir=accounts_dir) as server:
+        token = mint(accounts_dir)
+        page = send(server, "/", cookies=cookie(token))[1]
+    mode = page.index(b'<meta name="credit-os-mode" content="live">')
+    sign_in = page.index(b'<meta name="credit-os-sign-in" content="on">')
+    assert mode < sign_in
