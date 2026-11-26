@@ -196,6 +196,11 @@ describe("the picker's design", () => {
       /Validates the evidence trace.*Needs first.*Added: Needed by Committee decision\./,
     );
     expect(box("Source readiness")).toHaveAccessibleDescription(/Always in: Every run needs/);
+    // The attributes name no module: an id or a reference built from a code would.
+    for (const node of picker().querySelectorAll("[id], [aria-describedby]"))
+      expect(`${node.id} ${node.getAttribute("aria-describedby") ?? ""}`).not.toMatch(
+        /CP-[0-9A-Z]/,
+      );
   });
 
   it("explains the hold in plain words", async () => {

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Button } from "@/components/base/buttons/button";
 import { moduleName } from "../api";
 import { Figure } from "../report/overview/Tile";
@@ -25,6 +26,7 @@ const CAPTION =
  * the choice; the sum, the hold and the cap follow it.
  */
 export function CustomPicker({ view }: { view: IntakeView }) {
+  const prefix = useId();
   const done = complete(view.modules);
   const effort = customEffort(view.effort);
   const ceiling = Number(view.caps[NAME]);
@@ -68,11 +70,13 @@ export function CustomPicker({ view }: { view: IntakeView }) {
         </p>
       )}
       <ul className="grid gap-2 lg:grid-cols-2">
-        {OFFERED.map((module) => {
+        {OFFERED.map((module, at) => {
           const reason = done.reasons[module.id];
           const row = figureOf(module.id);
           const chosen = done.modules.includes(module.id);
-          const ids = ["answers", "needs", "reason"].map((part) => `${module.id}-${part}`);
+          const ids = ["answers", "needs", "reason"].map(
+            (part) => `${prefix}-${String(at)}-${part}`,
+          );
           const needs = module.required.map((id) => moduleName(id, NAME));
           return (
             <li
