@@ -25,6 +25,7 @@ from hypothesis import strategies as st
 
 from deploy_vii.context import load_context
 from deploy_vii.inputs import portfolio_export as pe
+from deploy_workflow import credit_os_chips as chips
 from deploy_workflow import credit_snapshot as snap
 from deploy_workflow import library_index
 from deploy_workflow import recommendation as rec
@@ -1695,3 +1696,136 @@ def test_a_reference_name_with_a_control_character_is_the_gap_text_and_is_logged
     names = [view.name for view in snapshot.references]
     assert snap.CONTROL_CHARACTER in names and not any(snap.ILLEGAL.search(n) for n in names)
     assert "its name holds a control character" in caplog.text
+
+
+# --- Reader text (PM-2): the literal cases of the web port's tests --------------------------------
+# Copied as literals from web/src/pages/connected/moduleCodes.cases.json ("reader" cases) and
+# readerText.lowercase.test.ts / readerText.creditScreening.test.ts.
+
+READER_CASES = [
+    (
+        "CP-1 does not state a single canonical figure.",
+        "Financial foundation does not state a single canonical figure.",
+    ),
+    (
+        "Blocked interface only: CP-2A is explicitly blocked.",
+        "Blocked interface only: Downside is explicitly blocked.",
+    ),
+    ("CP-2A: covenant headroom restated", "Downside: covenant headroom restated"),
+    (
+        "The classifier clears CP-3 and CP-3D.",
+        "The classifier clears Security selection and Market-implied risk.",
+    ),
+    (
+        "Financial foundation (CP-1) reports leverage of 5.2x.",
+        "Financial foundation reports leverage of 5.2x.",
+    ),
+    (
+        "Leverage is 5.2x (FY2024) and 4.8x pro forma; USD 1,250.0 million.",
+        "Leverage is 5.2x (FY2024) and 4.8x pro forma; USD 1,250.0 million.",
+    ),
+    ("See CP-2E-GAP-001 for the hedge gap.", "See CP-2E-GAP-001 for the hedge gap."),
+    (
+        "Read from outputs/CP-1.md and CP-1-tables.md.",
+        "Read from outputs/CP-1.md and CP-1-tables.md.",
+    ),
+    ("Deck (CP-1) Q3.pdf", "Deck (CP-1) Q3.pdf"),
+    (
+        "CP-2G-forecast-block.md is the forecast block.",
+        "CP-2G-forecast-block.md is the forecast block.",
+    ),
+    ("CP-99 is not scheduled.", "CP-99 is not scheduled."),
+    ("XCP-1 and CP-1x are not module codes.", "XCP-1 and CP-1x are not module codes."),
+    ("Read by CP-1/CP-2.", "Read by Financial foundation/Fundamental credit."),
+    ("See CP-2A/notes.md for the working.", "See CP-2A/notes.md for the working."),
+    ("outputs/CP-1 holds the tables.", "outputs/CP-1 holds the tables."),
+    ("The TDG-CP-1 pack is stored.", "The TDG-CP-1 pack is stored."),
+    ("archive.CP-1 is a folder name.", "archive.CP-1 is a folder name."),
+    ("CP-1's leverage is 5.2x.", "Financial foundation's leverage is 5.2x."),
+    ("The haircut (CP-3) holds.", "The haircut (Security selection) holds."),
+    (
+        "Security selection (CP-3) and the haircut (CP-3) agree.",
+        "Security selection and the haircut (Security selection) agree.",
+    ),
+    ("Downside (CP-2A) closed it.", "Downside closed it."),
+    ("business & governance (CP-1A) is unchanged.", "business & governance is unchanged."),
+    ("Checked twice (CP-99) today.", "Checked twice (CP-99) today."),
+    (
+        "Leverage of 5.2x (CP-1) and 4.8x (CP-2).",
+        "Leverage of 5.2x (Financial foundation) and 4.8x (Fundamental credit).",
+    ),
+    (
+        "Financial data foundation (CP-1) reports leverage of 5.2x.",
+        "Financial data foundation (Financial foundation) reports leverage of 5.2x.",
+    ),
+]
+LOWERCASE_CASES = [
+    (
+        "cp-1 does not state a single canonical figure.",
+        "Financial foundation does not state a single canonical figure.",
+    ),
+    (
+        "Blocked interface only: cp-2a is explicitly blocked.",
+        "Blocked interface only: Downside is explicitly blocked.",
+    ),
+    ("cp-2a: covenant headroom restated", "Downside: covenant headroom restated"),
+    (
+        "The classifier clears cp-3 and cp-3d.",
+        "The classifier clears Security selection and Market-implied risk.",
+    ),
+    ("cp-1's leverage is 5.2x.", "Financial foundation's leverage is 5.2x."),
+    ("Read by cp-1/cp-2.", "Read by Financial foundation/Fundamental credit."),
+    (
+        "Financial foundation (cp-1) reports leverage of 5.2x.",
+        "Financial foundation reports leverage of 5.2x.",
+    ),
+    ("The haircut (cp-3) holds.", "The haircut (Security selection) holds."),
+    (
+        "Leverage of 5.2x (cp-1) and 4.8x (cp-2).",
+        "Leverage of 5.2x (Financial foundation) and 4.8x (Fundamental credit).",
+    ),
+    ("cp-99 is not scheduled.", "cp-99 is not scheduled."),
+    ("Checked twice (cp-99) today.", "Checked twice (cp-99) today."),
+    ("xcp-1 and cp-1x are not module codes.", "xcp-1 and cp-1x are not module codes."),
+    (
+        "Read from outputs/cp-1.md and cp-1-tables.md.",
+        "Read from outputs/cp-1.md and cp-1-tables.md.",
+    ),
+    ("Deck (cp-1) Q3.pdf", "Deck (cp-1) Q3.pdf"),
+    (
+        "cp-2g-forecast-block.md is the forecast block.",
+        "cp-2g-forecast-block.md is the forecast block.",
+    ),
+    ("See cp-2a/notes.md for the working.", "See cp-2a/notes.md for the working."),
+    ("outputs/cp-1 holds the tables.", "outputs/cp-1 holds the tables."),
+    ("The tdg-cp-1 pack is stored.", "The tdg-cp-1 pack is stored."),
+    ("archive.cp-1 is a folder name.", "archive.cp-1 is a folder name."),
+    ("See cp-2e-gap-001 for the hedge gap.", "See cp-2e-gap-001 for the hedge gap."),
+]
+CREDIT_SCREENING_CASES = [
+    ("CP-L10 found no gap.", "credit_screening", "Credit screening found no gap."),
+    (
+        "See CP-L10 and CP-1.",
+        "credit_screening",
+        "See Credit screening and Financial foundation.",
+    ),
+    ("CP-L10 found no gap.", None, "Short credit snapshot found no gap."),
+    ("CP-L10 found no gap.", "lite_credit_assessment", "Short credit snapshot found no gap."),
+]
+
+
+@pytest.mark.parametrize(("text", "expected"), READER_CASES + LOWERCASE_CASES)
+def test_reader_text_matches_the_web_ports_literal_cases(text, expected):
+    assert snap.reader_text(text, chips.module_names(None)) == expected
+
+
+@pytest.mark.parametrize(("text", "pathway", "expected"), CREDIT_SCREENING_CASES)
+def test_reader_text_names_cp_l10_by_the_runs_pathway(text, pathway, expected):
+    assert snap.reader_text(text, chips.module_names(pathway)) == expected
+
+
+@pytest.mark.parametrize("code", sorted(snap.UNNAMED_CODES - set(chips.MODULE_NAMES)))
+def test_a_module_code_with_no_reader_name_reads_as_unnamed(code):
+    assert snap.reader_text(f"{code} reads it.", chips.module_names(None)) == (
+        "Unnamed module reads it."
+    )

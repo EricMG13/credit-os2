@@ -616,3 +616,57 @@ def test_put_returns_the_address_of_the_cell_it_wrote(full):
     spec = writer._Put("Header", "Title", "Value", snap.COPIED, "Northbridge", writer.LABEL)
     assert page.put(3, 2, 1, spec) == "B3"
     assert book.workbook.active["B3"].value == "Northbridge"
+
+
+# --- Module codes in copied text (PM-2) -----------------------------------------------------------
+
+CODE_EDITS = {
+    "CP-1A": (
+        "| Refinancing of the 2027 term loan | Proposed | Extends the maturity wall to 2031. |",
+        (
+            "| Refinancing of the 2027 term loan | Proposed | Extends the maturity wall to 2031, "
+            "as the debt schedule of Financial foundation (CP-1) shows. |"
+        ),
+    ),
+    "CP-2": (
+        "| Signals a debt-funded step up in borrowing. |",
+        (
+            "| Signals a debt-funded step up in borrowing (NBG_annual_2025.pdf, page 60); CP-2A "
+            "restates it. |"
+        ),
+    ),
+}
+
+
+def test_a_module_code_in_copied_text_reads_as_the_modules_name_and_sources_keeps_the_text(
+    tmp_path,
+):
+    handoffs = dict(cs.CASES["full"].handoffs)
+    for module, (old, new) in CODE_EDITS.items():
+        text = handoffs[module].read_text(encoding="utf-8")
+        assert old in text
+        handoffs[module] = tmp_path / f"{module}.md"
+        handoffs[module].write_text(text.replace(old, new, 1), encoding="utf-8")
+    built = cs.build_case(tmp_path / "ws", replace(cs.CASES["full"], handoffs=handoffs))
+    shown = load_workbook(
+        io.BytesIO(
+            writer.workbook_bytes(snap.gather(snap.load_run(built.folder, built.stores.both())))
+        )
+    )
+    values = {
+        cell.value
+        for name in THREE
+        for row in shown[name].iter_rows()
+        for cell in row
+        if isinstance(cell.value, str)
+    }
+    event = CODE_EDITS["CP-1A"][1].split("|")[3].strip()
+    driver = CODE_EDITS["CP-2"][1].strip(" |")
+    assert event.replace(" (CP-1)", "") in values
+    assert (
+        "Signals a debt-funded step up in borrowing (NBG_annual_2025.pdf, page 60); "
+        "Downside restates it." in values
+    )
+    assert not [v for v in values if "CP-" in v]
+    written = {r["Handoff text"] for r in sources(shown) if r["Column"] == "As written"}
+    assert {event, driver} <= written

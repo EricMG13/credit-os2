@@ -47,6 +47,7 @@ from typing import Literal
 
 from deploy_vii.context import ContextRefused, RunContext, load_context
 from deploy_vii.inputs import portfolio_export as pe
+from deploy_workflow import credit_os_chips as chips
 from deploy_workflow import handoff_delivery as hd
 from deploy_workflow import library_index as li
 from deploy_workflow import recommendation as rec
@@ -130,6 +131,61 @@ def figure(text: str) -> Figure | None:
     return Figure(
         value, ("#,##0" if "," in text else "0") + (f".{'0' * len(fraction)}" if point else "")
     )
+
+
+# --- Reader text ---------------------------------------------------------------------------------
+
+# A port of `readerText` (web/src/pages/connected/publishedReport.ts, ruling PM-b): the findings
+# pages' rule for a module code in module-written text. Its literal cases are held in
+# tests/test_credit_snapshot.py. File names and page locators stay as written.
+UNNAMED_MODULE = "Unnamed module"
+# The methodology's module codes that have no reader name (web/src/pages/connected/api.ts
+# `UNNAMED_CODES`): drawn as `UNNAMED_MODULE`, never as the code.
+UNNAMED_CODES = frozenset(
+    {*("CP-MEMO", "CP-OS", "CP-PARSE", "CP-1E", "CP-2B", "CP-2C", "CP-2F", "CP-3A", "CP-3B")}
+    | {*("CP-4A", "CP-4B", "CP-4D", "CP-5A", "CP-6A", "CP-L20", "CP-L23", "CP-L30", "CP-L40")}
+)
+_FLAGS = re.IGNORECASE | re.ASCII
+_FILE_EXTENSIONS = "jsonl?|x?html?|xml|pdf|docx?|xlsx?|xlsm|csv|tsv|pptx?|txt|md|zip"
+# A file name ahead before the next ";", ",", "|" or line end: the code belongs to a stored name.
+_FILE_AHEAD = re.compile(rf"[^;,|\n]*\.(?:{_FILE_EXTENSIONS})\b", _FLAGS)
+# A standalone run of module codes ("CP-1" or "CP-1/CP-2"): nothing path-like or word-like touches it.
+_STANDALONE_CODES = re.compile(
+    r"(?<![\w\-\\/.])CP-[A-Z0-9]+(?:/CP-[A-Z0-9]+)*(?![\w\-\\/])(?!\.[A-Za-z])", _FLAGS
+)
+_BRACKETED_CODE = re.compile(r" \((CP-[A-Za-z0-9]+)\)", _FLAGS)
+_CODE = re.compile(r"CP-[A-Z0-9]+", _FLAGS)
+
+
+def _name_of_code(code: str, names: Mapping[str, str]) -> str:
+    upper = code.upper()
+    return names.get(upper) or (UNNAMED_MODULE if upper in UNNAMED_CODES else code)
+
+
+def reader_text(text: str, names: Mapping[str, str]) -> str:
+    """Module-written text as the reader pages draw it. A " (CP-x)" right after that module's own
+    name is dropped; after any other words it becomes " (<module name>)" (an unknown code stays);
+    then each standalone known code becomes the module's name. A code inside a stored file name
+    stays; a lower-case code reads as the upper-case one. `names` is
+    `credit_os_chips.module_names(pathway)`."""
+
+    def bracketed(found: re.Match[str]) -> str:
+        name = _name_of_code(found[1], names)
+        if name == found[1] or _FILE_AHEAD.match(text[found.end() :]):
+            return found[0]
+        return "" if text[: found.start()].lower().endswith(name.lower()) else f" ({name})"
+
+    first = _BRACKETED_CODE.sub(bracketed, text)
+
+    def standalone(found: re.Match[str]) -> str:
+        run, at = found[0], found.start()
+        after = first[found.end() : found.end() + 1]
+        kept = first[:at].endswith(" (") and after == ")"
+        if kept and _FILE_AHEAD.match(first[found.end() + 1 :]):
+            return run
+        return _CODE.sub(lambda code: _name_of_code(code[0], names), run)
+
+    return _STANDALONE_CODES.sub(standalone, first)
 
 
 # --- The data model -----------------------------------------------------------------------------
@@ -447,6 +503,7 @@ def _doc(module: str, raw: bytes) -> _Doc:
 class _Maker:
     sheet: str
     block: str
+    names: Mapping[str, str]  # module names of the run's pathway, for the reader text
 
     def _cell(
         self, row: str, column: str, kind: str, text: str, at: _At | None = None
@@ -468,9 +525,15 @@ class _Maker:
     def copied(
         self, at: _At, row: str, column: str, text: str, basis: str | None = None
     ) -> SnapshotCell:
-        """The handoff's cell; a blank one is a gap (still located), never a blank copy."""
+        """The handoff's cell; a blank one is a gap (still located), never a blank copy. Text that
+        names a module by its code is drawn with the module's name (ruling PM-b): the cell is then
+        computed and `written` keeps the exact text for Sources."""
         if not text.strip():
             return self._cell(row, column, GAP, NOT_IN_HANDOFF, at)
+        shown = reader_text(text, self.names)
+        if shown != text:
+            cell = self._cell(row, column, COMPUTED, shown, at)
+            return replace(cell, basis=basis, written=text if cell.kind == COMPUTED else None)
         return replace(self._cell(row, column, COPIED, text, at), basis=basis)
 
     def gap(self, row: str, column: str, text: str) -> SnapshotCell:
@@ -658,7 +721,7 @@ _GAP_AT = {"Credit Score": ("Credit Score", "Value")}
 
 
 def _block(run: _Run, sheet: str, name: str, build: Builder) -> Block:
-    maker = _Maker(sheet, name)
+    maker = _Maker(sheet, name, chips.module_names(run.run.pathway))
     row, column = _GAP_AT.get(name, ("Gap", "Text"))
     try:
         cells = build(run, maker)
