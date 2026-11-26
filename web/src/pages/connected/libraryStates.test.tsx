@@ -78,10 +78,10 @@ describe.each([
     expect(root.querySelector("svg")).not.toBeNull();
     expect(within(root).getByText(/Reports appear here after they’re published/)).toBeVisible();
     expect(screen.getAllByRole("link", { name: "Start a run" })).toHaveLength(1);
-    expect(within(root).getByRole("link", { name: "Start a run" })).toHaveAttribute(
-      "href",
-      "/start",
-    );
+    const start = within(root).getByRole("link", { name: "Start a run" });
+    expect(start).toHaveAttribute("href", "/start");
+    // The one action on the page is the primary button, not an outline.
+    expect(start.className).toContain("bg-brand-solid");
   });
 
   it("offers no filter or layout control, because there is nothing to filter", async () => {
@@ -105,6 +105,10 @@ describe("a library with a report", () => {
     expect(screen.getByRole("searchbox", { name: "Search issuers" })).toBeVisible();
     expect(screen.queryByRole("radio")).toBeNull();
     expect(screen.queryByRole("heading", { name: "No reports yet" })).toBeNull();
+    // Why no decision is drawn is said once for the list, not in each row.
+    expect(screen.getAllByText(/committee decision only with a recorded clearance/)).toHaveLength(
+      1,
+    );
   });
 
   it("keeps an unavailable saved filter explicit and clears back to an unfiltered library", async () => {

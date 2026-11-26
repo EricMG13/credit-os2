@@ -279,7 +279,7 @@ describe("PathChart chart side", () => {
 describe("PathChart table side", () => {
   it("switches to the mock's table strings, n.a. for the missing period", () => {
     renderCover();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const row = screen.getByRole("row", { name: /Base case/ });
     expect(
       within(row)
@@ -290,7 +290,7 @@ describe("PathChart table side", () => {
 
   it("shows the EBITDA by case strings", () => {
     renderEbitda();
-    fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+    fireEvent.click(screen.getByRole("button", { name: "Table" }));
     const row = screen.getByRole("row", { name: /Downside case/ });
     expect(
       within(row)

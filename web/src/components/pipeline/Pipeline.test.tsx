@@ -41,7 +41,8 @@ const nodes = (count: number, state: PipelineNode["state"] = "delivered"): Pipel
 it("draws the stages as a named list of lists with the count beside, not apart from, the name", () => {
   render(<Pipeline label="Modules in this run" stages={stages} />);
   const list = screen.getByRole("list", { name: "Modules in this run" });
-  const headings = within(list).getAllByRole("heading", { level: 3 });
+  // One level below a tile titled with an h3: the stage names are not the tile's peers.
+  const headings = within(list).getAllByRole("heading", { level: 4 });
   expect(headings.map((heading) => heading.textContent)).toEqual([
     "Sources1",
     "Financials2",
@@ -55,15 +56,15 @@ it("draws the stages as a named list of lists with the count beside, not apart f
 });
 
 it("takes the stage heading level from its caller", () => {
-  render(<Pipeline label="Stages" stages={stages} stageLevel={4} />);
-  expect(screen.getAllByRole("heading", { level: 4 })).toHaveLength(5);
-  expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
+  render(<Pipeline label="Stages" stages={stages} stageLevel={3} />);
+  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  expect(screen.queryAllByRole("heading", { level: 4 })).toHaveLength(0);
 });
 
 it("omits a stage with no nodes", () => {
   render(<Pipeline label="Stages" stages={[{ name: "Financials", nodes: [] }, ...stages]} />);
   expect(screen.queryByText("Financials0")).toBeNull();
-  expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  expect(screen.getAllByRole("heading", { level: 4 })).toHaveLength(5);
 });
 
 it("states each node's state in words, never by colour alone", () => {
@@ -212,19 +213,32 @@ it("draws no moving segment for a running node that sits on the trunk itself", (
   expect(document.querySelectorAll(".pipeline-flow")).toHaveLength(1);
 });
 
-it("keeps a stage of five nodes in one column, and splits one of six", () => {
-  const sub = (count: number) => {
-    cleanup();
-    render(<Pipeline label="Stages" stages={[{ name: "Credit", nodes: nodes(count) }]} />);
-    return new Set(
-      screen
-        .getAllByRole("listitem")
-        .filter((li) => li.hasAttribute("data-sub"))
-        .map((li) => li.getAttribute("data-sub")),
-    );
-  };
-  expect(sub(5)).toEqual(new Set(["S"]));
-  expect(sub(6)).toEqual(new Set(["A", "B"]));
+it("keeps every stage in one column on one rhythm, however many nodes it has", () => {
+  render(<Pipeline label="Stages" stages={[{ name: "Credit", nodes: nodes(8) }]} />);
+  const items = screen.getAllByRole("listitem").filter((li) => li.style.getPropertyValue("--top"));
+  // No second sub-column and no half-row offset: each node is one 48px pitch under the last.
+  expect(items.map((li) => li.style.getPropertyValue("--top"))).toEqual(
+    Array.from({ length: 8 }, (_, i) => `${String(i * 48)}px`),
+  );
+  for (const li of items) {
+    expect(li).not.toHaveAttribute("data-sub");
+    expect(li).toHaveClass("lg:left-0", "lg:w-full");
+  }
+});
+
+it("gives every stage an equal column, whatever its node count", () => {
+  render(
+    <Pipeline
+      label="Stages"
+      stages={[
+        { name: "A", nodes: nodes(8).map((node) => ({ ...node, name: `Longer ${node.name}` })) },
+        { name: "B", nodes: [{ id: "x", name: "A longer module name", state: "queued" }] },
+      ]}
+    />,
+  );
+  expect(screen.getByRole("list", { name: "Stages" }).style.getPropertyValue("--cols")).toBe(
+    "minmax(0,1fr) minmax(0,1fr)",
+  );
 });
 
 it("draws every edge as a solid line, with the flow laid over it rather than replacing it", () => {
@@ -319,7 +333,7 @@ it("makes only the blocked node taller in a one-column stage, so its word fits",
   ]);
 });
 
-it("keeps every node of a two-column stage 40px, marking a blocked one instead of drawing its word", () => {
+it("draws a blocked node's word in a long stage too, not only in its key", () => {
   render(
     <Pipeline
       label="Stages"
@@ -332,19 +346,65 @@ it("keeps every node of a two-column stage 40px, marking a blocked one instead o
     />,
   );
   const blocked = nodeOf("Legal & covenants");
-  expect(blocked.style.getPropertyValue("--nh")).toBe("40px");
+  expect(blocked.style.getPropertyValue("--nh")).toBe("60px");
   expect(blocked.querySelector("[data-node]")).toHaveClass("border-dashed", "border-warning-mark");
-  // The word is still read aloud and keyed, not drawn inside the small node.
-  expect(
-    within(blocked).getByText("Not assessable").closest('[class*="lg:sr-only"]'),
-  ).not.toBeNull();
-  expect(
-    within(screen.getByRole("list", { name: "Pipeline key" })).getByText("Not assessable"),
-  ).toBeVisible();
+  expect(within(blocked).getByText("Not assessable").closest('[class*="sr-only"]')).toBeNull();
 });
 
-it("keeps the corner mark clear of the node's name", () => {
+it("keeps the state mark inside the node, beside its name, clear of every edge", () => {
   render(<Pipeline label="Stages" stages={stages} />);
-  const corner = nodeOf("Source readiness").querySelector('[class*="lg:-right-2"]');
-  expect(corner).not.toBeNull();
+  const name = within(nodeOf("Source readiness")).getByText("Source readiness");
+  const mark = name.parentElement?.querySelector("svg");
+  expect(mark).not.toBeNull();
+  // In the name's own row, not hung off the node's corner where it met the bus and the well.
+  expect(
+    nodeOf("Source readiness").querySelector('[class*="-right-2"], [class*="-top-1.5"]'),
+  ).toBeNull();
+});
+
+it("marks the module a failed run stopped at in the failure tone, with its word drawn", () => {
+  render(
+    <Pipeline
+      label="Stages"
+      stages={[
+        { name: "Sources", nodes: [{ id: "a", name: "Source readiness", state: "delivered" }] },
+        {
+          name: "Credit",
+          nodes: [
+            {
+              id: "b",
+              name: "Fundamental credit",
+              state: "blocked",
+              word: "Not assessable",
+              stopped: true,
+            },
+            { id: "c", name: "Downside", state: "failed", word: "Interrupted" },
+          ],
+        },
+      ]}
+    />,
+  );
+  const stopped = nodeOf("Fundamental credit");
+  expect(stopped.querySelector("[data-node]")).toHaveClass("border-error-mark", "bg-error-fill");
+  expect(stopped.querySelector("[data-node]")).not.toHaveClass("border-warning-mark");
+  expect(within(stopped).getByText("Not assessable")).toHaveClass("text-error-text");
+  // The module that was merely in flight keeps the warning outline: the two are told apart.
+  expect(nodeOf("Downside").querySelector("[data-node]")).toHaveClass("border-warning-mark");
+});
+
+it("shows a running module as live without motion: a doubled accent outline and a heavier path in", () => {
+  render(<Pipeline label="Stages" stages={inFlight(["CP-2"], ["CP-0", "CP-1"])} flow="running" />);
+  const running = nodeOf("CP-2");
+  expect(running.querySelector("[data-node]")).toHaveClass(
+    "border-action",
+    "ring-1",
+    "ring-action",
+  );
+  const path = running.querySelector("[data-edge='running']");
+  expect(path).toHaveClass("h-0.5", "pipeline-flow");
+  expect(document.querySelector("[data-for='CP-2']")).toHaveClass("w-0.5");
+  // The pulse is on the running mark only; a finished or queued mark is still.
+  expect(running.querySelector(".status-halo")).not.toBeNull();
+  expect(nodeOf("CP-0").querySelector(".status-halo")).toBeNull();
+  expect(nodeOf("CP-3").querySelector(".status-halo")).toBeNull();
 });

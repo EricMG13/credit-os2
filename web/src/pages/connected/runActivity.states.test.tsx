@@ -180,7 +180,7 @@ describe("the lists of waiting and ended runs", () => {
   it("preserves a reader's focus outside the lists across a poll", async () => {
     serve(ok(list([live({ status: "queued" })])), ok(list([live()])));
     await open();
-    const start = screen.getByRole("link", { name: "Start a run" });
+    const start = screen.getByRole("link", { name: "Start run" });
     act(() => {
       start.focus();
     });
@@ -199,7 +199,7 @@ describe("the lists of waiting and ended runs", () => {
       row.focus();
     });
     await wait(5000);
-    const start = screen.getByRole("link", { name: "Start a run" });
+    const start = screen.getByRole("link", { name: "Start run" });
     act(() => {
       start.focus();
     });

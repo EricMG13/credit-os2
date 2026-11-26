@@ -146,7 +146,8 @@ export function RunningRow({ run }: { run: LiveRun }) {
 export function WaitingRow({ run, held }: { run: LiveRun; held: string }) {
   const lines = texts(
     texts(run.submitted_by && `submitted by ${run.submitted_by}`, fileCount(run)).join(" · "),
-    ...notes(run),
+    // The list states the service's held reason once, above its rows: a row repeats only its own.
+    ...notes(run).filter((note) => !held || note !== serviceText(held)),
     !run.reason && !held && "Waiting for an available run slot.",
   );
   return (

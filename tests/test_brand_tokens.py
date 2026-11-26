@@ -18,8 +18,8 @@ TOKENS = {
     "rb-ink": "#000533",
     "rb-ink-2": "#383B3F",
     "rb-ink-3": "#63676E",
-    "rb-pos": "#0F8048",
-    "rb-pos-tint": "#E8FFF4",
+    "rb-pos": "#1E40AF",  # design-system.md Status, Success, Text
+    "rb-pos-tint": "#EFF6FF",  # Status, Success, Fill
     "rb-caut": "#806300",
     "rb-caut-tint": "#FFF4CC",
     "rb-neg": "#8E413E",
@@ -27,12 +27,12 @@ TOKENS = {
     "rb-neu": "#474A4F",
     "rb-neu-tint": "#F4F4F5",
     "rb-ch-1": "#001AFF",
-    "rb-ch-2": "#1EFF8F",
+    "rb-ch-2": "#341B55",  # Chart palette, slot 2
     "rb-ch-3": "#EAFF00",
     "rb-ch-4": "#A29AFF",
     "rb-ch-5": "#256A80",
     "rb-ch-1-ln": "#001AFF",
-    "rb-ch-2-ln": "#0F8048",
+    "rb-ch-2-ln": "#341B55",  # Chart palette, slot 2
     "rb-ch-3-ln": "#758000",
     "rb-ch-4-ln": "#514D80",
     "rb-ch-5-ln": "#256A80",

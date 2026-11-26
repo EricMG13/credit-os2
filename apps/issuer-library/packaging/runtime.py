@@ -65,37 +65,11 @@ _PYTHON = '"%~dp0engine\\runtime\\python.exe" -I -B -X utf8'
 # update_library. It is the package's equivalent of a checkout's `uv sync`; `-m deploy_workflow...`
 # and the run page's launcher children need both.
 PTH = "python313.zip\n.\nLib\\site-packages\n..\\src\n..\nimport site\n"
-_ROOT_ARGUMENT = [
-    'set "ROOT=%~1"',
-    'if not defined ROOT set "ROOT=%FINAL_WORKFLOW_WORKSPACE%"',
-]
 WRAPPERS = {
     "Run workflow.cmd": [
         "@echo off",
         "rem Prepare and review a CP-OS run offline with the embedded Python.",
         f'{_PYTHON} "%~dp0engine\\run_workflow.py" %*',
-        "exit /b %errorlevel%",
-    ],
-    "Start signal.cmd": [
-        "@echo off",
-        "setlocal",
-        "rem Serve the Signal feed: stories from the approved news, regulator and ratings feeds.",
-        "rem Folder: the first argument, else FINAL_WORKFLOW_WORKSPACE.",
-        "rem Address: the second argument, else 127.0.0.1 (this machine only). Pass this machine's",
-        "rem own address to serve colleagues; 0.0.0.0 is refused. It makes no model call and needs",
-        "rem no provider key.",
-        *_ROOT_ARGUMENT,
-        'set "HOSTADDR=%~2"',
-        'if not defined HOSTADDR set "HOSTADDR=127.0.0.1"',
-        "if not defined ROOT (",
-        "  echo Usage: Start signal.cmd ^<shared folder^> [address]",
-        "  echo Or set FINAL_WORKFLOW_WORKSPACE to the shared folder.",
-        "  exit /b 1",
-        ")",
-        (
-            f'{_PYTHON} -m deploy_workflow.signal --root "%ROOT%" serve --host "%HOSTADDR%"'
-            " --port 8766"
-        ),
         "exit /b %errorlevel%",
     ],
 }
@@ -106,6 +80,7 @@ def _purge_retired_outputs(target: Path) -> None:
     retired_paths = (
         "Update library.cmd",
         "Start run page.cmd",
+        "Start signal.cmd",
         "engine/docs/templates/context-form.html",
         "engine/docs/rulings/2026-11-11-run-start-submit.md",
         "engine/credit_os/web/index.html",
@@ -141,7 +116,7 @@ def bundle(target: Path, architecture: str | None) -> None:
     engine.mkdir(exist_ok=True)
     shutil.copyfile(APP / "engine/run_workflow.py", engine / "run_workflow.py")
     # The static library: its update script, the Credit OS store and page parts (not their tests),
-    # and the workflow and Signal wrappers (bundled Python).
+    # and the workflow wrapper (bundled Python).
     shutil.copyfile(APP / "update_library.py", engine / "update_library.py")
     if (engine / "credit_os").exists():
         shutil.rmtree(engine / "credit_os")

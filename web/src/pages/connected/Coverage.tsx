@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BarChartSquare02, SearchLg } from "@untitledui/icons";
+import { BarChartSquare02, ChevronRight, SearchLg } from "@untitledui/icons";
 import { Alert, Callout } from "@/components/alert/Alert";
 import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { Button } from "@/components/base/buttons/button";
@@ -23,7 +23,9 @@ import {
   type Issuer,
   type SavedGroup,
 } from "./coverageData";
+import { serviceText } from "./api";
 import { card, field as control, label } from "./layout";
+import { useCanStart } from "./startAction";
 import { Chip, ChipGroup, RemovableChip } from "@/components/kit/Chip";
 import { boundUnit, unitName } from "./coverage/boundUnit";
 import { Choice, FieldOptions } from "./coverage/Controls";
@@ -58,7 +60,27 @@ function addressState(): { view: View; field: string; filters: Filters } {
   };
 }
 
-function Dashboard({ data }: { data: Data }) {
+/**
+ * The coverage data as a reader is shown it: a module code inside a field's group or label, or a
+ * figure's stated heading, is drawn as the module's name. Nothing else is changed; keys, links and
+ * figures are as the service sent them.
+ */
+function readerData(data: Data): Data {
+  return {
+    ...data,
+    fields: data.fields.map((item) => ({
+      ...item,
+      group: serviceText(item.group),
+      label: serviceText(item.label),
+    })),
+    facts: data.facts.map((fact) =>
+      fact.heading ? { ...fact, heading: serviceText(fact.heading) } : fact,
+    ),
+  };
+}
+
+function Dashboard({ data: served }: { data: Data }) {
+  const data = useMemo(() => readerData(served), [served]);
   const [start] = useState(addressState);
   const [view, setView] = useState<View>(start.view);
   const [filters, setFilters] = useState<Filters>(start.filters);
@@ -292,7 +314,7 @@ function Dashboard({ data }: { data: Data }) {
             onChange={(event) => {
               set({ query: event.currentTarget.value });
             }}
-            className={`h-10 w-full rounded-ds-md border border-border-hairline bg-surface-canvas pr-3 pl-9 text-body text-text-primary placeholder:text-text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${phone}`}
+            className={`h-10 w-full rounded-ds-md border border-border-control bg-surface-canvas pr-3 pl-9 text-body text-text-primary placeholder:text-text-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${phone}`}
           />
         </label>
         <p role="status" className="text-small text-text-secondary sm:ml-auto">
@@ -311,22 +333,26 @@ function Dashboard({ data }: { data: Data }) {
 
       <section aria-label="Filters" className="grid gap-3">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <ChipGroup
-            label="Sector"
-            choices={sectors}
-            value={filters.sector}
-            onChange={(sector) => {
-              set({ sector });
-            }}
-          />
-          <ChipGroup
-            label="Pathway"
-            choices={pathways}
-            value={filters.pathway}
-            onChange={(pathway) => {
-              set({ pathway });
-            }}
-          />
+          {(sectors.length > 0 || filters.sector !== "all") && (
+            <ChipGroup
+              label="Sector"
+              choices={sectors}
+              value={filters.sector}
+              onChange={(sector) => {
+                set({ sector });
+              }}
+            />
+          )}
+          {(pathways.length > 0 || filters.pathway !== "all") && (
+            <ChipGroup
+              label="Pathway"
+              choices={pathways}
+              value={filters.pathway}
+              onChange={(pathway) => {
+                set({ pathway });
+              }}
+            />
+          )}
           {groups.length > 0 && (
             <div
               role="group"
@@ -400,74 +426,88 @@ function Dashboard({ data }: { data: Data }) {
             Clear filters
           </Button>
         </div>
-        <details className="rounded-ds-md border border-border-hairline bg-surface-card px-4">
+        <details className="group rounded-ds-md border border-border-hairline bg-surface-card px-4">
           <summary
-            className={`flex min-h-8 cursor-pointer items-center text-small font-medium text-text-secondary ${phone}`}
+            className={`flex min-h-10 cursor-pointer list-none items-center gap-1.5 rounded-ds-sm text-small font-medium text-text-secondary outline-focus-ring hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 ${phone}`}
           >
-            Filters: figure bounds, module, module state, confidence, compare and save a group
+            <ChevronRight
+              aria-hidden="true"
+              className="size-4 shrink-0 text-text-tertiary group-open:rotate-90"
+            />
+            More filters: module, module state, confidence and figure bounds
             {badBounds.length > 0 && (
               <span className="ml-2 text-error-text">· a bound is not a number</span>
             )}
           </summary>
-          <div className="flex flex-wrap items-end gap-x-4 gap-y-3 py-3">
-            <Choice
-              name="Module"
-              value={filters.module}
-              onChange={(module) => {
-                set({ module });
-              }}
+          <div className="grid gap-3 py-3">
+            <div
+              role="group"
+              aria-label="By module"
+              className="flex flex-wrap items-end gap-x-4 gap-y-3"
             >
-              <option value="all">Any</option>
-              {data.columns.map((item) => (
-                <option key={item.code} value={item.code}>
-                  {named(item)}
-                </option>
-              ))}
-            </Choice>
-            {filters.module !== "all" && (
               <Choice
-                name="Module state"
-                value={filters.state}
-                onChange={(state) => {
-                  set({ state: state as Filters["state"] });
+                name="Module"
+                value={filters.module}
+                onChange={(module) => {
+                  set({ module });
                 }}
               >
                 <option value="all">Any</option>
-                {Object.entries(STATE_WORDS).map(([state, word]) => (
-                  <option key={state} value={state}>
-                    {word}
+                {data.columns.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {named(item)}
                   </option>
                 ))}
               </Choice>
-            )}
-            {choices.length > 0 && (
-              <Choice
-                name="Module confidence"
-                value={filters.choice}
-                onChange={(choice) => {
-                  set({ choice, word: "all" });
-                }}
-              >
-                <option value="all">Any</option>
-                <FieldOptions fields={choices} titles={titles} />
-              </Choice>
-            )}
-            {filters.choice !== "all" && (
-              <Choice
-                name="Is"
-                value={filters.word}
-                onChange={(word) => {
-                  set({ word });
-                }}
-              >
-                <option value="all">Any</option>
-                {words.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </Choice>
-            )}
+              {filters.module !== "all" && (
+                <Choice
+                  name="Module state"
+                  value={filters.state}
+                  onChange={(state) => {
+                    set({ state: state as Filters["state"] });
+                  }}
+                >
+                  <option value="all">Any</option>
+                  {Object.entries(STATE_WORDS).map(([state, word]) => (
+                    <option key={state} value={state}>
+                      {word}
+                    </option>
+                  ))}
+                </Choice>
+              )}
+              {choices.length > 0 && (
+                <Choice
+                  name="Module confidence"
+                  value={filters.choice}
+                  onChange={(choice) => {
+                    set({ choice, word: "all" });
+                  }}
+                >
+                  <option value="all">Any</option>
+                  <FieldOptions fields={choices} titles={titles} />
+                </Choice>
+              )}
+              {filters.choice !== "all" && (
+                <Choice
+                  name="Is"
+                  value={filters.word}
+                  onChange={(word) => {
+                    set({ word });
+                  }}
+                >
+                  <option value="all">Any</option>
+                  {words.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </Choice>
+              )}
+            </div>
             {numbers.length > 0 && view !== "trend" && (
-              <>
+              <div
+                role="group"
+                aria-label="By figure"
+                className="flex flex-wrap items-end gap-x-4 gap-y-3 border-t border-border-hairline pt-3"
+              >
                 {view !== "rank" && (
                   <>
                     {figureSelect}
@@ -513,9 +553,20 @@ function Dashboard({ data }: { data: Data }) {
                     ))}
                   </div>
                 )}
-              </>
+              </div>
             )}
-            <label className={`flex min-h-8 items-center gap-2 text-small font-medium ${phone}`}>
+          </div>
+        </details>
+        {(chosen.size > 0 || onlyChosen) && (
+          <div
+            role="group"
+            aria-label="Compare"
+            className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-ds-md border border-border-hairline bg-surface-card px-4 py-3"
+          >
+            <p className="flex min-h-10 items-center text-small font-medium text-text-primary">
+              {`${String(chosen.size)} ${chosen.size === 1 ? "issuer" : "issuers"} ticked to compare`}
+            </p>
+            <label className={`flex min-h-10 items-center gap-2 text-small font-medium ${phone}`}>
               <input
                 type="checkbox"
                 className="size-4"
@@ -524,7 +575,7 @@ function Dashboard({ data }: { data: Data }) {
                   setOnlyChosen(event.currentTarget.checked);
                 }}
               />
-              Only the {String(chosen.size)} issuers ticked to compare
+              Show only ticked issuers
             </label>
             <label className={`${label} w-56`}>
               Save ticked issuers as
@@ -545,7 +596,7 @@ function Dashboard({ data }: { data: Data }) {
               Save group
             </Button>
           </div>
-        </details>
+        )}
       </section>
 
       {numbers.length > 0 && (view === "rank" || view === "trend") && (
@@ -629,9 +680,11 @@ function Dashboard({ data }: { data: Data }) {
   );
 }
 
-export function Coverage() {
+export function Coverage({ readOnly = false }: { readOnly?: boolean }) {
   const { value, error, retry } = useResource(getCoverage);
   const empty = value === null || value?.issuers.length === 0;
+  // As on the Library: a run can be started from here unless the page is read-only or a preview.
+  const canStart = useCanStart(readOnly, Boolean(value?.preview));
   return (
     <>
       <PageHeader title="Coverage" />
@@ -665,6 +718,15 @@ export function Coverage() {
                 Coverage fills in as runs are published to the Library.
               </EmptyState.Description>
             </EmptyState.Content>
+            <EmptyState.Footer>
+              {canStart ? (
+                <Button href="/start">Start a run</Button>
+              ) : (
+                <Button href="/" color="secondary">
+                  Open the Library
+                </Button>
+              )}
+            </EmptyState.Footer>
           </EmptyState>
         )}
         {value?.preview && <Callout title="Test preview">{value.preview.reason}</Callout>}

@@ -187,6 +187,17 @@ def _fold(name: str) -> str:
     return " ".join(name.casefold().split())
 
 
+def _launched_narrowed(workflow: Mapping[str, Any]) -> str | None:
+    """Why a run's launch was not the pathway's plain preset (a test adaptation, an explicit
+    module subset), or None."""
+    adaptations = workflow.get("test_adaptations")
+    if adaptations:
+        return f"it was launched with a test adaptation ({', '.join(map(str, adaptations))})"
+    if workflow.get("selection") == "explicit":
+        return "it was launched with an explicit module subset"
+    return None
+
+
 def _not_a_base(
     workflow: Mapping[str, Any],
     run: Mapping[str, Any],
@@ -199,8 +210,8 @@ def _not_a_base(
     if run.get("case_kind") != me["case_kind"]:
         return f"its case kind is {run.get('case_kind')!r}, not {me['case_kind']!r}"
     selection = workflow.get("selection")
-    if selection == "explicit":
-        return "it was launched with an explicit module subset"
+    if (narrowed := _launched_narrowed(workflow)) is not None:
+        return narrowed
     if selection is None:
         lead = LEAD_MODULE.get(me["pathway"], DEFAULT_LEAD)
         if lead not in delivered:

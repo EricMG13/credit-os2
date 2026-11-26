@@ -1,6 +1,14 @@
 import { ArrowRight, ChevronDown, Table as TableIcon } from "@untitledui/icons";
-import { useId, useState, type ComponentProps, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import { Button } from "@/components/base/buttons/button";
+import { Segmented } from "@/components/kit/Segmented";
 import { cx } from "@/utils/cx";
 import { moduleName } from "../../../api";
 import { moduleSource } from "../../overview/figureData";
@@ -10,9 +18,37 @@ import type { LeadProps } from "../types";
 import { Legend, type LegendEntry } from "./marks/Legend";
 import { useOverflows } from "./useWidth";
 
+/** 32 px targets, 44 px at 480 px and below; the token focus ring. */
+const TARGET =
+  "min-h-8 max-[480px]:min-h-11 outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2";
+
 /**
- * The one gap pattern of every lead: a plain tile holding a gap note, the tile's name inside the
- * note's solid chip, then what is not known and why. Used wherever a readable module lacks a table.
+ * Where a lead's gap sends the reader: this module's own output in Evidence. The module page
+ * provides it; a lead drawn without it (a test, another page) draws no such link.
+ */
+export const LeadEvidence = createContext<string | null>(null);
+
+/** The one way on from a gap that has no trace of its own: the module's output in Evidence. */
+export function GapWayOn() {
+  const href = useContext(LeadEvidence);
+  if (!href) return null;
+  return (
+    <Button
+      href={href}
+      color="link-gray"
+      size="sm"
+      iconTrailing={ArrowRight}
+      className={cx(TARGET, "self-start")}
+    >
+      Open this module in Evidence
+    </Button>
+  );
+}
+
+/**
+ * The one gap pattern of every lead: a tile titled as its figure would be, holding the gap note
+ * (what is not known and why) in the figure's place, then the way to the module's output in
+ * Evidence. Used wherever a readable module lacks a table.
  */
 export function GapTile({
   span,
@@ -23,17 +59,15 @@ export function GapTile({
 }: {
   span: ComponentProps<typeof Tile>["span"];
   label: string;
+  /** The figure's subject, drawn as the tile's title. */
   kicker: string;
   className?: string;
   children: ReactNode;
 }) {
   return (
-    <Tile span={span} label={label} className={cx("self-start", className)}>
-      <GapNote>
-        <span className="font-medium">{kicker}</span>
-        {" \u00b7 "}
-        {children}
-      </GapNote>
+    <Tile span={span} label={label} title={kicker} className={cx("self-start", className)}>
+      <GapNote>{children}</GapNote>
+      <GapWayOn />
     </Tile>
   );
 }
@@ -55,10 +89,6 @@ export type TableViewData = {
   headers: string[];
   rows: string[][];
 };
-
-/** 32 px targets, 44 px at 480 px and below; the token focus ring. */
-const TARGET =
-  "min-h-8 max-[480px]:min-h-11 outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2";
 
 /** The open state of one table disclosure and the id its button controls. */
 function useDisclosure() {
@@ -243,27 +273,36 @@ export function FigureTile({
   caption?: ReactNode;
   children: ReactNode;
 }) {
-  const disclosure = useDisclosure();
+  const [view, setView] = useState<string>("figure");
+  const showing = table && view === "table" ? "table" : "figure";
+  // The module's name over a figure on the module's own page says nothing: the header names it.
+  const basis = kicker === moduleName(props.entry.output.module, props.run.pathway) ? "" : kicker;
   return (
-    <Tile
-      span={span}
-      label={label}
-      kicker={
-        caption == null ? (
-          kicker
-        ) : (
-          <>
-            {kicker}
-            <span data-part="caption" className="mt-0.5 block font-normal text-text-secondary">
+    <Tile span={span} label={label}>
+      {/* One head for every lead tile: the subject, its basis under it, then the Figure / Table
+          switch and the one trace control, in that order. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-48 flex-1 flex-col gap-1">
+          <h3 className="text-h4 font-medium text-balance text-text-primary">{title}</h3>
+          {basis && <p className="text-caption text-text-tertiary">{basis}</p>}
+          {caption != null && (
+            <p data-part="caption" className="text-caption text-text-secondary">
               {caption}
-            </span>
-          </>
-        )
-      }
-      title={title}
-      trace={
-        <div className="flex flex-none items-center gap-2">
-          {table && <TableButton disclosure={disclosure} caption={table.caption} />}
+            </p>
+          )}
+        </div>
+        <div className="ml-auto flex flex-none items-center gap-2">
+          {table && (
+            <Segmented
+              label={`${label}: figure or table`}
+              segments={[
+                { key: "figure", label: "Figure" },
+                { key: "table", label: "Table", accessibleLabel: `Table view: ${table.caption}` },
+              ]}
+              current={showing}
+              onSelect={setView}
+            />
+          )}
           <FigureSourceControl
             folder={props.run.folder}
             entry={props.entry}
@@ -271,8 +310,45 @@ export function FigureTile({
             name={source}
           />
         </div>
-      }
-    >
+      </div>
+      {/* Both views stay mounted, one of them hidden: a figure keeps its measured size, and the
+          switch never moves focus or scroll. */}
+      <div
+        data-view="figure"
+        hidden={showing !== "figure"}
+        className={showing === "figure" ? "flex min-w-0 flex-col gap-4" : "hidden"}
+      >
+        <FigureBody legend={legend}>{children}</FigureBody>
+      </div>
+      {table && (
+        <div
+          data-view="table"
+          hidden={showing !== "table"}
+          className={cx(
+            "w-full min-w-0 text-small text-text-secondary",
+            showing !== "table" && "hidden",
+          )}
+        >
+          <TableScroll label={`${table.caption}, table`}>
+            <Table {...table} />
+          </TableScroll>
+        </div>
+      )}
+      <FigureNotes notes={notes} />
+    </Tile>
+  );
+}
+
+/** A figure with its legend above it. */
+function FigureBody({
+  legend,
+  children,
+}: {
+  legend: readonly ({ tone: KeyTone; text: string } | LegendEntry)[];
+  children: ReactNode;
+}) {
+  return (
+    <>
       {legend.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {legend.flatMap((item) =>
@@ -288,8 +364,6 @@ export function FigureTile({
         </div>
       )}
       {children}
-      {table && <TablePanel disclosure={disclosure} table={table} />}
-      <FigureNotes notes={notes} />
-    </Tile>
+    </>
   );
 }

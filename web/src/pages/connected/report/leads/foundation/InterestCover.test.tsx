@@ -283,7 +283,7 @@ describe("interest cover: other handoffs and mutations", () => {
   it("without the table, or all gaps: the one gap tile, the module's own reason when it states one", () => {
     render(<InterestCoverTile lead={leadProps(dropTable(cp1Entry(), COVER))} />);
     expect(screen.getByRole("region", { name: "Interest cover" }).textContent).toBe(
-      "Interest cover · This page could not read interest cover.",
+      "Interest coverThis page could not read interest cover.",
     );
     cleanup();
     const allGap = withRows(cp1Entry(), COVER, [
@@ -292,7 +292,7 @@ describe("interest cover: other handoffs and mutations", () => {
     ]);
     render(<InterestCoverTile lead={leadProps(allGap)} />);
     const tile = screen.getByRole("region", { name: "Interest cover" });
-    expect(tile.textContent).toBe("Interest cover · Not supplied: —");
+    expect(tile.textContent).toBe("Interest coverNot supplied: —");
     expect(tile.querySelector("svg")).toBeNull();
   });
 });

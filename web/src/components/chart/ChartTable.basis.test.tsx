@@ -56,8 +56,12 @@ describe("ChartTable Basis and limitation column", () => {
     expect(screen.getByRole("rowheader", { name: "FY2023" })).toHaveClass("sticky", "left-0");
   });
 
-  it("does not change a column that is not headed Basis and limitation", () => {
+  it("reads any column a row writes a sentence in from the left, whatever its heading", () => {
     drawn(["Period", "Total debt / EBITDA", "Reporting unit", "Source"]);
-    expect(screen.getByRole("cell", { name: LONG })).toHaveClass("text-right", "whitespace-nowrap");
+    expect(screen.getByRole("cell", { name: LONG })).toHaveClass("text-left", "whitespace-normal");
+    expect(screen.getByRole("columnheader", { name: "Source" })).toHaveClass("text-left");
+    // The figure and unit columns beside it stay right-aligned.
+    expect(screen.getByRole("cell", { name: "3.75" })).toHaveClass("text-right", "tabular-nums");
+    expect(screen.getAllByRole("cell", { name: "x" })[0]).toHaveClass("text-right");
   });
 });

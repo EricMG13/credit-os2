@@ -13,6 +13,7 @@ import { ArrowRight } from "@untitledui/icons";
 import { traceForLine } from "../ReportContent";
 import type { OutputEntry, PublishedRun, Snapshot } from "../publishedReport";
 import { Tile } from "./overview/Tile";
+import { readerTrace } from "./PublishedTrace";
 import { citationsAt } from "./traceCitations";
 
 function referencedText(node: TreeNode): string {
@@ -40,17 +41,23 @@ export function TraceSplit({
   entry,
   index,
   line,
+  claimId,
 }: {
   snapshot: Snapshot;
   run: PublishedRun;
   entry: OutputEntry;
   index: number;
   line: number;
+  /** The claim tile's address: where a trace address lands, the tile itself taking focus. */
+  claimId?: string;
 }) {
-  const base = traceForLine(snapshot, entry, index, line, run.pathway);
-  if (!base) return null;
+  const stored = traceForLine(snapshot, entry, index, line, run.pathway);
+  if (!stored) return null;
+  // The words the drawer draws: a module is named, never shown by its code. The supplied files are
+  // matched against the derivation as stored, where a file name keeps its own characters.
+  const base = readerTrace(stored, run.pathway);
   const sourced: SourcedTrace = { ...base, citations: citationsAt(snapshot, entry, line) };
-  const references = referencedText(base.derivation);
+  const references = referencedText(stored.derivation);
   const sources = [
     ...run.evidence.sources,
     ...run.evidence.unused,
@@ -58,15 +65,15 @@ export function TraceSplit({
   ].filter((source) => namesSource(references, source.name));
   return (
     <>
-      <Tile span={7} label="The claim" kicker={base.subtitle} title={base.heading}>
+      <Tile id={claimId} span={7} label="The claim" kicker={base.subtitle} title={base.heading}>
         <TraceClaim trace={base} />
         <TraceBasis trace={base} />
       </Tile>
-      <Tile span={5} label="The source" kicker="What it rests on">
+      <Tile span={5} label="The source" title="The source" kicker="What the claim rests on">
         <TraceSourcePassage trace={sourced} />
         <CitedSources links={base.sourceLinks ?? []} />
       </Tile>
-      <Tile span={12} label="How it was derived" kicker="Derivation" title="How it was derived">
+      <Tile span={12} label="How it was derived" title="How it was derived">
         <div className={`grid min-w-0 gap-6 ${sources.length ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
           <DerivationTree node={withoutBasis(base.derivation)} />
           {sources.length > 0 && (

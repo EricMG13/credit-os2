@@ -104,6 +104,11 @@ export function ChartGap({
  * Whether the module's other charts are all short tiles (a stated gap or a withheld table): such
  * tiles may stack in the column beside a lead's first figure; a drawn table takes its own row.
  */
+/** How many charts the module publishes besides the ones a lead draws by name. */
+export function otherCharts(entry: OutputEntry, drawn: readonly string[]) {
+  return chartsStartingWith(entry, "").filter(({ title }) => !drawn.includes(title)).length;
+}
+
 export function onlyGaps(entry: OutputEntry, drawn: readonly string[]) {
   return chartsStartingWith(entry, "")
     .filter(({ title }) => !drawn.includes(title))

@@ -25,11 +25,18 @@ import {
   leftovers,
   passageItems,
   verdictOf,
+  words,
+  type PassageItem,
 } from "./changes/model";
+
+const ISSUER_REGISTER = "What changed: the issuer";
+const ANALYSIS_REGISTER = "What changed: the analysis";
+const LEDGER_REGISTER = "Limitations ledger";
 import { LINK, PassageBody, PassageTile } from "./changes/PassageTile";
 import { AnalysisTile, FactsTile, LeftoverTile, LedgerTile } from "./changes/Registers";
 import { comparisonTrace, maturityTraces } from "./comparisonTrace";
-import { Bento, GapNote, Tile } from "./overview/Tile";
+import { asOfDate } from "../runFigures";
+import { Bento, GapNote, GapSentence, Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
 
 const BUTTON = "min-h-8 max-[480px]:min-h-11";
@@ -160,11 +167,11 @@ function ComparedDates({ change }: { change: PublishedChanges }) {
   return (
     <p className="flex flex-wrap items-center gap-2 text-small text-text-secondary">
       <span className="rounded-ds-xs bg-surface-subtle px-2 py-1">
-        Earlier run, as of {prior.as_of}
+        Earlier run, as of {asOfDate(prior.as_of)}
       </span>
       <ArrowRight aria-hidden="true" className="size-4 text-text-tertiary" />
       <span className="rounded-ds-xs bg-surface-selected px-2 py-1 text-text-link">
-        This run, as of {current.as_of}
+        This run, as of {asOfDate(current.as_of)}
       </span>
     </p>
   );
@@ -185,12 +192,6 @@ function Verdict({
     <Tile
       span={12}
       label="Verdict"
-      kicker={
-        <span className="flex items-center gap-2">
-          <ClockRewind aria-hidden="true" className="size-4" />
-          Since the earlier run
-        </span>
-      }
       trace={
         verdict?.first.text ? (
           <PublishedSource
@@ -203,30 +204,29 @@ function Verdict({
         ) : undefined
       }
     >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div className="grid content-start gap-3">
-          {verdict?.first.text ? (
-            <p
-              className={cx(
-                "reading-copy font-display text-balance text-text-primary",
-                verdict.first.text.length > 240 ? "text-h4 sm:text-h3" : "text-h3 sm:text-h2",
-              )}
-            >
-              {verdict.first.text}
-            </p>
-          ) : verdict ? (
-            <a className={LINK} href={verdict.first.href}>
-              Read the verdict in Evidence
-            </a>
-          ) : (
-            <GapNote>The comparison does not state a verdict in a sentence.</GapNote>
-          )}
-          {verdict && entry && verdict.body.length > 0 && (
-            <PassageBody items={verdict.body} noun="passage" entry={entry} folder={folder} />
-          )}
-          <ComparedDates change={change} />
-        </div>
-        <GapNote>Stance, earlier → current: the comparison does not state it</GapNote>
+      <h3 className="sr-only">Verdict</h3>
+      <div className="grid content-start gap-3">
+        {verdict?.first.text ? (
+          <p
+            className={cx(
+              "reading-copy max-w-[52ch] font-display text-balance text-text-primary",
+              verdict.first.text.length > 240 ? "text-h4 sm:text-h3" : "text-h3 sm:text-h2",
+            )}
+          >
+            {verdict.first.text}
+          </p>
+        ) : verdict ? (
+          <a className={LINK} href={verdict.first.href}>
+            Read the verdict in Evidence
+          </a>
+        ) : (
+          <GapNote>The comparison does not state a verdict in a sentence.</GapNote>
+        )}
+        {verdict && entry && verdict.body.length > 0 && (
+          <PassageBody items={verdict.body} noun="passage" entry={entry} folder={folder} />
+        )}
+        <ComparedDates change={change} />
+        <GapSentence>Stance, earlier → current: the comparison does not state it</GapSentence>
       </div>
     </Tile>
   );
@@ -243,11 +243,14 @@ function Measures({
   entry,
   trace,
   folder,
+  lead,
 }: {
   change: PublishedChanges;
   entry: OutputEntry | undefined;
   trace: Trace;
   folder: string;
+  /** What the module wrote above its table of measures: it qualifies every figure drawn here. */
+  lead: PassageItem[];
 }) {
   const [view, setView] = useState<"list" | "table">("list");
   const groups = classifyMeasures(change, trace.measure, entry, folder);
@@ -270,8 +273,7 @@ function Measures({
     <Tile
       span={7}
       label="Measures that moved"
-      title="Measures that moved"
-      kicker="Earlier → current, in the comparison's order"
+      title={view === "table" ? "All compared measures" : "Measures that moved"}
       trace={
         <Segmented
           label="Presentation"
@@ -292,6 +294,12 @@ function Measures({
         </section>
       ) : (
         <>
+          {entry && lead.length > 0 && (
+            <PassageBody items={lead} noun="passage" entry={entry} folder={folder} />
+          )}
+          <p className="text-caption text-text-tertiary">
+            Earlier → current, in the comparison’s order
+          </p>
           {!entry && (
             <p className="text-small text-gap-text">
               The comparison module did not run for this report, so no cause is stated.
@@ -333,7 +341,7 @@ function MeasureGroup({
   if (!items.length) return null;
   return (
     <div className="grid gap-3 border-t border-border-hairline pt-4">
-      <h4 className="text-caption text-text-tertiary">{title}</h4>
+      <h4 className="text-small font-medium text-text-secondary">{title}</h4>
       <MeasureList label={title} items={items} ranked={ranked} level="h5" evidence={evidence} />
     </div>
   );
@@ -357,16 +365,39 @@ function Comparison({
   const pack = change.pack;
   const { unmoved, matchedLines } = classifyMeasures(change, trace.measure, entry, run.folder);
   const folder = run.folder;
+  const ledger = entry ? ledgerOf(entry, folder) : null;
+  // A register's lead paragraph is drawn with the register it qualifies; the rest stays last.
+  const placed = new Set([
+    ...(comparisonRows(change, "reader").length > 0 ? [ISSUER_REGISTER] : []),
+    ...(pack?.modules?.length ? [ANALYSIS_REGISTER] : []),
+    ...(ledger ? [LEDGER_REGISTER] : []),
+  ]);
+  const written = entry ? leftovers(entry, folder) : [];
+  const lead = (heading: string) =>
+    placed.has(heading)
+      ? written.filter((section) => section.heading === heading).flatMap(({ items }) => items)
+      : [];
+  const rest = written.filter((section) => !placed.has(section.heading));
+  const analysisLead = lead(ANALYSIS_REGISTER);
   return (
     <Bento>
       <Verdict change={change} entry={entry} folder={folder} />
-      <Measures change={change} entry={entry} trace={trace} folder={folder} />
+      <Measures
+        change={change}
+        entry={entry}
+        trace={trace}
+        folder={folder}
+        lead={lead(ISSUER_REGISTER)}
+      />
       {Boolean(pack?.modules?.length) && (
         <Tile span={5} label="Modules" title="What changed in the analysis" className="self-start">
           {pack?.prior?.format === "earlier" && (
             <p className="text-small text-text-secondary">
               The earlier run used an earlier report format.
             </p>
+          )}
+          {entry && analysisLead.length > 0 && (
+            <PassageBody items={analysisLead} noun="passage" entry={entry} folder={folder} />
           )}
           <ModuleMatrix change={change} source={trace.module} />
         </Tile>
@@ -377,7 +408,21 @@ function Comparison({
         traces={pack?.maturity_profile ? maturityTraces(snapshot, run, entries, change) : undefined}
       />
       {entry && <Passages entry={entry} folder={folder} />}
+      {entry && (
+        <LedgerTile ledger={ledger} entry={entry} folder={folder} lead={lead(LEDGER_REGISTER)} />
+      )}
       <FactsTile result={issuerFacts(entry, folder, matchedLines)} />
+      {entry && (
+        <AnalysisTile
+          rows={analysisRows(
+            entry,
+            folder,
+            new Set((pack?.modules ?? []).map((item) => item.module)),
+          )}
+          title="Also compared in the analysis"
+        />
+      )}
+      {entry && <LeftoverTile sections={rest} entry={entry} folder={folder} />}
       {unmoved.length > 0 && (
         <Tile span={12} label="Measures that did not move" title="Measures that did not move">
           <details>
@@ -390,23 +435,12 @@ function Comparison({
                 items={unmoved}
                 ranked={false}
                 evidence={trace.handoff}
+                quiet
               />
             </div>
           </details>
         </Tile>
       )}
-      {entry && (
-        <AnalysisTile
-          rows={analysisRows(
-            entry,
-            folder,
-            new Set((pack?.modules ?? []).map((item) => item.module)),
-          )}
-          title="Also compared in the analysis"
-        />
-      )}
-      {entry && <LedgerTile ledger={ledgerOf(entry, folder)} entry={entry} folder={folder} />}
-      {entry && <LeftoverTile sections={leftovers(entry, folder)} entry={entry} folder={folder} />}
     </Bento>
   );
 }
@@ -467,7 +501,7 @@ function Maturities({
   );
   if (!profile)
     return omitted
-      ? gap(containsReference(omitted) ? "See the comparison evidence." : omitted)
+      ? gap(containsReference(omitted) ? "See the comparison evidence." : words(omitted))
       : null;
   if (!usableProfile(profile))
     return gap("The published comparison does not contain a usable maturity schedule.");
@@ -479,7 +513,7 @@ function NoComparison({ change }: { change: PublishedChanges | null | undefined 
   const sentence = change?.problem
     ? containsReference(change.problem)
       ? "The comparison could not be read."
-      : change.problem
+      : words(change.problem)
     : noComparisonSentence(change?.note);
   return (
     <Bento>
@@ -501,9 +535,25 @@ function NoComparison({ change }: { change: PublishedChanges | null | undefined 
           >
             Review comparison evidence
           </Button>
+          <RunsLink />
         </div>
       </Tile>
     </Bento>
+  );
+}
+
+/** The way from a page with nothing to compare to the list of this issuer's runs. */
+function RunsLink() {
+  return (
+    <Button
+      href="#history"
+      color="link-gray"
+      size="sm"
+      iconTrailing={ArrowRight}
+      className={BUTTON}
+    >
+      All runs of this issuer
+    </Button>
   );
 }
 
@@ -519,9 +569,12 @@ function FirstRun() {
         <p className="reading-copy text-body text-text-secondary">
           Only reports already listed when this run was made can be used for comparison.
         </p>
-        <Button href="#overview" color="secondary" className={BUTTON}>
-          Open the Overview
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button href="#overview" color="secondary" className={BUTTON}>
+            Open the Overview
+          </Button>
+          <RunsLink />
+        </div>
       </Tile>
     </Bento>
   );

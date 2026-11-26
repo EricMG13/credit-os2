@@ -57,7 +57,9 @@ import { useResource } from "./useResource";
 import { ExportMenu, ReportExportPreview } from "./export/ReportExportPreview";
 import { exportRoute, reportExports } from "./export/reportExport";
 
-/** The report's sections in the section control's order. History is reached from the issuer crumb. */
+/**
+ * The report's sections in the section control's order. History is reached from the issuer crumb and the
+ * header's "Earlier runs" link. */
 const tabs = [
   ["overview", "Overview"],
   ["changes", "Changes"],
@@ -295,6 +297,7 @@ const ReportPage = memo(function ReportPage({
                 id={run.folder}
                 preview={Boolean(snapshot.preview)}
                 evidence={tab === "evidence"}
+                history={tab === "history"}
                 exports={exports}
               />
             }
@@ -377,18 +380,22 @@ function Crumbs({ issuer, current }: { issuer: string | null; current: string })
 }
 
 /**
- * Quiet links beside the breadcrumb: the run's progress record and the source-icon highlight. The
+ * Quiet links beside the breadcrumb: the issuer's earlier runs, this run's progress record and the
+ * source-icon highlight. The
  * highlight is the page's shared state, so switching it redraws this part only, not the open tab.
  */
 function ReportUtilities({
   id,
   preview,
   evidence,
+  history,
   exports,
 }: {
   id: string;
   preview: boolean;
   evidence: boolean;
+  /** The Runs page is open: its own link is not offered on it. */
+  history: boolean;
   exports: ReportExports;
 }) {
   const [sources, setSources] = useSourcesOn();
@@ -397,6 +404,16 @@ function ReportUtilities({
       <ExportMenu options={exports.options} reason={exports.reason} />
       {!evidence && (
         <SourcesSwitch isSelected={sources} onChange={setSources} label="Highlight source icons" />
+      )}
+      {!history && (
+        <Button
+          className="min-h-8 max-[480px]:min-h-11"
+          color="link-gray"
+          size="sm"
+          href="#history"
+        >
+          Earlier runs
+        </Button>
       )}
       {!preview && (
         <Button
@@ -439,9 +456,14 @@ function FactChips({
     unit ? unitLabel(unit) : "",
   ];
   const test = facts.preview ? "Test preview" : facts.mode === "synthetic" ? "Synthetic test" : "";
+  // A run of a chosen list of modules is not the pathway's whole assessment: the header says so,
+  // in the words the run history uses.
+  const partial = verified && run.assessmentScope === "partial" ? "Partial assessment" : "";
   return (
     <ul aria-label="Run facts" className="flex flex-wrap items-center gap-2">
-      {plain.filter(Boolean).map((fact, index) => (
+      {/* A test run says so first, on the same line as the facts it qualifies. */}
+      {test && <li className={cx(CHIP, TEST)}>{test}</li>}
+      {[...plain.slice(0, 1), partial, ...plain.slice(1)].filter(Boolean).map((fact, index) => (
         <li key={`fact-${String(index)}`} className={cx(CHIP, QUIET)}>
           {fact}
         </li>
@@ -449,17 +471,17 @@ function FactChips({
       {ratings.map((rating, index) => (
         <RatingChip key={`rating-${String(index)}`} rating={rating} className={cx(CHIP, QUIET)} />
       ))}
-      {ratings.length > 0 ? (
-        <li className="basis-full text-caption text-text-tertiary">Ratings entered at run start</li>
-      ) : (
-        <li className={cx(CHIP, QUIET)}>Ratings not entered</li>
-      )}
-      {test && <li className={cx(CHIP, TEST)}>{test}</li>}
       {facts.labels.map((label, index) => (
         <li key={`label-${String(index)}`} className={cx(CHIP, QUIET)}>
           {label}
         </li>
       ))}
+      {ratings.length > 0 ? (
+        // The note follows the chips on their line; it is their source, not a row of its own.
+        <li className="text-caption text-text-tertiary">Ratings entered at run start</li>
+      ) : (
+        <li className={cx(CHIP, QUIET)}>Ratings not entered</li>
+      )}
     </ul>
   );
 }
@@ -494,12 +516,10 @@ function ReportHeader({
       className="grid min-w-0 grid-cols-1 gap-x-8 gap-y-2.5 lg:grid-cols-[minmax(0,1fr)_auto]"
     >
       <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-        <Crumbs
-          issuer={issuer}
-          current={tab === "history" ? "Runs" : runPathway(run, catalogue) || "Credit report"}
-        />
+        {/* The last crumb names the open section; the pathway is the first fact chip. */}
+        <Crumbs issuer={issuer} current={tabs.find(([name]) => name === tab)?.[1] ?? "Runs"} />
       </div>
-      <div className="flex min-w-0 flex-col gap-2.5 lg:col-start-1 lg:row-start-2">
+      <div className="min-w-0 lg:col-start-1 lg:row-start-2">
         <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
           <h1
             id="report-title"
@@ -509,6 +529,10 @@ function ReportHeader({
           </h1>
           {sector && <p className="text-small text-text-secondary">{sector}</p>}
         </div>
+      </div>
+      {/* The facts take the header's full width under the name and the sections, so they hold
+          one line at 1024 px instead of wrapping in the column the section control leaves. */}
+      <div className="flex min-w-0 flex-col gap-2.5 lg:col-span-2 lg:row-start-3">
         <FactChips run={run} catalogue={catalogue} ratings={ratings} facts={facts} />
         <DifferingRating differing={differing} />
       </div>
@@ -663,13 +687,16 @@ function ReaderStatus({
     return (
       <div role="status" className="mt-6 grid gap-5 text-text-secondary">
         <p>Loading report…</p>
-        <div aria-hidden="true" className="grid gap-5">
-          <div className="h-10 w-3/4 rounded-ds-md bg-surface-subtle" />
-          <div className="h-40 rounded-ds-lg bg-surface-subtle" />
-          <div className="grid grid-cols-3 gap-3">
-            {[0, 1, 2].map((at) => (
-              <div key={at} className="h-24 rounded-ds-md bg-surface-subtle" />
-            ))}
+        {/* The page's own shape: the name and facts, then the first row's 8 + 4 tiles. */}
+        <div aria-hidden="true" className="grid gap-4">
+          <div className="h-10 w-1/2 rounded-ds-md bg-surface-subtle" />
+          <div className="h-6 w-1/3 rounded-ds-sm bg-surface-subtle" />
+          <div className="mt-2 grid grid-cols-12 gap-4">
+            <div className="col-span-8 h-72 rounded-ds-lg bg-surface-subtle" />
+            <div className="col-span-4 grid gap-4">
+              <div className="rounded-ds-lg bg-surface-subtle" />
+              <div className="rounded-ds-lg bg-surface-subtle" />
+            </div>
           </div>
         </div>
       </div>

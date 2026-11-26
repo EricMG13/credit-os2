@@ -1,5 +1,6 @@
 import { ChevronRight } from "@untitledui/icons";
 import { Missing } from "@/components/gap/Missing";
+import { GapText } from "./GapText";
 import type { TreeNode } from "../slice";
 
 function Row({ node }: { node: TreeNode }) {
@@ -60,6 +61,10 @@ function Branch({ node }: { node: TreeNode }) {
 
 /** How a figure was derived, result first: the one tree the trace drawer and the Trace tab both draw. */
 export function DerivationTree({ node, label }: { node: TreeNode; label?: string }) {
+  // A root with nothing under it and nothing of its own is a derivation nobody recorded: say so.
+  // (A null value is a different thing: a named figure that is missing, drawn in the row itself.)
+  if (node.children.length === 0 && node.value?.trim() === "" && !node.note)
+    return <GapText>No derivation was recorded for this item.</GapText>;
   return (
     <ul aria-label={label}>
       <Branch node={node} />

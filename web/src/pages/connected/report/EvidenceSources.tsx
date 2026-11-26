@@ -7,6 +7,7 @@ import { moduleName } from "../api";
 import { citedSourcePages } from "../sourceFiles";
 import {
   evidencePath,
+  readerText,
   type OutputEntry,
   type PublishedRun,
   type Snapshot,
@@ -18,6 +19,24 @@ import { Tile } from "./overview/Tile";
 
 export type SourceGroup = { label: string; rows: PublishedRun["evidence"]["sources"] };
 type SourceRow = SourceGroup["rows"][number];
+
+/** The id of one file's row: its place across the groups in the order they are given. */
+export const sourceRowId = (index: number) => `evidence-source-${String(index)}`;
+
+/** What the page found when a group holds no file: a statement of the check, not a judgement. */
+const NO_FILES: Record<string, string> = {
+  "Used by a module": "No supplied file is recorded as used by a module.",
+  "Supplied, not used": "No supplied file is recorded as unused.",
+  "Not recorded as used": "No supplied file lacks a record of its use.",
+};
+
+/**
+ * A SHA-256 in a 32-character measure: its 64 characters set as two even lines, never one long
+ * line with a stray tail. The text is the exact hash, whole, in one node.
+ */
+function Hash({ value }: { value: string }) {
+  return <code className="inline-block w-[32ch] max-w-full break-all">{value}</code>;
+}
 
 type Citation = {
   /** For a file-less citation: the supplied file whose name its label starts with (the longest such name). */
@@ -77,7 +96,7 @@ type Cited = ReturnType<typeof citationsByFile>;
 
 /** The citations of one source: same name, and the same hash where both record one; a different hash and an ambiguous name are kept and said. */
 function citationsOf(cited: Cited, source: SourceRow) {
-  return [
+  const each = [
     ...(cited.byFile.get(source.name) ?? []).map(({ sha, label }) => ({
       label,
       sha,
@@ -92,7 +111,16 @@ function citationsOf(cited: Cited, source: SourceRow) {
         kind: "ambiguous",
         note: `Cited ambiguously: ${reason ?? NO_REASON}`,
       })),
-  ];
+  ]; // A filing is cited on many lines, mostly on the same few pages: one line per distinct citation,
+  // in the order first met, with how many citations it stands for. Nothing is merged that differs.
+  const distinct = new Map<string, (typeof each)[number] & { count: number }>();
+  for (const item of each) {
+    const key = JSON.stringify([item.label, item.kind, item.sha, item.note]);
+    const held = distinct.get(key);
+    if (held) held.count += 1;
+    else distinct.set(key, { ...item, count: 1 });
+  }
+  return [...distinct.values()];
 }
 
 function UsedBy({
@@ -128,12 +156,17 @@ function SourceTable({
   cited,
   scope,
   pathway,
+  places,
+  rowTarget,
 }: {
   group: SourceGroup;
   modules: string[];
   cited: Cited;
   scope?: string;
   pathway?: string | null;
+  /** Each file's place across all groups, for its row's address. */
+  places: Map<SourceRow, number>;
+  rowTarget?: number;
 }) {
   const headings = [
     "File",
@@ -151,125 +184,150 @@ function SourceTable({
           {String(group.rows.length)}
         </Badge>
       </h4>
-      <div
-        role="region"
-        aria-label={`${group.label}: files`}
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-        tabIndex={0}
-        className="min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"
-      >
-        <table role="table" className={STACK.table}>
-          <caption className="sr-only">{group.label}</caption>
-          <thead role="rowgroup" className={STACK.head}>
-            <tr role="row">
-              {headings.map((heading) => (
-                <th key={heading} role="columnheader" scope="col" className="px-4 py-3 font-medium">
-                  {heading}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody role="rowgroup" className={STACK.body}>
-            {group.rows.map((source) => {
-              const citations = citationsOf(cited, source);
-              return (
-                <tr role="row" key={source.name} className={STACK.row}>
+      {group.rows.length === 0 ? (
+        <p className="text-small text-text-secondary">
+          {NO_FILES[group.label] ?? "No file is listed in this group."}
+        </p>
+      ) : (
+        <div
+          role="region"
+          aria-label={`${group.label}: files`}
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+          tabIndex={0}
+          className="min-w-0 overflow-x-auto rounded-ds-md border border-border-hairline"
+        >
+          <table role="table" className={STACK.table}>
+            <caption className="sr-only">{group.label}</caption>
+            <thead role="rowgroup" className={STACK.head}>
+              <tr role="row">
+                {headings.map((heading) => (
                   <th
-                    role="rowheader"
-                    scope="row"
-                    data-label={headings[0]}
-                    className={`${STACK.cell} font-medium wrap-anywhere text-text-primary`}
+                    key={heading}
+                    role="columnheader"
+                    scope="col"
+                    className="px-4 py-3 font-medium"
                   >
-                    {source.name}
-                    {source.sourceWarning && (
-                      <span className="mt-1 block font-normal text-warning-text">
-                        {source.sourceWarning}
-                      </span>
-                    )}
+                    {heading}
                   </th>
-                  <td
-                    role="cell"
-                    data-label={headings[1]}
-                    className={`${STACK.cell} text-text-secondary`}
+                ))}
+              </tr>
+            </thead>
+            <tbody role="rowgroup" className={STACK.body}>
+              {group.rows.map((source) => {
+                const citations = citationsOf(cited, source);
+                const place = places.get(source);
+                const landed = place !== undefined && place === rowTarget;
+                return (
+                  <tr
+                    role="row"
+                    key={source.name}
+                    id={place === undefined ? undefined : sourceRowId(place)}
+                    tabIndex={-1}
+                    aria-current={landed ? "true" : undefined}
+                    className={`${STACK.row} outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus ${landed ? "bg-surface-selected" : ""}`}
                   >
-                    {source.type || <GapText>Document type n.a.</GapText>}
-                  </td>
-                  <td
-                    role="cell"
-                    data-label={headings[2]}
-                    className={`${STACK.cell} text-text-secondary tabular-nums`}
-                  >
-                    {source.documentDate || <GapText>Document date n.a.</GapText>}
-                  </td>
-                  <td
-                    role="cell"
-                    data-label={headings[3]}
-                    className={`${STACK.cell} text-text-secondary`}
-                  >
-                    {citations.length > 0 ? (
-                      <ul className="grid gap-1.5">
-                        {citations.map(({ label, sha, kind, note }, index) => (
-                          <li key={`${String(index)}-${label}`} className="grid gap-0.5">
-                            {kind === "different" ? (
-                              <>
-                                <span>{`Cited as ${label} under a different hash`}</span>
-                                <code className="font-mono text-mono wrap-anywhere text-text-tertiary">
-                                  {sha}
-                                </code>
-                              </>
-                            ) : (
-                              <>
-                                <span>{label}</span>
-                                {note !== null && (
-                                  <span className="text-caption text-text-tertiary">{note}</span>
-                                )}
-                                {kind === "unhashed" && (
-                                  <span className="text-caption text-text-tertiary">
-                                    Matched by file name; the source has no hash
-                                  </span>
-                                )}
-                              </>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <GapText>
-                        {scope
-                          ? `No citation in ${moduleName(scope, pathway)} names this file`
-                          : "No citation names this file"}
-                      </GapText>
-                    )}
-                  </td>
-                  <td
-                    role="cell"
-                    data-label={headings[4]}
-                    className={`${STACK.cell} text-text-secondary`}
-                  >
-                    <UsedBy
-                      source={source}
-                      modules={modules}
-                      group={group.label}
-                      pathway={pathway}
-                    />
-                  </td>
-                  <td
-                    role="cell"
-                    data-label={headings[5]}
-                    className={`${STACK.cell} font-mono text-mono wrap-anywhere text-text-tertiary`}
-                  >
-                    {source.sha256 ? (
-                      <code>{source.sha256}</code>
-                    ) : (
-                      <GapText>No hash recorded</GapText>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    <th
+                      role="rowheader"
+                      scope="row"
+                      data-label={headings[0]}
+                      className={`${STACK.cell} font-medium wrap-anywhere text-text-primary`}
+                    >
+                      {source.name}
+                      {source.sourceWarning && (
+                        <span className="mt-1 block font-normal text-warning-text">
+                          {source.sourceWarning}
+                        </span>
+                      )}
+                    </th>
+                    <td
+                      role="cell"
+                      data-label={headings[1]}
+                      className={`${STACK.cell} text-text-secondary`}
+                    >
+                      {source.type || <GapText>Document type n.a.</GapText>}
+                    </td>
+                    <td
+                      role="cell"
+                      data-label={headings[2]}
+                      className={`${STACK.cell} text-text-secondary tabular-nums`}
+                    >
+                      {source.documentDate || <GapText>Document date n.a.</GapText>}
+                    </td>
+                    <td
+                      role="cell"
+                      data-label={headings[3]}
+                      className={`${STACK.cell} text-text-secondary`}
+                    >
+                      {citations.length > 0 ? (
+                        <ul className="grid gap-1.5">
+                          {citations.map(({ label, sha, kind, note, count }, index) => (
+                            <li key={`${String(index)}-${label}`} className="grid gap-0.5">
+                              {count > 1 && (
+                                <span className="order-last text-caption text-text-tertiary tabular-nums">
+                                  {`${String(count)} citations`}
+                                </span>
+                              )}
+                              {kind === "different" ? (
+                                <>
+                                  <span>{`Cited as ${label} under a different hash`}</span>
+                                  <code className="font-mono text-mono wrap-anywhere text-text-tertiary">
+                                    {sha}
+                                  </code>
+                                </>
+                              ) : (
+                                <>
+                                  <span>{label}</span>
+                                  {note !== null && (
+                                    <span className="text-caption text-text-tertiary">{note}</span>
+                                  )}
+                                  {kind === "unhashed" && (
+                                    <span className="text-caption text-text-tertiary">
+                                      Matched by file name; the source has no hash
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <GapText>
+                          {scope
+                            ? `No citation in ${moduleName(scope, pathway)} names this file`
+                            : "No citation names this file"}
+                        </GapText>
+                      )}
+                    </td>
+                    <td
+                      role="cell"
+                      data-label={headings[4]}
+                      className={`${STACK.cell} text-text-secondary`}
+                    >
+                      <UsedBy
+                        source={source}
+                        modules={modules}
+                        group={group.label}
+                        pathway={pathway}
+                      />
+                    </td>
+                    <td
+                      role="cell"
+                      data-label={headings[5]}
+                      className={`${STACK.cell} font-mono text-mono wrap-anywhere text-text-tertiary`}
+                    >
+                      {source.sha256 ? (
+                        <Hash value={source.sha256} />
+                      ) : (
+                        <GapText>No hash recorded</GapText>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -299,7 +357,7 @@ function UnmatchedCitations({
           const first = list[0];
           return (
             <li key={reason} className="flex flex-wrap items-center gap-x-3">
-              <span className="wrap-anywhere">{`${String(list.length)} · ${reason}`}</span>
+              <span className="wrap-anywhere">{`${String(list.length)} · ${readerText(reason, pathway)}`}</span>
               {first && (
                 <a
                   href={evidencePath(folder, first.entry, first.line)}
@@ -325,6 +383,7 @@ export function EvidenceSources({
   snapshot,
   folder,
   pathway,
+  rowTarget,
 }: {
   sourceGroups: SourceGroup[];
   module?: string;
@@ -333,6 +392,8 @@ export function EvidenceSources({
   snapshot: Snapshot;
   folder: string;
   pathway?: string | null;
+  /** The place of the file a search result or a link asked for; its row is marked and focused. */
+  rowTarget?: number;
 }) {
   const cited = citationsByFile(
     snapshot,
@@ -348,16 +409,22 @@ export function EvidenceSources({
           !module || source.readBy.includes(module) || citationsOf(cited, source).length > 0,
       ),
     }))
-    .filter(({ rows }) => rows.length > 0);
+    // With no module chosen an empty group stays and says it is empty: "supplied, not used" has an
+    // answer either way. Under a module filter only the groups that hold its files are drawn.
+    .filter(({ rows }) => !module || rows.length > 0);
+  const places = new Map(
+    sourceGroups.flatMap(({ rows }) => rows).map((source, index) => [source, index] as const),
+  );
+  const none = shown.every(({ rows }) => rows.length === 0);
   return (
     <Tile
       span={12}
       label="Sources"
-      kicker="Supplied files, and which modules read them"
       title="Sources"
+      kicker="The supplied files, and which modules read them."
     >
       <UnmatchedCitations cited={cited} folder={folder} pathway={pathway} />
-      {shown.length === 0 ? (
+      {none ? (
         <EmptyState className="py-5">
           <EmptyState.Header>
             <EmptyState.FeaturedIcon icon={FileSearch02} />
@@ -380,6 +447,8 @@ export function EvidenceSources({
             cited={cited}
             scope={module}
             pathway={pathway}
+            places={places}
+            rowTarget={rowTarget}
           />
         ))
       )}

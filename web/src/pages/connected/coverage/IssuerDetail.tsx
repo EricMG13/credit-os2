@@ -2,12 +2,11 @@ import { useEffect, useRef } from "react";
 import { cx } from "@/utils/cx";
 import { Button } from "@/components/base/buttons/button";
 import { TextLink } from "../../run/TextLink";
-import { moduleName } from "../api";
 import { evidenceLink, factsOf, latestRun, type Coverage as Data, type Issuer } from "../coverageData";
 import { card, heading } from "../layout";
 import { RunStates } from "./RunStates";
 import { stateWord } from "./StateMark";
-import { HIT, IN_EVIDENCE, named, prose, reportPath, RunLine } from "./shared";
+import { HIT, IN_EVIDENCE, moduleTitle, named, prose, reportPath, RunLine } from "./shared";
 
 /** One issuer: every run's states by stage and what its newest run says. */
 export function IssuerDetail({ data, issuer }: { data: Data; issuer: Issuer }) {
@@ -38,19 +37,21 @@ export function IssuerDetail({ data, issuer }: { data: Data; issuer: Issuer }) {
           <li key={run.key} className="grid gap-3 border-t border-border-hairline pt-4 first:border-t-0 first:pt-0">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <RunLine run={run} />
-              <TextLink href={reportPath(run.folder)} className={HIT}>
- Open report
- </TextLink>
+              {run !== newest && (
+                <TextLink href={reportPath(run.folder)} className={HIT}>
+                  Open report
+                </TextLink>
+              )}
             </div>
             <RunStates data={data} run={run} />
-            <p className="text-caption text-text-secondary">
-              Other modules:{" "}
-              {run.other.length === 0
-                ? "None"
-                : run.other
-                    .map((item) => `${named(item, run.pathway)} (${stateWord(item).toLowerCase()})`)
-                    .join("; ")}
-            </p>
+            {run.other.length > 0 && (
+              <p className="text-caption text-text-secondary">
+                Other modules:{" "}
+                {run.other
+                  .map((item) => `${named(item, run.pathway)} (${stateWord(item).toLowerCase()})`)
+                  .join("; ")}
+              </p>
+            )}
           </li>
         ))}
       </ol>
@@ -61,15 +62,17 @@ export function IssuerDetail({ data, issuer }: { data: Data; issuer: Issuer }) {
             {said.map((fact) => (
               <li key={`${fact.output}-${String(fact.line)}`} className="grid gap-1">
                 <span className="text-small font-medium text-text-secondary">
-                  {titles.get(fields.get(fact.field)?.module ?? "") ??
-                    moduleName(fields.get(fact.field)?.module ?? "", newest.pathway)}
+                  {moduleTitle(fields.get(fact.field)?.module, titles, newest.pathway)}
                 </span>
                 <p className="reading-copy text-body text-text-primary">
                   {prose(fact.text) ?? IN_EVIDENCE}
                 </p>
-                <TextLink href={evidenceLink(newest, fact)} className={HIT}>
- View sources
- </TextLink>
+                <TextLink
+                  href={evidenceLink(newest, fact)}
+                  className={`${HIT} text-small font-normal`}
+                >
+                  Open in Evidence
+                </TextLink>
               </li>
             ))}
           </ul>

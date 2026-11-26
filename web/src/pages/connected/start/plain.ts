@@ -179,7 +179,7 @@ export function lookupSentence(line: string) {
   if (allowed) {
     const [, module = "", kind = ""] = allowed;
     return serviceText(
-      `On, because this is a ${kind} case: ${module} may fetch allowlisted public pages and SEC EDGAR.${rest}`,
+      `On, because this is a ${kind} case: ${moduleName(module)} may fetch allowlisted public pages and SEC EDGAR.${rest}`,
     );
   }
   const off = /^off: (\S+) case \(default\)(?:; --web-lookup on forces it)?$/.exec(body);
@@ -430,10 +430,17 @@ const CODES = String.raw`(?:CP-[A-Z0-9]+(?: |(?=:)))+`;
 const FLAGGED = new RegExp(`^--([a-z][a-z-]*)(?: (${CODES}|[^\\s:]+))?: ([\\s\\S]*)$`);
 const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+/** A refusal of a module flag (`--modules`, `--high-modules`): every code in it is a module id. */
+const MODULE_FLAG = /^--(?:[a-z]+-)*modules(?![\w-])/;
+/** Text of a module flag's refusal with each module id as its name, an unnamed one included. */
+const moduleText = (text: string, pathway?: string | null) =>
+  text.replace(/(?<![\w-])CP-[A-Z0-9]+(?![\w-])/g, (code) => moduleName(code, pathway));
+
 /**
  * A launcher refusal (`--flag <arguments>: <message>`) without its command-line prefix, module codes
  * as names; "" when the text does not start with `--`. A prefix other than `--modules` is removed,
- * its explanation remains visible, and its raw text is retained in `console.warn`.
+ * its explanation remains visible, and its raw text is retained in `console.warn`. Only a module
+ * flag's refusal has its unnamed codes replaced; any other flag's values stay as written.
  */
 function launcherLine(error: string, pathway?: string | null): string {
   if (!error.startsWith("--")) return "";
@@ -444,13 +451,14 @@ function launcherLine(error: string, pathway?: string | null): string {
       .split(" ")
       .filter(Boolean)
       .map((code) => moduleName(code, pathway));
-    const body = serviceText(message, pathway);
+    const body = moduleText(message, pathway);
     return codes.length
       ? `The modules chosen (${codes.join(", ")}): ${body}`
       : `Requested modules: ${body}`;
   }
   console.warn(`Launcher flag prefix removed; its explanation is shown to the analyst: ${error}`);
-  return capital(serviceText(flag ? message : error.replace(/^--[a-z][a-z-]*\s*/, ""), pathway));
+  const body = flag ? message : error.replace(/^--[a-z][a-z-]*\s*/, "");
+  return capital(MODULE_FLAG.test(error) ? moduleText(body, pathway) : serviceText(body, pathway));
 }
 
 /**

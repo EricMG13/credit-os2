@@ -5,7 +5,10 @@ function Hash({ value }: { value: string | null }) {
   return value === null ? (
     <span className="text-gap-text">Not recorded</span>
   ) : (
-    <code className="font-mono text-caption wrap-anywhere">{value}</code>
+    // 64 characters as two even lines of 32, as on Sources.
+    <code className="inline-block w-[32ch] max-w-full font-mono text-mono break-all text-text-tertiary">
+      {value}
+    </code>
   );
 }
 

@@ -771,10 +771,15 @@ describe("EarningsDeltaLead on the retained handoff", () => {
         ]),
       ),
     );
-    expect(screen.getByRole("region", { name: RESULTS_NAME }).className).toContain("lg:col-span-8");
-    expect(screen.getByRole("region", { name: "Margins and KPIs" }).className).toContain(
-      "lg:col-span-4",
-    );
+    // Side by side only from xl (1280): at 1024 the 4-column margins tile is 177 px wide, too
+    // narrow for a pair's two figures, so there each tile takes the full row.
+    const resultsColumn = screen.getByRole("region", { name: RESULTS_NAME }).parentElement;
+    const marginsColumn = screen.getByRole("region", { name: "Margins and KPIs" }).parentElement;
+    expect(resultsColumn?.className).toContain("lg:col-span-12");
+    expect(resultsColumn?.className).toContain("xl:col-span-8");
+    expect(marginsColumn?.className).toContain("lg:col-span-12");
+    expect(marginsColumn?.className).toContain("xl:col-span-4");
+    expect(marginsColumn?.className).not.toContain("lg:col-span-4");
   });
   it("gives the results the full width when the margins are a gap, and the margins when the results are", () => {
     lead(entry("CP-1B", [], [results(MONEY)]));

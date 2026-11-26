@@ -16,7 +16,7 @@ import {
 } from "../publishedReport";
 import { sectionTraces } from "../ReportContent";
 import { ModuleRecords } from "./ModuleRecords";
-import { moduleRecords } from "./moduleRecords";
+import { moduleRecords } from "./moduleRecordsModel";
 
 afterEach(cleanup);
 

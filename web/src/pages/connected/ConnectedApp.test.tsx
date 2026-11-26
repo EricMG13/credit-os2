@@ -120,7 +120,7 @@ function approve() {
 
 async function confirmSynthetic(submit: HTMLElement) {
   fireEvent.click(submit);
-  fireEvent.click(await screen.findByRole("button", { name: "Start synthetic run" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Start no-cost test" }));
 }
 
 async function reviewSheet(summary: Parameters<typeof testingFetch>[0]) {
@@ -1802,7 +1802,9 @@ describe("connected activity and reports", () => {
       "page",
     );
     expect(screen.getByRole("link", { name: "Run activity" })).toHaveAttribute("href", "/runs");
-    expect(screen.getByRole("link", { name: "Start a run" })).toHaveAttribute("href", "/start");
+    // The page draws no run action of its own while runs are listed: the top bar carries it.
+    expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Start run" })).toHaveAttribute("href", "/start");
     expect(screen.getByText("Updated 16 Nov 2026, 14:32 UTC")).toBeInTheDocument();
     for (const term of ["Running", "Waiting"])
       expect(screen.getByText(term, { selector: "dt" }).nextElementSibling).toHaveTextContent("1");
@@ -2079,7 +2081,8 @@ describe("connected activity and reports", () => {
       "aria-valuetext",
       "1 of 1 modules",
     );
-    expect(screen.getByText("1 min 14 s")).toBeInTheDocument();
+    // The numerals are mono and the units text, so the value is one element of several nodes.
+    expect(screen.getByText("Elapsed").nextElementSibling?.textContent).toBe("1 min 14 s");
     expect(screen.getByText("Report delivered.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open report" })).toBeNull();
     expect(
@@ -2221,7 +2224,8 @@ Basis: ${filing}, page 7.`,
     expect(screen.getByText("The report read the filing.")).toBeInTheDocument();
     expect(screen.queryByText(filing, { exact: false })).toBeNull();
     expect(screen.queryByRole("link", { name: "Download Fundamental credit" })).toBeNull();
-    window.location.hash = "evidence";
+    // Handoff downloads are machinery of the Record tab of Evidence.
+    window.location.hash = "evidence/record";
     await screen.findByRole("link", { name: "Download Fundamental credit" });
     expect(screen.getByRole("link", { name: "Download Fundamental credit" })).toHaveAttribute(
       "href",
@@ -2273,6 +2277,53 @@ Basis: ${filing}, page 7.`,
       expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
     },
   );
+
+  it("says an unknown address has no page and offers the Library and Run activity", () => {
+    render(<ConnectedApp path="/nope" mode="synthetic" />);
+    expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+    expect(screen.getByText(/This address has no page/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the Library" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Open Run activity" })).toHaveAttribute(
+      "href",
+      "/runs",
+    );
+  });
+
+  it("carries Start run in the top bar on every screen but Start run itself, never read-only", async () => {
+    const first = render(<ConnectedApp path="/nope" mode="synthetic" />);
+    const action = screen.getByRole("link", { name: "Start run" });
+    expect(action).toHaveAttribute("href", "/start");
+    expect(screen.getByRole("banner")).toContainElement(action);
+    first.unmount();
+    const second = render(<ConnectedApp path="/nope" mode="synthetic" readOnly />);
+    expect(screen.queryByRole("link", { name: "Start run" })).toBeNull();
+    second.unmount();
+    testingFetch(plan);
+    render(<ConnectedApp path="/start" mode="synthetic" />);
+    await screen.findByRole("heading", { level: 1, name: "Start a run" });
+    expect(screen.queryByRole("link", { name: "Start run" })).toBeNull();
+  });
+
+  it("hides the bar's Start run on a test preview, as the page hides its own", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(Response.json({ issuers: [], preview: { reason: "Retained preview." } })),
+      ),
+    );
+    render(<ConnectedApp path="/coverage" mode="synthetic" />);
+    expect(await screen.findByText("No published runs yet")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Start run" })).toBeNull();
+    });
+    expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
+  });
+
+  it("offers only the Library on an unknown address when the page is read-only", () => {
+    render(<ConnectedApp path="/nope" mode="synthetic" readOnly />);
+    expect(screen.getByRole("link", { name: "Open the Library" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open Run activity" })).toBeNull();
+  });
 
   it("uses the summary's seat status when the picker advertised the pair earlier", async () => {
     const fetchMock = testingFetch(plan, undefined, {

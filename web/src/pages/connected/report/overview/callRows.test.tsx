@@ -363,7 +363,7 @@ it("numbers the lead's findings in its own words and links a paragraph that cite
   expect(screen.queryByRole("region", { name: "What would change the view" })).toBeNull();
   expect(
     within(counter).getByText(
-      "The two outcomes, resolved favourably and resolved adversely, are not typed in this run.",
+      "The module does not separate the outcome resolved favourably from the one resolved adversely.",
     ),
   ).toBeVisible();
 });
@@ -376,9 +376,7 @@ it("draws a passage the lead did not write as a gap, and nothing without a credi
   expect(
     screen.getAllByText("Not established for this run. The module wrote no such passage."),
   ).toHaveLength(2);
-  expect(
-    screen.getByText(/The two outcomes, resolved favourably and resolved adversely/),
-  ).toBeVisible();
+  expect(screen.getByText(/does not separate the outcome resolved favourably/)).toBeVisible();
   unmount();
   const { container } = render(<JudgementRow snapshot={snapshot} run={run} view={view([])} />);
   expect(container).toBeEmptyDOMElement();
@@ -405,7 +403,9 @@ it("keeps the counter passage whole under its own heading, one trace per paragra
   expect(within(counter).getAllByRole("link", { name: /^Source for / })).toHaveLength(3);
   expect(screen.queryByRole("region", { name: "What would change the view" })).toBeNull();
   expect(within(counter).getAllByText(/Liquidity is thin/)).toHaveLength(1);
-  expect(within(counter).getByText(/are not typed in this run/)).toBeVisible();
+  expect(
+    within(counter).getByText(/does not separate the outcome resolved favourably/),
+  ).toBeVisible();
 });
 
 function compared(currentBias: string | null, priorBias: string | null, bottom: string) {

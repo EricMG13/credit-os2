@@ -169,8 +169,9 @@ describe("the credit screening lead", () => {
       <ShortSnapshotLead {...props(without("Liquidity and forward-risk screen"))} />,
     );
     expect(screen.getAllByRole("table", { hidden: true })).toHaveLength(4);
+    // The gap tile names its screen as its title (main's GapTile: a heading, not a chip span).
     expect(
-      screen.getByText(/Liquidity and forward-risk screen/, { selector: "span" }),
+      screen.getByRole("heading", { name: /Liquidity and forward-risk screen/ }),
     ).toBeInTheDocument();
     expect(screen.getByText(/could not read/i)).toBeInTheDocument();
     unmount();

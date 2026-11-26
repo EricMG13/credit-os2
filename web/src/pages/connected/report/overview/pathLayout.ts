@@ -21,13 +21,34 @@ export function pathLayout(geometry: Geometry, width: number) {
       width,
     ),
     lines: geometry.lines.map((line) =>
-      line.map((point) => ({
-        ...point,
-        x: x(point.x),
-        label: inside(x(point.x), point.display, width),
-      })),
+      valueLabels(
+        line.map((point) => ({ ...point, x: x(point.x) })),
+        width,
+      ),
     ),
   };
+}
+
+/**
+ * The value written under each point: centred on its point and moved in from the edges; a value
+ * that would print over a neighbour's is left out (the first and the latest are kept first), as
+ * period labels are. Its point stays; the figure's reading and the table keep every value.
+ */
+function valueLabels<P extends { display: string; x: number }>(points: P[], width: number) {
+  // Each label is centred first (as `inside` does), so a kept label's place identifies its point.
+  const centred = points.map((point) => ({ point, at: inside(point.x, point.display, width) }));
+  const kept = new Set(
+    thinTicks(
+      centred.map(({ point, at }) => ({ label: point.display, x: at })),
+      width,
+    ).map(({ x }) => x),
+  );
+  const used = new Set<number>();
+  return centred.map(({ point, at }) => {
+    const show = kept.has(at) && !used.has(at);
+    if (show) used.add(at);
+    return { ...point, label: show ? at : null };
+  });
 }
 
 /**

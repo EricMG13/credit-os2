@@ -58,7 +58,7 @@ function figure(title: string): HTMLElement {
 const cellText = (c: HTMLElement) => c.textContent.replace("not available", "");
 
 function tableRows(chart: HTMLElement): string[][] {
-  fireEvent.click(within(chart).getByRole("radio", { name: "Table" }));
+  fireEvent.click(within(chart).getByRole("button", { name: "Table" }));
   return within(chart)
     .getAllByRole("row")
     .slice(1)
@@ -310,7 +310,7 @@ describe("Portfolio fit page", () => {
     renderAt(fixtureSlice());
     for (const title of [LIMITS, SCATTER, STRIPS]) {
       const chart = figure(title);
-      fireEvent.click(within(chart).getByRole("radio", { name: "Table" }));
+      fireEvent.click(within(chart).getByRole("button", { name: "Table" }));
       const card = chart.closest(".rounded-ds-lg");
       expect(card?.querySelector("table")).not.toBeNull();
     }
@@ -371,7 +371,7 @@ describe("Portfolio fit page", () => {
 
   it("names no company but the issuer: the holdings stay letters", () => {
     const { container } = renderAt(fixtureSlice());
-    fireEvent.click(within(figure(SCATTER)).getByRole("radio", { name: "Table" }));
+    fireEvent.click(within(figure(SCATTER)).getByRole("button", { name: "Table" }));
     const names = within(figure(SCATTER))
       .getAllByRole("rowheader")
       .map((h) => h.textContent);
@@ -443,7 +443,9 @@ describe("Portfolio fit page: a section that is a gap with a reason", () => {
     const card = must(heading.closest<HTMLElement>(".rounded-ds-lg"));
     expect(within(card).getByText("Not established for this run")).toBeInTheDocument();
     expect(within(card).getByText(reason)).toBeInTheDocument();
-    expect(card.querySelector("figure, svg[role=img], table, [role=radio], a")).toBeNull();
+    expect(
+      card.querySelector("figure, svg[role=img], table, [role=radio], [aria-pressed], a"),
+    ).toBeNull();
     return card;
   }
 

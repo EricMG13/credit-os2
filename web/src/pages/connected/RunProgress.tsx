@@ -39,6 +39,7 @@ import {
   finishedFigure,
   moduleSteps,
   spendFigure,
+  spendParts,
 } from "./runFigures";
 import { isUnreachable } from "./useResource";
 
@@ -61,6 +62,17 @@ const REPORT_WAIT_MS = 10_000;
 type Problem = "missing" | "unreachable" | "failed";
 /** A finished run's report: not there yet, there, not there after the wait, or unreadable. */
 type ReportState = "pending" | "ready" | "absent" | "unreachable" | "failed";
+
+/** A reason as a sentence: the service's words, closed with a full stop where it left none. */
+function sentence(text: string) {
+  const trimmed = text.trim();
+  return /[.!?…]$/u.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
+/** The clock time of a service timestamp ("11:46:38"); nothing for any other text. */
+function clockOf(at: string | null | undefined) {
+  return at && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/u.test(at) ? at.slice(11, 19) : undefined;
+}
 
 function problemOf(failure: unknown): Problem {
   if (failure instanceof RequestError && failure.status === 404) return "missing";
@@ -105,9 +117,12 @@ const REPORT_PROBLEMS = {
 
 export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
   const [run, setRun] = useState<ConnectedRun>();
+  // The state leads the tab's title: a run left in a background tab says there whether it landed.
+  const issuer = run?.issuer_name;
+  const state = run ? WORDS[run.status] : undefined;
   useEffect(() => {
-    document.title = `${run?.issuer_name || "Run progress"}${run?.issuer_name ? " run" : ""} — Credit OS`;
-  }, [run?.issuer_name]);
+    document.title = `${state ? `${state} · ` : ""}${issuer || "Run progress"}${issuer ? " run" : ""} — Credit OS`;
+  }, [issuer, state]);
   // Reading the run and reading its report fail apart, so one poll never clears the other's
   // alert: an alert that is removed and inserted again is announced again.
   const [problem, setProblem] = useState<Problem>();
@@ -189,6 +204,7 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
   const restartable = run && RESTARTABLE.includes(run.status);
   const live = run?.status === "queued" || run?.status === "running";
   const lines = run ? feedLines(run) : [];
+  // The report's own row is its delivery, not a module: `moduleName` keeps its name as written.
   const steps = run ? moduleSteps(run, live, notAssessable) : [];
   const assessmentGaps =
     run?.modules
@@ -215,7 +231,18 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
   );
   const stopped = restartable ? stoppedAt(steps) : undefined;
   const finished = run ? finishedFigure(run) : undefined;
-  const stages = run ? pipelineStages(run.modules, steps) : [];
+  // Only the module the checks stopped a failed run at carries a detail: the graph marks it as the failure.
+  const stages = run
+    ? pipelineStages(run.modules, steps).map((stage) => ({
+        ...stage,
+        nodes: stage.nodes.map((node) =>
+          run.status === "failed" && node.detail !== undefined ? { ...node, stopped: true } : node,
+        ),
+      }))
+    : [];
+  // A key of one entry explains nothing the run's own state badge does not.
+  const keyed = new Set(steps.map((step) => step.state)).size > 1;
+  const checked = live ? clockOf(run.observed_at) : undefined;
   return (
     <>
       <Breadcrumb href="/runs" root="Run activity">
@@ -228,7 +255,7 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
             {run && (
               <>
                 <span role="status">
-                  <StatusBadge set="Run states" state={WORDS[run.status]} />
+                  <StatusBadge set="Run states" state={WORDS[run.status]} live />
                 </span>
                 <Badge color="brand">{pathwayName(run.pathway)}</Badge>
               </>
@@ -247,28 +274,31 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
           </>
         }
         actions={
-          <>
-            {report === "ready" && (
-              <Button href={`/report/${encodeURIComponent(id)}`} className="max-md:min-h-11">
-                Open report
-              </Button>
-            )}
+          <div className="flex flex-col gap-1.5 lg:items-end">
+            <div className="flex flex-wrap items-start gap-3">
+              {report === "ready" && (
+                <Button href={`/report/${encodeURIComponent(id)}`} className="max-md:min-h-11">
+                  Open report
+                </Button>
+              )}
+              {mayRestart && !restartable && (
+                <Button
+                  color="secondary"
+                  href={`/start?from=${encodeURIComponent(id)}`}
+                  aria-describedby="run-restart-note"
+                  className="max-md:min-h-11"
+                >
+                  Use this run’s inputs
+                </Button>
+              )}
+            </div>
+            {/* The second button's footnote, under it: never the page's opening sentence. */}
             {mayRestart && !restartable && (
-              <Button
-                color="secondary"
-                href={`/start?from=${encodeURIComponent(id)}`}
-                aria-describedby="run-restart-note"
-                className="max-md:min-h-11"
-              >
-                Use this run’s inputs
-              </Button>
+              <p className="text-caption text-text-tertiary">{restartNote}</p>
             )}
-          </>
+          </div>
         }
       />
-      {mayRestart && !restartable && (
-        <p className="reading-copy mt-3 text-body text-text-secondary">{restartNote}</p>
-      )}
       {runProblem && (
         <div className="mt-4">
           <Alert
@@ -296,29 +326,31 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
             <Alert
               tone={run.status === "capped" ? "warning" : "error"}
               title="Why this run ended without a report"
+              action={
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    href={`/start?from=${encodeURIComponent(id)}`}
+                    aria-describedby="run-restart-note"
+                    className="max-md:min-h-11"
+                  >
+                    Use this run’s inputs
+                  </Button>
+                  <span className="text-small text-text-primary">{restartNote}</span>
+                </div>
+              }
             >
+              {/* Why, then where, each on its own line; what to do is the notice's action. */}
               <p className="wrap-anywhere">
-                <span>{`Run ${run.status}.`}</span>{" "}
-                <span>
-                  {run.reason
-                    ? serviceText(run.reason, run.pathway)
-                    : "The run record gives no reason."}
-                </span>{" "}
-                <span>
-                  {stopped.names.length > 0
-                    ? `Where it stopped: ${stopped.names.join(", ")}.${stopped.detail ? ` ${stopped.detail}` : ""}`
-                    : "Where it stopped: the run record does not say."}
-                </span>{" "}
-                {restartNote}{" "}
-                <Button
-                  size="sm"
-                  color="secondary"
-                  href={`/start?from=${encodeURIComponent(id)}`}
-                  aria-describedby="run-restart-note"
-                  className="ml-1 align-middle max-md:min-h-11"
-                >
-                  Use this run’s inputs
-                </Button>
+                {run.reason
+                  ? sentence(serviceText(run.reason, run.pathway))
+                  : "The run record gives no reason."}
+              </p>
+              <p className="mt-1 wrap-anywhere text-text-primary">
+                {stopped.names.length > 0
+                  ? `Where it stopped: ${stopped.names.join(", ")}.${stopped.detail ? ` ${stopped.detail}` : ""}`
+                  : "Where it stopped: the run record does not say."}
               </p>
             </Alert>
           ) : (
@@ -369,11 +401,11 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
           <Bento>
             <Tile span={12} label="Pipeline" className="gap-2 p-3 sm:p-4">
               <div className={HEADER_GRID}>
-                <SpendBlock spend={spendFigure(run)} />
+                <SpendBlock spend={spendFigure(run)} parts={spendParts(run)} />
                 <div className={HEADER_BLOCK}>
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                     <h2 className="text-h4 font-medium text-text-primary">Module pipeline</h2>
-                    <PipelineKey stages={stages} />
+                    {keyed && <PipelineKey stages={stages} />}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     {finished?.bar ? (
@@ -384,12 +416,28 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
                           name="Modules finished"
                           valueText={finished.bar.label}
                         />
-                        <Figure className="flex-none text-small">{finished.bar.label}</Figure>
+                        <p className="flex-none text-small text-text-secondary">
+                          <Figure className="font-medium">{finished.value}</Figure> modules
+                        </p>
                       </div>
                     ) : (
                       <p className="text-small text-text-tertiary">{finished?.note}</p>
                     )}
-                    <ElapsedLine elapsed={elapsedFigure(run)} />
+                    {run.status === "queued" && !run.started_at ? (
+                      <p className="text-small text-text-secondary">Not started</p>
+                    ) : (
+                      <ElapsedLine elapsed={elapsedFigure(run)} />
+                    )}
+                    {/* The page's heartbeat: the time of the service's latest answer, as it gave it. */}
+                    {checked && (
+                      <p className="text-small text-text-tertiary">
+                        Checked{" "}
+                        <time className="font-mono tabular-nums" dateTime={run.observed_at}>
+                          {checked}
+                        </time>{" "}
+                        UTC
+                      </p>
+                    )}
                   </div>
                   {assessmentGaps.length > 0 && (
                     <p className="text-caption text-text-secondary">
@@ -399,23 +447,29 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
                 </div>
               </div>
               {stages.length > 0 && (
-                <Well className="border border-border-hairline p-1.5">
+                <Well className="border border-border-hairline p-3">
                   <Pipeline
                     label="Modules in this run"
                     stages={stages}
                     flow={live ? "running" : "none"}
+                    stageLevel={3}
                     legend={false}
                   />
                 </Well>
               )}
             </Tile>
             <Tile span={12} label="Activity" className="gap-2 p-3 sm:p-4">
-              <h2 className="text-h4 font-medium text-text-primary">What just happened</h2>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="text-h4 font-medium text-text-primary">What just happened</h2>
+                {lines.length > 0 && (
+                  <p className="text-caption text-text-tertiary">Newest first · times in UTC</p>
+                )}
+              </div>
               {run.events === null && (
                 <p className="text-small text-text-secondary">The activity log is unavailable.</p>
               )}
               {lines.length > 0 ? (
-                <Feed lines={lines} columns />
+                <Feed lines={lines} compact />
               ) : (
                 run.events !== null && (
                   <p className="text-small text-text-secondary">No activity recorded yet.</p>
@@ -424,7 +478,7 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
             </Tile>
           </Bento>
         </section>
-      ) : (
+      ) : problem === "missing" ? null : (
         <div
           role="status"
           aria-label={problem ? "Run progress unknown" : "Loading run progress"}
@@ -438,9 +492,12 @@ export function RunProgress({ id, mode }: { id: string; mode: Mode }) {
                     {problem ? <GapNote>Spend is not known.</GapNote> : <Skeleton lines={3} />}
                   </Well>
                 </section>
-                <div className={HEADER_BLOCK}>
-                  <Skeleton lines={2} />
-                </div>
+                {/* A run that cannot be read is not loading: no skeleton beside its gaps. */}
+                {!problem && (
+                  <div className={HEADER_BLOCK}>
+                    <Skeleton lines={2} />
+                  </div>
+                )}
               </div>
               <Well className="border border-border-hairline p-3">
                 {problem ? (

@@ -7,7 +7,6 @@ import { cx } from "@/utils/cx";
 import { field } from "../layout";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { serviceText } from "../api";
-import { GapNote } from "../report/overview/Tile";
 import { ISSUE_CLASSES, ISSUE_CLASSIFICATION, ISSUER_ID, storedName } from "./plain";
 import type { LimitGroup } from "./limits";
 import { OUTCOME_STATE, moduleNames } from "./limitWords";
@@ -84,7 +83,18 @@ function IntakeDocumentRow({
       <div className="grid min-w-0 flex-1 gap-1">
         <p className="font-medium wrap-anywhere text-text-primary">{name}</p>
         <div className="flex flex-wrap items-center gap-2">
-          {record?.kind && <span className={KIND_LABEL}>{kindWords(record.kind)}</span>}
+          {record?.kind && (
+            <span
+              className={cx(
+                KIND_LABEL,
+                // A file the service could not place is a gap, drawn with the gap's edge.
+                record.kind === "unrecognised" &&
+                  "border border-dashed border-border-gap bg-transparent text-gap-text",
+              )}
+            >
+              {kindWords(record.kind)}
+            </span>
+          )}
           {uploading ? (
             <StatusBadge set="File state" state="Uploading" />
           ) : (
@@ -300,6 +310,9 @@ export function DocumentFields({
           >
             {view.busy === "documents" ? "Reading documents…" : "Inspect documents"}
           </Button>
+          <p className="text-small text-text-tertiary">
+            Optional. Continue reads the documents too.
+          </p>
         </div>
         <p role="status" className="text-small text-text-secondary empty:hidden">
           {view.read && view.documentRows.length > 0 ? (
@@ -329,7 +342,10 @@ export function DocumentFields({
           <p className="text-small text-text-secondary">No documents yet.</p>
         )}
         {view.missing === undefined && view.documentRows.length > 0 && (
-          <GapNote>Which modules each file serves is not reported before review.</GapNote>
+          // One quiet line, not a panel: the list above is the step's subject.
+          <p className="text-small text-text-tertiary">
+            Which modules each file serves is not reported before review.
+          </p>
         )}
       </FileUpload.Root>
       {view.missing !== undefined && (

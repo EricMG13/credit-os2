@@ -1,4 +1,4 @@
-import { moduleName } from "../api";
+import { moduleName, UNNAMED_MODULE } from "../api";
 import { type CellState, type CoverageRun } from "../coverageData";
 import { containsReference, readerText } from "../publishedReport";
 import { asOfDate } from "../runFigures";
@@ -28,10 +28,24 @@ export const tableBox =
   "overflow-x-auto rounded-ds-lg border border-border-subtle bg-surface-card";
 export const th = "p-3 text-left align-bottom font-medium text-text-secondary";
 
-/** The module's name as the rest of the app says it; the service's title where the app has none. */
-export function named(column: { code: string; title: string }, pathway?: string | null) {
+/**
+ * The module's name as the rest of the app says it; the service's title where the app has none.
+ * A module code is never drawn: a title that is a code, or absent, is the app's unnamed wording.
+ */
+export function named(column: { code: string; title?: string }, pathway?: string | null) {
   const name = moduleName(column.code, pathway);
-  return name === column.code ? column.title : name;
+  if (name !== UNNAMED_MODULE) return name;
+  const title = (column.title ?? "").trim();
+  return title === "" || /^CP-[A-Z0-9]+$/u.test(title) ? UNNAMED_MODULE : title;
+}
+
+/** A module's name by its code, from the page's column names; `pathway` is the run's. */
+export function moduleTitle(
+  code: string | undefined,
+  titles: ReadonlyMap<string, string>,
+  pathway?: string | null,
+) {
+  return titles.get(code ?? "") ?? named({ code: code ?? "" }, pathway);
 }
 
 export function RunLine({ run }: { run: CoverageRun }) {

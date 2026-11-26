@@ -54,3 +54,13 @@ it("draws a missing basis with the gap treatment and keeps the recorded words", 
   const words = screen.getByText("Basis was not recorded for this item");
   expect(words.className).toContain("gap-hatch");
 });
+
+it("says a derivation nobody recorded is not recorded, instead of a bare label", () => {
+  render(
+    <DerivationTree
+      node={{ label: "Evidence retained with this item", value: "", note: null, children: [] }}
+    />,
+  );
+  expect(screen.getByText("No derivation was recorded for this item.")).toBeVisible();
+  expect(screen.queryByText("Evidence retained with this item")).toBeNull();
+});

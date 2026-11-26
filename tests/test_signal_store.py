@@ -8,11 +8,15 @@ from multiprocessing.synchronize import Barrier
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from deploy_workflow.signal.store import (
     Check,
+    Conflict,
     StoreError,
     add_user,
+    canonical_url,
     last_check,
     open_db,
     propose_source,
@@ -152,7 +156,7 @@ def test_concurrent_first_open_all_succeed(tmp_path: Path) -> None:
         got = [results.get(timeout=60) for _ in procs]
         for p in procs:
             p.join(30)
-        assert got == ["ok 2"] * 4
+        assert got == ["ok 7"] * 4  # every migration, 1 to 7
 
 
 def test_fts_follows_title_update_and_delete(tmp_path: Path) -> None:
@@ -256,3 +260,131 @@ def test_a_storys_own_source_is_never_recorded_as_its_duplicate(tmp_path: Path) 
         " WHERE d.duplicate_source_id = s.source_id"
     ).fetchone()[0]
     assert own == 0
+
+
+@pytest.mark.parametrize(
+    ("given", "stored"),
+    [
+        ("https://Feeds.Example/rss", "https://feeds.example/rss"),
+        ("https://feeds.example:443/rss", "https://feeds.example/rss"),
+        ("https://feeds.example/rss#top", "https://feeds.example/rss"),
+        ("HTTPS://FEEDS.EXAMPLE:443", "https://feeds.example/"),
+        ("https://feeds.example/rss?", "https://feeds.example/rss"),
+        ("https://feeds.example/rss?a=1&B=2", "https://feeds.example/rss?a=1&B=2"),
+        ("https://feeds.example:8443/Rss", "https://feeds.example:8443/Rss"),
+        ("http://feeds.example:80/rss", "http://feeds.example/rss"),
+        ("  https://feeds.example/rss  ", "https://feeds.example/rss"),
+        ("not an address", "not an address"),
+    ],
+)
+def test_a_source_address_is_stored_in_one_spelling_and_proposed_once(tmp_path, given, stored):
+    db = open_db(tmp_path)
+    first = propose_source(db, "Feeds", "news", given, "x")
+    assert db.execute("SELECT url FROM sources WHERE id=?", (first,)).fetchone()[0] == stored
+    with pytest.raises(Conflict, match="already exists"):
+        propose_source(db, "Again", "news", stored, "y")
+    db.close()
+
+
+@given(
+    st.sampled_from(["https", "HTTP", "ftp", ""]),
+    st.text(alphabet="abcXYZ.-:[]@%0123456789", max_size=20),
+    st.text(alphabet="/abc?=&#% ", max_size=15),
+)
+def test_canonical_form_never_fails_and_is_its_own_canonical_form(scheme, authority, rest):
+    once = canonical_url(f"{scheme}://{authority}{rest}")
+    assert canonical_url(once) == once
+
+
+# Which build made a store (review finding N6)
+
+
+def test_the_released_migrations_are_never_edited():
+    """Stores at version 2 exist (the released build made them) and record no hash; they are
+    accepted because these two scripts are unchanged. These literals are their sha256 on main."""
+    import hashlib
+
+    from deploy_workflow.signal import store
+
+    assert [hashlib.sha256(m.encode("utf-8")).hexdigest() for m in store.MIGRATIONS[:2]] == [
+        "5ec24ec87588cbcf7db5fac5fdec353455d2a78a5b4edc1d995f481cd8588331",
+        "30d2f48e01ca1287e46008d9d8ec1792fa121e81d197a91f4a11c089f49abb7e",
+    ]
+    assert store.RELEASED == 2
+
+
+def _meta(root: Path) -> dict[str, str]:
+    db = sqlite3.connect(root / "signal" / "signal.db")
+    try:
+        return dict(db.execute("SELECT key, value FROM meta").fetchall())
+    finally:
+        db.close()
+
+
+def _set_meta(root: Path, **values: str | None) -> None:
+    db = sqlite3.connect(root / "signal" / "signal.db")
+    with db:
+        for key, value in values.items():
+            if value is None:
+                db.execute("DELETE FROM meta WHERE key=?", (key,))
+            else:
+                db.execute("INSERT OR REPLACE INTO meta VALUES(?, ?)", (key, value))
+    db.close()
+
+
+def test_a_released_version_two_store_is_upgraded_and_records_its_hash(tmp_path):
+    from deploy_workflow.signal import store
+
+    (tmp_path / "signal").mkdir()
+    db = sqlite3.connect(tmp_path / "signal" / "signal.db")
+    db.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    db.executescript(store.MIGRATIONS[0] + store.MIGRATIONS[1])
+    db.execute("INSERT INTO meta VALUES('schema_version', '2')")
+    db.execute("INSERT INTO users(name, role) VALUES('Mara L', 'writer')")
+    db.commit()
+    db.close()
+    open_db(tmp_path).close()
+    held = _meta(tmp_path)
+    assert held["schema_version"] == "7"
+    assert held["schema_hash"] == store.scripts_hash(7)
+    reopened = open_db(tmp_path)  # and it opens again as this build's own
+    assert reopened.execute("SELECT name FROM users").fetchall()[0][0] == "Mara L"
+    reopened.close()
+
+
+_OTHER = "was made by another build of Signal whose migrations differ from this one's"
+
+
+@pytest.mark.parametrize(
+    ("version", "recorded", "says"),
+    [
+        ("4", None, f"the store at schema version 4 {_OTHER}"),  # an earlier commit, no hash
+        ("5", "0" * 64, f"the store at schema version 5 {_OTHER}"),
+        ("3", "made-elsewhere", f"the store at schema version 3 {_OTHER}"),
+        ("8", None, "the store is at schema version 8, later than this build's 7"),
+    ],
+)
+def test_a_store_another_build_made_is_refused_with_its_remedy(tmp_path, version, recorded, says):
+    open_db(tmp_path).close()
+    _set_meta(tmp_path, schema_version=version, schema_hash=recorded)
+    with pytest.raises(StoreError) as refused:
+        open_db(tmp_path)
+    assert str(refused.value) == (
+        f"{says}: delete the development store {tmp_path / 'signal' / 'signal.db'} (with its"
+        " -wal and -shm files) or open it with the build that made it; deleting it also erases"
+        " this store's record of the month's AI spend, so its cap starts the month again from"
+        " nothing"
+    )
+    assert _meta(tmp_path)["schema_version"] == version  # nothing was migrated
+
+
+def test_the_service_names_the_remedy_when_it_cannot_open_the_store(tmp_path):
+    from react_frontend import signal_host
+
+    open_db(tmp_path).close()
+    _set_meta(tmp_path, schema_version="5", schema_hash=None)
+    with pytest.raises(OSError) as refused:  # what stops the application's start-up
+        signal_host.SignalHost(tmp_path, environ={}).recover()
+    said = str(refused.value)
+    assert said.startswith(f"cannot open the store under {tmp_path}: the store at schema version 5")
+    assert "delete the development store" in said

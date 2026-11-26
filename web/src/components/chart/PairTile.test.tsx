@@ -17,6 +17,7 @@ describe("PairTile", () => {
     ]);
     expect(screen.getAllByText("Stable outlook")).toHaveLength(2);
     expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("group", { name: /figure or table/u })).toBeNull();
   });
 
   it("draws n.a. for a missing rating and no caption when none is given", () => {

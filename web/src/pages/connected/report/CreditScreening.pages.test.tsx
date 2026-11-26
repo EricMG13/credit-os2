@@ -95,11 +95,9 @@ it("Modules: the five reader tables, no module code, no source or register colum
   expect(screen.getByRole("heading", { name: "Credit screening" })).toBeInTheDocument();
   for (const title of SCREENS)
     expect(screen.getByRole("table", { name: title, hidden: true })).toBeInTheDocument();
-  // The navigator prints a module's id beside its name for every module of every run
-  // (library/parts/ModuleNav.tsx, not this PR's); nothing else on the page may print a code.
+  // Main stopped the navigator printing a module's id beside its name: no id is drawn at all.
   const { text, stripped } = withoutKnownIds(container);
-  expect(stripped.length).toBeGreaterThan(0);
-  expect(new Set(stripped)).toEqual(new Set(Object.keys(run.modules)));
+  expect(stripped).toEqual([]);
   expect(text).not.toMatch(/CP-/);
   expect(text).not.toMatch(/Short credit snapshot/);
   expect(text).not.toMatch(/source_ref|_module_id|_module_ids|source_owner_module/);

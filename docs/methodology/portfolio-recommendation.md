@@ -106,8 +106,8 @@ wider than the median is more attractive.
 
 - A portfolio's Valuation is that of its best eligible instrument (the lowest score).
 - With no price, or a bucket of fewer than five names, Valuation is left blank for the analyst.
-- Open: the approved bands do not say whether a difference of exactly +40 bp or −40 bp is a 3 or
-  the neighbouring band. This is to be settled before the calculation is built.
+- Ruled by the owner, 2026-11-25: a difference of exactly +40 bp or −40 bp is a 3 ("within ±40"
+  includes its ends). Exactly +100 bp is a 1 and exactly −100 bp a 5, as the bands say.
 
 ## 6. The 5×5 table
 
@@ -134,13 +134,20 @@ hold, the reference they are measured against and their limits.
   rating bucket, CCC, price floor), the recommendation there is no better than 3 (MW), and the
   limit is named beside it. Confirmed by the owner, 2026-11-25: a 4 or 5 from the table is
   unchanged.
+- Ruled by the owner, 2026-11-25, how a breach is decided: a limit that applies to the issuer (its
+  sector, its rating bucket, the CCC limit if it is rated CCC) is breached when the portfolio's
+  file shows no headroom left (zero or negative) or a breached status; the price floor is breached
+  when the instrument's price is below it. No position size is assumed.
 - The issuer's current weight in the portfolio or index is shown beside the recommendation.
 - A custom portfolio supplied when the run is started gets its own column by the same rules.
 - Each instrument in the capital structure also carries a proposed recommendation, which the
-  analyst can change. Open: the approved design does not give the rule for the per-instrument
-  proposal.
-- Open: the approved design does not define which instruments are eligible for a portfolio beyond
-  loans for the CLO and loan index and bonds for the high-yield index.
+  analyst can change. Ruled by the owner, 2026-11-25: it is read from the 5×5 table on the
+  issuer's Credit Score and that instrument's own Valuation against the index for its type (the
+  loan index for a loan, the high-yield index for a bond). No limit cap applies to it. With no
+  Valuation it is blank.
+- Ruled by the owner, 2026-11-25: eligibility is by asset type alone. Loans are eligible for the
+  CLO and the loan index, bonds for the high-yield index. A custom portfolio takes the asset type
+  declared for it, or both when none is declared.
 
 ## 8. Reference data and as-of dates
 
@@ -174,6 +181,5 @@ Valuation is only as current as its reference file and the prices supplied.
   the bucket itself is cheap or dear.
 - The layout of the SSGA holdings files has not been verified, nor that the app's host can reach
   ssga.com.
-- The band edges (section 5) and the per-instrument rule and eligibility (section 7) are open.
 - Other modules already write a 1–5 issuer scorecard and an overweight, neutral or underweight
   view of their own. How those relate to this proposal is not settled; a reader may see both.

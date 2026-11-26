@@ -37,7 +37,7 @@ const TONE_KEY: Record<EarningsMeasure["key"], string> = {
   grossDebt: "gross_debt",
 };
 
-/** Debt is the second series: navy, with its own legend entry. */
+/** Debt is the second series: plum, with its own legend entry. */
 const seriesOf = (measure: EarningsMeasure) =>
   measure.key === "grossDebt" ? ("secondary" as const) : ("primary" as const);
 
@@ -94,7 +94,7 @@ function side(cell: Reading | null): DumbbellSide {
   return { gap: cellWords(cell) };
 }
 
-/** The dumbbell rows for two compared periods: earnings teal, debt navy, the change and its note. */
+/** The dumbbell rows for two compared periods: earnings blue, debt plum, the change and its note. */
 export function dumbbellRows(data: EarningsAgainstDebt): DumbbellRow[] {
   const comparison = data.comparison;
   if (!comparison) return [];
@@ -245,6 +245,12 @@ const PLOT_TOP = 40;
 const PLOT_HEIGHT = { side: 96, stacked: 72 } as const;
 const GUTTER = 16;
 const MARGIN = 50;
+/**
+ * The first period-label line's text baseline, below the axis. The zero tick's label is drawn 4 px
+ * under the axis and 12 px text reaches 4 px below its baseline: a first label that runs left
+ * under the tick gutter must start clear of it (its top is `PERIOD_BASE − 12`).
+ */
+export const PERIOD_BASE = 24;
 const PAD = 32;
 
 export type LinePoint = {
@@ -266,6 +272,13 @@ type LinePanel = {
   /** Line segments between adjacent stated periods only: never across an unstated one. */
   segments: { x1: number; y1: number; x2: number; y2: number }[];
   periodLines: string[][];
+  /**
+   * How many label lines each period's label starts below the axis: neighbours whose words are
+   * wider than the space between two points sit on alternating tiers, never over each other.
+   */
+  periodShift: number[];
+  /** The label block's depth in lines, all tiers together. */
+  periodDepth: number;
   reasons: string[];
   /** Whether this panel carries the scale's tick labels (the first of its row). */
   ticks: boolean;
@@ -289,8 +302,43 @@ export function lineLayout(data: EarningsAgainstDebt, width: number) {
   const every = Math.ceil(18 / (plotHeight / Math.max(1, axis.ticks.length - 1)));
   const ticks = axis.ticks.filter((_, index) => index % every === 0);
   const count = data.periods.length;
-  const spacing = (panelWidth - MARGIN - 2 * PAD) / Math.max(1, count - 1);
-  const xOf = (left: number, index: number) => left + MARGIN + PAD + index * spacing;
+  // A period label is drawn whole. Its longest word sets the side padding (the last label is
+  // centred on the last point) and, where it is wider than the space between two points, how many
+  // tiers the labels alternate over.
+  const word = Math.max(
+    0,
+    ...data.periods.flatMap((period) =>
+      period.label.split(/\s+/).map((part) => textWidth(part, SIZE.tick)),
+    ),
+  );
+  const pad = Math.max(PAD, word / 2 + 2);
+  const spacing = Math.max(1, (panelWidth - MARGIN - 2 * pad) / Math.max(1, count - 1));
+  const tiers = Math.max(1, Math.min(count, Math.ceil((word + 8) / spacing)));
+  const slot = tiers * spacing - (tiers > 1 ? 8 : 6);
+  // The first label may run left under the tick gutter; the last has only the padding.
+  const room = (index: number) =>
+    Math.min(
+      slot,
+      index === 0 ? 2 * (MARGIN + pad) - 4 : Infinity,
+      index === count - 1 ? 2 * pad - 4 : Infinity,
+      // Untiered labels keep the measure they have always had.
+      tiers === 1 ? 2 * pad - 4 : Infinity,
+    );
+  const periodLines = data.periods.map((period, index) =>
+    wrap(period.label, room(index), SIZE.tick),
+  );
+  const tierDepth = Array.from({ length: tiers }, (_, tier) =>
+    Math.max(1, ...periodLines.filter((_, index) => index % tiers === tier).map((l) => l.length)),
+  );
+  // A tier starts a third of a line below the one above it: 12 px text on a 13 px pitch is 16 px
+  // tall, so two tiers set flush would touch.
+  const TIER_GAP = 0.35;
+  const periodShift = periodLines.map(
+    (_, index) =>
+      tierDepth.slice(0, index % tiers).reduce((a, b) => a + b, 0) + (index % tiers) * TIER_GAP,
+  );
+  const periodDepth = tierDepth.reduce((a, b) => a + b, 0) + (tiers - 1) * TIER_GAP;
+  const xOf = (left: number, index: number) => left + MARGIN + pad + index * spacing;
   const laid = data.measures.map((measure, index) => {
     const column = index % columns;
     const left = column * (panelWidth + GUTTER);
@@ -327,9 +375,6 @@ export function lineLayout(data: EarningsAgainstDebt, width: number) {
       width: panelWidth,
       points,
       segments,
-      periodLines: points.map((point) =>
-        wrap(point.label, Math.min(spacing - 6, 2 * PAD - 4), SIZE.tick),
-      ),
       reasons,
       ticks: column === 0,
     };
@@ -343,8 +388,8 @@ export function lineLayout(data: EarningsAgainstDebt, width: number) {
           (panel) =>
             PLOT_TOP +
             plotHeight +
-            8 +
-            Math.max(1, ...panel.periodLines.map((lines) => lines.length)) * 13 +
+            (PERIOD_BASE - 10) +
+            periodDepth * 13 +
             panel.reasons.length * LINE +
             12,
         ),
@@ -367,7 +412,9 @@ export function lineLayout(data: EarningsAgainstDebt, width: number) {
         value: point.value ? { ...point.value, y: shift(point.value.y) } : null,
       })),
       segments: panel.segments.map((s) => ({ ...s, y1: shift(s.y1), y2: shift(s.y2) })),
-      periodLines: panel.periodLines,
+      periodLines,
+      periodShift,
+      periodDepth,
       reasons: panel.reasons,
       ticks: panel.ticks,
     };

@@ -117,6 +117,9 @@ class HandoffPlan(Contract):
     preset_requested_modules: tuple[str, ...] | None = Field(
         default=None, exclude_if=lambda v: v is None
     )
+    # Test-only changes to the instructions (`cpos_launch --test-assume-distress`); recorded so a
+    # run that carries one is never mistaken for a delivery. Omitted when empty.
+    test_adaptations: tuple[str, ...] = Field(default=(), exclude_if=lambda v: not v)
     execution: Literal["host-session", "retained-response-replay", "synthetic", "live-provider"]
     max_attempts: int = Field(default=2, ge=1, le=3)
     provider_cap_usd: Decimal = Field(default=Decimal(0), ge=0, allow_inf_nan=False)
@@ -1326,17 +1329,27 @@ def _release(
 WEB_SEARCH_GRANT = "web-search"
 
 
-def web_search_ruled(ruling: Path | None, rulings_root: Path | None = None) -> bool:
-    """Whether ``ruling`` lists ``web-search`` among its configs."""
+def grant_ruled(grant: str, ruling: Path | None, rulings_root: Path | None = None) -> bool:
+    """Whether ``ruling`` lists ``grant`` among its configs."""
     from deploy_workflow.model.adapter import LivePauseInForce, check_ruling
 
     if ruling is None:
         return False
     try:
-        check_ruling(WEB_SEARCH_GRANT, ruling, rulings_root=rulings_root)
+        check_ruling(grant, ruling, rulings_root=rulings_root)
     except LivePauseInForce:
         return False
     return True
+
+
+def web_search_ruled(ruling: Path | None, rulings_root: Path | None = None) -> bool:
+    """Whether ``ruling`` lists ``web-search`` among its configs."""
+    return grant_ruled(WEB_SEARCH_GRANT, ruling, rulings_root)
+
+
+# The token that lets a hand-run launch assume CP-4C's distress trigger, for a screen test only
+# (owner, 2026-11-25; `cpos_launch --test-assume-distress`).
+TEST_DISTRESS_GRANT = "test-assume-distress"
 
 
 def web_search_run(config: str, ruling: Path | None, rulings_root: Path | None = None) -> bool:

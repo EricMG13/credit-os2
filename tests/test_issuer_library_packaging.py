@@ -49,9 +49,8 @@ def offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     for name in ["src", "docs/reuse/selected-methods", "docs/visualisations", "prompts"]:
         (root / name).mkdir(parents=True)
         (root / name / "keep.txt").write_text("x")
-    (root / "src/deploy_workflow/signal/web").mkdir(parents=True)
-    for name in ["index.html", "signal.css", "signal.js", "render.js", "render.test.cjs"]:
-        (root / "src/deploy_workflow/signal/web" / name).write_text(name)
+    (root / "src/deploy_workflow/signal").mkdir(parents=True)
+    (root / "src/deploy_workflow/signal/service.py").write_text("SERVICE = 1")
     (root / "src/deploy_workflow/inbox").mkdir(parents=True)
     (root / "src/deploy_workflow/inbox/scheduler.py").write_text("SCHEDULER = 1")
     (root / "docs/visualisations/catalogue.csv").write_text("id\nV1\n")
@@ -167,7 +166,7 @@ def test_a_mac_build_has_no_runtime_to_clear(tmp_path: Path, offline: list[str])
     assert offline == []
 
 
-def test_the_package_ships_the_static_library_and_its_two_windows_wrappers(
+def test_the_package_ships_the_static_library_and_its_windows_wrapper(
     tmp_path: Path, offline: list[str]
 ) -> None:
     target = tmp_path / "windows-amd64"
@@ -189,58 +188,38 @@ def test_the_package_ships_the_static_library_and_its_two_windows_wrappers(
     assert not (engine / "bridge.py").exists()  # The lean package has no server bridge.
     assert (engine / "src/deploy_workflow/inbox/scheduler.py").read_text() == "SCHEDULER = 1"
     assert (engine / "src").is_dir()
-    for name in ["Run workflow.cmd", "Start signal.cmd"]:
-        raw = (target / name).read_bytes()
-        assert raw.startswith(b"@echo off\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
+    raw = (target / "Run workflow.cmd").read_bytes()
+    assert raw.startswith(b"@echo off\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
     run = (target / "Run workflow.cmd").read_text()
     python = '"%~dp0engine\\runtime\\python.exe" -I -B -X utf8'
     assert f'{python} "%~dp0engine\\run_workflow.py" %*' in run
     assert not (target / "Update library.cmd").exists()
     assert not (target / "Start run page.cmd").exists()
     assert not (target / "Start watcher.cmd").exists()
+    assert not (target / "Start signal.cmd").exists()  # Signal starts with the application.
 
 
-def test_the_package_ships_the_signal_starter_and_its_page_files(
+def test_the_package_ships_the_signal_code_and_no_signal_page(
     tmp_path: Path, offline: list[str]
 ) -> None:
     target = tmp_path / "windows-amd64"
     target.mkdir()
     runtime.bundle(target, None)
-    raw = (target / "Start signal.cmd").read_bytes()
-    assert raw.startswith(b"@echo off\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
-    page = raw.decode("ascii")
-    python = '"%~dp0engine\\runtime\\python.exe" -I -B -X utf8'
-    line = (
-        f'{python} -m deploy_workflow.signal --root "%ROOT%" serve --host "%HOSTADDR%" --port 8766'
-    )
-    assert line in page and "exit /b %errorlevel%" in page
-    assert 'set "ROOT=%~1"' in page and "%FINAL_WORKFLOW_WORKSPACE%" in page
-    assert 'set "HOSTADDR=%~2"' in page
-    assert 'if not defined HOSTADDR set "HOSTADDR=127.0.0.1"' in page
-    assert "echo Usage: Start signal.cmd ^<shared folder^> [address]" in page
-    assert "exit /b 1" in page and "0.0.0.0 is refused" in page
-    assert "no model call and needs" in page and "API_KEY" not in page and "TOKEN" not in page
-    web = target / "engine/src/deploy_workflow/signal/web"
-    assert sorted(p.name for p in web.iterdir()) == [
-        "index.html",
-        "render.js",
-        "signal.css",
-        "signal.js",
-    ]  # not the node test
-    # signal.service finds the brand files at engine/credit_os/web, beside engine/src.
+    # Signal is hosted by the application: the engine ships its code and no page files.
+    signal = target / "engine/src/deploy_workflow/signal"
+    assert (signal / "service.py").read_text() == "SERVICE = 1"
+    assert not (signal / "web").exists()
     assert (target / "engine/credit_os/web/brand/symbol.svg").is_file()
     assert not (target / "engine/credit_os/web/index.html").exists()
 
 
-def test_the_package_omits_the_retired_form_and_start_page_files(
-    tmp_path: Path, offline: list[str]
-) -> None:
+def test_the_package_purges_its_retired_files(tmp_path: Path, offline: list[str]) -> None:
     target = tmp_path / "windows-amd64"
     engine = target / "engine"
     (engine / "docs/templates").mkdir(parents=True)
     (engine / "docs/rulings").mkdir(parents=True)
     (engine / "credit_os/web").mkdir(parents=True)
-    for name in ("Update library.cmd", "Start run page.cmd"):
+    for name in ("Update library.cmd", "Start run page.cmd", "Start signal.cmd"):
         (target / name).write_text("legacy", encoding="utf-8")
     for name in (
         "engine/docs/templates/context-form.html",
@@ -249,7 +228,9 @@ def test_the_package_omits_the_retired_form_and_start_page_files(
     ):
         (target / name).write_text("legacy", encoding="utf-8")
     runtime.bundle(target, None)
+    assert not (target / "Update library.cmd").exists()
     assert not (target / "Start run page.cmd").exists()
+    assert not (target / "Start signal.cmd").exists()  # It started the removed `signal serve`.
     assert not (engine / "docs/templates/context-form.html").exists()
     assert not (engine / "docs/rulings/2026-11-11-run-start-submit.md").exists()
 
@@ -309,38 +290,28 @@ def test_a_missing_runtime_folder_is_created_empty_and_the_manifest_removed(
     assert not manifest.exists()
 
 
-def test_a_real_bundle_gives_the_signal_service_its_brand_files_and_no_node_test(
+def test_a_real_bundle_runs_the_signal_service_from_the_bundle_and_ships_no_signal_page(
     tmp_path: Path,
 ) -> None:
     """The repository's own sources, bundled for a Mac (no runtime, so no download)."""
-    from deploy_workflow.signal import service
-
     target = tmp_path / "bundle"
     target.mkdir()
     runtime.bundle(target, None)
     engine = target / "engine"
-    # engine is on the bundled Python's path, so credit_os/web is the package's brand folder.
-    brand = engine / "credit_os" / "web"
     assert (engine / "credit_os" / "__init__.py").is_file()
-    for name, (path, _type) in service.STATIC.items():
-        if name.startswith(("brand", "fonts/")):
-            relative = path.relative_to(service._BRAND)
-            assert (brand / relative).is_file(), name
-    assert (brand / "brand.css").is_file() and (brand / "brand/symbol.svg").is_file()
     # The bundled Python's path file lists engine/src and engine: with those two roots first, the
-    # library and the engine are the bundle's own, and Signal's brand folder is inside it.
+    # library, the engine and the Signal service (with its snapshot) are the bundle's own.
     probe = (
         "import sys; sys.path[:0] = sys.argv[1:3]\n"
         "import credit_os, update_library, deploy_workflow.signal.service as s\n"
-        "print(credit_os.__file__, update_library.__file__, s.__file__, s._BRAND, sep='\\n')"
+        "import deploy_workflow.signal.snapshot as n\n"
+        "print(credit_os.__file__, update_library.__file__, s.__file__, n.__file__, sep='\\n')"
     )
     roots = [str(engine / "src"), str(engine)]
     found = subprocess.run(
         [sys.executable, "-I", "-c", probe, *roots], capture_output=True, text=True, check=True
     ).stdout.split("\n")
     assert all(Path(line).is_relative_to(engine) for line in found[:4]), found
-    assert Path(found[3]) == brand
-    web = engine / "src/deploy_workflow/signal/web"
-    for name in ("index.html", "signal.css", "signal.js", "render.js"):
-        assert (web / name).is_file(), name
-    assert not (web / "render.test.cjs").exists()
+    signal = engine / "src/deploy_workflow/signal"
+    assert (signal / "service.py").is_file() and not (signal / "web").exists()
+    assert not list((engine / "src").rglob("*.test.cjs"))

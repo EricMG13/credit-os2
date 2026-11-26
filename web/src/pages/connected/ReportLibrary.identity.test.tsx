@@ -152,8 +152,11 @@ it("captions the ratings as entered at run start, once and visibly, only when th
   expect(ratingChips(el)).toHaveLength(2);
   expect(within(el).getAllByText("Ratings entered at run start")).toHaveLength(1);
   expect(within(el).getByText("Ratings entered at run start")).toBeVisible();
-  // Its own line after the chips, however many ratings there are.
-  expect(within(el).getByText("Ratings entered at run start")).toHaveClass("basis-full");
+  // It follows the chips on their line: it never takes a row to itself and splits the facts.
+  const caption = within(el).getByText("Ratings entered at run start");
+  expect(caption).not.toHaveClass("basis-full");
+  expect(caption.previousElementSibling).toBe(ratingChips(el).at(-1));
+  expect(caption.nextElementSibling).toBeNull();
   cleanup();
   const none = await band(fixture());
   expect(ratingChips(none)).toHaveLength(0);

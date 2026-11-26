@@ -333,3 +333,27 @@ it("draws a figure the period rule cannot place last, after the forecast years, 
     ["Run rate", "7", "No run-rate repayment"],
   ]);
 });
+
+it("stacks the outside labels of one bar a text line apart so 0 and 92 do not overprint", () => {
+  // FY2025E is large, so FY2026E's Distributions 0 and Debt repayment 92 are both too thin to
+  // hold a label inside; both are written beside the bar.
+  render(
+    view(
+      model([
+        row("Distributions", [value("600"), value("0"), value("30")]),
+        row("Debt repayment", [value("400"), value("92"), value("40")]),
+      ]),
+    ),
+  );
+  const chart = screen.getByRole("img");
+  const beside = (text: string) => {
+    const found = [...chart.querySelectorAll("text")].find(
+      (node) => node.textContent === text && node.getAttribute("text-anchor") === "start",
+    );
+    if (!found) throw new Error(`no outside label ${text}`);
+    return num(found, "y");
+  };
+  expect(Math.abs(beside("92") - beside("0"))).toBeGreaterThanOrEqual(16);
+  expect(chart.getAttribute("aria-label")).toContain("Distributions FY2026E 0");
+  expect(chart.getAttribute("aria-label")).toContain("Debt repayment FY2026E 92");
+});

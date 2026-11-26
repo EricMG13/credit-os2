@@ -117,23 +117,22 @@ export const BusinessLead = withDraws(
       "Ownership and control",
       "This page could not read who owns and controls the issuer.",
     );
-    const shorter = [
-      <RevenueMix key="mix" entry={entry} href={href} />,
-      !statedInProse(entry, "Events: Issuer history") && (
-        <LaneTile
-          key="history"
-          lane={eventsOf(entry, "Issuer history")}
-          span={4}
-          label="Issuer history"
-          title="Issuer history"
-          href={href}
-          asOf={run.asOf}
-        />
-      ),
-    ];
-    const column = <Beside>{shorter}</Beside>;
-    // The first drawn map heads the page with the shorter tiles stacked beside it; a map that is
-    // only a gap is one full row.
+    const mix = <RevenueMix key="mix" entry={entry} href={href} />;
+    // The dated history takes a row of its own, after the maps: there it has the width for its
+    // time axis, and it never stacks a long list beside a short map.
+    const history = !statedInProse(entry, "Events: Issuer history") && (
+      <LaneTile
+        lane={eventsOf(entry, "Issuer history")}
+        span={12}
+        label="Issuer history"
+        title="Issuer history"
+        href={href}
+        asOf={run.asOf}
+      />
+    );
+    const column = <Beside>{mix}</Beside>;
+    // The first drawn map heads the page with the revenue mix beside it; a map that is only a gap
+    // is one full row.
     return (
       <Bento>
         {operating.state === "ready" ? (
@@ -146,9 +145,10 @@ export const BusinessLead = withDraws(
           <>
             {opMap(12)}
             {ownMap(ownership.state === "ready" ? 8 : 12)}
-            {ownership.state === "ready" ? column : shorter}
+            {ownership.state === "ready" ? column : mix}
           </>
         )}
+        {history}
       </Bento>
     );
   },

@@ -12,7 +12,7 @@ export function throwsOn(ui: React.ReactElement, pattern: RegExp) {
   quiet.mockRestore();
 }
 export function tableCells(label: string) {
-  fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+  fireEvent.click(screen.getByRole("button", { name: "Table" }));
   return within(screen.getByRole("row", { name: new RegExp(label) }))
     .getAllByRole("cell")
     .map((c) => c.textContent.replace("not available", ""));

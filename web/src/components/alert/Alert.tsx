@@ -59,7 +59,7 @@ interface AlertProps {
 export function Alert({ tone, title, children, action }: AlertProps) {
   const t = TONES[tone];
   return (
-    <div role={t.role} className={`rounded-md border p-4 shadow-sm ${t.box}`}>
+    <div role={t.role} className={`rounded-md border p-4 ${t.box}`}>
       <div className="flex items-start gap-4">
         <span className={`-mt-0.5 flex size-6 items-center justify-center ${t.mark}`}>
           <StatusShape shape={t.shape} />

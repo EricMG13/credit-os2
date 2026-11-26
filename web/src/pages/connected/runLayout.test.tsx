@@ -91,10 +91,38 @@ describe("Run progress layout", () => {
       expect.stringMatching(/USD 7.40 of USD 25.00 cap usage/),
     );
     expect(meter).toHaveClass("border", "bg-surface-subtle");
-    // The cap is in the meter's label once, not again beside it.
+    // The cap is read once, as a figure beside the amount; the sentence is the meter's text only.
     expect(document.body.textContent.match(/USD 25\.00/g)).toHaveLength(1);
+    const cap = within(region).getByText("USD 25.00");
+    expect(cap).toHaveClass("font-mono");
+    expect(cap.parentElement).toHaveTextContent("of USD 25.00");
+    expect(cap.parentElement).not.toHaveClass("font-mono");
+    expect(within(region).queryByText(/cap usage/)).toBeNull();
+    // Settled and reserved are two items, each amount as the service's figure, in mono.
+    const parts = [
+      ["Settled", "USD 6.10"],
+      ["Reserved or unknown", "USD 1.30"],
+    ];
+    for (const [term = "", value = ""] of parts) {
+      const dd = within(region).getByText(term, { selector: "dt" }).nextElementSibling;
+      expect(dd).toHaveTextContent(value);
+      expect(within(region).getByText(value)).toHaveClass("font-mono");
+    }
     expect(within(region).getAllByRole("progressbar")).toHaveLength(1);
     expect(screen.queryByText("Synthetic test")).toBeNull();
+  });
+
+  it("sets the elapsed numerals in mono and their units in the text face", async () => {
+    serve(run);
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    const line = (await screen.findByText("Elapsed")).parentElement as HTMLElement;
+    expect(within(line).getByText("Started at 21:00:00 UTC")).toBeVisible();
+    // The value reads as the record's own text, spaces included.
+    expect(line.children[1]?.textContent).toBe("4 min 10 s");
+    expect([...line.querySelectorAll(".font-mono")].map((node) => node.textContent)).toEqual([
+      "4",
+      "10",
+    ]);
   });
 
   it("gives the page's two meters distinct names, and the module meter says how many modules", async () => {
@@ -110,7 +138,12 @@ describe("Run progress layout", () => {
       "aria-valuetext",
       "1 of 3 modules",
     );
-    expect(screen.getByText("1 of 3 modules")).toBeVisible();
+    // The numerals are the figure; the word "modules" is text, as on Run activity.
+    const figure = screen.getByText("1 of 3");
+    expect(figure).toBeVisible();
+    expect(figure).toHaveClass("font-mono");
+    expect(figure.parentElement).toHaveTextContent("1 of 3 modules");
+    expect(figure.parentElement).not.toHaveClass("font-mono");
   });
 
   it("draws each module's state on its node (finished, running, queued)", async () => {
@@ -233,7 +266,8 @@ describe("Run progress layout", () => {
     serve({ ...stopped, reason: "" });
     render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
     const alert = await screen.findByRole("alert");
-    expect(within(alert).getByText("Run failed.")).toBeVisible();
+    // The badge and the notice's title say the run failed; the notice does not say it a third time.
+    expect(within(alert).queryByText(/Run failed\./)).toBeNull();
     expect(within(alert).getByText("The run record gives no reason.")).toBeVisible();
     const again = within(alert).getByRole("link", { name: "Use this run’s inputs" });
     expect(again).toHaveAttribute("href", `/start?from=${ID}`);
@@ -266,19 +300,74 @@ describe("Run progress layout", () => {
     expect(screen.getByText("No analytical modules listed")).toBeVisible();
   });
 
-  it("orders the feed down each column, not across", async () => {
+  it("reads the feed as one list, newest first, each event across one row", async () => {
     serve(run);
     render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
     await screen.findByText("USD 7.40");
-    const feed = screen.getByRole("region", { name: "Activity" }).querySelector("ul");
-    expect(feed).toHaveClass("lg:columns-2", "xl:columns-3");
+    const activity = screen.getByRole("region", { name: "Activity" });
+    const feed = activity.querySelector("ul");
+    // No newspaper columns: the order down the page is the order in time.
+    expect(feed?.className ?? "").not.toMatch(/columns-/);
+    expect(within(activity).getByText("Newest first · times in UTC")).toBeVisible();
+    // The zone is said once, in the heading band, not on every row.
+    for (const time of activity.querySelectorAll("time"))
+      expect(time.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   });
 
-  it("makes the stop notice compact: one paragraph, then its action", async () => {
+  it("shows the newest eight events and keeps the earlier ones behind one disclosure", async () => {
+    const codes = ["CP-0", "CP-1", "CP-1A", "CP-DR", "CP-4", "CP-2"];
+    serve({
+      ...run,
+      events: codes.flatMap((module, index) => [
+        { kind: "module_started", at: `2026-11-24T21:0${String(index)}:10Z`, module },
+        { kind: "module_accepted", at: `2026-11-24T21:0${String(index)}:50Z`, module },
+      ]),
+    });
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    await screen.findByText("USD 7.40");
+    const activity = screen.getByRole("region", { name: "Activity" });
+    const all = activity.querySelectorAll("article");
+    // Twelve module events and the run's start: nothing recorded is dropped.
+    expect(all).toHaveLength(13);
+    const earlier = activity.querySelector("details");
+    expect(earlier).not.toBeNull();
+    expect(earlier).not.toHaveAttribute("open");
+    expect(earlier?.querySelector("summary")).toHaveTextContent("Earlier events (5)");
+    expect(earlier?.querySelectorAll("article")).toHaveLength(5);
+    // The newest is the first row outside the disclosure.
+    expect(all[0]).toHaveTextContent("Fundamental credit");
+    expect(all[0]).toHaveTextContent("21:05:50");
+    expect(all[0]?.closest("details")).toBeNull();
+  });
+
+  it("says why and where on separate lines, then the action with its note, not one run-on paragraph", async () => {
     serve({ ...stopped, reason: "The checks rejected a draft." });
     render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
     const alert = await screen.findByRole("alert");
-    expect(alert.querySelectorAll("p")).toHaveLength(1);
+    const lines = [...alert.querySelectorAll("p")];
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toHaveTextContent(/^The checks rejected a draft\.$/);
+    expect(lines[1]).toHaveTextContent(/^Where it stopped: /);
+    const again = within(alert).getByRole("link", { name: "Use this run’s inputs" });
+    // The action is not inside a sentence, and its note sits beside it.
+    expect(again.closest("p")).toBeNull();
+    expect(again.parentElement).toHaveTextContent("Review the inputs in a new draft.");
+    expect(again).toHaveAccessibleDescription(
+      "Review the inputs in a new draft. The new run has its own spending cap.",
+    );
+  });
+
+  it("closes a reason the service left without a full stop, so the next line does not run on", async () => {
+    serve({ ...stopped, status: "capped", stopped_by: "", reason: "Spending cap reached" });
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("Spending cap reached.")).toBeVisible();
+    expect(alert).not.toHaveTextContent("Spending cap reached Where it stopped");
+    // A reason that ends its own sentence is left as written.
+    cleanup();
+    serve({ ...stopped, reason: "Did it stop? Yes!" });
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    expect(within(await screen.findByRole("alert")).getByText("Did it stop? Yes!")).toBeVisible();
   });
 
   it("makes the page's buttons and links 44px tall on a phone", async () => {
@@ -444,7 +533,9 @@ describe("Run activity layout", () => {
     render(<ConnectedApp path="/runs" mode="live" />);
     const library = await screen.findByRole("link", { name: "Finished runs are in the library" });
     expect(library).toHaveClass("min-h-8", "max-[480px]:min-h-11");
-    expect(screen.getByRole("link", { name: "Start a run" })).toHaveClass("max-md:min-h-11");
+    // The page's own header action is gone; the top bar's Start run is the one primary.
+    expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Start run" })).toHaveAttribute("href", "/start");
   });
 
   it("puts runs in flight first, the runs that stopped directly under them, and waiting runs after", async () => {
@@ -535,5 +626,189 @@ describe("Run activity layout", () => {
       expect(screen.getByRole("link", { name: "Back to Library" })).toHaveAttribute("href", "/");
       cleanup();
     }
+  });
+});
+
+describe("Run progress: a live run reads as live, and an ended one says where it ended", () => {
+  it("pulses the running badge and states when the service last answered, a cue that needs no motion", async () => {
+    serve(run);
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    await screen.findByText("USD 7.40");
+    expect(screen.getByText("Running", { selector: "[role=status] *" })).toBeVisible();
+    expect(document.querySelector("[role=status] .status-halo")).not.toBeNull();
+    // The service's own observation time, as it sent it: 2026-11-24T21:04:10Z.
+    const checked = screen.getByText("21:04:10");
+    expect(checked.tagName).toBe("TIME");
+    expect(checked.parentElement).toHaveTextContent("Checked 21:04:10 UTC");
+  });
+
+  it("states no heartbeat for a run that has ended", async () => {
+    serve({ ...run, status: "failed", reason: "x", ended_at: "2026-11-24T21:03:30Z" });
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    await screen.findByRole("alert");
+    expect(screen.queryByText(/Checked/)).toBeNull();
+    expect(document.querySelector(".status-halo")).toBeNull();
+  });
+
+  it("says a queued run has not started, not that its start time is missing", async () => {
+    serve({
+      ...run,
+      status: "queued",
+      started_at: "",
+      events: [],
+      modules: run.modules.map(([code]) => [code, "waiting"]),
+    });
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    expect(await screen.findByText("Not started")).toBeVisible();
+    expect(screen.queryByText("No start time recorded")).toBeNull();
+    expect(screen.queryByText("Elapsed")).toBeNull();
+    // Every module is in one state, so the key would explain nothing the badge does not.
+    expect(screen.queryByRole("list", { name: "Pipeline key" })).toBeNull();
+  });
+
+  it("keeps the key when the modules are in more than one state", async () => {
+    serve(run);
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    await screen.findByText("USD 7.40");
+    expect(screen.getByRole("list", { name: "Pipeline key" })).toBeVisible();
+  });
+
+  it("marks the module the checks stopped a failed run at in the failure tone, apart from a bystander", async () => {
+    serve({
+      ...run,
+      status: "failed",
+      stopped_by: "checker",
+      reason: "The checks rejected a draft.",
+      ended_at: "2026-11-24T21:03:30Z",
+      modules: [
+        ["CP-0", "done"],
+        ["CP-2", "stopped"],
+        ["CP-2A", "stopped"],
+        ["Report", "waiting"],
+      ],
+      events: [
+        { kind: "module_started", at: "2026-11-24T21:03:00Z", module: "CP-2" },
+        { kind: "module_started", at: "2026-11-24T21:03:01Z", module: "CP-2A" },
+        { kind: "draft_rejected", at: "2026-11-24T21:03:20Z", module: "CP-2" },
+        { kind: "stopped", at: "2026-11-24T21:03:30Z" },
+      ],
+    });
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    const pipeline = await screen.findByRole("list", { name: "Modules in this run" });
+    const box = (name: string) =>
+      within(pipeline).getByText(name, { selector: "span" }).closest("[data-node]");
+    expect(box("Fundamental credit")).toHaveClass("border-error-mark", "bg-error-fill");
+    expect(box("Downside")).toHaveClass("border-warning-mark");
+    expect(box("Downside")).not.toHaveClass("border-error-mark");
+    // The notice names the same module the graph marks.
+    expect(screen.getByRole("alert")).toHaveTextContent("Where it stopped: Fundamental credit.");
+  });
+
+  it("names the report's own row Report, never as an unnamed module", async () => {
+    serve(run);
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    const pipeline = await screen.findByRole("list", { name: "Modules in this run" });
+    expect(within(pipeline).getByText("Report", { selector: "span" })).toBeVisible();
+    expect(within(pipeline).queryByText("Unnamed module")).toBeNull();
+    expect(pipeline).not.toHaveTextContent(/CP-/);
+  });
+
+  it("draws only the notice for a run the service does not know: no gaps and no skeleton for nothing", async () => {
+    serve({ error: "unknown run" }, 404);
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    expect(await screen.findByText("This run was not found")).toBeVisible();
+    expect(screen.queryByText("Spend is not known.")).toBeNull();
+    expect(screen.queryByText("No activity is known.")).toBeNull();
+    expect(screen.queryByRole("status", { name: "Run progress unknown" })).toBeNull();
+    expect(document.querySelector(".animate-pulse, [class*='skel']")).toBeNull();
+  });
+
+  it("puts the state first in the tab's title", async () => {
+    serve(run);
+    render(<ConnectedApp path={`/run/${ID}`} mode="live" />);
+    await screen.findByText("USD 7.40");
+    expect(document.title).toBe("Running · Northbridge run — Credit OS");
+  });
+});
+
+describe("Run activity: what is in flight leads the page", () => {
+  const base = { updated: "2026-11-24T21:05:00Z", held: "", runs: [], ended: [], ended_total: 0 };
+  const waiting = {
+    id: "w",
+    issuer_name: "Cedar Foods",
+    pathway: "credit_snapshot",
+    status: "queued",
+    reason: "",
+    submitted_by: "",
+    started_at: "",
+    name_differs: false,
+    stalled: false,
+    files: 1,
+    modules: [],
+  };
+
+  it("offers the one action that changes an empty page, once, and no row of zeros", async () => {
+    serve(base);
+    render(<ConnectedApp path="/runs" mode="live" />);
+    expect(await screen.findByText("No run in progress")).toBeVisible();
+    // In the top bar's own words, and secondary: the top bar holds the one primary action.
+    const empty = screen.getByText("No run in progress").closest("div")?.parentElement;
+    const start = within(empty ?? document.body).getByRole("link", { name: "Start run" });
+    expect(start).toHaveAttribute("href", "/start");
+    expect(screen.queryByRole("link", { name: "Start a run" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Open the library" })).toHaveAttribute("href", "/");
+    expect(screen.queryByText("Ended without a report")).toBeNull();
+  });
+
+  it("says why waiting runs wait with them, not as a warning above the runs", async () => {
+    serve({ ...base, held: "3 runs are already running", runs: [waiting] });
+    render(<ConnectedApp path="/runs" mode="live" />);
+    const group = await screen.findByRole("region", { name: "Waiting" });
+    expect(within(group).getByText("Held by the service.")).toBeVisible();
+    expect(group).toHaveTextContent("3 runs are already running");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says the held reason once: a waiting row drops a reason the list already states, and keeps one that differs", async () => {
+    const held = "3 runs are already running";
+    serve({
+      ...base,
+      held,
+      runs: [
+        { ...waiting, id: "same", issuer_name: "Cedar Foods", reason: held },
+        {
+          ...waiting,
+          id: "other",
+          issuer_name: "Dune Energy",
+          reason: "Its files are still being read",
+        },
+      ],
+    });
+    render(<ConnectedApp path="/runs" mode="live" />);
+    const group = await screen.findByRole("region", { name: "Waiting" });
+    expect(within(group).getAllByText(held, { exact: false })).toHaveLength(1);
+    const row = (name: string) => within(group).getByRole("link", { name }).closest("li");
+    expect(row("Cedar Foods")).not.toHaveTextContent(held);
+    expect(row("Dune Energy")).toHaveTextContent("Its files are still being read");
+  });
+
+  it("keeps the held notice as an alert when no waiting run is listed to carry it", async () => {
+    serve({ ...base, held: "The service is paused." });
+    render(<ConnectedApp path="/runs" mode="live" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("The service is paused.");
+  });
+
+  it("states unread run records in one line beside a list, and as an alert when nothing is listed", async () => {
+    serve({ ...base, runs: [waiting], unreadable: 2 });
+    render(<ConnectedApp path="/runs" mode="live" />);
+    const note = await screen.findByText("2 run records could not be read and are not listed.");
+    expect(note.closest("[role=status]")).not.toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    cleanup();
+    serve({ ...base, unreadable: 1 });
+    render(<ConnectedApp path="/runs" mode="live" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "1 run record could not be read and is not listed.",
+    );
   });
 });

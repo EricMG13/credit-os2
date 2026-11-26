@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cx } from "@/utils/cx";
 
 const ITEM =
-  "flex min-h-8 items-center gap-2 rounded-ds-sm border px-3.5 text-small font-medium whitespace-nowrap outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11";
+  "relative flex min-h-8 items-center gap-2 rounded-ds-sm border pr-3 pl-4 text-small font-medium whitespace-nowrap outline-focus-ring transition duration-100 ease-linear focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11";
 const ON = "border-action-subtle-hover bg-surface-selected text-text-link";
 const OFF = "border-transparent text-text-secondary hover:bg-surface-card hover:text-text-primary";
 
@@ -31,7 +31,14 @@ export function Segmented({
   onSelect?: (key: string) => void;
   className?: string;
 }) {
-  const dot = <span aria-hidden="true" className="size-1.5 rounded-ds-full bg-action" />;
+  // The dot sits in the segment's own left padding (16 px: 4 clear, the 6 px dot, 6 clear), so
+  // choosing a segment never changes a width.
+  const dot = (
+    <span
+      aria-hidden="true"
+      className="absolute top-1/2 left-1 size-1.5 -translate-y-1/2 rounded-ds-full bg-action"
+    />
+  );
   const frame = cx(
     "flex w-fit max-w-full flex-wrap gap-0.5 rounded-ds-md border border-border-hairline bg-surface-subtle p-1",
     className,

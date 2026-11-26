@@ -64,6 +64,14 @@ Calendar) and Run start → Run activity. Changed inside:
 4. **Evidence keeps all machinery**; every other page has one trace control per paragraph, row
    or figure.
 
+Module codes (CP-…) in this file and in `PRODUCT.md` are the documents' own references. The
+interface draws none, anywhere a reader sees or hears, including Evidence, the trace drawer and the
+PDF export: modules are shown by name, and a known module with no name reads "Unnamed module"
+(owner, 2026-11-25: "remove module IDs" and "remove module IDs from evidence and trace drawer
+too"). Only exact methodology codes are renamed; other "CP-…" words in module-written text
+("CP-backed") are drawn as written. Codes remain in URLs, data keys and stored file names (the
+"Recorded file hashes" list on Evidence › Record still shows `instructions/CP-*.md` as stored).
+
 ## Choosing the form
 
 The form is chosen from the data's shape and the question, never from a default.
@@ -113,7 +121,8 @@ forecast + colours." Of the three candidates (A · Brief, B · Signal, C · Desk
 - **Look, shell, card shape, layout: B, in a light theme.** Top-bar shell with a centred command
   field; a 12-column bento where tile area encodes importance and each tile states one fact
   with one visual; the module pipeline drawn as a node graph.
-- **Colour: C.** Neutral zinc ground, teal primary, navy secondary, orange signal.
+- **Colour: C.** Neutral zinc ground, blue primary, plum secondary, orange signal. Owner,
+  2026-11-25: accent changed from teal to blue.
 - **Modules and Forecast: C's working patterns** inside B's shell and tile shape: a stats strip
   divided by hairlines, tabbed chart groups, tables with inline proportional bars, small-multiple
   strips, stepper tables, mono numerals.
@@ -131,7 +140,7 @@ superseded by this file).
 | Page ground | `surface-canvas` | `#FAFAFA` |
 | Tile surface | `surface-card` | `#FFFFFF` |
 | Well, inset surface | `surface-subtle` | `#F4F4F5` |
-| Selected, accent tint | `surface-selected`, `action-subtle` | `#F0FDFA` |
+| Selected, accent tint | `surface-selected`, `action-subtle` | `#EFF6FF` |
 | Inverse | `surface-inverse` | `#0A0A0A` |
 | Hairline | `border-subtle`, `border-hairline` | `#E4E4E7` |
 | Strong divider | `border-container` | `#D4D4D8` |
@@ -140,42 +149,63 @@ superseded by this file).
 | Secondary text | `text-secondary` | `#52525B` |
 | Label text | `text-tertiary` | `#6B6B74` |
 | Disabled, connector | `text-disabled`, `connector` | `#A1A1AA` |
-| Accent, link, focus | `action`, `text-link`, `focus` | teal `#0F766E` |
-| Accent hover, pressed | `action-hover`, `action-pressed` | `#115E59`, `#134E4A` |
-| Accent tint edge | `action-subtle-hover` | `#CCFBF1` |
-| Focus on dark | `focus-inverse` | `#5EEAD4` |
+| Accent, link, focus | `action`, `text-link`, `focus` | blue `#1D4ED8` |
+| Accent hover, pressed | `action-hover`, `action-pressed` | `#1E40AF`, `#1E3A8A` |
+| Accent tint edge | `action-subtle-hover` | `#DBEAFE` |
+| Focus on dark | `focus-inverse` | `#93C5FD` |
 | Gap edge, gap text | `border-gap`, `gap-text` | `#8E8E96`, `#52525B` |
 
-Teal scale (`brand-50` to `brand-950`): `#F0FDFA`, `#CCFBF1`, `#99F6E4`, `#5EEAD4`, `#2DD4BF`,
-`#14B8A6`, `#0F766E`, `#115E59`, `#134E4A`, `#0F3F3C`, `#042F2E`.
+Blue scale (`brand-50` to `brand-950`): `#EFF6FF`, `#DBEAFE`, `#BFDBFE`, `#93C5FD`, `#60A5FA`,
+`#3B82F6`, `#2563EB`, `#1D4ED8`, `#1E40AF`, `#1E3A8A`, `#172554`. The accent, link and focus
+colour is step 700, hover 800, pressed 900, the tint 50. Owner, 2026-11-25: accent changed from
+teal to blue; no step was adjusted from the starting scale.
 
 | Status | Text | Fill | Edge | Mark | Used for |
 |---|---|---|---|---|---|
-| Success | `#115E59` | `#F0FDFA` | `#99F6E4` | `#0F766E` | Delivered, better |
+| Success | `#1E40AF` | `#EFF6FF` | `#BFDBFE` | `#1D4ED8` | Delivered, better |
 | Warning (signal) | `#9A3412` | `#FFF7ED` | `#FED7AA` | `#EA580C` | Worse, pro forma, blocked, not tested |
 | Error | `#991B1B` | `#FEF2F2` | `#FECACA` | `#DC2626` | A failed run, an invalid field, or a limit the service will refuse at run start; hover `#7F1D1D` |
-| Info | `#1E3A5F` | `#EFF4FA` | `#C7D6E8` | `#3B6591` | Notes, the counter-argument surface |
+| Info | `#334155` | `#E9EEF4` | `#CBD5E1` | `#475569` | Notes, the counter-argument surface |
 
 | Chart series | Value | Use |
 |---|---|---|
-| 1 | `#115E59` | Primary (current period, secured) |
-| 2 | `#0F2440` | Secondary |
+| 1 | `#1D4ED8` | Primary (current period, secured): the accent blue |
+| 2 | `#341B55` | Secondary: plum |
 | 3 | `#8E8E96` | Prior period |
 | 4 | `#EA580C` | Signal: worse, pro forma, shortfall |
-| 5 | `#3B6591` | Fifth series |
-| 6 | `#5EA8A1` | Sixth series |
+| 5 | `#6D4BB5` | Fifth series: violet, the lighter relation of series 2; long-dashed (12 4) |
+| 6 | `#4F93F7` | Sixth series: light blue, the lighter relation of series 1 |
 | Other | `#71717A` | Remainder |
 
-Series 1 and 2 are a shade deeper than the mockups' `#0F766E` and `#1E3A5F`: with those two the
-first three series cannot each reach 3:1 on white and stay 2:1 apart in greyscale
-(`chart-lightness.test.ts`). Label text is `#6B6B74`, not the mockups' `#71717A`, to hold 4.5:1
+Series 1 is the accent itself (6.70:1 on white). The first three series each reach 3:1 on white
+and stay 2:1 apart in greyscale (`chart-lightness.test.ts`): 2.19 between 1 and 2, 2.06 between
+1 and 3, 4.51 between 2 and 3. That fixes series 2 at a relative luminance of 0.028 or less.
+Decisions the blue accent forced (2026-11-25):
+
+- **Info is slate, not blue.** A navy-blue Info would read as the accent, so notes and the
+  counter-argument surface are a cool grey with dark slate text. Its fill is a step deeper than
+  the accent tint and the well, so the surface is told apart by lightness as well as hue.
+- **Series 2 is plum, not navy.** Navy beside a blue primary differs in lightness only. Plum
+  differs in hue from blue (1) and from grey (3). Series 5 and 6 are the lighter relations of 2
+  and 1, as steel blue and light teal were before. Series 4 and 5 and series 5 and 6 differ in
+  lightness as well as hue (1.78 and 2.06); series 3 and 4 are unchanged and differ mainly in hue
+  (1.09). Series 1 and 5 are close in lightness, so a chart that draws both relies on the dash,
+  marker and direct label. No green or teal is left; orange is the only signal colour.
+- **Success and the accent are the same blue**, as they were the same teal: the Success shape
+  (a filled circle) and its word carry the meaning.
+- **One blue everywhere** (owner, 2026-11-25: "change the green used throughout to blue" and
+  "change those greens to blue too"): the HTML Model, the Signal page and the Teams card
+  positives use the same blue as the app. Chart series 5 is long-dashed (12 4).
+
+Label text is `#6B6B74`, not the mockups' `#71717A`, to hold 4.5:1
 on the well surface. Tooltip supporting text is `#D4D4D8`.
 
-- "Better" is teal with the word; "worse" is orange with the word, and only where the direction
+- "Better" is blue with the word (owner, 2026-11-25); "worse" is orange with the word, and only where the direction
   is established (no better or worse for a negative leverage multiple). Signal colour never
   appears without a word or icon. Red is kept for failures, invalid input and a refusal at run
   start, never for a finding.
-- **Gaps:** one pattern (a plain tile or cell with the gap note). A gap says only what the page
+- **Gaps:** a gap is one of two forms (owner, 2026-11-25): a figure-sized hatched note in a titled
+  tile, with at most one link to Evidence, or a line-sized hatched swatch with the sentence. A gap says only what the page
   checked ("This page could not read the rating history.") or the module's own reason as written.
   Reader words only: no "handoff", register, id or file name outside Evidence. A lead does not
   say "the module" (it is drawn on that module's own page); elsewhere "module" is the reader's
@@ -184,16 +214,27 @@ on the well surface. Tooltip supporting text is `#D4D4D8`.
 - **Type:** Geist 400/500/600 for text and headings; Geist Mono 400/500 with tabular numerals for
   figures, codes and axis labels. Ramp (size / line): display 44/48, h1 32/38, h2 24/30,
   h3 20/28, h4 18/26, lead 18/28, body 15/24, small 14/22, caption 12/16, metric 36/40,
-  mono 13/20.
+  mono 13/20. Overview headline figures are h1 mono; only the bottom line is metric or display
+  size (owner, 2026-11-25).
+- **Figures:** every figure head reads title, Figure | Table switch, trace control last; a tile's
+  caption sits under its title, never above it. A page longer than three screens names its parts
+  once under its title (owner, 2026-11-25).
 - **Shape:** 12-column grid, 16 px gap. Radius: tile 20 (`radius-lg`), 12 (`radius-md`), wells and
   controls 8 (`radius-sm`), chips 6 (`radius-xs`). One-pixel hairlines. Cards carry no shadow
   (`shadow-1` is empty); floating menus and tooltips use `shadow-2`.
 - **Shell:** one top bar — symbol, product name, areas — over the page. The current area has the
-  accent tint and an underline.
-- **Motion:** one animation, a slow dash along delivered pipeline edges; off under reduced motion.
-- **Trace control:** one icon button, the same everywhere, per paragraph, row or figure: 32 px,
-  with a 44 px touch area on a phone. Every other control is at least 32 px wide and tall, 44 px
-  on a phone (narrower than 480 px, the pages' `max-[480px]` styles).
+  blue accent tint and an underline. Start run is the one primary action, in the top bar on every
+  screen except Run start and a read-only preview (owner, 2026-11-25).
+- **Motion** (owner, 2026-11-25): Motion is for live run state only: a slow dash along the path
+  into a running module (and along delivered edges on a finished report), and a pulse on the
+  Running mark. Under reduced motion nothing moves: the path is a solid accent line, the running
+  node keeps a doubled accent outline, and the page states when the service last answered.
+- **Trace control:** one icon button, the same everywhere, per paragraph, row or figure: 32 px.
+  Every other control is at least 32 px wide and tall.
+- **Desktop only** (owner, 2026-11-25: "no phone screen related work, app is only desktop"):
+  supported widths are 1024 px and wider, checked at 1024, 1280 and 1440. The earlier phone rules
+  (a 44 px touch area, the `max-[480px]` styles, the 390 and 768 widths) are superseded; phone
+  styles already in code are left in place and not maintained.
 
 ## Migration
 
@@ -204,6 +245,6 @@ together: `web/src/styles/theme.css` and `theme.test.ts`; `chart-lightness.test.
 HTML Model. A presentation change needs a fidelity check recorded in VERIFICATION.md.
 
 A screen is checked in a real browser before it is reported done:
-`docs/design/preview/check-render.cjs` renders it at 1440, 1280, 1024, 768 and 390 and fails on
+`docs/design/preview/check-render.cjs` renders it with `--widths 1440,1280,1024` and fails on
 sideways scroll, unnamed scroll boxes, cut text, small targets, text under 12 px and overlapping
 chart labels (`docs/design/preview/README.md`). It does not replace looking at the screenshots.

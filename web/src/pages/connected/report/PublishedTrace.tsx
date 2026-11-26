@@ -4,10 +4,13 @@ import { TraceButton } from "@/pages/library/parts/TraceControl";
 import { TraceCitations } from "@/pages/library/parts/TraceCitations";
 import { TraceDrawer } from "@/pages/library/parts/TraceDrawer";
 import type { SourcedTrace } from "@/pages/library/parts/TraceParts";
+import type { Trace } from "@/pages/library/slice";
 import { handoffBlockAt, traceForLine } from "../ReportContent";
 import { citationsAt } from "./traceCitations";
+import type { TreeNode } from "@/pages/library/slice";
 import {
   evidenceHref,
+  readerText,
   resolveEvidenceLocation,
   type OutputEntry,
   type Snapshot,
@@ -19,6 +22,29 @@ export type PublishedTraceContext = {
   details: { label: string; value: string | null }[];
   qualification?: string | null;
 };
+
+const readerNode = (node: TreeNode, pathway?: string | null): TreeNode => ({
+  label: readerText(node.label, pathway),
+  value: node.value === null ? null : readerText(node.value, pathway),
+  note: node.note === null ? null : readerText(node.note, pathway),
+  children: node.children.map((child) => readerNode(child, pathway)),
+});
+
+/**
+ * The drawer's words as the reader sees them: a module is named, never shown by its code. A code
+ * inside a stored file name stays, and so do citations, hashes and the Evidence address.
+ */
+export function readerTrace<T extends Trace>(trace: T, pathway?: string | null): T {
+  return {
+    ...trace,
+    title: readerText(trace.title, pathway),
+    heading: readerText(trace.heading, pathway),
+    subtitle: readerText(trace.subtitle, pathway),
+    statement: readerText(trace.statement, pathway),
+    qualification: trace.qualification === null ? null : readerText(trace.qualification, pathway),
+    derivation: readerNode(trace.derivation, pathway),
+  };
+}
 
 type OpenTrace = (href: string, context?: PublishedTraceContext) => (() => void) | null;
 const TraceContext = createContext<OpenTrace | null>(null);
@@ -105,7 +131,7 @@ export function PublishedTraceProvider({
         {children}
         {active && (
           <TraceDrawer
-            trace={active}
+            trace={readerTrace(active, pathway)}
             evidenceHref={evidenceHref(folder, active.evidenceItem)}
             isOpen
             onClose={() => {

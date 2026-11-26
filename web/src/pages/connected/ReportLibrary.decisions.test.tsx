@@ -270,7 +270,7 @@ it("leaves the limitations out when the recorded hold's reason cannot be shown",
 });
 
 const BOTTOM_LINE_NOT_ON_PAGE =
-  "This page does not show a bottom line for the Committee decision module, because no clearance for it is recorded. Other passages of that module, such as its limitations, may be shown on this page. The Committee decision page under Modules shows that module's findings.";
+  "This page does not show a bottom line for the Committee decision module, because no clearance for it is recorded. Its other passages, such as its limitations, may be shown here; the Committee decision page shows its findings.";
 
 it("says on Overview that an unheld module's bottom line is not shown on this page, and shows it on the module page it names", async () => {
   const data = fullSnapshot({ pathway: "credit_snapshot", lead: true });
@@ -283,7 +283,9 @@ it("says on Overview that an unheld module's bottom line is not shown on this pa
   first.unmount();
   window.history.replaceState(null, "", "/#modules/CP-6");
   render(<ReportReader id="acme" mode="synthetic" />);
-  expect(await screen.findByRole("heading", { name: "Committee decision" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { level: 2, name: "Committee decision" }),
+  ).toBeInTheDocument();
   expect(screen.getByText("Add one percent of NAV.")).toBeInTheDocument();
 });
 

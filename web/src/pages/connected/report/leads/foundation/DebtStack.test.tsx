@@ -147,7 +147,7 @@ describe("debt stack: the accepted CP-1", () => {
 });
 
 describe("debt stack: other handoffs and mutations", () => {
-  it("relative value: ten facilities, a break between ranking 1 and ranking 2, Secured: No in navy", () => {
+  it("relative value: ten facilities, a break between ranking 1 and ranking 2, Secured: No in plum", () => {
     const { tile } = draw(relativeValueCp1Entry());
     const bars = segments(tile);
     expect(bars).toHaveLength(10);
@@ -213,14 +213,14 @@ describe("debt stack: other handoffs and mutations", () => {
       />,
     );
     expect(screen.getByRole("region", { name: "Debt stack" }).textContent).toBe(
-      "Debt stack · This page could not read the debt stack because a ranking is not a whole number from 1 that never falls down the rows.",
+      "Debt stackThis page could not read the debt stack because a ranking is not a whole number from 1 that never falls down the rows.",
     );
   });
 
   it("without the table, or all gaps: the one gap tile, the module's reason when it states one", () => {
     render(<DebtStackTile lead={leadProps(dropTable(cp1Entry(), STACK))} />);
     expect(screen.getByRole("region", { name: "Debt stack" }).textContent).toBe(
-      "Debt stack · This page could not read the debt stack.",
+      "Debt stackThis page could not read the debt stack.",
     );
     cleanup();
     const gap = "Not supplied: debt note not in the filing read";
@@ -230,7 +230,7 @@ describe("debt stack: other handoffs and mutations", () => {
       />,
     );
     const tile = screen.getByRole("region", { name: "Debt stack" });
-    expect(tile.textContent).toBe(`Debt stack · ${gap}`);
+    expect(tile.textContent).toBe(`Debt stack${gap}`);
     expect(tile.querySelector("svg")).toBeNull();
   });
 });

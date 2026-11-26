@@ -203,6 +203,14 @@ def test_a_run_launched_with_an_explicit_module_subset_is_not_a_comparison_base(
     assert skipped == ["subset: it was launched with an explicit module subset"]
 
 
+def test_a_run_with_test_adaptations_is_not_a_comparison_base(tmp_path):
+    make_run(tmp_path, "flagged", as_of="2024-12-31", test_adaptations=("test-assume-distress",))
+    make_run(tmp_path, "normal", as_of="2024-11-30")
+    skipped: list[str] = []
+    assert chosen(tmp_path, skipped) == "normal"  # though the flagged run is the later one
+    assert skipped == ["flagged: it was launched with a test adaptation (test-assume-distress)"]
+
+
 def test_an_older_run_without_a_recorded_selection_is_a_base_only_with_the_leading_module(tmp_path):
     make_run(tmp_path, "old", as_of="2024-12-31", selection=None)  # ran CP-0 and CP-1 only
     skipped: list[str] = []

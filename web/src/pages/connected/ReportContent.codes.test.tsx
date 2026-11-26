@@ -10,10 +10,11 @@ const table: Table = {
   rows: [{ line: 2, cells: ["CP-1", "5.2x"] }],
 };
 
-it("draws a bare module code as stored in an Evidence table", () => {
-  render(<PublishedTable evidence heading="Evidence" table={table} />);
-  expect(screen.getByText("CP-1")).toBeInTheDocument();
-  expect(screen.getByText("Note CP-2")).toBeInTheDocument();
+it("names the module in an Evidence table too, never its code", () => {
+  const { container } = render(<PublishedTable evidence heading="Evidence" table={table} />);
+  expect(screen.getByText("Financial foundation")).toBeInTheDocument();
+  expect(screen.getByText("Note Fundamental credit")).toBeInTheDocument();
+  expect(container.textContent).not.toMatch(/CP-\d/);
 });
 
 it("names the module in the same table on a findings page", () => {

@@ -47,12 +47,7 @@ export function ModuleOutcomeTable({
                   href={`#evidence/checks/${encodeURIComponent(id)}`}
                   className="inline-flex min-h-8 flex-wrap items-center gap-x-2 text-text-primary underline-offset-2 hover:underline max-[480px]:min-h-11"
                 >
-                  <span>{moduleName(id, pathway)}</span>
-                  {moduleName(id, pathway) !== id && (
-                    <span className="font-mono text-caption font-normal text-text-tertiary">
-                      {id}
-                    </span>
-                  )}
+                  {moduleName(id, pathway)}
                 </a>
               </th>
               {statuses.map((status) => (

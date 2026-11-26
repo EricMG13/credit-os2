@@ -6,14 +6,19 @@ from pathlib import Path
 
 import pytest
 import test_signal_ingest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
+from signal_reader_check import react_refusal, reader_part  # noqa: F401 (autouse)
 from test_signal_feeds import RSS
 from test_signal_ingest import NOW, recorded
 
+from deploy_workflow.signal import groups, snapshot
 from deploy_workflow.signal.feeds import Entry
+from deploy_workflow.signal.identity import User
 from deploy_workflow.signal.ingest import run_due
 from deploy_workflow.signal.store import (
+    MIGRATIONS,
+    Conflict,
     StoreError,
     add_story,
     get_meta,
@@ -22,6 +27,7 @@ from deploy_workflow.signal.store import (
 )
 from deploy_workflow.signal.topics import (
     add_topic,
+    delete_topic,
     follow,
     list_topics,
     match_story,
@@ -102,18 +108,22 @@ def test_keywords_with_query_syntax_are_plain_text(db_two_sources, keyword):
     add_topic(db_two_sources, f"T {keyword}", [keyword], [], "ak")
 
 
-@given(st.text(min_size=1, max_size=60).filter(lambda s: s.strip()))
-def test_any_keyword_is_accepted_without_error(keyword):
+@settings(deadline=None, max_examples=25)  # each example opens a store: no deadline to flake
+@given(
+    st.text(st.characters(blacklist_categories=("C",)), min_size=1, max_size=60).filter(
+        lambda s: s.strip()
+    )
+)
+def test_any_plain_text_keyword_is_accepted_without_error(keyword):
     with fresh_db() as db:
         add_topic(db, "T", [keyword], [], "ak")
 
 
-def test_nul_in_a_keyword_is_plain_text_and_does_not_poison_matching(db_two_sources):
-    t0 = datetime(2026, 11, 13, 9, tzinfo=UTC)
-    add_topic(db_two_sources, "Nul", ["a\x00b"], [], "ak")
-    add_story(db_two_sources, 1, Entry("Authority review", "https://a.org/1", t0, ""), t0)
-    assert match_story(db_two_sources, 1) == []
-    add_topic(db_two_sources, "Nul again", ["a\x00b"], [], "ak")
+@pytest.mark.parametrize("keyword", ["a\x00b", "bell\x07", "flip\u202eit", "x\ud800y", "a\nb"])
+def test_a_keyword_with_a_control_or_invisible_character_is_refused(db_two_sources, keyword):
+    with pytest.raises(StoreError, match="keyword is plain text"):
+        add_topic(db_two_sources, "Odd", [keyword], [], "ak")
+    assert count(db_two_sources, "topics") == 0
 
 
 def test_follow_is_personal_and_idempotent(db_two_sources):
@@ -141,7 +151,8 @@ def test_pass_records_its_time_and_matches_new_stories_with_recorded_feed(db_a):
 
 def test_a_slice_1_database_gains_the_new_tables(tmp_path):
     db = open_db(tmp_path)
-    assert db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0] == "2"
+    version = db.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()[0]
+    assert version == str(len(MIGRATIONS))  # every later slice's migration applies too
     names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"topics", "topic_stories", "topic_follows", "saves"} <= names
 
@@ -197,3 +208,41 @@ def test_add_topic_links_exactly_what_the_per_story_path_links(tmp_path):
         assert 0 < len(linked(first)) < 2000
     finally:
         database.close()
+
+
+# Deleting a topic
+
+MARA = User("Mara L", "writer")
+TOBIAS = User("Tobias O", "reader")
+
+
+def test_a_topic_a_group_still_lists_is_refused_and_the_refusal_says_so(db_two_sources):
+    tid = add_topic(db_two_sources, "Competition", ["review"], [], "ak")
+    group = groups.create_group(db_two_sources, MARA, "Desk", "invited")
+    groups.set_topics(db_two_sources, MARA, group, [tid])
+    with pytest.raises(Conflict, match="a group still follows this topic"):
+        delete_topic(db_two_sources, tid)
+    assert count(db_two_sources, "topics") == 1
+    groups.set_topics(db_two_sources, MARA, group, [])
+    delete_topic(db_two_sources, tid)
+    assert count(db_two_sources, "topics") == 0
+
+
+def test_a_topic_that_posted_threads_can_be_deleted_and_the_threads_read_posted_from_a_topic(
+    db_two_sources,
+):
+    t0 = datetime(2026, 11, 13, 9, tzinfo=UTC)
+    tid = add_topic(db_two_sources, "Competition", ["review"], [], "ak")
+    group = groups.create_group(db_two_sources, MARA, "Desk", "everyone")
+    groups.set_topics(db_two_sources, MARA, group, [tid])
+    add_story(db_two_sources, 1, Entry("Authority opens review", "https://a.org/1", t0, ""), t0)
+    assert match_story(db_two_sources, 1) == [tid]
+    follow(db_two_sources, "Tobias O", tid)
+    assert rows(db_two_sources, "SELECT topic_id, created_by FROM threads") == [(tid, None)]
+    groups.set_topics(db_two_sources, MARA, group, [])  # the group stops following it
+    delete_topic(db_two_sources, tid)
+    assert rows(db_two_sources, "SELECT topic_id, created_by FROM threads") == [(None, None)]
+    built = snapshot.build(db_two_sources, TOBIAS, t0 + timedelta(hours=2))
+    assert react_refusal(built) is None, react_refusal(built)
+    (thread,) = built["scenes"][0]["snapshot"]["groups"][0]["threads"]
+    assert thread["sharedBy"] == {"initials": "?", "label": "Posted from a topic, 2 h ago"}

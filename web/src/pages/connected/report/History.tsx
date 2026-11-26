@@ -1,5 +1,3 @@
-import { Badge } from "@/components/base/badges/badges";
-import { StatusBadge } from "@/components/status/StatusBadge";
 import { TextLink } from "../../run/TextLink";
 import { moduleName } from "../api";
 import {
@@ -37,18 +35,33 @@ function runDetails(snapshot: Snapshot, key: string, run: PublishedRun) {
 
 type Details = ReturnType<typeof runDetails>;
 
-function modulesRun(details: Details) {
-  if (details) {
-    const count = details.modules.length;
-    if (count === 0) return "0 modules run";
-    return `${String(count)} ${count === 1 ? "module" : "modules"} run: ${details.modules.join(", ")}`;
-  }
-  return "The module list is unavailable for this run.";
+/** How many modules ran, as the summary of the disclosure that names them. */
+function modulesCount(count: number) {
+  return `${String(count)} ${count === 1 ? "module" : "modules"} run`;
+}
+
+/** The modules a run ran: a count that opens to their names, so a row stays one glance long. */
+function ModulesRun({ details }: { details: Details }) {
+  if (!details)
+    return <p className="text-small text-gap-text">The module list is unavailable for this run.</p>;
+  const count = details.modules.length;
+  if (count === 0) return <p className="text-small text-text-secondary">{modulesCount(0)}</p>;
+  return (
+    <details className="text-small text-text-secondary">
+      <summary className="inline-flex min-h-8 cursor-pointer items-center rounded-ds-sm font-medium text-text-link focus-visible:ring-2 focus-visible:ring-focus max-[480px]:min-h-11">
+        {modulesCount(count)}
+      </summary>
+      <p className="wrap-anywhere">{details.modules.join(", ")}</p>
+    </details>
+  );
 }
 
 const chip = "flex min-h-6 items-center rounded-ds-xs border px-2 text-caption font-medium";
 
 const QUIET = `${chip} border-border-container font-normal text-text-secondary`;
+
+/** A statement of what the row does not show: words, not a chip, so it does not read as a fact. */
+const NOT_SHOWN = "text-caption text-gap-text";
 
 /**
  * The page holds a run's handoffs only for the opened run and its compared earlier run; every
@@ -61,6 +74,9 @@ function runDecisions(snapshot: Snapshot, key: string, record: PublishedRun): Ac
   return held(record) ? decisionActions(buildReportView(snapshot, key, record), record) : null;
 }
 
+/** The scope every verified full run has; a row names its scope only where it is something else. */
+const STANDARD_SCOPE = "Standard pathway scope";
+
 const STATUS = { withheld: "Withheld", "not shown": "Not shown", unavailable: "Unavailable" };
 
 /**
@@ -68,9 +84,9 @@ const STATUS = { withheld: "Withheld", "not shown": "Not shown", unavailable: "U
  * whether it is withheld or not shown; a run the page has only as a summary says so.
  */
 function Decisions({ decisions }: { decisions: Action[] | null }) {
-  if (decisions === null) return <span className={QUIET}>Decision not in the run list</span>;
+  if (decisions === null) return <span className={NOT_SHOWN}>Decision not in the run list</span>;
   return decisions.map(({ module, label, status }) => (
-    <span key={module} className={QUIET}>{`${label}: ${STATUS[status]}`}</span>
+    <span key={module} className={NOT_SHOWN}>{`${label}: ${STATUS[status]}`}</span>
   ));
 }
 
@@ -103,6 +119,7 @@ function RunRow({
   details: Details;
 }) {
   const href = reportPath(record.folder);
+  const scope = scopeLabel(record);
   return (
     <li className="relative flex min-w-0 flex-col gap-2 pb-6 pl-6 last:pb-0">
       <Node current={current} />
@@ -114,36 +131,39 @@ function RunRow({
         ) : (
           <span className="text-h4 text-gap-text">As-of date not recorded</span>
         )}
-        <Decisions decisions={decisions} />
-        {tie && <span className={QUIET}>Same as-of date</span>}
         {current && (
           <span className={`${chip} border-action-subtle-hover bg-surface-selected text-text-link`}>
             This run
           </span>
         )}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
         <span
           className={`${chip} border-border-hairline bg-surface-card font-normal text-text-secondary wrap-anywhere`}
         >
           {runPathway(record, catalogue) || "Credit report"}
         </span>
-        <StatusBadge set="Run states" state="Finished" />
-        <span className={QUIET}>{scopeLabel(record)}</span>
+        {scope !== STANDARD_SCOPE && <span className={QUIET}>{scope}</span>}
+        {tie && <span className={QUIET}>Same as-of date</span>}
         {details?.labels.map((label) => (
-          <Badge key={label}>{label}</Badge>
+          <span key={label} className={QUIET}>
+            {label}
+          </span>
         ))}
       </div>
-      <p className="text-small wrap-anywhere text-text-secondary">{modulesRun(details)}</p>
+      {decisions?.length !== 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Decisions decisions={decisions} />
+        </div>
+      )}
+      <ModulesRun details={details} />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <TextLink
-          className="inline-flex min-h-8 items-center max-[480px]:min-h-11"
+          className="inline-flex min-h-8 items-center text-small max-[480px]:min-h-11"
           href={`${href}#overview`}
         >
           Open overview
         </TextLink>
         <TextLink
-          className="inline-flex min-h-8 items-center max-[480px]:min-h-11"
+          className="inline-flex min-h-8 items-center text-small max-[480px]:min-h-11"
           href={`${href}#changes`}
         >
           What changed
@@ -180,6 +200,10 @@ export function RunHistory({
   return (
     <Bento>
       <Tile span={12} as="h2" label={`Runs of ${issuer}`} title={`Runs of ${issuer}`}>
+        <p className="text-caption text-text-tertiary">
+          Finished runs, newest first. A run’s scope is the standard pathway scope unless its row
+          says otherwise.
+        </p>
         <p className="text-caption text-gap-text">
           Who started each run is not published with the report.
         </p>

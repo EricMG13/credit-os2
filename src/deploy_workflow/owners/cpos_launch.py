@@ -111,10 +111,12 @@ from deploy_workflow.owners import cpos_forecast
 from deploy_workflow.owners.cpos import (
     MAX_MODULE_WIDTH,
     MODULE_WIDTH,
+    TEST_DISTRESS_GRANT,
     WEB_SEARCH_GRANT,
     HandoffPlan,
     HandoffTask,
     _require_live_route,
+    grant_ruled,
     run_live_handoffs,
     web_search_ruled,
     web_search_run,
@@ -163,6 +165,8 @@ from deploy_workflow.owners.cpos_launch_prompts import (
     ROUTING_RULES,
     SOURCES_RULES,
     STRESS_BLOCK,
+    TEST_DISTRESS_BLOCK,
+    TEST_SCOPE_PREFIX,
     TRANSPORT_RULES,
     UPSTREAM_SCOPE_NOTE,
     VOICE_RULES,
@@ -1017,6 +1021,23 @@ def _cp8_request_bytes(
     return instructions + inlined + REQUEST_ALLOWANCE
 
 
+def _with_test_scope(
+    layout: MarkdownLayout, ordered: tuple[str, ...], *, assumed: bool
+) -> MarkdownLayout:
+    """``layout``, its scope opened by `TEST_SCOPE_PREFIX` when CP-4C is told to assume distress."""
+    if not assumed:
+        return layout
+    if "CP-4C" not in ordered:
+        raise LaunchRefused(
+            f"--test-assume-distress: CP-4C is not in this run ({' '.join(ordered)})"
+        )
+    return layout.model_copy(update={"scope": TEST_SCOPE_PREFIX + layout.scope})
+
+
+# The screen-test changes `prepare` accepts; each needs its own grant on a ruling (`main`).
+TEST_ADAPTATIONS = (TEST_DISTRESS_GRANT,)
+
+
 def prepare(  # noqa: PLR0913 - one keyword per run setting
     context: Path,
     sources: Path,
@@ -1028,6 +1049,7 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
     web_search: bool = False,
     workspace: Path | None = None,
     prior: str | None = None,
+    test_adaptations: Sequence[str] = (),
 ) -> Prepared:
     """Check everything and write the manifest and instructions; a refusal writes nothing.
 
@@ -1043,7 +1065,12 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
 
     ``web_search`` is whether the run's ruling lists ``web-search``: the research module's calls
     then hold the search fee too, as the live loop holds it, so the cap is checked against the
-    same hold."""
+    same hold.
+
+    ``test_adaptations`` names screen-test-only changes to the instructions (`TEST_ADAPTATIONS`);
+    it is empty for every delivery run, and then nothing about the run differs."""
+    if unknown := [t for t in test_adaptations if t not in TEST_ADAPTATIONS]:
+        raise LaunchRefused(f"test adaptation {', '.join(unknown)}: not one of {TEST_ADAPTATIONS}")
     if prior is not None and prior != NO_PRIOR and not _RUN_NAME.fullmatch(prior):
         raise LaunchRefused(f"--prior: {prior!r} is neither `none` nor the name of a run folder")
 
@@ -1059,6 +1086,7 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting
             workspace=workspace,
             choice=prior,
             left_out=left_out,
+            test_adaptations=tuple(test_adaptations),
         )
 
     try:
@@ -1079,6 +1107,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     workspace: Path | None,
     choice: str | None,
     left_out: str | None,
+    test_adaptations: tuple[str, ...],
 ) -> Prepared:
     """`prepare`; ``left_out`` is the note of a run planned without CP-8 because its call did not
     fit the cap."""
@@ -1152,6 +1181,8 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     )
     forecast = "CP-1" in ordered and (model_wanted or "CP-2G" in ordered)
     layout, omitted = _layout(run, ordered, config, forecast=forecast, context=settings)
+    assumed = TEST_DISTRESS_GRANT in test_adaptations
+    layout = _with_test_scope(layout, ordered, assumed=assumed)
     texts = {m: _instructions(run, m, layout.routes, context=settings) for m in ordered}
     options = settings.module_options
     peer_pack = settings.valuation.peer_source == "cp_dr_public" and {"CP-DR", "CP-1C"} <= set(
@@ -1164,6 +1195,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         ("CP-1", CP1_CHECK_BLOCK, True),
         ("CP-1", LAYER1_FORECAST_BLOCK, forecast and "CP-2G" not in ordered),
         ("CP-0", CP0_BLOCK, True),
+        ("CP-4C", TEST_DISTRESS_BLOCK, assumed),
         ("CP-5", upstream_scope_note(ordered), True),
         ("CP-2A", STRESS_BLOCK, True),
         ("CP-DR", PEER_PACK_BLOCK, peer_pack),
@@ -1223,6 +1255,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         prior=prior,
         changes_note=note,
         selection=selection,
+        test_adaptations=test_adaptations,
         preset_requested_modules=pathway_modules(settings)
         if held is None
         else held.preset_requested_modules,
@@ -1874,6 +1907,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--live", action="store_true", help="make paid provider calls")
     parser.add_argument("--ruling", type=Path, help="docs/rulings/<file>.md naming this config")
     parser.add_argument(
+        "--test-assume-distress",
+        action="store_true",
+        help="SCREEN TEST ONLY: tell CP-4C to assume a distress trigger; needs a --ruling that "
+        f"lists {TEST_DISTRESS_GRANT}; never from the run start service",
+    )
+    parser.add_argument(
         "--prior",
         help="the earlier run to compare with: its run folder name, or `none` for a first run "
         "(the run start service passes what the approval named; default: search)",
@@ -2023,6 +2062,23 @@ def _check_cli_route(config: str, live: bool, ruling: Path | None) -> None:
         raise LaunchRefused(f"--live needs {COPILOT_RUNTIME_VARIABLE} to name an existing file")
 
 
+def _test_adaptations(args: argparse.Namespace, *, allow_live: bool) -> tuple[str, ...]:
+    """The screen-test changes this launch asks for, after the checks that let it have them.
+
+    Refused unless a ruling lists the grant; refused in the run start service's environment and in
+    a launcher that cannot go live. No environment variable can turn one on."""
+    if not args.test_assume_distress:
+        return ()
+    if os.environ.get("DEPLOY_WORKFLOW_PID_FILE") or not allow_live:
+        raise LaunchRefused("--test-assume-distress: not available from the run start service")
+    if not grant_ruled(TEST_DISTRESS_GRANT, args.ruling):
+        raise LaunchRefused(
+            f"--test-assume-distress needs --ruling docs/rulings/<file>.md listing "
+            f"{TEST_DISTRESS_GRANT}"
+        )
+    return (TEST_DISTRESS_GRANT,)
+
+
 def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
     try:  # first: a run that cannot be tracked must not start
         _record_own_pid()
@@ -2034,6 +2090,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
         if args.live and not allow_live:
             raise LaunchRefused("the embedded Windows launcher supports offline preparation only")
         _check_cli_route(args.config, args.live, args.ruling)
+        adaptations = _test_adaptations(args, allow_live=allow_live)
         width = module_width(args.parallel_modules, os.environ)
         if args.balanced and args.high_modules:
             raise LaunchRefused("--balanced and --high-modules cannot be combined")
@@ -2054,6 +2111,7 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
             modules=args.modules,
             web_search=web_search_run(args.config, args.ruling),
             prior=args.prior,
+            test_adaptations=adaptations,
         )
         efforts = (
             _high_efforts(

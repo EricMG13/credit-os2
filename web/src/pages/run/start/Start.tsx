@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import { Heading } from "react-aria-components";
-import { Lock01 } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { FeaturedIcon } from "@/components/foundations/featured-icon/featured-icon";
 import { Dialog, DialogTrigger, Modal, ModalOverlay } from "@/components/application/modals/modal";
@@ -101,7 +100,6 @@ export function SubmitConfirmation({
     <DialogTrigger>
       <Button
         size="xl"
-        iconLeading={Lock01}
         isDisabled={isDisabled}
         aria-describedby={describedBy}
         className={className}

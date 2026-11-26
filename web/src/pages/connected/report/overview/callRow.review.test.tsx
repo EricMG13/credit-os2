@@ -125,12 +125,14 @@ it("draws the confidence band in its own word, neutral, whatever the band", () =
   }
 });
 
-it("labels the run's own timing as the run states it, never as the financials' date", () => {
+it("leaves the run's pathway, timing and unit to the report header, stating none of them again", () => {
   const lead = entry("CP-2", [text("Bottom line", "The view.")]);
   render(<CallRow snapshot={snapshot} run={on(lead)} view={view([lead], lead)} />);
   const call = screen.getByRole("region", { name: "The call" });
   expect(within(call).queryByText("Financials as of")).toBeNull();
-  expect(within(call).getByText("Timing")).toBeVisible();
+  for (const term of ["Pathway", "Timing", "Currency"])
+    expect(within(call).queryByText(term)).toBeNull();
+  expect(within(call).getByText("Modules")).toBeVisible();
 });
 
 it("counts the modules as the pipeline does and names each state that is not delivered in its own words", () => {
@@ -353,7 +355,7 @@ it("draws no trace in the clearance tile: it shows no passage to trace", () => {
   expect(within(tile).queryByRole("link", { name: /^Source for / })).toBeNull();
 });
 
-it("lets no tile in the call row stretch past its content", () => {
+it("spreads no call-row tile apart: only the call's foot goes to the foot", () => {
   const lead = entry("CP-2", [text("Bottom line", "The view.")]);
   render(<CallRow snapshot={snapshot} run={on(lead)} view={view([lead], lead)} />);
   for (const name of ["The call", "Since the earlier run"]) {
@@ -438,4 +440,34 @@ it("says why beside the link when a bottom line is sent to Evidence for a source
     within(call).getAllByRole("link", { name: "Read this passage in Evidence" }).length,
   ).toBeGreaterThan(0);
   expect(call).not.toHaveTextContent(/T4\.18/);
+});
+
+it("marks the second module's score as an open ring on the meter, never as a limit's tick", () => {
+  const lead = entry("CP-2", [text("Bottom line", "The view.")], {
+    confidence: { value: 53, band: "Low" },
+  });
+  const selection = entry("CP-3", [text("Bottom line", "The pick.")], {
+    confidence: { value: 56, band: "Low" },
+  });
+  render(<CallRow snapshot={snapshot} run={on(lead)} view={view([lead, selection], lead)} />);
+  const meter = within(screen.getByRole("region", { name: "Confidence" })).getByRole("img");
+  // A tick across a bar is the covenant tile's threshold; another module's score is not a limit.
+  expect(meter.querySelector("line")).toBeNull();
+  expect(meter.querySelector("circle[data-second]")).toHaveClass("fill-surface-card");
+});
+
+it("gives each decision that is not shown one gap line and the way to its module", () => {
+  const lead = entry("CP-2", [text("Bottom line", "The view.")]);
+  const decision = entry("CP-6", [text("Bottom line", "Add one percent.")]);
+  render(<CallRow snapshot={snapshot} run={on(lead)} view={view([lead, decision], lead)} />);
+  const decisions = within(screen.getByRole("region", { name: "The call" })).getByLabelText(
+    "Decisions",
+  );
+  const reason = within(decisions).getByText(/does not show a bottom line for the Committee/);
+  expect(reason.closest("p")?.querySelector(".gap-hatch")).not.toBeNull();
+  expect(decisions).not.toHaveTextContent("Add one percent");
+  expect(within(decisions).getByRole("link", { name: "Open Committee decision" })).toHaveAttribute(
+    "href",
+    "#modules/CP-6",
+  );
 });

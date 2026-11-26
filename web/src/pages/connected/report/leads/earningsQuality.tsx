@@ -35,7 +35,8 @@ function rowsOf(bridge: Bridge): WaterfallRow[] {
     const base = { kind: "step" as const, value: step.value, text: group(step.amount) };
     // "Partly supported" with no amounts has no part to draw: its word is in the label.
     const word = step.support === "Partly supported" && !step.split ? ` (${step.support})` : "";
-    const unread = bridge.supportStated && step.support === null ? " (support not read)" : "";
+    const unread =
+      bridge.supportStated && step.support === null && !step.stance ? " (support not read)" : "";
     const label = `${step.label}${word}${unread}`;
     if (step.split)
       return {
@@ -62,6 +63,16 @@ function rowsOf(bridge: Bridge): WaterfallRow[] {
       };
     if (step.support === "Not supported" || step.support === "Insufficient evidence")
       return { ...base, label, split: [{ text: step.support, value: step.value, tone: "worse" }] };
+    // The bridge's own support cell, in the module's words: a rejected step is the signal colour,
+    // a challenged one the second colour, so an unresolved step is not drawn as a rejection.
+    const tone = /^reject/i.test(step.stance)
+      ? "worse"
+      : /^challeng/i.test(step.stance)
+        ? "secondary"
+        : /^support/i.test(step.stance)
+          ? "primary"
+          : null;
+    if (tone) return { ...base, label, split: [{ text: step.stance, value: step.value, tone }] };
     return { ...base, label };
   });
   return [
@@ -82,10 +93,9 @@ function rowsOf(bridge: Bridge): WaterfallRow[] {
 }
 
 /** The colours of the split, named: the one legend of the bridge besides the waterfall's own. */
-function splitLegend(rows: readonly WaterfallRow[]): LegendEntry[] {
-  const tones = new Set(
-    rows.flatMap((row) => (row.kind === "step" ? (row.split ?? []).map((part) => part.tone) : [])),
-  );
+function splitLegend(bridge: Bridge): LegendEntry[] {
+  // Only the accepted / not accepted parts are named here; a step's own support words are on the bar.
+  const tones = new Set(bridge.changes.flatMap((step) => (step.split ? ["primary", "worse"] : [])));
   return [
     ...(tones.has("primary")
       ? [{ kind: "square" as const, tone: "primary" as const, text: "Accepted" }]
@@ -99,6 +109,7 @@ function splitLegend(rows: readonly WaterfallRow[]): LegendEntry[] {
 function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
   const unit = bridge.unit;
   const rows = rowsOf(bridge);
+  const withBasis = bridge.changes.some((step) => step.basis !== "");
   return (
     <FigureTile
       props={props}
@@ -108,25 +119,50 @@ function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
       title="Earnings quality"
       line={bridge.line}
       source="the earnings-quality bridge"
-      legend={splitLegend(rows)}
+      legend={splitLegend(bridge)}
       notes={[
         ...(!bridge.supportStated ? ["This page could not read a support word for any step."] : []),
         ...bridge.notes,
       ]}
       table={{
         caption: "Earnings quality bridge",
-        headers: ["Step", "Amount", "Unit", "Support stated", "Accepted", "Not accepted"],
+        headers: [
+          "Step",
+          "Amount",
+          "Unit",
+          "Support stated",
+          "Accepted",
+          "Not accepted",
+          ...(withBasis ? ["Basis"] : []),
+        ],
         rows: [
-          [bridge.opening.label, group(bridge.opening.amount), unit, "Not applicable", "", ""],
+          [
+            bridge.opening.label,
+            group(bridge.opening.amount),
+            unit,
+            "Not applicable",
+            "",
+            "",
+            ...(withBasis ? [""] : []),
+          ],
           ...bridge.changes.map((step) => [
             step.label,
             group(step.amount),
             unit,
-            step.support ?? "Not stated",
+            step.support ?? (step.stance || "Not stated"),
             step.accepted ? group(step.accepted) : "Not stated",
             step.notAccepted ? group(step.notAccepted) : "Not stated",
+            ...(withBasis ? [step.basis] : []),
           ]),
-          [bridge.closing.label, group(bridge.closing.amount), unit, "Not applicable", "", ""],
+          [
+            bridge.closing.label,
+            group(bridge.closing.amount),
+            unit,
+            "Not applicable",
+            "",
+            "",
+            ...(withBasis ? [""] : []),
+          ],
         ],
       }}
     >
@@ -147,7 +183,7 @@ function BridgeTile({ props, bridge }: { props: LeadProps; bridge: Bridge }) {
 
 const sideOf = (side: Side): DumbbellSide =>
   "gap" in side ? { gap: side.gap } : { value: side.value, text: side.text };
-const writtenOf = (side: Side) => ("gap" in side ? side.written : side.text);
+const writtenOf = (side: Side) => ("gap" in side ? side.written : (side.written ?? side.text));
 
 function LeverageTile({ props }: { props: LeadProps }) {
   const leverage = readLeverage(props.entry);
@@ -157,6 +193,7 @@ function LeverageTile({ props }: { props: LeadProps }) {
         {leverage.reason}
       </GapTile>
     );
+  const others = leverage.others ?? [];
   return (
     <FigureTile
       props={props}
@@ -167,28 +204,66 @@ function LeverageTile({ props }: { props: LeadProps }) {
       line={leverage.line}
       source="restated leverage"
       table={{
-        caption: "Leverage on the statements and on supported earnings",
-        headers: ["Measure", "Statements", "Supported earnings"],
+        caption: `Leverage on ${leverage.labels.reported} and on ${leverage.labels.restated}`,
+        headers: [
+          "Measure",
+          leverage.labels.reported,
+          ...others.map((basis) => basis.label),
+          leverage.labels.restated,
+          ...(leverage.deltaLabel ? [leverage.deltaLabel] : []),
+        ],
         rows: leverage.measures.map((item) => [
           item.measure,
           writtenOf(item.reported),
+          ...(item.others ?? []).map(writtenOf),
           writtenOf(item.restated),
+          ...(leverage.deltaLabel ? [item.delta ?? ""] : []),
         ]),
       }}
     >
       <Measured fallback={460}>
         {(width) => (
-          <Dumbbell
-            width={width}
-            unit="multiples of EBITDA"
-            periods={{ prior: "Statements", current: "Supported earnings" }}
-            legend
-            rows={leverage.measures.map((item) => ({
-              label: item.measure,
-              prior: sideOf(item.reported),
-              current: sideOf(item.restated),
-            }))}
-          />
+          <>
+            <Dumbbell
+              width={width}
+              unit="multiples of EBITDA"
+              periods={{ prior: leverage.labels.reported, current: leverage.labels.restated }}
+              legend
+              {...(others.length > 0
+                ? { caption: `${leverage.labels.reported} against ${leverage.labels.restated}` }
+                : {})}
+              rows={leverage.measures.map((item) => ({
+                label: item.measure,
+                prior: sideOf(item.reported),
+                current: sideOf(item.restated),
+              }))}
+            />
+            {others.map((basis, at) => (
+              <Dumbbell
+                key={basis.label}
+                width={width}
+                unit="multiples of EBITDA"
+                periods={{ prior: basis.label, current: leverage.labels.restated }}
+                legend
+                caption={`${basis.label} against ${leverage.labels.restated}`}
+                rows={leverage.measures.flatMap((item) => {
+                  const other = item.others?.[at];
+                  // With one further basis the table's delta is that comparison, as written.
+                  const delta = others.length === 1 && item.delta ? { change: item.delta } : {};
+                  return other
+                    ? [
+                        {
+                          label: item.measure,
+                          prior: sideOf(other),
+                          current: sideOf(item.restated),
+                          ...delta,
+                        },
+                      ]
+                    : [];
+                })}
+              />
+            ))}
+          </>
         )}
       </Measured>
     </FigureTile>

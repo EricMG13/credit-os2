@@ -149,7 +149,9 @@ describe("coded registers leave the module page", () => {
         evidencePath("retained case", entry, line),
       );
     }
-    expect(screen.getByRole("link", { name: "Open this module in Evidence" })).toHaveAttribute(
+    // A gap tile of the lead carries the same link; this one is the records block's own.
+    const records = within(screen.getByRole("region", { name: "Statements and records" }));
+    expect(records.getByRole("link", { name: "Open this module in Evidence" })).toHaveAttribute(
       "href",
       evidencePath("retained case", entry),
     );
@@ -193,7 +195,8 @@ describe("coded registers leave the module page", () => {
     openRecords();
     expect(screen.getByRole("heading", { name: "Segment schedule", level: 4 })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Held in Evidence" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "Open this module in Evidence" })).toBeNull();
+    const records = within(screen.getByRole("region", { name: "Statements and records" }));
+    expect(records.queryByRole("link", { name: "Open this module in Evidence" })).toBeNull();
   });
 
   it("still promotes a monitoring register in CP-2A", () => {

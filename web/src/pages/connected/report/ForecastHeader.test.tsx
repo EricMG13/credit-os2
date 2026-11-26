@@ -172,11 +172,12 @@ it("labels its selections as selections: highest and lowest published years, tie
   // The year with no figure is named in the same cell, with the model's reason.
   expect(strip.getByText("FY2026E not calculated: Interest is zero")).toBeInTheDocument();
   expect(strip.queryByText(/peak|minimum/i)).toBeNull();
+  // The strip says only that no figure was read: each module's reason is whole in What breaks.
   expect(
-    strip.getByText(
-      "Liquidity did not run in this run. Refinancing & LME did not run in this run.",
-    ),
+    strip.getByText("No figure read: the reasons are in What breaks, and when"),
   ).toBeInTheDocument();
+  expect(strip.queryByText(/did not run in this run/)).toBeNull();
+  expect(strip.queryByText("0")).toBeNull();
 });
 
 it("counts a case's published years and names each year with no figure", () => {
@@ -272,6 +273,40 @@ it("offers no way to a forward model the run does not have", () => {
     />,
   );
   expect(screen.queryByRole("link", { name: "Open module" })).toBeNull();
+  // No model, no parts to go to.
+  expect(screen.queryByRole("list", { name: "Parts of this page" })).toBeNull();
+});
+
+it("names the page's parts under the title and puts the keyboard inside the part asked for", () => {
+  header([forward("The view.")]);
+  // The grid tile as the page draws it: a region by name with its first control.
+  render(
+    <section aria-label="Forecast grid">
+      <button type="button">Selected case</button>
+    </section>,
+  );
+  const shown = vi.fn();
+  // jsdom has no layout, so no scrollIntoView of its own.
+  Element.prototype.scrollIntoView = shown;
+  const index = within(screen.getByRole("list", { name: "Parts of this page" }));
+  expect(index.getAllByRole("button").map((part) => part.textContent)).toEqual([
+    "Path",
+    "What breaks",
+    "Assumptions",
+    "Scope",
+    "Grid",
+  ]);
+  fireEvent.click(index.getByRole("button", { name: "Grid" }));
+  expect(shown).toHaveBeenCalledWith({ block: "start" });
+  expect(screen.getByRole("button", { name: "Selected case" })).toHaveFocus();
+});
+
+it("states the bottom line under no label of its own: the sentence leads", () => {
+  header([forward("Net leverage falls to 3.05x by FY2027.")]);
+  const tile = within(screen.getByRole("region", { name: "Forecast" }));
+  expect(tile.queryByText("Bottom line")).toBeNull();
+  // The page title is one step above the tile titles under it.
+  expect(tile.getByRole("heading", { level: 2, name: "Forecast" })).toHaveClass("text-h3");
 });
 
 it("stacks the case switch one case per row when a case name does not fit on one line", () => {

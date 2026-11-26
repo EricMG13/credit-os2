@@ -7,15 +7,15 @@ import { traceKey } from "../reportView";
 import { richParts } from "../richText";
 import { typedModuleTable } from "./ModuleTable";
 import { Anchor, ANCHOR, HeldTrace } from "./ModuleFrame";
-import type { DrawingGap, ProseSection } from "./moduleFrame";
-import { proseWithoutMachinery, statedGap } from "./moduleRecords";
+import type { DrawingGap, ProseSection } from "./moduleFrameModel";
+import { proseWithoutMachinery, statedGap } from "./moduleRecordsModel";
 import { GapNote, Tile } from "./overview/Tile";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
 
 /** A section this long reads in two columns on a wide screen; a shorter one shares its row. */
 const LONG = 180;
 
-type Placed = { prose: ProseSection; span: 6 | 8 | 12 };
+type Placed = { prose: ProseSection; span: 6 | 12; measured?: true };
 
 const isShort = (item: ProseSection) => item.words <= LONG && !item.typed.length;
 /** Two short sections share a row only when their lengths are alike, so neither tile is mostly empty. */
@@ -24,26 +24,25 @@ const alike = (a: ProseSection, b: ProseSection) =>
 
 /**
  * Short sections of similar length pair up side by side; a long one takes the row; a short one
- * left alone takes eight columns, so its lines keep a reading measure without an empty tile.
+ * left alone takes the row too, its lines held to the reading measure inside the tile (`measured`).
  */
 export function placeProse(prose: readonly ProseSection[]): Placed[] {
   const placed: Placed[] = [];
   let open: Placed | null = null;
   for (const item of prose) {
     if (!isShort(item)) {
-      if (open) open.span = 8;
       open = null;
       placed.push({ prose: item, span: 12 });
       continue;
     }
     if (open && alike(open.prose, item)) {
       open.span = 6;
+      delete open.measured;
       placed.push({ prose: item, span: 6 });
       open = null;
       continue;
     }
-    if (open) open.span = 8;
-    open = { prose: item, span: 8 };
+    open = { prose: item, span: 12, measured: true };
     placed.push(open);
   }
   return placed;
@@ -68,7 +67,7 @@ function ProseTile({
   entry: OutputEntry;
   folder: string;
 }) {
-  const { prose, span } = placed;
+  const { prose, span, measured } = placed;
   const id = ANCHOR.section(prose.section.line);
   // A section of typed tables only: the tables carry their own headings and regions, so the
   // tile has no title and takes another name where theirs would repeat it.
@@ -94,7 +93,10 @@ function ProseTile({
     >
       <div className={cx("min-w-0", columns ? "gap-x-10 xl:columns-2 [&>*]:mb-4" : "grid gap-4")}>
         {prose.paragraphs.map((block) => (
-          <div key={block.line} className="break-inside-avoid [&_.reading-copy]:max-w-none">
+          <div
+            key={block.line}
+            className={cx("break-inside-avoid", !measured && "[&_.reading-copy]:max-w-none")}
+          >
             <FindingParagraph
               block={block}
               trace={traceKey(entry, block.line)}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moduleName, PATHWAYS, pathwayName, serviceText } from "./api";
+import { moduleName, PATHWAYS, pathwayName, serviceText, UNNAMED_MODULE } from "./api";
 import { PATHWAY_QUESTIONS } from "./start/pathways";
 
 describe("the credit screening pathway", () => {
@@ -23,7 +23,7 @@ describe("the credit screening pathway", () => {
     expect(moduleName("CP-L10", "short_snapshot")).toBe("Short credit snapshot");
     expect(moduleName("CP-L10", null)).toBe("Short credit snapshot");
     expect(moduleName("CP-1", "credit_screening")).toBe("Financial foundation");
-    expect(moduleName("CP-NOPE", "credit_screening")).toBe("CP-NOPE");
+    expect(moduleName("CP-NOPE", "credit_screening")).toBe(UNNAMED_MODULE); // main: a code is never drawn
     expect(serviceText("CP-L10 and CP-1 ran", "credit_screening")).toBe(
       "Credit screening and Financial foundation ran",
     );

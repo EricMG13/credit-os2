@@ -8,7 +8,7 @@
   --color-surface-canvas: #fafafa;
   --color-surface-card: #ffffff;
   --color-surface-subtle: #f4f4f5;
-  --color-surface-selected: #f0fdfa;
+  --color-surface-selected: #eff6ff;
   --color-surface-inverse: #0a0a0a;
 
   /* Text */
@@ -17,17 +17,17 @@
   --color-text-tertiary: #6b6b74;
   --color-text-disabled: #a1a1aa;
   --color-text-on-action: #ffffff;
-  --color-text-link: #0f766e;
+  --color-text-link: #1d4ed8;
 
   /* Action, hover and focus */
-  --color-action: #0f766e;
-  --color-action-hover: #115e59;
-  --color-action-pressed: #134e4a;
-  --color-action-subtle: #f0fdfa;
-  --color-action-subtle-hover: #ccfbf1;
+  --color-action: #1d4ed8;
+  --color-action-hover: #1e40af;
+  --color-action-pressed: #1e3a8a;
+  --color-action-subtle: #eff6ff;
+  --color-action-subtle-hover: #dbeafe;
   --color-action-disabled: #e4e4e7;
-  --color-focus: #0f766e;
-  --color-focus-inverse: #5eead4;
+  --color-focus: #1d4ed8;
+  --color-focus-inverse: #93c5fd;
 
   /* Border */
   --color-border-subtle: #e4e4e7;
@@ -39,10 +39,10 @@
   --color-border-strong: #0a0a0a;
 
   /* Status */
-  --color-success-text: #115e59;
-  --color-success-fill: #f0fdfa;
-  --color-success-edge: #99f6e4;
-  --color-success-mark: #0f766e;
+  --color-success-text: #1e40af;
+  --color-success-fill: #eff6ff;
+  --color-success-edge: #bfdbfe;
+  --color-success-mark: #1d4ed8;
   --color-warning-text: #9a3412;
   --color-warning-fill: #fff7ed;
   --color-warning-edge: #fed7aa;
@@ -51,21 +51,21 @@
   --color-error-fill: #fef2f2;
   --color-error-edge: #fecaca;
   --color-error-mark: #dc2626;
-  --color-info-text: #1e3a5f;
-  --color-info-fill: #eff4fa;
-  --color-info-edge: #c7d6e8;
-  --color-info-mark: #3b6591;
+  --color-info-text: #334155;
+  --color-info-fill: #e9eef4;
+  --color-info-edge: #cbd5e1;
+  --color-info-mark: #475569;
 
   /* Gap */
   --color-gap-text: #52525b;
 
   /* Chart palette: six series in a fixed order, then Other */
-  --color-chart-1: #115e59;
-  --color-chart-2: #0f2440;
+  --color-chart-1: #1d4ed8;
+  --color-chart-2: #341b55;
   --color-chart-3: #8e8e96;
   --color-chart-4: #ea580c;
-  --color-chart-5: #3b6591;
-  --color-chart-6: #5ea8a1;
+  --color-chart-5: #6d4bb5;
+  --color-chart-6: #4f93f7;
   --color-chart-other: #71717a;
 
   /* Waterfall: the three kinds of column in a walk between totals */
@@ -73,19 +73,18 @@
   --color-waterfall-up: var(--color-chart-1);
   --color-waterfall-down: var(--color-chart-4);
 
-  /* Ultramarine: 50 = L9, 100 = L8, 200 = L7, 300 = L5, 400 = L3, 500 = L1, 600 = base,
-     700 = D2, 800 = D4, 900 = D6, 950 = D8 */
-  --color-brand-50: #f0fdfa;
-  --color-brand-100: #ccfbf1;
-  --color-brand-200: #99f6e4;
-  --color-brand-300: #5eead4;
-  --color-brand-400: #2dd4bf;
-  --color-brand-500: #14b8a6;
-  --color-brand-600: #0f766e;
-  --color-brand-700: #115e59;
-  --color-brand-800: #134e4a;
-  --color-brand-900: #0f3f3c;
-  --color-brand-950: #042f2e;
+  /* Blue scale: 700 = accent, link and focus; 800 = hover; 900 = pressed; 50 = accent tint */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+  --color-brand-950: #172554;
 
   /* Fonts */
   --font-display: "Geist", system-ui, sans-serif;
@@ -348,6 +347,13 @@ html,
 body {
   font-family: var(--font-body);
   background-color: var(--color-surface-canvas);
+  color: var(--color-text-primary);
+}
+
+/* Selected text takes the accent tint edge, a step deeper than the tint so it shows on a selected
+   surface, with primary ink (16.4:1). */
+::selection {
+  background-color: var(--color-action-subtle-hover);
   color: var(--color-text-primary);
 }
 

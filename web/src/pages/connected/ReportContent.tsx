@@ -8,7 +8,7 @@ import { RunContext } from "../library/parts/RunContext";
 import { TraceControl, TRACE_HOST } from "../library/parts/TraceControl";
 import { TraceDrawer } from "../library/parts/TraceDrawer";
 import type { Trace, TreeNode } from "../library/slice";
-import { moduleName } from "./api";
+import { moduleName, serviceText } from "./api";
 import { traceKey } from "./reportView";
 import { plainText, richParts } from "./richText";
 import { card, heading } from "./layout";
@@ -338,6 +338,16 @@ export function traceForLine(
   );
 }
 
+/**
+ * A module output as a reader names it: the module's name, then the output's own label where it
+ * says more than the module's code. A code is never drawn.
+ */
+function outputSubtitle({ output }: OutputEntry, pathway?: string | null) {
+  const name = moduleName(output.module, pathway);
+  const label = serviceText(output.label, pathway).trim();
+  return !label || label === name || /^CP-[A-Z0-9]+$/.test(label) ? name : `${name} · ${label}`;
+}
+
 /** A scored handoff may be accepted even when its input rows are not a Markdown table. */
 export function traceForConfidence(
   snapshot: Snapshot,
@@ -362,7 +372,7 @@ export function traceForConfidence(
   return {
     title: "Sources for Confidence inputs",
     heading: CONFIDENCE_INPUTS,
-    subtitle: `${moduleName(entry.output.module, pathway)} · ${entry.output.label}`,
+    subtitle: outputSubtitle(entry, pathway),
     statement: confidenceStatement(entry),
     derivation: {
       label: "Evidence retained with this item",
@@ -488,8 +498,8 @@ export function PublishedTable({
   rowHref?: (line: number) => string | undefined;
   href?: string;
 } & TableForm) {
-  // The Evidence page draws text as stored; findings pages name the module.
-  const shown = evidence ? plainModuleNames : readerText;
+  // A module is named on every page, Evidence included: its code is never drawn.
+  const shown = readerText;
   const columns = form.columns ?? displayColumns(table.headers, evidence, table.rows);
   if (!columns.length || !table.rows.length) return null;
   const pinned = (column: number, background: string) =>
@@ -525,7 +535,7 @@ export function PublishedTable({
   const wide = form.region || columns.length >= 5 || Boolean(amounts?.columns.size);
   // A row is named by the first column the reader sees, never by a hidden source column.
   const rowName = (row: Table["rows"][number]) => row.cells[columns[0] ?? 0] ?? "";
-  const name = tableHeading || "Table";
+  const name = shown(tableHeading || "Table");
   const drawn = (
     <table className={`w-full border-collapse ${records ? "text-small" : "text-sm"}`}>
       {amounts?.columns.size ? (

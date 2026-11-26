@@ -187,11 +187,8 @@ it("heads every report page with the breadcrumb, the name, the sector line and q
   const header = await screen.findByRole("region", { name: "Acme Holdings" });
   const crumbs = within(header).getByRole("navigation", { name: "Breadcrumb" });
   const items = within(crumbs).getAllByRole("listitem");
-  expect(items.map((item) => item.textContent)).toEqual([
-    "Library",
-    "Acme Holdings",
-    "Full credit assessment",
-  ]);
+  // The last crumb is the open section; the pathway is the first fact, stated once.
+  expect(items.map((item) => item.textContent)).toEqual(["Library", "Acme Holdings", "Overview"]);
   expect(within(crumbs).getByRole("link", { name: "Library" })).toHaveAttribute("href", "/");
   expect(within(crumbs).getByRole("link", { name: "Acme Holdings" })).toHaveAttribute(
     "href",
@@ -208,14 +205,19 @@ it("heads every report page with the breadcrumb, the name, the sector line and q
   const facts = within(within(header).getByRole("list", { name: "Run facts" })).getAllByRole(
     "listitem",
   );
+  // A test run says so first; the ratings' source follows them and ends the line.
   expect(facts.map((fact) => fact.textContent)).toEqual([
+    "Synthetic test",
     "Full credit assessment",
     expect.stringMatching(/^As of 31 Mar\w* 2026 · FY2025$/u),
     "US$m",
     "Moody's B1 · Negative",
     "Ratings entered at run start",
-    "Synthetic test",
   ]);
+  expect(within(header).getByRole("link", { name: "Earlier runs" })).toHaveAttribute(
+    "href",
+    "#history",
+  );
   expect(within(header).getByRole("link", { name: "Run progress" })).toHaveAttribute(
     "href",
     "/run/acme",

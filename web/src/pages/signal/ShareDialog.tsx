@@ -1,12 +1,16 @@
 // The Share to group dialog (mock frame "Share to group", behaviour list 2.6; mock departure 18): a
-// form modal, never the warning style. Nothing is written: a successful Share only tells the page it
-// happened, and the page says so as sample data. The mock's Select wins over the predecessor's radios.
+// form modal, never the warning style. In the sample nothing is written: a successful Share only tells
+// the page it happened, and the page says so as sample data. On a service the share is sent and the
+// dialog waits: refused, it stays open with the service's sentence. The mock's Select wins over the
+// predecessor's radios.
 import { useRef, useState, type SyntheticEvent } from "react";
 import { Share07 } from "@untitledui/icons";
+import { Alert } from "@/components/alert/Alert";
 import { Dialog, Modal, ModalOverlay } from "@/components/application/modals/modal";
 import { Button } from "@/components/base/buttons/button";
 import { CloseButton } from "@/components/base/buttons/close-button";
 import { Select } from "@/components/base/select/select";
+import { PHONE_TARGETS } from "./parts/classes";
 import { useOnGone } from "./parts/focus";
 import { TextArea } from "./parts/TextArea";
 
@@ -15,8 +19,11 @@ const TITLE_ID = "signal-share-title";
 type Props = {
   headline: string;
   groups: { id: string; name: string }[];
-  /** Share was pressed with a group chosen; the page says it was not written. */
-  onShare: () => void;
+  /**
+   * Share was pressed with a group chosen. In the sample the page says nothing was written. On a
+   * service the answer comes later: null once shared, else the sentence the dialog shows.
+   */
+  onShare: (groupId: string, note: string) => Promise<string | null> | undefined;
   onCancel: () => void;
   /** Where focus goes once the dialog has gone: the control that opened it. */
   onGone: () => void;
@@ -29,7 +36,20 @@ function ShareForm({ headline, groups, onShare, onCancel, onGone }: Props) {
   useOnGone(onGone);
   const [group, setGroup] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
   const select = useRef<HTMLDivElement>(null);
+  const share = (groupId: string) => {
+    const answer = onShare(groupId, note.trim());
+    if (answer === undefined) return;
+    setBusy(true);
+    setRefusal(null);
+    void answer.then((refused) => {
+      setBusy(false);
+      setRefusal(refused);
+    });
+  };
   const submit = (event: SyntheticEvent) => {
     event.preventDefault();
     if (group === null) {
@@ -40,14 +60,14 @@ function ShareForm({ headline, groups, onShare, onCancel, onGone }: Props) {
         throw new Error("the Group select has no trigger button to focus");
       }
       trigger.focus();
-    } else onShare();
+    } else share(group);
   };
   return (
-    <form noValidate onSubmit={submit} className="flex flex-col">
+    <form noValidate onSubmit={submit} className={`flex flex-col ${PHONE_TARGETS}`}>
       {/* In the dialog's close slot: it closes through the overlay, which calls onCancel. */}
       <CloseButton label="Close" className="absolute top-3 right-3" />
       <div className="flex flex-col gap-4 p-6 pr-14">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-ds-md bg-surface-card text-text-secondary shadow-1 ring-1 ring-border-subtle ring-inset">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-ds-sm bg-surface-subtle text-text-secondary">
           <Share07 aria-hidden="true" className="size-5" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
@@ -59,7 +79,7 @@ function ShareForm({ headline, groups, onShare, onCancel, onGone }: Props) {
       </div>
       <div className="flex flex-col gap-5 px-6 pb-6">
         {groups.length === 0 ? (
-          <p className="text-text-secondary">
+          <p className="text-body text-text-secondary">
             There are no groups yet. Create one to share this story.
           </p>
         ) : (
@@ -84,7 +104,10 @@ function ShareForm({ headline, groups, onShare, onCancel, onGone }: Props) {
               hint="Plain text. Members see it as your first comment."
               maxLength={4000}
               rows={3}
+              value={note}
+              onChange={setNote}
             />
+            {refusal === null ? null : <Alert tone="error" title={refusal} />}
           </>
         )}
       </div>
@@ -93,7 +116,7 @@ function ShareForm({ headline, groups, onShare, onCancel, onGone }: Props) {
           Cancel
         </Button>
         {groups.length === 0 ? null : (
-          <Button color="primary" type="submit">
+          <Button color="primary" type="submit" isDisabled={busy}>
             Share
           </Button>
         )}

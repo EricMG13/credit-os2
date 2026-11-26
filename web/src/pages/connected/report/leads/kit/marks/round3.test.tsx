@@ -286,7 +286,7 @@ describe("Legend: one legend, each mark its real shape (N4)", () => {
     const region = screen.getByRole("region", { name: "Earnings" });
     const caption = region.querySelector('[data-part="caption"]');
     expect(caption?.textContent).toBe("FY2023 and FY2024 as stated");
-    expect(caption?.closest("p")?.textContent).toBe("US$mFY2023 and FY2024 as stated");
+    expect(caption?.previousElementSibling?.textContent).toBe("US$m");
     expect(region.querySelectorAll('[data-legend="ring"]')).toHaveLength(1);
     expect(region.querySelectorAll('[data-legend="dot"]')).toHaveLength(1);
   });
