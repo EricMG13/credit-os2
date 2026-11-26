@@ -29,6 +29,19 @@ slice) and the landing page are not in this plan. The plan was critiqued by `mx-
   its scope (AGENTS.md), and passes the web lint, typecheck, unused-code, duplication, test and
   build steps.
 
+## Reuse search (CLAUDE.md), 2026-11-26
+
+Searched before planning anything new. Queries carried no issuer or business detail.
+
+| Where | Queries | Found | Decision |
+|---|---|---|---|
+| This repository | `sqlite`, `login`, `password`, `cookie`, `scrypt`, `msal`; read `signal/store.py`, `signal/identity.py`, `http_base.py`, `react_frontend/signal_host.py` | A store pattern (WAL, numbered migrations, a made-here guard), hardened request checks, an identity seam, the hosting pattern | **Reuse**: the account store follows `signal.store`; the check sits on `http_base`'s request path; Signal's `current_user` seam is the one thing replaced |
+| The owner's other repositories | code search for `msal`, `scrypt`, `PublicClientApplication`, `login session cookie` | No sign-in, session or password code; three test files in another repository that only mention the words | **Nothing to reuse** |
+| Public GitHub | repository search for a Python `msal` authorization-code example and for a mock OpenID Connect provider | Microsoft's `msal` itself; several MIT-licensed mock providers, among them `geigerzaehler/oidc-provider-mock` and `nazriel/ms-oidc-mock` (described as imitating Entra) | **Reuse** `msal` as the pinned dependency. **Build** the stand-in provider in the tests: each test must control every reply, including hostile ones, and no second dependency is wanted. Slice 3's implementer reads those two projects first for the endpoint shapes Entra clients expect, as reference only; if any code is copied the licence notice goes with it |
+
+Not verified: the two mock projects were found by description only; their code and language were
+not read. No public project was found that pairs `msal` with a plain `http.server`.
+
 ## Shared ground rules
 
 - New package `src/deploy_workflow/accounts/`. Add `accounts` to the services layer of
