@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import json
+import zipfile
 from datetime import date
 from decimal import Decimal
 
@@ -1699,9 +1700,10 @@ def test_a_bid_written_as_a_bound_is_unreadable_and_not_used():
     report = validate_export(synth.csv_files(spec), run_date=RUN_DATE)
     assert not report.ok
     assert any(
-        "Bid cannot be read as a number or date with its unit" in issue.problem
+        "Bid cannot be read as a number or date with its unit on row 2" in issue.problem
         for issue in report.issues
     )
+    assert "positions with no price: 1, par 20,000,000" in report.recomputed
     export = pe.read_export(synth.csv_files(spec))
     pe.type_rows(export.holdings)
     assert "bid" not in export.holdings[0].numbers
@@ -1714,7 +1716,7 @@ def test_a_cell_in_a_unit_the_column_does_not_take_is_unreadable(column, text):
     export = pe.read_export(synth.csv_files(spec))
     tallies = pe.type_rows(export.holdings)
     key = {"Mid YTM": "ytm", "Bid": "bid"}[column]
-    assert tallies["Holdings"].unreadable[key] == [export.holdings[0].row]
+    assert tallies["Holdings"].unreadable[key] == [2]
     assert key not in export.holdings[0].numbers
 
 
@@ -1738,7 +1740,61 @@ def test_a_yield_in_bps_is_converted_to_percent():
         ("0.5", "builtin:9", "50%"),
         ("Formula: =A1\nStored cache: x", "0.00%", "Formula: =A1\nStored cache: x"),
         ("NaN", "0.00%", "NaN"),
+        ("0", "0.00%", "0.00%"),
+        ("8.61E-2", "0.00%", "8.61%"),
+        ("1E+2000", "0.00%", "1E+2000"),
+        ("1E+9998", "0.00%", "1E+9998"),
+        ("1E-20000", "0.00%", "1E-20000"),
+        ("1_000", "0.00%", "1_000"),
+        (" 0.5", "0.00%", " 0.5"),
     ],
 )
 def test_percent_text_scales_exactly_and_shows_the_formats_places(stored, code, shown):
     assert pe.percent_text(stored, code) == shown
+
+
+@pytest.mark.parametrize(
+    ("code", "places"),
+    [
+        ("0.00%", 2),
+        ("0.0%", 1),
+        ("0%", 0),
+        ("#,##0.00%", 2),
+        ("0.00%;[Red]-0.00%", 2),
+        ('"x"0.00%', 2),
+        ("[Red]0.0%", 1),
+        ("0.0_)%", 1),
+        ("0.0_0%", 1),
+        ("0.00E+00%", 2),
+        ("0.0 0%", 2),
+        ("builtin:9", 0),
+        ("builtin:10", 2),
+    ],
+)
+def test_format_places_counts_every_digit_placeholder_after_the_point(code, places):
+    assert pe._format_places(code) == places
+
+
+def test_a_percent_cell_stored_beyond_a_double_does_not_break_the_check():
+    files = synth.workbook_files(synth.clean())
+    book = load_workbook(io.BytesIO(files[synth.BOOK]))
+    done = 0
+    for row in book["Exposure Report"].iter_rows():
+        if row[0].value == "Software" and str(row[1].value).endswith("%"):
+            row[1].value = 0.123456
+            row[1].number_format = "0.00%"
+            done += 1
+    assert done == 1
+    raw = io.BytesIO()
+    book.save(raw)
+    out = io.BytesIO()
+    with zipfile.ZipFile(raw) as src, zipfile.ZipFile(out, "w") as dst:
+        for item in src.infolist():
+            data = src.read(item.filename)
+            if item.filename.startswith("xl/worksheets/") and b"<v>0.123456</v>" in data:
+                data = data.replace(b"<v>0.123456</v>", b"<v>1E+2000</v>", 1)
+                done += 1
+            dst.writestr(item, data)
+    assert done == 2
+    report = validate_export({synth.BOOK: out.getvalue()}, run_date=synth.AS_OF)
+    assert report.files

@@ -379,7 +379,9 @@ def _is_percent_format(code: str | None) -> bool:
     return "%" in _QUOTED.sub("", code)
 
 
-_PLACES = re.compile(r"\.([0#?]*)")
+_PADDING = re.compile(r"_.")  # `_)` leaves the width of the character: not a placeholder
+_PLAIN_DECIMAL = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[Ee][+-]?[0-9]+)?")
+_DOUBLE_EXPONENTS = range(-324, 309)  # the decimal exponents an IEEE double can hold
 _BUILTIN_PLACES = {"builtin:9": 0, "builtin:10": 2}
 _EXCEL_DIGITS = Context(prec=15, rounding=ROUND_HALF_EVEN)
 
@@ -391,21 +393,22 @@ def _format_places(code: str | None) -> int:
         return 0
     if code.startswith("builtin:"):
         return _BUILTIN_PLACES.get(code, 0)
-    first = _QUOTED.sub("", code).split(";")[0]
-    found = _PLACES.search(first)
-    return 0 if found is None else len(found[1])
+    first = _PADDING.sub("", _QUOTED.sub("", code)).split(";")[0]
+    _, point, after = first.partition(".")
+    digits = re.split("[Ee]", after)[0] if point else ""
+    return sum(char in "0#?" for char in digits)
 
 
 def percent_text(text: str, code: str | None) -> str:
     """A percent-formatted cell's stored fraction as the figure Excel shows (`0.397` with `0.00%`
     is `39.70%`). Excel holds 15 significant digits, so the stored double's extra digits go first;
     then the figure is scaled exactly and written with at least the format's places, never fewer
-    digits than stored. Text that is not a finite decimal (a formula's text) is kept as it is."""
-    try:
-        stored = Decimal(text)
-    except InvalidOperation:
+    digits than stored. Text that is not a plain decimal as a workbook stores it (a formula's text,
+    NaN, `1_000`) or lies outside a double's range is kept as it is."""
+    if _PLAIN_DECIMAL.fullmatch(text) is None:
         return text
-    if not stored.is_finite():
+    stored = Decimal(text)
+    if stored and stored.adjusted() not in _DOUBLE_EXPONENTS:
         return text
     kept = _EXCEL_DIGITS.plus(stored).normalize(EXACT)
     scaled = kept.scaleb(2, EXACT)
