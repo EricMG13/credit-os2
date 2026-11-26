@@ -30,7 +30,7 @@ from deploy_workflow import credit_snapshot_workbook as writer
 from deploy_workflow import recommendation as rec
 from deploy_workflow import reference_portfolios as rp
 
-THREE = ("Snapshot", "Inputs", "Matrix")
+THREE = ("Snapshot", "Model", "Inputs", "Matrix")
 CLO, LVLN = "CLO portfolio", "Loan index fund (LVLN)"
 
 

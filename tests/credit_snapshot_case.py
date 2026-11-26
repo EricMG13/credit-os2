@@ -40,7 +40,7 @@ ISSUER_ID = "northbridge"
 ISSUER_NAME = "Northbridge Holdings plc"
 AS_OF = "2026-03-31"
 # The four sheets, in order. The test holds the workbook to exactly these.
-SHEETS = ("Snapshot", "Inputs", "Matrix", "Sources")
+SHEETS = ("Snapshot", "Model", "Inputs", "Matrix", "Sources")
 SOURCES_HEADER = (
     *("Sheet", "Cell", "Kind", "Block", "Row", "Column", "Module", "Section", "Line"),
     *("Handoff text", "Handoff sha256", "Run", "As of"),

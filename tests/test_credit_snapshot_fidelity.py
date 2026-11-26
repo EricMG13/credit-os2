@@ -28,9 +28,11 @@ import csv
 import json
 import re
 from collections import Counter
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 from fractions import Fraction
+from io import BytesIO
 from pathlib import Path
 
 import credit_snapshot_case as cs
@@ -44,9 +46,10 @@ from deploy_workflow import recommendation as rec
 from deploy_workflow import reference_portfolios as rp
 from deploy_workflow.cp2_scorecard import parse_scorecard
 
-THREE = ("Snapshot", "Inputs", "Matrix")
+READER_SHEETS = ("Snapshot", "Model", "Inputs", "Matrix")
 KINDS = ("copied", "gap", "computed", "entered at run start")
 SOURCE_KINDS = (*KINDS, "analyst", "label", "formula", "rule")
+MODEL_REFERENCE = re.compile(r"=(?:Model|'Model')!\$([A-Z]+)\$([1-9][0-9]*)")
 WORDS = {
     "breached": "breached",
     "within": "within",
@@ -439,7 +442,7 @@ class Opened:
         ]
 
     def on_sheets(self):
-        return [r for r in self.rows if r["Sheet"] in THREE]
+        return [r for r in self.rows if r["Sheet"] in READER_SHEETS]
 
     def cell(self, sheet, address):
         return self.book[sheet][address]
@@ -448,9 +451,30 @@ class Opened:
         wanted = dict(zip(("Sheet", "Block", "Row", "Column", "Kind"), key_of(entry), strict=True))
         return [r for r in self.rows if all(r[k] == v for k, v in wanted.items())]
 
+    def value_of(self, entry: dict):
+        """Resolve a Snapshot Financials link back to the independently expected value."""
+        if (entry["sheet"], entry["block"]) == ("Snapshot", "Financials"):
+            linked_rows = self.find({**entry, "kind": "formula"})
+            origins = self.find({**entry, "sheet": "Model"})
+            assert len(linked_rows) == 1, (entry, "Snapshot formula", linked_rows)
+            assert len(origins) == 1, (entry, "Model value", origins)
+            linked, origin = linked_rows[0], origins[0]
+            formula = self.cell("Snapshot", linked["Cell"])
+            model = self.cell("Model", origin["Cell"])
+            assert formula.data_type == "f", entry
+            match = MODEL_REFERENCE.fullmatch(formula.value)
+            assert match is not None, entry
+            assert "".join(match.groups()) == origin["Cell"], entry
+            assert linked["Handoff text"] == formula.value, entry
+            assert model.data_type != "f" and formula.number_format == model.number_format, entry
+            return model, origin
+        found = self.find(entry)
+        assert len(found) == 1, (entry, found)
+        row = found[0]
+        return self.cell(row["Sheet"], row["Cell"]), row
+
     def text_of(self, entry: dict) -> str:
-        (row,) = self.find(entry)
-        cell = self.cell(row["Sheet"], row["Cell"])
+        cell, _ = self.value_of(entry)
         return cs.shown(cell.value, cell.number_format)
 
 
@@ -477,9 +501,297 @@ def holds(cell, text: str) -> bool:
     return cell.value == text
 
 
-def test_the_workbook_has_the_four_sheets_and_no_fifth(built, tmp_path):
+def test_the_workbook_has_the_model_and_sources_sheets(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     assert opened.book.sheetnames == list(cs.SHEETS)
+
+
+def test_synthetic_model_periods_share_one_ordered_axis_even_with_sparse_rows(full):
+    """Synthetic Northbridge Holdings plc, 2026-03-31."""
+    from deploy_workflow import credit_snapshot as snapshot
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    expected = (
+        *(f"Q{quarter} FY{year}" for year in range(2019, 2023) for quarter in range(1, 5)),
+        "2023-01-01–2023-03-31",
+        "Q1 FY2024 / 2024-03-31",
+        "Q3 FY2024",
+        "PYTD Sep 2023",
+        "H1 2024 / 2024-06-30",
+        "YTD Sep 2024",
+        "FY2022",
+        "FY2023",
+        "Prior LTM",
+        "LTM Sep 2024",
+        "PF Sep 2024",
+        "Base FY2025",
+        "Base FY2026",
+        "Downside FY2025",
+        "Downside FY2026",
+    )
+    cells = (
+        snapshot.SnapshotCell("Snapshot", "Financials", "Revenue", "FY2023", "copied", "100"),
+        snapshot.SnapshotCell("Snapshot", "Financials", "Revenue", "Q1 FY2024", "copied", "20"),
+        snapshot.SnapshotCell("Snapshot", "Financials", "Revenue", "H1 2024", "copied", "47"),
+        *(
+            snapshot.SnapshotCell("Snapshot", "Financials", "Cash", period, "copied", "15")
+            for period in reversed(expected)
+            if period != "FY2023"
+        ),
+    )
+    prepared = gathered(full)
+    modified = replace(
+        prepared,
+        blocks=tuple(
+            replace(block, cells=cells)
+            if (block.sheet, block.name) == ("Snapshot", "Financials")
+            else block
+            for block in prepared.blocks
+        ),
+    )
+    workbook = load_workbook(BytesIO(writer.workbook_bytes(modified)))
+    rows = iter(workbook["Sources"].values)
+    headings = next(rows)
+    model_headers = [
+        dict(zip(headings, values, strict=True))
+        for values in rows
+        if values[0] == "Model" and values[2] == "label" and str(values[4]).startswith("(header")
+    ]
+    periods = [row for row in model_headers if row["Column"] in expected]
+    financials = [row for row in periods if row["Block"] == "Financials"]
+    source = [row for row in periods if row["Block"] == "Source financials"]
+    assert {row["Row"] for row in [*financials, *source]} == {"(header)"}
+    assert tuple(row["Column"] for row in financials) == expected
+    assert tuple(row["Column"] for row in source) == expected
+    financial_columns = [workbook["Model"][row["Cell"]].column for row in financials]
+    source_columns = [workbook["Model"][row["Cell"]].column for row in source]
+    assert financial_columns == source_columns
+
+
+@pytest.mark.parametrize(
+    ("name", "fiscal_end", "statement_row"),
+    [
+        ("full", "2024-12-31", "Revenue"),  # Synthetic Northbridge Holdings plc, 2026-03-31
+        ("tdg_cp1", "2024-09-30", "GROSS PROFIT"),  # Retained TransDigm CP-1, 2024-09-30
+    ],
+)
+def test_model_aligns_the_same_fiscal_year_across_statements_and_ratios(
+    tmp_path, name, fiscal_end, statement_row
+):
+    built = cs.build_case(tmp_path, cs.CASES[name])
+    opened = open_workbook(built, tmp_path)
+    visible_period = f"FY2024 / {fiscal_end}"
+    expected = opened.expected["entries"]
+    statement = next(
+        entry
+        for entry in expected
+        if (entry["block"], entry["row"], entry["column"])
+        == ("Financials", statement_row, "FY2024")
+    )
+    ratio = next(
+        entry
+        for entry in expected
+        if (entry["block"], entry["row"], entry["column"])
+        == ("Financials", "Total debt / EBITDA", visible_period)
+    )
+    statement_cell, _ = opened.value_of(statement)
+    ratio_cell, _ = opened.value_of(ratio)
+    assert statement_cell.column == ratio_cell.column
+    (heading,) = opened.find(
+        {
+            "sheet": "Model",
+            "block": "Financials",
+            "row": "(header)",
+            "column": visible_period,
+            "kind": "label",
+        }
+    )
+    header_cell = opened.cell("Model", heading["Cell"])
+    assert (header_cell.value, header_cell.column) == (visible_period, statement_cell.column)
+
+
+@pytest.mark.parametrize(
+    "columns_by_row",
+    [
+        (
+            ("Revenue", "FY2024"),
+            ("Interest", "FY2024 / 2024-09-30"),
+            ("Debt", "FY2024 / 2024-12-31"),
+        ),
+        (("Revenue", "FY2024"), ("Revenue", "FY2024 / 2024-09-30")),
+    ],
+)
+def test_synthetic_model_preserves_conflicting_period_columns(columns_by_row):
+    """Synthetic Northbridge Holdings plc, 2026-03-31."""
+    from deploy_workflow import credit_snapshot as snapshot
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    block = snapshot.Block(
+        "Model",
+        "Financials",
+        tuple(
+            snapshot.SnapshotCell("Model", "Financials", row, col, "copied", str(index))
+            for index, (row, col) in enumerate(columns_by_row, start=1)
+        ),
+    )
+    axis = writer._model_periods({("Model", "Financials"): block})
+    assert set(axis.periods) == {col for _, col in columns_by_row}
+    assert all(axis.label(col) == col for _, col in columns_by_row)
+
+
+def _synthetic_bound_model(baseline, forecast, *, history=None):
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    exact = json.dumps(
+        {
+            "schema_version": "cpos-forecast-exact/1",
+            "consumed": {"CP-1.md": baseline.handoff_sha256["CP-1"]},
+            **forecast,
+        }
+    ).encode()
+    exact_pin = cs.sha256(exact)
+    calculation = {
+        "schema_version": "cpos-model/1",
+        "forecast_exact_file": "forecast_exact.json",
+        "forecast_exact_sha256": exact_pin,
+    }
+    if history is not None:
+        calculation["history"] = {"schema_version": "cpos-history/1", **history}
+    files = {
+        "forecast_exact.json": exact,
+        "calculation.json": json.dumps(calculation).encode(),
+    }
+    snapshot = replace(
+        baseline,
+        model_files=files,
+        source_sha256=baseline.source_sha256
+        | {f"model:{name}": cs.sha256(raw) for name, raw in files.items()},
+    )
+    book = load_workbook(BytesIO(writer.workbook_bytes(snapshot)))
+    sources = iter(book["Sources"].values)
+    names = next(sources)
+    rows = [dict(zip(names, row, strict=True)) for row in sources if row[0] == "Model"]
+    return book["Model"], rows, exact_pin
+
+
+def test_synthetic_model_displays_exact_percentages_outside_excel_numeric_precision(full):
+    """Synthetic Northbridge Holdings plc, 2026-03-31. Shift the written fraction two places."""
+    expected = (
+        (2026, "0.1234567890123456789012345678", "12.34567890123456789012345678%"),
+        (2027, "-0.00001234567890123456789012", "-0.001234567890123456789012%"),
+    )
+    years = [
+        {"year": year, "fcf_to_debt": {"amount": raw, "reason": None}} for year, raw, _ in expected
+    ]
+    model, rows, pin = _synthetic_bound_model(
+        gathered(full), {"outputs": {"REFERENCE": {"years": years}}}
+    )
+    for year, raw, shown in expected:
+        (origin,) = [
+            r for r in rows if r["Row"] == "Cash proxy / debt" and r["Column"] == f"Base FY{year}"
+        ]
+        assert origin["Handoff text"] == raw and origin["Handoff sha256"] == pin
+        cell = model[origin["Cell"]]
+        assert (cell.data_type, cell.value) == ("s", shown)
+
+
+def test_synthetic_model_skips_absent_periods_and_traces_model_currency_to_exact_forecast(full):
+    """Synthetic Northbridge Holdings plc, 2026-03-31. Only FY2025 has a reporting period."""
+    gap = "The issuer states no interest for FY2025."
+    no_ytd = "the latest reported period is fiscal year FY2025; there is no year to date"
+    no_pf = (
+        "pro forma figures are not placed in this column; the financial foundation shows "
+        "any it states"
+    )
+    absent = (
+        ("YTD", "YTD", no_ytd),
+        ("PYTD", "PYTD", no_ytd),
+        (
+            "Quarter",
+            "QUARTER",
+            "the tables holding the named rows print no quarter column that can be read",
+        ),
+        ("PF LTM", "PF", no_pf),
+    )
+    columns = [
+        {
+            "id": "FY2025",
+            "label": "FY2025",
+            "kind": "FY",
+            "reason": None,
+            "start": "2025-01-01",
+            "end": "2025-12-31",
+            "values": {
+                "closing_debt": {"amount": "487.5", "reason": None},
+                "interest": {"amount": None, "reason": gap},
+            },
+        },
+        *(
+            {
+                "id": label,
+                "kind": kind,
+                "label": label,
+                "reason": reason,
+                "values": {"closing_debt": {"amount": None, "reason": reason}},
+            }
+            for label, kind, reason in absent
+        ),
+    ]
+    model, rows, pin = _synthetic_bound_model(
+        gathered(full),
+        {"scale": 1000, "units": "USD millions", "outputs": {}},
+        history={"columns": columns},
+    )
+    hidden = {label for label, _, _ in absent}
+    assert not [row for row in rows if row["Column"] in hidden]
+    (debt,) = [
+        row
+        for row in rows
+        if row["Row"] == "Closing debt (carrying value)" and row["Column"] == "FY2025"
+    ]
+    (unit,) = [row for row in rows if row["Row"] == debt["Row"] and row["Column"] == "Unit"]
+    (missing,) = [row for row in rows if row["Row"] == "Interest" and row["Column"] == "FY2025"]
+    assert (model[debt["Cell"]].value, debt["Section"]) == (487.5, "calculation.json")
+    assert (model[unit["Cell"]].value, unit["Section"], unit["Handoff sha256"]) == (
+        "USD millions",
+        "forecast_exact.json",
+        pin,
+    )
+    assert (model[missing["Cell"]].value, missing["Kind"], missing["Section"]) == (
+        "n.a.",
+        "gap",
+        "calculation.json",
+    )
+    source_text = cs.SOURCES_HEADER.index("Handoff text")
+    assert any(row[source_text] == gap for row in model.parent["Sources"].values)
+
+
+def test_synthetic_unscaled_model_traces_request_units_to_cp1(full):
+    """Synthetic Northbridge Holdings plc, 2026-03-31. Older exact record has no scale fields."""
+    baseline = gathered(full)
+    lines = baseline.model_handoffs["CP-1"].splitlines(keepends=True)
+    assert lines[1].strip() == b"## Request"
+    lines[2] = b"USD thousands\n"
+    cp1 = b"".join(lines)
+    inputs = replace(
+        baseline,
+        model_handoffs={"CP-1": cp1},
+        handoff_sha256=baseline.handoff_sha256 | {"CP-1": cs.sha256(cp1)},
+    )
+    record = {"year": 2026, "closing_debt": {"amount": "487.5", "reason": None}}
+    model, rows, _ = _synthetic_bound_model(inputs, {"outputs": {"REFERENCE": {"years": [record]}}})
+    (unit,) = [
+        row
+        for row in rows
+        if row["Row"] == "Closing debt (carrying value)" and row["Column"] == "Unit"
+    ]
+    assert (model[unit["Cell"]].value, unit["Module"], unit["Section"], unit["Line"]) == (
+        "USD thousands",
+        "CP-1",
+        "Request",
+        3,
+    )
+    assert unit["Handoff sha256"] == cs.sha256(cp1)
 
 
 def test_sources_rows_are_of_known_kinds_and_one_per_cell(built, tmp_path):
@@ -519,15 +831,14 @@ def test_every_copied_sources_row_is_the_handoff_text(built, tmp_path):
 def test_every_expected_entry_is_written_with_its_kind_and_value(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     for entry in opened.expected["entries"]:
-        found = opened.find(entry)
-        assert len(found) == 1, entry
-        cell = opened.cell(found[0]["Sheet"], found[0]["Cell"])
+        cell, origin = opened.value_of(entry)
         if entry["kind"] == "copied":
             assert holds(cell, entry["value"]), entry
-            assert (found[0]["Module"], int(found[0]["Line"])) == (entry["module"], entry["line"])
-            assert found[0]["Section"] == entry.get("section", found[0]["Section"]), entry
+            assert (origin["Module"], int(origin["Line"])) == (entry["module"], entry["line"])
+            assert origin["Section"] == entry.get("section", origin["Section"]), entry
         else:
-            assert cs.same_figure(opened.text_of(entry), entry["value"]), entry
+            text = cs.shown(cell.value, cell.number_format)
+            assert cs.same_figure(text, entry["value"]), entry
         if entry.get("number"):
             assert isinstance(cell.value, int | float), entry
 
@@ -536,18 +847,21 @@ def test_nothing_unexpected_is_written(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     wanted = {key_of(e) for e in opened.expected["entries"]}
     for row in opened.on_sheets():
+        if row["Sheet"] == "Model":
+            continue  # Section 7 adds independently checked lines beyond this Snapshot answer key.
         key = (row["Sheet"], row["Block"], row["Row"], row["Column"], row["Kind"])
         if row["Kind"] in KINDS and in_scope(opened.expected, row["Block"]):
             assert key in wanted, key
 
 
-def test_hidden_blocks_and_near_misses_are_absent(built, tmp_path):
+def test_hidden_blocks_and_near_misses_are_absent_from_snapshot_views(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     blocks = {r["Block"] for r in opened.on_sheets()}
     assert blocks.isdisjoint(opened.expected["absent_blocks"])
     texts = [
         str(c.value)
-        for name in THREE
+        for name in READER_SHEETS
+        if name != "Model"  # The Model includes source statement rows outside the Snapshot key.
         for row in opened.book[name].iter_rows()
         for c in row
         if c.value is not None
@@ -561,7 +875,7 @@ def test_basis_lines_stay_on_sources_beside_their_paragraph(built, tmp_path):
     kept = [str(r["Handoff text"]) for r in opened.rows]
     shown = [
         str(c.value)
-        for name in THREE
+        for name in READER_SHEETS
         for row in opened.book[name].iter_rows()
         for c in row
         if c.value is not None
@@ -598,7 +912,7 @@ def test_computed_cells_equal_recommendation_on_the_same_inputs(built, tmp_path)
             )
 
 
-def test_no_module_id_hash_file_name_or_run_id_is_on_the_three_sheets(built, tmp_path):
+def test_no_module_id_hash_file_name_or_run_id_is_on_the_reader_sheets(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     banned = (
         re.compile(r"CP-\w+"),
@@ -606,7 +920,7 @@ def test_no_module_id_hash_file_name_or_run_id_is_on_the_three_sheets(built, tmp
         re.compile(r"\.(?:md|json|jsonl|pdf|htm|html|xlsx|csv)\b"),
         re.compile(re.escape(opened.built.case.run_id)),
     )
-    for name in THREE:
+    for name in READER_SHEETS:
         for row in opened.book[name].iter_rows():
             for cell in row:
                 for pattern in banned:
@@ -655,7 +969,7 @@ def is_yellow(cell) -> bool:
 
 def test_no_conditional_format_colour_is_yellow(built, tmp_path):
     opened = open_workbook(built, tmp_path)
-    for name in THREE:
+    for name in READER_SHEETS:
         assert not [c for c in conditional_colours(opened.book[name]) if yellow_rgb(c)], name
 
 
@@ -664,7 +978,7 @@ def test_yellow_fill_is_the_analyst_cells_and_nothing_else(built, tmp_path):
     analyst = {(r["Sheet"], r["Cell"]) for r in opened.on_sheets() if r["Kind"] == "analyst"}
     yellow = {
         (name, cell.coordinate)
-        for name in THREE
+        for name in READER_SHEETS
         for row in opened.book[name].iter_rows()
         for cell in row
         if not isinstance(cell, MergedCell) and is_yellow(cell)
@@ -675,13 +989,13 @@ def test_yellow_fill_is_the_analyst_cells_and_nothing_else(built, tmp_path):
 def test_every_non_empty_cell_has_a_sources_row(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     listed = {(r["Sheet"], r["Cell"]) for r in opened.on_sheets()}
-    for name in THREE:
+    for name in READER_SHEETS:
         for row in opened.book[name].iter_rows():
             for cell in row:
                 if cell.value not in (None, ""):
                     assert (name, cell.coordinate) in listed, (name, cell.coordinate)
     formulas = {(r["Sheet"], r["Cell"]) for r in opened.on_sheets() if r["Kind"] == "formula"}
-    for name in THREE:
+    for name in READER_SHEETS:
         for row in opened.book[name].iter_rows():
             for cell in row:
                 is_formula = isinstance(cell.value, str) and cell.value.startswith("=")
@@ -696,7 +1010,9 @@ def test_labels_are_not_numbers_and_never_stand_in_for_an_expected_entry(built, 
             continue
         cell = opened.cell(row["Sheet"], row["Cell"])
         assert row["Kind"] != "label" or not isinstance(cell.value, int | float), row
-        assert (row["Sheet"], row["Block"], row["Row"], row["Column"]) not in wanted, row
+        key = (row["Sheet"], row["Block"], row["Row"], row["Column"])
+        if key in wanted:
+            assert row["Kind"] == "formula" and key[:2] == ("Snapshot", "Financials"), row
 
 
 def test_every_methodology_constant_is_one_rule_row_on_matrix(built, tmp_path):
