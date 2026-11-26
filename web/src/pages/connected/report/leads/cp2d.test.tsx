@@ -72,7 +72,7 @@ it("draws the bridge from opening to closing with each step as written, and its 
   for (const text of ["900", "120", "-450", "570"])
     expect(within(figure).getByText(text)).toBeInTheDocument();
   expect(within(figure).queryByText("+120")).toBeNull();
-  expect(within(tile).getByText("US$m")).toBeVisible();
+  expect(within(tile).getByText("$m")).toBeVisible();
   for (const word of ["Opening and closing", "Adds", "Uses"])
     expect(within(tile).getByText(word)).toBeVisible();
   expect(within(tile).getByRole("heading")).toHaveTextContent(/^Liquidity bridge$/);
@@ -212,7 +212,7 @@ it("keeps each row's own basis in the table view, and lists no detached basis un
     within(row)
       .getAllByRole("cell")
       .map((item) => item.textContent),
-  ).toEqual(["120", "US$m", "Moody's-adjusted.", expect.any(String)]);
+  ).toEqual(["120", "$m", "Moody's-adjusted.", expect.any(String)]);
   expect(within(tile).getByRole("row", { name: /^Debt repayment/ })).toHaveTextContent(
     "Synthetic.",
   );

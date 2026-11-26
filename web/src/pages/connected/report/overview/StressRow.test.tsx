@@ -271,7 +271,7 @@ it("draws a negative stated value as a figure, and keeps the module's own word f
     />,
   );
   const [ebitda, charge] = within(headroomTile()).getAllByRole("listitem");
-  expect(ebitda).toHaveTextContent("-US$20m / -US$50m");
+  expect(ebitda).toHaveTextContent("-$20m / -$50m");
   expect(ebitda).not.toHaveTextContent("Not supplied");
   expect(ebitda?.querySelector(".bg-chart-1")).not.toBeNull();
   expect(charge).toHaveTextContent("Not calculated");
@@ -293,7 +293,7 @@ it("places a negative lead test and its threshold on one scale that holds zero",
   const threshold = x(tile.querySelector("[data-threshold]"), "x1");
   expect(x(bar, "width") / (zero - threshold)).toBeCloseTo(20 / 50, 6);
   expect(
-    within(tile).getByText("-US$20m against a threshold of -US$50m. Passes at or above."),
+    within(tile).getByText("-$20m against a threshold of -$50m. Passes at or above."),
   ).toBeVisible();
 });
 

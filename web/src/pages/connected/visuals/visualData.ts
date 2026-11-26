@@ -1,4 +1,5 @@
 import { containsReference, readerText } from "../publishedReport";
+import { unitCells } from "../report/moduleRecordsModel";
 
 export function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -236,8 +237,11 @@ export function chartTable(table: SourceTable, columns = table.headers.map((_, i
   const visible = inDrawer
     ? columns.filter((index) => !DRAWER_COLUMN.test(table.headers[index] ?? ""))
     : columns;
+  const drawUnit = unitCells(table);
   const cell = (row: string[], column: number) => {
     const text = row[column] ?? "";
+    const unit = drawUnit(column, text);
+    if (unit !== undefined) return unit;
     if (!inDrawer || !BASIS_COLUMN.test(table.headers[column] ?? "")) return text || null;
     return containsReference(text)
       ? "Qualification recorded in Evidence."

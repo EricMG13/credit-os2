@@ -7,6 +7,7 @@ import {
   evidencePath,
   type OutputEntry,
   readerText,
+  unitLabel,
 } from "../publishedReport";
 import type { buildReportView } from "../reportView";
 import { chartTable, publishedTables, word } from "../visuals/visualData";
@@ -199,7 +200,7 @@ function ChartRow({
 }) {
   const title = word(descriptor.title);
   const gap = word(descriptor.gap);
-  const unit = descriptor.unit === "x" ? "x (times)" : word(descriptor.unit);
+  const unit = descriptor.unit === "x" ? "x (times)" : unitLabel(word(descriptor.unit));
   const source = tables.get(descriptor.table);
   const [open, setOpen] = useState(false);
   if (!title || (!gap && !source)) return null;

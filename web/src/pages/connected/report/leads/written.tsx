@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { displayColumns, type OutputEntry, type Table } from "../../publishedReport";
 import type { SourceTable } from "../../visuals/visualData";
+import { unitCells } from "../moduleRecordsModel";
 import { Tile } from "../overview/Tile";
 import { CompactGap, Disclosure, LeadGap, TableRegion, Trace, type LeadTable } from "./parts";
 import { chartsStartingWith, IN_EVIDENCE, readerCell, rowName, WITHHELD, type Chart } from "./read";
@@ -34,7 +35,11 @@ export function writtenTable(
     (at) => !SOURCE_COLUMN.test((table.headers[at] ?? "").trim()),
   );
   if (first === undefined || !table.rows.length) return undefined;
-  const cell = (row: string[], at: number) => readerCell(row[at] ?? "") || null;
+  const drawUnit = unitCells(table);
+  const cell = (row: string[], at: number) => {
+    const text = readerCell(row[at] ?? "");
+    return text ? (drawUnit(at, text) ?? text) : null;
+  };
   return {
     head: [first, ...rest].map((at) => readerCell(table.headers[at] ?? "")),
     rows: table.rows.map((row, index) => {
@@ -186,7 +191,12 @@ const ROW_NOTES = [/^Reporting unit$/i, /^Basis and limitation$/i];
 export function rowBasis(table: SourceTable) {
   const columns = ROW_NOTES.map((name) => table.headers.findIndex((header) => name.test(header)));
   const kept = columns.filter((at) => at >= 0);
-  const cells = (row: number) => kept.map((at) => readerCell(table.rows[row]?.[at] ?? "") || null);
+  const drawUnit = unitCells(table);
+  const cells = (row: number) =>
+    kept.map((at) => {
+      const text = table.rows[row]?.[at] ?? "";
+      return drawUnit(at, text) ?? (readerCell(text) || null);
+    });
   const basis = columns[1] ?? -1;
   const notes =
     basis < 0 ? [] : [...new Set(table.rows.map((row) => readerCell(row[basis] ?? "")))];

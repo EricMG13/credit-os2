@@ -467,7 +467,7 @@ describe("EarningsQualityLead", () => {
     );
     const tile = screen.getByRole("region", { name: "Earnings quality" });
     expect(within(tile).getByText(/do not add up/)).toBeVisible();
-    expect(within(tile).getByText(/Run-rate savings 200 US\$m/)).toBeVisible();
+    expect(within(tile).getByText(/Run-rate savings \$200m/)).toBeVisible();
     expect(tile.querySelector("svg")).toBeNull();
   });
 
@@ -645,7 +645,7 @@ describe("EarningsQualityLead", () => {
     render(<EarningsQualityLead {...leadProps(off)} />);
     // The gap tile lists the stated steps; the chart is not repeated as a second listing.
     expect(screen.queryByRole("region", { name: "EBITDA bridge" })).toBeNull();
-    expect(screen.getByText(/Run-rate savings 200 US\$m/)).toBeVisible();
+    expect(screen.getByText(/Run-rate savings \$200m/)).toBeVisible();
   });
 
   it("declares that it draws the module's bridge figure itself", () => {

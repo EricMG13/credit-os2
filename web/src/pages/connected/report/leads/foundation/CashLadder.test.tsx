@@ -66,7 +66,7 @@ describe("cash ladder: the accepted CP-1, FY2024 bars and FY2023 beneath", () =>
   it("titles the tile plainly and names the periods in the kicker", () => {
     const { tile } = draw(cp1Entry());
     expect(within(tile).getByRole("heading", { level: 3 }).textContent).toBe("Cash conversion");
-    expect(tile.textContent).toContain("Cash conversion · US$m, FY2024; FY2023 beneath");
+    expect(tile.textContent).toContain("Cash conversion · $m, FY2024; FY2023 beneath");
     expect(within(tile).getByRole("link", { name: /Source for cash conversion/ })).toBeTruthy();
   });
 
@@ -221,7 +221,7 @@ describe("cash ladder: the accepted CP-1, FY2024 bars and FY2023 beneath", () =>
   it("reads every figure in its aria-label, the earlier in brackets", () => {
     const { svg } = draw(cp1Entry());
     expect(svg?.getAttribute("aria-label")).toBe(
-      "Cash conversion, US$m, FY2024, FY2023 in brackets: EBITDA (Adjusted) 4,173 (FY2023 3,395), Cash Interest Paid 1,158, decrease (FY2023 1,160), Cash taxes paid 539, decrease (FY2023 260), Net Cash from Operating Activities 2,045 (FY2023 1,375), Capital expenditures −165, decrease (FY2023 −139), Levered free cash flow 1,880 (FY2023 1,236), Dividends and dividend equivalent payments −2,038, decrease (FY2023 −38), Repurchases of common stock not stated: — (FY2023 and FY2024), Discretionary cash flow after distributions −158 (FY2023 1,198), Acquisition of businesses, net of cash acquired −2,347, decrease (FY2023 −762). Axis starts at −4,000.",
+      "Cash conversion, $m, FY2024, FY2023 in brackets: EBITDA (Adjusted) 4,173 (FY2023 3,395), Cash Interest Paid 1,158, decrease (FY2023 1,160), Cash taxes paid 539, decrease (FY2023 260), Net Cash from Operating Activities 2,045 (FY2023 1,375), Capital expenditures −165, decrease (FY2023 −139), Levered free cash flow 1,880 (FY2023 1,236), Dividends and dividend equivalent payments −2,038, decrease (FY2023 −38), Repurchases of common stock not stated: — (FY2023 and FY2024), Discretionary cash flow after distributions −158 (FY2023 1,198), Acquisition of businesses, net of cash acquired −2,347, decrease (FY2023 −762). Axis starts at −4,000.",
     );
   });
 
@@ -261,7 +261,7 @@ describe("cash ladder: the accepted CP-1, FY2024 bars and FY2023 beneath", () =>
 describe("cash ladder: other real handoffs and mutations", () => {
   it("relative value, one period: bars only, no earlier ticks, its own label forms", () => {
     const { tile, all } = draw(relativeValueCp1Entry());
-    expect(tile.textContent).toContain("Cash conversion · US$m, FY2024");
+    expect(tile.textContent).toContain("Cash conversion · $m, FY2024");
     expect(tile.textContent).not.toContain("beneath");
     expect(all("[data-prior]")).toHaveLength(0);
     expect(spans(all("rect[data-bar]"))).toEqual([
@@ -310,7 +310,7 @@ describe("cash ladder: other real handoffs and mutations", () => {
   it("three periods: every stated period is drawn, oldest first; an all-gap period is its gap line", () => {
     const { tile } = draw(threePeriodCp1());
     expect(tile.textContent).not.toContain("table view");
-    expect(tile.textContent).toContain("Cash conversion · US$m, FY2022, FY2023, FY2024");
+    expect(tile.textContent).toContain("Cash conversion · $m, FY2022, FY2023, FY2024");
     const ladders = [...tile.querySelectorAll("[data-ladder], [data-ladder-gap]")];
     expect(
       ladders.map(
@@ -353,7 +353,7 @@ describe("cash ladder: other real handoffs and mutations", () => {
     );
     const { tile } = draw(renamed);
     expect(tile.textContent).toContain(
-      "Cash conversion · US$m, FY2023, FY2024, LTM Jun-2025, FY2025E",
+      "Cash conversion · $m, FY2023, FY2024, LTM Jun-2025, FY2025E",
     );
     const ladders = [...tile.querySelectorAll("[data-ladder], [data-ladder-gap]")];
     expect(

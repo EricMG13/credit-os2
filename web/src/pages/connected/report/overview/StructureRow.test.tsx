@@ -87,7 +87,7 @@ it("draws each maturity bar in proportion to its amount and a stated gap as a ga
   expect(within(wall).getByText("1,250")).toBeInTheDocument();
   expect(within(wall).getByText("Unaudited.")).toBeVisible();
   expect(within(wall).getByRole("img").getAttribute("aria-label")).toBe(
-    "Debt maturing by period, US$m: FY2026 500, FY2027 not supplied, FY2028 1,250.",
+    "Debt maturing by period, $m: FY2026 500, FY2027 not supplied, FY2028 1,250.",
   );
   expect(container.querySelector("[data-axis-break]")).toBeNull();
   expect(within(wall).getByRole("link", { name: "Source for the maturity wall" })).toHaveAttribute(
@@ -243,7 +243,7 @@ it("draws a stated zero as a figure, never as the gap, and prints a leverage cel
   expect(wall.querySelector('[data-bar="FY2027"]')).not.toBeNull();
   expect(within(wall).getByText("0")).toBeInTheDocument();
   expect(within(wall).getByRole("img").getAttribute("aria-label")).toBe(
-    "Debt maturing by period, US$m: FY2026 500, FY2027 0.",
+    "Debt maturing by period, $m: FY2026 500, FY2027 0.",
   );
   const tile = screen.getByRole("region", { name: "Capital structure by rank" });
   expect(tile.querySelector('[data-gap="Revolver"]')).toBeNull();
@@ -292,7 +292,7 @@ it("draws both rows the schedule gives for one year, with unique keys", () => {
   expect(wall.querySelectorAll('[data-bar="FY2026"]')).toHaveLength(2);
   expect(within(wall).getByText("700")).toBeInTheDocument();
   expect(within(wall).getByRole("img").getAttribute("aria-label")).toBe(
-    "Debt maturing by period, US$m: FY2026 500, FY2026 700, FY2027 300.",
+    "Debt maturing by period, $m: FY2026 500, FY2026 700, FY2027 300.",
   );
   const tile = screen.getByRole("region", { name: "Capital structure by rank" });
   expect(tile.querySelectorAll('[data-segment="Notes"]')).toHaveLength(2);
@@ -310,7 +310,7 @@ it("reads a year with no row as the label draws it, and a gap in the module's ow
   expect(within(wall).getByText("Not calculated")).toBeInTheDocument();
   expect(within(wall).queryByText("Not supplied")).toBeNull();
   expect(within(wall).getByRole("img").getAttribute("aria-label")).toBe(
-    "Debt maturing by period, US$m: FY2026 500, FY2027 no row in the schedule, FY2028 not calculated.",
+    "Debt maturing by period, $m: FY2026 500, FY2027 no row in the schedule, FY2028 not calculated.",
   );
 });
 
@@ -323,7 +323,7 @@ it("draws a wall cell with no figure through the reader rule, on the mark and in
   ]);
   expect(wall).not.toHaveTextContent(/notes_2024|page 88/);
   expect(within(wall).getByRole("img").getAttribute("aria-label")).toBe(
-    "Debt maturing by period, US$m: FY2026 500, FY2027 no figure.",
+    "Debt maturing by period, $m: FY2026 500, FY2027 no figure.",
   );
   expect(within(wall).getByText("No figure", { selector: "tspan" })).toBeInTheDocument();
   expect(within(wall).getByRole("link", { name: "Read the reason in Evidence" })).toBeVisible();

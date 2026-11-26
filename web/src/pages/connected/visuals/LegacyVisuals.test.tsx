@@ -30,7 +30,7 @@ it("draws only classified source tables and switches to the exact published valu
     />,
   );
   const figure = within(screen.getByRole("figure", { name: "Refinancing need" }));
-  expect(figure.getByText("US$m")).toBeInTheDocument();
+  expect(figure.getByText("$m")).toBeInTheDocument();
   expect(figure.getByRole("link", { name: "Source table" })).toHaveAttribute("href", "#line-20");
   expect(screen.queryByText("Wrong line")).toBeNull();
   fireEvent.click(figure.getByRole("button", { name: "Table" }));
