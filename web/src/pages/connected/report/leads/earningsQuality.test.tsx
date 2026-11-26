@@ -110,6 +110,30 @@ const left = (label: string) => attr(bar(label), "x");
 const segment = (word: string) => document.querySelector(`rect[data-split="${word}"]`);
 
 describe("earningsQualityData", () => {
+  it("reads the same bridge when its Step table also carries an Add-Back ID column (looked up by name)", () => {
+    const withId = quality(
+      BRIDGE.map((row) => [...row.slice(0, 2), "Not applicable", ...row.slice(2)]),
+    );
+    const sections = withId.sections.map((s) =>
+      s.heading === "Chart data: EBITDA bridge"
+        ? {
+            ...s,
+            blocks: s.blocks.map((b) =>
+              b.type === "table"
+                ? { ...b, headers: [...STEPS.slice(0, 2), "Add-Back ID", ...STEPS.slice(2)] }
+                : b,
+            ),
+          }
+        : s,
+    );
+    const now = readBridge({ ...withId, sections });
+    const before = readBridge(quality());
+    if (now.state !== "ready" || before.state !== "ready") throw new Error("expected a bridge");
+    expect(now.opening).toMatchObject({ amount: "3813", value: 3813 });
+    expect(now.closing).toMatchObject({ amount: "4173" });
+    expect(now.changes.map((step) => step.label)).toEqual(before.changes.map((s) => s.label));
+    expect(now.changes.map((step) => step.amount)).toEqual(before.changes.map((s) => s.amount));
+  });
   it("reads a reconciling bridge, matches support by exact name ignoring case, and sums exactly", () => {
     const bridge = readBridge(quality());
     if (bridge.state !== "ready") throw new Error(bridge.reason);
