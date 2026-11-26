@@ -25,6 +25,7 @@ from deploy_vii.period_order import PeriodClass, parse_period
 from deploy_vii.readiness import shape_issues
 from deploy_workflow.method_scripts import currency_of
 from deploy_workflow.owners import cp2g
+from deploy_workflow.owners.cpos_cp1_statements import _cells as _row_cells
 from deploy_workflow.owners.cpos_cp1_statements import money_unit
 from deploy_workflow.owners.cpos_facilities import Facility, Schedule, schedule
 from deploy_workflow.prose_checks import FORECAST_HEADING, ISO_4217, reader_passages
@@ -241,11 +242,7 @@ def _tables(text: str) -> list[list[list[str]]]:
             block = stripped == HEADING
             if len(heading[1]) <= 2:
                 sources = len(heading[1]) == 2 and heading[2] == "Sources"
-        cells = (
-            [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", stripped[1:-1])]
-            if stripped.startswith("|") and stripped.endswith("|") and len(stripped) > 1
-            else None
-        )
+        cells = _row_cells(stripped) if stripped.startswith("|") and len(stripped) > 1 else None
         if cells is None or fenced or block or sources or number in skipped:
             if len(run) > 1:
                 tables.append(run)
@@ -573,9 +570,11 @@ def _day_after(day: date, source: str) -> date:
 
 # A fiscal-year header: its label names the year, whatever date follows (`FY2024 / 2025-02-01`).
 _FY_LABEL = re.compile(r"FY(\d{4})(?: / \d{4}-\d{2}-\d{2})?", re.ASCII)
-# Words and forms that make a dated header a part-year column (`Q3 2025 (2025-06-30)`).
+# Words and forms that make a dated header a part-year column (`Q3 2025 (2025-06-30)`,
+# `1Q25 (2025-03-31)`).
 _PART_YEAR = re.compile(
-    r"\b(?:Q[1-4]|H[12]|\d{1,2}M|YTD|quarter|half|(?:[1-9]|1[01]|three|six|nine) months?)\b",
+    r"\b(?:Q[1-4]|H[12]|\d{1,2}M|YTD|quarter|half|(?:[1-9]|1[01]|three|six|nine) months?)\b"
+    r"|(?<![0-9A-Z])(?:[1-4]Q|[12]H)(?![A-Z])",
     re.IGNORECASE,
 )
 
@@ -591,10 +590,30 @@ def _reads_as_year_or_ltm(header: str) -> bool:
         return True
     if parsed.period_class is not PeriodClass.ACTUAL:
         return False
-    return parsed.span == "year" or (
+    return (parsed.span == "year" and not _PART_YEAR.search(header)) or (
         parsed.span == "date"
         and (_FY_LABEL.fullmatch(header.strip()) is not None or not _PART_YEAR.search(header))
     )
+
+
+_YEAR_WORD = re.compile(r"\byear\b", re.IGNORECASE)
+
+
+def _undated_date(header: str, year_ends: frozenset[date], part_ends: frozenset[date]) -> bool:
+    """A dated header other than an FY label or LTM/TTM is a twelve-month column only when CP-1
+    dates a twelve-month period ending on its date, or it says `year` and CP-1 dates no shorter
+    period ending then; any other may be an interim column, so it is no flow base."""
+    parsed = parse_period(header)
+    if (
+        parsed is None
+        or parsed.period_class is not PeriodClass.ACTUAL
+        or parsed.span != "date"
+        or parsed.end is None
+        or _FY_LABEL.fullmatch(header.strip()) is not None
+    ):
+        return False
+    end = date(*parsed.end)
+    return end in part_ends or (end not in year_ends and _YEAR_WORD.search(header) is None)
 
 
 def _flow_base(header: str) -> tuple[str, int, int] | None:
@@ -625,8 +644,13 @@ def _check_flow_period(inputs: ForecastInputs, cp1_text: str, source: str) -> No
     )
 
     headers = _flow_headers(inputs)
+    spans = period_dates(period_tables(cp1_text))[0].values()
+    year_ends = frozenset(end for start, end in spans if (end - start).days + 1 in _TWELVE_MONTHS)
+    part_ends = frozenset(end for _, end in spans) - year_ends
     for key, header in headers.items():
-        if period_of(header) is None and not _reads_as_year_or_ltm(header):
+        if period_of(header) is None and (
+            not _reads_as_year_or_ltm(header) or _undated_date(header, year_ends, part_ends)
+        ):
             raise ValueError(
                 f"{source}: base {key} is named under `{_cut(header, 40)}`, which is not a period "
                 "the Forecast page can read; name the fiscal-year or LTM column"
