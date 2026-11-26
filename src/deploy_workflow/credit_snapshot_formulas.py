@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from datetime import date
 
 from deploy_workflow import credit_snapshot as snap
 from deploy_workflow import recommendation as rec
@@ -59,6 +60,8 @@ VALUATION, BREACH, RESULT, PORTFOLIO = (
     *("Valuation", "Limit breach", "Result", "Portfolio result"),
 )
 PROPOSED_COLUMN, PERCENT_EV = "Proposed recommendation", "% EV"
+HELD, HELD_TO = "Held by", "Held to MW"
+NO_ORDER = "period order not stated"
 TAIL_COLUMNS = ("Unit", "Currency")
 EMPTY = '""'
 
@@ -101,6 +104,7 @@ class Span:
 
 Ref = At | Span
 _MARK = re.compile("⟦([0-9]+)⟧")
+_END = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _A1 = re.compile(r"([A-Z]+)([0-9]+)")
 
 
@@ -123,6 +127,7 @@ class Dropdown:
     block: str
     column: str
     items: tuple[str, ...] | Span
+    row: str | None = None
 
 
 @dataclass(frozen=True)
@@ -321,6 +326,21 @@ def _rule(block: str, row: str, column: str, value: int | str) -> snap.SnapshotC
     return snap.SnapshotCell(MATRIX, block, row, column, RULE, str(value))
 
 
+def _period_end(label: str) -> date | None:
+    """The end date a period label states (`FY2024 / 2024-09-30`), None when it states none."""
+    found = _END.search(label)
+    if found is None:
+        return None
+    try:
+        return date.fromisoformat(found.group())
+    except ValueError:
+        return None
+
+
+def _gap(at: At, text: str) -> snap.SnapshotCell:
+    return snap.SnapshotCell(at.sheet, at.block, at.row, at.column, snap.GAP, text)
+
+
 def _label(sheet: str, block: str, row: str, column: str, text: str) -> snap.SnapshotCell:
     return snap.SnapshotCell(sheet, block, row, column, LABEL, text)
 
@@ -370,8 +390,15 @@ class _Builder:
     def analyst(self, at: At) -> snap.SnapshotCell:
         return snap.SnapshotCell(at.sheet, at.block, at.row, at.column, ANALYST, "")
 
-    def dropdown(self, sheet: str, block: str, column: str, items: tuple[str, ...] | Span) -> None:
-        self.dropdowns.append(Dropdown(sheet, block, column, items))
+    def dropdown(
+        self,
+        sheet: str,
+        block: str,
+        column: str,
+        items: tuple[str, ...] | Span,
+        row: str | None = None,
+    ) -> None:
+        self.dropdowns.append(Dropdown(sheet, block, column, items, row))
 
     # -- the constants
 
@@ -446,10 +473,6 @@ class _Builder:
         )
         return Span(cells, (5, 5))
 
-    def _column(self, block: str, column: str) -> Span | None:
-        cells = tuple(At(MATRIX, block, name, column) for name in self.instruments)
-        return Span(cells) if cells else None
-
     # -- instrument by reference
 
     def grid(self) -> None:
@@ -469,6 +492,7 @@ class _Builder:
                 self._valuation(name, ref)
                 self._breach(name, ref)
                 self._result(name, ref)
+                self._held(name, ref)
 
     def _eligible_types(self) -> None:
         cells = [
@@ -569,6 +593,46 @@ class _Builder:
         at = At(MATRIX, RESULT, name, ref.view.name)
         self.add(MATRIX, RESULT, [self.formula(at, d, template)])
 
+    def _held(self, name: str, ref: _Reference) -> None:
+        """Held by: the breached limits' names when this row's result was held to 3."""
+        d = _Draft()
+        price = d(self._inputs(name, "Price"))
+        bucket = d(self._inputs(name, "Rating bucket"))
+        names = self._limit_names(d, ref, bucket, price)
+        if not names:
+            return
+        score, value = d(self.score), d(At(MATRIX, VALUATION, name, ref.view.name))
+        breach = d(At(MATRIX, BREACH, name, ref.view.name))
+        table, cap = d(self.table()), d(At(MATRIX, CS_RULES, "Cap level", "Value"))
+        cell = f"INDEX({table},{score},{value})"
+        template = (
+            f'=IF(OR({score}="",{value}=""),"",IF(AND({cell}<{cap},{breach}=1),'
+            f'MID({"&".join(names)},3,500),""))'
+        )
+        at = At(MATRIX, HELD, name, ref.view.name)
+        self.add(MATRIX, HELD, [self.formula(at, d, template)])
+
+    def _limit_names(self, d: _Draft, ref: _Reference, bucket: str, price: str) -> list[str]:
+        """One term per limit the breach formula tests: `; ` and its name when it is breached for
+        this row, else nothing. A rating or floor row is named by the part of its Matrix label after
+        the reference's name."""
+        start = len(ref.view.name) + 4
+        terms = [f'IF({d(cell)}<>"","; "&{d(cell)},"")' for cell in ref.breached]
+        rows = len(next(iter(ref.rating.values()), ()))
+        for i in range(rows):
+            outcome = '""'
+            for word in reversed(list(ref.rating)):
+                outcome = f'IF({bucket}="{word}",{d(ref.rating[word][i])},{outcome})'
+            label = d(
+                At(MATRIX, "Rating limits", ref.rating[next(iter(ref.rating))][i].row, "Row label")
+            )
+            terms.append(f'IF({outcome}="{BREACHED_WORD}","; "&MID({label},{start},200),"")')
+        for cell in ref.floors:
+            label = d(At(MATRIX, "Price floors", cell.row, "Row label"))
+            test = f"AND(ISNUMBER({price}),{price}<{d(cell)})"
+            terms.append(f'IF({test},"; "&MID({label},{start},200),"")')
+        return terms
+
     # -- per portfolio
 
     def portfolios(self) -> None:
@@ -616,6 +680,7 @@ class _Builder:
             d = _Draft()
             template = f"=IF(ISNUMBER({d(result)}),INDEX({d(names)},{d(result)}),{d(result)})"
             cells.append(self.formula(proposed, d, template))
+            cells += self._held_to_mw(ref)
             cells += [self.analyst(view), self.analyst(confirm)]
             weight = At(MATRIX, "Issuer weight", row, "Weight (%)")
             if weight in self.held:
@@ -629,49 +694,92 @@ class _Builder:
         self.dropdown(SNAPSHOT, RECOMMENDATION, "Analyst view", names)
         self.chips.append((SNAPSHOT, RECOMMENDATION, RECOMMENDATION))
 
+    def _held_to_mw(self, ref: _Reference) -> list[snap.SnapshotCell]:
+        """Held to MW: the limits that hold the portfolio's result at 3, named when the result is 3
+        and no eligible row gives 3 uncapped; else blank."""
+        name = ref.view.name
+        if not (self.instruments and ref.pairs):
+            return []
+        held = tuple(At(MATRIX, HELD, n, name) for n in self.instruments)
+        if not all(at in self.held for at in held):
+            return []
+        d = _Draft()
+        result, cap = (
+            d(At(MATRIX, PORTFOLIO, name, "Result")),
+            d(At(MATRIX, CS_RULES, "Cap level", "Value")),
+        )
+        results = d(Span(tuple(At(MATRIX, RESULT, n, name) for n in self.instruments)))
+        held_by = d(Span(held))
+        template = (
+            f'=IF({result}={cap},IF(SUMPRODUCT(({results}={cap})*({held_by}=""))=0,'
+            f'INDEX({held_by},MATCH({cap},{results},0)),""),"")'
+        )
+        return [self.formula(At(SNAPSHOT, RECOMMENDATION, name, HELD_TO), d, template)]
+
     # -- capital structure
 
     def capital_structure(self) -> None:
         rows = _rows(self._cells(SNAPSHOT, CAPITAL))
         if not rows:
             return
-        self._enterprise_value()
-        cells = [self._share_of_ev(row) for row in rows]
+        periods = self._enterprise_value()
+        cells = [self._share_of_ev(row) for row in rows] if periods else []
         proposals = [
             self._proposal(name, row) for name, row in zip(self.instruments, rows, strict=True)
         ]
-        self.add(SNAPSHOT, CAPITAL, [c for c in proposals if c is not None] + cells)
-        if any(p is not None for p in proposals):
+        extra = [c for p in proposals if p is not None for c in p]
+        self.add(SNAPSHOT, CAPITAL, extra + cells)
+        if extra:
             self.dropdown(SNAPSHOT, CAPITAL, PROPOSED_COLUMN, self.names("Recommendation"))
             self.chips.append((SNAPSHOT, CAPITAL, PROPOSED_COLUMN))
 
-    def _first(self, block: str, row: str) -> snap.SnapshotCell | None:
-        return next(
-            (
-                c
-                for c in self._cells(SNAPSHOT, block)
-                if c.row == row and c.column not in TAIL_COLUMNS and c.kind != snap.GAP
-            ),
-            None,
-        )
+    def _periods(self, block: str, row: str) -> dict[str, At]:
+        """The cells of a row of a block by period label (the part of the column before ` / `)."""
+        return {
+            c.column.split(" / ")[0]: _at(c)
+            for c in self._cells(SNAPSHOT, block)
+            if c.row == row and c.column not in TAIL_COLUMNS and c.kind != snap.GAP
+        }
 
-    def _enterprise_value(self) -> None:
+    def _enterprise_value(self) -> list[str]:
+        """EV: the equity value plus the chosen period's Net debt, else the EV multiple times that
+        period's reported EBITDA. The period is a yellow dropdown over the periods the handoff's
+        Net debt and EBITDA rows hold. Returns those periods (none: no EV is built)."""
+        debt, ebitda = (
+            self._periods(TOTALS, "Net debt"),
+            self._periods(MEASURES, "EBITDA (Reported)"),
+        )
+        labels = list(dict.fromkeys([*debt, *ebitda]))
+        if not labels:
+            return []
         d = _Draft()
         equity = d(At(SNAPSHOT, EQUITY, "Equity value", "Value"))
         multiple = d(At(SNAPSHOT, EQUITY, "EV multiple", "Value"))
-        debt, ebitda = self._first(TOTALS, "Net debt"), self._first(MEASURES, "EBITDA (Reported)")
-        added = f'IF(ISNUMBER({d(_at(debt))}),{equity}+{d(_at(debt))},"")' if debt else '""'
-        times = (
-            f'IF(AND(ISNUMBER({multiple}),ISNUMBER({d(_at(ebitda))})),{multiple}*{d(_at(ebitda))},"")'
-            if ebitda
-            else '""'
+        period = d(At(SNAPSHOT, EQUITY, "EV period", "Value"))
+
+        def pick(cells: dict[str, At], use: str) -> str:
+            out = '""'
+            for label in reversed(labels):
+                if label in cells:
+                    cell = d(cells[label])
+                    out = f'IF({period}="{label}",IF(ISNUMBER({cell}),{use.format(cell)},""),{out})'
+            return out
+
+        added = pick(debt, equity + "+{}")
+        times = pick(ebitda, multiple + "*{}")
+        template = (
+            f'=IF({period}="","",IF(ISNUMBER({equity}),{added},'
+            f'IF(ISNUMBER({multiple}),{times},"")))'
         )
-        template = f"=IF(ISNUMBER({equity}),{added},{times})"
         at = At(SNAPSHOT, EQUITY, "Enterprise value", "Value")
-        currency = At(SNAPSHOT, EQUITY, "EV currency", "Value")
-        self.add(
-            SNAPSHOT, EQUITY, [self.formula(at, d, template, "#,##0.0"), self.analyst(currency)]
-        )
+        extra = [
+            self.formula(at, d, template, "#,##0.0"),
+            self.analyst(At(SNAPSHOT, EQUITY, "EV period", "Value")),
+            self.analyst(At(SNAPSHOT, EQUITY, "EV currency", "Value")),
+        ]
+        self.add(SNAPSHOT, EQUITY, extra)
+        self.dropdown(SNAPSHOT, EQUITY, "Value", tuple(labels), "EV period")
+        return labels
 
     def _share_of_ev(self, row: str) -> snap.SnapshotCell:
         d = _Draft()
@@ -690,7 +798,7 @@ class _Builder:
     def _index(self, kind: str) -> _Reference | None:
         return next((r for r in self.references if r.view.kind == kind and r.pairs), None)
 
-    def _proposal(self, name: str, row: str) -> snap.SnapshotCell | None:
+    def _proposal(self, name: str, row: str) -> list[snap.SnapshotCell] | None:
         loans, bonds = self._index("loan_index"), self._index("hy_index")
         if loans is None and bonds is None:
             return None
@@ -706,7 +814,15 @@ class _Builder:
             read = f'IF({value}="","",INDEX({names},INDEX({table},{score},{value})))'
             template = f'IF({kind}="{word}",{read},{template})'
         template = f'=IF({score}="","",{template})'
-        return self.formula(At(SNAPSHOT, CAPITAL, row, PROPOSED_COLUMN), d, template)
+        proposal = At(SNAPSHOT, CAPITAL, row, PROPOSED_COLUMN)
+        confirm = At(SNAPSHOT, CAPITAL, row, "Confirm")
+        d2 = _Draft()
+        tag = f'=IF({d2(proposal)}="","",IF({d2(confirm)}<>"","confirmed","proposed"))'
+        return [
+            self.formula(proposal, d, template),
+            self.formula(At(SNAPSHOT, CAPITAL, row, "Status"), d2, tag),
+            self.analyst(confirm),
+        ]
 
     # -- relative value
 
@@ -794,21 +910,40 @@ class _Builder:
         return [value, self.formula(self._tile("Reading", "Valuation"), d, reading)]
 
     def _tiles(self) -> list[snap.SnapshotCell]:
-        cells = []
-        for tile, block, row in (
+        """Leverage, cover and liquidity, all at one period: the latest by the end date the
+        period's own label states (`FY2024 / 2024-09-30`). A period with no readable end date
+        leaves its order unknown, so every tile shows that as a gap."""
+        wanted = (
             ("Net leverage", TOTALS, "Net debt / EBITDA"),
             ("Interest cover", TOTALS, "EBITDA / cash interest"),
             ("Liquidity", TOTALS, "Cash"),
-        ):
-            source = self._first(block, row)
-            if source is None:
-                text = snap.NOT_IN_HANDOFF
-                cells.append(_label(SNAPSHOT, KEY_FIGURES, "Value", tile, text))
-                continue
-            d = _Draft()
-            there = At(SNAPSHOT, block, row, source.column)
-            cells.append(self.formula(self._tile("Value", tile), d, f"={d(there)}", mirror=there))
-            cells.append(_label(SNAPSHOT, KEY_FIGURES, "Reading", tile, f"{row}, {source.column}"))
+        )
+        sources = {
+            tile: [
+                c
+                for c in self._cells(SNAPSHOT, block)
+                if c.row == row and c.column not in TAIL_COLUMNS and c.kind != snap.GAP
+            ]
+            for tile, block, row in wanted
+        }
+        ends = {c.column: _period_end(c.column) for found in sources.values() for c in found}
+        unordered = None in ends.values()
+        latest = max((e for e in ends.values() if e is not None), default=None)
+        cells: list[snap.SnapshotCell] = []
+        for tile, block, row in wanted:
+            at = self._tile("Value", tile)
+            use = [c for c in sources[tile] if ends[c.column] == latest]
+            if unordered:
+                cells.append(_gap(at, NO_ORDER))
+            elif not use:
+                cells.append(_gap(at, snap.NOT_IN_HANDOFF))
+            else:
+                there = _at(use[0])
+                d = _Draft()
+                cells.append(self.formula(at, d, f"={d(there)}", mirror=there))
+                cells.append(
+                    _label(SNAPSHOT, KEY_FIGURES, "Reading", tile, f"{row}, {use[0].column}")
+                )
         return cells
 
     # -- the unit and the dropdowns that are fixed words

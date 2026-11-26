@@ -285,6 +285,8 @@ class _Page:
                 start_row=row, start_column=col, end_row=row, end_column=col + span - 1
             )
         self._height(row, "" if spec.kind == FORMULA else spec.text, span)
+        if item is not None and item.written is not None:
+            self.book.add_written(item)
         if item is not None and item.basis:
             self.book.add_basis(item)
             if not _leaks(item.basis, self.book.snapshot.run_id):
@@ -726,6 +728,7 @@ class _Book:
         self.snapshot = snapshot
         self.sources: list[tuple[str, str, _Put]] = []
         self.bases: list[snap.SnapshotCell] = []
+        self.writtens: list[snap.SnapshotCell] = []
         self.workbook = _xl.Workbook()
         self.plan = fx.Plan({}, (), (), ())
         self.formula_text: dict[tuple[str, str], str] = {}
@@ -735,6 +738,9 @@ class _Book:
 
     def add_basis(self, item: snap.SnapshotCell) -> None:
         self.bases.append(item)
+
+    def add_written(self, item: snap.SnapshotCell) -> None:
+        self.writtens.append(item)
 
     def build(self) -> bytes:
         self.plan = fx.extend(self.snapshot, _blocks(self.snapshot))
@@ -784,6 +790,7 @@ class _Book:
             address
             for sheet, address, spec in self.sources
             if (sheet, spec.block, spec.column) == (dropdown.sheet, dropdown.block, dropdown.column)
+            and dropdown.row in (None, spec.row)
             and spec.kind in (snap.ANALYST, FORMULA)
         ]
         if not cells:
@@ -844,7 +851,9 @@ class _Book:
         for line in self.snapshot.basis_lines:
             ws.append(self._basis_row(ws.max_row + 1, line))
         for item in self.bases:
-            ws.append(self._row_basis(ws.max_row + 1, item))
+            ws.append(self._row_basis(ws.max_row + 1, item, "Row basis", item.basis))
+        for item in self.writtens:
+            ws.append(self._row_basis(ws.max_row + 1, item, "As written", item.written))
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.font = _font()
@@ -870,13 +879,16 @@ class _Book:
             self.snapshot.as_of,
         ]
 
-    def _row_basis(self, number: int, item: snap.SnapshotCell) -> list[Any]:
-        """A scorecard or assessment row's own Basis cell, exactly (the comment, when it is clean,
-        repeats it): on Sources only, traced to its row's handoff line."""
+    def _row_basis(
+        self, number: int, item: snap.SnapshotCell, column: str, text: str | None
+    ) -> list[Any]:
+        """A scorecard or assessment row's own Basis cell, or its value as the handoff wrote it
+        (`**5**`), exactly (the comment, when it is clean, repeats the Basis): on Sources only,
+        traced to its row's handoff line."""
         module = item.module
         return [
             *(SOURCES, f"{_utils.get_column_letter(TEXT_COLUMN)}{number}", snap.COPIED),
-            *(item.block, item.row, "Row basis", module, item.section, item.line, item.basis),
+            *(item.block, item.row, column, module, item.section, item.line, text),
             self.snapshot.handoff_sha256.get(module) if module is not None else None,
             self.snapshot.run_id,
             self.snapshot.as_of,

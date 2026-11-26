@@ -48,6 +48,8 @@ from deploy_workflow import reference_portfolios as rp
 from deploy_workflow.cp2_scorecard import (
     ASSESSMENTS,
     FACTORS,
+    NOT_ASSESSED,
+    NOT_SCORED,
     Scorecard,
     ScorecardError,
     parse_scorecard,
@@ -119,7 +121,10 @@ class SnapshotCell:
     (`tests/fixtures/credit_snapshot/expected_workings.md`); `sheet` says where the block lives.
     A copied cell (and a gap for a blank handoff cell) carries `module`, `section` and the 1-based
     `line` of its handoff. `basis` is the same row's Basis cell, exactly, for a scorecard or
-    assessment cell: the writer's cell comment, never a cell."""
+    assessment cell: the writer's cell comment, never a cell. `written` is the handoff's exact text
+    of a scorecard level or assessment view that is not the plain value `cp2_scorecard` read
+    (`**5**`): the cell then holds the parsed value, as computed, and `written` is kept on
+    Sources."""
 
     sheet: str
     block: str
@@ -131,6 +136,7 @@ class SnapshotCell:
     section: str | None = None
     line: int | None = None
     basis: str | None = None
+    written: str | None = None
 
     @property
     def figure(self) -> Figure | None:
@@ -811,10 +817,12 @@ def _need_scorecard(run: _Run) -> Scorecard:
 
 
 def _scored(
-    run: _Run, mk: _Maker, ident: str, names: Sequence[str], value_column: str
+    run: _Run, mk: _Maker, ident: str, parsed: Mapping[str, str], value_column: str
 ) -> list[SnapshotCell]:
-    """One copied cell per scorecard or assessment row, in the ruled order, with the row's Basis
-    cell kept for the writer's comment."""
+    """One cell per scorecard or assessment row, in the ruled order, with the row's Basis cell
+    kept for the writer's comment. `parsed` is each row's value as `cp2_scorecard` read it. A cell
+    whose handoff text is that value is copied; one written another way (`**5**`) holds the parsed
+    value as computed and keeps the exact text in `written`, so a formula reads a number."""
     table = run.register("CP-2", ident)
     first, value, basis = (
         table.index(table.headers[0]),
@@ -823,27 +831,32 @@ def _scored(
     )
     by_name = {_name(row.cells[first]): row for row in table.rows}
     cells = []
-    for name in names:
+    for name, wanted in parsed.items():
         row = by_name.get(_name(name))
         if row is None:
             raise _Unreadable(f"{table.section} has no row for {name}")
-        cells.append(
-            mk.copied(table.at(row.line), name, value_column, row.cells[value], row.cells[basis])
-        )
+        text = row.cells[value]
+        if text.strip() and text != wanted:
+            cell = mk._cell(name, value_column, COMPUTED, wanted, table.at(row.line))
+            cells.append(replace(cell, basis=row.cells[basis], written=text))
+        else:
+            cells.append(mk.copied(table.at(row.line), name, value_column, text, row.cells[basis]))
     return cells
 
 
 def _scorecard(run: _Run, mk: _Maker) -> list[SnapshotCell]:
-    _need_scorecard(run)
-    return _scored(run, mk, "T2.13", FACTORS, "Level")
+    card = _need_scorecard(run)
+    levels = {f.factor: NOT_SCORED if f.level is None else str(f.level) for f in card.factors}
+    return _scored(run, mk, "T2.13", {n: levels[n] for n in FACTORS}, "Level")
 
 
 def _assessments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     try:
-        _need_scorecard(run)
+        card = _need_scorecard(run)
     except _Said:  # the Scorecard block says so; no second gap line
         raise _Absent from None
-    return _scored(run, mk, "T2.14", tuple(ASSESSMENTS), "View")
+    views = {a.name: NOT_ASSESSED if a.view is None else a.view for a in card.assessments}
+    return _scored(run, mk, "T2.14", {n: views[n] for n in ASSESSMENTS}, "View")
 
 
 def _credit_score(run: _Run, mk: _Maker) -> list[SnapshotCell]:
@@ -896,6 +909,7 @@ _FREE = {  # a spec line with no fixed label: shown only when a row's label equa
     "T4.9": ("Margin", "Growth", "Senior leverage", "Unsecured leverage"),
 }
 NO_UNIT = "unit not in handoff"
+UNIT_DIFFERS = "unit differs by period"
 
 
 def _optional(table: _Table, name: str) -> int | None:
@@ -906,13 +920,21 @@ def _optional(table: _Table, name: str) -> int | None:
 
 
 def _unit_pick(
-    table: _Table, row: _Row, at: int | None, shown: tuple[str, str, bool], column: str = "Unit"
+    table: _Table,
+    rows: Sequence[_Row],
+    at: int | None,
+    shown: tuple[str, str, bool],
+    column: str = "Unit",
 ) -> _Pick:
-    """The row's own Unit (or Currency) cell; no such column in the table is a per-row gap."""
+    """The Unit (or Currency) cell of a row label, from its first period's row. No such column in
+    the table is a per-row gap, and so is a unit that differs between the label's periods: one
+    unit shown for figures stated in another would misread them."""
     label, key, free = shown
     if at is None:
         return _Pick(label, column, "", None, 0, key, free, NO_UNIT)
-    return _Pick(label, column, row.cells[at], table, row.line, key, free)
+    if len({row.cells[at] for row in rows}) > 1:
+        return _Pick(label, column, "", None, 0, key, free, UNIT_DIFFERS)
+    return _Pick(label, column, rows[0].cells[at], table, rows[0].line, key, free)
 
 
 def _statement(run: _Run, spec: StatementSpec) -> list[_Pick]:
@@ -936,7 +958,7 @@ def _statement(run: _Run, spec: StatementSpec) -> list[_Pick]:
             _Pick(shown, period, row.cells[i], table, row.line, key, key not in named)
             for i, period in periods
         ]
-        picks.append(_unit_pick(table, row, unit, (shown, key, key not in named)))
+        picks.append(_unit_pick(table, [row], unit, (shown, key, key not in named)))
     present = {pick.key for pick in picks}
     picks += [
         _Pick(label, "Value", "", None, 0, _fold(label))
@@ -955,6 +977,9 @@ def _register_rows(run: _Run) -> list[_Pick]:
     units = {"Unit": _optional(table, "Unit"), "Currency": _optional(table, "Currency")}
     picks: list[_Pick] = []
     seen: set[str] = set()
+    by_label: dict[str, list[_Row]] = {}
+    for row in table.rows:
+        by_label.setdefault(_fold(row.cells[name]), []).append(row)
     for row in table.rows:
         key = _fold(row.cells[name])
         if key not in fixed and key not in free:
@@ -967,7 +992,7 @@ def _register_rows(run: _Run) -> list[_Pick]:
         if key not in seen:  # a row label's Unit and Currency: its first occurrence
             seen.add(key)
             picks += [
-                _unit_pick(table, row, at, (shown, key, free_row), column)
+                _unit_pick(table, by_label[key], at, (shown, key, free_row), column)
                 for column, at in units.items()
                 if column == "Unit" or at is not None
             ]
@@ -989,9 +1014,8 @@ def _net_debt(run: _Run) -> list[_Pick]:
         for row in table.rows
         for column in NET_DEBT_COLUMNS
     ]
-    first = table.rows[0]  # the unit is the table's: a column of the same row as each period
     return picks + [
-        _unit_pick(table, first, unit, (column, _fold(column), False))
+        _unit_pick(table, table.rows, unit, (column, _fold(column), False))
         for column in NET_DEBT_COLUMNS
     ]
 

@@ -261,7 +261,7 @@ PINNED = [
     ),
     (
         ("Snapshot", "Recommendation", "CLO portfolio", "Recommendation"),
-        '=IF(Snapshot!$N$14<>"",Snapshot!$N$14,Snapshot!$M$14)',
+        '=IF(Snapshot!$O$14<>"",Snapshot!$O$14,Snapshot!$M$14)',
     ),
     (
         ("Snapshot", "Recommendation", "CLO portfolio", "Status"),
@@ -285,17 +285,19 @@ PINNED = [
     (
         ("Snapshot", "Equity value", "Enterprise value", "Value"),
         joined(
-            "=IF(ISNUMBER(Snapshot!$P$5),IF(ISNUMBER(Snapshot!$D$65),",
-            'Snapshot!$P$5+Snapshot!$D$65,""),IF(AND(ISNUMBER(Snapshot!$P$6),',
-            'ISNUMBER(Snapshot!$M$92)),Snapshot!$P$6*Snapshot!$M$92,""))',
+            '=IF(Snapshot!$P$8="","",IF(ISNUMBER(Snapshot!$P$5),IF(Snapshot!$P$8="FY2025",',
+            'IF(ISNUMBER(Snapshot!$D$65),Snapshot!$P$5+Snapshot!$D$65,""),',
+            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$G$65),Snapshot!$P$5+Snapshot!$G$65,""),"")),',
+            'IF(ISNUMBER(Snapshot!$P$6),IF(Snapshot!$P$8="FY2025",',
+            'IF(ISNUMBER(Snapshot!$M$92),Snapshot!$P$6*Snapshot!$M$92,""),',
+            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$O$92),Snapshot!$P$6*Snapshot!$O$92,""),"")),"")))',
         ),
     ),
     (
         ("Snapshot", "Capital structure", "Term Loan B", "% EV"),
         joined(
-            "=IF(AND(ISNUMBER(Snapshot!$K$49),ISNUMBER(Snapshot!$P$7),",
-            "Snapshot!$F$49=Snapshot!$P$8),IF(Snapshot!$P$7>0,Snapshot!$K$49/Snapshot!$P$7,",
-            '""),"")',
+            "=IF(AND(ISNUMBER(Snapshot!$I$49),ISNUMBER(Snapshot!$P$7),",
+            'Snapshot!$E$49=Snapshot!$P$9),IF(Snapshot!$P$7>0,Snapshot!$I$49/Snapshot!$P$7,""),"")',
         ),
     ),
     (
@@ -320,6 +322,33 @@ PINNED = [
     (
         ("Snapshot", "Relative value: loans", "Term Loan B", "Valuation"),
         '=IF(Inputs!$C$11="loan",Matrix!$K$94,"")',
+    ),
+    (
+        ("Matrix", "Held by", "Term Loan B", CLO),
+        joined(
+            '=IF(OR(Inputs!$F$5="",Matrix!$I$94=""),"",IF(AND(INDEX(Matrix!$B$55:$F$59,',
+            "Inputs!$F$5,Matrix!$I$94)<Matrix!$G$76,Matrix!$C$102=1),",
+            'MID(IF(Matrix!$G$21<>"","; "&Matrix!$G$21,"")&IF(IF(Inputs!$D$11="IG",Matrix!$C$26,',
+            'IF(Inputs!$D$11="BB",Matrix!$E$26,IF(Inputs!$D$11="B",Matrix!$G$26,',
+            'IF(Inputs!$D$11="CCC",Matrix!$I$26,IF(Inputs!$D$11="Unrated",Matrix!$K$26,"")))))',
+            '="breached","; "&MID(Matrix!$A$26,17,200),"")&IF(IF(Inputs!$D$11="IG",Matrix!$C$27,',
+            'IF(Inputs!$D$11="BB",Matrix!$E$27,IF(Inputs!$D$11="B",Matrix!$G$27,',
+            'IF(Inputs!$D$11="CCC",Matrix!$I$27,IF(Inputs!$D$11="Unrated",Matrix!$K$27,"")))))',
+            '="breached","; "&MID(Matrix!$A$27,17,200),"")&IF(AND(ISNUMBER(Inputs!$F$11),',
+            'Inputs!$F$11<Matrix!$I$31),"; "&MID(Matrix!$A$31,17,200),""),3,500),""))',
+        ),
+    ),
+    (
+        ("Snapshot", "Recommendation", CLO, "Held to MW"),
+        joined(
+            "=IF(Matrix!$I$80=Matrix!$G$76,IF(SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*",
+            '(Matrix!$G$110:$G$114=""))=0,INDEX(Matrix!$G$110:$G$114,',
+            'MATCH(Matrix!$G$76,Matrix!$I$102:$I$106,0)),""),"")',
+        ),
+    ),
+    (
+        ("Snapshot", "Capital structure", "Term Loan B", "Status"),
+        '=IF(Snapshot!$M$49="","",IF(Snapshot!$P$49<>"","confirmed","proposed"))',
     ),
 ]
 
@@ -404,7 +433,7 @@ def test_the_recommendation_dropdowns_offer_the_five_names_from_the_matrix_cells
     proposals = addresses(
         book, "Capital structure", "Proposed recommendation", "Snapshot", "formula"
     )
-    assert len(found) == 2 and found[views] == found[proposals]
+    assert len(found) == 3 and found[views] == found[proposals]  # and the EV period
     first = cell_of(book, block="Scales", row="Recommendation 1", column="Name", sheet="Matrix")
     last = cell_of(book, block="Scales", row="Recommendation 5", column="Name", sheet="Matrix")
     assert (
@@ -474,3 +503,212 @@ def test_each_reference_says_which_asset_types_an_issuers_instruments_can_be_rea
     custom = rp.custom("Own book")
     assert snap._eligible(custom) == ("loan", "bond")
     assert snap._eligible(rp.custom("Own loans", asset_type="loan")) == ("loan",)
+
+
+# --- Fix round 1 ----------------------------------------------------------------------------------
+
+
+def opened_from(snapshot):
+    return load_workbook(io.BytesIO(writer.workbook_bytes(snapshot)))
+
+
+def with_cp2(text, tmp_path):
+    from deploy_vii.context import load_context
+
+    handoffs = {m: p.read_bytes() for m, p in cs.ALL_MODULES.items()} | {"CP-2": text.encode()}
+    run = snap.SnapshotRun(
+        cs.ISSUER_NAME,
+        cs.AS_OF,
+        "credit_snapshot",
+        cs.CASES["full"].run_id,
+        handoffs,
+        load_context(cs.context_bytes()),
+        [],
+    )
+    return snap.gather(run)
+
+
+def test_an_emphasised_level_or_view_is_the_value_cp2_read_with_its_text_kept_on_sources(tmp_path):
+    text = (cs.HANDOFFS / "CP-2.md").read_text(encoding="utf-8")
+    text = text.replace("| Liquidity | 2 |", "| Liquidity | **5** |")
+    text = text.replace("| Maturity profile | 3 |", "| Maturity profile | `3` |")
+    text = text.replace("| Credit Direction | Stable |", "| Credit Direction | **Stable** |")
+    opened = opened_from(with_cp2(text, tmp_path))
+    liquidity = listed(opened, "Scorecard", row="Liquidity", column="Level")
+    (row,) = liquidity
+    assert row["Kind"] == "computed" and row["Handoff text"] == "5"
+    cell = opened["Snapshot"][row["Cell"]]
+    assert cell.value == 5 and cell.number_format == "0"
+    written = [
+        r
+        for r in sources(opened)
+        if (r["Block"], r["Row"], r["Column"]) == ("Scorecard", "Liquidity", "As written")
+    ]
+    assert [(r["Kind"], r["Handoff text"], r["Sheet"]) for r in written] == [
+        ("copied", "**5**", "Sources")
+    ]
+    assert written[0]["Module"] == "CP-2" and written[0]["Line"] == row["Line"]
+    (view,) = listed(opened, "Assessments", row="Credit Direction", column="View")
+    assert view["Kind"] == "computed" and opened["Snapshot"][view["Cell"]].value == "Stable"
+    maturity = cell_of(opened, block="Scorecard", row="Maturity profile", column="Level")
+    assert maturity.value == 3
+    # A plain one is still the handoff's own text.
+    (scale,) = listed(opened, "Scorecard", row="Scale", column="Level")
+    assert scale["Kind"] == "copied"
+    assert not [r for r in sources(opened) if (r["Row"], r["Column"]) == ("Scale", "As written")]
+
+
+def test_the_tiles_show_one_period_the_latest_by_its_stated_end_date(tmp_path):
+    built = cs.build_case(tmp_path, cs.CASES["tdg_cp1"])
+    opened = opened_from(snap.gather(snap.load_run(built.folder, built.stores.both())))
+    liquidity = cell_of(opened, block="Key figures", row="Value", column="Liquidity")
+    assert opened["Snapshot"][liquidity.coordinate].value.startswith("=Snapshot!")
+    target = opened["Snapshot"][liquidity.value[len("=Snapshot!") :].replace("$", "")]
+    assert target.value == 6261  # FY2024 cash; the handoff lists FY2023 first
+    for tile, row in (("Liquidity", "Cash"), ("Net leverage", "Net debt / EBITDA")):
+        reading = cell_of(opened, block="Key figures", row="Reading", column=tile).value
+        assert reading == f"{row}, FY2024 / 2024-09-30"
+
+
+def snapshot_edited(full, edit):
+    blocks = tuple(replace_cells(b, edit) if b.sheet == "Snapshot" else b for b in full.blocks)
+    from dataclasses import replace
+
+    return replace(full, blocks=blocks)
+
+
+def replace_cells(block, edit):
+    from dataclasses import replace
+
+    return replace(block, cells=tuple(c for cell in block.cells for c in edit(cell)))
+
+
+def test_a_period_with_no_readable_end_date_leaves_every_tile_a_gap(full):
+    from dataclasses import replace
+
+    def edit(cell):
+        if cell.block == "Capital structure totals" and cell.column.startswith("FY2024 / "):
+            return [replace(cell, column="FY2024")]
+        return [cell]
+
+    opened = opened_from(snapshot_edited(full, edit))
+    for tile in ("Net leverage", "Interest cover", "Liquidity"):
+        (row,) = listed(opened, "Key figures", row="Value", column=tile)
+        assert (row["Kind"], row["Handoff text"]) == ("gap", "period order not stated")
+        assert opened["Snapshot"][row["Cell"]].value == "period order not stated"
+
+
+def test_a_tile_whose_source_row_is_absent_is_a_gap_not_a_label(full):
+    def edit(cell):
+        return [] if cell.block == "Capital structure totals" and cell.row == "Cash" else [cell]
+
+    opened = opened_from(snapshot_edited(full, edit))
+    (row,) = listed(opened, "Key figures", row="Value", column="Liquidity")
+    assert (row["Kind"], row["Handoff text"]) == ("gap", "not in handoff")
+    cover = cell_of(opened, block="Key figures", row="Value", column="Interest cover")
+    assert cover.value.startswith("=Snapshot!")
+
+
+def test_the_enterprise_value_reads_the_period_the_analyst_picks(book):
+    (period,) = listed(book, "Equity value", row="EV period", kind="analyst")
+    assert book["Snapshot"][period["Cell"]].value is None
+    found = lists(book, "Snapshot")
+    assert found[frozenset({period["Cell"]})] == '"FY2025,FY2024"'
+    text = text_of(book, "Snapshot", "Equity value", "Enterprise value", "Value")
+    assert text.count('="FY2024"') == 2 and text.count('="FY2025"') == 2
+    assert not hasattr(fx._Builder, "_first") and not hasattr(fx._Builder, "_column")
+
+
+def test_a_period_with_no_period_picked_or_an_input_blank_gives_a_blank_percent_of_ev(book):
+    text = text_of(book, "Snapshot", "Capital structure", "Term Loan B", "% EV")
+    assert text.startswith("=IF(AND(ISNUMBER(") and text.count("ISNUMBER(") == 2
+    assert "IF(Snapshot!$P$7>0," in text and text.endswith(',"")')
+
+
+def test_a_unit_that_differs_by_period_is_a_gap_not_the_first_periods_unit(tmp_path):
+    lines = (cs.HANDOFFS / "CP-1.md").read_text(encoding="utf-8").split("\n")
+    start = next(i for i, line in enumerate(lines) if line.startswith("### Net debt data"))
+    rows = [i for i in range(start, len(lines)) if lines[i].startswith("|")][2:4]
+    edited = list(lines)
+    edited[rows[1]] = edited[rows[1]].replace("GBP millions", "GBP thousands")
+    handoffs = {m: p.read_bytes() for m, p in cs.ALL_MODULES.items()}
+    handoffs["CP-1"] = "\n".join(edited).encode()
+    shot = snap.gather(snap.SnapshotRun(cs.ISSUER_NAME, cs.AS_OF, "x", "r", handoffs, None, []))
+    units = {
+        (c.block, c.row): (c.kind, c.text)
+        for c in shot.cells()
+        if c.column == "Unit" and c.row in ("Net debt", "Cash")
+    }
+    assert units["Capital structure totals", "Net debt"] == ("gap", "unit differs by period")
+    assert units["Financials", "Cash"] == ("gap", "unit differs by period")
+
+
+def test_each_proposal_has_a_yellow_confirm_cell_and_a_proposed_tag(book):
+    (confirm,) = listed(book, "Capital structure", row="Term Loan B", column="Confirm")
+    assert confirm["Kind"] == "analyst"
+    assert len(listed(book, "Capital structure", column="Confirm", kind="analyst")) == 5
+    status = text_of(book, "Snapshot", "Capital structure", "Term Loan B", "Status")
+    assert '"confirmed","proposed"' in status
+
+
+@pytest.fixture(scope="module")
+def with_bonds(tmp_path_factory):
+    from datetime import date
+    from decimal import Decimal
+
+    built = cs.build_case(tmp_path_factory.mktemp("bonds"), cs.CASES["full"])
+    names = ("Ab", "Bc", "Cd", "De", "Ef", "Fg")
+    positions = tuple(
+        rp.Position(
+            i, borrower=n, asset_type="bond", rating_bucket="BB", margin=Decimal(400 + 10 * i)
+        )
+        for i, n in enumerate(names, 1)
+    )
+    fund = rp.Portfolio(
+        *("jnk", "High-yield bond fund (JNK)", "hy_index", date(2026, 3, 19), cs.STORED_AT, ()),
+        positions,
+        columns_found=(("borrower", "Name"), ("margin", "Spread")),
+    )
+    built.stores.standing.save(fund)
+    return opened_from(snap.gather(snap.load_run(built.folder, built.stores.both())))
+
+
+BONDS = [
+    (
+        ("Snapshot", "Capital structure", "4.50% Senior Notes 2030", "Proposed recommendation"),
+        joined(
+            '=IF(Inputs!$F$5="","",IF(Inputs!$C$14="loan",IF(Matrix!$I$97="","",',
+            "INDEX(Matrix!$K$66:$K$70,INDEX(Matrix!$B$56:$F$60,Inputs!$F$5,Matrix!$I$97))),",
+            'IF(Inputs!$C$14="bond",IF(Matrix!$K$97="","",INDEX(Matrix!$K$66:$K$70,',
+            'INDEX(Matrix!$B$56:$F$60,Inputs!$F$5,Matrix!$K$97))),"")))',
+        ),
+    ),
+    (
+        ("Snapshot", "Relative value: bonds", "4.50% Senior Notes 2030", "Index median (bp)"),
+        '=IF(Inputs!$C$14="bond",Matrix!$K$89,"")',
+    ),
+    (
+        ("Snapshot", "Relative value: bonds", "4.50% Senior Notes 2030", "Valuation"),
+        '=IF(Inputs!$C$14="bond",Matrix!$K$97,"")',
+    ),
+    (
+        ("Matrix", "Median (bp)", "4.50% Senior Notes 2030", "High-yield bond fund (JNK)"),
+        joined(
+            '=IF(Matrix!$E$89<>1,"",IF(OR(Inputs!$D$14="",NOT(OR(Inputs!$L$8="percent",',
+            'Inputs!$L$8="basis points"))),"",IF(N(IF(AND(Inputs!$C$14="bond",',
+            'Inputs!$D$14="BB"),Matrix!$D$17,""))>=5,IF(AND(Inputs!$C$14="bond",',
+            'Inputs!$D$14="BB"),Matrix!$C$17,"")*IF(Inputs!$L$8="percent",100,1),"")))',
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize(("where", "text"), BONDS, ids=[" / ".join(w[1:]) for w, _ in BONDS])
+def test_the_bond_branches_are_written_exactly_so(with_bonds, where, text):
+    sheet, block, row, column = where
+    assert text_of(with_bonds, sheet, block, row, column) == text
+
+
+def test_held_by_is_blank_for_a_reference_with_no_limit_to_breach(book):
+    assert not [r for r in listed(book, "Held by", sheet="Matrix") if r["Column"] == LVLN]
+    assert [r for r in listed(book, "Held by", sheet="Matrix") if r["Column"] == CLO]
