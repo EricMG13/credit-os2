@@ -92,12 +92,13 @@ const CLEAN =
 const DIRTY =
   "If both equivalents are dirty, July's extra yield is18.522010bp and simple residual difference16.472695bp; rounding alone leaves that yield ordering positive. That is the strongest compensation countercase for July, but neither price basis nor executable depth is established.";
 
-function relativeValue(clean: string, dirty: string) {
+function relativeValue(clean: string, dirty: string, more: Section[] = []) {
   const { snapshot, add } = publication("relative_value");
   add("CP-3", [
     context("Findings"),
     text("Security-selection view", clean, 10),
     text("Security-selection view", dirty, 15),
+    ...more,
     {
       heading: "T3.5 — Relative value table",
       level: 3,
@@ -195,17 +196,20 @@ function portfolio(parts: {
   exposure?: string;
   stress?: string;
   winner?: string;
+  rows?: string[][];
+  position?: Section[];
 }) {
   const { snapshot, add } = publication("portfolio_decision");
   add("CP-6", [
     context("Findings"),
     text("Final Sizing Posture", parts.posture ?? POSTURE, 10),
-    memo([["Winner / why", parts.winner ?? WINNER]]),
+    memo(parts.rows ?? [["Winner / why", parts.winner ?? WINNER]]),
   ]);
   add("CP-3", [
     context("Findings"),
     text("Portfolio view", parts.exposure ?? EXPOSURE, 19),
     text("Portfolio view", parts.stress ?? STRESS, 21),
+    ...(parts.position ?? []),
   ]);
   return snapshot;
 }
@@ -228,4 +232,57 @@ it.each([
   expect(container.textContent).not.toContain("loan-on-value");
   expect(container.textContent).not.toContain("cap is unknown");
   expect(screen.getAllByText(NOT_SHOWN)).toHaveLength(1);
+});
+
+function sectionText(name: string) {
+  return screen.getByRole("heading", { name }).parentElement?.textContent ?? "";
+}
+
+it.each([
+  [
+    "a reworded dirty-case paragraph",
+    relativeValue(CLEAN, "If both equivalents are dirty, July yields more."),
+  ],
+  [
+    "a further security-selection paragraph",
+    relativeValue(CLEAN, DIRTY, [
+      text("Security-selection view", "July is preferred on carry.", 17),
+    ]),
+  ],
+])("counts %s the earlier-format relative-value report does not print", (_name, snapshot) => {
+  const { container } = open(snapshot, "relative-value");
+  expect(container.textContent).not.toMatch(/July yields more|preferred on carry/);
+  expect(screen.getAllByText(NOT_SHOWN)).toHaveLength(1);
+});
+
+const LATER_EXPOSURE = EXPOSURE.replace("33,773,000", "30,000,000");
+const LATER_STRESS = STRESS.replace("40%-of-par", "30%-of-par");
+
+it.each([
+  ["a later exposure paragraph", LATER_EXPOSURE, "Portfolio decision and sizing"],
+  [
+    "a portfolio paragraph that matches neither verified start",
+    "Exposure is modest relative to fund NAV.",
+    "Portfolio decision and sizing",
+  ],
+  ["a later stress paragraph", LATER_STRESS, "Conditional stress on reported exposure"],
+])("counts %s in the portfolio report", (_name, body, section) => {
+  const { container } = open(
+    portfolio({ position: [text("Portfolio view", body, 23)] }),
+    "portfolio-decision",
+  );
+  expect(container.textContent).not.toMatch(/30,000,000|30%-of-par|modest relative/);
+  expect(screen.getAllByText(NOT_SHOWN)).toHaveLength(1);
+  expect(sectionText(section)).toContain(NOT_SHOWN);
+});
+
+it.each([
+  ["reworded", "Neither wins on this evidence."],
+  ["left out by the reference check", WINNER + ". See memo.pdf."],
+])("keeps the committee challenge section with a count when its one row is %s", (_name, winner) => {
+  const { container } = open(portfolio({ winner }), "portfolio-decision");
+  expect(container.textContent).not.toMatch(/on this evidence|memo\.pdf/);
+  expect(sectionText("Committee challenge and binding limits")).toBe(
+    `Committee challenge and binding limits${NOT_SHOWN}`,
+  );
 });

@@ -38,7 +38,7 @@ import { printableTable } from "./printTable";
 type SafeText = (text: string) => string;
 type PurposePassage = SpecialistOverview["findings"][number];
 type Exhibit = { title: string; table: Table; notes: string[] };
-/** `withheld` counts the module passages of this section that the reference check left out. */
+/** `withheld` counts the module passages of this section that were read but not printed whole. */
 type PurposeSection = { title: string; bodies: string[]; withheld?: number };
 /** `withheld` is the same count for the decision's passages that no section below it counts. */
 type Purpose = {
@@ -452,6 +452,9 @@ function legacyEarnings(entry: OutputEntry, safe: SafeText): Purpose | null {
     ["Monitoring and method changes justified by observed output"],
     safe,
   );
+  const watch = monitoring.passages
+    .map(({ body }) => body)
+    .filter((body) => body.startsWith("Track dated cash after distributions"));
   return {
     title: "Earnings view",
     decision: [lead, challenge],
@@ -462,14 +465,12 @@ function legacyEarnings(entry: OutputEntry, safe: SafeText): Purpose | null {
       {
         title: "Reporting basis and limitations",
         bodies: [definitions],
-        withheld: basisNotes.withheld,
+        withheld: basisNotes.withheld + basisNotes.passages.length - 1,
       },
       {
         title: "What to watch",
-        bodies: monitoring.passages
-          .map(({ body }) => body)
-          .filter((body) => body.startsWith("Track dated cash after distributions")),
-        withheld: monitoring.withheld,
+        bodies: watch,
+        withheld: monitoring.withheld + monitoring.passages.length - watch.length,
       },
     ],
   };
@@ -525,13 +526,11 @@ function archivedPriceTrigger(entry: OutputEntry) {
     "Evidence ID",
   ]);
   const signal = "Explicit accrued/clean/dirty convention plus unrounded same-time two-way levels";
-  return table?.rows.some(
-    ({ cells }) =>
-      cells[0] === "RV01 Both actual price bases and precise values resolved" &&
-      cells[1] === signal,
-  )
-    ? [signal]
-    : [];
+  const rows = (table?.rows ?? []).filter(
+    ({ cells }) => cells[0] === "RV01 Both actual price bases and precise values resolved",
+  );
+  const bodies = rows.some(({ cells }) => cells[1] === signal) ? [signal] : [];
+  return { title: "What would change the view", bodies, withheld: rows.length - bodies.length };
 }
 
 function archivedRelativeValue(
@@ -599,8 +598,8 @@ function archivedRelativeValue(
   return {
     title: label ?? "Market-implied view",
     decision: [...findings.map(({ body }) => body), ...(hold ? [hold] : [])],
-    withheld: written.withheld + cut,
-    passages: [{ title: "What would change the view", bodies: archivedPriceTrigger(entry) }],
+    withheld: written.withheld + cut + selection.length - findings.length,
+    passages: [archivedPriceTrigger(entry)],
     restrictions: label ? [label] : [],
     overview: {
       title: "Published market comparison",
@@ -1204,7 +1203,7 @@ function selectedPortfolioPassage(position: OutputEntry, pattern: RegExp, safe: 
     const full = plainText(passage.body);
     const body = full.match(pattern)?.[1];
     return body ? [{ passage: { ...passage, body }, cut: unprinted(full, body) }] : [];
-  })[0];
+  });
 }
 
 const HOLDING_HEADERS = [
@@ -1285,14 +1284,19 @@ function portfolioExposure(view: ReportView, safe: SafeText, requiredObservation
     (requiredObservation && !hasDatedPortfolioEvidence(position, requiredObservation))
   )
     return null;
-  const observed = selectedPortfolioPassage(position, PORTFOLIO_EXPOSURE, safe);
-  const stress = selectedPortfolioPassage(position, PORTFOLIO_STRESS, safe);
+  const exposures = selectedPortfolioPassage(position, PORTFOLIO_EXPOSURE, safe);
+  const stresses = selectedPortfolioPassage(position, PORTFOLIO_STRESS, safe);
+  const [observed] = exposures;
+  const [stress] = stresses;
+  const read = readPassages(position, ["Portfolio view"], safe);
+  // Each passage that is neither the printed exposure nor a stress passage is counted here.
+  const unprintedHere = read.passages.length - stresses.length - (observed ? 1 : 0);
   return {
     observed: observed?.passage,
     exhibits: observed ? portfolioHoldings(position, safe) : [],
     conditions: stress ? [stress.passage.body] : [],
-    stressCut: stress?.cut ?? 0,
-    withheld: readPassages(position, ["Portfolio view"], safe).withheld + (observed?.cut ?? 0),
+    stressCut: stress ? stress.cut + stresses.length - 1 : 0,
+    withheld: read.withheld + unprintedHere + (observed?.cut ?? 0),
   };
 }
 
@@ -1312,11 +1316,12 @@ function archivedCommitteeChallenge(committee: OutputEntry, safe: SafeText) {
     "Required element",
     "Terminal portfolio view for separate delivery",
   ]);
-  if (memo?.headers.length !== 2) return [];
-  return memo.rows.flatMap(({ line, cells: [label = "", body = ""] }) => {
-    const challenge = Object.hasOwn(COMMITTEE_CHALLENGES, label)
-      ? COMMITTEE_CHALLENGES[label]
-      : undefined;
+  if (memo?.headers.length !== 2) return { rows: [], withheld: 0 };
+  const known = memo.rows.filter(({ cells: [label = ""] }) =>
+    Object.hasOwn(COMMITTEE_CHALLENGES, label),
+  );
+  const rows = known.flatMap(({ line, cells: [label = "", body = ""] }) => {
+    const challenge = COMMITTEE_CHALLENGES[label];
     if (!challenge || !safe(body)) return [];
     const trusted =
       body === challenge || body.startsWith(challenge + (challenge.endsWith(".") ? " " : "."));
@@ -1324,6 +1329,8 @@ function archivedCommitteeChallenge(committee: OutputEntry, safe: SafeText) {
     const rest = body.slice(challenge.length + (challenge.endsWith(".") ? 0 : 1));
     return [{ ...locatedPassage(committee, line, challenge), cut: rest.trim() ? 1 : 0 }];
   });
+  const cut = rows.reduce((sum, row) => sum + row.cut, 0);
+  return { rows, withheld: known.length - rows.length + cut };
 }
 
 const PORTFOLIO_DISPOSITION = "Final Sizing Posture: Requires More Work.";
@@ -1340,7 +1347,7 @@ function archivedPortfolioDecision(entry: OutputEntry, safe: SafeText) {
   })[0];
 }
 
-type PortfolioChallenge = ReturnType<typeof archivedCommitteeChallenge>[number];
+type PortfolioChallenge = ReturnType<typeof archivedCommitteeChallenge>["rows"][number];
 
 function portfolioRestriction(
   label: string | undefined,
@@ -1370,9 +1377,11 @@ interface PortfolioParts {
 
 function portfolioPurpose(parts: PortfolioParts): Purpose {
   const { committee, run, safe, archived, archive, archiveCut, position, hold, status } = parts;
-  const challenge = archive ? archivedCommitteeChallenge(committee, safe) : [];
+  const challenge = archive
+    ? archivedCommitteeChallenge(committee, safe)
+    : { rows: [], withheld: 0 };
   const charts = portfolioFigure(committee, run, safe);
-  const constraint = challenge.find(
+  const constraint = challenge.rows.find(
     ({ body }) => body === COMMITTEE_CHALLENGES["Sizing constraint"],
   );
   const findings = [
@@ -1388,7 +1397,8 @@ function portfolioPurpose(parts: PortfolioParts): Purpose {
   // The decision is chosen from the archived posture passages and the exposure passages: those the
   // check left out are counted once, here, although the stress section reads the exposure passages
   // too.
-  const posture = archived ? readPassages(committee, ["Final Sizing Posture"], safe).withheld : 0;
+  const read = archived ? readPassages(committee, ["Final Sizing Posture"], safe) : undefined;
+  const posture = read ? read.withheld + read.passages.length - (archive ? 1 : 0) : 0;
   return {
     title,
     decision: [...findings.map(({ body }) => body), ...(hold ? [hold] : [])],
@@ -1401,8 +1411,8 @@ function portfolioPurpose(parts: PortfolioParts): Purpose {
     passages: [
       {
         title: "Committee challenge and binding limits",
-        bodies: challenge.map(({ body }) => body),
-        withheld: challenge.reduce((sum, { cut }) => sum + cut, 0),
+        bodies: challenge.rows.map(({ body }) => body),
+        withheld: challenge.withheld,
       },
       {
         title: "Conditional stress on reported exposure",
