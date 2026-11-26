@@ -181,7 +181,7 @@ it("draws the evidence sentence for an amount whose citation cannot be set aside
   );
 });
 
-it("fits three unparsed rows of one year in their slots, whole in the title", () => {
+it("draws three unparsed rows of one year whole, each with its title", () => {
   const schedule: PathSchedule = {
     years: ["approx. 500", "- 250 (approx.)", "1,250 (of which RCF 200)"].map((text, at) => ({
       year: 2026,
@@ -195,21 +195,18 @@ it("fits three unparsed rows of one year in their slots, whole in the title", ()
   const labels = [...container.querySelectorAll("figure svg text")].filter((node) =>
     node.querySelector("title"),
   );
-  expect(labels.map((node) => node.lastChild?.textContent)).toEqual(["\u2026", "\u2026", "\u2026"]);
-  expect(labels.map((node) => node.querySelector("title")?.textContent)).toEqual([
-    "approx. 500",
-    "- 250 (approx.)",
-    "1,250 (of which RCF 200)",
-  ]);
+  const whole = ["approx. 500", "- 250 (approx.)", "1,250 (of which RCF 200)"];
+  expect(labels.map((node) => node.lastChild?.textContent)).toEqual(whole);
+  expect(labels.map((node) => node.querySelector("title")?.textContent)).toEqual(whole);
 });
 
-it("cuts a lone unparsed row at a word, never inside a figure", () => {
+it("draws a lone unparsed row whole", () => {
   const { container } = drawn(
     scheduleOf({ text: "1,250 (of which RCF 200)", value: null, reason: null }),
     [ok, ok],
   );
   const label = container.querySelector("figure svg text title")?.parentElement;
-  expect(label?.lastChild?.textContent).toBe("1,250\u2026");
+  expect(label?.lastChild?.textContent).toBe("1,250 (of which RCF 200)");
 });
 
 it("keeps the sign of an unparsed negative amount", () => {
@@ -231,15 +228,14 @@ it("hatches a bare gap marker with its own words and notes it", () => {
   expect(screen.getByText("Debt maturing, FY2027: n.a.")).toBeInTheDocument();
 });
 
-it("clamps a long unparsed label in the lane and keeps it whole in the reading and table", () => {
+it("draws a long unparsed label whole in the lane, the reading and the table", () => {
   const long = "approx. 500 of which revolving facility 200";
   const { container } = drawn(scheduleOf({ text: long, value: null, reason: null }), [ok, ok]);
   const label = [...container.querySelectorAll("figure svg text")].find((node) =>
     node.textContent.startsWith("approx"),
   );
   const drawnLabel = label?.lastChild?.textContent ?? "";
-  expect(drawnLabel.length).toBeLessThan(long.length);
-  expect(drawnLabel.endsWith("\u2026")).toBe(true);
+  expect(drawnLabel).toBe(long);
   expect(screen.getByRole("img").getAttribute("aria-label")).toContain(long);
   fireEvent.click(screen.getByRole("button", { name: "Table" }));
   expect(screen.getByText(long)).toBeInTheDocument();
