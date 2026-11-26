@@ -107,14 +107,52 @@ def _is_openpyxl(module: str) -> bool:
     return module == "openpyxl" or module.startswith("openpyxl.")
 
 
+def _import_module_names(tree: ast.AST) -> set[str]:
+    """Dotted names that call `importlib.import_module`: `importlib.import_module`,
+    `il.import_module` for `import importlib as il`, and `import_module` (or its
+    alias) after `from importlib import import_module`."""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "importlib":
+                    names.add(f"{alias.asname or alias.name}.import_module")
+        elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
+            for alias in node.names:
+                if alias.name == "import_module":
+                    names.add(alias.asname or alias.name)
+    return names
+
+
+def _imported_openpyxl_roots(tree: ast.AST) -> set[str]:
+    """Roots "x." for `x = importlib.import_module("openpyxl...")` bindings."""
+    loaders = _import_module_names(tree)
+    roots: set[str] = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)):
+            continue
+        call = node.value
+        first = call.args[0] if call.args else None
+        if (
+            _dotted(call.func) in loaders
+            and isinstance(first, ast.Constant)
+            and isinstance(first.value, str)
+            and _is_openpyxl(first.value)
+        ):
+            roots.update(f"{t.id}." for t in node.targets if isinstance(t, ast.Name))
+    return roots
+
+
 def _imports(tree: ast.AST) -> tuple[set[str], set[str], bool, set[int]]:
-    """Local names bound to `Workbook` (including `import openpyxl as x` roots,
-    stored as "x."), names bound to `ZipFile`, whether `load_workbook` is used,
-    and the lines importing xlsxwriter."""
+    """Local names bound to `Workbook` (including `import openpyxl as x` roots
+    and `x = importlib.import_module("openpyxl")` bindings, stored as "x."),
+    names bound to `ZipFile`, whether `load_workbook` is used, and the lines
+    importing xlsxwriter."""
     workbook_names: set[str] = set()
     zip_names: set[str] = set()
     loads_workbook = False
     xlsxwriter_lines: set[int] = set()
+    workbook_names |= _imported_openpyxl_roots(tree)
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             module = node.module or ""
@@ -265,12 +303,31 @@ def test_workbook_writer_import_forms():
 
 def test_only_allowed_modules_write_workbooks():
     assert len(WORKBOOK_WRITERS_ALLOWED) <= 1
+    for allowed in WORKBOOK_WRITERS_ALLOWED:
+        assert workbook_writers((REPO / allowed).read_text()), f"{allowed} is not detected"
     found = {
         p: workbook_writers((REPO / p).read_text())
         for p in tracked("src", "apps")
         if p.endswith(".py")
     }
     assert {p: n for p, n in found.items() if n and p not in WORKBOOK_WRITERS_ALLOWED} == {}
+
+
+_IMPORTLIB_WRITERS = {
+    "plain": 'import importlib\nx = importlib.import_module("openpyxl")\nx.Workbook()\n',
+    "alias": 'import importlib as il\nx = il.import_module("openpyxl.styles")\nx.Workbook()\n',
+    "from": 'from importlib import import_module as im\nx = im("openpyxl")\nx.Workbook()\n',
+}
+
+
+@pytest.mark.parametrize("name", sorted(_IMPORTLIB_WRITERS))
+def test_workbook_writers_sees_importlib_loading(name):
+    assert workbook_writers(_IMPORTLIB_WRITERS[name]) == [3]
+
+
+def test_workbook_writers_ignores_other_importlib_loading():
+    other = 'import importlib\nx = importlib.import_module("json")\nx.Workbook()\n'
+    assert workbook_writers(other) == []
 
 
 def test_tracked_raises_without_git(monkeypatch):
