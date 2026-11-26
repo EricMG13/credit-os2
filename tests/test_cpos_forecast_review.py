@@ -23,6 +23,7 @@ _PERIOD_ROWS = {
     "twelve": ["| FY2025 | 2024-07-01 | 2025-06-30 |"],
     "nine": ["| 9M 2025 | 2024-10-01 | 2025-06-30 |"],
     "none": [],
+    "both": ["| FY2025 | 2024-07-01 | 2025-06-30 |", "| Q4 2025 | 2025-04-01 | 2025-06-30 |"],
 }
 
 
@@ -101,3 +102,58 @@ def test_fy_label_with_a_date_is_accepted():
 
 def test_ltm_header_is_accepted():
     assert _parse("LTM 2025-06-30", "none").years[0].year == 2026
+
+
+_REFUSED = [
+    ("(2025-06-30)", "nine"),
+    ("2025-06-30 (unaudited)", "nine"),
+    ("Period ended 2025-06-30", "nine"),
+    ("(2025-06-30)", "none"),
+    ("As at 2025-06-30", "none"),
+    ("June 2025 (2025-06-30)", "nine"),
+    ("1Q25 (2025-03-31)", "none"),
+    ("Year ended 2025-06-30", "nine"),
+    ("2Q 2025-06-30", "twelve"),
+]
+_ACCEPTED = [
+    ("(2025-06-30)", "twelve"),
+    ("Period ended 2025-06-30", "twelve"),
+    ("Year ended 2025-06-30", "none"),
+    ("Year ended 2025-06-30", "twelve"),
+    ("(2025-06-30)", "both"),
+    ("Year ended 2025-06-30", "both"),
+]
+
+
+@pytest.mark.parametrize(("header", "periods"), _REFUSED)
+def test_a_decorated_date_header_without_twelve_month_dating_is_refused(header, periods):
+    with pytest.raises(ValueError, match="not a period the Forecast page can read"):
+        _parse(header, periods)
+
+
+@pytest.mark.parametrize(("header", "periods"), _ACCEPTED)
+def test_a_decorated_date_header_with_twelve_month_dating_or_year_is_accepted(header, periods):
+    assert _parse(header, periods).years[0].year == 2026
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "1Q25 (2025-03-31)",
+        "2Q 2025-06-30",
+        "1H25 (2025-06-30)",
+        "Quarter 2025",
+        "Half year 2025",
+        "Quarter ended 2025",
+    ],
+)
+def test_part_year_headers_do_not_read_as_a_year(header):
+    assert cpos_forecast._reads_as_year_or_ltm(header) is False
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["FY2024 / 2025-02-01", "Year ended 2024-12-31", "LTM 2025-06-30", "FY2024A", "FY24", "2024"],
+)
+def test_year_and_ltm_headers_still_read_as_a_year(header):
+    assert cpos_forecast._reads_as_year_or_ltm(header) is True

@@ -570,9 +570,11 @@ def _day_after(day: date, source: str) -> date:
 
 # A fiscal-year header: its label names the year, whatever date follows (`FY2024 / 2025-02-01`).
 _FY_LABEL = re.compile(r"FY(\d{4})(?: / \d{4}-\d{2}-\d{2})?", re.ASCII)
-# Words and forms that make a dated header a part-year column (`Q3 2025 (2025-06-30)`).
+# Words and forms that make a dated header a part-year column (`Q3 2025 (2025-06-30)`,
+# `1Q25 (2025-03-31)`).
 _PART_YEAR = re.compile(
-    r"\b(?:Q[1-4]|H[12]|\d{1,2}M|YTD|quarter|half|(?:[1-9]|1[01]|three|six|nine) months?)\b",
+    r"\b(?:Q[1-4]|H[12]|\d{1,2}M|YTD|quarter|half|(?:[1-9]|1[01]|three|six|nine) months?)\b"
+    r"|(?<![0-9A-Z])(?:[1-4]Q|[12]H)(?![A-Z])",
     re.IGNORECASE,
 )
 
@@ -588,25 +590,30 @@ def _reads_as_year_or_ltm(header: str) -> bool:
         return True
     if parsed.period_class is not PeriodClass.ACTUAL:
         return False
-    return parsed.span == "year" or (
+    return (parsed.span == "year" and not _PART_YEAR.search(header)) or (
         parsed.span == "date"
         and (_FY_LABEL.fullmatch(header.strip()) is not None or not _PART_YEAR.search(header))
     )
 
 
-_BARE_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
+_YEAR_WORD = re.compile(r"\byear\b", re.IGNORECASE)
 
 
-def _undated_bare_date(header: str, year_ends: frozenset[date]) -> bool:
-    """A header that is only a date, and not the end of a period CP-1's own period tables date as
-    twelve months: it may be an interim column, so it is no flow base."""
-    text = header.strip()
-    if _BARE_DATE.fullmatch(text) is None:
+def _undated_date(header: str, year_ends: frozenset[date], part_ends: frozenset[date]) -> bool:
+    """A dated header other than an FY label or LTM/TTM is a twelve-month column only when CP-1
+    dates a twelve-month period ending on its date, or it says `year` and CP-1 dates no shorter
+    period ending then; any other may be an interim column, so it is no flow base."""
+    parsed = parse_period(header)
+    if (
+        parsed is None
+        or parsed.period_class is not PeriodClass.ACTUAL
+        or parsed.span != "date"
+        or parsed.end is None
+        or _FY_LABEL.fullmatch(header.strip()) is not None
+    ):
         return False
-    try:
-        return date.fromisoformat(text) not in year_ends
-    except ValueError:
-        return True
+    end = date(*parsed.end)
+    return end in part_ends or (end not in year_ends and _YEAR_WORD.search(header) is None)
 
 
 def _flow_base(header: str) -> tuple[str, int, int] | None:
@@ -637,14 +644,12 @@ def _check_flow_period(inputs: ForecastInputs, cp1_text: str, source: str) -> No
     )
 
     headers = _flow_headers(inputs)
-    year_ends = frozenset(
-        end
-        for start, end in period_dates(period_tables(cp1_text))[0].values()
-        if (end - start).days + 1 in _TWELVE_MONTHS
-    )
+    spans = period_dates(period_tables(cp1_text))[0].values()
+    year_ends = frozenset(end for start, end in spans if (end - start).days + 1 in _TWELVE_MONTHS)
+    part_ends = frozenset(end for _, end in spans) - year_ends
     for key, header in headers.items():
         if period_of(header) is None and (
-            not _reads_as_year_or_ltm(header) or _undated_bare_date(header, year_ends)
+            not _reads_as_year_or_ltm(header) or _undated_date(header, year_ends, part_ends)
         ):
             raise ValueError(
                 f"{source}: base {key} is named under `{_cut(header, 40)}`, which is not a period "
