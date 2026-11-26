@@ -18,6 +18,7 @@ export type ServerRow = {
   measured: boolean;
   added: string | null;
   modules_page_only: boolean;
+  phases?: { name: string; added: string | null }[];
 };
 
 /** A summary's `estimate`: the rows, then the sum, the hold and the launcher's cap. */

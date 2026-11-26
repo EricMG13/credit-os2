@@ -28,6 +28,8 @@ written as rows instead of columns, or not found as a table under its heading is
 """
 
 import re
+from collections.abc import Mapping
+from dataclasses import asdict
 from functools import cache
 from typing import Any
 
@@ -44,7 +46,12 @@ from deploy_workflow.method_scripts import (
     register_table,
     registered,
 )
-from deploy_workflow.owners.cpos_launch_methods import METHODS, has_scope, pathway_method
+from deploy_workflow.owners.cpos_launch_methods import (
+    METHODS,
+    has_scope,
+    method_check_enabled,
+    pathway_method,
+)
 
 COMPLETENESS = SHARED + "completeness_check.py"
 # A declared column whose rows would address another module (ROUTING_RULES forbids them).
@@ -270,7 +277,9 @@ def _disqualified(cell: str, found: Any) -> bool:
     return text in found["blocklist"] or any(s and s in text for s in found["substrings"])
 
 
-def check(module: str, text: str, pathway: str | None = None) -> list[Outcome]:
+def check(
+    module: str, text: str, pathway: str | None = None, phases: tuple[str, ...] = ()
+) -> list[Outcome]:
     """Each required register's columns, rows and critical cells against the contract of the
     SKILL.md the module is sent in ``pathway``; none for a module sent no SKILL.md there."""
     if skill(module, pathway) is None:
@@ -284,8 +293,8 @@ def check(module: str, text: str, pathway: str | None = None) -> list[Outcome]:
     # Imported here: the launcher imports this module.
     from deploy_workflow.owners.cpos_launch import required_registers
 
-    scoped = has_scope(module, pathway)
-    required = set(required_registers(module, pathway))
+    scoped = bool(phases) or has_scope(module, pathway)
+    required = set(required_registers(module, pathway, phases))
     out: list[Outcome] = []
     for ident in sorted(found["registers"]):
         if scoped and ident not in required:
@@ -294,6 +303,35 @@ def check(module: str, text: str, pathway: str | None = None) -> list[Outcome]:
             continue
         out += _register(module, ident, found, text, scoped)
     return out
+
+
+def scoped_outcomes(
+    module: str, text: str, pathway: str, phases: tuple[str, ...]
+) -> tuple[Outcome, ...]:
+    return core._guarded(module, COMPLETENESS, lambda: check(module, text, pathway, phases))
+
+
+def scoped_record(
+    module: str, raw: bytes, upstream: Mapping[str, bytes], selection: Mapping[str, tuple[str, ...]]
+) -> dict[str, Any] | None:
+    """Record the checks used to accept a scoped custom handoff."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return core.record(module, raw, upstream, "custom")
+    outcomes = scoped_outcomes(module, text, "custom", selection[module])
+    if method_check_enabled(module, selection):
+        outcomes = (*core.run(module, text, core.upstream_texts(upstream)), *outcomes)
+    if not outcomes:
+        return None
+    hashes = core.registered()
+    return {
+        "kind": core.RECORD_KIND,
+        "module": module,
+        "response_sha256": core._sha(raw),
+        "scripts": {path: hashes.get(path) for path in sorted({o.script for o in outcomes})},
+        "checks": [asdict(outcome) for outcome in outcomes],
+    }
 
 
 core.register_shared(COMPLETENESS, check)
