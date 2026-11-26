@@ -3586,6 +3586,86 @@
    "column": "Value",
    "kind": "computed",
    "value": "Model provider"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
   }
  ],
  "blank_cells": [],

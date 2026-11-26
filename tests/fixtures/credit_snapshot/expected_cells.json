@@ -4369,6 +4369,806 @@
    "column": "Floor",
    "kind": "computed",
    "value": "90"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Index",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 1",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 2",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 3",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 4",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: loans",
+   "row": "Peer 5",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Index",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 1",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 2",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 3",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 4",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "Rating bucket",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "Level (bp)",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "Price",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "Facility rating",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "Bid",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "Ask",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "1M move",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Relative value: bonds",
+   "row": "Peer 5",
+   "column": "YTD move",
+   "kind": "analyst",
+   "value": ""
   }
  ],
  "blank_cells": [
