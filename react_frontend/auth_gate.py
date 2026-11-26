@@ -45,18 +45,16 @@ def session_token(headers: list[str]) -> str | None:
     # contains the text also blocks sign-in.
     if sum(header.count(COOKIE) for header in headers) != 1:
         return None
-    found: list[str] = []
-    for header in headers:
-        jar: SimpleCookie = SimpleCookie()
-        try:
-            jar.load(header)
-        except CookieError:
-            continue  # an unparseable header holds no session cookie
-        if COOKIE in jar:
-            found.append(jar[COOKIE].value)
-    if len(found) != 1 or not sessions.TOKEN.fullmatch(found[0]):
+    # The count rule leaves exactly one occurrence, so one header holds the name: parse it alone.
+    header = next(h for h in headers if COOKIE in h)
+    jar: SimpleCookie = SimpleCookie()
+    try:
+        jar.load(header)
+    except CookieError:
+        return None  # an unparseable header holds no session cookie
+    if COOKIE not in jar or not sessions.TOKEN.fullmatch(jar[COOKIE].value):
         return None
-    return found[0]
+    return jar[COOKIE].value
 
 
 def session_account(headers: list[str], folder: Path) -> store.Account | None:

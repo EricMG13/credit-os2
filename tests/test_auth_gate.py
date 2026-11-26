@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from http.client import HTTPConnection
+from http.cookies import SimpleCookie
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -412,6 +413,18 @@ def _case_insensitive(folder: Path) -> bool:
 
 
 @pytest.mark.usefixtures("no_scheduler")
+def test_a_case_variant_of_the_shared_folder_is_inside_it(web: Path, tmp_path: Path) -> None:
+    if not _case_insensitive(tmp_path / "probe"):
+        pytest.skip("the filesystem is case-sensitive, so a case variant is another folder")
+    shared = tmp_path / "CaseRoot"
+    shared.mkdir()
+    _refused(
+        shared, web, ValueError, INSIDE, sign_in=True, accounts_dir=tmp_path / "caseroot" / "acc"
+    )
+    assert not (tmp_path / "caseroot" / "acc").exists()
+
+
+@pytest.mark.usefixtures("no_scheduler")
 @pytest.mark.skipif(os.name == "nt", reason="symlinks need a privilege on Windows")
 def test_a_folder_reached_through_a_link_to_the_shared_folder_is_inside_it(
     web: Path, tmp_path: Path
@@ -462,3 +475,22 @@ def test_an_unparseable_cookie_header_is_no_session(
         status, body, _ = send(server, "/connected/reports", cookies=[header])
         assert status == 401
         assert json.loads(body) == {"error": "sign in first"}
+
+
+def test_only_the_header_that_holds_the_name_is_parsed(
+    root: Path, web: Path, accounts_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loads: list[int] = []
+
+    class Recording(SimpleCookie):
+        def load(self, rawdata: str) -> None:
+            loads.append(1)
+            super().load(rawdata)
+
+    with serving(root, web, sign_in=True, accounts_dir=accounts_dir) as server:
+        token = mint(accounts_dir)
+        monkeypatch.setattr("react_frontend.auth_gate.SimpleCookie", Recording)
+        headers = ["x=1"] * 50 + [f"credit_os_session={token}"]
+        status, body, _ = send(server, "/auth/me", cookies=headers)
+    assert (status, json.loads(body)) == (200, ME)
+    assert len(loads) == 1

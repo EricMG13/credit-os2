@@ -510,6 +510,15 @@ class Server(service._Server):
     signal: signal_host.SignalHost | None = None
 
 
+def _is_inside(folder: Path, root: Path) -> bool:
+    """Whether ``folder`` is ``root`` or under it by file identity (a case variant or an alias of
+    the volume names the same folder): ``folder`` itself or any ancestor that exists is the same
+    file as ``root``. Creates nothing."""
+    if not root.exists():
+        return False
+    return any(p.exists() and os.path.samefile(p, root) for p in (folder, *folder.parents))
+
+
 def _accounts_folder(
     root: Path, *, sign_in: bool, accounts_dir: Path | None, preview: bool
 ) -> Path | None:
@@ -525,7 +534,7 @@ def _accounts_folder(
     if not accounts_dir.is_absolute():  # before resolving: the store's own refusal, first
         raise account_store.StoreError(account_store.RELATIVE_FOLDER)
     folder = accounts_dir.resolve()
-    if folder.is_relative_to(root.resolve()):
+    if folder.is_relative_to(root.resolve()) or _is_inside(accounts_dir, root):
         raise ValueError("the account store's folder must not be inside the shared folder")
     account_store.open_db(folder).close()
     return folder
