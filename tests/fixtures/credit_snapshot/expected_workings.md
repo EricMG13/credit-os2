@@ -98,3 +98,16 @@ Matrix carries the methodology's constants as plain cells of Sources kind `rule`
 - `Credit Score rules` (sections 4 and 7), column `Value`: rows `Minimum scored factors` 12, `Floor level` 4, `Floor factor 1` Liquidity, `Floor factor 2` Maturity profile, `Cap level` 3.
 
 `rule` is exempt from "a label is not numeric" only by being its own kind.
+
+## 10. Task 5k: identifiers from a synthetic RV worksheet (rulings T5-a to T5-f; T5-f governs)
+
+`SYNTHETIC-rv-worksheet.csv` (the name says synthetic; a CSV's first row must be its header) has the 25 columns of `tests/fixtures/market-data/it-services.csv`. It is pinned in the every-module run only: `workflow.json` `sources["SYNTHETIC-rv-worksheet.csv"]` = `{"path": <name>, "sha256"}`, bytes at `inputs/<sha256>`, `workflow_sha256` re-pinned. Sheet rows (1 is the header):
+
+- Row 2, Northbridge Holdings plc, Loan Type B, FIGI `#N/A N/A`, Bloomberg ID `SYN4410021`, maturity `31-Mar-31`: matched. 2031-03-31 is on one matched row and on one T4.18 row (Term Loan B, `Term loan`, a loan; the row's Loan Type is a loan). A Bloomberg ID is an identifier (T5-f). JOINED: the Term Loan B's Inputs `Bloomberg ID` is copied (`SYN4410021`, line 2); its `FIGI` is a blank, unfilled cell with no Sources row (`blank_cells` in the key).
+- Rows 3 and 4 (both `01-Sep-32`, valid FIGIs and Bloomberg IDs): matched, but the date is on two matched rows: ambiguous. Listed, not joined (6.25% Senior Notes stay analyst).
+- Row 5 (Loan Type B, valid FIGI, `15-Jun-30`): matched, the only row with that date, and 2030-06-15 is the 4.50% Senior Notes' date, but that T4.18 line is `Notes` (a bond) and the row a loan: ruling T5-e, no join. Listed.
+- Row 6 and 8 (Cobalt Freight plc, rows 6 on `31-Mar-31`, 8 on `15-Mar-33`): another company, not matched, not listed (`Cobalt Freight` is an absent value). Row 6 shares the Term Loan B's date on purpose: an unmatched row must not make row 2's date ambiguous.
+- Row 7 (Company ` NORTHBRIDGE  HOLDINGS PLC `: case, surrounding and repeated spaces differ; the brief's literal ` NORTHBRIDGE ` would not equal the issuer name even so): matched (T5-b), `15-Mar-33` is on no T4.18 row. Listed, not joined.
+- Row 9 (FIGI `#N/A N/A`, Bloomberg ID `#N/A N/A`, `31-Dec-27` = the Receivables facility's date): matched, no identifier (T5-f), so never joined; the facility is also of unknown type. Listed as entered.
+
+`Market identifiers` (Inputs): rows `Row 2, 3, 4, 5, 7, 9` (the sheet's row number) x nine columns (Company, Borrower Name, Bloomberg ID, FIGI, Loan Type, Ranking, Size ($Mn), Margin, Maturity), kind `copied`, Module `RV worksheet`, Section the file name, Line the row, each text exactly the cell (54 entries). Every instrument not joined has yellow analyst `FIGI` and `Bloomberg ID` cells (in all three cases). The no-scorecard and TransDigm cases supply no sheet: one gap line (`Gap` / `Text`) `no market data sheet supplied`.

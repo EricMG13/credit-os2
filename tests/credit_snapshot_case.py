@@ -16,6 +16,7 @@ writer's code.
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import re
@@ -60,6 +61,8 @@ class Case:
     issuer_id: str = ISSUER_ID
     issuer_name: str = ISSUER_NAME
     as_of: str = AS_OF
+    # Supplied sources pinned in workflow.json `sources` (file name -> file), bytes at inputs/<sha>.
+    sources: tuple[tuple[str, Path], ...] = ()
 
     @property
     def run_id(self) -> str:
@@ -70,6 +73,10 @@ def _h(name: str) -> Path:
     return HANDOFFS / f"{name}.md"
 
 
+# A synthetic RV worksheet in the layout of tests/fixtures/market-data/it-services.csv, supplied
+# with the every-module run as an ordinary source.
+RV_NAME = "SYNTHETIC-rv-worksheet.csv"
+RV_MODULE = "RV worksheet"
 ALL_MODULES = {
     "CP-1": _h("CP-1"),
     "CP-1A": _h("CP-1A"),
@@ -81,7 +88,10 @@ ALL_MODULES = {
 }
 CASES = {
     # Every module the blocks name, a pinned context and stored references.
-    "full": Case("full", "credit_snapshot", ALL_MODULES, True, True, "expected_cells.json"),
+    "full": Case(
+        *("full", "credit_snapshot", ALL_MODULES, True, True, "expected_cells.json"),
+        sources=((RV_NAME, FIXTURES / RV_NAME),),
+    ),
     # A pathway without CP-2 and CP-1C (earnings_update), no pinned context, no stored reference,
     # and a CP-1 whose T4.18 has no Reporting Currency Amount or FX Rate.
     "no_scorecard": Case(
@@ -429,6 +439,10 @@ def build_case(workspace: Path, case: Case) -> Built:
         raw_context = context_bytes(as_of=case.as_of, pathway=case.pathway)
         digest = lf.put(run_dir / "inputs" / lf.sha(raw_context), raw_context)
         workflow["sources"] = {"context": {"path": "context.json", "sha256": digest}}
+    for name, path in case.sources:
+        raw_source = path.read_bytes()
+        digest = lf.put(run_dir / "inputs" / lf.sha(raw_source), raw_source)
+        workflow.setdefault("sources", {})[name] = {"path": name, "sha256": digest}
     workflow_sha = lf.put(run_dir / "workflow.json", json.dumps(workflow).encode())
 
     def completion_change(record: dict) -> None:
@@ -515,3 +529,11 @@ def same_figure(shown_text: str, expected: str) -> bool:
 
 def sha256(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def rv_cell(case: Case, section: str, line: int, column: str) -> str:
+    """One cell of a supplied RV worksheet, read with the stdlib `csv` module (not the product's
+    reader): the 1-based row `line` of the sheet in the file `section`, under header `column`."""
+    path = dict(case.sources)[section]
+    rows = list(csv.reader(path.read_text(encoding="utf-8").splitlines()))
+    return rows[line - 1][rows[0].index(column)]

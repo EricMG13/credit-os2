@@ -7,7 +7,8 @@
   "EBITDA bridge",
   "EBITDA measures",
   "Financials",
-  "Instruments"
+  "Instruments",
+  "Market identifiers"
  ],
  "entries": [
   {
@@ -3281,8 +3282,305 @@
    "column": "Value",
    "kind": "gap",
    "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Gap",
+   "column": "Text",
+   "kind": "gap",
+   "value": "no market data sheet supplied"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche I",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche I",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche J",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche J",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche K",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche K",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche L",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Tranche L",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving facility",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving facility",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2027 subordinated notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2027 subordinated notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2028 secured notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2028 secured notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "January 2029 subordinated notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "January 2029 subordinated notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2029 secured notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2029 secured notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "May 2029 subordinated notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "May 2029 subordinated notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2030 secured notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2030 secured notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2031 secured notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2031 secured notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2032 secured notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2032 secured notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2033 secured notes",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "2033 secured notes",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Trade receivable securitization",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Trade receivable securitization",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Government refundable advances",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Government refundable advances",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Finance leases",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Finance leases",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Financing cost adjustment",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Financing cost adjustment",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
   }
  ],
+ "blank_cells": [],
  "absent_blocks": [],
  "absent_values": [
   "NET SALES",

@@ -2088,6 +2088,675 @@
    "value": "needs add-back ids in the bridge"
   },
   {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Company",
+   "kind": "copied",
+   "value": "Northbridge Holdings plc",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Borrower Name",
+   "kind": "copied",
+   "value": "Northbridge Industrial Holdco Ltd",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Bloomberg ID",
+   "kind": "copied",
+   "value": "SYN4410021",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "FIGI",
+   "kind": "copied",
+   "value": "#N/A N/A",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Loan Type",
+   "kind": "copied",
+   "value": "B",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "1L Gtd Sr. Secd",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Size ($Mn)",
+   "kind": "copied",
+   "value": "600",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Margin",
+   "kind": "copied",
+   "value": "375",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 2",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "31-Mar-31",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Company",
+   "kind": "copied",
+   "value": "Northbridge Holdings plc",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Borrower Name",
+   "kind": "copied",
+   "value": "Northbridge Euro Holdco Ltd",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Bloomberg ID",
+   "kind": "copied",
+   "value": "SYN4410022",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "FIGI",
+   "kind": "copied",
+   "value": "SYN01NB00021",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Loan Type",
+   "kind": "copied",
+   "value": "B",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "1L Gtd Sr. Secd",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Size ($Mn)",
+   "kind": "copied",
+   "value": "400",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Margin",
+   "kind": "copied",
+   "value": "425",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 3",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "01-Sep-32",
+   "module": "RV worksheet",
+   "line": 3,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Company",
+   "kind": "copied",
+   "value": "Northbridge Holdings plc",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Borrower Name",
+   "kind": "copied",
+   "value": "Northbridge Euro Holdco II Ltd",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Bloomberg ID",
+   "kind": "copied",
+   "value": "SYN4410023",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "FIGI",
+   "kind": "copied",
+   "value": "SYN01NB00022",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Loan Type",
+   "kind": "copied",
+   "value": "B",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "1L Gtd Sr. Secd",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Size ($Mn)",
+   "kind": "copied",
+   "value": "350",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Margin",
+   "kind": "copied",
+   "value": "430",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 4",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "01-Sep-32",
+   "module": "RV worksheet",
+   "line": 4,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Company",
+   "kind": "copied",
+   "value": "Northbridge Holdings plc",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Borrower Name",
+   "kind": "copied",
+   "value": "Northbridge Sterling Ltd",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Bloomberg ID",
+   "kind": "copied",
+   "value": "SYN4410024",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "FIGI",
+   "kind": "copied",
+   "value": "SYN01NB00023",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Loan Type",
+   "kind": "copied",
+   "value": "B",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "2L Gtd Secd",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Size ($Mn)",
+   "kind": "copied",
+   "value": "350",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Margin",
+   "kind": "copied",
+   "value": "450",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 5",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "15-Jun-30",
+   "module": "RV worksheet",
+   "line": 5,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Company",
+   "kind": "copied",
+   "value": " NORTHBRIDGE  HOLDINGS PLC ",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Borrower Name",
+   "kind": "copied",
+   "value": "Northbridge Pacific Ltd",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Bloomberg ID",
+   "kind": "copied",
+   "value": "SYN4410025",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "FIGI",
+   "kind": "copied",
+   "value": "SYN01NB00024",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Loan Type",
+   "kind": "copied",
+   "value": "B",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "1L Gtd Sr. Secd",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Size ($Mn)",
+   "kind": "copied",
+   "value": "250",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Margin",
+   "kind": "copied",
+   "value": "400",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 7",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "15-Mar-33",
+   "module": "RV worksheet",
+   "line": 7,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Company",
+   "kind": "copied",
+   "value": "Northbridge Holdings plc",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Borrower Name",
+   "kind": "copied",
+   "value": "Northbridge Receivables Ltd",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Bloomberg ID",
+   "kind": "copied",
+   "value": "#N/A N/A",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "FIGI",
+   "kind": "copied",
+   "value": "#N/A N/A",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Loan Type",
+   "kind": "copied",
+   "value": "B",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Ranking",
+   "kind": "copied",
+   "value": "1L Gtd Sr. Secd",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Size ($Mn)",
+   "kind": "copied",
+   "value": "100",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Margin",
+   "kind": "copied",
+   "value": "175",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Row 9",
+   "column": "Maturity",
+   "kind": "copied",
+   "value": "31-Dec-27",
+   "module": "RV worksheet",
+   "line": 9,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Term Loan B",
+   "column": "Bloomberg ID",
+   "kind": "copied",
+   "value": "SYN4410021",
+   "module": "RV worksheet",
+   "line": 2,
+   "section": "SYNTHETIC-rv-worksheet.csv"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving Credit Facility",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving Credit Facility",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "4.50% Senior Notes 2030",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "6.25% Senior Notes 2032",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Receivables facility",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Receivables facility",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
    "sheet": "Snapshot",
    "block": "Header",
    "row": "Issuer",
@@ -3694,12 +4363,21 @@
    "value": "90"
   }
  ],
+ "blank_cells": [
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Term Loan B",
+   "column": "FIGI"
+  }
+ ],
  "absent_blocks": [],
  "absent_values": [
   "Revenues, net",
   "Operating margin",
   "Capital expenditures",
-  "Ba3"
+  "Ba3",
+  "Cobalt Freight"
  ],
  "basis_lines": [
   {

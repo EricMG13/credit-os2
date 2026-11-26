@@ -2024,6 +2024,94 @@
    "value": "needs add-back ids in the bridge"
   },
   {
+   "sheet": "Inputs",
+   "block": "Market identifiers",
+   "row": "Gap",
+   "column": "Text",
+   "kind": "gap",
+   "value": "no market data sheet supplied"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Term Loan B",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Term Loan B",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving Credit Facility",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Revolving Credit Facility",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "4.50% Senior Notes 2030",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "6.25% Senior Notes 2032",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Receivables facility",
+   "column": "FIGI",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Instruments",
+   "row": "Receivables facility",
+   "column": "Bloomberg ID",
+   "kind": "analyst",
+   "value": ""
+  },
+  {
    "sheet": "Snapshot",
    "block": "Header",
    "row": "Issuer",
@@ -2530,6 +2618,7 @@
    "value": "no reference stored"
   }
  ],
+ "blank_cells": [],
  "absent_blocks": [
   "Assessments",
   "Monitoring triggers",

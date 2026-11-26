@@ -24,9 +24,11 @@ first column's cell; a prose paragraph's is `<section> <n>`. See `expected_worki
 
 from __future__ import annotations
 
+import csv
 import json
 import re
 from collections import Counter
+from datetime import datetime
 from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
@@ -200,6 +202,10 @@ def test_every_expected_copied_value_is_a_cell_of_its_handoff_line():
         for entry in cs.expected_cells(case)["entries"]:
             if entry["kind"] != "copied":
                 continue
+            if entry["module"] == cs.RV_MODULE:
+                text = cs.rv_cell(case, entry["section"], entry["line"], entry["column"])
+                assert text == entry["value"], (case.name, entry)
+                continue
             raw = cs.physical_lines(case.handoffs[entry["module"]].read_text("utf-8"))[
                 entry["line"] - 1
             ]
@@ -372,6 +378,8 @@ def test_gather_yields_exactly_the_expected_cells(built):
         assert cs.same_figure(got[key].text, entry["value"]), (key, got[key].text)
         if entry["kind"] == "copied":
             assert (got[key].module, got[key].line) == (entry["module"], entry["line"]), key
+            if "section" in entry:
+                assert got[key].section == entry["section"], key
     unexpected = [k for k in got if in_scope(expected, k[0]) and k not in wanted]
     assert unexpected == []
     assert {c.block for c in cells}.isdisjoint(expected["absent_blocks"])
@@ -480,12 +488,25 @@ def test_sources_rows_are_of_known_kinds_and_one_per_cell(built, tmp_path):
     assert max(Counter((r["Sheet"], r["Cell"]) for r in opened.on_sheets()).values()) == 1
 
 
+def check_rv_row(opened, row: dict) -> None:
+    """A cell copied from a supplied RV worksheet: Section is the file, Line the 1-based row of the
+    sheet, Column the header; the text is that cell read with the stdlib `csv` module."""
+    case = opened.built.case
+    text = cs.rv_cell(case, row["Section"], int(row["Line"]), row["Column"])
+    assert row["Handoff text"] == text, row
+    assert holds(opened.cell(row["Sheet"], row["Cell"]), text), row
+    assert row["Handoff sha256"] == cs.sha256(dict(case.sources)[row["Section"]].read_bytes()), row
+
+
 def test_every_copied_sources_row_is_the_handoff_text(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     copied = [r for r in opened.on_sheets() if r["Kind"] == "copied"]
     assert copied
     for row in copied:
         module, text = row["Module"], row["Handoff text"]
+        if module == cs.RV_MODULE:
+            check_rv_row(opened, row)
+            continue
         raw_file = opened.built.handoff_text[module]
         raw = cs.physical_lines(raw_file)[int(row["Line"]) - 1]
         held = cs.pipe_cells(raw) if raw.lstrip().startswith("|") else [raw]
@@ -504,6 +525,7 @@ def test_every_expected_entry_is_written_with_its_kind_and_value(built, tmp_path
         if entry["kind"] == "copied":
             assert holds(cell, entry["value"]), entry
             assert (found[0]["Module"], int(found[0]["Line"])) == (entry["module"], entry["line"])
+            assert found[0]["Section"] == entry.get("section", found[0]["Section"]), entry
         else:
             assert cs.same_figure(opened.text_of(entry), entry["value"]), entry
         if entry.get("number"):
@@ -690,3 +712,76 @@ def test_every_methodology_constant_is_one_rule_row_on_matrix(built, tmp_path):
             assert isinstance(got, int | float) and Decimal(repr(got)) == want, row
         else:
             assert got == want, row
+
+
+def instrument_cell(opened, entry: dict, column: str):
+    """The Inputs cell under the `column` header in a joined instrument's row. The row is that of
+    the instrument's copied `Bloomberg ID` cell; the header row is the nearest row above it that
+    holds the `Bloomberg ID` header in the same column; `column`'s header is on that row."""
+    sheet = opened.book["Inputs"]
+    (found,) = opened.find({**entry, "column": "Bloomberg ID", "kind": "copied"})
+    where = sheet[found["Cell"]]
+    above = [
+        c.row for c in sheet[where.column_letter] if c.value == "Bloomberg ID" and c.row < where.row
+    ]
+    (head,) = [c for c in sheet[max(above)] if c.value == column]
+    return sheet.cell(row=where.row, column=head.column)
+
+
+def test_a_joined_instruments_missing_identifier_is_a_blank_unfilled_cell_with_no_sources_row(
+    built, tmp_path
+):
+    opened = open_workbook(built, tmp_path)
+    listed = {(r["Sheet"], r["Cell"]) for r in opened.on_sheets()}
+    for entry in opened.expected["blank_cells"]:
+        cell = instrument_cell(opened, entry, entry["column"])
+        assert cell.value in (None, ""), entry
+        assert cell.fill.fill_type is None, entry
+        assert (entry["sheet"], cell.coordinate) not in listed, entry
+        other = instrument_cell(opened, entry, "Bloomberg ID")
+        assert other.value not in (None, "") and (entry["sheet"], other.coordinate) in listed
+
+
+def test_the_rv_worksheet_is_pinned_like_a_run_source_and_has_the_sheets_layout(full):
+    raw_workflow = library_index.read_inside(full.folder, "workflow.json")
+    pin = json.loads(raw_workflow)["sources"][cs.RV_NAME]
+    raw = library_index.read_pinned(full.folder, f"inputs/{pin['sha256']}", pin["sha256"])
+    assert raw == (cs.FIXTURES / cs.RV_NAME).read_bytes()
+    real = (cs.TESTS / "fixtures" / "market-data" / "it-services.csv").read_text(encoding="utf-8")
+    ours = raw.decode("utf-8")
+    assert csv.reader(ours.splitlines()).__next__() == next(csv.reader(real.splitlines()))
+    assert len(next(csv.reader(ours.splitlines()))) == 25
+
+
+def test_the_joins_by_hand_rules_t5_d_to_t5_f_leave_only_the_term_loan_b_joined(full):
+    """Re-derived here with stdlib only: matched rows, maturities on one matched row and one T4.18
+    row, a loan on both sides, and an identifier present (FIGI of 12 capital letters and digits,
+    or a Bloomberg ID that is not a vendor error token)."""
+    rows = list(csv.reader((cs.FIXTURES / cs.RV_NAME).read_text(encoding="utf-8").splitlines()))
+    head, body = rows[0], rows[1:]
+    fold = lambda t: " ".join(t.split()).casefold()
+    matched = [r for r in body if fold(r[head.index("Company")]) == fold(cs.ISSUER_NAME)]
+    assert len(matched) == 6
+    day = lambda r: datetime.strptime(r[head.index("Maturity")], "%d-%b-%y").date()
+    t418 = full.handoff_text["CP-1"].split("### T4.18")[1].split("### T4.9")[0].splitlines()
+    table = [cs.pipe_cells(line) for line in t418 if line.startswith("|")]
+    names = table[0]
+    joined = []
+    for cells in table[2:]:
+        kind, when = cells[names.index("Type")].casefold(), cells[names.index("Maturity")]
+        same = [r for r in matched if day(r).isoformat() == when]
+        others = [c for c in table[2:] if c[names.index("Maturity")] == when]
+        loan_side = "loan" in kind
+        if len(same) != 1 or len(others) != 1 or not loan_side:
+            continue
+        row = same[0]
+        figi, bbg = row[head.index("FIGI")], row[head.index("Bloomberg ID")]
+        identified = re.fullmatch(r"[A-Z0-9]{12}", figi) or (bbg and not bbg.startswith("#"))
+        loan_type = row[head.index("Loan Type")]
+        if loan_type and not loan_type.startswith("#") and identified:
+            joined.append(cells[0])
+    assert joined == ["Term Loan B"]
+    expected = {key_of(e): e for e in cs.expected_cells(cs.CASES["full"])["entries"]}
+    assert ("Inputs", "Instruments", "Term Loan B", "Bloomberg ID", "copied") in expected
+    assert ("Inputs", "Instruments", "Term Loan B", "FIGI", "analyst") not in expected
+    assert len([k for k in expected if k[:2] == ("Inputs", "Market identifiers")]) == 6 * 9
