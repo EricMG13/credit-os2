@@ -1105,6 +1105,124 @@ def test_tagged_adjustments_keep_written_amount_when_linkage_is_unresolved(confl
             assert linked["Handoff sha256"] == cs.sha256(cp1d)
 
 
+@pytest.mark.parametrize("second_id", ["AB-2", "**AB-1**", ""])
+@pytest.mark.parametrize("prior_currency", ["USD", "GBP"])
+def test_model_keeps_each_adjustment_with_the_same_written_label(second_id, prior_currency):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, repeated adjustment caption."""
+    from deploy_workflow import credit_snapshot as snapshot
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    cp1 = f"""# Northbridge Holdings plc
+## Findings
+### T4.14 Model Period Register
+
+| period_id | fiscal_year | period_type | start_date | end_date | currency | unit |
+| --- | --- | --- | --- | --- | --- | --- |
+| prior | 2024 | FY | 2024-01-01 | 2024-12-31 | {prior_currency} | millions |
+| annual | 2025 | FY | 2025-01-01 | 2025-12-31 | USD | millions |
+
+### T4.17 Adjusted EBITDA Bridge
+
+| addback_label | Add-Back ID | period_id | value |
+| --- | --- | --- | --- |
+| Savings | AB-1 | prior | 18 |
+| Savings | AB-1 | annual | 20 |
+| Savings | {second_id} | annual | 30 |
+""".encode()
+    if second_id == "AB-2":
+        cp1 += b"""
+### Chart data: EBITDA bridge
+
+| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| Reported EBITDA | 100 | Not applicable | USD millions | Opening: reported. |
+| Savings | 20 | AB-1 | USD millions | Signed adjustment. |
+| Savings | 30 | AB-2 | USD millions | Signed adjustment. |
+| Adjusted EBITDA | 150 | Not applicable | USD millions | Closing: adjusted. |
+"""
+    cp1d = b"""# Northbridge Holdings plc
+## Findings
+### T1D.1 Add-Back Register
+
+| Add-Back ID | Description |
+| --- | --- |
+| AB-1 | Operations |
+| AB-2 | Procurement |
+
+### T1D.2 Achievability Assessment
+
+| Add-Back ID | Run-Rate Claimed | Realized To Date | Assessment |
+| --- | --- | --- | --- |
+| AB-1 | 20 | 20 | Supported |
+| AB-2 | 30 | 10 | Challenged |
+"""
+    run = snapshot.SnapshotRun(
+        issuer="Northbridge Holdings plc",
+        as_of="2026-03-31",
+        pathway="credit_snapshot",
+        run_id="synthetic-repeated-adjustment-caption",
+        handoffs={"CP-1": cp1, "CP-1D": cp1d},
+        context=None,
+        references=(),
+    )
+    book = load_workbook(BytesIO(writer.workbook_bytes(snapshot.gather(run))))
+    model = book["Model"]
+    source_values = iter(book["Sources"].values)
+    headings = next(source_values)
+    sources = [
+        dict(zip(headings, raw, strict=True))
+        for raw in source_values
+        if (raw[0], raw[3], raw[4]) == ("Model", "EBITDA adjustments", "Savings")
+    ]
+    amounts = {
+        model[source["Cell"]].value: source
+        for source in sources
+        if source["Column"] in {"FY2024", "FY2025"}
+    }
+    assert set(amounts) == {18, 20, 30}
+    same_row = model[amounts[18]["Cell"]].row == model[amounts[20]["Cell"]].row
+    assert same_row == (prior_currency == "USD")
+    assert model[amounts[20]["Cell"]].row != model[amounts[30]["Cell"]].row
+    units = {
+        model[source["Cell"]].row: model[source["Cell"]].value
+        for source in sources
+        if source["Column"] == "Unit"
+    }
+    assert units[model[amounts[18]["Cell"]].row] == f"{prior_currency} millions"
+    assert units[model[amounts[20]["Cell"]].row] == "USD millions"
+    assert units[model[amounts[30]["Cell"]].row] == "USD millions"
+    statuses = {
+        "AB-2": (("realised", 14), ("unrealised", 15)),
+        "**AB-1**": (("unclassified", 15), ("unclassified", 16)),
+        "": (("realised", 14), ("needs add-back ids in the bridge", 16)),
+    }
+    for amount, (status, line) in zip((20, 30), statuses[second_id], strict=True):
+        written = amounts[amount]
+        assert written["Line"] == (15 if amount == 20 else 16)
+        assert written["Handoff sha256"] == cs.sha256(cp1)
+        [linked] = [
+            source
+            for source in sources
+            if source["Column"] == "FY2025 linked realization"
+            and model[source["Cell"]].row == model[written["Cell"]].row
+        ]
+        assert model[linked["Cell"]].value == status
+        assert linked["Line"] == line
+        assert linked["Handoff sha256"] == cs.sha256(
+            cp1d if status in {"realised", "unrealised"} else cp1
+        )
+    if second_id == "AB-2":
+        for sheet, column in (("Snapshot", "Amount"), ("Model", "Bridge")):
+            chart = [
+                book[sheet][cell]
+                for source_sheet, cell, _, block, label, field, *_ in book["Sources"].values
+                if (source_sheet, block, field) == (sheet, "EBITDA bridge", column)
+                and label in {"Savings", "Savings (2)"}
+            ]
+            assert {cell.value for cell in chart} == {20, 30}
+            assert len({cell.row for cell in chart}) == 2
+
+
 def check_rv_row(opened, row: dict) -> None:
     """A cell copied from a supplied RV worksheet: Section is the file, Line the 1-based row of the
     sheet, Column the header; the text is that cell read with the stdlib `csv` module."""

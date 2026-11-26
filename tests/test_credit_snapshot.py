@@ -698,11 +698,33 @@ def test_bridge_arithmetic_keeps_plain_decimals_beyond_excel_precision():
 
 
 @pytest.mark.parametrize(
-    "assessment",
-    ("", "Under review", "[Insufficient Information]", "**[Insufficient Information]**"),
+    ("assessment", "expected"),
+    (
+        ("Supported", "realised"),
+        ("[Supported]", "realised"),
+        ("[Supported", "unclassified"),
+        ("Supported]", "unclassified"),
+        ("[[Supported]]", "unclassified"),
+        ("", "unclassified"),
+        ("Under review", "unclassified"),
+        ("[Insufficient Information]", "unclassified"),
+        ("**[Insufficient Information]**", "unclassified"),
+    ),
 )
-def test_only_closed_assessment_values_can_classify(assessment):
-    cp1d = FIXTURE["CP-1D"].replace("Supported", assessment, 1)
+def test_only_closed_assessment_values_can_classify(assessment, expected):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, matching modern AB-1 records."""
+    cp1d = f"""### T1D.1 Add-Back Register
+
+| Add-Back ID | Description |
+|---|---|
+| AB-1 | Cost savings |
+
+### T1D.2 Achievability Assessment
+
+| Add-Back ID | Run-Rate Claimed | Realized To Date | Assessment |
+|---|---:|---:|---|
+| AB-1 | 20 | 20 | {assessment} |
+"""
     prefix, _, _ = FIXTURE["CP-1"].partition("### Chart data: EBITDA bridge")
     cp1 = (
         prefix
@@ -710,19 +732,81 @@ def test_only_closed_assessment_values_can_classify(assessment):
 
 | Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |
 |---|---:|---|---|---|
-| Reported EBITDA | 312.4 | Not applicable | GBP millions | Opening EBITDA. |
-| Restructuring costs | 20.0 | AB-1 | GBP millions | Signed adjustment. |
-| Run-rate synergies | 12.5 | AB-2 | GBP millions | Signed adjustment. |
-| Pro forma acquisition EBITDA | 8.3 | AB-3 | GBP millions | Signed adjustment. |
-| Other adjustments | -2.0 | AB-4 | GBP millions | Signed adjustment. |
-| Adjusted EBITDA | 351.2 | Not applicable | GBP millions | Closing EBITDA. |
+| Reported EBITDA | 100 | Not applicable | GBP millions | Opening EBITDA. |
+| Restructuring costs | 20 | AB-1 | GBP millions | Signed adjustment. |
+| Adjusted EBITDA | 120 | Not applicable | GBP millions | Closing EBITDA. |
 """
     )
     snapshot = snap.gather(run_of(full(**{"CP-1": cp1, "CP-1D": cp1d})))
-    assert (
-        one(snapshot, "EBITDA bridge", "Restructuring costs", "Classification").text
-        == "unclassified"
+    assert one(snapshot, "EBITDA bridge", "Restructuring costs", "Classification").text == expected
+    house = one(snapshot, "EBITDA bridge", "House EBITDA", "Value")
+    assert (house.kind, house.text) == (
+        ("computed", "120") if expected == "realised" else ("gap", "unclassified")
     )
+
+
+@pytest.mark.parametrize("include_ids", [True, False], ids=["keyed", "legacy"])
+@pytest.mark.parametrize(
+    "orientation",
+    [
+        "reversed labels",
+        "reversed basis",
+        "emphasis",
+        "in conflict",
+        "qualified reverse",
+        "qualified forward",
+        "neutral",
+    ],
+)
+def test_bridge_preserves_amounts_and_respects_boundary_direction(include_ids, orientation):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, stated bridge orientation."""
+    captions = {
+        "reversed labels": ("Adjusted EBITDA", "Reported EBITDA", "As stated.", "As stated."),
+        "reversed basis": ("First term", "Last term", "Closing: adjusted.", "Opening: reported."),
+        "emphasis": ("**Adjusted EBITDA**", "Last term", "As stated.", "**Opening:** reported."),
+        "in conflict": (
+            "Reported EBITDA",
+            "Adjusted EBITDA",
+            "Closing: adjusted.",
+            "Closing: adjusted.",
+        ),
+        "qualified reverse": (
+            "EBITDA As Defined FY2024",
+            "EBITDA (Reported) FY2024",
+            "Opening: issuer-adjusted EBITDA.",
+            "Closing: issuer-reported EBITDA.",
+        ),
+        "qualified forward": (
+            "EBITDA (Reported) FY2024 / 2024-09-30",
+            "EBITDA As Defined (FY2024)",
+            "As stated.",
+            "As stated.",
+        ),
+        "neutral": ("First term", "Last term", "As stated.", "As stated."),
+    }
+    first, last, first_basis, last_basis = captions[orientation]
+    id_heading, id_separator = (" Add-Back ID |", "---|") if include_ids else ("", "")
+    endpoint, adjustment = (" Not applicable |", " AB-1 |") if include_ids else ("", "")
+    prefix, _, _ = FIXTURE["CP-1"].partition("### Chart data: EBITDA bridge")
+    cp1 = (
+        prefix
+        + f"""### Chart data: EBITDA bridge
+
+| Step | Amount |{id_heading} Reporting unit | Basis and limitation |
+|---|---:|{id_separator}---|---|
+| {first} | 100 |{endpoint} GBP millions | {first_basis} |
+| Savings | 20 |{adjustment} GBP millions | Signed adjustment. |
+| {last} | 120 |{endpoint} GBP millions | {last_basis} |
+"""
+    )
+    snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
+    assert one(snapshot, "EBITDA bridge", first, "Amount").text == "100"
+    assert one(snapshot, "EBITDA bridge", last, "Amount").text == "120"
+    total = one(snapshot, "EBITDA bridge", "Structuring EBITDA", "Value")
+    if orientation == "qualified forward" or (include_ids and orientation == "neutral"):
+        assert (total.kind, total.text) == ("computed", "120")
+    else:
+        assert total.kind == "gap"
 
 
 def test_an_optional_fixed_row_is_absent_when_the_table_lacks_it_a_required_one_is_a_gap():

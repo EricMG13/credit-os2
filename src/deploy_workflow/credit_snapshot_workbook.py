@@ -439,10 +439,10 @@ class _Table:
 
 
 def _by_row(cells: Iterable[snap.SnapshotCell]) -> list[Row]:
-    rows: dict[str, list[snap.SnapshotCell]] = {}
+    rows: dict[tuple[str, snap._RowKey | None], list[snap.SnapshotCell]] = {}
     for cell in cells:
-        rows.setdefault(cell.row, []).append(cell)
-    return list(rows.items())
+        rows.setdefault((cell.row, cell.row_key), []).append(cell)
+    return [(label, items) for (label, _), items in rows.items()]
 
 
 def _main(columns: Iterable[str]) -> set[str]:
@@ -1338,7 +1338,8 @@ def _model_period_register_cells(
     )
     cells: list[snap.SnapshotCell] = []
     dates_seen: set[str] = set()
-    units_seen: set[str] = set()
+    units_seen: set[tuple[str, snap._RowKey | None]] = set()
+    adjustment_counts: Counter[tuple[str, str, str]] = Counter()
     for row in table.rows:
         label, period_id, value = (
             _period_field(row, indexes, key) for key in (label_field, "periodid", value_field)
@@ -1363,11 +1364,13 @@ def _model_period_register_cells(
             )
             continue
         period, unit = registered.label, registered.unit
+        row_key = _tagged_row_key(row, label, registered, context, adjustment_counts)
+        row_cells: list[snap.SnapshotCell] = []
         row_label = label
         if ident == "T4.16":
             row_label = f"{label} · Revenue ({unit})" if unit else f"{label} · Revenue"
         if value:
-            cells.append(
+            row_cells.append(
                 snap.SnapshotCell(
                     MODEL,
                     name,
@@ -1381,12 +1384,10 @@ def _model_period_register_cells(
                 )
             )
         if ident == "T4.17":
-            cells.append(_tagged_bridge_status(row, label, registered, context))
-        if period not in dates_seen:
-            cells.extend(_registered_dates(registered, name))
-            dates_seen.add(period)
-        if ident != "T4.16" and unit and label not in units_seen:
-            cells.append(
+            row_cells.append(_tagged_bridge_status(row, label, registered, context))
+        unit_key = label, row_key
+        if ident != "T4.16" and unit and unit_key not in units_seen:
+            row_cells.append(
                 snap.SnapshotCell(
                     MODEL,
                     name,
@@ -1397,8 +1398,12 @@ def _model_period_register_cells(
                     *registered.source,
                 )
             )
-            units_seen.add(label)
-        _append_register_context(cells, row, label, period, context)
+            units_seen.add(unit_key)
+        _append_register_context(row_cells, row, label, period, context)
+        cells.extend(replace(item, row_key=row_key) if row_key else item for item in row_cells)
+        if period not in dates_seen:
+            cells.extend(_registered_dates(registered, name))
+            dates_seen.add(period)
     return cells
 
 
@@ -1512,6 +1517,23 @@ class _RegisterContext:
     classifications: Mapping[str, snap._BridgeClassification]
     id_counts: Counter[tuple[str, str]]
     ambiguous_id_columns: bool
+
+
+def _tagged_row_key(
+    row: snap._Row,
+    label: str,
+    period: _RegisteredPeriod,
+    context: _RegisterContext,
+    counts: Counter[tuple[str, str, str]],
+) -> snap._RowKey | None:
+    if context.ident != "T4.17":
+        return None
+    key = snap._add_back_id_text(_period_field(row, context.indexes, "addbackid"))
+    if not snap._valid_add_back_id(key):
+        key = ""
+    occurrence = label, period.label, key
+    counts[occurrence] += 1
+    return key, period.unit or "", counts[occurrence]
 
 
 def _tagged_id_counts(

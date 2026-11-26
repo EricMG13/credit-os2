@@ -64,7 +64,7 @@ from deploy_workflow.cp2_scorecard import (
     ScorecardError,
     parse_scorecard,
 )
-from deploy_workflow.credit_os_catalogue import pathway_title
+from deploy_workflow.credit_os_catalogue import pathway_title, period_order
 from deploy_workflow.method_scripts import _register_start, currency_of, scale_of
 from deploy_workflow.owners.cpos_cp1_check import (
     METRICS,
@@ -308,6 +308,9 @@ def drawn_text(text: str, names: Mapping[str, str]) -> str:
 # --- The data model -----------------------------------------------------------------------------
 
 
+type _RowKey = tuple[str, str, int]
+
+
 @dataclass(frozen=True)
 class SnapshotCell:
     """One item the workbook shows. `block`, `row` and `column` are the key's vocabulary
@@ -318,7 +321,9 @@ class SnapshotCell:
     of a scorecard level or assessment view that is not the plain value `cp2_scorecard` read
     (`**5**`) or of module text that named a module by its code: the cell then holds the parsed or
     reader value, as computed, and `written` is kept on Sources. On a gap, `written` is the
-    technical reason the table could not be read (Sources only)."""
+    technical reason the table could not be read (Sources only). The Model's optional row key
+    holds the add-back ID, unit and occurrence within a period. The displayed label stays as
+    written."""
 
     sheet: str
     block: str
@@ -332,6 +337,7 @@ class SnapshotCell:
     basis: str | None = None
     written: str | None = None
     number_format: str | None = None
+    row_key: _RowKey | None = None
 
     @property
     def figure(self) -> Figure | None:
@@ -1698,7 +1704,9 @@ def _unique_optional_index(table: _Table, name: str) -> int | None:
 
 
 def _verdict(row: _Row, claimed: int, realized: int, assessment: int) -> str:
-    stated = _fold(_add_back_id_text(row.cells[assessment])).strip("[]")
+    stated = _fold(_add_back_id_text(row.cells[assessment]))
+    if stated.startswith("[") and stated.endswith("]"):
+        stated = stated[1:-1]
     if stated not in {"supported", "challenged", "rejected"}:
         return UNCLASSIFIED
     run_rate, achieved = row.cells[claimed], row.cells[realized]
@@ -1748,7 +1756,7 @@ def _bridge_source_cells(
     classifications: dict[str, _BridgeClassification],
 ) -> list[SnapshotCell]:
     table, step, amount, unit = layout.table, layout.step, layout.amount, layout.unit
-    id_index, basis_index, id_counts = layout.id_index, layout.basis_index, layout.id_counts
+    id_index, id_counts = layout.id_index, layout.id_counts
     cells = []
     for position, row in enumerate(table.rows):
         label, at = row.cells[step], table.at(row.line)
@@ -1757,12 +1765,7 @@ def _bridge_source_cells(
             cells.append(mk.copied(at, label, column, row.cells[index]))
         raw_key = row.cells[id_index] if id_index is not None else ""
         key = _add_back_id_text(raw_key)
-        endpoint = (
-            _legacy_bridge_endpoint(table, position, step, basis_index)
-            if id_index is None
-            else position in {0, len(table.rows) - 1} and key.casefold() == "not applicable"
-        )
-        if endpoint:
+        if _bridge_endpoint(layout, position):
             cells.append(_bridge_computed(mk, at, label, "Classification", "not applicable"))
         elif id_index is None or not key:
             cells.append(_bridge_gap(mk, at, label, "Classification", NEEDS_ADD_BACK_IDS))
@@ -1787,25 +1790,42 @@ def _bridge_source_cells(
     return cells
 
 
-def _legacy_bridge_endpoint(
-    table: _Table, position: int, step_index: int, basis_index: int | None
-) -> bool:
-    is_boundary = position in {0, len(table.rows) - 1}
-    if is_boundary and basis_index is not None:
-        basis = table.rows[position].cells[basis_index].casefold()
-        if basis.startswith(("opening:", "closing:", "opening ", "closing ")):
-            return True
-    label = _fold(table.rows[position].cells[step_index])
-    return is_boundary and label in {
-        "reported ebitda",
-        "ebitda (reported)",
-        "ebitda reported",
-        "adjusted ebitda",
-        "ebitda (adjusted)",
-        "ebitda adjusted",
-        "issuer adjusted ebitda",
-        "ebitda as defined",
-    }
+_BRIDGE_OPENING_LABELS = {"reported ebitda", "ebitda (reported)", "ebitda reported"}
+_BRIDGE_CLOSING_LABELS = {
+    "adjusted ebitda",
+    "ebitda (adjusted)",
+    "ebitda adjusted",
+    "issuer adjusted ebitda",
+    "ebitda as defined",
+}
+
+
+def _bridge_caption_names(caption: str, labels: set[str]) -> bool:
+    return any(
+        caption == label
+        or (caption.startswith(f"{label} ") and period_order(caption[len(label) :]) is not None)
+        for label in labels
+    )
+
+
+def _bridge_endpoint(layout: _BridgeLayout, position: int) -> bool:
+    if position not in {0, len(layout.table.rows) - 1}:
+        return False
+    row = layout.table.rows[position]
+    caption = _fold(hd.plain(row.cells[layout.step]))
+    basis = _fold(hd.plain(row.cells[layout.basis_index])) if layout.basis_index is not None else ""
+    opens = _bridge_caption_names(caption, _BRIDGE_OPENING_LABELS) or basis.startswith(
+        ("opening:", "opening ")
+    )
+    closes = _bridge_caption_names(caption, _BRIDGE_CLOSING_LABELS) or basis.startswith(
+        ("closing:", "closing ")
+    )
+    expected, opposite = (opens, closes) if position == 0 else (closes, opens)
+    if opposite:
+        return False
+    if layout.id_index is None:
+        return expected
+    return _add_back_id_text(row.cells[layout.id_index]).casefold() == "not applicable"
 
 
 def _bridge_computed(mk: _Maker, at: _At, row: str, column: str, value: str) -> SnapshotCell:
@@ -1877,17 +1897,13 @@ def _bridge_totals(
 
 
 def _bridge_boundaries(layout: _BridgeLayout, units: list[str]) -> bool:
-    table, id_index = layout.table, layout.id_index
-    if len(table.rows) < 2 or not _same_bridge_units(units):
-        return False
-    if id_index is not None:
-        return (
-            _add_back_id_text(table.rows[0].cells[id_index]).casefold() == "not applicable"
-            and _add_back_id_text(table.rows[-1].cells[id_index]).casefold() == "not applicable"
-        )
-    return _legacy_bridge_endpoint(
-        table, 0, layout.step, layout.basis_index
-    ) and _legacy_bridge_endpoint(table, len(table.rows) - 1, layout.step, layout.basis_index)
+    size = len(layout.table.rows)
+    return (
+        size >= 2
+        and _same_bridge_units(units)
+        and _bridge_endpoint(layout, 0)
+        and _bridge_endpoint(layout, size - 1)
+    )
 
 
 def _same_bridge_units(units: list[str]) -> bool:
