@@ -7,6 +7,7 @@ below come from the hand-written CP-1 bridge row order, not the check implementa
 import pytest
 
 from deploy_workflow import method_scripts as ms
+from deploy_workflow.owners import cpos_launch
 
 
 def _table(
@@ -40,7 +41,13 @@ def _run(
             (f"Add-back {i}", "5", ident, "USD millions", "Bridge")
             for i, ident in enumerate(cp1_ids, start=1)
         ),
-        ("Adjusted EBITDA", "110", "Not applicable", "USD millions", "Adjusted"),
+        (
+            "Adjusted EBITDA",
+            str(100 + 5 * len(cp1_ids)),
+            "Not applicable",
+            "USD millions",
+            "Adjusted",
+        ),
     )
     upstream = {
         "CP-1": _table(
@@ -105,13 +112,111 @@ def test_cp1d_keeps_stated_ids_and_skips_interior_no_key_bridge_positions():
         heading="###",
     )
     response = (
-        "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n| AB-7 | Copied |\n\n"
-        "## T1D.2\n\n| Add-Back ID | Assessment |\n| --- | --- |\n| AB-7 | Assessed |"
+        "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n"
+        "| Not supplied: CP-1 does not state an Add-Back ID for this adjustment | Gap |\n"
+        "| AB-7 | Copied |\n\n"
+        "## T1D.2\n\n| Add-Back ID | Assessment |\n| --- | --- |\n"
+        "| Not supplied: CP-1 does not state an Add-Back ID for this adjustment | Gap |\n"
+        "| AB-7 | Assessed |"
     )
 
     outcomes = ms.run("CP-1D", response, {"CP-1": bridge})
 
     assert [outcome.status for outcome in outcomes] == ["agreed", "agreed"]
+
+
+def test_cp1d_distinguishes_unknown_gap_bridge_from_known_zero_addbacks():
+    table_spec = next(
+        table
+        for table in cpos_launch.OWNER_TABLES["CP-1"]
+        if table.heading.endswith("EBITDA bridge")
+    )
+    header = ("Step", "Amount", "Add-Back ID", "Reporting unit", "Basis and limitation")
+    cases = (
+        (
+            "named adjustment with unknown amount and ID",
+            (
+                (
+                    "Reported EBITDA",
+                    "Not supplied: synthetic",
+                    "Not applicable",
+                    "US$m",
+                    "Synthetic",
+                ),
+                (
+                    "Restructuring adjustment",
+                    "Not supplied: synthetic",
+                    "Not applicable",
+                    "US$m",
+                    "Synthetic",
+                ),
+                (
+                    "Adjusted EBITDA",
+                    "Not supplied: synthetic",
+                    "Not applicable",
+                    "US$m",
+                    "Synthetic",
+                ),
+            ),
+            "Not supplied: CP-1 does not state an Add-Back ID for this adjustment",
+        ),
+        (
+            "boundary-only bridge with unknown amounts",
+            (
+                (
+                    "Reported EBITDA",
+                    "Not supplied: synthetic",
+                    "Not applicable",
+                    "US$m",
+                    "Synthetic",
+                ),
+                (
+                    "Adjusted EBITDA",
+                    "Not supplied: synthetic",
+                    "Not applicable",
+                    "US$m",
+                    "Synthetic",
+                ),
+            ),
+            "Not supplied: CP-1 bridge amounts do not establish whether add-backs exist",
+        ),
+        (
+            "single all-gap row",
+            (("EBITDA bridge", "Not supplied: synthetic", "Not applicable", "US$m", "Synthetic"),),
+            "Not supplied: CP-1 bridge amounts do not establish whether add-backs exist",
+        ),
+        (
+            "numeric equal boundaries with no adjustment rows",
+            (
+                ("Reported EBITDA", "100", "Not applicable", "US$m", "Synthetic"),
+                ("Adjusted EBITDA", "100", "Not applicable", "US$m", "Synthetic"),
+            ),
+            "NONE",
+        ),
+    )
+
+    for name, rows, required_id in cases:
+        cp1 = _table("Chart data: EBITDA bridge", header, rows, heading="###")
+        assert cpos_launch.chart_issues(cp1, table_spec, money="US$m") == (), name
+        response = (
+            "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n"
+            f"| {required_id} | Synthetic case |\n\n"
+            "## T1D.2\n\n| Add-Back ID | Assessment |\n| --- | --- |\n"
+            f"| {required_id} | Synthetic case |"
+        )
+        outcomes = ms.run("CP-1D", response, {"CP-1": cp1})
+        assert [outcome.status for outcome in outcomes] == ["agreed", "agreed"], name
+        if required_id != "NONE":
+            invented_zero = response.replace(required_id, "NONE")
+            outcomes = ms.run("CP-1D", invented_zero, {"CP-1": cp1})
+            assert [outcome.status for outcome in outcomes] == ["disagreed", "disagreed"], name
+        else:
+            unverified_gap = response.replace(
+                "NONE",
+                "Not supplied: CP-1 bridge amounts do not establish whether add-backs exist",
+            )
+            outcomes = ms.run("CP-1D", unverified_gap, {"CP-1": cp1})
+            assert [outcome.status for outcome in outcomes] == ["missing", "missing"], name
 
 
 @pytest.mark.parametrize("source_id", ("AB*-1", "AB`-1"))
@@ -137,7 +242,10 @@ def test_cp1d_blocked_handoff_does_not_require_addback_registers():
     cp1 = _table(
         "Chart data: EBITDA bridge",
         ("Step", "Amount", "Add-Back ID", "Reporting unit", "Basis and limitation"),
-        (("Reported EBITDA", "100", "Not applicable", "USD millions", "Synthetic"),),
+        (
+            ("Reported EBITDA", "100", "Not applicable", "USD millions", "Synthetic"),
+            ("Adjusted EBITDA", "100", "Not applicable", "USD millions", "Synthetic"),
+        ),
         heading="###",
     )
     blocked = "---\nmodule_status: Blocked\n---\n## Findings\nStopped at input gate."
@@ -183,7 +291,10 @@ def test_cp1d_does_not_treat_nested_blocked_status_as_a_blocked_handoff():
     cp1 = _table(
         "Chart data: EBITDA bridge",
         ("Step", "Amount", "Add-Back ID", "Reporting unit", "Basis and limitation"),
-        (("Reported EBITDA", "100", "Not applicable", "USD millions", "Synthetic"),),
+        (
+            ("Reported EBITDA", "100", "Not applicable", "USD millions", "Synthetic"),
+            ("Adjusted EBITDA", "100", "Not applicable", "USD millions", "Synthetic"),
+        ),
         heading="###",
     )
     nested_status = (
@@ -236,7 +347,10 @@ def test_cp1d_old_bridge_without_ids_is_not_blocked():
     cp1 = _table(
         "T4.17",
         ("Step", "Amount", "Reporting unit", "Basis and limitation"),
-        (("Reported EBITDA", "100", "USD millions", "Reported"),),
+        (
+            ("Reported EBITDA", "100", "USD millions", "Reported"),
+            ("Adjusted EBITDA", "100", "USD millions", "Synthetic"),
+        ),
     )
     response = (
         "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n| NONE | No add-back |\n\n"
@@ -245,6 +359,90 @@ def test_cp1d_old_bridge_without_ids_is_not_blocked():
     outcomes = ms.run("CP-1D", response, {"CP-1": cp1})
 
     assert [outcome.status for outcome in outcomes] == ["agreed", "agreed"]
+
+
+def test_cp1d_compares_stated_ids_without_needing_an_amount_column():
+    cp1 = _table(
+        "T4.17",
+        ("Step", "Add-Back ID"),
+        (
+            ("Reported EBITDA", "Not applicable"),
+            ("Restructuring", "AB-1"),
+            ("Adjusted EBITDA", "Not applicable"),
+        ),
+    )
+    response = (
+        "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n| AB-1 | Copied |\n\n"
+        "## T1D.2\n\n| Add-Back ID | Assessment |\n| --- | --- |\n| AB-1 | Assessed |"
+    )
+
+    assert [outcome.status for outcome in ms.run("CP-1D", response, {"CP-1": cp1})] == [
+        "agreed",
+        "agreed",
+    ]
+
+
+def test_cp1d_compares_every_row_in_a_tagged_adjustment_register():
+    cp1 = _table(
+        "T4.17",
+        ("addback_id", "addback_label", "value"),
+        (("AB-1", "Restructuring", "5"), ("AB-2", "Integration", "3"), ("AB-3", "Other", "2")),
+    )
+    response = (
+        "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n"
+        "| AB-1 | Restructuring |\n| AB-2 | Integration |\n| AB-3 | Other |\n\n"
+        "## T1D.2\n\n| Add-Back ID | Assessment |\n| --- | --- |\n"
+        "| AB-1 | Assessed |\n| AB-2 | Assessed |\n| AB-3 | Assessed |"
+    )
+
+    assert [outcome.status for outcome in ms.run("CP-1D", response, {"CP-1": cp1})] == [
+        "agreed",
+        "agreed",
+    ]
+
+
+def test_cp1d_preserves_stated_ids_at_chart_boundary_positions():
+    cp1 = _table(
+        "Chart data: EBITDA bridge",
+        ("Step", "Amount", "Add-Back ID"),
+        (
+            ("Reported EBITDA", "100", "AB-1"),
+            ("Restructuring", "5", "AB-2"),
+            ("Adjusted EBITDA", "105", "AB-3"),
+        ),
+        heading="###",
+    )
+    response = (
+        "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n"
+        "| AB-1 | Reported |\n| AB-2 | Restructuring |\n| AB-3 | Adjusted |\n\n"
+        "## T1D.2\n\n| Add-Back ID | Assessment |\n| --- | --- |\n"
+        "| AB-1 | Reported |\n| AB-2 | Assessed |\n| AB-3 | Adjusted |"
+    )
+
+    assert [outcome.status for outcome in ms.run("CP-1D", response, {"CP-1": cp1})] == [
+        "agreed",
+        "agreed",
+    ]
+
+
+def test_cp1d_legacy_single_row_all_gap_is_an_unknown_bridge_not_an_adjustment():
+    cp1 = _table(
+        "T4.17",
+        ("Step", "Amount", "Reporting unit", "Basis and limitation"),
+        (("EBITDA bridge", "Not supplied: synthetic", "USD millions", "Synthetic"),),
+    )
+    marker = "Not supplied: CP-1 bridge amounts do not establish whether add-backs exist"
+    response = (
+        "## T1D.1\n\n| Add-Back ID | Description |\n| --- | --- |\n"
+        f"| {marker} | Unknown bridge |\n\n"
+        "## T1D.2\n\n| Add-Back ID | Assessment |\n| --- | --- |\n"
+        f"| {marker} | Unknown bridge |"
+    )
+
+    assert [outcome.status for outcome in ms.run("CP-1D", response, {"CP-1": cp1})] == [
+        "agreed",
+        "agreed",
+    ]
 
 
 def test_cp1d_legacy_bridge_requires_explicit_missing_key_for_each_adjustment():

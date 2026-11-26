@@ -776,7 +776,7 @@ last-change commit given). Hashes and the named edits are in `manifest.json`.
   STEP_CONTRACTS sections written for the JSON runtime are no longer sent. CP-1 becomes a scored module
   (Confidence inputs). The schema and system references are archived, not sent.
 - CP-1A: PR #83 Deploy V skill and step bundles (cp-os `b57a344`), no later edit.
-- CP-1D: archived cp-os skill, edited in this repository: rule 7 copies each supplied Add-Back ID to T1D.1/T1D.2 and requires an explicit missing-key marker for each adjustment when the older bridge has no ID column; rule 8 retains the empty-bridge `NONE` row from caos (`99069f83`). The CP-1D delivery check enforces the join key.
+- CP-1D: archived cp-os skill, edited in this repository: rule 7 copies supplied Add-Back IDs to T1D.1/T1D.2, requires distinct markers for unkeyed adjustments and boundary-only gap bridges, and reserves `NONE` for known zero add-backs; rule 8 retains the empty-bridge `NONE` row from caos (`99069f83`). The CP-1D delivery check enforces the join key.
 - CP-2G: step bundle plus caos (`592ee83a`) assumption-register rule: `base` and `downside` rows.
 - CP-2H, CP-3: now the live cp-os `b57a344` files (last changed `115f664`) after one named edit each: `unknown`
   (CP-2H) and `not assessable` (CP-3) dropped from the critical-cell blocklist.
@@ -1127,7 +1127,7 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-1B | `docs/reuse/selected-methods/skills/cp-1b-earnings-delta/references/REF_CP-1B_STEPS.md` | cp-os | no | b57a344 | `5a5baa859471` |
 | CP-1C | `docs/reuse/selected-methods/skills/cp-1c-peer-benchmark/SKILL.md` | cp-os | no | not recorded | `4bd3b130ce0b` |
 | CP-1C | `docs/reuse/selected-methods/skills/cp-1c-peer-benchmark/references/REF_CP-1C_STEPS.md` | cp-os | no | not recorded | `fbbed9bac006` |
-| CP-1D | `docs/reuse/selected-methods/skills/cp-1d-earnings-quality/SKILL.md` | cp-os | yes | e67bf0c, 99069f83 | `ea91ac34e180` |
+| CP-1D | `docs/reuse/selected-methods/skills/cp-1d-earnings-quality/SKILL.md` | cp-os | yes | e67bf0c, 99069f83 | `e896bd58ed7f` |
 | CP-L10 | `src/deploy_vii/methods/cpl10.md` | this repo | no | this repo | `8c1eac8940dd` |
 | CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/SKILL.md` | cp-os | no | b57a344 | `8ebb7d70cd46` |
 | CP-L10 | `docs/reuse/selected-methods/skills/cp-l10-financial-change-screen/references/REF_CP-L10_ADAPTIVE_METHOD.md` | cp-os | no | b57a344 | `0481a8aa4d7a` |

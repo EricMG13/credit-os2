@@ -2,15 +2,19 @@
 
 from collections import Counter
 
-LEGACY_KEY = "Not supplied: CP-1 bridge has no Add-Back ID"
+GAP_MARKERS = {
+    "Not supplied: CP-1 bridge has no Add-Back ID",
+    "Not supplied: CP-1 does not state an Add-Back ID for this adjustment",
+    "Not supplied: CP-1 bridge amounts do not establish whether add-backs exist",
+}
 
 
 def compare(expected, actual):
     """Describe differences between the bridge IDs and a CP-1D register."""
-    expected_gaps = expected.count(LEGACY_KEY)
-    actual_gaps = actual.count(LEGACY_KEY)
-    expected_ids = [ident for ident in expected if ident != LEGACY_KEY]
-    actual_ids = [ident for ident in actual if ident != LEGACY_KEY]
+    expected_markers = Counter(ident for ident in expected if ident in GAP_MARKERS)
+    actual_markers = Counter(ident for ident in actual if ident in GAP_MARKERS)
+    expected_ids = [ident for ident in expected if ident not in GAP_MARKERS]
+    actual_ids = [ident for ident in actual if ident not in GAP_MARKERS]
     expected_counts = Counter(expected_ids)
     actual_counts = Counter(actual_ids)
     missing = [
@@ -25,10 +29,20 @@ def compare(expected, actual):
     ]
     repeated = sorted(ident for ident, count in actual_counts.items() if count > 1)
     details = []
-    if actual_gaps < expected_gaps:
-        details.append(f"missing {expected_gaps - actual_gaps} legacy missing-key marker(s)")
-    elif actual_gaps > expected_gaps:
-        details.append(f"unexpected {actual_gaps - expected_gaps} legacy missing-key marker(s)")
+    missing_markers = [
+        marker
+        for marker, count in expected_markers.items()
+        for _ in range(count - actual_markers[marker])
+    ]
+    unexpected_markers = [
+        marker
+        for marker, count in actual_markers.items()
+        for _ in range(count - expected_markers[marker])
+    ]
+    if missing_markers:
+        details.append("missing " + ", ".join(missing_markers))
+    if unexpected_markers:
+        details.append("unexpected " + ", ".join(unexpected_markers))
     if missing:
         details.append("missing " + ", ".join(missing))
     if unexpected:
