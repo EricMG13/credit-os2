@@ -1,6 +1,5 @@
 import type { ReactElement } from "react";
-import type { Mode } from "../api";
-import { reportDate } from "../issuerEntry";
+import { moduleCodeName, type Mode } from "../api";
 import {
   containsReference,
   publishedRunForFolder,
@@ -8,8 +7,6 @@ import {
   type PublishedRun,
   type Snapshot,
 } from "../publishedReport";
-import { IssuerFrontPage } from "../report/IssuerFrontPage";
-import { buildIssuerFrontPage } from "../report/frontPage";
 import { buildReportView, type ReportView } from "../reportView";
 import { plainText } from "../richText";
 import {
@@ -45,12 +42,6 @@ type ExportTemplate = {
 };
 
 const templates = {
-  "credit-snapshot": {
-    name: "Credit Snapshot",
-    pathways: ["lite_credit_assessment", "credit_snapshot", "deep_credit_assessment"],
-    missingFinding: "This report has no verified credit view for the Credit Snapshot.",
-    compose: creditSnapshot,
-  },
   "earnings-update": {
     name: "Earnings Update",
     pathways: ["earnings_update"],
@@ -89,7 +80,6 @@ const templates = {
 } satisfies Record<string, ExportTemplate>;
 
 export type ExportId = keyof typeof templates;
-export type ExportOption = { id: ExportId; name: string };
 export type ReportExport =
   | { state: "unavailable"; reason: string }
   | {
@@ -102,7 +92,7 @@ export type ReportExport =
       privateIds: readonly string[];
     };
 type Availability = {
-  options: ExportOption[];
+  options: { id: ExportId; name: string }[];
   reason: string;
   resolve: (id: ExportId) => ReportExport;
 };
@@ -130,6 +120,18 @@ function publicationText(value: string, privateIds: readonly string[]) {
   return containsReference(text) || containsRunIdentifier(text, privateIds) ? "" : text;
 }
 
+function previewQualification(
+  value: string,
+  privateIds: readonly string[],
+  pathway: string | null,
+) {
+  const text = plainText(value).trim();
+  for (const [code] of text.matchAll(/(?<![A-Za-z0-9])CP-[A-Z0-9]+(?![A-Za-z0-9])/gi)) {
+    if (moduleCodeName(code.toUpperCase(), pathway)) return "";
+  }
+  return publicationText(text, privateIds);
+}
+
 export function reportSpecialistOverview(view: ReportView, run: PublishedRun, routeKey: string) {
   return specialistOverview(view, run, (value) => publicationText(value, [run.folder, routeKey]));
 }
@@ -137,35 +139,6 @@ export function reportSpecialistOverview(view: ReportView, run: PublishedRun, ro
 function purpose(compose: Parameters<typeof purposeDocument>[0]): ExportTemplate["compose"] {
   return (view, run, privateIds) =>
     purposeDocument(compose, view, run, (value) => publicationText(value, privateIds));
-}
-
-function creditSnapshot(
-  view: ReportView,
-  run: PublishedRun,
-  privateIds: readonly string[],
-): PrintDocument | null {
-  const page = buildIssuerFrontPage(view, run);
-  const issuer = page && publicationText(page.issuer, privateIds);
-  const date = run.asOf && reportDate(run.asOf);
-  if (
-    !page ||
-    !page.lead?.body ||
-    !issuer ||
-    !date ||
-    containsRunIdentifier(plainText(page.lead.body), privateIds)
-  )
-    return null;
-  const period = publicationText(page.period || run.period, privateIds);
-  return {
-    issuer,
-    ticker: publicationText(page.ticker ?? "", privateIds),
-    date,
-    period: period === date || /^As of\s/i.test(period) ? "" : period,
-    pathway: page.pathway,
-    scope: page.scope,
-    restrictions: page.actions.map(({ label, status }) => `${label} ${status}`),
-    content: <IssuerFrontPage page={page} print />,
-  };
 }
 
 function unavailable(reason: string): Availability {
@@ -184,7 +157,7 @@ export function reportExports(
   }
   const [key, run] = found;
   const privateIds = [folder, key];
-  const previewNote = publicationText(snapshot.preview?.reason ?? "", privateIds);
+  const previewNote = previewQualification(snapshot.preview?.reason ?? "", privateIds, run.pathway);
   if (snapshot.preview && !previewNote)
     return unavailable("The test preview qualification could not be included in the PDF.");
   const ids = (Object.keys(templates) as ExportId[]).filter((id) =>
