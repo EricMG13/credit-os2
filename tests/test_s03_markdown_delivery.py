@@ -117,6 +117,32 @@ def test_hide_comments_keeps_text_after_closing_line() -> None:
     assert hide_comments(lines, "t") == ["", " kept ", "", " tail"]
 
 
+def test_multiline_comment_in_table_row_with_cell_tail_is_refused() -> None:
+    """C1S-1: the closing line ` |` must not be read as a one-cell table row."""
+    raw = handoff(
+        "| Metric | FY24 |\n|---|---|\n| Revenue | 10 | <!-- note\nmore --> |\n| Cost | 5 |"
+    )
+    assert raw.splitlines()[12] == "more --> |"
+    with pytest.raises(ValueError, match=r"line 13: the text after -->"):
+        literal_module("CP-1", raw.encode())
+
+
+@pytest.mark.parametrize(
+    "tail", ["--> | A | B |", "-->## H", "--> ```py", "--> ===", "--> <!-- c --> | x |"]
+)
+def test_hide_comments_refuses_structural_tail(tail: str) -> None:
+    from deploy_workflow.handoff_delivery import hide_comments
+
+    with pytest.raises(ValueError, match="t: line 3"):
+        hide_comments(["<!--", "x", tail], "t")
+
+
+def test_hide_comments_keeps_prose_tail_that_is_not_a_heading() -> None:
+    from deploy_workflow.handoff_delivery import hide_comments
+
+    assert hide_comments(["<!--", "x", "--> #1 risk"], "t") == ["", "", " #1 risk"]
+
+
 @pytest.mark.parametrize("token", ["(0)", "(0.0)"])
 def test_chart_route_bracketed_zero_is_positive_zero(token: str) -> None:
     """C1R-3: a bracketed zero is zero, not Decimal('-0')."""

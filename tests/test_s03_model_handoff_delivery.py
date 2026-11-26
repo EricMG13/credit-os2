@@ -126,3 +126,12 @@ def test_layout_less_handoff_ignores_a_commented_stale_gap_row() -> None:
     facts = [f for f in view.facts if f.table_id == "T2.12"]
     assert [r.label for r in gaps.rows] == ["LIVE"]
     assert [f.citations[0].locator for f in facts][:1] == ["line 24"]
+
+
+def test_shown_refuses_a_structural_tail_after_a_closing_comment() -> None:
+    with pytest.raises(ValueError, match="m: line 3"):
+        mhd._shown(["<!--", "x", "--> | A | B |"], "m")
+
+
+def test_shown_keeps_a_prose_tail_after_a_closing_comment() -> None:
+    assert mhd._shown(["<!--", "x", "--> ok"], "m") == ["", "", " ok"]

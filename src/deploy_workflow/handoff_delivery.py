@@ -213,13 +213,30 @@ def comment_opener(line: str) -> int | None:
     return None if opener < 0 else opener
 
 
+def refuse_structural_tail(tail: str, number: int, name: str) -> None:
+    """Refuse the text after a closing `-->` when it would open a table row, heading, fence or
+    setext underline mid-line; complete inline comments in it are removed first."""
+    text = re.sub(r"<!--.*?-->", "", tail).strip()
+    if text and (
+        text.startswith("|")
+        or heading_of(text)
+        or FENCE.match(text)
+        or re.fullmatch(r"=+|-+", text)
+    ):
+        raise ValueError(
+            f"{name}: line {number}: the text after --> would read as a table row, heading, "
+            "fence or underline; put it on its own line"
+        )
+
+
 def hide_comments(lines: list[str], name: str) -> list[str]:
     """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
     hide it, so no table or prose inside it is published; fenced text is left as written. A
     comment may open anywhere in a line; the opening line keeps the text before its `<!--` (blank
     when that is only spaces) and the closing line keeps the text after its `-->` (up to a later
     `<!--`, by the same rule). Line numbers are unchanged. A comment that is never closed would
-    hide the rest of the handoff: refused."""
+    hide the rest of the handoff: refused. Text after `-->` that would read as a table row,
+    heading, fence or underline is refused (it belongs on its own line)."""
     shown, fenced, opened = [], False, 0
     for number, line in enumerate(lines, 1):
         if opened:  # Inside a comment: hidden through its `-->`, and another may open after it.
@@ -230,6 +247,7 @@ def hide_comments(lines: list[str], name: str) -> list[str]:
             start = comment_opener(rest)
             opened = number if start is not None else 0
             kept = rest if start is None else rest[:start]
+            refuse_structural_tail(kept, number, name)
             shown.append(kept if kept.strip() else "")
             continue
         found = heading_of(line)

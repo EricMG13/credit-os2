@@ -58,6 +58,7 @@ from deploy_workflow.handoff_delivery import (
     names_issuer,
     physical_lines,
     plain,
+    refuse_structural_tail,
     table,
     table_row,
 )
@@ -207,10 +208,11 @@ def _shown(lines: list[str], source: str) -> list[str]:
     """The lines as a Markdown viewer shows them: comments removed, fenced code blanked. Lines
     are not removed, so numbers hold. A comment never closed would hide the rest: refused."""
     shown, fenced, opened = [], False, False
-    for line in lines:
+    for number, line in enumerate(lines, 1):
         if opened:
             end = line.find("-->")
             text, opened = ("", True) if end < 0 else _inline_comments(line[end + 3 :])
+            refuse_structural_tail(text, number, source)
             shown.append(text)
             continue
         found = HEADING_START.match(line)
