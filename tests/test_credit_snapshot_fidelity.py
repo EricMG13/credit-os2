@@ -309,8 +309,7 @@ def test_the_number_rule_and_renderer_the_fidelity_test_uses():
     assert cs.render_number(-2347, "#,##0;(#,##0)") == "-2347"
     assert cs.render_number(0.7875, "0.0000") == "0.7875"
     assert cs.render_number(600.0, "0.0") == "600.0"
-    assert cs.render_number(2, "General") == "2"
-    for bad in ("0.00%", "General;General", "#,##0.0;(#,##0)", "0.0E+00"):
+    for bad in ("General", "0.00%", "General;General", "#,##0.0;(#,##0)", "0.0E+00"):
         with pytest.raises(AssertionError):
             cs.render_number(1.5, bad)
     assert cs.pipe_cells("| a | b \\| c | |") == ["a", "b | c", ""]
@@ -426,9 +425,12 @@ def holds(cell, text: str) -> bool:
     """The cell shows the handoff's text: as text, or, when it holds a number, as its digits (the
     number rule, then the stored number through the cell's own format)."""
     if isinstance(cell.value, int | float) and not isinstance(cell.value, bool):
-        return cs.is_plain_decimal(text) and cs.render_number(
-            cell.value, cell.number_format
-        ) == text.replace(",", "")
+        plain = text.replace(",", "")
+        return (
+            cs.is_plain_decimal(text)
+            and Decimal(repr(cell.value)) == Decimal(plain)  # the stored number is the figure
+            and cs.render_number(cell.value, cell.number_format) == plain  # and shows its digits
+        )
     return cell.value == text
 
 
@@ -557,13 +559,47 @@ def test_no_module_id_hash_file_name_or_run_id_is_on_the_three_sheets(built, tmp
                     )
 
 
-def is_yellow(cell) -> bool:
-    fill = cell.fill
-    rgb = fill.start_color.rgb if fill.fill_type == "solid" else None
+def yellow_rgb(rgb) -> bool:
+    """A pale or strong yellow: red and green high, blue clearly lower. Theme and indexed colours
+    carry no readable rgb and are not judged."""
     if not isinstance(rgb, str) or len(rgb) not in (6, 8):
         return False
-    red, green, blue = (int(rgb[-6:][i : i + 2], 16) for i in (0, 2, 4))
-    return red >= 0xF0 and green >= 0xE0 and blue <= min(red, green) - 0x1F
+    try:
+        red, green, blue = (int(rgb[-6:][i : i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return False
+    return red >= 0xF0 and green >= 0xE0 and blue <= min(red, green) - 0x10
+
+
+def conditional_colours(sheet, coordinate: str | None = None) -> list:
+    """Every colour a conditional format on the sheet (or on `coordinate`) uses: colour-scale
+    stops, a rule's fill and a data bar's colour."""
+    found = []
+    for item in sheet.conditional_formatting:
+        if coordinate is not None and coordinate not in item.sqref:
+            continue
+        for rule in item.rules:
+            scale = rule.colorScale
+            found += [c.rgb for c in scale.color] if scale is not None else []
+            fill = rule.dxf.fill if rule.dxf is not None else None
+            found += [c.rgb for c in (fill.bgColor, fill.fgColor)] if fill is not None else []
+            found += [rule.dataBar.color.rgb] if rule.dataBar is not None else []
+    return found
+
+
+def is_yellow(cell) -> bool:
+    """The cell's own fill, or any conditional-format colour that applies to it, is yellow."""
+    fill = cell.fill
+    own = fill.start_color.rgb if fill.fill_type == "solid" else None
+    return yellow_rgb(own) or any(
+        yellow_rgb(c) for c in conditional_colours(cell.parent, cell.coordinate)
+    )
+
+
+def test_no_conditional_format_colour_is_yellow(built, tmp_path):
+    opened = open_workbook(built, tmp_path)
+    for name in THREE:
+        assert not [c for c in conditional_colours(opened.book[name]) if yellow_rgb(c)], name
 
 
 def test_yellow_fill_is_the_analyst_cells_and_nothing_else(built, tmp_path):
@@ -593,3 +629,14 @@ def test_every_non_empty_cell_has_a_sources_row(built, tmp_path):
             for cell in row:
                 is_formula = isinstance(cell.value, str) and cell.value.startswith("=")
                 assert is_formula == ((name, cell.coordinate) in formulas), (name, cell.coordinate)
+
+
+def test_labels_are_not_numbers_and_never_stand_in_for_an_expected_entry(built, tmp_path):
+    opened = open_workbook(built, tmp_path)
+    wanted = {key_of(e)[:1] + key_of(e)[1:4] for e in opened.expected["entries"]}
+    for row in opened.on_sheets():
+        if row["Kind"] not in ("label", "formula"):
+            continue
+        cell = opened.cell(row["Sheet"], row["Cell"])
+        assert row["Kind"] != "label" or not isinstance(cell.value, int | float), row
+        assert (row["Sheet"], row["Block"], row["Row"], row["Column"]) not in wanted, row

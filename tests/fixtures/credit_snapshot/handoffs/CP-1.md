@@ -24,6 +24,7 @@ Build the financial foundation for Northbridge Holdings plc as of 2026-03-31 und
 | Capital expenditures | -64.0 | -58.1 | GBP millions | Reported | NBG_annual_2025.pdf, page 55 |
 | Net Cash from Investing Activities | -85.2 | -70.4 | GBP millions | Reported | NBG_annual_2025.pdf, page 55 |
 | Net Cash from Financing Activities | -102.5 | (40.0) | GBP millions | Reported | NBG_annual_2025.pdf, page 55 |
+| FX Effect on Cash | 0.0 | 0.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 55 |
 | Net Cash Change | 24.3 | 88.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 55 |
 | Opening Cash | 150.0 | 62.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 55 |
 | Closing Cash | 174.3 | 150.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 55 |
@@ -35,6 +36,8 @@ Build the financial foundation for Northbridge Holdings plc as of 2026-03-31 und
 |---|---|---|---|---|---|
 | Cash & Equivalents | 174.3 | 150.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 38 |
 | Total Assets | 2,980.0 | 2,850.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 38 |
+| Total Liabilities | 1,980.0 | 1,890.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 38 |
+| Total Equity | 1,000.0 | 960.0 | GBP millions | Reported | NBG_annual_2025.pdf, page 38 |
 | Total Debt | 1,450.0 | 1,380.0 | GBP millions | Calculated sum of debt lines | NBG_annual_2025.pdf, page 38 |
 
 ### T4.18 Debt instruments

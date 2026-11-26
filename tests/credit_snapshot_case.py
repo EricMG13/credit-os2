@@ -92,7 +92,7 @@ CASES = {
             "CP-1A": _h("CP-1A"),
             "CP-1B": _h("CP-1B"),
             "CP-1D": _h("CP-1D"),
-            "CP-DR": _h("CP-DR"),
+            "CP-DR": _h("CP-DR-none"),
         },
         False,
         False,
@@ -466,7 +466,7 @@ def pipe_cells(line: str) -> list[str]:
 
 
 PLAIN_NUMBER = re.compile(r"-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?")
-FORMAT = re.compile(r"^(?:General|(0|#,##0)((?:\.0+)?)(?:;\(\1\2\))?)$")
+FORMAT = re.compile(r"^(0|#,##0)((?:\.0+)?)(?:;\(\1\2\))?$")
 
 
 def is_plain_decimal(text: str) -> bool:
@@ -481,22 +481,24 @@ def is_plain_decimal(text: str) -> bool:
 def render_number(value: object, number_format: str) -> str:
     """A stored number as its cell format shows it, thousands separators and brackets dropped: the
     digits a reader sees, with a minus sign for a negative. Raises for a format the plan does not
-    allow (`0`, `0.0...`, `#,##0`, `#,##0.0...` and the bracketed `;(...)` pair of each)."""
+    allow: `General` is not one; `0`, `0.0...`, `#,##0`, `#,##0.0...` and the bracketed `;(...)`
+    pair of each are."""
     found = FORMAT.match(number_format)
     if found is None or isinstance(value, bool) or not isinstance(value, int | float):
         raise AssertionError(f"cannot render {value!r} in format {number_format!r}")
     exact = Decimal(repr(value))
-    if number_format == "General":
-        return format(exact.normalize(), "f")
     places = max(len(found[2]) - 1, 0)
     return f"{exact:.{places}f}"
 
 
 def shown(value: object, number_format: str = "General") -> str:
-    """What a cell shows as text: a number through `render_number`, text as it is, blank as ''."""
+    """What a cell shows as text: a number through `render_number` (a `General` number, which a
+    copied figure may not be, as its plain digits), text as it is, blank as ''."""
     if value is None:
         return ""
     if isinstance(value, int | float) and not isinstance(value, bool):
+        if number_format == "General":
+            return format(Decimal(repr(value)).normalize(), "f")
         return render_number(value, number_format)
     return str(value)
 

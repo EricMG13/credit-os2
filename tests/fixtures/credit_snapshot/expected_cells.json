@@ -11,7 +11,7 @@
    "kind": "copied",
    "value": "Term Loan B",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
@@ -21,7 +21,7 @@
    "kind": "copied",
    "value": "Term loan",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
@@ -31,7 +31,7 @@
    "kind": "copied",
    "value": "Senior secured",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
@@ -41,7 +41,7 @@
    "kind": "copied",
    "value": "USD",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
@@ -51,7 +51,7 @@
    "kind": "copied",
    "value": "SOFR + 3.75%",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
@@ -61,7 +61,7 @@
    "kind": "copied",
    "value": "375",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
@@ -71,17 +71,27 @@
    "kind": "copied",
    "value": "2031-03-31",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure",
    "row": "Term Loan B",
-   "column": "Principal or Drawn",
+   "column": "Principal",
    "kind": "copied",
    "value": "600.0",
    "module": "CP-1",
-   "line": 46
+   "line": 49
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Term Loan B",
+   "column": "Drawn",
+   "kind": "copied",
+   "value": "600.0",
+   "module": "CP-1",
+   "line": 49
   },
   {
    "sheet": "Inputs",
@@ -91,7 +101,7 @@
    "kind": "copied",
    "value": "Term Loan B",
    "module": "CP-1",
-   "line": 46
+   "line": 49
   },
   {
    "sheet": "Snapshot",
@@ -101,7 +111,7 @@
    "kind": "copied",
    "value": "Revolving Credit Facility",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
@@ -111,7 +121,7 @@
    "kind": "copied",
    "value": "Revolver",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
@@ -121,7 +131,7 @@
    "kind": "copied",
    "value": "Senior secured",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
@@ -131,7 +141,7 @@
    "kind": "copied",
    "value": "GBP",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
@@ -141,7 +151,7 @@
    "kind": "copied",
    "value": "SONIA + 2.50%",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
@@ -151,7 +161,7 @@
    "kind": "copied",
    "value": "250",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
@@ -161,17 +171,27 @@
    "kind": "copied",
    "value": "2029-06-30",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure",
    "row": "Revolving Credit Facility",
-   "column": "Principal or Drawn",
+   "column": "Principal",
    "kind": "copied",
    "value": "Not supplied: no drawn principal printed",
    "module": "CP-1",
-   "line": 47
+   "line": 50
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Revolving Credit Facility",
+   "column": "Drawn",
+   "kind": "copied",
+   "value": "Not supplied: no drawn balance printed",
+   "module": "CP-1",
+   "line": 50
   },
   {
    "sheet": "Inputs",
@@ -181,7 +201,7 @@
    "kind": "copied",
    "value": "Revolving Credit Facility",
    "module": "CP-1",
-   "line": 47
+   "line": 50
   },
   {
    "sheet": "Snapshot",
@@ -191,7 +211,7 @@
    "kind": "copied",
    "value": "4.50% Senior Notes 2030",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
@@ -201,7 +221,7 @@
    "kind": "copied",
    "value": "Notes",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
@@ -211,7 +231,7 @@
    "kind": "copied",
    "value": "Senior unsecured",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
@@ -221,7 +241,7 @@
    "kind": "copied",
    "value": "GBP",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
@@ -231,7 +251,7 @@
    "kind": "copied",
    "value": "4.50%",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
@@ -241,7 +261,7 @@
    "kind": "copied",
    "value": "Not applicable: fixed",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
@@ -251,17 +271,27 @@
    "kind": "copied",
    "value": "2030-06-15",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure",
    "row": "4.50% Senior Notes 2030",
-   "column": "Principal or Drawn",
+   "column": "Principal",
    "kind": "copied",
    "value": "350.0",
    "module": "CP-1",
-   "line": 48
+   "line": 51
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "4.50% Senior Notes 2030",
+   "column": "Drawn",
+   "kind": "copied",
+   "value": "350.0",
+   "module": "CP-1",
+   "line": 51
   },
   {
    "sheet": "Inputs",
@@ -271,7 +301,7 @@
    "kind": "copied",
    "value": "4.50% Senior Notes 2030",
    "module": "CP-1",
-   "line": 48
+   "line": 51
   },
   {
    "sheet": "Snapshot",
@@ -281,7 +311,7 @@
    "kind": "copied",
    "value": "6.25% Senior Notes 2032",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
@@ -291,7 +321,7 @@
    "kind": "copied",
    "value": "Notes",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
@@ -301,7 +331,7 @@
    "kind": "copied",
    "value": "Senior unsecured",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
@@ -311,7 +341,7 @@
    "kind": "copied",
    "value": "EUR",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
@@ -321,7 +351,7 @@
    "kind": "copied",
    "value": "6.25%",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
@@ -331,7 +361,7 @@
    "kind": "copied",
    "value": "Not applicable: fixed",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
@@ -341,17 +371,27 @@
    "kind": "copied",
    "value": "2032-09-01",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure",
    "row": "6.25% Senior Notes 2032",
-   "column": "Principal or Drawn",
+   "column": "Principal",
    "kind": "copied",
    "value": "500.0",
    "module": "CP-1",
-   "line": 49
+   "line": 52
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "6.25% Senior Notes 2032",
+   "column": "Drawn",
+   "kind": "copied",
+   "value": "500.0",
+   "module": "CP-1",
+   "line": 52
   },
   {
    "sheet": "Inputs",
@@ -361,7 +401,7 @@
    "kind": "copied",
    "value": "6.25% Senior Notes 2032",
    "module": "CP-1",
-   "line": 49
+   "line": 52
   },
   {
    "sheet": "Snapshot",
@@ -371,7 +411,7 @@
    "kind": "copied",
    "value": "Receivables facility",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
@@ -381,7 +421,7 @@
    "kind": "copied",
    "value": "Receivables facility",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
@@ -391,7 +431,7 @@
    "kind": "copied",
    "value": "Secured",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
@@ -401,7 +441,7 @@
    "kind": "copied",
    "value": "GBP",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
@@ -411,7 +451,7 @@
    "kind": "copied",
    "value": "SONIA + 1.75%",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
@@ -421,7 +461,7 @@
    "kind": "copied",
    "value": "175",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
@@ -431,17 +471,27 @@
    "kind": "copied",
    "value": "2027-12-31",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
    "block": "Capital structure",
    "row": "Receivables facility",
-   "column": "Principal or Drawn",
+   "column": "Principal",
    "kind": "copied",
    "value": "80.0",
    "module": "CP-1",
-   "line": 50
+   "line": 53
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure",
+   "row": "Receivables facility",
+   "column": "Drawn",
+   "kind": "copied",
+   "value": "80.0",
+   "module": "CP-1",
+   "line": 53
   },
   {
    "sheet": "Inputs",
@@ -451,7 +501,7 @@
    "kind": "copied",
    "value": "Receivables facility",
    "module": "CP-1",
-   "line": 50
+   "line": 53
   },
   {
    "sheet": "Snapshot",
@@ -461,7 +511,7 @@
    "kind": "copied",
    "value": "4.64",
    "module": "CP-1",
-   "line": 56
+   "line": 59
   },
   {
    "sheet": "Snapshot",
@@ -471,7 +521,7 @@
    "kind": "copied",
    "value": "4.64",
    "module": "CP-1",
-   "line": 56
+   "line": 59
   },
   {
    "sheet": "Snapshot",
@@ -481,7 +531,7 @@
    "kind": "copied",
    "value": "4.08",
    "module": "CP-1",
-   "line": 57
+   "line": 60
   },
   {
    "sheet": "Snapshot",
@@ -491,7 +541,7 @@
    "kind": "copied",
    "value": "4.08",
    "module": "CP-1",
-   "line": 57
+   "line": 60
   },
   {
    "sheet": "Snapshot",
@@ -501,7 +551,7 @@
    "kind": "copied",
    "value": "5.10",
    "module": "CP-1",
-   "line": 58
+   "line": 61
   },
   {
    "sheet": "Snapshot",
@@ -511,7 +561,7 @@
    "kind": "copied",
    "value": "5.10",
    "module": "CP-1",
-   "line": 58
+   "line": 61
   },
   {
    "sheet": "Snapshot",
@@ -521,7 +571,7 @@
    "kind": "copied",
    "value": "4.13",
    "module": "CP-1",
-   "line": 59
+   "line": 62
   },
   {
    "sheet": "Snapshot",
@@ -531,7 +581,7 @@
    "kind": "copied",
    "value": "4.13",
    "module": "CP-1",
-   "line": 59
+   "line": 62
   },
   {
    "sheet": "Snapshot",
@@ -541,7 +591,7 @@
    "kind": "copied",
    "value": "3.63",
    "module": "CP-1",
-   "line": 60
+   "line": 63
   },
   {
    "sheet": "Snapshot",
@@ -551,7 +601,7 @@
    "kind": "copied",
    "value": "3.63",
    "module": "CP-1",
-   "line": 60
+   "line": 63
   },
   {
    "sheet": "Snapshot",
@@ -561,7 +611,7 @@
    "kind": "copied",
    "value": "5.74",
    "module": "CP-1",
-   "line": 61
+   "line": 64
   },
   {
    "sheet": "Snapshot",
@@ -571,7 +621,7 @@
    "kind": "copied",
    "value": "5.74",
    "module": "CP-1",
-   "line": 61
+   "line": 64
   },
   {
    "sheet": "Snapshot",
@@ -581,7 +631,7 @@
    "kind": "copied",
    "value": "4.63",
    "module": "CP-1",
-   "line": 62
+   "line": 65
   },
   {
    "sheet": "Snapshot",
@@ -591,7 +641,7 @@
    "kind": "copied",
    "value": "4.63",
    "module": "CP-1",
-   "line": 62
+   "line": 65
   },
   {
    "sheet": "Snapshot",
@@ -601,7 +651,7 @@
    "kind": "copied",
    "value": "4.13",
    "module": "CP-1",
-   "line": 63
+   "line": 66
   },
   {
    "sheet": "Snapshot",
@@ -611,7 +661,7 @@
    "kind": "copied",
    "value": "4.13",
    "module": "CP-1",
-   "line": 63
+   "line": 66
   },
   {
    "sheet": "Snapshot",
@@ -621,7 +671,7 @@
    "kind": "copied",
    "value": "Not calculable: no FY2024 cash interest",
    "module": "CP-1",
-   "line": 64
+   "line": 67
   },
   {
    "sheet": "Snapshot",
@@ -631,7 +681,7 @@
    "kind": "copied",
    "value": "Not calculable: no FY2024 cash interest",
    "module": "CP-1",
-   "line": 64
+   "line": 67
   },
   {
    "sheet": "Snapshot",
@@ -641,7 +691,7 @@
    "kind": "copied",
    "value": "4.18",
    "module": "CP-1",
-   "line": 65
+   "line": 68
   },
   {
    "sheet": "Snapshot",
@@ -651,7 +701,7 @@
    "kind": "copied",
    "value": "4.18",
    "module": "CP-1",
-   "line": 65
+   "line": 68
   },
   {
    "sheet": "Snapshot",
@@ -661,7 +711,7 @@
    "kind": "copied",
    "value": "3.73x",
    "module": "CP-1",
-   "line": 66
+   "line": 69
   },
   {
    "sheet": "Snapshot",
@@ -671,7 +721,7 @@
    "kind": "copied",
    "value": "3.73x",
    "module": "CP-1",
-   "line": 66
+   "line": 69
   },
   {
    "sheet": "Snapshot",
@@ -681,7 +731,7 @@
    "kind": "copied",
    "value": "Not calculable: no FY2024 cash interest",
    "module": "CP-1",
-   "line": 67
+   "line": 70
   },
   {
    "sheet": "Snapshot",
@@ -691,7 +741,7 @@
    "kind": "copied",
    "value": "Not calculable: no FY2024 cash interest",
    "module": "CP-1",
-   "line": 67
+   "line": 70
   },
   {
    "sheet": "Snapshot",
@@ -701,7 +751,7 @@
    "kind": "copied",
    "value": "1,450.0",
    "module": "CP-1",
-   "line": 74
+   "line": 77
   },
   {
    "sheet": "Snapshot",
@@ -711,7 +761,7 @@
    "kind": "copied",
    "value": "1,450.0",
    "module": "CP-1",
-   "line": 74
+   "line": 77
   },
   {
    "sheet": "Snapshot",
@@ -721,7 +771,7 @@
    "kind": "copied",
    "value": "174.3",
    "module": "CP-1",
-   "line": 74
+   "line": 77
   },
   {
    "sheet": "Snapshot",
@@ -731,7 +781,7 @@
    "kind": "copied",
    "value": "174.3",
    "module": "CP-1",
-   "line": 74
+   "line": 77
   },
   {
    "sheet": "Snapshot",
@@ -741,7 +791,7 @@
    "kind": "copied",
    "value": "1,275.7",
    "module": "CP-1",
-   "line": 74
+   "line": 77
   },
   {
    "sheet": "Snapshot",
@@ -751,7 +801,7 @@
    "kind": "copied",
    "value": "1,275.7",
    "module": "CP-1",
-   "line": 74
+   "line": 77
   },
   {
    "sheet": "Snapshot",
@@ -761,7 +811,7 @@
    "kind": "copied",
    "value": "1,380.0",
    "module": "CP-1",
-   "line": 75
+   "line": 78
   },
   {
    "sheet": "Snapshot",
@@ -771,7 +821,7 @@
    "kind": "copied",
    "value": "1,380.0",
    "module": "CP-1",
-   "line": 75
+   "line": 78
   },
   {
    "sheet": "Snapshot",
@@ -781,7 +831,7 @@
    "kind": "copied",
    "value": "150.0",
    "module": "CP-1",
-   "line": 75
+   "line": 78
   },
   {
    "sheet": "Snapshot",
@@ -791,7 +841,7 @@
    "kind": "copied",
    "value": "150.0",
    "module": "CP-1",
-   "line": 75
+   "line": 78
   },
   {
    "sheet": "Snapshot",
@@ -801,7 +851,7 @@
    "kind": "copied",
    "value": "1,230.0",
    "module": "CP-1",
-   "line": 75
+   "line": 78
   },
   {
    "sheet": "Snapshot",
@@ -811,7 +861,7 @@
    "kind": "copied",
    "value": "1,230.0",
    "module": "CP-1",
-   "line": 75
+   "line": 78
   },
   {
    "sheet": "Snapshot",
@@ -833,6 +883,14 @@
    "sheet": "Snapshot",
    "block": "Capital structure totals",
    "row": "Senior leverage",
+   "column": "Value",
+   "kind": "gap",
+   "value": "not in handoff"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Capital structure totals",
+   "row": "Unsecured leverage",
    "column": "Value",
    "kind": "gap",
    "value": "not in handoff"
@@ -1056,12 +1114,32 @@
   {
    "sheet": "Snapshot",
    "block": "Financials",
+   "row": "FX Effect on Cash",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "0.0",
+   "module": "CP-1",
+   "line": 27
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "FX Effect on Cash",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "0.0",
+   "module": "CP-1",
+   "line": 27
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
    "row": "Net Cash Change",
    "column": "FY2025",
    "kind": "copied",
    "value": "24.3",
    "module": "CP-1",
-   "line": 27
+   "line": 28
   },
   {
    "sheet": "Snapshot",
@@ -1071,7 +1149,7 @@
    "kind": "copied",
    "value": "88.0",
    "module": "CP-1",
-   "line": 27
+   "line": 28
   },
   {
    "sheet": "Snapshot",
@@ -1081,7 +1159,7 @@
    "kind": "copied",
    "value": "150.0",
    "module": "CP-1",
-   "line": 28
+   "line": 29
   },
   {
    "sheet": "Snapshot",
@@ -1091,7 +1169,7 @@
    "kind": "copied",
    "value": "62.0",
    "module": "CP-1",
-   "line": 28
+   "line": 29
   },
   {
    "sheet": "Snapshot",
@@ -1101,7 +1179,7 @@
    "kind": "copied",
    "value": "174.3",
    "module": "CP-1",
-   "line": 29
+   "line": 30
   },
   {
    "sheet": "Snapshot",
@@ -1111,7 +1189,7 @@
    "kind": "copied",
    "value": "150.0",
    "module": "CP-1",
-   "line": 29
+   "line": 30
   },
   {
    "sheet": "Snapshot",
@@ -1121,7 +1199,7 @@
    "kind": "copied",
    "value": "61.2",
    "module": "CP-1",
-   "line": 30
+   "line": 31
   },
   {
    "sheet": "Snapshot",
@@ -1131,7 +1209,7 @@
    "kind": "copied",
    "value": "–",
    "module": "CP-1",
-   "line": 30
+   "line": 31
   },
   {
    "sheet": "Snapshot",
@@ -1141,7 +1219,7 @@
    "kind": "copied",
    "value": "174.3",
    "module": "CP-1",
-   "line": 36
+   "line": 37
   },
   {
    "sheet": "Snapshot",
@@ -1151,7 +1229,67 @@
    "kind": "copied",
    "value": "150.0",
    "module": "CP-1",
-   "line": 36
+   "line": 37
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Assets",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "2,980.0",
+   "module": "CP-1",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Assets",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "2,850.0",
+   "module": "CP-1",
+   "line": 38
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Liabilities",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "1,980.0",
+   "module": "CP-1",
+   "line": 39
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Liabilities",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "1,890.0",
+   "module": "CP-1",
+   "line": 39
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Equity",
+   "column": "FY2025",
+   "kind": "copied",
+   "value": "1,000.0",
+   "module": "CP-1",
+   "line": 40
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Financials",
+   "row": "Total Equity",
+   "column": "FY2024",
+   "kind": "copied",
+   "value": "960.0",
+   "module": "CP-1",
+   "line": 40
   },
   {
    "sheet": "Snapshot",
@@ -1161,7 +1299,7 @@
    "kind": "copied",
    "value": "1,450.0",
    "module": "CP-1",
-   "line": 38
+   "line": 41
   },
   {
    "sheet": "Snapshot",
@@ -1171,7 +1309,7 @@
    "kind": "copied",
    "value": "1,380.0",
    "module": "CP-1",
-   "line": 38
+   "line": 41
   },
   {
    "sheet": "Snapshot",
@@ -1181,7 +1319,7 @@
    "kind": "copied",
    "value": "Reported EBITDA",
    "module": "CP-1",
-   "line": 81
+   "line": 84
   },
   {
    "sheet": "Snapshot",
@@ -1191,7 +1329,7 @@
    "kind": "copied",
    "value": "312.4",
    "module": "CP-1",
-   "line": 81
+   "line": 84
   },
   {
    "sheet": "Snapshot",
@@ -1201,7 +1339,7 @@
    "kind": "copied",
    "value": "GBP millions",
    "module": "CP-1",
-   "line": 81
+   "line": 84
   },
   {
    "sheet": "Snapshot",
@@ -1219,7 +1357,7 @@
    "kind": "copied",
    "value": "Restructuring costs",
    "module": "CP-1",
-   "line": 82
+   "line": 85
   },
   {
    "sheet": "Snapshot",
@@ -1229,7 +1367,7 @@
    "kind": "copied",
    "value": "20.0",
    "module": "CP-1",
-   "line": 82
+   "line": 85
   },
   {
    "sheet": "Snapshot",
@@ -1239,7 +1377,7 @@
    "kind": "copied",
    "value": "GBP millions",
    "module": "CP-1",
-   "line": 82
+   "line": 85
   },
   {
    "sheet": "Snapshot",
@@ -1257,7 +1395,7 @@
    "kind": "copied",
    "value": "Run-rate synergies",
    "module": "CP-1",
-   "line": 83
+   "line": 86
   },
   {
    "sheet": "Snapshot",
@@ -1267,7 +1405,7 @@
    "kind": "copied",
    "value": "12.5",
    "module": "CP-1",
-   "line": 83
+   "line": 86
   },
   {
    "sheet": "Snapshot",
@@ -1277,7 +1415,7 @@
    "kind": "copied",
    "value": "GBP millions",
    "module": "CP-1",
-   "line": 83
+   "line": 86
   },
   {
    "sheet": "Snapshot",
@@ -1295,7 +1433,7 @@
    "kind": "copied",
    "value": "Pro forma acquisition EBITDA",
    "module": "CP-1",
-   "line": 84
+   "line": 87
   },
   {
    "sheet": "Snapshot",
@@ -1305,7 +1443,7 @@
    "kind": "copied",
    "value": "8.3",
    "module": "CP-1",
-   "line": 84
+   "line": 87
   },
   {
    "sheet": "Snapshot",
@@ -1315,7 +1453,7 @@
    "kind": "copied",
    "value": "GBP millions",
    "module": "CP-1",
-   "line": 84
+   "line": 87
   },
   {
    "sheet": "Snapshot",
@@ -1333,7 +1471,7 @@
    "kind": "copied",
    "value": "Other adjustments",
    "module": "CP-1",
-   "line": 85
+   "line": 88
   },
   {
    "sheet": "Snapshot",
@@ -1343,7 +1481,7 @@
    "kind": "copied",
    "value": "-2.0",
    "module": "CP-1",
-   "line": 85
+   "line": 88
   },
   {
    "sheet": "Snapshot",
@@ -1353,7 +1491,7 @@
    "kind": "copied",
    "value": "GBP millions",
    "module": "CP-1",
-   "line": 85
+   "line": 88
   },
   {
    "sheet": "Snapshot",
@@ -1371,7 +1509,7 @@
    "kind": "copied",
    "value": "Adjusted EBITDA",
    "module": "CP-1",
-   "line": 86
+   "line": 89
   },
   {
    "sheet": "Snapshot",
@@ -1381,7 +1519,7 @@
    "kind": "copied",
    "value": "351.2",
    "module": "CP-1",
-   "line": 86
+   "line": 89
   },
   {
    "sheet": "Snapshot",
@@ -1391,7 +1529,7 @@
    "kind": "copied",
    "value": "GBP millions",
    "module": "CP-1",
-   "line": 86
+   "line": 89
   },
   {
    "sheet": "Snapshot",
@@ -2475,6 +2613,14 @@
    "sheet": "Inputs",
    "block": "Quotes as entered",
    "row": "Quote 1",
+   "column": "Facility id",
+   "kind": "entered at run start",
+   "value": "tlb-2031"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
    "column": "Kind",
    "kind": "entered at run start",
    "value": "observed"
@@ -2483,9 +2629,65 @@
    "sheet": "Inputs",
    "block": "Quotes as entered",
    "row": "Quote 1",
+   "column": "Bid",
+   "kind": "entered at run start",
+   "value": "98.5"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
+   "column": "Ask",
+   "kind": "entered at run start",
+   "value": "99.0"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
+   "column": "Price",
+   "kind": "entered at run start",
+   "value": "98.75"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
+   "column": "Yield (%)",
+   "kind": "entered at run start",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
+   "column": "Spread (bps)",
+   "kind": "entered at run start",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
    "column": "As of",
    "kind": "entered at run start",
    "value": "2026-03-27"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 1",
+   "column": "Provider",
+   "kind": "entered at run start",
+   "value": "Syndicate desk"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "Facility id",
+   "kind": "entered at run start",
+   "value": "notes-2032"
   },
   {
    "sheet": "Inputs",
@@ -2499,9 +2701,57 @@
    "sheet": "Inputs",
    "block": "Quotes as entered",
    "row": "Quote 2",
+   "column": "Bid",
+   "kind": "entered at run start",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "Ask",
+   "kind": "entered at run start",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "Price",
+   "kind": "entered at run start",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "Yield (%)",
+   "kind": "entered at run start",
+   "value": "6.25"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "Spread (bps)",
+   "kind": "entered at run start",
+   "value": ""
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
    "column": "As of",
    "kind": "entered at run start",
    "value": "2026-03-28"
+  },
+  {
+   "sheet": "Inputs",
+   "block": "Quotes as entered",
+   "row": "Quote 2",
+   "column": "Provider",
+   "kind": "entered at run start",
+   "value": "Syndicate desk"
   },
   {
    "sheet": "Matrix",
@@ -2916,7 +3166,6 @@
  "absent_values": [
   "Revenues, net",
   "Operating margin",
-  "Total Assets",
   "Capital expenditures",
   "Ba3"
  ],
