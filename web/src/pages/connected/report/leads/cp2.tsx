@@ -187,12 +187,18 @@ function ledgerOf(entry: LeadProps["entry"]) {
   return typedLedger(entry) ?? filterLedger(entry) ?? null;
 }
 
+/** The ranked ledger's title when the module also wrote a passage under the plain one. */
+const RANKED = "Ranked strengths and weaknesses";
+
 function LedgerTile({
   ledger,
   href,
+  alongside,
 }: {
   ledger: ReturnType<typeof ledgerOf>;
   href: (line?: number) => string;
+  /** The module wrote its own "Strengths and weaknesses" passage, which the frame draws under that title. */
+  alongside: boolean;
 }) {
   if (!ledger)
     return (
@@ -204,7 +210,12 @@ function LedgerTile({
       />
     );
   return (
-    <Tile span={8} label={LEDGER} title={LEDGER} className="w-full self-start">
+    <Tile
+      span={8}
+      label={alongside ? RANKED : LEDGER}
+      title={alongside ? RANKED : LEDGER}
+      className="w-full self-start"
+    >
       <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-2">
         <Column title={ledger.words.strengths} items={ledger.strengths} href={href} />
         <Column title={ledger.words.weaknesses} items={ledger.weaknesses} href={href} />
@@ -468,7 +479,13 @@ export const CreditLead = withDraws(
     // in a third of the row stood far taller than the map beside them.
     return (
       <Bento>
-        {!written && <LedgerTile ledger={read} href={href} />}
+        {!written && (
+          <LedgerTile
+            ledger={read}
+            href={href}
+            alongside={sectionParagraphs(entry, LEDGER).length > 0}
+          />
+        )}
         {read && longMap ? (
           // A map of several edges is a long flow: beside the ledger it ran far below it and left
           // the ledger's side of the row empty. It takes its own row.

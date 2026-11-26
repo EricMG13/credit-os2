@@ -1317,7 +1317,7 @@ export function LeveragePath({
       {!measure || !selected ? (
         <GapNote>
           {absentText(
-            { measure, rows, what: "net leverage", basis: "net debt over Adj EBITDA" },
+            { measure, rows, what: "net leverage", basis: "net debt over EBITDA" },
             caseName,
           )}
         </GapNote>

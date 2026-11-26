@@ -216,11 +216,23 @@ def _table_after(lines: list[str], start: int, name: str) -> Table | str:
     return header, rows
 
 
+def _one_start_each(lines: list[str], starts: list[int]) -> list[int]:
+    """A register's heading and its `<!-- table-id: ... -->` tag, with no table or other heading
+    between them, are one start (the heading's); a start after a table or a heading is another."""
+    kept: list[int] = []
+    for at in starts:
+        between = lines[kept[-1] + 1 : at] if kept else []
+        if kept and not any(_HEADING.match(x) or x.lstrip().startswith("|") for x in between):
+            continue
+        kept.append(at)
+    return kept
+
+
 def register_table(text: str, ident: str) -> Table | str:
     """The table of the register ``ident`` (a method id such as `T2E.5`), or why it is not read."""
     lines = _unfenced(text)
     pattern = _register_start(ident)
-    found = [i for i, line in enumerate(lines) if pattern.match(line)]
+    found = _one_start_each(lines, [i for i, line in enumerate(lines) if pattern.match(line)])
     if not found:
         return f"the handoff has no {ident} register"
     if len(found) > 1:
@@ -922,6 +934,15 @@ def _cp3c(text: str, loaded: Loaded, _upstream: Upstream) -> list[Outcome]:
     return [_funding_line(line, funding, view, loaded.tables) for line in FUNDING_RESULTS]
 
 
+def _foreign_due_currencies(funding: _Funding, view: dict[str, Any]) -> list[str]:
+    """The currencies, as read or as written, of the instruments due inside the horizon that
+    differ from the funding table's own."""
+    own = funding.payload["currency"]
+    due = view["maturity_wall"].get("due_within_horizon", [])
+    foreign = {r.get("currency") for r in due if r.get("currency") != own}
+    return [c or "no stated currency" for c in sorted({str(c).strip() for c in foreign})]
+
+
 def _funding_line(
     line: str, funding: _Funding, view: dict[str, Any], tables: types.ModuleType
 ) -> Outcome:
@@ -933,6 +954,15 @@ def _funding_line(
     recomputed = view[part].get(key)
     if recomputed is None:
         return where("not checked", stated=stated, reason=str(view[part].get("reason")))
+    if line == "Maturities due":
+        foreign = _foreign_due_currencies(funding, view)
+        if foreign:  # a total in another currency is never set against the stated figure
+            reason = (
+                f"maturities inside the horizon are in {', '.join(foreign)}, the "
+                f"`### {FUNDING_HEADING}` table in {funding.payload['currency']}; "
+                "convert at a disclosed rate before totalling"
+            )
+            return where("not checked", stated=stated, reason=reason)
     claim = _Claim(where, stated, recomputed, AMOUNT_STEP, funding.unit, formula)
     return _judged(replace(claim, slack=_funding_slack(line, funding, view)), tables)
 

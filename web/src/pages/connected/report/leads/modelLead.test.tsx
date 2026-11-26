@@ -368,3 +368,31 @@ describe("ModelLead", () => {
     ).toBeVisible();
   });
 });
+
+// The real model publishes the upside case in `cashflow.other` (net leverage 4.86x, 3.96x, 3.19x in the
+// replayed TDG forecast); figures typed by hand from that run.
+describe("ModelLead other grid", () => {
+  it("draws the upside case the model publishes in its other grid", () => {
+    const withUpside = {
+      cashflow: {
+        ...TWO.cashflow,
+        other: {
+          columns: ["FY2025E", "FY2026E", "FY2027E"].map((label) => col(label, "Upside case")),
+          rows: [
+            {
+              band: "Credit metrics",
+              label: "Net leverage (net debt / Adj EBITDA)",
+              kind: "multiple",
+              total: false,
+              cells: [cell("4.86x", "4.8593"), cell("3.96x", "3.9612"), cell("3.19x", "3.19")],
+            },
+          ],
+        },
+      },
+    };
+    const { container } = render(<ModelLead {...props([withUpside])} />);
+    expect(container.querySelectorAll('[data-line="Upside case"]')).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: /Table view/ }));
+    expect(screen.getByRole("row", { name: /Upside case.*FY2027E.*3\.19x/ })).toBeInTheDocument();
+  });
+});

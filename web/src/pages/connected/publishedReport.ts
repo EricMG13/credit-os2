@@ -735,6 +735,36 @@ function pageCitation(text: string) {
   );
 }
 
+/**
+ * What a cell says besides its sources: its sentences that cite none, in order. A cell that holds a
+ * limitation and then a file reference keeps the limitation; the reference alone goes to Evidence.
+ * Empty when every sentence cites.
+ */
+export function withoutReferences(text: string) {
+  return text
+    .split(/(?<=[.!?])(?<!\bpp?\.)\s+(?=[A-Z])/u)
+    .filter((sentence) => !containsReference(sentence))
+    .join(" ")
+    .trim();
+}
+
+/**
+ * A gap reason the store joined from several cells ("a; b; a; c"): each clause once, in the order
+ * written, compared without regard to case. Nothing else is changed.
+ */
+export function eachClauseOnce(reason: string) {
+  const seen = new Set<string>();
+  return reason
+    .split(/;\s+/u)
+    .filter((clause) => {
+      const key = clause.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join("; ");
+}
+
 export function containsReference(text: string) {
   return (
     FILE_REFERENCE.test(text) ||
@@ -749,8 +779,11 @@ export function containsReference(text: string) {
   );
 }
 
+// A column is hidden only when written for another module (a consumer, a next or downstream module,
+// downstream use); a module's own analysis, such as its escalation consequence, is drawn. "Downstream
+// module affected" is the module's own when every cell states an effect "Within this analysis".
 const INTERMODULE =
-  /^(?:supplied handoff|use in this module|effect on this module|consumer|downstream module|receiving module|responsible module|command|required consumer action|escalation consequence|next commands?|next modules?|downstream consumers?|downstream modules? affected|downstream handoff impact|downstream owners|affected consumers|affected modules|downstream use|consumer module id)$|^consequence for cp-/;
+  /^(?:supplied handoff|use in this module|effect on this module|consumer|downstream module|receiving module|responsible module|command|required consumer action|next commands?|next modules?|downstream consumers?|downstream handoff impact|downstream owners|affected consumers|affected modules|downstream use|consumer module id)$|^consequence for cp-/;
 // "Evidence" and "Source / Limitation" columns carry either source references or the module's
 // own qualification; with rows to judge, they are hidden only when the cells are references.
 const MIXED_COLUMN = /^(?:evidence|sources?\s*\/\s*limitation)$/;
@@ -762,6 +795,11 @@ export function displayColumns(headers: string[], evidence: boolean, rows: Row[]
     const header = text.trim().toLowerCase().replaceAll(/[-_]/g, " ").replace(/\s+/g, " ");
     if (INTERMODULE.test(header)) return [];
     const populated = rows.map((row) => row.cells[index]?.trim() ?? "").filter(Boolean);
+    if (
+      /^downstream modules? affected$/.test(header) &&
+      !(populated.length && populated.every((cell) => /^within this analysis\b/i.test(cell)))
+    )
+      return [];
     const ambiguousId =
       /^(?:references?|ref\.?|code)$/.test(header) &&
       populated.length > 0 &&

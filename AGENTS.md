@@ -83,7 +83,8 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   `docs/rulings/2026-11-11-run-start-submit.md` and the pathway's cap per run: Lite USD 20,
   Full 30, Deep 50, the five purpose pathways 20 (owner, 2026-11-25;
   `docs/rulings/2026-11-25-layer-1-in-all-assessment-pathways.md`, amending
-  `docs/rulings/2026-11-15-pathway-tiers-and-caps.md`). The build itself does not run providers. (checked: tests/test_repo_rules.py)
+  `docs/rulings/2026-11-15-pathway-tiers-and-caps.md`), Credit Screening 10 (owner, 2026-11-25;
+  `docs/rulings/2026-11-25-deliverables-and-recommendations.md`). The build itself does not run providers. (checked: tests/test_repo_rules.py)
 - Run confidence-review after code changes: enumerate doubts, trace their causes,
   test adversarial cases and repair confirmed defects before completion.
 - Run rewrite-tournament in post-edit mode for nontrivial changed functions,

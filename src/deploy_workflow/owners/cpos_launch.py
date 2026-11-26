@@ -36,7 +36,7 @@ from deploy_vii.contracts import (
     PathwayId,
     Run,
 )
-from deploy_vii.registry import dependencies, modules, plan
+from deploy_vii.registry import modules, plan
 from deploy_vii.report_view import _spec_of, pathways
 from deploy_workflow import (
     method_scripts,
@@ -75,7 +75,6 @@ from deploy_workflow.markdown_delivery import (
     markdown_files,
     require_issuer,
 )
-from deploy_workflow.model import copilot as copilot_route
 from deploy_workflow.model.adapter import (
     COPILOT_GH_LOGIN_VARIABLE,
     COPILOT_RUNTIME_VARIABLE,
@@ -86,7 +85,6 @@ from deploy_workflow.model.adapter import (
 from deploy_workflow.model.budget import Budget
 from deploy_workflow.model.configs import CONFIGS
 from deploy_workflow.model.handoff import (
-    COMPACT_HANDOFF_MODULES,
     WEB_LOOKUP_MODULES,
     WEB_SEARCH_CALLS_PER_TURN,
     WEB_SEARCH_CASE_KINDS,
@@ -98,7 +96,6 @@ from deploy_workflow.model.handoff import (
     web_lookup_offered,
     web_search_offered,
 )
-from deploy_workflow.model.handoff_transport import compact_index
 from deploy_workflow.model.pricing import (
     ContextTooLong,
     handoff_reservation_usd,
@@ -1666,7 +1663,11 @@ def _forecast_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
             fix = "Correct the block; if you cannot, set every driver's values to "
             advice = f"{fix}[null, null, null] and say why in scope_limits."
         return (f"Forecast inputs: {stem}. {advice}",)
-    return (*_unstated_currency(inputs), *_shock_issues(task, inputs))
+    return (
+        *_unstated_currency(inputs),
+        *_shock_issues(task, inputs),
+        *_downside_issues(task, text, inputs),
+    )
 
 
 # A Share as cp2g writes one: 0, 1, 0.d to 0.dddd or 1.0 to 1.0000, and nothing numeric after it
@@ -1781,6 +1782,99 @@ def _shock_issues(task: HandoffTask, inputs: cpos_forecast.ForecastInputs) -> tu
     return (issue,)
 
 
+_STATED_MULTIPLE = re.compile(r"(\d+(?:\.(\d+))?)\s*x?")
+_ANNUAL_PERIOD = re.compile(r"(?i)(?:fy\s*)?(\d{4})e?")
+
+
+def _computed_downside(task: HandoffTask, text: str) -> dict[int, Decimal]:
+    """Python's downside net leverage by fiscal year, from the block it computes the forecast
+    from (`cpos_forecast.model_files`), as delivery will publish it. The shock case when the
+    block states a shock, else the downside-drivers case; empty when it states neither."""
+    files = cpos_forecast.model_files(task.handoffs["CP-1"], text.encode("utf-8"))
+    outputs = json.loads(files["forecast_exact.json"])["outputs"]
+    case = next((name for name in ("DOWNSIDE", "DOWNSIDE_DRIVERS") if name in outputs), None)
+    if case is None:
+        return {}
+    years = outputs[case]["years"]
+    return {
+        year["year"]: Decimal(year["net_leverage"]["amount"])
+        for year in years
+        if year["net_leverage"]["amount"] is not None
+    }
+
+
+def _stated_downside(text: str) -> dict[int, str]:
+    """The net-leverage figure of each annual Downside row of table T2H.6 as printed (`6.66x`),
+    read as the method-script check reads that register (`method_scripts.register_table`,
+    `column`). Empty, so nothing is checked, when the table, a column or a cell is not read."""
+    table = method_scripts.register_table(text, "T2H.6")
+    if isinstance(table, str):
+        return {}
+    try:
+        period = method_scripts.column(table, "period", "T2H.6")[0]
+        case = method_scripts.column(table, "case", "T2H.6")[0]
+        leverage = method_scripts.column(table, "gross/net leverage", "T2H.6")[0]
+    except method_scripts._NotChecked:
+        return {}
+    stated: dict[int, str] = {}
+    for row in table[1]:
+        parts = row[leverage].split("/")
+        label = _ANNUAL_PERIOD.fullmatch(row[period].strip())
+        if row[case].strip().casefold() == "downside" and label and len(parts) == 2:
+            net = _STATED_MULTIPLE.fullmatch(parts[1].strip())
+            if net:
+                stated[int(label[1])] = net[0].strip()
+    return stated
+
+
+def _downside_issues(
+    task: HandoffTask, text: str, inputs: cpos_forecast.ForecastInputs
+) -> tuple[str, ...]:
+    """The reader is shown Python's downside, so the module's downside net leverage in T2H.6 must
+    be Python's, to one unit in the last place stated. Live replay
+    of TDG (2026-11-25): the module held cash interest flat in its tables but stated only
+    `downside_shock`, and its 6.66x stood beside Python's 6.8089x. Documented fail-open, logged at
+    WARNING: nothing is raised for a blocked module, for a block without a downside case, or when
+    Python cannot read table T2H.6's period, case and net-leverage cells (no guess)."""
+    if inputs.downside_shock is None and inputs.downside_drivers is None:
+        return ()
+    if method_scripts.blocked(text):
+        return ()
+    stated = _stated_downside(text)
+    if not stated:
+        log.warning("downside net leverage not checked against Python's: T2H.6 is not read")
+        return ()
+    computed = _computed_downside(task, text)
+    differing = []
+    for year, printed in stated.items():
+        python = computed.get(year)
+        if python is None:
+            continue
+        figure = printed.rstrip("x ")
+        places = len(figure.split(".")[1]) if "." in figure else 0
+        # One unit in the last stated place, as the method-script checks allow (`compare`).
+        if not method_scripts.compare((float(figure), places), float(python), 0.0)[0]:
+            exact = python.quantize(Decimal("0.0001"))
+            differing.append(f"FY{year} {figure}x against {exact}x")
+    if not differing:
+        return ()
+    issue = (
+        "Forecast inputs: the downside net leverage in the credit metrics table (T2H.6) differs "
+        f"from the one Python computes from your block: {', '.join(differing)}. The reader is "
+        "shown Python's figures, so the downside rows of T2H.4, T2H.5 and T2H.6 must all follow "
+        "the path Python computes; restating T2H.6 alone is sent back again. `downside_shock` is "
+        "applied on top of `downside_drivers`: it lowers EBITDA by `ebitda_decline` and raises "
+        "cash interest by `rate_increase`. To hold cash interest flat, state "
+        "`downside_drivers.interest_rate` before the shock (each year's flat interest divided by "
+        "that year's opening debt and by 1 + `rate_increase`), or set `downside_shock` to null "
+        "and state the whole downside case in `downside_drivers` (its `ebitda_margin` and "
+        "`interest_rate`); then restate the downside rows of T2H.4, T2H.5 and T2H.6 from "
+        "Python's computation. If you cannot, set `downside_shock` and `downside_drivers` to "
+        "null and remove the downside rows."
+    )
+    return (issue,)
+
+
 def _unstated_currency(inputs: cpos_forecast.ForecastInputs) -> tuple[str, ...]:
     """Reading a block without `currency` stays USD (blocks that predate the field); a block
     written now that states `scale` says which currency its statements are printed in."""
@@ -1888,65 +1982,6 @@ def _lookup_lines(
     return (head, *refused)
 
 
-def _first_prompt_bytes(
-    module: str, instructions: int, upstream: Sequence[str], earlier: Mapping[str, bytes]
-) -> int:
-    if module not in COMPACT_HANDOFF_MODULES:
-        return _cp8_request_bytes(instructions, upstream, earlier)
-    handoffs = {
-        name: earlier[path] for name in upstream if (path := f"{PRIOR_PREFIX}{name}.md") in earlier
-    }
-    indexed_size = len(dump_json(compact_index(handoffs)).encode()) if handoffs else 0
-    return instructions + REQUEST_ALLOWANCE + indexed_size
-
-
-def _first_prompt_lines(prepared: Prepared, config: str) -> tuple[str, ...]:
-    """Readiness warnings, GitHub Copilot configs only: each module whose first prompt, estimated
-    in tokens, plus the output budget passes the advisory share of the known route limit.
-    The actual request is checked before it is sent.
-
-    What can be estimated before the run: the instructions (exact) and the request's fixed part
-    (`REQUEST_ALLOWANCE`). The handoffs a module is sent do not exist yet; where an earlier run
-    of the issuer is pinned (CP-8's comparison) its handoffs stand in for them, otherwise they are
-    left out and the estimate is a floor. `HandoffExecutor` checks each module again, on its real
-    first prompt, before its first call (event ``first_prompt_near_limit``)."""
-    chosen = CONFIGS[config]
-    if chosen.provider != "copilot" or chosen.model not in copilot_route.TOKEN_LIMITS:
-        return ()
-    earlier = {
-        name: (prepared.directory / pin.path).read_bytes()
-        for name, pin in prepared.plan.sources.items()
-        if name.startswith(PRIOR_PREFIX)
-    }
-    producers = dependencies(prepared.ordered)
-    lines: list[str] = []
-    unsized = False
-    for module in prepared.ordered:
-        sent = [m for m in prepared.ordered if m in producers[module] and m != "CP-8"]
-        instructions = (prepared.directory / prepared.plan.instructions[module].path).stat()
-        tokens = copilot_route.prompt_tokens_estimate(
-            _first_prompt_bytes(module, instructions.st_size, sent, earlier)
-        )
-        basis = "instructions only"
-        if sent and earlier:
-            basis = "handoffs sized from the earlier run's"
-        unsized = unsized or bool(sent and not earlier)
-        limit = copilot_route.near_limit(chosen.model, tokens, output_limit(config))
-        if limit is not None:
-            share = int(copilot_route.COMPACTION_SHARE * 100)
-            lines.append(
-                f"Context:  {module}: first prompt about {tokens:,} tokens ({basis}) plus "
-                f"{output_limit(config):,} output is over {share}% of the {limit:,}-token limit; "
-                "the adapter checks the seat's limit before sending."
-            )
-    if unsized:
-        lines.append(
-            "Context:  handoffs not written yet are not counted; each module's first prompt is "
-            "checked again before its first call (event first_prompt_near_limit)"
-        )
-    return tuple(lines)
-
-
 def _estimate_lines(estimate: cpos_custom.Estimate | None) -> tuple[str, ...]:
     """A custom run's estimate: its sum, hold and cap, then a line per module with its figure, the
     reason the launcher added it, and whether it shows on the Modules page only."""
@@ -2002,7 +2037,6 @@ def _readiness(
                 os.environ,
                 recorded_web_lookup(prepared.directory / "live" / "loop.json"),
             ),
-            *_first_prompt_lines(prepared, config),
         )
     )
 
@@ -2326,7 +2360,6 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
             on_handoff=lambda task, _: print(f"Accepted: {task.module_id}", flush=True),
             config=args.config,
             effort_by_module=efforts,
-            on_notice=lambda line: print(line, flush=True),
             web_lookup=lookup,
             web_hosts=tuple(args.web_host),
             lookup_cutoff=effective_cutoff(prepared.plan.run.as_of, context.run.cutoff),

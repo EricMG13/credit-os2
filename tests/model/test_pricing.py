@@ -24,6 +24,7 @@ from deploy_workflow.model.pricing import (
     Priced,
     PricingError,
     computed_usd,
+    covers_long_context,
     money_text,
     price_of,
     price_usage,
@@ -176,6 +177,59 @@ def test_copilot_opus_handoff_reserves_one_input_token_per_serialized_byte(confi
     prompt_bytes = 200_000
     expected = ((prompt_bytes + 4096) * 8 + 128_000 * 20) * Decimal("0.000001")
     assert pricing_module.handoff_reservation_usd(config, prompt_bytes, 32_000) == expected
+
+
+# The ruled OpenAI lower bound is 3 bytes per token (cases/pilot-fixes/limits.json); a hold
+# bounds the input at ceil(bytes / 3) + 4096 tokens against the 1,050,000-token context. The
+# byte sizes below are worked by hand, not read from a production helper.
+_LONG_BYTES = 3 * (1_050_000 - 4096)
+
+
+def test_p1_long_context_copilot_sol_holds_up_to_three_bytes_per_token() -> None:
+    # (1,050,000 x USD 5 + max(131,072, 128,000) x USD 15) per million, unquantised
+    expected = D("7.21608")
+    assert pricing_module.handoff_reservation_usd("copilot-sol-medium", 0, 131_072) == expected
+    assert (
+        pricing_module.handoff_reservation_usd("copilot-sol-medium", _LONG_BYTES, 131_072)
+        == expected
+    )
+
+
+def test_p2_one_byte_over_the_three_byte_bound_is_refused() -> None:
+    with pytest.raises(ContextTooLong):
+        pricing_module.handoff_reservation_usd("copilot-sol-medium", _LONG_BYTES + 1, 131_072)
+
+
+def test_p4_luna_holds_three_bytes_per_token_then_refuses() -> None:
+    # 1,050,000 x 0.25 + 131,072 x 0.75 per million
+    held = pricing_module.handoff_reservation_usd("copilot-luna-xhigh", _LONG_BYTES, 131_072)
+    assert held == D("0.360804")
+    with pytest.raises(ContextTooLong):
+        pricing_module.handoff_reservation_usd("copilot-luna-xhigh", _LONG_BYTES + 1, 131_072)
+
+
+def test_p3_openai_sol_keeps_two_bytes_per_token() -> None:
+    edge = 2 * (1_050_000 - 4096)
+    assert pricing_module.handoff_reservation_usd(
+        "sol-medium", edge, 1000
+    ) == pricing_module.handoff_reservation_usd("sol-medium", 0, 1000)
+    with pytest.raises(ContextTooLong):
+        pricing_module.handoff_reservation_usd("sol-medium", edge + 1, 1000)
+
+
+def test_p5_copilot_opus_hold_is_unchanged() -> None:
+    expected = ((200_000 + 4096) * 8 + 128_000 * 20) * D("0.000001")
+    assert (
+        pricing_module.handoff_reservation_usd("copilot-opus-medium", 200_000, 32_000) == expected
+    )
+
+
+def test_p6_only_the_three_priced_long_tier_copilot_configs_cover_long_context() -> None:
+    assert {c for c in PRICES if covers_long_context(c)} == {
+        "copilot-sol-medium",
+        "copilot-sol-high",
+        "copilot-luna-xhigh",
+    }
 
 
 def test_copilot_live_charge_is_billed_only() -> None:
@@ -418,3 +472,62 @@ def test_luna_reserves_the_long_context_and_uncapped_runtime_output() -> None:
     assert price_usage("copilot-luna-xhigh", usage).cost_status == "unknown"
     actual = price_usage("copilot-luna-xhigh", usage, Decimal("0.014"))
     assert (actual.usd, actual.cost_status) == (Decimal("0.014"), "billed")
+
+
+def test_f2_reservation_rates_are_the_top_input_and_output_the_hold_prices() -> None:
+    # by hand from the table: Sol USD 5 / 15 per million, Luna 0.25 / 0.75
+    assert pricing_module.reservation_rates("copilot-sol-medium") == (D("5"), D("15"))
+    assert pricing_module.reservation_rates("copilot-sol-high") == (D("5"), D("15"))
+    assert pricing_module.reservation_rates("copilot-luna-xhigh") == (D("0.25"), D("0.75"))
+
+
+# Property tests (fix round 2, G4). The bytes per token by configuration kind are worked here:
+# copilot-opus 1, a long-tier Copilot configuration 3, every other 2; framing is 4,096 tokens.
+_BYTES_PER_TOKEN = {
+    "copilot-opus-medium": 1,
+    "copilot-opus-high": 1,
+    "copilot-sol-medium": 3,
+    "copilot-sol-high": 3,
+    "copilot-luna-xhigh": 3,
+    "sol-medium": 2,
+    "opus-medium": 2,
+}
+_CONFIGS = st.sampled_from(sorted(_BYTES_PER_TOKEN))
+
+
+@given(_CONFIGS, st.integers(0, 10_000_000))
+def test_handoff_input_bound_is_the_ceiling_of_bytes_over_bytes_per_token_plus_framing(
+    config: str, size: int
+) -> None:
+    bpt = _BYTES_PER_TOKEN[config]
+    assert pricing_module.handoff_input_bound(config, size) == -(-size // bpt) + 4096
+
+
+@given(_CONFIGS, st.integers(0, 10_000_000), st.integers(0, 10_000))
+def test_handoff_input_bound_never_falls_as_the_request_grows(
+    config: str, size: int, more: int
+) -> None:
+    assert pricing_module.handoff_input_bound(
+        config, size + more
+    ) >= pricing_module.handoff_input_bound(config, size)
+
+
+@given(_CONFIGS)
+def test_the_largest_accepted_request_is_held_and_one_byte_more_is_refused(config: str) -> None:
+    largest = pricing_module.handoff_largest_request_bytes(config)
+    if largest is None:
+        # no context ceiling: the hold refuses no size
+        assert price_of(config).reservation_context_tokens is None
+        pricing_module.handoff_reservation_usd(config, 100_000_000, 1000)
+        return
+    pricing_module.handoff_reservation_usd(config, largest, 1000)
+    with pytest.raises(ContextTooLong):
+        pricing_module.handoff_reservation_usd(config, largest + 1, 1000)
+
+
+@given(st.integers(min_value=1, max_value=2_000_000))
+def test_m1r_prompt_bytes_within_inverts_the_estimate(tokens: int) -> None:
+    from deploy_workflow.model.copilot import prompt_bytes_within, prompt_tokens_estimate
+
+    fits = prompt_bytes_within(tokens)
+    assert prompt_tokens_estimate(fits) <= tokens < prompt_tokens_estimate(fits + 1)

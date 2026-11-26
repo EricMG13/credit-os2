@@ -818,3 +818,39 @@ it("gives other pages the base fixture's panels, cases and notes in this shape",
   ]);
   expect(data?.line).toBe(106);
 });
+
+// Verbatim from the replayed TDG CP-2A stressed-metrics table: FCF / debt is stated as a unitless
+// fraction under no unit bracket, so it is stated and not drawn.
+it("says a stated unitless fraction is stated and not drawn, with no empty axis", () => {
+  render(
+    <StressRow
+      {...rowProps([
+        downsideWith([
+          ["Net leverage (x)", "4.88x", "6.10x", "9.77x", "Filing"],
+          [
+            "FCF / debt, fraction",
+            "0.075562700964630225080385852090032154341",
+            "0.043706101286173633440514469453376205788",
+            "-0.0034760610932475884244372990353697749196",
+            "Filing",
+          ],
+        ]),
+      ])}
+    />,
+  );
+  const tile = downsideTile();
+  const panel = tile.querySelector('[data-panel="FCF / debt, fraction"]');
+  expect(panel).not.toBeNull();
+  expect(panel).not.toHaveTextContent("No figure");
+  expect(panel).toHaveTextContent("Stated, not drawn");
+  const readings = within(tile)
+    .getAllByRole("img")
+    .map((figure) => figure.getAttribute("aria-label") ?? "")
+    .join(" ");
+  expect(readings).toContain("FCF / debt, fraction stated, not drawn");
+  expect(readings).not.toMatch(/FCF \/ debt, fraction no figure/);
+  // The full value stays in the note beneath.
+  expect(tile).toHaveTextContent("0.075562700964630225080385852090032154341");
+  // No scale is drawn for a panel with nothing placed on it.
+  expect(panel?.querySelectorAll("[data-axis] text")).toHaveLength(0);
+});

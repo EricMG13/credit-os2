@@ -8,6 +8,7 @@ started handler to return before the script goes on.
 """
 
 import asyncio
+import dataclasses
 import json
 import time
 import uuid
@@ -196,6 +197,9 @@ class FakeClient:
         self.force_stopped = 0
         self.sessions: list[FakeSession] = []
         self.followups: list[list[Step]] = []
+        # What the runtime reports as a session's context tier: by default the tier the session
+        # asked for (None when it asked for none); a test sets a function to report something else.
+        self.tier_read: Callable[[FakeSession], str | None] | None = None
 
     async def start(self) -> None:
         self.started += 1
@@ -208,6 +212,12 @@ class FakeClient:
         session.followups = self.followups
         self.sessions.append(session)
         return session
+
+    async def context_tier(self, session: FakeSession) -> str | None:
+        if self.tier_read is not None:
+            return self.tier_read(session)
+        requested = session.options.get("context_tier")
+        return requested if isinstance(requested, str) else None
 
     async def stop(self) -> None:
         self.stopped += 1
@@ -792,7 +802,7 @@ def small_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(copilot_adapter, name, 0.3)
 
 
-def test_second_model_call_is_not_billed_as_the_first(rig: Rig) -> None:
+def test_second_model_call_is_billed_with_the_first(rig: Rig) -> None:
     script: list[Step] = [
         said(""),
         usage(finishReason="tool_calls", numToolCalls=1, copilotUsage={"totalNanoAiu": 1000}),
@@ -803,11 +813,13 @@ def test_second_model_call_is_not_billed_as_the_first(rig: Rig) -> None:
     started = time.monotonic()
     reply = call(rig.make(script, idle_s=5.0, overall_s=30.0), request())
     assert time.monotonic() - started < 3  # the second usage ended the call, no idle wait
-    assert reply.kind == "sent_unknown" and reply.usage is None and reply.billed_usd is None
-    assert reply.raw is not None
+    # F1a: both charges are readable, so the call settles at their exact sum (nano-AIU 1000 +
+    # 2000 = 3000, each 1e-11 USD), with the raw body kept
+    assert reply.kind == "sent_usage" and reply.billed_usd == Decimal("0.00000003")
+    assert reply.usage is not None and reply.raw is not None
 
 
-def test_two_usage_events_in_a_timeout_body_are_sent_unknown(rig: Rig) -> None:
+def test_two_readable_usage_events_in_a_timeout_body_are_summed(rig: Rig) -> None:
     adapter = rig.make(text_script())
     records = [
         event_record(SessionEvent.from_dict(usage(copilotUsage={"totalNanoAiu": n}).event))
@@ -815,8 +827,56 @@ def test_two_usage_events_in_a_timeout_body_are_sent_unknown(rig: Rig) -> None:
     ]
     body = dump_json(records).encode()
     call_ = _Call(request(), DIGEST, 0, "medium", 0.0, 0.0, "r")
-    reply = adapter._timeout_reply(call_, body, body, "IdleTimeout")
+    reply = adapter._timeout_reply(call_, body, body, "IdleTimeout", Redactor())
+    assert reply.kind == "sent_usage" and reply.billed_usd == Decimal("0.00000003")  # F1c
+    assert reply.usage is not None and reply.raw == body
+
+
+def test_f1b_a_second_usage_without_a_charge_is_sent_unknown(rig: Rig) -> None:
+    script: list[Step] = [
+        said(""),
+        usage(finishReason="tool_calls", numToolCalls=1, copilotUsage={"totalNanoAiu": 1000}),
+        usage(),
+        Idle(),
+    ]
+    reply = call(rig.make(script, idle_s=5.0, overall_s=30.0), request())
     assert reply.kind == "sent_unknown" and reply.usage is None and reply.billed_usd is None
+    assert reply.raw is not None
+
+
+def test_f1b_timeout_body_with_an_unreadable_charge_is_sent_unknown(rig: Rig) -> None:
+    adapter = rig.make(text_script())
+    records = [
+        event_record(SessionEvent.from_dict(usage(**extra).event))
+        for extra in ({"copilotUsage": {"totalNanoAiu": 1000}}, {})
+    ]
+    body = dump_json(records).encode()
+    call_ = _Call(request(), DIGEST, 0, "medium", 0.0, 0.0, "r")
+    reply = adapter._timeout_reply(call_, body, body, "IdleTimeout", Redactor())
+    assert reply.kind == "sent_unknown" and reply.usage is None and reply.billed_usd is None
+
+
+def test_f1d_two_requests_past_the_hold_are_booked_as_spent_and_stop_the_run(
+    rig: Rig, tmp_path: Path
+) -> None:
+    """One call reports two usages, USD 4.60 + 5.52 (nano-AIU at 1e-11 USD each) = USD 10.12,
+    over the cap of 10 (the hold is USD 7.21608): the ledger books 10.12, not the hold."""
+    script: list[Step] = [
+        said(""),
+        usage(
+            finishReason="tool_calls", numToolCalls=1, copilotUsage={"totalNanoAiu": 460 * 10**9}
+        ),
+        usage(copilotUsage={"totalNanoAiu": 552 * 10**9}),
+        Idle(),
+    ]
+    adapter = rig.make(script, idle_s=5.0, overall_s=30.0)
+    run = tmp_path / "run"
+    run.mkdir()
+    executor = HandoffExecutor(run, adapter=adapter, cap_usd=Decimal(10), check=check)
+    with pytest.raises(RuntimeError, match="overrun=True"):
+        executor(task())
+    assert executor.budget.stop_kind == "overrun"
+    assert executor.budget.spent == Decimal("10.12")
 
 
 def test_slow_teardown_does_not_lose_the_reply(rig: Rig, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1602,3 +1662,617 @@ def test_continuation_checks_catalogue_limit_before_delivering_tool_results(rig:
     reply = call(adapter, request(*tool_turn_history(), tool_result), 1)
     assert reply.kind == "not_sent" and reply.error_class == "ContextTooLong"
     assert rig.session.sent == [USER.text]
+
+
+# ---------------------------------------------------------------- the long-context tier
+#
+# 922,000 and 300,000 below are illustrative test figures, not readings from a seat. Request sizes
+# are worked by hand: the guard estimates tokens as ceil(bytes / 3.85), so a request of N tokens
+# (N a multiple of 20) is N * 385 / 100 bytes of compact JSON. The test measures the request's JSON
+# with the standard library to pad it to exactly that size; it calls no production estimator.
+
+OPUS = ModelSpec("copilot-opus-medium", "copilot", "claude-opus-5.5", "medium")
+LONG = 922_000
+
+
+TABLE_RATES: dict[str, Any] = {"inputPrice": 500, "outputPrice": 1500}
+
+
+def sol_row(**long_tier: Any) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "id": "gpt-6.1-sol",
+        "supportedReasoningEfforts": ["low", "medium", "high"],
+    }
+    if long_tier:
+        # the long tier's listed prices, at the hold table's rates (USD 5 / 15 per million:
+        # AI credits per batch x USD 0.01 x 1,000,000 / batchSize)
+        row["billing"] = {
+            "tokenPrices": {
+                "batchSize": 1_000_000,
+                "longContext": {**TABLE_RATES, **long_tier},
+            }
+        }
+    return row
+
+
+def sized(tokens: int, extra: int = 0) -> TurnRequest:
+    """A request whose compact JSON is ``tokens * 385 / 100 + extra`` bytes."""
+    assert tokens % 20 == 0
+    target = tokens * 385 // 100 + extra
+
+    def size(pad: int) -> int:
+        req = TurnRequest((SYSTEM, Message("user", "x" * pad)), (TOOL,), 1000, "medium")
+        return len(json.dumps(dataclasses.asdict(req), separators=(",", ":")).encode())
+
+    pad = target - size(0)
+    assert pad > 0 and size(pad) == target
+    return TurnRequest((SYSTEM, Message("user", "x" * pad)), (TOOL,), 1000, "medium")
+
+
+def long_rig(rig: Rig, row: dict[str, Any], script: list[Step] | None = None, **kw: Any) -> Any:
+    rig.client.models = [row]
+    return rig.make(script if script is not None else text_script(), long_context=True, **kw)
+
+
+def test_a1_a_listed_long_tier_is_requested_and_confirmed(rig: Rig) -> None:
+    adapter = long_rig(rig, sol_row(maxPromptTokens=LONG))
+    reply = call(adapter, request())
+    assert reply.kind == "ok"
+    assert rig.session.options["context_tier"] == "long_context"
+
+
+def test_a2_no_billing_row_opens_on_the_default_tier(rig: Rig) -> None:
+    reply = call(long_rig(rig, sol_row()), request())
+    assert reply.kind == "ok" and "context_tier" not in rig.session.options
+
+
+def test_a3_the_long_budget_replaces_the_default_limits(rig: Rig) -> None:
+    row = sol_row(maxPromptTokens=LONG)
+    row["capabilities"] = {
+        "limits": {"max_prompt_tokens": 272_000, "max_context_window_tokens": 272_000}
+    }
+    reply = call(long_rig(rig, row), sized(300_000))
+    assert reply.kind == "ok"
+
+
+def test_a4_without_a_long_tier_300k_tokens_is_refused_before_a_session(rig: Rig) -> None:
+    reply = call(long_rig(rig, sol_row()), sized(300_000))
+    assert reply.kind == "not_sent" and reply.error_class == "ContextTooLong"
+    assert rig.client.sessions == []
+
+
+def test_a5_the_budget_is_inclusive(rig: Rig) -> None:
+    adapter = long_rig(rig, sol_row(maxPromptTokens=300_000))
+    assert call(adapter, sized(300_000)).kind == "ok"
+    over = call(adapter, sized(300_000, extra=1), digest="e" * 64)
+    assert over.kind == "not_sent" and over.error_class == "ContextTooLong"
+    assert len(rig.client.sessions) == 1
+
+
+@pytest.mark.parametrize("bad", [True, 0, "922000", None])
+def test_a6_an_unusable_budget_or_tier_means_the_default_tier(rig: Rig, bad: Any) -> None:
+    row = sol_row(maxPromptTokens=bad)
+    if bad is None:
+        row["billing"]["tokenPrices"]["longContext"] = "not a dict"
+    reply = call(long_rig(rig, row), request())
+    assert reply.kind == "ok" and "context_tier" not in rig.session.options
+
+
+def test_a7_the_deprecated_alias_is_read_when_the_budget_is_absent(rig: Rig) -> None:
+    reply = call(long_rig(rig, sol_row(contextMax=LONG)), sized(300_000))
+    assert reply.kind == "ok" and rig.session.options["context_tier"] == "long_context"
+
+
+def test_a8_opus_stays_on_the_default_tier(rig: Rig) -> None:
+    rig.ruling.write_text(
+        RULING_TEXT.replace("copilot-sol-medium", "copilot-opus-medium"), encoding="utf-8"
+    )
+    row = {
+        "id": "claude-opus-5.5",
+        "supportedReasoningEfforts": ["medium", "high"],
+        "billing": {"tokenPrices": {"longContext": {"maxPromptTokens": 1000}}},
+    }
+    rig.client.models = [row]
+    script = [
+        said("ANSWER"),
+        usage(model="claude-opus-5.5", copilotUsage={"totalNanoAiu": 1}),
+        Idle(),
+    ]
+    adapter = rig.make(script, spec=OPUS, long_context=True)
+    reply = call(adapter, TurnRequest(sized(5000).messages, (TOOL,), 1000, "medium"))
+    assert reply.kind == "ok" and "context_tier" not in rig.session.options
+
+
+def _refused_on_a_default_session(rig: Rig, reply: AdapterReply) -> None:
+    assert reply.kind == "not_sent" and reply.error_class == "ContextTooLong"
+    assert len(rig.client.sessions) == 1
+    assert rig.session.options["context_tier"] == "long_context"
+    assert rig.session.sent == []
+    rig.released()
+    assert rig.session.disconnected == 1
+    assert reply.message is not None and "context tier" in reply.message
+
+
+def test_a9_a_session_that_reports_the_default_tier_is_guarded_by_the_default_limit(
+    rig: Rig,
+) -> None:
+    rig.client.tier_read = lambda _session: "default"
+    adapter = long_rig(rig, sol_row(maxPromptTokens=LONG))
+    _refused_on_a_default_session(rig, call(adapter, sized(300_000)))
+
+
+def test_a10_a_failed_tier_read_is_guarded_by_the_default_limit(rig: Rig) -> None:
+    def broken(_session: FakeSession) -> str | None:
+        raise RuntimeError("the runtime does not know session.model.getCurrent")
+
+    rig.client.tier_read = broken
+    adapter = long_rig(rig, sol_row(maxPromptTokens=LONG))
+    _refused_on_a_default_session(rig, call(adapter, sized(300_000)))
+
+
+def test_a11_a_continuation_is_guarded_by_the_long_budget(rig: Rig) -> None:
+    adapter = long_rig(rig, sol_row(maxPromptTokens=1000), tool_script())
+    assert call(adapter, request()).kind == "ok"
+    tool_result = Message("tool", "x" * 6000, tool_call_id="c1")
+    reply = call(adapter, request(*tool_turn_history(), tool_result), 1)
+    assert reply.kind == "not_sent" and reply.error_class == "ContextTooLong"
+    assert rig.session.sent == [USER.text]
+
+
+def test_a12_a_budget_over_the_priced_context_is_not_pinned(rig: Rig) -> None:
+    reply = call(long_rig(rig, sol_row(maxPromptTokens=1_050_001)), request())
+    assert reply.kind == "ok" and "context_tier" not in rig.session.options
+
+
+def test_a13_a_default_session_with_a_small_prompt_is_sent_and_says_why(rig: Rig) -> None:
+    rig.client.tier_read = lambda _session: "default"
+    reply = call(long_rig(rig, sol_row(maxPromptTokens=LONG)), request())
+    assert reply.kind == "ok" and rig.session.sent == [USER.text]
+    assert reply.message is not None and "context tier" in reply.message
+
+
+def test_a14_an_adapter_built_without_the_keyword_stays_on_the_default_tier(rig: Rig) -> None:
+    rig.client.models = [sol_row(maxPromptTokens=LONG)]
+    reply = call(rig.make(text_script()), request())
+    assert reply.kind == "ok" and "context_tier" not in rig.session.options
+
+
+def test_a15_an_invalid_budget_falls_back_to_the_alias(rig: Rig) -> None:
+    row = sol_row(maxPromptTokens="x", contextMax=LONG)
+    reply = call(long_rig(rig, row), sized(300_000))
+    assert reply.kind == "ok" and rig.session.options["context_tier"] == "long_context"
+
+
+# ---- F2: the pin checks the seat's listed long-tier prices against the hold's rates
+# (AI credits per batch x USD 0.01 x 1,000,000 / batchSize = USD per million tokens)
+
+
+def _pinned(rig: Rig, row: dict[str, Any]) -> bool:
+    reply = call(long_rig(rig, row), request())
+    assert reply.kind == "ok"
+    return rig.session.options.get("context_tier") == "long_context"
+
+
+def test_f2a_prices_at_the_table_rates_pin(rig: Rig) -> None:
+    assert _pinned(rig, sol_row(maxPromptTokens=LONG))
+
+
+def test_f2a_the_batch_size_scales_the_price(rig: Rig) -> None:
+    row = sol_row(maxPromptTokens=LONG, inputPrice=0.5, outputPrice=1.5)  # per 1,000 tokens
+    row["billing"]["tokenPrices"]["batchSize"] = 1000
+    assert _pinned(rig, row)
+
+
+@pytest.mark.parametrize(
+    "over",
+    [
+        {"inputPrice": 501},  # USD 5.01 per million: one credit-unit above the top input rate
+        {"outputPrice": 1501},
+        {"cacheReadPrice": 501},
+        {"cacheWritePrice": 501},
+        {"cacheWrite1hPrice": 501},
+    ],
+)
+def test_f2b_f2c_a_price_above_the_hold_rate_is_not_pinned(
+    rig: Rig, caplog: pytest.LogCaptureFixture, over: dict[str, Any]
+) -> None:
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        assert not _pinned(rig, sol_row(maxPromptTokens=LONG, **over))
+    assert any(
+        r.levelno == logging.WARNING and "long-tier" in r.getMessage() for r in caplog.records
+    )
+
+
+@pytest.mark.parametrize("name", ["batchSize", "inputPrice", "outputPrice"])
+def test_f2d_a_missing_required_field_is_not_pinned(rig: Rig, name: str) -> None:
+    row = sol_row(maxPromptTokens=LONG)
+    prices = row["billing"]["tokenPrices"]
+    (prices if name == "batchSize" else prices["longContext"]).pop(name)
+    assert not _pinned(rig, row)
+
+
+@pytest.mark.parametrize(
+    "over",
+    [
+        {"inputPrice": True},
+        {"outputPrice": True},
+        {"inputPrice": "500"},
+        {"cacheWritePrice": False},
+        {"cacheReadPrice": "x"},
+    ],
+)
+def test_f2d_a_bool_or_non_numeric_price_is_not_pinned(rig: Rig, over: dict[str, Any]) -> None:
+    assert not _pinned(rig, sol_row(maxPromptTokens=LONG, **over))
+
+
+@pytest.mark.parametrize("batch", [True, 0, -1, 1.5, "1000000", None])
+def test_f2d_an_unusable_batch_size_is_not_pinned(rig: Rig, batch: Any) -> None:
+    row = sol_row(maxPromptTokens=LONG)
+    row["billing"]["tokenPrices"]["batchSize"] = batch
+    assert not _pinned(rig, row)
+
+
+LUNA = ModelSpec("copilot-luna-xhigh", "copilot", "gpt-6-luna", "xhigh")
+
+
+def _luna_pinned(rig: Rig, input_price: int) -> bool:
+    rig.ruling.write_text(
+        RULING_TEXT.replace("copilot-sol-medium", "copilot-luna-xhigh"), encoding="utf-8"
+    )  # USD 0.25 / 0.75 per million: 25 / 75 credits per 1,000,000
+    row = {
+        "id": "gpt-6-luna",
+        "supportedReasoningEfforts": ["medium", "xhigh"],
+        "billing": {
+            "tokenPrices": {
+                "batchSize": 1_000_000,
+                "longContext": {
+                    "maxPromptTokens": LONG,
+                    "inputPrice": input_price,
+                    "outputPrice": 75,
+                },
+            }
+        },
+    }
+    rig.client.models = [row]
+    script = [said("A"), usage(model="gpt-6-luna", copilotUsage={"totalNanoAiu": 1}), Idle()]
+    asked = TurnRequest((SYSTEM, USER), (TOOL,), 1000, "xhigh")
+    reply = call(rig.make(script, spec=LUNA, long_context=True), asked)
+    assert reply.kind == "ok", reply.message
+    return rig.session.options.get("context_tier") == "long_context"
+
+
+def test_f2e_luna_pins_at_its_rates(rig: Rig) -> None:
+    assert _luna_pinned(rig, 25)
+
+
+def test_f2e_luna_at_026_input_is_not_pinned(rig: Rig) -> None:
+    assert not _luna_pinned(rig, 26)
+
+
+# ---- F4: events between create_session and the tier read are captured
+
+
+def test_f4_an_event_before_the_tier_read_returns_is_in_the_call(rig: Rig) -> None:
+    def early(session: FakeSession) -> str:
+        session.deliver(said("EARLY ").event)
+        return "long_context"
+
+    rig.client.tier_read = early
+    reply = call(long_rig(rig, sol_row(maxPromptTokens=LONG)), request())
+    assert reply.kind == "ok" and reply.turn is not None and "EARLY" in reply.turn.text
+
+
+# Batch fix 2 (B1-B6): a call with more than one assistant.usage event
+def _two_usages(*before: Step, second: dict[str, Any] | None = None, **first: Any) -> list[Step]:
+    return [
+        *before,
+        said(""),
+        usage(copilotUsage={"totalNanoAiu": 1000}, **first),
+        usage(**{"copilotUsage": {"totalNanoAiu": 2000}, **(second or {})}),
+        Idle(),
+    ]
+
+
+def _run_two(rig: Rig, script: list[Step]) -> Any:
+    return call(rig.make(script, idle_s=5.0, overall_s=30.0), request())
+
+
+def test_b1a_a_key_split_across_messages_in_a_summed_call_is_withheld(rig: Rig) -> None:
+    from deploy_workflow.model.adapter import _REFLECTED_RAW
+
+    half = len(TOKEN) // 2
+    reply = _run_two(rig, _two_usages(said(TOKEN[:half]), said(TOKEN[half:])))
+    assert reply.kind == "sent_usage" and reply.billed_usd == Decimal("0.00000003")
+    assert reply.raw == _REFLECTED_RAW
+
+
+def test_b1b_the_same_split_key_in_a_one_usage_call_is_key_reflected(rig: Rig) -> None:
+    half = len(TOKEN) // 2
+    script = [
+        said(TOKEN[:half]),
+        said(TOKEN[half:]),
+        usage(copilotUsage={"totalNanoAiu": 1}),
+        Idle(),
+    ]
+    reply = _run_two(rig, script)
+    assert reply.error_class == "KeyReflected" and reply.raw == b'"[redacted]"'
+
+
+def test_b2_an_unavailable_credit_status_in_a_summed_call_is_sent_unknown(rig: Rig) -> None:
+    second = {"copilotUsage": {"totalNanoAiu": 0}, "aiCreditsStatus": "unavailable"}
+    reply = _run_two(rig, _two_usages(second=second))
+    assert reply.kind == "sent_unknown" and reply.billed_usd is None
+
+
+def test_b3_one_usage_event_delivered_twice_is_sent_unknown(rig: Rig) -> None:
+    same = usage(copilotUsage={"totalNanoAiu": 1000}, apiCallId="req-1")
+    reply = _run_two(rig, [said(""), same, Emit(dict(same.event)), Idle()])
+    assert reply.kind == "sent_unknown" and reply.billed_usd is None
+
+
+def test_b4_a_last_usage_that_asks_for_tool_calls_is_sent_unknown(rig: Rig) -> None:
+    reply = _run_two(rig, _two_usages(second={"finishReason": "tool_calls"}))
+    assert reply.kind == "sent_unknown" and reply.billed_usd is None
+
+
+def test_b5_a_byok_usage_in_a_summed_call_keeps_its_routing_class(rig: Rig) -> None:
+    from deploy_workflow.model.reply_classes import BYOK_ROUTED
+
+    reply = _run_two(rig, _two_usages(isByok=True))
+    assert reply.kind == "sent_usage" and reply.error_class == BYOK_ROUTED
+    assert reply.billed_usd == Decimal("0.00000003")
+
+
+def test_b6_a_budget_over_the_priced_context_logs_why_it_is_not_pinned(
+    rig: Rig, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    with caplog.at_level(logging.WARNING):
+        assert not _pinned(rig, sol_row(maxPromptTokens=1_050_001))
+    assert any(
+        r.levelno == logging.WARNING and "1,050,001" in r.getMessage() for r in caplog.records
+    )
+
+
+# Fix round 2 (G1-G4): the tier query the executor reads, the cachePrice alias, the SDK tier read
+def test_g1_long_tier_in_force_is_true_only_for_a_confirmed_long_session(rig: Rig) -> None:
+    adapter = long_rig(rig, sol_row(maxPromptTokens=LONG))
+    assert adapter.long_tier_in_force(DIGEST) is False  # no exchange yet
+    assert call(adapter, request()).kind == "ok"
+    assert adapter.long_tier_in_force(DIGEST) is True
+    assert adapter.long_tier_in_force("e" * 64) is False  # another digest
+    adapter.release(DIGEST)
+    rig.released()
+    assert adapter.long_tier_in_force(DIGEST) is False
+
+
+def test_g1_a_session_that_fell_back_to_the_default_tier_is_not_long_in_force(rig: Rig) -> None:
+    rig.client.tier_read = lambda _session: "default"
+    adapter = long_rig(rig, sol_row(maxPromptTokens=LONG))
+    assert call(adapter, request()).kind == "ok"
+    assert adapter.long_tier_in_force(DIGEST) is False
+
+
+def test_g1_an_unpinned_session_is_not_long_in_force(rig: Rig) -> None:
+    adapter = long_rig(rig, sol_row())  # the seat lists no long tier
+    assert call(adapter, request()).kind == "ok"
+    assert adapter.long_tier_in_force(DIGEST) is False
+
+
+def test_g2_a_deprecated_cache_price_above_the_hold_rate_is_not_pinned(
+    rig: Rig, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    # 100,000 credits per 1,000,000 tokens = USD 1,000 per million, 200x the top input rate
+    with caplog.at_level(logging.WARNING):
+        assert not _pinned(rig, sol_row(maxPromptTokens=LONG, cachePrice=100_000))
+    assert any(
+        r.levelno == logging.WARNING and "cachePrice" in r.getMessage() for r in caplog.records
+    )
+
+
+def test_g2_a_deprecated_cache_price_at_the_table_rate_pins(rig: Rig) -> None:
+    assert _pinned(rig, sol_row(maxPromptTokens=LONG, cachePrice=500))
+
+
+def _sdk_session(payload: dict[str, Any]) -> Any:
+    from types import SimpleNamespace
+
+    from copilot.generated.rpc import CurrentModel
+
+    async def get_current() -> CurrentModel:
+        return CurrentModel.from_dict(payload)
+
+    return SimpleNamespace(rpc=SimpleNamespace(model=SimpleNamespace(get_current=get_current)))
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"contextTier": "long_context", "modelId": "gpt-6.1-sol"}, "long_context"),
+        ({"contextTier": "default"}, "default"),
+        ({}, None),
+    ],
+)
+def test_g4_the_sdk_wrapper_reads_the_tier_from_the_sdks_own_type(
+    payload: dict[str, Any], expected: str | None
+) -> None:
+    from deploy_workflow.model.copilot_adapter import _SdkClient
+
+    client = _SdkClient(None, None, None, None)
+    assert asyncio.run(client.context_tier(_sdk_session(payload))) == expected
+
+
+def test_g4_an_unknown_sdk_tier_raises_for_the_tier_read_to_record() -> None:
+    from deploy_workflow.model.copilot_adapter import _SdkClient
+
+    client = _SdkClient(None, None, None, None)
+    with pytest.raises(AssertionError):  # the SDK's enum decoder asserts on an unknown value
+        asyncio.run(client.context_tier(_sdk_session({"contextTier": "huge"})))
+
+
+def test_g1_the_executor_reads_the_real_adapters_tier(rig: Rig, tmp_path: Path) -> None:
+    from deploy_workflow.model.handoff import HandoffExecutor
+
+    adapter = long_rig(rig, sol_row(maxPromptTokens=LONG))
+    executor = HandoffExecutor(
+        tmp_path, adapter=adapter, cap_usd=Decimal(1), check=lambda *_: (), events=tmp_path
+    )
+    assert executor._read_cap(DIGEST) == 1_100_000  # nothing opened yet
+    assert call(adapter, request()).kind == "ok"
+    assert executor._read_cap(DIGEST) == 2_145_904  # 3,137,712 - 991,808
+
+
+@pytest.mark.parametrize(
+    ("budget", "expected"),
+    [
+        (1_050_000, 2_145_904),
+        (922_000, 2_145_904),
+        (814_991, 2_145_904),
+        (814_990, 2_145_903),
+        (700_000, 1_703_192),
+        (557_378, 1_154_097),
+        (543_328, 1_100_004),
+        (543_327, 1_100_000),
+        (500_000, 1_100_000),
+        (285_715, 1_100_000),
+        (285_714, 1_100_000),
+    ],
+)
+def test_m1r_the_read_cap_follows_the_long_budget(
+    rig: Rig, tmp_path: Path, budget: int, expected: int
+) -> None:
+    from deploy_workflow.model.copilot_adapter import _guard_context, _Refuse
+
+    adapter = long_rig(rig, sol_row(maxPromptTokens=budget))
+    executor = HandoffExecutor(
+        tmp_path, adapter=adapter, cap_usd=Decimal(1), check=lambda *_: (), events=tmp_path
+    )
+    assert call(adapter, request()).kind == "ok"
+    cap = executor._read_cap(DIGEST)
+    assert cap == expected
+
+    state = adapter._states[DIGEST]
+    history = state.history
+
+    def sized(target: int) -> TurnRequest:
+        base = TurnRequest((*history, Message("user", "")), request().tools, 1000, "medium")
+        pad = target - len(json.dumps(dataclasses.asdict(base), separators=(",", ":")).encode())
+        made = TurnRequest((*history, Message("user", "x" * pad)), request().tools, 1000, "medium")
+        assert len(json.dumps(dataclasses.asdict(made), separators=(",", ":")).encode()) == target
+        return made
+
+    if budget >= 285_715:
+        # a request of exactly the read cap passes the guard; the real next request is larger
+        # (the reply and the tool wrapper), which the 991,808-byte headroom covers above the floor
+        _guard_context(sized(cap), state)
+    if 543_327 <= budget <= 814_990:
+        _guard_context(sized(cap + 991_808), state)  # the headroom is exactly what the guard admits
+        with pytest.raises(_Refuse) as refused:
+            _guard_context(sized(cap + 991_808 + 1), state)
+        assert refused.value.error_class == "ContextTooLong"
+
+
+# Fix round 5 (H2): the read cap of a session that is not on the long tier follows what the next
+# call admits. Expected values are worked by hand: A = min(prompt limit, window - max_output),
+# bytes = floor(A x 3.85), cap = min(1,100,000, bytes // 2).
+BIG_OUTPUT = 131_072
+
+
+def _big_request() -> TurnRequest:
+    return TurnRequest((SYSTEM, USER), (TOOL,), BIG_OUTPUT, "medium")
+
+
+def test_h2_prompt_admits_is_none_before_a_call_and_after_release(rig: Rig) -> None:
+    adapter = rig.make(text_script())
+    assert adapter.prompt_admits(DIGEST) is None
+    assert call(adapter, _big_request()).kind == "ok"
+    assert adapter.prompt_admits(DIGEST) == 140_928  # 272,000 - 131,072
+    adapter.release(DIGEST)
+    rig.released()
+    assert adapter.prompt_admits(DIGEST) is None
+
+
+@pytest.mark.parametrize(
+    ("limits", "admits", "cap"),
+    [
+        # the table's 272,000 window: 140,928 tokens, 542,572 bytes, half is 271,286
+        (None, 140_928, 271_286),
+        # a 1,000,000 window and no prompt limit: 868,928 tokens, 3,345,372 bytes, half 1,672,686
+        ({"max_context_window_tokens": 1_000_000}, 868_928, 1_100_000),
+        # a prompt limit under the window term binds: min(100,000, 868,928)
+        (
+            {"max_prompt_tokens": 100_000, "max_context_window_tokens": 1_000_000},
+            100_000,
+            192_500,
+        ),
+    ],
+)
+def test_h2_the_read_cap_follows_what_the_session_admits(
+    rig: Rig, tmp_path: Path, limits: dict[str, int] | None, admits: int, cap: int
+) -> None:
+    if limits is not None:
+        rig.client.models[0]["capabilities"] = {"limits": limits}
+    adapter = rig.make(text_script())
+    executor = HandoffExecutor(
+        tmp_path, adapter=adapter, cap_usd=Decimal(1), check=lambda *_: (), events=tmp_path
+    )
+    assert executor._read_cap(DIGEST) == 1_100_000  # nothing opened yet
+    assert call(adapter, _big_request()).kind == "ok"
+    assert adapter.prompt_admits(DIGEST) == admits
+    assert executor._read_cap(DIGEST) == cap
+
+
+# Fix round 5 (H3): the default tier's listed prices against the hold's rates
+def _dear_default(row: dict[str, Any], **prices: Any) -> dict[str, Any]:
+    # credits per 1,000,000 tokens: 500 is USD 5 per million
+    billing = row.setdefault("billing", {"tokenPrices": {"batchSize": 1_000_000}})
+    billing["tokenPrices"].update(prices)
+    return row
+
+
+def test_h3_dear_default_prices_are_not_pinned_and_warned(
+    rig: Rig, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    row = _dear_default(sol_row(maxPromptTokens=LONG), inputPrice=501)  # over USD 5 per million
+    with caplog.at_level(logging.WARNING):
+        assert not _pinned(rig, row)
+    assert any(
+        r.levelno == logging.WARNING and "default-tier inputPrice" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+def test_h3_default_prices_at_the_table_rates_still_pin(rig: Rig) -> None:
+    row = _dear_default(sol_row(maxPromptTokens=LONG), inputPrice=500, outputPrice=1500)
+    assert _pinned(rig, row)
+
+
+def test_h3_a_default_session_with_dear_default_prices_opens_and_warns_once(
+    rig: Rig, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    row = _dear_default(sol_row(), inputPrice=501)
+    with caplog.at_level(logging.WARNING):
+        reply = call(long_rig(rig, row), request())
+    assert reply.kind == "ok" and "context_tier" not in rig.session.options
+    warned = [r for r in caplog.records if "hold assumes the table's rates" in r.getMessage()]
+    assert len(warned) == 1 and "default-tier inputPrice" in warned[0].getMessage()
+
+
+def test_h3_default_prices_at_the_table_rates_do_not_warn(
+    rig: Rig, caplog: pytest.LogCaptureFixture
+) -> None:
+    import logging
+
+    row = _dear_default(sol_row(), inputPrice=500)
+    with caplog.at_level(logging.WARNING):
+        assert call(long_rig(rig, row), request()).kind == "ok"
+    assert not any("hold assumes" in r.getMessage() for r in caplog.records)
