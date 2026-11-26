@@ -913,6 +913,9 @@ def _dated_model_aliases(
     return aliases
 
 
+_ORDINALS = {2: "second", 3: "third", 4: "fourth", 5: "fifth"}
+
+
 def _align_model_rows(
     columns: list[str], rows: list[Row], axis: _ModelAxis
 ) -> list[tuple[str, list[snap.SnapshotCell | None]]]:
@@ -921,20 +924,22 @@ def _align_model_rows(
     aligned: list[tuple[str, list[snap.SnapshotCell | None]]] = []
     for name, cells in rows:
         held: dict[str, snap.SnapshotCell] = {}
-        extra: dict[str, snap.SnapshotCell] = {}
+        extra: dict[str, list[snap.SnapshotCell]] = {}
         for cell in cells:
             label = axis.label(cell.column)
             if label in held:
                 _LOG.warning(
-                    "Model row %r has two values for column %r; second kept apart", name, label
+                    "Model row %r has two values for column %r; the extra kept apart", name, label
                 )
-                extra.setdefault(label, cell)
+                extra.setdefault(label, []).append(cell)
             else:
                 held[label] = cell
         aligned.append((name, [held.get(column) for column in columns]))
-        for label, cell in extra.items():
-            second = [cell if column == label else None for column in columns]
-            aligned.append((f"{name} (second {label} value)", second))
+        for label, more in extra.items():
+            for number, cell in enumerate(more, start=2):
+                ordinal = _ORDINALS.get(number, f"#{number}")
+                row = [cell if column == label else None for column in columns]
+                aligned.append((f"{name} ({ordinal} {label} value)", row))
     return aligned
 
 
@@ -1121,6 +1126,45 @@ def _calculation_register_cells(table: Any) -> list[snap.SnapshotCell]:
     return cells
 
 
+_SEGMENT_NAME_HEADERS = ("segmentname", "segment", "businessunit", "division")
+_CITATION_LEAD = {"source", "sources", "evidence", "basis", "locator"}
+_CITATION_TAIL = {"basis", "locator"}
+_CITATION_WHOLE = {"note", "notes"}
+
+
+def _citation_header(header: str) -> bool:
+    """A header that carries a citation or note, not a value: the whole name is a note, it starts
+    with source/evidence/basis/locator, or ends with basis/locator. `Notes receivable` and
+    `Resource cost` are values and stay."""
+    words = re.findall(r"[a-z]+", header.casefold())
+    return bool(words) and (
+        words[0] in _CITATION_LEAD
+        or words[-1] in _CITATION_TAIL
+        or "".join(words) in _CITATION_WHOLE
+    )
+
+
+def _segment_name_index(table: Any, indexes: dict[str, int], period_index: int) -> int | None:
+    """The T4.16 name column (`segment_name`), else the one text column no other rule claims."""
+    for field in _SEGMENT_NAME_HEADERS:
+        if field in indexes:
+            return int(indexes[field])
+    claimed = {"period", "unit", "currency"}
+    text_columns = [
+        index
+        for index, header in enumerate(table.headers)
+        if index != period_index
+        and _clean_label(header) not in claimed
+        and not _citation_header(header)
+        and all(
+            snap.figure(row.cells[index].strip()) is None
+            for row in table.rows
+            if index < len(row.cells) and row.cells[index].strip()
+        )
+    ]
+    return text_columns[0] if len(text_columns) == 1 else None
+
+
 def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
         return []
@@ -1128,26 +1172,20 @@ def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
     period_index = indexes.get("period")
     if period_index is None:
         return _wide_segment_schedule_cells(table)
-    name_index = indexes.get("businessunit")
+    name_index = _segment_name_index(table, indexes, period_index)
     if name_index is None:
         return [
-            _model_table_gap(SEGMENTS, "the segment schedule has no Business Unit column").cells[0]
+            _model_table_gap(
+                SEGMENTS, "the segment schedule has no segment name (Business Unit) column"
+            ).cells[0]
         ]
-    excluded = {
-        "period",
-        "businessunit",
-        "unit",
-        "currency",
-        "basis",
-        "source",
-        "sources",
-        "note",
-        "notes",
-    }
+    excluded = {"period", "businessunit", "unit", "currency"}
     values = [
         (header, index)
         for index, header in enumerate(table.headers)
-        if index not in {period_index, name_index} and _clean_label(header) not in excluded
+        if index not in {period_index, name_index}
+        and _clean_label(header) not in excluded
+        and not _citation_header(header)
     ]
     cells = []
     for row in table.rows:
@@ -1715,8 +1753,7 @@ def _debt_facility_cells(doc: snap._Doc, table: snap._Table) -> list[snap.Snapsh
 
 
 def _debt_property(header: str) -> bool:
-    excluded = {"source", "sources", "basis", "locator", "evidence", "note", "notes"}
-    return _clean_label(header) not in excluded
+    return not _citation_header(header)
 
 
 def _unperioded_debt_cells(table: snap._Table) -> list[snap.SnapshotCell]:
@@ -2015,12 +2052,15 @@ def _legacy_unit_caption(entry: dict[str, Any]) -> str | None:
     """The unit the entry itself states (its currency where stated); None when it states none
     or its scale contradicts its unit, so the caller writes a gap rather than a bare figure."""
     unit, currency, scale = entry.get("unit"), entry.get("currency"), entry.get("scale")
+    if not isinstance(unit, str):
+        return None
     if unit in _LEGACY_MONEY_SCALES and scale == _LEGACY_MONEY_SCALES[unit]:
         word = str(unit).lower()
         return f"{currency} {word}" if isinstance(currency, str) and currency.strip() else word
-    return {"FRACTION": "percent", "PERCENT": "percentage points", "MULTIPLE": "multiple"}.get(
-        str(unit)
-    )
+    # PERCENT is a level stated as a figure (25 = 25%); the bare caption "percent" takes the 0.00%
+    # format that rescales fractions, so PERCENT keeps its own caption and a plain number format.
+    captions = {"FRACTION": "percent", "PERCENT": "percent (stated figure)", "MULTIPLE": "multiple"}
+    return captions.get(unit)
 
 
 def _input_pins_match(snapshot: snap.Snapshot, pins: Any) -> bool:

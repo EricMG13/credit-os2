@@ -91,10 +91,16 @@ def test_segment_schedule_is_named_by_business_unit_column():
     }
 
 
-def test_segment_schedule_without_name_column_is_an_explicit_gap():
-    cells = writer._segment_schedule_cells(
-        table(["Period", "Segment", "Revenue"], ["FY2025", "Airframe", "100"])
-    )
+@pytest.mark.parametrize(
+    ("headers", "row"),
+    [
+        (["Period", "Revenue", "Unit"], ["FY2025", "100", "USD millions"]),
+        (["Period", "Line", "Region", "Revenue"], ["FY2025", "Airframe", "EMEA", "100"]),
+    ],
+    ids=["no-candidate", "two-candidates"],
+)
+def test_segment_schedule_without_a_usable_name_column_is_an_explicit_gap(headers, row):
+    cells = writer._segment_schedule_cells(table(headers, row))
     assert [c.kind for c in cells] == [snap.GAP]
     assert "Business Unit" in cells[0].written
 
@@ -193,3 +199,90 @@ def test_second_value_for_the_same_row_and_column_is_logged_and_kept(caplog):
     ]
     assert "two values" in caplog.text
     assert re.search(r"Revenue", caplog.text)
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "source_id",
+        "source_locator",
+        "Source ID",
+        "Source Page",
+        "Evidence Page",
+        "Reported Basis",
+        "Basis of preparation",
+        "Source",
+        "Notes",
+    ],
+)
+def test_citation_headers_are_not_drawn_as_segment_data(header):
+    cells = writer._segment_schedule_cells(
+        table(
+            ["Period", "Business Unit", "Revenue", header],
+            ["FY2025", "Airframe", "100", "s1"],
+        )
+    )
+    assert triples(cells) == {("Airframe · Revenue", "FY2025", "100")}
+
+
+@pytest.mark.parametrize("header", ["Resource cost", "Noteholder consent", "Notes receivable"])
+def test_value_headers_that_merely_start_like_citations_stay_segment_data(header):
+    cells = writer._segment_schedule_cells(
+        table(["Period", "Business Unit", header], ["FY2025", "Airframe", "5"])
+    )
+    assert triples(cells) == {(f"Airframe · {header}", "FY2025", "5")}
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["source_id", "source_locator", "Source ID", "Source Page", "Evidence Page", "Reported Basis"],
+)
+def test_debt_property_excludes_citation_headers(header):
+    assert not writer._debt_property(header)
+
+
+@pytest.mark.parametrize("header", ["Resource cost", "Noteholder consent", "Community Revenue"])
+def test_debt_property_keeps_value_headers(header):
+    assert writer._debt_property(header)
+
+
+def test_segment_schedule_named_by_a_segment_column_keeps_its_figures():
+    cells = writer._segment_schedule_cells(
+        table(
+            ["Segment", "Period", "Revenue", "Unit"],
+            ["Airframe", "FY2025", "100", "USD millions"],
+        )
+    )
+    assert triples(cells) == {("Airframe · Revenue (USD millions)", "FY2025", "100")}
+
+
+def test_segment_schedule_with_one_unambiguous_text_column_uses_it_as_the_name():
+    cells = writer._segment_schedule_cells(
+        table(["Period", "Line of business", "Revenue"], ["FY2025", "Airframe", "100"])
+    )
+    assert triples(cells) == {("Airframe · Revenue", "FY2025", "100")}
+
+
+def test_segment_schedule_with_two_text_columns_and_no_name_header_is_a_gap():
+    cells = writer._segment_schedule_cells(
+        table(
+            ["Period", "Line", "Region", "Revenue"],
+            ["FY2025", "Airframe", "EMEA", "100"],
+        )
+    )
+    assert [c.kind for c in cells] == [snap.GAP]
+
+
+def test_every_extra_value_for_one_row_and_column_is_kept(caplog):
+    axis = writer._ModelAxis(("FY2025",), {})
+    cells = [
+        snap.SnapshotCell("Model", "B", "Revenue", "Unit", snap.COPIED, text)
+        for text in ("millions", "USD", "audited")
+    ]
+    with caplog.at_level("WARNING"):
+        rows = writer._align_model_rows(["Unit"], [("Revenue", cells)], axis)
+    assert [(name, [c and c.text for c in row]) for name, row in rows] == [
+        ("Revenue", ["millions"]),
+        ("Revenue (second Unit value)", ["USD"]),
+        ("Revenue (third Unit value)", ["audited"]),
+    ]

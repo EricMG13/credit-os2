@@ -243,3 +243,23 @@ def test_absent_debt_facility_table_is_not_reported_as_a_gap(full):
     assert (writer.MODEL, writer.DEBT_FACILITIES) in writer._model_handoff_blocks(snapshot)
     changed = replace(snapshot, model_handoffs={"CP-1": raw.replace(b"T4.18", b"T4.99")})
     assert (writer.MODEL, writer.DEBT_FACILITIES) not in writer._model_handoff_blocks(changed)
+
+
+@pytest.mark.parametrize("unit", [["MILLIONS"], {"a": 1}])
+def test_retained_model_amount_with_a_non_text_unit_is_a_gap_and_does_not_crash(full, unit):
+    built, snapshot = full
+    entry = {"amount": "4500", "unit": unit, "currency": "USD", "scale": "1", "reason": None}
+    cells = writer._model_output_cells(retained_snapshot(snapshot, built, entry))
+    opening = [c for c in cells if c.row == "Opening debt" and c.column == "FY2024"]
+    assert [(c.kind, c.text) for c in opening] == [(snap.GAP, "n.a.")]
+
+
+def test_retained_model_percent_level_is_not_rescaled_or_called_points(full):
+    built, snapshot = full
+    entry = {"amount": "25", "unit": "PERCENT", "currency": None, "scale": "1", "reason": None}
+    cells = writer._model_output_cells(retained_snapshot(snapshot, built, entry))
+    amount = [c for c in cells if c.row == "Opening debt" and c.column == "FY2024"]
+    unit = [c for c in cells if c.row == "Opening debt" and c.column == "Unit"]
+    assert [(c.kind, c.text, c.number_format) for c in amount] == [(snap.COPIED, "25", None)]
+    assert "percent" in unit[0].text
+    assert "points" not in unit[0].text
