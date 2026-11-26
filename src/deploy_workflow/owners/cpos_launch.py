@@ -36,7 +36,7 @@ from deploy_vii.contracts import (
     PathwayId,
     Run,
 )
-from deploy_vii.registry import dependencies, modules, plan
+from deploy_vii.registry import modules, plan
 from deploy_vii.report_view import _spec_of, pathways
 from deploy_workflow import (
     method_scripts,
@@ -75,7 +75,6 @@ from deploy_workflow.markdown_delivery import (
     markdown_files,
     require_issuer,
 )
-from deploy_workflow.model import copilot as copilot_route
 from deploy_workflow.model.adapter import (
     COPILOT_GH_LOGIN_VARIABLE,
     COPILOT_RUNTIME_VARIABLE,
@@ -86,7 +85,6 @@ from deploy_workflow.model.adapter import (
 from deploy_workflow.model.budget import Budget
 from deploy_workflow.model.configs import CONFIGS
 from deploy_workflow.model.handoff import (
-    COMPACT_HANDOFF_MODULES,
     WEB_LOOKUP_MODULES,
     WEB_SEARCH_CALLS_PER_TURN,
     WEB_SEARCH_CASE_KINDS,
@@ -98,7 +96,6 @@ from deploy_workflow.model.handoff import (
     web_lookup_offered,
     web_search_offered,
 )
-from deploy_workflow.model.handoff_transport import compact_index
 from deploy_workflow.model.pricing import (
     ContextTooLong,
     handoff_reservation_usd,
@@ -1888,65 +1885,6 @@ def _lookup_lines(
     return (head, *refused)
 
 
-def _first_prompt_bytes(
-    module: str, instructions: int, upstream: Sequence[str], earlier: Mapping[str, bytes]
-) -> int:
-    if module not in COMPACT_HANDOFF_MODULES:
-        return _cp8_request_bytes(instructions, upstream, earlier)
-    handoffs = {
-        name: earlier[path] for name in upstream if (path := f"{PRIOR_PREFIX}{name}.md") in earlier
-    }
-    indexed_size = len(dump_json(compact_index(handoffs)).encode()) if handoffs else 0
-    return instructions + REQUEST_ALLOWANCE + indexed_size
-
-
-def _first_prompt_lines(prepared: Prepared, config: str) -> tuple[str, ...]:
-    """Readiness warnings, GitHub Copilot configs only: each module whose first prompt, estimated
-    in tokens, plus the output budget passes the advisory share of the known route limit.
-    The actual request is checked before it is sent.
-
-    What can be estimated before the run: the instructions (exact) and the request's fixed part
-    (`REQUEST_ALLOWANCE`). The handoffs a module is sent do not exist yet; where an earlier run
-    of the issuer is pinned (CP-8's comparison) its handoffs stand in for them, otherwise they are
-    left out and the estimate is a floor. `HandoffExecutor` checks each module again, on its real
-    first prompt, before its first call (event ``first_prompt_near_limit``)."""
-    chosen = CONFIGS[config]
-    if chosen.provider != "copilot" or chosen.model not in copilot_route.TOKEN_LIMITS:
-        return ()
-    earlier = {
-        name: (prepared.directory / pin.path).read_bytes()
-        for name, pin in prepared.plan.sources.items()
-        if name.startswith(PRIOR_PREFIX)
-    }
-    producers = dependencies(prepared.ordered)
-    lines: list[str] = []
-    unsized = False
-    for module in prepared.ordered:
-        sent = [m for m in prepared.ordered if m in producers[module] and m != "CP-8"]
-        instructions = (prepared.directory / prepared.plan.instructions[module].path).stat()
-        tokens = copilot_route.prompt_tokens_estimate(
-            _first_prompt_bytes(module, instructions.st_size, sent, earlier)
-        )
-        basis = "instructions only"
-        if sent and earlier:
-            basis = "handoffs sized from the earlier run's"
-        unsized = unsized or bool(sent and not earlier)
-        limit = copilot_route.near_limit(chosen.model, tokens, output_limit(config))
-        if limit is not None:
-            share = int(copilot_route.COMPACTION_SHARE * 100)
-            lines.append(
-                f"Context:  {module}: first prompt about {tokens:,} tokens ({basis}) plus "
-                f"{output_limit(config):,} output is over {share}% of the {limit:,}-token limit; "
-                "the adapter checks the seat's limit before sending."
-            )
-    if unsized:
-        lines.append(
-            "Context:  handoffs not written yet are not counted; each module's first prompt is "
-            "checked again before its first call (event first_prompt_near_limit)"
-        )
-    return tuple(lines)
-
-
 def _readiness(
     prepared: Prepared,
     config: str,
@@ -1979,7 +1917,6 @@ def _readiness(
                 os.environ,
                 recorded_web_lookup(prepared.directory / "live" / "loop.json"),
             ),
-            *_first_prompt_lines(prepared, config),
         )
     )
 
@@ -2302,7 +2239,6 @@ def main(argv: Sequence[str] | None = None, *, allow_live: bool = True) -> int:
             on_handoff=lambda task, _: print(f"Accepted: {task.module_id}", flush=True),
             config=args.config,
             effort_by_module=efforts,
-            on_notice=lambda line: print(line, flush=True),
             web_lookup=lookup,
             web_hosts=tuple(args.web_host),
             lookup_cutoff=effective_cutoff(prepared.plan.run.as_of, context.run.cutoff),

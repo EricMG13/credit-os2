@@ -55,6 +55,19 @@ Owner actions before Signal's sources and AI are switched on (none is taken by t
 - AI pass: set the cap with `signal ai cap` (at most USD 25 a month) and start the application
   with `CREDIT_OS_SIGNAL_AI=1`.
 
+## Copilot context, after the 1M change
+
+Left by the reviews of branch `claude/copilot-1m-context-795226` (2026-11-26). All predate that
+change or fall outside it.
+
+| # | Item | Where it can be done | Status |
+|---|---|---|---|
+| 14 | Opus prompt estimate: the adapter's 3.85 bytes per token is calibrated on GPT Sol; the pilot measured Opus at 2.39–2.55 (`cases/pilot-fixes/limits.json`), so Opus prompts are understated by about 1.6x and the guard can pass one the runtime then refuses after sending | This repository | Not started |
+| 16 | Reader run: it adds each charge but never compares it with the call's hold (`owners/cpos_reader_run.py:136`), so an overrun is not stopped there | This repository | Not started |
+
 ## Open decisions
 
 - Passcode rotation and the limit on wrong attempts (left open by the passcode ruling).
+- Whether a Copilot hold should cover two model requests in one call. Today one call that the
+  runtime turns into two can settle above its hold; the ledger now records the real sum and the run
+  stops, but the cap can be passed by that one call.

@@ -8557,64 +8557,6 @@ def test_a_stopped_run_still_lists_the_modules_written_after_a_compaction(
     assert "Review: CP-4" not in err
 
 
-def copilot_readiness(tmp_path, monkeypatch, limit):
-    from deploy_workflow.model import copilot
-
-    monkeypatch.setattr(copilot, "TOKEN_LIMITS", {"gpt-6.1-sol": limit})
-    prepared = prepare(
-        context_file(tmp_path), issuer_folder(tmp_path), tmp_path / "out",
-        config="copilot-sol-medium", cap="15",
-    )  # fmt: skip
-    return prepared, cpos_launch._readiness(prepared, "copilot-sol-medium")
-
-
-def test_readiness_warns_for_each_module_whose_first_prompt_nears_the_copilot_limit(
-    tmp_path, monkeypatch
-):
-    # A limit of 60,000 tokens (80% = 48,000) with the 32,000-token output budget: a module warns
-    # when its estimated prompt passes 16,000 tokens. The estimate by hand: the instruction file's
-    # bytes + 16,384 (the request's fixed part), over 3.85 bytes per token, rounded up.
-    prepared, text = copilot_readiness(tmp_path, monkeypatch, 60_000)
-    warned = {}
-    for module in prepared.ordered:
-        size = (prepared.directory / "instructions" / f"{module}.md").stat().st_size
-        tokens = -(-(size + 16384) * 100 // 385)
-        warned[module] = tokens
-    lines = [n for n in text.splitlines() if n.startswith("Context:  CP-")]
-    expected = [m for m, t in warned.items() if t + 32000 > 0.8 * 60_000]
-    assert expected  # the instructions alone are enough for some module to warn
-    assert [n.split(":")[1].strip() for n in lines] == expected
-    for line in lines:
-        module = line.split(":")[1].strip()
-        assert f"first prompt about {warned[module]:,} tokens (" in line
-        assert "over 80% of the 60,000-token limit" in line
-    # the handoffs of earlier modules are not written yet: the report says so
-    assert "handoffs not written yet are not counted" in text
-
-
-def test_readiness_is_silent_when_every_first_prompt_is_well_inside_the_limit(
-    tmp_path, monkeypatch
-):
-    _, text = copilot_readiness(tmp_path, monkeypatch, 272_000)
-    assert "Context:  CP-" not in text
-
-
-def test_readiness_has_no_context_lines_off_the_copilot_route(tmp_path):
-    prepared = prepare(
-        context_file(tmp_path), issuer_folder(tmp_path), tmp_path / "out",
-        config="sol-medium", cap="15",
-    )  # fmt: skip
-    assert "Context:" not in cpos_launch._readiness(prepared, "sol-medium")
-
-
-def test_a_model_whose_limit_is_not_known_gets_no_first_prompt_estimate(tmp_path):
-    prepared = prepare(
-        context_file(tmp_path), issuer_folder(tmp_path), tmp_path / "out",
-        config="copilot-opus-medium", cap="15",
-    )  # fmt: skip
-    assert cpos_launch._first_prompt_lines(prepared, "copilot-opus-medium") == ()
-
-
 # ---------------------------------------------------------------- compaction, fix round 1
 
 DISCLOSURE = (
@@ -8760,24 +8702,6 @@ def test_a_failed_summary_and_an_unended_start_without_ids_are_two_summaries(tmp
             "Copilot may bill them."
         ),
     )
-
-
-def test_the_launcher_prints_the_first_prompt_warning_while_the_run_goes_on(
-    tmp_path, monkeypatch, capsys, copilot_ruling
-):
-    monkeypatch.setenv("COPILOT_GITHUB_TOKEN", "ghp_" + "Z" * 36)
-    runtime = tmp_path / "copilot-runtime"
-    runtime.write_text("#!/bin/sh\n")
-    monkeypatch.setenv("COPILOT_CLI_PATH", str(runtime))
-
-    def fake_run(manifest, directory, **kwargs):
-        kwargs["on_notice"]("Context:  CP-8: first prompt about 231,000 tokens")
-        return directory / "delivery.json"
-
-    monkeypatch.setattr(cpos_launch, "run_live_handoffs", fake_run)
-    argv = copilot_argv(tmp_path, "copilot-sol-medium", "--live", "--ruling", str(copilot_ruling))
-    assert main(argv) == 0
-    assert "Context:  CP-8: first prompt about 231,000 tokens" in capsys.readouterr().out
 
 
 def test_a_note_for_the_separate_cp8_comparison_prints_the_same_review_line(tmp_path, capsys):

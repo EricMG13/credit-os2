@@ -4,6 +4,18 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Copilot GPT Sol and GPT-6 Luna sessions at 1M context (branch `claude/copilot-1m-context-795226`)
+
+- Scope: offline only, base `ef005f64`. No seat, provider or paid call; every result below comes from fake clients, the installed SDK 1.0.28 source and hand-computed answer keys. No session has been seen on the long tier.
+- Owner (2026-11-26): "Full 1M" for GPT Sol and Luna; Claude Opus stays on its default tier; CP-3/5/6 compact limits raised; source reads "Read up to the hold"; one PR (over the 800-line cap).
+- Built: in a run (`live_adapter_for` only; Signal stays on the default tier) copilot-sol-* and copilot-luna-xhigh sessions open with `context_tier="long_context"` when the seat lists a long budget of at most 1,050,000 tokens and long-tier prices no dearer than the hold's rates; the tier is confirmed after creation (10 s bound) and a session the runtime leaves on the default tier falls back to its limits and is guarded again. The hold counts 3 bytes per token for these configs (was 2): hold amounts unchanged, requests up to 3,137,712 bytes held. CP-3/5/6 stop where the hold would. Source reads go to the smaller of the hold and the seat's budget less 991,808 bytes (2,145,904 at a budget of 814,991 tokens or more), never below 1,100,000. A call holding two model requests settles at the sum of their readable charges (was: hold kept as unknown). The 272K first-prompt advisory is removed.
+- Reviews: `/advisor` twice (Opus 5.5 xhigh, Fable exhausted); task review (`mx-precise`) pass; `mx-adversary` 1 Medium (two-request settle) fixed and re-reviewed pass; confidence review, rewrite tournament (one helper) and sweep discover; pre-merge `mx-architect` (Opus 5.5 xhigh) 1 Medium (read cap), fixed, then 1 Medium (read cap vs the seat's budget), fixed by a third round planned by `mx-autonomous`, re-review pass. Lows batched and fixed.
+- Gates on the final tree: `tools/quality_gate.py` 0 findings; `ruff check` and `ruff format --check` on the changed files; `lint-imports` 3 kept; affected Python tests (adapter, pricing, budget, handoff loop/transport/read cap, Signal, reader run, launcher subsets) pass.
+- First paid run's check: `session.usage_info.tokenLimit` in `live/raw/*.json` shows the long figure, not 272000; `calls.jsonl` charges for calls above 272K tokens.
+- `/ship` review (high): 4 findings, applied on the owner's instruction (2026-11-26, "Apply these 4 code-review findings") as a fourth fix round, beyond the two-plus-one rule. CP-3/5/6 seeds keep the 100,000 / 160,000 limits until the tier is confirmed long; on the default tier reads stop at half of what the session's guard admits (271,286 bytes for gpt-6.1-sol at 272,000 tokens); the seat's default-tier prices are checked before pinning and logged when dear on an unpinned session; the COPILOT.md scope line. Gates rerun: quality gate 0 findings, ruff, format, mypy, `lint-imports` exit 0; 442 and 94 tests pass. The fix round had no review of its own.
+- For the owner (predating or out of scope): the 3.85 bytes-per-token estimate understates Opus prompts; the reader run never compares a charge with its hold; whether a hold should cover two model requests in one call.
+- Not verified: what a seat lists (long budget, prices, price unit, `billing.multiplier`); that runtime 1.0.105 honours `contextTier`, reports it truthfully and enforces the budget on real tokens; Copilot's long-tier billing; how often the runtime makes two model requests in one send; latency and cost of ~557K-token requests; mutation testing (`mutmut` not installed); the full suite and the web gates.
+
 ## 2026-11-26 — Offline replay: open items from the entry below resolved (branch `claude/replay-open-items`)
 
 - Scope: branch cut from `main` at `5e4f9aee` (PR 97 merged). Same real TDG Deep replay `20261125-162721-01` (USD 0, no provider call), viewed from the same copy of its root. No paid run; the build ran no provider.
@@ -963,32 +975,3 @@ then 5; the narrow layout and the controls listed below.
 - Retained test preview, 1440 × 900 Chrome. The base-case qualification immediately precedes the four FY2029E cash proxies (US$m 496.85, 131.38, 684.03, 326.97). The first value is visible in the opening viewport.
 - The Interest and Interest coverage basis rows in both tables matched the retained limitation exactly. The trace included the original scope limit. Evidence reproduced all 17 register rows cell for cell, with 17 matched source-row links. Forecast omitted the register identifiers and production categories.
 - At desktop widths the driver table has a named keyboard scroll region and pinned driver names. Focused tests passed (183), as did TypeScript, changed-file ESLint, formatting and the connected build. The unfiltered Python gate reported 3,008 findings in the existing untracked predecessor copy; excluding only that copy produced zero findings. Scope is presentation fidelity for this run.
-
-## 2026-11-17 — Post-audit app repairs
-
-- Re-ran connected sections C1–C5 and static sections S2 and S6. All 2,374 focused
-  frontend tests and 553 focused backend tests passed. The build and 125 offline
-  route visits passed. The Python quality gate passed in an isolated checkout
-  containing the patch. ESLint and Prettier passed on changed web files.
-- On macOS Chrome, the accepted newest-document warning matched the saved
-  metadata and Evidence Record. The static build guided readers to the connected
-  service when no draft was available and opened the sample form when one was.
-- Chrome and Edge passed the connected synthetic flow after the browser check
-  began waiting for the Evidence Summary tab to become active.
-- Confidence review checked digest compatibility, changed overrides, restart
-  recovery, approval snapshot consistency, History output ownership and labels,
-  prior repayment inputs, and the empty-draft boundary. The rewrite tournament
-  retained the ordered History metadata scan and date limit calculation.
-
-## 2026-11-17 — Stage 7 final audit handoff
-
-- Application source `a987af9b`. Stage 7 adds audit evidence and work-PC documents.
-- Locked setup, Python quality, 6,285 fast Python passes with one existing skip,
-  573 Node checks, 5,259 frontend passes at 97.69% lines and 73 script checks.
-- Native Chrome and Edge synthetic proof and 138 native file checks passed on
-  both the checkout and the checksummed runtime ZIP. The screenshot reports
-  record paired baseline and final states and the independent ZIP comparison.
-- The work-PC rehearsal stopped at the two missing pins with the source unchanged.
-  Actual Windows setup, live or paid runs, real Submit and Teams remain unverified.
-- [Final gates](docs/audit/2026-11-16-final/output/7-send-off/gates.md) ·
-  [Audit summary](docs/audit/2026-11-16-final/output/SUMMARY.md)

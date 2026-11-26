@@ -240,14 +240,51 @@ def web_search_usd(calls: int) -> Decimal:
     return _count("calls", calls) * WEB_SEARCH_USD_PER_CALL
 
 
+def covers_long_context(config_id: str) -> bool:
+    """The price covers the long-context tier: a Copilot configuration whose hold bounds the whole
+    context (``reservation_context_tokens``) at the long-context rates (``long_context_after``).
+    Today copilot-sol-medium, copilot-sol-high and copilot-luna-xhigh; never copilot-opus-*."""
+    if CONFIG_PROVIDERS.get(config_id) != "copilot":
+        return False
+    price = price_of(config_id)
+    return price.reservation_context_tokens is not None and price.long_context_after is not None
+
+
+_FRAMING_TOKENS = 4096  # the tool and runtime framing allowance added to every handoff bound
+
+
+def _bytes_per_token(config: str) -> int:
+    if config in {"copilot-opus-medium", "copilot-opus-high"}:
+        return 1  # the retained Anthropic limits support one byte per token
+    if covers_long_context(config):
+        # the ruled OpenAI lower bound (cases/pilot-fixes/limits.json bytes_per_token_lower_bound
+        # .openai), at least 1.44x below every measurement; these hold the whole context anyway
+        return 3
+    return 2  # historical
+
+
+def handoff_input_bound(config: str, request_bytes: int) -> int:
+    """Input tokens a serialized handoff request is held at: its bytes over the configuration's
+    bytes per token, plus the tool and runtime framing allowance."""
+    size = _count("request_bytes", request_bytes)
+    return -(-size // _bytes_per_token(config)) + _FRAMING_TOKENS
+
+
+def handoff_largest_request_bytes(config: str) -> int | None:
+    """The largest serialized request the configuration's hold accepts (the inverse of
+    ``handoff_input_bound`` against ``reservation_context_tokens``); None where the price has no
+    context ceiling, so the hold refuses no size."""
+    ceiling = price_of(config).reservation_context_tokens
+    if ceiling is None:
+        return None
+    return _bytes_per_token(config) * (ceiling - _FRAMING_TOKENS)
+
+
 def handoff_reservation_usd(config: str, request_bytes: int, max_output: int) -> Decimal:
     """Price a serialized handoff request plus the tool and runtime framing allowance."""
-    size = _count("request_bytes", request_bytes)
-    # The retained Anthropic limits support one byte per token. Sol and Luna use a
-    # whole-context hold regardless of this size check. Other routes are historical.
-    bytes_per_token = 1 if config in {"copilot-opus-medium", "copilot-opus-high"} else 2
-    input_bound = -(-size // bytes_per_token) + 4096
-    return request_reservation_usd(price_of(config), input_bound, max_output)
+    return request_reservation_usd(
+        price_of(config), handoff_input_bound(config, request_bytes), max_output
+    )
 
 
 def request_reservation_usd(price: ModelPrice, input_bound: int, max_output: int) -> Decimal:
@@ -270,6 +307,15 @@ def request_reservation_usd(price: ModelPrice, input_bound: int, max_output: int
         )
     ):
         raise PricingError("reservation context has an incomplete long-context price")
+    top, output = _top_rates(price)
+    return (ceiling * top).scaleb(-6) + (
+        _held_output(price, _count("max_output", max_output)) * output
+    ).scaleb(-6)
+
+
+def _top_rates(price: ModelPrice) -> tuple[Decimal, Decimal]:
+    """The dearest input rate (over input, cached read, cache write and the long-context rates)
+    and the dearest output rate, USD per million tokens: what a whole-context hold prices at."""
     rates = tuple(
         rate
         for rate in (
@@ -284,14 +330,17 @@ def request_reservation_usd(price: ModelPrice, input_bound: int, max_output: int
     )
     if not rates:
         raise PricingError("reservation context has no input price")
-    top = max(rates)
     output = max(
         price.output,
         price.long_output if price.long_output is not None else price.output,
     )
-    return (ceiling * top).scaleb(-6) + (
-        _held_output(price, _count("max_output", max_output)) * output
-    ).scaleb(-6)
+    return max(rates), output
+
+
+def reservation_rates(config_id: str) -> tuple[Decimal, Decimal]:
+    """The top input and the top output rate (USD per million tokens) the configuration's
+    whole-context hold is priced at."""
+    return _top_rates(price_of(config_id))
 
 
 def _openai_like(price: ModelPrice, usage: Usage) -> Decimal | None:
