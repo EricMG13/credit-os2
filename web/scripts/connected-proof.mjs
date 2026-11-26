@@ -1260,7 +1260,8 @@ async function checkForecastEvidence(report, artifacts, channel, page) {
     .getByRole("link", { name: "Forecast", exact: true })
     .click();
   // Independent fixture arithmetic: 1,000 × 1.05 × 0.30 = 315; a 20% shock gives 252.
-  const ebitdaRow = gridRow("Adj EBITDA (as named in Financial foundation)");
+  // f68456d6: the inputs name no adjustment basis, so the grid row is "EBITDA", not "Adj EBITDA".
+  const ebitdaRow = gridRow("EBITDA (as named in Financial foundation)");
   await ebitdaRow.getByRole("cell", { name: "315", exact: true }).waitFor();
   const cases = report.getByRole("group", { name: "Case", exact: true });
   await cases.getByRole("button", { name: "Downside shock", exact: true }).click();
