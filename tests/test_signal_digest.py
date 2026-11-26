@@ -447,6 +447,7 @@ def test_the_scope_holds_at_most_sixty_stories_the_newest_ones_test_double(db):
 
 
 def scoped(db: sqlite3.Connection, ident: int, start: str, end: str) -> list[str]:
+    # mark 0: tests the look-back and the cover filters on their own, apart from the mark
     digest = dataclasses.replace(digests.owned(db, "Mara L", ident), story_mark=0)
     found = digests._scope_stories(db, digest, at(start), at(end), digests._highest_story(db))
     return [one.title for one in found]
@@ -1000,7 +1001,18 @@ def test_a_story_committed_while_a_run_drafts_lands_in_the_next_run(db):
     assert titles(writer) == [["Before the run"], ["Committed mid-run"]]
 
 
-def v7_store(root: Path) -> sqlite3.Connection:
+OLD_ROWS = [
+    ("Old 1", "2026-11-20T05:00:00+00:00", "2026-11-20T06:00:00+00:00"),
+    ("Old 2", "2026-11-20T05:00:00+00:00", "2026-11-20T07:00:00+00:00"),
+    ("Old 3", "2026-11-20T05:00:00+00:00", "2026-11-20T07:00:01+00:00"),
+]
+
+
+def v7_store(
+    root: Path,
+    rows: list[tuple[str, str, str]] = OLD_ROWS,
+    period_from: str = "2026-11-20T07:00:00+00:00",
+) -> sqlite3.Connection:
     (root / "signal").mkdir()
     old = sqlite3.connect(root / "signal" / "signal.db")
     old.row_factory = sqlite3.Row
@@ -1013,22 +1025,17 @@ def v7_store(root: Path) -> sqlite3.Connection:
         "INSERT INTO sources(id, name, kind, url, state, proposed_by, created_at)"
         " VALUES(1, 'Wire', 'news', 'https://wire.example/feed', 'approved', 'x', '2026-11-01')"
     )
-    fetched = [
-        "2026-11-20T06:00:00+00:00",
-        "2026-11-20T07:00:00+00:00",
-        "2026-11-20T07:00:01+00:00",
-    ]
-    for number, when in enumerate(fetched, 1):
+    for number, (title, published, when) in enumerate(rows, 1):
         old.execute(
             "INSERT INTO stories(id, source_id, title, link, link_key, title_key, published_at,"
             " fetched_at, summary) VALUES(?, 1, ?, ?, ?, ?, ?, ?, 's')",
             (
                 number,
-                f"Old {number}",
+                title,
                 f"https://e.org/{number}",
                 f"k{number}",
                 f"t{number}",
-                "2026-11-20T05:00:00+00:00",
+                published,
                 when,
             ),
         )
@@ -1036,21 +1043,23 @@ def v7_store(root: Path) -> sqlite3.Connection:
         "INSERT INTO digests(owner, name, cadence, minute, weekday, month_day, covers_all, subject,"
         " length, points, upcoming, look_ahead_days, period_from, next_run_at, created_at)"
         " VALUES('Mara L', 'Daily', 'daily', 420, NULL, NULL, 1, '', 'standard', 5, '', 7,"
-        " '2026-11-20T07:00:00+00:00', '2026-11-25T07:00:00+00:00', '2026-11-01')"
+        " ?, '2026-11-25T07:00:00+00:00', '2026-11-01')",
+        (period_from,),
     )
     old.commit()
     old.close()
     return store.open_db(root)
 
 
-def test_a_digest_of_an_older_store_starts_its_mark_at_the_last_story_fetched_by_its_period(
+def test_a_digest_of_an_older_store_starts_its_mark_below_the_first_story_fetched_after_its_period(
     tmp_path,
 ):
     db = v7_store(tmp_path)
     assert db.execute("SELECT story_mark FROM digests").fetchone()[0] == 2
     writer = RecordingWriter()
     digests.run_due(db, at("2026-11-25 07:00"), writer)
-    assert titles(writer) == [["Old 3"]]  # the look-back (20 Nov 07:00 - 1 day) holds all three
+    # the period is 20 to 25 Nov, so the look-back starts 15 Nov 07:00 and holds all three
+    assert titles(writer) == [["Old 3"]]
     db.close()
 
 
@@ -1084,3 +1093,32 @@ def test_a_failed_paid_write_leaves_the_period_and_the_mark_so_the_next_run_cove
     writer = RecordingWriter()
     digests.run_due(db, at("2026-11-26 07:00"), writer)
     assert titles(writer) == [["Held over"]]
+
+
+# Two ingest passes overlap: the later-started pass commits first, so fetch time does not rise
+# with story id. Period start is 24 Nov 07:00. Id 1 was fetched (07:00:30) after it, id 2 (06:59)
+# before it, yet id 2 was committed after the period began, so both belong to run 1's scope.
+OVERLAP = [
+    ("CLI pass story", "2026-11-24T07:00:10+00:00", "2026-11-24T07:00:30+00:00"),
+    ("Pass A story", "2026-11-24T06:58:00+00:00", "2026-11-24T06:59:00+00:00"),
+]
+
+
+def test_a_new_digests_mark_leaves_a_story_fetched_after_its_period_whatever_its_id(db):
+    wire = source(db)
+    for title, published, fetched in OVERLAP:
+        late(db, wire, title, published[:16].replace("T", " "), fetched[:19].replace("T", " "))
+    ident = daily(db)  # made at NOW: its first period starts 24 Nov 07:00
+    assert digests.owned(db, "Mara L", ident).story_mark == 0
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    assert titles(writer) == [["CLI pass story", "Pass A story"]]
+
+
+def test_a_migrated_digests_mark_leaves_a_story_fetched_after_its_period_whatever_its_id(tmp_path):
+    db = v7_store(tmp_path, OVERLAP, "2026-11-24T07:00:00+00:00")
+    assert db.execute("SELECT story_mark FROM digests").fetchone()[0] == 0
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    assert titles(writer) == [["CLI pass story", "Pass A story"]]
+    db.close()

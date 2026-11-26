@@ -472,12 +472,15 @@ ALTER TABLE stories ADD COLUMN category TEXT;
 
 # Version 8. `digests.story_mark`: the highest story id the digest's last run considered; a run
 # covers the stories above it (see ``digests``), so a story stored after a run that was stamped
-# before it is still found. A digest that already exists starts at the highest story id fetched
-# by its period's start (both are ISO text, compared as text).
+# before it is still found. A digest that already exists starts just below the first story fetched
+# after its period's start (both are ISO text, compared as text): a story fetched after that start
+# was committed after it, and ids rise with commit order, so none of them falls at or below the
+# mark. If none was fetched after it, the mark is the highest story id.
 _MIGRATION_8 = """
 ALTER TABLE digests ADD COLUMN story_mark INTEGER NOT NULL DEFAULT 0;
-UPDATE digests SET story_mark = (
-    SELECT COALESCE(MAX(id), 0) FROM stories WHERE fetched_at <= digests.period_from
+UPDATE digests SET story_mark = COALESCE(
+    (SELECT MIN(id) FROM stories WHERE fetched_at > digests.period_from) - 1,
+    (SELECT COALESCE(MAX(id), 0) FROM stories)
 );
 """
 

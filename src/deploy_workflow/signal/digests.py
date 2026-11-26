@@ -68,7 +68,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
 
@@ -154,7 +154,7 @@ class Digest:
     period_from: datetime
     next_run_at: datetime
     requested_at: datetime | None = None  # when "Run once now" was asked, while it waits
-    story_mark: int = 0  # the highest story id its last run considered
+    story_mark: int = field(kw_only=True)  # the highest story id its last run considered
 
 
 @dataclass(frozen=True)
@@ -401,7 +401,7 @@ def _digest(db: sqlite3.Connection, row: sqlite3.Row) -> Digest:
         datetime.fromisoformat(row["period_from"]),
         datetime.fromisoformat(row["next_run_at"]),
         None if asked is None else datetime.fromisoformat(asked),
-        row["story_mark"],
+        story_mark=row["story_mark"],
     )
 
 
@@ -461,7 +461,11 @@ def _fields(spec: Spec) -> tuple[Any, ...]:
 
 
 def create(db: sqlite3.Connection, owner: str, spec: Spec, now: datetime) -> int:
-    """Store a new digest; Conflict at `MAX_DIGESTS` or when the owner already has that name."""
+    """Store a new digest; Conflict at `MAX_DIGESTS` or when the owner already has that name.
+
+    Its mark starts just below the first story fetched after its period's start (the highest story
+    id if none was): a story fetched after that start was committed after it, and ids rise with
+    commit order, so the first run takes every such story whatever its id."""
     first = schedule.next_run(spec.schedule, now)
     begins = _utc_text(schedule.previous_run(spec.schedule, first))
     with _write_transaction(db):
@@ -475,7 +479,8 @@ def create(db: sqlite3.Connection, owner: str, spec: Spec, now: datetime) -> int
                 "INSERT INTO digests(owner, name, cadence, minute, weekday, month_day, covers_all,"
                 " subject, length, points, upcoming, look_ahead_days, period_from, next_run_at,"
                 " created_at, story_mark) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,"
-                " (SELECT COALESCE(MAX(id), 0) FROM stories WHERE fetched_at <= ?))",
+                " COALESCE((SELECT MIN(id) FROM stories WHERE fetched_at > ?) - 1,"
+                " (SELECT COALESCE(MAX(id), 0) FROM stories)))",
                 (
                     owner,
                     *_fields(spec),
