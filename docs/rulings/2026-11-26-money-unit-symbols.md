@@ -23,9 +23,13 @@ US$m".
 - The conversion happens only where text is drawn (`web/src/pages/connected/moneyUnits.ts`:
   `unitLabel`, `withUnit`, `writtenUnit`; table Unit columns through `unitCells`). Stored and
   matching values keep the written form, so traces and row matches are unchanged.
-- Drawn as written: module prose and row labels (for example "Stressed FCF (USD millions)"),
-  the Evidence page's Unit cells and source text, and the trace drawer. The Model page keeps
-  `US$m` until a later change.
+- Drawn as written: module prose (for example "All amounts USD millions unless stated") and row
+  labels, the Evidence page's Unit cells and source text, and the trace drawer. The Model page keeps
+  `US$m` until a later change. (The Downside panels already drew a row label's "(USD millions)" as
+  "($m)" before this record; that is left as it was.)
+- Figures the Evidence page computes and formats itself (its comparison measures) follow the drawn
+  form (`$25m`); its Unit cells and source text do not.
+- Singular `<code> million` is a money unit too; `thousand(s)` is drawn as written.
 - `docs/rulings/2026-11-16-reporting-currency-from-sources.md` still sets the run's currency and its
   stored money unit (`US$m` for USD, otherwise the code and `m`); this record changes only how that
   unit is drawn.
