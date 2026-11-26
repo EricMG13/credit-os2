@@ -2159,6 +2159,14 @@
   },
   {
    "sheet": "Snapshot",
+   "block": "Header",
+   "row": "Run kind",
+   "column": "Value",
+   "kind": "computed",
+   "value": "Model provider"
+  },
+  {
+   "sheet": "Snapshot",
    "block": "Business description",
    "row": "Description",
    "column": "Value",

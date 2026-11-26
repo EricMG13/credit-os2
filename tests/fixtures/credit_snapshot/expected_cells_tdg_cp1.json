@@ -3578,6 +3578,14 @@
    "column": "Bloomberg ID",
    "kind": "analyst",
    "value": ""
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "Header",
+   "row": "Run kind",
+   "column": "Value",
+   "kind": "computed",
+   "value": "Model provider"
   }
  ],
  "blank_cells": [],
