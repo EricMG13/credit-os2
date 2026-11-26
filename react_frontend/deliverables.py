@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
+import stat
+from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
@@ -27,6 +30,14 @@ def _stores(layout: Layout, folder: str) -> list[portfolios.Store]:
     return stores
 
 
+def _plain_folder(path: Path) -> bool:
+    """A real directory: a link is not followed, and a missing folder is not one."""
+    try:
+        return stat.S_ISDIR(os.lstat(path).st_mode)
+    except OSError:
+        return False
+
+
 def reply(
     match: re.Match[str],
     layout: Layout,
@@ -39,8 +50,14 @@ def reply(
     records = snapshot["workspace"]["runs"].values() if snapshot else ()
     if not any(item["folder"] == folder for item in records):
         raise http_base.refuse(404, "unknown report")
+    path = layout.engine / "runs" / folder
+    if not _plain_folder(path):
+        _LOG.warning(
+            "credit snapshot refused for run %r: the run folder is not a plain folder", folder
+        )
+        raise http_base.refuse(404, "credit snapshot unavailable")
     try:
-        run = credit_snapshot.load_run(layout.engine / "runs" / folder, _stores(layout, folder))
+        run = credit_snapshot.load_run(path, _stores(layout, folder))
         data = credit_snapshot_workbook.workbook_bytes(credit_snapshot.gather(run))
     except library_index.Refused as reason:
         _LOG.warning("credit snapshot refused for run %r: %s", folder, reason)

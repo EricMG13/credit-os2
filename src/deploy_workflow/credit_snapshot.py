@@ -76,6 +76,10 @@ COPIED, GAP, COMPUTED, ENTERED, ANALYST, BLANK = (
     "blank",
 )
 NOT_IN_HANDOFF = "not in handoff"
+CONTROL_CHARACTER = "text holds a control character"
+# The characters a workbook cell cannot hold: the workbook writer's library's
+# `ILLEGAL_CHARACTERS_RE`, copied because this module imports none (a test holds them equal).
+_ILLEGAL = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
 NEEDS_ADD_BACK_IDS = "needs add-back ids in the bridge"
 NO_REFERENCE = "no reference stored"
 NOT_HELD = "not held / not matched"
@@ -235,6 +239,7 @@ class SnapshotRun:
     context: RunContext | ContextGap | None
     references: Sequence[tuple[rp.Reference, rp.Portfolio | StoreGap | None]]
     market: tuple[MarketSheet, ...] | MarketGap = ()
+    execution: Mapping[str, str] = field(default_factory=dict)  # module -> how it was answered
 
 
 @dataclass(frozen=True)
@@ -446,6 +451,17 @@ class _Maker:
         self, row: str, column: str, kind: str, text: str, at: _At | None = None
     ) -> SnapshotCell:
         where = (at.module, at.section, at.line) if at else (None, None, None)
+        if _ILLEGAL.search(row + column) or (kind != GAP and _ILLEGAL.search(text)):
+            _LOG.warning(
+                "credit snapshot: %s: a cell, its row or its column holds a control character "
+                "(module %s, line %s)",
+                self.block,
+                where[0],
+                where[2],
+            )
+            row = CONTROL_CHARACTER if _ILLEGAL.search(row) else row
+            column = CONTROL_CHARACTER if _ILLEGAL.search(column) else column
+            kind, text = GAP, CONTROL_CHARACTER
         return SnapshotCell(self.sheet, self.block, row, column, kind, text, *where)
 
     def copied(
@@ -692,6 +708,7 @@ def _header(run: _Run, mk: _Maker) -> list[SnapshotCell]:
             cells.append(mk.gap(label, "Value", NOT_IN_HANDOFF))
     cells.append(mk.entered("Run date", "Value", run.run.as_of))
     cells.append(mk.entered("Pathway", "Value", pathway_title(run.run.pathway)))
+    cells.append(mk.computed("Run kind", "Value", run_kind(run.run.execution)))
     return cells
 
 
@@ -1697,7 +1714,26 @@ def load_run(folder: Path, stores: Sequence[rp.Store]) -> SnapshotRun:
         context=_context(folder, sources, identity),
         references=_references(stores),
         market=_market_sheets(folder, sources),
+        execution=_execution(completion),
     )
+
+
+def _execution(completion: Mapping[str, object]) -> dict[str, str]:
+    """The completion record's `module_execution` as module -> word (text of any non-text value)."""
+    held = completion.get("module_execution")
+    if not isinstance(held, dict):
+        return {}
+    return {str(module): str(how) for module, how in held.items()}
+
+
+def run_kind(execution: Mapping[str, str]) -> str:
+    """How the run's modules were answered, in `library_index.EXECUTION_WORDS`' order joined with
+    `; `. A module with a value the words do not name, or none recorded, gives `Not recorded`."""
+    values = set(execution.values())
+    words = [word for key, word in li.EXECUTION_WORDS.items() if key in values]
+    if not execution or values - set(li.EXECUTION_WORDS):
+        words.append("Not recorded")
+    return "; ".join(words)
 
 
 def _refused(reason: str) -> ContextGap:
@@ -1802,10 +1838,11 @@ def _market_sheets(
         _LOG.warning("credit snapshot: no market data sheet is read: %s", reason)
         return MarketGap(reason)
     found = []
-    for name, pin in sources.items():
-        sheet = None if name == "context" else _market_source(folder, name, pin)
-        if sheet is not None:
-            found.append(sheet)
+    with pe.reading():  # each workbook is parsed once, however many sheets it has
+        for name, pin in sources.items():
+            sheet = None if name == "context" else _market_source(folder, name, pin)
+            if sheet is not None:
+                found.append(sheet)
     return tuple(found)
 
 
@@ -1838,18 +1875,41 @@ def _market_source(folder: Path, name: str, pin: object) -> MarketSheet | None:
 Cells = Sequence[tuple[int, Sequence[pe.Cell]]]
 
 
+def _filled(cells: Sequence[pe.Cell]) -> bool:
+    return any(cell.text.strip() for cell in cells)
+
+
+def _capped(rows: Cells) -> Cells:
+    """`rows`, or `ValueError` when more than `reference_portfolios.MAX_ROWS` have text."""
+    if sum(1 for _, cells in rows if _filled(cells)) > rp.MAX_ROWS:
+        raise ValueError(f"the sheet has more than {rp.MAX_ROWS:,} rows")
+    return rows
+
+
 def _source_rows(raw: bytes) -> list[Cells]:
     """The sheets of a source: each sheet of a workbook, or the CSV's rows (the record number is
-    the row number). Cells of a CSV are as entered (`portfolio_export.csv_rows` strips them)."""
+    the row number). Cells of a CSV are as entered (`portfolio_export.csv_rows` strips them). A
+    CSV whose first non-empty row lacks the RV headers gives no sheet, read no further; a sheet of
+    more than `reference_portfolios.MAX_ROWS` rows with text is a `ValueError`."""
     if raw.startswith(b"PK\x03\x04"):
         sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
-        return [rows for rows in sheets if rows is not None]
+        return [_capped(rows) for rows in sheets if rows is not None]
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = raw.decode("latin-1")
-    reader = csv.reader(io.StringIO(text))
-    return [[(n, [pe.Cell(cell) for cell in row]) for n, row in enumerate(reader, 1)]]
+    rows: list[tuple[int, list[pe.Cell]]] = []
+    filled = 0
+    for number, row in enumerate(csv.reader(io.StringIO(text)), 1):
+        cells = [pe.Cell(cell) for cell in row]
+        if _filled(cells):
+            if filled == 0 and _market_index(cells) is None:
+                return []
+            filled += 1
+            if filled > rp.MAX_ROWS:
+                raise ValueError(f"the sheet has more than {rp.MAX_ROWS:,} rows")
+        rows.append((number, cells))
+    return [rows]
 
 
 _SLASH_DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
@@ -1882,18 +1942,12 @@ def _maturity(cell: pe.Cell) -> date | None:
     return pe.read_date(cell) if cell.date_format else read_day(cell.text)
 
 
-def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
-    """`rows` as an RV worksheet, or None when its first non-empty row lacks the headers (compared
-    ignoring case and spaces) or repeats one of them."""
-    start = next(
-        (i for i, (_, cells) in enumerate(rows) if any(c.text.strip() for c in cells)), None
-    )
-    if start is None:
-        return None
-    heads = [_fold(cell.text) for cell in rows[start][1]]
+def _market_index(head: Sequence[pe.Cell]) -> dict[str, int] | None:
+    """Where each RV column is in the header row, or None when a header is missing or repeated."""
+    heads = [_fold(cell.text) for cell in head]
     index: dict[str, int] = {}
     for column in MARKET_COLUMNS:
-        hits = [i for i, head in enumerate(heads) if head == _fold(column)]
+        hits = [i for i, name in enumerate(heads) if name == _fold(column)]
         if len(hits) > 1:
             return None
         if hits:
@@ -1902,6 +1956,20 @@ def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
         not {"FIGI", "Bloomberg ID"} <= index.keys()
         or not {"Company", "Borrower Name"} & index.keys()
     ):
+        return None
+    return index
+
+
+def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
+    """`rows` as an RV worksheet, or None when its first non-empty row lacks the headers (compared
+    ignoring case and spaces) or repeats one of them."""
+    start = next(
+        (i for i, (_, cells) in enumerate(rows) if any(c.text.strip() for c in cells)), None
+    )
+    if start is None:
+        return None
+    index = _market_index(rows[start][1])
+    if index is None:
         return None
     body = []
     for number, cells in rows[start + 1 :]:

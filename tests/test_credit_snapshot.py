@@ -1285,3 +1285,107 @@ def test_two_sources_that_together_make_a_date_ambiguous_join_nothing(tmp_path):
     snapshot, _ = gathered_with(tmp_path, first, second)
     assert loan_b_kinds(snapshot) == {"analyst"}
     assert len({(c.section, c.row) for c in where(snapshot, "Market identifiers")}) == 2
+
+
+# --- Fix round 1 of Task 4: one parse per workbook, control characters, Run kind ----------------
+
+
+def test_a_workbook_source_is_parsed_once_inside_the_markets_reading_scope(monkeypatch):
+    # The product's own four-sheet workbook stands for a multi-sheet source.
+    from deploy_workflow import credit_snapshot_workbook as wb
+
+    raw = wb.workbook_bytes(snap.gather(run_of(full())))
+    calls = []
+    real = pe.xlsx_content
+    monkeypatch.setattr(pe, "xlsx_content", lambda data: calls.append(1) or real(data))
+    snap._source_rows(raw)
+    outside = len(calls)
+    calls.clear()
+    with pe.reading():
+        snap._source_rows(raw)
+    assert (outside, len(calls)) == (5, 1)  # one parse per sheet and one for the sheet list
+
+
+def test_market_sheets_reads_the_whole_run_inside_one_reading_scope(tmp_path, monkeypatch):
+    from deploy_workflow import credit_snapshot_workbook as wb
+
+    raw = wb.workbook_bytes(snap.gather(run_of(full())))
+    digest = cs.sha256(raw)
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / digest).write_bytes(raw)
+    calls = []
+    real = pe.xlsx_content
+    monkeypatch.setattr(pe, "xlsx_content", lambda data: calls.append(1) or real(data))
+    pin = {"path": "model.xlsx", "sha256": digest}
+    assert snap._market_sheets(tmp_path, {"model.xlsx": pin}) == ()
+    assert len(calls) == 1
+
+
+def test_a_csv_without_the_rv_headers_is_not_read_past_its_first_row():
+    junk = b"a,b,c\n" + b"x,y,z\n" * 10
+    assert snap._source_rows(junk) == []
+    head = ",".join(RV_HEADER)
+    (rows,) = snap._source_rows(f"\n{head}\nx\n".encode())
+    assert [n for n, _ in rows] == [1, 2, 3]
+
+
+def test_a_sheet_over_the_row_cap_is_skipped_with_a_logged_reason(tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(rp, "MAX_ROWS", 3)
+    raw = (",".join(RV_HEADER) + "\n" + "a\n" * 5).encode()
+    digest = cs.sha256(raw)
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "inputs" / digest).write_bytes(raw)
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        found = snap._market_sheets(tmp_path, {"rv.csv": {"path": "rv.csv", "sha256": digest}})
+    assert found == ()
+    assert "more than 3 rows" in caplog.text
+
+
+@pytest.mark.parametrize("char", ["\x01", "\x08", "\x1b", "\x1f"])
+def test_a_control_character_in_copied_text_is_that_cells_gap(char, caplog):
+    text = FIXTURE["CP-1A"].replace("designs and makes", f"designs{char} and makes", 1)
+    assert char in text
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        snapshot = snap.gather(run_of(full(**{"CP-1A": text})))
+    (cell,) = [c for c in snapshot.cells() if c.text == snap.CONTROL_CHARACTER]
+    assert (cell.kind, cell.module) == ("gap", "CP-1A") and cell.line is not None
+    assert snap.CONTROL_CHARACTER == "text holds a control character"
+    assert "control character" in caplog.text and "CP-1A" in caplog.text
+    assert not any(char in c.text for c in snapshot.cells())
+
+
+@pytest.mark.parametrize(
+    ("execution", "kind"),
+    [
+        ({"CP-1": "live-provider"}, "Model provider"),
+        ({"CP-1": "synthetic", "CP-1A": "live-provider"}, "Model provider; Synthetic"),
+        (
+            {"a": "synthetic", "b": "retained-response-replay", "c": "host-session"},
+            "Host session; Reused from an earlier run; Synthetic",
+        ),
+        ({"CP-1": "live-provider", "CP-1A": "oddity"}, "Model provider; Not recorded"),
+        ({"CP-1": "oddity"}, "Not recorded"),
+        ({}, "Not recorded"),
+    ],
+)
+def test_run_kind_joins_the_distinct_execution_words_in_the_libraries_order(execution, kind):
+    assert snap.run_kind(execution) == kind
+    run = replace(run_of(full()), execution=execution)
+    cell = one(snap.gather(run), "Header", "Run kind", "Value")
+    assert (cell.kind, cell.text) == ("computed", kind)
+
+
+def test_the_illegal_character_pattern_is_the_workbook_writers():
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+
+    assert snap._ILLEGAL.pattern == ILLEGAL_CHARACTERS_RE.pattern
+
+
+def test_a_control_character_in_a_row_label_is_a_gap_and_the_workbook_still_writes():
+    from deploy_workflow import credit_snapshot_workbook as wb
+
+    text = FIXTURE["CP-1"].replace("| Term Loan B |", "| Term\x01 Loan B |")
+    assert text != FIXTURE["CP-1"]
+    snapshot = snap.gather(run_of(full(**{"CP-1": text})))
+    assert not any("\x01" in c.row + c.column + c.text for c in snapshot.cells())
+    assert wb.workbook_bytes(snapshot)[:2] == b"PK"

@@ -983,6 +983,7 @@ def test_credit_snapshot_refuses_a_run_that_is_not_finished(
     _publish_run(root, folder, status=state)
     status, body, headers = request(hosted, SNAPSHOT_PATH.format(folder))
     assert status == 404
+    assert json.loads(body)["error"] == "unknown report"
     _no_leak(root, folder, body, headers)
 
 
@@ -1027,6 +1028,12 @@ def test_credit_snapshot_is_refused_in_the_read_only_preview(root: Path, web: Pa
             shutil.copytree(built.folder / part, copied / part)
         shutil.copytree(root / "_engine" / "library", preview / "_engine" / "library")
         with make_server(preview, web=web, read_only=True) as server:
+            # Starting the server rebuilds data.js and drops the hand-written run: restore it, so
+            # the request reaches the missing completion record and not the unknown-report check.
+            shutil.copy2(
+                root / "_engine" / "library" / "data.js",
+                preview / "_engine" / "library" / "data.js",
+            )
             thread = threading.Thread(target=server.serve_forever)
             thread.start()
             try:
@@ -1035,4 +1042,59 @@ def test_credit_snapshot_is_refused_in_the_read_only_preview(root: Path, web: Pa
                 server.shutdown()
                 thread.join()
         assert status == 404
+        assert json.loads(body)["error"] == "credit snapshot unavailable"
         _no_leak(preview, folder, body, headers)
+
+
+def test_credit_snapshot_refuses_a_run_folder_that_is_a_link(hosted: _Server, root: Path) -> None:
+    built = cs.build_case(root / "elsewhere", cs.CASES["full"])
+    folder = built.case.run_id
+    (root / "_engine" / "runs").mkdir(parents=True, exist_ok=True)
+    os.symlink(built.folder, root / "_engine" / "runs" / folder)
+    _publish_run(root, folder)
+    status, body, headers = request(hosted, SNAPSHOT_PATH.format(folder))
+    assert status == 404
+    assert json.loads(body)["error"] == "credit snapshot unavailable"
+    _no_leak(root, folder, body, headers)
+
+
+@pytest.mark.parametrize("char", ["\x01", "\x08", "\x1b", "\x1f"])
+def test_credit_snapshot_downloads_with_a_control_character_as_a_gap(
+    hosted: _Server, root: Path, char: str
+) -> None:
+    source = root / "CP-1A.md"
+    text = (
+        cs.ALL_MODULES["CP-1A"]
+        .read_text("utf-8")
+        .replace("designs and makes", f"designs{char} and makes", 1)
+    )
+    assert char in text
+    source.write_text(text, encoding="utf-8")
+    case = dataclasses.replace(
+        cs.CASES["full"], handoffs={**cs.CASES["full"].handoffs, "CP-1A": source}
+    )
+    built = cs.build_case(root / "_engine", case)
+    folder = built.case.run_id
+    _publish_run(root, folder)
+    status, body, _ = request(hosted, SNAPSHOT_PATH.format(folder))
+    assert status == 200
+    shown = [c.value for ws in load_workbook(io.BytesIO(body)) for r in ws.iter_rows() for c in r]
+    assert "text holds a control character" in shown
+
+
+def test_credit_snapshot_downloads_with_a_control_character_in_the_rv_worksheet(
+    hosted: _Server, root: Path
+) -> None:
+    source = root / cs.RV_NAME
+    source.write_bytes(
+        (cs.FIXTURES / cs.RV_NAME).read_bytes().replace(b"SYN4410021", b"SYN44\x0110021", 1)
+    )
+    case = dataclasses.replace(cs.CASES["full"], sources=((cs.RV_NAME, source),))
+    built = cs.build_case(root / "_engine", case)
+    folder = built.case.run_id
+    _publish_run(root, folder)
+    status, body, _ = request(hosted, SNAPSHOT_PATH.format(folder))
+    assert status == 200
+    shown = [c.value for ws in load_workbook(io.BytesIO(body)) for r in ws.iter_rows() for c in r]
+    assert "text holds a control character" in shown
+    assert not any(isinstance(v, str) and "10021" in v for v in shown)

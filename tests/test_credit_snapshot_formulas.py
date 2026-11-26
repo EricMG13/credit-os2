@@ -213,9 +213,9 @@ PINNED = [
     (
         ("Inputs", "Credit Score from factors", "Credit Score", "Value"),
         joined(
-            '=IF(COUNT(Snapshot!$A$33:$Q$33)<Matrix!$G$72,"",',
-            "MAX(INT((2*SUM(Snapshot!$A$33:$Q$33)+COUNT(Snapshot!$A$33:$Q$33))/(2*COUNT(Snapshot!$A$33:$Q$33))),",
-            "IF(OR(Snapshot!$H$33=5,Snapshot!$O$33=5),Matrix!$G$73,0)))",
+            '=IF(COUNT(Snapshot!$A$34:$Q$34)<Matrix!$G$72,"",',
+            "MAX(INT((2*SUM(Snapshot!$A$34:$Q$34)+COUNT(Snapshot!$A$34:$Q$34))/(2*COUNT(Snapshot!$A$34:$Q$34))),",
+            "IF(OR(Snapshot!$H$34=5,Snapshot!$O$34=5),Matrix!$G$73,0)))",
         ),
     ),
     (
@@ -293,12 +293,12 @@ PINNED = [
     ),
     (
         ("Snapshot", "Recommendation", "CLO portfolio", "Recommendation"),
-        '=IF(Snapshot!$O$14<>"",Snapshot!$O$14,Snapshot!$M$14)',
+        '=IF(Snapshot!$O$15<>"",Snapshot!$O$15,Snapshot!$M$15)',
     ),
     (
         ("Snapshot", "Recommendation", "CLO portfolio", "Status"),
         joined(
-            '=IF(Snapshot!$J$14="","",IF(Snapshot!$J$14="n/a","",IF(Snapshot!$P$14<>"",',
+            '=IF(Snapshot!$J$15="","",IF(Snapshot!$J$15="n/a","",IF(Snapshot!$P$15<>"",',
             '"confirmed","proposed")))',
         ),
     ),
@@ -318,29 +318,29 @@ PINNED = [
         ("Snapshot", "Equity value", "Enterprise value", "Value"),
         joined(
             '=IF(Snapshot!$P$8="","",IF(ISNUMBER(Snapshot!$P$5),IF(Snapshot!$P$8="FY2025",',
-            'IF(ISNUMBER(Snapshot!$D$65),Snapshot!$P$5+Snapshot!$D$65,""),',
-            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$G$65),Snapshot!$P$5+Snapshot!$G$65,""),"")),',
+            'IF(ISNUMBER(Snapshot!$D$66),Snapshot!$P$5+Snapshot!$D$66,""),',
+            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$G$66),Snapshot!$P$5+Snapshot!$G$66,""),"")),',
             'IF(ISNUMBER(Snapshot!$P$6),IF(Snapshot!$P$8="FY2025",',
-            'IF(ISNUMBER(Snapshot!$M$92),Snapshot!$P$6*Snapshot!$M$92,""),',
-            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$O$92),Snapshot!$P$6*Snapshot!$O$92,""),"")),"")))',
+            'IF(ISNUMBER(Snapshot!$M$93),Snapshot!$P$6*Snapshot!$M$93,""),',
+            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$O$93),Snapshot!$P$6*Snapshot!$O$93,""),"")),"")))',
         ),
     ),
     (
         ("Snapshot", "Capital structure", "Term Loan B", "% EV"),
         joined(
-            "=IF(AND(ISNUMBER(Snapshot!$I$49),ISNUMBER(Snapshot!$P$7),",
-            'Snapshot!$E$49=Snapshot!$P$9),IF(Snapshot!$P$7>0,Snapshot!$I$49/Snapshot!$P$7,""),"")',
+            "=IF(AND(ISNUMBER(Snapshot!$I$50),ISNUMBER(Snapshot!$P$7),",
+            'Snapshot!$E$50=Snapshot!$P$9),IF(Snapshot!$P$7>0,Snapshot!$I$50/Snapshot!$P$7,""),"")',
         ),
     ),
     (
         ("Snapshot", "Key figures", "Value", "Net leverage"),
-        "=Snapshot!$D$58",
+        "=Snapshot!$D$59",
     ),
     (
         ("Snapshot", "Key figures", "Direction", "Credit Score"),
         joined(
-            '=IF(Snapshot!$D$40="Improving","▲",IF(Snapshot!$D$40="Stable","►",',
-            'IF(Snapshot!$D$40="Deteriorating","▼","")))',
+            '=IF(Snapshot!$D$41="Improving","▲",IF(Snapshot!$D$41="Stable","►",',
+            'IF(Snapshot!$D$41="Deteriorating","▼","")))',
         ),
     ),
     (
@@ -410,7 +410,7 @@ PINNED = [
     ),
     (
         ("Snapshot", "Capital structure", "Term Loan B", "Status"),
-        '=IF(Snapshot!$M$49="","",IF(Snapshot!$P$49<>"","confirmed","proposed"))',
+        '=IF(Snapshot!$M$50="","",IF(Snapshot!$P$50<>"","confirmed","proposed"))',
     ),
 ]
 
