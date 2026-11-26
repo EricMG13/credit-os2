@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from test_web_lookup_tools import tools_for
 from test_weblookup import (
     FILING_URL,
     UA_ENV,
@@ -23,6 +24,11 @@ from test_weblookup import (
 from deploy_workflow.research import weblookup
 
 HOST = "www.fca.org.uk"
+
+
+def _live_known(tmp_path: Path) -> weblookup.KnownPages:
+    """What the module tools register live for the run ``tmp_path`` holds."""
+    return tools_for(tmp_path, FakeNet())[0]._known_pages()
 
 
 # C9-F1 -----------------------------------------------------------------------------------------
@@ -60,10 +66,17 @@ def test_f1_retained_pages_gives_the_latest_row_of_an_address(tmp_path: Path) ->
     assert (page.status, page.page_date) == ("usable", "2024-11-01")
 
 
-def test_f1_known_pages_gives_the_latest_row_of_an_address(tmp_path: Path) -> None:
+def test_f1_known_pages_gives_every_row_and_the_first_row_of_an_id(tmp_path: Path) -> None:
     item = _redated_run(tmp_path)
     found = weblookup.known_pages(tmp_path / "run")
-    assert found[item.source_id][0].status == "usable"
+    live = _live_known(tmp_path)
+    assert [r.status for r in found.rows if r.source_id == item.source_id] == [
+        "later-event",
+        "usable",
+    ]
+    assert found[item.source_id][0].status == "later-event"
+    assert dict(found) == dict(live)
+    assert found.rows == live.rows
 
 
 def test_f1_usable_then_redated_later_is_later_event(tmp_path: Path) -> None:
@@ -309,3 +322,74 @@ def test_r4_a_handoff_citing_the_older_id_is_accepted(tmp_path: Path) -> None:
 def test_r4_retained_pages_keeps_every_source_id(tmp_path: Path) -> None:
     a, b = _two_ids_one_address(tmp_path)
     assert sorted(p.source_id for p in weblookup.retained_pages(tmp_path / "run")) == sorted([a, b])
+
+
+# C9-S1 and C9-S2: known_pages rebuilds what ModuleTools registers live -------------------------
+
+
+def _delete_bodies(tmp_path: Path, suffix: str) -> None:
+    for body in web_dir(tmp_path).glob(f"*.{suffix}"):
+        body.unlink()
+
+
+def test_s1_a_page_whose_body_is_gone_is_not_known(tmp_path: Path) -> None:
+    lookup = make(tmp_path, FakeNet({(HOST, "/a"): ok(html("<p>one</p>"))}))
+    retained(lookup.fetch_page(f"https://{HOST}/a"))
+    _delete_bodies(tmp_path, "html")
+    found = weblookup.known_pages(tmp_path / "run")
+    assert (dict(found), found.rows) == ({}, ())
+    live = _live_known(tmp_path)
+    assert (dict(live), live.rows) == ({}, ())
+    for host in (HOST, f"{HOST}."):
+        url = f"https://{host}/a"
+        row = f"| - | {url} | Example | Undated | Issuer filing |"
+        expected = [
+            (
+                f'Sources row "-" cites {url}, which was not fetched in this run: '
+                "fetch it with fetch_page or remove the row."
+            )
+        ]
+        assert weblookup.web_handoff_issues(handoff_md(row), found) == expected
+        assert weblookup.web_handoff_issues(handoff_md(row), live) == expected
+
+
+def test_s1_one_id_with_two_bodies_keeps_the_readable_row(tmp_path: Path) -> None:
+    body = b"Revenue rose."
+    net = FakeNet({(HOST, "/a"): ok(body, "text/html"), (HOST, "/b"): ok(body, "text/plain")})
+    lookup = make(tmp_path, net)
+    sid = retained(lookup.fetch_page(f"https://{HOST}/a")).source_id
+    assert retained(lookup.fetch_page(f"https://{HOST}/b")).source_id == sid
+    _delete_bodies(tmp_path, "html")
+    md = handoff_rows(sid, f"https://{HOST}/b")
+    found = weblookup.known_pages(tmp_path / "run")
+    assert weblookup.web_handoff_issues(md, found) == []
+    assert weblookup.web_handoff_issues(md, _live_known(tmp_path)) == []
+
+
+def test_s2_an_id_superseded_at_its_address_keeps_its_later_event_status(tmp_path: Path) -> None:
+    meta = '<meta name="date" content="2099-09-01">'
+    net = FakeNet(
+        {(HOST, "/a"): ok(html("<p>one</p>", meta)), (HOST, "/b"): ok(html("<p>two</p>"))}
+    )
+    lookup = make(tmp_path, net)
+    a = retained(lookup.fetch_page(f"https://{HOST}/a")).source_id
+    retained(lookup.fetch_page(f"https://{HOST}/b"))
+    path = web_dir(tmp_path) / "index.jsonl"
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    rows[1]["url"] = f"https://{HOST}/a#x"
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    found = weblookup.known_pages(tmp_path / "run")
+    live = _live_known(tmp_path)
+    bare = f"| {a} | - | Ex | 2099-09-01 | Issuer filing |"
+    labelled = f"{bare[:-1]}| Later event |"
+    expected = [
+        (
+            f"Sources row for {a} is a page dated after the cutoff: "
+            'add the words "Later event" to the row.'
+        )
+    ]
+    for known in (found, live):
+        assert weblookup.web_handoff_issues(handoff_md(bare), known) == expected
+        assert weblookup.web_handoff_issues(handoff_md(labelled), known) == []
+    cited = handoff_md(f"| {a} | https://{HOST}/a | Ex | 2099-09-01 | Issuer filing |")
+    assert weblookup.web_handoff_issues(cited, found) == weblookup.web_handoff_issues(cited, live)

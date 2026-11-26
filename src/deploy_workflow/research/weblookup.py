@@ -1161,11 +1161,16 @@ def retained_rows(run_dir: Path) -> list[Retained]:
 
 
 def _latest_rows(items: Iterable[Retained]) -> list[Retained]:
-    """One row per fetched address (``_fetch_key``): its latest, in order of first retention. A
-    page re-dated by a filing list has an older row for the same address that no longer holds."""
-    latest: dict[str, Retained] = {}
+    """One row per source id and fetched address (``_fetch_key``), its latest: a re-dated row
+    replaces its own id's older row at that address; another id at the same address keeps its own
+    row."""
+    latest: dict[tuple[str, str], Retained] = {}
     for item in items:
-        latest[_fetch_key(item.url)] = item
+        key = (item.source_id, _fetch_key(item.url))
+        latest.pop(
+            key, None
+        )  # order of each key's latest row, so the address map is last-wins as at BASE
+        latest[key] = item
     return list(latest.values())
 
 
@@ -1245,9 +1250,9 @@ def _page_text(folder: Path, item: Retained) -> list[str]:
 
 
 class KnownPages(dict[str, tuple[Retained, str]]):
-    """The retained pages by ``source_id`` (every id, with its extracted text) and ``rows``, the
-    latest index row of every address: two URLs that serve the same bytes share one ``source_id``
-    but are both addresses fetched in this run, and each may have its own status."""
+    """The retained pages by ``source_id`` (every readable id, with its extracted text) and
+    ``rows``, every index row of a readable id, as ``ModuleTools.web_rows``: two URLs that serve
+    the same bytes share one ``source_id`` but are both addresses fetched in this run."""
 
     def __init__(self, pages: Mapping[str, tuple[Retained, str]], rows: Sequence[Retained]) -> None:
         super().__init__(pages)
@@ -1256,21 +1261,23 @@ class KnownPages(dict[str, tuple[Retained, str]]):
 
 def known_pages(run_dir: Path) -> KnownPages:
     """The pages retained under ``run_dir/web`` as the handoff checks read them, built the way a
-    module's tools register them: every ``source_id`` once (its first address, as of that
-    address's latest row) with its extracted text, and ``rows`` the latest row of every address
-    (the status and date of the later-event rule). A page whose file cannot be read is logged and
-    left out, so a quote cited to it is rejected. A run that retained nothing has no index and
-    gives no pages.
+    module's tools register them: each id once (its first readable row) with its extracted text,
+    every row of a readable id kept. A page whose file cannot be read is logged and left out, so a
+    quote cited to it is rejected. A run that retained nothing has no index and gives no pages.
 
     Raises ``ResearchError`` when the index is damaged and ``OSError`` when it cannot be read."""
-    all_rows = retained_rows(run_dir)
     pages: dict[str, tuple[Retained, str]] = {}
-    for sid, item in _page_rows(all_rows).items():
-        try:
-            pages[sid] = (item, "".join(_page_text(run_dir / "web", item)))
-        except OSError as exc:
-            log.warning("retained page %s could not be read: %s", sid, exc)
-    return KnownPages(pages, _latest_rows(all_rows))
+    rows: list[Retained] = []
+    for item in retained_rows(run_dir):
+        if item.source_id not in pages:
+            try:
+                text = "".join(_page_text(run_dir / "web", item))
+            except OSError as exc:
+                log.warning("retained page %s could not be read: %s", item.source_id, exc)
+                continue
+            pages[item.source_id] = (item, text)
+        rows.append(item)
+    return KnownPages(pages, rows)
 
 
 def _trim_url(url: str) -> str:
@@ -1392,7 +1399,7 @@ class _Handoff:
     lines: list[str]
     known: Mapping[str, tuple[Retained, str]]
     addresses: dict[str, str]
-    status: dict[str, str]  # the strictest status among the latest rows of the addresses of one id
+    status: dict[str, str]  # the strictest status among the latest rows of one id, one per address
     cells: dict[int, list[str]]  # line number -> its cells, for every table row
     headers: dict[int, list[str]]  # line number -> the cells of its table's first row
     direct: dict[int, set[str]]  # line number -> the pages the row names
@@ -1687,8 +1694,8 @@ def web_handoff_issues(
     markdown: str, known: Mapping[str, tuple[Retained, str]], *, hosted_search: bool = False
 ) -> list[str]:
     """What is wrong with a handoff's use of the run's retained web pages; ``known`` maps each
-    retained ``source_id`` to its index row and extracted text (a ``KnownPages`` also carries the
-    latest index row of every address, which gives the status of the later-event rule).
+    retained ``source_id`` to its index row and extracted text (a ``KnownPages`` also carries every
+    index row; each id's latest row at each address gives the later-event status).
     ``hosted_search`` is whether hosted web_search is also on for the module: a URL it
     found is then a citation, so the fetched-URL rule is skipped. Pure and deterministic: it reads
     no network and never raises on odd Markdown. Each issue is one sentence saying what to
