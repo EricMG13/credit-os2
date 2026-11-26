@@ -18,6 +18,8 @@ from deploy_workflow.inbox.layout import Layout
 from deploy_workflow.inbox.runs import Record, Status, cap_of
 from deploy_workflow.model.budget import BudgetError, exact_sum, read_reservation_snapshot
 from deploy_workflow.model.pricing import money_text
+from deploy_workflow.owners.cpos_custom import CustomRefused, complete
+from deploy_workflow.owners.cpos_launch import custom_owned_modules
 from deploy_workflow.owners.cpos_launch_methods import METHODS, NOT_ANALYTICAL
 from deploy_workflow.run_events import EVENTS, progress, read_events
 
@@ -34,12 +36,30 @@ _TIME = "%Y-%m-%dT%H:%M:%SZ"
 _ORDER = {"running": 0, "queued": 1}
 
 
-def module_states(pathway: str, events: Sequence[Mapping[str, Any]]) -> list[list[str]]:
+def custom_modules(chosen: Sequence[str]) -> tuple[str, ...]:
+    """A custom run's modules as the launcher completes the analyst's choice (CP-0, CP-1 and every
+    required producer included), for the views that show a run before its modules start. A
+    choice the rules refuse (a record edited by hand; the launcher refuses it too) is logged and
+    gives none."""
+    try:
+        return complete(chosen, owned=custom_owned_modules()).modules
+    except CustomRefused as refused:
+        # Documented fail-open (display only): the run's views fall back to the pathway's list.
+        log.warning("a custom run's modules cannot be completed (%s)", refused)
+        return ()
+
+
+def module_states(
+    pathway: str, events: Sequence[Mapping[str, Any]], chosen: Sequence[str] = ()
+) -> list[list[str]]:
     """[[module, waiting|running|done|stopped], ...] in plan order, then the final Report entry
-    (`run_events.progress`)."""
+    (`run_events.progress`). ``chosen`` is the run's requested modules: a custom run lists them
+    completed (`custom_modules`), so the modules it will add show as waiting before they start."""
     state = progress(events)
     # A pathway the plan does not know (a record edited by hand) has no modules to show.
     listed = PATHWAY_MODULES.get(cast(PathwayId, pathway), ())
+    if pathway == "custom":
+        listed = custom_modules(chosen) or listed
     # An explicit --modules run may start a module the preset does not list.
     extra = sorted(m for m in state.modules if m in METHODS and m not in listed)
     modules = plan((*(m for m in listed if m not in NOT_ANALYTICAL), *extra)) if listed else ()
@@ -118,7 +138,7 @@ def _entry(layout: Layout, record: Record, now: datetime) -> tuple[dict[str, Any
     complete = record.status == "rejected"
     if record.status != "rejected" and run_dir.is_dir():
         events, readable = _events(run_dir, record.id)
-        entry["modules"] = module_states(record.pathway, events)
+        entry["modules"] = module_states(record.pathway, events, record.modules)
         amount = spent(run_dir)
         entry["spent"] = None if amount is None else money_text(amount)
         complete = readable and amount is not None and (run_dir / "live").is_dir()

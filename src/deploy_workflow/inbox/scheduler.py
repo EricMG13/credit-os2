@@ -27,9 +27,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, cast
 
-from deploy_vii.contracts import PATHWAY_CAP_USD
+from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 from deploy_workflow.context import load_context
 from deploy_workflow.credit_os_catalogue import summary_fields
 from deploy_workflow.inbox import activity, filing, layout, runs, startup
@@ -273,6 +273,15 @@ class Scheduler:
         os.rename(sealed, self.layout.drops / record.id)
         submissions.release(self.layout, record.submission)
 
+    @staticmethod
+    def _cap_is_approved(record: Record) -> bool:
+        """Whether the record's cap is one its pathway allows. A custom run's cap is the one its
+        summary issued (the digest binds it, so an edited cap fails the comparison); every other
+        pathway's is the table's."""
+        if record.pathway == submissions.CUSTOM:
+            return submissions.custom_cap_ok(record.cap)
+        return record.cap == str(PATHWAY_CAP_USD[cast(PathwayId, record.pathway)])
+
     def _approval_digest(self, record: Record, folder: Path) -> str:
         """Recreate the approved digest from the queued settings and current sources."""
         try:
@@ -293,10 +302,13 @@ class Scheduler:
             answers = submissions.validated(saved)
             if record.config:
                 pathway = load_context(submissions.context_bytes(answers)).run.pathway
-                if pathway != record.pathway or record.cap != str(PATHWAY_CAP_USD[pathway]):
+                if pathway != record.pathway or not self._cap_is_approved(record):
                     return ""
             submissions.refuse_filed_elsewhere(self.layout, answers)
-            return submissions.bound(submissions.folder_digest(folder, answers), record.prior)
+            value = submissions.bound(submissions.folder_digest(folder, answers), record.prior)
+            if record.pathway == submissions.CUSTOM:
+                return submissions.bound_cap(value, record.cap)
+            return value
         except (OSError, ValueError, TypeError):
             return ""
 
@@ -352,6 +364,15 @@ class Scheduler:
         (sealed / "context.json").unlink(missing_ok=True)
         approval = submissions.issued_approval(self.layout, sid)
         current = submissions.bound(submissions.digest(self.layout, sid, answers), approval.prior)
+        context = answers["context"]
+        custom = context["run"]["pathway"] == submissions.CUSTOM
+        if custom:
+            # The cap the launcher computed and the summary issued: bound into the approval.
+            if not submissions.custom_cap_ok(approval.cap):
+                raise submissions.Refused(
+                    "the run's cap is not the one the summary showed; review the summary again"
+                )
+            current = submissions.bound_cap(current, approval.cap)
         # The approval also covers the comparison portfolio, when one was supplied. The record
         # keeps the documents' digest (``current``), which the launch re-checks against the drop;
         # the portfolio never goes to the drop.
@@ -361,10 +382,9 @@ class Scheduler:
             raise submissions.Refused(
                 "the documents or answers changed after approval; review the summary again"
             )
-        context = answers["context"]
         # The cap the approved summary showed is the run's; a table changed since (or a summary
         # made before per-pathway caps, which records none) needs a new summary.
-        cap = str(PATHWAY_CAP_USD[context["run"]["pathway"]])
+        cap = approval.cap if custom else str(PATHWAY_CAP_USD[context["run"]["pathway"]])
         if approval.cap != cap:
             raise submissions.Refused(
                 f"the run's cap is now USD {cap}, not the one the summary showed; review the "
