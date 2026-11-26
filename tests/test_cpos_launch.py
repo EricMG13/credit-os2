@@ -3272,6 +3272,19 @@ def test_the_step_file_gives_the_fixed_register_rows_the_money_unit_not_us_dolla
 # docs/rulings/2026-11-16-reporting-currency-from-sources.md: a facility in another currency counts
 # at the amount the filings state for it in the reporting currency, else at the FX rate the source
 # materials state for the reporting, recorded beside it; no rate is looked up, derived or invented.
+# Owner ruling, 2026-11-26 ("By governing document"): T4.18 gains `Asset type` after `Type`; the
+# value follows the governing document a source states, never the instrument's name.
+T418_ASSET_TYPE_COLUMNS = "| `Type` | `Asset type` | `Carrying Value` |"
+T418_ASSET_TYPE_RULES = (
+    "Security, ranking, rate type and asset type are never inferred from the instrument name.",
+    (
+        "`Asset type` follows the governing document a source states: `loan` for a facility "
+        "under a credit agreement (term loan, revolver, ABL), `bond` for a security under an "
+        "indenture (notes, bonds), `other` for a securitisation, receivables facility, finance "
+        "lease or other debt; `Not applicable` for the `Financing cost adjustment` row; "
+        "`Not supplied: <reason>` when no source states the governing document."
+    ),
+)
 T418_COLUMNS = "| `Currency` | `Reporting Currency Amount` | `FX Rate` | `Coupon or Margin` |"
 T418_RULES = (
     (
@@ -3314,9 +3327,10 @@ CP2D_CURRENCY_RULE = (
 def test_cp1_is_sent_each_instruments_reporting_currency_amount_and_never_invents_a_rate(tmp_path):
     text = _built_instruction(tmp_path, "CP-1", ("CP-1",))
     (t418,) = [line for line in text.splitlines() if "### T4.18 Debt instruments" in line]
-    assert T418_COLUMNS in t418
-    for rule in T418_RULES:
+    assert T418_COLUMNS in t418 and T418_ASSET_TYPE_COLUMNS in t418
+    for rule in T418_RULES + T418_ASSET_TYPE_RULES:
         assert rule in t418, rule
+    assert "Security, ranking and rate type are never inferred" not in t418
     assert "in the table's currency" not in t418 and "FX Rate and Source" not in text
     step3 = text.partition("## REF_CP-1_03_Normalization.md")[2].partition("## REF_CP-1_04")[0]
     assert CP1_STEP3_CURRENCY in step3
@@ -3485,6 +3499,7 @@ def test_cp1_method_files_are_archived_with_hashes_and_named_edits():
         "prohibited conclusion, reader question and decision drivers",
         "FFO/Debt trajectory",
         "WC inclusion",
+        "Asset-type edit (owner, 2026-11-26",
     ):
         assert named in edits, named
 
@@ -3647,9 +3662,13 @@ def test_every_module_is_told_what_stands_for_acceptance_scripts_and_questions(t
 # repeats (`TRIMMED_METHODS`). The method files are byte-identical; the blocks of every module
 # but CP-8 and CP-L10 are not, so the library marks those modules in every earlier run as
 # answered under an earlier method. The values before are in this file's history at 941ff81.
+# CP-1 pin recomputed on 2026-11-26 (owner, "By governing document"): T4.18 gains the `Asset type`
+# column and its rule (`loan`, `bond`, `other`, `Not supplied`), so runs made before it are listed
+# as answered on an earlier CP-1 method: expected. Only CP-1's hash moved. It was
+# 8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a.
 METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-0": "b194264a0faa2d8fba237a77d1cf0511b9199c7d3079fd9b9f25127945d20cf1",
-    "CP-1": "8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a",
+    "CP-1": "58a9d83093b9932163d537073388e96e72659ec80004ff10a9aa91d7c6daeb5f",
     "CP-1A": "9f33c163d624dff50ff322be98c7d554f834f57ad23d415a9b293d8b595df20e",
     "CP-1B": "4f8197dbb3b3d9d2aef98ca81f4b27e31a7250b366b86508868e97d2c85927af",
     "CP-1C": "e9592fe6f9b5b566bfb148ed40e4d7f507f6413a322118f0134ee6389ffef57b",
