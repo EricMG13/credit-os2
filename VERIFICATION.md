@@ -4,6 +4,15 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Recommendation calculation: best result across instruments; Unrated against "and below" (PR #100, merged as `bf06af10`)
+
+- Scope: synthetic and deterministic only; `src/deploy_workflow/recommendation.py` and its tests. No caller exists yet, no real constraints or holdings file, no real run.
+- Rulings applied (owner, 2026-11-25, `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, "Two rulings after PR 2"): a portfolio's recommendation is the best result across every eligible instrument, each held to 3 on its own limit breach, naming the instrument it rests on; an Unrated instrument against a rating limit worded "and below" that does not name Unrated is "not read". Tie key (coordinator): not capped before capped, then the better Valuation, then the instrument's name.
+- Coordinator's own check against merged `main`: a clean B loan (Valuation 2) and a CCC second lien (Valuation 1) against a breached CCC limit read Modest OW resting on the B loan in both list orders; for an Unrated instrument, "Max CCC and below", "Max CCC & below" and "Max B and lower" read not read, "Max CCC and below incl. Unrated & Other" reads breached, "Max BB and above" does not apply: pass.
+- Gates at `bdb12fb2`, reported by the PR's controller: `tools/quality_gate.py`, `lint-imports`, `tests/test_recommendation.py` with `tests/test_quality_gate.py` and `tests/test_repo_rules.py` (392 tests): exit 0. The PR 2 reviewers' probes `adv_tie_order`, `wb_two_instruments`, `rr4_ampersand_rating` failed before and pass after. Mutation at `60639e74`: 1,024 mutants, 994 killed, 30 survivors, none in the changed functions. CI on the PR head: four checks passed.
+- Reviews: task review approved, calculation audit nothing at Medium or above, pre-merge review pass; no fix round. Low findings closed in two small commits.
+- Consequence to know: an Unrated instrument against a breached "CCC and below" limit is not capped (the limit is shown as not read), so it can be the portfolio's result ahead of a rated instrument held to 3.
+- Not verified: mutation after the last, test-only commit; any real file or caller; Unrated wordings outside the closed word lists (they stay not read). Predates this change: "Max CCC and below, unrated excluded" reads breached for an Unrated instrument.
 ## 2026-11-25 — Instruction and reference length: review and offline measures
 
 - Scope: review only; no method text, launcher, prompt or presentation changed, no provider
@@ -968,22 +977,3 @@ then 5; the narrow layout and the controls listed below.
 - Measured: 20 fewer duplicated frontend lines. Paired History row data 2,168 to
   109 bytes with the same requests and markup.
 - Source pins, retry outcomes and limits: [sweep report](docs/audit/2026-11-16-final/output/6-sweep/report.md).
-
-## 2026-11-17 final audit presentation fidelity
-
-On repair tree `bb94ddce`, rebuilt both surfaces and captured connected
-synthetic Northbridge and the static fixture with native Chrome 157.0.8103.78
-at 1440 by 900. Both captures exited 0. Checked 267 distinct screens
-(29 connected, 238 static), 654 sourced drawers, 419 explicit missing-source
-markers and zero coverage gaps, trace errors or outside application-context
-attempts. The immutable comparator and baseline matched 126 stored hashes.
-Its 28 self-test cases passed. The full comparison covered 7,761 entries.
-The unmodified diff exited 1, reporting seven new differences, fourteen
-omissions and 352 not-found items. Each is explained in
-`docs/audit/2026-11-16-final/output/5-repair/fidelity/after-report.md`
-and the item readbacks, including scoped event counts, retained drawer basis
-and inputs, static sample notices and unchanged call totals. Static had no
-difference flags. Browser background proxy denials are counted separately.
-This evidence covers values, units, periods, source statements and
-qualifications in the captured screens. Other browsers, CSS presentation,
-remaining controls, work-PC and real-run behavior were outside this check.
