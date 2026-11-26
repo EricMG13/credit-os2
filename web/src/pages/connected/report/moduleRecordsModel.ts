@@ -1,4 +1,5 @@
 import { moduleCodeName } from "../api";
+import { unitLabel } from "../moneyUnits";
 import { plainText } from "../richText";
 import {
   classifySections,
@@ -498,6 +499,19 @@ export function numericColumns(table: Table) {
     if (figures.length && figures.every((cell) => NUMERAL.test(cell))) columns.add(index);
   });
   return columns;
+}
+
+/** A table's cell drawer for its unit columns: a money unit as the currency's symbol ("$m"); any
+ * other cell undefined, so the cell is drawn as written. */
+export function unitCells(table: { headers: readonly string[] }) {
+  const columns = new Set(
+    table.headers.flatMap((header, column) => (UNIT_HEADER.test(header.trim()) ? [column] : [])),
+  );
+  return (column: number, cell: string) => {
+    const written = cell.trim();
+    const drawn = columns.has(column) ? unitLabel(written) : written;
+    return drawn === written ? undefined : drawn;
+  };
 }
 
 /** A unit column that states one value in every row: the page states it once, above the table. */

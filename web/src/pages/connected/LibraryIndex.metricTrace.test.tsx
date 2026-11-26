@@ -181,7 +181,7 @@ it("J4-001 states a missing source instead of linking a same-valued figure in an
     ),
   ).toBeVisible();
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.getByText("US$1,250.00m")).toBeVisible();
+  expect(screen.getByText("$1,250.00m")).toBeVisible();
 });
 
 it("J4-001 offers an honest source-load failure without drawing a trace", async () => {
@@ -239,5 +239,5 @@ it("J4-001 ignores a completed source lookup after its displayed figure changes"
     await pending;
   });
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.getByText("US$1,300.00m")).toBeVisible();
+  expect(screen.getByText("$1,300.00m")).toBeVisible();
 });

@@ -65,7 +65,7 @@ it("draws one row for an issuer with the three figures, the decision not shown, 
   expect(within(row).getByText("better")).toBeVisible();
   expect(within(row).getByText("4.19x")).toBeVisible();
   expect(within(row).getAllByText("No prior period stated")).toHaveLength(2);
-  expect(within(row).getByText("US$100m")).toBeVisible();
+  expect(within(row).getByText("$100m")).toBeVisible();
   expect(within(row).getAllByText("FY2025").length).toBeGreaterThanOrEqual(3);
   expect(within(row).queryByText(/Undrawn/)).toBeNull();
   expect(within(row).getByText("Full credit assessment")).toBeVisible();
@@ -294,7 +294,7 @@ it("opens to the figures the row does not show, as one stats strip with its own 
   );
   fireEvent.click(screen.getByRole("button", { name: /Show runs and detail/ }));
   const strip = within(screen.getByLabelText("More figures, Acme", { selector: "dl" }));
-  expect(strip.getByText("US$1,250.00m")).toBeVisible();
+  expect(strip.getByText("$1,250.00m")).toBeVisible();
   expect(strip.getAllByText("Not shown here")).toHaveLength(2);
   expect(strip.getByRole("button", { name: "Show sources for Revenue, Acme" })).toBeVisible();
   expect(strip.queryByText("2.25x")).toBeNull();

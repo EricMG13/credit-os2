@@ -4,6 +4,15 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Money units drawn as currency symbols ($m, £m, €m) (branch `claude/module-currency-labels-34fdbf`)
+
+- Scope: presentation only, web reader (`docs/rulings/2026-11-26-money-unit-symbols.md`). No handoff, prompt, method, check, stored value or Python output changed; no provider call. Owner: all reader pages and the printed purpose reports; the Model page keeps `US$m`.
+- Built: `moneyUnits.ts` draws a money unit as its en-US `Intl` symbol (`$m`, `£m`, `€m`, `CA$m`, `¥m`; `CHFm` where none) and figures as `$1,250m`, `−$25m`, `CHF 300m`; Unit columns, unit fields, basis lines, chart Table views, captions and Coverage labels convert where drawn. Stored and matching values, Evidence's Unit cells and source text, the trace drawer and module prose keep the written unit.
+- Fidelity check: answer keys `moneyUnits.cases.json` and `signal.cases.json` (coordinator-written); a Modules-page test on the retained CP-1 TransDigm fixture and a replay test over eight retained handoffs find no `USD millions` or `US$m` outside module prose; an Evidence test keeps the raw cells. Rendered check on the synthetic run (`check-render.cjs`, 1440/1280/1024, Overview, Modules, Forecast, Changes, Coverage): 15 of 15 pass; page text shows no raw unit except module-written Forecast wording ("Stressed FCF (USD millions)"). Chromium and Node give the same symbols for 18 currencies.
+- Reviews: advisor (Opus 5.5 xhigh, Fable exhausted) 2 High, 5 Medium ruled into the plan; task reviews pass (task B: 1 Medium fixed); confidence review and rewrite tournament (one shared helper adopted); sweep discover 4 Lows, fixed in one batch; pre-merge review (mx-architect on Opus 5.5 xhigh) 1 Medium (chart Table views) fixed and re-reviewed, Lows taken.
+- Gates: CI `checks` run 45760301029 on `0580f154` (web: lint, format, types, unused, duplication, tests with coverage, build, scripts; fast tests; changed code; gitleaks) pass on attempt 2; attempt 1 failed one test this branch does not touch (`runLayout.test.tsx` tab title, read before its effect runs; passes 3 of 3 locally). Locally: `npm audit --omit=dev` exit 0; the browser file check passed 2 of 3 runs (the first failed in `checkRoutes`).
+- Not verified: Safari and Firefox symbol output (their Playwright builds are not installed); printed purpose reports in a real print dialog; a real non-USD run; the merge with `main` at `932e252c` (only this file conflicted).
+
 ## 2026-11-26 — Copilot GPT Sol and GPT-6 Luna sessions at 1M context (branch `claude/copilot-1m-context-795226`)
 
 - Scope: offline only, base `ef005f64`. No seat, provider or paid call; every result below comes from fake clients, the installed SDK 1.0.28 source and hand-computed answer keys. No session has been seen on the long tier.

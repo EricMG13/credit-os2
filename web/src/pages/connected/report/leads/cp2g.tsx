@@ -9,6 +9,7 @@ import { forwardPath, NET_LEVERAGE, pathPeriods } from "../overview/stressData";
 import { Bento, Figure, Tile } from "../overview/Tile";
 import { withDraws } from "./draws";
 import { GapCell, KeyValues, LeadFigure, LeadGap, Notes, TableRegion, Trace } from "./parts";
+import { unitLabel } from "../../moneyUnits";
 import { leadHref, readerCell, drawsNothing } from "./read";
 import type { LeadProps } from "./types";
 
@@ -407,7 +408,7 @@ function amountUnits(document: Record<string, unknown>) {
   const magnitude =
     document.scale === 1000 ? "thousands" : document.scale === 1 ? "millions" : null;
   return magnitude
-    ? `Amounts: ${currency} ${magnitude}, as recorded. Shares are shown as percentages.`
+    ? `Amounts: ${unitLabel(`${currency} ${magnitude}`)}, as recorded. Shares are shown as percentages.`
     : `Amounts as recorded; ${currency}. Shares are shown as percentages.`;
 }
 

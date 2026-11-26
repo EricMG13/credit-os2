@@ -8,6 +8,7 @@ import { StackChart } from "@/components/chart/StackChart";
 import { TrendChart } from "@/components/chart/TrendChart";
 import { WaterfallChart, type WaterfallStep } from "@/components/chart/WaterfallChart";
 import { atPositions, periodPositions } from "@/components/chart/seriesData";
+import { writtenUnit } from "../publishedReport";
 import {
   amount,
   bounds,
@@ -487,7 +488,7 @@ function bullet(table: SourceTable, descriptor: Descriptor, frame: Frame) {
       target,
       axisMin: Math.min(0, value ?? 0, target ?? 0),
       axisMax: Math.max(0, value ?? 0, target ?? 0) || 1,
-      sub: `${row[direction] ?? ""} ${row[threshold] ?? ""} ${unit}`,
+      sub: `${row[direction] ?? ""} ${writtenUnit(row[threshold] ?? "", unit)}`,
       text: value === null ? null : (row[current] ?? null),
     };
   });
