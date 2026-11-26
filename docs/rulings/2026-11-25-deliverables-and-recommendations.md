@@ -216,11 +216,13 @@ Owner's words are quoted; the rest is the coordinating session's or the PR's con
   `2026-11-13-appendix-and-routing-scope.md` is amended so that a register it cut is restored for
   a phase the analyst ticks; and the CP-8 bullet of `AGENTS.md` is refined so that a custom run is
   compared only with an earlier custom run of the same module and phase selection. Neither text
-  is edited in PR 0.
+  is edited in PR 0. Done for whole modules with PR 7a (2026-11-26, owner: "Add both"): the CP-8
+  bullet names the same completed modules; the register restoration waits for phase selection
+  (PR 7b).
 - Not amended: the cap tables of `2026-11-15-pathway-tiers-and-caps.md` and
   `2026-11-25-layer-1-in-all-assessment-pathways.md` (Lite USD 20, Full 30, Deep 50). The two caps
   above are recorded here; the cap sentence of `AGENTS.md` gained Credit Screening 10 on
-  2026-11-26 (owner: "add it"), and the custom routing cap waits for PR 7. By those rulings a
+  2026-11-26 (owner: "add it"), and the custom selection cap on 2026-11-26 with PR 7a (`2026-11-26-custom-routing.md`). By those rulings a
   cap enters `PATHWAY_CAP_USD` and `RULED_CAPS_USD` by deliberate edits, which belong to the
   pathway PRs (6 and 7).
 - `PRODUCT.md`, its Excel line: brought into step with the `AGENTS.md` Excel bullet (owner,
