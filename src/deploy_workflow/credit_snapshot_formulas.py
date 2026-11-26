@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
@@ -75,11 +76,22 @@ EMPTY = '""'
 TYPES = ("loan", "bond")
 UNITS = ("basis points", "percent")
 BAND_EDGES = (
-    ("Score 1 edge", 100),
-    ("Score 2 edge", 40),
-    ("Score 4 edge", -40),
-    ("Score 5 edge", -100),
+    ("score_1_edge", "Score 1 edge", 100),
+    ("score_2_edge", "Score 2 edge", 40),
+    ("score_4_edge", "Score 4 edge", -40),
+    ("score_5_edge", "Score 5 edge", -100),
 )
+MINIMUM_SCORED_FACTORS = "minimum_scored_factors"
+FLOOR_LEVEL_RULE = "floor_level"
+CAP_LEVEL_RULE = "cap_level"
+RULE_CAPTIONS = {
+    **{(BANDS, key): caption for key, caption, _ in BAND_EDGES},
+    (CS_RULES, MINIMUM_SCORED_FACTORS): "Minimum scored factors",
+    (CS_RULES, FLOOR_LEVEL_RULE): "Floor level",
+    (CS_RULES, "floor_factor_1"): "Floor factor 1",
+    (CS_RULES, "floor_factor_2"): "Floor factor 2",
+    (CS_RULES, CAP_LEVEL_RULE): "Cap level",
+}
 VALUATION_NAMES = ("Very attractive", None, None, None, "Very unattractive")  # section 2
 ARROWS = {"Improving": "▲", "Stable": "►", "Deteriorating": "▼"}
 WORST_LEVEL = 5  # a factor scored 5 triggers the floor (section 4)
@@ -112,6 +124,13 @@ Ref = At | Span
 _MARK = re.compile("⟦([0-9]+)⟧")
 _END = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _A1 = re.compile(r"([A-Z]+)([0-9]+)")
+_DEBT_UNIT_SOURCE = re.compile(r"[\w.-]+\.\w+, pages? \d+(?:[–-]\d+)?|calculation C\d+")
+_DEBT_RECONCILIATION_NOTE = (
+    "Individual term-tranche carrying values are not allocated; their combined carrying value "
+    "is disclosed. The aggregate financing adjustment reconciles principal-equivalent instrument "
+    "balances to total carrying-value debt without treating either net proceeds or commitments "
+    "as debt."
+)
 
 
 @dataclass(frozen=True)
@@ -300,6 +319,17 @@ def _at(cell: snap.SnapshotCell) -> At:
     return At(cell.sheet, cell.block, cell.row, cell.column)
 
 
+def _matches_source(
+    cell: snap.SnapshotCell | None, table: snap._Table, row: snap._Row, text: str
+) -> bool:
+    return cell is not None and (cell.module, cell.section, cell.line, cell.text) == (
+        table.module,
+        table.section,
+        row.line,
+        text,
+    )
+
+
 def _cells_of(found: Mapping[tuple[str, str], snap.Block], sheet: str, name: str) -> list[At]:
     block = found.get((sheet, name))
     return [] if block is None else [_at(cell) for cell in block.cells]
@@ -371,6 +401,11 @@ def _rows(cells: Iterable[snap.SnapshotCell]) -> list[str]:
 
 def _rule(block: str, row: str, column: str, value: int | str) -> snap.SnapshotCell:
     return snap.SnapshotCell(MATRIX, block, row, column, RULE, str(value))
+
+
+def _literal(text: str) -> str:
+    """An Excel string literal quotes a quotation mark twice."""
+    return '"' + text.replace('"', '""') + '"'
 
 
 def _period_end(label: str) -> date | None:
@@ -457,7 +492,9 @@ class _Builder:
         ]
         self.add(MATRIX, REC_TABLE, table)
         self.add(
-            MATRIX, BANDS, [_rule(BANDS, n, "Difference (bp)", edge) for n, edge in BAND_EDGES]
+            MATRIX,
+            BANDS,
+            [_rule(BANDS, key, "Difference (bp)", edge) for key, _, edge in BAND_EDGES],
         )
         scales = {
             "Credit Score": rec.SCORE_NAMES,
@@ -473,11 +510,11 @@ class _Builder:
         self.add(MATRIX, SCALES, cells)
         first, second = rec.FLOOR_FACTORS
         rules = (
-            ("Minimum scored factors", rec.MIN_SCORED),
-            ("Floor level", rec.FLOOR_LEVEL),
-            ("Floor factor 1", first),
-            ("Floor factor 2", second),
-            ("Cap level", rec.CAP_AT),
+            (MINIMUM_SCORED_FACTORS, rec.MIN_SCORED),
+            (FLOOR_LEVEL_RULE, rec.FLOOR_LEVEL),
+            ("floor_factor_1", first),
+            ("floor_factor_2", second),
+            (CAP_LEVEL_RULE, rec.CAP_AT),
         )
         self.add(MATRIX, CS_RULES, [_rule(CS_RULES, n, "Value", v) for n, v in rules])
 
@@ -493,8 +530,8 @@ class _Builder:
         box = d(Span(tuple(levels)))
         floor_cells = [d(At(SNAPSHOT, SCORECARD, name, "Level")) for name in rec.FLOOR_FACTORS]
         minimum, floor = (
-            d(At(MATRIX, CS_RULES, "Minimum scored factors", "Value")),
-            d(At(MATRIX, CS_RULES, "Floor level", "Value")),
+            d(At(MATRIX, CS_RULES, MINIMUM_SCORED_FACTORS, "Value")),
+            d(At(MATRIX, CS_RULES, FLOOR_LEVEL_RULE, "Value")),
         )
         capped = ",".join(f"{cell}={WORST_LEVEL}" for cell in floor_cells)
         template = (
@@ -601,7 +638,9 @@ class _Builder:
     def _valuation(self, name: str, ref: _Reference) -> None:
         d = _Draft()
         diff = d(At(MATRIX, DIFFERENCE, name, ref.view.name))
-        one, two, four, five = (d(At(MATRIX, BANDS, n, "Difference (bp)")) for n, _ in BAND_EDGES)
+        one, two, four, five = (
+            d(At(MATRIX, BANDS, key, "Difference (bp)")) for key, _, _ in BAND_EDGES
+        )
         template = (
             f'=IF({diff}="","",IF({diff}>={one},1,IF({diff}>{two},2,'
             f"IF({diff}>={four},3,IF({diff}>{five},4,5)))))"
@@ -634,7 +673,7 @@ class _Builder:
         d = _Draft()
         score, value = d(self.score), d(At(MATRIX, VALUATION, name, ref.view.name))
         breach = d(At(MATRIX, BREACH, name, ref.view.name))
-        table, cap = d(self.table()), d(At(MATRIX, CS_RULES, "Cap level", "Value"))
+        table, cap = d(self.table()), d(At(MATRIX, CS_RULES, CAP_LEVEL_RULE, "Value"))
         cell = f"INDEX({table},{score},{value})"
         template = (
             f'=IF(OR({score}="",{value}=""),"",IF(AND({cell}<{cap},{breach}=1),{cap},{cell}))'
@@ -650,7 +689,7 @@ class _Builder:
         d = _Draft()
         score, value = d(self.score), d(At(MATRIX, VALUATION, name, ref.view.name))
         breach = d(At(MATRIX, BREACH, name, ref.view.name))
-        table, cap = d(self.table()), d(At(MATRIX, CS_RULES, "Cap level", "Value"))
+        table, cap = d(self.table()), d(At(MATRIX, CS_RULES, CAP_LEVEL_RULE, "Value"))
         cell = f"INDEX({table},{score},{value})"
         terms = "&".join(
             f'IF({d(At(MATRIX, LIMIT_HITS, name, _hit_column(ref, k)))}=1,"; "&'
@@ -724,7 +763,7 @@ class _Builder:
                 shape,
             )
         )
-        cap = d(At(MATRIX, CS_RULES, "Cap level", "Value"))
+        cap = d(At(MATRIX, CS_RULES, CAP_LEVEL_RULE, "Value"))
         template = f"=IF(SUMPRODUCT(({results}={cap})*({hits}=1))>0,1,0)"
         return self.formula(At(MATRIX, LIMITS_HOLD, ref.view.name, f"Limit {k}"), d, template)
 
@@ -801,7 +840,7 @@ class _Builder:
         d = _Draft()
         result, cap = (
             d(At(MATRIX, PORTFOLIO, name, "Result")),
-            d(At(MATRIX, CS_RULES, "Cap level", "Value")),
+            d(At(MATRIX, CS_RULES, CAP_LEVEL_RULE, "Value")),
         )
         results = d(Span(tuple(At(MATRIX, RESULT, n, name) for n in self.instruments)))
         held_by = d(Span(held))
@@ -821,53 +860,98 @@ class _Builder:
         if not rows:
             return
         periods = self._enterprise_value()
-        cells = [self._share_of_ev(row) for row in rows] if periods else []
+        principal_basis = self._principal_basis() if periods else None
+        comparable = [
+            label for label, basis in periods.items() if basis and basis == principal_basis
+        ]
+        cells = [self._share_of_ev(row, comparable) for row in rows] if periods else []
         proposals = [
             self._proposal(name, row) for name, row in zip(self.instruments, rows, strict=True)
         ]
         extra = [c for p in proposals if p is not None for c in p]
-        self.add(SNAPSHOT, CAPITAL, extra + cells)
+        identifiers = [
+            self._identifier(name, row, column)
+            for name, row in zip(self.instruments, rows, strict=True)
+            for column in snap.IDENTIFIERS
+        ]
+        self.add(SNAPSHOT, CAPITAL, extra + cells + identifiers)
         if extra:
             self.dropdown(SNAPSHOT, CAPITAL, PROPOSED_COLUMN, self.names("Recommendation"))
             self.chips.append((SNAPSHOT, CAPITAL, PROPOSED_COLUMN))
 
-    def _periods(self, block: str, row: str) -> dict[str, At]:
-        """The cells of a row of a block by period label (the part of the column before ` / `)."""
-        return {
-            c.column.split(" / ")[0]: _at(c)
-            for c in self._cells(SNAPSHOT, block)
-            if c.row == row and c.column not in TAIL_COLUMNS and c.kind != snap.GAP
-        }
+    def _identifier(self, name: str, row: str, column: str) -> snap.SnapshotCell:
+        d = _Draft()
+        source = d(self._inputs(name, column))
+        return self.formula(At(SNAPSHOT, CAPITAL, row, column), d, f'=IF({source}="","",{source})')
 
-    def _enterprise_value(self) -> list[str]:
-        """EV: the equity value plus the chosen period's Net debt, else the EV multiple times that
-        period's reported EBITDA. The period is a yellow dropdown over the periods the handoff's
-        Net debt and EBITDA rows hold. Returns those periods (none: no EV is built)."""
-        debt, ebitda = (
-            self._periods(TOTALS, "Net debt"),
-            self._periods(MEASURES, "EBITDA (Reported)"),
-        )
+    def _ev_operands(self) -> tuple[dict[str, At], dict[str, At]]:
+        """Keep explicitly different reporting dates separately selectable."""
+
+        def amounts(block: str, row: str) -> list[At]:
+            return [
+                _at(c)
+                for c in self._cells(SNAPSHOT, block)
+                if c.row == row and c.column not in TAIL_COLUMNS and c.kind != snap.GAP
+            ]
+
+        debt, earnings = amounts(TOTALS, "Net debt"), amounts(MEASURES, "EBITDA (Reported)")
+        dates: dict[str, set[str]] = {}
+        for at in [*debt, *earnings]:
+            short, _, suffix = at.column.partition(" / ")
+            if suffix:
+                dates.setdefault(short, set()).add(suffix)
+
+        def named(cells: list[At]) -> dict[str, At]:
+            found = {}
+            for at in cells:
+                short = at.column.partition(" / ")[0]
+                if len(dates.get(short, ())) > 1:
+                    if short != at.column:
+                        found[at.column] = at
+                elif short != at.column or short not in found:
+                    found[short] = at
+            return found
+
+        return named(debt), named(earnings)
+
+    def _enterprise_value(self) -> dict[str, tuple[str, str] | None]:
+        """Build the EV branches and retain each selectable period's verified money basis."""
+        debt, ebitda = self._ev_operands()
         labels = list(dict.fromkeys([*debt, *ebitda]))
         if not labels:
-            return []
+            return {}
         d = _Draft()
         equity = d(At(SNAPSHOT, EQUITY, "Equity value", "Value"))
         multiple = d(At(SNAPSHOT, EQUITY, "EV multiple", "Value"))
         period = d(At(SNAPSHOT, EQUITY, "EV period", "Value"))
+        currency = d(At(SNAPSHOT, EQUITY, "EV currency", "Value"))
+        doc = self._pinned_cp1()
+        debt_units = self._debt_units(doc, debt)
+        debt_basis = {
+            label: snap._money_unit_parts(cell.text) for label, cell in debt_units.items()
+        }
+        earnings_units = {
+            label: basis
+            for label, basis in self._earnings_units(doc, ebitda).items()
+            if label not in debt or basis == debt_basis.get(label)
+        }
 
-        def pick(cells: dict[str, At], use: str) -> str:
+        def pick(
+            cells: dict[str, At], units: Mapping[str, tuple[str, str] | None], use: str
+        ) -> str:
             out = '""'
-            for label in reversed(labels):
-                if label in cells:
-                    cell = d(cells[label])
-                    quoted = label.replace('"', '""')  # a string literal doubles its quotes
-                    out = (
-                        f'IF({period}="{quoted}",IF(ISNUMBER({cell}),{use.format(cell)},""),{out})'
-                    )
+            for label, operand in reversed(cells.items()):
+                basis = units.get(label)
+                if basis is None:
+                    continue
+                cell = d(operand)
+                guard = f'AND(ISNUMBER({cell}),{currency}="{basis[0]}")'
+                value = f'IF({guard},{use.format(cell)},"")'
+                out = f"IF({period}={_literal(label)},{value},{out})"
             return out
 
-        added = pick(debt, equity + "+{}")
-        times = pick(ebitda, multiple + "*{}")
+        added = pick(debt, debt_basis, equity + "+{}")
+        times = pick(ebitda, earnings_units, multiple + "*{}")
         template = (
             f'=IF({period}="","",IF(ISNUMBER({equity}),{added},'
             f'IF(ISNUMBER({multiple}),{times},"")))'
@@ -878,6 +962,7 @@ class _Builder:
             self.analyst(At(SNAPSHOT, EQUITY, "EV period", "Value")),
             self.analyst(At(SNAPSHOT, EQUITY, "EV currency", "Value")),
         ]
+        extra.append(self._equity_unit(debt_units))
         self.add(SNAPSHOT, EQUITY, extra)
         if _listable(labels):
             self.dropdown(SNAPSHOT, EQUITY, "Value", tuple(labels), "EV period")
@@ -887,10 +972,168 @@ class _Builder:
                 "a double quote, or the list is over %s characters",
                 MAX_LIST_TEXT,
             )
-        return labels
+        return {
+            label: debt_basis.get(label) if label in debt else earnings_units.get(label)
+            for label in labels
+        }
 
-    def _share_of_ev(self, row: str) -> snap.SnapshotCell:
+    def _debt_units(
+        self, doc: snap._Doc | None, debt: dict[str, At]
+    ) -> dict[str, snap.SnapshotCell]:
+        amounts = {c.column: c for c in self._cells(SNAPSHOT, TOTALS) if c.row == "Net debt"}
+        common = amounts.get("Unit")
+        if common is None or doc is None:
+            return {}
+        verified = self._period_units(doc, {at.column: amounts[at.column] for at in debt.values()})
+        if common.text != snap.UNIT_DIFFERS:
+            return {
+                label: common
+                for label, at in debt.items()
+                if at.column in verified and verified[at.column].text == common.text
+            }
+        self.add(SNAPSHOT, EQUITY, verified.values())
+        return {label: verified[at.column] for label, at in debt.items() if at.column in verified}
+
+    def _reported_earnings(
+        self, doc: snap._Doc | None
+    ) -> tuple[snap._Table, snap._Row, int] | None:
+        if doc is None:
+            return None
+        name = "EBITDA (Reported)"
+        try:
+            table = doc.register("T4.4")
+            unit = snap._unique_index(table, "Unit")
+        except ValueError:
+            return None
+        if len(table.rows) > 1000:
+            return None
+        key = snap._fold(name)
+        rows = [row for row in table.rows if snap._fold(row.cells[0]) == key]
+        if len(rows) != 1:
+            return None
+        [row] = rows
+        written = row.cells[unit]
+        observed = [
+            cell
+            for cell in self._cells(SNAPSHOT, "Financials")
+            if (cell.row, cell.column, cell.kind) == (name, "Unit", snap.COPIED)
+        ]
+        if len(observed) != 1 or not _matches_source(observed[0], table, row, written):
+            return None
+        return table, row, unit
+
+    def _earnings_units(
+        self, doc: snap._Doc | None, periods: Mapping[str, At]
+    ) -> dict[str, tuple[str, str]]:
+        source = self._reported_earnings(doc)
+        if source is None:
+            return {}
+        table, row, unit = source
+        basis = snap._money_unit_parts(row.cells[unit])
+        if basis is None:
+            return {}
+        amounts = {
+            cell.column: cell
+            for cell in self._cells(SNAPSHOT, MEASURES)
+            if cell.row == "EBITDA (Reported)"
+        }
+        found = {}
+        for label, at in periods.items():
+            try:
+                index = snap._unique_index(table, at.column)
+            except ValueError:
+                continue
+            if 0 < index < unit and _matches_source(
+                amounts.get(at.column), table, row, row.cells[index]
+            ):
+                found[label] = basis
+        return found
+
+    def _equity_unit(self, units: dict[str, snap.SnapshotCell]) -> snap.SnapshotCell:
+        at = At(SNAPSHOT, EQUITY, "Equity input unit", "Value")
+        if not units:
+            return _gap(at, "Net debt reporting unit unavailable")
         d = _Draft()
+        period = d(At(SNAPSHOT, EQUITY, "EV period", "Value"))
+        selected = '"Select a net debt period"'
+        for label, source in reversed(units.items()):
+            selected = f"IF({period}={_literal(label)},{d(_at(source))},{selected})"
+        return self.formula(at, d, f"={selected}")
+
+    def _period_units(
+        self, doc: snap._Doc, amounts: Mapping[str, snap.SnapshotCell]
+    ) -> dict[str, snap.SnapshotCell]:
+        """Verify unique and exact CP-1 source rows for the displayed Net debt amounts."""
+        try:
+            table = doc.heading_table("Net debt data")
+            period, net, unit = (
+                snap._unique_index(table, h) for h in ("Period", "Net debt", "Reporting unit")
+            )
+        except ValueError:
+            return {}
+        if len(table.rows) > 1000:
+            return {}
+        counts = Counter(row.cells[period] for row in table.rows)
+        maker = snap._Maker(SNAPSHOT, EQUITY, {})
+        found = {}
+        for row in table.rows:
+            column = row.cells[period]
+            if counts[column] != 1 or not _matches_source(
+                amounts.get(column), table, row, row.cells[net]
+            ):
+                continue
+            label = column + " net debt reporting unit"
+            found[column] = maker.copied(table.at(row.line), label, "Value", row.cells[unit])
+        return found
+
+    def _principal_basis(self) -> tuple[str, str] | None:
+        """T4.18 principal is as printed: only its own explicit money declaration sets its scale."""
+        doc = self._pinned_cp1()
+        if doc is None:
+            return None
+        try:
+            table = doc.register("T4.18")
+            section = doc.prose(table.section)
+        except ValueError:
+            return None
+        if len(section) > 1000:
+            return None
+        # The validated table has a header and separator immediately before its first data row.
+        start, end = table.rows[0].line - 2, table.rows[-1].line
+        notes = []
+        for number, text in section:
+            line = text.strip()
+            if not line or start <= number <= end:
+                continue
+            if line.startswith("Basis:") and all(
+                _DEBT_UNIT_SOURCE.fullmatch(ref.strip())
+                for ref in line.removeprefix("Basis:").split(";")
+            ):
+                continue
+            notes.append((number, line))
+        if len(notes) != 1 or notes[0][0] >= start:
+            return None
+        sentence, _, rest = notes[0][1].partition(".")
+        # The retained reconciliation describes carrying-value allocation without changing units.
+        if rest.strip() not in {"", _DEBT_RECONCILIATION_NOTE}:
+            return None
+        match = re.fullmatch(r"All money columns below are (.+?)(?: at the annual end)?", sentence)
+        return snap._money_unit_parts(match[1]) if match else None
+
+    def _pinned_cp1(self) -> snap._Doc | None:
+        raw = self.snapshot.model_handoffs.get("CP-1")
+        if raw is None:
+            return None
+        doc = snap._doc("CP-1", raw)
+        return doc if doc.sha256 == self.snapshot.handoff_sha256.get("CP-1") else None
+
+    def _share_of_ev(self, row: str, comparable: Sequence[str]) -> snap.SnapshotCell:
+        d = _Draft()
+        at = At(SNAPSHOT, CAPITAL, row, PERCENT_EV)
+        if not comparable:
+            return self.formula(at, d, '=""', "0.0%")
+        period = d(At(SNAPSHOT, EQUITY, "EV period", "Value"))
+        allowed = ",".join(f"{period}={_literal(label)}" for label in comparable)
         principal = d(At(SNAPSHOT, CAPITAL, row, "Principal"))
         value = d(At(SNAPSHOT, EQUITY, "Enterprise value", "Value"))
         own, stated = (
@@ -898,10 +1141,10 @@ class _Builder:
             d(At(SNAPSHOT, EQUITY, "EV currency", "Value")),
         )
         template = (
-            f"=IF(AND(ISNUMBER({principal}),ISNUMBER({value}),{own}={stated}),"
+            f"=IF(AND(ISNUMBER({principal}),ISNUMBER({value}),{own}={stated},OR({allowed})),"
             f'IF({value}>0,{principal}/{value},""),"")'
         )
-        return self.formula(At(SNAPSHOT, CAPITAL, row, PERCENT_EV), d, template, "0.0%")
+        return self.formula(at, d, template, "0.0%")
 
     def _index(self, kind: str) -> _Reference | None:
         return next((r for r in self.references if r.view.kind == kind and r.pairs), None)
@@ -946,11 +1189,18 @@ class _Builder:
             ]
             self.add(SNAPSHOT, block, cells)
 
+    def _reference_row(self, role: str) -> str:
+        row = role
+        while row in self.instruments:
+            row += " (reference)"
+        return row
+
     def _index_row(self, block: str) -> list[snap.SnapshotCell]:
         """The index row: its label and one analyst cell for each figure the analyst reads off the
         index (ruling PM-c)."""
-        cells = [_label(SNAPSHOT, block, INDEX_ROW, "Instrument", INDEX_ROW)]
-        cells += [self.analyst(At(SNAPSHOT, block, INDEX_ROW, c)) for c in INDEX_COLUMNS]
+        row = self._reference_row(INDEX_ROW)
+        cells = [_label(SNAPSHOT, block, row, "Instrument", INDEX_ROW)]
+        cells += [self.analyst(At(SNAPSHOT, block, row, c)) for c in INDEX_COLUMNS]
         return cells
 
     def _peer_rows(self, block: str) -> list[snap.SnapshotCell]:
@@ -959,11 +1209,12 @@ class _Builder:
         peers = [c for c in self._cells(SNAPSHOT, PEERS) if c.column == PEER_ISSUER]
         cells = []
         for peer in peers:
+            row = self._reference_row(peer.row)
             d = _Draft()
             cells.append(
-                self.formula(At(SNAPSHOT, block, peer.row, "Instrument"), d, f"={d(_at(peer))}")
+                self.formula(At(SNAPSHOT, block, row, "Instrument"), d, f"={d(_at(peer))}")
             )
-            cells += [self.analyst(At(SNAPSHOT, block, peer.row, c)) for c in PEER_COLUMNS]
+            cells += [self.analyst(At(SNAPSHOT, block, row, c)) for c in PEER_COLUMNS]
         return cells
 
     def _rv_row(

@@ -71,7 +71,8 @@ export function EstimateFigures({
 /**
  * The service's estimate for the reviewed custom run: the figures it will launch at and one line
  * per module, by reader name, with the reason the rules added it and whether it reaches the Modules
- * page only.
+ * page only. A scoped parent shows the phases that will run and any phase added to satisfy a
+ * downstream module.
  */
 export function ReviewedEstimate({ estimate }: { estimate: CustomEstimate }) {
   return (
@@ -91,14 +92,28 @@ export function ReviewedEstimate({ estimate }: { estimate: CustomEstimate }) {
           >
             <span className="font-medium text-text-primary">{serviceText(row.name, "custom")}</span>
             <Figure>{money(Number(row.usd))}</Figure>
-            {(row.added || row.modules_page_only || !row.measured) && (
+            {(row.added || row.modules_page_only || !row.measured || row.phases?.length) && (
               <span className="col-span-2 text-caption text-text-secondary">
                 {[
                   row.added ? serviceText(row.added, "custom") : "",
                   row.modules_page_only ? "No report section of its own" : "",
                   row.measured ? "" : "Not measured: the mean of the measured modules",
+                  row.phases?.length
+                    ? `Analysis scope: ${row.phases.map(({ name }) => serviceText(name, "custom")).join(", ")}`
+                    : "",
                 ]
                   .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            )}
+            {row.phases?.some(({ added }) => added) && (
+              <span className="col-span-2 text-caption text-text-secondary">
+                {row.phases
+                  .filter(({ added }) => added)
+                  .map(
+                    ({ name, added }) =>
+                      `${serviceText(name, "custom")}: ${serviceText(added ?? "", "custom")}`,
+                  )
                   .join(" · ")}
               </span>
             )}

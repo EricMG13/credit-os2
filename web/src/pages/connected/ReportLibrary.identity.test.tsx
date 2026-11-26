@@ -330,6 +330,42 @@ it("draws the catalogue sector as entered", async () => {
   expect(within(own).getByText("Sector CP-1 note")).toBeVisible();
 });
 
+it("keeps Deliverables identity metadata while omitting handoff-derived identity details", async () => {
+  const [enteredRating] = moody;
+  if (!enteredRating) throw new Error("Expected a fixture rating");
+  const snapshot = fixture({
+    sector: "Sector CP-1 note",
+    ratings: [{ ...enteredRating, outlook: "Watch negative per CP-2H" }],
+    ratingsOutput: {
+      sections: [evidenceRegister([fullRow("Moody's", "Issuer (CFR)", "B2")])],
+    },
+  });
+  const [catalogue] = snapshot.catalogue.real;
+  if (!catalogue) throw new Error("Expected a fixture catalogue row");
+  catalogue.ticker = "CP-2H ticker";
+  catalogue.period = "FY2026 CP-2H period";
+  const el = await band(snapshot, "#deliverables");
+  expect(screen.getByRole("heading", { level: 1, name: "Acme" })).toBeVisible();
+  expect(facts(el)).toHaveTextContent("As of 16 November 2026");
+  expect(within(el).getByRole("navigation", { name: "Report sections" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Deliverables" })).toBeVisible();
+  expect(screen.queryByText("Sector CP-1 note")).toBeNull();
+  expect(screen.queryByText(new RegExp(NOTE))).toBeNull();
+  expect(document.body.textContent).not.toContain("CP-1");
+  expect(document.body.textContent).not.toContain("CP-2H");
+  expect(within(facts(el)).getByText("Full credit assessment")).toBeVisible();
+});
+
+it("omits an invalid free-text run date from Deliverables metadata", async () => {
+  const snapshot = fixture();
+  const run = snapshot.workspace.runs.acmeKey;
+  if (!run) throw new Error("Expected a fixture run");
+  run.asOf = "CP-2H";
+  const el = await band(snapshot, "#deliverables");
+  expect(document.body.textContent).not.toContain("CP-2H");
+  expect(within(facts(el)).queryByText(/As of/)).toBeNull();
+});
+
 it("draws a handoff sector through readerText", async () => {
   const raw = "Aerospace, see CP-2A";
   const el = await band(fixture({ handoff: [profile([["Sector and segments", raw]])] }));

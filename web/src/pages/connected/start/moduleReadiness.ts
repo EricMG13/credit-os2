@@ -1,5 +1,6 @@
 import { drawnModules, type ReadinessItem } from "../api";
 import { byStage } from "../report/stages";
+import { complete, CUSTOM } from "./customSelection";
 import { needsCheck } from "./limits";
 import { scopeText } from "./limitWords";
 
@@ -54,7 +55,8 @@ export function moduleReadiness(
   checked?: { modules: readonly string[]; items: readonly ReadinessItem[] },
   pathway?: string | null,
 ): ModuleReadiness {
-  const modules = drawnModules(checked ? checked.modules : planned);
+  const scheduled = checked?.modules ?? (pathway === CUSTOM ? complete(planned).modules : planned);
+  const modules = drawnModules(scheduled);
   const limits = checked?.items.filter(needsCheck) ?? [];
   const markOf = (scope: string): ModuleMark =>
     checked ? (worst(limits.filter((item) => item.scope === scope)) ?? "none") : "unchecked";

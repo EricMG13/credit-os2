@@ -102,6 +102,7 @@ describe("Review and start", () => {
     );
     expect(run).toHaveTextContent(/Documents read1Modules3$/);
     expect(within(decision).getByText("Paid run")).toBeInTheDocument();
+    expect(within(decision).queryByText(/A no-cost test can complete/)).not.toBeInTheDocument();
     // Where the rail sits under the form, the stages follow the limits and Submit ends the tile.
     expect(before(cost, limits)).toBe(true);
     expect(before(limits, stages)).toBe(true);
@@ -182,6 +183,12 @@ describe("Review and start", () => {
     expect(within(cost).getByText("USD 0.00", { selector: "span" })).toHaveClass("font-mono");
     expect(cost).toHaveTextContent("USD 0.00A paid run is capped at USD 30.00");
     expect(within(decision).getByText("No-cost test", { selector: "span" })).toBeInTheDocument();
+    const scope = within(decision).getByText(/A no-cost test can complete/);
+    expect(scope).toHaveTextContent("Full credit assessment");
+    expect(scope).toHaveTextContent("Structural priority within Legal & covenants");
+    expect(scope).toHaveTextContent("Northbridge Synthetic Group, 2025-03-31");
+    expect(scope).toHaveTextContent("northbridge-filing.txt and northbridge-credit-agreement.txt");
+    expect(scope).not.toHaveTextContent(/CP-4|Intercreditor control|Covenant capacity/);
     expect(within(decision).getByRole("button", { name: "Submit run" })).toBeEnabled();
   });
 

@@ -58,11 +58,11 @@ it("keeps a money amount, a tranche name or an unknown code, and rejects a regis
     expect(readerReason(cited)).toBeNull();
 });
 
-it("rejects a methodology module code the reader rule left unnamed, and only those", () => {
+it("maps a phase name into reader text while still detecting the underlying code", () => {
   expect(carriesUnreadId("CP-1 supports Watchlist.")).toBe(true);
   expect(carriesUnreadId("CP-4A supports Watchlist.")).toBe(true);
   expect(carriesUnreadId("CP-99 supports Watchlist.")).toBe(false);
-  expect(readerReason("CP-4A supports Watchlist.")).toBeNull();
+  expect(readerReason("CP-4A supports Watchlist.")).toBe("Covenant capacity supports Watchlist.");
   expect(readerReason("CP-1 supports Watchlist.")).toBe("Financial foundation supports Watchlist.");
 });
 

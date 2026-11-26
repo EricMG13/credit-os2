@@ -4846,3 +4846,46 @@ def test_the_custom_lead_exclusion_list_is_the_same_in_python_the_reader_and_the
     view = listed("web/src/pages/connected/reportView.ts", "NO_CUSTOM_LEAD")
     assert NOT_A_CUSTOM_LEAD
     assert reader == view == NOT_A_CUSTOM_LEAD
+
+
+def test_scoped_custom_comparison_requires_same_effective_phases(tmp_path):
+    """Northbridge Synthetic Group, 2025-03-31. Choose the same scope over newer runs."""
+    modules = ("CP-0", "CP-1", "CP-4")
+    scope = {"CP-4": ("CP-4B", "CP-4D")}
+    make_custom_run(tmp_path / "ws", "whole", modules, as_of="2025-02-28")
+    make_custom_run(
+        tmp_path / "ws",
+        "different",
+        modules,
+        as_of="2025-01-31",
+        phase_selection={"CP-4": ("CP-4B",)},
+    )
+    make_custom_run(
+        tmp_path / "ws", "same-scope", modules, as_of="2024-12-31", phase_selection=scope
+    )
+    current = custom_prepare(tmp_path, ["CP-4", "CP-4D"])
+    assert current.plan.prior is not None and current.plan.prior.folder == "same-scope"
+    assert current.ordered[-1] == "CP-8"
+    assert current.plan.run.phase_selection == scope
+    assert current.plan.changes_note is not None
+    assert "whole: its analysis scope differs" in current.plan.changes_note
+    assert "different: its analysis scope differs" in current.plan.changes_note
+
+
+def test_scoped_comparison_refuses_workflow_scope_that_differs_from_delivery(tmp_path):
+    """Northbridge Synthetic Group, 2025-03-31. A restored workflow disagrees with its delivery."""
+    prior = make_custom_run(
+        tmp_path / "ws",
+        "different-delivery",
+        ("CP-0", "CP-1", "CP-4"),
+        as_of="2025-02-28",
+        phase_selection={"CP-4": ("CP-4B",)},
+    )
+    path = prior / "workflow.json"
+    workflow = json.loads(path.read_text())
+    workflow["run"]["phase_selection"] = {"CP-4": ["CP-4B", "CP-4D"]}
+    path.write_text(json.dumps(workflow))
+
+    current = custom_prepare(tmp_path, ["CP-4", "CP-4D"])
+    assert current.plan.prior is None
+    assert "CP-8" not in current.ordered

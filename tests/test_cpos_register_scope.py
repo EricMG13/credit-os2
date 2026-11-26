@@ -277,7 +277,9 @@ def test_ownership_register_stays_out_while_a_delivery_reader_names_it():
 
 def _without_constants(source: str, names: tuple[str, ...]) -> str:
     for name in names:
-        source = re.sub(rf"^{name} = \(\n.*?\n\)\n", "", source, flags=re.MULTILINE | re.DOTALL)
+        source = re.sub(
+            rf"^{name} = [({{]\n.*?\n[)}}]\n", "", source, flags=re.MULTILINE | re.DOTALL
+        )
     return source
 
 
@@ -287,7 +289,14 @@ def test_no_check_reader_or_library_names_a_cut_or_routing_register():
         **{
             name: _without_constants(
                 (ROOT / "src/deploy_workflow/owners" / name).read_text(),
-                ("ROUTING_RULES", "CP0_BLOCK", "UPSTREAM_SCOPE_NOTE", "ROUTING_REGISTERS"),
+                # PHASES names register families for scoped custom requests only.
+                (
+                    "ROUTING_RULES",
+                    "CP0_BLOCK",
+                    "UPSTREAM_SCOPE_NOTE",
+                    "ROUTING_REGISTERS",
+                    "PHASES",
+                ),
             )
             for name in (
                 "cpos_launch.py",

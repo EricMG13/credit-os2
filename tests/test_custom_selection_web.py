@@ -22,7 +22,7 @@ from deploy_vii import registry
 from deploy_vii.contracts import MODULE_ESTIMATE_USD, PATHWAY_CAP_USD
 from deploy_vii.report_view import pathways
 from deploy_workflow.credit_os_chips import MODULE_NAMES
-from deploy_workflow.owners import cpos_custom, cpos_launch
+from deploy_workflow.owners import cpos_custom, cpos_launch, cpos_launch_methods
 
 START = Path(__file__).resolve().parents[1] / "web" / "src" / "pages" / "connected" / "start"
 API = START.parent / "api.ts"
@@ -177,3 +177,17 @@ def cases() -> list[dict[str, object]]:
 
 def test_the_launchers_completion_and_estimates_are_the_pages_cases_file():
     assert json.loads(CASES.read_text(encoding="utf-8")) == json.loads(json.dumps(cases()))
+
+
+def test_phase_picker_labels_and_parents_match_the_launcher():
+    picker = (START / "customSelection.ts").read_text(encoding="utf-8")
+    data = picker.partition("export const PHASES:")[2].partition("\n};")[0]
+    groups = re.findall(r'^  "([^"]+)": \[(.*?)^  \],', data, re.MULTILINE | re.DOTALL)
+    by_phase = {
+        ident: (parent, name)
+        for parent, entries in groups
+        for ident, name in re.findall(r'id: "([^"]+)",\s+name: "([^"]+)",', entries)
+    }
+    assert by_phase == {
+        ident: (phase.parent, phase.name) for ident, phase in cpos_launch_methods.PHASES.items()
+    }

@@ -1,120 +1,28 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Menu, MenuItem, MenuTrigger, Popover } from "react-aria-components";
-import { Download01, Printer } from "@untitledui/icons";
+import { Printer } from "@untitledui/icons";
 import { Button } from "@/components/base/buttons/button";
 import { ChartPrintContext } from "@/components/chart/ChartPrintContext";
 import { containsReference } from "../publishedReport";
 import { asOfDate } from "../runFigures";
-import {
-  exportHref,
-  exportRoute,
-  containsRunIdentifier,
-  type ExportId,
-  type ExportOption,
-  type ReportExport,
-} from "./reportExport";
+import { containsRunIdentifier, exportRoute, type ReportExport } from "./reportExport";
 import "./reportExport.css";
 
-function showHash(hash: string, from?: string) {
+function showHash(hash: string) {
   const oldURL = window.location.href;
-  if (from !== undefined) window.history.pushState({ reportExportFrom: from }, "", hash);
-  else window.history.replaceState(null, "", hash);
+  window.history.replaceState(null, "", hash);
   window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL, newURL: window.location.href }));
 }
 
-function openPreview(id: ExportId) {
-  showHash(exportHref(id), window.location.hash);
-}
-
-/** Set when a preview closes: the Export PDF control takes focus back once the report is drawn again. */
-let returnFocus = false;
-
 function closePreview() {
-  returnFocus = true;
   const state: unknown = window.history.state;
   if (state && typeof state === "object" && "reportExportFrom" in state) window.history.back();
   else showHash("#overview");
 }
 
-/** Returns focus to the Export PDF control after a preview closes, whether it was mounted throughout or is drawn anew. */
-function useFocusAfterPreview() {
-  const holder = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const land = () => {
-      if (!returnFocus || exportRoute(window.location.hash) !== undefined) return;
-      returnFocus = false;
-      holder.current?.querySelector<HTMLElement>("button, summary")?.focus();
-    };
-    land();
-    window.addEventListener("hashchange", land);
-    return () => {
-      window.removeEventListener("hashchange", land);
-    };
-  }, []);
-  return holder;
-}
-
-/** The header's quiet utility look, as Run progress beside it. */
-const QUIET =
-  "flex min-h-8 cursor-pointer items-center gap-1.5 rounded-ds-sm text-small font-semibold text-text-secondary outline-focus-ring hover:text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 max-[480px]:min-h-11";
 /** A state of the preview as a quiet chip. */
 const CHIP =
   "flex min-h-6 items-center rounded-ds-xs border border-border-hairline bg-surface-card px-2 text-caption text-text-secondary";
 const TOOL = "max-[480px]:min-h-11";
-
-export function ExportMenu({ options, reason }: { options: ExportOption[]; reason: string }) {
-  const holder = useFocusAfterPreview();
-  return (
-    <span ref={holder} className="inline-flex">
-      <ExportControl options={options} reason={reason} />
-    </span>
-  );
-}
-
-function ExportControl({ options, reason }: { options: ExportOption[]; reason: string }) {
-  if (options.length === 0)
-    return (
-      <details className="report-export-menu relative">
-        <summary className={`${QUIET} list-none`}>
-          <Download01 aria-hidden="true" className="size-4" />
-          Export PDF
-        </summary>
-        <p className="absolute top-full right-0 z-10 mt-1 w-64 rounded-ds-md border border-border-subtle bg-surface-card p-3 text-small text-text-secondary shadow-2">
-          {reason}
-        </p>
-      </details>
-    );
-  return (
-    <MenuTrigger>
-      <Button
-        color="link-gray"
-        size="sm"
-        iconLeading={Download01}
-        className="min-h-8 max-[480px]:min-h-11"
-      >
-        Export PDF
-      </Button>
-      <Popover
-        className="min-w-48 rounded-ds-md border border-border-subtle bg-surface-card p-1 shadow-2"
-        placement="bottom end"
-      >
-        <Menu aria-label="PDF formats">
-          {options.map(({ id, name }) => (
-            <MenuItem
-              key={id}
-              onAction={() => {
-                openPreview(id);
-              }}
-              className="flex min-h-8 cursor-pointer items-center rounded-ds-sm px-3 text-small text-text-primary outline-hidden data-focused:bg-surface-selected data-focused:text-text-link max-[480px]:min-h-11"
-            >
-              {name}
-            </MenuItem>
-          ))}
-        </Menu>
-      </Popover>
-    </MenuTrigger>
-  );
-}
 
 function chartLayoutReady(root: HTMLElement) {
   return [...root.querySelectorAll(".recharts-responsive-container")].every((chart) => {
@@ -150,11 +58,18 @@ function cssText(text: string) {
   return `"${text.replace(/\s+/g, " ").replace(/[\u0022\\]/g, "\\$&")}"`;
 }
 
-function PrintPaper({ report }: { report: Extract<ReportExport, { state: "ready" }> }) {
+function PrintPaper({
+  report,
+  autoPrint = false,
+}: {
+  report: Extract<ReportExport, { state: "ready" }>;
+  autoPrint?: boolean;
+}) {
   const { id, name, document: paper, qualifiers, previewNote, privateIds } = report;
   const root = useRef<HTMLElement>(null);
   const [layout, setLayout] = useState<"waiting" | "ready" | "failed" | "blocked">("waiting");
   const [attempt, setAttempt] = useState(0);
+  const printed = useRef(false);
   useEffect(() => {
     const element = root.current;
     if (!element) return;
@@ -202,6 +117,25 @@ function PrintPaper({ report }: { report: Extract<ReportExport, { state: "ready"
       cancelAnimationFrame(frame);
     };
   }, [attempt, privateIds]);
+  useEffect(() => {
+    if (!autoPrint) return;
+    const state: unknown = window.history.state;
+    if (
+      typeof state === "object" &&
+      state !== null &&
+      "reportPrintOnReady" in state &&
+      state.reportPrintOnReady === true
+    ) {
+      const remaining = { ...state };
+      delete remaining.reportPrintOnReady;
+      window.history.replaceState(remaining, "");
+    }
+  }, [autoPrint]);
+  useEffect(() => {
+    if (!autoPrint || layout !== "ready" || printed.current) return;
+    printed.current = true;
+    window.print();
+  }, [autoPrint, layout]);
   const scope = [paper.scope, ...qualifiers].join(" · ");
   const identity = [
     paper.ticker,
@@ -312,9 +246,11 @@ function PrintPaper({ report }: { report: Extract<ReportExport, { state: "ready"
 export function ReportExportPreview({
   report,
   children,
+  autoPrint = false,
 }: {
   report?: ReportExport;
   children?: ReactNode;
+  autoPrint?: boolean;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -326,7 +262,7 @@ export function ReportExportPreview({
         PDF preview
       </h2>
       {report?.state === "ready" ? (
-        <PrintPaper report={report} />
+        <PrintPaper report={report} autoPrint={autoPrint} />
       ) : (
         <div className="report-export-controls">
           <p className="text-caption text-text-tertiary">PDF preview</p>
