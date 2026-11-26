@@ -1,0 +1,297 @@
+{
+ "2909ed": {
+  "items": {
+   "CP-3-F1": {
+    "score": "Right",
+    "quote": "| Term loan Tranche I | Senior secured | 1871 | Not supplied: aggregate only | Term SOFR + 2.75% | 2028-08-24 |",
+    "note": "All four tranches with principal, margin and maturity match; total 8702 principal."
+   },
+   "CP-3-F2": {
+    "score": "Right",
+    "quote": "| 6.75% secured notes | Senior secured | 2100 | 2077 | 6.75% fixed | 2028-08-15 |",
+    "note": "All six series match in principal, coupon and maturity; USD 11,000 million principal stated."
+   },
+   "CP-3-F3": {
+    "score": "Right",
+    "quote": "| 5.50% senior subordinated notes | Unsecured, subordinated | 2650 | 2641 | 5.50% fixed | 2027-11-15 |",
+    "note": "Three series match, USD 4,600 million principal, and November 2027 named as the first term-debt maturity."
+   },
+   "CP-3-F4": {
+    "score": "Right",
+    "quote": "| Revolving credit facility (commitment 910; letters of credit 67; available 843) | Senior secured | Not supplied: undrawn apart from letters of credit |",
+    "note": "Revolver undrawn, 2029-02-27, SOFR + 2.25%; securitization 487 drawn, 2025-07-11, domestic receivables, USD 650 million facility with the October draw as a subsequent event."
+   },
+   "CP-3-F5": {
+    "score": "Right",
+    "quote": "They are contractually, payment-blockage and structurally subordinated.",
+    "note": "Secured classes pari with collateral including cash, subordinated notes unsecured with blockage and non-guarantor subordination, securitization on dedicated receivables; intercreditor terms noted only as not supplied."
+   },
+   "CP-3-F6": {
+    "score": "Right",
+    "quote": "| Term loan K | 99.94 / 100.13 | 5.9%; 224 bp |",
+    "note": "All five entries match on bid, ask, yield and spread; described as a user-entered test transcription with an assigned date; no price stated as supplied."
+   },
+   "CP-3-F7": {
+    "score": "Right",
+    "quote": "the only bid and ask evidence is the loan quotes in the run settings",
+    "note": "M and N shown as matching no year-end tranche, CP-3D recorded as Blocked, note yields labelled as calculated from fair values not quotes; Tranche I and revolver being unquoted is implicit rather than stated."
+   },
+   "CP-3-F8": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Partly present: 'Facility indications Ba3 / BB- unverified', assigned 2024-09-30; agencies not named and nothing said about the missing outlook or the absence of an issuer or note rating."
+   },
+   "CP-3-F9": {
+    "score": "Right",
+    "quote": "Ranking, guarantees and incurrence capacity come from the annual report's summary of the debt documents, not the executed agreements",
+    "note": "Legal module not described as blocked; executed agreements and intercreditor recorded as not supplied."
+   },
+   "CP-3-F10": {
+    "score": "Right",
+    "quote": "No peer or transaction multiple exists and no restructuring case is active, so enterprise value, class recoveries and the fulcrum are not established",
+    "note": "Nothing numeric attributed upstream."
+   },
+   "CP-3-C1": {
+    "score": "Wrong",
+    "quote": "the January 2029 subordinated notes yield about 5.49% to maturity against 5.58% for the March 2029 secured notes",
+    "note": "States yield differences between subordinated and secured paper (-9 bp, -2 bp, -26 bp) and calls the subordinated notes Rich and Avoid on that pricing, which the item rules out because no note is quoted; the call is labelled provisional."
+   },
+   "CP-3-C2": {
+    "score": "Right",
+    "quote": "so no term-loan spread or price conclusion uses them; only the agent fair value of the term loans is relied on",
+    "note": "No intra-loan preference; K, M and N excluded for identity conflict and quotes treated as test input."
+   },
+   "CP-3-C3": {
+    "score": "Right",
+    "quote": "No enterprise value can be supported, so recovery percentages, the fulcrum and any recovery-based ranking are withheld",
+    "note": "Waterfall shows enterprise value not supplied with claims senior first; direction only."
+   },
+   "CP-3-C4": {
+    "score": "Right",
+    "quote": "No mandate, holdings or trading data was supplied, so the sizing posture is generic and no numeric size, exit cost or concentration test is given.",
+    "note": "Posture by class only (Watchlist / Avoid), no size or mandate fit asserted."
+   },
+   "CP-3-D1": {
+    "score": "Right",
+    "quote": "net leverage is 6.02x pro forma for the dividend paid on 2024-10-18 (4.88x at year end)",
+    "note": "Dividend USD 4,348 million and the USD 162.5 million securitization draw are listed as dated subsequent events; pro forma net debt 22,967 beside 18,619; the December 10-Q is used for subsequent events only."
+   },
+   "CP-3-D2": {
+    "score": "Right",
+    "quote": "Claims are at carrying value and sum to total debt of USD 24,880 million; principal is USD 25,068 million.",
+    "note": "Separate labelled principal and carrying columns; 19,534 and 4,581 never called principal; 19,702 is not stated."
+   },
+   "CP-3-D3": {
+    "score": "Right",
+    "quote": "Not supplied: fulcrum not determinable without enterprise value",
+    "note": "Missing enterprise value, recoveries, call terms and portfolio data are stated as not supplied; no zeros and no invented call dates."
+   },
+   "CP-3-D4": {
+    "score": "Wrong",
+    "quote": "RV11 | January 2029 subordinated notes approximate yield | (4.625 + 3.3333 / 4.2917) / ((100 + 96.6667) / 2) = 5.4017 / 98.33335 | 0.0549 (5.49%)",
+    "note": "Fair values are named as the issuer's disclosure and the arithmetic is shown, but yields and a Rich call are derived from them, which the item rules out."
+   }
+  },
+  "other_errors": [
+   {
+    "quote": "funded the September payment largely with USD 3,000 million of new secured debt",
+    "why": "The 10-K passage for D1 says the dividend payments were made in October 2024; elsewhere this handoff itself dates the payment 2024-10-18."
+   }
+  ]
+ },
+ "3e217d": {
+  "items": {
+   "CP-3-F1": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Only the aggregate is given ('Term loans Tranches I, J, K, L ... 8,702 / 8,642 ... 2028-08-24 to 2032-01-19; Term SOFR plus 2.50% to 2.75%'); no tranche split of principal, margin and maturity."
+   },
+   "CP-3-F2": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Aggregate only ('six series | ... | 11,000 / 10,892 | 2028-08-15 to 2033-01-15; fixed 6.00% to 7.125%'); series principals appear as calculation inputs but coupons and maturities are not given per series."
+   },
+   "CP-3-F3": {
+    "score": "Right",
+    "quote": "| Senior subordinated notes due 2027 and 2029, three series | Unsecured, contractually and structurally subordinated, subject to payment blockage | 4,600 / 4,581 | 2027-11-15, 2029-01-15, 2029-05-01; fixed 4.625% to 5.50% |",
+    "note": "Series principals 2650, 1200 and 750 are in the calculations and 4.625% and 4.875% are tied to the 2029 series; the 5.50% coupon is tied to 2027 only by elimination. First term-debt maturity November 2027 stated."
+   },
+   "CP-3-F4": {
+    "score": "Right",
+    "quote": "Undrawn; commitment 910, letters of credit 67, available 843",
+    "note": "Revolver 2029-02-27 at SOFR plus 2.25%; securitization 487 at year end, drawn to 650 on 2024-10-16 as a subsequent event, 2025-07-11, secured by domestic trade receivables."
+   },
+   "CP-3-F5": {
+    "score": "Right",
+    "quote": "It ranks equally across the term loans, revolver and six secured note series, shares one guarantor group producing 79.27% of FY2024 net sales and benefits from collateral that includes cash.",
+    "note": "Subordinated notes unsecured with blockage and structural subordination; securitization on receivables; intercreditor agreement noted only as not supplied."
+   },
+   "CP-3-F6": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Only the Tranche J entry is given with values (bid 100.00, ask 100.13, 6.2%, 247 bp), with its test-transcription status; K, L, M and N values are not stated."
+   },
+   "CP-3-F7": {
+    "score": "Right",
+    "quote": "Unclear: no entry for I; K entry conflicts with year-end size and margin; M and N not in the year-end structure",
+    "note": "Notes and revolver stated as unquoted and CP-3D as Blocked; note yields are labelled calculated. The J size discrepancy recorded by CP-3D is not carried."
+   },
+   "CP-3-F8": {
+    "score": "Right",
+    "quote": "Facility indications Ba3 and BB-, unverified | No issuer rating, outlook or trigger",
+    "note": "Facility scope, as of 2024-09-30, unverified, no issuer rating or outlook; the agencies are not named."
+   },
+   "CP-3-F9": {
+    "score": "Right",
+    "quote": "Secured incurrence capacity of USD 3,244 million comes from the annual report's summary of the credit agreement, not the executed documents",
+    "note": "Legal read described as summary authority with executed documents and intercreditor agreement not supplied; not described as blocked."
+   },
+   "CP-3-F10": {
+    "score": "Right",
+    "quote": "No enterprise value is supported, because Peer benchmark found no peers and Recovery & fulcrum found no distress case, so class recoveries and the fulcrum are not established",
+    "note": "Nothing numeric attributed upstream."
+   },
+   "CP-3-C1": {
+    "score": "Wrong",
+    "quote": "Their approximate yields of 5.49% and 5.56% are 8.69 bp and 1.67 bp below the 2029 secured notes' 5.58%",
+    "note": "States a yield difference between subordinated and secured paper and calls the 2029 subordinated notes Rich and Avoid on that pricing, which the item rules out because no note is quoted; labelled low confidence."
+   },
+   "CP-3-C2": {
+    "score": "Right",
+    "quote": "Those loan entries are a module-test transcription that Market-implied risk could not authenticate, and no secured note spread or call schedule is supplied, so relative value is Unclear.",
+    "note": "No tranche preferred; J's 4 bp inside the Ba index is given as what would read Fair 'if authenticated'. J is treated as identity-clean although CP-3D records a J size discrepancy."
+   },
+   "CP-3-C3": {
+    "score": "Right",
+    "quote": "With no enterprise value, no recovery percentage is stated.",
+    "note": "Waterfall shows enterprise value not supplied; attachment points in turns of EBITDA are labelled structural order only."
+   },
+   "CP-3-C4": {
+    "score": "Right",
+    "quote": "No mandate, holdings, concentration limits or trading depth were supplied, so no numeric size is given and exit risk is not assessable.",
+    "note": "Posture labels by class only."
+   },
+   "CP-3-D1": {
+    "score": "Right",
+    "quote": "Net leverage is 6.02x pro forma for the 2024-10-18 dividend, against 4.88x at year end.",
+    "note": "Dividend USD 4,348 million and USD 162.5 million securitization draw tabled as dated subsequent events, not folded into the year-end stack; December 10-Q not used."
+   },
+   "CP-3-D2": {
+    "score": "Right",
+    "quote": "| Total debt | All instruments | 25,068 / 24,880; secured 19,534 carrying |",
+    "note": "Column labelled principal / carrying; waterfall claims stated as carrying values; 19,702 is not stated."
+   },
+   "CP-3-D3": {
+    "score": "Right",
+    "quote": "Not supplied: no enterprise value, so no fulcrum identified",
+    "note": "Missing inputs stated as not supplied; no zeros, no invented call dates."
+   },
+   "CP-3-D4": {
+    "score": "Wrong",
+    "quote": "V13 | Approximate YTM, January 2029 subordinated notes: (coupon + (100 − price) / years) / ((100 + price) / 2) | Coupon 4.625; price 96.6667; years 4.2917",
+    "note": "Fair values are named as the issuer's disclosure, but yields and a Rich call are derived from them, which the item rules out."
+   }
+  },
+  "other_errors": []
+ },
+ "6955fd": {
+  "items": {
+   "CP-3-F1": {
+    "score": "Right",
+    "quote": "| Term loan Tranche J | Senior secured | 3632 | Not supplied: tranche carrying value not disclosed | Term SOFR plus 2.50%, no floor | 2031-02-28 |",
+    "note": "All four tranches match; total 8702 principal."
+   },
+   "CP-3-F2": {
+    "score": "Right",
+    "quote": "| 2028 secured notes | Senior secured, equal with credit agreement | 2100 | 2077 | 6.75% | 2028-08-15 |",
+    "note": "All six series match; 11,000 principal used in calculation V21."
+   },
+   "CP-3-F3": {
+    "score": "Right",
+    "quote": "| 2027 senior subordinated notes | Unsecured, subordinated to senior secured debt | 2650 | 2641 | 5.50% | 2027-11-15 |",
+    "note": "Three series match; principal USD 4,600 million stated; no term loan or note before November 2027."
+   },
+   "CP-3-F4": {
+    "score": "Right",
+    "quote": "| Revolving credit facility (commitment 910; letters of credit 67; available 843) | Senior secured, credit agreement collateral |",
+    "note": "Revolver 2029-02-27 at SOFR plus 2.25%, undrawn; securitization capacity 650, 487 drawn, 2025-07-11, secured by domestic trade receivables."
+   },
+   "CP-3-F5": {
+    "score": "Right",
+    "quote": "Structurally the secured notes rank with the loans, while the subordinated notes carry contractual, payment-blockage and structural subordination",
+    "note": "Pari secured layer with collateral including cash; securitization on its own receivables pool; intercreditor agreement noted only as not supplied."
+   },
+   "CP-3-F6": {
+    "score": "Right",
+    "quote": "| Quoted N | BL555762 Corp | 99.88% of par | 100.25% of par | 6.2% | 248 bp |",
+    "note": "All five entries match; described as a hand transcription with a date assigned for the run; no price stated as supplied."
+   },
+   "CP-3-F7": {
+    "score": "Right",
+    "quote": "| Tranche I term loan and quoted M and N | No quote for I; no year-end facility for M and N |",
+    "note": "Notes shown as 'No price', revolver 'No quote', CP-3D blocked, and J size, K size and margin and L maturity differences all logged."
+   },
+   "CP-3-F8": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Partly present: 'facility labels Ba3 / BB- per the sheet, unverified' at 2024-09-30; agencies not named and nothing said about the missing outlook."
+   },
+   "CP-3-F9": {
+    "score": "Right",
+    "quote": "The secured preference over the subordinated notes rests on the annual report's summary of the debt documents",
+    "note": "Legal read recorded as summary authority only with executed documents missing; not described as blocked."
+   },
+   "CP-3-F10": {
+    "score": "Right",
+    "quote": "No enterprise value is supported because no peer or transaction multiple and no restructuring valuation exist",
+    "note": "Nothing numeric attributed upstream."
+   },
+   "CP-3-C1": {
+    "score": "Right",
+    "quote": "on structure alone the secured layer is preferred, but no compensation exists to test whether the subordinated notes are adequately paid for that",
+    "note": "Cross-class preference rests on structure, cites the USD 3,244 million capacity and dilution, and is conditional on note prices and executed documents; no cross-class yield difference."
+   },
+   "CP-3-C2": {
+    "score": "Wrong",
+    "quote": "Those levels price TransDigm as an ordinary Ba loan: fair for a first-lien claim on a franchise with a 52.56% EBITDA As Defined margin, but with no premium for a board that paid a USD 4,348 million dividend",
+    "note": "Labels J and L Fair and Neutral/preferred as a finding and reads the near-par quotes as showing the market prices no financial-policy premium, which the item rules out; the test-input status and identity differences are stated."
+   },
+   "CP-3-C3": {
+    "score": "Right",
+    "quote": "the recovery waterfall therefore carries no recovery percentage or fulcrum, the attachment multiples are coverage thresholds rather than recoveries",
+    "note": "Enterprise value not supplied; own coverage thresholds are labelled as such with their basis."
+   },
+   "CP-3-C4": {
+    "score": "Right",
+    "quote": "No portfolio mandate, holdings, limits or constraints workbook was supplied, so the sizing posture stops at Watchlist and cannot become a starter position or carry a numeric size.",
+    "note": "Conditional posture only."
+   },
+   "CP-3-D1": {
+    "score": "Right",
+    "quote": "the 2024-10-16 securitization draw and the 2024-10-18 dividend payment are kept out of the period-end stack",
+    "note": "6.02x pro forma always beside 4.88x; net debt 22,967 beside 18,619; December 10-Q not used. One row calls the USD 4,348 million a 'September payment' (see other errors)."
+   },
+   "CP-3-D2": {
+    "score": "Right",
+    "quote": "Claims are carrying values at 2024-09-30; principal is USD 19,702 million for the secured layer and USD 4,600 million for the subordinated notes.",
+    "note": "Separate labelled columns; 19,702 principal against 19,534 carrying shown."
+   },
+   "CP-3-D3": {
+    "score": "Right",
+    "quote": "Not supplied: no enterprise value supported",
+    "note": "Missing inputs stated as not supplied; note prices 'No price'; no zeros, no invented call dates."
+   },
+   "CP-3-D4": {
+    "score": "Absent",
+    "quote": "",
+    "note": "The 10-K fair values are not used at all, which the item accepts; nothing to score."
+   }
+  },
+  "other_errors": [
+   {
+    "quote": "USD 3,000 million secured debt funded 69% of the USD 4,348 million September payment",
+    "why": "The 10-K passage for D1 says these payments were made in October 2024; the handoff itself elsewhere dates the payment 2024-10-18."
+   }
+  ]
+ }
+}

@@ -13,7 +13,8 @@ day ("fine").
 ## 1. Bottom line
 
 - A recommendation is proposed from two scores: a Credit Score for the issuer and a Valuation
-  score for the issuer's best eligible instrument in that portfolio.
+  score for each eligible instrument in that portfolio. Ruled by the owner, 2026-11-25: the
+  portfolio takes the best result across its eligible instruments (section 7).
 - The credit analysis scores 17 rubric factors from 1 to 5, each with a one-line basis. Everything
   after that is fixed arithmetic and table lookup on those scores, supplied prices and the
   portfolio's reference files: no judgement is added downstream.
@@ -104,7 +105,9 @@ wider than the median is more attractive.
 | −40 to −100 bp | 4 |
 | −100 bp or less | 5 |
 
-- A portfolio's Valuation is that of its best eligible instrument (the lowest score).
+- Ruled by the owner, 2026-11-25: a portfolio has no single Valuation. Each eligible instrument
+  has its own, and the portfolio's recommendation is the best result across them (section 7);
+  the reading shows the Valuation of the instrument that result rests on.
 - With no price, or a bucket of fewer than five names, Valuation is left blank for the analyst.
 - Ruled by the owner, 2026-11-25: a difference of exactly +40 bp or −40 bp is a 3 ("within ±40"
   includes its ends). Exactly +100 bp is a 1 and exactly −100 bp a 5, as the bands say.
@@ -131,13 +134,37 @@ hold, the reference they are measured against and their limits.
 
 - No eligible instrument for a portfolio: that portfolio shows "n/a".
 - Limit cap: if adding the name would breach one of that portfolio's supplied limits (sector,
-  rating bucket, CCC, price floor), the recommendation there is no better than 3 (MW), and the
-  limit is named beside it. Confirmed by the owner, 2026-11-25: a 4 or 5 from the table is
+  rating bucket, CCC, price floor), the result for that instrument is no better than 3 (MW), and
+  the limit is named beside it. Confirmed by the owner, 2026-11-25: a 4 or 5 from the table is
   unchanged.
 - Ruled by the owner, 2026-11-25, how a breach is decided: a limit that applies to the issuer (its
   sector, its rating bucket, the CCC limit if it is rated CCC) is breached when the portfolio's
   file shows no headroom left (zero or negative) or a breached status; the price floor is breached
   when the instrument's price is below it. No position size is assumed.
+- Ruled by the owner, 2026-11-25: the portfolio's recommendation is the best (lowest) result across
+  every eligible instrument that has a Valuation. An instrument's result is the table's cell on
+  the Credit Score and its own Valuation, held to 3 when the cell is 1 or 2 and that instrument
+  breaches a limit. Limits are read per instrument, on its own rating bucket and price; the
+  issuer's sector applies to all. The reading names the instrument it rests on and shows that
+  instrument's Valuation, limits, cell, any cap and reason. A more attractive instrument that
+  breaches a limit therefore cannot lower the recommendation below what a clean instrument gives,
+  and the order the instruments are listed in never changes it.
+- The coordinator's ruling (not the owner's): when two instruments give the same result, the one
+  that is not capped comes first, then the lower (better) Valuation, then the instrument's name
+  in alphabetical order (plain, case-sensitive). Two instruments that share even the name are
+  ordered by their remaining fields, so the answer never depends on the list. With no Credit
+  Score there is no result: the reading is blank and names the instrument by Valuation, then name.
+- Worked example, Credit Score 2, a CLO whose CCC limit is breached. The first lien loan (rated
+  B, Valuation 2) breaches nothing: the table gives 2 and it stays 2. The second lien loan
+  (rated CCC, Valuation 1) gives 2 but breaches the CCC limit, so it is held to 3. The portfolio
+  takes 2, resting on the first lien loan, not capped. (Reading it on the instrument with the
+  better Valuation alone would have shown 3.)
+- Ruled by the owner, 2026-11-25: an instrument with no rating (bucket Unrated) against a rating
+  limit worded for a bucket "and below" (or lower, or worse; also written with &) that does not
+  name Unrated: the limit is not read, so the analyst sees it, whatever the file shows. It is not
+  treated as below CCC and not as "does not apply". A limit that names Unrated is read as it
+  says; one worded "and above" is unchanged. A not-read limit never caps. So an Unrated
+  instrument can give the portfolio's result ahead of a rated one held to 3 by the same limit.
 - The issuer's current weight in the portfolio or index is shown beside the recommendation.
 - A custom portfolio supplied when the run is started gets its own column by the same rules.
 - Each instrument in the capital structure also carries a proposed recommendation, which the

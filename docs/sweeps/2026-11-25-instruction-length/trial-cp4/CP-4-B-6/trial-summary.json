@@ -1,0 +1,35 @@
+{
+ "module": "CP-4",
+ "arm": "B",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 194398,
+ "tokens_estimate": 50718,
+ "lines": 2453,
+ "head_chars": 20476,
+ "method_chars": 173922,
+ "method_files": 11,
+ "directive_sentences": 240,
+ "emphasis_words": 5,
+ "repeated_chars": 0,
+ "overridden_chars": 3786,
+ "unsent_references": 0,
+ "calls": 37,
+ "input_tokens": 76,
+ "cached_read_tokens": 8474413,
+ "output_tokens": 85750,
+ "reasoning_tokens": 37024,
+ "first_call_input_tokens": 4,
+ "settled_usd": "5.71874160",
+ "started_at": "2026-11-25T20:16:07.996194Z",
+ "finished_at": "2026-11-25T20:28:27.403796Z",
+ "writes": 2,
+ "issues_per_write": [
+  2,
+  0
+ ],
+ "first_write_issues": [
+  "Fidelity check, line 51: \"2030\" does not appear elsewhere in the handoff (tables, calculations or other findings), with the same sign, unit and scale: add it there or remove it from the passage.",
+  "Fidelity check, line 51: \"2031\" does not appear elsewhere in the handoff (tables, calculations or other findings), with the same sign, unit and scale: add it there or remove it from the passage."
+ ]
+}

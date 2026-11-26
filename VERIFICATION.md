@@ -17,6 +17,101 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Open: five modules' bottom-line paragraphs carry no Basis of their own (handoff content; not invented here); 191 chips cite a page without a source key and the peer module's web key is not in the inventory (55 chips, labelled); `ForecastRecord.tsx` still keys only "Adj EBITDA"; the model's block is named "Downside shock" where the reader says "Downside case"; the committee challenge ledger's presentation; four review Lows.
 - Not verified: the replay copy's published library was not regenerated, so the chip fixes, the "EBITDA" label and the reworded quarter-column message are proved by tests on the real handoffs, not seen on the replay pages; that a module follows the new downside instruction (needs a paid run); no confidence-review or rewrite-tournament of the diff; trace drawers beyond the cases above; widths below 1024; any run but this replay.
 
+## 2026-11-26 — Recommendation calculation: best result across instruments; Unrated against "and below" (PR #100, merged as `bf06af10`)
+
+- Scope: synthetic and deterministic only; `src/deploy_workflow/recommendation.py` and its tests. No caller exists yet, no real constraints or holdings file, no real run.
+- Rulings applied (owner, 2026-11-25, `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, "Two rulings after PR 2"): a portfolio's recommendation is the best result across every eligible instrument, each held to 3 on its own limit breach, naming the instrument it rests on; an Unrated instrument against a rating limit worded "and below" that does not name Unrated is "not read". Tie key (coordinator): not capped before capped, then the better Valuation, then the instrument's name.
+- Coordinator's own check against merged `main`: a clean B loan (Valuation 2) and a CCC second lien (Valuation 1) against a breached CCC limit read Modest OW resting on the B loan in both list orders; for an Unrated instrument, "Max CCC and below", "Max CCC & below" and "Max B and lower" read not read, "Max CCC and below incl. Unrated & Other" reads breached, "Max BB and above" does not apply: pass.
+- Gates at `bdb12fb2`, reported by the PR's controller: `tools/quality_gate.py`, `lint-imports`, `tests/test_recommendation.py` with `tests/test_quality_gate.py` and `tests/test_repo_rules.py` (392 tests): exit 0. The PR 2 reviewers' probes `adv_tie_order`, `wb_two_instruments`, `rr4_ampersand_rating` failed before and pass after. Mutation at `60639e74`: 1,024 mutants, 994 killed, 30 survivors, none in the changed functions. CI on the PR head: four checks passed.
+- Reviews: task review approved, calculation audit nothing at Medium or above, pre-merge review pass; no fix round. Low findings closed in two small commits.
+- Consequence to know: an Unrated instrument against a breached "CCC and below" limit is not capped (the limit is shown as not read), so it can be the portfolio's result ahead of a rated instrument held to 3.
+- Not verified: mutation after the last, test-only commit; any real file or caller; Unrated wordings outside the closed word lists (they stay not read). Predates this change: "Max CCC and below, unrated excluded" reads breached for an Unrated instrument.
+
+## 2026-11-25 — Instruction and reference length: review and offline measures
+
+- Scope: review only; no method text, launcher, prompt or presentation changed, no provider
+  called. Added `docs/sweeps/2026-11-25-instruction-length/REPORT.md` with two baseline files,
+  `tools/instruction_metrics.py` and `tests/test_instruction_metrics.py`. Trimmed here: the two
+  oldest entries (2026-11-16), at the merge with `7391207`.
+- Checked: `tools/quality_gate.py` exit 0; `tests/test_instruction_metrics.py` 3 passed, expected
+  values counted by hand from a literal text. The tool's deep and lite totals (1,815,970 and
+  677,194 characters) equal `tools/cp1_check_proof.py --instructions` on the same tree.
+- Corrected while checking: a first count of unsent reference files (347) was wrong; they are
+  sections of bundles that are sent. The measure now excludes them (5, all CP-0).
+- Offline stage of the trial (third pass): `tools/instruction_trial.py` and
+  `tests/test_instruction_trial.py` (5 passed; gate exit 0), four restructured method texts under
+  `trial/arms/C/` written by agents, and `offline/` results. Groups A, B and C of CP-3, CP-4, CP-5
+  and CP-6 were prepared from the PR #87 bundles (TransDigm 2024-09-30, outdated) and run through
+  the real executor and check with a stand-in provider: no id dropped in any group; the retained
+  CP-3 handoff fails today's check in every group. No provider called; `live` mode never run;
+  the C texts were not read against their sources by a person; `rewrite-tournament` not run.
+- Fourth pass: reading lists for CP-3, CP-4, CP-5 and CP-6 under `trial/reading/` (75 items; 239
+  quoted source passages, each matched exactly to its page or handoff by script; expected values
+  not checked by a person), the pilot ruling `docs/rulings/2026-11-25-instruction-length-trial-pilot.md`
+  (`check_ruling` accepts it for `copilot-opus-high` only) and a trial-wide cap in the script
+  (gate exit 0). Nothing was run live. Then, on the owner's instruction ("model is anthropic api
+  opus high"; "Lift the guard yourself for this trial"), the ruling names `opus-high` and the
+  script alone calls the Anthropic API directly; the engine's Copilot-only guard is unchanged.
+  `tests/test_instruction_trial.py` 9 passed; the live path was dry-run with the network call
+  replaced, never sent.
+- Pilot (fifth pass), on the owner's instructions ("use key from here", "run all offline and live
+  test concurrently", "raise the turn limit if a run hits 32", "run the blind reading when the
+  runs finish"): fourteen live single-module runs on `opus-high`, 285 calls, none failed, USD
+  54.83 settled against the USD 54 limit; ten accepted handoffs scored blind against the fixed
+  lists by agents. Records in `docs/sweeps/2026-11-25-instruction-length/pilot/`. One run per
+  group: no difference between groups can be claimed. The key came from the launching
+  environment only; no key is in the repository (checked by search of the copied records).
+- Before the full trial (owner: "do the six fixes, then run the full trial"): CP-4's covenant
+  headroom rule now names the four Direction words (`cpos_launch_tables.py`); two pins in
+  `tests/test_cpos_launch.py` recomputed with the reason; that file 1,001 passed with the
+  end-to-end and every-pathway tests left out; gate exit 0. Reading lists version 2 (bundled
+  items split; 332 quoted passages matched by script). Ruling
+  `2026-11-25-instruction-length-trial-cp4.md`. CP-2H's rating-trigger rule had the same gap and
+  was given the same words afterwards (owner: "fix the CP-2H chart wording too"); no run showed it.
+- Full trial of CP-4 (sixth pass; owner: "do the six fixes, then run the full trial", "approved
+  for both", "apply the recommendations and re-test as group D and compare with prior runs"): 19
+  accepted live runs in four groups on `opus-high`, plus a first-pass reader on `claude-haiku-5-5`
+  for group D; USD 98.53 settled of USD 101. Every accepted handoff but D-1 scored blind twice
+  against the 61-item list; readers agreed on 98.5% of scores. Records and scores in
+  `docs/sweeps/2026-11-25-instruction-length/trial-cp4/`. `tests/test_instruction_trial.py` 12
+  passed; gate exit 0. Three to five runs a group on one case: leads, not findings. No person
+  has checked the readers' scores. Keys came from the launching environment only.
+- Applied (owner: "apply recommendations"): CP-4 is sent its method without the block's repeats
+  (`TRIMMED_METHODS`); its sent text equals trial group B's byte for byte (`cmp`); other modules'
+  instructions unchanged (`cmp` on CP-0, CP-3, CP-6). `tests/test_cpos_launch.py` less the
+  end-to-end and every-pathway tests, `test_instruction_trial.py`, `test_methodology_selection.py`,
+  `test_method_scripts.py`, `test_cpos_register_scope.py`: passed, four pins and assertions
+  changed on purpose with the reason beside each; gate exit 0. Not run: the end-to-end tests,
+  any live run of the applied text (group B's three runs stand for it).
+- Then every module (owner: "add now apply to all modules"): checked for all 22 method blocks by
+  script (no register or table id lost, every required register and file heading present); the
+  same test files plus `test_library_index.py` and `test_update_library.py`, 1,562 passed, the
+  end-to-end and every-pathway tests left out; 19 more method-block pins recomputed. No live run
+  of any module but CP-4 on the trimmed text.
+- Reading notes in the engine (owner: "CP-4 now, probe CP-0 and CP-1", "Copilot, add a cheap
+  model"): `owners/cpos_reader.py`, launcher `--reading-notes`, the library comparison;
+  `tests/test_cpos_reader.py` with the launcher, trial, method, register and library files,
+  1,571 passed (end-to-end and every-pathway tests left out); gate exit 0. Off by default. Then (owner: "gpt luna xhigh"; "probes no live
+  re-run") `owners/cpos_reader_run.py`, the reader on `copilot-luna-xhigh`: 6 tests with a stand-in
+  adapter. Never run on a provider (no Copilot login here); no live launch with notes; Luna is not
+  the reader the trial tested.
+- Readers for CP-0, CP-1, CP-2, CP-3 and CP-5 (owner: "add D to the other modules, run offline
+  test, then PR"); none for CP-6. Offline: `tests/test_cpos_reader.py`, `test_cpos_reader_run.py`,
+  `test_instruction_trial.py`, `test_library_index.py`, 86 passed; CP-4's brief and rule unchanged
+  (compared with the version before). No model run of any of the five; no run evidence for them.
+  Merged `main` at `bc0a025` (conflicts in this file and `.importlinter`; both sides kept).
+- Pre-merge review (`mx-architect`, code and instruction changes): no High, four Medium, five Low.
+  The four Medium (a live CP-5 rule dropped by the trim; reader notes lost for a source in a
+  subfolder; a missing or partial notes folder accepted; summarised or cut-off replies kept as
+  notes) fixed by `mx-feature`, only the first test-first for all cases by its own account;
+  rechecked here: 118 passed in six test files, CP-5 keeps the rule, gate exit 0. Not run in
+  this session (skills absent): `confidence-review`, `rewrite-tournament`, the refactoring sweep,
+  `adversarial-reviewer`.
+- Not verified (second pass adds the parts of one request and a trial review; nothing built):
+  any effect of length on module output (no model run); token figures are estimates; the overridden and requirement counts are keyword counts; guidance read
+  from search extracts where the report says so. `confidence-review` was a self-check of the
+  measures against the prepared instructions; `rewrite-tournament` was not run (one small tool).
+
 ## 2026-11-25 — Offline replay: four rendered failures fixed; 15 module pages and Forecast validated
 
 - Scope: branch `claude/replay-render-fixes` = `claude/screen-review-fable-agents-3cdf56` merged with `main` at `73912078` (PRs 81, 82), then the fixes. Real TDG Deep replay `20261125-162721-01` (USD 0, no provider call; a test assembly, not a delivery), viewed from a copy of its root (`~/cos-live/tdg-replay-copy-8f`; the original is held by the earlier viewer on 8767 and was not changed).
@@ -896,75 +991,3 @@ then 5; the narrow layout and the controls listed below.
 - Measured: 20 fewer duplicated frontend lines. Paired History row data 2,168 to
   109 bytes with the same requests and markup.
 - Source pins, retry outcomes and limits: [sweep report](docs/audit/2026-11-16-final/output/6-sweep/report.md).
-
-## 2026-11-17 final audit presentation fidelity
-
-On repair tree `bb94ddce`, rebuilt both surfaces and captured connected
-synthetic Northbridge and the static fixture with native Chrome 157.0.8103.78
-at 1440 by 900. Both captures exited 0. Checked 267 distinct screens
-(29 connected, 238 static), 654 sourced drawers, 419 explicit missing-source
-markers and zero coverage gaps, trace errors or outside application-context
-attempts. The immutable comparator and baseline matched 126 stored hashes.
-Its 28 self-test cases passed. The full comparison covered 7,761 entries.
-The unmodified diff exited 1, reporting seven new differences, fourteen
-omissions and 352 not-found items. Each is explained in
-`docs/audit/2026-11-16-final/output/5-repair/fidelity/after-report.md`
-and the item readbacks, including scoped event counts, retained drawer basis
-and inputs, static sample notices and unchanged call totals. Static had no
-difference flags. Browser background proxy denials are counted separately.
-This evidence covers values, units, periods, source statements and
-qualifications in the captured screens. Other browsers, CSS presentation,
-remaining controls, work-PC and real-run behavior were outside this check.
-
-## 2026-11-17 — Final audit T18 Forecast recovery (audit/repair-2)
-
-- Scope: optional contextual Forecast traces; exact model qualification ledger on Evidence Record;
-  recorded drivers/shock/facilities; desktop long tokens; assigned Forecast Low/Info display fixes.
-  No analytical calculation, Python, prompt, handoff or protected Signal source changed.
-- Test first: eight recovery tests, a Downside containment test, three confidence/caption cases and
-  the invalid-grid Record-link assertion each failed before their corresponding production fix.
-- Passed: 333 affected tests, then 40 focused after final source metadata; 743 caller/Signal tests; lint, format, typecheck, knip, duplication,
-  build, 70 script tests, pinned-uv quality gate and native Chrome/Edge offline file gates.
-- Unchanged C4-002/003/025/026 probes passed. Native Chrome 157 and Edge 155 checked synthetic
-  source tokens, the ledger, selected-case figures and seven intercepted states each, with no
-  outside hosts or page errors. Exact scopes and original expected-text changes: [T18 report](docs/audit/2026-11-16-final/output/5-repair/T18.md).
-- Early independent source/context findings were reproduced red and addressed within the still-open fourth round; final code pin `f7f1e011`. Fresh final verdicts remain with the lead.
-- Not verified: fresh independent primary/adversarial final verdicts, final combined branch and live cases.
-
-## 2026-11-17 — Run state from one reading of the event log; a delivered run is finished (branch `claude/jolly-gauss-0erxtn`)
-
-Scope: how a run's end and its modules' states are read from `events.jsonl` (`run_events.progress`, used by `inbox/runs.outcome` and `inbox/activity.module_states`), the new module state `stopped` in the React run pages and the static library's run steps, the run page's `held_reason`, and CP-OS's relaunch of a folder that already holds a completion record (`owners/cpos.py`). Launcher options, caps, budget, checkers and delivery files unchanged. No provider was called and no paid run was made.
-- Owner, 2026-11-17: asked to find the app's implicit state machines, then "do it" to the fixes proposed from that inventory.
-- Changed: (1) the log is read once, in order: a `stopped` ends the running module and Report (`stopped`; before, a stopped module read `running` for good); modules run one at a time, so the next start or `delivery_started` ends one still running (a launch killed mid-module; a CP-8 not produced, which read running beside a delivered Report); a later start runs a module again; the run's end is the last stop no start followed (before: the first stop in a log shared by every launch); exit 0 is finished (a live launch returns 0 only once it delivered; before, a lost `delivered` line made it "failed: launcher exited 0"), and the scheduler still requires the library to list the run. (2) `stopped` reads "Interrupted" in React (`moduleWord`, Run activity) and in the static library (`runSteps`, amber segment, warning mark). (3) The single-run reply carries the scheduler's hold note as `held_reason` (`held` there is the reserved amount), path-scrubbed like `reason`, only for a run that waits on the service: queued, or kept "running" after its log ended (read from the log, not by probing the PID, which could reap the scheduler's child); the run page shows it. (4) A run folder with a completion record is finished: a live relaunch returns its delivery with no call and writes nothing; a non-live replay into it is refused (it would check no bytes); one with two records, or whose recorded delivery is gone, is refused (`cpos_delivered`, "start a new run"). A launch refused before it held the folder (its executor's settings differ from the running launch's: `identity_mismatch` on `live/loop.json`) no longer appends `stopped` to the running run's log. Before, a relaunch whose completion bytes differed (changed rendering, a forecast that now passes) wrote a second record and the library refused the run as ambiguous. This generalises the 2026-11-12 rule that a relaunch after CP-8 was not produced "leaves the delivery as it is, makes no new call and says so"; `_recorded_not_produced` is removed. (5) `tests/test_react_frontend.py` holds `RunStatus`, `EndedRun` and `ModuleState` in `web/src/pages/connected/api.ts` to the Python literals; the Python status-set copies are typed with `Status`.
-- Not changed, by decision: a module whose request was saved but whose response was not stays `cpos_interrupted` on relaunch. The request may have been paid; the executor keeps its own re-entry marker; a capped folder cannot continue anyway (the cap is pinned). Recovery remains a new run.
-- Tests: new cases for stop/relaunch ordering, one module at a time and CP-8 not produced, last-stop and exit-0 outcomes, `held_reason` (ended, held, running again) and a stopped module in the reply, the TS/Python contract, a delivered run's relaunch (no call, no `delivery_files` call, one record), a replay into a delivered folder, a folder with two records, and a refused second launch leaving the log as it was; the delivered-relaunch and two-record tests fail on the previous `cpos.py`, the second-launch test without the new guard. `test_an_unreadable_compaction_note_still_flags_the_module` now removes the completion record first (a launch killed before it), since a delivered run is no longer resumed.
-- Commands, exit 0: `tools/quality_gate.py` (0 findings); pytest `test_cpos_launch` (910 passed, 1 skipped paid), `test_changes`, `test_cp8_comparison`, `test_library_index`, `test_credit_os_store`, `test_handoff_loop`, `test_cpos_cp1_check`, `test_inbox_runs`, `test_inbox_activity`, `test_inbox_scheduler`, `test_inbox_teams`, `test_react_frontend`, `test_react_admission`, `test_run_start_submissions`, `test_context_form`; `node --test components.test.cjs static.test.cjs` (576); `npx vitest run src/pages/connected src/pages/run src/components` (1,467); `tsc --noEmit`; eslint and prettier on the changed files; `node scripts/build.mjs`.
-- Fidelity check: the static run steps (labelled and compact) rendered in Chromium with `screen.css`: the stopped step reads "Interrupted" with the warning mark on the neutral card, amber in the compact bar, 2 of 4 done. The built React run page served by `react_frontend` (synthetic mode) over a run held "running" after a `stopped` event: "Held by the service" with the note, CP-1 "Interrupted", "1 of 3" modules.
-- Review: one independent read-only review of the diff. Confirmed and fixed: the refused second launcher's `stopped` (now acted on by `progress`); `held_reason` was the service-wide note on any live run's page, unscrubbed; CP-8 not produced left running after delivery. Also taken: a non-live replay into a delivered folder passed unchecked (now refused); the missing-delivery refusal now says to start a new run. Left: a relaunch of a delivered folder with other loop settings stops at `loop.json` before the delivered check (exit 1, nothing written to the log now); a delivered run killed before its `delivered` line keeps its Report running in the log (the scheduler's exit-0 rule covers its own launches). Rewrite comparison for `progress`, `outcome`, `_recorded_delivery`: a table-driven `progress` was no shorter or clearer; kept.
-- Not verified: `pytest -m browser` (Chrome cannot start in this sandbox; `test_run_start_page.py` timed out), the full suite, a live run, Teams cards with a stopped module (they count done modules only).
-## 2026-11-17 — CP-DR may read finance.yahoo.com (PR #52, merged to `main` as `859b3ae1`)
-
-Scope: the research module's web allowlist and its statement on both start pages: `src/deploy_workflow/research/`, `src/deploy_workflow/run_start/`, `src/deploy_workflow/model/`, `docs/rulings/`, `docs/audit/`, `docs/templates/` (older start page), `web/src/pages/connected/start/` (review sheet) and their tests. No provider was called and nothing was fetched from a Yahoo host.
-- Owner, 2026-11-16: "Use public source like yahoo finance for cp-dr. We want information on all modules". Owner, 2026-11-17, asked with the exposure put plainly: "Yes, allow it".
-- Changed: `finance.yahoo.com` alone joins the allowlist (28 to 29 domains; `yahoo.com` and other Yahoo hosts are not added). The summary gains `web_lookup`, the launcher's own setting for the run; both start pages say, exactly when it is true, that the research module may read Yahoo Finance pages, that their addresses name what it looks up and that no document is sent. The research instruction tells the module how a Yahoo page is cited (Source type `Other`, a Gaps line, undated, current figures not used for an earlier cutoff). The ruling `docs/rulings/2026-11-13-cpdr-web-lookup.md` records the amendment, what Yahoo sees (three headers) and the header audit; `docs/audit/2026-11-16-final/README.md` rule R8 records the exception.
-- Fidelity check (presentation, as the PR body states it): `vitest run src/pages/connected/ConnectedApp.test.tsx` for the connected review sheet; for the older page a Playwright probe from disk (`file://`, no service) showed the Yahoo row once with `web_lookup` true and never with false, absent, a string or the research module left out; the browser-marked tests were then run locally by the PR manager.
-- Reviews: one independent adversarial review (first verdict request changes; three Medium, fixed and re-checked with probes: the older page's test could never pass, the Yahoo citation rules were not told to the module, a Claude run "reads only its files" sat beside the Yahoo row). After the send-back, the PR manager's combined run on the first head (4863dfa1) found six browser tests failing (four new Yahoo tests returning an `error` key the harness refuses; two existing "stay in view" tests broken because the new row made the card taller). Fix round 738d40a9 (Approve/Submit sticky in the older page; the test returns only asserted fields) was re-reviewed (Opus `mx-precise`: pass, one Info held for the end batch) and re-verified.
-- Commands on head 2c508753, run by the PR manager: `npm --prefix web run proof:connected` exit 0, pass 2 / fail 0 (Chrome 157, Edge 157); `pytest -m browser` on `tests/test_run_start_page.py`, `tests/test_reporting_currency_proof.py`, `tests/test_cpos_launch.py` 173 passed; CI both checks green. As recorded in the PR body (at 4863dfa, the author's run): `tests/test_weblookup.py` 241 passed, `tests/test_web_lookup_tools.py` 264, `tests/test_run_start_submissions.py` 164 (3 skipped), `tests/test_run_start_service.py` 97, `tests/test_cpos_launch.py` 938, `tools/quality_gate.py` 0 findings, `lint-imports` 3 contracts kept, web typecheck and lint exit 0, vitest 156 on the connected page file. The header audit is by test: a Yahoo request on the wire is the request line and three headers, and redirects to consent hosts are refused.
-- Not verified: anything fetched from a live Yahoo host (consent redirects, script-drawn pages, whether pages state no date); a mechanical check of the Yahoo citation rules (none exists; follow-up for the owner); a live CP-DR run; the full suite (weekly CI).
-
-## 2026-11-16 — Keep the library and the scheduler working beside an unreadable run record (PR #39, merged to `main` as `82f0fceb`)
-
-Scope: backend ordering and admission code, no presentation change and no web change: `react_frontend/admission.py`, `src/deploy_workflow/inbox/` (runs, scheduler), `src/deploy_workflow/run_start/` (prior, service) and their tests.
-- Owner's instruction: one unreadable run record (`state/<run id>.json`) used to fail every library reply and stop the scheduler. Now only the affected run is strict. The library hides that run's folder; the scheduler starts, never writes or deletes the file, reserves the id, counts one running slot and one daily start for it, keeps sealed uploads while any record is unreadable and ignores a readable copy with the same run id (`runs.name_key`, case and Unicode form). Run lookups refuse only that run. With no unreadable file nothing changes. `load_all` still raises.
-- Reviews (adversarial, ordering code): two High findings in two rounds (a readable copy carrying the bad file's id could overwrite it and start its run; the same through Unicode form), both fixed; the final re-review was clean (six mutants of the comparison caught, four hard limits held, 707 name pairs sharing one key).
-- Commands as recorded in the PR body, on head 0919f266: `uv run pytest` over admission, inbox scheduler and runs, prior, service, react frontend and run activity tests exit 0 (332 passed); `tools/quality_gate.py` exit 0. 507 changed lines, 12 files. One existing test replaced on purpose.
-- Not verified: the whole Python suite and the web suite; Windows or a case-distinct file system; a real restart after repairing a file; a real launcher process; hundreds of bad files. Left as is: the page of the run whose own record is unreadable shows a generic failure and logs a traceback each poll. Predates the change (for the owner): `/library/` is served without admission; the comparison module can choose an unaccepted run folder; the folder lock leaks if start-up raises; a stray readable record is tracked under its id; `_load` does not check a record's id against its file name.
-
-## 2026-11-16 — Run activity: no absolute path in a run's reason; an unreadable record no longer fails the list (PR #36, merged to `main` as `e70380c5`)
-
-Scope: the connected Run activity page and its service reply: `react_frontend/run_activity.py`, `src/deploy_workflow/inbox/runs.py` (read-only `load_readable`), `web/src/pages/connected/` (`RunActivity.tsx`, `api.ts`) and their tests. Scheduler, `load_all` and admission unchanged.
-- Changed: a run's reason (ended list, running list, single-run reply) no longer shows an absolute path: the bare service root reads "the service folder" and any other absolute path keeps its last segment (POSIX, Windows, network shares; a quoted path is cut whole). File names, URLs and relative paths stay. One unreadable run record no longer fails the list or a single-run page; the list sends an `unreadable` count and the page says "Some run records could not be read", and the empty state no longer claims nothing is running beside one. The skip is a documented fail-open on a display path; not logged because the page polls every 5 seconds.
-- Review: one adversarial review, three Medium (a spaced folder name kept its tail; a non-text id still failed the list; the page said nothing was running beside unreadable records), fixed and re-reviewed clean with mutation checks.
-- Fidelity check (presentation): not recorded in the PR body beyond the web tests below.
-- Commands as recorded in the PR body, on 9c459b17: `uv run pytest` on `tests/test_react_frontend.py`, `tests/test_react_run_activity.py`, `tests/test_run_start_scheduler.py` exit 0 (112 passed); `tools/quality_gate.py` 0; web `lint`, `format:check`, `typecheck`, `unused`, `duplication` exit 0; `npm test` exit 0 (3,507 tests). All 19 reason texts the scheduler writes come out as intended; a 100,000-character reason costs 32 to 44 ms.
-- Not verified: Windows (paths tested as strings); an unquoted path with a space in a folder name, an apostrophe path in single quotes and a path after `file://`, `<`, `{`, a backtick or curly quotes still show (by ruling); a page with both an unreadable record and a listed run; `/sweep refactoring discover`, `confidence-review`, `rewrite-tournament` and the browser proof were not run; with one bad record file admission still fails library replies and the scheduler refuses to start (predates this PR; PR #39 addresses it).

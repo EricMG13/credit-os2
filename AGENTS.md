@@ -74,6 +74,9 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   consumption. Synthetic regressions and deterministic retained-data reports must
   be labeled with their actual scope.
 - No credential files (checked: tests/test_repo_rules.py). Provider keys may come only from the launching environment.
+  Salted hashes of the owner-set registration passcodes in the account store are not
+  credential files; no plain-text passcode, client secret or sign-in token is stored
+  (`docs/rulings/2026-11-25-registration-passcodes.md`).
   Paid execution is a separate, explicit action after offline readiness. For the run
   start page (`deploy_workflow.run_start`) the explicit action is an analyst choosing Submit
   on a summary they approved, under the standing ruling

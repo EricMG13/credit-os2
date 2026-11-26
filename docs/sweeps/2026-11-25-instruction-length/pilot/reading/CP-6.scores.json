@@ -1,0 +1,312 @@
+{
+ "281af5": {
+  "items": {
+   "CP-6-F1": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: committee use blocked/clearance withheld, legal-capacity and ownership-control exceptions, financial facts confirmed ('when evidence validation blocked committee use'); missing: the Fail decision and the 1 critical / 1 material / 1 minor counts."
+   },
+   "CP-6-F2": {
+    "score": "Right",
+    "quote": "which implies a low probability of default but rising loss given default for subordinated holders and compensation that nobody has measured",
+    "note": "Low default risk, policy sets the leverage path, junior loss severity all stated; Fundamental credit's Draft Only status is not carried, and it is not presented as approved."
+   },
+   "CP-6-F3": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present and correct: total debt 24,880, net debt 18,619 and 22,967, 4.88x with 6.02x and 2024-10-18, 5.50x on EBITDA As Defined; missing: cash 6,261, EBITDA 3,813, EBITDA As Defined 4,173, 4.46x."
+   },
+   "CP-6-F4": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: 1,524 scheduled against 1,158 paid; missing: the 366 step-up and the 2.50x cover."
+   },
+   "CP-6-F5": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: no maturity before November 2027, FY2028 6,637, FY2028+FY2029 11,405, securitization 650 due 2025-07-11; missing: 93/92/92, FY2029 4,768, thereafter 12,637, total 24,319, 487 drawn."
+   },
+   "CP-6-F6": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: cash liquidity 7,267 with pro forma 2,919 and the 4,348 October payment; missing: cash 6,261, revolver 843, securitization 163, pro forma cash 1,913."
+   },
+   "CP-6-F7": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: 20% fall gives 7.53x, 1.96x, free cash flow 721.36, loss severity not liquidity break; missing: 19.69% / 16.92% break points, watch-level wording, Downside's status."
+   },
+   "CP-6-F8": {
+    "score": "Right",
+    "quote": "Incremental debt is permitted up to 7.25x net and 5.00x secured net leverage on the annual report's summary",
+    "note": "Also states no maintenance covenant in term loans and notes, springing 7.50x revolver test only above USD 364 million, 8.00x for four quarters after a material acquisition; the 40% expression and the As Defined basis of the test are not spelled out."
+   },
+   "CP-6-F9": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: summary authority only, USD 3,244 million labelled illustrative, baskets and definitions not established; missing: 4.22x against 5.00x, 0.78x, 0.45x, 0.66x / 2,758."
+   },
+   "CP-6-F10": {
+    "score": "Right",
+    "quote": "the transcribed loan levels carry a date assigned for testing and conflict with filed facility terms, so relative value is unclear across the structure",
+    "note": "Also 'Market-implied risk is blocked for historical inference' and no instrument preference claimed; Security selection's Requires More Work label is not attributed to it by name."
+   },
+   "CP-6-C1": {
+    "score": "Right",
+    "quote": "evidence validation found that treating it as established capacity or as the binding brake is unsupported, and this debate does not rely on it",
+    "note": "Sets the audit against the Legal & covenants reading and rests nothing on the 5.00x test binding."
+   },
+   "CP-6-C2": {
+    "score": "Absent",
+    "quote": "",
+    "note": "The 19.69% break point and the reported-versus-As Defined distance to the revolver test are not discussed; it gives 7.53x at a 20% fall on reported EBITDA, 5.50x on the issuer measure and the USD 364 million usage condition separately, and does not claim a covenant breach."
+   },
+   "CP-6-C3": {
+    "score": "Right",
+    "quote": "The rate sensitivity is USD 57.89 million per 100 bp on the analytical build against about USD 30 million stated by the issuer",
+    "note": "Both figures named, gap left open, 'rates are second-order to EBITDA'; about 77% fixed stated."
+   },
+   "CP-6-C4": {
+    "score": "Right",
+    "quote": "The most important bear evidence is the issuer's own stated order for excess cash, which puts debt prepayment last, borne out by a secured-funded special dividend weeks before year end.",
+    "note": "Both sides rest on issuer figures (21.12% EBITDA growth, FCF 1,880, 2,919 liquidity, November 2027; 3,000 secured issue, 6.02x, 1,524, 11,405); the StandardAero margin comparison is used only as a failed, descriptive pitch."
+   },
+   "CP-6-C5": {
+    "score": "Right",
+    "quote": "it should not present this result as committee-cleared until evidence validation's exceptions are corrected",
+    "note": "Watchlist with no position initiated, posture Requires More Work, conditions named, mandate and limits not supplied, no limit figure stated."
+   },
+   "CP-6-D1": {
+    "score": "Right",
+    "quote": "The October 2024 dividend payment and securitization draw are carried as dated subsequent events, never as year-end facts.",
+    "note": "3,308 dated 2024-12-28, 316 buyback placed in the following quarter, 4,348 against 4,396 difference recorded; it does loosely call the 2024-10-18 payment 'the September payment'."
+   },
+   "CP-6-D2": {
+    "score": "Right",
+    "quote": "The executed credit agreement, indentures and intercreditor agreement are not in the documents",
+    "note": "Baskets, contractual EBITDA definition, release rights and enforcement control stated as not established; no capacity figure relied on."
+   },
+   "CP-6-D3": {
+    "score": "Right",
+    "quote": "No authenticated price exists for any TransDigm loan or note at the cutoff; the transcribed loan levels carry a date assigned for testing and conflict with filed facility terms",
+    "note": "Loan levels used only as descriptive; no note quote, M or N not treated as outstanding; filed note fair values mentioned only as 'no broad distress'."
+   },
+   "CP-6-D4": {
+    "score": "Right",
+    "quote": "Year-end net debt USD 18,619 million and net leverage 4.88x; pro forma 2024-10-18 net debt USD 22,967 million and 6.02x on reported EBITDA; 5.93x on supported EBITDA; 5.50x on EBITDA As Defined",
+    "note": "Bases named; 5.12x is not used and nothing is compared with the 5.00x test on a mixed basis."
+   }
+  },
+  "other_errors": [
+   {
+    "quote": "funded 69% of the September payment with new secured debt",
+    "why": "The USD 4,348 million payment was made on 2024-10-18 (declared in September); the handoff's own calculation C7 calls it the October 2024 payment."
+   }
+  ]
+ },
+ "433ecb": {
+  "items": {
+   "CP-6-F1": {
+    "score": "Right",
+    "quote": "Committee use blocked by one critical legal-capacity exception and one material governance exception; financial chains traceable",
+    "note": "Ledger adds 'One critical, one material and one minor exception; committee use blocked'; the word Fail and 'thesis need not be rewritten' are not stated."
+   },
+   "CP-6-F2": {
+    "score": "Right",
+    "quote": "which implies low near-term PD, rising LGD for the subordinated notes and unproven relative value",
+    "note": "Policy decides loss severity, prepayment ranked last; Fundamental credit carried as 'Available, Draft Only'."
+   },
+   "CP-6-F3": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present and correct: cash 6,261, net debt 18,619 / 22,967, 4.88x with 6.02x pro forma 2024-10-18 on reported EBITDA, total debt 24,880 (in a calculation); missing: EBITDA 3,813, EBITDA As Defined 4,173, 4.46x, 5.50x."
+   },
+   "CP-6-F4": {
+    "score": "Wrong",
+    "quote": "USD 1,524 million against USD 1,158 million; step-up USD 366 million; cover 2.50x",
+    "note": "Values match, but the 2.50x cover is given without saying which EBITDA it uses (the item's scored-wrong condition)."
+   },
+   "CP-6-F5": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: none before November 2027, FY2028 6,637, FY2028-FY2029 11,405, securitization 650 due 2025-07-11; missing: 93/92/92, 4,768, 12,637, 24,319, 487 drawn."
+   },
+   "CP-6-F6": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: cash 6,261 and 1,913 pro forma, cash liquidity 7,267 and 2,919 pro forma 2024-10-18; missing: revolver 843, securitization 163, the 4,348 amount."
+   },
+   "CP-6-F7": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: 20% decline gives 7.53x, 1.96x, free cash flow 721.36, loss severity not payment default; missing: 19.69% / 16.92% break points, watch-level wording, Downside's status."
+   },
+   "CP-6-F8": {
+    "score": "Right",
+    "quote": "No maintenance covenant in term loans or notes; springing 7.50x test only above USD 364 million revolver usage, 8.00x for four quarters after a material acquisition",
+    "note": "Also 'Ratio debt and incremental facilities are allowed up to 7.25x net and 5.00x secured net leverage'; 40% expression and As Defined basis not spelled out."
+   },
+   "CP-6-F9": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: summary authority, illustrative 4.22x against 5.00x, illustrative room 3,244 not cleared as contractual, baskets and definitions not established; missing: 0.78x, 0.45x, 0.66x / 2,758."
+   },
+   "CP-6-F10": {
+    "score": "Right",
+    "quote": "Relative value Unclear, Requires More Work on every instrument, descriptive spread differences, missing portfolio inputs",
+    "note": "Market-implied risk shown as 'Blocked' with 'date was assigned for testing'; no instrument preferred."
+   },
+   "CP-6-C1": {
+    "score": "Right",
+    "quote": "Evidence validation also blocked committee use of the legal-capacity conclusions, so the committee should not treat the illustrative secured room as a cap on future dilution.",
+    "note": "Audit set against the Legal & covenants room; it does use the illustrative room in a 92.48% ratio, labelled illustrative and not cleared as contractual."
+   },
+   "CP-6-C2": {
+    "score": "Wrong",
+    "quote": "The legal and refinancing consequence is that leverage passes the 7.25x incurrence and 7.50x springing levels on reported EBITDA, revolver usage above USD 364 million would bring the springing test into force",
+    "note": "Treats a 20% fall as crossing the covenant levels as a legal consequence; never says the tests are stated on EBITDA As Defined (5.50x pro forma), so the contractual trigger is further away and its distance not established."
+   },
+   "CP-6-C3": {
+    "score": "Right",
+    "quote": "A 100 bp rise costs USD 57.89 million on unhedged USD 5,789 million, 3.08% of free cash flow; issuer states about USD 30 million",
+    "note": "Both named and recorded as 'unreconciled'; 'rate shocks are second-order'; about 77% fixed."
+   },
+   "CP-6-C4": {
+    "score": "Right",
+    "quote": "The board ranks debt prepayment last, funded the September 2024 dividend largely with USD 3,000 million of new secured debt and bought back USD 316 million of stock in the following quarter.",
+    "note": "Both sides evidenced (FCF 1,880, bridge, November 2027, 77% fixed; 6,368 declared, 6.02x, 1,524, 11,405); unverified facility labels Ba3/BB- and the StandardAero gap appear only as unscored, descriptive positions."
+   },
+   "CP-6-C5": {
+    "score": "Right",
+    "quote": "Committee use also restricted while Evidence validation's critical exception is open",
+    "note": "Watchlist with no position supported, posture Requires More Work, conditions named, mandate and limits not supplied, no limit figure stated."
+   },
+   "CP-6-D1": {
+    "score": "Right",
+    "quote": "Year-end cash USD 6,261 million was USD 1,913 million after the 2024-10-18 payment; USD 316 million of buybacks in the next quarter",
+    "note": "3,308 dated 2024-12-28, securitization 650 'After the 2024-10-16 draw', two October dividend figures recorded as unreconciled (USD 48 million)."
+   },
+   "CP-6-D2": {
+    "score": "Right",
+    "quote": "Executed credit agreement, indentures and intercreditor agreement not supplied; legal capacity not cleared by Evidence validation",
+    "note": "Baskets, definitions, release terms and amendment thresholds stated as not sized / not established."
+   },
+   "CP-6-D3": {
+    "score": "Right",
+    "quote": "The only loan levels come from a transcription whose date was assigned for testing",
+    "note": "Says 'facility identities conflict with the filed terms and no bond spreads exist'; no note quote; M and N not used."
+   },
+   "CP-6-D4": {
+    "score": "Right",
+    "quote": "Net debt over reported EBITDA | 4.88x at year end; 6.02x pro forma 2024-10-18",
+    "note": "Bases named (reported, supported 5.93x, illustrative secured net 4.22x pro forma); the one sentence setting a reported-EBITDA ratio against the 7.25x/7.50x tests names 'on reported EBITDA' but not that the tests use EBITDA As Defined (scored under C2)."
+   }
+  },
+  "other_errors": []
+ },
+ "a5d548": {
+  "items": {
+   "CP-6-F1": {
+    "score": "Right",
+    "quote": "Financial chain traceable; clearance Fail with 1 critical, 1 material and 1 minor finding",
+    "note": "Clearance 'withheld on legal-capacity language and the ownership-control statement'; it never uses the words 'committee use blocked' and calls the exception 'Limitation, not a block on this debate' (hard call, see report)."
+   },
+   "CP-6-F2": {
+    "score": "Right",
+    "quote": "which implies low near-term PD but rising LGD for juniors and an unpriced relative-value case",
+    "note": "Policy row: 'Growth funds equity, not deleveraging'; Fundamental credit's Draft Only status is not carried, and it is not presented as approved."
+   },
+   "CP-6-F3": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present and correct: 24,880, 6,261, 3,813, 4,173, 18,619, 22,967, 4.88x with 6.02x pro forma 2024-10-18, 5.50x on EBITDA As Defined pro forma; missing only the 4.46x year-end As Defined figure."
+   },
+   "CP-6-F4": {
+    "score": "Wrong",
+    "quote": "Scheduled next-year USD 1,524 million; FY2024 cash paid USD 1,158 million; cover 2.50x and 3.29x",
+    "note": "Values match, but the cover ratios are given without the EBITDA basis ('scheduled-interest cover 2.50x' elsewhere names only the interest), the item's scored-wrong condition; the 366 step-up is not stated."
+   },
+   "CP-6-F5": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: no term loan or note maturity before November 2027, FY2028 6,637, FY2028+FY2029 11,405, securitization 650 maturing 2025-07-11; missing: 93/92/92, 4,768, 12,637, 24,319, 487 drawn."
+   },
+   "CP-6-F6": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: cash 6,261 and 1,913 pro forma, cash liquidity 7,267 and 2,919 pro forma 2024-10-18, 4,348 payment; missing: revolver 843 and securitization 163."
+   },
+   "CP-6-F7": {
+    "score": "Wrong",
+    "quote": "20% EBITDA fall: 7.53x pro forma net leverage, 1.96x cover, free cash flow 721.364 USD million; 7.25x reached at 16.92%; 7.50x at 19.69%",
+    "note": "All figures present and leverage-not-liquidity stated on reported EBITDA, but free cash flow is given as 721.364 where the source passage gives 721.36 (different precision, not marked as rounded); Downside's status not stated."
+   },
+   "CP-6-F8": {
+    "score": "Right",
+    "quote": "Incurrence 7.25x net and 5.00x secured net; springing 7.50x when revolver usage exceeds USD 364 million",
+    "note": "Also 'the term loans and notes carry no maintenance covenants' and 'loosens to 8.00x after a material acquisition' (four-quarter duration and 40% expression not stated); test tied to EBITDA As Defined."
+   },
+   "CP-6-F9": {
+    "score": "Absent",
+    "quote": "",
+    "note": "Present: summary authority, secured 3,244 and secured net 4.22x pro forma labelled illustration with legal meaning not established, baskets unsized; missing: 0.78x, 0.45x, 0.66x / 2,758."
+   },
+   "CP-6-F10": {
+    "score": "Right",
+    "quote": "Relative value Unclear, all securities Requires More Work, no portfolio mandate or holdings",
+    "note": "Market-implied risk carried as blocked, quotes 'carry an observation date assigned for testing', 'no instrument preference'."
+   },
+   "CP-6-C1": {
+    "score": "Right",
+    "quote": "The indicative secured capacity of USD 3,244 million is an illustration that evidence validation refused to treat as legal capacity, so the Chair gives it no weight either way.",
+    "note": "Audit set against the capacity reading; the Chair memo's '5.00x secured test the nearest summarised brake; baskets unsized' is qualified, not a settled binding brake."
+   },
+   "CP-6-C2": {
+    "score": "Right",
+    "quote": "its weakest link is that the leverage breaks are measured on reported EBITDA, and on the contractual EBITDA As Defined the 7.50x level would be reached later",
+    "note": "Also carries 5.50x on EBITDA As Defined, the USD 364 million usage condition and 'whose definitions are not supplied'; no exact contractual headroom claimed."
+   },
+   "CP-6-C3": {
+    "score": "Right",
+    "quote": "USD 57.89 million analytical against about USD 30 million issuer-stated | Both retained; rate risk second-order either way",
+    "note": "Both named and recorded as unreconciled; about 77% fixed."
+   },
+   "CP-6-C4": {
+    "score": "Right",
+    "quote": "The board ranks debt prepayment last, borrowed USD 3,000 million of secured debt two weeks before year end to fund a dividend, and resumed buybacks within weeks.",
+    "note": "Both sides evidenced (FCF 1,880, 21.12% growth, November 2027, 77% fixed, no maintenance covenants; 6,368 declared, 6.02x, 1,524, 11,405); filed fair values and the StandardAero margin are used descriptively, no rating trigger or recovery percentage."
+   },
+   "CP-6-C5": {
+    "score": "Right",
+    "quote": "These results are a debate outcome, not a trade recommendation, position size, legal opinion, rating or recovery estimate",
+    "note": "Watchlist, committee status and posture Requires More Work, conditions named, mandate and limits not supplied, no limit figure; clearance stated as withheld, not cured."
+   },
+   "CP-6-D1": {
+    "score": "Right",
+    "quote": "USD 316 million in quarter ended 2024-12-28; cash liquidity USD 3,308 million at 2024-12-28",
+    "note": "Labelled 'subsequent event'; year-end figures always paired with pro forma 2024-10-18; 4,348 against 4,396 recorded as unreconciled; securitization 'fully drawn after 2024-10-16'; it loosely calls the payment 'the September payment'."
+   },
+   "CP-6-D2": {
+    "score": "Right",
+    "quote": "Executed credit agreement, indentures, guarantee and collateral agreement and intercreditor agreement not supplied",
+    "note": "Baskets, definitions, voting thresholds and sacred rights stated as not sized / not established; no basket size asserted."
+   },
+   "CP-6-D3": {
+    "score": "Right",
+    "quote": "The only loan quotes carry an observation date assigned for testing and conflict with filed tranche terms",
+    "note": "Loan levels descriptive only, no note quote, M and N not used; it does cite filed fair values (e.g. 2027 subordinated notes 2,637 against 2,650) as filing data, not as quotes."
+   },
+   "CP-6-D4": {
+    "score": "Right",
+    "quote": "4.88x year end; 6.02x pro forma 2024-10-18; 5.50x on EBITDA As Defined pro forma; 5.93x on supported EBITDA pro forma; gross 6.53x",
+    "note": "Bases named; the 7.25x-at-16.92% statement is followed by the reported-versus-As Defined caveat; 5.12x not used."
+   }
+  },
+  "other_errors": [
+   {
+    "quote": "funded the September payment with USD 3,000 million of new secured debt",
+    "why": "The payment was made on 2024-10-18 and, per the annual report, was funded by USD 3,000 million of new secured debt and existing cash; the handoff's own inventory says 69% of the USD 4,348 million payment."
+   }
+  ]
+ }
+}

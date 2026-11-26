@@ -1,0 +1,36 @@
+{
+ "module": "CP-4",
+ "arm": "C",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 118190,
+ "tokens_estimate": 30805,
+ "lines": 1001,
+ "head_chars": 20476,
+ "method_chars": 97714,
+ "method_files": 5,
+ "directive_sentences": 174,
+ "emphasis_words": 5,
+ "repeated_chars": 0,
+ "overridden_chars": 770,
+ "unsent_references": 0,
+ "calls": 28,
+ "input_tokens": 58,
+ "cached_read_tokens": 5087847,
+ "output_tokens": 80678,
+ "reasoning_tokens": 33502,
+ "first_call_input_tokens": 4,
+ "settled_usd": "4.56556640",
+ "started_at": "2026-11-25T20:15:42.019501Z",
+ "finished_at": "2026-11-25T20:27:11.163054Z",
+ "writes": 2,
+ "issues_per_write": [
+  3,
+  0
+ ],
+ "first_write_issues": [
+  "Prose check 2 (no module code), line 119: \"CP-1\" in section \"Capital structure\" \u2014 move it to the paragraph's Basis line.",
+  "Fidelity check, line 45: \"4.88x\" appears only in a note beside a different table value, and a note states no value: write the value the table states, or state this figure as a table value with the calculation that gives it.",
+  "Fidelity check, line 69: \"3.29x\" does not appear elsewhere in the handoff (tables, calculations or other findings), with the same sign, unit and scale: add it there or remove it from the passage."
+ ]
+}
