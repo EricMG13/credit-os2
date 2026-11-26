@@ -710,11 +710,40 @@ class _Builder:
         )
         results = d(Span(tuple(At(MATRIX, RESULT, n, name) for n in self.instruments)))
         held_by = d(Span(held))
-        template = (
-            f'=IF({result}={cap},IF(SUMPRODUCT(({results}={cap})*({held_by}=""))=0,'
-            f'INDEX({held_by},MATCH({cap},{results},0)),""),"")'
-        )
+        at_cap = f"({results}={cap})"
+        names = "&".join(self._held_terms(d, ref, at_cap))
+        none_open = f'SUMPRODUCT({at_cap}*({held_by}=""))=0'
+        template = f'=IF({result}={cap},IF({none_open},MID({names},3,500),""),"")'
         return [self.formula(At(SNAPSHOT, RECOMMENDATION, name, HELD_TO), d, template)]
+
+    def _held_terms(self, d: _Draft, ref: _Reference, at_cap: str) -> list[str]:
+        """One term per limit, in the Matrix's order: `; ` and its name when some row at the cap
+        is breached for it, else nothing. Rows at the cap are all held when this is read."""
+        labels = self._limit_labels(d, ref)
+        terms = [f'IF({d(cell)}<>"","; "&{d(cell)},"")' for cell in ref.breached]
+        rows = len(next(iter(ref.rating.values()), ()))
+        buckets = d(Span(tuple(self._inputs(n, "Rating bucket") for n in self.instruments)))
+        for i in range(rows):
+            hits = "+".join(
+                f'SUMPRODUCT({at_cap}*({buckets}="{word}"))*({d(cells[i])}="{BREACHED_WORD}")'
+                for word, cells in ref.rating.items()
+            )
+            terms.append(f'IF(({hits})>0,"; "&{labels[len(terms)]},"")')
+        prices = d(Span(tuple(self._inputs(n, "Price") for n in self.instruments)))
+        for cell in ref.floors:
+            below = f"SUMPRODUCT({at_cap}*({prices}<{d(cell)}))>0"
+            terms.append(f'IF({below},"; "&{labels[len(terms)]},"")')
+        return terms
+
+    def _limit_labels(self, d: _Draft, ref: _Reference) -> list[str]:
+        """Each limit's name, in the order the breach formula tests them: a sector's name is its own
+        cell; a rating or floor row's is the part of its Matrix label after the reference's name."""
+        start = len(ref.view.name) + 4
+        first = next(iter(ref.rating.values()), ())
+        rows = [("Rating limits", cell.row) for cell in first]
+        rows += [("Price floors", cell.row) for cell in ref.floors]
+        names = [d(cell) for cell in ref.breached]
+        return names + [f"MID({d(At(MATRIX, b, r, 'Row label'))},{start},200)" for b, r in rows]
 
     # -- capital structure
 

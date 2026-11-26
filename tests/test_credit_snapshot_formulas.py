@@ -341,9 +341,29 @@ PINNED = [
     (
         ("Snapshot", "Recommendation", CLO, "Held to MW"),
         joined(
-            "=IF(Matrix!$I$80=Matrix!$G$76,IF(SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*",
-            '(Matrix!$G$110:$G$114=""))=0,INDEX(Matrix!$G$110:$G$114,',
-            'MATCH(Matrix!$G$76,Matrix!$I$102:$I$106,0)),""),"")',
+            "=IF(Matrix!$I$80=Matrix!$G$76,IF(SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
+            '*(Matrix!$G$110:$G$114=""))=0,MID(IF(Matrix!$G$21<>"","; "&Matrix!$G$21,"")',
+            '&IF((SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="IG"))',
+            '*(Matrix!$C$26="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
+            '*(Inputs!$D$11:$D$15="BB"))*(Matrix!$E$26="breached")',
+            '+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="B"))',
+            '*(Matrix!$G$26="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
+            '*(Inputs!$D$11:$D$15="CCC"))*(Matrix!$I$26="breached")',
+            "+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
+            '*(Inputs!$D$11:$D$15="Unrated"))*(Matrix!$K$26="breached"))>0',
+            ',"; "&MID(Matrix!$A$26,17,200),"")',
+            '&IF((SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="IG"))',
+            '*(Matrix!$C$27="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
+            '*(Inputs!$D$11:$D$15="BB"))*(Matrix!$E$27="breached")',
+            '+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)*(Inputs!$D$11:$D$15="B"))',
+            '*(Matrix!$G$27="breached")+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)',
+            '*(Inputs!$D$11:$D$15="CCC"))*(Matrix!$I$27="breached")',
+            "+SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
+            '*(Inputs!$D$11:$D$15="Unrated"))*(Matrix!$K$27="breached"))>0',
+            ',"; "&MID(Matrix!$A$27,17,200),"")',
+            "&IF(SUMPRODUCT((Matrix!$I$102:$I$106=Matrix!$G$76)",
+            "*(Inputs!$F$11:$F$15<Matrix!$I$31))>0",
+            ',"; "&MID(Matrix!$A$31,17,200),""),3,500),""),"")',
         ),
     ),
     (
@@ -712,3 +732,10 @@ def test_the_bond_branches_are_written_exactly_so(with_bonds, where, text):
 def test_held_by_is_blank_for_a_reference_with_no_limit_to_breach(book):
     assert not [r for r in listed(book, "Held by", sheet="Matrix") if r["Column"] == LVLN]
     assert [r for r in listed(book, "Held by", sheet="Matrix") if r["Column"] == CLO]
+
+
+def test_held_to_mw_names_every_limit_in_matrix_order_not_the_first_held_row(book):
+    text = text_of(book, "Snapshot", "Recommendation", CLO, "Held to MW")
+    assert "MATCH" not in text and "INDEX" not in text
+    assert text.count('"; "&') >= 2
+    assert text.startswith("=IF(") and "MID(" in text
