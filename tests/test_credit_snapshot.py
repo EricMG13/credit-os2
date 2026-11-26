@@ -1829,3 +1829,82 @@ def test_a_module_code_with_no_reader_name_reads_as_unnamed(code):
     assert snap.reader_text(f"{code} reads it.", chips.module_names(None)) == (
         "Unnamed module reads it."
     )
+
+
+# --- Pro forma interest and cover (PM-4, ruling PM-d) ---------------------------------------------
+
+PRO_FORMA_HEAD = (
+    "| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover "
+    "| Reporting unit | Basis and limitation |"
+)
+
+
+def with_pro_forma(*rows):
+    """The key's CP-1 with a `### Pro forma interest and cover` table in `PRO_FORMA`'s header
+    order, one row per argument."""
+    table = [
+        "",
+        "### Pro forma interest and cover",
+        "",
+        PRO_FORMA_HEAD,
+        "|---|---|---|---|---|---|---|",
+    ]
+    return full(**{"CP-1": FIXTURE["CP-1"] + "\n".join([*table, *rows, ""])})
+
+
+REPORTED = "| 2026-03-31 | 70.0 | cash interest | 351.2 | 5.02 | GBP millions | Reported EBITDA; the press release. |"
+ADJUSTED = "| 2026-03-31 | 70.0 | cash interest | 380.0 | 5.43 | GBP millions | Adjusted EBITDA; the press release. |"
+
+
+def pro_forma_cells(snapshot, label):
+    return {c.column: c for c in where(snapshot, "Capital structure totals", label)}
+
+
+def test_the_pro_forma_totals_rows_are_the_reported_ebitda_rows_figures_with_their_units():
+    snapshot = snap.gather(run_of(with_pro_forma(REPORTED, ADJUSTED)))
+    interest = pro_forma_cells(snapshot, "Pro forma interest")
+    assert (interest["Value"].kind, interest["Value"].text) == ("copied", "70.0")
+    assert (interest["Unit"].kind, interest["Unit"].text) == ("copied", "GBP millions")
+    assert (interest["Value"].module, interest["Value"].line) == ("CP-1", interest["Unit"].line)
+    cover = pro_forma_cells(snapshot, "Pro forma interest cover")
+    assert (cover["Value"].kind, cover["Value"].text) == ("copied", "5.02")  # not Adjusted's 5.43
+    assert (cover["Unit"].kind, cover["Unit"].text) == ("computed", "times")
+    assert cover["Value"].figure is not None and cover["Value"].figure.value == 5.02
+
+
+def test_the_reported_row_is_read_even_when_the_adjusted_row_comes_first():
+    snapshot = snap.gather(run_of(with_pro_forma(ADJUSTED, REPORTED)))
+    assert pro_forma_cells(snapshot, "Pro forma interest cover")["Value"].text == "5.02"
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "| 2026-03-31 | Not supplied: no source states it | cash interest | 351.2 | Not supplied: no source states it | GBP millions | Reported EBITDA; none. |",
+        "| Not stated | Not stated | Not stated | Not stated | Not stated | Not stated | Reported EBITDA; none. |",
+    ],
+)
+def test_a_pro_forma_cell_that_states_no_figure_is_not_in_handoff(row):
+    snapshot = snap.gather(run_of(with_pro_forma(row)))
+    for label in ("Pro forma interest", "Pro forma interest cover"):
+        cells = where(snapshot, "Capital structure totals", label)
+        assert [(c.column, c.kind, c.text) for c in cells] == [("Value", "gap", "not in handoff")]
+
+
+def test_a_stated_interest_with_no_reporting_unit_has_the_unit_gap_and_the_cover_is_not_lost():
+    row = REPORTED.replace("GBP millions", "Not supplied: the source gives no unit")
+    snapshot = snap.gather(run_of(with_pro_forma(row)))
+    interest = pro_forma_cells(snapshot, "Pro forma interest")
+    assert (interest["Value"].text, interest["Unit"].kind, interest["Unit"].text) == (
+        "70.0",
+        "gap",
+        "unit not in handoff",
+    )
+    assert pro_forma_cells(snapshot, "Pro forma interest cover")["Value"].text == "5.02"
+
+
+def test_without_the_table_the_pro_forma_rows_stay_not_in_handoff():
+    snapshot = snap.gather(run_of(full()))
+    for label in ("Pro forma interest", "Pro forma interest cover"):
+        cells = where(snapshot, "Capital structure totals", label)
+        assert [(c.column, c.kind, c.text) for c in cells] == [("Value", "gap", "not in handoff")]

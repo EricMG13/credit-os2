@@ -1304,6 +1304,59 @@ def _balance_free_rows(run: _Run) -> list[_Pick]:
         return []
 
 
+PRO_FORMA_TABLE = "Pro forma interest and cover"
+PRO_FORMA_BASIS = "Reported EBITDA"  # the opening words of the Basis and limitation of that row
+COVER_UNIT = "times"  # the cover's unit, as the table's rules state it ("as times, no `x`")
+
+
+def _stated_gap(text: str) -> bool:
+    """A cell that states no figure: `Not supplied: <reason>` or the none row's `Not stated`."""
+    return _fold(text).startswith("not supplied") or _fold(text) == "not stated"
+
+
+def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
+    """The two Totals rows `Pro forma interest` and `Pro forma interest cover`, from CP-1's `Pro
+    forma interest and cover` table: the figures of its `Reported EBITDA` row (the one whose Basis
+    and limitation opens with those words; CP-1's own check makes it the first row, so a table with
+    none takes its first row), each by the reader's ordinary copied path. A cell that
+    states no figure is `not in handoff`; so is every row when the table, the row or a column is
+    missing. A table that is there but cannot be read is logged."""
+    labels = ("Pro forma interest", "Pro forma interest cover")
+    try:
+        run.doc("CP-1").prose(PRO_FORMA_TABLE)
+    except _Unreadable:  # no such section (or no readable handoff, which other blocks report)
+        return {}
+    try:
+        table = run.heading("CP-1", PRO_FORMA_TABLE)
+        at = {n: table.index(n) for n in (*labels, "Reporting unit", "Basis and limitation")}
+    except _Unreadable as error:  # the section is there but its table cannot be read
+        _LOG.warning("credit snapshot: Totals: %s could not be read: %s", PRO_FORMA_TABLE, error)
+        return {}
+    basis = at["Basis and limitation"]
+    reported = (r for r in table.rows if r.cells[basis].startswith(PRO_FORMA_BASIS))
+    row = next(reported, table.rows[0] if table.rows else None)
+    if row is None:
+        return {}
+    where = table.at(row.line)
+    found: dict[str, list[SnapshotCell]] = {}
+    for label in labels:
+        text = row.cells[at[label]]
+        if _stated_gap(text):
+            continue
+        cells = [mk.copied(where, label, "Value", text)]
+        if label == labels[1]:
+            cells.append(mk.computed(label, "Unit", COVER_UNIT))
+        else:
+            unit = row.cells[at["Reporting unit"]]
+            cells.append(
+                mk.gap(label, "Unit", NO_UNIT)
+                if _stated_gap(unit)
+                else mk.copied(where, label, "Unit", unit)
+            )
+        found[label] = cells
+    return found
+
+
 def _totals(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """T4.9's fixed rows and Net debt data. The senior and unsecured amounts and multiples and the
     pro forma interest and cover have no fixed label: a gap, unless a free-label row of that name
@@ -1314,9 +1367,13 @@ def _totals(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     found = [*_balance_free_rows(run), *(p for p in register if p.free and p.table)]
     picks = [p for p in register if not p.free] + _net_debt(run)
     cells = [pick.cell(mk) for pick in picks]
+    stated = _pro_forma(run, mk)
     for label in _TOTALS_GAPS:
         rows = [p for p in found if p.key == _fold(label)]
-        cells += [p.cell(mk) for p in rows] if rows else [mk.gap(label, "Value", NOT_IN_HANDOFF)]
+        if rows:
+            cells += [p.cell(mk) for p in rows]
+        else:
+            cells += stated.get(label) or [mk.gap(label, "Value", NOT_IN_HANDOFF)]
     return cells
 
 
