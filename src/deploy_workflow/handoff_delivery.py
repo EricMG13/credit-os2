@@ -438,6 +438,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
     lines = physical_lines(text)
     if tuple(line[3:] for line in lines if line.startswith("## ")) != HEADINGS:
         raise ValueError(f"{module_id}: the six handoff headings are required once, in order")
+    shown = hide_fenced(hide_comments(lines, module_id))  # sections and tables read as shown
     sha = hashlib.sha256(raw).hexdigest()
     source_id = module_id + "-handoff"
     source = Source(
@@ -522,14 +523,14 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
         )
 
     def prose_rows(prefix: str, table_id: str, title: str) -> None:
-        found = [(i, line) for i, line in enumerate(lines, 1) if line.startswith(prefix)]
+        found = [(i, line) for i, line in enumerate(shown, 1) if line.startswith(prefix)]
         if len(found) != 1:
             raise ValueError(f"{module_id}: expected one {prefix}")
         i, line = found[0]
         add(table_id, title, ["Item", "Text"], [(i, line, [title, line])])
 
     if module_id == "CP-1":
-        headers, rows = table(section(lines, "T4.10 — Source-supported dashboard"))
+        headers, rows = table(section(shown, "T4.10 — Source-supported dashboard"))
         add(
             "evidence-trace",
             "Historical dashboard — USD millions; qualifications retained",
@@ -538,7 +539,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
         )
         gap_id = "T4.12"
     elif module_id == "CP-1A":
-        headers, rows = table(section(lines, "Company, business and revenue model"))
+        headers, rows = table(section(shown, "Company, business and revenue model"))
 
         # Live handoffs may prefix these labels with stable evidence-row IDs.
         # Normalize only selection; add() retains the literal label and source line.
@@ -572,7 +573,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
             ("Transaction and capital allocation summary", "transaction_summary", True),
             ("Timeline and governance behavior (absorbed CP-2C)", "events_timeline", True),
         ):
-            headers, rows = table(section(lines, heading))
+            headers, rows = table(section(shown, heading))
             add(table_id, heading, headers, rows, prose=prose)
         gap_id = "gaps_ledger"
     else:
@@ -581,7 +582,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
             ("**Thesis —", "cp2.thesis", "Thesis"),
         ):
             prose_rows(prefix, table_id, title)
-        ranked = section(lines, "Ranked strengths, weaknesses and key risks")
+        ranked = section(shown, "Ranked strengths, weaknesses and key risks")
         direction = ""
         groups: dict[str, list[tuple[int, str, list[str]]]] = {"Strengths": [], "Weaknesses": []}
         for i, line in ranked:
@@ -597,7 +598,7 @@ def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 state
         # is kept literally among the module's limitations rather than dropped.
         key_risks = [plain(line) for _, line in ranked if line.startswith("**Key risks")]
         gap_id = "T2.12"
-    headers, gaps = table(section(lines, "Gaps"))
+    headers, gaps = table(section(shown, "Gaps"))
     add(gap_id, "Gaps and restrictions from the handoff", headers, gaps)
     descriptor = next(m for m in modules() if m.module_id == module_id)
     return ModuleView(

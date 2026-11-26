@@ -1075,6 +1075,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
             inputs,
             {k: (base / v.path).read_bytes() for k, v in inputs.items()},
             request.model,
+            layout.issuer_aliases,
         )
         module_views.append(publication.module)
         sources.extend(publication.sources)
