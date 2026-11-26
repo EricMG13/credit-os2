@@ -226,7 +226,7 @@ it("states the liquidity module's funding gap as that module's figure, with hori
   const part = within(screen.getByRole("region", { name: "Funding gap" }));
   expect(part.getByText("120.5")).toBeInTheDocument();
   // Named by the module and the row's own label, never the page's own wording.
-  expect(part.getByText("Liquidity: Funding gap · 2026-03-31 · USD millions")).toBeInTheDocument();
+  expect(part.getByText("Liquidity: Funding gap · 2026-03-31 · $m")).toBeInTheDocument();
   expect(part.queryByText(/horizon end/)).toBeNull();
   expect(part.getByRole("link", { name: "Source for Liquidity's Funding gap" })).toHaveAttribute(
     "href",

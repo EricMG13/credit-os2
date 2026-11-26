@@ -805,7 +805,8 @@ describe("what the overview carries for every module", () => {
 });
 
 // docs/rulings/2026-11-16-reporting-currency-from-sources.md: the run's currency is CP-1's money
-// unit (`$m` for USD, the currency's symbol or else its code, then `m`). Every expected string here is written by hand.
+// unit (stored `US$m` for USD; shown as `$m`, in general the currency's symbol or else its code, then
+// `m`). Every expected string here is written by hand.
 describe("overview tiles in the run's own reporting currency", () => {
   const halfYears = table(
     "Period table",

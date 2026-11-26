@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { displayColumns, type OutputEntry, type Table } from "../../publishedReport";
 import type { SourceTable } from "../../visuals/visualData";
+import { unitCells } from "../moduleRecordsModel";
 import { Tile } from "../overview/Tile";
 import { CompactGap, Disclosure, LeadGap, TableRegion, Trace, type LeadTable } from "./parts";
 import { chartsStartingWith, IN_EVIDENCE, readerCell, rowName, WITHHELD, type Chart } from "./read";
@@ -34,7 +35,11 @@ export function writtenTable(
     (at) => !SOURCE_COLUMN.test((table.headers[at] ?? "").trim()),
   );
   if (first === undefined || !table.rows.length) return undefined;
-  const cell = (row: string[], at: number) => readerCell(row[at] ?? "") || null;
+  const drawUnit = unitCells(table);
+  const cell = (row: string[], at: number) => {
+    const text = readerCell(row[at] ?? "");
+    return text ? (drawUnit(at, text) ?? text) : null;
+  };
   return {
     head: [first, ...rest].map((at) => readerCell(table.headers[at] ?? "")),
     rows: table.rows.map((row, index) => {

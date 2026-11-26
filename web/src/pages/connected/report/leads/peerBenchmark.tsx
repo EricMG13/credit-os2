@@ -12,6 +12,7 @@ import {
   type NiceAxis,
 } from "./kit/marks";
 import { UnreadFigures } from "./kit/UnreadFigures";
+import { unitLabel } from "../../publishedReport";
 import { safeText } from "./kit/reader";
 import {
   bandGapText,
@@ -272,7 +273,9 @@ function Group({ group, showUnit }: { group: PeerGroup; showUnit: boolean }) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {showUnit && group.unit && (
-        <p className="text-caption text-text-tertiary">Reporting unit: {safeText(group.unit)}</p>
+        <p className="text-caption text-text-tertiary">
+          Reporting unit: {unitLabel(safeText(group.unit))}
+        </p>
       )}
       <Measured fallback={640}>
         {(width) => (
@@ -359,7 +362,7 @@ function PeerTile({
           cellOf(row.median),
           cellOf(row.high),
           cellOf(row.count),
-          safeText(row.unit),
+          unitLabel(safeText(row.unit)),
         ]),
       }}
     >

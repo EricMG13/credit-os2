@@ -9,6 +9,7 @@ import {
   type Issuer,
 } from "../coverageData";
 import { card } from "../layout";
+import { unitLabel } from "../moneyUnits";
 import { unitName } from "./boundUnit";
 import { prose, RunLine } from "./shared";
 import { ZeroAxisBar } from "./ZeroAxisBar";
@@ -70,11 +71,11 @@ export function RankView({
               const signed = values.some((value) => value < 0);
               const largest = Math.max(...values);
               const lowest = Math.min(...values);
-              const name = `${field.label}, ${period}, ${unit === "" ? unitName(unit) : `reporting unit ${unit}`}${order === "high" ? ", highest first" : ", lowest first"}`;
+              const name = `${field.label}, ${period}, ${unit === "" ? unitName(unit) : `reporting unit ${unitLabel(unit)}`}${order === "high" ? ", highest first" : ", lowest first"}`;
               return (
                 <div key={unit} className="grid gap-2">
                   <p className="text-small text-text-secondary">
-                    {`${unit === "" ? unitName(unit) : `Stated in ${unit}`} · ${order === "high" ? "highest first" : "lowest first"}`}
+                    {`${unit === "" ? unitName(unit) : `Stated in ${unitLabel(unit)}`} · ${order === "high" ? "highest first" : "lowest first"}`}
                   </p>
                   {boundUnit !== null && unit !== boundUnit && (
                     <p className="text-caption text-gap-text">

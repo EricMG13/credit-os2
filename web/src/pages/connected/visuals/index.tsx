@@ -5,7 +5,7 @@ import { chartsWithQualifications } from "./drawnQualifications";
 import { ChartTable } from "@/components/chart/ChartTable";
 import { ChartWithTable } from "@/components/chart/ChartWithTable";
 import { TRACE_HOST } from "@/pages/library/parts/TraceControl";
-import { containsReference, readerText } from "../publishedReport";
+import { containsReference, readerText, unitLabel } from "../publishedReport";
 import { PublishedSource } from "../report/PublishedTrace";
 import { usePortfolioBasis, usePortfolioBasisLoading } from "../report/PortfolioBasis";
 import { portfolioLimits } from "./PortfolioLimits";
@@ -181,7 +181,8 @@ export function LegacyVisuals({
             )
           : undefined,
     };
-    const note = descriptor.unit === "x" ? "x (times)" : word(descriptor.unit) || undefined;
+    const note =
+      descriptor.unit === "x" ? "x (times)" : unitLabel(word(descriptor.unit)) || undefined;
     const frame = { title, note, actions, as: Heading };
     const chart = drawingChart({ category, descriptor, published, basis, link, table, frame });
     const limits = category === "chart" && descriptor.kind === "limits";

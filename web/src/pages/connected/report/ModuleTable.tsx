@@ -9,6 +9,7 @@ import {
   containsReference,
   displayColumns,
   readerText,
+  unitLabel,
   withoutReferences,
   type Table,
 } from "../publishedReport";
@@ -179,7 +180,11 @@ function statement(
   if (!periods.every((period) => /^(?:FY|H[12] |Q[1-4] |LTM |20\d\d-)/.test(period))) return null;
   if (data.headers.slice(unit + 1).some((name) => name !== "Basis")) return null;
   const rows = data.rows.map(({ cells, line }) => ({
-    label: readerText([cells[0], cells[unit], cells[unit + 1]].filter(Boolean).join(" · ")),
+    label: readerText(
+      [cells[0], unitLabel((cells[unit] ?? "").trim()), cells[unit + 1]]
+        .filter(Boolean)
+        .join(" · "),
+    ),
     cells: cells.slice(1, unit).map(readingCell),
     emphasis: false,
     line,

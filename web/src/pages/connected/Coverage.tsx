@@ -28,6 +28,7 @@ import { card, field as control, label } from "./layout";
 import { useCanStart } from "./startAction";
 import { Chip, ChipGroup, RemovableChip } from "@/components/kit/Chip";
 import { boundUnit, unitName } from "./coverage/boundUnit";
+import { unitLabel } from "./moneyUnits";
 import { Choice, FieldOptions } from "./coverage/Controls";
 import { FindView } from "./coverage/Find";
 import { IssuerDetail } from "./coverage/IssuerDetail";
@@ -269,7 +270,7 @@ function Dashboard({ data: served }: { data: Data }) {
   );
   // A bound reads one figure at one period in one unit, shown as a chip on every view that applies it.
   const unitMark = (unit: string) =>
-    unit === "x" || unit === "%" ? unit : unit === "" ? " (no unit stated)" : ` ${unit}`;
+    unit === "x" || unit === "%" ? unit : unit === "" ? " (no unit stated)" : ` ${unitLabel(unit)}`;
   const boundText =
     field && period !== null && applied
       ? `${field.label} ${[low.value !== null && `≥ ${filters.min.trim()}${bound.unit === null ? "" : unitMark(bound.unit)}`, high.value !== null && `≤ ${filters.max.trim()}${bound.unit === null ? "" : unitMark(bound.unit)}`].filter(Boolean).join(", ")} · ${period}`
@@ -548,7 +549,7 @@ function Dashboard({ data: served }: { data: Data }) {
                           setUnitPick(unit);
                         }}
                       >
-                        {unit || "No unit stated"}
+                        {unitLabel(unit) || "No unit stated"}
                       </Chip>
                     ))}
                   </div>

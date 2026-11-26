@@ -465,9 +465,13 @@ function unread(el: Element): string[] {
   return ends.flatMap((dot) => {
     const period = dot?.getAttribute("data-period") ?? "";
     const value = dot?.getAttribute("data-value") ?? "";
-    const label = drawn.find((text) => text === value || text.startsWith(value));
+    // A money figure is drawn with its symbol before it and no regrouping: "$1,250.00m", "-$1,010.00m".
+    const money = value.startsWith("-") ? `-$${value.slice(1)}m` : `$${value}m`;
+    const forms = [value, money];
+    const label = drawn.find((text) => forms.some((form) => text.startsWith(form)));
     const onPlot = label !== undefined && (shown.includes(period) || label.includes(period));
-    return onPlot || written.includes(`${period} ${value}`) ? [] : [`${period} ${value}`];
+    const inWritten = forms.some((form) => written.includes(`${period} ${form}`));
+    return onPlot || inWritten ? [] : [`${period} ${value}`];
   });
 }
 

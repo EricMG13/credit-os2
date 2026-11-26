@@ -1,8 +1,9 @@
+import { unitLabel } from "../moneyUnits";
 import { factAt, latestRun, type Coverage, type Issuer } from "../coverageData";
 
 /** A reporting unit as the page names it: the empty unit is "no unit stated". */
 export function unitName(unit: string): string {
-  return unit === "" ? "no unit stated" : unit;
+  return unit === "" ? "no unit stated" : unitLabel(unit);
 }
 
 /**

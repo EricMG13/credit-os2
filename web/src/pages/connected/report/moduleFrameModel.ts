@@ -11,6 +11,7 @@ import {
   type Table,
 } from "../publishedReport";
 import { drawingLines, findingBlocks } from "../ReportContent";
+import { unitLabel } from "../moneyUnits";
 import { namedTable } from "../reportView";
 import { typedModuleTable } from "./ModuleTable";
 import { heldInEvidence, readableTitle } from "./moduleRecordsModel";
@@ -151,14 +152,14 @@ function basisPart(name: string, text: string | undefined): BasisPart | null {
   return { name, text: readerText(cell), gap: /^(?:not |withheld)|^[\u2014\u2013-]$/i.test(cell) };
 }
 
-/** Currency and unit read as one part ("USD millions") where both are stated. */
+/** Currency and unit read as one part, drawn as the currency's symbol ("$m"), where both are stated. */
 function joinMoney(parts: BasisPart[]) {
   const currency = parts.find(({ name, gap }) => name === "Currency" && !gap);
   const unit = parts.find(({ name, gap }) => name === "Unit" && !gap);
   if (!currency || !unit) return parts;
   return parts.flatMap((part) =>
     part === currency
-      ? [{ ...part, text: `${currency.text} ${unit.text}` }]
+      ? [{ ...part, text: unitLabel(`${currency.text} ${unit.text}`) }]
       : part === unit
         ? []
         : [part],

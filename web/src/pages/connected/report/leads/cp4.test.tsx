@@ -198,7 +198,7 @@ it("draws a headroom bullet per test, each on its own scale, a gap row with its 
     "Basis and limitation",
     "Source",
   ]);
-  expect(within(tile).getByRole("cell", { name: "US$m" })).toBeVisible();
+  expect(within(tile).getByRole("cell", { name: "$m" })).toBeVisible();
   expect(
     within(tile)
       .getAllByRole("link", { name: /Source for/ })

@@ -15,6 +15,7 @@ import { card, heading } from "./layout";
 import { drawnQualificationLines } from "./visuals/drawnQualifications";
 import { monitoringLabel, typedModuleTable } from "./report/ModuleTable";
 import { calculationNodes } from "./report/calculations";
+import { unitCells } from "./report/moduleRecordsModel";
 import {
   classifySections,
   containsReference,
@@ -1226,6 +1227,7 @@ function PassageBlock({
         <PublishedTable
           table={block}
           heading={plainText(drawingTitle(section.heading))}
+          drawCell={unitCells(block)}
           traceAt={key}
           rowHref={(line) => evidencePath(folder, entry, line)}
         />

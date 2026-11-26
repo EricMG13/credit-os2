@@ -176,7 +176,7 @@ it("has a table view with each cell as written, its unit and basis per row, one 
   // F15: the per-row unit and basis stay with their rows.
   expect(within(tile).getByRole("columnheader", { name: "Reporting unit" })).toBeVisible();
   expect(within(tile).getByRole("columnheader", { name: "Basis and limitation" })).toBeVisible();
-  expect(within(tile).getAllByRole("cell", { name: "US$m" })).toHaveLength(2);
+  expect(within(tile).getAllByRole("cell", { name: "$m" })).toHaveLength(2);
   const links = within(tile).getAllByRole("link", { name: /Source for/ });
   expect(links.at(-1)).toHaveAttribute("href", expect.stringContaining("#evidence/"));
 });

@@ -100,7 +100,8 @@ it("falls back to the raw case name and adds a downside drivers column only when
 
 it("states the unit of monetary drivers and draws Not stated as a gap chip in the legend and table", () => {
   render(<AssumptionsByCase document={document} />);
-  expect(rowOf("Dividends").textContent).toContain("USD millions");
+  expect(rowOf("Dividends").textContent).toContain("$m");
+  expect(rowOf("Dividends").textContent).not.toContain("USD millions");
   expect(rowOf("Revenue growth").textContent).toContain("Fraction");
   const chips = screen.getAllByText("Not stated");
   expect(chips.length).toBeGreaterThan(1);

@@ -22,6 +22,7 @@ import {
 } from "../coverageData";
 import { Chip } from "@/components/kit/Chip";
 import { card } from "../layout";
+import { unitLabel } from "../moneyUnits";
 import { prose } from "./shared";
 import { layoutTrend, type Box, type Metrics, type Placed, type Point } from "./trendLayout";
 
@@ -48,7 +49,7 @@ const isStated = (fact: Fact | null | undefined): fact is Stated =>
 const gapReason = (fact: Fact): string => prose(fact.text) ?? IN_EVIDENCE;
 
 const unitsOf = (facts: readonly Fact[]): string =>
-  [...new Set(facts.map((fact) => fact.unit || "no unit stated"))].join(", ");
+  [...new Set(facts.map((fact) => fact.unit ? unitLabel(fact.unit) : "no unit stated"))].join(", ");
 
 /** What is true of a period the run's panel draws no point for. */
 function missingAt(facts: readonly Fact[], period: string, unit: string): Missing {
@@ -503,7 +504,7 @@ function TableView({
       >
         <table className="w-full border-collapse text-small tabular-nums">
           <caption className="pb-2 text-left text-text-secondary">
-            {`${field.label} by period, ${unit || "no unit stated"}`}
+            {`${field.label} by period, ${unitLabel(unit) || "no unit stated"}`}
           </caption>
           <thead>
             <tr className="border-b border-border-subtle text-left">
@@ -550,7 +551,7 @@ function Absent({ rows, unit }: { rows: readonly { issuer: Issuer; reason: strin
     <div className="gap-hatch grid gap-2 rounded-ds-lg border border-dashed border-border-gap p-4">
       <div className="grid gap-2 rounded-ds-sm bg-surface-card p-3">
         <h3 className="font-semibold text-text-primary">
-          {`No figure to draw: the newest run states none in ${unit || "no unit stated"}`}
+          {`No figure to draw: the newest run states none in ${unitLabel(unit) || "no unit stated"}`}
         </h3>
         <ul className="m-0 grid list-none gap-1 p-0 text-small text-gap-text">
           {rows.map(({ issuer, reason }) => (
@@ -609,7 +610,7 @@ export function TrendView({
                 setPicked(item);
               }}
             >
-              {item || "No unit stated"}
+              {unitLabel(item) || "No unit stated"}
             </Chip>
           ))}
         </div>

@@ -13,6 +13,7 @@ import {
   type Table,
 } from "../publishedReport";
 import { PublishedTable } from "../ReportContent";
+import { unitCells } from "../report/moduleRecordsModel";
 import {
   decisionTreatment,
   scopedLead,
@@ -127,7 +128,7 @@ function PurposeReport({ purpose }: { purpose: Purpose }) {
             // A table's section can hold the same paragraph twice; each is printed.
             <p key={at}>{richParts(note, readerText)}</p>
           ))}
-          <PublishedTable table={table} heading={title} />
+          <PublishedTable table={table} heading={title} drawCell={unitCells(table)} />
         </section>
       ))}
       {passages?.map(

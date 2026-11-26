@@ -351,7 +351,7 @@ it("14: states the basis from the entity period key and names the module without
   expect(within(header).getByText("Issuer:")).toBeVisible();
   // The parts are read with real separators, not run together.
   expect(header).toHaveTextContent(
-    "Issuer: Fiscal year end September 30 · USD millions · US GAAP · FY2024; FY2023",
+    "Issuer: Fiscal year end September 30 · $m · US GAAP · FY2024; FY2023",
   );
   expect(
     within(header).getByRole("heading", { level: 2, name: "Financial foundation" }),

@@ -131,7 +131,7 @@ it("includes the published currency and scale when one period can only be shown 
     },
   };
   render(<CashProxy model={onePeriod} unified />);
-  expect(screen.getByText("Cash proxy values (GBP millions).")).toBeInTheDocument();
+  expect(screen.getByText("Cash proxy values (£m).")).toBeInTheDocument();
   expect(screen.getByRole("table", { name: "Scenario comparison" })).toBeInTheDocument();
 });
 

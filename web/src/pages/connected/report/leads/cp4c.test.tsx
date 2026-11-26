@@ -145,7 +145,7 @@ it("switches scenarios with a pressed button group, the table following", () => 
   fireEvent.click(within(tile).getByRole("button", { name: "Table" }));
   expect(within(tile).getByRole("cell", { name: "800" })).toBeVisible();
   // F15: the per-row unit and basis stay with their rows.
-  expect(within(tile).getAllByRole("cell", { name: "US$m" })).toHaveLength(5);
+  expect(within(tile).getAllByRole("cell", { name: "$m" })).toHaveLength(5);
   expect(within(tile).getAllByRole("cell", { name: "Synthetic." })).toHaveLength(5);
   expect(
     within(tile)
