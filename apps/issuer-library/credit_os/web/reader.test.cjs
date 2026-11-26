@@ -594,3 +594,30 @@ test('pickLead takes the first of the pathway\'s lead modules that has a Bottom 
   assert.equal(pickLead([entry('CP-1B', false)], 'earnings_update', usable), undefined, 'no Bottom line, no lead');
   assert.equal(pickLead(earnings, 'earnings_update', e => e.module !== 'CP-1B'), undefined, 'a blocked CP-1B does not lead');
 });
+
+// PR 7a, ruling C16: a custom run's lead is CP-2, else its planned modules in reverse order less CP-0, CP-DR, CP-5, CP-8 and CP-MODEL.
+test('leadModules for a custom run is CP-2 then the planned modules in reverse, without the modules that lead nothing', () => {
+  assert.deepEqual(leadModules('custom', ['CP-0', 'CP-1', 'CP-4', 'CP-8']), ['CP-2', 'CP-4', 'CP-1']);
+  assert.deepEqual(leadModules('custom', ['CP-0', 'CP-1', 'CP-1A', 'CP-2E']), ['CP-2', 'CP-2E', 'CP-1A', 'CP-1']);
+  assert.deepEqual(leadModules('custom', ['CP-0', 'CP-DR', 'CP-1', 'CP-1A', 'CP-2', 'CP-3', 'CP-5', 'CP-6', 'CP-8']), ['CP-2', 'CP-6', 'CP-3', 'CP-1A', 'CP-1']);
+  assert.deepEqual(leadModules('custom', ['CP-0', 'CP-5', 'CP-MODEL']), ['CP-2']);
+  assert.deepEqual(leadModules('custom', undefined), ['CP-2'], 'no recorded request: only CP-2 can lead');
+  assert.deepEqual(leadModules('custom', null), ['CP-2']);
+});
+test('a preset pathway keeps its lead order whatever request is passed', () => {
+  assert.deepEqual(leadModules('credit_snapshot', ['CP-0', 'CP-4']), ['CP-6', 'CP-2', 'CP-L10']);
+  assert.deepEqual(leadModules('earnings_update', ['CP-4']), ['CP-6', 'CP-2', 'CP-L10', 'CP-1B']);
+});
+test('pickLead for a custom run takes CP-2 when it is usable, else the last planned module with a Bottom line', () => {
+  const entry = (module, bottom = true) => ({module, passages: bottom ? {bottom: ['x']} : {bottom: null}});
+  const usable = () => true;
+  const planned = ['CP-0', 'CP-1', 'CP-1A', 'CP-2E', 'CP-8'];
+  const run = [entry('CP-0'), entry('CP-1'), entry('CP-1A'), entry('CP-2E')];
+  assert.equal(pickLead(run, 'custom', usable, planned).module, 'CP-2E');
+  assert.equal(pickLead(run, 'custom', e => e.module !== 'CP-2E', planned).module, 'CP-1A', 'CP-2E has no usable entry');
+  assert.equal(pickLead([...run.slice(0, 3), entry('CP-2E', false)], 'custom', usable, planned).module, 'CP-1A', 'no Bottom line, no lead');
+  assert.equal(pickLead([entry('CP-2'), ...run], 'custom', usable, ['CP-0', 'CP-1', 'CP-1A', 'CP-2', 'CP-2E']).module, 'CP-2', 'CP-2 first');
+  assert.equal(pickLead([entry('CP-2', false), ...run], 'custom', usable, ['CP-0', 'CP-1', 'CP-1A', 'CP-2', 'CP-2E']).module, 'CP-2E', 'CP-2 without a Bottom line does not lead');
+  assert.equal(pickLead([entry('CP-0'), entry('CP-5')], 'custom', usable, ['CP-0', 'CP-5']), undefined, 'CP-0 and CP-5 never lead');
+  assert.equal(pickLead([entry('CP-4')], 'custom', usable, ['CP-0', 'CP-1', 'CP-4']).module, 'CP-4', 'Covenant Capacity leads with Legal & covenants');
+});

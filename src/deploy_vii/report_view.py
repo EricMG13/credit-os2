@@ -499,6 +499,44 @@ class Pathway(Contract):
     blocks: tuple[Identifier, ...]
 
 
+# The Deep credit assessment's sections, one object: the custom selection draws the same ones
+# (owner, 2026-11-26), omitting each whose owner did not run, so the two cannot drift.
+_DEEP_BLOCKS: tuple[str, ...] = (
+    "key-findings",
+    "company-operating-model",
+    "model-chart-strip",
+    "capital-structure",
+    "financials-credit-metrics",
+    "headline-results",
+    "earnings-quality",
+    "peer-positioning",
+    "strengths-weaknesses",
+    "downside-stress",
+    "break-points",
+    "liquidity-runway",
+    "forward-credit-path",
+    "rating-triggers",
+    "covenant-tests-headroom",
+    "recovery-by-class",
+    "refinancing-paths",
+    "market-against-fundamentals",
+    "relative-value",
+    "company-profile",
+    "transaction-summary",
+    "portfolio-fit",
+    "committee-challenge",
+    "what-changed",
+)
+
+
+def _preset_modules(pathway_id: PathwayId) -> tuple[str, ...]:
+    """The modules a run of ``pathway_id`` is read against to tell "not requested" from "not in this
+    Pathway". A custom run has no preset of its own: its modules are the analyst's list, so a
+    module it left out was not requested, as in Deep, whose preset holds every module (owner,
+    2026-11-26)."""
+    return PATHWAY_MODULES["deep_credit_assessment" if pathway_id == "custom" else pathway_id]
+
+
 # Decision 0009. Titles and questions are the cards of ``design/reference/rbot-report.dc.html``;
 # block ids follow each Front Page's outline (``rbot-fp-0N-*.dc.html``), "The call" excluded
 # because the call band is ``ReportView.call``. Ids that existing bindings name
@@ -556,32 +594,7 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
         "deep_credit_assessment",
         "Deep credit assessment",
         "Should we own this issuer, in which instrument, and why, with every specialist view?",
-        (
-            "key-findings",
-            "company-operating-model",
-            "model-chart-strip",
-            "capital-structure",
-            "financials-credit-metrics",
-            "headline-results",
-            "earnings-quality",
-            "peer-positioning",
-            "strengths-weaknesses",
-            "downside-stress",
-            "break-points",
-            "liquidity-runway",
-            "forward-credit-path",
-            "rating-triggers",
-            "covenant-tests-headroom",
-            "recovery-by-class",
-            "refinancing-paths",
-            "market-against-fundamentals",
-            "relative-value",
-            "company-profile",
-            "transaction-summary",
-            "portfolio-fit",
-            "committee-challenge",
-            "what-changed",
-        ),
+        _DEEP_BLOCKS,
     ),
     (
         "earnings_update",
@@ -692,6 +705,12 @@ _PRESETS: tuple[tuple[PathwayId, str, str, tuple[str, ...]], ...] = (
         ),
     ),
     (
+        "custom",
+        "Custom selection",
+        "What do the modules you chose find about this issuer?",
+        _DEEP_BLOCKS,
+    ),
+    (
         "short_snapshot",
         "Short Credit Snapshot",
         "What is the credit view on one page, and what would change it?",
@@ -708,7 +727,7 @@ def pathways() -> tuple[Pathway, ...]:
             id=pathway_id,
             title=title,
             question=question,
-            requested_modules=PATHWAY_MODULES[pathway_id],
+            requested_modules=_preset_modules(pathway_id),
             blocks=blocks,
         )
         for pathway_id, title, question, blocks in _PRESETS
@@ -1001,7 +1020,7 @@ def module_display(view: View) -> Callable[[ModuleView], tuple[str, str]]:
     left out was not requested: it reads "Not run". Only a module outside the preset keeps
     "Not in this Pathway".
     """
-    preset = dependencies(PATHWAY_MODULES[view.run.pathway])
+    preset = dependencies(_preset_modules(view.run.pathway))
 
     def display(module: ModuleView) -> tuple[str, str]:
         not_requested = module.status == "not_in_pathway" and module.module_id in preset
@@ -2782,7 +2801,9 @@ def call_state(report: ReportView) -> tuple[str, tuple[str, str] | None]:
 register_figure_producer(
     "financials-credit-metrics",
     _cp1_period_figures,
-    pathways=frozenset({"credit_snapshot", "lite_credit_assessment", "deep_credit_assessment"}),
+    pathways=frozenset(
+        {"credit_snapshot", "lite_credit_assessment", "deep_credit_assessment", "custom"}
+    ),
 )
 
 # --- Stage 3 chart wiring W2, group b: RV.3 (CP-1C) and CR.1 (CP-4) -------------------------------
@@ -3100,13 +3121,19 @@ register_figure_producer(
     "peer-positioning",
     _rv3_figures,
     pathways=frozenset(
-        {"relative_value", "lite_credit_assessment", "credit_snapshot", "deep_credit_assessment"}
+        {
+            "relative_value",
+            "lite_credit_assessment",
+            "credit_snapshot",
+            "deep_credit_assessment",
+            "custom",
+        }
     ),
 )
 register_figure_producer(
     "covenant-tests-headroom",
     _cr1_figures,
-    pathways=frozenset({"covenant_refinancing", "deep_credit_assessment"}),
+    pathways=frozenset({"covenant_refinancing", "deep_credit_assessment", "custom"}),
 )
 
 
@@ -3252,7 +3279,7 @@ def _register_group_d() -> None:
         register_figure_producer(
             block_id,
             producer,
-            pathways=frozenset({"distressed_restructuring", "deep_credit_assessment"}),
+            pathways=frozenset({"distressed_restructuring", "deep_credit_assessment", "custom"}),
         )
 
 

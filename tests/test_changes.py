@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from library_fixtures import make_run, method
+from library_fixtures import make_custom_run, make_run, method
 from test_cpos_launch import (
     AS_OF,
     ISSUER,
@@ -241,6 +241,173 @@ def test_the_lead_module_of_each_pathway_decides_an_older_run(pathway, lead):
     assert "not understood" in (_not_a_base({"selection": "all"}, run, (lead,), me) or "")
 
 
+# --- a custom run's comparison base (PR 7a, owner 2026-11-26) -------------------------------------
+# Synthetic folders built as the launcher records a custom run (`make_custom_run`): pathway
+# `custom`, selection `explicit`, the completed modules, CP-8 appended when it compared.
+
+PLANNED = ("CP-0", "CP-1", "CP-2")
+
+
+def custom_prior(workspace, planned=PLANNED, skipped=None, *, pathway="custom", **me):
+    found = find_prior(
+        workspace,
+        folder="cur",
+        issuer_id="nbg",
+        **{**ME, **me},
+        pathway=pathway,
+        as_of="2025-03-31",
+        method=method(),
+        planned=planned,
+        skipped=skipped,
+    )
+    return None if found is None else found[0].folder
+
+
+def test_a_custom_run_is_compared_with_an_earlier_custom_run_of_the_same_completed_modules(
+    tmp_path,
+):
+    make_custom_run(tmp_path, "same", PLANNED, as_of="2024-12-31")
+    found = find_prior(
+        tmp_path,
+        folder="cur",
+        issuer_id="nbg",
+        **ME,
+        pathway="custom",
+        as_of="2025-03-31",
+        method=method(),
+        planned=PLANNED,
+    )
+    assert found is not None
+    prior, handoffs = found
+    assert (prior.folder, prior.selection, prior.modules) == ("same", "explicit", PLANNED)
+    assert sorted(handoffs) == sorted(PLANNED)
+
+
+def test_cp8_and_cp_model_on_either_side_do_not_change_the_list_compared(tmp_path):
+    # The earlier run compared (CP-8 delivered); this run's list ends with CP-8 (ruling C19).
+    make_custom_run(tmp_path, "compared", (*PLANNED, "CP-8"), as_of="2024-12-31")
+    assert custom_prior(tmp_path, (*PLANNED, "CP-8", "CP-MODEL")) == "compared"
+    assert custom_prior(tmp_path, ("CP-2", "CP-1", "CP-0")) == "compared"  # order is not compared
+
+
+def test_a_custom_run_is_not_compared_with_a_run_of_other_completed_modules(tmp_path):
+    make_custom_run(tmp_path, "smaller", ("CP-0", "CP-1"), as_of="2024-12-31")
+    make_custom_run(tmp_path, "larger", (*PLANNED, "CP-8"), as_of="2024-12-01")
+    skipped: list[str] = []
+    assert custom_prior(tmp_path, ("CP-0", "CP-1", "CP-2", "CP-8"), skipped) == "larger"
+    assert skipped == [
+        "smaller: it did not complete Fundamental credit, which this run plans",
+    ]
+    skipped = []
+    assert custom_prior(tmp_path, ("CP-0", "CP-1"), skipped) == "smaller"
+    assert skipped == [
+        "larger: it also completed Fundamental credit, which this run does not plan",
+    ]
+
+
+def test_a_run_that_did_not_complete_a_module_is_not_a_base_for_the_full_list(tmp_path):
+    # Planned CP-0, CP-1, CP-2, delivered CP-0 and CP-1 only: its delivered list is the smaller one.
+    make_custom_run(tmp_path, "short", ("CP-0", "CP-1"), as_of="2024-12-31")
+    skipped: list[str] = []
+    assert custom_prior(tmp_path, PLANNED, skipped) is None
+    assert skipped == ["short: it did not complete Fundamental credit, which this run plans"]
+
+
+def test_a_custom_run_is_not_compared_across_issuer_name_case_kind_or_a_test_adaptation(tmp_path):
+    make_custom_run(tmp_path, "private", PLANNED, as_of="2024-12-01", case_kind="private")
+    make_custom_run(tmp_path, "renamed", PLANNED, as_of="2024-12-02", issuer_name="Other plc")
+    make_custom_run(
+        tmp_path, "flagged", PLANNED, as_of="2024-12-03", test_adaptations=("test-assume-distress",)
+    )
+    skipped: list[str] = []
+    assert custom_prior(tmp_path, PLANNED, skipped) is None
+    assert skipped == [
+        "flagged: it was launched with a test adaptation (test-assume-distress)",
+        "private: its case kind is 'private', not 'public'",
+        "renamed: its issuer name is 'Other plc', not 'Northbridge Synthetic Group'",
+    ]
+
+
+def test_a_custom_run_never_takes_a_preset_run_and_a_preset_run_never_takes_a_custom_run(tmp_path):
+    for pathway in ("deep_credit_assessment", "credit_snapshot"):
+        workspace = tmp_path / pathway
+        make_run(workspace, "preset", as_of="2024-12-31", pathway=pathway, modules=PLANNED)
+        assert custom_prior(workspace) is None
+        make_custom_run(workspace, "custom-run", PLANNED, as_of="2024-12-30")
+        assert custom_prior(workspace) == "custom-run"
+        assert custom_prior(workspace, pathway=pathway) == "preset"
+        # The preset's own search never sees the custom run, whatever its modules.
+        only_custom = tmp_path / f"only-custom-{pathway}"
+        make_custom_run(only_custom, "custom-run", PLANNED, as_of="2024-12-30")
+        assert custom_prior(only_custom, pathway=pathway) is None
+
+
+def test_a_custom_run_without_its_planned_list_is_refused_not_guessed():
+    with pytest.raises(ValueError, match="planned modules"):
+        custom_prior(Path("/nonexistent-workspace"), None)
+
+
+def test_a_custom_runs_manifest_selection_must_be_one_the_launcher_writes(tmp_path):
+    me = {"issuer_name": "A", "case_kind": "public", "pathway": "custom"}
+    run = {"issuer_name": "a", "case_kind": "public"}
+    delivered = ("CP-0", "CP-1")
+    for selection in ("explicit", "preset"):
+        assert _not_a_base({"selection": selection}, run, delivered, me, planned=delivered) is None
+    assert "not understood" in (
+        _not_a_base({"selection": "all"}, run, delivered, me, planned=delivered) or ""
+    )
+    assert "records no module selection" in (
+        _not_a_base({}, run, delivered, me, planned=delivered) or ""
+    )
+
+
+def test_the_preset_rules_are_unchanged_by_a_planned_list():
+    me = {"issuer_name": "A", "case_kind": "public", "pathway": "credit_snapshot"}
+    run = {"issuer_name": "a", "case_kind": "public"}
+    assert _not_a_base({"selection": "explicit"}, run, ("CP-2",), me, planned=("CP-2",)) is not None
+
+
+CP2_COMPLETED = ("CP-0", "CP-1", "CP-1A", "CP-2")  # what the registry completes CP-2 to
+
+
+def custom_prepare(tmp_path, chosen):
+    return prepare(
+        context_file(tmp_path, "custom"),
+        issuer_folder(tmp_path),
+        tmp_path / "ws/runs/cur",
+        config="copilot-sol-medium",
+        cap=None,
+        modules=chosen,
+    )
+
+
+def test_the_launcher_plans_cp8_for_a_custom_run_after_an_earlier_one_of_the_same_modules(tmp_path):
+    make_custom_run(tmp_path / "ws", "prior-1", CP2_COMPLETED, as_of="2024-12-31")
+    prepared = custom_prepare(tmp_path, ["CP-2"])
+    assert prepared.plan.run.requested_modules == (*CP2_COMPLETED, "CP-8")
+    assert prepared.ordered[-1] == "CP-8"
+    assert prepared.plan.prior is not None and prepared.plan.prior.folder == "prior-1"
+    assert prepared.plan.prior.selection == "explicit"
+    assert json.loads(prepared.manifest.read_text())["selection"] == "explicit"
+
+
+def test_the_launcher_leaves_cp8_out_when_the_earlier_custom_run_had_other_modules(tmp_path):
+    make_custom_run(tmp_path / "ws", "prior-1", PLANNED, as_of="2024-12-31")
+    prepared = custom_prepare(tmp_path, ["CP-2"])
+    assert "CP-8" not in prepared.ordered
+    assert prepared.plan.prior is None
+    assert prepared.plan.changes_note is not None
+    assert "prior-1: it did not complete Business & governance, which this run plans" in (
+        prepared.plan.changes_note
+    )
+
+
+def test_a_custom_run_never_takes_an_earlier_preset_run_in_the_launcher(tmp_path):
+    make_run(tmp_path / "ws", "prior-1", as_of="2024-12-31", pathway="deep_credit_assessment")
+    prepared = custom_prepare(tmp_path, ["CP-2"])
+    assert prepared.plan.prior is None and "CP-8" not in prepared.ordered
+
+
 def test_a_prior_handoff_that_is_not_utf8_means_no_cp8_and_the_reason_is_recorded(
     tmp_path, monkeypatch
 ):
@@ -443,6 +610,45 @@ def test_a_run_made_before_layer_1_joined_is_the_base_and_the_added_modules_are_
     assert _analysis_issues(rows("Method change"), pack) == []
     refused = _analysis_issues(rows("New source"), pack)
     assert len(refused) == len(new) and all("write the Cause `Method change`" in i for i in refused)
+
+
+def test_a_pair_of_custom_runs_with_equal_lists_needs_no_cause_beyond_the_checkers_own(tmp_path):
+    """Both runs record `explicit` (a custom run always does), so neither the preset rule (`Method
+    change` for a module that ran once) nor the unrecorded rule applies; with equal lists no module
+    is New or Not run this time, so every row is judged as for any pair (ruling of PR 7a)."""
+    from deploy_workflow.changes_check import _analysis_issues
+
+    make_custom_run(tmp_path / "ws", PRIOR_ID, PLANNED, as_of="2024-12-31")
+    found = find_prior(
+        tmp_path / "ws",
+        folder="cur",
+        issuer_id="nbg",
+        **ME,
+        pathway="custom",
+        as_of="2025-03-31",
+        method=method(),
+        planned=PLANNED,
+    )
+    assert found is not None
+    prior, handoffs = found
+    pack = build_pack(
+        prior,
+        {m: handoff(m, f"{m} earlier view.") for m in handoffs},
+        {m: handoff(m, f"{m} current view.") for m in PLANNED},
+        as_of=AS_OF,
+        pathway="custom",
+        selection="explicit",
+    )
+    assert (pack["prior"]["selection"], pack["current"]["selection"]) == ("explicit", "explicit")
+    assert all(m["ran_prior"] and m["ran_current"] for m in pack["modules"])
+    rows = [
+        [f"Module ({m['module']})", "Unchanged", "None", "No material change."]
+        for m in pack["modules"]
+    ]
+    assert _analysis_issues(rows, pack) == []
+    # A cause the analyst writes for a module that changed is judged by the ordinary rule.
+    changed = [[rows[0][0], "Strengthened", "New source", "A new filing."], *rows[1:]]
+    assert _analysis_issues(changed, pack) == []
 
 
 @pytest.mark.browser
@@ -4622,3 +4828,21 @@ def test_two_runs_on_the_adjusted_names_compare_as_one_measure():
         "yes",
         "-0.54",
     )
+
+
+def test_the_custom_lead_exclusion_list_is_the_same_in_python_the_reader_and_the_report_view():
+    """The list is written in `changes.py`, `reader.js` and `reportView.ts` (ruling C16); each
+    comment names the others. `react_frontend/library_cards.py` `DECISION_MODULES` is another
+    list (the decision modules the card never leads with), so it is not bound here."""
+    from deploy_workflow.changes import NOT_A_CUSTOM_LEAD
+
+    def listed(path: str, name: str) -> frozenset[str]:
+        text = (ROOT / path).read_text(encoding="utf-8")
+        found = re.search(rf"const {name}\s*=\s*\[([^\]]*)\]", text)
+        assert found, f"{name} not found in {path}"
+        return frozenset(re.findall(r"CP-[0-9A-Z]+", found.group(1)))
+
+    reader = listed("apps/issuer-library/credit_os/web/reader.js", "NOT_A_CUSTOM_LEAD")
+    view = listed("web/src/pages/connected/reportView.ts", "NO_CUSTOM_LEAD")
+    assert NOT_A_CUSTOM_LEAD
+    assert reader == view == NOT_A_CUSTOM_LEAD

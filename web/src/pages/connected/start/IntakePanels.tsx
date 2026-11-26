@@ -27,6 +27,7 @@ import {
 } from "./intake";
 import { DocumentFields } from "./DocumentsStep";
 import { PurposeFields } from "./PurposeStep";
+import { CUSTOM } from "./customSelection";
 import { ContextFields } from "./ContextStep";
 import { ReviewConfirmation } from "./ReviewStep";
 import { HEADING_FOCUS, focusStep, invalidMessage, openHolders, type FieldKey } from "./fields";
@@ -96,6 +97,12 @@ function RefusalNotice({ lines }: { lines: readonly string[] }) {
       )}
     </ErrorNotice>
   );
+}
+
+/** What the rail's cap is: a custom run's is an estimate until its summary issues the cap. */
+function capTitle(synthetic: boolean, estimated: boolean) {
+  if (synthetic) return "Configured cap for paid runs";
+  return estimated ? "Estimated cap from earlier runs" : "Spending cap for this run";
 }
 
 export function IntakePanels(props: IntakePanelsProps) {
@@ -211,7 +218,7 @@ export function IntakePanels(props: IntakePanelsProps) {
         <ReadinessRail
           rows={readiness}
           cap={shownCap}
-          capTitle={synthetic ? "Configured cap for paid runs" : "Spending cap for this run"}
+          capTitle={capTitle(synthetic, view.run.pathway === CUSTOM && !review)}
           pathway={pathwayName(view.run.pathway)}
           modules={moduleReadiness(planned, checked, view.run.pathway)}
           source={source}
