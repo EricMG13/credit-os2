@@ -70,9 +70,26 @@ def parts(pages: Sequence[Mapping[str, Any]], limit: int = PART_BYTES) -> list[s
     return [*out, "\n\n".join(current)] if current else out
 
 
+def _page_problem(page: object) -> str | None:
+    """Why ``page`` cannot be put in a part, or None: it needs an int `page`, a UTF-8 `text`."""
+    if not isinstance(page, dict):
+        return "is not a JSON object"
+    number, text = page.get("page"), page.get("text")
+    if not isinstance(number, int) or isinstance(number, bool):
+        return "has no integer `page`"
+    if not isinstance(text, str):
+        return "has no string `text`"
+    try:
+        text.encode()
+    except UnicodeEncodeError as error:
+        return f"has `text` that is not UTF-8 ({error})"
+    return None
+
+
 def _source_pages(name: str, raw: bytes) -> list[dict[str, Any]]:
     """The pages of one source: JSON lines split on newline only, blank lines skipped. A line
-    that cannot be read raises `ReadingStopped` naming the source and the line."""
+    that cannot be read, or is not a page `parts` can use, raises `ReadingStopped` naming the
+    source and the line."""
     try:
         text = raw.decode()
     except UnicodeDecodeError as error:
@@ -82,9 +99,12 @@ def _source_pages(name: str, raw: bytes) -> list[dict[str, Any]]:
         if not line.strip():
             continue
         try:
-            pages.append(json.loads(line))
+            page = json.loads(line)
         except json.JSONDecodeError as error:
             raise ReadingStopped(f"{name}: line {number} is not JSON ({error})") from error
+        if problem := _page_problem(page):
+            raise ReadingStopped(f"{name}: line {number} {problem}")
+        pages.append(page)
     return pages
 
 

@@ -56,3 +56,26 @@ def test_undecodable_source_stops_before_any_call(tmp_path):
     with pytest.raises(ReadingStopped, match=r"b\.jsonl"):
         run(tmp_path, adapter, {"a.jsonl": RAW, "b.jsonl": b"\xff\xfe"})
     assert adapter.requests == []
+
+
+GOOD = b'{"page": 1, "text": "x"}\n'
+
+
+@pytest.mark.parametrize(
+    ("bad", "line"),
+    [
+        (b'{"id":1}\n', 1),
+        (GOOD + b"[1, 2]\n", 2),
+        (GOOD + b"7\n", 2),
+        (b'{"page": true, "text": "x"}\n', 1),
+        (b'{"page": "1", "text": "x"}\n', 1),
+        (GOOD + b'{"page": 2, "text": 5}\n', 2),
+        (b'{"page": 1}\n', 1),
+        (b'{"page": 1, "text": "a\\ud800b"}\n', 1),
+    ],
+)
+def test_malformed_page_stops_before_any_call_naming_source_and_line(tmp_path, bad, line):
+    adapter = StandIn()
+    with pytest.raises(ReadingStopped, match=rf"b\.jsonl.*line {line}\b"):
+        run(tmp_path, adapter, {"a.jsonl": RAW, "b.jsonl": bad})
+    assert adapter.requests == []
