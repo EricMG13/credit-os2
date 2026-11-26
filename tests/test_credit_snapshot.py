@@ -1196,3 +1196,92 @@ def test_the_sheets_two_digit_year_is_read_as_python_reads_it():
         assert snap._maturity(pe.Cell(text)) == want
     assert snap._maturity(pe.Cell("2032-06-27")) == date(2032, 6, 27)
     assert snap._maturity(pe.Cell("#N/A N/A")) is None
+
+
+# --- Task 5 fix 1: unreadable maturities (T5-i), pinned-source failures -------------------
+
+
+def loan_twin(date_text: str) -> str:
+    """CP-1 with the revolver made a term loan whose maturity reads `date_text`."""
+    return (
+        FIXTURE["CP-1"]
+        .replace(
+            "| Revolving Credit Facility | Revolver |", "| Revolving Credit Facility | Term loan |"
+        )
+        .replace("| 2029-06-30 |", f"| {date_text} |")
+    )
+
+
+def moved_cp1(directory: Path, text: str) -> dict:
+    directory.mkdir(exist_ok=True)
+    path = directory / "CP-1.md"
+    path.write_text(text, "utf-8")
+    return {"CP-1": path}
+
+
+def loan_b_kinds(snapshot) -> set[str]:
+    return {c.kind for c in ids(snapshot, LOAN_B).values()}
+
+
+def test_an_unreadable_loan_maturity_on_either_side_stops_every_join(tmp_path):
+    clean = rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1")])
+    snapshot, _ = gathered_with(tmp_path / "ok", clean)  # control: the same sheet joins
+    assert loan_b_kinds(snapshot) == {"copied"}
+    for number, text in enumerate(("31 March 2031", "12/03/2031", "03/12/2031")):
+        directory = tmp_path / f"t{number}"
+        handoffs = moved_cp1(directory, loan_twin(text))
+        snapshot, _ = gathered_with(
+            directory, rv_file(directory, [rv_row("SYN1", "ABCDEFGHIJK1")]), handoffs=handoffs
+        )
+        assert loan_b_kinds(snapshot) == {"analyst"}, text
+    for number, text in enumerate(("garbage", "12/03/2031", "31 March 2031")):
+        directory = tmp_path / f"r{number}"
+        directory.mkdir()
+        rows = [rv_row("SYN1", "ABCDEFGHIJK1"), rv_row("SYN2", "ABCDEFGHIJK2", maturity=text)]
+        snapshot, _ = gathered_with(directory, rv_file(directory, rows))
+        assert loan_b_kinds(snapshot) == {"analyst"}, text
+
+
+def test_a_vendor_error_token_or_a_blank_maturity_does_not_stop_a_join(tmp_path):
+    for number, text in enumerate(("#N/A N/A", "")):
+        directory = tmp_path / str(number)
+        directory.mkdir()
+        rows = [rv_row("SYN1", "ABCDEFGHIJK1"), rv_row("SYN2", "ABCDEFGHIJK2", maturity=text)]
+        snapshot, _ = gathered_with(directory, rv_file(directory, rows))
+        assert ids(snapshot, LOAN_B)["Bloomberg ID"].text == "SYN1", text
+
+
+def test_a_maturity_with_surrounding_spaces_is_read_the_same_on_both_sides(tmp_path):
+    handoffs = moved_cp1(tmp_path, loan_twin("2029-06-30"))
+    rows = [rv_row("SYN1", "ABCDEFGHIJK1", maturity=" 31-Mar-31 ")]
+    snapshot, _ = gathered_with(tmp_path, rv_file(tmp_path, rows), handoffs=handoffs)
+    assert ids(snapshot, LOAN_B)["Bloomberg ID"].text == "SYN1"
+    assert snap.read_day(" 2031-03-31 ") == date(2031, 3, 31)
+    assert snap.read_day("12/03/2031") is None
+
+
+def test_a_source_whose_hash_fails_is_skipped_logged_and_leaves_the_gap_line(tmp_path, caplog):
+    built = cs.build_case(
+        tmp_path,
+        replace(cs.CASES["full"], sources=(rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1")]),)),
+    )
+    pin = json.loads((built.folder / "workflow.json").read_text())["sources"]["rv.csv"]
+    stored = built.folder / "inputs" / pin["sha256"]
+    stored.write_bytes(stored.read_bytes() + b"\n")
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        run = snap.load_run(built.folder, built.stores.both())
+    assert run.market == ()
+    assert [r for r in caplog.records if "rv.csv" in r.getMessage()]
+    snapshot = snap.gather(run)
+    assert where(snapshot, "Market identifiers")[0].text == snap.NO_MARKET
+    assert loan_b_kinds(snapshot) == {"analyst"}
+
+
+def test_two_sources_that_together_make_a_date_ambiguous_join_nothing(tmp_path):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    first = rv_file(tmp_path / "a", [rv_row("SYN1", "ABCDEFGHIJK1")], name="one.csv")
+    second = rv_file(tmp_path / "b", [rv_row("SYN2", "ABCDEFGHIJK2")], name="two.csv")
+    snapshot, _ = gathered_with(tmp_path, first, second)
+    assert loan_b_kinds(snapshot) == {"analyst"}
+    assert len({(c.section, c.row) for c in where(snapshot, "Market identifiers")}) == 2

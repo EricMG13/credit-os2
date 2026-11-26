@@ -201,6 +201,7 @@ class MarketRow:
     line: int
     cells: Mapping[str, str]
     maturity: date | None
+    unreadable: bool = False
 
 
 @dataclass(frozen=True)
@@ -824,18 +825,27 @@ def _instruments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """The T4.18 instruments, each with its FIGI and Bloomberg ID. An instrument is joined to a
     sheet row only when their maturities are the same date, that date is on exactly one of the
     issuer's sheet rows and exactly one instrument, both are loans, and the sheet row has an
-    identifier; otherwise the two cells are the analyst's."""
+    identifier; otherwise the two cells are the analyst's. No join is made while any loan row on
+    either side has a maturity that is stated but cannot be read (ruling T5-i): its date may be
+    the one being matched."""
     cells = _copy_table("CP-1", "T4.18", ("Instrument",))(run, mk)
     table = run.register("CP-1", "T4.18")
     type_at, date_at = _optional(table, "Type"), _optional(table, "Maturity")
-    days = [pe.text_date(row.cells[date_at]) if date_at is not None else None for row in table.rows]
+    texts = [row.cells[date_at] if date_at is not None else "" for row in table.rows]
+    days = [read_day(text) for text in texts]
+    kinds = [
+        _asset_type(row.cells[type_at]) if type_at is not None else "unknown" for row in table.rows
+    ]
     matched = run.matched()
-    for row, day in zip(table.rows, days, strict=True):
+    unread = any(
+        kind == "loan" and _unreadable(text, day)
+        for kind, text, day in zip(kinds, texts, days, strict=True)
+    ) or any(row.unreadable and _rv_loan(row) for _, row in matched)
+    for row, day, kind in zip(table.rows, days, kinds, strict=True):
         same = [(s, r) for s, r in matched if day is not None and r.maturity == day]
-        kind = _asset_type(row.cells[type_at]) if type_at is not None else "unknown"
         joined = (
             same[0]
-            if len(same) == 1 and days.count(day) == 1 and kind == "loan"
+            if not unread and len(same) == 1 and days.count(day) == 1 and kind == "loan"
             and _rv_loan(same[0][1]) and _present(same[0][1])
             else None
         )  # fmt: skip
@@ -1842,16 +1852,34 @@ def _source_rows(raw: bytes) -> list[Cells]:
     return [[(n, [pe.Cell(cell) for cell in row]) for n, row in enumerate(reader, 1)]]
 
 
-def _maturity(cell: pe.Cell) -> date | None:
-    """A sheet maturity: a date cell or a full-year text as `portfolio_export` reads it, else the
-    sheet's own `27-Jun-32` form (`%y`: 2000-2068 for 00-68)."""
-    found = pe.read_date(cell)
+_SLASH_DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
+
+
+def read_day(text: str) -> date | None:
+    """A maturity as one date, surrounding spaces ignored on both sides of a join: a full-year
+    form `portfolio_export` reads, else the sheet's `27-Jun-32` (`%y`: 2000-2068 for 00-68). A
+    slash date (`dd/dd/dddd`) is unreadable: its day and month order is not stated."""
+    text = text.strip()
+    if _SLASH_DATE.fullmatch(text):
+        return None
+    found = pe.text_date(text)
     if found is not None:
         return found
     try:
-        return datetime.strptime(cell.text.strip(), "%d-%b-%y").date()
+        return datetime.strptime(text, "%d-%b-%y").date()
     except ValueError:
         return None
+
+
+def _unreadable(text: str, day: date | None) -> bool:
+    """A maturity that is stated (not empty, not a vendor error token) but gave no date."""
+    stated = text.strip()
+    return day is None and bool(stated) and not pe.TOKEN.match(stated)
+
+
+def _maturity(cell: pe.Cell) -> date | None:
+    """A sheet maturity: a date cell as `portfolio_export` reads it, else `read_day` of its text."""
+    return pe.read_date(cell) if cell.date_format else read_day(cell.text)
 
 
 def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
@@ -1889,7 +1917,8 @@ def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
             column: (cell.text if not cell.date_format else _shown(cell))
             for column, cell in held.items()
         }
-        body.append(MarketRow(number, texts, _maturity(held["Maturity"])))
+        day = _maturity(held["Maturity"])
+        body.append(MarketRow(number, texts, day, _unreadable(texts["Maturity"], day)))
     return MarketSheet(file, sha256, tuple(body))
 
 

@@ -96,16 +96,23 @@ def test_every_formula_is_a_formula_cell_with_a_formula_row_on_sources_and_no_va
 REFERENCE = re.compile(r"(?:([A-Za-z]+)!)?(\$?[A-Z]{1,3}\$?[0-9]+)(?::(\$?[A-Z]{1,3}\$?[0-9]+))?")
 
 
-def joined_blank(sheet, cell) -> bool:
-    """An empty, unfilled cell under an Inputs `FIGI` or `Bloomberg ID` header: a joined instrument
-    whose RV worksheet row lacks that identifier (owner's rule: left empty, no Sources row)."""
+def joined_blank(sheet, cell, copied) -> bool:
+    """A blank identifier cell the writer left on purpose: unfilled, empty, under an Inputs `FIGI`
+    or `Bloomberg ID` header, with no Sources row of its own, and beside the other identifier of
+    the same instrument, which is a copied cell (the instrument was joined; owner's rule)."""
     above = [c.value for c in sheet[cell.column_letter][: cell.row]]
-    return cell.fill.fill_type is None and ("FIGI" in above or "Bloomberg ID" in above)
+    heads = [h for h in above if h in ("FIGI", "Bloomberg ID")]
+    if cell.fill.fill_type is not None or not heads:
+        return False
+    step = 1 if heads[-1] == "FIGI" else -1
+    twin = sheet.cell(row=cell.row, column=cell.column + step)
+    return twin.value not in (None, "") and (sheet.title, twin.coordinate) in copied
 
 
 def test_every_name_in_a_formula_is_a_cell_the_file_holds(book, bare):
     for opened in (book, bare):
         analyst = {(r["Sheet"], r["Cell"]) for r in sources(opened) if r["Kind"] == "analyst"}
+        copied = {(r["Sheet"], r["Cell"]) for r in sources(opened) if r["Kind"] == "copied"}
         for sheet, address, text in formulas(opened):
             for found in REFERENCE.finditer(re.sub(r'"[^"]*"', "", text)):
                 named, first, last = found.groups()
@@ -124,12 +131,23 @@ def test_every_name_in_a_formula_is_a_cell_the_file_holds(book, bare):
                     assert (
                         held.value not in (None, "")
                         or (named, held.coordinate) in analyst
-                        or joined_blank(target, held)
+                        or joined_blank(target, held, copied)
                     ), (
                         sheet,
                         address,
                         first,
                     )
+
+
+def test_only_a_joined_instruments_blank_identifier_may_be_named_empty(book):
+    sheet = book["Inputs"]
+    copied = {(r["Sheet"], r["Cell"]) for r in sources(book) if r["Kind"] == "copied"}
+    figi = next(c for row in sheet.iter_rows() for c in row if c.value == "FIGI")
+    rows = [sheet.cell(row=figi.row + n, column=figi.column) for n in range(1, 6)]
+    blank = [c for c in rows if joined_blank(sheet, c, copied)]
+    assert [c.row for c in blank] == [figi.row + 1]  # Term Loan B only
+    empty_row = sheet.cell(row=figi.row + 6, column=figi.column)  # one row past the table
+    assert empty_row.value in (None, "") and not joined_blank(sheet, empty_row, copied)
 
 
 def test_a_name_the_workbook_does_not_hold_is_refused_loudly():
