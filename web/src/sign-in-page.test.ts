@@ -11,8 +11,7 @@ describe("standalone sign-in page", () => {
     expect(page).not.toContain("Use your organisation account");
     expect(page).toContain('href="/auth/start"');
     expect(page.match(/<!-- sign-in-error -->/g)).toHaveLength(1);
-    expect(page).toMatch(/#1d4ed8/i);
-    expect(page).toContain(":focus-visible");
+    expect(page).toMatch(/:focus-visible\s*\{[^}]*outline:\s*3px solid rgb\(29,\s*78,\s*216\)/i);
     expect(page).toContain("/symbol.svg");
     expect(page).toContain("/fonts/Geist-Regular.woff2");
     expect(page).toContain("/fonts/Geist-SemiBold.woff2");

@@ -36,6 +36,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   loopback callback and imported its returned session cookie. The browser showed the actual fixed
   400 callback alert, Reader, Admin after passcode and the signed-out page. The sign-in view loaded
   three initial resources. All 40 browser requests stayed on loopback.
+- GitHub's first run passed Python, import and leak checks. Its theme test found two inline hex
+  literals. The account trigger now uses the existing focus token, and the standalone test checks
+  the equivalent RGB color within the focus rule. All 32 targeted web tests and the web gates
+  passed. A fresh Chromium run confirmed the same focus color and completed all 40 requests on
+  loopback. The GPT task and architecture closure reviews passed.
 - Not verified: real Entra, browser navigation through Microsoft, live TLS rollout and native
   Windows (TODO item 15), all excluded by the owner. The browser proof used the integrated local
   provider. The full weekly suite and draft CI are separate from these local checks.

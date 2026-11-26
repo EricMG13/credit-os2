@@ -57,7 +57,9 @@ describe("AccountControl", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<AccountControl navigate={navigate} />);
-    fireEvent.click(await screen.findByRole("button", { name: /Ada Analyst.*Reader/ }));
+    const trigger = await screen.findByRole("button", { name: /Ada Analyst.*Reader/ });
+    expect(trigger).toHaveClass("outline-focus-ring");
+    fireEvent.click(trigger);
     expect(screen.getByText("Reader profile")).toBeInTheDocument();
     const passcode = screen.getByLabelText("Admin passcode");
     fireEvent.change(passcode, { target: { value: "actual-passcode" } });

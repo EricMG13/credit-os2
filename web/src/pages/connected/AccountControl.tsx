@@ -149,7 +149,7 @@ export function AccountControl({
   return (
     <div className="relative flex min-h-14 shrink-0 items-center">
       <Button
-        className="focus-visible:outline-[#1D4ED8]"
+        className="outline-focus-ring"
         size="sm"
         color="secondary"
         aria-expanded={open}
