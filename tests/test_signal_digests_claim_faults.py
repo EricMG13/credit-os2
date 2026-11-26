@@ -17,7 +17,7 @@ from test_signal_digest import NOW, RecordingWriter, at, count, make, source, st
 
 from deploy_workflow.signal import digests, store
 from deploy_workflow.signal.feeds import Entry
-from deploy_workflow.signal.store import Conflict
+from deploy_workflow.signal.store import Conflict, Missing
 
 DUE = at("2026-11-27 07:00")
 
@@ -26,6 +26,7 @@ DUE = at("2026-11-27 07:00")
 def db(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     database = store.open_db(tmp_path)
     store.add_user(database, "Mara L", "writer")
+    store.add_user(database, "Tobias O", "reader")
     yield database
     database.close()
 
@@ -318,3 +319,126 @@ def test_l2_a_release_leaves_a_claim_that_is_no_longer_this_runs(db):
         "2026-11-27T07:05:00+00:00",
         "2026-12-04T07:00:00+00:00",
     )
+
+
+# C5-S1: a stale claim that cannot be recorded never stops the pass or a request, and "Run once now"
+# settles only its own digest's claim
+
+LATE = DUE + timedelta(hours=2)  # 09:00: a claim made at 07:00 is older than CALL_BOUND (31 min)
+CLAIM = "2026-11-27T07:00:00+00:00"
+
+
+def _held(db, ident, period_from=None):
+    db.execute(
+        "UPDATE digests SET claimed_by='schedule', claimed_at=?, next_run_at=? WHERE id=?",
+        (CLAIM, "2026-12-04T07:00:00+00:00", ident),
+    )
+    if period_from is not None:
+        db.execute("UPDATE digests SET period_from=? WHERE id=?", (period_from, ident))
+    db.commit()
+
+
+def _claim(db, ident):
+    return db.execute("SELECT claimed_at FROM digests WHERE id=?", (ident,)).fetchone()[0]
+
+
+def _runs(db, ident):
+    return [
+        tuple(r)
+        for r in db.execute(
+            "SELECT trigger, ran_at, reason FROM digest_runs WHERE digest_id=?", (ident,)
+        )
+    ]
+
+
+def test_busy_settle_holds_that_claim_and_the_pass_goes_on(db, monkeypatch):
+    story(db, source(db), "Plant closure", at("2026-11-26 09:00"))
+    a, b = make(db), make(db, name="Second brief")
+    _held(db, a)
+    real = digests._close
+
+    def close(*args: Any) -> None:
+        if args[1].digest.id == a:
+            raise _busy()
+        real(*args)
+
+    monkeypatch.setattr(digests, "_close", close)
+    writer = RecordingWriter()
+    ran = digests.run_due(db, LATE, writer)
+    assert [(i, r.outcome) for i, r in ran] == [(b, "written")]
+    assert (ran.held, ran.left_due, ran.waiting) == ([a], [], [])
+    assert _claim(db, a) == CLAIM and _runs(db, a) == []
+    monkeypatch.setattr(digests, "_close", real)
+    again = digests.run_due(db, LATE + timedelta(minutes=1), writer)
+    assert (list(again), again.held, again.left_due) == ([], [], [])
+    assert _claim(db, a) is None
+    assert _runs(db, a) == [("schedule", "2026-11-27T09:01:00+00:00", digests.UNRECORDED)]
+    assert len(writer.scopes) == 1
+
+
+def test_unreadable_stale_row_is_held_every_tick_and_others_run(db):
+    story(db, source(db), "Plant closure", at("2026-11-26 09:00"))
+    a, b = make(db), make(db, name="Second brief")
+    _held(db, a, period_from="not a time")
+    writer = RecordingWriter()
+    ran = digests.run_due(db, LATE, writer)
+    assert [(i, r.outcome) for i, r in ran] == [(b, "written")]
+    assert (ran.held, ran.left_due) == ([a], [])
+    again = digests.run_due(db, LATE + timedelta(minutes=1), writer)
+    assert (list(again), again.held, again.left_due) == ([], [a], [])
+    assert _claim(db, a) == CLAIM and len(writer.scopes) == 1
+
+
+def test_unknown_id_writes_nothing(db):
+    a = make(db)
+    _held(db, a)
+    with pytest.raises(Missing):
+        digests.request_run(db, "Mara L", 999, LATE)
+    assert _claim(db, a) == CLAIM and count(db, "digest_runs") == 0
+
+
+def test_other_owner_id_writes_nothing_and_own_request_leaves_others_claim(db):
+    a = make(db)
+    b = make(db, "Tobias O", name="His brief")
+    _held(db, a)
+    with pytest.raises(Missing):
+        digests.request_run(db, "Tobias O", a, LATE)
+    digests.request_run(db, "Tobias O", b, LATE)
+    assert _claim(db, a) == CLAIM and count(db, "digest_runs") == 0
+    assert (
+        db.execute("SELECT run_requested_at FROM digests WHERE id=?", (b,)).fetchone()[0]
+        == "2026-11-27T09:00:00+00:00"
+    )
+
+
+def test_unreadable_other_row_does_not_fail_a_request(db):
+    a = make(db)
+    b = make(db, "Tobias O", name="His brief")
+    _held(db, a, period_from="not a time")
+    digests.request_run(db, "Tobias O", b, LATE)
+    assert (
+        db.execute("SELECT run_requested_at FROM digests WHERE id=?", (b,)).fetchone()[0]
+        == "2026-11-27T09:00:00+00:00"
+    )
+
+
+def test_own_stale_claim_settled_and_refused_and_kept(db):
+    a = make(db)
+    _held(db, a)
+    with pytest.raises(
+        Conflict, match="This digest ran at 09:00 UTC. It can run again from 09:30 UTC."
+    ):
+        digests.request_run(db, "Mara L", a, LATE)
+    assert _claim(db, a) is None
+    assert _runs(db, a) == [("schedule", "2026-11-27T09:00:00+00:00", digests.UNRECORDED)]
+
+
+def test_claim_exactly_call_bound_old_is_refused_and_not_paid_twice(db):
+    story(db, source(db), "Plant closure", at("2026-11-26 09:00"))
+    a = make(db)
+    _held(db, a)
+    with pytest.raises(Conflict):
+        digests.request_run(db, "Mara L", a, DUE + timedelta(minutes=31))
+    writer = RecordingWriter()
+    digests.run_due(db, DUE + timedelta(minutes=32), writer)
+    assert len(writer.scopes) == 0

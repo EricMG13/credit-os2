@@ -112,8 +112,9 @@ def story_pass(db: sqlite3.Connection, now: datetime, setup: Setup) -> ai_pass.R
 class DigestsLeftDue(RuntimeError):
     """A pass left digests due by a fault (a busy database before anything was sent, or a call the
     adapter did not send), or holds digests whose claim it could not release (a busy database after
-    a paid call: not due again, the claim stays for the next start); digests left waiting for a
-    limit or a refusal are not a fault."""
+    a paid call: not due again, the claim is held until older than ``ai_ledger.CALL_BOUND``, when
+    the next pass or the digest's "Run once now" records it as unrecorded); digests left waiting
+    for a limit or a refusal are not a fault."""
 
 
 def digest_pass(

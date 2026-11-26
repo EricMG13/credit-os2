@@ -58,14 +58,15 @@ now. A run that fails because the database is busy or locked (SQLITE_BUSY, SQLIT
 model call was reserved or sent (``ai_call.BusyBeforeSend``), or whose call the adapter did not
 send, is left due as it was, so the next tick retries it, and the pass says how many it left
 (``Ran.left_due``). A busy or locked database after the call may have been paid (in it, or storing
-its issue) is never made due again, which would pay twice for the period: the claim is held for
-``recover_claims`` and the digest is listed in ``Ran.held`` (``ai_run.digest_pass`` raises for
-both); the next scheduled slot covers the period, which did not move. A run left for the writer's
-limits or a refusal is ``Ran.waiting``; any other failure, a lasting database fault included, is
-recorded as skipped and the digest moves to its next slot. A run that needs a call the writer cannot
-make now (it has stopped, or the owner's name has made its calls for the day) is left exactly as it
-was, and the pass goes on: runs with nothing in scope, and other names' runs, are never held up
-behind it. Every write is one write transaction.
+its issue) is never made due again, which would pay twice for the period: the claim is held until
+it is older than ``ai_ledger.CALL_BOUND``, when the next pass or this digest's "Run once now"
+records it as ``UNRECORDED``, and the digest is listed in ``Ran.held`` (``ai_run.digest_pass``
+raises for both); the next scheduled slot covers the period, which did not move. A run left for
+the writer's limits or a refusal is ``Ran.waiting``; any other failure, a lasting database fault
+included, is recorded as skipped and the digest moves to its next slot. A run that needs a call
+the writer cannot make now (it has stopped, or the owner's name has made its calls for the day) is
+left exactly as it was, and the pass goes on: runs with nothing in scope, and other names' runs,
+are never held up behind it. Every write is one write transaction.
 """
 
 from __future__ import annotations
@@ -231,14 +232,16 @@ class _RetryLater(Exception):
 class _ClaimHeld(Exception):
     """A busy or locked database after a run's claim, and the digest is not due again: its claim
     could not be released, is not this run's any more, or its paid call must not be repeated. The
-    claim is left for ``recover_claims``; the digest is in ``Ran.held``, not ``left_due``."""
+    claim is held until older than ``ai_ledger.CALL_BOUND``, when the next pass or this digest's
+    "Run once now" records it as ``UNRECORDED``; the digest is in ``Ran.held``, not ``left_due``."""
 
 
 class Ran(list[tuple[int, "Run"]]):
     """The runs a pass made; the digests it left due for the next tick by a fault (`left_due`: a
     busy database before anything was sent, a call not sent), those left waiting because the writer
     stopped for a limit or a refusal (`waiting`), and those whose claim is held (`held`: a busy
-    database after a paid call may have been made; not due again, see ``_ClaimHeld``)."""
+    database after a paid call may have been made; not due again, see ``_ClaimHeld``; also a stale
+    claim that could not be recorded, see ``_settle_stale_claims``)."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -875,7 +878,8 @@ def _release(db: sqlite3.Connection, scope: Scope) -> bool:
     """Make the digest due again (``_due_again``); False when the digest changed meanwhile (its
     claim is cleared and its own schedule stands: nothing is left due). _ClaimHeld when that is not
     done: the claim is no longer this run's, or the restoring write met the same busy or locked
-    database (logged; the claim is left for ``recover_claims`` at the next start)."""
+    database (logged; the claim is held until older than ``ai_ledger.CALL_BOUND``, when the next
+    pass or this digest's "Run once now" records it as ``UNRECORDED``)."""
     try:
         restored = _due_again(db, scope)
     except sqlite3.OperationalError as error:
@@ -891,7 +895,8 @@ def _release(db: sqlite3.Connection, scope: Scope) -> bool:
 @contextmanager
 def _holding(scope: Scope) -> Iterator[None]:
     """A busy or locked database where the run must not be made due again (its call was or may
-    have been paid): the claim is kept for ``recover_claims`` and the digest is not left due."""
+    have been paid): the claim is kept until older than ``ai_ledger.CALL_BOUND`` (the next pass or
+    this digest's "Run once now" then records it as ``UNRECORDED``); the digest is not left due."""
     try:
         yield
     except sqlite3.OperationalError as error:
@@ -1034,21 +1039,24 @@ def request_run(db: sqlite3.Connection, owner: str, digest_id: int, now: datetim
     """Ask the background loop to run the owner's digest once (``run_due``): "Run once now" while
     AI is on, so no model call is made in a request handler. Refused as ``run_now`` is; asking
     again while a run is asked for keeps its first time, and so its place among the due digests.
-    Refused too while a run's claim is live (its model call in flight, no run recorded yet; a
-    claim older than ``ai_ledger.CALL_BOUND`` is not: it is recorded as a run first, so the request
-    is refused until the next slot)."""
-    _settle_stale_claims(db, now)
+    Refused too while the digest's claim is held (its model call in flight, no run recorded yet).
+    Only this digest's claim is settled, after the owner check: one older than
+    ``ai_ledger.CALL_BOUND`` is recorded as a run (``UNRECORDED``) first, so the request is refused
+    until the next slot. The refusal is raised after that record is committed."""
     with _write_transaction(db):
-        _may_run_now(db, owned(db, owner, digest_id), now)
-        live = _utc_text(now - ai_ledger.CALL_BOUND)  # an older claim is left for recovery
-        if db.execute(
-            "SELECT 1 FROM digests WHERE id=? AND claimed_at > ?", (digest_id, live)
-        ).fetchone():
-            raise Conflict("This digest is being written now; it can run again once that is done.")
-        db.execute(
-            "UPDATE digests SET run_requested_at=coalesce(run_requested_at, ?) WHERE id=?",
-            (_utc_text(now), digest_id),
-        )
+        digest = owned(db, owner, digest_id)  # Missing before anything is written
+        _settle_stale(db, digest_id, now)  # this digest's own stale claim only
+        refusal = _run_refusal(db, digest, now)
+        claimed = "SELECT 1 FROM digests WHERE id=? AND claimed_at IS NOT NULL"
+        if refusal is None and db.execute(claimed, (digest_id,)).fetchone():
+            refusal = "This digest is being written now; it can run again once that is done."
+        if refusal is None:
+            db.execute(
+                "UPDATE digests SET run_requested_at=coalesce(run_requested_at, ?) WHERE id=?",
+                (_utc_text(now), digest_id),
+            )
+    if refusal is not None:  # raised after the commit, so a stale claim's record is kept
+        raise Conflict(refusal)
 
 
 def _run_scheduled(
@@ -1097,21 +1105,45 @@ def recover_claims(
             (_utc_text(before),),
         ).fetchall()
         for row in rows:
-            digest = _digest(db, row)
-            claimed = datetime.fromisoformat(row["claimed_at"])
-            scope = Scope(digest, min(digest.period_from, claimed), claimed, (), digest.story_mark)
-            _close(db, scope, Run("skipped", None, 0, reason), row["claimed_by"], now)
+            _settle(db, row, now, reason)
     return len(rows)
 
 
-def _settle_stale_claims(db: sqlite3.Connection, now: datetime) -> None:
-    """In a running process: a claim older than ``ai_ledger.CALL_BOUND`` (no call lasts so long) is
-    a paid attempt whose result was never recorded (a busy store held it). It is recorded as a run
-    that wrote no issue (``UNRECORDED``), so "Run once now" waits for the next slot like after any
-    paid attempt (one paid attempt per period). Written only when such a claim exists."""
+def _settle(db: sqlite3.Connection, row: sqlite3.Row, now: datetime, reason: str) -> None:
+    """Inside the caller's write transaction: the run `row` claimed, recorded with `reason` as a
+    paid attempt that wrote no issue (its period stays)."""
+    digest = _digest(db, row)
+    claimed = datetime.fromisoformat(row["claimed_at"])
+    log.warning("digest %s: its run claimed at %s left no result (%s)", digest.id, claimed, reason)
+    scope = Scope(digest, min(digest.period_from, claimed), claimed, (), digest.story_mark)
+    _close(db, scope, Run("skipped", None, 0, reason), row["claimed_by"], now)
+
+
+def _settle_stale(db: sqlite3.Connection, digest_id: int, now: datetime) -> None:
+    """Inside the caller's write transaction: the digest's claim, if older than
+    ``ai_ledger.CALL_BOUND`` (no call lasts so long), is a paid attempt whose result was never
+    recorded (a busy store held it); it is recorded as one that wrote no issue (``UNRECORDED``), so
+    "Run once now" waits for the next slot (one paid attempt per period)."""
     before = _utc_text(now - ai_ledger.CALL_BOUND)
-    if db.execute("SELECT 1 FROM digests WHERE claimed_at < ?", (before,)).fetchone():
-        recover_claims(db, now - ai_ledger.CALL_BOUND, now, UNRECORDED)
+    row = db.execute(
+        "SELECT * FROM digests WHERE id=? AND claimed_at < ?", (digest_id, before)
+    ).fetchone()
+    if row is not None:
+        _settle(db, row, now, UNRECORDED)
+
+
+def _settle_stale_claims(db: sqlite3.Connection, now: datetime, results: Ran) -> None:
+    """Every stale claim settled (``_settle_stale``), each in its own write transaction. One that
+    cannot be (a busy store, an unreadable row) is logged and stays held (``Ran.held``); the pass
+    goes on."""
+    before = _utc_text(now - ai_ledger.CALL_BOUND)
+    for found in db.execute("SELECT id FROM digests WHERE claimed_at < ?", (before,)).fetchall():
+        try:
+            with _write_transaction(db):
+                _settle_stale(db, int(found["id"]), now)
+        except Exception:  # documented: logged, listed in held, raised by ai_run.digest_pass
+            log.exception("digest %s: its stale claim could not be recorded", found["id"])
+            results.held.append(int(found["id"]))
 
 
 def _record_failure(
@@ -1197,20 +1229,22 @@ def run_due(db: sqlite3.Connection, now: datetime, writer: Writer | None = None)
     A digest whose run raises is logged and recorded as skipped, its digest moved to its next slot,
     unless the fault may pass (the database was busy or locked before the call was reserved or sent,
     or the writer's call was not sent): that one is left due for the next tick and listed in
-    ``left_due``; a busy database after a call may have been paid holds its claim (``held``). Either
-    way the pass goes on to the others, even when recording a failure fails too. A run that needs a
-    call the writer cannot make now (``Writer.blocked``: the writer stopped, at a refused call, a
-    call not sent or its limits for this pass, or the owner's name has made its calls for the day)
+    ``left_due``; a busy database after a call may have been paid holds its claim (``held``). A
+    claim older than ``ai_ledger.CALL_BOUND`` is recorded first (``UNRECORDED``), each in its own
+    transaction; one that cannot be recorded is logged and listed in ``held``. Either way the pass
+    goes on to the others, even when recording a failure fails too. A run that needs a call the
+    writer cannot make now (``Writer.blocked``: the writer stopped, at a refused call, a call not
+    sent or its limits for this pass, or the owner's name has made its calls for the day)
     is left due exactly as it was, changing nothing, and listed in ``waiting`` (in ``left_due`` when
     the stop was a call not sent); it does not count among the pass's runs, and the pass goes on, so
     the runs that need no call (nothing in scope) and other names' runs are never held up."""
-    _settle_stale_claims(db, now)
+    results = Ran()
+    _settle_stale_claims(db, now, results)
     due = db.execute(
         "SELECT id FROM digests WHERE next_run_at <= ? OR run_requested_at IS NOT NULL"
         " ORDER BY min(next_run_at, coalesce(run_requested_at, next_run_at)), id LIMIT ?",
         (_utc_text(now), MAX_ALL_DIGESTS),
     ).fetchall()
-    results = Ran()
     for row in due:
         if len(results) >= DUE_PER_PASS:
             break
