@@ -513,9 +513,7 @@ class Server(service._Server):
 def _is_inside(folder: Path, root: Path) -> bool:
     """Whether ``folder`` is ``root`` or under it by file identity (a case variant or an alias of
     the volume names the same folder): ``folder`` itself or any ancestor that exists is the same
-    file as ``root``. Creates nothing."""
-    if not root.exists():
-        return False
+    file as ``root`` (``root`` exists). Creates nothing."""
     return any(p.exists() and os.path.samefile(p, root) for p in (folder, *folder.parents))
 
 
@@ -533,8 +531,14 @@ def _accounts_folder(
         raise ValueError("sign-in needs the account store's folder")
     if not accounts_dir.is_absolute():  # before resolving: the store's own refusal, first
         raise account_store.StoreError(account_store.RELATIVE_FOLDER)
+    if not root.exists():  # so the identity check below always has a root to compare with
+        raise ValueError("sign-in needs the shared folder to exist")
     folder = accounts_dir.resolve()
-    if folder.is_relative_to(root.resolve()) or _is_inside(accounts_dir, root):
+    if (
+        folder.is_relative_to(root.resolve())
+        or _is_inside(accounts_dir, root)
+        or _is_inside(folder, root)
+    ):
         raise ValueError("the account store's folder must not be inside the shared folder")
     account_store.open_db(folder).close()
     return folder

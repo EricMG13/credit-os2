@@ -494,3 +494,42 @@ def test_only_the_header_that_holds_the_name_is_parsed(
         status, body, _ = send(server, "/auth/me", cookies=headers)
     assert (status, json.loads(body)) == (200, ME)
     assert len(loads) == 1
+
+
+# fix round 2 (F1) ----------------------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("no_scheduler")
+def test_a_dot_dot_spelling_that_resolves_into_the_shared_folder_is_inside_it(
+    web: Path, tmp_path: Path
+) -> None:
+    if not _case_insensitive(tmp_path / "probe"):
+        pytest.skip("the filesystem is case-sensitive, so a case variant is another folder")
+    shared = tmp_path / "Shared"
+    shared.mkdir()
+    _refused(
+        shared,
+        web,
+        ValueError,
+        INSIDE,
+        sign_in=True,
+        accounts_dir=tmp_path / "missing" / ".." / "SHARED" / "acc",
+    )
+    assert not (shared / "acc").exists()
+
+
+@pytest.mark.usefixtures("no_scheduler")
+def test_a_missing_shared_folder_is_refused_and_nothing_is_created(
+    web: Path, tmp_path: Path
+) -> None:
+    absent = tmp_path / "Absent"
+    _refused(
+        absent,
+        web,
+        ValueError,
+        "sign-in needs the shared folder to exist",
+        sign_in=True,
+        accounts_dir=tmp_path / "store",
+    )
+    assert not absent.exists()
+    assert not (tmp_path / "store").exists()
