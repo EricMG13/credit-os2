@@ -101,7 +101,7 @@ def test_an_issue_of_an_unknown_kind_is_left_out_and_the_rest_stays_readable(db,
 
 def test_the_store_refuses_an_issue_kind_it_does_not_know(db):
     ident = make(db)
-    scope = digests.Scope(digests.owned(db, "Mara L", ident), NOW, NOW, ())
+    scope = digests.Scope(digests.owned(db, "Mara L", ident), NOW, NOW, (), 0)
     with pytest.raises(store.StoreError):
         digests.add_issue(db, scope, "something-else", NOW)
 
