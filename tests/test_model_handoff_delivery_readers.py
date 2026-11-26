@@ -1,4 +1,4 @@
-"""S03 C1 fix round 1, dispatch B: Model reader zero, missing row, issuer aliases, layout-less
+"""Model reader zero, missing row, issuer aliases, layout-less
 handoff comments. Scope: the readers and build_model's input checks, not a full Model."""
 
 from __future__ import annotations

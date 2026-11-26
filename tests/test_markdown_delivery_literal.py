@@ -1,4 +1,4 @@
-"""S03 C1 fix A: comment spans, table recognition, fenced headings, named errors, Gaps items."""
+"""comment spans, table recognition, fenced headings, named errors, Gaps items."""
 
 from __future__ import annotations
 
