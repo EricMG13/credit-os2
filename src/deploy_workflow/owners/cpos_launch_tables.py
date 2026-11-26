@@ -103,6 +103,7 @@ class OwnerTable:
     )
     scored: bool = False  # The confidence inputs table: its rows are `confidence`'s, not columns.
     money_table: bool = False  # `chart_unit` is the handoff's resolved money unit (`MONEY` was it).
+    id_column: str = ""  # A bridge's id column, after the value columns (CP-1's `Add-Back ID`).
 
     @property
     def bare(self) -> bool:
@@ -331,13 +332,17 @@ OWNER_TABLES: dict[str, tuple[OwnerTable, ...]] = {
             ("Amount",),
             MONEY,
             steps=True,
+            id_column="Add-Back ID",
             rules=(
                 "The first row is the reported measure and the last row is the specified "
                 "adjusted measure the method names; name both in Basis and limitation. The "
                 "rows between are the signed adjustments the method states, each as stated: do "
                 "not manufacture intermediate adjustments from the endpoints. If the method "
                 "states only the endpoints, or its adjustments do not reconcile them, write "
-                "`Not supplied: <reason>` in every Amount."
+                "`Not supplied: <reason>` in every Amount. Add-Back ID numbers the add-backs "
+                "`AB-1`, `AB-2`, ... in bridge order, each once; a negative adjustment is an "
+                "add-back with a minus sign; the first row, the last row and any subtotal hold "
+                "`Not applicable`."
             ),
         ),
     ),
@@ -824,6 +829,8 @@ def _chart_header(table: MarkdownRoute | OwnerTable) -> list[str]:
     spec = _owner_table(table)
     first = "Step" if spec.steps else "Period"
     leading = list(spec.columns) or [first, *spec.value_columns]
+    if spec.id_column:
+        leading.append(spec.id_column)
     if spec.bare:
         return leading
     return [*leading, "Reporting unit", "Basis and limitation"]
@@ -879,6 +886,51 @@ def _bridge_issues(heading: str, rows: list[list[str]]) -> list[str]:
             )
         ]
     return []
+
+
+ADD_BACK_ID = re.compile(r"AB-([1-9][0-9]*)")
+NOT_APPLICABLE = "Not applicable"
+
+
+def _add_back_id_issues(
+    heading: str, column: str, rows: list[list[str]], ids: list[str]
+) -> list[str]:
+    """The ids of a bridge: the first and last rows `Not applicable`; each row between holds the
+    next `AB-<n>` (from `AB-1`, in row order, each once). Only a bridge stated as a gap in every
+    Amount may leave a middle row `Not applicable`. Every refused row is listed."""
+    every_gap = bool(rows) and all(_stated_gap(row[1]) for row in rows)
+    issues = []
+    following = 1
+    for at, (row, cell) in enumerate(zip(rows, ids, strict=True)):
+        where = f"`{heading}` {row[0]}: {column} `{cell}`"
+        if at in (0, len(rows) - 1):
+            if cell != NOT_APPLICABLE:
+                issues.append(f"{where} must be `{NOT_APPLICABLE}` on the first and last rows.")
+        elif ADD_BACK_ID.fullmatch(cell):
+            if cell != f"AB-{following}":
+                issues.append(
+                    f"{where} must be `AB-{following}`: ids run `AB-1`, `AB-2`, ... in row "
+                    "order, each once."
+                )
+            else:
+                following += 1
+        elif not (every_gap and cell == NOT_APPLICABLE):
+            issues.append(
+                f"{where} must be `AB-{following}` (a whole number from `AB-1`, no leading zero)"
+                f"{'' if every_gap else f'; `{NOT_APPLICABLE}` is for the first and last rows'}."
+            )
+    return issues
+
+
+def _step_issues(
+    spec: OwnerTable, heading: str, rows: list[list[str]], *, reconcile: bool
+) -> list[str]:
+    """A step table's own checks: the arithmetic (once every cell is otherwise sound) and, where
+    the table has an id column, the ids (always, so one review lists them all)."""
+    issues = _bridge_issues(heading, rows) if reconcile else []
+    if spec.id_column:
+        issues += _add_back_id_issues(heading, spec.id_column, rows, [row[-3] for row in rows])
+    return issues
 
 
 def _stated_gap(cell: str) -> bool:
@@ -1300,13 +1352,14 @@ def chart_issues(
         return (_header_issue(spec, heading, header),)
     if spec.columns:
         return tuple(_row_table_issues(spec, heading, header, rows[2:]))
-    stated = []
+    stated: list[list[str]] = []
     body, issues = _first_table(heading, rows[2:])
     for row in body:
         if len(row) != len(header):
             issues.append(f"`{heading}` row needs {len(header)} cells: {' | '.join(row)}")
             continue
-        period, *values, unit, basis = row
+        period, *cells, unit, basis = row
+        values = cells[: len(spec.value_columns)]  # the id cell of a bridge is not a value
         stated.append(row)
         if not basis:
             issues.append(f"`{heading}` {period}: Basis and limitation is blank.")
@@ -1320,6 +1373,6 @@ def chart_issues(
                 )
             elif problem := _unit_issue(spec, unit):
                 issues.append(f"`{heading}` {period}: {problem}")
-    if spec.steps and not issues:
-        issues += _bridge_issues(heading, stated)
+    if spec.steps:
+        issues += _step_issues(spec, heading, stated, reconcile=not issues)
     return tuple(issues)

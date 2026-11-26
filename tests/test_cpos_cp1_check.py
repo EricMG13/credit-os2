@@ -1425,11 +1425,11 @@ def owner_tables(unit: str) -> str:
             ),
             table(
                 "Chart data: EBITDA bridge",
-                ["Step", "Amount", *tail],
+                ["Step", "Amount", "Add-Back ID", *tail],
                 [
-                    ["Reported EBITDA", "3,813", unit, BASIS],
-                    ["Add-backs", "360", unit, BASIS],
-                    ["Adjusted EBITDA", "4,173", unit, BASIS],
+                    ["Reported EBITDA", "3,813", "Not applicable", unit, BASIS],
+                    ["Add-backs", "360", "AB-1", unit, BASIS],
+                    ["Adjusted EBITDA", "4,173", "Not applicable", unit, BASIS],
                 ],
             ),
             table(

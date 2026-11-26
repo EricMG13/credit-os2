@@ -465,11 +465,11 @@ OWNER_TABLES = {
         ),
         "Chart data: debt stack": synthetic_table(DEBT_STACK_HEAD, *DEBT_STACK_ROWS),
         "Chart data: EBITDA bridge": synthetic_table(
-            "| Step | Amount | Reporting unit | Basis and limitation |",
-            "| Reported EBITDA | 410 | US$m | Synthetic. |",
-            "| Restructuring add-back | 30 | US$m | Synthetic. |",
-            "| Disposal | -10 | US$m | Synthetic. |",
-            "| Issuer-adjusted EBITDA | 430 | US$m | Synthetic. |",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| Reported EBITDA | 410 | Not applicable | US$m | Synthetic. |",
+            "| Restructuring add-back | 30 | AB-1 | US$m | Synthetic. |",
+            "| Disposal | -10 | AB-2 | US$m | Synthetic. |",
+            "| Issuer-adjusted EBITDA | 430 | Not applicable | US$m | Synthetic. |",
         ),
     },
     "CP-2H": {
@@ -6129,6 +6129,59 @@ def test_a_bridge_with_every_amount_not_supplied_is_accepted_and_a_mixed_one_is_
     assert any("Not supplied" in i for i in mixed), mixed
 
 
+def add_back_issues(*rows: tuple[str, str]) -> tuple[str, ...]:
+    """CP-1's EBITDA bridge from (Amount, Add-Back ID) rows, as the check reads it."""
+    table = next(t for t in cpos_launch.OWNER_TABLES["CP-1"] if t.heading.endswith("EBITDA bridge"))
+    lines = [f"| Step {i} | {a} | {b} | US$m | Synthetic. |" for i, (a, b) in enumerate(rows)]
+    text = "\n".join(
+        [
+            f"### {table.heading}",
+            "",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| --- | --- | --- | --- | --- |",
+            *lines,
+        ]
+    )
+    return cpos_launch.chart_issues(text, table, money="US$m")
+
+
+NA = "Not applicable"
+
+
+def test_the_ebitda_bridge_ids_run_from_ab_1_in_row_order():
+    assert add_back_issues(("10", NA), ("5", "AB-1"), ("-2", "AB-2"), ("13", NA)) == ()
+    assert add_back_issues(("10", NA), ("10", NA)) == ()  # no add-back: opening is closing
+
+
+def test_every_bad_id_of_a_bridge_is_listed_in_one_review():
+    issues = add_back_issues(
+        ("10", "AB-1"), ("5", "AB-3"), ("-2", NA), ("1", "AB-10"), ("14", "AB-2")
+    )
+    assert len(issues) == 5, issues
+    assert all("Chart data: EBITDA bridge" in i and "Step " in i for i in issues)
+
+
+def test_a_stated_bridge_refuses_not_applicable_on_a_middle_row_but_an_all_gap_one_allows_it():
+    assert add_back_issues(("10", NA), ("5", NA), ("15", NA))
+    gap = "Not supplied: not stated"
+    assert add_back_issues((gap, NA), (gap, NA), (gap, NA)) == ()
+    assert add_back_issues((gap, NA), (gap, "AB-1"), (gap, NA)) == ()
+    assert add_back_issues((gap, NA), (gap, "AB-2"), (gap, NA))
+
+
+def test_the_id_check_leaves_the_bridge_arithmetic_alone():
+    issues = add_back_issues(("10", NA), ("5", "AB-1"), ("14", NA))
+    assert len(issues) == 1 and "does not equal the closing" in issues[0]
+
+
+def test_only_the_cp1_bridge_asks_for_an_add_back_id(tmp_path):
+    ids = {
+        m: [t.heading for t in tables if t.id_column]
+        for m, tables in cpos_launch.OWNER_TABLES.items()
+    }
+    assert {m: h for m, h in ids.items() if h} == {"CP-1": ["Chart data: EBITDA bridge"]}
+
+
 def test_a_bridge_check_names_the_stated_and_summed_amounts():
     (issue,) = bridge_issues("900", "-300", "700")
     assert "600" in issue and "700" in issue
@@ -6187,7 +6240,9 @@ def test_delivery_presents_each_owner_table_as_a_plain_table_with_its_heading(tm
 # ---- Package 2 (2026-11-10): the credit-structure tables. Every value is synthetic.
 STRUCTURE_HEADERS = {
     "Chart data: debt stack": DEBT_STACK_HEAD,
-    "Chart data: EBITDA bridge": "| Step | Amount | Reporting unit | Basis and limitation |",
+    "Chart data: EBITDA bridge": (
+        "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |"
+    ),
     "Chart data: covenant headroom": COVENANT_HEAD,
     "Chart data: rating triggers": TRIGGER_HEAD,
     "Chart data: portfolio limits": LIMITS_HEAD,
