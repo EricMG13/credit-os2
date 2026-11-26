@@ -217,14 +217,20 @@ def hide_comments(lines: list[str], name: str) -> list[str]:
     """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
     hide it, so no table or prose inside it is published; fenced text is left as written. A
     comment may open anywhere in a line; the opening line keeps the text before its `<!--` (blank
-    when that is only spaces). Line numbers are unchanged. A comment that is never closed would
+    when that is only spaces) and the closing line keeps the text after its `-->` (up to a later
+    `<!--`, by the same rule). Line numbers are unchanged. A comment that is never closed would
     hide the rest of the handoff: refused."""
     shown, fenced, opened = [], False, 0
     for number, line in enumerate(lines, 1):
         if opened:  # Inside a comment: hidden through its `-->`, and another may open after it.
             _, closed, rest = line.partition("-->")
-            opened = (number if comment_opener(rest) is not None else 0) if closed else opened
-            shown.append("")
+            if not closed:
+                shown.append("")
+                continue
+            start = comment_opener(rest)
+            opened = number if start is not None else 0
+            kept = rest if start is None else rest[:start]
+            shown.append(kept if kept.strip() else "")
             continue
         found = heading_of(line)
         fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.

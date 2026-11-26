@@ -30,6 +30,7 @@ from deploy_vii.contracts import (
     View,
 )
 from deploy_vii.display import UnitClass
+from deploy_vii.model._cells import no_negative_zero
 from deploy_vii.period_order import order_periods
 from deploy_vii.registry import modules
 from deploy_vii.report_view import (
@@ -108,8 +109,9 @@ class _Paragraph:
 
     @property
     def text(self) -> str:
-        text = " ".join(line.strip() for _, line in self.lines)
-        return text if self.code else plain(text)
+        if self.code:
+            return " ".join(line.strip() for _, line in self.lines)
+        return plain(" ".join(" ".join(visible(line).split()) for _, line in self.lines))
 
 
 @dataclass(frozen=True)
@@ -184,8 +186,7 @@ def _prose_groups(lines: list[str], in_table: set[int]) -> list[_ProseGroup]:
             pending = [(number, line)]
             close()
         else:
-            line = visible(line)
-            if LIST_ITEM.match(line):
+            if LIST_ITEM.match(visible(line)):
                 close()
             pending.append((number, line))
     close()
@@ -761,7 +762,9 @@ def _numeric_observations(
                             "markdown_chart: selected value must be an exact finite number "
                             "or explicit gap"
                         )
-                    amount = Decimal(token.replace(",", "").replace("(", "-").replace(")", ""))
+                    amount = no_negative_zero(
+                        Decimal(token.replace(",", "").replace("(", "-").replace(")", ""))
+                    )
             series, category = (
                 (row.label, column)
                 if route.orientation == "period-columns"

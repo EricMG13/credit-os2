@@ -81,3 +81,62 @@ def test_gap_list_items_are_separate_limitations() -> None:
     )
     numbered = "1. First gap.\n   wraps here.\n2. Second gap."
     assert gap_limitations(handoff("x", numbered)) == ("First gap. wraps here.", "Second gap.")
+
+
+def test_prose_citation_quote_is_verbatim_source_and_passes_readiness() -> None:
+    """C1R-1: the quote of an inline-comment line is the physical text, shown text is not."""
+    from deploy_vii.readiness import citation_issues
+
+    raw = handoff("Leverage <!-- x --> rose to 4.1x.")
+    view, source, _ = literal_module("CP-1", raw.encode())
+    facts = [f for f in view.facts if f.table_id.startswith("prose-") and f.text]
+    fact = next(f for f in facts if "Leverage" in f.text)
+    assert fact.text == "Leverage rose to 4.1x."
+    assert [c.quote for c in fact.citations] == ["Leverage <!-- x --> rose to 4.1x."]
+    assert citation_issues(fact.citations, (source,)) == ()
+
+
+def test_multiline_comment_tail_is_published_and_cited_verbatim() -> None:
+    """C1R-2 through the prose path: text after the closing `-->` is a fact with a valid quote."""
+    from deploy_vii.readiness import citation_issues
+
+    raw = handoff("<!--\nnote\n--> Leverage rose to 4.1x.")
+    view, source, _ = literal_module("CP-1", raw.encode())
+    fact = next(f for f in view.facts if f.text and "Leverage" in f.text)
+    assert fact.text == "Leverage rose to 4.1x."
+    assert "note" not in " ".join(f.text or "" for f in view.facts)
+    assert citation_issues(fact.citations, (source,)) == ()
+
+
+def test_hide_comments_keeps_text_after_closing_line() -> None:
+    from deploy_workflow.handoff_delivery import hide_comments
+
+    lines = ["<!--", "note", "--> Leverage rose to 4.1x.", "next"]
+    assert hide_comments(lines, "t") == ["", "", " Leverage rose to 4.1x.", "next"]
+    lines = ["<!--", "--> kept <!-- again", "hidden", "--> tail"]
+    assert hide_comments(lines, "t") == ["", " kept ", "", " tail"]
+
+
+@pytest.mark.parametrize("token", ["(0)", "(0.0)"])
+def test_chart_route_bracketed_zero_is_positive_zero(token: str) -> None:
+    """C1R-3: a bracketed zero is zero, not Decimal('-0')."""
+    from deploy_workflow.handoff_delivery import MarkdownRoute
+    from deploy_workflow.markdown_delivery import _numeric_observations
+
+    raw = handoff(f"| Metric | FY24 |\n|---|---|\n| Leverage | {token} |")
+    view = literal_module("CP-1", raw.encode())[0]
+    table = next(t for t in view.tables if t.table_id.startswith("raw-"))
+    route = MarkdownRoute(
+        module_id="CP-1",
+        heading="Findings",
+        kind="chart",
+        block_id="b",
+        figure_id="S.1",
+        value_columns=("FY24",),
+        chart_unit="x",
+    )
+    updated = _numeric_observations(view, table, route)[0]
+    fact = next(f for f in updated.facts if f.table_id.startswith("chart-"))
+    assert fact.amount is not None
+    assert fact.amount == 0
+    assert not fact.amount.is_signed()
