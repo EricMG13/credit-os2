@@ -1,4 +1,5 @@
 import { drawnModules, type ReadinessItem } from "../api";
+import { PHASES } from "./customSelection";
 
 type LimitOutcome = "will_refuse" | "gap" | "limited" | "check";
 export type LimitGroup = {
@@ -150,6 +151,13 @@ export function leaveOut(
   const selected = modules.length ? modules : requested;
   const chosen = requested.filter((code) => selected.includes(code));
   const kept = chosen.filter((code) => !refusing.has(code));
+  const keptPhases = kept.flatMap((code) =>
+    (PHASES[code] ?? []).filter(({ id }) => selected.includes(id)).map(({ id }) => id),
+  );
+  const result = kept.flatMap((code) => [
+    code,
+    ...(PHASES[code] ?? []).filter(({ id }) => keptPhases.includes(id)).map(({ id }) => id),
+  ]);
   // The forecast is sent but is not a module: a list holding only it is never offered.
-  return drawnModules(kept).length > 0 && kept.length < chosen.length ? kept : null;
+  return drawnModules(kept).length > 0 && kept.length < chosen.length ? result : null;
 }

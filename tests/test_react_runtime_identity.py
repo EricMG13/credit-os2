@@ -20,18 +20,12 @@ from react_frontend.run_activity import reply
 
 @pytest.fixture(scope="module")
 def engine_case(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Retain the offline Example Synthetic Group export for 2025-04-30."""
     retained = tmp_path_factory.mktemp("runtime-engine") / "case"
-    original = test_launcher.assert_exported_report
-
-    def retain(layout: Layout, run_id: str, legal: str) -> None:
-        original(layout, run_id, legal)
-        shutil.copytree(layout.root, retained)
-
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(test_launcher, "assert_exported_report", retain)
-        test_launcher.test_real_scheduler_exports_the_submitted_run(
-            patch, "executed", "gpt", "balanced", "copilot-sol-medium"
-        )
+    with test_launcher.open_offline_scheduler() as scheduler:
+        record = test_launcher.run_full_assessment(scheduler, "executed", "gpt", "balanced")
+        test_launcher.assert_exported_report(scheduler.layout, record.id, "executed")
+        shutil.copytree(scheduler.layout.root, retained)
     return retained
 
 

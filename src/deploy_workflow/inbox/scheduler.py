@@ -374,7 +374,7 @@ class Scheduler:
             except ValueError as refusal:
                 raise submissions.Refused(str(refusal)) from refusal
             for name in answers["modules"]:
-                if not runs.known_module(name):
+                if not runs.known_module(name, run.pathway):
                     raise submissions.Refused(f"unknown module {name}")
             if run.pathway == submissions.CUSTOM:
                 # The launcher's own completion text, as the summary showed it: a list it refuses

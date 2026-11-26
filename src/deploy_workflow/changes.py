@@ -13,8 +13,8 @@ records `"explicit"` (a `--modules` subset); an older run that records neither i
 it delivered the pathway's lead module (`LEAD_MODULE`: CP-2, CP-1B for an earnings update, CP-L10
 for a short snapshot or a credit screening). A custom run (PR 7a) is the exception: its modules are
 the analyst's choice, so an earlier custom run is its base only when it completed the same modules
-less CP-8 and CP-MODEL, and no preset run is ever a custom run's base or the reverse (the pathway
-must be the same). A candidate that fails a test is never used and the
+less CP-8 and CP-MODEL, with the same effective phases. The base always has the same pathway.
+A candidate that fails a test is never used and the
 reason is returned in `skipped`. The latest is chosen by (as-of date, first model-call start,
 folder name). None means no CP-8: the run records "first run of this pathway". The prior run's
 folder is read, never written. `prepare` copies its delivered handoffs into the run folder as
@@ -95,10 +95,12 @@ from deploy_workflow.credit_os_catalogue import (
     CHART_PREFIX,
     MixedPeriodForms,
     chart_row,
-    definition_key as _definition_key,
     is_reported,
     mixes_dated_and_fiscal,
     period_order,
+)
+from deploy_workflow.credit_os_catalogue import (
+    definition_key as _definition_key,
 )
 from deploy_workflow.credit_os_chips import MODULE_NAMES
 from deploy_workflow.library_index import (
@@ -296,6 +298,7 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
     only: str | None = None,
     skipped: list[str] | None = None,
     planned: Sequence[str] | None = None,
+    phase_selection: Mapping[str, tuple[str, ...]] | None = None,
 ) -> tuple[PriorRun, dict[str, bytes]] | None:
     """The prior run (the rule in this module's docstring) and its delivered handoffs, or None.
 
@@ -305,8 +308,8 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
     a comparison base, or whose delivered handoff cannot be read, is never used, and the reason is
     appended to ``skipped`` (one line per run) and logged once. ``only`` limits the candidates to
     the run folder of that name. A custom run is compared only with an earlier custom run whose
-    completed modules are its ``planned`` ones (required for ``custom``; CP-8 and CP-MODEL in the
-    list are ignored, ruling C19)."""
+    completed modules are its ``planned`` ones (required for ``custom``; CP-8 and CP-MODEL ignored)
+    and whose effective phases match ``phase_selection``."""
     if pathway == "custom" and planned is None:
         raise ValueError("a custom run is compared by its planned modules; none were given")
     method = method or current_method()
@@ -314,6 +317,7 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
     reasons = skipped if skipped is not None else []
     me = {"issuer_name": issuer_name, "case_kind": case_kind, "pathway": pathway}
     found: list[tuple[tuple[str, str, str], dict[str, Any], Mapping[str, Any], Any]] = []
+    target_phases = {parent: list(phases) for parent, phases in (phase_selection or {}).items()}
     for name in sorted(os.listdir(runs)) if runs.is_dir() else []:
         path = runs / name
         if name == folder or name.startswith(".") or path.is_symlink() or not path.is_dir():
@@ -335,8 +339,18 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
             deliveries: dict[str, dict[str, Any]] = {}
             record = admit_run(path, workspace / "library", method, deliveries)
             why = _not_a_base(
-                workflow, run, tuple(deliveries[name]["handoffs"]), me, planned=planned
+                workflow,
+                run,
+                tuple(deliveries[name]["handoffs"]),
+                me,
+                planned=planned,
             )
+            if (
+                why is None
+                and pathway == "custom"
+                and deliveries[name]["manifest"]["run"].get("phase_selection", {}) != target_phases
+            ):
+                why = "its analysis scope differs"
         except Refused as refusal:
             log.debug("earlier run %s is not listed: %s", name, refusal)
             continue

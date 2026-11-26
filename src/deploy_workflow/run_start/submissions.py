@@ -1174,6 +1174,11 @@ def _custom_estimate(prepared: Prepared) -> tuple[str, dict[str, Any]]:
                 "measured": row.measured,
                 "added": row.added,
                 "modules_page_only": row.modules_page_only,
+                **(
+                    {"phases": [{"name": name, "added": added} for name, added in row.phases]}
+                    if row.phases
+                    else {}
+                ),
             }
             for row in estimate.rows
         ],

@@ -97,6 +97,8 @@ export type CustomEstimate = {
     /** Why the launcher added the module; null for one the analyst chose. */
     added: string | null;
     modules_page_only: boolean;
+    /** Selected phases, in the method order the launcher will send. */
+    phases?: { name: string; added: string | null }[];
   }[];
   sum: string;
   hold: string;
@@ -638,6 +640,17 @@ const MODULE_NAMES: Readonly<Record<string, string>> = {
   "CP-3C": "Refinancing & LME",
   "CP-3D": "Market-implied risk",
   "CP-4C": "Recovery & fulcrum",
+  "CP-2C": "Sponsor and governance",
+  "CP-1E": "Adjusted debt",
+  "CP-2B": "Event and catalyst risk",
+  "CP-2F": "Environmental, social and governance risks",
+  "CP-3A": "Instrument priority and recovery",
+  "CP-3B": "Portfolio fit",
+  "CP-4A": "Covenant capacity",
+  "CP-4B": "Structural priority",
+  "CP-4D": "Intercreditor control",
+  "CP-5A": "Cross-module audit",
+  "CP-6A": "Portfolio posture",
   "CP-L10": "Short credit snapshot",
   "CP-MODEL": "Cash flow model",
 };
@@ -655,8 +668,7 @@ export const UNNAMED_MODULE = "Unnamed module";
  * (src/deploy_vii/methodology.json); with `MODULE_NAMES` they are every module code there is.
  */
 const UNNAMED_CODES: ReadonlySet<string> = new Set([
-  ...["CP-MEMO", "CP-OS", "CP-PARSE", "CP-1E", "CP-2B", "CP-2C", "CP-2F", "CP-3A", "CP-3B"],
-  ...["CP-4A", "CP-4B", "CP-4D", "CP-5A", "CP-6A", "CP-L20", "CP-L23", "CP-L30", "CP-L40"],
+  ...["CP-MEMO", "CP-OS", "CP-PARSE", "CP-L20", "CP-L23", "CP-L30", "CP-L40"],
 ]);
 
 /**

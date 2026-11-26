@@ -3,6 +3,9 @@ module (moved from ``cpos_launch``; the launcher re-exports every name).
 """
 
 import re
+from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 from deploy_workflow.prose_checks import DATA_MODULES
 
@@ -280,3 +283,206 @@ def trim_method(method: str) -> str:
             seen.add(body)
         kept.append(paragraph)
     return "\n\n".join(kept)
+
+
+@dataclass(frozen=True)
+class Phase:
+    parent: str
+    name: str
+    register_prefix: str
+
+
+# Keep method order, including structural priority before intercreditor control.
+PHASES = {
+    "CP-2C": Phase("CP-1A", "Sponsor and governance", "T2D."),
+    "CP-1E": Phase("CP-1D", "Adjusted debt", "T1E."),
+    "CP-2B": Phase("CP-2A", "Event and catalyst risk", "T5."),
+    "CP-2F": Phase("CP-2E", "Environmental, social and governance risks", "T2G."),
+    "CP-3A": Phase("CP-3", "Instrument priority and recovery", "T3B."),
+    "CP-3B": Phase("CP-3", "Portfolio fit", "T3C."),
+    "CP-4A": Phase("CP-4", "Covenant capacity", "T4C."),
+    "CP-4B": Phase("CP-4", "Structural priority", "T4D."),
+    "CP-4D": Phase("CP-4", "Intercreditor control", "T4F."),
+    "CP-5A": Phase("CP-5", "Cross-module audit", "T5."),
+    "CP-6A": Phase("CP-6", "Portfolio posture", "T6E."),
+}
+
+# Scoped companions extracted from the selected SKILL.md module blocks at 36c39519.
+# Whole modules still receive the original archived method.
+PHASE_STEP_FILES = {
+    "CP-1E": "src/deploy_workflow/prompts/texts/REF_CP-1E_STEPS.md",
+    "CP-4D": "src/deploy_workflow/prompts/texts/REF_CP-4D_STEPS.md",
+}
+_INLINE_PHASE_STEPS = re.compile(
+    r'^#{3,4} (CP-1E|CP-4D) method\n\n<module id="\1"[^\n]*\n.*?^</module>\n+',
+    re.MULTILINE | re.DOTALL,
+)
+
+
+# A consumer module needs the producer phase if it is in this run. The producer is
+# already present through ordinary module dependency rules or an explicit selection.
+# Consumer phases added by an earlier rule can trigger a later rule.
+DEPENDENCIES = {
+    "CP-2C": ("CP-2", "the credit scorecard"),
+    "CP-3B": ("CP-6", "Portfolio posture"),
+    "CP-3A": ("CP-3B", "Portfolio fit"),
+    "CP-4A": ("CP-4C", "the recovery assessment"),
+    "CP-4D": ("CP-4C", "the recovery assessment"),
+    "CP-4B": ("CP-4D", "Intercreditor control"),
+}
+
+# Selectors whose content belongs to a phase rather than the parent core.
+REPORT_PHASES = {
+    ("CP-3", "compensation-preference"): "CP-3A",
+    ("CP-3", "portfolio-fit"): "CP-3B",
+    ("CP-3", "recommendation-portfolio-fit"): "CP-3B",
+    ("CP-4", "capacity"): "CP-4A",
+    ("CP-4", "covenant-tests-headroom"): "CP-4A",
+}
+
+
+def complete_phases(
+    chosen: Collection[str], planned: Collection[str]
+) -> tuple[dict[str, tuple[str, ...]], dict[str, str]]:
+    """Complete scoped parents only. A whole parent already runs each phase."""
+    selected = {phase for phase in PHASES if phase in chosen}
+    parents = {PHASES[phase].parent for phase in selected}
+    added: dict[str, str] = {}
+    for phase, (consumer, label) in DEPENDENCIES.items():
+        if (
+            PHASES[phase].parent in parents
+            and phase not in selected
+            and (consumer in planned or consumer in selected)
+        ):
+            selected.add(phase)
+            added[phase] = f"Needed by {label}."
+    complete = {
+        parent: tuple(
+            phase for phase, info in PHASES.items() if info.parent == parent and phase in selected
+        )
+        for parent in planned
+        if parent in parents
+    }
+    return complete, added
+
+
+def scope_label(phases: Sequence[str]) -> str:
+    """The same reader-facing names in the handoff and the run summary."""
+    return "Analysis scope: Core analysis and " + ", ".join(PHASES[p].name for p in phases) + "."
+
+
+def phase_active(phase: str, selected: Mapping[str, tuple[str, ...]]) -> bool:
+    phases = selected.get(PHASES[phase].parent, ())
+    return not phases or phase in phases
+
+
+def method_check_enabled(module: str, phases: Mapping[str, tuple[str, ...]]) -> bool:
+    """The recovery and headroom scripts read the instrument and capacity phase tables."""
+    phase = {"CP-3": "CP-3A", "CP-4": "CP-4A"}.get(module)
+    return phase is None or phase_active(phase, phases)
+
+
+def owns_report_block(module: str, block: str, selected: Mapping[str, tuple[str, ...]]) -> bool:
+    phase = REPORT_PHASES.get((module, block))
+    return phase is None or phase_active(phase, selected)
+
+
+def register_matches(ident: str, phases: Collection[str]) -> bool:
+    return any(ident.startswith(PHASES[phase].register_prefix) for phase in phases)
+
+
+def _scope_cuts(text: str, phases: Collection[str]) -> str:
+    head, mark, tail = text.partition("do not write ")
+    cuts, stop, after = tail.partition(". Any figure")
+    if not (mark and stop):
+        return text
+    keep = [
+        entry.strip()
+        for entry in cuts.split(";")
+        if not register_matches(entry.strip().split(" ", 1)[0], phases)
+    ]
+    return head + (
+        mark + "; ".join(keep) + stop + after if keep else f"No register is cut. {after}"
+    )
+
+
+# The absorbed phase sections are headings in the selected SKILL.md. CP-4D is nested
+# in CP-4B; CP-4D's dependency keeps the containing CP-4B section in the method.
+_SECTION = re.compile(r"^(#{2,6}) Absorbed phase — (CP-[\w]+),[^\n]*\n", re.MULTILINE)
+_REGISTER_DEF = re.compile(r"^( +)- \*\*(T[\w]+\.\d+)\*\*:", re.MULTILINE)
+_REGISTER_LIST = re.compile(r"((?:\*\*)?required_register_ids(?:\*\*)?:[^\n]*\n(?: +-[^\n]*\n)*)")
+_REGISTER_ID = re.compile(r"\bT[\w]+\.\d+\b")
+
+
+def _without_sections(text: str, omitted: Collection[str]) -> str:
+    """Remove omitted embedded methods at their heading depth."""
+    for heading in reversed(list(_SECTION.finditer(text))):
+        if heading[2] not in omitted:
+            continue
+        end = re.compile(rf"^#{{1,{len(heading[1])}}} ", re.MULTILINE).search(text, heading.end())
+        text = text[: heading.start()] + (text[end.start() :] if end else "")
+    return text
+
+
+_COMPANIONS = re.compile(
+    r"^For the absorbed `(CP-[\w]+)` phase on every run:\n(?:- [^\n]*\n)*",
+    re.MULTILINE,
+)
+
+
+def _without_companions(text: str, omitted: Collection[str]) -> str:
+    return _COMPANIONS.sub(lambda m: "" if m[1] in omitted else m[0], text)
+
+
+def _without_registers(text: str, omitted: Collection[str]) -> str:
+    """Filter the merged declared lists and nested register definitions in scoped methods."""
+    for entry in reversed(list(_REGISTER_DEF.finditer(text))):
+        if not register_matches(entry[2], omitted):
+            continue
+        next_peer = re.compile(rf"^(?: {{0,{len(entry[1])}}}- |#|\S)", re.MULTILINE)
+        end = next_peer.search(text, text.find("\n", entry.end()) + 1)
+        text = text[: entry.start()] + (text[end.start() :] if end else "")
+    return _REGISTER_LIST.sub(lambda m: _filter_register_list(m[0], omitted), text)
+
+
+def _filter_register_list(block: str, omitted: Collection[str]) -> str:
+    return "".join(_filter_register_line(line, omitted) for line in block.splitlines(keepends=True))
+
+
+def _filter_register_line(line: str, omitted: Collection[str]) -> str:
+    head = re.match(r"\s*(?:- |(?:\*\*)?required_register_ids(?:\*\*)?: *)", line)
+    if head is None:
+        return line
+    parts = line[head.end() :].rstrip("\n").split("; ")
+    kept = [
+        part
+        for part in parts
+        if not ((ident := _REGISTER_ID.search(part)) and register_matches(ident[0], omitted))
+    ]
+    if kept:
+        return head[0] + "; ".join(kept) + "\n"
+    return "" if head[0].endswith("- ") else head[0].rstrip() + " none\n"
+
+
+def omitted_phases(module: str, selected: Collection[str]) -> set[str]:
+    return {
+        phase for phase, info in PHASES.items() if info.parent == module and phase not in selected
+    }
+
+
+def scope_section(
+    name: str, text: str, module: str, selected: tuple[str, ...]
+) -> tuple[str, str] | None:
+    """A method section after scope selection, or None for an omitted phase companion."""
+    omitted = omitted_phases(module, selected)
+    basename = PurePosixPath(name).name
+    if any(f"{phase}_" in basename for phase in omitted):
+        return None
+    if name.endswith(f"CPOS_REGISTER_SCOPE.md § {module}"):
+        return name, _scope_cuts(text, selected)
+    if basename == "SKILL.md":
+        text = _without_sections(text, omitted)
+        text = _INLINE_PHASE_STEPS.sub(lambda match: "" if match[1] in selected else match[0], text)
+        text = _without_registers(text, omitted)
+        text = _without_companions(text, omitted)
+    return name, text

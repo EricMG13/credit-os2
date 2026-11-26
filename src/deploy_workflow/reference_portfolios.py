@@ -55,6 +55,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import tempfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -66,6 +67,7 @@ from typing import Any, Literal, NamedTuple
 
 from deploy_vii.inputs import portfolio_export as pe
 from deploy_vii.inputs.csv_text import CsvDecodeError
+from deploy_workflow.platform_io import flags, regular_open
 
 Kind = Literal["clo", "loan_index", "hy_index", "custom"]
 AssetType = Literal["loan", "bond"]
@@ -1274,8 +1276,29 @@ def _portfolio_from(stored: Mapping[str, Any], schema: int) -> Portfolio:
     return found
 
 
+def _is_link(path: Path) -> bool:
+    """Check the final path component without following it, including dangling links."""
+    try:
+        status = path.lstat()
+    except FileNotFoundError:
+        return False
+    return stat.S_ISLNK(status.st_mode) or bool(
+        getattr(status, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+    )
+
+
+def _read(path: Path) -> Any:
+    if _is_link(path.parent) or _is_link(path):
+        raise OSError("linked portfolio store paths are not accepted")
+    descriptor = regular_open(path, os.O_RDONLY | flags("O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC"))
+    with os.fdopen(descriptor, "rb") as stream:
+        return json.load(stream)
+
+
 def _write(path: Path, content: Mapping[str, object]) -> None:
     """Write `content` as JSON to `path`, whole or not at all (a temporary file, then a rename)."""
+    if _is_link(path.parent):
+        raise OSError("a linked portfolio store directory is not accepted")
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
     try:
@@ -1295,8 +1318,9 @@ _UNREADABLE = (OSError, ValueError, TypeError, KeyError, ArithmeticError, Attrib
 class Store:
     """One current good set per key under `root`: `<key>.json`, and beside it
     `<key>.failure.json` while the last refresh has failed. A standing store holds the standing
-    references; a second store under a run's folder holds that run's own portfolio. Nothing is
-    written until `save` or `record_failure`."""
+    references; a second store under a run's folder holds that run's own portfolio. The caller
+    configures the parent path. A linked final store directory is unavailable. Nothing is written
+    until `save` or `record_failure`."""
 
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -1320,10 +1344,8 @@ class Store:
         """The key's current set. Raises `NotStored` when there is none and `StoreError` when
         the file cannot be read or was written by another version."""
         path = self._path(key)
-        if not path.exists():
-            raise NotStored(f"No portfolio is stored as '{key}'.")
         try:
-            stored = json.loads(path.read_bytes())
+            stored = _read(path)
             if type(stored["schema"]) is not int or stored["schema"] not in READS:
                 raise StoreError(
                     f"The stored portfolio '{key}' cannot be read: it was written as version "
@@ -1332,6 +1354,8 @@ class Store:
             found = _portfolio_from(stored["portfolio"], stored["schema"])
             if found.key != key:
                 raise ValueError("the content is another portfolio's")
+        except (FileNotFoundError, NotADirectoryError) as error:
+            raise NotStored(f"No portfolio is stored as '{key}'.") from error
         except _UNREADABLE as error:
             raise StoreError(
                 f"The stored portfolio '{key}' cannot be read: its file is damaged or is not a "
@@ -1341,7 +1365,7 @@ class Store:
 
     def keys(self) -> tuple[str, ...]:
         """Every key with a stored set or a recorded failure, in name order."""
-        if not self.root.is_dir():
+        if not self.root.is_dir(follow_symlinks=False) or _is_link(self.root):
             return ()
         names = (path.name.removesuffix(".json") for path in self.root.glob("*.json"))
         keys = {name.removesuffix(".failure") for name in names}
@@ -1355,11 +1379,11 @@ class Store:
     def failure(self, key: str) -> Failure | None:
         """The failed refresh recorded since the key's current set was stored, if any."""
         path = self._path(key, ".failure.json")
-        if not path.exists():
-            return None
         try:
-            stored = json.loads(path.read_bytes())
+            stored = _read(path)
             return Failure(str(stored["message"]), _utc(datetime.fromisoformat(stored["at"])))
+        except (FileNotFoundError, NotADirectoryError):
+            return None
         except _UNREADABLE as error:
             raise StoreError(
                 f"The record of the last failed refresh of '{key}' cannot be read."
