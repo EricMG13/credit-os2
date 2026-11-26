@@ -853,6 +853,96 @@ def test_retained_tdg_bridge_endpoints_keep_their_reported_status(tmp_path):
         )
 
 
+def test_retained_tdg_kpi_context_stays_on_each_metric_row_as_of_2024_09_30(tmp_path):
+    case = replace(cs.CASES["full"], handoffs={**cs.CASES["full"].handoffs, "CP-1": cs.TDG_CP1})
+    built = cs.build_case(tmp_path, case)
+    snapshot = snap.gather(snap.load_run(built.folder, built.stores.both()))
+    book = load_workbook(io.BytesIO(writer.workbook_bytes(snapshot)))
+    metrics = {
+        "EBITDA As Defined margin": ("52.6%", "51.6%"),
+        "Power & Control EBITDA As Defined margin": ("56.7%", "56.3%"),
+        "Airframe EBITDA As Defined margin": ("51.5%", "50.0%"),
+        "Non-aviation EBITDA As Defined margin": ("42.6%", "40.6%"),
+    }
+    for metric, (fy2024, fy2023) in metrics.items():
+        direction = cell_of(
+            book,
+            block="Operating KPIs",
+            row=metric,
+            column="Trend Direction",
+            sheet="Model",
+        )
+        assert direction.value == "Higher"
+        source = listed(
+            book,
+            "Operating KPIs",
+            sheet="Model",
+            row=metric,
+            column="Trend Direction",
+        )[0]
+        assert source["Handoff sha256"] == cs.sha256(cs.TDG_CP1.read_bytes())
+        assert (
+            cell_of(book, block="Operating KPIs", row=metric, column="FY2024", sheet="Model").value
+            == fy2024
+        )
+        assert (
+            cell_of(book, block="Operating KPIs", row=metric, column="FY2023", sheet="Model").value
+            == fy2023
+        )
+
+
+@pytest.mark.parametrize(
+    ("fixture", "metric", "fy2023", "fy2024"),
+    [
+        (
+            "relative_value-CP-1-draft1.md",
+            "Total Power & Control",
+            None,
+            3941,
+        ),
+        (
+            "distressed-CP-1-draft1.md",
+            "Power & Control revenue",
+            3316,
+            3941,
+        ),
+    ],
+)
+def test_retained_tdg_wide_segment_schedule_preserves_periods_units_and_basis(
+    full, fixture, metric, fy2023, fy2024
+):
+    _, snapshot = full
+    path = Path(__file__).parent / "fixtures" / "live_2026_11_15" / fixture
+    contents = path.read_bytes()
+    _, _, body = contents.partition(b"### Segment schedule")
+    section = b"### Segment schedule" + body.split(b"\n### ", 1)[0]
+    raw = snapshot.model_handoffs["CP-1"] + b"\n" + section
+    snapshot = replace(
+        snapshot,
+        model_handoffs={"CP-1": raw},
+        handoff_sha256={**snapshot.handoff_sha256, "CP-1": cs.sha256(raw)},
+    )
+    book = load_workbook(io.BytesIO(writer.workbook_bytes(snapshot)))
+    fy2024_cell = cell_of(book, block="Segment data", row=metric, column="FY2024", sheet="Model")
+    unit = cell_of(book, block="Segment data", row=metric, column="Unit", sheet="Model")
+    basis = cell_of(book, block="Segment data", row=metric, column="Reported basis", sheet="Model")
+    assert fy2024_cell.value == fy2024
+    assert unit.value == "USD millions"
+    assert basis.value in {"Reported external sales", "Reported issuer order"}
+    if fy2023 is not None:
+        assert (
+            cell_of(book, block="Segment data", row=metric, column="FY2023", sheet="Model").value
+            == fy2023
+        )
+    source = listed(book, "Segment data", sheet="Model", row=metric, column="FY2024")[0]
+    assert source["Handoff sha256"] == cs.sha256(raw)
+    assert all(
+        "tdg-20240930.htm.jsonl" not in str(cell.value)
+        for row in book["Model"].iter_rows()
+        for cell in row
+    )
+
+
 def test_cards_are_bordered_ranges_that_do_not_overlap(book):
     for name in THREE:
         ranges = [CellRange(str(r)) for r in book[name].merged_cells.ranges]

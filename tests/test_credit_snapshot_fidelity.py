@@ -794,6 +794,200 @@ def test_synthetic_unscaled_model_traces_request_units_to_cp1(full):
     assert unit["Handoff sha256"] == cs.sha256(cp1)
 
 
+def test_synthetic_model_register_keeps_quarter_and_ytd_values_and_their_date_sources(full):
+    """Synthetic Northbridge Holdings plc, 2026-03-31. Exact windows disambiguate fiscal labels."""
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    baseline = gathered(full)
+    markers = (
+        ("Q2 FY2025 / 2025-04-01 to 2025-06-30", "q2", "QUARTER", "2025-04-01", 32),
+        ("Q2 FY2025 / 2025-03-01 to 2025-06-30", "q2_long", "QUARTER", "2025-03-01", 41),
+        ("Q2 FY2025 / 2025-07-01 to 2025-09-30", "q2_late", "QUARTER", "2025-07-01", 28),
+        ("YTD 2025-06-30", "sixmonth", "YTD", "2025-01-01", 64),
+        ("FY2025", "year", "FY", "2025-01-01", 120),
+    )
+    end_date = {
+        "q2": "2025-06-30",
+        "q2_long": "2025-06-30",
+        "q2_late": "2025-09-30",
+        "sixmonth": "2025-06-30",
+        "year": "2025-12-31",
+    }
+    quarter = {"q2": 2, "q2_long": 2, "q2_late": 2, "sixmonth": 2, "year": 4}
+    dates = {
+        marker: f"| {marker} | 2025 | {quarter[marker]} | {kind} | {start} | "
+        f"{end_date[marker]} | USD | millions |"
+        for _, marker, kind, start, _ in markers
+    }
+    amounts = {marker: f"| Controls | {marker} | {value} |" for _, marker, _, _, value in markers}
+    period_header = (
+        "| period_id | fiscal_year | fiscal_quarter | period_type | start_date | end_date | "
+        "currency | unit |"
+    )
+    additions = [
+        "",
+        "### T4.14 Model Period Register",
+        "",
+        period_header,
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        *dates.values(),
+        "",
+        "### T4.16 Segment Revenue Schedule",
+        "",
+        "| segment_name | period_id | revenue |",
+        "| --- | --- | --- |",
+        *amounts.values(),
+        "",
+    ]
+    raw = baseline.model_handoffs["CP-1"] + "\n".join(additions).encode()
+    snapshot = replace(
+        baseline,
+        model_handoffs={"CP-1": raw},
+        handoff_sha256=baseline.handoff_sha256 | {"CP-1": cs.sha256(raw)},
+    )
+    book = load_workbook(BytesIO(writer.workbook_bytes(snapshot)))
+    model = book["Model"]
+    sources = iter(book["Sources"].values)
+    headings = next(sources)
+    rows = [
+        dict(zip(headings, row, strict=True))
+        for row in sources
+        if (row[0], row[3]) == ("Model", "Segment data")
+    ]
+    physical = raw.decode().splitlines()
+    columns = {}
+    for period, marker, _, start, amount in markers:
+        saved = {row["Row"]: row for row in rows if row["Column"] == period}
+        value = saved["Controls · Revenue (USD millions)"]
+        assert model[value["Cell"]].value == amount
+        columns[marker] = model[value["Cell"]].column
+        assert value["Section"] == "T4.16 Segment Revenue Schedule"
+        assert value["Line"] == physical.index(amounts[marker]) + 1
+        for row_name, expected in (("Period start", start), ("Period end", end_date[marker])):
+            origin = saved[row_name]
+            assert model[origin["Cell"]].value == expected
+            assert origin["Handoff text"] == expected
+            assert origin["Section"] == "T4.14 Model Period Register"
+            assert origin["Line"] == physical.index(dates[marker]) + 1
+            assert origin["Handoff sha256"] == cs.sha256(raw)
+    assert columns["q2_long"] < columns["q2"] < columns["q2_late"]
+    assert columns["q2_late"] < columns["sixmonth"] < columns["year"]
+
+
+def test_synthetic_retained_model_formats_the_declared_fraction_on_every_measure(full):
+    """Synthetic Northbridge Holdings plc, 2026-03-31. The producer declares FRACTION."""
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    baseline = gathered(full)
+    files = {
+        "annual.md": full.handoff_text["CP-1"].encode(),
+        "current_synthesis.md": full.handoff_text["CP-2"].encode(),
+    }
+    fractions = {"FY2024": "0.25", "FY2025": "0.1234567890123456789012345678"}
+    calculation = {
+        "schema_version": "retained-handoff-model/1",
+        "annual_periods": list(fractions),
+        "inputs": {
+            name.removesuffix(".md"): {"path": name, "sha256": cs.sha256(raw)}
+            for name, raw in files.items()
+        },
+        "values": {
+            year: {"revenue_growth": {"amount": amount, "unit": "FRACTION", "reason": None}}
+            for year, amount in fractions.items()
+        },
+    }
+    files["calculation.json"] = json.dumps(calculation).encode()
+    snapshot = replace(
+        baseline,
+        model_files=files,
+        source_sha256=baseline.source_sha256
+        | {f"model:{name}": cs.sha256(raw) for name, raw in files.items()},
+    )
+    book = load_workbook(BytesIO(writer.workbook_bytes(snapshot)))
+    sources = iter(book["Sources"].values)
+    heading = next(sources)
+    rows = {
+        row[5]: dict(zip(heading, row, strict=True))
+        for row in sources
+        if (row[0], row[3], row[4], row[7])
+        == ("Model", "Financials", "Revenue growth", "calculation.json")
+    }
+    short = book["Model"][rows["FY2024"]["Cell"]]
+    exact = book["Model"][rows["FY2025"]["Cell"]]
+    assert (short.value, short.number_format) == (0.25, "0.00%")
+    assert (exact.value, exact.data_type) == ("12.34567890123456789012345678%", "s")
+    assert rows["FY2025"]["Handoff text"] == fractions["FY2025"]
+
+
+def test_synthetic_debt_facility_terms_use_registered_periods_on_one_model_row():
+    """Synthetic Northbridge Holdings plc, 2026-03-31. One revolver has two dated records."""
+    from deploy_workflow import credit_snapshot as snapshot
+    from deploy_workflow import credit_snapshot_workbook as writer
+
+    cp1 = b"""# Northbridge Holdings plc
+## Findings
+### T4.14 Model Period Register
+
+| period_id | fiscal_year | period_type | start_date | end_date | currency | unit |
+| --- | --- | --- | --- | --- | --- | --- |
+| year_a | 2024 | FY | 2024-01-01 | 2024-12-31 | USD | millions |
+| year_b | 2025 | FY | 2025-01-01 | 2025-12-31 | USD | millions |
+
+### T4.18 Debt Facility Register
+
+| facility_id | facility_name | period_id | principal | currency | margin_or_coupon |
+| --- | --- | --- | --- | --- | --- |
+| fac_a | Revolver | year_a | 120 | USD | 200 bps |
+| fac_a | Revolver | year_b | 100 | EUR | 250 bps |
+| fac_b | Other facility | unknown_window | 65 | USD | 300 bps |
+"""
+    run = snapshot.SnapshotRun(
+        issuer="Northbridge Holdings plc",
+        as_of="2026-03-31",
+        pathway="credit_snapshot",
+        run_id="synthetic-debt-periods",
+        handoffs={"CP-1": cp1},
+        context=None,
+        references=(),
+    )
+    book = load_workbook(BytesIO(writer.workbook_bytes(snapshot.gather(run))))
+    model = book["Model"]
+    raw_rows = iter(book["Sources"].values)
+    headings = next(raw_rows)
+    sources = [
+        dict(zip(headings, row, strict=True))
+        for row in raw_rows
+        if (row[0], row[3]) == ("Model", "Debt instruments")
+    ]
+    terms = {row["Column"]: row for row in sources if row["Row"] == "Revolver"}
+    expected = {
+        "FY2024": 120,
+        "FY2025": 100,
+        "FY2024 / margin or coupon": "200 bps",
+        "FY2025 / margin or coupon": "250 bps",
+        "FY2024 / currency": "USD",
+        "FY2025 / currency": "EUR",
+    }
+    assert {label: model[terms[label]["Cell"]].value for label in expected} == expected
+    assert {terms[label]["Section"] for label in expected} == {"T4.18 Debt Facility Register"}
+    assert len({model[terms[label]["Cell"]].row for label in expected}) == 1
+    assert model[terms["Amount basis"]["Cell"]].value == "principal"
+    assert not any(label.endswith(" / reporting unit") for label in terms)
+    (start,) = [
+        row for row in sources if row["Row"] == "Period start" and row["Column"] == "FY2024"
+    ]
+    assert (model[start["Cell"]].value, start["Section"], start["Line"]) == (
+        "2024-01-01",
+        "T4.14 Model Period Register",
+        7,
+    )
+    (missing,) = [row for row in sources if row["Row"] == "Other facility" and row["Kind"] == "gap"]
+    assert missing["Column"] == "Period not stated"
+    assert not any(
+        value in {"year_a", "year_b", "unknown_window"} for row in model.values for value in row
+    )
+
+
 def test_sources_rows_are_of_known_kinds_and_one_per_cell(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     assert {r["Kind"] for r in opened.rows} <= set(SOURCE_KINDS)

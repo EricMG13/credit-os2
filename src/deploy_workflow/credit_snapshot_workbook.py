@@ -839,6 +839,17 @@ def _blocks(snapshot: snap.Snapshot) -> dict[tuple[str, str], snap.Block]:
 
 
 def _model_period_key(label: str) -> tuple[int, ...] | None:
+    base, _, window = label.rpartition(" / ")
+    start, has_window, end = window.partition(" to ")
+    if base and has_window and (group := _model_period_group_key(base)) is not None:
+        begins, closes = parse_period(start), parse_period(end)
+        first = begins.end if begins is not None and begins.end is not None else ()
+        last = closes.end if closes is not None and closes.end is not None else group[1:4]
+        return (group[0], *last, *group[4:], *first)
+    return _model_period_group_key(label)
+
+
+def _model_period_group_key(label: str) -> tuple[int, ...] | None:
     if label == "Prior LTM":
         return (3, 0, 0, 0, 0)
     scenario = re.fullmatch(r"(Base|Downside) FY([0-9]{4})", label)
@@ -960,7 +971,7 @@ def _model_handoff_blocks(snapshot: snap.Snapshot) -> dict[tuple[str, str], snap
     except (snap._Absent, ValueError):
         pass
     else:
-        cells = _unperioded_debt_cells(debt)
+        cells = _debt_facility_cells(doc, debt)
         if cells:
             blocks[MODEL, DEBT_FACILITIES] = snap.Block(MODEL, DEBT_FACILITIES, tuple(cells))
     try:
@@ -1085,7 +1096,7 @@ def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
     period_index = indexes.get("period")
     if period_index is None:
-        return []
+        return _wide_segment_schedule_cells(table)
     name_index = indexes.get("business unit", 0)
     excluded = ("period", "business unit", "unit", "currency", "basis", "source", "note")
     values = [
@@ -1119,6 +1130,64 @@ def _segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
                         period,
                         snap.COPIED,
                         value,
+                        table.module,
+                        table.section,
+                        row.line,
+                    )
+                )
+    return cells
+
+
+def _wide_segment_schedule_cells(table: Any) -> list[snap.SnapshotCell]:
+    if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
+        return []
+    period_columns = [
+        (header, index)
+        for index, header in enumerate(table.headers)
+        if period_order(header) is not None
+    ]
+    if not period_columns:
+        return []
+    label_index = 0
+    indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
+    unit_index = indexes.get("unit")
+    basis_index = indexes.get("basis")
+    cells = []
+    for row in table.rows:
+        if label_index >= len(row.cells):
+            continue
+        label = row.cells[label_index].strip()
+        if not label:
+            continue
+        for period, index in period_columns:
+            if index < len(row.cells) and row.cells[index].strip():
+                cells.append(
+                    snap.SnapshotCell(
+                        MODEL,
+                        SEGMENTS,
+                        label,
+                        period,
+                        snap.COPIED,
+                        row.cells[index].strip(),
+                        table.module,
+                        table.section,
+                        row.line,
+                    )
+                )
+        for context_index, column in ((unit_index, "Unit"), (basis_index, "Reported basis")):
+            if (
+                context_index is not None
+                and context_index < len(row.cells)
+                and row.cells[context_index].strip()
+            ):
+                cells.append(
+                    snap.SnapshotCell(
+                        MODEL,
+                        SEGMENTS,
+                        label,
+                        column,
+                        snap.COPIED,
+                        row.cells[context_index].strip(),
                         table.module,
                         table.section,
                         row.line,
@@ -1222,13 +1291,13 @@ def _period_table_cells(table: Any, name: str) -> list[snap.SnapshotCell]:
                 )
         for column, index in context_columns:
             if index < len(source_row.cells) and source_row.cells[index].strip():
-                label = "Reported basis" if _clean_label(column) == "basis" else column.strip()
+                context = "Reported basis" if _clean_label(column) == "basis" else column.strip()
                 cells.append(
                     snap.SnapshotCell(
                         MODEL,
                         name,
                         label,
-                        label,
+                        context,
                         snap.COPIED,
                         source_row.cells[index],
                         table.module,
@@ -1263,8 +1332,8 @@ def _model_period_register_cells(
         value = row.cells[indexes[value_field]].strip()
         if not label or not period_id:
             continue
-        period, date_range, unit = periods.get(period_id, (None, None, None))
-        if period is None:
+        registered = periods.get(period_id)
+        if registered is None:
             cells.append(
                 snap.SnapshotCell(
                     MODEL,
@@ -1280,6 +1349,7 @@ def _model_period_register_cells(
                 )
             )
             continue
+        period, unit = registered.label, registered.unit
         row_label = label
         if ident == "T4.16":
             row_label = f"{label} · Revenue ({unit})" if unit else f"{label} · Revenue"
@@ -1297,20 +1367,8 @@ def _model_period_register_cells(
                     row.line,
                 )
             )
-        if date_range and period not in dates_seen:
-            cells.append(
-                snap.SnapshotCell(
-                    MODEL,
-                    name,
-                    "Period dates",
-                    period,
-                    snap.COPIED,
-                    date_range,
-                    table.module,
-                    table.section,
-                    row.line,
-                )
-            )
+        if period not in dates_seen:
+            cells.extend(_registered_dates(registered, name))
             dates_seen.add(period)
         if ident != "T4.16" and unit and label not in units_seen:
             cells.append(
@@ -1321,9 +1379,7 @@ def _model_period_register_cells(
                     "Unit",
                     snap.COPIED,
                     unit,
-                    table.module,
-                    table.section,
-                    row.line,
+                    *registered.source,
                 )
             )
             units_seen.add(label)
@@ -1333,7 +1389,29 @@ def _model_period_register_cells(
     return cells
 
 
-def _period_register(doc: Any) -> dict[str, tuple[str | None, str | None, str | None]]:
+@dataclass(frozen=True)
+class _RegisteredPeriod:
+    label: str
+    start: str
+    end: str
+    unit: str | None
+    source: tuple[str, str, int]
+
+
+def _registered_dates(period: _RegisteredPeriod, block: str) -> list[snap.SnapshotCell]:
+    return [
+        snap.SnapshotCell(MODEL, block, field, period.label, snap.COPIED, text, *period.source)
+        for field, text in (("Period start", period.start), ("Period end", period.end))
+        if text
+    ]
+
+
+def _period_field(row: snap._Row, indexes: dict[str, int], field: str) -> str:
+    index = indexes.get(field)
+    return row.cells[index].strip() if index is not None and index < len(row.cells) else ""
+
+
+def _period_register(doc: snap._Doc) -> dict[str, _RegisteredPeriod]:
     try:
         table = doc.register("T4.14")
     except (snap._Absent, ValueError):
@@ -1341,67 +1419,74 @@ def _period_register(doc: Any) -> dict[str, tuple[str | None, str | None, str | 
     if len(table.headers) > 200 or len(table.rows) > 500:
         return {}
     indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
-    ident_index = indexes.get("periodid")
-    year_index = indexes.get("fiscalyear")
-    quarter_index = indexes.get("fiscalquarter")
-    type_index = indexes.get("periodtype")
-    if ident_index is None:
+    if "periodid" not in indexes:
         return {}
-    periods = {}
+    periods: dict[str, _RegisteredPeriod] = {}
     for row in table.rows:
-        if ident_index >= len(row.cells):
+        period_id = _period_field(row, indexes, "periodid")
+        if not period_id:
             continue
-        period_id = row.cells[ident_index].strip()
-        year = (
-            row.cells[year_index].strip()
-            if year_index is not None and year_index < len(row.cells)
-            else ""
+        start = _period_field(row, indexes, "startdate")
+        end = _period_field(row, indexes, "enddate")
+        label = _period_label(
+            period_id,
+            _period_field(row, indexes, "fiscalyear"),
+            _period_field(row, indexes, "fiscalquarter"),
+            _period_field(row, indexes, "periodtype"),
+            end,
         )
-        quarter = (
-            row.cells[quarter_index].strip()
-            if quarter_index is not None and quarter_index < len(row.cells)
-            else ""
+        if label is None:
+            continue
+        currency, unit = (_period_field(row, indexes, name) for name in ("currency", "unit"))
+        caption = f"{currency} {unit}" if currency and unit else unit or None
+        periods[period_id] = _RegisteredPeriod(
+            label, start, end, caption, (table.module, table.section, row.line)
         )
-        kind = (
-            row.cells[type_index].strip().casefold()
-            if type_index is not None and type_index < len(row.cells)
-            else ""
-        )
-        label = _period_label(period_id, year, quarter, kind)
-        start_index, end_index = indexes.get("startdate"), indexes.get("enddate")
-        start = (
-            row.cells[start_index].strip()
-            if start_index is not None and start_index < len(row.cells)
-            else ""
-        )
-        end = (
-            row.cells[end_index].strip()
-            if end_index is not None and end_index < len(row.cells)
-            else ""
-        )
-        dates = f"{start} to {end}" if start and end else None
-        currency_index, unit_index = indexes.get("currency"), indexes.get("unit")
-        currency = (
-            row.cells[currency_index].strip()
-            if currency_index is not None and currency_index < len(row.cells)
-            else ""
-        )
-        unit_value = (
-            row.cells[unit_index].strip()
-            if unit_index is not None and unit_index < len(row.cells)
-            else ""
-        )
-        unit = f"{currency} {unit_value}".strip() if currency and unit_value else unit_value or None
-        periods[period_id] = (label, dates, unit)
-    return periods
+    return _distinct_registered_windows(periods)
 
 
-def _period_label(period_id: str, year: str, quarter: str, kind: str) -> str | None:
-    if year.isdigit() and len(year) == 4:
-        if quarter.isdigit() and 1 <= int(quarter) <= 4:
-            return f"Q{int(quarter)} FY{year}"
-        if kind in {"fy", "fiscal_year", "annual", "year"}:
-            return f"FY{year}"
+def _distinct_registered_windows(
+    periods: dict[str, _RegisteredPeriod],
+) -> dict[str, _RegisteredPeriod]:
+    windows: dict[str, set[tuple[str, str]]] = {}
+    for period in periods.values():
+        windows.setdefault(period.label, set()).add((period.start, period.end))
+    distinct = {}
+    for period_id, period in periods.items():
+        if len(windows[period.label]) > 1:
+            start = period.start or "start not stated"
+            end = period.end or "end not stated"
+            period = replace(period, label=f"{period.label} / {start} to {end}")
+        distinct[period_id] = period
+    return distinct
+
+
+def _period_label(period_id: str, year: str, quarter: str, kind: str, end: str) -> str | None:
+    kind = _clean_label(kind)
+    fiscal_year = f"FY{year}" if re.fullmatch(r"[0-9]{4}", year) else None
+    quarter_number = re.fullmatch(r"(?:Q)?([1-4])", quarter.upper())
+    fiscal_quarter = (
+        f"Q{quarter_number[1]} {fiscal_year}" if quarter_number and fiscal_year else None
+    )
+    if kind in {"fy", "fiscalyear", "annual", "year"} and fiscal_year:
+        return fiscal_year
+    if kind in {"", "q", "quarter", "quarterly"} and fiscal_quarter:
+        return fiscal_quarter
+    group = {
+        "ytd": "YTD",
+        "yeartodate": "YTD",
+        "pytd": "PYTD",
+        "prioryeartodate": "PYTD",
+        "ltm": "LTM",
+        "ttm": "LTM",
+        "lasttwelvemonths": "LTM",
+        "pf": "PF",
+        "proforma": "PF",
+    }.get(kind)
+    if group is not None:
+        for anchor in (end, fiscal_quarter or fiscal_year):
+            if anchor and period_order(label := f"{group} {anchor}") is not None:
+                return label
     return period_id if period_order(period_id) is not None else None
 
 
@@ -1481,14 +1566,28 @@ def _clean_label(text: str) -> str:
     return re.sub(r"[^a-z]", "", text.casefold())
 
 
-def _unperioded_debt_cells(table: Any) -> list[snap.SnapshotCell]:
+def _debt_facility_cells(doc: snap._Doc, table: snap._Table) -> list[snap.SnapshotCell]:
     if not table.headers or len(table.headers) > 200 or len(table.rows) > 500:
         return []
+    indexes = {_clean_label(header): index for index, header in enumerate(table.headers)}
+    if "periodid" not in indexes:
+        return _unperioded_debt_cells(table)
+    name = next((field for field in ("facilityname", "instrument") if field in indexes), None)
+    if name is None:
+        return []
+    return _dated_debt_cells(table, _period_register(doc), indexes, name)
+
+
+def _debt_property(header: str) -> bool:
     excluded = ("source", "basis", "locator", "evidence", "note")
+    return not any(word in _clean_label(header) for word in excluded)
+
+
+def _unperioded_debt_cells(table: snap._Table) -> list[snap.SnapshotCell]:
     included = [
         (header, index)
         for index, header in enumerate(table.headers[1:], start=1)
-        if not any(word in _clean_label(header) for word in excluded)
+        if _debt_property(header)
     ]
     cells = []
     for source_row in table.rows:
@@ -1511,6 +1610,110 @@ def _unperioded_debt_cells(table: Any) -> list[snap.SnapshotCell]:
                     source_row.line,
                 )
             )
+    return cells
+
+
+@dataclass(frozen=True)
+class _DatedDebtColumns:
+    amount: int | None
+    properties: tuple[tuple[str, int], ...]
+
+
+def _dated_debt_cells(
+    table: snap._Table,
+    periods: dict[str, _RegisteredPeriod],
+    indexes: dict[str, int],
+    name_field: str,
+) -> list[snap.SnapshotCell]:
+    amount = next(
+        (
+            indexes[key]
+            for key in ("carryingvalue", "principal", "drawnamount", "outstanding")
+            if key in indexes
+        ),
+        None,
+    )
+    identity = {name_field, "facilityid", "periodid"}
+    columns = _DatedDebtColumns(
+        amount,
+        tuple(
+            (header.strip().replace("_", " "), index)
+            for index, header in enumerate(table.headers)
+            if _clean_label(header) not in identity and _debt_property(header)
+        ),
+    )
+    names = _dated_debt_names(table.rows, indexes, name_field)
+    cells: list[snap.SnapshotCell] = []
+    dates_seen: set[str] = set()
+    for row in table.rows:
+        facility_id = _period_field(row, indexes, "facilityid")
+        name = names.get(facility_id, _period_field(row, indexes, name_field))
+        if not name:
+            continue
+        period_id = _period_field(row, indexes, "periodid")
+        period = periods.get(period_id)
+        if period is None:
+            cells.append(
+                snap.SnapshotCell(
+                    MODEL,
+                    DEBT_FACILITIES,
+                    name,
+                    "Period not stated",
+                    snap.GAP,
+                    "A period label is unavailable for this source row.",
+                    table.module,
+                    table.section,
+                    row.line,
+                    written=f"T4.14 did not map {period_id}",
+                )
+            )
+            continue
+        if period.label not in dates_seen:
+            cells.extend(_registered_dates(period, DEBT_FACILITIES))
+            dates_seen.add(period.label)
+        cells.extend(_dated_debt_terms(table, row, name, period.label, columns))
+    return cells
+
+
+def _dated_debt_names(
+    rows: Sequence[snap._Row], indexes: dict[str, int], name_field: str
+) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for row in rows:
+        facility_id = _period_field(row, indexes, "facilityid")
+        name = _period_field(row, indexes, name_field)
+        if facility_id and name:
+            names.setdefault(facility_id, name)
+    counts = Counter(names.values())
+    return {
+        facility_id: f"{name} ({facility_id})" if counts[name] > 1 else name
+        for facility_id, name in names.items()
+    }
+
+
+def _dated_debt_terms(
+    table: snap._Table,
+    row: snap._Row,
+    name: str,
+    period: str,
+    columns: _DatedDebtColumns,
+) -> list[snap.SnapshotCell]:
+    cells = []
+    source = table.module, table.section, row.line
+    for header, index in columns.properties:
+        if index >= len(row.cells) or not row.cells[index].strip():
+            continue
+        column = f"{period} / {header}"
+        if index == columns.amount:
+            column = period
+            cells.append(
+                snap.SnapshotCell(MODEL, DEBT_FACILITIES, name, "Amount basis", LABEL, header)
+            )
+        cells.append(
+            snap.SnapshotCell(
+                MODEL, DEBT_FACILITIES, name, column, snap.COPIED, row.cells[index], *source
+            )
+        )
     return cells
 
 
@@ -2403,10 +2606,7 @@ def _append_model_amount(
                 output.amount,
                 "Model output",
                 output.source,
-                number_format="0.00%"
-                if output.key
-                in {"fcf_to_debt", "gross_margin", "adj_ebitda_margin", "adj_ebitda_growth"}
-                else None,
+                number_format="0.00%" if output.unit == "percent" else None,
             )
         )
         seen.add((row, output.period))
