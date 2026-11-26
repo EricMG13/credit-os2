@@ -59,7 +59,20 @@ SEED = 20261126
 GENERATED = 200
 
 # Hand-written rows (no session): GET of a page is 303, GET of data is 401, each by the key.
-PAGES_303 = ("/", "/index.html", "/start", "/runs", "/coverage", "/run/R1", "/report/x")
+PAGES_303 = (
+    "/",
+    "/index.html",
+    "/start",
+    "/runs",
+    "/coverage",
+    "/run/R1",
+    "/report/x",
+    # the library's redirect paths, written out (not read from the gate): 303 without a session
+    "/library",
+    "/library/",
+    "/library/index.html",
+    "/library.html",
+)
 SIGNAL_PAGES = ("/signal", "/signal/")
 DATA_401 = (
     "/connected/reports",
