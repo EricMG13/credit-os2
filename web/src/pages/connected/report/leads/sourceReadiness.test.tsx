@@ -3,7 +3,7 @@
 // The consumer-shaped tables quote the retained reviews of the TransDigm run (outdated evidence, shape
 // only): reviews/2026-11-12-module-output-adversarial/latest-run-tdg-proof-snapshot-opus-002.md
 // (lines 70, 83, 155) and earlier-run-tdg-reader-format-001.md (line 71).
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { entry, section, table } from "../overview/rows.fixture";
 import { cp0Entry, leadProps } from "./fixtures/load";
@@ -19,6 +19,25 @@ function readiness(rows: string[][], headers = HEADERS, extra: ReturnType<typeof
     "CP-0",
     [],
     [section("Source-readiness summary", 7, table(9, headers, rows)), ...extra],
+  );
+}
+
+function objectiveGate(boundary: string) {
+  return section(
+    "T1 Input gate",
+    7,
+    table(
+      9,
+      ["Gate field", "Resolved input", "Readiness boundary", "Source"],
+      [
+        [
+          "Objective and profile",
+          "Public deep credit assessment",
+          boundary,
+          "annual report, page 1",
+        ],
+      ],
+    ),
   );
 }
 
@@ -99,6 +118,60 @@ describe("sourceReadiness data", () => {
       ],
       ["Acquisition financing", "Conditional", "conditional", "Financing terms are absent"],
     ]);
+  });
+  it("shows an explicit overall verdict without treating use-specific rows as readiness areas", () => {
+    const result = sourceReadiness(
+      entry(
+        "CP-0",
+        [],
+        [
+          objectiveGate(
+            "`READY_WITH_LIMITATIONS` for the objective overall; usable historical financial evidence is present.",
+          ),
+          section(
+            "T4 Content-to-module map",
+            7,
+            table(
+              30,
+              ["Evidence and scope", "Analytical use", "Source disposition", "Source"],
+              [
+                [
+                  "Annual filing",
+                  "Financial foundation",
+                  "READY_WITH_LIMITATIONS",
+                  "annual report",
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    expect(result).toMatchObject({
+      kind: "overall",
+      word: "Ready with limitations",
+      mark: "limited",
+      context: "for the objective overall; usable historical financial evidence is present.",
+    });
+    expect(result.kind === "ready" ? result.rows : []).toEqual([]);
+  });
+  it("does not guess the overall verdict from ambiguous or narrative-only gate rows", () => {
+    const ambiguous = entry(
+      "CP-0",
+      [],
+      [
+        objectiveGate("`READY_WITH_LIMITATIONS` for the objective overall."),
+        objectiveGate("`READY_WITH_LIMITATIONS` for the objective overall."),
+      ],
+    );
+    const narrativeOnly = entry(
+      "CP-0",
+      [],
+      [objectiveGate("Historical readiness was reviewed; availability remains limited.")],
+    );
+
+    expect(sourceReadiness(ambiguous)).toEqual({ kind: "absent" });
+    expect(sourceReadiness(narrativeOnly)).toEqual({ kind: "absent" });
   });
   it("keeps the handoff's order and states, and carries no count of its own", () => {
     const result = sourceReadiness(readiness(FIVE));
@@ -352,10 +425,24 @@ describe("SourceReadinessLead", () => {
   it("draws one plain gap tile when the table is absent", () => {
     lead(entry("CP-0", [], []));
     const tile = screen.getByRole("region", { name: "Readiness by area" });
-    expect(tile).toHaveTextContent("This page could not read the readiness by area.");
+    expect(tile).toHaveTextContent("No readiness-by-area table is present in this handoff.");
     expect(tile.className).not.toContain("border-dashed");
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.queryByText(/could not read the key evidence/)).toBeNull();
+  });
+  it("draws the objective-level state and preserves its row in the trace table", () => {
+    lead(entry("CP-0", [], [objectiveGate("`READY_WITH_LIMITATIONS` for the objective overall.")]));
+    const tile = screen.getByRole("region", { name: "Overall source readiness" });
+    expect(within(tile).getByText("Ready with limitations")).toBeVisible();
+    expect(within(tile).getByText("for the objective overall.")).toBeVisible();
+    expect(screen.queryByRole("list", { name: "Readiness by area" })).toBeNull();
+    expect(screen.queryByText(/could not read the readiness by area/)).toBeNull();
+    fireEvent.click(
+      within(tile).getByRole("button", { name: "Table view: Overall source readiness" }),
+    );
+    expect(within(tile).getByRole("table")).toHaveTextContent("Objective and profile");
+    expect(within(tile).getByRole("table")).toHaveTextContent("Public deep credit assessment");
+    expect(within(tile).queryByRole("cell", { name: "annual report, page 1" })).toBeNull();
   });
   it("draws nothing for a module the frame reports as unreadable", () => {
     const source = readiness(FIVE);

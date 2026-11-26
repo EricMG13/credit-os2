@@ -120,7 +120,7 @@ function publicationText(value: string, privateIds: readonly string[]) {
   return containsReference(text) || containsRunIdentifier(text, privateIds) ? "" : text;
 }
 
-function previewQualification(
+export function previewQualification(
   value: string,
   privateIds: readonly string[],
   pathway: string | null,

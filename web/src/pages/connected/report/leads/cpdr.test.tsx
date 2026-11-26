@@ -60,13 +60,15 @@ function research(withAll: boolean) {
   return made;
 }
 
-it("states why the question list is a gap and never invents coverage", () => {
+it("states that no separate question register is present and never invents coverage", () => {
   render(<ResearchLead {...leadProps(research(true))} />);
   const tile = screen.getByRole("region", { name: "Research questions and answers" });
   // Review 4, Q8: the reader's words, never "passage"; Q5: one compact full row.
   expect(tile.className).toMatch(/lg:col-span-12/);
   expect(
-    within(tile).getByText("This page could not read the research questions and their answers."),
+    within(tile).getByText(
+      "This handoff gives supported research findings but no separate list of questions and answers.",
+    ),
   ).toBeVisible();
   expect(within(tile).queryByText(/under Executive answer/)).toBeNull();
   expect(tile.textContent).not.toMatch(/passage|register|table/);

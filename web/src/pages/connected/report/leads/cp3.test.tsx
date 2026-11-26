@@ -171,7 +171,7 @@ it("withholds the bars when the run's date is before the last trades", () => {
   ).toBeInTheDocument();
 });
 
-it("draws the peer gap and not the relative value or portfolio fit passages", () => {
+it("states that the relative-value passage carries comparisons when no peer table exists", () => {
   render(<SecurityLead {...props(handoff(REAL))} />);
   // The module page frame draws those sections; the lead does not repeat them.
   expect(document.body.textContent).not.toMatch(/trade above par while the subordinated/);
@@ -179,10 +179,13 @@ it("draws the peer gap and not the relative value or portfolio fit passages", ()
   expect(screen.queryByRole("region", { name: "Relative value" })).toBeNull();
   expect(screen.queryByRole("region", { name: "Portfolio fit" })).toBeNull();
   const peers = screen.getByRole("region", { name: "Relative value against peers" });
-  // F1: the page says only what it checked.
-  expect(within(peers).getByText("This page could not read peer levels.")).toBeVisible();
+  expect(
+    within(peers).getByText(
+      "No separate peer-level table is included; the handoff reports comparisons in its relative-value findings.",
+    ),
+  ).toBeVisible();
+  expect(peers.textContent).not.toMatch(/could not read peer levels/);
   expect(peers.textContent).not.toMatch(/has no peer levels/);
-  expect(peers.textContent).not.toMatch(/supplied at run start/);
 });
 
 it("states each gap when the module wrote neither table nor passage", () => {
@@ -191,6 +194,11 @@ it("states each gap when the module wrote neither table nor passage", () => {
   // Review 4, Q8: the gap names the thing in the reader's words.
   expect(
     within(tile).getByText("This page could not read the instrument decisions."),
+  ).toBeVisible();
+  expect(
+    within(screen.getByRole("region", { name: "Relative value against peers" })).getByText(
+      "No peer-level table or relative-value findings are included in this handoff.",
+    ),
   ).toBeVisible();
   expect(document.body.textContent).not.toMatch(/passage|register|table\./);
   expect(document.body.textContent).not.toMatch(/The module wrote no/);

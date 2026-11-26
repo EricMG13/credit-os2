@@ -1,6 +1,7 @@
 import { Fragment, useId, useLayoutEffect, useRef, useState } from "react";
 import type { TableCell } from "@/components/chart/ChartTable";
 import { amount, items, record, ticks, word } from "../../visuals/visualData";
+import { forecastCaseNames } from "../../visuals/LegacyForecast";
 import { scenarioShareLabel } from "../Downside";
 import { forecastMeasure } from "../forecastData";
 import { forecastInput } from "../ForecastRecord";
@@ -44,15 +45,11 @@ const joined = (words: readonly string[]) =>
 /** The number a displayed figure shows ("7.10x" reads 7.1); null when the display is not one. */
 const displayed = (display: string) => amount(display.trim().replace(/x$/i, ""));
 
-/**
- * A case's highest published forecast year, chosen on the figures as the model displays them (never
- * on hidden exact values): only with two or more published years, ties named as ties, and the years
- * with no published figure named. Null when a displayed figure is not a number.
- */
-function highestYear(group: string, points: readonly Point[]) {
-  const published = points.filter((point) => point.value !== null);
-  if (published.length < 2) return null;
-  const read = published.map((point) => ({ point, shown: displayed(point.display) }));
+/** The highest shown forecast year, with wording tied to whether its figures were published. */
+function highestYear(group: string, points: readonly Point[], calculated = false) {
+  const available = points.filter((point) => point.value !== null);
+  if (available.length < 2) return null;
+  const read = available.map((point) => ({ point, shown: displayed(point.display) }));
   const shown = read.flatMap(({ shown: value }) => (value === null ? [] : [value]));
   if (shown.length !== read.length) return null;
   const top = Math.max(...shown);
@@ -62,8 +59,12 @@ function highestYear(group: string, points: readonly Point[]) {
   const years = at.map((point) => point.period);
   const when = years.length > 1 ? `${joined(years)}, tied` : first.period;
   const skipped = points.filter((point) => point.value === null).map((point) => point.period);
-  const missing = skipped.length ? `; no published figure for ${joined(skipped)}` : "";
-  return `Highest published forecast year, ${group}: ${first.display} (${when})${missing}.`;
+  const figureType = calculated ? "calculated" : "published";
+  const missing = skipped.length ? `; no ${figureType} figure for ${joined(skipped)}` : "";
+  const headline = calculated
+    ? "Highest calculated forecast year"
+    : "Highest published forecast year";
+  return `${headline}, ${group}: ${first.display} (${when})${missing}.`;
 }
 
 /** A box's width in CSS pixels, so an SVG drawn to it keeps its text at its stated size. */
@@ -313,10 +314,23 @@ export function leadPath(model: unknown): Path | null {
 const hasFigure = (points: readonly { value: number | null }[]) =>
   points.some(({ value }) => value !== null);
 
-function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string }) {
+function ForwardPathTile({
+  view,
+  entry,
+  href,
+}: {
+  view: LeadProps["view"];
+  entry: LeadProps["entry"];
+  href: ReturnType<typeof leadHref>;
+}) {
   const model = view.models[0];
-  const path = model ? leadPath(model) : null;
-  if (!path)
+  const replay =
+    !model && view.previewForecast?.handoff.output.id === entry.output.id
+      ? view.previewForecast
+      : undefined;
+  const calculation = model ?? (replay && { cashflow: replay.cashflow });
+  const recorded = calculation ? leadPath(calculation) : null;
+  if (!recorded)
     return (
       <LeadGap
         span={12}
@@ -326,12 +340,32 @@ function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string
           model
             ? (forwardStatement(model) ??
               "This page could not read a net leverage path from the published model.")
-            : "No forecast model was published for this run."
+            : replay
+              ? "The retained inputs have a calculation replay in Forecast."
+              : "No forecast model was published for this run."
         }
-      />
+      >
+        {replay && (
+          <a className="text-small font-semibold text-action underline" href="#forecast">
+            Open the forecast calculation replay
+          </a>
+        )}
+      </LeadGap>
     );
+  const names = replay && forecastCaseNames(replay.cashflow);
+  const path = names
+    ? {
+        ...recorded,
+        cases: recorded.cases.map((item) => ({
+          ...item,
+          group: names.get(item.group) ?? item.group,
+        })),
+      }
+    : recorded;
   const periods = pathPeriods(path.cases);
-  const highest = path.cases.flatMap(({ group, points }) => highestYear(group, points) ?? []);
+  const highest = path.cases.flatMap(
+    ({ group, points }) => highestYear(group, points, Boolean(replay)) ?? [],
+  );
   const gaps = path.cases.flatMap(({ group, points }) =>
     points
       .filter((point) => point.value === null)
@@ -353,16 +387,17 @@ function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string
       span={12}
       label={PATH_LABEL}
       title={PATH_TITLE}
+      kicker={replay && "Test preview calculation"}
       basis={`${path.measure}; every case on one scale`}
       legend={
         <a
           href="#forecast"
           className={`inline-flex min-h-11 items-center rounded-ds-xs text-small font-medium text-text-link underline ${FOCUS}`}
         >
-          Open the forecast
+          {replay ? "Open the forecast calculation replay" : "Open the forecast"}
         </a>
       }
-      trace={<Trace href={href} name="the forward credit model" />}
+      trace={<Trace href={href(replay?.calculationLine)} name="the forward credit model" />}
       figure={<PathPanels path={path} />}
       table={{
         head: ["Case", ...periods],
@@ -374,7 +409,7 @@ function ForwardPathTile({ view, href }: { view: LeadProps["view"]; href: string
           }),
         })),
       }}
-      notes={[...(path.unbased ? [path.unbased] : []), ...highest, ...gaps]}
+      notes={[replay?.reconciliation, path.unbased, ...highest, ...gaps]}
     />
   );
 }
@@ -588,7 +623,7 @@ export const ForwardLead = withDraws(function ForwardLead(props: LeadProps) {
   const href = leadHref(props);
   return (
     <Bento>
-      <ForwardPathTile view={view} href={href()} />
+      <ForwardPathTile view={view} entry={entry} href={href} />
       <DriversTile entry={entry} href={href} />
     </Bento>
   );

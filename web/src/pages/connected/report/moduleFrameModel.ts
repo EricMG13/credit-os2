@@ -23,6 +23,7 @@ export const KEY_FINDINGS = "Key findings";
 export const CONTRARY = "Contrary evidence and what would change the view";
 const LIMITATIONS = "Limitations";
 const PASSAGE_NAMES = ["Bottom line", KEY_FINDINGS, CONTRARY, LIMITATIONS] as const;
+const DATA_MODULES = new Set(["CP-0", "CP-PARSE", "CP-1", "CP-1C"]);
 
 /** What a module's visuals are, so a lead can say which of them it draws itself. */
 export type FigureKind = LeadKind;
@@ -84,6 +85,7 @@ function proseSection(
   section: Section,
   role: string,
   typedTables: boolean,
+  tableCentred: boolean,
 ): ProseSection | null {
   if (heldInEvidence(section.heading, role)) return null;
   // The handoff's own section: the finding blocks leave out a coded section's plain tables.
@@ -91,7 +93,8 @@ function proseSection(
   const tables = written.blocks.filter((block): block is Table => block.type === "table");
   const typed = typedTables ? tables.filter((table) => typedAt(entry, section, table)) : [];
   if (typed.length !== tables.length) return null;
-  const paragraphs = role === "registers" ? [] : textBlocks(section).filter(readable);
+  const paragraphs =
+    role === "registers" || tableCentred ? [] : textBlocks(section).filter(readable);
   if (!paragraphs.length && !typed.length) return null;
   const title = readableTitle(section.heading, "Untitled section");
   return { section, title, paragraphs, typed, words: wordCount(paragraphs) };
@@ -218,6 +221,7 @@ export function moduleFrame(
     typedTables = true,
   }: { figureTableLines?: readonly number[]; typedTables?: boolean } = {},
 ) {
+  const tableCentred = DATA_MODULES.has(entry.output.module);
   const slots = passages(entry.sections);
   const slotLines = new Set(slots.map(({ line }) => line));
   const roles = new Map(
@@ -233,10 +237,12 @@ export function moduleFrame(
   const hasText = (section: Section) =>
     section.blocks.some((block) => block.type === "text" && readable(block));
   const passage = (name: string) => {
+    if (tableCentred && (name === KEY_FINDINGS || name === CONTRARY)) return undefined;
     const section = slot(name);
     return section && hasText(section) ? section : undefined;
   };
   const hollow = (name: string) => {
+    if (tableCentred && (name === KEY_FINDINGS || name === CONTRARY)) return undefined;
     const section = slot(name);
     return section && !hasText(section) ? section : undefined;
   };
@@ -245,7 +251,9 @@ export function moduleFrame(
   const prose = found
     .filter((section) => !slotLines.has(section.line))
     .flatMap(
-      (section) => proseSection(entry, section, roles.get(section.line) ?? "", typedTables) ?? [],
+      (section) =>
+        proseSection(entry, section, roles.get(section.line) ?? "", typedTables, tableCentred) ??
+        [],
     );
   const charts = drawingLines(entry, figureTableLines);
   const charted = slots

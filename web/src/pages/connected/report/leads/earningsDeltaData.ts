@@ -31,7 +31,7 @@ export const MIXED_PERIODS =
   "This page did not compare the earnings table's two latest annual periods: they are different kinds of period.";
 const SAME_YEAR =
   "This page did not compare the earnings table's two latest annual periods: they are the same year.";
-export const NO_BRIDGE = "This page could not read the variance bridge.";
+export const NO_BRIDGE = "No charted variance bridge is included in this handoff.";
 
 /** Handoff words for the page, or the Evidence pointer where they name a source or are empty. */
 const readable = (text: string) => safeText(text) || IN_EVIDENCE;
@@ -622,6 +622,11 @@ export function bridges(entry: OutputEntry): Bridge[] {
         table.headers.every((header, at) => header === STEP_HEADERS[at]),
     )
     .map(({ heading, table }) => bridgeOf(heading, table));
+}
+
+/** The module's variance register is context for the chart gap, never a step bridge itself. */
+export function hasVarianceRegister(entry: OutputEntry) {
+  return allTables(entry).some(({ heading }) => /\bvariance register\b/i.test(heading));
 }
 
 function bridgeOf(heading: string, table: Table): Bridge {

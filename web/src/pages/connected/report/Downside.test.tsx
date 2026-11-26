@@ -59,6 +59,168 @@ function entry(shock: string, stressedCash: string): OutputEntry {
 
 const tile = () => screen.getByRole("region", { name: "Downside scenarios" });
 
+function typedEntry(): OutputEntry {
+  const assumptions = table(
+    146,
+    [
+      "Scenario ID",
+      "Period / scope",
+      "EBITDA decline fraction s",
+      "Cash-interest increase fraction k",
+      "Category / confidence",
+      "Anchor and omissions",
+    ],
+    [
+      [
+        "s00",
+        "FY2024, 12 months ended 2024-09-30; fixed close debt and cash",
+        "0",
+        "0",
+        "Analyst Interpretation / Medium; no-shock control",
+        "Chosen because FY2024 has all nine inputs on an annual basis.",
+      ],
+      [
+        "s01",
+        "Same FY2024 base; shipment delays and some loss of profitable replacement mix",
+        "0.1000",
+        "0.0259",
+        "Analyst Interpretation / Medium",
+        "Partial reversal of the FY2024 earnings gain.",
+      ],
+      [
+        "s02",
+        "Same FY2024 base; OEM and aftermarket weakening",
+        "0.2500",
+        "0.0259",
+        "Analyst Interpretation / Medium",
+        "Identical interest shock isolates the incremental EBITDA effect.",
+      ],
+      [
+        "s03",
+        "Same FY2024 base; deeper coincident commercial stress",
+        "0.5000",
+        "0.0518",
+        "Analyst Interpretation / Low",
+        "No refinancing, mitigation, hedge waterfall or probability assigned.",
+      ],
+    ],
+  );
+  const summary = table(
+    74,
+    [
+      "Case",
+      "EBITDA fall / cash-interest increase",
+      "Gross / net leverage",
+      "EBITDA / cash interest",
+      "Free cash flow / carrying debt",
+      "Creditor consequence",
+    ],
+    [
+      [
+        "FY2024 control",
+        "0% / 0%",
+        "6.53x / 4.88x",
+        "3.29x",
+        "USD 1,880 million / 7.56%",
+        "Reported-year baseline.",
+      ],
+      [
+        "Shipment and mix stress",
+        "10% / 2.59%",
+        "7.25x / 5.43x",
+        "2.89x",
+        "USD 1,468.7078 million / 5.90%",
+        "Cash still covers capex and net interest.",
+      ],
+      [
+        "Broader demand stress",
+        "25% / 2.59%",
+        "8.70x / 6.51x",
+        "2.41x",
+        "USD 896.7578 million / 3.60%",
+        "Cash generation falls below the watch level.",
+      ],
+      [
+        "Deep, synchronized stress",
+        "50% / 5.18%",
+        "13.05x / 9.77x",
+        "1.57x",
+        "-USD 86.4844 million / -0.35%",
+        "EBITDA still covers modeled cash interest.",
+      ],
+    ],
+  );
+  const metrics = table(
+    182,
+    [
+      "Scenario",
+      "EBITDA (USD million)",
+      "Cash interest (USD million)",
+      "FCF (USD million)",
+      "Total debt / EBITDA (x)",
+      "Net debt / EBITDA (x)",
+      "EBITDA / cash interest (x)",
+      "FCF / debt (fraction)",
+      "Calculation status",
+    ],
+    [
+      [
+        "s00",
+        "3813",
+        "1158",
+        "1880",
+        "6.525046",
+        "4.883032",
+        "3.292746",
+        "0.075563",
+        "Calculated; reconciles to all reported comparator precisions.",
+      ],
+      [
+        "s01",
+        "3431.7",
+        "1187.9922",
+        "1468.7078",
+        "7.250051",
+        "5.425591",
+        "2.888655",
+        "0.059032",
+        "Calculated; positive denominators.",
+      ],
+      [
+        "s02",
+        "2859.75",
+        "1187.9922",
+        "896.7578",
+        "8.700061",
+        "6.510709",
+        "2.407213",
+        "0.036043",
+        "Calculated; positive denominators.",
+      ],
+      [
+        "s03",
+        "1906.5",
+        "1217.9844",
+        "-86.4844",
+        "13.050092",
+        "9.766063",
+        "1.565291",
+        "-0.003476",
+        "Calculated; negative FCF is a valid numerator, not missing.",
+      ],
+    ],
+  );
+  return {
+    output: { module: "CP-2A", id: "retained", label: "Downside", sha256: "hash", href: "file.md" },
+    selected: true,
+    sections: [
+      { heading: "Downside stress", level: 3, line: 70, blocks: [summary] },
+      { heading: "T2DS.1 Scenarios", level: 4, line: 144, blocks: [assumptions] },
+      { heading: "T2DS.4 Stressed metrics", level: 4, line: 180, blocks: [metrics] },
+    ],
+  };
+}
+
 it("contains unbroken scenario anchors and scope text within the desktop report", () => {
   const data = downsideView(entry("0.10 (10%)", "50.00"));
   if (!data) throw new Error("Test scenario matrix was rejected");
@@ -237,6 +399,65 @@ it("reads the stressed metrics and scenarios under the headings the real handoff
   expect(data?.matrix.line).toBe(20);
   // A heading that only mentions the id further on is not the register.
   cases.heading = "Notes on T2DS.1 — Scenarios";
+  expect(downsideView(source)?.cases).toEqual([]);
+});
+
+it("reads retained CP-2A scenario and metric registers without losing units, signs, or precision", () => {
+  const data = downsideView(typedEntry());
+  if (!data) throw new Error("retained CP-2A tables were rejected");
+  expect(data.cases.map(({ name }) => name)).toEqual([
+    "FY2024 control",
+    "Shipment and mix stress",
+    "Broader demand stress",
+    "Deep, synchronized stress",
+  ]);
+  expect(data.cases.map(({ decline, interest }) => [decline, interest])).toEqual([
+    ["0", "0"],
+    ["0.1000", "0.0259"],
+    ["0.2500", "0.0259"],
+    ["0.5000", "0.0518"],
+  ]);
+  expect(data.matrix.rows.map(({ cells }) => cells[0])).toEqual([
+    "EBITDA (USD million)",
+    "Cash interest (USD million)",
+    "FCF (USD million)",
+    "Total debt / EBITDA (x)",
+    "Net debt / EBITDA (x)",
+    "EBITDA / cash interest (x)",
+    "FCF / debt (fraction)",
+    "Calculation status",
+  ]);
+  expect(data.matrix.rows[2]?.cells).toContain("-86.4844");
+  render(<Downside data={data} href={(line) => `#evidence/0-${String(line)}`} />);
+  const figure = within(tile()).getByRole("img");
+  expect(figure).toHaveAccessibleName(/FCF \(\$m\).*Deep, synchronized stress -86\.4844/);
+  expect(figure).not.toHaveAccessibleName(/s00|s01|s02|s03/);
+  expect(within(figure).getByText("7.250051")).toBeVisible();
+  expect(within(figure).getByText("-0.003476")).toBeVisible();
+  expect(
+    within(tile()).getByText(
+      "Calculation status is not drawn; the table has its cells as written.",
+    ),
+  ).toBeVisible();
+  fireEvent.click(within(tile()).getByRole("button", { name: "Table" }));
+  expect(within(tile()).getByRole("cell", { name: "-86.4844" })).toBeVisible();
+  expect(
+    within(tile()).getByRole("cell", {
+      name: "Calculated; negative FCF is a valid numerator, not missing.",
+    }),
+  ).toBeVisible();
+  expect(
+    within(tile()).getByRole("link", { name: "Source for FCF (USD million)" }),
+  ).toHaveAttribute("href", "#evidence/0-182");
+});
+
+it("does not attach a rounded summary label to a different exact shock pair", () => {
+  const source = typedEntry();
+  const register = source.sections[1]?.blocks[0];
+  if (register?.type !== "table") throw new Error("scenario register missing");
+  const shipment = register.rows[1];
+  if (!shipment) throw new Error("shipment scenario missing");
+  shipment.cells[2] = "0.10000000005";
   expect(downsideView(source)?.cases).toEqual([]);
 });
 
