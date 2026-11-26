@@ -1372,8 +1372,9 @@ def _stated_gap(text: str) -> bool:
 def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
     """The two Totals rows `Pro forma interest` and `Pro forma interest cover`, from CP-1's `Pro
     forma interest and cover` table: the figures of its `Reported EBITDA` row (the one whose Basis
-    and limitation opens with those words; CP-1's own check makes it the first row, so a table with
-    none takes its first row), each by the reader's ordinary copied path. A cell that
+    and limitation opens with those words; no such row, no figures: the Totals rows name no EBITDA
+    basis, so an Adjusted-basis cover is never shown under them), each by the reader's ordinary
+    copied path. A cell that
     states no figure is `not in handoff`; so is every row when the table, the row or a column is
     missing. A table that is there but cannot be read is logged."""
     labels = ("Pro forma interest", "Pro forma interest cover")
@@ -1389,7 +1390,7 @@ def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
         return {}
     basis = at["Basis and limitation"]
     reported = (r for r in table.rows if r.cells[basis].startswith(PRO_FORMA_BASIS))
-    row = next(reported, table.rows[0] if table.rows else None)
+    row = next(reported, None)
     if row is None:
         return {}
     where = table.at(row.line)

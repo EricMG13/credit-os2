@@ -2003,3 +2003,10 @@ def test_a_literal_label_that_comes_after_the_repeat_keeps_its_name():
         for row in ("Event", "Event", "Event (2)")
     ]
     assert [c.row for c in snap._numbered(cells)] == ["Event", "Event (3)", "Event (2)"]
+
+
+def test_a_table_with_only_an_adjusted_row_gives_not_in_handoff():
+    snapshot = snap.gather(run_of(with_pro_forma(ADJUSTED)))
+    for label in ("Pro forma interest", "Pro forma interest cover"):
+        cells = where(snapshot, "Capital structure totals", label)
+        assert [(c.column, c.kind, c.text) for c in cells] == [("Value", "gap", "not in handoff")]
