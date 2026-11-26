@@ -431,27 +431,28 @@ def listed_issues[T](
     return tuple(clipped(render(item)) for item in shown)
 
 
-def is_bounded_result(issues: Sequence[str]) -> bool:
-    return (
-        len(issues) == MAX_ISSUES + 1
-        and all(len(line) <= MAX_ISSUE_CHARS for line in issues[:MAX_ISSUES])
-        and re.fullmatch(r"\d+ further issues not listed", issues[-1]) is not None
-    )
+COUNT_LINE = re.compile(r"([0-9]+) further issues not listed", re.ASCII)
 
 
 def bounded_issues(issues: Sequence[str]) -> tuple[str, ...]:
     """At most 20 lines of at most 600 characters, then a count of the lines left out.
 
     Issue text can quote caller content (a citation locator, a field name), so no issue
-    list reaches a snapshot unbounded. A list that is already a bounded result (`MAX_ISSUES`
-    short lines then an "N further issues not listed" line) is returned as it is, so bounding
-    twice keeps the count of lines left out.
+    list reaches a snapshot unbounded. An "N further issues not listed" line already in the list
+    (from `listed_issues`) is not an issue: it is taken out and its N added to the count, so
+    composed lists and bounding twice keep the full count of lines left out.
     """
-    if is_bounded_result(issues):
-        return tuple(issues)
-    shown = tuple(shortened(line) for line in issues[:MAX_ISSUES])
-    rest = len(issues) - MAX_ISSUES
-    return (*shown, f"{rest} further issues not listed") if rest > 0 else shown
+    real: list[str] = []
+    hidden = 0
+    for line in issues:
+        counted = COUNT_LINE.fullmatch(line) if len(line) <= MAX_ISSUE_CHARS else None
+        if counted is None:
+            real.append(line)
+        else:
+            hidden += int(counted[1])
+    hidden += max(len(real) - MAX_ISSUES, 0)
+    shown = tuple(shortened(line) for line in real[:MAX_ISSUES])
+    return (*shown, f"{hidden} further issues not listed") if hidden else shown
 
 
 def malformed_issues(error: ValidationError) -> tuple[str, ...]:
