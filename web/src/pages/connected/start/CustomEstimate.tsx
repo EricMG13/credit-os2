@@ -36,8 +36,8 @@ export function EstimateFigures({
         <div className="grid gap-0.5">
           <h4 className="text-small font-medium text-text-primary">{ESTIMATE_LABEL}</h4>
           <p className="text-caption text-text-secondary">
-            An estimate, not a quote. The hold is what one call of the largest module keeps against
-            the cap while it is in flight.
+            An estimate, not a quote. Reserved for one model call while it runs, so the run cannot
+            pass the cap.
           </p>
         </div>
         <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-x-6 gap-y-2">

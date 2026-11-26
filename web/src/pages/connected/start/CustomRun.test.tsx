@@ -170,6 +170,50 @@ describe("the Custom selection option", () => {
   });
 });
 
+describe("the picker's design", () => {
+  it("draws an unchosen module's figure as an addition and a chosen one plainly", async () => {
+    await atPicker();
+    fireEvent.click(box("Legal & covenants"));
+    expect(box("Legal & covenants").closest("li")).not.toHaveTextContent("+ USD");
+    expect(box("Legal & covenants").closest("li")).toHaveTextContent("USD 0.37");
+    expect(box("Committee decision").closest("li")).toHaveTextContent("+ USD 0.99");
+    expect(box("Source readiness").closest("li")).not.toHaveTextContent("+ USD");
+  });
+
+  it("puts the running figures above the list, with the earlier-run caption", async () => {
+    await atPicker();
+    const totals = estimateBox();
+    const list = within(picker()).getAllByRole("list")[0] as HTMLElement;
+    expect(totals.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(totals).toHaveTextContent("when one is listed");
+    expect(list).toHaveClass("lg:grid-cols-2");
+  });
+
+  it("describes each checkbox by its purpose, needs and reason", async () => {
+    await atPicker();
+    fireEvent.click(box("Committee decision"));
+    expect(box("Evidence validation")).toHaveAccessibleDescription(
+      /Validates the evidence trace.*Needs first.*Added: Needed by Committee decision\./,
+    );
+    expect(box("Source readiness")).toHaveAccessibleDescription(/Always in: Every run needs/);
+  });
+
+  it("explains the hold in plain words", async () => {
+    await atPicker();
+    expect(estimateBox()).toHaveTextContent(
+      "Reserved for one model call while it runs, so the run cannot pass the cap.",
+    );
+  });
+
+  it("words the card's cap as coming from the modules", async () => {
+    await atPurpose();
+    chooseControl("Run form level", "advanced");
+    expect(
+      screen.getByRole("radio", { name: "Custom selection" }).closest("label"),
+    ).toHaveTextContent("Cap from your modules, at most USD 50.00");
+  });
+});
+
 describe("the picker", () => {
   it("lists every offered module by reader name with what it answers, needs and costs", async () => {
     await atPicker();

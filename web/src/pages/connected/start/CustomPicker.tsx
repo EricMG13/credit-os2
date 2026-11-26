@@ -14,8 +14,9 @@ import {
 import { pageEstimate, type IntakeView } from "./intake";
 
 const NAME = "custom";
-const CHECK =
-  "flex items-center gap-2 text-small font-medium text-text-primary max-[480px]:min-h-11";
+const CHECK = "flex items-center gap-2 text-small font-medium text-text-primary";
+const CAPTION =
+  "The summary adds the comparison with an earlier run, and its cost, when one is listed.";
 
 /**
  * The modules of a custom selection: every module the analyst may choose, by reader name, with what
@@ -57,10 +58,21 @@ export function CustomPicker({ view }: { view: IntakeView }) {
           </Button>
         ))}
       </div>
-      <ul className="grid gap-2">
+      {total ? (
+        <EstimateFigures sum={total.sumCents / 100} hold={total.holdCents / 100} cap={total.cap}>
+          <p className="mt-2 text-caption text-text-secondary">{CAPTION}</p>
+        </EstimateFigures>
+      ) : (
+        <p className="text-small text-text-secondary">
+          {`${ESTIMATE_LABEL}: the cap for a custom selection is unavailable. Reload the form. ${CAPTION}`}
+        </p>
+      )}
+      <ul className="grid gap-2 lg:grid-cols-2">
         {OFFERED.map((module) => {
           const reason = done.reasons[module.id];
           const row = figureOf(module.id);
+          const chosen = done.modules.includes(module.id);
+          const ids = ["answers", "needs", "reason"].map((part) => `${module.id}-${part}`);
           const needs = module.required.map((id) => moduleName(id, NAME));
           return (
             <li
@@ -71,7 +83,8 @@ export function CustomPicker({ view }: { view: IntakeView }) {
                 <label className={CHECK}>
                   <input
                     type="checkbox"
-                    checked={done.modules.includes(module.id)}
+                    checked={chosen}
+                    aria-describedby={ids.slice(0, reason === undefined ? 2 : 3).join(" ")}
                     disabled={reason !== undefined}
                     onChange={(event) => {
                       view.toggleModule(module.id, event.target.checked);
@@ -79,16 +92,23 @@ export function CustomPicker({ view }: { view: IntakeView }) {
                   />
                   {moduleName(module.id, NAME)}
                 </label>
-                {row && <Figure className="text-small">{usd(row.cents)}</Figure>}
+                {row &&
+                  (chosen ? (
+                    <Figure className="text-small">{usd(row.cents)}</Figure>
+                  ) : (
+                    <Figure className="text-small text-text-tertiary">{`+ ${usd(row.cents)}`}</Figure>
+                  ))}
               </div>
-              <p className="text-small text-text-secondary">{module.answers}</p>
-              <p className="text-caption text-text-tertiary">
+              <p id={ids[0]} className="text-small text-text-secondary">
+                {module.answers}
+              </p>
+              <p id={ids[1]} className="text-caption text-text-tertiary">
                 {needs.length ? `Needs first: ${nameSentence(needs)}` : "Needs nothing first"}
                 {module.modulesPageOnly && " · Modules page only"}
                 {row && !row.measured && " · Not measured: the mean of the measured modules"}
               </p>
               {reason !== undefined && (
-                <p className="text-caption text-text-secondary">
+                <p id={ids[2]} className="text-caption text-text-secondary">
                   {`${(["CP-0", "CP-1"] as const).some((id) => id === module.id) ? "Always in" : "Added"}: ${reason}`}
                 </p>
               )}
@@ -96,16 +116,6 @@ export function CustomPicker({ view }: { view: IntakeView }) {
           );
         })}
       </ul>
-      {total ? (
-        <EstimateFigures sum={total.sumCents / 100} hold={total.holdCents / 100} cap={total.cap} />
-      ) : (
-        <p className="text-small text-text-secondary">
-          {`${ESTIMATE_LABEL}: the cap for a custom selection is unavailable. Reload the form.`}
-        </p>
-      )}
-      <p className="text-caption text-text-secondary">
-        The summary adds the comparison with an earlier run, and its cost, when one is listed.
-      </p>
     </fieldset>
   );
 }
