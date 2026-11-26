@@ -222,7 +222,9 @@ export function ticks(
 }
 
 const BASIS_COLUMN = /^Basis and limitation$/i;
-const DRAWER_COLUMN = /^(?:Source|Evidence)$/i;
+// The columns the library keeps out of every page but Evidence and the trace drawer: source
+// references, and CP-1's EBITDA bridge Add-Back ID (an id column).
+const DRAWER_COLUMN = /^(?:Source|Evidence|Add-Back ID)$/i;
 
 /**
  * The Table form of a published chart table. The limitation text stays beside the figures, its module

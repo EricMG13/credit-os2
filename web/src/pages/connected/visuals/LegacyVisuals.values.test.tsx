@@ -181,6 +181,31 @@ it("shows each row's Basis and limitation in the Table form beside its figures",
   expect(within(grid).getByRole("cell", { name: "Synthetic." })).toBeVisible();
 });
 
+it("draws the bridge with the Add-Back ID column from the Amount column alone and keeps the id out of the Table form", () => {
+  const figure = drawn(
+    "EBITDA bridge",
+    { kind: "waterfall", amount: 1, columns: [1], unit: "US$m" },
+    table(
+      ["Step", "Amount", "Add-Back ID", "Reporting unit", "Basis and limitation"],
+      [
+        ["Opening EBITDA", "400", "Not applicable", "US$m", "Reported, before leases."],
+        ["Disposal", "-10", "AB-7", "US$m", "Synthetic."],
+        ["Closing EBITDA", "390", "Not applicable", "US$m", "Reported, before leases."],
+      ],
+    ),
+  );
+  fireEvent.click(figure.getByRole("button", { name: "Table" }));
+  const grid = figure.getByRole("table", { name: "EBITDA bridge" });
+  expect(
+    within(grid)
+      .getAllByRole("columnheader")
+      .map((cell) => cell.textContent),
+  ).toEqual(["Step", "Amount", "Reporting unit", "Basis and limitation"]);
+  expect(within(grid).queryByText("AB-7")).toBeNull();
+  expect(within(grid).getByRole("cell", { name: "-10" })).toBeVisible();
+  expect(within(grid).getByRole("cell", { name: "Synthetic." })).toBeVisible();
+});
+
 it("shows each period's unit and Basis and limitation in the Table form of a period chart with a negative value", () => {
   const figure = drawn(
     "Leverage",

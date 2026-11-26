@@ -771,7 +771,8 @@ last-change commit given). Hashes and the named edits are in `manifest.json`.
   front matter and score removed (the source has no Microsoft 365 text); step 13's analytical rules restated without its tagged tables, in the steps they belong to (T4.18 debt instruments, the adjusted EBITDA bridge, period derivation, reconciliations); the runbook cut to what the step file does not hold;
   missing values are `Not supplied:` or `Not calculable:`, gaps plain sentences under `## Gaps`, the host's
   six H2s; statement tables T4.4-T4.6 and T4.9 in the shapes the CP-1 check reads; debt at carrying value
-  and reported EBITDA the primary denominator (owner, 2026-11-13). `prompts/CP-1.md` is still sent. The
+  and reported EBITDA the primary denominator (owner, 2026-11-13); T4.18 gains `Asset type` (`loan`, `bond`,
+  `other`, by the governing document a source states; owner, 2026-11-26). `prompts/CP-1.md` is still sent. The
   STEP_CONTRACTS sections written for the JSON runtime are no longer sent. CP-1 becomes a scored module
   (Confidence inputs). The schema and system references are archived, not sent.
 - CP-1A: PR #83 Deploy V skill and step bundles (cp-os `b57a344`), no later edit.
@@ -1117,7 +1118,7 @@ on 2026-11-15 were fixed that day (owner: "fix"); a difference accepted later go
 | CP-0 | `docs/reuse/selected-methods/skills/cp-0-source-readiness/references/REF_CP-0_STEPS.md` | cp-os (byte-identical to Deploy V) | no | c4d2e35 | `d367c334f529` |
 | CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/SKILL.md` | caos-databricks | yes | dfff264, a14f9051 | `59ce07e40ef4` |
 | CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/references/CP-1_RUNBOOK.md` | caos-databricks | yes | dfff264, b283233c | `c8f0279d5ba0` |
-| CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/references/REF_CP-1_STEPS.md` | caos-databricks | yes | dfff264, a14f9051 | `2f5b9ef16503` |
+| CP-1 | `docs/reuse/selected-methods/skills/cp-1-canonical-data-foundation/references/REF_CP-1_STEPS.md` | caos-databricks | yes | dfff264, a14f9051 | `039b2e7774ac` |
 | CP-1 | `prompts/CP-1.md` | this repo | no | this repo | `f34798b2be15` |
 | CP-1A | `docs/reuse/selected-methods/skills/cp-1a-business-transaction-fact-pack/SKILL.md` | cp-os | no | b57a344 | `3885bc51b9fa` |
 | CP-1A | `docs/reuse/selected-methods/skills/cp-1a-business-transaction-fact-pack/references/REF_CP-1A_STEPS.md` | cp-os | no | b57a344 | `57a22436167d` |

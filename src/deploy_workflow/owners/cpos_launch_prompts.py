@@ -140,7 +140,8 @@ _VOICE_HEAD = (
     "`Post-balance-sheet adjustments` table has a row for an event, state the pro forma figure "
     "beside it, with its unit and the event's date. When the table says none was found, add "
     "nothing. When Financial foundation does not state the pro forma figure, say it is not "
-    "established; never work one out yourself.\n"
+    "established; never work one out yourself. Treat its interest cover the same way, with its "
+    "`Pro forma interest and cover` table.\n"
     "- In every sentence under `## Findings`, `## Calculations` and `## Gaps`, write for the "
     "reader, not for the pipeline. Write no module code, page locator, bracket or hash, and "
     'none of these words: "handoff", "this transport", "the pack", "fact pack", "source pack", '
@@ -646,7 +647,8 @@ def _none_rule(spec: OwnerTable) -> str:
         return ""
     if spec.none_text:
         return (
-            f" If no such event is stated, write one row whose Event is exactly `{spec.none_text}` "
+            f" If {spec.none_when}, write one row whose {spec.columns[0]} is exactly "
+            f"`{spec.none_text}` "
             f"(no other punctuation or wording), whose {_and_list(spec.columns[1:])} are each "
             "`\u2014`, with Reporting unit and Basis and limitation stated (say which sources "
             "were read)."
