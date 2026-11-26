@@ -57,7 +57,7 @@ def texts(book):
     }
 
 
-def test_c3_1_duplicate_strength_rows_do_not_crash_and_keep_every_cell(run):
+def test_duplicate_strength_rows_do_not_crash_and_keep_every_cell(run):
     def edit(cells):
         return tuple(replace(c, row="Strength 1") if c.row == "Strength 2" else c for c in cells)
 
@@ -75,7 +75,7 @@ def test_c3_1_duplicate_strength_rows_do_not_crash_and_keep_every_cell(run):
         assert text in shown
 
 
-def test_c3_2_segment_schedule_is_named_by_business_unit_column():
+def test_segment_schedule_is_named_by_business_unit_column():
     cells = writer._segment_schedule_cells(
         table(
             ["Period", "Business Unit", "Revenue", "EBITDA", "Unit"],
@@ -91,7 +91,7 @@ def test_c3_2_segment_schedule_is_named_by_business_unit_column():
     }
 
 
-def test_c3_2_segment_schedule_without_name_column_is_an_explicit_gap():
+def test_segment_schedule_without_name_column_is_an_explicit_gap():
     cells = writer._segment_schedule_cells(
         table(["Period", "Segment", "Revenue"], ["FY2025", "Airframe", "100"])
     )
@@ -107,14 +107,14 @@ def test_c3_2_segment_schedule_without_name_column_is_an_explicit_gap():
         ["Churn", "Not calculable: no subscriber count", "Not calculable: no subscriber count"],
     ],
 )
-def test_c3_3_operating_kpi_row_is_kept_with_exact_text(row):
+def test_operating_kpi_row_is_kept_with_exact_text(row):
     cells = writer._period_table_cells(
         table(["Metric Name", "FY2025", "FY2026"], row), writer.OPERATING_KPIS
     )
     assert triples(cells) == {(row[0], "FY2025", row[1]), (row[0], "FY2026", row[2])}
 
 
-def test_c3_4_segment_value_columns_are_excluded_by_whole_header_only():
+def test_segment_value_columns_are_excluded_by_whole_header_only():
     cells = writer._segment_schedule_cells(
         table(
             ["Period", "Business Unit", "Community Revenue", "Units sold", "Notes", "Source"],
@@ -130,16 +130,16 @@ def test_c3_4_segment_value_columns_are_excluded_by_whole_header_only():
 @pytest.mark.parametrize(
     "header", ["Resource cost", "Notes receivable", "Noteholder consent", "Units sold"]
 )
-def test_c3_4_debt_property_keeps_headers_that_only_contain_an_excluded_word(header):
+def test_debt_property_keeps_headers_that_only_contain_an_excluded_word(header):
     assert writer._debt_property(header)
 
 
 @pytest.mark.parametrize("header", ["Source", "Basis", "Locator", "Evidence", "Note"])
-def test_c3_4_debt_property_still_excludes_the_whole_header_names(header):
+def test_debt_property_still_excludes_the_whole_header_names(header):
     assert not writer._debt_property(header)
 
 
-def test_c3_5_error_looking_text_is_written_as_a_string_cell(run):
+def test_error_looking_text_is_written_as_a_string_cell(run):
     errors = ("#N/A", "#DIV/0!", "#REF!")
 
     def edit(cells):
@@ -166,7 +166,7 @@ def test_c3_5_error_looking_text_is_written_as_a_string_cell(run):
     assert any(c.value == "#N/A" for row in sources.iter_rows() for c in row)
 
 
-def test_c3_7_currency_column_is_labelled_currency_and_both_values_kept():
+def test_currency_column_is_labelled_currency_and_both_values_kept():
     cells = writer._period_table_cells(
         table(
             ["Metric Name", "FY2025", "Unit", "Currency"],
@@ -181,7 +181,7 @@ def test_c3_7_currency_column_is_labelled_currency_and_both_values_kept():
     }
 
 
-def test_c3_7_second_value_for_the_same_row_and_column_is_logged_and_kept(caplog):
+def test_second_value_for_the_same_row_and_column_is_logged_and_kept(caplog):
     axis = writer._ModelAxis(("FY2025",), {})
     one = snap.SnapshotCell("Model", "B", "Revenue", "Unit", snap.COPIED, "millions")
     two = snap.SnapshotCell("Model", "B", "Revenue", "Unit", snap.COPIED, "USD")

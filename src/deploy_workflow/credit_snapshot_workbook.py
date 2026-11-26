@@ -48,6 +48,7 @@ from deploy_workflow import credit_snapshot as snap
 from deploy_workflow import credit_snapshot_formulas as fx
 from deploy_workflow.cp2_scorecard import level_text
 from deploy_workflow.credit_os_catalogue import period_order
+from deploy_workflow.method_scripts import _register_start
 from deploy_workflow.owners.cp2g import DRIVER_LABEL, DRIVER_UNIT
 from deploy_workflow.owners.cpos_periods import period_of
 from deploy_workflow.recommendation import RECOMMENDATION_NAMES
@@ -982,26 +983,40 @@ def _model_handoff_blocks(snapshot: snap.Snapshot) -> dict[tuple[str, str], snap
         )
         if cells:
             blocks[MODEL, name] = snap.Block(MODEL, name, tuple(cells))
+    _add_debt_and_segment_schedule(doc, blocks)
+    return blocks
+
+
+def _add_debt_and_segment_schedule(
+    doc: snap._Doc, blocks: dict[tuple[str, str], snap.Block]
+) -> None:
+    debt_present = any(_register_start("T4.18").match(line) for line in doc.lines)
     try:
         debt = doc.register("T4.18")
-    except (snap._Absent, ValueError):
+    except snap._Absent:
         pass
+    except ValueError as error:
+        if (gap := _unreadable_table_gap(DEBT_FACILITIES, debt_present, error)) is not None:
+            blocks[MODEL, DEBT_FACILITIES] = gap
     else:
         cells = _debt_facility_cells(doc, debt)
         if cells:
             blocks[MODEL, DEBT_FACILITIES] = snap.Block(MODEL, DEBT_FACILITIES, tuple(cells))
+    schedule_present = any(
+        line in ("## Segment schedule", "### Segment schedule") for line in doc.lines
+    )
     try:
-        segments = doc.heading_table("Segment schedule")
-    except (snap._Absent, ValueError):
-        pass
-    else:
-        cells = _segment_schedule_cells(segments)
-        if cells:
-            previous = blocks.get((MODEL, SEGMENTS))
-            blocks[MODEL, SEGMENTS] = snap.Block(
-                MODEL, SEGMENTS, (*(previous.cells if previous else ()), *cells)
-            )
-    return blocks
+        cells = _segment_schedule_cells(doc.heading_table("Segment schedule"))
+    except snap._Absent:
+        return
+    except ValueError as error:
+        gap = _unreadable_table_gap("Segment schedule", schedule_present, error)
+        cells = list(gap.cells) if gap is not None else []
+    if cells:
+        previous = blocks.get((MODEL, SEGMENTS))
+        blocks[MODEL, SEGMENTS] = snap.Block(
+            MODEL, SEGMENTS, (*(previous.cells if previous else ()), *cells)
+        )
 
 
 def _model_source_financials(snapshot: snap.Snapshot) -> list[snap.SnapshotCell]:
@@ -1330,6 +1345,33 @@ def _period_table_cells(table: Any, name: str) -> list[snap.SnapshotCell]:
     return cells
 
 
+def _register_gap(name: str, reason: str) -> snap.SnapshotCell:
+    _LOG.warning("credit snapshot: the %s table is not read: %s", name, reason)
+    return _model_table_gap(name, reason).cells[0]
+
+
+def _unreadable_table_gap(name: str, present: bool, error: ValueError) -> snap.Block | None:
+    """A gap block for a table the handoff has but the reader refused; None when it is absent."""
+    if not present:
+        return None
+    _LOG.warning("credit snapshot: the %s table cannot be read: %s", name, error)
+    return _model_table_gap(name, str(error))
+
+
+def _register_refusal(
+    table: snap._Table, ident: str, indexes: dict[str, int], fields: tuple[str, str]
+) -> str | None:
+    """Why a PeriodID table is not read as a register, or None when it is readable."""
+    if len(table.headers) > 200 or len(table.rows) > 500:
+        return "the table exceeds its safe row or column limit"
+    if ident not in {"T4.16", "T4.17"}:
+        return f"a {ident} table with a PeriodID column is not read"
+    absent = [field for field in (fields[0], "periodid", fields[1]) if field not in indexes]
+    if absent:
+        return f"required column missing or repeated: {', '.join(absent)}"
+    return None
+
+
 def _model_period_register_cells(
     doc: snap._Doc,
     table: snap._Table,
@@ -1337,17 +1379,19 @@ def _model_period_register_cells(
     name: str,
     classifications: Mapping[str, snap._BridgeClassification] | None = None,
 ) -> list[snap.SnapshotCell]:
-    if len(table.headers) > 200 or len(table.rows) > 500:
-        return []
     headers = [_clean_label(header) for header in table.headers]
     header_counts = Counter(headers)
     indexes = {column: index for index, column in enumerate(headers) if header_counts[column] == 1}
-    if ident == "T4.16":
-        label_field, value_field = "segmentname", "revenue"
-    else:
-        label_field, value_field = "addbacklabel", "value"
-    if any(field not in indexes for field in (label_field, "periodid", value_field)):
-        return []
+    label_field, value_field = (
+        ("segmentname", "revenue")
+        if ident == "T4.16"
+        else (
+            "addbacklabel",
+            "value",
+        )
+    )
+    if (reason := _register_refusal(table, ident, indexes, (label_field, value_field))) is not None:
+        return [_register_gap(name, reason)]
     periods = _period_register(doc)
     context = _RegisterContext(
         table,
@@ -1478,7 +1522,7 @@ def _period_register(doc: snap._Doc) -> dict[str, _RegisteredPeriod]:
         if label is None:
             continue
         currency, unit = (_period_field(row, indexes, name) for name in ("currency", "unit"))
-        caption = f"{currency} {unit}" if currency and unit else unit or None
+        caption = " ".join(filter(None, (currency, unit))) or None
         periods[period_id] = _RegisteredPeriod(
             label, start, end, caption, (table.module, table.section, row.line)
         )
@@ -1933,32 +1977,50 @@ def _legacy_records(
                         ),
                     )
             elif isinstance(amount, str):
-                _append_model_amount(
-                    cells,
-                    seen,
-                    _ModelAmount(
-                        key,
-                        period,
-                        amount,
-                        "calculation.json",
-                        _legacy_unit_caption(entry),
-                        prior_units.get(_metric_name(key)),
-                    ),
-                )
+                _append_legacy_amount(cells, seen, (key, period, amount, entry), prior_units)
     return cells
 
 
+def _append_legacy_amount(
+    cells: list[snap.SnapshotCell],
+    seen: set[tuple[str, str]],
+    item: tuple[str, str, str, dict[str, Any]],
+    prior_units: dict[str, str],
+) -> None:
+    key, period, amount, entry = item
+    unit = _legacy_unit_caption(entry)
+    if unit is None:
+        _LOG.warning(
+            "credit snapshot: model amount %s for %s states no unit; written as a gap", key, period
+        )
+        _append_model_gap(
+            cells,
+            seen,
+            _ModelGap(key, period, "The model output states no unit for this amount."),
+        )
+        return
+    _append_model_amount(
+        cells,
+        seen,
+        _ModelAmount(
+            key, period, amount, "calculation.json", unit, prior_units.get(_metric_name(key))
+        ),
+    )
+
+
+_LEGACY_MONEY_SCALES = {"MILLIONS": "1000000", "THOUSANDS": "1000", "BILLIONS": "1000000000"}
+
+
 def _legacy_unit_caption(entry: dict[str, Any]) -> str | None:
+    """The unit the entry itself states (its currency where stated); None when it states none
+    or its scale contradicts its unit, so the caller writes a gap rather than a bare figure."""
     unit, currency, scale = entry.get("unit"), entry.get("currency"), entry.get("scale")
-    if unit == "MILLIONS" and currency == "USD" and scale == "1000000":
-        return "USD millions"
-    if unit == "MILLIONS" and isinstance(currency, str) and scale == "1000000":
-        return f"{currency} millions"
-    if unit == "FRACTION":
-        return "percent"
-    if unit == "MULTIPLE":
-        return "multiple"
-    return None
+    if unit in _LEGACY_MONEY_SCALES and scale == _LEGACY_MONEY_SCALES[unit]:
+        word = str(unit).lower()
+        return f"{currency} {word}" if isinstance(currency, str) and currency.strip() else word
+    return {"FRACTION": "percent", "PERCENT": "percentage points", "MULTIPLE": "multiple"}.get(
+        str(unit)
+    )
 
 
 def _input_pins_match(snapshot: snap.Snapshot, pins: Any) -> bool:
@@ -2038,16 +2100,19 @@ class _ModelGap:
     unit_caption: _UnitCaption | None = None
 
 
+def _model_row_label(source: str, key: str) -> str:
+    """The Model row a key is written on: the one name for the prior-unit lookup and the row."""
+    if source == "forecast_exact.json" and key == "ebitda":
+        return "Adjusted EBITDA"
+    return _metric_name(key)
+
+
 def _append_model_gap(
     cells: list[snap.SnapshotCell],
     seen: set[tuple[str, str]],
     output: _ModelGap,
 ) -> None:
-    label = (
-        "Adjusted EBITDA"
-        if output.source == "forecast_exact.json" and output.key == "ebitda"
-        else _metric_name(output.key)
-    )
+    label = _model_row_label(output.source, output.key)
     row = (
         f"{label} ({output.unit})"
         if output.unit and output.prior_unit and output.unit != output.prior_unit
@@ -2211,7 +2276,7 @@ def _forecast_model_cells(
                                     reason,
                                     "forecast_exact.json",
                                     _forecast_metric_unit(key, unit),
-                                    prior_units.get(_metric_name(key)),
+                                    prior_units.get(_model_row_label("forecast_exact.json", key)),
                                     caption,
                                 ),
                             )
@@ -2227,7 +2292,7 @@ def _forecast_model_cells(
                             amount,
                             "forecast_exact.json",
                             _forecast_metric_unit(key, unit),
-                            prior_units.get(_metric_name(key)),
+                            prior_units.get(_model_row_label("forecast_exact.json", key)),
                             caption,
                         ),
                     )
@@ -2630,11 +2695,7 @@ class _ModelAmount:
 def _append_model_amount(
     cells: list[snap.SnapshotCell], seen: set[tuple[str, str]], output: _ModelAmount
 ) -> None:
-    label = (
-        "Adjusted EBITDA"
-        if output.source == "forecast_exact.json" and output.key == "ebitda"
-        else _metric_name(output.key)
-    )
+    label = _model_row_label(output.source, output.key)
     row = (
         f"{label} ({output.unit})"
         if output.unit and output.prior_unit and output.unit != output.prior_unit
