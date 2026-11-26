@@ -1422,3 +1422,103 @@ def test_a_control_character_in_a_row_label_is_a_gap_and_the_workbook_still_writ
     snapshot = snap.gather(run_of(full(**{"CP-1": text})))
     assert not any("\x01" in c.row + c.column + c.text for c in snapshot.cells())
     assert wb.workbook_bytes(snapshot)[:2] == b"PK"
+
+
+# --- Mutation testing of the figure path (PR 4, Task 6) ------------------------------------------
+
+
+def test_the_control_character_warning_names_the_block_module_and_line_and_keeps_clean_labels(
+    caplog,
+):
+    text = FIXTURE["CP-1A"].replace("designs and makes", "designs\x01 and makes", 1)
+    line = next(i for i, part in enumerate(text.split("\n"), 1) if "\x01" in part)
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        snapshot = snap.gather(run_of(full(**{"CP-1A": text})))
+    expected = (
+        "credit snapshot: Business description: a cell, its row or its column holds a control "
+        f"character (module CP-1A, line {line})"
+    )
+    assert [r.getMessage() for r in caplog.records] == [expected]
+    cell = one(snapshot, "Business description", "Description", "Value")
+    assert (cell.kind, cell.text, cell.line) == ("gap", snap.CONTROL_CHARACTER, line)
+
+
+def test_a_control_character_in_a_column_heading_replaces_that_column_name_only():
+    text = FIXTURE["CP-1"].replace("| FY2025 |", "| FY2025\x01 |", 1)
+    assert text != FIXTURE["CP-1"]
+    snapshot = snap.gather(run_of(full(**{"CP-1": text})))
+    assert not any("\x01" in c.row + c.column + c.text for c in snapshot.cells())
+    hit = [c for c in snapshot.cells() if c.column == snap.CONTROL_CHARACTER]
+    assert hit and all(c.kind == "gap" and c.text == snap.CONTROL_CHARACTER for c in hit)
+    assert {c.row for c in hit} >= {"Revenue"}
+    assert one(snapshot, "Financials", "Revenue", "FY2024").kind == "copied"
+
+
+T49_ROW = "| {label} | f | 1 | s | 2 | s | {period} | GBP | {unit} | 1.5 | C | 1 | L |"
+
+
+def with_t49_rows(*rows):
+    return FIXTURE["CP-1"].replace(
+        "| Net debt / EBITDA |", "\n".join(rows) + "\n| Net debt / EBITDA |", 1
+    )
+
+
+def test_a_unit_that_differs_between_a_labels_periods_is_that_rows_gap_only():
+    old = "| 4.63 |"
+    row = next(r for r in FIXTURE["CP-1"].split("\n") if old in r and "FY2024" in r)
+    assert row.count("| GBP m |") == 1
+    cp1 = FIXTURE["CP-1"].replace(row, row.replace("| GBP m |", "| EUR m |"))
+    snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
+    gap = one(snapshot, "Financials", "Total debt / EBITDA", "Unit")
+    assert (gap.kind, gap.text, gap.module, gap.line) == (
+        "gap",
+        "unit differs by period",
+        None,
+        None,
+    )
+    assert one(snapshot, "Financials", "Total debt / EBITDA", "Currency").text == "GBP"
+    assert one(snapshot, "Financials", "Net debt / EBITDA", "Unit").text == "GBP m"
+
+
+def test_a_unit_gap_for_a_free_label_row_leaves_that_row_with_values_and_no_unit_cell():
+    rows = [
+        T49_ROW.format(label="Senior leverage", period="FY2025 / 2025-12-31", unit="GBP m"),
+        T49_ROW.format(label="Senior leverage", period="FY2024 / 2024-12-31", unit="EUR m"),
+    ]
+    snapshot = snap.gather(run_of(full(**{"CP-1": with_t49_rows(*rows)})))
+    assert one(snapshot, "Financials", "Senior leverage", "Unit").text == "unit differs by period"
+    assert one(snapshot, "Capital structure totals", "Senior leverage", "FY2025 / 2025-12-31").text
+    assert not where(snapshot, "Capital structure totals", "Senior leverage", "Unit")
+    same = [T49_ROW.format(label="Senior leverage", period="FY2025 / 2025-12-31", unit="GBP m")]
+    snapshot = snap.gather(run_of(full(**{"CP-1": with_t49_rows(*same)})))
+    assert one(snapshot, "Capital structure totals", "Senior leverage", "Unit").text == "GBP m"
+
+
+def test_a_free_label_row_in_a_register_without_a_unit_column_has_values_and_no_unit_cell():
+    row = T49_ROW.format(label="Senior leverage", period="FY2025 / 2025-12-31", unit="GBP m")
+    cp1 = with_t49_rows(row).replace("| Currency | Unit |", "| Currency | Units |")
+    snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
+    assert one(snapshot, "Financials", "Senior leverage", "Unit").text == "unit not in handoff"
+    assert one(snapshot, "Capital structure totals", "Senior leverage", "FY2025 / 2025-12-31").text
+    assert not where(snapshot, "Capital structure totals", "Senior leverage", "Unit")
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("| Instrument | Type |", "| Instrument | Kind |"),
+        ("| Maturity | Annual Amortisation |", "| Matures | Annual Amortisation |"),
+    ],
+)
+def test_an_instrument_table_without_a_type_or_maturity_column_joins_nothing(tmp_path, old, new):
+    assert old in FIXTURE["CP-1"]
+    moved = tmp_path / "CP-1.md"
+    moved.write_text(FIXTURE["CP-1"].replace(old, new), "utf-8")
+    (tmp_path / "w").mkdir()
+    snapshot, _ = gathered_with(
+        tmp_path / "w",
+        rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1")]),
+        handoffs={"CP-1": moved},
+    )
+    assert {c.kind for c in where(snapshot, "Instruments", column="FIGI")} == {"analyst"}
+    assert {c.kind for c in where(snapshot, "Instruments", column="Bloomberg ID")} == {"analyst"}

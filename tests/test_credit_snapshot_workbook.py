@@ -530,3 +530,81 @@ def test_a_control_character_on_any_path_is_written_as_the_gap_text(full, caplog
     assert not any(isinstance(v, str) and snap.ILLEGAL.search(v) for v in texts)
     assert texts.count(snap.CONTROL_CHARACTER) >= 3
     assert "holds a control character" in caplog.text
+
+
+# --- Mutation testing of the figure path (PR 4, Task 6) -------------------------------------------
+
+
+def text_cells(book):
+    """(Sources row, worksheet cell) of each copied, computed or entered cell of the sheets."""
+    for row in sources(book):
+        if row["Sheet"] in THREE and row["Kind"] in ("copied", "computed", "entered at run start"):
+            yield row, book[row["Sheet"]][row["Cell"]]
+
+
+def test_a_number_is_right_aligned_a_title_or_header_centred_and_other_text_left(book):
+    numbers = [
+        c for row, c in text_cells(book) if snap.figure(row["Handoff text"] or "") is not None
+    ]
+    assert len(numbers) > 100 and {c.alignment.horizontal for c in numbers} == {"right"}
+    words = [c for row, c in text_cells(book) if snap.figure(row["Handoff text"] or "") is None]
+    assert len(words) > 100 and {c.alignment.horizontal for c in words} == {"left"}
+    banner = book["Snapshot"]["A1"]
+    assert banner.value == "Credit Snapshot" and banner.alignment.horizontal == "center"
+    headings = listed(book, "Strengths and weaknesses", column="Heading")
+    assert headings
+    for row in headings:
+        assert book[row["Sheet"]][row["Cell"]].alignment.horizontal == "center"
+    title = cell_of(book, block="Header", column="Title")
+    assert title.alignment.horizontal == "left"
+
+
+def test_text_keeps_the_general_format_and_no_range_merges_a_single_cell(book):
+    words = [c for row, c in text_cells(book) if snap.figure(row["Handoff text"] or "") is None]
+    assert words and {c.number_format for c in words} == {"General"}
+    for name in THREE:
+        for merged in book[name].merged_cells.ranges:
+            assert (merged.max_row, merged.max_col) != (merged.min_row, merged.min_col), (
+                name,
+                str(merged),
+            )
+
+
+def test_a_long_copied_text_makes_its_row_taller_than_a_single_line(book):
+    tall = 0
+    for row, cell in text_cells(book):
+        text = row["Handoff text"] or ""
+        sheet = book[row["Sheet"]]
+        span = next(
+            (m.max_col - m.min_col + 1 for m in sheet.merged_cells.ranges if cell.coordinate in m),
+            1,
+        )
+        width = next(x.column_width for x in writer.LAYOUTS if x.sheet == row["Sheet"])
+        if len(text) > span * width * 1.15 and "\n" not in text:
+            tall += 1
+            assert sheet.row_dimensions[cell.row].height >= 27, row
+    assert tall > 0
+
+
+def test_a_scorecard_level_written_another_way_is_listed_as_written_on_sources(full):
+    _, shot = full
+    marked = {}
+    blocks = []
+    for block in shot.blocks:
+        cells = []
+        for cell in block.cells:
+            if cell.basis and cell.block == "Scorecard" and cell.column == "Level":
+                cell = replace(cell, written=f"**{cell.text}**")
+                marked[cell.row] = cell.written
+            cells.append(cell)
+        blocks.append(replace(block, cells=tuple(cells)))
+    assert marked
+    opened = load_workbook(io.BytesIO(writer.workbook_bytes(replace(shot, blocks=tuple(blocks)))))
+    shown = {
+        r["Row"]: r["Handoff text"]
+        for r in sources(opened)
+        if r["Block"] == "Scorecard" and r["Sheet"] == "Sources" and r["Column"] == "As written"
+    }
+    assert shown == marked
+    plain = load_workbook(io.BytesIO(writer.workbook_bytes(shot)))
+    assert not [r for r in sources(plain) if r["Column"] == "As written"]
