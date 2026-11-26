@@ -418,3 +418,26 @@ def test_race_one_name(tmp_path: Path) -> None:
             {("o-1", "A. Kovac"), ("o-2", "A. Kovac (a.kovac2)")},
             {("o-1", "A. Kovac (a.kovac)"), ("o-2", "A. Kovac")},
         )
+
+
+@posix_only
+def test_foreign_owned_file_is_refused_with_message_four(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "store"
+    open_db(folder).close()
+    real = os.geteuid()
+    calls: list[int] = []
+
+    def fake_geteuid() -> int:
+        calls.append(1)
+        return real if len(calls) == 1 else real + 1
+
+    monkeypatch.setattr(os, "geteuid", fake_geteuid)
+    with pytest.raises(StoreError) as err:
+        open_db(folder)
+    assert str(err.value) == (
+        f"the account store {folder / 'accounts.db'} belongs to another user; "
+        "it must belong to the account that runs the application and be open to no one else "
+        "(chmod 700 for the folder, 600 for the file)"
+    )

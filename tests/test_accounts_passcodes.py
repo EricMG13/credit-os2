@@ -8,6 +8,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -98,9 +99,9 @@ def test_04_bad_type(db: sqlite3.Connection, kind: str) -> None:
 
 def test_keyword_only_arguments(db: sqlite3.Connection) -> None:
     with pytest.raises(TypeError):
-        set_passcode(db, "admin", AD, T(9, 0))  # type: ignore[misc]
+        cast(Any, set_passcode)(db, "admin", AD, T(9, 0))
     with pytest.raises(TypeError):
-        try_passcode(db, "o-1", AD, T(9, 0))  # type: ignore[misc]
+        cast(Any, try_passcode)(db, "o-1", AD, T(9, 0))
     assert _count(db) == 0
     assert db.execute("SELECT COUNT(*) FROM registration_attempts").fetchone()[0] == 0
 
