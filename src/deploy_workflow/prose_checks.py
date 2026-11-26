@@ -89,13 +89,23 @@ def _visible(lines: list[tuple[int, str]]) -> list[_Visible]:
     return out
 
 
+def _physical_lines(text: str) -> list[str]:
+    """The text's lines split on newlines only, as `handoff_delivery.physical_lines` does (the
+    layer contract bars importing it here): `str.splitlines()` also splits on form feed, vertical
+    tab, U+0085, U+001C to U+001E, U+2028 and U+2029, which no reader's "line N" counts."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if not lines[-1]:
+        lines.pop()
+    return lines
+
+
 def _sections(text: str, h2_titles: tuple[str, ...], lead_in: bool) -> tuple[list[_Section], bool]:
     """Every H3 section under the H2s named, and whether `## Findings` was seen. With `lead_in`
     the text between an H2 and its first H3 is a section too, titled as the H2."""
     sections: list[_Section] = []
     found = inside = False
     current: _Section | None = None
-    for line in _visible(list(enumerate(text.splitlines(), 1))):
+    for line in _visible(list(enumerate(_physical_lines(text), 1))):
         heading = None if line.skipped else HEADING.fullmatch(line.text)
         if heading is not None and len(heading[1]) <= 3:
             current = None
@@ -471,7 +481,7 @@ def _tables(text: str) -> list[list[list[str]]]:
     """Pipe tables outside fences, each as rows of cells."""
     rows: list[str | None] = []
     fenced = False
-    for line in text.splitlines():
+    for line in _physical_lines(text):
         if line.lstrip().startswith(FENCE):
             fenced = not fenced
             rows.append(None)
@@ -899,7 +909,8 @@ class _Figure(NamedTuple):
 
 
 _CURRENCY_CODES = {"us$": "USD", "usd": "USD", "$": "USD", "eur": "EUR", "€": "EUR", "£": "GBP"}
-_CURRENCY_WORD = re.compile(r"US\$|USD|\$|EUR|€|GBP|£", re.IGNORECASE)
+# A prefixed dollar (`A$`, `C$`, `HK$`) is its own currency, kept as written.
+_CURRENCY_WORD = re.compile(r"US\$|USD|(?-i:[A-Z]{1,3}\$)|\$|EUR|€|GBP|£", re.IGNORECASE)
 
 
 def _currency(found: re.Match[str], base: str) -> str | None:
@@ -930,7 +941,13 @@ _REFERENCE = re.compile(
     r"\b(?:notes?|pages?|pp?\.|rows?|items?|steps?|sections?|tables?)\s*$", re.IGNORECASE
 )
 _YEAR = re.compile(r"(?:19|20)\d\d")
-_CURRENCY_BEFORE = re.compile(r"(?:US\$|USD|\$|EUR|€|GBP|£)\s?$", re.IGNORECASE)
+# An ISO 4217 code counts only in capitals and right before the figure (`ALL lenders agreed 250
+# million` has none); a prefixed dollar is written as `A$`.
+_CURRENCY_BEFORE = re.compile(
+    r"(?:US\$|USD|\$|EUR|€|GBP|£"
+    rf"|(?-i:(?<![A-Za-z])(?:[A-Z]{{1,3}}\$|{'|'.join(sorted(ISO_4217))})))\s?$",
+    re.IGNORECASE,
+)
 _PERIOD_BEFORE = re.compile(
     r"\b(?:FY|CY|LTM|YTD|Q[1-4]|H[12]|[1-4]Q|[12]H|years?|yr)\s?$", re.IGNORECASE
 )
@@ -1011,6 +1028,26 @@ def _is_note_on(found: re.Match[str], before: re.Match[str]) -> bool:
         )
 
 
+_GLUED_BEFORE = re.compile(r"(?<![^\W\d])")  # not directly after a letter or underscore
+_LABEL_HYPHEN = re.compile(r"[A-Za-z]-\Z|\A-[A-Za-z]")
+
+
+def _is_label_number(found: re.Match[str], base: str) -> bool:
+    """A number check 8 does not read as a figure: glued to letters (`2nd`, `A2`, `FY24x`), or
+    hyphen-joined to a letter either side (`B-1`, `10-K`, `12-month`). A currency code or symbol
+    right before it keeps it a figure (`USD1,250`)."""
+    start, end = found.start("n"), found.end("n")
+    if _ends_at(_CURRENCY_BEFORE, base, found.start("minus") if found["minus"] else start):
+        return False
+    tail = base[end:]
+    return bool(
+        (tail[:1].isalpha() and AFTER.match(tail) is None)
+        or _GLUED_BEFORE.match(base, start) is None
+        or _LABEL_HYPHEN.search(base[max(start - 2, 0) : start])
+        or _LABEL_HYPHEN.search(tail[:2])
+    )
+
+
 def _figures(text: str, passage: bool = False, amounts_only: bool = False) -> list[_Figure]:
     """Figures of `text`. On the passage side dates and period labels are not figures (as in
     check 8); held text is read unmasked, so a year held only in a date still matches.
@@ -1036,7 +1073,9 @@ def _figures(text: str, passage: bool = False, amounts_only: bool = False) -> li
             and _is_note_on(found, before)
         )
         before = found
-        if amounts_only and not _is_real_figure(found, base, spans):
+        if (amounts_only and not _is_real_figure(found, base, spans)) or (
+            passage and _is_label_number(found, masked)
+        ):
             continue
         number = found["n"].replace(",", "")  # a comma in a figure is a thousands separator
         figures.append(
@@ -1181,12 +1220,12 @@ def lost_values(previous: str, new: str, named: Sequence[str] = ()) -> list[dict
     quotes = [_issue_quotes(issue) for issue in named]
     twins: dict[str, set[str]] = {}
     twin_figures: dict[str, list[_Figure]] = {}
-    for line in new.splitlines():
+    for line in _physical_lines(new):
         twins.setdefault(_shape(line), set()).update(_tokens(line))
         twin_figures.setdefault(_shape(line), []).extend(_figures(line))
     lost: list[dict[str, str | int]] = []
     seen: set[object] = set()
-    for number, line in enumerate(previous.splitlines(), 1):
+    for number, line in enumerate(_physical_lines(previous), 1):
         # only numbers the repair brought onto the line can be a correction of it
         nearby = twins.get(_shape(line), set()) - set(_tokens(line))
         for key, shown, token, figure in _tracked(line):
@@ -1225,7 +1264,7 @@ def key_figures_issues(text: str, cp1: str) -> tuple[str, ...]:
     Source`, and every figure of a Value cell held in the CP-1 handoff with the same sign, unit
     and scale (the sign must match exactly; a unit CP-1 carries only in a column header is not
     matched). It proves the figure exists in CP-1, not that it is the right measure or period."""
-    lines = text.splitlines()
+    lines = _physical_lines(text)
     start = next((i for i, line in enumerate(lines) if line.strip() == KEY_FIGURES_HEADING), None)
     if start is None:
         return ()  # the report selector check names a missing section
@@ -1267,7 +1306,7 @@ def screen_table_issues(text: str) -> tuple[str, ...]:
     header `Topic | Finding | Materiality | Evidence | Next step`. One issue per screen that has no
     such heading, no table under it, more than one table, or another header. Rows are not judged:
     a register with few rows is noted, never refused (ruling 2026-11-15-method-script-checks)."""
-    lines = text.splitlines()
+    lines = _physical_lines(text)
     header = "`| " + " | ".join(SCREEN_HEADER) + " |`"
     issues = []
     for title in SCREEN_TITLES:
@@ -1293,7 +1332,7 @@ def _forecast_block_lines(text: str) -> set[int]:
     and limit text is the module's input to a calculation, not a table, so it holds no figure."""
     lines: set[int] = set()
     inside = False
-    for number, line in enumerate(text.splitlines(), 1):
+    for number, line in enumerate(_physical_lines(text), 1):
         if line.strip() == FORECAST_HEADING:
             inside = True
         elif inside and re.match(r"#{1,6}\s", line):
@@ -1388,7 +1427,7 @@ def figure_issues(text: str) -> tuple[str, ...]:
     passages = _pooled(_findings_sections(text) or [])
     inside = {number for body in passages.values() for number, _ in body}
     inside |= _forecast_block_lines(text)
-    outside = [line for number, line in enumerate(text.splitlines(), 1) if number not in inside]
+    outside = [line for number, line in enumerate(_physical_lines(text), 1) if number not in inside]
     held = _figures("\n".join(map(_stated, outside)))
     noted = _figures("\n".join(outside))  # with the notes, to name a figure held only in one
     lines = sorted(
