@@ -32,6 +32,9 @@ modules measured".
   not repeated here. Modules without run data (CP-1, CP-4, CP-8, CP-1B, CP-1C, CP-1D, CP-2D, CP-2H,
   CP-3C, CP-3D, CP-4C, CP-5A, CP-6A, CP-L10) have no section. CP-5A is not a module CP-OS launches
   (its steps are inside CP-5's method).
+  Amended 2026-11-26 (PR 6, `2026-11-25-deliverables-and-recommendations.md`): CP-L10 now has a
+  section, for the `credit_screening` pathway only, where its 20 five-screen registers are required
+  and none is cut; in every other pathway CP-L10 has no presence rule, as before.
 - The cut rule: a register is listed only if it has a method id and is classified CUT in every row of
   `docs/sweeps/2026-11-13-optimisation-review/appendix-inventory.md` for that id, in both retained
   Sol runs (medium and high), and no row of either run classifies it otherwise. A consumer in either

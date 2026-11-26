@@ -7,6 +7,7 @@ import os
 import shutil
 from pathlib import Path
 
+import library_fixtures
 import pytest
 import test_cpos_launch as launch_tests
 from library_fixtures import (
@@ -21,6 +22,7 @@ from library_fixtures import (
 
 from deploy_workflow import library_index
 from deploy_workflow.library_index import build_library, current_method
+from deploy_workflow.owners import cpos_launch
 
 ROOT = Path(__file__).resolve().parents[1]
 provider = launch_tests.provider
@@ -470,3 +472,41 @@ def test_a_run_cpos_completed_with_a_fake_provider_is_listed(tmp_path, monkeypat
     library = build_library(tmp_path / "ws", tmp_path / "ws/library", current_method())
     assert library.excluded == []
     assert [r["method_changes"] for r in library.runs] == [[f"CP-1: {names[0]} no longer selected"]]
+
+
+def _run_that_was_sent(tmp_path, monkeypatch, pathway: str, sent_for: str | None):
+    """A run of ``pathway`` whose CP-L10 was sent the method ``sent_for`` selects (None: today's
+    one-page method) and every other module today's; listed against the launcher's own methods."""
+
+    def sent(module: str, version: str = "") -> str:
+        text = cpos_launch.method_text(module, sent_for if module == "CP-L10" else None)
+        return text
+
+    monkeypatch.setattr(library_fixtures, "method_block", sent)
+    make_run(tmp_path, "run-a", pathway=pathway, modules=("CP-0", "CP-1", "CP-L10"))
+    library = build_library(tmp_path, tmp_path / "library", current_method())
+    assert library.excluded == []
+    (run,) = library.runs
+    return run["method_changes"]
+
+
+def test_a_credit_screening_run_sent_the_five_screen_method_is_not_marked_changed(
+    tmp_path, monkeypatch
+):
+    changes = _run_that_was_sent(tmp_path, monkeypatch, "credit_screening", "credit_screening")
+    assert changes == []
+
+
+def test_a_credit_screening_run_sent_the_one_page_method_is_marked_changed(tmp_path, monkeypatch):
+    (change,) = _run_that_was_sent(tmp_path, monkeypatch, "credit_screening", None)
+    assert change.startswith("CP-L10: ")
+    assert "cp-l10-financial-change-screen/SKILL.md" in change
+
+
+def test_a_short_snapshot_run_is_judged_on_the_one_page_method_as_before(tmp_path, monkeypatch):
+    assert _run_that_was_sent(tmp_path, monkeypatch, "short_snapshot", None) == []
+
+
+def test_a_short_snapshot_run_sent_the_five_screen_method_is_marked_changed(tmp_path, monkeypatch):
+    (change,) = _run_that_was_sent(tmp_path, monkeypatch, "short_snapshot", "credit_screening")
+    assert change.startswith("CP-L10: ")

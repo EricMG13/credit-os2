@@ -9,7 +9,7 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
 - Scope: new package `deploy_workflow.accounts` (store, passcodes, command line) and its tests
   only. No route uses it; no request to Microsoft, no model call, no network access; no new
   dependency. Built on the plan and spec of PR #99 (not yet on `main` when built). Trimmed here:
-  the two oldest entries (2026-11-17).
+  the three oldest entries (2026-11-17).
 - Store: `accounts.db` in the folder named by `CREDIT_OS_ACCOUNTS_DIR` or `--accounts-dir`
   (absolute path only; never under `--root`), WAL, one numbered migration, a made-here guard. On
   POSIX the folder and file must belong to the running account and be open to no one else; the
@@ -33,6 +33,28 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   pre-merge review not yet run (its model's limit resets 2 December).
 - Not verified: Windows (the work PC) and its folder permissions; Linux ACLs; races between
   processes (threads only); a real full disk; CI on the PR head until it runs.
+
+## 2026-11-26 — Credit screening pathway: CP-0, CP-1, CP-DR and the five-screen CP-L10, cap USD 10 (PR #102)
+
+- Scope: offline only. No provider call and no paid run; the five screens' handoff is a hand-written synthetic one (`tests/fixtures/credit-screening/CP-L10.md`), checked column by column against the method. No real Credit Screening run exists.
+- Built: pathway `credit_screening` ("Credit screening") with its cap in `PATHWAY_CAP_USD` and `RULED_CAPS_USD`; a method and register lookup by pathway, with each module's present method as the default; in this pathway only, CP-L10 is sent the archived five-screen method (cp-os `b57a344`) and its 20 registers TL10.1 to TL40.4 are required and checked; CP-DR's handoff is an optional input of CP-L10; the module reads "Credit screening" in such a run. `short_snapshot` stays deactivated and unchanged.
+- Presentation change and its fidelity check: the run start page offers the pathway; in the issuer library CP-L10 leads Overview, Changes and Modules, the Modules lead shows the five screens, registers are held in Evidence, and Forecast says no model was published. Checked against the synthetic handoff by the PR's tests (`tests/test_credit_screening_pathway.py`, `tests/test_credit_screening_method.py` and the web tests beside the changed pages); no rendered browser page was checked.
+- Other pathways: reviewers' probes compared instructions, roles, request messages, module names, plans, caps and manifests with the base byte for byte, and the existing golden requests and method pins pass unedited.
+- Coordinator's own check on the PR head `8d7d64e0`: the preset, both cap entries and the `api.test.ts:92` change read as ruled; `tests/test_credit_screening_method.py`, `tests/test_pathway_tiers.py` and `tests/test_credit_screening_pathway.py`: 149 passed.
+- Gates at `8d7d64e0`, reported by the PR's controller: `tools/quality_gate.py`, `lint-imports`, 18 affected Python test files and the web lint, format, type, unused and duplication checks: exit 0. The whole web suite exited 1 locally: `ConnectedApp.test.tsx` timed out under a load average of 52 and passes alone (228 tests); CI is its gate.
+- Reviews: task reviews approved (the web task after fix rounds), cap audit no High or Medium, confidence review 2 Medium fixed, pre-merge review 3 Medium fixed then pass, review of the two merges with `main` pass.
+- Owner, 2026-11-26: the method trimming of `main` ("apply to all modules") applies to the five-screen method too ("Yes, trim it"): 104,782 characters become 101,334; three sections that cannot apply in this transport and eight exact repeats are cut, no register lost.
+- Not verified: what a real model writes for the five screens; whether a run completes within USD 10 (on `copilot-sol` each call reserves USD 7.17, so a call can start only while spend is at most USD 2.83); the Changes page with a real earlier run; accessibility and end-to-end browser tests; the full Python suite. Known and left: the Coverage filter and matrix headers name the module "Short credit snapshot" for every pathway.
+
+## 2026-11-26 — Recommendation calculation: best result across instruments; Unrated against "and below" (PR #100, merged as `bf06af10`)
+
+- Scope: synthetic and deterministic only; `src/deploy_workflow/recommendation.py` and its tests. No caller exists yet, no real constraints or holdings file, no real run.
+- Rulings applied (owner, 2026-11-25, `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, "Two rulings after PR 2"): a portfolio's recommendation is the best result across every eligible instrument, each held to 3 on its own limit breach, naming the instrument it rests on; an Unrated instrument against a rating limit worded "and below" that does not name Unrated is "not read". Tie key (coordinator): not capped before capped, then the better Valuation, then the instrument's name.
+- Coordinator's own check against merged `main`: a clean B loan (Valuation 2) and a CCC second lien (Valuation 1) against a breached CCC limit read Modest OW resting on the B loan in both list orders; for an Unrated instrument, "Max CCC and below", "Max CCC & below" and "Max B and lower" read not read, "Max CCC and below incl. Unrated & Other" reads breached, "Max BB and above" does not apply: pass.
+- Gates at `bdb12fb2`, reported by the PR's controller: `tools/quality_gate.py`, `lint-imports`, `tests/test_recommendation.py` with `tests/test_quality_gate.py` and `tests/test_repo_rules.py` (392 tests): exit 0. The PR 2 reviewers' probes `adv_tie_order`, `wb_two_instruments`, `rr4_ampersand_rating` failed before and pass after. Mutation at `60639e74`: 1,024 mutants, 994 killed, 30 survivors, none in the changed functions. CI on the PR head: four checks passed.
+- Reviews: task review approved, calculation audit nothing at Medium or above, pre-merge review pass; no fix round. Low findings closed in two small commits.
+- Consequence to know: an Unrated instrument against a breached "CCC and below" limit is not capped (the limit is shown as not read), so it can be the portfolio's result ahead of a rated instrument held to 3.
+- Not verified: mutation after the last, test-only commit; any real file or caller; Unrated wordings outside the closed word lists (they stay not read). Predates this change: "Max CCC and below, unrated excluded" reads breached for an Unrated instrument.
 
 ## 2026-11-25 — Instruction and reference length: review and offline measures
 
@@ -974,16 +996,3 @@ then 5; the narrow layout and the controls listed below.
   recovery, approval snapshot consistency, History output ownership and labels,
   prior repayment inputs, and the empty-draft boundary. The rewrite tournament
   retained the ordered History metadata scan and date limit calculation.
-
-## 2026-11-17 — Stage 7 final audit handoff
-
-- Application source `a987af9b`. Stage 7 adds audit evidence and work-PC documents.
-- Locked setup, Python quality, 6,285 fast Python passes with one existing skip,
-  573 Node checks, 5,259 frontend passes at 97.69% lines and 73 script checks.
-- Native Chrome and Edge synthetic proof and 138 native file checks passed on
-  both the checkout and the checksummed runtime ZIP. The screenshot reports
-  record paired baseline and final states and the independent ZIP comparison.
-- The work-PC rehearsal stopped at the two missing pins with the source unchanged.
-  Actual Windows setup, live or paid runs, real Submit and Teams remain unverified.
-- [Final gates](docs/audit/2026-11-16-final/output/7-send-off/gates.md) ·
-  [Audit summary](docs/audit/2026-11-16-final/output/SUMMARY.md)

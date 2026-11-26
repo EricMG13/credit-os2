@@ -433,8 +433,8 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 /** A refusal of a module flag (`--modules`, `--high-modules`): every code in it is a module id. */
 const MODULE_FLAG = /^--(?:[a-z]+-)*modules(?![\w-])/;
 /** Text of a module flag's refusal with each module id as its name, an unnamed one included. */
-const moduleText = (text: string) =>
-  text.replace(/(?<![\w-])CP-[A-Z0-9]+(?![\w-])/g, (code) => moduleName(code));
+const moduleText = (text: string, pathway?: string | null) =>
+  text.replace(/(?<![\w-])CP-[A-Z0-9]+(?![\w-])/g, (code) => moduleName(code, pathway));
 
 /**
  * A launcher refusal (`--flag <arguments>: <message>`) without its command-line prefix, module codes
@@ -442,19 +442,23 @@ const moduleText = (text: string) =>
  * its explanation remains visible, and its raw text is retained in `console.warn`. Only a module
  * flag's refusal has its unnamed codes replaced; any other flag's values stay as written.
  */
-function launcherLine(error: string): string {
+function launcherLine(error: string, pathway?: string | null): string {
   if (!error.startsWith("--")) return "";
   const [, flag = "", args = "", message = ""] = FLAGGED.exec(error) ?? [];
   if (flag === "modules") {
-    const codes = args.trim().split(" ").filter(Boolean).map(moduleName);
-    const body = moduleText(message);
+    const codes = args
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((code) => moduleName(code, pathway));
+    const body = moduleText(message, pathway);
     return codes.length
       ? `The modules chosen (${codes.join(", ")}): ${body}`
       : `Requested modules: ${body}`;
   }
   console.warn(`Launcher flag prefix removed; its explanation is shown to the analyst: ${error}`);
   const body = flag ? message : error.replace(/^--[a-z][a-z-]*\s*/, "");
-  return capital(MODULE_FLAG.test(error) ? moduleText(body) : serviceText(body));
+  return capital(MODULE_FLAG.test(error) ? moduleText(body, pathway) : serviceText(body, pathway));
 }
 
 /**
@@ -463,8 +467,8 @@ function launcherLine(error: string): string {
  * in the service's refusal form is returned unchanged. A problem the labels cannot fully name is
  * still shown in plain words (a documented fail-open), and its raw text goes to `console.warn`.
  */
-export function refusalLines(error: string): string[] {
-  return splitRefusal(error).map(({ line }) => withoutFlags(line));
+export function refusalLines(error: string, pathway?: string | null): string[] {
+  return splitRefusal(error, pathway).map(({ line }) => withoutFlags(line));
 }
 
 /** The screen controls a refusal can be shown on: each carries `data-field` with this key. */
@@ -563,8 +567,11 @@ function withoutFlags(line: string) {
 }
 
 /** The problems of a refusal, each with its path ("" when the problem has none). */
-function splitRefusal(error: string): { path: string; line: string; text: string }[] {
-  const launcher = launcherLine(error);
+function splitRefusal(
+  error: string,
+  pathway?: string | null,
+): { path: string; line: string; text: string }[] {
+  const launcher = launcherLine(error, pathway);
   if (launcher) return [{ path: "", line: launcher, text: launcher }];
   if (!PROBLEM.test(error)) return [{ path: "", line: error, text: error }];
   return error.split(new RegExp(`; (?=${PATH}: )`)).map((problem) => {

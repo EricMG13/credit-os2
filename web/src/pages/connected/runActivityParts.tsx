@@ -32,7 +32,10 @@ const texts = (...parts: (string | false)[]) =>
   parts.filter((part): part is string => Boolean(part));
 /** Why a run is not moving, and the name warning: the row and the waiting row both say them. */
 const notes = (run: LiveRun) =>
-  texts(serviceText(run.reason), run.name_differs && "Issuer name differs from earlier runs");
+  texts(
+    serviceText(run.reason, run.pathway),
+    run.name_differs && "Issuer name differs from earlier runs",
+  );
 
 /** The only way into a run: 32px tall, 44px on a phone, and a name that breaks only between words. */
 function RunIssuerLink({ run }: { run: Pick<LiveRun, "id" | "issuer_name"> }) {
@@ -78,7 +81,7 @@ export function RunGroup({
 function nowRunning(run: LiveRun) {
   const names = run.modules
     .filter(([, state]: [string, ConnectedModuleState]) => state === "running")
-    .map(([code]) => (code === "Report" ? "Report delivery" : moduleName(code)));
+    .map(([code]) => (code === "Report" ? "Report delivery" : moduleName(code, run.pathway)));
   return names.length === 0 ? null : names.join(", ");
 }
 
@@ -185,7 +188,7 @@ export function EndedRow({ run }: { run: EndedRun }) {
         </div>
       </div>
       <p className="reading-copy text-small text-text-secondary wrap-anywhere">
-        {serviceText(run.reason) || "The run record gives no reason."}
+        {serviceText(run.reason, run.pathway) || "The run record gives no reason."}
       </p>
     </li>
   );

@@ -952,7 +952,7 @@ NOTES = {"CP-2D": CP2D_NOTE, "CP-3C": CP3C_NOTE}
 # when the check has nothing to read for the module. `method_scripts_completeness` reads the
 # launcher's method lists, so it sits in the orchestration layer and registers itself when the
 # launcher or CP-OS imports it (`.importlinter`), not from here.
-Shared = Callable[[str, str], list[Outcome]]
+Shared = Callable[[str, str, str | None], list[Outcome]]
 SHARED_CHECKS: dict[str, Shared] = {}
 
 
@@ -980,12 +980,13 @@ def run(module: str, text: str, upstream: Upstream | None = None) -> tuple[Outco
     return _guarded(module, path, lambda: check(text, _loaded(path), upstream or {}))
 
 
-def shared(module: str, text: str) -> tuple[Outcome, ...]:
+def shared(module: str, text: str, pathway: str | None = None) -> tuple[Outcome, ...]:
     """Every shared check's outcomes on this handoff (`completeness_check.py`), guarded as
-    `run`'s."""
+    `run`'s. ``pathway`` is the run's: a module sent its own method in one pathway only is
+    checked against that method there."""
     out: list[Outcome] = []
     for path, check in SHARED_CHECKS.items():
-        out += _guarded(module, path, partial(check, module, text))
+        out += _guarded(module, path, partial(check, module, text, pathway))
     return tuple(out)
 
 
@@ -1026,9 +1027,9 @@ def issues(module: str, text: str, upstream: Upstream | None = None) -> tuple[st
     return tuple(issue(o) for o in run(module, text, upstream) if o.status in SENT_BACK)
 
 
-def shared_issues(module: str, text: str) -> tuple[str, ...]:
+def shared_issues(module: str, text: str, pathway: str | None = None) -> tuple[str, ...]:
     """The shared checks' acceptance issues (a required register's declared column absent)."""
-    return tuple(issue(o) for o in shared(module, text) if o.status in SENT_BACK)
+    return tuple(issue(o) for o in shared(module, text, pathway) if o.status in SENT_BACK)
 
 
 def upstream_texts(handoffs: Mapping[str, bytes]) -> dict[str, str]:
@@ -1058,13 +1059,19 @@ def blocked(text: str) -> bool:
 
 
 def record(
-    module: str, raw: bytes, upstream: Mapping[str, bytes] | None = None
+    module: str,
+    raw: bytes,
+    upstream: Mapping[str, bytes] | None = None,
+    pathway: str | None = None,
 ) -> dict[str, Any] | None:
     """Every check's outcome for one response, for the run's files; None when no check applies to
-    the module."""
+    the module (in ``pathway``)."""
     try:
         text = raw.decode("utf-8")
-        outcomes = (*run(module, text, upstream_texts(upstream or {})), *shared(module, text))
+        outcomes = (
+            *run(module, text, upstream_texts(upstream or {})),
+            *shared(module, text, pathway),
+        )
     except UnicodeDecodeError:
         if module not in CHECKS:
             return None

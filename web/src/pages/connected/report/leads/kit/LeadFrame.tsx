@@ -78,7 +78,7 @@ export function GapTile({
  */
 export function LeadFrame({ props, children }: { props: LeadProps; children: ReactNode }) {
   const module = props.entry.output.module;
-  const { reason } = moduleSource(props.view, module, moduleName(module));
+  const { reason } = moduleSource(props.view, module, moduleName(module, props.run.pathway));
   return reason ? null : <Bento>{children}</Bento>;
 }
 
@@ -276,7 +276,7 @@ export function FigureTile({
   const [view, setView] = useState<string>("figure");
   const showing = table && view === "table" ? "table" : "figure";
   // The module's name over a figure on the module's own page says nothing: the header names it.
-  const basis = kicker === moduleName(props.entry.output.module) ? "" : kicker;
+  const basis = kicker === moduleName(props.entry.output.module, props.run.pathway) ? "" : kicker;
   return (
     <Tile span={span} label={label}>
       {/* One head for every lead tile: the subject, its basis under it, then the Figure / Table

@@ -558,7 +558,12 @@ def test_a_reason_the_run_records_for_no_comparison_reaches_the_library_verbatim
 
 @pytest.mark.parametrize(
     ("pathway", "lead"),
-    [("earnings_update", "CP-1B"), ("short_snapshot", "CP-L10"), ("relative_value", "CP-2")],
+    [
+        ("earnings_update", "CP-1B"),
+        ("short_snapshot", "CP-L10"),
+        ("relative_value", "CP-2"),
+        ("credit_screening", "CP-L10"),
+    ],
 )
 def test_the_lead_module_of_the_pathway_travels_with_the_run(tmp_path, pathway, lead):
     current_run(tmp_path, "r", pathway=pathway)

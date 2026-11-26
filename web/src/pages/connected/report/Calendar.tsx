@@ -133,20 +133,22 @@ function tableProblem(block: Table, blocks: Block[], readable: ReturnType<typeof
   return readable.has(block.line) ? UNPLACED_REASON : "The event table could not be read.";
 }
 
-export function buildCalendar(entries: OutputEntry[], folder: string) {
-  const calendars = entries.map((entry) => entryCalendar(entry, folder));
+export function buildCalendar(entries: OutputEntry[], folder: string, pathway?: string | null) {
+  const calendars = entries.map((entry) => entryCalendar(entry, folder, pathway));
   const rows = calendars.flatMap(({ rows }) => rows);
   const gaps = calendars.flatMap(({ gaps }) => gaps);
   rows.sort((a, b) => a.from - b.from || a.to - b.to);
   return { rows, gaps };
 }
 
-function entryCalendar(entry: OutputEntry, folder: string) {
+function entryCalendar(entry: OutputEntry, folder: string, pathway?: string | null) {
   const rows: CalendarRow[] = [];
   const gaps: CalendarGap[] = [];
   const { output, sections, selected } = entry;
   if (!selected || !output.events?.length || output.parseError) return { rows, gaps };
-  const owner = [moduleName(output.module), output.state?.declared].filter(Boolean).join(" · ");
+  const owner = [moduleName(output.module, pathway), output.state?.declared]
+    .filter(Boolean)
+    .join(" · ");
   const assessable = output.state?.established !== false && !blocked(entry);
   const tables = publishedTables(sections);
   const blocks = sections.flatMap((section) => section.blocks);

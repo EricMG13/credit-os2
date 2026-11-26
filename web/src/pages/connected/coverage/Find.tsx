@@ -86,7 +86,7 @@ export function FindView({
         className="grid gap-2 border-t border-border-hairline pt-4 first:border-t-0 first:pt-0"
       >
         <p className="text-small font-medium text-text-secondary">
-          {moduleTitle(item?.module, titles)}
+          {moduleTitle(item?.module, titles, run.pathway)}
           {item?.label ? ` · ${item.label}` : ""}
         </p>
         <p className="reading-copy text-body wrap-anywhere text-text-primary">

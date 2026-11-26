@@ -9,7 +9,16 @@ export type Row = { line: number; cells: string[] };
 export type Table = { type: "table"; line: number; headers: string[]; rows: Row[] };
 type Paragraph = { type: "text"; line: number; end: number; text: string };
 export type Block = Table | Paragraph | { type: "equity"; line: number; text?: string };
-export type Section = { heading: string; level: number; line: number; blocks: Block[] };
+export type Section = {
+  heading: string;
+  level: number;
+  line: number;
+  blocks: Block[];
+  /** Set by `outputEntries` (ruling M2): a credit screening CP-L10 section that is not a finding. */
+  register?: true;
+  /** Set by `outputEntries`: one of the five screens, drawn by the credit screening lead. */
+  screen?: true;
+};
 const FILE_EXTENSIONS = "jsonl?|x?html?|xml|pdf|docx?|xlsx?|xlsm|csv|tsv|pptx?|txt|md|zip";
 // A file name ahead before the next ";", ",", "|" or line end: the code belongs to a stored name.
 const FILE_AHEAD = new RegExp(String.raw`^[^;,|\n]*\.(?:${FILE_EXTENSIONS})\b`, "i");
@@ -26,8 +35,8 @@ const STANDALONE_CODES =
 // A bracketed code after text: " (CP-x)".
 const BRACKETED_CODE = / \((CP-[A-Za-z0-9]+)\)/gi;
 /** The module's name for a code in either case; a code the page does not know stays as written. */
-function nameOfCode(code: string) {
-  return moduleCodeName(code.toUpperCase()) ?? code;
+function nameOfCode(code: string, pathway?: string | null) {
+  return moduleCodeName(code.toUpperCase(), pathway) ?? code;
 }
 /**
  * Findings-page text: a " (CP-x)" right after that module's own name is dropped, after any other
@@ -35,16 +44,16 @@ function nameOfCode(code: string) {
  * becomes the module's name. A code inside a stored file name stays. A code in lower case ("cp-2a")
  * reads as the upper-case code does; a gap id or a run code is not a module code (`containsReference`).
  */
-export function readerText(text: string) {
+export function readerText(text: string, pathway?: string | null) {
   const bracketed = text.replace(BRACKETED_CODE, (match, code: string, at: number) => {
-    const name = nameOfCode(code);
+    const name = nameOfCode(code, pathway);
     if (name === code || FILE_AHEAD.test(text.slice(at + match.length))) return match;
     return text.slice(0, at).toLowerCase().endsWith(name.toLowerCase()) ? "" : ` (${name})`;
   });
   return bracketed.replace(STANDALONE_CODES, (run, at: number, whole: string) => {
     const kept = whole.slice(0, at).endsWith(" (") && whole[at + run.length] === ")";
     if (kept && FILE_AHEAD.test(whole.slice(at + run.length + 1))) return run;
-    return run.replace(/CP-[A-Z0-9]+/gi, nameOfCode);
+    return run.replace(/CP-[A-Z0-9]+/gi, (code) => nameOfCode(code, pathway));
   });
 }
 export const CONFIDENCE_INPUTS = "Confidence inputs";
@@ -334,12 +343,35 @@ export function outputEntries(
         ? [
             {
               output,
-              sections: snapshot.workspace.handoffs[output.sha256] ?? [],
+              sections: screeningSections(
+                snapshot.workspace.handoffs[output.sha256] ?? [],
+                run.pathway === "credit_screening" && moduleId === "CP-L10",
+              ),
               selected: module.default === id,
             },
           ]
         : [];
     }),
+  );
+}
+
+export const SCREEN_TITLES = [
+  "Financial change screen",
+  "Credit screen",
+  "Liquidity and forward-risk screen",
+  "Security opportunity screen",
+  "Creditor-document screen",
+] as const;
+
+/** Ruling M2: in a credit screening CP-L10 handoff, a finding other than the five screens is a register. */
+function screeningSections(sections: Section[], screening: boolean) {
+  if (!screening) return sections;
+  return classifySections(sections).map(({ section, role }) =>
+    role !== "finding" || section.level <= 2
+      ? section
+      : SCREEN_TITLES.some((t) => t === section.heading)
+        ? { ...section, screen: true as const }
+        : { ...section, register: true as const },
   );
 }
 
@@ -509,10 +541,12 @@ export function classifySections(sections: Section[]) {
     if (/^Analytical appendix/.test(section.heading)) appendixLevel = section.level;
     return {
       section,
-      role: sectionRole(
-        stack.filter((item) => item.level >= 2).map((item) => item.heading),
-        appendixLevel > 0 && !readerProse(section),
-      ),
+      role: section.register
+        ? "registers"
+        : sectionRole(
+            stack.filter((item) => item.level >= 2).map((item) => item.heading),
+            appendixLevel > 0 && !readerProse(section),
+          ),
     };
   });
 }

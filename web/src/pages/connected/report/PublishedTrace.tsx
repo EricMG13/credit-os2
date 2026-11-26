@@ -23,26 +23,26 @@ export type PublishedTraceContext = {
   qualification?: string | null;
 };
 
-const readerNode = (node: TreeNode): TreeNode => ({
-  label: readerText(node.label),
-  value: node.value === null ? null : readerText(node.value),
-  note: node.note === null ? null : readerText(node.note),
-  children: node.children.map(readerNode),
+const readerNode = (node: TreeNode, pathway?: string | null): TreeNode => ({
+  label: readerText(node.label, pathway),
+  value: node.value === null ? null : readerText(node.value, pathway),
+  note: node.note === null ? null : readerText(node.note, pathway),
+  children: node.children.map((child) => readerNode(child, pathway)),
 });
 
 /**
  * The drawer's words as the reader sees them: a module is named, never shown by its code. A code
  * inside a stored file name stays, and so do citations, hashes and the Evidence address.
  */
-export function readerTrace<T extends Trace>(trace: T): T {
+export function readerTrace<T extends Trace>(trace: T, pathway?: string | null): T {
   return {
     ...trace,
-    title: readerText(trace.title),
-    heading: readerText(trace.heading),
-    subtitle: readerText(trace.subtitle),
-    statement: readerText(trace.statement),
-    qualification: trace.qualification === null ? null : readerText(trace.qualification),
-    derivation: readerNode(trace.derivation),
+    title: readerText(trace.title, pathway),
+    heading: readerText(trace.heading, pathway),
+    subtitle: readerText(trace.subtitle, pathway),
+    statement: readerText(trace.statement, pathway),
+    qualification: trace.qualification === null ? null : readerText(trace.qualification, pathway),
+    derivation: readerNode(trace.derivation, pathway),
   };
 }
 
@@ -52,12 +52,14 @@ const TraceContext = createContext<OpenTrace | null>(null);
 export function PublishedTraceProvider({
   snapshot,
   folder,
+  pathway,
   entries,
   route,
   children,
 }: {
   snapshot: Snapshot;
   folder: string;
+  pathway?: string | null;
   entries: OutputEntry[];
   route: string;
   children: ReactNode;
@@ -76,7 +78,7 @@ export function PublishedTraceProvider({
       const line = location?.line;
       if (!location || line === undefined || !handoffBlockAt(location.entry, line)) return null;
       return () => {
-        const base = traceForLine(snapshot, location.entry, location.index, line);
+        const base = traceForLine(snapshot, location.entry, location.index, line, pathway);
         const trace = base && { ...base, citations: citationsAt(snapshot, location.entry, line) };
         if (trace)
           setSelection({
@@ -108,7 +110,7 @@ export function PublishedTraceProvider({
           });
       };
     },
-    [snapshot, folder, entries, route],
+    [snapshot, folder, pathway, entries, route],
   );
   const citationsFor = useCallback(
     (item: string) => {
@@ -129,7 +131,7 @@ export function PublishedTraceProvider({
         {children}
         {active && (
           <TraceDrawer
-            trace={readerTrace(active)}
+            trace={readerTrace(active, pathway)}
             evidenceHref={evidenceHref(folder, active.evidenceItem)}
             isOpen
             onClose={() => {

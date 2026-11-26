@@ -1,4 +1,4 @@
-import type { OutputEntry } from "../../publishedReport";
+import { SCREEN_TITLES, type OutputEntry } from "../../publishedReport";
 import { changeBetween, changePeriod, yearApart } from "./kit/changes";
 import { group, readCell } from "./kit/numbers";
 import { reasonText, safeText } from "./kit/reader";
@@ -253,4 +253,62 @@ export function readChangeScreen(entry: OutputEntry): ChangeScreen {
       reason: "This page could not read a row of the change screen.",
     };
   return { state: "ready", line: table.line, items };
+}
+
+/**
+ * The five screens of a credit screening handoff (ruling C4), in the order the composition lists
+ * them: each is one table under a heading of its own title, headed exactly `SCREEN_HEADERS`.
+ */
+export { SCREEN_TITLES };
+export const SCREEN_HEADERS = ["Topic", "Finding", "Materiality", "Evidence", "Next step"] as const;
+
+export type Screen =
+  | {
+      state: "ready";
+      title: string;
+      line: number;
+      headers: string[];
+      /** The cells as the module wrote them, none computed, none reworded. */
+      rows: string[][];
+      lines: number[];
+    }
+  | { state: "gap"; title: string; reason: string };
+
+/**
+ * The five screens, each read from the one table under its heading. A heading that is absent, a
+ * section without exactly one table, or a table whose header is not `SCREEN_HEADERS` is a gap for
+ * that screen alone; nothing is guessed from another table.
+ */
+export function readScreens(entry: OutputEntry, pathway?: string | null): Screen[] {
+  return SCREEN_TITLES.map((title): Screen => {
+    const found = allTables(entry).filter((item) => item.heading === title);
+    const table = found.length === 1 ? found[0]?.table : undefined;
+    if (!table)
+      return {
+        state: "gap",
+        title,
+        reason:
+          "This page could not read this screen: its table is missing or appears more than once.",
+      };
+    if (
+      table.headers.length !== SCREEN_HEADERS.length ||
+      !SCREEN_HEADERS.every((name, index) => table.headers[index] === name)
+    )
+      return {
+        state: "gap",
+        title,
+        reason:
+          "This page could not read this screen: its table is not in the shape this page reads.",
+      };
+    if (!table.rows.length)
+      return { state: "gap", title, reason: "This page could not read a row of this screen." };
+    return {
+      state: "ready",
+      title,
+      line: table.line,
+      headers: [...table.headers],
+      rows: table.rows.map((row) => row.cells.map((cell) => safeText(cell, pathway))),
+      lines: table.rows.map((row) => row.line),
+    };
+  });
 }

@@ -71,7 +71,12 @@ export function buildReportView(snapshot: Snapshot, routeKey: string, run: Publi
     .map((id) => {
       const outputs = entries.filter((entry) => entry.output.module === id);
       const selected = outputs.find((entry) => entry.selected);
-      return { id, name: moduleName(id), state: moduleState(selected ?? outputs[0]), outputs };
+      return {
+        id,
+        name: moduleName(id, run.pathway),
+        state: moduleState(selected ?? outputs[0]),
+        outputs,
+      };
     });
   const scope: { folder?: string } = { folder: run.folder };
   return {
@@ -116,7 +121,7 @@ function passageTexts(entry: OutputEntry, heading: string) {
  * market-implied risk, evidence validation and the committee. No run records a clearance for that
  * decision, so a summary page shows none of their bottom lines; their own pages do.
  */
-export const DECISION_MODULES: readonly string[] = ["CP-3", "CP-3D", "CP-5", "CP-6"];
+const DECISION_MODULES: readonly string[] = ["CP-3", "CP-3D", "CP-5", "CP-6"];
 
 /**
  * One bottom line per module that ran, other than the lead; text is null where there is none to
@@ -131,7 +136,7 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
       return [
         {
           id,
-          name: moduleName(id),
+          name: moduleName(id, run.pathway),
           state: moduleState(entry),
           entry,
           text: null,
@@ -154,10 +159,10 @@ export function moduleBottomLines(view: ReportView, run: PublishedRun) {
     return [
       {
         id,
-        name: moduleName(id),
+        name: moduleName(id, run.pathway),
         state: moduleState(entry),
         entry,
-        text: body && !referenced ? readerText(body) : null,
+        text: body && !referenced ? readerText(body, run.pathway) : null,
         referenced,
         withheld: false,
         line: written?.line ?? null,
@@ -194,12 +199,14 @@ export function runLimitations(view: ReportView, run: PublishedRun, omit: readon
       const key = sameLimitation(body);
       if (!body || methodNote(text) || seen.has(key)) return [];
       seen.add(key);
-      return [{ id, name: moduleName(id), entry, text: readerText(body), line }];
+      return [
+        { id, name: moduleName(id, run.pathway), entry, text: readerText(body, run.pathway), line },
+      ];
     });
   });
 }
 
-export type MetricKey =
+type MetricKey =
   | "liquidity"
   | "freeCashFlow"
   | "leverage"

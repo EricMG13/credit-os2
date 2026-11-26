@@ -51,11 +51,11 @@ export function TraceSplit({
   /** The claim tile's address: where a trace address lands, the tile itself taking focus. */
   claimId?: string;
 }) {
-  const stored = traceForLine(snapshot, entry, index, line);
+  const stored = traceForLine(snapshot, entry, index, line, run.pathway);
   if (!stored) return null;
   // The words the drawer draws: a module is named, never shown by its code. The supplied files are
   // matched against the derivation as stored, where a file name keeps its own characters.
-  const base = readerTrace(stored);
+  const base = readerTrace(stored, run.pathway);
   const sourced: SourcedTrace = { ...base, citations: citationsAt(snapshot, entry, line) };
   const references = referencedText(stored.derivation);
   const sources = [

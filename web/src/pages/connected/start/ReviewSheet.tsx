@@ -241,6 +241,7 @@ function nameList(names: readonly string[]): string {
 }
 
 type ModuleChoice = {
+  pathway: string;
   requested: readonly string[];
   modules: readonly string[];
   onModules: (modules: string[]) => void;
@@ -272,7 +273,7 @@ function LeaveOut({
           choice.onModules(kept);
         }}
       >
-        {`Leave out ${nameList(left.map(moduleName))}`}
+        {`Leave out ${nameList(left.map((code) => moduleName(code, choice.pathway)))}`}
       </Button>
       <p>You will return to More context and review again; approval will be cleared.</p>
       <p>
@@ -303,7 +304,7 @@ function HowToLift({
       <Opener>How to lift it</Opener>
       <div className="mt-2 grid gap-2">
         {fixes.map((fix) => (
-          <p key={fix}>{serviceText(fix)}</p>
+          <p key={fix}>{serviceText(fix, choice.pathway)}</p>
         ))}
         {fixes.some((fix) => /portfolio workbook/i.test(fix)) && (
           <Button
@@ -339,8 +340,13 @@ function LimitRow({
   choice: ModuleChoice;
 }) {
   const fixes = [...new Set(group.causes.map((cause) => cause.fix ?? "").filter(Boolean))];
-  const refusing = moduleNames(group.consequences.filter((item) => item.outcome === "will_refuse"));
-  const affected = moduleNames(group.consequences).filter((name) => !refusing.includes(name));
+  const refusing = moduleNames(
+    group.consequences.filter((item) => item.outcome === "will_refuse"),
+    choice.pathway,
+  );
+  const affected = moduleNames(group.consequences, choice.pathway).filter(
+    (name) => !refusing.includes(name),
+  );
   const reasonId = useId();
   return (
     // The deciding column is capped: an opened "How to lift it" wraps inside it and never takes the
@@ -356,9 +362,13 @@ function LimitRow({
         <div className="grid min-w-0 flex-1 gap-0.5">
           {group.causes.map((cause, index) => (
             <p key={cause.id}>
-              <span className="font-medium text-text-primary">{scopeText(cause.scope)}</span>
+              <span className="font-medium text-text-primary">
+                {scopeText(cause.scope, choice.pathway)}
+              </span>
               {" · "}
-              <span id={index === 0 ? reasonId : undefined}>{serviceText(cause.reason)}</span>
+              <span id={index === 0 ? reasonId : undefined}>
+                {serviceText(cause.reason, choice.pathway)}
+              </span>
             </p>
           ))}
           {refusing.length > 0 && (
@@ -424,13 +434,13 @@ function LimitsToDecide({
             <ul className="mt-1 mb-2 list-disc space-y-1 pl-5">
               {passive.map((item) => (
                 <li key={item.id}>
-                  {serviceText(item.reason)
+                  {serviceText(item.reason, choice.pathway)
                     .replace("What changed since the last Report", "Changes since the last run")
                     .replace(
                       /^This pathway does not produce the (.+) report section\.$/,
                       'This pathway does not produce the "$1" section.',
                     )}
-                  {item.fix ? ` ${serviceText(item.fix)}` : ""}
+                  {item.fix ? ` ${serviceText(item.fix, choice.pathway)}` : ""}
                 </li>
               ))}
             </ul>
@@ -576,7 +586,13 @@ export function ReviewSheet({
 }) {
   const { summary, answers } = review;
   const requested = pathwayModules(answers.context.run.pathway);
-  const choice = { requested, modules: answers.modules, onModules, onEdit };
+  const choice = {
+    pathway: answers.context.run.pathway,
+    requested,
+    modules: answers.modules,
+    onModules,
+    onEdit,
+  };
   return (
     <>
       <Tile span={12} label="Review and start" className="gap-4">
@@ -608,7 +624,11 @@ export function ReviewSheet({
         >
           <h3 className="text-small font-medium text-text-primary">Modules by stage</h3>
           <StagePipeline
-            readiness={moduleReadiness([], { modules: summary.modules, items: summary.items })}
+            readiness={moduleReadiness(
+              [],
+              { modules: summary.modules, items: summary.items },
+              answers.context.run.pathway,
+            )}
             label="Stages in this run"
             named={false}
             layout="matrix"
@@ -659,7 +679,9 @@ function EverythingSubmitSends({
   const block = { onEdit, disabled };
   const requested = pathwayModules(run.pathway);
   const leftOut = answers.modules.length
-    ? requested.filter((code) => !answers.modules.includes(code)).map(moduleName)
+    ? requested
+        .filter((code) => !answers.modules.includes(code))
+        .map((code) => moduleName(code, run.pathway))
     : [];
   const advanced = answers.level === "advanced";
   // Valuation, Module options and Scenario assumptions are drawn only at the Advanced level.
@@ -740,7 +762,7 @@ function EverythingSubmitSends({
               />
               <List
                 title={`Modules (${String(drawnModules(summary.modules).length)})`}
-                items={drawnModules(summary.modules).map(moduleName)}
+                items={drawnModules(summary.modules).map((code) => moduleName(code, run.pathway))}
                 columns
               />
               {leftOut.length > 0 && (
