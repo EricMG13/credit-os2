@@ -316,6 +316,11 @@ class Scheduler:
         """Whether the verified launch seat offers this intake model and effort."""
         return effort in self.model_choices.get(model, ())
 
+    def record_of_submission(self, sid: str) -> Record | None:
+        """The run already taken for this submission, or None."""
+        with self.lock:
+            return next((r for r in self._records.values() if r.submission == sid), None)
+
     def submit(self, sid: str, answers: Answers, approved_digest: str) -> Record:
         """Start one run for an approved submission. Repeating a submission returns its record.
 

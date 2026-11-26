@@ -169,6 +169,7 @@ import time
 import urllib.parse
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from decimal import Decimal
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, BinaryIO, cast
@@ -283,13 +284,23 @@ class Handler(http_base.Handler):
         issued; a submit with no issued cap shows none and is refused."""
         try:
             pathway = answers["context"]["run"]["pathway"]
-            cap = None if pathway in DEACTIVATED_PATHWAYS else PATHWAY_CAP_USD.get(pathway)
+            cap: Decimal | str | None = (
+                None if pathway in DEACTIVATED_PATHWAYS else PATHWAY_CAP_USD.get(pathway)
+            )
         except (KeyError, TypeError):
             return
         if pathway == submissions.CUSTOM and sid is not None:
-            cap = self._guarded(lambda: submissions.issued_cap(self._layout, sid)) or None
-            if cap is None:
+            # A repeated submit (a lost reply) finds its run already taken and the issued file
+            # released: it must show that run's cap, and `submit` then returns the record.
+            taken = self._service.scheduler.record_of_submission(sid)
+            cap_text = (
+                taken.cap
+                if taken is not None
+                else self._guarded(lambda: submissions.issued_cap(self._layout, sid))
+            )
+            if not cap_text:
                 raise refuse(400, "review the summary again; no summary was issued for this run")
+            cap = cap_text
         if cap is not None and self.headers.get_all(SHOWN_CAP_HEADER) != [str(cap)]:
             raise refuse(
                 400,

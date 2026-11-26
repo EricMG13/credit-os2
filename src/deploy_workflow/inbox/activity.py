@@ -43,7 +43,7 @@ def custom_modules(chosen: Sequence[str]) -> tuple[str, ...]:
     gives none."""
     try:
         return complete(chosen, owned=custom_owned_modules()).modules
-    except CustomRefused as refused:
+    except (CustomRefused, TypeError) as refused:  # TypeError: a non-text entry
         # Documented fail-open (display only): the run's views fall back to the pathway's list.
         log.warning("a custom run's modules cannot be completed (%s)", refused)
         return ()

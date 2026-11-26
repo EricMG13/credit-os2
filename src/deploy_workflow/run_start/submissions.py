@@ -143,6 +143,7 @@ def custom_cap_ok(cap: object) -> bool:
     return (
         isinstance(cap, str)
         and cap.isascii()
+        and len(cap) <= len(str(int(PATHWAY_CAP_USD[CUSTOM])))
         and cap.isdigit()
         and cap == str(int(cap))
         and 1 <= int(cap) <= int(PATHWAY_CAP_USD[CUSTOM])

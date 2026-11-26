@@ -415,3 +415,29 @@ def test_the_modules_of_a_record_the_rules_refuse_fall_back_to_the_preset_list(c
     states = activity.module_states("custom", [], ("CP-8",))
     assert [m for m, _ in states[:-1]] == ["CP-0", "CP-1"]
     assert "cannot be completed" in caplog.text
+
+
+def test_a_custom_submit_repeated_after_a_lost_reply_returns_the_first_run(svc):
+    sid, answers, issued = _issued(svc)
+    first = _submit(svc, sid, issued["cap"], answers, issued["digest"])
+    again = _submit(svc, sid, issued["cap"], answers, issued["digest"])
+    assert (first.status, again.status) == (200, 200)
+    assert again.json()["run"] == first.json()["run"]
+    for shown in ("50", None, "12", ""):  # not the cap the run was approved at
+        reply = _submit(svc, sid, shown, answers, issued["digest"])
+        assert reply.status == 400, (shown, reply.body)
+    assert len(runs.load_all(layout(svc.root))) == 1
+
+
+def test_a_record_with_a_non_text_module_does_not_break_the_views():
+    assert [m for m, _ in activity.module_states("custom", [], (["CP-6"], 5))[:-1]] == [
+        "CP-0",
+        "CP-1",
+    ]
+
+
+@pytest.mark.parametrize(
+    "cap", ["1" * 5000, "9" * 4301, "0" * 5000], ids=["ones", "nines", "zeros"]
+)
+def test_custom_cap_ok_is_total(cap):
+    assert submissions.custom_cap_ok(cap) is False
