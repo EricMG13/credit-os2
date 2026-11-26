@@ -36,6 +36,11 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   a Low fixed over two rounds, re-review passed), confidence review, rewrite tournament (incumbent
   holds), sweep (3 Info), `mx-architect` pre-merge PASS, 2 Low and 3 Info (Opus 5.5 at xhigh: Fable
   usage was exhausted).
+- Merge with refreshed slice 1 `1aecd0fe` and `main` `cebb1726`: 412 auth, accounts, frontend,
+  Signal-host and repo-rules tests passed on macOS, including deny-by-default positive controls
+  and the passcode and session log checks. The quality gate and all three import contracts
+  passed. The merge review confirmed the incoming deliverables route and all sign-in refusals
+  before Scheduler construction. The Windows work-PC check in TODO item 15 remains open.
 - Not verified: Windows and a real Linux ACL (both simulated); Linux bind mounts; SMB or OneDrive
   ownership mapping; real browsers' cookies; concurrent load; the Ubuntu runner (the case-variant and
   dot-dot tests skip there; nothing was run on Linux); routes whose path is built at run time (the
