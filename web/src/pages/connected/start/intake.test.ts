@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { PriorInputs, Reading } from "../api";
 import { intakeDocuments, storedForm } from "./intake";
 
-const prior = (...names: string[]) =>
-  ({ prior: { files: names.map((name) => ({ name, size: 1 })) } as unknown as PriorInputs });
+const prior = (...names: string[]) => ({
+  prior: { files: names.map((name) => ({ name, size: 1 })) } as unknown as PriorInputs,
+});
 const names = (rows: { name: string }[]) => rows.map((row) => row.name);
 
 describe("storedForm", () => {

@@ -36,7 +36,9 @@ export function leadTests(
       const unitGap = statedGap(test.unit);
       return {
         ...test,
-        ...(unitGap ? { unit: "", unitGap: { word: unitGap.word, reason: readerCell(unitGap.reason) } } : {}),
+        ...(unitGap
+          ? { unit: "", unitGap: { word: unitGap.word, reason: readerCell(unitGap.reason) } }
+          : {}),
         label: readerCell(test.label),
         threshold: readerCellOf(test.threshold),
         current: readerCellOf(test.current),

@@ -16,7 +16,7 @@ import { Toggle } from "./Toggle";
 const TITLE_ID = "signal-form-title";
 
 /** A choice whose label may repeat: `id` is what the form holds and sends. */
-export type ChoiceOption = { id: string; label: string };
+type ChoiceOption = { id: string; label: string };
 type Common = { key: string; label: string; hint?: string };
 export type FormField =
   /** `missing`: the sentence shown when the field is left empty; without it the field is optional. */

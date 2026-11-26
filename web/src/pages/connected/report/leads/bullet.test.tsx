@@ -198,7 +198,15 @@ it("insets a threshold tick at either end of the scale so it never overhangs the
 it("S16-2-3 says a unit gap once and prints no figure or axis end with it", () => {
   const tests = leadTests(
     source(40, HEAD, [
-      ["Net leverage", "6.5", "6.1", "0.4x", "Passes at or below", "Not supplied: only a ratio", "Synthetic."],
+      [
+        "Net leverage",
+        "6.5",
+        "6.1",
+        "0.4x",
+        "Passes at or below",
+        "Not supplied: only a ratio",
+        "Synthetic.",
+      ],
     ]),
     ROLES,
   );

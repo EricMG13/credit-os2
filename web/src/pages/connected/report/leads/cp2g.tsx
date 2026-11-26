@@ -270,7 +270,7 @@ const FOCUS = "outline-focus-ring focus-visible:outline-2 focus-visible:outline-
  * one downside), and the model holds its other cases (the upside) in the `other` grid, which
  * `forecastMeasure` reads. A case the path already draws is kept as it is; the others follow it.
  */
-export function withOtherCases(path: Path, model: unknown): Path {
+function withOtherCases(path: Path, model: unknown): Path {
   const drawn = new Set(path.cases.map(({ group }) => group));
   const extra = (forecastMeasure(model, NET_LEVERAGE)?.cases ?? [])
     .filter(({ group }) => !drawn.has(group))
