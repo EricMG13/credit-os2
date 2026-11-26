@@ -500,7 +500,9 @@ def test_an_invalid_submit_on_a_pending_attempt_repairs_the_same_step(tmp_path: 
     again = sent[2].request.messages
     assert again[:2] == sent[1].request.messages[:2] and len(again) == 4
     assert again[-1].role == "tool" and "entities: Field required" in again[-1].text
-    assert again[-1].text.endswith(REOPENED + SEARCH_AGAIN + ".") and not any("REPAIR" in m.text for m in again)
+    assert again[-1].text.endswith(REOPENED + SEARCH_AGAIN + ".") and not any(
+        "REPAIR" in m.text for m in again
+    )
     # A second invalid starts attempt 1 (a new ticket): that one is opened afresh.
     assert "Step source_context, attempt 1" in sent[3].request.messages[-1].text
     assert len(sent[3].request.messages) == 2 and "REPAIR" in sent[3].request.messages[-1].text
@@ -605,7 +607,9 @@ def test_an_invalid_submit_reopens_the_step_in_the_same_conversation(tmp_path: P
     assert [m.role for m in third[2:6]] == ["assistant", "tool", "tool", "tool"]
     last = third[-1]  # (c) the invalid submit's result, then the harness line
     assert len(third) == 8 and last.role == "tool" and last.tool_call_id == bad.call_id
-    assert "entities: Field required" in last.text and last.text.endswith(REOPENED + SEARCH_AGAIN + ".")
+    assert "entities: Field required" in last.text and last.text.endswith(
+        REOPENED + SEARCH_AGAIN + "."
+    )
     assert last.text.count("Harness:") == 1
     assert not any("REPAIR" in m.text for m in third)  # (d) no REPAIR block
     records = [r for r in rig.records() if r["step_id"] == "source_context"]
@@ -796,12 +800,16 @@ def test_the_reopened_line_comes_before_the_nudge_on_the_same_message(
     sent: list[Sent] = rig.adapter.sent
     last = sent[3].request.messages[-1]
     nudge = (
-        "\nHarness: 1 of 3 calls remain in this step; the step must end with "
-        "submit_source_context."
+        "\nHarness: 1 of 3 calls remain in this step; the step must end with submit_source_context."
     )
-    assert last.text.endswith(REOPENED + SEARCH_AGAIN + "." + nudge) and last.text.count("Harness:") == 2
+    assert (
+        last.text.endswith(REOPENED + SEARCH_AGAIN + "." + nudge)
+        and last.text.count("Harness:") == 2
+    )
     measured = rig.records()[2]["tool_calls"][0]["result_bytes"]
-    assert len(last.text.encode()) == measured + len((REOPENED + SEARCH_AGAIN + "." + nudge).encode())
+    assert len(last.text.encode()) == measured + len(
+        (REOPENED + SEARCH_AGAIN + "." + nudge).encode()
+    )
 
 
 # ---------------------------------------------------------------- turn budget (CP1H-R4)
