@@ -23,7 +23,16 @@ from deploy_workflow.run_start import service, standing_portfolios
 from deploy_workflow.signal import fetch as signal_fetch
 from deploy_vii.contracts import PATHWAY_CAP_USD, PathwayId
 
-from . import admission, artifacts, coverage, portfolio, run_activity, signal_host, sources
+from . import (
+    admission,
+    artifacts,
+    coverage,
+    deliverables,
+    portfolio,
+    run_activity,
+    signal_host,
+    sources,
+)
 from .library_cards import lead_summary, not_assessable_modules
 
 PROJECT = Path(__file__).resolve().parent.parent
@@ -334,6 +343,9 @@ def _connected_report_reply(layout: Layout, path: str, url: SplitResult) -> http
     if match := artifacts.GRAPH.fullmatch(path):
         snapshot = _admitted_scope(layout, None)
         return artifacts.reply(match, layout.engine / "runs", REPORT_FOLDER, snapshot)
+    if match := deliverables.SNAPSHOT.fullmatch(path):
+        snapshot = _admitted_scope(layout, None)
+        return deliverables.reply(match, layout, REPORT_FOLDER, snapshot)
     if match := portfolio.PORTFOLIO.fullmatch(path):
         snapshot = _admitted_scope(layout, None)
         basis = portfolio.attested(layout.runs, match[1], snapshot)
