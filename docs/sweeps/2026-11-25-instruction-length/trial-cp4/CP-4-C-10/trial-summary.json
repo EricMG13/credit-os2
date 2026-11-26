@@ -1,0 +1,35 @@
+{
+ "module": "CP-4",
+ "arm": "C",
+ "config": "opus-high",
+ "outcome": "accepted",
+ "chars": 118190,
+ "tokens_estimate": 30805,
+ "lines": 1001,
+ "head_chars": 20476,
+ "method_chars": 97714,
+ "method_files": 5,
+ "directive_sentences": 174,
+ "emphasis_words": 5,
+ "repeated_chars": 0,
+ "overridden_chars": 770,
+ "unsent_references": 0,
+ "calls": 38,
+ "input_tokens": 78,
+ "cached_read_tokens": 7367052,
+ "output_tokens": 78068,
+ "reasoning_tokens": 28787,
+ "first_call_input_tokens": 4,
+ "settled_usd": "5.05057740",
+ "started_at": "2026-11-25T20:17:23.085930Z",
+ "finished_at": "2026-11-25T20:28:39.203339Z",
+ "writes": 2,
+ "issues_per_write": [
+  2,
+  0
+ ],
+ "first_write_issues": [
+  "Fidelity check, line 28: \"3,000 million\" does not appear elsewhere in the handoff (tables, calculations or other findings), with the same sign, unit and scale: add it there or remove it from the passage.",
+  "Fidelity check, line 32: \"300 million)\" appears only in a note beside a different table value, and a note states no value: write the value the table states, or state this figure as a table value with the calculation that gives it."
+ ]
+}

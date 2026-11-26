@@ -1,0 +1,374 @@
+[
+ {
+  "id": "CP-6-F1",
+  "file": "handoffs/CP-5.md",
+  "page": null,
+  "quote": "CLEARANCE DECISION: Fail. Critical Issues: 1. Material Issues: 1. Minor Issues: 1. Committee Use: Blocked."
+ },
+ {
+  "id": "CP-6-F1",
+  "file": "handoffs/CP-5.md",
+  "page": null,
+  "quote": "committee approval should be withheld because Legal & covenants turns summary ratios into affirmative capacity and compliance conclusions without the contractual evidence needed to establish them"
+ },
+ {
+  "id": "CP-6-F1",
+  "file": "handoffs/CP-5.md",
+  "page": null,
+  "quote": "Also remove the unsupported no-controller fact characterization or support it with beneficial-ownership evidence."
+ },
+ {
+  "id": "CP-6-F2",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "creditors face low near-term default risk but should expect leverage to be held rather than reduced"
+ },
+ {
+  "id": "CP-6-F2",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "Financial policy is the weakest material dimension and, not operations, sets the leverage path."
+ },
+ {
+  "id": "CP-6-F2",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "module_status: Ready with Limitations committee_status: Draft Only"
+ },
+ {
+  "id": "CP-6-F3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 52,
+  "quote": "Total debt (1) 24,880 19,750"
+ },
+ {
+  "id": "CP-6-F3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 44,
+  "quote": "EBITDA $ 3,813 (3) $ 3,148 (3) EBITDA As Defined $ 4,173 (3)"
+ },
+ {
+  "id": "CP-6-F3",
+  "file": "handoffs/CP-1.md",
+  "page": null,
+  "quote": "show reported-EBITDA leverage of 6.53x gross and 4.88x net, but year-end cash was pre-committed to the special dividend paid on 2024-10-18, which lifts net leverage to 6.02x"
+ },
+ {
+  "id": "CP-6-F3",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "Net leverage on EBITDA As Defined was 4.46x at year end and 5.50x pro forma for the 2024-10-18 payment"
+ },
+ {
+  "id": "CP-6-F4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 123,
+  "quote": "Cash paid during the period for interest, net $ 1,158 $ 1,160 $ 1,057"
+ },
+ {
+  "id": "CP-6-F4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 64,
+  "quote": "Scheduled interest payments (3) 8,071 1,524 2,916 2,194 1,437"
+ },
+ {
+  "id": "CP-6-F4",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "cover of scheduled interest by FY2024 reported EBITDA is 2.50x against 3.29x on cash paid"
+ },
+ {
+  "id": "CP-6-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 56,
+  "quote": "There is no maturity on any tranche of term loans or notes until November 2027 (fiscal 2028)."
+ },
+ {
+  "id": "CP-6-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 153,
+  "quote": "2025 $ 93 2026 92 2027 92 2028 6,637 2029 4,768 Thereafter 12,637 Total $ 24,319"
+ },
+ {
+  "id": "CP-6-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 53,
+  "quote": "extend the maturity date to July 11, 2025"
+ },
+ {
+  "id": "CP-6-F6",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 55,
+  "quote": "Cash and cash equivalents $ 6,261 Availability on revolving credit facility 843 Availability on Securitization Facility 163 Cash liquidity (1) $ 7,267"
+ },
+ {
+  "id": "CP-6-F6",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 56,
+  "quote": "the pro forma cash liquidity as of September 30, 2024 is $2,919 million"
+ },
+ {
+  "id": "CP-6-F7",
+  "file": "handoffs/CP-2A.md",
+  "page": null,
+  "quote": "a 19.69% fall in reported EBITDA takes pro forma net leverage to the 7.50x springing-test level"
+ },
+ {
+  "id": "CP-6-F7",
+  "file": "handoffs/CP-2A.md",
+  "page": null,
+  "quote": "free cash flow is still USD 721.36 million but pro forma net leverage is 7.53x and cover 1.96x"
+ },
+ {
+  "id": "CP-6-F8",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 62,
+  "quote": "consolidated net leverage ratio would be no greater than 7.25x and the consolidated secured net debt ratio would be no greater than 5.00x"
+ },
+ {
+  "id": "CP-6-F8",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 62,
+  "quote": "if the usage of the revolving credit facility exceeds 40% (or, currently, $364 million) of the total revolving commitments"
+ },
+ {
+  "id": "CP-6-F8",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 62,
+  "quote": "maximum consolidated net leverage ratio of net debt to trailing four-quarter EBITDA As Defined of 7.50x"
+ },
+ {
+  "id": "CP-6-F8",
+  "file": "handoffs/CP-0.md",
+  "page": null,
+  "quote": "incremental debt is allowed up to 7.50x consolidated net leverage and 5.00x secured net debt"
+ },
+ {
+  "id": "CP-6-F9",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "That leaves 0.78x of headroom, or roughly USD 3,244 million of indicative additional secured debt; on supported earnings the cushion shrinks to 0.45x."
+ },
+ {
+  "id": "CP-6-F9",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "Restricted-payment baskets, the contractual EBITDA and the intercreditor terms are not established, because no executed document is in the source set."
+ },
+ {
+  "id": "CP-6-F10",
+  "file": "handoffs/CP-3.md",
+  "page": null,
+  "quote": "Relative value is Unclear across the structure; the decision label is Requires More Work."
+ },
+ {
+  "id": "CP-6-F10",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "Not assessable: verified contemporaneous market observations are absent; the only quote sheet assigns its date for testing"
+ },
+ {
+  "id": "CP-6-F10",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "owned_object: market_implied_risk_map module_status: Blocked committee_status: Blocked"
+ },
+ {
+  "id": "CP-6-C1",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "the 5.00x secured net debt test is the binding brake on further secured debt ranking ahead of the subordinated notes"
+ },
+ {
+  "id": "CP-6-C1",
+  "file": "handoffs/CP-5.md",
+  "page": null,
+  "quote": "A general missing-document caveat does not establish that the secured test is the binding constraint on further extraction or borrowing."
+ },
+ {
+  "id": "CP-6-C1",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "The conclusion that the 5.00x secured test is the binding brake would fail if a basket permits secured debt outside that test."
+ },
+ {
+  "id": "CP-6-C1",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 19,
+  "quote": "these restrictions are subject to a number of significant qualifications and exceptions, and the indebtedness incurred in compliance with these qualifications and exceptions could be substantial"
+ },
+ {
+  "id": "CP-6-C2",
+  "file": "handoffs/CP-2A.md",
+  "page": null,
+  "quote": "The covenant agreements are not in the documents, so the leverage break points are measured on reported EBITDA."
+ },
+ {
+  "id": "CP-6-C2",
+  "file": "handoffs/CP-2A.md",
+  "page": null,
+  "quote": "On that basis pro forma net leverage is 5.50x, so the 7.50x springing level would need a much larger decline than the 19.69% shown here."
+ },
+ {
+  "id": "CP-6-C2",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 62,
+  "quote": "maximum consolidated net leverage ratio of net debt to trailing four-quarter EBITDA As Defined of 7.50x"
+ },
+ {
+  "id": "CP-6-C3",
+  "file": "handoffs/CP-2A.md",
+  "page": null,
+  "quote": "A further one percentage point rise in Term SOFR adds only USD 30 million a year because about 77% of gross debt is fixed rate"
+ },
+ {
+  "id": "CP-6-C3",
+  "file": "handoffs/CP-2E.md",
+  "page": null,
+  "quote": "On the unhedged balance a +100 bp move costs USD 57.89 million, about 3.08% of FY2024 free cash flow of USD 1,880 million"
+ },
+ {
+  "id": "CP-6-C3",
+  "file": "handoffs/CP-5.md",
+  "page": null,
+  "quote": "Neither figure should displace the other as an established equivalent measure until the exposure bridge is explained."
+ },
+ {
+  "id": "CP-6-C3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 73,
+  "quote": "would increase the annual interest costs under our Term Loans Facility and Securitization Facility by approximately $30 million"
+ },
+ {
+  "id": "CP-6-C4",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "Reported EBITDA grew 21.12% in FY2024, gross debt to EBITDA As Defined moved only from 5.82x to 5.96x despite USD 6,368 million of declared distributions"
+ },
+ {
+  "id": "CP-6-C4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 54,
+  "quote": "(3) payment of a special dividend and/or repurchases of our common stock and (4) prepayment of indebtedness or repurchase of debt"
+ },
+ {
+  "id": "CP-6-C4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 54,
+  "quote": "Total cash payments, funded by a combination of $3,000 million in new senior secured debt (as previously noted) and existing cash on hand"
+ },
+ {
+  "id": "CP-6-C4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 73,
+  "quote": "As of September 30, 2024, approximately 77% of our gross debt was fixed rate."
+ },
+ {
+  "id": "CP-6-C4",
+  "file": "handoffs/CP-1C.md",
+  "page": null,
+  "quote": "Not assessable: no usable peer exists, because the research peer tables hold no candidate, no alignment observation and no peer figure"
+ },
+ {
+  "id": "CP-6-C5",
+  "file": "handoffs/CP-5.md",
+  "page": null,
+  "quote": "Correct historical financial calculations may remain descriptive reference material, but they do not independently clear a security recommendation."
+ },
+ {
+  "id": "CP-6-C5",
+  "file": "handoffs/CP-3.md",
+  "page": null,
+  "quote": "No portfolio identity, holdings, mandate, concentration capacity, loss budget or executable exit depth is established."
+ },
+ {
+  "id": "CP-6-C5",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"legal_documents\": \"none\", \"management_bridge\": false, \"portfolio_workbook\": false, \"prior_case\": false"
+ },
+ {
+  "id": "CP-6-D1",
+  "file": "handoffs/CP-0.md",
+  "page": null,
+  "quote": "Every later analysis must carry that October 2024 payment as a dated subsequent event, not as period cash."
+ },
+ {
+  "id": "CP-6-D1",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 63,
+  "quote": "On October 16, 2024, the Company drew the remaining $162.5 million available under the Securitization Facility."
+ },
+ {
+  "id": "CP-6-D1",
+  "file": "inputs/TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl",
+  "page": 44,
+  "quote": "Cash and cash equivalents $ 2,459 Availability on revolving credit facility 849 Cash liquidity $ 3,308"
+ },
+ {
+  "id": "CP-6-D1",
+  "file": "inputs/TDG_2024-12-28_10-Q_0001260221-25-000014_tdg-20241228.htm.jsonl",
+  "page": 46,
+  "quote": "dividend and dividend equivalent payments of $4,396 million and repurchases of common stock of $316 million"
+ },
+ {
+  "id": "CP-6-D2",
+  "file": "handoffs/CP-0.md",
+  "page": null,
+  "quote": "none is in the set, and the run settings record no legal documents attached"
+ },
+ {
+  "id": "CP-6-D2",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "The intercreditor agreement the annual report refers to is not supplied, so the length of the payment blockage on the subordinated notes"
+ },
+ {
+  "id": "CP-6-D2",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "Because the executed credit agreement and indentures are not in the documents, the conclusion that financial policy rather than contract bounds releveraging cannot be sized"
+ },
+ {
+  "id": "CP-6-D3",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"provider\": \"Bloomberg relative value sheet (module-test transcription; figures assigned 2024-09-30)\""
+ },
+ {
+  "id": "CP-6-D3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "Tranche I $1,871 million August 24, 2028 Term SOFR plus 2.75% Tranche J $3,632 million February 28, 2031 Term SOFR plus 2.50% Tranche K $1,699 million March 22, 2030"
+ },
+ {
+  "id": "CP-6-D3",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "Annual report lists only I/J/K/L at year-end; M cannot be accepted as a contemporaneous issuer curve point without identity and event evidence."
+ },
+ {
+  "id": "CP-6-D3",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "Bond and subordinated-note observations absent"
+ },
+ {
+  "id": "CP-6-D4",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "Senior secured debt alone is 5.12x reported EBITDA after subordinated notes were replaced with secured debt"
+ },
+ {
+  "id": "CP-6-D4",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "pro forma secured net leverage after the 2024-10-18 dividend payment is about 4.22x"
+ },
+ {
+  "id": "CP-6-D4",
+  "file": "handoffs/CP-2.md",
+  "page": null,
+  "quote": "on supported earnings pro forma net leverage is 5.93x against 5.50x on the issuer basis"
+ }
+]

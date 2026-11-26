@@ -2,6 +2,8 @@
 module (moved from ``cpos_launch``; the launcher re-exports every name).
 """
 
+import re
+
 from deploy_workflow.prose_checks import DATA_MODULES
 
 _SKILLS = "docs/reuse/selected-methods/skills/"
@@ -174,3 +176,53 @@ METHODS: dict[str, tuple[str, ...]] = {
     for module, paths in _SELECTED.items()
 }
 NOT_ANALYTICAL = frozenset({"CP-MODEL", "CP-8"})  # In the presets; each has its own route.
+
+# Every module's method block is sent without its repeats (owner, 2026-11-25: "apply
+# recommendations", then "add now apply to all modules";
+# docs/sweeps/2026-11-25-instruction-length/REPORT.md). The method files are unchanged: the block
+# is trimmed as it is sent. CP-4 alone had runs compared before it joined; the others joined on
+# the owner's instruction, checked offline (no register or table id lost).
+TRIMMED_METHODS = frozenset(METHODS)
+# A paragraph body shorter than this is a heading, a table rule or a one-line note.
+_REPEAT_FLOOR = 200
+# Paragraphs that only tell the model to run a helper script or to copy what one prints, which
+# `TRANSPORT_RULES` says cannot be done in this transport, and the worked example of a score the
+# head says Python computes. A paragraph that also holds a rule that still applies is not listed.
+CANNOT_APPLY = re.compile(
+    r"## Invocation fields — binding before drafting\n"
+    # the heading goes only with the script line under it: in CP-5 a live rule follows it
+    r"|## Automated QA validation\nRun `python3 \./scripts/validate_handoff\.py"
+    r"|Run `python3 \./scripts/validate_handoff\.py"
+    r"|#### Worked example\n"
+)
+COMMENT_LINE = re.compile(r"<!--.*-->")
+
+
+def _body(paragraph: str) -> str:
+    """A paragraph without its heading line: the same text sent again under a renamed heading
+    ("relocated from", "continued") is still a repeat."""
+    first, _, rest = paragraph.strip().partition("\n")
+    return rest.strip() if first.startswith("#") else paragraph.strip()
+
+
+def trim_method(method: str) -> str:
+    """A method block without its repeats: the second and later copies of a paragraph body of
+    200 characters or more are dropped, and so is each paragraph that cannot apply in this
+    transport. Nothing is reworded and no heading of a method file is touched."""
+    seen: set[str] = set()
+    kept = []
+    for paragraph in re.split(r"\n[ \t]*\n", method):
+        lines = paragraph.strip().split("\n")
+        opening = "\n".join(line for line in lines if not COMMENT_LINE.fullmatch(line.strip()))
+        if CANNOT_APPLY.match(opening + "\n"):
+            marker = COMMENT_LINE.fullmatch(lines[0].strip()) and "BEGIN" in lines[0]
+            if marker and not any("END" in line for line in lines[1:]):
+                kept.append(lines[0])  # an opening marker whose closing one is further down
+            continue
+        body = _body(paragraph)
+        if len(body) >= _REPEAT_FLOOR:
+            if body in seen:
+                continue
+            seen.add(body)
+        kept.append(paragraph)
+    return "\n\n".join(kept)

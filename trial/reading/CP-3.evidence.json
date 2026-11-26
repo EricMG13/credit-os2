@@ -1,0 +1,308 @@
+[
+ {
+  "id": "CP-3-F1",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "Tranche I $1,871 million August 24, 2028 Term SOFR plus 2.75% Tranche J $3,632 million February 28, 2031 Term SOFR plus 2.50%"
+ },
+ {
+  "id": "CP-3-F1",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "Tranche K $1,699 million March 22, 2030 Term SOFR plus 2.75% Tranche L $1,500 million January 19, 2032 Term SOFR plus 2.50%"
+ },
+ {
+  "id": "CP-3-F2",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "2028 Secured Notes $2,100 million August 15, 2028 6.75%"
+ },
+ {
+  "id": "CP-3-F2",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "2029 Secured Notes $2,750 million March 1, 2029 6.375%"
+ },
+ {
+  "id": "CP-3-F2",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 60,
+  "quote": "2030 Secured Notes $1,450 million December 15, 2030 6.875% 2031 Secured Notes $1,000 million December 1, 2031 7.125%"
+ },
+ {
+  "id": "CP-3-F2",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 60,
+  "quote": "2032 Secured Notes $2,200 million March 1, 2032 6.625% 2033 Secured Notes $1,500 million January 15, 2033 6.00%"
+ },
+ {
+  "id": "CP-3-F3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "5.50% 2027 Notes $2,650 million November 15, 2027 5.50%"
+ },
+ {
+  "id": "CP-3-F3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "4.625% 2029 Notes $1,200 million January 15, 2029 4.625%"
+ },
+ {
+  "id": "CP-3-F3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 60,
+  "quote": "4.875% 2029 Notes $750 million May 1, 2029 4.875%"
+ },
+ {
+  "id": "CP-3-F4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "At September 30, 2024, the Company had $67 million in letters of credit outstanding and $843 million in borrowings available under the revolving commitments."
+ },
+ {
+  "id": "CP-3-F4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "The maturity date of the revolving credit facility is February 27, 2029."
+ },
+ {
+  "id": "CP-3-F4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 150,
+  "quote": "As of September 30, 2024, the total drawn on the Securitization Facility is $487 million."
+ },
+ {
+  "id": "CP-3-F4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 151,
+  "quote": "Securitization Facility is collateralized by substantially all of the Company’s domestic operations’ trade accounts receivable."
+ },
+ {
+  "id": "CP-3-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 61,
+  "quote": "The Subordinated Notes represent our unsecured obligations ranking subordinate to our senior debt, as defined in the applicable indentures."
+ },
+ {
+  "id": "CP-3-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 61,
+  "quote": "The Secured Notes represent our secured obligations ranking equally to all existing and future senior debt, as defined in the applicable indentures."
+ },
+ {
+  "id": "CP-3-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 22,
+  "quote": "will have the right to proceed against the collateral granted to them to secure the debt, which includes our available cash"
+ },
+ {
+  "id": "CP-3-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 22,
+  "quote": "they will also have the right to prevent us from making debt service payments on the senior subordinated notes"
+ },
+ {
+  "id": "CP-3-F5",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 151,
+  "quote": "structurally subordinated to all of the liabilities of TransDigm’s non-guarantor subsidiaries"
+ },
+ {
+  "id": "CP-3-F6",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"facility_id\": \"Term loan J\", \"kind\": \"observed\", \"bid\": \"100.00\", \"ask\": \"100.13\", \"price\": \"\", \"yield_pct\": \"6.2\", \"spread_bps\": \"247\","
+ },
+ {
+  "id": "CP-3-F6",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"facility_id\": \"Term loan K\", \"kind\": \"observed\", \"bid\": \"99.94\", \"ask\": \"100.13\", \"price\": \"\", \"yield_pct\": \"5.9\", \"spread_bps\": \"224\","
+ },
+ {
+  "id": "CP-3-F6",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"facility_id\": \"Term loan L\", \"kind\": \"observed\", \"bid\": \"99.88\", \"ask\": \"100.13\", \"price\": \"\", \"yield_pct\": \"6.2\", \"spread_bps\": \"250\","
+ },
+ {
+  "id": "CP-3-F6",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"facility_id\": \"Term loan N\", \"kind\": \"observed\", \"bid\": \"99.88\", \"ask\": \"100.25\", \"price\": \"\", \"yield_pct\": \"6.2\", \"spread_bps\": \"248\","
+ },
+ {
+  "id": "CP-3-F7",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 59,
+  "quote": "The Term Loans Facility consists of four tranches of term loans as follows (aggregate principal amount disclosed is as of September 30, 2024):"
+ },
+ {
+  "id": "CP-3-F7",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"facility_id\": \"Term loan M\", \"kind\": \"observed\", \"bid\": \"99.88\", \"ask\": \"100.13\","
+ },
+ {
+  "id": "CP-3-F7",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "J size discrepancy; K size/margin conflict; L maturity conflict; M/N not in year-end loan table"
+ },
+ {
+  "id": "CP-3-F7",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "Not assessable: verified contemporaneous market observations are absent; the only quote sheet assigns its date for testing"
+ },
+ {
+  "id": "CP-3-F7",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "Bond and subordinated-note observations absent"
+ },
+ {
+  "id": "CP-3-F8",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"agency\": \"Moody's\", \"scope\": \"facility\", \"rating\": \"Ba3\", \"outlook\": \"\", \"as_of\": \"2024-09-30\""
+ },
+ {
+  "id": "CP-3-F8",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"agency\": \"S&P\", \"scope\": \"facility\", \"rating\": \"BB-\", \"outlook\": \"\", \"as_of\": \"2024-09-30\""
+ },
+ {
+  "id": "CP-3-F8",
+  "file": "handoffs/CP-2H.md",
+  "page": null,
+  "quote": "The available rating indications concern facilities, come from a date-assigned testing transcription, and do not verify the issuer's rating or outlook."
+ },
+ {
+  "id": "CP-3-F9",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "Restricted-payment baskets, the contractual EBITDA and the intercreditor terms are not established, because no executed document is in the source set."
+ },
+ {
+  "id": "CP-3-F9",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "the split of enforcement control between lenders and secured noteholders are not established. Recovery mechanics for those classes stay qualitative."
+ },
+ {
+  "id": "CP-3-F10",
+  "file": "handoffs/CP-4C.md",
+  "page": null,
+  "quote": "No class recovery is established because no restructuring scenario is activated."
+ },
+ {
+  "id": "CP-3-F10",
+  "file": "handoffs/CP-1C.md",
+  "page": null,
+  "quote": "so valuation context and implied enterprise value are not established"
+ },
+ {
+  "id": "CP-3-C1",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "The term loans, revolver and six secured note series rank equally, share one guarantor group and a collateral pool that includes available cash"
+ },
+ {
+  "id": "CP-3-C1",
+  "file": "handoffs/CP-3C.md",
+  "page": null,
+  "quote": "repeated secured borrowing for shareholder distributions leaves subordinated creditors exposed to recovery dilution well before a maturity-driven crisis"
+ },
+ {
+  "id": "CP-3-C1",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "That leaves 0.78x of headroom, or roughly USD 3,244 million of indicative additional secured debt"
+ },
+ {
+  "id": "CP-3-C2",
+  "file": "handoffs/CP-3D.md",
+  "page": null,
+  "quote": "Identity conflict dominates any apparent spread advantage"
+ },
+ {
+  "id": "CP-3-C3",
+  "file": "handoffs/CP-4C.md",
+  "page": null,
+  "quote": "Subordinated exposure is real, but a fulcrum designation would be false precision."
+ },
+ {
+  "id": "CP-3-C3",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 22,
+  "quote": "we cannot assure that our assets would be sufficient to repay in full the Notes and other debt"
+ },
+ {
+  "id": "CP-3-C4",
+  "file": "context.json",
+  "page": null,
+  "quote": "\"attachments\": { \"legal_documents\": \"none\", \"management_bridge\": false, \"portfolio_workbook\": false,"
+ },
+ {
+  "id": "CP-3-C4",
+  "file": "handoffs/CP-2D.md",
+  "page": null,
+  "quote": "so near-term default risk from liquidity is low for creditors"
+ },
+ {
+  "id": "CP-3-D1",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 54,
+  "quote": "These payments were made in October 2024."
+ },
+ {
+  "id": "CP-3-D1",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 152,
+  "quote": "The Company drew the remaining $162.5 million available under the Securitization Facility in October 2024."
+ },
+ {
+  "id": "CP-3-D1",
+  "file": "handoffs/CP-1.md",
+  "page": null,
+  "quote": "which lifts net leverage to 6.02x"
+ },
+ {
+  "id": "CP-3-D2",
+  "file": "handoffs/CP-1.md",
+  "page": null,
+  "quote": "Debt is USD 24,880 million at carrying value against USD 25,068 million of principal."
+ },
+ {
+  "id": "CP-3-D2",
+  "file": "handoffs/CP-4.md",
+  "page": null,
+  "quote": "At USD 4,581 million carrying value, or 18.41% of debt, they sit beneath USD 19,534 million of secured claims that rank equally with each other."
+ },
+ {
+  "id": "CP-3-D2",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 145,
+  "quote": "Term loans $ 8,702 $ (25) $ (35) $ 8,642"
+ },
+ {
+  "id": "CP-3-D3",
+  "file": "handoffs/CP-4C.md",
+  "page": null,
+  "quote": "recovery is not established for this run, not zero"
+ },
+ {
+  "id": "CP-3-D4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 172,
+  "quote": "5.50% 2027 Notes (5) 1 2,641 2,637 2,638 2,484"
+ },
+ {
+  "id": "CP-3-D4",
+  "file": "inputs/TDG_2024-09-30_10-K_0001260221-24-000083_tdg-20240930.htm.jsonl",
+  "page": 173,
+  "quote": "2033 Secured Notes (5) 1 1,486 1,521"
+ }
+]

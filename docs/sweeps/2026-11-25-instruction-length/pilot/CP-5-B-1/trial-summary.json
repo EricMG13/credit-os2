@@ -1,0 +1,35 @@
+{
+ "module": "CP-5",
+ "arm": "B",
+ "config": "opus-high",
+ "outcome": "not accepted: reserving 5.738192 passes the cap 10",
+ "chars": 115576,
+ "tokens_estimate": 30138,
+ "lines": 1319,
+ "head_chars": 18466,
+ "method_chars": 97110,
+ "method_files": 9,
+ "directive_sentences": 206,
+ "emphasis_words": 18,
+ "repeated_chars": 0,
+ "overridden_chars": 12761,
+ "unsent_references": 0,
+ "calls": 16,
+ "input_tokens": 34,
+ "cached_read_tokens": 6213522,
+ "output_tokens": 38816,
+ "reasoning_tokens": 17479,
+ "first_call_input_tokens": 4,
+ "settled_usd": "4.26913540",
+ "started_at": "2026-11-25T19:17:10.603764Z",
+ "finished_at": "2026-11-25T19:23:42.993694Z",
+ "writes": 1,
+ "issues_per_write": [
+  3
+ ],
+ "first_write_issues": [
+  "Fidelity check, line 52: \"4.88x\" appears only in a note beside a different table value, and a note states no value: write the value the table states, or state this figure as a table value with the calculation that gives it.",
+  "Fidelity check, line 57: \"364 million\" does not appear elsewhere in the handoff (tables, calculations or other findings), with the same sign, unit and scale: add it there or remove it from the passage.",
+  "Fidelity check, line 69: \"77%\" does not appear elsewhere in the handoff (tables, calculations or other findings), with the same sign, unit and scale: add it there or remove it from the passage."
+ ]
+}
