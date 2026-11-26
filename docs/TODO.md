@@ -7,7 +7,9 @@ An item leaves this list when its PR merges.
 
 Owner decisions, 2026-11-25:
 
-- The app is managed on a single machine. Other users only interact with offline pages.
+- One computer runs the app. Colleagues open it from their own PCs at a web address on the
+  office network and use the live app: reports, the library, Signal with posting, and paid runs
+  (2026-11-26; this replaces "single machine, other users only have offline pages").
 - Signal, the library and run start are one app in one process. Done: ericmg13/credit-os2#83,
   merged 2026-11-25.
 - Sign-in uses Microsoft Entra ID with OpenID Connect. The authorization-code flow with PKCE is
@@ -26,9 +28,10 @@ Owner decisions, 2026-11-25:
 | 3 | SQLite store for accounts, profile types, sessions and passcode hashes. No analytical data, no passwords | This repository | Not started |
 | 4 | Registration on first Entra sign-in: a first sign-in creates a Reader; a valid passcode makes the account an Analyst or an Admin | This repository | Not started |
 | 5 | Replace Signal's display-name cookie (`deploy_workflow.signal.identity.current_user`) with the signed-in account, and move the owner's source and AI-cap powers into the browser | This repository | Not started |
-| 6 | Read-only Signal snapshot for offline pages: stories only, no threads, comments or posting | This repository | Not started |
-| 7 | **Full Entra deployment: app registration limited to the organisation's own tenant, tenant and client ids, redirect address, and a sign-in with real work accounts** | **Work PC only** | Not started |
+| 6 | Read-only Signal snapshot for offline pages: stories only, no threads, comments or posting. May not be needed now that colleagues use the live app; owner to confirm | This repository | Not started |
+| 7 | **Full deployment: Entra app registration limited to the organisation's own tenant, tenant and client ids, the network address, a certificate colleagues' browsers trust, any firewall rule, and a sign-in with real work accounts from a colleague's PC** | **Work PC only, with IT** | Not started |
 | 8 | Security audit of the sign-in code with `cloudflare/security-audit-skill` once items 2 to 5 exist | This repository | Not started |
+| 14 | Serve the app on the office network over HTTPS: a `--host` option refused unless sign-in is on and a certificate is configured, plus the per-address request limits. Proved here with a test certificate | This repository, then work PC with IT | Not started |
 
 Items 2 to 5: draft spec `docs/superpowers/specs/2026-11-26-sign-in-and-accounts.md`.
 
@@ -58,5 +61,10 @@ Owner actions before Signal's sources and AI are switched on (none is taken by t
   with `CREDIT_OS_SIGNAL_AI=1`.
 
 ## Open decisions
+
+- Where the HTTPS certificate is held: a path in the launching environment (needs a ruling) or
+  IT's own web server in front of the app.
+- Whether a sign-in with no client secret is allowed for a network address under the
+  organisation's Entra settings. To be confirmed on the work PC.
 
 - Passcode rotation and the limit on wrong attempts (left open by the passcode ruling).

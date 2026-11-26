@@ -9,14 +9,17 @@ any of them. Section 9 lists the ones that most need an answer.
 
 ## 1. Intent
 
-Today anyone at the machine can use every screen, start a paid run, and type any name into Signal
+Today the application answers only on the machine it runs on, and anyone there can use every screen, start a paid run, and type any name into Signal
 to act as that writer. After this change a person signs in with their work account, is a Reader
 unless a passcode makes them an Analyst or an Admin, and every action in Signal and every paid Submit is
 tied to that account.
 
 ## 2. What the owner has decided (2026-11-25)
 
-- The application runs on a single machine; other users only have offline pages.
+- One computer runs the application. Colleagues open it from their own PCs at a web address on
+  the office network and use the live application: read reports and the library, read and post in
+  Signal, and start paid runs (owner, 2026-11-26, choosing "Web address on the network"). This
+  replaces the earlier "single machine, other users only have offline pages".
 - Microsoft Entra ID proves who the user is, using OpenID Connect, with Microsoft's `msal` library.
 - A passcode the owner sets chooses the profile type at registration: Reader, Analyst (Signal's
   writer) or Admin (Signal's owner). Passcodes are stored as salted hashes only
@@ -50,7 +53,8 @@ Non-goals
 - The landing page design. This work serves a plain sign-in page; the landing page replaces it.
 - Password storage, password reset, multi-factor: Entra does these.
 - Per-issuer or per-group access rules. A signed-in Reader reads everything.
-- Protecting offline pages. They are files; anyone holding one can read it.
+- Offline page files. With colleagues on the live application they may not be needed at all
+  (`docs/TODO.md` item 6, for the owner to confirm).
 
 Anti-goals (a failure even if it works)
 
@@ -60,12 +64,15 @@ Anti-goals (a failure even if it works)
 - A plain-text passcode or a reusable session token in the store.
 - A test that passes because the stand-in identity provider accepts anything.
 - Sign-in required in the read-only preview or a synthetic proof run, which have no accounts.
+- The application reachable from the network before sign-in protects every route, or over an
+  unencrypted connection.
 
 ## 4. Constraints
 
 - Python standard library plus pinned dependencies. One new dependency: `msal`, pinned, with its
   transitive packages recorded for the work-PC change pack.
-- No client secret: the public-client authorization-code flow with PKCE. Tenant and client ids
+- No client secret in a file. The aim is the public-client authorization-code flow with PKCE,
+  which needs none; 5.7 says what must be confirmed for a network address. Tenant and client ids
   come from the launching environment and are not secrets.
 - The build and its tests make no request to Microsoft. Sign-in is proved against a stand-in
   identity provider and labelled with that scope until item 7 is done on the work PC.
@@ -109,8 +116,8 @@ feed store can be replaced without losing accounts.
   PKCE, `state` and `nonce`.
 - Routes: `GET /auth/sign-in` redirects to Entra; `GET /auth/callback` redeems the code;
   `POST /auth/passcode` takes a passcode; `POST /auth/sign-out`; `GET /auth/me`.
-- The redirect address is `http://localhost:<port>/auth/callback`. The server already accepts
-  `localhost:<port>` as its own address.
+- The redirect address is `https://<the machine's name>:<port>/auth/callback` (5.7). For a
+  developer on the machine itself it is `http://localhost:<port>/auth/callback`.
 - The pending flow (state, nonce, code verifier) is held in memory, keyed by a short-lived cookie,
   and expires after ten minutes. Entra's tokens are used once to read the identity and then
   dropped: nothing calls Microsoft Graph, and no token cache is written.
@@ -125,8 +132,7 @@ feed store can be replaced without losing accounts.
 
 - After a successful callback the server makes a 256-bit random token, stores its SHA-256, and
   sets it in a cookie: `HttpOnly`, `SameSite=Lax` (the callback is a cross-site navigation, so
-  `Strict` would drop it), `Path=/`. No `Secure` flag: the application is served over loopback
-  HTTP only.
+  `Strict` would drop it), `Path=/`, and `Secure` whenever the application is served over HTTPS.
 - Lifetime: 12 hours from sign-in, with no separate idle cut-off. Sign-out deletes the row. Disabling an account ends its sessions at the next request.
 - The check sits in the application server's request path after the existing `Host`, `Origin`
   and `Sec-Fetch-Site` checks and before any route. Allowlist without a session: `/auth/*`, the
@@ -163,6 +169,30 @@ ledger are not touched. The removal runs once, in the store upgrade of slice 4, 
 The Admin passcode is what makes the first Admin: the owner sets it on the command line, signs
 in, and enters it. There is no default account and no bootstrap flag.
 
+### 5.7 A web address on the network
+
+Today `react_frontend` listens on `127.0.0.1` only. Serving colleagues needs three things, and the
+last two cannot be finished in this repository alone.
+
+- **Listening.** A `--host` option taking this machine's own network address, refused for a
+  wildcard, as `deploy_workflow.run_start.service` already does. It is refused unless sign-in is
+  on and a certificate is configured, so the application can never be on the network unprotected.
+- **Encryption.** Entra accepts a plain `http` redirect address only for `localhost`; any other
+  address must be `https`. So an encrypted connection is required by Entra, not only good
+  practice. The server needs a certificate for the machine's name that colleagues' browsers
+  already trust, which in practice means one issued by the organisation's IT. Two ways to hold
+  it **(call, for the owner and IT)**: the application reads the certificate and its key from a
+  path named in the launching environment (the key is a secret in a file, so this needs a
+  ruling under "No credential files"), or IT's own web server sits in front and holds it.
+- **The Entra registration.** Whether a public client with no secret may use an `https` redirect
+  address that is not `localhost` must be confirmed on the work PC with the organisation's Entra
+  settings. If it may not, the alternatives are a client secret supplied through the launching
+  environment, or sign-in run in the browser with the server then checking the token's signature,
+  which would bring back the two extra dependencies. Not known from here.
+
+With the application on the network the request limits matter again: a ceiling on connections per
+remote address, and the connection deadline, both of which Signal's old server had.
+
 ## 6. Slices
 
 Each is one PR, in order; each leaves main working.
@@ -173,6 +203,8 @@ Each is one PR, in order; each leaves main working.
 3. Entra sign-in and registration against the stand-in provider; the switch turns on in live mode.
 4. Signal on the account; the typed name removed; Admin powers in the browser.
 5. Submit requires Analyst or Admin and records the account.
+6. Network listening and HTTPS (5.7), last, and only after slices 1 to 5 are merged. Proved here
+   with a test certificate; the real certificate and address are work-PC work.
 
 ## 7. Tests
 
@@ -188,14 +220,18 @@ Each is one PR, in order; each leaves main working.
 
 ## 8. Not covered until the work PC
 
-App registration, tenant and client ids, and a sign-in with real accounts (`docs/TODO.md` item 7).
+App registration, tenant and client ids, the organisation's certificate, the network address, any
+firewall change, and a sign-in with real accounts from a colleague's PC (`docs/TODO.md` item 7).
 Until then every sign-in claim in VERIFICATION.md carries "stand-in identity provider only".
 
 ## 9. For the owner
 
-1. **Who signs in.** The application listens on this machine only, so sign-in separates the
-   people who sit at it. If colleagues are meant to reach it from their own PCs, that is a
-   different design (TLS, a network address) and should be said now.
+1. **Who signs in.** Answered 2026-11-26: colleagues, from their own PCs, at a web address on
+   the network (5.7).
+2. **The certificate** (5.7): read from a path in the launching environment, with a ruling, or
+   held by IT's web server in front of the application.
+3. **IT.** A network address, a trusted certificate, the Entra registration and possibly a
+   firewall rule all need the organisation's IT. Nothing in slice 6 can go live without them.
 
-Answered 2026-11-26 (section 2): Reader passcode, token signature, old Signal rows, session
-length. Still open: question 1.
+Also answered 2026-11-26 (section 2): Reader passcode, token signature, old Signal rows, session
+length.
