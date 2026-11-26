@@ -397,3 +397,68 @@ def test_the_sign_in_meta_follows_the_mode_meta(root: Path, web: Path, accounts_
     mode = page.index(b'<meta name="credit-os-mode" content="live">')
     sign_in = page.index(b'<meta name="credit-os-sign-in" content="on">')
     assert mode < sign_in
+
+
+# fix batch F -----------------------------------------------------------------------------------
+
+INSIDE = "the account store's folder must not be inside the shared folder"
+
+
+def _case_insensitive(folder: Path) -> bool:
+    """Probe the filesystem: a file made as ``X`` is visible as ``x``."""
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "CaseProbeX").write_text("", encoding="utf-8")
+    return (folder / "caseprobex").exists()
+
+
+@pytest.mark.usefixtures("no_scheduler")
+@pytest.mark.skipif(os.name == "nt", reason="symlinks need a privilege on Windows")
+def test_a_folder_reached_through_a_link_to_the_shared_folder_is_inside_it(
+    web: Path, tmp_path: Path
+) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(shared, target_is_directory=True)
+    _refused(shared, web, ValueError, INSIDE, sign_in=True, accounts_dir=link / "acc")
+    assert not (shared / "acc").exists()
+
+
+@pytest.fixture
+def opened(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    """Every call the gate makes to the store's opener; each wrapper call runs the original."""
+    calls: list[Path] = []
+    original = store.open_db
+
+    def recording(folder: Path) -> object:
+        calls.append(folder)
+        return original(folder)
+
+    monkeypatch.setattr("react_frontend.auth_gate.store.open_db", recording)
+    return calls
+
+
+def test_the_store_is_opened_only_for_a_well_formed_value(on: Server, opened: list[Path]) -> None:
+    for cookies in (
+        None,
+        ["credit_os_session=" + "A" * 42],
+        ["credit_os_session=" + "A" * 44],
+        ["credit_os_session=" + "!" * 43],
+        ["credit_os_session=" + "A" * 43, "credit_os_session=" + "B" * 43],
+    ):
+        assert send(on, "/connected/reports", cookies=cookies)[0] == 401
+        assert opened == []
+    assert send(on, "/connected/reports", cookies=["credit_os_session=" + "A" * 43])[0] == 401
+    assert len(opened) == 1
+
+
+def test_an_unparseable_cookie_header_is_no_session(
+    root: Path, web: Path, accounts_dir: Path
+) -> None:
+    with serving(root, web, sign_in=True, accounts_dir=accounts_dir) as server:
+        header = f"a=1; $foo=1; credit_os_session={mint(accounts_dir)}"
+        status, body, _ = send(server, "/auth/me", cookies=[header])
+        assert (status, json.loads(body)) == (200, {"account": None})
+        status, body, _ = send(server, "/connected/reports", cookies=[header])
+        assert status == 401
+        assert json.loads(body) == {"error": "sign in first"}
