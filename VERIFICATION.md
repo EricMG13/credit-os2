@@ -10,13 +10,15 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   `react_frontend` (the gate, the start-up switch, `/auth/me`, the sign-in meta) with their tests.
   Sign-in stays off unless `make_server(sign_in=True, accounts_dir=...)` is used; nothing does yet.
   No request to Microsoft, no model call, no live fetch, no new dependency. Stacked on #108.
-  Trimmed here: the oldest entries (2026-11-18).
+  Trimmed here: the seven oldest entries (all 2026-11-18, from "Desktop review follow-up after
+  PR #64" to "Connected desktop findings and Forecast proof").
 - Sessions: a `secrets.token_urlsafe(32)` token, only its SHA-256 stored, 12 real hours from
   sign-in (UTC arithmetic; a London time across the clock change was 13 h before the fix); lookup
-  writes nothing; unknown, expired, ended, malformed or disabled → no session.
+  writes nothing; an unknown, expired, ended or malformed token, or a disabled account, gives no
+  session.
 - The check: after Host, `Sec-Fetch-Site` and `Origin`, before `Transfer-Encoding` and every route.
   Only GET `/sign-in` and GET `/auth/me` pass without a session (exact method and path); app pages
-  and `/library` paths → 303 to `/sign-in`; the rest → 401. The cookie counts only when its name
+  and `/library` paths get a 303 to `/sign-in`; the rest get 401. The cookie counts only when its name
   appears once across all `Cookie` headers; a store error is a 500, never "no session".
 - Start-up: sign-in refused in read-only and synthetic modes; the store's folder must be given,
   absolute, private, outside `--root` by path and by file identity (case variants, the macOS
@@ -24,7 +26,8 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   must be inside `%LOCALAPPDATA%` (simulated here). Display names: first free of three candidates,
   at most 60 characters, "before accounts" reserved.
 - Checked: `tests/test_accounts_*.py` 147 and `tests/test_auth_*.py` 44 passed (440 with the server,
-  Signal-host, standing-portfolio and repo-rules tests), expected values written by hand;
+  Signal-host, standing-portfolio and repo-rules tests); expected values are hand-written or come
+  from independent standard-library calls (`hashlib` for the stored hash, `os.path.realpath`);
   `tools/quality_gate.py`, `lint-imports`, `mypy --strict` on the package, `ruff` exit 0. The
   deny-by-default test sends every path the code names, 200 seeded hostile paths and all seven
   methods: no route runs without a session, every route runs with one; with the gate call removed
@@ -33,8 +36,12 @@ engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflo
   a Low fixed over two rounds, re-review passed), confidence review, rewrite tournament (incumbent
   holds), sweep (3 Info), `mx-architect` pre-merge PASS, 2 Low and 3 Info (Opus 5.5 at xhigh: Fable
   usage was exhausted).
-- Not verified: Windows and a real Linux ACL (both simulated); SMB or OneDrive ownership mapping;
-  real browsers' cookies; concurrent load; CI on the PR head until it runs.
+- Not verified: Windows and a real Linux ACL (both simulated); Linux bind mounts; SMB or OneDrive
+  ownership mapping; real browsers' cookies; concurrent load; the Ubuntu runner (the case-variant and
+  dot-dot tests skip there; nothing was run on Linux); routes whose path is built at run time (the
+  gate still runs before them); GitNexus (not indexed); CI on the PR head until it runs. The local
+  fast subset (2,611 passed) had one environmental failure, `test_react_runtime_identity` (a macOS
+  temp path of 125 characters, limit 80), and 156 skips for the missing web `node_modules`.
 
 ## 2026-11-26 — Sign-in slice 1: account store, passcodes, lockout, accounts command line
 
@@ -988,7 +995,3 @@ then 5; the narrow layout and the controls listed below.
   Astra confirmed the merge retained the desktop styles and Copilot approval and cap checks.
 - Deployment-seat verification, the first authorized paid run and Windows work-PC acceptance
   are pending. Native Copilot search stays unavailable pending evidence and cost verification.
-
-## 2026-11-18 — Desktop review follow-up after PR #64
-
-- Astra reviewed the merged desktop diff. Fixed activity polling after a malformed response, source-run provenance for reused inputs, Forecast copy for missing calculations, and the retry action named by the service. Verified the regressions, exact source-run link and draft preservation, retained layout, 680 Forecast cells and three confidence scores in the live desktop checks. Chrome and Edge passed offline workflow proof (`run-ryqfCu`), and all 83 file routes rendered. 1,161 frontend and 42 Python tests, build, lint, formatting and the quality gate passed. Fallow passed against merged main with zero new findings and against the original base with 12 styling advisories for values already on that base.
