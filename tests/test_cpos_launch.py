@@ -11182,6 +11182,62 @@ def test_pro_forma_rows_name_one_ebitda_basis_each_and_one_interest_measure(tmp_
 
 
 def test_a_pro_forma_shape_refusal_is_not_reported_twice(tmp_path):
-    bad = PRO_FORMA_ROW.replace("cash interest", "interest paid")
+    # Fails the shape check (Interest measure) and `_pro_forma_issues` (cover to three decimals).
+    bad = PRO_FORMA_ROW.replace("cash interest", "interest paid").replace("4.55", "4.545")
     issues = [i for i in _pro_forma_issues_of(tmp_path, bad) if "Pro forma interest" in i]
     assert len(issues) == 1, issues
+
+
+@pytest.mark.parametrize("cover", ["9.99", "4.54", "4.56"])
+def test_a_pro_forma_cover_that_is_not_ebitda_over_interest_is_refused(tmp_path, cover):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW.replace("4.55", cover))
+    assert any(
+        "Pro forma interest and cover" in i and "2024-11-05" in i and cover in i and "4.55" in i
+        for i in issues
+    ), issues
+
+
+def test_a_pro_forma_cover_is_accepted_at_half_up_or_half_even(tmp_path):
+    # 1 / 8 = 0.125 is a tie at two places: 0.13 half-up, 0.12 half-even.
+    row = "| 2024-11-05 | 8 | cash interest | 1 | {} | US$m | Reported EBITDA; s. |"
+    for cover in ("0.13", "0.12"):
+        issues = _pro_forma_issues_of(tmp_path, row.format(cover))
+        assert not any("expected cover" in i for i in issues), issues
+    issues = _pro_forma_issues_of(tmp_path, row.format("0.14"))
+    assert any("expected cover is 0.13" in i for i in issues), issues
+
+
+def test_a_pro_forma_cover_stated_as_a_gap_beside_two_figures_is_refused_unless_interest_is_zero(
+    tmp_path,
+):
+    gap = PRO_FORMA_ROW.replace("4.55", "Not supplied: not worked")
+    issues = _pro_forma_issues_of(tmp_path, gap)
+    assert any("Pro forma interest and cover" in i and "calculate" in i for i in issues), issues
+    zero = PRO_FORMA_ROW.replace("| 110 |", "| 0 |")
+    gap_zero = zero.replace("4.55", "Not supplied: interest is zero")
+    assert not any("calculate" in i for i in _pro_forma_issues_of(tmp_path, gap_zero))
+    issues = _pro_forma_issues_of(tmp_path, zero)
+    assert any("Pro forma interest and cover" in i and "zero" in i for i in issues), issues
+
+
+def test_a_pro_forma_ebitda_must_equal_t4_9s_latest_numerator_of_its_label(tmp_path):
+    other = PRO_FORMA_ROW.replace("| 500 |", "| 501 |").replace("4.55", "4.55")
+    issues = _pro_forma_issues_of(tmp_path, other)
+    assert any(
+        "Pro forma interest and cover" in i and "501" in i and "500" in i and "T4.9" in i
+        for i in issues
+    ), issues
+    # The helper's register has no adjusted row: the adjusted row is untied.
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW) == ()
+
+
+def test_a_lone_adjusted_pro_forma_row_is_refused(tmp_path):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ADJUSTED_ROW)
+    assert any("Pro forma interest and cover" in i and "Reported EBITDA" in i for i in issues)
+
+
+def test_the_cp1_bridge_rule_names_no_subtotal_and_keeps_ids_in_the_column(tmp_path):
+    prepared, *_ = good_task(tmp_path, "CP-1", "credit_snapshot")
+    text = (tmp_path / "out" / prepared.plan.instructions["CP-1"].path).read_text()
+    line = next(x for x in text.splitlines() if "Add-Back ID numbers" in x)
+    assert "subtotal" not in line and "in this column only" in line, line

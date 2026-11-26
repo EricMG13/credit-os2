@@ -8,7 +8,7 @@ from collections import Counter
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from typing import Any, cast
 
 from deploy_workflow import confidence
@@ -301,12 +301,47 @@ PRO_FORMA_LABELS = ("Reported EBITDA", "Adjusted EBITDA")
 COVER_FORM = re.compile(r"-?\d+\.\d{2}")
 
 
+PRO_FORMA_REGISTER = {
+    "Reported EBITDA": "EBITDA / cash interest",
+    "Adjusted EBITDA": "Adjusted EBITDA / cash interest",
+}
+
+
+def _cover_issue(row: str, interest: str, ebitda: str, cover: str) -> str | None:
+    """One stated row's cover against its figures: a gap beside a missing figure, a plain number to
+    two decimals, EBITDA over interest (half-up or half-even), and a gap only where interest is
+    zero or a figure is itself a gap."""
+    top, bottom = cp1_check._stated(ebitda), cp1_check._stated(interest)
+    lead = f"{row}: Pro forma interest cover {cover}"
+    if _stated_gap(interest) or _stated_gap(ebitda):
+        gap = "sits beside a figure no source states; write it as `Not supplied: <reason>`."
+        return None if _stated_gap(cover) else f"{lead} {gap}"
+    if not _stated_gap(cover) and not COVER_FORM.fullmatch(cover):
+        form = "must be a plain number with exactly two decimal places (`4.55`)"
+        return f"{lead} {form}, or `Not supplied: <reason>`."
+    if top is None or bottom is None:
+        return None
+    if _stated_gap(cover):
+        work = "is stated as a gap although both figures are stated; work it with `calculate`."
+        return None if bottom == 0 else f"{lead} {work}"
+    if bottom == 0:
+        return f"{lead} is not worked over a zero interest; write `Not supplied: <reason>`."
+    cent = Decimal("0.01")
+    exact = top / bottom
+    up = exact.quantize(cent, rounding=ROUND_HALF_UP)
+    even = exact.quantize(cent, rounding=ROUND_HALF_EVEN)
+    wrong = f"{lead} is not EBITDA {ebitda} over interest {interest}; the expected cover is {up}."
+    return None if Decimal(cover) in (up, even) else wrong
+
+
 def _pro_forma_issues(text: str) -> tuple[str, ...]:
     """CP-1's `Pro forma interest and cover` rows beyond the shared shape check (run only when that
-    passed): a figure no source states leaves the cover beside it `Not supplied`; a stated cover is
-    a plain number to exactly two decimals; each row's Basis and limitation opens with its EBITDA
-    label, at most the two labels, each once, `Reported EBITDA` first; one Interest measure. The
-    none row (`Not stated`) states no figure and is exempt."""
+    passed): each cover is tied to its figures (`_cover_issues`); each row's EBITDA equals T4.9's
+    numerator of its label's row for the latest period; each row's Basis and limitation opens with
+    its EBITDA label, at most the two labels, each once, `Reported EBITDA` first; one Interest
+    measure. The none row (`Not stated`) states no figure and is exempt. A label T4.9 has no
+    readable row for is left untied here: the CP-1 check already reports a missing or malformed
+    register."""
     heading = f"### {PRO_FORMA.heading}"
     if heading not in text.splitlines():
         return ()
@@ -316,22 +351,16 @@ def _pro_forma_issues(text: str) -> tuple[str, ...]:
     issues, labels = [], []
     for at, (as_of, interest, measure, ebitda, cover, _unit, basis) in enumerate(stated, 1):
         row = f"`{heading}` {as_of} (row {at})"
-        if (_stated_gap(interest) or _stated_gap(ebitda)) and not _stated_gap(cover):
-            issues.append(
-                f"{row}: Pro forma interest cover {cover} sits beside a figure no source states; "
-                "write the cover as `Not supplied: <reason>`, as the interest or EBITDA is."
-            )
-        elif not _stated_gap(cover) and not COVER_FORM.fullmatch(cover):
-            issues.append(
-                f"{row}: Pro forma interest cover {cover} must be a plain number with exactly "
-                "two decimal places (`4.55`), or `Not supplied: <reason>`."
-            )
+        if issue := _cover_issue(row, interest, ebitda, cover):
+            issues.append(issue)
         label = next((x for x in PRO_FORMA_LABELS if basis.startswith(x)), None)
         if label is None:
             issues.append(
                 f"{row}: Basis and limitation must open with `Reported EBITDA` or "
                 f"`Adjusted EBITDA`, the EBITDA the row uses."
             )
+        else:
+            issues.extend(_register_tie(text, row, label, ebitda))
         labels.append(label)
     table = f"`{heading}`"
     named = [x for x in labels if x]
@@ -339,13 +368,28 @@ def _pro_forma_issues(text: str) -> tuple[str, ...]:
         issues.append(f"{table}: at most two rows, one on Reported and one on Adjusted EBITDA.")
     if len(set(named)) < len(named):
         issues.append(f"{table}: each EBITDA basis is stated once; one row names it once.")
-    if named[:2] == list(PRO_FORMA_LABELS[::-1]):
-        issues.append(
-            f"{table}: the Reported EBITDA row comes first, the Adjusted EBITDA after it."
-        )
+    if stated and labels[0] != PRO_FORMA_LABELS[0]:
+        issues.append(f"{table}: the first row is the Reported EBITDA row, any Adjusted after it.")
     if len({r[2] for r in stated}) > 1:
         issues.append(f"{table}: one Interest measure across the rows, never mixed.")
     return tuple(issues)
+
+
+def _register_tie(text: str, row: str, label: str, ebitda: str) -> list[str]:
+    """The row's EBITDA against the Numerator Value of T4.9's row of its label for the latest
+    Period; nothing where either is not a plain number or T4.9 has no readable row."""
+    stated = cp1_check._stated(ebitda)
+    found = cp1_check.register_numerator(text, PRO_FORMA_REGISTER[label])
+    if stated is None or found is None or stated == found[1]:
+        return []
+    period, numerator = found
+    metric = PRO_FORMA_REGISTER[label]
+    return [
+        (
+            f"{row}: EBITDA {ebitda} is not the Numerator Value {numerator:,} of `{metric}` for "
+            f"{period} in T4.9; a {label} row uses that EBITDA."
+        )
+    ]
 
 
 def _owner_tables(
@@ -428,8 +472,8 @@ OWNER_TABLES: dict[str, tuple[OwnerTable, ...]] = {
                 "not manufacture intermediate adjustments from the endpoints. If the method "
                 "states only the endpoints, or its adjustments do not reconcile them, write "
                 "`Not supplied: <reason>` in every Amount. Add-Back ID numbers the add-backs "
-                "`AB-1`, `AB-2`, ... in bridge order, each once; a negative adjustment is an "
-                "add-back with a minus sign; the first row, the last row and any subtotal hold "
+                "`AB-1`, `AB-2`, ... in bridge order, each once, in this column only; a negative "
+                "adjustment is an add-back with a minus sign; the first and last rows hold "
                 "`Not applicable`."
             ),
         ),
