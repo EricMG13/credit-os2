@@ -28,6 +28,7 @@ methodology constant except the level 5 that triggers the floor and the five buc
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -38,6 +39,7 @@ from deploy_workflow import recommendation as rec
 from deploy_workflow import reference_portfolios as rp
 from deploy_workflow.cp2_scorecard import ASSESSMENTS
 
+_LOG = logging.getLogger(__name__)
 SNAPSHOT, INPUTS, MATRIX = "Snapshot", "Inputs", "Matrix"
 FORMULA, RULE, LABEL, ANALYST = "formula", "rule", "label", snap.ANALYST
 HANDLE = "=#"  # a formula cell's text until the writer knows where every cell is
@@ -221,6 +223,15 @@ def resolve(formula: Formula, where: Mapping[tuple[str, str, str, str], str]) ->
     return _MARK.sub(
         lambda found: _ref_text(formula.refs[int(found.group(1))], where), formula.template
     )
+
+
+MAX_LIST_TEXT = 255  # Excel refuses a literal list of more characters
+
+
+def _listable(items: Sequence[str]) -> bool:
+    """Whether Excel can hold `items` as a literal list: it splits items on commas and has no
+    escape for a double quote, and caps the text at `MAX_LIST_TEXT` characters."""
+    return not any("," in i or '"' in i for i in items) and len(",".join(items)) <= MAX_LIST_TEXT
 
 
 def list_text(items: tuple[str, ...] | Span, where: Mapping[tuple[str, str, str, str], str]) -> str:
@@ -849,7 +860,10 @@ class _Builder:
             for label in reversed(labels):
                 if label in cells:
                     cell = d(cells[label])
-                    out = f'IF({period}="{label}",IF(ISNUMBER({cell}),{use.format(cell)},""),{out})'
+                    quoted = label.replace('"', '""')  # a string literal doubles its quotes
+                    out = (
+                        f'IF({period}="{quoted}",IF(ISNUMBER({cell}),{use.format(cell)},""),{out})'
+                    )
             return out
 
         added = pick(debt, equity + "+{}")
@@ -865,7 +879,14 @@ class _Builder:
             self.analyst(At(SNAPSHOT, EQUITY, "EV currency", "Value")),
         ]
         self.add(SNAPSHOT, EQUITY, extra)
-        self.dropdown(SNAPSHOT, EQUITY, "Value", tuple(labels), "EV period")
+        if _listable(labels):
+            self.dropdown(SNAPSHOT, EQUITY, "Value", tuple(labels), "EV period")
+        else:
+            _LOG.warning(
+                "credit snapshot: the EV period has no dropdown: a period label holds a comma or "
+                "a double quote, or the list is over %s characters",
+                MAX_LIST_TEXT,
+            )
         return labels
 
     def _share_of_ev(self, row: str) -> snap.SnapshotCell:

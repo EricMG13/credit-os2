@@ -1002,3 +1002,62 @@ def test_with_no_readable_instrument_every_portfolio_result_is_blank_never_n_a(t
     assert [r["Handoff text"] for r in results if r["Kind"] == "formula"] == ['=""'] * len(
         shot.references
     )
+
+
+# --- Period labels in formulas and lists (L1, ruling PM-g) ---------------------------------------
+
+
+def relabelled(full, label):
+    """The every-module snapshot with the FY2025 period of the two blocks the EV reads renamed."""
+    blocks = tuple(
+        replace(
+            block,
+            cells=tuple(
+                replace(c, column=c.column.replace("FY2025", label, 1))
+                if block.name in (fx.TOTALS, fx.MEASURES)
+                else c
+                for c in block.cells
+            ),
+        )
+        if block.name in (fx.TOTALS, fx.MEASURES)
+        else block
+        for block in full.blocks
+    )
+    return opened_from(replace(full, blocks=blocks))
+
+
+def ev_text(opened):
+    return text_of(opened, "Snapshot", "Equity value", "Enterprise value", "Value")
+
+
+def ev_list(opened):
+    (period,) = listed(opened, "Equity value", row="EV period", kind="analyst")
+    return lists(opened, "Snapshot").get(frozenset({period["Cell"]}))
+
+
+def test_a_double_quote_in_a_period_label_is_doubled_in_the_formula_and_gets_no_dropdown(
+    full, caplog
+):
+    with caplog.at_level("WARNING"):
+        opened = relabelled(full, 'FY"25')
+    text = ev_text(opened)
+    assert '="FY""25"' in text and '="FY"25"' not in text
+    assert ev_list(opened) is None
+    assert [r for r in caplog.records if "dropdown" in r.getMessage()]
+    (period,) = listed(opened, "Equity value", row="EV period", kind="analyst")
+    assert period["Kind"] == "analyst"  # the cell stays a plain analyst cell
+
+
+def test_a_comma_in_a_period_label_leaves_the_cell_plain_and_the_formula_whole(full):
+    opened = relabelled(full, "FY25, restated")
+    assert ev_list(opened) is None
+    assert '="FY25, restated"' in ev_text(opened)
+
+
+def test_a_period_list_over_255_characters_gets_no_dropdown(full):
+    opened = relabelled(full, "FY" + "9" * 260)
+    assert ev_list(opened) is None
+
+
+def test_ordinary_period_labels_keep_their_dropdown(book):
+    assert ev_list(book) == '"FY2025,FY2024"'
