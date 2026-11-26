@@ -9,15 +9,15 @@ import {
   absentText,
   covenantTests,
   fundingGap,
-  gapContext,
   NOT_STATED_IN_ROW,
   type MeasureRead,
   type MeasureCell,
   type ScheduleYear,
 } from "./forecastData";
+import { gapLine } from "./gapLine";
 import { GapChip, ModuleGap } from "./ForecastGaps";
 import { moduleSource } from "./overview/figureData";
-import { gapReading, gapText, gapWord } from "./overview/notes";
+import { cellWord, gapReading, gapText } from "./overview/notes";
 import { downsidePanels, stressLabel, type DownsidePanel } from "./overview/stressData";
 import { Figure, Tile } from "./overview/Tile";
 import { PublishedSource } from "./PublishedTrace";
@@ -87,7 +87,7 @@ function FundingGapPart({ view, folder }: { view: ReportView; folder: string }) 
         {gaps.map((gap) => (
           <li key={gap.module} className="grid gap-1">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-caption text-text-secondary">{gapContext(gap)}</span>
+              <span className="text-caption text-text-secondary">{gapLine(gap)}</span>
               {rowTrace(folder, gap.entry, gap.line, `${gap.name}'s ${gap.label}`)}
             </div>
             <dl className="flex flex-wrap gap-x-5 gap-y-1">
@@ -465,7 +465,7 @@ function StressMultiple({
                 if (cell.value === null)
                   return (
                     <text key={row} x={left} y={y + 13} className="fill-gap-text text-caption">
-                      {gapWord(cell.text)}
+                      {cellWord(cell)}
                     </text>
                   );
                 // Zero is a tick on the zero line; any other figure is a bar of at least 3px on its

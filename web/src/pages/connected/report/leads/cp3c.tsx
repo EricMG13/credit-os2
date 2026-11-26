@@ -346,9 +346,7 @@ function PathItem({ row, columns, index }: { row: Row; columns: number[]; index:
       <KeyValues
         items={PATH_FIELDS.flatMap((name, at) => {
           const cell = row.cells[columns[at + 1] ?? -1];
-          return cell === undefined
-            ? []
-            : [{ key: name === "Feasibility" ? name : "Likelihood", value: readerCell(cell) }];
+          return cell === undefined ? [] : [{ key: name, value: readerCell(cell) }];
         })}
       />
     </>

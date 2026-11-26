@@ -117,12 +117,12 @@ CASHFLOW_NOTES = (
 HISTORY_NOTES = (
     CASHFLOW_NOTES[2],
     (
-        "Adj EBITDA is the earnings line the forecast inputs name in Financial foundation; in the "
+        "EBITDA is the earnings line the forecast inputs name in Financial foundation; in the "
         "forecast it is the model's earnings on that basis, not issuer guidance."
     ),
     (
         "Leverage is closing debt, as the forecast inputs name it in Financial foundation, over "
-        "Adj EBITDA. Leverage is shown for twelve-month periods only."
+        "EBITDA. Leverage is shown for twelve-month periods only."
     ),
     (
         "Historical interest is the Financial foundation line the forecast inputs name, which may "
@@ -1465,12 +1465,18 @@ def listed_add_backs(tables: dict[str, Table | None]) -> list[str]:
 
 
 # Row labels on the history path, by row key.
+# The inputs name no adjustment basis, so none is claimed ("Adj" is not published on this path).
 HISTORY_LABELS: dict[RowKey, str] = {
-    "adj": "Adj EBITDA (as named in Financial foundation)",
-    "ltm-adj": "LTM Adj EBITDA",
+    "adj": "EBITDA (as named in Financial foundation)",
+    "adj-margin": "EBITDA margin",
+    "adj-growth": "EBITDA YoY growth",
+    "ltm-adj": "LTM EBITDA",
     "interest": "Interest",
     "closing-debt": "Closing debt",
-    "coverage": "Interest coverage (Adj EBITDA / interest)",
+    "senior": "Senior secured leverage (secured debt / EBITDA)",
+    "total-leverage": "Total leverage (debt / EBITDA)",
+    "net-leverage": "Net leverage (net debt / EBITDA)",
+    "coverage": "Interest coverage (EBITDA / interest)",
 }
 
 

@@ -311,6 +311,28 @@ it("draws a written dash as written, an empty row as stated nowhere, and both mo
   ]);
 });
 
+// E3: verbatim rows of the replayed TDG refinancing handoff's "Funding gap" table. The Horizon row
+// writes a dash under Amount and its one year under Years; a dash beside a stated value is no figure.
+it("reads the horizon from the Years column and counts no dash cell as a figure (real CP-3C rows)", () => {
+  const refinancing = handoff("CP-3C", [
+    tableSection(
+      "Funding gap",
+      92,
+      ["Line", "Amount", "Drawn", "Years", "Committed", "Currency", "Scale"],
+      [
+        ["Horizon", "—", "—", "1", "—", "USD", "million"],
+        ["Funding gap", "0", "—", "1", "—", "USD", "million"],
+      ],
+    ),
+  ]);
+  const [gap] = fundingGap(view([refinancing])).gaps;
+  expect(gap?.horizon).toBe("Years: 1");
+  expect(gap?.figures).toEqual([
+    { header: "Amount", text: "0", value: 0 },
+    { header: "Years", text: "1", value: 1 },
+  ]);
+});
+
 it("says what it looked for when neither module states a funding gap", () => {
   const liquidity = handoff("CP-2D", [
     tableSection("T2E.5 Liquidity", 40, ["Line", "Value"], [["Peak funding gap", "90"]]),

@@ -157,6 +157,12 @@ function registerNote(name: string, state: string) {
   return null;
 }
 
+/** The note for the contradictions register: none when the module's own map of contradiction is drawn. */
+const contradictionsNote = (found: Issues) =>
+  found.mapped && found.contradictions.state === "absent"
+    ? null
+    : registerNote("contradictions", found.contradictions.state);
+
 /** Why no issue is drawn, in words; null when at least one issue is listed. */
 function noIssues(found: Issues) {
   const { gaps, contradictions, total, placeholders } = found;
@@ -164,10 +170,9 @@ function noIssues(found: Issues) {
   const stated = [gaps, contradictions].filter((register) => register.state === "none");
   if (stated.length === 2) return "No issues are listed.";
   if (stated.length === 1) {
-    const note = [
-      registerNote("gaps", gaps.state),
-      registerNote("contradictions", contradictions.state),
-    ].find((item) => item !== null);
+    const note = [registerNote("gaps", gaps.state), contradictionsNote(found)].find(
+      (item) => item !== null,
+    );
     return `No ${gaps.state === "none" ? "gaps" : "contradictions"} are listed. ${note ?? ""}`.trim();
   }
   const why = placeholders.length ? ` It reads: ${placeholders.join("; ")}.` : "";
@@ -181,10 +186,9 @@ function noIssues(found: Issues) {
 function IssueList({ found }: { found: Issues }) {
   const none = noIssues(found);
   if (none !== null) return <GapNote>{none}</GapNote>;
-  const notes = [
-    registerNote("gaps", found.gaps.state),
-    registerNote("contradictions", found.contradictions.state),
-  ].filter((note) => note !== null);
+  const notes = [registerNote("gaps", found.gaps.state), contradictionsNote(found)].filter(
+    (note) => note !== null,
+  );
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-4" aria-label="Issues, by severity word">
@@ -257,6 +261,7 @@ function ClearanceTile(props: LeadProps) {
     ...(verdict?.status
       ? [["Status", [verdict.status, verdict.scope ?? ""].join(" ").trim()]]
       : []),
+    ...(verdict?.after ? [["Clearance note", verdict.after]] : []),
     ...issueRows(found),
     ...(integrity?.map((item) => [item.name, item.result]) ?? []),
   ];
@@ -299,6 +304,11 @@ function ClearanceTile(props: LeadProps) {
           {verdict.limit && (
             <p className="text-caption text-text-secondary text-pretty wrap-anywhere">
               {verdict.limit}
+            </p>
+          )}
+          {verdict.after && (
+            <p className="text-small text-text-secondary text-pretty wrap-anywhere">
+              {verdict.after}
             </p>
           )}
         </div>
