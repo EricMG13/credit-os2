@@ -594,8 +594,11 @@ def admit_run(
     completion = report_completion(folder)
     workflow_pin = completion.get("workflow_sha256")
     delivered = verified_delivery(folder, completion)
-    same_identity(delivered["manifest"].get("run"), identity, "the delivery manifest")
-    same_identity(delivered["view"].get("run"), identity, "the delivered report")
+    for key, label in (("manifest", "the delivery manifest"), ("view", "the delivered report")):
+        delivered_run = delivered[key].get("run")
+        same_identity(delivered_run, identity, label)
+        if delivered_run.get("phase_selection", {}) != run.get("phase_selection", {}):
+            raise Refused(f"{label} names a different analysis scope")
     execution = completion["module_execution"]
     method_changes = check_methodology(folder, delivered, execution, run, method)
     requested = run.get("requested_modules")

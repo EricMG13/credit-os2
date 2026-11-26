@@ -596,7 +596,7 @@ const MODULE_NAMES: Readonly<Record<string, string>> = {
   "CP-3D": "Market-implied risk",
   "CP-4C": "Recovery & fulcrum",
   "CP-2C": "Sponsor and governance",
-  "CP-1E": "Covenant EBITDA",
+  "CP-1E": "Adjusted debt",
   "CP-2B": "Event and catalyst risk",
   "CP-2F": "Environmental, social and governance risks",
   "CP-3A": "Instrument priority and recovery",

@@ -697,11 +697,19 @@ def _scoped_sections(
     sections = _sections(module, pathway)
     if not phases:
         return sections
-    return [
-        scoped
+    scoped = [
+        part
         for name, text in sections
-        if (scoped := cpos_launch_methods.scope_section(name, text, module, phases)) is not None
+        if (part := cpos_launch_methods.scope_section(name, text, module, phases)) is not None
     ]
+    steps = [
+        (path, _method_file(path))
+        for phase in phases
+        if (path := cpos_launch_methods.PHASE_STEP_FILES.get(phase)) is not None
+    ]
+    at = next((i for i, (name, _) in enumerate(scoped) if name == _SCORE), len(scoped))
+    scoped[at:at] = steps
+    return scoped
 
 
 def register_scope(module: str, pathway: str | None = None, phases: tuple[str, ...] = ()) -> str:
@@ -917,7 +925,8 @@ def _instructions(
     # is written once, as the passage, or the section would repeat and delivery would refuse it.
     named = [r.heading for r in asked if r.heading in READER_HEADINGS]
     asked = [r for r in asked if r.heading not in named]
-    owed = _owner_tables(module, routes, run.pathway)
+    phases = run.phase_selection.get(module, ())
+    owed = _owner_tables(module, routes, run.pathway, phases)
     selectors = "\n".join(_selector(r) for r in (*asked, *owed))
     if named:
         selectors += (
@@ -928,7 +937,6 @@ def _instructions(
     first, shared, rest = selectors.partition(EDGE_RULES)
     selectors = first + shared + rest.replace(EDGE_RULES, "")
     methods = methods_for(module, run.pathway)
-    phases = run.phase_selection.get(module, ())
     method = (
         method_text(module, run.pathway, phases) if phases else method_text(module, run.pathway)
     )
@@ -1604,7 +1612,7 @@ def _owned_issues(
     routes: Sequence[MarkdownRoute],
     text: str,
     cp1: bytes | None = None,
-    pathway: str | None = None,
+    run: Run | None = None,
 ) -> list[str]:
     """The tables a module is asked for beside its report routes, checked; for CP-1 also the net
     debt table's arithmetic. A money table states CP-1's money unit: CP-1's own handoff is `text`,
@@ -1612,7 +1620,9 @@ def _owned_issues(
     source = text if module == "CP-1" else cp1.decode("utf-8") if cp1 is not None else None
     money = money_unit(source) if source is not None else None
     issues: list[str] = []
-    for owned in _owner_tables(module, routes, pathway):
+    pathway = run.pathway if run is not None else None
+    phases = run.phase_selection.get(module, ()) if run is not None else ()
+    for owned in _owner_tables(module, routes, pathway, phases):
         found = chart_issues(text, owned, money=money)
         issues += found
         if owned is PRO_FORMA and not found:  # CP-1's own rows check, after the shape check
@@ -1720,9 +1730,7 @@ def checker(layout: MarkdownLayout) -> Check:
         for route in routes:
             if route.kind == "chart":
                 issues += chart_issues(text, route, money=money_unit(text))
-        issues += _owned_issues(
-            task.module_id, routes, text, task.handoffs.get("CP-1"), task.run.pathway
-        )
+        issues += _owned_issues(task.module_id, routes, text, task.handoffs.get("CP-1"), task.run)
         issues += posture_issues(task.module_id, text)
         issues += screen_issues(task.module_id, text, task.run.pathway)
         issues += scorecard_issues(task.module_id, text)

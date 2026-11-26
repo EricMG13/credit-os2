@@ -36,7 +36,8 @@ def test_intercreditor_adds_the_same_run_structural_map_and_omits_capacity(tmp_p
     assert prepared.plan.run.phase_selection == {"CP-4": ("CP-4B", "CP-4D")}
     text = _instructions(prepared, "CP-4")
     assert "REF_CP-4B_STEPS.md" in text
-    assert "#### CP-4D method" in text
+    assert "REF_CP-4D_STEPS.md" in text
+    assert text.count('<module id="CP-4D"') == 1
     assert "REF_CP-4A_STEPS.md" not in text and "**T4C.4**:" not in text
     assert "Same run" in text
     assert prepared.estimate is not None and prepared.estimate.cap == 9
@@ -76,10 +77,14 @@ def test_structural_priority_alone_checks_its_own_registers(tmp_path: Path) -> N
     assert len(missing) == 1 and missing[0].startswith("Missing registers: T4D.7.")
 
 
-def test_earnings_scope_includes_core_and_the_embedded_phase(tmp_path: Path) -> None:
+def test_earnings_scope_includes_core_and_adjusted_debt(tmp_path: Path) -> None:
     prepared = _prepare(tmp_path, "CP-1D", "CP-1E")
     assert set(prepared.ordered) == {"CP-0", "CP-1", "CP-1D"}
-    assert "### CP-1E method" in _instructions(prepared, "CP-1D")
+    text = _instructions(prepared, "CP-1D")
+    assert "Analysis scope: Core analysis and Adjusted debt." in text
+    assert "REF_CP-1E_STEPS.md" in text
+    assert "T1E.3 Adjusted Debt Bridge" in text
+    assert text.count('<module id="CP-1E"') == 1
     expected = "T1D.1 T1D.2 T1D.3 T1D.4 T1D.5 T1D.6 T1D.7 T1E.1 T1E.2 T1E.3 T1E.4 T1E.5 T1E.6"
     assert cpos_launch.required_registers("CP-1D", "custom", ("CP-1E",)) == tuple(expected.split())
 
@@ -93,6 +98,20 @@ def test_governance_restores_analytical_cuts_but_keeps_routing_cuts(tmp_path: Pa
     cuts = _instructions(prepared, "CP-1A").partition("Register scope in this transport:")[2]
     assert "source_classification" in cuts and "T2D.10" in cuts
     assert all(ident not in cuts for ident in restored)
+
+
+def test_portfolio_fit_adds_the_same_run_instrument_preference(tmp_path: Path) -> None:
+    prepared = _prepare(tmp_path, "CP-3", "CP-3B")
+    assert prepared.plan.run.phase_selection["CP-3"] == ("CP-3A", "CP-3B")
+    text = _instructions(prepared, "CP-3")
+    assert "REF_CP-3A_STEPS.md" in text
+    assert "REF_CP-3B_STEPS.md" in text
+    assert prepared.estimate is not None
+    security = next(row for row in prepared.estimate.rows if row.module == "CP-3")
+    assert security.phases == (
+        ("Instrument priority and recovery", "Needed by Portfolio fit."),
+        ("Portfolio fit", None),
+    )
 
 
 def test_portfolio_debate_adds_portfolio_fit_for_scoped_security_selection() -> None:
@@ -172,3 +191,32 @@ def test_resume_keeps_the_pinned_phase_scope(tmp_path: Path) -> None:
     with pytest.raises(cpos_launch.LaunchRefused, match="holds a different request"):
         resume("CP-4", "CP-4B")
     assert first.manifest.read_bytes() == pinned
+
+
+def test_structural_priority_does_not_owe_unticked_phase_visuals(tmp_path: Path) -> None:
+    prepared = _prepare(tmp_path, "CP-4", "CP-4B")
+    head = _instructions(prepared, "CP-4").partition(cpos_launch.METHOD_MARK)[0]
+    context = (tmp_path / "context.json").read_bytes()
+    task = HandoffTask(
+        prepared.plan.run, "CP-4", b"", {cpos_launch.CONTEXT_SOURCE_ID: context}, {}, 1, ()
+    )
+    issues = cpos_launch.checker(prepared.layout)(task, b"## Request\n")
+    for heading in ("Chart data: covenant headroom", "Map: intercreditor"):
+        assert heading not in head
+        assert all(heading not in issue for issue in issues)
+    assert "Map: legal entities" in head
+    assert any("Map: legal entities" in issue for issue in issues)
+
+
+@pytest.mark.parametrize(
+    ("module", "step_name"),
+    [("CP-1D", "REF_CP-1E_STEPS.md"), ("CP-4", "REF_CP-4D_STEPS.md")],
+)
+def test_extracted_steps_match_the_selected_method_bytes(module: str, step_name: str) -> None:
+    parent = next(
+        body for name, body in cpos_launch.method_sections(module) if name.endswith("/SKILL.md")
+    )
+    file = cpos_launch.ROOT / "src/deploy_workflow/prompts/texts" / step_name
+    _, _, steps = file.read_text().partition("\n\n")
+    assert steps.startswith("###")
+    assert steps in parent

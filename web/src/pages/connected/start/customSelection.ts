@@ -65,9 +65,9 @@ export const PHASES: Readonly<
   "CP-1D": [
     {
       id: "CP-1E",
-      name: "Covenant EBITDA",
-      answers: "Tests covenant EBITDA against the earnings bridge.",
-      upstream: "The financial foundation and earnings bridge",
+      name: "Adjusted debt",
+      answers: "Identifies debt-like obligations and restates leverage for them.",
+      upstream: "The debt facility register and issuer disclosures",
     },
   ],
   "CP-2A": [
@@ -97,7 +97,8 @@ export const PHASES: Readonly<
       id: "CP-3B",
       name: "Portfolio fit",
       answers: "Assesses how instruments fit the selected portfolio.",
-      upstream: "The credit view and portfolio holdings",
+      upstream: "Instrument priority and recovery, the credit view and portfolio holdings",
+      related: "Instrument priority and recovery also runs because portfolio fit depends on it.",
     },
   ],
   "CP-4": [
@@ -105,7 +106,7 @@ export const PHASES: Readonly<
       id: "CP-4A",
       name: "Covenant capacity",
       answers: "Measures covenant headroom and capacity.",
-      upstream: "The credit agreement and recovery assessment",
+      upstream: "Governing documents, financial data and basket usage",
     },
     {
       id: "CP-4B",
@@ -142,11 +143,8 @@ export const PHASES: Readonly<
 export function phaseScopeNote(parent: string, hasSelectedPhase: boolean) {
   if (!hasSelectedPhase) return "Whole module runs.";
   const phases = PHASES[parent] ?? [];
-  if (parent === "CP-4") {
-    return "Core analysis and selected phases run. Other phases are omitted unless needed by a downstream module.";
-  }
   return phases.length > 1
-    ? "Core analysis and selected phases run. Other phases are omitted unless needed by a downstream module."
+    ? "Core analysis and selected phases run. Other phases run when a selected phase or module needs them."
     : "Core analysis and this phase run, with its registers.";
 }
 

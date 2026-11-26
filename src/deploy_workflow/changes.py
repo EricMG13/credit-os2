@@ -348,7 +348,7 @@ def find_prior(  # noqa: PLR0913 - the identity of the run and the library's met
             if (
                 why is None
                 and pathway == "custom"
-                and run.get("phase_selection", {}) != target_phases
+                and deliveries[name]["manifest"]["run"].get("phase_selection", {}) != target_phases
             ):
                 why = "its analysis scope differs"
         except Refused as refusal:

@@ -295,7 +295,7 @@ class Phase:
 # Keep method order, including structural priority before intercreditor control.
 PHASES = {
     "CP-2C": Phase("CP-1A", "Sponsor and governance", "T2D."),
-    "CP-1E": Phase("CP-1D", "Covenant EBITDA", "T1E."),
+    "CP-1E": Phase("CP-1D", "Adjusted debt", "T1E."),
     "CP-2B": Phase("CP-2A", "Event and catalyst risk", "T5."),
     "CP-2F": Phase("CP-2E", "Environmental, social and governance risks", "T2G."),
     "CP-3A": Phase("CP-3", "Instrument priority and recovery", "T3B."),
@@ -307,12 +307,25 @@ PHASES = {
     "CP-6A": Phase("CP-6", "Portfolio posture", "T6E."),
 }
 
+# Scoped companions extracted from the selected SKILL.md module blocks at 36c39519.
+# Whole modules still receive the original archived method.
+PHASE_STEP_FILES = {
+    "CP-1E": "src/deploy_workflow/prompts/texts/REF_CP-1E_STEPS.md",
+    "CP-4D": "src/deploy_workflow/prompts/texts/REF_CP-4D_STEPS.md",
+}
+_INLINE_PHASE_STEPS = re.compile(
+    r'^#{3,4} (CP-1E|CP-4D) method\n\n<module id="\1"[^\n]*\n.*?^</module>\n+',
+    re.MULTILINE | re.DOTALL,
+)
+
+
 # A consumer module needs the producer phase if it is in this run. The producer is
 # already present through ordinary module dependency rules or an explicit selection.
 # Consumer phases added by an earlier rule can trigger a later rule.
 DEPENDENCIES = {
     "CP-2C": ("CP-2", "the credit scorecard"),
     "CP-3B": ("CP-6", "Portfolio posture"),
+    "CP-3A": ("CP-3B", "Portfolio fit"),
     "CP-4A": ("CP-4C", "the recovery assessment"),
     "CP-4D": ("CP-4C", "the recovery assessment"),
     "CP-4B": ("CP-4D", "Intercreditor control"),
@@ -469,6 +482,7 @@ def scope_section(
         return name, _scope_cuts(text, selected)
     if basename == "SKILL.md":
         text = _without_sections(text, omitted)
+        text = _INLINE_PHASE_STEPS.sub(lambda match: "" if match[1] in selected else match[0], text)
         text = _without_registers(text, omitted)
         text = _without_companions(text, omitted)
     return name, text

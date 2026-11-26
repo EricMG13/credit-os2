@@ -4870,3 +4870,22 @@ def test_scoped_custom_comparison_requires_same_effective_phases(tmp_path):
     assert current.plan.changes_note is not None
     assert "whole: its analysis scope differs" in current.plan.changes_note
     assert "different: its analysis scope differs" in current.plan.changes_note
+
+
+def test_scoped_comparison_refuses_workflow_scope_that_differs_from_delivery(tmp_path):
+    """Northbridge Synthetic Group, 2025-03-31. A restored workflow disagrees with its delivery."""
+    prior = make_custom_run(
+        tmp_path / "ws",
+        "different-delivery",
+        ("CP-0", "CP-1", "CP-4"),
+        as_of="2025-02-28",
+        phase_selection={"CP-4": ("CP-4B",)},
+    )
+    path = prior / "workflow.json"
+    workflow = json.loads(path.read_text())
+    workflow["run"]["phase_selection"] = {"CP-4": ["CP-4B", "CP-4D"]}
+    path.write_text(json.dumps(workflow))
+
+    current = custom_prepare(tmp_path, ["CP-4", "CP-4D"])
+    assert current.plan.prior is None
+    assert "CP-8" not in current.ordered
