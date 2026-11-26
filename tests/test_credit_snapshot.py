@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -295,12 +296,32 @@ def test_the_header_prefers_the_handoff_and_falls_back_to_the_run_and_context_by
     assert one(bare, "Header", "Run date", "Value").text == cs.AS_OF
 
 
+def test_a_company_table_without_a_country_column_gaps_that_field_only():
+    cut = FIXTURE["CP-1A"].replace("| Country | Sector |", "| Sector |")
+    cut = cut.replace("| United Kingdom | Capital Goods |", "| Capital Goods |")
+    cut = cut.replace(
+        "|---|---|---|---|\n| Northbridge Holdings", "|---|---|---|\n| Northbridge Holdings"
+    )
+    assert cut != FIXTURE["CP-1A"]
+    plain = snap.gather(run_of(full(**{"CP-1A": cut})))
+    gap = one(plain, "Header", "Country", "Value")
+    assert (gap.kind, gap.text) == ("gap", "not in handoff")
+    assert one(plain, "Header", "Issuer", "Value").kind == "copied"
+    assert one(plain, "Header", "Sector", "Value").text == "Capital Goods"
+    assert one(plain, "Business description", "Description", "Value").kind == "copied"
+    entered = snap.gather(run_of(full(**{"CP-1A": cut}), context=context()))
+    country = one(entered, "Header", "Country", "Value")
+    assert (country.kind, country.text) == ("entered at run start", "United Kingdom")
+    assert not where(entered, "Header", "Gap")
+
+
 def test_the_capital_structure_reads_columns_by_name_with_and_without_the_fx_columns():
     with_fx = snap.gather(run_of(full()))
     without = snap.gather(run_of(full(**{"CP-1": FIXTURE["CP-1-without-fx"]})))
-    for snapshot in (with_fx, without):
+    for snapshot, line in ((with_fx, 50), (without, 49)):
         cell = one(snapshot, "Capital structure", "Term Loan B", "Principal")
-        assert (cell.text, cell.module, cell.line) == ("600.0", "CP-1", 49)
+        assert cell.line == line
+        assert (cell.text, cell.module) == ("600.0", "CP-1")
         assert len(where(snapshot, "Capital structure")) == 45
         assert len(where(snapshot, "Instruments", sheet="Inputs")) == 5
     assert one(with_fx, "Capital structure", "Revolving Credit Facility", "Principal").text == (
@@ -386,16 +407,76 @@ def test_free_label_rows_match_ignoring_case_and_spaces_and_show_the_label_as_wr
     assert not where(snapshot, "Financials", "Revenues, net")
 
 
-def test_the_senior_rows_of_the_totals_are_gaps_unless_the_handoff_has_the_free_label_row():
-    cp1 = FIXTURE["CP-1"].replace(
-        "| Total Debt | 1,450.0 |",
-        "| Senior debt | 900.0 | 880.0 | GBP millions | R | S |\n| Total Debt | 1,450.0 |",
+FREE_ROWS = (
+    ("Senior debt", "T4.6"),
+    ("Unsecured debt", "T4.6"),
+    ("Senior leverage", "T4.9"),
+    ("Unsecured leverage", "T4.9"),
+)
+
+
+@pytest.mark.parametrize(("label", "table"), FREE_ROWS)
+def test_each_of_the_four_senior_and_unsecured_rows_is_copied_when_the_handoff_has_it(label, table):
+    base = FIXTURE["CP-1"].replace(
+        "| Senior debt | 1,030.0 | 985.0 |", "| Debt A | 1,030.0 | 985.0 |"
     )
+    if table == "T4.6":
+        row = f"| {label.upper()} | 900.0 | 880.0 | GBP millions | R | S |\n| Total Debt |"
+        cp1 = base.replace("| Total Debt |", row, 1)
+    else:
+        row = (
+            f"| {label} | f | 1 | s | 2 | s | FY2025 / 2025-12-31 | GBP | GBP m | 1.5 | C | 1 | L |"
+        )
+        cp1 = base.replace("| Net debt / EBITDA |", f"{row}\n| Net debt / EBITDA |", 1)
     snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
-    assert one(snapshot, "Capital structure totals", "Senior debt", "FY2025").text == "900.0"
-    assert not where(snapshot, "Capital structure totals", "Senior debt", "Value")
-    still = snap.gather(run_of(full()))
-    assert one(still, "Capital structure totals", "Senior debt", "Value").kind == "gap"
+    column = "FY2025" if table == "T4.6" else "FY2025 / 2025-12-31"
+    shown = label.upper() if table == "T4.6" else label
+    value = one(snapshot, "Capital structure totals", shown, column)
+    assert value.kind == "copied" and value.module == "CP-1"
+    assert one(snapshot, "Capital structure totals", shown, "Unit").kind == "copied"
+    assert not where(snapshot, "Capital structure totals", shown, "Value")
+    assert one(snapshot, "Financials", shown, column).text == value.text
+    others = {name for name, _ in FREE_ROWS} - {label}
+    for name in others:
+        assert one(snapshot, "Capital structure totals", name, "Value").kind == "gap"
+    assert one(snapshot, "Capital structure totals", "Pro forma interest", "Value").kind == "gap"
+
+
+def test_units_are_copied_per_row_and_a_table_without_a_unit_column_is_a_gap_per_row():
+    snapshot = snap.gather(run_of(full()))
+    unit = one(snapshot, "Financials", "Revenue", "Unit")
+    assert (unit.kind, unit.text, unit.module, unit.line) == ("copied", "GBP millions", "CP-1", 11)
+    assert one(snapshot, "Financials", "Total debt / EBITDA", "Currency").text == "GBP"
+    assert one(snapshot, "Capital structure totals", "Gross debt", "Unit").text == "GBP millions"
+    assert (
+        len(where(snapshot, "Financials", "Total debt / EBITDA", "Unit")) == 1
+    )  # once, not per period
+    head, mark, tail = FIXTURE["CP-1"].partition("### Net debt data")
+    table, chart, rest = tail.partition("### Chart data: EBITDA bridge")
+    dropped = []
+    for line in table.split("\n"):
+        cells = line.strip("|").split("|") if line.startswith("|") else None
+        dropped.append(line if cells is None else "|" + "|".join(cells[:4] + cells[5:]) + "|")
+    cp1 = head + mark + "\n".join(dropped) + chart + rest
+    snapshot = snap.gather(run_of(full(**{"CP-1": cp1})))
+    for block in ("Financials", "Capital structure totals"):
+        for measure in NET_DEBT_MEASURES:
+            gap = one(snapshot, block, measure, "Unit")
+            assert (gap.kind, gap.text) == ("gap", "unit not in handoff")
+        assert one(snapshot, block, "Gross debt", "FY2025 / 2025-12-31").kind == "copied"
+    nothing = FIXTURE["CP-1"].replace("| Currency | Unit |", "| Currencies | Units |")
+    snapshot = snap.gather(run_of(full(**{"CP-1": nothing})))
+    assert one(snapshot, "Financials", "Total debt / EBITDA", "Unit").text == "unit not in handoff"
+    assert not where(snapshot, "Financials", "Total debt / EBITDA", "Currency")
+
+
+NET_DEBT_MEASURES = ("Gross debt", "Cash", "Net debt")
+
+
+def test_the_senior_rows_stay_gaps_when_the_handoff_has_no_row():
+    snapshot = snap.gather(run_of({"CP-1": FIXTURE["CP-1-without-fx"]}))
+    for name in ("Senior debt", "Unsecured debt", "Senior leverage", "Unsecured leverage"):
+        assert one(snapshot, "Capital structure totals", name, "Value").kind == "gap"
 
 
 def test_a_statement_table_without_its_unit_column_is_a_gap_for_that_table_only(caplog):
@@ -619,6 +700,19 @@ def test_a_context_for_another_date_or_pathway_is_a_context_gap(tmp_path):
     assert isinstance(run.context, snap.ContextGap) and "2025-12-31" in run.context.reason
 
 
+def test_a_context_for_another_issuer_is_a_logged_context_gap(tmp_path, caplog):
+    built = cs.build_case(tmp_path, cs.CASES["full"])
+    raw = json.loads(cs.context_bytes())
+    raw["identity"]["issuer_name"] = "Someone Else plc"
+    other = json.dumps(raw).encode()
+    digest = cs.lf.put(built.folder / "inputs" / cs.sha256(other), other)
+    rewrite_pin(built, lambda w: w["sources"]["context"].update(sha256=digest))
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        run = snap.load_run(built.folder, built.stores.both())
+    assert isinstance(run.context, snap.ContextGap) and "Someone Else plc" in run.context.reason
+    assert [r for r in caplog.records if "Someone Else plc" in r.getMessage()]
+
+
 def test_a_workflow_that_names_another_run_is_refused(tmp_path):
     built = cs.build_case(tmp_path, cs.CASES["full"])
     rewrite_pin(built, lambda w: w["run"].update(issuer_name="Someone Else plc"))
@@ -731,6 +825,26 @@ def test_limit_kinds_are_told_apart_only_through_recommendations_readings():
     assert dict(by_bucket["B and below max"])["Unrated"] == "not read"
     assert [(name, str(floor)) for name, floor in view.price_floors] == [("Minimum price", "90")]
     assert tuple(bucket for bucket, _ in by_bucket["CCC max"]) == rp.BUCKET_NAMES
+
+
+def test_a_matched_issuer_with_no_weight_figure_is_held_weight_not_stated():
+    base = cs.clo_portfolio()
+    positions = tuple(
+        replace(p, weight=None) if p.borrower == cs.ISSUER_NAME else p for p in base.positions
+    )
+    unweighted = replace(base, positions=positions)
+    run = run_of(full(), context=context(), references=[(rp.CLO, unweighted)])
+    cell = one(snap.gather(run), "Issuer weight", "CLO portfolio", "Weight (%)")
+    assert (cell.kind, cell.text) == ("gap", "held, weight not stated")
+
+
+def test_an_issuer_name_that_cannot_be_matched_is_logged_and_not_held(caplog):
+    run = run_of(full(), references=[(rp.CLO, cs.clo_portfolio())], issuer="!!!")
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        snapshot = snap.gather(run)
+    cell = one(snapshot, "Issuer weight", "CLO portfolio", "Weight (%)")
+    assert (cell.kind, cell.text) == ("gap", "not held / not matched")
+    assert [r for r in caplog.records if "weight" in r.getMessage()]
 
 
 def test_a_weight_of_none_is_not_held_never_zero():

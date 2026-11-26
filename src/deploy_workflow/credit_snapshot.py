@@ -70,6 +70,7 @@ NOT_IN_HANDOFF = "not in handoff"
 NEEDS_ADD_BACK_IDS = "needs add-back ids in the bridge"
 NO_REFERENCE = "no reference stored"
 NOT_HELD = "not held / not matched"
+HELD_NO_WEIGHT = "held, weight not stated"
 NO_PEERS = "no peers named"
 UNCLASSIFIED = "unclassified"
 
@@ -93,8 +94,9 @@ def figure(text: str) -> Figure | None:
     """The cell as a number, or None when it must stay text. A figure is a number only when it is a
     plain decimal: an optional minus sign, digits (thousands commas in the 1,234 form), optional
     decimals, no leading zeros, at most 15 significant digits, and not a negative zero. Units,
-    `x`, `%`, brackets, ranges, footnote marks, dashes, spaces and anything longer stay text, so
-    what the workbook stores re-reads as the handoff's own digits through `"%.16g"`."""
+    `x`, `%`, brackets, ranges, footnote marks, dashes, spaces and anything longer stay text. The
+    stored double, written through `"%.16g"` and read back, is equal to the handoff's decimal, and
+    it renders to the handoff's digits through `number_format`."""
     if _PLAIN.fullmatch(text) is None:
         return None
     plain = text.replace(",", "")
@@ -216,6 +218,7 @@ class ReferenceView:
     as_of: str | None
     medians: tuple[Median, ...]
     weight: Decimal | None
+    weight_gap: str
     breached: tuple[str, ...]
     not_read: tuple[str, ...]
     rating_limits: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
@@ -534,7 +537,6 @@ class _Run:
 Builder = Callable[[_Run, _Maker], list[SnapshotCell]]
 
 _NOT_IN_RUN = {
-    "Header": "The issuer profile is not in this run.",
     "Business description": "The business description is not in this run.",
     "Operating model": "The operating model is not in this run.",
     "Shareholders": "The shareholders are not in this run.",
@@ -611,7 +613,8 @@ def _header(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     }
     cells = []
     for label, entered in fallback.items():
-        text = company[1].cells[company[0].index(label)] if company else ""
+        at = _optional(company[0], label) if company else None
+        text = company[1].cells[at] if company and at is not None else ""
         if company and text.strip():
             cells.append(mk.copied(company[0].at(company[1].line), label, "Value", text))
         elif entered.strip():
@@ -875,19 +878,38 @@ class _Pick:
     line: int
     key: str
     free: bool = False
+    missing: str = NOT_IN_HANDOFF
 
     def cell(self, mk: _Maker) -> SnapshotCell:
         if self.table is None:
-            return mk.gap(self.row, self.column, NOT_IN_HANDOFF)
+            return mk.gap(self.row, self.column, self.missing)
         return mk.copied(self.table.at(self.line), self.row, self.column, self.text)
 
 
 _FREE = {  # a spec line with no fixed label: shown only when a row's label equals it
     "T4.4": ("Revenue", "Gross profit", "Margin", "Growth"),
     "T4.5": ("FFO",),
-    "T4.6": ("Senior debt",),
-    "T4.9": ("Margin", "Growth", "Senior leverage"),
+    "T4.6": ("Senior debt", "Unsecured debt"),
+    "T4.9": ("Margin", "Growth", "Senior leverage", "Unsecured leverage"),
 }
+NO_UNIT = "unit not in handoff"
+
+
+def _optional(table: _Table, name: str) -> int | None:
+    try:
+        return table.index(name)
+    except _Unreadable:
+        return None
+
+
+def _unit_pick(
+    table: _Table, row: _Row, at: int | None, shown: tuple[str, str, bool], column: str = "Unit"
+) -> _Pick:
+    """The row's own Unit (or Currency) cell; no such column in the table is a per-row gap."""
+    label, key, free = shown
+    if at is None:
+        return _Pick(label, column, "", None, 0, key, free, NO_UNIT)
+    return _Pick(label, column, row.cells[at], table, row.line, key, free)
 
 
 def _statement(run: _Run, spec: StatementSpec) -> list[_Pick]:
@@ -911,6 +933,7 @@ def _statement(run: _Run, spec: StatementSpec) -> list[_Pick]:
             _Pick(shown, period, row.cells[i], table, row.line, key, key not in named)
             for i, period in periods
         ]
+        picks.append(_unit_pick(table, row, unit, (shown, key, key not in named)))
     present = {pick.key for pick in picks}
     picks += [
         _Pick(label, "Value", "", None, 0, _fold(label))
@@ -926,22 +949,25 @@ def _register_rows(run: _Run) -> list[_Pick]:
     name, period, value = (table.index(c) for c in ("Metric Name", "Period", "Calculated Value"))
     fixed = {_fold(m.name): m.name for m in METRICS}
     free = {_fold(label) for label in _FREE["T4.9"]}
-    picks = []
+    units = {"Unit": _optional(table, "Unit"), "Currency": _optional(table, "Currency")}
+    picks: list[_Pick] = []
+    seen: set[str] = set()
     for row in table.rows:
         key = _fold(row.cells[name])
-        if key in fixed or key in free:
-            shown = fixed.get(key, row.cells[name])
-            picks.append(
-                _Pick(
-                    shown,
-                    row.cells[period],
-                    row.cells[value],
-                    table,
-                    row.line,
-                    key,
-                    key not in fixed,
-                )
-            )
+        if key not in fixed and key not in free:
+            continue
+        shown = fixed.get(key, row.cells[name])
+        free_row = key not in fixed
+        picks.append(
+            _Pick(shown, row.cells[period], row.cells[value], table, row.line, key, free_row)
+        )
+        if key not in seen:  # a row label's Unit and Currency: its first occurrence
+            seen.add(key)
+            picks += [
+                _unit_pick(table, row, at, (shown, key, free_row), column)
+                for column, at in units.items()
+                if column == "Unit" or at is not None
+            ]
     present = {pick.key for pick in picks}
     return picks + [
         _Pick(m.name, "Value", "", None, 0, _fold(m.name))
@@ -954,9 +980,15 @@ def _net_debt(run: _Run) -> list[_Pick]:
     table = run.heading("CP-1", "Net debt data")
     period = table.index("Period")
     at = {column: table.index(column) for column in NET_DEBT_COLUMNS}
-    return [
+    unit = _optional(table, "Reporting unit")
+    picks = [
         _Pick(column, row.cells[period], row.cells[at[column]], table, row.line, _fold(column))
         for row in table.rows
+        for column in NET_DEBT_COLUMNS
+    ]
+    first = table.rows[0]  # the unit is the table's: a column of the same row as each period
+    return picks + [
+        _unit_pick(table, first, unit, (column, _fold(column), False))
         for column in NET_DEBT_COLUMNS
     ]
 
@@ -988,12 +1020,12 @@ _TOTALS_GAPS = (
 )
 
 
-def _senior_debt(run: _Run) -> list[_Pick]:
-    """T4.6's `Senior debt` row when the handoff has it. An unreadable T4.6 is Financials' gap
-    (logged there); here it leaves Senior debt the plain gap."""
+def _balance_free_rows(run: _Run) -> list[_Pick]:
+    """T4.6's free-label rows (`Senior debt`, `Unsecured debt`) when the handoff has them. An
+    unreadable T4.6 is Financials' gap (logged there); here it leaves the plain gaps."""
     balance = next(spec for spec in STATEMENTS if spec.heading.startswith("T4.6"))
     try:
-        return [p for p in _statement(run, balance) if p.key == "senior debt" and p.table]
+        return [p for p in _statement(run, balance) if p.free and p.table]
     except ValueError:
         return []
 
@@ -1001,25 +1033,27 @@ def _senior_debt(run: _Run) -> list[_Pick]:
 def _totals(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """T4.9's fixed rows and Net debt data. The senior and unsecured amounts and multiples and the
     pro forma interest and cover have no fixed label: a gap, unless a free-label row of that name
-    (`Senior debt` in T4.6, `Senior leverage` in T4.9) is in the handoff."""
+    (`Senior debt`, `Unsecured debt` in T4.6; `Senior leverage`, `Unsecured leverage` in T4.9,
+    case and spaces ignored) is in the handoff, which is copied with its Unit."""
     run.doc("CP-1")
     register = _register_rows(run)
-    senior = {
-        "senior debt": _senior_debt(run),
-        "senior leverage": [p for p in register if p.key == "senior leverage" and p.table],
-    }
+    found = [*_balance_free_rows(run), *(p for p in register if p.free and p.table)]
     picks = [p for p in register if not p.free] + _net_debt(run)
     cells = [pick.cell(mk) for pick in picks]
     for label in _TOTALS_GAPS:
-        found = senior.get(_fold(label))
-        cells += [p.cell(mk) for p in found] if found else [mk.gap(label, "Value", NOT_IN_HANDOFF)]
+        rows = [p for p in found if p.key == _fold(label)]
+        cells += [p.cell(mk) for p in rows] if rows else [mk.gap(label, "Value", NOT_IN_HANDOFF)]
     return cells
 
 
 def _measures(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     income = next(spec for spec in STATEMENTS if spec.heading.startswith("T4.4"))
     wanted = {_fold(label) for label in (*income.fixed, *income.optional)}
-    return [pick.cell(mk) for pick in _statement(run, income) if pick.key in wanted]
+    return [
+        pick.cell(mk)
+        for pick in _statement(run, income)
+        if pick.key in wanted and pick.column != "Unit"
+    ]
 
 
 def _capital_structure(run: _Run, mk: _Maker) -> list[SnapshotCell]:
@@ -1119,7 +1153,8 @@ def _view(
     sector: str | None,
 ) -> ReferenceView:
     empty = ReferenceView(
-        reference.key, reference.name, "not stored", NO_REFERENCE, None, (), None, (), (), (), ()
+        *(reference.key, reference.name, "not stored", NO_REFERENCE, None, (), None, NOT_HELD),
+        *((), (), (), ()),
     )
     if found is None:
         return empty
@@ -1145,7 +1180,7 @@ def _stored_view(
         "",
         None if portfolio.as_of is None else rp.long_date(portfolio.as_of),
         _medians(portfolio),
-        _weight(portfolio, issuer),
+        *_weight(portfolio, issuer),
         breached,
         not_read,
         rating,
@@ -1182,12 +1217,16 @@ def _medians(portfolio: rp.Portfolio) -> tuple[Median, ...]:
     return tuple(medians)
 
 
-def _weight(portfolio: rp.Portfolio, issuer: str) -> Decimal | None:
+def _weight(portfolio: rp.Portfolio, issuer: str) -> tuple[Decimal | None, str]:
+    """The issuer's weight, or the gap sentence: not held or matched, or held with no figure."""
     try:
         weight = rp.issuer_weight(portfolio, borrower=issuer)
-    except ValueError:  # an issuer name with no letters or digits matches nothing
-        return None
-    return weight.weight if weight.matched else None
+    except ValueError as error:  # an issuer name with no letters or digits matches nothing
+        _LOG.warning("credit snapshot: issuer weight: %s cannot be matched: %s", issuer, error)
+        return None, NOT_HELD
+    if not weight.matched:
+        return None, NOT_HELD
+    return (weight.weight, "") if weight.weight is not None else (None, HELD_NO_WEIGHT)
 
 
 def _limits(
@@ -1288,7 +1327,7 @@ def _weights(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     return [
         mk.computed(v.name, "Weight (%)", str(v.weight))
         if v.weight is not None
-        else mk.gap(v.name, "Weight (%)", NOT_HELD)
+        else mk.gap(v.name, "Weight (%)", v.weight_gap)
         for v in run.views()
         if v.state == "stored"
     ]
@@ -1492,6 +1531,11 @@ def _pinned_context(
     except ContextRefused as error:
         first = error.problems[0] if error.problems else str(error)
         return _refused(f"the pinned context file is not a valid context: {first}")
+    if context.identity.issuer_name != identity["issuer_name"]:
+        return _refused(
+            f"the pinned context is for {context.identity.issuer_name}, "
+            f"not for this run's issuer ({identity['issuer_name']})"
+        )
     if (context.run.as_of, context.run.pathway) != (identity["as_of"], identity["pathway"]):
         return _refused(
             f"the pinned context is for {context.run.as_of} ({context.run.pathway}), "
