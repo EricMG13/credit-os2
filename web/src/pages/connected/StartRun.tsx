@@ -7,7 +7,6 @@ import { Bento, Tile } from "./report/overview/Tile";
 import {
   carryDocuments,
   getPriorInputs,
-  pathwayModules,
   removeDocument,
   createSubmission,
   getContext,
@@ -28,6 +27,7 @@ import { CONTEXT_ROW_KINDS, sendableRows, type Row, type RowKind } from "./start
 import { sendableModuleOptions, sendableValuation } from "./start/valuation";
 import { Breadcrumb } from "./layout";
 import { carryAccepted } from "./start/limits";
+import { CUSTOM, CUSTOM_EFFORTS, OFFERED } from "./start/customSelection";
 import { ANALYST_NAME_RULE, isAnalystName } from "./start/analystName";
 import {
   documentRefusal,
@@ -52,6 +52,8 @@ import {
   type Reviewed,
   capForPathway,
   requireSummaryCap,
+  reviewCapStands,
+  reviewedCap,
   isFieldRow,
   type Forms,
   type SettledSlug,
@@ -497,6 +499,8 @@ function IntakeForm({
       newestOverride,
       reading,
       ignoredCopies,
+      chosen: modules,
+      effort,
     });
   const issuerNotice = useIssuerNotice(issuerId, identity.issuer_name);
   const comparison = useComparisonPortfolio(() => {
@@ -893,18 +897,13 @@ function IntakeForm({
     const details: Record<string, unknown> = {};
     if (forms.valuation) details.valuation = sendableValuation(forms.valuation);
     if (forms.module_options) {
-      const wanted = pathwayModules(run.pathway);
       details.module_options = sendableModuleOptions(forms.module_options, {
-        cp3: wanted.includes("CP-3"),
-        cp6: wanted.includes("CP-6"),
+        cp3: requested.includes("CP-3"),
+        cp6: requested.includes("CP-6"),
       });
     }
     if (forms.assumptions)
-      details.assumptions = sendableAssumptions(
-        forms.assumptions,
-        context.assumptions,
-        pathwayModules(run.pathway),
-      );
+      details.assumptions = sendableAssumptions(forms.assumptions, context.assumptions, requested);
     for (const kind of CONTEXT_ROW_KINDS) {
       const edited = rows[kind];
       if (edited) details[kind] = sendableRows(kind, edited, run.run_type === "primary");
@@ -953,7 +952,8 @@ function IntakeForm({
         throw (await idProblem(failure)) ?? refusedField(failure, requested, noteAt) ?? failure;
       },
     );
-    requireSummaryCap(summary, shownCap);
+    const custom = answers.context.run.pathway === CUSTOM;
+    requireSummaryCap(summary, shownCap, custom);
     if (comparison.files.length > 0 && !summary.reference_portfolio)
       throw new Error(
         "This summary does not cover the comparison portfolio. Select Review run to request a new summary.",
@@ -975,7 +975,8 @@ function IntakeForm({
       id: draft.id,
       answers,
       summary,
-      cap: shownCap,
+      // A custom run is submitted at the cap its summary issued, not the table's ceiling.
+      cap: reviewedCap(summary, shownCap, custom),
       // The file named in each box, for the review to show: shown only, never sent.
       attachmentNames: {
         management_bridge: attachments.management_bridge,
@@ -1033,11 +1034,7 @@ function IntakeForm({
 
   async function submitReviewed() {
     if (!review || !approved || !checksComplete || (mode === "live" && !cap)) return;
-    if (
-      review.answers.context.run.pathway !== run.pathway ||
-      review.cap !== caps[run.pathway] ||
-      review.summary.cap !== review.cap
-    ) {
+    if (!reviewCapStands(review, caps, run.pathway)) {
       setReview(undefined);
       setAccepted(new Set());
       setApproved(false);
@@ -1116,6 +1113,17 @@ function IntakeForm({
       },
     }));
     setModules([]);
+    if (pathway === CUSTOM) keepToGpt();
+  }
+
+  /** A custom selection is estimated from GPT runs only: another model or effort is put back. */
+  function keepToGpt() {
+    const valid = copilotEfforts(copilotModels, "gpt").filter((item) =>
+      CUSTOM_EFFORTS.some((allowed) => allowed === item),
+    );
+    setModel("gpt");
+    if (!valid.includes(effort))
+      setEffort(valid.includes("balanced") ? "balanced" : (valid[0] ?? "balanced"));
   }
 
   function changePurpose(value: string) {
@@ -1167,11 +1175,22 @@ function IntakeForm({
   }
 
   function toggleModule(code: string, checked: boolean) {
+    if (run.pathway === CUSTOM) {
+      // A custom run lists the analyst's own choice only (the rules complete it), in the page's order.
+      chooseModules(
+        OFFERED.map(({ id }) => id).filter((id) => (id === code ? checked : modules.includes(id))),
+      );
+      return;
+    }
     const selected = modules.length ? modules : requested;
     const next = checked ? [...selected, code] : selected.filter((item) => item !== code);
     setModules(
       next.length === requested.length ? [] : requested.filter((item) => next.includes(item)),
     );
+  }
+
+  function chooseModules(next: string[]) {
+    setModules(next);
   }
 
   function rowsOf(kind: RowKind): Row[] {
@@ -1340,7 +1359,16 @@ function IntakeForm({
     changePathway,
     changePurpose,
     changeLevel: (value) => {
-      if (value !== "advanced") setModules([]);
+      if (value !== "advanced") {
+        setModules([]);
+        // A custom selection is offered at the Advanced level only: the pathway goes back.
+        if (run.pathway === CUSTOM) {
+          changePathway("credit_snapshot");
+          setChangeNotice(
+            "Custom selection is offered at the Advanced level, so the pathway is back to Full credit assessment. Review the run again and decide its limits.",
+          );
+        }
+      }
       setLevel(value);
     },
     changeAnalystNote: (value) => {
@@ -1369,6 +1397,7 @@ function IntakeForm({
       setTurns(value);
     },
     toggleModule,
+    chooseModules,
     problem: fieldError,
     idNote: reviewIssuerNote(review, settledSlug),
     missing: missingAtLastReview(lastReview, run.pathway, issuerId),

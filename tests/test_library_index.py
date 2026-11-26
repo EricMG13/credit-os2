@@ -510,3 +510,95 @@ def test_a_short_snapshot_run_is_judged_on_the_one_page_method_as_before(tmp_pat
 def test_a_short_snapshot_run_sent_the_five_screen_method_is_marked_changed(tmp_path, monkeypatch):
     (change,) = _run_that_was_sent(tmp_path, monkeypatch, "short_snapshot", "credit_screening")
     assert change.startswith("CP-L10: ")
+
+
+# --- a custom run in the library (PR 7a, owner 2026-11-26) ----------------------------------------
+# Synthetic: `make_custom_run` writes the folder as the launcher records a custom run; no model ran.
+
+CUSTOM = ("CP-0", "CP-1", "CP-4")
+
+
+def custom_scope(delivered: list[str], requested: list[str], *, selection: str | None = "explicit"):
+    run = {"pathway": "custom", "requested_modules": requested}
+    verified = {
+        "manifest": {"run": run},
+        "handoffs": dict.fromkeys(delivered),
+        "delivery_sha256": "verified",
+    }
+    workflow = {
+        "run": run,
+        "selection": selection,
+        "instructions": dict.fromkeys(requested),
+        "preset_requested_modules": ["CP-0", "CP-1"],
+    }
+    return library_index.assessment_scope(workflow, verified)
+
+
+@pytest.mark.parametrize(
+    ("delivered", "requested", "scope"),
+    [
+        (["CP-0", "CP-1", "CP-4"], ["CP-0", "CP-1", "CP-4"], "standard"),
+        (["CP-0", "CP-1", "CP-4"], ["CP-0", "CP-1", "CP-4", "CP-8"], "standard"),  # no CP-8 yet
+        (["CP-0", "CP-1", "CP-4", "CP-8"], ["CP-0", "CP-1", "CP-4", "CP-8"], "standard"),
+        (["CP-0", "CP-1"], ["CP-0", "CP-1", "CP-4", "CP-8"], "partial"),  # CP-4 did not deliver
+        (["CP-0", "CP-1", "CP-8"], ["CP-0", "CP-1", "CP-4", "CP-8"], "partial"),
+        (["CP-8"], ["CP-8"], "partial"),
+    ],
+)
+def test_a_custom_runs_scope_is_standard_when_every_planned_module_delivered(
+    delivered, requested, scope
+):
+    assert custom_scope(delivered, requested) == scope
+
+
+def test_a_custom_run_is_not_unverified_for_being_custom():
+    # Its selection is `explicit` and its modules are not the pathway preset's, which marks a preset
+    # pathway's run partial or unverified; for a custom run those two facts are what it is.
+    assert custom_scope(["CP-0", "CP-1", "CP-4"], ["CP-0", "CP-1", "CP-4"]) == "standard"
+    assert custom_scope(["CP-0", "CP-1", "CP-4"], ["CP-0", "CP-1", "CP-4"], selection="preset") == (
+        "standard"
+    )
+    # What still makes any run unverified: no recorded selection, or none the launcher writes.
+    assert custom_scope(["CP-0"], ["CP-0"], selection=None) == "unverified"
+    assert custom_scope(["CP-0"], ["CP-0"], selection="all") == "unverified"
+
+
+def test_a_custom_run_with_a_test_adaptation_is_never_standard():
+    run = {"pathway": "custom", "requested_modules": ["CP-0", "CP-1"]}
+    verified = {
+        "manifest": {"run": run},
+        "handoffs": dict.fromkeys(["CP-0", "CP-1"]),
+        "delivery_sha256": "verified",
+    }
+    workflow = {
+        "run": run,
+        "selection": "explicit",
+        "instructions": dict.fromkeys(["CP-0", "CP-1"]),
+        "test_adaptations": ["test-assume-distress"],
+    }
+    assert library_index.assessment_scope(workflow, verified) == "partial"
+
+
+def test_a_listed_custom_run_is_standard_and_is_not_marked_changed_for_being_custom(tmp_path):
+    directory = library_fixtures.make_custom_run(tmp_path, "custom-run", CUSTOM, report_page=False)
+    digest = sha((directory / "workflow.json").read_bytes())
+    rewrite_completion(directory, lambda record: record.update(workflow_sha256=digest))
+    library = listed(tmp_path)
+    assert library.excluded == []
+    (run,) = library.runs
+    assert (run["pathway"], run["assessmentScope"], run["method_changes"]) == (
+        "custom",
+        "standard",
+        [],
+    )
+    assert run["requested_modules"] == list(CUSTOM)
+
+
+def test_a_custom_run_is_sent_the_methods_deep_is_sent():
+    """Critique L2: `check_methodology` gives a pathway with no method of its own the shared
+    methods, so a custom run's modules are checked against the ones Deep's are."""
+    from deploy_vii.contracts import PATHWAY_MODULES
+
+    for module in PATHWAY_MODULES["deep_credit_assessment"]:
+        assert cpos_launch.pathway_method(module, "custom") is None
+        assert cpos_launch.pathway_method(module, "deep_credit_assessment") is None

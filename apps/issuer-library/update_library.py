@@ -28,7 +28,7 @@ ROOT = HERE if PACKAGED else HERE.parents[1]
 from credit_os.store import UnreadableFile, regular_chunks, workspace_store
 
 from deploy_vii.registry import plan
-from deploy_workflow.changes import DEFAULT_LEAD, LEAD_MODULE, PACK_SCHEMAS
+from deploy_workflow.changes import PACK_SCHEMAS, lead_module
 from deploy_workflow.changes_check import page_verdicts
 from deploy_workflow.credit_os_catalogue import catalogue
 from deploy_workflow.credit_os_chips import chips
@@ -272,6 +272,33 @@ def cp8_verdicts(
         return None, f"CP-8's handoff {output['source']} is not valid UTF-8"
 
 
+def _usable(store: dict[str, Any], run: dict[str, Any], code: str) -> bool:
+    """Whether the module's designated output can lead, as the Overview's `pickLead` and `blocked`
+    judge it (reader.js): it has a `### Bottom line` under `## Findings` (`readerPassages` takes
+    any, not only the first) and is not blocked. `blocked` reads a new-format handoff (its first
+    `###` under Findings is the Bottom line) by whether the Bottom line begins `Not assessable:`,
+    and any other by the store's own `state.established === false`."""
+    output = store["outputs"].get(run["modules"].get(code, {}).get("default"))
+    if output is None:
+        return False
+    h3: list[dict[str, Any]] = []
+    in_findings = False
+    for section in store["handoffs"].get(output["sha256"], []):
+        if section["level"] == 2:
+            if in_findings:
+                break
+            in_findings = section["heading"] == "Findings"
+        elif section["level"] == 3 and in_findings:
+            h3.append(section)
+    bottom = next((s for s in h3 if s["heading"] == "Bottom line"), None)
+    if bottom is None:
+        return False
+    if h3[0] is not bottom:
+        return output.get("state", {}).get("established") is not False
+    text = next((b for b in bottom["blocks"] if b["type"] == "text"), None)
+    return text is None or not text["text"].startswith("Not assessable:")
+
+
 def changes_data(workspace: Path, store: dict[str, Any], library: Library) -> None:
     """Carry each listed run's comparison to its store run, as ``changes``: the lead module of its
     pathway, the pack CP-8 was given (unchanged), the recorded reason CP-8 was not produced, the
@@ -288,7 +315,11 @@ def changes_data(workspace: Path, store: dict[str, Any], library: Library) -> No
         if problem:
             store["issues"].append(f"{record['id']}: {problem}")
         run["changes"] = {
-            "lead": LEAD_MODULE.get(record["pathway"], DEFAULT_LEAD),
+            "lead": lead_module(
+                record["pathway"],
+                record["requested_modules"],
+                [m["id"] for m in record["modules"] if _usable(store, run, m["id"])],
+            ),
             "first_run": record["changes"]["first_run"],
             "pack": pack,
             "note": record["changes"]["note"],

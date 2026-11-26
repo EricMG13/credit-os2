@@ -161,6 +161,9 @@ PRESET_ANSWER_KEY = {
     ),
     # Owner, 2026-11-25 (ruling R12): CP-0, CP-1, CP-DR and the five-screen CP-L10.
     "credit_screening": "CP-0 CP-1 CP-DR CP-L10",
+    # Owner, 2026-11-26 (coordinator's ruling, brief-7a): "PATHWAY_MODULES["custom"] is CP-0 and
+    # CP-1 (the contract requires at least one module)"; a custom run's modules are the analyst's.
+    "custom": "CP-0 CP-1",
 }
 SHORT_SNAPSHOT = ("CP-0", "CP-1", "CP-L10")
 # Run order of the lite pathway and its report blocks, written by hand from the Front Page: the
@@ -1775,6 +1778,9 @@ def test_the_lite_pathway_runs_end_to_end_to_a_verified_delivery_with_a_syntheti
 INSTRUCTION_BUDGET = {
     "credit_screening": 346_500,
     "deep_credit_assessment": 1_903_059,
+    # Owner, 2026-11-26 (PR 7a): every module a custom run offers is one of Deep's and is sent
+    # Deep's request, so Deep's ceiling bounds any custom selection.
+    "custom": 1_903_059,
     "lite_credit_assessment": 682_393,
     "credit_snapshot": 1_667_319,
     "covenant_refinancing": 1_157_279,
@@ -3552,12 +3558,14 @@ def all_instructions(tmp_path, pathway="distressed_restructuring", modules=None,
         data = json.loads(context.read_text())
         data["valuation"].update(peer_source=peer_source, peers=[])
         context.write_text(json.dumps(data))
+    # A custom run is priced from GPT runs on Copilot and launches at its computed cap (PR 7a T2).
+    custom = pathway == "custom"
     prepared = prepare(
         context,
         issuer_folder(tmp_path),
         tmp_path / "out",
-        config="sol-medium",
-        cap="15",
+        config="copilot-sol-medium" if custom else "sol-medium",
+        cap=None if custom else "15",
         modules=modules,
     )
     return prepared, {

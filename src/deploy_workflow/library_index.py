@@ -498,6 +498,29 @@ def _module_set(value: object) -> set[str] | None:
     return selected if len(selected) == len(value) else None
 
 
+def _custom_scope(
+    workflow: Mapping[str, Any], required: set[str], modules: set[str], planned: set[str]
+) -> str:
+    """A custom run's scope (PR 7a, ruling C10): the analyst chose the modules, so an explicit
+    selection that is not the preset is what a custom run is. It is `standard` when every planned
+    module less CP-8 delivered and `partial` when one did not (or a test adaptation ran); a
+    selection the launcher does not write is `unverified`, as for any run."""
+    if workflow.get("selection") not in ("preset", "explicit"):
+        return "unverified"
+    if workflow.get("test_adaptations") or not (required <= modules <= planned):
+        return "partial"
+    return "standard"
+
+
+def _preset_scope(workflow: Mapping[str, Any], asked: set[str]) -> str:
+    """A preset pathway's run that delivered what it planned: `standard` when what it asked for is
+    the pathway's own modules, `partial` when not; `unverified` without the recorded preset."""
+    preset = _module_set(workflow.get("preset_requested_modules"))
+    if workflow.get("selection") != "preset" or preset is None:
+        return "unverified"
+    return "standard" if asked == preset else "partial"
+
+
 def assessment_scope(workflow: Mapping[str, Any], delivered: Mapping[str, Any]) -> str:
     """Compare the frozen submission plan and the receipts' verified handoff pins."""
     requested = _module_set(workflow["run"].get("requested_modules"))
@@ -514,16 +537,15 @@ def assessment_scope(workflow: Mapping[str, Any], delivered: Mapping[str, Any]) 
     selection = workflow.get("selection")
     planned = set(instructions)
     required = planned - comparison
+    if workflow["run"].get("pathway") == "custom":
+        return _custom_scope(workflow, required, modules, planned)
     if (
         selection == "explicit"
         or workflow.get("test_adaptations")
         or not (required <= modules <= planned)
     ):  # a run with a test-only adaptation is never the standard scope
         return "partial"
-    preset = _module_set(workflow.get("preset_requested_modules"))
-    if selection != "preset" or preset is None:
-        return "unverified"
-    return "standard" if requested - comparison == preset else "partial"
+    return _preset_scope(workflow, requested - comparison)
 
 
 def publication_time(completion: Mapping[str, Any]) -> str | None:

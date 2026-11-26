@@ -517,7 +517,11 @@ describe("what the overview carries for every module", () => {
     ...(bottom === undefined ? [] : [passage("Bottom line", 10, [bottom])]),
     ...(limits ? [passage("Limitations", 20, limits)] : []),
   ];
-  function overviewFixture(specs: Record<string, Spec>, steps: string[] | null) {
+  function overviewFixture(
+    specs: Record<string, Spec>,
+    steps: string[] | null,
+    extra: Partial<PublishedRun> = {},
+  ) {
     const outputs: Record<string, unknown> = {};
     const handoffs: Record<string, Section[]> = {};
     const modules: PublishedRun["modules"] = {};
@@ -564,6 +568,7 @@ describe("what the overview carries for every module", () => {
       pathway: "credit_snapshot",
       modules,
       record: steps && { steps: steps.map((module) => ({ module })) },
+      ...extra,
     } as unknown as PublishedRun;
     const snapshot = {
       catalogue: { real: [] },
@@ -716,6 +721,60 @@ describe("what the overview carries for every module", () => {
     const [row] = moduleBottomLines(view, run);
     expect(row?.text).toBeNull();
     expect(row?.referenced).toBe(false);
+  });
+
+  describe("the lead of a custom run (PR 7a, ruling C16)", () => {
+    const custom = (specs: Record<string, Spec>, requested: string[] | null) =>
+      overviewFixture(specs, null, { pathway: "custom", requested });
+    const ok = (text: string) => ({ bottom: text });
+
+    it("leads Covenant Capacity with Legal & covenants", () => {
+      const { view } = custom(
+        { "CP-0": ok("Sources read."), "CP-1": ok("Base built."), "CP-4": ok("Headroom is thin.") },
+        ["CP-0", "CP-1", "CP-4", "CP-8"],
+      );
+      expect(view.lead?.output.module).toBe("CP-4");
+    });
+
+    it("leads Governance and ESG with the last planned module, else the one before it", () => {
+      const requested = ["CP-0", "CP-1", "CP-1A", "CP-2E"];
+      const both = { "CP-1": ok("Base."), "CP-1A": ok("Governance."), "CP-2E": ok("Hedged.") };
+      expect(custom(both, requested).view.lead?.output.module).toBe("CP-2E");
+      const blocked = { ...both, "CP-2E": ok("Not assessable: no rates supplied.") };
+      expect(custom(blocked, requested).view.lead?.output.module).toBe("CP-1A");
+    });
+
+    it("leads with CP-2 whenever it delivered a usable entry, over a later committee module", () => {
+      const { view } = custom(
+        { "CP-1": ok("Base."), "CP-2": ok("Credit is stable."), "CP-6": ok("Committee view.") },
+        ["CP-0", "CP-1", "CP-2", "CP-6"],
+      );
+      expect(view.lead?.output.module).toBe("CP-2");
+    });
+
+    it("never leads with CP-0, CP-DR, CP-5 or CP-8", () => {
+      const { view } = custom(
+        { "CP-0": ok("Sources."), "CP-DR": ok("Questions."), "CP-5": ok("Evidence.") },
+        ["CP-0", "CP-DR", "CP-5", "CP-8"],
+      );
+      expect(view.lead).toBeUndefined();
+    });
+
+    it("reads the run's own module order when no request is recorded", () => {
+      const { view } = custom({ "CP-1": ok("Base."), "CP-4": ok("Headroom.") }, null);
+      expect(view.lead?.output.module).toBe("CP-4");
+      const ran = overviewFixture({ "CP-1": ok("Base."), "CP-2": ok("Credit.") }, null, {
+        pathway: "custom",
+      });
+      expect(ran.view.lead?.output.module).toBe("CP-2");
+    });
+
+    it("keeps a preset pathway's lead whatever request the run records", () => {
+      const { view } = overviewFixture({ "CP-2": ok("Credit."), "CP-4": ok("Headroom.") }, null, {
+        requested: ["CP-0", "CP-4"],
+      });
+      expect(view.lead?.output.module).toBe("CP-2");
+    });
   });
 
   it("reads a summary through readParagraph, so a trailing citation is not drawn", () => {

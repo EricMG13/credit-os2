@@ -4,6 +4,16 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Custom selection with whole modules: run type, handoff rules, estimate and cap, CP-8 base, run start picker (PR #121)
+
+- Scope: offline only. No provider call and no paid run; no real custom run exists. Rulings: `docs/rulings/2026-11-26-custom-routing.md` (owner: "Yes, whole modules first", "Approve the cap").
+- Built: pathway `custom` ("Custom selection") at the Advanced level, GPT only; the analyst's whole modules completed by the registry with a reason per added module; the Deep block list, a module with no block reading "No report section of its own"; cap = min(USD 50, ceiling(sum of per-module estimates + the USD 7.17 hold)); CP-8 compares only with an earlier custom run of the same issuer and completed modules; three Advanced presets as starting selections.
+- Presentation change and its fidelity check: the custom selection page's picker, presets, running sum, hold and cap equal the hand-worked `answer-key-caps.md` for three presets at three efforts (rows without CP-8); the summary's server estimate replaces the page's; the web copy is pinned by `tests/test_custom_selection_web.py`. Scope: jsdom only, no rendered browser page.
+- Other pathways: requests byte for byte against `main` `3cfcc52f` (170 prepare and 40 service cases); a custom run's instructions equal Deep's apart from pathway lines.
+- Coordinator's own check at `7647979c`: the estimate code and its answer key read as ruled (Governance and ESG at fast effort 1.92 + 7.17 → USD 10); the custom, pathway and repo-rules tests 328 passed. The label commit `0e8e4aaa` was read.
+- Reviews: plan critique and pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"); task reviews with fix rounds; confidence review and rewrite tournament found no confirmed defect; sweep 2 Low fixed, 9 structural rows to the next phase sweep; pre-merge pass with 3 Low and 3 Info.
+- Not verified: any real custom run; whether a run completes within its cap; the USD 50 ceiling binding on a real selection; a rendered page; Windows; parallel width above 1.
+
 ## 2026-11-26 — CP-1 instructions: bridge Add-Back ID, T4.18 asset type, pro forma interest and cover (PR #120)
 
 - Scope: offline only. No provider call and no paid run; built by a cloud controller session. Evidence is synthetic tables, the retained Opus replay `tests/fixtures/live_2026_11_25/CP-1-replay-tdg.md` (TDG FY2024, outdated; a real model response replayed at USD 0) and the five retained CP-1 handoffs as a regression snapshot. No real CP-1 run on the new instructions exists.
@@ -981,10 +991,3 @@ then 5; the narrow layout and the controls listed below.
 - All 49 limitations across 12 modules matched the previous preview in order, prose and trace labels. Chart index focused Run charts 16 px from the top, including on reload. The Evidence model register appeared for Forward credit model and was absent under Legal.
 - Chrome and Edge passed the desktop-only synthetic proof (run-DQdHfb), including both intake cost labels, the qualification immediately preceding case figures, the scope disclosure and scenario comparison. An earlier Edge run timed out loading intake. The complete rerun passed on both browsers.
 - 314 focused frontend and 94 backend tests passed, as did build, lint and formatting. The Python gate reported 3,008 findings in the untracked predecessor copy and zero on the changed project code. Post-edit review retained grouped rows and per-history-entry scroll offsets.
-
-## 2026-11-18 — Forecast adversarial review
-
-- Exact recorded scope limits open their input trace. Generated notes link to Evidence Record. Assumption links require matching ordered headers and a unique full row. Jumps target available Forecast sections.
-- Retained Caesars Chrome fidelity check preserved four interest basis rows, the original input wording in the trace, and all 17 register rows and source links. Driver scrolling stayed within a 390 px viewport.
-- The combined local checkout passed 1,457 connected frontend tests and 170 focused Python tests. The isolated Forecast patch passed all 1,456 C1–C5 tests, build, lint, formatting, and the Python import gate. Chrome and Edge passed the full synthetic flow on the isolated patch.
-- Confidence review checked split excerpts, missing inputs, ambiguous row identity and section availability. Rewrite comparison kept the exact-row index and exact-text membership check.

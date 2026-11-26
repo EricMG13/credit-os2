@@ -1490,7 +1490,7 @@ const libraryLeads=new Map();
 function libraryLead(key) {
   if(!key||!contexts[key])return null;
   if(!libraryLeads.has(key)) {
-    const lead=overviewLeadEntry(overviewEntries(key,leadModules(contexts[key].pathway)),key),declared=lead?.out.state?.declared??null;
+    const lead=overviewLeadEntry(overviewEntries(key,leadModules(contexts[key].pathway,requestedOf(contexts[key]))),key),declared=lead?.out.state?.declared??null;
     libraryLeads.set(key,lead?{state:declared&&window.Components.findingCell(declared,{}).html!==undefined?declared:null,sentence:window.Components.firstSentenceOf(passageTexts(lead.passages.bottom),null)}:null);
   }
   return libraryLeads.get(key);
@@ -1707,7 +1707,9 @@ function overviewEntries(context,only=null) {
 }
 const notAssessable=entry=>Boolean(entry.out)&&blocked(entry.out.sections,entry.out.state);
 // The lead is the first of the pathway's lead modules (CP-6, CP-2, CP-L10, and CP-1B on an earnings update) that ran, has a Bottom line and is not blocked; a run with none has no lead.
-const overviewLeadEntry=(entries,context)=>pickLead(entries,contexts[context]?.pathway,entry=>!notAssessable(entry));
+// What a custom run planned, for its lead: the recorded request, else the order it ran its modules in.
+const requestedOf=run=>run?Array.isArray(run.requested)?run.requested:runModuleCodes(run):undefined;
+const overviewLeadEntry=(entries,context)=>pickLead(entries,contexts[context]?.pathway,entry=>!notAssessable(entry),requestedOf(contexts[context]));
 // One of the lead's passages as the components take it: its paragraphs, and the controls that open each one's basis in the drawer.
 function leadPassage(lead,key) {
   const texts=passageTexts(lead.passages[key]);
