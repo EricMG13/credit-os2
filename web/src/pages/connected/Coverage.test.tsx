@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Coverage } from "./Coverage";
 import type { Coverage as Data } from "./coverageData";
 
@@ -732,7 +732,10 @@ test("the trend view draws the figure by period, and only ticked issuers can be 
   expect(
     await screen.findByRole("region", { name: "Net debt / EBITDA by period, table" }),
   ).toBeInTheDocument();
-  expect(window.location.search).toContain("field=lev");
+  // The address is written by a passive effect, which can land after the table is found.
+  await waitFor(() => {
+    expect(window.location.search).toContain("field=lev");
+  });
   fireEvent.click(
     within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Modules" }),
   );
