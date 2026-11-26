@@ -116,17 +116,23 @@ _MONTH = (
     r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?"
     r"|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b\.?"
 )
-# Dates, period labels and a month count of 1M to 12M are not figures. A year is none either when a
-# month name or a period marker stands before it (`September 2024`, `FY 2024`, `Q3 2024`, `fiscal
-# 2024`); any other 19xx/20xx number is read by `_is_year`. An ISO date (`2024-09-30`) is exempt as
-# a whole, also after such a marker (`Q3 2024-09-30`).
+# Dates and period labels are not figures (a month count of 1M to 12M is masked beside it, see
+# `_MONTH_COUNT`). A year is none either when a month name or a period marker stands before it
+# (`September 2024`, `FY 2024`, `Q3 2024`, `fiscal 2024`); any other 19xx/20xx number is read by
+# `_is_year`. An ISO date (`2024-09-30`) is exempt as a whole, also after such a
+# marker (`Q3 2024-09-30`).
 _EXEMPT = re.compile(
     rf"\b(?:(?:FY|CY|LTM|[QH][1-4])\s?|(?i:fiscal\s+|{_MONTH}\s+))(?:19|20)\d{{2}}\b(?![.,]\d|-\d)"
     r"|\d{4}-\d{2}(?:-\d{2}|(?!\d))|\b(?:FY|CY)\d{2,4}E?\b|\b[QH][1-4]\b|\bLTM\b"
 )
-# A month count (`9M`), not the end of a decimal (`7.5M`) and not an amount in millions after a
-# currency (`US$7M`, `USD 7M`, `$ 7M`, `USD -7M`, `USD (7M)`: `_MONEY_BEFORE`).
+# A month count (`9M`), not the end of a decimal (`7.5M`); after a currency it is an amount in
+# millions (`US$7M`, `USD 7M`, `$ 7M`, `USD -7M`, `USD (7M)`: `_MONEY_BEFORE`, used for month counts
+# only). A count directly before a benchmark-rate name (`3M LIBOR`, `1MSOFR`) is a tenor and stays
+# exempt even after a currency (`_TENOR`).
 _MONTH_COUNT = re.compile(r"(?<![\d.])\b(?:[1-9]|1[0-2])M\b")
+_TENOR = re.compile(
+    r"(?<![\d.])\b(?:[1-9]|1[0-2])M\s?(?=(?i:LIBOR|SOFR|EURIBOR|SONIA|[E€]STR|TONA|BBSW|CDOR)\b)"
+)
 _MONEY_BEFORE = re.compile(rf"(?:[$€£¥]|\b(?:{_CODES}))\s?[-+−]?\s?\(?\s?$")
 _YEAR_TOKEN = re.compile(r"(?:19|20)\d{2}")
 # A unit ends its word: no letter, digit or `&` after it, and no hyphen or slash and a letter
@@ -161,7 +167,8 @@ _UP = r"rose|rise|risen|rises|increased?|increases|grew|grown|up|higher|gained|a
 _DOWN = r"fell|fall|fallen|falls|decreased?|decreases|declined?|dropped|down|lower|reduced|shrank"
 _DIRECTION = re.compile(rf"\b(?:(?P<up>{_UP})|(?P<down>{_DOWN}))\b", re.IGNORECASE)
 _SENTENCE_END = re.compile(r"[.;:!?]\s")
-# A figure written as a difference: after `by` or a direction word (ends at the first digit).
+# A figure written as a difference: after `by` or a direction word, with an optional sign or opening
+# bracket, up to its first digit or leading dot (the text must end there).
 _AS_DIFFERENCE = re.compile(
     rf"\b(?:by|{_UP}|{_DOWN})\s+(?:by\s+)?(?:about\s+|roughly\s+|nearly\s+)?"
     r"(?:[-+−]\s?)?\(?\s?[\d.]$",
@@ -200,21 +207,28 @@ def _is_year(masked: str, match: re.Match[str], *, header: bool) -> bool:
 
 def _figures(cell: str, *, counts: bool = True, header: bool = False) -> list[Figure]:
     """The figures of a cell. A number is not one if it is part of a date, a period label or a year
-    (`_EXEMPT`, `_is_year`); with `counts` False a whole number below 100 is a count and not a
-    figure unless it carries a unit or a currency. A minus (`-` or U+2212, not inside a word or
-    number) or enclosing brackets make the figure negative. `header`: the cell is of a table header
-    row."""
+    (`_EXEMPT`, `_is_year`), nor a month count or benchmark tenor (`_MONTH_COUNT`, `_TENOR`); with
+    `counts` False a whole number below 100 is a count and not a figure unless it carries a unit
+    or a currency. A minus (`-` or U+2212, not inside a word or number) or enclosing brackets
+    make the figure negative. `header`: the cell is of a table header row."""
     masked = _EXEMPT.sub(lambda m: " " * len(m[0]), cell)
-    masked = _MONTH_COUNT.sub(
-        lambda m: m[0] if _MONEY_BEFORE.search(masked, 0, m.start()) else " " * len(m[0]), masked
-    )
+    masked = _TENOR.sub(lambda m: " " * len(m[0]), masked)
+    amounts: set[int] = set()  # where a `7M` after a currency starts: an amount, so a figure
+
+    def _month_count(m: re.Match[str]) -> str:
+        if _MONEY_BEFORE.search(masked, 0, m.start()):
+            amounts.add(m.start())
+            return m[0]
+        return " " * len(m[0])
+
+    masked = _MONTH_COUNT.sub(_month_count, masked)
     found = []
     for match in _FIGURE.finditer(masked):
         token = match[0]
         small = "." not in token and "," not in token and int(token) < COUNT_BELOW
         united = _UNITED.match(masked, match.end())
         before_text = masked[max(0, match.start() - 8) : match.start()]
-        currency = _CURRENCY.search(before_text[-4:]) or _MONEY_BEFORE.search(before_text)
+        currency = _CURRENCY.search(before_text[-4:]) or match.start() in amounts
         if _is_year(masked, match, header=header) or (
             not counts and small and not united and not currency
         ):

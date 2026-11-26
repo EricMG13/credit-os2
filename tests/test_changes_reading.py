@@ -7,6 +7,7 @@ from deploy_workflow.changes_check import (
     _direction_issues,
     _fact_row_issues,
     _figures,
+    _passage_issues,
     _withheld_sizes,
 )
 from deploy_workflow.library_index import reader_summary
@@ -202,7 +203,10 @@ def test_a_leading_dot_difference_is_flagged_like_its_zero_form() -> None:
     zero = _direction_issues("Leverage rose by 0.99x", {Decimal(5)}, "A passage")
     assert len(zero) == 1
     assert _direction_issues("Leverage rose by .99x", {Decimal(5)}, "A passage") == [
-        zero[0].replace("0.99", "0.99")
+        (
+            "A passage: the figure 0.99 is written as a difference but is not a difference in the "
+            "comparison pack; CP-8 never calculates."
+        )
     ]
 
 
@@ -260,3 +264,16 @@ def test_a_repeated_period_still_makes_the_table_unreadable() -> None:
     assert (
         _maturities(table("| FY2026 | 500 | US$m | S. |", "| FY2026 | 100 | US$m | S. |")) is None
     )
+
+
+def test_a_count_in_brackets_after_a_currency_code_is_no_figure() -> None:
+    for text in (
+        "The debt sits in EUR (5 facilities) and cover holds.",
+        "A USD +3 move.",
+    ):
+        assert _passage_issues([text], {"measures": []}) == []
+
+
+def test_a_month_count_before_a_benchmark_rate_is_exempt_after_a_currency() -> None:
+    assert sizes("USD 3M LIBOR + 250bp") == ["250"]
+    assert sizes("raised USD 3MSOFR") == []
