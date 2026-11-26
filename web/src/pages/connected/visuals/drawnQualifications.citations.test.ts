@@ -6,7 +6,6 @@ describe("drawnAmount keeps what follows a citation clause", () => {
     ["12.5 per p. 45 (unaudited)", "12.5 (unaudited)"],
     ["EUR 12.5m per Annual Report 2024.pdf; unaudited", "EUR 12.5m; unaudited"],
     ["12.5 see p. 4, restated", "12.5, restated"],
-    ["250 see p. 45 and 300 see p. 60", "250 and 300"],
     ["250 (T2E.3.r03)", "250"],
     ["250 per Annual Report FY25.pdf", "250"],
     ["250 [E3]", "250"],
@@ -26,6 +25,47 @@ describe("drawnAmount keeps what follows a citation clause", () => {
     expect(drawnAmount(input)).toBe(expected);
   });
 
+  it.each([
+    ["—", "—"],
+    ["-", "-"],
+    ["250 - see p. 45", "250"],
+    ["-250 per p. 4", "-250"],
+    ["EUR 250m–300m per p. 4", "EUR 250m–300m"],
+    ["12.5% per p. 4", "12.5%"],
+    ["5.2 per cent from Annual Report 2024.pdf", "5.2 per cent"],
+    ["500 from 2027 per Annual Report.pdf", "500 from 2027"],
+    ["250 per share per Annual Report.pdf", "250 per share"],
+    ["250 per pp. 12, 14", "250"],
+    ["250 see pp. 12 and 14", "250"],
+    ["250 (per p. 4, unaudited)", "250 (unaudited)"],
+    ["250 (see p. 4; restated)", "250 (restated)"],
+    ["250 (T4.18 and T4.19)", "250"],
+    ["250 (E3; E4)", "250"],
+    ["250 per [E3]", "250"],
+    ["250 per E3", "250"],
+    ["250 per Annual Report.pdf (unaudited)", "250 (unaudited)"],
+  ])("round 2: %s -> %s", (input, expected) => {
+    expect(drawnAmount(input)).toBe(expected);
+  });
+
+  it.each([
+    "250 see p. 45 and 300 see p. 60",
+    "250 per p. 4. Restated for IFRS 16.",
+    "250 per p. 4 and later",
+    "250 per Annual Report FY25.pdf and more",
+    "250 (see p. 4 and 300)",
+    "250 (see p. 4 (restated))",
+    "250 see p. 4, 300",
+  ])("round 2: %s is never drawn as a wrong or partial figure", (input) => {
+    expect(drawnAmount(input)).toBeNull();
+  });
+
+  it("answers a long run of spaces quickly", () => {
+    const started = performance.now();
+    expect(drawnAmount(`250${" ".repeat(4000)}x`)).toBe(`250${" ".repeat(4000)}x`);
+    expect(performance.now() - started).toBeLessThan(50);
+  });
+
   it("returns null where the citation cannot be set aside safely", () => {
     expect(drawnAmount("per Annual Report 2024.pdf")).toBeNull();
     expect(EVIDENCE_AMOUNT).toBe("Amount recorded in model evidence.");
@@ -39,5 +79,6 @@ describe("drawnReason", () => {
   it("treats a bracketed list of register ids as a citation", () => {
     expect(drawnReason("Not reported (T4.18; T4.19)")).toBe(EVIDENCE_REASON);
     expect(drawnReason("Not reported (T4.18, T4.19)")).toBe(EVIDENCE_REASON);
+    expect(drawnReason("Not disclosed (T4.18 and T4.19)")).toBe(EVIDENCE_REASON);
   });
 });
