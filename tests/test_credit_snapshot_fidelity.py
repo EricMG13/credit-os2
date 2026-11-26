@@ -1269,6 +1269,17 @@ def test_every_expected_entry_is_written_with_its_kind_and_value(built, tmp_path
 def test_nothing_unexpected_is_written(built, tmp_path):
     opened = open_workbook(built, tmp_path)
     wanted = {key_of(e) for e in opened.expected["entries"]}
+    if built.case.name == "no_scorecard":
+        # Synthetic Northbridge Holdings plc, 2026-03-31. Its Net debt table has no unit.
+        equity_unit = {
+            "sheet": "Snapshot",
+            "block": "Equity value",
+            "row": "Equity input unit",
+            "column": "Value",
+            "kind": "gap",
+        }
+        assert opened.text_of(equity_unit) == "Net debt reporting unit unavailable"
+        wanted.add(key_of(equity_unit))
     for row in opened.on_sheets():
         if row["Sheet"] == "Model":
             continue  # Section 7 adds independently checked lines beyond this Snapshot answer key.

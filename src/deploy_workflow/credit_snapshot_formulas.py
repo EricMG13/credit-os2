@@ -30,10 +30,10 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
-from itertools import islice
 
 from deploy_workflow import credit_snapshot as snap
 from deploy_workflow import recommendation as rec
@@ -317,6 +317,17 @@ def _hit_column(ref: _Reference, k: int) -> str:
 
 def _at(cell: snap.SnapshotCell) -> At:
     return At(cell.sheet, cell.block, cell.row, cell.column)
+
+
+def _matches_source(
+    cell: snap.SnapshotCell | None, table: snap._Table, row: snap._Row, text: str
+) -> bool:
+    return cell is not None and (cell.module, cell.section, cell.line, cell.text) == (
+        table.module,
+        table.section,
+        row.line,
+        text,
+    )
 
 
 def _cells_of(found: Mapping[tuple[str, str], snap.Block], sheet: str, name: str) -> list[At]:
@@ -914,27 +925,20 @@ class _Builder:
         multiple = d(At(SNAPSHOT, EQUITY, "EV multiple", "Value"))
         period = d(At(SNAPSHOT, EQUITY, "EV period", "Value"))
         currency = d(At(SNAPSHOT, EQUITY, "EV currency", "Value"))
-        debt_units = self._debt_units(debt)
+        doc = self._pinned_cp1()
+        debt_units = self._debt_units(doc, debt)
         debt_basis = {
             label: snap._money_unit_parts(cell.text) for label, cell in debt_units.items()
         }
-        earnings_unit = next(
-            (
-                c.text
-                for c in self._cells(SNAPSHOT, "Financials")
-                if (c.row, c.column, c.kind) == ("EBITDA (Reported)", "Unit", snap.COPIED)
-            ),
-            "",
-        )
-        earnings_basis = snap._money_unit_parts(earnings_unit)
-
         earnings_units = {
-            label: earnings_basis
-            for label in ebitda
-            if label not in debt or earnings_basis == debt_basis.get(label)
+            label: basis
+            for label, basis in self._earnings_units(doc, ebitda).items()
+            if label not in debt or basis == debt_basis.get(label)
         }
 
-        def pick(cells: dict[str, At], units: dict[str, tuple[str, str] | None], use: str) -> str:
+        def pick(
+            cells: dict[str, At], units: Mapping[str, tuple[str, str] | None], use: str
+        ) -> str:
             out = '""'
             for label, operand in reversed(cells.items()):
                 basis = units.get(label)
@@ -973,16 +977,77 @@ class _Builder:
             for label in labels
         }
 
-    def _debt_units(self, debt: dict[str, At]) -> dict[str, snap.SnapshotCell]:
+    def _debt_units(
+        self, doc: snap._Doc | None, debt: dict[str, At]
+    ) -> dict[str, snap.SnapshotCell]:
         amounts = {c.column: c for c in self._cells(SNAPSHOT, TOTALS) if c.row == "Net debt"}
         common = amounts.get("Unit")
-        if common is None:
+        if common is None or doc is None:
             return {}
-        varying = {}
-        if common.text == snap.UNIT_DIFFERS:
-            varying = self._period_units({at.column: amounts[at.column] for at in debt.values()})
-            self.add(SNAPSHOT, EQUITY, varying.values())
-        return {label: varying.get(at.column, common) for label, at in debt.items()}
+        verified = self._period_units(doc, {at.column: amounts[at.column] for at in debt.values()})
+        if common.text != snap.UNIT_DIFFERS:
+            return {
+                label: common
+                for label, at in debt.items()
+                if at.column in verified and verified[at.column].text == common.text
+            }
+        self.add(SNAPSHOT, EQUITY, verified.values())
+        return {label: verified[at.column] for label, at in debt.items() if at.column in verified}
+
+    def _reported_earnings(
+        self, doc: snap._Doc | None
+    ) -> tuple[snap._Table, snap._Row, int] | None:
+        if doc is None:
+            return None
+        name = "EBITDA (Reported)"
+        try:
+            table = doc.register("T4.4")
+            unit = snap._unique_index(table, "Unit")
+        except ValueError:
+            return None
+        if len(table.rows) > 1000:
+            return None
+        key = snap._fold(name)
+        rows = [row for row in table.rows if snap._fold(row.cells[0]) == key]
+        if len(rows) != 1:
+            return None
+        [row] = rows
+        written = row.cells[unit]
+        observed = [
+            cell
+            for cell in self._cells(SNAPSHOT, "Financials")
+            if (cell.row, cell.column, cell.kind) == (name, "Unit", snap.COPIED)
+        ]
+        if len(observed) != 1 or not _matches_source(observed[0], table, row, written):
+            return None
+        return table, row, unit
+
+    def _earnings_units(
+        self, doc: snap._Doc | None, periods: Mapping[str, At]
+    ) -> dict[str, tuple[str, str]]:
+        source = self._reported_earnings(doc)
+        if source is None:
+            return {}
+        table, row, unit = source
+        basis = snap._money_unit_parts(row.cells[unit])
+        if basis is None:
+            return {}
+        amounts = {
+            cell.column: cell
+            for cell in self._cells(SNAPSHOT, MEASURES)
+            if cell.row == "EBITDA (Reported)"
+        }
+        found = {}
+        for label, at in periods.items():
+            try:
+                index = snap._unique_index(table, at.column)
+            except ValueError:
+                continue
+            if 0 < index < unit and _matches_source(
+                amounts.get(at.column), table, row, row.cells[index]
+            ):
+                found[label] = basis
+        return found
 
     def _equity_unit(self, units: dict[str, snap.SnapshotCell]) -> snap.SnapshotCell:
         at = At(SNAPSHOT, EQUITY, "Equity input unit", "Value")
@@ -996,12 +1061,9 @@ class _Builder:
         return self.formula(at, d, f"={selected}")
 
     def _period_units(
-        self, amounts: Mapping[str, snap.SnapshotCell]
+        self, doc: snap._Doc, amounts: Mapping[str, snap.SnapshotCell]
     ) -> dict[str, snap.SnapshotCell]:
-        """When units vary, use the exact CP-1 rows underlying the displayed Net debt figures."""
-        doc = self._pinned_cp1()
-        if doc is None:
-            return {}
+        """Verify unique and exact CP-1 source rows for the displayed Net debt amounts."""
         try:
             table = doc.heading_table("Net debt data")
             period, net, unit = (
@@ -1009,16 +1071,15 @@ class _Builder:
             )
         except ValueError:
             return {}
+        if len(table.rows) > 1000:
+            return {}
+        counts = Counter(row.cells[period] for row in table.rows)
         maker = snap._Maker(SNAPSHOT, EQUITY, {})
         found = {}
         for row in table.rows:
             column = row.cells[period]
-            amount = amounts.get(column)
-            if amount is None or (amount.module, amount.section, amount.line, amount.text) != (
-                table.module,
-                table.section,
-                row.line,
-                row.cells[net],
+            if counts[column] != 1 or not _matches_source(
+                amounts.get(column), table, row, row.cells[net]
             ):
                 continue
             label = column + " net debt reporting unit"
@@ -1032,27 +1093,27 @@ class _Builder:
             return None
         try:
             table = doc.register("T4.18")
-            preamble = doc.prose(table.section)
+            section = doc.prose(table.section)
         except ValueError:
             return None
+        if len(section) > 1000:
+            return None
+        # The validated table has a header and separator immediately before its first data row.
+        start, end = table.rows[0].line - 2, table.rows[-1].line
         notes = []
-        for _, text in islice(preamble, 1000):
+        for number, text in section:
             line = text.strip()
-            if line.startswith("|"):
-                break
-            if not line:
+            if not line or start <= number <= end:
                 continue
             if line.startswith("Basis:") and all(
                 _DEBT_UNIT_SOURCE.fullmatch(ref.strip())
                 for ref in line.removeprefix("Basis:").split(";")
             ):
                 continue
-            notes.append(line)
-        else:
+            notes.append((number, line))
+        if len(notes) != 1 or notes[0][0] >= start:
             return None
-        if len(notes) != 1:
-            return None
-        sentence, _, rest = notes[0].partition(".")
+        sentence, _, rest = notes[0][1].partition(".")
         # The retained reconciliation describes carrying-value allocation without changing units.
         if rest.strip() not in {"", _DEBT_RECONCILIATION_NOTE}:
             return None

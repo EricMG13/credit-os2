@@ -1006,23 +1006,12 @@ def test_with_no_readable_instrument_every_portfolio_result_is_blank_never_n_a(t
 # --- Period labels in formulas and lists (L1, ruling PM-g) ---------------------------------------
 
 
-def relabelled(full, label):
-    """The every-module snapshot with the FY2025 period of the two blocks the EV reads renamed."""
-    blocks = tuple(
-        replace(
-            block,
-            cells=tuple(
-                replace(c, column=c.column.replace("FY2025", label, 1))
-                if block.name in (fx.TOTALS, fx.MEASURES)
-                else c
-                for c in block.cells
-            ),
-        )
-        if block.name in (fx.TOTALS, fx.MEASURES)
-        else block
-        for block in full.blocks
-    )
-    return opened_from(replace(full, blocks=blocks))
+def relabelled(tmp_path, label):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, amended pinned period labels."""
+    text = cs.ALL_MODULES["CP-1"].read_text()
+    text = text.replace("| Line item | FY2025 |", f"| Line item | {label} |", 1)
+    text = text.replace("| FY2025 / 2025-12-31 | 1,450", f"| {label} / 2025-12-31 | 1,450", 1)
+    return cp1_book(text, tmp_path)
 
 
 def ev_text(opened):
@@ -1035,10 +1024,10 @@ def ev_list(opened):
 
 
 def test_a_double_quote_in_a_period_label_is_doubled_in_the_formula_and_gets_no_dropdown(
-    full, caplog
+    tmp_path, caplog
 ):
     with caplog.at_level("WARNING"):
-        opened = relabelled(full, 'FY"25')
+        opened = relabelled(tmp_path, 'FY"25')
     text = ev_text(opened)
     assert '="FY""25"' in text and '="FY"25"' not in text
     assert ev_list(opened) is None
@@ -1047,14 +1036,14 @@ def test_a_double_quote_in_a_period_label_is_doubled_in_the_formula_and_gets_no_
     assert period["Kind"] == "analyst"  # the cell stays a plain analyst cell
 
 
-def test_a_comma_in_a_period_label_leaves_the_cell_plain_and_the_formula_whole(full):
-    opened = relabelled(full, "FY25, restated")
+def test_a_comma_in_a_period_label_leaves_the_cell_plain_and_the_formula_whole(tmp_path):
+    opened = relabelled(tmp_path, "FY25, restated")
     assert ev_list(opened) is None
     assert '="FY25, restated"' in ev_text(opened)
 
 
-def test_a_period_list_over_255_characters_gets_no_dropdown(full):
-    opened = relabelled(full, "FY" + "9" * 260)
+def test_a_period_list_over_255_characters_gets_no_dropdown(tmp_path):
+    opened = relabelled(tmp_path, "FY" + "9" * 260)
     assert ev_list(opened) is None
 
 
@@ -1264,13 +1253,14 @@ def test_selected_period_equity_units_use_the_pinned_net_debt_rows(tmp_path):
 
 
 @pytest.mark.parametrize("debt_unit", ["GBP thousands", "unit not in handoff"])
-def test_ebitda_multiple_requires_compatible_scale_and_known_reporting_unit(full, debt_unit):
-    def edit(cell):
-        if (cell.block, cell.row, cell.column) == ("Capital structure totals", "Net debt", "Unit"):
-            return [replace(cell, text=debt_unit)]
-        return [cell]
-
-    book = opened_from(snapshot_edited(full, edit))
+def test_ebitda_multiple_requires_compatible_scale_and_known_reporting_unit(tmp_path, debt_unit):
+    text = cs.ALL_MODULES["CP-1"].read_text()
+    prefix, heading, remainder = text.partition("### Net debt data\n")
+    table, next_heading, suffix = remainder.partition("### ")
+    book = cp1_book(
+        prefix + heading + table.replace("GBP millions", debt_unit) + next_heading + suffix,
+        tmp_path,
+    )
     formula = ev_text(book)
     ebitda = cell_of(book, block="EBITDA measures", row="EBITDA (Reported)", column="FY2025")
     amount = cell_of(
@@ -1298,12 +1288,87 @@ def test_percent_ev_requires_documented_comparable_principal_units(tmp_path, boo
         "GBP millions at the annual end",
     )
     text = text.replace("1,230.0 | GBP millions", "1,230.0 | GBP thousands")
+    text = text.replace(
+        "### T4.9 Calculation register",
+        "Basis: NBG_annual_2025.pdf, page 82\n\n### T4.9 Calculation register",
+        1,
+    )
     opened = cp1_book(text, tmp_path)
     ratio = text_of(opened, "Snapshot", "Capital structure", name, "% EV")
     assert '="FY2025"' in ratio and '="FY2024"' not in ratio
     principal = absolute(cell_of(opened, block="Capital structure", row=name, column="Principal"))
     ev = absolute(cell_of(opened, block="Equity value", row="Enterprise value", column="Value"))
     assert f"{principal}/{ev}" in ratio
+
+
+@pytest.mark.parametrize(
+    ("section", "header", "new_value", "location"),
+    [
+        (
+            "Net debt data",
+            "Reporting unit",
+            "GBP thousands",
+            ("Capital structure totals", "Net debt", "FY2025 / 2025-12-31"),
+        ),
+        (
+            "T4.4 Income statement",
+            "Unit",
+            "GBP thousands",
+            ("EBITDA measures", "EBITDA (Reported)", "FY2025"),
+        ),
+        (
+            "T4.4 Income statement",
+            "FY2025",
+            "299.8",
+            ("EBITDA measures", "EBITDA (Reported)", "FY2025"),
+        ),
+    ],
+)
+def test_ev_does_not_use_a_source_with_ambiguous_columns(
+    tmp_path, section, header, new_value, location
+):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, conflicting source units or values."""
+    text = cs.ALL_MODULES["CP-1"].read_text()
+    prefix, title, rest = text.partition(f"### {section}\n")
+    assert title
+    table, following, suffix = rest.partition("### ")
+    lines = table.splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("| "))
+    headers = [cell.strip() for cell in lines[start].strip("|").split("|")]
+    position = headers.index(header) + 1
+    duplicate = header if header == "FY2025" else f"**{header}**"
+    for index in range(start, len(lines)):
+        if not lines[index].startswith("|"):
+            continue
+        cells = lines[index].split("|")
+        new = {start: f" {duplicate} ", start + 1: "---"}.get(index, f" {new_value} ")
+        cells.insert(position + 1, new)
+        lines[index] = "|".join(cells)
+    opened = cp1_book(prefix + title + "\n".join(lines) + "\n" + following + suffix, tmp_path)
+    block, row, period = location
+    amount = cell_of(opened, block=block, row=row, column=period)
+    assert absolute(amount) not in ev_text(opened)
+    if header == "FY2025":
+        unique = cell_of(opened, block=block, row=row, column="FY2024")
+        assert absolute(unique) in ev_text(opened)
+
+
+def test_ev_uses_no_net_debt_operand_for_two_amounts_on_the_same_date(tmp_path):
+    """Synthetic Northbridge Holdings plc, 2026-03-31, conflicting debt at one reporting date."""
+    text = cs.ALL_MODULES["CP-1"].read_text()
+    row = next(
+        line for line in text.splitlines() if line.startswith("| FY2025 / 2025-12-31 | 1,450")
+    )
+    text = text.replace(row, row + "\n" + row.replace("1,275.7", "1,199.0"), 1)
+    opened = cp1_book(text, tmp_path)
+    amount = cell_of(
+        opened, block="Capital structure totals", row="Net debt", column="FY2025 / 2025-12-31"
+    )
+    assert absolute(amount) not in ev_text(opened)
+    unique = cell_of(
+        opened, block="Capital structure totals", row="Net debt", column="FY2024 / 2024-12-31"
+    )
+    assert absolute(unique) in ev_text(opened)
 
 
 @pytest.mark.parametrize("reverse", [False, True])
@@ -1334,15 +1399,12 @@ def test_ev_same_short_period_preserves_distinct_dated_amounts_and_units(tmp_pat
         assert opened["Snapshot"][source["Cell"]].value == unit
 
 
-def test_distinct_explicit_dates_on_debt_and_ebitda_keep_separate_ev_choices(full):
-    def edit(c):
-        return (
-            [replace(c, column="FY2025 / 2025-09-30")]
-            if c.block == "EBITDA measures" and c.column == "FY2025"
-            else [c]
-        )
-
-    book = opened_from(snapshot_edited(full, edit))
+def test_distinct_explicit_dates_on_debt_and_ebitda_keep_separate_ev_choices(tmp_path):
+    text = cs.ALL_MODULES["CP-1"].read_text()
+    text = text.replace(
+        "| Line item | FY2025 | FY2024 |", "| Line item | FY2025 / 2025-09-30 | FY2024 |", 1
+    )
+    book = cp1_book(text, tmp_path)
     ev = ev_text(book)
     for label in ("FY2025 / 2025-12-31", "FY2025 / 2025-09-30"):
         assert ev.count(f'="{label}"') == 1
@@ -1362,22 +1424,32 @@ def test_retained_tdg_t418_usd_millions_can_be_compared_to_the_usd_millions_ev(t
 
 
 @pytest.mark.parametrize(
-    "qualification",
+    ("placement", "qualification"),
     [
-        " Principal is an exception and uses thousands.",
-        " Face amounts are shown in GBP 000s.",
-        " Bond amounts are in £000s.",
-        "\nBasis: Bond amounts are in £000s.",
+        ("declaration", " Principal is an exception and uses thousands."),
+        ("declaration", " Face amounts are shown in GBP 000s."),
+        ("declaration", " Bond amounts are in £000s."),
+        ("declaration", "\nBasis: Bond amounts are in £000s."),
+        ("footer", "Principal amounts above are in GBP thousands."),
+        ("footer", "Basis: Bond amounts are in £000s."),
+        ("footer", "| Field | Unit |\n|---|---|\n| Principal | GBP thousands |"),
     ],
 )
-def test_qualified_principal_unit_declaration_is_withheld(tmp_path, qualification):
+def test_qualified_principal_unit_declaration_is_withheld(tmp_path, placement, qualification):
     """Synthetic Northbridge Holdings plc, 2026-03-31, conflicting source scales."""
     text = cs.ALL_MODULES["CP-1"].read_text()
     original = next(
         line for line in text.splitlines() if line.startswith("All money columns below")
     )
     declaration = "All money columns below are GBP millions at the annual end."
-    book = cp1_book(text.replace(original, declaration + qualification), tmp_path)
+    text = text.replace(original, declaration)
+    if placement == "declaration":
+        text = text.replace(declaration, declaration + qualification)
+    else:
+        heading = "### T4.9 Calculation register"
+        assert heading in text
+        text = text.replace(heading, f"{qualification}\n\n{heading}", 1)
+    book = cp1_book(text, tmp_path)
     assert (
         text_of(book, "Snapshot", "Capital structure", "4.50% Senior Notes 2030", "% EV") == '=""'
     )
