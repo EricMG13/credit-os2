@@ -4,6 +4,15 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Credit Snapshot workbook: four sheets, download endpoint, fidelity check (PR #124)
+
+- Scope: offline only. No provider call, no paid run, no Excel and no LibreOffice (owner: "no libra office should be required"). Evidence: a synthetic every-module run, a synthetic run with no scorecard and the one retained real CP-1 handoff (TransDigm, as of 2024-09-30, outdated; CP-1 blocks only). The CP-1A, CP-1B, CP-1C, CP-1D, CP-2 and CP-DR shapes are synthetic. Rulings: `docs/rulings/2026-11-25-deliverables-and-recommendations.md`, section "Credit Snapshot workbook".
+- Built: `GET /connected/deliverables/<folder>/credit-snapshot.xlsx` writes one workbook (Snapshot, Inputs, Matrix, Sources) from a finished run's verified handoffs and pinned context; `credit_snapshot_workbook.py` is the one workbook writer (`tests/test_repo_rules.py`). Copied figures keep their digits; a missing value is a gap in words, never zero; every non-empty reader cell has one Sources row, and source references, file names, hashes and module ids appear on Sources only. The proposed recommendation is live Excel arithmetic over module-written scores and analyst cells, labelled proposed until confirmed. FIGI and Bloomberg ID are copied from a supplied RV worksheet on an exact maturity and asset-type join; no Bloomberg formula is written (`docs/TODO.md` item 14, work PC only).
+- Presentation change and its fidelity check: `tests/test_credit_snapshot_fidelity.py` re-reads the saved file against a frozen answer key written apart from the reader (`tests/fixtures/credit_snapshot/`, `tests/credit_snapshot_case.py`) on the three cases. Formulas checked by exact text and by hand evaluation against `recommendation.py`; mutation testing (mutmut 3.8.1) on the figure path, every survivor killed or justified as equivalent.
+- Coordinator's own check, PR head `02e05049` merged onto `main` `36c39519`: the fidelity, workbook, formulas, recommendation and repo-rules tests 602 passed; the every-module and TransDigm workbooks, built and reopened with openpyxl, hold exactly the four sheets, live formulas on the reader sheets and the formulas listed as text on Sources.
+- Reviews: task reviews with fix rounds (Task 3b's third through an `mx-autonomous` plan); confidence review 2 Medium fixed; rewrite tournament six simplifications, output identical over 61,755 cells; sweep one defect fixed, structural rows to the next phase sweep; pre-merge review on Opus while Fable is rate-limited (owner: "Use Opus meanwhile"), 6 Medium, then 2, fixed, then pass. 18 Lows parked for the end batch.
+- Not verified: Excel's own evaluation and rendering on Windows and Mac (hand-check steps in the PR body); a real run with a scorecard; real handoffs other than CP-1; an RV worksheet with real Bloomberg cached values; reading CP-1's `Asset type` (follow-up); the realised and unrealised split until CP-1D carries the Add-Back IDs; the weekly full suite.
+
 ## 2026-11-26 — Custom selection with whole modules: run type, handoff rules, estimate and cap, CP-8 base, run start picker (PR #121)
 
 - Scope: offline only. No provider call and no paid run; no real custom run exists. Rulings: `docs/rulings/2026-11-26-custom-routing.md` (owner: "Yes, whole modules first", "Approve the cap").
@@ -979,15 +988,3 @@ then 5; the narrow layout and the controls listed below.
 - Desktop preview verified at 1440 × 900 and 1280 × 900. Cash flow and scenario comparison open together. Compared all 680 historical and forecast display cells with the retained Caesars calculation record, including periods, missing values and zeros.
 - In-app preview verified FY2029E scenario comparison, Growth rates, Chart or Table and the downside source drawer. Design review confirmed the stronger selected-control state after recapture. Claude Model handoff and RBOT-HTML `fc010a7` informed the layout.
 - 174 focused tests passed. Chrome and Edge completed the synthetic desktop proof in `run-ikJ2Lt`. Build, lint and formatting passed. The Python gate passed with the untracked predecessor copy excluded. Post-edit review retained exact row matching and the separate-grid fallback.
-
-## 2026-11-18 — Desktop Forecast case comparison
-
-- Retained Caesars, Chrome at 1440 × 900. The four FY2029E figures fit on one row, reducing the case section from 384 to 230 px. Each value matched the retained preview. The opening qualification and shared rounding note appeared once in the comparison. Verified all four source buttons, arrow-key case selection, active comparison row and downside trace.
-- The focused frontend suite passed 134 tests. Chrome and Edge passed desktop synthetic proof (run-1oq0zs). Build, formatting and changed-component lint passed. The unfiltered Python gate found 3,008 issues in the untracked predecessor copy; excluding it yielded zero. Post-edit review confirmed the model supplies a common period and unit, and only exact matches to visible qualification text are removed from case labels.
-
-## 2026-11-18 — Connected desktop findings and Forecast proof
-
-- Retained Caesars preview at 1440 × 900 in Chrome. Library identified the test preview in both layouts and labelled 4.19× using the retained debt cash-interest basis. Read-only intake and progress controls were checked.
-- All 49 limitations across 12 modules matched the previous preview in order, prose and trace labels. Chart index focused Run charts 16 px from the top, including on reload. The Evidence model register appeared for Forward credit model and was absent under Legal.
-- Chrome and Edge passed the desktop-only synthetic proof (run-DQdHfb), including both intake cost labels, the qualification immediately preceding case figures, the scope disclosure and scenario comparison. An earlier Edge run timed out loading intake. The complete rerun passed on both browsers.
-- 314 focused frontend and 94 backend tests passed, as did build, lint and formatting. The Python gate reported 3,008 findings in the untracked predecessor copy and zero on the changed project code. Post-edit review retained grouped rows and per-history-entry scroll offsets.
