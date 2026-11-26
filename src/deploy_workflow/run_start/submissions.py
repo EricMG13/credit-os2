@@ -846,15 +846,19 @@ def refuse_filed_elsewhere(layout: Layout, answers: Answers) -> None:
     )
 
 
+def document_names(root: Path) -> list[str]:
+    """The sorted relative names of the source documents the digest covers under ``root``: every
+    stored file but the scheduler-written context.json. A link is a ``Refused``."""
+    return sorted(rel for rel in _stored(root, strict=True) if rel != _CONTEXT_NAME)
+
+
 def folder_digest(root: Path, answers: Answers) -> str:
     """Bind the current launch settings and source bytes in an upload or queued folder."""
     run = answers["context"].get("run")
     pathway = run.get("pathway") if isinstance(run, dict) else None
     cap = PATHWAY_CAP_USD.get(cast(PathwayId, pathway)) if isinstance(pathway, str) else None
     files = []
-    for rel in sorted(_stored(root, strict=True)):
-        if rel == _CONTEXT_NAME:  # made from the answers (the scheduler writes it); never uploaded
-            continue
+    for rel in document_names(root):  # context.json is made from the answers, never uploaded
         sha = hashlib.sha256()
         with (root / rel).open("rb") as stream:
             while chunk := stream.read(_CHUNK):
