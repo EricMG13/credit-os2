@@ -6,7 +6,7 @@ import hashlib
 import re
 import secrets
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from deploy_workflow.accounts.store import (
     Account,
@@ -27,8 +27,10 @@ def _hash(token: str) -> str:
 
 def mint_session(db: sqlite3.Connection, account_id: int, *, now: datetime) -> str:
     """Start a session for an enabled account and return its token (never stored as is)."""
-    created = utc_text(now)
-    expires = utc_text(now + SESSION_LENGTH)
+    utc_text(now)  # rejects a naive time
+    start = now.astimezone(UTC)  # add the 12 hours in UTC, not on a zoned wall clock
+    created = utc_text(start)
+    expires = utc_text(start + SESSION_LENGTH)
     token = secrets.token_urlsafe(32)
     with write_transaction(db):
         account = account_by_id(db, account_id)

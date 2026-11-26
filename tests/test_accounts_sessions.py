@@ -7,6 +7,7 @@ import re
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -118,3 +119,35 @@ def test_naive_time(db: sqlite3.Connection) -> None:
     token = mint_session(db, 1, now=T0)
     with pytest.raises(store.StoreError, match="timezone-aware"):
         session_account(db, token, now=naive)
+
+
+@pytest.mark.parametrize(
+    ("local", "created", "expires"),
+    [
+        (
+            datetime(2026, 10, 24, 20, 0, tzinfo=ZoneInfo("Europe/London")),
+            "2026-10-24T19:00:00+00:00",
+            "2026-10-25T07:00:00+00:00",
+        ),
+        (
+            datetime(2026, 3, 28, 20, 0, tzinfo=ZoneInfo("Europe/London")),
+            "2026-03-28T20:00:00+00:00",
+            "2026-03-29T08:00:00+00:00",
+        ),
+    ],
+)
+def test_twelve_real_hours_across_clock_change(
+    db: sqlite3.Connection, local: datetime, created: str, expires: str
+) -> None:
+    mint_session(db, 1, now=local)
+    (row,) = _rows(db)
+    assert row["created_at"] == row["last_used_at"] == created
+    assert row["expires_at"] == expires
+
+
+@pytest.mark.parametrize("bad", ["", "x" * 42, "x" * 44, "!" * 43])
+def test_malformed_token_never_touches_store(tmp_path: Path, bad: str) -> None:
+    conn = store.open_db(tmp_path / "store")
+    conn.close()  # any use of a closed connection raises sqlite3.ProgrammingError
+    assert session_account(conn, bad, now=T0) is None
+    end_session(conn, bad)
