@@ -40,7 +40,7 @@ from deploy_vii.registry import modules, plan
 from deploy_vii.report_view import _spec_of, pathways
 from deploy_workflow import (
     method_scripts,
-    method_scripts_completeness,  # noqa: F401 - registers the shared check
+    method_scripts_completeness,
     platform_io,
 )
 from deploy_workflow.changes import (
@@ -66,6 +66,7 @@ from deploy_workflow.handoff_delivery import (
     HandoffInput,
     MarkdownLayout,
     MarkdownRoute,
+    section,
     table_faults,
 )
 from deploy_workflow.html_text import convert_html
@@ -104,7 +105,13 @@ from deploy_workflow.model.pricing import (
     web_search_usd,
 )
 from deploy_workflow.model.turn import MODEL_EFFORTS, dump_json
-from deploy_workflow.owners import cpos_custom, cpos_forecast, cpos_periods, cpos_reader
+from deploy_workflow.owners import (
+    cpos_custom,
+    cpos_forecast,
+    cpos_launch_methods,
+    cpos_periods,
+    cpos_reader,
+)
 from deploy_workflow.owners.cpos import (
     MAX_MODULE_WIDTH,
     MODULE_WIDTH,
@@ -572,7 +579,12 @@ def _layout(
     gated = no_legal_documents(context)
     for block_id in preset.blocks:
         spec = _spec_of(block_id)
-        present = [m for m in BLOCK_OWNERS.get(block_id, spec.producers) if m in ordered]
+        present = [
+            m
+            for m in BLOCK_OWNERS.get(block_id, spec.producers)
+            if m in ordered
+            and cpos_launch_methods.owns_report_block(m, block_id, run.phase_selection)
+        ]
         if gated and "CP-4" in present[:-1]:
             present.remove("CP-4")
         owner = next(iter(present), None)
@@ -609,6 +621,11 @@ def _layout(
             else FORECAST_SCOPE
             if "CP-2G" in ordered
             else LAYER1_FORECAST_SCOPE
+        )
+        + (
+            " " + " ".join(cpos_launch_methods.scope_label(p) for p in run.phase_selection.values())
+            if run.phase_selection
+            else ""
         )
         + f" Sections not produced: {', '.join(omitted) or 'none'}."
         + (DELIVERED_WHOLE if "CP-8" in ordered else "")
@@ -655,12 +672,13 @@ def method_heading(name: str, text: str) -> str:
     return f"=== {name} sha256 {_sha(text.encode())} ==="
 
 
-def method_text(module: str, pathway: str | None = None) -> str:
+def method_text(module: str, pathway: str | None = None, phases: tuple[str, ...] = ()) -> str:
     """The method block exactly as a module's instructions carry it: each selected section under
     a heading that names it and the sha256 of its whole text, and, for a module in
     `TRIMMED_METHODS`, without the block's repeats (`trim_method`)."""
     block = "\n\n".join(
-        f"{method_heading(name, text)}\n{text}" for name, text in _sections(module, pathway)
+        f"{method_heading(name, text)}\n{text}"
+        for name, text in _scoped_sections(module, pathway, phases)
     )
     return trim_method(block) if module in TRIMMED_METHODS else block
 
@@ -673,10 +691,23 @@ def _sections(module: str, pathway: str | None) -> list[tuple[str, str]]:
     return method_sections(module, pathway)
 
 
-def register_scope(module: str, pathway: str | None = None) -> str:
+def _scoped_sections(
+    module: str, pathway: str | None, phases: tuple[str, ...]
+) -> list[tuple[str, str]]:
+    sections = _sections(module, pathway)
+    if not phases:
+        return sections
+    return [
+        scoped
+        for name, text in sections
+        if (scoped := cpos_launch_methods.scope_section(name, text, module, phases)) is not None
+    ]
+
+
+def register_scope(module: str, pathway: str | None = None, phases: tuple[str, ...] = ()) -> str:
     """The registers a module's scope section says not to write, as the section names them
     (`<id> <title>; <id> <title>`); empty when the section cuts none."""
-    section = dict(_sections(module, pathway))[f"{REGISTER_SCOPE} § {module}"]
+    section = dict(_scoped_sections(module, pathway, phases))[f"{REGISTER_SCOPE} § {module}"]
     return section.partition("do not write ")[2].partition(". Any figure")[0]
 
 
@@ -721,18 +752,22 @@ def _listed_ids(lines: list[str]) -> list[str]:
 
 
 @functools.cache
-def required_registers(module: str, pathway: str | None = None) -> tuple[str, ...]:
+def required_registers(
+    module: str, pathway: str | None = None, phases: tuple[str, ...] = ()
+) -> tuple[str, ...]:
     """The registers a module's handoff must carry: the method's `required_register_ids` (CP-0:
     less what CP0_BLOCK says the launcher did), less the module's scope section and the routing
     registers. Derived from the method text the module is sent in ``pathway``; empty outside the
     ten modules and the modules a pathway sends its own scoped method (`PATHWAY_METHODS`)."""
-    if not has_scope(module, pathway):
+    scoped = has_scope(module, pathway)
+    if not (scoped or phases):
         return ()
     listed: list[str] = []
-    for name, text in _sections(module, pathway):
+    for name, text in _scoped_sections(module, pathway, phases):
         if not name.startswith(REGISTER_SCOPE):
             listed += _listed_ids(text.split("\n"))
-    out = {part.strip().split(" ")[0] for part in register_scope(module, pathway).split(";")}
+    cuts = register_scope(module, pathway, phases) if scoped else ""
+    out = {part.strip().split(" ")[0] for part in cuts.split(";")}
     if module == "CP-0":
         launcher = re.search(r"Do not write the registers ([^.]*)\.", CP0_BLOCK)
         if launcher is None:
@@ -765,17 +800,39 @@ def _has_register(text: str, ident: str) -> bool:
     return any(re.search(p, text, re.MULTILINE) for p in (tag, heading))
 
 
-def register_issues(module: str, text: str, pathway: str | None = None) -> tuple[str, ...]:
+def register_issues(
+    module: str, text: str, pathway: str | None = None, phases: tuple[str, ...] = ()
+) -> tuple[str, ...]:
     """One issue naming every in-scope required register the handoff lacks; none for a module
     outside the ten (and a pathway's own scoped method) or one blocked at its gate. A register's
-    body is not judged."""
-    required = required_registers(module, pathway)
+    body is not judged. A scoped output cannot add an omitted phase register."""
+    required = (
+        required_registers(module, pathway, phases)
+        if phases
+        else required_registers(module, pathway)
+    )
+    outside = _outside_phase_registers(module, text, phases)
     if not required or _blocked_at_gate(text):
-        return ()
+        return outside
     missing = [i for i in required if not _has_register(text, i)]
     if not missing:
+        return outside
+    return (_MISSING_REGISTERS.format(ids=", ".join(missing), first=missing[0]), *outside)
+
+
+def _outside_phase_registers(module: str, text: str, phases: tuple[str, ...]) -> tuple[str, ...]:
+    """An unticked phase's table is analytically outside the approved scope."""
+    omitted = cpos_launch_methods.omitted_phases(module, phases) if phases else set()
+    if not omitted:
         return ()
-    return (_MISSING_REGISTERS.format(ids=", ".join(missing), first=missing[0]),)
+    declared = next((m.table_ids for m in modules() if m.module_id == module), ())
+    prose = "\n".join(method_scripts._unfenced(text))
+    outside = [
+        ident
+        for ident in declared
+        if cpos_launch_methods.register_matches(ident, omitted) and _has_register(prose, ident)
+    ]
+    return (f"Registers outside this analysis scope: {', '.join(outside)}.",) if outside else ()
 
 
 _POSTURE = re.compile(rf"Final Sizing Posture: (?:{'|'.join(map(re.escape, POSTURES))})(?![\w-])")
@@ -824,14 +881,26 @@ def scorecard_issues(module: str, text: str) -> tuple[str, ...]:
     return (f"Credit scorecard registers: {' '.join(faults)} {SCORECARD_PLACEMENT}",)
 
 
-def upstream_scope_note(ordered: Sequence[str]) -> str:
+def upstream_scope_note(
+    ordered: Sequence[str], phase_selection: Mapping[str, tuple[str, ...]] | None = None
+) -> str:
     """What CP-5 is told about the handoffs it audits: the registers each module of the run planned
     before it was told not to write. Empty when the run has no CP-5 or none of them has a scope
     section."""
     if "CP-5" not in ordered:
         return ""
     upstream = ordered[: ordered.index("CP-5")]
-    lines = [f"- {m}: {register_scope(m)}." for m in upstream if m in REGISTER_SCOPE_MODULES]
+    lines = [
+        f"- {m}: {cut}."
+        for m in upstream
+        if m in REGISTER_SCOPE_MODULES
+        if (cut := register_scope(m, phases=(phase_selection or {}).get(m, ())))
+    ]
+    lines += [
+        f"- {m}: {cpos_launch_methods.scope_label(phases)} Work outside this scope is not expected."
+        for m, phases in (phase_selection or {}).items()
+        if m in upstream
+    ]
     return UPSTREAM_SCOPE_NOTE.format(lines="\n".join(lines)) if lines else ""
 
 
@@ -859,7 +928,19 @@ def _instructions(
     first, shared, rest = selectors.partition(EDGE_RULES)
     selectors = first + shared + rest.replace(EDGE_RULES, "")
     methods = methods_for(module, run.pathway)
-    method = method_text(module, run.pathway)
+    phases = run.phase_selection.get(module, ())
+    method = (
+        method_text(module, run.pathway, phases) if phases else method_text(module, run.pathway)
+    )
+    scope = (
+        f"Custom method scope: {', '.join(phases)} with the parent core. These sections alone "
+        "define the analytical work, even where legacy text refers to every phase. Do not "
+        "perform or write registers for any omitted phase. Same run only: use this run's parent "
+        "core and supplied handoffs. In `## Request`, include this standalone line exactly:\n"
+        f"{cpos_launch_methods.scope_label(phases)}\n\n"
+        if phases
+        else ""
+    )
     return (
         f"# {module} for {run.issuer_name} ({run.issuer_id}), as of {run.as_of}\n\n"
         f"Pathway: {run.pathway}. Run the complete selected method below on this issuer's supplied "
@@ -875,7 +956,8 @@ def _instructions(
         "source locators and limitations. Absent evidence stays an explicit gap.\n\n"
         + TRANSPORT_RULES
         + ROUTING_RULES
-        + (PRESENCE_RULE if has_scope(module, run.pathway) else "")
+        + scope
+        + (PRESENCE_RULE if phases or has_scope(module, run.pathway) else "")
         + "A handoff is rejected unless it does all of this:\n"
         f"- name {run.issuer_name} in `## Request`, and state the as-of date {run.as_of} there;\n"
         "- list each issuer source it relied on in `## Sources`, naming the exact file and its "
@@ -969,6 +1051,7 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
     as_of: str,
     choice: str | None = None,
     planned: Sequence[str] | None = None,
+    phase_selection: Mapping[str, tuple[str, ...]] | None = None,
 ) -> tuple[PriorRun | None, str | None, dict[str, bytes]]:
     """The earlier run CP-8 compares with, the line recorded about it, and the pinned copies of its
     handoffs to write (source name -> bytes).
@@ -1009,6 +1092,7 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
         only=choice,
         skipped=skipped,
         planned=planned,
+        phase_selection=phase_selection,
     )
     why = f" (not used: {'; '.join(skipped)})" if skipped else ""
     if found is None:
@@ -1272,6 +1356,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
     requested = tuple(m for m in (modules or pathway_modules(settings)) if m != "CP-MODEL")
     completion = _complete_custom(config, requested) if custom else None
     requested = requested if completion is None else completion.modules
+    phase_selection = {} if completion is None else completion.phases
     if "CP-8" in requested:
         raise LaunchRefused(
             "--modules: CP-8 is planned automatically when an earlier run of this issuer and "
@@ -1293,6 +1378,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         as_of=settings.run.as_of,
         choice=choice,
         planned=requested,
+        phase_selection=phase_selection,
     )
     if left_out is not None:
         prior, note, earlier = None, left_out, {}
@@ -1321,6 +1407,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         case_kind=settings.run.case_kind,
         pathway=settings.run.pathway,
         requested_modules=requested,
+        phase_selection=phase_selection,
     )
     pinned, converted, ignored, covers = _issuer_files(folder, context_path, directory)
     if clash := [name for name in pinned if name.startswith(PRIOR_PREFIX)]:
@@ -1350,7 +1437,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         ("CP-1", LAYER1_FORECAST_BLOCK, forecast and "CP-2G" not in ordered),
         ("CP-0", CP0_BLOCK, True),
         ("CP-4C", TEST_DISTRESS_BLOCK, assumed),
-        ("CP-5", upstream_scope_note(ordered), True),
+        ("CP-5", upstream_scope_note(ordered, phase_selection), True),
         ("CP-2A", STRESS_BLOCK, True),
         ("CP-DR", PEER_PACK_BLOCK, peer_pack),
         ("CP-1C", PEER_READER_BLOCK, peer_pack),
@@ -1364,7 +1451,10 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         ("CP-2", cp2_scorecard_block() if "CP-2" in texts else "", "CP-2" in texts),
         ("CP-6", CP6A_BLOCK, True),
         ("CP-6", DEEP_DEBATE_BLOCK, options.cp6_deep_debate),
-        *((m, note, True) for m, note in method_scripts.NOTES.items()),
+        *(
+            (m, note, cpos_launch_methods.method_check_enabled(m, phase_selection))
+            for m, note in method_scripts.NOTES.items()
+        ),
         *(
             (told, text, bool(text))
             for told in ("CP-0", "CP-3", "CP-6")
@@ -1633,16 +1723,45 @@ def checker(layout: MarkdownLayout) -> Check:
         issues += _owned_issues(
             task.module_id, routes, text, task.handoffs.get("CP-1"), task.run.pathway
         )
-        issues += register_issues(task.module_id, text, task.run.pathway)
         issues += posture_issues(task.module_id, text)
         issues += screen_issues(task.module_id, text, task.run.pathway)
         issues += scorecard_issues(task.module_id, text)
-        upstream = method_scripts.upstream_texts(task.handoffs)  # a copied figure is compared
-        issues += method_scripts.issues(task.module_id, text, upstream)
-        issues += method_scripts.shared_issues(task.module_id, text, task.run.pathway)
+        issues += _method_issues(task, text)
         return (*issues, *_forecast_issues(task, text))
 
     return check
+
+
+def _method_issues(task: HandoffTask, text: str) -> tuple[str, ...]:
+    phases = task.run.phase_selection.get(task.module_id, ())
+    issues = list(register_issues(task.module_id, text, task.run.pathway, phases))
+    if phases:
+        label = cpos_launch_methods.scope_label(phases)
+        if not _has_scope_line(text, label):
+            issues.append(f"Include this line in ## Request: {label}")
+    if cpos_launch_methods.method_check_enabled(task.module_id, task.run.phase_selection):
+        upstream = method_scripts.upstream_texts(task.handoffs)
+        issues += method_scripts.issues(task.module_id, text, upstream)
+    return (*issues, *_shared_method_issues(task, text, phases))
+
+
+def _has_scope_line(text: str, label: str) -> bool:
+    try:
+        return any(line == label for _, line in section(text.splitlines(), "Request", (2,)))
+    except ValueError:
+        return False
+
+
+def _shared_method_issues(task: HandoffTask, text: str, phases: tuple[str, ...]) -> tuple[str, ...]:
+    if not phases:
+        return method_scripts.shared_issues(task.module_id, text, task.run.pathway)
+    return tuple(
+        method_scripts.issue(outcome)
+        for outcome in method_scripts_completeness.scoped_outcomes(
+            task.module_id, text, task.run.pathway, phases
+        )
+        if outcome.status in method_scripts.SENT_BACK
+    )
 
 
 def _key_figure_issues(task: HandoffTask, text: str) -> tuple[str, ...]:

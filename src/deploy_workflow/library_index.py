@@ -39,6 +39,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote
 
+from deploy_vii.contracts import Run
 from deploy_workflow.credit_os_chips import PATHWAY_MODULE_NAMES
 from deploy_workflow.derived import derived
 from deploy_workflow.reader_summary import TABLES, reader_tables
@@ -290,29 +291,37 @@ def sent_instructions(folder: Path, module: str, response: str, identity: Mappin
     return instructions
 
 
-def pathway_method(module: str, pathway: str) -> tuple[str, list[tuple[str, str]]] | None:
+def pathway_method(
+    module: str, pathway: str, phases: tuple[str, ...] = ()
+) -> tuple[str, list[tuple[str, str]]] | None:
     """The method block and the section headings a pathway selects for a module in place of the
     injected one-argument lookups (plan C2: credit screening's CP-L10); None when it has none."""
     from deploy_workflow.owners.cpos_launch import (
+        _scoped_sections,
         method_heading,
-        method_sections,
         method_text,
     )
     from deploy_workflow.owners.cpos_launch import pathway_method as selected
 
-    if selected(module, pathway) is None:
+    if not phases and selected(module, pathway) is None:
         return None
-    sections = method_sections(module, pathway)
-    return method_text(module, pathway), [(n, method_heading(n, body)) for n, body in sections]
+    sections = _scoped_sections(module, pathway, phases)
+    return method_text(module, pathway, phases), [
+        (name, method_heading(name, body)) for name, body in sections
+    ]
 
 
 def method_difference(
-    block: str, module: str, headings: MethodHeadings, pathway: str | None = None
+    block: str,
+    module: str,
+    headings: MethodHeadings,
+    pathway: str | None = None,
+    phases: tuple[str, ...] = (),
 ) -> str:
     """Which method sections differ between what was sent and what is selected today (for
     ``pathway``, when it selects a method of its own for the module)."""
     sent = set(_HEADING.findall(block))
-    own = None if pathway is None else pathway_method(module, pathway)
+    own = None if pathway is None else pathway_method(module, pathway, phases)
     current = headings(module) if own is None else own[1]
     changed = [name for name, heading in current if heading not in block]
     dropped = sorted(sent - {name for name, _ in current})
@@ -325,7 +334,7 @@ def check_methodology(
     folder: Path,
     delivered: Mapping[str, Any],
     execution: Mapping[str, Any],
-    identity: Mapping[str, str],
+    run: Mapping[str, Any],
     method: tuple[MethodText, MethodHeadings],
 ) -> list[str]:
     """Refuse unless every module was answered here and has a current method. Returns what changed
@@ -333,13 +342,18 @@ def check_methodology(
     from deploy_workflow.owners.cpos_launch import METHOD_MARK, without_notes
 
     method_text, method_headings = method
+    identity = run_identity(run)
+    phase_selection = (
+        Run.model_validate_json(json.dumps(run)).phase_selection if "phase_selection" in run else {}
+    )
     changes: list[str] = []
     for module, pin in delivered["handoffs"].items():
         how = execution.get(module)
         if how not in ANSWERED:
             word = EXECUTION_WORDS.get(str(how), f"recorded as {how!r}")
             raise Refused(f"{module}: {word.lower()}; its methodology is not this run's")
-        own = pathway_method(module, identity["pathway"])
+        phases = phase_selection.get(module, ())
+        own = pathway_method(module, identity["pathway"], phases)
         current = method_text(module) if own is None else own[0]
         if current is None:
             raise Refused(f"{module}: no current method is selected for this module")
@@ -347,7 +361,7 @@ def check_methodology(
         _, mark, block = text.partition(METHOD_MARK)
         block = without_notes(block)  # first-pass reading notes follow the method, not part of it
         if not mark or block != current + "\n":
-            detail = method_difference(block, module, method_headings, identity["pathway"])
+            detail = method_difference(block, module, method_headings, identity["pathway"], phases)
             changes.append(f"{module}: {detail}")
     return changes
 
@@ -583,7 +597,7 @@ def admit_run(
     same_identity(delivered["manifest"].get("run"), identity, "the delivery manifest")
     same_identity(delivered["view"].get("run"), identity, "the delivered report")
     execution = completion["module_execution"]
-    method_changes = check_methodology(folder, delivered, execution, identity, method)
+    method_changes = check_methodology(folder, delivered, execution, run, method)
     requested = run.get("requested_modules")
     cap = completion.get("provider_cap_usd")
     record = {

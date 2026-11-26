@@ -41,6 +41,129 @@ export const OFFERED: readonly OfferedModule[] = data.modules
   }));
 const OFFERED_IDS: ReadonlySet<string> = new Set(OFFERED.map(({ id }) => id));
 
+/** Reader facing phases inside a selected module. A module stays whole until one phase is ticked. */
+export const PHASES: Readonly<
+  Record<
+    string,
+    readonly {
+      id: string;
+      name: string;
+      answers: string;
+      upstream: string;
+      related?: string;
+    }[]
+  >
+> = {
+  "CP-1A": [
+    {
+      id: "CP-2C",
+      name: "Sponsor and governance",
+      answers: "Assesses sponsor control, incentives and governance.",
+      upstream: "Business and transaction facts",
+    },
+  ],
+  "CP-1D": [
+    {
+      id: "CP-1E",
+      name: "Covenant EBITDA",
+      answers: "Tests covenant EBITDA against the earnings bridge.",
+      upstream: "The financial foundation and earnings bridge",
+    },
+  ],
+  "CP-2A": [
+    {
+      id: "CP-2B",
+      name: "Event and catalyst risk",
+      answers: "Assesses event and catalyst-driven downside risk.",
+      upstream: "The downside case and event timeline",
+    },
+  ],
+  "CP-2E": [
+    {
+      id: "CP-2F",
+      name: "Environmental, social and governance risks",
+      answers: "Assesses material environmental, social and governance risks.",
+      upstream: "The issuer's business and risk context",
+    },
+  ],
+  "CP-3": [
+    {
+      id: "CP-3A",
+      name: "Instrument priority and recovery",
+      answers: "Compares instrument priority and recovery.",
+      upstream: "The capital structure and recovery analysis",
+    },
+    {
+      id: "CP-3B",
+      name: "Portfolio fit",
+      answers: "Assesses how instruments fit the selected portfolio.",
+      upstream: "The credit view and portfolio holdings",
+    },
+  ],
+  "CP-4": [
+    {
+      id: "CP-4A",
+      name: "Covenant capacity",
+      answers: "Measures covenant headroom and capacity.",
+      upstream: "The credit agreement and recovery assessment",
+    },
+    {
+      id: "CP-4B",
+      name: "Structural priority",
+      answers: "Maps guarantees, collateral and structural priority.",
+      upstream: "The legal entity and debt structure",
+    },
+    {
+      id: "CP-4D",
+      name: "Intercreditor control",
+      answers: "Assesses enforcement control, standstill and voting.",
+      upstream: "The structural priority map",
+      related: "Structural priority also runs because intercreditor control depends on it.",
+    },
+  ],
+  "CP-5": [
+    {
+      id: "CP-5A",
+      name: "Cross-module audit",
+      answers: "Audits evidence and internal consistency across the selected work.",
+      upstream: "The selected modules' completed findings",
+    },
+  ],
+  "CP-6": [
+    {
+      id: "CP-6A",
+      name: "Portfolio posture",
+      answers: "Forms the committee's portfolio posture and sizing constraints.",
+      upstream: "The portfolio holdings and credit view",
+    },
+  ],
+};
+
+export function phaseScopeNote(parent: string, hasSelectedPhase: boolean) {
+  if (!hasSelectedPhase) return "Whole module runs.";
+  const phases = PHASES[parent] ?? [];
+  if (parent === "CP-4") {
+    return "Core analysis and selected phases run. Other phases are omitted unless needed by a downstream module.";
+  }
+  return phases.length > 1
+    ? "Core analysis and selected phases run. Other phases are omitted unless needed by a downstream module."
+    : "Core analysis and this phase run, with its registers.";
+}
+
+/** Toggle a phase while keeping its parent in the submitted selection. */
+export function togglePhase(chosen: readonly string[], parent: string, phase: string) {
+  const parentPhases = PHASES[parent]?.map(({ id }) => id) ?? [];
+  const next = chosen.filter((id) => !parentPhases.includes(id));
+  const parentSelected = chosen.includes(parent);
+  const phases = chosen.filter((id) => parentPhases.includes(id));
+  const selected = phases.includes(phase)
+    ? phases.filter((id) => id !== phase)
+    : [...phases, phase];
+  if (!parentSelected) next.push(parent);
+  if (selected.length === 0) return next;
+  return [...next, ...parentPhases.filter((id) => selected.includes(id))];
+}
+
 export const PRESETS: readonly { id: string; name: string; modules: readonly string[] }[] =
   data.presets;
 

@@ -37,6 +37,7 @@ import {
 import {
   CUSTOM,
   OFFERED,
+  PHASES,
   complete,
   customEffort,
   estimate as customEstimate,
@@ -700,9 +701,20 @@ export function carriedIntro(prior: PriorInputs) {
 }
 
 export function carriedModules(prior?: PriorInputs): string[] {
-  // A custom run's modules are its own choice: the ones the page offers, in the page's order.
-  if (prior?.context?.run.pathway === CUSTOM)
-    return OFFERED.map(({ id }) => id).filter((id) => prior.modules.includes(id));
+  // A custom run's modules are its own choice: parent modules in page order with scoped phases
+  // immediately after their parent. Drop a phase whose parent is absent from an older record.
+  if (prior?.context?.run.pathway === CUSTOM) {
+    const selected = new Set(prior.modules);
+    return OFFERED.flatMap(({ id }) => {
+      if (!selected.has(id)) return [];
+      return [
+        id,
+        ...(PHASES[id] ?? [])
+          .filter(({ id: phase }) => selected.has(phase))
+          .map(({ id: phase }) => phase),
+      ];
+    });
+  }
   const available = pathwayModules(prior?.context?.run.pathway ?? "");
   const chosen = prior?.modules ?? [];
   if (!drawnModules(chosen).length || !chosen.every((code) => available.includes(code))) return [];
