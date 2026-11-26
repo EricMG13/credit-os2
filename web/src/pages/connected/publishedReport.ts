@@ -629,13 +629,13 @@ export function methodNote(text: string) {
   );
 }
 
-// A bracket that is only evidence ids, as reader.ts's ID grammar (`[A-Z]{1,3}\d+[A-Za-z]?(.\d+)?`),
-// widened to dotted and lettered ids ([E3.2], [E3a], [T4.4a], [T2E.3.r03], [E1234]). Items may be
-// joined by , ; / dashes, "and" or "or", and led by "see". Periods and scenarios share that shape
-// and stay in prose: Q3, H1, FY24/FY2024, P50 percentiles and an undotted T4; an item followed by a
-// year ("[S1 2025]", "[H2 2025]") is not an id list at all. A scenario id [S02] cannot be told from
-// a source id [S12], so it moves to the basis with them.
-const MARKER_ITEM = String.raw`(?!(?:[QH]\d|FY\d{2,4}|P\d{2}|T\d+)(?![\w.]))(?:[A-Z]{1,3}\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|T[A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?)`;
+// A bracket that is only evidence ids: the marker letters C, D, E, G, K, R, S followed by digits,
+// widened to dotted and lettered ids ([E3.2], [E3a], [E1234]), plus dotted T register ids ([T4.4a],
+// [T2E.3.r03]). Items may be joined by , ; / dashes, "and" or "or", and led by "see". Period,
+// scenario and capital tokens (Q, H, FY, CY, P, an undotted T, CET1, AT1) are not markers and stay in
+// prose; an item followed by a year ("[S1 2025]") is not an id list at all. A scenario id [S02]
+// cannot be told from a source id [S12], so it moves to the basis with them.
+const MARKER_ITEM = String.raw`(?:[CDEGKRS]\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?|T[A-Z0-9]{0,5}\.\d+(?:\.[A-Za-z]?\d+)*[A-Za-z]?)`;
 const MARKER_JOIN = String.raw`(?:\s*[,;/–-]\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)`;
 const MARKER_BRACKET = new RegExp(
   String.raw`^\[\s*(?:see\s+)?${MARKER_ITEM}(?:${MARKER_JOIN}${MARKER_ITEM})*\s*\]$`,

@@ -66,10 +66,34 @@ describe("evidence ids in any written shape move to the basis", () => {
     "[R9]",
     "[T4.4a]",
     "[S02]",
+    "[E3]",
+    "[S12; G4]",
+    "[C07; T4.4]",
+    "[T2E.3.r03]",
+    "[T4.18]",
+    "[K3]",
   ])("%s", (marker) => {
     expect(readParagraph(`Debt is stable ${marker}.`)).toEqual({
       body: "Debt is stable.",
       basis: marker,
+    });
+  });
+
+  it.each([
+    "[FY26E]",
+    "[FY25A]",
+    "[FY24A]",
+    "[CY24]",
+    "[FQ3]",
+    "[Q3E]",
+    "[T12M]",
+    "[P99.9]",
+    "[CET1]",
+    "[AT1]",
+  ])("keeps the period or capital token %s in the body", (marker) => {
+    expect(readParagraph(`Leverage will fall ${marker}.`)).toEqual({
+      body: `Leverage will fall ${marker}.`,
+      basis: null,
     });
   });
 
