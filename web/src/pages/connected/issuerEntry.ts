@@ -114,18 +114,29 @@ function standardView(run?: LibraryRun) {
   return run?.assessmentScope === "standard" && Boolean(publishedLead(run));
 }
 
+/**
+ * A custom run is an issuer assessment only when its scope is standard and it delivered
+ * Fundamental credit, the credit view every assessment carries (ruling C21); one without it ranks
+ * as the purpose reports do.
+ */
+function customAssessment(run?: LibraryRun) {
+  return run?.pathway === "custom" && standardView(run) && Boolean(run.delivered?.includes("CP-2"));
+}
+
 export function isIssuerAssessment(run?: LibraryRun) {
   return (
-    ["credit_snapshot", "deep_credit_assessment", "lite_credit_assessment", "custom"].includes(
+    (["credit_snapshot", "deep_credit_assessment", "lite_credit_assessment"].includes(
       run?.pathway ?? "",
-    ) && standardView(run)
+    ) &&
+      standardView(run)) ||
+    customAssessment(run)
   );
 }
 
 /**
  * Filtered results open the selected pathway. The unfiltered entry prefers a standard assessment:
- * Full or Deep, then Lite, then a custom selection (Deep's modules, chosen by the analyst, so it
- * is an issuer assessment but never displaces a whole one), then the latest admitted report.
+ * Full or Deep, then Lite, then a custom selection that delivered Fundamental credit (it never
+ * displaces a whole assessment; ruling C21), then the latest admitted report.
  */
 export function selectIssuerEntry(entries: IssuerRun[], explicitPathway: boolean) {
   const admitted = entries.filter(({ run }) => run);
@@ -139,7 +150,7 @@ export function selectIssuerEntry(entries: IssuerRun[], explicitPathway: boolean
   const lite = admitted.filter(
     ({ run }) => run?.pathway === "lite_credit_assessment" && standardView(run),
   );
-  const chosen = admitted.filter(({ run }) => run?.pathway === "custom" && standardView(run));
+  const chosen = admitted.filter(({ run }) => customAssessment(run));
   return ordered(full.length ? full : lite.length ? lite : chosen.length ? chosen : admitted)[0];
 }
 

@@ -311,7 +311,10 @@ export type LibraryRun = Pick<
   | "lead"
   | "assessmentScope"
   | "publishedAt"
->;
+> & {
+  /** A custom run's delivered modules (the library index names them for `custom` only). */
+  delivered?: string[];
+};
 
 export function publishedRunForFolder<Run extends { folder: string }>(
   runs: Record<string, Run>,

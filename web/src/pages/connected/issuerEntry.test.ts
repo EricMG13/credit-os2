@@ -116,7 +116,11 @@ describe("issuer entry", () => {
 
   describe("a custom run (PR 7a: Deep's modules, chosen by the analyst)", () => {
     const custom = (folder: string, date: string, fields: Partial<LibraryRun> = {}) =>
-      caseRun(folder, date, { pathway: "custom", ...fields });
+      caseRun(folder, date, {
+        pathway: "custom",
+        delivered: ["CP-0", "CP-1", "CP-2"],
+        ...fields,
+      });
 
     it("is an issuer assessment when its scope is standard and a credit view is published", () => {
       expect(isIssuerAssessment(custom("c", "2026-01-01").run)).toBe(true);
@@ -150,6 +154,27 @@ describe("issuer entry", () => {
       expect(selectIssuerEntry([purpose, chosen, lite], false)).toBe(lite);
       expect(selectIssuerEntry([purpose, chosen, lite, full], false)).toBe(full);
       expect(selectIssuerEntry([purpose, chosen, full], true)).toBe(purpose);
+    });
+
+    it("without Fundamental credit ranks as the purpose reports do (ruling C21)", () => {
+      const covenant = custom("c", "2026-06-01", {
+        delivered: ["CP-0", "CP-1", "CP-4"],
+        lead: { module: "CP-4", output: "c/CP-4", sha256: SHA, line: 4, text: "Headroom is thin." },
+      });
+      expect(isIssuerAssessment(covenant.run)).toBe(false);
+      const newer = caseRun("cov", "2026-07-01", { pathway: "covenant_refinancing" });
+      const older = caseRun("cov-old", "2026-05-01", { pathway: "covenant_refinancing" });
+      // The newer purpose report is the entry, as it would be against another purpose report.
+      expect(selectIssuerEntry([covenant, newer], false)).toBe(newer);
+      expect(selectIssuerEntry([older, covenant], false)).toBe(covenant);
+      // A custom run with Fundamental credit still ranks above both.
+      const credit = custom("k", "2026-01-01");
+      expect(selectIssuerEntry([newer, covenant, credit], false)).toBe(credit);
+      const [group] = groupIssuers({
+        catalogue: { real: [covenant.catalogue] },
+        workspace: { runs: { c: covenant.run } },
+      });
+      expect(group?.assessmentUnavailable).toBe(true);
     });
 
     it("is not preferred when its scope is partial", () => {

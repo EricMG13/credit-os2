@@ -8,7 +8,15 @@ from types import SimpleNamespace
 
 import pytest
 import test_changes as seam
-from library_fixtures import make_custom_run, make_run, method, with_changes, without_report
+from library_fixtures import (
+    FINDING_ROW,
+    HANDOFF,
+    make_custom_run,
+    make_run,
+    method,
+    with_changes,
+    without_report,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 import update_library
@@ -586,6 +594,34 @@ def test_the_lead_module_of_a_custom_run_is_cp2_else_the_last_planned_it_deliver
 ):
     """Synthetic custom run as the launcher records it (`make_custom_run`)."""
     without_report(make_custom_run(tmp_path, "c", modules))
+    update_library.update_library(tmp_path)
+    assert changes_of(tmp_path, "c")["lead"] == lead
+
+
+def _not_assessable(module: str) -> str:
+    return HANDOFF.format(
+        module=module,
+        name="Northbridge Synthetic Group",
+        as_of="2025-03-31",
+        bottom="Not assessable: no rates supplied.",
+        confidence="Low",
+        finding=FINDING_ROW,
+    )
+
+
+@pytest.mark.parametrize(
+    ("modules", "blocked", "lead"),
+    [
+        (("CP-0", "CP-1", "CP-1A", "CP-2E"), "CP-2E", "CP-1A"),  # reviewer's probe, M1
+        (("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2E"), "CP-2", "CP-2E"),  # blocked CP-2 yields
+        (("CP-0", "CP-1", "CP-4"), "CP-4", "CP-1"),
+    ],
+)
+def test_the_changes_lead_of_a_custom_run_is_the_first_usable_module_as_overview_picks_it(
+    tmp_path, modules, blocked, lead
+):
+    run = make_custom_run(tmp_path, "c", modules, answers={blocked: _not_assessable(blocked)})
+    without_report(run)
     update_library.update_library(tmp_path)
     assert changes_of(tmp_path, "c")["lead"] == lead
 
