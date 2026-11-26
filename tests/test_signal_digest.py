@@ -9,6 +9,7 @@ in their names.
 
 from __future__ import annotations
 
+import dataclasses
 import sqlite3
 import threading
 from collections.abc import Iterator
@@ -446,26 +447,32 @@ def test_the_scope_holds_at_most_sixty_stories_the_newest_ones_test_double(db):
 
 
 def scoped(db: sqlite3.Connection, ident: int, start: str, end: str) -> list[str]:
-    digest = digests.owned(db, "Mara L", ident)
-    found = digests._scope_stories(db, digest, at(start), at(end))
+    # mark 0: tests the look-back and the cover filters on their own, apart from the mark
+    digest = dataclasses.replace(digests.owned(db, "Mara L", ident), story_mark=0)
+    found = digests._scope_stories(db, digest, at(start), at(end), digests._highest_story(db))
     return [one.title for one in found]
 
 
-def test_a_period_takes_stories_after_its_start_up_to_and_including_its_end(db):
+def test_a_period_takes_stories_after_its_start_less_the_look_back_with_no_upper_bound(db):
     wire = source(db)
-    story(db, wire, "At start", at("2026-11-10 08:00"))
-    story(db, wire, "Inside", at("2026-11-10 09:00"))
+    story(db, wire, "Too old", at("2026-11-02 08:00"))  # a week before the start: out
+    story(db, wire, "At look-back edge", at("2026-11-03 08:00"))  # start less the week: out
+    story(db, wire, "Inside the look-back", at("2026-11-03 08:01"))
     story(db, wire, "At end", at("2026-11-10 10:00"))
-    story(db, wire, "After", at("2026-11-10 10:01"))
-    ident = make(db)
-    assert scoped(db, ident, "2026-11-10 08:00", "2026-11-10 10:00") == ["At end", "Inside"]
+    story(db, wire, "After", at("2026-11-10 10:01"))  # the id window bounds it, not its time
+    ident = make(db)  # weekly: the look-back is 7 days, the period 2 hours
+    assert scoped(db, ident, "2026-11-10 08:00", "2026-11-10 10:00") == [
+        "After",
+        "At end",
+        "Inside the look-back",
+    ]
 
 
 def test_a_topic_digest_takes_the_stories_of_its_topics_only(db):
     wire = source(db)
     story(db, wire, "Plant closure at Corvane", at("2026-11-10 09:00"))
     story(db, wire, "Tanker rates rise", at("2026-11-10 09:30"))
-    story(db, wire, "Plant closure at Delmere", at("2026-11-10 06:00"))  # before the period
+    story(db, wire, "Plant closure at Delmere", at("2026-11-02 06:00"))  # past the look-back
     topics.add_topic(db, "Packaging", ["plant closure"], [], "Mara L")
     topics.add_topic(db, "Shipping", ["tanker"], [], "Mara L")
     packaging = make(db, name="One", covers=["Topic: Packaging"])
@@ -520,14 +527,11 @@ def test_a_group_the_owner_can_no_longer_see_adds_nothing_to_a_digest(db):
     share(db, group, secret, at("2026-11-10 09:30"))
     ident = make(db, owner="Tobias O", covers=["Group: Closed"])
     digest = digests.owned(db, "Tobias O", ident)
-    assert [
-        one.title
-        for one in digests._scope_stories(
-            db, digest, at("2026-11-10 08:00"), at("2026-11-10 12:00")
-        )
-    ] == ["Closed-door story"]
+    top = digests._highest_story(db)
+    span = (at("2026-11-10 08:00"), at("2026-11-10 12:00"), top)
+    assert [one.title for one in digests._scope_stories(db, digest, *span)] == ["Closed-door story"]
     groups.remove_member(db, WRITER, group, "Tobias O")  # the owner leaves the group
-    assert digests._scope_stories(db, digest, at("2026-11-10 08:00"), at("2026-11-10 12:00")) == ()
+    assert digests._scope_stories(db, digest, *span) == ()
     run = digests.run_now(db, "Tobias O", ident, at("2026-11-10 12:00"))
     assert digests.covers_nothing(db, digest)
     assert (run.outcome, run.stories, run.reason) == ("skipped", 0, digests.NO_COVER)
@@ -661,9 +665,9 @@ def test_skipped_runs_while_ai_is_off_never_let_a_period_outgrow_one_day(db):
 
 def test_a_period_is_the_gap_since_the_last_run_so_catching_up_covers_the_downtime_once(db):
     wire = source(db)
-    story(db, wire, "During the outage", at("2026-12-10 09:00"))
     ident = make(db)  # weekly, first period from Fri 20 Nov 07:00
     digests.run_due(db, at("2026-11-27 07:00"))
+    story(db, wire, "During the outage", at("2026-12-10 09:00"))  # stored after that run
     # The service is down for three weeks, then one run covers the whole gap and no more.
     ran = digests.run_due(db, at("2026-12-20 09:00"))
     assert [run.outcome for _, run in ran] == ["skipped"]
@@ -910,3 +914,211 @@ def test_creating_digests_at_the_same_time_cannot_pass_the_limit_of_five(tmp_pat
     assert sorted(outcomes) == ["made"] * 5 + ["refused"] * 3
     assert count(first, "digests") == 5
     first.close()
+
+
+# A story is in scope by the id window and a one-period look-back, not by the period it fell in
+
+
+def daily(db: sqlite3.Connection) -> int:
+    return make(db, schedule="Daily, 07:00 UTC")
+
+
+def run_counts(db: sqlite3.Connection) -> list[int]:
+    rows = db.execute("SELECT stories FROM digest_runs ORDER BY id").fetchall()
+    return [int(row["stories"]) for row in rows]
+
+
+def late(db: sqlite3.Connection, src: int, title: str, published: str, fetched: str) -> None:
+    link = f"https://example.org/{title.replace(' ', '-')}"
+    entry = Entry(title, link, at(published), f"About {title}")
+    store.add_story(db, src, entry, at(fetched))
+
+
+def titles(writer: Any) -> list[list[str]]:
+    return [[one.title for one in scope.stories] for scope in writer.scopes]
+
+
+def test_a_story_fetched_after_a_run_but_published_before_it_is_in_the_next_run_only(db):
+    wire = source(db)
+    ident = daily(db)
+    writer = RecordingWriter()
+    late(db, wire, "Control story", "2026-11-24 13:00", "2026-11-24 13:05")
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    late(db, wire, "Late story", "2026-11-25 00:00", "2026-11-25 10:00")
+    digests.run_due(db, at("2026-11-26 07:00"), writer)
+    digests.run_due(db, at("2026-11-27 07:00"), writer)
+    assert titles(writer) == [["Control story"], ["Late story"]]
+    assert run_counts(db) == [1, 1, 0]
+    assert digests.owned(db, "Mara L", ident).period_from == at("2026-11-27 07:00")
+
+
+def test_a_source_added_with_an_old_archive_does_not_flood_the_next_run(db):
+    wire = source(db)
+    daily(db)
+    writer = RecordingWriter()
+    assert digests.run_due(db, at("2026-11-25 07:00"), writer)[0][1].outcome == "nothing"
+    archive = source(db, "Archive")
+    late(db, archive, "Archive from last week", "2026-11-20 09:00", "2026-11-25 08:00")
+    late(db, archive, "Just over a day old", "2026-11-24 06:59", "2026-11-25 08:00")
+    late(db, wire, "Within a day", "2026-11-24 20:00", "2026-11-25 08:00")
+    digests.run_due(db, at("2026-11-26 07:00"), writer)
+    assert titles(writer) == [["Within a day"]]
+
+
+def test_run_once_now_after_a_scheduled_run_takes_the_day_stamped_story_once(db):
+    wire = source(db)
+    ident = daily(db)
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    late(db, wire, "Day stamped", "2026-11-25 00:00", "2026-11-25 07:10")
+    run = digests.run_now(db, "Mara L", ident, at("2026-11-25 07:31"), writer)
+    assert (run.outcome, run.stories) == ("written", 1)
+    digests.run_due(db, at("2026-11-26 07:00"), writer)
+    assert titles(writer) == [["Day stamped"]]
+    assert run_counts(db) == [0, 1, 0]
+
+
+class InterleavingWriter(RecordingWriter):
+    """A writer whose draft is the moment an ingest pass commits a story stamped before the run."""
+
+    def __init__(self, db: sqlite3.Connection, src: int) -> None:
+        super().__init__()
+        self.db, self.src = db, src
+
+    def draft(self, scope: digests.Scope) -> object:
+        if not self.scopes:
+            late(self.db, self.src, "Committed mid-run", "2026-11-25 06:58", "2026-11-25 06:59")
+        return super().draft(scope)
+
+
+def test_a_story_committed_while_a_run_drafts_lands_in_the_next_run(db):
+    wire = source(db)
+    daily(db)
+    late(db, wire, "Before the run", "2026-11-24 13:00", "2026-11-24 13:05")
+    writer = InterleavingWriter(db, wire)
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    digests.run_due(db, at("2026-11-26 07:00"), writer)
+    assert titles(writer) == [["Before the run"], ["Committed mid-run"]]
+
+
+OLD_ROWS = [
+    ("Old 1", "2026-11-20T05:00:00+00:00", "2026-11-20T06:00:00+00:00"),
+    ("Old 2", "2026-11-20T05:00:00+00:00", "2026-11-20T07:00:00+00:00"),
+    ("Old 3", "2026-11-20T05:00:00+00:00", "2026-11-20T07:00:01+00:00"),
+]
+
+
+def v7_store(
+    root: Path,
+    rows: list[tuple[str, str, str]] = OLD_ROWS,
+    period_from: str = "2026-11-20T07:00:00+00:00",
+) -> sqlite3.Connection:
+    (root / "signal").mkdir()
+    old = sqlite3.connect(root / "signal" / "signal.db")
+    old.row_factory = sqlite3.Row
+    old.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    old.executescript("".join(store.MIGRATIONS[:7]))
+    old.execute("INSERT INTO meta VALUES('schema_version', '7')")
+    old.execute("INSERT INTO meta VALUES('schema_hash', ?)", (store.scripts_hash(7),))
+    old.execute("INSERT INTO users(name, role) VALUES('Mara L', 'writer')")
+    old.execute(
+        "INSERT INTO sources(id, name, kind, url, state, proposed_by, created_at)"
+        " VALUES(1, 'Wire', 'news', 'https://wire.example/feed', 'approved', 'x', '2026-11-01')"
+    )
+    for number, (title, published, when) in enumerate(rows, 1):
+        old.execute(
+            "INSERT INTO stories(id, source_id, title, link, link_key, title_key, published_at,"
+            " fetched_at, summary) VALUES(?, 1, ?, ?, ?, ?, ?, ?, 's')",
+            (
+                number,
+                title,
+                f"https://e.org/{number}",
+                f"k{number}",
+                f"t{number}",
+                published,
+                when,
+            ),
+        )
+    old.execute(
+        "INSERT INTO digests(owner, name, cadence, minute, weekday, month_day, covers_all, subject,"
+        " length, points, upcoming, look_ahead_days, period_from, next_run_at, created_at)"
+        " VALUES('Mara L', 'Daily', 'daily', 420, NULL, NULL, 1, '', 'standard', 5, '', 7,"
+        " ?, '2026-11-25T07:00:00+00:00', '2026-11-01')",
+        (period_from,),
+    )
+    old.commit()
+    old.close()
+    return store.open_db(root)
+
+
+def test_a_digest_of_an_older_store_starts_its_mark_below_the_first_story_fetched_after_its_period(
+    tmp_path,
+):
+    db = v7_store(tmp_path)
+    assert db.execute("SELECT story_mark FROM digests").fetchone()[0] == 2
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    # the period is 20 to 25 Nov, so the look-back starts 15 Nov 07:00 and holds all three
+    assert titles(writer) == [["Old 3"]]
+    db.close()
+
+
+def test_a_new_digest_takes_only_stories_fetched_after_its_period_starts(db):
+    wire = source(db)
+    story(db, wire, "Fetched before", at("2026-11-23 06:00"))
+    story(db, wire, "Fetched at the start", at("2026-11-24 07:00"))
+    story(db, wire, "Fetched after", at("2026-11-24 09:00"))
+    ident = daily(db)  # made at NOW: its first period starts 24 Nov 07:00
+    assert digests.owned(db, "Mara L", ident).story_mark == 2
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    assert titles(writer) == [["Fetched after"]]
+
+
+def test_a_failed_paid_write_leaves_the_period_and_the_mark_so_the_next_run_covers_it_again(db):
+    wire = source(db)
+    ident = daily(db)
+    late(db, wire, "Held over", "2026-11-24 13:00", "2026-11-24 13:05")
+
+    class Failing(RecordingWriter):
+        def draft(self, scope: digests.Scope) -> object:
+            super().draft(scope)
+            raise digests.WriterFailed("the model said no")
+
+    before = digests.owned(db, "Mara L", ident)
+    run = digests.run_due(db, at("2026-11-25 07:00"), Failing())[0][1]
+    assert run.reason.startswith(digests.NOT_WRITTEN)
+    after = digests.owned(db, "Mara L", ident)
+    assert (after.period_from, after.story_mark) == (before.period_from, before.story_mark)
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-26 07:00"), writer)
+    assert titles(writer) == [["Held over"]]
+
+
+# Two ingest passes overlap: the later-started pass commits first, so fetch time does not rise
+# with story id. Period start is 24 Nov 07:00. Id 1 was fetched (07:00:30) after it, id 2 (06:59)
+# before it, yet id 2 was committed after the period began, so both belong to run 1's scope.
+OVERLAP = [
+    ("CLI pass story", "2026-11-24T07:00:10+00:00", "2026-11-24T07:00:30+00:00"),
+    ("Pass A story", "2026-11-24T06:58:00+00:00", "2026-11-24T06:59:00+00:00"),
+]
+
+
+def test_a_new_digests_mark_leaves_a_story_fetched_after_its_period_whatever_its_id(db):
+    wire = source(db)
+    for title, published, fetched in OVERLAP:
+        late(db, wire, title, published[:16].replace("T", " "), fetched[:19].replace("T", " "))
+    ident = daily(db)  # made at NOW: its first period starts 24 Nov 07:00
+    assert digests.owned(db, "Mara L", ident).story_mark == 0
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    assert titles(writer) == [["CLI pass story", "Pass A story"]]
+
+
+def test_a_migrated_digests_mark_leaves_a_story_fetched_after_its_period_whatever_its_id(tmp_path):
+    db = v7_store(tmp_path, OVERLAP, "2026-11-24T07:00:00+00:00")
+    assert db.execute("SELECT story_mark FROM digests").fetchone()[0] == 0
+    writer = RecordingWriter()
+    digests.run_due(db, at("2026-11-25 07:00"), writer)
+    assert titles(writer) == [["CLI pass story", "Pass A story"]]
+    db.close()
