@@ -148,7 +148,7 @@ export function RankView({
                         <span className="font-medium text-text-primary">{issuer.name}</span>
                         {": "}
                         {repeated.length > 0
-                          ? `its run states this period more than once (${repeated.map((row) => `${figure(row)}${row.heading ? `, stated as ${row.heading}` : ""}`).join("; ")}), so none is ranked`
+                          ? `its run states this period more than once (${repeated.map((row) => `${row.at === null ? (prose(row.text) ?? "the module's reason is in Evidence") : figure(row)}${row.heading ? `, stated as ${row.heading}` : ""}`).join("; ")}), so none is ranked`
                           : fact
                             ? (prose(fact.text) ?? "the module's reason is in Evidence")
                             : stated.length > 0
