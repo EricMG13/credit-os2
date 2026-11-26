@@ -288,6 +288,8 @@ def section(
 
 
 TABLE_ROW = re.compile(r" {0,3}(\|.*?)\s*")
+# Excel-illegal whitespace is retained for the writer's localized gap when the caller opts in.
+_CELL_PADDING = re.compile(r"\A[^\S\x0b\x0c\x1c-\x1f]+|[^\S\x0b\x0c\x1c-\x1f]+\Z")
 
 
 def table_row(text: str) -> str | None:
@@ -297,11 +299,14 @@ def table_row(text: str) -> str | None:
     return None if found is None else found[1]
 
 
-def table_cells(line: int, text: str) -> list[str]:
+def table_cells(line: int, text: str, *, preserve_controls: bool = False) -> list[str]:
     """The cells of one pipe-table row; a row without its closing pipe is refused."""
     if not text.endswith("|"):
         raise ValueError(f"Markdown table rows require both boundary pipes: line {line}")
-    return [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", text[1:-1])]
+    return [
+        (_CELL_PADDING.sub("", cell) if preserve_controls else cell.strip()).replace(r"\|", "|")
+        for cell in re.split(r"(?<!\\)\|", text[1:-1])
+    ]
 
 
 def header_fault(head_line: int, head_text: str, headers: list[str], separator: list[str]) -> str:
@@ -327,8 +332,10 @@ def row_fault(line: int, values: list[str], headers: list[str]) -> str:
     )
 
 
-def table(rows: list[tuple[int, str]]) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-    """Read the first contiguous pipe table in a named section, preserving cells."""
+def table(
+    rows: list[tuple[int, str]], *, preserve_controls: bool = False
+) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
+    """Read the first contiguous pipe table, optionally keeping illegal whitespace in its body."""
     selected = []
     for line, line_text in rows:
         text = table_row(line_text)
@@ -345,7 +352,10 @@ def table(rows: list[tuple[int, str]]) -> tuple[list[str], list[tuple[int, str, 
     separator = table_cells(*selected[1])
     if fault := header_fault(head_line, head_text, headers, separator):
         raise ValueError(fault)
-    result = [(line, raw, table_cells(line, raw)) for line, raw in selected[2:]]
+    result = [
+        (line, raw, table_cells(line, raw, preserve_controls=preserve_controls))
+        for line, raw in selected[2:]
+    ]
     for line, _, values in result:
         if fault := row_fault(line, values, headers):
             raise ValueError(fault)

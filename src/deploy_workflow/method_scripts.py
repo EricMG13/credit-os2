@@ -174,9 +174,10 @@ def _plain(cell: str) -> str:
     return re.sub(r"[*`]", "", cell).strip()
 
 
-def _cells(line: str) -> list[str]:
+def _cells(line: str, *, plain: bool = True) -> list[str]:
     body = line.strip().removeprefix("|").removesuffix("|")
-    return [_plain(c) for c in re.split(r"(?<!\\)\|", body)]
+    cells = [c.strip() for c in re.split(r"(?<!\\)\|", body)]
+    return [_plain(c) for c in cells] if plain else cells
 
 
 def _unfenced(text: str) -> list[str]:
@@ -198,19 +199,22 @@ def _register_start(ident: str) -> re.Pattern[str]:
     return re.compile(rf"^(?:{heading}|{tag})")
 
 
-def _table_after(lines: list[str], start: int, name: str) -> Table | str:
+def _table_after(
+    lines: list[str], start: int, name: str, *, raw_cells: bool = False
+) -> Table | str:
     """The first pipe table after line ``start`` and before the next heading."""
     at = next((i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("|")), None)
     if at is None or any(_HEADING.match(line) for line in lines[start + 1 : at]):
         return f"{name} has no table"
-    header = _cells(lines[at])
-    if at + 1 >= len(lines) or not all(_SEPARATOR.fullmatch(c) for c in _cells(lines[at + 1])):
+    header = _cells(lines[at], plain=not raw_cells)
+    separator = _cells(lines[at + 1], plain=not raw_cells) if at + 1 < len(lines) else []
+    if not separator or not all(_SEPARATOR.fullmatch(c) for c in separator):
         return f"{name}'s table has no separator row under its header"
     rows: list[list[str]] = []
     for line in lines[at + 2 :]:
         if not line.lstrip().startswith("|"):
             break
-        rows.append(_cells(line))
+        rows.append(_cells(line, plain=not raw_cells))
         if len(rows[-1]) != len(header):
             return f"{name}'s table has a row of {len(rows[-1])} cells under {len(header)} columns"
     return header, rows
@@ -228,7 +232,7 @@ def _one_start_each(lines: list[str], starts: list[int]) -> list[int]:
     return kept
 
 
-def register_table(text: str, ident: str) -> Table | str:
+def register_table(text: str, ident: str, *, raw_cells: bool = False) -> Table | str:
     """The table of the register ``ident`` (a method id such as `T2E.5`), or why it is not read."""
     lines = _unfenced(text)
     pattern = _register_start(ident)
@@ -237,10 +241,10 @@ def register_table(text: str, ident: str) -> Table | str:
         return f"the handoff has no {ident} register"
     if len(found) > 1:
         return f"the handoff has {len(found)} {ident} registers"
-    return _table_after(lines, found[0], ident)
+    return _table_after(lines, found[0], ident, raw_cells=raw_cells)
 
 
-def heading_table(text: str, heading: str) -> Table | str:
+def heading_table(text: str, heading: str, *, raw_cells: bool = False) -> Table | str:
     """The table under the `###` (or deeper) heading named exactly ``heading``, or why not."""
     lines = _unfenced(text)
     want = heading.casefold()
@@ -248,7 +252,7 @@ def heading_table(text: str, heading: str) -> Table | str:
     if len(found) != 1:
         count = "no" if not found else str(len(found))
         return f"the handoff has {count} `### {heading}` table{'s' if found else ''}"
-    return _table_after(lines, found[0], f"`### {heading}`")
+    return _table_after(lines, found[0], f"`### {heading}`", raw_cells=raw_cells)
 
 
 def _heading_name(line: str) -> str | None:
@@ -1133,6 +1137,7 @@ from deploy_workflow import (  # noqa: F401
     method_scripts_cp1,
     method_scripts_cp1b,
     method_scripts_cp1c,
+    method_scripts_cp1d,
     method_scripts_cp2e,
     method_scripts_cp2g,
     method_scripts_cp2h,

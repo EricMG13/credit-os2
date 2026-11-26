@@ -570,7 +570,7 @@ def test_cp8_is_added_only_by_the_estimate_with_its_fixed_reason():
 @pytest.mark.parametrize(
     ("entry", "words"),
     [
-        ("CP-4A", "a phase of Legal & covenants"),
+        ("CP-3A", "a phase of Security selection"),
         ("CP-8", "planned automatically"),
         ("CP-L10", "credit screening"),
         ("CP-MEMO", "The memo is replaced by the deliverables"),
@@ -584,7 +584,7 @@ def test_what_the_launcher_cannot_complete_is_refused_naming_the_entry(entry, wo
     assert isinstance(raised.value, ValueError)
 
 
-@pytest.mark.parametrize("entry", ["CP-4A", "CP-8", "CP-L10", "CP-MEMO", "CP-OS", "CP-NOPE"])
+@pytest.mark.parametrize("entry", ["CP-3A", "CP-8", "CP-L10", "CP-MEMO", "CP-OS", "CP-NOPE"])
 def test_the_launcher_turns_a_refused_selection_into_a_launch_refusal(tmp_path, entry):
     with pytest.raises(LaunchRefused):
         _prepared(tmp_path, ["CP-4", entry])

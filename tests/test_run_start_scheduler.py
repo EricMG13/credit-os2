@@ -855,3 +855,31 @@ def test_the_same_issuer_resubmitting_under_its_own_id_is_accepted(root, fake_en
     w = Scheduler(settings(root))
     assert w.submit(sid, answers, approved(root, sid, answers)).status == "queued"
     w.close()
+
+
+def test_scoped_custom_summary_queues_only_the_approved_phase_choices(root, fake_env):
+    """Synthetic Acme Corp, 2026-11-09. Summary and queue only, with no child process."""
+    answers = answers_for(modules=["CP-4", "CP-4D"], level="advanced", effort="fast")
+    answers["context"]["run"]["pathway"] = "custom"
+    sid = upload(root)
+    lay = layout(root)
+    summary = submissions.summary(lay, sid, answers)
+    assert summary["error"] == ""
+    assert summary["cap"] == "9"  # 0.29 + 0.42 + 0.37 + 7.17, rounded up
+    assert summary["estimate"]["rows"][-1]["phases"] == [
+        {"name": "Structural priority", "added": "Needed by Intercreditor control."},
+        {"name": "Intercreditor control", "added": None},
+    ]
+    scheduler = Scheduler(settings(root))
+    try:
+        with pytest.raises(Refused, match="changed after approval"):
+            scheduler.submit(sid, {**answers, "modules": ["CP-4", "CP-4B"]}, summary["digest"])
+        record = scheduler.submit(sid, answers, summary["digest"])
+        assert record.modules == ("CP-4", "CP-4D") and record.status == "queued"
+        argv = runs.command(
+            lay, record, lay.drops / record.id / "context.json", launcher=("launcher",), ruling=None
+        )
+        start = argv.index("--modules")
+        assert argv[start + 1 : start + 3] == ["CP-4", "CP-4D"]
+    finally:
+        scheduler.close()

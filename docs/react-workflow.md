@@ -119,7 +119,7 @@ pathway) and select Continue to context. In More context, select
 agreement and select `northbridge-credit-agreement.txt` under The agreement. Select
 Review run. On the review sheet, tick each item under Limits to decide, tick the checkbox
 that begins "Approve: I have read this summary" and select Submit run. In the
-confirmation dialog, choose Start synthetic run. Open the report from Run activity when
+confirmation dialog, choose Start no-cost test. Open the report from Run activity when
 it finishes.
 
 The synthetic proof also runs without the agreement. Skip that upload and leave Legal
@@ -175,6 +175,30 @@ run's frozen portfolio inputs on the same date and `% NAV` basis. For an export,
 the holdings must corroborate the exposure and the NAV. Proposals stay in the
 published table. A table containing a minimum limit or an unverified row stays
 in table view.
+
+### Custom selection walkthrough
+
+Start the same synthetic service with a separate empty folder. On Documents, use
+`Northbridge Synthetic Group` and `2025-03-31`. Enter your name and upload
+`proof/northbridge-filing.txt` and `proof/northbridge-credit-agreement.txt`.
+On Purpose, choose Advanced under Run form level, Synthetic test case under Case kind,
+and Custom selection. Continue to context.
+
+Under Modules for this run, select Legal & covenants, then Structural priority under
+Scope inside this module. Keep the automatically included Source readiness and Financial
+foundation. In More context, set Legal documents to Executed agreement and select
+`northbridge-credit-agreement.txt` under The agreement. Review the run and confirm
+the scope lists Structural priority with the Legal & covenants core. Accept the listed
+limits, approve the review and select Submit run. In the confirmation dialog, choose
+Start no-cost test.
+
+Open the finished report from Run activity. On Evidence, open the Legal & covenants handoff
+to read the legal entity perimeter register. Download the handoff from Evidence to see the
+exact Structural priority scope in its Request section. The covenant capacity and intercreditor
+control registers are outside this run's scope. The scheduler proof checks the approved phases
+in the retained request, the handoff in the exported report and a total charge of USD 0.
+This walkthrough covers this first run with those two fixture files. Other custom selections
+and document combinations are outside its scope.
 
 ## Live runs and report verification
 

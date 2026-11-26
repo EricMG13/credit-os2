@@ -12,8 +12,8 @@ six kinds.
   (`handoff_delivery.physical_lines`) it came from. A blank cell is not copied; it is a gap.
 - gap: what is missing, in reader words (`not in handoff` for a field the handoff does not have).
   Missing is never zero or blank.
-- computed: a value `recommendation.py` or `reference_portfolios.py` returned, or one of the two
-  ruled classifications below. Nothing is summed, converted or re-derived here. Also handoff text
+- computed: a value `recommendation.py` or `reference_portfolios.py` returned, a ruled
+  classification below, or EBITDA bridge arithmetic from its stated signed amounts. Also handoff
   as the reader sheets draw it when that differs from the handoff's own (a module code drawn as the
   module's name, a source reference left out): the exact text is kept in `written`, on Sources.
 - entered at run start: text the analyst entered in the run's context, or the run record.
@@ -30,7 +30,8 @@ Registers are found as the launcher finds them (`method_scripts._register_start`
 starts with the id, the id in bold or backticks, or a `<!-- table-id: -->` tag ending in it) and
 read with `handoff_delivery.table`, so cell text is exact. Prose sections are read with
 `handoff_delivery.section`. Two classifications are ruled here, both of CP-1 bridge steps:
-`realised` / `unrealised` against CP-1D, and `unclassified` otherwise.
+`realised` / `unrealised` against CP-1D, and `unclassified` otherwise. The bridge's signed
+aggregates are the sole arithmetic this adapter adds.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from pathlib import Path
 from typing import Literal
 
@@ -63,9 +64,14 @@ from deploy_workflow.cp2_scorecard import (
     ScorecardError,
     parse_scorecard,
 )
-from deploy_workflow.credit_os_catalogue import pathway_title
-from deploy_workflow.method_scripts import _register_start
-from deploy_workflow.owners.cpos_cp1_check import METRICS, NET_DEBT_COLUMNS
+from deploy_workflow.credit_os_catalogue import pathway_title, period_order
+from deploy_workflow.method_scripts import _register_start, currency_of, scale_of
+from deploy_workflow.owners.cpos_cp1_check import (
+    METRICS,
+    NET_DEBT_COLUMNS,
+    asset_type_columns,
+    stated_asset_type,
+)
 from deploy_workflow.owners.cpos_cp1_statements import STATEMENTS, StatementSpec
 
 _LOG = logging.getLogger(__name__)
@@ -81,10 +87,11 @@ COPIED, GAP, COMPUTED, ENTERED, ANALYST, BLANK = (
 NOT_IN_HANDOFF = "not in handoff"
 BREACHED = "breached"  # a limit outcome, and the word the Matrix counts
 CONTROL_CHARACTER = "text holds a control character"
-# The characters a workbook cell cannot hold: the workbook writer's library's
-# `ILLEGAL_CHARACTERS_RE`, copied because this module imports none (a test holds them equal).
-ILLEGAL = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
+# Excel's restricted controls plus code points excluded from XML 1.0 character data.
+ILLEGAL = re.compile(r"[\000-\010\013-\014\016-\037\ud800-\udfff\ufffe\uffff]")
 NEEDS_ADD_BACK_IDS = "needs add-back ids in the bridge"
+BRIDGE_SCOPE_UNKNOWN = "bridge opening and closing amounts do not establish an empty bridge"
+BRIDGE_RECONCILIATION_GAP = "bridge boundaries or signed amounts do not reconcile"
 NO_REFERENCE = "no reference stored"
 NOT_HELD = "not held / not matched"
 HELD_NO_WEIGHT = "held, weight not stated"
@@ -226,8 +233,8 @@ _NAMED_LABEL = re.compile(
 )
 _DEFINED_AFTER = re.compile(r"\s*(?:=|equals?\b)", _FLAGS)
 _DEFINED_BEFORE = re.compile(r"(?:^|[,;:=]|\b(?:is|equals?))\s*\d+(?:\.\d+)?x\s*$", _FLAGS)
-_PAGE = re.compile(r"(?<![\w&.-])(p|pg|pp|pages?)\.?\s*(:\s*)?(\d+)\b", _FLAGS)
-_PAGE_CUE = re.compile(r"\b(?:see|at|on|as)\s*$", _FLAGS)
+_PAGE = re.compile(r"(?<![\w&.-])(p|pg|pp|pages?)\.?(?u:\s*)(:(?u:\s*))?(\d+)\b", _FLAGS)
+_PAGE_CUE = re.compile(r"\b(?:see|at|on|as)(?u:\s*)$", _FLAGS)
 _PP_QUANTITY_AFTER = re.compile(
     rf"\s+(?:{_LETTER}+(?:-{_LETTER}+)*\s+)*(?:days?|weeks?|months?|quarters?|years?)\b",
     re.IGNORECASE,
@@ -300,6 +307,9 @@ def drawn_text(text: str, names: Mapping[str, str]) -> str:
 # --- The data model -----------------------------------------------------------------------------
 
 
+type _RowKey = tuple[str, str, int]
+
+
 @dataclass(frozen=True)
 class SnapshotCell:
     """One item the workbook shows. `block`, `row` and `column` are the key's vocabulary
@@ -310,7 +320,9 @@ class SnapshotCell:
     of a scorecard level or assessment view that is not the plain value `cp2_scorecard` read
     (`**5**`) or of module text that named a module by its code: the cell then holds the parsed or
     reader value, as computed, and `written` is kept on Sources. On a gap, `written` is the
-    technical reason the table could not be read (Sources only)."""
+    technical reason the table could not be read (Sources only). The Model's optional row key
+    holds the add-back ID, unit and occurrence within a period. The displayed label stays as
+    written."""
 
     sheet: str
     block: str
@@ -323,6 +335,8 @@ class SnapshotCell:
     line: int | None = None
     basis: str | None = None
     written: str | None = None
+    number_format: str | None = None
+    row_key: _RowKey | None = None
 
     @property
     def figure(self) -> Figure | None:
@@ -377,11 +391,16 @@ class MarketRow:
 
 @dataclass(frozen=True)
 class MarketSheet:
-    """A supplied source read as an RV worksheet: its file name, sha256 and data rows."""
+    """A supplied RV source, with its pinned file, selected worksheet title and data rows."""
 
     file: str
     sha256: str
     rows: tuple[MarketRow, ...]
+    tab: str | None = None
+
+    @property
+    def section(self) -> str:
+        return self.file if self.tab is None else f"{self.file} [worksheet {self.tab}]"
 
 
 @dataclass(frozen=True)
@@ -407,6 +426,7 @@ class SnapshotRun:
     references: Sequence[tuple[rp.Reference, rp.Portfolio | StoreGap | None]]
     market: tuple[MarketSheet, ...] | MarketGap = ()
     execution: Mapping[str, str] = field(default_factory=dict)  # module -> how it was answered
+    model_files: Mapping[str, bytes] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -467,6 +487,9 @@ class Snapshot:
     credit_score: rec.CreditScore | None
     references: tuple[ReferenceView, ...]
     source_sha256: Mapping[str, str] = field(default_factory=dict)
+    model_files: Mapping[str, bytes] = field(default_factory=dict)
+    model_handoffs: Mapping[str, bytes] = field(default_factory=dict)
+    bridge_classifications: Mapping[str, _BridgeClassification] = field(default_factory=dict)
 
     def cells(self) -> Sequence[SnapshotCell]:
         return tuple(cell for block in self.blocks for cell in block.cells)
@@ -524,6 +547,24 @@ class _At:
 
 
 @dataclass(frozen=True)
+class _BridgeClassification:
+    value: str
+    at: _At | None = None
+    unit: str | None = None
+
+
+@dataclass(frozen=True)
+class _BridgeLayout:
+    table: _Table
+    step: int
+    amount: int
+    unit: int
+    id_index: int | None
+    basis_index: int | None
+    id_counts: Counter[str]
+
+
+@dataclass(frozen=True)
 class _Table:
     module: str
     section: str
@@ -566,7 +607,11 @@ class _Doc:
             len(self.lines),
         )
         label = self._label(self.lines[start], ident)
-        return self._table(label, [(i + 1, self.lines[i]) for i in range(start + 1, end)])
+        return self._table(
+            label,
+            [(i + 1, self.lines[i]) for i in range(start + 1, end)],
+            preserve_controls=ident == "T4.18",
+        )
 
     def heading_table(self, title: str) -> _Table:
         """The first table under the section headed exactly `title`."""
@@ -585,9 +630,11 @@ class _Doc:
         if self.error:
             raise _Unreadable(self.error, self.module)
 
-    def _table(self, label: str, rows: list[tuple[int, str]]) -> _Table:
+    def _table(
+        self, label: str, rows: list[tuple[int, str]], *, preserve_controls: bool = False
+    ) -> _Table:
         try:
-            headers, body = hd.table(rows)
+            headers, body = hd.table(rows, preserve_controls=preserve_controls)
         except ValueError as error:
             raise _Unreadable(f"{label}: {error}", self.module) from error
         found = tuple(_Row(line, tuple(cells)) for line, _, cells in body)
@@ -651,6 +698,8 @@ class _Maker:
         """The handoff's cell; a blank one is a gap (still located), never a blank copy. Text that
         names a module by its code is drawn with the module's name (ruling PM-b): the cell is then
         computed and `written` keeps the exact text for Sources."""
+        if ILLEGAL.search(text):
+            return replace(self._cell(row, column, COPIED, text, at), basis=basis)
         if not text.strip():
             return self._cell(row, column, GAP, NOT_IN_HANDOFF, at)
         shown = drawn_text(text, self.names)
@@ -731,6 +780,7 @@ class _Run:
         self._read: dict[tuple[str, str, str], _Table | Exception] = {}
         self.score = self._scorecard()
         self._views: tuple[ReferenceView, ...] | None = None
+        self.bridge_classifications: dict[str, _BridgeClassification] = {}
 
     def matched(self) -> list[tuple[MarketSheet, MarketRow]]:
         """The issuer's rows of the run's RV worksheets, in sheet and row order: a `Company` or
@@ -892,15 +942,21 @@ def _copy_table(module: str, ident: str, columns: Sequence[str]) -> Builder:
     """Every row of the register, one cell per named column; a row's label is its first column."""
 
     def build(run: _Run, mk: _Maker) -> list[SnapshotCell]:
-        table = run.register(module, ident)
-        at = [table.index(column) for column in columns]
-        return [
-            mk.copied(table.at(row.line), row.cells[at[0]], column, row.cells[i])
-            for row in table.rows
-            for column, i in zip(columns, at, strict=True)
-        ]
+        return _copy_register_cells(run.register(module, ident), mk, columns)
 
     return build
+
+
+def _copy_register_cells(
+    table: _Table, mk: _Maker, columns: Sequence[str], labels: Sequence[str] | None = None
+) -> list[SnapshotCell]:
+    at = [table.index(column) for column in columns]
+    names = labels if labels is not None else [row.cells[at[0]] for row in table.rows]
+    return [
+        mk.copied(table.at(row.line), label, column, row.cells[i])
+        for row, label in zip(table.rows, names, strict=True)
+        for column, i in zip(columns, at, strict=True)
+    ]
 
 
 def _business(run: _Run, mk: _Maker) -> list[SnapshotCell]:
@@ -1019,17 +1075,6 @@ def _quotes(run: _Run, mk: _Maker) -> list[SnapshotCell]:
 
 # --- Identifiers from the run's RV worksheet ------------------------------------------------------
 
-_LOAN_WORD = re.compile(r"\bloans?\b")
-_BOND_WORD = re.compile(r"\b(?:notes?|bonds?)\b")
-
-
-def _asset_type(text: str) -> str:
-    """A T4.18 `Type` as a loan, a bond or unknown (a revolver, a receivables facility, or both
-    words)."""
-    folded = _fold(text)
-    loan, bond = bool(_LOAN_WORD.search(folded)), bool(_BOND_WORD.search(folded))
-    return "loan" if loan and not bond else "bond" if bond and not loan else "unknown"
-
 
 def _present(row: MarketRow) -> dict[str, str]:
     """The identifiers the sheet row has, as entered: a FIGI of 12 capital letters and digits, a
@@ -1056,7 +1101,7 @@ def _identifier_cells(
         return [mk.analyst(label, column) for column in IDENTIFIERS]
     sheet, row = found
     present = _present(row)
-    at = _At(RV_MODULE, sheet.file, row.line)
+    at = _At(RV_MODULE, sheet.section, row.line)
     return [
         mk.copied(at, label, column, present[column])
         if column in present
@@ -1065,31 +1110,58 @@ def _identifier_cells(
     ]
 
 
+def _instrument_labels(table: _Table, index: int) -> list[str]:
+    """Keep valid written names and give each unreadable name its own safe caption."""
+    stated = [row.cells[index] for row in table.rows]
+    occupied = set(stated)
+    labels = []
+    for number, name in enumerate(stated, 1):
+        if ILLEGAL.search(name):
+            name = f"Instrument {number} (name unavailable)"
+            suffix = 2
+            while name in occupied:
+                name = f"Instrument {number} (name unavailable {suffix})"
+                suffix += 1
+            occupied.add(name)
+        labels.append(name)
+    return labels
+
+
 def _instruments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
     """The T4.18 instruments, each with its FIGI and Bloomberg ID. An instrument is joined to a
     sheet row only when their maturities are the same date, that date is on exactly one of the
     issuer's sheet rows and exactly one instrument, both are loans, and the sheet row has an
     identifier; otherwise the two cells are the analyst's. No join is made while any loan row on
-    either side has a maturity that is stated but cannot be read (ruling T5-i): its date may be
-    the one being matched."""
-    cells = _copy_table("CP-1", "T4.18", ("Instrument",))(run, mk)
+    either side has a stated unreadable maturity (ruling T5-i). An unreadable non-loan maturity
+    does not prevent a join. Only the explicit Asset type supplies the instrument class."""
     table = run.register("CP-1", "T4.18")
-    type_at, date_at = _optional(table, "Type"), _optional(table, "Maturity")
+    instrument_at = table.index("Instrument")
+    labels = _instrument_labels(table, instrument_at)
+    cells = _copy_register_cells(table, mk, ("Instrument",), labels)
+    type_columns = asset_type_columns(table.headers)
+    date_columns = [
+        at for at, header in enumerate(table.headers) if _fold(hd.plain(header)) == "maturity"
+    ]
+    type_at = type_columns[0] if len(type_columns) == 1 else None
+    date_at = date_columns[0] if len(date_columns) == 1 else None
     texts = [row.cells[date_at] if date_at is not None else "" for row in table.rows]
     days = [read_day(text) for text in texts]
     kinds = [
-        _asset_type(row.cells[type_at]) if type_at is not None else "unknown" for row in table.rows
+        stated_asset_type(row.cells[type_at], instrument=row.cells[instrument_at])
+        if type_at is not None
+        else None
+        for row in table.rows
     ]
     matched = run.matched()
     unread = any(
         kind == "loan" and _unreadable(text, day)
         for kind, text, day in zip(kinds, texts, days, strict=True)
     ) or any(row.unreadable and _rv_loan(row) for _, row in matched)
-    for row, day, kind in zip(table.rows, days, kinds, strict=True):
+    for label, day, kind in zip(labels, days, kinds, strict=True):
         same = [(s, r) for s, r in matched if day is not None and r.maturity == day]
         one = not unread and kind == "loan" and len(same) == 1 and days.count(day) == 1
         joined = same[0] if one and _rv_loan(same[0][1]) and _present(same[0][1]) else None
-        cells += _identifier_cells(mk, row.cells[table.index("Instrument")], joined)
+        cells += _identifier_cells(mk, label, joined)
     return cells
 
 
@@ -1104,7 +1176,7 @@ def _market(run: _Run, mk: _Maker) -> list[SnapshotCell]:
         return [mk.gap("Gap", "Text", NO_MARKET_ROWS)]
     return [
         mk.copied(
-            _At(RV_MODULE, sheet.file, row.line), f"Row {row.line}", column, row.cells[column]
+            _At(RV_MODULE, sheet.section, row.line), f"Row {row.line}", column, row.cells[column]
         )
         for sheet, row in matched
         for column in MARKET_COLUMNS
@@ -1476,14 +1548,32 @@ def _stated_gap(text: str) -> bool:
     return _fold(text).startswith("not supplied") or _fold(text) == "not stated"
 
 
+def _pro_forma_date(mk: _Maker, table: _Table, row: _Row, label: str) -> SnapshotCell:
+    where = table.at(row.line)
+    reason = None
+    try:
+        index = _unique_optional_index(table, "As of")
+        date_text = row.cells[index] if index is not None else ""
+    except _Unreadable as error:
+        date_text, reason = "", str(error)
+    if date_text and not _stated_gap(date_text):
+        return mk.copied(where, label, "As of", date_text)
+    return replace(
+        mk.gap(label, "As of", "date not in handoff", reason or date_text or None),
+        module=where.module,
+        section=where.section,
+        line=where.line,
+    )
+
+
 def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
     """The two Totals rows `Pro forma interest` and `Pro forma interest cover`, from CP-1's `Pro
     forma interest and cover` table: the figures of its `Reported EBITDA` row (the one whose Basis
     and limitation opens with those words; no such row, no figures: the Totals rows name no EBITDA
     basis, so an Adjusted-basis cover is never shown under them), each by the reader's ordinary
-    copied path. A cell that states no figure is `not in handoff`; so is every row when the table,
-    the row or a column is missing. A table that is there but cannot be read, or is written twice,
-    is logged."""
+    copied path. As of comes from the same row. A cell that states no figure is `not in handoff`.
+    So is every row when the table, the row or a column is missing. A table that is present but
+    unreadable or written twice is logged."""
     labels = ("Pro forma interest", "Pro forma interest cover")
     doc = run.doc("CP-1")
     written = sum(1 for line in doc.lines if line.strip() == f"### {PRO_FORMA_TABLE}")
@@ -1497,22 +1587,32 @@ def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
         return {}
     try:
         table = run.heading("CP-1", PRO_FORMA_TABLE)
-        at = {n: table.index(n) for n in (*labels, "Reporting unit", "Basis and limitation")}
+        columns = (*labels, "Reporting unit", "Basis and limitation")
+        at = {
+            name: index
+            for name in columns
+            if (index := _unique_optional_index(table, name)) is not None
+        }
+        if len(at) != len(columns):
+            _LOG.warning("credit snapshot: Totals: %s lacks its required columns", PRO_FORMA_TABLE)
+            return {}
+        basis = at["Basis and limitation"]
+        reported = [r for r in table.rows if r.cells[basis].startswith(PRO_FORMA_BASIS)]
+        if len(reported) > 1:
+            raise _Unreadable(f"{PRO_FORMA_TABLE} repeats the Reported EBITDA row", table.module)
     except _Unreadable as error:  # the section is there but its table cannot be read
         _LOG.warning("credit snapshot: Totals: %s could not be read: %s", PRO_FORMA_TABLE, error)
+        return {label: [mk.gap(label, "Value", NOT_IN_HANDOFF, str(error))] for label in labels}
+    if not reported:
         return {}
-    basis = at["Basis and limitation"]
-    reported = (r for r in table.rows if r.cells[basis].startswith(PRO_FORMA_BASIS))
-    row = next(reported, None)
-    if row is None:
-        return {}
+    row = reported[0]
     where = table.at(row.line)
     found: dict[str, list[SnapshotCell]] = {}
     for label in labels:
         text = row.cells[at[label]]
         if _stated_gap(text):
             continue
-        cells = [mk.copied(where, label, "Value", text)]
+        cells = [mk.copied(where, label, "Value", text, basis=row.cells[basis])]
         if label == labels[1]:
             cells.append(mk.computed(label, "Unit", COVER_UNIT))
         else:
@@ -1522,20 +1622,20 @@ def _pro_forma(run: _Run, mk: _Maker) -> dict[str, list[SnapshotCell]]:
                 if _stated_gap(unit)
                 else mk.copied(where, label, "Unit", unit)
             )
-        found[label] = cells
+        found[label] = [*cells, _pro_forma_date(mk, table, row, label)]
     return found
 
 
 def _totals(run: _Run, mk: _Maker) -> list[SnapshotCell]:
-    """T4.9's fixed rows and Net debt data. The senior and unsecured amounts and multiples and the
-    pro forma interest and cover have no fixed label: a gap, unless a free-label row of that name
-    (`Senior debt`, `Unsecured debt` in T4.6; `Senior leverage`, `Unsecured leverage` in T4.9,
-    case and spaces ignored) is in the handoff, which is copied with its Unit."""
+    """Independent calculation and debt totals, with the written pro forma interest and cover."""
     run.doc("CP-1")
     register = _register_rows(run)
     found = [*_balance_free_rows(run), *(p for p in register if p.free and p.table)]
-    picks = [p for p in register if not p.free] + _net_debt(run)
-    cells = [pick.cell(mk) for pick in picks]
+    cells = [pick.cell(mk) for pick in register if not pick.free]
+    try:
+        cells.extend(pick.cell(mk) for pick in _net_debt(run))
+    except ValueError as error:
+        cells.append(mk.unreadable("Net debt data", "Text", "Net debt data table", error))
     stated = _pro_forma(run, mk)
     for label in _TOTALS_GAPS:
         rows = [p for p in found if p.key == _fold(label)]
@@ -1561,55 +1661,125 @@ def _capital_structure(run: _Run, mk: _Maker) -> list[SnapshotCell]:
         *("Instrument", "Type", "Ranking", "Currency", "Coupon or Margin", "Spread (bps)"),
         *("Maturity", "Principal", "Drawn"),
     )
-    return _copy_table("CP-1", "T4.18", columns)(run, mk)
+    table = run.register("CP-1", "T4.18")
+    return _copy_register_cells(
+        table, mk, columns, _instrument_labels(table, table.index("Instrument"))
+    )
 
 
-def _classify(run: _Run) -> Callable[[str], str]:
-    """A step's classification: `realised` or `unrealised` only when its label equals a T1D.1
-    Description (case and spaces ignored, unique), T1D.2 holds one reading for that Add-Back ID
-    other than Insufficient Information, and both its Run-Rate Claimed and Realized To Date are
-    plain numbers (realised: realised to date is at least the run-rate claimed); else
-    unclassified."""
+def _classify(run: _Run) -> dict[str, _BridgeClassification]:
+    """Classify unique CP-1D T1D.1/T1D.2 records under their exact shared Add-Back ID."""
     if "CP-1D" not in run.docs:
-        return lambda _label: UNCLASSIFIED
+        return {}
     try:
         known = _add_backs(run.register("CP-1D", "T1D.1"), run.register("CP-1D", "T1D.2"))
     except ValueError as error:  # CP-1D unreadable: every step stays unclassified, and it is logged
         _LOG.warning(
             "credit snapshot: EBITDA bridge: the CP-1D add-backs cannot be read: %s", error
         )
-        return lambda _label: UNCLASSIFIED
-    return lambda label: known.get(_fold(label), UNCLASSIFIED)
+        return {}
+    return known
 
 
-def _add_backs(register: _Table, achievable: _Table) -> dict[str, str]:
-    ident, described = register.index("Add-Back ID"), register.index("Description")
-    reading = [
-        achievable.index(c)
-        for c in ("Add-Back ID", "Run-Rate Claimed", "Realized To Date", "Assessment")
-    ]
-    readings: dict[str, list[_Row]] = {}
-    for row in achievable.rows:
-        readings.setdefault(row.cells[reading[0]], []).append(row)
-    count = Counter(_fold(row.cells[described]) for row in register.rows)
-    return {
-        _fold(row.cells[described]): _verdict(readings.get(row.cells[ident], []), reading)
-        for row in register.rows
-        if count[_fold(row.cells[described])] == 1
-    }
-
-
-def _verdict(rows: list[_Row], at: list[int]) -> str:
-    if len(rows) != 1 or _fold(rows[0].cells[at[3]]) == "insufficient information":
-        return UNCLASSIFIED
-    claimed, realised = (figure(rows[0].cells[i]) for i in at[1:3])
-    if claimed is None or realised is None:
-        return UNCLASSIFIED
-    return (
-        "realised"
-        if _decimal(rows[0].cells[at[2]]) >= _decimal(rows[0].cells[at[1]])
-        else "unrealised"
+def _add_backs(register: _Table, achievable: _Table) -> dict[str, _BridgeClassification]:
+    if any(len(table.rows) > 1000 or len(table.headers) > 200 for table in (register, achievable)):
+        raise _Unreadable(
+            "CP-1D add-back register exceeds the supported row or column count", "CP-1D"
+        )
+    register_id = _unique_index(register, "Add-Back ID")
+    assess_id, claimed, realized, assessment = (
+        _unique_index(achievable, name)
+        for name in ("Add-Back ID", "Run-Rate Claimed", "Realized To Date", "Assessment")
     )
+    unit_indexes = [
+        index
+        for index, header in enumerate(achievable.headers)
+        if _fold(hd.plain(header)) in {_fold("Reporting unit"), _fold("Unit")}
+    ]
+    if len(unit_indexes) > 1:
+        raise _Unreadable("T1D.2 has ambiguous reporting-unit columns", "CP-1D")
+    unit_index = unit_indexes[0] if unit_indexes else None
+    register_rows = _rows_by_id(register, register_id)
+    assessment_rows = _rows_by_id(achievable, assess_id)
+    result = {}
+    for key in register_rows:
+        if not _valid_add_back_id(key):
+            continue
+        matching_register = register_rows.get(key, [])
+        matching_assessment = assessment_rows.get(key, [])
+        if len(matching_register) != 1 or len(matching_assessment) != 1:
+            result[key] = _BridgeClassification(UNCLASSIFIED)
+            continue
+        row = matching_assessment[0]
+        value = (
+            _verdict(row, claimed, realized, assessment)
+            if unit_index is None or _usable_bridge_unit(row.cells[unit_index])
+            else UNCLASSIFIED
+        )
+        result[key] = _BridgeClassification(
+            value,
+            achievable.at(row.line),
+            row.cells[unit_index] if unit_index is not None else None,
+        )
+    return result
+
+
+def _rows_by_id(table: _Table, index: int) -> dict[str, list[_Row]]:
+    rows: dict[str, list[_Row]] = {}
+    for row in table.rows:
+        key = _add_back_id_text(row.cells[index])
+        if key:
+            rows.setdefault(key, []).append(row)
+    return rows
+
+
+def _add_back_id_text(value: str) -> str:
+    """Unwrap whole-cell Markdown formatting while preserving punctuation inside a stable ID."""
+    value = value.strip()
+    for marker in ("**", "`", "*"):
+        if value.startswith(marker) and value.endswith(marker) and len(value) > 2 * len(marker):
+            inner = value[len(marker) : -len(marker)]
+            if inner and not inner[0].isspace() and not inner[-1].isspace():
+                return inner
+    return value
+
+
+def _valid_add_back_id(key: str) -> bool:
+    return re.fullmatch(r"AB-[1-9][0-9]*", key, re.ASCII) is not None
+
+
+def _unique_index(table: _Table, name: str) -> int:
+    matches = [
+        index
+        for index, header in enumerate(table.headers)
+        if _fold(hd.plain(header)) == _fold(name)
+    ]
+    if len(matches) != 1:
+        raise _Unreadable(f"{table.section} requires exactly one `{name}` column", table.module)
+    return matches[0]
+
+
+def _unique_optional_index(table: _Table, name: str) -> int | None:
+    matches = [
+        index
+        for index, header in enumerate(table.headers)
+        if _fold(hd.plain(header)) == _fold(name)
+    ]
+    if len(matches) > 1:
+        raise _Unreadable(f"{table.section} has ambiguous `{name}` columns", table.module)
+    return matches[0] if matches else None
+
+
+def _verdict(row: _Row, claimed: int, realized: int, assessment: int) -> str:
+    stated = _fold(_add_back_id_text(row.cells[assessment]))
+    if stated.startswith("[") and stated.endswith("]"):
+        stated = stated[1:-1]
+    if stated not in {"supported", "challenged", "rejected"}:
+        return UNCLASSIFIED
+    run_rate, achieved = row.cells[claimed], row.cells[realized]
+    if not _PLAIN.fullmatch(run_rate) or not _PLAIN.fullmatch(achieved):
+        return UNCLASSIFIED
+    return "realised" if _decimal(achieved) >= _decimal(run_rate) else "unrealised"
 
 
 def _decimal(text: str) -> Decimal:
@@ -1617,21 +1787,298 @@ def _decimal(text: str) -> Decimal:
 
 
 def _bridge(run: _Run, mk: _Maker) -> list[SnapshotCell]:
+    classifications = run.bridge_classifications
     table = run.heading("CP-1", "Chart data: EBITDA bridge")
-    columns = ("Step", "Amount", "Reporting unit")
-    at = [table.index(column) for column in columns]
-    classify = _classify(run)
+    if len(table.rows) > 1000 or len(table.headers) > 200:
+        raise _Unreadable("EBITDA bridge exceeds the supported row or column count", "CP-1")
+    step, amount, unit = (
+        _unique_index(table, name) for name in ("Step", "Amount", "Reporting unit")
+    )
+    try:
+        id_index = _unique_optional_index(table, "Add-Back ID")
+    except _Unreadable:
+        id_index = None
+    basis_index = _unique_optional_index(table, "Basis and limitation")
+    id_counts = (
+        Counter(_add_back_id_text(row.cells[id_index]) for row in table.rows)
+        if id_index is not None
+        else Counter()
+    )
+    layout = _BridgeLayout(table, step, amount, unit, id_index, basis_index, id_counts)
+    cells = _bridge_source_cells(layout, mk, classifications)
+    cells.extend(_bridge_totals(layout, mk, classifications))
+    return cells
+
+
+def _optional_index(table: _Table, name: str) -> int | None:
+    try:
+        return table.index(name)
+    except _Unreadable:
+        return None
+
+
+def _bridge_source_cells(
+    layout: _BridgeLayout,
+    mk: _Maker,
+    classifications: dict[str, _BridgeClassification],
+) -> list[SnapshotCell]:
+    table, step, amount, unit = layout.table, layout.step, layout.amount, layout.unit
+    id_index, id_counts = layout.id_index, layout.id_counts
+    cells = []
+    for position, row in enumerate(table.rows):
+        label, at = row.cells[step], table.at(row.line)
+        cells.append(mk.copied(at, label, "Step", row.cells[step]))
+        for column, index in (("Amount", amount), ("Reporting unit", unit)):
+            cells.append(mk.copied(at, label, column, row.cells[index]))
+        raw_key = row.cells[id_index] if id_index is not None else ""
+        key = _add_back_id_text(raw_key)
+        if _bridge_endpoint(layout, position):
+            cells.append(_bridge_computed(mk, at, label, "Classification", "not applicable"))
+        elif id_index is None or not key:
+            cells.append(_bridge_gap(mk, at, label, "Classification", NEEDS_ADD_BACK_IDS))
+        elif not _valid_add_back_id(key) or id_counts[key] != 1:
+            cells.append(_bridge_computed(mk, at, label, "Classification", UNCLASSIFIED))
+        else:
+            found = classifications.get(key)
+            comparable = found is not None and _comparable_bridge_unit(row.cells[unit], found.unit)
+            status = found.value if found is not None and comparable else UNCLASSIFIED
+            status_at = (
+                found.at if found is not None and comparable and found.at is not None else at
+            )
+            cells.append(
+                _bridge_computed(
+                    mk,
+                    status_at,
+                    label,
+                    "Classification",
+                    status,
+                )
+            )
+    return cells
+
+
+_BRIDGE_OPENING_LABELS = {"reported ebitda", "ebitda (reported)", "ebitda reported"}
+_BRIDGE_CLOSING_LABELS = {
+    "adjusted ebitda",
+    "ebitda (adjusted)",
+    "ebitda adjusted",
+    "issuer adjusted ebitda",
+    "ebitda as defined",
+}
+
+
+def _bridge_caption_names(caption: str, labels: set[str]) -> bool:
+    return any(
+        caption == label
+        or (caption.startswith(f"{label} ") and period_order(caption[len(label) :]) is not None)
+        for label in labels
+    )
+
+
+def _bridge_endpoint(layout: _BridgeLayout, position: int) -> bool:
+    if position not in {0, len(layout.table.rows) - 1}:
+        return False
+    row = layout.table.rows[position]
+    caption = _fold(hd.plain(row.cells[layout.step]))
+    basis = _fold(hd.plain(row.cells[layout.basis_index])) if layout.basis_index is not None else ""
+    opens = _bridge_caption_names(caption, _BRIDGE_OPENING_LABELS) or basis.startswith(
+        ("opening:", "opening ")
+    )
+    closes = _bridge_caption_names(caption, _BRIDGE_CLOSING_LABELS) or basis.startswith(
+        ("closing:", "closing ")
+    )
+    expected, opposite = (opens, closes) if position == 0 else (closes, opens)
+    if opposite:
+        return False
+    if layout.id_index is None:
+        return expected
+    return _add_back_id_text(row.cells[layout.id_index]).casefold() == "not applicable"
+
+
+def _bridge_computed(mk: _Maker, at: _At, row: str, column: str, value: str) -> SnapshotCell:
+    return replace(
+        mk.computed(row, column, value),
+        module=at.module,
+        section=at.section,
+        line=at.line,
+    )
+
+
+def _bridge_gap(mk: _Maker, at: _At, row: str, column: str, value: str) -> SnapshotCell:
+    return replace(mk.gap(row, column, value), module=at.module, section=at.section, line=at.line)
+
+
+def _bridge_totals(
+    layout: _BridgeLayout,
+    mk: _Maker,
+    classifications: dict[str, _BridgeClassification],
+) -> list[SnapshotCell]:
+    table, amount_index, unit_index = layout.table, layout.amount, layout.unit
+    amounts = [row.cells[amount_index] for row in table.rows]
+    units = [row.cells[unit_index] for row in table.rows]
+    values = [_decimal(value) if _PLAIN.fullmatch(value) else None for value in amounts]
+    boundaries = _bridge_boundaries(layout, units)
+    structuring = _sum_bridge(values, units)
+    if structuring is not None and boundaries:
+        closing = values[-1]
+        if closing is not None and closing != structuring[0]:
+            structuring = None
+    elif structuring is not None:
+        structuring = None
+    if structuring is None and boundaries and len(values) >= 2 and values[-1] is None:
+        structuring = _sum_bridge(values[:-1] + [Decimal(0)], units)
+    opening = table.rows[0] if table.rows else None
     cells: list[SnapshotCell] = []
-    for row in table.rows:
-        label = row.cells[at[0]]
-        cells += [
-            mk.copied(table.at(row.line), label, c, row.cells[i])
-            for c, i in zip(columns, at, strict=True)
-        ]
-        cells.append(mk.computed(label, "Classification", classify(label)))
-    return cells + [
-        mk.gap(name, "Value", NEEDS_ADD_BACK_IDS) for name in ("Structuring EBITDA", "House EBITDA")
-    ]
+    unrealised, unrealised_reason = _unrealised_adjustments(layout, values, classifications)
+    for row_name in ("Structuring EBITDA", "Less unrealised add-backs", "House EBITDA"):
+        if structuring is None or opening is None:
+            cells.append(mk.gap(row_name, "Value", BRIDGE_RECONCILIATION_GAP))
+            continue
+        value: Decimal | None = structuring[0]
+        reason: str | None = None
+        if row_name == "Less unrealised add-backs":
+            value = unrealised.copy_negate() if unrealised is not None else None
+            reason = None if unrealised is not None else unrealised_reason
+        elif row_name == "House EBITDA":
+            value = (
+                _exact_sum([structuring[0], unrealised.copy_negate()])
+                if unrealised is not None
+                else None
+            )
+            reason = None if unrealised is not None else unrealised_reason
+        if reason or value is None:
+            text = reason if reason in {NEEDS_ADD_BACK_IDS, BRIDGE_SCOPE_UNKNOWN} else UNCLASSIFIED
+            cells.append(_bridge_gap(mk, table.at(opening.line), row_name, "Value", text))
+        else:
+            cells.append(
+                _bridge_computed(
+                    mk,
+                    table.at(opening.line),
+                    row_name,
+                    "Value",
+                    _decimal_text(value) if value is not None else UNCLASSIFIED,
+                )
+            )
+        cells.append(mk.copied(table.at(opening.line), row_name, "Reporting unit", units[0]))
+    return cells
+
+
+def _bridge_boundaries(layout: _BridgeLayout, units: list[str]) -> bool:
+    size = len(layout.table.rows)
+    return (
+        size >= 2
+        and _same_bridge_units(units)
+        and _bridge_endpoint(layout, 0)
+        and _bridge_endpoint(layout, size - 1)
+    )
+
+
+def _same_bridge_units(units: list[str]) -> bool:
+    return bool(units) and len(set(units)) == 1 and _comparable_bridge_unit(units[0], None)
+
+
+def _sum_bridge(
+    values: list[Decimal | None], units: list[str]
+) -> tuple[Decimal, str | None] | None:
+    if len(values) < 2 or len(values) != len(units) or not _same_bridge_units(units):
+        return None
+    if any(value is None for value in values):
+        return None
+    summands = [value for value in values[:-1] if value is not None]
+    return _exact_sum(summands), None
+
+
+def _usable_bridge_unit(unit: str) -> bool:
+    normalized = unit.strip().casefold()
+    if not normalized or normalized in {"—", "–", "-", "n/a", "na", "n.a."}:
+        return False
+    if normalized.startswith(("not supplied", "not stated", "not in handoff", "not applicable")):
+        return False
+    return _comparable_bridge_unit(unit, None)
+
+
+def _comparable_bridge_unit(bridge_unit: str | None, assessment_unit: str | None) -> bool:
+    bridge = _money_unit_parts(bridge_unit) if bridge_unit is not None else None
+    if bridge is None:
+        return False
+    return assessment_unit is None or bridge == _money_unit_parts(assessment_unit)
+
+
+def _money_unit_parts(unit: str) -> tuple[str, str] | None:
+    if (
+        re.fullmatch(
+            r"(?:[A-Z]{3}|US\$|[$€£])\s*(?:millions?|m|mn|mm|billions?|bn|thousands?|k|units?)",
+            unit.strip(),
+            re.IGNORECASE | re.ASCII,
+        )
+        is None
+    ):
+        return None
+    compact = re.fullmatch(r"([A-Z]{3})m", unit.strip(), re.ASCII)
+    currency = currency_of(compact[1]) if compact else currency_of(unit)
+    scale = scale_of(unit)
+    return (currency, scale) if currency is not None and scale is not None else None
+
+
+def _sum_precision(values: list[Decimal]) -> int:
+    if not values:
+        return 1
+    whole_digits = max(max(value.adjusted() + 1, 1) for value in values)
+    decimals = max(
+        max(-exponent, 0) if isinstance(exponent := value.as_tuple().exponent, int) else 0
+        for value in values
+    )
+    return whole_digits + decimals + len(str(len(values))) + 2
+
+
+def _exact_sum(values: list[Decimal]) -> Decimal:
+    with localcontext() as context:
+        context.prec = _sum_precision(values)
+        return sum(values, Decimal(0))
+
+
+def _unrealised_adjustments(
+    layout: _BridgeLayout,
+    values: list[Decimal | None],
+    classifications: dict[str, _BridgeClassification],
+) -> tuple[Decimal | None, str | None]:
+    table, units = layout.table, [row.cells[layout.unit] for row in layout.table.rows]
+    id_index, id_counts = layout.id_index, layout.id_counts
+    if len(table.rows) < 2 or len(values) < 2 or not _bridge_boundaries(layout, units):
+        return None, BRIDGE_SCOPE_UNKNOWN
+    if len(table.rows) == 2:
+        known_empty = values[0] is not None and values[-1] is not None and values[0] == values[-1]
+        return (Decimal(0), None) if known_empty else (None, BRIDGE_SCOPE_UNKNOWN)
+    if id_index is None:
+        return None, NEEDS_ADD_BACK_IDS
+    unrealised: list[Decimal] = []
+    for index, (row, amount) in enumerate(
+        zip(table.rows[1:-1], values[1:-1], strict=True), start=1
+    ):
+        key = _add_back_id_text(row.cells[id_index])
+        if not key or not _valid_add_back_id(key) or id_counts[key] != 1:
+            return None, NEEDS_ADD_BACK_IDS if not key else UNCLASSIFIED
+        classification = classifications.get(key)
+        if (
+            amount is None
+            or classification is None
+            or classification.value not in {"realised", "unrealised"}
+            or (
+                classification.unit is not None
+                and not _comparable_bridge_unit(units[index], classification.unit)
+            )
+        ):
+            return None, UNCLASSIFIED
+        if classification.value == "unrealised":
+            unrealised.append(amount)
+    return _exact_sum(unrealised), None
+
+
+def _decimal_text(value: Decimal) -> str:
+    if value == 0:
+        return "0"
+    text = format(value, "f")
+    return text.rstrip("0").rstrip(".") if "." in text else text
 
 
 # --- The reference portfolios ---------------------------------------------------------------------
@@ -1961,6 +2408,7 @@ def gather(run: SnapshotRun) -> Snapshot:
     snapshot. A block whose module did not run is one gap line (or hidden, as noted per block); a
     malformed block is that block's gap with its reason, logged."""
     state = _Run(run)
+    state.bridge_classifications = _classify(state)
     blocks = tuple(_block(state, sheet, name, build) for sheet, name, build in _BLOCKS)
     return Snapshot(
         issuer=run.issuer,
@@ -1975,10 +2423,16 @@ def gather(run: SnapshotRun) -> Snapshot:
         credit_score=_credit(state),
         references=state.views(),
         source_sha256=(
-            {}
-            if isinstance(run.market, MarketGap)
-            else {sheet.file: sheet.sha256 for sheet in run.market}
+            (
+                {sheet.section: sheet.sha256 for sheet in run.market}
+                if not isinstance(run.market, MarketGap)
+                else {}
+            )
+            | {f"model:{name}": li.sha256(raw) for name, raw in run.model_files.items()}
         ),
+        model_files=run.model_files,
+        model_handoffs={"CP-1": run.handoffs["CP-1"]} if "CP-1" in run.handoffs else {},
+        bridge_classifications=state.bridge_classifications,
     )
 
 
@@ -2014,6 +2468,18 @@ def load_run(folder: Path, stores: Sequence[rp.Store]) -> SnapshotRun:
         references=_references(stores),
         market=_market_sheets(folder, sources),
         execution=_execution(completion),
+        model_files={
+            name: li.read_pinned(folder, f"{delivered['folder']}/{name}", delivered["files"][name])
+            for name in (
+                "calculation.json",
+                "forecast_exact.json",
+                "annual.md",
+                "current_synthesis.md",
+                "quarter.md",
+                "forecast.md",
+            )
+            if name in delivered["files"]
+        },
     )
 
 
@@ -2158,8 +2624,8 @@ def _market_source(folder: Path, name: str, pin: object) -> MarketSheet | None:
     file = str(path)
     try:
         with pe.reading():  # this workbook is parsed once, then released before the next source
-            for rows in _source_rows(raw):
-                sheet = market_sheet(file, digest, rows)
+            for tab, rows in _source_rows(raw):
+                sheet = market_sheet(file, digest, rows, tab=tab)
                 if sheet is not None:
                     return sheet
     except (csv.Error, ValueError) as error:
@@ -2190,16 +2656,30 @@ def _has_rv_head(rows: Cells) -> bool:
     return first is not None and _market_index(first) is not None
 
 
-def _source_rows(raw: bytes) -> list[Cells]:
-    """The sheets of a source: each sheet of a workbook, or the CSV's rows (the record number is
-    the row number). Cells of a CSV are as entered (`portfolio_export.csv_rows` strips them). A
-    CSV whose first non-empty row lacks the RV headers gives no sheet, read no further; a sheet of
-    more than `reference_portfolios.MAX_ROWS` rows with text is a `ValueError`."""
+def _rv_workbook_tabs(raw: bytes) -> list[tuple[str | None, Cells]]:
+    sheets: list[tuple[str | None, Cells]] = []
+    refused = None
+    with pe.reading(cached_formulas=True):  # a formula is its stored value, blank when none
+        for name in pe.workbook_sheets(raw):
+            rows = pe.sheet_rows(raw, name, exact=True)
+            if rows is None or not _has_rv_head(rows):
+                continue
+            try:
+                sheets.append((name, _capped(rows)))
+            except ValueError as error:
+                refused = error
+                _LOG.warning("credit snapshot: RV tab %s is skipped: %s", name, error)
+    if not sheets and refused is not None:
+        raise refused
+    return sheets
+
+
+def _source_rows(raw: bytes) -> list[tuple[str | None, Cells]]:
+    """The exact workbook titles with their rows, or a CSV's rows with no title. CSV cells are as
+    entered and use the record number. A CSV whose first populated row lacks the RV headers gives
+    no sheet. An oversized RV tab is refused independently of other tabs."""
     if raw.startswith(b"PK\x03\x04"):
-        with pe.reading(cached_formulas=True):  # a formula is its stored value, blank when none
-            sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
-        # The cap applies to a sheet with the RV headers only: another tab never hides one.
-        return [_capped(rows) for rows in sheets if rows is not None and _has_rv_head(rows)]
+        return _rv_workbook_tabs(raw)
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -2215,7 +2695,7 @@ def _source_rows(raw: bytes) -> list[Cells]:
             if filled > rp.MAX_ROWS:
                 raise ValueError(f"the sheet has more than {rp.MAX_ROWS:,} rows")
         rows.append((number, cells))
-    return [rows]
+    return [(None, rows)]
 
 
 _SLASH_DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
@@ -2266,7 +2746,9 @@ def _market_index(head: Sequence[pe.Cell]) -> dict[str, int] | None:
     return index
 
 
-def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
+def market_sheet(
+    file: str, sha256: str, rows: Cells, *, tab: str | None = None
+) -> MarketSheet | None:
     """`rows` as an RV worksheet, or None when its first non-empty row lacks the headers (compared
     ignoring case and spaces) or repeats one of them."""
     start = next((i for i, (_, cells) in enumerate(rows) if _filled(cells)), None)
@@ -2291,7 +2773,7 @@ def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
         }
         day = _maturity(held["Maturity"])
         body.append(MarketRow(number, texts, day, _unreadable(texts["Maturity"], day)))
-    return MarketSheet(file, sha256, tuple(body))
+    return MarketSheet(file, sha256, tuple(body), tab=tab)
 
 
 def _shown(cell: pe.Cell) -> str:
