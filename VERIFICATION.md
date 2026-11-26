@@ -4,6 +4,15 @@ Keep one running record here. A pass applies only to the stated scope. Earlier v
 engine is in [EricMG13/final-workflow](https://github.com/EricMG13/final-workflow)'s
 `VERIFICATION.md`, which also keeps the retained runs this copy leaves out.
 
+## 2026-11-26 — Money units drawn as currency symbols ($m, £m, €m) (branch `claude/module-currency-labels-34fdbf`)
+
+- Scope: presentation only, web reader (`docs/rulings/2026-11-26-money-unit-symbols.md`). No handoff, prompt, method, check, stored value or Python output changed; no provider call. Owner: all reader pages and the printed purpose reports; the Model page keeps `US$m`.
+- Built: `moneyUnits.ts` draws a money unit as its en-US `Intl` symbol (`$m`, `£m`, `€m`, `CA$m`, `¥m`; `CHFm` where none) and figures as `$1,250m`, `−$25m`, `CHF 300m`; Unit columns, unit fields, basis lines, chart Table views, captions and Coverage labels convert where drawn. Stored and matching values, Evidence's Unit cells and source text, the trace drawer and module prose keep the written unit.
+- Fidelity check: answer keys `moneyUnits.cases.json` and `signal.cases.json` (coordinator-written); a Modules-page test on the retained CP-1 TransDigm fixture and a replay test over eight retained handoffs find no `USD millions` or `US$m` outside module prose; an Evidence test keeps the raw cells. Rendered check on the synthetic run (`check-render.cjs`, 1440/1280/1024, Overview, Modules, Forecast, Changes, Coverage): 15 of 15 pass; page text shows no raw unit except module-written Forecast wording ("Stressed FCF (USD millions)"). Chromium and Node give the same symbols for 18 currencies.
+- Reviews: advisor (Opus 5.5 xhigh, Fable exhausted) 2 High, 5 Medium ruled into the plan; task reviews pass (task B: 1 Medium fixed); confidence review and rewrite tournament (one shared helper adopted); sweep discover 4 Lows, fixed in one batch; pre-merge review (mx-architect on Opus 5.5 xhigh) 1 Medium (chart Table views) fixed and re-reviewed, Lows taken.
+- Gates: CI `checks` run 45757862487 on `24447b9f`: web (lint, format, types, unused, duplication, tests with coverage, build, scripts), fast tests, changed code and gitleaks all pass. The last commit (minus-sign unit fix, a 15 s budget for the near-timeout library filter test) passed its affected tests locally and goes to CI with this entry.
+- Not verified: Safari and Firefox symbol output (their Playwright builds are not installed); printed purpose reports in a real print dialog; a real non-USD run; `gates:local` (audit, browser file check).
+
 ## 2026-11-26 — Offline replay: open items from the entry below resolved (branch `claude/replay-open-items`)
 
 - Scope: branch cut from `main` at `5e4f9aee` (PR 97 merged). Same real TDG Deep replay `20261125-162721-01` (USD 0, no provider call), viewed from the same copy of its root. No paid run; the build ran no provider.
@@ -963,32 +972,3 @@ then 5; the narrow layout and the controls listed below.
 - Retained test preview, 1440 × 900 Chrome. The base-case qualification immediately precedes the four FY2029E cash proxies (US$m 496.85, 131.38, 684.03, 326.97). The first value is visible in the opening viewport.
 - The Interest and Interest coverage basis rows in both tables matched the retained limitation exactly. The trace included the original scope limit. Evidence reproduced all 17 register rows cell for cell, with 17 matched source-row links. Forecast omitted the register identifiers and production categories.
 - At desktop widths the driver table has a named keyboard scroll region and pinned driver names. Focused tests passed (183), as did TypeScript, changed-file ESLint, formatting and the connected build. The unfiltered Python gate reported 3,008 findings in the existing untracked predecessor copy; excluding only that copy produced zero findings. Scope is presentation fidelity for this run.
-
-## 2026-11-17 — Post-audit app repairs
-
-- Re-ran connected sections C1–C5 and static sections S2 and S6. All 2,374 focused
-  frontend tests and 553 focused backend tests passed. The build and 125 offline
-  route visits passed. The Python quality gate passed in an isolated checkout
-  containing the patch. ESLint and Prettier passed on changed web files.
-- On macOS Chrome, the accepted newest-document warning matched the saved
-  metadata and Evidence Record. The static build guided readers to the connected
-  service when no draft was available and opened the sample form when one was.
-- Chrome and Edge passed the connected synthetic flow after the browser check
-  began waiting for the Evidence Summary tab to become active.
-- Confidence review checked digest compatibility, changed overrides, restart
-  recovery, approval snapshot consistency, History output ownership and labels,
-  prior repayment inputs, and the empty-draft boundary. The rewrite tournament
-  retained the ordered History metadata scan and date limit calculation.
-
-## 2026-11-17 — Stage 7 final audit handoff
-
-- Application source `a987af9b`. Stage 7 adds audit evidence and work-PC documents.
-- Locked setup, Python quality, 6,285 fast Python passes with one existing skip,
-  573 Node checks, 5,259 frontend passes at 97.69% lines and 73 script checks.
-- Native Chrome and Edge synthetic proof and 138 native file checks passed on
-  both the checkout and the checksummed runtime ZIP. The screenshot reports
-  record paired baseline and final states and the independent ZIP comparison.
-- The work-PC rehearsal stopped at the two missing pins with the source unchanged.
-  Actual Windows setup, live or paid runs, real Submit and Teams remain unverified.
-- [Final gates](docs/audit/2026-11-16-final/output/7-send-off/gates.md) ·
-  [Audit summary](docs/audit/2026-11-16-final/output/SUMMARY.md)
