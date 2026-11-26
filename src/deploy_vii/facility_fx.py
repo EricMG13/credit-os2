@@ -7,7 +7,7 @@ from datetime import date
 from decimal import Decimal, localcontext
 
 from deploy_vii.contracts import Citation, Contract, Hash, Identifier, Text
-from deploy_vii.financial_contracts import FinancialBook, Observation
+from deploy_vii.financial_contracts import FinancialBook, FinancialPeriod, Observation
 from deploy_vii.model._cells import CONTEXT
 
 MONETARY_FIELDS = (
@@ -41,14 +41,28 @@ class FacilityNormalization(Contract):
     citations: tuple[Citation, ...]
 
 
-def fx_conversion_issues(book: FinancialBook) -> tuple[str, ...]:
+def _same_date(period: FinancialPeriod) -> date | str:
+    """The key under which a facility's rows are aliases of one another: the end date, and for an
+    undated period its own ID, as undated periods do not share a date."""
+    return period.end_date or period.period_id
+
+
+def _conflict_scope(period: FinancialPeriod) -> tuple[date | str, str | None]:
+    """Where a source conflict reaches: reported rows of one date share it; a pro forma period's
+    rows are its own."""
+    return _same_date(period), period.period_id if period.period_type == "PF" else None
+
+
+def fx_conversion_issues(  # noqa: PLR0912, PLR0915 - pre-existing (14 branches, 51 statements at base, unchanged)
+    book: FinancialBook,
+) -> tuple[str, ...]:
     """Reject stale, ambiguous or wrongly oriented conversion bindings."""
     periods = {p.period_id: p for p in book.periods}
     facilities = {(r.facility_id, r.period_id): r for r in book.facilities}
     identities: set[str] = set()
     scopes: set[tuple[str, str]] = set()
     dated_rates: dict[tuple[str, date], Decimal] = {}
-    rate_counts: Counter[tuple[str, date | None]] = Counter()
+    rate_counts: Counter[tuple[str, date | str]] = Counter()
     issues: list[str] = []
     facility_hashes: dict[int, str] = {}
     for conversion in book.facility_fx_conversions:
@@ -65,7 +79,7 @@ def fx_conversion_issues(book: FinancialBook) -> tuple[str, ...]:
         if row is None or period is None:
             issues.append(f"{prefix}: unknown facility/period")
             continue
-        rate_counts[row.facility_id, period.end_date] += 1
+        rate_counts[row.facility_id, _same_date(period)] += 1
         row_key = id(row)
         row_hash = facility_hashes.get(row_key)
         if row_hash is None:
@@ -89,12 +103,12 @@ def fx_conversion_issues(book: FinancialBook) -> tuple[str, ...]:
             previous = dated_rates.setdefault(key, rate)
             if previous != rate:
                 issues.append(f"{prefix}: same-date facility rates disagree")
-    row_counts: Counter[tuple[str, date | None]] = Counter()
-    conflict_counts: Counter[tuple[str, date | None]] = Counter()
+    row_counts: Counter[tuple[str, date | str, str | None]] = Counter()
+    conflict_counts: Counter[tuple[str, date | str, str | None]] = Counter()
     for row in book.facilities:
         period = periods.get(row.period_id)
         if row.currency != book.currency and period is not None:
-            scope_date = row.facility_id, period.end_date
+            scope_date = row.facility_id, *_conflict_scope(period)
             row_counts[scope_date] += 1
             conflict_counts[scope_date] += sum(
                 getattr(row, field).status == "conflicting" for field in MONETARY_FIELDS
@@ -102,7 +116,7 @@ def fx_conversion_issues(book: FinancialBook) -> tuple[str, ...]:
     # Bound retained alias evidence before materializing five records per row.
     if (
         sum(
-            count * (5 * (1 + rate_counts[key]) + conflict_counts[key])
+            count * (5 * (1 + rate_counts[key[:2]]) + conflict_counts[key])
             for key, count in row_counts.items()
         )
         > 1_000_000
@@ -128,16 +142,16 @@ def normalize_facilities(book: FinancialBook) -> tuple[FacilityNormalization, ..
     periods = {p.period_id: p for p in book.periods}
     conversions = {(c.facility_id, c.period_id): c for c in book.facility_fx_conversions}
     rate_groups: dict[tuple[str, date | None], list[Observation]] = {}
-    conflicts: dict[tuple[str, date | None, str], list[Observation]] = {}
+    conflicts: dict[tuple[str, date | str, str | None, str], list[Observation]] = {}
     for quote in book.facility_fx_conversions:
         key = quote.facility_id, quote.rate_date
         rate_groups.setdefault(key, []).append(quote.rate)
     for row in book.facilities:
-        end = periods[row.period_id].end_date
+        scope = _conflict_scope(periods[row.period_id])
         for field in MONETARY_FIELDS:
             value = getattr(row, field)
             if value.status == "conflicting":
-                conflicts.setdefault((row.facility_id, end, field), []).append(value)
+                conflicts.setdefault((row.facility_id, *scope, field), []).append(value)
     # Contracts are immutable; object identity avoids conflating distinct evidence
     # records that happen to share an observation identifier.
     hashes: dict[int, str] = {}
@@ -171,7 +185,9 @@ def normalize_facilities(book: FinancialBook) -> tuple[FacilityNormalization, ..
             rate_conflict = any(r.status == "conflicting" for r in related_rates)
             for field in MONETARY_FIELDS:
                 source: Observation = getattr(row, field)
-                source_conflicts = conflicts.get((row.facility_id, end, field), [])
+                source_conflicts = conflicts.get(
+                    (row.facility_id, *_conflict_scope(periods[row.period_id]), field), []
+                )
                 inputs = (source, *source_conflicts, *related_rates)
                 reason = (
                     "Same-date source amount is conflicting"

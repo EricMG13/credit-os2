@@ -206,11 +206,40 @@ def _account(
     return _term(metric, value, coefficient=sign, outflow=account_outflow(book, period_id, metric))
 
 
+def _balance_period_ids(book: FinancialBook, day: date | None, own: str | None) -> set[str]:
+    """Periods whose balance sheet is the reported one at `day`. A pro forma period's balance
+    sheet is not (the rule of `cash_bridge`): only the checked period's own is read where that
+    period is pro forma."""
+    return {
+        p.period_id
+        for p in book.periods
+        if day is not None and p.end_date == day and (p.period_type != "PF" or p.period_id == own)
+    }
+
+
+def _own_first[T](book: FinancialBook, own: str | None, rows: list[tuple[str, T]]) -> list[T]:
+    """A pro forma period's own rows where it has any; else the same-date rows as listed."""
+    if own is not None and any(p.period_id == own and p.period_type == "PF" for p in book.periods):
+        mine = [value for period_id, value in rows if period_id == own]
+        if mine:
+            return mine
+    return [value for _, value in rows]
+
+
 def _balance(
-    book: FinancialBook, day: date | None, metric: str, *, sign: Literal[-1, 1] = 1
+    book: FinancialBook,
+    day: date | None,
+    metric: str,
+    *,
+    own: str | None = None,
+    sign: Literal[-1, 1] = 1,
 ) -> ReconciliationTerm:
-    ids = {p.period_id for p in book.periods if day is not None and p.end_date == day}
-    rows = [r.value for r in metric_accounts(book, metric) if r.period_id in ids]
+    ids = _balance_period_ids(book, day, own)
+    rows = _own_first(
+        book,
+        own,
+        [(r.period_id, r.value) for r in metric_accounts(book, metric) if r.period_id in ids],
+    )
     conflict = next((v for v in rows if v.status == "conflicting"), None)
     value = conflict or next((v for v in rows if v.amount is not None), next(iter(rows), None))
     return _term(metric, value, coefficient=sign)
@@ -291,13 +320,26 @@ def _debt(
     normalized: dict[tuple[str, str], FacilityNormalization],
 ) -> Reconciliation:
     """Use same-date carrying values, excluding both lease classes; no FX inference."""
-    ids = {p.period_id for p in book.periods if period.end_date and p.end_date == period.end_date}
+    ids = _balance_period_ids(book, period.end_date, period.period_id)
     templates = {r.facility_id: r for r in book.facilities}
+    reported = {p.period_id for p in book.periods if p.period_type != "PF"}
+    reported_facilities = {r.facility_id for r in book.facilities if r.period_id in reported}
+    same_date_pro_forma = {
+        r.facility_id
+        for r in book.facilities
+        for p in book.periods
+        if p.period_id == r.period_id and p.period_type == "PF" and p.end_date == period.end_date
+    }
+    pro_forma_only = (
+        set() if period.period_type == "PF" else same_date_pro_forma - reported_facilities
+    )
+    own_facilities = {r.facility_id for r in book.facilities if r.period_id == period.period_id}
     values_by_id: dict[str, list[Observation]] = {}
     normalized_by_id: dict[str, list[FacilityNormalization]] = {}
     citations_by_id: dict[str, list[Citation]] = {}
     for row in book.facilities:
-        if row.period_id in ids:
+        own_first = period.period_type == "PF" and row.facility_id in own_facilities
+        if row.period_id in ids and (not own_first or row.period_id == period.period_id):
             values_by_id.setdefault(row.facility_id, []).append(row.carrying_value)
             citations_by_id.setdefault(row.facility_id, []).extend(row.terms_citations)
             if row.currency != book.currency:
@@ -314,6 +356,8 @@ def _debt(
         }:
             continue
         values = values_by_id.get(fid, [])
+        if not values and fid in pro_forma_only:
+            continue  # a same-date pro forma instrument is no part of the reported debt
         issued = None if values else facility_issued_after(book, fid, period.end_date)
         if issued is not None:
             # Not yet issued at this date and no row of its own: zero, as the adapter reads it.
@@ -353,7 +397,7 @@ def _debt(
         period,
         "DEBT_TOTAL_EX_LEASES",
         "total_debt",
-        _balance(book, period.end_date, "total_debt"),
+        _balance(book, period.end_date, "total_debt", own=period.period_id),
         tuple(terms),
         "sum(non-lease carrying values, including separately sourced debt adjustments)",
         context=tuple(context),
@@ -559,14 +603,14 @@ def _cash_movement(book: FinancialBook, period: FinancialPeriod) -> Reconciliati
         "net_cash_change",
         _account(book, period.period_id, "net_cash_change"),
         (
-            _balance(book, period.end_date, "cash_and_equivalents"),
-            _balance(book, opening, "cash_and_equivalents", sign=-1),
+            _balance(book, period.end_date, "cash_and_equivalents", own=period.period_id),
+            _balance(book, opening, "cash_and_equivalents", own=period.period_id, sign=-1),
             *(
                 term
                 for item in scope[1:]
                 for term in (
-                    _statement_balance(book, period.end_date, item),
-                    _statement_balance(book, opening, item, sign=-1),
+                    _statement_balance(book, period.end_date, item, own=period.period_id),
+                    _statement_balance(book, opening, item, own=period.period_id, sign=-1),
                 )
             ),
             *adjustments,
@@ -592,15 +636,24 @@ def _cash(book: FinancialBook, period: FinancialPeriod) -> tuple[Reconciliation,
 
 
 def _statement_balance(
-    book: FinancialBook, day: date | None, item: str, *, sign: Literal[-1, 1] = 1
+    book: FinancialBook,
+    day: date | None,
+    item: str,
+    *,
+    own: str | None = None,
+    sign: Literal[-1, 1] = 1,
 ) -> ReconciliationTerm:
     """Exact dated BS observation, retaining same-date conflicts and all evidence."""
-    ids = {p.period_id for p in book.periods if day is not None and p.end_date == day}
-    rows = [
-        r.value
-        for r in book.statement_lines
-        if r.period_id in ids and r.statement == "BS" and r.item_id == item
-    ]
+    ids = _balance_period_ids(book, day, own)
+    rows = _own_first(
+        book,
+        own,
+        [
+            (r.period_id, r.value)
+            for r in book.statement_lines
+            if r.period_id in ids and r.statement == "BS" and r.item_id == item
+        ],
+    )
     conflict = next((v for v in rows if v.status == "conflicting"), None)
     value = conflict or next((v for v in rows if v.amount is not None), next(iter(rows), None))
     term = _term(item, value, coefficient=sign)
@@ -628,7 +681,7 @@ def _balance_movements(book: FinancialBook, period: FinancialPeriod) -> tuple[Re
     reconciliations = []
     for item in items:
         bridge = bridges.get(item)
-        components = [_statement_balance(book, opening_date, item)]
+        components = [_statement_balance(book, opening_date, item, own=period.period_id)]
         if item == "total_equity":
             income = next(
                 (
@@ -674,7 +727,7 @@ def _balance_movements(book: FinancialBook, period: FinancialPeriod) -> tuple[Re
             period,
             "BALANCE_MOVEMENT",
             item,
-            _statement_balance(book, period.end_date, item),
+            _statement_balance(book, period.end_date, item, own=period.period_id),
             tuple(components),
             "opening BS balance + IS net income + signed sourced movements"
             if item == "total_equity"
