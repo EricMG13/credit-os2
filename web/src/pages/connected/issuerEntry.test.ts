@@ -118,7 +118,6 @@ describe("issuer entry", () => {
     const custom = (folder: string, date: string, fields: Partial<LibraryRun> = {}) =>
       caseRun(folder, date, {
         pathway: "custom",
-        delivered: ["CP-0", "CP-1", "CP-2"],
         ...fields,
       });
 
@@ -156,9 +155,17 @@ describe("issuer entry", () => {
       expect(selectIssuerEntry([purpose, chosen, full], true)).toBe(purpose);
     });
 
+    it("with a blocked Fundamental credit is not an assessment: another module's lead is published", () => {
+      const blocked = custom("b", "2026-06-01", {
+        lead: { module: "CP-1A", output: "b/CP-1A", sha256: SHA, line: 4, text: "Governance." },
+      });
+      expect(isIssuerAssessment(blocked.run)).toBe(false);
+      const newer = caseRun("cov", "2026-07-01", { pathway: "covenant_refinancing" });
+      expect(selectIssuerEntry([newer, blocked], false)).toBe(newer);
+    });
+
     it("without Fundamental credit ranks as the purpose reports do (ruling C21)", () => {
       const covenant = custom("c", "2026-06-01", {
-        delivered: ["CP-0", "CP-1", "CP-4"],
         lead: { module: "CP-4", output: "c/CP-4", sha256: SHA, line: 4, text: "Headroom is thin." },
       });
       expect(isIssuerAssessment(covenant.run)).toBe(false);

@@ -99,13 +99,6 @@ def _report_metadata(workspace: dict[str, Any], record: dict[str, Any], key: str
         if verified
         else "unverified",
         "publishedAt": record.get("publishedAt") if verified else None,
-        # A custom run's chosen modules decide whether it is an issuer assessment (ruling C21):
-        # the library entry needs to know whether it delivered Fundamental credit.
-        **(
-            {"delivered": [c for c, m in record.get("modules", {}).items() if m.get("default")]}
-            if record.get("pathway") == "custom"
-            else {}
-        ),
     }
 
 

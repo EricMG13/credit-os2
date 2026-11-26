@@ -115,12 +115,12 @@ function standardView(run?: LibraryRun) {
 }
 
 /**
- * A custom run is an issuer assessment only when its scope is standard and it delivered
- * Fundamental credit, the credit view every assessment carries (ruling C21); one without it ranks
- * as the purpose reports do.
+ * A custom run is an issuer assessment only when its scope is standard and its Fundamental credit
+ * is usable: the published lead is CP-2 (the library tries CP-2 first, so a blocked CP-2 leaves
+ * another module's lead). One without it ranks as the purpose reports do (ruling C21, amended).
  */
 function customAssessment(run?: LibraryRun) {
-  return run?.pathway === "custom" && standardView(run) && Boolean(run.delivered?.includes("CP-2"));
+  return run?.pathway === "custom" && standardView(run) && publishedLead(run)?.module === "CP-2";
 }
 
 export function isIssuerAssessment(run?: LibraryRun) {
@@ -135,7 +135,7 @@ export function isIssuerAssessment(run?: LibraryRun) {
 
 /**
  * Filtered results open the selected pathway. The unfiltered entry prefers a standard assessment:
- * Full or Deep, then Lite, then a custom selection that delivered Fundamental credit (it never
+ * Full or Deep, then Lite, then a custom selection with a usable Fundamental credit (it never
  * displaces a whole assessment; ruling C21), then the latest admitted report.
  */
 export function selectIssuerEntry(entries: IssuerRun[], explicitPathway: boolean) {

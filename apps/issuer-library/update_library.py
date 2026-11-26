@@ -274,29 +274,23 @@ def cp8_verdicts(
 
 def _usable(store: dict[str, Any], run: dict[str, Any], code: str) -> bool:
     """Whether the module's designated output can lead, as the Overview's `pickLead` and `blocked`
-    (reader.js) judge it: a Bottom line that does not begin `Not assessable:` and a state that is
-    not declared unestablished. A handoff in the earlier format has no Bottom line passage; its
-    reader summary's bottom line is read instead."""
+    judge it (reader.js): a new-format handoff (its first `###` under Findings is the Bottom line)
+    whose Bottom line does not begin `Not assessable:`. Nothing else leads: a handoff in the
+    earlier format has no Bottom line passage, and no custom run can have been written in it."""
     output = store["outputs"].get(run["modules"].get(code, {}).get("default"))
-    if (
-        output is None
-        or output.get("parseError")
-        or output.get("state", {}).get("established") is False
-    ):
+    if output is None:
         return False
-    parent = ""
+    parent, first = "", None
     for section in store["handoffs"].get(output["sha256"], []):
         if section["level"] <= 2:
             parent = section["heading"] if section["level"] == 2 else ""
-        elif parent == "Findings" and section["heading"] == "Bottom line":
-            first = next((b for b in section["blocks"] if b["type"] == "text"), None)
-            return first is not None and not first["text"].startswith("Not assessable:")
-    bottom = (output.get("summary") or {}).get("bottomLine")
-    return (
-        isinstance(bottom, str)
-        and bool(bottom.strip())
-        and not bottom.startswith("Not assessable:")
-    )
+        elif section["level"] == 3 and parent == "Findings":
+            first = section
+            break
+    if first is None or first["heading"] != "Bottom line":
+        return False
+    text = next((b for b in first["blocks"] if b["type"] == "text"), None)
+    return text is None or not text["text"].startswith("Not assessable:")
 
 
 def changes_data(workspace: Path, store: dict[str, Any], library: Library) -> None:

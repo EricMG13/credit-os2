@@ -9,11 +9,10 @@ from types import SimpleNamespace
 import pytest
 import test_changes as seam
 from library_fixtures import (
-    FINDING_ROW,
-    HANDOFF,
     make_custom_run,
     make_run,
     method,
+    new_format_handoff,
     with_changes,
     without_report,
 )
@@ -599,14 +598,7 @@ def test_the_lead_module_of_a_custom_run_is_cp2_else_the_last_planned_it_deliver
 
 
 def _not_assessable(module: str) -> str:
-    return HANDOFF.format(
-        module=module,
-        name="Northbridge Synthetic Group",
-        as_of="2025-03-31",
-        bottom="Not assessable: no rates supplied.",
-        confidence="Low",
-        finding=FINDING_ROW,
-    )
+    return new_format_handoff(module, "Not assessable: no rates supplied.")
 
 
 @pytest.mark.parametrize(

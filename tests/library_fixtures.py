@@ -440,6 +440,11 @@ def make_custom_run(workspace: Path, folder: str, modules: tuple[str, ...], **ch
     pathway `custom`, selection `explicit`, `requested_modules` the completed list (with CP-8
     appended when the run compared), the preset's own list under `preset_requested_modules`. The
     delivered modules are the requested ones. Synthetic: no model was called."""
+    answers = {
+        m: new_format_handoff(m, name=changes.get("issuer_name", "Northbridge Synthetic Group"))
+        for m in modules
+    }
+    answers.update(changes.pop("answers", {}))
     return make_run(
         workspace,
         folder,
@@ -447,5 +452,20 @@ def make_custom_run(workspace: Path, folder: str, modules: tuple[str, ...], **ch
         selection="explicit",
         modules=modules,
         preset_requested=("CP-0", "CP-1"),
+        answers=answers,
         **changes,
+    )
+
+
+def new_format_handoff(
+    module: str, bottom: str | None = None, name: str = "Northbridge Synthetic Group"
+) -> str:
+    """A handoff in the current format (a Bottom line passage under Findings), as a real run
+    writes it. A custom run exists only in this format."""
+    return (
+        f"# {module} handoff\n\n## Request\n{name}, as of 2025-03-31.\n\n"
+        f"## Findings\n\n### Bottom line\n\n{bottom or f'{module} view holds.'}\n\n"
+        "### Key findings\n\nA finding.\n\n"
+        "### Contrary evidence and what would change the view\n\nNone.\n\n"
+        "### Limitations\n\nSynthetic.\n\n## Sources\n- fixture\n"
     )

@@ -228,14 +228,3 @@ def test_blocked_metadata_follows_the_readers_first_nonempty_level_three_rule(
     assert "not_assessable" not in _report_entries(snapshot)["case"]
     snapshot["workspace"]["outputs"]["case/CP-6.md"]["state"] = {"established": False}
     assert _report_entries(snapshot)["case"]["not_assessable"] == ["CP-6"]
-
-
-def test_a_custom_run_names_the_modules_it_delivered_and_a_preset_run_does_not(
-    tmp_path: Any,
-) -> None:
-    """Ruling C21: the library entry asks whether a custom run delivered Fundamental credit."""
-    held = [("CP-1", "Base."), ("CP-4", "Covenant view.")]
-    custom = _library_index(publication(tmp_path, held, "custom", ["CP-0", "CP-1", "CP-4"]))
-    assert custom.body["workspace"]["runs"]["case-key"]["delivered"] == ["CP-1", "CP-4"]
-    preset = _library_index(publication(tmp_path / "p", held, "credit_snapshot"))
-    assert "delivered" not in preset.body["workspace"]["runs"]["case-key"]
