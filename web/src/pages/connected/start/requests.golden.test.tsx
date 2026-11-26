@@ -297,6 +297,65 @@ describe("the requests the Start run page sends", { timeout: 30000 }, () => {
     expect(standingCalls).toEqual(LISTED_ONCE);
   });
 
+  it("a run started from an earlier run with one of its files left out of the carry", async () => {
+    const log = service({
+      extra: {
+        "/api/runs/earlier/inputs": {
+          issuer_id: "northbridge-synthetic-group",
+          issuer_name: "Northbridge Synthetic Group",
+          level: "basic",
+          max_turns: 32,
+          modules: [],
+          context: {
+            ...TEMPLATE,
+            run: { ...TEMPLATE.run, as_of: "2024-12-31", cutoff: "2024-12-31" },
+            identity: {
+              ...TEMPLATE.identity,
+              issuer_name: "Northbridge Synthetic Group",
+              issuer_id: "northbridge-synthetic-group",
+              sector: "Industrials",
+            },
+            attachments: {
+              legal_documents: "none",
+              management_bridge: false,
+              portfolio_workbook: false,
+              prior_case: false,
+            },
+          },
+          files: [
+            { name: "northbridge-filing.txt", size: 25 },
+            { name: "old-notes.txt", size: 9 },
+          ],
+        },
+      },
+    });
+    const navigate = vi.fn();
+    render(
+      <ConnectedApp path="/start" search="?from=earlier" mode="synthetic" navigate={navigate} />,
+    );
+    await screen.findByText(/Using an earlier run as a starting point/);
+    fireEvent.change(screen.getByLabelText("As-of date"), { target: { value: "2025-03-31" } });
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Ana L" } });
+    await waitFor(() => {
+      expect(issuerReads(log)).toBeGreaterThan(0);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Remove old-notes.txt" }));
+    await waitFor(() => {
+      expect(screen.queryByText("old-notes.txt")).toBeNull();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Inspect documents" }));
+    await screen.findByText("1 document inspected, 0 ignored.");
+    await toPurpose();
+    await toContext();
+    await reviewAndDecide();
+    await submitWith("Submit run", "Start no-cost test");
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith("/run/20261124-120000-01");
+    });
+    await expect(golden(log)).toMatchFileSnapshot("./requests.golden/carried-with-left-out.golden");
+    expect(standingCalls).toEqual(LISTED_ONCE);
+  });
+
   it("a Submit with no answer, then the same Submit again", async () => {
     const log = service({
       submits: [

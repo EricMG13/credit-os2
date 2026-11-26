@@ -1,7 +1,7 @@
 import { thinTicks, inside, textWidth } from "./chartText";
 import { PATH, type pathGeometry } from "./stressData";
 
-type Geometry = ReturnType<typeof pathGeometry>;
+type Geometry = Omit<ReturnType<typeof pathGeometry>, "zero">;
 
 /**
  * The forward path drawn at its frame's own `width` (one user unit a pixel, so 12 px text stays

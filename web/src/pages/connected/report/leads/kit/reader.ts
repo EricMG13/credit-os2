@@ -1,5 +1,25 @@
 import { containsReference, readerText } from "../../../publishedReport";
 
+// Words that cite a filing the library's `containsReference` does not catch ("…annual Form 10-K
+// debt note.", "Source: the lender's note."): such a note is a source reference and stays in Evidence.
+const FILING = /\b(?:Form\s+)?10-?[KQ]\b|\bannual report\b|\bprospectus\b|^\s*Sources?\s*:/i;
+
+/** True when handoff text cites a source: a file, page, register, calculation or a named filing. */
+export const citesSource = (text: string) => namesSource(text) || FILING.test(text);
+
+/**
+ * The text's clauses and sentences, cut at a ";" or "." followed by a space, but never after a page
+ * abbreviation that a page number follows ("p. 120", "pp. 3-4", "pg. 9", any case), so a page
+ * locator stays whole and is still read as one. The abbreviation is a whole word: "S&P.", "L.P."
+ * and a percentage-point "0.4 pp." before a word still end their clause (S15-5-2). Empty pieces are
+ * dropped.
+ */
+export const clauses = (text: string) =>
+  text
+    .trim()
+    .split(/(?<=[;.])(?<!(?<![\w&.])(?:pp?|pg)\.(?=\s+\d))\s+/i)
+    .filter(Boolean);
+
 /** What a working page says in place of handoff text that names a source or a register entry. */
 export const IN_EVIDENCE = "Detail is in Evidence.";
 

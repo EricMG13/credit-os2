@@ -1,4 +1,5 @@
 import { type MockInstance } from "vitest";
+import type { DocumentRecord } from "../api";
 import {
   comparisonCaveat,
   copilotEfforts,
@@ -8,6 +9,8 @@ import {
   issuerIdFor,
   issuerIdRefusal,
   issuerKey,
+  nameKey,
+  storedName,
   lookupSentence,
   refusalLines,
   refusalProblems,
@@ -688,5 +691,33 @@ describe("issuerIdRefusal", () => {
   });
   it("leaves any other refusal alone", () => {
     expect(issuerIdRefusal("Anything else.")).toBeUndefined();
+  });
+});
+
+describe("storedName and nameKey", () => {
+  const stored = (source: string) => storedName({ source } as DocumentRecord);
+  it("undoes the ingest suffix of every converted type, in any case", () => {
+    expect(stored("x.docx.jsonl")).toBe("x.docx");
+    expect(stored("X.DOCX.JSONL")).toBe("X.DOCX");
+    expect(stored("a.htm.jsonl")).toBe("a.htm");
+    expect(stored("a.html.jsonl")).toBe("a.html");
+  });
+  it("leaves names that are not converted sources alone", () => {
+    expect(stored("a.jsonl")).toBe("a.jsonl");
+    expect(stored("a.txt.jsonl")).toBe("a.txt.jsonl");
+    expect(stored("a.pdf")).toBe("a.pdf");
+  });
+  it("folds case and Unicode form into one key", () => {
+    expect(nameKey("Annual.txt")).toBe(nameKey("annual.txt"));
+    expect(nameKey("cafe\u0301.txt")).toBe(nameKey("caf\u00e9.txt"));
+  });
+  it("folds as the service's casefold does for sharp s", () => {
+    expect(nameKey("Straße.txt")).toBe(nameKey("STRASSE.txt"));
+    expect(nameKey("straße.txt")).toBe(nameKey("Strasse.txt"));
+    expect(nameKey("STRAẞE.txt")).toBe(nameKey("Strasse.txt"));
+  });
+  it("keeps dotless i apart from i, as casefold does", () => {
+    expect(nameKey("Yıllık.pdf")).not.toBe(nameKey("Yillik.pdf"));
+    expect(nameKey("YILLIK.pdf")).toBe(nameKey("yillik.pdf"));
   });
 });

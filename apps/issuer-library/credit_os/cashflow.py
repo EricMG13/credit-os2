@@ -1049,6 +1049,15 @@ def op_sum(c: CellContext, *rows: RowKey) -> Cell:
     return add_cells([c.grid[row][c.at] for row in rows], c.kind)
 
 
+def non_positive_divisor(cell: Cell) -> Cell | None:
+    """The record's refusal (ZERO_OR_NEGATIVE_DENOMINATOR) for a divisor cell whose exact value
+    is not above 0; None when it is positive, n.m., or has no value (derive handles those)."""
+    exact = cell["exact"]
+    if cell["status"] == "nm" or exact is None or decimal.Decimal(exact) > 0:
+        return None
+    return unavailable_cell(REASON_PHRASES["ZERO_OR_NEGATIVE_DENOMINATOR"])
+
+
 def op_growth(c: CellContext, source: RowKey) -> Cell:
     """YoY growth of an earlier row against the same row in the column's prior-year column."""
     current = c.grid[source][c.at]
@@ -1061,6 +1070,8 @@ def op_growth(c: CellContext, source: RowKey) -> Cell:
     if c.column.get("prior_not_year"):
         return unavailable_cell(PRIOR_NOT_YEAR)
     prior = c.grid[source][c.column["prior"]]
+    if (refused := non_positive_divisor(prior)) is not None:
+        return refused
     return derive("percent", [current, prior], lambda a, b: a / b - 1)
 
 
@@ -1113,6 +1124,8 @@ def op_senior(c: CellContext) -> Cell:
         )
     if problem is not None or total is None:
         return unavailable_cell(problem)
+    if (refused := non_positive_divisor(c.grid["adj"][c.at])) is not None:
+        return refused
     return derive("multiple", [c.grid["adj"][c.at]], lambda a: total / a)
 
 

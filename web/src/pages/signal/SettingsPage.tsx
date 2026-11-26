@@ -71,9 +71,7 @@ export function SettingsPage({
   const page = usePageWrite();
   // The page says a refusal itself, so the switch only needs to go back.
   const flags = useChoices(
-    page === null
-      ? null
-      : (key, on) => page.send(flagWrite(key, on)).then((answer) => answer.refusal),
+    page === null ? null : (key, on) => page.send(flagWrite(key, on)),
     () => undefined,
   );
   // A service keeps the thread rules by group; so does a sample whose groups carry their own.

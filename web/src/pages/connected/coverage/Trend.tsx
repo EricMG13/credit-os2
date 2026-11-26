@@ -288,6 +288,9 @@ function Panel({
   const dots: Dot[] = series.points.flatMap((fact, index) =>
     isStated(fact) ? [{ fact, index }] : [],
   );
+  const headings = [
+    ...new Set(dots.flatMap((dot) => (dot.fact.heading ? [dot.fact.heading] : []))),
+  ];
   const missing = periods.flatMap((period, index) =>
     isStated(series.points[index]) ? [] : [{ period, index, ...missingAt(facts, period, unit) }],
   );
@@ -333,6 +336,11 @@ function Panel({
       className="flex min-w-0 flex-col gap-3 rounded-ds-lg border border-border-subtle bg-surface-card p-4"
     >
       <h3 className="text-small font-semibold wrap-anywhere">{series.name}</h3>
+      {headings.length > 0 && (
+        <p className="m-0 text-caption text-text-secondary">
+          {`Stated as ${headings.join("; ")}`}
+        </p>
+      )}
       <div ref={holder} className="w-full min-w-0">
         <svg
           ref={svg}
@@ -523,10 +531,21 @@ function TableView({
             </tr>
           </thead>
           <tbody>
-            {series.map((item) => (
+            {series.map((item) => {
+              const headings = [
+                ...new Set(
+                  item.points.flatMap((fact) => (fact?.heading ? [fact.heading] : [])),
+                ),
+              ];
+              return (
               <tr key={item.name} className="border-b border-border-subtle last:border-b-0">
                 <th scope="row" className="min-w-36 p-2 text-left font-semibold">
                   {item.name}
+                  {headings.length > 0 && (
+                    <span className="block text-caption font-normal text-text-secondary">
+                      {`Stated as ${headings.join("; ")}`}
+                    </span>
+                  )}
                 </th>
                 {periods.map((period, index) => {
                   const fact = item.points[index];
@@ -540,7 +559,8 @@ function TableView({
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

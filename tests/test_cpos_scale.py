@@ -570,9 +570,9 @@ def test_a_block_without_scale_is_not_checked_for_the_widened_rule():  # widened
         ("USD mn", {"millions"}),
         ("$mn", {"millions"}),
         ("\u20acmn", {"millions"}),
-        ("US$bn", {"millions"}),
+        ("US$bn", {"billions"}),
         ("stated in millions", {"millions"}),
-        ("USD million/billion", {"millions"}),
+        ("USD million/billion", {"millions", "billions"}),
         ("US$ thousands; USD 37.6 million", {"thousands", "millions"}),
         ("", set()),
         ("p.4", set()),
@@ -583,10 +583,14 @@ def test_a_block_without_scale_is_not_checked_for_the_widened_rule():  # widened
         # docs/rulings/2026-11-16-reporting-currency-from-sources.md: any ISO 4217 code, in
         # capitals and not inside a word, names the scale that follows it.
         ("CHFk", {"thousands"}),
+        ("\u00a3000", {"thousands"}),
+        ("\u20ac000", {"thousands"}),
+        ("GBP000", {"thousands"}),
+        ("CHF000", {"thousands"}),
         ("CHF k", {"thousands"}),
         ("CHF K", {"thousands"}),
         ("SEKm", {"millions"}),
-        ("JPY bn", {"millions"}),
+        ("JPY bn", {"billions"}),
         ("NOK mn", {"millions"}),
         ("chfk", set()),
         ("ACHFk", set()),
@@ -1136,3 +1140,260 @@ def test_the_acceptance_hint_ends_one_sentence_with_one_full_stop():  # L5
         "the currency CP-1 reports its figures in. Correct the block; if you cannot, set every "
         "driver's values to [null, null, null] and say why in scope_limits."
     )
+
+
+# The base period of the flows (S04-1-1, S04-1-2). Answer keys are the probes' hand-worked cases:
+# in CP1 Net sales is 270 for Q3 2025 and 1,000 for FY2024, so only 1,000 is an annual base.
+def _flows_under(**periods):
+    base = named_base(BASE)
+    for key, period in periods.items():
+        base[key] = {**base[key], "period": period}
+    return base
+
+
+@pytest.mark.parametrize(("revenue", "period"), [("270", "Q3 2025"), ("780", "9M 2025")])
+def test_a_flow_named_under_a_part_year_column_is_refused(revenue, period):  # S04-1-1
+    base = _flows_under(revenue=period)
+    base["revenue"]["amount"] = revenue
+    with pytest.raises(ValueError, match=rf"base revenue is named under `{period}`.*twelve months"):
+        parse(forecast_block(base=base), CP1)
+
+
+def test_a_balance_named_under_a_quarter_end_column_is_still_accepted():  # S04-1-1
+    base = _flows_under(debt="9M 2025", cash="9M 2025")
+    base["debt"]["amount"], base["cash"]["amount"] = "590", "120"
+    assert parse(forecast_block(base=base), CP1).base["debt"].amount == "590"
+
+
+def test_flows_named_under_different_twelve_month_headers_are_refused():  # S04-1-1
+    base = _flows_under(revenue="FY2023")
+    base["revenue"]["amount"] = "940"
+    with pytest.raises(
+        ValueError,
+        match=r"different headers.*`FY2023`.*`FY2024`|different headers.*`FY2024`.*`FY2023`",
+    ):
+        parse(forecast_block(base=base), CP1)
+
+
+def _years(first):
+    return [
+        {"year": first + i, "start": f"{first + i}-01-01", "end": f"{first + i}-12-31"}
+        for i in range(3)
+    ]
+
+
+def test_forecast_years_must_follow_the_flow_base_year():  # S04-1-2
+    with pytest.raises(ValueError, match=r"first forecast year is FY2025.*not FY2027"):
+        parse(forecast_block(base=named_base(BASE), years=_years(2027)), CP1)
+    assert (
+        parse(forecast_block(base=named_base(BASE), years=_years(2025)), CP1).years[0].year == 2025
+    )
+
+
+@pytest.mark.parametrize("header", ["FY2024A", "FY24", "2024"])
+def test_the_year_rule_holds_for_a_fiscal_year_header_period_of_does_not_read(header):  # S04-3-2
+    cp1 = CP1.replace("FY2024", header)
+    base = _flows_under(**{key: header for key in NAMED})
+    with pytest.raises(ValueError, match=r"first forecast year is FY2025.*not FY2027"):
+        parse(forecast_block(base=base, years=_years(2027)), cp1)
+    assert parse(forecast_block(base=base, years=_years(2025)), cp1).years[0].year == 2025
+
+
+def test_the_first_forecast_year_starts_the_day_after_the_dated_base_year_ends():  # S04-1-2
+    cp1 = (
+        CP1
+        + "\n| Period | Start | End |\n| --- | --- | --- |\n| FY2024 | 2023-10-01 | 2024-09-30 |\n"
+    )
+    with pytest.raises(ValueError, match=r"FY2025 starts 2024-10-01, not 2025-01-01"):
+        parse(forecast_block(base=named_base(BASE), years=_years(2025)), cp1)
+    years = [
+        {"year": 2025 + i, "start": f"{2024 + i}-10-01", "end": f"{2025 + i}-09-30"}
+        for i in range(3)
+    ]
+    assert parse(forecast_block(base=named_base(BASE), years=years), cp1).years[0].year == 2025
+
+
+def test_flows_named_under_an_ltm_header_add_no_year_rule():  # S04-1-2, ruling 3
+    cp1 = CP1.replace("| Reported label | Q3 2025 |", "| Reported label | LTM Q3 2025 |", 1)
+    base = _flows_under(revenue="LTM Q3 2025", ebitda="LTM Q3 2025")
+    base["revenue"]["amount"], base["ebitda"]["amount"] = "270", "84"
+    for key in ("interest", "taxes", "wc", "capex"):
+        base[key] = {"amount": None, "reason": "CP-1 states no LTM figure."}
+    assert parse(forecast_block(base=base, years=_years(2027)), cp1).years[0].year == 2027
+
+
+# The base year is a reported twelve-month year (ADV-2, ADV-4). Answer keys are the probes'
+# hand-worked cases: CP-1 dates FY2024 274 days (a year-end change), or prints FY2024 as an actual.
+def _two_years(fy2024_end, revenue, ebitda):
+    return (
+        "## Findings\n\n| Period | Start | End |\n| --- | --- | --- |\n"
+        "| FY2023 | 2023-01-01 | 2023-12-31 |\n"
+        f"| FY2024 | 2024-01-01 | {fy2024_end} |\n\n"
+        "| Reported label | FY2023 | FY2024 |\n| --- | --- | --- |\n"
+        f"| Net sales | {revenue[0]} | {revenue[1]} |\n"
+        f"| Adjusted EBITDA | {ebitda[0]} | {ebitda[1]} |\n"
+    )
+
+
+def _flows_block(period, revenue, ebitda, years):
+    missing = {"amount": None, "reason": "CP-1 does not state it."}
+    base = {key: missing for key in BASE}
+    base["revenue"] = {"amount": revenue, "reason": None, "row": "Net sales", "period": period}
+    base["ebitda"] = {"amount": ebitda, "reason": None, "row": "Adjusted EBITDA", "period": period}
+    return forecast_block(base=base, years=years, downside_shock=None)
+
+
+def test_a_fiscal_year_cp1_dates_as_a_part_year_is_not_a_flow_base():  # ADV-2
+    cp1 = _two_years("2024-09-30", ("1,200", "900"), ("360", "270"))
+    years = [
+        {"year": 2025 + i, "start": f"{2024 + i}-10-01", "end": f"{2025 + i}-09-30"}
+        for i in range(3)
+    ]
+    text = _flows_block("FY2024", "900", "270", years)
+    message = "FY2024 is 274 days by CP-1's period dates, not twelve months; name an LTM column"
+    with pytest.raises(ValueError, match=re.escape(message)):
+        parse(text, cp1)
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.encode()})
+    (issue,) = cpos_launch._forecast_issues(task, text)
+    assert message in issue
+
+
+# S04-5-1: the CP-1 check accepts a heading-less Period table anywhere in `## Findings`, including
+# just after the Bottom line sentence (a reader passage). The forecast and its history read the
+# dates from the same place. Answer key: the probe's case, 2024-01-01..2024-09-30 is 274 days.
+def _period_table_after_the_bottom_line(fy2024_start, fy2024_end):
+    return (
+        "## Findings\n\n### Bottom line\n\nThe issuer moved its year end to 30 September.\n\n"
+        "| Period | Start | End |\n| --- | --- | --- |\n"
+        "| FY2023 | 2023-01-01 | 2023-12-31 |\n"
+        f"| FY2024 | {fy2024_start} | {fy2024_end} |\n\n"
+        "### Statements\n\n| Reported label | FY2023 | FY2024 |\n| --- | --- | --- |\n"
+        "| Net sales | 1,200 | 900 |\n| Adjusted EBITDA | 360 | 270 |\n"
+    )
+
+
+_FROM_OCTOBER = [
+    {"year": 2025 + i, "start": f"{2024 + i}-10-01", "end": f"{2025 + i}-09-30"} for i in range(3)
+]
+
+
+def test_a_period_table_after_the_bottom_line_still_dates_the_flow_base():  # S04-5-1
+    cp1 = _period_table_after_the_bottom_line("2024-01-01", "2024-09-30")
+    text = _flows_block("FY2024", "900", "270", _FROM_OCTOBER)
+    message = "FY2024 is 274 days by CP-1's period dates, not twelve months; name an LTM column"
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.encode()})
+    (issue,) = cpos_launch._forecast_issues(task, text)
+    assert message in issue
+
+
+def test_a_period_table_after_the_bottom_line_dates_the_history():  # S04-5-1
+    cp1 = _period_table_after_the_bottom_line("2023-10-01", "2024-09-30")
+    files = model_files(
+        cp1.encode(), _flows_block("FY2024", "900", "270", _FROM_OCTOBER).encode(), history=True
+    )
+    limits = json.loads(files["calculation.json"])["history"]["limits"]
+    assert cpos_periods.NOT_DATED not in limits
+
+
+# S04-6-1: the forecast reads CP-1's period dates only where the CP-1 check reads them
+# (`## Findings` outside fences, header exactly `| Period | Start | End |`). Answer keys are the
+# probes' cases: 2024-01-01..2024-09-30 is 274 days; FY2024 ending 2024-09-30 puts FY2025's
+# start at 2024-10-01.
+_WIDE_FY2024 = (
+    "| Period | Start | End | Basis |\n| --- | --- | --- | --- |\n"
+    "| FY2024 | 2023-10-01 | 2024-09-30 | twelve months |\n\n"
+)
+_SHORT_BASE = "FY2024 is 274 days by CP-1's period dates, not twelve months; name an LTM column"
+
+
+def _issue(cp1, text):
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.encode()})
+    (issue,) = cpos_launch._forecast_issues(task, text)
+    return issue
+
+
+def test_a_wider_period_table_does_not_undate_a_short_flow_base():  # S04-6-1 shape A
+    cp1 = _period_table_after_the_bottom_line("2024-01-01", "2024-09-30").replace(
+        "### Statements", _WIDE_FY2024 + "### Statements", 1
+    )
+    text = _flows_block("FY2024", "900", "270", _FROM_OCTOBER)
+    with pytest.raises(ValueError, match=re.escape(_SHORT_BASE)):
+        parse(text, cp1)
+    assert _SHORT_BASE in _issue(cp1, text)
+
+
+def test_a_period_table_outside_findings_does_not_undate_a_short_flow_base():  # S04-6-1 region
+    cp1 = _period_table_after_the_bottom_line("2024-01-01", "2024-09-30") + (
+        "\n## Calculations\n\n| Period | Start | End |\n| --- | --- | --- |\n"
+        "| FY2024 | 2023-10-01 | 2024-09-30 |\n"
+    )
+    assert _SHORT_BASE in _issue(cp1, _flows_block("FY2024", "900", "270", _FROM_OCTOBER))
+
+
+def test_a_wider_period_table_does_not_undate_a_twelve_month_base():  # S04-6-1 twelve months
+    wide = _WIDE_FY2024.replace("2024-09-30 | twelve", "2024-09-28 | fifty-two weeks")
+    cp1 = _period_table_after_the_bottom_line("2023-10-01", "2024-09-30").replace(
+        "### Statements", wide + "### Statements", 1
+    )
+    message = (
+        "CP-1 dates FY2024 ending 2024-09-30, so the first forecast year FY2025 starts "
+        "2024-10-01, not 2025-01-01"
+    )
+    assert message in _issue(cp1, _flows_block("FY2024", "900", "270", _years(2025)))
+
+
+def test_a_flow_base_cp1_dates_twice_is_refused_not_undated():  # S04-6-1 backstop
+    exact = (
+        "| Period | Start | End |\n| --- | --- | --- |\n| FY2024 | 2023-10-01 | 2024-09-30 |\n\n"
+    )
+    cp1 = _period_table_after_the_bottom_line("2024-01-01", "2024-09-30").replace(
+        "### Statements", exact + "### Statements", 1
+    )
+    message = (
+        "CP-2G: CP-1 dates FY2024 more than once, differently, so its length cannot be checked; "
+        "name an LTM column or state the flow missing"
+    )
+    assert message in _issue(cp1, _flows_block("FY2024", "900", "270", _FROM_OCTOBER))
+
+
+# S04-4-1, S04-4-2: the year of a fiscal-year header is its FY label's; a part-year header that
+# carries a date is not a twelve-month base.
+@pytest.mark.parametrize(
+    ("header", "base"),
+    [
+        ("FY2024 / 2025-02-01", ("FY", 2024, 4)),
+        ("FY2024 / 2024-09-30", ("FY", 2024, 4)),
+        ("FY2024", ("FY", 2024, 4)),
+    ],
+)
+def test_a_fiscal_year_header_takes_its_year_from_the_label(header, base):
+    assert cpos_forecast._flow_base(header) == base
+
+
+@pytest.mark.parametrize(
+    ("header", "reads"),
+    [
+        ("FY2024 / 2025-02-01", True),
+        ("Year ended 2024-12-31", True),
+        ("LTM 2025-06-30", True),
+        ("Q3 2025 (2025-06-30)", False),
+        ("Quarter ended 2025-06-30", False),
+        ("H1 2025 / 2025-03-31", False),
+        ("9M 2025 (2025-09-30)", False),
+    ],
+)
+def test_a_part_year_header_with_a_date_is_not_a_twelve_month_base(header, reads):
+    assert cpos_forecast._reads_as_year_or_ltm(header) is reads
+
+
+def test_a_billions_row_is_refused_under_a_millions_block():  # S04-1-3
+    cp1 = CP1_K2.replace("| US$m |", "| US$bn |")
+    base = NO_BASE | {"undrawn": CHART_ROW}
+    with pytest.raises(ValueError, match="states its Reporting unit as `US\\$bn`, not the block's"):
+        parse(forecast_block(scale=1, base=base), cp1)
+
+
+def test_a_billions_row_is_refused_under_a_thousands_block():  # S04-1-3
+    cp1 = CP1_K2.replace("| US$m |", "| USD bn |")
+    with pytest.raises(ValueError, match="states its Reporting unit as `USD bn`, not the block's"):
+        parse(block_k2(base={**K2_BASE, "undrawn": CHART_ROW}), cp1)

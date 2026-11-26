@@ -749,6 +749,14 @@ function ForwardPath({ path, href }: { path: Path; href: NoteHref }) {
       text: point.reason || "no figure in the model",
       end: ".",
     }));
+  // A later case with no figure at all draws nothing: its key is named, so its reasons are said here.
+  const unplotted = others.flatMap(({ group, points }) =>
+    points.some((point) => point.value !== null)
+      ? []
+      : [...new Set(points.map((point) => point.reason || "no figure in the model"))].map(
+          (reason) => ({ lead: `${group}: no figure, `, text: reason, end: "." }),
+        ),
+  );
   return (
     <>
       <PathHeadline path={path} />
@@ -761,7 +769,7 @@ function ForwardPath({ path, href }: { path: Path; href: NoteHref }) {
           </Key>
         ))}
       </div>
-      <ReasonNotes notes={[...gaps, ...plainNotes(path.limits)]} href={href} />
+      <ReasonNotes notes={[...gaps, ...unplotted, ...plainNotes(path.limits)]} href={href} />
     </>
   );
 }

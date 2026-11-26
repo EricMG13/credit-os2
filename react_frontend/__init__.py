@@ -276,6 +276,7 @@ def _app_page(path: str, *, signal: bool = False) -> bool:
     """Whether ``path`` is a page of the app; ``/signal`` only where Signal is hosted."""
     return bool(
         path in {"/", "/index.html", "/start", "/runs", "/coverage"}
+        or path in {"/start/", "/runs/", "/coverage/"}
         or (signal and path in signal_host.PAGE_PATHS)
         or RUN_PAGE.fullmatch(path)
         or _report_page(path)

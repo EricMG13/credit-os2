@@ -363,3 +363,22 @@ def test_prune_command_lists_without_removing(tmp_path, monkeypatch, capsys):
     assert work_pc_delta.main(["prune", "--keep-days", "9"]) == 0
     assert capsys.readouterr().out.startswith("removed 001_2001-01-01_aaaaaaa-bbbbbbb\n")
     assert [entry.name for entry in syncs.iterdir()] == ["002_2001-01-02_bbbbbbb-ccccccc"]
+
+
+def test_the_patch_keeps_the_carriage_returns_of_a_crlf_file(tmp_path):
+    """S14-1-2: a CRLF file's changed line reaches changes.patch with its CR, so it applies."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "t@example.invalid")
+    _git(repo, "config", "user.name", "test")
+    _git(repo, "config", "core.autocrlf", "false")
+    (repo / "table.csv").write_bytes(b"a,1\r\nb,2\r\nc,3\r\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "base")
+    base = _git(repo, "rev-parse", "HEAD")
+    (repo / "table.csv").write_bytes(b"a,1\r\nb,9\r\nc,3\r\n")
+    _git(repo, "commit", "-q", "-am", "head")
+    head = _git(repo, "rev-parse", "HEAD")
+    out = work_pc_delta.write_pack(repo, base, head)
+    assert b"+b,9\r\n" in (out / "changes.patch").read_bytes()

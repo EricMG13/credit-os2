@@ -38,11 +38,12 @@ from deploy_vii.statement_extract import (
 _NUMBER = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
 # The currency symbols the extractor reads (`statement_extract._SIGNS`): `$`, `€`, `£`.
 _CURRENCY = frozenset("$€£")
-_NUMTOK = re.compile(rf"[$€£]?(?:\((?:{_NUMBER})\)|−?(?:{_NUMBER})|—|–|-)")
+_NUMTOK = re.compile(rf"[$€£]?(?:\((?:{_NUMBER})\)|[−-]?(?:{_NUMBER})|—|–|-)")
 # An EDGAR split parenthesis: `<td>(250</td><td>)</td>` converts to the tokens `(250` and `)`.
 _OPEN_PAREN = re.compile(rf"[$€£]?\((?:{_NUMBER})")
-# A value cell the extractor cannot read: a split parenthesis `(250 )` or a Unicode minus `−45`.
-_UNREADABLE = re.compile(r"\(\S+ \)|−")
+# A value cell the extractor cannot read: a split parenthesis `(250 )`, a Unicode minus `−45` or
+# an ASCII hyphen-minus before a number `-45`.
+_UNREADABLE = re.compile(r"\(\S+ \)|−|(?<!\w)-\d")
 _YEAR = re.compile(r"(?:19|20)\d\d")
 _DAY = r"\d\d?"
 _WORD = re.compile(r"[A-Za-z]+")

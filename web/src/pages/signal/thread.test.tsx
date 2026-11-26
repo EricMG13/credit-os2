@@ -258,6 +258,11 @@ describe("the thread panel", () => {
       const one = main.snapshot.threads[1];
       if (one === undefined) throw new Error("main has a second thread");
       one.comments = [];
+      // A thread with none is listed in its group with no count (else its comments are "not delivered").
+      for (const group of main.snapshot.groups) {
+        for (const item of group.threads)
+          if (item.id === one.id) Object.assign(item, { commentCount: null });
+      }
     });
     show(`${GROUP}/thread/packaging-note`, slice);
     expect(within(panel()).getByText("No comments yet")).toBeInTheDocument();

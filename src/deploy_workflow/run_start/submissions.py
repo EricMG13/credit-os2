@@ -309,8 +309,10 @@ _SUFFIX_AT_MOST = 10
 _HASH_CHARS = 8
 
 
-def _kept_suffix(original: str) -> str:
-    """``safe_name`` of the last part, with its suffix kept and made unique when it is cut.
+def _kept_suffix(original: str, *, folder: bool = False) -> str:
+    """``safe_name`` of a part, with its suffix kept and made unique when it is cut.
+
+    A folder part has no suffix to keep (``folder``); it is only made unique.
 
     ``safe_name`` cuts at 80 characters and so removes ``.pdf``, which the launcher needs, and
     gives two long names with one beginning one stored name. A name that would be cut becomes
@@ -319,8 +321,8 @@ def _kept_suffix(original: str) -> str:
     full = safe_name(original, limit=10**6)
     if len(full) <= _NAME_AT_MOST:
         return full
-    suffix = safe_name(PurePath(original).suffix, limit=10**6)
-    if not suffix.startswith(".") or len(suffix) > _SUFFIX_AT_MOST:
+    suffix = "" if folder else safe_name(PurePath(original).suffix, limit=10**6)
+    if folder or not suffix.startswith(".") or len(suffix) > _SUFFIX_AT_MOST:
         suffix = ""
     tag = hashlib.sha256(original.encode("utf-8")).hexdigest()[:_HASH_CHARS]
     room = _NAME_AT_MOST - len(suffix) - len(tag) - 1
@@ -343,11 +345,26 @@ def _parts(name: str) -> list[str]:
     for part in raw:
         if part.strip() in ("", ".", ".."):
             raise Refused(f"{name!r} has an empty, '.' or '..' part")
-    parts = [safe_name(part) for part in raw]
-    parts[-1] = _kept_suffix(raw[-1])
+    parts = [_kept_suffix(part, folder=True) for part in raw[:-1]]
+    parts.append(_kept_suffix(raw[-1]))
     if len(parts) == 1 and parts[0].casefold() == _CONTEXT_NAME:
         raise Refused("context.json is made from the answers, not uploaded")
     return parts
+
+
+def _legacy_folders(folder: Path, name: str, parts: list[str]) -> list[str]:
+    """``parts`` with each hashed folder part put back to its 80-character cut form when that
+    folder is already stored and the hashed one is not (a run stored before folders were hashed
+    keeps the cut form; a re-upload of the same document belongs in it)."""
+    root = folder / "files"
+    here = root
+    out = list(parts)
+    for i, raw in enumerate(re.split(r"[/\\]", name)[:-1]):
+        cut = safe_name(raw)
+        if out[i] != cut and not (here / out[i]).exists() and (here / cut).is_dir():
+            out[i] = cut
+        here = here / out[i]
+    return out
 
 
 def _stored(root: Path, *, strict: bool = False, any_error: bool = False) -> dict[str, int]:
@@ -418,6 +435,17 @@ def _reference_bytes(folder: Path) -> int:
     return 0 if root.is_symlink() or not root.is_dir() else sum(_stored(root).values())
 
 
+def _refuse_fold_clash(stored: str, others: Collection[str]) -> None:
+    """``Refused`` when ``stored`` is a different name from one already stored or in flight that
+    the disk compares as the same (case, normalisation): the second would replace the first."""
+    key = _folded(stored)
+    for other in others:
+        if other != stored and _folded(other) == key:
+            raise Refused(
+                f"{stored!r} is the same file name as {other!r} on a disk that folds case"
+            )
+
+
 def _reserve(layout: Layout, folder: Path, sid: str, stored: str, length: int) -> str:
     """Check the limits against what is stored and in flight; record the reservation."""
     tmp = f".part-{uuid.uuid4().hex}"
@@ -427,6 +455,7 @@ def _reserve(layout: Layout, folder: Path, sid: str, stored: str, length: int) -
         _refuse_links(root, parts)
         existing = _stored(root)
         own = _PENDING.get(sid, {})
+        _refuse_fold_clash(stored, [*existing, *(name for name, _ in own.values())])
         count = len(set(existing) - {stored}) + len(own) + 1
         total = sum(v for k, v in existing.items() if k != stored)
         total += sum(size for _, size in own.values()) + length
@@ -495,7 +524,7 @@ def add_file(layout: Layout, sid: str, name: str, body: BinaryIO, length: int) -
     folder = _folder(layout, sid)
     if _is_sealed(folder):
         raise Refused("this submission has been submitted")
-    parts = _parts(name)
+    parts = _legacy_folders(folder, name, _parts(name))
     if not isinstance(length, int) or isinstance(length, bool) or length < 0:
         raise Refused("the upload has no valid length")
     if length > MAX_FILE:
@@ -582,9 +611,13 @@ def open_regular(path: Path, size: int | None = None) -> _Carried:
         raise
 
 
-def _fold(name: str) -> str:
+def _folded(stored: str) -> str:
     """A stored name as a case- and normalisation-insensitive disk sees it."""
-    return unicodedata.normalize("NFC", "/".join(_parts(name))).casefold()
+    return unicodedata.normalize("NFC", stored).casefold()
+
+
+def _fold(name: str) -> str:
+    return _folded("/".join(_parts(name)))
 
 
 def _check_carry(root: Path, sid: str, wanted: dict[str, int]) -> tuple[list[str], list[str]]:
@@ -630,16 +663,79 @@ def _roll_back(layout: Layout, sid: str, made: list[tuple[str, int]]) -> None:
             log.warning("carry %s: could not remove %s (%s)", sid, stored, error)
 
 
-def carry(layout: Layout, sid: str, source: Path) -> dict[str, list[str]]:
+def _without_left_out(wanted: dict[str, int], leave_out: Collection[str]) -> dict[str, int]:
+    """``wanted`` less the files named in ``leave_out`` (compared in folded form, as the disk
+    compares them); ``Refused`` for a name that is not one of the earlier run's files."""
+    folds = {_fold(name): name for name in wanted}
+    gone: set[str] = set()
+    for given in leave_out:
+        key = _fold(given)
+        if key not in folds:
+            raise Refused(f"{given!r} is not a file of the earlier run")
+        gone.add(folds[key])
+    return {name: size for name, size in wanted.items() if name not in gone}
+
+
+def _digest(path: Path, size: int) -> str:
+    """SHA-256 of a regular file of ``size`` bytes (``Refused`` when it is not one)."""
+    sha = hashlib.sha256()
+    with open_regular(path, size) as handle:
+        while chunk := handle.read(1 << 20):
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
+def _same_content(
+    source: Path, root: Path, wanted: dict[str, int], held: dict[str, int]
+) -> dict[str, str]:
+    """Earlier file (stored form) -> stored name of a file already in the draft with the same
+    bytes under another name. Only pairs of equal size are hashed, and the caller holds no lock.
+    A stored file that cannot be read is logged and not compared."""
+    held_keys = {_fold(name) for name in held}
+    found: dict[str, str] = {}
+    digests: dict[str, str | None] = {}
+    for name in sorted(wanted):
+        if _fold(name) in held_keys:
+            continue  # same name: the carry keeps the stored file
+        twins = [other for other in sorted(held) if held[other] == wanted[name]]
+        if not twins:
+            continue
+        mine = _digest(source / name, wanted[name])
+        for other in twins:
+            if other not in digests:
+                try:
+                    digests[other] = _digest(root.joinpath(*other.split("/")), held[other])
+                except Refused as error:
+                    log.warning("carry: %s was not compared (%s)", other, error)
+                    digests[other] = None
+            if digests[other] == mine:
+                found["/".join(_parts(name))] = other
+                break
+    return found
+
+
+def carry(
+    layout: Layout, sid: str, source: Path, leave_out: Collection[str] = ()
+) -> dict[str, Any]:
     """Copy each file under ``source`` (but its context.json) into the submission.
 
-    A name already stored is kept, never replaced, and is reported as kept. Nothing is copied when
-    a link is found or a limit would be passed; a copy that fails part-way removes the files this
-    call created. Returns the names carried and the names kept, each sorted."""
+    ``leave_out`` names earlier files not to copy (``Refused`` for an unknown name); they and the
+    files not copied below do not count toward the limits. A name already stored is kept, never
+    replaced, and is reported as kept. An earlier file with the same bytes as a file already in
+    the draft under another name is not copied: ``same_content`` ({earlier name: stored name},
+    present only when not empty) reports it. Only uploads made before the carry are compared.
+    Nothing is copied when a link is found or a limit would be passed; a copy that fails
+    part-way removes the files this call created. Returns the names carried and the names kept,
+    each sorted."""
     folder = _folder(layout, sid)
     if source.is_symlink() or not source.is_dir():
         raise Refused("the earlier run's files are not a plain folder")
-    wanted = listing(source)
+    wanted = _without_left_out(listing(source), leave_out)
+    with _LOCK:
+        stored_root = _usable_root(folder)
+        held = _stored(stored_root)
+    same = _same_content(source, stored_root, wanted, held)
+    wanted = {name: size for name, size in wanted.items() if "/".join(_parts(name)) not in same}
     with _LOCK:
         root = _usable_root(folder)
         names, kept = _check_carry(root, sid, wanted)
@@ -664,7 +760,13 @@ def carry(layout: Layout, sid: str, source: Path) -> dict[str, list[str]]:
     except BaseException:
         _roll_back(layout, sid, made)
         raise
-    return {"carried": sorted(stored for stored, _ in made), "kept": sorted(set(kept))}
+    result: dict[str, Any] = {
+        "carried": sorted(stored for stored, _ in made),
+        "kept": sorted(set(kept)),
+    }
+    if same:
+        result["same_content"] = same
+    return result
 
 
 def reading(layout: Layout, sid: str) -> dict[str, Any]:

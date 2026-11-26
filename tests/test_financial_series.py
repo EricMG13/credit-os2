@@ -7,12 +7,15 @@ T4.14 / T4.10 / T4.18 facts; expected categories, fact ids and basis digests are
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 from itertools import pairwise
-from typing import get_args
+from types import SimpleNamespace
+from typing import Any, get_args
 
 import pytest
 
@@ -622,6 +625,27 @@ def test_a_quarter_without_a_stated_start_is_still_plotted() -> None:
     assert categories(item) == ["Q1 2025", "Q2 2025"]
 
 
+def test_an_undated_quarter_among_dated_ones_is_plotted_undated() -> None:
+    """S12-2-1: a quarter with no end date has no span, so it is checked by its number alone."""
+    periods = {
+        "q1": ("QUARTER", "2025", "1", "2025-01-01", "2025-03-31"),
+        "q2": ("QUARTER", "2025", "2", None, None),
+        "q3": ("QUARTER", "2025", "3", "2025-07-01", "2025-09-30"),
+    }
+    columns = {"Q:q1": "q1", "Q:q2": "q2", "Q:q3": "q3"}
+    item = figure(module(periods, columns), "S.5")
+    assert sorted(categories(item)) == ["Q1 2025", "Q2 2025", "Q3 2025"]
+
+
+def test_an_undated_quarter_number_outside_one_to_four_still_raises() -> None:
+    periods = {
+        "q1": ("QUARTER", "2025", "1", "2025-01-01", "2025-03-31"),
+        "q5": ("QUARTER", "2025", "5", None, None),
+    }
+    with pytest.raises(ValueError, match="Ambiguous QUARTER identities"):
+        cp1_chart_series(module(periods, {"Q:q1": "q1", "Q:q5": "q5"}))
+
+
 def test_unknown_period_type_raises() -> None:
     periods = {"h1": ("HALF", "2025", None, "2025-01-01", "2025-06-30")}
     with pytest.raises(ValueError, match="Unsupported historical chart period type"):
@@ -724,10 +748,10 @@ def test_maturity_wall_categories_are_in_maturity_date_order() -> None:
     assert item.reason is None
     assert item.title == "Maturity wall — principal at 2025-06-30 (not a forecast)"
     assert [(p.category, p.series) for p in item.points] == [
-        ("2026-09-30", "RCF (fac-d)"),
-        ("2027-03-01", "Term loan B (fac-b)"),
-        ("2027-03-01", "Senior notes 2027 (fac-c)"),
-        ("2030-06-15", "Senior notes 2030 (fac-a)"),
+        ("2026-09-30", "RCF"),
+        ("2027-03-01", "Term loan B"),
+        ("2027-03-01", "Senior notes 2027"),
+        ("2030-06-15", "Senior notes 2030"),
     ]
     assert item.series == tuple(p.series for p in item.points)
 
@@ -743,16 +767,227 @@ def test_maturity_wall_without_a_known_maturity_is_unavailable() -> None:
     item = figure(view.model_copy(update={"facts": facts}), "S.4")
     assert item.points == ()
     assert item.series == ()
-    assert item.reason == "Contractual maturity unavailable: T4.18:fac-b.q2-2025:maturity_date"
+    # S12-4-2: the reason names the facility and quotes its limitation, never a fact id.
+    assert item.reason == "Contractual maturity unavailable for Term loan B: Not stated"
 
 
 def test_maturity_wall_reads_the_quarter_snapshot_beside_trailing_periods() -> None:
-    """A YTD, LTM or PF period ending on the snapshot date is not a snapshot period."""
+    """A YTD, LTM or PF period ending on the snapshot date is an alias ranked after the
+    quarter: identical rows there are read at the quarter."""
     extra = (*facility_facts("q2-2025"), *facility_facts("ltm-2025"))
     item = figure(module(PERIODS, COLUMNS, extra=extra), "S.4")
     assert item.reason is None
     assert len(item.points) == 4
     assert all(".q2-2025:" in point.fact_id for point in item.points)
+
+
+LEASES_LEFT_OUT = (
+    "Leases are left out of the maturity wall, so it does not sum to CP-1's total debt."
+)
+NON_USD_REASON = (
+    "The maturity wall supports USD facilities; this snapshot states another currency; "
+    "nothing was converted."
+)
+
+
+@pytest.mark.parametrize("lease", ["FINANCE_LEASE", "OPERATING_LEASE"])
+def test_a_current_lease_is_left_out_of_the_wall_and_the_wall_says_so(lease: str) -> None:
+    """Owner item 12: the wall plots the facilities the debt total sums and states that leases
+    are left out; S.1 to S.3 and S.5 are unchanged."""
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    facts = tuple(
+        fact.model_copy(update={"text": lease})
+        if fact.fact_id == "T4.18:fac-b.q2-2025:lease_classification"
+        else fact
+        for fact in view.facts
+    )
+    figures = figures_of(view.model_copy(update={"facts": facts}))
+    assert figures["S.4"].reason is None
+    assert [p.fact_id for p in figures["S.4"].points] == [
+        "T4.18:fac-d.q2-2025:principal",
+        "T4.18:fac-c.q2-2025:principal",
+        "T4.18:fac-a.q2-2025:principal",
+    ]
+    assert figures["S.4"].note == LEASES_LEFT_OUT
+    control = figures_of(module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025")))
+    assert control["S.4"].note is None
+    for fig_id in ("S.1", "S.2", "S.3", "S.5"):
+        assert figures[fig_id] == control[fig_id]
+
+
+def test_a_non_usd_facility_empties_the_wall_with_a_reason_that_names_no_lease() -> None:
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    item = figure(with_text(view, "T4.18:fac-b.q2-2025:currency", "EUR"), "S.4")
+    assert item.points == ()
+    assert item.series == ()
+    assert item.note is None
+    assert item.reason == NON_USD_REASON
+    assert "lease" not in item.reason
+
+
+def test_a_non_usd_lease_is_left_out_not_a_reason_to_empty_the_wall() -> None:
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    view = with_text(view, "T4.18:fac-b.q2-2025:lease_classification", "FINANCE_LEASE")
+    item = figure(with_text(view, "T4.18:fac-b.q2-2025:currency", "EUR"), "S.4")
+    assert item.reason is None
+    assert len(item.points) == 3
+    assert item.note == LEASES_LEFT_OUT
+
+
+@pytest.mark.parametrize("kind", ["FY", "QUARTER", "PERIOD_END"])
+def test_a_period_without_stated_dates_is_plotted_last_and_never_a_snapshot(kind: str) -> None:
+    undated = (kind, "2025", "4" if kind == "QUARTER" else None, None, None)
+    periods = {"fy-2024": PERIODS["fy-2024"], "undated": undated}
+    columns = {"FY:fy-2024": "fy-2024"}
+    if kind != "PERIOD_END":
+        columns[("Q:" if kind == "QUARTER" else "FY:") + "undated"] = "undated"
+    view = module(periods, columns, extra=facility_facts("undated"))
+    figures = {item.fig_id: item for item in cp1_chart_series(view)}
+    expected = (
+        ["FY2024"]
+        if kind == "PERIOD_END"
+        else ["FY2024", "Q4 2025" if kind == "QUARTER" else "FY2025"]
+    )
+    assert categories(figures["S.3"]) == expected
+    assert figures["S.4"].points == ()
+    assert figures["S.4"].title == "Maturity wall — principal at 2024-12-31 (not a forecast)"
+
+
+def test_a_facility_lease_status_not_stated_is_not_called_a_lease_or_currency() -> None:
+    """S12-2-2: NOT_STATED is neither a lease nor another currency; the reason says so."""
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    facts = tuple(
+        fact.model_copy(update={"text": "NOT_STATED"})
+        if fact.fact_id == "T4.18:fac-b.q2-2025:lease_classification"
+        else fact
+        for fact in view.facts
+    )
+    item = figure(view.model_copy(update={"facts": facts}), "S.4")
+    assert item.points == ()
+    assert item.reason == (
+        "The maturity wall supports USD facilities stated not to be leases; this snapshot "
+        "does not state whether a facility is a lease; nothing was converted."
+    )
+
+
+Q4_2024 = ("QUARTER", "2024", "4", "2024-10-01", "2024-12-31")
+ALIAS_REASON = (
+    "The maturity wall reads one facility snapshot; two facility rows for one facility at this "
+    "date disagree in its terms; nothing was plotted."
+)
+
+
+def with_text(view: ModuleView, fact_id: str, text: str) -> ModuleView:
+    facts = tuple(
+        fact.model_copy(update={"text": text}) if fact.fact_id == fact_id else fact
+        for fact in view.facts
+    )
+    return view.model_copy(update={"facts": facts})
+
+
+def figures_of(view: ModuleView) -> dict[str, FinancialFigureSeries]:
+    return {item.fig_id: item for item in cp1_chart_series(view)}
+
+
+@pytest.mark.parametrize(
+    ("field", "text"),
+    [
+        ("facility_name", "Renamed loan"),
+        ("maturity_date", "2028-01-01"),
+        ("annual_amortisation", "5"),
+    ],
+)
+def test_conflicting_snapshot_aliases_empty_only_the_maturity_wall(field: str, text: str) -> None:
+    """S12-3-1: FY and Q4 rows of one facility disagreeing is an S.4 gap, not a figure-set error."""
+    periods = {"q4-2024": Q4_2024, "fy-2024": PERIODS["fy-2024"]}
+    columns = {"Q:q4-2024": "q4-2024", "FY:fy-2024": "fy-2024"}
+    facts = (*facility_facts("q4-2024"), *facility_facts("fy-2024"))
+    control = figures_of(module(periods, columns, extra=facts))
+    assert len(control["S.4"].points) == 4
+    assert all(".q4-2024:" in point.fact_id for point in control["S.4"].points)
+    changed = with_text(module(periods, columns, extra=facts), f"T4.18:fac-b.fy-2024:{field}", text)
+    got = figures_of(changed)
+    assert got["S.4"].points == ()
+    assert got["S.4"].series == ()
+    assert got["S.4"].reason == ALIAS_REASON
+    plain = figures_of(module(periods, columns))
+    for fig_id in ("S.1", "S.2", "S.3", "S.5"):
+        assert got[fig_id] == plain[fig_id]
+
+
+CLOSE_2024 = ("PERIOD_END", "2024", None, None, "2024-12-31")
+
+
+def fy_and_close(*, close: bool, fy: bool, quarter: bool = False) -> ModuleView:
+    periods = {"fy-2024": PERIODS["fy-2024"], "close-2024": CLOSE_2024}
+    columns = {"FY:fy-2024": "fy-2024"}
+    extra: tuple[Fact, ...] = ()
+    if fy:
+        extra += facility_facts("fy-2024")
+    if close:
+        extra += facility_facts("close-2024")
+    if quarter:
+        periods["q4-2024"] = Q4_2024
+        columns["Q:q4-2024"] = "q4-2024"
+        extra += facility_facts("q4-2024")
+    return module(periods, columns, extra=extra)
+
+
+def test_an_fy_snapshot_is_read_beside_a_period_end_book_at_the_same_date() -> None:
+    """S12-3-2 (a): FY outranks PERIOD_END, so the one FY row set is plotted."""
+    item = figure(fy_and_close(close=False, fy=True), "S.4")
+    assert item.reason is None
+    assert len(item.points) == 4
+    assert all(".fy-2024:" in point.fact_id for point in item.points)
+
+
+def test_identical_fy_and_period_end_rows_plot_the_fy_rows() -> None:
+    item = figure(fy_and_close(close=True, fy=True), "S.4")
+    assert item.reason is None
+    assert len(item.points) == 4
+    assert all(".fy-2024:" in point.fact_id for point in item.points)
+
+
+def test_a_period_end_row_disagreeing_with_the_fy_row_is_an_alias_gap() -> None:
+    view = with_text(
+        fy_and_close(close=True, fy=True), "T4.18:fac-b.close-2024:maturity_date", "2028-01-01"
+    )
+    got = figures_of(view)
+    assert got["S.4"].points == ()
+    assert got["S.4"].reason == ALIAS_REASON
+    plain = figures_of(fy_and_close(close=False, fy=False))
+    for fig_id in ("S.1", "S.2", "S.3", "S.5"):
+        assert got[fig_id] == plain[fig_id]
+
+
+def test_a_quarter_snapshot_outranks_fy_and_period_end_at_one_date() -> None:
+    item = figure(fy_and_close(close=True, fy=True, quarter=True), "S.4")
+    assert item.reason is None
+    assert all(".q4-2024:" in point.fact_id for point in item.points)
+
+
+def test_undated_quarters_of_two_fiscal_years_are_drawn_in_fiscal_order() -> None:
+    """S12-3-3: undated periods of one class are ordered by their own fiscal year and quarter."""
+    periods = {
+        "q4-2024": ("QUARTER", "2024", "4", None, None),
+        "q1-2025": ("QUARTER", "2025", "1", None, None),
+        "q2-2025": PERIODS["q2-2025"],
+    }
+    columns = {"Q:q4-2024": "q4-2024", "Q:q1-2025": "q1-2025", "Q:q2-2025": "q2-2025"}
+    assert categories(figure(module(periods, columns), "S.5")) == [
+        "Q2 2025",
+        "Q4 2024",
+        "Q1 2025",
+    ]
+
+
+def test_an_undated_fy_follows_its_own_years_undated_quarters() -> None:
+    periods = {
+        "q4-2025": ("QUARTER", "2025", "4", None, None),
+        "fy-2025": ("FY", "2025", None, None, None),
+    }
+    columns = {"Q:q4-2025": "q4-2025", "FY:fy-2025": "fy-2025"}
+    assert categories(figure(module(periods, columns), "S.5")) == ["Q4 2025", "FY2025"]
 
 
 def drawn_x_labels(view: ModuleView, fig_id: str) -> list[str]:
@@ -934,3 +1169,607 @@ def test_long_maturity_dates_on_the_wall_do_not_overlap() -> None:
     svg = render_svg(item.chart, chart_id="c1", title=item.title)
     assert [text for _, _, _, text in x_axis(svg)[2]] == ["2026-09-30", "2027-03-01", "2030-06-15"]
     assert_x_labels_clear(svg)
+
+
+def test_a_snapshot_held_only_at_a_lower_ranked_alias_is_plotted() -> None:
+    """S12-4-1: the kind is ranked among the latest-date periods that carry facility rows."""
+    item = figure(fy_and_close(close=True, fy=False), "S.4")
+    assert item.reason is None
+    assert len(item.points) == 4
+    assert all(".close-2024:" in point.fact_id for point in item.points)
+
+
+def test_an_fy_snapshot_beside_a_quarter_without_rows_is_plotted() -> None:
+    periods = {"q4-2024": Q4_2024, "fy-2024": PERIODS["fy-2024"]}
+    columns = {"Q:q4-2024": "q4-2024", "FY:fy-2024": "fy-2024"}
+    item = figure(module(periods, columns, extra=facility_facts("fy-2024")), "S.4")
+    assert item.reason is None
+    assert (item.points[0].category, item.points[0].series) == ("2026-09-30", "RCF")
+    assert all(".fy-2024:" in point.fact_id for point in item.points)
+
+
+def test_an_unavailable_maturity_reason_carries_no_fact_identity() -> None:
+    """S12-4-2: ids and hashes are drawn only on Evidence; the reason is reader text."""
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    limitation = "Maturity not stated in the debt note"
+    facts = tuple(
+        fact.model_copy(update={"text": None, "status": "missing", "limitation": limitation})
+        if fact.fact_id == "T4.18:fac-a.q2-2025:maturity_date"
+        else fact
+        for fact in view.facts
+    )
+    reason = figure(view.model_copy(update={"facts": facts}), "S.4").reason
+    assert reason == f"Contractual maturity unavailable for Senior notes 2030: {limitation}"
+    assert "T4.18" not in reason and "fac-a" not in reason
+
+
+@pytest.mark.parametrize("kind", ["YTD", "LTM"])
+def test_undated_trailing_periods_of_one_year_are_drawn_in_quarter_order(kind: str) -> None:
+    """S12-4-3: an undated YTD/LTM is ordered by its own stated fiscal quarter."""
+    prefix = "YTD" if kind == "YTD" else "LTM"
+    periods = {
+        "fy-2024": PERIODS["fy-2024"],
+        "p-9m-2025": (kind, "2025", "3", None, None),
+        "p-h1-2025": (kind, "2025", "2", None, None),
+    }
+    columns = {
+        "FY:fy-2024": "fy-2024",
+        f"{prefix}:p-9m-2025": "p-9m-2025",
+        f"{prefix}:p-h1-2025": "p-h1-2025",
+    }
+    item = figure(module(periods, columns), "S.5")
+    drawn = [p.fact_id.removeprefix("T4.10:revenue:") for p in item.points if p.series == "revenue"]
+    assert drawn == ["FY:fy-2024", f"{prefix}:p-h1-2025", f"{prefix}:p-9m-2025"]
+
+
+# S12-5: the snapshot is read across every period of the latest date (owner ruling, round 5).
+CLOSE_2024_AR = ("PERIOD_END", "2024", None, None, "2024-12-31")
+
+
+def facility_subset(pid: str, *fids: str) -> tuple[Fact, ...]:
+    return tuple(f for f in facility_facts(pid) if f.row_id.split(".")[0] in fids)
+
+
+def two_closes(*, first: bool, second: bool) -> ModuleView:
+    periods = {"fy-2024": PERIODS["fy-2024"], "close-2024": CLOSE_2024}
+    periods["close-2024-ar"] = CLOSE_2024_AR
+    extra: tuple[Fact, ...] = ()
+    if first:
+        extra += facility_facts("close-2024")
+    if second:
+        extra += facility_facts("close-2024-ar")
+    return module(periods, {"FY:fy-2024": "fy-2024"}, extra=extra)
+
+
+def test_rows_at_one_of_two_period_ends_at_the_latest_date_are_plotted() -> None:
+    """S12-5-1: two PERIOD_END periods at one date never raise; the rows are read where stated."""
+    got = figures_of(two_closes(first=False, second=True))
+    assert got["S.4"].reason is None
+    assert [p.series for p in got["S.4"].points] == [
+        "RCF",
+        "Term loan B",
+        "Senior notes 2027",
+        "Senior notes 2030",
+    ]
+    assert all(".close-2024-ar:" in p.fact_id for p in got["S.4"].points)
+    plain = figures_of(module({"fy-2024": PERIODS["fy-2024"]}, {"FY:fy-2024": "fy-2024"}))
+    for fig_id in ("S.1", "S.2", "S.3", "S.5"):
+        assert got[fig_id] == plain[fig_id]
+
+
+def test_identical_rows_at_two_period_ends_plot_the_first_by_period_id() -> None:
+    item = figure(two_closes(first=True, second=True), "S.4")
+    assert item.reason is None
+    assert len(item.points) == 4
+    assert all(".close-2024:" in p.fact_id for p in item.points)
+
+
+Q4_AND_FY = {"q4-2024": Q4_2024, "fy-2024": PERIODS["fy-2024"]}
+Q4_AND_FY_COLUMNS = {"Q:q4-2024": "q4-2024", "FY:fy-2024": "fy-2024"}
+
+
+@pytest.mark.parametrize(
+    ("at_fy", "fy_read"),
+    [
+        (("fac-a", "fac-b", "fac-c", "fac-d"), {"fac-c", "fac-d"}),  # subset at Q4
+        (("fac-c", "fac-d"), {"fac-c", "fac-d"}),  # each facility at one alias
+    ],
+)
+def test_facility_rows_spread_over_same_date_aliases_are_one_snapshot(
+    at_fy: tuple[str, ...], fy_read: set[str]
+) -> None:
+    """S12-5-2: the population is every facility with rows at any alias of the latest date."""
+    extra = (*facility_subset("q4-2024", "fac-a", "fac-b"), *facility_subset("fy-2024", *at_fy))
+    item = figure(module(Q4_AND_FY, Q4_AND_FY_COLUMNS, extra=extra), "S.4")
+    assert item.reason is None
+    assert [(p.category, p.series) for p in item.points] == [
+        ("2026-09-30", "RCF"),
+        ("2027-03-01", "Term loan B"),
+        ("2027-03-01", "Senior notes 2027"),
+        ("2030-06-15", "Senior notes 2030"),
+    ]
+    for point in item.points:
+        fid = next(f for f, (name, _, _) in FACILITIES.items() if name == point.series)
+        pid = "fy-2024" if fid in fy_read else "q4-2024"
+        assert point.fact_id == f"T4.18:{fid}.{pid}:principal"
+        assert f"T4.14:{pid}:end_date" in point.companion_fact_ids
+
+
+def unstated_at_q4(field: str) -> ModuleView:
+    facts = (*facility_facts("q4-2024"), *facility_facts("fy-2024"))
+    target = f"T4.18:fac-b.q4-2024:{field}"
+    gap = {"text": None, "amount": None, "status": "missing", "limitation": "Not stated in Q4"}
+    changed = tuple(f.model_copy(update=gap) if f.fact_id == target else f for f in facts)
+    return module(Q4_AND_FY, Q4_AND_FY_COLUMNS, extra=changed)
+
+
+@pytest.mark.parametrize("field", ["annual_amortisation", "principal", "maturity_date"])
+def test_a_field_one_alias_leaves_unstated_is_read_from_the_alias_that_states_it(
+    field: str,
+) -> None:
+    """S12-5-3: an unstated value never conflicts with a stated one."""
+    item = figure(unstated_at_q4(field), "S.4")
+    assert item.reason is None
+    assert [(p.category, p.series) for p in item.points] == [
+        ("2026-09-30", "RCF"),
+        ("2027-03-01", "Term loan B"),
+        ("2027-03-01", "Senior notes 2027"),
+        ("2030-06-15", "Senior notes 2030"),
+    ]
+    loan = item.points[1]
+    principal_at = "fy-2024" if field == "principal" else "q4-2024"
+    assert loan.fact_id == f"T4.18:fac-b.{principal_at}:principal"
+    assert f"T4.18:fac-b.fy-2024:{field}" in (loan.fact_id, *loan.companion_fact_ids)
+    assert f"T4.18:fac-b.q4-2024:{field}" not in (loan.fact_id, *loan.companion_fact_ids)
+
+
+EARLIER_AND_LATEST = {"fy-2023": PERIODS["fy-2023"], **Q4_AND_FY}
+EARLIER_AND_LATEST_COLUMNS = {"FY:fy-2023": "fy-2023", **Q4_AND_FY_COLUMNS}
+
+
+def test_a_facility_absent_from_every_alias_of_the_latest_date_empties_the_wall() -> None:
+    """Coordinator ruling (round 5): the population spans every dated snapshot; a facility with
+    rows at an earlier date and none at the latest date is a missing snapshot, never dropped."""
+    extra = (
+        *facility_facts("fy-2023"),
+        *facility_subset("q4-2024", "fac-a", "fac-b"),
+        *facility_subset("fy-2024", "fac-c"),
+    )
+    item = figure(module(EARLIER_AND_LATEST, EARLIER_AND_LATEST_COLUMNS, extra=extra), "S.4")
+    assert item.points == ()
+    assert item.reason == "No complete current facility snapshot is supplied."
+
+
+def test_every_earlier_facility_spread_over_latest_aliases_is_plotted() -> None:
+    extra = (
+        *facility_facts("fy-2023"),
+        *facility_subset("q4-2024", "fac-a", "fac-b"),
+        *facility_subset("fy-2024", "fac-c", "fac-d"),
+    )
+    item = figure(module(EARLIER_AND_LATEST, EARLIER_AND_LATEST_COLUMNS, extra=extra), "S.4")
+    assert item.reason is None
+    assert [p.fact_id for p in item.points] == [
+        "T4.18:fac-d.fy-2024:principal",
+        "T4.18:fac-b.q4-2024:principal",
+        "T4.18:fac-c.fy-2024:principal",
+        "T4.18:fac-a.q4-2024:principal",
+    ]
+
+
+# S12-6-1: the population is the facilities `financial_reconciliation._debt` sums (round-6 ruling).
+NO_SNAPSHOT = "No complete current facility snapshot is supplied."
+THREE_POINTS = [
+    "T4.18:fac-d.q2-2025:principal",
+    "T4.18:fac-b.q2-2025:principal",
+    "T4.18:fac-c.q2-2025:principal",
+]
+
+
+def restyled(facts: tuple[Fact, ...], fid: str, **texts: str) -> tuple[Fact, ...]:
+    """The facts with the named T4.18 fields of one facility (at every period) restated."""
+    return tuple(
+        fact.model_copy(update={"text": texts[fact.field]})
+        if fact.row_id.split(".")[0] == fid and fact.field in texts
+        else fact
+        for fact in facts
+    )
+
+
+def lease_a_at_q1(facility_type: str, lease: str) -> ModuleView:
+    extra = (*facility_facts("q1-2025"), *facility_subset("q2-2025", "fac-b", "fac-c", "fac-d"))
+    extra = restyled(extra, "fac-a", facility_type=facility_type, lease_classification=lease)
+    return module(QUARTERS, QUARTER_COLUMNS, extra=extra)
+
+
+@pytest.mark.parametrize("lease", ["FINANCE_LEASE", "OPERATING_LEASE"])
+def test_a_lease_listed_only_at_an_earlier_date_leaves_the_current_wall_plotted(
+    lease: str,
+) -> None:
+    """T1: `_debt` sums no lease, so a lease without a row at the latest date is not missing."""
+    item = figure(lease_a_at_q1("LEASE", lease), "S.4")
+    assert item.reason is None
+    assert [p.fact_id for p in item.points] == THREE_POINTS
+
+
+@pytest.mark.parametrize("lease", ["FINANCE_LEASE", "OPERATING_LEASE"])
+def test_a_debt_adjustment_lease_missing_at_the_latest_date_empties_the_wall(lease: str) -> None:
+    """T2: `_debt` sums a DEBT ADJUSTMENT however it is classified; its absence is a gap."""
+    item = figure(lease_a_at_q1("DEBT ADJUSTMENT", lease), "S.4")
+    assert item.points == ()
+    assert item.reason == NO_SNAPSHOT
+
+
+def test_a_facility_row_at_a_trailing_period_of_the_latest_date_is_in_the_snapshot() -> None:
+    """T3: every period ending on the latest date is a snapshot alias, ranked after the
+    QUARTER, FY and PERIOD_END kinds."""
+    periods = {**QUARTERS, "ltm-2025": PERIODS["ltm-2025"]}
+    columns = {**QUARTER_COLUMNS, "LTM:ltm-2025": "ltm-2025"}
+    extra = (
+        *facility_facts("q1-2025"),
+        *facility_subset("q2-2025", "fac-b", "fac-c", "fac-d"),
+        *facility_subset("ltm-2025", "fac-a"),
+    )
+    item = figure(module(periods, columns, extra=extra), "S.4")
+    assert item.reason is None
+    assert [p.fact_id for p in item.points] == [*THREE_POINTS, "T4.18:fac-a.ltm-2025:principal"]
+
+
+@pytest.mark.parametrize(
+    ("pid", "spec"),
+    [
+        ("ytd-2024", PERIODS["ytd-2024"]),
+        ("q4-undated", ("QUARTER", "2024", "4", None, None)),
+    ],
+)
+def test_a_debt_facility_held_only_off_the_latest_date_empties_the_wall(
+    pid: str, spec: tuple[str, str, str | None, str | None, str | None]
+) -> None:
+    """T4: a facility `_debt` sums with a row at any period, dated or not, must be present at
+    the latest date; an undated row is never a snapshot row."""
+    periods = {**QUARTERS, pid: spec}
+    extra = (
+        *facility_subset(pid, "fac-a"),
+        *facility_subset("q2-2025", "fac-b", "fac-c", "fac-d"),
+    )
+    item = figure(module(periods, QUARTER_COLUMNS, extra=extra), "S.4")
+    assert item.points == ()
+    assert item.reason == NO_SNAPSHOT
+
+
+def test_a_current_lease_is_left_out_beside_the_debt_facilities() -> None:
+    """T5 (owner item 12): an earlier-only lease is not required; a lease at the latest date is
+    left out and stated, the other facilities are plotted."""
+    extra = (
+        *facility_subset("q1-2025", "fac-a"),
+        *facility_subset("q2-2025", "fac-b", "fac-c", "fac-d"),
+    )
+    extra = restyled(extra, "fac-a", facility_type="LEASE", lease_classification="FINANCE_LEASE")
+    extra = restyled(extra, "fac-d", facility_type="LEASE", lease_classification="OPERATING_LEASE")
+    item = figure(module(QUARTERS, QUARTER_COLUMNS, extra=extra), "S.4")
+    assert item.reason is None
+    assert [p.fact_id for p in item.points] == [
+        "T4.18:fac-b.q2-2025:principal",
+        "T4.18:fac-c.q2-2025:principal",
+    ]
+    assert item.note == LEASES_LEFT_OUT
+
+
+def test_a_snapshot_of_leases_only_states_that_the_wall_shows_debt_facilities() -> None:
+    extra = restyled(
+        facility_subset("q2-2025", "fac-a", "fac-b"),
+        "fac-a",
+        facility_type="LEASE",
+        lease_classification="FINANCE_LEASE",
+    )
+    extra = restyled(extra, "fac-b", facility_type="LEASE", lease_classification="FINANCE_LEASE")
+    item = figure(module(QUARTERS, QUARTER_COLUMNS, extra=extra), "S.4")
+    assert item.points == ()
+    assert item.reason == (
+        "CP-1 states only leases at the latest date; the maturity wall shows debt facilities."
+    )
+
+
+def test_a_debt_adjustment_lease_is_plotted_whatever_its_lease_class() -> None:
+    extra = restyled(
+        facility_facts("q2-2025"),
+        "fac-a",
+        facility_type="DEBT ADJUSTMENT",
+        lease_classification="FINANCE_LEASE",
+    )
+    item = figure(module(QUARTERS, QUARTER_COLUMNS, extra=extra), "S.4")
+    assert item.reason is None
+    assert len(item.points) == 4
+    assert item.note is None
+
+
+# Owner item 7: a facility-row failure empties S.4 only, with one fixed reader reason.
+MATURITY_FAILED = "The maturity wall cannot be drawn from CP-1's facility rows."
+
+
+def _drop(view: ModuleView, fact_id: str) -> ModuleView:
+    return view.model_copy(update={"facts": tuple(f for f in view.facts if f.fact_id != fact_id)})
+
+
+def _update(view: ModuleView, fact_id: str, **changes: object) -> ModuleView:
+    facts = tuple(f.model_copy(update=changes) if f.fact_id == fact_id else f for f in view.facts)
+    return view.model_copy(update={"facts": facts})
+
+
+def _incomplete(view: ModuleView) -> ModuleView:
+    return _drop(view, "T4.18:fac-b.q2-2025:lease_classification")
+
+
+def _foreign(view: ModuleView) -> ModuleView:
+    return _update(view, "T4.18:fac-b.q2-2025:period_id", text="no-such-period")
+
+
+def _duplicate(view: ModuleView) -> ModuleView:
+    copies = tuple(
+        f.model_copy(update={"row_id": "fac-b.again", "fact_id": f.fact_id + ".again"})
+        for f in view.facts
+        if f.table_id == "T4.18" and f.row_id == "fac-b.q2-2025"
+    )
+    return view.model_copy(update={"facts": (*view.facts, *copies)})
+
+
+def _thousands(view: ModuleView) -> ModuleView:
+    return _update(view, "T4.18:fac-b.q2-2025:principal", unit="THOUSANDS")
+
+
+def _malformed_row(view: ModuleView) -> ModuleView:
+    return _update(view, "T4.18:fac-b.q2-2025:annual_amortisation", text=None)
+
+
+def _unresolved_identity(view: ModuleView) -> ModuleView:
+    return _update(
+        view,
+        "T4.18:fac-b.q2-2025:facility_type",
+        text=None,
+        status="missing",
+        limitation="Not stated",
+    )
+
+
+def _bad_maturity(view: ModuleView) -> ModuleView:
+    return _update(view, "T4.18:fac-b.q2-2025:maturity_date", text="not-a-date")
+
+
+@pytest.mark.parametrize(
+    "break_it",
+    [
+        _incomplete,
+        _foreign,
+        _duplicate,
+        _thousands,
+        _malformed_row,
+        _unresolved_identity,
+        _bad_maturity,
+    ],
+)
+def test_a_facility_row_failure_empties_only_the_maturity_wall(
+    break_it: Callable[[ModuleView], ModuleView], caplog: pytest.LogCaptureFixture
+) -> None:
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    control = figures_of(view)
+    assert control["S.4"].reason is None
+    with caplog.at_level(logging.WARNING, logger="deploy_vii.financial_series"):
+        got = figures_of(break_it(view))
+    assert got["S.4"].points == ()
+    assert got["S.4"].series == ()
+    assert got["S.4"].reason == MATURITY_FAILED
+    assert got["S.4"].note is None
+    assert got["S.4"].fig_id == "S.4"
+    for fig_id in ("S.1", "S.2", "S.3", "S.5"):
+        assert got[fig_id] == control[fig_id]
+    # The detail goes to the log, never to a page.
+    assert [r.levelno for r in caplog.records] == [logging.WARNING]
+    assert caplog.records[0].getMessage().startswith("CP-1 maturity wall not drawn: ")
+    assert len(caplog.records[0].getMessage()) > len("CP-1 maturity wall not drawn: ")
+    assert "T4.18" not in (got["S.4"].reason or "")
+
+
+def test_a_period_failure_still_raises_rather_than_hiding_in_the_wall() -> None:
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    broken = _update(view, "T4.14:q2-2025:currency", text="EUR")
+    assert figures_of(broken)["S.4"].reason is not None  # unsupported scope: stated, not raised
+    mismatched = _update(view, "T4.14:q2-2025:period_type", text="NO_SUCH_KIND")
+    with pytest.raises(ValueError, match="Unsupported historical chart period type"):
+        cp1_chart_series(mismatched)
+
+
+# Owner item 11: a twin row and a series name are reader text; ids and refs are Evidence's.
+RAW_MARKERS = ("period_id", "facility_id", "T4.", "model-basis", "fac-", " [", "]", ": ")
+
+
+@pytest.mark.parametrize("fig_id", ["S.1", "S.2", "S.3", "S.4", "S.5"])
+def test_a_cp1_twin_row_is_caption_and_category_only_and_keeps_its_trace(fig_id: str) -> None:
+    view = module(PERIODS, COLUMNS, extra=facility_facts("q2-2025"))
+    item = drawn(view, fig_id)
+    twin = item.chart.table_twin
+    assert twin.rows
+    for row, mark in zip(twin.rows, item.chart.marks, strict=True):
+        assert row.label == f"{mark.series} · {mark.label}"
+        assert not any(marker in row.label for marker in RAW_MARKERS)
+        assert row.cells[0].ref_id == "K1"  # the cell keeps its trace control
+    assert not any(marker in name for name in item.chart.series for marker in RAW_MARKERS)
+
+
+def test_the_maturity_wall_names_a_series_by_its_facility_and_numbers_repeated_names() -> None:
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    assert figure(view, "S.4").series == (
+        "RCF",
+        "Term loan B",
+        "Senior notes 2027",
+        "Senior notes 2030",
+    )
+    renamed = with_text(view, "T4.18:fac-c.q2-2025:facility_name", "Term loan B")
+    assert figure(renamed, "S.4").series == (
+        "RCF",
+        "Term loan B (1)",
+        "Term loan B (2)",
+        "Senior notes 2030",
+    )
+    assert [p.fact_id for p in figure(renamed, "S.4").points][1:3] == [
+        "T4.18:fac-b.q2-2025:principal",
+        "T4.18:fac-c.q2-2025:principal",
+    ]
+
+
+def test_the_drawn_wall_twin_states_that_leases_are_left_out() -> None:
+    view = module(QUARTERS, QUARTER_COLUMNS, extra=facility_facts("q2-2025"))
+    leased = with_text(view, "T4.18:fac-b.q2-2025:lease_classification", "FINANCE_LEASE")
+    item = drawn(leased, "S.4")
+    assert item.chart.reason is None
+    assert item.chart.table_twin.note == LEASES_LEFT_OUT
+    assert len(item.chart.marks) == 3
+    assert drawn(view, "S.4").chart.table_twin.note is None
+
+
+def test_a_group_b_twin_row_names_no_companion_field_or_ref() -> None:
+    """RV.3 and CR.1 draw through `_figure_of_points`: the same reader-only row label."""
+    facts = (
+        Fact(
+            fact_id="X.value",
+            label="Net leverage",
+            table_id="X",
+            row_id="r",
+            field="value",
+            amount=Decimal("3.5"),
+            unit="MULTIPLE",
+            scale=Decimal(1),
+            period="FY2024",
+            basis=SCOPE,
+        ),
+        Fact(
+            fact_id="X.flag",
+            label="Peer flag",
+            table_id="X",
+            row_id="r",
+            field="flag",
+            text="Included",
+            period="FY2024",
+            basis=SCOPE,
+        ),
+    )
+    view = ModuleView(
+        module_id="CP-1C",
+        title="Peers",
+        aliases=(),
+        status="accepted",
+        artifact_sha256="a" * 64,
+        facts=facts,
+    )
+    refs = {("CP-1C", "X.value"): ("K1",), ("CP-1C", "X.flag"): ("K2",)}
+    item = report_view._figure_of_points(
+        "blk",
+        view,
+        refs,
+        fig_id="RV.3b",
+        title="Peer positioning",
+        kind="range",
+        unit_class="multiple",
+        unit="x",
+        series=("Issuer",),
+        points=(report_view._ChartPoint("Issuer", "Net leverage", "X.value", ("X.flag",)),),
+        placement="above",
+    )
+    (row,) = item.chart.table_twin.rows
+    assert row.label == "Issuer · Net leverage"
+    assert row.cells[0].ref_id == "K1"
+    with pytest.raises(ValueError, match="unknown fact X.nope"):
+        report_view._figure_of_points(
+            "blk",
+            view,
+            refs,
+            fig_id="RV.3b",
+            title="Peer positioning",
+            kind="range",
+            unit_class="multiple",
+            unit="x",
+            series=("Issuer",),
+            points=(report_view._ChartPoint("Issuer", "Net leverage", "X.value", ("X.nope",)),),
+            placement="above",
+        )
+
+
+def _cr1_view() -> Any:
+    """CP-4's T4.9 with two rows that share a label and one whose comparison is not drawn."""
+    from deploy_vii.contracts import ReportTable, TableColumn, TableRow
+
+    fields = (
+        "comparison",
+        "threshold",
+        "current",
+        "headroom",
+        "cp_1_metric",
+        "test_on_cp_1_metric",
+        "headroom_share",
+    )
+    row_labels = {"c1": "Net leverage", "c2": "Net leverage", "c3": "Cover"}
+    facts, rows = [], []
+    for row_id, row_label in row_labels.items():
+        ids = []
+        for field in fields:
+            fact_id = f"T4.9.{row_id}.{field}"
+            ids.append(fact_id)
+            common = {
+                "fact_id": fact_id,
+                "label": field,
+                "table_id": "T4.9",
+                "row_id": row_id,
+                "field": field,
+                "period": "FY2024",
+                "basis": SCOPE,
+            }
+            if field in {"current", "headroom"}:
+                facts.append(
+                    Fact(
+                        **common,
+                        amount=Decimal("1.5"),
+                        unit="MULTIPLE",
+                        scale=Decimal(1),
+                    )
+                )
+            elif field == "comparison":
+                text = "Sometimes" if row_id == "c3" else "Not more than"
+                facts.append(Fact(**common, text=text))
+            elif field == "threshold":
+                facts.append(Fact(**common, text="4.00x"))
+            else:
+                facts.append(Fact(**common, text="note"))
+        rows.append(TableRow(row_id=row_id, label=row_label, fact_ids=tuple(ids)))
+    table = ReportTable(
+        table_id="T4.9",
+        title="Covenants",
+        columns=tuple(TableColumn(field=f, label=f) for f in fields),
+        rows=tuple(rows),
+    )
+    module = ModuleView(
+        module_id="CP-4",
+        title="Legal",
+        aliases=(),
+        status="accepted",
+        artifact_sha256="b" * 64,
+        facts=tuple(facts),
+        tables=(table,),
+    )
+    return SimpleNamespace(modules=(module,))
+
+
+def test_cr1_numbers_repeated_labels_and_names_no_id_in_its_note() -> None:
+    """Ids stay on Evidence: repeated labels are numbered and the note names reader labels."""
+    import re
+
+    view = _cr1_view()
+    refs: dict[tuple[str, str], tuple[str, ...]] = {}
+    for module in view.modules:
+        for fact in module.facts:
+            refs[(module.module_id, fact.fact_id)] = ("K1",)
+    (figure,) = report_view._cr1_figures("blk", view, refs)
+    labels = [row.label for row in figure.chart.table_twin.rows]
+    assert "Threshold · Net leverage (1)" in labels
+    assert "Threshold · Net leverage (2)" in labels
+    assert not any("c1" in label or "c2" in label for label in labels)
+    assert figure.summary is not None
+    assert figure.summary.startswith("Not drawn: Cover")
+    assert not re.search(r"T4\.9|\.c3\.|c3", figure.summary)

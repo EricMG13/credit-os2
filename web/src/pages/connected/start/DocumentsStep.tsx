@@ -39,16 +39,19 @@ function documentBadge({
   description,
   pendingCopy,
   copied,
+  sameAs,
 }: {
   repeat?: string;
   reason?: string;
   description?: string;
   pendingCopy: DocumentRow["pendingCopy"];
   copied: DocumentRow["copied"];
+  sameAs: DocumentRow["sameAs"];
 }) {
   if (repeat) return { color: "error", text: "Repeated content" } as const;
   if (reason) return { color: "error", text: "Ignored" } as const;
   if (description) return { color: "success", text: "Inspected" } as const;
+  if (sameAs) return { color: "gray", text: "Not carried" } as const;
   if (pendingCopy) return { color: "gray", text: "Will be copied" } as const;
   return { color: "gray", text: copied ? "Copied" : "Selected" } as const;
 }
@@ -69,14 +72,17 @@ function IntakeDocumentRow({
   view: IntakeView;
   onRemove: () => void;
 }) {
-  const { name, stored, file, pendingCopy, copied } = row;
+  const { name, stored, file, pendingCopy, copied, sameAs } = row;
   const repeat = file ? view.repeatedContent.get(file) : undefined;
   const reason = repeat ?? (stored ? view.ignored.get(stored) : undefined);
   const description = stored ? view.inspected.get(stored) : undefined;
   const record = stored ? view.shownDocs.find((doc) => storedName(doc) === stored) : undefined;
-  const badge = documentBadge({ repeat, reason, description, pendingCopy, copied });
+  const badge = documentBadge({ repeat, reason, description, pendingCopy, copied, sameAs });
   const uploading = view.busy === "documents" && file !== undefined && !stored;
-  const facts = reason || factsOf(description, record?.kind);
+  const facts =
+    reason ||
+    factsOf(description, record?.kind) ||
+    (sameAs ? `Same content as ${sameAs}, so it is not carried.` : undefined);
   return (
     <li className="flex min-w-0 items-start gap-3 py-3 text-small">
       <File05 aria-hidden="true" className="mt-1 size-5 shrink-0 text-text-tertiary" />

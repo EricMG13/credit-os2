@@ -21,6 +21,7 @@ from pydantic import Field, ValidationError, model_validator
 
 from deploy_vii.contracts import Contract
 from deploy_vii.live.schema import exact_json, json_object
+from deploy_vii.period_order import PeriodClass, parse_period
 from deploy_vii.readiness import shape_issues
 from deploy_workflow.method_scripts import currency_of
 from deploy_workflow.owners import cp2g
@@ -331,10 +332,12 @@ def _layer1_problem(text: str, key: str, operand: Operand, amount: str | None) -
 # thousands and `Bank` or `Item` name no unit; USD, EUR, GBP and the signs are read in any case.
 _ISO_CODE = rf"(?<![A-Za-z])(?-i:{'|'.join(sorted(ISO_4217))})"
 _CURRENCY = rf"(?:US\$|USD|EUR|GBP|[$\u20ac\u00a3]|{_ISO_CODE})"
-_NAMES_THOUSANDS = re.compile(rf"\bthousands?\b|[$'\u2019]000s?\b|{_CURRENCY}\s?k\b", re.IGNORECASE)
-_NAMES_MILLIONS = re.compile(
-    rf"\b(?:millions?|billions?)\b|{_CURRENCY}\s?(?:m|mm|mn|bn)\b", re.IGNORECASE
+_NAMES_THOUSANDS = re.compile(
+    rf"\bthousands?\b|[$\u20ac\u00a3'\u2019]000s?\b|{_CURRENCY}\s?(?:k\b|000s?\b)",
+    re.IGNORECASE,
 )
+_NAMES_MILLIONS = re.compile(rf"\bmillions?\b|{_CURRENCY}\s?(?:m|mm|mn)\b", re.IGNORECASE)
+_NAMES_BILLIONS = re.compile(rf"\bbillions?\b|{_CURRENCY}\s?bn\b", re.IGNORECASE)
 # The sign of each currency that has one. `US$` after a letter is not the dollar (`AUS$`); a euro or
 # pound sign is, whatever precedes it (`M\u20ac`, `120m\u00a3`).
 _CURRENCY_SIGN = {"USD": r"(?i:(?<![A-Za-z])US\$)", "EUR": "\u20ac", "GBP": "\u00a3"}
@@ -361,16 +364,20 @@ def _unit_of(scale: int, currency: str | None) -> str:
 
 
 def _units_named(text: str) -> frozenset[str]:
-    """Which of `thousands` and `millions` a cell of CP-1 names as a unit, case-insensitive.
-    Thousands: the word `thousand` or `thousands`; `$000`, `'000` (with a trailing s); a currency
-    (`US$`, `$`, euro or pound sign, or an ISO 4217 code: `USD`, `EUR` and `GBP` in any case, any
-    other in capitals, `CHF`) then `k`, at a word end. Millions: the
-    words `million`, `millions`, `billion`, `billions`; a currency then `m`, `mm`, `mn` or `bn`,
-    at a word end (`US$m`, `USD m`, `$mn`, `US$ bn`). A bare number, `9M`, or `m` without a currency
-    names none. Both may be named at once."""
+    """Which of `thousands`, `millions` and `billions` a cell of CP-1 names as a unit,
+    case-insensitive. Thousands: the word `thousand` or `thousands`; `$000`, `'000` (with a
+    trailing s); a currency (`US$`, `$`, euro or pound sign, or an ISO 4217 code: `USD`, `EUR` and
+    `GBP` in any case, any other in capitals, `CHF`) then `k`, at a word end. Millions: the words
+    `million`, `millions`; a currency then `m`, `mm` or `mn`, at a word end (`US$m`, `USD m`,
+    `$mn`). Billions: the words `billion`, `billions`; a currency then `bn` (`US$bn`, `US$ bn`).
+    A bare number, `9M`, or `m` without a currency names none. Several may be named at once."""
     return frozenset(
         name
-        for name, pattern in (("thousands", _NAMES_THOUSANDS), ("millions", _NAMES_MILLIONS))
+        for name, pattern in (
+            ("thousands", _NAMES_THOUSANDS),
+            ("millions", _NAMES_MILLIONS),
+            ("billions", _NAMES_BILLIONS),
+        )
         if pattern.search(text)
     )
 
@@ -401,15 +408,16 @@ def _unit_problem(
     text: str, key: str, operand: Operand, scale: int, currency: str | None = None
 ) -> str | None:
     """Why the named operand's row is in the other unit than the block's, or None. A row is
-    refused when a cell that may state its unit (`_unit_cells`) names the other unit and none of
-    them names the block's. `currency` only words the message."""
-    block, other = ("thousands", "millions") if scale == 1000 else ("millions", "thousands")
+    refused when a cell that may state its unit (`_unit_cells`) names a unit other than the block's
+    (billions is one, under either scale) and none of them names the block's. `currency` only
+    words the message."""
+    block = "thousands" if scale == 1000 else "millions"
     issues = []
     kind = "column" if operand.column is not None else "period"
     for group in _unit_cells(text, operand.row or "", operand.header, kind):
         named = [(what, cell, _units_named(cell)) for what, cell in group]
         if not any(block in units for *_, units in named):
-            issues += [(what, cell) for what, cell, units in named if other in units]
+            issues += [(what, cell) for what, cell, units in named if units - {block}]
     if not issues:
         return None
     what, cell = min(issues)
@@ -538,6 +546,135 @@ def _check_base(inputs: ForecastInputs, cp1_text: str, source: str, stated: dict
             raise ValueError(f"{source}: base {key} {amount} is not printed in CP-1")
 
 
+UNNAMED_FLOW = "must name the row and period of every base flow operand that has an amount"
+FLOWS = ("revenue", "ebitda", "interest", "taxes", "wc", "capex")
+
+
+def _flow_headers(inputs: ForecastInputs) -> dict[str, str]:
+    """The period header each named flow operand reads under (by its row label when the operand
+    is named by column), keyed by operand."""
+    return {
+        key: (operand.row if operand.column is not None else operand.period) or ""
+        for key in FLOWS
+        if (operand := inputs.base[key]).amount is not None
+        and (operand.row if operand.column is not None else operand.period)
+    }
+
+
+def _day_after(day: date, source: str) -> date:
+    """The day after `day`; ValueError (not OverflowError) when there is none."""
+    try:
+        return day + timedelta(days=1)
+    except OverflowError:
+        raise ValueError(
+            f"{source}: CP-1 dates a period ending {day}, which has no day after it"
+        ) from None
+
+
+# A fiscal-year header: its label names the year, whatever date follows (`FY2024 / 2025-02-01`).
+_FY_LABEL = re.compile(r"FY(\d{4})(?: / \d{4}-\d{2}-\d{2})?", re.ASCII)
+# Words and forms that make a dated header a part-year column (`Q3 2025 (2025-06-30)`).
+_PART_YEAR = re.compile(
+    r"\b(?:Q[1-4]|H[12]|\d{1,2}M|YTD|quarter|half|(?:[1-9]|1[01]|three|six|nine) months?)\b",
+    re.IGNORECASE,
+)
+
+
+def _reads_as_year_or_ltm(header: str) -> bool:
+    """A header `period_of` cannot read is still a twelve-month column when it is an LTM/TTM
+    header or a fiscal year (`FY2024 / 2024-09-30` included); a part-year header that carries a
+    date (`Q3 2025 (2025-06-30)`) is not."""
+    parsed = parse_period(header)
+    if parsed is None:
+        return False
+    if parsed.period_class is PeriodClass.LTM:
+        return True
+    if parsed.period_class is not PeriodClass.ACTUAL:
+        return False
+    return parsed.span == "year" or (
+        parsed.span == "date"
+        and (_FY_LABEL.fullmatch(header.strip()) is not None or not _PART_YEAR.search(header))
+    )
+
+
+def _flow_base(header: str) -> tuple[str, int, int] | None:
+    """The fiscal year a flow header names, or None for an LTM/TTM header (no year rule).
+    `period_of` reads the usual headers; any other year column (`FY2024A`, `FY24`) is read by
+    `parse_period`, whose end year is the fiscal year."""
+    from deploy_workflow.owners.cpos_periods import period_of
+
+    if (base := period_of(header)) is not None:
+        return base
+    if labelled := _FY_LABEL.fullmatch(header.strip()):
+        return ("FY", int(labelled[1]), 4)
+    parsed = parse_period(header)
+    if parsed is None or parsed.period_class is PeriodClass.LTM or parsed.end is None:
+        return None
+    return ("FY", parsed.end[0], 4)
+
+
+def _check_flow_period(inputs: ForecastInputs, cp1_text: str, source: str) -> None:
+    """A flow base is a twelve-month figure under one header, and the forecast starts the year
+    after it. A balance may be a quarter-end figure; only the flows are held to this."""
+    from deploy_workflow.owners.cpos_periods import (
+        _TWELVE_MONTHS,
+        period_dates,
+        period_label,
+        period_of,
+        period_tables,
+    )
+
+    headers = _flow_headers(inputs)
+    for key, header in headers.items():
+        if period_of(header) is None and not _reads_as_year_or_ltm(header):
+            raise ValueError(
+                f"{source}: base {key} is named under `{_cut(header, 40)}`, which is not a period "
+                "the Forecast page can read; name the fiscal-year or LTM column"
+            )
+        if (period := period_of(header)) is not None and period[0] != "FY":
+            raise ValueError(
+                f"{source}: base {key} is named under `{_cut(header, 40)}`, which is not twelve "
+                "months; a flow base is a twelve-month figure: name the fiscal-year column "
+                "(`FY2024`) or an LTM column, or state the operand missing with the reason"
+            )
+    identities = {
+        (period_of(header) or _plain(header).casefold()): header for header in headers.values()
+    }
+    if len(identities) > 1:
+        first, other = list(identities.values())[:2]
+        raise ValueError(
+            f"{source}: the flow operands are named under different headers (`{_cut(first, 40)}` "
+            f"and `{_cut(other, 40)}`); name every flow under the same twelve-month column"
+        )
+    base = _flow_base(next(iter(headers.values()), ""))
+    if base is None:
+        return  # an LTM/TTM header: no year rule (it carries no fiscal year)
+    expected, first_year = base[1] + 1, inputs.years[0]
+    dates, twice = period_dates(period_tables(cp1_text))
+    if period_label(base) in twice:
+        raise ValueError(
+            f"{source}: CP-1 dates FY{base[1]} more than once, differently, so its length cannot "
+            "be checked; name an LTM column or state the flow missing"
+        )
+    dated = dates.get(base)
+    after = _day_after(dated[1], source) if dated else None
+    if dated is not None and (days := (dated[1] - dated[0]).days + 1) not in _TWELVE_MONTHS:
+        raise ValueError(
+            f"{source}: FY{base[1]} is {days} days by CP-1's period dates, not twelve months; "
+            "name an LTM column or state the flow missing"
+        )
+    if first_year.year != expected:
+        raise ValueError(
+            f"{source}: the flows are named under FY{base[1]}, so the first forecast year is "
+            f"FY{expected}" + (f" starting {after}" if after else "") + f", not FY{first_year.year}"
+        )
+    if dated is not None and date.fromisoformat(first_year.start) != after:
+        raise ValueError(
+            f"{source}: CP-1 dates FY{base[1]} ending {dated[1]}, so the first forecast year "
+            f"FY{expected} starts {after}, not {first_year.start}"
+        )
+
+
 def parse(source_text: str, cp1_text: str, source: str = "CP-2G") -> ForecastInputs:
     """The validated inputs block; ValueError names the first thing wrong with it. `source` is
     the module that wrote the block: CP-2G, or CP-1 for a layer-1 forecast (base operands and
@@ -571,6 +708,7 @@ def parse(source_text: str, cp1_text: str, source: str = "CP-2G") -> ForecastInp
             f"are in `{run}`; state `currency` as `{run}`"
         )
     _check_base(inputs, cp1_text, source, stated)
+    _check_flow_period(inputs, cp1_text, source)
     if inputs.facilities:
         _check_facilities(inputs, inputs.facilities, cp1_text, stated)
     # A layer-1 handoff holds its own block: its `currency` key must not name itself.
@@ -967,7 +1105,7 @@ def model_files(
         }
     )
     # Imported here: cpos_periods imports this module's helpers at module level.
-    from deploy_workflow.owners.cpos_periods import ByColumn
+    from deploy_workflow.owners.cpos_periods import ByColumn, cp1_tables
     from deploy_workflow.owners.cpos_periods import history as period_history
 
     named: dict[str, tuple[str, str]] = {
@@ -984,7 +1122,7 @@ def model_files(
             **(
                 {
                     "history": period_history(
-                        _tables(cp1.decode("utf-8")),
+                        cp1_tables(cp1.decode("utf-8")),
                         operands,
                         named=named,
                         forecast_year=inputs.years[0].year,

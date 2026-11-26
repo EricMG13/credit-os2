@@ -34,6 +34,16 @@ def format_date(value: date) -> str:
     return f"{value.day} {_MONTHS[value.month - 1]} {value.year}"
 
 
+def written_places(amount: Decimal, unit_class: str) -> int:
+    """Decimal places the amount needs in the class's own scale (0.0475 as a percent: 2); 0 for a
+    class that is not numeric. A submitted figure shown at fewer places than it was written at
+    reads as a different number."""
+    if unit_class not in _NUMERIC:
+        return 0
+    scaled = (amount * _NUMERIC[unit_class][1]).normalize()
+    return max(0, -int(scaled.as_tuple().exponent))
+
+
 def places_to_show(amounts: Iterable[Decimal], unit_class: str) -> int | None:
     """Decimal places at which every amount displays exactly: the class default, or more.
 

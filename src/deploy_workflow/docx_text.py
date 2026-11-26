@@ -35,16 +35,26 @@ def docx_text(raw: bytes) -> str:
     return "\n".join(_lines(body))
 
 
-def _lines(parent: Element) -> Iterator[str]:
+def _through(parent: Element) -> Iterator[Element]:
+    """The children of ``parent``, looking through custom-XML and content-control wrappers."""
     for child in parent:
+        if child.tag == f"{W}customXml":
+            yield from _through(child)
+        elif child.tag == f"{W}sdt":
+            if (content := child.find(f"{W}sdtContent")) is not None:
+                yield from _through(content)
+        else:
+            yield child
+
+
+def _lines(parent: Element) -> Iterator[str]:
+    for child in _through(parent):
         if child.tag == f"{W}p":
             yield _paragraph(child)
         elif child.tag == f"{W}tbl":
-            for row in child.findall(f"{W}tr"):
-                cells = row.findall(f"{W}tc")
+            for row in (r for r in _through(child) if r.tag == f"{W}tr"):
+                cells = [c for c in _through(row) if c.tag == f"{W}tc"]
                 yield " | ".join(" ".join(map(_paragraph, c.iter(f"{W}p"))) for c in cells)
-        elif child.tag == f"{W}sdt" and (content := child.find(f"{W}sdtContent")) is not None:
-            yield from _lines(content)
 
 
 def _paragraph(paragraph: Element) -> str:

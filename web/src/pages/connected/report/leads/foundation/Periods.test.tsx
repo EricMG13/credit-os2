@@ -266,3 +266,25 @@ describe("PeriodsTile: five scrambled periods", () => {
     ]);
   });
 });
+
+describe("a stated source dash (S15-5-4)", () => {
+  it("a period every net debt cell states as a source dash is drawn as the dash, not the words", () => {
+    // Mutation of the retained TransDigm CP-1 (not a real handoff): an FY2022 row of source dashes.
+    // Answer key: periodsData `written` (a source dash reads "—").
+    const dash = "Not supplied: source dash";
+    const tile = draw(
+      addRow(cp1Entry(), "Net debt data", [
+        "FY2022 / 2022-09-30",
+        dash,
+        dash,
+        dash,
+        "US$m",
+        "Test row.",
+      ]),
+    );
+    const labels = [...tile.querySelectorAll("[aria-label]")].map(
+      (node) => node.getAttribute("aria-label") ?? "",
+    );
+    expect([tile.textContent, ...labels].join(" ")).not.toMatch(/source dash/i);
+  });
+});

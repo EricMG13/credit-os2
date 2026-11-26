@@ -80,8 +80,14 @@ failure is 500 ``{"error": "the service failed; see its log"}`` (its cause goes 
 ``GET /api/issuers/<issuer id>`` (``[a-z0-9-]{1,40}``)
     200 ``prior.issuer``: ``{"runs", "latest_as_of", "latest_run", "issuer_name"}``.
 ``POST /api/submissions/<id>/carry``
-    Body ``{"run": "<run id>"}``. 200 ``{"carried": [...], "kept": [...]}``: the run's stored
-    files copied into the submission, a name already held kept. 404 for an unknown run or
+    Body ``{"run": "<run id>", "leave_out": ["<file name>", ...]}`` (``leave_out`` may be left
+    out: none). 200 ``{"carried": [...], "kept": [...]}``: the run's stored files copied into the
+    submission, a name already held kept. A ``leave_out`` name (compared as the disk compares
+    names) is not copied and does not count toward the file and size limits; a name that is not
+    one of the run's files is a 400. An earlier file with the same bytes as a file already in the
+    submission under another name is not copied and is reported as ``"same_content": {"<earlier
+    name>": "<stored name>"}`` (the key is present only then); an upload made after the carry is
+    not compared. 404 for an unknown run or
     submission; 400 for a bad body, a run with no stored documents or any other refusal.
 ``POST /api/submissions/<id>/reference-portfolio/files?name=<percent-encoded UTF-8 file name>``
     One file of the submission's comparison portfolio (``reference_portfolio``): a reference
@@ -179,6 +185,7 @@ from deploy_workflow import http_base
 from deploy_workflow.http_base import Body, Reply, refuse
 from deploy_workflow.inbox import activity, runs, teams
 from deploy_workflow.inbox.layout import Layout
+from deploy_workflow.inbox.plain_reason import served_reason
 from deploy_workflow.inbox.scheduler import Scheduler, Settings
 from deploy_workflow.run_start import prior, reference_portfolio, standing_portfolios, submissions
 from deploy_workflow.run_start.submissions import Answers
@@ -453,12 +460,15 @@ class Handler(http_base.Handler):
         run = body.get("run") if isinstance(body, dict) else None
         if not isinstance(run, str) or not re.fullmatch(_RUN_ID, run):
             raise refuse(400, "the request needs the id of an earlier run")
+        leave_out = body.get("leave_out", [])
+        if not isinstance(leave_out, list) or not all(isinstance(n, str) for n in leave_out):
+            raise refuse(400, "leave_out must be a list of file names")
 
-        def copy() -> dict[str, list[str]]:
+        def copy() -> dict[str, Any]:
             _, folder = prior.source(self._layout, run)
             if folder is None:
                 raise submissions.Refused(_NO_FILES)
-            return submissions.carry(self._layout, sid, folder)
+            return submissions.carry(self._layout, sid, folder, leave_out)
 
         raise Reply(200, self._guarded(copy))
 
@@ -493,6 +503,8 @@ class Handler(http_base.Handler):
         # A run with no folder yet has no events: every module waits.
         shown.setdefault("modules", activity.module_states(record.pathway, [], record.modules))
         answer = {key: shown[key] for key in _RUN_FIELDS if key in shown}
+        if isinstance(answer.get("reason"), str):  # the stored text keeps the server's paths
+            answer["reason"] = served_reason(self._layout, answer["reason"])
         if record.status == "finished":
             answer["library_report"] = self._library_report(record.id)
         return answer

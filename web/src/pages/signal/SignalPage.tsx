@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/application/empty-state/empty-state";
 import { useSource } from "../source";
 import {
   SignalPageWriteContext,
+  STALE_SENTENCE,
   useSignalActions,
   type SignalPageWrite,
   type SignalWrite,
@@ -461,16 +462,15 @@ function SceneView({
             notice.clear();
             return actions.write(request).then((answer) => {
               if (answer.refusal !== null) notice.refuse(answer.refusal);
+              // Accepted, but the read after it failed: what is drawn predates the write.
+              else if (answer.stale === true) notice.refuse(STALE_SENTENCE);
               return answer;
             });
           },
           note: notice.note,
         };
   const sent = (request: (id: string, on: boolean) => SignalWrite) =>
-    actions === null
-      ? null
-      : (id: string, on: boolean) =>
-          actions.write(request(id, on)).then((answer) => answer.refusal);
+    actions === null ? null : (id: string, on: boolean) => actions.write(request(id, on));
   const topics = useChoices(sent(writes.follow), notice.refuse);
   const issuers = useChoices(sent(writes.followIssuer), notice.refuse);
   const saves = useChoices(sent(writes.save), notice.refuse);

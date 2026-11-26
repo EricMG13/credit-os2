@@ -6,8 +6,10 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { entry, section, table } from "../../overview/rows.fixture";
+import { edited, setCell } from "../fixtures/mutations";
 import { cp1Entry, distressedCp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
-import { citesSource, MaturityTile } from "./Maturity";
+import { citesSource } from "../kit/reader";
+import { MaturityTile } from "./Maturity";
 import { wallLayout, type WallSlot } from "./maturityGeometry";
 
 afterEach(cleanup);
@@ -338,5 +340,49 @@ describe("wallLayout at the real widths", () => {
     expect(layout.breakAt).not.toBeNull();
     for (const mark of layout.marks)
       expect(mark.x + mark.width + 6 + 6 * 12 * 0.6).toBeLessThanOrEqual(318);
+  });
+});
+
+describe("MaturityTile: a source clause after a sentence in a Basis cell (S15-3-2)", () => {
+  const withBasis = (basis: string) =>
+    draw(
+      edited(cp1Entry(), (tbl, heading) =>
+        heading !== "Chart data: debt maturities"
+          ? tbl
+          : {
+              ...tbl,
+              rows: tbl.rows.map((row) => {
+                const cells = [...row.cells];
+                cells[tbl.headers.indexOf("Basis and limitation")] = basis;
+                return { ...row, cells };
+              }),
+            },
+      ),
+    );
+  it("leaves out a 'Source:' clause that follows a sentence", () => {
+    const tile = withBasis("Face amounts as stated. Source: lender presentation, slide 4.");
+    expect(tile.textContent).not.toMatch(/lender presentation/);
+  });
+  it("still leaves out a 'Source:' clause at the start", () => {
+    const tile = withBasis("Source: lender presentation.");
+    expect(tile.textContent).not.toMatch(/lender presentation/);
+  });
+});
+
+describe("MaturityTile: a source dash in a partly stated wall (S15-5-3)", () => {
+  it("reads the dash in the note and the table, never the words 'source dash'", () => {
+    // Mutation of the retained TransDigm CP-1 (not a real handoff): FY2026 Debt maturing.
+    // Answer key: the kit's source-dash rule (the all-gap case above): it reads "—".
+    const tile = draw(
+      setCell(
+        cp1Entry(),
+        "Chart data: debt maturities",
+        1,
+        "Debt maturing",
+        "Not supplied: source dash",
+      ),
+    );
+    expect(tile.textContent).not.toMatch(/source dash/i);
+    expect(tile.textContent).toMatch(/FY2026: —/);
   });
 });

@@ -1085,6 +1085,36 @@ def test_a_period_the_period_table_dates_twice_differently_is_refused():
     assert any("FY2024" in i and "twice" in i for i in _cp1_issues(text))
 
 
+# S04-6-1/6-2: one period printed under two labels with different dates is dated twice, as the
+# forecast reads it (`period_of`). Answer key: the probes' cases.
+@pytest.mark.parametrize("label", ["FY 2024", "FY2024 recast", "FY2024 restated", "FY2024 revised"])
+def test_one_period_dated_differently_under_two_labels_is_refused(label):
+    text = build(periods=(*PERIODS, (label, "2024-01-01", "2024-09-30")))
+    issue = (
+        f"`Period table` rows `FY2024`, `{label}` date one period, FY2024, with different dates; "
+        "write one row for it."
+    )
+    assert issue in _cp1_issues(text)
+
+
+def test_one_interim_dated_differently_under_two_labels_is_refused():
+    periods = (
+        *PERIODS,
+        ("9M 2025", "2024-10-01", "2025-06-30"),
+        ("9M FY2025", "2024-10-01", "2025-06-28"),
+    )
+    issue = (
+        "`Period table` rows `9M 2025`, `9M FY2025` date one period, 9M 2025, with different "
+        "dates; write one row for it."
+    )
+    assert issue in _cp1_issues(build(periods=periods))
+
+
+def test_one_period_dated_alike_under_two_labels_is_accepted():
+    text = build(periods=(*PERIODS, ("FY 2024", "2023-10-01", "2024-09-30")))
+    assert _cp1_issues(text) == ()
+
+
 def test_a_fiscal_year_ending_in_february_is_tied_by_its_date_not_its_label_arithmetic():
     # Fiscal 2024 ends 2025-02-01 and is headed FY2024 in the statements and the Period table.
     periods = (("FY2024", "2024-02-04", "2025-02-01"), ("FY2023", "2023-02-05", "2024-02-03"))

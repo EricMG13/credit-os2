@@ -141,10 +141,15 @@ def cp1_answer(text: str, code: str, *, rate_stated: bool) -> str:
 
 
 def forecast_block(code: str) -> str:
-    base = {k: {"amount": v, "reason": None} for k, v in launched.BASE.items()}
-    base["debt"] = {"amount": "1400", "reason": None}
+    base = {
+        k: {"amount": v, "reason": None, "row": k, "period": "FY2025"}
+        for k, v in launched.BASE.items()
+    }
+    base["debt"] = {"amount": "1400", "reason": None, "row": "debt", "period": "FY2025"}
     facility = {k: v.format(code=code) if isinstance(v, str) else v for k, v in FACILITY.items()}
-    return launched.forecast_block(currency=code, scale=1, base=base, facilities=[facility])
+    return launched.forecast_block(
+        currency=code, scale=1, base=base, years=launched.AFTER_FY2025, facilities=[facility]
+    )
 
 
 class Built:
@@ -411,7 +416,7 @@ def run_in(code: str, built: Built) -> None:
     years = {case: exact["outputs"][case]["years"] for case in ("REFERENCE", "DOWNSIDE")}
     assert [Decimal(y["interest"]["amount"]) for y in years["REFERENCE"]] == [Decimal(84)] * 3
     # The downside case is EBITDA x 0.8 and interest x 1.1 on the same paths: cash proxy
-    # 252 - 92.4 - 105 - 42 = 12.6 in FY2025E, then 25.536 and 38.07216.
+    # 252 - 92.4 - 105 - 42 = 12.6 in FY2026E, then 25.536 and 38.07216.
     assert [Decimal(y["fcf"]["amount"]) for y in years["DOWNSIDE"]] == [
         Decimal("12.6"),
         Decimal("25.536"),
@@ -427,8 +432,8 @@ def run_in(code: str, built: Built) -> None:
         assert text in pages[module] and unit in pages[module], module
     assert shown["unit"] in pages["Forecast"]
     assert all(row in pages["Forecast"] for row in FORECAST_ROWS)
-    assert f"Cash proxy, Base case · {shown['forecast unit']} 118 FY2027E" in pages["Forecast"]
-    # Net leverage at FY2027E as drawn: base (1,400 - 344) / 359.92 = 2.93x; downside, closing
+    assert f"Cash proxy, Base case · {shown['forecast unit']} 118 FY2028E" in pages["Forecast"]
+    # Net leverage at FY2028E as drawn: base (1,400 - 344) / 359.92 = 2.93x; downside, closing
     # cash 116.21 after three years of 20 distributions, (1,400 - 116.21) / 287.94 = 4.46x.
     assert "2.93x A" in pages["Forecast"] and "4.46x B" in pages["Forecast"]
     names = ("Overview", "Modules", "Forecast", "CP-1", "CP-1 records", "CP-1 principal")

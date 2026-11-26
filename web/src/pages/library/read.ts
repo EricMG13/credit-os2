@@ -2195,6 +2195,33 @@ function readIssuer(value: unknown, path: string): Issuer {
   return { id, name, history, runs };
 }
 
+/** Every run id a link will open (card href, entry report, entry Changes run) is a run its issuer holds. */
+function linksHeld(issuers: Issuer[], cards: readonly HomeCard[], homePath: string): void {
+  const held = new Map(issuers.map((i) => [i.id, new Set(i.runs.map((r) => r.id))]));
+  for (const [index, card] of cards.entries()) {
+    if (card.kind !== "issuer" || card.href === null) continue;
+    if (held.get(card.issuer)?.has(card.href) !== true) {
+      throw new SliceError(
+        child(nth(child(homePath, "cards"), index), "href"),
+        "a run the issuer holds",
+      );
+    }
+  }
+  for (const [index, issuer] of issuers.entries()) {
+    const runs = held.get(issuer.id);
+    const entries = child(child(nth("issuers", index), "history"), "entries");
+    for (const [at, entry] of issuer.history.entries.entries()) {
+      const entryPath = nth(entries, at);
+      if (entry.report !== null && runs?.has(entry.report) !== true) {
+        throw new SliceError(child(entryPath, "report"), "a run the issuer holds");
+      }
+      if (entry.changes !== null && runs?.has(entry.changes.run) !== true) {
+        throw new SliceError(child(child(entryPath, "changes"), "run"), "a run the issuer holds");
+      }
+    }
+  }
+}
+
 /** The library slice, or `absent` when the data file has none, or `invalid` naming the first failing path. */
 export function readSlice(source: unknown): SliceResult<LibrarySlice> {
   if (source === undefined) return { kind: "absent" };
@@ -2210,7 +2237,9 @@ export function readSlice(source: unknown): SliceResult<LibrarySlice> {
       }
     }
     const ids = new Set(issuers.map((issuer) => issuer.id));
-    return { kind: "ok", data: { home: readHome(own(s, "home"), "home", ids), issuers } };
+    const home = readHome(own(s, "home"), "home", ids);
+    linksHeld(issuers, home.cards, "home");
+    return { kind: "ok", data: { home, issuers } };
   } catch (error) {
     if (error instanceof SliceError) return { kind: "invalid", reason: error.message };
     throw error;
