@@ -87,3 +87,14 @@ T1-a two columns; T1-c method-file fixed rows (both synthetic CP-1 files gained 
 - A table with no unit column (T2-c): the earnings case's CP-1 has Net debt data written without `Reporting unit`; its three measures have, in both blocks, a `gap` `Unit` cell with `unit not in handoff`. No other table in the three files lacks one.
 - Senior and unsecured (T2-b): a row of T4.6 or T4.9 whose label equals `Senior debt`, `Unsecured debt`, `Senior leverage` or `Unsecured leverage` (case and spaces ignored) is copied into Capital structure totals as well as Financials (periods and Unit; for a T4.9 row also Currency). The synthetic CP-1 T4.6 has `Senior debt` (1,030.0 and 985.0, GBP millions), so the full case copies it in both blocks and has no `Senior debt` gap row; the other gap rows stay (Unsecured debt, Senior leverage, Unsecured leverage, Pro forma interest, Pro forma interest cover). The earnings case's CP-1 has no such row and the real file has none: all four gaps stay.
 - T2-d (a CP-1A `company_description` without `Country`) needs a second CP-1A and so a fourth run case: skipped, not in the key.
+
+## 9. Key amendment 2 (methodology constants; ruling T3-c)
+
+Matrix carries the methodology's constants as plain cells of Sources kind `rule` (numbers as numbers), one row each, in every run (the test literal is typed from the methodology, `test_credit_snapshot_fidelity.py::_rules`). They are not in the expected-cells files. Blocks, rows, columns (the writer follows these):
+
+- `Recommendation table` (section 6): row `Credit Score 1..5`, column `Valuation 1..5`, value the table's cell: rows 1 2 2 3 3 / 2 2 3 3 4 / 2 3 3 4 4 / 3 3 4 4 5 / 3 4 4 5 5.
+- `Valuation bands` (section 5): column `Difference (bp)`; rows `Score 1 edge` 100, `Score 2 edge` 40, `Score 4 edge` -40, `Score 5 edge` -100.
+- `Scales` (section 2): rows `Credit Score n`, `Valuation n`, `Recommendation n` for n 1..5; column `Level` (the number n) and column `Name` (Strong, Good, Fair, Weak, Stressed; Very attractive, Very unattractive; Strong OW, Modest OW, MW, Modest UW, Strong UW). Valuation 2, 3 and 4 have a Level and no Name: the methodology says they are not named, so the key does not invent names (the ruling's "five names per scale" holds for two scales).
+- `Credit Score rules` (sections 4 and 7), column `Value`: rows `Minimum scored factors` 12, `Floor level` 4, `Floor factor 1` Liquidity, `Floor factor 2` Maturity profile, `Cap level` 3.
+
+`rule` is exempt from "a label is not numeric" only by being its own kind.

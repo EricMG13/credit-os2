@@ -44,7 +44,7 @@ from deploy_workflow.cp2_scorecard import parse_scorecard
 
 THREE = ("Snapshot", "Inputs", "Matrix")
 KINDS = ("copied", "gap", "computed", "entered at run start")
-SOURCE_KINDS = (*KINDS, "analyst", "label", "formula")
+SOURCE_KINDS = (*KINDS, "analyst", "label", "formula", "rule")
 WORDS = {
     "breached": "breached",
     "within": "within",
@@ -55,6 +55,41 @@ TDG_SCOPE = "retained real CP-1 handoff, TransDigm, as of 2024-09-30, CP-1 block
 DAMAGED = (
     "The stored portfolio 'jnk' cannot be read: its file is damaged or is not a stored portfolio."
 )
+
+
+# The methodology's constants, typed from docs/methodology/portfolio-recommendation.md (sections 2,
+# 4, 5, 6 and 7), never imported from recommendation.py. Each is one `rule` row on Matrix:
+# (block, row, column) -> the cell's value (a number, or text for a name).
+def _rules() -> dict[tuple[str, str, str], int | str]:
+    rules: dict[tuple[str, str, str], int | str] = {}
+    table = ((1, 2, 2, 3, 3), (2, 2, 3, 3, 4), (2, 3, 3, 4, 4), (3, 3, 4, 4, 5), (3, 4, 4, 5, 5))
+    for credit, line in enumerate(table, start=1):  # section 6: row Credit Score, column Valuation
+        for valuation, result in enumerate(line, start=1):
+            rules["Recommendation table", f"Credit Score {credit}", f"Valuation {valuation}"] = (
+                result
+            )
+    for row, edge in (("Score 1 edge", 100), ("Score 2 edge", 40), ("Score 4 edge", -40)):
+        rules["Valuation bands", row, "Difference (bp)"] = edge  # section 5
+    rules["Valuation bands", "Score 5 edge", "Difference (bp)"] = -100
+    names = {  # section 2; Valuation 2, 3 and 4 are "not named in the approved design"
+        "Credit Score": ("Strong", "Good", "Fair", "Weak", "Stressed"),
+        "Valuation": ("Very attractive", None, None, None, "Very unattractive"),
+        "Recommendation": ("Strong OW", "Modest OW", "MW", "Modest UW", "Strong UW"),
+    }
+    for scale, words in names.items():
+        for level, word in enumerate(words, start=1):
+            rules["Scales", f"{scale} {level}", "Level"] = level
+            if word is not None:
+                rules["Scales", f"{scale} {level}", "Name"] = word
+    rules["Credit Score rules", "Minimum scored factors", "Value"] = 12  # section 4
+    rules["Credit Score rules", "Floor level", "Value"] = 4
+    rules["Credit Score rules", "Floor factor 1", "Value"] = "Liquidity"
+    rules["Credit Score rules", "Floor factor 2", "Value"] = "Maturity profile"
+    rules["Credit Score rules", "Cap level", "Value"] = 3  # section 7
+    return rules
+
+
+RULES = _rules()
 
 
 @pytest.fixture(params=list(cs.CASES))
@@ -640,3 +675,18 @@ def test_labels_are_not_numbers_and_never_stand_in_for_an_expected_entry(built, 
         cell = opened.cell(row["Sheet"], row["Cell"])
         assert row["Kind"] != "label" or not isinstance(cell.value, int | float), row
         assert (row["Sheet"], row["Block"], row["Row"], row["Column"]) not in wanted, row
+
+
+def test_every_methodology_constant_is_one_rule_row_on_matrix(built, tmp_path):
+    opened = open_workbook(built, tmp_path)
+    rows = [r for r in opened.on_sheets() if r["Kind"] == "rule"]
+    assert {r["Sheet"] for r in rows} == {"Matrix"}
+    keys = Counter((r["Block"], r["Row"], r["Column"]) for r in rows)
+    assert keys == Counter(RULES), "each constant exactly once, and nothing else"
+    for row in rows:
+        want = RULES[row["Block"], row["Row"], row["Column"]]
+        got = opened.cell(row["Sheet"], row["Cell"]).value
+        if isinstance(want, int):
+            assert isinstance(got, int | float) and Decimal(repr(got)) == want, row
+        else:
+            assert got == want, row
