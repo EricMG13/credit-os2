@@ -242,8 +242,12 @@ def test_the_writer_adds_analyst_cells_for_the_fields_no_module_supplies(book, f
         for r in listed(book, "Instruments", column="Instrument", sheet="Inputs", kind="copied")
     }
     assert len(names) == 5
+    joined = {"Term Loan B"}  # the one instrument the key's RV worksheet identifies
     assert {(r["Row"], r["Column"]) for r in instruments} == {
-        (n, c) for n in names for c in writer.INSTRUMENT_INPUTS
+        (n, c)
+        for n in names
+        for c in writer.INSTRUMENT_INPUTS
+        if not (n in joined and c in snap.IDENTIFIERS)
     }
     units = listed(book, "Reference unit", column="Unit", sheet="Inputs", kind="analyst")
     assert sorted(r["Row"] for r in units) == ["CLO portfolio", "Loan index fund (LVLN)"]
@@ -471,3 +475,27 @@ def test_a_one_sided_strengths_block_keeps_the_facing_columns_and_glyphs(full, k
     assert {book["Snapshot"][r["Cell"]].value for r in glyphs} == {glyph}
     headings = {r["Handoff text"] for r in listed(book, writer.STRENGTHS, column="Heading")}
     assert headings == {"Strengths", "Weaknesses"}
+
+
+def test_bloomberg_id_sits_beside_figi_and_the_joined_blank_has_no_sources_row(book, full):
+    sheet = book["Inputs"]
+    header = next(r for r in sheet.iter_rows() if any(c.value == "FIGI" for c in r))
+    shown = [c.value for c in header if c.value is not None]  # the Instruments header row
+    assert shown[shown.index("FIGI") + 1] == "Bloomberg ID"
+    listed_cells = {(r["Sheet"], r["Cell"]) for r in sources(book)}
+    place = {
+        (r["Row"], r["Column"]): r["Cell"] for r in listed(book, "Instruments", sheet="Inputs")
+    }
+    assert ("Term Loan B", "FIGI") not in place  # blank: no Sources row
+    (loan,) = [
+        r
+        for r in listed(
+            book, "Instruments", row="Term Loan B", column="Bloomberg ID", sheet="Inputs"
+        )
+    ]
+    assert loan["Kind"] == "copied" and loan["Module"] == snap.RV_MODULE
+    assert loan["Section"] == "SYNTHETIC-rv-worksheet.csv" and loan["Line"] == 2
+    assert loan["Handoff sha256"] == full[1].source_sha256[loan["Section"]]
+    blank = sheet.cell(row=int(loan["Cell"][1:]), column=sheet[loan["Cell"]].column - 1)
+    assert blank.value is None and blank.fill.fill_type is None
+    assert ("Inputs", blank.coordinate) not in listed_cells

@@ -81,7 +81,7 @@ SCORECARD, STRENGTHS, FINANCIALS = "Scorecard", "Strengths and weaknesses", "Fin
 HEADER_BLOCK, NEW_ISSUE, INSTRUMENTS = "Header", "New issue", "Instruments"
 CONFIRMATION, REFERENCE_UNIT, RUBRIC = "Confirmation", "Reference unit", "Risk rubric"
 INSTRUMENT_INPUTS = (
-    *("Type", "Rating bucket", "Level (bp)", "Price", "FIGI", "Facility rating"),
+    *("Type", "Rating bucket", "Level (bp)", "Price", "FIGI", "Bloomberg ID", "Facility rating"),
     *("Bid", "Ask", "1M move", "YTD move"),
 )
 NEW_ISSUE_INPUTS = ("Guidance", "OID", "Expected ratings", "Commit date", "Covenant score")
@@ -146,6 +146,7 @@ LAYOUTS = (
         (
             (("Credit Score", 3), (fx.CREDIT_SCORE, 3), (CONFIRMATION, 3), (REFERENCE_UNIT, 3)),
             ((INSTRUMENTS, 12),),
+            (("Market identifiers", 12),),
             (("Quotes as entered", 12),),
             (("Reference medians", 12),),
         ),
@@ -293,6 +294,13 @@ class _Page:
                 self._comment(first, item.basis)
         self.book.add_source(self.layout.sheet, first.coordinate, spec)
         return str(first.coordinate)
+
+    def held(self, row: int, col: int, span: int, item: snap.SnapshotCell) -> None:
+        """An empty cell a formula may name and the analyst leaves empty: no fill, no Sources
+        row."""
+        self.blank(row, col, span, LABEL)
+        first = self.ws.cell(row=row, column=col)
+        self.book.places[self.layout.sheet, item.block, item.row, item.column] = first.coordinate
 
     def blank(self, row: int, col: int, span: int, look: str) -> None:
         """A styled cell with nothing in it and no Sources row (a header corner)."""
@@ -527,6 +535,8 @@ def _part(page: _Page, frame: _Frame, part: _Part) -> int:
             cell = cells[i]
             if cell is None:
                 page.blank(row, col, span, LABEL)
+            elif cell.kind == snap.BLANK:
+                page.held(row, col, span, cell)
             else:
                 page.put(row, col, span, _as_put(cell))
             col += span
@@ -645,12 +655,25 @@ def _analyst(sheet: str, block: str, row: str, column: str) -> snap.SnapshotCell
 
 def _with_analyst_columns(block: snap.Block, columns: Sequence[str]) -> snap.Block:
     """Every row of a copied table gets blank analyst cells for `columns` (the Bloomberg-deferred
-    and entered-by-analyst fields); a block that is one gap line gets none."""
+    and entered-by-analyst fields) it has no cell for; a block that is one gap line gets none. A
+    row keeps the order of the block's own columns first, then `columns` as listed."""
     if _is_gap_line(block.cells):
         return block
     rows = [label for label, _ in _by_row(block.cells)]
-    extra = tuple(_analyst(block.sheet, block.name, row, c) for row in rows for c in columns)
-    return replace(block, cells=block.cells + extra)
+    have = {(c.row, c.column) for c in block.cells}
+    extra = tuple(
+        _analyst(block.sheet, block.name, row, c)
+        for row in rows
+        for c in columns
+        if (row, c) not in have
+    )
+    rank = {c: i for i, c in enumerate((block.cells[0].column, *columns))}
+    order = {row: i for i, row in enumerate(rows)}
+    cells = sorted(
+        block.cells + extra,
+        key=lambda c: (order[c.row], rank.get(c.column, len(rank))),
+    )
+    return replace(block, cells=tuple(cells))
 
 
 def _rubric(sheet: str) -> snap.Block:
@@ -732,6 +755,7 @@ class _Book:
         self.workbook = _xl.Workbook()
         self.plan = fx.Plan({}, (), (), ())
         self.formula_text: dict[tuple[str, str], str] = {}
+        self.places: dict[tuple[str, str, str, str], str] = {}  # cells with no Sources row
 
     def add_source(self, sheet: str, cell: str, spec: _Put) -> None:
         self.sources.append((sheet, cell, spec))
@@ -763,7 +787,7 @@ class _Book:
         where = {
             (sheet, spec.block, spec.row, spec.column): address
             for sheet, address, spec in self.sources
-        }
+        } | self.places
         for sheet, address, spec in self.sources:
             if spec.kind != FORMULA:
                 continue
@@ -874,10 +898,18 @@ class _Book:
             item.section if item is not None else None,
             item.line if item is not None else None,
             text,
-            self.snapshot.handoff_sha256.get(module) if module is not None else None,
+            self._sha(item, module),
             self.snapshot.run_id,
             self.snapshot.as_of,
         ]
+
+    def _sha(self, item: snap.SnapshotCell | None, module: str | None) -> str | None:
+        """The sha256 of the handoff, or of the supplied file a worksheet cell was copied from."""
+        if module is None:
+            return None
+        if module == snap.RV_MODULE and item is not None:
+            return self.snapshot.source_sha256.get(item.section or "")
+        return self.snapshot.handoff_sha256.get(module)
 
     def _row_basis(
         self, number: int, item: snap.SnapshotCell, column: str, text: str | None

@@ -6,7 +6,7 @@ shows, and where each cell came from. Imports no spreadsheet library; the writer
 delivery, hash-checked reads) and returns a `SnapshotRun`: the issuer, date, pathway and run id
 from the hash-pinned delivery manifest, each handoff's verified bytes, the run's pinned context and
 the reference portfolios. `gather` is pure: a `SnapshotRun` in, a `Snapshot` out, every cell one of
-five kinds.
+six kinds.
 
 - copied: the handoff's own text, exactly, with the module, section and 1-based physical line
   (`handoff_delivery.physical_lines`) it came from. A blank cell is not copied; it is a gap.
@@ -16,6 +16,8 @@ five kinds.
   ruled classifications below. Nothing is summed, converted or re-derived here.
 - entered at run start: text the analyst entered in the run's context, or the run record.
 - analyst: a blank cell for the analyst; the workbook paints it yellow.
+- blank: an empty cell that is not for the analyst and has no Sources row (a joined instrument's
+  FIGI or Bloomberg ID the run's RV worksheet does not hold; the owner's rule, plan Amendment 2).
 
 A malformed or missing block is that block's gap with the reason, logged (`logging`, warning). That
 is the one fail-open: it keeps one bad table from hiding the rest of the page, and it never turns
@@ -31,16 +33,20 @@ read with `handoff_delivery.table`, so cell text is exact. Prose sections are re
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import re
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
 from deploy_vii.context import ContextRefused, RunContext, load_context
+from deploy_vii.inputs import portfolio_export as pe
 from deploy_workflow import handoff_delivery as hd
 from deploy_workflow import library_index as li
 from deploy_workflow import recommendation as rec
@@ -61,12 +67,13 @@ from deploy_workflow.owners.cpos_cp1_statements import STATEMENTS, StatementSpec
 
 _LOG = logging.getLogger(__name__)
 
-COPIED, GAP, COMPUTED, ENTERED, ANALYST = (
+COPIED, GAP, COMPUTED, ENTERED, ANALYST, BLANK = (
     "copied",
     "gap",
     "computed",
     "entered at run start",
     "analyst",
+    "blank",
 )
 NOT_IN_HANDOFF = "not in handoff"
 NEEDS_ADD_BACK_IDS = "needs add-back ids in the bridge"
@@ -75,6 +82,14 @@ NOT_HELD = "not held / not matched"
 HELD_NO_WEIGHT = "held, weight not stated"
 NO_PEERS = "no peers named"
 UNCLASSIFIED = "unclassified"
+RV_MODULE = "RV worksheet"
+NO_MARKET = "no market data sheet supplied"
+NO_MARKET_ROWS = "no rows for this issuer in the market data sheet"
+MARKET_COLUMNS = (
+    *("Company", "Borrower Name", "Bloomberg ID", "FIGI", "Loan Type"),
+    *("Ranking", "Size ($Mn)", "Margin", "Maturity"),
+)
+IDENTIFIERS = ("FIGI", "Bloomberg ID")
 
 # --- The number rule -----------------------------------------------------------------------------
 
@@ -179,6 +194,32 @@ class StoreGap:
 
 
 @dataclass(frozen=True)
+class MarketRow:
+    """One data row of a supplied RV worksheet: its 1-based row number in the sheet (the record
+    number of a CSV), the cells of `MARKET_COLUMNS` as entered, and the maturity as a date."""
+
+    line: int
+    cells: Mapping[str, str]
+    maturity: date | None
+
+
+@dataclass(frozen=True)
+class MarketSheet:
+    """A supplied source read as an RV worksheet: its file name, sha256 and data rows."""
+
+    file: str
+    sha256: str
+    rows: tuple[MarketRow, ...]
+
+
+@dataclass(frozen=True)
+class MarketGap:
+    """The run's sources are not read (the workflow pin did not verify): why, logged."""
+
+    reason: str
+
+
+@dataclass(frozen=True)
 class SnapshotRun:
     """A verified finished run, as `gather` needs it. `handoffs` are each module's verified bytes.
     `context` is the run's pinned context, None when the run pins none, or a `ContextGap`.
@@ -192,6 +233,7 @@ class SnapshotRun:
     handoffs: Mapping[str, bytes]
     context: RunContext | ContextGap | None
     references: Sequence[tuple[rp.Reference, rp.Portfolio | StoreGap | None]]
+    market: tuple[MarketSheet, ...] | MarketGap = ()
 
 
 @dataclass(frozen=True)
@@ -251,6 +293,7 @@ class Snapshot:
     scorecard: Scorecard | None
     credit_score: rec.CreditScore | None
     references: tuple[ReferenceView, ...]
+    source_sha256: Mapping[str, str] = field(default_factory=dict)
 
     def cells(self) -> Sequence[SnapshotCell]:
         return tuple(cell for block in self.blocks for cell in block.cells)
@@ -424,6 +467,9 @@ class _Maker:
     def analyst(self, row: str, column: str) -> SnapshotCell:
         return self._cell(row, column, ANALYST, "")
 
+    def blank(self, row: str, column: str) -> SnapshotCell:
+        return self._cell(row, column, BLANK, "")
+
 
 def _numbered(cells: list[SnapshotCell]) -> list[SnapshotCell]:
     """A row label that repeats within a block (two events on one date) gets ` (2)`, ` (3)`...,
@@ -459,6 +505,19 @@ class _Run:
         self._read: dict[tuple[str, str, str], _Table | Exception] = {}
         self.score = self._scorecard()
         self._views: tuple[ReferenceView, ...] | None = None
+
+    def matched(self) -> list[tuple[MarketSheet, MarketRow]]:
+        """The issuer's rows of the run's RV worksheets, in sheet and row order: a `Company` or
+        `Borrower Name` equal to the issuer ignoring case and surrounding or repeated spaces."""
+        sheets, issuer = self.run.market, _fold(self.run.issuer)
+        if isinstance(sheets, MarketGap) or not issuer:
+            return []
+        return [
+            (sheet, row)
+            for sheet in sheets
+            for row in sheet.rows
+            if issuer in (_fold(row.cells["Company"]), _fold(row.cells["Borrower Name"]))
+        ]
 
     def doc(self, module: str) -> _Doc:
         if module not in self.docs:
@@ -710,6 +769,95 @@ def _quotes(run: _Run, mk: _Maker) -> list[SnapshotCell]:
         mk.entered(f"Quote {number}", column, str(getattr(quote, name)))
         for number, quote in enumerate(quotes, 1)
         for column, name in _QUOTE_FIELDS
+    ]
+
+
+# --- Identifiers from the run's RV worksheet ------------------------------------------------------
+
+_LOAN_WORD = re.compile(r"\bloans?\b")
+_BOND_WORD = re.compile(r"\b(?:notes?|bonds?)\b")
+
+
+def _asset_type(text: str) -> str:
+    """A T4.18 `Type` as a loan, a bond or unknown (a revolver, a receivables facility, or both
+    words)."""
+    folded = _fold(text)
+    loan, bond = bool(_LOAN_WORD.search(folded)), bool(_BOND_WORD.search(folded))
+    return "loan" if loan and not bond else "bond" if bond and not loan else "unknown"
+
+
+def _present(row: MarketRow) -> dict[str, str]:
+    """The identifiers the sheet row has, as entered: a FIGI of 12 capital letters and digits, a
+    Bloomberg ID that is not empty and not a vendor error token (a missing one is not listed)."""
+    found = {}
+    figi = row.cells.get("FIGI", "")
+    if pe.FIGI.fullmatch(figi):
+        found["FIGI"] = figi
+    bloomberg = row.cells.get("Bloomberg ID", "").strip()
+    if bloomberg and not pe.TOKEN.match(bloomberg):
+        found["Bloomberg ID"] = row.cells["Bloomberg ID"]
+    return found
+
+
+def _rv_loan(row: MarketRow) -> bool:
+    kind = row.cells.get("Loan Type", "").strip()
+    return bool(kind) and not pe.TOKEN.match(kind)
+
+
+def _identifier_cells(
+    mk: _Maker, label: str, found: tuple[MarketSheet, MarketRow] | None
+) -> list[SnapshotCell]:
+    if found is None:
+        return [mk.analyst(label, column) for column in IDENTIFIERS]
+    sheet, row = found
+    present = _present(row)
+    at = _At(RV_MODULE, sheet.file, row.line)
+    return [
+        mk.copied(at, label, column, present[column])
+        if column in present
+        else mk.blank(label, column)
+        for column in IDENTIFIERS
+    ]
+
+
+def _instruments(run: _Run, mk: _Maker) -> list[SnapshotCell]:
+    """The T4.18 instruments, each with its FIGI and Bloomberg ID. An instrument is joined to a
+    sheet row only when their maturities are the same date, that date is on exactly one of the
+    issuer's sheet rows and exactly one instrument, both are loans, and the sheet row has an
+    identifier; otherwise the two cells are the analyst's."""
+    cells = _copy_table("CP-1", "T4.18", ("Instrument",))(run, mk)
+    table = run.register("CP-1", "T4.18")
+    type_at, date_at = _optional(table, "Type"), _optional(table, "Maturity")
+    days = [pe.text_date(row.cells[date_at]) if date_at is not None else None for row in table.rows]
+    matched = run.matched()
+    for row, day in zip(table.rows, days, strict=True):
+        same = [(s, r) for s, r in matched if day is not None and r.maturity == day]
+        kind = _asset_type(row.cells[type_at]) if type_at is not None else "unknown"
+        joined = (
+            same[0]
+            if len(same) == 1 and days.count(day) == 1 and kind == "loan"
+            and _rv_loan(same[0][1]) and _present(same[0][1])
+            else None
+        )  # fmt: skip
+        cells += _identifier_cells(mk, row.cells[0], joined)
+    return cells
+
+
+def _market(run: _Run, mk: _Maker) -> list[SnapshotCell]:
+    """Every sheet row of the run's RV worksheet that names the issuer (names compared ignoring
+    case and spaces), nine columns as entered. No prices, moves or ratings."""
+    sheets = run.run.market
+    if isinstance(sheets, MarketGap) or not sheets:
+        return [mk.gap("Gap", "Text", NO_MARKET)]
+    matched = run.matched()
+    if not matched:
+        return [mk.gap("Gap", "Text", NO_MARKET_ROWS)]
+    return [
+        mk.copied(
+            _At(RV_MODULE, sheet.file, row.line), f"Row {row.line}", column, row.cells[column]
+        )
+        for sheet, row in matched
+        for column in MARKET_COLUMNS
     ]
 
 
@@ -1468,7 +1616,8 @@ _BLOCKS: tuple[tuple[str, str, Builder], ...] = (
     ("Snapshot", "Peers", _peers),
     ("Snapshot", "Investment thesis", _analyst((("Thesis", "Value"),))),
     ("Inputs", "Credit Score", _credit_score),
-    ("Inputs", "Instruments", _copy_table("CP-1", "T4.18", ("Instrument",))),
+    ("Inputs", "Instruments", _instruments),
+    ("Inputs", "Market identifiers", _market),
     ("Inputs", "Quotes as entered", _quotes),
     ("Inputs", "Reference medians", _median_inputs),
     ("Matrix", "Reference status", _status),
@@ -1499,6 +1648,11 @@ def gather(run: SnapshotRun) -> Snapshot:
         scorecard=state.score.scorecard,
         credit_score=_credit(state),
         references=state.views(),
+        source_sha256=(
+            {}
+            if isinstance(run.market, MarketGap)
+            else {sheet.file: sheet.sha256 for sheet in run.market}
+        ),
     )
 
 
@@ -1511,7 +1665,8 @@ def load_run(folder: Path, stores: Sequence[rp.Store]) -> SnapshotRun:
     """A finished run folder as a `SnapshotRun`. The folder must pass `report_completion` and
     `verified_delivery`, and every handoff is read through `read_pinned`: anything not verified
     raises `library_index.Refused`. `stores` is the standing reference store and, optionally, the
-    run's own."""
+    run's own. The run's supplied sources (its context, any RV worksheet) are trusted only when
+    `workflow.json` is the file the completion record names."""
     completion = li.report_completion(folder)
     delivered = li.verified_delivery(folder, completion)
     run = delivered["manifest"].get("run")
@@ -1522,14 +1677,16 @@ def load_run(folder: Path, stores: Sequence[rp.Store]) -> SnapshotRun:
         module: li.read_pinned(folder, pin["path"], pin["sha256"])
         for module, pin in delivered["handoffs"].items()
     }
+    sources = _trusted_sources(folder, completion, identity)
     return SnapshotRun(
         issuer=identity["issuer_name"],
         as_of=identity["as_of"],
         pathway=identity["pathway"],
         run_id=identity["run_id"],
         handoffs=handoffs,
-        context=_context(folder, completion, identity),
+        context=_context(folder, sources, identity),
         references=_references(stores),
+        market=_market_sheets(folder, sources),
     )
 
 
@@ -1538,23 +1695,29 @@ def _refused(reason: str) -> ContextGap:
     return ContextGap(reason)
 
 
-def _context(
+def _trusted_sources(
     folder: Path, completion: Mapping[str, object], identity: Mapping[str, str]
-) -> RunContext | ContextGap | None:
-    """The context `workflow.json` pins, trusted only when the completion record's
-    `workflow_sha256` is that file's hash. None when the run pins none; a `ContextGap` (logged)
-    when the pin, the file or the context is not good. A workflow that names another run is
+) -> Mapping[str, object] | str:
+    """`workflow.json`'s `sources`, trusted only when the completion record's `workflow_sha256` is
+    that file's hash: the reason (a sentence) when it is not. A workflow that names another run is
     refused, as `admit_run` refuses it."""
     raw = li.read_inside(folder, "workflow.json")
     workflow = li.json_object(raw, "workflow.json")
     li.same_identity(workflow.get("run"), identity, "workflow.json")
     if completion.get("workflow_sha256") != li.sha256(raw):
-        return _refused(
-            "the run's workflow record is not the one its completion record names, "
-            "so the context it pins is not trusted"
-        )
+        return "the run's workflow record is not the one its completion record names"
     sources = workflow.get("sources")
-    pin = sources.get("context") if isinstance(sources, dict) else None
+    return sources if isinstance(sources, dict) else {}
+
+
+def _context(
+    folder: Path, sources: Mapping[str, object] | str, identity: Mapping[str, str]
+) -> RunContext | ContextGap | None:
+    """The context `workflow.json` pins. None when the run pins none; a `ContextGap` (logged) when
+    the pin, the file or the context is not good."""
+    if isinstance(sources, str):
+        return _refused(f"{sources}, so the context it pins is not trusted")
+    pin = sources.get("context")
     return None if pin is None else _pinned_context(folder, pin, identity)
 
 
@@ -1612,3 +1775,125 @@ def _stored(store: rp.Store | None, key: str) -> rp.Portfolio | StoreGap | None:
     except rp.StoreError as error:  # shown in the reference's column, with the store's sentence
         _LOG.warning("credit snapshot: reference %s cannot be read: %s", key, error)
         return StoreGap(str(error))
+
+
+# --- The run's RV worksheet -----------------------------------------------------------------------
+
+
+def _market_sheets(
+    folder: Path, sources: Mapping[str, object] | str
+) -> tuple[MarketSheet, ...] | MarketGap:
+    """Every pinned source (the context aside) that is an RV worksheet: a CSV or a workbook sheet
+    whose first non-empty row has `FIGI`, `Bloomberg ID` and `Company` or `Borrower Name` headers.
+    A source that cannot be read as a sheet is skipped with a logged reason (the documented
+    fail-open: a PDF or a text file is a source too); a pin that did not verify gives no sheet."""
+    if isinstance(sources, str):
+        reason = f"{sources}, so the sources it pins are not trusted"
+        _LOG.warning("credit snapshot: no market data sheet is read: %s", reason)
+        return MarketGap(reason)
+    found = []
+    for name, pin in sources.items():
+        sheet = None if name == "context" else _market_source(folder, name, pin)
+        if sheet is not None:
+            found.append(sheet)
+    return tuple(found)
+
+
+def _market_source(folder: Path, name: str, pin: object) -> MarketSheet | None:
+    digest = pin.get("sha256") if isinstance(pin, dict) else None
+    if not isinstance(digest, str) or not _SHA.match(digest):
+        _LOG.warning("credit snapshot: source %s is skipped: its pin is malformed", name)
+        return None
+    try:
+        raw = li.read_pinned(folder, f"inputs/{digest}", digest)
+    except li.Refused as error:
+        _LOG.warning("credit snapshot: source %s is skipped: %s", name, error)
+        return None
+    path = pin["path"] if isinstance(pin, dict) and isinstance(pin.get("path"), str) else name
+    file = str(path)
+    try:
+        for rows in _source_rows(raw):
+            sheet = market_sheet(file, digest, rows)
+            if sheet is not None:
+                return sheet
+    except (csv.Error, ValueError) as error:
+        _LOG.warning(
+            "credit snapshot: source %s is skipped: it cannot be read as a sheet: %s", name, error
+        )
+        return None
+    _LOG.info("credit snapshot: source %s is not an RV worksheet", name)
+    return None
+
+
+Cells = Sequence[tuple[int, Sequence[pe.Cell]]]
+
+
+def _source_rows(raw: bytes) -> list[Cells]:
+    """The sheets of a source: each sheet of a workbook, or the CSV's rows (the record number is
+    the row number). Cells of a CSV are as entered (`portfolio_export.csv_rows` strips them)."""
+    if raw.startswith(b"PK\x03\x04"):
+        sheets = [pe.sheet_rows(raw, name) for name in pe.workbook_sheets(raw)]
+        return [rows for rows in sheets if rows is not None]
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+    reader = csv.reader(io.StringIO(text))
+    return [[(n, [pe.Cell(cell) for cell in row]) for n, row in enumerate(reader, 1)]]
+
+
+def _maturity(cell: pe.Cell) -> date | None:
+    """A sheet maturity: a date cell or a full-year text as `portfolio_export` reads it, else the
+    sheet's own `27-Jun-32` form (`%y`: 2000-2068 for 00-68)."""
+    found = pe.read_date(cell)
+    if found is not None:
+        return found
+    try:
+        return datetime.strptime(cell.text.strip(), "%d-%b-%y").date()
+    except ValueError:
+        return None
+
+
+def market_sheet(file: str, sha256: str, rows: Cells) -> MarketSheet | None:
+    """`rows` as an RV worksheet, or None when its first non-empty row lacks the headers (compared
+    ignoring case and spaces) or repeats one of them."""
+    start = next(
+        (i for i, (_, cells) in enumerate(rows) if any(c.text.strip() for c in cells)), None
+    )
+    if start is None:
+        return None
+    heads = [_fold(cell.text) for cell in rows[start][1]]
+    index: dict[str, int] = {}
+    for column in MARKET_COLUMNS:
+        hits = [i for i, head in enumerate(heads) if head == _fold(column)]
+        if len(hits) > 1:
+            return None
+        if hits:
+            index[column] = hits[0]
+    if (
+        not {"FIGI", "Bloomberg ID"} <= index.keys()
+        or not {"Company", "Borrower Name"} & index.keys()
+    ):
+        return None
+    body = []
+    for number, cells in rows[start + 1 :]:
+        if not any(c.text.strip() for c in cells):
+            continue
+        held = {
+            column: cells[index[column]]
+            if column in index and index[column] < len(cells)
+            else pe.Cell("")
+            for column in MARKET_COLUMNS
+        }
+        texts = {
+            column: (cell.text if not cell.date_format else _shown(cell))
+            for column, cell in held.items()
+        }
+        body.append(MarketRow(number, texts, _maturity(held["Maturity"])))
+    return MarketSheet(file, sha256, tuple(body))
+
+
+def _shown(cell: pe.Cell) -> str:
+    """A date cell's text as the date it holds (its text is the serial number)."""
+    found = pe.read_date(cell)
+    return cell.text if found is None else found.isoformat()

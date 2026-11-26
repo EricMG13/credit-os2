@@ -96,6 +96,13 @@ def test_every_formula_is_a_formula_cell_with_a_formula_row_on_sources_and_no_va
 REFERENCE = re.compile(r"(?:([A-Za-z]+)!)?(\$?[A-Z]{1,3}\$?[0-9]+)(?::(\$?[A-Z]{1,3}\$?[0-9]+))?")
 
 
+def joined_blank(sheet, cell) -> bool:
+    """An empty, unfilled cell under an Inputs `FIGI` or `Bloomberg ID` header: a joined instrument
+    whose RV worksheet row lacks that identifier (owner's rule: left empty, no Sources row)."""
+    above = [c.value for c in sheet[cell.column_letter][: cell.row]]
+    return cell.fill.fill_type is None and ("FIGI" in above or "Bloomberg ID" in above)
+
+
 def test_every_name_in_a_formula_is_a_cell_the_file_holds(book, bare):
     for opened in (book, bare):
         analyst = {(r["Sheet"], r["Cell"]) for r in sources(opened) if r["Kind"] == "analyst"}
@@ -114,7 +121,11 @@ def test_every_name_in_a_formula_is_a_cell_the_file_holds(book, bare):
                     assert column_index_from_string(letters) <= target.max_column
                 if last is None:
                     held = target[first.replace("$", "")]
-                    assert held.value not in (None, "") or (named, held.coordinate) in analyst, (
+                    assert (
+                        held.value not in (None, "")
+                        or (named, held.coordinate) in analyst
+                        or joined_blank(target, held)
+                    ), (
                         sheet,
                         address,
                         first,
@@ -191,24 +202,24 @@ PINNED = [
     ),
     (
         ("Matrix", "Eligible", "Term Loan B", "CLO portfolio"),
-        '=IF(Inputs!$C$11="","",IF(COUNTIF(Matrix!$K$73,Inputs!$C$11)>0,1,0))',
+        '=IF(Inputs!$B$11="","",IF(COUNTIF(Matrix!$K$73,Inputs!$B$11)>0,1,0))',
     ),
     (
         ("Matrix", "Median (bp)", "Term Loan B", "Loan index fund (LVLN)"),
         joined(
-            '=IF(Matrix!$C$86<>1,"",IF(OR(Inputs!$D$11="",NOT(OR(Inputs!$L$7="percent",',
-            'Inputs!$L$7="basis points"))),"",IF(N(IF(AND(Inputs!$C$11="loan",',
-            'Inputs!$D$11="BB"),Matrix!$D$16,IF(AND(Inputs!$C$11="loan",Inputs!$D$11="B"),',
-            'Matrix!$D$17,"")))>=5,IF(AND(Inputs!$C$11="loan",Inputs!$D$11="BB"),',
-            'Matrix!$C$16,IF(AND(Inputs!$C$11="loan",Inputs!$D$11="B"),Matrix!$C$17,',
+            '=IF(Matrix!$C$86<>1,"",IF(OR(Inputs!$C$11="",NOT(OR(Inputs!$L$7="percent",',
+            'Inputs!$L$7="basis points"))),"",IF(N(IF(AND(Inputs!$B$11="loan",',
+            'Inputs!$C$11="BB"),Matrix!$D$16,IF(AND(Inputs!$B$11="loan",Inputs!$C$11="B"),',
+            'Matrix!$D$17,"")))>=5,IF(AND(Inputs!$B$11="loan",Inputs!$C$11="BB"),',
+            'Matrix!$C$16,IF(AND(Inputs!$B$11="loan",Inputs!$C$11="B"),Matrix!$C$17,',
             '""))*IF(Inputs!$L$7="percent",100,1),"")))',
         ),
     ),
     (
         ("Matrix", "Difference (bp)", "Term Loan B", "Loan index fund (LVLN)"),
         joined(
-            '=IF(OR(Matrix!$K$86="",NOT(ISNUMBER(Inputs!$E$11)),',
-            'NOT(ISNUMBER(Inputs!$F$11))),"",ROUND(Inputs!$E$11-Matrix!$K$86,6))',
+            '=IF(OR(Matrix!$K$86="",NOT(ISNUMBER(Inputs!$D$11)),',
+            'NOT(ISNUMBER(Inputs!$E$11))),"",ROUND(Inputs!$D$11-Matrix!$K$86,6))',
         ),
     ),
     (
@@ -223,12 +234,12 @@ PINNED = [
         ("Matrix", "Limit breach", "Term Loan B", "CLO portfolio"),
         joined(
             '=IF(Matrix!$B$86<>1,"",IF(OR(COUNTA(Matrix!$G$21)>0,',
-            '(Inputs!$D$11="IG")*COUNTIF(Matrix!$C$26:$C$27,',
-            '"breached")+(Inputs!$D$11="BB")*COUNTIF(Matrix!$E$26:$E$27,',
-            '"breached")+(Inputs!$D$11="B")*COUNTIF(Matrix!$G$26:$G$27,',
-            '"breached")+(Inputs!$D$11="CCC")*COUNTIF(Matrix!$I$26:$I$27,',
-            '"breached")+(Inputs!$D$11="Unrated")*COUNTIF(Matrix!$K$26:$K$27,"breached")>0,',
-            "AND(ISNUMBER(Inputs!$F$11),OR(Inputs!$F$11<Matrix!$I$31))),1,0))",
+            '(Inputs!$C$11="IG")*COUNTIF(Matrix!$C$26:$C$27,',
+            '"breached")+(Inputs!$C$11="BB")*COUNTIF(Matrix!$E$26:$E$27,',
+            '"breached")+(Inputs!$C$11="B")*COUNTIF(Matrix!$G$26:$G$27,',
+            '"breached")+(Inputs!$C$11="CCC")*COUNTIF(Matrix!$I$26:$I$27,',
+            '"breached")+(Inputs!$C$11="Unrated")*COUNTIF(Matrix!$K$26:$K$27,"breached")>0,',
+            "AND(ISNUMBER(Inputs!$E$11),OR(Inputs!$E$11<Matrix!$I$31))),1,0))",
         ),
     ),
     (
@@ -280,7 +291,7 @@ PINNED = [
     (
         ("Snapshot", "Capital structure", "Term Loan B", "Proposed recommendation"),
         joined(
-            '=IF(Inputs!$F$5="","",IF(Inputs!$C$11="loan",IF(Matrix!$K$94="","",',
+            '=IF(Inputs!$F$5="","",IF(Inputs!$B$11="loan",IF(Matrix!$K$94="","",',
             "INDEX(Matrix!$K$65:$K$69,INDEX(Matrix!$B$55:$F$59,Inputs!$F$5,Matrix!$K$94))),",
             '""))',
         ),
@@ -320,11 +331,11 @@ PINNED = [
     ),
     (
         ("Snapshot", "Relative value: loans", "Term Loan B", "Price"),
-        '=IF(Inputs!$C$11="loan",IF(Inputs!$F$11="","",Inputs!$F$11),"")',
+        '=IF(Inputs!$B$11="loan",IF(Inputs!$E$11="","",Inputs!$E$11),"")',
     ),
     (
         ("Snapshot", "Relative value: loans", "Term Loan B", "Valuation"),
-        '=IF(Inputs!$C$11="loan",Matrix!$K$94,"")',
+        '=IF(Inputs!$B$11="loan",Matrix!$K$94,"")',
     ),
     (
         ("Matrix", "Held by", "Term Loan B", CLO),
@@ -366,14 +377,14 @@ PINNED = [
     (
         ("Matrix", "Limit hits", "Term Loan B", f"{CLO} / Limit 2"),
         joined(
-            '=IF(IF(Inputs!$D$11="IG",Matrix!$C$26,IF(Inputs!$D$11="BB",Matrix!$E$26,',
-            'IF(Inputs!$D$11="B",Matrix!$G$26,IF(Inputs!$D$11="CCC",Matrix!$I$26,',
-            'IF(Inputs!$D$11="Unrated",Matrix!$K$26,"")))))="breached",1,0)',
+            '=IF(IF(Inputs!$C$11="IG",Matrix!$C$26,IF(Inputs!$C$11="BB",Matrix!$E$26,',
+            'IF(Inputs!$C$11="B",Matrix!$G$26,IF(Inputs!$C$11="CCC",Matrix!$I$26,',
+            'IF(Inputs!$C$11="Unrated",Matrix!$K$26,"")))))="breached",1,0)',
         ),
     ),
     (
         ("Matrix", "Limit hits", "Term Loan B", f"{CLO} / Limit 4"),
-        "=IF(AND(ISNUMBER(Inputs!$F$11),Inputs!$F$11<Matrix!$I$31),1,0)",
+        "=IF(AND(ISNUMBER(Inputs!$E$11),Inputs!$E$11<Matrix!$I$31),1,0)",
     ),
     (
         ("Matrix", "Limits holding at 3", CLO, "Limit 2"),
@@ -401,8 +412,8 @@ def test_the_formula_cells_of_a_row_follow_the_instrument_not_a_neighbour(book):
 def test_a_relative_value_row_names_itself_only_when_its_type_matches(book):
     loans = text_of(book, "Snapshot", "Relative value: loans", "Term Loan B", "Instrument")
     bonds = text_of(book, "Snapshot", "Relative value: bonds", "Term Loan B", "Instrument")
-    assert loans == '=IF(Inputs!$C$11="loan",Inputs!$A$11,"")'
-    assert bonds == '=IF(Inputs!$C$11="bond",Inputs!$A$11,"")'
+    assert loans == '=IF(Inputs!$B$11="loan",Inputs!$A$11,"")'
+    assert bonds == '=IF(Inputs!$B$11="bond",Inputs!$A$11,"")'
     rows = listed(book, "Relative value: loans", column="Row label")
     assert rows == []  # the row's own formula is its name
 
@@ -710,27 +721,27 @@ BONDS = [
     (
         ("Snapshot", "Capital structure", "4.50% Senior Notes 2030", "Proposed recommendation"),
         joined(
-            '=IF(Inputs!$F$5="","",IF(Inputs!$C$14="loan",IF(Matrix!$I$97="","",',
+            '=IF(Inputs!$F$5="","",IF(Inputs!$B$14="loan",IF(Matrix!$I$97="","",',
             "INDEX(Matrix!$K$66:$K$70,INDEX(Matrix!$B$56:$F$60,Inputs!$F$5,Matrix!$I$97))),",
-            'IF(Inputs!$C$14="bond",IF(Matrix!$K$97="","",INDEX(Matrix!$K$66:$K$70,',
+            'IF(Inputs!$B$14="bond",IF(Matrix!$K$97="","",INDEX(Matrix!$K$66:$K$70,',
             'INDEX(Matrix!$B$56:$F$60,Inputs!$F$5,Matrix!$K$97))),"")))',
         ),
     ),
     (
         ("Snapshot", "Relative value: bonds", "4.50% Senior Notes 2030", "Index median (bp)"),
-        '=IF(Inputs!$C$14="bond",Matrix!$K$89,"")',
+        '=IF(Inputs!$B$14="bond",Matrix!$K$89,"")',
     ),
     (
         ("Snapshot", "Relative value: bonds", "4.50% Senior Notes 2030", "Valuation"),
-        '=IF(Inputs!$C$14="bond",Matrix!$K$97,"")',
+        '=IF(Inputs!$B$14="bond",Matrix!$K$97,"")',
     ),
     (
         ("Matrix", "Median (bp)", "4.50% Senior Notes 2030", "High-yield bond fund (JNK)"),
         joined(
-            '=IF(Matrix!$E$89<>1,"",IF(OR(Inputs!$D$14="",NOT(OR(Inputs!$L$8="percent",',
-            'Inputs!$L$8="basis points"))),"",IF(N(IF(AND(Inputs!$C$14="bond",',
-            'Inputs!$D$14="BB"),Matrix!$D$17,""))>=5,IF(AND(Inputs!$C$14="bond",',
-            'Inputs!$D$14="BB"),Matrix!$C$17,"")*IF(Inputs!$L$8="percent",100,1),"")))',
+            '=IF(Matrix!$E$89<>1,"",IF(OR(Inputs!$C$14="",NOT(OR(Inputs!$L$8="percent",',
+            'Inputs!$L$8="basis points"))),"",IF(N(IF(AND(Inputs!$B$14="bond",',
+            'Inputs!$C$14="BB"),Matrix!$D$17,""))>=5,IF(AND(Inputs!$B$14="bond",',
+            'Inputs!$C$14="BB"),Matrix!$C$17,"")*IF(Inputs!$L$8="percent",100,1),"")))',
         ),
     ),
 ]

@@ -9,10 +9,12 @@ off the fixture text, never taken from the code under test.
 
 from __future__ import annotations
 
+import csv
 import json
 import logging
 import re
 from dataclasses import replace
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -22,6 +24,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from deploy_vii.context import load_context
+from deploy_vii.inputs import portfolio_export as pe
 from deploy_workflow import credit_snapshot as snap
 from deploy_workflow import library_index
 from deploy_workflow import recommendation as rec
@@ -323,7 +326,7 @@ def test_the_capital_structure_reads_columns_by_name_with_and_without_the_fx_col
         assert cell.line == line
         assert (cell.text, cell.module) == ("600.0", "CP-1")
         assert len(where(snapshot, "Capital structure")) == 45
-        assert len(where(snapshot, "Instruments", sheet="Inputs")) == 5
+        assert len(where(snapshot, "Instruments", sheet="Inputs")) == 15  # 5 x 3
     assert one(with_fx, "Capital structure", "Revolving Credit Facility", "Principal").text == (
         "Not supplied: no drawn principal printed"
     )
@@ -954,3 +957,242 @@ def test_rec_is_the_only_source_of_the_credit_score():
     assert scorecard is not None
     assert snapshot.credit_score == rec.credit_score(scorecard)
     assert snapshot.scorecard == scorecard
+
+
+# --- FIGI and Bloomberg ID from the run's RV worksheet (Task 5; rulings T5-a to T5-f) -------------
+
+RV_HEADER = next(csv.reader((cs.FIXTURES / cs.RV_NAME).read_text("utf-8").splitlines()))
+LOAN_B, NOTES_2030 = "Term Loan B", "4.50% Senior Notes 2030"
+
+
+def rv_file(directory: Path, rows, *, header=None, name="rv.csv") -> tuple[str, Path]:
+    """A synthetic RV worksheet: each row a dict of header -> text, every other column empty."""
+    path = directory / name
+    columns = header or {h: h for h in RV_HEADER}
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        out = csv.writer(handle)
+        out.writerow(columns.values())
+        out.writerows([row.get(h, "") for h in columns] for row in rows)
+    return name, path
+
+
+def rv_row(bloomberg="", figi="", maturity="31-Mar-31", loan="B", company=cs.ISSUER_NAME, **more):
+    return {
+        "Company": company,
+        "Borrower Name": "Holdco Ltd",
+        "Bloomberg ID": bloomberg,
+        "FIGI": figi,
+        "Loan Type": loan,
+        "Ranking": "1L Gtd Sr. Secd",
+        "Size ($Mn)": "600",
+        "Margin": "375",
+        "Maturity": maturity,
+        "Bid": "98.5",
+        **more,
+    }
+
+
+def gathered_with(tmp_path, *sources, handoffs=None):
+    case = replace(cs.CASES["full"], sources=tuple(sources))
+    if handoffs:
+        case = replace(case, handoffs={**case.handoffs, **handoffs})
+    built = cs.build_case(tmp_path, case)
+    return snap.gather(snap.load_run(built.folder, built.stores.both())), built
+
+
+def ids(snapshot, name):
+    return {
+        c.column: c
+        for c in where(snapshot, "Instruments", name, sheet="Inputs")
+        if c.column in snap.IDENTIFIERS
+    }
+
+
+def test_a_joined_instrument_with_both_identifiers_copies_both_from_the_sheet_row(tmp_path):
+    row = rv_row("SYN1", "ABCDEFGHIJK1")
+    snapshot, _ = gathered_with(tmp_path, rv_file(tmp_path, [row]))
+    got = ids(snapshot, LOAN_B)
+    assert [(c.kind, c.text) for c in got.values()] == [
+        ("copied", "ABCDEFGHIJK1"),
+        ("copied", "SYN1"),
+    ]
+    assert {(c.module, c.section, c.line) for c in got.values()} == {(snap.RV_MODULE, "rv.csv", 2)}
+    block = {(c.row, c.column): c.text for c in where(snapshot, "Market identifiers")}
+    assert block[("Row 2", "Maturity")] == "31-Mar-31" and len(block) == 9
+    assert snapshot.source_sha256 == {"rv.csv": cs.sha256((tmp_path / "rv.csv").read_bytes())}
+
+
+def test_a_missing_identifier_beside_a_present_one_is_a_blank_cell_not_a_gap_or_analyst_cell(
+    tmp_path,
+):
+    for bloomberg, figi, missing in (
+        ("SYN1", "#N/A N/A", "FIGI"),
+        ("#N/A N/A", "ABCDEFGHIJK1", "Bloomberg ID"),
+    ):
+        directory = tmp_path / missing.replace(" ", "")
+        directory.mkdir()
+        snapshot, _ = gathered_with(directory, rv_file(directory, [rv_row(bloomberg, figi)]))
+        got = ids(snapshot, LOAN_B)
+        assert got[missing].kind == "blank" and got[missing].text == ""
+        assert {c.kind for k, c in got.items() if k != missing} == {"copied"}
+
+
+def test_a_row_with_a_malformed_figi_and_no_bloomberg_id_has_no_identifier(tmp_path):
+    for bloomberg, figi in (("", "abc"), ("#N/A N/A", "SHORT"), ("#NAME?", "")):
+        directory = tmp_path / f"{len(bloomberg)}{len(figi)}"
+        directory.mkdir()
+        snapshot, _ = gathered_with(directory, rv_file(directory, [rv_row(bloomberg, figi)]))
+        assert {c.kind for c in ids(snapshot, LOAN_B).values()} == {"analyst"}
+        assert len(where(snapshot, "Market identifiers")) == 9  # still listed
+
+
+def test_two_matched_rows_on_one_date_join_nothing(tmp_path):
+    rows = [rv_row("SYN1", "ABCDEFGHIJK1"), rv_row("SYN2", "ABCDEFGHIJK2")]
+    snapshot, _ = gathered_with(tmp_path, rv_file(tmp_path, rows))
+    assert {c.kind for c in ids(snapshot, LOAN_B).values()} == {"analyst"}
+    assert len({c.row for c in where(snapshot, "Market identifiers")}) == 2
+
+
+def test_another_companys_row_on_the_same_date_does_not_make_the_date_ambiguous(tmp_path):
+    rows = [
+        rv_row("SYN1", "ABCDEFGHIJK1"),
+        rv_row("SYN9", "ABCDEFGHIJK9", company="Cobalt Freight plc"),
+    ]
+    snapshot, _ = gathered_with(tmp_path, rv_file(tmp_path, rows))
+    assert ids(snapshot, LOAN_B)["Bloomberg ID"].text == "SYN1"
+    assert {c.row for c in where(snapshot, "Market identifiers")} == {"Row 2"}
+
+
+def test_the_issuer_matches_the_borrower_name_column_and_ignores_case_and_spaces(tmp_path):
+    row = rv_row(
+        "SYN1",
+        "ABCDEFGHIJK1",
+        company="Someone",
+        **{"Borrower Name": "  NORTHBRIDGE   holdings PLC "},
+    )
+    snapshot, _ = gathered_with(tmp_path, rv_file(tmp_path, [row]))
+    assert ids(snapshot, LOAN_B)["FIGI"].text == "ABCDEFGHIJK1"
+
+
+def test_headers_are_found_in_any_case_and_spacing(tmp_path):
+    header = {
+        h: f"  {h.upper()} " if h in ("FIGI", "Company") else h.lower().replace(" ", "   ")
+        for h in RV_HEADER
+    }
+    snapshot, _ = gathered_with(
+        tmp_path, rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1")], header=header)
+    )
+    assert ids(snapshot, LOAN_B)["Bloomberg ID"].text == "SYN1"
+
+
+def test_a_bond_and_a_loan_sharing_a_maturity_never_swap_identifiers(tmp_path):
+    # The sheet's loan matures on the 4.50% Senior Notes' date: a bond, so no join.
+    sheet = rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1", maturity="15-Jun-30")])
+    snapshot, _ = gathered_with(tmp_path, sheet)
+    assert {c.kind for c in ids(snapshot, NOTES_2030).values()} == {"analyst"}
+    assert {c.kind for c in ids(snapshot, LOAN_B).values()} == {"analyst"}
+    # The term loan moved onto the notes' date: two instruments on one date, so neither joins.
+    cp1 = FIXTURE["CP-1"].replace("2031-03-31", "2030-06-15")
+    moved = tmp_path / "CP-1.md"
+    moved.write_text(cp1, "utf-8")
+    (tmp_path / "b").mkdir()
+    snapshot, _ = gathered_with(tmp_path / "b", sheet, handoffs={"CP-1": moved})
+    for name in (LOAN_B, NOTES_2030):
+        assert {c.kind for c in ids(snapshot, name).values()} == {"analyst"}
+
+
+def test_an_instrument_of_unknown_type_or_a_sheet_row_without_a_loan_type_never_joins(tmp_path):
+    snapshot, _ = gathered_with(
+        tmp_path, rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1", loan="")])
+    )
+    assert {c.kind for c in ids(snapshot, LOAN_B).values()} == {"analyst"}
+    other = tmp_path / "t"
+    other.mkdir()
+    snapshot, _ = gathered_with(
+        other, rv_file(other, [rv_row("SYN1", "ABCDEFGHIJK1", maturity="31-Dec-27")])
+    )  # the receivables facility's date
+    assert {c.kind for c in ids(snapshot, "Receivables facility").values()} == {"analyst"}
+
+
+def test_a_sheet_with_no_row_for_the_issuer_is_a_reasoned_gap_line(tmp_path):
+    other = rv_row("SYN1", "ABCDEFGHIJK1", company="Cobalt Freight plc")
+    snapshot, _ = gathered_with(tmp_path, rv_file(tmp_path, [other]))
+    (gap,) = where(snapshot, "Market identifiers")
+    assert (gap.kind, gap.text) == ("gap", snap.NO_MARKET_ROWS)
+    assert {c.kind for c in ids(snapshot, LOAN_B).values()} == {"analyst"}
+
+
+def test_no_sheet_is_one_gap_line_and_every_instrument_keeps_analyst_cells():
+    snapshot = snap.gather(run_of(full()))
+    (gap,) = where(snapshot, "Market identifiers")
+    assert (gap.sheet, gap.row, gap.column, gap.kind, gap.text) == (
+        "Inputs",
+        "Gap",
+        "Text",
+        "gap",
+        "no market data sheet supplied",
+    )
+    assert {c.kind for c in where(snapshot, "Instruments", column="FIGI")} == {"analyst"}
+
+
+def test_a_source_that_is_not_a_worksheet_is_skipped_with_a_logged_reason(tmp_path, caplog):
+    note = tmp_path / "note.txt"
+    note.write_text("just a note, not a sheet\n", "utf-8")
+    binary = tmp_path / "scan.pdf"
+    binary.write_bytes(b"%PDF-1.7\x00\x01\x02 not a sheet")
+    with caplog.at_level(logging.INFO, logger=LOGGER):
+        snapshot, _ = gathered_with(tmp_path, ("note.txt", note), ("scan.pdf", binary))
+    assert [
+        m for m in (r.getMessage() for r in caplog.records) if "note.txt" in m or "scan.pdf" in m
+    ]
+    assert where(snapshot, "Market identifiers")[0].text == snap.NO_MARKET
+
+
+def test_a_workflow_that_is_not_the_one_the_completion_names_gives_a_logged_gap_and_no_sheet(
+    tmp_path, caplog
+):
+    built = cs.build_case(
+        tmp_path,
+        replace(cs.CASES["full"], sources=(rv_file(tmp_path, [rv_row("SYN1", "ABCDEFGHIJK1")]),)),
+    )
+    path = built.folder / "workflow.json"
+    path.write_bytes(path.read_bytes() + b" ")  # the completion record still names the old hash
+    with caplog.at_level(logging.WARNING, logger=LOGGER):
+        run = snap.load_run(built.folder, built.stores.both())
+    assert isinstance(run.market, snap.MarketGap) and "completion record names" in run.market.reason
+    assert [r for r in caplog.records if "no market data sheet" in r.getMessage()]
+    snapshot = snap.gather(run)
+    assert where(snapshot, "Market identifiers")[0].text == snap.NO_MARKET
+    assert {c.kind for c in ids(snapshot, LOAN_B).values()} == {"analyst"}
+
+
+def test_a_workbook_sheet_is_read_like_a_csv_and_a_date_cell_is_the_date(tmp_path):
+    # An XLSX sheet's rows as `portfolio_export.sheet_rows` returns them (no workbook is written
+    # here: only the writer may write one); a maturity cell holds a date serial.
+    serial = (date(2031, 3, 31) - date(1899, 12, 30)).days
+    text = lambda row: [pe.Cell(row.get(h, "")) for h in RV_HEADER]
+    head = [pe.Cell(h) for h in RV_HEADER]
+    body = text(rv_row("SYN1", "ABCDEFGHIJK1"))
+    body[RV_HEADER.index("Maturity")] = pe.Cell(str(serial), numeric=True, date_format=True)
+    sheet = snap.market_sheet("book.xlsx", "0" * 64, [(3, []), (4, head), (5, body), (6, [])])
+    (found,) = sheet.rows
+    assert (found.line, found.maturity) == (5, date(2031, 3, 31))
+    assert found.cells["Maturity"] == "2031-03-31" and found.cells["Bloomberg ID"] == "SYN1"
+
+
+def test_a_sheet_missing_a_required_header_or_repeating_one_is_not_a_worksheet():
+    for drop in ("FIGI", "Bloomberg ID"):
+        head = [pe.Cell(h) for h in RV_HEADER if h != drop]
+        assert snap.market_sheet("a.csv", "0" * 64, [(1, head)]) is None
+    both = [pe.Cell(h) for h in RV_HEADER if h not in ("Company", "Borrower Name")]
+    assert snap.market_sheet("a.csv", "0" * 64, [(1, both)]) is None
+    twice = [pe.Cell(h) for h in (*RV_HEADER, "FIGI")]
+    assert snap.market_sheet("a.csv", "0" * 64, [(1, twice)]) is None
+    assert snap.market_sheet("a.csv", "0" * 64, []) is None
+
+
+def test_the_sheets_two_digit_year_is_read_as_python_reads_it():
+    for text, want in (("27-Jun-32", date(2032, 6, 27)), ("01-Jan-68", date(2068, 1, 1))):
+        assert snap._maturity(pe.Cell(text)) == want
+    assert snap._maturity(pe.Cell("2032-06-27")) == date(2032, 6, 27)
+    assert snap._maturity(pe.Cell("#N/A N/A")) is None
