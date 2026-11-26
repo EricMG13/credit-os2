@@ -379,6 +379,40 @@ def _is_percent_format(code: str | None) -> bool:
     return "%" in _QUOTED.sub("", code)
 
 
+_PLACES = re.compile(r"\.([0#?]*)")
+_BUILTIN_PLACES = {"builtin:9": 0, "builtin:10": 2}
+_EXCEL_DIGITS = Context(prec=15, rounding=ROUND_HALF_EVEN)
+
+
+def _format_places(code: str | None) -> int:
+    """The decimal places a number format shows: the digit placeholders after the point in its
+    first section (quoted text and escapes left out); `builtin:9` none, `builtin:10` two."""
+    if code is None:
+        return 0
+    if code.startswith("builtin:"):
+        return _BUILTIN_PLACES.get(code, 0)
+    first = _QUOTED.sub("", code).split(";")[0]
+    found = _PLACES.search(first)
+    return 0 if found is None else len(found[1])
+
+
+def percent_text(text: str, code: str | None) -> str:
+    """A percent-formatted cell's stored fraction as the figure Excel shows (`0.397` with `0.00%`
+    is `39.70%`). Excel holds 15 significant digits, so the stored double's extra digits go first;
+    then the figure is scaled exactly and written with at least the format's places, never fewer
+    digits than stored. Text that is not a finite decimal (a formula's text) is kept as it is."""
+    try:
+        stored = Decimal(text)
+    except InvalidOperation:
+        return text
+    if not stored.is_finite():
+        return text
+    kept = _EXCEL_DIGITS.plus(stored).normalize(EXACT)
+    scaled = kept.scaleb(2, EXACT)
+    places = max(_format_places(code), -scaled.as_tuple().exponent)  # type: ignore[operator]
+    return f"{scaled.quantize(Decimal(1).scaleb(-places), context=EXACT):f}%"
+
+
 # A cell more than this many empty columns to the right of the last cell read in its row is left
 # out, and so is the rest of that row: no table has such a gap, and a row is then never longer than
 # its cells allow, however far right a stray cell is (XFD is column 16,384).
@@ -703,12 +737,25 @@ def is_holdings(rows: Sequence[Sequence[str]]) -> bool:
     return header is not None and "par" in header[1]
 
 
-def _text(cell: Cell) -> str:
-    """A workbook cell as the CSV export would write it: a date cell as its ISO date."""
+def _text(cell: Cell, code: str | None = None) -> str:
+    """A workbook cell as the CSV export would write it: a date cell as its ISO date, a percent
+    cell as the percentage shown (`percent_text`; `code` is its number format)."""
     if cell.date_format:
         when = read_date(cell)
         return when.isoformat() if when is not None else cell.text
+    if cell.percent_format:
+        return percent_text(cell.text, code)
     return cell.text
+
+
+def _formats(raw: bytes, sheet: str) -> Mapping[tuple[int, int], Span]:
+    """The sheet's parsed cells by (column, row), for their number formats."""
+    return book(raw).sheet(sheet) or {}
+
+
+def _code(spans: Mapping[tuple[int, int], Span], column: int, row: int) -> str | None:
+    span = spans.get((column, row))
+    return None if span is None else span.number_format
 
 
 def _workbook_parts(name: str, raw: bytes) -> list[Part]:
@@ -728,7 +775,11 @@ def _sheets_parts(name: str, raw: bytes) -> list[Part]:
             kind = "market" if folded(sheet) == "market data" else "holdings"
             found.append(Part(name, sheet, kind))
             continue
-        texts = [[_text(cell) for cell in cells] for _, cells in rows]
+        spans = _formats(raw, sheet)
+        texts = [
+            [_text(cell, _code(spans, i + 1, number)) for i, cell in enumerate(cells)]
+            for number, cells in rows
+        ]
         if (role := _role(texts)) is not None:
             numbered = tuple((n, tuple(r)) for (n, _), r in zip(rows, texts, strict=True))
             found.append(Part(name, sheet, role, numbered))
@@ -784,17 +835,31 @@ def sections(rows: Sequence[tuple[int, Sequence[str]]]) -> dict[str, Section]:
     return found
 
 
-def _holding(sheet: str, number: int, cells: list[Cell], columns: Mapping[str, int]) -> Holding:
+def _holding(
+    sheet: str,
+    number: int,
+    cells: list[Cell],
+    columns: Mapping[str, int],
+    spans: Mapping[tuple[int, int], Span] | None = None,
+) -> Holding:
+    """A row's cells and their text; a percent-formatted cell's text is the percentage shown
+    (`percent_text`). Dates are not converted here: maturity is read from the cell."""
     picked = {
         key: cells[index] if index < len(cells) else Cell("") for key, index in columns.items()
     }
-    return Holding(number, sheet, {key: cell.text for key, cell in picked.items()}, picked)
+    text = {
+        key: percent_text(cell.text, _code(spans or {}, columns[key] + 1, number))
+        if cell.percent_format
+        else cell.text
+        for key, cell in picked.items()
+    }
+    return Holding(number, sheet, text, picked)
 
 
 def holding_rows(raw: bytes, sheet: str, export: Export) -> list[Holding]:
     """The rows under the header of `sheet`; rows of empty cells are counted, not read."""
     rows = sheet_rows(raw, sheet)
-    return [] if rows is None else rows_under_header(rows, sheet, export)
+    return [] if rows is None else rows_under_header(rows, sheet, export, _formats(raw, sheet))
 
 
 def csv_holding_rows(part: Part, export: Export) -> list[Holding]:
@@ -804,7 +869,10 @@ def csv_holding_rows(part: Part, export: Export) -> list[Holding]:
 
 
 def rows_under_header(
-    rows: Sequence[tuple[int, list[Cell]]], sheet: str, export: Export
+    rows: Sequence[tuple[int, list[Cell]]],
+    sheet: str,
+    export: Export,
+    spans: Mapping[tuple[int, int], Span] | None = None,
 ) -> list[Holding]:
     """The rows under the holdings header; rows of empty cells are counted, not read."""
     header = holdings_header(rows)
@@ -820,7 +888,7 @@ def rows_under_header(
         if not any(cell.text for cell in cells):
             export.empty_rows.setdefault(sheet, []).append(number)
             continue
-        out.append(_holding(sheet, number, cells, columns))
+        out.append(_holding(sheet, number, cells, columns, spans))
     return out
 
 
@@ -935,6 +1003,24 @@ def render(issue: Issue) -> str:
 # --- Typed holdings ------------------------------------------------------------------------------
 
 _NUMERIC = ("par", "bid", "ask", "margin", "ytm", "dm", "change_1m", "change_ytd", "size")
+# The unit a column is stated in; a figure in the other of % and bps is converted exactly, and a
+# figure in any other unit (or with a bound) is unreadable. Other columns take no unit.
+_COLUMN_UNIT = {"margin": "bps", "dm": "bps", "ytm": "%"}
+
+
+def _in_column_unit(key: str, found: Quantity) -> Decimal | None:
+    """The figure in the unit of column `key` (1% = 100 bps), or None when its unit or a bound
+    makes it unreadable there."""
+    if found.operator:
+        return None
+    wanted = _COLUMN_UNIT.get(key, "")
+    if found.unit in ("", wanted):
+        return found.value
+    if wanted == "bps" and found.unit == "%":
+        return found.value.scaleb(2, EXACT)
+    if wanted == "%" and found.unit == "bps":
+        return found.value.scaleb(-2, EXACT)
+    return None
 
 
 @dataclass
@@ -958,10 +1044,11 @@ def type_rows(rows: Sequence[Holding]) -> dict[str, Tally]:
                 tally.tokens.setdefault(key, []).append(holding.row)
                 continue
             found = quantity(text)
-            if found is None or found.approximate:
+            value = None if found is None or found.approximate else _in_column_unit(key, found)
+            if value is None:
                 tally.unreadable.setdefault(key, []).append(holding.row)
             else:
-                holding.numbers[key] = found.value
+                holding.numbers[key] = value
         cell = holding.cells.get("maturity")
         if cell is not None and cell.text and not TOKEN.match(cell.text):
             holding.maturity = read_date(cell)
