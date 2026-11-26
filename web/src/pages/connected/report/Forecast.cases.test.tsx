@@ -61,7 +61,7 @@ const caseFigure = () => screen.getByLabelText("Selected case cash proxy");
 const caseCard = () => caseFigure().parentElement as HTMLElement;
 /** The case the figure names: "Cash proxy, <case> · <unit>". */
 const figureName = () =>
-  /^Cash proxy, (.*) · US\$m$/u.exec(within(caseFigure()).getByRole("term").textContent)?.[1] ?? "";
+  /^Cash proxy, (.*) · \$m$/u.exec(within(caseFigure()).getByRole("term").textContent)?.[1] ?? "";
 /** Each case's figure, selected in turn with the case switch. */
 function eachCase<T>(read: (name: string) => T): T[] {
   return caseButtons().map((button) => {

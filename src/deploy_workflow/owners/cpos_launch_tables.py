@@ -8,7 +8,7 @@ from collections import Counter
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from typing import Any, cast
 
 from deploy_workflow import confidence
@@ -99,10 +99,13 @@ class OwnerTable:
     events: bool = False  # A dated-event table: no unit or basis columns; dates by precision.
     edges: bool = False  # A node/edge map table: no unit or basis columns; an edge type's words.
     none_text: str = (
-        ""  # The words of an Event cell that states none: the one row `_states_none` takes.
+        ""  # The words of the first cell that states none: the one row `_states_none` takes.
     )
     scored: bool = False  # The confidence inputs table: its rows are `confidence`'s, not columns.
     money_table: bool = False  # `chart_unit` is the handoff's resolved money unit (`MONEY` was it).
+    id_column: str = ""  # A bridge's id column, after the value columns (CP-1's `Add-Back ID`).
+    none_when: str = "no such event is stated"  # The case the none row states, as the request says.
+    none_case: str = "event"  # What the none row states there is none of (`_near_none_issues`).
 
     @property
     def bare(self) -> bool:
@@ -259,6 +262,136 @@ POST_BS = OwnerTable(
 )
 
 
+PRO_FORMA = OwnerTable(
+    "Pro forma interest and cover",
+    (),
+    MONEY,
+    columns=(
+        "As of",
+        "Pro forma interest",
+        "Interest measure",
+        "EBITDA",
+        "Pro forma interest cover",
+    ),
+    numbers=("Pro forma interest", "EBITDA", "Pro forma interest cover"),
+    in_unit=("Pro forma interest", "EBITDA"),
+    dates=("As of",),
+    choices=(("Interest measure", ("cash interest", "interest expense")),),
+    noun="EBITDA basis",
+    none_text="Not stated",
+    none_when="no source states a pro forma interest",
+    none_case="pro forma interest",
+    rules=(
+        "Pro forma interest is the annual interest a source states after the balance-sheet "
+        "date's events, never worked out; Interest measure is exactly `cash interest` or "
+        "`interest expense`, as stated, never mixed. EBITDA is that of T4.9's "
+        "`EBITDA / cash interest` row for the latest period; where T4.9 states `Adjusted EBITDA "
+        "/ cash interest`, a second row uses its EBITDA. Basis and limitation opens with "
+        "`Reported EBITDA` or `Adjusted EBITDA` and names the interest's source. The cover is "
+        "EBITDA over Pro forma interest, worked with `calculate` from those two only, to two "
+        "decimals, as times, no `x`, listed in `## Calculations`. As of is the date the "
+        "source states it at, YYYY-MM-DD or `Not supplied: the source states <what it gives> "
+        "only`. A figure no source states, and the cover beside it, is `Not supplied: "
+        "<reason>`; never estimate one. Add no pro forma row to a chart table."
+    ),
+)
+
+
+PRO_FORMA_LABELS = ("Reported EBITDA", "Adjusted EBITDA")
+COVER_FORM = re.compile(r"-?\d+\.\d{2}")
+
+
+PRO_FORMA_REGISTER = {
+    "Reported EBITDA": "EBITDA / cash interest",
+    "Adjusted EBITDA": "Adjusted EBITDA / cash interest",
+}
+
+
+def _cover_issue(row: str, interest: str, ebitda: str, cover: str) -> str | None:
+    """One stated row's cover against its figures: a gap beside a missing figure, a plain number to
+    two decimals, EBITDA over interest (half-up or half-even), and a gap only where interest is
+    zero or a figure is itself a gap."""
+    top, bottom = cp1_check._stated(ebitda), cp1_check._stated(interest)
+    lead = f"{row}: Pro forma interest cover {cover}"
+    if _stated_gap(interest) or _stated_gap(ebitda):
+        gap = "sits beside a figure no source states; write it as `Not supplied: <reason>`."
+        return None if _stated_gap(cover) else f"{lead} {gap}"
+    if not _stated_gap(cover) and not COVER_FORM.fullmatch(cover):
+        form = "must be a plain number with exactly two decimal places (`4.55`)"
+        return f"{lead} {form}, or `Not supplied: <reason>`."
+    if top is None or bottom is None:
+        return None
+    if _stated_gap(cover):
+        work = "is stated as a gap although both figures are stated; work it with `calculate`."
+        return None if bottom == 0 else f"{lead} {work}"
+    if bottom == 0:
+        return f"{lead} is not worked over a zero interest; write `Not supplied: <reason>`."
+    cent = Decimal("0.01")
+    exact = top / bottom
+    up = exact.quantize(cent, rounding=ROUND_HALF_UP)
+    even = exact.quantize(cent, rounding=ROUND_HALF_EVEN)
+    wrong = f"{lead} is not EBITDA {ebitda} over interest {interest}; the expected cover is {up}."
+    return None if Decimal(cover) in (up, even) else wrong
+
+
+def _pro_forma_issues(text: str) -> tuple[str, ...]:
+    """CP-1's `Pro forma interest and cover` rows beyond the shared shape check (run only when that
+    passed): each cover is tied to its figures (`_cover_issues`); each row's EBITDA equals T4.9's
+    numerator of its label's row for the latest period; each row's Basis and limitation opens with
+    its EBITDA label, at most the two labels, each once, `Reported EBITDA` first; one Interest
+    measure. The none row (`Not stated`) states no figure and is exempt. A label T4.9 has no
+    readable row for is left untied here: the CP-1 check already reports a missing or malformed
+    register."""
+    heading = f"### {PRO_FORMA.heading}"
+    if heading not in text.splitlines():
+        return ()
+    rows = _stated_rows(text, heading)
+    body, _ = _first_table(heading, rows[2:])
+    stated = [r for r in body if len(r) == len(rows[0]) and r[0] != PRO_FORMA.none_text]
+    issues, labels = [], []
+    for at, (as_of, interest, measure, ebitda, cover, _unit, basis) in enumerate(stated, 1):
+        row = f"`{heading}` {as_of} (row {at})"
+        if issue := _cover_issue(row, interest, ebitda, cover):
+            issues.append(issue)
+        label = next((x for x in PRO_FORMA_LABELS if basis.startswith(x)), None)
+        if label is None:
+            issues.append(
+                f"{row}: Basis and limitation must open with `Reported EBITDA` or "
+                f"`Adjusted EBITDA`, the EBITDA the row uses."
+            )
+        else:
+            issues.extend(_register_tie(text, row, label, ebitda))
+        labels.append(label)
+    table = f"`{heading}`"
+    named = [x for x in labels if x]
+    if len(stated) > 2:
+        issues.append(f"{table}: at most two rows, one on Reported and one on Adjusted EBITDA.")
+    if len(set(named)) < len(named):
+        issues.append(f"{table}: each EBITDA basis is stated once; one row names it once.")
+    if stated and labels[0] != PRO_FORMA_LABELS[0]:
+        issues.append(f"{table}: the first row is the Reported EBITDA row, any Adjusted after it.")
+    if len({r[2] for r in stated}) > 1:
+        issues.append(f"{table}: one Interest measure across the rows, never mixed.")
+    return tuple(issues)
+
+
+def _register_tie(text: str, row: str, label: str, ebitda: str) -> list[str]:
+    """The row's EBITDA against the Numerator Value of T4.9's row of its label for the latest
+    Period; nothing where either is not a plain number or T4.9 has no readable row."""
+    stated = cp1_check._stated(ebitda)
+    found = cp1_check.register_numerator(text, PRO_FORMA_REGISTER[label])
+    if stated is None or found is None or stated == found[1]:
+        return []
+    period, numerator = found
+    metric = PRO_FORMA_REGISTER[label]
+    return [
+        (
+            f"{row}: EBITDA {ebitda} is not the Numerator Value {numerator:,} of `{metric}` for "
+            f"{period} in T4.9; a {label} row uses that EBITDA."
+        )
+    ]
+
+
 def _owner_tables(
     module: str, routes: Sequence[MarkdownRoute], pathway: str | None = None
 ) -> tuple[OwnerTable, ...]:
@@ -278,7 +411,7 @@ def _owner_tables(
     chart = tuple(
         OwnerTable(h, cols, unit) for h, cols, unit in CHART_TABLES.values() if h not in routed
     )
-    return (*chart, NET_DEBT, DEBT_RECON, POST_BS, *tables)
+    return (*chart, NET_DEBT, DEBT_RECON, POST_BS, PRO_FORMA, *tables)
 
 
 DIRECTIONS = ("Passes below", "Passes at or below", "Passes above", "Passes at or above")
@@ -331,13 +464,17 @@ OWNER_TABLES: dict[str, tuple[OwnerTable, ...]] = {
             ("Amount",),
             MONEY,
             steps=True,
+            id_column="Add-Back ID",
             rules=(
                 "The first row is the reported measure and the last row is the specified "
                 "adjusted measure the method names; name both in Basis and limitation. The "
                 "rows between are the signed adjustments the method states, each as stated: do "
                 "not manufacture intermediate adjustments from the endpoints. If the method "
                 "states only the endpoints, or its adjustments do not reconcile them, write "
-                "`Not supplied: <reason>` in every Amount."
+                "`Not supplied: <reason>` in every Amount. Add-Back ID numbers the add-backs "
+                "`AB-1`, `AB-2`, ... in bridge order, each once, in this column only; a negative "
+                "adjustment is an add-back with a minus sign; the first and last rows hold "
+                "`Not applicable`."
             ),
         ),
     ),
@@ -824,6 +961,8 @@ def _chart_header(table: MarkdownRoute | OwnerTable) -> list[str]:
     spec = _owner_table(table)
     first = "Step" if spec.steps else "Period"
     leading = list(spec.columns) or [first, *spec.value_columns]
+    if spec.id_column:
+        leading.append(spec.id_column)
     if spec.bare:
         return leading
     return [*leading, "Reporting unit", "Basis and limitation"]
@@ -879,6 +1018,51 @@ def _bridge_issues(heading: str, rows: list[list[str]]) -> list[str]:
             )
         ]
     return []
+
+
+ADD_BACK_ID = re.compile(r"AB-([1-9][0-9]*)")
+NOT_APPLICABLE = "Not applicable"
+
+
+def _add_back_id_issues(
+    heading: str, column: str, rows: list[list[str]], ids: list[str]
+) -> list[str]:
+    """The ids of a bridge: the first and last rows `Not applicable`; each row between holds the
+    next `AB-<n>` (from `AB-1`, in row order, each once). Only a bridge stated as a gap in every
+    Amount may leave a middle row `Not applicable`. Every refused row is listed."""
+    every_gap = bool(rows) and all(_stated_gap(row[1]) for row in rows)
+    issues = []
+    following = 1
+    for at, (row, cell) in enumerate(zip(rows, ids, strict=True)):
+        where = f"`{heading}` {row[0]}: {column} `{cell}`"
+        if at in (0, len(rows) - 1):
+            if cell != NOT_APPLICABLE:
+                issues.append(f"{where} must be `{NOT_APPLICABLE}` on the first and last rows.")
+        elif ADD_BACK_ID.fullmatch(cell):
+            if cell != f"AB-{following}":
+                issues.append(
+                    f"{where} must be `AB-{following}`: ids run `AB-1`, `AB-2`, ... in row "
+                    "order, each once."
+                )
+            else:
+                following += 1
+        elif not (every_gap and cell == NOT_APPLICABLE):
+            issues.append(
+                f"{where} must be `AB-{following}` (a whole number from `AB-1`, no leading zero)"
+                f"{'' if every_gap else f'; `{NOT_APPLICABLE}` is for the first and last rows'}."
+            )
+    return issues
+
+
+def _step_issues(
+    spec: OwnerTable, heading: str, rows: list[list[str]], *, reconcile: bool
+) -> list[str]:
+    """A step table's own checks: the arithmetic (once every cell is otherwise sound) and, where
+    the table has an id column, the ids (always, so one review lists them all)."""
+    issues = _bridge_issues(heading, rows) if reconcile else []
+    if spec.id_column:
+        issues += _add_back_id_issues(heading, spec.id_column, rows, [row[-3] for row in rows])
+    return issues
 
 
 def _stated_gap(cell: str) -> bool:
@@ -1126,15 +1310,21 @@ def _states_none(spec: OwnerTable, header: list[str], rows: list[list[str]]) -> 
     )
 
 
-def _near_none_issues(spec: OwnerTable, heading: str, event: str) -> list[str]:
-    """An Event that is the none text with other case or punctuation is not the none row: it
-    would pass as an event with gaps, so the module is told the exact text."""
-    if not spec.none_text or event == spec.none_text:
+def _near_none_issues(spec: OwnerTable, heading: str, first: str) -> list[str]:
+    """A first cell that is the none text with other case or punctuation is not the none row: it
+    would pass as a row with gaps, so the module is told the exact text."""
+    if not spec.none_text or first == spec.none_text:
         return []
-    if event.casefold().strip(" .") != spec.none_text.casefold():
+    if first.casefold().strip(" .") != spec.none_text.casefold():
         return []
-    advice = f"`{spec.none_text}` and the other cells as asked; any other Event names an event."
-    return [f"`{heading}`: to state that there is no event, write the Event exactly {advice}"]
+    column = spec.columns[0]
+    article = "an" if spec.none_case[0] in "aeiou" else "a"
+    advice = (
+        f"`{spec.none_text}` and the other cells as asked; any other {column} names "
+        f"{article} {spec.none_case}."
+    )
+    stated = f"to state that there is no {spec.none_case}, write the {column} exactly {advice}"
+    return [f"`{heading}`: {stated}"]
 
 
 SEPARATOR_CELL = re.compile(r":?-{3,}:?")
@@ -1300,13 +1490,16 @@ def chart_issues(
         return (_header_issue(spec, heading, header),)
     if spec.columns:
         return tuple(_row_table_issues(spec, heading, header, rows[2:]))
-    stated = []
+    stated: list[list[str]] = []
     body, issues = _first_table(heading, rows[2:])
+    skipped = False
     for row in body:
         if len(row) != len(header):
+            skipped = True
             issues.append(f"`{heading}` row needs {len(header)} cells: {' | '.join(row)}")
             continue
-        period, *values, unit, basis = row
+        period, *cells, unit, basis = row
+        values = cells[: len(spec.value_columns)]  # the id cell of a bridge is not a value
         stated.append(row)
         if not basis:
             issues.append(f"`{heading}` {period}: Basis and limitation is blank.")
@@ -1320,6 +1513,6 @@ def chart_issues(
                 )
             elif problem := _unit_issue(spec, unit):
                 issues.append(f"`{heading}` {period}: {problem}")
-    if spec.steps and not issues:
-        issues += _bridge_issues(heading, stated)
+    if spec.steps and not skipped:  # a skipped row moves first and last; its length is the repair
+        issues += _step_issues(spec, heading, stated, reconcile=not issues)
     return tuple(issues)

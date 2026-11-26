@@ -401,10 +401,10 @@ it("C1-023 uses the long as-of date on the report", () => {
 });
 
 it("C4-013 uses canonical money units without altering digits or signs", () => {
-  expect(unitLabel("USD millions")).toBe("US$m");
-  expect(unitLabel("GBP millions")).toBe("GBPm");
-  expect(withUnit("1234.50", "USD millions")).toBe("US$1,234.50m");
-  expect(withUnit("-1234.50", "GBPm")).toBe("-GBP 1,234.50m");
+  expect(unitLabel("USD millions")).toBe("$m");
+  expect(unitLabel("GBP millions")).toBe("£m");
+  expect(withUnit("1234.50", "USD millions")).toBe("$1,234.50m");
+  expect(withUnit("-1234.50", "GBPm")).toBe("-£1,234.50m");
 });
 
 it("C3-011 gives positive comparison movements their sign", () => {

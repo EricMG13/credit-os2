@@ -8,6 +8,7 @@ import {
   type Measure,
   type MeasureCell,
 } from "./forecastData";
+import { unitLabel } from "../publishedReport";
 import type { ForecastSource } from "./ForecastRecord";
 import { GapNote, Tile } from "./overview/Tile";
 
@@ -342,7 +343,7 @@ export function UsesOfCash({
     span: 5,
     label: "Uses of cash",
     title: `Uses of cash, ${caseName ?? "selected case"}`,
-    kicker: `Distributions and debt repayments by year as the model publishes them · ${units || "Units not recorded"}`,
+    kicker: `Distributions and debt repayments by year as the model publishes them · ${unitLabel(units ?? "") || "Units not recorded"}`,
     trace: trace("Distributions"),
   } as const;
   if (measures.every(([, measure]) => measure === null))

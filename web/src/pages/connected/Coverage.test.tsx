@@ -421,18 +421,16 @@ test("a bound never removes an issuer stated in another unit: it stays, listed a
   expect(
     screen.getByText("8 of 9 issuers shown · 7 compared, 1 not compared (another unit)"),
   ).toBeInTheDocument();
-  expect(
-    screen.getByText(/Not compared, stated in another unit: I \(EURm\)\./),
-  ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Remove filter .*≥ 1 US\$m · FY2025/ })).toBeVisible();
+  expect(screen.getByText(/Not compared, stated in another unit: I \(€m\)\./)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Remove filter .*≥ \$1m · FY2025/ })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Rank" }));
-  expect(screen.getByRole("list", { name: /reporting unit EURm/ })).toBeVisible();
+  expect(screen.getByRole("list", { name: /reporting unit €m/ })).toBeVisible();
   expect(
-    screen.getByText(/Bound not applied: this list is in EURm, and the bound compares US\$m\./),
+    screen.getByText(/Bound not applied: this list is in €m, and the bound compares \$m\./),
   ).toBeVisible();
   // A bound below the other unit's figure does not remove it either.
   fireEvent.change(screen.getByRole("textbox", { name: /At least/ }), { target: { value: "-5" } });
-  expect(screen.getByRole("list", { name: /reporting unit EURm/ })).toBeVisible();
+  expect(screen.getByRole("list", { name: /reporting unit €m/ })).toBeVisible();
 });
 
 test("two units that tie leave the bound open and ask the reader to choose; no unit stated never wins a tie", async () => {

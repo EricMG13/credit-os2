@@ -3289,6 +3289,46 @@ def test_the_post_balance_sheet_table_leaves_the_changes_pack_unchanged(table, w
     assert found["net_debt"]["unit"] == "US$m"
 
 
+_BRIDGE_5 = (
+    "### Chart data: EBITDA bridge\n\n"
+    "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |\n"
+    "| --- | --- | --- | --- | --- |\n"
+    "| Reported EBITDA | 3813 | Not applicable | US$m | Reported. |\n"
+    "| Add-backs | 360 | AB-1 | US$m | One add-back. |\n"
+    "| Adjusted EBITDA | 4173 | Not applicable | US$m | Adjusted. |\n\n"
+)
+_PRO_FORMA = (
+    "### Pro forma interest and cover\n\n"
+    "| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover "
+    "| Reporting unit | Basis and limitation |\n| --- | --- | --- | --- | --- | --- | --- |\n"
+    "| 2025-02-05 | 110 | cash interest | 500 | 4.55 | US$m | Reported EBITDA; stated. |\n\n"
+)
+
+
+@pytest.mark.parametrize("where", ["after", "before"])
+def test_the_five_column_bridge_and_the_pro_forma_table_leave_the_changes_pack_unchanged(where):
+    """The pack reads net debt and the chart tables it names, neither the bridge (with or without
+    its Add-Back ID column) nor the pro forma table: the pack is equal with and without them."""
+
+    def cp1(gross: str, cash: str, net: str, period: str, extra: bool) -> str:
+        nd = netdebt(gross, cash, net, period)
+        if not extra:
+            return "## Findings\n\n" + nd
+        both = _BRIDGE_5 + _PRO_FORMA
+        return "## Findings\n\n" + (nd + both if where == "after" else both + nd)
+
+    base = pair_pack(
+        cp1("1500", "300", "1200", "FY2023", False), cp1("1400", "275", "1125", "FY2024", False)
+    )
+    got = pair_pack(
+        cp1("1500", "300", "1200", "FY2023", True), cp1("1400", "275", "1125", "FY2024", True)
+    )
+    assert got == base
+    found = measures_of(got)
+    assert not any("pro_forma" in key or "ebitda" in key for key in found)
+    assert found["net_debt"]["current"]["value"] == "1125"
+
+
 # --- a withheld difference without a unit is refused too (owner, 2026-11-12: "Yes, fix both") ---
 # A whole number below 100 without a unit is a count everywhere but here: for the withheld-
 # difference rule only, a bare number equal in magnitude to a withheld size is refused (same

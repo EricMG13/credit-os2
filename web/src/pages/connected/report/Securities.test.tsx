@@ -298,7 +298,7 @@ it("says only what it checked about a spread: the summary has no spread column",
 
 // docs/rulings/2026-11-16-reporting-currency-from-sources.md: the quotes stay US market quotes.
 it.each([
-  ["GBPm", "Market levels are US market quotes in US dollars; this run reports in GBPm."],
+  ["GBPm", "Market levels are US market quotes in US dollars; this run reports in £m."],
   ["CHFm", "Market levels are US market quotes in US dollars; this run reports in CHFm."],
 ])("notes on a %s run that its market levels are US market quotes", (runUnit, text) => {
   const view = securityView(dataset("1 Oct 2026", [basis("2026-10-01")]), "2026-10-02");

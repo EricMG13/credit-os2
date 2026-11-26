@@ -2733,3 +2733,31 @@ def test_a_comparison_visual_whose_rows_are_periods_is_given_them_in_rule_order(
 )
 def test_a_visual_that_is_not_over_periods_is_left_as_configured(visual, headers, rows):
     assert "periods" not in pinned_visual(visual, headers, rows)
+
+
+# --- CP-1's `Pro forma interest and cover` section (CP-1 instruction PR, synthetic handoff) ------
+_PRO_FORMA_HEAD = (
+    "| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover "
+    "| Reporting unit | Basis and limitation |\n"
+)
+_PRO_FORMA_HANDOFF = (
+    "## Findings\n\n### Net debt data\n\n"
+    "| Period | Gross debt | Cash | Net debt | Reporting unit | Basis and limitation |\n"
+    "| --- | --- | --- | --- | --- | --- |\n"
+    "| FY2024 | 1400 | 275 | 1125 | US$m | Gross debt: loans. |\n\n"
+    "### Pro forma interest and cover\n\n"
+    + _PRO_FORMA_HEAD
+    + "| --- | --- | --- | --- | --- | --- | --- |\n"
+    "| 2024-11-05 | 110 | cash interest | 500 | 4.55 | US$m "
+    "| Reported EBITDA; synthetic pro forma cash interest after the notes issue. |\n\n"
+    "## Calculations\n\nNone.\n"
+)
+
+
+def test_the_pro_forma_section_is_placed_as_a_reference_table():
+    sections = store.sections_of(_PRO_FORMA_HANDOFF)
+    placed = dict(zip([s["heading"] for s in sections], store.placements(sections), strict=True))
+    assert placed["Pro forma interest and cover"] == "reference"
+    (section,) = [s for s in sections if s["heading"] == "Pro forma interest and cover"]
+    assert [b["type"] for b in section["blocks"]].count("table") == 1
+    assert store.report_fields(sections, None)["words"]["reference"] > 0

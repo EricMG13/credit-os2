@@ -208,7 +208,7 @@ test("a figure is drawn as written and links to its own line of evidence", () =>
   const [alpha] = data.issuers;
   if (!first || !money || !gap || !alpha?.runs[0]) throw new Error("fixture");
   expect(figure(first)).toBe("5.1x");
-  expect(figure(money)).toBe("1,250 US$m");
+  expect(figure(money)).toBe("$1,250m");
   expect(figure(gap)).toBe("Not supplied: no cash");
   expect(evidenceLink(alpha.runs[0], first)).toBe(
     `/report/folder%20a2#evidence/a2%2FCP-1.md~${"a".repeat(64)}-1`,

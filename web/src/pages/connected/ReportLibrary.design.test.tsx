@@ -158,7 +158,7 @@ describe("connected library and report design", () => {
     render(<ConnectedApp path="/report/northbridge-2026" mode="synthetic" />);
     const runs = await screen.findByRole("region", { name: "Runs of Northbridge" });
     expect(within(runs).getAllByText(/Finished runs, newest first\./)).toHaveLength(1);
-  });
+  }, 15_000); // Takes 3-4 s alone; times out at the 5 s default under load.
 
   it("draws the figures the row does not show as one stats strip with the value in mono", async () => {
     const snapshot = librarySnapshot() as unknown as Snapshot;
@@ -170,7 +170,7 @@ describe("connected library and report design", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: /Show runs and detail for Northbridge/ }),
     );
-    const value = await screen.findByText("US$965m", { selector: "span" });
+    const value = await screen.findByText("$965m", { selector: "span" });
     expect(value).toHaveClass("font-mono", "tabular-nums");
     const strip = value.closest("dl");
     expect(strip).toHaveAccessibleName("More figures, Northbridge");

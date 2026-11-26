@@ -252,6 +252,13 @@ POST_BS_NONE = (
     + "| None found in the sources read | \u2014 | \u2014 | \u2014 | \u2014 | US$m "
     "| Synthetic; the annual report and its notes were read. |"
 )
+PRO_FORMA_NONE = (
+    "| As of | Pro forma interest | Interest measure | EBITDA | Pro forma interest cover "
+    "| Reporting unit | Basis and limitation |\n"
+    "| --- | --- | --- | --- | --- | --- | --- |\n"
+    "| Not stated | \u2014 | \u2014 | \u2014 | \u2014 | US$m "
+    "| Synthetic; the annual report and its notes were read. |"
+)
 POST_BS_EVENT = (
     POST_BS_HEADER
     + "\n| --- | --- | --- | --- | --- | --- | --- |\n"
@@ -468,11 +475,11 @@ OWNER_TABLES = {
         ),
         "Chart data: debt stack": synthetic_table(DEBT_STACK_HEAD, *DEBT_STACK_ROWS),
         "Chart data: EBITDA bridge": synthetic_table(
-            "| Step | Amount | Reporting unit | Basis and limitation |",
-            "| Reported EBITDA | 410 | US$m | Synthetic. |",
-            "| Restructuring add-back | 30 | US$m | Synthetic. |",
-            "| Disposal | -10 | US$m | Synthetic. |",
-            "| Issuer-adjusted EBITDA | 430 | US$m | Synthetic. |",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| Reported EBITDA | 410 | Not applicable | US$m | Synthetic. |",
+            "| Restructuring add-back | 30 | AB-1 | US$m | Synthetic. |",
+            "| Disposal | -10 | AB-2 | US$m | Synthetic. |",
+            "| Issuer-adjusted EBITDA | 430 | Not applicable | US$m | Synthetic. |",
         ),
     },
     "CP-2H": {
@@ -760,6 +767,7 @@ def answer(context: dict, plan_routes: list) -> str:
         lines += ["### Net debt data", "", NET_DEBT_TABLE, ""]
         lines += [part for h, t in CP1_CHECKED.items() for part in (f"### {h}", "", t, "")]
         lines += ["### Post-balance-sheet adjustments", "", POST_BS_NONE, ""]
+        lines += ["### Pro forma interest and cover", "", PRO_FORMA_NONE, ""]
     for heading, table in OWNER_TABLES.get(context["module_id"], {}).items():
         lines += [f"### {heading}", "", table, ""]
     lines += OWNED_SECTIONS.get(context["module_id"], [])
@@ -2253,9 +2261,12 @@ def test_a_cp4_written_without_an_agreement_is_still_refused(tmp_path, provider,
 # 2026-11-25 (owner: "do the six fixes"): the covenant headroom rule names the four Direction
 # words, a change on purpose; the value pinned at 39f1803f (284d83b0...) was recomputed
 # (c41bfada...). The same day (owner: "apply recommendations") CP-4's method block is sent
-# without its repeats, and the value was recomputed again. The constant keeps its name.
+# without its repeats, and the value was recomputed again. 2026-11-26 (CP-1 instruction PR): the
+# every-module sentence gained "Treat its interest cover the same way, ..." (owner's item 3), so
+# every module's instructions changed on purpose; the value pinned then (d3c2d13b...) was
+# recomputed (edc64bfc...). The constant keeps its name.
 CP4_DEEP_EXECUTED_SHA256_AT_39F1803 = (
-    "d3c2d13b8612b80519353aaee84b74504e29de1206190710e6f30fffe925306a"
+    "edc64bfc9891947aaf66ee5acaa86dc84f8ce77fac2497e7431cea9c0baeee80"
 )
 
 
@@ -3267,6 +3278,19 @@ def test_the_step_file_gives_the_fixed_register_rows_the_money_unit_not_us_dolla
 # docs/rulings/2026-11-16-reporting-currency-from-sources.md: a facility in another currency counts
 # at the amount the filings state for it in the reporting currency, else at the FX rate the source
 # materials state for the reporting, recorded beside it; no rate is looked up, derived or invented.
+# Owner ruling, 2026-11-26 ("By governing document"): T4.18 gains `Asset type` after `Type`; the
+# value follows the governing document a source states, never the instrument's name.
+T418_ASSET_TYPE_COLUMNS = "| `Type` | `Asset type` | `Carrying Value` |"
+T418_ASSET_TYPE_RULES = (
+    "Security, ranking, rate type and asset type are never inferred from the instrument name.",
+    (
+        "`Asset type` follows the governing document a source states: `loan` for a facility "
+        "under a credit agreement (term loan, revolver, ABL), `bond` for a security under an "
+        "indenture (notes, bonds), `other` for a securitisation, receivables facility, finance "
+        "lease or other debt; `Not applicable` for the `Financing cost adjustment` row; "
+        "`Not supplied: <reason>` when no source states the governing document."
+    ),
+)
 T418_COLUMNS = "| `Currency` | `Reporting Currency Amount` | `FX Rate` | `Coupon or Margin` |"
 T418_RULES = (
     (
@@ -3309,9 +3333,10 @@ CP2D_CURRENCY_RULE = (
 def test_cp1_is_sent_each_instruments_reporting_currency_amount_and_never_invents_a_rate(tmp_path):
     text = _built_instruction(tmp_path, "CP-1", ("CP-1",))
     (t418,) = [line for line in text.splitlines() if "### T4.18 Debt instruments" in line]
-    assert T418_COLUMNS in t418
-    for rule in T418_RULES:
+    assert T418_COLUMNS in t418 and T418_ASSET_TYPE_COLUMNS in t418
+    for rule in T418_RULES + T418_ASSET_TYPE_RULES:
         assert rule in t418, rule
+    assert "Security, ranking and rate type are never inferred" not in t418
     assert "in the table's currency" not in t418 and "FX Rate and Source" not in text
     step3 = text.partition("## REF_CP-1_03_Normalization.md")[2].partition("## REF_CP-1_04")[0]
     assert CP1_STEP3_CURRENCY in step3
@@ -3480,6 +3505,7 @@ def test_cp1_method_files_are_archived_with_hashes_and_named_edits():
         "prohibited conclusion, reader question and decision drivers",
         "FFO/Debt trajectory",
         "WC inclusion",
+        "Asset-type edit (owner, 2026-11-26",
     ):
         assert named in edits, named
 
@@ -3644,9 +3670,13 @@ def test_every_module_is_told_what_stands_for_acceptance_scripts_and_questions(t
 # repeats (`TRIMMED_METHODS`). The method files are byte-identical; the blocks of every module
 # but CP-8 and CP-L10 are not, so the library marks those modules in every earlier run as
 # answered under an earlier method. The values before are in this file's history at 941ff81.
+# CP-1 pin recomputed on 2026-11-26 (owner, "By governing document"): T4.18 gains the `Asset type`
+# column and its rule (`loan`, `bond`, `other`, `Not supplied`), so runs made before it are listed
+# as answered on an earlier CP-1 method: expected. Only CP-1's hash moved. It was
+# 8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a.
 METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-0": "b194264a0faa2d8fba237a77d1cf0511b9199c7d3079fd9b9f25127945d20cf1",
-    "CP-1": "8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a",
+    "CP-1": "58a9d83093b9932163d537073388e96e72659ec80004ff10a9aa91d7c6daeb5f",
     "CP-1A": "9f33c163d624dff50ff322be98c7d554f834f57ad23d415a9b293d8b595df20e",
     "CP-1B": "4f8197dbb3b3d9d2aef98ca81f4b27e31a7250b366b86508868e97d2c85927af",
     "CP-1C": "e9592fe6f9b5b566bfb148ed40e4d7f507f6413a322118f0134ee6389ffef57b",
@@ -6137,6 +6167,83 @@ def test_a_bridge_with_every_amount_not_supplied_is_accepted_and_a_mixed_one_is_
     assert any("Not supplied" in i for i in mixed), mixed
 
 
+def add_back_issues(*rows: tuple[str, str]) -> tuple[str, ...]:
+    """CP-1's EBITDA bridge from (Amount, Add-Back ID) rows, as the check reads it."""
+    table = next(t for t in cpos_launch.OWNER_TABLES["CP-1"] if t.heading.endswith("EBITDA bridge"))
+    lines = [f"| Step {i} | {a} | {b} | US$m | Synthetic. |" for i, (a, b) in enumerate(rows)]
+    text = "\n".join(
+        [
+            f"### {table.heading}",
+            "",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| --- | --- | --- | --- | --- |",
+            *lines,
+        ]
+    )
+    return cpos_launch.chart_issues(text, table, money="US$m")
+
+
+NA = "Not applicable"
+
+
+def test_the_ebitda_bridge_ids_run_from_ab_1_in_row_order():
+    assert add_back_issues(("10", NA), ("5", "AB-1"), ("-2", "AB-2"), ("13", NA)) == ()
+    assert add_back_issues(("10", NA), ("10", NA)) == ()  # no add-back: opening is closing
+
+
+def test_every_bad_id_of_a_bridge_is_listed_in_one_review():
+    issues = add_back_issues(
+        ("10", "AB-1"), ("5", "AB-3"), ("-2", NA), ("1", "AB-10"), ("14", "AB-2")
+    )
+    assert len(issues) == 5, issues
+    assert all("Chart data: EBITDA bridge" in i and "Step " in i for i in issues)
+
+
+def test_a_stated_bridge_refuses_not_applicable_on_a_middle_row_but_an_all_gap_one_allows_it():
+    (issue,) = add_back_issues(("10", NA), ("5", NA), ("15", NA))
+    assert "Step 1" in issue and "must be `AB-1`" in issue
+    gap = "Not supplied: not stated"
+    assert add_back_issues((gap, NA), (gap, NA), (gap, NA)) == ()
+    assert add_back_issues((gap, NA), (gap, "AB-1"), (gap, NA)) == ()
+    assert add_back_issues((gap, NA), (gap, "AB-2"), (gap, NA))
+
+
+@pytest.mark.parametrize("short_at", [1, 3])
+def test_a_short_bridge_row_gives_only_the_row_length_issue(short_at):
+    table = next(t for t in cpos_launch.OWNER_TABLES["CP-1"] if t.heading.endswith("EBITDA bridge"))
+    rows = [
+        "| Step 0 | 10 | Not applicable | US$m | Synthetic. |",
+        "| Step 1 | 5 | AB-1 | US$m | Synthetic. |",
+        "| Step 2 | -2 | AB-2 | US$m | Synthetic. |",
+        "| Step 3 | 13 | Not applicable | US$m | Synthetic. |",
+    ]
+    rows[short_at] = f"| Step {short_at} | 1 | US$m | Synthetic. |"
+    text = "\n".join(
+        [
+            f"### {table.heading}",
+            "",
+            "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |",
+            "| --- | --- | --- | --- | --- |",
+            *rows,
+        ]
+    )
+    (issue,) = cpos_launch.chart_issues(text, table, money="US$m")
+    assert "row needs 5 cells" in issue and f"Step {short_at}" in issue
+
+
+def test_the_id_check_leaves_the_bridge_arithmetic_alone():
+    issues = add_back_issues(("10", NA), ("5", "AB-1"), ("14", NA))
+    assert len(issues) == 1 and "does not equal the closing" in issues[0]
+
+
+def test_only_the_cp1_bridge_asks_for_an_add_back_id():
+    ids = {
+        m: [t.heading for t in tables if t.id_column]
+        for m, tables in cpos_launch.OWNER_TABLES.items()
+    }
+    assert {m: h for m, h in ids.items() if h} == {"CP-1": ["Chart data: EBITDA bridge"]}
+
+
 def test_a_bridge_check_names_the_stated_and_summed_amounts():
     (issue,) = bridge_issues("900", "-300", "700")
     assert "600" in issue and "700" in issue
@@ -6195,7 +6302,9 @@ def test_delivery_presents_each_owner_table_as_a_plain_table_with_its_heading(tm
 # ---- Package 2 (2026-11-10): the credit-structure tables. Every value is synthetic.
 STRUCTURE_HEADERS = {
     "Chart data: debt stack": DEBT_STACK_HEAD,
-    "Chart data: EBITDA bridge": "| Step | Amount | Reporting unit | Basis and limitation |",
+    "Chart data: EBITDA bridge": (
+        "| Step | Amount | Add-Back ID | Reporting unit | Basis and limitation |"
+    ),
     "Chart data: covenant headroom": COVENANT_HEAD,
     "Chart data: rating triggers": TRIGGER_HEAD,
     "Chart data: portfolio limits": LIMITS_HEAD,
@@ -10856,3 +10965,211 @@ def test_the_synthetic_proof_handoff_with_an_unread_downside_table_raises_nothin
     )
     handoff = (PROOF_HANDOFFS / "CP-2G.md").read_text("utf-8")
     assert cpos_launch._forecast_issues(task, handoff) == ()
+
+
+# --- the none row of a row table names its own first column and case (CP-1 instruction PR) ------
+# Expected text hand-copied from the request as sent before the pro forma table was added.
+POST_BS_NONE_SENTENCE = (
+    " If no such event is stated, write one row whose Event is exactly `None found in the "
+    "sources read` (no other punctuation or wording), whose Date, Amount, Pro forma net debt "
+    "and Pro forma net leverage are each `—`, with Reporting unit and Basis and limitation "
+    "stated (say which sources were read)."
+)
+POST_BS_NEAR_NONE = (
+    "`Post-balance-sheet adjustments`: to state that there is no event, write the Event exactly "
+    "`None found in the sources read` and the other cells as asked; any other Event names an "
+    "event."
+)
+
+
+def test_the_post_balance_sheet_none_sentence_and_near_none_issue_are_unchanged():
+    from deploy_workflow.owners import cpos_launch_prompts, cpos_launch_tables
+
+    spec = cpos_launch_tables.POST_BS
+    assert cpos_launch_prompts._none_rule(spec) == POST_BS_NONE_SENTENCE
+    assert cpos_launch_prompts._selector(spec).endswith(POST_BS_NONE_SENTENCE)
+    assert cpos_launch_tables._near_none_issues(
+        spec, spec.heading, "None found in the sources read."
+    ) == [POST_BS_NEAR_NONE]
+    none_text = "None found in the sources read"
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, none_text) == []
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "Notes issued") == []
+
+
+PRO_FORMA_NONE_SENTENCE = (
+    " If no source states a pro forma interest, write one row whose As of is exactly "
+    "`Not stated` (no other punctuation or wording), whose Pro forma interest, Interest measure, "
+    "EBITDA and Pro forma interest cover are each `\u2014`, with Reporting unit and Basis and "
+    "limitation stated (say which sources were read)."
+)
+
+
+def test_the_pro_forma_table_is_sent_the_none_sentence_naming_its_own_first_column():
+    from deploy_workflow.owners import cpos_launch_prompts, cpos_launch_tables
+
+    spec = cpos_launch_tables.PRO_FORMA
+    assert cpos_launch_prompts._none_rule(spec) == PRO_FORMA_NONE_SENTENCE
+    assert cpos_launch_prompts._selector(spec).endswith(PRO_FORMA_NONE_SENTENCE)
+    assert "If no such event" not in cpos_launch_prompts._selector(spec)
+
+
+def test_a_near_none_pro_forma_as_of_is_told_the_exact_text():
+    from deploy_workflow.owners import cpos_launch_tables
+
+    spec = cpos_launch_tables.PRO_FORMA
+    expected = (
+        "`Pro forma interest and cover`: to state that there is no pro forma interest, write "
+        "the As of exactly `Not stated` and the other cells as asked; any other As of names "
+        "a pro forma interest."
+    )
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "not stated.") == [expected]
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "Not stated") == []
+    assert cpos_launch_tables._near_none_issues(spec, spec.heading, "2024-11-05") == []
+
+
+PRO_FORMA_ROW = (
+    "| 2024-11-05 | 110 | cash interest | 500 | 4.55 | US$m | Reported EBITDA; the notes issue. |"
+)
+PRO_FORMA_ADJUSTED_ROW = (
+    "| 2024-11-05 | 110 | cash interest | 550 | 5.00 | US$m | Adjusted EBITDA; the notes issue. |"
+)
+
+
+def _pro_forma_issues_of(tmp_path, *rows):
+    home = tmp_path / f"case{len(list(tmp_path.iterdir()))}"
+    home.mkdir()
+    prepared, task, context = good_task(home, "CP-1", "credit_snapshot")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    header, separator, _none = PRO_FORMA_NONE.splitlines()
+    table = "\n".join([header, separator, *rows])
+    changed = raw.replace(PRO_FORMA_NONE, table)
+    assert changed != raw
+    return _checked_handoff(task, changed.encode(), checker(prepared.layout))
+
+
+def test_pro_forma_rows_with_a_stated_cover_only_beside_stated_figures_are_accepted(tmp_path):
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW) == ()
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW) == ()
+    gap = (
+        "| 2024-11-05 | Not supplied: x | cash interest | 500 | Not supplied: x | US$m "
+        "| Reported EBITDA; s. |"
+    )
+    assert _pro_forma_issues_of(tmp_path, gap) == ()
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        (
+            "| 2024-11-05 | Not supplied: x | cash interest | 500 | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+        (
+            "| 2024-11-05 | Not supplied: x | cash interest | Not supplied: y | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+        (
+            "| 2024-11-05 | 110 | cash interest | Not supplied: y | 4.55 | US$m "
+            "| Reported EBITDA; s. |"
+        ),
+    ],
+)
+def test_a_pro_forma_cover_beside_a_stated_gap_is_refused_naming_the_row(tmp_path, row):
+    issues = _pro_forma_issues_of(tmp_path, row)
+    assert any(
+        "Pro forma interest and cover" in i and "2024-11-05" in i and "Not supplied" in i
+        for i in issues
+    ), issues
+
+
+@pytest.mark.parametrize("cover", ["4.545", "5", "4.5", "1,004.55"])
+def test_a_pro_forma_cover_not_to_exactly_two_decimals_is_refused(tmp_path, cover):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW.replace("4.55", cover))
+    assert any("Pro forma interest cover" in i and "two decimal" in i for i in issues), issues
+
+
+@pytest.mark.parametrize(
+    ("rows", "words"),
+    [
+        (
+            [PRO_FORMA_ROW.replace("Reported EBITDA", "Core earnings")],
+            "Reported EBITDA` or `Adjusted EBITDA",
+        ),
+        ([PRO_FORMA_ROW, PRO_FORMA_ROW], "once"),
+        ([PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ADJUSTED_ROW], "once"),
+        ([PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ROW], "first"),
+        (
+            [PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW, PRO_FORMA_ADJUSTED_ROW.replace("5.00", "5.01")],
+            "at most two",
+        ),
+        (
+            [PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW.replace("cash interest", "interest expense")],
+            "one Interest measure",
+        ),
+    ],
+)
+def test_pro_forma_rows_name_one_ebitda_basis_each_and_one_interest_measure(tmp_path, rows, words):
+    issues = _pro_forma_issues_of(tmp_path, *rows)
+    assert any("Pro forma interest and cover" in i and words in i for i in issues), issues
+
+
+def test_a_pro_forma_shape_refusal_is_not_reported_twice(tmp_path):
+    # Fails the shape check (Interest measure) and `_pro_forma_issues` (cover to three decimals).
+    bad = PRO_FORMA_ROW.replace("cash interest", "interest paid").replace("4.55", "4.545")
+    issues = [i for i in _pro_forma_issues_of(tmp_path, bad) if "Pro forma interest" in i]
+    assert len(issues) == 1, issues
+
+
+@pytest.mark.parametrize("cover", ["9.99", "4.54", "4.56"])
+def test_a_pro_forma_cover_that_is_not_ebitda_over_interest_is_refused(tmp_path, cover):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW.replace("4.55", cover))
+    assert any(
+        "Pro forma interest and cover" in i and "2024-11-05" in i and cover in i and "4.55" in i
+        for i in issues
+    ), issues
+
+
+def test_a_pro_forma_cover_is_accepted_at_half_up_or_half_even(tmp_path):
+    # 1 / 8 = 0.125 is a tie at two places: 0.13 half-up, 0.12 half-even.
+    row = "| 2024-11-05 | 8 | cash interest | 1 | {} | US$m | Reported EBITDA; s. |"
+    for cover in ("0.13", "0.12"):
+        issues = _pro_forma_issues_of(tmp_path, row.format(cover))
+        assert not any("expected cover" in i for i in issues), issues
+    issues = _pro_forma_issues_of(tmp_path, row.format("0.14"))
+    assert any("expected cover is 0.13" in i for i in issues), issues
+
+
+def test_a_pro_forma_cover_stated_as_a_gap_beside_two_figures_is_refused_unless_interest_is_zero(
+    tmp_path,
+):
+    gap = PRO_FORMA_ROW.replace("4.55", "Not supplied: not worked")
+    issues = _pro_forma_issues_of(tmp_path, gap)
+    assert any("Pro forma interest and cover" in i and "calculate" in i for i in issues), issues
+    zero = PRO_FORMA_ROW.replace("| 110 |", "| 0 |")
+    gap_zero = zero.replace("4.55", "Not supplied: interest is zero")
+    assert not any("calculate" in i for i in _pro_forma_issues_of(tmp_path, gap_zero))
+    issues = _pro_forma_issues_of(tmp_path, zero)
+    assert any("Pro forma interest and cover" in i and "zero" in i for i in issues), issues
+
+
+def test_a_pro_forma_ebitda_must_equal_t4_9s_latest_numerator_of_its_label(tmp_path):
+    other = PRO_FORMA_ROW.replace("| 500 |", "| 501 |").replace("4.55", "4.55")
+    issues = _pro_forma_issues_of(tmp_path, other)
+    assert any(
+        "Pro forma interest and cover" in i and "501" in i and "500" in i and "T4.9" in i
+        for i in issues
+    ), issues
+    # The helper's register has no adjusted row: the adjusted row is untied.
+    assert _pro_forma_issues_of(tmp_path, PRO_FORMA_ROW, PRO_FORMA_ADJUSTED_ROW) == ()
+
+
+def test_a_lone_adjusted_pro_forma_row_is_refused(tmp_path):
+    issues = _pro_forma_issues_of(tmp_path, PRO_FORMA_ADJUSTED_ROW)
+    assert any("Pro forma interest and cover" in i and "Reported EBITDA" in i for i in issues)
+
+
+def test_the_cp1_bridge_rule_names_no_subtotal_and_keeps_ids_in_the_column(tmp_path):
+    prepared, *_ = good_task(tmp_path, "CP-1", "credit_snapshot")
+    text = (tmp_path / "out" / prepared.plan.instructions["CP-1"].path).read_text()
+    line = next(x for x in text.splitlines() if "Add-Back ID numbers" in x)
+    assert "subtotal" not in line and "in this column only" in line, line

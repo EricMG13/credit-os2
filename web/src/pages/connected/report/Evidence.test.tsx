@@ -425,6 +425,33 @@ it("draws a handoff's Sources row with the file name as stored", () => {
   expect(screen.getByRole("cell", { name: "Deck (CP-1) Q3.pdf" })).toBeInTheDocument();
 });
 
+// Owner ruling 2026-11-26: the symbol notation is for reader pages; Evidence keeps the raw cell.
+it("draws a handoff table's Unit cells as the module wrote them, not as a currency symbol", () => {
+  const entry = evidenceEntry("CP-1", "out", true, []);
+  entry.sections = [
+    {
+      heading: "T4.4 Income statement",
+      level: 3,
+      line: 4,
+      blocks: [
+        {
+          type: "table",
+          line: 5,
+          headers: ["Line item", "FY2024", "Unit"],
+          rows: [
+            { line: 7, cells: ["Net sales", "7940", "USD millions"] },
+            { line: 8, cells: ["Operating income", "3,463", "GBP millions"] },
+          ],
+        },
+      ],
+    },
+  ];
+  renderEvidence([entry], `out~${"a".repeat(64)}`);
+  expect(screen.getByRole("cell", { name: "USD millions" })).toBeVisible();
+  expect(screen.getByRole("cell", { name: "GBP millions" })).toBeVisible();
+  expect(document.body.textContent).not.toMatch(/\$m|£m/);
+});
+
 it.each(["Deck Q3.pdf", "Deck (CP-1) Q3.pdf"])(
   "lists the source record of a figure whose Basis names %j",
   (name) => {

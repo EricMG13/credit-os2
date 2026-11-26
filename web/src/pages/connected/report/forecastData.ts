@@ -16,6 +16,7 @@ import {
   methodNote,
   passages,
   readerText,
+  unitLabel,
   type OutputEntry,
 } from "../publishedReport";
 import type { ReportView } from "../reportView";
@@ -477,7 +478,7 @@ export function gapContext(gap: FundingGap) {
   return [
     `${gap.name}: ${gap.label}`,
     gap.horizon ?? "horizon not stated",
-    gap.unit ?? (gap.unitInFigure ? null : "unit not stated"),
+    gap.unit === null ? (gap.unitInFigure ? null : "unit not stated") : unitLabel(gap.unit),
   ]
     .filter(Boolean)
     .join(" · ");
