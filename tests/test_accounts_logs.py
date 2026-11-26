@@ -65,13 +65,19 @@ def test_no_secret_reaches_any_output(tmp_path, caplog, capsys, monkeypatch):
 
     cli_dir = tmp_path / "cli"
     scripts = [[AN, AN], [AN, DIFFERING]]
+    codes: list[int] = []
     monkeypatch.setattr(sys, "stdin", Tty())
     for entries in scripts:
         queue = list(entries)
         monkeypatch.setattr(getpass, "getpass", lambda prompt="", stream=None, q=queue: q.pop(0))
-        cli.main(["--accounts-dir", str(cli_dir), "passcode", "set", "analyst"], environ={})
+        codes.append(
+            cli.main(["--accounts-dir", str(cli_dir), "passcode", "set", "analyst"], environ={})
+        )
     monkeypatch.setattr(getpass, "getpass", lambda *a, **k: pytest.fail("prompted"))
-    cli.main(["--accounts-dir", str(cli_dir), "passcode", "set", "analyst", AN], environ={})
+    codes.append(
+        cli.main(["--accounts-dir", str(cli_dir), "passcode", "set", "analyst", AN], environ={})
+    )
+    assert codes == [0, 2, 2]
     db = store.open_db(cli_dir)
     hashes += [bytes(r["hash"]).hex() for r in db.execute("SELECT hash FROM passcodes")]
     salts += [bytes(r["salt"]).hex() for r in db.execute("SELECT salt FROM passcodes")]

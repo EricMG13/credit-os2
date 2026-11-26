@@ -259,3 +259,36 @@ def test_sqlite_error_is_reported(d, monkeypatch, capsys):
     assert capsys.readouterr().err == (
         f"error: the account store {d / 'accounts.db'} cannot be used: disk I/O error\n"
     )
+
+
+NOT_UNDERSTOOD = (
+    "error: the command was not understood; see python -m deploy_workflow.accounts --help"
+)
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        ["passcode", AN],
+        [AN],
+        ["accounts", AN],
+        ["passcode", "set", AN],
+        ["accounts", "type", "1", AN],
+        ["accounts", "disable", AN],
+        ["accounts", "type", AN, "admin"],
+    ],
+)
+def test_usage_error_never_repeats_input(d, capsys, tail):
+    assert run(d, *tail) == 2
+    out = capsys.readouterr()
+    assert "Kestrel" not in out.out + out.err
+    assert out.err.splitlines()[-1] == NOT_UNDERSTOOD
+
+
+def test_closed_stdin(d, monkeypatch, capsys):
+    s = Script([AN, AN])
+    monkeypatch.setattr(getpass, "getpass", s)
+    monkeypatch.setattr(sys, "stdin", None)
+    assert run(d, "passcode", "set", "analyst") == 2
+    assert capsys.readouterr().err == NEEDS_TERMINAL
+    assert s.prompts == []

@@ -15,6 +15,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import NoReturn
 
 from deploy_workflow.accounts import passcodes, store
 
@@ -26,17 +27,20 @@ _NO_ARGUMENT = (
 )
 _NEEDS_TERMINAL = "error: a passcode is read only at a terminal prompt; nothing was set"
 _NO_ENTRY = "error: no passcode was entered; nothing was set"
+_NOT_UNDERSTOOD = (
+    "error: the command was not understood; see python -m deploy_workflow.accounts --help"
+)
 _DIFFER = "error: the two entries differ; nothing was set"
 
 
-def _choice(allowed: tuple[str, ...]) -> object:
-    # A custom type keeps argparse from echoing a rejected value, which could be a passcode.
-    def parse(text: str) -> str:
-        if text not in allowed:
-            raise argparse.ArgumentTypeError(f"expected one of {', '.join(allowed)}")
-        return text
+class _Parser(argparse.ArgumentParser):
+    """Sub-parsers use this class too. argparse's own messages quote what was typed, which could
+    be a passcode, so a usage error prints the usage line and one fixed sentence instead."""
 
-    return parse
+    def error(self, message: str) -> NoReturn:
+        self.print_usage(sys.stderr)
+        print(_NOT_UNDERSTOOD, file=sys.stderr)
+        raise SystemExit(2)
 
 
 def _account_id(text: str) -> int:
@@ -50,24 +54,24 @@ def _account_id(text: str) -> int:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="python -m deploy_workflow.accounts")
+    parser = _Parser(prog="python -m deploy_workflow.accounts")
     parser.add_argument("--accounts-dir", type=Path, default=None)
     groups = parser.add_subparsers(dest="group", required=True)
     passcode = groups.add_parser("passcode").add_subparsers(dest="action", required=True)
     set_cmd = passcode.add_parser("set")
-    set_cmd.add_argument("type", type=_choice(passcodes.PASSCODE_TYPES))  # type: ignore[arg-type]
+    set_cmd.add_argument("type", choices=passcodes.PASSCODE_TYPES)
     accounts = groups.add_parser("accounts").add_subparsers(dest="action", required=True)
     accounts.add_parser("list")
     accounts.add_parser("disable").add_argument("id", type=_account_id)
     change = accounts.add_parser("type")
     change.add_argument("id", type=_account_id)
-    change.add_argument("type", type=_choice(store.PROFILE_TYPES))  # type: ignore[arg-type]
+    change.add_argument("type", choices=store.PROFILE_TYPES)
     return parser
 
 
 def _read_passcode(profile_type: str) -> str | None:
     """Prompt twice at the terminal; print the error and return None if it cannot be done."""
-    if not sys.stdin.isatty():
+    if sys.stdin is None or not sys.stdin.isatty():
         print(_NEEDS_TERMINAL, file=sys.stderr)
         return None
     try:
