@@ -934,6 +934,15 @@ it("names model choices by recorded cases and date, without builder mode jargon"
   expect(selector).toHaveTextContent("Base case");
 });
 
+it("S18-1-1 shows an as-of date that is not ISO as written, without throwing", () => {
+  const { view, model } = fixture();
+  view.models = [model, { ...model, id: "other" }];
+  render(<Forecast view={view} run={{ ...run, asOf: "31 March 2025" }} />);
+  expect(screen.getByRole("combobox", { name: "Published model" })).toHaveTextContent(
+    "31 March 2025",
+  );
+});
+
 it("wraps recorded descriptions, model notes and qualifications at desktop widths", () => {
   const { view } = fixture();
   render(<Forecast view={view} run={run} />);

@@ -43,8 +43,8 @@ function ThreadForm({
     key: "story",
     kind: "choice",
     label: "Story",
-    options: stories.map((one) => one.headline),
-    value: stories[0]?.headline ?? "",
+    options: stories.map((one) => ({ id: one.id, label: one.headline })),
+    value: stories[0]?.id ?? "",
   };
   const note: FormField =
     kind === "story"
@@ -64,7 +64,7 @@ function ThreadForm({
       fields={kind === "story" ? [story, note] : [note]}
       action={kind === "story" ? "Attach story" : "Start thread"}
       onSend={({ text }) => {
-        const chosen = stories.find((one) => one.headline === text["story"]);
+        const chosen = stories.find((one) => one.id === text["story"]);
         const storyId = kind === "story" ? (chosen?.id ?? null) : null;
         return actions
           .write(writes.thread(group.id, storyId, (text["note"] ?? "").trim()))

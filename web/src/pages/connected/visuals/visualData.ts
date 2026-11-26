@@ -157,12 +157,15 @@ export function bounds(values: (number | null)[], zero = false) {
   return { min: zero && min === 0 ? 0 : min - margin, max: max + margin };
 }
 
+// Six decimals drop the float noise of min + (max - min) / 2 and keep every figure a table states.
+const TICK_LABEL = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6, useGrouping: false });
+
 /** The spread of the data in three ticks. For axes that are not value axes (dates, scatter). */
 export function rangeTicks(values: (number | null)[], zero = false) {
   const { min, max } = bounds(values, zero);
   return [...new Set([min, min + (max - min) / 2, max])].map((value) => ({
     value,
-    label: String(value),
+    label: TICK_LABEL.format(value),
   }));
 }
 

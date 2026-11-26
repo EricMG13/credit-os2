@@ -97,8 +97,24 @@ def equity_block(lines: list[str], i: int) -> tuple[dict[str, Any], int]:
     return block, i + 1
 
 
+# The launcher's acceptance check reads a table row the same way
+# (`deploy_workflow.handoff_delivery.TABLE_ROW`): up to three leading spaces, trailing whitespace
+# dropped. Matched here rather than imported: this module is stdlib-only and the delivery module
+# pulls in the engine's contracts and pydantic.
+TABLE_ROW = re.compile(r" {0,3}(\|.*?)\s*")
+SEPARATOR_ROW = re.compile(r"\|[\s:|\-]+\|")
+
+
+def table_row(line: str) -> str | None:
+    """The row text of a line that opens with `|` after at most three spaces, else None."""
+    found = TABLE_ROW.fullmatch(line)
+    return None if found is None else found[1]
+
+
 def source_table_cells(value: str) -> list[str]:
-    return [c.strip() for c in re.split(r"(?<!\\)\|", value.strip().strip("|"))]
+    """Cells of one row: one boundary pipe is dropped each side, so `||` is an empty cell."""
+    inner = value.strip().removeprefix("|").removesuffix("|")
+    return [c.strip() for c in re.split(r"(?<!\\)\|", inner)]
 
 
 def table_block(lines: list[str], i: int) -> tuple[dict[str, Any], int]:
@@ -107,8 +123,8 @@ def table_block(lines: list[str], i: int) -> tuple[dict[str, Any], int]:
     headers = source_table_cells(lines[i])
     i += 2
     rows = []
-    while i < len(lines) and lines[i].startswith("|"):
-        row = source_table_cells(lines[i])
+    while i < len(lines) and (text := table_row(lines[i])) is not None:
+        row = source_table_cells(text)
         if len(row) != len(headers):
             raise ValueError(f"Malformed table at line {i + 1}")
         rows.append({"line": i + 1, "cells": row})
@@ -146,7 +162,8 @@ def text_block(lines: list[str], i: int) -> tuple[dict[str, Any], int]:
     while (
         i < len(lines)
         and lines[i].strip()
-        and not lines[i].startswith(("#", "|", "- ", "<!-- table-id:", "```"))
+        and not lines[i].startswith(("#", "- ", "<!-- table-id:", "```"))
+        and table_row(lines[i]) is None
         and not re.match(r"\d+\. ", lines[i])
     ):
         parts.append(lines[i])
@@ -197,9 +214,10 @@ def parse_source(text: str) -> list[dict[str, Any]]:
             if line == "```text" and current["heading"].startswith("T4.4 —"):
                 block, i = equity_block(lines, i)
             elif (
-                line.startswith("|")
+                table_row(line) is not None
                 and i + 1 < len(lines)
-                and re.fullmatch(r"\|[\s:|\-]+\|", lines[i + 1])
+                and (divider := table_row(lines[i + 1])) is not None
+                and SEPARATOR_ROW.fullmatch(divider)
             ):
                 block, i = table_block(lines, i)
             else:

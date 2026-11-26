@@ -298,11 +298,20 @@ GAP_WORDS = (
 )
 
 
+# A null word followed by its explanation: `N/A (zero base)`, `n/a: no sales`, `not applicable - x`.
+_NULL_EXPLAINED = re.compile(r"(?:n/a|na|not applicable)\s*(?:[:(,;\-—–])")
+
+
 def blank(cell: str, tables: types.ModuleType) -> bool:
     """A cell that states no figure: the transport's `Not supplied: <reason>`, the method's
-    `[Insufficient Information]` and the script's own null words. Never a zero."""
+    `[Insufficient Information]` and the script's own null words, bare or with their explanation
+    (`N/A (zero base)`). Never a zero."""
     text = _plain(cell).casefold()
-    return text.startswith(GAP_WORDS) or bool(tables.is_null(text))
+    return (
+        text.startswith(GAP_WORDS)
+        or bool(tables.is_null(text))
+        or _NULL_EXPLAINED.match(text) is not None
+    )
 
 
 NOT_MEANINGFUL = ("not calculable", "not meaningful", "n.m.", "n/m", "nm", "n.c.")

@@ -11,7 +11,7 @@ import re
 import unicodedata
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from urllib.parse import urlsplit
@@ -102,9 +102,45 @@ def _iso_date(text: str) -> datetime | None:
         return None
 
 
+# Zone names outside RFC 5322's list, as hours east of UTC. A name on no list (and an ambiguous
+# one such as IST) leaves the entry undated, which then takes the fetch time.
+_ZONE_HOURS = {
+    "WET": 0, "WEST": 1, "BST": 1, "CET": 1, "CEST": 2, "EET": 2, "EEST": 3, "MSK": 3,
+    "HKT": 8, "SGT": 8, "JST": 9, "KST": 9, "AEST": 10, "AEDT": 11, "NZST": 12, "NZDT": 13,
+}  # fmt: skip
+_ZONE_NAME = re.compile(r"(?<![A-Za-z])([A-Za-z]{2,5})\s*$")
+_CLOCK_12 = re.compile(r"(?<![\d:])(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp])\.?[Mm]\.?(?![A-Za-z])")
+
+
+def _clock_24(text: str) -> str | None:
+    """``text`` with a 12-hour clock ("10:00 PM") rewritten as 24-hour ("22:00"); None when the
+    hour is not 1 to 12. The email parser drops AM and PM, so it must never see them."""
+    found = _CLOCK_12.search(text)
+    if found is None:
+        return text
+    hour, minute, second, half = found.groups()
+    if not 1 <= int(hour) <= 12:
+        return None
+    hour24 = int(hour) % 12 + (12 if half in "pP" else 0)
+    clock = f"{hour24:02d}:{minute}" + (f":{second}" if second else "")
+    return text[: found.start()] + clock + text[found.end() :]
+
+
 def _rss_date(text: str) -> datetime | None:
+    clock = _clock_24(text)
+    if clock is None:
+        return None
     try:
-        return _utc(parsedate_to_datetime(text))
+        moment = parsedate_to_datetime(clock)
+        if moment.tzinfo is None:
+            # No zone from the parser: none was written (read as UTC), or a name it does not know.
+            name = _ZONE_NAME.search(clock)
+            if name is not None:
+                hours = _ZONE_HOURS.get(name.group(1).upper())
+                if hours is None:
+                    return None
+                moment = moment.replace(tzinfo=timezone(timedelta(hours=hours)))
+        return _utc(moment)
     except (ValueError, OverflowError):
         return _iso_date(text)
 
@@ -200,6 +236,9 @@ def _image(root: ET.Element) -> str | None:
 
 def parse(body: bytes) -> Parsed:
     """The readable entries of an RSS 2.0 or Atom feed, in feed order, and its declared image."""
+    # A server template's line break before `<?xml` is not part of the document (expat refuses a
+    # declaration that is not at byte 0); a UTF-8 BOM and whitespace are dropped, a UTF-16 one kept.
+    body = body.removeprefix(b"\xef\xbb\xbf").lstrip(b" \t\r\n")
     if _DTD.search(body):
         raise FeedError(_DTD_MESSAGE)
     try:

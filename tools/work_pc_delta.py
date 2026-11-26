@@ -334,8 +334,16 @@ def write_pack(root: Path, base: str, head: str) -> Path:
     ]
     body = header + dependency_section(root, base, head) + merged_changes(root, base, head)
     (out / "CHANGES.md").write_text("\n".join(body + file_section(changes)), encoding="utf-8")
-    patch = git(root, "diff", "-M", "--binary", base, head, *SCOPE)
-    (out / "changes.patch").write_text(patch, encoding="utf-8", newline="\n")
+    # The patch is written as git printed it: text mode would turn a CRLF line's CR into a bare LF.
+    patch = subprocess.run(
+        ["git", "-c", "core.quotePath=false", "diff", "-M", "--binary", base, head, *SCOPE],
+        check=False,
+        cwd=root,
+        capture_output=True,
+    )
+    if patch.returncode:
+        raise SystemExit(f"git diff failed: {patch.stderr.decode('utf-8', 'replace').strip()}")
+    (out / "changes.patch").write_bytes(patch.stdout)
     (out / "SYNC.json").write_text(json.dumps(sync, indent=2) + "\n", encoding="utf-8")
     record = {
         "head": head,

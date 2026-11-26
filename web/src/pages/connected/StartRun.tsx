@@ -36,6 +36,7 @@ import {
   issuerIdRefusal,
   LEVELS,
   copilotEfforts,
+  nameKey,
   storedName,
 } from "./start/plain";
 import { asSentence, errorText, useResource } from "./useResource";
@@ -132,6 +133,8 @@ function useIntakeDocumentsState(initial?: { run: string; prior: PriorInputs }) 
   const [uploaded, setUploaded] = useState(new Map<File, string>());
   const [documentsCopied, setDocumentsCopied] = useState(false);
   const [ignoredCopies, setIgnoredCopies] = useState<string[]>([]);
+  /** Earlier file -> the upload with its bytes: the carry did not copy it. */
+  const [sameContent, setSameContent] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<Partial<Record<Attachment, string>>>({});
   const [legal, setLegal] = useState(() => carriedLegal(initial?.prior));
   const [forms, setForms] = useState<Forms>({});
@@ -148,6 +151,8 @@ function useIntakeDocumentsState(initial?: { run: string; prior: PriorInputs }) 
     setDocumentsCopied,
     ignoredCopies,
     setIgnoredCopies,
+    sameContent,
+    setSameContent,
     attachments,
     setAttachments,
     legal,
@@ -419,6 +424,8 @@ function IntakeForm({
     setDocumentsCopied,
     ignoredCopies,
     setIgnoredCopies,
+    sameContent,
+    setSameContent,
     attachments,
     setAttachments,
     legal,
@@ -560,6 +567,7 @@ function IntakeForm({
       if (failure instanceof RequestError && failure.status === 404) {
         draftRef.current = null;
         setDocumentsCopied(false);
+        setSameContent({});
         setUploaded(new Map());
         setReading(undefined);
       }
@@ -588,7 +596,7 @@ function IntakeForm({
 
   async function refreshDocuments() {
     const incoming = files.map((file) => ({ file, name: fileName(file) }));
-    const names = incoming.map(({ name }) => name.normalize("NFC").toLowerCase());
+    const names = incoming.map(({ name }) => nameKey(name));
     if (new Set(names).size !== names.length) {
       throw new Error("Choose documents with distinct file names.");
     }
@@ -599,14 +607,11 @@ function IntakeForm({
     for (const { file, name } of incoming) {
       if (draft.uploaded.has(file)) continue;
       const result = await upload(draft.id, file, name);
-      const collisionKey = result.name.normalize("NFC").toLowerCase();
-      if (
-        [...draft.uploaded.values()].some(
-          (stored) => stored.normalize("NFC").toLowerCase() === collisionKey,
-        )
-      ) {
+      const collisionKey = nameKey(result.name);
+      if ([...draft.uploaded.values()].some((stored) => nameKey(stored) === collisionKey)) {
         draftRef.current = null;
         setDocumentsCopied(false);
+        setSameContent({});
         setUploaded(new Map());
         setReading(undefined);
         throw new Error(
@@ -617,10 +622,10 @@ function IntakeForm({
       setUploaded(new Map(draft.uploaded));
     }
     if (!draft.copied && copy?.prior.files.length && !copy.prior.error) {
-      await carryDocuments(draft.id, copy.run);
-      for (const name of ignoredCopies) {
-        if (![...draft.uploaded.values()].includes(name)) await removeDocument(draft.id, name);
-      }
+      // The files the analyst left out are named in the carry, so they are neither copied nor
+      // counted against the service's limits; nothing is deleted afterwards.
+      const carried = await carryDocuments(draft.id, copy.run, ignoredCopies);
+      setSameContent(carried.same_content ?? {});
       draft.copied = true;
       setDocumentsCopied(true);
     }
@@ -664,14 +669,24 @@ function IntakeForm({
     await withDraft("documents", async () => {
       const draft = draftRef.current;
       const stored = file ? draft?.uploaded.get(file) : name;
-      if (draft && stored) {
+      // A carried name is on the service only once the carry has run; before it, only skip it.
+      // An earlier file the carry did not copy (same bytes as an upload) is not on the service.
+      const onService = file
+        ? stored !== undefined
+        : draft?.copied === true && !(name in sameContent);
+      if (draft && stored && onService) {
         await removeDocument(draft.id, stored);
         if (file) {
           draft.uploaded.delete(file);
           setUploaded(new Map(draft.uploaded));
         }
       }
-      if (copy && stored) setIgnoredCopies((previous) => [...new Set([...previous, stored])]);
+      // Only a carried name is ignored; a removed upload was never on the earlier run.
+      const carried = copy?.prior.files.find(
+        (item) => nameKey(item.name) === nameKey(stored ?? ""),
+      );
+      if (stored && carried)
+        setIgnoredCopies((previous) => [...new Set([...previous, carried.name])]);
       if (file) {
         const remaining = files.filter((item) => item !== file);
         setFiles(remaining);
@@ -683,7 +698,17 @@ function IntakeForm({
           Object.entries(previous).filter(([, chosen]) => chosen !== (stored || name)),
         ),
       );
-      if (draft && stored) await readDocuments(draft);
+      if (draft && stored && onService) {
+        const dropped = new Set(
+          [...ignoredCopies, stored, ...Object.keys(sameContent)].map(nameKey),
+        );
+        const carriedLeft =
+          !copy?.prior.error &&
+          (copy?.prior.files ?? []).some((item) => !dropped.has(nameKey(item.name)));
+        if (draft.uploaded.size > 0 || (draft.copied && carriedLeft)) await readDocuments(draft);
+        else if (carriedLeft) setReading(undefined);
+        else setReading({ documents: [], ignored: [], error: "" });
+      }
     });
   }
 
@@ -695,12 +720,12 @@ function IntakeForm({
           .split("/")
           .some((part) => part.startsWith(".")),
     );
-    const names = new Set(files.map((file) => fileName(file).normalize("NFC").toLowerCase()));
+    const names = new Set(files.map((file) => nameKey(fileName(file))));
     const added: File[] = [];
     const problems: string[] = [];
     for (const file of candidates) {
       const name = fileName(file);
-      const key = name.normalize("NFC").toLowerCase();
+      const key = nameKey(name);
       if (file.size > FILE_SIZE_LIMIT) problems.push(`${name} exceeds the 50 MB limit.`);
       else if (!SOURCE_TYPES.test(name))
         problems.push(`${name} is not a document type the run reads.`);
@@ -758,6 +783,7 @@ function IntakeForm({
     setReading(undefined);
     draftRef.current = null;
     setDocumentsCopied(false);
+    setSameContent({});
     setUploaded(new Map());
   }
 
@@ -1035,6 +1061,7 @@ function IntakeForm({
           if (failure.status === 404) {
             draftRef.current = null;
             setDocumentsCopied(false);
+            setSameContent({});
             setUploaded(new Map());
             setReading(undefined);
           }
@@ -1135,6 +1162,7 @@ function IntakeForm({
     setNewestOverride(undefined);
     draftRef.current = null;
     setDocumentsCopied(false);
+    setSameContent({});
     setUploaded(new Map());
   }
 
@@ -1165,6 +1193,7 @@ function IntakeForm({
     copy,
     ignoredCopies,
     documentsCopied,
+    sameContent,
   );
 
   const { title, previous, next } = FORM_STEPS[step];

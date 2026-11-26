@@ -194,3 +194,18 @@ it("insets a threshold tick at either end of the scale so it never overhangs the
   // 2.0 inside 0 to 3: centred on its value.
   expect(cover).toHaveClass("-translate-x-1/2");
 });
+
+it("S16-2-3 says a unit gap once and prints no figure or axis end with it", () => {
+  const tests = leadTests(
+    source(40, HEAD, [
+      ["Net leverage", "6.5", "6.1", "0.4x", "Passes at or below", "Not supplied: only a ratio", "Synthetic."],
+    ]),
+    ROLES,
+  );
+  if (!tests) throw new Error("one test");
+  render(<Bullets label="Covenant tests" tests={tests} />);
+  const item = screen.getByRole("listitem");
+  expect(within(item).getByText("6.1")).toBeVisible();
+  expect(within(item).getAllByText(/only a ratio/i)).toHaveLength(1);
+  expect(item.textContent).not.toMatch(/\d Not supplied/);
+});

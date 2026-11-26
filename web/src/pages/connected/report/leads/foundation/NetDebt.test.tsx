@@ -10,6 +10,7 @@ import { containsReference } from "../../../publishedReport";
 import { cp1Entry, distressedCp1Entry, leadProps, relativeValueCp1Entry } from "../fixtures/load";
 import {
   dropTable,
+  edited,
   mixedPeriodsCp1,
   setCell,
   threePeriodCp1,
@@ -476,7 +477,7 @@ describe("Net debt: other real handoffs and gap states", () => {
     expect(tile.querySelector("[data-adjustments]")).toBeNull();
     expect(tile.querySelector("[data-pro-forma]")).toBeNull();
     expect(tile.querySelector("[data-no-adjustments]")?.textContent).toBe(
-      "None found in the sources read. Synthetic; the annual report and its notes were read.",
+      "None found in the sources read. Synthetic.",
     );
   });
 
@@ -548,5 +549,48 @@ describe("Net debt: five scrambled periods in the one period order", () => {
       ["FY2025E", "prior"],
     ]);
     expect(view.comparison).toBeNull();
+  });
+});
+
+describe("NetDebtTile: units and sources of stated words", () => {
+  it("does not draw a liquidity total in another unit as a figure of the US$m tile", () => {
+    // Mutation of the retained TransDigm CP-1 (not a real handoff): the metrics row in USD thousands.
+    const entry = edited(cp1Entry(), (table, heading) =>
+      heading !== "Financials and credit metrics"
+        ? table
+        : {
+            ...table,
+            rows: table.rows.map((row) => {
+              if (row.cells[0] !== "Cash plus available revolver") return row;
+              const cells = [...row.cells];
+              cells[table.headers.indexOf("FY2024")] = "7104000";
+              cells[table.headers.indexOf("Unit")] = "USD thousands";
+              return { ...row, cells };
+            }),
+          },
+    );
+    render(<NetDebtTile lead={leadProps(entry)} />);
+    const tile = screen.getByRole("region", { name: "Net debt" });
+    const text = tile.querySelector('[data-liquidity="FY2024"]')?.textContent ?? "";
+    expect(text).toContain("6,261");
+    expect(text).not.toContain("7,104,000");
+    expect(tile.querySelector("[data-liquidity-unit]")?.textContent).toMatch(
+      /another unit \(.*thousand.*\) than the net debt data/i,
+    );
+  });
+
+  it("drops a no-adjustment clause that cites a filing, as the maturity tile does", () => {
+    const basis =
+      "Annual Form 10-K subsequent-events note; no later event that changes net debt is stated.";
+    const na = "Not applicable: no event";
+    const entry = withRows(cp1Entry(), ADJUSTMENTS, [
+      [NO_ADJUSTMENT, na, na, na, na, "US$m", basis],
+    ]);
+    render(<NetDebtTile lead={leadProps(entry)} />);
+    const words =
+      screen.getByRole("region", { name: "Net debt" }).querySelector("[data-no-adjustments]")
+        ?.textContent ?? "";
+    expect(words).toContain("no later event that changes net debt is stated.");
+    expect(words).not.toMatch(/10-K/);
   });
 });

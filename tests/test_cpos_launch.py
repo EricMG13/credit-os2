@@ -4703,7 +4703,7 @@ def forecast_run(  # noqa: PLR0913 - one keyword per scenario setting
 
 
 def test_cp2g_run_publishes_model_delivery(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     receipt = json.loads((folder / "delivery.json").read_text())
@@ -4754,13 +4754,25 @@ def test_cp2g_run_publishes_model_delivery(tmp_path, provider, capsys):
         "95.4",
     ]
     assert (first["year"], first["planning_start"], first["planning_end"]) == (
-        2025,
-        "2025-04-01",
-        "2026-03-31",
+        2026,
+        "2026-04-01",
+        "2027-03-31",
     )
     assert "Model not published" not in seen.err
     completed = json.loads(next(out.glob("completed-*.json")).read_text())
     assert completed["cp_forecast_published"] is True and completed["forecast_failure"] is None
+
+
+# The flows are named under FY2025, so the forecast starts with FY2026.
+AFTER_FY2025 = [
+    {"year": 2026 + i, "start": f"{2026 + i}-04-01", "end": f"{2027 + i}-03-31"} for i in range(3)
+]
+
+
+def named_forecast_block(**changes) -> str:
+    """CP-2G's block with every operand naming its CP-1 cell, as acceptance requires of a flow."""
+    base = {k: {"amount": v, "reason": None, "row": k, "period": "FY2025"} for k, v in BASE.items()}
+    return forecast_block(base=base, **{"years": AFTER_FY2025, **changes})
 
 
 def layer1_block(**changes) -> str:
@@ -4768,7 +4780,7 @@ def layer1_block(**changes) -> str:
     base = changes.pop("base", None) or {
         k: {"amount": v, "reason": None, "row": k, "period": "FY2025"} for k, v in BASE.items()
     }
-    return forecast_block(downside_shock=None, base=base, **changes)
+    return forecast_block(downside_shock=None, base=base, **{"years": AFTER_FY2025, **changes})
 
 
 def _operand(amount, row="revenue", period="FY2025"):
@@ -4798,7 +4810,9 @@ TWO_YEARS = "| Metric | FY2024 | FY2025 |\n| --- | --- | --- |\n| revenue | 900 
 def test_a_layer1_operand_is_the_cell_at_its_row_and_period():
     inputs = _parse_layer1(_cp1_doc(TWO_YEARS), amount="1000", period="FY2025")
     assert inputs.base["revenue"].amount == "1000"
-    assert _parse_layer1(_cp1_doc(TWO_YEARS), amount="900", period="FY2024")
+    # 900 is CP-1's FY2024 cell, but the other flows are named under FY2025: one block, one header.
+    with pytest.raises(ValueError, match="different headers"):
+        _parse_layer1(_cp1_doc(TWO_YEARS), amount="900", period="FY2024")
 
 
 @pytest.mark.parametrize(
@@ -4956,7 +4970,9 @@ def test_a_layer1_operand_must_name_its_cell_exactly_when_it_states_an_amount(op
 def _named_cp2g(doc: str, **operands):
     """A CP-2G block that names each operand's cell, parsed against the CP-1 document."""
     base = {k: _operand(v, k) for k, v in BASE.items()} | operands
-    return cpos_forecast.parse(forecast_block(base=base), doc.replace("__BLOCK__", ""))
+    return cpos_forecast.parse(
+        forecast_block(base=base, years=AFTER_FY2025), doc.replace("__BLOCK__", "")
+    )
 
 
 def test_a_cp2g_block_may_name_the_row_and_period_of_every_base_operand():
@@ -5026,9 +5042,10 @@ def test_a_named_cp2g_operand_that_is_not_its_cell_is_sent_back_for_repair():
     )
     task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.encode()})
     base = {k: _operand(v, k) for k, v in BASE.items()}
-    assert cpos_launch._forecast_issues(task, forecast_block(base=base)) == ()
+    block = {"years": AFTER_FY2025}
+    assert cpos_launch._forecast_issues(task, forecast_block(base=base, **block)) == ()
     base["capex"] = _operand("40", "Capex")
-    (issue,) = cpos_launch._forecast_issues(task, forecast_block(base=base))
+    (issue,) = cpos_launch._forecast_issues(task, forecast_block(base=base, **block))
     assert issue == (
         "Forecast inputs: CP-2G: base capex: no table cell of CP-1 is at row `Capex`, period "
         "`FY2025`. Correct the row, period, column or amount of capex; if you cannot, state "
@@ -5052,7 +5069,9 @@ def test_a_refusal_that_is_not_about_a_base_operand_keeps_the_null_every_driver_
 
 def test_a_cp2g_block_that_names_its_rows_publishes_their_history(tmp_path, provider, capsys):
     base = {k: _operand(v, k) for k, v in BASE.items()}
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block(base=base))
+    code, out, seen = forecast_run(
+        tmp_path, provider, capsys, forecast_block(base=base, years=AFTER_FY2025)
+    )
     assert code == 0, seen.err
     assert "Model not published" not in seen.err
     (folder,) = (out / "deliveries").iterdir()
@@ -5115,7 +5134,7 @@ def test_cp2gs_block_wins_when_both_modules_state_one(tmp_path, provider, capsys
         tmp_path,
         provider,
         capsys,
-        forecast_block(),
+        named_forecast_block(),
         modules=("CP-2G", "CP-MODEL"),
         cp1_block=cp1_block,
     )
@@ -5216,7 +5235,7 @@ def test_model_publish_failure_keeps_the_delivery(tmp_path, provider, capsys, mo
         raise ValueError("synthetic failure")
 
     monkeypatch.setattr(cpos_forecast, "model_files", refuse)
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0
     (folder,) = (out / "deliveries").iterdir()
     assert (folder / "delivery.json").is_file() and not (folder / "forecast_exact.json").exists()
@@ -5269,7 +5288,8 @@ def test_an_invalid_or_missing_inputs_block_is_sent_back_for_repair_naming_why(
 
 
 def test_without_a_shock_only_the_reference_case_is_published(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block(downside_shock=None))
+    block = named_forecast_block(downside_shock=None)
+    code, out, seen = forecast_run(tmp_path, provider, capsys, block)
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     assert list(json.loads((folder / "forecast_exact.json").read_text())["outputs"]) == [
@@ -5278,7 +5298,7 @@ def test_without_a_shock_only_the_reference_case_is_published(tmp_path, provider
 
 
 def test_a_new_forecast_run_publishes_the_history_record(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     assert "history" in json.loads((folder / "calculation.json").read_text())
@@ -5291,7 +5311,7 @@ def test_the_forecast_request_does_not_change_the_identity_of_other_plans(
 ):
     """Existing plans keep their identity.json: the flag is not part of it, and a plan without
     CP-2G does not even carry it."""
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     identity = json.loads((out / "identity.json").read_text())
     assert "publish_forecast" not in identity and "forecast" not in identity
@@ -5334,7 +5354,7 @@ def case_drivers(paths: dict) -> dict:
 
 
 def cased_block(**changes) -> str:
-    return forecast_block(
+    return named_forecast_block(
         upside_drivers=case_drivers(UPSIDE), downside_drivers=case_drivers(DOWNSIDE), **changes
     )
 
@@ -5392,7 +5412,7 @@ def test_cp2g_upside_and_downside_drivers_are_computed_as_their_own_cases(
 
 
 def test_without_case_drivers_the_forecast_record_is_unchanged(tmp_path, provider, capsys):
-    code, out, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0, seen.err
     (folder,) = (out / "deliveries").iterdir()
     exact = json.loads((folder / "forecast_exact.json").read_text())
@@ -5436,7 +5456,9 @@ def test_the_cp2g_instruction_asks_for_the_row_and_period_of_every_base_operand(
         "positive magnitude",
         "with its sign reversed",
         "is not a cell",
-        "`FY2024`, `Q3 2025`, `H1 2025` or `9M 2025`",
+        "under one twelve-month column (`FY2024` or an LTM column;",
+        "A balance (debt, cash, undrawn) may be named under a quarter-end column",
+        "`Q3 2025`, `H1 2025` or `9M 2025`",
     ):
         assert words in block, words
     assert "copied exactly as CP-1 prints it (outflows as positive magnitudes)" not in block
@@ -5451,13 +5473,13 @@ def test_the_forecast_instructions_ask_for_the_cases_as_driver_overrides():
 def test_the_library_lists_the_published_forecast_as_a_model(tmp_path, provider, capsys):
     """The launcher's own refresh builds the library: its real methodology check accepts the
     CP-2G instructions and the Forecast data carries the published figures."""
-    code, _, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, _, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0 and "Library not updated" not in seen.err
     text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
     data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
     (model,) = (m for m in data["workspace"]["models"] if m["cashflow"] is not None)
     grid = model["cashflow"]
-    assert [c["label"] for c in grid["columns"]][-6:] == ["FY2025E", "FY2026E", "FY2027E"] * 2
+    assert [c["label"] for c in grid["columns"]][-6:] == ["FY2026E", "FY2027E", "FY2028E"] * 2
     assert [c["group"] for c in grid["columns"]][-6::3] == ["Base case", "Downside case"]
 
 
@@ -5495,7 +5517,7 @@ def test_delivery_fails_closed_when_the_pinned_handoff_no_longer_yields_the_fore
     tmp_path, provider, capsys
 ):
     """The publish step fails open; a delivery that asks for the forecast never does."""
-    code, out, _ = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, out, _ = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0
     manifest = next(out.glob("delivery-*.json"))
     request = DeliveryRequest.model_validate_json(manifest.read_text())
@@ -5516,7 +5538,7 @@ def test_the_forecast_tab_shows_the_model_only_for_the_run_that_published_one(
     CP-2G shows the not-published notice."""
     from test_library_page_browser import visit
 
-    code, _, seen = forecast_run(tmp_path, provider, capsys, forecast_block())
+    code, _, seen = forecast_run(tmp_path, provider, capsys, named_forecast_block())
     assert code == 0 and "Library not updated" not in seen.err
     text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
     data = json.loads(text.removeprefix("window.CREDIT_OS_DATA=").rstrip().removesuffix(";"))
@@ -5526,7 +5548,7 @@ def test_the_forecast_tab_shows_the_model_only_for_the_run_that_published_one(
         f"#W-Forecast/{model['id']}?c={RUN_ID}",
     )
     assert console == []
-    assert "FY2025E" in dom and "1,050" in dom and "Downside" in dom
+    assert "FY2026E" in dom and "1,050" in dom and "Downside" in dom
     assert "No forecast model was published" not in dom
     other = tmp_path / "other"
     other.mkdir()
@@ -5618,7 +5640,9 @@ def test_each_pathways_run_reaches_the_library_screens(tmp_path, provider, capsy
     )
     forecast = "CP-2G" in PATHWAY_MODULES[pathway]
     provider.answer = lambda context: (
-        forecast_answer(context, routes, forecast_block()) if forecast else answer(context, routes)
+        forecast_answer(context, routes, named_forecast_block())
+        if forecast
+        else answer(context, routes)
     )
     assert main(argv) == 0
     assert "Library not updated" not in capsys.readouterr().err
@@ -5711,7 +5735,7 @@ def _deep_run_in_the_library(tmp_path, provider, capsys) -> dict:
     argv = launch(tmp_path, "--live", "--ruling", str(RULING), pathway="deep_credit_assessment")
     argv[argv.index("--out") + 1] = str(tmp_path / "runs" / RUN_ID)
     routes = prepare_routes(tmp_path, "sol-medium", None)
-    provider.answer = lambda context: forecast_answer(context, routes, forecast_block())
+    provider.answer = lambda context: forecast_answer(context, routes, named_forecast_block())
     assert main(argv) == 0
     assert "Library not updated" not in capsys.readouterr().err
     text = (tmp_path / "library/data.js").read_text(encoding="utf-8")
@@ -5768,7 +5792,7 @@ def test_a_deep_run_fills_the_library_pages(tmp_path, provider, capsys):
         assert UNFILLED.search(shown[name]) is None, (name, UNFILLED.findall(shown[name]))
         assert ISSUER in shown[name] and "Deep credit assessment" in shown[name], name
     assert "First run of this pathway" in shown["Changes"]
-    assert "FY2025E" in shown["Forecast"]
+    assert "FY2026E" in shown["Forecast"]
 
 
 def test_a_delivery_without_a_forecast_has_no_forecast_key_in_its_receipt(
@@ -5866,7 +5890,7 @@ def test_the_forecast_instructions_cap_driver_values_at_four_decimal_places():
 def cp2g_check(tmp_path, block):
     """The in-loop check of a CP-2G answer holding `block`, with a CP-1 that prints BASE."""
     prepared, task, context = good_task(tmp_path, "CP-2G", "distressed_restructuring")
-    cp1 = " ".join(BASE.values()).encode()
+    cp1 = _cp1_with_rows({}).encode()  # a table printing BASE, so a named block finds its cells
     task = dataclasses.replace(task, handoffs={"CP-1": cp1})
     context["handoffs"] = {"CP-1": {"sha256": hashlib.sha256(cp1).hexdigest()}}
     routes = list(prepared.plan.layout.routes)
@@ -5928,7 +5952,7 @@ def test_a_schema_refusal_naming_a_facility_key_is_told_to_null_the_drivers():
 
 
 def test_checker_accepts_a_valid_or_declined_forecast_block(tmp_path):
-    assert cp2g_check(tmp_path, forecast_block()) == ()
+    assert cp2g_check(tmp_path, named_forecast_block()) == ()
     (tmp_path / "declined").mkdir()
     assert cp2g_check(tmp_path / "declined", REAL_DECLINED_BLOCK) == ()
 
@@ -7503,7 +7527,7 @@ def test_a_facilities_refusal_keeps_the_facilities_line():
          "floor_pct": None, "reference_rate": None, "annual_amortisation": None,
          "maturity": None}
     ]  # fmt: skip
-    block = forecast_block(base=_named_base(), facilities=notes)
+    block = forecast_block(base=_named_base(), years=AFTER_FY2025, facilities=notes)
     (issue,) = _repair_issues(block, _cp1_with_rows({}))
     assert issue.endswith(FACILITY_END) and issue.count("Correct the facilities;") == 1
 
@@ -8132,7 +8156,7 @@ def test_the_forecast_instruction_sentences_say_what_python_does():  # whole-bra
     assert "check that the last twelve months are twelve months; add no figure to it." in table
     assert "LTM Qn YYYY" not in table and "to date a balance" not in table
     assert "only to check" not in table and "change no other table" not in table
-    shown = "history only for a line named under such a header."
+    shown = "history only for a line named under a period header."
     for block in (cpos_launch.FORECAST_BLOCK, cpos_launch.LAYER1_FORECAST_BLOCK):
         assert shown in block
         assert "Those tables are in US$ million" not in block
@@ -8267,7 +8291,7 @@ def test_the_sent_forecast_instructions_offer_history_only_under_a_period_header
     for module, modules in (("CP-2G", ("CP-1", "CP-2G")), ("CP-1", ("CP-1", "CP-MODEL"))):
         (tmp_path / module).mkdir(exist_ok=True)
         text = _built_instruction(tmp_path / module, module, modules)
-        assert "history only for a line named under such a header." in text
+        assert "history only for a line named under a period header." in text
         assert "labelled with one" not in text
     assert "where you print the balance only there" in text
     assert "where CP-1 prints the balance only there" not in text
@@ -10924,3 +10948,112 @@ def test_the_synthetic_proof_handoff_with_an_unread_downside_table_raises_nothin
     )
     handoff = (PROOF_HANDOFFS / "CP-2G.md").read_text("utf-8")
     assert cpos_launch._forecast_issues(task, handoff) == ()
+
+
+def test_an_unnamed_cp2g_flow_block_is_sent_back_at_acceptance():
+    """S04-2-1: a block that states revenue 270 and names no cell passed `_printed` against any
+    CP-1 figure; acceptance asks for the cells to be named (parse itself still reads it)."""
+    cp1 = (
+        "| Reported label | Q3 2025 | FY2024 |\n| --- | --- | --- |\n| Net sales | 270 | 1,000 |\n"
+    )
+    base = {k: {"amount": None, "reason": "Not stated."} for k in BASE} | {
+        "revenue": {"amount": "270", "reason": None}
+    }
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": cp1.encode()})
+    (issue,) = cpos_launch._forecast_issues(task, forecast_block(base=base))
+    assert cpos_forecast.UNNAMED_FLOW in issue
+    assert issue.endswith("and say why in scope_limits.")
+    named = base | {
+        "revenue": {"amount": "1000", "reason": None, "row": "Net sales", "period": "FY2024"}
+    }
+    assert (
+        cpos_launch._forecast_issues(
+            task,
+            forecast_block(
+                base=named,
+                years=[
+                    {"year": 2025 + i, "start": f"{2025 + i}-01-01", "end": f"{2025 + i}-12-31"}
+                    for i in range(3)
+                ],
+            ),
+        )
+        == ()
+    )
+
+
+def _flow_block_under(header: str, cp1_end: str = "") -> tuple[str, str]:
+    cp1 = (
+        f"| Reported label | {header} | FY2024 |\n| --- | --- | --- |\n"
+        f"| Net sales | 270 | 1,000 |\n| Adjusted EBITDA | 84 | 300 |\n{cp1_end}"
+    )
+    base = {k: {"amount": None, "reason": "Not stated."} for k in BASE} | {
+        "revenue": {"amount": "270", "reason": None, "row": "Net sales", "period": header},
+        "ebitda": {"amount": "84", "reason": None, "row": "Adjusted EBITDA", "period": header},
+    }
+    return forecast_block(base=base), cp1
+
+
+@pytest.mark.parametrize("header", ["Q3 2025", "Q3 FY25", "H2 2025", "3Q25", "9M FY25"])
+def test_a_part_year_flow_header_is_refused_whatever_its_spelling(header):
+    """S04-2-2: a header `period_of` cannot read is a twelve-month column only as FY or LTM."""
+    block, cp1 = _flow_block_under(header)
+    with pytest.raises(ValueError, match="not twelve months|not a period the Forecast page"):
+        cpos_forecast.parse(block, cp1)
+
+
+def test_an_open_ended_period_end_is_a_value_error_not_an_overflow():
+    """S04-2-3: the day after 9999-12-31 is not a date."""
+    cp1 = (
+        "| Reported label | FY2024 |\n| --- | --- |\n"
+        "| Net sales | 1,000 |\n| Adjusted EBITDA | 300 |\n"
+        "\n| Period | Start | End |\n| --- | --- | --- |\n| FY2024 | 2024-01-01 | 9999-12-31 |\n"
+    )
+    base = {k: {"amount": None, "reason": "Not stated."} for k in BASE} | {
+        "revenue": {"amount": "1000", "reason": None, "row": "Net sales", "period": "FY2024"},
+        "ebitda": {"amount": "300", "reason": None, "row": "Adjusted EBITDA", "period": "FY2024"},
+    }
+    with pytest.raises(ValueError, match="9999-12-31"):
+        cpos_forecast.parse(forecast_block(base=base), cp1)
+
+
+# --- a forecast whose first year CP-1 already reports (ADV-4; owner items 9) ---------------------
+# Synthetic. Answer key by hand: CP-1 prints FY2023 and FY2024 revenue (1,000 and 1,100); a block
+# naming FY2023 as its base and forecasting FY2024 forecasts a reported year.
+_REPORTED_CP1 = (
+    "## Findings\n\n| Period | Start | End |\n| --- | --- | --- |\n"
+    "| FY2023 | 2023-01-01 | 2023-12-31 |\n| FY2024 | 2024-01-01 | 2024-12-31 |\n\n"
+    "| Reported label | FY2023 | FY2024 |\n| --- | --- | --- |\n"
+    "| Net sales | 1,000 | 1,100 |\n| Adjusted EBITDA | 300 | 330 |\n"
+)
+
+
+def _reported_year_issues(base_year: int):
+    """The flows are named under ``base_year``; the forecast starts the year after it (the S04
+    rule), so a base year before CP-1's last printed year forecasts a printed year."""
+    amounts = {2023: ("1000", "300"), 2024: ("1100", "330")}[base_year]
+    missing = {"amount": None, "reason": "CP-1 does not state it."}
+    base = {key: missing for key in BASE}
+    period = f"FY{base_year}"
+    base["revenue"] = {"amount": amounts[0], "reason": None, "row": "Net sales", "period": period}
+    base["ebitda"] = {
+        "amount": amounts[1],
+        "reason": None,
+        "row": "Adjusted EBITDA",
+        "period": period,
+    }
+    years = [
+        {"year": y, "start": f"{y}-01-01", "end": f"{y}-12-31"}
+        for y in range(base_year + 1, base_year + 4)
+    ]
+    block = forecast_block(base=base, years=years, downside_shock=None)
+    task = types.SimpleNamespace(module_id="CP-2G", handoffs={"CP-1": _REPORTED_CP1.encode()})
+    return cpos_launch._forecast_issues(task, block)
+
+
+def test_a_forecast_starting_in_a_year_cp1_reports_is_sent_back():
+    (issue,) = _reported_year_issues(2023)
+    assert "CP-1 reports FY2024; start the forecast after it (from FY2025)" in issue
+
+
+def test_a_forecast_starting_after_the_last_reported_year_is_accepted():
+    assert _reported_year_issues(2024) == ()

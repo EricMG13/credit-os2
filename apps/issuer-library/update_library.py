@@ -303,6 +303,8 @@ def checked_bytes(path: Path, digest: str, label: str) -> bytes:
         raw = b"".join(regular_chunks(path, follow=False))
     except UnreadableFile as error:  # a link, a FIFO or an oversize file is not a delivered handoff
         raise Refused(f"Not written: {label} is not a plain file ({error})") from error
+    except OSError as error:  # a deleted or unreadable file ends the build with a named refusal
+        raise Refused(f"Not written: {label} could not be read ({type(error).__name__})") from error
     if hashlib.sha256(raw).hexdigest() != digest:
         raise Refused(f"Not written: {label} changed during the build")
     return raw

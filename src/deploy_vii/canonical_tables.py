@@ -413,7 +413,7 @@ def _calculations(
             (
                 row.value_id,
                 row.computation_id,
-                c.label + f" ({c.start_date} to {c.end_date})",
+                c.label + f" ({c.start_date or 'null'} to {c.end_date or 'null'})",
                 row.quantity_unit,
                 row.currency,
                 row.factor,
@@ -431,7 +431,7 @@ def _calculations(
                 (
                     item.value_id,
                     item.computation_id,
-                    basis.label + f" ({basis.start_date} to {basis.end_date})",
+                    basis.label + f" ({_span(basis)})",
                     item.unit,
                     item.currency,
                     None,
@@ -872,7 +872,7 @@ def canonical_tables(  # noqa: PLR0913 - pre-existing
         if layout.table_id == "T4.10" and downstream.inputs.narrative.inputs.ledger.kpis:
             labels.update(
                 {
-                    b.basis_id: f"{b.label} ({b.start_date} to {b.end_date})"
+                    b.basis_id: f"{b.label} ({_span(b)})"
                     for b in downstream.inputs.narrative.inputs.ledger.kpis.bases
                 }
             )

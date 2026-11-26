@@ -3,6 +3,7 @@ import { Button } from "@/components/base/buttons/button";
 import { ArrowRight } from "@untitledui/icons";
 import { useState, type ReactNode } from "react";
 import { moduleName } from "../api";
+import { asOfDate } from "../runFigures";
 import { field, label } from "../layout";
 import {
   evidencePath,
@@ -156,14 +157,8 @@ function PublishedModelSelect({
   asOf: PublishedRun["asOf"];
 }) {
   if (models.length < 2) return null;
-  const date = asOf
-    ? new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      }).format(new Date(`${asOf}T00:00:00Z`))
-    : "";
+  // As written when it is not a real YYYY-MM-DD date (`asOfDate`).
+  const date = asOf ? asOfDate(asOf) : "";
   return (
     <label className={`${label} max-w-xs`}>
       Published model

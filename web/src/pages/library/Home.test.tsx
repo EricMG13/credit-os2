@@ -593,6 +593,25 @@ describe("Library home, List side", () => {
   });
 });
 
+it("S23-1-1 drops a saved band the delivered spec no longer has instead of crashing", () => {
+  const library = fresh();
+  const bands = (
+    library.home as unknown as { list: { measures: { leverage: { bands: unknown[] } } } }
+  ).list.measures.leverage.bands.length;
+  window.history.replaceState(
+    {
+      libraryHome: {
+        filters: { search: "", sector: "all", pathway: "all", state: "all" },
+        bands: { leverage: bands, netLeverage: null, interestCoverage: null },
+        layout: "list",
+      },
+    },
+    "",
+  );
+  renderHome(library);
+  expect(screen.getAllByRole("link", { name: /Halden Aerostructures/ }).length).toBeGreaterThan(0);
+});
+
 // S2-020 persists choices in a browser history entry; every independent test starts a fresh entry.
 beforeEach(() => {
   window.history.replaceState({}, "");

@@ -91,17 +91,25 @@ def _link(db: sqlite3.Connection, topic_id: int, story_id: int) -> None:
 
 def match_story(db: sqlite3.Connection, story_id: int) -> list[int]:
     """Topic ids whose rule the story meets; records them, and the issuers the story belongs to
-    (``issuers.link_story``), in one write transaction. Safe to repeat."""
+    (``issuers.link_story``), in one write transaction (the caller's, when it holds one: the
+    ingest stores and matches a story in one, so a failed match never leaves it unmatched).
+    Safe to repeat."""
+    if db.in_transaction:
+        return _match_story(db, story_id)
     with _write_transaction(db):
-        found = [
-            topic["id"]
-            for topic in db.execute("SELECT * FROM topics ORDER BY id").fetchall()
-            if _matches(db, story_id, topic)
-        ]
-        for topic_id in found:
-            _link(db, topic_id, story_id)
-        threads.post_topic_story(db, story_id, found)  # a group topic's new story posts there
-        issuers.link_story(db, story_id)
+        return _match_story(db, story_id)
+
+
+def _match_story(db: sqlite3.Connection, story_id: int) -> list[int]:
+    found = [
+        topic["id"]
+        for topic in db.execute("SELECT * FROM topics ORDER BY id").fetchall()
+        if _matches(db, story_id, topic)
+    ]
+    for topic_id in found:
+        _link(db, topic_id, story_id)
+    threads.post_topic_story(db, story_id, found)  # a group topic's new story posts there
+    issuers.link_story(db, story_id)
     return found
 
 

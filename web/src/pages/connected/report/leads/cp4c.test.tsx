@@ -366,3 +366,85 @@ it("states the module's own gap for the fulcrum and draws one allocation when no
   expect(within(tile).queryByRole("group", { name: "Scenario" })).toBeNull();
   expect(screen.queryByText(/second scenario|third scenario/i)).toBeNull();
 });
+
+const FULCRUM_STEPS =
+  "| Step | Amount | Reporting unit | Basis and limitation |\n| --- | --- | --- | --- |";
+const fulcrumStep = (label: string, amount: string) =>
+  `| ${label} | ${amount} | US$m | Synthetic. |`;
+
+const FULCRUM_MARKDOWN = `## Findings
+
+### Bottom line
+
+Synthetic.
+
+### Chart data: value allocation — scenario 1
+
+${FULCRUM_STEPS}
+${fulcrumStep("Enterprise value", "1,000")}
+${fulcrumStep("First lien term loan", "-700")}
+${fulcrumStep("Senior unsecured notes", "-300")}
+${fulcrumStep("Value not distributed", "0")}
+
+### Chart data: value allocation — scenario 2
+
+${FULCRUM_STEPS}
+${fulcrumStep("Enterprise value", "500")}
+${fulcrumStep("First lien term loan", "-500")}
+${fulcrumStep("Senior unsecured notes", "0")}
+${fulcrumStep("Value not distributed", "0")}
+
+#### T4E.6 Fulcrum range
+
+| scenario/EV range | last covered class | first impaired class | fulcrum class/range | uncertainty | Source |
+| --- | --- | --- | --- | --- | --- |
+| Scenario 1, EV USD 1,000 million | First lien term loan | None | Equity holders | Wide | Synthetic |
+| Scenario 2, EV USD 500 million | First lien term loan | Senior unsecured notes | Junior secured class | Wide | Synthetic |
+`;
+
+function fulcrumLineOf(heading: string) {
+  const block = sectionsOf(FULCRUM_MARKDOWN)
+    .find((item) => item.heading === heading)
+    ?.blocks.find((item) => item.type === "table");
+  if (!block) throw new Error(`no table under ${heading}`);
+  return block.line;
+}
+
+const fulcrumAllocation = (n: number) => ({
+  title: `Value allocation — scenario ${String(n)}`,
+  table: fulcrumLineOf(`Chart data: value allocation — scenario ${String(n)}`),
+  unit: "US$m",
+  columns: [1],
+  kind: "waterfall",
+  amount: 1,
+});
+
+it("S16-1-2: labels each stated fulcrum with the scenario or value range its register row names", () => {
+  const entry: OutputEntry = {
+    output: {
+      module: "CP-4C",
+      id: "run/CP-4C",
+      label: "CP-4C",
+      sha256: "h",
+      href: "CP-4C.md",
+      charts: [fulcrumAllocation(1), fulcrumAllocation(2)],
+    },
+    sections: sectionsOf(FULCRUM_MARKDOWN),
+    selected: true,
+  };
+  render(<RestructuringLead {...leadProps(entry)} />);
+  const tile = screen.getByRole("region", { name: "Value allocation" });
+  // The chosen scenario is the first one (Scenario 1: EV 1,000; its register row states "Equity holders").
+  expect(within(tile).getByText(/Equity holders/)).toBeVisible();
+  // Answer key (worked from the register above): the register states two fulcrums, each for its own
+  // range ("Equity holders" for scenario 1, "Junior secured class" for scenario 2). Printing the second
+  // one under scenario 1's allocation is only true if it is named with its own range; the register's
+  // own first cell names that range.
+  const text = tile.textContent;
+  const otherShown = text.includes("Junior secured class");
+  const rangeNamed = text.includes("Scenario 2, EV USD 500 million");
+  expect(
+    otherShown && !rangeNamed,
+    "scenario 2's fulcrum is shown under scenario 1, unlabelled",
+  ).toBe(false);
+});

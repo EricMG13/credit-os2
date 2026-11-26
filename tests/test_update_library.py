@@ -868,3 +868,11 @@ def test_no_record_for_the_delivered_write_carries_nothing_and_says_so(tmp_path)
     )
     assert script_checks(tmp_path) == []
     assert any("CP-1" in i and "delivered" in i for i in data_of(tmp_path)["workspace"]["issues"])
+
+
+def test_an_instruction_file_deleted_during_the_build_is_refused_not_a_traceback(tmp_path):
+    """S14-1-5: a missing run file is the same fail-closed outcome as a changed one."""
+    run_dir = make_run(tmp_path, "run-a")
+    (run_dir / "instructions/CP-0.md").unlink()
+    with pytest.raises(Refused, match="instructions/CP-0.md could not be read"):
+        update_library.update_library(tmp_path)

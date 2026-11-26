@@ -287,8 +287,8 @@ describe("readSlice, issuer history", () => {
     historyOf(slice, 0).entries[4] = {
       ...historyOf(slice, 0).entries[4],
       state,
-      report: "2025-12-31",
-      changes: { label: "What changed", run: "2025-12-31" },
+      report: "2025-09-30",
+      changes: { label: "What changed", run: "2025-09-30" },
     };
     expect(readSlice(slice).kind).toBe("ok");
   });

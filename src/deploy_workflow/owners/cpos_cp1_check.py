@@ -43,13 +43,20 @@ from deploy_workflow.owners.cpos_cp1_statements import (
     _money_of,
     _statement,
     _table,
-    _unseparated,
     money_unit,
 )
-from deploy_workflow.owners.cpos_periods import _date, period_of
+from deploy_workflow.owners.cpos_periods import (
+    PERIOD_HEADER,
+    _blocks,
+    _date,
+    period_dates,
+    period_label,
+    period_of,
+)
 
-# `money_unit` moved to `cpos_cp1_statements` (below the forecast); importers keep this name.
-__all__ = ["money_unit"]
+# `money_unit` moved to `cpos_cp1_statements` (below the forecast) and `PERIOD_HEADER` to
+# `cpos_periods` (the forecast reads the Period table too); importers keep these names.
+__all__ = ["PERIOD_HEADER", "money_unit"]
 
 _NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?", re.ASCII)
 _TWO_PLACES = re.compile(r"-?\d[\d,]*\.\d{2}", re.ASCII)
@@ -92,7 +99,6 @@ RECON_HEADING = "Debt principal to carrying value"
 RECON_COLUMNS = ("Contractual principal", "Reconciling items", "Carrying value")
 RECON_HEADER = ["Period", *RECON_COLUMNS, "Reporting unit", "Basis and limitation"]
 PERIOD_TABLE = "Period table"
-PERIOD_HEADER = ["Period", "Start", "End"]
 NET_DEBT_HEADING = "Net debt data"
 NET_DEBT_COLUMNS = ("Gross debt", "Cash", "Net debt")
 LADDER_HEADING = "Chart data: debt maturities"
@@ -168,19 +174,6 @@ def _sum(values: Sequence[Decimal]) -> Decimal:
 
 
 # --- the table reader ----------------------------------------------------------------------
-
-
-def _blocks(lines: list[str]) -> list[list[list[str]]]:
-    """Every table of the lines, whatever its heading, as rows of cells (separator dropped)."""
-    found: list[list[list[str]]] = []
-    current: list[list[str]] = []
-    for line in [*lines, ""]:
-        if line.startswith("|"):
-            current.append(_cells(line))
-        elif current:
-            found.append(_unseparated(current))
-            current = []
-    return found
 
 
 def _title(line: str) -> str:
@@ -305,6 +298,8 @@ class Periods:
     twice: tuple[str, ...]
     dated_ends: frozenset[date] = frozenset()  # every `End` of the table, whatever its label
     undated: tuple[str, ...] = ()  # labels whose Start and End are both `Not supplied:` gaps
+    # each period dated twice under several labels: its label and the printed labels naming it
+    alike: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
     def fiscal(self, cell: str) -> str | None:
         """The statement column (`FY2024`) a Period cell names: by its label (`FY2024`,
@@ -356,7 +351,24 @@ def _periods(lines: list[str]) -> Periods:
         tuple(k for k, v in seen.items() if len(v) > 1),
         frozenset(end for spans in seen.values() for _, end in spans),
         tuple(k for k in gapped if k not in seen),
+        _alike(lines, seen),
     )
+
+
+def _alike(
+    lines: list[str], seen: dict[str, set[tuple[date, date]]]
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Each period the forecast's reading (`period_dates`, keyed by `period_of`) finds dated twice
+    under two or more printed labels (`FY2024`, `FY2024 recast`), with those labels; one label
+    dated twice is `twice`."""
+    groups = []
+    for label in period_dates(_blocks(lines))[1]:
+        names = tuple(
+            k for k in seen if (p := period_of(k)) is not None and period_label(p) == label
+        )
+        if len(names) > 1:
+            groups.append((label, names))
+    return tuple(groups)
 
 
 def _records(
@@ -595,6 +607,11 @@ def _period_issues(
     issues = [
         f"`{PERIOD_TABLE}` dates `{label}` twice, with different dates; write one row for it."
         for label in periods.twice
+    ]
+    issues += [
+        f"`{PERIOD_TABLE}` rows {', '.join(f'`{n}`' for n in names)} date one period, {label}, "
+        "with different dates; write one row for it."
+        for label, names in periods.alike
     ]
     headers = dict.fromkeys(
         p for found in statements if found for p in found.periods if _PERIOD_HEADER.fullmatch(p)

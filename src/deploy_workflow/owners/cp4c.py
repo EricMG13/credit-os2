@@ -85,6 +85,7 @@ from deploy_workflow.owners.blank import is_blank, one_per_page
 from deploy_workflow.owners.cp1a import probe_one_step
 from deploy_workflow.owners.cp1c import EV_READER_FACTS, Cp1cHead, cp1c_reader
 from deploy_workflow.owners.cp2g import stale_issues  # one staleness frame (S07-cp2-gh-C03)
+from deploy_workflow.owners.page_unit import page_unit_issue
 from deploy_workflow.owners.period_basis import (
     DEFAULT_BASIS,
     PeriodBasis,
@@ -938,6 +939,11 @@ def _source_row_issues(
     if q.source_id != "financial" or q.quote not in page:
         where = (f"claims[{i}].amount_quote: quote not found under ", q.source_id, " ", q.locator)
         return [clipped(where)]
+    return _row_column_issues(i, c, q, page, basis)
+
+
+def _row_column_issues(i: int, c: ClaimClass, q: Quote, page: str, basis: PeriodBasis) -> list[str]:
+    """The cited row's column, the page's unit, then its amount."""
     column = c.period_column
     if column not in _header(page)[1:]:
         what = f"claims[{i}].period_column: not a column of the quoted statement: "
@@ -949,10 +955,12 @@ def _source_row_issues(
                 f"use {basis.bs_column}"
             )
         ]
-    amount = _row_amount(page, q.quote, column)
-    if amount is None:
-        return [f"claims[{i}].amount_quote: the quoted row has no number under {column}"]
-    return _claim_above_zero(i, c, amount)
+    unit = page_unit_issue(page, q.locator, basis.currency)  # the amount is stamped MILLIONS
+    amount = None if unit else _row_amount(page, q.quote, column)
+    if amount is not None:
+        return _claim_above_zero(i, c, amount)
+    found = f"the quoted row has no number under {column}"
+    return [clipped((f"claims[{i}].amount_quote: ", unit or found))]
 
 
 def _claim_above_zero(i: int, c: ClaimClass, amount: Decimal) -> list[str]:

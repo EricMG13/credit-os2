@@ -518,3 +518,14 @@ def test_the_submitters_name_is_published_in_the_runs_entry(layout):
     now = datetime(2026, 11, 9, 12, 0, 0, tzinfo=UTC)
     [entry] = snapshot(layout, [record], now=now)["runs"]
     assert entry["submitted_by"] == "Dana Reyes"
+
+
+def test_the_served_reason_has_no_server_path_but_the_record_keeps_it(layout):
+    """S08-1-1: the stored reason names the file the OS refused; what is served names no path."""
+    path = f"{layout.root}/_engine/logs/r.log"
+    stored = f"could not be started: [Errno 13] Permission denied: '{path}'"
+    record = Record("r1", "credit_snapshot", "acme", "failed", "t", reason=stored)
+    shown = snapshot(layout, [record], now=datetime(2026, 1, 1, tzinfo=UTC))["runs"][0]["reason"]
+    assert str(layout.root) not in shown
+    assert "_engine/logs/r.log" in shown
+    assert record.reason == stored

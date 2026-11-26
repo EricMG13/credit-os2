@@ -563,3 +563,14 @@ def test_an_upload_over_the_ceiling_is_refused_from_the_header(svc: Service, mon
     big = svc.call("POST", _path(sid, "/files", name="h.csv"), b"x" * 11)
     assert big.status == 400
     assert svc.call("GET", _path(sid)).json()["files"] == []
+
+
+def test_a_comparison_file_that_folds_to_another_stored_name_is_refused(layout):
+    """S08-2-1: a different name the disk reads as the same would replace the first."""
+    sid = draft(layout)
+    assert add(layout, sid, "Holdings.csv", b"first,1\n") == "Holdings.csv"
+    with pytest.raises(Refused):
+        add(layout, sid, "HOLDINGS.csv", b"second,2\n")
+    held = layout.uploads / sid / submissions.REFERENCE_FOLDER / "Holdings.csv"
+    assert held.read_bytes() == b"first,1\n"
+    assert add(layout, sid, "Holdings.csv", b"third,3\n") == "Holdings.csv"  # same name replaces

@@ -1,10 +1,10 @@
 import type { OutputEntry } from "../../../publishedReport";
 import type { Reading } from "../kit/numbers";
-import { safeText } from "../kit/reader";
 import { latestReported, type Period } from "../kit/tables";
 import {
   cashLadder,
   earningsAgainstDebt,
+  handoffWords,
   netDebtView,
   segmentView,
   statedPeriods,
@@ -21,7 +21,7 @@ export const dashed = (text: string) =>
   /^Not (?:supplied|calculated):\s*source dash\.?$/i.test(text.trim()) ? "—" : text;
 
 /** Handoff words for the page: a "source dash" as "—", a cited source left to Evidence. */
-export const written = (text: string) => dashed(safeText(text));
+export const written = (text: string) => dashed(handoffWords(text));
 
 /** How one figure (or the lead) states one period. */
 export type PeriodState =
@@ -117,7 +117,7 @@ function figureCells(entry: OutputEntry): { figure: string; cells: Cells; line: 
 export function stateOf(cells: readonly (Reading | null)[]): PeriodState {
   const stated = cells.filter((cell): cell is Reading => cell !== null);
   if (stated.some((cell) => cell.kind === "number")) return { kind: "figures" };
-  const gaps = stated.flatMap((cell) => (cell.kind === "gap" ? [safeText(cell.text)] : []));
+  const gaps = stated.flatMap((cell) => (cell.kind === "gap" ? [written(cell.text)] : []));
   if (gaps.length) return { kind: "gap", reasons: [...new Set(gaps)] };
   return stated.length ? { kind: "words" } : { kind: "none" };
 }

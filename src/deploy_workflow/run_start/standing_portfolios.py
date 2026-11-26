@@ -231,6 +231,7 @@ def _reserve(layout: Layout, key: str, name: str, length: int) -> str:
         submissions._refuse_links(folder, [name])
         existing = submissions._stored(folder) if folder.is_dir() else {}
         flying = {stored for stored, _ in submissions._PENDING.get(tag, {}).values()}
+        submissions._refuse_fold_clash(name, [*existing, *flying])
         if len((set(existing) | flying) - {name}) + 1 > MAX_FILES:
             raise Refused(f"a standing portfolio is at most {MAX_FILES} files")
         if _held_bytes(layout) - existing.get(name, 0) + length > submissions.MAX_STORE:

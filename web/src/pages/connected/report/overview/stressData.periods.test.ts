@@ -50,3 +50,41 @@ it("orders each case's forward path and the shared axis by period, not by column
   const xs = geometry.periods.map(({ x }) => x);
   expect([...xs].sort((a, b) => a - b)).toEqual(xs);
 });
+
+// S17-1-2 / S16-1-1: the lowest tick sits at the base and the highest at the top; zero is its own y.
+it("places a net-cash value below the zero gridline, inside the figure", () => {
+  const point = (period: string, v: number) => ({
+    period,
+    display: `${String(v)}x`,
+    value: v,
+    reason: "",
+  });
+  const g = pathGeometry([{ points: [point("FY2026E", 3), point("FY2027E", -2)] }]);
+  const ys = g.lines.flat().map((p) => p.y ?? NaN);
+  // Ticks span -2..3 (hand key): -2 at the base (130), 3 at the top (24), zero 2/5 of the way up.
+  expect(ys[1]).toBe(130);
+  expect(ys[0]).toBe(24);
+  expect(g.zero).toBeCloseTo(130 - (2 / 5) * 106);
+});
+
+// S16-1-3: a case with only stated gaps stays in the path, after the cases with figures.
+it("keeps a case whose every figure is a stated gap, after the stated ones", () => {
+  const gap = { status: "na", exact: null, display: "n.m.", reason: "EBITDA not positive" };
+  const path = forwardPath({
+    cashflow: {
+      columns: [column("FY2026E", "Base case"), column("FY2026E", "Downside case")],
+      rows: [
+        {
+          label: "Net leverage (net debt / Adj EBITDA)",
+          band: "Leverage",
+          kind: "multiple",
+          total: false,
+          cells: [gap, value("2.5")],
+        },
+      ],
+    },
+  });
+  expect(path?.cases.map((item) => item.group)).toEqual(["Downside case", "Base case"]);
+  expect(path?.based).toBe(false);
+  expect(path?.unbased).toBe("The model states no net leverage for the base case.");
+});

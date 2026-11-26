@@ -15,6 +15,7 @@ from deploy_vii.contracts import PATHWAY_MODULES, PathwayId
 from deploy_vii.registry import plan
 from deploy_workflow import platform_io
 from deploy_workflow.inbox.layout import Layout
+from deploy_workflow.inbox.plain_reason import served_reason
 from deploy_workflow.inbox.runs import Record, Status, cap_of
 from deploy_workflow.model.budget import BudgetError, exact_sum, read_reservation_snapshot
 from deploy_workflow.model.pricing import money_text
@@ -107,6 +108,8 @@ def _entry(layout: Layout, record: Record, now: datetime) -> tuple[dict[str, Any
     that is absent reads as "nothing yet", which may only mean it was out of sight this poll."""
     entry: dict[str, Any] = asdict(record)
     entry["files"] = list(record.files)
+    if isinstance(record.reason, str):  # the stored text keeps the server's paths; this is shown
+        entry["reason"] = served_reason(layout, record.reason)
     entry.pop("modules")  # the modules asked for; "modules" here is each one's state, set below
     try:  # the cap the run launches with: its own, or a record's from before per-pathway caps
         entry["cap"] = str(cap_of(record))

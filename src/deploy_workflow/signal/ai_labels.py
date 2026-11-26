@@ -36,11 +36,13 @@ MAX_WHY = 240
 KINDS = ("news", "regulatory case", "rating action", "other")
 STAGES = ("opened", "initial review", "in-depth review", "decision")
 STAGE_NAMES = ("Opened", "Initial review", "In-depth review", "Decision")
+_LETTER_GRADES = (
+    "AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+", "BBB", "BBB-", "BB+", "BB", "BB-",
+    "B+", "B", "B-", "CCC+", "CCC", "CCC-", "CC", "C",
+)  # fmt: skip
 SCALES: tuple[tuple[str, ...], ...] = (
-    (
-        "AAA", "AA+", "AA", "AA-", "A+", "A", "A-", "BBB+", "BBB", "BBB-", "BB+", "BB", "BB-",
-        "B+", "B", "B-", "CCC+", "CCC", "CCC-", "CC", "C", "RD", "SD", "D",
-    ),
+    (*_LETTER_GRADES, "SD", "D"),  # S&P: selective default, then default
+    (*_LETTER_GRADES, "RD", "D"),  # Fitch: restricted default, then default
     (
         "Aaa", "Aa1", "Aa2", "Aa3", "A1", "A2", "A3", "Baa1", "Baa2", "Baa3", "Ba1", "Ba2", "Ba3",
         "B1", "B2", "B3", "Caa1", "Caa2", "Caa3", "Ca", "C",
@@ -53,9 +55,80 @@ _LINK = re.compile(
     r"|\b[a-z][a-z0-9+.-]*:(?=[^\s\d])"  # any scheme-like word: javascript:, mailto:, data:
     r"|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/"  # any label.tld/ (bit.ly/x, evil.ru/login)
     r"|\b[a-z0-9-]+\.[a-z0-9-]+\.[a-z]{2,}\b"  # a host of three labels (evil.example.info)
-    r"|\b[a-z0-9-]+\.(?:com|org|net|io|co|uk|eu|de|fr|me|ly|ru|info|biz|xyz|app|dev)\b"
+    # a lower-case bare host on a common top-level domain; a capitalised name (Cars.com) is not one
+    r"|\b(?-i:[a-z])[a-z0-9-]*\.(?:com|org|net|io|co|uk|eu|de|fr|me|ly|ru|info|biz|xyz|app|dev)\b"
 )
-_SECOND_SENTENCE = re.compile(r"[.!?]\s+\S")
+_SECOND_SENTENCE = re.compile(r"[.!?](?=\s+\S)")
+_DOTTED_INITIALISM = re.compile(r"(?:[^\W\d_]\.){2,}")
+# The word before a stop: the trailing run of letters and dots, not joined to a word character, a
+# dot, "&" ("S&P.", "AT&T.") or a possessive ("Moody's."); a quote, dash or bracket before it is
+# not part of it.
+_TOKEN = re.compile(r"(?<![\w.&])(?<![^\W\d_]['\u2019])(?:[^\W\d_]+\.)+\Z")
+# Company forms are matched without case (all-capital names: "ACME INC."); the rest exact case.
+_COMPANY_FORMS = frozenset(
+    a.casefold()
+    for a in (
+        "Inc",
+        "Co",
+        "Corp",
+        "Ltd",
+        "Plc",
+        "Bros",
+        "Cos",
+        "Pty",
+        "Pte",
+        "Sdn",
+        "Bhd",
+        "Intl",
+        "Hldgs",
+    )
+)
+_ABBREVIATIONS = frozenset(
+    {
+        "No",
+        "vs",
+        "St",
+        "Mr",
+        "Ms",
+        "Dr",
+        "Jr",
+        "Sr",
+        "Gov",
+        "Sen",
+        "Rep",
+        "Gen",
+        "Sec",
+        "Lt",
+        "Col",
+        "Sgt",
+        "Prof",
+        "Mt",
+        "Ft",
+        "Mrs",
+        "v",
+    }
+)
+
+
+def has_second_sentence(text: str) -> bool:
+    """Whether a sentence end (``.``, ``!`` or ``?`` then space then a capital letter; a digit
+    does not start one: "Dec. 15") is not
+    just an abbreviation: a dotted initialism (U.S., A.Ş.), a single letter (J.), a company form
+    in any case (Inc, Co, ACME INC.) or a listed title in its exact case (Sen., Gov., No.)."""
+    for end in _SECOND_SENTENCE.finditer(text):
+        if not text[end.end() :].lstrip()[0].isupper():
+            continue  # a digit or lower-case letter never starts a sentence
+        token = _TOKEN.search(text, 0, end.end())
+        word = token.group() if token else ""
+        if text[end.start()] == "." and (
+            _DOTTED_INITIALISM.fullmatch(word)
+            or len(word) == 2
+            or word[:-1] in _ABBREVIATIONS
+            or word[:-1].casefold() in _COMPANY_FORMS
+        ):
+            continue
+        return True
+    return False
 
 
 def plain(text: str) -> bool:
@@ -66,8 +139,9 @@ def plain(text: str) -> bool:
 
 def has_link(text: str) -> bool:
     """Whether `text` holds anything shaped like a link: a scheme or scheme-like word, a
-    protocol-relative address, ``www.``, a ``label.tld/`` path, a host of three labels, or a bare
-    host on a common top-level domain."""
+    protocol-relative address, ``www.``, a ``label.tld/`` path, a host of three labels, or a
+    lower-case bare host on a common top-level domain (a capitalised name such as Cars.com is not
+    one)."""
     return _LINK.search(text) is not None
 
 
@@ -132,7 +206,7 @@ class Label(BaseModel):
             raise ValueError("why is plain text with no surrounding space")
         if has_link(value):
             raise ValueError("why holds no link")
-        if _SECOND_SENTENCE.search(value):
+        if has_second_sentence(value):
             raise ValueError("why is one sentence")
         return value
 

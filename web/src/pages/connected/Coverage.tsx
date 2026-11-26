@@ -94,6 +94,9 @@ function Dashboard({ data: served }: { data: Data }) {
   const [open, setOpen] = useState<string | null>(null);
   const [groups, setGroups] = useState<SavedGroup[]>(readGroups);
   const [groupName, setGroupName] = useState("");
+  /** A saved group's issuers that the library still publishes: a gone issuer is not ticked. */
+  const published = (group: SavedGroup) =>
+    group.issuers.filter((key) => data.issuers.some((issuer) => issuer.key === key));
 
   const titles = useMemo(
     () => new Map(data.columns.map((column) => [column.code, named(column)])),
@@ -367,11 +370,11 @@ function Dashboard({ data: served }: { data: Data }) {
                   key={group.name}
                   pressed={
                     onlyChosen &&
-                    group.issuers.length === chosen.size &&
-                    group.issuers.every((key) => chosen.has(key))
+                    published(group).length === chosen.size &&
+                    published(group).every((key) => chosen.has(key))
                   }
                   onPress={() => {
-                    setChosen(new Set(group.issuers));
+                    setChosen(new Set(published(group)));
                     setOnlyChosen(true);
                   }}
                 >

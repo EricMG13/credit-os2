@@ -18,6 +18,7 @@ from test_cpos_launch import context_file, issuer_folder
 
 from deploy_vii.inputs import portfolio_export as pe
 from deploy_vii.inputs.__main__ import main as self_check
+from deploy_vii.inputs.csv_text import CsvDecodeError, decode_csv_text
 from deploy_vii.inputs.portfolio_export import Quantity, quantity, validate_export
 from deploy_workflow.owners.cpos_launch import _readiness, prepare
 from tools import synthetic_portfolio_exports as synth
@@ -1441,7 +1442,10 @@ def test_a_percent_cell_of_a_workbook_is_marked_so_its_fraction_is_not_read_as_a
     rows = pe.sheet_rows(pack.workbook_bytes(pack.BONDS), "Portfolio Holdings")
     assert rows is not None
     by_number = dict(rows)
-    assert by_number[4][0] == pe.Cell("0.625", numeric=True, percent_format=True)
+    assert by_number[4][0].percent_places is not None
+    assert by_number[4][0] == pe.Cell(
+        "0.625", numeric=True, percent_format=True, percent_places=by_number[4][0].percent_places
+    )
     assert by_number[4][5] == pe.Cell("5000000", numeric=True)
     assert by_number[2][1].date_format
     assert not by_number[2][1].percent_format
@@ -1634,3 +1638,634 @@ def test_a_holdings_csv_beside_only_an_exposure_report_is_not_the_holdings():
     files = synth.csv_files(synth.clean())
     pair = {name: files[name] for name in (synth.EXPOSURE, synth.HOLDINGS_CSV)}
     assert pe.recognise(pair) == {synth.EXPOSURE: "exposure"}
+
+
+# --- Percent cells, unnamed sectors, strict limits (S10-1-1, S10-1-5, S10-1-4) -------------------
+
+
+def test_a_percent_cell_is_read_as_the_percentage_it_shows_and_text_is_unchanged():
+    shown = {"numeric": True, "percent_format": True}
+    assert pe._text(pe.Cell("0.25", **shown, percent_places=2)) == "25.00%"
+    assert pe._text(pe.Cell("0.2980123456", **shown, percent_places=2)) == "29.80%"
+    assert pe._text(pe.Cell("0.12345", **shown, percent_places=2)) == "12.35%"  # half up
+    assert pe._text(pe.Cell("0.298", **shown, percent_places=1)) == "29.8%"
+    assert pe._text(pe.Cell("0.25", **shown, percent_places=0)) == "25%"
+    assert pe._text(pe.Cell("0.0861", **shown)) == "8.61%"  # format not readable: exact shift
+    assert pe._text(pe.Cell("25.00%")) == "25.00%"
+    assert pe._text(pe.Cell("0.25", numeric=True)) == "0.25"
+    assert pe._text(pe.Cell("n/a", numeric=True, percent_format=True)) == "n/a"
+
+
+@pytest.mark.parametrize("sector", ["", "#N/A N/A"])
+def test_a_holding_without_a_sector_is_no_sector_and_keeps_its_value(sector):
+    def recomputed(spec):
+        export = pe.read_export(synth.files(spec))
+        pe.type_rows(export.holdings)
+        return pe.recompute(export.holdings)
+
+    base = recomputed(synth.clean())
+    spec = synth.clean()
+    for holding in spec.holdings:
+        if holding[0] == "FERN":
+            holding[2] = sector
+    found = recomputed(spec)
+    assert len(found.sectors) == len(base.sectors) == 3
+    assert found.value == base.value
+    report = validate_export(synth.files(spec), run_date=date(2025, 3, 31))
+    assert not [i for i in report.issues if "number of sectors" in i.problem]
+    named = [i.problem for i in report.issues if "no sector or borrower name" in i.problem]
+    assert len(named) == 1 and "Index Sector on row" in named[0]
+
+
+@pytest.mark.parametrize(
+    ("code", "places"),
+    [("0.00%", 2), ("0.0%", 1), ("0%", 0), ("#,##0.000%", 3), ("builtin:9", 0), ("builtin:10", 2)],
+)
+def test_the_decimals_of_a_percent_format_are_read_from_its_code(code, places):
+    assert pe._percent_places(code) == places
+
+
+def test_a_strict_limit_is_breached_at_its_own_value():
+    strict = quantity("< 35.1% NAV")
+    assert strict is not None and strict.strict and strict.operator == "<="
+    assert pe._breached(strict, Decimal("35.1"))
+    assert not pe._breached(strict, Decimal("35.0"))
+    loose = quantity("≤ 35.1% NAV")
+    assert loose is not None and not pe._breached(loose, Decimal("35.1"))
+    floor = quantity("> 5%")
+    assert floor is not None and pe._breached(floor, Decimal(5))
+
+
+# --- Third round: percent holdings cells, vendor-token tickers, unspaced ratings (S10-2-*) -------
+
+
+def _percent_holdings_report():
+    import io
+
+    from openpyxl import load_workbook
+
+    ((name, raw),) = synth.workbook_files(synth.clean()).items()
+    book = load_workbook(io.BytesIO(raw))
+    sheet = book["Holdings"]
+    column = [cell.value for cell in sheet[1]].index("Mid YTM") + 1
+    for row in range(2, sheet.max_row + 1):
+        cell = sheet.cell(row, column)
+        if isinstance(cell.value, int | float):
+            cell.value, cell.number_format = cell.value / 100, "0.00%"
+    out = io.BytesIO()
+    book.save(out)
+    return validate_export({name: out.getvalue()}, run_date=date(2025, 3, 31))
+
+
+def test_a_percent_cell_on_the_holdings_sheet_is_read_as_the_percentage_it_shows():
+    report = _percent_holdings_report()
+    assert report.ok, [i.problem for i in report.issues]
+    ((name, raw),) = synth.workbook_files(synth.clean()).items()
+    control = validate_export({name: raw}, run_date=date(2025, 3, 31))
+    yields = [line for line in report.recomputed if "yield" in line.lower()]
+    assert yields and yields == [line for line in control.recomputed if "yield" in line.lower()]
+    assert "8.61%" in yields[0]
+
+
+def test_a_holdings_percent_cell_keeps_its_stored_fraction_in_cells():
+    ytm = pe.Cell("0.08612", numeric=True, percent_format=True, percent_places=2)
+    when = pe.Cell("45747", numeric=True, date_format=True)
+    holding = pe._holding("Holdings", 2, [ytm, when], {"ytm": 0, "maturity": 1})
+    assert holding.text["ytm"] == "8.612%"
+    assert holding.cells["ytm"].text == "0.08612"
+    assert holding.text["maturity"] == "45747"
+
+
+def test_a_vendor_token_borrower_names_no_borrower_under_a_ticker():
+    def found(borrower):
+        spec = synth.clean()
+        spec.holdings[0][1] = borrower
+        report = validate_export(synth.files(spec), run_date=date(2025, 3, 31))
+        return [i.problem for i in report.issues if "ticker ASTR names" in i.problem]
+
+    assert found("#N/A N/A") == found("") == []
+    rows = [
+        pe.Holding(2, "Holdings", {"ticker": "T", "borrower": "#N/A N/A"}, {}),
+        pe.Holding(3, "Holdings", {"ticker": "U", "borrower": "#N/A N/A"}, {}),
+        pe.Holding(4, "Holdings", {"ticker": "U", "borrower": "Real Co"}, {}),
+    ]
+    findings = pe.Findings()
+    pe.borrower_ticker_findings("f.xlsx", rows, findings)
+    assert not findings.issues
+
+
+@pytest.mark.parametrize(
+    ("unspaced", "spaced"),
+    [("B2/B", "B2 / B"), ("Caa1/CCC+", "Caa1 / CCC+"), ("Ba3 /BB-", "Ba3 / BB-")],
+)
+def test_an_unspaced_agency_slash_buckets_like_the_spaced_rating(unspaced, spaced):
+    def holding(text):
+        return pe.Holding(2, "Holdings", {"ratings": text}, {})
+
+    assert pe.rating_number(holding(unspaced)) == pe.rating_number(holding(spaced)) is not None
+    assert pe.rating_bucket(holding(unspaced)) == pe.rating_bucket(holding(spaced)) != "Unrated"
+
+
+def test_a_vendor_token_rating_is_not_split_at_its_slash():
+    holding = pe.Holding(2, "Holdings", {"ratings": "#N/A N/A"}, {})
+    assert pe.rating_number(holding) is None
+
+
+def test_a_rating_cell_that_names_no_rating_is_a_finding_not_silently_unrated():
+    def issues(ratings):
+        spec = synth.clean()
+        spec.holdings[0][7] = ratings
+        report = validate_export(synth.files(spec), run_date=date(2025, 3, 31))
+        return [
+            i.problem for i in report.issues if "Ratings" in i.problem and "rating" in i.problem
+        ]
+
+    bad = issues("XYZ")
+    assert len(bad) == 1 and "XYZ" in bad[0]
+    assert not [p for p in issues("NR") if "XYZ" in p]
+    assert not [p for p in issues("B2/B") if "names no rating" in p]
+
+
+# --- Fourth round: tokens beside an unspaced slash, one S&P rating, 17-digit doubles (S10-3-*) ---
+
+
+@pytest.mark.parametrize(
+    ("text", "parts"),
+    [
+        ("B1/#N/A N/A", ["B1", "#N/A N/A"]),
+        ("#N/A N/A/B+", ["#N/A N/A", "B+"]),
+        ("B1 /#N/A N/A", ["B1", "#N/A N/A"]),
+        ("B1 / #N/A N/A", ["B1", "#N/A N/A"]),
+        ("#N/A Field Not Applicable/B", ["#N/A Field Not Applicable", "B"]),
+        ("#N/A", ["#N/A"]),
+        ("#N/A N/A", ["#N/A N/A"]),
+        ("#DIV/0!", ["#DIV/0!"]),
+        ("#DIV/0!/B", ["#DIV/0!", "B"]),
+        ("B2/B", ["B2", "B"]),
+        ("Ba3 /BB-", ["Ba3", "BB-"]),
+    ],
+)
+def test_a_vendor_token_is_one_agency_part_beside_any_slash(text, parts):
+    assert [part.strip() for part in pe.agency_parts(text)] == parts
+
+
+@pytest.mark.parametrize("dune", ["B1/#N/A N/A", "#N/A N/A/B+", "B1 /#N/A N/A"])
+def test_an_unspaced_rating_beside_a_vendor_token_keeps_the_other_agency(dune):
+    # Dune Sample Corp (25.00 %) is B1 / B+: Moody's B1 (index 14) or S&P B+ (index 14), bucket B,
+    # so the only finding is the token one the spaced spelling `B1 / #N/A N/A` gives (row 6).
+    spec = synth.clean()
+    for holding in spec.holdings:
+        holding[7] = holding[7].replace(" / ", "/")
+        if holding[0] == "DUNE":
+            holding[7] = dune
+    report = validate_export(synth.files(spec), run_date=date(2025, 3, 31))
+    assert [i.problem for i in report.issues] == [
+        "Ratings holds a vendor error token for an agency on row 6"
+    ]
+    assert pe.rating_bucket(pe.Holding(6, "Holdings", {"ratings": dune}, {})) == "B"
+
+
+def test_a_rating_cell_of_one_sp_rating_is_read_on_sps_scale():
+    # Birch Imaginary Inc's Ba3 / BB- written BB- alone: S&P index 13, bucket BB; the buckets stay
+    # the clean export's, so the export passes.
+    def holding(text):
+        return pe.Holding(2, "Holdings", {"ratings": text}, {})
+
+    assert pe.rating_number(holding("BB-")) == 13
+    assert pe.rating_number(holding("Ba3")) == 13
+    assert pe.rating_number(holding("C")) == 21  # on both scales: Moody's first
+    spec = synth.clean()
+    for row in spec.holdings:
+        if row[0] == "BRCH":
+            row[7] = "BB-"
+    report = validate_export(synth.files(spec), run_date=date(2025, 3, 31))
+    assert report.ok, [i.problem for i in report.issues]
+
+
+def test_a_percent_cell_rounds_from_the_value_it_displays_not_the_doubles_expansion():
+    # 0.89849999999999997 is the 17-digit spelling of the double 0.8985: Excel shows 15 digits,
+    # 0.898500000000000, so `0.0%` shows 89.9 % (89.85 half up), as the short spelling does.
+    shown = {"numeric": True, "percent_format": True, "percent_places": 1}
+    assert pe._text(pe.Cell("0.89849999999999997", **shown)) == "89.9%"
+    assert pe._text(pe.Cell("0.8985", **shown)) == "89.9%"
+    assert pe._text(pe.Cell("0.29849999999999999", **shown)) == "29.9%"
+    # The holdings keep the stored digits exactly (no display rounding).
+    assert pe._percent_text(pe.Cell("0.89849999999999997", **shown), None) == "89.849999999999997%"
+
+
+# --- Fifth round: plain not-available markers in Ratings, Sector and Borrower (S10-4-*) --------
+
+
+@pytest.mark.parametrize(
+    ("text", "bucket"),
+    [
+        ("N/A", "Unrated"),
+        ("N/A / N/A", "Unrated"),
+        ("N/A/N/A", "Unrated"),
+        ("N/A / B+", "B"),  # no Moody's rating; S&P B+ is index 14, bucket B (14-16)
+        ("n/a / B+", "B"),
+        ("N/R / B+", "B"),
+    ],
+)
+def test_a_plain_not_available_marker_is_one_agency_part_that_gives_no_rating(text, bucket):
+    assert pe.rating_bucket(pe.Holding(6, "Holdings", {"ratings": text}, {})) == bucket
+
+
+@pytest.mark.parametrize("dune", ["N/A / N/A", "N/A", "N/A/N/A"])
+def test_an_unrated_loan_written_n_a_gives_what_nr_nr_gives(dune):
+    # Dune Sample Corp (25.00 % of the 100.0m) unrated breaches C-09 (unrated <= 5.0 % NAV), as
+    # the control spelling NR / NR does; no line may put it in IG.
+    def problems(ratings):
+        spec = synth.clean()
+        for holding in spec.holdings:
+            if holding[0] == "DUNE":
+                holding[7] = ratings
+        return [i.problem for i in validate_export(synth.files(spec), run_date=RUN_DATE).issues]
+
+    control = problems("NR / NR")
+    assert any(p.startswith("C-09: on the holdings' 25.00% (unrated)") for p in control)
+    assert problems(dune) == control
+
+
+@pytest.mark.parametrize("dune", ["N/A / B+", "n/a / B+", "N/R / B+"])
+def test_an_sp_only_rating_beside_a_not_available_marker_names_a_rating(dune):
+    # Dune's B1 / B+ written with no Moody's: S&P B+ keeps bucket B, so the export passes.
+    spec = synth.clean()
+    for holding in spec.holdings:
+        if holding[0] == "DUNE":
+            holding[7] = dune
+    report = validate_export(synth.files(spec), run_date=RUN_DATE)
+    assert not [i.problem for i in report.issues if "names no rating" in i.problem]
+    assert report.ok, [i.problem for i in report.issues]
+
+
+@pytest.mark.parametrize(
+    ("column", "tickers", "marker"),
+    [
+        (2, ("FERN",), "N/A"),
+        (2, ("FERN",), "n/a"),
+        (2, ("FERN",), "-"),
+        (2, ("FERN",), "—"),
+        (1, ("BRCH", "FERN"), "N/A"),
+        (1, ("BRCH", "FERN"), "-"),
+    ],
+)
+def test_a_not_applicable_sector_or_borrower_names_nothing_as_an_empty_cell_does(
+    column, tickers, marker
+):
+    def problems(text):
+        spec = synth.clean()
+        for holding in spec.holdings:
+            if holding[0] in tickers:
+                holding[column] = text
+        return [i.problem for i in validate_export(synth.files(spec), run_date=RUN_DATE).issues]
+
+    control = problems("")
+    assert any(p.startswith("no sector or borrower name") for p in control)
+    assert problems(marker) == control
+
+
+# The seven positions' figures, worked by hand from `POSITIONS`: par 20.0m + 10.0m + 15.0m +
+# 10.0m + 25.0m + 10.0m + 10.0m = 100,000,000; market value at mid 100,000,000; six borrowers.
+SEVEN = (
+    "positions with a par: 7; par 100,000,000",
+    "market value at mid of the 7 priced positions: 100,000,000",
+    "borrowers: 6; tickers: 6; sectors: 3",
+    "largest borrower: Aster Fictional Co, 29.80% of market value",
+)
+
+
+@pytest.mark.parametrize(
+    ("column", "label", "priced"), [(1, "Total", False), (0, "Grand Total", True)]
+)
+def test_a_totals_row_at_the_foot_of_the_holdings_is_not_a_position(column, label, priced):
+    spec = synth.clean()
+    total: list[object] = [""] * len(spec.holdings[0])
+    total[column] = label
+    total[-1] = 100_000_000  # the sum of the seven pars
+    if priced:
+        total[11], total[12] = 99.75, 100.25
+    spec.holdings.append(total)
+    report = validate_export(synth.files(spec), run_date=RUN_DATE)
+    assert report.rows == 7
+    assert all(line in report.recomputed for line in SEVEN)
+    assert report.ok, [i.problem for i in report.issues]  # a left-out total is no defect
+    rows = len(synth.clean().holdings) + 2  # the header on row 1, then the seven positions
+    assert f"Holdings: total, subtotal and note rows on row {rows}; not read as positions" in (
+        report.notes
+    )
+
+
+def test_the_note_row_rule_is_one_shared_by_both_holdings_readers():
+    import deploy_workflow.reference_portfolios as rp
+
+    assert not hasattr(rp, "_is_note")
+    assert pe.row_kind({"borrower": "Grand Total"}, "Grand Total") == "total"
+    assert pe.row_kind({"borrower": "Source: Bloomberg L.P."}, "Source: Bloomberg L.P.") == "note"
+    assert pe.row_kind({"borrower": "Aster Fictional Co"}, "ASTR") == "position"
+
+
+OTHER_REPORT = "SYNTHETIC CP-6A Exposure Report 2025-02.csv"
+
+
+def _concentration() -> dict[str, bytes]:
+    spec = synth.clean()
+    synth.BROKEN["concentration"](spec)  # Aster stated 35.00 %; the holdings give 29.80 %
+    return synth.files(spec)
+
+
+def test_two_exposure_reports_are_one_layout_finding_naming_both():
+    clean, broken = synth.files(synth.clean()), _concentration()
+    report = validate_export({**clean, OTHER_REPORT: broken[REPORT]}, run_date=RUN_DATE)
+    assert not report.ok
+    problem = (
+        f"2 files hold the exposure report: {OTHER_REPORT}, {REPORT}; check one export at a time"
+    )
+    assert [(i.sheet, i.problem) for i in report.issues if "hold the" in i.problem] == [
+        ("layout", problem)
+    ]
+
+
+def test_a_finding_names_the_file_whose_rows_were_read():
+    clean, broken = synth.files(synth.clean()), _concentration()
+    report = validate_export({**broken, OTHER_REPORT: clean[REPORT]}, run_date=RUN_DATE)
+    assert {i.file for i in report.issues if "35.00%" in i.problem} == {REPORT}
+
+
+def test_an_archive_copy_beside_the_current_export_fails_the_check():
+    clean = synth.files(synth.clean())
+    files = {**_concentration(), **{f"archive/{name}": raw for name, raw in clean.items()}}
+    report = validate_export(files, run_date=RUN_DATE)
+    assert not report.ok
+    assert sorted(i.problem.split(":")[0] for i in report.issues if "hold the" in i.problem) == [
+        "2 files hold the exposure report",
+        "2 files hold the holdings",
+        "2 files hold the mandate",
+    ]
+
+
+LONG_FIELD = ("id,note\n1," + "word " * 30_000 + "\n").encode()  # one 150,000-character field
+
+
+def test_a_csv_the_reader_refuses_that_is_no_export_file_is_skipped():
+    assert pe.recognise({"lender notes.csv": LONG_FIELD}) == {}
+    files = {**synth.files(synth.clean()), "lender notes.csv": LONG_FIELD}
+    assert validate_export(files, run_date=RUN_DATE).ok
+
+
+def test_a_refused_csv_named_as_an_export_file_is_one_layout_finding():
+    name = "SYNTHETIC CP-6A Exposure Report.csv"
+    assert pe.recognise({name: LONG_FIELD}) == {}
+    report = validate_export({**synth.files(synth.clean()), name: LONG_FIELD}, run_date=RUN_DATE)
+    assert not report.ok
+    refused = [i for i in report.issues if i.file == name and i.sheet == "layout"]
+    assert len(refused) == 1
+    assert "field larger than field limit (131072)" in refused[0].problem
+
+
+def test_a_refused_csv_whose_first_row_is_an_export_header_is_one_layout_finding():
+    raw = b"Section,Field,Value\n" + LONG_FIELD
+    report = validate_export({"notes.csv": raw}, run_date=RUN_DATE)
+    assert [(i.file, i.sheet) for i in report.issues] == [("notes.csv", "layout")]
+
+
+@pytest.mark.parametrize("dune", ["Not Rated", "Unrated", "NR", "not rated", "-", "—", "NA"])
+def test_a_not_rated_word_or_mark_reads_as_no_rating_as_nr_does(dune):
+    def problems(ratings):
+        spec = synth.clean()
+        for holding in spec.holdings:
+            if holding[0] == "DUNE":
+                holding[7] = ratings
+        return [i.problem for i in validate_export(synth.files(spec), run_date=RUN_DATE).issues]
+
+    control = problems("NR")
+    assert any(p.startswith("C-09: on the holdings' 25.00% (unrated)") for p in control)
+    assert sorted(problems(dune)) == sorted(control)
+    assert any("names no rating" in p for p in problems("XYZ"))
+
+
+# --- One cell and one row classifier for both holdings readers (S10 round 7) ----------------------
+
+_SPARSE = ("Rossini S.à r.l.", "Lottomatica s.p.a.", "Total Produce plc", "Total S.A.")
+_NAMES = (*_SPARSE, "TotalEnergies SE", "Notes Co", "Sum Holdings", "Totals Ltd")
+_PRICES = "Prices are indicative and subject to change."
+
+
+@pytest.mark.parametrize(
+    ("texts", "first", "expected"),
+    [
+        *(({"borrower": name}, name, "position") for name in _NAMES),
+        ({"borrower": "Bank of America Corp."}, "Bank of America Corp.", "position"),
+        ({"ticker": "SUM", "loan": "FERN TL"}, "SUM", "position"),  # a loan name: a position
+        ({"borrower": "Total"}, "Total", "total"),
+        ({"borrower": "Total:"}, "Total:", "total"),
+        ({"ticker": "Grand Total"}, "Grand Total", "total"),
+        ({"sector": "Software Total"}, "Software Total", "total"),
+        ({"borrower": "Total Portfolio"}, "Total Portfolio", "total"),
+        ({"borrower": "Total (USD)"}, "Total (USD)", "total"),
+        ({"borrower": "Sub-total"}, "Sub-total", "total"),
+        ({"borrower": "Sum"}, "Sum", "total"),
+        ({"borrower": "Source: Bloomberg L.P."}, "Source: Bloomberg L.P.", "note"),
+        ({"borrower": _PRICES}, _PRICES, "note"),
+    ],
+)
+def test_a_holdings_row_is_a_position_a_total_or_a_note_by_one_rule(texts, first, expected):
+    assert pe.row_kind(texts, first) == expected
+
+
+@pytest.mark.parametrize(
+    ("label", "rank", "expected"),
+    [
+        ("Top 10 Total", "", "total"),
+        ("Top 20 Subtotal", "", "subtotal"),
+        ("TotalEnergies", "", "row"),
+        ("Total Produce", "4", "row"),  # a ranked row is an issuer, whatever its name
+    ],
+)
+def test_an_exposure_label_is_a_total_only_as_a_whole_word_on_an_unranked_row(
+    label, rank, expected
+):
+    assert pe._label_kind(label, rank) == expected
+
+
+_KEYED = ("positions with a par: 7; par 100,000,000", "borrowers: 6; tickers: 6; sectors: 3")
+
+
+def _fern_renamed(name: str, short: str | None = None) -> synth.Spec:
+    """The clean export with Fern Placeholder SA renamed everywhere (and its short name, `Fern`, in
+    the exposure report when `short` is given)."""
+    spec = synth.clean()
+    for rows in (spec.mandate, spec.constraints, spec.fit_constraints, spec.exposure):
+        for row in rows:
+            for i, value in enumerate(row):
+                if isinstance(value, str) and "Fern Placeholder SA" in value:
+                    row[i] = value.replace("Fern Placeholder SA", name)
+                elif short is not None and value == "Fern":
+                    row[i] = short
+    for row in spec.holdings:
+        if row[1] == "Fern Placeholder SA":
+            row[1] = name
+    return spec
+
+
+@pytest.mark.parametrize("name", ["Rossini S.à r.l.", "Lottomatica s.p.a."])
+def test_a_borrower_with_a_lower_case_legal_form_is_a_position(name):
+    report = validate_export(synth.files(_fern_renamed(name)), run_date=RUN_DATE)
+    assert (report.ok, report.rows) == (True, 7)  # 20 + 10 + 15 + 10 + 25 + 10 + 10 = 100.0m
+    assert all(line in report.recomputed for line in _KEYED)
+
+
+_TOTAL_NAMED = [("Total Produce", "Total Produce plc"), ("TotalEnergies", "TotalEnergies SE")]
+
+
+@pytest.mark.parametrize(("short", "name"), _TOTAL_NAMED)
+def test_an_issuer_named_total_in_the_top_10_is_no_total_row(short, name):
+    report = validate_export(synth.files(_fern_renamed(name, short)), run_date=RUN_DATE)
+    assert report.ok, [i.problem for i in report.issues]
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        # Excel's Data > Subtotal: Software 20 + 10 + 10 = 40m, Chemicals 15 + 10 = 25m,
+        # Healthcare 25 + 10 = 35m, Grand Total 100m, each in the sector column with its par.
+        ((2, "Software Total", 40_000_000), (2, "Chemicals Total", 25_000_000),
+         (2, "Healthcare Total", 35_000_000), (2, "Grand Total", 100_000_000)),
+        ((1, "Total Portfolio", 100_000_000),),
+        ((1, "Total (USD)", 100_000_000),),
+    ],
+)  # fmt: skip
+def test_a_labelled_totals_row_is_left_out_of_the_holdings(rows):
+    spec = synth.clean()
+    for column, label, par in rows:
+        row: list[object] = [""] * len(spec.holdings[0])
+        row[column], row[-1] = label, par
+        spec.holdings.append(row)
+    report = validate_export(synth.files(spec), run_date=RUN_DATE)
+    assert report.rows == 7
+    assert all(line in report.recomputed for line in _KEYED)
+
+
+def test_an_unnamed_position_whose_ticker_is_sum_is_kept_with_one_finding():
+    spec = synth.clean()
+    for row in spec.holdings:
+        if row[1] == "Fern Placeholder SA":
+            row[0], row[1] = "SUM", ""
+    report = validate_export(synth.files(spec), run_date=RUN_DATE)
+    assert report.rows == 7  # row 8 keeps FERN TL, its FIGI and its 10.0m par
+    assert "positions with a par: 7; par 100,000,000" in report.recomputed
+    assert len([i for i in report.issues if "Borrower on row 8" in i.problem]) == 1
+
+
+def _cr(raw: bytes) -> bytes:
+    return raw.replace(b"\r\n", b"\n").replace(b"\n", b"\r")
+
+
+@pytest.mark.parametrize("name", ["CP-6A Monthly Report 2025-03.csv", REPORT])
+def test_a_csv_with_carriage_return_line_endings_reads_as_with_line_feeds(name):
+    files = synth.files(synth.broken("concentration"))
+    files[name] = _cr(files.pop(REPORT))
+    report = validate_export(files, run_date=RUN_DATE)
+    largest = [i.problem for i in report.issues if "largest issuer's share" in i.problem]
+    assert not report.ok
+    assert largest and "35.00%" in largest[0]  # stated 35.00 %; the holdings give 29.8 / 100
+    assert not [i for i in report.issues if "refuses the file" in i.problem]
+
+
+def test_a_carriage_return_issuer_csv_named_exposure_is_no_export():
+    raw = _cr(b"Currency,Exposure (USD m),Hedged\nEUR,120,Yes\nGBP,45,No\n")
+    assert pe.recognise({"Interest rate exposure.csv": raw}) == {}
+
+
+def test_two_holdings_files_send_no_figures_of_what_the_holdings_give():
+    current = synth.clean()
+    current.holdings[4][-1] = 35_000_000  # Dune 25.0m -> 35.0m: this month's par 110.0m
+    archived = {f"archive/{name}": raw for name, raw in synth.files(synth.clean()).items()}
+    report = validate_export({**synth.files(current), **archived}, run_date=RUN_DATE)
+    assert any("hold the holdings" in i.problem for i in report.issues)
+    assert (report.ok, report.recomputed, report.table) == (False, (), ())
+
+
+def test_a_refused_issuer_csv_whose_name_holds_holdings_is_no_export():
+    raw = 'Line item,FY2023,FY2024,Note\nRevenue,100,110,\nEBITDA,20,22,"' + "x" * 150_000 + '"\n'
+    assert pe.recognise({"Ardagh Holdings FY2024 financials.csv": raw.encode()}) == {}
+
+
+def test_a_windows_1252_export_reads_as_its_utf_8_copy():
+    def saved(encoding: str) -> dict[str, bytes]:
+        return {
+            name: raw.decode("utf-8")
+            .replace("≤", "<=")
+            .replace("≥", ">=")
+            .replace("Δ", "Chg")
+            .encode(encoding)
+            if name.endswith(".csv")
+            else raw
+            for name, raw in synth.files(synth.clean()).items()
+        }
+
+    utf8, ansi = (validate_export(saved(e), run_date=RUN_DATE) for e in ("utf-8", "cp1252"))
+    assert (utf8.ok, [i.problem for i in utf8.issues]) == (True, [])
+    assert (ansi.ok, [i.problem for i in ansi.issues]) == (True, [])  # 0x97 is the em dash
+
+
+def test_the_csv_decoder_reads_utf_8_then_windows_1252_and_refuses_the_rest():
+    assert decode_csv_text("\ufeffa,é".encode()) == "\ufeffa,é"  # a BOM is the caller's to strip
+    assert decode_csv_text("caf\u00e9 \u2014".encode("cp1252")) == "café —"
+    for raw in (b"caf\x81", b"a\x8d\x8f\x90\x9d"):  # the five bytes cp1252 leaves undefined
+        with pytest.raises(CsvDecodeError):
+            decode_csv_text(raw)
+    assert issubclass(CsvDecodeError, ValueError)
+
+
+def test_csv_rows_read_a_bom_and_refuse_a_file_that_is_neither_utf_8_nor_windows_1252():
+    assert pe.csv_rows("\ufeffa,b\n".encode()) == [["a", "b"]]
+    assert pe.csv_rows(b"a,caf\xe9\n") == [["a", "café"]]
+    with pytest.raises(CsvDecodeError):
+        pe.csv_rows(b"a,b\x81\n")
+
+
+def test_an_export_csv_with_undecodable_bytes_is_refused_and_any_other_csv_is_skipped():
+    files = synth.files(synth.clean())
+    mandate = "SYNTHETIC CP-6A Mandate File.csv"
+    files[mandate] += b"\nBad,\x81\n"  # 0x81 is undefined in Windows-1252
+    report = validate_export(files, run_date=RUN_DATE)
+    assert any(i.file == mandate and "refuses the file" in i.problem for i in report.issues)
+    assert pe.recognise(files)[mandate] == pe.UNREADABLE
+    other = {"Interest rate notes.csv": b"Line item,FY2024\nRevenue,\x81\n"}
+    assert pe.recognise(other) == {}
+
+
+def test_a_ranking_written_n_a_holds_no_rating():
+    def problems(ranking: str) -> list[str]:
+        spec = synth.clean()
+        for holding in spec.holdings:
+            if holding[0] == "DUNE":
+                holding[6] = ranking
+        return [i.problem for i in validate_export(synth.files(spec), run_date=RUN_DATE).issues]
+
+    assert "Ranking on row 6 holds a rating, 'B2 / B'" in problems("B2 / B")
+    found = problems("N/A")
+    assert any(p.startswith("Ranking states no lien") and "row 6" in p for p in found)
+    assert not [p for p in found if "holds a rating" in p]
+
+
+def test_the_self_check_refuses_no_files_and_a_repeated_file_name(tmp_path):
+    none = pe.validate_export_paths([], run_date=RUN_DATE)
+    assert not none.ok
+    assert "nothing was checked" in none.issues[0].problem
+    for folder in ("current", "archive"):
+        (tmp_path / folder).mkdir()
+        for name, raw in synth.files(synth.clean()).items():
+            (tmp_path / folder / name).write_bytes(raw)
+    paths = sorted(tmp_path.rglob("*.*"))
+    report = pe.validate_export_paths(paths, run_date=RUN_DATE)
+    assert not report.ok
+    assert "two files have this name" in report.issues[0].problem
+
+
+def test_a_numeric_date_that_reads_two_ways_is_unread():
+    assert pe.text_date("05/03/2025") is None
+    assert pe.text_date("03/31/2025") == date(2025, 3, 31)  # only month first
+    assert pe.text_date("31/03/2025") == date(2025, 3, 31)  # only day first
+    assert pe.text_date("12/12/2025") == date(2025, 12, 12)  # the same either way

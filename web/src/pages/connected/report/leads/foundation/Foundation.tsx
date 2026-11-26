@@ -6,7 +6,13 @@ import { CashLadderTile } from "./CashLadder";
 import { DebtStackTile } from "./DebtStack";
 import { EarningsDebtTile } from "./EarningsDebt";
 import { EbitdaBridgeTile } from "./EbitdaBridge";
-import { figureGap, showPeriodsTile, statedPeriods, type Figure } from "./foundationData";
+import {
+  figureGap,
+  netDebtView,
+  showPeriodsTile,
+  statedPeriods,
+  type Figure,
+} from "./foundationData";
 import { InterestCoverTile } from "./InterestCover";
 import { MaturityTile } from "./Maturity";
 import { NetDebtTile } from "./NetDebt";
@@ -34,9 +40,13 @@ const DRAWN = [
   "Debt maturities",
 ] as const;
 
+/** The liquidity chart is drawn by the Net debt view alone: with no readable net debt data it is not drawn. */
+const drawn = (props: LeadProps) =>
+  netDebtView(props.entry) === null ? DRAWN.filter((title) => title !== "Liquidity") : DRAWN;
+
 const unread = (props: LeadProps) =>
   chartTitles(props.entry).filter(
-    (title) => !DRAWN.some((drawn) => drawn.toLowerCase() === title.toLowerCase()),
+    (title) => !DRAWN.some((one) => one.toLowerCase() === title.toLowerCase()),
   );
 
 /** True when this page can read no figure of the handoff: every tile would be its gap. */
@@ -78,7 +88,7 @@ function Foundation(props: LeadProps) {
           {/* The wall takes the whole row when no periods tile shares it. */}
           <MaturityTile lead={props} span={showPeriodsTile(props.entry) ? 6 : 12} />
           {showPeriodsTile(props.entry) && <PeriodsTile lead={props} />}
-          <UnreadFigures lead={props} drawn={DRAWN} />
+          <UnreadFigures lead={props} drawn={drawn(props)} />
         </div>
       )}
     </LeadFrame>

@@ -2243,3 +2243,26 @@ def test_cp1_the_minuend_rule_reads_the_subtrahend_as_the_rows_denominator():
 
     assert cp1_module._reads_growth("(25068 - 2000) / 3813", "", 25068, 3813) == "ratio"
     assert cp1_module._reads_growth("(7940 - 6585) / 6585", "", 7940, 6585) == "growth"
+
+
+@pytest.mark.parametrize(
+    ("cell", "is_blank"),
+    [
+        ("N/A", True),
+        ("N/A (zero base)", True),
+        ("n/a: no sales", True),
+        ("Not applicable - no debt", True),
+        ("NA, negative EBITDA", True),
+        ("42.5", False),
+        ("0", False),
+        ("Nairobi branch", False),  # a word that merely starts with the letters
+        ("None of the above", False),
+    ],
+)
+def test_a_null_word_with_its_explanation_states_no_figure(cell, is_blank):
+    """S07-method-scripts-calcs-1-1: `N/A (zero base)` is blank like the bare `N/A`."""
+    import types
+
+    tables = types.ModuleType("tables")
+    tables.is_null = lambda text: str(text).strip().casefold() in {"", "n/a", "na", "none"}
+    assert ms.blank(cell, tables) is is_blank

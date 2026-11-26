@@ -870,3 +870,19 @@ def test_without_the_table_there_is_no_revenue_and_commas_stay_refused_elsewhere
     metrics = lev_metrics(tmp_path, ["FY2023 | 4.2 | x", "FY2024 | 1,234 | x"])
     assert "revenue" not in metrics and "adjusted_ebitda" not in metrics
     assert "leverage" not in metrics
+
+
+def test_cash_and_undrawn_keep_a_thousands_separator_like_revenue():
+    """S09-1-1: CP-1 accepts a grouped liquidity cell, so the metric is kept, not left out."""
+    from deploy_workflow.credit_os_catalogue import handoff_metrics
+
+    text = f"""### Chart data: liquidity
+
+| Period | Cash | Undrawn committed facilities | Reporting unit | {BASIS_COLUMN}
+| --- | --- | --- | --- | --- |
+| 2024-09-30 | 6,261 | 1,843 | US$m | Available RCF only, after letters of credit. |
+"""
+    issues: list[str] = []
+    metrics = handoff_metrics("x", {"path": "p.md", "sha256": "0" * 64}, text, {}, issues)
+    assert metrics["cash"]["value"] == "6,261" and metrics["undrawn"]["value"] == "1,843"
+    assert issues == []

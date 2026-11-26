@@ -277,10 +277,13 @@ const BASE = "Base case";
 const MOST_LIMITS = 2;
 
 /** Why the path has no base case to headline: the model marks none, or states it no figure. */
-const unbased = (groups: string[]) =>
+export const unbased = (groups: string[]) =>
   groups.includes(BASE)
     ? "The model states no net leverage for the base case."
     : "The model marks no case as the base case.";
+
+const hasFigure = (item: { points: readonly { value: number | null }[] }) =>
+  item.points.some((point) => point.value !== null);
 
 /** Net leverage by forecast period for each case of the published model, as the model computed it. */
 export function forwardPath(model: unknown) {
@@ -309,8 +312,10 @@ export function forwardPath(model: unknown) {
         ({ period }) => period,
       ).ordered,
     }))
-    .filter((item) => item.points.some((point) => point.value !== null));
-  if (!cases.length) return null;
+    // A case with a stated figure leads (the base case first); one whose every figure is a stated
+    // gap follows, kept for the notes and the table, never plotted.
+    .sort((a, b) => Number(hasFigure(b)) - Number(hasFigure(a)));
+  if (!cases.some(hasFigure)) return null;
   // The model's own first statements of what it is, in reader words (codes named, Basis lines and
   // markers set aside); those that cite a source, and the full list, are on the Forecast page.
   const limits = stringsIn(raw.limits)
@@ -318,6 +323,27 @@ export function forwardPath(model: unknown) {
     .slice(0, MOST_LIMITS);
   const based = cases[0]?.group === BASE;
   return { measure: row.label, cases, based, unbased: based ? null : unbased(groups), limits };
+}
+
+/**
+ * For a model whose net leverage row exists but states no figure in any case: what the model says
+ * (its first stated reason, in reader words, else that it states no net leverage by period). Null
+ * when the model has no net leverage row, or a path can be drawn: `forwardPath` is null for both of
+ * the first two, and this tells them apart.
+ */
+export function forwardStatement(model: unknown) {
+  const grid = gridOf(record(record(model).cashflow));
+  const row = grid?.rows.find((item) => NET_LEVERAGE.test(item.label));
+  if (!grid || !row || forwardPath(model)) return null;
+  // Only a forecast column's reason speaks for the forward path: a history column's is about its own period.
+  const stated = grid.columns.flatMap((column, at) => {
+    const reason =
+      Boolean(column.start) && isForecastPeriod(column.label)
+        ? readerReason(word(row.cells[at]?.reason))
+        : null;
+    return reason ? [`${column.group}, ${column.label}: ${reason}`] : [];
+  })[0];
+  return stated ?? "The published model states no net leverage by period.";
 }
 
 export const PATH = { width: 292, height: 170, left: 28, right: 268, top: 24, base: 130 } as const;
@@ -328,15 +354,22 @@ export function pathPeriods(cases: readonly { points: readonly { period: string 
   return orderPeriods(periods, (period) => period).ordered;
 }
 
-/** The path's points on a scale from zero; a period the model has no figure for has no y. */
+/**
+ * The path's points on one scale: the lowest tick sits at the figure's base and the highest at its
+ * top, so a value below zero (net cash) lies below the zero gridline, inside the figure. A period
+ * the model has no figure for has no y.
+ */
 export function pathGeometry(cases: { points: PathPoint[] }[]) {
   const periods = pathPeriods(cases);
   const scale = ticks(cases.flatMap(({ points }) => points.map((point) => point.value)));
+  const low = scale[0]?.value ?? 0;
   const top = scale.at(-1)?.value ?? 1;
   const step = periods.length > 1 ? (PATH.right - PATH.left - 28) / (periods.length - 1) : 0;
   const x = (period: string) => PATH.left + 28 + periods.indexOf(period) * step;
-  const y = (value: number) => PATH.base - (value / top) * (PATH.base - PATH.top);
+  const y = (value: number) =>
+    PATH.base - ((value - low) / (top - low || 1)) * (PATH.base - PATH.top);
   return {
+    zero: y(0),
     periods: periods.map((period) => ({ period, x: x(period) })),
     ticks: scale.map((tick) => ({ label: tick.label, y: y(tick.value) })),
     lines: cases.map(({ points }) =>

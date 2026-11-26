@@ -20,7 +20,7 @@ from deploy_workflow.inbox.scheduler import Scheduler
 from deploy_workflow.model.budget import Budget
 from deploy_workflow.run_events import EVENTS, ModuleState, append_event
 from deploy_workflow.run_start.service import _Server
-from react_frontend import make_server, run_activity
+from react_frontend import _app_page, make_server, run_activity
 
 PROJECT = Path(__file__).resolve().parents[1]
 
@@ -885,3 +885,10 @@ def test_copilot_preflight_rpc_failure_still_launches_offline(
     diagnostic = capsys.readouterr().err
     assert "Copilot seat could not be verified" in diagnostic
     assert "private diagnostic" not in diagnostic
+
+
+@pytest.mark.parametrize("page", ["/start", "/runs", "/coverage"])
+def test_a_client_page_with_a_trailing_slash_is_the_same_page(page: str) -> None:
+    # The client router (ConnectedApp routeOf) accepts each with one trailing slash.
+    assert _app_page(page + "/")
+    assert not _app_page(page + "//")

@@ -95,6 +95,9 @@ CTX = Context(prec=38, rounding=ROUND_HALF_EVEN)
 # Policy constants (lease open questions 2 and 3, expected.json policy_constants).
 MIN_INCLUDED_PEERS = 3
 OUTLIER_FRACTION = Decimal("0.5")
+# A deviation within this of one half is on the threshold, not above it: the stored median and
+# ratios are rounded to 38 digits, and that rounding noise (about 1e-37) is not a deviation.
+OUTLIER_NOISE = Decimal("1e-30")
 # Below this many included peers a limitation says medians move with one peer (oracle wording).
 THIN_UNIVERSE = 5
 THIN_LINE = "Medians over fewer than five peers move with a single peer."
@@ -510,7 +513,8 @@ def outlier(value: Decimal, peer_median_value: Decimal) -> tuple[Decimal, str] |
 
 def _deviation(value: Decimal, peer_median_value: Decimal) -> tuple[Decimal, str]:
     deviation = CTX.divide(CTX.subtract(value, peer_median_value), peer_median_value)
-    flag = "Outlier" if deviation.copy_abs() > OUTLIER_FRACTION else "Within range"
+    beyond = CTX.subtract(deviation.copy_abs(), OUTLIER_FRACTION) > OUTLIER_NOISE
+    flag = "Outlier" if beyond else "Within range"
     return deviation, flag
 
 

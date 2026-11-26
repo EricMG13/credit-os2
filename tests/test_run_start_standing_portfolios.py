@@ -772,3 +772,14 @@ def test_the_production_desk_fetches_on_the_pinned_connection_and_never_queues()
         pass
     with desk.held("clo"):  # released again
         pass
+
+
+def test_a_staged_file_that_folds_to_another_staged_name_is_refused(box):
+    """S08-2-1: a different name the disk reads as the same would replace the first."""
+    lay = box.scheduler.layout
+    first = b"first,1\n"
+    stored = standing_portfolios.add_file(lay, "clo", "Holdings.csv", io.BytesIO(first), len(first))
+    assert stored == "Holdings.csv"
+    with pytest.raises(submissions.Refused):
+        standing_portfolios.add_file(lay, "clo", "HOLDINGS.csv", io.BytesIO(b"x,2\n"), 4)
+    assert (standing_portfolios._staging(lay, "clo") / "Holdings.csv").read_bytes() == first

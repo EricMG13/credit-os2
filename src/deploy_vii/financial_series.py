@@ -3,7 +3,9 @@
 This projection selects facts, never calculates financial values or display text.
 Its strip charts plot every T4.14 period that carries a T4.10 fact (FY, QUARTER, YTD, LTM, PF)
 in the one period order (`period_order`, docs/superpowers/specs/2026-11-25-chart-periods.md);
-its maturity wall reads a complete current facility snapshot. Bounded support: USD millions,
+its maturity wall reads a complete current facility snapshot (every T4.18 row at a period ending
+on the latest date, each facility the debt total sums present; it plots those facilities and
+states that leases are left out). Bounded support: USD millions,
 IFRS consolidated group. Authentication belongs to the unchanged envelope/publication
 boundary; a ModuleView alone is not that proof.
 """
@@ -11,6 +13,8 @@ boundary; a ModuleView alone is not that proof.
 from __future__ import annotations
 
 import hashlib
+import logging
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import date
@@ -19,8 +23,11 @@ from itertools import pairwise
 from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
+from deploy_vii.model.dates import fiscal_year_number
 from deploy_vii.period_order import structured_period_key
 from deploy_vii.trailing_period import states_trailing_period
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +57,9 @@ class FinancialFigureSeries:
     points: tuple[FinancialSeriesPoint, ...]
     reason: str | None
     gaps: tuple[FinancialSeriesGap, ...] = ()
+    # Reader text the chart's table twin states beside plotted points (never a reason: a figure
+    # with points has none).
+    note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,8 +129,11 @@ _COLUMN_KINDS: dict[str, tuple[tuple[str, str, _StartRule], ...]] = {
     "PF": (("PF", "PF", "own"),),
     "PERIOD_END": (),
 }
-# The period types a facility snapshot (T4.18) is read at.
+# The period types whose latest end date is the facility snapshot (T4.18) date.
 _SNAPSHOT_KINDS = frozenset({"QUARTER", "FY", "PERIOD_END"})
+# At one date each facility field is read from the first of these kinds that states it, then
+# from any other kind (YTD, LTM, PF) ending on that date.
+_SNAPSHOT_PRIORITY = ("QUARTER", "FY", "PERIOD_END")
 _SERIES = (
     ("S.1", "Leverage", ("total_leverage_reported", "net_leverage_reported")),
     ("S.2", "Interest cover", ("interest_coverage_reported",)),
@@ -157,8 +170,8 @@ def _rows(module: ModuleView, table: str) -> tuple[dict[str, Fact], ...]:
 
 
 def _period(row: dict[str, Fact], identity: str) -> _Period:
-    """A checked T4.14 row. A QUARTER, FY or PERIOD_END row states its end date; a YTD, LTM or PF
-    row whose dates CP-1 could not establish is kept undated, never dropped."""
+    """A checked T4.14 row. A period whose end date is not stated (any type; the contract allows
+    it with a limitation) is kept undated, never dropped: it sorts last and is no snapshot."""
     scope = tuple(
         _text(row[key]) for key in ("currency", "unit", "accounting_basis", "entity_perimeter")
     )
@@ -170,7 +183,7 @@ def _period(row: dict[str, Fact], identity: str) -> _Period:
     if kind not in _COLUMN_KINDS:
         raise ValueError("Unsupported historical chart period type")
     start, end = row["start_date"], row["end_date"]
-    dated = kind in _SNAPSHOT_KINDS or end.status == "known"
+    dated = end.status == "known"
     return _Period(
         identity,
         kind,
@@ -232,15 +245,17 @@ def _check_quarters(periods: tuple[_Period, ...]) -> None:
     """Contradictory QUARTER identities raise: a quarter number outside 1 to 4, (fiscal year,
     quarter) labels that repeat or do not increase with the dates, a stated start after its end,
     or a stated start inside the quarter before. Any number of quarters, of any fiscal years, is
-    plotted; a quarter whose start the register does not state is checked by its labels alone."""
+    plotted; a quarter whose start the register does not state is checked by its labels alone, and
+    a quarter with no end date has no span: only its number is checked."""
     quarters = [p for p in periods if p.kind == "QUARTER"]
-    labels = [(_text(p.row["fiscal_year"]), _quarter_number(p)) for p in quarters]
-    if any(n not in {"1", "2", "3", "4"} for _, n in labels) or any(
-        a >= b for a, b in pairwise(labels)
-    ):
+    if any(_quarter_number(p) not in {"1", "2", "3", "4"} for p in quarters):
         raise ValueError("Ambiguous QUARTER identities")
-    ends = [date.min if p.end is None else p.end for p in quarters]
-    starts = [None if p.start is None else date.fromisoformat(p.start) for p in quarters]
+    dated = [p for p in quarters if p.end is not None]
+    labels = [(_text(p.row["fiscal_year"]), _quarter_number(p)) for p in dated]
+    if any(a >= b for a, b in pairwise(labels)):
+        raise ValueError("Ambiguous QUARTER identities")
+    ends = [p.end for p in dated if p.end is not None]
+    starts = [None if p.start is None else date.fromisoformat(p.start) for p in dated]
     if any(start is not None and start > end for start, end in zip(starts, ends, strict=True)):
         raise ValueError("Overlapping or inverted QUARTER periods")
     if any(start is not None and start <= prior for prior, start in zip(ends, starts[1:])):
@@ -290,6 +305,21 @@ def _distinct(columns: Sequence[_Column]) -> tuple[_Column, ...]:
     return tuple(replace(column, category=labels[column.column_id]) for column in columns)
 
 
+def _undated_order(period: _Period) -> tuple[int, int]:
+    """(0, 0) for a dated period; an undated one by its own fiscal year and stated fiscal quarter
+    (a QUARTER, YTD or LTM), else after its year's quarters (slot 5: an FY, or no quarter stated).
+    Undated periods of one class share one structured key."""
+    if period.end is not None:
+        return 0, 0
+    year = fiscal_year_number(_text(period.row["fiscal_year"]))
+    if year is None:
+        raise ValueError(f"Unresolved chart identity: {period.row['fiscal_year'].fact_id}")
+    states_quarter = period.kind == "QUARTER" or (
+        period.kind != "FY" and period.row["fiscal_quarter"].status == "known"
+    )
+    return year, int(_quarter_number(period)) if states_quarter else 5
+
+
 def _columns(
     periods: tuple[_Period, ...], metrics: dict[str, dict[str, Fact]]
 ) -> tuple[_Column, ...]:
@@ -305,7 +335,13 @@ def _columns(
         ]
         found = [c for c in candidates if _basis(c.column_id) in carried]
         columns.extend(found or candidates[:1])
-    columns.sort(key=lambda c: (structured_period_key(c.kind, c.period.end), c.column_id))
+    columns.sort(
+        key=lambda c: (
+            structured_period_key(c.kind, c.period.end),
+            _undated_order(c.period),
+            c.column_id,
+        ),
+    )
     return _distinct(columns)
 
 
@@ -424,8 +460,8 @@ def _facility_rows(
     unplotted: frozenset[str],
 ) -> dict[tuple[str, str], dict[str, Fact]]:
     """The T4.18 rows by (facility, period). Every row must be complete and dated at a T4.14
-    period; a row dated at a YTD, LTM or PF period (`unplotted`) is checked and then left out:
-    those are not snapshot periods."""
+    period; a row at an undated period (`unplotted`) is checked and then left out: it is never
+    a snapshot row."""
     indexed: dict[tuple[str, str], dict[str, Fact]] = {}
     for row in rows:
         if not frozenset(_FACILITY_FIELDS) <= row.keys():
@@ -441,59 +477,124 @@ def _facility_rows(
     return indexed
 
 
-def _check_aliases(
+def _terms(fact: Fact) -> tuple[object, ...]:
+    return (fact.amount, fact.text, fact.status, fact.unit, fact.currency, fact.scale, fact.basis)
+
+
+_LEASES = frozenset({"FINANCE_LEASE", "OPERATING_LEASE"})
+
+
+def _in_debt(row: dict[str, Fact]) -> bool:
+    """Whether `financial_reconciliation._debt` sums the facility: every facility but a lease of
+    either class, and a DEBT ADJUSTMENT however it is classified."""
+    return (
+        _text(row["facility_type"]) == "DEBT ADJUSTMENT"
+        or _text(row["lease_classification"]) not in _LEASES
+    )
+
+
+def _snapshot_row(
     fid: str,
-    row: dict[str, Fact],
     current: tuple[_Period, ...],
     indexed: dict[tuple[str, str], dict[str, Fact]],
-) -> None:
-    """FY/Q4 are aliases only when the facility identity AND its terms agree."""
-    for alias in current:
-        other = indexed.get((fid, alias.identity))
-        # The selected quarter's snapshot is complete; an alias without this
-        # facility's row has nothing to compare, and is not plotted.
-        if other is None or other is row:
+) -> tuple[dict[str, Fact], tuple[_Period, ...]] | None:
+    """One facility's snapshot at the latest date, read across its aliases (`current`, in
+    snapshot priority order): each field from the first alias that states it (status not
+    `missing`), else the first alias's unstated fact. With the periods that supplied a field;
+    or None where two aliases state one field with different values. An unstated value never
+    conflicts with a stated one."""
+    rows = [(p, indexed[fid, p.identity]) for p in current if (fid, p.identity) in indexed]
+    merged: dict[str, Fact] = {"period_id": rows[0][1]["period_id"]}
+    for key in _FACILITY_FIELDS:
+        if key == "period_id":
             continue
-        for key in _FACILITY_FIELDS:
-            if key == "period_id":
-                continue
-            a, b = row[key], other[key]
-            if (a.amount, a.text, a.status, a.unit, a.currency, a.scale, a.basis) != (
-                b.amount,
-                b.text,
-                b.status,
-                b.unit,
-                b.currency,
-                b.scale,
-                b.basis,
-            ):
-                raise ValueError("Conflicting same-date facility snapshot aliases")
+        stated = [row[key] for _, row in rows if row[key].status != "missing"]
+        if len({_terms(fact) for fact in stated}) > 1:
+            return None
+        merged[key] = stated[0] if stated else rows[0][1][key]
+    sources = tuple(p for p, row in rows if any(row[k] is merged[k] for k in _FACILITY_FIELDS))
+    return merged, sources
+
+
+_MATURITY_LEASE_STATUS_REASON = (
+    "The maturity wall supports USD facilities stated not to be leases; this snapshot "
+    "does not state whether a facility is a lease; nothing was converted."
+)
+_MATURITY_ALIAS_REASON = (
+    "The maturity wall reads one facility snapshot; two facility rows for one facility at this "
+    "date disagree in its terms; nothing was plotted."
+)
+_MATURITY_SCOPE_REASON = (
+    "The maturity wall supports USD facilities; this snapshot states another currency; "
+    "nothing was converted."
+)
+_MATURITY_LEASES_ONLY_REASON = (
+    "CP-1 states only leases at the latest date; the maturity wall shows debt facilities."
+)
+_MATURITY_LEASES_NOTE = (
+    "Leases are left out of the maturity wall, so it does not sum to CP-1's total debt."
+)
+
+
+def _maturity_unavailable(row: dict[str, Fact]) -> str:
+    """The reader reason for a facility without a known maturity: its stated name and the
+    limitation its maturity fact states; no fact, row or table identity (those are Evidence)."""
+    limitation = row["maturity_date"].limitation
+    name = _text(row["facility_name"])
+    return f"Contractual maturity unavailable for {name}" + (
+        f": {limitation}" if limitation else "."
+    )
 
 
 def _maturity_points(
-    indexed: dict[tuple[str, str], dict[str, Fact]], period: _Period, current: tuple[_Period, ...]
-) -> tuple[tuple[FinancialSeriesPoint, ...], str]:
-    """The snapshot's points in ascending maturity date (ties by facility id), so the X categories
-    are first seen in date order; or no points and the reason a maturity is unavailable."""
+    indexed: dict[tuple[str, str], dict[str, Fact]],
+    current: tuple[_Period, ...],
+    population: tuple[str, ...],
+) -> tuple[tuple[FinancialSeriesPoint, ...], str, bool]:
+    """The snapshot's debt facilities as points in ascending maturity date (ties by facility id),
+    so the X categories are first seen in date order; or no points and the reason a maturity is
+    unavailable. A lease the debt total leaves out (`_in_debt`) is not plotted; the last item
+    says whether the snapshot holds one."""
+    merged: list[tuple[str, dict[str, Fact], tuple[_Period, ...]]] = []
+    for fid in population:
+        snapshot = _snapshot_row(fid, current, indexed)
+        if snapshot is None:
+            return (), _MATURITY_ALIAS_REASON, False
+        merged.append((fid, *snapshot))
+    plotted = [entry for entry in merged if _in_debt(entry[1])]
+    left_out = len(plotted) < len(merged)
+    if not plotted:
+        return (), _MATURITY_LEASES_ONLY_REASON, left_out
+    names = Counter(_text(row["facility_name"]) for _, row, _ in plotted)
+    placed: Counter[str] = Counter()
     dated: list[tuple[date, str, FinancialSeriesPoint]] = []
-    for fid in sorted({fid for fid, _ in indexed}):
-        row = indexed[fid, period.identity]
-        _check_aliases(fid, row, current, indexed)
-        if _text(row["currency"]) != "USD" or _text(row["lease_classification"]) != "NOT_LEASE":
-            raise ValueError("Unsupported facility currency or lease scope")
+    for fid, row, sources in plotted:
+        if _text(row["currency"]) != "USD":
+            return (), _MATURITY_SCOPE_REASON, left_out
+        if _text(row["lease_classification"]) == "NOT_STATED":
+            return (), _MATURITY_LEASE_STATUS_REASON, left_out
         _numeric(row["principal"], True)
         if row["maturity_date"].status != "known":
-            return (), f"Contractual maturity unavailable: {row['maturity_date'].fact_id}"
+            return (), _maturity_unavailable(row), left_out
         maturity = date.fromisoformat(_text(row["maturity_date"]))
-        label = f"{_text(row['facility_name'])} ({fid})"
+        # The facility's name, numbered (1), (2) in facility-id order only where names repeat:
+        # a facility id is never part of a label a reader sees.
+        name = _text(row["facility_name"])
+        placed[name] += 1
+        label = f"{name} ({placed[name]})" if names[name] > 1 else name
         companions = tuple(row[k].fact_id for k in _FACILITY_FIELDS if k != "principal") + tuple(
-            period.row[k].fact_id for k in _PERIOD_FIELDS
+            period.row[k].fact_id for period in sources for k in _PERIOD_FIELDS
         )
         point = FinancialSeriesPoint(
             label, maturity.isoformat(), row["principal"].fact_id, companions
         )
         dated.append((maturity, fid, point))
-    return tuple(point for _, _, point in sorted(dated, key=lambda entry: entry[:2])), ""
+    ordered = tuple(point for _, _, point in sorted(dated, key=lambda entry: entry[:2]))
+    return ordered, "", left_out
+
+
+def _snapshot_rank(kind: str) -> int:
+    return _SNAPSHOT_PRIORITY.index(kind) if kind in _SNAPSHOT_PRIORITY else len(_SNAPSHOT_PRIORITY)
 
 
 def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> FinancialFigureSeries:
@@ -501,21 +602,31 @@ def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> Financ
     title = "Maturity wall"
     reason = "No complete current facility snapshot is supplied."
     points: tuple[FinancialSeriesPoint, ...] = ()
+    note: str | None = None
     snapshots = tuple(p for p in periods if p.kind in _SNAPSHOT_KINDS and p.end is not None)
     if snapshots:
         latest = max(p.end for p in snapshots if p.end is not None)
-        current = tuple(p for p in snapshots if p.end == latest)
-        # An explicit reported quarter wins over its FY alias, never by value or label.
-        selected = tuple(p for p in current if p.kind == "QUARTER") or current
-        if len(selected) != 1:
-            raise ValueError("Ambiguous current facility snapshot period")
-        period = selected[0]
+        # Every period ending on the latest date, of any kind, is one snapshot (its aliases),
+        # read in priority order: a reported quarter, then its FY, then a PERIOD_END, then any
+        # other kind; by period id within a kind; never by value or label.
+        current = tuple(
+            sorted(
+                (p for p in periods if p.end == latest),
+                key=lambda p: (_snapshot_rank(p.kind), p.identity),
+            )
+        )
         title = f"Maturity wall — principal at {latest.isoformat()} (not a forecast)"
-        unplotted = frozenset(p.identity for p in periods if p.kind not in _SNAPSHOT_KINDS)
+        unplotted = frozenset(p.identity for p in periods if p.end is None)
         indexed = _facility_rows(rows, {p.identity for p in periods}, unplotted)
-        population = {fid for fid, _ in indexed}
-        if population and {fid for fid, pid in indexed if pid == period.identity} == population:
-            points, reason = _maturity_points(indexed, period, current)
+        # The snapshot is every facility with a row at a period of the latest date. It is
+        # complete when each facility the debt total sums (not a lease, or a DEBT ADJUSTMENT)
+        # with a row at any period, dated or not, is in it (`financial_reconciliation._debt`).
+        at_date = {p.identity for p in current}
+        present = {fid for fid, pid in indexed if pid in at_date}
+        required = {_text(row["facility_id"]) for row in rows if _in_debt(row)}
+        if present and required <= present:
+            points, reason, left_out = _maturity_points(indexed, current, tuple(sorted(present)))
+            note = _MATURITY_LEASES_NOTE if left_out and points else None
     return FinancialFigureSeries(
         "S.4",
         title,
@@ -525,7 +636,25 @@ def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> Financ
         tuple(point.series for point in points),
         points,
         reason or None,
+        note=note,
     )
+
+
+_MATURITY_FAILED_REASON = "The maturity wall cannot be drawn from CP-1's facility rows."
+
+
+def _maturity_or_empty(module: ModuleView, periods: tuple[_Period, ...]) -> FinancialFigureSeries:
+    """S.4, or an empty S.4 with a fixed reader reason when CP-1's facility rows cannot be read
+    (every such failure is a ValueError from `_maturity_figure`). A documented fail-open: the other
+    four figures do not read those rows, so they are still drawn; the error text carries fact ids
+    and goes to the log, never to a page."""
+    try:
+        return _maturity_figure(module, periods)
+    except ValueError as error:
+        LOGGER.warning("CP-1 maturity wall not drawn: %s", error)
+        return FinancialFigureSeries(
+            "S.4", "Maturity wall", "grouped", "amount", "US$m", (), (), _MATURITY_FAILED_REASON
+        )
 
 
 _SCOPE_FIELDS = ("currency", "unit", "accounting_basis", "entity_perimeter")
@@ -588,4 +717,4 @@ def cp1_chart_series(module: ModuleView) -> tuple[FinancialFigureSeries, ...]:
         return _unsupported_scope_figures()
     periods = _periods(module)
     *strip, period_figure = _strip_figures(module, periods)
-    return (*strip, _maturity_figure(module, periods), period_figure)
+    return (*strip, _maturity_or_empty(module, periods), period_figure)

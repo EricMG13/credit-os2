@@ -26,7 +26,14 @@ import {
   type ValuationForm,
 } from "./valuation";
 import { decided, groupLimits, needsCheck, type LimitGroup } from "./limits";
-import { ATTACHMENTS, documentDescription, LEGAL_CHOICES, PURPOSE_STEP, storedName } from "./plain";
+import {
+  ATTACHMENTS,
+  documentDescription,
+  LEGAL_CHOICES,
+  nameKey,
+  PURPOSE_STEP,
+  storedName,
+} from "./plain";
 import { asSentence, errorText, isUnreachable } from "../useResource";
 import type { FieldKey, FieldProblem } from "./fields";
 
@@ -144,6 +151,8 @@ export type DocumentRow = {
   file?: File;
   pendingCopy?: boolean;
   copied?: boolean;
+  /** The upload with this earlier file's bytes: the carry did not copy the earlier file. */
+  sameAs?: string;
 };
 
 /**
@@ -265,6 +274,7 @@ export function intakeDocuments(
   copy: { prior: PriorInputs } | undefined,
   ignoredCopies: string[],
   copied: boolean,
+  sameContent: Record<string, string> = {},
 ) {
   const shownDocs = reading?.documents ?? [];
   const inspected = new Map(shownDocs.map((doc) => [storedName(doc), documentDescription(doc)]));
@@ -281,15 +291,33 @@ export function intakeDocuments(
     ),
   );
   const localNames = new Set(uploaded.values());
+  // The carry keeps an upload whose folded name matches an earlier file, so that file is not the
+  // draft's. Before the carry a selected file counts too: it is uploaded before the carry runs.
+  const localKeys = new Set(
+    [...uploaded.values(), ...(copied ? [] : files.map(storedForm))].map(nameKey),
+  );
   const documentRows: DocumentRow[] = [
     ...files.map((file) => ({ name: fileName(file), stored: uploaded.get(file), file })),
     ...[...new Set([...inspected.keys(), ...ignored.keys()])]
       .filter((name) => !localNames.has(name))
       .map((name) => ({ name, stored: name, file: undefined })),
-    ...(reading === undefined && !copy?.prior.error
+    // A file the reading already names is drawn from the reading; every other earlier file is the
+    // draft's (or will be), whatever the reading or the copy state (a refused reading lists only
+    // the refused file; a carry that ran without being marked lists all).
+    ...(!copy?.prior.error
       ? (copy?.prior.files ?? [])
-          .filter(({ name }) => !ignoredCopies.includes(name) && !localNames.has(name))
-          .map(({ name }) => ({ name, pendingCopy: !copied, copied }))
+          .filter(
+            ({ name }) =>
+              !ignoredCopies.includes(name) &&
+              !localKeys.has(nameKey(name)) &&
+              !inspected.has(name) &&
+              !ignored.has(name),
+          )
+          .map(({ name }) =>
+            name in sameContent
+              ? { name, copied, sameAs: sameContent[name] }
+              : { name, pendingCopy: !copied, copied },
+          )
       : []),
   ];
   const fileChoices: Record<string, string> = Object.fromEntries([
@@ -396,8 +424,8 @@ export function documentsRead(inspected: number, ignored: number) {
   return `${String(inspected)} ${noun} inspected, ${String(ignored)} ignored.`;
 }
 
-/** One file's bytes are released after hashing; the comparison map retains only compact digests. */
-async function documentDigest(file: File) {
+/** One file's bytes, read on their own so no two reads overlap. */
+async function documentBytes(file: File) {
   const bytes = await new Promise<ArrayBuffer>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -409,26 +437,60 @@ async function documentDigest(file: File) {
     };
     reader.readAsArrayBuffer(file);
   });
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return new Uint8Array(bytes);
 }
 
-/** Hash equal-size candidates sequentially, stopping when a newer selection replaces them. */
+function sameBytes(left: Uint8Array, right: Uint8Array) {
+  return left.length === right.length && left.every((byte, index) => byte === right[index]);
+}
+
+/**
+ * Compare equal-size candidates one pair at a time (two files in memory at once, no Web Crypto,
+ * which a page served over plain http does not have), stopping when a newer selection replaces them.
+ */
 export async function repeatedDocuments(files: readonly File[], current: () => boolean) {
   const counts = new Map<number, number>();
   for (const file of files) counts.set(file.size, (counts.get(file.size) ?? 0) + 1);
-  const firstName = new Map<string, string>();
   const repeated = new Map<File, string>();
+  const kept: File[] = [];
   for (const file of files) {
     if (!current()) return repeated;
     if ((counts.get(file.size) ?? 0) < 2) continue;
-    const content = await documentDigest(file);
-    const first = firstName.get(content);
-    if (first !== undefined)
-      repeated.set(file, `Same content as ${first}. Remove one copy before inspection.`);
-    else firstName.set(content, fileName(file));
+    let content: Uint8Array | undefined;
+    for (const earlier of kept) {
+      if (earlier.size !== file.size) continue;
+      content ??= await documentBytes(file);
+      if (!current()) return repeated;
+      if (sameBytes(content, await documentBytes(earlier))) {
+        repeated.set(
+          file,
+          `Same content as ${fileName(earlier)}. Remove one copy before inspection.`,
+        );
+        break;
+      }
+    }
+    if (!repeated.has(file)) kept.push(file);
   }
   return repeated;
+}
+
+/**
+ * The name the service stores an upload under, per path part: a mirror of `filing.safe_name`
+ * (the source of truth: control characters and `\ / : * ? " < > |` become a space, runs of white
+ * space collapse, trailing dots and spaces go). The 80-character limit is not mirrored.
+ */
+export function storedForm(file: File) {
+  return fileName(file)
+    .split(/[/\\]/u)
+    .map((part) =>
+      part
+        .replace(/[\p{Cc}:*?"<>|]/gu, " ")
+        .split(/\s+/u)
+        .filter(Boolean)
+        .join(" ")
+        .replace(/[. ]+$/u, ""),
+    )
+    .join("/");
 }
 
 export function fileName(file: File) {

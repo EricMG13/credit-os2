@@ -92,19 +92,20 @@ export const FileUploadDropZone = ({
   const [isInvalid, setIsInvalid] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
+  // A disabled zone still cancels a drag or drop, or the browser opens the file and the form goes.
   const handleDragIn = (event: React.DragEvent<HTMLDivElement>) => {
-    if (isDisabled) return;
-
     event.preventDefault();
     event.stopPropagation();
+    if (isDisabled) return;
+
     setIsDraggingOver(true);
   };
 
   const handleDragOut = (event: React.DragEvent<HTMLDivElement>) => {
-    if (isDisabled) return;
-
     event.preventDefault();
     event.stopPropagation();
+    if (isDisabled) return;
+
     setIsDraggingOver(false);
   };
 
@@ -140,9 +141,9 @@ export const FileUploadDropZone = ({
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    handleDragOut(event);
     if (isDisabled) return;
 
-    handleDragOut(event);
     processFiles(Array.from(event.dataTransfer.files));
   };
 

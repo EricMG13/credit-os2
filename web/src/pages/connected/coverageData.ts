@@ -1,6 +1,6 @@
 import { request } from "./ahead";
 import { comparePeriodKeys, periodKey } from "@/utils/periodOrder";
-import { periodPlace } from "./reportView";
+import { DECISION_MODULES, periodPlace } from "./reportView";
 
 /**
  * Coverage's reply (`react_frontend/coverage.py`). Every `text` is the module's own; `at` only
@@ -180,14 +180,16 @@ export function commonPeriod(
 ): string | null {
   const periods = periodsOf(data, issuers, field);
   if (!periodsOrdered(data, issuers, field)) return reportedFirst(periods)[0] ?? null;
-  const counts = new Map<string, number>();
+  // Each run counts once for a period, however many rows it states it on.
+  const runs = new Map<string, Set<string>>();
   for (const fact of newestFacts(data, issuers, field)) {
     if (fact.period !== null && fact.at !== null)
-      counts.set(fact.period, (counts.get(fact.period) ?? 0) + 1);
+      runs.set(fact.period, (runs.get(fact.period) ?? new Set()).add(fact.run));
   }
+  const counts = (period: string | null) => runs.get(period ?? "")?.size ?? 0;
   let best: string | null = null;
-  for (const period of reportedFirst(periods.filter((stated) => counts.has(stated)))) {
-    if ((counts.get(period) ?? 0) >= (counts.get(best ?? "") ?? 0)) best = period;
+  for (const period of reportedFirst(periods.filter((stated) => runs.has(stated)))) {
+    if (counts(period) >= counts(best)) best = period;
   }
   return best ?? reportedFirst(periods).at(-1) ?? null;
 }
@@ -221,8 +223,11 @@ function says(data: Coverage, issuer: Issuer, run: CoverageRun, query: string): 
   const wanted = query.trim().toLowerCase();
   if (!wanted) return true;
   const texts = [issuer.name, issuer.sector ?? "", run.pathwayTitle ?? ""];
+  const withheld = new Set(
+    data.fields.filter((item) => DECISION_MODULES.includes(item.module)).map((item) => item.id),
+  );
   for (const fact of factsOf(data, run.key)) {
-    if (fact.at === null) texts.push(fact.text, fact.impact ?? "");
+    if (fact.at === null && !withheld.has(fact.field)) texts.push(fact.text, fact.impact ?? "");
   }
   return texts.some((text) => text.toLowerCase().includes(wanted));
 }

@@ -130,3 +130,16 @@ it("shows the qualified label in the cell on a wide screen when the header does 
   expect(screen.getByText("Reported EBITDA / cash interest on debt")).not.toHaveClass("xl:sr-only");
   expect(container.textContent).toContain("4.19x");
 });
+
+it("names a figure on the heading the catalogue states it under when that is not the plain name", () => {
+  render(
+    <FigureMark
+      name="Net leverage"
+      metricKey="net_leverage"
+      figure={{ ...lev, label: "Net debt / adjusted EBITDA" }}
+      showLabel
+    />,
+  );
+  expect(screen.getByText("Net debt / adjusted EBITDA")).toBeVisible();
+  expect(screen.queryByText("Net leverage")).toBeNull();
+});

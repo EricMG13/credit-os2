@@ -334,8 +334,13 @@ export const getLatestIssuerRun = (issuer: string) =>
   request<{ latest_run: string; runs: number; latest_as_of: string; issuer_name?: string }>(
     `/api/issuers/${encodeURIComponent(issuer)}`,
   );
-export const carryDocuments = (id: string, run: string) =>
-  request<{ carried: string[]; kept: string[] }>(`${submission(id)}/carry`, postJson({ run }));
+/** Copies the earlier run's files; `leaveOut` names files not to copy (sent only when not empty).
+ * `same_content` maps an earlier file the service did not copy to the upload with its bytes. */
+export const carryDocuments = (id: string, run: string, leaveOut: string[] = []) =>
+  request<{ carried: string[]; kept: string[]; same_content?: Record<string, string> }>(
+    `${submission(id)}/carry`,
+    postJson(leaveOut.length > 0 ? { run, leave_out: leaveOut } : { run }),
+  );
 export const getReading = (id: string) => request<Reading>(`${submission(id)}/reading`);
 const referencePortfolio = (id: string) => `${submission(id)}/reference-portfolio`;
 export const uploadReferenceFile = (id: string, file: File) =>

@@ -493,7 +493,9 @@ function gapIn(entry: OutputEntry, module: string): FundingGap | null {
     const values = valueColumns(table.headers);
     // Beside a stated value a bare dash is a column the row does not use, not a figure; a row
     // that writes only dashes is drawn as written. An empty cell states nothing.
-    const written = values.filter((at) => (row.cells[at] ?? "").trim() !== "");
+    // A span column ("Years") states the horizon, read below, not a second funding gap.
+    const amounts = values.filter((at) => !SPAN_COLUMN.test((table.headers[at] ?? "").trim()));
+    const written = amounts.filter((at) => (row.cells[at] ?? "").trim() !== "");
     const valued = written.filter((at) => !BARE_DASH.test((row.cells[at] ?? "").trim()));
     const stated = valued.length ? valued : written;
     const figures = stated.map((at) => {

@@ -31,10 +31,11 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
-from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, Decimal, InvalidOperation
 from pathlib import Path
 
 from deploy_vii.contracts import Span
+from deploy_vii.inputs.csv_text import CsvDecodeError, decode_csv_text
 from deploy_vii.inputs.rv_quotes import Issue, ValidationReport, sheet_cells
 from deploy_vii.preparation import xlsx_content
 
@@ -51,7 +52,30 @@ TOKEN = re.compile(r"^#(?:N/?A|VALUE!|REF!|DIV/0!|NAME\?|NUM!|NULL!)", re.IGNORE
 RATING_LIKE = re.compile(r"^(?:[A-Z][a-z]{0,2}\d?|[A-Z]{1,3}[+-]?)\s*/\s*\S")
 MOJIBAKE = re.compile("[�\u0000-\u0008\u000b\u000c\u000e-\u001f]|Ã.|â€")
 WITHDRAWN = frozenset({"WR", "NR"})
-_AGENCIES = re.compile(r"\s+/\s+")  # Moody's / S&P; "#N/A" holds an unspaced slash
+NOT_AVAILABLE = frozenset({"N/A", "N/R"})  # an agency's part that gives no rating, as NR does
+# An agency slash (`B2 / B`, `B2/B`), or a whole error token as one agency's part: the token and
+# the vendor's words after it (`#N/A N/A`, `#N/A Field Not Applicable`) up to the next slash or
+# the end of the cell, so the slash inside a token is never a cut. The plain not-available
+# markers `N/A` and `N/R` (any case, not inside a word) are one part the same way.
+_AGENCY_PIECE = re.compile(
+    rf"(?P<token>(?:{TOKEN.pattern.lstrip('^')}(?:\s+N/A)?[^/]*?|(?<!\w)N/[AR](?!\w))"
+    r"(?=\s*/|\s*$))|\s*/\s*",
+    re.IGNORECASE,
+)
+
+
+def agency_parts(text: str) -> list[str]:
+    """A Ratings cell split at the slash between agencies; an error token is one part wherever
+    it stands (`B1/#N/A N/A`, `#N/A N/A/B+`)."""
+    parts: list[str] = []
+    start = 0
+    for piece in _AGENCY_PIECE.finditer(text):
+        if piece.group("token") is None:
+            parts.append(text[start : piece.start()])
+            start = piece.end()
+    return [*parts, text[start:]]
+
+
 SHOWN = Decimal("0.01")
 LISTED = 5  # rows named in one aggregated finding
 FILE_FIX = "export the file again from the source system"
@@ -92,6 +116,7 @@ FIX: Mapping[str, str] = {
     "unit": "enter the figure with its unit, e.g. 2.5% NAV, 313 bps or 4.8 yrs",
     "approximate": "enter the exact figure: an approximate value cannot be checked against a limit",
     "differs": "correct the file that is wrong: the two constraints files state different figures",
+    "unnamed": "enter the sector and the borrower name of each position",
     "lien": "enter the lien position (1L, 2L) at the start of Ranking",
     "headroom": "enter the limit minus the current value (or the reverse for a minimum)",
     "status": "enter the status the figures give: Breach exactly when the limit is not met",
@@ -100,6 +125,8 @@ FIX: Mapping[str, str] = {
     "column": "export the sheet with its full header row",
     "missing": "add the holdings sheet: without it no stated figure can be verified",
     "par_cell": "enter the position's par in Holdings, a plain number",
+    "repeated": "supply one export: remove the other files that hold the same part",
+    "refused": FILE_FIX,
 }
 
 
@@ -132,6 +159,7 @@ class Quantity:
     approximate: bool = False
     places: int = 0
     scale: Decimal = Decimal(1)
+    strict: bool = False  # `<` or `>`: the limit itself is not met
 
     @property
     def half_unit(self) -> Decimal:
@@ -162,6 +190,7 @@ def quantity(text: str) -> Quantity | None:
         bool(found["approx"]),
         _places(number),
         multiplier,
+        (found["op"] or "") in ("<", ">"),
     )
 
 
@@ -308,16 +337,15 @@ def _scope() -> _Reading | None:
 
 
 def _csv_rows(raw: bytes) -> list[list[str]]:
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = raw.decode("latin-1")
-    return [[cell.strip() for cell in row] for row in csv.reader(io.StringIO(text))]
+    text = decode_csv_text(raw).removeprefix("\ufeff")
+    return [[cell.strip() for cell in row] for row in csv.reader(io.StringIO(text, newline=""))]
 
 
 def csv_rows(raw: bytes) -> list[list[str]]:
-    """A CSV's rows as stripped text (UTF-8, with or without a byte-order mark; else Latin-1).
-    Raises `csv.Error` for a file the CSV reader refuses (a cell longer than its limit)."""
+    """A CSV's rows as stripped text (UTF-8, with or without a byte-order mark; else Windows-1252),
+    lines ending in CR, LF or CR LF.
+    Raises `csv.Error` for a file the CSV reader refuses (a cell longer than its limit) and
+    `CsvDecodeError` for one that is neither UTF-8 nor Windows-1252 text."""
     scope = _scope()
     return _once(None if scope is None else scope.texts, raw, lambda: _csv_rows(raw))
 
@@ -344,6 +372,7 @@ def _cells(row: Sequence[str]) -> list[str]:
 @dataclass(frozen=True)
 class Cell:
     """`percent_format`: a number shown as a percentage, so the stored value is a fraction.
+    `percent_places`: the decimals of its percent format (`0.00%` is 2).
     `date1904`: a date cell of a workbook that counts its dates from 1904. `formula`: the cell
     holds a formula (its text is then as the `reading` reads formulas)."""
 
@@ -353,6 +382,7 @@ class Cell:
     percent_format: bool = False
     date1904: bool = False
     formula: bool = False
+    percent_places: int | None = None  # decimals the percent format shows; None: not readable
 
 
 Rows = list[tuple[int, list[Cell]]]  # (row number, cells)
@@ -377,6 +407,20 @@ def _is_percent_format(code: str | None) -> bool:
     if code.startswith("builtin:"):
         return code in ("builtin:9", "builtin:10")
     return "%" in _QUOTED.sub("", code)
+
+
+_PERCENT_PLACES = re.compile(r"^[^.%]*(?:\.(?P<places>[0#?]*))?[^.%]*%")
+
+
+def _percent_places(code: str | None) -> int | None:
+    """The decimals a percent number format shows (`0.00%` 2, `0.0%` 1, `0%` 0), None when the code
+    is not one this reads. Only the positive section of the code is read."""
+    if code is None:
+        return None
+    if code.startswith("builtin:"):
+        return {"builtin:9": 0, "builtin:10": 2}.get(code)
+    found = _PERCENT_PLACES.match(_QUOTED.sub("", code.split(";")[0]))
+    return None if found is None else len(found["places"] or "")
 
 
 # A cell more than this many empty columns to the right of the last cell read in its row is left
@@ -452,6 +496,7 @@ def _cell(span: Span, date1904: bool, cached: bool) -> Cell:
         numeric and _is_percent_format(span.number_format),
         dated and date1904,
         formula,
+        _percent_places(span.number_format) if numeric else None,
     )
 
 
@@ -463,25 +508,35 @@ def workbook_sheets(raw: bytes) -> tuple[str, ...]:
 
 
 _TEXT_DATES = ("%Y-%m-%d", "%d-%b-%Y", "%d %b %Y", "%m/%d/%Y", "%d/%m/%Y", "%b %d, %Y")
+_SLASH_DATES = ("%m/%d/%Y", "%d/%m/%Y")
 _TWO_DIGIT = re.compile(r"^\d{1,2}[/-]\d{1,2}[/-]\d{2}$|^\d{1,2}-[A-Za-z]{3}-\d{2}$")
 
 
 def read_date(cell: Cell) -> date | None:
-    """A date from an Excel date cell (a serial number) or text in a full-year format."""
-    from datetime import datetime
-
+    """A date from an Excel date cell (a serial number) or text in a full-year format; a numeric
+    day/month date that reads two ways is unread."""
     if cell.date_format:
         start = date(1904, 1, 1) if cell.date1904 else date(1899, 12, 30)
         try:
             return start + timedelta(days=int(Decimal(cell.text)))
         except (InvalidOperation, OverflowError, ValueError):
             return None
+    slashed = {_parsed(cell.text, pattern) for pattern in _SLASH_DATES} - {None}
+    if len(slashed) > 1:  # 05/03/2025 is 3 May or 5 March: the text does not say, so it is unread
+        return None
     for pattern in _TEXT_DATES:
-        try:
-            return datetime.strptime(cell.text, pattern).date()
-        except ValueError:
-            continue
+        if (found := _parsed(cell.text, pattern)) is not None:
+            return found
     return None
+
+
+def _parsed(text: str, pattern: str) -> date | None:
+    from datetime import datetime
+
+    try:
+        return datetime.strptime(text, pattern).date()
+    except ValueError:
+        return None
 
 
 def text_date(text: str) -> date | None:
@@ -655,7 +710,7 @@ class Section:
 class Export:
     """The recognised files: each role's file name, rows and parsed content."""
 
-    files: dict[str, str] = field(default_factory=dict)  # role -> the first part's label
+    files: dict[str, str] = field(default_factory=dict)  # role -> the label of the part read
     roles: dict[str, str] = field(default_factory=dict)  # part label -> role, every part
     mandate: list[tuple[int, list[str]]] = field(default_factory=list)
     constraints: list[tuple[str, list[tuple[int, list[str]]], list[str]]] = field(
@@ -667,6 +722,9 @@ class Export:
     holding_columns: dict[str, int] = field(default_factory=dict)
     book: str = ""  # the workbook that holds the holdings
     empty_rows: dict[str, list[int]] = field(default_factory=dict)  # sheet -> row numbers
+    left_out: dict[str, list[int]] = field(default_factory=dict)  # sheet -> total and note rows
+    repeated: dict[str, list[str]] = field(default_factory=dict)  # role -> every file holding it
+    refused: dict[str, str] = field(default_factory=dict)  # export CSV -> the CSV reader's error
 
 
 @dataclass(frozen=True)
@@ -703,12 +761,34 @@ def is_holdings(rows: Sequence[Sequence[str]]) -> bool:
     return header is not None and "par" in header[1]
 
 
+def _percent_text(cell: Cell, places: int | None) -> str | None:
+    """A percent-formatted number as the percentage it shows (the stored fraction times 100, an
+    exact shift; rounded half up to `places` when given), else None."""
+    if not (cell.numeric and cell.percent_format):
+        return None
+    try:
+        fraction = Decimal(cell.text)
+    except InvalidOperation:
+        return None
+    if not fraction.is_finite():
+        return None
+    if places is not None:  # from the 15 digits the cell displays, not the double's expansion
+        fraction = Decimal(format(float(fraction), ".15g"))
+        if not fraction.is_finite():  # beyond a double's range: no value the cell can show
+            return None
+    shown = fraction.scaleb(2, context=EXACT)
+    if places is not None:  # as the cell displays it (Excel rounds half up)
+        shown = shown.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP, context=EXACT)
+    return f"{plain(shown)}%"
+
+
 def _text(cell: Cell) -> str:
-    """A workbook cell as the CSV export would write it: a date cell as its ISO date."""
+    """A workbook cell as the CSV export would write it: a date cell as its ISO date, a percent
+    cell as the percentage it shows."""
     if cell.date_format:
         when = read_date(cell)
         return when.isoformat() if when is not None else cell.text
-    return cell.text
+    return _percent_text(cell, cell.percent_places) or cell.text
 
 
 def _workbook_parts(name: str, raw: bytes) -> list[Part]:
@@ -741,13 +821,28 @@ def parts(files: Mapping[str, bytes]) -> list[Part]:
     its `Market Data` sheet the quote universe. A CSV that is not a mandate, constraints or
     exposure file and whose first row is a holdings header (`is_holdings`) is the holdings too,
     but only beside a mandate or constraints part: a lone holdings file among other sources is
-    not a fund's export."""
+    not a fund's export. A CSV the CSV reader refuses holds no part (`refused_parts`)."""
+    return _parts(files)[0]
+
+
+def _parts(files: Mapping[str, bytes]) -> tuple[list[Part], dict[str, str]]:
+    """`parts`, and the CSV files the CSV reader refuses that look like a file of the export
+    (`_export_like`: by their first line, or by their name when a mandate or constraints part sits
+    beside them), with the reader's error. Any other refused CSV is skipped: the run's sources
+    hold every kind of CSV, and one that cannot be parsed holds no part of the export."""
     found: list[Part] = []
+    refused: dict[str, tuple[str, bool]] = {}  # name -> (the error, whether its first line says)
     with _within():
         for name in sorted(files):
             raw, lower = files[name], name.lower()
             if lower.endswith(".csv"):
-                rows = csv_rows(raw)
+                try:
+                    rows = csv_rows(raw)
+                except (csv.Error, CsvDecodeError) as error:
+                    headed = _export_like(name, raw)
+                    if headed is not False:
+                        refused[name] = (str(error), headed is True)
+                    continue
                 role = _role(rows) or ("holdings" if is_holdings(rows) else None)
                 if role is not None:
                     numbered = tuple((n, tuple(r)) for n, r in enumerate(rows, 1))
@@ -755,15 +850,43 @@ def parts(files: Mapping[str, bytes]) -> list[Part]:
             elif lower.endswith(".xlsx"):
                 found += _workbook_parts(name, raw)
     beside = any(part.role in ("mandate", "constraints") for part in found)
-    return [part for part in found if beside or part.sheet is not None or part.role != "holdings"]
+    kept = [part for part in found if beside or part.sheet is not None or part.role != "holdings"]
+    return kept, {name: error for name, (error, headed) in refused.items() if headed or beside}
+
+
+_EXPORT_WORDS = ("mandate", "constraint", "exposure", "holding")
+
+
+def _export_like(name: str, raw: bytes) -> bool | None:
+    """True for a CSV whose first line, read alone, is a mandate, constraints or holdings header or
+    an exposure report's section title; else None when its name holds an export word (a file of
+    the export only beside a mandate or constraints part: `_parts`); else False."""
+    named = None if any(word in folded(name) for word in _EXPORT_WORDS) else False
+    lines = raw.splitlines()
+    try:
+        first = csv_rows(lines[0]) if lines else []
+    except (csv.Error, CsvDecodeError):  # the first line alone is refused too: the name says
+        return named
+    if not first:
+        return named
+    row = first[0]
+    titled = _is_title(row) and section_key(row[0]) is not None
+    return True if titled or _role(first) is not None or is_holdings(first) else named
+
+
+UNREADABLE = "unreadable"  # the role `recognise` gives a refused export CSV
 
 
 def recognise(files: Mapping[str, bytes]) -> dict[str, str]:
-    """The files that hold a part of the export, with their parts' roles."""
+    """The files that hold a part of the export, with their parts' roles; a CSV of the export
+    that the CSV reader refuses is `unreadable`, so the check runs and reports it."""
+    found, refused = _parts(files)
     roles: dict[str, list[str]] = {}
-    for part in parts(files):
+    for part in found:
         if part.role != "market":
             roles.setdefault(part.file, []).append(part.role)
+    for name in refused:
+        roles.setdefault(name, []).append(UNREADABLE)
     return {name: ", ".join(found) for name, found in roles.items()}
 
 
@@ -788,7 +911,8 @@ def _holding(sheet: str, number: int, cells: list[Cell], columns: Mapping[str, i
     picked = {
         key: cells[index] if index < len(cells) else Cell("") for key, index in columns.items()
     }
-    return Holding(number, sheet, {key: cell.text for key, cell in picked.items()}, picked)
+    text = {key: _percent_text(cell, None) or cell.text for key, cell in picked.items()}
+    return Holding(number, sheet, text, picked)
 
 
 def holding_rows(raw: bytes, sheet: str, export: Export) -> list[Holding]:
@@ -803,10 +927,82 @@ def csv_holding_rows(part: Part, export: Export) -> list[Holding]:
     return rows_under_header(rows, CSV_HOLDINGS, export)
 
 
+_NOTES = ("source:", "note:", "notes:", "disclaimer")
+_LETTERS = re.compile(r"[^\W\d_]+")
+_SENTENCE_WORDS = 4  # a sentence has at least this many words of two letters or more
+
+
+def cell_kind(text: str) -> str:
+    """`empty` (blank), `token` (a vendor error token, `TOKEN`), `not_applicable` (a
+    `NOT_APPLICABLE` marker) or `value`: the one reading of a cell both holdings readers use."""
+    plain = text.strip()
+    if not plain:
+        return "empty"
+    if TOKEN.match(plain):
+        return "token"
+    return "not_applicable" if folded(plain) in NOT_APPLICABLE else "value"
+
+
+_TOTAL_WORD = re.compile(r"(?<![^\W_])(?:grand\s+total|sub[-\s]?totals?|totals?)(?![^\W_])")
+_WORDS = re.compile(r"[a-z0-9]+")
+
+
+def total_label(text: str) -> str | None:
+    """`total` or `subtotal` for a label holding a total word whole (`Total`, `Software Total`,
+    `Total (USD)`, `Top 20 Subtotal`, `Grand Total`) or the whole cell `Sum`, unless it holds a
+    legal form, dots removed (`Total Produce plc`, `Total S.A.`); else None."""
+    said = folded(text).rstrip(":").strip()
+    if said == "sum":
+        return "total"
+    found = _TOTAL_WORD.search(said)
+    if found is None or set(_WORDS.findall(said.replace(".", ""))) & (_LEGAL - {"the"}):
+        return None
+    return "subtotal" if found.group(0).startswith("sub") else "total"
+
+
+def note_label(text: str) -> bool:
+    """A source, note or disclaimer (its start), or a sentence: four words of two letters or
+    more, ending in `.`, `!` or `?`, more than half of them lower case (a name of that length is
+    capitalised, `Bank of America Corp.`; a legal form's single letters are no words, so
+    `Rossini S.à r.l.` is no sentence)."""
+    said = folded(text)
+    if said.startswith(_NOTES):
+        return True
+    words = [word for word in _LETTERS.findall(text) if len(word) > 1]
+    lower = sum(1 for word in words if word[0].islower())
+    return (
+        len(words) >= _SENTENCE_WORDS and said.endswith((".", "!", "?")) and 2 * lower > len(words)
+    )
+
+
+# The cells that identify a position: any of them filled makes the row a position.
+EVIDENCE = ("loan", "figi", "ratings", "cusip", "isin", "sedol", "identifier")
+
+
+def row_kind(texts: Mapping[str, str], first: str) -> str:
+    """`position`, `total` or `note`, the one row rule both holdings readers use (`texts` by
+    holdings column key, `first` the row's first filled cell). A row naming a loan, a FIGI or
+    another identifier or a rating, or a borrower or ticker besides its label, is a position;
+    else its label (the borrower, else `first`) decides: `total_label`, then `note_label`."""
+    if any(cell_kind(texts.get(key, "")) == "value" for key in EVIDENCE):
+        return "position"
+    borrower = texts.get("borrower", "")
+    label = borrower if borrower.strip() else first
+    if any(
+        cell_kind(texts.get(key, "")) == "value" and texts[key] != label
+        for key in ("borrower", "ticker")
+    ):
+        return "position"
+    if total_label(label) is not None:
+        return "total"
+    return "note" if note_label(label) else "position"
+
+
 def rows_under_header(
     rows: Sequence[tuple[int, list[Cell]]], sheet: str, export: Export
 ) -> list[Holding]:
-    """The rows under the holdings header; rows of empty cells are counted, not read."""
+    """The rows under the holdings header; rows of empty cells are counted, not read, and total,
+    subtotal and note rows (`row_kind`) are noted, not read as positions."""
     header = holdings_header(rows)
     if header is None:
         return []
@@ -820,6 +1016,10 @@ def rows_under_header(
         if not any(cell.text for cell in cells):
             export.empty_rows.setdefault(sheet, []).append(number)
             continue
+        texts = {key: cells[i].text for key, i in columns.items() if i < len(cells)}
+        if row_kind(texts, next(cell.text for cell in cells if cell.text)) != "position":
+            export.left_out.setdefault(sheet, []).append(number)
+            continue
         out.append(_holding(sheet, number, cells, columns))
     return out
 
@@ -829,14 +1029,34 @@ def read_export(files: Mapping[str, bytes]) -> Export:
         return _read_export(files)
 
 
+# The parts the export has one of; a second file holding one is a layout finding (constraints may
+# come from two files, which are compared).
+SINGLE: Mapping[str, str] = {
+    "mandate": "mandate",
+    "exposure": "exposure report",
+    "holdings": "holdings",
+}
+
+
 def _read_export(files: Mapping[str, bytes]) -> Export:
     export = Export()
-    for part in parts(files):
+    found, export.refused = _parts(files)
+    read: dict[str, Part] = {}  # role -> the part last read
+    for part in found:
         export.roles[part.label] = part.role
         if part.role == "market":
             export.market = holding_rows(files[part.file], part.sheet or "", export)
             continue
-        export.files.setdefault(part.role, part.label)
+        if part.role in SINGLE and (before := read.get(part.role)) is not None:
+            export.repeated.setdefault(part.role, [before.label]).append(part.label)
+            if part.role == "holdings":  # the rows read replace the earlier file's
+                for counted in (export.empty_rows, export.left_out):
+                    counted.pop(before.sheet or CSV_HOLDINGS, None)
+        read[part.role] = part
+        if part.role == "constraints":
+            export.files.setdefault(part.role, part.label)
+        else:  # findings name the file whose rows are read: the last
+            export.files[part.role] = part.label
         rows = [(number, list(row)) for number, row in part.rows]
         if part.role == "mandate":
             export.mandate = rows
@@ -864,7 +1084,11 @@ def _read_export(files: Mapping[str, bytes]) -> Export:
 PRIORITY: Mapping[str, int] = {
     "breach": 0,
     **dict.fromkeys(
-        ("par", "nav", "count", "share", "absent", "metric", "missing", "layout", "column"), 1
+        (
+            *("par", "nav", "count", "share", "absent", "metric", "missing", "layout", "column"),
+            *("repeated", "refused"),
+        ),
+        1,
     ),
     **dict.fromkeys(("total", "capital", "headroom", "status", "plausible", "differs"), 2),
     **dict.fromkeys(("stale", "future"), 4),
@@ -1037,6 +1261,12 @@ def _weighted(rows: Iterable[tuple[Decimal, Decimal]]) -> Decimal | None:
     return EXACT.divide(sum((EXACT.multiply(w, v) for w, v in pairs), Decimal(0)), weight)
 
 
+def _unnamed(text: str) -> bool:
+    """An empty cell, a vendor error token (`#N/A N/A`) or a not-applicable marker (`N/A`, `-`):
+    it names nothing."""
+    return cell_kind(text) != "value"
+
+
 def recompute(rows: Sequence[Holding]) -> Recomputed:
     out = Recomputed(sheet=rows[0].sheet if rows else "Holdings")
     priced: list[tuple[Decimal, Decimal]] = []
@@ -1048,23 +1278,29 @@ def recompute(rows: Sequence[Holding]) -> Recomputed:
         out.positions += 1
         out.par = EXACT.add(out.par, par)
         key = folded(holding.text.get("borrower", ""))
-        out.names.setdefault(key, holding.text.get("borrower", ""))
-        out.borrowers.setdefault(key, []).append(holding)
+        if not _unnamed(holding.text.get("borrower", "")):
+            out.names.setdefault(key, holding.text.get("borrower", ""))
+            out.borrowers.setdefault(key, []).append(holding)
         if holding.text.get("ticker"):
             out.tickers.add(holding.text["ticker"])
-            out.tickers_of.setdefault(key, set()).add(holding.text["ticker"].upper())
+            if not _unnamed(holding.text.get("borrower", "")):
+                out.tickers_of.setdefault(key, set()).add(holding.text["ticker"].upper())
         sector = holding.text.get("sector", "")
+        named = not _unnamed(sector)
         price = mid(holding)
         if price is None:
             out.unpriced.append(holding)
-            out.sectors.setdefault(sector, Decimal(0))
+            if named:
+                out.sectors.setdefault(sector, Decimal(0))
             continue
         value = EXACT.divide(EXACT.multiply(par, price), HUNDRED)
         priced.append((par, price))
         out.priced_par = EXACT.add(out.priced_par, par)
         out.value = EXACT.add(out.value, value)
-        out.sectors[sector] = EXACT.add(out.sectors.get(sector, Decimal(0)), value)
-        out.issuer_value[key] = EXACT.add(out.issuer_value.get(key, Decimal(0)), value)
+        if named:
+            out.sectors[sector] = EXACT.add(out.sectors.get(sector, Decimal(0)), value)
+        if not _unnamed(holding.text.get("borrower", "")):
+            out.issuer_value[key] = EXACT.add(out.issuer_value.get(key, Decimal(0)), value)
         if lien(holding) == "second":
             out.second_lien = EXACT.add(out.second_lien, value)
     out.price = _weighted(priced)
@@ -1241,7 +1477,11 @@ def _figi_findings(file: str, sheet: str, rows: Sequence[Holding], findings: Fin
         if len(held) < 2:
             continue
         loans = {folded(h.text.get("loan", "")) for h in held}
-        borrowers = {folded(h.text.get("borrower", "")) for h in held}
+        borrowers = {
+            folded(h.text.get("borrower", ""))
+            for h in held
+            if not _unnamed(h.text.get("borrower", ""))
+        }
         what = (
             "different borrowers"
             if len(borrowers) > 1
@@ -1257,7 +1497,7 @@ def _ticker_findings(file: str, sheet: str, rows: Sequence[Holding], findings: F
     names: dict[str, dict[str, int]] = {}
     for holding in rows:
         ticker, name = holding.text.get("ticker", ""), holding.text.get("borrower", "")
-        if ticker and name:
+        if ticker and name and not _unnamed(name):
             names.setdefault(ticker, {}).setdefault(name, holding.row)
     for ticker, borrowers in names.items():
         if len(borrowers) > 1:
@@ -1274,7 +1514,7 @@ def _name_findings(file: str, sheet: str, rows: Sequence[Holding], findings: Fin
             problem = f"borrower name '{shown}' on row {holding.row} holds damaged characters"
             findings.add(file, sheet, "Borrower Name", problem, "name")
         ranking = holding.text.get("ranking", "")
-        if ranking and RATING_LIKE.match(ranking):
+        if cell_kind(ranking) == "value" and RATING_LIKE.match(ranking):
             problem = f"Ranking on row {holding.row} holds a rating, '{ranking}'"
             findings.add(file, sheet, "Ranking", problem, "ranking")
 
@@ -1283,15 +1523,31 @@ def rating_findings(file: str, rows: Sequence[Holding], findings: Findings) -> N
     missing: list[int] = []
     withdrawn: list[int] = []
     watch: list[int] = []
+    unread: dict[int, str] = {}
     for holding in rows:
-        parts = [part.strip() for part in _AGENCIES.split(holding.text.get("ratings", ""))]
+        text = holding.text.get("ratings", "")
+        parts = [part.strip() for part in agency_parts(text)]
         if any(TOKEN.match(part) for part in parts if part):
             missing.append(holding.row)
-        if any(part.upper() in WITHDRAWN for part in parts):
+        if any(not_rated(part) for part in parts if part):
             withdrawn.append(holding.row)
         if any("*" in part for part in parts):
             watch.append(holding.row)
+        named = [part for part in parts if part]
+        if (
+            named
+            and not any(TOKEN.match(part) or not_rated(part) for part in named)
+            and "lien" not in folded(text)  # a ranking in Ratings has its own finding
+            and rating_number(holding) is None
+        ):
+            unread[holding.row] = text.strip()
     sheet = rows[0].sheet if rows else "Holdings"
+    if unread:
+        listed = "; ".join(f"'{text}' (row {row})" for row, text in unread.items())
+        problem = (
+            f"Ratings names no rating on Moody's or S&P's scale, so it is read as unrated: {listed}"
+        )
+        findings.add(file, sheet, "Ratings", problem, "token")
     if missing:
         problem = f"Ratings holds a vendor error token for an agency on {rows_named(missing)}"
         findings.add(file, sheet, "Ratings", problem, "token")
@@ -1318,6 +1574,22 @@ def lien_findings(file: str, rows: Sequence[Holding], findings: Findings) -> Non
         findings.add(file, rows[0].sheet, "Ranking", problem, "lien")
 
 
+def unnamed_findings(file: str, rows: Sequence[Holding], findings: Findings) -> None:
+    """Positions with no sector or no borrower name (empty, or a vendor error token): left out of
+    the sector and borrower counts and shares, kept in the market value, and never named."""
+    lacking = {
+        column: [h.row for h in rows if "par" in h.numbers and _unnamed(h.text.get(key, ""))]
+        for column, key in (("Index Sector", "sector"), ("Borrower", "borrower"))
+    }
+    parts = [f"{column} on {rows_named(numbers)}" for column, numbers in lacking.items() if numbers]
+    if parts:
+        problem = (
+            f"no sector or borrower name: {'; '.join(parts)}; left out of the sector and borrower "
+            "counts and shares, kept in the market value, never counted as a name"
+        )
+        findings.add(file, rows[0].sheet, "Index Sector", problem, "unnamed")
+
+
 def par_findings(file: str, rows: Sequence[Holding], findings: Findings) -> None:
     lacking = [h.row for h in rows if "par" not in h.numbers]
     if lacking:
@@ -1327,6 +1599,28 @@ def par_findings(file: str, rows: Sequence[Holding], findings: Findings) -> None
             "empty cell)"
         )
         findings.add(file, rows[0].sheet, "Holdings (par)", problem, "par_cell")
+
+
+def file_findings(export: Export, findings: Findings) -> None:
+    """A part held by two files (the last one's rows are read), and a CSV of the export that the
+    CSV reader refuses (none of it is read)."""
+    for role, labels in export.repeated.items():
+        problem = (
+            f"{count(len(labels), 'file')} hold the {SINGLE[role]}: {', '.join(labels)}; check "
+            "one export at a time"
+        )
+        findings.add(labels[-1], "layout", "files", problem, "repeated")
+    for name, error in export.refused.items():
+        problem = f"the CSV reader refuses the file ({error}), so no part of it is read"
+        findings.add(name, "layout", "file", problem, "refused")
+
+
+def left_out_notes(export: Export, findings: Findings) -> None:
+    for sheet, numbers in export.left_out.items():
+        findings.notes.append(
+            f"{sheet}: total, subtotal and note rows on {rows_named(numbers)}; not read as "
+            "positions"
+        )
 
 
 def empty_row_findings(file: str, export: Export, findings: Findings) -> None:
@@ -1805,13 +2099,20 @@ def _cell_text(row: Sequence[str], index: int | None) -> str:
     return row[index] if index is not None and index < len(row) else ""
 
 
-def _label_kind(label: str) -> str:
-    text = folded(label)
-    if "subtotal" in text:
-        return "subtotal"
-    if "total" in text:
-        return "total"
-    return "other" if text.startswith("other") else "row"
+def _label_kind(label: str, rank: str = "") -> str:
+    """`row` for a ranked row (an issuer, whatever its name: `Total Produce`), else `total` or
+    `subtotal` (`total_label`), `other` (`Other ...`) or `row`."""
+    if rank.strip():
+        return "row"
+    found = total_label(label)
+    if found is not None:
+        return found
+    return "other" if folded(label).startswith("other") else "row"
+
+
+def _rank(row: Sequence[str], columns: Columns) -> str:
+    """The row's first cell when the label is not in it: the rank of a ranked section."""
+    return row[0] if columns.name != 0 and row else ""
 
 
 def total_findings(file: str, section: Section, findings: Findings) -> None:
@@ -1832,7 +2133,7 @@ def _column_totals(
     silent: dict[str, list[str]] = {"row": [], "other": []}  # rows stating nothing here
     for number, row in section.rows:
         label = label_of(row, columns)
-        text, kind = _cell_text(row, index), _label_kind(label)
+        text, kind = _cell_text(row, index), _label_kind(label, _rank(row, columns))
         stated = quantity(text) if text else None
         if kind in added:
             (added[kind].append(stated) if stated is not None else silent[kind].append(label))
@@ -1976,7 +2277,7 @@ def holding_section_findings(export: Export, found: Recomputed, findings: Findin
     matched: list[str] = []
     for number, row in section.rows:
         name = label_of(row, columns)
-        if _label_kind(name) != "row" or not name:
+        if _label_kind(name, _rank(row, columns)) != "row" or not name:
             continue
         how, keys = match_issuer(name, found)
         cell = f"row {number}"
@@ -2060,7 +2361,7 @@ def sector_section_findings(export: Export, found: Recomputed, findings: Finding
         if (
             limit is not None
             and limit.operator != ">="
-            and exact > limit.value
+            and _breached(replace(limit, operator="<="), exact)
             and ("breach" not in folded(status))
         ):
             problem = (
@@ -2085,6 +2386,19 @@ _CONSTRAINT_COLUMNS = {
 }
 # A cell that says "not applicable" (an em or en dash, a hyphen, n/a): no figure, and no defect.
 NOT_APPLICABLE = frozenset({"—", "–", "-", "n/a", "na", "not applicable"})
+# An agency's part that gives no rating, folded: withdrawn or not rated (WR, NR), not available
+# (N/A, N/R), the words, or a not-applicable mark. Both holdings readers use this one set.
+NOT_RATED = frozenset(
+    {*(mark.casefold() for mark in WITHDRAWN | NOT_AVAILABLE), "not rated", "unrated"}
+    | NOT_APPLICABLE
+)
+
+
+def not_rated(part: str) -> bool:
+    """A Ratings cell's agency part that says the agency gives no rating (`NOT_RATED`)."""
+    return folded(part) in NOT_RATED
+
+
 _MAXIMUM = re.compile(r"\b(?:max|maximum|at most|up to|no more than)\b")
 _EXCLUDED = re.compile(r"\b(?:exclu\w*|prohibit\w*|not permitted)")
 _MINIMUM = re.compile(r"\b(?:min|minimum|at least|no less than)\b")
@@ -2099,7 +2413,9 @@ def _same_family(a: Quantity, b: Quantity) -> bool:
 
 
 def _breached(limit: Quantity, value: Decimal) -> bool:
-    return value > limit.value if limit.operator == "<=" else value < limit.value
+    if limit.operator == "<=":
+        return value >= limit.value if limit.strict else value > limit.value
+    return value <= limit.value if limit.strict else value < limit.value
 
 
 @dataclass(frozen=True)
@@ -2661,6 +2977,7 @@ def validate_export(files: Mapping[str, bytes], *, run_date: date | None = None)
     holdings as the authority. Findings come most consequential first (`PRIORITY`)."""
     findings = Findings()
     export = read_export(files)
+    file_findings(export, findings)
     rows = [*export.holdings, *export.market]
     tallies = type_rows(rows)
     found = recompute(export.holdings)
@@ -2684,14 +3001,15 @@ def validate_export(files: Mapping[str, bytes], *, run_date: date | None = None)
     if "ratings" in export.sections and export.book:
         notes.append(BUCKET_RULE)
     order = sorted(export.roles.items(), key=lambda item: (ROLES.index(item[1]), item[0]))
+    order += [(name, UNREADABLE) for name in export.refused]
     return ExportReport(
         ok=not findings.issues,
         rows=found.positions,
         issues=findings.ordered(),
         files=tuple(order),
-        recomputed=recomputed_lines(found) if export.book else (),
+        recomputed=recomputed_lines(found) if export.book and not export.repeated else (),
         notes=tuple(notes),
-        table=tuple(findings.table),
+        table=() if export.repeated else tuple(findings.table),
     )
 
 
@@ -2731,6 +3049,7 @@ def _holdings_checks(
     if export.holdings:
         par_findings(file, export.holdings, findings)
         lien_findings(file, export.holdings, findings)
+        unnamed_findings(file, export.holdings, findings)
         tranche_findings(file, export.holdings, findings)
         borrower_ticker_findings(file, export.holdings, findings)
     range_findings(file, rows, found, findings)
@@ -2741,12 +3060,31 @@ def _holdings_checks(
         if sheet_rows_:
             rating_findings(file, sheet_rows_, findings)
     empty_row_findings(file, export, findings)
+    left_out_notes(export, findings)
 
 
 def validate_export_paths(paths: Sequence[Path], *, run_date: date | None = None) -> ExportReport:
     """`validate_export` on files on disk; a file that cannot be read is the one issue."""
+    if not paths:
+        issue = Issue(
+            file="(none)",
+            sheet="file",
+            cell="A1",
+            problem="no CSV or XLSX file was given, so nothing was checked",
+            fix="give the export's files, or a folder that holds them",
+        )
+        return ExportReport(ok=False, rows=0, issues=(issue,))
     files: dict[str, bytes] = {}
     for path in paths:
+        if path.name in files:
+            issue = Issue(
+                file=path.name,
+                sheet="file",
+                cell="A1",
+                problem="two files have this name, so the check cannot say which one is the export",
+                fix="keep one copy of each file (move an archive folder out of the export folder)",
+            )
+            return ExportReport(ok=False, rows=0, issues=(issue,))
         try:
             files[path.name] = path.read_bytes()
         except OSError as error:
@@ -2800,7 +3138,9 @@ YEAR_DAYS = Decimal("365.25")
 
 
 def rating_number(holding: Holding) -> int | None:
-    parts = [WATCH.sub("", p.strip()) for p in _AGENCIES.split(holding.text.get("ratings", ""))]
+    parts = [WATCH.sub("", p.strip()) for p in agency_parts(holding.text.get("ratings", ""))]
+    if len(parts) == 1:  # one rating: Moody's when it is on Moody's scale, else S&P's
+        parts = [parts[0], parts[0]]
     for scale, part in zip((MOODYS, SP), (*parts, "", ""), strict=False):
         if part in scale:
             return scale.index(part) + 1
@@ -2863,7 +3203,8 @@ def profile(rows: Sequence[Holding], as_of: date | None) -> Profile:
         value = EXACT.divide(EXACT.multiply(par, price), HUNDRED)
         bucket = rating_bucket(holding)
         out.buckets[bucket] = EXACT.add(out.buckets.get(bucket, Decimal(0)), value)
-        out.bucket_borrowers.setdefault(bucket, set()).add(folded(holding.text["borrower"]))
+        if not _unnamed(holding.text["borrower"]):
+            out.bucket_borrowers.setdefault(bucket, set()).add(folded(holding.text["borrower"]))
         out.liens[lien(holding)] = EXACT.add(out.liens.get(lien(holding), Decimal(0)), value)
         if holding.maturity is not None:
             fixed = corrected(holding.maturity)
@@ -2959,7 +3300,7 @@ def borrower_ticker_findings(file: str, rows: Sequence[Holding], findings: Findi
     shown: dict[str, str] = {}
     for holding in rows:
         name, ticker = holding.text.get("borrower", ""), holding.text.get("ticker", "")
-        if name and ticker:
+        if name and ticker and not _unnamed(name):
             shown.setdefault(folded(name), name)
             tickers.setdefault(folded(name), {}).setdefault(ticker, holding.row)
     for key, found in tickers.items():
@@ -3014,7 +3355,7 @@ def rating_section_findings(
                 _claim_finding(file, claim, words, exact, findings, fix="share", **how)
     for bucket, value in shape.buckets.items():
         if bucket not in listed and value:
-            issuers = count(len(shape.bucket_borrowers[bucket]), "issuer")
+            issuers = count(len(shape.bucket_borrowers.get(bucket, ())), "issuer")
             problem = (
                 f"the report lists no {bucket} row; the holdings put "
                 f"{pct(share(value, found.value))} ({issuers}) there"

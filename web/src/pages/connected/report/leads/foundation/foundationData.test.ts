@@ -5,7 +5,7 @@
 // (fixtures/mutations.ts) are test inputs, not real handoffs.
 import { describe, expect, it } from "vitest";
 import type { OutputEntry } from "../../../publishedReport";
-import type { Reading } from "../kit/numbers";
+import { readCell, type Reading } from "../kit/numbers";
 import {
   cp1Entry,
   distressedCp1Entry,
@@ -25,6 +25,8 @@ import {
 } from "../fixtures/mutations";
 import {
   basisText,
+  cellText,
+  handoffWords,
   bridgeKind,
   bridgeKinds,
   cashLadder,
@@ -353,6 +355,32 @@ describe("earningsAgainstDebt", () => {
 
 // ------------------------------------------------------------------------------------------------
 
+describe("handoffWords and cellText (S15-4-2)", () => {
+  it.each([
+    "Not supplied: see the annual report",
+    "Form 10-K",
+    "per the 10-Q",
+    "Source: the lender's note.",
+  ])("leave words that name a filing to Evidence: %s", (text) => {
+    expect(handoffWords(text)).toBe("Detail is in Evidence.");
+    expect(cellText(readCell(text))).not.toMatch(/annual report|10-[KQ]|lender/);
+  });
+  it("keep a stated gap's own words before a reason that names a filing", () => {
+    expect(cellText(readCell("Not supplied: see the annual report"))).toBe(
+      "Not supplied: Detail is in Evidence.",
+    );
+  });
+  it("still draw reader wording and a source dash", () => {
+    expect(handoffWords("Not supplied: the source states no split")).toBe(
+      "Not supplied: the source states no split",
+    );
+    expect(cellText(readCell("Not supplied: the source states no split"))).toBe(
+      "Not supplied: the source states no split",
+    );
+    expect(cellText(readCell("Not supplied: source dash"))).toBe("Not supplied: —");
+  });
+});
+
 describe("basisText", () => {
   it("keeps the module's clauses and leaves out those that cite a source or calculation", () => {
     expect(basisText("Reported cash; annual p120, p152; excludes receivables.")).toBe(
@@ -362,6 +390,17 @@ describe("basisText", () => {
       "Detail is in Evidence.",
     );
     expect(basisText("")).toBeNull();
+  });
+  it("does not cut a page locator written with an abbreviation's full stop (S15-4-1)", () => {
+    expect(
+      basisText(
+        "Carrying debt; reported EBITDA; annual p. 120, p. 71; dividend-only pro forma 6.02x after 2024-10-18.",
+      ),
+    ).toBe("Carrying debt; reported EBITDA; dividend-only pro forma 6.02x after 2024-10-18.");
+    expect(basisText("Reported cash; annual PP. 63-64; excludes receivables.")).toBe(
+      "Reported cash; excludes receivables.",
+    );
+    expect(basisText("Annual report pg. 63: debt and cash rise.")).toBe("Detail is in Evidence.");
   });
 });
 
@@ -724,7 +763,7 @@ describe("netDebtView", () => {
     expect(none?.noAdjustments).toBe(true);
     expect(none?.noAdjustmentsWords).toEqual({
       event: "None found in the sources read",
-      basis: "Synthetic; the annual report and its notes were read.",
+      basis: "Synthetic.",
     });
   });
   it("returns no adjustment and no none row when the table is absent", () => {

@@ -1631,3 +1631,112 @@ def test_financial_put_refuses_an_existing_target_as_before(tmp_path):
     assert "identity_mismatch" in str(refused.value) or refused.value.args == ("identity_mismatch",)
     assert target.read_bytes() == b"abc"
     assert [p.name for p in target.parent.iterdir()] == ["record"]
+
+
+def test_an_undated_periods_balance_is_not_nulled_by_another_undated_periods_conflict():
+    """S12-1-3: undated periods share no date, so one's conflicting balance ties to no other."""
+    from deploy_vii.financial_adapter import kernel_registers
+    from deploy_vii.financial_contracts import FinancialReview
+    from deploy_vii.financial_validation import validate_financial_review
+
+    pack = make_pack()
+    fin = json.loads(json.dumps(financials(pack)["financial"]))
+    fin["pack_sha256"] = pack.content_hash()
+    book = fin["books"][0]
+    scope = {
+        "currency": "USD",
+        "unit": "MILLIONS",
+        "accounting_basis": "IFRS",
+        "entity_perimeter": "consolidated group",
+    }
+    book.update(scope)
+    for period in book["periods"]:
+        period.update(scope)
+
+    def undated_ytd(period_id, fiscal_year):
+        return {
+            "period_id": period_id,
+            "fiscal_year": fiscal_year,
+            "fiscal_quarter": None,
+            "period_type": "YTD",
+            "start_date": None,
+            "end_date": None,
+            "day_count": None,
+            "audit_status": "unaudited",
+            **scope,
+            "citations": [FINANCIAL],
+            "component_period_ids": [],
+            "expense_presentation": "unknown",
+            "presentation_citations": [],
+            "limitation": "YTD dates not stated",
+        }
+
+    book["periods"] += [undated_ytd("ytd-a", "2023"), undated_ytd("ytd-b", "2022")]
+    alternatives = [
+        {"amount": "100", "citations": [FINANCIAL], "explanation": "page 1 prints 100"},
+        {"amount": "101", "citations": [FINANCIAL], "explanation": "page 2 prints 101"},
+    ]
+    conflict = {
+        "observation_id": "cash-a",
+        "status": "conflicting",
+        "amount": None,
+        "citations": [FINANCIAL],
+        "reason": "two printed figures",
+        "alternatives": alternatives,
+    }
+    known = {
+        "observation_id": "cash-b",
+        "status": "known",
+        "amount": "77",
+        "citations": [FINANCIAL],
+    }
+    book["accounts"] += [
+        {"metric_id": "cash_and_equivalents", "period_id": "ytd-a", "value": conflict},
+        {"metric_id": "cash_and_equivalents", "period_id": "ytd-b", "value": known},
+    ]
+    review = FinancialReview.model_validate_json(json.dumps(fin))
+    assert not validate_financial_review(pack, review)
+    registers = kernel_registers(pack, review, "consolidated")
+    rows = {
+        r.period_id: r.value for r in registers.accounts if r.metric_id == "cash_and_equivalents"
+    }
+    assert rows["ytd-b"] == 77 and rows["ytd-a"] is None
+
+
+@pytest.mark.parametrize("space", [" ", " ", " "])
+def test_thousands_grouped_with_a_unicode_space_are_not_read_as_separate_cells(space):
+    """S12-1-4: `1<space>234` is one figure grouped like the ASCII `1 234`, never 1 and 234."""
+    from decimal import Decimal
+
+    from deploy_vii.statement_extract import extract_statement_lines
+
+    header = "Year ended December 31   2025   2024\n"
+    table = extract_statement_lines(f"{header}Revenue  1{space}234  1{space}100\n", "page:1")
+    values = [tuple(line.values) for line in table.lines]
+    assert values in ([], [(Decimal(1234), Decimal(1100))])
+    assert [o.text for o in table.omitted] == [f"Revenue  1{space}234  1{space}100"]
+
+
+def test_a_missing_basis_date_reads_null_never_python_none_in_the_calculation_register(
+    tmp_path, monkeypatch
+):
+    """S12-5-4: T4.9 Period cells use the module's own `null` for a trailing basis with no start."""
+    import deploy_vii.canonical_tables as canonical
+    import deploy_vii.cp1_workflow as workflow
+
+    captured = []
+    real = canonical.canonical_tables
+
+    def spy(*args, **kwargs):
+        captured.append(real(*args, **kwargs))
+        return captured[-1]
+
+    monkeypatch.setattr(workflow, "canonical_tables", spy)
+    quality_ready_case(tmp_path)
+    module = captured[-1].module
+    facts = {fact.fact_id: fact for fact in module.facts}
+    table = next(t for t in module.tables if t.table_id == "T4.9")
+    column = [c.label for c in table.columns].index("Period")
+    cells = {facts[row.fact_ids[column]].text for row in table.rows}
+    assert any("(null to " in text for text in cells)
+    assert not [text for text in cells if text and "None" in text]

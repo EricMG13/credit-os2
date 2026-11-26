@@ -24,6 +24,7 @@ import {
   ledgerOf,
   leftovers,
   passageItems,
+  problemSentence,
   verdictOf,
   words,
   type PassageItem,
@@ -288,15 +289,15 @@ function Measures({
         />
       }
     >
+      {entry && lead.length > 0 && (
+        <PassageBody items={lead} noun="passage" entry={entry} folder={folder} />
+      )}
       {view === "table" ? (
         <section aria-label="Earlier against current">
           <ComparisonTable rows={rows} source={(_label, index) => hrefs.get(index)} />
         </section>
       ) : (
         <>
-          {entry && lead.length > 0 && (
-            <PassageBody items={lead} noun="passage" entry={entry} folder={folder} />
-          )}
           <p className="text-caption text-text-tertiary">
             Earlier → current, in the comparison’s order
           </p>
@@ -511,9 +512,7 @@ function Maturities({
 /** The designed empty state: one fixed sentence on a solid chip and the one action that fixes it. */
 function NoComparison({ change }: { change: PublishedChanges | null | undefined }) {
   const sentence = change?.problem
-    ? containsReference(change.problem)
-      ? "The comparison could not be read."
-      : words(change.problem)
+    ? problemSentence(change.problem)
     : noComparisonSentence(change?.note);
   return (
     <Bento>

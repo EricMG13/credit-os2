@@ -691,7 +691,8 @@ def test_without_the_dates_the_ltm_is_built_and_marked_unchecked(cp1):  # Review
 def test_a_period_dated_twice_differently_is_undated():
     cp1 = CP1_DATED + "| FY2024 | 2024-01-01 | 2024-12-30 |\n"
     record = history(cpos_forecast._tables(cp1), OPERANDS)
-    assert record["limits"][0] == NOT_DATED
+    # S04-6-3: a period dated twice prints only its own limit line, not also "no period table".
+    assert NOT_DATED not in record["limits"]
     assert D(cell(record, "LTM", "revenue")["amount"]) == D("1060")
     twice = (
         "CP-1's period table dates FY2024 more than once, differently; it is treated as undated."
@@ -715,7 +716,7 @@ def test_an_unreadable_date_row_is_not_a_date(start, end):
     assert ("FY", 2024, 4) not in dates
 
 
-def test_a_period_table_may_have_more_columns_and_there_may_be_several():
+def test_only_a_table_headed_exactly_period_start_end_is_read_and_there_may_be_several():
     cp1 = (
         CP1 + "\n| Period | Start | End | Locator |\n| --- | --- | --- | --- |\n"
         "| FY2024 | 2024-01-01 | 2024-12-31 | p.1 |\n"
@@ -723,7 +724,24 @@ def test_a_period_table_may_have_more_columns_and_there_may_be_several():
         "\n| Item | Start | End |\n| --- | --- | --- |\n| FY2023 | 2023-01-01 | 2023-12-31 |\n"
     )
     dates, twice = period_dates(cpos_forecast._tables(cp1))
-    assert set(dates) == {("FY", 2024, 4), ("YTD", 2025, 3)} and twice == ()
+    assert set(dates) == {("YTD", 2025, 3)} and twice == ()
+
+
+def test_a_wider_table_does_not_undate_an_interim_the_period_table_dates():  # S04-6-2
+    # The Period table dates 9M 2024 from 2024-01-02, so the LTM is not a continuous twelve
+    # months; a `| Period | Start | End | Basis |` table re-dating 9M 2025 must not undate it.
+    wide = (
+        "| Period | Start | End | Basis |\n| --- | --- | --- | --- |\n"
+        "| 9M 2025 | 2025-01-01 | 2025-06-30 | as first reported |\n"
+    )
+    rows = {**PERIOD_ROWS, "9M 2024": ("2024-01-02", "2024-09-30")}
+    text = "## Findings\n\n### Statements\n\n" + CP1 + "\n" + _period_table(rows) + "\n" + wide
+    record = history(cpos_periods.cp1_tables(text), OPERANDS)
+    assert cell(record, "LTM", "revenue") == {
+        "amount": None,
+        "reason": "FY2024, 9M 2025 and 9M 2024 are not a continuous twelve months by CP-1's "
+        "period dates (9M 2024 starts 2024-01-02; FY2024 starts 2024-01-01)",
+    }
 
 
 def _with_9m_2023(cp1):
@@ -795,8 +813,9 @@ def test_the_dated_more_than_once_limit_follows_the_operand_reasons():
     cp1 = dated() + "| FY2024 | 2024-01-01 | 2024-12-30 |\n"
     ops = replace(OPERANDS, undrawn=cp2g.Val(None, "CP-1 states no facility"))
     limits = history(cpos_forecast._tables(cp1), ops)["limits"]
-    assert limits[1] == "undrawn revolver: CP-1 states no facility"
-    assert limits[2].startswith("CP-1's period table dates FY2024 more than once")
+    # S04-6-3: no "dates no period table" line first, so the reasons start the list.
+    assert limits[0] == "undrawn revolver: CP-1 states no facility"
+    assert limits[1].startswith("CP-1's period table dates FY2024 more than once")
 
 
 def test_history_is_published_only_when_asked():
@@ -1293,8 +1312,12 @@ def test_a_cp2g_block_on_the_residuals_handoff_publishes_no_other_rows_interest(
         }
         for k, v in BASE.items()
     }
-    files = model_files(RESIDUAL.encode(), forecast_block(base=base).encode(), history=True)
-    record = json.loads(files["calculation.json"])["history"]
+    # Flows under two different headers are refused whole (S04-1-1); the history of a flow named
+    # under a header that is not a period is read where the lines are built.
+    with pytest.raises(ValueError, match="different headers"):
+        model_files(RESIDUAL.encode(), forecast_block(base=base).encode(), history=True)
+    named = {k: (v["row"], v["period"]) for k, v in base.items()}
+    record = history(cpos_forecast._tables(RESIDUAL), OPERANDS, named=named)
     assert cell(record, "FY2023", "interest") == {
         "amount": None,
         "reason": "CP-1 prints the base amount only under a column header that is not a period "
@@ -1507,7 +1530,12 @@ def _e1_block(factor=1, base=None):
             for n, v in cp2g_paths().items()
         }
         extra["base_drivers"] = paths
-    return forecast_block(base=base or _e1_base(factor), **extra)
+    # The years follow CP1_DATED's FY2024 (2024-01-01 to 2024-12-31), the base of the flows.
+    years = [
+        {"year": 2025 + i, "start": f"{2025 + i}-01-01", "end": f"{2025 + i}-12-31"}
+        for i in range(3)
+    ]
+    return forecast_block(base=base or _e1_base(factor), **{"years": years, **extra})
 
 
 def cp2g_paths():

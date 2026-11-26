@@ -35,14 +35,17 @@ _KEY_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-%"
 _NAME = r"[^\s\\/:*?\"'<>|(),;]"  # one character of a path segment
 # A home directory: "/home/<user>", "/var/home/<user>", "/Users/<user>", "/root", and on Windows
 # "<drive>:\Users\<user>", a UNC share's "\\host\share\Users\<user>" or WSL's
-# "/mnt/<drive>/Users/<user>", in either slash, repr-escaped or not. A Windows user name may hold
-# spaces when a backslash or a closing quote follows it ("C:\Users\Jane Doe\AppData",
-# "'C:\Users\Jane Doe'"). A path inside a longer name or a URL's host part
-# ("example.com/home/x") is not one; "file:///home/<user>" is. A closing "." is the sentence's.
+# "/mnt/<drive>/Users/<user>", macOS's "/System/Volumes/Data/Users/<user>" and a home on another
+# volume ("/Volumes/<name>/Users/<user>"), in either slash, repr-escaped or not. A user name may
+# hold spaces when a backslash, a closing quote or (inside a longer path) a slash follows it
+# ("C:\Users\Jane Doe\AppData", "'C:\Users\Jane Doe'", "/Users/Jane Doe/proj/a.py"). A path
+# inside a longer name or a URL's host part ("example.com/home/x") is not one;
+# "file:///home/<user>" is. A closing "." is the sentence's.
 _HOME_PATH = re.compile(
-    r"(?<![\w.-])(?:(?:[A-Za-z]:|\\\\[^\s\\/]+[\\/]+[^\s\\/]+|/mnt/[A-Za-z])[\\/]+|[\\/])"
+    r"(?<![\w.-])(?:(?:[A-Za-z]:|\\\\[^\s\\/]+[\\/]+[^\s\\/]+|/mnt/[A-Za-z]"
+    r"|/System/Volumes/Data|/Volumes/[^\s\\/]+)[\\/]+|[\\/])"
     rf"(?:(?i:users|home|var[\\/]+home)[\\/]+"
-    rf"(?:{_NAME}+(?: {_NAME}+)*(?=[\\'\"])|{_NAME}+(?<!\.))"
+    rf"(?:{_NAME}+(?: {_NAME}+)*(?=[\\'\"])|{_NAME}+(?: {_NAME}+)+(?=/)|{_NAME}+(?<!\.))"
     rf"|root(?!{_NAME}))"
 )
 

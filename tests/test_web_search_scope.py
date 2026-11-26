@@ -190,3 +190,13 @@ def test_a_web_source_row_without_a_source_type_is_refused() -> None:
     assert len(web_source_issues(bare)) == 1
     assert web_source_issues("## Sources\n| S1 | file.txt |\n## Findings\n") == []
     assert web_source_issues("## Findings\n| a | https://x |\n") == []
+
+
+def test_removing_a_marker_never_leaves_a_joined_marker_shaped_span() -> None:
+    """S06-1-2: a stray opener and a stray closer around one real marker would join into a span;
+    one real marker is counted and no span remains (a second pass finds nothing)."""
+    text = OPEN + " x" + MARK + "y," + CLOSE
+    out, n = strip_citation_markers(text)
+    assert n == 1
+    assert out == " xy,"
+    assert strip_citation_markers(out) == (out, 0)

@@ -1162,7 +1162,11 @@ def _market_row(
     return issues, citation
 
 
-_SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
+# S11-4-3: a stop after a single capital ("U.S."), "approx.", "c.", "i.e." or "e.g." ends no
+# sentence: cutting talk there would let a quote after the stop read as an observed level.
+_SENTENCE_END = re.compile(
+    r"(?<!\b[A-Z])(?<!\b[Aa]pprox)(?<!\bc)(?<!\bi\.e)(?<!\be\.g)[.!?](?=\s|$)"
+)
 
 
 def _sentences_of(quote: Quote, pack: PreparedPack) -> str:
