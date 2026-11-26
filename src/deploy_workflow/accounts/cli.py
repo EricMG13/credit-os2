@@ -30,6 +30,8 @@ _NO_ENTRY = "error: no passcode was entered; nothing was set"
 _NOT_UNDERSTOOD = (
     "error: the command was not understood; see python -m deploy_workflow.accounts --help"
 )
+_NOT_TEXT = "error: the passcode could not be read as text; nothing was set"
+_RELATIVE = "error: the account store's folder must be an absolute path"
 _DIFFER = "error: the two entries differ; nothing was set"
 
 
@@ -54,16 +56,20 @@ def _account_id(text: str) -> int:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = _Parser(prog="python -m deploy_workflow.accounts")
-    parser.add_argument("--accounts-dir", type=Path, default=None)
+    parser = _Parser(prog="python -m deploy_workflow.accounts", allow_abbrev=False)
+    parser.add_argument("--accounts-dir", default=None)  # text: Path("") would become "."
     groups = parser.add_subparsers(dest="group", required=True)
-    passcode = groups.add_parser("passcode").add_subparsers(dest="action", required=True)
-    set_cmd = passcode.add_parser("set")
+    passcode = groups.add_parser("passcode", allow_abbrev=False).add_subparsers(
+        dest="action", required=True
+    )
+    set_cmd = passcode.add_parser("set", allow_abbrev=False)
     set_cmd.add_argument("type", choices=passcodes.PASSCODE_TYPES)
-    accounts = groups.add_parser("accounts").add_subparsers(dest="action", required=True)
-    accounts.add_parser("list")
-    accounts.add_parser("disable").add_argument("id", type=_account_id)
-    change = accounts.add_parser("type")
+    accounts = groups.add_parser("accounts", allow_abbrev=False).add_subparsers(
+        dest="action", required=True
+    )
+    accounts.add_parser("list", allow_abbrev=False)
+    accounts.add_parser("disable", allow_abbrev=False).add_argument("id", type=_account_id)
+    change = accounts.add_parser("type", allow_abbrev=False)
     change.add_argument("id", type=_account_id)
     change.add_argument("type", choices=store.PROFILE_TYPES)
     return parser
@@ -85,6 +91,9 @@ def _read_passcode(profile_type: str) -> str | None:
     except EOFError:
         print(_NO_ENTRY, file=sys.stderr)
         return None
+    except UnicodeDecodeError:  # the message would carry the typed byte, so print a fixed one
+        print(_NOT_TEXT, file=sys.stderr)
+        return None
     if first != second:
         print(_DIFFER, file=sys.stderr)
         return None
@@ -96,7 +105,7 @@ def _run(db: sqlite3.Connection, args: argparse.Namespace) -> int:
         value = _read_passcode(args.type)
         if value is None:
             return 2
-        passcodes.set_passcode(db, args.type, value, datetime.now(UTC))
+        passcodes.set_passcode(db, args.type, passcode=value, now=datetime.now(UTC))
         print(f"{args.type} passcode set")
     elif args.action == "list":
         accounts = store.list_accounts(db)
@@ -114,17 +123,19 @@ def _run(db: sqlite3.Connection, args: argparse.Namespace) -> int:
     return 0
 
 
-def _folder(given: Path | None, environ: Mapping[str, str]) -> Path | None:
-    if given is not None:
-        return given
-    from_env = environ.get(_ENV_FOLDER)
-    return Path(from_env) if from_env else None
+def _folder(given: str | None, environ: Mapping[str, str]) -> Path | None:
+    """The folder from the flag, else the environment; None when neither names one."""
+    text = given if given is not None else environ.get(_ENV_FOLDER)
+    return Path(text) if text else None
 
 
 def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = None) -> int:
     env = os.environ if environ is None else environ
     try:
-        args, extra = _parser().parse_known_args(argv)
+        parser = _parser()
+        args, extra = parser.parse_known_args(argv)
+        if any(item.startswith("-") for item in extra):  # an unknown or abbreviated option
+            parser.error("")
     except SystemExit as exit_:
         return int(exit_.code) if isinstance(exit_.code, int) else 2
     if extra:
@@ -133,6 +144,9 @@ def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = 
     folder = _folder(args.accounts_dir, env)
     if folder is None:
         print(_NO_FOLDER, file=sys.stderr)
+        return 2
+    if not folder.is_absolute():
+        print(_RELATIVE, file=sys.stderr)
         return 2
     try:
         db = store.open_db(folder)

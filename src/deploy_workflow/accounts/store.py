@@ -19,8 +19,12 @@ from pathlib import Path
 
 PROFILE_TYPES = ("reader", "analyst", "admin")
 _BUSY_SECONDS = 30
-_OTHERS_WRITE = 0o022
-_REMEDY = "make it writable only by the account that runs the application"
+_OTHERS_ANY = 0o077
+_REMEDY = (
+    "it must belong to the account that runs the application and be open to no one else"
+    " (chmod 700 for the folder, 600 for the file)"
+)
+_UNPRINTABLE = ("Cc", "Cf", "Cs")
 
 
 class StoreError(ValueError):
@@ -192,16 +196,21 @@ def _enable_wal(db: sqlite3.Connection) -> None:
         raise StoreError(f"could not enable WAL mode; database reports {mode!r}")
 
 
-def _check_modes(folder: Path, path: Path) -> None:
-    """On POSIX, refuse a folder or file other users can write to. No check elsewhere."""
-    if os.name != "posix":
-        return
-    if folder.stat().st_mode & _OTHERS_WRITE:
-        raise StoreError(
-            f"the account store's folder {folder} can be written by other users; {_REMEDY}"
-        )
-    if path.exists() and path.stat().st_mode & _OTHERS_WRITE:
-        raise StoreError(f"the account store {path} can be written by other users; {_REMEDY}")
+def _check_private(target: Path, label: str) -> None:
+    """On POSIX, refuse a folder or file that another user owns or can open (R16)."""
+    info = target.stat()
+    if info.st_mode & _OTHERS_ANY:
+        raise StoreError(f"{label} {target} can be opened by other users; {_REMEDY}")
+    if info.st_uid != os.geteuid():
+        raise StoreError(f"{label} {target} belongs to another user; {_REMEDY}")
+
+
+def _create_file(path: Path) -> None:
+    """On POSIX, create the database file at 0o600 so SQLite's -wal and -shm copy that mode."""
+    try:
+        os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+    except FileExistsError:
+        return  # another opener made it first; the mode check judges it
 
 
 def _create_folder(folder: Path) -> None:
@@ -218,10 +227,13 @@ def _create_folder(folder: Path) -> None:
 
 def open_db(folder: Path) -> sqlite3.Connection:
     """Open (creating if needed) `<folder>/accounts.db` and apply migrations; StoreError for a
-    store others can write to, or one this build's migrations did not make."""
+    store others can open or that another user owns, or one this build's migrations did not make."""
     _create_folder(folder)
     path = folder / "accounts.db"
-    _check_modes(folder, path)
+    if os.name == "posix":
+        _check_private(folder, "the account store's folder")
+        _create_file(path)
+        _check_private(path, "the account store")
     db = sqlite3.connect(path, timeout=_BUSY_SECONDS)
     try:
         db.row_factory = sqlite3.Row
@@ -243,7 +255,7 @@ def utc_text(at: datetime) -> str:
 
 def _clean(text: str) -> str:
     spaced = "".join(" " if ch in "\t\n\r" else ch for ch in text)
-    kept = "".join(ch for ch in spaced if unicodedata.category(ch) not in ("Cc", "Cf", "Cs"))
+    kept = "".join(ch for ch in spaced if unicodedata.category(ch) not in _UNPRINTABLE)
     return " ".join(unicodedata.normalize("NFC", kept).split())
 
 
@@ -287,7 +299,7 @@ def _display_name(db: sqlite3.Connection, cleaned: str, email: str) -> str:
         return cleaned
     stripped = email.strip()
     local = stripped.rpartition("@")[0] if "@" in stripped else stripped
-    bracketed = f"{cleaned} ({_clean(local)})"
+    bracketed = f"{cleaned} ({_clean(local) or _clean(stripped)})"
     if _name_taken(db, bracketed):
         raise Conflict(f"the display name {cleaned!r} is taken and so is {bracketed!r}")
     return bracketed
@@ -309,6 +321,8 @@ def register_reader(  # noqa: PLR0913 - the interface is fixed: one keyword per 
     for label, value in (("tenant id", tenant_id), ("object id", object_id), ("email", email)):
         if not value.strip():
             raise StoreError(f"the account has no {label}")
+    if any(unicodedata.category(ch) in _UNPRINTABLE for ch in email):
+        raise StoreError("the account's email holds characters that cannot be printed")
     with write_transaction(db):
         existing = account_by_identity(db, tenant_id, object_id)
         if existing is not None:

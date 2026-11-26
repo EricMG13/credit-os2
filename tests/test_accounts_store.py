@@ -127,18 +127,79 @@ def test_raw_constraints(tmp_path: Path) -> None:
     db.close()
 
 
+_REMEDY = (
+    "it must belong to the account that runs the application and be open to no one else"
+    " (chmod 700 for the folder, 600 for the file)"
+)
+
+
 @posix_only
 def test_posix_modes(tmp_path: Path) -> None:
     folder = tmp_path / "store"
     open_db(folder).close()
     assert folder.stat().st_mode & 0o777 == 0o700
     folder.chmod(0o777)
-    with pytest.raises(StoreError, match="can be written by other users"):
+    with pytest.raises(StoreError, match="can be opened by other users"):
         open_db(folder)
     folder.chmod(0o700)
     (folder / "accounts.db").chmod(0o666)
-    with pytest.raises(StoreError, match="can be written by other users"):
+    with pytest.raises(StoreError, match="can be opened by other users"):
         open_db(folder)
+
+
+@posix_only
+@pytest.mark.parametrize("mode", [0o755, 0o777])
+def test_folder_open_to_others_refused(tmp_path: Path, mode: int) -> None:
+    folder = tmp_path / "store"
+    folder.mkdir()
+    folder.chmod(mode)
+    with pytest.raises(StoreError) as err:
+        open_db(folder)
+    assert str(err.value) == (
+        f"the account store's folder {folder} can be opened by other users; {_REMEDY}"
+    )
+
+
+@posix_only
+@pytest.mark.parametrize("mode", [0o644, 0o666])
+def test_file_open_to_others_refused(tmp_path: Path, mode: int) -> None:
+    folder = tmp_path / "store"
+    open_db(folder).close()
+    (folder / "accounts.db").chmod(mode)
+    with pytest.raises(StoreError) as err:
+        open_db(folder)
+    assert str(err.value) == (
+        f"the account store {folder / 'accounts.db'} can be opened by other users; {_REMEDY}"
+    )
+
+
+@posix_only
+def test_fresh_store_files_are_private_even_with_open_umask(tmp_path: Path) -> None:
+    folder = tmp_path / "store"
+    old = os.umask(0o022)
+    try:
+        db = open_db(folder)
+        db.execute("INSERT INTO meta(key, value) VALUES ('probe', 'x')")
+        db.commit()
+        modes = {p.name: p.stat().st_mode & 0o777 for p in folder.iterdir()}
+        db.close()
+    finally:
+        os.umask(old)
+    assert modes["accounts.db"] == 0o600
+    assert modes["accounts.db-wal"] == 0o600
+    assert modes["accounts.db-shm"] == 0o600
+
+
+@posix_only
+def test_foreign_owner_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    folder = tmp_path / "store"
+    open_db(folder).close()
+    monkeypatch.setattr(os, "geteuid", lambda: os.stat(folder).st_uid + 1)
+    with pytest.raises(StoreError) as err:
+        open_db(folder)
+    assert str(err.value) == (
+        f"the account store's folder {folder} belongs to another user; {_REMEDY}"
+    )
 
 
 def test_concurrent_first_open(tmp_path: Path) -> None:
@@ -213,6 +274,19 @@ def test_accounts_flow(db: sqlite3.Connection) -> None:
     row = db.execute("SELECT given_name, family_name FROM accounts WHERE id=3").fetchone()
     assert row[0] is None and row[1] is None
     assert [x.id for x in list_accounts(db)] == [1, 2, 3]
+
+
+def test_empty_local_part_bracket_holds_the_email(db: sqlite3.Connection) -> None:
+    _reg(db)
+    b = _reg(db, object_id="o-2", email="@x.org")
+    assert b.display_name == "A. Kovac (@x.org)"
+
+
+def test_unprintable_email_refused(db: sqlite3.Connection) -> None:
+    with pytest.raises(StoreError) as err:
+        _reg(db, email="b\x1b[31m@x.org")
+    assert str(err.value) == "the account's email holds characters that cannot be printed"
+    assert _count(db) == 0
 
 
 def test_name_cleaning(db: sqlite3.Connection) -> None:

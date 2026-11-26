@@ -46,12 +46,12 @@ def _matches(passcode: str, row: sqlite3.Row) -> bool:
     return hmac.compare_digest(_hash(passcode, bytes(row["salt"])), bytes(row["hash"]))
 
 
-def set_passcode(db: sqlite3.Connection, profile_type: str, passcode: str, now: datetime) -> None:
+def set_passcode(
+    db: sqlite3.Connection, profile_type: str, *, passcode: str, now: datetime
+) -> None:
     """Set (replace) the passcode for `profile_type`; it must differ from the other type's."""
     if profile_type not in PASSCODE_TYPES:
-        raise StoreError(
-            f"invalid passcode type {profile_type!r}; expected one of {', '.join(PASSCODE_TYPES)}"
-        )
+        raise StoreError(f"invalid passcode type; expected one of {', '.join(PASSCODE_TYPES)}")
     if len(passcode) < MIN_LENGTH:
         raise StoreError(f"a passcode needs at least {MIN_LENGTH} characters")
     if len(passcode) > MAX_LENGTH:
@@ -93,7 +93,9 @@ def _record_failure(db: sqlite3.Connection, object_id: str, now: datetime) -> No
     )
 
 
-def try_passcode(db: sqlite3.Connection, object_id: str, passcode: str, now: datetime) -> Attempt:
+def try_passcode(
+    db: sqlite3.Connection, object_id: str, *, passcode: str, now: datetime
+) -> Attempt:
     """Check a passcode for an identity, counting failures; locked identities are not checked."""
     utc_text(now)
     now = now.astimezone(UTC)
@@ -109,10 +111,11 @@ def try_passcode(db: sqlite3.Connection, object_id: str, passcode: str, now: dat
             and now < datetime.fromisoformat(state["locked_until"])
         ):
             return "locked"
+        # Count first: if the store cannot take the count, this raises and no passcode is judged.
+        _record_failure(db, object_id, now)
         if MIN_LENGTH <= len(passcode) <= MAX_LENGTH and _is_text(passcode):
             for row in db.execute("SELECT profile_type, hash, salt FROM passcodes"):
                 if _matches(passcode, row):
                     db.execute("DELETE FROM registration_attempts WHERE object_id=?", (object_id,))
                     return "analyst" if row["profile_type"] == "analyst" else "admin"
-        _record_failure(db, object_id, now)
         return "wrong passcode"

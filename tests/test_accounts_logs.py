@@ -51,13 +51,13 @@ def test_no_secret_reaches_any_output(tmp_path, caplog, capsys, monkeypatch):
         ("admin", AD),
     ):
         try:
-            set_passcode(db, kind, value, now)
+            set_passcode(db, kind, passcode=value, now=now)
         except StoreError as error:
             raised.append(str(error))
-    outcomes = [try_passcode(db, "o-1", WRONG, now) for _ in range(5)]
+    outcomes = [try_passcode(db, "o-1", passcode=WRONG, now=now) for _ in range(5)]
     assert outcomes == ["wrong passcode"] * 5
-    assert try_passcode(db, "o-1", AN, now) == "locked"
-    assert try_passcode(db, "o-2", AD, now) == "admin"
+    assert try_passcode(db, "o-1", passcode=AN, now=now) == "locked"
+    assert try_passcode(db, "o-2", passcode=AD, now=now) == "admin"
     hashes = [bytes(r["hash"]).hex() for r in db.execute("SELECT hash FROM passcodes")]
     salts = [bytes(r["salt"]).hex() for r in db.execute("SELECT salt FROM passcodes")]
     db.close()

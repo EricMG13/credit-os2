@@ -36,7 +36,9 @@ class Tty:
 class Script:
     """Stands in for the terminal: records prompts, returns queued entries."""
 
-    def __init__(self, entries: list[str | type[BaseException]], warn: bool = False) -> None:
+    def __init__(
+        self, entries: list[str | BaseException | type[BaseException]], warn: bool = False
+    ) -> None:
         self.entries = list(entries)
         self.prompts: list[str] = []
         self.warn = warn
@@ -46,7 +48,7 @@ class Script:
         if self.warn:
             warnings.warn("echoed", getpass.GetPassWarning, stacklevel=2)
         entry = self.entries.pop(0)
-        if isinstance(entry, type):
+        if isinstance(entry, type | BaseException):
             raise entry
         return entry
 
@@ -121,7 +123,7 @@ def test_set_short(d, monkeypatch, capsys):
 
 def test_set_admin_same_as_analyst(d, monkeypatch, capsys):
     db = store.open_db(d)
-    set_passcode(db, "analyst", AN, datetime(2026, 11, 26, 8, 0, tzinfo=UTC))
+    set_passcode(db, "analyst", passcode=AN, now=datetime(2026, 11, 26, 8, 0, tzinfo=UTC))
     db.close()
     terminal(monkeypatch, Script([AN, AN]))
     assert run(d, "passcode", "set", "admin") == 2
@@ -292,3 +294,44 @@ def test_closed_stdin(d, monkeypatch, capsys):
     assert run(d, "passcode", "set", "analyst") == 2
     assert capsys.readouterr().err == NEEDS_TERMINAL
     assert s.prompts == []
+
+
+def test_empty_flag_refused(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["--accounts-dir", "", "accounts", "list"], environ={}) == 2
+    assert capsys.readouterr().err == NO_FOLDER
+    assert list(tmp_path.iterdir()) == []
+
+
+RELATIVE = "error: the account store's folder must be an absolute path\n"
+
+
+def test_relative_folder_refused(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["--accounts-dir", "rel", "accounts", "list"], environ={}) == 2
+    assert capsys.readouterr().err == RELATIVE
+    assert cli.main(["accounts", "list"], environ={"CREDIT_OS_ACCOUNTS_DIR": "rel"}) == 2
+    assert capsys.readouterr().err == RELATIVE
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("where", [0, 1])
+def test_undecodable_input(d, monkeypatch, capsys, where):
+    bad = UnicodeDecodeError("utf-8", b"\xe9", 0, 1, "invalid continuation byte")
+    entries: list = [AN, bad] if where else [bad]
+    s = terminal(monkeypatch, Script(entries))
+    assert run(d, "passcode", "set", "analyst") == 2
+    assert capsys.readouterr().err == (
+        "error: the passcode could not be read as text; nothing was set\n"
+    )
+    assert len(s.prompts) == where + 1
+    assert passcode_rows(d) == 0
+
+
+@pytest.mark.parametrize("flag", ["--acc", "--acc={d}"])
+def test_no_abbreviated_options(tmp_path, capsys, flag):
+    d = tmp_path / "abbr"
+    argv = [flag.format(d=d)] if "=" in flag else [flag, str(d)]
+    assert cli.main([*argv, "accounts", "list"], environ={}) == 2
+    assert capsys.readouterr().err.splitlines()[-1] == NOT_UNDERSTOOD
+    assert not d.exists()
