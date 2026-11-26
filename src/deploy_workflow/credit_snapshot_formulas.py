@@ -50,6 +50,10 @@ CAPITAL, TOTALS, EQUITY, MEASURES = (
 CREDIT_SCORE = "Credit Score from factors"
 KEY_FIGURES, RECOMMENDATION = "Key figures", "Recommendation"
 RV_LOANS, RV_BONDS = "Relative value: loans", "Relative value: bonds"
+INDEX_ROW = "Index"
+INDEX_COLUMNS = ("Rating bucket", "Level (bp)", "Price", "1M move", "YTD move")
+PEERS, PEER_ISSUER = "Peers", "Peer issuer"
+PEER_COLUMNS = (*INDEX_COLUMNS[:3], "FIGI", "Facility rating", "Bid", "Ask", *INDEX_COLUMNS[3:])
 REC_TABLE, BANDS, SCALES, CS_RULES = (
     *("Recommendation table", "Valuation bands", "Scales", "Credit Score rules"),
 )
@@ -914,8 +918,32 @@ class _Builder:
             (RV_LOANS, "loan", self._index("loan_index")),
             (RV_BONDS, "bond", self._index("hy_index")),
         ):
-            cells = [c for name in self.instruments for c in self._rv_row(block, word, index, name)]
+            cells = [
+                *self._index_row(block),
+                *(c for name in self.instruments for c in self._rv_row(block, word, index, name)),
+                *self._peer_rows(block),
+            ]
             self.add(SNAPSHOT, block, cells)
+
+    def _index_row(self, block: str) -> list[snap.SnapshotCell]:
+        """The index row: its label and one analyst cell for each figure the analyst reads off the
+        index (ruling PM-c)."""
+        cells = [_label(SNAPSHOT, block, INDEX_ROW, "Instrument", INDEX_ROW)]
+        cells += [self.analyst(At(SNAPSHOT, block, INDEX_ROW, c)) for c in INDEX_COLUMNS]
+        return cells
+
+    def _peer_rows(self, block: str) -> list[snap.SnapshotCell]:
+        """One row per peer of the Peers block, in its order: the instrument cell draws that peer's
+        issuer cell, the rest are analyst cells. No peers listed, no rows."""
+        peers = [c for c in self._cells(SNAPSHOT, PEERS) if c.column == PEER_ISSUER]
+        cells = []
+        for peer in peers:
+            d = _Draft()
+            cells.append(
+                self.formula(At(SNAPSHOT, block, peer.row, "Instrument"), d, f"={d(_at(peer))}")
+            )
+            cells += [self.analyst(At(SNAPSHOT, block, peer.row, c)) for c in PEER_COLUMNS]
+        return cells
 
     def _rv_row(
         self, block: str, word: str, index: _Reference | None, name: str

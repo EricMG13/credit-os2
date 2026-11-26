@@ -321,8 +321,8 @@ PINNED = [
             'IF(ISNUMBER(Snapshot!$D$66),Snapshot!$P$5+Snapshot!$D$66,""),',
             'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$G$66),Snapshot!$P$5+Snapshot!$G$66,""),"")),',
             'IF(ISNUMBER(Snapshot!$P$6),IF(Snapshot!$P$8="FY2025",',
-            'IF(ISNUMBER(Snapshot!$M$93),Snapshot!$P$6*Snapshot!$M$93,""),',
-            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$O$93),Snapshot!$P$6*Snapshot!$O$93,""),"")),"")))',
+            'IF(ISNUMBER(Snapshot!$M$105),Snapshot!$P$6*Snapshot!$M$105,""),',
+            'IF(Snapshot!$P$8="FY2024",IF(ISNUMBER(Snapshot!$O$105),Snapshot!$P$6*Snapshot!$O$105,""),"")),"")))',
         ),
     ),
     (
@@ -908,3 +908,75 @@ def test_held_names_are_never_cut(sixty):
     named = [re.fullmatch(r'=REPLACE\(Matrix!\$([A-Z]+)\$([0-9]+),1,16,""\)', n) for n in names[1:]]
     assert all(named)
     assert ["".join(m.group(1, 2)) for m in named] == expected
+
+
+# --- Index and peer rows of the relative value cards (PM-3, ruling PM-h) -------------------------
+
+CARDS = ("Relative value: loans", "Relative value: bonds")
+INDEX_ONLY = ("Rating bucket", "Level (bp)", "Price", "1M move", "YTD move")
+PEER_COLUMNS = ("Rating bucket", "Level (bp)", "Price", "FIGI", "Facility rating")
+PEER_COLUMNS += ("Bid", "Ask", "1M move", "YTD move")
+
+
+def card_rows(opened, block):
+    """The card's row names in sheet order (top to bottom), read from the file's own cells."""
+    rows = [r for r in sources(opened) if r["Sheet"] == "Snapshot" and r["Block"] == block]
+    placed = {}
+    for r in rows:
+        number = int(re.sub(r"[A-Z]+", "", r["Cell"]))
+        if not r["Row"].startswith("("):  # the writer's own title and header cells
+            placed.setdefault(r["Row"], number)
+    return [name for name, _ in sorted(placed.items(), key=lambda item: item[1])]
+
+
+def test_each_card_starts_with_an_index_row_labelled_index_and_five_analyst_cells(book, bare):
+    for opened in (book, bare):
+        for card in CARDS:
+            (label,) = listed(opened, card, row="Index", column="Instrument")
+            assert (label["Kind"], label["Handoff text"]) == ("label", "Index")
+            index = [r for r in sources(opened) if r["Block"] == card and r["Row"] == "Index"]
+            assert [r["Column"] for r in index if r["Kind"] == "analyst"] == list(INDEX_ONLY)
+            assert len(index) == 1 + len(INDEX_ONLY)
+            assert card_rows(opened, card)[0] == "Index"
+
+
+def test_each_peer_row_draws_that_peers_issuer_cell_and_has_nine_analyst_cells(full, book):
+    peers = [c.row for c in full.cells() if c.block == "Peers" and c.column == "Peer issuer"]
+    assert peers == [f"Peer {n}" for n in range(1, 6)]
+    for card in CARDS:
+        for name in peers:
+            drawn = cell_of(book, block="Peers", row=name, column="Peer issuer", sheet="Snapshot")
+            where = f"=Snapshot!${drawn.column_letter}${drawn.row}"
+            assert text_of(book, "Snapshot", card, name, "Instrument") == where
+            mine = [r for r in sources(book) if r["Block"] == card and r["Row"] == name]
+            analyst = [r["Column"] for r in mine if r["Kind"] == "analyst"]
+            assert sorted(analyst) == sorted(PEER_COLUMNS)
+            assert {r["Column"] for r in mine} == {
+                "Instrument",
+                *PEER_COLUMNS,
+            }  # no median, no valuation
+
+
+def test_a_peer_row_names_the_peer_of_its_own_number_not_a_neighbour(book):
+    first = cell_of(book, block="Peers", row="Peer 1", column="Peer issuer", sheet="Snapshot")
+    second = cell_of(book, block="Peers", row="Peer 2", column="Peer issuer", sheet="Snapshot")
+    assert first.coordinate != second.coordinate
+    card = "Relative value: bonds"
+    assert text_of(book, "Snapshot", card, "Peer 1", "Instrument") == (
+        f"=Snapshot!${first.column_letter}${first.row}"
+    )
+    assert text_of(book, "Snapshot", card, "Peer 2", "Instrument").endswith(f"${second.row}")
+
+
+def test_each_card_lists_the_index_then_the_own_instruments_then_the_peers(full, book):
+    own = list(dict.fromkeys(c.row for c in full.cells() if c.block == "Instruments"))
+    assert own  # the case has instruments, or the order below would prove nothing
+    for card in CARDS:
+        assert card_rows(book, card) == ["Index", *own, *(f"Peer {n}" for n in range(1, 6))]
+
+
+def test_a_run_with_no_peers_has_the_index_row_and_the_own_rows_only(bare):
+    for card in CARDS:
+        rows = card_rows(bare, card)
+        assert rows[0] == "Index"
+        assert not [name for name in rows if name.startswith("Peer ")]
