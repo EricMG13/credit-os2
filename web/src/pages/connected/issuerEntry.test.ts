@@ -8,6 +8,7 @@ import {
   selectIssuerEntry,
 } from "./issuerEntry";
 import type { CatalogueRun, LibraryIndex, LibraryRun } from "./publishedReport";
+import { groupIssuers } from "./libraryRows/group";
 
 const SHA = "a".repeat(64);
 function caseRun(folder: string, date: string, fields: Partial<LibraryRun> = {}) {
@@ -111,6 +112,51 @@ describe("issuer entry", () => {
     expect(selectIssuerEntry([screen, lite], false)).toBe(lite);
     expect(selectIssuerEntry([screen, lite, full], false)).toBe(full);
     expect(selectIssuerEntry([screen, lite], true)).toBe(screen);
+  });
+
+  describe("a custom run (PR 7a: Deep's modules, chosen by the analyst)", () => {
+    const custom = (folder: string, date: string, fields: Partial<LibraryRun> = {}) =>
+      caseRun(folder, date, { pathway: "custom", ...fields });
+
+    it("is an issuer assessment when its scope is standard and a credit view is published", () => {
+      expect(isIssuerAssessment(custom("c", "2026-01-01").run)).toBe(true);
+      expect(
+        isIssuerAssessment(custom("p", "2026-01-01", { assessmentScope: "partial" }).run),
+      ).toBe(false);
+      expect(isIssuerAssessment(custom("n", "2026-01-01", { lead: null }).run)).toBe(false);
+      expect(
+        isIssuerAssessment(custom("u", "2026-01-01", { assessmentScope: "unverified" }).run),
+      ).toBe(false);
+    });
+
+    it("is listed without the unavailable-assessment note and shows its own scope", () => {
+      const { catalogue, run } = custom("c", "2026-01-01");
+      const index: LibraryIndex = {
+        catalogue: { real: [catalogue] },
+        workspace: { runs: { c: run } },
+      };
+      const [group] = groupIssuers(index);
+      expect(group?.pathway).toBe("Custom selection");
+      expect(group?.assessmentUnavailable).toBe(false);
+      expect(group?.scope).toBe("Standard pathway scope");
+    });
+
+    it("is the entry when no Full, Deep or Lite assessment is, but never displaces one", () => {
+      const chosen = custom("c", "2026-06-01");
+      const purpose = caseRun("earnings", "2026-07-01", { pathway: "earnings_update" });
+      const full = caseRun("full", "2026-01-01");
+      const lite = caseRun("lite", "2026-02-01", { pathway: "lite_credit_assessment" });
+      expect(selectIssuerEntry([purpose, chosen], false)).toBe(chosen);
+      expect(selectIssuerEntry([purpose, chosen, lite], false)).toBe(lite);
+      expect(selectIssuerEntry([purpose, chosen, lite, full], false)).toBe(full);
+      expect(selectIssuerEntry([purpose, chosen, full], true)).toBe(purpose);
+    });
+
+    it("is not preferred when its scope is partial", () => {
+      const partial = custom("c", "2026-06-01", { assessmentScope: "partial" });
+      const purpose = caseRun("earnings", "2026-07-01", { pathway: "earnings_update" });
+      expect(selectIssuerEntry([purpose, partial], false)).toBe(purpose);
+    });
   });
 
   it("puts unknown analysis dates after valid dates and applies one tie rule to the whole date", () => {

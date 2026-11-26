@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-from library_fixtures import make_run
+from library_fixtures import make_custom_run
 from test_cpos_launch import context_file, issuer_folder
 
 from deploy_vii import registry
@@ -379,9 +379,26 @@ def test_the_estimate_is_the_answer_keys_per_module_figures_sum_hold_and_cap(key
         assert row.measured is MODULE_ESTIMATE_USD[row.module].measured
 
 
-def _earlier_run(tmp_path: Path) -> None:
-    """A listed earlier run of the same issuer and pathway, so the launcher plans CP-8."""
-    make_run(tmp_path / "ws", "prior-1", as_of="2024-12-31", pathway="custom")
+def _earlier_run(tmp_path: Path, completed: tuple[str, ...]) -> None:
+    """A listed earlier custom run of the same issuer, as the launcher records one (pathway
+    `custom`, selection `explicit`, `requested_modules` the completed list), so CP-8 is planned."""
+    make_custom_run(tmp_path / "ws", "prior-1", completed, as_of="2024-12-31")
+
+
+def _completed(tmp_path: Path, chosen: list[str]) -> tuple[str, ...]:
+    """What a first run of `chosen` records as its modules: its own `prepare`, in a workspace of its
+    own where no earlier run exists."""
+    probe = tmp_path / "probe"
+    probe.mkdir()
+    first = prepare(
+        context_file(probe, "custom"),
+        issuer_folder(probe),
+        probe / "ws/runs/first",
+        config=MEDIUM,
+        cap=None,
+        modules=chosen,
+    )
+    return first.plan.run.requested_modules
 
 
 def _prepared(
@@ -407,8 +424,8 @@ def _prepared(
 @pytest.mark.parametrize("key", PRESETS, ids=lambda k: f"{k.selection}-{k.cp8}-{k.effort}")
 def test_prepare_launches_a_custom_run_at_the_answer_keys_cap(tmp_path, key):
     selection, cp8, effort, per, total, hold, cap = key
-    if cp8:
-        _earlier_run(tmp_path)
+    if cp8:  # the key's own module list less CP-8: what the earlier run completed
+        _earlier_run(tmp_path, tuple(m for m, _ in _figures(per) if m != "CP-8"))
     prepared = _prepared(
         tmp_path,
         CHOSEN[selection],
@@ -430,7 +447,7 @@ def test_prepare_launches_a_custom_run_at_the_answer_keys_cap(tmp_path, key):
 def test_the_estimates_hold_is_the_hold_the_launcher_checks(tmp_path, config, research, earlier):
     chosen = ["CP-DR", "CP-4"] if research else ["CP-4"]
     if earlier:
-        _earlier_run(tmp_path)
+        _earlier_run(tmp_path, _completed(tmp_path, chosen))
     prepared = _prepared(tmp_path, chosen, config=config)
     assert prepared.estimate is not None
     assert prepared.estimate.hold == prepared.hold == HOLD

@@ -967,6 +967,7 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
     pathway: str,
     as_of: str,
     choice: str | None = None,
+    planned: Sequence[str] | None = None,
 ) -> tuple[PriorRun | None, str | None, dict[str, bytes]]:
     """The earlier run CP-8 compares with, the line recorded about it, and the pinned copies of its
     handoffs to write (source name -> bytes).
@@ -974,7 +975,8 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
     ``choice`` is the approval's: ``NO_PRIOR`` ("first run"), the folder name of the run it named,
     or None (a launch from the command line, which searches). A named run is used exactly, if it is
     still listed and passes the same tests as a searched one; otherwise the run proceeds without
-    CP-8 and says so.
+    CP-8 and says so. ``planned`` is this run's planned modules (the completed list, which holds no
+    CP-8): a custom run is compared only with an earlier custom run that completed the same ones.
 
     ``held`` is the manifest the run folder already holds: it keeps what that manifest records, so
     a newer completed run appearing since cannot change it and get the relaunch refused; the copies
@@ -1005,6 +1007,7 @@ def _earlier_run(  # noqa: PLR0913 - the identity of the run and the approved ch
         as_of=as_of,
         only=choice,
         skipped=skipped,
+        planned=planned,
     )
     why = f" (not used: {'; '.join(skipped)})" if skipped else ""
     if found is None:
@@ -1260,6 +1263,7 @@ def _prepare(  # noqa: PLR0913, PLR0915 - `prepare`'s body: one keyword per sett
         pathway=settings.run.pathway,
         as_of=settings.run.as_of,
         choice=choice,
+        planned=requested,
     )
     if left_out is not None:
         prior, note, earlier = None, left_out, {}

@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 from inbox_fixtures import CONTEXT, layout, pump, settings
-from library_fixtures import make_run
+from library_fixtures import make_custom_run
 from test_cpos_launch import context_file
 from test_custom_estimate import CHOSEN, KEY, _figures
 from test_run_start_service import Service
@@ -61,8 +61,9 @@ def custom_answers(tmp_path: Path, chosen: list[str], effort: str = "balanced", 
 @pytest.mark.parametrize("key", KEY, ids=lambda k: f"{k.selection}-{k.cp8}-{k.effort}")
 def test_the_summary_of_a_custom_run_is_the_answer_keys_estimate(lay, tmp_path, key):
     sid, _ = upload_issuer(lay, tmp_path)
-    if key.cp8:
-        make_run(lay.engine, "prior-1", as_of="2024-12-31", pathway="custom")
+    if key.cp8:  # an earlier custom run as the launcher records one: the same completed modules
+        completed = tuple(m for m, _ in _figures(key.per) if m != "CP-8")
+        make_custom_run(lay.engine, "prior-1", completed, as_of="2024-12-31")
     got = submissions.summary(lay, sid, custom_answers(tmp_path, CHOSEN[key.selection], key.effort))
     assert got["error"] == "", got["error"]
     estimate = got["estimate"]
@@ -86,7 +87,9 @@ def test_the_summary_of_a_custom_run_is_the_answer_keys_estimate(lay, tmp_path, 
 
 def test_the_summary_says_why_each_module_was_added(lay, tmp_path):
     sid, _ = upload_issuer(lay, tmp_path)
-    make_run(lay.engine, "prior-1", as_of="2024-12-31", pathway="custom")
+    first = submissions.summary(lay, sid, custom_answers(tmp_path, ["CP-6"]))  # no earlier run yet
+    completed = tuple(r["module"] for r in first["estimate"]["rows"])
+    make_custom_run(lay.engine, "prior-1", completed, as_of="2024-12-31")
     got = submissions.summary(lay, sid, custom_answers(tmp_path, ["CP-6"]))
     rows = {r["module"]: r for r in got["estimate"]["rows"]}
     assert rows["CP-6"]["added"] is None

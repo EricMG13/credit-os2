@@ -486,9 +486,12 @@ function runModuleCodes(run) {
 
 // The modules that may lead a run's Overview (ruling H5), in order. CP-L10 leads a short snapshot (amendment 2026-11-12); CP-1B leads an earnings update (amendment 2026-11-16) and no other pathway.
 const LEAD_ORDER = ['CP-6', 'CP-2', 'CP-L10'];
-const leadModules = pathway => (pathway === 'earnings_update' ? [...LEAD_ORDER, 'CP-1B'] : LEAD_ORDER);
+// A custom run's lead (PR 7a, ruling C16): CP-2, else the modules it planned in reverse order, except these, which lead nothing. `requested` is the run's recorded request (its completed list); none recorded leaves CP-2.
+const NOT_A_CUSTOM_LEAD = ['CP-0', 'CP-DR', 'CP-5', 'CP-8', 'CP-MODEL'];
+const customLeadModules = requested => ['CP-2', ...[...(Array.isArray(requested) ? requested : [])].reverse().filter(code => code !== 'CP-2' && !NOT_A_CUSTOM_LEAD.includes(code))];
+const leadModules = (pathway, requested) => pathway === 'custom' ? customLeadModules(requested) : pathway === 'earnings_update' ? [...LEAD_ORDER, 'CP-1B'] : LEAD_ORDER;
 // The lead is the first of those that ran, has a Bottom line and `usable` accepts (not blocked); undefined when none.
-const pickLead = (entries, pathway, usable) => leadModules(pathway).map(code => entries.find(entry => entry.module === code)).find(entry => entry?.passages?.bottom && usable(entry));
+const pickLead = (entries, pathway, usable, requested) => leadModules(pathway, requested).map(code => entries.find(entry => entry.module === code)).find(entry => entry?.passages?.bottom && usable(entry));
 const leadKicker = module => (module === 'CP-1B' ? 'Earnings view' : 'Credit view');
 
 if (typeof module !== 'undefined') module.exports = {escapeHtml, plainText, richText, chartNumber, numericColumn, cellView, basisButton, writtenCell, paragraphBody, figuredHtml, figureButton, paragraphLabel, passageControls, paragraphView, tableView, sectionBodyHtml, calculationRow, readerPassages, isNewFormat, earlierFormatRun, blocked, splitBasis, basisItem, inspectorItem, inspectorItems, inspectorItemHtml, inspectorBasisBlock, uniqueChips, figureSpans, earlierBasis, historyRows, pathwayTitle, runModuleCodes, leadModules, leadKicker, pickLead};

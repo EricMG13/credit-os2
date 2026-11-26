@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 import test_changes as seam
-from library_fixtures import make_run, method, with_changes, without_report
+from library_fixtures import make_custom_run, make_run, method, with_changes, without_report
 
 ROOT = Path(__file__).resolve().parents[1]
 import update_library
@@ -569,6 +569,25 @@ def test_the_lead_module_of_the_pathway_travels_with_the_run(tmp_path, pathway, 
     current_run(tmp_path, "r", pathway=pathway)
     update_library.update_library(tmp_path)
     assert changes_of(tmp_path, "r")["lead"] == lead
+
+
+@pytest.mark.parametrize(
+    ("modules", "lead"),
+    [
+        (("CP-0", "CP-1", "CP-4"), "CP-4"),  # Covenant Capacity
+        (("CP-0", "CP-1", "CP-1A", "CP-2E"), "CP-2E"),  # Governance and ESG: last planned
+        (("CP-0", "CP-1", "CP-1A", "CP-2"), "CP-2"),  # CP-2 wins whatever else ran
+        (("CP-0", "CP-1", "CP-1A", "CP-2", "CP-2E"), "CP-2"),
+        (("CP-0", "CP-1"), "CP-1"),
+    ],
+)
+def test_the_lead_module_of_a_custom_run_is_cp2_else_the_last_planned_it_delivered(
+    tmp_path, modules, lead
+):
+    """Synthetic custom run as the launcher records it (`make_custom_run`)."""
+    without_report(make_custom_run(tmp_path, "c", modules))
+    update_library.update_library(tmp_path)
+    assert changes_of(tmp_path, "c")["lead"] == lead
 
 
 def test_a_pack_of_the_newer_schema_is_carried_unchanged(tmp_path):

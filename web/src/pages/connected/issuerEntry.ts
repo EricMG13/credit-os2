@@ -116,13 +116,17 @@ function standardView(run?: LibraryRun) {
 
 export function isIssuerAssessment(run?: LibraryRun) {
   return (
-    ["credit_snapshot", "deep_credit_assessment", "lite_credit_assessment"].includes(
+    ["credit_snapshot", "deep_credit_assessment", "lite_credit_assessment", "custom"].includes(
       run?.pathway ?? "",
     ) && standardView(run)
   );
 }
 
-/** Filtered results open the selected pathway. The unfiltered entry prefers a standard assessment. */
+/**
+ * Filtered results open the selected pathway. The unfiltered entry prefers a standard assessment:
+ * Full or Deep, then Lite, then a custom selection (Deep's modules, chosen by the analyst, so it
+ * is an issuer assessment but never displaces a whole one), then the latest admitted report.
+ */
 export function selectIssuerEntry(entries: IssuerRun[], explicitPathway: boolean) {
   const admitted = entries.filter(({ run }) => run);
   if (explicitPathway || admitted.length <= 1)
@@ -135,7 +139,8 @@ export function selectIssuerEntry(entries: IssuerRun[], explicitPathway: boolean
   const lite = admitted.filter(
     ({ run }) => run?.pathway === "lite_credit_assessment" && standardView(run),
   );
-  return ordered(full.length ? full : lite.length ? lite : admitted)[0];
+  const chosen = admitted.filter(({ run }) => run?.pathway === "custom" && standardView(run));
+  return ordered(full.length ? full : lite.length ? lite : chosen.length ? chosen : admitted)[0];
 }
 
 export function relatedIssuerReports(entries: IssuerRun[], selected: IssuerRun) {
