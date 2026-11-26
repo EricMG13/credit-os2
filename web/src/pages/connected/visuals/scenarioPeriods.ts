@@ -1,5 +1,6 @@
 import { periodGapNote } from "@/components/chart/seriesData";
 import { orderPeriods, parsePeriod } from "@/utils/periodOrder";
+import { drawnReason, sentence } from "./drawnQualifications";
 
 export interface ScenarioPeriodObservation {
   period: string;
@@ -107,7 +108,7 @@ export function historyNotes(
     const again = repeated.filter(mine);
     return [
       ...undrawn.flatMap(({ period, reason }) =>
-        reason ? [`${where}, ${period}: ${reason}.`] : [],
+        reason ? [sentence(`${where}, ${period}: ${drawnReason(reason)}`)] : [],
       ),
       ...(unexplained.length ? [`${where}, no figure for ${periodList(unexplained)}.`] : []),
       ...(again.length ? [`${twice}, so not drawn: ${periodList(again)}.`] : []),

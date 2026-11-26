@@ -1,5 +1,24 @@
 import { containsReference, methodNote, readParagraph } from "../publishedReport";
+import { readerReason } from "../report/overview/reason";
 import { items, publishedTables, record, word } from "./visualData";
+
+/** What a drawn reason says when it cites a source: the source itself stays in Evidence. */
+export const EVIDENCE_REASON = "Reason recorded in model evidence.";
+
+/** A register row id the reader rule does not yet name: "(T2E.3.r03)", "T2E.3.r03". */
+const ROW_ID = /\(\s*T[A-Z0-9]*\.\d+(?:\.[A-Za-z0-9]+)*\s*\)|\bT[A-Z0-9]*\.\d+\.r\d+\b/u;
+
+/**
+ * A cell's recorded reason as a reader sees it: module codes named; a reason that cites a source,
+ * a file, a hash or a register id is replaced by the evidence sentence. No reason stays empty.
+ */
+export function drawnReason(reason: string) {
+  if (!reason.trim()) return "";
+  return ROW_ID.test(reason) ? EVIDENCE_REASON : (readerReason(reason) ?? EVIDENCE_REASON);
+}
+
+/** One sentence from a drawn reason: ended by a single full stop, never two. */
+export const sentence = (text: string) => (/[.!?]$/u.test(text) ? text : `${text}.`);
 
 /** The text blocks of the section that owns the table at `line`, when a chart may draw them. */
 export function qualificationBlocks(sections: unknown, line: number) {

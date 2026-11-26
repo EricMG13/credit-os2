@@ -14,6 +14,7 @@ import {
   type ScheduleYear,
 } from "../report/forecastData";
 import { unitLabel } from "../publishedReport";
+import { drawnReason, sentence } from "./drawnQualifications";
 import { historyNotes, periodsInOrder, unplacedNote } from "./scenarioPeriods";
 import { ticks } from "./visualData";
 import { thinTicks } from "../report/overview/chartText";
@@ -730,6 +731,17 @@ function Axis({ slots, g }: { slots: Slot[]; g: Geometry }) {
   );
 }
 
+type ScheduleCell = NonNullable<ScheduleYear["cell"]>;
+
+/** A schedule cell the module states has no amount; text it gives without a figure is no gap. */
+const isStatedGap = (cell: ScheduleCell | null): cell is ScheduleCell =>
+  cell !== null && cell.value === null && cell.reason !== null;
+
+/** A schedule cell as a reader sees it: a cited source stays in Evidence. */
+const scheduleText = (cell: ScheduleCell) => drawnReason(cell.text);
+const scheduleLine = (item: ScheduleYear) =>
+  `${item.label} ${item.cell ? scheduleText(item.cell) : ""}`;
+
 /** A cell's own words for why it has no amount, short enough for the lane: "Not supplied". */
 const gapWords = (text: string) => /^(Not \w+)/u.exec(text.trim())?.[1] ?? "No amount";
 
@@ -755,7 +767,7 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
         const x = centre - (same.length * room) / 2 + same.indexOf(item) * room + room / 2;
         if (!item.cell) return null;
         const amount = item.cell.value;
-        if (amount === null) {
+        if (isStatedGap(item.cell)) {
           const [first = "", second = ""] = gapWords(item.cell.text).split(" ");
           return (
             <g key={item.key} data-lane-gap={item.label}>
@@ -789,6 +801,18 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
             </g>
           );
         }
+        if (amount === null)
+          return (
+            <text
+              key={item.key}
+              x={x}
+              y={LANE_BASE - 6}
+              textAnchor="middle"
+              className="fill-text-primary font-mono text-caption"
+            >
+              {scheduleText(item.cell)}
+            </text>
+          );
         const height =
           most > 0 && amount > 0 ? Math.max(THINNEST, (amount / most) * LANE_HEIGHT) : 0;
         return (
@@ -806,7 +830,7 @@ function Lane({ schedule, slots, g }: { schedule: PathSchedule; slots: Slot[]; g
               textAnchor="middle"
               className="fill-text-primary font-mono text-caption"
             >
-              {item.cell.text}
+              {scheduleText(item.cell)}
             </text>
           </g>
         );
@@ -841,9 +865,7 @@ function reading(measure: Measure, drawn: MeasureCase[], slots: Slot[], schedule
         .join(", ")}`,
   );
   const placed = schedule.years.filter((item) => yearAt(slots, item.year) >= 0);
-  const lane = placed.length
-    ? ` Debt maturing: ${placed.map((item) => `${item.label} ${item.cell?.text ?? ""}`).join(", ")}.`
-    : "";
+  const lane = placed.length ? ` Debt maturing: ${placed.map(scheduleLine).join(", ")}.` : "";
   const last = measure.unplaced.length
     ? [
         `${UNPLACED}: ${measure.unplaced.map((cell) => `${cell.period} ${cell.display}`).join(", ")}`,
@@ -863,8 +885,10 @@ function missingNotes(drawn: MeasureCase[], slots: Slot[]) {
       ...(absent.length
         ? [`${item.name}: ${periodList(absent.map(({ label }) => label))} not published.`]
         : []),
-      ...blank.map(
-        (cell) => `${item.name}, ${cell.period}: ${cell.reason || "not calculated by the model"}.`,
+      ...blank.map((cell) =>
+        sentence(
+          `${item.name}, ${cell.period}: ${drawnReason(cell.reason) || "not calculated by the model"}`,
+        ),
       ),
     ];
   });
@@ -888,16 +912,14 @@ function notes(measure: Measure, drawn: MeasureCase[], slots: Slot[], schedule: 
     ...missingNotes(drawn, slots),
   );
   for (const item of schedule.years)
-    if (item.cell?.value === null && yearAt(slots, item.year) >= 0)
-      out.push(`Debt maturing, ${item.label}: ${item.cell.text}.`);
+    if (isStatedGap(item.cell) && yearAt(slots, item.year) >= 0)
+      out.push(sentence(`Debt maturing, ${item.label}: ${drawnReason(item.cell.text)}`));
   const beyond = schedule.years.filter((item) => item.cell && yearAt(slots, item.year) < 0);
   if (beyond.length)
-    out.push(
-      `Debt maturing in years not on this axis: ${beyond.map((item) => `${item.label} ${item.cell?.text ?? ""}`).join(", ")}.`,
-    );
+    out.push(`Debt maturing in years not on this axis: ${beyond.map(scheduleLine).join(", ")}.`);
   if (schedule.offAxis.length)
     out.push(
-      `Debt maturing, not by fiscal year: ${schedule.offAxis.map((item) => `${item.label} ${item.cell?.text ?? ""}`).join(", ")}.`,
+      `Debt maturing, not by fiscal year: ${schedule.offAxis.map(scheduleLine).join(", ")}.`,
     );
   return out;
 }
@@ -1106,7 +1128,7 @@ function PathTable({
                   const text = !cell
                     ? "Not published"
                     : cell.value === null
-                      ? cell.reason || cell.display
+                      ? drawnReason(cell.reason) || cell.display
                       : cell.display;
                   return (
                     <td
@@ -1127,11 +1149,11 @@ function PathTable({
                         key={item.key}
                         className={cx(
                           "block",
-                          item.cell?.value == null ? "text-gap-text" : "font-mono tabular-nums",
+                          isStatedGap(item.cell) ? "text-gap-text" : "font-mono tabular-nums",
                         )}
                       >
                         {owed.length > 1 ? `${item.label}: ` : ""}
-                        {item.cell?.text}
+                        {item.cell && scheduleText(item.cell)}
                       </span>
                     ))}
                   </td>
@@ -1246,7 +1268,7 @@ function Chart({
         </div>
         {lane && (
           <p className="text-caption text-text-secondary">
-            {`Bars under the axis: debt maturing in the year${schedule.unit ? `, ${unitLabel(schedule.unit)}` : ""}, as the schedule writes it; a hatched bar is a year the schedule gives no amount for.`}
+            {`Bars under the axis: debt maturing in the year${schedule.unit ? `, ${unitLabel(schedule.unit)}` : ""}, as the schedule writes it; a hatched bar is a year the schedule states no amount for; text it gives without a figure is drawn as written.`}
           </p>
         )}
       </figure>
