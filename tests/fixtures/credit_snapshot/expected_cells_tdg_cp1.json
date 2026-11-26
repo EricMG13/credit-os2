@@ -3075,7 +3075,7 @@
    "row": "EBITDA (Reported)",
    "column": "Classification",
    "kind": "computed",
-   "value": "unclassified"
+   "value": "not applicable"
   },
   {
    "sheet": "Snapshot",
@@ -3112,8 +3112,8 @@
    "block": "EBITDA bridge",
    "row": "Acquisition transaction and integration-related expenses",
    "column": "Classification",
-   "kind": "computed",
-   "value": "unclassified"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -3150,8 +3150,8 @@
    "block": "EBITDA bridge",
    "row": "Non-cash stock and deferred compensation expense",
    "column": "Classification",
-   "kind": "computed",
-   "value": "unclassified"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -3188,8 +3188,8 @@
    "block": "EBITDA bridge",
    "row": "Refinancing costs",
    "column": "Classification",
-   "kind": "computed",
-   "value": "unclassified"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -3226,8 +3226,8 @@
    "block": "EBITDA bridge",
    "row": "Other, net",
    "column": "Classification",
-   "kind": "computed",
-   "value": "unclassified"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -3265,15 +3265,43 @@
    "row": "EBITDA (Adjusted)",
    "column": "Classification",
    "kind": "computed",
-   "value": "unclassified"
+   "value": "not applicable"
   },
   {
    "sheet": "Snapshot",
    "block": "EBITDA bridge",
    "row": "Structuring EBITDA",
    "column": "Value",
+   "kind": "computed",
+   "value": "4173"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Structuring EBITDA",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 424
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Less unrealised add-backs",
+   "column": "Value",
    "kind": "gap",
    "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Less unrealised add-backs",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 424
   },
   {
    "sheet": "Snapshot",
@@ -3282,6 +3310,16 @@
    "column": "Value",
    "kind": "gap",
    "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "House EBITDA",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "US$m",
+   "module": "CP-1",
+   "line": 424
   },
   {
    "sheet": "Inputs",

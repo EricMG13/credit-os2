@@ -602,3 +602,17 @@ def test_a_custom_run_is_sent_the_methods_deep_is_sent():
     for module in PATHWAY_MODULES["deep_credit_assessment"]:
         assert cpos_launch.pathway_method(module, "custom") is None
         assert cpos_launch.pathway_method(module, "deep_credit_assessment") is None
+
+
+def test_a_scoped_custom_run_on_todays_method_is_not_marked_changed(tmp_path, monkeypatch):
+    """Northbridge Synthetic Group, 2025-03-31. The sent structural scope is current."""
+    phases = ("CP-4B",)
+
+    def sent(module: str, version: str = "") -> str:
+        return cpos_launch.method_text(module, "custom", phases if module == "CP-4" else ())
+
+    monkeypatch.setattr(library_fixtures, "method_block", sent)
+    library_fixtures.make_custom_run(tmp_path, "scope", CUSTOM, phase_selection={"CP-4": phases})
+    library = build_library(tmp_path, tmp_path / "library")
+    assert library.excluded == []
+    assert library.runs[0]["method_changes"] == []

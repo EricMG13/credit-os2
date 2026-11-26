@@ -1879,7 +1879,7 @@
    "row": "Reported EBITDA",
    "column": "Classification",
    "kind": "computed",
-   "value": "unclassified"
+   "value": "not applicable"
   },
   {
    "sheet": "Snapshot",
@@ -1916,8 +1916,8 @@
    "block": "EBITDA bridge",
    "row": "Restructuring costs",
    "column": "Classification",
-   "kind": "computed",
-   "value": "realised"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -1954,8 +1954,8 @@
    "block": "EBITDA bridge",
    "row": "Run-rate synergies",
    "column": "Classification",
-   "kind": "computed",
-   "value": "unrealised"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -1992,8 +1992,8 @@
    "block": "EBITDA bridge",
    "row": "Pro forma acquisition EBITDA",
    "column": "Classification",
-   "kind": "computed",
-   "value": "unclassified"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -2030,8 +2030,8 @@
    "block": "EBITDA bridge",
    "row": "Other adjustments",
    "column": "Classification",
-   "kind": "computed",
-   "value": "unclassified"
+   "kind": "gap",
+   "value": "needs add-back ids in the bridge"
   },
   {
    "sheet": "Snapshot",
@@ -2069,15 +2069,43 @@
    "row": "Adjusted EBITDA",
    "column": "Classification",
    "kind": "computed",
-   "value": "unclassified"
+   "value": "not applicable"
   },
   {
    "sheet": "Snapshot",
    "block": "EBITDA bridge",
    "row": "Structuring EBITDA",
    "column": "Value",
+   "kind": "computed",
+   "value": "351.2"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Structuring EBITDA",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 85
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Less unrealised add-backs",
+   "column": "Value",
    "kind": "gap",
    "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "Less unrealised add-backs",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 85
   },
   {
    "sheet": "Snapshot",
@@ -2086,6 +2114,16 @@
    "column": "Value",
    "kind": "gap",
    "value": "needs add-back ids in the bridge"
+  },
+  {
+   "sheet": "Snapshot",
+   "block": "EBITDA bridge",
+   "row": "House EBITDA",
+   "column": "Reporting unit",
+   "kind": "copied",
+   "value": "GBP millions",
+   "module": "CP-1",
+   "line": 85
   },
   {
    "sheet": "Inputs",

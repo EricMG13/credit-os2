@@ -102,6 +102,26 @@ class RunSpec:
     answers: Mapping[str, str] = field(default_factory=dict)  # module -> its whole handoff
     test_adaptations: tuple[str, ...] = ()  # workflow.json `test_adaptations`, when a test flag ran
     preset_requested: tuple[str, ...] | None = None  # workflow.json `preset_requested_modules`
+    phase_selection: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+
+
+def _fixture_run(spec: RunSpec) -> dict[str, object]:
+    run = {
+        "schema_version": "run/2",
+        "run_id": f"{spec.issuer_id}-{spec.as_of}-{spec.pathway}",
+        "issuer_id": spec.issuer_id,
+        "issuer_name": spec.issuer_name,
+        "as_of": spec.as_of,
+        "method_version": "deploy-v-r14",
+        "case_kind": spec.case_kind,
+        "pathway": spec.pathway,
+        "requested_modules": list(spec.modules),
+    }
+    if spec.phase_selection:
+        run["phase_selection"] = {
+            parent: list(phases) for parent, phases in spec.phase_selection.items()
+        }
+    return run
 
 
 def make_run(workspace: Path, folder: str, **changes) -> Path:
@@ -114,17 +134,7 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
         spec.modules,
     )
     run_dir = workspace / "runs" / folder
-    run = {
-        "schema_version": "run/2",
-        "run_id": f"{issuer_id}-{as_of}-{spec.pathway}",
-        "issuer_id": issuer_id,
-        "issuer_name": issuer_name,
-        "as_of": as_of,
-        "method_version": "deploy-v-r14",
-        "case_kind": spec.case_kind,
-        "pathway": spec.pathway,
-        "requested_modules": list(modules),
-    }
+    run = _fixture_run(spec)
     instructions, handoffs, selected = {}, {}, {}
     whole = ({"CP-8": spec.cp8} if spec.cp8 is not None else {}) | dict(spec.answers)
     for module in modules:

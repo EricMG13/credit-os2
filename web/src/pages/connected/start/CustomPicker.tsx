@@ -10,6 +10,9 @@ import {
   complete,
   customEffort,
   estimate,
+  PHASES,
+  phaseScopeNote,
+  togglePhase,
   usd,
 } from "./customSelection";
 import { pageEstimate, type IntakeView } from "./intake";
@@ -74,6 +77,9 @@ export function CustomPicker({ view }: { view: IntakeView }) {
           const reason = done.reasons[module.id];
           const row = figureOf(module.id);
           const chosen = done.modules.includes(module.id);
+          const phases = PHASES[module.id] ?? [];
+          const hasSelectedPhase = phases.some(({ id }) => view.modules.includes(id));
+          const scopeNote = phaseScopeNote(module.id, hasSelectedPhase);
           const ids = ["answers", "needs", "reason"].map(
             (part) => `${prefix}-${String(at)}-${part}`,
           );
@@ -91,7 +97,12 @@ export function CustomPicker({ view }: { view: IntakeView }) {
                     aria-describedby={ids.slice(0, reason === undefined ? 2 : 3).join(" ")}
                     disabled={reason !== undefined}
                     onChange={(event) => {
-                      view.toggleModule(module.id, event.target.checked);
+                      const phaseIds = phases.map(({ id }) => id);
+                      const next = view.modules.filter(
+                        (id) => id !== module.id && !phaseIds.includes(id),
+                      );
+                      if (event.target.checked) next.push(module.id);
+                      view.chooseModules(next);
                     }}
                   />
                   {moduleName(module.id, NAME)}
@@ -115,6 +126,51 @@ export function CustomPicker({ view }: { view: IntakeView }) {
                 <p id={ids[2]} className="text-caption text-text-secondary">
                   {`${(["CP-0", "CP-1"] as const).some((id) => id === module.id) ? "Always in" : "Added"}: ${reason}`}
                 </p>
+              )}
+              {chosen && phases.length > 0 && (
+                <fieldset className="ml-6 grid gap-2 border-l-2 border-action pl-3">
+                  <legend className="text-caption font-medium text-text-primary">
+                    Scope inside this module
+                  </legend>
+                  {phases.map((phase, phaseAt) => (
+                    <label key={phase.id} className={CHECK}>
+                      <input
+                        type="checkbox"
+                        checked={view.modules.includes(phase.id)}
+                        aria-label={phase.name}
+                        aria-describedby={`${prefix}-${String(at)}-phase-${String(phaseAt)}`}
+                        onChange={() => {
+                          view.chooseModules(togglePhase(view.modules, module.id, phase.id));
+                        }}
+                      />
+                      {phase.name}
+                    </label>
+                  ))}
+                  <ul className="grid gap-2">
+                    {phases.map((phase, phaseAt) => (
+                      <li
+                        key={phase.id}
+                        className="grid gap-0.5 border-l border-border-hairline pl-3 text-caption text-text-secondary"
+                      >
+                        <span>{phase.answers}</span>
+                        <span>Needs first: {phase.upstream}</span>
+                        <span>{scopeNote}</span>
+                        {phase.related && <span>{phase.related}</span>}
+                        <span
+                          id={`${prefix}-${String(at)}-phase-${String(phaseAt)}`}
+                          className="sr-only"
+                        >
+                          {phase.answers} Needs first: {phase.upstream}. {scopeNote}{" "}
+                          {phase.related ?? ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-caption text-text-tertiary">
+                    This uses the full module estimate because phase-only costs have not been
+                    measured. Selecting a phase does not add a model call.
+                  </p>
+                </fieldset>
               )}
             </li>
           );

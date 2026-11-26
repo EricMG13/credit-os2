@@ -720,11 +720,35 @@ def register_rows(module: str, pathway: str | None = None) -> list[str]:
     """The in-scope registers a real handoff of the ten measured modules carries (T4 presence
     check), each with the row the method allows for one with nothing to report."""
     rows: list[str] = []
+    if module == "CP-1D":
+        # Hand-written synthetic answer: mirror the two add-back IDs in OWNER_TABLES["CP-1"]
+        # so the runtime check can exercise the cross-module join without analytical claims.
+        for ident, heading in (
+            ("T1D.1", "Add-Back Register"),
+            ("T1D.2", "Achievability Assessment"),
+        ):
+            rows += [
+                f"### {ident} {heading}",
+                "",
+                synthetic_table(
+                    "| Add-Back ID | Synthetic basis |",
+                    "| AB-1 | Synthetic fixture; no issuer evidence. |",
+                    "| AB-2 | Synthetic fixture; no issuer evidence. |",
+                ),
+                "",
+            ]
     for ident in cpos_launch.required_registers(module, pathway):
         note = "Not supplied: nothing to report"
         rows += [f"### {ident} - Register", "", "| Item | Value |", "| --- | --- |"]
         rows += [f"| Observed | {note} |", ""]
     return rows
+
+
+def test_cp1d_synthetic_registers_copy_both_cp1_bridge_ids():
+    text = "\n".join(register_rows("CP-1D"))
+
+    for ident in ("AB-1", "AB-2"):
+        assert text.count(f"| {ident} |") == 2
 
 
 def answer(context: dict, plan_routes: list) -> str:
@@ -3670,17 +3694,20 @@ def test_every_module_is_told_what_stands_for_acceptance_scripts_and_questions(t
 # repeats (`TRIMMED_METHODS`). The method files are byte-identical; the blocks of every module
 # but CP-8 and CP-L10 are not, so the library marks those modules in every earlier run as
 # answered under an earlier method. The values before are in this file's history at 941ff81.
-# CP-1 pin recomputed on 2026-11-26 (owner, "By governing document"): T4.18 gains the `Asset type`
-# column and its rule (`loan`, `bond`, `other`, `Not supplied`), so runs made before it are listed
-# as answered on an earlier CP-1 method: expected. Only CP-1's hash moved. It was
-# 8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a.
+# CP-1 and CP-1D pins recomputed on 2026-11-26: CP-1 gains the `Asset type` column and its rule
+# (`loan`, `bond`, `other`, `Not supplied`) under the owner ruling "By governing document"; CP-1D
+# now copies CP-1's Add-Back IDs into T1D.1 and T1D.2 and explains the legacy no-ID case. Runs made
+# before those instructions are listed as answered under earlier methods for the affected module.
+# The CP-1D rule now also distinguishes unknown all-gap bridge keys from known zero add-backs,
+# retains literal embedded Markdown characters, and lets blocked outputs stop before registers.
+# CP-1's prior hash was 8b5519c469b08ccee808f4f025db5bc3320a83382e303bd9afff3047b715d34a.
 METHOD_TEXT_SHA256_AT_1B41E65 = {
     "CP-0": "b194264a0faa2d8fba237a77d1cf0511b9199c7d3079fd9b9f25127945d20cf1",
     "CP-1": "58a9d83093b9932163d537073388e96e72659ec80004ff10a9aa91d7c6daeb5f",
     "CP-1A": "9f33c163d624dff50ff322be98c7d554f834f57ad23d415a9b293d8b595df20e",
     "CP-1B": "4f8197dbb3b3d9d2aef98ca81f4b27e31a7250b366b86508868e97d2c85927af",
     "CP-1C": "e9592fe6f9b5b566bfb148ed40e4d7f507f6413a322118f0134ee6389ffef57b",
-    "CP-1D": "8ce60b11694b103b4bbc66a85041821dbe3ef0a649dc1257b8b950991dcd3d42",
+    "CP-1D": "06610ed67c2d358d8cdedec0da0834db3234d53c896f4482a1daca2a9936e3a3",
     "CP-2": "a48a963cb84e36d4e245960913fff8ff6ca773ca982a359cd37c032158447021",
     "CP-2A": "fbaa659fd131de59ac253eae4a8f01d6a86128fae3c578f5fb1a4bf96455824b",
     "CP-2D": "5e7749c6121a1e420aeaae7f726c15d982564e4a63c911e597de32e568785f40",

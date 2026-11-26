@@ -23,6 +23,20 @@ Nothing supplied contradicts the view; a USD 1,250 million refinancing would.
 | --- | --- |
 | Observed | 1 |
 
+### T1D.1 Add-Back Register
+
+| Add-Back ID | Description | Amount | Period | Category | Source / Locator | Management Rationale | Evidence ID |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| AB-1 | Restructuring add-back | 30 US$m | Not supplied | Restructuring | CP-1 EBITDA bridge | Not supplied | Not supplied |
+| AB-2 | Disposal | -10 US$m | Not supplied | Disposal | CP-1 EBITDA bridge | Not supplied | Not supplied |
+
+### T1D.2 Achievability Assessment
+
+| Add-Back ID | Achievability Basis | Actions Taken To Date | Run-Rate Claimed | Realized To Date | Time To Realize | Evidence Quality | Countervailing Evidence | Assessment | Evidence ID |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| AB-1 | Bridge row only | Not supplied | Not supplied | Not supplied | Not supplied | Insufficient | Not supplied | Not assessable | Not supplied |
+| AB-2 | Bridge row only | Not supplied | Not supplied | Not supplied | Not supplied | Insufficient | Not supplied | Not assessable | Not supplied |
+
 ### Confidence inputs
 
 | Input | Value |

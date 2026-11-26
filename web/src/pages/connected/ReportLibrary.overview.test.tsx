@@ -247,6 +247,7 @@ it("draws the sections as one segmented control, Calendar included and current w
     "#modules",
     "#forecast",
     "#evidence",
+    "#deliverables",
     "#calendar",
   ]);
   expect(within(nav).getByRole("link", { name: "Modules 2" })).toBeVisible();

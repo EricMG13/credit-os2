@@ -42,6 +42,16 @@ describe("moduleReadiness", () => {
     expect(limitedRows(shown)).toEqual([]);
   });
 
+  it("shows a scoped custom choice as one module before the review", () => {
+    const shown = moduleReadiness(["CP-4", "CP-4D"], undefined, "custom");
+    expect(shown.count).toBe(3);
+    expect(shown.groups.flatMap((group) => group.rows.map((row) => row.id))).toEqual([
+      "CP-0",
+      "CP-1",
+      "CP-4",
+    ]);
+  });
+
   it("after a review marks each module by its most severe limit, from the summary alone", () => {
     const shown = moduleReadiness(["CP-0", "CP-1", "CP-4"], {
       modules: ["CP-0", "CP-1", "CP-MODEL", "CP-3", "CP-4", "CP-4C", "CP-8"],

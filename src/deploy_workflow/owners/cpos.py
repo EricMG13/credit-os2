@@ -38,7 +38,7 @@ from deploy_vii.registry import dependencies, plan
 from deploy_vii.render import render
 from deploy_workflow import (
     method_scripts,
-    method_scripts_completeness,  # noqa: F401 - registers the shared check
+    method_scripts_completeness,
     platform_io,
 )
 from deploy_workflow.changes import (
@@ -281,7 +281,12 @@ def _retain_method_checks(path: Path, task: HandoffTask, response: bytes) -> Non
     """Beside an attempt's review, every check the module's method scripts made on its response
     (agreed, disagreed or not checked, with the reason), for the library's Evidence page; nothing
     for a module without one. Kept like a review: a recheck that differs is kept beside it."""
-    record = method_scripts.record(task.module_id, response, task.handoffs, task.run.pathway)
+    if task.module_id in task.run.phase_selection:
+        record = method_scripts_completeness.scoped_record(
+            task.module_id, response, task.handoffs, task.run.phase_selection
+        )
+    else:
+        record = method_scripts.record(task.module_id, response, task.handoffs, task.run.pathway)
     if record is not None:
         _retain_review(path, json.dumps(record, sort_keys=True, indent=2).encode())
 
