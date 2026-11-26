@@ -43,8 +43,9 @@ Goals
 - Registration: a first sign-in creates a Reader account. A valid passcode makes the account an
   Analyst or an Admin.
 - Signal takes its user from the account. The typed display name and its cookie are removed.
-- The Admin's powers move into the browser: approving and pausing sources, the AI cap, removing
-  threads, comments and groups. Today they are command-line only because a typed name proves
+- The Admin's powers move into the browser: approving and pausing sources, removing threads,
+  comments and groups, and managing accounts. The AI cap stays on the command line, as its ruling
+  says. Today they are command-line only because a typed name proves
   nothing.
 - Submit of a paid run needs Analyst or Admin, and records who submitted.
 
@@ -83,9 +84,11 @@ Anti-goals (a failure even if it works)
 
 ### 5.1 The account store
 
-One SQLite file, `<root>/accounts/accounts.db`, WAL mode, opened per request like Signal's store
-**(call)**: separate from `signal.db`, so Signal's schema guard and upgrades are untouched and a
-feed store can be replaced without losing accounts.
+One SQLite file, `accounts.db`, WAL mode, opened per request like Signal's store. It is separate
+from `signal.db` and it is not under `--root` **(call)**: the root is the shared folder, and
+anyone who can write there could add a session or make themselves Admin. Its folder is named by
+`CREDIT_OS_ACCOUNTS_DIR` in the launching environment and must be on the machine's own disk,
+writable only by the account that runs the application.
 
 - `accounts`: id; Entra tenant id and object id (the stable pair that identifies a person, unique
   together); display name (unique, see 5.5); email as Entra gave it; profile type
@@ -114,8 +117,8 @@ feed store can be replaced without losing accounts.
 - `msal.PublicClientApplication` with the tenant-specific authority, so only the organisation's
   own tenant can sign in. `initiate_auth_code_flow` and `acquire_token_by_auth_code_flow` carry
   PKCE, `state` and `nonce`.
-- Routes: `GET /auth/sign-in` redirects to Entra; `GET /auth/callback` redeems the code;
-  `POST /auth/passcode` takes a passcode; `POST /auth/sign-out`; `GET /auth/me`.
+- Routes: `GET /sign-in` is the page; `GET /auth/start` redirects to Entra; `GET /auth/callback`
+  redeems the code; `POST /auth/passcode` takes a passcode; `POST /auth/sign-out`; `GET /auth/me`.
 - The redirect address is `https://<the machine's name>:<port>/auth/callback` (5.7). For a
   developer on the machine itself it is `http://localhost:<port>/auth/callback`.
 - The pending flow (state, nonce, code verifier) is held in memory, keyed by a short-lived cookie,
@@ -148,7 +151,7 @@ feed store can be replaced without losing accounts.
 | Save stories, follow topics, own digests | yes | yes | yes |
 | Post, comment, manage groups and topics, propose sources | no | yes | yes |
 | Prepare a run and Submit a paid run | no | yes | yes |
-| Approve or pause sources, set the AI cap, remove threads, comments, groups | no | no | yes |
+| Approve or pause sources, remove threads, comments, groups | no | no | yes |
 | Disable an account, change a profile type | no | no | yes |
 
 Signal stores who did what by name (`user_name`, `author`). The account's display name takes that
@@ -159,9 +162,10 @@ account; Signal's `users` table and the `signal users add` command are retired, 
 existing command-line actions stay as a fallback.
 
 Rows already written under typed names are removed, because there is no safe way to map a typed
-name to a person: saves, follows, group memberships, threads, comments, reactions, read marks,
-digests, notification settings and source proposals. Stories, sources, topics, issuers and the AI
-ledger are not touched. The removal runs once, in the store upgrade of slice 4, after a copy of
+name to a person: saves, follows, groups with their memberships, threads, comments and
+reactions, read marks, digests, notification settings and proposals of news sources. Stories,
+approved sources, filing and market sources, topics, issuers and the AI ledger are kept; a kept
+row that names its typed creator has the name replaced by "before accounts". The removal runs once, in the store upgrade of slice 4, after a copy of
 `signal.db` is written beside it **(call)**, so nothing is lost if the removal was a mistake.
 
 ### 5.6 The first Admin
@@ -198,12 +202,13 @@ remote address, and the connection deadline, both of which Signal's old server h
 Each is one PR, in order; each leaves main working.
 
 1. Account store, passcode command, hashing and lockout. No route uses it yet.
-2. Sessions and the deny-by-default check, behind a start-up switch that is off, proved with a
-   test-only way to mint a session.
-3. Entra sign-in and registration against the stand-in provider; the switch turns on in live mode.
-4. Signal on the account; the typed name removed; Admin powers in the browser.
-5. Submit requires Analyst or Admin and records the account.
-6. Network listening and HTTPS (5.7), last, and only after slices 1 to 5 are merged. Proved here
+2. Sessions and the deny-by-default check, behind a start-up switch that is off.
+3. Entra sign-in and registration against the stand-in provider; the switch turns on in live mode
+   when the Entra variables are set.
+4. Signal's identity is the account; the typed name and its rows removed.
+5. The Admin's powers in the browser.
+6. Submit requires Analyst or Admin and records the account.
+7. Network listening and HTTPS (5.7), last, and only after slices 1 to 6 are merged. Proved here
    with a test certificate; the real certificate and address are work-PC work.
 
 ## 7. Tests
@@ -231,7 +236,7 @@ Until then every sign-in claim in VERIFICATION.md carries "stand-in identity pro
 2. **The certificate** (5.7): read from a path in the launching environment, with a ruling, or
    held by IT's web server in front of the application.
 3. **IT.** A network address, a trusted certificate, the Entra registration and possibly a
-   firewall rule all need the organisation's IT. Nothing in slice 6 can go live without them.
+   firewall rule all need the organisation's IT. Nothing in slice 7 can go live without them.
 
 Also answered 2026-11-26 (section 2): Reader passcode, token signature, old Signal rows, session
 length.

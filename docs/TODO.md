@@ -67,4 +67,7 @@ Owner actions before Signal's sources and AI are switched on (none is taken by t
 - Whether a sign-in with no client secret is allowed for a network address under the
   organisation's Entra settings. To be confirmed on the work PC.
 
-- Passcode rotation and the limit on wrong attempts (left open by the passcode ruling).
+- Passcode rotation and the limit on wrong attempts: the sign-in spec proposes five wrong
+  attempts an hour and that a new passcode does not change existing accounts. Owner to confirm.
+- The account store's folder (`CREDIT_OS_ACCOUNTS_DIR`): a folder on the machine's own disk,
+  not the shared folder. Owner to name it on the work PC.
