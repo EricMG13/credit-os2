@@ -454,9 +454,9 @@ def progress(layout: Layout, record: Record) -> tuple[int, int]:
         events = [e for e in read_events(layout.runs / record.id / EVENTS) if isinstance(e, dict)]
     except (OSError, ValueError):
         events = []  # fail-open, display only: no readable log reads as nothing done yet
-    states = activity.module_states(record.pathway, events)[:-1]
+    states = activity.module_states(record.pathway, events, record.modules)[:-1]
     total = len(states)
-    if record.modules:
+    if record.modules and record.pathway != "custom":  # a custom run's rows are completed already
         # The list's plan less the forecast code (no row), as cpos_launch.py plans it: producers
         # count, a repeat once. The launcher may append CP-8 (an earlier run is listed and its
         # call fits the cap); the record cannot say so, so a module the log shows started counts.

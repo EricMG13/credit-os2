@@ -169,6 +169,7 @@ import time
 import urllib.parse
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from decimal import Decimal
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, BinaryIO, cast
@@ -269,19 +270,37 @@ class Handler(http_base.Handler):
             raise refuse(400, "the request needs exactly one name")
         return names[0]
 
-    def _require_shown_cap(self, answers: Any) -> None:
+    def _require_shown_cap(self, answers: Any, sid: str | None = None) -> None:
         """Refuse a summary or submit whose page did not show the pathway's cap.
 
         The page sends the cap it displays in the ``X-Shown-Cap`` header (ruling
         2026-11-15-pathway-tiers-and-caps): the approved summary is the paid action, so what the
         analyst saw must be what is enforced. A page loaded before a cap changed sends none or
         another figure. Answers with no known pathway, or a deactivated one, are left to the
-        summary's and Submit's own refusals."""
+        summary's and Submit's own refusals.
+
+        A custom run's cap is computed by the launcher, so a summary request shows the ceiling (the
+        page has no computed cap yet) and a submit (``sid`` given) shows the cap the latest summary
+        issued; a submit with no issued cap shows none and is refused."""
         try:
             pathway = answers["context"]["run"]["pathway"]
-            cap = None if pathway in DEACTIVATED_PATHWAYS else PATHWAY_CAP_USD.get(pathway)
+            cap: Decimal | str | None = (
+                None if pathway in DEACTIVATED_PATHWAYS else PATHWAY_CAP_USD.get(pathway)
+            )
         except (KeyError, TypeError):
             return
+        if pathway == submissions.CUSTOM and sid is not None:
+            # A repeated submit (a lost reply) finds its run already taken and the issued file
+            # released: it must show that run's cap, and `submit` then returns the record.
+            taken = self._service.scheduler.record_of_submission(sid)
+            cap_text = (
+                taken.cap
+                if taken is not None
+                else self._guarded(lambda: submissions.issued_cap(self._layout, sid))
+            )
+            if not cap_text:
+                raise refuse(400, "review the summary again; no summary was issued for this run")
+            cap = cap_text
         if cap is not None and self.headers.get_all(SHOWN_CAP_HEADER) != [str(cap)]:
             raise refuse(
                 400,
@@ -341,7 +360,7 @@ class Handler(http_base.Handler):
             raise Reply(200, self._guarded(lambda: self._summary(sid, answers)))
         if action == "submit":
             body = self._json_body()
-            self._require_shown_cap(body.get("answers") if isinstance(body, dict) else None)
+            self._require_shown_cap(body.get("answers") if isinstance(body, dict) else None, sid)
             self._submit(sid, body)
         if action == "carry":
             self._carry(sid, self._json_body())
@@ -472,7 +491,7 @@ class Handler(http_base.Handler):
             raise refuse(404, "unknown run")
         shown = activity.snapshot(self._layout, [record], now=datetime.now(UTC))["runs"][0]
         # A run with no folder yet has no events: every module waits.
-        shown.setdefault("modules", activity.module_states(record.pathway, []))
+        shown.setdefault("modules", activity.module_states(record.pathway, [], record.modules))
         answer = {key: shown[key] for key in _RUN_FIELDS if key in shown}
         if record.status == "finished":
             answer["library_report"] = self._library_report(record.id)

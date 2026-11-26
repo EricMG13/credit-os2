@@ -33,6 +33,8 @@ import { StatusBadge } from "@/components/status/StatusBadge";
 import { Figure, GapNote, Tile, Well } from "../report/overview/Tile";
 import { decided, groupLimits, leaveOut, type LimitGroup } from "./limits";
 import { moduleNames, OUTCOME_STATE, scopeText } from "./limitWords";
+import { ReviewedEstimate } from "./CustomEstimate";
+import { CUSTOM } from "./customSelection";
 import { moduleReadiness } from "./moduleReadiness";
 import { StagePipeline } from "./StagePipeline";
 import {
@@ -585,7 +587,9 @@ export function ReviewSheet({
   decision?: DecisionParts;
 }) {
   const { summary, answers } = review;
-  const requested = pathwayModules(answers.context.run.pathway);
+  // A custom run's modules are chosen on the picker: no leave-out is offered from a limit.
+  const requested =
+    answers.context.run.pathway === CUSTOM ? [] : pathwayModules(answers.context.run.pathway);
   const choice = {
     pathway: answers.context.run.pathway,
     requested,
@@ -618,6 +622,7 @@ export function ReviewSheet({
           onAccept={onAccept}
           choice={choice}
         />
+        {summary.estimate && <ReviewedEstimate estimate={summary.estimate} />}
         <section
           aria-label="Modules by stage"
           className="grid min-w-0 content-start gap-2 border-t border-border-hairline pt-4 xl:hidden"
@@ -677,12 +682,15 @@ function EverythingSubmitSends({
     ? `Compared with the ${pathwayName(summary.prior.pathway)} run as of ${summary.prior.as_of}${comparisonCaveat(summary.changes)}`
     : changesSentence(summary.changes);
   const block = { onEdit, disabled };
-  const requested = pathwayModules(run.pathway);
-  const leftOut = answers.modules.length
-    ? requested
-        .filter((code) => !answers.modules.includes(code))
-        .map((code) => moduleName(code, run.pathway))
-    : [];
+  const custom = run.pathway === CUSTOM;
+  // The modules a custom run runs are its chosen ones and those the rules added.
+  const requested = custom ? drawnModules(summary.modules) : pathwayModules(run.pathway);
+  const leftOut =
+    answers.modules.length && !custom
+      ? requested
+          .filter((code) => !answers.modules.includes(code))
+          .map((code) => moduleName(code, run.pathway))
+      : [];
   const advanced = answers.level === "advanced";
   // Valuation, Module options and Scenario assumptions are drawn only at the Advanced level.
   const inputBlocks = [

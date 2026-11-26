@@ -23,6 +23,7 @@ import uuid
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from pathlib import Path, PurePath
 from typing import Any, BinaryIO, NotRequired, TypedDict, cast
 
@@ -36,8 +37,10 @@ from deploy_workflow.inbox.startup import STANDING_RULING
 from deploy_workflow.model.handoff import settled_web_lookup
 from deploy_workflow.owners.cpos import web_search_run
 from deploy_workflow.owners.cpos_launch import (
+    BALANCED_HIGH_MODULES,
     NO_PRIOR,
     LaunchRefused,
+    Prepared,
     _lookup_lines,
     prepare,
     read_documents,
@@ -81,6 +84,8 @@ _KEYS = {"context", "modules", "max_turns", "level", "submitted_by", "model", "e
 _NEWEST_DOCUMENT_DATE = "newest_document_date"
 DEFAULT_MODEL, DEFAULT_EFFORT = "gpt", "balanced"  # the only pair below the Advanced level
 _ADVANCED = "advanced"
+CUSTOM: PathwayId = "custom"
+ESTIMATE_LABEL = "Estimated from earlier runs"
 _CHANGED = "the documents changed while the summary was being made; open the summary again"
 
 log = logging.getLogger(__name__)
@@ -120,6 +125,31 @@ def _validate_newest_document_date(value: object) -> None:
     raise Refused("Date of your newest file must be a valid date in YYYY-MM-DD form.")
 
 
+def _validate_custom(answers: dict[str, Any]) -> None:
+    """A custom run is offered at the Advanced level and estimated from GPT runs only (owner,
+    2026-11-26); the launcher refuses any other config as well (`cpos_launch.CUSTOM_CONFIGS`)."""
+    run = answers["context"].get("run")
+    if not isinstance(run, dict) or run.get("pathway") != CUSTOM:
+        return
+    if answers["level"] != _ADVANCED:
+        raise Refused("Custom selection is offered at the Advanced level.")
+    if answers["model"] != DEFAULT_MODEL:
+        raise Refused("A custom selection is estimated from GPT runs only; choose GPT.")
+
+
+def custom_cap_ok(cap: object) -> bool:
+    """Whether ``cap`` is a custom run's cap as the launcher issues it: whole USD from 1 to the
+    pathway's ceiling, written without a sign, a zero in front or a decimal point."""
+    return (
+        isinstance(cap, str)
+        and cap.isascii()
+        and len(cap) <= len(str(int(PATHWAY_CAP_USD[CUSTOM])))
+        and cap.isdigit()
+        and cap == str(int(cap))
+        and 1 <= int(cap) <= int(PATHWAY_CAP_USD[CUSTOM])
+    )
+
+
 def validated(answers: object) -> Answers:
     """``answers`` as an ``Answers``, or ``Refused`` with a plain sentence."""
     if not isinstance(answers, dict) or set(answers) - {_NEWEST_DOCUMENT_DATE} != _KEYS:
@@ -146,6 +176,7 @@ def validated(answers: object) -> Answers:
         config_for(answers["model"], answers["effort"])
     except ValueError:
         raise Refused("the selected model does not offer that reasoning effort") from None
+    _validate_custom(answers)
     chosen = (answers["model"], answers["effort"]) != (DEFAULT_MODEL, DEFAULT_EFFORT)
     if chosen and answers["level"] != _ADVANCED:
         raise Refused("the model and effort can be changed only at the Advanced level")
@@ -751,6 +782,13 @@ def bound(value: str, prior: str) -> str:
     return hashlib.sha256(f"{value}\nprior={prior}".encode()).hexdigest()
 
 
+def bound_cap(value: str, cap: str) -> str:
+    """``value`` (a digest) with a custom run's issued cap folded in: its cap is computed by the
+    launcher, so no table holds it and the approval must carry it (PR 7a). Only a custom run's
+    digest is folded; every preset's is exactly what it was."""
+    return hashlib.sha256(f"{value}\ncap={cap}".encode()).hexdigest()
+
+
 def digest(layout: Layout, sid: str, answers: Answers) -> str:
     """SHA-256 over the context, each stored file's name and hash, the modules, the turns, the model
     and the effort, approved cap and the analyst's newest-document date override if supplied.
@@ -952,6 +990,39 @@ def _document_date_limits(
     ]
 
 
+def _high_modules(answers: Answers) -> tuple[str, ...]:
+    """The modules the launch sends at high effort when it adds ``--balanced`` (`runs.command`);
+    on a config whose own effort is high the launcher sends all of them, so none are named."""
+    return (
+        BALANCED_HIGH_MODULES if runs.launch_options(answers["model"], answers["effort"])[1] else ()
+    )
+
+
+def _custom_estimate(prepared: Prepared) -> tuple[str, dict[str, Any]]:
+    """A custom run's issued cap and the estimate the page shows: each module's figure to the
+    cent, the sum, the hold and the cap, from the launcher's own estimate."""
+    estimate = prepared.estimate
+    if estimate is None:  # not reachable: `prepare` estimates every custom run
+        raise Refused("the launcher gave no estimate for this custom selection")
+    return str(estimate.cap), {
+        "rows": [
+            {
+                "module": row.module,
+                "name": row.name,
+                "usd": f"{row.figure:.2f}",
+                "measured": row.measured,
+                "added": row.added,
+                "modules_page_only": row.modules_page_only,
+            }
+            for row in estimate.rows
+        ],
+        "sum": f"{estimate.total:.2f}",
+        "hold": f"{estimate.hold:.2f}",
+        "cap": str(estimate.cap),
+        "label": ESTIMATE_LABEL,
+    }
+
+
 def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
     try:
         answers = validated(answers)
@@ -972,7 +1043,9 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
                 run = load_context(context_bytes(answers))
                 refuse_deactivated(run.run.pathway)
                 refuse_filed_elsewhere(layout, answers)
-                cap = PATHWAY_CAP_USD[run.run.pathway]
+                custom = run.run.pathway == CUSTOM
+                # A custom run's cap is the launcher's own computed one, shown after `prepare`.
+                cap: Decimal | None = None if custom else PATHWAY_CAP_USD[run.run.pathway]
                 if len(run.identity.issuer_id) > MAX_ISSUER_ID:
                     raise Refused(
                         f"issuer_id is {len(run.identity.issuer_id)} characters; "
@@ -990,6 +1063,9 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
                         config=config,
                         cap=cap,
                         modules=answers["modules"] or None,
+                        # What the launch will send at high effort: the launcher's own set
+                        # (--balanced), so the summary and the launch compute one cap.
+                        high_modules=_high_modules(answers) if custom else (),
                         web_search=web_search_run(config, STANDING_RULING),
                         # The summary prepares in a temporary folder, so it names where the
                         # earlier runs are: the launcher's own `_engine` folder.
@@ -1006,8 +1082,10 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
             # What CP-8 compares with is part of the approval: the run named here is the one the
             # launcher is told to use (`--prior`), and it is folded into the digest.
             chosen = prepared.prior.folder if prepared.prior is not None else NO_PRIOR
+            issued_cap_text, shown_estimate = _custom_estimate(prepared) if custom else ("", None)
+            approved = bound(after, chosen)
             return {
-                "digest": bound(after, chosen),
+                "digest": bound_cap(approved, issued_cap_text) if custom else approved,
                 "prior_choice": chosen,
                 "prior": None
                 if prepared.prior is None
@@ -1052,7 +1130,8 @@ def _summarise(layout: Layout, sid: str, answers: Answers) -> dict[str, Any]:
                 ),
                 "model": answers["model"],
                 "effort": answers["effort"],
-                "cap": str(cap),
+                "cap": issued_cap_text if custom else str(cap),
+                **({"estimate": shown_estimate} if shown_estimate is not None else {}),
             }
         finally:
             _remove(work)

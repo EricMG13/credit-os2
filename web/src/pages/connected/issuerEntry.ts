@@ -114,15 +114,30 @@ function standardView(run?: LibraryRun) {
   return run?.assessmentScope === "standard" && Boolean(publishedLead(run));
 }
 
+/**
+ * A custom run is an issuer assessment only when its scope is standard and its Fundamental credit
+ * is usable: the published lead is CP-2 (the library tries CP-2 first, so a blocked CP-2 leaves
+ * another module's lead). One without it ranks as the purpose reports do (ruling C21, amended).
+ */
+function customAssessment(run?: LibraryRun) {
+  return run?.pathway === "custom" && standardView(run) && publishedLead(run)?.module === "CP-2";
+}
+
 export function isIssuerAssessment(run?: LibraryRun) {
   return (
-    ["credit_snapshot", "deep_credit_assessment", "lite_credit_assessment"].includes(
+    (["credit_snapshot", "deep_credit_assessment", "lite_credit_assessment"].includes(
       run?.pathway ?? "",
-    ) && standardView(run)
+    ) &&
+      standardView(run)) ||
+    customAssessment(run)
   );
 }
 
-/** Filtered results open the selected pathway. The unfiltered entry prefers a standard assessment. */
+/**
+ * Filtered results open the selected pathway. The unfiltered entry prefers a standard assessment:
+ * Full or Deep, then Lite, then a custom selection with a usable Fundamental credit (it never
+ * displaces a whole assessment; ruling C21), then the latest admitted report.
+ */
 export function selectIssuerEntry(entries: IssuerRun[], explicitPathway: boolean) {
   const admitted = entries.filter(({ run }) => run);
   if (explicitPathway || admitted.length <= 1)
@@ -135,7 +150,8 @@ export function selectIssuerEntry(entries: IssuerRun[], explicitPathway: boolean
   const lite = admitted.filter(
     ({ run }) => run?.pathway === "lite_credit_assessment" && standardView(run),
   );
-  return ordered(full.length ? full : lite.length ? lite : admitted)[0];
+  const chosen = admitted.filter(({ run }) => customAssessment(run));
+  return ordered(full.length ? full : lite.length ? lite : chosen.length ? chosen : admitted)[0];
 }
 
 export function relatedIssuerReports(entries: IssuerRun[], selected: IssuerRun) {

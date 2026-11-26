@@ -217,6 +217,9 @@ export type PublishedRun = {
   period: string;
   asOf: string | null;
   pathway: string | null;
+  /** The modules the run asked for, as its manifest records them (a custom run's completed list,
+   * with CP-8 last when it compared); none when the manifest records none. */
+  requested?: string[] | null;
   modules: Record<string, { outputs: string[]; default: string | null }>;
   record?: {
     steps: { module: string; started?: string | null; accepted?: string | null }[];
